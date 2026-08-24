@@ -52,6 +52,46 @@
           </b:Interaction.Triggers>
         </Button>
       </Grid>
+      <Grid x:Name="ExtraFeaturesAssassinClimbButtonHost"
+            Width="36"
+            Height="37"
+            Margin="80,40,0,3"
+            Visibility="{Binding ButtonVisibility}">
+        <Button x:Name="ExtraFeaturesAssassinClimbButton"
+                local:PropEx.Sprite1="{StaticResource UI-Buttons K043}"
+                local:PropEx.Sprite2="{StaticResource UI-Buttons K044}"
+                local:PropEx.Sprite3="{StaticResource UI-Buttons K044}"
+                local:PropEx.Sprite4="{StaticResource UI-Buttons K044}"
+                Width="36"
+                Height="37"
+                Margin="0"
+                Command="{Binding ToggleCommand}"
+                Content=""
+                Style="{StaticResource BTN_Image}">
+          <b:Interaction.Triggers>
+            <b:EventTrigger EventName="MouseEnter">
+              <b:InvokeCommandAction Command="{Binding MouseEnterCommand}" />
+            </b:EventTrigger>
+            <b:EventTrigger EventName="MouseLeave">
+              <b:InvokeCommandAction Command="{Binding MouseLeaveCommand}" />
+            </b:EventTrigger>
+          </b:Interaction.Triggers>
+        </Button>
+        <Border Width="4"
+                Height="43"
+                Background="#FFE02020"
+                BorderBrush="#FF5A0000"
+                BorderThickness="1"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                IsHitTestVisible="False"
+                Visibility="{Binding ForbiddenMarkVisibility}"
+                RenderTransformOrigin="0.5,0.5">
+          <Border.RenderTransform>
+            <RotateTransform Angle="-45" />
+          </Border.RenderTransform>
+        </Border>
+      </Grid>
     </Content>
   </Operation>
 </Patch>

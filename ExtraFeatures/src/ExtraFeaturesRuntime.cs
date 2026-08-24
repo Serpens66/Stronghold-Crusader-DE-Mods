@@ -31,6 +31,8 @@ namespace ExtraFeatures
         private readonly Dictionary<string, ResourceEventCountGuard> refundResourceGuards = new Dictionary<string, ResourceEventCountGuard>();
         private readonly MultiplayerFeatureGate multiplayerFeatureGate;
         private readonly KnightDismountRuntime knightDismountRuntime;
+        private readonly AssassinClimbRuntime assassinClimbRuntime;
+        private readonly AssassinPathfindingRuntime assassinPathfindingRuntime;
         private readonly QuarryPileRelocationRuntime quarryPileRelocationRuntime;
         private readonly ChurchPriestCountRuntime churchPriestCountRuntime;
         private readonly GatehouseAutomationRuntime gatehouseAutomationRuntime;
@@ -68,6 +70,8 @@ namespace ExtraFeatures
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
             multiplayerFeatureGate = new MultiplayerFeatureGate(log);
             knightDismountRuntime = new KnightDismountRuntime(log, settings, multiplayerFeatureGate);
+            assassinClimbRuntime = new AssassinClimbRuntime(log, settings, multiplayerFeatureGate);
+            assassinPathfindingRuntime = new AssassinPathfindingRuntime(log, settings, assassinClimbRuntime);
             quarryPileRelocationRuntime = new QuarryPileRelocationRuntime(log, settings, multiplayerFeatureGate);
             churchPriestCountRuntime = new ChurchPriestCountRuntime(log, settings);
             gatehouseAutomationRuntime = new GatehouseAutomationRuntime(log, settings, multiplayerFeatureGate);
@@ -79,6 +83,7 @@ namespace ExtraFeatures
         }
 
         public object KnightDismountButton => knightDismountRuntime.ButtonViewModel;
+        public object AssassinClimbButton => assassinClimbRuntime.ButtonViewModel;
         public object QuarryPileRelocationButton => quarryPileRelocationRuntime.ButtonViewModel;
         public object GatehouseAutomationButton => gatehouseAutomationRuntime.ButtonViewModel;
         public void InitializeNetwork()
@@ -89,6 +94,7 @@ namespace ExtraFeatures
                 // Registration order is a shared protocol boundary. Keep the group fail-closed
                 // and identical on every peer instead of skipping individual packet IDs.
                 knightDismountRuntime.InitializeNetwork();
+                assassinClimbRuntime.InitializeNetwork();
                 quarryPileRelocationRuntime.InitializeNetwork();
                 gatehouseAutomationRuntime.InitializeNetwork();
                 singleBuildingPauseHook.InitializeNetwork();
@@ -125,6 +131,21 @@ namespace ExtraFeatures
                 {
                     LogFeatureFailure("quarry-pile relocation native functions", ex);
                 }
+
+                try
+                {
+                    assassinPathfindingRuntime.InitializeNative(newLibraryHandle, memory, fixedLayoutHashValidated: true);
+                }
+                catch (Exception ex)
+                {
+                    LogFeatureFailure("weighted Assassin pathfinding", ex);
+                }
+            }
+            else if (settings.EnableMod && settings.EnableImprovedAssassinPathfinding)
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    "Extra Features weighted Assassin pathfinding remains inactive because the fixed native layout is not validated for this CrusaderDE.dll; Vanilla pathfinding remains active.");
             }
 
             try
@@ -255,6 +276,7 @@ namespace ExtraFeatures
             plagueDurationPatch = null;
             plagueApothecarySearchRangePatch?.Dispose();
             plagueApothecarySearchRangePatch = null;
+            assassinClimbRuntime.Dispose();
             gatehouseAutomationRuntime.Dispose();
             aiDefenseRepairRuntime.Dispose();
             marketTradeGuardBridge.Dispose();
@@ -385,6 +407,7 @@ namespace ExtraFeatures
             if (!nativeLibraryAvailable || !settings.EnableMod)
             {
                 TryRunFeature("knight mount/dismount cleanup", knightDismountRuntime.Dispose);
+                TryRunFeature("Assassin climb button cleanup", assassinClimbRuntime.Dispose);
                 TryRunFeature("quarry-pile relocation cleanup", quarryPileRelocationRuntime.Dispose);
                 return;
             }
@@ -395,6 +418,11 @@ namespace ExtraFeatures
                 TryRunFeature("knight mount/dismount", knightDismountRuntime.Initialize);
             else
                 TryRunFeature("knight mount/dismount cleanup", knightDismountRuntime.Dispose);
+
+            if (settings.EnableImprovedAssassinPathfinding && assassinPathfindingRuntime.IsInstalled)
+                TryRunFeature("Assassin climb button", assassinClimbRuntime.Initialize);
+            else
+                TryRunFeature("Assassin climb button cleanup", assassinClimbRuntime.Dispose);
 
             if (!fixedLayoutHashValidated)
             {
@@ -453,6 +481,12 @@ namespace ExtraFeatures
             {
                 ReconcileFixedLayoutFeatures();
                 TryRunFeature("knight mount/dismount visibility", knightDismountRuntime.RefreshButtonVisibility);
+                return;
+            }
+            if (propertyName == nameof(ExtraFeaturesViewModel.EnableImprovedAssassinPathfinding))
+            {
+                ReconcileFixedLayoutFeatures();
+                TryRunFeature("Assassin climb button visibility", assassinClimbRuntime.RefreshButtonVisibility);
                 return;
             }
             if (propertyName == nameof(ExtraFeaturesViewModel.EnableQuarryPileRelocation) ||
@@ -635,6 +669,7 @@ namespace ExtraFeatures
             TryRunFeature("Lord health map initialization", ReconcileLordHealthRuntime);
 
             TryRunFeature("knight mount/dismount visibility", knightDismountRuntime.RefreshButtonVisibility);
+            TryRunFeature("Assassin climb map initialization", assassinClimbRuntime.BeginMap);
             TryRunFeature("quarry-pile relocation visibility", quarryPileRelocationRuntime.RefreshButtonVisibility);
             TryRunFeature("gatehouse map initialization", gatehouseAutomationRuntime.BeginMap);
         }
@@ -815,6 +850,7 @@ namespace ExtraFeatures
             singleBuildingPauseHook?.ClearOverrides("map unload");
             multiplayerFeatureGate.Reset();
             gatehouseAutomationRuntime.EndMap();
+            assassinClimbRuntime.EndMap();
         }
 
         private void ApplyCampfirePeasantsLimit()

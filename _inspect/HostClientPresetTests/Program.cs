@@ -37,6 +37,7 @@ internal static class Program
             TestMultiplayerLobbyReturnPolicy();
             TestMarketGoodPriceDefinition();
             TestAIMarketVanillaPricePolicy();
+            TestAssassinClimbCostPolicy();
             TestLordHealthMultiplierPolicy();
             TestQuarryPileTargetSelectionPolicy();
             TestTemporaryGateBlockagePolicy();
@@ -1422,6 +1423,26 @@ internal static class Program
                     modEnabled, alsoForAI, validPlayer, validGood, isAI) == expected,
                 $"AI Vanilla market routing diverged for mask={mask}");
         }
+    }
+
+    private static void TestAssassinClimbCostPolicy()
+    {
+        Check(AssassinClimbCostPolicy.GetAdditionalTicks(false, 90, false, true, false) == 0,
+            "ordinary Assassin movement received a climbing surcharge");
+        Check(AssassinClimbCostPolicy.GetAdditionalTicks(true, 0, false, true, false) == 0,
+            "level Assassin wall movement received a climbing surcharge");
+        Check(AssassinClimbCostPolicy.GetAdditionalTicks(true, -90, false, true, false) == 80,
+            "Assassin descent did not cost 80 ticks");
+        Check(AssassinClimbCostPolicy.GetAdditionalTicks(true, 25, true, true, false) == 240,
+            "Assassin low-wall ascent did not cost 240 ticks");
+        Check(AssassinClimbCostPolicy.GetAdditionalTicks(true, 90, false, true, false) == 400,
+            "Assassin normal-wall ascent did not cost 400 ticks");
+        Check(AssassinClimbCostPolicy.GetAdditionalTicks(true, 1, false, true, true) == 80,
+            "Assassin stair ascent did not enforce the 80-tick startup minimum");
+        Check(AssassinClimbCostPolicy.GetAdditionalTicks(true, 45, false, true, true) == 200,
+            "Assassin stair ascent was not interpolated by height");
+        Check(AssassinClimbCostPolicy.GetAdditionalTicks(true, 135, false, true, true) == 600,
+            "Assassin high stair ascent did not continue the interpolation slope");
     }
 
     private static void TestTemporaryGateBlockagePolicy()

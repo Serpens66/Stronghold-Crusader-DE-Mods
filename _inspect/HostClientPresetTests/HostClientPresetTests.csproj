@@ -104,6 +104,9 @@
     <Compile Include="..\..\ExtraFeatures\src\AIMarketVanillaPricePolicy.cs">
       <Link>AIMarketVanillaPricePolicy.cs</Link>
     </Compile>
+    <Compile Include="..\..\ExtraFeatures\src\AssassinClimbCostPolicy.cs">
+      <Link>AssassinClimbCostPolicy.cs</Link>
+    </Compile>
     <Compile Include="..\..\ExtraFeatures\src\LordHealthMultiplierPolicy.cs">
       <Link>LordHealthMultiplierPolicy.cs</Link>
     </Compile>

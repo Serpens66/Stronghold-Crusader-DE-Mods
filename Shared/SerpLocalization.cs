@@ -140,6 +140,12 @@ public static class SerpLocalization
     public const string EnablePortableShieldsOnWallsHelp = "SomeSettings.EnablePortableShieldsOnWallsHelp";
     public const string EnableKnightDismount = "SomeSettings.EnableKnightDismount";
     public const string EnableKnightDismountHelp = "SomeSettings.EnableKnightDismountHelp";
+    public const string EnableImprovedAssassinPathfinding = "SomeSettings.EnableImprovedAssassinPathfinding";
+    public const string EnableImprovedAssassinPathfindingHelp = "SomeSettings.EnableImprovedAssassinPathfindingHelp";
+    public const string AssassinClimbingDisableTooltip = "SomeSettings.AssassinClimbingDisableTooltip";
+    public const string AssassinClimbingDisableTooltipBody = "SomeSettings.AssassinClimbingDisableTooltipBody";
+    public const string AssassinClimbingEnableTooltip = "SomeSettings.AssassinClimbingEnableTooltip";
+    public const string AssassinClimbingEnableTooltipBody = "SomeSettings.AssassinClimbingEnableTooltipBody";
     public const string InstantHorse = "SomeSettings.InstantHorse";
     public const string InstantHorseHelp = "SomeSettings.InstantHorseHelp";
     public const string KnightDismountTooltip = "SomeSettings.KnightDismountTooltip";
@@ -464,6 +470,12 @@ public static class SerpLocalization
         { EnablePortableShieldsOnWallsHelp, "Lets portable shields use the normal troop pathing flag so they can enter connected walls, gatehouses, and towers via stairs. It does not let them climb enemy walls or create new routes." },
         { EnableKnightDismount, "Enable knight mount/dismount buttons" },
         { EnableKnightDismountHelp, "Adds command buttons to mount swordsmen and dismount mounted knights. Multiplayer actions use Script Extender's tick-aligned Chore transport." },
+        { EnableImprovedAssassinPathfinding, "Improved Assassin pathfinding" },
+        { EnableImprovedAssassinPathfindingHelp, "Chooses Assassin routes by expected travel time, including climbing animations, and enables the per-player climbing-mode button." },
+        { AssassinClimbingDisableTooltip, "Forbid climbing" },
+        { AssassinClimbingDisableTooltipBody, "New orders for all of your Assassins avoid climbing edges. Normal stairs and already accessible wall surfaces remain usable." },
+        { AssassinClimbingEnableTooltip, "Allow climbing" },
+        { AssassinClimbingEnableTooltipBody, "New orders for all of your Assassins may use climbing edges again." },
         { InstantHorse, "Instant Horse" },
         { InstantHorseHelp, "Makes a horse immediately available again after a mounted knight dismounts, instead of requiring the stable to replenish it first." },
         { KnightDismountTooltip, "Dismount" },

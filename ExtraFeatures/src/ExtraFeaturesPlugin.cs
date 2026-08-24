@@ -20,7 +20,7 @@ namespace ExtraFeatures
 
         public const string PluginGuid = "ExtraFeatures_Serp";
         public const string PluginName = "Extra Features";
-        public const string PluginVersion = "1.0.51";
+        public const string PluginVersion = "1.0.52";
 
         private ExtraFeaturesRuntime runtime;
         private bool marketGoodPriceVisualRefreshFailureLogged;
@@ -97,6 +97,17 @@ namespace ExtraFeatures
             catch (Exception ex)
             {
                 Shared.DebugLogHelper.LogError(Logger, $"Extra Features knight button binding failed: {ex}");
+            }
+
+            try
+            {
+                GameXAMLManagerAPI.Instance.RegisterBinding(
+                    "ExtraFeaturesAssassinClimbButtonHost",
+                    runtime.AssassinClimbButton);
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(Logger, $"Extra Features Assassin climb button binding failed: {ex}");
             }
 
             try

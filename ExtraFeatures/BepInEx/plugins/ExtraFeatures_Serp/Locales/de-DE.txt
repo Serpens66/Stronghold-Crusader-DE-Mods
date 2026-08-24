@@ -1,5 +1,11 @@
 # Serp mod localization
 # Format: key=value
+SomeSettings.EnableImprovedAssassinPathfinding=Verbesserte Meuchelmoerder-Wegfindung
+SomeSettings.EnableImprovedAssassinPathfindingHelp=Waehlt Wege fuer Meuchelmoerder nach der erwarteten Dauer einschliesslich Kletteranimationen und aktiviert den spielerbezogenen Klettermodus-Button.
+SomeSettings.AssassinClimbingDisableTooltip=Klettern verbieten
+SomeSettings.AssassinClimbingDisableTooltipBody=Neue Befehle fuer alle eigenen Meuchelmoerder vermeiden Kletterkanten. Normale Treppen und bereits zugaengliche Mauerflaechen bleiben nutzbar.
+SomeSettings.AssassinClimbingEnableTooltip=Klettern erlauben
+SomeSettings.AssassinClimbingEnableTooltipBody=Neue Befehle fuer alle eigenen Meuchelmoerder duerfen wieder Kletterkanten verwenden.
 Common.LegacySomeSettingsWarning=FEHLER: Der veraltete Mod SomeSettings_Serp ist ebenfalls geladen. Bitte deinstalliere SomeSettings_Serp, um doppelte oder widerspruechliche Funktionen zu vermeiden.
 Common.ResetToDefault=Zurücksetzen
 Common.EnableMod=Mod aktivieren

@@ -13,6 +13,9 @@ Newly recruited human and AI units move to their rally points at their own norma
 ### Let monks run
 Fighting Monks and Temple Guards can use the normal troop running behavior and animation instead of always being restricted to walking.
 
+### Allow portable shields on walls
+Portable shields can use stairs and connected wall paths to enter walls, gatehouses, and towers like ordinary wall-capable troops. This host-controlled feature is disabled by default and does not create new routes or allow shields to climb enemy walls.
+
 ### Customize Lord health
 Set separate health multipliers for human and AI Lords from 10% to 500%. Both current and maximum health are adjusted when the match starts, while the normal health differences between individual AI Lords are preserved.
 
