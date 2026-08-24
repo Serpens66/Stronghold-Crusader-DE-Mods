@@ -1496,8 +1496,8 @@ internal static class Program
                 TemporaryGateBlockagePolicy.AlwaysPreventMode, false, true, true),
             "always-prevent mode affected a non-AI or non-living building");
 
-        // The native query already traverses owned/allied gates. A positive native result must
-        // therefore validate the reconstructed path, not short-circuit it as normally reachable.
+        // The native query observes current reachability and may already traverse usable gates.
+        // The explicit graph must still distinguish routes that require a closed owned gate.
         Func<int, int, bool> nativeGateAwareReachable = (_, __) => true;
         Check(TemporaryGateBlockagePolicy.IsOnlyTemporarilyBlocked(
                 new[] { 10 }, new[] { 20 }, new[] { new PclGateConnection(10, 20) },
@@ -1573,13 +1573,18 @@ internal static class Program
                 nativeGateAwareReachable),
             "an invalid or no-op gate affected virtual-link classification");
 
-        GateBlockageEvaluation nativeContradiction = TemporaryGateBlockagePolicy.Evaluate(
+        GateBlockageEvaluation nativeClosedState = TemporaryGateBlockagePolicy.Evaluate(
             new[] { 10 }, new[] { 20 }, new[] { new PclGateConnection(10, 20) },
             (_, __) => false);
-        Check(nativeContradiction.Kind == GateBlockageEvaluationKind.NoVirtualGatePath &&
-              nativeContradiction.HasPathUsingClosedGate &&
-              nativeContradiction.NativePlayerAwareReachable == false,
-            "a graph/native contradiction did not fail open to Vanilla");
+        Check(nativeClosedState.Kind == GateBlockageEvaluationKind.TemporaryViaClosedFriendlyGate &&
+              nativeClosedState.HasPathUsingClosedGate &&
+              nativeClosedState.NativePlayerAwareReachable == false &&
+              TemporaryGateBlockagePolicy.ShouldSuppressDemolition(
+                  TemporaryGateBlockagePolicy.TemporaryGateMode,
+                  isLivingAiBuilding: true,
+                  classificationAvailable: true,
+                  isOnlyTemporarilyBlocked: nativeClosedState.IsOnlyTemporarilyBlocked),
+            "negative native current-state reachability vetoed a graph-confirmed closed friendly gate route");
 
         Check(!TemporaryGateBlockagePolicy.IsOnlyTemporarilyBlocked(
                 new[] { 10 }, new[] { 10 }, new[] { new PclGateConnection(10, 30) },

@@ -61,7 +61,8 @@ internal static class Program
             ("keeps supplemental items on the native reference anchor", KeepsSupplementalItemsOnNativeReferenceAnchor),
             ("converts decoration tiles to projectile coordinates", ConvertsDecorationTilesToProjectileCoordinates),
             ("aligns native rotation to the live Keep footprint", AlignsNativeRotationToLiveKeepFootprint),
-            ("resolves rotated BuildStructure origins", ResolvesRotatedBuildStructureOrigins)
+            ("resolves rotated BuildStructure origins", ResolvesRotatedBuildStructureOrigins),
+            ("preserves compound storage placement order", PreservesCompoundStoragePlacementOrder)
         };
 
         int failures = 0;
@@ -1113,6 +1114,53 @@ internal static class Program
             AivRotation.Degrees270);
         Equal(519, rotatedGarden7.X);
         Equal(279, rotatedGarden7.Y);
+    }
+
+    private static void PreservesCompoundStoragePlacementOrder()
+    {
+        var document = new CastlePlanner.AivJsonDocument
+        {
+            frames =
+            [
+                new CastlePlanner.AivJsonFrame
+                {
+                    itemType = (int)eMappers.MAPPER_GRANARY,
+                    tilePositionOfsets = [5338, 4938]
+                },
+                new CastlePlanner.AivJsonFrame
+                {
+                    itemType = (int)eMappers.MAPPER_HOVEL,
+                    tilePositionOfsets = [5040]
+                },
+                new CastlePlanner.AivJsonFrame
+                {
+                    itemType = (int)eMappers.MAPPER_ARMOURY,
+                    tilePositionOfsets = [5542, 5546]
+                }
+            ],
+            miscItems = []
+        };
+
+        List<CastlePlanner.AivCompoundBuildingPlacement> placements =
+            CastlePlanner.AivCompoundBuildingPlan.Create(
+                document,
+                525,
+                274,
+                AivRotation.Degrees90);
+
+        Equal(4, placements.Count);
+        Equal(eMappers.MAPPER_GRANARY, placements[0].Mapper);
+        Equal(5338, placements[0].EncodedPosition);
+        Equal(528, placements[0].BuildOrigin.X);
+        Equal(289, placements[0].BuildOrigin.Y);
+        Equal(eMappers.MAPPER_GRANARY, placements[1].Mapper);
+        Equal(4938, placements[1].EncodedPosition);
+        Equal(532, placements[1].BuildOrigin.X);
+        Equal(289, placements[1].BuildOrigin.Y);
+        Equal(eMappers.MAPPER_ARMOURY, placements[2].Mapper);
+        Equal(eMappers.MAPPER_ARMOURY, placements[3].Mapper);
+        Equal(0, placements[0].SourceOrdinal);
+        Equal(3, placements[3].SourceOrdinal);
     }
 
     private static LobbyAiSlotInput Slot(

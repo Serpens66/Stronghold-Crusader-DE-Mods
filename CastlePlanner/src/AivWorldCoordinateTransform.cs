@@ -1,5 +1,8 @@
 using AIVParser.Core;
+using SHCDESE.Interop;
 using System;
+using System.Collections.Generic;
+using SHCDESE.Interop.Enums;
 
 namespace CastlePlanner
 {
@@ -94,6 +97,75 @@ namespace CastlePlanner
             // BuildStructure expects the minimum world corner of the rotated
             // reservation, not the projected AIV anchor stored in the frame.
             return new AivWorldTile(minimumX, minimumY);
+        }
+    }
+
+    internal readonly struct AivCompoundBuildingPlacement
+    {
+        public AivCompoundBuildingPlacement(
+            int sourceOrdinal,
+            eMappers mapper,
+            int encodedPosition,
+            AivWorldTile buildOrigin)
+        {
+            SourceOrdinal = sourceOrdinal;
+            Mapper = mapper;
+            EncodedPosition = encodedPosition;
+            BuildOrigin = buildOrigin;
+        }
+
+        public int SourceOrdinal { get; }
+        public eMappers Mapper { get; }
+        public int EncodedPosition { get; }
+        public AivWorldTile BuildOrigin { get; }
+    }
+
+    internal static class AivCompoundBuildingPlan
+    {
+        public static List<AivCompoundBuildingPlacement> Create(
+            AivJsonDocument document,
+            int nativeReferenceX,
+            int nativeReferenceY,
+            AivRotation rotation)
+        {
+            if (document?.frames == null)
+                throw new ArgumentNullException(nameof(document));
+
+            var result = new List<AivCompoundBuildingPlacement>();
+            int sourceOrdinal = 0;
+            foreach (AivJsonFrame frame in document.frames)
+            {
+                eMappers mapper = (eMappers)frame.itemType;
+                if (mapper != eMappers.MAPPER_GRANARY &&
+                    mapper != eMappers.MAPPER_ARMOURY)
+                {
+                    continue;
+                }
+
+                if (frame.tilePositionOfsets == null)
+                    throw new InvalidOperationException($"AIV frame {mapper} has no positions.");
+
+                int footprintSize = AivMapperCatalog.Resolve(frame.itemType)
+                    .FootprintSize.GetValueOrDefault(1);
+                if (footprintSize < 1)
+                    throw new InvalidOperationException($"No footprint is known for {mapper}.");
+
+                foreach (int encodedPosition in frame.tilePositionOfsets)
+                {
+                    result.Add(new AivCompoundBuildingPlacement(
+                        sourceOrdinal++,
+                        mapper,
+                        encodedPosition,
+                        AivNativeBuildingPlacement.ResolveBuildStructureOrigin(
+                            new AivGridPoint(encodedPosition),
+                            footprintSize,
+                            nativeReferenceX,
+                            nativeReferenceY,
+                            rotation)));
+                }
+            }
+
+            return result;
         }
     }
 }

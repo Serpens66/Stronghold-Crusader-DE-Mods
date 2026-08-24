@@ -435,11 +435,13 @@ namespace ExtraFeatures
                 $"buildingType={building->r_BuildingType}, owner={building->r_PlayerIdOwner}, " +
                 $"vanillaCounter={vanillaCounter}, vanillaWouldDemolish={vanillaCounter >= 20}, " +
                 $"nativePlayerAwareReachable={FormatNullableBoolean(diagnostic.NativePlayerAwareReachable)}, " +
+                "nativeReachabilityRole=diagnostic-current-state, " +
                 $"pathWithoutClosedOwnGate={diagnostic.HasPathWithoutClosedGate}, " +
                 $"pathUsingClosedOwnGate={diagnostic.HasPathUsingClosedGate}, " +
                 $"mode={mode}, modClassification={classification}, " +
                 $"modDecision={(suppressDemolition ? "SuppressDemolition" : "AllowVanilla")}, " +
-                "gateModel=open owned gates are normal links; closed owned gates and associated raised drawbridges are temporary links, " +
+                "gateModel=open owned gates are normal links; closed owned gates and associated raised drawbridges are temporary links; " +
+                "a graph-confirmed closed-gate path is authoritative because the native query observes the current closed state, " +
                 details);
         }
 

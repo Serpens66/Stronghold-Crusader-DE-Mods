@@ -123,6 +123,8 @@ namespace ExtraFeatures
             if (sources.Count == 0 || destinations.Count == 0 || nativePlayerAwareReachable == null)
                 return NoPath();
 
+            // Native reachability observes the gate's current closed state; retain it for diagnostics,
+            // while the explicit gate graph answers the hypothetical "reachable after opening" question.
             bool nativeReachable = AnyNativePairReachable(sources, destinations, nativePlayerAwareReachable);
             IReadOnlyList<PclGateConnection> gates = ownedGates ?? Array.Empty<PclGateConnection>();
             Dictionary<int, List<GateEdge>> adjacency = BuildAdjacency(gates);
@@ -130,9 +132,7 @@ namespace ExtraFeatures
             if (TryFindPath(sources, destinations, adjacency, allowClosedGates: false, out _))
             {
                 return new GateBlockageEvaluation(
-                    nativeReachable
-                        ? GateBlockageEvaluationKind.NormallyReachable
-                        : GateBlockageEvaluationKind.NoVirtualGatePath,
+                    GateBlockageEvaluationKind.NormallyReachable,
                     hasPathWithoutClosedGate: true,
                     hasPathUsingClosedGate: false,
                     nativePlayerAwareReachable: nativeReachable,
@@ -151,9 +151,7 @@ namespace ExtraFeatures
             }
 
             return new GateBlockageEvaluation(
-                nativeReachable
-                    ? GateBlockageEvaluationKind.TemporaryViaClosedFriendlyGate
-                    : GateBlockageEvaluationKind.NoVirtualGatePath,
+                GateBlockageEvaluationKind.TemporaryViaClosedFriendlyGate,
                 hasPathWithoutClosedGate: false,
                 hasPathUsingClosedGate: true,
                 nativePlayerAwareReachable: nativeReachable,
