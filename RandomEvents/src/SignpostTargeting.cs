@@ -30,18 +30,26 @@ namespace RandomEvents
             if (candidates == null || candidates.Count == 0)
                 return false;
 
-            selected = candidates[0];
-            for (int index = 1; index < candidates.Count; index++)
+            bool found = false;
+            for (int index = 0; index < candidates.Count; index++)
             {
                 SignpostTarget candidate = candidates[index];
+                if (candidate.BuildingId <= 0 || candidate.TileX < 0 || candidate.TileX >= 800 ||
+                    candidate.TileY < 0 || candidate.TileY >= 800 || double.IsNaN(candidate.Distance) ||
+                    double.IsInfinity(candidate.Distance) || candidate.Distance < 0)
+                {
+                    continue;
+                }
+
                 int distanceComparison = candidate.Distance.CompareTo(selected.Distance);
-                if (distanceComparison < 0 ||
+                if (!found || distanceComparison < 0 ||
                     (distanceComparison == 0 && candidate.BuildingId < selected.BuildingId))
                 {
                     selected = candidate;
+                    found = true;
                 }
             }
-            return true;
+            return found;
         }
     }
 

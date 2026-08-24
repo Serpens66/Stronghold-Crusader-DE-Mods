@@ -1,6 +1,7 @@
 using MessagePack;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 
@@ -18,6 +19,7 @@ namespace RandomEvents
             TestPresentationTargeting();
             TestSignpostSelection();
             TestArcherSourceTargetingScope();
+            TestArcherSourceNativeLayout();
             Console.WriteLine($"PASS: RandomEvents protocol tests ({assertions} assertions).");
         }
 
@@ -120,6 +122,18 @@ namespace RandomEvents
             Assert(selected.TileX == 300 && selected.TileY == 300 && selected.DistanceReference == "keep", "selected signpost metadata is preserved");
             Assert(!SignpostTargetSelection.TrySelectClosest(Array.Empty<SignpostTarget>(), out _), "an empty candidate list must fail closed");
 
+            var invalidAndAlive = new[]
+            {
+                new SignpostTarget(0, 10, 10, 1.0, "keep"),
+                new SignpostTarget(5, -1, 10, 2.0, "keep"),
+                new SignpostTarget(12, 40, 50, 9.0, "keep")
+            };
+            Assert(SignpostTargetSelection.TrySelectClosest(invalidAndAlive, out SignpostTarget validSelected) &&
+                validSelected.BuildingId == 12, "invalid signpost candidates are ignored");
+            Assert(!SignpostTargetSelection.TrySelectClosest(
+                new[] { new SignpostTarget(0, 0, 0, double.NaN, "keep") }, out _),
+                "an entirely invalid signpost set must fail closed");
+
             var lordFallback = new[] { new SignpostTarget(11, 50, 60, 10.0, "living-lord") };
             Assert(SignpostTargetSelection.TrySelectClosest(lordFallback, out SignpostTarget lordSelected) &&
                 lordSelected.DistanceReference == "living-lord", "the living-Lord anchor is preserved for diagnostics");
@@ -169,6 +183,60 @@ namespace RandomEvents
                 Marshal.FreeHGlobal(source);
                 Marshal.FreeHGlobal(slots);
             }
+        }
+
+        private static void TestArcherSourceNativeLayout()
+        {
+            const string dllPath = @"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll";
+            byte[] image = LoadPeImage(dllPath);
+            ArcherSourceNativeResolution reference = ArcherSourceNativeLayout.Resolve(
+                image,
+                referenceHashMatches: true,
+                ArcherSourceNativeLayout.ReferenceSignpostIdsOffset);
+            Assert(reference.Rva == ArcherSourceNativeLayout.ReferenceLoadRva, "reference archer source RVA resolves");
+            Assert(reference.SourceXOffset == 0x1838CC && reference.SourceYOffset == 0x1838D0, "reference archer source offsets resolve");
+
+            ArcherSourceNativeResolution fallback = ArcherSourceNativeLayout.Resolve(
+                image,
+                referenceHashMatches: false,
+                ArcherSourceNativeLayout.ReferenceSignpostIdsOffset);
+            Assert(fallback.Rva == reference.Rva && fallback.SourceXOffset == reference.SourceXOffset, "fallback archer source signature resolves uniquely");
+
+            byte[] corrupt = new byte[ArcherSourceNativeLayout.ReferenceLoadRva + 0x100];
+            Buffer.BlockCopy(
+                image,
+                ArcherSourceNativeLayout.ReferenceLoadRva,
+                corrupt,
+                ArcherSourceNativeLayout.ReferenceLoadRva,
+                0x100);
+            corrupt[ArcherSourceNativeLayout.ReferenceLoadRva] = 0x90;
+            ExpectFailure(
+                () => ArcherSourceNativeLayout.Resolve(corrupt, true, ArcherSourceNativeLayout.ReferenceSignpostIdsOffset),
+                "a corrupted reference archer source was accepted");
+        }
+
+        private static byte[] LoadPeImage(string path)
+        {
+            byte[] file = File.ReadAllBytes(path);
+            int peOffset = BitConverter.ToInt32(file, 0x3C);
+            int sectionCount = BitConverter.ToUInt16(file, peOffset + 6);
+            int optionalHeaderSize = BitConverter.ToUInt16(file, peOffset + 20);
+            int sizeOfImage = BitConverter.ToInt32(file, peOffset + 24 + 56);
+            int sizeOfHeaders = BitConverter.ToInt32(file, peOffset + 24 + 60);
+            byte[] image = new byte[sizeOfImage];
+            Buffer.BlockCopy(file, 0, image, 0, Math.Min(sizeOfHeaders, file.Length));
+            int sectionTable = peOffset + 24 + optionalHeaderSize;
+            for (int index = 0; index < sectionCount; index++)
+            {
+                int header = sectionTable + index * 40;
+                int virtualAddress = BitConverter.ToInt32(file, header + 12);
+                int rawSize = BitConverter.ToInt32(file, header + 16);
+                int rawOffset = BitConverter.ToInt32(file, header + 20);
+                if (rawSize <= 0)
+                    continue;
+                Buffer.BlockCopy(file, rawOffset, image, virtualAddress, rawSize);
+            }
+            return image;
         }
 
         private static RandomEventsConfigurationSnapshot CreateConfiguration() => new RandomEventsConfigurationSnapshot

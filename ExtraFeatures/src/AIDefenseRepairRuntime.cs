@@ -20,6 +20,11 @@ namespace ExtraFeatures
 {
     internal sealed unsafe class AIDefenseRepairRuntime : IDisposable
     {
+        // TEMPORARY RELEASE QUARANTINE (DLL-update release): keep this true while the AI
+        // defense feature is unfinished. After the release, set it back to false and unhide the
+        // matching ExtraFeatures/BugfixesAndQoL controls marked with the same phrase.
+        internal static readonly bool ReleaseQuarantineEnabled = true;
+
         // Dispatcher 0x539B0 uses 0x52270 only for AIV entries whose +0x14 field is zero;
         // otherwise it iterates the finished-castle frames through 0x51790. The 2026-08-24
         // finished-castle trace consequently reached 0x51790 repeatedly and never 0x52270.
@@ -101,6 +106,11 @@ namespace ExtraFeatures
         {
             if (initialized)
                 return;
+            if (ReleaseQuarantineEnabled)
+            {
+                initialized = true;
+                return;
+            }
 
             subscriptions.Add(BuildingR3EventHooks.OnBuildingAllowRepairInProximity.Observable.Subscribe(OnRepairProximity));
             subscriptions.Add(BuildingR3EventHooks.OnBuildingRepair.Observable.Subscribe(OnBuildingRepair));
@@ -116,6 +126,11 @@ namespace ExtraFeatures
         {
             if (nativeInitialized)
                 return;
+            if (ReleaseQuarantineEnabled)
+            {
+                nativeInitialized = true;
+                return;
+            }
 
             // The placement helper's process-state origin fields are fixed-layout data, not
             // proven by either function signature. Keep only this optional diagnostic inactive

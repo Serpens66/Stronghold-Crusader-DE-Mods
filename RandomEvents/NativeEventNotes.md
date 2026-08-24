@@ -2,7 +2,7 @@
 
 ## Referenz-DLL
 
-- SHA-256: `33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469`
+- SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
 - Die installierte `CrusaderDE.dll` ist die kanonische Quelle. RVAs sind nur zusammen mit diesem Hash feste Referenzen.
 - Bei anderen DLLs werden die Funktionen über eindeutige semantische AOBs gesucht und strukturell gegeneinander validiert. Schlägt dies fehl, bleibt nur das betroffene Ereignis deaktiviert.
 
@@ -11,7 +11,7 @@
 - Der Mod wählt eine zufällige lebende Getreide- oder Hopfenfarm des Zielspielers und innerhalb von 12 Tiles genau einen Vanilla-kompatiblen Quellpunkt.
 - Statt roher Einzel-Units ruft er den gemeinsamen nativen Wildtierhandler mit Aktion `222` auf. Dieser erzeugt wie das Originalereignis einen richtigen Hasenstamm mit 14 bis 21 Tieren und registriert dessen Quelle; dadurch greifen Vanillas Verteilung und Farmfraß. Am gewählten Quellpunkt wird außerdem Vanillas ActionPoint eingereiht, damit das anklickbare Ausrufungszeichen dorthin springt.
 - Vorher wird Vanillas Limit von 160 Hasen geprüft. Der originale 1200-Tick-Zustand und die Quellkoordinaten im Tribe-Manager werden wie im Vanilla-Wrapper gesetzt; anschließend werden die originale Video- und Sprachnachricht eingereiht.
-- Handler RVA `0x11E100`, Prädikat RVA `0x117750` und Spawner RVA `0x123A70` gelten nur für die Referenz-DLL; Tile-Maske und Adressen werden aus semantisch validierten Codepfaden abgeleitet.
+- Handler RVA `0x11E150`, Prädikat RVA `0x1177A0` und Spawner RVA `0x123AC0` gelten nur für die Referenz-DLL; Tile-Maske und Adressen werden aus semantisch validierten Codepfaden abgeleitet.
 
 ## Lebende Zielspieler
 
@@ -24,6 +24,13 @@
 - Auf dem nächstgelegenen Vanilla-kompatiblen Tile innerhalb von 12 Tiles um diesen Wegweiser wird der gemeinsame Wildtierhandler mit Aktion `221` einmal je Stärkepunkt aufgerufen.
 - Für jeden erzeugten Stamm wird Vanillas ActionPoint-Handler mit dem Spawnpunkt aufgerufen; dadurch erscheint wieder das anklickbare Ausrufungszeichen und verwendet den originalen Kamera-Sprung. Danach erhält der Stamm denselben Aktivierungswert `0x10000`, den Vanillas Ereigniswrapper setzt. Die originale Sprachnachricht `Random_Events14.wav` wird ohne Video eingereiht, da die Installation kein Löwen-Ereignisvideo enthält.
 - Stamm-Stride, Aktivierungsfeld, Tile-Maske und ActionPoint-Pfad werden über getrennte semantische Signaturen aufgelöst. Scheitert nach einem Update nur die ActionPoint-Auflösung, bleiben Löwenangriff und Nachricht aktiv und ausschließlich das Ausrufungszeichen wird mit einem Error deaktiviert.
+
+## Wegweiser-Auswahl und Bogenschützen
+
+- Bogenschützen, Banditen und Löwen verwenden dieselbe deterministische Auswahl: kleinste Entfernung zur lebenden Burg des Zielspielers, ersatzweise zum lebenden Lord, und bei gleicher Entfernung die kleinere Building-ID.
+- Vanillas `FreeBuild_Event`-Case `148` erzeugt neben den Bogenschützen auch den Mönch, native Gruppen, Befehlszustände, Marschziele, ActionPoint und Präsentation. RandomEvents lässt diesen vollständigen Pfad deshalb bestehen.
+- Der Case liest die tatsächlich verwendete 32-Bit-Quellposition aus dem zum ausgewählten Wegweiser-Slot gehörenden Datensatz. Auf der Referenz-DLL beginnt der relevante Pfad bei RVA `0x104E13`; X/Y liegen bei `SignpostSlots + 0x40/+0x44`, die Datensätze haben Stride `0x10`.
+- Nur während `GameAction` wird der gewählte Wegweiser als Slot null freigegeben und sein Tile in dessen Quelldatensatz geschrieben. Slots und Koordinaten werden unmittelbar verifiziert und auch nach einer Ausnahme vollständig wiederhergestellt. Schlägt die semantische Strukturprüfung fehl, werden ausschließlich weitere Bogenschützen-Ereignisse deaktiviert; Banditen und Löwen behalten ihre expliziten Spawnpfade.
 
 ## Erster Ereignistermin
 
@@ -40,7 +47,7 @@
 
 - Teststand 1.0.35 speichert beim Start einer neuen Karte den absoluten Monat und berechnet bei jeder Banditen- oder Bogenschützen-Auslösung `floor(vergangene Monate * gewürfelter Faktor / 3)`. Die Faktoren werden in 0,1-Schritten aus den Lobby-Grenzen 0,1 bis 5,0 gewürfelt. Banditen werden auf höchstens fünf möglichst gleich große Gruppen verteilt; Keeps werden nicht als Bewegungsziel angeboten. Das Bogenschützen-Ereignis bleibt Vanilla und erhält die berechnete Gesamtzahl als Action-Stärke.
 - Owner `0` ist für militärische Banditen ungeeignet: Nature folgt nicht der normalen Spieler-Selbstfreundlichkeit. Tribe-lose Streitkolbenkämpfer desselben Spawns und Nature-Tribes konnten sich trotz gemeinsamem Owner gegenseitig als Ziele behandeln; ein früher scheinbar friedlicher Lauf war nicht reproduzierbar. Eine erfundene Player-ID `9` ist ebenfalls unzulässig, weil Player-Ressourcen, Teams, Diplomatie und weitere native Tabellen fest auf die regulären Slots `1` bis `8` begrenzt sind.
-- Seit SHCDE-SE 1.41 folgen `CreateUnitLocal` und `CreateUnitWorld` dem nativen Vertrag `playerOwnerId`, danach `playerColorId`. Für die installierte `CrusaderDE.dll` mit SHA-256 `33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469` schreibt die Spawnfunktion bei RVA `0x17FEA0` den Owner nach `GameUnit+0x92` (`r_ControllableForPlayerId`) und die Farbe nach `GameUnit+0x0C` (`r_SpritePlayerColorId`). RandomEvents übergibt den reservierten Owner und die Nature-Farbe `0` mit benannten Argumenten und validiert beide Felder unmittelbar nach dem Spawn.
+- Seit SHCDE-SE 1.41 folgen `CreateUnitLocal` und `CreateUnitWorld` dem nativen Vertrag `playerOwnerId`, danach `playerColorId`. Für die installierte `CrusaderDE.dll` mit SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2` liegt die Spawnfunktion bei RVA `0x17FEF0`; sie schreibt den Owner nach `GameUnit+0x92` (`r_ControllableForPlayerId`) und die Farbe nach `GameUnit+0x0C` (`r_SpritePlayerColorId`). RandomEvents übergibt den reservierten Owner und die Nature-Farbe `0` mit benannten Argumenten und validiert beide Felder unmittelbar nach dem Spawn.
 - Teststand 1.0.33 reserviert deshalb den ersten nicht aktiven regulären Slot mit `r_LordUnitId == 0`. Existiert kein solcher Slot, endet das Ereignis vor Spawn, Präsentation und Popularitätsmalus. Der reservierte Slot erhält eine Teamnummer, die kein aktiver menschlicher Spieler verwendet; die Feindschaft zu jedem Menschen wird vor dem Spawn und erneut vor der Gruppenaktivierung verifiziert. Nur die Sprite-Farbe bleibt Nature `0`.
 - Die Streitkolbenkämpfer werden 20 Simulationsticks nach dem Spawn über den persistenten Tick in Tribes bis fünf Einheiten eingeteilt, auf `Aggressive` gesetzt und mit `IssueMoveHereCommand` zu einem freien, über dieselbe Pfadkomponente erreichbaren Randtile eines zufälligen lebenden Zielspieler-Gebäudes geschickt. Die tickbasierte Verzögerung ersetzt die frühere lokale Echtzeitverzögerung und bleibt dadurch im Multiplayer deterministisch. Arrayindizes werden dabei explizit in die einbasierten Script-Extender-Gebäude-IDs umgerechnet.
 - Teststand 1.0.32 entfernt den vollständigen verzögerten `MoveToTile`-Versuch wieder. Nach `CreateUnitLocal(0, 0, ...)` werden die Banditen nur noch auf Info-Level gelesen; es gibt keine Tribe-, Haltungs-, Bewegungs-, Angriffs- oder sonstige Unit-Mutation. Präsentation, Minimap-ActionPoint und der Popularitätsmalus des menschlichen Zielspielers bleiben unabhängig davon aktiv.
@@ -50,7 +57,7 @@
 - Der Mittelpunkt eines Wegweiser-Footprints besitzt nicht zwingend eine native Pfadkomponente. Der tatsächliche Banditen-Spawn wird deshalb auf das nächstgelegene freie, begehbare Randtile mit einer Pfadkomponente ungleich `0` gelegt; dieselbe Komponente begrenzt anschließend die erreichbaren Ziele.
 - Der native Stammesbefehl-Dispatcher liegt in der Referenz-DLL bei RVA `0x11E910`. Der vom Script Extender als `ForceAttackBuilding` bezeichnete Befehl `36` validiert seinen Zielwert im Zweig um RVA `0x11F106` mit dem Einheiten-Stride `0x490`; eine Gebäude-ID wird deshalb ohne Fehler, aber auch ohne Einheitenbefehl verworfen.
 - Befehl `9` ist zwar ein Gebäudeangriff, sein Einheiten-Switch verwirft Streitkolbenkämpfer bei normalen Gebäudetypen. Auch Befehl `5` (`Attack Here`) lieferte zwar einen erfolgreichen API-Rückgabewert, setzte bei neutralen Streitkolbenkämpfern aber nachweislich keinen Bewegungs- oder Angriffskontext. Der einzelne Unit-`MoveHere`-Handler bewegte sie ohne Laufanimation. RandomEvents verwendet deshalb den vollständigen Tribe-`IssueMoveHereCommand` und schickt jede Gruppe auf ein freies, verbundenes Tile direkt neben ihrem zufälligen Ziel.
-- Vanillas FreeBuild-Case `146` setzt vor dem Spawn für den lokalen Spieler einen 16-Bit-Ereignisstatus auf `16` (Write bei RVA `0x104C82`). Dieser Status erzeugt und beendet den zeitweiligen Popularitätsmalus über die normale Simulation. RandomEvents löst das Feld über eine semantische Signatur auf und setzt es stattdessen für die explizite menschliche Zielspieler-ID.
+- Vanillas FreeBuild-Case `146` setzt vor dem Spawn für den lokalen Spieler einen 16-Bit-Ereignisstatus auf `16` (semantisch aufgelöster Write bei RVA `0x104CBA`). Dieser Status erzeugt und beendet den zeitweiligen Popularitätsmalus über die normale Simulation. RandomEvents setzt das abgeleitete Feld stattdessen für die explizite menschliche Zielspieler-ID.
 - Schlägt diese Prüfung nach Wiederholungen fehl, werden nur weitere Banditenereignisse für die laufende Karte deaktiviert. Die übrigen Zufallsereignisse und ihre Timer bleiben aktiv.
 
 ## Multiplayer und Zufallsfolgen
@@ -66,7 +73,7 @@
 - Ein eigenes, früh erzeugtes `DontDestroyOnLoad`-Objekt erhielt keine `LateUpdate()`-Callbacks. Auch der Script-Extender-`UnityMainThreadDispatcher` akzeptierte die Coroutine, führte aber in RandomEvents und CastlePlanner nie deren ersten Callback aus. Der gemeinsame Dispatcher und der davon abhängige Timeline-Pfad wurden deshalb entfernt.
 - Die fünf Aktionen werden ohne Timeline-Eintrag über die Handler aus dem Vanilla-Switch ausgelöst. Vor jedem Effekt läuft dieselbe Vanilla-Voraussetzung: Farmtyp `30`, `31`, `32` oder `33` muss für den Zielspieler existieren; Kornspeicherdiebstahl verlangt eine gesetzte erste Kornspeicher-ID.
 - Getreidebefall: Voraussetzung RVA `0xB8D50`, Effekt RVA `0xC3130`. Hopfenkäfer: Voraussetzung RVA `0xB8D50`, Effekt RVA `0xC2E30`. Obstfäule: Voraussetzung RVA `0xB8D50`, Effekt RVA `0xC2C30`.
-- Wahnsinnige Rinder führt nach RVA `0xB8D50` zuerst den Einheitenhandler RVA `0x194BF0` und danach den Gebäudehandler RVA `0xC6090` aus. Kornspeicherdiebstahl nutzt RVA `0xC5F70` mit Spieler-ID und Prozentstärke.
-- Nach erfolgreichem Effekt wird Vanillas Nachrichtenhandler RVA `0x103160` verwendet. Videos und Sprachdateien entsprechen den Timeline-Cases; bei wahnsinnigen Rindern bleiben Vanillas getrennte Audio- und Videoeinträge erhalten.
+- Wahnsinnige Rinder führt nach RVA `0xB8D50` zuerst den Einheitenhandler RVA `0x194C40` und danach den Gebäudehandler RVA `0xC6090` aus. Kornspeicherdiebstahl nutzt RVA `0xC5F70` mit Spieler-ID und Prozentstärke.
+- Nach erfolgreichem Effekt wird Vanillas Nachrichtenhandler RVA `0x1031B0` verwendet. Videos und Sprachdateien entsprechen den Timeline-Cases; bei wahnsinnigen Rindern bleiben Vanillas getrennte Audio- und Videoeinträge erhalten.
 - Auf dem Referenz-Build werden zuerst die erwarteten RVAs semantisch validiert. Nach kleinen Spielupdates sucht ein gemeinsamer Resolver nur in ausführbaren PE-Sektionen nach eindeutigen Signaturen und leitet relative Ziele weiterhin aus dem Code ab.
 - Handler werden unabhängig aufgelöst. Ein geänderter Effekthandler deaktiviert deshalb nur die davon abhängigen Ereignisse; ein Fehler der gemeinsamen Gebäudeprüfung oder Nachrichten-Queue betrifft weiterhin alle Ereignisse, die diese Vanilla-Komponente benötigen.

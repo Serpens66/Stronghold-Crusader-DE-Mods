@@ -54,8 +54,9 @@ namespace ExtraFeatures
         private double humanGateClosingDistanceTiles = GatehouseTimingPatch.VanillaHumanDistanceTiles;
         private double aiGateClosingDistanceTiles = GatehouseTimingPatch.VanillaAiDistanceTiles;
         private bool requireReachableEnemyForAutomaticGateClosing = true;
-        private int aiRepairEnemyProximity = 30;
-        private int aiTowerGateRebuildDelaySeconds = 60;
+        // TEMPORARY RELEASE QUARANTINE (DLL-update release): Vanilla defaults while hidden.
+        private int aiRepairEnemyProximity = -1;
+        private int aiTowerGateRebuildDelaySeconds = -1;
         private bool marketGoodPriceVisualsResolved;
 
         protected override string ResolveSettingsUiText(string key, string fallback) =>
@@ -232,8 +233,22 @@ namespace ExtraFeatures
         [SyncHostOnly] public double HumanGateClosingDistanceTiles { get => humanGateClosingDistanceTiles; set => SetDoubleSetting(ref humanGateClosingDistanceTiles, RoundToStep(value, 0.5), GatehouseTimingPatch.MinimumDistanceTiles, GatehouseTimingPatch.MaximumDistanceTiles, nameof(HumanGateClosingDistanceTiles), nameof(HumanGateClosingDistanceValueText)); }
         [SyncHostOnly] public double AIGateClosingDistanceTiles { get => aiGateClosingDistanceTiles; set => SetDoubleSetting(ref aiGateClosingDistanceTiles, RoundToStep(value, 0.5), GatehouseTimingPatch.MinimumDistanceTiles, GatehouseTimingPatch.MaximumDistanceTiles, nameof(AIGateClosingDistanceTiles), nameof(AIGateClosingDistanceValueText)); }
         [SyncHostOnly] public bool RequireReachableEnemyForAutomaticGateClosing { get => requireReachableEnemyForAutomaticGateClosing; set => SetSetting(ref requireReachableEnemyForAutomaticGateClosing, value, nameof(RequireReachableEnemyForAutomaticGateClosing)); }
-        [SyncHostOnly] public int AIRepairEnemyProximity { get => aiRepairEnemyProximity; set => SetIntSetting(ref aiRepairEnemyProximity, value, -1, 100, nameof(AIRepairEnemyProximity), nameof(AIRepairEnemyProximityValueText)); }
-        [SyncHostOnly] public int AITowerGateRebuildDelaySeconds { get => aiTowerGateRebuildDelaySeconds; set => SetIntSetting(ref aiTowerGateRebuildDelaySeconds, value, -1, 300, nameof(AITowerGateRebuildDelaySeconds), nameof(AITowerGateRebuildDelayValueText)); }
+        [SyncHostOnly]
+        public int AIRepairEnemyProximity
+        {
+            get => AIDefenseRepairRuntime.ReleaseQuarantineEnabled ? -1 : aiRepairEnemyProximity;
+            set => SetIntSetting(ref aiRepairEnemyProximity,
+                AIDefenseRepairRuntime.ReleaseQuarantineEnabled ? -1 : value,
+                -1, 100, nameof(AIRepairEnemyProximity), nameof(AIRepairEnemyProximityValueText));
+        }
+        [SyncHostOnly]
+        public int AITowerGateRebuildDelaySeconds
+        {
+            get => AIDefenseRepairRuntime.ReleaseQuarantineEnabled ? -1 : aiTowerGateRebuildDelaySeconds;
+            set => SetIntSetting(ref aiTowerGateRebuildDelaySeconds,
+                AIDefenseRepairRuntime.ReleaseQuarantineEnabled ? -1 : value,
+                -1, 300, nameof(AITowerGateRebuildDelaySeconds), nameof(AITowerGateRebuildDelayValueText));
+        }
 
         public string MultiplyGoodsGainAIText { get => FormatDecimalMultiplier(MultiplyGoodsGainAI); set => SetDoubleValueText(value, parsed => MultiplyGoodsGainAI = parsed, nameof(MultiplyGoodsGainAIText)); }
         public string MultiplyGoodsGainHumanText { get => FormatDecimalMultiplier(MultiplyGoodsGainHuman); set => SetDoubleValueText(value, parsed => MultiplyGoodsGainHuman = parsed, nameof(MultiplyGoodsGainHumanText)); }
@@ -301,8 +316,9 @@ namespace ExtraFeatures
                 HumanGateClosingDistanceTiles = GatehouseTimingPatch.VanillaHumanDistanceTiles;
                 AIGateClosingDistanceTiles = GatehouseTimingPatch.VanillaAiDistanceTiles;
                 RequireReachableEnemyForAutomaticGateClosing = true;
-                AIRepairEnemyProximity = 30;
-                AITowerGateRebuildDelaySeconds = 60;
+                // TEMPORARY RELEASE QUARANTINE (DLL-update release): restore 30/60 afterwards.
+                AIRepairEnemyProximity = -1;
+                AITowerGateRebuildDelaySeconds = -1;
             }
         }
 

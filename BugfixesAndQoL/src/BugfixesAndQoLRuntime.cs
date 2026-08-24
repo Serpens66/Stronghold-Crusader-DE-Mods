@@ -619,6 +619,13 @@ namespace BugfixesAndQoL
         {
             if (!nativeLibraryAvailable || aiTowerRuinRepairFix != null || aiTowerRuinRepairFixUnavailable)
                 return;
+            if (AITowerRuinRepairFix.ReleaseQuarantineEnabled)
+            {
+                // TEMPORARY RELEASE QUARANTINE (DLL-update release): do not install its native
+                // validator hook or emit feature diagnostics, regardless of persisted settings.
+                aiTowerRuinRepairFixUnavailable = true;
+                return;
+            }
 
             try
             {

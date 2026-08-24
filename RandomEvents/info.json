@@ -3,10 +3,17 @@
   "Author": "Serpens66",
   "Name": "Random Events",
   "Description": "Runs configurable Vanilla scenario events in skirmishes, Trail missions, and multiplayer games.",
-  "Version": "1.0.22",
+  "Version": "1.0.25",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.25",
+      "Changes": [
+        "Fixed archer events to inject the selected signpost into Vanilla's actual 32-bit source-coordinate record instead of an unrelated scenario-point array.",
+        "Unified deterministic nearest-signpost selection and spawn diagnostics for archers, bandits, and lions."
+      ]
+    },
     {
       "Version": "1.0.22",
       "Changes": [

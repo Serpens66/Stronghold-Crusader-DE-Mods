@@ -284,3 +284,13 @@ native blocked result, but no `OnBuildingRepair` event. Consequently this run
 does not prove whether the visually observed wall work was an in-place repair
 or replacement through another native path; no new damaged-building behavior
 is inferred from that absence.
+
+## TEMPORARY RELEASE QUARANTINE (DLL-update release)
+
+ExtraFeatures `1.0.49` ships the unfinished AI defense work runtime-disabled
+and UI-hidden for the DLL-update release. `AIDefenseRepairRuntime` returns
+before event subscription and before all three native detours, so persisted
+non-Vanilla preset values cannot activate behavior or diagnostics. Both hidden
+settings default/reset to `-1`. After the release, set
+`ReleaseQuarantineEnabled` back to `false`, restore defaults `30`/`60`, remove
+the collapsed XAML wrapper, and re-run the unfinished feature's live tests.

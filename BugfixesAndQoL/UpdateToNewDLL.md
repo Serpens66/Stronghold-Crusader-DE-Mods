@@ -206,6 +206,16 @@ query is blocked. Without a registered consumer, the standalone fix retains
 its prior behavior. Guard errors fail closed for the optional ruin mutation and
 remain isolated by the existing validator callback boundary.
 
+## TEMPORARY RELEASE QUARANTINE (DLL-update release)
+
+BugfixesAndQoL `1.0.79` does not construct `AITowerRuinRepairFix` and therefore
+installs no placement-validator hook or feature diagnostics for this unfinished
+release. The hidden checkbox defaults/resets to `false`; persisted `true`
+values are additionally neutralized by the runtime quarantine. After the
+release, set `ReleaseQuarantineEnabled` back to `false`, restore the default to
+`true`, remove `Visibility="Collapsed"`, and resume the coupled ExtraFeatures
+tests before re-enabling it publicly.
+
 The first-build AIV signature stayed at `0x53F0B`, but its absolute map-row
 operand moved from `0x402EF2C` to `0x402FF2C`; that relocation is now wildcarded
 while the surrounding player/index/state semantics remain fully validated.

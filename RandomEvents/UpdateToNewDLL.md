@@ -16,6 +16,7 @@ disabling unrelated events.
 | Source pattern / target | Reference RVA | Use |
 | --- | ---: | --- |
 | `LookupPattern` | `0xCB800` | signpost lookup and manager-field derivation |
+| `ArcherSourceNativeLayout.Pattern` | `0x104E13` | selected signpost slot and Case 148 source-coordinate fields |
 | `PenaltyWritePattern` | `0x104CBA` | bandit player stride/state offset |
 | `HasBuildingPattern` | `0xB8D50` | building prerequisite delegate |
 | `WheatPattern` | `0xC3130` | wheat handler |
@@ -43,8 +44,9 @@ The named source constants contain the complete byte patterns.
 
 1. Require one match for each entry and revalidate every delegate ABI,
    relative-call chain, RIP-relative target and image bound.
-2. Revalidate signpost lookup semantics: eight slots, building stride `0x32C`,
-   type `52`, manager offset and attack-point delta.
+2. Revalidate signpost lookup and archer-source semantics: eight slots,
+   building stride `0x32C`, type `52`, manager offset, 32-bit source X/Y at
+   `signpost slots + 0x40`, and a `0x10`-byte source-record stride.
 3. Revalidate bandit resource stride/state offset, event prerequisites,
    presentation targets, wildlife masks, rabbit limit and lion tribe fields.
 4. Test each event independently, failed-component isolation, scenario
@@ -66,11 +68,19 @@ IDs, payload sizes below 1200 bytes and identical action order on host and clien
 
 ## Audit for Steam build 24816905
 
-All 21 signature sites resolve successfully in the latest game log and in the
-independent scanner. Unchanged handlers include signposts, prerequisites,
+All original 21 signature sites resolve successfully in the latest game log and
+in the independent scanner. Unchanged handlers include signposts, prerequisites,
 granary theft and action points. Code after the inserted block moved by `0x50`:
 bandit penalty `0x104CBA`, mad-cow unit `0x194C40`, presentation call/handler
 `0xF9B74`/`0x1031B0`, and all wildlife sites now recorded in source from
 `0x10496A` through `0x123BD3`. The presentation manager moved by `0x1000` to
 `0x1B62EE0`; unit spawn is `0x17FEF0`. Event field semantics and masks are
 unchanged. Independent event, reload and multiplayer tests remain smoke tests.
+
+The archer `FreeBuild_Event` case `148` begins its selected-slot source lookup
+at RVA `0x104E13`. It reads X from `gPlayerManager+0x1838CC` and Y from
+`gPlayerManager+0x1838D0`, with the selected slot scaled to a `0x10`-byte
+record. RandomEvents validates this relation before temporarily exposing the
+chosen signpost as slot zero and replacing only that record's coordinates.
+The added archer-source signature also resolves uniquely in the installed DLL;
+its first runtime log verification remains part of the post-build smoke test.

@@ -16,8 +16,6 @@ namespace RandomEvents
         private const int ReferenceSignpostIdsOffset = 0x18388C;
         private const int ExpectedLookupFunctionRva = 0xCB800;
         private const int CandidateValidationWindow = 0x240;
-        private const int ExpectedArcherSourceLoadRva = 0x104E13;
-        private const int ArcherSourceValidationWindow = 0x80;
 
         // CrusaderDE.dll SHA-256 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
         // RVA 0xCB800 reads eight building IDs at gPlayerManager+0x18388C and accepts STRUCT_SIGNPOST (52).
@@ -25,10 +23,6 @@ namespace RandomEvents
         private const string LookupPattern =
             "48 63 81 ?? ?? ?? ?? 4C 8D 1D ?? ?? ?? ?? 45 33 D2 4C 8B C9 45 8B C2 85 C0 7E ?? " +
             "48 69 D0 2C 03 00 00 B8 01 00 00 00 66 42 83 BC 1A 2E 01 00 00 34";
-        private const string ArcherSourcePattern =
-            "48 63 C8 48 8D 1D ?? ?? ?? ?? 8B 05 ?? ?? ?? ?? 48 03 C9 48 89 44 24 30 BA 03 00 00 00 " +
-            "8B 05 ?? ?? ?? ?? C7 44 24 28 16 00 00 00 49 8D 34 CE 44 89 44 24 20 " +
-            "44 8B 8E ?? ?? ?? ?? 49 8D 3C CE 44 8B 87 ?? ?? ?? ??";
         private readonly ManualLogSource log;
         private IntPtr slotsAddress;
         private IntPtr archerSourceCoordinatesAddress;
@@ -292,10 +286,18 @@ namespace RandomEvents
         {
             try
             {
-                ArcherSourceResolution resolution = ResolveArcherSource(memory, referenceHashMatches, signpostIdsOffset);
+                ArcherSourceNativeResolution resolution = ArcherSourceNativeLayout.Resolve(
+                    memory,
+                    referenceHashMatches,
+                    signpostIdsOffset);
                 archerSourceCoordinatesAddress = new IntPtr(
                     checked((long)playerManager + resolution.SourceXOffset));
                 targetingUnavailableReason = string.Empty;
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"Native address resolved: name=archer signpost source, method={resolution.Method}, " +
+                    $"rva=0x{resolution.Rva:X}, sourceXOffset=0x{resolution.SourceXOffset:X}, " +
+                    $"sourceYOffset=0x{resolution.SourceYOffset:X}, slotStride=0x{ArcherSourceNativeLayout.SourceRecordStride:X}.");
             }
             catch (Exception ex)
             {
@@ -350,54 +352,6 @@ namespace RandomEvents
             tileY = lord->r_CurrentTilePositionY;
             reference = "living-lord";
             return true;
-        }
-
-        private ArcherSourceResolution ResolveArcherSource(
-            ReadOnlySpan<byte> memory,
-            bool referenceHashMatches,
-            int signpostIdsOffset)
-        {
-            if (referenceHashMatches)
-            {
-                if (!TryValidateArcherSourceCandidate(
-                        memory,
-                        ExpectedArcherSourceLoadRva,
-                        signpostIdsOffset,
-                        out int sourceXOffset,
-                        out string validationFailure))
-                {
-                    throw new InvalidOperationException(
-                        $"reference archer source RVA 0x{ExpectedArcherSourceLoadRva:X} failed local semantic validation: " +
-                        validationFailure);
-                }
-                Shared.DebugLogHelper.LogInfo(
-                    log,
-                    $"Native address resolved: name=archer signpost source, method=reference-rva, " +
-                    $"rva=0x{ExpectedArcherSourceLoadRva:X}, sourceXOffset=0x{sourceXOffset:X}, " +
-                    $"sourceYOffset=0x{sourceXOffset + sizeof(int):X}, slotStride=0x10.");
-                return new ArcherSourceResolution(sourceXOffset);
-            }
-
-            int match = NativePatternResolver.FindUniquePattern(
-                memory,
-                ArcherSourcePattern,
-                "archer signpost source");
-            if (!TryValidateArcherSourceCandidate(
-                    memory,
-                    match,
-                    signpostIdsOffset,
-                    out int fallbackSourceXOffset,
-                    out string fallbackFailure))
-            {
-                throw new InvalidOperationException(
-                    $"archer source signature candidate 0x{match:X} failed validation: {fallbackFailure}");
-            }
-            Shared.DebugLogHelper.LogInfo(
-                log,
-                $"Native address resolved: name=archer signpost source, method=signature-fallback, " +
-                $"rva=0x{match:X}, sourceXOffset=0x{fallbackSourceXOffset:X}, " +
-                $"sourceYOffset=0x{fallbackSourceXOffset + sizeof(int):X}, slotStride=0x10.");
-            return new ArcherSourceResolution(fallbackSourceXOffset);
         }
 
         private NativeLookupResolution ResolveLookup(ReadOnlySpan<byte> memory, bool referenceHashMatches)
@@ -547,64 +501,6 @@ namespace RandomEvents
             return true;
         }
 
-        private static bool TryValidateArcherSourceCandidate(
-            ReadOnlySpan<byte> memory,
-            int candidateRva,
-            int signpostIdsOffset,
-            out int sourceXOffset,
-            out string failure)
-        {
-            sourceXOffset = -1;
-            failure = string.Empty;
-            if (candidateRva < 0 || candidateRva > memory.Length - 3 ||
-                memory[candidateRva] != 0x48 || memory[candidateRva + 1] != 0x63 || memory[candidateRva + 2] != 0xC8)
-            {
-                failure = "candidate does not begin with the selected-slot sign extension.";
-                return false;
-            }
-
-            int end = Math.Min(memory.Length - 7, candidateRva + ArcherSourceValidationWindow);
-            List<int> xOffsets = new List<int>();
-            List<int> yOffsets = new List<int>();
-            for (int offset = candidateRva; offset <= end; offset++)
-            {
-                if (memory[offset] != 0x44 || memory[offset + 1] != 0x8B)
-                    continue;
-                if (memory[offset + 2] == 0x87)
-                    xOffsets.Add(NativePatternResolver.ReadInt32(memory, offset + 3));
-                else if (memory[offset + 2] == 0x8E)
-                    yOffsets.Add(NativePatternResolver.ReadInt32(memory, offset + 3));
-            }
-
-            if (xOffsets.Count != 2 || yOffsets.Count != 2 ||
-                xOffsets[0] != xOffsets[1] || yOffsets[0] != yOffsets[1])
-            {
-                failure = $"expected two matching X/Y loads but found X=[{string.Join(",", xOffsets)}], " +
-                    $"Y=[{string.Join(",", yOffsets)}].";
-                return false;
-            }
-            if (yOffsets[0] != xOffsets[0] + sizeof(int))
-            {
-                failure = $"source Y offset 0x{yOffsets[0]:X} does not immediately follow X offset 0x{xOffsets[0]:X}.";
-                return false;
-            }
-            if (xOffsets[0] != signpostIdsOffset + 0x40)
-            {
-                failure = $"source X offset 0x{xOffsets[0]:X} is not signpost slots 0x{signpostIdsOffset:X} + 0x40.";
-                return false;
-            }
-            if (!ContainsBytes(memory, candidateRva, end, new byte[] { 0x48, 0x03, 0xC9 }) ||
-                !ContainsBytes(memory, candidateRva, end, new byte[] { 0x49, 0x8D, 0x34, 0xCE }) ||
-                !ContainsBytes(memory, candidateRva, end, new byte[] { 0x49, 0x8D, 0x3C, 0xCE }))
-            {
-                failure = "selected-slot scaling does not prove the expected 0x10-byte coordinate-record stride.";
-                return false;
-            }
-
-            sourceXOffset = xOffsets[0];
-            return true;
-        }
-
         private static bool ContainsBytes(ReadOnlySpan<byte> memory, int start, int end, byte[] needle)
         {
             for (int offset = start; offset <= end - needle.Length; offset++)
@@ -632,14 +528,5 @@ namespace RandomEvents
             public int SignpostIdsOffset { get; }
         }
 
-        private readonly struct ArcherSourceResolution
-        {
-            public ArcherSourceResolution(int sourceXOffset)
-            {
-                SourceXOffset = sourceXOffset;
-            }
-
-            public int SourceXOffset { get; }
-        }
     }
 }

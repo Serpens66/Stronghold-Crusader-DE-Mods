@@ -1503,14 +1503,14 @@ namespace RandomEvents
                       $"signpostTile=({signpostTarget.TileX},{signpostTarget.TileY}), " +
                       $"distanceReference={signpostTarget.DistanceReference}, " +
                       $"signpostDistance={signpostTarget.Distance:0.00}, " +
-                      $"spawnTile=Vanilla-source({signpostTarget.TileX},{signpostTarget.TileY})"
+                      $"selectedSourceTile=({signpostTarget.TileX},{signpostTarget.TileY})"
                     : "signpost=not-required";
                 string unitDetail = definition.Kind == RandomEventKind.Archers
                     ? $"newUnits={DescribeNewUnits(unitGlobalIdsBefore)}"
                     : "unitCapture=not-requested";
                 LogDebug(
                     $"Vanilla direct event dispatched: event={definition.Name}, textId={definition.TextId}, " +
-                    $"strength={strength}, targetPlayerId={targetPlayerId}, {sourceDetail}, {unitDetail}.");
+                    $"strength={strength}, targetPlayerId={targetPlayerId}, {sourceDetail}, result=dispatched, {unitDetail}.");
             }
             finally
             {

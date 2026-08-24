@@ -20,7 +20,8 @@ Implemented: 2026-08-21
 - Debug logs record filter installation and the exact number of suppressed presentation and action-point calls for every foreign-target action.
 - Version 1.0.19 isolates signpost-based Vanilla events to exactly one temporary native source: the registered signpost nearest to the affected player's keep. Equal-distance candidates use the building ID as a deterministic tie-breaker. This removes Vanilla's opportunity to select different signposts locally while executing the same synchronized archer action.
 - Archer diagnostics snapshot the unit array immediately around `GameAction` and record every new unit's array ID, global ID, owner, type, alive state, spawn tile, and target tile. This distinguishes any remaining native placement divergence from RandomEvents action/state divergence.
-- Multiplayer logs from version 1.0.19 proved that nearest-signpost selection was identical and correct on both peers, but disabling every native attack scenario point made both players' archer groups use the same Vanilla fallback tile. Version 1.0.20 now injects the selected signpost coordinate as the sole valid attack point while the Chore executes and logs both the original and injected four-point arrays.
+- Multiplayer logs from version 1.0.19 proved that nearest-signpost selection was identical and correct on both peers, but disabling every native attack scenario point made both players' archer groups use the same Vanilla fallback tile. Native analysis for version 1.0.25 showed that case `148` instead reads a 32-bit X/Y source record at `SignpostSlots + 0x40` with stride `0x10`. The event scope now exposes the selected signpost as slot zero, injects its tile into that actual source record, verifies both writes, and restores every value after `GameAction`.
+- Archers, bandits, and lions now share deterministic nearest-signpost selection: distance to the keep, living-Lord fallback, and building ID as the equal-distance tie-breaker. Bandits and lions keep their established synchronized spawn paths and log both selected and actual spawn tiles.
 
 ## Verification
 
@@ -39,7 +40,8 @@ Implemented: 2026-08-21
 7. Force a missing first ACK or duplicate initialization.
 8. Trigger events for both humans in `SharedEvents`; each player must see exactly one notification and only their own minimap action point.
 9. Trigger different events at different due months in `IndividualRolls`; only each event's target may see its notification and minimap action point.
-10. Trigger `Archers` for both humans in `SharedEvents` and for separate targets in `IndividualRolls`. Host and client must report the same isolated signpost and injected attack points for each action; newly created units must spawn at or immediately beside that target's selected signpost, the two target players must use different sources when different signposts are nearest, and no resync may occur.
+10. Trigger `Archers` for both humans in `SharedEvents` and for separate targets in `IndividualRolls`. Host and client must report the same isolated signpost and injected source coordinates for each action; newly created units must spawn at or immediately beside that target's selected signpost, the two target players must use different sources when different signposts are nearest, and no resync may occur.
+11. Trigger `Bandits` and `Lions` for both humans and compare target player, anchor, selected signpost, distance, actual spawn tile, result, and Chore operation ID on host and client.
 
 Success requires normally one initialization operation ID, byte-identical retries, matching configuration/state digests, all living human players acknowledged, no RandomEvents decode failures, and exactly one execution of each batch per peer. The known Script Extender length-zero warning is benign only when the corresponding valid Chore subsequently decodes and executes exactly once.
 

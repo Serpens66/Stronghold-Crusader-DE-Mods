@@ -26,8 +26,8 @@ namespace RandomEvents
         internal const int SourceRecordStride = 0x10;
         private const int ValidationWindow = 0x80;
         internal const string Pattern =
-            "48 63 C8 48 8D 1D ?? ?? ?? ?? 8B 05 ?? ?? ?? ?? 48 03 C9 48 89 44 24 30 BA 03 00 00 00 " +
-            "8B 05 ?? ?? ?? ?? C7 44 24 28 16 00 00 00 49 8D 34 CE 44 89 44 24 20 " +
+            "48 63 C8 48 8D 1D ?? ?? ?? ?? 8B 05 ?? ?? ?? ?? 48 03 C9 89 44 24 30 BA 03 00 00 00 " +
+            "8B 05 ?? ?? ?? ?? C7 44 24 28 16 00 00 00 49 8D 34 CE 89 44 24 20 " +
             "44 8B 8E ?? ?? ?? ?? 49 8D 3C CE 44 8B 87 ?? ?? ?? ??";
 
         public static ArcherSourceNativeResolution Resolve(
