@@ -107,6 +107,9 @@
     <Compile Include="..\..\ExtraFeatures\src\LordHealthMultiplierPolicy.cs">
       <Link>LordHealthMultiplierPolicy.cs</Link>
     </Compile>
+    <Compile Include="..\..\ExtraFeatures\src\QuarryPileTargetSelectionPolicy.cs">
+      <Link>QuarryPileTargetSelectionPolicy.cs</Link>
+    </Compile>
     <Compile Include="..\..\ExtraFeatures\src\TemporaryGateBlockagePolicy.cs">
       <Link>TemporaryGateBlockagePolicy.cs</Link>
     </Compile>

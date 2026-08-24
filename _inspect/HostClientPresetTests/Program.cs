@@ -38,6 +38,7 @@ internal static class Program
             TestMarketGoodPriceDefinition();
             TestAIMarketVanillaPricePolicy();
             TestLordHealthMultiplierPolicy();
+            TestQuarryPileTargetSelectionPolicy();
             TestTemporaryGateBlockagePolicy();
             TestGatehouseAutomationSaveState();
             TestPlagueFlagDiseaseRegistry();
@@ -1551,6 +1552,54 @@ internal static class Program
             "Lord health overflow was not clamped");
         Check(LordHealthMultiplierPolicy.CalculateCurrent(0, 1000, 2000) == 1,
             "an active Lord was allowed to reach zero health during scaling");
+    }
+
+    private static void TestQuarryPileTargetSelectionPolicy()
+    {
+        var candidates = new List<QuarryPileTargetCandidate>
+        {
+            new QuarryPileTargetCandidate(20, 20, 1, 0, true),
+            new QuarryPileTargetCandidate(12, 10, 1, 4, false),
+            new QuarryPileTargetCandidate(10, 10, 1, 5, false)
+        };
+        Check(QuarryPileTargetSelectionPolicy.TrySelectNearest(candidates, 20, 20, out QuarryPileTargetCandidate nearest) &&
+              nearest.X == 10 && nearest.Y == 10 && !nearest.IsCurrentPosition,
+            "AI quarry-pile selection did not choose the valid candidate nearest to the Keep center");
+
+        // A blocked closer position is absent because the runtime supplies only validated candidates.
+        candidates = new List<QuarryPileTargetCandidate>
+        {
+            new QuarryPileTargetCandidate(20, 20, 1, 0, true),
+            new QuarryPileTargetCandidate(12, 10, 1, 4, false)
+        };
+        Check(QuarryPileTargetSelectionPolicy.TrySelectNearest(candidates, 20, 20, out nearest) &&
+              nearest.X == 12 && nearest.Y == 10,
+            "AI quarry-pile selection did not ignore a blocked nearer candidate");
+
+        candidates = new List<QuarryPileTargetCandidate>
+        {
+            new QuarryPileTargetCandidate(9, 10, 2, 0, false),
+            new QuarryPileTargetCandidate(11, 10, 1, 23, false),
+            new QuarryPileTargetCandidate(10, 9, 1, 2, false)
+        };
+        Check(QuarryPileTargetSelectionPolicy.TrySelectNearest(candidates, 20, 20, out nearest) &&
+              nearest.X == 10 && nearest.Y == 9,
+            "AI quarry-pile equal-distance tie did not use Vanilla try and candidate order");
+
+        candidates = new List<QuarryPileTargetCandidate>
+        {
+            new QuarryPileTargetCandidate(10, 10, 1, 3, true),
+            new QuarryPileTargetCandidate(15, 15, 1, 4, false)
+        };
+        Check(QuarryPileTargetSelectionPolicy.TrySelectNearest(candidates, 20, 20, out nearest) &&
+              nearest.IsCurrentPosition,
+            "AI quarry-pile selection replaced an already optimal current position");
+        Check(!QuarryPileTargetSelectionPolicy.TrySelectNearest(
+                Array.Empty<QuarryPileTargetCandidate>(),
+                20,
+                20,
+                out _),
+            "AI quarry-pile selection accepted an empty valid-candidate set");
     }
 
     private static void TestGameSpeedRepeatScheduler()

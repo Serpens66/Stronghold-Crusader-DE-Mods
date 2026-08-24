@@ -146,6 +146,8 @@ public static class SerpLocalization
     public const string KnightMountTooltipBody = "SomeSettings.KnightMountTooltipBody";
     public const string EnableQuarryPileRelocation = "SomeSettings.EnableQuarryPileRelocation";
     public const string EnableQuarryPileRelocationHelp = "SomeSettings.EnableQuarryPileRelocationHelp";
+    public const string EnableAIQuarryPileTowardsKeep = "SomeSettings.EnableAIQuarryPileTowardsKeep";
+    public const string EnableAIQuarryPileTowardsKeepHelp = "SomeSettings.EnableAIQuarryPileTowardsKeepHelp";
     public const string EnableExtraChurchPriests = "SomeSettings.EnableExtraChurchPriests";
     public const string EnableExtraChurchPriestsHelp = "SomeSettings.EnableExtraChurchPriestsHelp";
     public const string PlagueDurationMultiplier = "SomeSettings.PlagueDurationMultiplier";
@@ -466,6 +468,8 @@ public static class SerpLocalization
         { KnightMountTooltipBody, "Turns selected swordsmen into mounted knights. Requires available horses in a stable." },
         { EnableQuarryPileRelocation, "Enable quarry pile rotation button" },
         { EnableQuarryPileRelocationHelp, "Adds a button to selected quarries that rotates their linked stone pile clockwise to the next valid position. The existing pile is kept if no valid replacement can be created. Multiplayer actions use Script Extender's tick-aligned Chore transport." },
+        { EnableAIQuarryPileTowardsKeep, "Place AI quarry piles towards their Keep" },
+        { EnableAIQuarryPileTowardsKeepHelp, "Moves each newly built AI quarry's linked stone pile to the valid Vanilla position nearest to that AI player's Keep. Existing quarries are not changed. Multiplayer actions use Script Extender's tick-aligned Chore transport." },
         { EnableExtraChurchPriests, "Enable extra priests for churches" },
         { EnableExtraChurchPriestsHelp, "When enabled, churches receive two priests and cathedrals receive three priests." },
         { PlagueDurationMultiplier, "Plague cloud duration" },

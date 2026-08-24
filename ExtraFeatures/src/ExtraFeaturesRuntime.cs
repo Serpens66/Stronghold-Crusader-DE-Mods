@@ -391,7 +391,8 @@ namespace ExtraFeatures
 
             if (!fixedLayoutHashValidated)
             {
-                if (settings.EnableQuarryPileRelocation && !quarryFixedLayoutErrorLogged)
+                if ((settings.EnableQuarryPileRelocation || settings.EnableAIQuarryPileTowardsKeep) &&
+                    !quarryFixedLayoutErrorLogged)
                 {
                     quarryFixedLayoutErrorLogged = true;
                     Shared.DebugLogHelper.LogError(log, "Extra Features quarry-pile relocation remains inactive because its fixed native layout is not validated for this CrusaderDE.dll.");
@@ -399,7 +400,7 @@ namespace ExtraFeatures
                 return;
             }
 
-            if (settings.EnableQuarryPileRelocation)
+            if (settings.EnableQuarryPileRelocation || settings.EnableAIQuarryPileTowardsKeep)
                 TryRunFeature("quarry-pile relocation", quarryPileRelocationRuntime.Initialize);
             else
                 TryRunFeature("quarry-pile relocation cleanup", quarryPileRelocationRuntime.Dispose);
@@ -446,7 +447,8 @@ namespace ExtraFeatures
                 TryRunFeature("knight mount/dismount visibility", knightDismountRuntime.RefreshButtonVisibility);
                 return;
             }
-            if (propertyName == nameof(ExtraFeaturesViewModel.EnableQuarryPileRelocation))
+            if (propertyName == nameof(ExtraFeaturesViewModel.EnableQuarryPileRelocation) ||
+                propertyName == nameof(ExtraFeaturesViewModel.EnableAIQuarryPileTowardsKeep))
             {
                 ReconcileFixedLayoutFeatures();
                 TryRunFeature("quarry-pile relocation", quarryPileRelocationRuntime.ApplySetting);

@@ -35,6 +35,9 @@ Every owned gatehouse receives a button that switches it between normal automati
 ### Move a quarry's stone pile
 Selected quarries receive a button that moves their linked stone pile clockwise to the next valid position. If no replacement can be placed safely, the existing pile remains untouched.
 
+### Point AI quarry piles towards their Keep
+New AI quarries automatically move their linked stone pile to the valid Vanilla position nearest to that AI player's Keep. The host can disable this behavior independently from the player-controlled quarry button.
+
 ### Add more priests to religious buildings
 Churches employ two priests and cathedrals employ three instead of one. The change applies to both newly built and existing buildings.
 
