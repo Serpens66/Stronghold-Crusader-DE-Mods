@@ -54,9 +54,8 @@ namespace ExtraFeatures
         private double humanGateClosingDistanceTiles = GatehouseTimingPatch.VanillaHumanDistanceTiles;
         private double aiGateClosingDistanceTiles = GatehouseTimingPatch.VanillaAiDistanceTiles;
         private bool requireReachableEnemyForAutomaticGateClosing = true;
-        // TEMPORARY RELEASE QUARANTINE (DLL-update release): Vanilla defaults while hidden.
-        private int aiRepairEnemyProximity = -1;
-        private int aiTowerGateRebuildDelaySeconds = -1;
+        private int aiRepairEnemyProximity = 30;
+        private int aiTowerGateRebuildDelaySeconds = 60;
         private bool marketGoodPriceVisualsResolved;
 
         protected override string ResolveSettingsUiText(string key, string fallback) =>
@@ -236,17 +235,15 @@ namespace ExtraFeatures
         [SyncHostOnly]
         public int AIRepairEnemyProximity
         {
-            get => AIDefenseRepairRuntime.ReleaseQuarantineEnabled ? -1 : aiRepairEnemyProximity;
-            set => SetIntSetting(ref aiRepairEnemyProximity,
-                AIDefenseRepairRuntime.ReleaseQuarantineEnabled ? -1 : value,
+            get => aiRepairEnemyProximity;
+            set => SetIntSetting(ref aiRepairEnemyProximity, value,
                 -1, 100, nameof(AIRepairEnemyProximity), nameof(AIRepairEnemyProximityValueText));
         }
         [SyncHostOnly]
         public int AITowerGateRebuildDelaySeconds
         {
-            get => AIDefenseRepairRuntime.ReleaseQuarantineEnabled ? -1 : aiTowerGateRebuildDelaySeconds;
-            set => SetIntSetting(ref aiTowerGateRebuildDelaySeconds,
-                AIDefenseRepairRuntime.ReleaseQuarantineEnabled ? -1 : value,
+            get => aiTowerGateRebuildDelaySeconds;
+            set => SetIntSetting(ref aiTowerGateRebuildDelaySeconds, value,
                 -1, 300, nameof(AITowerGateRebuildDelaySeconds), nameof(AITowerGateRebuildDelayValueText));
         }
 
@@ -316,9 +313,8 @@ namespace ExtraFeatures
                 HumanGateClosingDistanceTiles = GatehouseTimingPatch.VanillaHumanDistanceTiles;
                 AIGateClosingDistanceTiles = GatehouseTimingPatch.VanillaAiDistanceTiles;
                 RequireReachableEnemyForAutomaticGateClosing = true;
-                // TEMPORARY RELEASE QUARANTINE (DLL-update release): restore 30/60 afterwards.
-                AIRepairEnemyProximity = -1;
-                AITowerGateRebuildDelaySeconds = -1;
+                AIRepairEnemyProximity = 30;
+                AITowerGateRebuildDelaySeconds = 60;
             }
         }
 

@@ -206,15 +206,15 @@ query is blocked. Without a registered consumer, the standalone fix retains
 its prior behavior. Guard errors fail closed for the optional ruin mutation and
 remain isolated by the existing validator callback boundary.
 
-## TEMPORARY RELEASE QUARANTINE (DLL-update release)
+## Release-quarantine rollback
 
-BugfixesAndQoL `1.0.79` does not construct `AITowerRuinRepairFix` and therefore
-installs no placement-validator hook or feature diagnostics for this unfinished
-release. The hidden checkbox defaults/resets to `false`; persisted `true`
-values are additionally neutralized by the runtime quarantine. After the
-release, set `ReleaseQuarantineEnabled` back to `false`, restore the default to
-`true`, remove `Visibility="Collapsed"`, and resume the coupled ExtraFeatures
-tests before re-enabling it publicly.
+The temporary `1.0.79` DLL-update release quarantine has been removed. The
+checkbox is visible again and defaults/resets to enabled. If the mod, the AI-fix
+group or this checkbox is disabled, `AITowerRuinRepairFix` is not constructed
+and installs no validator observer/detour or feature diagnostics. Enabling it
+later retries initialization against the retained canonical DLL mapping. If it
+is disabled after installation, the process-lifetime callback leaves Vanilla's
+result untouched and performs no inspection, deletion or logging.
 
 The first-build AIV signature stayed at `0x53F0B`, but its absolute map-row
 operand moved from `0x402EF2C` to `0x402FF2C`; that relocation is now wildcarded

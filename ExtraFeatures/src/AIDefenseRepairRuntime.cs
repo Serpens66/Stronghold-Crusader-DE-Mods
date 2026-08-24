@@ -20,11 +20,6 @@ namespace ExtraFeatures
 {
     internal sealed unsafe class AIDefenseRepairRuntime : IDisposable
     {
-        // TEMPORARY RELEASE QUARANTINE (DLL-update release): keep this true while the AI
-        // defense feature is unfinished. After the release, set it back to false and unhide the
-        // matching ExtraFeatures/BugfixesAndQoL controls marked with the same phrase.
-        internal static readonly bool ReleaseQuarantineEnabled = true;
-
         // Dispatcher 0x539B0 uses 0x52270 only for AIV entries whose +0x14 field is zero;
         // otherwise it iterates the finished-castle frames through 0x51790. The 2026-08-24
         // finished-castle trace consequently reached 0x51790 repeatedly and never 0x52270.
@@ -94,6 +89,12 @@ namespace ExtraFeatures
         private bool mapPrepared;
         private bool disposed;
 
+        // Both -1 values are a true Vanilla mode: no subscriptions/detours are installed when
+        // starting in that state, and already installed callbacks immediately pass through.
+        private bool IsConfigured =>
+            settings.EnableMod &&
+            (settings.AIRepairEnemyProximity >= 0 || settings.AITowerGateRebuildDelaySeconds >= 0);
+
         public AIDefenseRepairRuntime(ManualLogSource log, ExtraFeaturesViewModel settings)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
@@ -106,11 +107,8 @@ namespace ExtraFeatures
         {
             if (initialized)
                 return;
-            if (ReleaseQuarantineEnabled)
-            {
-                initialized = true;
+            if (!IsConfigured)
                 return;
-            }
 
             subscriptions.Add(BuildingR3EventHooks.OnBuildingAllowRepairInProximity.Observable.Subscribe(OnRepairProximity));
             subscriptions.Add(BuildingR3EventHooks.OnBuildingRepair.Observable.Subscribe(OnBuildingRepair));
@@ -122,15 +120,25 @@ namespace ExtraFeatures
             LogInfo("AI defense repair-radius, per-frame rebuild delay and native AIV branch diagnostics initialized.");
         }
 
+        public void ReconcileConfiguration()
+        {
+            if (!IsConfigured)
+            {
+                // Discard diagnostic/timer state when returning to Vanilla. Installed native
+                // detours remain process-lifetime pass-throughs and cannot retain an old delay.
+                ResetDiagnostics();
+                return;
+            }
+
+            Initialize();
+        }
+
         public void InitializeNative(IntPtr libraryHandle, ReadOnlySpan<byte> memory, bool referenceHashMatches)
         {
             if (nativeInitialized)
                 return;
-            if (ReleaseQuarantineEnabled)
-            {
-                nativeInitialized = true;
+            if (!IsConfigured)
                 return;
-            }
 
             // The placement helper's process-state origin fields are fixed-layout data, not
             // proven by either function signature. Keep only this optional diagnostic inactive
@@ -201,6 +209,9 @@ namespace ExtraFeatures
 
         private void OnStartMap(MapStartEventArgs args)
         {
+            if (!IsConfigured)
+                return;
+
             if (args.Phase == EventHookPhase.Pre)
             {
                 mapActive = false;
@@ -254,7 +265,7 @@ namespace ExtraFeatures
 
         private void OnRepairProximity(BuildingAllowRepairInProximityEventArgs args)
         {
-            if (!mapActive || !settings.EnableMod)
+            if (!IsConfigured || !mapActive)
                 return;
 
             try
@@ -333,7 +344,7 @@ namespace ExtraFeatures
         {
             // Post proves that the Script Extender actually called Vanilla. Logging Pre here
             // would mislabel a repair that a later subscriber suppresses via SkipOriginalFunction.
-            if (args.Phase != EventHookPhase.Post || !mapActive || args.BuildingId <= 0)
+            if (!IsConfigured || args.Phase != EventHookPhase.Post || !mapActive || args.BuildingId <= 0)
                 return;
 
             try
@@ -363,7 +374,7 @@ namespace ExtraFeatures
 
         private int ObserveMaintenance(ulong aivStateAddress, int playerId, int mode)
         {
-            if (!mapActive)
+            if (!IsConfigured || !mapActive)
                 return maintenanceHook.Value.Hook.Trampoline(aivStateAddress, playerId, mode);
 
             bool isAi;
@@ -437,7 +448,7 @@ namespace ExtraFeatures
             int restrictedMode,
             byte freeOrForced)
         {
-            if (!mapActive)
+            if (!IsConfigured || !mapActive)
             {
                 return executeBuildStepHook.Value.Hook.Trampoline(
                     aivStateAddress, playerId, frameIndex, restrictedMode, freeOrForced);
@@ -591,6 +602,9 @@ namespace ExtraFeatures
             ulong placementStateAddress, int playerId, int offsetX, int offsetY,
             short mapperValue, int orientation)
         {
+            if (!IsConfigured)
+                return CallPlacement(placementStateAddress, playerId, offsetX, offsetY, mapperValue, orientation);
+
             BuildStepContext context = activeContext;
             if (context == null || context.PlayerId != playerId || !IsDefenseMapper(mapperValue))
                 return CallPlacement(placementStateAddress, playerId, offsetX, offsetY, mapperValue, orientation);
@@ -649,7 +663,7 @@ namespace ExtraFeatures
 
         private void OnBuildingSpawn(BuildingSpawnEventArgs args)
         {
-            if (args.Phase != EventHookPhase.Post || !IsDefenseType(args.Building))
+            if (!IsConfigured || args.Phase != EventHookPhase.Post || !IsDefenseType(args.Building))
                 return;
 
             try

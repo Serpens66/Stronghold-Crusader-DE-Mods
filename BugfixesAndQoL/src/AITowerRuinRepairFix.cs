@@ -14,10 +14,6 @@ namespace BugfixesAndQoL
 {
     internal sealed unsafe class AITowerRuinRepairFix : IDisposable
     {
-        // TEMPORARY RELEASE QUARANTINE (DLL-update release): keep this true until the coupled AI
-        // defense rebuild feature is resumed after the release, then set false and unhide its UI.
-        internal static readonly bool ReleaseQuarantineEnabled = true;
-
         // Resolve through an interior sequence because ActiveAIVDetector may already have
         // detoured the function prologue by the time this optional fix is initialized.
         private const string BuildingPlacementValidatorInteriorPattern =
@@ -143,11 +139,14 @@ namespace BugfixesAndQoL
             int mode,
             int result)
         {
+            if (!IsEnabled)
+                return;
+
             try
             {
                 // Player zero is used by candidate-fit probes; requiring a real AI slot limits
                 // diagnostics and deletion to live AI tower-placement attempts.
-                if (IsEnabled && IsLiveTowerMapper(mapperValue) &&
+                if (IsLiveTowerMapper(mapperValue) &&
                     playerId >= 1 && playerId <= 8 &&
                     GamePlayerManagerAPI.Instance.IsAIPlayer(playerId))
                 {
@@ -285,7 +284,6 @@ namespace BugfixesAndQoL
         }
 
         private bool IsEnabled =>
-            !ReleaseQuarantineEnabled &&
             settings.EnableMod && settings.EnableAiFixes && settings.FixAITowerRepair;
 
         private static bool IsLiveTowerMapper(int mapperValue)

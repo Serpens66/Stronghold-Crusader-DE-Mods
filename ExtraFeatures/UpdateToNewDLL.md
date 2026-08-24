@@ -285,12 +285,13 @@ does not prove whether the visually observed wall work was an in-place repair
 or replacement through another native path; no new damaged-building behavior
 is inferred from that absence.
 
-## TEMPORARY RELEASE QUARANTINE (DLL-update release)
+## Release-quarantine rollback
 
-ExtraFeatures `1.0.49` ships the unfinished AI defense work runtime-disabled
-and UI-hidden for the DLL-update release. `AIDefenseRepairRuntime` returns
-before event subscription and before all three native detours, so persisted
-non-Vanilla preset values cannot activate behavior or diagnostics. Both hidden
-settings default/reset to `-1`. After the release, set
-`ReleaseQuarantineEnabled` back to `false`, restore defaults `30`/`60`, remove
-the collapsed XAML wrapper, and re-run the unfinished feature's live tests.
+The temporary `1.0.49` DLL-update release quarantine has been removed. The AI
+defense settings are visible again and default/reset to radius `30` and delay
+`60`. Both values at `-1` form a true Vanilla mode: the runtime installs no new
+event subscriptions or native detours when starting in that configuration. If
+hooks were installed before a live switch to Vanilla, every callback directly
+passes through without tracking, mutation or feature diagnostics, and retained
+timer/diagnostic state is discarded. A later lobby-side activation retries both
+managed and native initialization against the retained canonical DLL mapping.

@@ -19,8 +19,7 @@ namespace BugfixesAndQoL
         private bool rememberAiAivSettings = true;
         private bool enableCustomLordListEnhancements = true;
         private bool enableAiFixes = true;
-        // TEMPORARY RELEASE QUARANTINE (DLL-update release): Vanilla default while hidden.
-        private bool fixAITowerRepair = false;
+        private bool fixAITowerRepair = true;
         private bool enableTroopMovementFix = true;
         private bool enablePlaguePopularityFix = true;
         private bool enablePlagueCloudRemovalFix = true;
@@ -331,11 +330,8 @@ namespace BugfixesAndQoL
         [SyncHostOnly]
         public bool FixAITowerRepair
         {
-            get => AITowerRuinRepairFix.ReleaseQuarantineEnabled ? false : fixAITowerRepair;
-            set => SetSetting(
-                ref fixAITowerRepair,
-                AITowerRuinRepairFix.ReleaseQuarantineEnabled ? false : value,
-                nameof(FixAITowerRepair));
+            get => fixAITowerRepair;
+            set => SetSetting(ref fixAITowerRepair, value, nameof(FixAITowerRepair));
         }
 
         [SyncHostOnly]
@@ -456,8 +452,7 @@ namespace BugfixesAndQoL
             {
                 EnableMod = true;
                 EnableAiFixes = true;
-                // TEMPORARY RELEASE QUARANTINE (DLL-update release): restore true afterwards.
-                FixAITowerRepair = false;
+                FixAITowerRepair = true;
                 RememberAiAivSettings = true;
                 EnableCustomLordListEnhancements = true;
                 EnableTroopMovementFix = true;

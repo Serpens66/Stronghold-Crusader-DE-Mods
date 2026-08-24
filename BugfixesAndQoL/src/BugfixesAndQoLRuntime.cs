@@ -189,6 +189,7 @@ namespace BugfixesAndQoL
 
         public void ApplySettings()
         {
+            TryInitializeFeature("AI tower-ruin repair fix", EnsureAiTowerRuinRepairFix);
             TryInitializeFeature("surrender", InitializeSurrenderFeature);
             TryInitializeFeature("selected-unit health display", InitializeSelectedUnitHealthFeature);
             TryApplyFeature("selected-unit health display", () => selectedUnitHealthFeature?.RefreshSetting());
@@ -623,13 +624,10 @@ namespace BugfixesAndQoL
         {
             if (!nativeLibraryAvailable || aiTowerRuinRepairFix != null || aiTowerRuinRepairFixUnavailable)
                 return;
-            if (AITowerRuinRepairFix.ReleaseQuarantineEnabled)
-            {
-                // TEMPORARY RELEASE QUARANTINE (DLL-update release): do not install its native
-                // validator hook or emit feature diagnostics, regardless of persisted settings.
-                aiTowerRuinRepairFixUnavailable = true;
+            // Avoid even installing/logging the optional validator hook in Vanilla mode. If the
+            // setting is enabled later, ApplySettings retries this method with the retained DLL.
+            if (!settings.EnableMod || !settings.EnableAiFixes || !settings.FixAITowerRepair)
                 return;
-            }
 
             try
             {

@@ -224,11 +224,9 @@
         <TextBlock Text="{Binding EnableAiFixesText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox>
       <CheckBox IsChecked="{Binding FixAITowerRepair, Mode=TwoWay}"
-                Visibility="Collapsed"
                 Foreground="White"
                 ToolTipService.ShowDuration="60000" ToolTip="{Binding FixAITowerRepairHelpText}"
                 Margin="18,0,14,8">
-        <!-- TEMPORARY RELEASE QUARANTINE (DLL-update release): remove Visibility=Collapsed after the release. -->
         <TextBlock Text="{Binding FixAITowerRepairText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox>
       <CheckBox IsChecked="{Binding RememberAiAivSettings, Mode=TwoWay}"

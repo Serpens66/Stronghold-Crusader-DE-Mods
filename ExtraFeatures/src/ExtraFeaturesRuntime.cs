@@ -164,6 +164,7 @@ namespace ExtraFeatures
 
         public void ApplySettings()
         {
+            TryRunFeature("AI defense repair configuration", ReconcileAIDefenseRepairRuntime);
             if (!settings.EnableMod)
             {
                 TryRunFeature("gatehouse automation", gatehouseAutomationRuntime.ApplySettings);
@@ -402,6 +403,18 @@ namespace ExtraFeatures
                 TryRunFeature("quarry-pile relocation", quarryPileRelocationRuntime.Initialize);
             else
                 TryRunFeature("quarry-pile relocation cleanup", quarryPileRelocationRuntime.Dispose);
+        }
+
+        private void ReconcileAIDefenseRepairRuntime()
+        {
+            aiDefenseRepairRuntime.ReconcileConfiguration();
+            if (nativeLibraryAvailable)
+            {
+                aiDefenseRepairRuntime.InitializeNative(
+                    libraryHandle,
+                    GetNativeLibraryMemory(),
+                    fixedLayoutHashValidated);
+            }
         }
 
         private void OnSettingChanged(string propertyName)
