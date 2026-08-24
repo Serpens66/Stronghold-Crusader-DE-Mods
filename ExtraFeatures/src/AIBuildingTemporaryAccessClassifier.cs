@@ -16,7 +16,6 @@ namespace ExtraFeatures
         internal AIBuildingAccessDiagnostic(
             GateBlockageEvaluationKind kind,
             int tick,
-            string topologyKey,
             bool hasDirectPclPath,
             bool hasPathWithFriendlyGates,
             bool? nativePlayerAwareReachable,
@@ -24,7 +23,6 @@ namespace ExtraFeatures
         {
             Kind = kind;
             Tick = tick;
-            TopologyKey = topologyKey ?? string.Empty;
             HasDirectPclPath = hasDirectPclPath;
             HasPathWithFriendlyGates = hasPathWithFriendlyGates;
             NativePlayerAwareReachable = nativePlayerAwareReachable;
@@ -33,7 +31,6 @@ namespace ExtraFeatures
 
         internal GateBlockageEvaluationKind Kind { get; }
         internal int Tick { get; }
-        internal string TopologyKey { get; }
         internal bool HasDirectPclPath { get; }
         internal bool HasPathWithFriendlyGates { get; }
         internal bool? NativePlayerAwareReachable { get; }
@@ -45,7 +42,6 @@ namespace ExtraFeatures
             new AIBuildingAccessDiagnostic(
                 GateBlockageEvaluationKind.UnreachableEvenWithFriendlyGates,
                 tick,
-                string.Empty,
                 hasDirectPclPath: false,
                 hasPathWithFriendlyGates: false,
                 nativePlayerAwareReachable: null,
@@ -55,7 +51,6 @@ namespace ExtraFeatures
     internal sealed unsafe class AIBuildingTemporaryAccessClassifier
     {
         private readonly ManualLogSource log;
-        private readonly bool supportedDll;
         private readonly Dictionary<int, KeepSnapshot> keepCache = new Dictionary<int, KeepSnapshot>();
         private readonly Dictionary<int, GateTopologySnapshot> gateTopologyCache =
             new Dictionary<int, GateTopologySnapshot>();
@@ -66,10 +61,9 @@ namespace ExtraFeatures
         private int cacheTick = int.MinValue;
         private bool failureLogged;
 
-        internal AIBuildingTemporaryAccessClassifier(ManualLogSource log, bool supportedDll)
+        internal AIBuildingTemporaryAccessClassifier(ManualLogSource log)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
-            this.supportedDll = supportedDll;
         }
 
         internal bool TryClassify(int buildingId, out AIBuildingAccessDiagnostic diagnostic)
@@ -80,11 +74,6 @@ namespace ExtraFeatures
                 return false;
             }
             diagnostic = AIBuildingAccessDiagnostic.Unavailable(tick, "classification-not-started");
-            if (!supportedDll)
-            {
-                diagnostic = AIBuildingAccessDiagnostic.Unavailable(tick, "unsupported-dll");
-                return false;
-            }
 
             try
             {
@@ -118,8 +107,7 @@ namespace ExtraFeatures
                     keep.GlobalId,
                     playerId,
                     buildingPclKey,
-                    keep.PclKey,
-                    topology.ExactKey);
+                    keep.PclKey);
                 if (classificationCache.TryGetValue(key, out diagnostic))
                     return true;
 
@@ -130,12 +118,10 @@ namespace ExtraFeatures
                     (source, destination) => IsNativePlayerAwareReachable(
                         playerId,
                         source,
-                        destination,
-                        topology.ExactKey));
+                        destination));
                 diagnostic = new AIBuildingAccessDiagnostic(
                     evaluation.Kind,
                     tick,
-                    topology.ExactKey,
                     evaluation.HasDirectPclPath,
                     evaluation.HasPathWithFriendlyGates,
                     evaluation.NativePlayerAwareReachable,
@@ -358,8 +344,7 @@ namespace ExtraFeatures
             gates.Sort(CompareGates);
             snapshot = new GateTopologySnapshot(
                 gates,
-                skippedNoOpGates,
-                TemporaryGateBlockagePolicy.BuildExactTopologyKey(gates, skippedNoOpGates));
+                skippedNoOpGates);
             gateTopologyCache.Add(playerId, snapshot);
             failure = string.Empty;
             return true;
@@ -424,13 +409,12 @@ namespace ExtraFeatures
         private bool IsNativePlayerAwareReachable(
             int playerId,
             int sourcePcl,
-            int destinationPcl,
-            string topologyKey)
+            int destinationPcl)
         {
             if (sourcePcl == destinationPcl)
                 return true;
 
-            ReachabilityKey key = new ReachabilityKey(playerId, sourcePcl, destinationPcl, topologyKey);
+            ReachabilityKey key = new ReachabilityKey(playerId, sourcePcl, destinationPcl);
             if (reachabilityCache.TryGetValue(key, out bool reachable))
                 return reachable;
 
@@ -479,43 +463,37 @@ namespace ExtraFeatures
 
         private sealed class GateTopologySnapshot
         {
-            internal GateTopologySnapshot(List<PclGateConnection> gates, int skippedNoOpGates, string exactKey)
+            internal GateTopologySnapshot(List<PclGateConnection> gates, int skippedNoOpGates)
             {
                 Gates = gates;
                 SkippedNoOpGates = skippedNoOpGates;
-                ExactKey = exactKey;
             }
 
             internal List<PclGateConnection> Gates { get; }
             internal int SkippedNoOpGates { get; }
-            internal string ExactKey { get; }
         }
 
         private readonly struct ReachabilityKey : IEquatable<ReachabilityKey>
         {
-            internal ReachabilityKey(int playerId, int sourcePcl, int destinationPcl, string topologyKey)
+            internal ReachabilityKey(int playerId, int sourcePcl, int destinationPcl)
             {
                 PlayerId = playerId;
                 SourcePcl = sourcePcl;
                 DestinationPcl = destinationPcl;
-                TopologyKey = topologyKey ?? string.Empty;
             }
 
             private int PlayerId { get; }
             private int SourcePcl { get; }
             private int DestinationPcl { get; }
-            private string TopologyKey { get; }
             public bool Equals(ReachabilityKey other) =>
                 PlayerId == other.PlayerId && SourcePcl == other.SourcePcl &&
-                DestinationPcl == other.DestinationPcl &&
-                string.Equals(TopologyKey, other.TopologyKey, StringComparison.Ordinal);
+                DestinationPcl == other.DestinationPcl;
             public override bool Equals(object obj) => obj is ReachabilityKey other && Equals(other);
             public override int GetHashCode()
             {
                 unchecked
                 {
-                    int hash = ((PlayerId * 397) ^ SourcePcl) * 397 ^ DestinationPcl;
-                    return hash * 397 ^ StringComparer.Ordinal.GetHashCode(TopologyKey);
+                    return ((PlayerId * 397) ^ SourcePcl) * 397 ^ DestinationPcl;
                 }
             }
         }
@@ -528,8 +506,7 @@ namespace ExtraFeatures
                 uint keepGlobalId,
                 int playerId,
                 string buildingPclKey,
-                string keepPclKey,
-                string topologyKey)
+                string keepPclKey)
             {
                 BuildingId = buildingId;
                 BuildingGlobalId = buildingGlobalId;
@@ -537,7 +514,6 @@ namespace ExtraFeatures
                 PlayerId = playerId;
                 BuildingPclKey = buildingPclKey ?? string.Empty;
                 KeepPclKey = keepPclKey ?? string.Empty;
-                TopologyKey = topologyKey ?? string.Empty;
             }
 
             private int BuildingId { get; }
@@ -546,13 +522,11 @@ namespace ExtraFeatures
             private int PlayerId { get; }
             private string BuildingPclKey { get; }
             private string KeepPclKey { get; }
-            private string TopologyKey { get; }
             public bool Equals(ClassificationKey other) =>
                 BuildingId == other.BuildingId && BuildingGlobalId == other.BuildingGlobalId &&
                 KeepGlobalId == other.KeepGlobalId && PlayerId == other.PlayerId &&
                 string.Equals(BuildingPclKey, other.BuildingPclKey, StringComparison.Ordinal) &&
-                string.Equals(KeepPclKey, other.KeepPclKey, StringComparison.Ordinal) &&
-                string.Equals(TopologyKey, other.TopologyKey, StringComparison.Ordinal);
+                string.Equals(KeepPclKey, other.KeepPclKey, StringComparison.Ordinal);
             public override bool Equals(object obj) => obj is ClassificationKey other && Equals(other);
             public override int GetHashCode()
             {
@@ -563,8 +537,7 @@ namespace ExtraFeatures
                     hash = hash * 397 ^ (int)KeepGlobalId;
                     hash = hash * 397 ^ PlayerId;
                     hash = hash * 397 ^ StringComparer.Ordinal.GetHashCode(BuildingPclKey);
-                    hash = hash * 397 ^ StringComparer.Ordinal.GetHashCode(KeepPclKey);
-                    return hash * 397 ^ StringComparer.Ordinal.GetHashCode(TopologyKey);
+                    return hash * 397 ^ StringComparer.Ordinal.GetHashCode(KeepPclKey);
                 }
             }
         }

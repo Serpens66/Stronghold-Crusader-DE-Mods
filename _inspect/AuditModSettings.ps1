@@ -167,7 +167,7 @@ foreach ($entry in $settings.GetEnumerator()) {
         'Value="#FF1D1710"',
         'MaxWidth="{x:Static shared:ToolTipPresentation.MaximumWidth}"',
         'Value="{x:Static shared:ToolTipPresentation.FontSize}"',
-        'FontSize="{TemplateBinding FontSize}"',
+        'FontSize="{x:Static shared:ToolTipPresentation.FontSize}"',
         'TextWrapping="Wrap"')
     if ($entry.Key -ne 'SerpsModsHost') {
         $requiredMarkers += @(
@@ -244,10 +244,38 @@ $toolTipPresentation = [IO.File]::ReadAllText($toolTipPresentationPath)
 foreach ($required in @(
     'public static class ToolTipPresentation',
     'SE_ToolTip',
-    'public static float FontSize => 25.0f;',
+    'public static float FontSize => 50.0f;',
     'public static float MaximumWidth => 1000.0f;')) {
     if (-not $toolTipPresentation.Contains($required)) {
         throw "Shared fixed tooltip presentation marker is missing: $required"
+    }
+}
+
+# Noesis can reset the outer ToolTip.FontSize when moving between popup owners.
+# The rendered content must therefore consume the shared fixed value directly.
+$sharedToolTipXamlPaths = @($settings.Values)
+if (Test-ModSelected 'BugfixesAndQoL') {
+    $sharedToolTipXamlPaths += @(
+        'BugfixesAndQoL/Patches/Assets/GUI/XAMLResources/FRONT_Multiplayer.xaml',
+        'BugfixesAndQoL/Patches/Assets/GUI/XAMLResources/FRONT_Multiplayer_AISettings.xaml')
+}
+if (Test-ModSelected 'ExtraFeatures') {
+    $sharedToolTipXamlPaths += 'ExtraFeatures/Patches/Assets/GUI/XAMLResources/HUD_Buildings.xaml'
+}
+foreach ($relativePath in @($sharedToolTipXamlPaths | Sort-Object -Unique)) {
+    $xamlText = [IO.File]::ReadAllText((Join-Path $workspace $relativePath))
+    $contentTextBlocks = [Text.RegularExpressions.Regex]::Matches(
+        $xamlText,
+        '<TextBlock\b(?=[^>]*\bText="\{TemplateBinding Content\}")[^>]*>',
+        [Text.RegularExpressions.RegexOptions]::Singleline)
+    if ($contentTextBlocks.Count -eq 0) {
+        throw "Shared tooltip template content TextBlock is missing: $relativePath"
+    }
+    foreach ($contentTextBlock in $contentTextBlocks) {
+        if (-not $contentTextBlock.Value.Contains(
+            'FontSize="{x:Static shared:ToolTipPresentation.FontSize}"')) {
+            throw "Shared tooltip content must bind FontSize directly instead of through the Noesis ToolTip host: $relativePath"
+        }
     }
 }
 if (Test-ModSelected 'CastlePlanner') {

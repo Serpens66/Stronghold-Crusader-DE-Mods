@@ -1,7 +1,6 @@
 // Feature: Pure PCL graph policy for improved AI-building reachability checks.
 using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace ExtraFeatures
 {
@@ -61,24 +60,6 @@ namespace ExtraFeatures
         internal const int VanillaMode = 0;
         internal const int ImprovedReachabilityMode = 1;
         internal const int AlwaysPreventMode = 2;
-
-        internal static string BuildExactTopologyKey(
-            IReadOnlyList<PclGateConnection> sortedGates,
-            int skippedNoOpGates)
-        {
-            IReadOnlyList<PclGateConnection> gates = sortedGates ?? Array.Empty<PclGateConnection>();
-            var builder = new StringBuilder(gates.Count * 40 + 16);
-            builder.Append("noop=").Append(skippedNoOpGates).Append('|');
-            foreach (PclGateConnection gate in gates)
-            {
-                builder.Append(gate.GlobalId).Append(':')
-                    .Append(gate.BuildingId).Append(':')
-                    .Append(gate.OwnerId).Append(':')
-                    .Append(gate.First).Append(':')
-                    .Append(gate.Second).Append('|');
-            }
-            return builder.ToString();
-        }
 
         internal static bool ShouldSuppressDemolition(
             int mode,

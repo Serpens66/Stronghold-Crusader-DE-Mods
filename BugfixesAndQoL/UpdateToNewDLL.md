@@ -187,6 +187,16 @@ unavailable, or RVA validation and the standalone pattern fallback both fail,
 only the AI tower-ruin repair feature logs Error and remains inactive; all other
 fixes and Vanilla placement continue.
 
+The 2026-08-24 finished-castle trace confirmed the complete ruin path on the
+audited hash. `STRUCT_TOWER3_DESTROYED` was observed at tick 75120; at tick
+77622 the validator returned `2`, the exact same-owner ruin was marked through
+`DeleteBuildingSafe`, the remaining footprint saw `MarkedForDeletion`, and a
+second Vanilla validation returned `0` before the replacement tower spawned in
+the same tick. Validator diagnostics therefore log only the first allowed
+callback per player/mapper and one representative blocked category per
+five-second diagnostic window. Expected per-tile `MarkedForDeletion` follow-ups are suppressed; the
+successful ruin mark itself remains fully logged.
+
 The first-build AIV signature stayed at `0x53F0B`, but its absolute map-row
 operand moved from `0x402EF2C` to `0x402FF2C`; that relocation is now wildcarded
 while the surrounding player/index/state semantics remain fully validated.

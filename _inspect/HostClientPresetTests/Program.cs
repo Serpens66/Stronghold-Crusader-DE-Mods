@@ -1515,18 +1515,6 @@ internal static class Program
                 isReachableUnderImprovedCheck: closedOwnGate.IsReachableUnderImprovedCheck),
             "negative native reachability vetoed a graph-confirmed friendly-gate route");
 
-        string topologyKey = TemporaryGateBlockagePolicy.BuildExactTopologyKey(
-            ownAndAlliedGates,
-            skippedNoOpGates: 0);
-        string changedOwnerKey = TemporaryGateBlockagePolicy.BuildExactTopologyKey(
-            new[]
-            {
-                new PclGateConnection(10, 20, ownerId: 5, buildingId: 40, globalId: 4000),
-                new PclGateConnection(20, 30, ownerId: 7, buildingId: 41, globalId: 4100)
-            },
-            skippedNoOpGates: 0);
-        Check(!string.Equals(topologyKey, changedOwnerKey, StringComparison.Ordinal),
-            "the exact topology key ignored a friendly-gate owner change");
     }
 
     private static void TestLordHealthMultiplierPolicy()

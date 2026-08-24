@@ -37,6 +37,7 @@ namespace BugfixesAndQoL
         private HookRef<X64ManagedFunctionDetourAOB<BuildingPlacementValidatorDelegate>> validatorHook =
             new HookRef<X64ManagedFunctionDetourAOB<BuildingPlacementValidatorDelegate>>();
         private readonly Dictionary<DiagnosticKey, int> diagnosticTicks = new Dictionary<DiagnosticKey, int>();
+        private readonly HashSet<ValidatorKey> confirmedValidators = new HashSet<ValidatorKey>();
         private bool callbackFailureLogged;
         private bool disposed;
 
@@ -231,11 +232,34 @@ namespace BugfixesAndQoL
         private void LogDiagnostic(int playerId, int mapperValue, int tileId, int vanillaResult, string outcome)
         {
             int now = SafeCurrentTick();
+            var validatorKey = new ValidatorKey(playerId, mapperValue);
+            if (vanillaResult == 0)
+            {
+                if (confirmedValidators.Add(validatorKey))
+                {
+                    Shared.DebugLogHelper.LogInfo(
+                        log,
+                        $"AI tower placement validator hook confirmed: player={playerId}, mapper={mapperValue}, " +
+                        $"sampleTileId={tileId}, vanillaResult={vanillaResult}, tick={now}.");
+                }
+                return;
+            }
+
             string category = outcome;
             int separator = category.IndexOf(':');
             if (separator >= 0)
                 category = category.Substring(0, separator);
-            var key = new DiagnosticKey(playerId, mapperValue, tileId, vanillaResult != 0, category);
+            // The ruin is logged in full when it is marked. The remaining footprint then
+            // reports MarkedForDeletion repeatedly in the same native attempt; that is an
+            // expected consequence rather than a separate failure.
+            if (category == "blocked-tower-ruin-marked" ||
+                (category == "blocked-alive-state-mismatch" &&
+                 outcome.IndexOf("MarkedForDeletion", StringComparison.Ordinal) >= 0))
+                return;
+
+            // Vanilla checks every footprint tile. Grouping by target mapper and outcome keeps
+            // one representative line per attempt instead of up to 36 equivalent tile lines.
+            var key = new DiagnosticKey(playerId, mapperValue, category);
             if (diagnosticTicks.TryGetValue(key, out int previous) &&
                 ElapsedTicks(now, previous) < DiagnosticRepeatTicks)
             {
@@ -250,7 +274,8 @@ namespace BugfixesAndQoL
             }
             Shared.DebugLogHelper.LogInfo(
                 log,
-                $"AI tower placement validator evaluated: player={playerId}, mapper={mapperValue}, tileId={tileId}, vanillaResult={vanillaResult}, outcome={outcome}, tick={now}.");
+                $"AI tower placement validator blocked sample: player={playerId}, mapper={mapperValue}, " +
+                $"tileId={tileId}, vanillaResult={vanillaResult}, outcome={outcome}, tick={now}.");
         }
 
         private bool IsEnabled =>
@@ -278,24 +303,20 @@ namespace BugfixesAndQoL
 
         private readonly struct DiagnosticKey : IEquatable<DiagnosticKey>
         {
-            internal DiagnosticKey(int playerId, int mapper, int tileId, bool blocked, string outcome)
+            internal DiagnosticKey(int playerId, int mapper, string outcome)
             {
                 PlayerId = playerId;
                 Mapper = mapper;
-                TileId = tileId;
-                Blocked = blocked;
                 Outcome = outcome ?? string.Empty;
             }
 
             private int PlayerId { get; }
             private int Mapper { get; }
-            private int TileId { get; }
-            private bool Blocked { get; }
             private string Outcome { get; }
 
             public bool Equals(DiagnosticKey other) =>
-                PlayerId == other.PlayerId && Mapper == other.Mapper && TileId == other.TileId &&
-                Blocked == other.Blocked && string.Equals(Outcome, other.Outcome, StringComparison.Ordinal);
+                PlayerId == other.PlayerId && Mapper == other.Mapper &&
+                string.Equals(Outcome, other.Outcome, StringComparison.Ordinal);
 
             public override bool Equals(object obj) => obj is DiagnosticKey other && Equals(other);
 
@@ -305,10 +326,23 @@ namespace BugfixesAndQoL
                 {
                     int hash = PlayerId;
                     hash = (hash * 397) ^ Mapper;
-                    hash = (hash * 397) ^ TileId;
-                    hash = (hash * 397) ^ Blocked.GetHashCode();
                     return (hash * 397) ^ Outcome.GetHashCode();
                 }
+            }
+        }
+
+        private readonly struct ValidatorKey : IEquatable<ValidatorKey>
+        {
+            internal ValidatorKey(int playerId, int mapper)
+            { PlayerId = playerId; Mapper = mapper; }
+            private int PlayerId { get; }
+            private int Mapper { get; }
+            public bool Equals(ValidatorKey other) =>
+                PlayerId == other.PlayerId && Mapper == other.Mapper;
+            public override bool Equals(object obj) => obj is ValidatorKey other && Equals(other);
+            public override int GetHashCode()
+            {
+                unchecked { return (PlayerId * 397) ^ Mapper; }
             }
         }
     }

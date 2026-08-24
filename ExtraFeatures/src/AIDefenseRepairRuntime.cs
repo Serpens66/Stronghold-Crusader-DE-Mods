@@ -1,4 +1,4 @@
-// Feature: Configure AI repair proximity and diagnose Vanilla's ongoing AIV rebuild path.
+// Feature: Configure AI repair proximity and diagnose Vanilla's AIV defense rebuild cadence.
 using BepInEx.Logging;
 using R3;
 using SHCDESE.API;
@@ -18,16 +18,31 @@ namespace ExtraFeatures
 {
     internal sealed unsafe class AIDefenseRepairRuntime : IDisposable
     {
+        // Dispatcher 0x539B0 uses 0x52270 only for AIV entries whose +0x14 field is zero;
+        // otherwise it iterates the finished-castle frames through 0x51790. The 2026-08-24
+        // finished-castle trace consequently reached 0x51790 repeatedly and never 0x52270.
+        private const string ExecuteBuildStepPattern =
+            "40 53 55 56 57 41 54 41 55 41 56 41 57 48 83 EC 78 4C 63 F2";
         private const string MaintenancePattern =
             "44 89 44 24 18 89 54 24 10 48 89 4C 24 08 53 55 56 57 41 54 41 55 41 56 41 57 48 81 EC C8 00 00 00";
         private const string PlacementPattern =
             "44 89 4C 24 20 44 89 44 24 18 89 54 24 10 53 55 56 57 41 54 41 55 41 56 41 57 48 83 EC 48 44 8B BC 24 B8 00 00 00";
+        private const int ExecuteBuildStepRva = 0x51790;
         private const int MaintenanceRva = 0x52270;
         private const int PlacementRva = 0x5CD90;
         private const int OriginXOffset = 0x204E760;
         private const int OriginYOffset = 0x204E764;
+        private const int MaximumFrameCount = 0x922;
         private const int TicksPerSecond = 40;
-        private const int SummaryIntervalTicks = 5 * TicksPerSecond;
+        private const int RepairSummaryIntervalTicks = 30 * TicksPerSecond;
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate int ExecuteBuildStepDelegate(
+            ulong aivStateAddress,
+            int playerId,
+            int frameIndex,
+            int restrictedMode,
+            byte freeOrForced);
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate int MaintenanceDelegate(ulong aivStateAddress, int playerId, int mode);
@@ -37,17 +52,25 @@ namespace ExtraFeatures
             ulong placementStateAddress, int playerId, int offsetX, int offsetY,
             short mapperValue, int orientation);
 
-        [ThreadStatic] private static MaintenanceContext activeContext;
-        [ThreadStatic] private static MaintenanceContext reusableContext;
+        [ThreadStatic] private static BuildStepContext activeContext;
+        [ThreadStatic] private static BuildStepContext reusableContext;
         [ThreadStatic] private static RepairObservation pendingRepair;
         [ThreadStatic] private static bool hasPendingRepair;
 
         private readonly ManualLogSource log;
         private readonly ExtraFeaturesViewModel settings;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
-        private readonly PlayerDiagnostics[] players = new PlayerDiagnostics[9];
-        private readonly Dictionary<RepairKey, int> repairLogTicks = new Dictionary<RepairKey, int>();
+        // This is diagnostic attempt history, not a rebuild timer. Rejected calls only update
+        // LastTick once and can never postpone or otherwise affect a later Vanilla call.
+        private readonly Dictionary<BuildStepKey, BuildStepHistory> buildStepHistory =
+            new Dictionary<BuildStepKey, BuildStepHistory>();
+        private readonly HashSet<string> callbackFailuresLogged = new HashSet<string>(StringComparer.Ordinal);
+        private readonly RepairPlayerDiagnostics[] repairPlayers = new RepairPlayerDiagnostics[9];
+        private readonly int?[] maintenanceLastTicks = new int?[9];
+        private readonly int[] maintenanceOccurrences = new int[9];
         private HookTransaction transaction;
+        private HookRef<X64ManagedFunctionDetourAOB<ExecuteBuildStepDelegate>> executeBuildStepHook =
+            new HookRef<X64ManagedFunctionDetourAOB<ExecuteBuildStepDelegate>>();
         private HookRef<X64ManagedFunctionDetourAOB<MaintenanceDelegate>> maintenanceHook =
             new HookRef<X64ManagedFunctionDetourAOB<MaintenanceDelegate>>();
         private HookRef<X64ManagedFunctionDetourAOB<PlacementDelegate>> placementHook =
@@ -55,15 +78,16 @@ namespace ExtraFeatures
         private bool initialized;
         private bool nativeInitialized;
         private bool mapActive;
-        private bool callbackFailureLogged;
+        private bool executeBuildStepConfirmed;
+        private bool invalidFrameLogged;
         private bool disposed;
 
         public AIDefenseRepairRuntime(ManualLogSource log, ExtraFeaturesViewModel settings)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
-            for (int index = 0; index < players.Length; index++)
-                players[index] = new PlayerDiagnostics();
+            for (int index = 0; index < repairPlayers.Length; index++)
+                repairPlayers[index] = new RepairPlayerDiagnostics();
         }
 
         public void Initialize()
@@ -72,14 +96,14 @@ namespace ExtraFeatures
                 return;
 
             subscriptions.Add(BuildingR3EventHooks.OnBuildingAllowRepairInProximity.Observable.Subscribe(OnRepairProximity));
+            subscriptions.Add(BuildingR3EventHooks.OnBuildingRepair.Observable.Subscribe(OnBuildingRepair));
             subscriptions.Add(BuildingR3EventHooks.OnBuildingSpawn.Observable.Subscribe(OnBuildingSpawn));
-            subscriptions.Add(BuildingR3EventHooks.OnBuildingDelete.Observable.Subscribe(OnBuildingDelete));
             subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post).Subscribe(_ => BeginMap()));
             subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post).Subscribe(_ => ResetMap()));
             initialized = true;
-            LogInfo("AI defense repair-radius and ongoing AIV rebuild diagnostics initialized; rebuild timing remains observational until the diagnostic test is evaluated.");
+            LogInfo("AI defense repair-radius and both native AIV branch diagnostics initialized; rebuild timing remains observational until the new trace is evaluated.");
         }
 
         public void InitializeNative(IntPtr libraryHandle, ReadOnlySpan<byte> memory, bool referenceHashMatches)
@@ -87,9 +111,19 @@ namespace ExtraFeatures
             if (nativeInitialized)
                 return;
 
+            // The placement helper's process-state origin fields are fixed-layout data, not
+            // proven by either function signature. Keep only this optional diagnostic inactive
+            // on an unaudited DLL; the managed repair-radius override remains independent.
+            if (!referenceHashMatches)
+                throw new InvalidOperationException(
+                    "AI ExecuteBuildStep diagnostics require the audited placement-origin layout for this CrusaderDE.dll.");
+
+            Shared.NativeResolution executeBuildStep = Shared.NativePatternResolver.ResolveUnique(
+                memory, ExecuteBuildStepPattern, ExecuteBuildStepRva, referenceHashMatches,
+                "AI ExecuteBuildStep defense path", log);
             Shared.NativeResolution maintenance = Shared.NativePatternResolver.ResolveUnique(
                 memory, MaintenancePattern, MaintenanceRva, referenceHashMatches,
-                "AI ongoing castle-maintenance path", log);
+                "AI alternate castle-maintenance path", log);
             Shared.NativeResolution placement = Shared.NativePatternResolver.ResolveUnique(
                 memory, PlacementPattern, PlacementRva, referenceHashMatches,
                 "AI AIV placement helper", log);
@@ -98,15 +132,18 @@ namespace ExtraFeatures
             {
                 transaction = new HookTransaction(memory, libraryBase, loggerFactory: null,
                     failureMode: TransactionFailureMode.RollbackAndThrow);
+                transaction.AddDetour(ref executeBuildStepHook,
+                    libraryBase + unchecked((ulong)executeBuildStep.Rva), ObserveExecuteBuildStep);
                 transaction.AddDetour(ref maintenanceHook,
                     libraryBase + unchecked((ulong)maintenance.Rva), ObserveMaintenance);
                 transaction.AddDetour(ref placementHook,
                     libraryBase + unchecked((ulong)placement.Rva), ObservePlacement);
                 transaction.Commit();
-                if (!maintenanceHook.Success || !placementHook.Success)
-                    throw new InvalidOperationException("One or more AI castle-maintenance diagnostic hooks were not installed.");
+                if (!executeBuildStepHook.Success || !maintenanceHook.Success || !placementHook.Success)
+                    throw new InvalidOperationException("One or more AI defense-path diagnostic hooks were not installed.");
                 nativeInitialized = true;
-                LogInfo($"Ongoing AI castle-maintenance diagnostics installed: maintenanceRva=0x{maintenance.Rva:X}, placementRva=0x{placement.Rva:X}.");
+                LogInfo($"AI defense-path diagnostics installed: executeBuildStepRva=0x{executeBuildStep.Rva:X}, " +
+                    $"maintenanceRva=0x{maintenance.Rva:X}, placementRva=0x{placement.Rva:X}.");
             }
             catch
             {
@@ -150,8 +187,13 @@ namespace ExtraFeatures
             reusableContext = null;
             pendingRepair = default;
             hasPendingRepair = false;
-            repairLogTicks.Clear();
-            foreach (PlayerDiagnostics diagnostics in players)
+            executeBuildStepConfirmed = false;
+            invalidFrameLogged = false;
+            buildStepHistory.Clear();
+            callbackFailuresLogged.Clear();
+            Array.Clear(maintenanceLastTicks, 0, maintenanceLastTicks.Length);
+            Array.Clear(maintenanceOccurrences, 0, maintenanceOccurrences.Length);
+            foreach (RepairPlayerDiagnostics diagnostics in repairPlayers)
                 diagnostics.Reset();
         }
 
@@ -170,7 +212,9 @@ namespace ExtraFeatures
                     pendingRepair = new RepairObservation(
                         args.PlayerId, args.TileX, args.TileY, args.Proximity, settings.AIRepairEnemyProximity);
                     hasPendingRepair = true;
-                    // This hook is repair-specific already; a second tile classification rejected valid wall calls.
+                    // On the audited DLL, native 0xEE640 returns nonzero when a qualifying
+                    // hostile is inside the strict squared-distance check; its repair caller
+                    // treats that as denied. Live AI calls supplied Vanilla radii 3, 5 and 15.
                     args.Proximity = settings.AIRepairEnemyProximity;
                     return;
                 }
@@ -184,10 +228,16 @@ namespace ExtraFeatures
                     return;
 
                 int now = CurrentTick();
-                var key = new RepairKey(args.PlayerId, args.TileX, args.TileY, args.ReturnValue != 0);
-                if (ShouldLog(repairLogTicks, key, now, SummaryIntervalTicks))
+                RepairPlayerDiagnostics diagnostics = repairPlayers[args.PlayerId];
+                diagnostics.Record(observation, args.ReturnValue != 0, now);
+                if (diagnostics.ShouldWriteSummary(now))
                 {
-                    LogInfo($"AI standing-defense repair proximity evaluated: player={args.PlayerId}, tileX={args.TileX}, tileY={args.TileY}, vanillaRadius={observation.VanillaRadius}, configuredRadius={observation.ConfiguredRadius}, vanillaBlocked={(args.ReturnValue != 0)}, tick={now}.");
+                    LogInfo($"AI repair-proximity summary: player={args.PlayerId}, tick={now}, " +
+                        $"queries={diagnostics.SummaryQueries}, blocked={diagnostics.SummaryBlocked}, " +
+                        $"allowed={diagnostics.SummaryQueries - diagnostics.SummaryBlocked}, " +
+                        $"vanillaRadii={diagnostics.DescribeVanillaRadii()}, configuredRadius={observation.ConfiguredRadius}, " +
+                        $"lastBlocked={diagnostics.DescribeLastBlocked()}.");
+                    diagnostics.ResetSummary(now);
                 }
             }
             catch (Exception ex)
@@ -196,34 +246,83 @@ namespace ExtraFeatures
             }
         }
 
+        private void OnBuildingRepair(BuildingRepairEventArgs args)
+        {
+            // Post proves that the Script Extender actually called Vanilla. Logging Pre here
+            // would mislabel a repair that a later subscriber suppresses via SkipOriginalFunction.
+            if (args.Phase != EventHookPhase.Post || !mapActive || args.BuildingId <= 0)
+                return;
+
+            try
+            {
+                if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(args.BuildingId, out GameBuilding* building) ||
+                    building->r_GlobalId != unchecked((uint)args.BuildingGlobalId) ||
+                    !IsAI(building->r_PlayerIdOwner) || !IsStandingDefenseType(building->r_BuildingType))
+                    return;
+
+                int now = SafeCurrentTick();
+                string proximity = repairPlayers[building->r_PlayerIdOwner].DescribeCurrentTickForBounds(
+                    now,
+                    building->r_TilePositionXBegin,
+                    building->r_TilePositionYBegin,
+                    building->r_TilePositionXEnd,
+                    building->r_TilePositionYEnd);
+                LogInfo($"AI standing-defense repair executed: player={building->r_PlayerIdOwner}, " +
+                    $"type={building->r_BuildingType}, buildingId={args.BuildingId}, globalId={building->r_GlobalId}, " +
+                    $"bounds=({building->r_TilePositionXBegin},{building->r_TilePositionYBegin})-({building->r_TilePositionXEnd},{building->r_TilePositionYEnd}), " +
+                    $"woodCost={args.WoodCost}, stoneCost={args.StoneCost}, tick={now}, proximity={proximity}.");
+            }
+            catch (Exception ex)
+            {
+                LogFailure("building-repair diagnostic", ex);
+            }
+        }
+
         private int ObserveMaintenance(ulong aivStateAddress, int playerId, int mode)
         {
             if (!mapActive)
                 return maintenanceHook.Value.Hook.Trampoline(aivStateAddress, playerId, mode);
 
-            int now;
-            int delta;
+            bool isAi;
             try
             {
-                if (!IsAI(playerId))
-                    return maintenanceHook.Value.Hook.Trampoline(aivStateAddress, playerId, mode);
-                now = SafeCurrentTick();
-                delta = RecordInvocation(playerId, now);
+                isAi = IsAI(playerId);
             }
             catch (Exception ex)
             {
-                LogFailure("ongoing-maintenance pre-diagnostic", ex);
+                LogFailure("alternate-maintenance player diagnostic", ex);
+                return maintenanceHook.Value.Hook.Trampoline(aivStateAddress, playerId, mode);
+            }
+            if (!isAi)
+                return maintenanceHook.Value.Hook.Trampoline(aivStateAddress, playerId, mode);
+
+            int now = SafeCurrentTick();
+            int delta = maintenanceLastTicks[playerId].HasValue
+                ? ElapsedTicks(now, maintenanceLastTicks[playerId].Value) : -1;
+            maintenanceLastTicks[playerId] = now;
+            int occurrence = ++maintenanceOccurrences[playerId];
+
+            BuildStepContext previous;
+            BuildStepContext context;
+            try
+            {
+                previous = activeContext;
+                context = previous == null
+                    ? reusableContext ?? new BuildStepContext()
+                    : new BuildStepContext();
+                if (previous == null)
+                    reusableContext = null;
+                context.Reset(
+                    "Maintenance52270", playerId, -1, mode, 0, now,
+                    occurrence, delta, "alternate-maintenance-path");
+                activeContext = context;
+            }
+            catch (Exception ex)
+            {
+                LogFailure("alternate-maintenance context diagnostic", ex);
                 return maintenanceHook.Value.Hook.Trampoline(aivStateAddress, playerId, mode);
             }
 
-            MaintenanceContext previous = activeContext;
-            MaintenanceContext context = previous == null
-                ? reusableContext ?? new MaintenanceContext()
-                : new MaintenanceContext();
-            if (previous == null)
-                reusableContext = null;
-            context.Reset(playerId, mode, now, delta);
-            activeContext = context;
             int result;
             try
             {
@@ -238,13 +337,154 @@ namespace ExtraFeatures
 
             try
             {
-                if (context.Attempts.Count > 0)
-                    LogSequence(context, result);
-                LogSummaryIfDue(playerId, now);
+                if (context.Attempts.Count > 0 || context.Spawns.Count > 0)
+                    LogDefenseCall(context, result, context.Spawns.Count);
             }
             catch (Exception ex)
             {
-                LogFailure("ongoing-maintenance diagnostic", ex);
+                LogFailure("alternate-maintenance post-diagnostic", ex);
+            }
+            return result;
+        }
+
+        private int ObserveExecuteBuildStep(
+            ulong aivStateAddress,
+            int playerId,
+            int frameIndex,
+            int restrictedMode,
+            byte freeOrForced)
+        {
+            if (!mapActive)
+            {
+                return executeBuildStepHook.Value.Hook.Trampoline(
+                    aivStateAddress, playerId, frameIndex, restrictedMode, freeOrForced);
+            }
+
+            bool isAi;
+            try
+            {
+                isAi = IsAI(playerId);
+            }
+            catch (Exception ex)
+            {
+                LogFailure("ExecuteBuildStep player diagnostic", ex);
+                return executeBuildStepHook.Value.Hook.Trampoline(
+                    aivStateAddress, playerId, frameIndex, restrictedMode, freeOrForced);
+            }
+            if (!isAi)
+            {
+                return executeBuildStepHook.Value.Hook.Trampoline(
+                    aivStateAddress, playerId, frameIndex, restrictedMode, freeOrForced);
+            }
+
+            int now = SafeCurrentTick();
+            if (!executeBuildStepConfirmed)
+            {
+                executeBuildStepConfirmed = true;
+                try
+                {
+                    LogInfo($"AI ExecuteBuildStep hook confirmed: player={playerId}, frameIndex={frameIndex}, " +
+                        $"restrictedMode={restrictedMode}, freeOrForced={freeOrForced}, tick={now}.");
+                }
+                catch (Exception ex)
+                {
+                    LogFailure("ExecuteBuildStep confirmation diagnostic", ex);
+                }
+            }
+
+            if (frameIndex < 0 || frameIndex >= MaximumFrameCount)
+            {
+                if (!invalidFrameLogged)
+                {
+                    invalidFrameLogged = true;
+                    try
+                    {
+                        Shared.DebugLogHelper.LogError(log,
+                            $"AI ExecuteBuildStep diagnostic received invalid frameIndex={frameIndex}; " +
+                            "this call remains Vanilla and detailed capture is disabled for it.");
+                    }
+                    catch (Exception ex)
+                    {
+                        LogFailure("ExecuteBuildStep invalid-frame diagnostic", ex);
+                    }
+                }
+                return executeBuildStepHook.Value.Hook.Trampoline(
+                    aivStateAddress, playerId, frameIndex, restrictedMode, freeOrForced);
+            }
+
+            BuildStepHistory history;
+            int delta;
+            string classification;
+            try
+            {
+                var key = new BuildStepKey(playerId, frameIndex);
+                if (!buildStepHistory.TryGetValue(key, out history))
+                {
+                    history = new BuildStepHistory();
+                    buildStepHistory.Add(key, history);
+                }
+
+                delta = history.LastTick.HasValue ? ElapsedTicks(now, history.LastTick.Value) : -1;
+                history.LastTick = now;
+                history.Occurrences++;
+                classification = history.EverSpawnedDefense
+                    ? "repeat-after-observed-spawn"
+                    : history.Occurrences == 1 ? "first-observed-attempt" : "retry-without-observed-spawn";
+            }
+            catch (Exception ex)
+            {
+                LogFailure("ExecuteBuildStep pre-diagnostic", ex);
+                return executeBuildStepHook.Value.Hook.Trampoline(
+                    aivStateAddress, playerId, frameIndex, restrictedMode, freeOrForced);
+            }
+
+            BuildStepContext previous;
+            BuildStepContext context;
+            try
+            {
+                previous = activeContext;
+                context = previous == null
+                    ? reusableContext ?? new BuildStepContext()
+                    : new BuildStepContext();
+                if (previous == null)
+                    reusableContext = null;
+                context.Reset(
+                    "ExecuteBuildStep", playerId, frameIndex, restrictedMode, freeOrForced, now,
+                    history.Occurrences, delta, classification);
+                activeContext = context;
+            }
+            catch (Exception ex)
+            {
+                LogFailure("ExecuteBuildStep context diagnostic", ex);
+                return executeBuildStepHook.Value.Hook.Trampoline(
+                    aivStateAddress, playerId, frameIndex, restrictedMode, freeOrForced);
+            }
+            int result;
+            try
+            {
+                result = executeBuildStepHook.Value.Hook.Trampoline(
+                    aivStateAddress, playerId, frameIndex, restrictedMode, freeOrForced);
+            }
+            finally
+            {
+                activeContext = previous;
+                if (previous == null)
+                    reusableContext = context;
+            }
+
+            try
+            {
+                if (context.Spawns.Count > 0)
+                {
+                    history.EverSpawnedDefense = true;
+                    history.ObservedSpawnCount += context.Spawns.Count;
+                }
+                if (context.Attempts.Count > 0 || context.Spawns.Count > 0)
+                    LogDefenseCall(context, result, history.ObservedSpawnCount);
+            }
+            catch (Exception ex)
+            {
+                LogFailure("ExecuteBuildStep diagnostic", ex);
             }
             return result;
         }
@@ -253,7 +493,7 @@ namespace ExtraFeatures
             ulong placementStateAddress, int playerId, int offsetX, int offsetY,
             short mapperValue, int orientation)
         {
-            MaintenanceContext context = activeContext;
+            BuildStepContext context = activeContext;
             if (context == null || context.PlayerId != playerId || !IsDefenseMapper(mapperValue))
                 return CallPlacement(placementStateAddress, playerId, offsetX, offsetY, mapperValue, orientation);
 
@@ -277,8 +517,17 @@ namespace ExtraFeatures
             }
 
             int result = CallPlacement(placementStateAddress, playerId, offsetX, offsetY, mapperValue, orientation);
-            context.Attempts.Add(new PlacementAttempt(
-                mapperValue, offsetX, offsetY, tileX, tileY, tileId, orientation, result));
+            try
+            {
+                context.Attempts.Add(new PlacementAttempt(
+                    mapperValue, offsetX, offsetY, tileX, tileY, tileId, orientation, result));
+            }
+            catch (Exception ex)
+            {
+                // Vanilla already ran exactly once; a diagnostic allocation failure must not
+                // turn into a second placement call or escape across the unmanaged boundary.
+                LogFailure("AIV placement post-diagnostic", ex);
+            }
             return result;
         }
 
@@ -298,7 +547,17 @@ namespace ExtraFeatures
                 if (!IsAI(args.PlayerId))
                     return;
                 int buildingId = unchecked((int)args.ReturnValue);
-                LogInfo($"AI defense building spawned: player={args.PlayerId}, type={args.Building}, buildingId={buildingId}, tileX={args.TileX}, tileY={args.TileY}, {DescribeBuilding(buildingId)}, tick={SafeCurrentTick()}.");
+                string description = $"type={args.Building},buildingId={buildingId},tile=({args.TileX},{args.TileY}),{DescribeBuilding(buildingId)}";
+                BuildStepContext context = activeContext;
+                if (context != null && context.PlayerId == args.PlayerId && !IsTowerRuin(args.Building))
+                {
+                    context.Spawns.Add(description);
+                    return;
+                }
+
+                // Combat destruction did not emit OnBuildingDelete in the measured build, but a
+                // tower-to-ruin transition did emit this spawn event and is therefore retained.
+                LogInfo($"AI defense building spawned outside captured build step: player={args.PlayerId}, {description}, tick={SafeCurrentTick()}.");
             }
             catch (Exception ex)
             {
@@ -306,64 +565,14 @@ namespace ExtraFeatures
             }
         }
 
-        private void OnBuildingDelete(BuildingDeleteEventArgs args)
-        {
-            if (args.Phase != EventHookPhase.Pre || !mapActive || args.BuildingId <= 0)
-                return;
-
-            try
-            {
-                if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(args.BuildingId, out GameBuilding* building) ||
-                    !IsAI(building->r_PlayerIdOwner) || !IsDefenseType(building->r_BuildingType))
-                    return;
-
-                LogInfo($"AI defense building deleting: player={building->r_PlayerIdOwner}, type={building->r_BuildingType}, buildingId={args.BuildingId}, globalId={building->r_GlobalId}, aliveState={building->r_AliveState}, bounds=({building->r_TilePositionXBegin},{building->r_TilePositionYBegin})-({building->r_TilePositionXEnd},{building->r_TilePositionYEnd}), tick={SafeCurrentTick()}.");
-            }
-            catch (Exception ex)
-            {
-                LogFailure("building-delete diagnostic", ex);
-            }
-        }
-
         private static string DescribeBuilding(int buildingId)
         {
             if (buildingId <= 0 || !GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building))
-                return "globalId=unavailable, aliveState=unavailable, bounds=unavailable";
-            return $"globalId={building->r_GlobalId}, aliveState={building->r_AliveState}, bounds=({building->r_TilePositionXBegin},{building->r_TilePositionYBegin})-({building->r_TilePositionXEnd},{building->r_TilePositionYEnd})";
+                return "globalId=unavailable,aliveState=unavailable,bounds=unavailable";
+            return $"globalId={building->r_GlobalId},aliveState={building->r_AliveState},bounds=({building->r_TilePositionXBegin},{building->r_TilePositionYBegin})-({building->r_TilePositionXEnd},{building->r_TilePositionYEnd})";
         }
 
-        private int RecordInvocation(int playerId, int now)
-        {
-            PlayerDiagnostics diagnostics = players[playerId];
-            int delta = diagnostics.LastTick.HasValue
-                ? ElapsedTicks(now, diagnostics.LastTick.Value) : -1;
-            diagnostics.LastTick = now;
-            diagnostics.Total++;
-            diagnostics.SinceSummary++;
-            diagnostics.LastDelta = delta;
-            if (delta >= 0)
-            {
-                diagnostics.MinimumDelta = Math.Min(diagnostics.MinimumDelta, delta);
-                diagnostics.MaximumDelta = Math.Max(diagnostics.MaximumDelta, delta);
-            }
-            return delta;
-        }
-
-        private void LogSummaryIfDue(int playerId, int now)
-        {
-            PlayerDiagnostics diagnostics = players[playerId];
-            if (diagnostics.LastSummaryTick.HasValue &&
-                ElapsedTicks(now, diagnostics.LastSummaryTick.Value) < SummaryIntervalTicks)
-                return;
-
-            LogInfo($"AI ongoing castle-maintenance cadence: player={playerId}, tick={now}, callsSinceSummary={diagnostics.SinceSummary}, totalCalls={diagnostics.Total}, lastDeltaTicks={diagnostics.LastDelta}, minDeltaTicks={(diagnostics.MinimumDelta == int.MaxValue ? -1 : diagnostics.MinimumDelta)}, maxDeltaTicks={diagnostics.MaximumDelta}.");
-            diagnostics.LastSummaryTick = now;
-            diagnostics.SinceSummary = 0;
-            diagnostics.MinimumDelta = int.MaxValue;
-            diagnostics.MaximumDelta = -1;
-        }
-
-        private void LogSequence(MaintenanceContext context, int result)
+        private void LogDefenseCall(BuildStepContext context, int result, int observedSpawnTotal)
         {
             var text = new StringBuilder();
             for (int index = 0; index < context.Attempts.Count; index++)
@@ -379,28 +588,24 @@ namespace ExtraFeatures
                     .Append(" orientation=").Append(attempt.Orientation)
                     .Append(" result=").Append(attempt.Result);
             }
-            LogInfo($"AI ongoing defense placement sequence: player={context.PlayerId}, mode={context.Mode}, tick={context.Tick}, invocationDeltaTicks={context.DeltaTicks}, maintenanceResult={result}, attempts={context.Attempts.Count}, [{text}].");
+            string spawns = context.Spawns.Count == 0 ? "none" : string.Join("; ", context.Spawns);
+            LogInfo($"AI defense native call: source={context.Source}, player={context.PlayerId}, frameIndex={context.FrameIndex}, " +
+                $"classification={context.Classification}, occurrence={context.Occurrence}, tick={context.Tick}, " +
+                $"targetDeltaTicks={context.DeltaTicks}, restrictedMode={context.RestrictedMode}, " +
+                $"freeOrForced={context.FreeOrForced}, buildResult={result}, attempts={context.Attempts.Count}, " +
+                $"[{text}], spawns={context.Spawns.Count} [{spawns}], " +
+                $"targetObservedSpawnTotal={observedSpawnTotal}.");
         }
 
         private void LogFailure(string callback, Exception ex)
         {
-            if (callbackFailureLogged)
+            if (!callbackFailuresLogged.Add(callback ?? string.Empty))
                 return;
-            callbackFailureLogged = true;
             Shared.DebugLogHelper.LogError(log,
-                $"AI defense {callback} callback failed; further callback errors are suppressed and Vanilla remains active: {ex}");
+                $"AI defense {callback} callback failed; further errors from this callback are suppressed and Vanilla remains active: {ex}");
         }
 
         private void LogInfo(string message) => Shared.DebugLogHelper.LogInfo(log, message);
-
-        private static bool ShouldLog<TKey>(Dictionary<TKey, int> ticks, TKey key, int now, int interval)
-        {
-            if (ticks.TryGetValue(key, out int previous) &&
-                ElapsedTicks(now, previous) < interval)
-                return false;
-            ticks[key] = now;
-            return true;
-        }
 
         private static int CurrentTick() => GameTimeManagerAPI.Instance.CaptureTimeStamp().CapturedGameTick;
         private static int SafeCurrentTick() { try { return CurrentTick(); } catch { return -1; } }
@@ -420,46 +625,187 @@ namespace ExtraFeatures
                 ((int)mapper >= (int)eMappers.MAPPER_GATE_WOOD1A && (int)mapper <= (int)eMappers.MAPPER_GATE_STONE2B);
         }
 
-        private static bool IsDefenseType(eStructs type) =>
+        private static bool IsStandingDefenseType(eStructs type) =>
+            type == eStructs.STRUCT_WOOD_WALL || type == eStructs.STRUCT_STONE_WALL ||
+            type == eStructs.STRUCT_CRENAL_WALL || type == eStructs.STRUCT_STAIRS ||
             type == eStructs.STRUCT_TOWER ||
             ((int)type >= (int)eStructs.STRUCT_TOWER1 && (int)type <= (int)eStructs.STRUCT_TOWER5) ||
             type == eStructs.STRUCT_GATEHOUSE || type == eStructs.STRUCT_GATE_MAIN ||
             type == eStructs.STRUCT_GATE_INNER || type == eStructs.STRUCT_GATE_WOOD ||
-            type == eStructs.STRUCT_GATE_POSTERN || type == eStructs.STRUCT_DRAWBRIDGE ||
+            type == eStructs.STRUCT_GATE_POSTERN || type == eStructs.STRUCT_DRAWBRIDGE;
+
+        private static bool IsDefenseType(eStructs type) =>
+            IsStandingDefenseType(type) || IsTowerRuin(type);
+
+        private static bool IsTowerRuin(eStructs type) =>
             type == eStructs.STRUCT_TOWER5_DESTROYED ||
             ((int)type >= (int)eStructs.STRUCT_TOWER1_DESTROYED && (int)type <= (int)eStructs.STRUCT_TOWER4_DESTROYED);
 
-        private sealed class MaintenanceContext
+        private sealed class BuildStepContext
         {
+            internal string Source { get; private set; }
             internal int PlayerId { get; private set; }
-            internal int Mode { get; private set; }
+            internal int FrameIndex { get; private set; }
+            internal int RestrictedMode { get; private set; }
+            internal byte FreeOrForced { get; private set; }
             internal int Tick { get; private set; }
+            internal int Occurrence { get; private set; }
             internal int DeltaTicks { get; private set; }
+            internal string Classification { get; private set; }
             internal List<PlacementAttempt> Attempts { get; } = new List<PlacementAttempt>(4);
+            internal List<string> Spawns { get; } = new List<string>(2);
 
-            internal void Reset(int playerId, int mode, int tick, int deltaTicks)
+            internal void Reset(
+                string source, int playerId, int frameIndex, int restrictedMode, byte freeOrForced,
+                int tick, int occurrence, int deltaTicks, string classification)
             {
+                Source = source;
                 PlayerId = playerId;
-                Mode = mode;
+                FrameIndex = frameIndex;
+                RestrictedMode = restrictedMode;
+                FreeOrForced = freeOrForced;
                 Tick = tick;
+                Occurrence = occurrence;
                 DeltaTicks = deltaTicks;
+                Classification = classification;
                 Attempts.Clear();
+                Spawns.Clear();
             }
         }
 
-        private sealed class PlayerDiagnostics
+        private sealed class BuildStepHistory
         {
             internal int? LastTick;
-            internal int? LastSummaryTick;
-            internal int Total;
-            internal int SinceSummary;
-            internal int LastDelta = -1;
-            internal int MinimumDelta = int.MaxValue;
-            internal int MaximumDelta = -1;
+            internal int Occurrences;
+            internal bool EverSpawnedDefense;
+            internal int ObservedSpawnCount;
+        }
+
+        private sealed class RepairPlayerDiagnostics
+        {
+            private readonly Dictionary<int, int> vanillaRadii = new Dictionary<int, int>();
+            private readonly List<RepairResultObservation> currentTickQueries =
+                new List<RepairResultObservation>(64);
+            private int? currentQueryTick;
+            private int? lastSummaryTick;
+            private int lastBlockedX;
+            private int lastBlockedY;
+            private bool hasLastBlocked;
+
+            internal int SummaryQueries { get; private set; }
+            internal int SummaryBlocked { get; private set; }
+
+            internal void Record(RepairObservation observation, bool blocked, int now)
+            {
+                SummaryQueries++;
+                if (blocked)
+                {
+                    SummaryBlocked++;
+                    lastBlockedX = observation.X;
+                    lastBlockedY = observation.Y;
+                    hasLastBlocked = true;
+                }
+                vanillaRadii.TryGetValue(observation.VanillaRadius, out int radiusCount);
+                vanillaRadii[observation.VanillaRadius] = radiusCount + 1;
+
+                if (!currentQueryTick.HasValue || currentQueryTick.Value != now)
+                {
+                    currentQueryTick = now;
+                    currentTickQueries.Clear();
+                }
+                currentTickQueries.Add(new RepairResultObservation(
+                    observation.X, observation.Y, observation.VanillaRadius,
+                    observation.ConfiguredRadius, blocked));
+            }
+
+            internal bool ShouldWriteSummary(int now) =>
+                SummaryQueries > 0 && (!lastSummaryTick.HasValue ||
+                    ElapsedTicks(now, lastSummaryTick.Value) >= RepairSummaryIntervalTicks);
+
+            internal void ResetSummary(int now)
+            {
+                lastSummaryTick = now;
+                SummaryQueries = 0;
+                SummaryBlocked = 0;
+                vanillaRadii.Clear();
+                hasLastBlocked = false;
+            }
+
+            internal string DescribeVanillaRadii()
+            {
+                if (vanillaRadii.Count == 0)
+                    return "none";
+                var values = new List<int>(vanillaRadii.Keys);
+                values.Sort();
+                var result = new StringBuilder();
+                foreach (int radius in values)
+                {
+                    if (result.Length != 0)
+                        result.Append('|');
+                    result.Append(radius).Append(':').Append(vanillaRadii[radius]);
+                }
+                return result.ToString();
+            }
+
+            internal string DescribeLastBlocked() =>
+                hasLastBlocked ? $"({lastBlockedX},{lastBlockedY})" : "none";
+
+            internal string DescribeCurrentTickForBounds(
+                int now, int xBegin, int yBegin, int xEnd, int yEnd)
+            {
+                if (!currentQueryTick.HasValue || currentQueryTick.Value != now)
+                    return "no-same-tick-query";
+                bool validBounds = xEnd >= xBegin && yEnd >= yBegin &&
+                    xEnd - xBegin <= 20 && yEnd - yBegin <= 20;
+                int minX = xBegin;
+                int maxX = validBounds ? xEnd : xBegin;
+                int minY = yBegin;
+                int maxY = validBounds ? yEnd : yBegin;
+                int matched = 0;
+                int blocked = 0;
+                var radii = new HashSet<int>();
+                int configuredRadius = int.MinValue;
+                foreach (RepairResultObservation query in currentTickQueries)
+                {
+                    if (query.X < minX || query.X > maxX || query.Y < minY || query.Y > maxY)
+                        continue;
+                    matched++;
+                    if (query.Blocked)
+                        blocked++;
+                    radii.Add(query.VanillaRadius);
+                    configuredRadius = query.ConfiguredRadius;
+                }
+                var sortedRadii = new List<int>(radii);
+                sortedRadii.Sort();
+                return $"sameTickQueries={currentTickQueries.Count},matchedBounds={matched}," +
+                    $"matchedBlocked={blocked},vanillaRadii={string.Join("|", sortedRadii)}," +
+                    $"configuredRadius={(configuredRadius == int.MinValue ? -1 : configuredRadius)}";
+            }
+
             internal void Reset()
             {
-                LastTick = null; LastSummaryTick = null; Total = 0; SinceSummary = 0;
-                LastDelta = -1; MinimumDelta = int.MaxValue; MaximumDelta = -1;
+                vanillaRadii.Clear();
+                currentTickQueries.Clear();
+                currentQueryTick = null;
+                lastSummaryTick = null;
+                SummaryQueries = 0;
+                SummaryBlocked = 0;
+                hasLastBlocked = false;
+            }
+        }
+
+        private readonly struct BuildStepKey : IEquatable<BuildStepKey>
+        {
+            internal BuildStepKey(int playerId, int frameIndex)
+            { PlayerId = playerId; FrameIndex = frameIndex; }
+            private int PlayerId { get; }
+            private int FrameIndex { get; }
+            public bool Equals(BuildStepKey other) =>
+                PlayerId == other.PlayerId && FrameIndex == other.FrameIndex;
+            public override bool Equals(object obj) => obj is BuildStepKey other && Equals(other);
+            public override int GetHashCode()
+            {
+                unchecked { return (PlayerId * 397) ^ FrameIndex; }
             }
         }
 
@@ -474,6 +820,17 @@ namespace ExtraFeatures
             internal int ConfiguredRadius { get; }
         }
 
+        private readonly struct RepairResultObservation
+        {
+            internal RepairResultObservation(int x, int y, int vanillaRadius, int configuredRadius, bool blocked)
+            { X = x; Y = y; VanillaRadius = vanillaRadius; ConfiguredRadius = configuredRadius; Blocked = blocked; }
+            internal int X { get; }
+            internal int Y { get; }
+            internal int VanillaRadius { get; }
+            internal int ConfiguredRadius { get; }
+            internal bool Blocked { get; }
+        }
+
         private readonly struct PlacementAttempt
         {
             internal PlacementAttempt(short mapper, int offsetX, int offsetY, int tileX, int tileY, int tileId, int orientation, int result)
@@ -486,29 +843,6 @@ namespace ExtraFeatures
             internal int TileId { get; }
             internal int Orientation { get; }
             internal int Result { get; }
-        }
-
-        private readonly struct RepairKey : IEquatable<RepairKey>
-        {
-            internal RepairKey(int playerId, int x, int y, bool blocked)
-            { PlayerId = playerId; X = x; Y = y; Blocked = blocked; }
-            private int PlayerId { get; }
-            private int X { get; }
-            private int Y { get; }
-            private bool Blocked { get; }
-            public bool Equals(RepairKey other) =>
-                PlayerId == other.PlayerId && X == other.X && Y == other.Y && Blocked == other.Blocked;
-            public override bool Equals(object obj) => obj is RepairKey other && Equals(other);
-            public override int GetHashCode()
-            {
-                unchecked
-                {
-                    int hash = PlayerId;
-                    hash = (hash * 397) ^ X;
-                    hash = (hash * 397) ^ Y;
-                    return (hash * 397) ^ Blocked.GetHashCode();
-                }
-            }
         }
     }
 }

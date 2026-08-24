@@ -117,7 +117,7 @@ namespace ExtraFeatures
                 memory, InaccessibleBuildingComparisonPattern, InaccessibleBuildingComparisonRva,
                 referenceHashMatches, "AI inaccessible-building demolition comparison");
 
-            temporaryAccessClassifier = new AIBuildingTemporaryAccessClassifier(log, referenceHashMatches);
+            temporaryAccessClassifier = new AIBuildingTemporaryAccessClassifier(log);
             if (!referenceHashMatches)
             {
                 log.LogWarning(
@@ -327,7 +327,8 @@ namespace ExtraFeatures
             try
             {
                 int mode = settings.InaccessibleAIBuildingDemolitionProtection;
-                if (!settings.EnableMod || !inaccessibleBuildingProtectionSupported)
+                if (!settings.EnableMod || !inaccessibleBuildingProtectionSupported ||
+                    mode == TemporaryGateBlockagePolicy.VanillaMode)
                     return;
 
                 X64SmartCPUContext* registers = context.Pointer;

@@ -90,7 +90,7 @@
                           MaxWidth="{x:Static shared:ToolTipPresentation.MaximumWidth}">
                     <TextBlock Text="{TemplateBinding Content}"
                                Foreground="{TemplateBinding Foreground}"
-                               FontSize="{TemplateBinding FontSize}"
+                               FontSize="{x:Static shared:ToolTipPresentation.FontSize}"
                                TextWrapping="Wrap"/>
                   </Border>
                 </ControlTemplate>

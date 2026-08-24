@@ -21,8 +21,9 @@ Extender fields and the bidirectional stable-link API, so it has no private RVA.
 | `EmergencyDemolitionComparisonPattern` | `0x2F454` | scan; context hook |
 | `AIHovelDemolitionFunctionPattern` | `0x3B1D0` | scan; detour at the AI decision point |
 | `InaccessibleBuildingComparisonPattern` | `0x3B2FF` | executable-section unique scan; inaccessible-building context hook |
-| `MaintenancePattern` | `0x52270` | executable-section unique scan; ongoing AI castle-maintenance diagnostic detour |
-| `PlacementPattern` | `0x5CD90` | executable-section unique scan; paired AIV placement diagnostic detour |
+| `ExecuteBuildStepPattern` | `0x51790` | audited-hash-only defense-step diagnostic detour |
+| `MaintenancePattern` | `0x52270` | audited-hash-only alternate AIV branch diagnostic detour |
+| `PlacementPattern` | `0x5CD90` | audited-hash-only paired AIV placement diagnostic detour |
 | AI buy-price helper (`49 63 C0 8B 8C C1 B8 17 18 00 B8 67 66 66 66 F7 E9 D1 FA 8B C2 C1 E8 1F 03 C2 41 0F AF C1 C3`) | `0xCEB10` | executable-section unique scan; managed function detour |
 | AI sell-price helper (`49 63 C0 8B 8C C1 BC 17 18 00 B8 67 66 66 66 F7 E9 D1 FA 8B C2 C1 E8 1F 03 C2 41 0F AF C1 C3`) | `0xCEB90` | executable-section unique scan; managed function detour |
 | `AiFlagRoutinePattern` | `0x504F0` | scan; detour captures exact AI flag projectile provenance |
@@ -198,3 +199,52 @@ worker-table fallback, while plague, AI defense and market signatures installed
 successfully. Fixed quarry and inaccessible-building layouts retain their prior
 field semantics and are enabled again only by the newly audited shared hash.
 Live Monk, gatehouse and quarry tests remain post-build smoke tests.
+
+## AI defense live audit for Steam build 24816905
+
+The 2026-08-24 finished-castle trace disproved `0x52270` as the ongoing path
+for that game mode: the installed hook received zero calls while later tower
+placement and rebuilds were observed. The dispatcher at `0x539B0` calls
+`0x52270` only when the current AIV entry field at `+0x14` is zero. Otherwise
+it iterates frames through `ExecuteBuildStep` at `0x51790`. The diagnostic is
+therefore paired around `0x51790` and the synchronous placement helper at
+`0x5CD90`. The `0x52270` hook remains as a quiet observer for the dispatcher's
+other, demonstrably distinct branch so a later non-finished-castle test can
+show whether initial progressive construction uses it. It emits no line unless
+that branch actually reaches a defense placement or spawn.
+
+The live trace also established that a permanently obstructed tower target is
+not discarded. It was retried 49 times with a median interval of 2690 ticks
+(67.25 game seconds), an average of 2651.3 ticks, and no building spawn. In the
+same run, a tower ruin spawned at tick 75120 and Vanilla reached its next tower
+placement at tick 77622, 2502 ticks later. The ruin fix marked the obstruction,
+Vanilla revalidated the footprint, and the replacement tower spawned in that
+same tick. `OnBuildingDelete` emitted no corresponding combat-destruction
+events, so it must not be used as the rebuild clock.
+
+The current trace stores only `(playerId, frameIndex)` attempt history. A frame
+is classified as `retry-without-observed-spawn` until a synchronous defense
+spawn has actually occurred inside that frame; later calls become
+`repeat-after-observed-spawn`. This deliberately avoids building-ID lifetime,
+damage-event, and prepared-frame-status tracking while still separating an AIV
+part that never fit from a genuine post-success retry.
+
+All three detours use the same PolyHook2.NET managed-function hook type already live
+tested by ActiveAIVDetector. Its six-byte minimum covers complete prologue
+instructions: `0x51790..0x51797` is `2+1+1+1+2=7` bytes,
+`0x52270..0x52279` is `5+4=9` bytes, and `0x5CD90..0x5CD9A` is
+`5+5=10` bytes. The following instructions begin exactly at `0x51797`,
+`0x52279`, and `0x5CD9A`; none of the spans splits an instruction. The
+previously live-tested `0x52270` prologue remains the exact 33-byte
+`MaintenancePattern`.
+Recheck direct incoming targets and any new detour overlap before accepting a
+future DLL.
+
+The target-coordinate diagnostic reads the audited process-state origin fields
+at placement-state offsets `0x204E760` and `0x204E764`. Those fixed offsets are
+not proven by the function signatures. Consequently all three native diagnostic
+hooks are disabled together on an unknown DLL hash, while the independent
+managed repair-radius behavior remains available. For a new DLL, revalidate
+the `ExecuteBuildStep` ABI `(aivState, playerId, frameIndex, restrictedMode,
+freeOrForced)`, the frame bound `0x922`, both origin fields, and the placement
+helper ABI before updating the baseline hash.

@@ -54,7 +54,7 @@
                           BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="2" Padding="10,7"
                           MaxWidth="{x:Static shared:ToolTipPresentation.MaximumWidth}">
                     <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}"
-                               FontSize="{TemplateBinding FontSize}" TextWrapping="Wrap" />
+                               FontSize="{x:Static shared:ToolTipPresentation.FontSize}" TextWrapping="Wrap" />
                   </Border>
                 </ControlTemplate>
               </Setter.Value>
@@ -104,7 +104,7 @@
                           BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="2" Padding="10,7"
                           MaxWidth="{x:Static shared:ToolTipPresentation.MaximumWidth}">
                     <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}"
-                               FontSize="{TemplateBinding FontSize}" TextWrapping="Wrap" />
+                               FontSize="{x:Static shared:ToolTipPresentation.FontSize}" TextWrapping="Wrap" />
                   </Border>
                 </ControlTemplate>
               </Setter.Value>
@@ -159,7 +159,7 @@
                           BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="2" Padding="10,7"
                           MaxWidth="{x:Static shared:ToolTipPresentation.MaximumWidth}">
                     <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}"
-                               FontSize="{TemplateBinding FontSize}" TextWrapping="Wrap" />
+                               FontSize="{x:Static shared:ToolTipPresentation.FontSize}" TextWrapping="Wrap" />
                   </Border>
                 </ControlTemplate>
               </Setter.Value>
@@ -215,7 +215,7 @@
                           BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="2" Padding="10,7"
                           MaxWidth="{x:Static shared:ToolTipPresentation.MaximumWidth}">
                     <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}"
-                               FontSize="{TemplateBinding FontSize}" TextWrapping="Wrap" />
+                               FontSize="{x:Static shared:ToolTipPresentation.FontSize}" TextWrapping="Wrap" />
                   </Border>
                 </ControlTemplate>
               </Setter.Value>

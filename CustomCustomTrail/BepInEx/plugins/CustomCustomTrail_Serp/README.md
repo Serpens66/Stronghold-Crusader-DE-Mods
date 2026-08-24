@@ -1,8 +1,11 @@
 # Custom Custom Trail
 
-`CustomCustomTrail` erweitert den eingebauten Traileditor um portable Koop-Trails und koordiniert missionsabhängige Einstellungen unterstützter Mods. Die aktuelle SHCDE-Version besitzt vier echte Koop-Trails mit jeweils zehn Plätzen; ein eigenes Paket kann daher bis zu 40 Missionen ersetzen.
+- Adds "customize" Button to all trails.
+- Allows you to create "custom coop trails".
+- Define specific modsetting presets for your trail mission, eg. including the unit/building limit and costs or even RandomEvents mods to make the game more challenging!
 
-Der Mod benötigt BepInEx und den SHCDE Script Extender. Über „Mod aktivieren“ kann jeder Teilnehmer sämtliche Funktionen lokal abschalten, ohne Dateien zu entfernen. Dabei werden bereits ersetzte Koop-Missionen sofort auf Vanilla zurückgestellt und Trail-Modsettings ignoriert.
+
+
 
 ## Koop-Trail ingame erstellen
 

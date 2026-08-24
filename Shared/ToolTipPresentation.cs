@@ -8,7 +8,7 @@ namespace Shared
 
         // Noesis FontSize and MaxWidth are floats. Returning the exact CLR type is
         // required because x:Static values are not converted like XAML literals.
-        public static float FontSize => 25.0f;
+        public static float FontSize => 50.0f;
 
         public static float MaximumWidth => 1000.0f;
     }
