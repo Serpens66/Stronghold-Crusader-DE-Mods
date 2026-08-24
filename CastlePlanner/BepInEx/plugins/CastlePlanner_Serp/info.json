@@ -3,10 +3,37 @@
   "Author": "Serpens66",
   "Name": "CastlePlanner",
   "Description": "Displays AIVJSON blueprints, spawns personal human castles, and contains the gated AI lobby placement workflow.",
-  "Version": "0.8.1",
+  "Version": "0.8.5",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.8.5",
+      "Changes": [
+        "Keeps Vanilla's rotation-aware initial Stockpile separate and additionally creates the AIV MAPPER_STORES Stockpile at its own rotated position.",
+        "Uses each supplemental Fearfactor building's minimum rotated footprint corner as the CreatePrefab origin, matching Vanilla's native AIV building placement."
+      ]
+    },
+    {
+      "Version": "0.8.4",
+      "Changes": [
+        "Uses the minimum world corner of the rotated Stockpile footprint when relocating Vanilla's initial four-part Stockpile.",
+        "Reads Fixes' PlaceGoodsyard setting from its retained plugin instance even after Unity destroys the original BepInEx manager object."
+      ]
+    },
+    {
+      "Version": "0.8.3",
+      "Changes": [
+        "Relocates Vanilla's single initial Stockpile to the selected AIV's rotated MAPPER_STORES position before placement instead of spawning a second Stockpile.",
+        "Respects Fixes' per-player PlaceGoodsyard setting by removing the AIV Stockpile frame when initial Stockpile placement is disabled."
+      ]
+    },
+    {
+      "Version": "0.8.2",
+      "Changes": [
+        "Removed the unsafe native Lord-initialization diagnostic hook while retaining managed start-complex diagnostics."
+      ]
+    },
     {
       "Version": "0.8.1",
       "Changes": [

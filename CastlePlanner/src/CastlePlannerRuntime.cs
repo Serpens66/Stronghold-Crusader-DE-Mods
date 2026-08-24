@@ -1,4 +1,5 @@
 using BepInEx.Logging;
+using BepInEx.Bootstrap;
 using AIVParser.Core;
 using R3;
 using SHCDESE.API;
@@ -14,6 +15,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using Zhuqiaomon.Assembly;
@@ -65,10 +67,6 @@ namespace CastlePlanner
         private const string HumanKeepCoordinateLoadPattern =
             "48 63 BC CD 54 0D 00 00 44 8B A4 CD 50 0D 00 00 " +
             "44 8B CF 45 8B C4 66 89 44 24 20";
-        private const string VanillaLordInitializationPattern =
-            "48 89 4C 24 08 56 41 54 41 55 41 56 41 57 48 83 EC 50 " +
-            "4C 63 FA 4C 8D 35 ?? ?? ?? ?? 41 8B D7 49 8B CE 45 33 C0";
-
         private const int AllocateSpecRva = 0x50680;
         private const int SetPlacementRva = 0x54EC0;
         private const int SelectBestFitRva = 0x54F60;
@@ -79,9 +77,6 @@ namespace CastlePlanner
         private const int PrebuiltPlayersReferenceRva = 0x95FF8;
         private const int PreparedKeepCoordinatesReferenceRva = 0x95EA3;
         private const int HumanKeepCoordinateLoadRva = 0x95B3C;
-        private const int VanillaLordInitializationRva = 0xC23C0;
-        private const int PlayerManagerLordUnitIdOffset = 0x130DB8;
-        private const int PlayerManagerLadyUnitIdOffset = 0x130DC0;
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate int AllocateSpecDelegate(IntPtr aivState, int playerId);
@@ -136,8 +131,6 @@ namespace CastlePlanner
         private IntPtr preparedKeepY;
         private HookTransaction nativeHookTransaction;
         private HookRef<X64InlineHook> humanKeepCoordinateLoadHook =
-            new HookRef<X64InlineHook>();
-        private HookRef<X64InlineHook> vanillaLordInitializationHook =
             new HookRef<X64InlineHook>();
         private bool installed;
         private bool handledCurrentMap;
@@ -362,6 +355,7 @@ namespace CastlePlanner
                         AivSpawnOptions options = settings.GetSpawnOptions(request.PlayerId);
                         if (!gameMode.SharedRealMultiplayer)
                             options.SpawnBraziersAndFlags = settings.SpawnBraziersAndFlags;
+                        ApplyFixesGoodsyardPolicy(request.PlayerId, options);
                         return PreparePlayerImport(request, options);
                     })
                     .ToList();
@@ -592,7 +586,7 @@ namespace CastlePlanner
                 }
 
                 components.Add(
-                    $"{buildingId}:{building.r_BuildingType}:" +
+                    $"{buildingId + 1}:{building.r_BuildingType}:" +
                     $"({building.r_TilePositionXBegin},{building.r_TilePositionYBegin})-" +
                     $"({building.r_TilePositionXEnd},{building.r_TilePositionYEnd}):" +
                     $"tile={building.r_TileIdBegin}:global={building.r_GlobalId}");
@@ -831,16 +825,27 @@ namespace CastlePlanner
                 if (!isFearFactor && !isStockpile)
                     continue;
 
-                string objectKind = isStockpile ? "stockpile" : "Fearfactor object";
+                string objectKind = isStockpile ? "AIV Stockpile" : "Fearfactor object";
                 string digestKind = isStockpile ? "stockpile" : "fear";
                 foreach (int encodedPosition in frame.tilePositionOfsets)
                 {
-                    AivWorldTile tile = AivWorldTransform.ProjectNativeFit(
-                        new AivGridPoint(encodedPosition),
+                    AivGridPoint rawAnchor = new AivGridPoint(encodedPosition);
+                    AivWorldTile projectedAnchor = AivWorldTransform.ProjectNativeFit(
+                        rawAnchor,
                         nativeReferenceX,
                         nativeReferenceY,
                         rotation);
                     eMappers mapper = (eMappers)frame.itemType;
+                    int footprintSize = AivMapperCatalog.Resolve(frame.itemType)
+                        .FootprintSize.GetValueOrDefault(1);
+                    if (footprintSize < 1)
+                        footprintSize = 1;
+                    AivWorldTile buildOrigin = AivNativeBuildingPlacement.ResolveBuildStructureOrigin(
+                        rawAnchor,
+                        footprintSize,
+                        nativeReferenceX,
+                        nativeReferenceY,
+                        rotation);
                     if (!CanPlaceSupplementalPrefab(
                             mapper,
                             encodedPosition,
@@ -851,24 +856,39 @@ namespace CastlePlanner
                     {
                         Shared.DebugLogHelper.LogWarning(
                             log,
-                            $"Supplemental {objectKind} skipped: playerId={castle.PlayerId}, mapper={mapper}, position=({tile.X},{tile.Y}), reason={reason}.");
+                            $"Supplemental {objectKind} skipped: playerId={castle.PlayerId}, mapper={mapper}, " +
+                            $"aivAnchor=({projectedAnchor.X},{projectedAnchor.Y}), " +
+                            $"buildOrigin=({buildOrigin.X},{buildOrigin.Y}), reason={reason}.");
                         continue;
                     }
                     int height = GameTileManagerAPI.Instance.GetTileHeight(
-                        GameTileManagerAPI.Instance.GetTileId(tile.X, tile.Y));
+                        GameTileManagerAPI.Instance.GetTileId(buildOrigin.X, buildOrigin.Y));
                     int id;
                     try
                     {
-                        // CreatePrefab also creates the Stockpile's four connected yard parts.
-                        id = CreateSupplementalPrefab(castle.PlayerId, tile.X, tile.Y, mapper);
+                        id = CreateSupplementalPrefab(
+                            castle.PlayerId,
+                            buildOrigin.X,
+                            buildOrigin.Y,
+                            mapper);
                     }
                     catch (Exception ex)
                     {
-                        Shared.DebugLogHelper.LogWarning(log, $"Supplemental {objectKind} creation threw and was skipped: playerId={castle.PlayerId}, mapper={mapper}, position=({tile.X},{tile.Y}), error={ex.GetBaseException().Message}.");
+                        Shared.DebugLogHelper.LogWarning(
+                            log,
+                            $"Supplemental {objectKind} creation threw and was skipped: " +
+                            $"playerId={castle.PlayerId}, mapper={mapper}, " +
+                            $"aivAnchor=({projectedAnchor.X},{projectedAnchor.Y}), " +
+                            $"buildOrigin=({buildOrigin.X},{buildOrigin.Y}), " +
+                            $"error={ex.GetBaseException().Message}.");
                         continue;
                     }
                     if (id > 0)
-                        digestRows.Add($"{digestKind}:{(int)mapper}:{castle.PlayerId}:{tile.X}:{tile.Y}:{height}");
+                    {
+                        digestRows.Add(
+                            $"{digestKind}:{(int)mapper}:{castle.PlayerId}:" +
+                            $"{buildOrigin.X}:{buildOrigin.Y}:{height}");
+                    }
                 }
             }
 
@@ -1296,11 +1316,6 @@ namespace CastlePlanner
                 "Vanilla human Keep coordinate load",
                 HumanKeepCoordinateLoadPattern,
                 HumanKeepCoordinateLoadRva);
-            int lordInitializationHookRva = ResolveReferenceRva(
-                memory,
-                "Vanilla Lord initialization",
-                VanillaLordInitializationPattern,
-                VanillaLordInitializationRva);
             nativeHookTransaction = new HookTransaction(
                 memory,
                 unchecked((ulong)libraryHandle.ToInt64()),
@@ -1314,68 +1329,14 @@ namespace CastlePlanner
                 hookSize: 16,
                 errorMode: CallbackErrorMode.LogAndContinue,
                 placement: OverwrittenInstructionPlacement.AfterCallback);
-            nativeHookTransaction.AddContextHook(
-                ref vanillaLordInitializationHook,
-                unchecked((ulong)libraryHandle.ToInt64()) + unchecked((ulong)lordInitializationHookRva),
-                LogVanillaLordInitialization,
-                regs: X64SmartCPUContextRegs.Volatile,
-                hookSize: 14,
-                errorMode: CallbackErrorMode.LogAndContinue,
-                placement: OverwrittenInstructionPlacement.AfterCallback);
             nativeHookTransaction.Commit();
             if (!humanKeepCoordinateLoadHook.Success)
                 throw new InvalidOperationException("The Vanilla human Keep coordinate-load hook was not installed.");
-            if (!vanillaLordInitializationHook.Success)
-                throw new InvalidOperationException("The Vanilla Lord-initialization diagnostic hook was not installed.");
 
             Shared.DebugLogHelper.LogInfo(
                 log,
                 $"Early Vanilla human-start hooks installed: " +
-                $"coordinateRva=0x{humanStartHookRva:X}, " +
-                $"lordDiagnosticRva=0x{lordInitializationHookRva:X}.");
-        }
-
-        private void LogVanillaLordInitialization(
-            NativePointer<X64SmartCPUContext> context)
-        {
-            try
-            {
-                X64SmartCPUContext* registers = context.Pointer;
-                int playerId = unchecked((int)registers->RDX);
-                if (!expectedAivCastlePlayers.Contains(playerId))
-                    return;
-
-                byte* playerManager = (byte*)registers->RCX;
-                byte* playerState = playerManager + playerId * PlayerAivStateStride;
-                int lordUnitId = *(int*)(playerState + PlayerManagerLordUnitIdOffset);
-                int ladyUnitId = *(int*)(playerState + PlayerManagerLadyUnitIdOffset);
-
-                if (!GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(
-                        playerId,
-                        out GamePlayerResources* resources))
-                {
-                    Shared.DebugLogHelper.LogWarning(
-                        log,
-                        $"Vanilla Lord-initialization diagnostic entered without player resources: " +
-                        $"playerId={playerId}, lordUnitId={lordUnitId}, ladyUnitId={ladyUnitId}.");
-                    return;
-                }
-
-                Shared.DebugLogHelper.LogInfo(
-                    log,
-                    $"Vanilla Lord-initialization diagnostic entered: playerId={playerId}, " +
-                    $"lordUnitId={lordUnitId}, ladyUnitId={ladyUnitId}, " +
-                    $"keepId={resources->r_KeepId}, " +
-                    $"keep=({resources->r_KeepTilePositionX},{resources->r_KeepTilePositionY}), " +
-                    $"keepDoorId={resources->r_KeepDoorId}, " +
-                    $"keepDoor=({resources->r_KeepDoorTilePositionX},{resources->r_KeepDoorTilePositionY}).");
-            }
-            catch (Exception ex)
-            {
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Vanilla Lord-initialization diagnostic failed without changing game state: {ex}");
-            }
+                $"keepCoordinateRva=0x{humanStartHookRva:X}.");
         }
 
         private void PrepareVanillaHumanStart(
@@ -1435,6 +1396,64 @@ namespace CastlePlanner
                     log,
                     $"Early Vanilla human-start preparation failed for playerId={playerId}; " +
                     $"Vanilla retains its original start data and no castle fallback will run: {ex}");
+            }
+        }
+
+        private void ApplyFixesGoodsyardPolicy(int playerId, AivSpawnOptions options)
+        {
+            if (!TryGetFixesPlaceGoodsyard(playerId, out bool placeGoodsyard))
+                return;
+
+            options.SpawnStockpile = placeGoodsyard;
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"Fixes goodsyard policy applied to AIV spawn plan: " +
+                $"playerId={playerId}, placeGoodsyard={placeGoodsyard}.");
+        }
+
+        private bool TryGetFixesPlaceGoodsyard(int playerId, out bool placeGoodsyard)
+        {
+            placeGoodsyard = true;
+            if (!Chainloader.PluginInfos.TryGetValue("fixes", out BepInEx.PluginInfo pluginInfo) ||
+                pluginInfo == null ||
+                ReferenceEquals(pluginInfo.Instance, null))
+            {
+                return false;
+            }
+
+            try
+            {
+                const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public;
+                Type pluginType = pluginInfo.Instance.GetType();
+                object modularGoodsyardPlacement = pluginType
+                    .GetField("ModularGoodsyardPlacement", flags)?
+                    .GetValue(pluginInfo.Instance);
+                object modularEnabledValue = modularGoodsyardPlacement?.GetType()
+                    .GetProperty("Value", flags)?
+                    .GetValue(modularGoodsyardPlacement, null);
+                if (!(modularEnabledValue is bool modularEnabled) || !modularEnabled)
+                    return false;
+
+                object viewModel = pluginType
+                    .GetProperty("LobbySettingsViewModel", flags)?
+                    .GetValue(pluginInfo.Instance, null);
+                bool[] data = viewModel?.GetType()
+                    .GetProperty("PlaceGoodsyardData", flags)?
+                    .GetValue(viewModel, null) as bool[];
+                if (data == null || playerId < 1 || playerId >= data.Length)
+                {
+                    throw new InvalidOperationException(
+                        $"Fixes PlaceGoodsyardData is unavailable for playerId={playerId}.");
+                }
+
+                placeGoodsyard = data[playerId];
+                return true;
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException(
+                    "The installed Fixes mod exposes no compatible PlaceGoodsyardData setting.",
+                    ex);
             }
         }
 

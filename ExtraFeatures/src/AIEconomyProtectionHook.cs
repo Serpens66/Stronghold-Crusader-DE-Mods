@@ -81,8 +81,11 @@ namespace ExtraFeatures
         private bool emergencyCallbackFailureLogged;
         private bool hovelDemolitionCallbackFailureLogged;
         private bool inaccessibleDemolitionCallbackFailureLogged;
-        private readonly HashSet<string> inaccessibleDiagnosticEvents = new HashSet<string>();
+        private const int MaximumInaccessibleDiagnosticEvents = 4096;
+        private readonly HashSet<InaccessibleDiagnosticKey> inaccessibleDiagnosticEvents =
+            new HashSet<InaccessibleDiagnosticKey>();
         private int lastInaccessibleDiagnosticTick = int.MinValue;
+        private bool inaccessibleDiagnosticLimitLogged;
         private bool disposed;
 
         public AIEconomyProtectionHook(
@@ -387,41 +390,61 @@ namespace ExtraFeatures
             AIBuildingAccessDiagnostic diagnostic,
             bool suppressDemolition)
         {
-            int tick = classificationAvailable
-                ? diagnostic.Tick
-                : GameTimeManagerAPI.Instance.CaptureTimeStamp().CapturedGameTick;
-            if (tick < lastInaccessibleDiagnosticTick || inaccessibleDiagnosticEvents.Count >= 4096)
+            int tick = diagnostic.Tick;
+            if (tick < lastInaccessibleDiagnosticTick)
+            {
                 inaccessibleDiagnosticEvents.Clear();
+                inaccessibleDiagnosticLimitLogged = false;
+            }
             lastInaccessibleDiagnosticTick = tick;
 
             string classification = classificationAvailable
                 ? diagnostic.Kind.ToString()
                 : "UnavailableFailOpen";
-            string details = classificationAvailable
-                ? diagnostic.Details
-                : "classification data unavailable";
-            string eventKey = string.Format(
-                CultureInfo.InvariantCulture,
-                "{0}:{1}:{2}:{3}:{4}:{5}",
+            string details = string.IsNullOrEmpty(diagnostic.Details)
+                ? "failureReason=classification-data-unavailable"
+                : diagnostic.Details;
+            var eventKey = new InaccessibleDiagnosticKey(
                 building->r_PlayerIdOwner,
                 building->r_GlobalId,
                 mode,
                 classification,
-                classificationAvailable ? diagnostic.TopologyHash : 0,
-                details.GetHashCode());
-            if (!inaccessibleDiagnosticEvents.Add(eventKey))
+                diagnostic.TopologyKey,
+                diagnostic.HasPathWithoutClosedGate,
+                diagnostic.HasPathUsingClosedGate,
+                diagnostic.NativePlayerAwareReachable,
+                details);
+            if (inaccessibleDiagnosticEvents.Contains(eventKey))
                 return;
+            if (inaccessibleDiagnosticEvents.Count >= MaximumInaccessibleDiagnosticEvents)
+            {
+                if (!inaccessibleDiagnosticLimitLogged)
+                {
+                    inaccessibleDiagnosticLimitLogged = true;
+                    log.LogWarning(
+                        $"[{TimestampNow()}] Extra Features AI inaccessible-building comparison log limit " +
+                        $"reached ({MaximumInaccessibleDiagnosticEvents}); further distinct events on this map are omitted.");
+                }
+                return;
+            }
+            inaccessibleDiagnosticEvents.Add(eventKey);
 
             log.LogInfo(
                 $"[{TimestampNow()}] Extra Features AI inaccessible-building comparison: " +
                 $"tick={tick}, buildingId={buildingId}, buildingGlobalId={building->r_GlobalId}, " +
                 $"buildingType={building->r_BuildingType}, owner={building->r_PlayerIdOwner}, " +
                 $"vanillaCounter={vanillaCounter}, vanillaWouldDemolish={vanillaCounter >= 20}, " +
+                $"nativePlayerAwareReachable={FormatNullableBoolean(diagnostic.NativePlayerAwareReachable)}, " +
+                $"pathWithoutClosedOwnGate={diagnostic.HasPathWithoutClosedGate}, " +
+                $"pathUsingClosedOwnGate={diagnostic.HasPathUsingClosedGate}, " +
                 $"mode={mode}, modClassification={classification}, " +
                 $"modDecision={(suppressDemolition ? "SuppressDemolition" : "AllowVanilla")}, " +
-                "gateModel=closed GameGatehouseEntry entry/exit links also represent an associated raised drawbridge, " +
+                "gateModel=open owned gates are normal links; closed owned gates and associated raised drawbridges are temporary links, " +
                 details);
         }
+
+        private static string FormatNullableBoolean(bool? value) =>
+            value.HasValue ? (value.Value ? "True" : "False") : "NotChecked";
 
         private static ulong GetPlayerOwnerDistanceFromSleeping()
         {
@@ -443,6 +466,69 @@ namespace ExtraFeatures
         private static string TimestampNow()
         {
             return DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture);
+        }
+
+        private readonly struct InaccessibleDiagnosticKey : IEquatable<InaccessibleDiagnosticKey>
+        {
+            internal InaccessibleDiagnosticKey(
+                ushort owner,
+                uint buildingGlobalId,
+                int mode,
+                string classification,
+                string topologyKey,
+                bool hasPathWithoutClosedGate,
+                bool hasPathUsingClosedGate,
+                bool? nativePlayerAwareReachable,
+                string details)
+            {
+                Owner = owner;
+                BuildingGlobalId = buildingGlobalId;
+                Mode = mode;
+                Classification = classification ?? string.Empty;
+                TopologyKey = topologyKey ?? string.Empty;
+                HasPathWithoutClosedGate = hasPathWithoutClosedGate;
+                HasPathUsingClosedGate = hasPathUsingClosedGate;
+                NativePlayerAwareReachable = nativePlayerAwareReachable;
+                Details = details ?? string.Empty;
+            }
+
+            private ushort Owner { get; }
+            private uint BuildingGlobalId { get; }
+            private int Mode { get; }
+            private string Classification { get; }
+            private string TopologyKey { get; }
+            private bool HasPathWithoutClosedGate { get; }
+            private bool HasPathUsingClosedGate { get; }
+            private bool? NativePlayerAwareReachable { get; }
+            private string Details { get; }
+
+            public bool Equals(InaccessibleDiagnosticKey other) =>
+                Owner == other.Owner && BuildingGlobalId == other.BuildingGlobalId && Mode == other.Mode &&
+                HasPathWithoutClosedGate == other.HasPathWithoutClosedGate &&
+                HasPathUsingClosedGate == other.HasPathUsingClosedGate &&
+                NativePlayerAwareReachable == other.NativePlayerAwareReachable &&
+                string.Equals(Classification, other.Classification, StringComparison.Ordinal) &&
+                string.Equals(TopologyKey, other.TopologyKey, StringComparison.Ordinal) &&
+                string.Equals(Details, other.Details, StringComparison.Ordinal);
+
+            public override bool Equals(object obj) =>
+                obj is InaccessibleDiagnosticKey other && Equals(other);
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    int hash = Owner;
+                    hash = hash * 397 ^ (int)BuildingGlobalId;
+                    hash = hash * 397 ^ Mode;
+                    hash = hash * 397 ^ HasPathWithoutClosedGate.GetHashCode();
+                    hash = hash * 397 ^ HasPathUsingClosedGate.GetHashCode();
+                    hash = hash * 397 ^ NativePlayerAwareReachable.GetHashCode();
+                    hash = hash * 397 ^ StringComparer.Ordinal.GetHashCode(Classification);
+                    hash = hash * 397 ^ StringComparer.Ordinal.GetHashCode(TopologyKey);
+                    return hash * 397 ^ StringComparer.Ordinal.GetHashCode(Details);
+                }
+            }
         }
 
     }

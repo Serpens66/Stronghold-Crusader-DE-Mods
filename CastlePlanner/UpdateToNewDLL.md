@@ -24,7 +24,6 @@ native Spawn remains inactive while managed Blueprint mode stays available.
 | `PrebuiltPlayersReferencePattern` | `0x95FF8` | RIP-relative bit field |
 | `PreparedKeepCoordinatesReferencePattern` | `0x95EA3` | RIP-relative Keep X/Y references |
 | `HumanKeepCoordinateLoadPattern` | `0x95B3C` | earliest human Keep X/Y load and start-data hook |
-| `VanillaLordInitializationPattern` | `0xC23C0` | selected-player Lord initialization diagnostics |
 
 The named source constants contain the complete authoritative byte patterns.
 
@@ -51,7 +50,7 @@ source for the current table without a new audit.
 
 ## Audit for Steam build 24651686
 
-All eleven patterns match exactly once. Targeted disassembly reconfirmed every
+All ten patterns match exactly once. Targeted disassembly reconfirmed every
 delegate ABI, AIV stride `0x6D98`, player stride `0x583C`, the spec fields,
 prebuilt bit field, prepared Keep references and the unchanged
 `AllocateSpec +0x5F` LEA contract. The human-start hook at `0x95B3C` precedes

@@ -60,7 +60,8 @@ internal static class Program
             ("projects supplemental items for every rotation", ProjectsSupplementalItemsForEveryRotation),
             ("keeps supplemental items on the native reference anchor", KeepsSupplementalItemsOnNativeReferenceAnchor),
             ("converts decoration tiles to projectile coordinates", ConvertsDecorationTilesToProjectileCoordinates),
-            ("aligns native rotation to the live Keep footprint", AlignsNativeRotationToLiveKeepFootprint)
+            ("aligns native rotation to the live Keep footprint", AlignsNativeRotationToLiveKeepFootprint),
+            ("resolves rotated BuildStructure origins", ResolvesRotatedBuildStructureOrigins)
         };
 
         int failures = 0;
@@ -910,6 +911,14 @@ internal static class Program
             stockpileSource,
             new CastlePlanner.AivSpawnOptions { SpawnBuildings = true });
         Equal(2, stockpileEnabled.frames.Count);
+        CastlePlanner.AivJsonDocument stockpilePreventedByFixes = CastlePlanner.AivSpawnPlan.Filter(
+            stockpileSource,
+            new CastlePlanner.AivSpawnOptions
+            {
+                SpawnBuildings = true,
+                SpawnStockpile = false
+            });
+        Equal(1, stockpilePreventedByFixes.frames.Count);
     }
 
     private static void FiltersTroopsAndMapsOnlySiegeEngines()
@@ -1053,6 +1062,57 @@ internal static class Program
             Equal(liveKeepX, minimumX);
             Equal(liveKeepY, minimumY);
         }
+    }
+
+    private static void ResolvesRotatedBuildStructureOrigins()
+    {
+        var anchor = new AivGridPoint(49, 50);
+        var expected = new Dictionary<AivRotation, (int X, int Y)>
+        {
+            [AivRotation.Degrees0] = (532, 281),
+            [AivRotation.Degrees90] = (532, 276),
+            [AivRotation.Degrees180] = (527, 276),
+            [AivRotation.Degrees270] = (527, 281)
+        };
+
+        foreach ((AivRotation rotation, (int X, int Y) target) in expected)
+        {
+            AivWorldTile origin = CastlePlanner.AivNativeBuildingPlacement.ResolveBuildStructureOrigin(
+                anchor,
+                5,
+                525,
+                274,
+                rotation);
+            Equal(target.X, origin.X);
+            Equal(target.Y, origin.Y);
+        }
+
+        AivWorldTile nativeGranary = CastlePlanner.AivNativeBuildingPlacement.ResolveBuildStructureOrigin(
+            new AivGridPoint(3552),
+            4,
+            525,
+            274,
+            AivRotation.Degrees270);
+        Equal(514, nativeGranary.X);
+        Equal(283, nativeGranary.Y);
+
+        AivWorldTile rotatedGarden10 = CastlePlanner.AivNativeBuildingPlacement.ResolveBuildStructureOrigin(
+            new AivGridPoint(5338),
+            4,
+            525,
+            274,
+            AivRotation.Degrees270);
+        Equal(532, rotatedGarden10.X);
+        Equal(269, rotatedGarden10.Y);
+
+        AivWorldTile rotatedGarden7 = CastlePlanner.AivNativeBuildingPlacement.ResolveBuildStructureOrigin(
+            new AivGridPoint(3948),
+            3,
+            525,
+            274,
+            AivRotation.Degrees270);
+        Equal(519, rotatedGarden7.X);
+        Equal(279, rotatedGarden7.Y);
     }
 
     private static LobbyAiSlotInput Slot(

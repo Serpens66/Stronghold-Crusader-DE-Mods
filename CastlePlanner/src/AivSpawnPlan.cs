@@ -27,6 +27,7 @@ namespace CastlePlanner
     internal sealed class AivSpawnOptions
     {
         public bool SpawnBuildings { get; set; }
+        public bool SpawnStockpile { get; set; } = true;
         public bool SpawnDefensiveGroundFeatures { get; set; }
         public bool SpawnFearFactorBuildings { get; set; }
         public bool SpawnSiegeEngines { get; set; }
@@ -147,7 +148,9 @@ namespace CastlePlanner
             {
                 pauseDelayAmount = source.pauseDelayAmount,
                 frames = source.frames
-                    .Where(frame => IsFrameEnabled(ClassifyFrame(frame.itemType), options))
+                    .Where(frame =>
+                        (frame.itemType != (int)eMappers.MAPPER_STORES || options.SpawnStockpile) &&
+                        IsFrameEnabled(ClassifyFrame(frame.itemType), options))
                     .Select(CloneFrame)
                     .ToList(),
                 miscItems = source.miscItems

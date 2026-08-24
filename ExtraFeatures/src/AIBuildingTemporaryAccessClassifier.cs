@@ -1,4 +1,4 @@
-// Feature: Classify AI building access while treating closed friendly gates as virtual links.
+// Feature: Classify AI building access while distinguishing open and closed owned gate links.
 using BepInEx.Logging;
 using SHCDESE.API;
 using SHCDESE.Interop;
@@ -16,27 +16,49 @@ namespace ExtraFeatures
         internal AIBuildingAccessDiagnostic(
             GateBlockageEvaluationKind kind,
             int tick,
-            int topologyHash,
+            string topologyKey,
+            bool hasPathWithoutClosedGate,
+            bool hasPathUsingClosedGate,
+            bool? nativePlayerAwareReachable,
             string details)
         {
             Kind = kind;
             Tick = tick;
-            TopologyHash = topologyHash;
+            TopologyKey = topologyKey ?? string.Empty;
+            HasPathWithoutClosedGate = hasPathWithoutClosedGate;
+            HasPathUsingClosedGate = hasPathUsingClosedGate;
+            NativePlayerAwareReachable = nativePlayerAwareReachable;
             Details = details ?? string.Empty;
         }
 
         internal GateBlockageEvaluationKind Kind { get; }
         internal int Tick { get; }
-        internal int TopologyHash { get; }
+        internal string TopologyKey { get; }
+        internal bool HasPathWithoutClosedGate { get; }
+        internal bool HasPathUsingClosedGate { get; }
+        internal bool? NativePlayerAwareReachable { get; }
         internal string Details { get; }
         internal bool IsOnlyTemporarilyBlocked =>
             Kind == GateBlockageEvaluationKind.TemporaryViaClosedFriendlyGate;
+
+        internal static AIBuildingAccessDiagnostic Unavailable(int tick, string reason) =>
+            new AIBuildingAccessDiagnostic(
+                GateBlockageEvaluationKind.NoVirtualGatePath,
+                tick,
+                string.Empty,
+                hasPathWithoutClosedGate: false,
+                hasPathUsingClosedGate: false,
+                nativePlayerAwareReachable: null,
+                details: "failureReason=" + (reason ?? "unknown"));
     }
 
     internal sealed unsafe class AIBuildingTemporaryAccessClassifier
     {
         private readonly ManualLogSource log;
         private readonly bool supportedDll;
+        private readonly Dictionary<int, KeepSnapshot> keepCache = new Dictionary<int, KeepSnapshot>();
+        private readonly Dictionary<int, GateTopologySnapshot> gateTopologyCache =
+            new Dictionary<int, GateTopologySnapshot>();
         private readonly Dictionary<ReachabilityKey, bool> reachabilityCache =
             new Dictionary<ReachabilityKey, bool>();
         private readonly Dictionary<ClassificationKey, AIBuildingAccessDiagnostic> classificationCache =
@@ -52,65 +74,84 @@ namespace ExtraFeatures
 
         internal bool TryClassify(int buildingId, out AIBuildingAccessDiagnostic diagnostic)
         {
-            diagnostic = default;
-            if (!supportedDll)
+            if (!TryCaptureTick(out int tick))
+            {
+                diagnostic = AIBuildingAccessDiagnostic.Unavailable(int.MinValue, "game-tick-unavailable");
                 return false;
+            }
+            diagnostic = AIBuildingAccessDiagnostic.Unavailable(tick, "classification-not-started");
+            if (!supportedDll)
+            {
+                diagnostic = AIBuildingAccessDiagnostic.Unavailable(tick, "unsupported-dll");
+                return false;
+            }
 
             try
             {
+                BeginTick(tick);
                 GameBuildingManagerAPI buildingsApi = GameBuildingManagerAPI.Instance;
-                if (!buildingsApi.TryGetBuildingById(buildingId, out GameBuilding* building) ||
-                    building == null || building->r_AliveState != AliveState.IsAlive ||
-                    building->r_GlobalId == 0 || building->r_PlayerIdOwner == 0 ||
+                if (!buildingsApi.TryGetBuildingById(buildingId, out GameBuilding* building) || building == null)
+                    return Fail(tick, "building-not-found", out diagnostic);
+                if (building->r_AliveState != AliveState.IsAlive || building->r_GlobalId == 0)
+                    return Fail(tick, "building-not-living", out diagnostic);
+                if (building->r_PlayerIdOwner == 0 ||
                     !GamePlayerManagerAPI.Instance.IsAIPlayer(building->r_PlayerIdOwner))
                 {
-                    return false;
+                    return Fail(tick, "building-not-ai-owned", out diagnostic);
                 }
 
                 int playerId = building->r_PlayerIdOwner;
-                if (!TryFindKeep(playerId, out GameBuilding* keep) || keep == null)
-                    return false;
+                if (!TryGetKeepSnapshot(playerId, out KeepSnapshot keep, out string keepFailure))
+                    return Fail(tick, keepFailure, out diagnostic);
 
                 List<int> buildingPcls = CollectAccessPcls(building);
-                List<int> keepPcls = CollectAccessPcls(keep);
-                if (buildingPcls.Count == 0 || keepPcls.Count == 0)
-                    return false;
+                if (buildingPcls.Count == 0)
+                    return Fail(tick, "building-has-no-valid-access-pcl", out diagnostic);
 
-                int tick = GameTimeManagerAPI.Instance.CaptureTimeStamp().CapturedGameTick;
-                if (tick != cacheTick)
-                {
-                    reachabilityCache.Clear();
-                    classificationCache.Clear();
-                    cacheTick = tick;
-                }
+                if (!TryGetGateTopology(playerId, out GateTopologySnapshot topology, out string topologyFailure))
+                    return Fail(tick, topologyFailure, out diagnostic);
 
-                if (!TryCollectClosedFriendlyGates(playerId, out List<PclGateConnection> gates, out int topologyHash))
-                    return false;
-
+                string buildingPclKey = BuildPclKey(buildingPcls);
                 ClassificationKey key = new ClassificationKey(
                     buildingId,
                     building->r_GlobalId,
-                    keep->r_GlobalId,
+                    keep.GlobalId,
                     playerId,
-                    topologyHash);
+                    buildingPclKey,
+                    keep.PclKey,
+                    topology.ExactKey);
                 if (classificationCache.TryGetValue(key, out diagnostic))
                     return true;
 
                 GateBlockageEvaluation evaluation = TemporaryGateBlockagePolicy.Evaluate(
                     buildingPcls,
-                    keepPcls,
-                    gates,
-                    (source, destination) => IsNormallyReachable(playerId, source, destination));
+                    keep.AccessPcls,
+                    topology.Gates,
+                    (source, destination) => IsNativePlayerAwareReachable(
+                        playerId,
+                        source,
+                        destination,
+                        topology.ExactKey));
                 diagnostic = new AIBuildingAccessDiagnostic(
                     evaluation.Kind,
                     tick,
-                    topologyHash,
-                    BuildDiagnosticDetails(buildingPcls, keepPcls, gates, evaluation.UsedGateIndices));
+                    topology.ExactKey,
+                    evaluation.HasPathWithoutClosedGate,
+                    evaluation.HasPathUsingClosedGate,
+                    evaluation.NativePlayerAwareReachable,
+                    BuildDiagnosticDetails(
+                        buildingPcls,
+                        keep.AccessPcls,
+                        topology,
+                        evaluation));
                 classificationCache[key] = diagnostic;
                 return true;
             }
             catch (Exception ex)
             {
+                diagnostic = AIBuildingAccessDiagnostic.Unavailable(
+                    tick,
+                    "exception-" + ex.GetType().Name);
                 if (!failureLogged)
                 {
                     failureLogged = true;
@@ -122,21 +163,62 @@ namespace ExtraFeatures
             }
         }
 
-        private static bool TryFindKeep(int playerId, out GameBuilding* keep)
+        private void BeginTick(int tick)
         {
-            keep = null;
+            if (tick == cacheTick)
+                return;
+
+            keepCache.Clear();
+            gateTopologyCache.Clear();
+            reachabilityCache.Clear();
+            classificationCache.Clear();
+            cacheTick = tick;
+        }
+
+        private bool TryGetKeepSnapshot(int playerId, out KeepSnapshot snapshot, out string failure)
+        {
+            if (keepCache.TryGetValue(playerId, out snapshot))
+            {
+                failure = string.Empty;
+                return true;
+            }
+
             Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
             for (int index = 0; index < buildings.Length; index++)
             {
                 ref GameBuilding candidate = ref buildings[index];
-                if (candidate.r_AliveState == AliveState.IsAlive &&
-                    candidate.r_PlayerIdOwner == playerId &&
-                    candidate.r_GlobalId != 0 &&
-                    IsKeep(candidate.r_BuildingType))
+                if (candidate.r_AliveState != AliveState.IsAlive ||
+                    candidate.r_PlayerIdOwner != playerId ||
+                    candidate.r_GlobalId == 0 ||
+                    !IsKeep(candidate.r_BuildingType))
                 {
-                    return GameBuildingManagerAPI.Instance.TryGetBuildingById(index + 1, out keep) && keep != null;
+                    continue;
                 }
+
+                if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(index + 1, out GameBuilding* keep) ||
+                    keep == null)
+                {
+                    snapshot = null;
+                    failure = "keep-pointer-unavailable";
+                    return false;
+                }
+
+                List<int> accessPcls = CollectAccessPcls(keep);
+                if (accessPcls.Count == 0)
+                {
+                    snapshot = null;
+                    failure = "keep-has-no-valid-access-pcl";
+                    return false;
+                }
+
+                snapshot = new KeepSnapshot(keep->r_GlobalId, accessPcls, BuildPclKey(accessPcls));
+                keepCache.Add(playerId, snapshot);
+                failure = string.Empty;
+                return true;
             }
+
+            snapshot = null;
+            failure = "keep-not-found";
             return false;
         }
 
@@ -149,8 +231,8 @@ namespace ExtraFeatures
 
         private static List<int> CollectAccessPcls(GameBuilding* building)
         {
-            List<int> result = new List<int>();
-            HashSet<int> seen = new HashSet<int>();
+            var result = new List<int>();
+            var seen = new HashSet<int>();
             GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
             Span<ushort> pcls = tiles.TileManager.PathConnectionGrid;
 
@@ -171,6 +253,7 @@ namespace ExtraFeatures
                     AddPclForTile(tiles.GetTileId(x, y), requireWalkable: true, tiles, pcls, result, seen);
                 }
             }
+            result.Sort();
             return result;
         }
 
@@ -193,13 +276,19 @@ namespace ExtraFeatures
                 result.Add(pcl);
         }
 
-        private static bool TryCollectClosedFriendlyGates(
+        private bool TryGetGateTopology(
             int playerId,
-            out List<PclGateConnection> gates,
-            out int topologyHash)
+            out GateTopologySnapshot snapshot,
+            out string failure)
         {
-            gates = new List<PclGateConnection>();
-            topologyHash = 17;
+            if (gateTopologyCache.TryGetValue(playerId, out snapshot))
+            {
+                failure = string.Empty;
+                return true;
+            }
+
+            var gates = new List<PclGateConnection>();
+            int skippedNoOpGates = 0;
             GameBuildingManagerAPI buildingsApi = GameBuildingManagerAPI.Instance;
             GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
             Span<ushort> pcls = tiles.TileManager.PathConnectionGrid;
@@ -208,19 +297,23 @@ namespace ExtraFeatures
             for (int index = 0; index < entries.Length; index++)
             {
                 GameGatehouseEntry* gate = entries.GetValuePointer(index);
-                if (gate == null || gate->r_BuildingId == 0 || gate->r_IsOpen != 0 ||
-                    gate->r_BuildingId > int.MaxValue)
+                if (gate == null || gate->r_BuildingId == 0 || gate->r_BuildingId > int.MaxValue)
+                    continue;
+
+                int gateBuildingId = (int)gate->r_BuildingId;
+                if (!buildingsApi.IsValidId(gateBuildingId) ||
+                    !buildingsApi.TryGetBuildingById(gateBuildingId, out GameBuilding* gateBuilding) ||
+                    gateBuilding == null || gateBuilding->r_AliveState != AliveState.IsAlive ||
+                    gateBuilding->r_PlayerIdOwner != playerId)
                 {
                     continue;
                 }
 
-                int gateBuildingId = (int)gate->r_BuildingId;
-                if (!buildingsApi.TryGetBuildingById(gateBuildingId, out GameBuilding* gateBuilding) ||
-                    gateBuilding == null || gateBuilding->r_AliveState != AliveState.IsAlive ||
-                    gateBuilding->r_PlayerIdOwner != playerId || gateBuilding->r_GlobalId == 0 ||
-                    gate->r_GlobalId != gateBuilding->r_GlobalId)
+                if (gateBuilding->r_GlobalId == 0 || gate->r_GlobalId != gateBuilding->r_GlobalId)
                 {
-                    continue;
+                    snapshot = null;
+                    failure = "owned-gate-global-id-mismatch";
+                    return false;
                 }
 
                 int entryTile = checked((int)gate->r_EntryDoorTileId);
@@ -228,74 +321,121 @@ namespace ExtraFeatures
                 if (!tiles.IsValidTileId(entryTile) || !tiles.IsValidTileId(exitTile) ||
                     (uint)entryTile >= (uint)pcls.Length || (uint)exitTile >= (uint)pcls.Length)
                 {
+                    snapshot = null;
+                    failure = "owned-gate-entry-exit-tile-invalid";
                     return false;
                 }
 
                 int entryPcl = pcls[entryTile];
                 int exitPcl = pcls[exitTile];
-                if (entryPcl <= 0 || exitPcl <= 0 || entryPcl == exitPcl)
+                if (entryPcl <= 0 || exitPcl <= 0)
+                {
+                    snapshot = null;
+                    failure = "owned-gate-entry-exit-pcl-invalid";
                     return false;
+                }
+                if (entryPcl == exitPcl)
+                {
+                    skippedNoOpGates++;
+                    continue;
+                }
 
                 gates.Add(new PclGateConnection(
                     entryPcl,
                     exitPcl,
-                    gateBuildingId,
-                    gateBuilding->r_GlobalId));
-                unchecked
-                {
-                    topologyHash = topologyHash * 31 + (int)gateBuilding->r_GlobalId;
-                    topologyHash = topologyHash * 31 + entryPcl;
-                    topologyHash = topologyHash * 31 + exitPcl;
-                }
+                    isOpen: gate->r_IsOpen != 0,
+                    buildingId: gateBuildingId,
+                    globalId: gateBuilding->r_GlobalId));
             }
+
+            gates.Sort(CompareGates);
+            snapshot = new GateTopologySnapshot(
+                gates,
+                skippedNoOpGates,
+                TemporaryGateBlockagePolicy.BuildExactTopologyKey(gates, skippedNoOpGates));
+            gateTopologyCache.Add(playerId, snapshot);
+            failure = string.Empty;
             return true;
+        }
+
+        private static int CompareGates(PclGateConnection left, PclGateConnection right)
+        {
+            int comparison = left.GlobalId.CompareTo(right.GlobalId);
+            if (comparison != 0)
+                return comparison;
+            comparison = left.BuildingId.CompareTo(right.BuildingId);
+            if (comparison != 0)
+                return comparison;
+            comparison = left.First.CompareTo(right.First);
+            if (comparison != 0)
+                return comparison;
+            comparison = left.Second.CompareTo(right.Second);
+            if (comparison != 0)
+                return comparison;
+            return left.IsOpen.CompareTo(right.IsOpen);
+        }
+
+        private static string BuildPclKey(IReadOnlyList<int> pcls)
+        {
+            var builder = new StringBuilder(pcls.Count * 6);
+            foreach (int pcl in pcls)
+                builder.Append(pcl).Append(',');
+            return builder.ToString();
         }
 
         private static string BuildDiagnosticDetails(
             IReadOnlyList<int> buildingPcls,
             IReadOnlyList<int> keepPcls,
-            IReadOnlyList<PclGateConnection> gates,
-            IReadOnlyList<int> usedGateIndices)
+            GateTopologySnapshot topology,
+            GateBlockageEvaluation evaluation)
         {
-            StringBuilder builder = new StringBuilder(256);
-            builder.Append("buildingPcls=");
+            var builder = new StringBuilder(384);
+            builder.Append("nativePlayerAwareReachable=")
+                .Append(FormatNullableBoolean(evaluation.NativePlayerAwareReachable));
+            builder.Append(", pathWithoutClosedOwnGate=").Append(evaluation.HasPathWithoutClosedGate);
+            builder.Append(", pathUsingClosedOwnGate=").Append(evaluation.HasPathUsingClosedGate);
+            builder.Append(", buildingPcls=");
             AppendIntList(builder, buildingPcls);
             builder.Append(", keepPcls=");
             AppendIntList(builder, keepPcls);
-            builder.Append(", closedFriendlyGateLinks=");
-            builder.Append(gates.Count);
+            builder.Append(", ownedGateLinks=").Append(topology.Gates.Count);
+            builder.Append(", skippedNoOpOwnedGates=").Append(topology.SkippedNoOpGates);
             builder.Append(", gates=[");
-            int shownGates = Math.Min(gates.Count, 16);
+            int shownGates = Math.Min(topology.Gates.Count, 16);
             for (int index = 0; index < shownGates; index++)
             {
                 if (index != 0)
                     builder.Append(';');
-                PclGateConnection gate = gates[index];
+                PclGateConnection gate = topology.Gates[index];
                 builder.Append("buildingId=").Append(gate.BuildingId)
                     .Append("/globalId=").Append(gate.GlobalId)
-                    .Append("/state=closed")
+                    .Append("/state=").Append(gate.IsOpen ? "open" : "closed")
                     .Append("/entryExitPcls=").Append(gate.First).Append("<->").Append(gate.Second);
             }
-            if (gates.Count > shownGates)
+            if (topology.Gates.Count > shownGates)
                 builder.Append(";...");
             builder.Append("], usedGatePath=[");
-            for (int pathIndex = 0; pathIndex < usedGateIndices.Count; pathIndex++)
+            for (int pathIndex = 0; pathIndex < evaluation.UsedGateIndices.Length; pathIndex++)
             {
                 if (pathIndex != 0)
                     builder.Append("->");
-                int gateIndex = usedGateIndices[pathIndex];
-                if ((uint)gateIndex >= (uint)gates.Count)
+                int gateIndex = evaluation.UsedGateIndices[pathIndex];
+                if ((uint)gateIndex >= (uint)topology.Gates.Count)
                 {
                     builder.Append("invalid-index-").Append(gateIndex);
                     continue;
                 }
-                PclGateConnection gate = gates[gateIndex];
+                PclGateConnection gate = topology.Gates[gateIndex];
                 builder.Append("gate#").Append(gate.BuildingId)
+                    .Append('/').Append(gate.IsOpen ? "open" : "closed")
                     .Append('(').Append(gate.First).Append("<->").Append(gate.Second).Append(')');
             }
             builder.Append(']');
             return builder.ToString();
         }
+
+        private static string FormatNullableBoolean(bool? value) =>
+            value.HasValue ? (value.Value ? "True" : "False") : "NotChecked";
 
         private static void AppendIntList(StringBuilder builder, IReadOnlyList<int> values)
         {
@@ -312,12 +452,16 @@ namespace ExtraFeatures
             builder.Append(']');
         }
 
-        private bool IsNormallyReachable(int playerId, int sourcePcl, int destinationPcl)
+        private bool IsNativePlayerAwareReachable(
+            int playerId,
+            int sourcePcl,
+            int destinationPcl,
+            string topologyKey)
         {
             if (sourcePcl == destinationPcl)
                 return true;
 
-            ReachabilityKey key = new ReachabilityKey(playerId, sourcePcl, destinationPcl);
+            ReachabilityKey key = new ReachabilityKey(playerId, sourcePcl, destinationPcl, topologyKey);
             if (reachabilityCache.TryGetValue(key, out bool reachable))
                 return reachable;
 
@@ -330,47 +474,116 @@ namespace ExtraFeatures
             return reachable;
         }
 
+        private static bool Fail(int tick, string reason, out AIBuildingAccessDiagnostic diagnostic)
+        {
+            diagnostic = AIBuildingAccessDiagnostic.Unavailable(tick, reason);
+            return false;
+        }
+
+        private static bool TryCaptureTick(out int tick)
+        {
+            try
+            {
+                tick = GameTimeManagerAPI.Instance.CaptureTimeStamp().CapturedGameTick;
+                return true;
+            }
+            catch
+            {
+                tick = int.MinValue;
+                return false;
+            }
+        }
+
+        private sealed class KeepSnapshot
+        {
+            internal KeepSnapshot(uint globalId, List<int> accessPcls, string pclKey)
+            {
+                GlobalId = globalId;
+                AccessPcls = accessPcls;
+                PclKey = pclKey;
+            }
+
+            internal uint GlobalId { get; }
+            internal List<int> AccessPcls { get; }
+            internal string PclKey { get; }
+        }
+
+        private sealed class GateTopologySnapshot
+        {
+            internal GateTopologySnapshot(List<PclGateConnection> gates, int skippedNoOpGates, string exactKey)
+            {
+                Gates = gates;
+                SkippedNoOpGates = skippedNoOpGates;
+                ExactKey = exactKey;
+            }
+
+            internal List<PclGateConnection> Gates { get; }
+            internal int SkippedNoOpGates { get; }
+            internal string ExactKey { get; }
+        }
+
         private readonly struct ReachabilityKey : IEquatable<ReachabilityKey>
         {
-            internal ReachabilityKey(int playerId, int sourcePcl, int destinationPcl)
+            internal ReachabilityKey(int playerId, int sourcePcl, int destinationPcl, string topologyKey)
             {
                 PlayerId = playerId;
                 SourcePcl = sourcePcl;
                 DestinationPcl = destinationPcl;
+                TopologyKey = topologyKey ?? string.Empty;
             }
 
             private int PlayerId { get; }
             private int SourcePcl { get; }
             private int DestinationPcl { get; }
+            private string TopologyKey { get; }
             public bool Equals(ReachabilityKey other) =>
-                PlayerId == other.PlayerId && SourcePcl == other.SourcePcl && DestinationPcl == other.DestinationPcl;
+                PlayerId == other.PlayerId && SourcePcl == other.SourcePcl &&
+                DestinationPcl == other.DestinationPcl &&
+                string.Equals(TopologyKey, other.TopologyKey, StringComparison.Ordinal);
             public override bool Equals(object obj) => obj is ReachabilityKey other && Equals(other);
             public override int GetHashCode()
             {
-                unchecked { return ((PlayerId * 397) ^ SourcePcl) * 397 ^ DestinationPcl; }
+                unchecked
+                {
+                    int hash = ((PlayerId * 397) ^ SourcePcl) * 397 ^ DestinationPcl;
+                    return hash * 397 ^ StringComparer.Ordinal.GetHashCode(TopologyKey);
+                }
             }
         }
 
         private readonly struct ClassificationKey : IEquatable<ClassificationKey>
         {
-            internal ClassificationKey(int buildingId, uint buildingGlobalId, uint keepGlobalId, int playerId, int topologyHash)
+            internal ClassificationKey(
+                int buildingId,
+                uint buildingGlobalId,
+                uint keepGlobalId,
+                int playerId,
+                string buildingPclKey,
+                string keepPclKey,
+                string topologyKey)
             {
                 BuildingId = buildingId;
                 BuildingGlobalId = buildingGlobalId;
                 KeepGlobalId = keepGlobalId;
                 PlayerId = playerId;
-                TopologyHash = topologyHash;
+                BuildingPclKey = buildingPclKey ?? string.Empty;
+                KeepPclKey = keepPclKey ?? string.Empty;
+                TopologyKey = topologyKey ?? string.Empty;
             }
 
             private int BuildingId { get; }
             private uint BuildingGlobalId { get; }
             private uint KeepGlobalId { get; }
             private int PlayerId { get; }
-            private int TopologyHash { get; }
+            private string BuildingPclKey { get; }
+            private string KeepPclKey { get; }
+            private string TopologyKey { get; }
             public bool Equals(ClassificationKey other) =>
                 BuildingId == other.BuildingId && BuildingGlobalId == other.BuildingGlobalId &&
                 KeepGlobalId == other.KeepGlobalId && PlayerId == other.PlayerId &&
-                TopologyHash == other.TopologyHash;
+                string.Equals(BuildingPclKey, other.BuildingPclKey, StringComparison.Ordinal) &&
+                string.Equals(KeepPclKey, other.KeepPclKey, StringComparison.Ordinal) &&
+                string.Equals(TopologyKey, other.TopologyKey, StringComparison.Ordinal);
             public override bool Equals(object obj) => obj is ClassificationKey other && Equals(other);
             public override int GetHashCode()
             {
@@ -380,7 +593,9 @@ namespace ExtraFeatures
                     hash = hash * 397 ^ (int)BuildingGlobalId;
                     hash = hash * 397 ^ (int)KeepGlobalId;
                     hash = hash * 397 ^ PlayerId;
-                    return hash * 397 ^ TopologyHash;
+                    hash = hash * 397 ^ StringComparer.Ordinal.GetHashCode(BuildingPclKey);
+                    hash = hash * 397 ^ StringComparer.Ordinal.GetHashCode(KeepPclKey);
+                    return hash * 397 ^ StringComparer.Ordinal.GetHashCode(TopologyKey);
                 }
             }
         }

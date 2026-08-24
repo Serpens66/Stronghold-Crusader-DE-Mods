@@ -56,4 +56,44 @@ namespace CastlePlanner
             return new AivWorldTile(liveKeepX - minimumX, liveKeepY - minimumY);
         }
     }
+
+    internal static class AivNativeBuildingPlacement
+    {
+        public static AivWorldTile ResolveBuildStructureOrigin(
+            AivGridPoint rawAnchor,
+            int footprintSize,
+            int nativeReferenceX,
+            int nativeReferenceY,
+            AivRotation rotation)
+        {
+            if (footprintSize < 1)
+                throw new ArgumentOutOfRangeException(nameof(footprintSize));
+
+            AivFootprint rawFootprint = AivGridTransform.GetFootprint(
+                rawAnchor,
+                footprintSize,
+                AivRotation.Degrees0);
+            int minimumX = int.MaxValue;
+            int minimumY = int.MaxValue;
+            for (int row = rawFootprint.Minimum.Row; row <= rawFootprint.Maximum.Row; row++)
+            {
+                for (int column = rawFootprint.Minimum.Column;
+                     column <= rawFootprint.Maximum.Column;
+                     column++)
+                {
+                    AivWorldTile projected = AivWorldTransform.ProjectNativeFit(
+                        new AivGridPoint(row, column),
+                        nativeReferenceX,
+                        nativeReferenceY,
+                        rotation);
+                    minimumX = Math.Min(minimumX, projected.X);
+                    minimumY = Math.Min(minimumY, projected.Y);
+                }
+            }
+
+            // BuildStructure expects the minimum world corner of the rotated
+            // reservation, not the projected AIV anchor stored in the frame.
+            return new AivWorldTile(minimumX, minimumY);
+        }
+    }
 }
