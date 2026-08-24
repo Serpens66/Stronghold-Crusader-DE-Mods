@@ -212,14 +212,25 @@ namespace BugfixesAndQoL
 
             DisplaySnapshot before = SafeCapture("save-before");
             bool dirtyBefore = ReadBoolean(settingsDirtyField, null);
-            LogInfo(
-                $"save-settings-begin manualApply={manualApplyDepth > 0}, onlyWhenAlreadyExists={onlyWhenAlreadyExists}, " +
-                $"settingsDirty={dirtyBefore}, changedSinceLastSave={!before.Equals(lastSaveCall)}, state={before}");
+            bool changedSinceLastSave = !before.Equals(lastSaveCall);
+            bool interestingBefore = manualApplyDepth > 0 || dirtyBefore || changedSinceLastSave;
+            if (interestingBefore)
+            {
+                LogInfo(
+                    $"save-settings-begin manualApply={manualApplyDepth > 0}, onlyWhenAlreadyExists={onlyWhenAlreadyExists}, " +
+                    $"settingsDirty={dirtyBefore}, changedSinceLastSave={changedSinceLastSave}, state={before}");
+            }
+
             saveSettingsOriginal(onlyWhenAlreadyExists);
             DisplaySnapshot after = SafeCapture("save-after");
-            LogInfo(
-                $"save-settings-end manualApply={manualApplyDepth > 0}, settingsDirty={ReadBoolean(settingsDirtyField, null)}, " +
-                $"changedDuringSave={!before.Equals(after)}, state={after}");
+            bool changedDuringSave = !before.Equals(after);
+            if (interestingBefore || changedDuringSave)
+            {
+                LogInfo(
+                    $"save-settings-end manualApply={manualApplyDepth > 0}, settingsDirty={ReadBoolean(settingsDirtyField, null)}, " +
+                    $"changedDuringSave={changedDuringSave}, state={after}");
+            }
+
             lastSaveCall = after;
             lastObserved = after;
         }

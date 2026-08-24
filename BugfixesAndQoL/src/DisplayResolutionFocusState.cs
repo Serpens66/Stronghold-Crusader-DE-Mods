@@ -1,4 +1,4 @@
-// Feature: Pure state machine for event-driven display-resolution focus protection.
+// Feature: Pure state machine for event-driven startup and focus display-resolution protection.
 namespace BugfixesAndQoL
 {
     internal enum DisplayRecoveryAction

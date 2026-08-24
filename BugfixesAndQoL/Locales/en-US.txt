@@ -1,7 +1,7 @@
 # Serp mod localization
 # Format: key=value
 BugfixesAndQoL.EnableAiFixes=AI Fixes
-BugfixesAndQoL.EnableAiFixesHelp=Fixes Vanilla AI behavior. Prevents failed knight recruitment without an available horse from reusing an old missing weapon or armour result and repeatedly buying that equipment, and refreshes the stone reserve from open castle buildings before the AI sells stone.
+BugfixesAndQoL.EnableAiFixesHelp=Fixes Vanilla AI behavior. Prevents failed knight recruitment without an available horse from reusing an old missing weapon or armour result and repeatedly buying that equipment, and preserves stone for the most expensive castle building that has not completed its first build before the AI sells stone.
 BugfixesAndQoL.LordStanceVanillaBehavior=Vanilla behavior
 BugfixesAndQoL.EnableIngameSteamInvitePrompt=Show incoming Steam invitations in game
 BugfixesAndQoL.EnableIngameSteamInvitePromptHelp=Shows a Yes/No prompt when a Steam friend invites you to a multiplayer lobby. The prompt appears only in a fully loaded frontend or active game; during loading screens or unsafe transitions Steam's normal invitation remains available. Yes leaves the current game through Vanilla's normal flow and joins the invited lobby. This is a per-player setting.
@@ -91,7 +91,7 @@ BugfixesAndQoL.ResyncKickConfirmationTitle=Kick player?
 BugfixesAndQoL.ResyncKickConfirmationMessage=Are you sure you want to remove {PlayerName} from the current match?
 BugfixesAndQoL.DisplayTitle=Display
 BugfixesAndQoL.PreserveDisplayResolution=Preserve selected display resolution
-BugfixesAndQoL.PreserveDisplayResolutionHelp=Experimental resolution protection and temporary diagnostics. When enabled, protects the selected borderless fullscreen resolution across focus loss and logs all detected display changes, including changes without focus loss. Explicit changes applied in the display options remain authoritative. Disabled by default. This setting is local and is not synchronized.
+BugfixesAndQoL.PreserveDisplayResolutionHelp=Protects the borderless fullscreen resolution loaded from settings.cfg against automatic changes during startup and focus changes. Explicit display changes applied by the user remain authoritative. Temporary diagnostics log all detected display changes, including changes without focus loss. This setting is local and is not synchronized.
 BugfixesAndQoL.EnableCustomLordListEnhancements=Improve selection and sorting lists
 BugfixesAndQoL.EnableCustomLordListEnhancementsHelp=Adds search and sorting to custom-lord, AIV, and AIC lists, fixes map-origin sorting in singleplayer and multiplayer map selection, and allows up to 50 ordered custom AIV candidates per lord. In multiplayer the host transfers the extra AIV data before start so Vanilla can select the best-fitting candidate on every peer. This is a host setting.
 BugfixesAndQoL.CustomLordClearSearchHelp=Clears the custom-lord search.

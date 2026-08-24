@@ -1,4 +1,4 @@
-// Feature: Protect borderless display settings across focus loss without permanent frame polling.
+// Feature: Protect loaded borderless display settings during startup and focus changes without permanent frame polling.
 using BepInEx.Logging;
 using CrusaderDE;
 using MonoMod.RuntimeDetour;
@@ -30,6 +30,7 @@ namespace BugfixesAndQoL
         private int lastRecoveryFrame = -1;
         private int manualApplyDepth;
         private bool settingsLoaded;
+        private bool focusRecoveryPending;
         private bool interceptedSaveLogged;
         private bool failureLogged;
         private bool disposed;
@@ -55,6 +56,7 @@ namespace BugfixesAndQoL
                     FindMethod(typeof(HUD_Options), nameof(HUD_Options.ButtonClicked), false, new[] { typeof(int) }),
                     (OptionsButtonDelegate)OptionsButtonHook);
                 optionsButtonOriginal = optionsButtonHook.GenerateTrampoline<OptionsButtonDelegate>();
+                settings.SettingChanged += OnSettingChanged;
                 Application.focusChanged += OnFocusChanged;
             }
             catch
@@ -65,7 +67,7 @@ namespace BugfixesAndQoL
 
             Shared.DebugLogHelper.LogDebug(
                 log,
-                "Bugfixes and QoL event-driven display-resolution focus guard installed.");
+                "Bugfixes and QoL event-driven startup and focus display-resolution guard installed.");
         }
 
         public void Dispose()
@@ -75,6 +77,7 @@ namespace BugfixesAndQoL
 
             disposed = true;
             StopRecoveryObservation();
+            settings.SettingChanged -= OnSettingChanged;
             Application.focusChanged -= OnFocusChanged;
             UndoAndDispose(ref optionsButtonHook);
             UndoAndDispose(ref saveSettingsHook);
@@ -82,7 +85,7 @@ namespace BugfixesAndQoL
             state.Cancel();
             Shared.DebugLogHelper.LogDebug(
                 log,
-                "Bugfixes and QoL display-resolution focus guard disposed.");
+                "Bugfixes and QoL display-resolution guard disposed.");
         }
 
         private void LoadSettingsHook()
@@ -92,9 +95,20 @@ namespace BugfixesAndQoL
 
             try
             {
+                // A deliberate reload supersedes any snapshot from an earlier load in the same process.
+                CancelProtection("settings reloaded");
                 settingsLoaded = true;
                 if (!Application.isFocused)
-                    TryArmProtection("settings loaded while application was unfocused");
+                {
+                    focusRecoveryPending = true;
+                    state.OnFocusLost();
+                }
+
+                // The loaded values are authoritative before Unity finalizes its borderless window.
+                TryArmProtection(
+                    Application.isFocused
+                        ? "settings loaded for startup protection"
+                        : "settings loaded while application was unfocused");
             }
             catch (Exception ex)
             {
@@ -114,14 +128,35 @@ namespace BugfixesAndQoL
                         out DisplaySettingsSnapshot protectedSettings))
                 {
                     bool changed = !SettingsEqual(current, protectedSettings);
-                    RestoreSettings(protectedSettings);
-                    if (changed && !interceptedSaveLogged)
+                    if (changed && !IsSupportedFullscreenResolution(
+                            protectedSettings.FullscreenWidth,
+                            protectedSettings.FullscreenHeight))
                     {
-                        interceptedSaveLogged = true;
                         Shared.DebugLogHelper.LogWarning(
                             log,
-                            "Bugfixes and QoL prevented an unfocused borderless resolution change " +
-                            $"from reaching settings.cfg: observed={current}, protected={protectedSettings}.");
+                            "Bugfixes and QoL left an automatic display change untouched because this PC no longer " +
+                            $"reports the protected target: observed={current}, protected={protectedSettings}.");
+                        CancelProtection("protected target resolution unsupported before save");
+                    }
+                    else
+                    {
+                        RestoreSettings(protectedSettings);
+                        if (changed)
+                        {
+                            if (!interceptedSaveLogged)
+                            {
+                                interceptedSaveLogged = true;
+                                Shared.DebugLogHelper.LogWarning(
+                                    log,
+                                    "Bugfixes and QoL prevented an automatic borderless resolution change " +
+                                    $"from reaching settings.cfg: observed={current}, protected={protectedSettings}, " +
+                                    $"focused={Application.isFocused}.");
+                            }
+
+                            // Focused startup changes have no later focus event, so this Save is the recovery trigger.
+                            if (Application.isFocused)
+                                RecoverProtectedTarget("automatic change detected before settings save");
+                        }
                     }
                 }
                 else if (!IsEnabled && state.IsArmed)
@@ -166,6 +201,30 @@ namespace BugfixesAndQoL
             }
         }
 
+        private void OnSettingChanged(string propertyName)
+        {
+            if (propertyName != nameof(BugfixesAndQoLViewModel.PreserveDisplayResolution) &&
+                propertyName != nameof(BugfixesAndQoLViewModel.EnableClientFeatures))
+                return;
+
+            try
+            {
+                if (!IsEnabled)
+                {
+                    CancelProtection("feature disabled");
+                    return;
+                }
+
+                if (settingsLoaded)
+                    TryArmProtection("feature enabled after settings load");
+            }
+            catch (Exception ex)
+            {
+                LogFailureOnce("while applying the feature setting", ex);
+                CancelProtection("feature setting handling failed");
+            }
+        }
+
         private void OnFocusChanged(bool focused)
         {
             try
@@ -173,11 +232,17 @@ namespace BugfixesAndQoL
                 if (!focused)
                 {
                     StopRecoveryObservation();
+                    focusRecoveryPending = true;
                     state.OnFocusLost();
                     TryArmProtection("application lost focus");
                     return;
                 }
 
+                // Unity can emit an initial focused=true notification without a preceding loss.
+                if (!focusRecoveryPending)
+                    return;
+
+                focusRecoveryPending = false;
                 RecoverAfterFocusGain();
             }
             catch (Exception ex)
@@ -199,10 +264,15 @@ namespace BugfixesAndQoL
             interceptedSaveLogged = false;
             Shared.DebugLogHelper.LogInfo(
                 log,
-                $"Bugfixes and QoL armed borderless focus protection ({reason}): target={snapshot}, actual={DescribeActual()}.");
+                $"Bugfixes and QoL armed borderless resolution protection ({reason}): target={snapshot}, actual={DescribeActual()}.");
         }
 
         private void RecoverAfterFocusGain()
+        {
+            RecoverProtectedTarget("focus regained");
+        }
+
+        private void RecoverProtectedTarget(string reason)
         {
             if (!state.IsArmed)
                 return;
@@ -221,7 +291,8 @@ namespace BugfixesAndQoL
             {
                 Shared.DebugLogHelper.LogInfo(
                     log,
-                    $"Bugfixes and QoL completed borderless focus protection without a correction: actual={DescribeActual()}.");
+                    $"Bugfixes and QoL completed borderless resolution protection without a correction " +
+                    $"({reason}): actual={DescribeActual()}.");
                 return;
             }
 
@@ -232,7 +303,7 @@ namespace BugfixesAndQoL
             {
                 Shared.DebugLogHelper.LogWarning(
                     log,
-                    $"Bugfixes and QoL cannot restore the borderless focus target because this PC does not report it: target={target}.");
+                    $"Bugfixes and QoL cannot restore the protected borderless target because this PC does not report it: target={target}.");
                 CancelProtection("target resolution unsupported");
                 return;
             }
@@ -248,7 +319,8 @@ namespace BugfixesAndQoL
             Application.onBeforeRender += ObserveRecoveryBeforeRender;
             Shared.DebugLogHelper.LogWarning(
                 log,
-                $"Bugfixes and QoL requested borderless resolution recovery after focus gain: target={target}, observedBeforeRequest={DescribeActual()}.");
+                $"Bugfixes and QoL requested borderless resolution recovery ({reason}): " +
+                $"target={target}, observedBeforeRequest={DescribeActual()}.");
         }
 
         private void ObserveRecoveryBeforeRender()
@@ -296,12 +368,13 @@ namespace BugfixesAndQoL
         {
             bool wasActive = state.IsArmed || state.IsRecoveryActive;
             StopRecoveryObservation();
+            focusRecoveryPending = false;
             state.Cancel();
             if (wasActive)
             {
                 Shared.DebugLogHelper.LogDebug(
                     log,
-                    $"Bugfixes and QoL ended borderless focus protection ({reason}).");
+                    $"Bugfixes and QoL ended borderless resolution protection ({reason}).");
             }
         }
 
@@ -392,7 +465,7 @@ namespace BugfixesAndQoL
             failureLogged = true;
             Shared.DebugLogHelper.LogError(
                 log,
-                $"Bugfixes and QoL display-resolution focus protection failed {phase}; Vanilla remains active: {ex}");
+                $"Bugfixes and QoL display-resolution protection failed {phase}; Vanilla remains active: {ex}");
         }
 
         private static MethodInfo FindMethod(

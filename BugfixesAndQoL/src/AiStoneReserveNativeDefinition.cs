@@ -36,5 +36,32 @@ namespace BugfixesAndQoL
             "48 63 F2 48 8D 05 ?? ?? ?? ?? 4C 69 CE 3C 58 00 00 " +
             "48 8B E9 BB 00 00 00 00 49 63 04 01 4C 69 C8 98 6D 00 00 " +
             "B8 1F 85 EB 51 45 0F AF 44 09 24";
+
+        // c_game_aiv_prepare_layout creates normal and multi-tile steps in state 1.
+        public const int AivInitialFirstBuildStatePatternRva = 0x53F0B;
+        public const string AivInitialFirstBuildStatePattern =
+            "48 8D 04 52 BA 01 00 00 00 48 8D 0D ?? ?? ?? ?? " +
+            "8B 8C 81 2C EF 02 04 4B 8D 04 49 41 03 CB " +
+            "41 C6 44 87 38 01 03 CF 66 45 89 64 87 3A 41 89 4C 87 40";
+
+        // A false resource result leaves the current step untouched and returns from the
+        // executor. This is why resource shortage preserves initial state 1.
+        public const int AivResourceShortageReturnPatternRva = 0x51842;
+        public const string AivResourceShortageReturnPattern =
+            "0F B6 94 24 E0 00 00 00 84 D2 75 2C 45 33 C9 45 8B C6 " +
+            "8B D6 49 8B CA E8 ?? ?? ?? ?? 85 C0 74 BC " +
+            "48 8B 4C 24 40 4C 8D 15 ?? ?? ?? ?? 44 0F B7 C6";
+
+        // The normal-building path writes state 3 only after successful placement.
+        public const int AivFirstBuildSuccessPatternRva = 0x5216D;
+        public const string AivFirstBuildSuccessPattern =
+            "48 8B 4C 24 50 B2 03 C6 41 38 03 EB 25 " +
+            "89 2D ?? ?? ?? ?? 48 8B 4C 24 50 8D 46 BA 83 F8 03";
+
+        // Its failure branch writes state 5 (state 4 is the adjacent farm special case).
+        public const int AivPlacementRetryPatternRva = 0x5217A;
+        public const string AivPlacementRetryPattern =
+            "89 2D ?? ?? ?? ?? 48 8B 4C 24 50 8D 46 BA 83 F8 03 76 0A " +
+            "41 C6 44 9D 38 05 B2 05 EB 08 41 C6 44 9D 38 04 B2 04";
     }
 }

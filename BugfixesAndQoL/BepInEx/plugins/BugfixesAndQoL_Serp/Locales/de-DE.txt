@@ -1,7 +1,7 @@
 # Serp mod localization
 # Format: key=value
 BugfixesAndQoL.EnableAiFixes=KI-Korrekturen
-BugfixesAndQoL.EnableAiFixesHelp=Korrigiert das Verhalten der Vanilla-KI. Verhindert, dass eine wegen eines fehlenden Pferdes gescheiterte Ritterrekrutierung ein altes Ergebnis fuer fehlende Waffen oder Ruestungen wiederverwendet und diese Ausruestung wiederholt kauft, und aktualisiert vor Steinverkaeufen die Reserve anhand noch offener Burggebaeude.
+BugfixesAndQoL.EnableAiFixesHelp=Korrigiert das Verhalten der Vanilla-KI. Verhindert, dass eine wegen eines fehlenden Pferdes gescheiterte Ritterrekrutierung ein altes Ergebnis fuer fehlende Waffen oder Ruestungen wiederverwendet und diese Ausruestung wiederholt kauft, und behaelt vor Steinverkaeufen Stein fuer das teuerste Burggebaeude zurueck, dessen Erstbau noch nicht abgeschlossen wurde.
 BugfixesAndQoL.LordStanceVanillaBehavior=Vanilla-Verhalten
 BugfixesAndQoL.EnableIngameSteamInvitePrompt=Eingehende Steam-Einladungen im Spiel anzeigen
 BugfixesAndQoL.EnableIngameSteamInvitePromptHelp=Zeigt eine Ja/Nein-Abfrage, wenn dich ein Steam-Freund in eine Multiplayer-Lobby einlaedt. Die Abfrage erscheint nur im vollstaendig geladenen Frontend oder in einer aktiven Partie; waehrend Ladebildschirmen oder unsicheren Uebergaengen bleibt stattdessen Steams normale Einladung verfuegbar. Ja verlaesst die aktuelle Partie ueber Vanillas normalen Ablauf und tritt der eingeladenen Lobby bei. Diese Einstellung gilt pro Spieler.
@@ -91,7 +91,7 @@ BugfixesAndQoL.ResyncKickConfirmationTitle=Spieler entfernen?
 BugfixesAndQoL.ResyncKickConfirmationMessage=Möchtest du {PlayerName} wirklich aus der laufenden Partie entfernen?
 BugfixesAndQoL.DisplayTitle=Anzeige
 BugfixesAndQoL.PreserveDisplayResolution=Ausgewählte Bildschirmauflösung beibehalten
-BugfixesAndQoL.PreserveDisplayResolutionHelp=Experimenteller Auflösungsschutz mit temporärer Diagnose. Wenn aktiv, schützt er die ausgewählte randlose Vollbildauflösung bei Fokusverlust und protokolliert alle erkannten Anzeigeänderungen, auch ohne Fokusverlust. Explizit in den Anzeigeoptionen angewendete Änderungen bleiben verbindlich. Standardmäßig deaktiviert. Diese Einstellung ist lokal und wird nicht synchronisiert.
+BugfixesAndQoL.PreserveDisplayResolutionHelp=Schützt die aus settings.cfg geladene randlose Vollbildauflösung vor automatischen Änderungen während des Starts und bei Fokuswechseln. Explizit vom Benutzer angewendete Anzeigeänderungen bleiben verbindlich. Die temporäre Diagnose protokolliert alle erkannten Anzeigeänderungen, auch ohne Fokusverlust. Diese Einstellung ist lokal und wird nicht synchronisiert.
 BugfixesAndQoL.EnableCustomLordListEnhancements=Auswahl- und Sortierlisten verbessern
 BugfixesAndQoL.EnableCustomLordListEnhancementsHelp=Ergänzt Suche und Sortierung für eigene Burgherren sowie AIV-/AIC-Listen, repariert die Herkunftssortierung der Kartenauswahl im Einzelspieler und Multiplayer und erlaubt bis zu 50 geordnete eigene AIV-Kandidaten pro Lord. Im Multiplayer überträgt der Host die zusätzlichen AIV-Daten vor dem Start, damit Vanilla auf allen Teilnehmern den passendsten Kandidaten wählen kann. Dies ist eine Host-Einstellung.
 BugfixesAndQoL.CustomLordClearSearchHelp=Löscht die Suche nach eigenen Burgherren.

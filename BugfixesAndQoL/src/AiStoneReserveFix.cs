@@ -1,4 +1,4 @@
-// Feature: Recompute the AI seller's stone-building reserve from live AIV steps.
+// Feature: Recompute the AI seller's first-build stone reserve from live AIV steps.
 using BepInEx.Logging;
 using SHCDESE.API;
 using SHCDESE.Extensions;
@@ -109,7 +109,7 @@ namespace BugfixesAndQoL
                 {
                     Shared.DebugLogHelper.LogWarning(
                         log,
-                        "Bugfixes and QoL AI stone-reserve fix is running on an unknown CrusaderDE.dll because the seller signature, AIV layout signatures, and table bounds were validated.");
+                        "Bugfixes and QoL AI stone-reserve fix is running on an unknown CrusaderDE.dll because the seller, AIV layout, first-build lifecycle, and table bounds were validated.");
                 }
             }
             catch
@@ -258,6 +258,8 @@ namespace BugfixesAndQoL
                 throw new InvalidOperationException(
                     $"Building {building} resolved to invalid stone cost {stoneCost}.");
             }
+            if (stoneCost == 0)
+                return null;
             return stoneCost;
         }
 
@@ -292,6 +294,8 @@ namespace BugfixesAndQoL
                 case eMappers.MAPPER_STAIR6:
                 case eMappers.MAPPER_UNDUGMOAT:
                 case eMappers.MAPPER_DUGMOAT:
+                case eMappers.MAPPER_MOAT:
+                case eMappers.MAPPER_ANTIMOAT:
                 case eMappers.MAPPER_WOODWALL:
                 case eMappers.MAPPER_OIL:
                 case eMappers.MAPPER_PITCH_DITCH:
@@ -323,6 +327,34 @@ namespace BugfixesAndQoL
                 AiStoneReserveNativeDefinition.AivHighestFramePatternRva,
                 referenceHashMatches,
                 "AI AIV highest-frame layout",
+                log);
+            Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                AiStoneReserveNativeDefinition.AivInitialFirstBuildStatePattern,
+                AiStoneReserveNativeDefinition.AivInitialFirstBuildStatePatternRva,
+                referenceHashMatches,
+                "AI AIV initial first-build state",
+                log);
+            Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                AiStoneReserveNativeDefinition.AivResourceShortageReturnPattern,
+                AiStoneReserveNativeDefinition.AivResourceShortageReturnPatternRva,
+                referenceHashMatches,
+                "AI AIV resource-shortage state preservation",
+                log);
+            Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                AiStoneReserveNativeDefinition.AivFirstBuildSuccessPattern,
+                AiStoneReserveNativeDefinition.AivFirstBuildSuccessPatternRva,
+                referenceHashMatches,
+                "AI AIV first-build success state",
+                log);
+            Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                AiStoneReserveNativeDefinition.AivPlacementRetryPattern,
+                AiStoneReserveNativeDefinition.AivPlacementRetryPatternRva,
+                referenceHashMatches,
+                "AI AIV placement-retry state",
                 log);
         }
 

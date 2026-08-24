@@ -15,12 +15,13 @@ namespace BugfixesAndQoL.FocusGuardTests
             try
             {
                 AutomaticFocusLossIsRecovered();
+                FocusedStartupSaveIsProtected();
                 RepeatedFocusLossPreservesOriginalTarget();
                 ManualApplyCancelsProtection();
                 DisabledAndInvalidStatesRemainInactive();
                 UnfocusedStartupCanArmProtection();
                 RecoveryTimeoutStopsFrameWorkButKeepsSaveProtection();
-                Console.WriteLine("PASS: focus loss, protected save, recovery, manual Apply, disabled, invalid, startup-unfocused, and timeout states.");
+                Console.WriteLine("PASS: focused and unfocused startup, focus loss, protected save, recovery, manual Apply, disabled, invalid, and timeout states.");
                 return 0;
             }
             catch (Exception ex)
@@ -28,6 +29,15 @@ namespace BugfixesAndQoL.FocusGuardTests
                 Console.Error.WriteLine("FAIL: " + ex);
                 return 1;
             }
+        }
+
+        private static void FocusedStartupSaveIsProtected()
+        {
+            var state = new DisplayResolutionFocusState();
+            Assert(state.TryArm(FullHd, enabled: true), "focused startup must arm immediately after settings load");
+            Assert(state.TryProtectSave(FourK, true, false, out var protectedSettings), "automatic focused startup save must be protected");
+            Assert(protectedSettings.FullscreenWidth == 1920, "focused startup must retain the loaded 1080p target");
+            Assert(state.OnFocusGained(true, targetAlreadyMatches: false) == DisplayRecoveryAction.ApplyTarget, "focused startup mismatch must request recovery");
         }
 
         private static void AutomaticFocusLossIsRecovered()

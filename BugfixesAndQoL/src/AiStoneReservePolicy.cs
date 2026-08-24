@@ -16,11 +16,11 @@ namespace BugfixesAndQoL
         public const int MaximumSteps = 1000;
         public const int PlayerResourceStrideElements = 0x160F;
 
-        private const byte DisabledStatus = 0;
-        private const byte UnbuiltStatus = 1;
-        private const byte BuiltStatus = 3;
-        private const byte InsufficientRoomStatus = 4;
-        private const byte InsufficientResourcesStatus = 5;
+        private const byte SkippedStateZero = 0;
+        private const byte InitialFirstBuildState = 1;
+        private const byte PreviouslyBuiltState = 3;
+        private const byte SkippedStateFour = 4;
+        private const byte PlacementRetryState = 5;
 
         public static bool TryGetPlayerId(ulong playerResourceOffset, out int playerId)
         {
@@ -88,23 +88,26 @@ namespace BugfixesAndQoL
             {
                 int stepOffset = StepsOffset + index * StepSize;
                 byte status = aivSlot[stepOffset];
-                bool pending;
+                bool needsFirstBuildReserve;
                 switch (status)
                 {
-                    case UnbuiltStatus:
-                    case InsufficientResourcesStatus:
-                        pending = true;
+                    // Vanilla initializes every generated AIV step to state 1. A failed
+                    // resource check returns without changing it, so this is the one state
+                    // that reliably means the first successful build is still outstanding.
+                    case InitialFirstBuildState:
+                        needsFirstBuildReserve = true;
                         break;
-                    case DisabledStatus:
-                    case BuiltStatus:
-                    case InsufficientRoomStatus:
-                        pending = false;
+                    case SkippedStateZero:
+                    case PreviouslyBuiltState:
+                    case SkippedStateFour:
+                    case PlacementRetryState:
+                        needsFirstBuildReserve = false;
                         break;
                     default:
                         return false;
                 }
 
-                if (!pending)
+                if (!needsFirstBuildReserve)
                     continue;
 
                 short commandBuildingType = ReadInt16(aivSlot, stepOffset + 2);

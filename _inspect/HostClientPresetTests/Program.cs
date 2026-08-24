@@ -2129,6 +2129,22 @@ internal static class Program
             AiStoneReserveNativeDefinition.AivHighestFramePattern,
             AiStoneReserveNativeDefinition.AivHighestFramePatternRva,
             "AIV highest-frame layout");
+        TestAiStoneLayoutSignature(
+            AiStoneReserveNativeDefinition.AivInitialFirstBuildStatePattern,
+            AiStoneReserveNativeDefinition.AivInitialFirstBuildStatePatternRva,
+            "AIV initial first-build state");
+        TestAiStoneLayoutSignature(
+            AiStoneReserveNativeDefinition.AivResourceShortageReturnPattern,
+            AiStoneReserveNativeDefinition.AivResourceShortageReturnPatternRva,
+            "AIV resource-shortage state preservation");
+        TestAiStoneLayoutSignature(
+            AiStoneReserveNativeDefinition.AivFirstBuildSuccessPattern,
+            AiStoneReserveNativeDefinition.AivFirstBuildSuccessPatternRva,
+            "AIV first-build success state");
+        TestAiStoneLayoutSignature(
+            AiStoneReserveNativeDefinition.AivPlacementRetryPattern,
+            AiStoneReserveNativeDefinition.AivPlacementRetryPatternRva,
+            "AIV placement-retry state");
     }
 
     private static void TestAiStoneLayoutSignature(string pattern, int referenceRva, string name)
@@ -2235,8 +2251,8 @@ internal static class Program
         };
         Check(
             AiStoneReservePolicy.TryCalculateReserve(slot, type => costs[type], out int reserve) &&
-            reserve == 40,
-            "AI stone-reserve policy did not select the maximum open building cost");
+            reserve == 20,
+            "AI stone-reserve policy included a state other than Vanilla's initial first-build state");
 
         WriteAivStep(slot, 4, 1, 104);
         costs[104] = 70;
@@ -2246,17 +2262,37 @@ internal static class Program
             "AI stone-reserve policy did not include the highest-frame entry");
         WriteAivStep(slot, 4, 4, 104);
 
-        costs[101] = 65;
+        costs[100] = 65;
         Check(
             AiStoneReservePolicy.TryCalculateReserve(slot, type => costs[type], out reserve) &&
             reserve == 65,
             "AI stone-reserve policy cached a stale building cost");
         costs[100] = null;
-        costs[101] = null;
         Check(
             AiStoneReservePolicy.TryCalculateReserve(slot, type => costs[type], out reserve) &&
             reserve == 0,
             "AI stone-reserve policy did not ignore non-building AIV commands");
+
+        costs[100] = 0;
+        Check(
+            AiStoneReservePolicy.TryCalculateReserve(slot, type => costs[type], out reserve) &&
+            reserve == 0,
+            "AI stone-reserve policy retained a reserve for a command without stone cost");
+
+        costs[100] = 20;
+        WriteAivStep(slot, 0, 1, 100);
+        WriteAivStep(slot, 1, 1, 101);
+        costs[101] = 40;
+        Check(
+            AiStoneReservePolicy.TryCalculateReserve(slot, type => costs[type], out reserve) &&
+            reserve == 40,
+            "AI stone-reserve policy did not select the maximum initial first-build cost");
+
+        WriteAivStep(slot, 1, 5, 101);
+        Check(
+            AiStoneReservePolicy.TryCalculateReserve(slot, type => costs[type], out reserve) &&
+            reserve == 20,
+            "AI stone-reserve policy retained a reserve after a placement retry state");
 
         WriteAivStep(slot, 0, 3, 100);
         WriteAivStep(slot, 1, 3, 101);
