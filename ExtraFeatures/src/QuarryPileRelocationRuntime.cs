@@ -121,6 +121,8 @@ namespace ExtraFeatures
         private bool initialized;
         private bool networkInitialized;
         private bool tickSubscribed;
+        private bool mapActive;
+        private bool aiSpawnObservationArmed;
         private string lastVisibilityLogState;
         private R3PacketEventHook<QuarryPileRelocationPacket> relocationPacketHook;
         private IDisposable relocationPacketSubscription;
@@ -184,9 +186,18 @@ namespace ExtraFeatures
             Hook installedHook = null;
             try
             {
+                subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
+                    .Where(args => args.Phase == EventHookPhase.Post)
+                    .Subscribe(_ => BeginMapState()));
+                subscriptions.Add(MapLoaderR3EventHooks.OnLoadMap.Observable
+                    .Where(args => args.Phase == EventHookPhase.Post)
+                    .Subscribe(_ => ResetAISpawnObservationAfterLoad("map")));
+                subscriptions.Add(MapLoaderR3EventHooks.OnLoadSave.Observable
+                    .Where(args => args.Phase == EventHookPhase.Post)
+                    .Subscribe(_ => ResetAISpawnObservationAfterLoad("save")));
                 subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
                     .Where(args => args.Phase == EventHookPhase.Pre)
-                    .Subscribe(_ => ClearMapState()));
+                    .Subscribe(_ => EndMapState()));
                 subscriptions.Add(BuildingR3EventHooks.OnBuildingBulldoze.Observable
                     .Where(args => args.Phase == EventHookPhase.Pre)
                     .Subscribe(args => OnLinkedBuildingRemoval(args.BuildingId, "bulldoze-pre")));
@@ -222,7 +233,7 @@ namespace ExtraFeatures
             initialized = false;
             LogInfo("runtime dispose started.");
             buttonViewModel.Hide();
-            ClearMapState();
+            EndMapState();
             UnhookRelocationButton();
             UnsubscribeTick();
             DisposeSubscriptions();
@@ -516,6 +527,9 @@ namespace ExtraFeatures
         private void TryQueueAIQuarry(BuildingSpawnEventArgs args)
         {
             if (!IsAIAutomationActive() ||
+                !mapActive ||
+                !aiSpawnObservationArmed ||
+                Shared.GameModeHelper.IsMapEditor() ||
                 args.Phase != EventHookPhase.Post ||
                 args.Building != eStructs.STRUCT_QUARRY ||
                 args.ReturnValue <= 0 ||
@@ -559,6 +573,12 @@ namespace ExtraFeatures
 
         private void OnGameTick(int tick)
         {
+            if (mapActive && !aiSpawnObservationArmed)
+            {
+                aiSpawnObservationArmed = true;
+                LogInfo($"AI quarry spawn observation armed after map/load initialization: tick={tick}.");
+            }
+
             if (pendingAIQuarriesByGlobalId.Count == 0)
                 return;
 
@@ -1157,7 +1177,8 @@ namespace ExtraFeatures
                             pileScale,
                             operationId,
                             candidateIndex,
-                            placementTry))
+                            placementTry,
+                            logResult: false))
                     {
                         continue;
                     }
@@ -1359,7 +1380,8 @@ namespace ExtraFeatures
             int buildingScale,
             int operationId,
             int candidateIndex,
-            int placementTry)
+            int placementTry,
+            bool logResult = true)
         {
             GameTileManagerAPI tileApi = GameTileManagerAPI.Instance;
             bool previousBlockedState = tileApi.TileManager.IsPlacementBlocked;
@@ -1375,7 +1397,10 @@ namespace ExtraFeatures
                     buildingScale,
                     0);
                 bool blocked = tileApi.TileManager.IsPlacementBlocked;
-                LogInfo($"native placement validation returned: operationId={operationId}, vanillaTry={placementTry}, candidateIndex={candidateIndex}, target={candidate.X},{candidate.Y}, buildingScale={buildingScale}, returnValue={validatorResult}, blocked={blocked}.");
+                if (logResult)
+                {
+                    LogInfo($"native placement validation returned: operationId={operationId}, vanillaTry={placementTry}, candidateIndex={candidateIndex}, target={candidate.X},{candidate.Y}, buildingScale={buildingScale}, returnValue={validatorResult}, blocked={blocked}.");
+                }
                 return !blocked;
             }
             catch (Exception ex)
@@ -1869,6 +1894,28 @@ namespace ExtraFeatures
             nextOperationId = 0;
             lastVisibilityLogState = null;
             buttonViewModel.Hide();
+        }
+
+        private void BeginMapState()
+        {
+            ClearMapState();
+            mapActive = true;
+            aiSpawnObservationArmed = false;
+            LogInfo("map state started; AI quarry spawn observation awaits the first simulation tick.");
+        }
+
+        private void ResetAISpawnObservationAfterLoad(string source)
+        {
+            pendingAIQuarriesByGlobalId.Clear();
+            aiSpawnObservationArmed = false;
+            LogInfo($"AI quarry spawn observation reset after {source} load; existing quarry spawns are ignored until the next simulation tick.");
+        }
+
+        private void EndMapState()
+        {
+            mapActive = false;
+            aiSpawnObservationArmed = false;
+            ClearMapState();
         }
 
         private void LogVisibilityState(string state)

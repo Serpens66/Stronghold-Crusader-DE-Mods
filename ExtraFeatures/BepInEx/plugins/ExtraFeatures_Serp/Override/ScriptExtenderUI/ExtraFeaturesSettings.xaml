@@ -111,6 +111,9 @@
       <CheckBox IsChecked="{Binding EnableQuarryPileRelocation, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableQuarryPileRelocationHelpText}" Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableQuarryPileRelocationText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox>
+      <CheckBox IsChecked="{Binding EnableAIQuarryPileTowardsKeep, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableAIQuarryPileTowardsKeepHelpText}" Margin="0,0,14,8">
+        <TextBlock Text="{Binding EnableAIQuarryPileTowardsKeepText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox>
       <CheckBox IsChecked="{Binding EnableExtraChurchPriests, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableExtraChurchPriestsHelpText}" Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableExtraChurchPriestsText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox>
