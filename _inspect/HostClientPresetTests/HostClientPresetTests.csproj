@@ -92,6 +92,12 @@
     <Compile Include="..\..\BugfixesAndQoL\src\SurrenderPolicy.cs">
       <Link>SurrenderPolicy.cs</Link>
     </Compile>
+    <Compile Include="..\..\BugfixesAndQoL\src\SiegeAmmoRestockPacket.cs">
+      <Link>SiegeAmmoRestockPacket.cs</Link>
+    </Compile>
+    <Compile Include="..\..\BugfixesAndQoL\src\SiegeAmmoRestockPolicy.cs">
+      <Link>SiegeAmmoRestockPolicy.cs</Link>
+    </Compile>
     <Compile Include="..\..\ExtraFeatures\src\MarketGoodPriceDefinition.cs">
       <Link>MarketGoodPriceDefinition.cs</Link>
     </Compile>

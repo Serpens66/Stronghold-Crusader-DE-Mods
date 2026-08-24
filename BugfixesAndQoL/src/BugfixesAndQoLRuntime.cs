@@ -16,6 +16,7 @@ namespace BugfixesAndQoL
         private readonly MultiplayerFeatureGate multiplayerFeatureGate;
         private readonly MultiplayerGameSpeedRuntime multiplayerGameSpeedRuntime;
         private readonly MultiplayerAivSyncRuntime multiplayerAivSyncRuntime;
+        private readonly SiegeAmmoRestockFeature siegeAmmoRestockFeature;
         private IDisposable playerMarketSubscription;
         private IDisposable mapStartSubscription;
         private IDisposable mapUnloadSubscription;
@@ -68,6 +69,7 @@ namespace BugfixesAndQoL
             multiplayerFeatureGate = new MultiplayerFeatureGate(log);
             multiplayerGameSpeedRuntime = new MultiplayerGameSpeedRuntime(log, settings, multiplayerFeatureGate);
             multiplayerAivSyncRuntime = new MultiplayerAivSyncRuntime(log, settings);
+            siegeAmmoRestockFeature = new SiegeAmmoRestockFeature(log, settings, multiplayerFeatureGate);
             settings.SettingChanged += OnSettingChanged;
             settingsSubscribed = true;
         }
@@ -90,6 +92,9 @@ namespace BugfixesAndQoL
             TryInitializePersistentFeature(
                 "multiplayer game-speed managed hooks",
                 multiplayerGameSpeedRuntime.InstallHooks);
+            TryInitializePersistentFeature(
+                "fair siege-ammunition restock",
+                siegeAmmoRestockFeature.Initialize);
 
             if (playerMarketSubscription == null)
             {
@@ -255,6 +260,7 @@ namespace BugfixesAndQoL
             allyGoodsAmountModifierHook = null;
             multiplayerGameSpeedRuntime.Dispose();
             multiplayerAivSyncRuntime.Dispose();
+            siegeAmmoRestockFeature.Dispose();
             playerMarketSubscription?.Dispose();
             playerMarketSubscription = null;
             mapStartSubscription?.Dispose();

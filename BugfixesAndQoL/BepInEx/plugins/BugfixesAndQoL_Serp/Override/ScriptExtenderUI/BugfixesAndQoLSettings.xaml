@@ -186,6 +186,12 @@
         <TextBlock Text="{Binding EnableShiftGameSpeedStepsText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox>
       <TextBlock Text="{Binding GameplayTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/>
+      <CheckBox IsChecked="{Binding EnableFairSiegeAmmoRestock, Mode=TwoWay}"
+                Foreground="White"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableFairSiegeAmmoRestockHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding EnableFairSiegeAmmoRestockText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox>
       <CheckBox IsChecked="{Binding EnableSurrenderAndStatistics, Mode=TwoWay}"
                 Foreground="White"
                 ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableSurrenderAndStatisticsHelpText}"

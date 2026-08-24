@@ -46,6 +46,7 @@ internal static class Program
             TestAiStoneReserveNativeResolution();
             TestAiStoneReservePolicy();
             TestMultiplayerGameSpeedPolicyAndPacket();
+            TestSiegeAmmoRestockPolicyAndPacket();
             TestMarketTradeIntegration();
             TestGameSpeedRepeatScheduler();
             TestArrayPerPlayerSetting();
@@ -1608,6 +1609,135 @@ internal static class Program
                 0,
                 out int unshiftedRepeatSpeed) && unshiftedRepeatSpeed == 75,
             "switching Shift during held repeats did not select 5/25/5 steps");
+    }
+
+    private static void TestSiegeAmmoRestockPolicyAndPacket()
+    {
+        AssertRestock(
+            new[] { new SiegeAmmoRestockTarget(20, 20), new SiegeAmmoRestockTarget(10, 30) },
+            10, 20, SiegeAmmoRestockModifier.Normal, 100, 10, 20,
+            new Dictionary<int, ushort> { [10] = 35, [20] = 35 },
+            "20+30 normal pool");
+        AssertRestock(
+            new[] { new SiegeAmmoRestockTarget(1, 0), new SiegeAmmoRestockTarget(2, 100) },
+            10, 20, SiegeAmmoRestockModifier.Normal, 100, 10, 20,
+            new Dictionary<int, ushort> { [1] = 20, [2] = 100 },
+            "strongly unequal stocks");
+        AssertRestock(
+            new[] { new SiegeAmmoRestockTarget(3, 5), new SiegeAmmoRestockTarget(1, 5), new SiegeAmmoRestockTarget(2, 5) },
+            10, 5, SiegeAmmoRestockModifier.Normal, 100, 10, 5,
+            new Dictionary<int, ushort> { [1] = 7, [2] = 7, [3] = 6 },
+            "stable-ID remainder");
+        AssertRestock(
+            new[] { new SiegeAmmoRestockTarget(1, 20) },
+            10, 20, SiegeAmmoRestockModifier.Shift, 100, 50, 100,
+            new Dictionary<int, ushort> { [1] = 120 },
+            "Shift modifier");
+        AssertRestock(
+            new[] { new SiegeAmmoRestockTarget(1, 20) },
+            10, 20, SiegeAmmoRestockModifier.Control, 100, 2, 4,
+            new Dictionary<int, ushort> { [1] = 24 },
+            "Ctrl modifier");
+        AssertRestock(
+            new[] { new SiegeAmmoRestockTarget(1, 20) },
+            10, 20, SiegeAmmoRestockModifier.ShiftAndControl, 100, 10, 20,
+            new Dictionary<int, ushort> { [1] = 40 },
+            "combined modifier");
+        AssertRestock(
+            new[] { new SiegeAmmoRestockTarget(1, 0), new SiegeAmmoRestockTarget(2, 0) },
+            10, 20, SiegeAmmoRestockModifier.Normal, 3, 3, 6,
+            new Dictionary<int, ushort> { [1] = 3, [2] = 3 },
+            "scarce stone");
+        AssertRestock(
+            new[] { new SiegeAmmoRestockTarget(1, 0) },
+            7, 13, SiegeAmmoRestockModifier.Control, 100, 2, 2,
+            new Dictionary<int, ushort> { [1] = 2 },
+            "Tweaker ratio and rounded Ctrl pool");
+        AssertRestock(
+            new[] { new SiegeAmmoRestockTarget(2, ushort.MaxValue), new SiegeAmmoRestockTarget(1, ushort.MaxValue - 1) },
+            10, 20, SiegeAmmoRestockModifier.Normal, 100, 1, 1,
+            new Dictionary<int, ushort> { [1] = ushort.MaxValue, [2] = ushort.MaxValue },
+            "16-bit saturation");
+
+        Check(!SiegeAmmoRestockPolicy.TryCreatePlan(10, 20, SiegeAmmoRestockModifier.Normal, 0,
+                new[] { new SiegeAmmoRestockTarget(1, 0) }, out _),
+            "zero stone created a plan");
+        Check(!SiegeAmmoRestockPolicy.TryCreatePlan(0, 20, SiegeAmmoRestockModifier.Normal, 10,
+                new[] { new SiegeAmmoRestockTarget(1, 0) }, out _),
+            "zero-cost Tweaker package created free ammunition");
+        Check(!SiegeAmmoRestockPolicy.TryCreatePlan(10, 20, SiegeAmmoRestockModifier.Normal, 10,
+                new[] { new SiegeAmmoRestockTarget(1, 0), new SiegeAmmoRestockTarget(1, 0) }, out _),
+            "duplicate global IDs were accepted");
+        Check(!SiegeAmmoRestockPolicy.TryCreatePlan(int.MaxValue, int.MaxValue, SiegeAmmoRestockModifier.Shift, int.MaxValue,
+                new[] { new SiegeAmmoRestockTarget(1, 0) }, out SiegeAmmoRestockPlan overflowPlan) ||
+              overflowPlan.AmmunitionAdded <= ushort.MaxValue,
+            "overflow bypassed target capacity");
+
+        var packet = new SiegeAmmoRestockPacket
+        {
+            ProtocolVersion = 1,
+            PlayerId = 3,
+            OperationId = 77,
+            Modifier = (int)SiegeAmmoRestockModifier.Control,
+            BaseStoneCost = 7,
+            BaseAmmunitionAmount = 13,
+            GlobalUnitIds = new[] { 11, 22, 33 }
+        };
+        SiegeAmmoRestockPacket decoded = MessagePackSerializer.Deserialize<SiegeAmmoRestockPacket>(
+            MessagePackSerializer.Serialize(packet));
+        Check(decoded.ProtocolVersion == packet.ProtocolVersion && decoded.PlayerId == packet.PlayerId &&
+              decoded.OperationId == packet.OperationId && decoded.Modifier == packet.Modifier &&
+              decoded.BaseStoneCost == packet.BaseStoneCost &&
+              decoded.BaseAmmunitionAmount == packet.BaseAmmunitionAmount &&
+              decoded.GlobalUnitIds.SequenceEqual(packet.GlobalUnitIds),
+            "siege-ammunition packet formatter lost fields");
+
+        packet.GlobalUnitIds = Enumerable.Range(1, SiegeAmmoRestockPolicy.MaximumTargetCount + 1).ToArray();
+        bool oversizedRejected = false;
+        try
+        {
+            MessagePackSerializer.Deserialize<SiegeAmmoRestockPacket>(MessagePackSerializer.Serialize(packet));
+        }
+        catch (MessagePackSerializationException)
+        {
+            oversizedRejected = true;
+        }
+        Check(oversizedRejected, "oversized siege-ammunition unit list was accepted");
+        Check(SiegeAmmoRestockPolicy.ReplaceFirstTwoNumbers(
+                "Reload (20 rocks for 10 stone)", 100, 50) ==
+              "Reload (100 rocks for 50 stone)",
+            "siege-ammunition tooltip numbers were not replaced");
+        Check(SiegeAmmoRestockPolicy.ReplaceFirstTwoNumbers(
+                "Nachladen (20 Felsen für 10 Steine)", 4, 2) ==
+              "Nachladen (4 Felsen für 2 Steine)",
+            "localized siege-ammunition tooltip numbers were not replaced");
+        Check(SiegeAmmoRestockPolicy.ReplaceFirstTwoNumbers("Reload", 100, 50) == "Reload",
+            "numberless siege-ammunition tooltip was corrupted");
+    }
+
+    private static void AssertRestock(
+        SiegeAmmoRestockTarget[] targets,
+        int baseCost,
+        int baseAmount,
+        SiegeAmmoRestockModifier modifier,
+        int availableStone,
+        int expectedCost,
+        int expectedAdded,
+        Dictionary<int, ushort> expected,
+        string label)
+    {
+        Check(SiegeAmmoRestockPolicy.TryCreatePlan(
+                baseCost, baseAmount, modifier, availableStone, targets, out SiegeAmmoRestockPlan plan),
+            $"{label}: no plan");
+        Check(plan.StoneCost == expectedCost && plan.AmmunitionAdded == expectedAdded,
+            $"{label}: totals differ ({plan.StoneCost}/{plan.AmmunitionAdded})");
+        Check(plan.Targets.Length == expected.Count &&
+              plan.Targets.All(target => expected.TryGetValue(target.GlobalUnitId, out ushort ammunition) &&
+                                         ammunition == target.Ammunition),
+            $"{label}: distribution differs");
+        long before = targets.Sum(target => (long)target.Ammunition);
+        long after = plan.Targets.Sum(target => (long)target.Ammunition);
+        Check(after - before == plan.AmmunitionAdded, $"{label}: ammunition conservation failed");
     }
 
     private static void TestMultiplayerGameSpeedPolicyAndPacket()

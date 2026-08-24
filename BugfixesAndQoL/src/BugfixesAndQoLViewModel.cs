@@ -26,6 +26,7 @@ namespace BugfixesAndQoL
         private bool enableStuckApothecaryFix = true;
         private bool enablePlagueTargetReservationFix = true;
         private bool enableAssemblyPointPlacementFix = true;
+        private bool enableFairSiegeAmmoRestock = true;
         private bool enableSurrenderAndStatistics = true;
         private bool enableLordUnitControls = true;
         private bool enableEliminatedPlayersBecomeSpectators = true;
@@ -144,6 +145,8 @@ namespace BugfixesAndQoL
         public string ShowSelectedUnitHealthHelpText => SerpLocalization.Get("BugfixesAndQoL.ShowSelectedUnitHealthHelp");
         public string EnableAssemblyPointPlacementFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAssemblyPointPlacementFix");
         public string EnableAssemblyPointPlacementFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAssemblyPointPlacementFixHelp");
+        public string EnableFairSiegeAmmoRestockText => SerpLocalization.Get("BugfixesAndQoL.EnableFairSiegeAmmoRestock");
+        public string EnableFairSiegeAmmoRestockHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableFairSiegeAmmoRestockHelp");
         public string EnableSurrenderAndStatisticsText => SerpLocalization.Get("BugfixesAndQoL.EnableSurrenderAndStatistics");
         public string EnableSurrenderAndStatisticsHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableSurrenderAndStatisticsHelp");
         public string EnableLordUnitControlsText => SerpLocalization.Get("BugfixesAndQoL.EnableLordUnitControls");
@@ -391,6 +394,13 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool EnableFairSiegeAmmoRestock
+        {
+            get => enableFairSiegeAmmoRestock;
+            set => SetSetting(ref enableFairSiegeAmmoRestock, value, nameof(EnableFairSiegeAmmoRestock));
+        }
+
+        [SyncHostOnly]
         public bool EnableSurrenderAndStatistics
         {
             get => enableSurrenderAndStatistics;
@@ -461,6 +471,7 @@ namespace BugfixesAndQoL
                 EnableStuckApothecaryFix = true;
                 EnablePlagueTargetReservationFix = true;
                 EnableAssemblyPointPlacementFix = true;
+                EnableFairSiegeAmmoRestock = true;
                 EnableSurrenderAndStatistics = true;
                 EnableLordUnitControls = true;
                 EnableEliminatedPlayersBecomeSpectators = true;

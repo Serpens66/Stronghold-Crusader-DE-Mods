@@ -110,6 +110,9 @@
     <Compile Include="src\ResyncHostKickPolicy.cs" />
     <Compile Include="src\SelectedUnitHealthFeature.cs" />
     <Compile Include="src\SelectedUnitHealthSummary.cs" />
+    <Compile Include="src\SiegeAmmoRestockFeature.cs" />
+    <Compile Include="src\SiegeAmmoRestockPacket.cs" />
+    <Compile Include="src\SiegeAmmoRestockPolicy.cs" />
     <Compile Include="src\SkirmishAiSelectionMemoryHook.cs" />
     <Compile Include="src\SteamLobbyInvitePrompt.cs" />
     <Compile Include="src\StartupDiagnosticPolicy.cs" />
