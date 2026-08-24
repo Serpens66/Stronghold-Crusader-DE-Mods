@@ -1,4 +1,4 @@
-// Feature: Pure graph policy for AI buildings blocked only by closed friendly gates.
+// Feature: Pure PCL graph policy for improved AI-building reachability checks.
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -7,63 +7,59 @@ namespace ExtraFeatures
 {
     internal readonly struct PclGateConnection
     {
-        public PclGateConnection(int first, int second, int buildingId = 0, uint globalId = 0)
-            : this(first, second, isOpen: false, buildingId, globalId)
-        {
-        }
-
-        public PclGateConnection(int first, int second, bool isOpen, int buildingId = 0, uint globalId = 0)
+        internal PclGateConnection(int first, int second, int ownerId = 0, int buildingId = 0, uint globalId = 0)
         {
             First = first;
             Second = second;
-            IsOpen = isOpen;
+            OwnerId = ownerId;
             BuildingId = buildingId;
             GlobalId = globalId;
         }
 
-        public int First { get; }
-        public int Second { get; }
-        public bool IsOpen { get; }
-        public int BuildingId { get; }
-        public uint GlobalId { get; }
+        internal int First { get; }
+        internal int Second { get; }
+        internal int OwnerId { get; }
+        internal int BuildingId { get; }
+        internal uint GlobalId { get; }
     }
 
     internal enum GateBlockageEvaluationKind
     {
-        NormallyReachable,
-        TemporaryViaClosedFriendlyGate,
-        NoVirtualGatePath
+        ReachableWithoutFriendlyGate,
+        ReachableViaFriendlyGate,
+        ReachableByNativeCurrentStateOnly,
+        UnreachableEvenWithFriendlyGates
     }
 
     internal readonly struct GateBlockageEvaluation
     {
         internal GateBlockageEvaluation(
             GateBlockageEvaluationKind kind,
-            bool hasPathWithoutClosedGate,
-            bool hasPathUsingClosedGate,
+            bool hasDirectPclPath,
+            bool hasPathWithFriendlyGates,
             bool? nativePlayerAwareReachable,
             int[] usedGateIndices)
         {
             Kind = kind;
-            HasPathWithoutClosedGate = hasPathWithoutClosedGate;
-            HasPathUsingClosedGate = hasPathUsingClosedGate;
+            HasDirectPclPath = hasDirectPclPath;
+            HasPathWithFriendlyGates = hasPathWithFriendlyGates;
             NativePlayerAwareReachable = nativePlayerAwareReachable;
             UsedGateIndices = usedGateIndices ?? Array.Empty<int>();
         }
 
         internal GateBlockageEvaluationKind Kind { get; }
-        internal bool HasPathWithoutClosedGate { get; }
-        internal bool HasPathUsingClosedGate { get; }
+        internal bool HasDirectPclPath { get; }
+        internal bool HasPathWithFriendlyGates { get; }
         internal bool? NativePlayerAwareReachable { get; }
         internal int[] UsedGateIndices { get; }
-        internal bool IsOnlyTemporarilyBlocked =>
-            Kind == GateBlockageEvaluationKind.TemporaryViaClosedFriendlyGate;
+        internal bool IsReachableUnderImprovedCheck =>
+            Kind != GateBlockageEvaluationKind.UnreachableEvenWithFriendlyGates;
     }
 
     internal static class TemporaryGateBlockagePolicy
     {
         internal const int VanillaMode = 0;
-        internal const int TemporaryGateMode = 1;
+        internal const int ImprovedReachabilityMode = 1;
         internal const int AlwaysPreventMode = 2;
 
         internal static string BuildExactTopologyKey(
@@ -71,15 +67,15 @@ namespace ExtraFeatures
             int skippedNoOpGates)
         {
             IReadOnlyList<PclGateConnection> gates = sortedGates ?? Array.Empty<PclGateConnection>();
-            var builder = new StringBuilder(gates.Count * 32 + 16);
+            var builder = new StringBuilder(gates.Count * 40 + 16);
             builder.Append("noop=").Append(skippedNoOpGates).Append('|');
             foreach (PclGateConnection gate in gates)
             {
                 builder.Append(gate.GlobalId).Append(':')
                     .Append(gate.BuildingId).Append(':')
+                    .Append(gate.OwnerId).Append(':')
                     .Append(gate.First).Append(':')
-                    .Append(gate.Second).Append(':')
-                    .Append(gate.IsOpen ? '1' : '0').Append('|');
+                    .Append(gate.Second).Append('|');
             }
             return builder.ToString();
         }
@@ -88,7 +84,7 @@ namespace ExtraFeatures
             int mode,
             bool isLivingAiBuilding,
             bool classificationAvailable,
-            bool isOnlyTemporarilyBlocked)
+            bool isReachableUnderImprovedCheck)
         {
             if (!isLivingAiBuilding || mode == VanillaMode)
                 return false;
@@ -96,75 +92,74 @@ namespace ExtraFeatures
             if (mode == AlwaysPreventMode)
                 return true;
 
-            return mode == TemporaryGateMode && classificationAvailable && isOnlyTemporarilyBlocked;
-        }
-
-        internal static bool IsOnlyTemporarilyBlocked(
-            IReadOnlyCollection<int> buildingPcls,
-            IReadOnlyCollection<int> keepPcls,
-            IReadOnlyList<PclGateConnection> ownedGates,
-            Func<int, int, bool> nativePlayerAwareReachable)
-        {
-            return Evaluate(
-                buildingPcls,
-                keepPcls,
-                ownedGates,
-                nativePlayerAwareReachable).IsOnlyTemporarilyBlocked;
+            return mode == ImprovedReachabilityMode && classificationAvailable && isReachableUnderImprovedCheck;
         }
 
         internal static GateBlockageEvaluation Evaluate(
             IReadOnlyCollection<int> buildingPcls,
             IReadOnlyCollection<int> keepPcls,
-            IReadOnlyList<PclGateConnection> ownedGates,
+            IReadOnlyList<PclGateConnection> friendlyGates,
             Func<int, int, bool> nativePlayerAwareReachable)
         {
             List<int> sources = ValidDistinct(buildingPcls);
             List<int> destinations = ValidDistinct(keepPcls);
             if (sources.Count == 0 || destinations.Count == 0 || nativePlayerAwareReachable == null)
-                return NoPath();
+                return Unreachable(nativePlayerAwareReachable: null);
 
-            // Native reachability observes the gate's current closed state; retain it for diagnostics,
-            // while the explicit gate graph answers the hypothetical "reachable after opening" question.
             bool nativeReachable = AnyNativePairReachable(sources, destinations, nativePlayerAwareReachable);
-            IReadOnlyList<PclGateConnection> gates = ownedGates ?? Array.Empty<PclGateConnection>();
+            if (HasSharedPcl(sources, destinations))
+            {
+                return new GateBlockageEvaluation(
+                    GateBlockageEvaluationKind.ReachableWithoutFriendlyGate,
+                    hasDirectPclPath: true,
+                    hasPathWithFriendlyGates: true,
+                    nativePlayerAwareReachable: nativeReachable,
+                    usedGateIndices: null);
+            }
+
+            IReadOnlyList<PclGateConnection> gates = friendlyGates ?? Array.Empty<PclGateConnection>();
             Dictionary<int, List<GateEdge>> adjacency = BuildAdjacency(gates);
-
-            if (TryFindPath(sources, destinations, adjacency, allowClosedGates: false, out _))
+            if (TryFindPath(sources, destinations, adjacency, out int[] usedGateIndices))
             {
                 return new GateBlockageEvaluation(
-                    GateBlockageEvaluationKind.NormallyReachable,
-                    hasPathWithoutClosedGate: true,
-                    hasPathUsingClosedGate: false,
+                    GateBlockageEvaluationKind.ReachableViaFriendlyGate,
+                    hasDirectPclPath: false,
+                    hasPathWithFriendlyGates: true,
                     nativePlayerAwareReachable: nativeReachable,
+                    usedGateIndices: usedGateIndices);
+            }
+
+            if (nativeReachable)
+            {
+                return new GateBlockageEvaluation(
+                    GateBlockageEvaluationKind.ReachableByNativeCurrentStateOnly,
+                    hasDirectPclPath: false,
+                    hasPathWithFriendlyGates: false,
+                    nativePlayerAwareReachable: true,
                     usedGateIndices: null);
             }
 
-            if (!TryFindPath(sources, destinations, adjacency, allowClosedGates: true, out int[] usedGateIndices) ||
-                !PathUsesClosedGate(gates, usedGateIndices))
-            {
-                return new GateBlockageEvaluation(
-                    GateBlockageEvaluationKind.NoVirtualGatePath,
-                    hasPathWithoutClosedGate: false,
-                    hasPathUsingClosedGate: false,
-                    nativePlayerAwareReachable: nativeReachable,
-                    usedGateIndices: null);
-            }
-
-            return new GateBlockageEvaluation(
-                GateBlockageEvaluationKind.TemporaryViaClosedFriendlyGate,
-                hasPathWithoutClosedGate: false,
-                hasPathUsingClosedGate: true,
-                nativePlayerAwareReachable: nativeReachable,
-                usedGateIndices: usedGateIndices);
+            return Unreachable(nativePlayerAwareReachable: false);
         }
 
-        private static GateBlockageEvaluation NoPath() =>
+        private static GateBlockageEvaluation Unreachable(bool? nativePlayerAwareReachable) =>
             new GateBlockageEvaluation(
-                GateBlockageEvaluationKind.NoVirtualGatePath,
-                hasPathWithoutClosedGate: false,
-                hasPathUsingClosedGate: false,
-                nativePlayerAwareReachable: null,
+                GateBlockageEvaluationKind.UnreachableEvenWithFriendlyGates,
+                hasDirectPclPath: false,
+                hasPathWithFriendlyGates: false,
+                nativePlayerAwareReachable: nativePlayerAwareReachable,
                 usedGateIndices: null);
+
+        private static bool HasSharedPcl(IReadOnlyList<int> sources, IReadOnlyList<int> destinations)
+        {
+            var destinationSet = new HashSet<int>(destinations);
+            foreach (int source in sources)
+            {
+                if (destinationSet.Contains(source))
+                    return true;
+            }
+            return false;
+        }
 
         private static Dictionary<int, List<GateEdge>> BuildAdjacency(IReadOnlyList<PclGateConnection> gates)
         {
@@ -175,8 +170,8 @@ namespace ExtraFeatures
                 if (gate.First <= 0 || gate.Second <= 0 || gate.First == gate.Second)
                     continue;
 
-                AddEdge(adjacency, gate.First, new GateEdge(gate.Second, gateIndex, gate.IsOpen));
-                AddEdge(adjacency, gate.Second, new GateEdge(gate.First, gateIndex, gate.IsOpen));
+                AddEdge(adjacency, gate.First, new GateEdge(gate.Second, gateIndex));
+                AddEdge(adjacency, gate.Second, new GateEdge(gate.First, gateIndex));
             }
             return adjacency;
         }
@@ -195,7 +190,6 @@ namespace ExtraFeatures
             IReadOnlyList<int> sources,
             IReadOnlyList<int> destinations,
             IReadOnlyDictionary<int, List<GateEdge>> adjacency,
-            bool allowClosedGates,
             out int[] usedGateIndices)
         {
             var destinationSet = new HashSet<int>(destinations);
@@ -205,14 +199,8 @@ namespace ExtraFeatures
 
             foreach (int source in sources)
             {
-                if (!visited.Add(source))
-                    continue;
-                if (destinationSet.Contains(source))
-                {
-                    usedGateIndices = Array.Empty<int>();
-                    return true;
-                }
-                pending.Enqueue(source);
+                if (visited.Add(source))
+                    pending.Enqueue(source);
             }
 
             while (pending.Count > 0)
@@ -223,7 +211,7 @@ namespace ExtraFeatures
 
                 foreach (GateEdge edge in edges)
                 {
-                    if ((!allowClosedGates && !edge.IsOpen) || !visited.Add(edge.DestinationPcl))
+                    if (!visited.Add(edge.DestinationPcl))
                         continue;
 
                     traversal[edge.DestinationPcl] = new GateTraversalStep(current, edge.GateIndex);
@@ -237,18 +225,6 @@ namespace ExtraFeatures
             }
 
             usedGateIndices = Array.Empty<int>();
-            return false;
-        }
-
-        private static bool PathUsesClosedGate(
-            IReadOnlyList<PclGateConnection> gates,
-            IReadOnlyList<int> usedGateIndices)
-        {
-            foreach (int gateIndex in usedGateIndices)
-            {
-                if ((uint)gateIndex < (uint)gates.Count && !gates[gateIndex].IsOpen)
-                    return true;
-            }
             return false;
         }
 
@@ -300,16 +276,14 @@ namespace ExtraFeatures
 
         private readonly struct GateEdge
         {
-            internal GateEdge(int destinationPcl, int gateIndex, bool isOpen)
+            internal GateEdge(int destinationPcl, int gateIndex)
             {
                 DestinationPcl = destinationPcl;
                 GateIndex = gateIndex;
-                IsOpen = isOpen;
             }
 
             internal int DestinationPcl { get; }
             internal int GateIndex { get; }
-            internal bool IsOpen { get; }
         }
 
         private readonly struct GateTraversalStep

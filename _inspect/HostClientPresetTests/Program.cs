@@ -1492,11 +1492,14 @@ internal static class Program
                 TemporaryGateBlockagePolicy.VanillaMode, true, true, true),
             "Vanilla mode suppressed inaccessible-building demolition");
         Check(TemporaryGateBlockagePolicy.ShouldSuppressDemolition(
-                TemporaryGateBlockagePolicy.TemporaryGateMode, true, true, true),
-            "temporary-gate mode did not suppress a confirmed temporary blockage");
+                TemporaryGateBlockagePolicy.ImprovedReachabilityMode, true, true, true),
+            "improved-check mode did not suppress a reachable AI building demolition");
         Check(!TemporaryGateBlockagePolicy.ShouldSuppressDemolition(
-                TemporaryGateBlockagePolicy.TemporaryGateMode, true, false, true),
-            "temporary-gate mode did not fail open without a classification");
+                TemporaryGateBlockagePolicy.ImprovedReachabilityMode, true, false, true),
+            "improved-check mode did not fail open without a classification");
+        Check(!TemporaryGateBlockagePolicy.ShouldSuppressDemolition(
+                TemporaryGateBlockagePolicy.ImprovedReachabilityMode, true, true, false),
+            "improved-check mode suppressed a building unreachable even with friendly gates");
         Check(TemporaryGateBlockagePolicy.ShouldSuppressDemolition(
                 TemporaryGateBlockagePolicy.AlwaysPreventMode, true, false, false),
             "always-prevent mode did not suppress the dedicated AI demolition path");
@@ -1504,125 +1507,90 @@ internal static class Program
                 TemporaryGateBlockagePolicy.AlwaysPreventMode, false, true, true),
             "always-prevent mode affected a non-AI or non-living building");
 
-        // The native query observes current reachability and may already traverse usable gates.
-        // The explicit graph must still distinguish routes that require a closed owned gate.
-        Func<int, int, bool> nativeGateAwareReachable = (_, __) => true;
-        Check(TemporaryGateBlockagePolicy.IsOnlyTemporarilyBlocked(
-                new[] { 10 }, new[] { 20 }, new[] { new PclGateConnection(10, 20) },
-                nativeGateAwareReachable),
-            "one closed friendly gate was not classified as temporary");
-        GateBlockageEvaluation closedGateEvaluation = TemporaryGateBlockagePolicy.Evaluate(
-            new[] { 10 }, new[] { 20 }, new[] { new PclGateConnection(10, 20, 45, 4500) },
-            nativeGateAwareReachable);
-        Check(closedGateEvaluation.Kind == GateBlockageEvaluationKind.TemporaryViaClosedFriendlyGate &&
-              !closedGateEvaluation.HasPathWithoutClosedGate &&
-              closedGateEvaluation.HasPathUsingClosedGate &&
-              closedGateEvaluation.NativePlayerAwareReachable == true &&
-              closedGateEvaluation.UsedGateIndices.SequenceEqual(new[] { 0 }),
-            "closed-gate diagnostic did not retain the independent graph/native results");
+        Func<int, int, bool> nativeUnreachable = (_, __) => false;
+        Func<int, int, bool> nativeReachable = (_, __) => true;
 
-        // A raised drawbridge is represented by the same closed gatehouse entry/exit link.
-        Check(TemporaryGateBlockagePolicy.IsOnlyTemporarilyBlocked(
-                new[] { 20 }, new[] { 10 }, new[] { new PclGateConnection(10, 20) },
-                nativeGateAwareReachable),
-            "raised drawbridge topology was not classified as temporary");
+        GateBlockageEvaluation direct = TemporaryGateBlockagePolicy.Evaluate(
+            new[] { 10 }, new[] { 10 }, Array.Empty<PclGateConnection>(), nativeUnreachable);
+        Check(direct.Kind == GateBlockageEvaluationKind.ReachableWithoutFriendlyGate &&
+              direct.HasDirectPclPath && direct.HasPathWithFriendlyGates &&
+              direct.IsReachableUnderImprovedCheck,
+            "a shared terrain PCL was not classified as reachable");
 
-        Check(TemporaryGateBlockagePolicy.IsOnlyTemporarilyBlocked(
-                new[] { 10 }, new[] { 30 },
-                new[] { new PclGateConnection(10, 20), new PclGateConnection(20, 30) },
-                nativeGateAwareReachable),
-            "multiple consecutive friendly gates were not traversed");
-        GateBlockageEvaluation multipleGateEvaluation = TemporaryGateBlockagePolicy.Evaluate(
-            new[] { 10 }, new[] { 30 },
-            new[] { new PclGateConnection(10, 20, 45, 4500), new PclGateConnection(20, 30, 46, 4600) },
-            nativeGateAwareReachable);
-        Check(multipleGateEvaluation.UsedGateIndices.SequenceEqual(new[] { 0, 1 }),
-            "multiple-gate diagnostic did not retain the ordered virtual gate path");
+        var ownGate = new PclGateConnection(10, 20, ownerId: 5, buildingId: 40, globalId: 4000);
+        GateBlockageEvaluation closedOwnGate = TemporaryGateBlockagePolicy.Evaluate(
+            new[] { 10 }, new[] { 20 }, new[] { ownGate }, nativeUnreachable);
+        GateBlockageEvaluation openOwnGate = TemporaryGateBlockagePolicy.Evaluate(
+            new[] { 10 }, new[] { 20 }, new[] { ownGate }, nativeReachable);
+        Check(closedOwnGate.Kind == GateBlockageEvaluationKind.ReachableViaFriendlyGate &&
+              openOwnGate.Kind == GateBlockageEvaluationKind.ReachableViaFriendlyGate &&
+              closedOwnGate.NativePlayerAwareReachable == false &&
+              openOwnGate.NativePlayerAwareReachable == true &&
+              closedOwnGate.UsedGateIndices.SequenceEqual(new[] { 0 }) &&
+              openOwnGate.UsedGateIndices.SequenceEqual(new[] { 0 }),
+            "current gate state changed the always-passable friendly-gate graph result");
 
-        var mixedGates = new[]
+        // A raised or lowered drawbridge is represented by the same gatehouse entry/exit link.
+        GateBlockageEvaluation drawbridge = TemporaryGateBlockagePolicy.Evaluate(
+            new[] { 20 }, new[] { 10 }, new[] { ownGate }, nativeUnreachable);
+        Check(drawbridge.Kind == GateBlockageEvaluationKind.ReachableViaFriendlyGate,
+            "an associated drawbridge was not treated as an always-passable gatehouse link");
+
+        var ownAndAlliedGates = new[]
         {
-            new PclGateConnection(10, 20, isOpen: true, buildingId: 40, globalId: 4000),
-            new PclGateConnection(20, 30, isOpen: false, buildingId: 41, globalId: 4100)
+            new PclGateConnection(10, 20, ownerId: 5, buildingId: 40, globalId: 4000),
+            new PclGateConnection(20, 30, ownerId: 6, buildingId: 41, globalId: 4100)
         };
-        GateBlockageEvaluation mixedEvaluation = TemporaryGateBlockagePolicy.Evaluate(
-            new[] { 10 }, new[] { 30 }, mixedGates, nativeGateAwareReachable);
-        Check(mixedEvaluation.Kind == GateBlockageEvaluationKind.TemporaryViaClosedFriendlyGate &&
-              mixedEvaluation.UsedGateIndices.SequenceEqual(new[] { 0, 1 }),
-            "a mixed open/closed owned-gate path was not classified as temporary");
+        GateBlockageEvaluation multipleFriendlyGates = TemporaryGateBlockagePolicy.Evaluate(
+            new[] { 10 }, new[] { 30 }, ownAndAlliedGates, nativeUnreachable);
+        Check(multipleFriendlyGates.Kind == GateBlockageEvaluationKind.ReachableViaFriendlyGate &&
+              multipleFriendlyGates.UsedGateIndices.SequenceEqual(new[] { 0, 1 }),
+            "a route through consecutive own and allied gates was not traversed");
 
-        GateBlockageEvaluation openOnlyEvaluation = TemporaryGateBlockagePolicy.Evaluate(
-            new[] { 10 }, new[] { 20 },
-            new[] { new PclGateConnection(10, 20, isOpen: true, buildingId: 40, globalId: 4000) },
-            nativeGateAwareReachable);
-        Check(openOnlyEvaluation.Kind == GateBlockageEvaluationKind.NormallyReachable &&
-              openOnlyEvaluation.HasPathWithoutClosedGate &&
-              !openOnlyEvaluation.HasPathUsingClosedGate,
-            "an open owned gate was not treated as a normal graph link");
+        GateBlockageEvaluation nativeOnly = TemporaryGateBlockagePolicy.Evaluate(
+            new[] { 10 }, new[] { 20 }, Array.Empty<PclGateConnection>(), nativeReachable);
+        Check(nativeOnly.Kind == GateBlockageEvaluationKind.ReachableByNativeCurrentStateOnly &&
+              nativeOnly.IsReachableUnderImprovedCheck,
+            "positive native current-state reachability was not accepted as additional evidence");
 
-        Check(!TemporaryGateBlockagePolicy.IsOnlyTemporarilyBlocked(
-                new[] { 10 }, new[] { 20 }, new[] { new PclGateConnection(30, 40) },
-                nativeGateAwareReachable),
-            "an unrelated closed gate was treated as the building blockage");
+        GateBlockageEvaluation sealedWall = TemporaryGateBlockagePolicy.Evaluate(
+            new[] { 10 }, new[] { 20 }, Array.Empty<PclGateConnection>(), nativeUnreachable);
+        Check(sealedWall.Kind == GateBlockageEvaluationKind.UnreachableEvenWithFriendlyGates &&
+              !sealedWall.IsReachableUnderImprovedCheck,
+            "a sealed wall without a friendly gate was classified as reachable");
 
-        Check(!TemporaryGateBlockagePolicy.IsOnlyTemporarilyBlocked(
-                new[] { 10 }, new[] { 20 }, Array.Empty<PclGateConnection>(),
-                (_, __) => false),
-            "a closed wall without a gate was classified as temporary");
-
-        // Enemy gates are omitted by the runtime collector and therefore add no link.
-        Check(!TemporaryGateBlockagePolicy.IsOnlyTemporarilyBlocked(
-                new[] { 10 }, new[] { 20 }, Array.Empty<PclGateConnection>(),
-                nativeGateAwareReachable),
+        // Enemy gates are omitted by the runtime collector and therefore add no virtual link.
+        Check(TemporaryGateBlockagePolicy.Evaluate(
+                new[] { 10 }, new[] { 20 }, Array.Empty<PclGateConnection>(), nativeUnreachable).Kind ==
+              GateBlockageEvaluationKind.UnreachableEvenWithFriendlyGates,
             "an omitted enemy gate affected classification");
 
-        Check(!TemporaryGateBlockagePolicy.IsOnlyTemporarilyBlocked(
-                new[] { 10 }, new[] { 20 },
-                new[] { new PclGateConnection(0, 20), new PclGateConnection(30, 30) },
-                nativeGateAwareReachable),
+        GateBlockageEvaluation invalidGates = TemporaryGateBlockagePolicy.Evaluate(
+            new[] { 10 }, new[] { 20 },
+            new[] { new PclGateConnection(0, 20), new PclGateConnection(30, 30) },
+            nativeUnreachable);
+        Check(invalidGates.Kind == GateBlockageEvaluationKind.UnreachableEvenWithFriendlyGates,
             "an invalid or no-op gate affected virtual-link classification");
 
-        GateBlockageEvaluation nativeClosedState = TemporaryGateBlockagePolicy.Evaluate(
-            new[] { 10 }, new[] { 20 }, new[] { new PclGateConnection(10, 20) },
-            (_, __) => false);
-        Check(nativeClosedState.Kind == GateBlockageEvaluationKind.TemporaryViaClosedFriendlyGate &&
-              nativeClosedState.HasPathUsingClosedGate &&
-              nativeClosedState.NativePlayerAwareReachable == false &&
-              TemporaryGateBlockagePolicy.ShouldSuppressDemolition(
-                  TemporaryGateBlockagePolicy.TemporaryGateMode,
-                  isLivingAiBuilding: true,
-                  classificationAvailable: true,
-                  isOnlyTemporarilyBlocked: nativeClosedState.IsOnlyTemporarilyBlocked),
-            "negative native current-state reachability vetoed a graph-confirmed closed friendly gate route");
+        Check(TemporaryGateBlockagePolicy.ShouldSuppressDemolition(
+                TemporaryGateBlockagePolicy.ImprovedReachabilityMode,
+                isLivingAiBuilding: true,
+                classificationAvailable: true,
+                isReachableUnderImprovedCheck: closedOwnGate.IsReachableUnderImprovedCheck),
+            "negative native reachability vetoed a graph-confirmed friendly-gate route");
 
-        Check(!TemporaryGateBlockagePolicy.IsOnlyTemporarilyBlocked(
-                new[] { 10 }, new[] { 10 }, new[] { new PclGateConnection(10, 30) },
-                nativeGateAwareReachable),
-            "a normally reachable building was classified as gate-blocked");
-        Check(TemporaryGateBlockagePolicy.Evaluate(
-                new[] { 10 }, new[] { 10 }, new[] { new PclGateConnection(10, 30) },
-                nativeGateAwareReachable).Kind == GateBlockageEvaluationKind.NormallyReachable,
-            "normally reachable diagnostic classification was incorrect");
-
-        GateBlockageEvaluation closedAtTickOne = TemporaryGateBlockagePolicy.Evaluate(
-            new[] { 10 }, new[] { 20 },
-            new[] { new PclGateConnection(10, 20, isOpen: false) },
-            nativeGateAwareReachable);
-        GateBlockageEvaluation openAtTickTwo = TemporaryGateBlockagePolicy.Evaluate(
-            new[] { 10 }, new[] { 20 },
-            new[] { new PclGateConnection(10, 20, isOpen: true) },
-            nativeGateAwareReachable);
-        Check(closedAtTickOne.Kind == GateBlockageEvaluationKind.TemporaryViaClosedFriendlyGate &&
-              openAtTickTwo.Kind == GateBlockageEvaluationKind.NormallyReachable,
-            "a changed gate state retained the previous classification across snapshots");
-
-        string closedTopologyKey = TemporaryGateBlockagePolicy.BuildExactTopologyKey(
-            new[] { new PclGateConnection(10, 20, isOpen: false, buildingId: 40, globalId: 4000) },
+        string topologyKey = TemporaryGateBlockagePolicy.BuildExactTopologyKey(
+            ownAndAlliedGates,
             skippedNoOpGates: 0);
-        string openTopologyKey = TemporaryGateBlockagePolicy.BuildExactTopologyKey(
-            new[] { new PclGateConnection(10, 20, isOpen: true, buildingId: 40, globalId: 4000) },
+        string changedOwnerKey = TemporaryGateBlockagePolicy.BuildExactTopologyKey(
+            new[]
+            {
+                new PclGateConnection(10, 20, ownerId: 5, buildingId: 40, globalId: 4000),
+                new PclGateConnection(20, 30, ownerId: 7, buildingId: 41, globalId: 4100)
+            },
             skippedNoOpGates: 0);
-        Check(!string.Equals(closedTopologyKey, openTopologyKey, StringComparison.Ordinal),
-            "the exact cache topology key ignored an open/closed gate-state change");
+        Check(!string.Equals(topologyKey, changedOwnerKey, StringComparison.Ordinal),
+            "the exact topology key ignored a friendly-gate owner change");
     }
 
     private static void TestLordHealthMultiplierPolicy()

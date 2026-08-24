@@ -53,6 +53,7 @@ namespace ExtraFeatures
         private const int EmergencyDemolitionComparisonRva = 0x2F454;
         private const int AIHovelDemolitionFunctionRva = 0x3B1D0;
         private const int InaccessibleBuildingComparisonRva = 0x3B2FF;
+        private const ulong InaccessibleCounterOffsetFromR8 = 0x338;
 
         private const byte ActiveState = 0;
         private const byte SleepingState = 1;
@@ -348,28 +349,49 @@ namespace ExtraFeatures
                 bool classificationAvailable = temporaryAccessClassifier.TryClassify(
                     buildingId,
                     out AIBuildingAccessDiagnostic diagnostic);
-                bool temporarilyBlocked = classificationAvailable && diagnostic.IsOnlyTemporarilyBlocked;
+                bool reachableUnderImprovedCheck =
+                    classificationAvailable && diagnostic.IsReachableUnderImprovedCheck;
 
                 bool suppressDemolition = TemporaryGateBlockagePolicy.ShouldSuppressDemolition(
                     mode,
                     isLivingAiBuilding,
                     classificationAvailable,
-                    temporarilyBlocked);
+                    reachableUnderImprovedCheck);
+
+                ushort storedCounterBefore = vanillaCounter;
+                ushort storedCounterAfter = vanillaCounter;
+                bool counterReset = false;
+                if (suppressDemolition)
+                {
+                    if (registers->R8 == 0)
+                        throw new InvalidOperationException("Vanilla inaccessible-building counter base register R8 is null.");
+
+                    ushort* storedCounter = (ushort*)(registers->R8 + InaccessibleCounterOffsetFromR8);
+                    storedCounterBefore = *storedCounter;
+                    if (storedCounterBefore != vanillaCounter)
+                    {
+                        throw new InvalidOperationException(
+                            $"Vanilla inaccessible-building counter mismatch: cx={vanillaCounter}, stored={storedCounterBefore}.");
+                    }
+
+                    // Reset the source value as well as CX so reopening a gate cannot expose a stale 20.
+                    *storedCounter = 0;
+                    storedCounterAfter = *storedCounter;
+                    registers->RCX &= ~0xFFFFUL;
+                    counterReset = true;
+                }
+
                 LogInaccessibleBuildingComparison(
                     buildingId,
                     building,
                     vanillaCounter,
+                    storedCounterBefore,
+                    storedCounterAfter,
+                    counterReset,
                     mode,
                     classificationAvailable,
                     diagnostic,
                     suppressDemolition);
-
-                if (!suppressDemolition)
-                    return;
-
-                // Preserve the upper RCX bits. The overwritten cmp cx,20 now takes
-                // Vanilla's early-return branch without calling its delete block.
-                registers->RCX &= ~0xFFFFUL;
             }
             catch (Exception ex)
             {
@@ -385,6 +407,9 @@ namespace ExtraFeatures
             int buildingId,
             GameBuilding* building,
             ushort vanillaCounter,
+            ushort storedCounterBefore,
+            ushort storedCounterAfter,
+            bool counterReset,
             int mode,
             bool classificationAvailable,
             AIBuildingAccessDiagnostic diagnostic,
@@ -410,9 +435,12 @@ namespace ExtraFeatures
                 mode,
                 classification,
                 diagnostic.TopologyKey,
-                diagnostic.HasPathWithoutClosedGate,
-                diagnostic.HasPathUsingClosedGate,
+                diagnostic.HasDirectPclPath,
+                diagnostic.HasPathWithFriendlyGates,
                 diagnostic.NativePlayerAwareReachable,
+                counterReset,
+                storedCounterBefore,
+                storedCounterAfter,
                 details);
             if (inaccessibleDiagnosticEvents.Contains(eventKey))
                 return;
@@ -434,14 +462,16 @@ namespace ExtraFeatures
                 $"tick={tick}, buildingId={buildingId}, buildingGlobalId={building->r_GlobalId}, " +
                 $"buildingType={building->r_BuildingType}, owner={building->r_PlayerIdOwner}, " +
                 $"vanillaCounter={vanillaCounter}, vanillaWouldDemolish={vanillaCounter >= 20}, " +
+                $"storedCounterBefore={storedCounterBefore}, storedCounterAfter={storedCounterAfter}, " +
+                $"counterReset={counterReset}, " +
                 $"nativePlayerAwareReachable={FormatNullableBoolean(diagnostic.NativePlayerAwareReachable)}, " +
-                "nativeReachabilityRole=diagnostic-current-state, " +
-                $"pathWithoutClosedOwnGate={diagnostic.HasPathWithoutClosedGate}, " +
-                $"pathUsingClosedOwnGate={diagnostic.HasPathUsingClosedGate}, " +
+                "nativeReachabilityRole=additional-positive-current-state-evidence, " +
+                $"directPclReachable={diagnostic.HasDirectPclPath}, " +
+                $"reachableWithAlwaysPassableFriendlyGates={diagnostic.HasPathWithFriendlyGates}, " +
                 $"mode={mode}, modClassification={classification}, " +
                 $"modDecision={(suppressDemolition ? "SuppressDemolition" : "AllowVanilla")}, " +
-                "gateModel=open owned gates are normal links; closed owned gates and associated raised drawbridges are temporary links; " +
-                "a graph-confirmed closed-gate path is authoritative because the native query observes the current closed state, " +
+                "gateModel=all living own and allied gatehouses and their associated drawbridges are always-passable virtual links; " +
+                "current gate state is neither read nor tracked, " +
                 details);
         }
 
@@ -478,9 +508,12 @@ namespace ExtraFeatures
                 int mode,
                 string classification,
                 string topologyKey,
-                bool hasPathWithoutClosedGate,
-                bool hasPathUsingClosedGate,
+                bool hasDirectPclPath,
+                bool hasPathWithFriendlyGates,
                 bool? nativePlayerAwareReachable,
+                bool counterReset,
+                ushort storedCounterBefore,
+                ushort storedCounterAfter,
                 string details)
             {
                 Owner = owner;
@@ -488,9 +521,12 @@ namespace ExtraFeatures
                 Mode = mode;
                 Classification = classification ?? string.Empty;
                 TopologyKey = topologyKey ?? string.Empty;
-                HasPathWithoutClosedGate = hasPathWithoutClosedGate;
-                HasPathUsingClosedGate = hasPathUsingClosedGate;
+                HasDirectPclPath = hasDirectPclPath;
+                HasPathWithFriendlyGates = hasPathWithFriendlyGates;
                 NativePlayerAwareReachable = nativePlayerAwareReachable;
+                CounterReset = counterReset;
+                StoredCounterBefore = storedCounterBefore;
+                StoredCounterAfter = storedCounterAfter;
                 Details = details ?? string.Empty;
             }
 
@@ -499,16 +535,22 @@ namespace ExtraFeatures
             private int Mode { get; }
             private string Classification { get; }
             private string TopologyKey { get; }
-            private bool HasPathWithoutClosedGate { get; }
-            private bool HasPathUsingClosedGate { get; }
+            private bool HasDirectPclPath { get; }
+            private bool HasPathWithFriendlyGates { get; }
             private bool? NativePlayerAwareReachable { get; }
+            private bool CounterReset { get; }
+            private ushort StoredCounterBefore { get; }
+            private ushort StoredCounterAfter { get; }
             private string Details { get; }
 
             public bool Equals(InaccessibleDiagnosticKey other) =>
                 Owner == other.Owner && BuildingGlobalId == other.BuildingGlobalId && Mode == other.Mode &&
-                HasPathWithoutClosedGate == other.HasPathWithoutClosedGate &&
-                HasPathUsingClosedGate == other.HasPathUsingClosedGate &&
+                HasDirectPclPath == other.HasDirectPclPath &&
+                HasPathWithFriendlyGates == other.HasPathWithFriendlyGates &&
                 NativePlayerAwareReachable == other.NativePlayerAwareReachable &&
+                CounterReset == other.CounterReset &&
+                StoredCounterBefore == other.StoredCounterBefore &&
+                StoredCounterAfter == other.StoredCounterAfter &&
                 string.Equals(Classification, other.Classification, StringComparison.Ordinal) &&
                 string.Equals(TopologyKey, other.TopologyKey, StringComparison.Ordinal) &&
                 string.Equals(Details, other.Details, StringComparison.Ordinal);
@@ -523,9 +565,12 @@ namespace ExtraFeatures
                     int hash = Owner;
                     hash = hash * 397 ^ (int)BuildingGlobalId;
                     hash = hash * 397 ^ Mode;
-                    hash = hash * 397 ^ HasPathWithoutClosedGate.GetHashCode();
-                    hash = hash * 397 ^ HasPathUsingClosedGate.GetHashCode();
+                    hash = hash * 397 ^ HasDirectPclPath.GetHashCode();
+                    hash = hash * 397 ^ HasPathWithFriendlyGates.GetHashCode();
                     hash = hash * 397 ^ NativePlayerAwareReachable.GetHashCode();
+                    hash = hash * 397 ^ CounterReset.GetHashCode();
+                    hash = hash * 397 ^ StoredCounterBefore;
+                    hash = hash * 397 ^ StoredCounterAfter;
                     hash = hash * 397 ^ StringComparer.Ordinal.GetHashCode(Classification);
                     hash = hash * 397 ^ StringComparer.Ordinal.GetHashCode(TopologyKey);
                     return hash * 397 ^ StringComparer.Ordinal.GetHashCode(Details);

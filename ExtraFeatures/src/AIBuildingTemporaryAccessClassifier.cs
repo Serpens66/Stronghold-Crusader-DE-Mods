@@ -1,4 +1,4 @@
-// Feature: Classify AI building access while distinguishing open and closed owned gate links.
+// Feature: Classify AI building access with friendly gatehouses treated as always passable.
 using BepInEx.Logging;
 using SHCDESE.API;
 using SHCDESE.Interop;
@@ -17,16 +17,16 @@ namespace ExtraFeatures
             GateBlockageEvaluationKind kind,
             int tick,
             string topologyKey,
-            bool hasPathWithoutClosedGate,
-            bool hasPathUsingClosedGate,
+            bool hasDirectPclPath,
+            bool hasPathWithFriendlyGates,
             bool? nativePlayerAwareReachable,
             string details)
         {
             Kind = kind;
             Tick = tick;
             TopologyKey = topologyKey ?? string.Empty;
-            HasPathWithoutClosedGate = hasPathWithoutClosedGate;
-            HasPathUsingClosedGate = hasPathUsingClosedGate;
+            HasDirectPclPath = hasDirectPclPath;
+            HasPathWithFriendlyGates = hasPathWithFriendlyGates;
             NativePlayerAwareReachable = nativePlayerAwareReachable;
             Details = details ?? string.Empty;
         }
@@ -34,20 +34,20 @@ namespace ExtraFeatures
         internal GateBlockageEvaluationKind Kind { get; }
         internal int Tick { get; }
         internal string TopologyKey { get; }
-        internal bool HasPathWithoutClosedGate { get; }
-        internal bool HasPathUsingClosedGate { get; }
+        internal bool HasDirectPclPath { get; }
+        internal bool HasPathWithFriendlyGates { get; }
         internal bool? NativePlayerAwareReachable { get; }
         internal string Details { get; }
-        internal bool IsOnlyTemporarilyBlocked =>
-            Kind == GateBlockageEvaluationKind.TemporaryViaClosedFriendlyGate;
+        internal bool IsReachableUnderImprovedCheck =>
+            Kind != GateBlockageEvaluationKind.UnreachableEvenWithFriendlyGates;
 
         internal static AIBuildingAccessDiagnostic Unavailable(int tick, string reason) =>
             new AIBuildingAccessDiagnostic(
-                GateBlockageEvaluationKind.NoVirtualGatePath,
+                GateBlockageEvaluationKind.UnreachableEvenWithFriendlyGates,
                 tick,
                 string.Empty,
-                hasPathWithoutClosedGate: false,
-                hasPathUsingClosedGate: false,
+                hasDirectPclPath: false,
+                hasPathWithFriendlyGates: false,
                 nativePlayerAwareReachable: null,
                 details: "failureReason=" + (reason ?? "unknown"));
     }
@@ -136,8 +136,8 @@ namespace ExtraFeatures
                     evaluation.Kind,
                     tick,
                     topology.ExactKey,
-                    evaluation.HasPathWithoutClosedGate,
-                    evaluation.HasPathUsingClosedGate,
+                    evaluation.HasDirectPclPath,
+                    evaluation.HasPathWithFriendlyGates,
                     evaluation.NativePlayerAwareReachable,
                     BuildDiagnosticDetails(
                         buildingPcls,
@@ -156,7 +156,7 @@ namespace ExtraFeatures
                 {
                     failureLogged = true;
                     log.LogError(
-                        $"[{TimestampNow()}] Extra Features temporary AI building-access classification failed; " +
+                        $"[{TimestampNow()}] Extra Features improved AI building-access classification failed; " +
                         $"this demolition uses vanilla behavior: {ex}");
                 }
                 return false;
@@ -290,6 +290,7 @@ namespace ExtraFeatures
             var gates = new List<PclGateConnection>();
             int skippedNoOpGates = 0;
             GameBuildingManagerAPI buildingsApi = GameBuildingManagerAPI.Instance;
+            GamePlayerManagerAPI playersApi = GamePlayerManagerAPI.Instance;
             GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
             Span<ushort> pcls = tiles.TileManager.PathConnectionGrid;
             SimpleNativeArray<GameGatehouseEntry> entries = buildingsApi.GetGatehouseArray();
@@ -303,8 +304,14 @@ namespace ExtraFeatures
                 int gateBuildingId = (int)gate->r_BuildingId;
                 if (!buildingsApi.IsValidId(gateBuildingId) ||
                     !buildingsApi.TryGetBuildingById(gateBuildingId, out GameBuilding* gateBuilding) ||
-                    gateBuilding == null || gateBuilding->r_AliveState != AliveState.IsAlive ||
-                    gateBuilding->r_PlayerIdOwner != playerId)
+                    gateBuilding == null || gateBuilding->r_AliveState != AliveState.IsAlive)
+                {
+                    continue;
+                }
+
+                int gateOwnerId = gateBuilding->r_PlayerIdOwner;
+                if (!playersApi.IsPlayerIdValid(gateOwnerId) ||
+                    !playersApi.IsPlayerAlliedTo(playerId, gateOwnerId))
                 {
                     continue;
                 }
@@ -312,7 +319,7 @@ namespace ExtraFeatures
                 if (gateBuilding->r_GlobalId == 0 || gate->r_GlobalId != gateBuilding->r_GlobalId)
                 {
                     snapshot = null;
-                    failure = "owned-gate-global-id-mismatch";
+                    failure = "friendly-gate-global-id-mismatch";
                     return false;
                 }
 
@@ -322,7 +329,7 @@ namespace ExtraFeatures
                     (uint)entryTile >= (uint)pcls.Length || (uint)exitTile >= (uint)pcls.Length)
                 {
                     snapshot = null;
-                    failure = "owned-gate-entry-exit-tile-invalid";
+                    failure = "friendly-gate-entry-exit-tile-invalid";
                     return false;
                 }
 
@@ -331,7 +338,7 @@ namespace ExtraFeatures
                 if (entryPcl <= 0 || exitPcl <= 0)
                 {
                     snapshot = null;
-                    failure = "owned-gate-entry-exit-pcl-invalid";
+                    failure = "friendly-gate-entry-exit-pcl-invalid";
                     return false;
                 }
                 if (entryPcl == exitPcl)
@@ -343,7 +350,7 @@ namespace ExtraFeatures
                 gates.Add(new PclGateConnection(
                     entryPcl,
                     exitPcl,
-                    isOpen: gate->r_IsOpen != 0,
+                    ownerId: gateOwnerId,
                     buildingId: gateBuildingId,
                     globalId: gateBuilding->r_GlobalId));
             }
@@ -366,13 +373,13 @@ namespace ExtraFeatures
             comparison = left.BuildingId.CompareTo(right.BuildingId);
             if (comparison != 0)
                 return comparison;
+            comparison = left.OwnerId.CompareTo(right.OwnerId);
+            if (comparison != 0)
+                return comparison;
             comparison = left.First.CompareTo(right.First);
             if (comparison != 0)
                 return comparison;
-            comparison = left.Second.CompareTo(right.Second);
-            if (comparison != 0)
-                return comparison;
-            return left.IsOpen.CompareTo(right.IsOpen);
+            return left.Second.CompareTo(right.Second);
         }
 
         private static string BuildPclKey(IReadOnlyList<int> pcls)
@@ -392,15 +399,16 @@ namespace ExtraFeatures
             var builder = new StringBuilder(384);
             builder.Append("nativePlayerAwareReachable=")
                 .Append(FormatNullableBoolean(evaluation.NativePlayerAwareReachable));
-            builder.Append(", pathWithoutClosedOwnGate=").Append(evaluation.HasPathWithoutClosedGate);
-            builder.Append(", pathUsingClosedOwnGate=").Append(evaluation.HasPathUsingClosedGate);
+            builder.Append(", directPclReachable=").Append(evaluation.HasDirectPclPath);
+            builder.Append(", reachableWithAlwaysPassableFriendlyGates=")
+                .Append(evaluation.HasPathWithFriendlyGates);
             builder.Append(", buildingPcls=");
             AppendIntList(builder, buildingPcls);
             builder.Append(", keepPcls=");
             AppendIntList(builder, keepPcls);
-            builder.Append(", ownedGateLinks=").Append(topology.Gates.Count);
-            builder.Append(", skippedNoOpOwnedGates=").Append(topology.SkippedNoOpGates);
-            builder.Append(", gates=[");
+            builder.Append(", friendlyGateLinks=").Append(topology.Gates.Count);
+            builder.Append(", skippedNoOpFriendlyGates=").Append(topology.SkippedNoOpGates);
+            builder.Append(", friendlyGates=[");
             int shownGates = Math.Min(topology.Gates.Count, 16);
             for (int index = 0; index < shownGates; index++)
             {
@@ -409,7 +417,7 @@ namespace ExtraFeatures
                 PclGateConnection gate = topology.Gates[index];
                 builder.Append("buildingId=").Append(gate.BuildingId)
                     .Append("/globalId=").Append(gate.GlobalId)
-                    .Append("/state=").Append(gate.IsOpen ? "open" : "closed")
+                    .Append("/owner=").Append(gate.OwnerId)
                     .Append("/entryExitPcls=").Append(gate.First).Append("<->").Append(gate.Second);
             }
             if (topology.Gates.Count > shownGates)
@@ -427,7 +435,7 @@ namespace ExtraFeatures
                 }
                 PclGateConnection gate = topology.Gates[gateIndex];
                 builder.Append("gate#").Append(gate.BuildingId)
-                    .Append('/').Append(gate.IsOpen ? "open" : "closed")
+                    .Append("/owner#").Append(gate.OwnerId)
                     .Append('(').Append(gate.First).Append("<->").Append(gate.Second).Append(')');
             }
             builder.Append(']');

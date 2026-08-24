@@ -80,9 +80,11 @@ namespace ExtraFeatures
                 int[] goods = CopyLocalGoods(building);
                 RestoreGoods(args.PlayerId, goods);
                 eStructs structure = building->r_BuildingType;
+                uint buildingGlobalId = building->r_GlobalId;
                 Shared.DebugLogHelper.LogDebug(
                     log,
-                    () => $"Extra Features restored storage goods: type={structure}, buildingId={args.BuildingId}, playerId={args.PlayerId}, goods={BuildGoodsSummary(goods)}.");
+                    () => $"Extra Features restored storage goods: type={structure}, buildingId={args.BuildingId}, " +
+                        $"buildingGlobalId={buildingGlobalId}, playerId={args.PlayerId}, goods={BuildGoodsSummary(goods)}.");
             }
             catch (Exception ex)
             {

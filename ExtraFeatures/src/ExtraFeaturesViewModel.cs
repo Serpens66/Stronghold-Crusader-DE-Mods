@@ -48,7 +48,7 @@ namespace ExtraFeatures
         private bool preventAIPause = true;
         private bool preventEmergencyDemolition = true;
         private bool preventHovelDeletion = true;
-        private int inaccessibleAIBuildingDemolitionProtection = TemporaryGateBlockagePolicy.TemporaryGateMode;
+        private int inaccessibleAIBuildingDemolitionProtection = TemporaryGateBlockagePolicy.ImprovedReachabilityMode;
         private double humanGateReopenDelaySeconds = GatehouseTimingPatch.VanillaHumanDelaySeconds;
         private double aiGateReopenDelaySeconds = GatehouseTimingPatch.VanillaAiDelaySeconds;
         private double humanGateClosingDistanceTiles = GatehouseTimingPatch.VanillaHumanDistanceTiles;
@@ -295,7 +295,7 @@ namespace ExtraFeatures
                 PreventAIPause = true;
                 PreventEmergencyDemolition = true;
                 PreventHovelDeletion = true;
-                InaccessibleAIBuildingDemolitionProtection = TemporaryGateBlockagePolicy.TemporaryGateMode;
+                InaccessibleAIBuildingDemolitionProtection = TemporaryGateBlockagePolicy.ImprovedReachabilityMode;
                 HumanGateReopenDelaySeconds = GatehouseTimingPatch.VanillaHumanDelaySeconds;
                 AIGateReopenDelaySeconds = GatehouseTimingPatch.VanillaAiDelaySeconds;
                 HumanGateClosingDistanceTiles = GatehouseTimingPatch.VanillaHumanDistanceTiles;
