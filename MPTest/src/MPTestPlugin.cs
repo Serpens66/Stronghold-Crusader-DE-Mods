@@ -14,7 +14,7 @@ namespace MPTest
 
         public const string PluginGuid = "MPTest_Serp";
         public const string PluginName = "MPTest";
-        public const string PluginVersion = "1.3.0";
+        public const string PluginVersion = "1.3.2";
 
         private static MPTestRuntime runtime;
         private static bool libraryLoadedHandled;
@@ -95,19 +95,16 @@ namespace MPTest
 
             try
             {
-                if (!Shared.DebugLogHelper.ReportNativeLibraryVersion(
+                bool referenceHashMatches = Shared.DebugLogHelper.ReportNativeLibraryVersion(
                         Logger,
                         PluginName,
-                        requireCurrentVersion: true))
-                {
-                    return;
-                }
+                        requireCurrentVersion: false);
 
                 GameXAMLManagerAPI.Instance.RegisterBinding(
                     "MPTestWoodcutterSpawnButtonHost",
                     runtime.ButtonViewModel);
 
-                runtime.Initialize(libraryHandle);
+                runtime.Initialize(libraryHandle, memory, referenceHashMatches);
                 libraryLoadedHandled = true;
                 Shared.DebugLogHelper.LogInfo(Logger, "MPTest Crusader library loaded; UI binding and runtime initialized.");
             }

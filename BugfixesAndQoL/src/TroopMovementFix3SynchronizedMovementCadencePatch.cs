@@ -52,12 +52,12 @@ namespace BugfixesAndQoL
         // mov r10d, dword ptr [r8+9A8h]
         private const string MovementCadencePattern =
             "41 0F BF 80 16 09 00 00 41 0F BF 88 A2 09 00 00 45 8B 90 A8 09 00 00";
-        private const int CalculateMovementSpeedFunctionRva = 0x19B210;
+        private const int CalculateMovementSpeedFunctionRva = 0x19B260;
         private const int CalculateMovementSpeedFunctionLength = 0x3C6;
-        private const int PreTerrainSpeedAdjustmentRva = 0x19B4B6;
+        private const int PreTerrainSpeedAdjustmentRva = 0x19B506;
         private const int PreTerrainSpeedAdjustmentHookLength = 14;
-        private const int UnitTypeUpdateDispatchRva = 0x1840BC;
-        private const int MovementCadenceRva = 0x1841B3;
+        private const int UnitTypeUpdateDispatchRva = 0x18410C;
+        private const int MovementCadenceRva = 0x184203;
 
         private readonly ManualLogSource log;
         private readonly TryGetCadenceDelegate tryGetCadence;
@@ -425,7 +425,7 @@ namespace BugfixesAndQoL
                 NormalizeRegister(overwritten[1].Op1Register) == Register.R9 &&
                 overwritten[2].Mnemonic == Mnemonic.Je &&
                 overwritten[2].NearBranchTarget ==
-                    libraryBase + 0x19B504UL &&
+                    libraryBase + 0x19B554UL &&
                 overwritten[3].Mnemonic == Mnemonic.Cmp &&
                 overwritten[3].Op0Kind == OpKind.Register &&
                 overwritten[3].Op0Register == Register.AL &&

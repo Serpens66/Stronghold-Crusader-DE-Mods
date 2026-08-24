@@ -9,7 +9,7 @@ namespace RandomEvents
 {
     internal sealed class NativeBanditEventSupport
     {
-        private const int ReferencePenaltyWriteRva = 0x104C6A;
+        private const int ReferencePenaltyWriteRva = 0x104CBA;
         private const short VanillaBanditPenaltyState = 16;
         private const string PenaltyWritePattern =
             "48 69 C8 3C 58 00 00 FF C2 B8 10 00 00 00 83 FA 32 41 0F 4D D7 45 33 C0 " +

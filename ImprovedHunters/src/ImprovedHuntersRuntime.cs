@@ -49,8 +49,8 @@ namespace ImprovedHunters
         private const string CamelDespawnTickTimePattern = "66 83 FE 6E 75 4D FE 84 2B 86 09 00 00 B9 ? ? ? ? 38 8C 2B 86 09 00 00";
         private const string ChickenDespawnTickTimePattern = "66 83 FF 6E 75 55 FE 84 2B 86 09 00 00 B9 ? ? ? ? 66 FF 84 2B 20 09 00 00";
         private const int ExtraDespawnPatternImmediateOffset = 13;
-        private const int CamelDespawnTickTimeRva = 0x158468;
-        private const int ChickenDespawnTickTimeRva = 0x163415;
+        private const int CamelDespawnTickTimeRva = 0x1584B8;
+        private const int ChickenDespawnTickTimeRva = 0x163465;
 
         // The BepInEx plugin component is short-lived in SHCDE, so all repeating
         // work is driven from persistent Script Extender events and Stopwatch.

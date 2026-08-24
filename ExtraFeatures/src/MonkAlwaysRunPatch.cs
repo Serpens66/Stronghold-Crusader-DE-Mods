@@ -22,10 +22,10 @@ namespace ExtraFeatures
             "66 42 89 84 2B 16 09 00 00 EB 11 " +
             "42 89 84 2B 60 06 00 00 " +
             "66 46 89 B4 2B 16 09 00 00";
-        private const int MovementDecisionRva = 0x1513E6;
+        private const int MovementDecisionRva = 0x151436;
         private const int InlineDetourSize = 14;
         private const int HookSize = 20;
-        private const int MonkHandlerRva = 0x151040;
+        private const int MonkHandlerRva = 0x151090;
         private const int MonkHandlerLength = 0xF81;
         private const ulong RunningTargetFromReturnAddress = 0x02;
         private const ulong WalkingTargetFromReturnAddress = 0x19;
@@ -106,7 +106,7 @@ namespace ExtraFeatures
                 log,
                 $"Extra Features Monk movement hook installed disabled: " +
                 $"startRva=0x{decisionRva:X}, endRva=0x{decisionRva + HookSize:X}, " +
-                "instructionLengths=9,2,9, nextRva=0x1513FA, " +
+                "instructionLengths=9,2,9, nextRva=0x15144A, " +
                 "incomingInteriorTargets=0, skins=FightingMonk/TempleGuard.");
         }
 
@@ -235,14 +235,14 @@ namespace ExtraFeatures
                 first.MemoryDisplacement64 == 0x914 &&
                 second.Mnemonic == Mnemonic.Jne &&
                 second.FlowControl == FlowControl.ConditionalBranch &&
-                second.NearBranchTarget == imageBase + 0x151413UL &&
+                second.NearBranchTarget == imageBase + 0x151463UL &&
                 third.Mnemonic == Mnemonic.Cmp &&
                 third.FlowControl == FlowControl.Next &&
                 third.MemoryBase == Register.RBX && third.MemoryIndex == Register.R13 &&
                 third.MemoryDisplacement64 == 0x99E &&
                 following.Mnemonic == Mnemonic.Je &&
                 following.FlowControl == FlowControl.ConditionalBranch &&
-                following.NearBranchTarget == imageBase + 0x151413UL &&
+                following.NearBranchTarget == imageBase + 0x151463UL &&
                 !first.IsIPRelativeMemoryOperand && !third.IsIPRelativeMemoryOperand;
             if (!expected)
                 throw new InvalidOperationException("The Monk movement hook span no longer matches its audited semantics.");

@@ -62,23 +62,23 @@ namespace ImprovedHunters
     internal sealed unsafe class HunterPostShotContinuationDiagnostic : IDisposable
     {
         private const string ReferenceDllSha256 =
-            "33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469";
-        private const int HunterUpdateStartRva = 0x12FC20;
-        private const int HunterUpdateEndRva = 0x1313D2;
-        private const int HunterQueryFunctionRva = 0x18AF00;
-        private const int StateSixWriterRva = 0x12FF58;
-        private const int StateZeroContinuationRva = 0x12FF3E;
-        private const int StateTenPrimaryQuerySequenceRva = 0x1304C6;
-        private const int StateTenSecondaryQuerySequenceRva = 0x13056C;
-        private const int StateNineCompletionWriterRva = 0x13023C;
-        private const int FailedDirectAttackWriterRva = 0x130171;
+            "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2";
+        private const int HunterUpdateStartRva = 0x12FC70;
+        private const int HunterUpdateEndRva = 0x131422;
+        private const int HunterQueryFunctionRva = 0x18AF50;
+        private const int StateSixWriterRva = 0x12FFA8;
+        private const int StateZeroContinuationRva = 0x12FF8E;
+        private const int StateTenPrimaryQuerySequenceRva = 0x130516;
+        private const int StateTenSecondaryQuerySequenceRva = 0x1305BC;
+        private const int StateNineCompletionWriterRva = 0x13028C;
+        private const int FailedDirectAttackWriterRva = 0x1301C1;
         private const int RecoveryWriterHookLength = 0x17;
         // Relative-target resolution starts after the E8 opcode, while logs name the call itself.
         private const int QueryCallInstructionOffset = 0x0B;
         private const int QueryCallDisplacementOffset = 0x0C;
         private const int QueryReturnHookOffset = 0x10;
         private const int QueryResultHookLength = 0x0F;
-        private const int HunterCurrentUnitIdRva = 0x92F2C4;
+        private const int HunterCurrentUnitIdRva = 0x9302C4;
         private const int HunterAiStateOffset = 0x2BC;
         private const int HunterTargetUnitIdOffset = 0x39A;
         private const int HunterTargetGlobalIdOffset = 0x39C;
@@ -152,7 +152,7 @@ namespace ImprovedHunters
 
             if (!referenceHashMatches)
             {
-                Shared.DebugLogHelper.LogWarning(
+                Shared.DebugLogHelper.LogError(
                     log,
                     "Improved Hunters post-shot continuation unavailable: " +
                     $"DLL hash differs from audited SHA-256 {ReferenceDllSha256}; behavior remains unchanged.");

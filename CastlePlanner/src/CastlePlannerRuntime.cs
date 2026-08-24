@@ -135,6 +135,7 @@ namespace CastlePlanner
         private HookRef<X64InlineHook> humanKeepCoordinateLoadHook =
             new HookRef<X64InlineHook>();
         private bool installed;
+        private bool referenceHashMatches;
         private bool handledCurrentMap;
         private readonly Dictionary<int, PendingAivImport> pendingAivImports =
             new Dictionary<int, PendingAivImport>();
@@ -172,11 +173,13 @@ namespace CastlePlanner
 
         public void Install(
             IntPtr libraryHandle,
-            ReadOnlySpan<byte> memory)
+            ReadOnlySpan<byte> memory,
+            bool referenceHashMatches)
         {
             if (installed)
                 return;
 
+            this.referenceHashMatches = referenceHashMatches;
             BindNativeFunctions(libraryHandle, memory);
             InstallHumanStartPreparationHook(libraryHandle, memory);
 
@@ -1642,7 +1645,7 @@ namespace CastlePlanner
                     requestedKeepY);
 
                 // Canonical CrusaderDE.dll SHA-256
-                // 33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469:
+                // FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2:
                 // RVA 0x95B3C is the first read of the human Keep coordinates. Updating
                 // Vanilla's source values here makes the unmodified caller feed the same
                 // anchor to the Keep, coupled start complex, flag and later unit setup.
@@ -1766,7 +1769,7 @@ namespace CastlePlanner
                 memory,
                 pattern,
                 referenceRva,
-                referenceHashMatches: true,
+                referenceHashMatches,
                 name,
                 log).Rva;
         }

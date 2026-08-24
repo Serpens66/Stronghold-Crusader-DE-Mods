@@ -19,13 +19,13 @@ namespace ImprovedHunters
     internal sealed unsafe class HunterRemainingPathSpeedRecovery : IDisposable
     {
         private const string ReferenceDllSha256 =
-            "33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469";
-        private const int DistanceStageSequenceRva = 0x13005C;
+            "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2";
+        private const int DistanceStageSequenceRva = 0x1300AC;
         private const int DistanceCompareOffset = 0x7;
         private const int DistanceNearBranchTargetOffset = 0x27;
-        private const int GameUnitManagerRva = 0x67E7400;
+        private const int GameUnitManagerRva = 0x67E8400;
         private const int PathBufferManagerOffset = 0xB4FE78;
-        private const int EffectivePathBufferRva = 0x7337278;
+        private const int EffectivePathBufferRva = 0x7338278;
         private const int PathBytesPerUnit = 0x3E8;
         private const uint MaximumPathSteps = PathBytesPerUnit * 2;
         private const int HunterAiStateOffset = 0x2BC;
@@ -86,7 +86,7 @@ namespace ImprovedHunters
 
             if (!referenceHashMatches)
             {
-                Shared.DebugLogHelper.LogWarning(
+                Shared.DebugLogHelper.LogError(
                     log,
                     "Improved Hunters remaining-path speed recovery unavailable: " +
                     $"DLL hash differs from audited SHA-256 {ReferenceDllSha256}; behavior remains unchanged.");

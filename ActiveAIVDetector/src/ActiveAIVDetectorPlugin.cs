@@ -13,11 +13,16 @@ namespace ActiveAIVDetector
 
         public const string PluginGuid = "ActiveAIVDetector_Serp";
         public const string PluginName = "Active AIV Detector";
-        public const string PluginVersion = "0.9.4";
+        public const string PluginVersion = "0.9.6";
 
         // The plugin component is destroyed during startup, so process-lifetime state stays static.
         private static ActiveAIVDetectionRuntime runtime;
         private static bool libraryLoadedHandled;
+
+        // Optional consumers can reuse the installed detour without taking a native dependency.
+        public static bool TryRegisterPlacementValidatorObserver(
+            Action<ulong, int, int, int, int, int> observer) =>
+            runtime != null && runtime.TryRegisterPlacementValidatorObserver(observer);
 
         private void Awake()
         {
@@ -68,15 +73,16 @@ namespace ActiveAIVDetector
 
             try
             {
-                if (!Shared.DebugLogHelper.ReportNativeLibraryVersion(
+                bool referenceHashMatches = Shared.DebugLogHelper.ReportNativeLibraryVersion(
                         Logger,
                         PluginName,
-                        requireCurrentVersion: true))
+                        requireCurrentVersion: true);
+                if (!referenceHashMatches)
                 {
                     return;
                 }
 
-                runtime.Install(libraryHandle, memory);
+                runtime.Install(libraryHandle, memory, referenceHashMatches);
                 libraryLoadedHandled = true;
             }
             catch (Exception ex)

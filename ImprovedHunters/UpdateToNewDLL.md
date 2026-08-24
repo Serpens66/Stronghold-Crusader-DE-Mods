@@ -2,9 +2,9 @@
 
 ## Audited baseline
 
-- Steam build ID: `24651686`
-- DLL size: `3450880` bytes
-- SHA-256: `33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469`
+- Steam build ID: `24816905`
+- DLL size: `3451392` bytes
+- SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
 
 On the audited hash, the mod uses each reference RVA directly and validates its
 local semantic pattern without scanning the DLL. On a changed hash, each native
@@ -25,38 +25,56 @@ registers, flags, and patch bytes unchanged.
 The temporary `HunterNativeVisibilityProbe`,
 `HunterTargetSearchFallbackDiagnostic`, and
 `HunterVanillaPathContinuationDiagnostic` are deliberately stricter: they are
-enabled only on the exact audited hash and never perform a changed-hash pattern
-fallback. A changed DLL therefore disables only these diagnostic paths.
+enabled only on the exact audited hash. Their available entry/sequence patterns
+still serve as RVA fallbacks after a local reference-byte failure, but they do
+not approve an unknown DLL because the features also depend on the complete
+`HunterUpdate` control-flow range and raw unit/path layouts for which no safe
+standalone pattern proof exists. A changed DLL therefore logs Error and disables
+only these diagnostic paths.
 
 ## Native address map
 
 | Source pattern | Reference RVA | Use / offset |
 | --- | ---: | --- |
-| `CamelDespawnTickTimePattern` | `0x158468` | signed immediate at `+13` |
-| `ChickenDespawnTickTimePattern` | `0x163415` | signed immediate at `+13` |
-| `TargetSelectionTypeDispatchPattern` | `0x18F262` | automatic target type dispatch |
-| `ManualAttackCommandPattern` | `0x18EAE6` | explicit `AttackUnit` command path |
-| `ManualAttackTargetAssignmentPattern` | `0x18ED46` | explicit target assignment before automatic dispatch |
-| `ManualAttackDecisionSequencePattern` | `0x18EB98` | explicit `AttackUnit` compatibility decision; hook at `+0x2B` (`0x18EBC3`) |
+| `CamelDespawnTickTimePattern` | `0x1584B8` | signed immediate at `+13` |
+| `ChickenDespawnTickTimePattern` | `0x163465` | signed immediate at `+13` |
+| `TargetSelectionTypeDispatchPattern` | `0x18F2B2` | automatic target type dispatch |
+| `ManualAttackCommandPattern` | `0x18EB36` | explicit `AttackUnit` command path |
+| `ManualAttackTargetAssignmentPattern` | `0x18ED96` | explicit target assignment before automatic dispatch |
+| `ManualAttackDecisionSequencePattern` | `0x18EBE8` | explicit `AttackUnit` compatibility decision; hook at `+0x2B` (`0x18EC13`) |
 | `ComparisonSequencePattern` | `0xD2AB4` | granary chicken target comparison hook at `+11` (`0xD2ABF`) |
-| `HunterQueryCandidateLoopPattern` | `0x18AF70` | temporary Script Extender issue-123 actor capture |
+| `HunterQueryCandidateLoopPattern` | `0x18AFC0` | temporary Script Extender issue-123 actor capture |
 | Native Hunter visibility wrapper | `0xA06F0` | behavior-neutral direct probe; seven arguments including context |
 | Native Hunter visibility core | `0x9E350` | wrapper calls forward first and returns immediately when positive; reverse is called only after forward returns zero; `1.1.52` validates the entry and may call both directions explicitly |
 | Shared obstacle-height helper | `0x6B990` | reads tile flags, building identity/type and effective obstacle height |
 | Building-height type switch | `0x6B9F8` | dispatches building types `7..78` |
 | Building-height dispatch targets | `0x6BAB4` | entries `0..3`; entry `3` is the normal fixed-height case |
 | Building-type dispatch bytes | `0x6BAC4` | type `7`/Hunter's Hut is the first byte; Vanilla `0`, patched `3` |
-| Building blocker-height table | `0x2E7C60` | type `7` already has normal blocker height `40` |
-| Hunter query visibility call | `0x18B052` | must resolve to wrapper `0xA06F0` |
-| Hunter direct-order visibility call | `0x18ED1A` | must resolve to wrapper `0xA06F0` |
-| Unit-function table | `0x320CB0` | Hunter entry is index `6` at `+0x30` |
-| Native `HunterUpdate` | `0x12FC20` | state dispatch and Vanilla Hunter movement/order transitions |
+| Building blocker-height table | `0x2E8C60` | type `7` already has normal blocker height `40` |
+| Hunter query visibility call | `0x18B0A2` | must resolve to wrapper `0xA06F0` |
+| Hunter direct-order visibility call | `0x18ED6A` | must resolve to wrapper `0xA06F0` |
+| Unit-function table | `0x321CB0` | Hunter entry is index `6` at `+0x30` |
+| Native `HunterUpdate` | `0x12FC70` | state dispatch and Vanilla Hunter movement/order transitions |
 | Hunter distance helper | `0x79C0` | exact state-1 range result retained in `EDI` |
-| State-0 query handoff | `0x12FD67` | query return hook at `0x12FD89`; query callee `0x18AF00` |
-| State-0 `MoveHere` result | `0x12FE2A` | immediately after call to `0x196230` |
-| State-1 near-target refresh | `0x130019` / `0x130022` / `0x12FF2E` | safe compare hook and Vanilla actor load; `1.1.66` reuses the exact 14-byte query-result span only for a guarded stale-moving-target State-0 replan |
-| State-1 distance-28 compare | `0x1300EA` | since `1.1.56` the authoritative snapshot-based attack/continuation decision; sequence begins at `0x1300D2` |
-| State-1 direct-attack result | `0x130149` | observation-only `test eax,eax` after call to `0x18E950` |
+| State-0 query handoff | `0x12FDB7` | query return hook at `0x12FDD9`; query callee `0x18AF50` |
+| State-0 `MoveHere` result | `0x12FE7A` | immediately after call to `0x196280` |
+| State-1 near-target refresh | `0x130069` / `0x130072` / `0x12FF7E` | safe compare hook and Vanilla actor load; `1.1.66` reuses the exact 14-byte query-result span only for a guarded stale-moving-target State-0 replan |
+| State-1 distance-28 compare | `0x13013A` | since `1.1.56` the authoritative snapshot-based attack/continuation decision; sequence begins at `0x130122` |
+| State-1 direct-attack result | `0x130199` | observation-only `test eax,eax` after call to `0x18E9A0` |
+| `StateZeroMoveResultSequencePattern` | `0x12FE63` | unique `.text` fallback; derives result hook `0x12FE7A` and validates `MoveHere` call target |
+| `StateOneRefreshQuerySequencePattern` | `0x12FF57` | unique `.text` fallback; derives refresh-result hook and query call target |
+| `StateOneDirectAttackSequencePattern` | `0x13018D` | unique `.text` fallback; derives direct-attack result hook `0x130199` |
+| `DistanceStageSequencePattern` (speed recovery) | `0x1300AC` | unique `.text` fallback; derives and validates remaining-path speed stages |
+| `StateTenPrimaryQuerySequencePattern` | `0x130516` | hash-bound diagnostic with local/pattern resolution; derives primary query-result hook |
+| `StateTenSecondaryQuerySequencePattern` | `0x1305BC` | hash-bound diagnostic with local/pattern resolution; derives secondary query-result hook |
+| `StateNineCompletionWriterPattern` | `0x13028C` | hash-bound diagnostic writer hook after semantic span validation |
+| `FailedDirectAttackWriterPattern` | `0x1301C1` | hash-bound diagnostic writer hook after semantic span validation |
+| State-6 writer | `0x12FFA8` | fixed control-flow validation target; no independent fallback because it is part of the hash-bound full `HunterUpdate` audit |
+| State-0 continuation | `0x12FF8E` | fixed control-flow validation target; same full-function hash-bound dependency |
+| Attack-gate hook | `0x130160` | fixed decoded hook span inside hash-bound `HunterUpdate`; no independent safe fallback |
+| Attack-gate ready target | `0x13017A` | decoded branch target validated for the attack-gate hook |
+| Attack-gate second branch | `0x130174` | decoded branch instruction validated for the attack-gate hook |
+| Attack-gate exit target | `0x131402` | decoded far branch target validated against the full hash-bound function |
 | Projectile spawn entry | `0x9B2B0` | Script Extender signature target; creates a live projectile and is not used for LOS preflight |
 | Projectile manager tick | `0x9F960` | iterates live projectiles before their type-specific update |
 | Common projectile flight step | `0x9EF20` | mutates live projectile motion and calls collision, height and orientation helpers |
@@ -66,14 +84,14 @@ fallback. A changed DLL therefore disables only these diagnostic paths.
 
 The source constants contain the complete wildcard patterns.
 
-The automatic target selector starts at RVA `0x18E950`. A valid explicit
-`TribeAICommand.AttackUnit` is checked at RVA `0x18EAE6` and assigns its target
-at RVA `0x18ED46`, before the automatic candidate type dispatch.
+The automatic target selector starts at RVA `0x18E9A0`. A valid explicit
+`TribeAICommand.AttackUnit` is checked at RVA `0x18EB36` and assigns its target
+at RVA `0x18ED96`, before the automatic candidate type dispatch.
 
 Non-Hunters in that explicit branch call Vanilla's unit compatibility function
-at RVA `0x186750`. On the audited DLL it returns `1` for chicken type `62`, and
-the `test eax,eax` at RVA `0x18EBC3` therefore rejects the otherwise valid
-manual order. Hunters bypass this call at RVA `0x18EB9C`. Improved Hunters hooks
+at RVA `0x1867A0`. On the audited DLL it returns `1` for chicken type `62`, and
+the `test eax,eax` at RVA `0x18EC13` therefore rejects the otherwise valid
+manual order. Hunters bypass this call at RVA `0x18EBEC`. Improved Hunters hooks
 only the explicit branch's test instruction and changes the well-known boolean
 result from `1` to `0` when the target resolves to the same live chicken and the
 attacker resolves to a live, supported ranged unit. The explicit classification
@@ -90,19 +108,19 @@ all active.
 
 The managed context callback must preserve `X64SmartCPUContextRegs.Volatile` in
 addition to `R14` and `R15`. Vanilla reloads the unit-manager pointer into `R8`
-at RVA `0x18EBB4` and dereferences it immediately after the accepted branch at
-RVA `0x18EBD2`. Version 1.1.28 captured only `RAX`, `R14` and `R15`; the managed
+at RVA `0x18EC04` and dereferences it immediately after the accepted branch at
+RVA `0x18EC22`. Version 1.1.28 captured only `RAX`, `R14` and `R15`; the managed
 call was therefore allowed to clobber live `R8`, causing a native CTD after the
 callback had logged its successful `1 -> 0` decision. Version 1.1.29 captures
 all Windows-x64 volatile registers, restores the callback's intentional `RAX`
 change and returns every other live volatile register unchanged.
 
-The dispatch target table is at RVA `0x18F9C4`, and the type-to-dispatch-index
-table is at RVA `0x18F9E0`. Chicken type `62` has table index `62 - 44 = 18`,
-so its byte is at RVA `0x18F9F2`. Vanilla value `6` routes to the general
-acceptance case at RVA `0x18F3A6`. Improved Hunters temporarily writes value
-`0`, which routes to RVA `0x18F28E`; that case accepts only attacker type `6`
-(hunter) and otherwise rejects the candidate at RVA `0x18F754`.
+The dispatch target table is at RVA `0x18FA14`, and the type-to-dispatch-index
+table is at RVA `0x18FA30`. Chicken type `62` has table index `62 - 44 = 18`,
+so its byte is at RVA `0x18FA42`. Vanilla value `6` routes to the general
+acceptance case at RVA `0x18F3F6`. Improved Hunters temporarily writes value
+`0`, which routes to RVA `0x18F2DE`; that case accepts only attacker type `6`
+(hunter) and otherwise rejects the candidate at RVA `0x18F7A4`.
 
 Vanilla's per-player granary chicken update starts at RVA `0xD29E0`. Its
 food/population-derived target is in `eax` when RVA `0xD2ABF` compares it with
@@ -128,7 +146,7 @@ layout.
 The Script Extender versions through the locally inspected 1.41.0 can report
 the caller's saved `RBX` value instead of the native Hunter ID in
 `OnUnitHunterQueryTarget`; see upstream work item 123. Improved Hunters installs
-a temporary read-only context hook at the candidate-loop anchor `0x18AF70`.
+a temporary read-only context hook at the candidate-loop anchor `0x18AFC0`.
 At this point `R13 = UnitManager + hunterId * 0x490`, `R14 = UnitManager` and
 `ESI` is the one-based candidate ID. The mod reconstructs and validates the
 Hunter ID from the exact divisible delta and consumes it only for the matching
@@ -1357,3 +1375,21 @@ The semantic sequence at `0xD2AB4` is unique, the compare remains
 `cmp eax,[rdi+0x2048]` at `0xD2ABF`, its signed `jle` still targets `0xD2BA7`,
 and the existing Script Extender granary spawn hook remains on the fall-through
 spawn path at `0xD2B4C`.
+
+## Audit for Steam build 24816905
+
+All production and diagnostic semantic patterns were rescanned. The granary and
+visibility helper code is unchanged. Code in the Hunter/animal region moved by
+`0x50`: Hunter update is `0x12FC70..0x131422`, Hunter query `0x18AF50`, candidate
+loop `0x18AFC0`, MoveHere `0x196280`, DirectAttack `0x18E9A0`, camel timer
+`0x1584B8` and chicken timer `0x163465`. Every derived writer, continuation and
+manual/automatic chicken dispatch RVA in source was moved by the same amount.
+
+Relocated data moved by `0x1000`: current Hunter ID `0x9302C4`, world-distance
+scratch `0x34A9F5C`, building-height table `0x2E8C60`, GameUnitManager
+`0x67E8400` and effective path buffer `0x7338278`. The latest Script Extender
+log independently confirms GameUnitManager, `gUnitHealth=0x322820` and the unit
+function table `0x321CB0`; `SizeOf(GameUnit)` remains `0x490`. Exact-RVA probes
+retain their local semantic validation where their short pattern is not globally
+unique. Live hunting, chicken, visibility and recovery scenarios remain smoke
+tests.

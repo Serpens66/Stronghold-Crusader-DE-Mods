@@ -21,7 +21,7 @@ namespace HunterQueryTargetDiagnostic
         private const int UnknownThresholdFieldOffset = 0x2A2;
         private const int RawTargetUnitIdOffset = 0x39A;
         private const int RawTargetGlobalIdOffset = 0x39C;
-        private const int NoTargetThresholdState7WriterRva = 0x12FE71;
+        private const int NoTargetThresholdState7WriterRva = 0x12FEC1;
         private const int DetailLogLimit = 120;
         private const int CallbackErrorLimit = 5;
 

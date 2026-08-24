@@ -16,7 +16,7 @@ namespace ImprovedHunters
         private const int HeightHelperTypeSwitchRva = 0x6B9F8;
         private const int DispatchTargetTableRva = 0x6BAB4;
         private const int TypeDispatchTableRva = 0x6BAC4;
-        private const int BuildingBlockHeightTableRva = 0x2E7C60;
+        private const int BuildingBlockHeightTableRva = 0x2E8C60;
         private const int HunterHutType = 7;
         private const int HunterHutBlockHeight = 40;
 

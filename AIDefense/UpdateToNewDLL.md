@@ -2,9 +2,9 @@
 
 ## Audited baseline
 
-- Steam build ID: `24651686`
-- DLL size: `3450880` bytes
-- SHA-256: `33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469`
+- Steam build ID: `24816905`
+- DLL size: `3451392` bytes
+- SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
 
 AI Defense intentionally remains inactive on every other DLL. The shared version
 check writes a timestamped Error before any runtime hooks are subscribed.
@@ -39,3 +39,11 @@ are unchanged, including every field used by `AIDefenseRuntime`. Script Extender
 one-based game IDs and are no longer adjusted by the mod. Tower/private-tribe
 behavior and a second-map cycle remain live smoke tests; the mod is not
 installed by the normal update build set.
+
+## Audit for Steam build 24816905
+
+The latest game log shows successful Script Extender manager initialization and
+`SizeOf(GameUnit)=1168` (`0x490`). Targeted comparison reconfirmed building
+stride `0x32C`, tribe stride `0x688`, manager headers and every raw field used
+by the mod. No mod-owned RVA exists; the shared hash is the only required code
+change. Tower, private-tribe and reload behavior remain live smoke tests.

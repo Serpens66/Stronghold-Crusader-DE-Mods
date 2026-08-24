@@ -33,7 +33,7 @@ namespace BugfixesAndQoL
             "66 42 39 BC 3B 9E 09 00 00 " +
             "0F 85 ?? ?? ?? ?? 39 3D ?? ?? ?? ?? " +
             "74 16 41 83 FE 63";
-        private const int SpearmanMovementDecisionRva = 0x143B89;
+        private const int SpearmanMovementDecisionRva = 0x143BD9;
 
         // The 20-byte hook ends immediately before the original conditional
         // jump to the Improved-Spearman running block.

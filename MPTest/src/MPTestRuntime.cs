@@ -53,7 +53,10 @@ namespace MPTest
 
         public WoodcutterSpawnButtonViewModel ButtonViewModel { get; }
 
-        public void Initialize(IntPtr crusaderModuleBase)
+        public void Initialize(
+            IntPtr crusaderModuleBase,
+            ReadOnlySpan<byte> memory,
+            bool referenceHashMatches)
         {
             if (initialized)
                 return;
@@ -61,7 +64,7 @@ namespace MPTest
             Hook installedHook = null;
             try
             {
-                nativeChoreProbe.Initialize(crusaderModuleBase);
+                nativeChoreProbe.Initialize(crusaderModuleBase, memory, referenceHashMatches);
                 subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
                     .Where(args => args.Phase == EventHookPhase.Pre)
                     .Subscribe(_ => ClearMapState()));

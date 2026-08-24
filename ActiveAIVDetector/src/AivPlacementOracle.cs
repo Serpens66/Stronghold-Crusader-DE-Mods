@@ -27,9 +27,9 @@ namespace ActiveAIVDetector
         private const string EvaluateCandidateFitPattern =
             "89 54 24 10 53 55 56 57 41 54 41 55 41 56 41 57 " +
             "48 83 EC 48 45 33 C9 48 8D 81 44 98 1B 00";
-        private const string BuildingPlacementValidatorPattern =
-            "40 53 55 56 57 41 56 48 83 EC 40 33 C0 49 63 E8 " +
-            "83 BC 24 90 00 00 00 02";
+        private const string BuildingPlacementValidatorInteriorPattern =
+            "48 8D 35 ?? ?? ?? ?? 44 8B 81 28 E7 04 02 45 8B F1 " +
+            "4C 63 CA 44 8B D0 44 0F 45 94 24 90 00 00 00";
         private const string ExecuteBuildStepPattern =
             "40 53 55 56 57 41 54 41 55 41 56 41 57 48 83 EC 78 4C 63 F2";
         private const string OrganismRecordTableReferencePattern =
@@ -42,7 +42,8 @@ namespace ActiveAIVDetector
         private const int LoadCandidateRva = 0x55320;
         private const int ApplyRotationRva = 0x56670;
         private const int EvaluateCandidateFitRva = 0x57080;
-        private const int BuildingPlacementValidatorRva = 0x7B060;
+        private const int BuildingPlacementValidatorInteriorRva = 0x7B078;
+        private const int BuildingPlacementValidatorInteriorOffset = 0x18;
         private const int ExecuteBuildStepRva = 0x51790;
         private const int OrganismRecordTableReferenceRva = 0x15A27;
         private const int ActiveLayoutIndexReferenceRva = 0x55F64;
@@ -126,6 +127,17 @@ namespace ActiveAIVDetector
         private readonly ulong organismRecordTableAddress;
         private readonly ulong activeLayoutIndexBaseAddress;
         private readonly ulong nativeLibraryBase;
+        private readonly bool referenceHashMatches;
+        private readonly int selectBestFitRva;
+        private readonly int testSpecificCandidateRva;
+        private readonly int loadCandidateRva;
+        private readonly int applyRotationRva;
+        private readonly int evaluateCandidateFitRva;
+        private readonly int buildingPlacementValidatorRva;
+        private readonly int executeBuildStepRva;
+        private readonly List<Action<ulong, int, int, int, int, int>>
+            externalValidatorObservers =
+                new List<Action<ulong, int, int, int, int, int>>();
         private HookRef<X64ManagedFunctionDetourAOB<SelectBestFitDelegate>> selectBestFitHook =
             new HookRef<X64ManagedFunctionDetourAOB<SelectBestFitDelegate>>();
         private HookRef<X64ManagedFunctionDetourAOB<TestSpecificCandidateDelegate>> testSpecificCandidateHook =
@@ -171,7 +183,8 @@ namespace ActiveAIVDetector
             Action<OraclePrebuildFrameTraceSnapshot> onPrebuildFrameCaptured,
             OraclePrebuildTraceOptions prebuildTraceOptions,
             IntPtr nativeLibraryHandle,
-            ReadOnlySpan<byte> nativeLibraryMemory)
+            ReadOnlySpan<byte> nativeLibraryMemory,
+            bool referenceHashMatches)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.onSelectionCompleted = onSelectionCompleted ??
@@ -182,15 +195,24 @@ namespace ActiveAIVDetector
                 throw new ArgumentNullException(nameof(onPrebuildFrameCaptured));
             this.prebuildTraceOptions = prebuildTraceOptions ??
                 throw new ArgumentNullException(nameof(prebuildTraceOptions));
+            this.referenceHashMatches = referenceHashMatches;
             nativeLibraryBase = unchecked((ulong)nativeLibraryHandle.ToInt64());
-            ValidateReference(nativeLibraryMemory, SelectBestFitPattern, SelectBestFitRva, "select best fit");
-            ValidateReference(nativeLibraryMemory, TestSpecificCandidatePattern, TestSpecificCandidateRva, "test specific candidate");
-            ValidateReference(nativeLibraryMemory, LoadCandidatePattern, LoadCandidateRva, "load candidate");
-            ValidateReference(nativeLibraryMemory, ApplyRotationPattern, ApplyRotationRva, "apply rotation");
-            ValidateReference(nativeLibraryMemory, EvaluateCandidateFitPattern, EvaluateCandidateFitRva, "evaluate candidate fit");
-            ValidateReference(nativeLibraryMemory, BuildingPlacementValidatorPattern, BuildingPlacementValidatorRva, "building placement validator");
+            selectBestFitRva = ValidateReference(nativeLibraryMemory, SelectBestFitPattern, SelectBestFitRva, "select best fit");
+            testSpecificCandidateRva = ValidateReference(nativeLibraryMemory, TestSpecificCandidatePattern, TestSpecificCandidateRva, "test specific candidate");
+            loadCandidateRva = ValidateReference(nativeLibraryMemory, LoadCandidatePattern, LoadCandidateRva, "load candidate");
+            applyRotationRva = ValidateReference(nativeLibraryMemory, ApplyRotationPattern, ApplyRotationRva, "apply rotation");
+            evaluateCandidateFitRva = ValidateReference(nativeLibraryMemory, EvaluateCandidateFitPattern, EvaluateCandidateFitRva, "evaluate candidate fit");
+            int buildingPlacementValidatorInteriorRva = ValidateReference(
+                nativeLibraryMemory,
+                BuildingPlacementValidatorInteriorPattern,
+                BuildingPlacementValidatorInteriorRva,
+                "building placement validator interior");
+            if (buildingPlacementValidatorInteriorRva < BuildingPlacementValidatorInteriorOffset)
+                throw new InvalidOperationException("The placement-validator signature cannot derive a module RVA.");
+            buildingPlacementValidatorRva = checked(
+                buildingPlacementValidatorInteriorRva - BuildingPlacementValidatorInteriorOffset);
             if (prebuildTraceOptions.Enabled)
-                ValidateReference(nativeLibraryMemory, ExecuteBuildStepPattern, ExecuteBuildStepRva, "execute build step");
+                executeBuildStepRva = ValidateReference(nativeLibraryMemory, ExecuteBuildStepPattern, ExecuteBuildStepRva, "execute build step");
             organismRecordTableAddress = ResolveUniqueRipRelativeAddress(
                 nativeLibraryHandle,
                 nativeLibraryMemory,
@@ -220,29 +242,38 @@ namespace ActiveAIVDetector
             if (transaction == null)
                 throw new ArgumentNullException(nameof(transaction));
 
-            transaction.AddDetour(ref selectBestFitHook, nativeLibraryBase + SelectBestFitRva, SelectBestFit);
+            transaction.AddDetour(ref selectBestFitHook, nativeLibraryBase + unchecked((ulong)selectBestFitRva), SelectBestFit);
             transaction.AddDetour(
                 ref testSpecificCandidateHook,
-                nativeLibraryBase + TestSpecificCandidateRva,
+                nativeLibraryBase + unchecked((ulong)testSpecificCandidateRva),
                 TestSpecificCandidate);
-            transaction.AddDetour(ref loadCandidateHook, nativeLibraryBase + LoadCandidateRva, LoadCandidate);
-            transaction.AddDetour(ref applyRotationHook, nativeLibraryBase + ApplyRotationRva, ApplyRotation);
+            transaction.AddDetour(ref loadCandidateHook, nativeLibraryBase + unchecked((ulong)loadCandidateRva), LoadCandidate);
+            transaction.AddDetour(ref applyRotationHook, nativeLibraryBase + unchecked((ulong)applyRotationRva), ApplyRotation);
             transaction.AddDetour(
                 ref evaluateCandidateFitHook,
-                nativeLibraryBase + EvaluateCandidateFitRva,
+                nativeLibraryBase + unchecked((ulong)evaluateCandidateFitRva),
                 EvaluateCandidateFit);
             transaction.AddDetour(
                 ref buildingPlacementValidatorHook,
-                nativeLibraryBase + BuildingPlacementValidatorRva,
+                nativeLibraryBase + unchecked((ulong)buildingPlacementValidatorRva),
                 BuildingPlacementValidator);
             if (prebuildTraceOptions.Enabled)
             {
                 // Keep the extra native detour absent unless this one-run diagnostic is explicit.
                 transaction.AddDetour(
                     ref executeBuildStepHook,
-                    nativeLibraryBase + ExecuteBuildStepRva,
+                    nativeLibraryBase + unchecked((ulong)executeBuildStepRva),
                     ExecuteBuildStep);
             }
+        }
+
+        public void RegisterExternalValidatorObserver(
+            Action<ulong, int, int, int, int, int> observer)
+        {
+            if (observer == null)
+                throw new ArgumentNullException(nameof(observer));
+            lock (externalValidatorObservers)
+                externalValidatorObservers.Add(observer);
         }
 
         public void ValidateHooks()
@@ -499,6 +530,23 @@ namespace ActiveAIVDetector
             catch (Exception ex)
             {
                 LogCallbackFailure("validator result capture", ex);
+            }
+
+            Action<ulong, int, int, int, int, int>[] observers;
+            lock (externalValidatorObservers)
+                observers = externalValidatorObservers.ToArray();
+            foreach (Action<ulong, int, int, int, int, int> observer in observers)
+            {
+                try
+                {
+                    observer(placementStateAddress, tileId, playerId, mapperValue, mode, result);
+                }
+                catch (Exception ex)
+                {
+                    Shared.DebugLogHelper.LogError(
+                        log,
+                        $"An external placement-validator observer failed and was isolated: {ex}");
+                }
             }
 
             // The trace always returns the single unchanged Vanilla result.
@@ -1072,7 +1120,7 @@ namespace ActiveAIVDetector
                 memory,
                 pattern,
                 referenceRva,
-                referenceHashMatches: true,
+                referenceHashMatches,
                 name,
                 log).Rva;
         }

@@ -2,14 +2,22 @@
 
 Reference DLL:
 
-- SHA-256: `33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469`
-- Hunter update handler: RVA `0x12FC20`
-- Hunter target query: RVA `0x18AF00`
-- Known Script Extender problem caller: RVA `0x194164`
+- Steam build ID: `24816905`
+- DLL size: `3451392` bytes
+- SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
+- Hunter update handler: RVA `0x12FC70`
+- Hunter target query: RVA `0x18AF50`
+- Known Script Extender problem caller: RVA `0x1941B4`
 
-State-7 diagnostic sites:
+State-7 diagnostic sites (historical RVAs below refer to the preceding audited
+build unless explicitly marked current):
 
-Version 1.4.1 keeps only the independently proven-stable no-target writer at RVA `0x12FE71`. Event-side State-7 snapshots reproduce the native linked-building identity check without hooking the crash region: the linked building's raw worker ID at `GameBuilding + 0xA0` selects a unit, whose global ID is compared with the expected value at `GameBuilding + 0xAC` when the linked building slot has `AliveState.None`.
+Version 1.4.2 keeps only the independently proven-stable no-target writer, now
+at RVA `0x12FEC1`. Event-side State-7 snapshots reproduce the native
+linked-building identity check without hooking the crash region: the linked
+building's raw worker ID at `GameBuilding + 0xA0` selects a unit, whose global
+ID is compared with the expected value at `GameBuilding + 0xAC` when the linked
+building slot has `AliveState.None`.
 
 - RVA `0x12FC80`: Hunter-update AI-state load. Disabled in v1.3.3 as a controlled isolation test after the old save still crashed with both later query-path hooks removed.
 - RVA `0x12FD96`: marker reached when the Hunter's linked production-building ID/global-ID identity is invalid.
@@ -34,3 +42,11 @@ Update audit:
 4. Confirm that unit type 6 with State 7 still selects RVA `0x194164`, with Hunter ID in `EDX` and UnitManager in `RBX`.
 5. Confirm that the Script Extender hook still snapshots `RBX` as its Hunter-ID event argument before interpreting a reproduced mismatch.
 6. Update the reference hash, RVAs, patterns, and this document together.
+
+## Audit for Steam build 24816905
+
+The active no-target State-7 writer moved by `0x50` to `0x12FEC1`; its complete
+semantic pattern remains unique. The Hunter handler and query function likewise
+moved to `0x12FC70` and `0x18AF50`. Unit stride `0x490`, manager offset `0x65C`
+and all raw fields used by the event-side snapshots are unchanged. Historical
+disabled diagnostic sites above remain documentation only and were not restored.

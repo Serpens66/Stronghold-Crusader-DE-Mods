@@ -45,7 +45,7 @@ namespace ExtraFeatures
         // c_game_ai_check_inaccessible_building:
         // cmp inaccessibleChecks, 20; jl return; begin this helper's delete block.
         // Lowering CX before this comparison skips only the unreachable-building deletion.
-        // Reference DLL SHA-256: 33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469.
+        // Reference DLL SHA-256: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
         private const string InaccessibleBuildingComparisonPattern =
             "66 83 F9 14 7C ?? 45 0F BF 84 31 4C 01 00 00 48 8D 0D ?? ?? ?? ?? 41 0F BF 94 31 4A 01 00 00";
         private const int SleepStateComparisonRva = 0xC7DCB;

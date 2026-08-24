@@ -3,7 +3,7 @@ namespace BugfixesAndQoL
 {
     internal static class AiRecruitmentHorseDemandNativeDefinition
     {
-        public const int RecruitEuropeanUnitRva = 0x190C50;
+        public const int RecruitEuropeanUnitRva = 0x190CA0;
         public const int ResultCodeOffset = 0x650;
         public const int MissingGoodIdOffset = 0x654;
         public const int MissingRequirementResultCode = 2;

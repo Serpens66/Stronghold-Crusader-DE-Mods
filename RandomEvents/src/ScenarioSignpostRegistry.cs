@@ -19,7 +19,7 @@ namespace RandomEvents
         private const int AttackPointDeltaFromSlots = 0x1B2C;
         private const int ScenarioPointCount = 4;
 
-        // CrusaderDE.dll SHA-256 33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469.
+        // CrusaderDE.dll SHA-256 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
         // RVA 0xCB800 reads eight building IDs at gPlayerManager+0x18388C and accepts STRUCT_SIGNPOST (52).
         // Mutable displacements and branch lengths are wildcarded so compatible game updates can still resolve it.
         private const string LookupPattern =

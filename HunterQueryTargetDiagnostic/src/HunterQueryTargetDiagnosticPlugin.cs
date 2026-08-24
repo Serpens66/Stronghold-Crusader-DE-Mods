@@ -21,7 +21,7 @@ namespace HunterQueryTargetDiagnostic
         private const string ScriptExtenderGuid = "000shcdese";
         private const string PluginGuid = "HunterQueryTargetDiagnostic_Serp";
         private const string PluginName = "Hunter Query Target Diagnostic";
-        private const string PluginVersion = "1.4.1";
+        private const string PluginVersion = "1.4.3";
 
         private const int BaselineDetailLimit = 12;
         private const int SuspiciousDetailLimit = 160;
@@ -80,7 +80,7 @@ namespace HunterQueryTargetDiagnostic
                 LogInfo(
                     "Hunter query event diagnostic subscribed and always active; " +
                     "state7AtQueryBoundaryInspection=true, eventValuesAreObservedOnly=true, " +
-                    "expectedProblemPath=unitType6/r_AIState7/RVA0x194164.");
+                    "expectedProblemPath=unitType6/r_AIState7/RVA0x1941B4.");
             }
             catch (Exception exception)
             {

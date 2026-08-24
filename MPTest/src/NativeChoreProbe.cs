@@ -5,10 +5,8 @@ using SHCDESE.GameGlobals;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
-using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 
@@ -29,38 +27,27 @@ namespace MPTest
         private const int MaximumPendingSlots = 500;
         private const int PendingSlotSize = 0x500;
 
-        // These RVAs are validated below against CrusaderDE.dll SHA-256 33AA3345...
-        // before any pointer is called or modified.
-        private const long QueueLocalChoreRva = 0x23990;
-        private const long CopyChoreFieldRva = 0x1F5F0;
-        private const long HandlerTableRva = 0x2C6A30;
-        private const long OriginalProbeHandlerRva = 0xFC30;
+        // QueueLocalChore is resolved through an interior sequence because another
+        // Chore hook may already have replaced its prologue during startup.
+        private const string QueueLocalChoreInteriorPattern =
+            "0F BE F2 48 8B D9 E8 ?? ?? ?? ?? 48 63 AB C8 4C 08 00 " +
+            "48 8D 0D ?? ?? ?? ?? 45 33 C0 BA EC 04 00 00";
+        private const int QueueLocalChoreInteriorRva = 0x239AE;
+        private const int QueueLocalChoreInteriorOffset = 0x1E;
+        private const string CopyChoreFieldPattern =
+            "45 85 C0 0F 8E ?? ?? ?? ?? 48 89 5C 24 08 57 48 83 EC 20 " +
+            "41 8B F8 48 8B D9 48 85 D2 74 ?? 4C 63 91 F8 0B 37 00";
+        private const int CopyChoreFieldRva = 0x1F5F0;
 
         private const long CurrentSlotIndexOffset = 0x84CC8;
         private const long HandlerModeOffset = 0x84CCC;
         private const long HandlerPayloadSizeOffset = 0x84CD4;
         private const long PendingSlotsOffset = 0xB0BF8;
 
-        private const long ExpectedCrusaderFileSize = 3450880;
-        private const string ExpectedCrusaderSha256 =
-            "33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469";
-
         private static readonly byte[] ExpectedOriginalProbeHandler =
         {
             0xC2, 0x00, 0x00, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC,
             0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC
-        };
-
-        private static readonly byte[] ExpectedQueueLocalChorePrologue =
-        {
-            0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x6C,
-            0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18, 0x48
-        };
-
-        private static readonly byte[] ExpectedCopyChoreFieldPrologue =
-        {
-            0x45, 0x85, 0xC0, 0x0F, 0x8E, 0x93, 0x00, 0x00,
-            0x00, 0x48, 0x89, 0x5C, 0x24, 0x08, 0x57, 0x48
         };
 
         private static readonly object StaticInstallLock = new object();
@@ -148,6 +135,8 @@ namespace MPTest
         private readonly Dictionary<long, ChoreObservation> observationsByRequest =
             new Dictionary<long, ChoreObservation>();
         private readonly HashSet<int> executedCommandIds = new HashSet<int>();
+        private int queueLocalChoreRva;
+        private int copyChoreFieldRva;
         private readonly HashSet<long> executedRequests = new HashSet<long>();
         private readonly List<DelayedChore> delayedChores = new List<DelayedChore>();
 
@@ -185,12 +174,18 @@ namespace MPTest
 
         public bool IsSupported => supported && operational;
 
-        public void Initialize(IntPtr crusaderModuleBase)
+        public void Initialize(
+            IntPtr crusaderModuleBase,
+            ReadOnlySpan<byte> memory,
+            bool referenceHashMatches)
         {
             if (supported)
                 return;
 
-            string compatibilityFailure = ValidateCompatibility(crusaderModuleBase);
+            string compatibilityFailure = ValidateCompatibility(
+                crusaderModuleBase,
+                memory,
+                referenceHashMatches);
             if (compatibilityFailure != null)
             {
                 LogError($"event=disabled reason={Sanitize(compatibilityFailure)}");
@@ -211,9 +206,9 @@ namespace MPTest
                 try
                 {
                     queueLocalChore = Marshal.GetDelegateForFunctionPointer<QueueLocalChoreDelegate>(
-                        Add(moduleBase, QueueLocalChoreRva));
+                        Add(moduleBase, queueLocalChoreRva));
                     copyChoreField = Marshal.GetDelegateForFunctionPointer<CopyChoreFieldDelegate>(
-                        Add(moduleBase, CopyChoreFieldRva));
+                        Add(moduleBase, copyChoreFieldRva));
                     engineThreadLock = ResolveEngineThreadLock();
 
                     sendHook = new Hook(
@@ -272,7 +267,8 @@ namespace MPTest
                     LogInfo(
                         $"event=initialized role={GetPeerRole()} moduleBase=0x{moduleBase.ToInt64():X} " +
                         $"handlerEntry=0x{handlerTableEntry.ToInt64():X} originalHandler=0x{originalHandler.ToInt64():X} " +
-                        $"installedHandler=0x{installedHandler.ToInt64():X} hash={ExpectedCrusaderSha256} " +
+                        $"installedHandler=0x{installedHandler.ToInt64():X} " +
+                        $"queueRva=0x{queueLocalChoreRva:X} copyRva=0x{copyChoreFieldRva:X} " +
                         $"delayMs={GetConfiguredDelayMilliseconds()}");
                 }
                 catch (Exception ex)
@@ -990,51 +986,70 @@ namespace MPTest
             }
         }
 
-        private string ValidateCompatibility(IntPtr crusaderModuleBase)
+        private string ValidateCompatibility(
+            IntPtr crusaderModuleBase,
+            ReadOnlySpan<byte> memory,
+            bool referenceHashMatches)
         {
             if (IntPtr.Size != 8)
                 return "process-is-not-64-bit";
             if (crusaderModuleBase == IntPtr.Zero)
                 return "crusader-module-base-is-zero";
 
-            string modulePath;
+            if (!referenceHashMatches)
+                return "fixed-chore-manager-layout-is-not-audited-for-this-dll";
+
             try
             {
-                modulePath = GetModulePath(crusaderModuleBase);
+                Shared.NativeResolution queueResolution = Shared.NativePatternResolver.ResolveUnique(
+                    memory,
+                    QueueLocalChoreInteriorPattern,
+                    QueueLocalChoreInteriorRva,
+                    referenceHashMatches,
+                    "MPTest QueueLocalChore interior",
+                    log);
+                if (queueResolution.Rva < QueueLocalChoreInteriorOffset)
+                    return "queue-local-chore-interior-cannot-derive-module-rva";
+                queueLocalChoreRva = checked(queueResolution.Rva - QueueLocalChoreInteriorOffset);
+
+                Shared.NativeResolution copyResolution = Shared.NativePatternResolver.ResolveUnique(
+                    memory,
+                    CopyChoreFieldPattern,
+                    CopyChoreFieldRva,
+                    referenceHashMatches,
+                    "MPTest CopyChoreField",
+                    log);
+                copyChoreFieldRva = copyResolution.Rva;
             }
             catch (Exception ex)
             {
-                return $"cannot-resolve-module-path({ex.Message})";
+                return $"native-function-resolution-failed({ex.Message})";
             }
-
-            FileInfo fileInfo = new FileInfo(modulePath);
-            if (!fileInfo.Exists)
-                return $"crusader-module-file-not-found({modulePath})";
-            if (fileInfo.Length != ExpectedCrusaderFileSize)
-                return $"crusader-file-size-mismatch(expected={ExpectedCrusaderFileSize},actual={fileInfo.Length})";
-
-            string actualHash;
-            using (FileStream stream = fileInfo.OpenRead())
-            using (SHA256 sha256 = SHA256.Create())
-                actualHash = ToHex(sha256.ComputeHash(stream));
-
-            if (!string.Equals(actualHash, ExpectedCrusaderSha256, StringComparison.OrdinalIgnoreCase))
-                return $"crusader-sha256-mismatch(expected={ExpectedCrusaderSha256},actual={actualHash})";
 
             moduleBase = crusaderModuleBase;
             ulong choreManagerAddress = GameGlobalsManager.Instance.ChoreManagerVA;
             if (choreManagerAddress == 0 || choreManagerAddress > long.MaxValue)
                 return "script-extender-chore-manager-address-is-invalid";
             choreManager = new IntPtr(unchecked((long)choreManagerAddress));
-            handlerTableEntry = Add(moduleBase, HandlerTableRva + ProbeOpcode * IntPtr.Size);
-            originalHandler = Add(moduleBase, OriginalProbeHandlerRva);
+            ulong handlerTableAddress = GameGlobalsManager.Instance.GameStateChoreHandlersVA;
+            long imageStart = moduleBase.ToInt64();
+            long imageEnd = checked(imageStart + memory.Length);
+            if (handlerTableAddress < unchecked((ulong)imageStart) ||
+                handlerTableAddress > unchecked((ulong)(imageEnd - 256 * IntPtr.Size)))
+            {
+                return "script-extender-chore-handler-table-address-is-outside-module";
+            }
+            handlerTableEntry = Add(
+                new IntPtr(unchecked((long)handlerTableAddress)),
+                ProbeOpcode * IntPtr.Size);
+            originalHandler = Marshal.ReadIntPtr(handlerTableEntry);
 
+            long originalHandlerAddress = originalHandler.ToInt64();
+            if (originalHandlerAddress < imageStart ||
+                originalHandlerAddress > imageEnd - ExpectedOriginalProbeHandler.Length)
+                return "opcode-111-original-handler-is-outside-module";
             if (!MatchesBytes(originalHandler, ExpectedOriginalProbeHandler))
                 return "opcode-111-original-handler-bytes-mismatch";
-            if (!MatchesBytes(Add(moduleBase, QueueLocalChoreRva), ExpectedQueueLocalChorePrologue))
-                return "queue-local-chore-prologue-mismatch";
-            if (!MatchesBytes(Add(moduleBase, CopyChoreFieldRva), ExpectedCopyChoreFieldPrologue))
-                return "copy-chore-field-prologue-mismatch";
 
             IntPtr observedHandler = Marshal.ReadIntPtr(handlerTableEntry);
             if (observedHandler != originalHandler)
@@ -1046,6 +1061,10 @@ namespace MPTest
 
             if (!IsWritableCommittedMemory(handlerTableEntry))
                 return "opcode-111-handler-table-entry-is-not-writable-committed-memory";
+
+            LogInfo(
+                $"event=native-targets-resolved handlerTableRva=0x{handlerTableAddress - unchecked((ulong)imageStart):X} " +
+                $"opcode111HandlerRva=0x{originalHandlerAddress - imageStart:X}");
 
             return null;
         }
@@ -1259,17 +1278,6 @@ namespace MPTest
             return value;
         }
 
-        private static string GetModulePath(IntPtr moduleHandle)
-        {
-            StringBuilder path = new StringBuilder(32768);
-            int length = GetModuleFileName(moduleHandle, path, path.Capacity);
-            if (length <= 0)
-                throw new InvalidOperationException($"GetModuleFileName failed with Win32 error {Marshal.GetLastWin32Error()}.");
-            if (length >= path.Capacity - 1)
-                throw new PathTooLongException("CrusaderDE.dll module path exceeded the fixed buffer.");
-            return path.ToString();
-        }
-
         private static bool MatchesBytes(IntPtr address, byte[] expected)
         {
             for (int index = 0; index < expected.Length; index++)
@@ -1393,14 +1401,6 @@ namespace MPTest
             WriteUInt32(data, offset, unchecked((uint)value));
         }
 
-        private static string ToHex(byte[] bytes)
-        {
-            StringBuilder result = new StringBuilder(bytes.Length * 2);
-            for (int index = 0; index < bytes.Length; index++)
-                result.Append(bytes[index].ToString("X2"));
-            return result.ToString();
-        }
-
         private void LogInfo(string message)
         {
             Shared.DebugLogHelper.LogInfo(log, $"MPTest ChoreProbe: {message}");
@@ -1410,12 +1410,6 @@ namespace MPTest
         {
             Shared.DebugLogHelper.LogError(log, $"MPTest ChoreProbe: {message}");
         }
-
-        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-        private static extern int GetModuleFileName(
-            IntPtr moduleHandle,
-            StringBuilder fileName,
-            int size);
 
         [DllImport("kernel32.dll", SetLastError = true)]
         private static extern UIntPtr VirtualQuery(

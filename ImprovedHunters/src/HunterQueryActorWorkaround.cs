@@ -17,7 +17,7 @@ namespace ImprovedHunters
     /// </summary>
     internal sealed unsafe class HunterQueryActorWorkaround : IDisposable
     {
-        private const int HunterQueryCandidateLoopRva = 0x18AF70;
+        private const int HunterQueryCandidateLoopRva = 0x18AFC0;
         private const int MaxCaptureFailureLogs = 10;
         private const string HunterQueryCandidateLoopPattern =
             "66 83 BB EC FD FF FF 02 0F 85 ?? ?? ?? ?? " +

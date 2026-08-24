@@ -2,13 +2,17 @@
 
 ## Audited baseline
 
-- Steam build ID: `24651686`
-- DLL size: `3450880` bytes
-- SHA-256: `33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469`
+- Steam build ID: `24816905`
+- DLL size: `3451392` bytes
+- SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
 
-Native Spawn is strictly hash-gated. The supported hash uses direct RVAs after
-local pattern validation and never performs a full DLL scan. On another DLL,
-native Spawn remains inactive while managed Blueprint mode stays available.
+Native Spawn remains hash-gated because its AIV/player layouts and several
+field offsets cannot be proven by function signatures alone. On the audited
+hash each target first validates its reference RVA and otherwise falls back to
+the named unique `.text` pattern; the resolved RVA is used. A failure disables
+only native Spawn with a timestamped Error, while managed Blueprint and other
+independent features remain available. An unaudited layout is not enabled just
+because its code patterns match.
 
 ## Native address map
 
@@ -56,3 +60,14 @@ prebuilt bit field, prepared Keep references and the unchanged
 `AllocateSpec +0x5F` LEA contract. The human-start hook at `0x95B3C` precedes
 the first coordinate load and preserves both overwritten instructions. Native singleplayer and synchronized
 per-player multiplayer spawning remain post-build game smoke tests.
+
+## Audit for Steam build 24816905
+
+All ten patterns remain at the documented RVAs and match exactly once. AIV spec
+stride `0x6D98`, player stride `0x583C`, placement fields, prebuilt state and
+Keep-coordinate loads retain their prior semantics. No CastlePlanner source RVA
+changes are needed. The resolver now always uses its returned RVA and can use
+the unique pattern if local reference bytes were changed by an earlier hook.
+The fixed layouts remain the explicit reason for the hash gate. Blueprint mode
+was not version-sensitive. Native singleplayer and multiplayer spawning still
+need a live smoke test.

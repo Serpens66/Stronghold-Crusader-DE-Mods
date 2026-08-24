@@ -18,15 +18,15 @@ namespace ImprovedHunters
     /// </summary>
     internal sealed unsafe class ManualChickenAttackPatch : IDisposable
     {
-        private const int ManualAttackDecisionSequenceRva = 0x18EB98;
+        private const int ManualAttackDecisionSequenceRva = 0x18EBE8;
         private const int CompatibilityCallOffset = 0x17;
         private const int CompatibilityCallDisplacementOffset = CompatibilityCallOffset + 1;
         private const int CompatibilityCallEndOffset = CompatibilityCallOffset + 5;
         private const int CompatibilityDecisionHookOffset = 0x2B;
         private const int CompatibilityDecisionHookRva =
             ManualAttackDecisionSequenceRva + CompatibilityDecisionHookOffset;
-        private const int CompatibilityFunctionRva = 0x186750;
-        private const int HunterBypassTargetRva = 0x18EBD2;
+        private const int CompatibilityFunctionRva = 0x1867A0;
+        private const int HunterBypassTargetRva = 0x18EC22;
         private const int MaxDecisionLogs = 80;
         private const int MaxInvalidContextLogs = 10;
 

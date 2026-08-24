@@ -2,9 +2,9 @@
 
 ## Audited baseline
 
-- Steam build ID: `24651686`
-- DLL size: `3450880` bytes
-- SHA-256: `33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469`
+- Steam build ID: `24816905`
+- DLL size: `3451392` bytes
+- SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
 
 For this exact hash the mod validates each pattern only at its audited RVA and
 then registers or patches the direct address. A full scan must never run on this
@@ -27,18 +27,25 @@ inactive until a new DLL has been audited.
 | `PopularityExitPattern` | `0xCB55C` | popularity hook at `+32` (`0xCB57C`) |
 | `AreaTreatmentPattern` | `0xA0470` | plague area-treatment detour |
 | `DiseaseSearchPattern` | `0x9F700` | nearest-disease detour |
-| `HealerUpdateExitPattern` | `0x150157` | healer common-exit context hook |
-| `PeriodicDiseaseFoundPattern` | `0x14F87C` | state-transition context hook |
-| `WorkingBuildingExitReferencePattern` | `0x14F718` | semantic reference only |
-| `SpearmanMovementDecisionPattern` | `0x143B89` | inline movement-decision hook |
-| `PreTerrainSpeedAdjustmentPattern` | `0x19B4B6` | context hook after base/group speed and before late terrain/status modifiers; containing function `0x19B210-0x19B5D6` |
-| `UnitTypeUpdateDispatchPattern` | `0x1840BC` | dispatch-table reference |
-| `MovementCadencePattern` | `0x1841B3` | cadence context hook |
+| `HealerUpdateExitPattern` | `0x1501A7` | healer common-exit context hook |
+| `PeriodicDiseaseFoundPattern` | `0x14F8CC` | state-transition context hook |
+| `WorkingBuildingExitReferencePattern` | `0x14F768` | semantic reference only |
+| `SpearmanMovementDecisionPattern` | `0x143BD9` | inline movement-decision hook |
+| `PreTerrainSpeedAdjustmentPattern` | `0x19B506` | context hook after base/group speed and before late terrain/status modifiers; containing function `0x19B260-0x19B626` |
+| `UnitTypeUpdateDispatchPattern` | `0x18410C` | dispatch-table reference |
+| `MovementCadencePattern` | `0x184203` | cadence context hook |
 | `MarketValidatorPattern` | `0xD7080` | Ctrl single-unit market validator detour |
 | `MarketPacketTailPattern` | `0xD7324` | market packet globals and sender |
 | `MarketStorageCallPattern` | `0xD7119` | available-storage delegate |
 | `AutoMarketSellStatisticPattern` | `0xD0484` | market-sell statistic table |
-| `RecruitEuropeanUnitPattern` | `0x190C50` | European troop-recruitment detour; missing-good output at manager `+0x654` |
+| `RecruitEuropeanUnitPattern` | `0x190CA0` | European troop-recruitment detour; missing-good output at manager `+0x654` |
+| `SellerReservePattern` | `0x3F14F` | AI stone seller-reserve hook at `+0x07` |
+| `AivSlotLayoutPattern` | `0x5068A` | validates AIV slot stride and player-state derivation |
+| `AivStepLayoutPattern` | `0x517C2` | validates step layout/state fields |
+| `AivHighestFramePattern` | `0x55F64` | validates highest-frame/player-state access |
+| `AivResourceShortageReturnPattern` | `0x51842` | validates resource-shortage control flow |
+| `AivFirstBuildSuccessPattern` | `0x5216D` | validates normal-building success state |
+| `AivPlacementRetryPattern` | `0x5217A` | validates retry/farm state writers |
 
 The named constants in `src` contain the complete authoritative wildcard byte
 patterns. Every reference above was checked as one match in the baseline DLL.
@@ -158,3 +165,31 @@ and must not be promoted to the general rally-running state. The Sapper's
 positive running pair is `bonus=1/state=0x81`; its state `0x1` path carries no
 positive run bonus. Healer (`0x5C1`) and Skirmisher (`0x101/0x181`) retain their
 audited type-specific conditional states.
+
+## Audit for Steam build 24816905
+
+All native patterns were independently scanned. Unchanged RVAs cover assembly
+points, market trades, plague creation/popularity/search/treatment, tower repair
+and most AIV state sites. The following code moved by `0x50`: periodic disease
+`0x14F8CC`, working-building exit `0x14F768`, healer exit `0x1501A7`, Spearman
+decision `0x143BD9`, synchronized movement sites `0x19B506`, `0x18410C` and
+`0x184203`, and European recruitment `0x190CA0`. The movement-speed function is
+therefore now `0x19B260`.
+
+The latest live log showed that `ActiveAIVDetector` can detour the tower
+placement-validator prologue before this mod initializes. Tower repair now
+resolves the unique stable body signature at `0x7B078` and subtracts `0x18` to
+derive function entry `0x7B060` for standalone operation. When ActiveAIVDetector
+is present and has installed that detour, the soft-dependency load order lets
+this feature register a managed post-Vanilla observer instead of installing an
+overlapping hook. Neither mod requires the other. If observer registration is
+unavailable, or RVA validation and the standalone pattern fallback both fail,
+only the AI tower-ruin repair feature logs Error and remains inactive; all other
+fixes and Vanilla placement continue.
+
+The first-build AIV signature stayed at `0x53F0B`, but its absolute map-row
+operand moved from `0x402EF2C` to `0x402FF2C`; that relocation is now wildcarded
+while the surrounding player/index/state semantics remain fully validated.
+Unit stride `0x490`, tribe fields and the enemy-proximity ChoreManager contract
+are unchanged. The latest pre-update log showed exactly the expected hash gates
+and this AIV signature failure, with all other fallback signatures resolving.

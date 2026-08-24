@@ -21,17 +21,17 @@ namespace ImprovedHunters
     internal sealed unsafe class HunterVanillaPathContinuationDiagnostic : IDisposable
     {
         private const string ReferenceDllSha256 =
-            "33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469";
-        private const int DistanceStageSequenceRva = 0x1300D2;
+            "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2";
+        private const int DistanceStageSequenceRva = 0x130122;
         private const int DistanceTwentyEightCompareOffset = 0x18;
         private const int DistanceTwentyEightNearBranchTargetOffset = 0x30;
-        private const int HunterUpdateStartRva = 0x12FC20;
-        private const int HunterUpdateEndRva = 0x1313D2;
-        private const int AttackGateHookRva = 0x130110;
+        private const int HunterUpdateStartRva = 0x12FC70;
+        private const int HunterUpdateEndRva = 0x131422;
+        private const int AttackGateHookRva = 0x130160;
         private const int AttackGateHookLength = 0x14;
-        private const int AttackGateFirstBranchTargetRva = 0x13012A;
-        private const int AttackGateSecondBranchRva = 0x130124;
-        private const int AttackGateExitTargetRva = 0x1313B2;
+        private const int AttackGateFirstBranchTargetRva = 0x13017A;
+        private const int AttackGateSecondBranchRva = 0x130174;
+        private const int AttackGateExitTargetRva = 0x131402;
         private const int HunterAiStateOffset = 0x2BC;
         private const int HunterTargetUnitIdOffset = 0x39A;
         private const int HunterTargetGlobalIdOffset = 0x39C;
@@ -104,7 +104,7 @@ namespace ImprovedHunters
 
             if (!referenceHashMatches)
             {
-                Shared.DebugLogHelper.LogWarning(
+                Shared.DebugLogHelper.LogError(
                     log,
                     "Improved Hunters Vanilla-path continuation diagnostic unavailable: " +
                     $"DLL hash differs from audited SHA-256 {ReferenceDllSha256}; behavior remains unchanged.");
@@ -1077,7 +1077,7 @@ namespace ImprovedHunters
             }
 
             ulong hookEndAddress = hookAddress + unchecked((ulong)hookLength);
-            ulong expectedNearTarget = libraryBase + 0x130102UL;
+            ulong expectedNearTarget = libraryBase + 0x130152UL;
             if (nearBranch.FlowControl != FlowControl.ConditionalBranch ||
                 nearBranch.NearBranchTarget != expectedNearTarget ||
                 nearBranch.NearBranchTarget < hookEndAddress)

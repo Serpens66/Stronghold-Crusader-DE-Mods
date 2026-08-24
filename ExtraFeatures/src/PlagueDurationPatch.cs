@@ -24,7 +24,7 @@ namespace ExtraFeatures
 
         // Disease update signature at reference RVA 0x9A164; the lifetime opcode
         // starts at RVA 0x9A16C and its immediate at RVA 0x9A16D for CrusaderDE.dll SHA-256
-        // 33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469.
+        // FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
         // The lifetime immediate is wildcarded so a moved function can still be found,
         // while the surrounding age comparison and fade transition remain validated.
         private const string LifetimePattern =

@@ -11,14 +11,14 @@ namespace ImprovedHunters
     /// </summary>
     internal sealed class AutomaticChickenTargetPatch : IDisposable
     {
-        private const int TargetSelectionTypeDispatchRva = 0x18F262;
-        private const int DispatchTargetTableRva = 0x18F9C4;
-        private const int TypeDispatchTableRva = 0x18F9E0;
-        private const int HunterOnlyCaseRva = 0x18F28E;
-        private const int CommonAcceptanceCaseRva = 0x18F3A6;
-        private const int CandidateRejectionCaseRva = 0x18F754;
-        private const int ManualAttackCommandRva = 0x18EAE6;
-        private const int ManualAttackTargetAssignmentRva = 0x18ED46;
+        private const int TargetSelectionTypeDispatchRva = 0x18F2B2;
+        private const int DispatchTargetTableRva = 0x18FA14;
+        private const int TypeDispatchTableRva = 0x18FA30;
+        private const int HunterOnlyCaseRva = 0x18F2DE;
+        private const int CommonAcceptanceCaseRva = 0x18F3F6;
+        private const int CandidateRejectionCaseRva = 0x18F7A4;
+        private const int ManualAttackCommandRva = 0x18EB36;
+        private const int ManualAttackTargetAssignmentRva = 0x18ED96;
 
         private const int DeerType = 44;
         private const int ChickenType = 62;

@@ -22,12 +22,12 @@ namespace RandomEvents
         private const int WheatHandlerRva = 0xC3130;
         private const int HopsHandlerRva = 0xC2E30;
         private const int AppleHandlerRva = 0xC2C30;
-        private const int MadCowUnitHandlerRva = 0x194BF0;
+        private const int MadCowUnitHandlerRva = 0x194C40;
         private const int MadCowBuildingHandlerRva = 0xC6090;
         private const int GranaryTheftHandlerRva = 0xC5F70;
-        private const int PresentationCallsiteRva = 0xF9B24;
-        private const int PresentationHandlerRva = 0x103160;
-        private const int PresentationManagerRva = 0x1B61EE0;
+        private const int PresentationCallsiteRva = 0xF9B74;
+        private const int PresentationHandlerRva = 0x1031B0;
+        private const int PresentationManagerRva = 0x1B62EE0;
 
         private const int WheatFarmType = 30;
         private const int HopsFarmType = 31;

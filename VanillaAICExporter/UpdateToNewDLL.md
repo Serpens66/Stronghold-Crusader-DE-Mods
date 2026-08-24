@@ -2,9 +2,9 @@
 
 ## Audited baseline
 
-- Steam build ID: `24651686`
-- DLL size: `3450880` bytes
-- SHA-256: `33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469`
+- Steam build ID: `24816905`
+- DLL size: `3451392` bytes
+- SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
 
 The exporter writes a timestamped Error and performs no export for every other
 DLL.
@@ -36,3 +36,12 @@ signature or layout error. The local Script-Extender decoder, `InternalAIC`,
 slot appeared in the updated managed assembly. A full export/editor round trip
 remains a live tool smoke test. The exporter is not installed by the normal
 update build set, so no stale manifest is generated or deployed here.
+
+## Audit for Steam build 24816905
+
+The latest Script Extender log resolves `gAILordManager` at `0x404C950` and
+initializes the AI manager without scanner or layout errors. The managed
+`InternalAIC`, `PublicAIC`, conversion code and official `AILords` slots remain
+unchanged, so the exporter needs only the shared hash update. A fresh full
+export, manifest check and editor round trip remain the live smoke test; no
+stale export was generated during this audit.

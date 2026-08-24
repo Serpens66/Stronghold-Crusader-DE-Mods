@@ -28,22 +28,17 @@ namespace Shared
             int rva;
             string method;
 
-            if (referenceHashMatches)
+            if (referenceHashMatches && MatchesPatternAt(memory, referenceRva, bytes))
             {
-                // A matching SHA-256 makes the audited RVA authoritative; only verify its local bytes.
-                if (!MatchesPatternAt(memory, referenceRva, bytes))
-                {
-                    throw new InvalidOperationException(
-                        $"{name} reference RVA 0x{referenceRva:X} failed local byte validation on the audited DLL.");
-                }
-
                 rva = referenceRva;
                 method = "reference-rva";
             }
             else
             {
                 rva = FindUniquePattern(memory, bytes, name, searchScope);
-                method = "signature-fallback";
+                method = referenceHashMatches
+                    ? "signature-fallback-after-rva-validation-failure"
+                    : "signature-fallback";
             }
 
             DebugLogHelper.LogInfo(log, $"Native address resolved: name={name}, method={method}, rva=0x{rva:X}.");
@@ -64,21 +59,17 @@ namespace Shared
 
             int rva;
             string method;
-            if (referenceHashMatches)
+            if (referenceHashMatches && MatchesBytesAt(memory, referenceRva, pattern))
             {
-                if (!MatchesBytesAt(memory, referenceRva, pattern))
-                {
-                    throw new InvalidOperationException(
-                        $"{name} reference RVA 0x{referenceRva:X} failed local byte validation on the audited DLL.");
-                }
-
                 rva = referenceRva;
                 method = "reference-rva";
             }
             else
             {
                 rva = FindUniqueBytes(memory, pattern, name, searchScope);
-                method = "signature-fallback";
+                method = referenceHashMatches
+                    ? "signature-fallback-after-rva-validation-failure"
+                    : "signature-fallback";
             }
 
             DebugLogHelper.LogInfo(log, $"Native address resolved: name={name}, method={method}, rva=0x{rva:X}.");

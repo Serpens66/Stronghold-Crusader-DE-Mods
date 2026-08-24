@@ -44,31 +44,31 @@ namespace ImprovedHunters
     internal sealed unsafe partial class HunterTargetSearchFallbackDiagnostic : IDisposable
     {
         private const string ReferenceDllSha256 =
-            "33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469";
-        private const int StateZeroQuerySequenceRva = 0x12FD67;
+            "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2";
+        private const int StateZeroQuerySequenceRva = 0x12FDB7;
         private const int StateZeroQueryReturnHookOffset = 0x22;
-        private const int StateZeroMoveResultSequenceRva = 0x12FE13;
+        private const int StateZeroMoveResultSequenceRva = 0x12FE63;
         private const int StateZeroMoveResultHookOffset = 0x17;
-        private const int StateOneRefreshQuerySequenceRva = 0x12FF07;
+        private const int StateOneRefreshQuerySequenceRva = 0x12FF57;
         private const int StateOneRefreshQueryResultHookOffset = 0x27;
         private const int StateOneRefreshQueryResultHookLength = 0x0E;
         private const int StateOneRefreshFailureBranchTargetOffset = 0x25;
-        private const int StateOneNearRefreshBranchSequenceRva = 0x130019;
+        private const int StateOneNearRefreshBranchSequenceRva = 0x130069;
         private const int StateOneNearRefreshHookLength = 0x0F;
         private const int StateOneNearRefreshFarBranchTargetOffset = 0x14;
         private const int StateOneNearRefreshQueryJumpOffset = 0x0F;
-        private const int StateOneWorldDistanceScratchRva = 0x34A8F5C;
-        private const int StateOneCurrentHunterUnitIdRva = 0x92F2C4;
+        private const int StateOneWorldDistanceScratchRva = 0x34A9F5C;
+        private const int StateOneCurrentHunterUnitIdRva = 0x9302C4;
         private const int StateOneRefreshDistance = 20;
         private const int StateOneContinuationDistance = 28;
         private const int StateOneBypassDistance = StateOneRefreshDistance + 1;
-        private const int StateOneDirectAttackSequenceRva = 0x13013D;
+        private const int StateOneDirectAttackSequenceRva = 0x13018D;
         private const int StateOneDirectAttackResultHookOffset = 0x0C;
-        private const int HunterUpdateStartRva = 0x12FC20;
-        private const int HunterUpdateEndRva = 0x1313D2;
-        private const int HunterQueryFunctionRva = 0x18AF00;
-        private const int MoveHereFunctionRva = 0x196230;
-        private const int DirectAttackFunctionRva = 0x18E950;
+        private const int HunterUpdateStartRva = 0x12FC70;
+        private const int HunterUpdateEndRva = 0x131422;
+        private const int HunterQueryFunctionRva = 0x18AF50;
+        private const int MoveHereFunctionRva = 0x196280;
+        private const int DirectAttackFunctionRva = 0x18E9A0;
         private const int HunterPathStateOffset = 0xF2;
         private const int HunterPathFieldF4Offset = 0xF4;
         private const int HunterPathProgressOffset = 0xF6;
@@ -210,7 +210,7 @@ namespace ImprovedHunters
 
             if (!referenceHashMatches)
             {
-                Shared.DebugLogHelper.LogWarning(
+                Shared.DebugLogHelper.LogError(
                     log,
                     "Improved Hunters target-search fallback unavailable: " +
                     $"DLL hash differs from audited SHA-256 {ReferenceDllSha256}; behavior remains unchanged.");

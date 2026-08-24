@@ -12,7 +12,7 @@ namespace VanillaAICExporter
 
         public const string PluginGuid = "VanillaAICExporter_Serp";
         public const string PluginName = "Vanilla AIC Exporter";
-        public const string PluginVersion = "0.1.0";
+        public const string PluginVersion = "0.1.1";
 
         private static VanillaAICExportRuntime runtime;
         private static bool libraryLoadedHandled;

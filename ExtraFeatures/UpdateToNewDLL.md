@@ -2,9 +2,9 @@
 
 ## Audited baseline
 
-- Steam build ID: `24651686`
-- DLL size: `3450880` bytes
-- SHA-256: `33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469`
+- Steam build ID: `24816905`
+- DLL size: `3451392` bytes
+- SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
 
 The audited hash uses locally validated direct RVAs. On another hash, only the
 signature- and semantics-validated features use bounded unique scans. Quarry
@@ -20,14 +20,18 @@ Extender fields and the bidirectional stable-link API, so it has no private RVA.
 | `SleepStateSynchronizationFunctionPattern` | `0xC7D50` | scan; delegate |
 | `EmergencyDemolitionComparisonPattern` | `0x2F454` | scan; context hook |
 | `AIHovelDemolitionFunctionPattern` | `0x3B1D0` | scan; detour at the AI decision point |
+| `InaccessibleBuildingComparisonPattern` | `0x3B2FF` | executable-section unique scan; inaccessible-building context hook |
+| `MaintenancePattern` | `0x52270` | executable-section unique scan; ongoing AI castle-maintenance diagnostic detour |
+| `PlacementPattern` | `0x5CD90` | executable-section unique scan; paired AIV placement diagnostic detour |
 | AI buy-price helper (`49 63 C0 8B 8C C1 B8 17 18 00 B8 67 66 66 66 F7 E9 D1 FA 8B C2 C1 E8 1F 03 C2 41 0F AF C1 C3`) | `0xCEB10` | executable-section unique scan; managed function detour |
 | AI sell-price helper (`49 63 C0 8B 8C C1 BC 17 18 00 B8 67 66 66 66 F7 E9 D1 FA 8B C2 C1 E8 1F 03 C2 41 0F AF C1 C3`) | `0xCEB90` | executable-section unique scan; managed function detour |
 | `AiFlagRoutinePattern` | `0x504F0` | scan; detour captures exact AI flag projectile provenance |
 | `LifetimePattern` | `0x9A164` | scan; lifetime immediate at `+9`, conditional comparison hook at `+18` (`0x9A176`) |
 | `BuildingDistanceComparisonPattern` | `0x9F86B` | scan; distance context hook |
-| `MovementDecisionPattern` (Monk handler) | `0x1513E6` | executable-section unique scan; 20-byte inline decision hook |
-| worker-table byte pattern | `0x2E4E58` | full-image data scan; table begins `0x2E4DE0` |
+| `MovementDecisionPattern` (Monk handler) | `0x151436` | executable-section unique scan; 20-byte inline decision hook |
+| worker-table byte pattern | `0x2E5E58` | full-image data scan; table begins `0x2E5DE0` |
 | `SetupBuildingEntrancesOffsetPattern` | `0xC0270` | fixed manager/candidate layout |
+| `DistanceBlockPattern` | `0xB7BBB` | executable-section unique scan; derives the three related gatehouse immediates below |
 | Gatehouse AI closing-distance immediate | `0xB7BC3` | `DistanceBlockPattern`; Vanilla `200` native units = `25` fields |
 | Gatehouse AI reopening-delay immediate | `0xB7BCA` | `DistanceBlockPattern`; Vanilla `1200` ticks = `30` seconds at gamespeed 40 |
 | Gatehouse human closing-distance immediate | `0xB7BD3` | `DistanceBlockPattern`; Vanilla `140` native units = `17.5` fields |
@@ -179,3 +183,18 @@ would disable running cadence before it is applied. Explicit tribe orders still
 cancel tracking. Movement restarted after the rally flag is rejected when its
 target differs from the captured rally target; same-target restarts remain
 valid rally movement.
+
+## Audit for Steam build 24816905
+
+Every mod-owned signature matches the new DLL. Most code RVAs are unchanged.
+The priest worker table moved to `0x2E5E58`. The Monk decision and handler moved
+by `0x50` to `0x151436` and `0x151090`; the two validated walking branch targets
+now resolve to `0x151463`. The gatehouse delay code remains at `0xB7C32`, while
+its relocated data operand changed by `0x1000`; only that displacement is now
+wildcarded and the four Vanilla distance/delay values are still checked.
+
+The latest old-build log independently demonstrated these two failures and the
+worker-table fallback, while plague, AI defense and market signatures installed
+successfully. Fixed quarry and inaccessible-building layouts retain their prior
+field semantics and are enabled again only by the newly audited shared hash.
+Live Monk, gatehouse and quarry tests remain post-build smoke tests.

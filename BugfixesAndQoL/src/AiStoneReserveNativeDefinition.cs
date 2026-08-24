@@ -41,7 +41,7 @@ namespace BugfixesAndQoL
         public const int AivInitialFirstBuildStatePatternRva = 0x53F0B;
         public const string AivInitialFirstBuildStatePattern =
             "48 8D 04 52 BA 01 00 00 00 48 8D 0D ?? ?? ?? ?? " +
-            "8B 8C 81 2C EF 02 04 4B 8D 04 49 41 03 CB " +
+            "8B 8C 81 ?? ?? ?? ?? 4B 8D 04 49 41 03 CB " +
             "41 C6 44 87 38 01 03 CF 66 45 89 64 87 3A 41 89 4C 87 40";
 
         // A false resource result leaves the current step untouched and returns from the

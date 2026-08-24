@@ -63,11 +63,11 @@ namespace ImprovedHunters
     internal sealed unsafe class HunterNativeVisibilityProbe : IDisposable
     {
         private const string ReferenceDllSha256 =
-            "33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469";
+            "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2";
         private const int VisibilityWrapperRva = 0xA06F0;
         private const int VisibilityCoreRva = 0x9E350;
-        private const int HunterQueryCallRva = 0x18B052;
-        private const int HunterDirectOrderCallRva = 0x18ED1A;
+        private const int HunterQueryCallRva = 0x18B0A2;
+        private const int HunterDirectOrderCallRva = 0x18ED6A;
         private const int FirstCoreCallDisplacementRva = VisibilityWrapperRva + 0x54;
         private const int FirstCoreCallNextInstructionRva = VisibilityWrapperRva + 0x58;
         private const int ReverseCoreCallDisplacementRva = VisibilityWrapperRva + 0x79;
@@ -136,7 +136,7 @@ namespace ImprovedHunters
 
             if (!referenceHashMatches)
             {
-                Shared.DebugLogHelper.LogWarning(
+                Shared.DebugLogHelper.LogError(
                     log,
                     "Improved Hunters native visibility probe unavailable: " +
                     $"DLL hash differs from audited SHA-256 {ReferenceDllSha256}; behavior remains unchanged.");

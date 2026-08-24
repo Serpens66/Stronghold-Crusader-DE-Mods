@@ -5,6 +5,7 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using Zhuqiaomon.Hooks;
 using Zhuqiaomon.Hooks.Transaction;
@@ -13,9 +14,13 @@ namespace BugfixesAndQoL
 {
     internal sealed unsafe class AITowerRuinRepairFix : IDisposable
     {
-        private const string BuildingPlacementValidatorPattern =
-            "40 53 55 56 57 41 56 48 83 EC 40 33 C0 49 63 E8 83 BC 24 90 00 00 00 02";
-        private const int BuildingPlacementValidatorRva = 0x7B060;
+        // Resolve through an interior sequence because ActiveAIVDetector may already have
+        // detoured the function prologue by the time this optional fix is initialized.
+        private const string BuildingPlacementValidatorInteriorPattern =
+            "48 8D 35 ?? ?? ?? ?? 44 8B 81 28 E7 04 02 45 8B F1 " +
+            "4C 63 CA 44 8B D0 44 0F 45 94 24 90 00 00 00";
+        private const int BuildingPlacementValidatorInteriorRva = 0x7B078;
+        private const int BuildingPlacementValidatorInteriorOffset = 0x18;
         private const int DiagnosticRepeatTicks = 5 * 40;
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
@@ -45,13 +50,25 @@ namespace BugfixesAndQoL
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
 
+            if (TryRegisterWithActiveAivDetector())
+            {
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    "Bugfixes and QoL AI tower-ruin repair subscribed to ActiveAIVDetector's " +
+                    "placement-validator hook; no overlapping native detour was installed.");
+                return;
+            }
+
             Shared.NativeResolution resolution = Shared.NativePatternResolver.ResolveUnique(
                 memory,
-                BuildingPlacementValidatorPattern,
-                BuildingPlacementValidatorRva,
+                BuildingPlacementValidatorInteriorPattern,
+                BuildingPlacementValidatorInteriorRva,
                 referenceHashMatches,
                 "AI tower-rebuild placement validator",
                 log);
+            if (resolution.Rva < BuildingPlacementValidatorInteriorOffset)
+                throw new InvalidOperationException("The placement-validator signature cannot derive a module RVA.");
+            int validatorRva = checked(resolution.Rva - BuildingPlacementValidatorInteriorOffset);
             try
             {
                 transaction = new HookTransaction(
@@ -61,7 +78,7 @@ namespace BugfixesAndQoL
                     failureMode: TransactionFailureMode.RollbackAndThrow);
                 transaction.AddDetour(
                     ref validatorHook,
-                    libraryBase + unchecked((ulong)resolution.Rva),
+                    libraryBase + unchecked((ulong)validatorRva),
                     ValidateBuildingPlacement);
                 transaction.Commit();
                 if (!validatorHook.Success)
@@ -69,7 +86,8 @@ namespace BugfixesAndQoL
 
                 Shared.DebugLogHelper.LogInfo(
                     log,
-                    $"Bugfixes and QoL AI tower-ruin repair hook installed: method={resolution.Method}, rva=0x{resolution.Rva:X}.");
+                    $"Bugfixes and QoL AI tower-ruin repair hook installed: method={resolution.Method}, " +
+                    $"signatureRva=0x{resolution.Rva:X}, functionRva=0x{validatorRva:X}.");
             }
             catch
             {
@@ -102,6 +120,24 @@ namespace BugfixesAndQoL
                 mapperValue,
                 mode);
 
+            ObserveBuildingPlacement(
+                placementStateAddress,
+                tileId,
+                playerId,
+                mapperValue,
+                mode,
+                result);
+            return result;
+        }
+
+        private void ObserveBuildingPlacement(
+            ulong placementStateAddress,
+            int tileId,
+            int playerId,
+            int mapperValue,
+            int mode,
+            int result)
+        {
             try
             {
                 // Player zero is used by candidate-fit probes; requiring a real AI slot limits
@@ -127,7 +163,32 @@ namespace BugfixesAndQoL
                 }
             }
 
-            return result;
+        }
+
+        private bool TryRegisterWithActiveAivDetector()
+        {
+            Type pluginType = Type.GetType(
+                "ActiveAIVDetector.ActiveAIVDetectorPlugin, ActiveAIVDetector",
+                throwOnError: false);
+            if (pluginType == null)
+                return false;
+
+            MethodInfo register = pluginType.GetMethod(
+                "TryRegisterPlacementValidatorObserver",
+                BindingFlags.Public | BindingFlags.Static,
+                binder: null,
+                types: new[] { typeof(Action<ulong, int, int, int, int, int>) },
+                modifiers: null);
+            if (register == null)
+            {
+                throw new MissingMethodException(
+                    pluginType.FullName,
+                    "TryRegisterPlacementValidatorObserver");
+            }
+
+            var observer = new Action<ulong, int, int, int, int, int>(ObserveBuildingPlacement);
+            object registrationResult = register.Invoke(null, new object[] { observer });
+            return registrationResult is bool registered && registered;
         }
 
         private string InspectBlockedTileAndMaybeMarkRuin(int tileId, int playerId, int mapperValue)

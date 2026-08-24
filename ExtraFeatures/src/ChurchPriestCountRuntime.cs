@@ -20,7 +20,7 @@ namespace ExtraFeatures
         private const int Church2ModdedWorkerCount = 2;
         private const int Church3ModdedWorkerCount = 3;
         private const int PatternTableStartIndex = 30;
-        private const int WorkerTablePatternRva = 0x2E4E58;
+        private const int WorkerTablePatternRva = 0x2E5E58;
 
         private static readonly byte[] WorkerTablePattern = BuildWorkerTablePattern();
 

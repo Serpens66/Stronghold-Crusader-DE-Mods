@@ -2,9 +2,9 @@
 
 ## Audited baseline
 
-- Steam build ID: `24651686`
-- DLL size: `3450880` bytes
-- SHA-256: `33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469`
+- Steam build ID: `24816905`
+- DLL size: `3451392` bytes
+- SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
 
 The audited hash uses direct RVAs after local byte/semantic validation. Changed
 DLLs use unique executable-section signatures and the signpost lookup may use
@@ -16,25 +16,25 @@ disabling unrelated events.
 | Source pattern / target | Reference RVA | Use |
 | --- | ---: | --- |
 | `LookupPattern` | `0xCB800` | signpost lookup and manager-field derivation |
-| `PenaltyWritePattern` | `0x104C6A` | bandit player stride/state offset |
+| `PenaltyWritePattern` | `0x104CBA` | bandit player stride/state offset |
 | `HasBuildingPattern` | `0xB8D50` | building prerequisite delegate |
 | `WheatPattern` | `0xC3130` | wheat handler |
 | `HopsPattern` | `0xC2E30` | hops handler |
 | `ApplePattern` | `0xC2C30` | apple handler |
-| `MadCowUnitPattern` | `0x194BF0` | mad-cow unit handler |
+| `MadCowUnitPattern` | `0x194C40` | mad-cow unit handler |
 | `MadCowBuildingPattern` | `0xC6090` | mad-cow building handler |
 | `GranaryTheftPattern` | `0xC5F70` | theft handler |
-| `PresentationCallsitePattern` | `0xF9B24` | derives manager `0x1B61EE0` and handler `0x103160` |
-| `WildlifeHandlerPattern` | `0x11E100` | common wildlife delegate |
-| `WildlifeBranchPattern` | `0x11E5E8` | lion/rabbit branch validation |
-| `RabbitPredicatePattern` | `0x117750` | count/limit state |
-| `RabbitSpawnerPattern` | `0x123A70` | rabbit spawn function |
-| `RabbitTileMaskPattern` | `0x123B36` | rejected tile mask |
-| `RabbitWrapperPattern` | `0x10491A` | event wrapper/timer |
-| `RabbitSourceWritePattern` | `0x123B83` | source X/Y offsets |
-| `LionCasePattern` | `0x11E211` | lion case/tile mask |
-| `LionActivationPattern` | `0x104C14` | tribe stride/activation offset |
-| `LionActionPointWrapperPattern` | `0x104BF6` | action-point wrapper |
+| `PresentationCallsitePattern` | `0xF9B74` | derives manager `0x1B62EE0` and handler `0x1031B0` |
+| `WildlifeHandlerPattern` | `0x11E150` | common wildlife delegate |
+| `WildlifeBranchPattern` | `0x11E638` | lion/rabbit branch validation |
+| `RabbitPredicatePattern` | `0x1177A0` | count/limit state |
+| `RabbitSpawnerPattern` | `0x123AC0` | rabbit spawn function |
+| `RabbitTileMaskPattern` | `0x123B86` | rejected tile mask |
+| `RabbitWrapperPattern` | `0x10496A` | event wrapper/timer |
+| `RabbitSourceWritePattern` | `0x123BD3` | source X/Y offsets |
+| `LionCasePattern` | `0x11E261` | lion case/tile mask |
+| `LionActivationPattern` | `0x104C64` | tribe stride/activation offset |
+| `LionActionPointWrapperPattern` | `0x104C46` | action-point wrapper |
 | `ActionPointHandlerPattern` | `0xF4D40` | action-point handler |
 
 The named source constants contain the complete byte patterns.
@@ -63,3 +63,14 @@ Extender 1.41 names its first two managed arguments `playerOwnerId` and
 Independent event, reload and multiplayer tests remain post-build game smoke
 tests. Multiplayer tests must verify matching initialization/batch Chore operation
 IDs, payload sizes below 1200 bytes and identical action order on host and client.
+
+## Audit for Steam build 24816905
+
+All 21 signature sites resolve successfully in the latest game log and in the
+independent scanner. Unchanged handlers include signposts, prerequisites,
+granary theft and action points. Code after the inserted block moved by `0x50`:
+bandit penalty `0x104CBA`, mad-cow unit `0x194C40`, presentation call/handler
+`0xF9B74`/`0x1031B0`, and all wildlife sites now recorded in source from
+`0x10496A` through `0x123BD3`. The presentation manager moved by `0x1000` to
+`0x1B62EE0`; unit spawn is `0x17FEF0`. Event field semantics and masks are
+unchanged. Independent event, reload and multiplayer tests remain smoke tests.

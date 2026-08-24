@@ -118,7 +118,10 @@ namespace ActiveAIVDetector
                 $"maximumCaptures={prebuildTraceOptions.MaximumCaptureCount}.");
         }
 
-        public void Install(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
+        public void Install(
+            IntPtr libraryHandle,
+            ReadOnlySpan<byte> memory,
+            bool referenceHashMatches)
         {
             if (installed)
                 return;
@@ -131,17 +134,17 @@ namespace ActiveAIVDetector
                 loggerFactory: null,
                 failureMode: TransactionFailureMode.RollbackAndThrow);
 
-            Shared.NativePatternResolver.ResolveUnique(
+            Shared.NativeResolution prepareLayoutResolution = Shared.NativePatternResolver.ResolveUnique(
                 memory,
                 PrepareLayoutPattern,
                 PrepareLayoutRva,
-                referenceHashMatches: true,
+                referenceHashMatches,
                 "prepare AIV layout",
                 log);
 
             transaction.AddDetour(
                 ref prepareLayoutHook,
-                unchecked((ulong)libraryHandle.ToInt64()) + PrepareLayoutRva,
+                unchecked((ulong)libraryHandle.ToInt64()) + unchecked((ulong)prepareLayoutResolution.Rva),
                 PrepareLayout);
 
             placementOracle = new AivPlacementOracle(
@@ -151,7 +154,8 @@ namespace ActiveAIVDetector
                 OnPrebuildFrameCaptured,
                 prebuildTraceOptions,
                 libraryHandle,
-                memory);
+                memory,
+                referenceHashMatches);
             placementOracle.RegisterHooks(transaction);
 
             transaction.Commit();
@@ -161,12 +165,23 @@ namespace ActiveAIVDetector
                     "The c_game_aiv_prepare_layout signature was not found.");
             placementOracle.ValidateHooks();
 
-            SubscribeLifecycleHooks();
+            // From this point the validator detour is process-global and must be shared even if
+            // a later lifecycle subscription unexpectedly fails.
             installed = true;
+            SubscribeLifecycleHooks();
             Shared.DebugLogHelper.LogInfo(
                 log,
                 "Native active-AIV detector and passive placement oracle installed at Info level; " +
                 "Vanilla candidate tests will be joined with lobby metadata after OnStartMap(Post).");
+        }
+
+        public bool TryRegisterPlacementValidatorObserver(
+            Action<ulong, int, int, int, int, int> observer)
+        {
+            if (!installed || placementOracle == null)
+                return false;
+            placementOracle.RegisterExternalValidatorObserver(observer);
+            return true;
         }
 
         private void InstallLobbyCaptureHook()

@@ -9,16 +9,16 @@ namespace RandomEvents
 {
     internal sealed class NativeWildlifeEventDispatcher
     {
-        private const int WildlifeHandlerRva = 0x11E100;
-        private const int WildlifeBranchRva = 0x11E5E8;
-        private const int RabbitPredicateRva = 0x117750;
-        private const int RabbitSpawnerRva = 0x123A70;
-        private const int RabbitTileMaskRva = 0x123B36;
-        private const int RabbitWrapperRva = 0x10491A;
-        private const int RabbitSourceWriteRva = 0x123B83;
-        private const int LionCaseRva = 0x11E211;
-        private const int LionActivationRva = 0x104C14;
-        private const int LionActionPointWrapperRva = 0x104BF6;
+        private const int WildlifeHandlerRva = 0x11E150;
+        private const int WildlifeBranchRva = 0x11E638;
+        private const int RabbitPredicateRva = 0x1177A0;
+        private const int RabbitSpawnerRva = 0x123AC0;
+        private const int RabbitTileMaskRva = 0x123B86;
+        private const int RabbitWrapperRva = 0x10496A;
+        private const int RabbitSourceWriteRva = 0x123BD3;
+        private const int LionCaseRva = 0x11E261;
+        private const int LionActivationRva = 0x104C64;
+        private const int LionActionPointWrapperRva = 0x104C46;
         private const int ActionPointHandlerRva = 0xF4D40;
         private const int LionAction = 221;
         private const int RabbitAction = 222;
