@@ -23,6 +23,7 @@ native Spawn remains inactive while managed Blueprint mode stays available.
 | `AivStateReferencePattern` | `0x95C9F` | RIP-relative AIV state (`LEA` at `+4`) |
 | `PrebuiltPlayersReferencePattern` | `0x95FF8` | RIP-relative bit field |
 | `PreparedKeepCoordinatesReferencePattern` | `0x95EA3` | RIP-relative Keep X/Y references |
+| `HumanKeepCoordinateLoadPattern` | `0x95B3C` | earliest human Keep X/Y load and start-data hook |
 
 The named source constants contain the complete authoritative byte patterns.
 
@@ -35,17 +36,21 @@ The named source constants contain the complete authoritative byte patterns.
 3. Revalidate player state stride `0x583C`, imported candidate pointers,
    prebuilt-player bits, active-spec index and prepared Keep coordinates.
 4. Recheck the `AllocateSpec +0x5F` player-state reference and expected bytes.
-5. Test default/custom candidates, rotations, partial/no-fit failures, repeated
+5. Recheck that the human-start hook still runs after Vanilla resolves the
+   start index but before it first loads Keep X/Y, and that its 16 overwritten
+   bytes are exactly the two coordinate-load instructions.
+6. Test default/custom candidates, rotations, partial/no-fit failures, repeated
    map starts and deterministic per-player multiplayer spawning without any manual-spawn fallback.
-6. Update all RVAs before approving the new shared hash.
+7. Update all RVAs before approving the new shared hash.
 
 Historical RVAs in `AICastlePlanner.md` belong to an older DLL and are not a
 source for the current table without a new audit.
 
 ## Audit for Steam build 24651686
 
-All nine patterns match exactly once. Targeted disassembly reconfirmed every
+All ten patterns match exactly once. Targeted disassembly reconfirmed every
 delegate ABI, AIV stride `0x6D98`, player stride `0x583C`, the spec fields,
 prebuilt bit field, prepared Keep references and the unchanged
-`AllocateSpec +0x5F` LEA contract. Native singleplayer and synchronized
+`AllocateSpec +0x5F` LEA contract. The human-start hook at `0x95B3C` precedes
+the first coordinate load and preserves both overwritten instructions. Native singleplayer and synchronized
 per-player multiplayer spawning remain post-build game smoke tests.

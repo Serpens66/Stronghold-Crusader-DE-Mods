@@ -123,6 +123,22 @@
       <HintPath>$(ExtenderDir)\System.Memory.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="Zhuqiaomon">
+      <HintPath>$(ExtenderDir)\Zhuqiaomon.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="PolyHook2.NET">
+      <HintPath>$(ExtenderDir)\PolyHook2.NET.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Iced">
+      <HintPath>$(ExtenderDir)\Iced.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Microsoft.Extensions.Logging.Abstractions">
+      <HintPath>$(ExtenderDir)\Microsoft.Extensions.Logging.Abstractions.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="CastlePlanner.AIVPlacement.Core">
       <HintPath>$(LobbyCoreOutput)\CastlePlanner.AIVPlacement.Core.dll</HintPath>
       <Private>true</Private>

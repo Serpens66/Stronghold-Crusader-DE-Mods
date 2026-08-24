@@ -658,7 +658,7 @@ namespace ExtraFeatures
             {
                 try
                 {
-                    plagueDurationPatch.RestoreVanilla();
+                    plagueDurationPatch.Dispose();
                 }
                 catch (Exception ex)
                 {

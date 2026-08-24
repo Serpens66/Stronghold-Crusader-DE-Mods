@@ -15,6 +15,10 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
+using Zhuqiaomon.Assembly;
+using Zhuqiaomon.Hooks;
+using Zhuqiaomon.Hooks.Transaction;
+using Zhuqiaomon.Memory;
 
 namespace CastlePlanner
 {
@@ -57,6 +61,9 @@ namespace CastlePlanner
             "42 8B 44 2F 0C 48 8D 0D ?? ?? ?? ?? " +
             "44 8B 0D ?? ?? ?? ?? 8B D6 44 8B 05 ?? ?? ?? ?? " +
             "C6 44 24 38 00 89 44 24 30 B8 3D 00 00 00";
+        private const string HumanKeepCoordinateLoadPattern =
+            "48 63 BC CD 54 0D 00 00 44 8B A4 CD 50 0D 00 00 " +
+            "44 8B CF 45 8B C4 66 89 44 24 20";
 
         private const int AllocateSpecRva = 0x50680;
         private const int SetPlacementRva = 0x54EC0;
@@ -67,6 +74,7 @@ namespace CastlePlanner
         private const int AivStateReferenceRva = 0x95C9F;
         private const int PrebuiltPlayersReferenceRva = 0x95FF8;
         private const int PreparedKeepCoordinatesReferenceRva = 0x95EA3;
+        private const int HumanKeepCoordinateLoadRva = 0x95B3C;
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate int AllocateSpecDelegate(IntPtr aivState, int playerId);
@@ -119,6 +127,9 @@ namespace CastlePlanner
         private IntPtr prebuiltPlayersBitField;
         private IntPtr preparedKeepX;
         private IntPtr preparedKeepY;
+        private HookTransaction nativeHookTransaction;
+        private HookRef<X64InlineHook> humanKeepCoordinateLoadHook =
+            new HookRef<X64InlineHook>();
         private bool installed;
         private bool handledCurrentMap;
         private readonly Dictionary<int, PendingAivImport> pendingAivImports =
@@ -159,6 +170,7 @@ namespace CastlePlanner
                 return;
 
             BindNativeFunctions(libraryHandle, memory);
+            InstallHumanStartPreparationHook(libraryHandle, memory);
 
             subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
                 .Subscribe(OnStartMap));
@@ -414,49 +426,50 @@ namespace CastlePlanner
             if (TryCorrectNativeHovelVisualStyle(args))
                 return;
 
-            if (!pendingAivImports.TryGetValue(args.PlayerId, out PendingAivImport imported) ||
-                preparedAivCastles.ContainsKey(args.PlayerId) ||
-                !IsKeepMapper(args.Mappers))
+            if (!IsKeepMapper(args.Mappers))
+                return;
+
+            if (pendingAivImports.Remove(args.PlayerId))
             {
+                failedAivCastlePlayers.Add(args.PlayerId);
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Early Vanilla human-start preparation was not reached for playerId={args.PlayerId}; " +
+                    "the unmodified Vanilla Keep will continue and no castle fallback will run.");
                 return;
             }
 
-            // Vanilla reaches this event immediately before placing the human Keep.
-            // Preparing here lets the native fit test see an empty Keep footprint.
-            pendingAivImports.Remove(args.PlayerId);
-            try
-            {
-                PreparedAivCastle castle = PrepareSelectedCastle(
-                    imported,
-                    args.TileX,
-                    args.TileY);
+            if (!preparedAivCastles.TryGetValue(args.PlayerId, out PreparedAivCastle castle))
+                return;
 
-                args.TileX = castle.PreparedKeepX;
-                args.TileY = castle.PreparedKeepY;
-                args.Mappers = eMappers.MAPPER_KEEP2;
-                args.BuildingScaleUnknown = 7;
-                args.Unknown1 = castle.Orientation;
-                args.IsFree = false;
-                preparedAivCastles[args.PlayerId] = castle;
-
-                Shared.DebugLogHelper.LogInfo(
-                    log,
-                    $"Vanilla human Keep intercepted after AIV preparation: " +
-                    $"playerId={args.PlayerId}, " +
-                    $"originalKeep=({castle.RequestedKeepX},{castle.RequestedKeepY}), " +
-                    $"preparedKeep=({castle.PreparedKeepX},{castle.PreparedKeepY}), " +
-                    $"mapper={args.Mappers}, scale={args.BuildingScaleUnknown}, " +
-                    $"orientation={args.Unknown1}, isFree={args.IsFree}.");
-            }
-            catch (Exception ex)
+            bool matchesPreparedStart =
+                args.TileX == castle.PreparedKeepX &&
+                args.TileY == castle.PreparedKeepY &&
+                args.Mappers == eMappers.MAPPER_KEEP2 &&
+                args.BuildingScaleUnknown == 7 &&
+                args.Unknown1 == castle.Orientation &&
+                !args.IsFree;
+            if (!matchesPreparedStart)
             {
                 preparedAivCastles.Remove(args.PlayerId);
                 failedAivCastlePlayers.Add(args.PlayerId);
                 Shared.DebugLogHelper.LogError(
                     log,
-                    $"Native AIV preparation at human Keep BuildStructure(Pre) failed; " +
-                    $"the Vanilla Keep will remain unchanged and no castle fallback will run: {ex}");
+                    $"Vanilla human-start arguments diverged after early preparation; " +
+                    $"playerId={args.PlayerId}, expectedKeep=({castle.PreparedKeepX},{castle.PreparedKeepY}), " +
+                    $"actualKeep=({args.TileX},{args.TileY}), expectedOrientation={castle.Orientation}, " +
+                    $"actualOrientation={args.Unknown1}, mapper={args.Mappers}, " +
+                    $"scale={args.BuildingScaleUnknown}, isFree={args.IsFree}. " +
+                    "Native castle execution is disabled for this player.");
+                return;
             }
+
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"Vanilla human Keep reached BuildStructure with its final start data already active: " +
+                $"playerId={args.PlayerId}, requestedKeep=({castle.RequestedKeepX},{castle.RequestedKeepY}), " +
+                $"preparedKeep=({args.TileX},{args.TileY}), orientation={args.Unknown1}, " +
+                $"mapper={args.Mappers}, scale={args.BuildingScaleUnknown}, isFree={args.IsFree}.");
         }
 
         private bool TryCorrectNativeHovelVisualStyle(BuildStructureEventArgs args)
@@ -494,13 +507,11 @@ namespace CastlePlanner
 
             // Version 0.7.7 proved that execution can be delayed: retain PreparedAivCastle
             // after Keep(Post), arm it on the Lord's UnitCreate(Post), execute on the next
-            // GameTime tick, and keep map-spawn state past OnStartMap(Post). That workaround
-            // only hides the first Lord race, however; it leaves Vanilla's persistent KeepDoor
-            // anchor stale for later starter spawns and therefore is intentionally not used.
+            // GameTime tick, and keep map-spawn state past OnStartMap(Post). Keep the native
+            // start-phase execution here unless a future compatibility issue needs that fallback.
             preparedAivCastles.Remove(args.PlayerId);
             try
             {
-                SynchronizeVanillaKeepAnchors(castle);
                 ExecutePreparedCastle(castle);
                 executedAivCastles[args.PlayerId] = castle;
             }
@@ -513,145 +524,6 @@ namespace CastlePlanner
                     $"Native AIV execution at human Keep BuildStructure(Post) failed; " +
                     $"no castle fallback will run: {ex}");
             }
-        }
-
-        private void SynchronizeVanillaKeepAnchors(PreparedAivCastle castle)
-        {
-            // Canonical CrusaderDE.dll SHA-256
-            // 33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469:
-            // the peasant routine at RVA 0xD2D91 indexes r_KeepDoorId and feeds
-            // r_KeepDoorTilePositionX/Y into UnitCreate at RVA 0xD2E31. Updating the
-            // persistent component anchors fixes Lord/start-unit placement and every
-            // later peasant spawn at the source instead of rewriting individual units.
-            if (!GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(
-                    castle.PlayerId,
-                    out GamePlayerResources* resources))
-            {
-                throw new InvalidOperationException(
-                    $"Player resources are unavailable for playerId={castle.PlayerId}.");
-            }
-
-            int keepId = checked((int)resources->r_KeepId);
-            int keepDoorId = checked((int)resources->r_KeepDoorId);
-            GameBuilding* keep = GetOwnedAliveBuilding(
-                castle.PlayerId,
-                keepId,
-                IsKeepStructure,
-                "Keep");
-            GameBuilding* keepDoor = GetOwnedAliveBuilding(
-                castle.PlayerId,
-                keepDoorId,
-                IsKeepDoorStructure,
-                "KeepDoor");
-
-            uint previousKeepX = resources->r_KeepTilePositionX;
-            uint previousKeepY = resources->r_KeepTilePositionY;
-            uint previousKeepTileId = resources->r_KeepTileId;
-            uint previousDoorX = resources->r_KeepDoorTilePositionX;
-            uint previousDoorY = resources->r_KeepDoorTilePositionY;
-            uint previousDoorTileId = resources->r_KeepDoorTileId;
-            var keepPosition = new UnmanagedVector2<uint>(
-                keep->r_TilePositionXBegin,
-                keep->r_TilePositionYBegin);
-            var doorPosition = new UnmanagedVector2<uint>(
-                keepDoor->r_TilePositionXBegin,
-                keepDoor->r_TilePositionYBegin);
-            if (!GameTileManagerAPI.Instance.IsTileInsideMapBounds(
-                    checked((int)keepPosition.X),
-                    checked((int)keepPosition.Y)) ||
-                !GameTileManagerAPI.Instance.IsTileInsideMapBounds(
-                    checked((int)doorPosition.X),
-                    checked((int)doorPosition.Y)))
-            {
-                throw new InvalidOperationException(
-                    $"Vanilla Keep components are outside map bounds: playerId={castle.PlayerId}, " +
-                    $"keep=({keepPosition.X},{keepPosition.Y}), " +
-                    $"keepDoor=({doorPosition.X},{doorPosition.Y}).");
-            }
-            if (!GamePlayerManagerAPI.Instance.SetPlayerKeepPosition(
-                    castle.PlayerId,
-                    keepPosition) ||
-                !GamePlayerManagerAPI.Instance.SetPlayerKeepDoorPosition(
-                    castle.PlayerId,
-                    doorPosition))
-            {
-                throw new InvalidOperationException(
-                    $"Vanilla Keep position setters rejected playerId={castle.PlayerId}.");
-            }
-
-            // The public setters intentionally update only X/Y. Native also consumes these
-            // paired tile IDs, so copy them from the actual rotated components in the same
-            // BuildStructure(Post) step.
-            resources->r_KeepTileId = keep->r_TileIdBegin;
-            resources->r_KeepDoorTileId = keepDoor->r_TileIdBegin;
-
-            if (resources->r_KeepTilePositionX != keepPosition.X ||
-                resources->r_KeepTilePositionY != keepPosition.Y ||
-                resources->r_KeepTileId != keep->r_TileIdBegin ||
-                resources->r_KeepDoorTilePositionX != doorPosition.X ||
-                resources->r_KeepDoorTilePositionY != doorPosition.Y ||
-                resources->r_KeepDoorTileId != keepDoor->r_TileIdBegin)
-            {
-                throw new InvalidOperationException(
-                    $"Vanilla Keep anchor verification failed for playerId={castle.PlayerId}.");
-            }
-
-            Shared.DebugLogHelper.LogInfo(
-                log,
-                $"Vanilla persistent Keep anchors synchronized before native AIV execution: " +
-                $"playerId={castle.PlayerId}, orientation={castle.Orientation}, " +
-                $"requestedKeep=({castle.RequestedKeepX},{castle.RequestedKeepY}), " +
-                $"preparedKeep=({castle.PreparedKeepX},{castle.PreparedKeepY}), " +
-                $"keepId={keepId}, keepType={keep->r_BuildingType}, " +
-                $"keep=({previousKeepX},{previousKeepY},{previousKeepTileId})->" +
-                $"({keepPosition.X},{keepPosition.Y},{keep->r_TileIdBegin}), " +
-                $"keepDoorId={keepDoorId}, keepDoorType={keepDoor->r_BuildingType}, " +
-                $"keepDoor=({previousDoorX},{previousDoorY},{previousDoorTileId})->" +
-                $"({doorPosition.X},{doorPosition.Y},{keepDoor->r_TileIdBegin}).");
-        }
-
-        private static GameBuilding* GetOwnedAliveBuilding(
-            int playerId,
-            int buildingId,
-            Func<eStructs, bool> expectedType,
-            string componentName)
-        {
-            if (buildingId <= 0 ||
-                !GameBuildingManagerAPI.Instance.TryGetBuildingById(
-                    buildingId,
-                    out GameBuilding* building))
-            {
-                throw new InvalidOperationException(
-                    $"Vanilla {componentName} building is unavailable: " +
-                    $"playerId={playerId}, buildingId={buildingId}.");
-            }
-            if (building->r_PlayerIdOwner != playerId ||
-                !expectedType(building->r_BuildingType) ||
-                (building->r_AliveState != AliveState.NeedsInit &&
-                 building->r_AliveState != AliveState.IsAlive))
-            {
-                throw new InvalidOperationException(
-                    $"Vanilla {componentName} building is invalid: playerId={playerId}, " +
-                    $"buildingId={buildingId}, owner={building->r_PlayerIdOwner}, " +
-                    $"type={building->r_BuildingType}, aliveState={building->r_AliveState}.");
-            }
-            return building;
-        }
-
-        private static bool IsKeepStructure(eStructs structure)
-        {
-            return structure == eStructs.STRUCT_KEEP_ONE ||
-                   structure == eStructs.STRUCT_KEEP_TWO ||
-                   structure == eStructs.STRUCT_KEEP_THREE ||
-                   structure == eStructs.STRUCT_KEEP_FOUR ||
-                   structure == eStructs.STRUCT_KEEP_FIVE;
-        }
-
-        private static bool IsKeepDoorStructure(eStructs structure)
-        {
-            return structure == eStructs.STRUCT_KEEPDOOR ||
-                   structure == eStructs.STRUCT_KEEPDOOR_LEFT ||
-                   structure == eStructs.STRUCT_KEEPDOOR_RIGHT;
         }
 
         private PreparedAivCastle PrepareSelectedCastle(
@@ -682,7 +554,7 @@ namespace CastlePlanner
             Shared.DebugLogHelper.LogInfo(
                 log,
                 $"Native castle spawn planned: playerId={playerId}, " +
-                $"phase=OnBuildStructure(Pre), keepReference=({keepX},{keepY}), " +
+                $"phase=VanillaHumanStart(PreCoordinateRead), keepReference=({keepX},{keepY}), " +
                 $"castle={prepared.DisplayName}, sha256={prepared.ContentHash}, " +
                 $"rawShorts={prepared.RawShortCount}, importedDuringPre=True, " +
                 $"ownedBuildingsBefore={ownedBuildingsBefore}, " +
@@ -1316,6 +1188,97 @@ namespace CastlePlanner
                 $"prebuiltPlayers=0x{prebuiltPlayersBitField.ToInt64():X}, " +
                 $"preparedKeepX=0x{preparedKeepX.ToInt64():X}, " +
                 $"preparedKeepY=0x{preparedKeepY.ToInt64():X}.");
+        }
+
+        private void InstallHumanStartPreparationHook(
+            IntPtr libraryHandle,
+            ReadOnlySpan<byte> memory)
+        {
+            int hookRva = ResolveReferenceRva(
+                memory,
+                "Vanilla human Keep coordinate load",
+                HumanKeepCoordinateLoadPattern,
+                HumanKeepCoordinateLoadRva);
+            nativeHookTransaction = new HookTransaction(
+                memory,
+                unchecked((ulong)libraryHandle.ToInt64()),
+                loggerFactory: null,
+                failureMode: TransactionFailureMode.RollbackAndThrow);
+            nativeHookTransaction.AddContextHook(
+                ref humanKeepCoordinateLoadHook,
+                unchecked((ulong)libraryHandle.ToInt64()) + unchecked((ulong)hookRva),
+                PrepareVanillaHumanStart,
+                regs: X64SmartCPUContextRegs.All,
+                hookSize: 16,
+                errorMode: CallbackErrorMode.LogAndContinue,
+                placement: OverwrittenInstructionPlacement.AfterCallback);
+            nativeHookTransaction.Commit();
+            if (!humanKeepCoordinateLoadHook.Success)
+                throw new InvalidOperationException("The Vanilla human Keep coordinate-load hook was not installed.");
+
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"Early Vanilla human-start preparation hook installed: rva=0x{hookRva:X}.");
+        }
+
+        private void PrepareVanillaHumanStart(
+            NativePointer<X64SmartCPUContext> context)
+        {
+            X64SmartCPUContext* registers = context.Pointer;
+            int playerId = unchecked((int)registers->RSI);
+            if (!pendingAivImports.TryGetValue(playerId, out PendingAivImport imported) ||
+                preparedAivCastles.ContainsKey(playerId))
+            {
+                return;
+            }
+
+            pendingAivImports.Remove(playerId);
+            try
+            {
+                int startIndex = unchecked((int)registers->RCX);
+                if (startIndex < 0 || startIndex >= 9)
+                {
+                    throw new InvalidOperationException(
+                        $"Vanilla returned an invalid human start index {startIndex} for playerId={playerId}.");
+                }
+
+                byte* frame = (byte*)registers->RBP;
+                int* keepX = (int*)(frame + 0xD50 + startIndex * 8);
+                int* keepY = (int*)(frame + 0xD54 + startIndex * 8);
+                int requestedKeepX = *keepX;
+                int requestedKeepY = *keepY;
+                PreparedAivCastle castle = PrepareSelectedCastle(
+                    imported,
+                    requestedKeepX,
+                    requestedKeepY);
+
+                // Canonical CrusaderDE.dll SHA-256
+                // 33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469:
+                // RVA 0x95B3C is the first read of the human Keep coordinates. Updating
+                // Vanilla's source values here makes the unmodified caller feed the same
+                // anchor to the Keep, coupled start complex, flag and later unit setup.
+                *keepX = castle.PreparedKeepX;
+                *keepY = castle.PreparedKeepY;
+                *(int*)(registers->RSP + 0x30) = castle.Orientation;
+                preparedAivCastles[playerId] = castle;
+
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"Vanilla human start prepared before its first Keep-coordinate read: " +
+                    $"playerId={playerId}, startIndex={startIndex}, " +
+                    $"requestedKeep=({requestedKeepX},{requestedKeepY}), " +
+                    $"preparedKeep=({castle.PreparedKeepX},{castle.PreparedKeepY}), " +
+                    $"orientation={castle.Orientation} ({DescribeOrientation(castle.Orientation)}).");
+            }
+            catch (Exception ex)
+            {
+                preparedAivCastles.Remove(playerId);
+                failedAivCastlePlayers.Add(playerId);
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Early Vanilla human-start preparation failed for playerId={playerId}; " +
+                    $"Vanilla retains its original start data and no castle fallback will run: {ex}");
+            }
         }
 
         private T Bind<T>(

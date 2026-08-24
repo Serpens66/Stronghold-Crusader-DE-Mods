@@ -3,10 +3,28 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.38",
+  "Version": "1.0.41",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.41",
+      "Changes": [
+        "Reduced AI flag plague-cloud diagnostics to concise debug-level lifecycle messages while retaining warnings and errors."
+      ]
+    },
+    {
+      "Version": "1.0.40",
+      "Changes": [
+        "Removed the artificial 80-projectile limit from AI flag plague-cloud tracking and added per-position spawn, overlap, lifetime-application, and deletion diagnostics."
+      ]
+    },
+    {
+      "Version": "1.0.39",
+      "Changes": [
+        "Kept AI flag-created plague clouds at Vanilla duration while retaining the configured duration multiplier for regular plague clouds."
+      ]
+    },
     {
       "Version": "1.0.38",
       "Changes": [

@@ -3,10 +3,24 @@
   "Author": "Serpens66",
   "Name": "CastlePlanner",
   "Description": "Displays AIVJSON blueprints, spawns personal human castles, and contains the gated AI lobby placement workflow.",
-  "Version": "0.7.8",
+  "Version": "0.8.0",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.8.0",
+      "Changes": [
+        "Prepares the selected human AIV castle before Vanilla first reads the Keep coordinates, so the Keep, start complex, flag, Lord, starting units, and peasants share the rotated anchor from the beginning.",
+        "Removes the post-placement Keep and Keep-door anchor correction while retaining immediate native castle execution during the normal map-start path."
+      ]
+    },
+    {
+      "Version": "0.7.9",
+      "Changes": [
+        "Restores the proven immediate native castle execution after an early Keep-door anchor check incorrectly identified Vanilla's campground and aborted every selected AIV castle.",
+        "Rotates Vanilla's own start flag with the selected human Keep while leaving supplemental AIV flags on their existing deterministic placement path."
+      ]
+    },
     {
       "Version": "0.7.8",
       "Changes": [

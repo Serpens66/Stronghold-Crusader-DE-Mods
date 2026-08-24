@@ -40,6 +40,7 @@ internal static class Program
             TestLordHealthMultiplierPolicy();
             TestTemporaryGateBlockagePolicy();
             TestGatehouseAutomationSaveState();
+            TestPlagueFlagDiseaseRegistry();
             TestAIMarketNativeResolution();
             TestAiRecruitmentHorseDemandNativeResolution();
             TestAiStoneReserveNativeResolution();
@@ -589,6 +590,57 @@ internal static class Program
             rejected = true;
         }
         Check(rejected, "Shared did not reject " + scenario);
+    }
+
+    private static void TestPlagueFlagDiseaseRegistry()
+    {
+        var registry = new PlagueFlagDiseaseRegistry();
+        registry.Track(7, 7001);
+        registry.Track(2, 2001);
+        Check(registry.Count == 2 && registry.ContainsGlobalId(7001) && registry.ContainsGlobalId(2001),
+            "AI flag disease identities were not tracked");
+
+        registry.Track(7, 7002);
+        Check(!registry.ContainsGlobalId(7001) && registry.ContainsGlobalId(7002),
+            "projectile slot reuse retained the stale global ID");
+        PlagueFlagDiseaseIdentity[] snapshot = registry.Snapshot();
+        Check(snapshot.Length == 2 && snapshot[0].SlotId == 2 && snapshot[1].SlotId == 7,
+            "AI flag disease snapshot was not deterministic");
+
+        var records = snapshot.Select(identity => new PlagueFlagDiseaseSaveRecord
+        {
+            SlotId = identity.SlotId,
+            GlobalId = identity.GlobalId
+        }).ToArray();
+        byte[] bytes = MessagePackSerializer.Serialize(new PlagueFlagDiseaseSaveState { Projectiles = records });
+        PlagueFlagDiseaseSaveState roundTrip = MessagePackSerializer.Deserialize<PlagueFlagDiseaseSaveState>(bytes);
+        var restoredIdentities = roundTrip.Projectiles
+            .Select(record => new PlagueFlagDiseaseIdentity(record.SlotId, record.GlobalId))
+            .ToArray();
+        var restored = new PlagueFlagDiseaseRegistry();
+        restored.Restore(restoredIdentities);
+        Check(restored.Count == 2 && restored.ContainsGlobalId(2001) && restored.ContainsGlobalId(7002),
+            "AI flag disease save state did not round-trip");
+
+        restored.RemoveSlot(2);
+        Check(restored.Count == 1 && !restored.ContainsGlobalId(2001),
+            "projectile deletion did not remove the tracked identity");
+
+        bool duplicateRejected = false;
+        try
+        {
+            restored.Restore(new[]
+            {
+                new PlagueFlagDiseaseIdentity(3, 3001),
+                new PlagueFlagDiseaseIdentity(4, 3001)
+            });
+        }
+        catch (InvalidOperationException)
+        {
+            duplicateRejected = true;
+        }
+        Check(duplicateRejected && restored.Count == 0,
+            "duplicate AI flag disease identities were not rejected fail-closed");
     }
 
     private static void TestGatehouseAutomationSaveState()

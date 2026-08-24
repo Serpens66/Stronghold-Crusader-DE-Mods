@@ -107,6 +107,12 @@
     <Compile Include="..\..\ExtraFeatures\src\GatehouseAutomationSaveState.cs">
       <Link>GatehouseAutomationSaveState.cs</Link>
     </Compile>
+    <Compile Include="..\..\ExtraFeatures\src\PlagueFlagDiseaseRegistry.cs">
+      <Link>PlagueFlagDiseaseRegistry.cs</Link>
+    </Compile>
+    <Compile Include="..\..\ExtraFeatures\src\PlagueFlagDiseaseSaveState.cs">
+      <Link>PlagueFlagDiseaseSaveState.cs</Link>
+    </Compile>
     <Compile Include="..\..\BugfixesAndQoL\src\MultiplayerGameSpeedChangePacket.cs">
       <Link>MultiplayerGameSpeedChangePacket.cs</Link>
     </Compile>

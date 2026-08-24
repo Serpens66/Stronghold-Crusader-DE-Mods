@@ -22,7 +22,8 @@ Extender fields and the bidirectional stable-link API, so it has no private RVA.
 | `AIHovelDemolitionFunctionPattern` | `0x3B1D0` | scan; detour at the AI decision point |
 | AI buy-price helper (`49 63 C0 8B 8C C1 B8 17 18 00 B8 67 66 66 66 F7 E9 D1 FA 8B C2 C1 E8 1F 03 C2 41 0F AF C1 C3`) | `0xCEB10` | executable-section unique scan; managed function detour |
 | AI sell-price helper (`49 63 C0 8B 8C C1 BC 17 18 00 B8 67 66 66 66 F7 E9 D1 FA 8B C2 C1 E8 1F 03 C2 41 0F AF C1 C3`) | `0xCEB90` | executable-section unique scan; managed function detour |
-| `LifetimePattern` | `0x9A164` | scan; lifetime immediate at `+9` |
+| `AiFlagRoutinePattern` | `0x504F0` | scan; detour captures exact AI flag projectile provenance |
+| `LifetimePattern` | `0x9A164` | scan; lifetime immediate at `+9`, conditional comparison hook at `+18` (`0x9A176`) |
 | `BuildingDistanceComparisonPattern` | `0x9F86B` | scan; distance context hook |
 | `MovementDecisionPattern` (Monk handler) | `0x1513E6` | executable-section unique scan; 20-byte inline decision hook |
 | worker-table byte pattern | `0x2E4E58` | full-image data scan; table begins `0x2E4DE0` |
@@ -51,7 +52,10 @@ depends on the audited gatehouse query context and native gate entry layout.
 1. Require one match for every relevant entry and verify hook boundaries,
    delegates, register/stack assumptions and RIP-relative target bounds.
 2. Verify the complete Vanilla worker table and its table-start calculation.
-3. Revalidate plague lifetime value `800` and Vanilla distance comparison `30`.
+3. Revalidate plague lifetime value `800`, the comparison hook's `R8+RBX`
+   projectile pointer, and Vanilla distance comparison `30`. Confirm that the
+   AI flag routine still calls the generic projectile spawn synchronously and
+   does not call `c_game_disease_create_one_herd`.
 4. Revalidate that the AI hovel-demolition function still selects structure
    type `1`, applies the demolition refund, and is called only by the AI update.
 5. Before enabling quarry relocation, revalidate the quarry manager fields
@@ -96,6 +100,14 @@ no stable-release RVA or pattern to update. `setupBuildingEntrancesOffset`
 still writes the candidate pair at manager
 `+0x31B7D0/+0x31B7D4` with the same ABI and rotation cases. Functional setting,
 reload and multiplayer tests remain post-build game smoke tests.
+
+The AI flag routine at RVA `0x504F0` reads the selected lord's `flag_type` and
+calls the generic projectile spawn at RVA `0x9B2B0` directly. The separate
+plague-herd routine at RVA `0xD17D0` calls the same generic spawn but is not in
+the flag path. At the Disease lifetime comparison at RVA `0x9A176`, `R8+RBX`
+is the current `GameProjectile`; the conditional hook therefore substitutes
+Vanilla lifetime `800` only for an identity captured during the synchronous AI
+flag call.
 
 The Monk update handler starts at RVA `0x151040`; unit-dispatch entry 37 points
 to it. Its audited movement block chooses walking at RVA `0x151413`
