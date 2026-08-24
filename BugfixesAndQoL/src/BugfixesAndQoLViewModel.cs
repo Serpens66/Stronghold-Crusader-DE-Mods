@@ -638,13 +638,14 @@ namespace BugfixesAndQoL
                 return;
 
             marketGoodsVisualsDeferredLogged = true;
-            Shared.DebugLogHelper.LogWarning(
+            Shared.DebugLogHelper.LogDebug(
                 marketGoodsLog,
-                $"Bugfixes and QoL deferred market-goods visuals until the game UI resources are ready: " +
-                $"mainViewModelReady={mainViewModelReady}, gameSprites={spriteCount}, " +
-                $"icons={resolvedIconCount}/{MarketGoodsOrderDefinition.Count}, " +
-                $"localizedNames={resolvedNameCount}/{MarketGoodsOrderDefinition.Count}" +
-                (string.IsNullOrEmpty(detail) ? "." : $", detail={detail}."));
+                () =>
+                    $"Bugfixes and QoL deferred market-goods visuals until the game UI resources are ready: " +
+                    $"mainViewModelReady={mainViewModelReady}, gameSprites={spriteCount}, " +
+                    $"icons={resolvedIconCount}/{MarketGoodsOrderDefinition.Count}, " +
+                    $"localizedNames={resolvedNameCount}/{MarketGoodsOrderDefinition.Count}" +
+                    (string.IsNullOrEmpty(detail) ? "." : $", detail={detail}."));
         }
 
         private void MoveMarketGood(int good, int direction)

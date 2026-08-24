@@ -62,6 +62,14 @@ try { Wait-NexusUploadAvailable -GetState { return 'created' } -TimeoutSeconds 1
 catch { $timedOut = $true }
 Assert-True $timedOut 'Polling-Timeout muss fehlschlagen.'
 
+$signedHeaders = @(Get-NexusPresignedSignedHeaders -PresignedUrl 'https://upload.invalid/file?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-SignedHeaders=content-disposition%3Bcontent-type%3Bhost&X-Amz-Signature=hidden')
+Assert-True ($signedHeaders.Count -eq 3) 'Alle signierten Upload-Header muessen erkannt werden.'
+Assert-True ('content-disposition' -in $signedHeaders -and 'content-type' -in $signedHeaders -and 'host' -in $signedHeaders) 'Signierte Upload-Header muessen dekodiert werden.'
+$missingSignedHeadersRejected = $false
+try { [void](Get-NexusPresignedSignedHeaders -PresignedUrl 'https://upload.invalid/file?X-Amz-Signature=hidden') }
+catch { $missingSignedHeadersRejected = $true }
+Assert-True $missingSignedHeadersRejected 'Upload-URL ohne SignedHeaders muss abgewiesen werden.'
+
 $dpapiPath = Join-Path ([IO.Path]::GetTempPath()) ("nexus-dpapi-" + [Guid]::NewGuid().ToString('N'))
 try {
     Protect-NexusApiKey -ApiKey 'roundtrip-test-value' -Path $dpapiPath

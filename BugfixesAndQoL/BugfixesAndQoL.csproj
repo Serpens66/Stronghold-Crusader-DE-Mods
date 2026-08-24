@@ -112,6 +112,7 @@
     <Compile Include="src\SelectedUnitHealthSummary.cs" />
     <Compile Include="src\SkirmishAiSelectionMemoryHook.cs" />
     <Compile Include="src\SteamLobbyInvitePrompt.cs" />
+    <Compile Include="src\StartupDiagnosticPolicy.cs" />
     <Compile Include="src\SurrenderFeature.cs" />
     <Compile Include="src\SurrenderPackets.cs" />
     <Compile Include="src\SurrenderPolicy.cs" />

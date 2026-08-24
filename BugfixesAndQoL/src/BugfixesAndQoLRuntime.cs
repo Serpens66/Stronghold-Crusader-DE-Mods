@@ -313,7 +313,7 @@ namespace BugfixesAndQoL
                 () => customTrailExtremeGoldFixHook = new CustomTrailExtremeGoldFixHook(log, settings),
                 () => DisposeFeature("Custom Trail starting-gold fix", ref customTrailExtremeGoldFixHook));
 
-            if (fixedLayoutHashValidated && settings.EnableEnemyProximityBulldozeCursorFix)
+            if (nativeLibraryAvailable && fixedLayoutHashValidated && settings.EnableEnemyProximityBulldozeCursorFix)
             {
                 if (enemyProximityBulldozeCursorHook == null)
                 {
@@ -324,7 +324,11 @@ namespace BugfixesAndQoL
             else
             {
                 DisposeFeature("enemy-proximity bulldoze cursor", ref enemyProximityBulldozeCursorHook);
-                if (settings.EnableEnemyProximityBulldozeCursorFix && !enemyProximityFixedLayoutErrorLogged)
+                if (StartupDiagnosticPolicy.ShouldReportFixedLayoutFailure(
+                    nativeLibraryAvailable,
+                    fixedLayoutHashValidated,
+                    settings.EnableEnemyProximityBulldozeCursorFix,
+                    enemyProximityFixedLayoutErrorLogged))
                 {
                     enemyProximityFixedLayoutErrorLogged = true;
                     Shared.DebugLogHelper.LogError(

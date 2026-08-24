@@ -26,7 +26,22 @@ if not exist "%GAME_DIR%\winhttp.dll.mods-disabled" (
     exit /b 1
 )
 
+echo Spielordner: "%GAME_DIR%"
+echo Mods sind deaktiviert. Starte das Spiel ...
+call :StartGame
+exit /b %ERRORLEVEL%
+
+:StartGame
 start "" /D "%GAME_DIR%" "%GAME_DIR%\Stronghold Crusader Definitive Edition.exe"
+set "START_ERROR=%ERRORLEVEL%"
+if not "%START_ERROR%"=="0" goto :StartFailed
+
+echo Pruefe in 15 Sekunden, ob der Spielprozess laeuft ...
+timeout /t 15 /nobreak >nul
+tasklist /FI "IMAGENAME eq Stronghold Crusader Definitive Edition.exe" /NH 2>nul | find /i "Stronghold Crusader" >nul
+if errorlevel 1 goto :StartNotDetected
+
+echo Spielprozess wurde erfolgreich erkannt.
 exit /b 0
 
 :FindGame
@@ -49,5 +64,23 @@ exit /b
 
 :RenameFailed
 echo winhttp.dll konnte nicht deaktiviert werden. Starte diese Datei als Administrator.
+pause
+exit /b 1
+
+:StartFailed
+echo.
+echo FEHLER: Das Spiel konnte nicht gestartet werden. Fehlercode: %START_ERROR%
+echo Verwendete EXE: "%GAME_DIR%\Stronghold Crusader Definitive Edition.exe"
+echo Pruefe Zugriffsrechte, Steam und Windows Defender beziehungsweise Antivirus.
+pause
+exit /b 1
+
+:StartNotDetected
+echo.
+echo FEHLER: Der Startbefehl meldete keinen Fehler, aber nach 15 Sekunden
+echo wurde kein laufender Spielprozess erkannt.
+echo Verwendete EXE: "%GAME_DIR%\Stronghold Crusader Definitive Edition.exe"
+echo Pruefe Steam, Windows Defender beziehungsweise Antivirus und die Ereignisanzeige.
+echo Falls das Spiel erst spaeter startet, kann diese Meldung ignoriert werden.
 pause
 exit /b 1

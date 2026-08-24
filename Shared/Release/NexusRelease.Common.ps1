@@ -217,20 +217,49 @@ function Invoke-NexusApi {
     }
 }
 
+function Get-NexusPresignedSignedHeaders {
+    param([Parameter(Mandatory)][string]$PresignedUrl)
+    $uri = [Uri]$PresignedUrl
+    foreach ($pair in @($uri.Query.TrimStart('?').Split('&'))) {
+        if ([string]::IsNullOrWhiteSpace($pair)) { continue }
+        $separator = $pair.IndexOf('=')
+        $encodedName = if ($separator -ge 0) { $pair.Substring(0, $separator) } else { $pair }
+        $name = [Uri]::UnescapeDataString($encodedName)
+        if ($name -ine 'X-Amz-SignedHeaders') { continue }
+        $value = if ($separator -ge 0) { [Uri]::UnescapeDataString($pair.Substring($separator + 1)) } else { '' }
+        return @($value.Split(';') | ForEach-Object { $_.Trim().ToLowerInvariant() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    }
+    throw 'Die Nexus-Upload-URL enthaelt keine X-Amz-SignedHeaders-Angabe.'
+}
+
 function Send-NexusUploadBytes {
     param([Parameter(Mandatory)][string]$PresignedUrl, [Parameter(Mandatory)][string]$FilePath, [Parameter(Mandatory)][string]$FileName)
     Add-Type -AssemblyName System.Net.Http
+    $signedHeaders = @(Get-NexusPresignedSignedHeaders -PresignedUrl $PresignedUrl)
+    $supportedHeaders = @('host','content-length','content-type','content-disposition')
+    $unsupportedHeaders = @($signedHeaders | Where-Object { $_ -notin $supportedHeaders })
+    if ($unsupportedHeaders.Count -gt 0) { throw "Nicht unterstuetzte signierte Upload-Header: $($unsupportedHeaders -join ', ')" }
+
     $client = [Net.Http.HttpClient]::new()
     $request = [Net.Http.HttpRequestMessage]::new([Net.Http.HttpMethod]::Put, $PresignedUrl)
-    $stream = [IO.File]::OpenRead($FilePath)
     try {
-        $content = [Net.Http.StreamContent]::new($stream)
-        [void]$content.Headers.TryAddWithoutValidation('Content-Disposition', "attachment; filename=`"$FileName`"")
+        # ByteArrayContent guarantees Content-Length and avoids chunked transfer,
+        # which signed S3-compatible PUT endpoints reject.
+        $content = [Net.Http.ByteArrayContent]::new([IO.File]::ReadAllBytes($FilePath))
+        if ('content-type' -in $signedHeaders) {
+            [void]$content.Headers.TryAddWithoutValidation('Content-Type', 'application/octet-stream')
+        }
+        if ('content-disposition' -in $signedHeaders) {
+            [void]$content.Headers.TryAddWithoutValidation('Content-Disposition', "attachment; filename=`"$FileName`"")
+        }
         $request.Content = $content
         $response = $client.SendAsync($request).GetAwaiter().GetResult()
-        if (-not $response.IsSuccessStatusCode) { throw "Dateiupload wurde mit HTTP $([int]$response.StatusCode) abgewiesen." }
+        if (-not $response.IsSuccessStatusCode) {
+            $responseText = $response.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+            $safeDetail = if ([string]::IsNullOrWhiteSpace($responseText)) { 'keine Serverdetails' } else { ([regex]::Replace($responseText, '<RequestId>.*?</RequestId>|<HostId>.*?</HostId>', '', [Text.RegularExpressions.RegexOptions]::Singleline)).Trim() }
+            throw "Dateiupload wurde mit HTTP $([int]$response.StatusCode) abgewiesen: $safeDetail"
+        }
     } finally {
-        $stream.Dispose()
         $request.Dispose()
         $client.Dispose()
     }
