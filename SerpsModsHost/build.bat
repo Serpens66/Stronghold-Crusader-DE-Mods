@@ -15,6 +15,15 @@ set "EXTENDER_DIR="
 set "NO_PAUSE=0"
 for %%A in (%*) do if /I "%%~A"=="/nopause" set "NO_PAUSE=1"
 
+rem Never touch build or installation output while the game has plugin DLLs loaded.
+powershell.exe -NoProfile -Command "if (Get-Process -Name 'Stronghold Crusader Definitive Edition' -ErrorAction SilentlyContinue) { exit 1 } else { exit 0 }" >nul 2>&1
+if errorlevel 1 (
+  echo Build und Installation abgebrochen: Stronghold Crusader Definitive Edition ist noch gestartet.
+  echo Lokales Paket und installierter Mod wurden nicht veraendert.
+  if "%NO_PAUSE%"=="0" pause
+  exit /b 1
+)
+
 if not exist "%MSBUILD%" goto build_failed
 if exist "%LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT%\SHCDESE.dll" (
   set "EXTENDER_DIR=%LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT%"

@@ -193,8 +193,40 @@ public static class SerpLocalization
     public const string AivPlacementChecking = "CastlePlanner.AIVPlacement.Checking";
 
     private const string DefaultLocale = "en-US";
+    private const string SteamAppId = "3024040";
     private static Dictionary<string, string> loadedTexts;
     private static string loadedLocale;
+    private static string cachedSteamLanguage;
+    private static string cachedSteamLanguageSource;
+    private static BepInEx.Logging.ManualLogSource localizationLog;
+
+    private static readonly Dictionary<string, string> SteamLanguageLocales =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            { "arabic", "ar" },
+            { "brazilian", "pt-BR" },
+            { "czech", "cs-CZ" },
+            { "dutch", "nl-NL" },
+            { "english", "en-US" },
+            { "french", "fr-FR" },
+            { "german", "de-DE" },
+            { "greek", "el-GR" },
+            { "hungarian", "hu-HU" },
+            { "italian", "it-IT" },
+            { "japanese", "ja-JP" },
+            { "koreana", "ko-KR" },
+            { "latam", "es-ES" },
+            { "polish", "pl-PL" },
+            { "portuguese", "pt-BR" },
+            { "russian", "ru-RU" },
+            { "schinese", "zh-CN" },
+            { "spanish", "es-ES" },
+            { "swedish", "sv-SE" },
+            { "tchinese", "zh-HK" },
+            { "thai", "th-TH" },
+            { "turkish", "tr-TR" },
+            { "ukrainian", "uk-UA" }
+        };
 
     private static readonly Dictionary<string, string> EnglishFallbacks = new Dictionary<string, string>
     {
@@ -542,19 +574,38 @@ public static class SerpLocalization
 
     private static void EnsureLoaded()
     {
-        string locale = GetCurrentLocale();
+        string source;
+        string rawLanguage;
+        string configuredProvider;
+        string extenderLanguage;
+        string locale = GetCurrentLocale(
+            out source,
+            out rawLanguage,
+            out configuredProvider,
+            out extenderLanguage);
         if (loadedTexts != null && string.Equals(loadedLocale, locale, StringComparison.OrdinalIgnoreCase))
             return;
 
         Dictionary<string, string> texts = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         string pluginDirectory = GetPluginDirectory();
-        LoadLocaleFile(texts, Path.Combine(pluginDirectory, "Locales", DefaultLocale + ".txt"));
+        string englishPath = Path.Combine(pluginDirectory, "Locales", DefaultLocale + ".txt");
+        string localePath = Path.Combine(pluginDirectory, "Locales", locale + ".txt");
+        LoadLocaleFile(texts, englishPath);
 
         if (!string.Equals(locale, DefaultLocale, StringComparison.OrdinalIgnoreCase))
-            LoadLocaleFile(texts, Path.Combine(pluginDirectory, "Locales", locale + ".txt"));
+            LoadLocaleFile(texts, localePath);
 
         loadedTexts = texts;
         loadedLocale = locale;
+        LogLocaleSelection(
+            pluginDirectory,
+            locale,
+            source,
+            rawLanguage,
+            configuredProvider,
+            extenderLanguage,
+            englishPath,
+            localePath);
     }
 
     private static void LoadLocaleFile(Dictionary<string, string> target, string path)
@@ -594,26 +645,213 @@ public static class SerpLocalization
         return AppDomain.CurrentDomain.BaseDirectory;
     }
 
-    private static string GetCurrentLocale()
+    private static string GetCurrentLocale(
+        out string source,
+        out string rawLanguage,
+        out string configuredProvider,
+        out string extenderLanguage)
+    {
+        configuredProvider = GetConfiguredLanguageProvider();
+        extenderLanguage = GetScriptExtenderLanguage();
+
+        // An explicit Script Extender override remains authoritative. Its "detect"
+        // mode reflects the OS culture, however, not the language selected for this game.
+        if (!string.IsNullOrWhiteSpace(configuredProvider) &&
+            !string.Equals(configuredProvider, "detect", StringComparison.OrdinalIgnoreCase))
+        {
+            source = "script-extender override";
+            rawLanguage = configuredProvider;
+            return NormalizeLocale(configuredProvider);
+        }
+
+        string steamLanguage;
+        string steamSource;
+        if (TryGetSteamGameLanguage(out steamLanguage, out steamSource))
+        {
+            source = steamSource;
+            rawLanguage = steamLanguage;
+            return NormalizeLocale(steamLanguage);
+        }
+
+        source = "script-extender fallback";
+        rawLanguage = extenderLanguage;
+        return string.IsNullOrWhiteSpace(extenderLanguage)
+            ? DefaultLocale
+            : NormalizeLocale(extenderLanguage);
+    }
+
+    private static string GetConfiguredLanguageProvider()
     {
         try
         {
-            string language = GameAssetManagerAPI.Instance.CurrentLanguage;
-            if (!string.IsNullOrWhiteSpace(language))
-                return NormalizeLocale(language);
+            SHCDESE.BepInEx.Bootstrap.Plugin plugin = SHCDESE.BepInEx.Bootstrap.Plugin.Instance;
+            if (plugin != null && plugin.LanguageProvider != null)
+                return plugin.LanguageProvider.Value;
         }
         catch
         {
         }
 
-        return DefaultLocale;
+        return string.Empty;
+    }
+
+    private static string GetScriptExtenderLanguage()
+    {
+        try
+        {
+            return GameAssetManagerAPI.Instance.CurrentLanguage ?? string.Empty;
+        }
+        catch
+        {
+            return string.Empty;
+        }
+    }
+
+    private static bool TryGetSteamGameLanguage(out string language, out string source)
+    {
+        if (!string.IsNullOrWhiteSpace(cachedSteamLanguage))
+        {
+            language = cachedSteamLanguage;
+            source = cachedSteamLanguageSource;
+            return true;
+        }
+
+        if (TryGetSteamRuntimeLanguage(out language))
+        {
+            cachedSteamLanguage = language;
+            cachedSteamLanguageSource = "Steam runtime";
+            source = cachedSteamLanguageSource;
+            return true;
+        }
+
+        if (TryGetSteamManifestLanguage(out language))
+        {
+            cachedSteamLanguage = language;
+            cachedSteamLanguageSource = "Steam app manifest";
+            source = cachedSteamLanguageSource;
+            return true;
+        }
+
+        language = string.Empty;
+        source = string.Empty;
+        return false;
+    }
+
+    private static bool TryGetSteamRuntimeLanguage(out string language)
+    {
+        language = string.Empty;
+
+        try
+        {
+            Type steamAppsType = Type.GetType(
+                "Steamworks.SteamApps, com.rlabrecque.steamworks.net",
+                throwOnError: false);
+            MethodInfo getLanguage = steamAppsType?.GetMethod(
+                "GetCurrentGameLanguage",
+                BindingFlags.Public | BindingFlags.Static);
+            language = getLanguage?.Invoke(null, null) as string;
+            return !string.IsNullOrWhiteSpace(language);
+        }
+        catch
+        {
+            // Steam may not be initialized yet while BepInEx loads plugins.
+            language = string.Empty;
+            return false;
+        }
+    }
+
+    private static bool TryGetSteamManifestLanguage(out string language)
+    {
+        language = string.Empty;
+
+        try
+        {
+            DirectoryInfo directory = new DirectoryInfo(BepInEx.Paths.GameRootPath);
+            while (directory != null &&
+                   !string.Equals(directory.Name, "common", StringComparison.OrdinalIgnoreCase))
+            {
+                directory = directory.Parent;
+            }
+
+            if (directory?.Parent == null)
+                return false;
+
+            string manifestPath = Path.Combine(
+                directory.Parent.FullName,
+                "appmanifest_" + SteamAppId + ".acf");
+            if (!File.Exists(manifestPath))
+                return false;
+
+            string[] lines = File.ReadAllLines(manifestPath);
+            for (int i = 0; i < lines.Length; i++)
+            {
+                if (!string.Equals(lines[i].Trim(), "\"UserConfig\"", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                for (int j = i + 1; j < lines.Length; j++)
+                {
+                    string line = lines[j].Trim();
+                    if (line == "}")
+                        break;
+
+                    string[] parts = line.Split('"');
+                    if (parts.Length >= 4 &&
+                        string.Equals(parts[1], "language", StringComparison.OrdinalIgnoreCase) &&
+                        !string.IsNullOrWhiteSpace(parts[3]))
+                    {
+                        language = parts[3];
+                        return true;
+                    }
+                }
+            }
+        }
+        catch
+        {
+        }
+
+        return false;
+    }
+
+    private static void LogLocaleSelection(
+        string pluginDirectory,
+        string locale,
+        string source,
+        string rawLanguage,
+        string configuredProvider,
+        string extenderLanguage,
+        string englishPath,
+        string localePath)
+    {
+        try
+        {
+            if (localizationLog == null)
+                localizationLog = BepInEx.Logging.Logger.CreateLogSource("Serp Localization");
+
+            localizationLog.LogInfo(
+                $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] Locale selected: locale={locale}, " +
+                $"source={source}, rawLanguage={rawLanguage}, configuredProvider={configuredProvider}, " +
+                $"scriptExtenderLanguage={extenderLanguage}, pluginDirectory={pluginDirectory}, " +
+                $"englishFileExists={File.Exists(englishPath)}, " +
+                $"localeFileExists={File.Exists(localePath)}.");
+        }
+        catch
+        {
+        }
     }
 
     private static string NormalizeLocale(string locale)
     {
         locale = locale.Trim().Replace('_', '-');
+        string mappedLocale;
+        if (SteamLanguageLocales.TryGetValue(locale, out mappedLocale))
+            return mappedLocale;
+
         if (locale.Length == 4 && locale.IndexOf('-') < 0)
             return locale.Substring(0, 2).ToLowerInvariant() + "-" + locale.Substring(2, 2).ToUpperInvariant();
+
+        int separator = locale.IndexOf('-');
+        if (separator == 2 && locale.Length == 5)
+            return locale.Substring(0, 2).ToLowerInvariant() + "-" + locale.Substring(3, 2).ToUpperInvariant();
 
         return locale;
     }

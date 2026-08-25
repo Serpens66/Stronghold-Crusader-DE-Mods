@@ -4,6 +4,7 @@ param(
         'BugfixesAndQoL',
         'BuildingCosts',
         'BuildingLimit',
+        'CheatMod',
         'ExtraFeatures',
         'ImprovedHunters',
         'RandomEvents',
@@ -23,6 +24,7 @@ $settingsByMod = [ordered]@{
     BugfixesAndQoL = 'BugfixesAndQoL/Override/ScriptExtenderUI/BugfixesAndQoLSettings.xaml'
     BuildingCosts = 'BuildingCosts/BepInEx/plugins/BuildingCosts_Serp/Override/ScriptExtenderUI/BuildingCostsSettings.xaml'
     BuildingLimit = 'BuildingLimit/BepInEx/plugins/BuildingLimit_Serp/Override/ScriptExtenderUI/BuildingLimitSettings.xaml'
+    CheatMod = 'CheatMod/Override/ScriptExtenderUI/CheatModSettings.xaml'
     ExtraFeatures = 'ExtraFeatures/Override/ScriptExtenderUI/ExtraFeaturesSettings.xaml'
     ImprovedHunters = 'ImprovedHunters/BepInEx/plugins/ImprovedHunters_Serp/Override/ScriptExtenderUI/ImprovedHuntersSettings.xaml'
     RandomEvents = 'RandomEvents/Override/ScriptExtenderUI/RandomEventsSettings.xaml'
@@ -38,6 +40,7 @@ $localeDirectories = [ordered]@{
     BugfixesAndQoL = 'BugfixesAndQoL/Locales'
     BuildingCosts = 'BuildingCosts/Locales'
     BuildingLimit = 'BuildingLimit/Locales'
+    CheatMod = 'CheatMod/Locales'
     ExtraFeatures = 'ExtraFeatures/Locales'
     ImprovedHunters = 'ImprovedHunters/Locales'
     RandomEvents = 'RandomEvents/Locales'
@@ -53,6 +56,7 @@ $viewModelSources = @{
     BugfixesAndQoL = 'BugfixesAndQoL/src/BugfixesAndQoLViewModel.cs'
     BuildingCosts = 'BuildingCosts/src/BuildingCostsLobbyViewModel.cs'
     BuildingLimit = 'BuildingLimit/src/BuildingLimitLobbyViewModel.cs'
+    CheatMod = 'CheatMod/src/CheatModSettingsViewModel.cs'
     CastlePlanner = 'CastlePlanner/src/CastlePlannerSettingsViewModel.cs'
     CustomCustomTrail = 'CustomCustomTrail/src/CustomCustomTrailSettingsViewModel.cs'
     ExtraFeatures = 'ExtraFeatures/src/ExtraFeaturesViewModel.cs'
@@ -69,6 +73,7 @@ $viewModelSources = @{
 $editableProxyBindings = @{
     BuildingCosts = @('GoldSlider','GoldText','IronSlider','IronText','PitchSlider','PitchText','StoneSlider','StoneText','WoodSlider','WoodText')
     BuildingLimit = @('LimitText','SliderLimit')
+    CheatMod = @()
     CastlePlanner = @()
     CustomCustomTrail = @('IsEnabled','SelectedCoopPackage')
     ExtraFeatures = @('AITowerGateRebuildDelayValueText','AIGateClosingDistanceValueText','AIGateReopenDelayValueText','AILordHealthPercentText','AIRepairEnemyProximityValueText','ApothecaryPlagueSearchDistanceValueText','BuyMultiplier','BuyMultiplierValueText','CampfirePeasantsLimitText','GoldRefundPercentValueText','HumanGateClosingDistanceValueText','HumanGateReopenDelayValueText','HumanLordHealthPercentText','IronRefundPercentValueText','MarketBuyPriceMultiplierValueText','MarketSellPriceMultiplierValueText','MultiplyGoodsGainAIText','MultiplyGoodsGainHumanText','MultiplyGoodsGainInMoneyAIText','MultiplyGoodsGainInMoneyHumanText','PitchRefundPercentValueText','PlagueDurationMultiplierValueText','SellMultiplier','SellMultiplierValueText','StoneRefundPercentValueText','WoodRefundPercentValueText')
@@ -134,6 +139,12 @@ foreach ($entry in $settings.GetEnumerator()) {
         '(?s)\[(?:[^\]]*?)(?:SyncHostOnly|SyncPerPlayer|PresetLocal)(?:[^\]]*?)\]\s*public\s+[\w<>,\.\[\]\s]+?\s+(?<name>\w+)\s*(?:\{|=>)') |
         ForEach-Object { $_.Groups['name'].Value } |
         Sort-Object -Unique)
+    $hasHostSettings = [Text.RegularExpressions.Regex]::IsMatch(
+        $viewModelSource,
+        '(?s)\[[^\]]*SyncHostOnly[^\]]*\]\s*public')
+    $hasClientSettings = [Text.RegularExpressions.Regex]::IsMatch(
+        $viewModelSource,
+        '(?s)\[[^\]]*(?:SyncPerPlayer|PresetLocal)[^\]]*\]\s*public')
     $allowedProxies = @($editableProxyBindings[$entry.Key])
     $unclassifiedBindings = @($editableBindings |
         Sort-Object -Unique |
@@ -149,8 +160,25 @@ foreach ($entry in $settings.GetEnumerator()) {
 
     $activationNodes = @($xml.SelectNodes(
         "//*[local-name()='CheckBox' and (contains(@IsChecked, 'HostSettingsEnabled') or contains(@IsChecked, 'ClientSettingsEnabled'))]"))
-    if ($entry.Key -ne 'SerpsModsHost' -and $activationNodes.Count -ne 2) {
-        throw "$($entry.Key): expected exactly two shared activation checkboxes."
+    $expectedActivationBindings = @()
+    if ($hasHostSettings -and $classifiedProperties -contains 'EnableMod') {
+        $expectedActivationBindings += 'HostSettingsEnabled'
+    }
+    if ($hasClientSettings -and
+        ($classifiedProperties -contains 'EnableClientFeatures' -or $classifiedProperties -contains 'EnableMod')) {
+        $expectedActivationBindings += 'ClientSettingsEnabled'
+    }
+    $actualActivationBindings = @()
+    if ($activationNodes.IsChecked -match 'HostSettingsEnabled') {
+        $actualActivationBindings += 'HostSettingsEnabled'
+    }
+    if ($activationNodes.IsChecked -match 'ClientSettingsEnabled') {
+        $actualActivationBindings += 'ClientSettingsEnabled'
+    }
+    $missingActivationBindings = @($expectedActivationBindings | Where-Object { $_ -notin $actualActivationBindings })
+    if ($entry.Key -ne 'SerpsModsHost' -and
+        ($missingActivationBindings.Count -ne 0 -or $activationNodes.Count -gt 2)) {
+        throw "$($entry.Key): invalid shared activation checkboxes; missing=$($missingActivationBindings -join ', '), found=$($activationNodes.Count)."
     }
     foreach ($activationNode in $activationNodes) {
         if ($activationNode.ParentNode.LocalName -ne 'Border' -or
@@ -170,15 +198,23 @@ foreach ($entry in $settings.GetEnumerator()) {
         'FontSize="{x:Static shared:ToolTipPresentation.FontSize}"',
         'TextWrapping="Wrap"')
     if ($entry.Key -ne 'SerpsModsHost') {
-        $requiredMarkers += @(
-            'x:Key="HostRoleHeader"',
-            'x:Key="ClientRoleHeader"',
-            'x:Key="SectionHeader"',
-            'x:Key="HostActivationBorder"',
-            'x:Key="ClientActivationBorder"',
-            'Text="{Binding ModEnabledText}"',
-            'IsChecked="{Binding HostSettingsEnabled, Mode=TwoWay}"',
-            'IsChecked="{Binding ClientSettingsEnabled, Mode=TwoWay}"')
+        $requiredMarkers += @('x:Key="SectionHeader"', 'Text="{Binding ModEnabledText}"')
+        if ($hasHostSettings) {
+            $requiredMarkers += 'x:Key="HostRoleHeader"'
+        }
+        if ($hasClientSettings) {
+            $requiredMarkers += 'x:Key="ClientRoleHeader"'
+        }
+        if ($actualActivationBindings -contains 'HostSettingsEnabled') {
+            $requiredMarkers += @(
+                'x:Key="HostActivationBorder"',
+                'IsChecked="{Binding HostSettingsEnabled, Mode=TwoWay}"')
+        }
+        if ($actualActivationBindings -contains 'ClientSettingsEnabled') {
+            $requiredMarkers += @(
+                'x:Key="ClientActivationBorder"',
+                'IsChecked="{Binding ClientSettingsEnabled, Mode=TwoWay}"')
+        }
     }
     foreach ($required in $requiredMarkers) {
         if (-not $text.Contains($required)) {
@@ -188,17 +224,26 @@ foreach ($entry in $settings.GetEnumerator()) {
 
     if ($entry.Key -ne 'SerpsModsHost') {
         $headerIndex = $text.IndexOf('Text="{Binding ModEnabledText}"', [StringComparison]::Ordinal)
-        $hostIndex = $text.IndexOf('IsChecked="{Binding HostSettingsEnabled, Mode=TwoWay}"', [StringComparison]::Ordinal)
-        $clientIndex = $text.IndexOf('IsChecked="{Binding ClientSettingsEnabled, Mode=TwoWay}"', [StringComparison]::Ordinal)
         $presetIndex = $text.IndexOf('ItemsSource="{Binding PresetOptions}"', [StringComparison]::Ordinal)
         $resetIndex = $text.IndexOf('Command="{Binding ResetToDefaultCommand}"', [StringComparison]::Ordinal)
-        if (-not ($headerIndex -lt $hostIndex -and $hostIndex -lt $clientIndex -and $clientIndex -lt $presetIndex -and $presetIndex -lt $resetIndex)) {
+        $orderedHeaderIndices = @($headerIndex)
+        if ($actualActivationBindings -contains 'HostSettingsEnabled') {
+            $orderedHeaderIndices += $text.IndexOf('IsChecked="{Binding HostSettingsEnabled, Mode=TwoWay}"', [StringComparison]::Ordinal)
+        }
+        if ($actualActivationBindings -contains 'ClientSettingsEnabled') {
+            $orderedHeaderIndices += $text.IndexOf('IsChecked="{Binding ClientSettingsEnabled, Mode=TwoWay}"', [StringComparison]::Ordinal)
+        }
+        $orderedHeaderIndices += @($presetIndex, $resetIndex)
+        $headerOrderValid = $orderedHeaderIndices -notcontains -1
+        for ($index = 1; $headerOrderValid -and $index -lt $orderedHeaderIndices.Count; $index++) {
+            $headerOrderValid = $orderedHeaderIndices[$index - 1] -lt $orderedHeaderIndices[$index]
+        }
+        if (-not $headerOrderValid) {
             throw "$($entry.Key): shared header controls are not in the required order."
         }
-        if ($text.Contains('Text="{Binding PresetText}"') -or
-            $text.Contains('IsChecked="{Binding EnableMod, Mode=TwoWay}"') -or
+        if ($text.Contains('IsChecked="{Binding EnableMod, Mode=TwoWay}"') -or
             $text.Contains('IsChecked="{Binding EnableClientFeatures, Mode=TwoWay}"')) {
-            throw "$($entry.Key): obsolete preset label or section activation checkbox remains."
+            throw "$($entry.Key): obsolete section activation checkbox remains."
         }
     }
 
@@ -449,6 +494,7 @@ $currentTooltipXamlByMod = @{
         'BugfixesAndQoL/BepInEx/plugins/BugfixesAndQoL_Serp/Override/ScriptExtenderUI/BugfixesAndQoLSettings.xaml')
     BuildingCosts = @('BuildingCosts/BepInEx/plugins/BuildingCosts_Serp/Override/ScriptExtenderUI/BuildingCostsSettings.xaml')
     BuildingLimit = @('BuildingLimit/BepInEx/plugins/BuildingLimit_Serp/Override/ScriptExtenderUI/BuildingLimitSettings.xaml')
+    CheatMod = @('CheatMod/Override/ScriptExtenderUI/CheatModSettings.xaml')
     CastlePlanner = @('CastlePlanner/BepInEx/plugins/CastlePlanner_Serp/Override/ScriptExtenderUI/CastlePlannerSettings.xaml')
     CustomCustomTrail = @(
         'CustomCustomTrail/Override/ScriptExtenderUI/CustomCustomTrailSettings.xaml',
@@ -696,6 +742,14 @@ $additionalCrlfTargetsByMod = @{
     CastlePlanner = @(
         'CastlePlanner/src/CastlePlannerSettingsViewModel.cs',
         'CastlePlanner/src/CastlePlannerPlugin.cs')
+    CheatMod = @(
+        'CheatMod/src/CheatModSettingsViewModel.cs',
+        'CheatMod/src/CheatModPlugin.cs',
+        'CheatMod/src/CheatModRuntime.cs',
+        'CheatMod/CheatMod.csproj',
+        'CheatMod/info.json',
+        'CheatMod/build.bat',
+        'CheatMod/release.bat')
     CustomCustomTrail = @(
         'CustomCustomTrail/src/CustomCustomTrailSettingsViewModel.cs',
         'CustomCustomTrail/src/CustomCustomTrailRuntime.cs')

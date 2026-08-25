@@ -1457,20 +1457,18 @@ internal static class Program
 
     private static void TestAssassinClimbCancellationPolicy()
     {
-        Check(AssassinClimbCancellationPolicy.ShouldInspectOrder(
-                true, true, true, AssassinClimbCancellationPolicy.UnitStopCommand, 1),
-            "Assassin climb-stop diagnostics rejected Vanilla's player-issued UnitStop order");
-        Check(!AssassinClimbCancellationPolicy.ShouldInspectOrder(
-                false, true, true, AssassinClimbCancellationPolicy.UnitStopCommand, 1) &&
-              !AssassinClimbCancellationPolicy.ShouldInspectOrder(
-                true, false, true, AssassinClimbCancellationPolicy.UnitStopCommand, 1) &&
-              !AssassinClimbCancellationPolicy.ShouldInspectOrder(
-                true, true, false, AssassinClimbCancellationPolicy.UnitStopCommand, 1) &&
-              !AssassinClimbCancellationPolicy.ShouldInspectOrder(
-                true, true, true, AssassinClimbCancellationPolicy.UnitStopCommand + 1, 1) &&
-              !AssassinClimbCancellationPolicy.ShouldInspectOrder(
-                true, true, true, AssassinClimbCancellationPolicy.UnitStopCommand, 0),
-            "Assassin climb-stop diagnostics did not fail closed outside the enabled player UnitStop path");
+        Check(AssassinClimbCancellationPolicy.ShouldInspectCommand(
+                true, true, true, AssassinClimbCancellationPolicy.UnitStopCommand),
+            "Assassin climb-stop diagnostics rejected Vanilla's synchronized UnitStop command");
+        Check(!AssassinClimbCancellationPolicy.ShouldInspectCommand(
+                false, true, true, AssassinClimbCancellationPolicy.UnitStopCommand) &&
+              !AssassinClimbCancellationPolicy.ShouldInspectCommand(
+                true, false, true, AssassinClimbCancellationPolicy.UnitStopCommand) &&
+              !AssassinClimbCancellationPolicy.ShouldInspectCommand(
+                true, true, false, AssassinClimbCancellationPolicy.UnitStopCommand) &&
+              !AssassinClimbCancellationPolicy.ShouldInspectCommand(
+                true, true, true, AssassinClimbCancellationPolicy.UnitStopCommand + 1),
+            "Assassin climb-stop diagnostics did not fail closed outside the enabled synchronized UnitStop path");
         Check(AssassinClimbCancellationPolicy.IsClimbingState(126) &&
               AssassinClimbCancellationPolicy.IsClimbingState(127) &&
               AssassinClimbCancellationPolicy.IsClimbingState(128) &&

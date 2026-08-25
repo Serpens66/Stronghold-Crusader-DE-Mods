@@ -4,6 +4,15 @@ setlocal EnableExtensions EnableDelayedExpansion
 set "NO_PAUSE=0"
 if /I "%~1"=="/nopause" set "NO_PAUSE=1"
 
+rem Never touch build or installation output while the game has plugin DLLs loaded.
+powershell.exe -NoProfile -Command "if (Get-Process -Name 'Stronghold Crusader Definitive Edition' -ErrorAction SilentlyContinue) { exit 1 } else { exit 0 }" >nul 2>&1
+if errorlevel 1 (
+  echo Build und Installation abgebrochen: Stronghold Crusader Definitive Edition ist noch gestartet.
+  echo Lokales Paket und installierter Mod wurden nicht veraendert.
+  if "%NO_PAUSE%"=="0" pause
+  exit /b 1
+)
+
 set "PROJECT_DIR=%~dp0"
 set "MSBUILD=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe"
 set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"

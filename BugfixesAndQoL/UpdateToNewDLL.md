@@ -222,3 +222,21 @@ while the surrounding player/index/state semantics remain fully validated.
 Unit stride `0x490`, tribe fields and the enemy-proximity ChoreManager contract
 are unchanged. The latest pre-update log showed exactly the expected hash gates
 and this AIV signature failure, with all other fallback signatures resolving.
+
+## Tower-ruin footprint validation
+
+The 2026-08-25 multi-target trace showed that destroyed tower records do not
+always carry usable end coordinates. Observed live examples included inverted
+Y bounds `(382,116)-(387,115)`, inverted X bounds `(396,117)-(395,119)` and an
+end position of `(0,0)`. These records nevertheless remained registered on the
+correct occupied tiles in Vanilla's `StructureGrid`.
+
+The placement validator supplies the concrete blocked tile, and
+`GameTileManagerAPI.GetTileBuildingId(tileId)` reads the building ID directly
+from that exact `StructureGrid` entry. After validating the tile ID, building
+lookup, AI owner, `IsAlive` state and one of the five tower-ruin types, this is
+already an exact overlap proof. `AITowerRuinRepairFix` therefore no longer
+rejects the ruin based on its transient begin/end rectangle. The optional
+ExtraFeatures delay/proximity guard still runs before `DeleteBuildingSafe`.
+Successful deletion logs retain the validator tile and add the ruin anchor and
+raw bounds for post-test verification.

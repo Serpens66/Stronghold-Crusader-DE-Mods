@@ -15,6 +15,10 @@ set "EXTENDER_DIR="
 set "NO_PAUSE=0"
 for %%A in (%*) do if /I "%%~A"=="/nopause" set "NO_PAUSE=1"
 
+rem Never touch build or installation output while the game has the plugin DLL loaded.
+powershell.exe -NoProfile -Command "if (Get-Process -Name 'Stronghold Crusader Definitive Edition' -ErrorAction SilentlyContinue) { exit 1 } else { exit 0 }" >nul 2>&1
+if errorlevel 1 goto game_running
+
 if not exist "%MSBUILD%" goto build_failed
 if exist "%LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT%\SHCDESE.dll" (
   set "EXTENDER_DIR=%LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT%"
@@ -38,6 +42,13 @@ if not exist "%LOCAL_PLUGIN_DIR%\info.json" goto package_failed
 rem Overlay plugin files so saved LobbyModSettings survive development builds.
 xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Q /Y >nul
 if errorlevel 1 goto copy_failed
+if not exist "%GAME_PLUGIN_DIR%\RandomEvents.dll" goto copy_verification_failed
+if not exist "%GAME_PLUGIN_DIR%\info.json" goto copy_verification_failed
+if not exist "%GAME_PLUGIN_DIR%\Override\ScriptExtenderUI\RandomEventsSettings.xaml" goto copy_verification_failed
+fc /B "%LOCAL_PLUGIN_DIR%\RandomEvents.dll" "%GAME_PLUGIN_DIR%\RandomEvents.dll" >nul
+if errorlevel 1 goto copy_verification_failed
+fc /B "%LOCAL_PLUGIN_DIR%\info.json" "%GAME_PLUGIN_DIR%\info.json" >nul
+if errorlevel 1 goto copy_verification_failed
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\Shared\Release\Write-LocalBuildManifest.ps1" -ModName RandomEvents
 if errorlevel 1 goto package_failed
 
@@ -45,6 +56,15 @@ echo Build und Installation von Random Events erfolgreich.
 if "%NO_PAUSE%"=="0" pause
 exit /b 0
 
+:game_running
+echo Build und Installation abgebrochen: Stronghold Crusader Definitive Edition ist noch gestartet.
+echo Lokales Paket und installierter Mod wurden nicht veraendert.
+if "%NO_PAUSE%"=="0" pause
+exit /b 1
+:copy_verification_failed
+echo Installationspruefung fehlgeschlagen: DLL, info.json oder Settings-XAML fehlen oder stimmen nicht mit dem lokalen Paket ueberein.
+if "%NO_PAUSE%"=="0" pause
+exit /b 1
 :build_failed_popd
 popd
 :build_failed

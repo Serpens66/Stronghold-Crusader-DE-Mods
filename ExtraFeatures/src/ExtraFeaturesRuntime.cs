@@ -126,9 +126,17 @@ namespace ExtraFeatures
             fixedLayoutHashValidated = isFixedLayoutHashValidated;
             nativeLibraryAvailable = true;
 
-            TryRunFeature(
-                "Assassin climb-stop diagnostics",
-                () => assassinClimbCancellationRuntime.Initialize(fixedLayoutHashValidated));
+            try
+            {
+                assassinClimbCancellationRuntime.InitializeNative(
+                    newLibraryHandle,
+                    memory,
+                    fixedLayoutHashValidated);
+            }
+            catch (Exception ex)
+            {
+                LogFeatureFailure("Assassin climb-stop diagnostics", ex);
+            }
 
             if (fixedLayoutHashValidated)
             {

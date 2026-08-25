@@ -1,0 +1,18 @@
+# Serp-Mod-Lokalisierung
+# Format: key=value
+Common.EnableMod=Mod aktivieren
+Common.HostActivationLabel=(Host-Einstellungen)
+Common.HostSettingsActivationHelp=Aktiviert oder deaktiviert alle vom Host gesteuerten Einstellungen dieses Mods.
+Common.ResetToDefault=Auf Standard zurücksetzen
+Common.HostOptions=HOST-OPTIONEN
+Common.ClientOptions=LOKALE CLIENT-OPTIONEN
+Common.HostReadOnly=Werte vom Host – schreibgeschützt
+Common.ResetToDefaultHelp=Setzt die im aktuellen Kontext steuerbaren Einstellungen zurück.
+Common.EnableModHelp=Aktiviert oder deaktiviert diesen Mod für die Partie.
+Common.PresetHelp=Wählt ein gespeichertes Preset. Clients ändern nur ihre persönlichen Einstellungen.
+Common.Preset=Preset
+Common.ActionsScopeHost=Preset und Zurücksetzen betreffen Host-Einstellungen und deine lokalen Client-Einstellungen.
+Common.ActionsScopeClient=Preset und Zurücksetzen betreffen nur deine lokalen Client-Einstellungen.
+CheatMod.ExtremePowersTitle=Extremkräfte
+CheatMod.EndlessExtremePowers=Endlose Extremkräfte
+CheatMod.EndlessExtremePowersHelp=Füllt das Mana der Extremkräfte jedes lebenden menschlichen Spielers einmal pro 40 Simulationsticks vollständig auf.

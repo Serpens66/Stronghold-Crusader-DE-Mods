@@ -214,13 +214,10 @@ namespace BugfixesAndQoL
             if (!IsTowerRuin(building->r_BuildingType))
                 return $"blocked-not-tower-ruin:buildingId={buildingId},owner={building->r_PlayerIdOwner},type={building->r_BuildingType},aliveState={building->r_AliveState}";
 
+            // The StructureGrid lookup above already proves exact overlap with the validator tile.
+            // Destroyed towers can expose inverted or zero end bounds while still occupying their
+            // correct grid tiles, so those transient bounds must not veto this validated overlap.
             UnmanagedVector2<ushort> position = tileApi.GetTileVectorFromId(tileId);
-            if (position.X < building->r_TilePositionXBegin || position.X > building->r_TilePositionXEnd ||
-                position.Y < building->r_TilePositionYBegin || position.Y > building->r_TilePositionYEnd)
-            {
-                return $"blocked-ruin-footprint-mismatch:buildingId={buildingId},type={building->r_BuildingType},position=({position.X},{position.Y}),bounds=({building->r_TilePositionXBegin},{building->r_TilePositionYBegin})-({building->r_TilePositionXEnd},{building->r_TilePositionYEnd})";
-            }
-
             eStructs ruinType = building->r_BuildingType;
             uint globalId = building->r_GlobalId;
             if (!BugfixesAndQoLPlugin.IsTowerRuinDeletionAllowed(playerId, tileId, mapperValue))
@@ -230,7 +227,10 @@ namespace BugfixesAndQoL
 
             Shared.DebugLogHelper.LogInfo(
                 log,
-                $"AI tower-rebuild obstruction marked for safe deletion: player={playerId}, mapper={mapperValue}, ruinType={ruinType}, buildingId={buildingId}, globalId={globalId}, tileId={tileId}.");
+                $"AI tower-rebuild obstruction marked for safe deletion: player={playerId}, mapper={mapperValue}, " +
+                $"ruinType={ruinType}, buildingId={buildingId}, globalId={globalId}, tileId={tileId}, " +
+                $"validatorTile=({position.X},{position.Y}), ruinAnchor=({building->r_TilePositionXBegin},{building->r_TilePositionYBegin}), " +
+                $"diagnosticBounds=({building->r_TilePositionXBegin},{building->r_TilePositionYBegin})-({building->r_TilePositionXEnd},{building->r_TilePositionYEnd}).");
             return $"blocked-tower-ruin-marked:buildingId={buildingId},globalId={globalId},type={ruinType}";
         }
 

@@ -295,3 +295,21 @@ hooks were installed before a live switch to Vanilla, every callback directly
 passes through without tracking, mutation or feature diagnostics, and retained
 timer/diagnostic state is discarded. A later lobby-side activation retries both
 managed and native initialization against the retained canonical DLL mapping.
+
+## 2026-08-25 finished-castle anchor correction
+
+The first post-release live trace exposed a concrete identity mismatch for a
+finished-castle tower. Its ruin spawned at `(427,119)` on tick `5436`, while the
+first later placement call supplied raw coordinates `(427,119)` but an
+origin-adjusted proximity target `(428,120)`. Because prior spawn identity had
+been compared only with the adjusted target, frame 17 was misclassified as an
+initial placement and rebuilt at tick `6164` with `delay=vanilla`, only 728
+ticks (18.2 internal seconds) after the ruin despite a 60-second setting.
+
+Rebuild identity now uses the raw placement coordinates that exactly match the
+building-spawn anchor. The validated origin-adjusted position remains separate
+and is still used for native proximity and ruin-validator checks. The old
+adjusted identity remains an observation-only fallback for mapper and
+multi-part gate variants not represented in this trace, so the correction does
+not discard previously valid matches. The first detected missing-period tick
+is still immutable and rejected attempts still cannot restart the delay.

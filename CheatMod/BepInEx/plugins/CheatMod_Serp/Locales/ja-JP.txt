@@ -1,0 +1,18 @@
+# Serp mod localization
+# Format: key=value
+Common.EnableMod=Enable Mod
+Common.HostActivationLabel=(Host settings)
+Common.HostSettingsActivationHelp=Enables or disables all host-controlled settings of this mod.
+Common.ResetToDefault=Reset to Default
+Common.HostOptions=HOST OPTIONS
+Common.ClientOptions=LOCAL CLIENT OPTIONS
+Common.HostReadOnly=Values from host - read-only
+Common.ResetToDefaultHelp=Resets the settings you can control in the current context.
+Common.EnableModHelp=Enables or disables this mod for the match.
+Common.PresetHelp=Selects a saved preset. Clients change only their personal settings.
+Common.Preset=Preset
+Common.ActionsScopeHost=Preset and reset affect host settings and your local client settings.
+Common.ActionsScopeClient=Preset and reset affect only your local client settings.
+CheatMod.ExtremePowersTitle=Extreme Powers
+CheatMod.EndlessExtremePowers=Endless Extreme Powers
+CheatMod.EndlessExtremePowersHelp=Refills the Extreme Powers mana of every living human player to a full bar once per 40 simulation ticks.

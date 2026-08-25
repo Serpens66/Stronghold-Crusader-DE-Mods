@@ -19,6 +19,15 @@ for %%A in (%*) do (
   if /I "%%~A"=="/trace" set "INSTALL_CHAT10_TRACE=1"
 )
 
+rem Never touch build or installation output while the game has plugin DLLs loaded.
+powershell.exe -NoProfile -Command "if (Get-Process -Name 'Stronghold Crusader Definitive Edition' -ErrorAction SilentlyContinue) { exit 1 } else { exit 0 }" >nul 2>&1
+if errorlevel 1 (
+  echo Build und Installation abgebrochen: Stronghold Crusader Definitive Edition ist noch gestartet.
+  echo Lokales Paket und installierter Mod wurden nicht veraendert.
+  if "%NO_PAUSE%"=="0" pause
+  exit /b 1
+)
+
 if not exist "%MSBUILD%" (
   echo MSBuild wurde nicht gefunden:
   echo !MSBUILD!

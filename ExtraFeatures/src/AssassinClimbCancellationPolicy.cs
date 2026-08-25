@@ -1,4 +1,4 @@
-// Feature: Pure routing rules for cancelling Assassin climbing through Vanilla's Stop order.
+// Feature: Pure routing and validation rules for cancelling Assassin climbing through Vanilla's Stop command.
 namespace ExtraFeatures
 {
     internal static class AssassinClimbCancellationPolicy
@@ -10,15 +10,14 @@ namespace ExtraFeatures
         public const int ClimbingDownState = 129;
         public const int TileCount = 320800;
 
-        public static bool ShouldInspectOrder(
+        public static bool ShouldInspectCommand(
             bool modEnabled,
             bool improvedPathfindingEnabled,
-            bool fixedLayoutValidated,
-            uint command,
-            int issuedByPlayer)
+            bool nativeHookInstalled,
+            uint command)
         {
-            return modEnabled && improvedPathfindingEnabled && fixedLayoutValidated &&
-                command == UnitStopCommand && issuedByPlayer == 1;
+            return modEnabled && improvedPathfindingEnabled && nativeHookInstalled &&
+                command == UnitStopCommand;
         }
 
         public static bool IsClimbingState(int state)

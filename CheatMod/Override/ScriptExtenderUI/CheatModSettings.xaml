@@ -1,0 +1,29 @@
+<Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:shared="clr-namespace:Shared;assembly=CheatMod">
+  <Grid.Resources>
+    <Style TargetType="{x:Type ToolTip}"><Setter Property="Background" Value="#FF1D1710"/><Setter Property="Foreground" Value="White"/><Setter Property="FontSize" Value="{x:Static shared:ToolTipPresentation.FontSize}"/><Setter Property="BorderBrush" Value="#FFF2D48A"/><Setter Property="BorderThickness" Value="1"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="{x:Type ToolTip}"><Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="2" Padding="10,7" MaxWidth="{x:Static shared:ToolTipPresentation.MaximumWidth}"><TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}" FontSize="{x:Static shared:ToolTipPresentation.FontSize}" TextWrapping="Wrap"/></Border></ControlTemplate></Setter.Value></Setter></Style>
+    <Style x:Key="HostRoleHeader" TargetType="{x:Type TextBlock}"><Setter Property="Background" Value="#332F5F9F"/><Setter Property="Foreground" Value="#77AAFF"/><Setter Property="FontWeight" Value="Bold"/></Style>
+    <Style x:Key="SectionHeader" TargetType="{x:Type TextBlock}"><Setter Property="Foreground" Value="#CCCCCC"/><Setter Property="FontWeight" Value="Bold"/></Style>
+    <Style x:Key="HostActivationBorder" TargetType="{x:Type Border}"><Setter Property="Background" Value="#443B6EA5"/><Setter Property="BorderBrush" Value="#FF77AAFF"/><Setter Property="BorderThickness" Value="1"/><Setter Property="CornerRadius" Value="3"/><Setter Property="Padding" Value="8,4"/></Style>
+  </Grid.Resources>
+  <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+    <StackPanel Margin="10">
+      <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+        <TextBlock Text="{Binding ModEnabledText}" Foreground="White" FontWeight="Bold" VerticalAlignment="Center"/>
+        <Border Style="{StaticResource HostActivationBorder}" Margin="8,0,0,0">
+          <CheckBox IsEnabled="{Binding CanToggleHostSettings}" IsChecked="{Binding HostSettingsEnabled, Mode=TwoWay}" Content="{Binding HostActivationLabelText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding HostSettingsActivationHelpText}" Foreground="White" FontWeight="Bold" VerticalAlignment="Center"/>
+        </Border>
+        <TextBlock Text="{Binding PresetText}" Foreground="White" VerticalAlignment="Center" Margin="14,0,5,0"/>
+        <ComboBox IsEnabled="{Binding CanChangePreset}" Visibility="{Binding PresetVisibility}" ItemsSource="{Binding PresetOptions}" SelectedIndex="{Binding SelectedPreset, Mode=TwoWay}" ToolTipService.ShowDuration="60000" ToolTip="{Binding PresetHelpText}" Width="170" VerticalAlignment="Center"/>
+        <Button IsEnabled="{Binding CanResetSettings}" Content="{Binding ResetToDefaultText}" Command="{Binding ResetToDefaultCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding ResetToDefaultHelpText}" HorizontalAlignment="Left" Padding="10,3" Margin="14,0,0,0"/>
+      </StackPanel>
+      <TextBlock Text="{Binding HostReadOnlyNoticeText}" Visibility="{Binding HostReadOnlyNoticeVisibility}" Foreground="#FFCC66" FontWeight="Bold" Margin="0,0,0,8"/>
+      <TextBlock Text="{Binding HostOptionsText}" Style="{StaticResource HostRoleHeader}" Margin="0,2,0,6"/>
+      <StackPanel IsEnabled="{Binding CanEditHostSettings}">
+        <TextBlock Text="{Binding ExtremePowersTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/>
+        <CheckBox IsChecked="{Binding EndlessExtremePowers, Mode=TwoWay}" Content="{Binding EndlessExtremePowersText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding EndlessExtremePowersHelpText}" Foreground="White" Margin="0,2,0,4"/>
+      </StackPanel>
+    </StackPanel>
+  </ScrollViewer>
+</Grid>

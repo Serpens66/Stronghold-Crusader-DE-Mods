@@ -630,7 +630,13 @@ namespace ExtraFeatures
 
             try
             {
-                PrepareRebuildDelay(context, mapperValue, tileX, tileY);
+                PrepareRebuildDelay(
+                    context,
+                    mapperValue,
+                    offsetX,
+                    offsetY,
+                    tileX,
+                    tileY);
             }
             catch (Exception ex)
             {
@@ -700,14 +706,40 @@ namespace ExtraFeatures
             return $"globalId={building->r_GlobalId},aliveState={building->r_AliveState},bounds=({building->r_TilePositionXBegin},{building->r_TilePositionYBegin})-({building->r_TilePositionXEnd},{building->r_TilePositionYEnd})";
         }
 
-        private void PrepareRebuildDelay(BuildStepContext context, short mapperValue, int tileX, int tileY)
+        private void PrepareRebuildDelay(
+            BuildStepContext context,
+            short mapperValue,
+            int anchorX,
+            int anchorY,
+            int proximityX,
+            int proximityY)
         {
-            if (context.Source != "ExecuteBuildStep" || context.History == null || tileX < 0 || tileY < 0 ||
-                !TryCreateTargetKey(context.PlayerId, tileX, tileY, mapperValue, out DefenseTargetKey target))
+            if (context.Source != "ExecuteBuildStep" || context.History == null ||
+                anchorX < 0 || anchorY < 0 || proximityX < 0 || proximityY < 0 ||
+                !TryCreateTargetKey(context.PlayerId, anchorX, anchorY, mapperValue, out DefenseTargetKey target))
                 return;
 
-            context.SetPlacementTarget(tileX, tileY);
-            if (observedDefenseTargets.Contains(target))
+            // The live 2026-08-25 trace proved that the placement helper's raw coordinates are
+            // the spawn-event anchor: tower spawn (427,119), raw (427,119), origin-adjusted
+            // proximity target (428,120). Identity must use the raw anchor, while the native
+            // proximity/ruin checks continue to use the validated origin-adjusted position.
+            context.SetPlacementTarget(proximityX, proximityY);
+            bool observedBefore = observedDefenseTargets.Contains(target);
+            if (!observedBefore && (anchorX != proximityX || anchorY != proximityY) &&
+                TryCreateTargetKey(
+                    context.PlayerId,
+                    proximityX,
+                    proximityY,
+                    mapperValue,
+                    out DefenseTargetKey legacyTarget) &&
+                observedDefenseTargets.Contains(legacyTarget))
+            {
+                // Preserve the previously accepted identity for unmeasured mapper/gate variants.
+                target = legacyTarget;
+                observedBefore = true;
+            }
+
+            if (observedBefore)
             {
                 context.History.EverSpawnedDefense = true;
                 context.MarkKnownRebuild();

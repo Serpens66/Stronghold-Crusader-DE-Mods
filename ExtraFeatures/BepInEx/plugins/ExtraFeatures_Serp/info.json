@@ -3,10 +3,22 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.61",
+  "Version": "1.0.63",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.63",
+      "Changes": [
+        "Corrected stop-only Assassin climbing diagnostics to inspect Vanilla's actual tribe bitfield without unconfirmed player-ID or count assumptions."
+      ]
+    },
+    {
+      "Version": "1.0.62",
+      "Changes": [
+        "Moved stop-only Assassin climbing position diagnostics to Vanilla's synchronized selected-unit command executor."
+      ]
+    },
     {
       "Version": "1.0.61",
       "Changes": [

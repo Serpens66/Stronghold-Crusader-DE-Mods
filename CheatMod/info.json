@@ -1,0 +1,23 @@
+{
+  "GUID": "CheatMod_Serp",
+  "Author": "Serpens66",
+  "Name": "Cheat Mod",
+  "Description": "Provides optional host-controlled cheats for Stronghold Crusader Definitive Edition.",
+  "Version": "1.0.1",
+  "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
+  "Manifest": 1,
+  "SerpChangelog": [
+    {
+      "Version": "1.0.1",
+      "Changes": [
+        "Run the mana tick updater only while Vanilla Extreme Powers are enabled, and react immediately when the Script Extender activation setter is used."
+      ]
+    },
+    {
+      "Version": "1.0.0",
+      "Changes": [
+        "Added the host-controlled Endless Extreme Powers option, which refills every living human player's Extreme Powers mana once per 40 simulation ticks."
+      ]
+    }
+  ]
+}
