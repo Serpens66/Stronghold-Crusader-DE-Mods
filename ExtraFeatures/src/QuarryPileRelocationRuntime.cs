@@ -123,7 +123,6 @@ namespace ExtraFeatures
         private bool tickSubscribed;
         private bool mapActive;
         private bool aiSpawnObservationArmed;
-        private string lastVisibilityLogState;
         private R3PacketEventHook<QuarryPileRelocationPacket> relocationPacketHook;
         private IDisposable relocationPacketSubscription;
 
@@ -148,7 +147,6 @@ namespace ExtraFeatures
             relocationPacketHook = GameNetworkAPI.Instance.GetPacketEventFor<QuarryPileRelocationPacket>();
             relocationPacketSubscription = relocationPacketHook.GetBaseHook().Observable.Subscribe(OnRelocationPacketReceived);
             networkInitialized = true;
-            LogInfo($"Chore packet registered eagerly: packetId={relocationPacketHook.GetPacketId()}, protocolVersion={ChoreProtocolVersion}.");
         }
 
         public void InstallNativeFunctions(
@@ -167,7 +165,6 @@ namespace ExtraFeatures
                     log).Rva;
                 setupBuildingEntrancesOffset = System.Runtime.InteropServices.Marshal.GetDelegateForFunctionPointer<SetupBuildingEntrancesOffsetDelegate>(
                     IntPtr.Add(libraryHandle, rva));
-                LogInfo($"Vanilla candidate helper installed: rva=0x{rva:X}, candidatesPerTry={VanillaCandidateCount}, placementTries={VanillaMinimumPlacementTry}-{VanillaMaximumPlacementTry}.");
             }
             catch (Exception ex)
             {
@@ -191,10 +188,10 @@ namespace ExtraFeatures
                     .Subscribe(_ => BeginMapState()));
                 subscriptions.Add(MapLoaderR3EventHooks.OnLoadMap.Observable
                     .Where(args => args.Phase == EventHookPhase.Post)
-                    .Subscribe(_ => ResetAISpawnObservationAfterLoad("map")));
+                    .Subscribe(_ => ResetAISpawnObservationAfterLoad()));
                 subscriptions.Add(MapLoaderR3EventHooks.OnLoadSave.Observable
                     .Where(args => args.Phase == EventHookPhase.Post)
-                    .Subscribe(_ => ResetAISpawnObservationAfterLoad("save")));
+                    .Subscribe(_ => ResetAISpawnObservationAfterLoad()));
                 subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
                     .Where(args => args.Phase == EventHookPhase.Pre)
                     .Subscribe(_ => EndMapState()));
@@ -231,7 +228,6 @@ namespace ExtraFeatures
                 return;
 
             initialized = false;
-            LogInfo("runtime dispose started.");
             buttonViewModel.Hide();
             EndMapState();
             UnhookRelocationButton();
@@ -241,7 +237,6 @@ namespace ExtraFeatures
             setUpInbuildingHook?.Dispose();
             setUpInbuildingHook = null;
             setUpInbuildingTrampoline = null;
-            LogInfo("runtime dispose completed.");
         }
 
         public void ApplySetting()
@@ -268,7 +263,6 @@ namespace ExtraFeatures
                 {
                     buttonViewModel.Hide();
                     HideRelocationTooltip();
-                    LogVisibilityState($"hidden: feature-disabled, EnableMod={settings.EnableMod}, EnableQuarryPileRelocation={settings.EnableQuarryPileRelocation}");
                     return;
                 }
 
@@ -276,7 +270,6 @@ namespace ExtraFeatures
                 {
                     buttonViewModel.Hide();
                     HideRelocationTooltip();
-                    LogVisibilityState("hidden: Vanilla candidate helper unavailable");
                     return;
                 }
 
@@ -284,22 +277,19 @@ namespace ExtraFeatures
                 {
                     buttonViewModel.Hide();
                     HideRelocationTooltip();
-                    LogVisibilityState("hidden: real multiplayer requires an available Chore transport");
                     return;
                 }
 
                 int localPlayerId = GetControlledPlayerId();
                 int selectedBuildingId = GamePlayerManagerAPI.Instance.GetSelectedBuildingId();
-                if (!TryGetOwnedQuarry(selectedBuildingId, localPlayerId, out _, out string failureReason))
+                if (!TryGetOwnedQuarry(selectedBuildingId, localPlayerId, out _))
                 {
                     buttonViewModel.Hide();
                     HideRelocationTooltip();
-                    LogVisibilityState($"hidden: playerId={localPlayerId}, selectedBuildingId={selectedBuildingId}, reason={failureReason}");
                     return;
                 }
 
                 buttonViewModel.Show();
-                LogVisibilityState($"visible: playerId={localPlayerId}, selectedBuildingId={selectedBuildingId}");
             }
             catch (Exception ex)
             {
@@ -347,22 +337,16 @@ namespace ExtraFeatures
             hookedRelocationTooltip = tooltip;
             HideRelocationTooltip();
             if (hookedRelocationButton == null)
-            {
-                LogInfo("UI lookup did not find ExtraFeaturesQuarryPileRelocationButton after setUpInbuilding.");
                 return;
-            }
 
-            hookedRelocationButton.Click += OnRelocationButtonClicked;
             hookedRelocationButton.MouseEnter += OnRelocationButtonMouseEnter;
             hookedRelocationButton.MouseLeave += OnRelocationButtonMouseLeave;
-            LogInfo($"UI button hooked: visibility={hookedRelocationButton.Visibility}, isEnabled={hookedRelocationButton.IsEnabled}, dataContext={hookedRelocationButton.DataContext?.GetType().FullName ?? "null"}, tooltipFound={hookedRelocationTooltip != null}.");
         }
 
         private void UnhookRelocationButton()
         {
             if (hookedRelocationButton != null)
             {
-                hookedRelocationButton.Click -= OnRelocationButtonClicked;
                 hookedRelocationButton.MouseEnter -= OnRelocationButtonMouseEnter;
                 hookedRelocationButton.MouseLeave -= OnRelocationButtonMouseLeave;
             }
@@ -375,32 +359,21 @@ namespace ExtraFeatures
         private void OnRelocationButtonMouseEnter(object sender, MouseEventArgs args)
         {
             if (hookedRelocationTooltip == null)
-            {
-                LogInfo("tooltip hover entered, but ExtraFeaturesQuarryPileRelocationTooltipHost was not found.");
                 return;
-            }
 
             hookedRelocationTooltip.Text = SerpLocalization.Get(SerpLocalization.QuarryPileRelocationTooltip);
             hookedRelocationTooltip.Visibility = Visibility.Visible;
-            LogInfo("tooltip shown from physical MouseEnter event.");
         }
 
         private void OnRelocationButtonMouseLeave(object sender, MouseEventArgs args)
         {
             HideRelocationTooltip();
-            LogInfo("tooltip hidden from physical MouseLeave event.");
         }
 
         private void HideRelocationTooltip()
         {
             if (hookedRelocationTooltip != null)
                 hookedRelocationTooltip.Visibility = Visibility.Hidden;
-        }
-
-        private void OnRelocationButtonClicked(object sender, RoutedEventArgs args)
-        {
-            Button button = sender as Button;
-            LogInfo($"physical UI button click received: senderType={sender?.GetType().FullName ?? "null"}, visibility={button?.Visibility.ToString() ?? "unknown"}, isEnabled={button?.IsEnabled.ToString() ?? "unknown"}, dataContext={button?.DataContext?.GetType().FullName ?? "null"}.");
         }
 
         private void OnRelocateCommand()
@@ -411,26 +384,19 @@ namespace ExtraFeatures
 
             try
             {
-                LogInfo($"rotation command invoked: EnableMod={settings.EnableMod}, EnableQuarryPileRelocation={settings.EnableQuarryPileRelocation}.");
                 if (!IsManualFeatureActive())
-                {
-                    LogInfo("rotation command stopped: feature is disabled.");
                     return;
-                }
 
                 localPlayerId = GetControlledPlayerId();
                 selectedBuildingId = GamePlayerManagerAPI.Instance.GetSelectedBuildingId();
-                LogInfo($"command context read: localPlayerId={localPlayerId}, selectedBuildingId={selectedBuildingId}, appMode={GameData.Instance?.app_mode.ToString() ?? "unavailable"}, appSubMode={GameData.Instance?.app_sub_mode.ToString() ?? "unavailable"}.");
 
-                if (!TryGetRelocatableQuarry(selectedBuildingId, localPlayerId, out GameBuilding* quarry, out GameBuilding* oldPile, out string failureReason))
+                if (!TryGetRelocatableQuarry(selectedBuildingId, localPlayerId, out GameBuilding* quarry, out GameBuilding* oldPile))
                 {
-                    LogInfo($"rotation command stopped: selected quarry is not eligible, reason={failureReason}.");
                     RefreshButtonVisibility();
                     return;
                 }
 
                 int operationId = NextOperationId();
-                LogInfo($"selected quarry validated: operationId={operationId}, quarryId={selectedBuildingId}, quarryGlobalId={quarry->r_GlobalId}, owner={quarry->r_PlayerIdOwner}, quarryTiles={quarry->r_TilePositionXBegin},{quarry->r_TilePositionYBegin}-{quarry->r_TilePositionXEnd},{quarry->r_TilePositionYEnd}, oldPileId={quarry->r_StoneQuarry_StockPileBuildingId}, oldPileGlobalId={oldPile->r_GlobalId}, oldPileTiles={oldPile->r_TilePositionXBegin},{oldPile->r_TilePositionYBegin}-{oldPile->r_TilePositionXEnd},{oldPile->r_TilePositionYEnd}, oldPileGridSize={oldPile->r_OccupyTileGridSize}.");
 
                 if (!TryFindNextRotationTarget(localPlayerId, quarry, oldPile, operationId, out PlacementPosition target))
                 {
@@ -454,7 +420,6 @@ namespace ExtraFeatures
                 {
                     if (!TrySendRotationChore(attemptedOperation))
                     {
-                        LogInfo($"rotation command stopped: Chore send failed, operationId={operationId}, target={target.X},{target.Y}.");
                         RefreshButtonVisibility();
                     }
                     return;
@@ -462,8 +427,7 @@ namespace ExtraFeatures
 
                 if (!TryApplyRotation(attemptedOperation, "singleplayer-local-click", targetAlreadyValidated: true))
                 {
-                    RememberFailedRotationTarget(attemptedOperation, "replacement-transaction-failed");
-                    LogInfo($"rotation command stopped: replacement transaction failed, operationId={operationId}, target={target.X},{target.Y}.");
+                    RememberFailedRotationTarget(attemptedOperation);
                     RefreshButtonVisibility();
                     return;
                 }
@@ -473,7 +437,7 @@ namespace ExtraFeatures
             catch (Exception ex)
             {
                 if (attemptedOperation != null)
-                    RememberFailedRotationTarget(attemptedOperation, "rotation-command-exception");
+                    RememberFailedRotationTarget(attemptedOperation);
 
                 Shared.DebugLogHelper.LogError(
                     log,
@@ -496,21 +460,13 @@ namespace ExtraFeatures
                         args.Building == eStructs.STRUCT_QUARRYPILE &&
                         args.TileX == capture.TargetX &&
                         args.TileY == capture.TargetY;
-                    LogInfo(
-                        $"prefab spawn event observed: operationId={capture.OperationId}, phase={args.Phase}, playerId={args.PlayerId}, " +
-                        $"building={args.Building}, target={args.TileX},{args.TileY}, scale={args.BuildingScale}, returnValue={args.ReturnValue}, matchesExpectedInput={matchesExpectedInput}.");
 
-                    if (args.Phase == EventHookPhase.Post && matchesExpectedInput)
+                    if (args.Phase == EventHookPhase.Post &&
+                        matchesExpectedInput &&
+                        args.ReturnValue > 0 &&
+                        args.ReturnValue <= int.MaxValue)
                     {
-                        if (args.ReturnValue <= 0 || args.ReturnValue > int.MaxValue)
-                        {
-                            capture.InvalidPostEventCount++;
-                        }
-                        else
-                        {
-                            capture.RecordBuildingId((int)args.ReturnValue);
-                            LogInfo($"prefab spawn id captured: operationId={capture.OperationId}, buildingId={args.ReturnValue}, capturedCount={capture.BuildingIds.Count}.");
-                        }
+                        capture.RecordBuildingId((int)args.ReturnValue);
                     }
                 }
 
@@ -551,7 +507,6 @@ namespace ExtraFeatures
                 quarry->r_GlobalId <= 0 ||
                 quarry->r_GlobalId > int.MaxValue)
             {
-                LogInfo($"AI quarry was not queued because its Post-spawn building could not be verified: playerId={args.PlayerId}, buildingId={quarryId}.");
                 return;
             }
 
@@ -592,7 +547,21 @@ namespace ExtraFeatures
 
                 var quarryGlobalIds = new List<int>(pendingAIQuarriesByGlobalId.Keys);
                 for (int index = 0; index < quarryGlobalIds.Count; index++)
-                    TryProcessPendingAIQuarry(quarryGlobalIds[index], tick);
+                {
+                    int quarryGlobalId = quarryGlobalIds[index];
+                    try
+                    {
+                        TryProcessPendingAIQuarry(quarryGlobalId, tick);
+                    }
+                    catch (Exception ex)
+                    {
+                        // One malformed or externally removed quarry must not postpone every other queued quarry.
+                        pendingAIQuarriesByGlobalId.Remove(quarryGlobalId);
+                        Shared.DebugLogHelper.LogError(
+                            log,
+                            $"Extra Features AI quarry-pile queue entry failed and was discarded: tick={tick}, quarryGlobalId={quarryGlobalId}, exception={ex}");
+                    }
+                }
             }
             catch (Exception ex)
             {
@@ -624,12 +593,11 @@ namespace ExtraFeatures
                 quarry->r_AliveState == AliveState.MarkedForDeletion)
             {
                 pendingAIQuarriesByGlobalId.Remove(quarryGlobalId);
-                LogInfo($"pending AI quarry discarded because the quarry no longer exists: playerId={pending.PlayerId}, quarryId={pending.QuarryId}, quarryGlobalId={quarryGlobalId}, tick={tick}.");
                 return;
             }
 
             if (quarry->r_AliveState != AliveState.IsAlive ||
-                !TryGetRelocatableQuarry(pending.QuarryId, pending.PlayerId, out quarry, out GameBuilding* oldPile, out _))
+                !TryGetRelocatableQuarry(pending.QuarryId, pending.PlayerId, out quarry, out GameBuilding* oldPile))
             {
                 return;
             }
@@ -683,7 +651,7 @@ namespace ExtraFeatures
                 : TryApplyRotation(operation, "singleplayer-ai-keep-facing", targetAlreadyValidated: true);
             if (!applied)
             {
-                RememberFailedRotationTarget(operation, "ai-keep-facing-transaction-failed");
+                RememberFailedRotationTarget(operation);
                 Shared.DebugLogHelper.LogWarning(
                     log,
                     $"Extra Features could not move a new AI quarry pile towards its Keep; the existing pile was retained: playerId={pending.PlayerId}, quarryGlobalId={quarryGlobalId}, operationId={operationId}.");
@@ -698,10 +666,7 @@ namespace ExtraFeatures
                     return;
 
                 if (linkedRemovalSuppressionDepth > 0)
-                {
-                    LogInfo($"linked demolition propagation suppressed for internal operation: source={source}, buildingId={buildingId}, suppressionDepth={linkedRemovalSuppressionDepth}.");
                     return;
-                }
 
                 if (buildingId <= 0 ||
                     !GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building))
@@ -719,35 +684,27 @@ namespace ExtraFeatures
                         return;
                     }
 
-                    int pileGlobalId = (int)pile->r_GlobalId;
-                    int quarryGlobalId = (int)building->r_GlobalId;
                     if (pile->r_PlayerIdOwner != building->r_PlayerIdOwner)
                         return;
 
-                    ClearPileContentBeforeDeletion(pileId, pile, 0, source + "-linked-pile");
-                    bool pileMarkedForDeletion = pile->r_AliveState == AliveState.MarkedForDeletion ||
-                        DeleteBuildingWithoutLinkedPropagation(pileId, source + "-paired-pile");
-                    LogInfo($"linked demolition propagated from quarry to pile: source={source}, quarryId={buildingId}, quarryGlobalId={quarryGlobalId}, pileId={pileId}, pileGlobalId={pileGlobalId}, pileMarkedForDeletion={pileMarkedForDeletion}.");
+                    ClearPileContentBeforeDeletion(pile);
+                    _ = pile->r_AliveState == AliveState.MarkedForDeletion ||
+                        DeleteBuildingWithoutLinkedPropagation(pileId);
                     return;
                 }
 
                 if (building->r_BuildingType != eStructs.STRUCT_QUARRYPILE)
                     return;
 
-                int removedPileGlobalId = (int)building->r_GlobalId;
                 int linkedQuarryId = FindAliveQuarryIdByPileId(buildingId, building->r_PlayerIdOwner);
                 if (linkedQuarryId <= 0 ||
-                    !GameBuildingManagerAPI.Instance.TryGetBuildingById(linkedQuarryId, out GameBuilding* linkedQuarry))
+                    !GameBuildingManagerAPI.Instance.TryGetBuildingById(linkedQuarryId, out _))
                 {
                     return;
                 }
 
-                int linkedQuarryGlobalId = (int)linkedQuarry->r_GlobalId;
-                ClearPileContentBeforeDeletion(buildingId, building, 0, source + "-linked-pile");
-
-                bool quarryMarkedForDeletion = DeleteBuildingWithoutLinkedPropagation(linkedQuarryId, source + "-paired-quarry");
-
-                LogInfo($"linked demolition propagated from pile to quarry: source={source}, pileId={buildingId}, pileGlobalId={removedPileGlobalId}, quarryId={linkedQuarryId}, quarryGlobalId={linkedQuarryGlobalId}, quarryMarkedForDeletion={quarryMarkedForDeletion}.");
+                ClearPileContentBeforeDeletion(building);
+                DeleteBuildingWithoutLinkedPropagation(linkedQuarryId);
             }
             catch (Exception ex)
             {
@@ -858,7 +815,6 @@ namespace ExtraFeatures
 
             try
             {
-                LogInfo($"rotation Chore received: operationId={operation.OperationId}, playerId={operation.PlayerId}, quarryGlobalId={operation.QuarryGlobalId}, oldPileGlobalId={operation.OldPileGlobalId}, target={operation.TargetTileX},{operation.TargetTileY}.");
                 if (!initialized || setupBuildingEntrancesOffset == null)
                 {
                     Shared.DebugLogHelper.LogError(
@@ -869,7 +825,7 @@ namespace ExtraFeatures
 
                 if (!TryApplyRotation(operation, "multiplayer-chore", targetAlreadyValidated: false))
                 {
-                    RememberFailedRotationTarget(operation, "multiplayer-chore-transaction-failed");
+                    RememberFailedRotationTarget(operation);
                     Shared.DebugLogHelper.LogWarning(
                         log,
                         $"Extra Features quarry-pile Chore completed without relocation: operationId={operation.OperationId}, target={operation.TargetTileX},{operation.TargetTileY}.");
@@ -880,7 +836,7 @@ namespace ExtraFeatures
             }
             catch (Exception ex)
             {
-                RememberFailedRotationTarget(operation, "multiplayer-chore-exception");
+                RememberFailedRotationTarget(operation);
                 Shared.DebugLogHelper.LogError(
                     log,
                     $"Extra Features quarry-pile Chore execution failed: operationId={operation.OperationId}, exception={ex}");
@@ -896,32 +852,23 @@ namespace ExtraFeatures
             string reason,
             bool targetAlreadyValidated = false)
         {
-            LogInfo($"replacement transaction started: reason={reason}, playerId={operation.PlayerId}, operationId={operation.OperationId}, quarryGlobalId={operation.QuarryGlobalId}, oldPileGlobalId={operation.OldPileGlobalId}, requestedTarget={operation.TargetTileX},{operation.TargetTileY}.");
-
             int quarryId = FindAliveBuildingIdByGlobalId(operation.QuarryGlobalId);
             if (quarryId <= 0 ||
                 !GameBuildingManagerAPI.Instance.TryGetBuildingById(quarryId, out GameBuilding* quarry) ||
                 !IsAliveBuilding(quarry, eStructs.STRUCT_QUARRY, operation.PlayerId))
-            {
-                LogInfo($"replacement transaction rejected: reason=quarry-not-found, operationId={operation.OperationId}.");
                 return false;
-            }
 
             int oldPileId = quarry->r_StoneQuarry_StockPileBuildingId;
             if (oldPileId <= 0 ||
                 !GameBuildingManagerAPI.Instance.TryGetBuildingById(oldPileId, out GameBuilding* oldPile) ||
                 !IsAliveBuilding(oldPile, eStructs.STRUCT_QUARRYPILE, operation.PlayerId) ||
                 (int)oldPile->r_GlobalId != operation.OldPileGlobalId)
-            {
-                LogInfo($"replacement transaction rejected: reason=old-pile-link-changed, quarryId={quarryId}, currentLinkedPileId={oldPileId}, operationId={operation.OperationId}.");
                 return false;
-            }
 
             PlacementPosition expectedTarget;
             if (targetAlreadyValidated)
             {
                 expectedTarget = new PlacementPosition(operation.TargetTileX, operation.TargetTileY);
-                LogInfo($"replacement transaction reuses synchronously validated local target: operationId={operation.OperationId}, target={expectedTarget.X},{expectedTarget.Y}.");
             }
             else
             {
@@ -932,10 +879,7 @@ namespace ExtraFeatures
                     oldPile,
                     expectedTarget,
                     operation.OperationId))
-                {
-                    LogInfo($"replacement transaction rejected: reason=requested-target-invalid, operationId={operation.OperationId}, target={expectedTarget.X},{expectedTarget.Y}.");
                     return false;
-                }
             }
 
             PileContentSnapshot content = PileContentSnapshot.Capture(oldPile);
@@ -943,8 +887,6 @@ namespace ExtraFeatures
             ushort previousMaxHealth = oldPile->r_MaxHealth;
             if (!TrySpawnReplacement(
                 operation.PlayerId,
-                quarryId,
-                quarry,
                 oldPileId,
                 oldPile,
                 expectedTarget,
@@ -957,8 +899,7 @@ namespace ExtraFeatures
 
             if (newPileId > ushort.MaxValue)
             {
-                DeleteBuildingWithoutLinkedPropagation(newPileId, "rotation-new-id-overflow");
-                LogInfo($"replacement transaction rolled back: reason=new-pile-id-exceeds-link-field, operationId={operation.OperationId}, newPileId={newPileId}.");
+                DeleteBuildingWithoutLinkedPropagation(newPileId);
                 return false;
             }
 
@@ -966,28 +907,25 @@ namespace ExtraFeatures
             content.ApplyTo(newPile);
             newPile->r_CurrentHealth = previousCurrentHealth;
             newPile->r_MaxHealth = previousMaxHealth;
-            ClearPileContentBeforeDeletion(oldPileId, oldPile, operation.OperationId, "rotation-old-pile");
+            ClearPileContentBeforeDeletion(oldPile);
 
             quarry->r_StoneQuarry_StockPileBuildingId = checked((ushort)newPileId);
             bool oldPileMarkedForDeletion = oldPile->r_AliveState == AliveState.MarkedForDeletion ||
-                DeleteBuildingWithoutLinkedPropagation(oldPileId, "rotation-old-pile");
+                DeleteBuildingWithoutLinkedPropagation(oldPileId);
             if (!oldPileMarkedForDeletion)
             {
                 quarry->r_StoneQuarry_StockPileBuildingId = checked((ushort)oldPileId);
                 content.ApplyTo(oldPile);
                 newPile->r_StoneBlocksAmount = 0;
                 newPile->r_CurrentGoodStackAmount = 0;
-                bool replacementMarkedForDeletion = DeleteBuildingWithoutLinkedPropagation(newPileId, "rotation-rollback-new-pile");
-                LogInfo($"replacement transaction rolled back: reason=old-pile-delete-failed, operationId={operation.OperationId}, oldPileId={oldPileId}, newPileId={newPileId}, replacementMarkedForDeletion={replacementMarkedForDeletion}.");
+                DeleteBuildingWithoutLinkedPropagation(newPileId);
                 return false;
             }
 
-            ClearFailedRotationTargets(operation.QuarryGlobalId, "rotation-completed");
+            ClearFailedRotationTargets(operation.QuarryGlobalId);
             LogInfo(
-                $"rotation completed: reason={reason}, playerId={operation.PlayerId}, operationId={operation.OperationId}, quarryId={quarryId}, " +
-                $"quarryGlobalId={operation.QuarryGlobalId}, oldPileId={oldPileId}, oldPileGlobalId={operation.OldPileGlobalId}, newPileId={newPileId}, " +
-                $"newPileGlobalId={newPileGlobalId}, newPileState={newPile->r_AliveState}, target={expectedTarget.X},{expectedTarget.Y}, " +
-                $"stoneBlocks={newPile->r_StoneBlocksAmount}, oldPileMarkedForDeletion={oldPileMarkedForDeletion}, visualLifecycle=prefab-managed.");
+                $"rotation completed: reason={reason}, playerId={operation.PlayerId}, quarryGlobalId={operation.QuarryGlobalId}, " +
+                $"newPileGlobalId={newPileGlobalId}, target={expectedTarget.X},{expectedTarget.Y}.");
             return true;
         }
 
@@ -1000,20 +938,12 @@ namespace ExtraFeatures
         {
             target = default;
             if (setupBuildingEntrancesOffset == null)
-            {
-                LogInfo($"rotation target search failed: operationId={operationId}, reason=Vanilla-candidate-helper-unavailable.");
                 return false;
-            }
 
             int quarryScale = GetBuildingScale(quarry);
             int buildingScale = GetBuildingScale(oldPile);
             if (quarryScale != VanillaQuarryScale || buildingScale != VanillaPileScale)
-            {
-                LogInfo(
-                    $"rotation target search failed: operationId={operationId}, reason=unexpected-Vanilla-scales, " +
-                    $"quarryScale={quarryScale}, expectedQuarryScale={VanillaQuarryScale}, pileScale={buildingScale}, expectedPileScale={VanillaPileScale}.");
                 return false;
-            }
 
             int quarryGlobalId = (int)quarry->r_GlobalId;
             int oldPileGlobalId = (int)oldPile->r_GlobalId;
@@ -1023,24 +953,10 @@ namespace ExtraFeatures
                 quarry,
                 oldX,
                 oldY,
-                out int currentIndex,
-                out int currentPlacementTry,
-                out bool exactCurrentPosition))
-            {
-                LogInfo($"rotation target search failed: operationId={operationId}, reason=Vanilla-cursor-resolution-failed.");
+                out int currentIndex))
                 return false;
-            }
 
             HashSet<long> failedTargets = GetFailedRotationTargets(quarryGlobalId, oldPileGlobalId);
-            int failedTargetSkipCount = 0;
-            int candidateAttemptCount = 0;
-
-            LogInfo(
-                $"rotation target search started: operationId={operationId}, playerId={playerId}, quarryGlobalId={quarryGlobalId}, " +
-                $"oldPileGlobalId={oldPileGlobalId}, quarryAnchor={quarry->r_TilePositionXBegin},{quarry->r_TilePositionYBegin}, " +
-                $"oldAnchor={oldX},{oldY}, currentVanillaIndex={currentIndex}, currentVanillaTry={currentPlacementTry}, " +
-                $"exactCurrentPosition={exactCurrentPosition}, candidatesPerTry={VanillaCandidateCount}, " +
-                $"placementTries={VanillaMinimumPlacementTry}-{VanillaMaximumPlacementTry}, failedTargetCount={failedTargets?.Count ?? 0}.");
 
             // Vanilla's perimeter indexes increase clockwise. Always exhaust the closest Vanilla distance first,
             // but begin immediately after the current angular index so a vacated position is not selected again.
@@ -1052,31 +968,13 @@ namespace ExtraFeatures
                 {
                     int candidateIndex = (currentIndex + clockwiseOffset) % VanillaCandidateCount;
                     if (!TryGetVanillaCandidate(quarry, candidateIndex, placementTry, out PlacementPosition candidate))
-                    {
-                        LogInfo(
-                            $"rotation target search failed: operationId={operationId}, reason=Vanilla-candidate-generation-failed, " +
-                            $"vanillaTry={placementTry}, candidateIndex={candidateIndex}.");
                         return false;
-                    }
-
-                    candidateAttemptCount++;
 
                     if (candidate.X == oldX && candidate.Y == oldY)
-                    {
-                        LogInfo(
-                            $"rotation candidate skipped: operationId={operationId}, vanillaTry={placementTry}, candidateIndex={candidateIndex}, " +
-                            $"target={candidate.X},{candidate.Y}, reason=current-pile-position.");
                         continue;
-                    }
 
                     if (failedTargets != null && failedTargets.Contains(GetPositionKey(candidate)))
-                    {
-                        failedTargetSkipCount++;
-                        LogInfo(
-                            $"rotation candidate skipped: operationId={operationId}, vanillaTry={placementTry}, candidateIndex={candidateIndex}, " +
-                            $"target={candidate.X},{candidate.Y}, reason=previous-spawn-failure.");
                         continue;
-                    }
 
                     if (!ValidateCandidateWithGame(
                         playerId,
@@ -1090,17 +988,9 @@ namespace ExtraFeatures
                     }
 
                     target = candidate;
-                    LogInfo(
-                        $"rotation target selected: operationId={operationId}, vanillaTry={placementTry}, candidateIndex={candidateIndex}, " +
-                        $"target={target.X},{target.Y}, clockwiseOffset={clockwiseOffset}, totalCandidateAttempts={candidateAttemptCount}, " +
-                        $"previousFailedTargetsSkipped={failedTargetSkipCount}.");
                     return true;
                 }
             }
-
-            LogInfo(
-                $"rotation target search exhausted: operationId={operationId}, playerId={playerId}, totalCandidateAttempts={candidateAttemptCount}, " +
-                $"previousFailedTargetsSkipped={failedTargetSkipCount}, maximumVanillaTry={VanillaMaximumPlacementTry}.");
 
             return false;
         }
@@ -1122,12 +1012,7 @@ namespace ExtraFeatures
             int quarryScale = GetBuildingScale(quarry);
             int pileScale = GetBuildingScale(oldPile);
             if (quarryScale != VanillaQuarryScale || pileScale != VanillaPileScale)
-            {
-                LogInfo(
-                    $"AI Keep-facing target search failed: operationId={operationId}, reason=unexpected-Vanilla-scales, " +
-                    $"quarryScale={quarryScale}, pileScale={pileScale}.");
                 return false;
-            }
 
             int oldX = oldPile->r_TilePositionXBegin;
             int oldY = oldPile->r_TilePositionYBegin;
@@ -1139,15 +1024,12 @@ namespace ExtraFeatures
             HashSet<long> failedTargets = GetFailedRotationTargets(
                 (int)quarry->r_GlobalId,
                 (int)oldPile->r_GlobalId);
-            int generatedCount = 0;
-            int validReplacementCount = 0;
             int placementTry = VanillaMinimumPlacementTry;
             for (int candidateIndex = 0; candidateIndex < VanillaCandidateCount; candidateIndex++)
             {
                 if (!TryGetVanillaCandidate(quarry, candidateIndex, placementTry, out PlacementPosition candidate))
                     return false;
 
-                generatedCount++;
                 long positionKey = GetPositionKey(candidate);
                 if (candidate.X == oldX && candidate.Y == oldY)
                 {
@@ -1168,8 +1050,7 @@ namespace ExtraFeatures
                         pileScale,
                         operationId,
                         candidateIndex,
-                        placementTry,
-                        logResult: false))
+                        placementTry))
                 {
                     continue;
                 }
@@ -1180,7 +1061,6 @@ namespace ExtraFeatures
                     placementTry,
                     candidateIndex,
                     isCurrentPosition: false));
-                validReplacementCount++;
             }
 
             int keepCenterXTimesTwo = keep->r_TilePositionXBegin + keep->r_TilePositionXEnd;
@@ -1195,21 +1075,16 @@ namespace ExtraFeatures
                 target = currentPosition;
                 currentPositionIsBest = true;
                 LogInfo(
-                    $"AI Keep-facing pile remains unchanged: operationId={operationId}, playerId={playerId}, " +
-                    $"quarryGlobalId={quarry->r_GlobalId}, reason=no-valid-closest-Vanilla-position, " +
-                    $"allowedVanillaTry={VanillaMinimumPlacementTry}, generatedCandidates={generatedCount}, " +
-                    $"validReplacementCandidates={validReplacementCount}, currentPositionInAllowedTry=False.");
+                    $"AI Keep-facing pile remains unchanged: playerId={playerId}, quarryGlobalId={quarry->r_GlobalId}, " +
+                    $"reason=no-valid-placementTry-{VanillaMinimumPlacementTry}-position.");
                 return true;
             }
 
             target = new PlacementPosition(selected.X, selected.Y);
             currentPositionIsBest = selected.IsCurrentPosition;
             LogInfo(
-                $"AI Keep-facing target selected: operationId={operationId}, playerId={playerId}, quarryGlobalId={quarry->r_GlobalId}, " +
-                $"keepGlobalId={keep->r_GlobalId}, keepCenterTimesTwo={keepCenterXTimesTwo},{keepCenterYTimesTwo}, " +
-                $"oldTarget={oldX},{oldY}, selectedTarget={selected.X},{selected.Y}, currentPositionIsBest={currentPositionIsBest}, " +
-                $"vanillaTry={selected.PlacementTry}, allowedVanillaTry={VanillaMinimumPlacementTry}, candidateIndex={selected.CandidateIndex}, generatedCandidates={generatedCount}, " +
-                $"validReplacementCandidates={validReplacementCount}.");
+                $"AI Keep-facing target selected: playerId={playerId}, quarryGlobalId={quarry->r_GlobalId}, " +
+                $"target={selected.X},{selected.Y}, vanillaTry={selected.PlacementTry}, candidateIndex={selected.CandidateIndex}, currentPositionIsBest={currentPositionIsBest}.");
             return true;
         }
 
@@ -1249,16 +1124,7 @@ namespace ExtraFeatures
             }
 
             if (targetPlacementTry < 0)
-            {
-                LogInfo(
-                    $"requested rotation target rejected: operationId={operationId}, target={target.X},{target.Y}, " +
-                    $"reason=not-a-Vanilla-quarry-pile-candidate.");
                 return false;
-            }
-
-            LogInfo(
-                $"requested rotation target matched Vanilla candidate: operationId={operationId}, target={target.X},{target.Y}, " +
-                $"vanillaTry={targetPlacementTry}, candidateIndex={targetCandidateIndex}.");
             return ValidateCandidateWithGame(
                 playerId,
                 target,
@@ -1272,13 +1138,9 @@ namespace ExtraFeatures
             GameBuilding* quarry,
             int oldX,
             int oldY,
-            out int currentIndex,
-            out int currentPlacementTry,
-            out bool exactCurrentPosition)
+            out int currentIndex)
         {
             currentIndex = VanillaCandidateCount / 4;
-            currentPlacementTry = 0;
-            exactCurrentPosition = false;
             long nearestDistanceSquared = long.MaxValue;
 
             for (int placementTry = VanillaMinimumPlacementTry;
@@ -1293,8 +1155,6 @@ namespace ExtraFeatures
                     if (candidate.X == oldX && candidate.Y == oldY)
                     {
                         currentIndex = candidateIndex;
-                        currentPlacementTry = placementTry;
-                        exactCurrentPosition = true;
                         return true;
                     }
 
@@ -1378,15 +1238,17 @@ namespace ExtraFeatures
             int buildingScale,
             int operationId,
             int candidateIndex,
-            int placementTry,
-            bool logResult = true)
+            int placementTry)
         {
             GameTileManagerAPI tileApi = GameTileManagerAPI.Instance;
+            if (!TryGetSafeTileId(tileApi, candidate.X, candidate.Y, out _))
+                return false;
+
             bool previousBlockedState = tileApi.TileManager.IsPlacementBlocked;
             try
             {
                 tileApi.TileManager.IsPlacementBlocked = false;
-                long validatorResult = BulkBuildingDetours.c_game_player_build_placement_validator_hook_impl(
+                BulkBuildingDetours.c_game_player_build_placement_validator_hook_impl(
                     tileApi.GetTileManager(),
                     playerId,
                     candidate.X,
@@ -1395,10 +1257,6 @@ namespace ExtraFeatures
                     buildingScale,
                     0);
                 bool blocked = tileApi.TileManager.IsPlacementBlocked;
-                if (logResult)
-                {
-                    LogInfo($"native placement validation returned: operationId={operationId}, vanillaTry={placementTry}, candidateIndex={candidateIndex}, target={candidate.X},{candidate.Y}, buildingScale={buildingScale}, returnValue={validatorResult}, blocked={blocked}.");
-                }
                 return !blocked;
             }
             catch (Exception ex)
@@ -1416,8 +1274,6 @@ namespace ExtraFeatures
 
         private bool TrySpawnReplacement(
             int playerId,
-            int quarryId,
-            GameBuilding* quarry,
             int oldPileId,
             GameBuilding* oldPile,
             PlacementPosition target,
@@ -1429,35 +1285,24 @@ namespace ExtraFeatures
             newPile = null;
             int buildingScale = GetBuildingScale(oldPile);
             if (buildingScale <= 0)
-            {
-                LogInfo($"prefab replacement spawn rejected: operationId={operationId}, reason=invalid-pile-grid-size, gridSize={oldPile->r_OccupyTileGridSize}.");
                 return false;
-            }
 
             GameTileManagerAPI tileApi = GameTileManagerAPI.Instance;
-            int targetTileId = tileApi.GetTileId(target.X, target.Y);
-            ushort targetStructureBefore = tileApi.GetTileBuildingId(targetTileId);
-            ushort quarryLinkBefore = quarry->r_StoneQuarry_StockPileBuildingId;
-            PrefabSpawnCapture capture = new PrefabSpawnCapture(operationId, playerId, target.X, target.Y);
-            if (activePrefabSpawnCapture != null)
-            {
-                LogInfo($"prefab replacement spawn rejected: operationId={operationId}, reason=another-prefab-capture-active, activeOperationId={activePrefabSpawnCapture.OperationId}.");
+            if (!TryGetSafeTileId(tileApi, target.X, target.Y, out _))
                 return false;
-            }
 
-            long result = 0;
+            PrefabSpawnCapture capture = new PrefabSpawnCapture(playerId, target.X, target.Y);
+            if (activePrefabSpawnCapture != null)
+                return false;
+
             Exception prefabException = null;
-            LogInfo(
-                $"prefab replacement spawn started: operationId={operationId}, playerId={playerId}, quarryId={quarryId}, oldPileId={oldPileId}, " +
-                $"target={target.X},{target.Y}, targetTileId={targetTileId}, targetStructureBefore={targetStructureBefore}, buildingScale={buildingScale}, " +
-                $"mapper={eMappers.MAPPER_QUARRYPILE}, isFree=True, bypassPlacementRules=True, quarryLinkBefore={quarryLinkBefore}.");
             activePrefabSpawnCapture = capture;
             try
             {
                 linkedRemovalSuppressionDepth++;
                 try
                 {
-                    result = GameBuildingManagerAPI.Instance.CreatePrefab(
+                    GameBuildingManagerAPI.Instance.CreatePrefab(
                         playerId,
                         target.X,
                         target.Y,
@@ -1481,13 +1326,6 @@ namespace ExtraFeatures
                 activePrefabSpawnCapture = null;
             }
 
-            ushort targetStructureAfter = tileApi.GetTileBuildingId(targetTileId);
-            ushort quarryLinkAfter = quarry->r_StoneQuarry_StockPileBuildingId;
-            LogInfo(
-                $"prefab replacement spawn returned: operationId={operationId}, returnValue={result}, capturedIds={capture.DescribeBuildingIds()}, " +
-                $"invalidPostEvents={capture.InvalidPostEventCount}, targetStructureAfter={targetStructureAfter}, quarryLinkAfter={quarryLinkAfter}, " +
-                $"oldPileStateAfter={oldPile->r_AliveState}, exception={(prefabException == null ? "none" : prefabException.GetType().FullName)}.");
-
             if (prefabException != null)
             {
                 int fallbackPileId = FindFreshPileAtTarget(oldPileId, playerId, target, out _);
@@ -1507,10 +1345,7 @@ namespace ExtraFeatures
                 out newPileId,
                 out newPile);
             if (!capturedReplacementResolved)
-            {
                 newPileId = FindFreshPileAtTarget(oldPileId, playerId, target, out newPile);
-                LogInfo($"prefab replacement fallback scan completed: operationId={operationId}, fallbackPileId={newPileId}, actual={DescribeBuilding(newPile)}.");
-            }
 
             bool replacementVerified = newPileId > 0 &&
                 IsValidFreshSpawn(newPile, eStructs.STRUCT_QUARRYPILE, playerId) &&
@@ -1518,21 +1353,15 @@ namespace ExtraFeatures
                 newPile->r_OccupyTileGridSize == oldPile->r_OccupyTileGridSize;
             if (!replacementVerified)
             {
-                LogInfo(
-                    $"prefab replacement spawn verification failed before cleanup: operationId={operationId}, returnValue={result}, newPileId={newPileId}, " +
-                    $"expectedType={eStructs.STRUCT_QUARRYPILE}, expectedOwner={playerId}, expectedAnchor={target.X},{target.Y}, expectedGridSize={oldPile->r_OccupyTileGridSize}, " +
-                    $"capturedIds={capture.DescribeBuildingIds()}, actual={DescribeBuilding(newPile)}.");
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    $"Extra Features quarry-pile replacement verification failed; spawned candidates are being cleaned up: operationId={operationId}, playerId={playerId}, target={target.X},{target.Y}.");
                 CleanupFailedPrefabSpawns(capture, oldPileId, operationId, "verification-failed", newPileId);
                 newPile = null;
                 newPileId = 0;
                 return false;
             }
 
-            LogInfo(
-                $"prefab replacement spawn verified: operationId={operationId}, newPileId={newPileId}, newPileGlobalId={newPile->r_GlobalId}, " +
-                $"tiles={newPile->r_TilePositionXBegin},{newPile->r_TilePositionYBegin}-{newPile->r_TilePositionXEnd},{newPile->r_TilePositionYEnd}, " +
-                $"gridSize={newPile->r_OccupyTileGridSize}, tileRegistration={DescribeTileRegistration(newPileId, newPile)}, " +
-                $"quarryLinkAfterPrefab={quarry->r_StoneQuarry_StockPileBuildingId}, oldPileStateAfterPrefab={oldPile->r_AliveState}.");
             return true;
         }
 
@@ -1562,7 +1391,6 @@ namespace ExtraFeatures
                         candidate->r_TilePositionYBegin,
                         target) &&
                     candidate->r_OccupyTileGridSize == expectedGridSize;
-                LogInfo($"captured prefab candidate inspected: operationId={capture.OperationId}, candidateId={candidateId}, matchesTarget={matchesTarget}, actual={DescribeBuilding(candidate)}.");
                 if (!matchesTarget)
                     continue;
 
@@ -1628,90 +1456,63 @@ namespace ExtraFeatures
                 if (buildingId <= 0 || buildingId == oldPileId)
                     continue;
 
-                bool markedForDeletion = DeleteBuildingWithoutLinkedPropagation(buildingId, "prefab-cleanup-" + reason);
-                LogInfo($"invalid prefab replacement cleanup completed: operationId={operationId}, reason={reason}, buildingId={buildingId}, markedForDeletion={markedForDeletion}.");
-            }
-        }
-
-        private static string DescribeTileRegistration(int buildingId, GameBuilding* building)
-        {
-            if (buildingId <= 0 || building == null)
-                return "unavailable";
-
-            int minX = Math.Min(building->r_TilePositionXBegin, building->r_TilePositionXEnd);
-            int maxX = Math.Max(building->r_TilePositionXBegin, building->r_TilePositionXEnd);
-            int minY = Math.Min(building->r_TilePositionYBegin, building->r_TilePositionYEnd);
-            int maxY = Math.Max(building->r_TilePositionYBegin, building->r_TilePositionYEnd);
-            int registered = 0;
-            int occupiedByOther = 0;
-            int empty = 0;
-            GameTileManagerAPI tileApi = GameTileManagerAPI.Instance;
-            for (int y = minY; y <= maxY; y++)
-            {
-                for (int x = minX; x <= maxX; x++)
+                bool markedForDeletion = DeleteBuildingWithoutLinkedPropagation(buildingId);
+                if (!markedForDeletion)
                 {
-                    ushort tileBuildingId = tileApi.GetTileBuildingId(tileApi.GetTileId(x, y));
-                    if (tileBuildingId == buildingId)
-                        registered++;
-                    else if (tileBuildingId == 0)
-                        empty++;
-                    else
-                        occupiedByOther++;
+                    Shared.DebugLogHelper.LogWarning(
+                        log,
+                        $"Extra Features could not clean up an invalid quarry-pile prefab: operationId={operationId}, reason={reason}, buildingId={buildingId}.");
                 }
             }
-
-            return $"registered={registered},empty={empty},other={occupiedByOther},total={(maxX - minX + 1) * (maxY - minY + 1)}";
         }
 
-        private void ClearPileContentBeforeDeletion(
-            int pileId,
-            GameBuilding* pile,
-            int operationId,
-            string stage)
+        private static bool TryGetSafeTileId(
+            GameTileManagerAPI tileApi,
+            int tileX,
+            int tileY,
+            out int tileId)
+        {
+            tileId = -1;
+            if (tileApi == null || !tileApi.IsTileInsideMapBounds(tileX, tileY))
+                return false;
+
+            int resolvedTileId = tileApi.GetTileId(tileX, tileY);
+            if (!tileApi.IsValidTileId(resolvedTileId))
+                return false;
+
+            tileId = resolvedTileId;
+            return true;
+        }
+
+        private static void ClearPileContentBeforeDeletion(GameBuilding* pile)
         {
             if (pile == null)
                 return;
 
-            int pileGlobalId = (int)pile->r_GlobalId;
-            uint previousStoneBlocks = pile->r_StoneBlocksAmount;
-            uint previousGoodStack = pile->r_CurrentGoodStackAmount;
+            // The resource snapshot has already been transferred; prevent deletion from refunding it again.
             pile->r_StoneBlocksAmount = 0;
             pile->r_CurrentGoodStackAmount = 0;
-
-            // CreatePrefab/DeleteBuildingSafe own the tile and visual lifecycle. Only clear the transferred
-            // resource state here; forcing the raw visual APIs is ineffective for these prefab instances.
-            LogInfo($"pile content cleared before prefab-managed deletion: stage={stage}, operationId={operationId}, pileId={pileId}, pileGlobalId={pileGlobalId}, aliveState={pile->r_AliveState}, previousStoneBlocks={previousStoneBlocks}, previousGoodStack={previousGoodStack}.");
         }
 
         private bool TryGetRelocatableQuarry(
             int quarryId,
             int ownerPlayerId,
             out GameBuilding* quarry,
-            out GameBuilding* oldPile,
-            out string failureReason)
+            out GameBuilding* oldPile)
         {
             oldPile = null;
-            if (!TryGetOwnedQuarry(quarryId, ownerPlayerId, out quarry, out failureReason))
+            if (!TryGetOwnedQuarry(quarryId, ownerPlayerId, out quarry))
                 return false;
 
             int oldPileId = quarry->r_StoneQuarry_StockPileBuildingId;
             if (oldPileId <= 0)
-            {
-                failureReason = "quarry-linked-pile-id-not-positive";
                 return false;
-            }
 
             if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(oldPileId, out oldPile))
-            {
-                failureReason = $"linked-pile-id-not-resolvable(id={oldPileId})";
                 return false;
-            }
 
             if (!IsAliveBuilding(oldPile, eStructs.STRUCT_QUARRYPILE, ownerPlayerId))
-            {
-                failureReason = $"linked-building-not-alive-owned-quarry-pile(id={oldPileId},type={oldPile->r_BuildingType},aliveState={oldPile->r_AliveState},owner={oldPile->r_PlayerIdOwner},expectedOwner={ownerPlayerId},globalId={oldPile->r_GlobalId})";
                 return false;
-            }
 
             return true;
         }
@@ -1719,29 +1520,18 @@ namespace ExtraFeatures
         private static bool TryGetOwnedQuarry(
             int quarryId,
             int ownerPlayerId,
-            out GameBuilding* quarry,
-            out string failureReason)
+            out GameBuilding* quarry)
         {
             quarry = null;
-            failureReason = null;
 
             if (quarryId <= 0)
-            {
-                failureReason = "selected-building-id-not-positive";
                 return false;
-            }
 
             if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(quarryId, out quarry))
-            {
-                failureReason = "selected-building-id-not-resolvable";
                 return false;
-            }
 
             if (!IsAliveBuilding(quarry, eStructs.STRUCT_QUARRY, ownerPlayerId))
-            {
-                failureReason = $"selected-building-not-alive-owned-quarry(type={quarry->r_BuildingType},aliveState={quarry->r_AliveState},owner={quarry->r_PlayerIdOwner},expectedOwner={ownerPlayerId},globalId={quarry->r_GlobalId})";
                 return false;
-            }
 
             return true;
         }
@@ -1766,15 +1556,6 @@ namespace ExtraFeatures
         {
             uint gridSize = building->r_OccupyTileGridSize;
             return gridSize > 0 && gridSize <= int.MaxValue ? (int)gridSize : 0;
-        }
-
-        private static string DescribeBuilding(GameBuilding* building)
-        {
-            if (building == null)
-                return "null";
-
-            return $"aliveState={building->r_AliveState}, type={building->r_BuildingType}, owner={building->r_PlayerIdOwner}, globalId={building->r_GlobalId}, " +
-                $"tiles={building->r_TilePositionXBegin},{building->r_TilePositionYBegin}-{building->r_TilePositionXEnd},{building->r_TilePositionYEnd}, gridSize={building->r_OccupyTileGridSize}";
         }
 
         private static int FindAliveBuildingIdByGlobalId(int globalId)
@@ -1814,7 +1595,7 @@ namespace ExtraFeatures
             return 0;
         }
 
-        private bool DeleteBuildingWithoutLinkedPropagation(int buildingId, string reason)
+        private bool DeleteBuildingWithoutLinkedPropagation(int buildingId)
         {
             if (buildingId <= 0)
                 return false;
@@ -1822,9 +1603,7 @@ namespace ExtraFeatures
             linkedRemovalSuppressionDepth++;
             try
             {
-                bool result = GameBuildingManagerAPI.Instance.DeleteBuildingSafe(buildingId);
-                LogInfo($"internal building deletion requested: reason={reason}, buildingId={buildingId}, result={result}, suppressionDepth={linkedRemovalSuppressionDepth}.");
-                return result;
+                return GameBuildingManagerAPI.Instance.DeleteBuildingSafe(buildingId);
             }
             finally
             {
@@ -1841,13 +1620,10 @@ namespace ExtraFeatures
                 return state.Targets;
 
             failedRotationTargetsByQuarry.Remove(quarryGlobalId);
-            LogInfo(
-                $"discarded stale failed-target state: quarryGlobalId={quarryGlobalId}, " +
-                $"storedOldPileGlobalId={state.OldPileGlobalId}, currentOldPileGlobalId={oldPileGlobalId}.");
             return null;
         }
 
-        private void RememberFailedRotationTarget(QuarryPileRelocationOperation operation, string reason)
+        private void RememberFailedRotationTarget(QuarryPileRelocationOperation operation)
         {
             if (operation == null || operation.QuarryGlobalId <= 0 || operation.OldPileGlobalId <= 0)
                 return;
@@ -1860,18 +1636,13 @@ namespace ExtraFeatures
             }
 
             PlacementPosition target = new PlacementPosition(operation.TargetTileX, operation.TargetTileY);
-            bool added = state.Targets.Add(GetPositionKey(target));
-            LogInfo(
-                $"failed rotation target remembered: reason={reason}, quarryGlobalId={operation.QuarryGlobalId}, " +
-                $"oldPileGlobalId={operation.OldPileGlobalId}, target={target.X},{target.Y}, added={added}, failedTargetCount={state.Targets.Count}.");
+            state.Targets.Add(GetPositionKey(target));
         }
 
-        private void ClearFailedRotationTargets(int quarryGlobalId, string reason)
+        private void ClearFailedRotationTargets(int quarryGlobalId)
         {
-            if (quarryGlobalId <= 0 || !failedRotationTargetsByQuarry.Remove(quarryGlobalId))
-                return;
-
-            LogInfo($"failed rotation targets cleared: reason={reason}, quarryGlobalId={quarryGlobalId}.");
+            if (quarryGlobalId > 0)
+                failedRotationTargetsByQuarry.Remove(quarryGlobalId);
         }
 
         private static long GetPositionKey(PlacementPosition position)
@@ -1881,16 +1652,11 @@ namespace ExtraFeatures
 
         private void ClearMapState()
         {
-            LogInfo(
-                $"clearing rotation state: failedTargetQuarryCount={failedRotationTargetsByQuarry.Count}, nextOperationId={nextOperationId}, " +
-                $"pendingAIQuarryCount={pendingAIQuarriesByGlobalId.Count}, prefabCaptureActive={activePrefabSpawnCapture != null}, " +
-                $"linkedRemovalSuppressionDepth={linkedRemovalSuppressionDepth}.");
             failedRotationTargetsByQuarry.Clear();
             pendingAIQuarriesByGlobalId.Clear();
             activePrefabSpawnCapture = null;
             linkedRemovalSuppressionDepth = 0;
             nextOperationId = 0;
-            lastVisibilityLogState = null;
             buttonViewModel.Hide();
         }
 
@@ -1899,14 +1665,12 @@ namespace ExtraFeatures
             ClearMapState();
             mapActive = true;
             aiSpawnObservationArmed = false;
-            LogInfo("map state started; AI quarry spawn observation awaits the first simulation tick.");
         }
 
-        private void ResetAISpawnObservationAfterLoad(string source)
+        private void ResetAISpawnObservationAfterLoad()
         {
             pendingAIQuarriesByGlobalId.Clear();
             aiSpawnObservationArmed = false;
-            LogInfo($"AI quarry spawn observation reset after {source} load; existing quarry spawns are ignored until the next simulation tick.");
         }
 
         private void EndMapState()
@@ -1916,18 +1680,9 @@ namespace ExtraFeatures
             ClearMapState();
         }
 
-        private void LogVisibilityState(string state)
-        {
-            if (string.Equals(lastVisibilityLogState, state, StringComparison.Ordinal))
-                return;
-
-            lastVisibilityLogState = state;
-            LogInfo($"button visibility state: {state}.");
-        }
-
         private void LogInfo(string message)
         {
-            Shared.DebugLogHelper.LogDebug(log, $"Extra Features quarry-pile diagnostic: {message}");
+            Shared.DebugLogHelper.LogDebug(log, $"Extra Features quarry-pile runtime: {message}");
         }
 
         private void DisposeSubscriptions()
@@ -1998,30 +1753,22 @@ namespace ExtraFeatures
 
         private sealed class PrefabSpawnCapture
         {
-            public PrefabSpawnCapture(int operationId, int playerId, int targetX, int targetY)
+            public PrefabSpawnCapture(int playerId, int targetX, int targetY)
             {
-                OperationId = operationId;
                 PlayerId = playerId;
                 TargetX = targetX;
                 TargetY = targetY;
             }
 
-            public int OperationId { get; }
             public int PlayerId { get; }
             public int TargetX { get; }
             public int TargetY { get; }
-            public int InvalidPostEventCount { get; set; }
             public List<int> BuildingIds { get; } = new List<int>();
 
             public void RecordBuildingId(int buildingId)
             {
                 if (buildingId > 0 && !BuildingIds.Contains(buildingId))
                     BuildingIds.Add(buildingId);
-            }
-
-            public string DescribeBuildingIds()
-            {
-                return BuildingIds.Count == 0 ? "none" : string.Join(",", BuildingIds);
             }
         }
 

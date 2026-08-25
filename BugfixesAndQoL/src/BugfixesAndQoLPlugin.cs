@@ -29,6 +29,7 @@ namespace BugfixesAndQoL
         public const string PluginName = "Bugfixes and QoL";
         public const string PluginVersion = "1.0.84";
 
+        private static TemporaryUnitIdZeroDiagnostic unitIdZeroDiagnostic;
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
         private static DisplayResolutionDiagnostic displayResolutionDiagnostic;
         private static SteamLobbyInvitePrompt steamLobbyInvitePrompt;
@@ -39,6 +40,8 @@ namespace BugfixesAndQoL
 
         private void Awake()
         {
+            // TEMPORARY: Remove together with TemporaryUnitIdZeroDiagnostic after identifying the caller.
+            unitIdZeroDiagnostic = TemporaryUnitIdZeroDiagnostic.Install(Logger);
             Shared.DebugLogHelper.LogDebug(Logger, $"{PluginName} {PluginVersion} loaded.");
             bool legacySomeSettingsLoaded = Chainloader.PluginInfos.ContainsKey(LegacySomeSettingsGuid);
             if (legacySomeSettingsLoaded)

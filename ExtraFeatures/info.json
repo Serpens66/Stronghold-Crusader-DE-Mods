@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.68",
+  "Version": "1.0.69",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.69",
+      "Changes": [
+        "Completed cancelled Assassin climbs through Vanilla's normal movement state so units immediately accept new orders and retain consistent tile occupancy."
+      ]
+    },
     {
       "Version": "1.0.68",
       "Changes": [

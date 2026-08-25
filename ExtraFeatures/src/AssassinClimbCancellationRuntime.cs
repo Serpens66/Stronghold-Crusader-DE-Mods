@@ -21,13 +21,12 @@ namespace ExtraFeatures
         private const int TribeManagerRva = 0x7CC6720;
         private const int SelectionBitmapWordCount = 625;
         private const int UnitIdBitsPerWord = 16;
-        private const ushort NormalTransitionState = 1;
+        private const ushort NormalMovementState = 101;
         private const ushort StoppedMovementState = 8;
-        private const int AssassinAssignedTargetOffset = 0x413;
-        private const int AssassinHeightDifferenceOffset = 0x414;
-        private const int AssassinPreviousFacingOffset = 0x416;
-        private const int AssassinDecayCounterOffset = 0x418;
-        private const int AssassinTimerOffset = 0x41A;
+        private const int AssassinClimbVisualActiveOffset = 0x40F;
+        private const int AssassinClimbProgressOffset = 0x414;
+        private const int AssassinFacingOffset = 0x416;
+        private const ushort CompletedClimbFacing = 0x20;
         private const string SelectedUnitCommandPattern =
             "48 8D 0D A9 CA B2 07 E9 E4 4C F8 FF";
 
@@ -37,7 +36,6 @@ namespace ExtraFeatures
         private SelectedUnitCommandDelegate rootedDetour;
         private NativeDetour detour;
         private bool invalidTribeLogged;
-        private bool invalidRollbackLogged;
 
         public AssassinClimbCancellationRuntime(ManualLogSource log, ExtraFeaturesViewModel settings)
         {
@@ -89,7 +87,7 @@ namespace ExtraFeatures
                 detour = installed;
                 Shared.DebugLogHelper.LogInfo(
                     log,
-                    "Extra Features Assassin climb cancellation installed after Vanilla's synchronized selected-unit Stop processing.");
+                    "Extra Features Assassin climb cancellation installed on Vanilla's synchronized selected-unit Stop processing.");
             }
             catch
             {
@@ -135,10 +133,8 @@ namespace ExtraFeatures
                 }
             }
 
-            // Stop every regular or mixed-selection unit through Vanilla first. Vanilla leaves all
-            // four Assassin climb states untouched, so only those captured states need completion.
-            int vanillaResult = vanilla(unitManager, tribeId, command, argument1, argument2, argument3);
-
+            // Vanilla deliberately ignores Stop while the Assassin is in states 126-129. Complete
+            // only that state transition first, then let the original command clear paths and orders.
             if (pending != null && pending.Count > 0)
             {
                 try
@@ -149,11 +145,11 @@ namespace ExtraFeatures
                 {
                     Shared.DebugLogHelper.LogError(
                         log,
-                        $"Extra Features Assassin climb cancellation failed after Vanilla Stop: {ex}");
+                        $"Extra Features Assassin climb cancellation failed before Vanilla Stop: {ex}");
                 }
             }
 
-            return vanillaResult;
+            return vanilla(unitManager, tribeId, command, argument1, argument2, argument3);
         }
 
         private List<PendingCancellation> CaptureClimbingAssassins(int tribeId)
@@ -188,13 +184,10 @@ namespace ExtraFeatures
                         !AssassinClimbCancellationPolicy.IsClimbingState(unit->r_AIState))
                         continue;
 
-                    bool usePrevious = AssassinClimbCancellationPolicy.UsesPreviousTileForRollback(unit->r_AIState);
                     pending.Add(new PendingCancellation(
                         localUnitId,
                         unit->r_GlobalId,
-                        unit->r_AIState,
-                        usePrevious ? unit->r_PreviousTilePositionX : unit->r_CurrentTilePositionX,
-                        usePrevious ? unit->r_PreviousTilePositionY : unit->r_CurrentTilePositionY));
+                        unit->r_AIState));
                 }
             }
 
@@ -205,7 +198,6 @@ namespace ExtraFeatures
         {
             GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
             int cancelled = 0;
-            int relocated = 0;
             int state126 = 0;
             int state127 = 0;
             int state128 = 0;
@@ -219,12 +211,8 @@ namespace ExtraFeatures
                     unit->r_UnitChimp != eChimps.CHIMP_TYPE_ARAB_ASSASIN)
                     continue;
 
-                if (!TryApplyCancellation(unitApi, cancellation, unit, out bool positionChanged))
-                    continue;
-
+                ApplyCancellation(unit);
                 cancelled++;
-                if (positionChanged)
-                    relocated++;
                 switch (cancellation.OriginalState)
                 {
                     case AssassinClimbCancellationPolicy.ThrowingHookState: state126++; break;
@@ -239,90 +227,26 @@ namespace ExtraFeatures
                 Shared.DebugLogHelper.LogDebug(
                     log,
                     $"Extra Features cancelled Assassin climbing through synchronized Stop: tribeId={tribeId}, " +
-                    $"cancelled={cancelled}, relocated={relocated}, states126-129=" +
+                    $"cancelled={cancelled}, states126-129=" +
                     $"{state126}/{state127}/{state128}/{state129}.");
             }
         }
 
-        private bool TryApplyCancellation(
-            GameUnitManagerAPI unitApi,
-            PendingCancellation cancellation,
-            GameUnit* unit,
-            out bool positionChanged)
+        private static void ApplyCancellation(GameUnit* unit)
         {
-            positionChanged = false;
-            ushort rollbackX = cancellation.RollbackX;
-            ushort rollbackY = cancellation.RollbackY;
-            if (rollbackX >= GameTileManagerAPI.MAX_WIDTH || rollbackY >= GameTileManagerAPI.MAX_HEIGHT)
-            {
-                LogInvalidRollbackOnce(cancellation.LocalUnitId, rollbackX, rollbackY, "coordinates are outside the map");
-                return false;
-            }
-
-            int tileId = GameTileManagerAPI.Instance.GetTileId(rollbackX, rollbackY);
-            if (tileId < 0 || tileId >= AssassinClimbCancellationPolicy.TileCount)
-            {
-                LogInvalidRollbackOnce(cancellation.LocalUnitId, rollbackX, rollbackY, $"derived tile ID {tileId} is invalid");
-                return false;
-            }
-
-            int tileHeight = GameTileManagerAPI.Instance.GetTileHeight(tileId);
-            if (tileHeight < 0 || tileHeight > ushort.MaxValue)
-            {
-                LogInvalidRollbackOnce(cancellation.LocalUnitId, rollbackX, rollbackY, $"tile height {tileHeight} is invalid");
-                return false;
-            }
-
-            positionChanged = unit->r_CurrentTilePositionX != rollbackX || unit->r_CurrentTilePositionY != rollbackY;
-            if (positionChanged)
-            {
-                unitApi.SetCurrentLocalTilePosition(
-                    cancellation.LocalUnitId,
-                    new UnmanagedVector2<ushort>(rollbackX, rollbackY));
-            }
-            else
-            {
-                NormalizeTileReferences(unit, rollbackX, rollbackY, (uint)tileId);
-            }
-
-            unit->r_CurrentPositionTileId = (uint)tileId;
-            unit->r_HeightElevation = (ushort)tileHeight;
-            unit->r_PathPlanRelated1 = 0;
-            unit->r_PathPlanStateBitFlags = 0;
+            // Keep Vanilla's current tile and occupancy registration together. During state 129
+            // Current may already be the lower tile; teleporting it back desynchronizes the tile list.
             unit->r_MovingRelevant = StoppedMovementState;
-            unit->p_CurrentPathPlanPosition = 0;
-            unit->p_PathPlanSize = 0;
-            unit->r_AIState = NormalTransitionState;
+            unit->r_AIState = NormalMovementState;
             unit->r_AnimationTimer = 0;
             unit->r_CurrentSpriteAnimationFrame = 0;
             unit->N00000061 = 0;
 
             byte* raw = (byte*)unit;
-            // Offset 0x412 belongs to the scaled Assassin visual and intentionally remains untouched.
-            *(raw + AssassinAssignedTargetOffset) = 0;
-            *(short*)(raw + AssassinHeightDifferenceOffset) = 0;
-            *(ushort*)(raw + AssassinPreviousFacingOffset) = (ushort)unit->r_Direction;
-            *(short*)(raw + AssassinDecayCounterOffset) = 0;
-            *(ushort*)(raw + AssassinTimerOffset) = 0;
-            return true;
-        }
-
-        private static void NormalizeTileReferences(GameUnit* unit, ushort x, ushort y, uint tileId)
-        {
-            unit->r_CurrentTilePositionX = x;
-            unit->r_CurrentTilePositionY = y;
-            unit->r_TargetTilePositionX = x;
-            unit->r_TargetTilePositionY = y;
-            unit->r_PreviousTilePositionX = x;
-            unit->r_PreviousTilePositionY = y;
-            unit->r_NextTilePositionX2 = x;
-            unit->r_NextTilePositionY2 = y;
-            unit->r_TargetTilePositionX2 = x;
-            unit->r_TargetTilePositionY2 = y;
-            unit->r_CurrentPositionTileId = tileId;
-            unit->r_TargetPositionTileId = tileId;
-            unit->r_PreviousPositionTileId = tileId;
-            unit->r_NextPositionTileId2 = tileId;
+            // These are the exact fields Vanilla clears when states 127/129 finish naturally.
+            *(raw + AssassinClimbVisualActiveOffset) = 0;
+            *(ushort*)(raw + AssassinClimbProgressOffset) = 0;
+            *(ushort*)(raw + AssassinFacingOffset) = CompletedClimbFacing;
         }
 
         private void LogInvalidTribeOnce(int tribeId)
@@ -335,32 +259,18 @@ namespace ExtraFeatures
                 $"Extra Features could not safely resolve Assassin Stop tribe {tribeId}; Vanilla behavior remains active.");
         }
 
-        private void LogInvalidRollbackOnce(int localUnitId, ushort x, ushort y, string reason)
-        {
-            if (invalidRollbackLogged)
-                return;
-            invalidRollbackLogged = true;
-            Shared.DebugLogHelper.LogWarning(
-                log,
-                $"Extra Features skipped Assassin climb cancellation for unit {localUnitId} at ({x},{y}) because {reason}.");
-        }
-
         private readonly struct PendingCancellation
         {
-            public PendingCancellation(int localUnitId, uint globalUnitId, ushort originalState, ushort rollbackX, ushort rollbackY)
+            public PendingCancellation(int localUnitId, uint globalUnitId, ushort originalState)
             {
                 LocalUnitId = localUnitId;
                 GlobalUnitId = globalUnitId;
                 OriginalState = originalState;
-                RollbackX = rollbackX;
-                RollbackY = rollbackY;
             }
 
             public int LocalUnitId { get; }
             public uint GlobalUnitId { get; }
             public ushort OriginalState { get; }
-            public ushort RollbackX { get; }
-            public ushort RollbackY { get; }
         }
     }
 }

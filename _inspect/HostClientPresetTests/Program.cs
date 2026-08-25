@@ -1476,11 +1476,6 @@ internal static class Program
               !AssassinClimbCancellationPolicy.IsClimbingState(125) &&
               !AssassinClimbCancellationPolicy.IsClimbingState(130),
             "Assassin climb-stop state filter does not cover exactly states 126 through 129");
-        Check(!AssassinClimbCancellationPolicy.UsesPreviousTileForRollback(126) &&
-              !AssassinClimbCancellationPolicy.UsesPreviousTileForRollback(127) &&
-              !AssassinClimbCancellationPolicy.UsesPreviousTileForRollback(128) &&
-              AssassinClimbCancellationPolicy.UsesPreviousTileForRollback(129),
-            "Assassin climb-stop rollback did not select Previous exclusively for active descent");
     }
 
     private static void TestTroopActionButtonLayoutPolicy()

@@ -123,6 +123,8 @@
     <Compile Include="src\TroopMovementFix3Runtime.cs" />
     <Compile Include="src\TroopMovementFix3SpearmanMovementPatch.cs" />
     <Compile Include="src\TroopMovementFix3SynchronizedMovementCadencePatch.cs" />
+    <!-- TEMPORARY: Remove after identifying the TryGetUnitById(0) caller. -->
+    <Compile Include="src\TemporaryUnitIdZeroDiagnostic.cs" />
   </ItemGroup>
   <ItemGroup><Content Include="Locales\*.txt"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content></ItemGroup>
   <ItemGroup>

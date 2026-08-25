@@ -225,6 +225,10 @@ namespace BugfixesAndQoL
             try
             {
                 int unitId = checked((int)context.Pointer->RBP);
+                // The shared healer epilogue can run without an active unit context.
+                if (unitId <= 0)
+                    return;
+
                 if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* healer) || healer == null)
                 {
                     ReleaseOwnersUsingUnitSlot(unitId, "owner slot unavailable");
