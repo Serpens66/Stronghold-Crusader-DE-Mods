@@ -660,7 +660,9 @@ namespace ImprovedHunters
             inputs = default;
             failure = string.Empty;
             GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
-            if (!unitApi.TryGetUnitById(hunterUnitId, out GameUnit* hunter) || hunter == null)
+            if (hunterUnitId <= 0 ||
+                !unitApi.TryGetUnitById(hunterUnitId, out GameUnit* hunter) ||
+                hunter == null)
             {
                 failure = "invalid-hunter-slot";
                 return false;
@@ -670,7 +672,6 @@ namespace ImprovedHunters
             if (units._array == null ||
                 preyUnitId <= 0 ||
                 preyUnitId > units.Length ||
-                hunterUnitId <= 0 ||
                 hunterUnitId > units.Length)
             {
                 failure = "unit-array-or-slot-invalid";

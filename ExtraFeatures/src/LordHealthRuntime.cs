@@ -102,7 +102,8 @@ namespace ExtraFeatures
             {
                 int playerId = entry.Key;
                 int unitId = GamePlayerManagerAPI.Instance.GetLordUnitId(playerId);
-                if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* lord) ||
+                if (unitId <= 0 ||
+                    !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* lord) ||
                     lord == null || lord->r_GlobalId != entry.Value || lord->r_AliveState != AliveState.IsAlive)
                 {
                     continue;

@@ -1,0 +1,17 @@
+{
+  "GUID": "LinuxModding_Serp",
+  "Author": "Serpens66",
+  "Name": "Linux Modding Compatibility",
+  "Description": "Applies Script Extender Workshop mod updates under Linux/Proton without requiring PowerShell.",
+  "Version": "0.1.0",
+  "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
+  "Manifest": 1,
+  "SerpChangelog": [
+    {
+      "Version": "0.1.0",
+      "Changes": [
+        "Added the first Linux/Proton Workshop updater prototype."
+      ]
+    }
+  ]
+}

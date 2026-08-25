@@ -1045,6 +1045,7 @@ namespace ImprovedHunters
         private void OnCalculateBonusYield(UnitCalculateBonusYieldEventArgs args)
         {
             if (!settings.EnableMod ||
+                !IsValidUnitId(args.UnitId) ||
                 GameUnitManagerAPI.Instance.GetType(args.UnitId) != eChimps.CHIMP_TYPE_HUNTER ||
                 !hunterPreyTypes.TryGetValue(args.UnitId, out eChimps preyType) ||
                 !IsRuntimeHuntingEnabled(preyType))

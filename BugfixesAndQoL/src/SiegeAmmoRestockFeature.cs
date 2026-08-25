@@ -413,8 +413,14 @@ namespace BugfixesAndQoL
             var unique = new HashSet<int>();
             for (int index = 0; index < selected.Length; index++)
             {
-                if (!GameUnitManagerAPI.Instance.TryGetUnitById(selected[index], out GameUnit* unit) || !IsEligible(unit, playerId))
+                int unitId = selected[index];
+                if (unitId <= 0 ||
+                    !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+                    !IsEligible(unit, playerId))
+                {
                     continue;
+                }
+
                 int globalId = (int)unit->r_GlobalId;
                 if (globalId > 0 && unique.Add(globalId)) ids.Add(globalId);
             }
