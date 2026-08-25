@@ -15,7 +15,6 @@ namespace BugfixesAndQoL
     {
         private const int BuildingAppMode = 16;
         private const int TradepostMainPanel = 25;
-        private const int TradepostStructureType = 26;
         private const int TradepostPricesPanel = 53;
         private const int TradepostFoodPanel = 54;
         private const int TradepostResourcesPanel = 55;
@@ -69,7 +68,9 @@ namespace BugfixesAndQoL
                     return;
 
                 EditorDirector.instance.directSetAppSubMode(TradepostMainPanel);
-                MainViewModel.Instance.setUpInbuilding(TradepostMainPanel, TradepostStructureType);
+                MainViewModel.Instance.setUpInbuilding(
+                    TradepostMainPanel,
+                    (int)eStructs.STRUCT_TRADEPOST);
                 Shared.DebugLogHelper.LogDebug(log, () => $"Bugfixes and QoL reset tradepost menu from market key: selectedBuildingId={selectedBuildingId}, previousSubMode={subMode}.");
             }
             catch (Exception ex)

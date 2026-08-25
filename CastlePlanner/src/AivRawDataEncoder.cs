@@ -1,3 +1,4 @@
+using SHCDESE.Interop;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -50,7 +51,8 @@ namespace CastlePlanner
                         $"frames[{frameIndex}].tilePositionOfsets is missing.");
                 }
 
-                hasKeep |= frame.itemType >= 60 && frame.itemType <= 64;
+                hasKeep |= frame.itemType >= (int)eMappers.MAPPER_KEEP1 &&
+                    frame.itemType <= (int)eMappers.MAPPER_KEEP5;
                 if (frame.tilePositionOfsets.Count == 1)
                 {
                     raw.Add(ToShort(frame.itemType, $"frames[{frameIndex}].itemType"));

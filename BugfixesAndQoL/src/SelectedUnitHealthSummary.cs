@@ -1,4 +1,5 @@
 // Feature: Aggregate and page selected-unit health without UI or game-state dependencies.
+using SHCDESE.Interop;
 using System;
 
 namespace BugfixesAndQoL
@@ -55,8 +56,6 @@ namespace BugfixesAndQoL
     internal static class SelectedUnitHealthPageLayout
     {
         internal const int SlotCount = 8;
-        private const int ExcludedType = 55;
-
         internal static int[] GetVisibleTypes(int[] selectedTypeCounts, int currentPage)
         {
             var result = new int[SlotCount];
@@ -72,7 +71,7 @@ namespace BugfixesAndQoL
             int slot = 0;
             for (int type = 0; type < selectedTypeCounts.Length && slot < SlotCount; type++)
             {
-                if (type == ExcludedType || selectedTypeCounts[type] <= 0)
+                if (type == (int)eChimps.CHIMP_TYPE_LORD || selectedTypeCounts[type] <= 0)
                     continue;
 
                 if (selectedOrdinal++ < firstOrdinal)

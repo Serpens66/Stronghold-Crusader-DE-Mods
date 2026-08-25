@@ -507,6 +507,8 @@ namespace BugfixesAndQoL
 
         private static bool IsBuiltInLordAvailable(int lordType)
         {
+            // Frontend lord indices start at zero and therefore do not match AILords,
+            // whose zero value is SK_NULL.
             switch (lordType)
             {
                 case 20:

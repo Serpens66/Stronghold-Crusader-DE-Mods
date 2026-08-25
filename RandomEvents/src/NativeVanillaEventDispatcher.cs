@@ -29,10 +29,10 @@ namespace RandomEvents
         private const int PresentationHandlerRva = 0x1031B0;
         private const int PresentationManagerRva = 0x1B62EE0;
 
-        private const int WheatFarmType = 30;
-        private const int HopsFarmType = 31;
-        private const int AppleFarmType = 32;
-        private const int CattleFarmType = 33;
+        private const eStructs WheatFarmType = eStructs.STRUCT_WHEATFARM;
+        private const eStructs HopsFarmType = eStructs.STRUCT_HOPSFARM;
+        private const eStructs AppleFarmType = eStructs.STRUCT_APPLEFARM;
+        private const eStructs CattleFarmType = eStructs.STRUCT_CATTLEFARM;
 
         private const string HasBuildingPattern =
             "4C 63 51 50 49 83 FA 01 7E 33 41 B9 01 00 00 00 48 81 C1 5E 04 00 00 66 83 79 FA 00 74 10";
@@ -145,7 +145,7 @@ namespace RandomEvents
                     return DispatchFarmEvent(
                         buildingManager,
                         targetPlayerId,
-                        WheatFarmType,
+                        (int)WheatFarmType,
                         wheatHandler,
                         3,
                         "action_wheat_die.bik",
@@ -156,7 +156,7 @@ namespace RandomEvents
                     return DispatchFarmEvent(
                         buildingManager,
                         targetPlayerId,
-                        HopsFarmType,
+                        (int)HopsFarmType,
                         hopsHandler,
                         4,
                         "action_hops_die.bik",
@@ -167,7 +167,7 @@ namespace RandomEvents
                     return DispatchFarmEvent(
                         buildingManager,
                         targetPlayerId,
-                        AppleFarmType,
+                        (int)AppleFarmType,
                         appleHandler,
                         5,
                         "action_apples_die.bik",
@@ -181,7 +181,7 @@ namespace RandomEvents
                         detail = "native unit manager is unavailable.";
                         return NativeEventDispatchStatus.Unavailable;
                     }
-                    if (hasBuilding(buildingManager, targetPlayerId, CattleFarmType) == 0)
+                    if (hasBuilding(buildingManager, targetPlayerId, (int)CattleFarmType) == 0)
                     {
                         detail = "Vanilla prerequisite failed: target player has no eligible cattle farm.";
                         return NativeEventDispatchStatus.PrerequisiteNotMet;

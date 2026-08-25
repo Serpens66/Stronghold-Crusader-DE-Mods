@@ -1,4 +1,6 @@
 // Audited native contract for the AI recruitment horse-demand fix.
+using SHCDESE.Interop;
+
 namespace BugfixesAndQoL
 {
     internal static class AiRecruitmentHorseDemandNativeDefinition
@@ -7,7 +9,7 @@ namespace BugfixesAndQoL
         public const int ResultCodeOffset = 0x650;
         public const int MissingGoodIdOffset = 0x654;
         public const int MissingRequirementResultCode = 2;
-        public const int KnightUnitType = 28;
+        // This native result uses one-based good IDs, not the zero-based eGoods values.
         public const int SwordGoodId = 23;
         public const int MetalArmourGoodId = 25;
 
@@ -19,12 +21,12 @@ namespace BugfixesAndQoL
             "89 8B 50 06 00 00 49 8D 41 EA";
 
         public static bool IsKnightHorseOnlyFailure(int unitType, int resultCode, int missingGoodId) =>
-            unitType == KnightUnitType &&
+            unitType == (int)eChimps.CHIMP_TYPE_KNIGHT &&
             resultCode == MissingRequirementResultCode &&
             missingGoodId == 0;
 
         public static bool IsKnightEquipmentFailure(int unitType, int resultCode, int missingGoodId) =>
-            unitType == KnightUnitType &&
+            unitType == (int)eChimps.CHIMP_TYPE_KNIGHT &&
             resultCode == MissingRequirementResultCode &&
             (missingGoodId == SwordGoodId || missingGoodId == MetalArmourGoodId);
     }

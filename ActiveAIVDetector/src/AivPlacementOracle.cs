@@ -886,7 +886,8 @@ namespace ActiveAIVDetector
                 {
                     int index = row * AivGridSize + column;
                     short rawMapper = mapperGrid[index];
-                    if (rawMapper == 0 || rawMapper == 1)
+                    if (rawMapper == (short)eMappers.MAPPER_NULL ||
+                        rawMapper == (short)eMappers.MAPPER_AREA)
                         continue;
 
                     byte result = resultGrid[index];
@@ -1438,7 +1439,10 @@ namespace ActiveAIVDetector
         public int ReplacedCount { get; }
         public IReadOnlyList<OraclePrebuildBuildingGridChange> Changes { get; }
         public string CaptureError { get; }
-        public bool IsHighlightedMapper => Mapper == 52 || Mapper == 89 || Mapper == 105;
+        public bool IsHighlightedMapper =>
+            Mapper == (short)eMappers.MAPPER_STORES ||
+            Mapper == (short)eMappers.MAPPER_TUNNELERS_GUILD ||
+            Mapper == (short)eMappers.MAPPER_DRAWBRIDGE;
     }
 
     internal readonly struct OraclePrebuildBuildingGridChange

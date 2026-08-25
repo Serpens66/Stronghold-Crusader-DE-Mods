@@ -1,4 +1,5 @@
 using BepInEx.Logging;
+using SHCDESE.Interop;
 using System;
 using System.Runtime.InteropServices;
 using Zhuqiaomon.Windows;
@@ -17,7 +18,7 @@ namespace ImprovedHunters
         private const int DispatchTargetTableRva = 0x6BAB4;
         private const int TypeDispatchTableRva = 0x6BAC4;
         private const int BuildingBlockHeightTableRva = 0x2E8C60;
-        private const int HunterHutType = 7;
+        private const eStructs HunterHutType = eStructs.STRUCT_HUNTERS_HUT;
         private const int HunterHutBlockHeight = 40;
 
         private const int TypeSwitchToHeightHelperOffset = 0x68;
@@ -266,7 +267,7 @@ namespace ImprovedHunters
 
             ValidateRange(memory, typeDispatchTableRva, 2);
             ValidateRange(memory, dispatchTargetTableRva, 4 * sizeof(int));
-            ValidateRange(memory, buildingHeightTableRva, (HunterHutType + 1) * sizeof(int));
+            ValidateRange(memory, buildingHeightTableRva, ((int)HunterHutType + 1) * sizeof(int));
 
             int specialCaseRva = Shared.NativePatternResolver.ReadInt32(
                 memory,
@@ -278,7 +279,7 @@ namespace ImprovedHunters
             byte nextBuildingDispatch = memory[typeDispatchTableRva + 1];
             int hunterHutHeight = Shared.NativePatternResolver.ReadInt32(
                 memory,
-                buildingHeightTableRva + HunterHutType * sizeof(int));
+                buildingHeightTableRva + (int)HunterHutType * sizeof(int));
 
             if (!Shared.NativePatternResolver.MatchesPatternAt(
                     memory,

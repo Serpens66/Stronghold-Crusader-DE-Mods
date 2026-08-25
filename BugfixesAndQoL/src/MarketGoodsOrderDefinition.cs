@@ -1,4 +1,5 @@
 // Feature: Defines and validates the configurable circular market-goods order.
+using SHCDESE.Interop;
 using System;
 
 namespace BugfixesAndQoL
@@ -7,8 +8,26 @@ namespace BugfixesAndQoL
     {
         private static readonly int[] HdOrder =
         {
-            12, 11, 13, 10, 9, 16, 2, 4, 6, 8,
-            19, 17, 21, 18, 20, 22, 23, 24, 14, 3
+            (int)eGoods.STORED_FOOD_MEAT,
+            (int)eGoods.STORED_FOOD_CHEESE,
+            (int)eGoods.STORED_FOOD_FRUIT,
+            (int)eGoods.STORED_FOOD_BREAD,
+            (int)eGoods.STORED_RAW_WHEAT,
+            (int)eGoods.STORED_FLOUR,
+            (int)eGoods.STORED_WOOD_PLANKS,
+            (int)eGoods.STORED_STONE_BLOCKS,
+            (int)eGoods.STORED_IRON_INGOTS,
+            (int)eGoods.STORED_PITCH_REFINED,
+            (int)eGoods.STORED_SPEARS,
+            (int)eGoods.STORED_BOWS,
+            (int)eGoods.STORED_MACES,
+            (int)eGoods.STORED_CROSSBOWS,
+            (int)eGoods.STORED_PIKES,
+            (int)eGoods.STORED_SWORDS,
+            (int)eGoods.STORED_LEATHER_ARMOUR,
+            (int)eGoods.STORED_METAL_ARMOUR,
+            (int)eGoods.STORED_FOOD_ALE,
+            (int)eGoods.STORED_RAW_HOPS
         };
 
         public static int Count => HdOrder.Length;

@@ -179,9 +179,11 @@ namespace CastlePlanner
                 mapper.Category == AivItemCategory.LowWallPath ||
                 mapper.Category == AivItemCategory.CrenelPath ||
                 mapper.Category == AivItemCategory.Stair ||
-                itemType == 105 ||
-                (itemType >= 110 && itemType <= 114) ||
-                (itemType >= 144 && itemType <= 147))
+                itemType == (int)eMappers.MAPPER_DRAWBRIDGE ||
+                (itemType >= (int)eMappers.MAPPER_TOWER1 &&
+                    itemType <= (int)eMappers.MAPPER_TOWER5) ||
+                (itemType >= (int)eMappers.MAPPER_GATE_STONE1A &&
+                    itemType <= (int)eMappers.MAPPER_GATE_STONE2B))
             {
                 return AivFrameSpawnCategory.Fortification;
             }

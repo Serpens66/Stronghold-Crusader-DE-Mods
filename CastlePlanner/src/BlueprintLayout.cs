@@ -1,6 +1,7 @@
 #nullable disable
 
 using AIVParser.Core;
+using SHCDESE.Interop;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -133,8 +134,6 @@ namespace CastlePlanner
 
     internal static class BlueprintLayoutBuilder
     {
-        private const int DrawbridgeMapperValue = 105;
-
         public static BlueprintLayout Build(
             AivJsonDocument document,
             int keepWorldX,
@@ -295,7 +294,7 @@ namespace CastlePlanner
                         BlueprintWorldTile? adjacentGateCenter = null;
                         BlueprintWorldTile? stairLowEnd = null;
                         BlueprintWorldTile? stairHighEnd = null;
-                        if (frame.itemType == DrawbridgeMapperValue &&
+                        if (frame.itemType == (int)eMappers.MAPPER_DRAWBRIDGE &&
                             TryFindAdjacentGate(
                                 footprint,
                                 frameIndex,
@@ -461,7 +460,7 @@ namespace CastlePlanner
                 var chain = new List<BlueprintStairSegment> { first };
                 BlueprintStairSegment current = first;
                 for (int mapper = first.MapperValue + 1;
-                    mapper <= 186;
+                    mapper <= (int)eMappers.MAPPER_STAIR6;
                     mapper++)
                 {
                     BlueprintStairSegment next = unused
@@ -550,7 +549,8 @@ namespace CastlePlanner
                     gate.Footprint.Maximum.Column + 1 ==
                         drawbridge.Minimum.Column;
                 bool gateUsesRowAxis =
-                    gate.MapperValue == 144 || gate.MapperValue == 146;
+                    gate.MapperValue == (int)eMappers.MAPPER_GATE_STONE1A ||
+                    gate.MapperValue == (int)eMappers.MAPPER_GATE_STONE2A;
                 AivGridPoint drawbridgeCenter = GetCenter(drawbridge);
                 AivGridPoint gateCenter = GetCenter(gate.Footprint);
                 bool centeredOnSharedEdge = touchesAcrossRows
@@ -623,7 +623,8 @@ namespace CastlePlanner
 
         private static bool IsDirectionalStoneGate(int mapperValue)
         {
-            return mapperValue >= 144 && mapperValue <= 147;
+            return mapperValue >= (int)eMappers.MAPPER_GATE_STONE1A &&
+                mapperValue <= (int)eMappers.MAPPER_GATE_STONE2B;
         }
 
         private static AivGridPoint CreateGridPoint(

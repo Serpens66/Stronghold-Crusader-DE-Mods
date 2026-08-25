@@ -5,6 +5,7 @@ using Shared;
 using SHCDESE.API;
 using SHCDESE.API.Components.ModManager;
 using SHCDESE.API.Components.Network;
+using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -1484,16 +1485,16 @@ internal static class Program
     private static void TestAssassinClimbCancellationPolicy()
     {
         Check(AssassinClimbCancellationPolicy.ShouldHandleCommand(
-                true, true, true, AssassinClimbCancellationPolicy.UnitStopCommand),
+                true, true, true, (uint)TribeAICommand.UnitStop),
             "Assassin climb cancellation rejected Vanilla's synchronized UnitStop command");
         Check(!AssassinClimbCancellationPolicy.ShouldHandleCommand(
-                false, true, true, AssassinClimbCancellationPolicy.UnitStopCommand) &&
+                false, true, true, (uint)TribeAICommand.UnitStop) &&
               !AssassinClimbCancellationPolicy.ShouldHandleCommand(
-                true, false, true, AssassinClimbCancellationPolicy.UnitStopCommand) &&
+                true, false, true, (uint)TribeAICommand.UnitStop) &&
               !AssassinClimbCancellationPolicy.ShouldHandleCommand(
-                true, true, false, AssassinClimbCancellationPolicy.UnitStopCommand) &&
+                true, true, false, (uint)TribeAICommand.UnitStop) &&
               !AssassinClimbCancellationPolicy.ShouldHandleCommand(
-                true, true, true, AssassinClimbCancellationPolicy.UnitStopCommand + 1),
+                true, true, true, (uint)TribeAICommand.UnitStop + 1),
             "Assassin climb cancellation did not fail closed outside the enabled synchronized UnitStop path");
         Check(AssassinClimbCancellationPolicy.IsClimbingState(126) &&
               AssassinClimbCancellationPolicy.IsClimbingState(127) &&
@@ -3647,6 +3648,47 @@ namespace Noesis
 {
     public enum Visibility { Visible, Hidden, Collapsed }
     public sealed class ComboBoxItem { public object Content { get; set; } public Visibility Visibility { get; set; } }
+}
+
+namespace SHCDESE.Interop
+{
+    public enum eGoods : short
+    {
+        STORED_WOOD_PLANKS = 2,
+        STORED_RAW_HOPS = 3,
+        STORED_STONE_BLOCKS = 4,
+        STORED_IRON_INGOTS = 6,
+        STORED_PITCH_REFINED = 8,
+        STORED_RAW_WHEAT = 9,
+        STORED_FOOD_BREAD = 10,
+        STORED_FOOD_CHEESE = 11,
+        STORED_FOOD_MEAT = 12,
+        STORED_FOOD_FRUIT = 13,
+        STORED_FOOD_ALE = 14,
+        STORED_FLOUR = 16,
+        STORED_BOWS = 17,
+        STORED_CROSSBOWS = 18,
+        STORED_SPEARS = 19,
+        STORED_PIKES = 20,
+        STORED_MACES = 21,
+        STORED_SWORDS = 22,
+        STORED_LEATHER_ARMOUR = 23,
+        STORED_METAL_ARMOUR = 24
+    }
+
+    public enum eChimps : ushort
+    {
+        CHIMP_TYPE_KNIGHT = 28,
+        CHIMP_TYPE_LORD = 55
+    }
+}
+
+namespace SHCDESE.Interop.Enums
+{
+    public enum TribeAICommand : uint
+    {
+        UnitStop = 31
+    }
 }
 
 namespace SHCDESE.ViewModels

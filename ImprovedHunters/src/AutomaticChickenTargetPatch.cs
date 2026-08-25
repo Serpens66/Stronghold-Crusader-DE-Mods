@@ -1,4 +1,5 @@
 using BepInEx.Logging;
+using SHCDESE.Interop;
 using System;
 using System.Runtime.InteropServices;
 using Zhuqiaomon.Windows;
@@ -20,9 +21,10 @@ namespace ImprovedHunters
         private const int ManualAttackCommandRva = 0x18EB36;
         private const int ManualAttackTargetAssignmentRva = 0x18ED96;
 
-        private const int DeerType = 44;
-        private const int ChickenType = 62;
-        private const int ChickenDispatchEntryRva = TypeDispatchTableRva + ChickenType - DeerType;
+        private const eChimps DeerType = eChimps.CHIMP_TYPE_DEER;
+        private const eChimps ChickenType = eChimps.CHIMP_TYPE_CHICKEN;
+        private const int ChickenDispatchEntryRva =
+            TypeDispatchTableRva + (int)ChickenType - (int)DeerType;
         private const byte HunterOnlyDispatchIndex = 0;
         private const byte GeneralAcceptanceDispatchIndex = 6;
 
@@ -357,7 +359,7 @@ namespace ImprovedHunters
             }
 
             int resolvedChickenDispatchEntryRva = checked(
-                resolvedTypeTableRva + ChickenType - DeerType);
+                resolvedTypeTableRva + (int)ChickenType - (int)DeerType);
             ValidateRange(memory, resolvedTargetTableRva, (GeneralAcceptanceDispatchIndex + 1) * sizeof(int));
             ValidateRange(memory, resolvedChickenDispatchEntryRva, sizeof(byte));
             int hunterOnlyTarget = Shared.NativePatternResolver.ReadInt32(
