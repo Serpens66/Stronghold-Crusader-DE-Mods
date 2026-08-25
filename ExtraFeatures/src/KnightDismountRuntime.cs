@@ -46,6 +46,9 @@ namespace ExtraFeatures
         public RelayCommand MountMouseEnterCommand { get; }
         public RelayCommand MouseLeaveCommand { get; }
 
+        public int TroopActionLayoutVersion => 1;
+        public string TroopActionId => "ExtraFeatures_Serp.KnightTransform";
+        public int TroopActionPriority => 100;
         public bool WantsVisibility => wantsVisibility;
 
         public bool LayoutAvailable

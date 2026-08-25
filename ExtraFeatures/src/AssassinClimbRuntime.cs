@@ -33,6 +33,9 @@ namespace ExtraFeatures
         public RelayCommand MouseEnterCommand { get; }
         public RelayCommand MouseLeaveCommand { get; }
 
+        public int TroopActionLayoutVersion => 1;
+        public string TroopActionId => "ExtraFeatures_Serp.AssassinClimb";
+        public int TroopActionPriority => 200;
         public bool WantsVisibility => wantsVisibility;
 
         public bool LayoutAvailable

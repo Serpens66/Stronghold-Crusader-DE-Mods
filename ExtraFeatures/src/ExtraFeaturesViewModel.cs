@@ -41,7 +41,6 @@ namespace ExtraFeatures
         private bool enableSingleBuildingPause = true;
         private bool enableFastRecruitRallyMovement = true;
         private bool enableMonksAlwaysRun;
-        private bool enablePortableShieldsOnWalls;
         private bool enableKnightDismount = true;
         private bool enableImprovedAssassinPathfinding = true;
         private bool instantHorse;
@@ -91,8 +90,6 @@ namespace ExtraFeatures
         public string EnableFastRecruitRallyMovementHelpText => SerpLocalization.Get(SerpLocalization.EnableFastRecruitRallyMovementHelp);
         public string EnableMonksAlwaysRunText => SerpLocalization.Get(SerpLocalization.EnableMonksAlwaysRun);
         public string EnableMonksAlwaysRunHelpText => SerpLocalization.Get(SerpLocalization.EnableMonksAlwaysRunHelp);
-        public string EnablePortableShieldsOnWallsText => SerpLocalization.Get(SerpLocalization.EnablePortableShieldsOnWalls);
-        public string EnablePortableShieldsOnWallsHelpText => SerpLocalization.Get(SerpLocalization.EnablePortableShieldsOnWallsHelp);
         public string EnableKnightDismountText => SerpLocalization.Get(SerpLocalization.EnableKnightDismount);
         public string EnableKnightDismountHelpText => SerpLocalization.Get(SerpLocalization.EnableKnightDismountHelp);
         public string EnableImprovedAssassinPathfindingText => SerpLocalization.Get(SerpLocalization.EnableImprovedAssassinPathfinding);
@@ -228,7 +225,6 @@ namespace ExtraFeatures
         [SyncHostOnly] public bool EnableSingleBuildingPause { get => enableSingleBuildingPause; set => SetSetting(ref enableSingleBuildingPause, value, nameof(EnableSingleBuildingPause)); }
         [SyncHostOnly] public bool EnableFastRecruitRallyMovement { get => enableFastRecruitRallyMovement; set => SetSetting(ref enableFastRecruitRallyMovement, value, nameof(EnableFastRecruitRallyMovement)); }
         [SyncHostOnly] public bool EnableMonksAlwaysRun { get => enableMonksAlwaysRun; set => SetSetting(ref enableMonksAlwaysRun, value, nameof(EnableMonksAlwaysRun)); }
-        [SyncHostOnly] public bool EnablePortableShieldsOnWalls { get => enablePortableShieldsOnWalls; set => SetSetting(ref enablePortableShieldsOnWalls, value, nameof(EnablePortableShieldsOnWalls)); }
         [SyncHostOnly] public bool EnableKnightDismount { get => enableKnightDismount; set => SetSetting(ref enableKnightDismount, value, nameof(EnableKnightDismount)); }
         [SyncHostOnly] public bool EnableImprovedAssassinPathfinding { get => enableImprovedAssassinPathfinding; set => SetSetting(ref enableImprovedAssassinPathfinding, value, nameof(EnableImprovedAssassinPathfinding)); }
         [SyncHostOnly] public bool InstantHorse { get => instantHorse; set => SetSetting(ref instantHorse, value, nameof(InstantHorse)); }
@@ -312,7 +308,6 @@ namespace ExtraFeatures
                 EnableSingleBuildingPause = true;
                 EnableFastRecruitRallyMovement = true;
                 EnableMonksAlwaysRun = false;
-                EnablePortableShieldsOnWalls = false;
                 EnableKnightDismount = true;
                 EnableImprovedAssassinPathfinding = true;
                 InstantHorse = false;

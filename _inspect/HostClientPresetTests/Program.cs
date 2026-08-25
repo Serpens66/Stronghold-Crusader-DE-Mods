@@ -40,7 +40,6 @@ internal static class Program
             TestAssassinClimbCostPolicy();
             TestTroopActionButtonLayoutPolicy();
             TestLordHealthMultiplierPolicy();
-            TestPortableShieldClimbSelectionPolicy();
             TestQuarryPileTargetSelectionPolicy();
             TestTemporaryGateBlockagePolicy();
             TestGatehouseAutomationSaveState();
@@ -1480,8 +1479,117 @@ internal static class Program
         Check(TroopActionButtonLayoutPolicy.IsEffectivelyOccupied(true, true),
             "shared troop action collision policy ignored an effectively visible interactive element");
         Check(!TroopActionButtonLayoutPolicy.IsEffectivelyOccupied(false, true) &&
-              !TroopActionButtonLayoutPolicy.IsEffectivelyOccupied(true, false),
-            "shared troop action collision policy treated an effectively hidden or noninteractive element as occupied");
+              TroopActionButtonLayoutPolicy.IsEffectivelyOccupied(true, false),
+            "shared troop action collision policy did not give every displayed Vanilla/foreign button priority");
+
+        Check(TroopActionButtonLayoutPolicy.TryResolveIdentity(
+                "SerpTroopAction_Host", 1, "Example.Mod.Action", 150,
+                out int explicitPriority, out string explicitActionId) &&
+              explicitPriority == 150 && explicitActionId == "Example.Mod.Action",
+            "shared troop action metadata contract rejected valid explicit metadata");
+        Check(TroopActionButtonLayoutPolicy.TryResolveIdentity(
+                "SerpTroopAction_0125_LegacyAction", null, null, null,
+                out int legacyPriority, out string legacyActionId) &&
+              legacyPriority == 125 && legacyActionId == "LegacyAction",
+            "shared troop action metadata contract rejected the legacy host format");
+        Check(!TroopActionButtonLayoutPolicy.TryResolveIdentity(
+                "SerpTroopAction_Host", 2, "Example.Mod.Action", 150, out _, out _) &&
+              !TroopActionButtonLayoutPolicy.TryResolveIdentity(
+                "SerpTroopAction_Host", 1, "Example.Mod.Action", null, out _, out _),
+            "shared troop action metadata contract accepted an unknown version or incomplete metadata");
+
+        var knight = new TroopActionRequest(
+            "KnightHost", "ExtraFeatures_Serp.KnightTransform", 100, true);
+        var assassin = new TroopActionRequest(
+            "AssassinHost", "ExtraFeatures_Serp.AssassinClimb", 200, true);
+        TroopActionLayoutDecision bothFree = TroopActionButtonLayoutPolicy.CreateDecision(
+            new[] { assassin, knight }, false, false);
+        Check(bothFree.Assignments.Select(value => $"{value.ActionId}:{value.Slot}").SequenceEqual(new[]
+        {
+            "ExtraFeatures_Serp.KnightTransform:BottomRight",
+            "ExtraFeatures_Serp.AssassinClimb:BottomMiddle"
+        }), "shared troop actions did not use priority order for the two free slots");
+
+        TroopActionLayoutDecision reverseOrder = TroopActionButtonLayoutPolicy.CreateDecision(
+            new[] { knight, assassin }, false, false);
+        Check(reverseOrder.Assignments.Select(value => $"{value.ActionId}:{value.Slot}")
+                .SequenceEqual(bothFree.Assignments.Select(value => $"{value.ActionId}:{value.Slot}")),
+            "shared troop action assignment depended on registration or mod load order");
+
+        TroopActionLayoutDecision rightOccupied = TroopActionButtonLayoutPolicy.CreateDecision(
+            new[] { assassin, knight }, true, false);
+        Check(rightOccupied.Assignments.Count == 1 &&
+              rightOccupied.Assignments[0].ActionId == knight.ActionId &&
+              rightOccupied.Assignments[0].Slot == TroopActionSlot.BottomMiddle &&
+              rightOccupied.OverflowActionIds.SequenceEqual(new[] { assassin.ActionId }),
+            "shared troop actions did not give the remaining middle slot to the highest priority action");
+
+        TroopActionLayoutDecision middleOccupied = TroopActionButtonLayoutPolicy.CreateDecision(
+            new[] { assassin, knight }, false, true);
+        Check(middleOccupied.Assignments.Count == 1 &&
+              middleOccupied.Assignments[0].ActionId == knight.ActionId &&
+              middleOccupied.Assignments[0].Slot == TroopActionSlot.BottomRight,
+            "shared troop actions did not preserve the working bottom-right Knight slot");
+
+        TroopActionLayoutDecision bothOccupied = TroopActionButtonLayoutPolicy.CreateDecision(
+            new[] { assassin, knight }, true, true);
+        Check(bothOccupied.Assignments.Count == 0 && bothOccupied.OverflowActionIds.Count == 2,
+            "shared troop actions overlaid occupied Vanilla/foreign slots");
+
+        TroopActionLayoutDecision assassinOnly = TroopActionButtonLayoutPolicy.CreateDecision(
+            new[] { assassin }, false, false);
+        Check(assassinOnly.Assignments.Count == 1 &&
+              assassinOnly.Assignments[0].Slot == TroopActionSlot.BottomRight,
+            "a lone Assassin action did not receive the preferred bottom-right slot");
+
+        TroopActionLayoutDecision threeActions = TroopActionButtonLayoutPolicy.CreateDecision(
+            new[]
+            {
+                new TroopActionRequest("Third", "Example.Mod.Third", 300, true),
+                assassin,
+                knight
+            },
+            false,
+            false);
+        Check(threeActions.Assignments.Count == 2 &&
+              threeActions.OverflowActionIds.SequenceEqual(new[] { "Example.Mod.Third" }),
+            "shared troop action overflow did not hide the lowest priority third action");
+
+        TroopActionLayoutDecision tied = TroopActionButtonLayoutPolicy.CreateDecision(
+            new[]
+            {
+                new TroopActionRequest("B", "Example.Mod.B", 100, true),
+                new TroopActionRequest("A", "Example.Mod.A", 100, true)
+            },
+            false,
+            false);
+        Check(tied.Assignments[0].ActionId == "Example.Mod.A" &&
+              tied.Assignments[1].ActionId == "Example.Mod.B",
+            "equal troop action priorities were not resolved by ordinal action id");
+
+        TroopActionLayoutDecision duplicate = TroopActionButtonLayoutPolicy.CreateDecision(
+            new[]
+            {
+                new TroopActionRequest("Duplicate1", "Example.Mod.Duplicate", 100, true),
+                new TroopActionRequest("Duplicate2", "Example.Mod.Duplicate", 200, true),
+                knight
+            },
+            false,
+            false);
+        Check(duplicate.DuplicateActionIds.SequenceEqual(new[] { "Example.Mod.Duplicate" }) &&
+              duplicate.Assignments.Count == 1 && duplicate.Assignments[0].ActionId == knight.ActionId,
+            "duplicate troop action ids did not fail closed without blocking unrelated actions");
+        TroopActionLayoutDecision hiddenDuplicate = TroopActionButtonLayoutPolicy.CreateDecision(
+            new[]
+            {
+                new TroopActionRequest("VisibleDuplicate", "Example.Mod.HiddenDuplicate", 100, true),
+                new TroopActionRequest("HiddenDuplicate", "Example.Mod.HiddenDuplicate", 200, false)
+            },
+            false,
+            false);
+        Check(hiddenDuplicate.DuplicateActionIds.SequenceEqual(new[] { "Example.Mod.HiddenDuplicate" }) &&
+              hiddenDuplicate.Assignments.Count == 0,
+            "a hidden duplicate troop action id did not make the shared contract fail closed");
     }
 
     private static void TestTemporaryGateBlockagePolicy()
@@ -1677,26 +1785,6 @@ internal static class Program
                 20,
                 out _),
             "AI quarry-pile selection accepted an empty valid-candidate set");
-    }
-
-    private static void TestPortableShieldClimbSelectionPolicy()
-    {
-        Check(PortableShieldClimbSelectionPolicy.ShouldOverrideVanilla(true, 0, 1, 0, 0, 0),
-            "a single local movable portable shield was not allowed to override Vanilla");
-        Check(PortableShieldClimbSelectionPolicy.ShouldOverrideVanilla(true, 0, 3, 0, 0, 0),
-            "multiple local movable portable shields were not allowed to override Vanilla");
-        Check(!PortableShieldClimbSelectionPolicy.ShouldOverrideVanilla(false, 0, 1, 0, 0, 0),
-            "the disabled portable-shield feature overrode Vanilla");
-        Check(!PortableShieldClimbSelectionPolicy.ShouldOverrideVanilla(true, 1, 1, 0, 0, 0),
-            "an accepting Vanilla result was unnecessarily overridden");
-        Check(!PortableShieldClimbSelectionPolicy.ShouldOverrideVanilla(true, 0, 1, 1, 0, 0),
-            "a mixed local selection was accepted");
-        Check(!PortableShieldClimbSelectionPolicy.ShouldOverrideVanilla(true, 0, 1, 0, 1, 0),
-            "a foreign selection was accepted");
-        Check(!PortableShieldClimbSelectionPolicy.ShouldOverrideVanilla(true, 0, 1, 0, 0, 1),
-            "a non-movable portable shield was accepted");
-        Check(!PortableShieldClimbSelectionPolicy.ShouldOverrideVanilla(true, 0, 0, 0, 0, 0),
-            "an empty selection was accepted");
     }
 
     private static void TestGameSpeedRepeatScheduler()

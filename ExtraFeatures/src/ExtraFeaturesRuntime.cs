@@ -47,7 +47,6 @@ namespace ExtraFeatures
         private AIMarketVanillaPriceHook aiMarketVanillaPriceHook;
         private FastRecruitMovementBridge fastRecruitMovementBridge;
         private MonkAlwaysRunPatch monkAlwaysRunPatch;
-        private PortableShieldClimbOverride portableShieldClimbOverride;
         private PlagueDurationPatch plagueDurationPatch;
         private PlagueApothecarySearchRangePatch plagueApothecarySearchRangePatch;
         private IntPtr libraryHandle;
@@ -57,7 +56,6 @@ namespace ExtraFeatures
         private bool quarryFixedLayoutErrorLogged;
         private bool fastRecruitInitializationAttempted;
         private bool monkAlwaysRunPatchUnavailable;
-        private bool portableShieldClimbOverrideUnavailable;
         private bool hooksSubscribed;
         private bool settingsSubscribed;
         private bool plagueDurationPatchUnavailable;
@@ -165,7 +163,6 @@ namespace ExtraFeatures
             InitializePlagueDurationPatch(newLibraryHandle, memory);
             InitializePlagueApothecarySearchRangePatch(newLibraryHandle, memory);
             InitializeMonkAlwaysRunPatch(newLibraryHandle, memory);
-            InitializePortableShieldClimbOverride(newLibraryHandle, memory);
             try
             {
                 gatehouseAutomationRuntime.InitializeNative(newLibraryHandle, memory, fixedLayoutHashValidated);
@@ -200,7 +197,6 @@ namespace ExtraFeatures
                 TryRunFeature("Vanilla value restoration", RestoreDefaultSettings);
                 TryRunFeature("fast recruit rally movement", ApplyFastRecruitRallyMovementSetting);
                 TryRunFeature("Monks Always Run", ApplyMonkAlwaysRunSetting);
-                TryRunFeature("portable shields on walls", ApplyPortableShieldClimbSetting);
                 TryRunFeature("optional local hooks", UnsubscribeHooks);
                 return;
             }
@@ -214,7 +210,6 @@ namespace ExtraFeatures
             ApplyPlagueDurationSetting();
             TryRunFeature("fast recruit rally movement", ApplyFastRecruitRallyMovementSetting);
             ApplyMonkAlwaysRunSetting();
-            ApplyPortableShieldClimbSetting();
             TryRunFeature("gatehouse automation", gatehouseAutomationRuntime.ApplySettings);
         }
 
@@ -275,8 +270,6 @@ namespace ExtraFeatures
             fastRecruitMovementBridge = null;
             monkAlwaysRunPatch?.Dispose();
             monkAlwaysRunPatch = null;
-            portableShieldClimbOverride?.Dispose();
-            portableShieldClimbOverride = null;
             plagueDurationPatch?.Dispose();
             plagueDurationPatch = null;
             plagueApothecarySearchRangePatch?.Dispose();
@@ -475,7 +468,6 @@ namespace ExtraFeatures
                     TryRunFeature("Vanilla value restoration", RestoreDefaultSettings);
                     TryRunFeature("fast recruit rally movement", ApplyFastRecruitRallyMovementSetting);
                     TryRunFeature("Monks Always Run", ApplyMonkAlwaysRunSetting);
-                    TryRunFeature("portable shields on walls", ApplyPortableShieldClimbSetting);
                     TryRunFeature("optional local hooks", UnsubscribeHooks);
                 }
                 return;
@@ -546,11 +538,6 @@ namespace ExtraFeatures
                 ApplyMonkAlwaysRunSetting();
                 return;
             }
-            if (propertyName == nameof(ExtraFeaturesViewModel.EnablePortableShieldsOnWalls))
-            {
-                TryRunFeature("portable shields on walls", ApplyPortableShieldClimbSetting);
-                return;
-            }
             if (propertyName == nameof(ExtraFeaturesViewModel.PlagueDurationMultiplier))
             {
                 ApplyPlagueDurationSetting();
@@ -583,7 +570,6 @@ namespace ExtraFeatures
             TryRunFeature("campfire peasants", ApplyCampfirePeasantsLimit);
             ApplyPlagueDurationSetting();
             ApplyMonkAlwaysRunSetting();
-            TryRunFeature("portable shields on walls", ApplyPortableShieldClimbSetting);
             TryRunFeature("gatehouse automation", gatehouseAutomationRuntime.ApplySettings);
         }
 
@@ -626,48 +612,6 @@ namespace ExtraFeatures
         {
             monkAlwaysRunPatch?.SetEnabled(
                 settings.EnableMod && settings.EnableMonksAlwaysRun);
-        }
-
-        private void InitializePortableShieldClimbOverride(
-            IntPtr nativeLibraryHandle,
-            ReadOnlySpan<byte> memory)
-        {
-            if (portableShieldClimbOverride != null || portableShieldClimbOverrideUnavailable)
-                return;
-
-            try
-            {
-                portableShieldClimbOverride = new PortableShieldClimbOverride(
-                    log,
-                    nativeLibraryHandle,
-                    memory,
-                    fixedLayoutHashValidated);
-                ApplyPortableShieldClimbSetting();
-                if (!fixedLayoutHashValidated)
-                {
-                    Shared.DebugLogHelper.LogWarning(
-                        log,
-                        "Extra Features portable shields on walls is operating on an unknown " +
-                        "CrusaderDE.dll after the wall/tower pathing and selection-validator signatures, " +
-                        "managed unit layout, and table semantics were validated.");
-                }
-            }
-            catch (Exception ex)
-            {
-                try { portableShieldClimbOverride?.Dispose(); } catch { }
-                portableShieldClimbOverride = null;
-                portableShieldClimbOverrideUnavailable = true;
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    "Extra Features portable shields on walls is disabled for this process; " +
-                    $"all other features remain available: {ex}");
-            }
-        }
-
-        private void ApplyPortableShieldClimbSetting()
-        {
-            portableShieldClimbOverride?.SetEnabled(
-                settings.EnableMod && settings.EnablePortableShieldsOnWalls);
         }
 
         private void OnStartMap(MapStartEventArgs args)
@@ -801,7 +745,6 @@ namespace ExtraFeatures
             TryRunFeature("church priest restoration", churchPriestCountRuntime.ApplySetting);
             TryRunFeature("campfire peasants restoration", RestoreCampfirePeasantsCap);
             TryRunFeature("plague duration restoration", ApplyPlagueDurationSetting);
-            TryRunFeature("portable shields on walls restoration", ApplyPortableShieldClimbSetting);
         }
 
         private void ReconcileLordHealthRuntime()

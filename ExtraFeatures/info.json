@@ -3,10 +3,22 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.55",
+  "Version": "1.0.59",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.59",
+      "Changes": [
+        "Removed an unfinished experimental gameplay option and its native diagnostics."
+      ]
+    },
+    {
+      "Version": "1.0.58",
+      "Changes": [
+        "Made shared troop-action buttons use the proven Knight margins with deterministic priorities for the two lower-right HUD slots."
+      ]
+    },
     {
       "Version": "1.0.55",
       "Changes": [
@@ -20,21 +32,9 @@
       ]
     },
     {
-      "Version": "1.0.53",
-      "Changes": [
-        "Corrected portable-shield wall commands by restoring the native selection climb permission while the optional host setting is active."
-      ]
-    },
-    {
       "Version": "1.0.52",
       "Changes": [
         "Added weighted Assassin pathfinding that accounts for wall-climbing time and a synchronized per-player button for allowing or forbidding new climbing routes."
-      ]
-    },
-    {
-      "Version": "1.0.51",
-      "Changes": [
-        "Added an optional host setting that lets portable shields enter connected walls, gatehouses, and towers via stairs."
       ]
     },
     {

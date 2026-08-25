@@ -15,14 +15,17 @@ namespace Shared
         public const string HostNamePrefix = TroopActionButtonLayoutPolicy.HostNamePrefix;
         public const int ButtonWidth = 36;
         public const int ButtonHeight = 37;
-        public const int SlotStep = 40;
-        private const int MaximumCandidateSlots = 10;
+        private const string LayoutVersionProperty = "TroopActionLayoutVersion";
+        private const string ActionIdProperty = "TroopActionId";
+        private const string PriorityProperty = "TroopActionPriority";
         private const string WantsVisibilityProperty = "WantsVisibility";
         private const string LayoutAvailableProperty = "LayoutAvailable";
+        private static readonly Thickness BottomRightMargin = new Thickness(80, 40, 0, 3);
+        private static readonly Thickness BottomMiddleMargin = new Thickness(1, 40, 2, 3);
         private static readonly long DiagnosticIntervalTicks = Math.Max(1L, Stopwatch.Frequency * 2L);
-
-        private static readonly HashSet<string> overflowLogged =
-            new HashSet<string>(StringComparer.Ordinal);
+        private static readonly HashSet<string> overflowLogged = new HashSet<string>(StringComparer.Ordinal);
+        private static readonly HashSet<string> invalidLogged = new HashSet<string>(StringComparer.Ordinal);
+        private static readonly HashSet<string> duplicateLogged = new HashSet<string>(StringComparer.Ordinal);
         private static long nextDiagnosticTimestamp;
 
         public static void Reflow(HUD_Troops troopPanel, ManualLogSource log)
@@ -35,103 +38,173 @@ namespace Shared
                 return;
 
             var hosts = new List<ActionHost>();
-            CollectActionHosts(controls, hosts);
-            if (hosts.Count == 0)
+            var invalidHosts = new List<string>();
+            CollectActionHosts(controls, hosts, invalidHosts);
+            if (hosts.Count == 0 && invalidHosts.Count == 0)
                 return;
 
-            hosts.Sort(ActionHostComparer.Instance);
+            // Hidden hosts can retain stale screen transforms in Noesis. The working Knight
+            // layout uses only its XAML margin, so every shared host returns to that baseline.
+            for (int index = 0; index < hosts.Count; index++)
+                hosts[index].Element.RenderTransform = new TranslateTransform(0f, 0f);
+
             var occupied = new List<ScreenRectangle>();
             CollectOccupiedRectangles(controls, occupied);
-            var assigned = new List<ScreenRectangle>();
-            bool hasControlsBounds = TryGetScreenRectangle(controls, out ScreenRectangle controlsBounds);
-            int wantedCount = 0;
-            int testedSlots = 0;
-            int invalidRectangles = 0;
-            int boundsRejections = 0;
-            int collisionRejections = 0;
-            int unavailableCount = 0;
+            bool rightGeometryAvailable = TryGetSlotRectangle(controls, BottomRightMargin, out ScreenRectangle rightRectangle);
+            bool middleGeometryAvailable = TryGetSlotRectangle(controls, BottomMiddleMargin, out ScreenRectangle middleRectangle);
+            bool rightOccupied = !rightGeometryAvailable || IntersectsAny(rightRectangle, occupied);
+            bool middleOccupied = !middleGeometryAvailable || IntersectsAny(middleRectangle, occupied);
+
+            var requests = new List<TroopActionRequest>(hosts.Count);
+            for (int index = 0; index < hosts.Count; index++)
+            {
+                ActionHost host = hosts[index];
+                requests.Add(new TroopActionRequest(host.Element.Name, host.ActionId, host.Priority, host.WantsVisibility));
+                if (host.WantsVisibility)
+                    SetLayoutAvailable(host, false);
+                else
+                    SetLayoutAvailable(host, true);
+            }
+
+            TroopActionLayoutDecision decision = TroopActionButtonLayoutPolicy.CreateDecision(
+                requests,
+                rightOccupied,
+                middleOccupied);
+            var assignmentsById = new Dictionary<string, TroopActionSlot>(StringComparer.Ordinal);
+            for (int index = 0; index < decision.Assignments.Count; index++)
+            {
+                TroopActionSlotAssignment assignment = decision.Assignments[index];
+                assignmentsById[assignment.ActionId] = assignment.Slot;
+            }
 
             for (int index = 0; index < hosts.Count; index++)
             {
                 ActionHost host = hosts[index];
-                if (!host.WantsVisibility)
-                {
-                    SetLayoutAvailable(host, true);
-                    continue;
-                }
-                wantedCount++;
-
-                bool placed = false;
-                for (int slot = 0; slot < MaximumCandidateSlots; slot++)
-                {
-                    testedSlots++;
-                    host.Element.RenderTransform = new TranslateTransform(-SlotStep * slot, 0f);
-                    if (!TryGetScreenRectangle(host.Element, out ScreenRectangle candidate))
-                    {
-                        invalidRectangles++;
-                        continue;
-                    }
-                    if (hasControlsBounds && !controlsBounds.Contains(candidate))
-                    {
-                        boundsRejections++;
-                        continue;
-                    }
-                    if (IntersectsAny(candidate, occupied) || IntersectsAny(candidate, assigned))
-                    {
-                        collisionRejections++;
-                        continue;
-                    }
-
-                    assigned.Add(candidate);
-                    SetLayoutAvailable(host, true);
-                    placed = true;
-                    overflowLogged.Remove(host.ActionId);
-                    break;
-                }
-
-                if (placed)
+                if (!host.WantsVisibility || !assignmentsById.TryGetValue(host.ActionId, out TroopActionSlot slot))
                     continue;
 
-                SetLayoutAvailable(host, false);
-                unavailableCount++;
-                if (log != null && overflowLogged.Add(host.ActionId))
-                {
-                    DebugLogHelper.LogWarning(
-                        log,
-                        $"Troop action '{host.ActionId}' is hidden because no collision-free UnitControls slot is available; " +
-                        $"effectiveOccupied={occupied.Count}, testedSlots={MaximumCandidateSlots}, " +
-                        $"invalidRectangles={invalidRectangles}, boundsRejections={boundsRejections}, collisionRejections={collisionRejections}.");
-                }
+                host.Element.Margin = slot == TroopActionSlot.BottomRight
+                    ? BottomRightMargin
+                    : BottomMiddleMargin;
+                host.Element.RenderTransform = new TranslateTransform(0f, 0f);
+                SetLayoutAvailable(host, true);
+                overflowLogged.Remove(host.ActionId);
             }
 
+            LogInvalidHosts(log, invalidHosts);
+            LogDuplicateActions(log, decision.DuplicateActionIds);
+            LogOverflowActions(log, decision.OverflowActionIds, rightOccupied, middleOccupied);
             LogDiagnosticIfDue(
                 log,
-                hosts.Count,
-                wantedCount,
+                hosts,
+                invalidHosts,
+                decision,
                 occupied.Count,
-                assigned.Count,
-                unavailableCount,
-                testedSlots,
-                invalidRectangles,
-                boundsRejections,
-                collisionRejections,
-                hasControlsBounds);
+                rightOccupied,
+                middleOccupied,
+                rightGeometryAvailable,
+                middleGeometryAvailable);
         }
 
-        private static void CollectActionHosts(DependencyObject parent, List<ActionHost> result)
+        private static void CollectActionHosts(
+            DependencyObject parent,
+            List<ActionHost> result,
+            List<string> invalidHosts)
         {
             int childCount = VisualTreeHelper.GetChildrenCount(parent);
             for (int index = 0; index < childCount; index++)
             {
                 DependencyObject child = VisualTreeHelper.GetChild(parent, index);
                 if (child is FrameworkElement element &&
-                    TroopActionButtonLayoutPolicy.TryParseHostName(element.Name, out int priority, out string actionId) &&
-                    TryResolveVisibilityContract(element, out PropertyInfo wantsProperty, out PropertyInfo layoutProperty, out bool wantsVisibility))
+                    TroopActionButtonLayoutPolicy.IsStandardHostName(element.Name))
                 {
-                    result.Add(new ActionHost(element, priority, actionId, wantsProperty, layoutProperty, wantsVisibility));
+                    try
+                    {
+                        if (TryResolveActionHost(element, out ActionHost host))
+                            result.Add(host);
+                        else
+                            invalidHosts.Add(element.Name ?? "<unnamed>");
+                    }
+                    catch
+                    {
+                        invalidHosts.Add(element.Name ?? "<unnamed>");
+                    }
+                    continue;
                 }
-                CollectActionHosts(child, result);
+                CollectActionHosts(child, result, invalidHosts);
             }
+        }
+
+        private static bool TryResolveActionHost(FrameworkElement element, out ActionHost host)
+        {
+            host = null;
+            object viewModel = element.DataContext;
+            if (viewModel == null)
+                return false;
+
+            Type type = viewModel.GetType();
+            PropertyInfo wantsProperty = type.GetProperty(WantsVisibilityProperty, BindingFlags.Instance | BindingFlags.Public);
+            PropertyInfo layoutProperty = type.GetProperty(LayoutAvailableProperty, BindingFlags.Instance | BindingFlags.Public);
+            if (wantsProperty?.PropertyType != typeof(bool) || !wantsProperty.CanRead ||
+                layoutProperty?.PropertyType != typeof(bool) || !layoutProperty.CanWrite)
+            {
+                return false;
+            }
+
+            if (!TryReadOptionalInt(viewModel, type, LayoutVersionProperty, out int? layoutVersion) ||
+                !TryReadOptionalString(viewModel, type, ActionIdProperty, out string actionId) ||
+                !TryReadOptionalInt(viewModel, type, PriorityProperty, out int? priority) ||
+                !TroopActionButtonLayoutPolicy.TryResolveIdentity(
+                    element.Name,
+                    layoutVersion,
+                    actionId,
+                    priority,
+                    out int resolvedPriority,
+                    out string resolvedActionId))
+            {
+                layoutProperty.SetValue(viewModel, false, null);
+                return false;
+            }
+
+            host = new ActionHost(
+                element,
+                resolvedPriority,
+                resolvedActionId,
+                layoutProperty,
+                (bool)wantsProperty.GetValue(viewModel, null));
+            return true;
+        }
+
+        private static bool TryReadOptionalInt(
+            object viewModel,
+            Type type,
+            string propertyName,
+            out int? value)
+        {
+            value = null;
+            PropertyInfo property = type.GetProperty(propertyName, BindingFlags.Instance | BindingFlags.Public);
+            if (property == null)
+                return true;
+            if (property.PropertyType != typeof(int) || !property.CanRead)
+                return false;
+            value = (int)property.GetValue(viewModel, null);
+            return true;
+        }
+
+        private static bool TryReadOptionalString(
+            object viewModel,
+            Type type,
+            string propertyName,
+            out string value)
+        {
+            value = null;
+            PropertyInfo property = type.GetProperty(propertyName, BindingFlags.Instance | BindingFlags.Public);
+            if (property == null)
+                return true;
+            if (property.PropertyType != typeof(string) || !property.CanRead)
+                return false;
+            value = (string)property.GetValue(viewModel, null);
+            return true;
         }
 
         private static void CollectOccupiedRectangles(DependencyObject parent, List<ScreenRectangle> result)
@@ -142,11 +215,10 @@ namespace Shared
                 DependencyObject child = VisualTreeHelper.GetChild(parent, index);
                 if (child is FrameworkElement element)
                 {
-                    if (TroopActionButtonLayoutPolicy.TryParseHostName(element.Name, out _, out _))
+                    if (TroopActionButtonLayoutPolicy.IsStandardHostName(element.Name))
                         continue;
 
-                    // IsVisible includes hidden ancestors; Visibility alone makes inactive
-                    // Vanilla action groups look like occupied slots.
+                    // A displayed Vanilla or foreign button owns its slot even when disabled.
                     if (element is Button &&
                         TroopActionButtonLayoutPolicy.IsEffectivelyOccupied(element.IsVisible, element.IsHitTestVisible) &&
                         TryGetScreenRectangle(element, out ScreenRectangle rectangle))
@@ -158,39 +230,35 @@ namespace Shared
             }
         }
 
-        private static bool TryResolveVisibilityContract(
-            FrameworkElement element,
-            out PropertyInfo wantsProperty,
-            out PropertyInfo layoutProperty,
-            out bool wantsVisibility)
+        private static bool TryGetSlotRectangle(
+            FrameworkElement controls,
+            Thickness margin,
+            out ScreenRectangle rectangle)
         {
-            wantsProperty = null;
-            layoutProperty = null;
-            wantsVisibility = false;
-            object viewModel = element.DataContext;
-            if (viewModel == null)
+            rectangle = default;
+            float availableWidth = controls.ActualWidth - margin.Left - margin.Right;
+            float availableHeight = controls.ActualHeight - margin.Top - margin.Bottom;
+            if (availableWidth < ButtonWidth || availableHeight < ButtonHeight)
                 return false;
 
-            Type type = viewModel.GetType();
-            wantsProperty = type.GetProperty(WantsVisibilityProperty, BindingFlags.Instance | BindingFlags.Public);
-            layoutProperty = type.GetProperty(LayoutAvailableProperty, BindingFlags.Instance | BindingFlags.Public);
-            if (wantsProperty?.PropertyType != typeof(bool) || !wantsProperty.CanRead ||
-                layoutProperty?.PropertyType != typeof(bool) || !layoutProperty.CanWrite)
+            float left = margin.Left + (availableWidth - ButtonWidth) * 0.5f;
+            float top = margin.Top + (availableHeight - ButtonHeight) * 0.5f;
+            try
+            {
+                Point topLeft = ((Visual)controls).PointToScreen(new Point(left, top));
+                Point bottomRight = ((Visual)controls).PointToScreen(
+                    new Point(left + ButtonWidth, top + ButtonHeight));
+                rectangle = new ScreenRectangle(
+                    Math.Min(topLeft.X, bottomRight.X),
+                    Math.Min(topLeft.Y, bottomRight.Y),
+                    Math.Max(topLeft.X, bottomRight.X),
+                    Math.Max(topLeft.Y, bottomRight.Y));
+                return rectangle.IsValid;
+            }
+            catch
             {
                 return false;
             }
-
-            wantsVisibility = (bool)wantsProperty.GetValue(viewModel, null);
-            return true;
-        }
-
-        private static void SetLayoutAvailable(ActionHost host, bool available)
-        {
-            if (host.Element == null || host.LayoutProperty == null)
-                return;
-            object viewModel = host.Element.DataContext;
-            if (viewModel != null)
-                host.LayoutProperty.SetValue(viewModel, available, null);
         }
 
         private static bool TryGetScreenRectangle(FrameworkElement element, out ScreenRectangle rectangle)
@@ -228,46 +296,113 @@ namespace Shared
             return false;
         }
 
+        private static void SetLayoutAvailable(ActionHost host, bool available)
+        {
+            object viewModel = host.Element?.DataContext;
+            if (viewModel != null)
+                host.LayoutProperty.SetValue(viewModel, available, null);
+        }
+
+        private static void LogInvalidHosts(ManualLogSource log, IReadOnlyList<string> invalidHosts)
+        {
+            if (log == null)
+                return;
+            for (int index = 0; index < invalidHosts.Count; index++)
+            {
+                string hostName = invalidHosts[index];
+                if (invalidLogged.Add(hostName))
+                    DebugLogHelper.LogWarning(log, $"Troop action host '{hostName}' has invalid or incomplete shared layout metadata and remains hidden.");
+            }
+        }
+
+        private static void LogDuplicateActions(ManualLogSource log, IReadOnlyList<string> duplicateActionIds)
+        {
+            if (log == null)
+                return;
+            for (int index = 0; index < duplicateActionIds.Count; index++)
+            {
+                string actionId = duplicateActionIds[index];
+                if (duplicateLogged.Add(actionId))
+                    DebugLogHelper.LogWarning(log, $"Troop action id '{actionId}' is registered more than once; every duplicate remains hidden.");
+            }
+        }
+
+        private static void LogOverflowActions(
+            ManualLogSource log,
+            IReadOnlyList<string> overflowActionIds,
+            bool rightOccupied,
+            bool middleOccupied)
+        {
+            if (log == null)
+                return;
+            for (int index = 0; index < overflowActionIds.Count; index++)
+            {
+                string actionId = overflowActionIds[index];
+                if (overflowLogged.Add(actionId))
+                {
+                    DebugLogHelper.LogWarning(
+                        log,
+                        $"Troop action '{actionId}' remains hidden because no prioritized shared slot is available; " +
+                        $"bottomRightOccupied={rightOccupied}, bottomMiddleOccupied={middleOccupied}.");
+                }
+            }
+        }
+
         private static void LogDiagnosticIfDue(
             ManualLogSource log,
-            int hostCount,
-            int wantedCount,
+            IReadOnlyList<ActionHost> hosts,
+            IReadOnlyList<string> invalidHosts,
+            TroopActionLayoutDecision decision,
             int occupiedCount,
-            int assignedCount,
-            int unavailableCount,
-            int testedSlots,
-            int invalidRectangles,
-            int boundsRejections,
-            int collisionRejections,
-            bool hasControlsBounds)
+            bool rightOccupied,
+            bool middleOccupied,
+            bool rightGeometryAvailable,
+            bool middleGeometryAvailable)
         {
-            if (log == null || wantedCount == 0)
+            if (log == null || !HasRequestedHost(hosts))
                 return;
 
             long now = Stopwatch.GetTimestamp();
             if (now < nextDiagnosticTimestamp)
                 return;
             nextDiagnosticTimestamp = now + DiagnosticIntervalTicks;
+
+            var recognized = new List<string>(hosts.Count);
+            for (int index = 0; index < hosts.Count; index++)
+            {
+                ActionHost host = hosts[index];
+                recognized.Add($"{host.ActionId}:{host.Priority}:wants={host.WantsVisibility}");
+            }
+            var assigned = new List<string>(decision.Assignments.Count);
+            for (int index = 0; index < decision.Assignments.Count; index++)
+            {
+                TroopActionSlotAssignment assignment = decision.Assignments[index];
+                assigned.Add($"{assignment.ActionId}->{FormatSlot(assignment.Slot)}");
+            }
+
             DebugLogHelper.LogDebug(
                 log,
-                $"Troop action layout diagnostic: hosts={hostCount}, wanted={wantedCount}, " +
-                $"effectiveOccupied={occupiedCount}, assigned={assignedCount}, unavailable={unavailableCount}, " +
-                $"testedSlots={testedSlots}, invalidRectangles={invalidRectangles}, " +
-                $"boundsRejections={boundsRejections}, collisionRejections={collisionRejections}, " +
-                $"controlsBoundsAvailable={hasControlsBounds}.");
+                $"Troop action layout diagnostic: recognized=[{string.Join(",", recognized)}], " +
+                $"invalid=[{string.Join(",", invalidHosts)}], effectiveForeignButtons={occupiedCount}, " +
+                $"bottomRightOccupied={rightOccupied}, bottomMiddleOccupied={middleOccupied}, " +
+                $"rightGeometryAvailable={rightGeometryAvailable}, middleGeometryAvailable={middleGeometryAvailable}, " +
+                $"assigned=[{string.Join(",", assigned)}], duplicates=[{string.Join(",", decision.DuplicateActionIds)}], " +
+                $"overflow=[{string.Join(",", decision.OverflowActionIds)}].");
         }
 
-        private sealed class ActionHostComparer : IComparer<ActionHost>
+        private static bool HasRequestedHost(IReadOnlyList<ActionHost> hosts)
         {
-            public static readonly ActionHostComparer Instance = new ActionHostComparer();
-
-            public int Compare(ActionHost left, ActionHost right)
+            for (int index = 0; index < hosts.Count; index++)
             {
-                int priority = left.Priority.CompareTo(right.Priority);
-                return priority != 0
-                    ? priority
-                    : string.Compare(left.ActionId, right.ActionId, StringComparison.Ordinal);
+                if (hosts[index].WantsVisibility)
+                    return true;
             }
+            return false;
+        }
+
+        private static string FormatSlot(TroopActionSlot slot)
+        {
+            return slot == TroopActionSlot.BottomRight ? "bottom-right" : "bottom-middle";
         }
 
         private sealed class ActionHost
@@ -276,14 +411,12 @@ namespace Shared
                 FrameworkElement element,
                 int priority,
                 string actionId,
-                PropertyInfo wantsProperty,
                 PropertyInfo layoutProperty,
                 bool wantsVisibility)
             {
                 Element = element;
                 Priority = priority;
                 ActionId = actionId;
-                WantsProperty = wantsProperty;
                 LayoutProperty = layoutProperty;
                 WantsVisibility = wantsVisibility;
             }
@@ -291,7 +424,6 @@ namespace Shared
             public FrameworkElement Element { get; }
             public int Priority { get; }
             public string ActionId { get; }
-            public PropertyInfo WantsProperty { get; }
             public PropertyInfo LayoutProperty { get; }
             public bool WantsVisibility { get; }
         }
@@ -313,12 +445,6 @@ namespace Shared
             public float Right;
             public float Bottom;
             public bool IsValid => Right > Left && Bottom > Top;
-
-            public bool Contains(ScreenRectangle other)
-            {
-                return other.Left >= Left - CollisionTolerance && other.Top >= Top - CollisionTolerance &&
-                    other.Right <= Right + CollisionTolerance && other.Bottom <= Bottom + CollisionTolerance;
-            }
 
             public bool Intersects(ScreenRectangle other)
             {
