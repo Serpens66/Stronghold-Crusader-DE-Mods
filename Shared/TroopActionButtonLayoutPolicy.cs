@@ -147,9 +147,9 @@ namespace Shared
             return new TroopActionLayoutDecision(assignments, duplicates, overflow);
         }
 
-        public static bool IsEffectivelyOccupied(bool isVisible)
+        public static bool IsEffectivelyOccupied(bool isVisible, bool isHitTestVisible)
         {
-            return isVisible;
+            return isVisible && isHitTestVisible;
         }
 
         private static bool TryParseLegacyHostName(string name, out int priority, out string actionId)

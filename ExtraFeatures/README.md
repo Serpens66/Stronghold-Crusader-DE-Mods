@@ -13,6 +13,11 @@ Newly recruited human and AI units move to their rally points at their own norma
 ### Let monks run
 Fighting Monks and Temple Guards can use the normal troop running behavior and animation instead of always being restricted to walking.
 
+### Improve and control Assassin climbing
+Assassins choose routes by expected travel time instead of treating every traversable step equally. The calculation includes normal movement speed as well as the additional time for climbing normal walls, low walls, stairs, and downward transitions, so a nearby open gate can be preferred while climbing remains worthwhile along sufficiently long detours.
+
+When an owned Assassin is selected, a troop-action button allows or forbids climbing globally for that player's Assassins. The setting affects new path requests only; ordinary stairs and already accessible wall surfaces remain usable. AI Assassins always retain climbing. Pressing the normal Stop button or Stop hotkey while an Assassin is climbing cancels the climb, clears the current movement order, and makes the unit immediately controllable again.
+
 ### Customize Lord health
 Set separate health multipliers for human and AI Lords from 10% to 500%. Both current and maximum health are adjusted when the match starts, while the normal health differences between individual AI Lords are preserved.
 

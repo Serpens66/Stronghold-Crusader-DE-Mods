@@ -21,7 +21,6 @@ namespace Shared
         private const string LayoutAvailableProperty = "LayoutAvailable";
         private static readonly Thickness BottomRightMargin = new Thickness(80, 40, 0, 3);
         private static readonly Thickness BottomMiddleMargin = new Thickness(1, 40, 2, 3);
-        private static readonly HashSet<string> overflowLogged = new HashSet<string>(StringComparer.Ordinal);
         private static readonly HashSet<string> invalidLogged = new HashSet<string>(StringComparer.Ordinal);
         private static readonly HashSet<string> duplicateLogged = new HashSet<string>(StringComparer.Ordinal);
 
@@ -89,7 +88,6 @@ namespace Shared
 
             LogInvalidHosts(log, invalidHosts);
             LogDuplicateActions(log, decision.DuplicateActionIds);
-            LogOverflowActions(log, decision.OverflowActionIds, rightOccupied, middleOccupied);
         }
 
         private static void CollectActionHosts(
@@ -204,9 +202,11 @@ namespace Shared
                     if (TroopActionButtonLayoutPolicy.IsStandardHostName(element.Name))
                         continue;
 
-                    // A displayed Vanilla or foreign button owns its slot even when disabled.
+                    // Only effectively interactive Vanilla or foreign buttons own a slot.
                     if (element is Button &&
-                        TroopActionButtonLayoutPolicy.IsEffectivelyOccupied(element.IsVisible) &&
+                        TroopActionButtonLayoutPolicy.IsEffectivelyOccupied(
+                            element.IsVisible,
+                            element.IsHitTestVisible) &&
                         TryGetScreenRectangle(element, out ScreenRectangle rectangle))
                     {
                         result.Add(rectangle);
@@ -310,27 +310,6 @@ namespace Shared
                 string actionId = duplicateActionIds[index];
                 if (duplicateLogged.Add(actionId))
                     DebugLogHelper.LogWarning(log, $"Troop action id '{actionId}' is registered more than once; every duplicate remains hidden.");
-            }
-        }
-
-        private static void LogOverflowActions(
-            ManualLogSource log,
-            IReadOnlyList<string> overflowActionIds,
-            bool rightOccupied,
-            bool middleOccupied)
-        {
-            if (log == null)
-                return;
-            for (int index = 0; index < overflowActionIds.Count; index++)
-            {
-                string actionId = overflowActionIds[index];
-                if (overflowLogged.Add(actionId))
-                {
-                    DebugLogHelper.LogWarning(
-                        log,
-                        $"Troop action '{actionId}' remains hidden because no prioritized shared slot is available; " +
-                        $"bottomRightOccupied={rightOccupied}, bottomMiddleOccupied={middleOccupied}.");
-                }
             }
         }
 

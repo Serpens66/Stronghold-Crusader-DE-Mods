@@ -1480,9 +1480,10 @@ internal static class Program
 
     private static void TestTroopActionButtonLayoutPolicy()
     {
-        Check(!TroopActionButtonLayoutPolicy.IsEffectivelyOccupied(false) &&
-              TroopActionButtonLayoutPolicy.IsEffectivelyOccupied(true),
-            "shared troop action collision policy did not give every displayed Vanilla/foreign button priority");
+        Check(!TroopActionButtonLayoutPolicy.IsEffectivelyOccupied(false, true) &&
+              !TroopActionButtonLayoutPolicy.IsEffectivelyOccupied(true, false) &&
+              TroopActionButtonLayoutPolicy.IsEffectivelyOccupied(true, true),
+            "shared troop action collision policy did not require effective visibility and interactivity");
 
         Check(TroopActionButtonLayoutPolicy.TryResolveIdentity(
                 "SerpTroopAction_Host", 1, "Example.Mod.Action", 150,

@@ -62,6 +62,7 @@ namespace ExtraFeatures
         private readonly int[] heapPositions = new int[CoordinateCount];
         private readonly int[] touched = new int[CoordinateCount];
         private readonly int[] route = new int[MaximumCommittedPathLength + 1];
+        private readonly byte[] seenTiles = new byte[TileCount];
         private IntPtr libraryHandle;
         private AssassinPathBuilderDelegate original;
         private AssassinPathBuilderDelegate rootedDetour;
@@ -397,7 +398,7 @@ namespace ExtraFeatures
 
         private void ValidateCoordinateTileMapping()
         {
-            var seenTiles = new byte[TileCount];
+            Array.Clear(seenTiles, 0, seenTiles.Length);
             int validCount = 0;
             for (int y = 0; y < MapWidth; y++)
             {

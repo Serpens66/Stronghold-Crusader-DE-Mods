@@ -80,7 +80,10 @@ namespace ExtraFeatures
         private readonly HashSet<DefenseTargetKey> observedDefenseTargets =
             new HashSet<DefenseTargetKey>();
         private readonly HashSet<string> callbackFailuresLogged = new HashSet<string>(StringComparer.Ordinal);
-        private readonly RepairPlayerDiagnostics[] repairPlayers = new RepairPlayerDiagnostics[9];
+        // Keep standing repairs separate from AIV rebuilds. The native event is shared by both,
+        // which made earlier aggregate logs unable to prove the damaged-building case.
+        private readonly RepairPlayerDiagnostics[] standingRepairPlayers = new RepairPlayerDiagnostics[9];
+        private readonly RepairPlayerDiagnostics[] rebuildRepairPlayers = new RepairPlayerDiagnostics[9];
         private readonly int?[] maintenanceLastTicks = new int?[9];
         private readonly int[] maintenanceOccurrences = new int[9];
         private HookTransaction transaction;
@@ -108,8 +111,11 @@ namespace ExtraFeatures
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
-            for (int index = 0; index < repairPlayers.Length; index++)
-                repairPlayers[index] = new RepairPlayerDiagnostics();
+            for (int index = 0; index < standingRepairPlayers.Length; index++)
+            {
+                standingRepairPlayers[index] = new RepairPlayerDiagnostics();
+                rebuildRepairPlayers[index] = new RepairPlayerDiagnostics();
+            }
         }
 
         public void Initialize()
@@ -266,7 +272,9 @@ namespace ExtraFeatures
             callbackFailuresLogged.Clear();
             Array.Clear(maintenanceLastTicks, 0, maintenanceLastTicks.Length);
             Array.Clear(maintenanceOccurrences, 0, maintenanceOccurrences.Length);
-            foreach (RepairPlayerDiagnostics diagnostics in repairPlayers)
+            foreach (RepairPlayerDiagnostics diagnostics in standingRepairPlayers)
+                diagnostics.Reset();
+            foreach (RepairPlayerDiagnostics diagnostics in rebuildRepairPlayers)
                 diagnostics.Reset();
         }
 
@@ -307,8 +315,10 @@ namespace ExtraFeatures
                     if (settings.AIRepairEnemyProximity < 0)
                         return;
 
+                    bool isRebuild = context != null;
                     pendingRepair = new RepairObservation(
-                        args.PlayerId, args.TileX, args.TileY, args.Proximity, settings.AIRepairEnemyProximity);
+                        args.PlayerId, args.TileX, args.TileY, args.Proximity,
+                        settings.AIRepairEnemyProximity, isRebuild);
                     hasPendingRepair = true;
                     // On the audited DLL, native 0xEE640 returns nonzero when a qualifying
                     // hostile is inside the strict squared-distance check; its repair caller
@@ -329,11 +339,23 @@ namespace ExtraFeatures
                     return;
 
                 int now = CurrentTick();
-                RepairPlayerDiagnostics diagnostics = repairPlayers[args.PlayerId];
-                diagnostics.Record(observation, args.ReturnValue != 0, now);
+                RepairPlayerDiagnostics diagnostics = observation.IsRebuild
+                    ? rebuildRepairPlayers[args.PlayerId]
+                    : standingRepairPlayers[args.PlayerId];
+                bool blocked = args.ReturnValue != 0;
+                // Record only actual native results. Per-target state transitions avoid repeating
+                // an unchanged denial on every Vanilla polling cycle.
+                RepairStateTransition transition = diagnostics.Record(observation, blocked, now);
+                string source = observation.IsRebuild ? "rebuild" : "standing-repair";
+                if (transition != RepairStateTransition.None)
+                {
+                    LogInfo($"AI repair-proximity target {(transition == RepairStateTransition.Blocked ? "blocked" : "released")}: " +
+                        $"source={source}, player={args.PlayerId}, target=({observation.X},{observation.Y}), " +
+                        $"vanillaRadius={observation.VanillaRadius}, configuredRadius={observation.ConfiguredRadius}, tick={now}.");
+                }
                 if (diagnostics.ShouldWriteSummary(now))
                 {
-                    LogInfo($"AI repair-proximity summary: player={args.PlayerId}, tick={now}, " +
+                    LogInfo($"AI repair-proximity summary: source={source}, player={args.PlayerId}, tick={now}, " +
                         $"queries={diagnostics.SummaryQueries}, blocked={diagnostics.SummaryBlocked}, " +
                         $"allowed={diagnostics.SummaryQueries - diagnostics.SummaryBlocked}, " +
                         $"vanillaRadii={diagnostics.DescribeVanillaRadii()}, configuredRadius={observation.ConfiguredRadius}, " +
@@ -362,7 +384,7 @@ namespace ExtraFeatures
                     return;
 
                 int now = SafeCurrentTick();
-                string proximity = repairPlayers[building->r_PlayerIdOwner].DescribeCurrentTickForBounds(
+                string proximity = standingRepairPlayers[building->r_PlayerIdOwner].DescribeCurrentTickForBounds(
                     now,
                     building->r_TilePositionXBegin,
                     building->r_TilePositionYBegin,
@@ -1147,6 +1169,7 @@ namespace ExtraFeatures
         private sealed class RepairPlayerDiagnostics
         {
             private readonly Dictionary<int, int> vanillaRadii = new Dictionary<int, int>();
+            private readonly HashSet<long> blockedTargets = new HashSet<long>();
             private readonly List<RepairResultObservation> currentTickQueries =
                 new List<RepairResultObservation>(64);
             private int? currentQueryTick;
@@ -1158,7 +1181,7 @@ namespace ExtraFeatures
             internal int SummaryQueries { get; private set; }
             internal int SummaryBlocked { get; private set; }
 
-            internal void Record(RepairObservation observation, bool blocked, int now)
+            internal RepairStateTransition Record(RepairObservation observation, bool blocked, int now)
             {
                 SummaryQueries++;
                 if (blocked)
@@ -1179,6 +1202,23 @@ namespace ExtraFeatures
                 currentTickQueries.Add(new RepairResultObservation(
                     observation.X, observation.Y, observation.VanillaRadius,
                     observation.ConfiguredRadius, blocked));
+
+                long targetKey = unchecked(((long)(uint)observation.X << 32) | (uint)observation.Y);
+                bool wasBlocked = blockedTargets.Contains(targetKey);
+                if (blocked)
+                {
+                    if (!wasBlocked)
+                    {
+                        blockedTargets.Add(targetKey);
+                        return RepairStateTransition.Blocked;
+                    }
+                }
+                else if (wasBlocked)
+                {
+                    blockedTargets.Remove(targetKey);
+                    return RepairStateTransition.Released;
+                }
+                return RepairStateTransition.None;
             }
 
             internal bool ShouldWriteSummary(int now) =>
@@ -1248,6 +1288,7 @@ namespace ExtraFeatures
             internal void Reset()
             {
                 vanillaRadii.Clear();
+                blockedTargets.Clear();
                 currentTickQueries.Clear();
                 currentQueryTick = null;
                 lastSummaryTick = null;
@@ -1339,13 +1380,29 @@ namespace ExtraFeatures
 
         private readonly struct RepairObservation
         {
-            internal RepairObservation(int playerId, int x, int y, int vanillaRadius, int configuredRadius)
-            { PlayerId = playerId; X = x; Y = y; VanillaRadius = vanillaRadius; ConfiguredRadius = configuredRadius; }
+            internal RepairObservation(
+                int playerId, int x, int y, int vanillaRadius, int configuredRadius, bool isRebuild)
+            {
+                PlayerId = playerId;
+                X = x;
+                Y = y;
+                VanillaRadius = vanillaRadius;
+                ConfiguredRadius = configuredRadius;
+                IsRebuild = isRebuild;
+            }
             internal int PlayerId { get; }
             internal int X { get; }
             internal int Y { get; }
             internal int VanillaRadius { get; }
             internal int ConfiguredRadius { get; }
+            internal bool IsRebuild { get; }
+        }
+
+        private enum RepairStateTransition
+        {
+            None,
+            Blocked,
+            Released
         }
 
         private readonly struct RepairResultObservation

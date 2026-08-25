@@ -5,7 +5,6 @@ using SHCDESE.API;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
-using System.Collections.Generic;
 using System.Runtime.InteropServices;
 
 namespace ExtraFeatures
@@ -85,7 +84,7 @@ namespace ExtraFeatures
                 original = installed.GenerateTrampoline<SelectedUnitCommandDelegate>();
                 installed.Apply();
                 detour = installed;
-                Shared.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogDebug(
                     log,
                     "Extra Features Assassin climb cancellation installed on Vanilla's synchronized selected-unit Stop processing.");
             }
@@ -114,7 +113,8 @@ namespace ExtraFeatures
             if (vanilla == null)
                 return 0;
 
-            List<PendingCancellation> pending = null;
+            // Vanilla ignores Stop in states 126-129. Complete only that transition first,
+            // then let the original command clear the tribe's paths and orders.
             if (AssassinClimbCancellationPolicy.ShouldHandleCommand(
                     settings.EnableMod,
                     settings.EnableImprovedAssassinPathfinding,
@@ -123,23 +123,7 @@ namespace ExtraFeatures
             {
                 try
                 {
-                    pending = CaptureClimbingAssassins(tribeId);
-                }
-                catch (Exception ex)
-                {
-                    Shared.DebugLogHelper.LogError(
-                        log,
-                        $"Extra Features could not capture climbing Assassins before Stop; Vanilla remains active: {ex}");
-                }
-            }
-
-            // Vanilla deliberately ignores Stop while the Assassin is in states 126-129. Complete
-            // only that state transition first, then let the original command clear paths and orders.
-            if (pending != null && pending.Count > 0)
-            {
-                try
-                {
-                    ApplyCancellations(tribeId, pending);
+                    CancelClimbingAssassins(tribeId);
                 }
                 catch (Exception ex)
                 {
@@ -152,17 +136,16 @@ namespace ExtraFeatures
             return vanilla(unitManager, tribeId, command, argument1, argument2, argument3);
         }
 
-        private List<PendingCancellation> CaptureClimbingAssassins(int tribeId)
+        private void CancelClimbingAssassins(int tribeId)
         {
             GameTribeManagerAPI tribeApi = GameTribeManagerAPI.Instance;
             if (!tribeApi.IsValidId(tribeId) ||
                 !tribeApi.TryGetTribeById(tribeId, out GameTribe* tribe) || tribe == null)
             {
                 LogInvalidTribeOnce(tribeId);
-                return null;
+                return;
             }
 
-            List<PendingCancellation> pending = new List<PendingCancellation>();
             ushort* bitmap = &tribe->r_UnitIdsInGroupBitfield;
             GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
             for (int wordIndex = 0; wordIndex < SelectionBitmapWordCount; wordIndex++)
@@ -184,51 +167,8 @@ namespace ExtraFeatures
                         !AssassinClimbCancellationPolicy.IsClimbingState(unit->r_AIState))
                         continue;
 
-                    pending.Add(new PendingCancellation(
-                        localUnitId,
-                        unit->r_GlobalId,
-                        unit->r_AIState));
+                    ApplyCancellation(unit);
                 }
-            }
-
-            return pending;
-        }
-
-        private void ApplyCancellations(int tribeId, List<PendingCancellation> pending)
-        {
-            GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
-            int cancelled = 0;
-            int state126 = 0;
-            int state127 = 0;
-            int state128 = 0;
-            int state129 = 0;
-            for (int index = 0; index < pending.Count; index++)
-            {
-                PendingCancellation cancellation = pending[index];
-                if (!unitApi.TryGetUnitById(cancellation.LocalUnitId, out GameUnit* unit) || unit == null ||
-                    unit->r_AliveState != AliveState.IsAlive ||
-                    unit->r_GlobalId != cancellation.GlobalUnitId ||
-                    unit->r_UnitChimp != eChimps.CHIMP_TYPE_ARAB_ASSASIN)
-                    continue;
-
-                ApplyCancellation(unit);
-                cancelled++;
-                switch (cancellation.OriginalState)
-                {
-                    case AssassinClimbCancellationPolicy.ThrowingHookState: state126++; break;
-                    case AssassinClimbCancellationPolicy.ClimbingUpState: state127++; break;
-                    case AssassinClimbCancellationPolicy.StartClimbingDownState: state128++; break;
-                    case AssassinClimbCancellationPolicy.ClimbingDownState: state129++; break;
-                }
-            }
-
-            if (cancelled > 0)
-            {
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    $"Extra Features cancelled Assassin climbing through synchronized Stop: tribeId={tribeId}, " +
-                    $"cancelled={cancelled}, states126-129=" +
-                    $"{state126}/{state127}/{state128}/{state129}.");
             }
         }
 
@@ -259,18 +199,5 @@ namespace ExtraFeatures
                 $"Extra Features could not safely resolve Assassin Stop tribe {tribeId}; Vanilla behavior remains active.");
         }
 
-        private readonly struct PendingCancellation
-        {
-            public PendingCancellation(int localUnitId, uint globalUnitId, ushort originalState)
-            {
-                LocalUnitId = localUnitId;
-                GlobalUnitId = globalUnitId;
-                OriginalState = originalState;
-            }
-
-            public int LocalUnitId { get; }
-            public uint GlobalUnitId { get; }
-            public ushort OriginalState { get; }
-        }
     }
 }

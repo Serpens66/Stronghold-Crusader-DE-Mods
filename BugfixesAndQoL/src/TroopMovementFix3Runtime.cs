@@ -349,6 +349,7 @@ namespace BugfixesAndQoL
         {
             if (!IsFeatureEnabled ||
                 args.Phase != EventHookPhase.Pre ||
+                args.UnitId <= 0 ||
                 activeMoveOrderTribeIds.Contains(args.TribeId))
             {
                 return;
