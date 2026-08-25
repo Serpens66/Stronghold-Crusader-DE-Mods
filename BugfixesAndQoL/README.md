@@ -34,6 +34,9 @@ If an AI has the equipment for a knight but no horse is available, Vanilla can a
 ### Fix AI tower rebuilding
 When an AI tries to rebuild a tower from its castle plan, its own tower ruin can block the placement forever. The fix safely removes only the matching ruin owned by that AI; human, enemy, unrelated, and non-tower ruins remain untouched.
 
+### Better AI overbuild rules
+Stockpiles, markets, granaries, and armouries can clear ordinary obstacles while an AI builds its castle, matching the special placement behavior already used by hovels and recruitment buildings. Protected buildings and their reserved yards are preserved where AI castles overlap. If one AI demolishes a building that another AI immediately rebuilds, the repeated conflict is detected and further demolition is stopped without blocking the first legitimate overbuild attempt.
+
 ### Fix AI stone reserve mechanics
 Vanilla gives each AI a basic stone reserve and intends to add the cost of the most expensive castle building that has not yet been built. However, it uses a value that is updated only occasionally. Early in a match this value can still be zero, causing the AI to sell stone needed for its castle and buy it back later. After construction or a failed placement, the value can instead remain outdated and make the AI hoard unnecessary stone.
 

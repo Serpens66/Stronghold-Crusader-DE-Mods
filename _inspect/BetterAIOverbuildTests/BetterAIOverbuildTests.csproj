@@ -24,8 +24,8 @@
     <Compile Include="..\..\BugfixesAndQoL\src\BetterAIOverbuildPolicy.cs">
       <Link>BetterAIOverbuildPolicy.cs</Link>
     </Compile>
-    <Compile Include="..\..\BugfixesAndQoL\src\BetterAIOverbuildDiagnosticState.cs">
-      <Link>BetterAIOverbuildDiagnosticState.cs</Link>
+    <Compile Include="..\..\BugfixesAndQoL\src\BetterAIOverbuildConflictState.cs">
+      <Link>BetterAIOverbuildConflictState.cs</Link>
     </Compile>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

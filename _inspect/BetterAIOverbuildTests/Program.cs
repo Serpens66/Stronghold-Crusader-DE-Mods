@@ -16,12 +16,13 @@ namespace BetterAIOverbuildTests
             TestReservedAreaSetsAndGeometry();
             TestForeignBlockerPolicy();
             TestOverflowSafeDistance();
-            TestDiagnosticDeduplicationAndRetry();
-            TestDiagnosticRemovalCorrelationAndSummary();
-
+            TestConflictRequiresConfirmedBulldoze();
+            TestConflictDetectionAndPersistentLock();
+            TestConflictKeyIndependenceAndPassNormalization();
+            TestConflictExpiryReplacementResetAndTickOverflow();
             if (failures == 0)
             {
-                Console.WriteLine("PASS: Better AI overbuild policy and diagnostic-state tests passed.");
+                Console.WriteLine("PASS: Better AI overbuild policy and conflict-state tests passed.");
                 return 0;
             }
 
@@ -176,65 +177,156 @@ namespace BetterAIOverbuildTests
             Assert(actual == expected, $"overflow-safe distance expected {expected}, got {actual}");
         }
 
-        private static void TestDiagnosticDeduplicationAndRetry()
+        private static void TestConflictRequiresConfirmedBulldoze()
         {
-            var state = new BetterAIOverbuildDiagnosticState();
-            Assert(state.RecordPromotion(10, 2, 52, 100, 100), "first promotion should be recorded");
-            Assert(!state.RecordPromotion(10, 2, 52, 100, 100), "same-tick promotion should deduplicate");
-            Assert(state.RecordPromotion(11, 2, 52, 100, 100), "later retry tick should be recorded");
+            var state = new BetterAIOverbuildConflictState();
+            BetterAIOverbuildConflictKey key = ConflictKey();
+            Assert(!state.ShouldProtect(100, key, 10, 1000u),
+                "first blocker must remain delegated");
+            state.RegisterDelegatedDecision(100, key, 10, 1000u);
 
-            Assert(state.RecordDecision(
-                20, 2, 52, 100, 100, 0, 123, 999u, true, out _),
-                "first protected decision should be recorded");
-            Assert(!state.RecordDecision(
-                20, 2, 52, 100, 100, 0, 123, 999u, true, out _),
-                "same-tick protected decision should deduplicate");
-            Assert(state.RecordDecision(
-                21, 2, 52, 100, 100, 0, 123, 999u, true, out _),
-                "protected retry on later tick should be recorded");
+            Assert(!state.ShouldProtect(101, key, 11, 1001u),
+                "a decision without synchronous bulldoze must not create a conflict");
 
-            BetterAIOverbuildDiagnosticSummary summary = state.SnapshotAndReset();
-            Assert(summary.PromotionCounts.TryGetValue(52, out int promotions) && promotions == 2,
-                "promotion count should include later retry but exclude duplicate");
-            Assert(summary.ProtectedCount == 2, "protected count should be two");
-            Assert(summary.DuplicateCount == 2, "duplicate count should be two");
+            state.RegisterDelegatedDecision(102, key, 12, 1002u);
+            Assert(!state.ObserveBulldoze(103, 12, 1002u),
+                "a later-tick bulldoze must not confirm a delegated decision");
+            Assert(!state.ShouldProtect(104, key, 13, 1003u),
+                "an uncorrelated bulldoze must not create a conflict");
         }
 
-        private static void TestDiagnosticRemovalCorrelationAndSummary()
+        private static void TestConflictDetectionAndPersistentLock()
         {
-            var state = new BetterAIOverbuildDiagnosticState();
-            Assert(state.RecordDecision(
-                30, 2, 54, 50, 50, 0, 200, 1000u, false, out PendingRemoval pending),
-                "delegated decision should be recorded");
-            Assert(pending.BlockerId == 200 && pending.BlockerGlobalId == 1000u,
-                "pending removal identity should be retained");
-            Assert(state.ConfirmRemoval(30, 200, 1000u, out PendingRemoval confirmed),
-                "same-tick bulldoze should correlate");
-            Assert(confirmed.PlacingPlayerId == 2 && confirmed.Mapper == 54,
-                "correlated removal should retain placement context");
+            var state = new BetterAIOverbuildConflictState();
+            BetterAIOverbuildConflictKey key = ConflictKey();
+            state.RegisterDelegatedDecision(200, key, 20, 2000u);
+            Assert(state.ObserveBulldoze(200, 20, 2000u),
+                "synchronous bulldoze should confirm the first conflict removal");
 
-            Assert(state.RecordDecision(
-                31, 2, 54, 50, 50, 0, 201, 1001u, false, out _),
-                "second delegated decision should be recorded");
-            state.RecordPromotion(32, 2, 77, 51, 51);
-            Assert(!state.ConfirmRemoval(32, 201, 1001u, out _),
-                "a later-tick bulldoze must not correlate");
+            Assert(state.ShouldProtect(300, key, 21, 2001u),
+                "a rebuilt blocker with a new global ID should activate the lock");
+            Assert(state.ShouldProtect(301, key, 21, 2001u),
+                "an active lock should persist over later retries");
 
-            BetterAIOverbuildDiagnosticSummary summary = state.SnapshotAndReset();
-            Assert(summary.DelegatedCount == 2, "delegated count should be two");
-            Assert(summary.ConfirmedRemovalCount == 1, "confirmed removal count should be one");
-            Assert(summary.UncorrelatedDelegationCount == 1,
-                "uncorrelated delegation count should be one");
-
-            BetterAIOverbuildDiagnosticSummary reset = state.SnapshotAndReset();
-            Assert(reset.DelegatedCount == 0 && reset.ConfirmedRemovalCount == 0 &&
-                reset.PromotionCounts.Count == 0,
-                "snapshot should reset all map state");
-
-            // The gameplay policy has no diagnostic dependency and remains callable after resets.
-            Assert(BetterAIOverbuildPolicy.IsAlwaysBroadMapper(eMappers.MAPPER_GRANARY),
-                "diagnostic state must not influence gameplay policy");
+            Assert(state.ObserveRemoval(21, 2001u) == 1,
+                "removing the locked blocker should clear its lock");
+            Assert(!state.ShouldProtect(302, key, 22, 2002u),
+                "a removed lock must not protect a later fresh blocker");
         }
+
+        private static void TestConflictKeyIndependenceAndPassNormalization()
+        {
+            BetterAIOverbuildPlacementKey pass0 = BetterAIOverbuildPlacementKey.FromNativePass(
+                2, 50, 300, 400, 7, 0);
+            BetterAIOverbuildPlacementKey pass1 = BetterAIOverbuildPlacementKey.FromNativePass(
+                2, 50, 298, 398, 7, 1);
+            Assert(pass0.Equals(pass1),
+                "broad passes 0 and 1 should normalize to one placement key");
+            BetterAIOverbuildPlacementKey pass0Orientation11 =
+                BetterAIOverbuildPlacementKey.FromNativePass(2, 50, 300, 400, 11, 0);
+            BetterAIOverbuildPlacementKey pass1Orientation11 =
+                BetterAIOverbuildPlacementKey.FromNativePass(2, 50, 299, 399, 11, 1);
+            Assert(pass0Orientation11.Equals(pass1Orientation11),
+                "orientation 11 should reverse the one-tile second-pass shift");
+
+            var state = new BetterAIOverbuildConflictState();
+            BetterAIOverbuildConflictKey original = ConflictKey();
+            state.RegisterDelegatedDecision(400, original, 30, 3000u);
+            state.ObserveBulldoze(400, 30, 3000u);
+            BetterAIOverbuildPlacementKey p = original.Placement;
+            BetterAIOverbuildBlockerKey b = original.Blocker;
+            BetterAIOverbuildConflictKey[] differences =
+            {
+                new BetterAIOverbuildConflictKey(new BetterAIOverbuildPlacementKey(3, p.Mapper, p.BaseX, p.BaseY, p.Orientation), b),
+                new BetterAIOverbuildConflictKey(new BetterAIOverbuildPlacementKey(p.PlacingPlayerId, p.Mapper + 1, p.BaseX, p.BaseY, p.Orientation), b),
+                new BetterAIOverbuildConflictKey(new BetterAIOverbuildPlacementKey(p.PlacingPlayerId, p.Mapper, p.BaseX + 1, p.BaseY, p.Orientation), b),
+                new BetterAIOverbuildConflictKey(new BetterAIOverbuildPlacementKey(p.PlacingPlayerId, p.Mapper, p.BaseX, p.BaseY + 1, p.Orientation), b),
+                new BetterAIOverbuildConflictKey(new BetterAIOverbuildPlacementKey(p.PlacingPlayerId, p.Mapper, p.BaseX, p.BaseY, p.Orientation + 1), b),
+                new BetterAIOverbuildConflictKey(p, new BetterAIOverbuildBlockerKey(b.OwnerId + 1, b.StructureType, b.AnchorX, b.AnchorY)),
+                new BetterAIOverbuildConflictKey(p, new BetterAIOverbuildBlockerKey(b.OwnerId, b.StructureType + 1, b.AnchorX, b.AnchorY)),
+                new BetterAIOverbuildConflictKey(p, new BetterAIOverbuildBlockerKey(b.OwnerId, b.StructureType, b.AnchorX + 1, b.AnchorY)),
+                new BetterAIOverbuildConflictKey(p, new BetterAIOverbuildBlockerKey(b.OwnerId, b.StructureType, b.AnchorX, b.AnchorY + 1)),
+            };
+            foreach (BetterAIOverbuildConflictKey difference in differences)
+                Assert(!state.ShouldProtect(401, difference, 31, 3001u),
+                    "each conflict-key component must remain independent");
+            Assert(state.ShouldProtect(401, original, 31, 3001u),
+                "the exact conflict key should still activate the lock");
+        }
+
+        private static void TestConflictExpiryReplacementResetAndTickOverflow()
+        {
+            BetterAIOverbuildConflictKey key = ConflictKey();
+            var expiredState = new BetterAIOverbuildConflictState();
+            expiredState.RegisterDelegatedDecision(500, key, 40, 4000u);
+            expiredState.ObserveBulldoze(500, 40, 4000u);
+            bool expired = expiredState.ShouldProtect(
+                unchecked(500 + (int)BetterAIOverbuildConflictState.RepeatWindowTicks + 1),
+                key,
+                41,
+                4001u);
+            Assert(!expired,
+                "a retry after more than 12000 ticks must expire without locking");
+
+            var sameIdState = new BetterAIOverbuildConflictState();
+            sameIdState.RegisterDelegatedDecision(600, key, 50, 5000u);
+            sameIdState.ObserveBulldoze(600, 50, 5000u);
+            Assert(!sameIdState.ShouldProtect(601, key, 50, 5000u),
+                "the same global ID must not prove a rebuild");
+
+            var replacementState = LockedState(key, 700, 60, 6000u, 61, 6001u);
+            Assert(!replacementState.ShouldProtect(702, key, 62, 6002u) &&
+                replacementState.ActiveLockCount == 0,
+                "a different object replacing the locked blocker should clear the lock");
+
+            var resetState = LockedState(key, 800, 70, 7000u, 71, 7001u);
+            int removed = resetState.ActiveLockCount;
+            resetState.Reset();
+            Assert(removed == 1 && resetState.ActiveLockCount == 0 &&
+                !resetState.ShouldProtect(802, key, 71, 7001u),
+                "map or setting reset should clear every conflict state");
+
+            var sharedBlockerState = LockedState(key, 900, 90, 9000u, 92, 9002u);
+            BetterAIOverbuildConflictKey secondKey = new BetterAIOverbuildConflictKey(
+                new BetterAIOverbuildPlacementKey(3, 180, 310, 410, 4),
+                key.Blocker);
+            sharedBlockerState.RegisterDelegatedDecision(901, secondKey, 91, 9001u);
+            sharedBlockerState.ObserveBulldoze(901, 91, 9001u);
+            sharedBlockerState.ShouldProtect(902, secondKey, 92, 9002u);
+            int sharedClears = sharedBlockerState.ObserveRemoval(92, 9002u);
+            Assert(sharedClears == 2 && sharedBlockerState.ActiveLockCount == 0,
+                "removing one physical blocker should clear every lock bound to its identity");
+
+            int nearOverflow = int.MaxValue - 5;
+            int afterOverflow = unchecked(nearOverflow + 10);
+            Assert(BetterAIOverbuildConflictState.ElapsedTicks(afterOverflow, nearOverflow) == 10u,
+                "tick difference should remain correct across signed overflow");
+            var overflowState = new BetterAIOverbuildConflictState();
+            overflowState.RegisterDelegatedDecision(nearOverflow, key, 80, 8000u);
+            overflowState.ObserveBulldoze(nearOverflow, 80, 8000u);
+            Assert(overflowState.ShouldProtect(afterOverflow, key, 81, 8001u),
+                "repeat detection should work across signed tick overflow");
+        }
+
+        private static BetterAIOverbuildConflictState LockedState(
+            BetterAIOverbuildConflictKey key,
+            int tick,
+            int firstId,
+            uint firstGlobalId,
+            int rebuiltId,
+            uint rebuiltGlobalId)
+        {
+            var state = new BetterAIOverbuildConflictState();
+            state.RegisterDelegatedDecision(tick, key, firstId, firstGlobalId);
+            state.ObserveBulldoze(tick, firstId, firstGlobalId);
+            state.ShouldProtect(tick + 1, key, rebuiltId, rebuiltGlobalId);
+            return state;
+        }
+
+        private static BetterAIOverbuildConflictKey ConflictKey() =>
+            new BetterAIOverbuildConflictKey(
+                new BetterAIOverbuildPlacementKey(2, 50, 300, 400, 7),
+                new BetterAIOverbuildBlockerKey(5, 12, 277, 408));
 
         private static void AssertReason(
             BetterAIOverbuildProtectionReason expected,
@@ -261,8 +353,7 @@ namespace BetterAIOverbuildTests
                     blockerX,
                     blockerY,
                     keepX,
-                    keepY,
-                    out _);
+                    keepY);
             Assert(actual == expected, $"{scenario}: expected {expected}, got {actual}");
         }
 

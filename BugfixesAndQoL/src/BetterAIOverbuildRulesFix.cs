@@ -1,9 +1,14 @@
 // Feature: Improve AI broad obstruction cleanup while preventing reciprocal AI overbuild loops.
 using BepInEx.Logging;
+using R3;
 using SHCDESE.API;
+using SHCDESE.EventAPI;
+using SHCDESE.EventAPI.Buildings;
+using SHCDESE.EventAPI.MapLoader;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
+using System.Collections.Generic;
 using Zhuqiaomon.Assembly;
 using Zhuqiaomon.Hooks;
 using Zhuqiaomon.Hooks.Transaction;
@@ -35,12 +40,14 @@ namespace BugfixesAndQoL
         private const int PlacementOffsetXStackOffset = 0xA0;
         private const int PlacementOffsetYStackOffset = 0xA8;
         private const int PlacementMapperStackOffset = 0xB0;
-        private const int PlacementOriginXOffset = 0x204E760;
-        private const int PlacementOriginYOffset = 0x204E764;
+        private const int PlacementOrientationStackOffset = 0xB8;
         private const int NativeProtectedSurrogateType = 40;
 
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
+        private readonly BetterAIOverbuildConflictState conflictState =
+            new BetterAIOverbuildConflictState();
+        private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private HookTransaction transaction;
         private HookRef<X64InlineHook> mapperSelectionHook = new HookRef<X64InlineHook>();
         private HookRef<X64InlineHook> broadBlockerProtectionHook = new HookRef<X64InlineHook>();
@@ -123,20 +130,13 @@ namespace BugfixesAndQoL
                         "The three AI overbuild hooks were not installed atomically.");
                 }
 
-#if BETTER_AI_OVERBUILD_DIAGNOSTICS
-                // TEMP_BETTER_AI_OVERBUILD_DIAGNOSTICS_BEGIN
-                BetterAIOverbuildDiagnostics.NativeHooksInstalled(
-                    mapperResolution.Rva,
-                    broadBlockerResolution.Rva,
-                    narrowBlockerResolution.Rva,
-                    referenceHashMatches,
-                    IsEnabled);
-                // TEMP_BETTER_AI_OVERBUILD_DIAGNOSTICS_END
-#endif
+                InitializeConflictTracking();
+
                 ApplySetting();
             }
             catch
             {
+                DisposeSubscriptions();
                 transaction?.Unload();
                 transaction?.Dispose();
                 transaction = null;
@@ -150,7 +150,8 @@ namespace BugfixesAndQoL
                 !narrowBlockerProtectionHook.Success)
                 return;
 
-            if (IsEnabled)
+            bool enabled = IsEnabled;
+            if (enabled)
             {
                 if (!mapperSelectionHook.Value.IsActive)
                     mapperSelectionHook.Value.Enable();
@@ -161,6 +162,7 @@ namespace BugfixesAndQoL
             }
             else
             {
+                ResetConflictState();
                 if (mapperSelectionHook.Value.IsActive)
                     mapperSelectionHook.Value.Disable();
                 if (broadBlockerProtectionHook.Value.IsActive)
@@ -169,11 +171,6 @@ namespace BugfixesAndQoL
                     narrowBlockerProtectionHook.Value.Disable();
             }
 
-#if BETTER_AI_OVERBUILD_DIAGNOSTICS
-            // TEMP_BETTER_AI_OVERBUILD_DIAGNOSTICS_BEGIN
-            BetterAIOverbuildDiagnostics.SettingApplied(IsEnabled);
-            // TEMP_BETTER_AI_OVERBUILD_DIAGNOSTICS_END
-#endif
         }
 
         public void Dispose()
@@ -181,6 +178,8 @@ namespace BugfixesAndQoL
             if (disposed)
                 return;
             disposed = true;
+            DisposeSubscriptions();
+            conflictState.Reset();
             transaction?.Unload();
             transaction?.Dispose();
             transaction = null;
@@ -198,23 +197,6 @@ namespace BugfixesAndQoL
                 if (!BetterAIOverbuildPolicy.IsAddedAlwaysBroadMapper(mapper))
                     return;
 
-#if BETTER_AI_OVERBUILD_DIAGNOSTICS
-                // TEMP_BETTER_AI_OVERBUILD_DIAGNOSTICS_BEGIN
-                ReadPlacementContext(
-                    registers,
-                    out int playerId,
-                    out _,
-                    out int targetX,
-                    out int targetY);
-                BetterAIOverbuildDiagnostics.MapperPromoted(
-                    BetterAIOverbuildDiagnostics.CurrentTick(),
-                    playerId,
-                    (int)mapper,
-                    targetX,
-                    targetY);
-                // TEMP_BETTER_AI_OVERBUILD_DIAGNOSTICS_END
-#endif
-
                 // Mapper 54 is Vanilla's first unconditional branch. Only EBX is temporary here;
                 // the original mapper remains on the stack for footprint creation and spawning.
                 registers->RBX = unchecked((ushort)eMappers.MAPPER_HOVEL);
@@ -226,14 +208,12 @@ namespace BugfixesAndQoL
         }
 
         private void ProtectBroadForeignBlocker(NativePointer<X64SmartCPUContext> context) =>
-            ProtectReciprocalForeignBlocker(context, "broad");
+            ProtectReciprocalForeignBlocker(context);
 
         private void ProtectNarrowForeignBlocker(NativePointer<X64SmartCPUContext> context) =>
-            ProtectReciprocalForeignBlocker(context, "narrow");
+            ProtectReciprocalForeignBlocker(context);
 
-        private void ProtectReciprocalForeignBlocker(
-            NativePointer<X64SmartCPUContext> context,
-            string branch)
+        private void ProtectReciprocalForeignBlocker(NativePointer<X64SmartCPUContext> context)
         {
             if (!IsEnabled)
                 return;
@@ -247,8 +227,10 @@ namespace BugfixesAndQoL
                     registers,
                     out int placingPlayerId,
                     out int mapper,
-                    out int targetX,
-                    out int targetY);
+                    out int currentBaseX,
+                    out int currentBaseY,
+                    out int originalOrientation,
+                    out int pass);
                 if (blockerId <= 0 || placingPlayerId < 1 || placingPlayerId > 8 ||
                     !GameBuildingManagerAPI.Instance.TryGetBuildingById(
                         blockerId, out GameBuilding* blocker) ||
@@ -262,6 +244,8 @@ namespace BugfixesAndQoL
                 int blockerOwnerId = blocker->r_PlayerIdOwner;
                 bool blockerOwnerIsAi = blockerOwnerId >= 1 && blockerOwnerId <= 8 &&
                     GamePlayerManagerAPI.Instance.IsAIPlayer(blockerOwnerId);
+                bool isForeignAiBlocker = blockerOwnerIsAi &&
+                    blockerOwnerId != placingPlayerId;
                 int keepId = blockerOwnerIsAi
                     ? GamePlayerManagerAPI.Instance.GetPlayerKeepId(blockerOwnerId)
                     : -1;
@@ -269,62 +253,66 @@ namespace BugfixesAndQoL
                 UnmanagedVector2<int> keepPosition = blockerHasKeep
                     ? GamePlayerManagerAPI.Instance.GetPlayerKeepPosition(blockerOwnerId)
                     : default;
-                ReservationParentMatch reservationParent = blockerOwnerIsAi &&
-                    BetterAIOverbuildPolicy.IsReservedAreaStructure(blockerStructureType)
-                        ? ResolveReservationParent(
-                            placingPlayerId,
-                            blocker,
-                            blockerStructureType,
-                            blockerHasKeep,
-                            keepPosition.X,
-                            keepPosition.Y)
-                        : default;
+                bool hasProtectedReservationParent = isForeignAiBlocker &&
+                    BetterAIOverbuildPolicy.IsReservedAreaStructure(blockerStructureType) &&
+                    !BetterAIOverbuildPolicy.IsAlwaysProtectedReservedArea(blockerStructureType) &&
+                    HasProtectedReservationParent(
+                        placingPlayerId,
+                        blocker,
+                        blockerStructureType,
+                        blockerHasKeep,
+                        keepPosition.X,
+                        keepPosition.Y);
                 BetterAIOverbuildProtectionReason reason =
                     BetterAIOverbuildPolicy.ClassifyForeignBlocker(
                         placingPlayerId,
                         blockerOwnerId,
                         blockerOwnerIsAi,
                         blockerStructureType,
-                        reservationParent.IsProtected,
+                        hasProtectedReservationParent,
                         blockerHasKeep,
                         blocker->r_TilePositionXBegin,
                         blocker->r_TilePositionYBegin,
                         keepPosition.X,
-                        keepPosition.Y,
-                        out long distance);
+                        keepPosition.Y);
 
-                if (blockerOwnerIsAi && blockerOwnerId != placingPlayerId)
+                bool hasTick = TryCaptureCurrentTick(out int tick);
+                if (reason == BetterAIOverbuildProtectionReason.None &&
+                    isForeignAiBlocker && hasTick)
                 {
-#if BETTER_AI_OVERBUILD_DIAGNOSTICS
-                    // TEMP_BETTER_AI_OVERBUILD_DIAGNOSTICS_BEGIN
-                    BetterAIOverbuildDiagnostics.ForeignBlockerDecision(
-                        BetterAIOverbuildDiagnostics.CurrentTick(),
-                        placingPlayerId,
-                        mapper,
-                        targetX,
-                        targetY,
-                        branch,
-                        unchecked((int)(uint)registers->R12),
-                        blockerId,
-                        blocker->r_GlobalId,
+                    BetterAIOverbuildPlacementKey placementKey =
+                        BetterAIOverbuildPlacementKey.FromNativePass(
+                            placingPlayerId,
+                            mapper,
+                            currentBaseX,
+                            currentBaseY,
+                            originalOrientation,
+                            pass);
+                    var blockerKey = new BetterAIOverbuildBlockerKey(
                         blockerOwnerId,
                         (int)blockerStructureType,
                         blocker->r_TilePositionXBegin,
-                        blocker->r_TilePositionYBegin,
-                        blockerHasKeep,
-                        keepPosition.X,
-                        keepPosition.Y,
-                        distance,
-                        reason,
-                        reservationParent.Found,
-                        reservationParent.BuildingId,
-                        reservationParent.GlobalId,
-                        (int)reservationParent.StructureType,
-                        reservationParent.AnchorX,
-                        reservationParent.AnchorY,
-                        reservationParent.ProtectionReason);
-                    // TEMP_BETTER_AI_OVERBUILD_DIAGNOSTICS_END
-#endif
+                        blocker->r_TilePositionYBegin);
+                    var conflictKey = new BetterAIOverbuildConflictKey(placementKey, blockerKey);
+                    bool protectRepeatedConflict = conflictState.ShouldProtect(
+                        tick,
+                        conflictKey,
+                        blockerId,
+                        blocker->r_GlobalId);
+                    if (protectRepeatedConflict)
+                    {
+                        reason = BetterAIOverbuildProtectionReason.RepeatedConflict;
+                    }
+                    else
+                    {
+                        // Only the synchronous bulldoze event confirms that Vanilla acted on
+                        // this classification. An ignored decision cannot seed a conflict.
+                        conflictState.RegisterDelegatedDecision(
+                            tick,
+                            conflictKey,
+                            blockerId,
+                            blocker->r_GlobalId);
+                    }
                 }
 
                 if (reason != BetterAIOverbuildProtectionReason.None)
@@ -340,7 +328,7 @@ namespace BugfixesAndQoL
             }
         }
 
-        private static ReservationParentMatch ResolveReservationParent(
+        private static bool HasProtectedReservationParent(
             int placingPlayerId,
             GameBuilding* reservedArea,
             eStructs reservedAreaType,
@@ -349,7 +337,6 @@ namespace BugfixesAndQoL
             int keepY)
         {
             bool found = false;
-            int bestBuildingId = 0;
             uint bestGlobalId = 0;
             eStructs bestType = eStructs.STRUCT_NULL;
             int bestX = 0;
@@ -390,7 +377,6 @@ namespace BugfixesAndQoL
                 }
 
                 found = true;
-                bestBuildingId = buildingEnumerator.CurrentId;
                 bestGlobalId = candidate.r_GlobalId;
                 bestType = candidate.r_BuildingType;
                 bestX = candidate.r_TilePositionXBegin;
@@ -399,7 +385,7 @@ namespace BugfixesAndQoL
             }
 
             if (!found)
-                return default;
+                return false;
 
             BetterAIOverbuildProtectionReason protectionReason =
                 BetterAIOverbuildPolicy.ClassifyForeignBlocker(
@@ -412,30 +398,109 @@ namespace BugfixesAndQoL
                     bestX,
                     bestY,
                     keepX,
-                    keepY,
-                    out _);
-            return new ReservationParentMatch(
-                bestBuildingId,
-                bestGlobalId,
-                bestType,
-                bestX,
-                bestY,
-                protectionReason);
+                    keepY);
+            return protectionReason != BetterAIOverbuildProtectionReason.None;
         }
 
         private static void ReadPlacementContext(
             X64SmartCPUContext* registers,
             out int playerId,
             out int mapper,
-            out int targetX,
-            out int targetY)
+            out int currentBaseX,
+            out int currentBaseY,
+            out int originalOrientation,
+            out int pass)
         {
             playerId = *(int*)(registers->RSP + PlacementPlayerIdStackOffset);
             mapper = *(short*)(registers->RSP + PlacementMapperStackOffset);
-            int offsetX = *(int*)(registers->RSP + PlacementOffsetXStackOffset);
-            int offsetY = *(int*)(registers->RSP + PlacementOffsetYStackOffset);
-            targetX = checked(*(int*)(registers->R14 + PlacementOriginXOffset) + offsetX);
-            targetY = checked(*(int*)(registers->R14 + PlacementOriginYOffset) + offsetY);
+            currentBaseX = *(int*)(registers->RSP + PlacementOffsetXStackOffset);
+            currentBaseY = *(int*)(registers->RSP + PlacementOffsetYStackOffset);
+            originalOrientation = *(int*)(registers->RSP + PlacementOrientationStackOffset);
+            pass = unchecked((int)(uint)registers->R12);
+        }
+
+        private void InitializeConflictTracking()
+        {
+            subscriptions.Add(BuildingR3EventHooks.OnBuildingBulldoze.Observable
+                .Where(args => args.Phase == EventHookPhase.Pre)
+                .Subscribe(OnBuildingBulldoze));
+            subscriptions.Add(BuildingR3EventHooks.OnBuildingDelete.Observable
+                .Where(args => args.Phase == EventHookPhase.Pre)
+                .Subscribe(OnBuildingDelete));
+            subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
+                .Where(args => args.Phase == EventHookPhase.Pre)
+                .Subscribe(_ => ResetConflictState()));
+            subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
+                .Where(args => args.Phase == EventHookPhase.Pre)
+                .Subscribe(_ => ResetConflictState()));
+        }
+
+        private void OnBuildingBulldoze(BuildingBulldozeEventArgs args)
+        {
+            if (!TryReadBuildingIdentity(args.BuildingId, out uint globalId))
+                return;
+            try
+            {
+                if (TryCaptureCurrentTick(out int tick))
+                    conflictState.ObserveBulldoze(tick, args.BuildingId, globalId);
+                else
+                    conflictState.ObserveRemoval(args.BuildingId, globalId);
+            }
+            catch (Exception ex)
+            {
+                LogCallbackFailure("conflict bulldoze tracking", ex);
+            }
+        }
+
+        private void OnBuildingDelete(BuildingDeleteEventArgs args)
+        {
+            if (!TryReadBuildingIdentity(args.BuildingId, out uint globalId))
+                return;
+            try
+            {
+                conflictState.ObserveRemoval(args.BuildingId, globalId);
+            }
+            catch (Exception ex)
+            {
+                LogCallbackFailure("conflict delete tracking", ex);
+            }
+        }
+
+        private static bool TryReadBuildingIdentity(int buildingId, out uint globalId)
+        {
+            globalId = 0;
+            if (buildingId <= 0 ||
+                !GameBuildingManagerAPI.Instance.TryGetBuildingById(
+                    buildingId, out GameBuilding* building))
+            {
+                return false;
+            }
+
+            globalId = building->r_GlobalId;
+            return true;
+        }
+
+        private void ResetConflictState() => conflictState.Reset();
+
+        private void DisposeSubscriptions()
+        {
+            foreach (IDisposable subscription in subscriptions)
+                subscription.Dispose();
+            subscriptions.Clear();
+        }
+
+        private static bool TryCaptureCurrentTick(out int tick)
+        {
+            try
+            {
+                tick = GameTimeManagerAPI.Instance.CaptureTimeStamp().CapturedGameTick;
+                return true;
+            }
+            catch
+            {
+                tick = int.MinValue;
+                return false;
+            }
         }
 
         private bool IsEnabled =>
@@ -451,34 +516,5 @@ namespace BugfixesAndQoL
                 $"Better AI overbuild rules failed during {operation}; the affected call remains Vanilla: {ex}");
         }
 
-        private readonly struct ReservationParentMatch
-        {
-            internal ReservationParentMatch(
-                int buildingId,
-                uint globalId,
-                eStructs structureType,
-                int anchorX,
-                int anchorY,
-                BetterAIOverbuildProtectionReason protectionReason)
-            {
-                Found = true;
-                BuildingId = buildingId;
-                GlobalId = globalId;
-                StructureType = structureType;
-                AnchorX = anchorX;
-                AnchorY = anchorY;
-                ProtectionReason = protectionReason;
-            }
-
-            internal bool Found { get; }
-            internal bool IsProtected =>
-                ProtectionReason != BetterAIOverbuildProtectionReason.None;
-            internal int BuildingId { get; }
-            internal uint GlobalId { get; }
-            internal eStructs StructureType { get; }
-            internal int AnchorX { get; }
-            internal int AnchorY { get; }
-            internal BetterAIOverbuildProtectionReason ProtectionReason { get; }
-        }
     }
 }

@@ -81,11 +81,6 @@ namespace BugfixesAndQoL
             multiplayerGameSpeedRuntime = new MultiplayerGameSpeedRuntime(log, settings, multiplayerFeatureGate);
             multiplayerAivSyncRuntime = new MultiplayerAivSyncRuntime(log, settings);
             siegeAmmoRestockFeature = new SiegeAmmoRestockFeature(log, settings, multiplayerFeatureGate);
-#if BETTER_AI_OVERBUILD_DIAGNOSTICS
-            // TEMP_BETTER_AI_OVERBUILD_DIAGNOSTICS_BEGIN
-            BetterAIOverbuildDiagnostics.Initialize(log, settings);
-            // TEMP_BETTER_AI_OVERBUILD_DIAGNOSTICS_END
-#endif
             settings.SettingChanged += OnSettingChanged;
             settingsSubscribed = true;
         }
@@ -316,11 +311,6 @@ namespace BugfixesAndQoL
             aiTowerRuinRepairFix = null;
             betterAIOverbuildRulesFix?.Dispose();
             betterAIOverbuildRulesFix = null;
-#if BETTER_AI_OVERBUILD_DIAGNOSTICS
-            // TEMP_BETTER_AI_OVERBUILD_DIAGNOSTICS_BEGIN
-            BetterAIOverbuildDiagnostics.Shutdown();
-            // TEMP_BETTER_AI_OVERBUILD_DIAGNOSTICS_END
-#endif
             plaguePopularityFix?.Dispose();
             plaguePopularityFix = null;
             plagueTreatmentFadeFix?.SetTreatmentCompletedObserver(null);
@@ -751,11 +741,6 @@ namespace BugfixesAndQoL
             // host setting later retries installation with the retained DLL mapping.
             if (!settings.EnableMod || !settings.EnableAiFixes || !settings.BetterAIOverbuildRules)
             {
-#if BETTER_AI_OVERBUILD_DIAGNOSTICS
-                // TEMP_BETTER_AI_OVERBUILD_DIAGNOSTICS_BEGIN
-                BetterAIOverbuildDiagnostics.SettingApplied(false);
-                // TEMP_BETTER_AI_OVERBUILD_DIAGNOSTICS_END
-#endif
                 return;
             }
 

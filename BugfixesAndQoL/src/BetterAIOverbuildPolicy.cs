@@ -11,35 +11,12 @@ namespace BugfixesAndQoL
         AlwaysBroad,
         ReservedArea,
         KeepRadius,
+        RepeatedConflict,
     }
 
     internal static class BetterAIOverbuildPolicy
     {
         internal const int KeepManhattanRadius = 20;
-
-        internal static readonly eMappers[] AlwaysBroadMappers =
-        {
-            eMappers.MAPPER_STORES,
-            eMappers.MAPPER_HOVEL,
-            eMappers.MAPPER_TRADEPOST,
-            eMappers.MAPPER_BEDOUIN_STOCKADE,
-            eMappers.MAPPER_GRANARY,
-            eMappers.MAPPER_ARMOURY,
-            eMappers.MAPPER_BARRACKS_WOOD,
-            eMappers.MAPPER_BARRACKS_STONE,
-        };
-
-        internal static readonly eStructs[] AlwaysBroadStructures =
-        {
-            eStructs.STRUCT_GOODS_YARD,
-            eStructs.STRUCT_HOVEL,
-            eStructs.STRUCT_TRADEPOST,
-            eStructs.STRUCT_BEDOUIN_STOCKADE,
-            eStructs.STRUCT_GRANARY,
-            eStructs.STRUCT_ARMOURY,
-            eStructs.STRUCT_BARRACKS_WOOD,
-            eStructs.STRUCT_BARRACKS_STONE,
-        };
 
         internal static bool IsAddedAlwaysBroadMapper(eMappers mapper) =>
             mapper == eMappers.MAPPER_STORES ||
@@ -134,10 +111,8 @@ namespace BugfixesAndQoL
             int blockerAnchorX,
             int blockerAnchorY,
             int keepX,
-            int keepY,
-            out long manhattanDistance)
+            int keepY)
         {
-            manhattanDistance = -1;
             if (placingPlayerId < 1 || placingPlayerId > 8 ||
                 blockerOwnerId < 1 || blockerOwnerId > 8 ||
                 blockerOwnerId == placingPlayerId ||
@@ -159,8 +134,8 @@ namespace BugfixesAndQoL
             if (!blockerHasKeep)
                 return BetterAIOverbuildProtectionReason.None;
 
-            manhattanDistance = ManhattanDistance(blockerAnchorX, blockerAnchorY, keepX, keepY);
-            return manhattanDistance <= KeepManhattanRadius
+            return ManhattanDistance(blockerAnchorX, blockerAnchorY, keepX, keepY) <=
+                KeepManhattanRadius
                 ? BetterAIOverbuildProtectionReason.KeepRadius
                 : BetterAIOverbuildProtectionReason.None;
         }

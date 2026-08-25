@@ -141,13 +141,19 @@ normally produce an obvious cycle. `0x51790` and `0x52270` revisit a state-3 AIV
 entry by reading the building ID at that entry's planned anchor and comparing
 only the live structure type with the structure type expected for its mapper.
 They do not compare the live building owner. A foreign replacement of the same
-structure type therefore satisfies the old owner's AIV entry and suppresses its
-rebuild, even though the replacement belongs to another player.
+structure type therefore satisfies the old owner's AIV entry only when it
+occupies the exact anchor read for that entry. An equal structure type elsewhere
+in the overlapping footprints does not suppress the retry. This explains the
+observed Fletcher-versus-Fletcher loop: both blockers were Fletcher workshops,
+but their anchors were `(277,408)` and `(272,408)`, so neither fulfilled the
+other AIV entry at its own anchor.
 
 When the anchor is empty or holds a different structure type, the entry can
 return to the placement path after its normal resource, availability and delay
-checks. The cleanup return value is not used as a placement veto; the relevant
-callers proceed to their building-creation path after `0x5CD90`. Conversely,
+checks. The cleanup return value is not used as a placement veto; both audited
+AIV callers ignore it and proceed to their building-creation path after
+`0x5CD90`. A failed creation after cleanup therefore cannot be repaired
+atomically by changing that helper's return value. Conversely,
 the cleanup functions at `0xC43A0` and `0xCFE90` delete/deregister the building
 and update owner building lists and type-specific counters, but do not disable
 the deleted owner's AIV plan entry. There is consequently no hidden general
@@ -158,7 +164,8 @@ an alternating cycle:
 - both deleted buildings must correspond to AIV entries that remain eligible for
   missing-building retries;
 - the replacement must leave the other entry's anchor empty or occupied by a
-  different structure type; equal structure types terminate the retry;
+  different structure type; an equal type terminates the retry only at that
+  exact anchor;
 - each reciprocal placement must select the broad policy and pass all other
   placement, resource, availability and delay checks;
 - neither blocker may be one of the broad mask's protected structure types, and
@@ -288,32 +295,69 @@ all three hooks. Installation is atomic and fixed-layout gated. The hook ending 
 `0x5D024` deliberately resumes at the existing tower-ruin broad classifier hook
 at `0x5D025`; neither patch overwrites the other.
 
-### Temporary runtime diagnostics
+### Observed rebuild loops and repeated-conflict guard
 
-The test build defines `BETTER_AI_OVERBUILD_DIAGNOSTICS`. All corresponding
-Info-level messages begin with `[TEMP BetterAIOverbuild]`. They report new-mapper
-promotion, every distinct foreign-AI blocker decision, and a synchronous
-`OnBuildingBulldoze(Pre)` correlation when a blocker delegated to Vanilla is
-actually removed. Repeated footprint hits with the same placement, pass, blocker
-and tick are suppressed, while a later retry tick remains visible. A map-end
-summary reports mapper promotion counts, protected and delegated blockers,
-confirmed removals, uncorrelated delegations, and suppressed duplicates.
+The later diagnostic run proved two forms of the same missing-transaction
+problem rather than two independent bugs:
 
-Reservation decisions use `protected-reserved-area` and include the matched
-parent's structure type, building/global ID, anchor, and protection reason. This
-allows the next ingame run to prove that the invisible reservation record and
-its visible main building receive one consistent decision.
+- mapper 180 (Oil Smelter) repeatedly removed player 2's Fletcher and Armourer
+  workshops before encountering a separately protected Market;
+- mapper 50 (Fletcher) repeatedly removed player 5's Fletcher workshops at
+  `(277,408)` and `(272,408)`, with new global building IDs after each rebuild.
 
-The diagnostics also report any actual removal of an AI building that belongs
-to the unconditional list or lies within its owner's keep radius, from both the
-bulldoze and direct-delete events. This makes protection bypasses visible even
-when no preceding classifier decision was observed.
+For the latter anchors, distance to the placing player 2's keep at `(272,420)`
+was 17 and 12. The protection policy correctly measures the blocker against its
+owner player 5's keep at `(292,398)`, producing 25 and 30. The earlier apparent
+distance contradiction came from comparing two different keeps, not from an
+arithmetic error. These blockers are intentionally outside the existing
+owner-Keep protection even though they lie inside the placing AI's central
+castle area.
 
-The temporary implementation is isolated in `BetterAIOverbuildDiagnostics.cs`
-and `BetterAIOverbuildDiagnosticState.cs`; production call sites are enclosed by
-marked `BETTER_AI_OVERBUILD_DIAGNOSTICS` blocks. Removing the define and both
-project compile entries, then deleting those two files, removes the diagnostics
-without changing the overbuild policy.
+`BetterAIOverbuildConflictState` adds a deterministic repetition brake without
+changing the distance, unconditional-structure, or compound-yard rules. Its key
+contains the placing player, real mapper, original orientation, normalized
+placement base, blocker owner, blocker structure type, and blocker anchor. The
+shifted broad second pass is normalized back to the first pass's base (`+2` for
+original orientations below 11, `+1` for orientation 11), so both footprint
+passes describe the same attempt.
+
+The first otherwise permitted foreign-AI blocker remains Vanilla-compatible.
+It becomes a candidate only when synchronous `OnBuildingBulldoze(Pre)` confirms
+that the delegated decision reached demolition. A later blocker with the same
+structural conflict key but a different global ID proves that it was rebuilt.
+If this occurs within 12,000 game ticks, the current global ID is latched as a
+repeated conflict and receives classifier surrogate type 40. Further identical
+retries leave it standing. The lock ends only when that exact blocker is
+removed, when another object replaces it, when the setting is disabled, or when
+map state resets. Unanswered decisions, the same global ID, and retries outside
+the five-minute window do not activate it.
+
+All state lookups are dictionary-based and pending bulldoze correlations are
+discarded when the simulation tick changes. The implementation continues to use
+only the existing hooks at `0x5CEAB`, `0x5D016`, and `0x5D045`; it adds no
+whole-function detour and does not reproduce Vanilla's multi-function
+cleanup/build sequence. It therefore does not overlap ExtraFeatures' entry
+detour, preserving standalone and combined operation.
+
+### Runtime verification
+
+The final ingame verification captured two independent repeated conflicts at
+tick 6437 for mapper 86. Player 4 attempted placements at normalized bases
+`(246,392)` and `(241,392)` against player 5 structures of type 17 at anchors
+`(247,392)` and `(242,392)`. The first objects had global IDs 1504 and 1530;
+after their confirmed demolition, rebuilt objects appeared with global IDs 3047
+and 3056. Both new objects activated the repeated-conflict guard.
+
+Global ID 3047 was then protected through repeated retries at ticks 6437, 7420,
+8391, 9375, 10361, 11458, 12512, 13551, and 14650, with no correlated removal.
+Both locks remained active until the following map reset. This confirms that
+the first ordinary overbuild remains possible, a rebuilt blocker is recognized
+by its new global ID, and subsequent identical demolition attempts are stopped.
+
+Earlier ingame runs also confirmed promotion of the four added mappers and the
+protection of unconditional structures, owner-Keep areas, and compound reserved
+yards. The temporary logging used for these checks was removed after validation;
+the production feature retains only the deterministic policy and conflict state.
 
 If no building ID occupies a footprint tile, both policies can additionally
 inspect tile flags and remove certain other registered map occupants through
