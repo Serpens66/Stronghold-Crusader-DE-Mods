@@ -1,4 +1,10 @@
 // Feature: Let Vanilla AI tower rebuilding clear its own blocking tower ruin.
+// Native ruin audit for CrusaderDE.dll SHA-256
+// FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2:
+// dispatch table RVA 0x2DEAE0 sends types 79 and 86-89 to the empty updater at
+// RVA 0xACE90, so Vanilla has no timed ruin cleanup.
+// Its destruction switch does bulldoze a ruin at RVA 0x7F6FA after further damage,
+// but the AIV placement helper at RVA 0x5CD90 only rejects the occupied footprint.
 using BepInEx.Logging;
 using SHCDESE.API;
 using SHCDESE.Interop;
@@ -21,7 +27,7 @@ namespace BugfixesAndQoL
             "4C 63 CA 44 8B D0 44 0F 45 94 24 90 00 00 00";
         private const int BuildingPlacementValidatorInteriorRva = 0x7B078;
         private const int BuildingPlacementValidatorInteriorOffset = 0x18;
-        private const int DiagnosticRepeatTicks = 5 * 40;
+        private const int DiagnosticRepeatTicks = 30 * 40;
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate int BuildingPlacementValidatorDelegate(
@@ -227,7 +233,7 @@ namespace BugfixesAndQoL
 
             Shared.DebugLogHelper.LogInfo(
                 log,
-                $"AI tower-rebuild obstruction marked for safe deletion: player={playerId}, mapper={mapperValue}, " +
+                $"AI tower-rebuild obstruction marked for safe deletion: initiator=mod-validator, player={playerId}, mapper={mapperValue}, " +
                 $"ruinType={ruinType}, buildingId={buildingId}, globalId={globalId}, tileId={tileId}, " +
                 $"validatorTile=({position.X},{position.Y}), ruinAnchor=({building->r_TilePositionXBegin},{building->r_TilePositionYBegin}), " +
                 $"diagnosticBounds=({building->r_TilePositionXBegin},{building->r_TilePositionYBegin})-({building->r_TilePositionXEnd},{building->r_TilePositionYEnd}).");
@@ -264,7 +270,12 @@ namespace BugfixesAndQoL
 
             // Vanilla checks every footprint tile. Grouping by target mapper and outcome keeps
             // one representative line per attempt instead of up to 36 equivalent tile lines.
-            var key = new DiagnosticKey(playerId, mapperValue, category);
+            // Keep separate evidence for simultaneously blocking ruins, but continue grouping
+            // ordinary footprint failures so large tower validators cannot flood the log.
+            string diagnosticIdentity = category.IndexOf("ruin", StringComparison.Ordinal) >= 0
+                ? outcome
+                : category;
+            var key = new DiagnosticKey(playerId, mapperValue, diagnosticIdentity);
             if (diagnosticTicks.TryGetValue(key, out int previous) &&
                 ElapsedTicks(now, previous) < DiagnosticRepeatTicks)
             {
