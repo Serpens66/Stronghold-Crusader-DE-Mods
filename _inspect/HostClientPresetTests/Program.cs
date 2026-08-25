@@ -1456,30 +1456,8 @@ internal static class Program
 
     private static void TestTroopActionButtonLayoutPolicy()
     {
-        IReadOnlyList<string> ordered = TroopActionButtonLayoutPolicy.OrderActionIds(new[]
-        {
-            "SerpTroopAction_0200_ExtraFeaturesAssassinClimb",
-            "invalid",
-            "SerpTroopAction_0100_ExtraFeaturesKnightTransform",
-            "SerpTroopAction_0200_AnotherModAction"
-        });
-        Check(ordered.SequenceEqual(new[]
-        {
-            "ExtraFeaturesKnightTransform",
-            "AnotherModAction",
-            "ExtraFeaturesAssassinClimb"
-        }), "shared troop actions were not ordered by priority and stable action id");
-
-        Check(TroopActionButtonLayoutPolicy.FindFirstAvailableSlot(new[] { true, false, false }) == 1,
-            "shared troop action collision policy did not skip an occupied slot");
-        Check(TroopActionButtonLayoutPolicy.FindFirstAvailableSlot(new[] { true, true }) == -1,
-            "shared troop action collision policy did not report overflow");
-        Check(TroopActionButtonLayoutPolicy.FindFirstAvailableSlot(new[] { true, false }) == 1,
-            "shared troop action collision policy did not reuse a freed slot");
-        Check(TroopActionButtonLayoutPolicy.IsEffectivelyOccupied(true, true),
-            "shared troop action collision policy ignored an effectively visible interactive element");
-        Check(!TroopActionButtonLayoutPolicy.IsEffectivelyOccupied(false, true) &&
-              TroopActionButtonLayoutPolicy.IsEffectivelyOccupied(true, false),
+        Check(!TroopActionButtonLayoutPolicy.IsEffectivelyOccupied(false) &&
+              TroopActionButtonLayoutPolicy.IsEffectivelyOccupied(true),
             "shared troop action collision policy did not give every displayed Vanilla/foreign button priority");
 
         Check(TroopActionButtonLayoutPolicy.TryResolveIdentity(
@@ -1498,10 +1476,8 @@ internal static class Program
                 "SerpTroopAction_Host", 1, "Example.Mod.Action", null, out _, out _),
             "shared troop action metadata contract accepted an unknown version or incomplete metadata");
 
-        var knight = new TroopActionRequest(
-            "KnightHost", "ExtraFeatures_Serp.KnightTransform", 100, true);
-        var assassin = new TroopActionRequest(
-            "AssassinHost", "ExtraFeatures_Serp.AssassinClimb", 200, true);
+        var knight = new TroopActionRequest("ExtraFeatures_Serp.KnightTransform", 100, true);
+        var assassin = new TroopActionRequest("ExtraFeatures_Serp.AssassinClimb", 200, true);
         TroopActionLayoutDecision bothFree = TroopActionButtonLayoutPolicy.CreateDecision(
             new[] { assassin, knight }, false, false);
         Check(bothFree.Assignments.Select(value => $"{value.ActionId}:{value.Slot}").SequenceEqual(new[]
@@ -1545,7 +1521,7 @@ internal static class Program
         TroopActionLayoutDecision threeActions = TroopActionButtonLayoutPolicy.CreateDecision(
             new[]
             {
-                new TroopActionRequest("Third", "Example.Mod.Third", 300, true),
+                new TroopActionRequest("Example.Mod.Third", 300, true),
                 assassin,
                 knight
             },
@@ -1558,8 +1534,8 @@ internal static class Program
         TroopActionLayoutDecision tied = TroopActionButtonLayoutPolicy.CreateDecision(
             new[]
             {
-                new TroopActionRequest("B", "Example.Mod.B", 100, true),
-                new TroopActionRequest("A", "Example.Mod.A", 100, true)
+                new TroopActionRequest("Example.Mod.B", 100, true),
+                new TroopActionRequest("Example.Mod.A", 100, true)
             },
             false,
             false);
@@ -1570,8 +1546,8 @@ internal static class Program
         TroopActionLayoutDecision duplicate = TroopActionButtonLayoutPolicy.CreateDecision(
             new[]
             {
-                new TroopActionRequest("Duplicate1", "Example.Mod.Duplicate", 100, true),
-                new TroopActionRequest("Duplicate2", "Example.Mod.Duplicate", 200, true),
+                new TroopActionRequest("Example.Mod.Duplicate", 100, true),
+                new TroopActionRequest("Example.Mod.Duplicate", 200, true),
                 knight
             },
             false,
@@ -1582,8 +1558,8 @@ internal static class Program
         TroopActionLayoutDecision hiddenDuplicate = TroopActionButtonLayoutPolicy.CreateDecision(
             new[]
             {
-                new TroopActionRequest("VisibleDuplicate", "Example.Mod.HiddenDuplicate", 100, true),
-                new TroopActionRequest("HiddenDuplicate", "Example.Mod.HiddenDuplicate", 200, false)
+                new TroopActionRequest("Example.Mod.HiddenDuplicate", 100, true),
+                new TroopActionRequest("Example.Mod.HiddenDuplicate", 200, false)
             },
             false,
             false);

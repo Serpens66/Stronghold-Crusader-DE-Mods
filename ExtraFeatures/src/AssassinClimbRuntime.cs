@@ -128,7 +128,7 @@ namespace ExtraFeatures
             packetHook = GameNetworkAPI.Instance.GetPacketEventFor<AssassinClimbStatePacket>();
             packetSubscription = packetHook.GetBaseHook().Observable.Subscribe(OnPacketReceived);
             networkInitialized = true;
-            LogInfo($"Assassin climb-state Chore registered eagerly: packetId={packetHook.GetPacketId()}, protocolVersion={ChoreProtocolVersion}.");
+            LogDebug($"Assassin climb-state synchronization registered: protocolVersion={ChoreProtocolVersion}.");
         }
 
         public void Initialize()
@@ -249,7 +249,6 @@ namespace ExtraFeatures
                 return false;
             }
 
-            LogInfo($"Assassin climb-state Chore queued: playerId={playerId}, operationId={operationId}, allowClimbing={targetState}.");
             return true;
         }
 
@@ -274,7 +273,7 @@ namespace ExtraFeatures
 
             lastOperationIds[playerId] = operationId;
             climbingAllowed[playerId] = allowClimbing;
-            LogInfo($"Assassin climb state applied: source={source}, playerId={playerId}, operationId={operationId}, allowClimbing={allowClimbing}.");
+            LogDebug($"Assassin climbing {(allowClimbing ? "enabled" : "disabled")}: source={source}, playerId={playerId}.");
         }
 
         private bool IsFeatureActive()
@@ -391,7 +390,7 @@ namespace ExtraFeatures
             nextOperationId = 0;
         }
 
-        private void LogInfo(string message) => log.LogInfo($"[{TimestampNow()}] Extra Features {message}");
+        private void LogDebug(string message) => log.LogDebug($"[{TimestampNow()}] Extra Features {message}");
         private void LogError(string message) => log.LogError($"[{TimestampNow()}] Extra Features {message}");
         private static string TimestampNow() => DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture);
     }

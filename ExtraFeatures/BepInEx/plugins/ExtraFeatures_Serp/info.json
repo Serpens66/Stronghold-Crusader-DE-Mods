@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.59",
+  "Version": "1.0.60",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.60",
+      "Changes": [
+        "Removed continuous Assassin path and troop-button diagnostics and pruned obsolete diagnostic-only code while retaining concise state and fallback logging."
+      ]
+    },
     {
       "Version": "1.0.59",
       "Changes": [

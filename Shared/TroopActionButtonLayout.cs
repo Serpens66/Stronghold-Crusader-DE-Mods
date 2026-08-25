@@ -5,7 +5,6 @@ using MonoMod.RuntimeDetour;
 using Noesis;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Reflection;
 
 namespace Shared
@@ -22,11 +21,9 @@ namespace Shared
         private const string LayoutAvailableProperty = "LayoutAvailable";
         private static readonly Thickness BottomRightMargin = new Thickness(80, 40, 0, 3);
         private static readonly Thickness BottomMiddleMargin = new Thickness(1, 40, 2, 3);
-        private static readonly long DiagnosticIntervalTicks = Math.Max(1L, Stopwatch.Frequency * 2L);
         private static readonly HashSet<string> overflowLogged = new HashSet<string>(StringComparer.Ordinal);
         private static readonly HashSet<string> invalidLogged = new HashSet<string>(StringComparer.Ordinal);
         private static readonly HashSet<string> duplicateLogged = new HashSet<string>(StringComparer.Ordinal);
-        private static long nextDiagnosticTimestamp;
 
         public static void Reflow(HUD_Troops troopPanel, ManualLogSource log)
         {
@@ -59,7 +56,7 @@ namespace Shared
             for (int index = 0; index < hosts.Count; index++)
             {
                 ActionHost host = hosts[index];
-                requests.Add(new TroopActionRequest(host.Element.Name, host.ActionId, host.Priority, host.WantsVisibility));
+                requests.Add(new TroopActionRequest(host.ActionId, host.Priority, host.WantsVisibility));
                 if (host.WantsVisibility)
                     SetLayoutAvailable(host, false);
                 else
@@ -88,22 +85,11 @@ namespace Shared
                     : BottomMiddleMargin;
                 host.Element.RenderTransform = new TranslateTransform(0f, 0f);
                 SetLayoutAvailable(host, true);
-                overflowLogged.Remove(host.ActionId);
             }
 
             LogInvalidHosts(log, invalidHosts);
             LogDuplicateActions(log, decision.DuplicateActionIds);
             LogOverflowActions(log, decision.OverflowActionIds, rightOccupied, middleOccupied);
-            LogDiagnosticIfDue(
-                log,
-                hosts,
-                invalidHosts,
-                decision,
-                occupied.Count,
-                rightOccupied,
-                middleOccupied,
-                rightGeometryAvailable,
-                middleGeometryAvailable);
         }
 
         private static void CollectActionHosts(
@@ -220,7 +206,7 @@ namespace Shared
 
                     // A displayed Vanilla or foreign button owns its slot even when disabled.
                     if (element is Button &&
-                        TroopActionButtonLayoutPolicy.IsEffectivelyOccupied(element.IsVisible, element.IsHitTestVisible) &&
+                        TroopActionButtonLayoutPolicy.IsEffectivelyOccupied(element.IsVisible) &&
                         TryGetScreenRectangle(element, out ScreenRectangle rectangle))
                     {
                         result.Add(rectangle);
@@ -346,63 +332,6 @@ namespace Shared
                         $"bottomRightOccupied={rightOccupied}, bottomMiddleOccupied={middleOccupied}.");
                 }
             }
-        }
-
-        private static void LogDiagnosticIfDue(
-            ManualLogSource log,
-            IReadOnlyList<ActionHost> hosts,
-            IReadOnlyList<string> invalidHosts,
-            TroopActionLayoutDecision decision,
-            int occupiedCount,
-            bool rightOccupied,
-            bool middleOccupied,
-            bool rightGeometryAvailable,
-            bool middleGeometryAvailable)
-        {
-            if (log == null || !HasRequestedHost(hosts))
-                return;
-
-            long now = Stopwatch.GetTimestamp();
-            if (now < nextDiagnosticTimestamp)
-                return;
-            nextDiagnosticTimestamp = now + DiagnosticIntervalTicks;
-
-            var recognized = new List<string>(hosts.Count);
-            for (int index = 0; index < hosts.Count; index++)
-            {
-                ActionHost host = hosts[index];
-                recognized.Add($"{host.ActionId}:{host.Priority}:wants={host.WantsVisibility}");
-            }
-            var assigned = new List<string>(decision.Assignments.Count);
-            for (int index = 0; index < decision.Assignments.Count; index++)
-            {
-                TroopActionSlotAssignment assignment = decision.Assignments[index];
-                assigned.Add($"{assignment.ActionId}->{FormatSlot(assignment.Slot)}");
-            }
-
-            DebugLogHelper.LogDebug(
-                log,
-                $"Troop action layout diagnostic: recognized=[{string.Join(",", recognized)}], " +
-                $"invalid=[{string.Join(",", invalidHosts)}], effectiveForeignButtons={occupiedCount}, " +
-                $"bottomRightOccupied={rightOccupied}, bottomMiddleOccupied={middleOccupied}, " +
-                $"rightGeometryAvailable={rightGeometryAvailable}, middleGeometryAvailable={middleGeometryAvailable}, " +
-                $"assigned=[{string.Join(",", assigned)}], duplicates=[{string.Join(",", decision.DuplicateActionIds)}], " +
-                $"overflow=[{string.Join(",", decision.OverflowActionIds)}].");
-        }
-
-        private static bool HasRequestedHost(IReadOnlyList<ActionHost> hosts)
-        {
-            for (int index = 0; index < hosts.Count; index++)
-            {
-                if (hosts[index].WantsVisibility)
-                    return true;
-            }
-            return false;
-        }
-
-        private static string FormatSlot(TroopActionSlot slot)
-        {
-            return slot == TroopActionSlot.BottomRight ? "bottom-right" : "bottom-middle";
         }
 
         private sealed class ActionHost

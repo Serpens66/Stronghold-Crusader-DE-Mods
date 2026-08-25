@@ -5,7 +5,6 @@ using SHCDESE.API;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
-using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.InteropServices;
 
@@ -47,7 +46,6 @@ namespace ExtraFeatures
         private const uint IsWallFlag = 1u << 8;
         private const uint IsStairsFlag = 1u << 11;
         private const uint IsLowWallFlag = 1u << 16;
-        private static readonly long DiagnosticIntervalTicks = Math.Max(1L, Stopwatch.Frequency * 2L);
         private const string AssassinBuilderPattern =
             "48 89 5C 24 08 48 89 6C 24 18 48 89 74 24 20 57 41 54 41 55 41 56 41 57 48 83 EC 30 48 63 EA 48 8B D9 49 63 F9";
 
@@ -59,8 +57,6 @@ namespace ExtraFeatures
         private readonly AssassinClimbRuntime climbRuntime;
         private readonly int[] costs = new int[CoordinateCount];
         private readonly int[] parents = new int[CoordinateCount];
-        private readonly int[] incomingClimbTicks = new int[CoordinateCount];
-        private readonly byte[] incomingClimbEdges = new byte[CoordinateCount];
         private readonly int[] insertionOrder = new int[CoordinateCount];
         private readonly int[] heap = new int[CoordinateCount];
         private readonly int[] heapPositions = new int[CoordinateCount];
@@ -83,13 +79,9 @@ namespace ExtraFeatures
         private int heapCount;
         private int touchedCount;
         private int nextInsertionOrder;
-        private long nextDiagnosticTimestamp;
-        private int lastDiagnosticStart = -1;
-        private int lastDiagnosticTarget = -1;
-        private bool lastDiagnosticClimbingAllowed;
         private bool fallbackLogged;
         private bool coordinateMapValidated;
-        private long nextCoordinateValidationFailureTimestamp;
+        private bool coordinateValidationFailureLogged;
 
         public AssassinPathfindingRuntime(ManualLogSource log, ExtraFeaturesViewModel settings, AssassinClimbRuntime climbRuntime)
         {
@@ -148,7 +140,7 @@ namespace ExtraFeatures
                 original = installed.GenerateTrampoline<AssassinPathBuilderDelegate>();
                 installed.Apply();
                 detour = installed;
-                LogInfo($"weighted Assassin pathfinding installed at RVA 0x{AssassinBuilderRva:X}; map-dependent coordinate validation is deferred until the first Assassin request; climb costs={AssassinClimbCostPolicy.MinimumClimbTicks}/{AssassinClimbCostPolicy.LowWallClimbTicks}/{AssassinClimbCostPolicy.NormalWallClimbTicks} ticks.");
+                LogDebug($"weighted Assassin pathfinding installed at RVA 0x{AssassinBuilderRva:X}; climb costs={AssassinClimbCostPolicy.MinimumClimbTicks}/{AssassinClimbCostPolicy.LowWallClimbTicks}/{AssassinClimbCostPolicy.NormalWallClimbTicks} ticks.");
             }
             catch
             {
@@ -198,9 +190,7 @@ namespace ExtraFeatures
                     targetY,
                     maximumNodes,
                     speedDelay,
-                    allowClimbing,
-                    out PathDiagnostic diagnostic);
-                LogPathDiagnosticIfDue(playerId, startX, startY, targetX, targetY, speedDelay, allowClimbing, vanillaResult, found, diagnostic);
+                    allowClimbing);
                 return found ? 1 : 0;
             }
             catch (Exception ex)
@@ -222,18 +212,14 @@ namespace ExtraFeatures
             int targetY,
             int maximumNodes,
             int speedDelay,
-            bool allowClimbing,
-            out PathDiagnostic diagnostic)
+            bool allowClimbing)
         {
-            diagnostic = default;
             if (!IsValidCoordinate(startX, startY) || !IsValidCoordinate(targetX, targetY))
                 return false;
 
             ResetTouchedNodes();
             int cardinalTicks = AssassinClimbCostPolicy.GetCardinalMovementTicks(speedDelay);
             int diagonalTicks = AssassinClimbCostPolicy.GetDiagonalMovementTicks(speedDelay);
-            diagnostic.CardinalTicks = cardinalTicks;
-            diagnostic.DiagonalTicks = diagonalTicks;
             int startTile = GetTileId(startX, startY);
             int targetTile = GetTileId(targetX, targetY);
             if (!IsNativeTile(startTile) || !IsNativeTile(targetTile))
@@ -241,7 +227,7 @@ namespace ExtraFeatures
 
             int startNode = GetCoordinateIndex(startX, startY);
             int targetNode = GetCoordinateIndex(targetX, targetY);
-            Touch(startNode, 0, -1, 0, false);
+            Touch(startNode, 0, -1);
             Push(startNode);
             int expanded = 0;
             int nodeLimit = Math.Max(1, Math.Min(maximumNodes, TileCount));
@@ -250,9 +236,8 @@ namespace ExtraFeatures
             {
                 int currentNode = Pop();
                 expanded++;
-                diagnostic.ExpandedNodes = expanded;
                 if (currentNode == targetNode)
-                    return CommitRoute(context, startNode, targetNode, ref diagnostic);
+                    return CommitRoute(context, startNode, targetNode);
 
                 int currentX = currentNode % MapWidth;
                 int currentY = currentNode / MapWidth;
@@ -280,7 +265,6 @@ namespace ExtraFeatures
                         if ((direction & 1) != 0 || !IsVanillaAssassinFallback(currentTile, nextTile, currentFlags))
                             continue;
                         climbEdge = true;
-                        diagnostic.ClimbCandidates++;
                         if (!allowClimbing)
                             continue;
                     }
@@ -295,18 +279,12 @@ namespace ExtraFeatures
                         continue;
 
                     if (costs[nextNode] == int.MaxValue)
-                        Touch(nextNode, newCost, currentNode, climbTicks, climbEdge);
+                        Touch(nextNode, newCost, currentNode);
                     else
                     {
                         costs[nextNode] = newCost;
                         parents[nextNode] = currentNode;
-                        incomingClimbTicks[nextNode] = climbTicks;
-                        incomingClimbEdges[nextNode] = climbEdge ? (byte)1 : (byte)0;
                     }
-                    if (climbEdge)
-                        diagnostic.AcceptedClimbEdges++;
-                    else
-                        diagnostic.AcceptedOrdinaryEdges++;
                     PushOrDecrease(nextNode);
                 }
             }
@@ -341,7 +319,7 @@ namespace ExtraFeatures
                 targetIsStairs: (targetFlags & IsStairsFlag) != 0);
         }
 
-        private bool CommitRoute(IntPtr context, int startNode, int targetNode, ref PathDiagnostic diagnostic)
+        private bool CommitRoute(IntPtr context, int startNode, int targetNode)
         {
             int routeLength = 0;
             int node = targetNode;
@@ -374,18 +352,7 @@ namespace ExtraFeatures
                     return false;
                 nativeVisitStamps[routeTile] = (short)generation;
                 nativeDistances[routeTile] = (short)distance;
-
-                if (reverseIndex < routeLength - 1)
-                {
-                    int climbTicks = incomingClimbTicks[routeNode];
-                    diagnostic.SelectedClimbTicks += climbTicks;
-                    if (incomingClimbEdges[routeNode] != 0)
-                        diagnostic.SelectedClimbEdges++;
-                }
             }
-            diagnostic.RouteLength = routeLength;
-            diagnostic.TotalTicks = costs[targetNode];
-            diagnostic.SelectedMovementTicks = diagnostic.TotalTicks - diagnostic.SelectedClimbTicks;
             return true;
         }
 
@@ -451,7 +418,7 @@ namespace ExtraFeatures
 
             if (validCount <= 0 || validCount > TileCount)
                 throw new InvalidOperationException($"native coordinate map exposed an invalid valid-tile count: {validCount}");
-            LogInfo($"Assassin coordinate map validated: validCoordinates={validCount}, nativeTileCapacity={TileCount}.");
+            LogDebug($"Assassin coordinate map validated for the current map: validCoordinates={validCount}.");
         }
 
         private bool EnsureCoordinateTileMappingValidated()
@@ -465,16 +432,15 @@ namespace ExtraFeatures
                 // first lifecycle point that guarantees that Vanilla has prepared the map.
                 ValidateCoordinateTileMapping();
                 coordinateMapValidated = true;
-                nextCoordinateValidationFailureTimestamp = 0;
+                coordinateValidationFailureLogged = false;
                 return true;
             }
             catch (Exception ex)
             {
-                long now = Stopwatch.GetTimestamp();
-                if (now >= nextCoordinateValidationFailureTimestamp)
+                if (!coordinateValidationFailureLogged)
                 {
-                    nextCoordinateValidationFailureTimestamp = now + DiagnosticIntervalTicks;
-                    LogError($"Assassin coordinate map is not ready or invalid; this request uses Vanilla pathfinding and the next request will retry validation: {ex.Message}");
+                    coordinateValidationFailureLogged = true;
+                    LogWarning($"Assassin coordinate map is not ready or invalid; this map uses Vanilla pathfinding until validation succeeds: {ex.Message}");
                 }
                 return false;
             }
@@ -483,17 +449,15 @@ namespace ExtraFeatures
         private void ResetMapValidation()
         {
             coordinateMapValidated = false;
-            nextCoordinateValidationFailureTimestamp = 0;
+            coordinateValidationFailureLogged = false;
             fallbackLogged = false;
         }
 
-        private void Touch(int node, int cost, int parent, int climbTicks, bool climbEdge)
+        private void Touch(int node, int cost, int parent)
         {
             touched[touchedCount++] = node;
             costs[node] = cost;
             parents[node] = parent;
-            incomingClimbTicks[node] = climbTicks;
-            incomingClimbEdges[node] = climbEdge ? (byte)1 : (byte)0;
             insertionOrder[node] = nextInsertionOrder++;
         }
 
@@ -504,8 +468,6 @@ namespace ExtraFeatures
                 int node = touched[index];
                 costs[node] = int.MaxValue;
                 parents[node] = -1;
-                incomingClimbTicks[node] = 0;
-                incomingClimbEdges[node] = 0;
                 heapPositions[node] = -1;
             }
             touchedCount = 0;
@@ -586,71 +548,9 @@ namespace ExtraFeatures
                 (costs[left] == costs[right] && insertionOrder[left] < insertionOrder[right]);
         }
 
-        private void LogPathDiagnosticIfDue(
-            int playerId,
-            int startX,
-            int startY,
-            int targetX,
-            int targetY,
-            int speedDelay,
-            bool allowClimbing,
-            int vanillaResult,
-            bool found,
-            PathDiagnostic diagnostic)
-        {
-            int localPlayerId;
-            try
-            {
-                localPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
-            }
-            catch
-            {
-                return;
-            }
-            if (playerId != localPlayerId)
-                return;
-
-            int start = GetCoordinateIndex(startX, startY);
-            int target = GetCoordinateIndex(targetX, targetY);
-            long now = Stopwatch.GetTimestamp();
-            bool sameRequest = start == lastDiagnosticStart && target == lastDiagnosticTarget &&
-                allowClimbing == lastDiagnosticClimbingAllowed;
-            if (sameRequest && now < nextDiagnosticTimestamp)
-                return;
-
-            lastDiagnosticStart = start;
-            lastDiagnosticTarget = target;
-            lastDiagnosticClimbingAllowed = allowClimbing;
-            nextDiagnosticTimestamp = now + DiagnosticIntervalTicks;
-            log.LogDebug(
-                $"[{TimestampNow()}] Extra Features Assassin path diagnostic: " +
-                $"playerId={playerId}, start={startX},{startY}, target={targetX},{targetY}, " +
-                $"speedDelay={speedDelay}, movementTicks={diagnostic.CardinalTicks}/{diagnostic.DiagonalTicks}, " +
-                $"climbingAllowed={allowClimbing}, vanillaResult={vanillaResult}, weightedResult={found}, " +
-                $"expanded={diagnostic.ExpandedNodes}, acceptedOrdinary={diagnostic.AcceptedOrdinaryEdges}, " +
-                $"climbCandidates={diagnostic.ClimbCandidates}, acceptedClimb={diagnostic.AcceptedClimbEdges}, " +
-                $"routeLength={diagnostic.RouteLength}, selectedClimbs={diagnostic.SelectedClimbEdges}, " +
-                $"movementCost={diagnostic.SelectedMovementTicks}, climbCost={diagnostic.SelectedClimbTicks}, " +
-                $"totalCost={diagnostic.TotalTicks}.");
-        }
-
-        private void LogInfo(string message) => log.LogInfo($"[{TimestampNow()}] Extra Features {message}");
+        private void LogDebug(string message) => log.LogDebug($"[{TimestampNow()}] Extra Features {message}");
+        private void LogWarning(string message) => log.LogWarning($"[{TimestampNow()}] Extra Features {message}");
         private void LogError(string message) => log.LogError($"[{TimestampNow()}] Extra Features {message}");
         private static string TimestampNow() => DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture);
-
-        private struct PathDiagnostic
-        {
-            public int CardinalTicks;
-            public int DiagonalTicks;
-            public int ExpandedNodes;
-            public int AcceptedOrdinaryEdges;
-            public int ClimbCandidates;
-            public int AcceptedClimbEdges;
-            public int RouteLength;
-            public int SelectedClimbEdges;
-            public int SelectedMovementTicks;
-            public int SelectedClimbTicks;
-            public int TotalTicks;
-        }
     }
 }

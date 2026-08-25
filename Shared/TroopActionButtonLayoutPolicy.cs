@@ -12,15 +12,13 @@ namespace Shared
 
     internal sealed class TroopActionRequest
     {
-        public TroopActionRequest(string hostName, string actionId, int priority, bool wantsVisibility)
+        public TroopActionRequest(string actionId, int priority, bool wantsVisibility)
         {
-            HostName = hostName;
             ActionId = actionId;
             Priority = priority;
             WantsVisibility = wantsVisibility;
         }
 
-        public string HostName { get; }
         public string ActionId { get; }
         public int Priority { get; }
         public bool WantsVisibility { get; }
@@ -94,30 +92,6 @@ namespace Shared
             return TryParseLegacyHostName(hostName, out resolvedPriority, out resolvedActionId);
         }
 
-        public static bool TryParseHostName(string name, out int priority, out string actionId)
-        {
-            return TryParseLegacyHostName(name, out priority, out actionId);
-        }
-
-        public static IReadOnlyList<string> OrderActionIds(IEnumerable<string> hostNames)
-        {
-            var actions = new List<ActionIdentity>();
-            if (hostNames != null)
-            {
-                foreach (string hostName in hostNames)
-                {
-                    if (TryParseLegacyHostName(hostName, out int priority, out string actionId))
-                        actions.Add(new ActionIdentity(priority, actionId));
-                }
-            }
-
-            actions.Sort(ActionIdentityComparer.Instance);
-            var result = new string[actions.Count];
-            for (int index = 0; index < actions.Count; index++)
-                result[index] = actions[index].ActionId;
-            return result;
-        }
-
         public static TroopActionLayoutDecision CreateDecision(
             IEnumerable<TroopActionRequest> requests,
             bool bottomRightOccupied,
@@ -173,19 +147,7 @@ namespace Shared
             return new TroopActionLayoutDecision(assignments, duplicates, overflow);
         }
 
-        public static int FindFirstAvailableSlot(IReadOnlyList<bool> occupied)
-        {
-            if (occupied == null)
-                return -1;
-            for (int index = 0; index < occupied.Count; index++)
-            {
-                if (!occupied[index])
-                    return index;
-            }
-            return -1;
-        }
-
-        public static bool IsEffectivelyOccupied(bool isVisible, bool isHitTestVisible)
+        public static bool IsEffectivelyOccupied(bool isVisible)
         {
             return isVisible;
         }
