@@ -29,6 +29,10 @@ namespace BugfixesAndQoL
                 new Dictionary<int, TribeSynchronization>();
         private readonly HashSet<int> activeMoveOrderTribeIds =
             new HashSet<int>();
+        // TEMP_SIEGE_MOVEMENT_DIAGNOSTIC_BEGIN
+        private readonly HashSet<int> siegeDiagnosticTribeIds =
+            new HashSet<int>();
+        // TEMP_SIEGE_MOVEMENT_DIAGNOSTIC_END
         private readonly List<int> unitIds =
             new List<int>(ExpectedMaximumTrackedUnits);
         private readonly Dictionary<eChimps, UnitTypeMovementInfo>
@@ -312,6 +316,17 @@ namespace BugfixesAndQoL
 
             if (args.Phase == EventHookPhase.Post)
             {
+                // TEMP_SIEGE_MOVEMENT_DIAGNOSTIC_BEGIN
+                if (siegeDiagnosticTribeIds.Remove(args.TribeId))
+                {
+                    TroopMovementFix3SiegeMovementDiagnostic.LogOrderSnapshot(
+                        log,
+                        args.TribeId,
+                        "ORDER_POST_AFTER_VANILLA",
+                        args.MoveType,
+                        args.ReturnValue);
+                }
+                // TEMP_SIEGE_MOVEMENT_DIAGNOSTIC_END
                 activeMoveOrderTribeIds.Remove(args.TribeId);
                 if (args.ReturnValue != 1)
                     RemoveSynchronization(args.TribeId, restoreSpeed: true);
@@ -322,12 +337,38 @@ namespace BugfixesAndQoL
                 return;
 
             activeMoveOrderTribeIds.Add(args.TribeId);
+            // TEMP_SIEGE_MOVEMENT_DIAGNOSTIC_BEGIN
+            siegeDiagnosticTribeIds.Remove(args.TribeId);
+            // TEMP_SIEGE_MOVEMENT_DIAGNOSTIC_END
             RemoveSynchronization(args.TribeId, restoreSpeed: true);
 
             if (args.MoveType != TribeMoveType.DefaultInSync)
                 return;
 
+            // TEMP_SIEGE_MOVEMENT_DIAGNOSTIC_BEGIN
+            if (TroopMovementFix3SiegeMovementDiagnostic.LogOrderSnapshot(
+                    log,
+                    args.TribeId,
+                    "ORDER_PRE_BEFORE_FIX",
+                    args.MoveType,
+                    returnValue: null))
+            {
+                siegeDiagnosticTribeIds.Add(args.TribeId);
+            }
+            // TEMP_SIEGE_MOVEMENT_DIAGNOSTIC_END
             TryApplyMixedGroupSynchronization(args.TribeId);
+
+            // TEMP_SIEGE_MOVEMENT_DIAGNOSTIC_BEGIN
+            if (siegeDiagnosticTribeIds.Contains(args.TribeId))
+            {
+                TroopMovementFix3SiegeMovementDiagnostic.LogOrderSnapshot(
+                    log,
+                    args.TribeId,
+                    "ORDER_PRE_AFTER_FIX",
+                    args.MoveType,
+                    returnValue: null);
+            }
+            // TEMP_SIEGE_MOVEMENT_DIAGNOSTIC_END
         }
 
         private void OnUnloadMap(MapUnloadEventArgs args)
@@ -533,6 +574,10 @@ namespace BugfixesAndQoL
         {
             synchronizationByTribeId.Clear();
             activeMoveOrderTribeIds.Clear();
+            // TEMP_SIEGE_MOVEMENT_DIAGNOSTIC_BEGIN
+            siegeDiagnosticTribeIds.Clear();
+            TroopMovementFix3SiegeMovementDiagnostic.Reset();
+            // TEMP_SIEGE_MOVEMENT_DIAGNOSTIC_END
             unitIds.Clear();
             unitTypeMovementInfoByType.Clear();
         }

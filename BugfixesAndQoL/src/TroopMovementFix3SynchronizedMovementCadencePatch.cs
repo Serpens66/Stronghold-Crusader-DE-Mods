@@ -329,6 +329,10 @@ namespace BugfixesAndQoL
                     unit->r_UnitChimp,
                     out AnimationTransitions animationTransitions);
 
+                // TEMP_SIEGE_MOVEMENT_DIAGNOSTIC_BEGIN
+                ushort diagnosticSpeedBonusBefore = unit->r_SpeedBonus;
+                uint diagnosticAnimationBefore = unit->N000000F4;
+                // TEMP_SIEGE_MOVEMENT_DIAGNOSTIC_END
                 uint animationState = unit->N000000F4;
                 if (cadence == SynchronizedMovementCadence.Running)
                 {
@@ -344,6 +348,15 @@ namespace BugfixesAndQoL
                         unit->N000000F4 = runningState;
                     }
 
+                    // TEMP_SIEGE_MOVEMENT_DIAGNOSTIC_BEGIN
+                    TroopMovementFix3SiegeMovementDiagnostic.LogCadenceSample(
+                        log,
+                        unit,
+                        cadence,
+                        runningSpeedBonus,
+                        diagnosticSpeedBonusBefore,
+                        diagnosticAnimationBefore);
+                    // TEMP_SIEGE_MOVEMENT_DIAGNOSTIC_END
                     return;
                 }
 
@@ -358,6 +371,16 @@ namespace BugfixesAndQoL
                 {
                     unit->N000000F4 = walkingState;
                 }
+
+                // TEMP_SIEGE_MOVEMENT_DIAGNOSTIC_BEGIN
+                TroopMovementFix3SiegeMovementDiagnostic.LogCadenceSample(
+                    log,
+                    unit,
+                    cadence,
+                    runningSpeedBonus,
+                    diagnosticSpeedBonusBefore,
+                    diagnosticAnimationBefore);
+                // TEMP_SIEGE_MOVEMENT_DIAGNOSTIC_END
             }
             catch (Exception ex)
             {

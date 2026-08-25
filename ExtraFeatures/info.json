@@ -3,10 +3,17 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.72",
+  "Version": "1.0.73",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.73",
+      "Changes": [
+        "Added complete next-tick wall-state diagnostics that summarize every AI wall repair query and report any blocked mutation individually.",
+        "Added exact active AIV placement context to tower-ruin removal diagnostics without changing ruin behavior."
+      ]
+    },
     {
       "Version": "1.0.72",
       "Changes": [

@@ -8,6 +8,11 @@
 // below correlate damage, mod deletion marks, bulldoze and delete events instead.
 // The separate footprint bulldozer at RVA 0x5D3A0 belongs to general BuildStructure
 // RVA 0x74DA0 and is not called by the audited AIV placement helper RVA 0x5CD90.
+// The AIV helper has its own blocker scan: validator RVA 0x7B060 returns 2 for an
+// occupied StructureGrid tile, 0x5CD90 accepts 0/2 and then conditionally deletes
+// selected footprint buildings around RVA 0x5D045. A 2026-08-25 trace showed this
+// path removing TOWER3_DESTROYED but repeatedly leaving TOWER2_DESTROYED. The static
+// mapper/type filters do not yet fully explain that difference, so keep it diagnostic.
 using BepInEx.Logging;
 using R3;
 using SHCDESE.API;
@@ -70,6 +75,7 @@ namespace ExtraFeatures
         [ThreadStatic] private static bool hasPendingRepair;
         [ThreadStatic] private static PendingWallRepair pendingWallRepair;
         [ThreadStatic] private static RuinDamageObservation pendingRuinDamage;
+        [ThreadStatic] private static ActivePlacementObservation activePlacementObservation;
 
         private readonly ManualLogSource log;
         private readonly ExtraFeaturesViewModel settings;
@@ -85,6 +91,11 @@ namespace ExtraFeatures
         private readonly HashSet<string> callbackFailuresLogged = new HashSet<string>(StringComparer.Ordinal);
         private readonly Dictionary<uint, StandingDefenseQueryLogState> standingDefenseQueryLogs =
             new Dictionary<uint, StandingDefenseQueryLogState>();
+        // Every classified wall query is retained until a later simulation tick. There is
+        // deliberately no capacity or per-map event limit: summaries compress normal cases,
+        // while every blocked mutation is emitted individually as an anomaly.
+        private readonly List<WallPostStateObservation> pendingWallPostStates =
+            new List<WallPostStateObservation>(256);
         // Keep standing repairs separate from AIV rebuilds. The native event is shared by both,
         // which made earlier aggregate logs unable to prove the damaged-building case.
         private readonly RepairPlayerDiagnostics[] standingRepairPlayers = new RepairPlayerDiagnostics[9];
@@ -282,6 +293,7 @@ namespace ExtraFeatures
             rebuildDelays.Clear();
             observedDefenseTargets.Clear();
             standingDefenseQueryLogs.Clear();
+            pendingWallPostStates.Clear();
             callbackFailuresLogged.Clear();
             Array.Clear(maintenanceLastTicks, 0, maintenanceLastTicks.Length);
             Array.Clear(maintenanceOccurrences, 0, maintenanceOccurrences.Length);
@@ -386,11 +398,7 @@ namespace ExtraFeatures
                 string targetBuilding = DescribeBuildingAtTile(observation.X, observation.Y);
                 if (observation.IsWallRepair)
                 {
-                    LogInfo($"AI damaged-wall repair proximity result: player={args.PlayerId}, " +
-                        $"target=({observation.X},{observation.Y}), tick={now}, " +
-                        $"result={(blocked ? "blocked" : "allowed")}, " +
-                        $"vanillaRadius={observation.VanillaRadius}, " +
-                        $"configuredRadius={observation.ConfiguredRadius}.");
+                    QueueWallPostStateObservation(observation, blocked, now);
                 }
                 else if (!observation.IsRebuild)
                     LogDamagedStandingDefenseQuery(observation, blocked, now);
@@ -455,6 +463,11 @@ namespace ExtraFeatures
             if (!IsConfigured || !mapActive)
                 return;
 
+            // OnAIBuildWall exposes only a Pre event. By the next simulation tick its native
+            // RVA 0x6CB20 call has returned, so DamageGrid/HeightGrid reveal whether the
+            // proximity result actually prevented or permitted the wall mutation.
+            FlushWallPostStateDiagnostics(tick);
+
             if (lastTowerSnapshotTick != int.MinValue &&
                 ElapsedTicks(tick, lastTowerSnapshotTick) < TowerSnapshotIntervalTicks)
                 return;
@@ -471,6 +484,116 @@ namespace ExtraFeatures
                 LogFailure("standing-tower snapshot", ex);
             }
         }
+
+        private void QueueWallPostStateObservation(
+            RepairObservation observation, bool blocked, int queryTick)
+        {
+            try
+            {
+                GameTileManagerAPI tileApi = GameTileManagerAPI.Instance;
+                int tileId = tileApi.GetTileId(observation.X, observation.Y);
+                if (!tileApi.IsValidTileId(tileId))
+                {
+                    LogInfo($"AI damaged-wall post-state capture unresolved: player={observation.PlayerId}, " +
+                        $"target=({observation.X},{observation.Y}), queryTick={queryTick}, reason=invalid-tile.");
+                    return;
+                }
+
+                pendingWallPostStates.Add(new WallPostStateObservation(
+                    observation.PlayerId,
+                    observation.X,
+                    observation.Y,
+                    tileId,
+                    queryTick,
+                    blocked,
+                    observation.VanillaRadius,
+                    observation.ConfiguredRadius,
+                    CaptureWallTileSnapshot(tileApi, tileId)));
+            }
+            catch (Exception ex)
+            {
+                LogFailure("AI damaged-wall post-state capture", ex);
+            }
+        }
+
+        private void FlushWallPostStateDiagnostics(int observationTick)
+        {
+            if (pendingWallPostStates.Count == 0)
+                return;
+
+            try
+            {
+                GameTileManagerAPI tileApi = GameTileManagerAPI.Instance;
+                var deferred = new List<WallPostStateObservation>();
+                var batches = new Dictionary<WallPostBatchKey, WallPostBatch>();
+                foreach (WallPostStateObservation observation in pendingWallPostStates)
+                {
+                    if (observation.QueryTick == observationTick)
+                    {
+                        deferred.Add(observation);
+                        continue;
+                    }
+
+                    var key = new WallPostBatchKey(observation.PlayerId, observation.QueryTick);
+                    if (!batches.TryGetValue(key, out WallPostBatch batch))
+                    {
+                        batch = new WallPostBatch();
+                        batches.Add(key, batch);
+                    }
+
+                    if (!tileApi.IsValidTileId(observation.TileId))
+                    {
+                        batch.RecordUnresolved(observation);
+                        continue;
+                    }
+
+                    WallTileSnapshot after = CaptureWallTileSnapshot(tileApi, observation.TileId);
+                    bool mutated = !observation.Before.Equals(after);
+                    bool damageCleared = observation.Before.State != 0 && after.State == 0;
+                    batch.Record(observation, mutated, damageCleared);
+                    if (observation.Blocked && mutated)
+                    {
+                        LogInfo($"AI damaged-wall blocked post-state anomaly: player={observation.PlayerId}, " +
+                            $"target=({observation.X},{observation.Y}), queryTick={observation.QueryTick}, " +
+                            $"observedTick={observationTick}, vanillaRadius={observation.VanillaRadius}, " +
+                            $"configuredRadius={observation.ConfiguredRadius}, before={observation.Before}, " +
+                            $"after={after}, damageCleared={(damageCleared ? 1 : 0)}.");
+                    }
+                }
+
+                pendingWallPostStates.Clear();
+                pendingWallPostStates.AddRange(deferred);
+
+                var orderedKeys = new List<WallPostBatchKey>(batches.Keys);
+                orderedKeys.Sort();
+                foreach (WallPostBatchKey key in orderedKeys)
+                {
+                    WallPostBatch batch = batches[key];
+                    LogInfo($"AI damaged-wall post-state summary: player={key.PlayerId}, " +
+                        $"queryTick={key.QueryTick}, observedTick={observationTick}, " +
+                        $"queries={batch.Queries}, uniqueTargets={batch.UniqueTargets.Count}, " +
+                        $"blocked={batch.Blocked}, blockedStable={batch.BlockedStable}, " +
+                        $"blockedMutated={batch.BlockedMutated}, blockedDamageCleared={batch.BlockedDamageCleared}, " +
+                        $"allowed={batch.Allowed}, allowedStable={batch.AllowedStable}, " +
+                        $"allowedMutated={batch.AllowedMutated}, allowedDamageCleared={batch.AllowedDamageCleared}, " +
+                        $"unresolved={batch.Unresolved}. All classified queries are included; no event limit is applied.");
+                }
+            }
+            catch (Exception ex)
+            {
+                // Preserve the complete queue for the next tick. A transient diagnostic failure
+                // must not silently turn into missing test evidence.
+                LogFailure("AI damaged-wall post-state flush", ex);
+            }
+        }
+
+        private static WallTileSnapshot CaptureWallTileSnapshot(GameTileManagerAPI tileApi, int tileId) =>
+            new WallTileSnapshot(
+                tileApi.GetTileState(tileId),
+                tileApi.GetTileHeight(tileId),
+                tileApi.GetTileDefaultHeight(tileId),
+                (int)tileApi.GetTilePropertyFlag(tileId),
+                tileApi.GetTilePlayerOwnerId(tileId));
 
         private void WriteStandingTowerSnapshots(int tick)
         {
@@ -886,7 +1009,22 @@ namespace ExtraFeatures
                 LogFailure("AIV rebuild-delay preparation", ex);
             }
 
-            int result = CallPlacement(placementStateAddress, playerId, offsetX, offsetY, mapperValue, orientation);
+            ActivePlacementObservation previousPlacement = activePlacementObservation;
+            activePlacementObservation = new ActivePlacementObservation(
+                playerId, context.FrameIndex, mapperValue, offsetX, offsetY,
+                tileX, tileY, tileId, orientation);
+            int result;
+            try
+            {
+                result = CallPlacement(
+                    placementStateAddress, playerId, offsetX, offsetY, mapperValue, orientation);
+            }
+            finally
+            {
+                // Removal events raised synchronously by Vanilla can now be attributed to this
+                // exact placement call. Restoring the prior value also keeps nested calls safe.
+                activePlacementObservation = previousPlacement;
+            }
             try
             {
                 context.Attempts.Add(new PlacementAttempt(
@@ -962,11 +1100,18 @@ namespace ExtraFeatures
                     damage.GlobalId == building->r_GlobalId
                     ? $",duringDamage=True,damage={damage.Damage},damageSourcePlayer={damage.SourcePlayerId},healthBefore={damage.HealthBefore}"
                     : ",duringDamage=False";
+                ActivePlacementObservation placement = activePlacementObservation;
+                string placementContext = placement.IsActive
+                    ? $",activePlacement=player:{placement.PlayerId}/frame:{placement.FrameIndex}/mapper:{placement.Mapper}/" +
+                      $"offset:({placement.OffsetX},{placement.OffsetY})/target:({placement.TileX},{placement.TileY})/" +
+                      $"tileId:{placement.TileId}/orientation:{placement.Orientation}"
+                    : ",activePlacement=none";
                 LogInfo($"AI tower ruin removal observed: source={source}, player={building->r_PlayerIdOwner}, " +
                     $"type={building->r_BuildingType}, buildingId={buildingId}, globalId={building->r_GlobalId}, " +
                     $"aliveState={building->r_AliveState}, anchor=({building->r_TilePositionXBegin},{building->r_TilePositionYBegin}), " +
                     $"bounds=({building->r_TilePositionXBegin},{building->r_TilePositionYBegin})-" +
-                    $"({building->r_TilePositionXEnd},{building->r_TilePositionYEnd}){damageContext}, tick={SafeCurrentTick()}.");
+                    $"({building->r_TilePositionXEnd},{building->r_TilePositionYEnd}){damageContext}" +
+                    $"{placementContext}, tick={SafeCurrentTick()}.");
             }
             catch (Exception ex)
             {
@@ -1635,6 +1780,142 @@ namespace ExtraFeatures
                 IsSet && PlayerId == playerId && X == x && Y == y && vanillaRadius == 5;
         }
 
+        private readonly struct WallTileSnapshot : IEquatable<WallTileSnapshot>
+        {
+            internal WallTileSnapshot(byte state, byte height, byte defaultHeight, int flags, byte owner)
+            {
+                State = state;
+                Height = height;
+                DefaultHeight = defaultHeight;
+                Flags = flags;
+                Owner = owner;
+            }
+
+            internal byte State { get; }
+            internal byte Height { get; }
+            internal byte DefaultHeight { get; }
+            internal int Flags { get; }
+            internal byte Owner { get; }
+
+            public bool Equals(WallTileSnapshot other) =>
+                State == other.State && Height == other.Height &&
+                DefaultHeight == other.DefaultHeight && Flags == other.Flags && Owner == other.Owner;
+            public override bool Equals(object obj) => obj is WallTileSnapshot other && Equals(other);
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    int hash = State;
+                    hash = (hash * 397) ^ Height;
+                    hash = (hash * 397) ^ DefaultHeight;
+                    hash = (hash * 397) ^ Flags;
+                    return (hash * 397) ^ Owner;
+                }
+            }
+            public override string ToString() =>
+                $"state={State},height={Height},defaultHeight={DefaultHeight},flags=0x{Flags:X8},owner={Owner}";
+        }
+
+        private readonly struct WallPostStateObservation
+        {
+            internal WallPostStateObservation(
+                int playerId, int x, int y, int tileId, int queryTick, bool blocked,
+                int vanillaRadius, int configuredRadius, WallTileSnapshot before)
+            {
+                PlayerId = playerId;
+                X = x;
+                Y = y;
+                TileId = tileId;
+                QueryTick = queryTick;
+                Blocked = blocked;
+                VanillaRadius = vanillaRadius;
+                ConfiguredRadius = configuredRadius;
+                Before = before;
+            }
+
+            internal int PlayerId { get; }
+            internal int X { get; }
+            internal int Y { get; }
+            internal int TileId { get; }
+            internal int QueryTick { get; }
+            internal bool Blocked { get; }
+            internal int VanillaRadius { get; }
+            internal int ConfiguredRadius { get; }
+            internal WallTileSnapshot Before { get; }
+        }
+
+        private readonly struct WallPostBatchKey : IEquatable<WallPostBatchKey>, IComparable<WallPostBatchKey>
+        {
+            internal WallPostBatchKey(int playerId, int queryTick)
+            { PlayerId = playerId; QueryTick = queryTick; }
+            internal int PlayerId { get; }
+            internal int QueryTick { get; }
+            public bool Equals(WallPostBatchKey other) =>
+                PlayerId == other.PlayerId && QueryTick == other.QueryTick;
+            public override bool Equals(object obj) => obj is WallPostBatchKey other && Equals(other);
+            public override int GetHashCode()
+            {
+                unchecked { return (PlayerId * 397) ^ QueryTick; }
+            }
+            public int CompareTo(WallPostBatchKey other)
+            {
+                int tickComparison = QueryTick.CompareTo(other.QueryTick);
+                return tickComparison != 0 ? tickComparison : PlayerId.CompareTo(other.PlayerId);
+            }
+        }
+
+        private sealed class WallPostBatch
+        {
+            internal int Queries { get; private set; }
+            internal int Blocked { get; private set; }
+            internal int BlockedStable { get; private set; }
+            internal int BlockedMutated { get; private set; }
+            internal int BlockedDamageCleared { get; private set; }
+            internal int Allowed { get; private set; }
+            internal int AllowedStable { get; private set; }
+            internal int AllowedMutated { get; private set; }
+            internal int AllowedDamageCleared { get; private set; }
+            internal int Unresolved { get; private set; }
+            internal HashSet<long> UniqueTargets { get; } = new HashSet<long>();
+
+            internal void Record(WallPostStateObservation observation, bool mutated, bool damageCleared)
+            {
+                Queries++;
+                UniqueTargets.Add(unchecked(((long)(uint)observation.X << 32) | (uint)observation.Y));
+                if (observation.Blocked)
+                {
+                    Blocked++;
+                    if (mutated)
+                        BlockedMutated++;
+                    else
+                        BlockedStable++;
+                    if (damageCleared)
+                        BlockedDamageCleared++;
+                }
+                else
+                {
+                    Allowed++;
+                    if (mutated)
+                        AllowedMutated++;
+                    else
+                        AllowedStable++;
+                    if (damageCleared)
+                        AllowedDamageCleared++;
+                }
+            }
+
+            internal void RecordUnresolved(WallPostStateObservation observation)
+            {
+                Queries++;
+                Unresolved++;
+                UniqueTargets.Add(unchecked(((long)(uint)observation.X << 32) | (uint)observation.Y));
+                if (observation.Blocked)
+                    Blocked++;
+                else
+                    Allowed++;
+            }
+        }
+
         private readonly struct StandingDefenseQueryLogState
         {
             internal StandingDefenseQueryLogState(int tick, bool blocked, short health)
@@ -1679,6 +1960,36 @@ namespace ExtraFeatures
             internal int TileId { get; }
             internal int Orientation { get; }
             internal int Result { get; }
+        }
+
+        private readonly struct ActivePlacementObservation
+        {
+            internal ActivePlacementObservation(
+                int playerId, int frameIndex, short mapper, int offsetX, int offsetY,
+                int tileX, int tileY, int tileId, int orientation)
+            {
+                IsActive = true;
+                PlayerId = playerId;
+                FrameIndex = frameIndex;
+                Mapper = mapper;
+                OffsetX = offsetX;
+                OffsetY = offsetY;
+                TileX = tileX;
+                TileY = tileY;
+                TileId = tileId;
+                Orientation = orientation;
+            }
+
+            internal bool IsActive { get; }
+            internal int PlayerId { get; }
+            internal int FrameIndex { get; }
+            internal short Mapper { get; }
+            internal int OffsetX { get; }
+            internal int OffsetY { get; }
+            internal int TileX { get; }
+            internal int TileY { get; }
+            internal int TileId { get; }
+            internal int Orientation { get; }
         }
     }
 }
