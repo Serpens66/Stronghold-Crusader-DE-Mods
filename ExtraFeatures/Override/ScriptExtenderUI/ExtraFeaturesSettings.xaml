@@ -93,12 +93,30 @@
         <TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Row="1" Grid.Column="2" Text="{Binding AIGateClosingDistanceValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding GateClosingDistanceHelpText}" MinWidth="86" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/>
       </Grid>
       <Separator Background="#444466" Margin="0,10"/>
-      <TextBlock Text="{Binding AiDefenseRepairTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,8"/>
-      <Grid Margin="0,0,0,8" ToolTipService.ShowDuration="60000" ToolTip="{Binding AIRepairEnemyProximityHelpText}">
+      <TextBlock Text="{Binding EnemyProximityTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,8"/>
+      <Grid Margin="0,0,0,8" ToolTipService.ShowDuration="60000" ToolTip="{Binding HumanEnemyProximityHelpText}">
         <Grid.ColumnDefinitions><ColumnDefinition Width="260"/><ColumnDefinition Width="220"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions>
-        <TextBlock Grid.Column="0" Text="{Binding AIRepairEnemyProximityText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>
-        <Slider Grid.Column="1" Minimum="-1" Maximum="100" Value="{Binding AIRepairEnemyProximity, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding AIRepairEnemyProximityHelpText}"/>
-        <TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Column="2" Text="{Binding AIRepairEnemyProximityValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding AIRepairEnemyProximityHelpText}" MinWidth="86" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/>
+        <TextBlock Grid.Column="0" Text="{Binding HumanEnemyProximitySingleplayerText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>
+        <Slider Grid.Column="1" Minimum="-1" Maximum="100" Value="{Binding HumanEnemyProximitySingleplayer, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding HumanEnemyProximityHelpText}"/>
+        <TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Column="2" Text="{Binding HumanEnemyProximitySingleplayerValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding HumanEnemyProximityHelpText}" MinWidth="86" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/>
+      </Grid>
+      <Grid Margin="0,0,0,8" ToolTipService.ShowDuration="60000" ToolTip="{Binding HumanEnemyProximityHelpText}">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="260"/><ColumnDefinition Width="220"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions>
+        <TextBlock Grid.Column="0" Text="{Binding HumanEnemyProximityMultiplayerText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>
+        <Slider Grid.Column="1" Minimum="-1" Maximum="100" Value="{Binding HumanEnemyProximityMultiplayer, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding HumanEnemyProximityHelpText}"/>
+        <TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Column="2" Text="{Binding HumanEnemyProximityMultiplayerValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding HumanEnemyProximityHelpText}" MinWidth="86" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/>
+      </Grid>
+      <Grid Margin="0,0,0,8" ToolTipService.ShowDuration="60000" ToolTip="{Binding AIEnemyProximityHelpText}">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="260"/><ColumnDefinition Width="220"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions>
+        <TextBlock Grid.Column="0" Text="{Binding AIEnemyProximitySingleplayerText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>
+        <Slider Grid.Column="1" Minimum="-1" Maximum="100" Value="{Binding AIEnemyProximitySingleplayer, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding AIEnemyProximityHelpText}"/>
+        <TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Column="2" Text="{Binding AIEnemyProximitySingleplayerValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding AIEnemyProximityHelpText}" MinWidth="86" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/>
+      </Grid>
+      <Grid Margin="0,0,0,8" ToolTipService.ShowDuration="60000" ToolTip="{Binding AIEnemyProximityHelpText}">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="260"/><ColumnDefinition Width="220"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions>
+        <TextBlock Grid.Column="0" Text="{Binding AIEnemyProximityMultiplayerText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>
+        <Slider Grid.Column="1" Minimum="-1" Maximum="100" Value="{Binding AIEnemyProximityMultiplayer, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding AIEnemyProximityHelpText}"/>
+        <TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Column="2" Text="{Binding AIEnemyProximityMultiplayerValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding AIEnemyProximityHelpText}" MinWidth="86" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/>
       </Grid>
       <Grid Margin="0,0,0,8" ToolTipService.ShowDuration="60000" ToolTip="{Binding AITowerGateRebuildDelayHelpText}">
         <Grid.ColumnDefinitions><ColumnDefinition Width="260"/><ColumnDefinition Width="220"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions>

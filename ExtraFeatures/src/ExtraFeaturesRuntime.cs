@@ -436,6 +436,7 @@ namespace ExtraFeatures
                 }
                 else
                 {
+                    TryRunFeature("enemy proximity restoration", ReconcileAIDefenseRepairRuntime);
                     TryRunFeature("gatehouse automation", gatehouseAutomationRuntime.ApplySettings);
                     TryRunFeature("Vanilla value restoration", RestoreDefaultSettings);
                     TryRunFeature("fast recruit rally movement", ApplyFastRecruitRallyMovementSetting);

@@ -1,4 +1,4 @@
-// Feature: Configure AI repair proximity and damage-anchored AIV defense rebuild timing.
+// Feature: Configure human/AI enemy proximity and damage-anchored AIV defense rebuild timing.
 //
 // Finished castles repeatedly enter ExecuteBuildStep at RVA 0x51790. The placement helper at
 // RVA 0x5CD90 supplies the concrete tower/gate target. Map-start and successful spawn events
@@ -14,6 +14,7 @@ using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.AI;
 using SHCDESE.EventAPI.Buildings;
 using SHCDESE.EventAPI.MapLoader;
+using SHCDESE.GameGlobals;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
@@ -85,14 +86,25 @@ namespace ExtraFeatures
         private bool nativeInitialized;
         private bool mapActive;
         private bool mapPrepared;
+        private bool gameModeKnown;
+        private bool realMultiplayer;
+        private bool gameModeFailureLogged;
         private bool invalidFrameWarningLogged;
         private bool disposed;
 
-        // Both -1 values are a true Vanilla mode: no subscriptions/detours are installed when
-        // starting in that state, and already installed callbacks immediately pass through.
         private bool IsConfigured =>
             settings.EnableMod &&
-            (settings.AIRepairEnemyProximity >= 0 || settings.AITowerGateRebuildDelaySeconds >= 0);
+            (settings.HumanEnemyProximitySingleplayer >= 0 ||
+             settings.HumanEnemyProximityMultiplayer >= 0 ||
+             settings.AIEnemyProximitySingleplayer >= 0 ||
+             settings.AIEnemyProximityMultiplayer >= 0 ||
+             settings.AITowerGateRebuildDelaySeconds >= 0);
+
+        private bool NeedsNativeRebuildHooks =>
+            settings.EnableMod &&
+            (settings.AIEnemyProximitySingleplayer >= 0 ||
+             settings.AIEnemyProximityMultiplayer >= 0 ||
+             settings.AITowerGateRebuildDelaySeconds >= 0);
 
         public AIDefenseRepairRuntime(ManualLogSource log, ExtraFeaturesViewModel settings)
         {
@@ -103,8 +115,6 @@ namespace ExtraFeatures
         public void Initialize()
         {
             if (initialized)
-                return;
-            if (!IsConfigured)
                 return;
 
             subscriptions.Add(BuildingR3EventHooks.OnBuildingAllowRepairInProximity.Observable.Subscribe(OnRepairProximity));
@@ -120,6 +130,9 @@ namespace ExtraFeatures
 
         public void ReconcileConfiguration()
         {
+            Initialize();
+            ApplyHumanImmediateRanges();
+
             if (!IsConfigured)
             {
                 // Discard timer state when returning to Vanilla. Installed native
@@ -127,15 +140,13 @@ namespace ExtraFeatures
                 ResetState();
                 return;
             }
-
-            Initialize();
         }
 
         public void InitializeNative(IntPtr libraryHandle, ReadOnlySpan<byte> memory, bool referenceHashMatches)
         {
             if (nativeInitialized)
                 return;
-            if (!IsConfigured)
+            if (!NeedsNativeRebuildHooks)
                 return;
 
             // The placement helper's process-state origin fields are fixed-layout data, not
@@ -181,6 +192,7 @@ namespace ExtraFeatures
             if (disposed)
                 return;
             disposed = true;
+            RestoreHumanImmediateRanges();
             foreach (IDisposable subscription in subscriptions)
                 subscription.Dispose();
             subscriptions.Clear();
@@ -192,13 +204,11 @@ namespace ExtraFeatures
 
         private void OnStartMap(MapStartEventArgs args)
         {
-            if (!IsConfigured)
-                return;
-
             if (args.Phase == EventHookPhase.Pre)
             {
                 mapActive = false;
                 ResetState();
+                CaptureGameMode(args.bMultiplayerSave != 0);
                 mapPrepared = true;
                 return;
             }
@@ -221,7 +231,30 @@ namespace ExtraFeatures
         {
             mapActive = false;
             mapPrepared = false;
+            gameModeKnown = false;
+            realMultiplayer = false;
+            gameModeFailureLogged = false;
             ResetState();
+        }
+
+        private void CaptureGameMode(bool multiplayerSave)
+        {
+            try
+            {
+                Shared.GameModeSnapshot snapshot = Shared.GameModeHelper.Capture(multiplayerSave);
+                realMultiplayer = snapshot.IsRealMultiplayer;
+                gameModeKnown = true;
+                gameModeFailureLogged = false;
+                Shared.DebugLogHelper.LogDebug(
+                    log,
+                    $"Enemy-proximity runtime captured map mode: {snapshot.ToDiagnosticString()}.");
+            }
+            catch (Exception ex)
+            {
+                gameModeKnown = false;
+                realMultiplayer = false;
+                LogGameModeFailure("map-start capture", ex);
+            }
         }
 
         private void ResetState()
@@ -241,61 +274,59 @@ namespace ExtraFeatures
 
         private void OnRepairProximity(BuildingAllowRepairInProximityEventArgs args)
         {
-            if (!IsConfigured || !mapActive)
+            if (!settings.EnableMod || !mapActive || args.Phase != EventHookPhase.Pre)
                 return;
 
             try
             {
-                if (!IsAI(args.PlayerId))
+                bool isAi = IsAI(args.PlayerId);
+                if (!isAi)
+                {
+                    ApplyHumanPlacementProximity(args);
+                    return;
+                }
+
+                // AI wall repair is not a GameBuilding repair. ExecuteBuildStep calls the
+                // dedicated wall writer at RVA 0x6CB20, whose validator RVA 0x77CF0 asks
+                // this helper with radius 5 immediately before restoring Height/DamageGrid.
+                // Bind only that synchronous, coordinate-identical call. This preserves all
+                // first placements while avoiding the old tower-spawn-history heuristic.
+                bool isWallRepair = pendingWallRepair.Matches(
+                    args.PlayerId, args.TileX, args.TileY, args.Proximity);
+                if (pendingWallRepair.IsSet)
+                    pendingWallRepair = default;
+                if (isWallRepair)
+                {
+                    if (!TryGetConfiguredAIRadius(out int wallRadius))
+                        return;
+
+                    args.Proximity = EnemyProximityPolicy.ApplyAIRadius(
+                        args.Proximity, wallRadius, isClassifiedRepairOrRebuild: true);
+                    return;
+                }
+
+                BuildStepContext context = activeContext;
+                if (context != null && context.PlayerId == args.PlayerId && context.DelayBlocked)
+                {
+                    // The measured ExecuteBuildStep path asks this native question after the
+                    // placement helper and before spawning. Returning Vanilla's blocked value
+                    // leaves the frame scheduler intact, so other frame targets still run.
+                    args.ReturnValue = 1;
+                    args.SkipOriginalFunction = true;
+                    return;
+                }
+
+                // 0xEE640 is a general placement helper, not a standing-building repair API.
+                // Calls outside the explicitly classified wall/rebuild contexts remain Vanilla.
+                if (context == null || context.History == null ||
+                    !context.History.EverSpawnedDefense ||
+                    !TryGetConfiguredAIRadius(out int rebuildRadius))
                     return;
 
-                if (args.Phase == EventHookPhase.Pre)
-                {
-                    // AI wall repair is not a GameBuilding repair. ExecuteBuildStep calls the
-                    // dedicated wall writer at RVA 0x6CB20, whose validator RVA 0x77CF0 asks
-                    // this helper with radius 5 immediately before restoring Height/DamageGrid.
-                    // Bind only that synchronous, coordinate-identical call. This preserves all
-                    // first placements while avoiding the old tower-spawn-history heuristic.
-                    bool isWallRepair = pendingWallRepair.Matches(
-                        args.PlayerId, args.TileX, args.TileY, args.Proximity);
-                    if (pendingWallRepair.IsSet)
-                        pendingWallRepair = default;
-                    if (isWallRepair)
-                    {
-                        if (settings.AIRepairEnemyProximity < 0)
-                            return;
-
-                        args.Proximity = settings.AIRepairEnemyProximity;
-                        return;
-                    }
-
-                    BuildStepContext context = activeContext;
-                    if (context != null && context.PlayerId == args.PlayerId && context.DelayBlocked)
-                    {
-                        // The measured ExecuteBuildStep path asks this native question after the
-                        // placement helper and before spawning. Returning Vanilla's blocked value
-                        // leaves the frame scheduler intact, so other frame targets still run.
-                        args.ReturnValue = 1;
-                        args.SkipOriginalFunction = true;
-                        return;
-                    }
-
-                    // 0xEE640 is a general placement helper, not a standing-building repair API.
-                    // Vanilla has no AI producer for the building-repair Chore used by towers and
-                    // gates. Calls outside the explicitly classified wall/rebuild contexts must
-                    // therefore remain untouched instead of being mislabeled as repairs.
-                    if (context == null || context.History == null ||
-                        !context.History.EverSpawnedDefense)
-                        return;
-
-                    if (settings.AIRepairEnemyProximity < 0)
-                        return;
-
-                    // On the audited DLL, native 0xEE640 returns nonzero when a qualifying
-                    // hostile is inside the strict squared-distance check; its repair caller
-                    // treats that as denied. Live AI calls supplied Vanilla radii 3, 5 and 15.
-                    args.Proximity = settings.AIRepairEnemyProximity;
-                }
+                // Live AI calls supplied context-specific Vanilla radii 3, 5 and 15. A custom
+                // mode value replaces them only after the call was safely classified as rebuild.
+                args.Proximity = EnemyProximityPolicy.ApplyAIRadius(
+                    args.Proximity, rebuildRadius, isClassifiedRepairOrRebuild: true);
             }
             catch (Exception ex)
             {
@@ -306,7 +337,7 @@ namespace ExtraFeatures
         private void OnAIBuildWall(AIBuildWallEventArgs args)
         {
             pendingWallRepair = default;
-            if (!IsConfigured || !mapActive || settings.AIRepairEnemyProximity < 0 ||
+            if (!settings.EnableMod || !mapActive || !TryGetConfiguredAIRadius(out _) ||
                 !IsAI(args.PlayerId))
             {
                 return;
@@ -334,6 +365,79 @@ namespace ExtraFeatures
                 pendingWallRepair = default;
                 LogFailure("AI damaged-wall repair classification", ex);
             }
+        }
+
+        private void ApplyHumanPlacementProximity(BuildingAllowRepairInProximityEventArgs args)
+        {
+            if (args.PlayerId < 1 || args.PlayerId > 8 || !gameModeKnown)
+                return;
+
+            int configuredRadius = EnemyProximityPolicy.SelectConfiguredRadius(
+                realMultiplayer,
+                settings.HumanEnemyProximitySingleplayer,
+                settings.HumanEnemyProximityMultiplayer);
+            args.Proximity = EnemyProximityPolicy.ApplyHumanPlacementRadius(
+                args.Proximity, configuredRadius);
+        }
+
+        private bool TryGetConfiguredAIRadius(out int radius)
+        {
+            radius = EnemyProximityPolicy.VanillaMode;
+            if (!gameModeKnown)
+                return false;
+
+            radius = EnemyProximityPolicy.SelectConfiguredRadius(
+                realMultiplayer,
+                settings.AIEnemyProximitySingleplayer,
+                settings.AIEnemyProximityMultiplayer);
+            return radius != EnemyProximityPolicy.VanillaMode;
+        }
+
+        private void ApplyHumanImmediateRanges()
+        {
+            int singleplayerConfigured = settings.EnableMod
+                ? settings.HumanEnemyProximitySingleplayer
+                : EnemyProximityPolicy.VanillaMode;
+            int multiplayerConfigured = settings.EnableMod
+                ? settings.HumanEnemyProximityMultiplayer
+                : EnemyProximityPolicy.VanillaMode;
+            SetHumanImmediateRanges(
+                EnemyProximityPolicy.ResolveHumanImmediateRadius(
+                    singleplayerConfigured, EnemyProximityPolicy.VanillaHumanSingleplayerRadius),
+                EnemyProximityPolicy.ResolveHumanImmediateRadius(
+                    multiplayerConfigured, EnemyProximityPolicy.VanillaHumanMultiplayerRadius));
+        }
+
+        private void RestoreHumanImmediateRanges() => SetHumanImmediateRanges(
+            EnemyProximityPolicy.VanillaHumanSingleplayerRadius,
+            EnemyProximityPolicy.VanillaHumanMultiplayerRadius);
+
+        private void SetHumanImmediateRanges(int singleplayerRadius, int multiplayerRadius)
+        {
+            GameGlobalsManager globals = GameGlobalsManager.Instance;
+            if (globals?.BuildingRepairProximityCheckRange == null ||
+                globals.BuildingRepairProximityCheckExRange == null)
+            {
+                return;
+            }
+
+            ushort normal = checked((ushort)singleplayerRadius);
+            ushort reduced = checked((ushort)multiplayerRadius);
+            if (globals.BuildingRepairProximityCheckRange.GetValue() != normal)
+                globals.BuildingRepairProximityCheckRange.SetValue(normal);
+            if (globals.BuildingRepairProximityCheckExRange.GetValue() != reduced)
+                globals.BuildingRepairProximityCheckExRange.SetValue(reduced);
+        }
+
+        private void LogGameModeFailure(string context, Exception ex)
+        {
+            if (gameModeFailureLogged)
+                return;
+            gameModeFailureLogged = true;
+            Shared.DebugLogHelper.LogError(
+                log,
+                $"Enemy-proximity game-mode detection failed during {context}; human placement and " +
+                $"AI proximity overrides remain Vanilla for this map. Snapshot unavailable: {ex}");
         }
 
         private int ObserveExecuteBuildStep(

@@ -55,7 +55,10 @@ namespace ExtraFeatures
         private double humanGateClosingDistanceTiles = GatehouseTimingPatch.VanillaHumanDistanceTiles;
         private double aiGateClosingDistanceTiles = GatehouseTimingPatch.VanillaAiDistanceTiles;
         private bool requireReachableEnemyForAutomaticGateClosing = true;
-        private int aiRepairEnemyProximity = 30;
+        private int humanEnemyProximitySingleplayer = EnemyProximityPolicy.VanillaMode;
+        private int humanEnemyProximityMultiplayer = EnemyProximityPolicy.VanillaMode;
+        private int aiEnemyProximitySingleplayer = EnemyProximityPolicy.VanillaMode;
+        private int aiEnemyProximityMultiplayer = EnemyProximityPolicy.VanillaMode;
         private int aiTowerGateRebuildDelaySeconds = 60;
         private bool marketGoodPriceVisualsResolved;
 
@@ -169,9 +172,13 @@ namespace ExtraFeatures
         public string GateClosingDistanceHelpText => SerpLocalization.Get("SomeSettings.GateClosingDistanceHelp");
         public string RequireReachableEnemyForAutomaticGateClosingText => SerpLocalization.Get("SomeSettings.RequireReachableEnemyForAutomaticGateClosing");
         public string RequireReachableEnemyForAutomaticGateClosingHelpText => SerpLocalization.Get("SomeSettings.RequireReachableEnemyForAutomaticGateClosingHelp");
-        public string AiDefenseRepairTitleText => SerpLocalization.Get("SomeSettings.AiDefenseRepairTitle");
-        public string AIRepairEnemyProximityText => SerpLocalization.Get("SomeSettings.AIRepairEnemyProximity");
-        public string AIRepairEnemyProximityHelpText => SerpLocalization.Get("SomeSettings.AIRepairEnemyProximityHelp");
+        public string EnemyProximityTitleText => SerpLocalization.Get("SomeSettings.EnemyProximityTitle");
+        public string HumanEnemyProximitySingleplayerText => SerpLocalization.Get("SomeSettings.HumanEnemyProximitySingleplayer");
+        public string HumanEnemyProximityMultiplayerText => SerpLocalization.Get("SomeSettings.HumanEnemyProximityMultiplayer");
+        public string AIEnemyProximitySingleplayerText => SerpLocalization.Get("SomeSettings.AIEnemyProximitySingleplayer");
+        public string AIEnemyProximityMultiplayerText => SerpLocalization.Get("SomeSettings.AIEnemyProximityMultiplayer");
+        public string HumanEnemyProximityHelpText => SerpLocalization.Get("SomeSettings.HumanEnemyProximityHelp");
+        public string AIEnemyProximityHelpText => SerpLocalization.Get("SomeSettings.AIEnemyProximityHelp");
         public string AITowerGateRebuildDelayText => SerpLocalization.Get("SomeSettings.AITowerGateRebuildDelay");
         public string AITowerGateRebuildDelayHelpText => SerpLocalization.Get("SomeSettings.AITowerGateRebuildDelayHelp");
 
@@ -236,13 +243,10 @@ namespace ExtraFeatures
         [SyncHostOnly] public double HumanGateClosingDistanceTiles { get => humanGateClosingDistanceTiles; set => SetDoubleSetting(ref humanGateClosingDistanceTiles, RoundToStep(value, 0.5), GatehouseTimingPatch.MinimumDistanceTiles, GatehouseTimingPatch.MaximumDistanceTiles, nameof(HumanGateClosingDistanceTiles), nameof(HumanGateClosingDistanceValueText)); }
         [SyncHostOnly] public double AIGateClosingDistanceTiles { get => aiGateClosingDistanceTiles; set => SetDoubleSetting(ref aiGateClosingDistanceTiles, RoundToStep(value, 0.5), GatehouseTimingPatch.MinimumDistanceTiles, GatehouseTimingPatch.MaximumDistanceTiles, nameof(AIGateClosingDistanceTiles), nameof(AIGateClosingDistanceValueText)); }
         [SyncHostOnly] public bool RequireReachableEnemyForAutomaticGateClosing { get => requireReachableEnemyForAutomaticGateClosing; set => SetSetting(ref requireReachableEnemyForAutomaticGateClosing, value, nameof(RequireReachableEnemyForAutomaticGateClosing)); }
-        [SyncHostOnly]
-        public int AIRepairEnemyProximity
-        {
-            get => aiRepairEnemyProximity;
-            set => SetIntSetting(ref aiRepairEnemyProximity, value,
-                -1, 100, nameof(AIRepairEnemyProximity), nameof(AIRepairEnemyProximityValueText));
-        }
+        [SyncHostOnly] public int HumanEnemyProximitySingleplayer { get => humanEnemyProximitySingleplayer; set => SetIntSetting(ref humanEnemyProximitySingleplayer, value, EnemyProximityPolicy.MinimumRadius, EnemyProximityPolicy.MaximumRadius, nameof(HumanEnemyProximitySingleplayer), nameof(HumanEnemyProximitySingleplayerValueText)); }
+        [SyncHostOnly] public int HumanEnemyProximityMultiplayer { get => humanEnemyProximityMultiplayer; set => SetIntSetting(ref humanEnemyProximityMultiplayer, value, EnemyProximityPolicy.MinimumRadius, EnemyProximityPolicy.MaximumRadius, nameof(HumanEnemyProximityMultiplayer), nameof(HumanEnemyProximityMultiplayerValueText)); }
+        [SyncHostOnly] public int AIEnemyProximitySingleplayer { get => aiEnemyProximitySingleplayer; set => SetIntSetting(ref aiEnemyProximitySingleplayer, value, EnemyProximityPolicy.MinimumRadius, EnemyProximityPolicy.MaximumRadius, nameof(AIEnemyProximitySingleplayer), nameof(AIEnemyProximitySingleplayerValueText)); }
+        [SyncHostOnly] public int AIEnemyProximityMultiplayer { get => aiEnemyProximityMultiplayer; set => SetIntSetting(ref aiEnemyProximityMultiplayer, value, EnemyProximityPolicy.MinimumRadius, EnemyProximityPolicy.MaximumRadius, nameof(AIEnemyProximityMultiplayer), nameof(AIEnemyProximityMultiplayerValueText)); }
         [SyncHostOnly]
         public int AITowerGateRebuildDelaySeconds
         {
@@ -271,7 +275,10 @@ namespace ExtraFeatures
         public string AIGateReopenDelayValueText { get => FormatSeconds(AIGateReopenDelaySeconds); set => SetDoubleValueText(value, parsed => AIGateReopenDelaySeconds = parsed, nameof(AIGateReopenDelayValueText)); }
         public string HumanGateClosingDistanceValueText { get => FormatTiles(HumanGateClosingDistanceTiles); set => SetDoubleValueText(value, parsed => HumanGateClosingDistanceTiles = parsed, nameof(HumanGateClosingDistanceValueText)); }
         public string AIGateClosingDistanceValueText { get => FormatTiles(AIGateClosingDistanceTiles); set => SetDoubleValueText(value, parsed => AIGateClosingDistanceTiles = parsed, nameof(AIGateClosingDistanceValueText)); }
-        public string AIRepairEnemyProximityValueText { get => FormatWholeTiles(AIRepairEnemyProximity); set => SetIntValueText(value, parsed => AIRepairEnemyProximity = parsed, nameof(AIRepairEnemyProximityValueText)); }
+        public string HumanEnemyProximitySingleplayerValueText { get => FormatWholeTiles(HumanEnemyProximitySingleplayer); set => SetIntValueText(value, parsed => HumanEnemyProximitySingleplayer = parsed, nameof(HumanEnemyProximitySingleplayerValueText)); }
+        public string HumanEnemyProximityMultiplayerValueText { get => FormatWholeTiles(HumanEnemyProximityMultiplayer); set => SetIntValueText(value, parsed => HumanEnemyProximityMultiplayer = parsed, nameof(HumanEnemyProximityMultiplayerValueText)); }
+        public string AIEnemyProximitySingleplayerValueText { get => FormatWholeTiles(AIEnemyProximitySingleplayer); set => SetIntValueText(value, parsed => AIEnemyProximitySingleplayer = parsed, nameof(AIEnemyProximitySingleplayerValueText)); }
+        public string AIEnemyProximityMultiplayerValueText { get => FormatWholeTiles(AIEnemyProximityMultiplayer); set => SetIntValueText(value, parsed => AIEnemyProximityMultiplayer = parsed, nameof(AIEnemyProximityMultiplayerValueText)); }
         public string AITowerGateRebuildDelayValueText { get => FormatWholeSeconds(AITowerGateRebuildDelaySeconds); set => SetIntValueText(value, parsed => AITowerGateRebuildDelaySeconds = parsed, nameof(AITowerGateRebuildDelayValueText)); }
         public string HumanLordHealthPercentText { get => FormatPercent(HumanLordHealthPercent); set => SetIntValueText(value, parsed => HumanLordHealthPercent = parsed, nameof(HumanLordHealthPercentText)); }
         public string AILordHealthPercentText { get => FormatPercent(AILordHealthPercent); set => SetIntValueText(value, parsed => AILordHealthPercent = parsed, nameof(AILordHealthPercentText)); }
@@ -318,7 +325,10 @@ namespace ExtraFeatures
                 HumanGateClosingDistanceTiles = GatehouseTimingPatch.VanillaHumanDistanceTiles;
                 AIGateClosingDistanceTiles = GatehouseTimingPatch.VanillaAiDistanceTiles;
                 RequireReachableEnemyForAutomaticGateClosing = true;
-                AIRepairEnemyProximity = 30;
+                HumanEnemyProximitySingleplayer = EnemyProximityPolicy.VanillaMode;
+                HumanEnemyProximityMultiplayer = EnemyProximityPolicy.VanillaMode;
+                AIEnemyProximitySingleplayer = EnemyProximityPolicy.VanillaMode;
+                AIEnemyProximityMultiplayer = EnemyProximityPolicy.VanillaMode;
                 AITowerGateRebuildDelaySeconds = 60;
             }
         }

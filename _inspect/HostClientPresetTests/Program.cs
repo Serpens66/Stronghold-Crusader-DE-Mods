@@ -37,6 +37,7 @@ internal static class Program
             TestMultiplayerLobbyReturnPolicy();
             TestMarketGoodPriceDefinition();
             TestAIMarketVanillaPricePolicy();
+            TestEnemyProximityPolicy();
             TestAssassinClimbCancellationPolicy();
             TestAssassinClimbCostPolicy();
             TestTroopActionButtonLayoutPolicy();
@@ -1425,6 +1426,31 @@ internal static class Program
                     modEnabled, alsoForAI, validPlayer, validGood, isAI) == expected,
                 $"AI Vanilla market routing diverged for mask={mask}");
         }
+    }
+
+    private static void TestEnemyProximityPolicy()
+    {
+        Check(EnemyProximityPolicy.SelectConfiguredRadius(false, 31, 16) == 31 &&
+              EnemyProximityPolicy.SelectConfiguredRadius(true, 31, 16) == 16,
+            "enemy proximity did not select independent Singleplayer and real-Multiplayer values");
+        Check(EnemyProximityPolicy.ResolveHumanImmediateRadius(-1, 30) == 30 &&
+              EnemyProximityPolicy.ResolveHumanImmediateRadius(-1, 15) == 15,
+            "Vanilla human immediate proximity values were not restored for -1/disable");
+        Check(EnemyProximityPolicy.ApplyHumanPlacementRadius(30, -1) == 30 &&
+              EnemyProximityPolicy.ApplyHumanPlacementRadius(15, -1) == 15,
+            "human -1 mode changed an original proximity parameter");
+        Check(EnemyProximityPolicy.ApplyHumanPlacementRadius(30, 44) == 44 &&
+              EnemyProximityPolicy.ApplyHumanPlacementRadius(15, 7) == 7,
+            "normal human 30/15 placement paths did not use the configured radius");
+        Check(EnemyProximityPolicy.ApplyHumanPlacementRadius(3, 44) == 3 &&
+              EnemyProximityPolicy.ApplyHumanPlacementRadius(5, 44) == 5,
+            "special human placement paths were incorrectly overridden");
+        Check(EnemyProximityPolicy.ApplyAIRadius(15, 42, false) == 15,
+            "an unclassified AI initial placement was overridden");
+        Check(EnemyProximityPolicy.ApplyAIRadius(5, -1, true) == 5,
+            "classified AI -1 mode changed its context-specific Vanilla radius");
+        Check(EnemyProximityPolicy.ApplyAIRadius(5, 42, true) == 42,
+            "a classified AI repair/rebuild did not use the active configured radius");
     }
 
     private static void TestAssassinClimbCostPolicy()

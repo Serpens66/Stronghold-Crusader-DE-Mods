@@ -76,7 +76,7 @@ $editableProxyBindings = @{
     CheatMod = @()
     CastlePlanner = @()
     CustomCustomTrail = @('IsEnabled','SelectedCoopPackage')
-    ExtraFeatures = @('AITowerGateRebuildDelayValueText','AIGateClosingDistanceValueText','AIGateReopenDelayValueText','AILordHealthPercentText','AIRepairEnemyProximityValueText','ApothecaryPlagueSearchDistanceValueText','BuyMultiplier','BuyMultiplierValueText','CampfirePeasantsLimitText','GoldRefundPercentValueText','HumanGateClosingDistanceValueText','HumanGateReopenDelayValueText','HumanLordHealthPercentText','IronRefundPercentValueText','MarketBuyPriceMultiplierValueText','MarketSellPriceMultiplierValueText','MultiplyGoodsGainAIText','MultiplyGoodsGainHumanText','MultiplyGoodsGainInMoneyAIText','MultiplyGoodsGainInMoneyHumanText','PitchRefundPercentValueText','PlagueDurationMultiplierValueText','SellMultiplier','SellMultiplierValueText','StoneRefundPercentValueText','WoodRefundPercentValueText')
+    ExtraFeatures = @('AIEnemyProximityMultiplayerValueText','AIEnemyProximitySingleplayerValueText','AITowerGateRebuildDelayValueText','AIGateClosingDistanceValueText','AIGateReopenDelayValueText','AILordHealthPercentText','ApothecaryPlagueSearchDistanceValueText','BuyMultiplier','BuyMultiplierValueText','CampfirePeasantsLimitText','GoldRefundPercentValueText','HumanEnemyProximityMultiplayerValueText','HumanEnemyProximitySingleplayerValueText','HumanGateClosingDistanceValueText','HumanGateReopenDelayValueText','HumanLordHealthPercentText','IronRefundPercentValueText','MarketBuyPriceMultiplierValueText','MarketSellPriceMultiplierValueText','MultiplyGoodsGainAIText','MultiplyGoodsGainHumanText','MultiplyGoodsGainInMoneyAIText','MultiplyGoodsGainInMoneyHumanText','PitchRefundPercentValueText','PlagueDurationMultiplierValueText','SellMultiplier','SellMultiplierValueText','StoneRefundPercentValueText','WoodRefundPercentValueText')
     ImprovedHunters = @('CamelMeatText','ChickenMeatText','DeerMeatText','GoatMeatText','MaxNeutralChickensPerPlayerValueText','RabbitMeatText')
     RandomEvents = @('AppleBlightChanceValueText','ArcherMaxValueText','ArcherMinValueText','ArchersChanceValueText','BanditMaxValueText','BanditMinValueText','BanditsChanceValueText','BardChanceValueText','CooldownMonthsValueText','FairChanceValueText','FireChanceValueText','FireMaxValueText','FireMinValueText','GranaryTheftChanceValueText','HopsBeetlesChanceValueText','IntervalMonthsValueText','LionAttackChanceValueText','LionMaxValueText','LionMinValueText','MadCowsChanceValueText','MarriageChanceValueText','PlagueChanceValueText','PlagueMaxValueText','PlagueMinValueText','RabbitsChanceValueText','TheftMaxValueText','TheftMinValueText','TreeBlightChanceValueText','WheatInfestationChanceValueText')
     StartConditions = @('AddStartGoldAISlider','AddStartGoldAIText','AddStartGoldHumanSlider','AddStartGoldHumanText','AIAmountSlider','AIAmountText','HumanAmountSlider','HumanAmountText','MultiplyStartTroopsAISlider','MultiplyStartTroopsAIText','MultiplyStartTroopsHumanSlider','MultiplyStartTroopsHumanText','SetStartGoldAISlider','SetStartGoldAIText','SetStartGoldHumanSlider','SetStartGoldHumanText')
@@ -275,11 +275,40 @@ foreach ($entry in $settings.GetEnumerator()) {
             'PlagueDurationMultiplierValueText', 'ApothecaryPlagueSearchDistanceValueText',
             'InaccessibleAIBuildingDemolitionProtectionValueText',
             'InaccessibleAIBuildingDemolitionProtectionHelpText',
-            'AIRepairEnemyProximityValueText',
+            'HumanEnemyProximitySingleplayerValueText',
+            'HumanEnemyProximityMultiplayerValueText',
+            'AIEnemyProximitySingleplayerValueText',
+            'AIEnemyProximityMultiplayerValueText',
             'AITowerGateRebuildDelayValueText')) {
             if (-not $text.Contains($requiredValueBinding)) {
                 throw "ExtraFeatures: Slider unit binding is missing: $requiredValueBinding"
             }
+        }
+
+        $viewModelText = [IO.File]::ReadAllText((Join-Path $workspace $viewModelSources.ExtraFeatures))
+        $enemyProximityFields = [ordered]@{
+            HumanEnemyProximitySingleplayer = 'humanEnemyProximitySingleplayer'
+            HumanEnemyProximityMultiplayer = 'humanEnemyProximityMultiplayer'
+            AIEnemyProximitySingleplayer = 'aiEnemyProximitySingleplayer'
+            AIEnemyProximityMultiplayer = 'aiEnemyProximityMultiplayer'
+        }
+        foreach ($propertyName in $enemyProximityFields.Keys) {
+            if ($viewModelText -notmatch "\[SyncHostOnly\]\s+public int $propertyName\b") {
+                throw "ExtraFeatures: enemy-proximity property is not SyncHostOnly: $propertyName"
+            }
+            $fieldName = [Regex]::Escape($enemyProximityFields[$propertyName])
+            if ($viewModelText -notmatch "private int $fieldName = EnemyProximityPolicy\.VanillaMode;") {
+                throw "ExtraFeatures: enemy-proximity default is not Vanilla (-1): $propertyName"
+            }
+            if ($viewModelText -notmatch "$propertyName\s*=\s*EnemyProximityPolicy\.VanillaMode;") {
+                throw "ExtraFeatures: enemy-proximity reset is not Vanilla (-1): $propertyName"
+            }
+            if ($viewModelText -notmatch "SetIntSetting\([^;]*EnemyProximityPolicy\.MinimumRadius, EnemyProximityPolicy\.MaximumRadius, nameof\($propertyName\)") {
+                throw "ExtraFeatures: enemy-proximity range is not the shared -1..100 range: $propertyName"
+            }
+        }
+        if ($viewModelText -match '\bAIRepairEnemyProximity\b') {
+            throw 'ExtraFeatures: obsolete AIRepairEnemyProximity property remains in the ViewModel.'
         }
     }
 }
