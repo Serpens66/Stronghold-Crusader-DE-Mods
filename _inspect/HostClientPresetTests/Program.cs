@@ -37,6 +37,7 @@ internal static class Program
             TestMultiplayerLobbyReturnPolicy();
             TestMarketGoodPriceDefinition();
             TestAIMarketVanillaPricePolicy();
+            TestAssassinClimbCancellationPolicy();
             TestAssassinClimbCostPolicy();
             TestTroopActionButtonLayoutPolicy();
             TestLordHealthMultiplierPolicy();
@@ -1452,6 +1453,36 @@ internal static class Program
             "Assassin stair ascent was not interpolated by height");
         Check(AssassinClimbCostPolicy.GetAdditionalTicks(true, 135, false, true, true) == 600,
             "Assassin high stair ascent did not continue the interpolation slope");
+    }
+
+    private static void TestAssassinClimbCancellationPolicy()
+    {
+        Check(AssassinClimbCancellationPolicy.ShouldInspectOrder(
+                true, true, true, AssassinClimbCancellationPolicy.UnitStopCommand, 1),
+            "Assassin climb-stop diagnostics rejected Vanilla's player-issued UnitStop order");
+        Check(!AssassinClimbCancellationPolicy.ShouldInspectOrder(
+                false, true, true, AssassinClimbCancellationPolicy.UnitStopCommand, 1) &&
+              !AssassinClimbCancellationPolicy.ShouldInspectOrder(
+                true, false, true, AssassinClimbCancellationPolicy.UnitStopCommand, 1) &&
+              !AssassinClimbCancellationPolicy.ShouldInspectOrder(
+                true, true, false, AssassinClimbCancellationPolicy.UnitStopCommand, 1) &&
+              !AssassinClimbCancellationPolicy.ShouldInspectOrder(
+                true, true, true, AssassinClimbCancellationPolicy.UnitStopCommand + 1, 1) &&
+              !AssassinClimbCancellationPolicy.ShouldInspectOrder(
+                true, true, true, AssassinClimbCancellationPolicy.UnitStopCommand, 0),
+            "Assassin climb-stop diagnostics did not fail closed outside the enabled player UnitStop path");
+        Check(AssassinClimbCancellationPolicy.IsClimbingState(126) &&
+              AssassinClimbCancellationPolicy.IsClimbingState(127) &&
+              AssassinClimbCancellationPolicy.IsClimbingState(128) &&
+              AssassinClimbCancellationPolicy.IsClimbingState(129) &&
+              !AssassinClimbCancellationPolicy.IsClimbingState(125) &&
+              !AssassinClimbCancellationPolicy.IsClimbingState(130),
+            "Assassin climb-stop state filter does not cover exactly states 126 through 129");
+        Check(AssassinClimbCancellationPolicy.IsValidTileId(0) &&
+              AssassinClimbCancellationPolicy.IsValidTileId(320799) &&
+              !AssassinClimbCancellationPolicy.IsValidTileId(320800) &&
+              !AssassinClimbCancellationPolicy.IsValidTileId(uint.MaxValue),
+            "Assassin climb-stop tile validation accepted an out-of-range tile ID");
     }
 
     private static void TestTroopActionButtonLayoutPolicy()

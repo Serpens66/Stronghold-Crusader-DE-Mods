@@ -48,6 +48,103 @@ function Remove-AnsiSequences {
     return [regex]::Replace($Text, $escapeSequencePattern, '')
 }
 
+function Get-Sha256 {
+    param([Parameter(Mandatory)][string]$Path)
+
+    $algorithm = [Security.Cryptography.SHA256]::Create()
+    $stream = [IO.File]::OpenRead($Path)
+    try {
+        return ([BitConverter]::ToString($algorithm.ComputeHash($stream))).Replace('-', '').ToLowerInvariant()
+    } finally {
+        $stream.Dispose()
+        $algorithm.Dispose()
+    }
+}
+
+function Get-WorkshopChangeNote {
+    param(
+        [Parameter(Mandatory)][string]$ReleaseOutputRoot,
+        [Parameter(Mandatory)][IO.FileInfo]$MapFile
+    )
+
+    $packReleaseRoot = Join-Path $ReleaseOutputRoot 'SerpsMods'
+    if (-not (Test-Path -LiteralPath $packReleaseRoot -PathType Container)) {
+        Stop-Upload 2 "SerpsMods release output not found: $packReleaseRoot"
+    }
+
+    $mapHash = Get-Sha256 -Path $MapFile.FullName
+    $matchingReleases = [Collections.Generic.List[object]]::new()
+    $provenanceFiles = @(
+        Get-ChildItem -LiteralPath $packReleaseRoot -Directory -Filter 'v*' |
+            ForEach-Object { Join-Path $_.FullName 'SerpsMods.provenance.json' } |
+            Where-Object { Test-Path -LiteralPath $_ -PathType Leaf }
+    )
+    foreach ($provenancePath in $provenanceFiles) {
+        try {
+            $provenance = [IO.File]::ReadAllText($provenancePath) | ConvertFrom-Json
+            if ([string]$provenance.Map.Sha256 -ieq $mapHash) {
+                $matchingReleases.Add([pscustomobject]@{
+                    Directory = Split-Path -Parent $provenancePath
+                    Path = $provenancePath
+                    Provenance = $provenance
+                })
+            }
+        } catch {
+            Write-UploadLog "Ignoring unreadable SerpsMods provenance candidate ${provenancePath}: $($_.Exception.Message)" 'WARN'
+        }
+    }
+    if ($matchingReleases.Count -ne 1) {
+        Stop-Upload 2 "Expected exactly one SerpsMods release matching map SHA-256 $mapHash; found $($matchingReleases.Count)."
+    }
+
+    $release = $matchingReleases[0]
+    $activeMods = @($release.Provenance.Mods | Where-Object { [string]$_.State -ceq 'Active' })
+    if ($activeMods.Count -eq 0) {
+        Stop-Upload 2 "No active mods were found in Workshop pack provenance: $($release.Path)"
+    }
+
+    $sections = [Collections.Generic.List[string]]::new()
+    $sources = [Collections.Generic.List[string]]::new()
+    foreach ($mod in $activeMods) {
+        $releaseTag = [string]$mod.ReleaseTag
+        $releaseTagMatch = [regex]::Match($releaseTag, '^([A-Za-z0-9._-]+)/v([A-Za-z0-9._-]+)$')
+        if (-not $releaseTagMatch.Success) {
+            Stop-Upload 2 "Invalid release tag for active mod '$($mod.Name)': '$releaseTag'"
+        }
+
+        $modVersion = [string]$mod.Version
+        if ($releaseTagMatch.Groups[2].Value -cne $modVersion) {
+            Stop-Upload 2 "Release tag/version mismatch for active mod '$($mod.Name)': '$releaseTag' versus '$modVersion'"
+        }
+
+        $modReleaseRoot = Join-Path $ReleaseOutputRoot $releaseTagMatch.Groups[1].Value
+        $notesPath = Join-Path (Join-Path $modReleaseRoot "v$modVersion") 'release-notes.md'
+        if (-not (Test-Path -LiteralPath $notesPath -PathType Leaf)) {
+            Stop-Upload 2 "Release notes not found for active mod '$($mod.Name)' v${modVersion}: $notesPath"
+        }
+
+        $notesText = [IO.File]::ReadAllText((Resolve-Path -LiteralPath $notesPath).Path)
+        $changesMatch = [regex]::Match(
+            $notesText,
+            '(?ms)^##[ \t]+Changes[ \t]*\r?\n(?<body>.*?)(?=^##[ \t]+|\z)')
+        if (-not $changesMatch.Success -or [string]::IsNullOrWhiteSpace($changesMatch.Groups['body'].Value)) {
+            Stop-Upload 2 "A non-empty '## Changes' section was not found for active mod '$($mod.Name)' v${modVersion}: $notesPath"
+        }
+
+        $body = $changesMatch.Groups['body'].Value.Trim()
+        $body = [regex]::Replace($body, "`r`n|`r|`n", "`r`n")
+        $sections.Add("## $($mod.Name) v$modVersion`r`n`r`n$body")
+        $sources.Add((Resolve-Path -LiteralPath $notesPath).Path)
+    }
+
+    return [pscustomobject]@{
+        Text = $sections -join "`r`n`r`n"
+        Sources = $sources.ToArray()
+        PackReleaseDirectory = $release.Directory
+        MapSha256 = $mapHash
+    }
+}
+
 function Save-ItemId {
     param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][string]$ItemId)
     $directory = Split-Path -Parent $Path
@@ -131,6 +228,10 @@ try {
         $ItemName = Split-Path -Leaf $resolvedFolder
     }
 
+    $changeNoteInfo = Get-WorkshopChangeNote `
+        -ReleaseOutputRoot (Join-Path $root '.release-output') `
+        -MapFile $mapFiles[0]
+
     $safeFolderName = ([regex]::Replace((Split-Path -Leaf $resolvedFolder), '[^A-Za-z0-9._-]', '_')).Trim('_')
     if ([string]::IsNullOrWhiteSpace($safeFolderName)) { $safeFolderName = 'workshop-item' }
     $itemIdPath = Join-Path $outputRoot "items\$AppId-$safeFolderName.item-id"
@@ -185,6 +286,16 @@ try {
     Write-UploadLog "Map: $($mapFiles[0].Name)"
     Write-UploadLog "Preview: $previewPath"
     Write-UploadLog "Visibility: $Visibility"
+    Write-UploadLog "Changelog pack release: $($changeNoteInfo.PackReleaseDirectory)"
+    Write-UploadLog "Changelog map SHA-256: $($changeNoteInfo.MapSha256)"
+    foreach ($source in $changeNoteInfo.Sources) {
+        Write-UploadLog "Changelog source: $source"
+    }
+    Write-UploadLog "Combined changelog characters: $($changeNoteInfo.Text.Length)"
+    Write-UploadLog 'Combined changelog follows:'
+    foreach ($changeLogLine in [regex]::Split($changeNoteInfo.Text, "`r`n|`r|`n")) {
+        Write-UploadLog "CHANGELOG: $changeLogLine"
+    }
     if (-not $isUpdate) {
         if ($missingSavedItem) {
             Write-UploadLog 'The deleted saved item will be replaced with a newly created Workshop item.' 'WARN'
@@ -210,7 +321,7 @@ try {
 
     $arguments = @('-v', '-a', $AppId.ToString())
     if ($isUpdate) {
-        $arguments += @('-i', $itemId, '-u')
+        $arguments += @('-i', $itemId, '-u', '-c', $changeNoteInfo.Text)
     } else {
         $arguments += '-n'
     }

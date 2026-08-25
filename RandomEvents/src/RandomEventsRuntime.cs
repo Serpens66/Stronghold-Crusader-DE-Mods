@@ -1454,12 +1454,16 @@ namespace RandomEvents
 
             IDisposable signpostScope = null;
             SignpostTarget signpostTarget = default;
+            int archerSourceTileX = 0;
+            int archerSourceTileY = 0;
 
             if (definition.RequiresSignpost &&
                 !signpostRegistry.TryBeginTargetedEvent(
                     targetPlayerId,
                     out signpostScope,
                     out signpostTarget,
+                    out archerSourceTileX,
+                    out archerSourceTileY,
                     out string signpostFailure))
             {
                 LogError(
@@ -1503,7 +1507,7 @@ namespace RandomEvents
                       $"signpostTile=({signpostTarget.TileX},{signpostTarget.TileY}), " +
                       $"distanceReference={signpostTarget.DistanceReference}, " +
                       $"signpostDistance={signpostTarget.Distance:0.00}, " +
-                      $"selectedSourceTile=({signpostTarget.TileX},{signpostTarget.TileY})"
+                      $"selectedSourceTile=({archerSourceTileX},{archerSourceTileY})"
                     : "signpost=not-required";
                 string unitDetail = definition.Kind == RandomEventKind.Archers
                     ? $"newUnits={DescribeNewUnits(unitGlobalIdsBefore)}"

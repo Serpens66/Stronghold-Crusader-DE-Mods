@@ -81,6 +81,27 @@ function Get-LatestNexusLocalRelease {
     return $latest
 }
 
+function Get-NexusReleaseChangelog {
+    param([Parameter(Mandatory)]$Release)
+    $notesPath = Join-Path $Release.Directory 'release-notes.md'
+    if (-not (Test-Path -LiteralPath $notesPath -PathType Leaf)) {
+        throw "Fehlende Release Notes fuer $($Release.ModName) v$($Release.Version): $notesPath"
+    }
+
+    $resolvedPath = (Resolve-Path -LiteralPath $notesPath).Path
+    $notesText = [IO.File]::ReadAllText($resolvedPath)
+    $changesMatch = [regex]::Match(
+        $notesText,
+        '(?ms)^##[ \t]+Changes[ \t]*\r?\n(?<body>.*?)(?=^##[ \t]+|\z)')
+    if (-not $changesMatch.Success -or [string]::IsNullOrWhiteSpace($changesMatch.Groups['body'].Value)) {
+        throw "Kein nichtleerer Abschnitt '## Changes' gefunden fuer $($Release.ModName) v$($Release.Version): $resolvedPath"
+    }
+
+    $text = $changesMatch.Groups['body'].Value.Trim()
+    $text = [regex]::Replace($text, "`r`n|`r|`n", "`r`n")
+    return [PSCustomObject]@{ Text=$text; Path=$resolvedPath }
+}
+
 function Test-NexusLocalRelease {
     param([Parameter(Mandatory)]$Release)
     $hashPath = "$($Release.ZipPath).sha256"

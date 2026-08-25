@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.60",
+  "Version": "1.0.61",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.61",
+      "Changes": [
+        "Added stop-only synchronized Assassin climbing position diagnostics in preparation for safely cancelling climbing animations."
+      ]
+    },
     {
       "Version": "1.0.60",
       "Changes": [

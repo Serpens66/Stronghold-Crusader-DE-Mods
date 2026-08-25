@@ -33,6 +33,7 @@ namespace ExtraFeatures
         private readonly Shared.TroopActionHudCoordinator troopActionHudCoordinator;
         private readonly KnightDismountRuntime knightDismountRuntime;
         private readonly AssassinClimbRuntime assassinClimbRuntime;
+        private readonly AssassinClimbCancellationRuntime assassinClimbCancellationRuntime;
         private readonly AssassinPathfindingRuntime assassinPathfindingRuntime;
         private readonly QuarryPileRelocationRuntime quarryPileRelocationRuntime;
         private readonly ChurchPriestCountRuntime churchPriestCountRuntime;
@@ -71,6 +72,7 @@ namespace ExtraFeatures
             troopActionHudCoordinator = new Shared.TroopActionHudCoordinator(log);
             knightDismountRuntime = new KnightDismountRuntime(log, settings, multiplayerFeatureGate);
             assassinClimbRuntime = new AssassinClimbRuntime(log, settings, multiplayerFeatureGate);
+            assassinClimbCancellationRuntime = new AssassinClimbCancellationRuntime(log, settings);
             troopActionHudCoordinator.Register(knightDismountRuntime.RefreshButtonVisibility);
             troopActionHudCoordinator.Register(assassinClimbRuntime.RefreshButtonVisibility);
             assassinPathfindingRuntime = new AssassinPathfindingRuntime(log, settings, assassinClimbRuntime);
@@ -123,6 +125,10 @@ namespace ExtraFeatures
             libraryLength = memory.Length;
             fixedLayoutHashValidated = isFixedLayoutHashValidated;
             nativeLibraryAvailable = true;
+
+            TryRunFeature(
+                "Assassin climb-stop diagnostics",
+                () => assassinClimbCancellationRuntime.Initialize(fixedLayoutHashValidated));
 
             if (fixedLayoutHashValidated)
             {
@@ -277,6 +283,7 @@ namespace ExtraFeatures
             troopActionHudCoordinator.Dispose();
             knightDismountRuntime.Dispose();
             assassinClimbRuntime.Dispose();
+            assassinClimbCancellationRuntime.Dispose();
             gatehouseAutomationRuntime.Dispose();
             aiDefenseRepairRuntime.Dispose();
             marketTradeGuardBridge.Dispose();

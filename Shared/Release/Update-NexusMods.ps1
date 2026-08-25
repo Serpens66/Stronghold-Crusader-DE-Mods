@@ -39,6 +39,15 @@ try {
     foreach ($target in $NexusTargets) {
         $release = Get-LatestNexusLocalRelease -Root $root -ModName $target.ModName
         $validated = Test-NexusLocalRelease -Release $release
+        try {
+            $changelog = Get-NexusReleaseChangelog -Release $release
+        } catch {
+            $changelog = [PSCustomObject]@{
+                Text=$null
+                Path=(Join-Path $release.Directory 'release-notes.md')
+                Error=$_.Exception.Message
+            }
+        }
         $modResponse = Invoke-NexusApi -Method Get -Path "/games/$gameDomain/mods/$($target.NexusPageId)" -Headers $headers
         $modId = [string]$modResponse.data.id
         if ([string]::IsNullOrWhiteSpace($modId)) { throw "Nexus-Seite $($target.NexusPageId) lieferte keine interne Mod-ID." }
@@ -49,7 +58,7 @@ try {
         $decision = Get-NexusUpdateDecision -Target $target -Release $release -Versions $versions
         $plans.Add([PSCustomObject]@{
             Target=$target; Release=$release; Hash=$validated.Sha256; ModId=$modId; ModFile=$modFile
-            Versions=$versions; Decision=$decision
+            Versions=$versions; Decision=$decision; Changelog=$changelog
         })
     }
 
@@ -59,6 +68,7 @@ try {
             Lokal=$_.Release.Version
             Nexus=[string]$_.Decision.Current.version
             Aktion=$(switch ($_.Decision.Action) { 'Update' { 'UPDATE' } 'Correct' { 'KORREKTUR' } default { 'UEBERSPRUNGEN' } })
+            Changelog=$(if ([string]::IsNullOrWhiteSpace([string]$_.Changelog.Text)) { 'FEHLT' } else { 'OK' })
             Grund=$_.Decision.Reason
         }
     })
@@ -66,7 +76,23 @@ try {
     $summary | Format-Table -AutoSize
     $pending = @($plans | Where-Object { $_.Decision.Action -in @('Update','Correct') })
     if ($pending.Count -eq 0) { Write-NexusLog 'Keine Nexus-Datei muss aktualisiert werden.' Green; exit 0 }
+    foreach ($plan in $pending) {
+        if ([string]::IsNullOrWhiteSpace([string]$plan.Changelog.Text)) {
+            Write-NexusLog "Kein Changelog fuer $($plan.Target.ModName) v$($plan.Release.Version): $($plan.Changelog.Error)" Yellow
+        } else {
+            Write-NexusLog "Changelog fuer $($plan.Target.ModName) v$($plan.Release.Version) aus $($plan.Changelog.Path) ($($plan.Changelog.Text.Length) Zeichen):" DarkGray
+            Write-Host $plan.Changelog.Text
+            Write-Host ''
+        }
+    }
     if ($Preview) { Write-NexusLog "Vorschau beendet. Geplante Uploads: $($pending.Count)." Green; exit 0 }
+    $withoutChangelog = @($pending | Where-Object { [string]::IsNullOrWhiteSpace([string]$_.Changelog.Text) })
+    if ($withoutChangelog.Count -gt 0) {
+        $names = @($withoutChangelog | ForEach-Object { "$($_.Target.ModName) v$($_.Release.Version)" }) -join ', '
+        if ((Read-Host "Changelog fehlt fuer: $names. Zum Hochladen ohne Changelog OHNE_CHANGELOG eingeben") -cne 'OHNE_CHANGELOG') {
+            throw 'Aktualisierung ohne Changelog abgebrochen.'
+        }
+    }
     if ((Read-Host "Zum Hochladen und Archivieren von $($pending.Count) Dateiversion(en) UPDATE eingeben") -cne 'UPDATE') { throw 'Aktualisierung abgebrochen.' }
 
     foreach ($plan in $pending) {
@@ -100,6 +126,18 @@ try {
             previous_version_id=[string]$plan.Decision.Current.id
         }
         if ([string]$createResponse.data.version.id -eq '') { throw "Nexus lieferte keine neue Versions-ID fuer $($plan.Target.ModName)." }
+
+        if ([string]::IsNullOrWhiteSpace([string]$plan.Changelog.Text)) {
+            Write-NexusLog "$($plan.Target.ModName) v$($plan.Release.Version) wird wie bestaetigt ohne Changelog hochgeladen." Yellow
+        } else {
+            # Nexus v3 accepts changelogs through a separate, additive endpoint after
+            # the file version exists. Send exactly the prepared release's Changes body.
+            [void](Invoke-NexusApi -Method Post -Path "/mods/$($plan.ModId)/changelogs" -Headers $headers -Body @{
+                version=$plan.Release.Version
+                changelog=$plan.Changelog.Text
+            })
+            Write-NexusLog "Changelog fuer $($plan.Target.ModName) v$($plan.Release.Version) wurde uebergeben." Green
+        }
 
         $verified = $false
         for ($attempt = 1; $attempt -le 15; $attempt++) {

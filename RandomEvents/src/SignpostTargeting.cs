@@ -81,6 +81,8 @@ namespace RandomEvents
             IntPtr slotsAddress,
             IntPtr sourceCoordinatesAddress,
             SignpostTarget target,
+            int sourceTileX,
+            int sourceTileY,
             out IDisposable scope,
             out int originalSourceX,
             out int originalSourceY,
@@ -95,9 +97,9 @@ namespace RandomEvents
                 failure = "native signpost slots or archer source coordinates are unavailable.";
                 return false;
             }
-            if (target.BuildingId <= 0 || target.TileX < 0 || target.TileX >= 800 || target.TileY < 0 || target.TileY >= 800)
+            if (target.BuildingId <= 0 || sourceTileX < 0 || sourceTileX >= 800 || sourceTileY < 0 || sourceTileY >= 800)
             {
-                failure = $"invalid targeted signpost values: buildingId={target.BuildingId}, tile=({target.TileX},{target.TileY}).";
+                failure = $"invalid archer source values: buildingId={target.BuildingId}, tile=({sourceTileX},{sourceTileY}).";
                 return false;
             }
 
@@ -116,8 +118,8 @@ namespace RandomEvents
             try
             {
                 // Case 148 reads slot zero's paired coordinates after choosing the only exposed signpost.
-                Marshal.WriteInt32(sourceCoordinatesAddress, target.TileX);
-                Marshal.WriteInt32(sourceCoordinatesAddress, sizeof(int), target.TileY);
+                Marshal.WriteInt32(sourceCoordinatesAddress, sourceTileX);
+                Marshal.WriteInt32(sourceCoordinatesAddress, sizeof(int), sourceTileY);
                 for (int slot = 0; slot < SlotCount; slot++)
                     Marshal.WriteInt32(slotsAddress, slot * sizeof(int), slot == 0 ? target.BuildingId : 0);
 
@@ -130,10 +132,10 @@ namespace RandomEvents
                 }
                 int actualX = Marshal.ReadInt32(sourceCoordinatesAddress);
                 int actualY = Marshal.ReadInt32(sourceCoordinatesAddress, sizeof(int));
-                if (actualX != target.TileX || actualY != target.TileY)
+                if (actualX != sourceTileX || actualY != sourceTileY)
                 {
                     throw new InvalidOperationException(
-                        $"archer source contains ({actualX},{actualY}) instead of ({target.TileX},{target.TileY}).");
+                        $"archer source contains ({actualX},{actualY}) instead of ({sourceTileX},{sourceTileY}).");
                 }
             }
             catch (Exception ex)

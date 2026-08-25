@@ -153,13 +153,15 @@ namespace RandomEvents
 
                 var target = new SignpostTarget(944, 581, 185, 112.09, "keep");
                 Assert(ArcherSourceTargetingScope.TryBegin(
-                    slots, source, target, out IDisposable scope, out int originalX, out int originalY, out string failure),
+                    slots, source, target, 580, 184,
+                    out IDisposable scope, out int originalX, out int originalY, out string failure),
                     "valid archer targeting scope must begin: " + failure);
                 Assert(originalX == 42 && originalY == 371, "original archer source is captured for diagnostics");
                 Assert(Marshal.ReadInt32(slots) == 944, "selected signpost is exposed in slot zero");
                 for (int index = 1; index < ArcherSourceTargetingScope.SlotCount; index++)
                     Assert(Marshal.ReadInt32(slots, index * sizeof(int)) == 0, $"signpost slot {index} is hidden");
-                Assert(Marshal.ReadInt32(source) == 581 && Marshal.ReadInt32(source, sizeof(int)) == 185, "target source coordinates are injected");
+                Assert(Marshal.ReadInt32(source) == 580 && Marshal.ReadInt32(source, sizeof(int)) == 184,
+                    "a free perimeter source can be injected independently of the occupied signpost center");
 
                 try
                 {
@@ -176,7 +178,12 @@ namespace RandomEvents
 
                 Assert(!ArcherSourceTargetingScope.TryBegin(
                     slots, source, new SignpostTarget(0, 581, 185, 0, "keep"),
+                    580, 184,
                     out _, out _, out _, out _), "invalid building IDs fail closed");
+                Assert(!ArcherSourceTargetingScope.TryBegin(
+                    slots, source, target,
+                    -1, 184,
+                    out _, out _, out _, out _), "invalid perimeter source coordinates fail closed");
             }
             finally
             {

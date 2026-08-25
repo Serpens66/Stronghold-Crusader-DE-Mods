@@ -103,10 +103,14 @@ namespace RandomEvents
             int targetPlayerId,
             out IDisposable scope,
             out SignpostTarget target,
+            out int sourceTileX,
+            out int sourceTileY,
             out string failure)
         {
             scope = null;
             target = default;
+            sourceTileX = 0;
+            sourceTileY = 0;
             failure = string.Empty;
 
             if (!IsAvailable || archerSourceCoordinatesAddress == IntPtr.Zero)
@@ -119,10 +123,22 @@ namespace RandomEvents
             {
                 return false;
             }
+            if (!TryResolveArcherSourceTile(
+                    targetPlayerId,
+                    target,
+                    out sourceTileX,
+                    out sourceTileY,
+                    out ushort sourcePathComponent,
+                    out failure))
+            {
+                return false;
+            }
             if (!ArcherSourceTargetingScope.TryBegin(
                     slotsAddress,
                     archerSourceCoordinatesAddress,
                     target,
+                    sourceTileX,
+                    sourceTileY,
                     out scope,
                     out int originalSourceX,
                     out int originalSourceY,
@@ -137,8 +153,159 @@ namespace RandomEvents
                 $"signpostBuildingId={target.BuildingId}, tile=({target.TileX},{target.TileY}), " +
                 $"distanceReference={target.DistanceReference}, signpostDistance={target.Distance:0.00}, exposedSources=1, " +
                 $"originalArcherSource=({originalSourceX},{originalSourceY}), " +
-                $"injectedArcherSource=({target.TileX},{target.TileY}).");
+                $"injectedArcherSource=({sourceTileX},{sourceTileY}), sourcePathComponent={sourcePathComponent}.");
             return true;
+        }
+
+        private static bool TryResolveArcherSourceTile(
+            int targetPlayerId,
+            SignpostTarget target,
+            out int sourceTileX,
+            out int sourceTileY,
+            out ushort sourcePathComponent,
+            out string failure)
+        {
+            sourceTileX = 0;
+            sourceTileY = 0;
+            sourcePathComponent = 0;
+            failure = string.Empty;
+
+            if (!TryGetUsableSignpost(target.BuildingId, out GameBuilding* signpost) ||
+                signpost == null || signpost->r_GlobalId == 0 || signpost->r_AliveState != AliveState.IsAlive)
+            {
+                failure = $"selected signpost {target.BuildingId} is no longer alive.";
+                return false;
+            }
+
+            GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
+            Span<ushort> pathConnections = tiles.TileManager.PathConnectionGrid;
+            HashSet<ushort> targetComponents = CollectTargetPlayerPathComponents(targetPlayerId, tiles, pathConnections);
+            if (targetComponents.Count == 0)
+            {
+                failure = $"target player {targetPlayerId} has no usable building- or Lord-connected path component.";
+                return false;
+            }
+
+            int selectedTileId = -1;
+            long bestDistanceSquared = long.MaxValue;
+            // A signpost center is occupied. Case 148 uses the injected tile literally for every new unit.
+            for (int y = signpost->r_TilePositionYBegin - 1; y <= signpost->r_TilePositionYEnd + 1; y++)
+            {
+                for (int x = signpost->r_TilePositionXBegin - 1; x <= signpost->r_TilePositionXEnd + 1; x++)
+                {
+                    bool insideFootprint =
+                        x >= signpost->r_TilePositionXBegin && x <= signpost->r_TilePositionXEnd &&
+                        y >= signpost->r_TilePositionYBegin && y <= signpost->r_TilePositionYEnd;
+                    if (insideFootprint || !tiles.IsTileInsideMapBounds(x, y))
+                        continue;
+
+                    int tileId = tiles.GetTileId(x, y);
+                    if (!tiles.IsValidTileId(tileId) || !tiles.IsTileWalkableAndUnoccupied(tileId))
+                        continue;
+
+                    ushort component = pathConnections[tileId];
+                    if (component == 0 || !targetComponents.Contains(component))
+                        continue;
+
+                    long deltaX = x - target.TileX;
+                    long deltaY = y - target.TileY;
+                    long distanceSquared = deltaX * deltaX + deltaY * deltaY;
+                    if (distanceSquared > bestDistanceSquared ||
+                        (distanceSquared == bestDistanceSquared && tileId >= selectedTileId))
+                    {
+                        continue;
+                    }
+
+                    selectedTileId = tileId;
+                    bestDistanceSquared = distanceSquared;
+                    sourceTileX = x;
+                    sourceTileY = y;
+                    sourcePathComponent = component;
+                }
+            }
+
+            if (selectedTileId >= 0)
+                return true;
+
+            failure =
+                $"signpost {target.BuildingId} footprint=({signpost->r_TilePositionXBegin},{signpost->r_TilePositionYBegin})-" +
+                $"({signpost->r_TilePositionXEnd},{signpost->r_TilePositionYEnd}) has no free walkable perimeter tile " +
+                $"connected to target player {targetPlayerId}.";
+            return false;
+        }
+
+        private static HashSet<ushort> CollectTargetPlayerPathComponents(
+            int targetPlayerId,
+            GameTileManagerAPI tiles,
+            Span<ushort> pathConnections)
+        {
+            HashSet<ushort> result = new HashSet<ushort>();
+            Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
+            for (int index = 0; index < buildings.Length; index++)
+            {
+                ref GameBuilding building = ref buildings[index];
+                if (building.r_GlobalId == 0 || building.r_PlayerIdOwner != targetPlayerId ||
+                    building.r_AliveState != AliveState.IsAlive)
+                {
+                    continue;
+                }
+
+                AddPerimeterPathComponents(
+                    building.r_TilePositionXBegin,
+                    building.r_TilePositionYBegin,
+                    building.r_TilePositionXEnd,
+                    building.r_TilePositionYEnd,
+                    tiles,
+                    pathConnections,
+                    result);
+            }
+
+            if (GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(targetPlayerId, out GamePlayerResources* resources) &&
+                resources != null && resources->r_LordUnitId > 0 && resources->r_LordUnitId <= int.MaxValue &&
+                GameUnitManagerAPI.Instance.TryGetUnitById((int)resources->r_LordUnitId, out GameUnit* lord) &&
+                lord != null && lord->r_AliveState == AliveState.IsAlive &&
+                lord->r_UnitChimp == eChimps.CHIMP_TYPE_LORD && lord->r_ControllableForPlayerId == targetPlayerId)
+            {
+                AddPerimeterPathComponents(
+                    lord->r_CurrentTilePositionX,
+                    lord->r_CurrentTilePositionY,
+                    lord->r_CurrentTilePositionX,
+                    lord->r_CurrentTilePositionY,
+                    tiles,
+                    pathConnections,
+                    result,
+                    includeFootprint: true);
+            }
+
+            return result;
+        }
+
+        private static void AddPerimeterPathComponents(
+            int beginX,
+            int beginY,
+            int endX,
+            int endY,
+            GameTileManagerAPI tiles,
+            Span<ushort> pathConnections,
+            HashSet<ushort> result,
+            bool includeFootprint = false)
+        {
+            for (int y = beginY - 1; y <= endY + 1; y++)
+            {
+                for (int x = beginX - 1; x <= endX + 1; x++)
+                {
+                    bool inside = x >= beginX && x <= endX && y >= beginY && y <= endY;
+                    if ((!includeFootprint && inside) || !tiles.IsTileInsideMapBounds(x, y))
+                        continue;
+
+                    int tileId = tiles.GetTileId(x, y);
+                    if (!tiles.IsValidTileId(tileId))
+                        continue;
+                    ushort component = pathConnections[tileId];
+                    if (component != 0)
+                        result.Add(component);
+                }
+            }
         }
 
         public bool TryGetClosestSignpostToPlayer(

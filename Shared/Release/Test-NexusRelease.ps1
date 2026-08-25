@@ -13,6 +13,29 @@ foreach ($mod in $mods) {
     $release = Get-LatestNexusLocalRelease -Root $root -ModName $mod
     $validated = Test-NexusLocalRelease -Release $release
     Assert-True ($validated.Sha256 -match '^[0-9a-f]{64}$') "Artefaktpruefung fuer $mod."
+    $changelog = Get-NexusReleaseChangelog -Release $release
+    Assert-True (-not [string]::IsNullOrWhiteSpace($changelog.Text)) "Changes-Extraktion fuer $mod."
+    Assert-True ($changelog.Text -notmatch '(?m)^##[ \t]+Source and verification') "Changes-Extraktion darf Folgeabschnitte fuer $mod nicht enthalten."
+}
+
+$notesTestRoot = Join-Path ([IO.Path]::GetTempPath()) ("nexus-notes-test-" + [Guid]::NewGuid().ToString('N'))
+try {
+    [void](New-Item -ItemType Directory -Path $notesTestRoot)
+    $notesRelease = [PSCustomObject]@{ ModName='NotesTest'; Version='1.2.3'; Directory=$notesTestRoot }
+    $notesPath = Join-Path $notesTestRoot 'release-notes.md'
+    [IO.File]::WriteAllText(
+        $notesPath,
+        "# NotesTest v1.2.3`r`n`r`n## Changes`r`n`r`n### v1.2.3`r`n`r`n- First.`r`n- Second.`r`n`r`n## Source and verification`r`n`r`nIgnored.",
+        [Text.UTF8Encoding]::new($false))
+    $notesResult = Get-NexusReleaseChangelog -Release $notesRelease
+    Assert-True ($notesResult.Text -ceq "### v1.2.3`r`n`r`n- First.`r`n- Second.") 'Der komplette Changes-Text muss exakt extrahiert werden.'
+
+    [IO.File]::WriteAllText($notesPath, "# NotesTest`r`n`r`n## Other`r`n", [Text.UTF8Encoding]::new($false))
+    $missingChangesRejected = $false
+    try { [void](Get-NexusReleaseChangelog -Release $notesRelease) } catch { $missingChangesRejected = $true }
+    Assert-True $missingChangesRejected 'Fehlender Changes-Abschnitt muss abgewiesen werden.'
+} finally {
+    if (Test-Path -LiteralPath $notesTestRoot) { Remove-Item -LiteralPath $notesTestRoot -Recurse -Force }
 }
 
 $files = @(

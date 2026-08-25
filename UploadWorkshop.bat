@@ -9,7 +9,7 @@ rem ============================================================================
 set "UPLOAD_FOLDER=D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\SerpsMods"
 set "ITEM_NAME=Serps Mod"
 set "ITEM_ID="
-set "VISIBILITY=FriendsOnly"
+set "VISIBILITY=Public"
 
 set "APP_ID=3024040"
 set "UPLOAD_TOOL=%~dp0.tools\pdengine-steamugc-tool-win-x64\pdengine.steamugc.tool.exe"
