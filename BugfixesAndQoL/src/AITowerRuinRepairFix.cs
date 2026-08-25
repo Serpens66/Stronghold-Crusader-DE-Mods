@@ -2,9 +2,11 @@
 // Native ruin audit for CrusaderDE.dll SHA-256
 // FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2:
 // dispatch table RVA 0x2DEAE0 sends types 79 and 86-89 to the empty updater at
-// RVA 0xACE90, so Vanilla has no timed ruin cleanup.
-// Its destruction switch does bulldoze a ruin at RVA 0x7F6FA after further damage,
-// but the AIV placement helper at RVA 0x5CD90 only rejects the occupied footprint.
+// RVA 0xACE90, so Vanilla has no per-building timed ruin cleanup. Its destruction
+// switch can bulldoze a ruin at RVA 0x7F6FA, but runtime evidence must decide whether
+// that route was actually used. The footprint bulldozer at RVA 0x5D3A0 belongs to
+// general BuildStructure RVA 0x74DA0; the AIV helper RVA 0x5CD90 instead rejects an
+// occupied footprint and uses its own raw building-creation path.
 using BepInEx.Logging;
 using SHCDESE.API;
 using SHCDESE.Interop;
