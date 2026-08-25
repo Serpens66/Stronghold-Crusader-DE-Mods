@@ -2,17 +2,16 @@
 // Native ruin audit for CrusaderDE.dll SHA-256
 // FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2:
 // dispatch table RVA 0x2DEAE0 sends types 79 and 86-89 to the empty updater at
-// RVA 0xACE90, so they have no per-building lifetime cleanup timer. One verified
-// removal route is destruction processing at RVA 0x7F6FA, which calls BulldozeBuilding
-// at RVA 0xC4290. Do not infer that this route caused a runtime removal: the diagnostics
-// below correlate damage, mod deletion marks, bulldoze and delete events instead.
-// The separate footprint bulldozer at RVA 0x5D3A0 belongs to general BuildStructure
-// RVA 0x74DA0 and is not called by the audited AIV placement helper RVA 0x5CD90.
-// The AIV helper has its own blocker scan: validator RVA 0x7B060 returns 2 for an
-// occupied StructureGrid tile, 0x5CD90 accepts 0/2 and then conditionally deletes
-// selected footprint buildings around RVA 0x5D045. A 2026-08-25 trace showed this
-// path removing TOWER3_DESTROYED but repeatedly leaving TOWER2_DESTROYED. The static
-// mapper/type filters do not yet fully explain that difference, so keep it diagnostic.
+// RVA 0xACE90, so they have no per-building lifetime cleanup timer. The damage handler
+// at RVA 0x7EB00 routes all five ruin types through RVA 0x7F6FA to the mark-for-deletion
+// routine at RVA 0xC4290 without a remaining-HP threshold. A 2026-08-25 trace confirmed
+// that every one of 15 later tower spawns happened only after this damage/removal path;
+// none was a living-ruin overbuild. An earlier observed replacement remains a candidate,
+// but predates the diagnostics needed to distinguish those cases conclusively.
+// The AIV placement helper at RVA 0x5CD90 has a selective blocker deletion scan whose
+// masks exclude types 79 and 86-89. General BuildStructure at RVA 0x74DA0 can call the
+// footprint bulldozer at RVA 0x5D3A0 behind a separate state flag, but that path has not
+// yet been observed for a living AIV tower ruin. Keep the runtime distinction diagnostic.
 using BepInEx.Logging;
 using R3;
 using SHCDESE.API;

@@ -3,9 +3,10 @@
 // FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2:
 // dispatch table RVA 0x2DEAE0 sends types 79 and 86-89 to the empty updater at
 // RVA 0xACE90, so Vanilla has no per-building timed ruin cleanup. Its destruction
-// switch can bulldoze a ruin at RVA 0x7F6FA. A mod-free 2026-08-25 test also proved
-// that at least one Vanilla AI can replace a visible tower ruin atomically. Keep this
-// runtime observational until logs identify why otherwise equivalent AIs can differ;
+// switch routes every ruin type through RVA 0x7F6FA to deletion after further damage.
+// A mod-free 2026-08-25 test also strongly indicated that at least one Vanilla AI can
+// replace a visible tower ruin atomically. Keep this runtime observational until logs
+// distinguish same-placement-call removal from earlier damage removal conclusively;
 // deleting every ruin on a timer would hide the native placement decision.
 using BepInEx.Logging;
 using R3;
@@ -253,13 +254,14 @@ namespace BugfixesAndQoL
                         continue;
                     }
 
-                    tracked.AddRemovalSource(source);
+                    int removalTick = SafeCurrentTick();
+                    tracked.RecordRemoval(source, removalTick);
                     Shared.DebugLogHelper.LogInfo(
                         log,
                         $"AI runtime tower ruin Vanilla removal observed: source={source}, " +
                         $"player={tracked.PlayerId}, ruinType={tracked.Type}, buildingId={tracked.BuildingId}, " +
                         $"globalId={tracked.GlobalId}, anchor=({tracked.AnchorX},{tracked.AnchorY}), " +
-                        $"spawnTick={tracked.SpawnTick}, removalTick={SafeCurrentTick()}.");
+                        $"spawnTick={tracked.SpawnTick}, removalTick={removalTick}.");
                     return;
                 }
             }
@@ -280,6 +282,7 @@ namespace BugfixesAndQoL
                 return;
             }
 
+            int towerSpawnTick = SafeCurrentTick();
             var replaced = new List<uint>();
             foreach (RuntimeTowerRuin tracked in runtimeRuins.Values)
             {
@@ -290,18 +293,29 @@ namespace BugfixesAndQoL
                     continue;
                 }
 
-                string remainingState = TryResolveTrackedRuin(tracked, out GameBuilding* ruin)
+                bool ruinStillPresent = TryResolveTrackedRuin(tracked, out GameBuilding* ruin);
+                string remainingState = ruinStillPresent
                     ? ruin->r_AliveState.ToString()
                     : "no-longer-resolvable";
+                string relationship = ruinStillPresent
+                    ? "living tracked runtime ruin still present during tower spawn"
+                    : tracked.HasRemovalEvidence
+                        ? "tower spawned at footprint after tracked runtime ruin removal"
+                        : "tower spawned at footprint after unobserved runtime ruin disappearance";
+                string removalToSpawnTicks = tracked.LastRemovalTick >= 0 && towerSpawnTick >= 0
+                    ? ElapsedTicks(towerSpawnTick, tracked.LastRemovalTick).ToString()
+                    : "unknown";
                 Shared.DebugLogHelper.LogInfo(
                     log,
-                    $"AI tower spawned over tracked runtime ruin: player={args.PlayerId}, " +
+                    $"AI tower/ruin relationship observed: relationship={relationship}, player={args.PlayerId}, " +
                     $"towerType={args.Building}, towerBuildingId={buildingId}, towerGlobalId={tower->r_GlobalId}, " +
                     $"towerBounds=({tower->r_TilePositionXBegin},{tower->r_TilePositionYBegin})-" +
                     $"({tower->r_TilePositionXEnd},{tower->r_TilePositionYEnd}), ruinType={tracked.Type}, " +
                     $"ruinBuildingId={tracked.BuildingId}, ruinGlobalId={tracked.GlobalId}, " +
                     $"ruinAnchor=({tracked.AnchorX},{tracked.AnchorY}), ruinState={remainingState}, " +
-                    $"removalSources={tracked.DescribeRemovalSources()}, spawnTick={SafeCurrentTick()}.");
+                    $"removalSources={tracked.DescribeRemovalSources()}, " +
+                    $"lastRemovalTick={tracked.LastRemovalTick}, removalToSpawnTicks={removalToSpawnTicks}, " +
+                    $"spawnTick={towerSpawnTick}.");
                 replaced.Add(tracked.GlobalId);
             }
             foreach (uint globalId in replaced)
@@ -576,10 +590,16 @@ namespace BugfixesAndQoL
             internal int AnchorX { get; }
             internal int AnchorY { get; }
             internal int SpawnTick { get; }
+            internal int LastRemovalTick { get; private set; } = -1;
             private readonly HashSet<string> removalSources = new HashSet<string>(StringComparer.Ordinal);
 
             internal bool HasRemovalSource(string source) => removalSources.Contains(source);
-            internal void AddRemovalSource(string source) => removalSources.Add(source);
+            internal bool HasRemovalEvidence => removalSources.Count != 0;
+            internal void RecordRemoval(string source, int tick)
+            {
+                removalSources.Add(source);
+                LastRemovalTick = tick;
+            }
             internal string DescribeRemovalSources() =>
                 removalSources.Count == 0 ? "none" : string.Join("|", removalSources);
         }
