@@ -1,12 +1,12 @@
-// Feature: Periodically remove AI tower ruins created during the running match.
+// Feature: Diagnose Vanilla replacement of AI tower ruins created during the running match.
 // Native ruin audit for CrusaderDE.dll SHA-256
 // FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2:
 // dispatch table RVA 0x2DEAE0 sends types 79 and 86-89 to the empty updater at
 // RVA 0xACE90, so Vanilla has no per-building timed ruin cleanup. Its destruction
-// switch can bulldoze a ruin at RVA 0x7F6FA, but runtime evidence must decide whether
-// that route was actually used. The footprint bulldozer at RVA 0x5D3A0 belongs to
-// general BuildStructure RVA 0x74DA0; the AIV helper RVA 0x5CD90 instead rejects an
-// occupied footprint and uses its own raw building-creation path.
+// switch can bulldoze a ruin at RVA 0x7F6FA. A mod-free 2026-08-25 test also proved
+// that at least one Vanilla AI can replace a visible tower ruin atomically. Keep this
+// runtime observational until logs identify why otherwise equivalent AIs can differ;
+// deleting every ruin on a timer would hide the native placement decision.
 using BepInEx.Logging;
 using R3;
 using SHCDESE.API;
@@ -34,7 +34,6 @@ namespace BugfixesAndQoL
         private const int BuildingPlacementValidatorInteriorRva = 0x7B078;
         private const int BuildingPlacementValidatorInteriorOffset = 0x18;
         private const int DiagnosticRepeatTicks = 30 * 40;
-        private const int RuntimeRuinMaintenanceTicks = 30 * 40;
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate int BuildingPlacementValidatorDelegate(
@@ -55,9 +54,7 @@ namespace BugfixesAndQoL
         private readonly Dictionary<DiagnosticKey, int> diagnosticTicks = new Dictionary<DiagnosticKey, int>();
         private readonly HashSet<ValidatorKey> confirmedValidators = new HashSet<ValidatorKey>();
         private bool callbackFailureLogged;
-        private bool tickSubscribed;
         private bool mapActive;
-        private int nextMaintenanceTick;
         private bool disposed;
 
         public AITowerRuinRepairFix(
@@ -69,7 +66,7 @@ namespace BugfixesAndQoL
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
-            InitializeRuntimeRuinMaintenance();
+            InitializeRuntimeRuinDiagnostics();
 
             try
             {
@@ -85,11 +82,11 @@ namespace BugfixesAndQoL
             catch (Exception ex)
             {
                 // ActiveAIVDetector may already own the native prologue. Do not risk a second
-                // hook if its observer contract changed; periodic cleanup needs no validator.
+                // hook if its observer contract changed; event diagnostics remain available.
                 Shared.DebugLogHelper.LogWarning(
                     log,
                     "AI tower placement diagnostics could not register with ActiveAIVDetector; " +
-                    $"global ruin maintenance remains active: {ex}");
+                    $"event-based ruin diagnostics remain active: {ex}");
                 return;
             }
 
@@ -131,7 +128,7 @@ namespace BugfixesAndQoL
                 Shared.DebugLogHelper.LogWarning(
                     log,
                     "AI tower placement diagnostics could not install their optional native hook; " +
-                    $"global ruin maintenance remains active: {ex}");
+                    $"event-based ruin diagnostics remain active: {ex}");
             }
         }
 
@@ -140,11 +137,6 @@ namespace BugfixesAndQoL
             if (disposed)
                 return;
             disposed = true;
-            if (tickSubscribed)
-            {
-                GameTimeManagerAPI.Instance.OnTick -= OnGameTick;
-                tickSubscribed = false;
-            }
             foreach (IDisposable subscription in subscriptions)
                 subscription.Dispose();
             subscriptions.Clear();
@@ -154,19 +146,23 @@ namespace BugfixesAndQoL
             transaction = null;
         }
 
-        private void InitializeRuntimeRuinMaintenance()
+        private void InitializeRuntimeRuinDiagnostics()
         {
             subscriptions.Add(BuildingR3EventHooks.OnBuildingSpawn.Observable.Subscribe(OnBuildingSpawn));
+            subscriptions.Add(BuildingR3EventHooks.OnBuildingBulldoze.Observable
+                .Where(args => args.Phase == EventHookPhase.Pre)
+                .Subscribe(args => ObserveRuinRemoval(args.BuildingId, "bulldoze-pre")));
+            subscriptions.Add(BuildingR3EventHooks.OnBuildingDelete.Observable
+                .Where(args => args.Phase == EventHookPhase.Pre)
+                .Subscribe(args => ObserveRuinRemoval(args.BuildingId, "delete-pre")));
             subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable.Subscribe(OnMapStart));
             subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
                 .Subscribe(_ => ResetMap()));
-            GameTimeManagerAPI.Instance.OnTick += OnGameTick;
-            tickSubscribed = true;
             Shared.DebugLogHelper.LogInfo(
                 log,
-                "AI runtime tower-ruin maintenance initialized: globalIntervalTicks=1200; every eligible " +
-                "AI ruin is removed on the next global pass, independent of ruin age, rebuild delay and enemy proximity.");
+                "AI runtime tower-ruin diagnostics initialized: newly created AI ruins are observed " +
+                "without deletion so Vanilla validator, removal and replacement behavior remains measurable.");
         }
 
         private void OnMapStart(MapStartEventArgs args)
@@ -178,30 +174,33 @@ namespace BugfixesAndQoL
             }
 
             if (args.Phase == EventHookPhase.Post)
-            {
                 mapActive = true;
-                int now = SafeCurrentTick();
-                nextMaintenanceTick = now < 0 ? RuntimeRuinMaintenanceTicks : unchecked(now + RuntimeRuinMaintenanceTicks);
-            }
         }
 
         private void ResetMap()
         {
             mapActive = false;
-            nextMaintenanceTick = 0;
             runtimeRuins.Clear();
         }
 
         private void OnBuildingSpawn(BuildingSpawnEventArgs args)
         {
             if (!IsEnabled || !mapActive || args.Phase != EventHookPhase.Post ||
-                !IsTowerRuin(args.Building) || args.ReturnValue <= 0 || args.ReturnValue > int.MaxValue)
+                args.ReturnValue <= 0 || args.ReturnValue > int.MaxValue)
             {
                 return;
             }
 
             try
             {
+                if (IsLiveTower(args.Building))
+                {
+                    ObserveTowerSpawn(args);
+                    return;
+                }
+                if (!IsTowerRuin(args.Building))
+                    return;
+
                 int buildingId = unchecked((int)args.ReturnValue);
                 if (!GamePlayerManagerAPI.Instance.IsAIPlayer(args.PlayerId) ||
                     !GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building) ||
@@ -236,72 +235,77 @@ namespace BugfixesAndQoL
             }
         }
 
-        private void OnGameTick(int tick)
+        private void ObserveRuinRemoval(int buildingId, string source)
         {
-            if (!mapActive)
-                return;
-            if (!IsEnabled)
-            {
-                runtimeRuins.Clear();
-                return;
-            }
-            if (tick < 0 || unchecked(tick - nextMaintenanceTick) < 0)
-                return;
-            nextMaintenanceTick = unchecked(tick + RuntimeRuinMaintenanceTicks);
-            if (runtimeRuins.Count == 0)
+            if (!IsEnabled || !mapActive || buildingId <= 0)
                 return;
 
             try
             {
-                var snapshot = new List<RuntimeTowerRuin>(runtimeRuins.Values);
-                int markedCount = 0;
-                int staleCount = 0;
-                int invalidTileCount = 0;
-                int rejectedCount = 0;
-                foreach (RuntimeTowerRuin tracked in snapshot)
+                foreach (RuntimeTowerRuin tracked in runtimeRuins.Values)
                 {
-                    if (!TryResolveTrackedRuin(tracked, out GameBuilding* ruin))
+                    if (tracked.BuildingId != buildingId || tracked.HasRemovalSource(source))
+                        continue;
+                    if (GameBuildingManagerAPI.Instance.TryGetBuildingById(
+                            buildingId, out GameBuilding* current) &&
+                        current->r_GlobalId != tracked.GlobalId)
                     {
-                        runtimeRuins.Remove(tracked.GlobalId);
-                        staleCount++;
                         continue;
                     }
 
-                    GameTileManagerAPI tileApi = GameTileManagerAPI.Instance;
-                    int tileId = tileApi.GetTileId(ruin->r_TilePositionXBegin, ruin->r_TilePositionYBegin);
-                    if (!tileApi.IsValidTileId(tileId))
-                    {
-                        runtimeRuins.Remove(tracked.GlobalId);
-                        invalidTileCount++;
-                        continue;
-                    }
-                    if (!GameBuildingManagerAPI.Instance.DeleteBuildingSafe(tracked.BuildingId))
-                    {
-                        rejectedCount++;
-                        continue;
-                    }
-
-                    runtimeRuins.Remove(tracked.GlobalId);
-                    markedCount++;
+                    tracked.AddRemovalSource(source);
                     Shared.DebugLogHelper.LogInfo(
                         log,
-                        $"AI tower-rebuild obstruction marked for safe deletion: initiator=periodic-maintenance, " +
+                        $"AI runtime tower ruin Vanilla removal observed: source={source}, " +
                         $"player={tracked.PlayerId}, ruinType={tracked.Type}, buildingId={tracked.BuildingId}, " +
-                        $"globalId={tracked.GlobalId}, tileId={tileId}, " +
-                        $"ruinAnchor=({ruin->r_TilePositionXBegin},{ruin->r_TilePositionYBegin}), " +
-                        $"spawnTick={tracked.SpawnTick}, maintenanceTick={tick}, " +
-                        $"ageTicks={ElapsedTicks(tick, tracked.SpawnTick)}.");
+                        $"globalId={tracked.GlobalId}, anchor=({tracked.AnchorX},{tracked.AnchorY}), " +
+                        $"spawnTick={tracked.SpawnTick}, removalTick={SafeCurrentTick()}.");
+                    return;
                 }
-                Shared.DebugLogHelper.LogInfo(
-                    log,
-                    $"AI runtime tower-ruin maintenance pass completed: maintenanceTick={tick}, " +
-                    $"candidates={snapshot.Count}, marked={markedCount}, stale={staleCount}, " +
-                    $"invalidTile={invalidTileCount}, rejected={rejectedCount}, remaining={runtimeRuins.Count}.");
             }
             catch (Exception ex)
             {
-                LogCallbackFailure("periodic runtime ruin maintenance", ex);
+                LogCallbackFailure("runtime ruin removal observation", ex);
             }
+        }
+
+        private void ObserveTowerSpawn(BuildingSpawnEventArgs args)
+        {
+            int buildingId = unchecked((int)args.ReturnValue);
+            if (!GamePlayerManagerAPI.Instance.IsAIPlayer(args.PlayerId) ||
+                !GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* tower) ||
+                tower->r_PlayerIdOwner != args.PlayerId ||
+                (tower->r_AliveState != AliveState.NeedsInit && tower->r_AliveState != AliveState.IsAlive))
+            {
+                return;
+            }
+
+            var replaced = new List<uint>();
+            foreach (RuntimeTowerRuin tracked in runtimeRuins.Values)
+            {
+                if (tracked.PlayerId != args.PlayerId ||
+                    tracked.AnchorX < tower->r_TilePositionXBegin || tracked.AnchorX > tower->r_TilePositionXEnd ||
+                    tracked.AnchorY < tower->r_TilePositionYBegin || tracked.AnchorY > tower->r_TilePositionYEnd)
+                {
+                    continue;
+                }
+
+                string remainingState = TryResolveTrackedRuin(tracked, out GameBuilding* ruin)
+                    ? ruin->r_AliveState.ToString()
+                    : "no-longer-resolvable";
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"AI tower spawned over tracked runtime ruin: player={args.PlayerId}, " +
+                    $"towerType={args.Building}, towerBuildingId={buildingId}, towerGlobalId={tower->r_GlobalId}, " +
+                    $"towerBounds=({tower->r_TilePositionXBegin},{tower->r_TilePositionYBegin})-" +
+                    $"({tower->r_TilePositionXEnd},{tower->r_TilePositionYEnd}), ruinType={tracked.Type}, " +
+                    $"ruinBuildingId={tracked.BuildingId}, ruinGlobalId={tracked.GlobalId}, " +
+                    $"ruinAnchor=({tracked.AnchorX},{tracked.AnchorY}), ruinState={remainingState}, " +
+                    $"removalSources={tracked.DescribeRemovalSources()}, spawnTick={SafeCurrentTick()}.");
+                replaced.Add(tracked.GlobalId);
+            }
+            foreach (uint globalId in replaced)
+                runtimeRuins.Remove(globalId);
         }
 
         private bool TryResolveTrackedRuin(RuntimeTowerRuin tracked, out GameBuilding* building)
@@ -361,13 +365,13 @@ namespace BugfixesAndQoL
             try
             {
                 // Player zero is used by candidate-fit probes; requiring a real AI slot limits
-                // diagnostics and deletion to live AI tower-placement attempts.
+                // diagnostics to live AI tower-placement attempts.
                 if (IsLiveTowerMapper(mapperValue) &&
                     playerId >= 1 && playerId <= 8 &&
                     GamePlayerManagerAPI.Instance.IsAIPlayer(playerId))
                 {
                     string outcome = result == 0
-                        ? "vanilla-allowed"
+                        ? InspectAllowedTile(tileId, playerId)
                         : InspectBlockedTile(tileId, playerId, mapperValue);
                     LogDiagnostic(playerId, mapperValue, tileId, result, outcome);
                 }
@@ -377,6 +381,26 @@ namespace BugfixesAndQoL
                 LogCallbackFailure("placement-validator callback", ex);
             }
 
+        }
+
+        private string InspectAllowedTile(int tileId, int playerId)
+        {
+            GameTileManagerAPI tileApi = GameTileManagerAPI.Instance;
+            if (!tileApi.IsValidTileId(tileId))
+                return "vanilla-allowed-invalid-tile";
+            int buildingId = tileApi.GetTileBuildingId(tileId);
+            if (buildingId <= 0 ||
+                !GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building) ||
+                building->r_PlayerIdOwner != playerId || !IsTowerRuin(building->r_BuildingType))
+            {
+                return "vanilla-allowed";
+            }
+
+            bool tracked = runtimeRuins.TryGetValue(building->r_GlobalId, out RuntimeTowerRuin runtime) &&
+                runtime.BuildingId == buildingId;
+            return tracked
+                ? $"vanilla-allowed-over-runtime-ruin:buildingId={buildingId},globalId={building->r_GlobalId},type={building->r_BuildingType},aliveState={building->r_AliveState}"
+                : $"vanilla-allowed-over-untracked-ruin:buildingId={buildingId},globalId={building->r_GlobalId},type={building->r_BuildingType},aliveState={building->r_AliveState}";
         }
 
         private bool TryRegisterWithActiveAivDetector()
@@ -405,8 +429,8 @@ namespace BugfixesAndQoL
             return registrationResult is bool registered && registered;
         }
 
-        // The validator is diagnostic only. Deleting here would couple cleanup to one
-        // particular AIV target and could make other ruins wait indefinitely.
+            // The validator is diagnostic only. A mod-free test proved that Vanilla can replace
+            // at least some ruins itself; mutating here would hide why another target is blocked.
         private string InspectBlockedTile(int tileId, int playerId, int mapperValue)
         {
             GameTileManagerAPI tileApi = GameTileManagerAPI.Instance;
@@ -428,10 +452,10 @@ namespace BugfixesAndQoL
 
             eStructs ruinType = building->r_BuildingType;
             uint globalId = building->r_GlobalId;
-            bool trackedForMaintenance = runtimeRuins.TryGetValue(globalId, out RuntimeTowerRuin tracked) &&
+            bool trackedRuntimeRuin = runtimeRuins.TryGetValue(globalId, out RuntimeTowerRuin tracked) &&
                 tracked.BuildingId == buildingId;
-            return trackedForMaintenance
-                ? $"blocked-runtime-ruin-awaiting-periodic-maintenance:buildingId={buildingId},globalId={globalId},type={ruinType},spawnTick={tracked.SpawnTick}"
+            return trackedRuntimeRuin
+                ? $"blocked-runtime-ruin-left-for-vanilla:buildingId={buildingId},globalId={globalId},type={ruinType},spawnTick={tracked.SpawnTick}"
                 : $"blocked-untracked-ruin-left-unchanged:buildingId={buildingId},globalId={globalId},type={ruinType}";
         }
 
@@ -439,7 +463,7 @@ namespace BugfixesAndQoL
         {
             int now = SafeCurrentTick();
             var validatorKey = new ValidatorKey(playerId, mapperValue);
-            if (vanillaResult == 0)
+            if (vanillaResult == 0 && outcome.IndexOf("ruin", StringComparison.Ordinal) < 0)
             {
                 if (confirmedValidators.Add(validatorKey))
                 {
@@ -455,8 +479,8 @@ namespace BugfixesAndQoL
             int separator = category.IndexOf(':');
             if (separator >= 0)
                 category = category.Substring(0, separator);
-            // MarkedForDeletion is expected for the short interval after a global maintenance
-            // pass and is not a separate placement failure worth repeating.
+            // MarkedForDeletion can occur during Vanilla's atomic footprint replacement and is
+            // not a separate placement failure worth repeating.
             if (category == "blocked-alive-state-mismatch" &&
                 outcome.IndexOf("MarkedForDeletion", StringComparison.Ordinal) >= 0)
                 return;
@@ -483,7 +507,7 @@ namespace BugfixesAndQoL
             }
             Shared.DebugLogHelper.LogInfo(
                 log,
-                $"AI tower placement validator blocked sample: player={playerId}, mapper={mapperValue}, " +
+                $"AI tower placement validator sample: player={playerId}, mapper={mapperValue}, " +
                 $"tileId={tileId}, vanillaResult={vanillaResult}, outcome={outcome}, tick={now}.");
         }
 
@@ -511,6 +535,10 @@ namespace BugfixesAndQoL
         private static bool IsTowerRuin(eStructs type) =>
             type == eStructs.STRUCT_TOWER5_DESTROYED ||
             ((int)type >= (int)eStructs.STRUCT_TOWER1_DESTROYED && (int)type <= (int)eStructs.STRUCT_TOWER4_DESTROYED);
+
+        private static bool IsLiveTower(eStructs type) =>
+            type == eStructs.STRUCT_TOWER ||
+            ((int)type >= (int)eStructs.STRUCT_TOWER1 && (int)type <= (int)eStructs.STRUCT_TOWER5);
 
         private static int SafeCurrentTick()
         {
@@ -548,6 +576,12 @@ namespace BugfixesAndQoL
             internal int AnchorX { get; }
             internal int AnchorY { get; }
             internal int SpawnTick { get; }
+            private readonly HashSet<string> removalSources = new HashSet<string>(StringComparer.Ordinal);
+
+            internal bool HasRemovalSource(string source) => removalSources.Contains(source);
+            internal void AddRemovalSource(string source) => removalSources.Add(source);
+            internal string DescribeRemovalSources() =>
+                removalSources.Count == 0 ? "none" : string.Join("|", removalSources);
         }
 
         private readonly struct DiagnosticKey : IEquatable<DiagnosticKey>

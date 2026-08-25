@@ -13,6 +13,7 @@ using R3;
 using SHCDESE.API;
 using SHCDESE.Detours;
 using SHCDESE.EventAPI;
+using SHCDESE.EventAPI.AI;
 using SHCDESE.EventAPI.Buildings;
 using SHCDESE.EventAPI.MapLoader;
 using SHCDESE.Interop;
@@ -67,6 +68,7 @@ namespace ExtraFeatures
         [ThreadStatic] private static BuildStepContext reusableContext;
         [ThreadStatic] private static RepairObservation pendingRepair;
         [ThreadStatic] private static bool hasPendingRepair;
+        [ThreadStatic] private static PendingWallRepair pendingWallRepair;
         [ThreadStatic] private static RuinDamageObservation pendingRuinDamage;
 
         private readonly ManualLogSource log;
@@ -131,6 +133,7 @@ namespace ExtraFeatures
 
             subscriptions.Add(BuildingR3EventHooks.OnBuildingAllowRepairInProximity.Observable.Subscribe(OnRepairProximity));
             subscriptions.Add(BuildingR3EventHooks.OnBuildingRepair.Observable.Subscribe(OnBuildingRepair));
+            subscriptions.Add(AIR3EventHooks.OnAIBuildWall.Observable.Subscribe(OnAIBuildWall));
             subscriptions.Add(BuildingR3EventHooks.OnBuildingSpawn.Observable.Subscribe(OnBuildingSpawn));
             subscriptions.Add(BuildingR3EventHooks.OnBuildingTileTakeDamage.Observable.Subscribe(OnTowerRuinDamage));
             subscriptions.Add(BuildingR3EventHooks.OnBuildingBulldoze.Observable
@@ -270,6 +273,7 @@ namespace ExtraFeatures
             reusableContext = null;
             pendingRepair = default;
             hasPendingRepair = false;
+            pendingWallRepair = default;
             pendingRuinDamage = null;
             executeBuildStepConfirmed = false;
             invalidFrameLogged = false;
@@ -299,6 +303,28 @@ namespace ExtraFeatures
 
                 if (args.Phase == EventHookPhase.Pre)
                 {
+                    // AI wall repair is not a GameBuilding repair. ExecuteBuildStep calls the
+                    // dedicated wall writer at RVA 0x6CB20, whose validator RVA 0x77CF0 asks
+                    // this helper with radius 5 immediately before restoring Height/DamageGrid.
+                    // Bind only that synchronous, coordinate-identical call. This preserves all
+                    // first placements while avoiding the old tower-spawn-history heuristic.
+                    bool isWallRepair = pendingWallRepair.Matches(
+                        args.PlayerId, args.TileX, args.TileY, args.Proximity);
+                    if (pendingWallRepair.IsSet)
+                        pendingWallRepair = default;
+                    if (isWallRepair)
+                    {
+                        if (settings.AIRepairEnemyProximity < 0)
+                            return;
+
+                        pendingRepair = new RepairObservation(
+                            args.PlayerId, args.TileX, args.TileY, args.Proximity,
+                            settings.AIRepairEnemyProximity, isRebuild: false, isWallRepair: true);
+                        hasPendingRepair = true;
+                        args.Proximity = settings.AIRepairEnemyProximity;
+                        return;
+                    }
+
                     BuildStepContext context = activeContext;
                     if (context != null && context.PlayerId == args.PlayerId && context.DelayBlocked)
                     {
@@ -313,21 +339,20 @@ namespace ExtraFeatures
                         return;
                     }
 
-                    // A first AIV placement must retain both of Vanilla's freeOrForced variants.
-                    // Only a frame proven to have spawned this defense before receives the shared
-                    // mod radius; calls outside an AIV context are standing-building repairs.
-                    if (context != null &&
-                        (context.Source != "ExecuteBuildStep" || context.History == null ||
-                         !context.History.EverSpawnedDefense))
+                    // 0xEE640 is a general placement helper, not a standing-building repair API.
+                    // Vanilla has no AI producer for the building-repair Chore used by towers and
+                    // gates. Calls outside the explicitly classified wall/rebuild contexts must
+                    // therefore remain untouched instead of being mislabeled as repairs.
+                    if (context == null || context.Source != "ExecuteBuildStep" ||
+                        context.History == null || !context.History.EverSpawnedDefense)
                         return;
 
                     if (settings.AIRepairEnemyProximity < 0)
                         return;
 
-                    bool isRebuild = context != null;
                     pendingRepair = new RepairObservation(
                         args.PlayerId, args.TileX, args.TileY, args.Proximity,
-                        settings.AIRepairEnemyProximity, isRebuild);
+                        settings.AIRepairEnemyProximity, isRebuild: true, isWallRepair: false);
                     hasPendingRepair = true;
                     // On the audited DLL, native 0xEE640 returns nonzero when a qualifying
                     // hostile is inside the strict squared-distance check; its repair caller
@@ -355,9 +380,19 @@ namespace ExtraFeatures
                 // Record only actual native results. Per-target state transitions avoid repeating
                 // an unchanged denial on every Vanilla polling cycle.
                 RepairStateTransition transition = diagnostics.Record(observation, blocked, now);
-                string source = observation.IsRebuild ? "rebuild" : "standing-repair";
+                string source = observation.IsWallRepair
+                    ? "damaged-wall-repair"
+                    : observation.IsRebuild ? "rebuild" : "standing-building-repair";
                 string targetBuilding = DescribeBuildingAtTile(observation.X, observation.Y);
-                if (!observation.IsRebuild)
+                if (observation.IsWallRepair)
+                {
+                    LogInfo($"AI damaged-wall repair proximity result: player={args.PlayerId}, " +
+                        $"target=({observation.X},{observation.Y}), tick={now}, " +
+                        $"result={(blocked ? "blocked" : "allowed")}, " +
+                        $"vanillaRadius={observation.VanillaRadius}, " +
+                        $"configuredRadius={observation.ConfiguredRadius}.");
+                }
+                else if (!observation.IsRebuild)
                     LogDamagedStandingDefenseQuery(observation, blocked, now);
                 if (transition != RepairStateTransition.None)
                 {
@@ -379,6 +414,39 @@ namespace ExtraFeatures
             catch (Exception ex)
             {
                 LogFailure("repair proximity", ex);
+            }
+        }
+
+        private void OnAIBuildWall(AIBuildWallEventArgs args)
+        {
+            pendingWallRepair = default;
+            if (!IsConfigured || !mapActive || settings.AIRepairEnemyProximity < 0 ||
+                !IsAI(args.PlayerId))
+            {
+                return;
+            }
+
+            try
+            {
+                GameTileManagerAPI tileApi = GameTileManagerAPI.Instance;
+                int tileId = tileApi.GetTileId(args.TileX, args.TileY);
+                if (!tileApi.IsValidTileId(tileId) ||
+                    !tileApi.HasTilePropertyFlag(tileId, TilePropertyFlag.IsWall))
+                {
+                    return;
+                }
+
+                // IsWall is the stable distinction we need: a first placement has no wall bit,
+                // while Vanilla may route several damaged/breached wall states through different
+                // 0x77CF0 branches before they converge on the radius-5 query. Do not duplicate
+                // those evolving health/state rules here. If Vanilla rejects earlier, no matching
+                // proximity callback occurs and this one-shot context cannot change game state.
+                pendingWallRepair = new PendingWallRepair(args.PlayerId, args.TileX, args.TileY);
+            }
+            catch (Exception ex)
+            {
+                pendingWallRepair = default;
+                LogFailure("AI damaged-wall repair classification", ex);
             }
         }
 
@@ -1528,7 +1596,8 @@ namespace ExtraFeatures
         private readonly struct RepairObservation
         {
             internal RepairObservation(
-                int playerId, int x, int y, int vanillaRadius, int configuredRadius, bool isRebuild)
+                int playerId, int x, int y, int vanillaRadius, int configuredRadius,
+                bool isRebuild, bool isWallRepair)
             {
                 PlayerId = playerId;
                 X = x;
@@ -1536,6 +1605,7 @@ namespace ExtraFeatures
                 VanillaRadius = vanillaRadius;
                 ConfiguredRadius = configuredRadius;
                 IsRebuild = isRebuild;
+                IsWallRepair = isWallRepair;
             }
             internal int PlayerId { get; }
             internal int X { get; }
@@ -1543,6 +1613,26 @@ namespace ExtraFeatures
             internal int VanillaRadius { get; }
             internal int ConfiguredRadius { get; }
             internal bool IsRebuild { get; }
+            internal bool IsWallRepair { get; }
+        }
+
+        private readonly struct PendingWallRepair
+        {
+            internal PendingWallRepair(int playerId, int x, int y)
+            {
+                PlayerId = playerId;
+                X = x;
+                Y = y;
+                IsSet = true;
+            }
+
+            internal int PlayerId { get; }
+            internal int X { get; }
+            internal int Y { get; }
+            internal bool IsSet { get; }
+
+            internal bool Matches(int playerId, int x, int y, int vanillaRadius) =>
+                IsSet && PlayerId == playerId && X == x && Y == y && vanillaRadius == 5;
         }
 
         private readonly struct StandingDefenseQueryLogState

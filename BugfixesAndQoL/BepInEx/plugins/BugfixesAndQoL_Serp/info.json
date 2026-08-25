@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.85",
+  "Version": "1.0.86",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.86",
+      "Changes": [
+        "Replaced automatic AI tower-ruin deletion with non-mutating diagnostics for Vanilla placement, removal, and atomic replacement behavior."
+      ]
+    },
     {
       "Version": "1.0.85",
       "Changes": [

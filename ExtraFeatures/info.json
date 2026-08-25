@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.71",
+  "Version": "1.0.72",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.72",
+      "Changes": [
+        "Applied the configured AI enemy radius to Vanilla's actual damaged-wall repair query while preserving first wall placements."
+      ]
+    },
     {
       "Version": "1.0.71",
       "Changes": [

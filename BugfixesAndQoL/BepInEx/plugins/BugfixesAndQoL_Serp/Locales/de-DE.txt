@@ -161,5 +161,5 @@ BugfixesAndQoL.AivSyncReady=AIV-Daten synchronisiert. Das Spiel wird gestartet..
 BugfixesAndQoL.AivSyncFailed=Die AIV-Synchronisierung ist fehlgeschlagen; der Spielstart wurde blockiert: {Reason}
 BugfixesAndQoL.AivSyncTimeout=Nicht alle Clients haben die AIV-Daten innerhalb von 60 Sekunden bestätigt.
 BugfixesAndQoL.AivSyncChanged=Lobbyteilnehmer oder AIV-Auswahl wurden während der Synchronisierung geändert. Zum Wiederholen erneut auf Spielen klicken.
-BugfixesAndQoL.FixAITowerRepair=KI-Turmreparatur korrigieren
-BugfixesAndQoL.FixAITowerRepairHelp=Entfernt alle 30 Spielsekunden sicher alle KI-eigenen Turmruinen, die nach Beginn der laufenden Partie entstanden sind. Wiederaufbau-Delay und Feindnähe beeinflussen diesen Abriss nicht. Ursprüngliche Kartendekorationen, menschliche Ruinen und andere Ruinen bleiben unverändert.
+BugfixesAndQoL.FixAITowerRepair=KI-Turmwiederaufbau diagnostizieren
+BugfixesAndQoL.FixAITowerRepairHelp=Beobachtet KI-eigene Turmruinen, die während der laufenden Partie entstehen, und protokolliert Vanillas Platzierungs-, Abriss- und Ersetzungsentscheidungen. Ruinen werden niemals gelöscht und Vanilla-Verhalten wird nicht verändert. Deaktiviere diese Option, um die Diagnose-Hooks und deren Logging abzuschalten.

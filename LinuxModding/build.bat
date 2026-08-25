@@ -32,6 +32,10 @@ copy /Y "%PROJECT_DIR%info.json" "%LOCAL_PLUGIN_DIR%\info.json" >nul
 if errorlevel 1 goto copy_failed
 copy /Y "%PROJECT_DIR%shcde-linux-launcher.sh" "%LOCAL_PLUGIN_DIR%\shcde-linux-launcher.sh" >nul
 if errorlevel 1 goto copy_failed
+copy /Y "%PROJECT_DIR%install-linux.sh" "%LOCAL_PLUGIN_DIR%\install-linux.sh" >nul
+if errorlevel 1 goto copy_failed
+copy /Y "%PROJECT_DIR%README.md" "%LOCAL_PLUGIN_DIR%\README.md" >nul
+if errorlevel 1 goto copy_failed
 
 echo Build erfolgreich. Das lokale Linux-Paket wurde erstellt:
 echo !LOCAL_PLUGIN_DIR!
