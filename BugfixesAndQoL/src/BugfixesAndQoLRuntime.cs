@@ -692,7 +692,12 @@ namespace BugfixesAndQoL
 
         private void EnsureAiTowerRuinRepairFix()
         {
-            if (!nativeLibraryAvailable || aiTowerRuinRepairFix != null || aiTowerRuinRepairFixUnavailable)
+            if (aiTowerRuinRepairFix != null)
+            {
+                aiTowerRuinRepairFix.ApplySetting();
+                return;
+            }
+            if (!nativeLibraryAvailable || aiTowerRuinRepairFixUnavailable)
                 return;
             // Avoid even installing/logging the optional validator hook in Vanilla mode. If the
             // setting is enabled later, ApplySettings retries this method with the retained DLL.

@@ -184,30 +184,28 @@ is present and has installed that detour, the soft-dependency load order lets
 this feature register a managed post-Vanilla observer instead of installing an
 overlapping hook. Neither mod requires the other. If observer registration is
 unavailable, or RVA validation and the standalone pattern fallback both fail,
-only the optional validator diagnostics remain inactive; all other fixes,
-periodic ruin maintenance and Vanilla placement continue.
+only the optional validator diagnostics remain inactive. The actual fix is a
+separate inline classifier at `0x5D055` and is installed only for the audited
+DLL hash because it also relies on the fixed stack and building-record layout.
 
-Periodic ruin maintenance is initialized before this optional diagnostic hook.
-If observer registration or native signature resolution fails, only validator
-diagnostics are disabled; the global 30-second cleanup remains active because it
-uses building-spawn, map-lifecycle and simulation-tick APIs only.
+The AIV placement helper at `0x5CD90` already has a complete native obstruction
+cleanup. Its broad two-pass branch admits tower ruins 79 and 86-89, but its
+single-pass branch outside the stored keep's 20-tile Chebyshev radius rejects
+every type above 33 before cleanup. The inline callback changes only the
+temporary classifier value to native-deletable type 3 for an exact,
+runtime-tracked, same-owner AI ruin. The real building record is not changed and
+Vanilla reloads its true type before running its own deletion and tile cleanup.
+This mirrors UCP2's `ai_rebuildtowers` strategy of routing ruins into an existing
+native demolition branch instead of treating them as empty ground.
 
-The 2026-08-24 finished-castle trace confirmed that a blocking same-owner ruin
-can be removed with `DeleteBuildingSafe` and that a later validation can then
-permit the replacement tower. Later multi-target traces also showed that tying
-deletion to a particular AIV target leaves some ruins waiting for a distant or
-missing retry. The placement validator therefore observes and rate-limits
-diagnostics only; it never mutates a ruin.
-
-Runtime tower ruins are instead captured from post-map-start building-spawn
-events and validated by building ID, global ID, owner, type and anchor. One
-global deterministic maintenance pass runs every 1200 simulation ticks (30 game
-seconds) and marks every still-valid tracked AI tower ruin with
-`DeleteBuildingSafe`. This is deliberately not a per-ruin timer: a ruin waits
-between zero and almost 30 game seconds depending on where it was created in the
-global interval. Cleanup is independent of ExtraFeatures rebuild delay and
-enemy proximity. Ruins already present when the map starts, human ruins and
-non-tower ruins are not tracked.
+Runtime tower ruins are captured from post-map-start building-spawn events and
+validated at the classifier by building ID, global ID, owner, type and anchor.
+Preplaced, human, enemy, reused-ID and unrelated ruins therefore remain Vanilla.
+There is no independent 30-second deletion scan and no `DeleteBuildingSafe`
+mutation in this feature. Ruin cleanup happens at Vanilla's next matching AIV
+placement attempt and is independent of ExtraFeatures rebuild delay and enemy
+proximity; the later tower placement itself remains governed by Vanilla and the
+configured rebuild rules.
 
 ## Release-quarantine rollback
 
@@ -216,8 +214,9 @@ checkbox is visible again and defaults/resets to enabled. If the mod, the AI-fix
 group or this checkbox is disabled, `AITowerRuinRepairFix` is not constructed
 and installs no validator observer/detour or feature diagnostics. Enabling it
 later retries initialization against the retained canonical DLL mapping. If it
-is disabled after installation, the process-lifetime callback leaves Vanilla's
-result untouched and performs no inspection, deletion or logging.
+is disabled after installation, the inline hook is disabled and restores the
+original classifier path; the remaining observer leaves Vanilla's result
+untouched and performs no mutation or feature logging.
 
 The first-build AIV signature stayed at `0x53F0B`, but its absolute map-row
 operand moved from `0x402EF2C` to `0x402FF2C`; that relocation is now wildcarded
@@ -238,6 +237,5 @@ The placement validator supplies the concrete blocked tile, and
 `GameTileManagerAPI.GetTileBuildingId(tileId)` reads the building ID directly
 from that exact `StructureGrid` entry. It remains useful for diagnosing whether
 a tracked or untracked ruin blocks an AIV target, but no longer controls cleanup.
-The global maintenance path validates the stable spawn identity instead and
-logs every successful safe-deletion mark with spawn tick, maintenance tick and
-diagnostic age.
+The later inline classifier validates the stable spawn identity again before it
+lets Vanilla enter native cleanup.

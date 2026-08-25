@@ -1,17 +1,21 @@
-// Feature: Configure AI repair proximity and diagnose Vanilla's AIV defense rebuild cadence.
+// Feature: Configure AI repair proximity and damage-anchored AIV defense rebuild timing.
 // Native ruin audit for CrusaderDE.dll SHA-256
 // FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2:
 // dispatch table RVA 0x2DEAE0 sends types 79 and 86-89 to the empty updater at
 // RVA 0xACE90, so they have no per-building lifetime cleanup timer. The damage handler
 // at RVA 0x7EB00 routes all five ruin types through RVA 0x7F6FA to the mark-for-deletion
-// routine at RVA 0xC4290 without a remaining-HP threshold. A 2026-08-25 trace confirmed
-// that every one of 15 later tower spawns happened only after this damage/removal path;
-// none was a living-ruin overbuild. An earlier observed replacement remains a candidate,
-// but predates the diagnostics needed to distinguish those cases conclusively.
-// The AIV placement helper at RVA 0x5CD90 has a selective blocker deletion scan whose
-// masks exclude types 79 and 86-89. General BuildStructure at RVA 0x74DA0 can call the
-// footprint bulldozer at RVA 0x5D3A0 behind a separate state flag, but that path has not
-// yet been observed for a living AIV tower ruin. Keep the runtime distinction diagnostic.
+// routine at RVA 0xC4290 without a remaining-HP threshold. This is separate from the AIV
+// placement cleanup below; runtime logging must retain both causes when diagnosing a ruin.
+// The AIV placement helper at RVA 0x5CD90 is also Vanilla's tower-ruin cleanup path.
+// For ordinary tower mappers it selects the broad, two-pass blocker cleanup only when the
+// player has a stored keep building and the target is at most 20 tiles from its stored
+// coordinates (Chebyshev distance, calculated by RVA 0x79C0). The broad first pass sends
+// types outside 40-73 directly to RVA 0xC43A0, so it marks tower ruins 79 and 86-89 for
+// deletion. Outside that keep radius the single-pass type mask skips those ruins. Runtime
+// traces on 2026-08-25 proved this path twice without damage: player 5 frame 68 removed
+// type 86/global 7353487 at tick 6155, and frame 35 removed type 79/global 7366728 at tick
+// 8255. In both calls the mod's rebuild gate ran later, so Vanilla removed the ruin while
+// the delayed replacement tower was intentionally not spawned until a subsequent call.
 using BepInEx.Logging;
 using R3;
 using SHCDESE.API;
@@ -85,6 +89,11 @@ namespace ExtraFeatures
             new Dictionary<BuildStepKey, BuildStepHistory>();
         private readonly Dictionary<BuildStepKey, RebuildDelayState> rebuildDelays =
             new Dictionary<BuildStepKey, RebuildDelayState>();
+        // Damage is the earliest reliable per-target event shared by an intact defense and its
+        // later missing/ruined AIV entry. A later placement probe may consume this timestamp,
+        // but probes and ruin deletion must never rewrite it or extend the configured delay.
+        private readonly Dictionary<DefenseTargetKey, int> lastDefenseDamageTicks =
+            new Dictionary<DefenseTargetKey, int>();
         private readonly HashSet<DefenseTargetKey> observedDefenseTargets =
             new HashSet<DefenseTargetKey>();
         private readonly HashSet<string> callbackFailuresLogged = new HashSet<string>(StringComparer.Ordinal);
@@ -267,7 +276,7 @@ namespace ExtraFeatures
             LogInfo($"AI defense map state started: repairRadius={settings.AIRepairEnemyProximity}, " +
                 $"rebuildDelaySeconds={settings.AITowerGateRebuildDelaySeconds}, " +
                 $"knownInitialDefenseTargets={observedDefenseTargets.Count}, " +
-                "rebuildDelayMode=per-frame-first-detection.");
+                "rebuildDelayMode=per-frame-last-damage-with-first-detection-fallback.");
         }
 
         private void ResetMap()
@@ -290,6 +299,7 @@ namespace ExtraFeatures
             lastTowerSnapshotTick = int.MinValue;
             buildStepHistory.Clear();
             rebuildDelays.Clear();
+            lastDefenseDamageTicks.Clear();
             observedDefenseTargets.Clear();
             standingDefenseQueryLogs.Clear();
             pendingWallPostStates.Clear();
@@ -1054,7 +1064,14 @@ namespace ExtraFeatures
                 if (!IsAI(args.PlayerId))
                     return;
                 if (TryCreateTargetKey(args.PlayerId, args.TileX, args.TileY, args.Building, out DefenseTargetKey target))
+                {
                     observedDefenseTargets.Add(target);
+                    // A successful live spawn closes the previous missing period. Without this
+                    // removal, an unrelated later disappearance could inherit an old hit whose
+                    // configured maximum delay has long since elapsed.
+                    if (!IsTowerRuin(args.Building))
+                        lastDefenseDamageTicks.Remove(target);
+                }
                 if (!mapActive)
                     return;
                 int buildingId = unchecked((int)args.ReturnValue);
@@ -1134,8 +1151,13 @@ namespace ExtraFeatures
                         : 0;
                     if (buildingId <= 0 ||
                         !GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building) ||
-                        !IsTowerRuin(building->r_BuildingType) ||
-                        !IsAI(building->r_PlayerIdOwner))
+                        !IsAI(building->r_PlayerIdOwner) ||
+                        !TryCreateTargetKey(
+                            building->r_PlayerIdOwner,
+                            building->r_TilePositionXBegin,
+                            building->r_TilePositionYBegin,
+                            building->r_BuildingType,
+                            out DefenseTargetKey target))
                     {
                         return;
                     }
@@ -1149,11 +1171,12 @@ namespace ExtraFeatures
                         args.Damage,
                         args.PlayerIdSource,
                         building->r_CurrentHealth,
-                        building->r_MaxHealth);
+                        building->r_MaxHealth,
+                        target);
                 }
                 catch (Exception ex)
                 {
-                    LogFailure("tower-ruin damage pre-diagnostic", ex);
+                    LogFailure("tower/gate damage pre-observation", ex);
                 }
                 return;
             }
@@ -1166,22 +1189,32 @@ namespace ExtraFeatures
             try
             {
                 string after = "buildingAfter=missing-or-reused";
+                bool confirmedDamage = true;
                 if (GameBuildingManagerAPI.Instance.TryGetBuildingById(observation.BuildingId, out GameBuilding* building) &&
                     building->r_GlobalId == observation.GlobalId)
                 {
                     after = $"healthAfter={building->r_CurrentHealth},maxHealthAfter={building->r_MaxHealth}," +
                         $"aliveStateAfter={building->r_AliveState},typeAfter={building->r_BuildingType}";
+                    confirmedDamage = building->r_CurrentHealth < observation.HealthBefore ||
+                        building->r_AliveState == AliveState.MarkedForDeletion;
                 }
 
-                LogInfo($"AI tower ruin damage processed: player={observation.OwnerId}, type={observation.Type}, " +
-                    $"buildingId={observation.BuildingId}, globalId={observation.GlobalId}, tileId={observation.TileId}, " +
-                    $"damage={observation.Damage}, damageSourcePlayer={observation.SourcePlayerId}, " +
-                    $"healthBefore={observation.HealthBefore}, maxHealthBefore={observation.MaxHealthBefore}, " +
-                    $"{after}, tick={SafeCurrentTick()}.");
+                int now = SafeCurrentTick();
+                if (confirmedDamage && now >= 0)
+                    lastDefenseDamageTicks[observation.Target] = now;
+
+                if (IsTowerRuin(observation.Type))
+                {
+                    LogInfo($"AI tower ruin damage processed: player={observation.OwnerId}, type={observation.Type}, " +
+                        $"buildingId={observation.BuildingId}, globalId={observation.GlobalId}, tileId={observation.TileId}, " +
+                        $"damage={observation.Damage}, damageSourcePlayer={observation.SourcePlayerId}, " +
+                        $"healthBefore={observation.HealthBefore}, maxHealthBefore={observation.MaxHealthBefore}, " +
+                        $"{after}, confirmedDamage={confirmedDamage}, tick={now}.");
+                }
             }
             catch (Exception ex)
             {
-                LogFailure("tower-ruin damage post-diagnostic", ex);
+                LogFailure("tower/gate damage post-observation", ex);
             }
         }
 
@@ -1242,10 +1275,20 @@ namespace ExtraFeatures
 
             if (!rebuildDelays.TryGetValue(context.Key, out RebuildDelayState state))
             {
-                state = new RebuildDelayState(context.Tick, target);
+                int firstTick = context.Tick;
+                string timerSource = "first-rebuild-attempt";
+                if (lastDefenseDamageTicks.TryGetValue(target, out int damageTick) &&
+                    unchecked((uint)(context.Tick - damageTick)) <= int.MaxValue)
+                {
+                    firstTick = damageTick;
+                    timerSource = "last-confirmed-damage";
+                }
+
+                state = new RebuildDelayState(firstTick, target);
                 rebuildDelays.Add(context.Key, state);
                 LogInfo($"AI defense rebuild delay started: player={context.PlayerId}, " +
-                    $"frameIndex={context.FrameIndex}, target={target}, firstDetectedTick={context.Tick}, " +
+                    $"frameIndex={context.FrameIndex}, target={target}, firstDetectedTick={firstTick}, " +
+                    $"firstAttemptTick={context.Tick}, timerSource={timerSource}, " +
                     $"delaySeconds={settings.AITowerGateRebuildDelaySeconds}.");
             }
 
@@ -1713,7 +1756,8 @@ namespace ExtraFeatures
                 int damage,
                 int sourcePlayerId,
                 short healthBefore,
-                ushort maxHealthBefore)
+                ushort maxHealthBefore,
+                DefenseTargetKey target)
             {
                 BuildingId = buildingId;
                 GlobalId = globalId;
@@ -1724,6 +1768,7 @@ namespace ExtraFeatures
                 SourcePlayerId = sourcePlayerId;
                 HealthBefore = healthBefore;
                 MaxHealthBefore = maxHealthBefore;
+                Target = target;
             }
 
             internal int BuildingId { get; }
@@ -1735,6 +1780,7 @@ namespace ExtraFeatures
             internal int SourcePlayerId { get; }
             internal short HealthBefore { get; }
             internal ushort MaxHealthBefore { get; }
+            internal DefenseTargetKey Target { get; }
         }
 
         private readonly struct RepairObservation
