@@ -3,10 +3,22 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.63",
+  "Version": "1.0.65",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.65",
+      "Changes": [
+        "Added focused AI tower-ruin lifecycle diagnostics and reduced redundant defense-spawn logging."
+      ]
+    },
+    {
+      "Version": "1.0.64",
+      "Changes": [
+        "Made synchronized Stop commands cancel active Assassin climbing and return the unit to its last valid standing tile."
+      ]
+    },
     {
       "Version": "1.0.63",
       "Changes": [

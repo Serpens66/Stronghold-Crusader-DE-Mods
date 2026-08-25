@@ -1,4 +1,4 @@
-// Feature: Pure routing and validation rules for cancelling Assassin climbing through Vanilla's Stop command.
+// Feature: Pure routing and rollback rules for cancelling Assassin climbing through Vanilla's Stop command.
 namespace ExtraFeatures
 {
     internal static class AssassinClimbCancellationPolicy
@@ -10,7 +10,7 @@ namespace ExtraFeatures
         public const int ClimbingDownState = 129;
         public const int TileCount = 320800;
 
-        public static bool ShouldInspectCommand(
+        public static bool ShouldHandleCommand(
             bool modEnabled,
             bool improvedPathfindingEnabled,
             bool nativeHookInstalled,
@@ -23,6 +23,11 @@ namespace ExtraFeatures
         public static bool IsClimbingState(int state)
         {
             return state >= ThrowingHookState && state <= ClimbingDownState;
+        }
+
+        public static bool UsesPreviousTileForRollback(int state)
+        {
+            return state == ClimbingDownState;
         }
 
         public static bool IsValidTileId(uint tileId)

@@ -135,7 +135,7 @@ namespace ExtraFeatures
             }
             catch (Exception ex)
             {
-                LogFeatureFailure("Assassin climb-stop diagnostics", ex);
+                LogFeatureFailure("Assassin climb cancellation", ex);
             }
 
             if (fixedLayoutHashValidated)

@@ -1,4 +1,4 @@
-// Feature: Stop-command diagnostics for Assassin climbing without polling or position history.
+// Feature: Synchronized Stop-command cancellation for Assassin climbing without polling or position history.
 using BepInEx.Logging;
 using MonoMod.RuntimeDetour;
 using SHCDESE.API;
@@ -25,6 +25,12 @@ namespace ExtraFeatures
         private const int TribeManagerRva = 0x7CC6720;
         private const int SelectionBitmapWordCount = 625;
         private const int UnitIdBitsPerWord = 16;
+        private const ushort NormalTransitionState = 1;
+        private const int AssassinAssignedTargetOffset = 0x413;
+        private const int AssassinHeightDifferenceOffset = 0x414;
+        private const int AssassinPreviousFacingOffset = 0x416;
+        private const int AssassinDecayCounterOffset = 0x418;
+        private const int AssassinTimerOffset = 0x41A;
         private const string SelectedUnitCommandPattern =
             "48 8D 0D A9 CA B2 07 E9 E4 4C F8 FF";
 
@@ -34,6 +40,7 @@ namespace ExtraFeatures
         private SelectedUnitCommandDelegate rootedDetour;
         private NativeDetour detour;
         private bool invalidTribeLogged;
+        private bool invalidRollbackLogged;
 
         public AssassinClimbCancellationRuntime(ManualLogSource log, ExtraFeaturesViewModel settings)
         {
@@ -94,7 +101,7 @@ namespace ExtraFeatures
                 detour = installed;
                 Shared.DebugLogHelper.LogInfo(
                     log,
-                    "Extra Features Assassin climb-stop diagnostics installed on Vanilla's synchronized selected-unit UnitStop executor.");
+                    "Extra Features Assassin climb cancellation installed on Vanilla's synchronized selected-unit UnitStop executor.");
             }
             catch
             {
@@ -126,7 +133,7 @@ namespace ExtraFeatures
             if (vanilla == null)
                 return 0;
 
-            if (AssassinClimbCancellationPolicy.ShouldInspectCommand(
+            if (AssassinClimbCancellationPolicy.ShouldHandleCommand(
                     settings.EnableMod,
                     settings.EnableImprovedAssassinPathfinding,
                     detour != null,
@@ -134,20 +141,20 @@ namespace ExtraFeatures
             {
                 try
                 {
-                    InspectTribe(tribeId, command, argument1, argument2, argument3);
+                    CancelClimbingAssassins(tribeId, command, argument1, argument2, argument3);
                 }
                 catch (Exception ex)
                 {
                     Shared.DebugLogHelper.LogError(
                         log,
-                        $"Extra Features Assassin climb-stop diagnostics failed without changing Vanilla behavior: {ex}");
+                        $"Extra Features Assassin climb cancellation failed; Vanilla's Stop command will still run: {ex}");
                 }
             }
 
             return vanilla(unitManager, tribeId, command, argument1, argument2, argument3);
         }
 
-        private void InspectTribe(int tribeId, int command, int argument1, int argument2, int argument3)
+        private void CancelClimbingAssassins(int tribeId, int command, int argument1, int argument2, int argument3)
         {
             GameTribeManagerAPI tribeApi = GameTribeManagerAPI.Instance;
             if (!tribeApi.IsValidId(tribeId) ||
@@ -158,14 +165,12 @@ namespace ExtraFeatures
                 return;
             }
 
-            int bitmapMembers = 0;
-            int resolvedUnits = 0;
-            int assassinCandidates = 0;
-            int climbingAssassins = 0;
+            int cancelled = 0;
+            int currentRollbacks = 0;
+            int previousRollbacks = 0;
             ushort* bitmap = &tribe->r_UnitIdsInGroupBitfield;
             GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
-            // Scan the complete proven bitfield. r_UnitsInGroup is logged as evidence, not used as
-            // an assumption that could hide later members when Vanilla's data differs unexpectedly.
+            // Scan the complete proven bitfield instead of trusting a possibly transient member count.
             for (int wordIndex = 0; wordIndex < SelectionBitmapWordCount; wordIndex++)
             {
                 ushort word = bitmap[wordIndex];
@@ -177,60 +182,82 @@ namespace ExtraFeatures
                     if ((word & (1 << bitIndex)) == 0)
                         continue;
 
-                    bitmapMembers++;
                     int localUnitId = wordIndex * UnitIdBitsPerWord + bitIndex;
                     if (localUnitId <= 0 || !unitApi.TryGetUnitById(localUnitId, out GameUnit* unit) || unit == null)
                         continue;
 
-                    resolvedUnits++;
                     if (unit->r_AliveState != AliveState.IsAlive ||
-                        unit->r_UnitChimp != eChimps.CHIMP_TYPE_ARAB_ASSASIN)
+                        unit->r_UnitChimp != eChimps.CHIMP_TYPE_ARAB_ASSASIN ||
+                        !AssassinClimbCancellationPolicy.IsClimbingState(unit->r_AIState))
                         continue;
 
-                    assassinCandidates++;
-                    bool knownClimbingState = AssassinClimbCancellationPolicy.IsClimbingState(unit->r_AIState);
-                    if (knownClimbingState)
-                        climbingAssassins++;
-                    // During diagnosis the expected 126-129 range is evidence, not a logging gate.
-                    // This keeps previously unknown Assassin states observable on the Stop path.
-                    LogSnapshot(tribeId, localUnitId, unit);
+                    int state = unit->r_AIState;
+                    bool usePrevious = AssassinClimbCancellationPolicy.UsesPreviousTileForRollback(state);
+                    ushort rollbackX = usePrevious ? unit->r_PreviousTilePositionX : unit->r_CurrentTilePositionX;
+                    ushort rollbackY = usePrevious ? unit->r_PreviousTilePositionY : unit->r_CurrentTilePositionY;
+                    if (!TryNormalizeClimbState(unitApi, localUnitId, unit, rollbackX, rollbackY))
+                        continue;
+
+                    cancelled++;
+                    if (usePrevious)
+                        previousRollbacks++;
+                    else
+                        currentRollbacks++;
                 }
             }
 
-            if (assassinCandidates > 0)
+            if (cancelled > 0)
             {
-                Shared.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogDebug(
                     log,
-                    $"Extra Features Assassin climb-stop diagnostic summary: tribeId={tribeId}, " +
-                    $"tribeGlobalId={tribe->r_GlobalId}, owner={tribe->r_PlayerIdOwner}, aliveState={(int)tribe->r_AliveState}, " +
-                    $"declaredUnits={tribe->r_UnitsInGroup}, bitmapMembers={bitmapMembers}, resolvedUnits={resolvedUnits}, " +
-                    $"assassinCandidates={assassinCandidates}, knownClimbingStates={climbingAssassins}, " +
-                    $"commandArgs=({argument1},{argument2},{argument3}); no state was changed.");
+                    $"Extra Features cancelled Assassin climbing through synchronized Stop: tribeId={tribeId}, " +
+                    $"cancelled={cancelled}, currentTileRollbacks={currentRollbacks}, previousTileRollbacks={previousRollbacks}.");
             }
         }
 
-        private void LogSnapshot(int tribeId, int localUnitId, GameUnit* unit)
+        private bool TryNormalizeClimbState(
+            GameUnitManagerAPI unitApi,
+            int localUnitId,
+            GameUnit* unit,
+            ushort rollbackX,
+            ushort rollbackY)
         {
-            byte* raw = (byte*)unit;
-            byte ownerOfScaledObject = *(raw + 0x412);
-            byte hasAssignedTarget = *(raw + 0x413);
-            short heightDifference = *(short*)(raw + 0x414);
-            ushort previousFacing = *(ushort*)(raw + 0x416);
-            short decayCounter = *(short*)(raw + 0x418);
-            ushort assassinTimer = *(ushort*)(raw + 0x41A);
+            if (rollbackX >= GameTileManagerAPI.MAX_WIDTH || rollbackY >= GameTileManagerAPI.MAX_HEIGHT)
+            {
+                LogInvalidRollbackOnce(localUnitId, rollbackX, rollbackY, "coordinates are outside the map");
+                return false;
+            }
 
-            Shared.DebugLogHelper.LogInfo(
-                log,
-                $"Extra Features Assassin climb-stop snapshot: tribeId={tribeId}, localUnitId={localUnitId}, " +
-                $"globalId={unit->r_GlobalId}, state={unit->r_AIState}, " +
-                $"current={FormatTile(unit->r_CurrentTilePositionX, unit->r_CurrentTilePositionY, unit->r_CurrentPositionTileId)}, " +
-                $"previous={FormatTile(unit->r_PreviousTilePositionX, unit->r_PreviousTilePositionY, unit->r_PreviousPositionTileId)}, " +
-                $"next={FormatTile(unit->r_NextTilePositionX2, unit->r_NextTilePositionY2, unit->r_NextPositionTileId2)}, " +
-                $"target={FormatTile(unit->r_TargetTilePositionX, unit->r_TargetTilePositionY, unit->r_TargetPositionTileId)}, " +
-                $"world=({unit->r_CurrentWorldPositionX},{unit->r_CurrentWorldPositionY}), elevation={unit->r_HeightElevation}, " +
-                $"animationTimer={unit->r_AnimationTimer}, animationFrame={unit->r_CurrentSpriteAnimationFrame}, " +
-                $"animationField70={unit->N00000061}, scaledObjectOwner={ownerOfScaledObject}, assignedTarget={hasAssignedTarget}, " +
-                $"heightDifference={heightDifference}, previousFacing={previousFacing}, decayCounter={decayCounter}, assassinTimer={assassinTimer}.");
+            int tileId = GameTileManagerAPI.Instance.GetTileId(rollbackX, rollbackY);
+            if (tileId < 0 || tileId >= AssassinClimbCancellationPolicy.TileCount)
+            {
+                LogInvalidRollbackOnce(localUnitId, rollbackX, rollbackY, $"derived tile ID {tileId} is invalid");
+                return false;
+            }
+
+            int tileHeight = GameTileManagerAPI.Instance.GetTileHeight(tileId);
+            if (tileHeight < 0 || tileHeight > ushort.MaxValue)
+            {
+                LogInvalidRollbackOnce(localUnitId, rollbackX, rollbackY, $"tile height {tileHeight} is invalid");
+                return false;
+            }
+
+            unitApi.SetCurrentLocalTilePosition(
+                localUnitId,
+                new UnmanagedVector2<ushort>(rollbackX, rollbackY));
+
+            byte* raw = (byte*)unit;
+            unit->r_HeightElevation = (ushort)tileHeight;
+            unit->r_AIState = NormalTransitionState;
+            unit->r_AnimationTimer = 0;
+            unit->r_CurrentSpriteAnimationFrame = 0;
+            unit->N00000061 = 0;
+            *(raw + AssassinAssignedTargetOffset) = 0;
+            *(short*)(raw + AssassinHeightDifferenceOffset) = 0;
+            *(ushort*)(raw + AssassinPreviousFacingOffset) = (ushort)unit->r_Direction;
+            *(short*)(raw + AssassinDecayCounterOffset) = 0;
+            *(ushort*)(raw + AssassinTimerOffset) = 0;
+            return true;
         }
 
         private void LogInvalidTribeOnce(string reason)
@@ -243,21 +270,14 @@ namespace ExtraFeatures
                 $"Extra Features could not safely dereference an Assassin climb-stop tribe; {reason}. Vanilla behavior remains active.");
         }
 
-        private static string FormatTile(ushort x, ushort y, uint storedTileId)
+        private void LogInvalidRollbackOnce(int localUnitId, ushort x, ushort y, string reason)
         {
-            int derivedTileId = -1;
-            int height = -1;
-            if (x < GameTileManagerAPI.MAX_WIDTH && y < GameTileManagerAPI.MAX_HEIGHT)
-            {
-                derivedTileId = GameTileManagerAPI.Instance.GetTileId(x, y);
-                if (derivedTileId >= 0 && derivedTileId < AssassinClimbCancellationPolicy.TileCount)
-                    height = GameTileManagerAPI.Instance.GetTileHeight(derivedTileId);
-            }
-
-            int storedHeight = AssassinClimbCancellationPolicy.IsValidTileId(storedTileId)
-                ? GameTileManagerAPI.Instance.GetTileHeight((int)storedTileId)
-                : -1;
-            return $"({x},{y};storedId={storedTileId};derivedId={derivedTileId};storedHeight={storedHeight};derivedHeight={height})";
+            if (invalidRollbackLogged)
+                return;
+            invalidRollbackLogged = true;
+            Shared.DebugLogHelper.LogWarning(
+                log,
+                $"Extra Features skipped an Assassin climb cancellation for unit {localUnitId} at ({x},{y}) because {reason}; Vanilla's Stop command will still run.");
         }
     }
 }

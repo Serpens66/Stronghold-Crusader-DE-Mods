@@ -1,4 +1,13 @@
 // Feature: Configure AI repair proximity and diagnose Vanilla's AIV defense rebuild cadence.
+// Native ruin audit for CrusaderDE.dll SHA-256
+// FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2:
+// dispatch table RVA 0x2DEAE0 sends types 79 and 86-89 to the empty updater at
+// RVA 0xACE90, so they have no per-building lifetime cleanup timer. One verified
+// removal route is destruction processing at RVA 0x7F6FA, which calls BulldozeBuilding
+// at RVA 0xC4290. Do not infer that this route caused a runtime removal: the diagnostics
+// below correlate damage, mod deletion marks, bulldoze and delete events instead.
+// The separate footprint bulldozer at RVA 0x5D3A0 belongs to general BuildStructure
+// RVA 0x74DA0 and is not called by the audited AIV placement helper RVA 0x5CD90.
 using BepInEx.Logging;
 using R3;
 using SHCDESE.API;
@@ -58,6 +67,7 @@ namespace ExtraFeatures
         [ThreadStatic] private static BuildStepContext reusableContext;
         [ThreadStatic] private static RepairObservation pendingRepair;
         [ThreadStatic] private static bool hasPendingRepair;
+        [ThreadStatic] private static RuinDamageObservation pendingRuinDamage;
 
         private readonly ManualLogSource log;
         private readonly ExtraFeaturesViewModel settings;
@@ -113,6 +123,13 @@ namespace ExtraFeatures
             subscriptions.Add(BuildingR3EventHooks.OnBuildingAllowRepairInProximity.Observable.Subscribe(OnRepairProximity));
             subscriptions.Add(BuildingR3EventHooks.OnBuildingRepair.Observable.Subscribe(OnBuildingRepair));
             subscriptions.Add(BuildingR3EventHooks.OnBuildingSpawn.Observable.Subscribe(OnBuildingSpawn));
+            subscriptions.Add(BuildingR3EventHooks.OnBuildingTileTakeDamage.Observable.Subscribe(OnTowerRuinDamage));
+            subscriptions.Add(BuildingR3EventHooks.OnBuildingBulldoze.Observable
+                .Where(args => args.Phase == EventHookPhase.Pre)
+                .Subscribe(args => OnTowerRuinRemoval(args.BuildingId, "bulldoze-pre")));
+            subscriptions.Add(BuildingR3EventHooks.OnBuildingDelete.Observable
+                .Where(args => args.Phase == EventHookPhase.Pre)
+                .Subscribe(args => OnTowerRuinRemoval(args.BuildingId, "delete-pre")));
             subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable.Subscribe(OnStartMap));
             subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post).Subscribe(_ => ResetMap()));
@@ -251,6 +268,7 @@ namespace ExtraFeatures
             reusableContext = null;
             pendingRepair = default;
             hasPendingRepair = false;
+            pendingRuinDamage = null;
             executeBuildStepConfirmed = false;
             invalidFrameLogged = false;
             buildStepHistory.Clear();
@@ -689,13 +707,115 @@ namespace ExtraFeatures
                     return;
                 }
 
-                // Combat destruction did not emit OnBuildingDelete in the measured build, but a
-                // tower-to-ruin transition did emit this spawn event and is therefore retained.
-                LogInfo($"AI defense building spawned outside captured build step: player={args.PlayerId}, {description}, tick={SafeCurrentTick()}.");
+                // Live defense spawns outside a captured build step are already represented in
+                // observedDefenseTargets. Only ruin creation remains useful lifecycle evidence.
+                if (IsTowerRuin(args.Building))
+                    LogInfo($"AI tower ruin spawned: player={args.PlayerId}, {description}, tick={SafeCurrentTick()}.");
             }
             catch (Exception ex)
             {
                 LogFailure("building-spawn diagnostic", ex);
+            }
+        }
+
+        private void OnTowerRuinRemoval(int buildingId, string source)
+        {
+            // Installed subscriptions can outlive a live settings change. In full Vanilla mode
+            // this callback must neither inspect game state nor produce diagnostic output.
+            if (!IsConfigured || !mapActive || buildingId <= 0)
+                return;
+
+            try
+            {
+                GameBuildingManagerAPI buildingApi = GameBuildingManagerAPI.Instance;
+                if (!buildingApi.TryGetBuildingById(buildingId, out GameBuilding* building) ||
+                    !IsTowerRuin(building->r_BuildingType) ||
+                    !IsAI(building->r_PlayerIdOwner))
+                {
+                    return;
+                }
+
+                RuinDamageObservation damage = pendingRuinDamage;
+                string damageContext = damage != null && damage.BuildingId == buildingId &&
+                    damage.GlobalId == building->r_GlobalId
+                    ? $",duringDamage=True,damage={damage.Damage},damageSourcePlayer={damage.SourcePlayerId},healthBefore={damage.HealthBefore}"
+                    : ",duringDamage=False";
+                LogInfo($"AI tower ruin removal observed: source={source}, player={building->r_PlayerIdOwner}, " +
+                    $"type={building->r_BuildingType}, buildingId={buildingId}, globalId={building->r_GlobalId}, " +
+                    $"aliveState={building->r_AliveState}, anchor=({building->r_TilePositionXBegin},{building->r_TilePositionYBegin}), " +
+                    $"bounds=({building->r_TilePositionXBegin},{building->r_TilePositionYBegin})-" +
+                    $"({building->r_TilePositionXEnd},{building->r_TilePositionYEnd}){damageContext}, tick={SafeCurrentTick()}.");
+            }
+            catch (Exception ex)
+            {
+                LogFailure("tower-ruin removal diagnostic", ex);
+            }
+        }
+
+        private void OnTowerRuinDamage(BuildingTileTakeDamageEventArgs args)
+        {
+            if (args.Phase == EventHookPhase.Pre)
+            {
+                pendingRuinDamage = null;
+                if (!IsConfigured || !mapActive || args.Damage <= 0)
+                    return;
+
+                try
+                {
+                    GameTileManagerAPI tileApi = GameTileManagerAPI.Instance;
+                    int buildingId = tileApi.IsValidTileId(args.TileId)
+                        ? tileApi.GetTileBuildingId(args.TileId)
+                        : 0;
+                    if (buildingId <= 0 ||
+                        !GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building) ||
+                        !IsTowerRuin(building->r_BuildingType) ||
+                        !IsAI(building->r_PlayerIdOwner))
+                    {
+                        return;
+                    }
+
+                    pendingRuinDamage = new RuinDamageObservation(
+                        buildingId,
+                        building->r_GlobalId,
+                        building->r_PlayerIdOwner,
+                        building->r_BuildingType,
+                        args.TileId,
+                        args.Damage,
+                        args.PlayerIdSource,
+                        building->r_CurrentHealth,
+                        building->r_MaxHealth);
+                }
+                catch (Exception ex)
+                {
+                    LogFailure("tower-ruin damage pre-diagnostic", ex);
+                }
+                return;
+            }
+
+            RuinDamageObservation observation = pendingRuinDamage;
+            pendingRuinDamage = null;
+            if (observation == null || observation.TileId != args.TileId)
+                return;
+
+            try
+            {
+                string after = "buildingAfter=missing-or-reused";
+                if (GameBuildingManagerAPI.Instance.TryGetBuildingById(observation.BuildingId, out GameBuilding* building) &&
+                    building->r_GlobalId == observation.GlobalId)
+                {
+                    after = $"healthAfter={building->r_CurrentHealth},maxHealthAfter={building->r_MaxHealth}," +
+                        $"aliveStateAfter={building->r_AliveState},typeAfter={building->r_BuildingType}";
+                }
+
+                LogInfo($"AI tower ruin damage processed: player={observation.OwnerId}, type={observation.Type}, " +
+                    $"buildingId={observation.BuildingId}, globalId={observation.GlobalId}, tileId={observation.TileId}, " +
+                    $"damage={observation.Damage}, damageSourcePlayer={observation.SourcePlayerId}, " +
+                    $"healthBefore={observation.HealthBefore}, maxHealthBefore={observation.MaxHealthBefore}, " +
+                    $"{after}, tick={SafeCurrentTick()}.");
+            }
+            catch (Exception ex)
+            {
+                LogFailure("tower-ruin damage post-diagnostic", ex);
             }
         }
 
@@ -865,13 +985,26 @@ namespace ExtraFeatures
             if (settings.AIRepairEnemyProximity < 0)
                 return true;
 
+            GameTileManagerAPI tileApi = GameTileManagerAPI.Instance;
+            if (!tileApi.IsValidTileId(tileId))
+                return false;
+            int buildingId = tileApi.GetTileBuildingId(tileId);
+            if (buildingId <= 0 ||
+                !GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* ruin) ||
+                ruin->r_PlayerIdOwner != playerId || !IsTowerRuin(ruin->r_BuildingType))
+            {
+                return false;
+            }
+
             // The first parameter is unused in the audited native function. Calling the Script
             // Extender wrapper preserves all event observers and the configured shared radius.
+            // Use the exact StructureGrid-confirmed ruin anchor: mutable placement origins made
+            // the broader AIV context coordinates drift between measured attempts.
             return BulkBuildingDetours.c_game_allow_repair_for_building_proximity_hook_impl(
                 IntPtr.Zero,
                 playerId,
-                context.PlacementTargetX,
-                context.PlacementTargetY,
+                ruin->r_TilePositionXBegin,
+                ruin->r_TilePositionYBegin,
                 settings.AIRepairEnemyProximity,
                 0) == 0;
         }
@@ -1243,6 +1376,41 @@ namespace ExtraFeatures
                 }
             }
             public override string ToString() => $"{Family}@({X},{Y})";
+        }
+
+        private sealed class RuinDamageObservation
+        {
+            internal RuinDamageObservation(
+                int buildingId,
+                uint globalId,
+                int ownerId,
+                eStructs type,
+                int tileId,
+                int damage,
+                int sourcePlayerId,
+                short healthBefore,
+                ushort maxHealthBefore)
+            {
+                BuildingId = buildingId;
+                GlobalId = globalId;
+                OwnerId = ownerId;
+                Type = type;
+                TileId = tileId;
+                Damage = damage;
+                SourcePlayerId = sourcePlayerId;
+                HealthBefore = healthBefore;
+                MaxHealthBefore = maxHealthBefore;
+            }
+
+            internal int BuildingId { get; }
+            internal uint GlobalId { get; }
+            internal int OwnerId { get; }
+            internal eStructs Type { get; }
+            internal int TileId { get; }
+            internal int Damage { get; }
+            internal int SourcePlayerId { get; }
+            internal short HealthBefore { get; }
+            internal ushort MaxHealthBefore { get; }
         }
 
         private readonly struct RepairObservation
