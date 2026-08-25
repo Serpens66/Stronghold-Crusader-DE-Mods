@@ -136,6 +136,59 @@ it becomes a visible loop depends on the two AIV layouts and retry states, but
 there is no general Vanilla safeguard against it. Only the protected structure
 types and, on the shifted second pass alone, equal team numbers prevent cleanup.
 
+A second audit of both AIV processors explains why proximity alone does not
+normally produce an obvious cycle. `0x51790` and `0x52270` revisit a state-3 AIV
+entry by reading the building ID at that entry's planned anchor and comparing
+only the live structure type with the structure type expected for its mapper.
+They do not compare the live building owner. A foreign replacement of the same
+structure type therefore satisfies the old owner's AIV entry and suppresses its
+rebuild, even though the replacement belongs to another player.
+
+When the anchor is empty or holds a different structure type, the entry can
+return to the placement path after its normal resource, availability and delay
+checks. The cleanup return value is not used as a placement veto; the relevant
+callers proceed to their building-creation path after `0x5CD90`. Conversely,
+the cleanup functions at `0xC43A0` and `0xCFE90` delete/deregister the building
+and update owner building lists and type-specific counters, but do not disable
+the deleted owner's AIV plan entry. There is consequently no hidden general
+foreign-owner guard, but there are several strong practical preconditions for
+an alternating cycle:
+
+- the two planned footprints must actually overlap; close keeps are insufficient;
+- both deleted buildings must correspond to AIV entries that remain eligible for
+  missing-building retries;
+- the replacement must leave the other entry's anchor empty or occupied by a
+  different structure type; equal structure types terminate the retry;
+- each reciprocal placement must select the broad policy and pass all other
+  placement, resource, availability and delay checks;
+- neither blocker may be one of the broad mask's protected structure types, and
+  the existing pass-1 same-team protection must not apply.
+
+Thus Vanilla permits the cycle in a sufficiently adversarial pair of AIV
+layouts, but it should not be expected merely because two AIs start very close
+together. A test that only observes nearby castles without proving these exact
+anchor, type, policy and AIV-state conditions does not exercise the cycle case.
+
+A live test on 2026-08-25 did exercise at least one reciprocal conflict: an AI
+barracks was placed, an enemy tower replaced it, and the barracks was then
+rebuilt over the tower. This rules out a blanket ownership guard and also rules
+out a one-step rule that permanently protects the first replacement. The
+sequence stopped visibly after the barracks replacement, but that is not
+evidence of a dedicated cycle breaker. The cleanup helper and deletion routines
+retain no previous-blocker identity, conflict counter or alternating-owner
+state, and a previous trace retried one permanently obstructed tower 49 times
+with a median interval of 2690 ticks (67.25 internal game seconds).
+
+The corresponding logged map was active only from approximately 22:34:52 to
+22:36:26 wall-clock time, and ordinary overbuild events were not logged. A
+further tower attempt could therefore have been pending behind the normal AIV
+scheduler, resources, availability, enemy proximity or ExtraFeatures' optional
+rebuild delay. In particular, after a damage-free cleanup deletion the first
+missing-target attempt may start a positive rebuild delay; a later scheduled
+attempt is then required after that delay expires. The observed three-step
+sequence proves reciprocal permission, but neither proves an infinite loop nor
+proves Vanilla cycle prevention.
+
 A native exception can be added safely at the occupied-building decision: read
 the already available placing player and blocker owner before either broad pass
 reaches the type filter, and preserve a blocker when it belongs to a different
@@ -145,6 +198,26 @@ eligible buildings and, if desired, owner-0 neutral map objects. A same-team-onl
 extension to pass 0 would close the allied gap but would not prevent two enemy
 AIs from overwriting one another. Unknown or invalid owner values should be
 preserved fail-closed rather than treated as neutral.
+
+Protecting every blocker that could itself select the broad policy is therefore
+a conservative approximation, not the minimal anti-cycle rule. A precise rule
+would additionally establish that the blocker belongs to a retryable AIV entry
+whose planned anchor/footprint conflicts with the current entry and whose
+expected structure type differs. That preserves intentional one-way overbuilding
+in cases where the deleted building cannot reciprocally replace the new one.
+
+For the requested policy that intentionally retains one-way enemy overbuilding,
+a practical conservative guard is: preserve a foreign blocker only when its own
+placement would itself receive broad cleanup permission. That is true when the
+blocker's planned anchor is within Manhattan distance 20 of its owner's keep, or
+when its placing mapper is one of the four unconditional exceptions. Merely
+testing the live structure type is not always equivalent to testing the mapper;
+the robust implementation should resolve the blocker to its owner's AIV entry
+and mapper. This guard prevents the demonstrated tower/barracks conflict because
+both sides are broad-capable, while still allowing broad placement to erase a
+foreign blocker that can only use the narrow policy. It remains conservative:
+a broad-capable blocker whose AIV entry is no longer retryable would be protected
+even though it could not actually continue the cycle.
 
 If no building ID occupies a footprint tile, both policies can additionally
 inspect tile flags and remove certain other registered map occupants through
