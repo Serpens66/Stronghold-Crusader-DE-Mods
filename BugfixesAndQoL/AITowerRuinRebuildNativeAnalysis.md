@@ -55,6 +55,28 @@ Four mappers always select the broad path regardless of keep distance:
 These exceptions and the varied blocker masks show that this distinction is a
 general AI-placement clearance policy, not a special tower-ruin timer.
 
+The exception list is not stored in an extensible data table. The current build
+implements it as a hard-coded comparison chain at `0x5CEAB-0x5CEBD`: starting
+from mapper 54, successive subtractions test 54, 79, 86 and 87. A match joins
+the broad initialization at `0x5CF15`; `0x5CF23` sets the pass count to two and
+`0x5CF2B` sets the broad-policy flag. Consequently, additional placing-building
+mappers can technically be admitted, but doing so requires a native code hook
+or patch at this policy-selection site. There is no spare list entry that can
+be filled through data alone.
+
+"Always broad" is not the same as guaranteed placement or literal permission
+to erase every possible object. Any mapper value can be routed into this policy,
+but the initial terrain/placement checks can still return a hard failure, the
+protected structure mask still applies, and variants 12 or greater do not run
+the shifted second pass.
+
+This must be distinguished from extending the narrow blocker-type mask. Adding
+a mapper to the hard-coded exception list gives that planned building the whole
+broad policy, including its much larger deletion set and possible shifted
+second pass. Extending the narrow mask admits only selected blocker structure
+types while retaining the single original footprint pass. For targeted repairs,
+the latter or an exact runtime classifier exception is substantially narrower.
+
 ## Narrow path outside the keep boundary
 
 The narrow path normally scans one generated footprint. Its type mask
@@ -92,6 +114,37 @@ Most other blockers, including gates, generic towers, defensive and siege
 objects, can be cleared. During the additional second pass, a blocker whose
 owner has the same team number as the placing player is preserved. That
 same-team check is not applied to the primary footprint pass.
+
+The current-build instructions make the scope of that protection explicit. At
+`0x5CFDB`, only pass index 1 enters the owner/team block. It reads the blocker
+owner from `GameBuilding + 0x132`, compares the placing player's and owner's
+entries in Vanilla's team array at `0x5D000-0x5D010`, and skips the blocker when
+they match. Pass index 0 jumps directly to the structure-type classifier at
+`0x5D016`. Enemy-owned blockers are not protected on either pass, and allied or
+same-owner blockers are protected only on pass 1.
+
+The earlier placement-validator call does not supply another ownership guard.
+`0x5CD90` calls `0x7B060` at `0x5CE77` for every tile in the original footprint
+and aborts only when the result is 1. When the structure grid contains a building
+ID, the validator returns 2 at `0x7B1BB` without reading that building's owner.
+That result deliberately lets `0x5CD90` continue into its own cleanup policy.
+
+Therefore two nearby AIs can delete one another's unprotected buildings when a
+broad-policy primary footprint overlaps them. If both AIVs continue retrying
+their missing entries, the native logic permits a rebuild/delete cycle. Whether
+it becomes a visible loop depends on the two AIV layouts and retry states, but
+there is no general Vanilla safeguard against it. Only the protected structure
+types and, on the shifted second pass alone, equal team numbers prevent cleanup.
+
+A native exception can be added safely at the occupied-building decision: read
+the already available placing player and blocker owner before either broad pass
+reaches the type filter, and preserve a blocker when it belongs to a different
+real player. A policy such as `owner in 1..8 && owner != placingPlayer` protects
+both allied and enemy castles while still allowing an AI to replace its own
+eligible buildings and, if desired, owner-0 neutral map objects. A same-team-only
+extension to pass 0 would close the allied gap but would not prevent two enemy
+AIs from overwriting one another. Unknown or invalid owner values should be
+preserved fail-closed rather than treated as neutral.
 
 If no building ID occupies a footprint tile, both policies can additionally
 inspect tile flags and remove certain other registered map occupants through
@@ -186,7 +239,8 @@ The log also proves matching later replacements for routed ruins, including:
 
 Other ruin removals in the same session occurred through additional damage or
 unmodified Vanilla behavior and must not be attributed to this fix unless the
-same global ID has an `AI tower ruin routed to Vanilla cleanup` entry.
+the same global ID has a debug-level `AI tower ruin routed through Vanilla ... cleanup`
+entry when debug logging is enabled.
 
 ## Remaining verification
 

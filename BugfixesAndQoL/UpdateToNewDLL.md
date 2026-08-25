@@ -176,23 +176,19 @@ decision `0x143BD9`, synchronized movement sites `0x19B506`, `0x18410C` and
 `0x184203`, and European recruitment `0x190CA0`. The movement-speed function is
 therefore now `0x19B260`.
 
-The latest live log showed that `ActiveAIVDetector` can detour the tower
-placement-validator prologue before this mod initializes. Tower repair now
-resolves the unique stable body signature at `0x7B078` and subtracts `0x18` to
-derive function entry `0x7B060` for standalone operation. When ActiveAIVDetector
-is present and has installed that detour, the soft-dependency load order lets
-this feature register a managed post-Vanilla observer instead of installing an
-overlapping hook. Neither mod requires the other. If observer registration is
-unavailable, or RVA validation and the standalone pattern fallback both fail,
-only the optional validator diagnostics remain inactive. The actual fix is a
-separate inline classifier at `0x5D055` and is installed only for the audited
-DLL hash because it also relies on the fixed stack and building-record layout.
+Earlier diagnostics used the placement validator at `0x7B060`, including an
+optional observer shared with ActiveAIVDetector. They established the failing
+ruin case but are not needed by the final fix and have been removed, eliminating
+that hook overlap entirely. The production fix uses separate inline classifiers
+at `0x5D025` and `0x5D055`. Both are installed atomically and only for the
+audited DLL hash because their callbacks rely on fixed stack slots and the
+building-record layout.
 
 The AIV placement helper at `0x5CD90` already has a complete native obstruction
 cleanup. Its broad two-pass branch admits tower ruins 79 and 86-89, but its
 single-pass branch outside Manhattan distance 20 from the stored keep
 (`abs(dx) + abs(dy) > 20`) rejects every type above 33 before cleanup. The inline callback changes only the
-temporary classifier value to native-deletable type 3 for an exact,
+temporary classifier value in the active branch to native-deletable type 3 for an exact,
 runtime-tracked, same-owner AI ruin. The real building record is not changed and
 Vanilla reloads its true type before running its own deletion and tile cleanup.
 This mirrors UCP2's `ai_rebuildtowers` strategy of routing ruins into an existing
@@ -212,11 +208,11 @@ configured rebuild rules.
 The temporary `1.0.79` DLL-update release quarantine has been removed. The
 checkbox is visible again and defaults/resets to enabled. If the mod, the AI-fix
 group or this checkbox is disabled, `AITowerRuinRepairFix` is not constructed
-and installs no validator observer/detour or feature diagnostics. Enabling it
+and installs no native classifier hooks. Enabling it
 later retries initialization against the retained canonical DLL mapping. If it
 is disabled after installation, the inline hook is disabled and restores the
-original classifier path; the remaining observer leaves Vanilla's result
-untouched and performs no mutation or feature logging.
+original classifier path. Runtime ruin tracking is cleared and performs no
+mutation or feature logging while disabled.
 
 The first-build AIV signature stayed at `0x53F0B`, but its absolute map-row
 operand moved from `0x402EF2C` to `0x402FF2C`; that relocation is now wildcarded

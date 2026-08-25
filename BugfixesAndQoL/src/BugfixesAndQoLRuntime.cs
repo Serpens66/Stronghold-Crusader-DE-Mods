@@ -699,8 +699,8 @@ namespace BugfixesAndQoL
             }
             if (!nativeLibraryAvailable || aiTowerRuinRepairFixUnavailable)
                 return;
-            // Avoid even installing/logging the optional validator hook in Vanilla mode. If the
-            // setting is enabled later, ApplySettings retries this method with the retained DLL.
+            // Avoid installing the native classifiers in Vanilla mode. If the setting is enabled
+            // later, ApplySettings retries this method with the retained DLL mapping.
             if (!settings.EnableMod || !settings.EnableAiFixes || !settings.FixAITowerRepair)
                 return;
 
@@ -712,12 +712,6 @@ namespace BugfixesAndQoL
                     GetNativeLibraryMemory(),
                     unchecked((ulong)libraryHandle.ToInt64()),
                     fixedLayoutHashValidated);
-                if (!fixedLayoutHashValidated)
-                {
-                    Shared.DebugLogHelper.LogWarning(
-                        log,
-                        "Bugfixes and QoL AI tower-ruin repair is running on an unknown CrusaderDE.dll because the placement-validator signature was uniquely validated.");
-                }
             }
             catch (Exception ex)
             {

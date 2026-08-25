@@ -1,27 +1,16 @@
 // Feature: Route runtime-created AI tower ruins through Vanilla cleanup in both placement branches.
-// Native ruin audit for CrusaderDE.dll SHA-256
-// FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2:
-// dispatch table RVA 0x2DEAE0 sends types 79 and 86-89 to the empty updater at
-// RVA 0xACE90, so Vanilla has no per-building timed ruin cleanup. Its destruction
-// switch routes every ruin type through RVA 0x7F6FA to deletion after further damage.
-// The AIV placement helper at RVA 0x5CD90 does remove living tower ruins itself, but only
-// through its broad two-pass blocker scan. For ordinary tower mappers that scan is enabled
-// when the player has a stored keep building and the target's Manhattan distance from its
-// stored coordinates is at most 20 (abs(dx) + abs(dy), calculated by RVA 0x79C0). Its
-// first-pass type branch sends
-// types outside 40-73 to RVA 0xC43A0, which includes all tower ruins 79 and 86-89. The
-// single-pass branch used outside that radius skips types above 33, including every tower
-// ruin. Two 2026-08-25 traces confirmed same-placement-call, damage-free Vanilla removals
-// (ticks 6155 and 8255). The complementary failure was then observed for player 2, frame 42:
-// type 89/global 7379458 remained at (405,683), the validator repeatedly returned 2, and the
-// helper returned 0 without deleting it even after the mod delay was released. UCP2's
-// ai_rebuildtowers patch fixes the analogous HD bug by routing ruin types into the existing
-// native demolition branch rather than treating them as empty ground. The fix below applies
-// that same principle selectively: only an exact, runtime-tracked, same-owner AI ruin has its
-// temporary classifier value changed in whichever placement branch is active. Vanilla then
-// performs its own
-// complete deletion and tile cleanup. Rebuild timing and enemy proximity intentionally do not
-// gate ruin cleanup; later placement remains Vanilla.
+//
+// CrusaderDE.dll SHA-256 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2:
+// the AIV placement helper at RVA 0x5CD90 removes tower ruins only through its broad blocker
+// scan. Ordinary tower placement selects that scan only within a Manhattan distance of 20
+// from the stored keep; the narrow branch used outside that radius skips ruin types 79 and
+// 86-89. Live traces proved both the native removal and the complementary failure.
+//
+// UCP2 fixes the analogous HD bug by routing ruins into an existing native demolition branch.
+// We do the same selectively in both DE classifiers: only an exact, runtime-created,
+// same-owner AI ruin with the matching tower mapper receives a temporary classifier value.
+// Vanilla reloads the real type before performing its complete deletion and tile cleanup.
+// Ruin cleanup intentionally remains independent of rebuild delay and enemy proximity.
 using BepInEx.Logging;
 using R3;
 using SHCDESE.API;
@@ -32,8 +21,6 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
-using System.Reflection;
-using System.Runtime.InteropServices;
 using Zhuqiaomon.Assembly;
 using Zhuqiaomon.Hooks;
 using Zhuqiaomon.Hooks.Transaction;
@@ -43,16 +30,8 @@ namespace BugfixesAndQoL
 {
     internal sealed unsafe class AITowerRuinRepairFix : IDisposable
     {
-        // Resolve through an interior sequence because ActiveAIVDetector may already have
-        // detoured the function prologue by the time this optional fix is initialized.
-        private const string BuildingPlacementValidatorInteriorPattern =
-            "48 8D 35 ?? ?? ?? ?? 44 8B 81 28 E7 04 02 45 8B F1 " +
-            "4C 63 CA 44 8B D0 44 0F 45 94 24 90 00 00 00";
-        private const int BuildingPlacementValidatorInteriorRva = 0x7B078;
-        private const int BuildingPlacementValidatorInteriorOffset = 0x18;
         // movabs rax,0x3C0100038 is encoded little-endian as 38 00 10 C0 03...
-        // Keep the complete literal here: 38 00 01 C0 would describe a different mask
-        // and caused the previous diagnostic build to reject this audited hook point.
+        // The earlier 38 00 01 C0 diagnostic pattern described a different mask.
         private const string NarrowRuinClassifierPattern =
             "66 83 F9 21 0F 87 ?? ?? ?? ?? 48 B8 38 00 10 C0 03 00 00 00 " +
             "48 0F A3 C8 0F 83 ?? ?? ?? ??";
@@ -62,35 +41,22 @@ namespace BugfixesAndQoL
             "66 83 E9 28 66 83 F9 21 77 ?? " +
             "48 B8 07 80 00 80 03 00 00 00 48 0F A3 C8";
         private const int BroadRuinClassifierRva = 0x5D025;
-        // sub/cmp/short-ja/movabs are 4+4+2+10 bytes. Keeping all 20 bytes avoids
-        // splitting the movabs instruction when the inline trampoline is installed.
+        // sub/cmp/short-ja/movabs occupy exactly 20 bytes; do not split movabs.
         private const int BroadRuinClassifierHookSize = 20;
         private const int PlacementPlayerIdStackOffset = 0x98;
         private const int PlacementMapperStackOffset = 0xB0;
         private const int NativeDeletableSurrogateType = 3;
-        private const int DiagnosticRepeatTicks = 30 * 40;
-
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        private delegate int BuildingPlacementValidatorDelegate(
-            ulong placementStateAddress,
-            int tileId,
-            int playerId,
-            int mapperValue,
-            int mode);
 
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
-        private readonly Dictionary<uint, RuntimeTowerRuin> runtimeRuins =
-            new Dictionary<uint, RuntimeTowerRuin>();
+        // Placement and removal events both provide the building ID. Indexing by it avoids a
+        // scan while GlobalId still protects every lookup against native ID reuse.
+        private readonly Dictionary<int, RuntimeTowerRuin> runtimeRuins =
+            new Dictionary<int, RuntimeTowerRuin>();
         private HookTransaction classifierTransaction;
-        private HookTransaction validatorTransaction;
         private HookRef<X64InlineHook> narrowRuinClassifierHook = new HookRef<X64InlineHook>();
         private HookRef<X64InlineHook> broadRuinClassifierHook = new HookRef<X64InlineHook>();
-        private HookRef<X64ManagedFunctionDetourAOB<BuildingPlacementValidatorDelegate>> validatorHook =
-            new HookRef<X64ManagedFunctionDetourAOB<BuildingPlacementValidatorDelegate>>();
-        private readonly Dictionary<DiagnosticKey, int> diagnosticTicks = new Dictionary<DiagnosticKey, int>();
-        private readonly HashSet<ValidatorKey> confirmedValidators = new HashSet<ValidatorKey>();
         private bool callbackFailureLogged;
         private bool mapActive;
         private bool disposed;
@@ -104,7 +70,7 @@ namespace BugfixesAndQoL
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
-            InitializeRuntimeRuinDiagnostics();
+            InitializeRuntimeRuinTracking();
 
             try
             {
@@ -117,73 +83,8 @@ namespace BugfixesAndQoL
                 classifierTransaction = null;
                 Shared.DebugLogHelper.LogWarning(
                     log,
-                    "AI tower-ruin native classifier could not be installed; the repair stays " +
+                    "AI tower-ruin native classifiers could not be installed; the fix stays " +
                     $"fail-closed and Vanilla behavior remains active: {ex}");
-            }
-
-            try
-            {
-                if (TryRegisterWithActiveAivDetector())
-                {
-                    Shared.DebugLogHelper.LogInfo(
-                        log,
-                        "Bugfixes and QoL AI tower-ruin repair subscribed to ActiveAIVDetector's " +
-                        "placement-validator hook; no overlapping native detour was installed.");
-                    ApplySetting();
-                    return;
-                }
-            }
-            catch (Exception ex)
-            {
-                // ActiveAIVDetector may already own the native prologue. Do not risk a second
-                // hook if its observer contract changed; event diagnostics remain available.
-                Shared.DebugLogHelper.LogWarning(
-                    log,
-                    "AI tower placement diagnostics could not register with ActiveAIVDetector; " +
-                    $"event-based ruin diagnostics remain active: {ex}");
-                ApplySetting();
-                return;
-            }
-
-            try
-            {
-                Shared.NativeResolution resolution = Shared.NativePatternResolver.ResolveUnique(
-                    memory,
-                    BuildingPlacementValidatorInteriorPattern,
-                    BuildingPlacementValidatorInteriorRva,
-                    referenceHashMatches,
-                    "AI tower-rebuild placement validator",
-                    log);
-                if (resolution.Rva < BuildingPlacementValidatorInteriorOffset)
-                    throw new InvalidOperationException("The placement-validator signature cannot derive a module RVA.");
-                int validatorRva = checked(resolution.Rva - BuildingPlacementValidatorInteriorOffset);
-                validatorTransaction = new HookTransaction(
-                    memory,
-                    libraryBase,
-                    loggerFactory: null,
-                    failureMode: TransactionFailureMode.RollbackAndThrow);
-                validatorTransaction.AddDetour(
-                    ref validatorHook,
-                    libraryBase + unchecked((ulong)validatorRva),
-                    ValidateBuildingPlacement);
-                validatorTransaction.Commit();
-                if (!validatorHook.Success)
-                    throw new InvalidOperationException("The AI tower-rebuild placement-validator hook was not installed.");
-
-                Shared.DebugLogHelper.LogInfo(
-                    log,
-                    $"Bugfixes and QoL AI tower-ruin repair hook installed: method={resolution.Method}, " +
-                    $"signatureRva=0x{resolution.Rva:X}, functionRva=0x{validatorRva:X}.");
-            }
-            catch (Exception ex)
-            {
-                validatorTransaction?.Unload();
-                validatorTransaction?.Dispose();
-                validatorTransaction = null;
-                Shared.DebugLogHelper.LogWarning(
-                    log,
-                    "AI tower placement diagnostics could not install their optional native hook; " +
-                    $"event-based ruin diagnostics remain active: {ex}");
             }
 
             ApplySetting();
@@ -194,38 +95,25 @@ namespace BugfixesAndQoL
             ulong libraryBase,
             bool referenceHashMatches)
         {
-            // The callback reads the second argument from this build's fixed stack frame and
-            // relies on the audited building-record layout. A signature match alone is not
-            // sufficient to prove either invariant on a future DLL.
+            // The callbacks read fixed stack slots and the audited building layout. A signature
+            // match alone cannot prove those invariants on a future DLL.
             if (!referenceHashMatches)
-            {
                 throw new InvalidOperationException(
                     "The AI tower-ruin classifiers require the audited CrusaderDE.dll layout.");
-            }
 
-            Shared.NativeResolution resolution = Shared.NativePatternResolver.ResolveUnique(
-                memory,
-                NarrowRuinClassifierPattern,
-                NarrowRuinClassifierRva,
-                referenceHashMatches,
-                "AI narrow tower-ruin classifier",
-                log);
+            Shared.NativeResolution narrowResolution = Shared.NativePatternResolver.ResolveUnique(
+                memory, NarrowRuinClassifierPattern, NarrowRuinClassifierRva, referenceHashMatches,
+                "AI narrow tower-ruin classifier", log);
             Shared.NativeResolution broadResolution = Shared.NativePatternResolver.ResolveUnique(
-                memory,
-                BroadRuinClassifierPattern,
-                BroadRuinClassifierRva,
-                referenceHashMatches,
-                "AI broad tower-ruin classifier",
-                log);
+                memory, BroadRuinClassifierPattern, BroadRuinClassifierRva, referenceHashMatches,
+                "AI broad tower-ruin classifier", log);
             classifierTransaction = new HookTransaction(
-                memory,
-                libraryBase,
-                loggerFactory: null,
+                memory, libraryBase, loggerFactory: null,
                 failureMode: TransactionFailureMode.RollbackAndThrow);
             classifierTransaction.AddContextHook(
                 ref narrowRuinClassifierHook,
-                libraryBase + unchecked((ulong)resolution.Rva),
-                RouteTrackedRuinToVanillaCleanup,
+                libraryBase + unchecked((ulong)narrowResolution.Rva),
+                RouteTrackedRuinThroughNarrowCleanup,
                 regs: X64SmartCPUContextRegs.All,
                 hookSize: NarrowRuinClassifierHookSize,
                 errorMode: CallbackErrorMode.LogAndContinue,
@@ -233,7 +121,7 @@ namespace BugfixesAndQoL
             classifierTransaction.AddContextHook(
                 ref broadRuinClassifierHook,
                 libraryBase + unchecked((ulong)broadResolution.Rva),
-                RouteTrackedRuinThroughBroadVanillaCleanup,
+                RouteTrackedRuinThroughBroadCleanup,
                 regs: X64SmartCPUContextRegs.All,
                 hookSize: BroadRuinClassifierHookSize,
                 errorMode: CallbackErrorMode.LogAndContinue,
@@ -242,12 +130,10 @@ namespace BugfixesAndQoL
             if (!narrowRuinClassifierHook.Success || !broadRuinClassifierHook.Success)
                 throw new InvalidOperationException("The AI tower-ruin classifier hooks were not installed atomically.");
 
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
-                $"Bugfixes and QoL UCP-style AI tower-ruin classifier installed: " +
-                $"narrowMethod={resolution.Method}, narrowHookRva=0x{resolution.Rva:X}, " +
-                $"narrowHookSize={NarrowRuinClassifierHookSize}, broadMethod={broadResolution.Method}, " +
-                $"broadHookRva=0x{broadResolution.Rva:X}, broadHookSize={BroadRuinClassifierHookSize}.");
+                $"AI tower-ruin classifiers installed at RVAs 0x{narrowResolution.Rva:X} and " +
+                $"0x{broadResolution.Rva:X}.");
         }
 
         public void ApplySetting()
@@ -268,6 +154,7 @@ namespace BugfixesAndQoL
                     narrowRuinClassifierHook.Value.Disable();
                 if (broadRuinClassifierHook.Value.IsActive)
                     broadRuinClassifierHook.Value.Disable();
+                runtimeRuins.Clear();
             }
         }
 
@@ -283,22 +170,13 @@ namespace BugfixesAndQoL
             classifierTransaction?.Unload();
             classifierTransaction?.Dispose();
             classifierTransaction = null;
-            validatorTransaction?.Unload();
-            validatorTransaction?.Dispose();
-            validatorTransaction = null;
         }
 
-        private void RouteTrackedRuinToVanillaCleanup(
-            NativePointer<X64SmartCPUContext> context)
-        {
+        private void RouteTrackedRuinThroughNarrowCleanup(NativePointer<X64SmartCPUContext> context) =>
             RouteTrackedRuinToVanillaCleanup(context, "narrow");
-        }
 
-        private void RouteTrackedRuinThroughBroadVanillaCleanup(
-            NativePointer<X64SmartCPUContext> context)
-        {
+        private void RouteTrackedRuinThroughBroadCleanup(NativePointer<X64SmartCPUContext> context) =>
             RouteTrackedRuinToVanillaCleanup(context, "broad");
-        }
 
         private void RouteTrackedRuinToVanillaCleanup(
             NativePointer<X64SmartCPUContext> context,
@@ -311,17 +189,16 @@ namespace BugfixesAndQoL
             {
                 X64SmartCPUContext* registers = context.Pointer;
                 eStructs type = (eStructs)unchecked((short)registers->RCX);
-                // RVA 0x5CFB6 replaces RSI with the tile's building ID before this hook.
-                // Argument 5 (mapper) remains in its original stack slot at RSP+0xB0.
-                // Requiring the corresponding live tower mapper prevents a different AIV
-                // footprint or tower size from clearing this ruin.
+                // RVA 0x5CFB6 has replaced RSI with the tile building ID. Argument 5 (mapper)
+                // remains at RSP+0xB0. Requiring the matching live mapper prevents a different
+                // tower footprint or size from clearing the ruin.
                 int mapperValue = *(short*)(registers->RSP + PlacementMapperStackOffset);
                 if (!IsTowerRuin(type) || !MatchesTowerRuinMapper(type, mapperValue))
                     return;
 
                 int buildingId = unchecked((int)(uint)registers->R8);
-                // Function 0x5CD90 stores argument 2 at entry RSP+0x10. Eight pushes and
-                // sub rsp,0x48 make that exact slot RSP+0x98 at this classifier.
+                // Argument 2 was stored at entry RSP+0x10; eight pushes plus sub rsp,0x48 put
+                // that exact slot at RSP+0x98 here.
                 int playerId = *(int*)(registers->RSP + PlacementPlayerIdStackOffset);
                 if (buildingId <= 0 || playerId < 1 || playerId > 8 ||
                     !GamePlayerManagerAPI.Instance.IsAIPlayer(playerId) ||
@@ -330,8 +207,8 @@ namespace BugfixesAndQoL
                     building->r_AliveState != AliveState.IsAlive ||
                     building->r_PlayerIdOwner != playerId ||
                     building->r_BuildingType != type ||
-                    !runtimeRuins.TryGetValue(building->r_GlobalId, out RuntimeTowerRuin tracked) ||
-                    tracked.BuildingId != buildingId ||
+                    !runtimeRuins.TryGetValue(buildingId, out RuntimeTowerRuin tracked) ||
+                    tracked.GlobalId != building->r_GlobalId ||
                     tracked.PlayerId != playerId ||
                     tracked.Type != type ||
                     tracked.AnchorX != building->r_TilePositionXBegin ||
@@ -340,52 +217,41 @@ namespace BugfixesAndQoL
                     return;
                 }
 
-                // In both Vanilla classifier branches, type 3 reaches native demolition. The
-                // broad branch subtracts 40 first and therefore takes its unsigned out-of-range
-                // cleanup jump; the narrow branch selects bit 3 in its mask. The real type is
-                // loaded again before cleanup, so the surrogate never mutates the building.
+                // Type 3 reaches native demolition in both classifier branches. Vanilla reloads
+                // the true building type before cleanup, so this register-only surrogate never
+                // changes the building record.
                 registers->RCX = NativeDeletableSurrogateType;
-                Shared.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogDebug(
                     log,
-                    $"AI tower ruin routed to Vanilla cleanup: branch={branch}, player={playerId}, " +
-                    $"mapper={mapperValue}, ruinType={type}, buildingId={buildingId}, globalId={building->r_GlobalId}, " +
-                    $"anchor=({tracked.AnchorX},{tracked.AnchorY}), spawnTick={tracked.SpawnTick}, " +
-                    $"routingTick={SafeCurrentTick()}.");
+                    $"AI tower ruin routed through Vanilla {branch} cleanup: player={playerId}, " +
+                    $"type={type}, buildingId={buildingId}, globalId={building->r_GlobalId}.");
             }
             catch (Exception ex)
             {
-                LogCallbackFailure("native narrow ruin classification", ex);
+                LogCallbackFailure("native ruin classification", ex);
             }
         }
 
-        private void InitializeRuntimeRuinDiagnostics()
+        private void InitializeRuntimeRuinTracking()
         {
             subscriptions.Add(BuildingR3EventHooks.OnBuildingSpawn.Observable.Subscribe(OnBuildingSpawn));
             subscriptions.Add(BuildingR3EventHooks.OnBuildingBulldoze.Observable
                 .Where(args => args.Phase == EventHookPhase.Pre)
-                .Subscribe(args => ObserveRuinRemoval(args.BuildingId, "bulldoze-pre")));
+                .Subscribe(args => RemoveTrackedRuin(args.BuildingId)));
             subscriptions.Add(BuildingR3EventHooks.OnBuildingDelete.Observable
                 .Where(args => args.Phase == EventHookPhase.Pre)
-                .Subscribe(args => ObserveRuinRemoval(args.BuildingId, "delete-pre")));
+                .Subscribe(args => RemoveTrackedRuin(args.BuildingId)));
             subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable.Subscribe(OnMapStart));
             subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
                 .Subscribe(_ => ResetMap()));
-            Shared.DebugLogHelper.LogInfo(
-                log,
-                "AI runtime tower-ruin tracking initialized: newly created AI ruins are validated " +
-                "for selective routing through Vanilla's native obstruction cleanup.");
         }
 
         private void OnMapStart(MapStartEventArgs args)
         {
             if (args.Phase == EventHookPhase.Pre)
-            {
                 ResetMap();
-                return;
-            }
-
-            if (args.Phase == EventHookPhase.Post)
+            else if (args.Phase == EventHookPhase.Post)
                 mapActive = true;
         }
 
@@ -393,6 +259,7 @@ namespace BugfixesAndQoL
         {
             mapActive = false;
             runtimeRuins.Clear();
+            callbackFailureLogged = false;
         }
 
         private void OnBuildingSpawn(BuildingSpawnEventArgs args)
@@ -405,41 +272,28 @@ namespace BugfixesAndQoL
 
             try
             {
-                if (IsLiveTower(args.Building))
-                {
-                    ObserveTowerSpawn(args);
-                    return;
-                }
+                int buildingId = unchecked((int)args.ReturnValue);
+                // A spawn proves that any older object with this reusable native ID is gone.
+                // Avoid touching the dictionary for ordinary spawns when no ruin is tracked.
+                if (runtimeRuins.Count != 0)
+                    runtimeRuins.Remove(buildingId);
                 if (!IsTowerRuin(args.Building))
                     return;
 
-                int buildingId = unchecked((int)args.ReturnValue);
                 if (!GamePlayerManagerAPI.Instance.IsAIPlayer(args.PlayerId) ||
                     !GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building) ||
                     building->r_GlobalId == 0 || building->r_PlayerIdOwner != args.PlayerId ||
                     building->r_BuildingType != args.Building ||
-                    (building->r_AliveState != AliveState.NeedsInit && building->r_AliveState != AliveState.IsAlive))
+                    (building->r_AliveState != AliveState.NeedsInit &&
+                     building->r_AliveState != AliveState.IsAlive))
                 {
                     return;
                 }
 
-                int now = SafeCurrentTick();
-                if (now < 0)
-                    return;
                 var tracked = new RuntimeTowerRuin(
-                    buildingId,
-                    building->r_GlobalId,
-                    args.PlayerId,
-                    args.Building,
-                    args.TileX,
-                    args.TileY,
-                    now);
-                runtimeRuins[tracked.GlobalId] = tracked;
-                Shared.DebugLogHelper.LogInfo(
-                    log,
-                    $"AI runtime tower ruin tracked: player={tracked.PlayerId}, type={tracked.Type}, " +
-                    $"buildingId={tracked.BuildingId}, globalId={tracked.GlobalId}, " +
-                    $"anchor=({tracked.AnchorX},{tracked.AnchorY}), spawnTick={tracked.SpawnTick}.");
+                    buildingId, building->r_GlobalId, args.PlayerId, args.Building,
+                    args.TileX, args.TileY);
+                runtimeRuins[tracked.BuildingId] = tracked;
             }
             catch (Exception ex)
             {
@@ -447,298 +301,33 @@ namespace BugfixesAndQoL
             }
         }
 
-        private void ObserveRuinRemoval(int buildingId, string source)
+        private void RemoveTrackedRuin(int buildingId)
         {
             if (!IsEnabled || !mapActive || buildingId <= 0)
                 return;
 
             try
             {
-                foreach (RuntimeTowerRuin tracked in runtimeRuins.Values)
+                if (!runtimeRuins.TryGetValue(buildingId, out RuntimeTowerRuin tracked))
+                    return;
+                if (GameBuildingManagerAPI.Instance.TryGetBuildingById(
+                        buildingId, out GameBuilding* current) &&
+                    current->r_GlobalId != tracked.GlobalId)
                 {
-                    if (tracked.BuildingId != buildingId || tracked.HasRemovalSource(source))
-                        continue;
-                    if (GameBuildingManagerAPI.Instance.TryGetBuildingById(
-                            buildingId, out GameBuilding* current) &&
-                        current->r_GlobalId != tracked.GlobalId)
-                    {
-                        continue;
-                    }
-
-                    int removalTick = SafeCurrentTick();
-                    tracked.RecordRemoval(source, removalTick);
-                    Shared.DebugLogHelper.LogInfo(
-                        log,
-                        $"AI runtime tower ruin Vanilla removal observed: source={source}, " +
-                        $"player={tracked.PlayerId}, ruinType={tracked.Type}, buildingId={tracked.BuildingId}, " +
-                        $"globalId={tracked.GlobalId}, anchor=({tracked.AnchorX},{tracked.AnchorY}), " +
-                        $"spawnTick={tracked.SpawnTick}, removalTick={removalTick}.");
+                    runtimeRuins.Remove(buildingId);
                     return;
                 }
+
+                runtimeRuins.Remove(buildingId);
             }
             catch (Exception ex)
             {
-                LogCallbackFailure("runtime ruin removal observation", ex);
+                LogCallbackFailure("runtime ruin removal tracking", ex);
             }
-        }
-
-        private void ObserveTowerSpawn(BuildingSpawnEventArgs args)
-        {
-            int buildingId = unchecked((int)args.ReturnValue);
-            if (!GamePlayerManagerAPI.Instance.IsAIPlayer(args.PlayerId) ||
-                !GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* tower) ||
-                tower->r_PlayerIdOwner != args.PlayerId ||
-                (tower->r_AliveState != AliveState.NeedsInit && tower->r_AliveState != AliveState.IsAlive))
-            {
-                return;
-            }
-
-            int towerSpawnTick = SafeCurrentTick();
-            var replaced = new List<uint>();
-            foreach (RuntimeTowerRuin tracked in runtimeRuins.Values)
-            {
-                if (tracked.PlayerId != args.PlayerId ||
-                    tracked.AnchorX < tower->r_TilePositionXBegin || tracked.AnchorX > tower->r_TilePositionXEnd ||
-                    tracked.AnchorY < tower->r_TilePositionYBegin || tracked.AnchorY > tower->r_TilePositionYEnd)
-                {
-                    continue;
-                }
-
-                bool ruinStillPresent = TryResolveTrackedRuin(tracked, out GameBuilding* ruin);
-                string remainingState = ruinStillPresent
-                    ? ruin->r_AliveState.ToString()
-                    : "no-longer-resolvable";
-                string relationship = ruinStillPresent
-                    ? "living tracked runtime ruin still present during tower spawn"
-                    : tracked.HasRemovalEvidence
-                        ? "tower spawned at footprint after tracked runtime ruin removal"
-                        : "tower spawned at footprint after unobserved runtime ruin disappearance";
-                string removalToSpawnTicks = tracked.LastRemovalTick >= 0 && towerSpawnTick >= 0
-                    ? ElapsedTicks(towerSpawnTick, tracked.LastRemovalTick).ToString()
-                    : "unknown";
-                Shared.DebugLogHelper.LogInfo(
-                    log,
-                    $"AI tower/ruin relationship observed: relationship={relationship}, player={args.PlayerId}, " +
-                    $"towerType={args.Building}, towerBuildingId={buildingId}, towerGlobalId={tower->r_GlobalId}, " +
-                    $"towerBounds=({tower->r_TilePositionXBegin},{tower->r_TilePositionYBegin})-" +
-                    $"({tower->r_TilePositionXEnd},{tower->r_TilePositionYEnd}), ruinType={tracked.Type}, " +
-                    $"ruinBuildingId={tracked.BuildingId}, ruinGlobalId={tracked.GlobalId}, " +
-                    $"ruinAnchor=({tracked.AnchorX},{tracked.AnchorY}), ruinState={remainingState}, " +
-                    $"removalSources={tracked.DescribeRemovalSources()}, " +
-                    $"lastRemovalTick={tracked.LastRemovalTick}, removalToSpawnTicks={removalToSpawnTicks}, " +
-                    $"spawnTick={towerSpawnTick}.");
-                replaced.Add(tracked.GlobalId);
-            }
-            foreach (uint globalId in replaced)
-                runtimeRuins.Remove(globalId);
-        }
-
-        private bool TryResolveTrackedRuin(RuntimeTowerRuin tracked, out GameBuilding* building)
-        {
-            building = null;
-            if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(tracked.BuildingId, out GameBuilding* candidate) ||
-                candidate->r_GlobalId != tracked.GlobalId ||
-                candidate->r_PlayerIdOwner != tracked.PlayerId ||
-                candidate->r_BuildingType != tracked.Type ||
-                (candidate->r_AliveState != AliveState.NeedsInit &&
-                 candidate->r_AliveState != AliveState.IsAlive) ||
-                candidate->r_TilePositionXBegin != tracked.AnchorX ||
-                candidate->r_TilePositionYBegin != tracked.AnchorY)
-            {
-                return false;
-            }
-
-            building = candidate;
-            return true;
-        }
-
-        private int ValidateBuildingPlacement(
-            ulong placementStateAddress,
-            int tileId,
-            int playerId,
-            int mapperValue,
-            int mode)
-        {
-            int result = validatorHook.Value.Hook.Trampoline(
-                placementStateAddress,
-                tileId,
-                playerId,
-                mapperValue,
-                mode);
-
-            ObserveBuildingPlacement(
-                placementStateAddress,
-                tileId,
-                playerId,
-                mapperValue,
-                mode,
-                result);
-            return result;
-        }
-
-        private void ObserveBuildingPlacement(
-            ulong placementStateAddress,
-            int tileId,
-            int playerId,
-            int mapperValue,
-            int mode,
-            int result)
-        {
-            if (!IsEnabled)
-                return;
-
-            try
-            {
-                // Player zero is used by candidate-fit probes; requiring a real AI slot limits
-                // diagnostics to live AI tower-placement attempts.
-                if (IsLiveTowerMapper(mapperValue) &&
-                    playerId >= 1 && playerId <= 8 &&
-                    GamePlayerManagerAPI.Instance.IsAIPlayer(playerId))
-                {
-                    string outcome = result == 0
-                        ? InspectAllowedTile(tileId, playerId)
-                        : InspectBlockedTile(tileId, playerId);
-                    LogDiagnostic(playerId, mapperValue, tileId, result, outcome);
-                }
-            }
-            catch (Exception ex)
-            {
-                LogCallbackFailure("placement-validator callback", ex);
-            }
-
-        }
-
-        private string InspectAllowedTile(int tileId, int playerId)
-        {
-            GameTileManagerAPI tileApi = GameTileManagerAPI.Instance;
-            if (!tileApi.IsValidTileId(tileId))
-                return "vanilla-allowed-invalid-tile";
-            int buildingId = tileApi.GetTileBuildingId(tileId);
-            if (buildingId <= 0 ||
-                !GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building) ||
-                building->r_PlayerIdOwner != playerId || !IsTowerRuin(building->r_BuildingType))
-            {
-                return "vanilla-allowed";
-            }
-
-            bool tracked = runtimeRuins.TryGetValue(building->r_GlobalId, out RuntimeTowerRuin runtime) &&
-                runtime.BuildingId == buildingId;
-            return tracked
-                ? $"vanilla-allowed-over-runtime-ruin:buildingId={buildingId},globalId={building->r_GlobalId},type={building->r_BuildingType},aliveState={building->r_AliveState}"
-                : $"vanilla-allowed-over-untracked-ruin:buildingId={buildingId},globalId={building->r_GlobalId},type={building->r_BuildingType},aliveState={building->r_AliveState}";
-        }
-
-        private bool TryRegisterWithActiveAivDetector()
-        {
-            Type pluginType = Type.GetType(
-                "ActiveAIVDetector.ActiveAIVDetectorPlugin, ActiveAIVDetector",
-                throwOnError: false);
-            if (pluginType == null)
-                return false;
-
-            MethodInfo register = pluginType.GetMethod(
-                "TryRegisterPlacementValidatorObserver",
-                BindingFlags.Public | BindingFlags.Static,
-                binder: null,
-                types: new[] { typeof(Action<ulong, int, int, int, int, int>) },
-                modifiers: null);
-            if (register == null)
-            {
-                throw new MissingMethodException(
-                    pluginType.FullName,
-                    "TryRegisterPlacementValidatorObserver");
-            }
-
-            var observer = new Action<ulong, int, int, int, int, int>(ObserveBuildingPlacement);
-            object registrationResult = register.Invoke(null, new object[] { observer });
-            return registrationResult is bool registered && registered;
-        }
-
-        private string InspectBlockedTile(int tileId, int playerId)
-        {
-            GameTileManagerAPI tileApi = GameTileManagerAPI.Instance;
-            if (!tileApi.IsValidTileId(tileId))
-                return "blocked-invalid-tile";
-            int buildingId = tileApi.GetTileBuildingId(tileId);
-            if (buildingId <= 0)
-                return "blocked-no-building-on-tile";
-
-            GameBuildingManagerAPI buildingApi = GameBuildingManagerAPI.Instance;
-            if (!buildingApi.TryGetBuildingById(buildingId, out GameBuilding* building))
-                return $"blocked-building-lookup-failed:buildingId={buildingId}";
-            if (building->r_PlayerIdOwner != playerId)
-                return $"blocked-owner-mismatch:buildingId={buildingId},owner={building->r_PlayerIdOwner},type={building->r_BuildingType},aliveState={building->r_AliveState}";
-            if (building->r_AliveState != AliveState.IsAlive)
-                return $"blocked-alive-state-mismatch:buildingId={buildingId},owner={building->r_PlayerIdOwner},type={building->r_BuildingType},aliveState={building->r_AliveState}";
-            if (!IsTowerRuin(building->r_BuildingType))
-                return $"blocked-not-tower-ruin:buildingId={buildingId},owner={building->r_PlayerIdOwner},type={building->r_BuildingType},aliveState={building->r_AliveState}";
-
-            eStructs ruinType = building->r_BuildingType;
-            uint globalId = building->r_GlobalId;
-            bool trackedRuntimeRuin = runtimeRuins.TryGetValue(globalId, out RuntimeTowerRuin tracked) &&
-                tracked.BuildingId == buildingId;
-            if (!trackedRuntimeRuin)
-                return $"blocked-untracked-ruin-left-unchanged:buildingId={buildingId},globalId={globalId},type={ruinType}";
-
-            // This observer runs inside the earlier placement validator. The UCP-style native
-            // classifier sees the same building later in 0x5CD90 and performs the mutation.
-            return $"blocked-runtime-ruin-awaiting-native-cleanup:buildingId={buildingId},globalId={globalId}," +
-                $"type={ruinType},spawnTick={tracked.SpawnTick}";
-        }
-
-        private void LogDiagnostic(int playerId, int mapperValue, int tileId, int vanillaResult, string outcome)
-        {
-            int now = SafeCurrentTick();
-            var validatorKey = new ValidatorKey(playerId, mapperValue);
-            if (vanillaResult == 0 && outcome.IndexOf("ruin", StringComparison.Ordinal) < 0)
-            {
-                if (confirmedValidators.Add(validatorKey))
-                {
-                    Shared.DebugLogHelper.LogInfo(
-                        log,
-                        $"AI tower placement validator hook confirmed: player={playerId}, mapper={mapperValue}, " +
-                        $"sampleTileId={tileId}, vanillaResult={vanillaResult}, tick={now}.");
-                }
-                return;
-            }
-
-            string category = outcome;
-            int separator = category.IndexOf(':');
-            if (separator >= 0)
-                category = category.Substring(0, separator);
-            // MarkedForDeletion can occur during Vanilla's atomic footprint replacement and is
-            // not a separate placement failure worth repeating.
-            if (category == "blocked-alive-state-mismatch" &&
-                outcome.IndexOf("MarkedForDeletion", StringComparison.Ordinal) >= 0)
-                return;
-
-            // Vanilla checks every footprint tile. Grouping by target mapper and outcome keeps
-            // one representative line per attempt instead of up to 36 equivalent tile lines.
-            // Keep separate evidence for simultaneously blocking ruins, but continue grouping
-            // ordinary footprint failures so large tower validators cannot flood the log.
-            string diagnosticIdentity = category.IndexOf("ruin", StringComparison.Ordinal) >= 0
-                ? outcome
-                : category;
-            var key = new DiagnosticKey(playerId, mapperValue, diagnosticIdentity);
-            if (diagnosticTicks.TryGetValue(key, out int previous) &&
-                ElapsedTicks(now, previous) < DiagnosticRepeatTicks)
-            {
-                return;
-            }
-
-            diagnosticTicks[key] = now;
-            if (diagnosticTicks.Count > 4096)
-            {
-                diagnosticTicks.Clear();
-                diagnosticTicks[key] = now;
-            }
-            Shared.DebugLogHelper.LogInfo(
-                log,
-                $"AI tower placement validator sample: player={playerId}, mapper={mapperValue}, " +
-                $"tileId={tileId}, vanillaResult={vanillaResult}, outcome={outcome}, tick={now}.");
         }
 
         private bool IsEnabled =>
+            narrowRuinClassifierHook.Success && broadRuinClassifierHook.Success &&
             settings.EnableMod && settings.EnableAiFixes && settings.FixAITowerRepair;
 
         private void LogCallbackFailure(string operation, Exception ex)
@@ -750,13 +339,6 @@ namespace BugfixesAndQoL
                 log,
                 $"AI tower-ruin repair callback failed during {operation}; further callback errors are " +
                 $"suppressed and Vanilla remains active: {ex}");
-        }
-
-        private static bool IsLiveTowerMapper(int mapperValue)
-        {
-            eMappers mapper = (eMappers)mapperValue;
-            return mapper == eMappers.MAPPER_TOWER ||
-                ((int)mapper >= (int)eMappers.MAPPER_TOWER1 && (int)mapper <= (int)eMappers.MAPPER_TOWER5);
         }
 
         private static bool MatchesTowerRuinMapper(eStructs ruinType, int mapperValue)
@@ -781,31 +363,13 @@ namespace BugfixesAndQoL
 
         private static bool IsTowerRuin(eStructs type) =>
             type == eStructs.STRUCT_TOWER5_DESTROYED ||
-            ((int)type >= (int)eStructs.STRUCT_TOWER1_DESTROYED && (int)type <= (int)eStructs.STRUCT_TOWER4_DESTROYED);
+            ((int)type >= (int)eStructs.STRUCT_TOWER1_DESTROYED &&
+             (int)type <= (int)eStructs.STRUCT_TOWER4_DESTROYED);
 
-        private static bool IsLiveTower(eStructs type) =>
-            type == eStructs.STRUCT_TOWER ||
-            ((int)type >= (int)eStructs.STRUCT_TOWER1 && (int)type <= (int)eStructs.STRUCT_TOWER5);
-
-        private static int SafeCurrentTick()
-        {
-            try { return GameTimeManagerAPI.Instance.CaptureTimeStamp().CapturedGameTick; }
-            catch { return -1; }
-        }
-
-        private static int ElapsedTicks(int now, int previous) =>
-            unchecked((int)Math.Min((uint)(now - previous), int.MaxValue));
-
-        private sealed class RuntimeTowerRuin
+        private readonly struct RuntimeTowerRuin
         {
             internal RuntimeTowerRuin(
-                int buildingId,
-                uint globalId,
-                int playerId,
-                eStructs type,
-                int anchorX,
-                int anchorY,
-                int spawnTick)
+                int buildingId, uint globalId, int playerId, eStructs type, int anchorX, int anchorY)
             {
                 BuildingId = buildingId;
                 GlobalId = globalId;
@@ -813,7 +377,6 @@ namespace BugfixesAndQoL
                 Type = type;
                 AnchorX = anchorX;
                 AnchorY = anchorY;
-                SpawnTick = spawnTick;
             }
 
             internal int BuildingId { get; }
@@ -822,64 +385,6 @@ namespace BugfixesAndQoL
             internal eStructs Type { get; }
             internal int AnchorX { get; }
             internal int AnchorY { get; }
-            internal int SpawnTick { get; }
-            internal int LastRemovalTick { get; private set; } = -1;
-            private readonly HashSet<string> removalSources = new HashSet<string>(StringComparer.Ordinal);
-
-            internal bool HasRemovalSource(string source) => removalSources.Contains(source);
-            internal bool HasRemovalEvidence => removalSources.Count != 0;
-            internal void RecordRemoval(string source, int tick)
-            {
-                removalSources.Add(source);
-                LastRemovalTick = tick;
-            }
-            internal string DescribeRemovalSources() =>
-                removalSources.Count == 0 ? "none" : string.Join("|", removalSources);
-        }
-
-        private readonly struct DiagnosticKey : IEquatable<DiagnosticKey>
-        {
-            internal DiagnosticKey(int playerId, int mapper, string outcome)
-            {
-                PlayerId = playerId;
-                Mapper = mapper;
-                Outcome = outcome ?? string.Empty;
-            }
-
-            private int PlayerId { get; }
-            private int Mapper { get; }
-            private string Outcome { get; }
-
-            public bool Equals(DiagnosticKey other) =>
-                PlayerId == other.PlayerId && Mapper == other.Mapper &&
-                string.Equals(Outcome, other.Outcome, StringComparison.Ordinal);
-
-            public override bool Equals(object obj) => obj is DiagnosticKey other && Equals(other);
-
-            public override int GetHashCode()
-            {
-                unchecked
-                {
-                    int hash = PlayerId;
-                    hash = (hash * 397) ^ Mapper;
-                    return (hash * 397) ^ Outcome.GetHashCode();
-                }
-            }
-        }
-
-        private readonly struct ValidatorKey : IEquatable<ValidatorKey>
-        {
-            internal ValidatorKey(int playerId, int mapper)
-            { PlayerId = playerId; Mapper = mapper; }
-            private int PlayerId { get; }
-            private int Mapper { get; }
-            public bool Equals(ValidatorKey other) =>
-                PlayerId == other.PlayerId && Mapper == other.Mapper;
-            public override bool Equals(object obj) => obj is ValidatorKey other && Equals(other);
-            public override int GetHashCode()
-            {
-                unchecked { return (PlayerId * 397) ^ Mapper; }
-            }
         }
     }
 }

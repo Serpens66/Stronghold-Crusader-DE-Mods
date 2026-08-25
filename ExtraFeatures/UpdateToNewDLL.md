@@ -21,9 +21,8 @@ Extender fields and the bidirectional stable-link API, so it has no private RVA.
 | `EmergencyDemolitionComparisonPattern` | `0x2F454` | scan; context hook |
 | `AIHovelDemolitionFunctionPattern` | `0x3B1D0` | scan; detour at the AI decision point |
 | `InaccessibleBuildingComparisonPattern` | `0x3B2FF` | executable-section unique scan; inaccessible-building context hook |
-| `ExecuteBuildStepPattern` | `0x51790` | audited-hash-only defense-step diagnostic detour |
-| `MaintenancePattern` | `0x52270` | audited-hash-only alternate AIV branch diagnostic detour |
-| `PlacementPattern` | `0x5CD90` | audited-hash-only paired AIV placement diagnostic detour |
+| `ExecuteBuildStepPattern` | `0x51790` | audited-hash-only defense rebuild detour |
+| `PlacementPattern` | `0x5CD90` | audited-hash-only paired AIV placement detour |
 | AI buy-price helper (`49 63 C0 8B 8C C1 B8 17 18 00 B8 67 66 66 66 F7 E9 D1 FA 8B C2 C1 E8 1F 03 C2 41 0F AF C1 C3`) | `0xCEB10` | executable-section unique scan; managed function detour |
 | AI sell-price helper (`49 63 C0 8B 8C C1 BC 17 18 00 B8 67 66 66 66 F7 E9 D1 FA 8B C2 C1 E8 1F 03 C2 41 0F AF C1 C3`) | `0xCEB90` | executable-section unique scan; managed function detour |
 | `AiFlagRoutinePattern` | `0x504F0` | scan; detour captures exact AI flag projectile provenance |
@@ -203,15 +202,12 @@ Live Monk, gatehouse and quarry tests remain post-build smoke tests.
 ## AI defense live audit for Steam build 24816905
 
 The 2026-08-24 finished-castle trace disproved `0x52270` as the ongoing path
-for that game mode: the installed hook received zero calls while later tower
+for that game mode: the temporary hook received zero calls while later tower
 placement and rebuilds were observed. The dispatcher at `0x539B0` calls
 `0x52270` only when the current AIV entry field at `+0x14` is zero. Otherwise
-it iterates frames through `ExecuteBuildStep` at `0x51790`. The diagnostic is
-therefore paired around `0x51790` and the synchronous placement helper at
-`0x5CD90`. The `0x52270` hook remains as a quiet observer for the dispatcher's
-other, demonstrably distinct branch so a later non-finished-castle test can
-show whether initial progressive construction uses it. It emits no line unless
-that branch actually reaches a defense placement or spawn.
+it iterates frames through `ExecuteBuildStep` at `0x51790`. Production code
+therefore hooks only `0x51790` and its synchronous placement helper at
+`0x5CD90`; the obsolete `0x52270` observer has been removed.
 
 The live trace also established that a permanently obstructed tower target is
 not discarded. It was retried 49 times with a median interval of 2690 ticks
@@ -222,28 +218,24 @@ Vanilla revalidated the footprint, and the replacement tower spawned in that
 same tick. `OnBuildingDelete` emitted no corresponding combat-destruction
 events, so it must not be used as the rebuild clock.
 
-The current trace stores only `(playerId, frameIndex)` attempt history. A frame
-is classified as `retry-without-observed-spawn` until a synchronous defense
-spawn has actually occurred inside that frame; later calls become
-`repeat-after-observed-spawn`. This deliberately avoids building-ID lifetime,
-damage-event, and prepared-frame-status tracking while still separating an AIV
-part that never fit from a genuine post-success retry.
+The production state stores only whether each `(playerId, frameIndex)` has
+successfully produced a defense. This deliberately avoids building-ID lifetime
+and prepared-frame-status interpretation while still separating an AIV part
+that never fit from a genuine post-success retry. Short-lived damage-event
+identity is used only to anchor a later rebuild delay to the last confirmed hit.
 
-All three detours use the same PolyHook2.NET managed-function hook type already live
-tested by ActiveAIVDetector. Its six-byte minimum covers complete prologue
-instructions: `0x51790..0x51797` is `2+1+1+1+2=7` bytes,
-`0x52270..0x52279` is `5+4=9` bytes, and `0x5CD90..0x5CD9A` is
-`5+5=10` bytes. The following instructions begin exactly at `0x51797`,
-`0x52279`, and `0x5CD9A`; none of the spans splits an instruction. The
-previously live-tested `0x52270` prologue remains the exact 33-byte
-`MaintenancePattern`.
+Both production detours use the same PolyHook2.NET managed-function hook type
+already live tested by ActiveAIVDetector. Its six-byte minimum covers complete
+prologue instructions: `0x51790..0x51797` is `2+1+1+1+2=7` bytes and
+`0x5CD90..0x5CD9A` is `5+5=10` bytes. The following instructions begin exactly
+at `0x51797` and `0x5CD9A`; neither span splits an instruction.
 Recheck direct incoming targets and any new detour overlap before accepting a
 future DLL.
 
-The target-coordinate diagnostic reads the audited process-state origin fields
+Target-coordinate resolution reads the audited process-state origin fields
 at placement-state offsets `0x204E760` and `0x204E764`. Those fixed offsets are
-not proven by the function signatures. Consequently all three native diagnostic
-hooks are disabled together on an unknown DLL hash, while the independent
+not proven by the function signatures. Consequently both native rebuild hooks
+are disabled together on an unknown DLL hash, while the independent
 managed repair-radius behavior remains available. For a new DLL, revalidate
 the `ExecuteBuildStep` ABI `(aivState, playerId, frameIndex, restrictedMode,
 freeOrForced)`, the frame bound `0x922`, both origin fields, and the placement
@@ -279,11 +271,11 @@ radius is applied until the target was observed as a prior tower/gate spawn.
 `-1` bypasses the respective rule, and `0` creates no delay state. Live setting
 changes continue to compare against the original first-detection tick.
 
-The same log contained 130 summarized proximity windows, including 32 with a
-native blocked result, but no `OnBuildingRepair` event. Consequently this run
-does not prove whether the visually observed wall work was an in-place repair
-or replacement through another native path; no new damaged-building behavior
-is inferred from that absence.
+The historical diagnostic log contained 130 summarized proximity windows,
+including 32 with a native blocked result, but no `OnBuildingRepair` event.
+That instrumentation served its purpose and has been removed from production;
+the finding remains relevant because it prevented treating the building-repair
+Chore as the AI tower/gate repair path.
 
 ## Release-quarantine rollback
 
@@ -293,7 +285,7 @@ defense settings are visible again and default/reset to radius `30` and delay
 event subscriptions or native detours when starting in that configuration. If
 hooks were installed before a live switch to Vanilla, every callback directly
 passes through without tracking, mutation or feature diagnostics, and retained
-timer/diagnostic state is discarded. A later lobby-side activation retries both
+timer state is discarded. A later lobby-side activation retries both
 managed and native initialization against the retained canonical DLL mapping.
 
 ## 2026-08-25 finished-castle anchor correction
@@ -308,8 +300,8 @@ ticks (18.2 internal seconds) after the ruin despite a 60-second setting.
 
 Rebuild identity now uses the raw placement coordinates that exactly match the
 building-spawn anchor. The validated origin-adjusted position remains separate
-and is still used for native proximity and ruin-validator checks. The old
-adjusted identity remains an observation-only fallback for mapper and
+and is still used by the native proximity and placement checks. The old
+adjusted identity remains a compatibility fallback for mapper and
 multi-part gate variants not represented in this trace, so the correction does
 not discard previously valid matches. The first detected missing-period tick
 is still immutable and rejected attempts still cannot restart the delay.

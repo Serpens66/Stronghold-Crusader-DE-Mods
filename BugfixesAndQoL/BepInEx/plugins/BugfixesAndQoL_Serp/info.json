@@ -3,10 +3,22 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.91",
+  "Version": "1.0.93",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.93",
+      "Changes": [
+        "Optimized event-driven AI tower-ruin tracking with constant-time building-ID lookups while retaining global-ID reuse protection."
+      ]
+    },
+    {
+      "Version": "1.0.92",
+      "Changes": [
+        "Finalized AI tower-ruin rebuilding by removing obsolete placement diagnostics while retaining selective Vanilla cleanup routing in both native branches."
+      ]
+    },
     {
       "Version": "1.0.91",
       "Changes": [
