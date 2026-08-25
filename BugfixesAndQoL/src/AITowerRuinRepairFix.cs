@@ -1,4 +1,4 @@
-// Feature: Let Vanilla clear runtime-created AI tower ruins outside its keep-radius branch.
+// Feature: Route runtime-created AI tower ruins through Vanilla cleanup in both placement branches.
 // Native ruin audit for CrusaderDE.dll SHA-256
 // FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2:
 // dispatch table RVA 0x2DEAE0 sends types 79 and 86-89 to the empty updater at
@@ -17,7 +17,8 @@
 // ai_rebuildtowers patch fixes the analogous HD bug by routing ruin types into the existing
 // native demolition branch rather than treating them as empty ground. The fix below applies
 // that same principle selectively: only an exact, runtime-tracked, same-owner AI ruin has its
-// temporary classifier value changed before the narrow branch. Vanilla then performs its own
+// temporary classifier value changed in whichever placement branch is active. Vanilla then
+// performs its own
 // complete deletion and tile cleanup. Rebuild timing and enemy proximity intentionally do not
 // gate ruin cleanup; later placement remains Vanilla.
 using BepInEx.Logging;
@@ -48,12 +49,23 @@ namespace BugfixesAndQoL
             "4C 63 CA 44 8B D0 44 0F 45 94 24 90 00 00 00";
         private const int BuildingPlacementValidatorInteriorRva = 0x7B078;
         private const int BuildingPlacementValidatorInteriorOffset = 0x18;
+        // movabs rax,0x3C0100038 is encoded little-endian as 38 00 10 C0 03...
+        // Keep the complete literal here: 38 00 01 C0 would describe a different mask
+        // and caused the previous diagnostic build to reject this audited hook point.
         private const string NarrowRuinClassifierPattern =
-            "66 83 F9 21 0F 87 ?? ?? ?? ?? 48 B8 38 00 01 C0 03 00 00 00 " +
+            "66 83 F9 21 0F 87 ?? ?? ?? ?? 48 B8 38 00 10 C0 03 00 00 00 " +
             "48 0F A3 C8 0F 83 ?? ?? ?? ??";
         private const int NarrowRuinClassifierRva = 0x5D055;
         private const int NarrowRuinClassifierHookSize = 20;
+        private const string BroadRuinClassifierPattern =
+            "66 83 E9 28 66 83 F9 21 77 ?? " +
+            "48 B8 07 80 00 80 03 00 00 00 48 0F A3 C8";
+        private const int BroadRuinClassifierRva = 0x5D025;
+        // sub/cmp/short-ja/movabs are 4+4+2+10 bytes. Keeping all 20 bytes avoids
+        // splitting the movabs instruction when the inline trampoline is installed.
+        private const int BroadRuinClassifierHookSize = 20;
         private const int PlacementPlayerIdStackOffset = 0x98;
+        private const int PlacementMapperStackOffset = 0xB0;
         private const int NativeDeletableSurrogateType = 3;
         private const int DiagnosticRepeatTicks = 30 * 40;
 
@@ -73,6 +85,7 @@ namespace BugfixesAndQoL
         private HookTransaction classifierTransaction;
         private HookTransaction validatorTransaction;
         private HookRef<X64InlineHook> narrowRuinClassifierHook = new HookRef<X64InlineHook>();
+        private HookRef<X64InlineHook> broadRuinClassifierHook = new HookRef<X64InlineHook>();
         private HookRef<X64ManagedFunctionDetourAOB<BuildingPlacementValidatorDelegate>> validatorHook =
             new HookRef<X64ManagedFunctionDetourAOB<BuildingPlacementValidatorDelegate>>();
         private readonly Dictionary<DiagnosticKey, int> diagnosticTicks = new Dictionary<DiagnosticKey, int>();
@@ -94,7 +107,7 @@ namespace BugfixesAndQoL
 
             try
             {
-                InstallNarrowRuinClassifier(memory, libraryBase, referenceHashMatches);
+                InstallRuinClassifiers(memory, libraryBase, referenceHashMatches);
             }
             catch (Exception ex)
             {
@@ -175,7 +188,7 @@ namespace BugfixesAndQoL
             ApplySetting();
         }
 
-        private void InstallNarrowRuinClassifier(
+        private void InstallRuinClassifiers(
             ReadOnlySpan<byte> memory,
             ulong libraryBase,
             bool referenceHashMatches)
@@ -186,7 +199,7 @@ namespace BugfixesAndQoL
             if (!referenceHashMatches)
             {
                 throw new InvalidOperationException(
-                    "The AI narrow tower-ruin classifier requires the audited CrusaderDE.dll layout.");
+                    "The AI tower-ruin classifiers require the audited CrusaderDE.dll layout.");
             }
 
             Shared.NativeResolution resolution = Shared.NativePatternResolver.ResolveUnique(
@@ -195,6 +208,13 @@ namespace BugfixesAndQoL
                 NarrowRuinClassifierRva,
                 referenceHashMatches,
                 "AI narrow tower-ruin classifier",
+                log);
+            Shared.NativeResolution broadResolution = Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                BroadRuinClassifierPattern,
+                BroadRuinClassifierRva,
+                referenceHashMatches,
+                "AI broad tower-ruin classifier",
                 log);
             classifierTransaction = new HookTransaction(
                 memory,
@@ -209,30 +229,44 @@ namespace BugfixesAndQoL
                 hookSize: NarrowRuinClassifierHookSize,
                 errorMode: CallbackErrorMode.LogAndContinue,
                 placement: OverwrittenInstructionPlacement.AfterCallback);
+            classifierTransaction.AddContextHook(
+                ref broadRuinClassifierHook,
+                libraryBase + unchecked((ulong)broadResolution.Rva),
+                RouteTrackedRuinThroughBroadVanillaCleanup,
+                regs: X64SmartCPUContextRegs.All,
+                hookSize: BroadRuinClassifierHookSize,
+                errorMode: CallbackErrorMode.LogAndContinue,
+                placement: OverwrittenInstructionPlacement.AfterCallback);
             classifierTransaction.Commit();
-            if (!narrowRuinClassifierHook.Success)
-                throw new InvalidOperationException("The AI narrow tower-ruin classifier hook was not installed.");
+            if (!narrowRuinClassifierHook.Success || !broadRuinClassifierHook.Success)
+                throw new InvalidOperationException("The AI tower-ruin classifier hooks were not installed atomically.");
 
             Shared.DebugLogHelper.LogInfo(
                 log,
                 $"Bugfixes and QoL UCP-style AI tower-ruin classifier installed: " +
-                $"method={resolution.Method}, hookRva=0x{resolution.Rva:X}, " +
-                $"hookSize={NarrowRuinClassifierHookSize}.");
+                $"narrowMethod={resolution.Method}, narrowHookRva=0x{resolution.Rva:X}, " +
+                $"narrowHookSize={NarrowRuinClassifierHookSize}, broadMethod={broadResolution.Method}, " +
+                $"broadHookRva=0x{broadResolution.Rva:X}, broadHookSize={BroadRuinClassifierHookSize}.");
         }
 
         public void ApplySetting()
         {
-            if (disposed || !narrowRuinClassifierHook.Success)
+            if (disposed || !narrowRuinClassifierHook.Success || !broadRuinClassifierHook.Success)
                 return;
 
             if (IsEnabled)
             {
                 if (!narrowRuinClassifierHook.Value.IsActive)
                     narrowRuinClassifierHook.Value.Enable();
+                if (!broadRuinClassifierHook.Value.IsActive)
+                    broadRuinClassifierHook.Value.Enable();
             }
-            else if (narrowRuinClassifierHook.Value.IsActive)
+            else
             {
-                narrowRuinClassifierHook.Value.Disable();
+                if (narrowRuinClassifierHook.Value.IsActive)
+                    narrowRuinClassifierHook.Value.Disable();
+                if (broadRuinClassifierHook.Value.IsActive)
+                    broadRuinClassifierHook.Value.Disable();
             }
         }
 
@@ -256,6 +290,19 @@ namespace BugfixesAndQoL
         private void RouteTrackedRuinToVanillaCleanup(
             NativePointer<X64SmartCPUContext> context)
         {
+            RouteTrackedRuinToVanillaCleanup(context, "narrow");
+        }
+
+        private void RouteTrackedRuinThroughBroadVanillaCleanup(
+            NativePointer<X64SmartCPUContext> context)
+        {
+            RouteTrackedRuinToVanillaCleanup(context, "broad");
+        }
+
+        private void RouteTrackedRuinToVanillaCleanup(
+            NativePointer<X64SmartCPUContext> context,
+            string branch)
+        {
             if (!IsEnabled || !mapActive)
                 return;
 
@@ -263,10 +310,11 @@ namespace BugfixesAndQoL
             {
                 X64SmartCPUContext* registers = context.Pointer;
                 eStructs type = (eStructs)unchecked((short)registers->RCX);
-                // RSI holds argument 5 (mapper) for the entire blocker scan. Requiring the
-                // corresponding live tower mapper prevents a different AIV footprint or tower
-                // size from clearing this ruin.
-                int mapperValue = unchecked((short)registers->RSI);
+                // RVA 0x5CFB6 replaces RSI with the tile's building ID before this hook.
+                // Argument 5 (mapper) remains in its original stack slot at RSP+0xB0.
+                // Requiring the corresponding live tower mapper prevents a different AIV
+                // footprint or tower size from clearing this ruin.
+                int mapperValue = *(short*)(registers->RSP + PlacementMapperStackOffset);
                 if (!IsTowerRuin(type) || !MatchesTowerRuinMapper(type, mapperValue))
                     return;
 
@@ -291,13 +339,14 @@ namespace BugfixesAndQoL
                     return;
                 }
 
-                // In this narrow Vanilla branch, type 3 is already classified for native
-                // demolition. The real type is loaded again before cleanup, so the surrogate
-                // affects only the branch decision and never mutates the building record.
+                // In both Vanilla classifier branches, type 3 reaches native demolition. The
+                // broad branch subtracts 40 first and therefore takes its unsigned out-of-range
+                // cleanup jump; the narrow branch selects bit 3 in its mask. The real type is
+                // loaded again before cleanup, so the surrogate never mutates the building.
                 registers->RCX = NativeDeletableSurrogateType;
                 Shared.DebugLogHelper.LogInfo(
                     log,
-                    $"AI tower ruin routed to Vanilla cleanup: player={playerId}, " +
+                    $"AI tower ruin routed to Vanilla cleanup: branch={branch}, player={playerId}, " +
                     $"mapper={mapperValue}, ruinType={type}, buildingId={buildingId}, globalId={building->r_GlobalId}, " +
                     $"anchor=({tracked.AnchorX},{tracked.AnchorY}), spawnTick={tracked.SpawnTick}, " +
                     $"routingTick={SafeCurrentTick()}.");

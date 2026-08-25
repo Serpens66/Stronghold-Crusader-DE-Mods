@@ -3,10 +3,28 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.88",
+  "Version": "1.0.91",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.91",
+      "Changes": [
+        "Applied selective AI tower-ruin cleanup routing in both Vanilla placement branches, including targets inside the keep-centered cleanup area."
+      ]
+    },
+    {
+      "Version": "1.0.90",
+      "Changes": [
+        "Fixed AI tower-ruin cleanup routing by reading the tower mapper from its preserved native stack argument after Vanilla reuses RSI for the blocking building ID."
+      ]
+    },
+    {
+      "Version": "1.0.89",
+      "Changes": [
+        "Corrected the audited native classifier signature so runtime-created same-owner AI tower ruins are actually routed through Vanilla's obstruction cleanup."
+      ]
+    },
     {
       "Version": "1.0.88",
       "Changes": [
