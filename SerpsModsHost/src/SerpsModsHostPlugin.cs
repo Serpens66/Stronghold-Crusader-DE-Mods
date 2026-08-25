@@ -19,7 +19,7 @@ namespace SerpsModsHost
         private const string ScriptExtenderGuid = "000shcdese";
         public const string PluginGuid = "SerpsMods_Serp";
         public const string PluginName = "Serps Mods";
-        public const string PluginVersion = "1.0.3";
+        public const string PluginVersion = "1.0.4";
         public const bool CustomCustomTrailModSettingsOptOut = true;
         private const string ManifestFileName = "serps-modpack.json";
 

@@ -156,4 +156,4 @@ BugfixesAndQoL.AivSyncFailed=AIV synchronization failed and game start was block
 BugfixesAndQoL.AivSyncTimeout=Not all clients acknowledged the AIV data within 60 seconds.
 BugfixesAndQoL.AivSyncChanged=The lobby roster or AIV selection changed during synchronization. Click Play to retry.
 BugfixesAndQoL.FixAITowerRepair=Fix AI Tower Repair
-BugfixesAndQoL.FixAITowerRepairHelp=Allows an AI rebuilding a tower from its AIV castle plan to safely remove its own blocking tower ruin. Human, enemy, unrelated, and non-tower ruins are not removed.
+BugfixesAndQoL.FixAITowerRepairHelp=Every 30 game seconds, safely removes all AI-owned tower ruins created after the current match started. Rebuild delay and enemy proximity do not affect this cleanup. Initial map decorations, human ruins, and non-tower ruins remain unchanged.

@@ -184,27 +184,30 @@ is present and has installed that detour, the soft-dependency load order lets
 this feature register a managed post-Vanilla observer instead of installing an
 overlapping hook. Neither mod requires the other. If observer registration is
 unavailable, or RVA validation and the standalone pattern fallback both fail,
-only the AI tower-ruin repair feature logs Error and remains inactive; all other
-fixes and Vanilla placement continue.
+only the optional validator diagnostics remain inactive; all other fixes,
+periodic ruin maintenance and Vanilla placement continue.
 
-The 2026-08-24 finished-castle trace confirmed the complete ruin path on the
-audited hash. `STRUCT_TOWER3_DESTROYED` was observed at tick 75120; at tick
-77622 the validator returned `2`, the exact same-owner ruin was marked through
-`DeleteBuildingSafe`, the remaining footprint saw `MarkedForDeletion`, and a
-second Vanilla validation returned `0` before the replacement tower spawned in
-the same tick. Validator diagnostics therefore log only the first allowed
-callback per player/mapper and one representative blocked category per
-five-second diagnostic window. Expected per-tile `MarkedForDeletion` follow-ups are suppressed; the
-successful ruin mark itself remains fully logged.
+Periodic ruin maintenance is initialized before this optional diagnostic hook.
+If observer registration or native signature resolution fails, only validator
+diagnostics are disabled; the global 30-second cleanup remains active because it
+uses building-spawn, map-lifecycle and simulation-tick APIs only.
 
-ExtraFeatures `1.0.48` can register one optional process-lifetime deletion guard
-through `BugfixesAndQoLPlugin.TryRegisterTowerRuinDeletionGuard`. The guard is
-consulted only after the exact same-owner tower ruin and footprint have already
-been validated. It postpones `DeleteBuildingSafe` while that concrete AIV
-frame's non-stacking rebuild delay is active or its configured enemy-proximity
-query is blocked. Without a registered consumer, the standalone fix retains
-its prior behavior. Guard errors fail closed for the optional ruin mutation and
-remain isolated by the existing validator callback boundary.
+The 2026-08-24 finished-castle trace confirmed that a blocking same-owner ruin
+can be removed with `DeleteBuildingSafe` and that a later validation can then
+permit the replacement tower. Later multi-target traces also showed that tying
+deletion to a particular AIV target leaves some ruins waiting for a distant or
+missing retry. The placement validator therefore observes and rate-limits
+diagnostics only; it never mutates a ruin.
+
+Runtime tower ruins are instead captured from post-map-start building-spawn
+events and validated by building ID, global ID, owner, type and anchor. One
+global deterministic maintenance pass runs every 1200 simulation ticks (30 game
+seconds) and marks every still-valid tracked AI tower ruin with
+`DeleteBuildingSafe`. This is deliberately not a per-ruin timer: a ruin waits
+between zero and almost 30 game seconds depending on where it was created in the
+global interval. Cleanup is independent of ExtraFeatures rebuild delay and
+enemy proximity. Ruins already present when the map starts, human ruins and
+non-tower ruins are not tracked.
 
 ## Release-quarantine rollback
 
@@ -233,10 +236,8 @@ correct occupied tiles in Vanilla's `StructureGrid`.
 
 The placement validator supplies the concrete blocked tile, and
 `GameTileManagerAPI.GetTileBuildingId(tileId)` reads the building ID directly
-from that exact `StructureGrid` entry. After validating the tile ID, building
-lookup, AI owner, `IsAlive` state and one of the five tower-ruin types, this is
-already an exact overlap proof. `AITowerRuinRepairFix` therefore no longer
-rejects the ruin based on its transient begin/end rectangle. The optional
-ExtraFeatures delay/proximity guard still runs before `DeleteBuildingSafe`.
-Successful deletion logs retain the validator tile and add the ruin anchor and
-raw bounds for post-test verification.
+from that exact `StructureGrid` entry. It remains useful for diagnosing whether
+a tracked or untracked ruin blocks an AIV target, but no longer controls cleanup.
+The global maintenance path validates the stable spawn identity instead and
+logs every successful safe-deletion mark with spawn tick, maintenance tick and
+diagnostic age.

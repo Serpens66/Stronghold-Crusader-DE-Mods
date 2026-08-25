@@ -27,29 +27,15 @@ namespace BugfixesAndQoL
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.83";
+        public const string PluginVersion = "1.0.84";
 
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
         private static DisplayResolutionDiagnostic displayResolutionDiagnostic;
         private static SteamLobbyInvitePrompt steamLobbyInvitePrompt;
-        private static Func<int, int, int, bool> towerRuinDeletionGuard;
         private BugfixesAndQoLRuntime runtime;
         private bool marketGoodsVisualRefreshFailureLogged;
 
         public BugfixesAndQoLViewModel Settings { get; private set; }
-
-        // Optional consumers can postpone the safe ruin mark until their own rebuild timing and
-        // target-proximity rules are released. With no consumer, the standalone fix is unchanged.
-        public static bool TryRegisterTowerRuinDeletionGuard(Func<int, int, int, bool> guard)
-        {
-            if (guard == null || towerRuinDeletionGuard != null)
-                return false;
-            towerRuinDeletionGuard = guard;
-            return true;
-        }
-
-        internal static bool IsTowerRuinDeletionAllowed(int playerId, int tileId, int mapperValue) =>
-            towerRuinDeletionGuard?.Invoke(playerId, tileId, mapperValue) ?? true;
 
         private void Awake()
         {

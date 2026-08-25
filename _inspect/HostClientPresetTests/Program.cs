@@ -1459,7 +1459,7 @@ internal static class Program
     {
         Check(AssassinClimbCancellationPolicy.ShouldHandleCommand(
                 true, true, true, AssassinClimbCancellationPolicy.UnitStopCommand),
-            "Assassin climb-stop diagnostics rejected Vanilla's synchronized UnitStop command");
+            "Assassin climb cancellation rejected Vanilla's synchronized UnitStop command");
         Check(!AssassinClimbCancellationPolicy.ShouldHandleCommand(
                 false, true, true, AssassinClimbCancellationPolicy.UnitStopCommand) &&
               !AssassinClimbCancellationPolicy.ShouldHandleCommand(
@@ -1468,12 +1468,7 @@ internal static class Program
                 true, true, false, AssassinClimbCancellationPolicy.UnitStopCommand) &&
               !AssassinClimbCancellationPolicy.ShouldHandleCommand(
                 true, true, true, AssassinClimbCancellationPolicy.UnitStopCommand + 1),
-            "Assassin climb-stop diagnostics did not fail closed outside the enabled synchronized UnitStop path");
-        Check(!AssassinClimbCancellationPolicy.UsesPreviousTileForRollback(126) &&
-              !AssassinClimbCancellationPolicy.UsesPreviousTileForRollback(127) &&
-              !AssassinClimbCancellationPolicy.UsesPreviousTileForRollback(128) &&
-              AssassinClimbCancellationPolicy.UsesPreviousTileForRollback(129),
-            "Assassin climb-stop rollback did not select Previous exclusively for the active descent state");
+            "Assassin climb cancellation did not fail closed outside the enabled synchronized UnitStop path");
         Check(AssassinClimbCancellationPolicy.IsClimbingState(126) &&
               AssassinClimbCancellationPolicy.IsClimbingState(127) &&
               AssassinClimbCancellationPolicy.IsClimbingState(128) &&
@@ -1481,11 +1476,11 @@ internal static class Program
               !AssassinClimbCancellationPolicy.IsClimbingState(125) &&
               !AssassinClimbCancellationPolicy.IsClimbingState(130),
             "Assassin climb-stop state filter does not cover exactly states 126 through 129");
-        Check(AssassinClimbCancellationPolicy.IsValidTileId(0) &&
-              AssassinClimbCancellationPolicy.IsValidTileId(320799) &&
-              !AssassinClimbCancellationPolicy.IsValidTileId(320800) &&
-              !AssassinClimbCancellationPolicy.IsValidTileId(uint.MaxValue),
-            "Assassin climb-stop tile validation accepted an out-of-range tile ID");
+        Check(!AssassinClimbCancellationPolicy.UsesPreviousTileForRollback(126) &&
+              !AssassinClimbCancellationPolicy.UsesPreviousTileForRollback(127) &&
+              !AssassinClimbCancellationPolicy.UsesPreviousTileForRollback(128) &&
+              AssassinClimbCancellationPolicy.UsesPreviousTileForRollback(129),
+            "Assassin climb-stop rollback did not select Previous exclusively for active descent");
     }
 
     private static void TestTroopActionButtonLayoutPolicy()

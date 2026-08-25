@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Random Events",
   "Description": "Runs configurable Vanilla scenario events in skirmishes, Trail missions, and multiplayer games.",
-  "Version": "1.0.27",
+  "Version": "1.0.28",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.28",
+      "Changes": [
+        "fix game localization"
+      ]
+    },
     {
       "Version": "1.0.27",
       "Changes": [

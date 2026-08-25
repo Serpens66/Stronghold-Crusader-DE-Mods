@@ -3,10 +3,28 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.65",
+  "Version": "1.0.68",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.68",
+      "Changes": [
+        "Made synchronized Stop fully cancel Assassin climbing, clear the active route, and retain the last valid standing position."
+      ]
+    },
+    {
+      "Version": "1.0.67",
+      "Changes": [
+        "Decoupled AI tower-ruin cleanup from rebuild delay and enemy proximity; those settings now govern rebuilding only."
+      ]
+    },
+    {
+      "Version": "1.0.66",
+      "Changes": [
+        "Replaced the unsuccessful Assassin climb-stop mutation with outcome-open before/after diagnostics around Vanilla's synchronized Stop processing."
+      ]
+    },
     {
       "Version": "1.0.65",
       "Changes": [

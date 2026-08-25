@@ -20,7 +20,6 @@ using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
-using System.Reflection;
 using System.Text;
 using Zhuqiaomon.Hooks;
 using Zhuqiaomon.Hooks.Transaction;
@@ -190,16 +189,6 @@ namespace ExtraFeatures
                 nativeInitialized = true;
                 LogInfo($"AI defense-path diagnostics installed: executeBuildStepRva=0x{executeBuildStep.Rva:X}, " +
                     $"maintenanceRva=0x{maintenance.Rva:X}, placementRva=0x{placement.Rva:X}.");
-                try
-                {
-                    TryRegisterTowerRuinDeletionGuard();
-                }
-                catch (Exception ex)
-                {
-                    Shared.DebugLogHelper.LogError(log,
-                        $"AI defense tower-ruin deletion guard registration failed; rebuild timing remains active, " +
-                        $"but the optional ruin fix may remove a ruin before release: {ex}");
-                }
             }
             catch
             {
@@ -942,71 +931,6 @@ namespace ExtraFeatures
             }
             target = default;
             return false;
-        }
-
-        private void TryRegisterTowerRuinDeletionGuard()
-        {
-            Type pluginType = Type.GetType(
-                "BugfixesAndQoL.BugfixesAndQoLPlugin, BugfixesAndQoL",
-                throwOnError: false);
-            if (pluginType == null)
-                return;
-
-            MethodInfo register = pluginType.GetMethod(
-                "TryRegisterTowerRuinDeletionGuard",
-                BindingFlags.Public | BindingFlags.Static,
-                binder: null,
-                types: new[] { typeof(Func<int, int, int, bool>) },
-                modifiers: null);
-            if (register == null)
-                throw new MissingMethodException(pluginType.FullName, "TryRegisterTowerRuinDeletionGuard");
-
-            var guard = new Func<int, int, int, bool>(AllowTowerRuinDeletion);
-            if (!(register.Invoke(null, new object[] { guard }) is bool registered) || !registered)
-                throw new InvalidOperationException("BugfixesAndQoL rejected the tower-ruin deletion guard registration.");
-
-            LogInfo("AI defense rebuild timing registered its delay/proximity guard with the tower-ruin fix.");
-        }
-
-        private bool AllowTowerRuinDeletion(int playerId, int tileId, int mapperValue)
-        {
-            if (!mapActive || !settings.EnableMod)
-                return true;
-
-            BuildStepContext context = activeContext;
-            bool hasRelevantRule = settings.AITowerGateRebuildDelaySeconds >= 0 ||
-                settings.AIRepairEnemyProximity >= 0;
-            if (context == null || context.Source != "ExecuteBuildStep" || context.PlayerId != playerId ||
-                context.History == null || !context.History.EverSpawnedDefense || !context.HasPlacementTarget)
-                return !hasRelevantRule; // Fail closed only for this optional ruin mutation.
-
-            if (context.DelayBlocked)
-                return false;
-            if (settings.AIRepairEnemyProximity < 0)
-                return true;
-
-            GameTileManagerAPI tileApi = GameTileManagerAPI.Instance;
-            if (!tileApi.IsValidTileId(tileId))
-                return false;
-            int buildingId = tileApi.GetTileBuildingId(tileId);
-            if (buildingId <= 0 ||
-                !GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* ruin) ||
-                ruin->r_PlayerIdOwner != playerId || !IsTowerRuin(ruin->r_BuildingType))
-            {
-                return false;
-            }
-
-            // The first parameter is unused in the audited native function. Calling the Script
-            // Extender wrapper preserves all event observers and the configured shared radius.
-            // Use the exact StructureGrid-confirmed ruin anchor: mutable placement origins made
-            // the broader AIV context coordinates drift between measured attempts.
-            return BulkBuildingDetours.c_game_allow_repair_for_building_proximity_hook_impl(
-                IntPtr.Zero,
-                playerId,
-                ruin->r_TilePositionXBegin,
-                ruin->r_TilePositionYBegin,
-                settings.AIRepairEnemyProximity,
-                0) == 0;
         }
 
         private void LogDefenseCall(BuildStepContext context, int result, int observedSpawnTotal)
