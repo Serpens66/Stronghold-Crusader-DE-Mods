@@ -162,4 +162,4 @@ BugfixesAndQoL.AivSyncFailed=AIV synchronization failed and game start was block
 BugfixesAndQoL.AivSyncTimeout=Not all clients acknowledged the AIV data within 60 seconds.
 BugfixesAndQoL.AivSyncChanged=The lobby roster or AIV selection changed during synchronization. Click Play to retry.
 BugfixesAndQoL.FixAITowerRepair=Diagnose AI tower rebuilding
-BugfixesAndQoL.FixAITowerRepairHelp=Lets Vanilla clear an AI's own tower ruin when it blocks the matching tower rebuild, including outside Vanilla's 20-tile keep cleanup radius. Only ruins created during the current match are affected; human, enemy, preplaced, and unrelated ruins remain unchanged.
+BugfixesAndQoL.FixAITowerRepairHelp=Lets Vanilla clear an AI's own tower ruin when it blocks the matching tower rebuild, including outside Vanilla's Manhattan-distance-20 keep cleanup boundary. Only ruins created during the current match are affected; human, enemy, preplaced, and unrelated ruins remain unchanged.

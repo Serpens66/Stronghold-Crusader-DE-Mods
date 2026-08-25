@@ -6,8 +6,9 @@
 // switch routes every ruin type through RVA 0x7F6FA to deletion after further damage.
 // The AIV placement helper at RVA 0x5CD90 does remove living tower ruins itself, but only
 // through its broad two-pass blocker scan. For ordinary tower mappers that scan is enabled
-// when the player has a stored keep building and the target lies at most 20 tiles from its
-// stored coordinates (Chebyshev distance via RVA 0x79C0). Its first-pass type branch sends
+// when the player has a stored keep building and the target's Manhattan distance from its
+// stored coordinates is at most 20 (abs(dx) + abs(dy), calculated by RVA 0x79C0). Its
+// first-pass type branch sends
 // types outside 40-73 to RVA 0xC43A0, which includes all tower ruins 79 and 86-89. The
 // single-pass branch used outside that radius skips types above 33, including every tower
 // ruin. Two 2026-08-25 traces confirmed same-placement-call, damage-free Vanilla removals

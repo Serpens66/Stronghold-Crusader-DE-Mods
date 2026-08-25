@@ -8,8 +8,9 @@
 // placement cleanup below; runtime logging must retain both causes when diagnosing a ruin.
 // The AIV placement helper at RVA 0x5CD90 is also Vanilla's tower-ruin cleanup path.
 // For ordinary tower mappers it selects the broad, two-pass blocker cleanup only when the
-// player has a stored keep building and the target is at most 20 tiles from its stored
-// coordinates (Chebyshev distance, calculated by RVA 0x79C0). The broad first pass sends
+// player has a stored keep building and the target's Manhattan distance from its stored
+// coordinates is at most 20 (abs(dx) + abs(dy), calculated by RVA 0x79C0). The broad first
+// pass sends
 // types outside 40-73 directly to RVA 0xC43A0, so it marks tower ruins 79 and 86-89 for
 // deletion. Outside that keep radius the single-pass type mask skips those ruins. Runtime
 // traces on 2026-08-25 proved this path twice without damage: player 5 frame 68 removed

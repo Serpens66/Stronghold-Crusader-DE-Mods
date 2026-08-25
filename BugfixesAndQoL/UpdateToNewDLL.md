@@ -190,8 +190,8 @@ DLL hash because it also relies on the fixed stack and building-record layout.
 
 The AIV placement helper at `0x5CD90` already has a complete native obstruction
 cleanup. Its broad two-pass branch admits tower ruins 79 and 86-89, but its
-single-pass branch outside the stored keep's 20-tile Chebyshev radius rejects
-every type above 33 before cleanup. The inline callback changes only the
+single-pass branch outside Manhattan distance 20 from the stored keep
+(`abs(dx) + abs(dy) > 20`) rejects every type above 33 before cleanup. The inline callback changes only the
 temporary classifier value to native-deletable type 3 for an exact,
 runtime-tracked, same-owner AI ruin. The real building record is not changed and
 Vanilla reloads its true type before running its own deletion and tile cleanup.

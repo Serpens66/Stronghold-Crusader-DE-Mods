@@ -162,4 +162,4 @@ BugfixesAndQoL.AivSyncFailed=Die AIV-Synchronisierung ist fehlgeschlagen; der Sp
 BugfixesAndQoL.AivSyncTimeout=Nicht alle Clients haben die AIV-Daten innerhalb von 60 Sekunden bestätigt.
 BugfixesAndQoL.AivSyncChanged=Lobbyteilnehmer oder AIV-Auswahl wurden während der Synchronisierung geändert. Zum Wiederholen erneut auf Spielen klicken.
 BugfixesAndQoL.FixAITowerRepair=KI-Turmwiederaufbau diagnostizieren
-BugfixesAndQoL.FixAITowerRepairHelp=Erlaubt Vanilla, die eigene Turmruine einer KI zu entfernen, wenn sie den passenden Turm-Wiederaufbau blockiert, auch außerhalb von Vanillas 20-Felder-Aufräumradius. Nur während der laufenden Partie entstandene Ruinen werden berücksichtigt; menschliche, gegnerische, vorplatzierte und nicht passende Ruinen bleiben unverändert.
+BugfixesAndQoL.FixAITowerRepairHelp=Erlaubt Vanilla, die eigene Turmruine einer KI zu entfernen, wenn sie den passenden Turm-Wiederaufbau blockiert, auch außerhalb von Vanillas Aufräumgrenze bei Manhattan-Distanz 20. Nur während der laufenden Partie entstandene Ruinen werden berücksichtigt; menschliche, gegnerische, vorplatzierte und nicht passende Ruinen bleiben unverändert.
