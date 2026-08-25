@@ -1,8 +1,8 @@
 # How to Contribute a Translation
 
-Thank you for helping translate our mods!
+Thank you for helping translate my mods!
 
-Each mod has its own `Locales` folder. To make your translation easy for us to include, please edit and send us the locale file for your language.
+Each mod has its own `Locales` folder. To make your translation easy for me to include, please edit and send us the locale file for your language.
 
 ## Which file should I translate?
 
