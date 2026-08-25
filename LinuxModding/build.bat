@@ -21,6 +21,14 @@ if not exist "%GAME_DIR%\BepInEx\core\BepInEx.dll" (
   exit /b 1
 )
 
+if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"
+if exist "%LOCAL_PLUGIN_DIR%\" (
+  echo Lokaler Paketausgabeordner konnte nicht geleert werden:
+  echo !LOCAL_PLUGIN_DIR!
+  if "%NO_PAUSE%"=="0" pause
+  exit /b 1
+)
+
 pushd "%PROJECT_DIR%"
 "%MSBUILD%" LinuxModding.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%"
 set "BUILD_EXIT_CODE=%ERRORLEVEL%"
