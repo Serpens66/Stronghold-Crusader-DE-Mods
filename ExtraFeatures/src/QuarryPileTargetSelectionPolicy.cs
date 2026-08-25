@@ -29,8 +29,9 @@ namespace ExtraFeatures
 
     internal static class QuarryPileTargetSelectionPolicy
     {
-        public static bool TrySelectNearest(
+        public static bool TrySelectNearestAtPlacementTry(
             IReadOnlyList<QuarryPileTargetCandidate> candidates,
+            int requiredPlacementTry,
             int keepCenterXTimesTwo,
             int keepCenterYTimesTwo,
             out QuarryPileTargetCandidate selected)
@@ -44,6 +45,9 @@ namespace ExtraFeatures
             for (int index = 0; index < candidates.Count; index++)
             {
                 QuarryPileTargetCandidate candidate = candidates[index];
+                if (candidate.PlacementTry != requiredPlacementTry)
+                    continue;
+
                 long dxTimesTwo = candidate.X * 2L - keepCenterXTimesTwo;
                 long dyTimesTwo = candidate.Y * 2L - keepCenterYTimesTwo;
                 long distanceSquaredTimesFour =

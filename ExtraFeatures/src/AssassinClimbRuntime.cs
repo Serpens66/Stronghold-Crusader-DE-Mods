@@ -1,7 +1,6 @@
 // Feature: Per-player Assassin climbing mode and its troop-HUD command.
 using BepInEx.Logging;
 using CrusaderDE;
-using MonoMod.RuntimeDetour;
 using Noesis;
 using R3;
 using SHCDESE.API;
@@ -14,13 +13,13 @@ using SHCDESE.NoesisUtil;
 using SHCDESE.ViewModels;
 using System;
 using System.Globalization;
-using System.Reflection;
 
 namespace ExtraFeatures
 {
     internal sealed class AssassinClimbButtonViewModel : LobbyModSettingsBaseViewModel
     {
-        private Visibility buttonVisibility = Visibility.Hidden;
+        private bool wantsVisibility;
+        private bool layoutAvailable = true;
         private Visibility forbiddenMarkVisibility = Visibility.Hidden;
 
         public AssassinClimbButtonViewModel(Action toggle, Action showTooltip, Action hideTooltip)
@@ -34,17 +33,24 @@ namespace ExtraFeatures
         public RelayCommand MouseEnterCommand { get; }
         public RelayCommand MouseLeaveCommand { get; }
 
-        public Visibility ButtonVisibility
+        public bool WantsVisibility => wantsVisibility;
+
+        public bool LayoutAvailable
         {
-            get => buttonVisibility;
-            private set
+            get => layoutAvailable;
+            set
             {
-                if (buttonVisibility == value)
+                if (layoutAvailable == value)
                     return;
-                buttonVisibility = value;
+                layoutAvailable = value;
+                OnPropertyChanged(nameof(LayoutAvailable));
                 OnPropertyChanged(nameof(ButtonVisibility));
             }
         }
+
+        public Visibility ButtonVisibility => wantsVisibility && layoutAvailable
+            ? Visibility.Visible
+            : Visibility.Hidden;
 
         public Visibility ForbiddenMarkVisibility
         {
@@ -60,21 +66,28 @@ namespace ExtraFeatures
 
         public void Show(bool climbingAllowed)
         {
-            ButtonVisibility = Visibility.Visible;
+            SetWantsVisibility(true);
             ForbiddenMarkVisibility = climbingAllowed ? Visibility.Hidden : Visibility.Visible;
         }
 
         public void Hide()
         {
-            ButtonVisibility = Visibility.Hidden;
+            SetWantsVisibility(false);
             ForbiddenMarkVisibility = Visibility.Hidden;
+        }
+
+        private void SetWantsVisibility(bool value)
+        {
+            if (wantsVisibility == value)
+                return;
+            wantsVisibility = value;
+            OnPropertyChanged(nameof(WantsVisibility));
+            OnPropertyChanged(nameof(ButtonVisibility));
         }
     }
 
     internal sealed unsafe class AssassinClimbRuntime : IDisposable
     {
-        private delegate void SetuptroopActionsUIDelegate(HUD_Troops self, bool fromInitialOpening);
-
         private const int ChoreProtocolVersion = 1;
         private readonly ManualLogSource log;
         private readonly ExtraFeaturesViewModel settings;
@@ -82,8 +95,6 @@ namespace ExtraFeatures
         private readonly AssassinClimbButtonViewModel buttonViewModel;
         private readonly bool[] climbingAllowed = new bool[9];
         private readonly int[] lastOperationIds = new int[9];
-        private Hook setupTroopActionsHook;
-        private SetuptroopActionsUIDelegate setupTroopActionsTrampoline;
         private R3PacketEventHook<AssassinClimbStatePacket> packetHook;
         private IDisposable packetSubscription;
         private bool initialized;
@@ -121,9 +132,6 @@ namespace ExtraFeatures
         {
             if (initialized)
                 return;
-
-            setupTroopActionsHook = new Hook(FindSetuptroopActionsUIMethod(), (SetuptroopActionsUIDelegate)SetuptroopActionsUIHook);
-            setupTroopActionsTrampoline = setupTroopActionsHook.GenerateTrampoline<SetuptroopActionsUIDelegate>();
             initialized = true;
             buttonViewModel.Hide();
         }
@@ -132,10 +140,6 @@ namespace ExtraFeatures
         {
             initialized = false;
             buttonViewModel.Hide();
-            setupTroopActionsHook?.Undo();
-            setupTroopActionsHook?.Dispose();
-            setupTroopActionsHook = null;
-            setupTroopActionsTrampoline = null;
         }
 
         public void BeginMap()
@@ -152,14 +156,17 @@ namespace ExtraFeatures
 
         public void RefreshButtonVisibility()
         {
-            RefreshButtonVisibility(null);
+            HUD_Troops troopPanel = null;
+            TryGetHudTroopPanel(out troopPanel);
+            RefreshButtonVisibility(troopPanel);
+            Shared.TroopActionButtonLayout.Reflow(troopPanel, log);
         }
 
-        private void RefreshButtonVisibility(HUD_Troops troopPanel)
+        internal void RefreshButtonVisibility(HUD_Troops troopPanel)
         {
             try
             {
-                if (!IsFeatureActive() || (troopPanel == null && !TryGetHudTroopPanel(out troopPanel)) || !IsBottomRightSlotFree(troopPanel))
+                if (!IsFeatureActive() || (troopPanel == null && !TryGetHudTroopPanel(out troopPanel)))
                 {
                     buttonViewModel.Hide();
                     return;
@@ -179,25 +186,6 @@ namespace ExtraFeatures
                 buttonViewModel.Hide();
                 LogError($"Assassin climb button visibility refresh failed: {ex}");
             }
-        }
-
-        private static MethodInfo FindSetuptroopActionsUIMethod()
-        {
-            MethodInfo method = typeof(HUD_Troops).GetMethod(
-                "SetuptroopActionsUI",
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
-                null,
-                new[] { typeof(bool) },
-                null);
-            if (method == null)
-                throw new MissingMethodException(typeof(HUD_Troops).FullName, "SetuptroopActionsUI");
-            return method;
-        }
-
-        private void SetuptroopActionsUIHook(HUD_Troops self, bool fromInitialOpening)
-        {
-            setupTroopActionsTrampoline(self, fromInitialOpening);
-            RefreshButtonVisibility(self);
         }
 
         private void OnToggleCommand()
@@ -380,17 +368,6 @@ namespace ExtraFeatures
                 return false;
             troopPanel = MainViewModel.Instance?.HUDTroopPanel;
             return troopPanel != null;
-        }
-
-        private static bool IsBottomRightSlotFree(HUD_Troops panel)
-        {
-            return !IsVisible(panel.FindName("UnitFireCow") as UIElement) &&
-                !IsVisible(panel.FindName("UnitbuildArabBallista") as UIElement);
-        }
-
-        private static bool IsVisible(UIElement element)
-        {
-            return element != null && element.Visibility == Visibility.Visible;
         }
 
         private static int GetControlledPlayerId()

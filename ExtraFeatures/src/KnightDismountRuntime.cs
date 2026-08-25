@@ -1,7 +1,6 @@
 // Feature: Mount swordsmen and dismount mounted knights through local commands.
 using BepInEx.Logging;
 using CrusaderDE;
-using MonoMod.RuntimeDetour;
 using Noesis;
 using R3;
 using SHCDESE.API;
@@ -15,19 +14,16 @@ using SHCDESE.ViewModels;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Reflection;
 using Zhuqiaomon.Memory;
 
 namespace ExtraFeatures
 {
     internal sealed class KnightDismountButtonViewModel : LobbyModSettingsBaseViewModel
     {
-        private static readonly Thickness DefaultButtonMargin = new Thickness(80, 40, 0, 3);
-
-        private Visibility buttonVisibility = Visibility.Hidden;
+        private bool wantsVisibility;
+        private bool layoutAvailable = true;
         private Visibility dismountButtonVisibility = Visibility.Hidden;
         private Visibility mountButtonVisibility = Visibility.Hidden;
-        private Thickness buttonMargin = DefaultButtonMargin;
         private bool mountButtonEnabled;
 
         public KnightDismountButtonViewModel(
@@ -50,31 +46,24 @@ namespace ExtraFeatures
         public RelayCommand MountMouseEnterCommand { get; }
         public RelayCommand MouseLeaveCommand { get; }
 
-        public Thickness ButtonMargin
+        public bool WantsVisibility => wantsVisibility;
+
+        public bool LayoutAvailable
         {
-            get => buttonMargin;
-            private set
+            get => layoutAvailable;
+            set
             {
-                if (buttonMargin.Equals(value))
+                if (layoutAvailable == value)
                     return;
-
-                buttonMargin = value;
-                OnPropertyChanged(nameof(ButtonMargin));
-            }
-        }
-
-        public Visibility ButtonVisibility
-        {
-            get => buttonVisibility;
-            private set
-            {
-                if (buttonVisibility == value)
-                    return;
-
-                buttonVisibility = value;
+                layoutAvailable = value;
+                OnPropertyChanged(nameof(LayoutAvailable));
                 OnPropertyChanged(nameof(ButtonVisibility));
             }
         }
+
+        public Visibility ButtonVisibility => wantsVisibility && layoutAvailable
+            ? Visibility.Visible
+            : Visibility.Hidden;
 
         public Visibility DismountButtonVisibility
         {
@@ -117,36 +106,40 @@ namespace ExtraFeatures
 
         public void Hide()
         {
-            ButtonVisibility = Visibility.Hidden;
+            SetWantsVisibility(false);
             DismountButtonVisibility = Visibility.Hidden;
             MountButtonVisibility = Visibility.Hidden;
             MountButtonEnabled = false;
         }
 
-        public void ShowDismount(Thickness margin)
+        public void ShowDismount()
         {
-            ButtonMargin = margin;
-            ButtonVisibility = Visibility.Visible;
+            SetWantsVisibility(true);
             DismountButtonVisibility = Visibility.Visible;
             MountButtonVisibility = Visibility.Hidden;
             MountButtonEnabled = false;
         }
 
-        public void ShowMount(Thickness margin, bool enabled)
+        public void ShowMount(bool enabled)
         {
-            ButtonMargin = margin;
-            ButtonVisibility = Visibility.Visible;
+            SetWantsVisibility(true);
             DismountButtonVisibility = Visibility.Hidden;
             MountButtonVisibility = Visibility.Visible;
             MountButtonEnabled = enabled;
+        }
+
+        private void SetWantsVisibility(bool value)
+        {
+            if (wantsVisibility == value)
+                return;
+            wantsVisibility = value;
+            OnPropertyChanged(nameof(WantsVisibility));
+            OnPropertyChanged(nameof(ButtonVisibility));
         }
     }
 
     internal sealed unsafe class KnightDismountRuntime : IDisposable
     {
-        private delegate void SetuptroopActionsUIDelegate(HUD_Troops self, bool fromInitialOpening);
-
-        private static readonly Thickness BottomRightSlotMargin = new Thickness(80, 40, 0, 3);
         private const int StableHorseSlotCount = 4;
         private const int ChoreProtocolVersion = 1;
         private const int MountAction = 1;
@@ -160,8 +153,6 @@ namespace ExtraFeatures
         private readonly ExtraFeaturesViewModel settings;
         private readonly MultiplayerFeatureGate multiplayerFeatureGate;
         private readonly KnightDismountButtonViewModel buttonViewModel;
-        private Hook setupTroopActionsHook;
-        private SetuptroopActionsUIDelegate setupTroopActionsTrampoline;
         private Button hookedDismountButton;
         private Button hookedMountButton;
         private bool initialized;
@@ -207,8 +198,6 @@ namespace ExtraFeatures
                 return;
 
             disposed = false;
-            setupTroopActionsHook = new Hook(FindSetuptroopActionsUIMethod(), (SetuptroopActionsUIDelegate)SetuptroopActionsUIHook);
-            setupTroopActionsTrampoline = setupTroopActionsHook.GenerateTrampoline<SetuptroopActionsUIDelegate>();
             initialized = true;
             buttonViewModel.Hide();
         }
@@ -222,19 +211,17 @@ namespace ExtraFeatures
             initialized = false;
             buttonViewModel.Hide();
             UnhookButtonEvents();
-
-            setupTroopActionsHook?.Undo();
-            setupTroopActionsHook?.Dispose();
-            setupTroopActionsHook = null;
-            setupTroopActionsTrampoline = null;
         }
 
         public void RefreshButtonVisibility()
         {
-            RefreshButtonVisibility(null);
+            HUD_Troops troopPanel = null;
+            TryGetHudTroopPanel(out troopPanel);
+            RefreshButtonVisibility(troopPanel);
+            Shared.TroopActionButtonLayout.Reflow(troopPanel, log);
         }
 
-        private void RefreshButtonVisibility(HUD_Troops troopPanel)
+        internal void RefreshButtonVisibility(HUD_Troops troopPanel)
         {
             try
             {
@@ -252,17 +239,12 @@ namespace ExtraFeatures
                     return;
                 }
 
-                if (!IsBottomRightSlotFree(troopPanel))
-                {
-                    buttonViewModel.Hide();
-                    LogVisibilityState("hidden: bottom-right-slot-occupied");
-                    return;
-                }
+                HookButtonEvents(troopPanel);
 
                 int localPlayerId = GetControlledPlayerId();
                 if (HasSelectedOwnKnight(localPlayerId))
                 {
-                    buttonViewModel.ShowDismount(BottomRightSlotMargin);
+                    buttonViewModel.ShowDismount();
                     LogVisibilityState($"visible: action=dismount, editor={IsMapEditor()}, playerId={localPlayerId}");
                     return;
                 }
@@ -270,7 +252,7 @@ namespace ExtraFeatures
                 if (HasSelectedOwnSwordsman(localPlayerId))
                 {
                     bool hasHorse = CountAvailableHorseSlots(localPlayerId) > 0;
-                    buttonViewModel.ShowMount(BottomRightSlotMargin, hasHorse);
+                    buttonViewModel.ShowMount(hasHorse);
                     LogVisibilityState($"visible: action=mount, editor={IsMapEditor()}, playerId={localPlayerId}, enabled={hasHorse}");
                     return;
                 }
@@ -283,28 +265,6 @@ namespace ExtraFeatures
                 buttonViewModel.Hide();
                 LogError($"Knight mount/dismount visibility refresh failed: {ex}");
             }
-        }
-
-        private static MethodInfo FindSetuptroopActionsUIMethod()
-        {
-            MethodInfo method = typeof(HUD_Troops).GetMethod(
-                "SetuptroopActionsUI",
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
-                null,
-                new[] { typeof(bool) },
-                null);
-
-            if (method == null)
-                throw new MissingMethodException(typeof(HUD_Troops).FullName, "SetuptroopActionsUI");
-
-            return method;
-        }
-
-        private void SetuptroopActionsUIHook(HUD_Troops self, bool fromInitialOpening)
-        {
-            setupTroopActionsTrampoline(self, fromInitialOpening);
-            HookButtonEvents(self);
-            RefreshButtonVisibility(self);
         }
 
         private void HookButtonEvents(HUD_Troops troopPanel)
@@ -492,28 +452,6 @@ namespace ExtraFeatures
             MainViewModel mainViewModel = MainViewModel.Instance;
             troopPanel = mainViewModel == null ? null : mainViewModel.HUDTroopPanel;
             return troopPanel != null;
-        }
-
-        private static bool IsBottomRightSlotFree(HUD_Troops troopPanel)
-        {
-            return IsSlotFree(troopPanel, "UnitFireCow", "UnitbuildArabBallista");
-        }
-
-        private static bool IsSlotFree(FrameworkElement root, params string[] elementNames)
-        {
-            for (int i = 0; i < elementNames.Length; i++)
-            {
-                UIElement element = root.FindName(elementNames[i]) as UIElement;
-                if (IsVisible(element))
-                    return false;
-            }
-
-            return true;
-        }
-
-        private static bool IsVisible(UIElement element)
-        {
-            return element != null && element.Visibility == Visibility.Visible;
         }
 
         private void OnDismountCommand()

@@ -4,7 +4,12 @@ using SHCDESE.API;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Threading;
+using Zhuqiaomon.Hooks;
+using Zhuqiaomon.Hooks.Transaction;
 
 namespace ExtraFeatures
 {
@@ -27,13 +32,29 @@ namespace ExtraFeatures
         private const int BatteringRamType = 59;
         private const int BallistaType = 61;
         private const int OrdinaryClimbValue = 1;
+        private const string CanAUnitClimbPattern =
+            "44 8B 15 ?? ?? ?? ?? 4C 8B C1 C7 05 ?? ?? ?? ?? 01 00 00 00 " +
+            "83 39 01 7E ?? BA 01 00 00 00 8B C2 4C 63 C8 48 63 C2 48 69 C8 90 04 00 00 " +
+            "66 42 83 BC 01 E4 06 00 00 02 75 34 49 69 C9 90 04 00 00 49 03 C8 " +
+            "66 83 B9 F8 08 00 00 00 75 20 66 83 B9 8C 06 00 00 00 74 16 " +
+            "0F BF 81 EE 06 00 00 41 3B C2 75 19 66 83 B9 B8 09 00 00 00";
+        private const int CanAUnitClimbReferenceRva = 0x18DC40;
+        private static readonly long DiagnosticIntervalTicks = Math.Max(1L, Stopwatch.Frequency * 2L);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate int CanAUnitClimbDelegate(IntPtr unitManager);
 
         private readonly ManualLogSource log;
         private readonly IntPtr portableShieldEntry;
         private readonly IntPtr portableShieldTowerClimbEntry;
         private readonly int vanillaValue;
         private readonly int vanillaTowerClimbValue;
-        private bool enabled;
+        private HookTransaction hookTransaction;
+        private HookRef<X64ManagedFunctionDetourAOB<CanAUnitClimbDelegate>> canAUnitClimbHook =
+            new HookRef<X64ManagedFunctionDetourAOB<CanAUnitClimbDelegate>>();
+        private long nextDiagnosticTimestamp;
+        private int callbackFailureLogged;
+        private volatile bool enabled;
         private bool ownsOverride;
         private bool disposed;
 
@@ -81,12 +102,23 @@ namespace ExtraFeatures
                 libraryHandle,
                 checked(towerClimbTableRva + PortableShieldType * sizeof(int)));
 
+            Shared.NativeResolution canClimbResolution = Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                CanAUnitClimbPattern,
+                CanAUnitClimbReferenceRva,
+                referenceHashMatches,
+                "portable-shield selection climb validator",
+                log);
+            ValidateManagedUnitLayout();
+            InstallCanAUnitClimbHook(libraryHandle, memory, canClimbResolution);
+
             Shared.DebugLogHelper.LogInfo(
                 log,
                 $"Extra Features portable-shield wall pathing resolved disabled: " +
                 $"setDestinationRva=0x{resolution.Rva:X}, unitClimbTableRva=0x{tableRva:X}, " +
                 $"towerClimbInitializationRva=0x{towerClimbResolution.Rva:X}, " +
                 $"towerClimbTableRva=0x{towerClimbTableRva:X}, unitType={PortableShieldType}, " +
+                $"canAUnitClimbRva=0x{canClimbResolution.Rva:X}, " +
                 $"vanillaValues={vanillaValue}/{vanillaTowerClimbValue}.");
         }
 
@@ -94,11 +126,7 @@ namespace ExtraFeatures
         {
             ThrowIfDisposed();
             if (enabled == value)
-            {
-                if (value && ownsOverride)
-                    RefreshExistingPortableShields(OrdinaryClimbValue);
                 return;
-            }
 
             int currentValue = Marshal.ReadInt32(portableShieldEntry);
             int currentTowerClimbValue = Marshal.ReadInt32(portableShieldTowerClimbEntry);
@@ -109,7 +137,6 @@ namespace ExtraFeatures
                     Marshal.WriteInt32(portableShieldEntry, OrdinaryClimbValue);
                     Marshal.WriteInt32(portableShieldTowerClimbEntry, OrdinaryClimbValue);
                     ownsOverride = true;
-                    RefreshExistingPortableShields(OrdinaryClimbValue);
                 }
                 else if (currentValue == OrdinaryClimbValue && currentTowerClimbValue == OrdinaryClimbValue)
                 {
@@ -146,6 +173,9 @@ namespace ExtraFeatures
 
             RestoreVanillaValue();
             enabled = false;
+            hookTransaction?.Unload();
+            hookTransaction?.Dispose();
+            hookTransaction = null;
             disposed = true;
         }
 
@@ -160,7 +190,6 @@ namespace ExtraFeatures
             {
                 Marshal.WriteInt32(portableShieldEntry, vanillaValue);
                 Marshal.WriteInt32(portableShieldTowerClimbEntry, vanillaTowerClimbValue);
-                RefreshExistingPortableShields(vanillaTowerClimbValue);
             }
             else if (currentValue != vanillaValue || currentTowerClimbValue != vanillaTowerClimbValue)
             {
@@ -200,37 +229,162 @@ namespace ExtraFeatures
             AssertTableValue(memory, tableRva, PortableShieldType, 0, "portable-shield tower climb");
         }
 
-        private void RefreshExistingPortableShields(int climbValue)
+        private void InstallCanAUnitClimbHook(
+            IntPtr libraryHandle,
+            ReadOnlySpan<byte> memory,
+            Shared.NativeResolution resolution)
         {
-            int updated = 0;
+            HookTransaction pending = null;
             try
             {
-                Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
-                for (int index = 0; index < units.Length; index++)
-                {
-                    ref GameUnit unit = ref units[index];
-                    if ((unit.r_AliveState != AliveState.IsAlive && unit.r_AliveState != AliveState.NeedsInit) ||
-                        unit.r_UnitChimp != (eChimps)PortableShieldType ||
-                        unit.N000001CA == climbValue)
-                    {
-                        continue;
-                    }
+                ulong imageBase = unchecked((ulong)libraryHandle.ToInt64());
+                pending = new HookTransaction(
+                    memory,
+                    imageBase,
+                    loggerFactory: null,
+                    failureMode: TransactionFailureMode.RollbackAndThrow);
+                pending.AddDetour(
+                    ref canAUnitClimbHook,
+                    imageBase + unchecked((ulong)resolution.Rva),
+                    CanSelectedUnitClimb);
+                pending.Commit();
+                if (!canAUnitClimbHook.Success)
+                    throw new InvalidOperationException("The portable-shield selection validator detour was not installed.");
 
-                    unit.N000001CA = checked((ushort)climbValue);
-                    updated++;
-                }
-
-                Shared.DebugLogHelper.LogDebug(
+                hookTransaction = pending;
+                pending = null;
+                Shared.DebugLogHelper.LogInfo(
                     log,
-                    $"Extra Features refreshed the cached wall/tower permission of {updated} existing portable shield(s) to {climbValue}.");
+                    $"Extra Features portable-shield selection climb validator installed at RVA 0x{resolution.Rva:X}; disabled settings pass Vanilla through.");
+            }
+            catch
+            {
+                if (pending != null)
+                {
+                    try { pending.Unload(); } catch { }
+                    try { pending.Dispose(); } catch { }
+                }
+                throw;
+            }
+        }
+
+        private int CanSelectedUnitClimb(IntPtr unitManager)
+        {
+            int vanillaResult = canAUnitClimbHook.Value.Hook.Trampoline(unitManager);
+            if (!enabled)
+                return vanillaResult;
+
+            try
+            {
+                PortableShieldSelectionSnapshot snapshot = CaptureSelection();
+                bool overrideVanilla = PortableShieldClimbSelectionPolicy.ShouldOverrideVanilla(
+                    true,
+                    vanillaResult,
+                    snapshot.OwnMovableShieldCount,
+                    snapshot.OwnOtherCount,
+                    snapshot.ForeignCount,
+                    snapshot.NonMovableShieldCount);
+                LogSelectionDiagnosticIfDue(snapshot, vanillaResult, overrideVanilla);
+                return overrideVanilla ? 1 : vanillaResult;
             }
             catch (Exception ex)
             {
-                // The table still initializes future units correctly when no map/unit manager is active yet.
-                Shared.DebugLogHelper.LogWarning(
-                    log,
-                    $"Extra Features could not refresh existing portable shields at this lifecycle point: {ex.Message}");
+                if (Interlocked.Exchange(ref callbackFailureLogged, 1) == 0)
+                {
+                    Shared.DebugLogHelper.LogError(
+                        log,
+                        $"Extra Features portable-shield selection validator callback failed; Vanilla is used: {ex}");
+                }
+                return vanillaResult;
             }
+        }
+
+        private PortableShieldSelectionSnapshot CaptureSelection()
+        {
+            int localPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
+            var shieldIds = new List<int>();
+            int ownOtherCount = 0;
+            int foreignCount = 0;
+            int nonMovableShieldCount = 0;
+            Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
+            for (int unitId = 1; unitId < units.Length; unitId++)
+            {
+                ref GameUnit unit = ref units[unitId];
+                if (unit.r_AliveState != AliveState.IsAlive || unit.r_UnitSelected == 0)
+                    continue;
+
+                bool ownUnit = localPlayerId >= 1 && localPlayerId <= 8 &&
+                    unit.r_ControllableForPlayerId == localPlayerId;
+                if (!ownUnit)
+                {
+                    foreignCount++;
+                    continue;
+                }
+
+                if (unit.r_UnitChimp != (eChimps)PortableShieldType)
+                {
+                    ownOtherCount++;
+                    continue;
+                }
+
+                // This is the same eligibility field checked by Vanilla canAUnitClimb.
+                if (unit.N0000019A != 0)
+                {
+                    nonMovableShieldCount++;
+                    continue;
+                }
+
+                shieldIds.Add(unitId);
+            }
+
+            return new PortableShieldSelectionSnapshot(
+                shieldIds,
+                ownOtherCount,
+                foreignCount,
+                nonMovableShieldCount);
+        }
+
+        private void LogSelectionDiagnosticIfDue(
+            PortableShieldSelectionSnapshot snapshot,
+            int vanillaResult,
+            bool overrideVanilla)
+        {
+            if (snapshot.OwnMovableShieldCount == 0 && snapshot.NonMovableShieldCount == 0)
+                return;
+
+            long now = Stopwatch.GetTimestamp();
+            if (now < nextDiagnosticTimestamp)
+                return;
+
+            nextDiagnosticTimestamp = now + DiagnosticIntervalTicks;
+            Shared.DebugLogHelper.LogDebug(
+                log,
+                $"Extra Features portable-shield climb selection: shieldIds=[{string.Join(",", snapshot.ShieldIds)}], " +
+                $"ownOther={snapshot.OwnOtherCount}, foreign={snapshot.ForeignCount}, " +
+                $"nonMovableShields={snapshot.NonMovableShieldCount}, vanillaResult={vanillaResult}, " +
+                $"override={overrideVanilla}, nativeValues={Marshal.ReadInt32(portableShieldEntry)}/" +
+                $"{Marshal.ReadInt32(portableShieldTowerClimbEntry)}.");
+        }
+
+        private sealed class PortableShieldSelectionSnapshot
+        {
+            public PortableShieldSelectionSnapshot(
+                List<int> shieldIds,
+                int ownOtherCount,
+                int foreignCount,
+                int nonMovableShieldCount)
+            {
+                ShieldIds = shieldIds;
+                OwnOtherCount = ownOtherCount;
+                ForeignCount = foreignCount;
+                NonMovableShieldCount = nonMovableShieldCount;
+            }
+
+            public List<int> ShieldIds { get; }
+            public int OwnMovableShieldCount => ShieldIds.Count;
+            public int OwnOtherCount { get; }
+            public int ForeignCount { get; }
+            public int NonMovableShieldCount { get; }
         }
 
         private static void AssertTableValue(
@@ -252,6 +406,21 @@ namespace ExtraFeatures
             Shared.NativePatternResolver.ReadInt32(
                 memory,
                 checked(tableRva + unitType * sizeof(int)));
+
+        private static void ValidateManagedUnitLayout()
+        {
+            if (Marshal.SizeOf(typeof(GameUnit)) != 0x490 ||
+                Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_UnitSelected)).ToInt32() != 0x30 ||
+                Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_AliveState)).ToInt32() != 0x88 ||
+                Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_UnitChimp)).ToInt32() != 0x8A ||
+                Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_ControllableForPlayerId)).ToInt32() != 0x92 ||
+                Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.N0000019A)).ToInt32() != 0x29C ||
+                Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.N000001CA)).ToInt32() != 0x35C)
+            {
+                throw new InvalidOperationException(
+                    "The managed GameUnit layout does not match the audited portable-shield selection validator.");
+            }
+        }
 
         private void ThrowIfDisposed()
         {

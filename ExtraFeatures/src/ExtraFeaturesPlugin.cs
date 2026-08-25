@@ -20,7 +20,7 @@ namespace ExtraFeatures
 
         public const string PluginGuid = "ExtraFeatures_Serp";
         public const string PluginName = "Extra Features";
-        public const string PluginVersion = "1.0.52";
+        public const string PluginVersion = "1.0.54";
 
         private ExtraFeaturesRuntime runtime;
         private bool marketGoodPriceVisualRefreshFailureLogged;
@@ -91,7 +91,7 @@ namespace ExtraFeatures
             try
             {
                 GameXAMLManagerAPI.Instance.RegisterBinding(
-                    "ExtraFeaturesKnightDismountButtonHost",
+                    "SerpTroopAction_0100_ExtraFeaturesKnightTransform",
                     runtime.KnightDismountButton);
             }
             catch (Exception ex)
@@ -102,7 +102,7 @@ namespace ExtraFeatures
             try
             {
                 GameXAMLManagerAPI.Instance.RegisterBinding(
-                    "ExtraFeaturesAssassinClimbButtonHost",
+                    "SerpTroopAction_0200_ExtraFeaturesAssassinClimb",
                     runtime.AssassinClimbButton);
             }
             catch (Exception ex)

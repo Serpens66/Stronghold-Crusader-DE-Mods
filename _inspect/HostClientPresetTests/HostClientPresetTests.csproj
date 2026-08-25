@@ -113,6 +113,9 @@
     <Compile Include="..\..\ExtraFeatures\src\QuarryPileTargetSelectionPolicy.cs">
       <Link>QuarryPileTargetSelectionPolicy.cs</Link>
     </Compile>
+    <Compile Include="..\..\ExtraFeatures\src\PortableShieldClimbSelectionPolicy.cs">
+      <Link>PortableShieldClimbSelectionPolicy.cs</Link>
+    </Compile>
     <Compile Include="..\..\ExtraFeatures\src\TemporaryGateBlockagePolicy.cs">
       <Link>TemporaryGateBlockagePolicy.cs</Link>
     </Compile>
@@ -142,6 +145,9 @@
     </Compile>
     <Compile Include="..\..\Shared\NativePatternResolver.cs">
       <Link>NativePatternResolver.cs</Link>
+    </Compile>
+    <Compile Include="..\..\Shared\TroopActionButtonLayoutPolicy.cs">
+      <Link>TroopActionButtonLayoutPolicy.cs</Link>
     </Compile>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

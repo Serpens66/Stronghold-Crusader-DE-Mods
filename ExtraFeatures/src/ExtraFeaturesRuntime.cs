@@ -30,6 +30,7 @@ namespace ExtraFeatures
         private readonly Dictionary<string, ResourceEventCountGuard> marketBuyResourceGuards = new Dictionary<string, ResourceEventCountGuard>();
         private readonly Dictionary<string, ResourceEventCountGuard> refundResourceGuards = new Dictionary<string, ResourceEventCountGuard>();
         private readonly MultiplayerFeatureGate multiplayerFeatureGate;
+        private readonly Shared.TroopActionHudCoordinator troopActionHudCoordinator;
         private readonly KnightDismountRuntime knightDismountRuntime;
         private readonly AssassinClimbRuntime assassinClimbRuntime;
         private readonly AssassinPathfindingRuntime assassinPathfindingRuntime;
@@ -69,8 +70,11 @@ namespace ExtraFeatures
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
             multiplayerFeatureGate = new MultiplayerFeatureGate(log);
+            troopActionHudCoordinator = new Shared.TroopActionHudCoordinator(log);
             knightDismountRuntime = new KnightDismountRuntime(log, settings, multiplayerFeatureGate);
             assassinClimbRuntime = new AssassinClimbRuntime(log, settings, multiplayerFeatureGate);
+            troopActionHudCoordinator.Register(knightDismountRuntime.RefreshButtonVisibility);
+            troopActionHudCoordinator.Register(assassinClimbRuntime.RefreshButtonVisibility);
             assassinPathfindingRuntime = new AssassinPathfindingRuntime(log, settings, assassinClimbRuntime);
             quarryPileRelocationRuntime = new QuarryPileRelocationRuntime(log, settings, multiplayerFeatureGate);
             churchPriestCountRuntime = new ChurchPriestCountRuntime(log, settings);
@@ -89,6 +93,7 @@ namespace ExtraFeatures
         public void InitializeNetwork()
         {
             InstallSingleBuildingPauseHook();
+            TryRunFeature("troop action HUD coordinator", troopActionHudCoordinator.Initialize);
             try
             {
                 // Registration order is a shared protocol boundary. Keep the group fail-closed
@@ -276,6 +281,8 @@ namespace ExtraFeatures
             plagueDurationPatch = null;
             plagueApothecarySearchRangePatch?.Dispose();
             plagueApothecarySearchRangePatch = null;
+            troopActionHudCoordinator.Dispose();
+            knightDismountRuntime.Dispose();
             assassinClimbRuntime.Dispose();
             gatehouseAutomationRuntime.Dispose();
             aiDefenseRepairRuntime.Dispose();
@@ -641,7 +648,8 @@ namespace ExtraFeatures
                     Shared.DebugLogHelper.LogWarning(
                         log,
                         "Extra Features portable shields on walls is operating on an unknown " +
-                        "CrusaderDE.dll after both wall/tower pathing signatures and table semantics were validated.");
+                        "CrusaderDE.dll after the wall/tower pathing and selection-validator signatures, " +
+                        "managed unit layout, and table semantics were validated.");
                 }
             }
             catch (Exception ex)

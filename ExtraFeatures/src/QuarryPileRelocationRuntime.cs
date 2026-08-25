@@ -1131,26 +1131,9 @@ namespace ExtraFeatures
 
             int oldX = oldPile->r_TilePositionXBegin;
             int oldY = oldPile->r_TilePositionYBegin;
-            if (!TryResolveVanillaCursor(
-                quarry,
-                oldX,
-                oldY,
-                out int currentIndex,
-                out int currentPlacementTry,
-                out bool exactCurrentPosition))
-            {
-                return false;
-            }
-
             var candidates = new List<QuarryPileTargetCandidate>();
             var seenPositions = new HashSet<long>();
             var currentPosition = new PlacementPosition(oldX, oldY);
-            candidates.Add(new QuarryPileTargetCandidate(
-                oldX,
-                oldY,
-                exactCurrentPosition ? currentPlacementTry : int.MaxValue,
-                exactCurrentPosition ? currentIndex : int.MaxValue,
-                isCurrentPosition: true));
             seenPositions.Add(GetPositionKey(currentPosition));
 
             HashSet<long> failedTargets = GetFailedRotationTargets(
@@ -1158,50 +1141,65 @@ namespace ExtraFeatures
                 (int)oldPile->r_GlobalId);
             int generatedCount = 0;
             int validReplacementCount = 0;
-            for (int placementTry = VanillaMinimumPlacementTry;
-                placementTry <= VanillaMaximumPlacementTry;
-                placementTry++)
+            int placementTry = VanillaMinimumPlacementTry;
+            for (int candidateIndex = 0; candidateIndex < VanillaCandidateCount; candidateIndex++)
             {
-                for (int candidateIndex = 0; candidateIndex < VanillaCandidateCount; candidateIndex++)
+                if (!TryGetVanillaCandidate(quarry, candidateIndex, placementTry, out PlacementPosition candidate))
+                    return false;
+
+                generatedCount++;
+                long positionKey = GetPositionKey(candidate);
+                if (candidate.X == oldX && candidate.Y == oldY)
                 {
-                    if (!TryGetVanillaCandidate(quarry, candidateIndex, placementTry, out PlacementPosition candidate))
-                        return false;
-
-                    generatedCount++;
-                    long positionKey = GetPositionKey(candidate);
-                    if (!seenPositions.Add(positionKey) ||
-                        (failedTargets != null && failedTargets.Contains(positionKey)) ||
-                        !ValidateCandidateWithGame(
-                            playerId,
-                            candidate,
-                            pileScale,
-                            operationId,
-                            candidateIndex,
-                            placementTry,
-                            logResult: false))
-                    {
-                        continue;
-                    }
-
                     candidates.Add(new QuarryPileTargetCandidate(
-                        candidate.X,
-                        candidate.Y,
+                        oldX,
+                        oldY,
                         placementTry,
                         candidateIndex,
-                        isCurrentPosition: false));
-                    validReplacementCount++;
+                        isCurrentPosition: true));
+                    continue;
                 }
+
+                if (!seenPositions.Add(positionKey) ||
+                    (failedTargets != null && failedTargets.Contains(positionKey)) ||
+                    !ValidateCandidateWithGame(
+                        playerId,
+                        candidate,
+                        pileScale,
+                        operationId,
+                        candidateIndex,
+                        placementTry,
+                        logResult: false))
+                {
+                    continue;
+                }
+
+                candidates.Add(new QuarryPileTargetCandidate(
+                    candidate.X,
+                    candidate.Y,
+                    placementTry,
+                    candidateIndex,
+                    isCurrentPosition: false));
+                validReplacementCount++;
             }
 
             int keepCenterXTimesTwo = keep->r_TilePositionXBegin + keep->r_TilePositionXEnd;
             int keepCenterYTimesTwo = keep->r_TilePositionYBegin + keep->r_TilePositionYEnd;
-            if (!QuarryPileTargetSelectionPolicy.TrySelectNearest(
+            if (!QuarryPileTargetSelectionPolicy.TrySelectNearestAtPlacementTry(
                 candidates,
+                VanillaMinimumPlacementTry,
                 keepCenterXTimesTwo,
                 keepCenterYTimesTwo,
                 out QuarryPileTargetCandidate selected))
             {
-                return false;
+                target = currentPosition;
+                currentPositionIsBest = true;
+                LogInfo(
+                    $"AI Keep-facing pile remains unchanged: operationId={operationId}, playerId={playerId}, " +
+                    $"quarryGlobalId={quarry->r_GlobalId}, reason=no-valid-closest-Vanilla-position, " +
+                    $"allowedVanillaTry={VanillaMinimumPlacementTry}, generatedCandidates={generatedCount}, " +
+                    $"validReplacementCandidates={validReplacementCount}, currentPositionInAllowedTry=False.");
+                return true;
             }
 
             target = new PlacementPosition(selected.X, selected.Y);
@@ -1210,7 +1208,7 @@ namespace ExtraFeatures
                 $"AI Keep-facing target selected: operationId={operationId}, playerId={playerId}, quarryGlobalId={quarry->r_GlobalId}, " +
                 $"keepGlobalId={keep->r_GlobalId}, keepCenterTimesTwo={keepCenterXTimesTwo},{keepCenterYTimesTwo}, " +
                 $"oldTarget={oldX},{oldY}, selectedTarget={selected.X},{selected.Y}, currentPositionIsBest={currentPositionIsBest}, " +
-                $"vanillaTry={selected.PlacementTry}, candidateIndex={selected.CandidateIndex}, generatedCandidates={generatedCount}, " +
+                $"vanillaTry={selected.PlacementTry}, allowedVanillaTry={VanillaMinimumPlacementTry}, candidateIndex={selected.CandidateIndex}, generatedCandidates={generatedCount}, " +
                 $"validReplacementCandidates={validReplacementCount}.");
             return true;
         }

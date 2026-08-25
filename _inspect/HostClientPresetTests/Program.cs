@@ -38,7 +38,9 @@ internal static class Program
             TestMarketGoodPriceDefinition();
             TestAIMarketVanillaPricePolicy();
             TestAssassinClimbCostPolicy();
+            TestTroopActionButtonLayoutPolicy();
             TestLordHealthMultiplierPolicy();
+            TestPortableShieldClimbSelectionPolicy();
             TestQuarryPileTargetSelectionPolicy();
             TestTemporaryGateBlockagePolicy();
             TestGatehouseAutomationSaveState();
@@ -1427,6 +1429,14 @@ internal static class Program
 
     private static void TestAssassinClimbCostPolicy()
     {
+        Check(AssassinClimbCostPolicy.GetCardinalMovementTicks(1) == 16,
+            "Assassin cardinal movement did not include eight Vanilla substeps and the delay threshold");
+        Check(AssassinClimbCostPolicy.GetDiagonalMovementTicks(1) == 23,
+            "Assassin diagonal movement did not use deterministic sqrt(2) scaling");
+        Check(AssassinClimbCostPolicy.MinimumClimbTicks / AssassinClimbCostPolicy.GetCardinalMovementTicks(1) == 5 &&
+              AssassinClimbCostPolicy.LowWallClimbTicks / AssassinClimbCostPolicy.GetCardinalMovementTicks(1) == 15 &&
+              AssassinClimbCostPolicy.NormalWallClimbTicks / AssassinClimbCostPolicy.GetCardinalMovementTicks(1) == 25,
+            "Assassin climb break-even field counts changed unexpectedly");
         Check(AssassinClimbCostPolicy.GetAdditionalTicks(false, 90, false, true, false) == 0,
             "ordinary Assassin movement received a climbing surcharge");
         Check(AssassinClimbCostPolicy.GetAdditionalTicks(true, 0, false, true, false) == 0,
@@ -1443,6 +1453,30 @@ internal static class Program
             "Assassin stair ascent was not interpolated by height");
         Check(AssassinClimbCostPolicy.GetAdditionalTicks(true, 135, false, true, true) == 600,
             "Assassin high stair ascent did not continue the interpolation slope");
+    }
+
+    private static void TestTroopActionButtonLayoutPolicy()
+    {
+        IReadOnlyList<string> ordered = TroopActionButtonLayoutPolicy.OrderActionIds(new[]
+        {
+            "SerpTroopAction_0200_ExtraFeaturesAssassinClimb",
+            "invalid",
+            "SerpTroopAction_0100_ExtraFeaturesKnightTransform",
+            "SerpTroopAction_0200_AnotherModAction"
+        });
+        Check(ordered.SequenceEqual(new[]
+        {
+            "ExtraFeaturesKnightTransform",
+            "AnotherModAction",
+            "ExtraFeaturesAssassinClimb"
+        }), "shared troop actions were not ordered by priority and stable action id");
+
+        Check(TroopActionButtonLayoutPolicy.FindFirstAvailableSlot(new[] { true, false, false }) == 1,
+            "shared troop action collision policy did not skip an occupied slot");
+        Check(TroopActionButtonLayoutPolicy.FindFirstAvailableSlot(new[] { true, true }) == -1,
+            "shared troop action collision policy did not report overflow");
+        Check(TroopActionButtonLayoutPolicy.FindFirstAvailableSlot(new[] { true, false }) == 1,
+            "shared troop action collision policy did not reuse a freed slot");
     }
 
     private static void TestTemporaryGateBlockagePolicy()
@@ -1583,7 +1617,7 @@ internal static class Program
             new QuarryPileTargetCandidate(12, 10, 1, 4, false),
             new QuarryPileTargetCandidate(10, 10, 1, 5, false)
         };
-        Check(QuarryPileTargetSelectionPolicy.TrySelectNearest(candidates, 20, 20, out QuarryPileTargetCandidate nearest) &&
+        Check(QuarryPileTargetSelectionPolicy.TrySelectNearestAtPlacementTry(candidates, 1, 20, 20, out QuarryPileTargetCandidate nearest) &&
               nearest.X == 10 && nearest.Y == 10 && !nearest.IsCurrentPosition,
             "AI quarry-pile selection did not choose the valid candidate nearest to the Keep center");
 
@@ -1593,7 +1627,7 @@ internal static class Program
             new QuarryPileTargetCandidate(20, 20, 1, 0, true),
             new QuarryPileTargetCandidate(12, 10, 1, 4, false)
         };
-        Check(QuarryPileTargetSelectionPolicy.TrySelectNearest(candidates, 20, 20, out nearest) &&
+        Check(QuarryPileTargetSelectionPolicy.TrySelectNearestAtPlacementTry(candidates, 1, 20, 20, out nearest) &&
               nearest.X == 12 && nearest.Y == 10,
             "AI quarry-pile selection did not ignore a blocked nearer candidate");
 
@@ -1603,7 +1637,7 @@ internal static class Program
             new QuarryPileTargetCandidate(11, 10, 1, 23, false),
             new QuarryPileTargetCandidate(10, 9, 1, 2, false)
         };
-        Check(QuarryPileTargetSelectionPolicy.TrySelectNearest(candidates, 20, 20, out nearest) &&
+        Check(QuarryPileTargetSelectionPolicy.TrySelectNearestAtPlacementTry(candidates, 1, 20, 20, out nearest) &&
               nearest.X == 10 && nearest.Y == 9,
             "AI quarry-pile equal-distance tie did not use Vanilla try and candidate order");
 
@@ -1612,15 +1646,52 @@ internal static class Program
             new QuarryPileTargetCandidate(10, 10, 1, 3, true),
             new QuarryPileTargetCandidate(15, 15, 1, 4, false)
         };
-        Check(QuarryPileTargetSelectionPolicy.TrySelectNearest(candidates, 20, 20, out nearest) &&
+        Check(QuarryPileTargetSelectionPolicy.TrySelectNearestAtPlacementTry(candidates, 1, 20, 20, out nearest) &&
               nearest.IsCurrentPosition,
             "AI quarry-pile selection replaced an already optimal current position");
-        Check(!QuarryPileTargetSelectionPolicy.TrySelectNearest(
+
+        candidates = new List<QuarryPileTargetCandidate>
+        {
+            new QuarryPileTargetCandidate(12, 10, 1, 4, false),
+            new QuarryPileTargetCandidate(10, 10, 9, 5, false)
+        };
+        Check(QuarryPileTargetSelectionPolicy.TrySelectNearestAtPlacementTry(candidates, 1, 20, 20, out nearest) &&
+              nearest.X == 12 && nearest.Y == 10 && nearest.PlacementTry == 1,
+            "AI quarry-pile selection allowed a Keep-nearer outer Vanilla try to override try 1");
+
+        candidates = new List<QuarryPileTargetCandidate>
+        {
+            new QuarryPileTargetCandidate(10, 10, 9, 5, true)
+        };
+        Check(!QuarryPileTargetSelectionPolicy.TrySelectNearestAtPlacementTry(candidates, 1, 20, 20, out _),
+            "AI quarry-pile selection treated an outer current position as an allowed try-1 position");
+        Check(!QuarryPileTargetSelectionPolicy.TrySelectNearestAtPlacementTry(
                 Array.Empty<QuarryPileTargetCandidate>(),
+                1,
                 20,
                 20,
                 out _),
             "AI quarry-pile selection accepted an empty valid-candidate set");
+    }
+
+    private static void TestPortableShieldClimbSelectionPolicy()
+    {
+        Check(PortableShieldClimbSelectionPolicy.ShouldOverrideVanilla(true, 0, 1, 0, 0, 0),
+            "a single local movable portable shield was not allowed to override Vanilla");
+        Check(PortableShieldClimbSelectionPolicy.ShouldOverrideVanilla(true, 0, 3, 0, 0, 0),
+            "multiple local movable portable shields were not allowed to override Vanilla");
+        Check(!PortableShieldClimbSelectionPolicy.ShouldOverrideVanilla(false, 0, 1, 0, 0, 0),
+            "the disabled portable-shield feature overrode Vanilla");
+        Check(!PortableShieldClimbSelectionPolicy.ShouldOverrideVanilla(true, 1, 1, 0, 0, 0),
+            "an accepting Vanilla result was unnecessarily overridden");
+        Check(!PortableShieldClimbSelectionPolicy.ShouldOverrideVanilla(true, 0, 1, 1, 0, 0),
+            "a mixed local selection was accepted");
+        Check(!PortableShieldClimbSelectionPolicy.ShouldOverrideVanilla(true, 0, 1, 0, 1, 0),
+            "a foreign selection was accepted");
+        Check(!PortableShieldClimbSelectionPolicy.ShouldOverrideVanilla(true, 0, 1, 0, 0, 1),
+            "a non-movable portable shield was accepted");
+        Check(!PortableShieldClimbSelectionPolicy.ShouldOverrideVanilla(true, 0, 0, 0, 0, 0),
+            "an empty selection was accepted");
     }
 
     private static void TestGameSpeedRepeatScheduler()

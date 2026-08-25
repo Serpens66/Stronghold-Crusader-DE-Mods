@@ -5,6 +5,7 @@ using SHCDESE.API;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
+using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.InteropServices;
 
@@ -26,6 +27,7 @@ namespace ExtraFeatures
         private delegate byte SpecialTilePredicateDelegate(IntPtr context, int tileId);
 
         private const int MapWidth = 800;
+        private const int CoordinateCount = MapWidth * MapWidth;
         private const int TileCount = 320800;
         private const int MaximumCommittedPathLength = 2000;
         private const int AssassinBuilderRva = 0xD9C40;
@@ -45,6 +47,7 @@ namespace ExtraFeatures
         private const uint IsWallFlag = 1u << 8;
         private const uint IsStairsFlag = 1u << 11;
         private const uint IsLowWallFlag = 1u << 16;
+        private static readonly long DiagnosticIntervalTicks = Math.Max(1L, Stopwatch.Frequency * 2L);
         private const string AssassinBuilderPattern =
             "48 89 5C 24 08 48 89 6C 24 18 48 89 74 24 20 57 41 54 41 55 41 56 41 57 48 83 EC 30 48 63 EA 48 8B D9 49 63 F9";
 
@@ -54,12 +57,14 @@ namespace ExtraFeatures
         private readonly ManualLogSource log;
         private readonly ExtraFeaturesViewModel settings;
         private readonly AssassinClimbRuntime climbRuntime;
-        private readonly int[] costs = new int[TileCount];
-        private readonly int[] parents = new int[TileCount];
-        private readonly int[] insertionOrder = new int[TileCount];
-        private readonly int[] heap = new int[TileCount];
-        private readonly int[] heapPositions = new int[TileCount];
-        private readonly int[] touched = new int[TileCount];
+        private readonly int[] costs = new int[CoordinateCount];
+        private readonly int[] parents = new int[CoordinateCount];
+        private readonly int[] incomingClimbTicks = new int[CoordinateCount];
+        private readonly byte[] incomingClimbEdges = new byte[CoordinateCount];
+        private readonly int[] insertionOrder = new int[CoordinateCount];
+        private readonly int[] heap = new int[CoordinateCount];
+        private readonly int[] heapPositions = new int[CoordinateCount];
+        private readonly int[] touched = new int[CoordinateCount];
         private readonly int[] route = new int[MaximumCommittedPathLength + 1];
         private IntPtr libraryHandle;
         private AssassinPathBuilderDelegate original;
@@ -78,6 +83,10 @@ namespace ExtraFeatures
         private int heapCount;
         private int touchedCount;
         private int nextInsertionOrder;
+        private long nextDiagnosticTimestamp;
+        private int lastDiagnosticStart = -1;
+        private int lastDiagnosticTarget = -1;
+        private bool lastDiagnosticClimbingAllowed;
         private bool fallbackLogged;
 
         public AssassinPathfindingRuntime(ManualLogSource log, ExtraFeaturesViewModel settings, AssassinClimbRuntime climbRuntime)
@@ -85,11 +94,11 @@ namespace ExtraFeatures
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
             this.climbRuntime = climbRuntime ?? throw new ArgumentNullException(nameof(climbRuntime));
-            for (int tile = 0; tile < TileCount; tile++)
+            for (int node = 0; node < CoordinateCount; node++)
             {
-                costs[tile] = int.MaxValue;
-                parents[tile] = -1;
-                heapPositions[tile] = -1;
+                costs[node] = int.MaxValue;
+                parents[node] = -1;
+                heapPositions[node] = -1;
             }
         }
 
@@ -127,6 +136,7 @@ namespace ExtraFeatures
             directionMasks = (byte*)IntPtr.Add(newLibraryHandle, DirectionMaskRva).ToPointer();
             specialTilePredicate = Marshal.GetDelegateForFunctionPointer<SpecialTilePredicateDelegate>(
                 IntPtr.Add(newLibraryHandle, SpecialTilePredicateRva));
+            ValidateCoordinateTileMapping();
 
             rootedDetour = BuildWeightedPath;
             IntPtr detourAddress = Marshal.GetFunctionPointerForDelegate(rootedDetour);
@@ -163,13 +173,22 @@ namespace ExtraFeatures
 
             try
             {
-                if (!TryResolveAssassinRequest(startX, startY, out int playerId, out int cardinalTicks))
+                if (!TryResolveAssassinRequest(startX, startY, out int playerId, out int speedDelay))
                     return vanillaResult;
 
                 bool allowClimbing = climbRuntime.IsClimbingAllowed(playerId);
-                return TryBuildWeightedRoute(context, startX, startY, targetX, targetY, maximumNodes, cardinalTicks, allowClimbing)
-                    ? 1
-                    : 0;
+                bool found = TryBuildWeightedRoute(
+                    context,
+                    startX,
+                    startY,
+                    targetX,
+                    targetY,
+                    maximumNodes,
+                    speedDelay,
+                    allowClimbing,
+                    out PathDiagnostic diagnostic);
+                LogPathDiagnosticIfDue(playerId, startX, startY, targetX, targetY, speedDelay, allowClimbing, vanillaResult, found, diagnostic);
+                return found ? 1 : 0;
             }
             catch (Exception ex)
             {
@@ -189,31 +208,46 @@ namespace ExtraFeatures
             int targetX,
             int targetY,
             int maximumNodes,
-            int cardinalTicks,
-            bool allowClimbing)
+            int speedDelay,
+            bool allowClimbing,
+            out PathDiagnostic diagnostic)
         {
+            diagnostic = default;
             if (!IsValidCoordinate(startX, startY) || !IsValidCoordinate(targetX, targetY))
                 return false;
 
             ResetTouchedNodes();
+            int cardinalTicks = AssassinClimbCostPolicy.GetCardinalMovementTicks(speedDelay);
+            int diagonalTicks = AssassinClimbCostPolicy.GetDiagonalMovementTicks(speedDelay);
+            diagnostic.CardinalTicks = cardinalTicks;
+            diagnostic.DiagonalTicks = diagonalTicks;
             int startTile = GetTileId(startX, startY);
             int targetTile = GetTileId(targetX, targetY);
-            Touch(startTile, 0, -1);
-            Push(startTile);
+            if (!IsNativeTile(startTile) || !IsNativeTile(targetTile))
+                return false;
+
+            int startNode = GetCoordinateIndex(startX, startY);
+            int targetNode = GetCoordinateIndex(targetX, targetY);
+            Touch(startNode, 0, -1, 0, false);
+            Push(startNode);
             int expanded = 0;
             int nodeLimit = Math.Max(1, Math.Min(maximumNodes, TileCount));
 
             while (heapCount > 0 && expanded < nodeLimit)
             {
-                int current = Pop();
+                int currentNode = Pop();
                 expanded++;
-                if (current == targetTile)
-                    return CommitRoute(context, startTile, targetTile);
+                diagnostic.ExpandedNodes = expanded;
+                if (currentNode == targetNode)
+                    return CommitRoute(context, startNode, targetNode, ref diagnostic);
 
-                if (!TryGetCoordinates(current, out int currentX, out int currentY))
+                int currentX = currentNode % MapWidth;
+                int currentY = currentNode / MapWidth;
+                int currentTile = GetTileId(currentX, currentY);
+                if (!IsNativeTile(currentTile))
                     continue;
 
-                uint currentFlags = tileFlags[current];
+                uint currentFlags = tileFlags[currentTile];
                 for (int direction = 0; direction < DirectionX.Length; direction++)
                 {
                     int nextX = currentX + DirectionX[direction];
@@ -221,34 +255,46 @@ namespace ExtraFeatures
                     if (!IsValidCoordinate(nextX, nextY))
                         continue;
 
-                    int next = GetTileId(nextX, nextY);
-                    bool ordinaryEdge = (directionMasks[direction] & occupancyLayer[current]) != 0;
+                    int nextTile = GetTileId(nextX, nextY);
+                    if (!IsNativeTile(nextTile))
+                        continue;
+
+                    int nextNode = GetCoordinateIndex(nextX, nextY);
+                    bool ordinaryEdge = (directionMasks[direction] & occupancyLayer[currentTile]) != 0;
                     bool climbEdge = false;
                     if (!ordinaryEdge)
                     {
-                        if ((direction & 1) != 0 || !IsVanillaAssassinFallback(current, next, currentFlags))
+                        if ((direction & 1) != 0 || !IsVanillaAssassinFallback(currentTile, nextTile, currentFlags))
                             continue;
                         climbEdge = true;
+                        diagnostic.ClimbCandidates++;
                         if (!allowClimbing)
                             continue;
                     }
 
                     int movementTicks = (direction & 1) == 0
                         ? cardinalTicks
-                        : Math.Max(cardinalTicks + 1, (cardinalTicks * 181 + 64) / 128);
-                    int edgeCost = movementTicks + (climbEdge ? GetClimbTicks(current, next) : 0);
-                    int newCost = costs[current] > int.MaxValue - edgeCost ? int.MaxValue : costs[current] + edgeCost;
-                    if (newCost >= costs[next])
+                        : diagonalTicks;
+                    int climbTicks = climbEdge ? GetClimbTicks(currentTile, nextTile) : 0;
+                    int edgeCost = movementTicks > int.MaxValue - climbTicks ? int.MaxValue : movementTicks + climbTicks;
+                    int newCost = costs[currentNode] > int.MaxValue - edgeCost ? int.MaxValue : costs[currentNode] + edgeCost;
+                    if (newCost >= costs[nextNode])
                         continue;
 
-                    if (costs[next] == int.MaxValue)
-                        Touch(next, newCost, current);
+                    if (costs[nextNode] == int.MaxValue)
+                        Touch(nextNode, newCost, currentNode, climbTicks, climbEdge);
                     else
                     {
-                        costs[next] = newCost;
-                        parents[next] = current;
+                        costs[nextNode] = newCost;
+                        parents[nextNode] = currentNode;
+                        incomingClimbTicks[nextNode] = climbTicks;
+                        incomingClimbEdges[nextNode] = climbEdge ? (byte)1 : (byte)0;
                     }
-                    PushOrDecrease(next);
+                    if (climbEdge)
+                        diagnostic.AcceptedClimbEdges++;
+                    else
+                        diagnostic.AcceptedOrdinaryEdges++;
+                    PushOrDecrease(nextNode);
                 }
             }
 
@@ -282,19 +328,19 @@ namespace ExtraFeatures
                 targetIsStairs: (targetFlags & IsStairsFlag) != 0);
         }
 
-        private bool CommitRoute(IntPtr context, int startTile, int targetTile)
+        private bool CommitRoute(IntPtr context, int startNode, int targetNode, ref PathDiagnostic diagnostic)
         {
             int routeLength = 0;
-            int tile = targetTile;
-            while (tile >= 0 && routeLength < route.Length)
+            int node = targetNode;
+            while (node >= 0 && routeLength < route.Length)
             {
-                route[routeLength++] = tile;
-                if (tile == startTile)
+                route[routeLength++] = node;
+                if (node == startNode)
                     break;
-                tile = parents[tile];
+                node = parents[node];
             }
 
-            if (routeLength == 0 || routeLength > MaximumCommittedPathLength || route[routeLength - 1] != startTile)
+            if (routeLength == 0 || routeLength > MaximumCommittedPathLength || route[routeLength - 1] != startNode)
                 return false;
 
             int generation = *(int*)((byte*)context.ToPointer() + 4) + 1;
@@ -307,17 +353,33 @@ namespace ExtraFeatures
 
             for (int reverseIndex = routeLength - 1, distance = 1; reverseIndex >= 0; reverseIndex--, distance++)
             {
-                int routeTile = route[reverseIndex];
+                int routeNode = route[reverseIndex];
+                int routeX = routeNode % MapWidth;
+                int routeY = routeNode / MapWidth;
+                int routeTile = GetTileId(routeX, routeY);
+                if (!IsNativeTile(routeTile))
+                    return false;
                 nativeVisitStamps[routeTile] = (short)generation;
                 nativeDistances[routeTile] = (short)distance;
+
+                if (reverseIndex < routeLength - 1)
+                {
+                    int climbTicks = incomingClimbTicks[routeNode];
+                    diagnostic.SelectedClimbTicks += climbTicks;
+                    if (incomingClimbEdges[routeNode] != 0)
+                        diagnostic.SelectedClimbEdges++;
+                }
             }
+            diagnostic.RouteLength = routeLength;
+            diagnostic.TotalTicks = costs[targetNode];
+            diagnostic.SelectedMovementTicks = diagnostic.TotalTicks - diagnostic.SelectedClimbTicks;
             return true;
         }
 
-        private bool TryResolveAssassinRequest(int startX, int startY, out int playerId, out int cardinalTicks)
+        private bool TryResolveAssassinRequest(int startX, int startY, out int playerId, out int speedDelay)
         {
             playerId = -1;
-            cardinalTicks = 8;
+            speedDelay = -1;
             Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
             for (int index = 0; index < units.Length; index++)
             {
@@ -333,9 +395,12 @@ namespace ExtraFeatures
                 if (playerId > 0 && candidatePlayer != playerId)
                     return false;
                 playerId = candidatePlayer;
-                if (candidate.r_CurrentSpeed > 0)
-                    cardinalTicks = candidate.r_CurrentSpeed;
+                int candidateDelay = candidate.r_CurrentSpeed;
+                if (candidateDelay > speedDelay)
+                    speedDelay = candidateDelay;
             }
+            if (speedDelay < 0)
+                speedDelay = GameUnitManagerAPI.Instance.GetDefaultSpeed(eChimps.CHIMP_TYPE_ARAB_ASSASIN);
             return playerId > 0;
         }
 
@@ -346,47 +411,56 @@ namespace ExtraFeatures
 
         private int GetTileId(int x, int y) => rowLookup[y * 3] + x;
 
-        private bool TryGetCoordinates(int tile, out int x, out int y)
+        private static int GetCoordinateIndex(int x, int y) => y * MapWidth + x;
+
+        private static bool IsNativeTile(int tile) => (uint)tile < TileCount;
+
+        private void ValidateCoordinateTileMapping()
         {
-            // Row bases are monotonic but not necessarily y*800, so use a bounded binary search.
-            int low = 0;
-            int high = MapWidth - 1;
-            while (low <= high)
+            var seenTiles = new byte[TileCount];
+            int validCount = 0;
+            for (int y = 0; y < MapWidth; y++)
             {
-                int middle = (low + high) >> 1;
-                int rowStart = rowLookup[middle * 3];
-                int nextStart = middle == MapWidth - 1 ? TileCount : rowLookup[(middle + 1) * 3];
-                if (tile < rowStart)
-                    high = middle - 1;
-                else if (tile >= nextStart)
-                    low = middle + 1;
-                else
+                for (int x = 0; x < MapWidth; x++)
                 {
-                    y = middle;
-                    x = tile - rowStart;
-                    return (uint)x < MapWidth;
+                    if (!IsValidCoordinate(x, y))
+                        continue;
+
+                    int tile = GetTileId(x, y);
+                    if (!IsNativeTile(tile))
+                        throw new InvalidOperationException($"valid coordinate {x},{y} maps outside the native tile layers: {tile}");
+                    if (seenTiles[tile] != 0)
+                        throw new InvalidOperationException($"valid coordinate {x},{y} maps to duplicate native tile {tile}");
+                    seenTiles[tile] = 1;
+                    validCount++;
                 }
             }
-            x = y = -1;
-            return false;
+
+            if (validCount <= 0 || validCount > TileCount)
+                throw new InvalidOperationException($"native coordinate map exposed an invalid valid-tile count: {validCount}");
+            LogInfo($"Assassin coordinate map validated: validCoordinates={validCount}, nativeTileCapacity={TileCount}.");
         }
 
-        private void Touch(int tile, int cost, int parent)
+        private void Touch(int node, int cost, int parent, int climbTicks, bool climbEdge)
         {
-            touched[touchedCount++] = tile;
-            costs[tile] = cost;
-            parents[tile] = parent;
-            insertionOrder[tile] = nextInsertionOrder++;
+            touched[touchedCount++] = node;
+            costs[node] = cost;
+            parents[node] = parent;
+            incomingClimbTicks[node] = climbTicks;
+            incomingClimbEdges[node] = climbEdge ? (byte)1 : (byte)0;
+            insertionOrder[node] = nextInsertionOrder++;
         }
 
         private void ResetTouchedNodes()
         {
             for (int index = 0; index < touchedCount; index++)
             {
-                int tile = touched[index];
-                costs[tile] = int.MaxValue;
-                parents[tile] = -1;
-                heapPositions[tile] = -1;
+                int node = touched[index];
+                costs[node] = int.MaxValue;
+                parents[node] = -1;
+                incomingClimbTicks[node] = 0;
+                incomingClimbEdges[node] = 0;
+                heapPositions[node] = -1;
             }
             touchedCount = 0;
             heapCount = 0;
@@ -466,8 +540,71 @@ namespace ExtraFeatures
                 (costs[left] == costs[right] && insertionOrder[left] < insertionOrder[right]);
         }
 
+        private void LogPathDiagnosticIfDue(
+            int playerId,
+            int startX,
+            int startY,
+            int targetX,
+            int targetY,
+            int speedDelay,
+            bool allowClimbing,
+            int vanillaResult,
+            bool found,
+            PathDiagnostic diagnostic)
+        {
+            int localPlayerId;
+            try
+            {
+                localPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
+            }
+            catch
+            {
+                return;
+            }
+            if (playerId != localPlayerId)
+                return;
+
+            int start = GetCoordinateIndex(startX, startY);
+            int target = GetCoordinateIndex(targetX, targetY);
+            long now = Stopwatch.GetTimestamp();
+            bool sameRequest = start == lastDiagnosticStart && target == lastDiagnosticTarget &&
+                allowClimbing == lastDiagnosticClimbingAllowed;
+            if (sameRequest && now < nextDiagnosticTimestamp)
+                return;
+
+            lastDiagnosticStart = start;
+            lastDiagnosticTarget = target;
+            lastDiagnosticClimbingAllowed = allowClimbing;
+            nextDiagnosticTimestamp = now + DiagnosticIntervalTicks;
+            log.LogDebug(
+                $"[{TimestampNow()}] Extra Features Assassin path diagnostic: " +
+                $"playerId={playerId}, start={startX},{startY}, target={targetX},{targetY}, " +
+                $"speedDelay={speedDelay}, movementTicks={diagnostic.CardinalTicks}/{diagnostic.DiagonalTicks}, " +
+                $"climbingAllowed={allowClimbing}, vanillaResult={vanillaResult}, weightedResult={found}, " +
+                $"expanded={diagnostic.ExpandedNodes}, acceptedOrdinary={diagnostic.AcceptedOrdinaryEdges}, " +
+                $"climbCandidates={diagnostic.ClimbCandidates}, acceptedClimb={diagnostic.AcceptedClimbEdges}, " +
+                $"routeLength={diagnostic.RouteLength}, selectedClimbs={diagnostic.SelectedClimbEdges}, " +
+                $"movementCost={diagnostic.SelectedMovementTicks}, climbCost={diagnostic.SelectedClimbTicks}, " +
+                $"totalCost={diagnostic.TotalTicks}.");
+        }
+
         private void LogInfo(string message) => log.LogInfo($"[{TimestampNow()}] Extra Features {message}");
         private void LogError(string message) => log.LogError($"[{TimestampNow()}] Extra Features {message}");
         private static string TimestampNow() => DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture);
+
+        private struct PathDiagnostic
+        {
+            public int CardinalTicks;
+            public int DiagonalTicks;
+            public int ExpandedNodes;
+            public int AcceptedOrdinaryEdges;
+            public int ClimbCandidates;
+            public int AcceptedClimbEdges;
+            public int RouteLength;
+            public int SelectedClimbEdges;
+            public int SelectedMovementTicks;
+            public int SelectedClimbTicks;
+            public int TotalTicks;
+        }
     }
 }

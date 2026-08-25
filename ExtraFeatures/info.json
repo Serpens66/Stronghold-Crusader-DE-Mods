@@ -3,10 +3,22 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.52",
+  "Version": "1.0.54",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.54",
+      "Changes": [
+        "Corrected weighted Assassin walking costs and coordinate expansion, and added collision-aware shared troop-action button placement."
+      ]
+    },
+    {
+      "Version": "1.0.53",
+      "Changes": [
+        "Corrected portable-shield wall commands by restoring the native selection climb permission while the optional host setting is active."
+      ]
+    },
     {
       "Version": "1.0.52",
       "Changes": [

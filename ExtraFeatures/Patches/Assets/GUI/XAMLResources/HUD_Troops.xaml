@@ -4,10 +4,11 @@
        xmlns:local="clr-namespace:CrusaderDE">
   <Operation Type="Add" XPath="//n:Grid[@Name='UnitControls']">
     <Content>
-      <Grid x:Name="ExtraFeaturesKnightDismountButtonHost"
+      <Grid x:Name="SerpTroopAction_0100_ExtraFeaturesKnightTransform"
             Width="36"
             Height="37"
-            Margin="{Binding ButtonMargin}"
+            Margin="80,40,0,3"
+            Panel.ZIndex="25"
             Visibility="{Binding ButtonVisibility}">
         <Button x:Name="ExtraFeaturesKnightDismountButton"
                 local:PropEx.Sprite1="{StaticResource UI-Buttons O016}"
@@ -52,10 +53,15 @@
           </b:Interaction.Triggers>
         </Button>
       </Grid>
-      <Grid x:Name="ExtraFeaturesAssassinClimbButtonHost"
+    </Content>
+  </Operation>
+  <Operation Type="Add" XPath="//n:Grid[@Name='UnitControls']">
+    <Content>
+      <Grid x:Name="SerpTroopAction_0200_ExtraFeaturesAssassinClimb"
             Width="36"
             Height="37"
             Margin="80,40,0,3"
+            Panel.ZIndex="25"
             Visibility="{Binding ButtonVisibility}">
         <Button x:Name="ExtraFeaturesAssassinClimbButton"
                 local:PropEx.Sprite1="{StaticResource UI-Buttons K043}"
