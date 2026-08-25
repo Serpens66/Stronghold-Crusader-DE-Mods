@@ -8,7 +8,7 @@ using System;
 using System.Globalization;
 using System.Runtime.InteropServices;
 
-namespace ExtraFeatures
+namespace BugfixesAndQoL
 {
     internal sealed unsafe class AssassinPathfindingRuntime
     {
@@ -53,7 +53,7 @@ namespace ExtraFeatures
         private static readonly int[] DirectionY = { -1, -1, 0, 1, 1, 1, 0, -1 };
 
         private readonly ManualLogSource log;
-        private readonly ExtraFeaturesViewModel settings;
+        private readonly BugfixesAndQoLViewModel settings;
         private readonly AssassinClimbRuntime climbRuntime;
         private readonly int[] costs = new int[CoordinateCount];
         private readonly int[] parents = new int[CoordinateCount];
@@ -84,7 +84,7 @@ namespace ExtraFeatures
         private bool coordinateMapValidated;
         private bool coordinateValidationFailureLogged;
 
-        public AssassinPathfindingRuntime(ManualLogSource log, ExtraFeaturesViewModel settings, AssassinClimbRuntime climbRuntime)
+        public AssassinPathfindingRuntime(ManualLogSource log, BugfixesAndQoLViewModel settings, AssassinClimbRuntime climbRuntime)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
@@ -549,9 +549,9 @@ namespace ExtraFeatures
                 (costs[left] == costs[right] && insertionOrder[left] < insertionOrder[right]);
         }
 
-        private void LogDebug(string message) => log.LogDebug($"[{TimestampNow()}] Extra Features {message}");
-        private void LogWarning(string message) => log.LogWarning($"[{TimestampNow()}] Extra Features {message}");
-        private void LogError(string message) => log.LogError($"[{TimestampNow()}] Extra Features {message}");
+        private void LogDebug(string message) => log.LogDebug($"[{TimestampNow()}] Bugfixes and QoL {message}");
+        private void LogWarning(string message) => log.LogWarning($"[{TimestampNow()}] Bugfixes and QoL {message}");
+        private void LogError(string message) => log.LogError($"[{TimestampNow()}] Bugfixes and QoL {message}");
         private static string TimestampNow() => DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture);
     }
 }

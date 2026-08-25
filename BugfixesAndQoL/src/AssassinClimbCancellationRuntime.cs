@@ -7,7 +7,7 @@ using SHCDESE.Interop.Enums;
 using System;
 using System.Runtime.InteropServices;
 
-namespace ExtraFeatures
+namespace BugfixesAndQoL
 {
     internal sealed unsafe class AssassinClimbCancellationRuntime : IDisposable
     {
@@ -30,13 +30,13 @@ namespace ExtraFeatures
             "48 8D 0D A9 CA B2 07 E9 E4 4C F8 FF";
 
         private readonly ManualLogSource log;
-        private readonly ExtraFeaturesViewModel settings;
+        private readonly BugfixesAndQoLViewModel settings;
         private SelectedUnitCommandDelegate original;
         private SelectedUnitCommandDelegate rootedDetour;
         private NativeDetour detour;
         private bool invalidTribeLogged;
 
-        public AssassinClimbCancellationRuntime(ManualLogSource log, ExtraFeaturesViewModel settings)
+        public AssassinClimbCancellationRuntime(ManualLogSource log, BugfixesAndQoLViewModel settings)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
@@ -86,7 +86,7 @@ namespace ExtraFeatures
                 detour = installed;
                 Shared.DebugLogHelper.LogDebug(
                     log,
-                    "Extra Features Assassin climb cancellation installed on Vanilla's synchronized selected-unit Stop processing.");
+                    "Bugfixes and QoL Assassin climb cancellation installed on Vanilla's synchronized selected-unit Stop processing.");
             }
             catch
             {
@@ -129,7 +129,7 @@ namespace ExtraFeatures
                 {
                     Shared.DebugLogHelper.LogError(
                         log,
-                        $"Extra Features Assassin climb cancellation failed before Vanilla Stop: {ex}");
+                        $"Bugfixes and QoL Assassin climb cancellation failed before Vanilla Stop: {ex}");
                 }
             }
 
@@ -196,7 +196,7 @@ namespace ExtraFeatures
             invalidTribeLogged = true;
             Shared.DebugLogHelper.LogWarning(
                 log,
-                $"Extra Features could not safely resolve Assassin Stop tribe {tribeId}; Vanilla behavior remains active.");
+                $"Bugfixes and QoL could not safely resolve Assassin Stop tribe {tribeId}; Vanilla behavior remains active.");
         }
 
     }

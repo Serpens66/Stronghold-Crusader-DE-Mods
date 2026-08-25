@@ -1,7 +1,7 @@
 using MessagePack;
 using MessagePack.Formatters;
 
-namespace ExtraFeatures
+namespace BugfixesAndQoL
 {
     [MessagePackObject]
     [MessagePackFormatter(typeof(AssassinClimbStatePacketFormatter))]

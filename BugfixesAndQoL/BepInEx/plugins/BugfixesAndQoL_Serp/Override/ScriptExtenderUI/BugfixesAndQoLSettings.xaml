@@ -254,6 +254,12 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableTroopMovementFixText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox>
+      <CheckBox IsChecked="{Binding EnableImprovedAssassinPathfinding, Mode=TwoWay}"
+                Foreground="White"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableImprovedAssassinPathfindingHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding EnableImprovedAssassinPathfindingText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox>
       <TextBlock Text="{Binding PlagueTitleText}" Style="{StaticResource SectionHeader}" Margin="0,4,0,4"/>
       <CheckBox IsChecked="{Binding EnablePlaguePopularityFix, Mode=TwoWay}"
                 Foreground="White"

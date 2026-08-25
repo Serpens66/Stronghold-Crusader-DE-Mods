@@ -1,11 +1,5 @@
 # Serp mod localization
 # Format: key=value
-SomeSettings.EnableImprovedAssassinPathfinding=Improved Assassin pathfinding
-SomeSettings.EnableImprovedAssassinPathfindingHelp=Chooses Assassin routes by expected travel time, including climbing animations, and enables the per-player climbing-mode button.
-SomeSettings.AssassinClimbingDisableTooltip=Forbid climbing
-SomeSettings.AssassinClimbingDisableTooltipBody=New orders for all of your Assassins avoid climbing edges. Normal stairs and already accessible wall surfaces remain usable.
-SomeSettings.AssassinClimbingEnableTooltip=Allow climbing
-SomeSettings.AssassinClimbingEnableTooltipBody=New orders for all of your Assassins may use climbing edges again.
 Common.EnableMod=Enable Mod
 Common.HostActivationLabel=(Host-)
 Common.ClientActivationLabel=(Client settings)

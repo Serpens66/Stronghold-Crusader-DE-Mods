@@ -14,6 +14,10 @@ namespace BugfixesAndQoL
         private readonly BugfixesAndQoLViewModel settings;
         private readonly TroopMovementFix3Runtime troopMovementFixRuntime;
         private readonly MultiplayerFeatureGate multiplayerFeatureGate;
+        private readonly Shared.TroopActionHudCoordinator troopActionHudCoordinator;
+        private readonly AssassinClimbRuntime assassinClimbRuntime;
+        private readonly AssassinClimbCancellationRuntime assassinClimbCancellationRuntime;
+        private readonly AssassinPathfindingRuntime assassinPathfindingRuntime;
         private readonly MultiplayerGameSpeedRuntime multiplayerGameSpeedRuntime;
         private readonly MultiplayerAivSyncRuntime multiplayerAivSyncRuntime;
         private readonly SiegeAmmoRestockFeature siegeAmmoRestockFeature;
@@ -67,6 +71,11 @@ namespace BugfixesAndQoL
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
             troopMovementFixRuntime = new TroopMovementFix3Runtime(log, settings);
             multiplayerFeatureGate = new MultiplayerFeatureGate(log);
+            troopActionHudCoordinator = new Shared.TroopActionHudCoordinator(log);
+            assassinClimbRuntime = new AssassinClimbRuntime(log, settings, multiplayerFeatureGate);
+            assassinClimbCancellationRuntime = new AssassinClimbCancellationRuntime(log, settings);
+            assassinPathfindingRuntime = new AssassinPathfindingRuntime(log, settings, assassinClimbRuntime);
+            troopActionHudCoordinator.Register(assassinClimbRuntime.RefreshButtonVisibility);
             multiplayerGameSpeedRuntime = new MultiplayerGameSpeedRuntime(log, settings, multiplayerFeatureGate);
             multiplayerAivSyncRuntime = new MultiplayerAivSyncRuntime(log, settings);
             siegeAmmoRestockFeature = new SiegeAmmoRestockFeature(log, settings, multiplayerFeatureGate);
@@ -78,9 +87,16 @@ namespace BugfixesAndQoL
         public object SelectedUnitHealthUi => selectedUnitHealthFeature?.ViewModel;
         public object AllyGoodsAmountDisplay => allyGoodsAmountModifierHook;
         public object MultiplayerAivSyncUi => multiplayerAivSyncRuntime;
+        public object AssassinClimbButton => assassinClimbRuntime.ButtonViewModel;
 
         public void InitializeNetwork()
         {
+            TryInitializePersistentFeature(
+                "Assassin climb-state synchronization",
+                assassinClimbRuntime.InitializeNetwork);
+            TryInitializePersistentFeature(
+                "troop action HUD coordinator",
+                troopActionHudCoordinator.Initialize);
             // These registrations serve independent features. Keep each failure isolated so a
             // managed speed-UI hook can never disable Ctrl trading or map-state maintenance.
             TryInitializePersistentFeature(
@@ -113,6 +129,8 @@ namespace BugfixesAndQoL
                         .Subscribe(args =>
                         {
                             multiplayerFeatureGate.CaptureMapMode(args.bMultiplayerSave != 0);
+                            assassinPathfindingRuntime.BeginMap();
+                            assassinClimbRuntime.BeginMap();
                             multiplayerGameSpeedRuntime.ApplySetting();
                         }));
             }
@@ -126,6 +144,8 @@ namespace BugfixesAndQoL
                         .Subscribe(_ =>
                         {
                             multiplayerGameSpeedRuntime.ResetMapState();
+                            assassinClimbRuntime.EndMap();
+                            assassinPathfindingRuntime.EndMap();
                             multiplayerFeatureGate.Reset();
                         }));
             }
@@ -168,6 +188,43 @@ namespace BugfixesAndQoL
             libraryLength = memory.Length;
             fixedLayoutHashValidated = isFixedLayoutHashValidated;
             nativeLibraryAvailable = true;
+            try
+            {
+                assassinClimbCancellationRuntime.InitializeNative(
+                    newLibraryHandle,
+                    memory,
+                    isFixedLayoutHashValidated);
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Bugfixes and QoL Assassin climb cancellation could not be initialized and remains inactive: {ex}");
+            }
+
+            if (isFixedLayoutHashValidated)
+            {
+                try
+                {
+                    assassinPathfindingRuntime.InitializeNative(
+                        newLibraryHandle,
+                        memory,
+                        fixedLayoutHashValidated: true);
+                }
+                catch (Exception ex)
+                {
+                    Shared.DebugLogHelper.LogError(
+                        log,
+                        $"Bugfixes and QoL weighted Assassin pathfinding could not be initialized and remains inactive: {ex}");
+                }
+            }
+            else if (settings.EnableMod && settings.EnableImprovedAssassinPathfinding)
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    "Bugfixes and QoL weighted Assassin pathfinding remains inactive because the fixed native layout is not validated for this CrusaderDE.dll; Vanilla pathfinding remains active.");
+            }
+
             // Every native feature has its own compatibility surface. A changed signature in
             // one feature must not prevent unrelated fixes from installing.
             try
@@ -211,6 +268,10 @@ namespace BugfixesAndQoL
             TryApplyFeature("multiplayer game speed", multiplayerGameSpeedRuntime.ApplySetting);
             TryApplyFeature("assembly-point placement fix", ApplyAssemblyPointPlacementPatchSetting);
             TryApplyFeature("AI stone-reserve fix", () => aiStoneReserveFix?.ApplySetting());
+            if (settings.EnableMod && settings.EnableImprovedAssassinPathfinding && assassinPathfindingRuntime.IsInstalled)
+                TryApplyFeature("Assassin climb button", assassinClimbRuntime.Initialize);
+            else
+                TryApplyFeature("Assassin climb button cleanup", assassinClimbRuntime.Dispose);
 
             if (settings.EnableClientFeatures)
                 SubscribeHooks();
@@ -254,6 +315,9 @@ namespace BugfixesAndQoL
             plagueApothecaryStateTransitionFix?.Dispose();
             plagueApothecaryStateTransitionFix = null;
             troopMovementFixRuntime.Dispose();
+            troopActionHudCoordinator.Dispose();
+            assassinClimbRuntime.Dispose();
+            assassinClimbCancellationRuntime.Dispose();
             ctrlMarketTradeHook?.Dispose();
             ctrlMarketTradeHook = null;
             allyGoodsAmountModifierHook?.Dispose();

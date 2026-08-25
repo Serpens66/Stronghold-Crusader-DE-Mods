@@ -42,7 +42,6 @@ namespace ExtraFeatures
         private bool enableFastRecruitRallyMovement = true;
         private bool enableMonksAlwaysRun;
         private bool enableKnightDismount = true;
-        private bool enableImprovedAssassinPathfinding = true;
         private bool instantHorse;
         private bool enableQuarryPileRelocation = true;
         private bool enableAIQuarryPileTowardsKeep = true;
@@ -92,8 +91,6 @@ namespace ExtraFeatures
         public string EnableMonksAlwaysRunHelpText => SerpLocalization.Get(SerpLocalization.EnableMonksAlwaysRunHelp);
         public string EnableKnightDismountText => SerpLocalization.Get(SerpLocalization.EnableKnightDismount);
         public string EnableKnightDismountHelpText => SerpLocalization.Get(SerpLocalization.EnableKnightDismountHelp);
-        public string EnableImprovedAssassinPathfindingText => SerpLocalization.Get(SerpLocalization.EnableImprovedAssassinPathfinding);
-        public string EnableImprovedAssassinPathfindingHelpText => SerpLocalization.Get(SerpLocalization.EnableImprovedAssassinPathfindingHelp);
         public string InstantHorseText => SerpLocalization.Get(SerpLocalization.InstantHorse);
         public string InstantHorseHelpText => SerpLocalization.Get(SerpLocalization.InstantHorseHelp);
         public string EnableQuarryPileRelocationText => SerpLocalization.Get(SerpLocalization.EnableQuarryPileRelocation);
@@ -226,7 +223,6 @@ namespace ExtraFeatures
         [SyncHostOnly] public bool EnableFastRecruitRallyMovement { get => enableFastRecruitRallyMovement; set => SetSetting(ref enableFastRecruitRallyMovement, value, nameof(EnableFastRecruitRallyMovement)); }
         [SyncHostOnly] public bool EnableMonksAlwaysRun { get => enableMonksAlwaysRun; set => SetSetting(ref enableMonksAlwaysRun, value, nameof(EnableMonksAlwaysRun)); }
         [SyncHostOnly] public bool EnableKnightDismount { get => enableKnightDismount; set => SetSetting(ref enableKnightDismount, value, nameof(EnableKnightDismount)); }
-        [SyncHostOnly] public bool EnableImprovedAssassinPathfinding { get => enableImprovedAssassinPathfinding; set => SetSetting(ref enableImprovedAssassinPathfinding, value, nameof(EnableImprovedAssassinPathfinding)); }
         [SyncHostOnly] public bool InstantHorse { get => instantHorse; set => SetSetting(ref instantHorse, value, nameof(InstantHorse)); }
         [SyncHostOnly] public bool EnableQuarryPileRelocation { get => enableQuarryPileRelocation; set => SetSetting(ref enableQuarryPileRelocation, value, nameof(EnableQuarryPileRelocation)); }
         [SyncHostOnly] public bool EnableAIQuarryPileTowardsKeep { get => enableAIQuarryPileTowardsKeep; set => SetSetting(ref enableAIQuarryPileTowardsKeep, value, nameof(EnableAIQuarryPileTowardsKeep)); }
@@ -309,7 +305,6 @@ namespace ExtraFeatures
                 EnableFastRecruitRallyMovement = true;
                 EnableMonksAlwaysRun = false;
                 EnableKnightDismount = true;
-                EnableImprovedAssassinPathfinding = true;
                 InstantHorse = false;
                 EnableQuarryPileRelocation = true;
                 EnableAIQuarryPileTowardsKeep = true;

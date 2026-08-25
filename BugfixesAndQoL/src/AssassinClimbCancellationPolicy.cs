@@ -1,5 +1,5 @@
 // Feature: Pure routing rules for cancelling Assassin climbing through Vanilla Stop.
-namespace ExtraFeatures
+namespace BugfixesAndQoL
 {
     internal static class AssassinClimbCancellationPolicy
     {

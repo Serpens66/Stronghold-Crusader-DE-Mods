@@ -59,9 +59,6 @@
       <CheckBox IsChecked="{Binding EnableMonksAlwaysRun, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableMonksAlwaysRunHelpText}" Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableMonksAlwaysRunText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox>
-      <CheckBox IsChecked="{Binding EnableImprovedAssassinPathfinding, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableImprovedAssassinPathfindingHelpText}" Margin="0,0,14,8">
-        <TextBlock Text="{Binding EnableImprovedAssassinPathfindingText}" Foreground="White" TextWrapping="Wrap"/>
-      </CheckBox>
       <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
         <CheckBox IsChecked="{Binding EnableKnightDismount, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableKnightDismountHelpText}" Margin="0,0,14,0">
           <TextBlock Text="{Binding EnableKnightDismountText}" Foreground="White" TextWrapping="Wrap"/>

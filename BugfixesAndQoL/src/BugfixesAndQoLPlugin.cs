@@ -27,7 +27,7 @@ namespace BugfixesAndQoL
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.84";
+        public const string PluginVersion = "1.0.85";
 
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
         private static DisplayResolutionDiagnostic displayResolutionDiagnostic;
@@ -176,6 +176,19 @@ namespace BugfixesAndQoL
             }
 
             InitializePersistentUiAndMapCallbacks();
+
+            try
+            {
+                GameXAMLManagerAPI.Instance.RegisterBinding(
+                    "SerpTroopAction_0200_BugfixesAndQoLAssassinClimb",
+                    runtime.AssassinClimbButton);
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(
+                    Logger,
+                    $"Bugfixes and QoL Assassin climb button binding failed: {ex}");
+            }
 
             try
             {

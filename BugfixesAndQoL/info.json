@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.84",
+  "Version": "1.0.85",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.85",
+      "Changes": [
+        "Moved improved Assassin pathfinding, climbing-mode controls, and synchronized Stop cancellation from Extra Features into Bugfixes and QoL."
+      ]
+    },
     {
       "Version": "1.0.84",
       "Changes": [

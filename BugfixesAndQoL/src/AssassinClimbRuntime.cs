@@ -14,7 +14,7 @@ using SHCDESE.ViewModels;
 using System;
 using System.Globalization;
 
-namespace ExtraFeatures
+namespace BugfixesAndQoL
 {
     internal sealed class AssassinClimbButtonViewModel : LobbyModSettingsBaseViewModel
     {
@@ -34,7 +34,7 @@ namespace ExtraFeatures
         public RelayCommand MouseLeaveCommand { get; }
 
         public int TroopActionLayoutVersion => 1;
-        public string TroopActionId => "ExtraFeatures_Serp.AssassinClimb";
+        public string TroopActionId => "BugfixesAndQoL_Serp.AssassinClimb";
         public int TroopActionPriority => 200;
         public bool WantsVisibility => wantsVisibility;
 
@@ -93,7 +93,7 @@ namespace ExtraFeatures
     {
         private const int ChoreProtocolVersion = 1;
         private readonly ManualLogSource log;
-        private readonly ExtraFeaturesViewModel settings;
+        private readonly BugfixesAndQoLViewModel settings;
         private readonly MultiplayerFeatureGate multiplayerFeatureGate;
         private readonly AssassinClimbButtonViewModel buttonViewModel;
         private readonly bool[] climbingAllowed = new bool[9];
@@ -104,7 +104,7 @@ namespace ExtraFeatures
         private bool networkInitialized;
         private int nextOperationId;
 
-        public AssassinClimbRuntime(ManualLogSource log, ExtraFeaturesViewModel settings, MultiplayerFeatureGate multiplayerFeatureGate)
+        public AssassinClimbRuntime(ManualLogSource log, BugfixesAndQoLViewModel settings, MultiplayerFeatureGate multiplayerFeatureGate)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
@@ -390,8 +390,8 @@ namespace ExtraFeatures
             nextOperationId = 0;
         }
 
-        private void LogDebug(string message) => log.LogDebug($"[{TimestampNow()}] Extra Features {message}");
-        private void LogError(string message) => log.LogError($"[{TimestampNow()}] Extra Features {message}");
+        private void LogDebug(string message) => log.LogDebug($"[{TimestampNow()}] Bugfixes and QoL {message}");
+        private void LogError(string message) => log.LogError($"[{TimestampNow()}] Bugfixes and QoL {message}");
         private static string TimestampNow() => DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture);
     }
 }

@@ -1,4 +1,4 @@
-namespace ExtraFeatures
+namespace BugfixesAndQoL
 {
     internal static class AssassinClimbCostPolicy
     {

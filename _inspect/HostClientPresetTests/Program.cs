@@ -1502,13 +1502,13 @@ internal static class Program
             "shared troop action metadata contract accepted an unknown version or incomplete metadata");
 
         var knight = new TroopActionRequest("ExtraFeatures_Serp.KnightTransform", 100, true);
-        var assassin = new TroopActionRequest("ExtraFeatures_Serp.AssassinClimb", 200, true);
+        var assassin = new TroopActionRequest("BugfixesAndQoL_Serp.AssassinClimb", 200, true);
         TroopActionLayoutDecision bothFree = TroopActionButtonLayoutPolicy.CreateDecision(
             new[] { assassin, knight }, false, false);
         Check(bothFree.Assignments.Select(value => $"{value.ActionId}:{value.Slot}").SequenceEqual(new[]
         {
             "ExtraFeatures_Serp.KnightTransform:BottomRight",
-            "ExtraFeatures_Serp.AssassinClimb:BottomMiddle"
+            "BugfixesAndQoL_Serp.AssassinClimb:BottomMiddle"
         }), "shared troop actions did not use priority order for the two free slots");
 
         TroopActionLayoutDecision reverseOrder = TroopActionButtonLayoutPolicy.CreateDecision(
@@ -1542,6 +1542,13 @@ internal static class Program
         Check(assassinOnly.Assignments.Count == 1 &&
               assassinOnly.Assignments[0].Slot == TroopActionSlot.BottomRight,
             "a lone Assassin action did not receive the preferred bottom-right slot");
+
+        TroopActionLayoutDecision knightOnly = TroopActionButtonLayoutPolicy.CreateDecision(
+            new[] { knight }, false, false);
+        Check(knightOnly.Assignments.Count == 1 &&
+              knightOnly.Assignments[0].ActionId == knight.ActionId &&
+              knightOnly.Assignments[0].Slot == TroopActionSlot.BottomRight,
+            "a lone Knight action did not receive the preferred bottom-right slot");
 
         TroopActionLayoutDecision threeActions = TroopActionButtonLayoutPolicy.CreateDecision(
             new[]

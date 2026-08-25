@@ -1,5 +1,11 @@
 # Serp mod localization
 # Format: key=value
+SomeSettings.EnableImprovedAssassinPathfinding=Verbesserte Meuchelmoerder-Wegfindung
+SomeSettings.EnableImprovedAssassinPathfindingHelp=Waehlt Wege fuer Meuchelmoerder nach der erwarteten Dauer einschliesslich Kletteranimationen und aktiviert den spielerbezogenen Klettermodus-Button.
+SomeSettings.AssassinClimbingDisableTooltip=Klettern verbieten
+SomeSettings.AssassinClimbingDisableTooltipBody=Neue Befehle fuer alle eigenen Meuchelmoerder vermeiden Kletterkanten. Normale Treppen und bereits zugaengliche Mauerflaechen bleiben nutzbar.
+SomeSettings.AssassinClimbingEnableTooltip=Klettern erlauben
+SomeSettings.AssassinClimbingEnableTooltipBody=Neue Befehle fuer alle eigenen Meuchelmoerder duerfen wieder Kletterkanten verwenden.
 BugfixesAndQoL.EnableAiFixes=KI-Korrekturen
 BugfixesAndQoL.EnableAiFixesHelp=Korrigiert das Verhalten der Vanilla-KI. Verhindert, dass eine wegen eines fehlenden Pferdes gescheiterte Ritterrekrutierung ein altes Ergebnis fuer fehlende Waffen oder Ruestungen wiederverwendet und diese Ausruestung wiederholt kauft, und behaelt vor Steinverkaeufen Stein fuer das teuerste Burggebaeude zurueck, dessen Erstbau noch nicht abgeschlossen wurde.
 BugfixesAndQoL.LordStanceVanillaBehavior=Vanilla-Verhalten

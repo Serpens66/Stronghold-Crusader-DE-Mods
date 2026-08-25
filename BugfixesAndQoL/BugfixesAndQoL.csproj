@@ -60,6 +60,12 @@
     <Compile Include="src\AiStoneReservePolicy.cs" />
     <Compile Include="src\AITowerRuinRepairFix.cs" />
     <Compile Include="src\AllyGoodsAmountModifierHook.cs" />
+    <Compile Include="src\AssassinClimbCancellationPolicy.cs" />
+    <Compile Include="src\AssassinClimbCancellationRuntime.cs" />
+    <Compile Include="src\AssassinClimbCostPolicy.cs" />
+    <Compile Include="src\AssassinClimbRuntime.cs" />
+    <Compile Include="src\AssassinClimbStatePacket.cs" />
+    <Compile Include="src\AssassinPathfindingRuntime.cs" />
     <Compile Include="src\BugfixesAndQoLRuntime.CtrlMarketTrade.cs" />
     <Compile Include="src\CtrlMarketTradeHook.cs" />
     <Compile Include="src\GameSpeedRepeatScheduler.cs" />
@@ -131,6 +137,8 @@
     <Compile Include="..\Shared\GameModeHelper.cs"><Link>Shared\GameModeHelper.cs</Link></Compile>
     <Compile Include="..\Shared\PresetLobbyModSettingsViewModel.cs"><Link>Shared\PresetLobbyModSettingsViewModel.cs</Link></Compile>
     <Compile Include="..\Shared\ToolTipPresentation.cs"><Link>Shared\ToolTipPresentation.cs</Link></Compile>
+    <Compile Include="..\Shared\TroopActionButtonLayout.cs"><Link>Shared\TroopActionButtonLayout.cs</Link></Compile>
+    <Compile Include="..\Shared\TroopActionButtonLayoutPolicy.cs"><Link>Shared\TroopActionButtonLayoutPolicy.cs</Link></Compile>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="ValidateScriptExtenderReference" BeforeTargets="BeforeBuild"><Error Condition="!Exists('$(ExtenderDir)\SHCDESE.dll')" Text="SHCDESE.dll was not found: $(ExtenderDir)" /></Target>

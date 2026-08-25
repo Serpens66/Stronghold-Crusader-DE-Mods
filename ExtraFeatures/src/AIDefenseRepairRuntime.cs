@@ -45,6 +45,7 @@ namespace ExtraFeatures
         private const int MaximumFrameCount = 0x922;
         private const int TicksPerSecond = 40;
         private const int RepairSummaryIntervalTicks = 30 * TicksPerSecond;
+        private const int TowerSnapshotIntervalTicks = 10 * TicksPerSecond;
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate int ExecuteBuildStepDelegate(
@@ -80,6 +81,8 @@ namespace ExtraFeatures
         private readonly HashSet<DefenseTargetKey> observedDefenseTargets =
             new HashSet<DefenseTargetKey>();
         private readonly HashSet<string> callbackFailuresLogged = new HashSet<string>(StringComparer.Ordinal);
+        private readonly Dictionary<uint, StandingDefenseQueryLogState> standingDefenseQueryLogs =
+            new Dictionary<uint, StandingDefenseQueryLogState>();
         // Keep standing repairs separate from AIV rebuilds. The native event is shared by both,
         // which made earlier aggregate logs unable to prove the damaged-building case.
         private readonly RepairPlayerDiagnostics[] standingRepairPlayers = new RepairPlayerDiagnostics[9];
@@ -100,6 +103,7 @@ namespace ExtraFeatures
         private bool invalidFrameLogged;
         private bool mapPrepared;
         private bool disposed;
+        private int lastTowerSnapshotTick = int.MinValue;
 
         // Both -1 values are a true Vanilla mode: no subscriptions/detours are installed when
         // starting in that state, and already installed callbacks immediately pass through.
@@ -138,6 +142,7 @@ namespace ExtraFeatures
             subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable.Subscribe(OnStartMap));
             subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post).Subscribe(_ => ResetMap()));
+            GameTimeManagerAPI.Instance.OnTick += OnGameTick;
             initialized = true;
             LogInfo("AI defense repair-radius, per-frame rebuild delay and native AIV branch diagnostics initialized.");
         }
@@ -213,6 +218,8 @@ namespace ExtraFeatures
             foreach (IDisposable subscription in subscriptions)
                 subscription.Dispose();
             subscriptions.Clear();
+            if (initialized)
+                GameTimeManagerAPI.Instance.OnTick -= OnGameTick;
             transaction?.Unload();
             transaction?.Dispose();
             transaction = null;
@@ -266,9 +273,11 @@ namespace ExtraFeatures
             pendingRuinDamage = null;
             executeBuildStepConfirmed = false;
             invalidFrameLogged = false;
+            lastTowerSnapshotTick = int.MinValue;
             buildStepHistory.Clear();
             rebuildDelays.Clear();
             observedDefenseTargets.Clear();
+            standingDefenseQueryLogs.Clear();
             callbackFailuresLogged.Clear();
             Array.Clear(maintenanceLastTicks, 0, maintenanceLastTicks.Length);
             Array.Clear(maintenanceOccurrences, 0, maintenanceOccurrences.Length);
@@ -347,11 +356,15 @@ namespace ExtraFeatures
                 // an unchanged denial on every Vanilla polling cycle.
                 RepairStateTransition transition = diagnostics.Record(observation, blocked, now);
                 string source = observation.IsRebuild ? "rebuild" : "standing-repair";
+                string targetBuilding = DescribeBuildingAtTile(observation.X, observation.Y);
+                if (!observation.IsRebuild)
+                    LogDamagedStandingDefenseQuery(observation, blocked, now);
                 if (transition != RepairStateTransition.None)
                 {
                     LogInfo($"AI repair-proximity target {(transition == RepairStateTransition.Blocked ? "blocked" : "released")}: " +
                         $"source={source}, player={args.PlayerId}, target=({observation.X},{observation.Y}), " +
-                        $"vanillaRadius={observation.VanillaRadius}, configuredRadius={observation.ConfiguredRadius}, tick={now}.");
+                        $"vanillaRadius={observation.VanillaRadius}, configuredRadius={observation.ConfiguredRadius}, tick={now}, " +
+                        $"targetBuilding={targetBuilding}.");
                 }
                 if (diagnostics.ShouldWriteSummary(now))
                 {
@@ -367,6 +380,136 @@ namespace ExtraFeatures
             {
                 LogFailure("repair proximity", ex);
             }
+        }
+
+        private void OnGameTick(int tick)
+        {
+            if (!IsConfigured || !mapActive)
+                return;
+
+            if (lastTowerSnapshotTick != int.MinValue &&
+                ElapsedTicks(tick, lastTowerSnapshotTick) < TowerSnapshotIntervalTicks)
+                return;
+
+            // Diagnostic only: polling the native building array avoids inferring a damaged
+            // tower from an anonymous proximity coordinate or from Vanilla's supplied radius.
+            lastTowerSnapshotTick = tick;
+            try
+            {
+                WriteStandingTowerSnapshots(tick);
+            }
+            catch (Exception ex)
+            {
+                LogFailure("standing-tower snapshot", ex);
+            }
+        }
+
+        private void WriteStandingTowerSnapshots(int tick)
+        {
+            bool[] aiPlayers = new bool[9];
+            StringBuilder[] towersByPlayer = new StringBuilder[9];
+            int[] towerCounts = new int[9];
+            int[] damagedCounts = new int[9];
+            for (int playerId = 1; playerId <= 8; playerId++)
+                aiPlayers[playerId] = IsAI(playerId);
+
+            Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
+            for (int slot = 0; slot < buildings.Length; slot++)
+            {
+                ref GameBuilding building = ref buildings[slot];
+                int playerId = building.r_PlayerIdOwner;
+                if (playerId < 1 || playerId > 8 || !aiPlayers[playerId] ||
+                    building.r_AliveState != AliveState.IsAlive || !IsTowerType(building.r_BuildingType))
+                    continue;
+
+                towerCounts[playerId]++;
+                bool damaged = building.r_CurrentHealth < building.r_MaxHealth;
+                if (damaged)
+                    damagedCounts[playerId]++;
+
+                StringBuilder details = towersByPlayer[playerId] ??
+                    (towersByPlayer[playerId] = new StringBuilder());
+                if (details.Length > 0)
+                    details.Append(';');
+                details.Append("id=").Append(slot + 1)
+                    .Append(",globalId=").Append(building.r_GlobalId)
+                    .Append(",type=").Append(building.r_BuildingType)
+                    .Append(",pos=(").Append(building.r_TilePositionXBegin).Append(',')
+                    .Append(building.r_TilePositionYBegin).Append(')')
+                    .Append(",health=").Append(building.r_CurrentHealth).Append('/')
+                    .Append(building.r_MaxHealth)
+                    .Append(",state=").Append(building.r_AliveState)
+                    .Append(",damaged=").Append(damaged ? 1 : 0);
+            }
+
+            for (int playerId = 1; playerId <= 8; playerId++)
+            {
+                if (!aiPlayers[playerId] || towerCounts[playerId] == 0)
+                    continue;
+
+                int stone = GamePlayerManagerAPI.Instance.GetGoodAmount(
+                    playerId, eGoods.STORED_STONE_BLOCKS);
+                LogInfo($"AI standing-tower snapshot: player={playerId}, tick={tick}, stone={stone}, " +
+                    $"towers={towerCounts[playerId]}, damaged={damagedCounts[playerId]}, " +
+                    $"details=[{towersByPlayer[playerId]}].");
+            }
+        }
+
+        private static string DescribeBuildingAtTile(int tileX, int tileY)
+        {
+            try
+            {
+                if (!TryGetBuildingAtTile(tileX, tileY, out int buildingId, out GameBuilding* building))
+                    return "none";
+
+                return $"id={buildingId},globalId={building->r_GlobalId},owner={building->r_PlayerIdOwner}," +
+                    $"type={building->r_BuildingType},health={building->r_CurrentHealth}/{building->r_MaxHealth}," +
+                    $"state={building->r_AliveState},bounds=({building->r_TilePositionXBegin}," +
+                    $"{building->r_TilePositionYBegin})-({building->r_TilePositionXEnd}," +
+                    $"{building->r_TilePositionYEnd})";
+            }
+            catch (Exception ex)
+            {
+                return $"unresolved:{ex.GetType().Name}";
+            }
+        }
+
+        private void LogDamagedStandingDefenseQuery(RepairObservation observation, bool blocked, int tick)
+        {
+            if (!TryGetBuildingAtTile(observation.X, observation.Y, out int buildingId, out GameBuilding* building) ||
+                building->r_PlayerIdOwner != observation.PlayerId ||
+                building->r_AliveState != AliveState.IsAlive ||
+                !IsStandingDefenseType(building->r_BuildingType) ||
+                building->r_CurrentHealth >= building->r_MaxHealth)
+                return;
+
+            bool shouldLog = !standingDefenseQueryLogs.TryGetValue(building->r_GlobalId, out StandingDefenseQueryLogState previous) ||
+                previous.Blocked != blocked || previous.Health != building->r_CurrentHealth ||
+                ElapsedTicks(tick, previous.Tick) >= TowerSnapshotIntervalTicks;
+            if (!shouldLog)
+                return;
+
+            standingDefenseQueryLogs[building->r_GlobalId] = new StandingDefenseQueryLogState(
+                tick, blocked, building->r_CurrentHealth);
+            int stone = GamePlayerManagerAPI.Instance.GetGoodAmount(
+                observation.PlayerId, eGoods.STORED_STONE_BLOCKS);
+            LogInfo($"AI damaged-standing-defense repair query: player={observation.PlayerId}, tick={tick}, " +
+                $"result={(blocked ? "blocked" : "allowed")}, target=({observation.X},{observation.Y}), " +
+                $"vanillaRadius={observation.VanillaRadius}, configuredRadius={observation.ConfiguredRadius}, " +
+                $"stone={stone}, buildingId={buildingId}, globalId={building->r_GlobalId}, " +
+                $"type={building->r_BuildingType}, health={building->r_CurrentHealth}/{building->r_MaxHealth}, " +
+                $"bounds=({building->r_TilePositionXBegin},{building->r_TilePositionYBegin})-" +
+                $"({building->r_TilePositionXEnd},{building->r_TilePositionYEnd}).");
+        }
+
+        private static bool TryGetBuildingAtTile(
+            int tileX, int tileY, out int buildingId, out GameBuilding* building)
+        {
+            GameTileManagerAPI tileApi = GameTileManagerAPI.Instance;
+            buildingId = tileApi.GetTileBuildingId(tileApi.GetTileId(tileX, tileY));
+            building = null;
+            return buildingId > 0 &&
+                GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out building);
         }
 
         private void OnBuildingRepair(BuildingRepairEventArgs args)
@@ -1017,6 +1160,10 @@ namespace ExtraFeatures
             type == eStructs.STRUCT_GATE_INNER || type == eStructs.STRUCT_GATE_WOOD ||
             type == eStructs.STRUCT_GATE_POSTERN || type == eStructs.STRUCT_DRAWBRIDGE;
 
+        private static bool IsTowerType(eStructs type) =>
+            type == eStructs.STRUCT_TOWER ||
+            ((int)type >= (int)eStructs.STRUCT_TOWER1 && (int)type <= (int)eStructs.STRUCT_TOWER5);
+
         private static bool IsDefenseType(eStructs type) =>
             IsStandingDefenseType(type) || IsTowerRuin(type);
 
@@ -1396,6 +1543,20 @@ namespace ExtraFeatures
             internal int VanillaRadius { get; }
             internal int ConfiguredRadius { get; }
             internal bool IsRebuild { get; }
+        }
+
+        private readonly struct StandingDefenseQueryLogState
+        {
+            internal StandingDefenseQueryLogState(int tick, bool blocked, short health)
+            {
+                Tick = tick;
+                Blocked = blocked;
+                Health = health;
+            }
+
+            internal int Tick { get; }
+            internal bool Blocked { get; }
+            internal short Health { get; }
         }
 
         private enum RepairStateTransition
