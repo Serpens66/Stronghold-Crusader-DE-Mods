@@ -676,6 +676,7 @@ namespace ExtraFeatures
 
             TryRunFeature("Lord health map initialization", ReconcileLordHealthRuntime);
 
+            TryRunFeature("Assassin pathfinding map initialization", assassinPathfindingRuntime.BeginMap);
             TryRunFeature("knight mount/dismount visibility", knightDismountRuntime.RefreshButtonVisibility);
             TryRunFeature("Assassin climb map initialization", assassinClimbRuntime.BeginMap);
             TryRunFeature("quarry-pile relocation visibility", quarryPileRelocationRuntime.RefreshButtonVisibility);
@@ -859,6 +860,7 @@ namespace ExtraFeatures
             multiplayerFeatureGate.Reset();
             gatehouseAutomationRuntime.EndMap();
             assassinClimbRuntime.EndMap();
+            assassinPathfindingRuntime.EndMap();
         }
 
         private void ApplyCampfirePeasantsLimit()

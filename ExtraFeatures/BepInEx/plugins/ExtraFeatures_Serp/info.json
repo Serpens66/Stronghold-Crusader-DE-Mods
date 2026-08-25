@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.54",
+  "Version": "1.0.55",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.55",
+      "Changes": [
+        "Deferred Assassin map validation until real path requests and corrected troop-button collision checks to use effective Noesis visibility."
+      ]
+    },
     {
       "Version": "1.0.54",
       "Changes": [

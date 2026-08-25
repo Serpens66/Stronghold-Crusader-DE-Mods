@@ -88,6 +88,8 @@ namespace ExtraFeatures
         private int lastDiagnosticTarget = -1;
         private bool lastDiagnosticClimbingAllowed;
         private bool fallbackLogged;
+        private bool coordinateMapValidated;
+        private long nextCoordinateValidationFailureTimestamp;
 
         public AssassinPathfindingRuntime(ManualLogSource log, ExtraFeaturesViewModel settings, AssassinClimbRuntime climbRuntime)
         {
@@ -136,7 +138,6 @@ namespace ExtraFeatures
             directionMasks = (byte*)IntPtr.Add(newLibraryHandle, DirectionMaskRva).ToPointer();
             specialTilePredicate = Marshal.GetDelegateForFunctionPointer<SpecialTilePredicateDelegate>(
                 IntPtr.Add(newLibraryHandle, SpecialTilePredicateRva));
-            ValidateCoordinateTileMapping();
 
             rootedDetour = BuildWeightedPath;
             IntPtr detourAddress = Marshal.GetFunctionPointerForDelegate(rootedDetour);
@@ -147,7 +148,7 @@ namespace ExtraFeatures
                 original = installed.GenerateTrampoline<AssassinPathBuilderDelegate>();
                 installed.Apply();
                 detour = installed;
-                LogInfo($"weighted Assassin pathfinding installed at RVA 0x{AssassinBuilderRva:X}; climb costs={AssassinClimbCostPolicy.MinimumClimbTicks}/{AssassinClimbCostPolicy.LowWallClimbTicks}/{AssassinClimbCostPolicy.NormalWallClimbTicks} ticks.");
+                LogInfo($"weighted Assassin pathfinding installed at RVA 0x{AssassinBuilderRva:X}; map-dependent coordinate validation is deferred until the first Assassin request; climb costs={AssassinClimbCostPolicy.MinimumClimbTicks}/{AssassinClimbCostPolicy.LowWallClimbTicks}/{AssassinClimbCostPolicy.NormalWallClimbTicks} ticks.");
             }
             catch
             {
@@ -156,6 +157,16 @@ namespace ExtraFeatures
                 rootedDetour = null;
                 throw;
             }
+        }
+
+        public void BeginMap()
+        {
+            ResetMapValidation();
+        }
+
+        public void EndMap()
+        {
+            ResetMapValidation();
         }
 
         private int BuildWeightedPath(IntPtr context, int startX, int startY, int targetX, int targetY, int maximumNodes, int continuation)
@@ -174,6 +185,8 @@ namespace ExtraFeatures
             try
             {
                 if (!TryResolveAssassinRequest(startX, startY, out int playerId, out int speedDelay))
+                    return vanillaResult;
+                if (!EnsureCoordinateTileMappingValidated())
                     return vanillaResult;
 
                 bool allowClimbing = climbRuntime.IsClimbingAllowed(playerId);
@@ -439,6 +452,39 @@ namespace ExtraFeatures
             if (validCount <= 0 || validCount > TileCount)
                 throw new InvalidOperationException($"native coordinate map exposed an invalid valid-tile count: {validCount}");
             LogInfo($"Assassin coordinate map validated: validCoordinates={validCount}, nativeTileCapacity={TileCount}.");
+        }
+
+        private bool EnsureCoordinateTileMappingValidated()
+        {
+            if (coordinateMapValidated)
+                return true;
+
+            try
+            {
+                // These globals are empty while the DLL loads. A real Assassin request is the
+                // first lifecycle point that guarantees that Vanilla has prepared the map.
+                ValidateCoordinateTileMapping();
+                coordinateMapValidated = true;
+                nextCoordinateValidationFailureTimestamp = 0;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                long now = Stopwatch.GetTimestamp();
+                if (now >= nextCoordinateValidationFailureTimestamp)
+                {
+                    nextCoordinateValidationFailureTimestamp = now + DiagnosticIntervalTicks;
+                    LogError($"Assassin coordinate map is not ready or invalid; this request uses Vanilla pathfinding and the next request will retry validation: {ex.Message}");
+                }
+                return false;
+            }
+        }
+
+        private void ResetMapValidation()
+        {
+            coordinateMapValidated = false;
+            nextCoordinateValidationFailureTimestamp = 0;
+            fallbackLogged = false;
         }
 
         private void Touch(int node, int cost, int parent, int climbTicks, bool climbEdge)

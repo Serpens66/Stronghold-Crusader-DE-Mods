@@ -5,6 +5,7 @@ using MonoMod.RuntimeDetour;
 using Noesis;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Reflection;
 
 namespace Shared
@@ -18,9 +19,11 @@ namespace Shared
         private const int MaximumCandidateSlots = 10;
         private const string WantsVisibilityProperty = "WantsVisibility";
         private const string LayoutAvailableProperty = "LayoutAvailable";
+        private static readonly long DiagnosticIntervalTicks = Math.Max(1L, Stopwatch.Frequency * 2L);
 
         private static readonly HashSet<string> overflowLogged =
             new HashSet<string>(StringComparer.Ordinal);
+        private static long nextDiagnosticTimestamp;
 
         public static void Reflow(HUD_Troops troopPanel, ManualLogSource log)
         {
@@ -41,6 +44,12 @@ namespace Shared
             CollectOccupiedRectangles(controls, occupied);
             var assigned = new List<ScreenRectangle>();
             bool hasControlsBounds = TryGetScreenRectangle(controls, out ScreenRectangle controlsBounds);
+            int wantedCount = 0;
+            int testedSlots = 0;
+            int invalidRectangles = 0;
+            int boundsRejections = 0;
+            int collisionRejections = 0;
+            int unavailableCount = 0;
 
             for (int index = 0; index < hosts.Count; index++)
             {
@@ -50,17 +59,28 @@ namespace Shared
                     SetLayoutAvailable(host, true);
                     continue;
                 }
+                wantedCount++;
 
                 bool placed = false;
                 for (int slot = 0; slot < MaximumCandidateSlots; slot++)
                 {
+                    testedSlots++;
                     host.Element.RenderTransform = new TranslateTransform(-SlotStep * slot, 0f);
                     if (!TryGetScreenRectangle(host.Element, out ScreenRectangle candidate))
+                    {
+                        invalidRectangles++;
                         continue;
+                    }
                     if (hasControlsBounds && !controlsBounds.Contains(candidate))
+                    {
+                        boundsRejections++;
                         continue;
+                    }
                     if (IntersectsAny(candidate, occupied) || IntersectsAny(candidate, assigned))
+                    {
+                        collisionRejections++;
                         continue;
+                    }
 
                     assigned.Add(candidate);
                     SetLayoutAvailable(host, true);
@@ -73,13 +93,29 @@ namespace Shared
                     continue;
 
                 SetLayoutAvailable(host, false);
+                unavailableCount++;
                 if (log != null && overflowLogged.Add(host.ActionId))
                 {
                     DebugLogHelper.LogWarning(
                         log,
-                        $"Troop action '{host.ActionId}' is hidden because no collision-free UnitControls slot is available.");
+                        $"Troop action '{host.ActionId}' is hidden because no collision-free UnitControls slot is available; " +
+                        $"effectiveOccupied={occupied.Count}, testedSlots={MaximumCandidateSlots}, " +
+                        $"invalidRectangles={invalidRectangles}, boundsRejections={boundsRejections}, collisionRejections={collisionRejections}.");
                 }
             }
+
+            LogDiagnosticIfDue(
+                log,
+                hosts.Count,
+                wantedCount,
+                occupied.Count,
+                assigned.Count,
+                unavailableCount,
+                testedSlots,
+                invalidRectangles,
+                boundsRejections,
+                collisionRejections,
+                hasControlsBounds);
         }
 
         private static void CollectActionHosts(DependencyObject parent, List<ActionHost> result)
@@ -109,7 +145,10 @@ namespace Shared
                     if (TroopActionButtonLayoutPolicy.TryParseHostName(element.Name, out _, out _))
                         continue;
 
-                    if (element is Button && element.Visibility == Visibility.Visible && element.IsHitTestVisible &&
+                    // IsVisible includes hidden ancestors; Visibility alone makes inactive
+                    // Vanilla action groups look like occupied slots.
+                    if (element is Button &&
+                        TroopActionButtonLayoutPolicy.IsEffectivelyOccupied(element.IsVisible, element.IsHitTestVisible) &&
                         TryGetScreenRectangle(element, out ScreenRectangle rectangle))
                     {
                         result.Add(rectangle);
@@ -187,6 +226,35 @@ namespace Shared
                     return true;
             }
             return false;
+        }
+
+        private static void LogDiagnosticIfDue(
+            ManualLogSource log,
+            int hostCount,
+            int wantedCount,
+            int occupiedCount,
+            int assignedCount,
+            int unavailableCount,
+            int testedSlots,
+            int invalidRectangles,
+            int boundsRejections,
+            int collisionRejections,
+            bool hasControlsBounds)
+        {
+            if (log == null || wantedCount == 0)
+                return;
+
+            long now = Stopwatch.GetTimestamp();
+            if (now < nextDiagnosticTimestamp)
+                return;
+            nextDiagnosticTimestamp = now + DiagnosticIntervalTicks;
+            DebugLogHelper.LogDebug(
+                log,
+                $"Troop action layout diagnostic: hosts={hostCount}, wanted={wantedCount}, " +
+                $"effectiveOccupied={occupiedCount}, assigned={assignedCount}, unavailable={unavailableCount}, " +
+                $"testedSlots={testedSlots}, invalidRectangles={invalidRectangles}, " +
+                $"boundsRejections={boundsRejections}, collisionRejections={collisionRejections}, " +
+                $"controlsBoundsAvailable={hasControlsBounds}.");
         }
 
         private sealed class ActionHostComparer : IComparer<ActionHost>

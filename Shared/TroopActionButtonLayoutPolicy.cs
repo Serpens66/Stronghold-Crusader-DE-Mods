@@ -64,6 +64,11 @@ namespace Shared
             return -1;
         }
 
+        public static bool IsEffectivelyOccupied(bool isVisible, bool isHitTestVisible)
+        {
+            return isVisible && isHitTestVisible;
+        }
+
         private struct ActionIdentity
         {
             public ActionIdentity(int priority, string actionId)

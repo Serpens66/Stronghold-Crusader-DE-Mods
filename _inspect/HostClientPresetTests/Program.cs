@@ -1477,6 +1477,11 @@ internal static class Program
             "shared troop action collision policy did not report overflow");
         Check(TroopActionButtonLayoutPolicy.FindFirstAvailableSlot(new[] { true, false }) == 1,
             "shared troop action collision policy did not reuse a freed slot");
+        Check(TroopActionButtonLayoutPolicy.IsEffectivelyOccupied(true, true),
+            "shared troop action collision policy ignored an effectively visible interactive element");
+        Check(!TroopActionButtonLayoutPolicy.IsEffectivelyOccupied(false, true) &&
+              !TroopActionButtonLayoutPolicy.IsEffectivelyOccupied(true, false),
+            "shared troop action collision policy treated an effectively hidden or noninteractive element as occupied");
     }
 
     private static void TestTemporaryGateBlockagePolicy()
