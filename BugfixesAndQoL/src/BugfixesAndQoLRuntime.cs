@@ -43,6 +43,7 @@ namespace BugfixesAndQoL
         private AiRecruitmentHorseDemandFix aiRecruitmentHorseDemandFix;
         private AiStoneReserveFix aiStoneReserveFix;
         private AITowerRuinRepairFix aiTowerRuinRepairFix;
+        private BetterAIOverbuildRulesFix betterAIOverbuildRulesFix;
         private PlaguePopularityFix plaguePopularityFix;
         private PlagueTreatmentFadeFix plagueTreatmentFadeFix;
         private PlagueTargetReservationFix plagueTargetReservationFix;
@@ -59,6 +60,7 @@ namespace BugfixesAndQoL
         private bool aiRecruitmentHorseDemandFixUnavailable;
         private bool aiStoneReserveFixUnavailable;
         private bool aiTowerRuinRepairFixUnavailable;
+        private bool betterAIOverbuildRulesFixUnavailable;
         private bool plaguePopularityFixUnavailable;
         private bool plagueTreatmentFadeFixUnavailable;
         private bool plagueTargetReservationFixUnavailable;
@@ -79,6 +81,11 @@ namespace BugfixesAndQoL
             multiplayerGameSpeedRuntime = new MultiplayerGameSpeedRuntime(log, settings, multiplayerFeatureGate);
             multiplayerAivSyncRuntime = new MultiplayerAivSyncRuntime(log, settings);
             siegeAmmoRestockFeature = new SiegeAmmoRestockFeature(log, settings, multiplayerFeatureGate);
+#if BETTER_AI_OVERBUILD_DIAGNOSTICS
+            // TEMP_BETTER_AI_OVERBUILD_DIAGNOSTICS_BEGIN
+            BetterAIOverbuildDiagnostics.Initialize(log, settings);
+            // TEMP_BETTER_AI_OVERBUILD_DIAGNOSTICS_END
+#endif
             settings.SettingChanged += OnSettingChanged;
             settingsSubscribed = true;
         }
@@ -245,6 +252,7 @@ namespace BugfixesAndQoL
             TryInitializeFeature("AI recruitment horse-demand fix", EnsureAiRecruitmentHorseDemandFix);
             TryInitializeFeature("AI stone-reserve fix", EnsureAiStoneReserveFix);
             TryInitializeFeature("AI tower-ruin repair fix", EnsureAiTowerRuinRepairFix);
+            TryInitializeFeature("better AI overbuild rules", EnsureBetterAIOverbuildRulesFix);
             TryInitializeFeature("ally goods amount modifiers", InstallAllyGoodsAmountModifierHook);
             TryInitializeFeature("Ctrl single-unit market trade", InstallCtrlMarketTradeHook);
         }
@@ -252,6 +260,7 @@ namespace BugfixesAndQoL
         public void ApplySettings()
         {
             TryInitializeFeature("AI tower-ruin repair fix", EnsureAiTowerRuinRepairFix);
+            TryInitializeFeature("better AI overbuild rules", EnsureBetterAIOverbuildRulesFix);
             TryInitializeFeature("surrender", InitializeSurrenderFeature);
             TryInitializeFeature("selected-unit health display", InitializeSelectedUnitHealthFeature);
             TryApplyFeature("selected-unit health display", () => selectedUnitHealthFeature?.RefreshSetting());
@@ -305,6 +314,13 @@ namespace BugfixesAndQoL
             aiStoneReserveFix = null;
             aiTowerRuinRepairFix?.Dispose();
             aiTowerRuinRepairFix = null;
+            betterAIOverbuildRulesFix?.Dispose();
+            betterAIOverbuildRulesFix = null;
+#if BETTER_AI_OVERBUILD_DIAGNOSTICS
+            // TEMP_BETTER_AI_OVERBUILD_DIAGNOSTICS_BEGIN
+            BetterAIOverbuildDiagnostics.Shutdown();
+            // TEMP_BETTER_AI_OVERBUILD_DIAGNOSTICS_END
+#endif
             plaguePopularityFix?.Dispose();
             plaguePopularityFix = null;
             plagueTreatmentFadeFix?.SetTreatmentCompletedObserver(null);
@@ -719,6 +735,46 @@ namespace BugfixesAndQoL
                 Shared.DebugLogHelper.LogError(
                     log,
                     $"Bugfixes and QoL AI tower-ruin repair could not be installed; Vanilla behavior remains active: {ex}");
+            }
+        }
+
+        private void EnsureBetterAIOverbuildRulesFix()
+        {
+            if (betterAIOverbuildRulesFix != null)
+            {
+                betterAIOverbuildRulesFix.ApplySetting();
+                return;
+            }
+            if (!nativeLibraryAvailable || betterAIOverbuildRulesFixUnavailable)
+                return;
+            // Keep a fully disabled configuration physically Vanilla. Enabling the synchronized
+            // host setting later retries installation with the retained DLL mapping.
+            if (!settings.EnableMod || !settings.EnableAiFixes || !settings.BetterAIOverbuildRules)
+            {
+#if BETTER_AI_OVERBUILD_DIAGNOSTICS
+                // TEMP_BETTER_AI_OVERBUILD_DIAGNOSTICS_BEGIN
+                BetterAIOverbuildDiagnostics.SettingApplied(false);
+                // TEMP_BETTER_AI_OVERBUILD_DIAGNOSTICS_END
+#endif
+                return;
+            }
+
+            try
+            {
+                betterAIOverbuildRulesFix = new BetterAIOverbuildRulesFix(
+                    log,
+                    settings,
+                    GetNativeLibraryMemory(),
+                    unchecked((ulong)libraryHandle.ToInt64()),
+                    fixedLayoutHashValidated);
+            }
+            catch (Exception ex)
+            {
+                betterAIOverbuildRulesFixUnavailable = true;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Bugfixes and QoL better AI overbuild rules could not be installed; " +
+                    $"Vanilla behavior remains active: {ex}");
             }
         }
 

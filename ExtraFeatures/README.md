@@ -50,6 +50,11 @@ Set separate refund percentages from 0% to 100% for wood, stone, iron, pitch, an
 ### Preserve stored goods when demolishing storage buildings
 Goods inside a granary, stockpile, or armory are returned as incoming goods when the building is demolished instead of being lost. Contents of a granary that was built for free cannot be restored, which can occur when no wood was available during construction.
 
+### Customize enemy proximity for building actions
+Set separate Singleplayer and Multiplayer enemy-exclusion radii for human and AI building actions. Human values apply to normal building placement, repair, and demolition; the demolition cursor from BugfixesAndQoL reads the same active range. AI values apply only to safely classified repairs of damaged defenses and walls and to rebuilding previously built towers and gatehouses, while initial placements and unclassified AI building calls remain unchanged.
+
+Each value ranges from -1 to 100 fields. A value of -1 retains the complete context-specific Vanilla behavior, while 0 practically disables the proximity restriction. Normal human Vanilla checks use 30 fields in Singleplayer and 15 fields in real Multiplayer. Special placement checks with their own Vanilla radii remain unchanged. Skirmishes, Trails, and every other match that is not real Multiplayer use the Singleplayer values.
+
 ## Economy features
 
 ### Multiply gained goods
@@ -70,9 +75,6 @@ Set how long plague clouds remain active from 0.5 to 20 times the Vanilla durati
 Set how far an apothecary searches from its assigned building for plague clouds. The range can be adjusted from 20 to 200 tiles; Vanilla uses 30.
 
 ## AI behavior
-
-### Customize the safe distance for AI castle repairs
-Set how close an enemy may be before the AI stops repairing standing defenses or rebuilding previously built towers and gatehouses. The Vanilla rule can be retained, while a value of 0 practically removes this proximity restriction.
 
 ### Prevent AI production pauses
 Stop AI players from putting their own production buildings to sleep, keeping those buildings active.

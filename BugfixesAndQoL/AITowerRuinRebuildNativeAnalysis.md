@@ -219,6 +219,55 @@ foreign blocker that can only use the narrow policy. It remains conservative:
 a broad-capable blocker whose AIV entry is no longer retryable would be protected
 even though it could not actually continue the cycle.
 
+## Better AI overbuild rules implementation
+
+The optional, host-synchronized `BetterAIOverbuildRules` setting implements the
+conservative policy above and is enabled by default underneath `EnableAiFixes`.
+It uses two adjacent but non-overlapping context hooks on the audited DLL:
+
+- `0x5CEAB` runs before Vanilla's hard-coded mapper comparison chain. For mapper
+  52 (stockpile), 77 (market/tradepost), 80 (granary), or 81 (armoury), the hook
+  temporarily supplies mapper 54 in `EBX`. The real mapper remains unchanged in
+  the placement argument stack slot, so only policy selection changes; footprint
+  construction and the eventual building spawn continue to use the requested
+  building.
+- `0x5D016-0x5D024` contains the complete `imul` and `movzx` that load an occupied
+  building's real structure type immediately before the broad classifier at
+  `0x5D025`. After those instructions, the hook preserves a blocker owned by a
+  different AI when its structure type maps to any of the eight unconditional
+  mappers, or when its anchor lies within Manhattan distance 20 of its owner's
+  valid stored keep. It supplies protected classifier type 40 in `RCX` without
+  modifying the live building record.
+
+The eight unconditional mapper values are 52, 54, 77, 79, 80, 81, 86, and 87.
+Their live structure types are 10, 1, 26, 2, 19, 11, 8, and 9 respectively.
+The protection applies regardless of alliance, but only between two different
+AI owners. Same-owner, human-owned, neutral, and invalid-owner blockers retain
+Vanilla behavior. A blocker without a valid stored keep can qualify only through
+the unconditional structure list.
+
+Disabling the option, the parent AI-fixes switch, or all host features disables
+both hooks. Installation is atomic and fixed-layout gated. The hook ending at
+`0x5D024` deliberately resumes at the existing tower-ruin broad classifier hook
+at `0x5D025`; neither patch overwrites the other.
+
+### Temporary runtime diagnostics
+
+The test build defines `BETTER_AI_OVERBUILD_DIAGNOSTICS`. All corresponding
+Info-level messages begin with `[TEMP BetterAIOverbuild]`. They report new-mapper
+promotion, every distinct foreign-AI blocker decision, and a synchronous
+`OnBuildingBulldoze(Pre)` correlation when a blocker delegated to Vanilla is
+actually removed. Repeated footprint hits with the same placement, pass, blocker
+and tick are suppressed, while a later retry tick remains visible. A map-end
+summary reports mapper promotion counts, protected and delegated blockers,
+confirmed removals, uncorrelated delegations, and suppressed duplicates.
+
+The temporary implementation is isolated in `BetterAIOverbuildDiagnostics.cs`
+and `BetterAIOverbuildDiagnosticState.cs`; production call sites are enclosed by
+marked `BETTER_AI_OVERBUILD_DIAGNOSTICS` blocks. Removing the define and both
+project compile entries, then deleting those two files, removes the diagnostics
+without changing the overbuild policy.
+
 If no building ID occupies a footprint tile, both policies can additionally
 inspect tile flags and remove certain other registered map occupants through
 `0xB8ED0` or `0xB8E00`. The broad policy may reach more of these occupants due

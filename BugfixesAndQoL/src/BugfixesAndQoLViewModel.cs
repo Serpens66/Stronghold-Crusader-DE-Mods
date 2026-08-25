@@ -20,6 +20,7 @@ namespace BugfixesAndQoL
         private bool enableCustomLordListEnhancements = true;
         private bool enableAiFixes = true;
         private bool fixAITowerRepair = true;
+        private bool betterAIOverbuildRules = true;
         private bool enableTroopMovementFix = true;
         private bool enableImprovedAssassinPathfinding = true;
         private bool enablePlaguePopularityFix = true;
@@ -115,6 +116,8 @@ namespace BugfixesAndQoL
         public string EnableAiFixesHelpText => SerpLocalization.Get(SerpLocalization.EnableAiFixesHelp);
         public string FixAITowerRepairText => SerpLocalization.Get("BugfixesAndQoL.FixAITowerRepair");
         public string FixAITowerRepairHelpText => SerpLocalization.Get("BugfixesAndQoL.FixAITowerRepairHelp");
+        public string BetterAIOverbuildRulesText => SerpLocalization.Get("BugfixesAndQoL.BetterAIOverbuildRules");
+        public string BetterAIOverbuildRulesHelpText => SerpLocalization.Get("BugfixesAndQoL.BetterAIOverbuildRulesHelp");
         public string TroopMovementTitleText => SerpLocalization.Get("BugfixesAndQoL.TroopMovementTitle");
         public string PlagueTitleText => SerpLocalization.Get("BugfixesAndQoL.PlagueTitle");
         public string GameplayTitleText => SerpLocalization.Get("BugfixesAndQoL.GameplayTitle");
@@ -341,6 +344,13 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool BetterAIOverbuildRules
+        {
+            get => betterAIOverbuildRules;
+            set => SetSetting(ref betterAIOverbuildRules, value, nameof(BetterAIOverbuildRules));
+        }
+
+        [SyncHostOnly]
         public bool RememberAiAivSettings
         {
             get => rememberAiAivSettings;
@@ -473,6 +483,7 @@ namespace BugfixesAndQoL
                 EnableMod = true;
                 EnableAiFixes = true;
                 FixAITowerRepair = true;
+                BetterAIOverbuildRules = true;
                 RememberAiAivSettings = true;
                 EnableCustomLordListEnhancements = true;
                 EnableTroopMovementFix = true;

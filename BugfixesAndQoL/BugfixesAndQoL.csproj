@@ -15,6 +15,7 @@
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <WarningLevel>4</WarningLevel>
+    <DefineConstants>$(DefineConstants);BETTER_AI_OVERBUILD_DIAGNOSTICS</DefineConstants>
   </PropertyGroup>
   <PropertyGroup Condition="'$(GameDir)' == ''"><GameDir>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir></PropertyGroup>
   <PropertyGroup>
@@ -59,6 +60,10 @@
     <Compile Include="src\AiStoneReserveNativeDefinition.cs" />
     <Compile Include="src\AiStoneReservePolicy.cs" />
     <Compile Include="src\AITowerRuinRepairFix.cs" />
+    <Compile Include="src\BetterAIOverbuildPolicy.cs" />
+    <Compile Include="src\BetterAIOverbuildRulesFix.cs" />
+    <Compile Include="src\BetterAIOverbuildDiagnostics.cs" />
+    <Compile Include="src\BetterAIOverbuildDiagnosticState.cs" />
     <Compile Include="src\AllyGoodsAmountModifierHook.cs" />
     <Compile Include="src\AssassinClimbCancellationPolicy.cs" />
     <Compile Include="src\AssassinClimbCancellationRuntime.cs" />
