@@ -208,6 +208,36 @@ namespace BugfixesAndQoL
                     : (ushort)0;
         }
 
+        internal bool TryGetSynchronizedCadenceBonus(
+            eChimps unitType,
+            bool improvedSpearmen,
+            out ushort cadenceBonus)
+        {
+            // These mobile siege types use the common sub-step bonus without
+            // switching between the infantry walking/running animations.
+            switch (unitType)
+            {
+                case eChimps.CHIMP_TYPE_CATAPULT:
+                case eChimps.CHIMP_TYPE_SIEGE_TOWER:
+                case eChimps.CHIMP_TYPE_PORTABLE_SHIELD:
+                    cadenceBonus = 1;
+                    return true;
+                case eChimps.CHIMP_TYPE_BATTERING_RAM:
+                case eChimps.CHIMP_TYPE_ARAB_BALLISTA:
+                    cadenceBonus = 0;
+                    return true;
+            }
+
+            bool supportsSynchronizedRunning =
+                SupportsSynchronizedRunning(unitType) &&
+                (unitType != eChimps.CHIMP_TYPE_SPEARMAN ||
+                 improvedSpearmen);
+            cadenceBonus = supportsSynchronizedRunning
+                ? GetNativeRunningSpeedBonus(unitType, improvedSpearmen)
+                : (ushort)0;
+            return supportsSynchronizedRunning;
+        }
+
         internal bool TryGetNativeRunningSpeedBonus(
             eChimps unitType,
             bool improvedSpearmen,
@@ -329,10 +359,6 @@ namespace BugfixesAndQoL
                     unit->r_UnitChimp,
                     out AnimationTransitions animationTransitions);
 
-                // TEMP_SIEGE_MOVEMENT_DIAGNOSTIC_BEGIN
-                ushort diagnosticSpeedBonusBefore = unit->r_SpeedBonus;
-                uint diagnosticAnimationBefore = unit->N000000F4;
-                // TEMP_SIEGE_MOVEMENT_DIAGNOSTIC_END
                 uint animationState = unit->N000000F4;
                 if (cadence == SynchronizedMovementCadence.Running)
                 {
@@ -348,15 +374,6 @@ namespace BugfixesAndQoL
                         unit->N000000F4 = runningState;
                     }
 
-                    // TEMP_SIEGE_MOVEMENT_DIAGNOSTIC_BEGIN
-                    TroopMovementFix3SiegeMovementDiagnostic.LogCadenceSample(
-                        log,
-                        unit,
-                        cadence,
-                        runningSpeedBonus,
-                        diagnosticSpeedBonusBefore,
-                        diagnosticAnimationBefore);
-                    // TEMP_SIEGE_MOVEMENT_DIAGNOSTIC_END
                     return;
                 }
 
@@ -371,16 +388,6 @@ namespace BugfixesAndQoL
                 {
                     unit->N000000F4 = walkingState;
                 }
-
-                // TEMP_SIEGE_MOVEMENT_DIAGNOSTIC_BEGIN
-                TroopMovementFix3SiegeMovementDiagnostic.LogCadenceSample(
-                    log,
-                    unit,
-                    cadence,
-                    runningSpeedBonus,
-                    diagnosticSpeedBonusBefore,
-                    diagnosticAnimationBefore);
-                // TEMP_SIEGE_MOVEMENT_DIAGNOSTIC_END
             }
             catch (Exception ex)
             {

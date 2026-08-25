@@ -29,10 +29,6 @@ namespace BugfixesAndQoL
                 new Dictionary<int, TribeSynchronization>();
         private readonly HashSet<int> activeMoveOrderTribeIds =
             new HashSet<int>();
-        // TEMP_SIEGE_MOVEMENT_DIAGNOSTIC_BEGIN
-        private readonly HashSet<int> siegeDiagnosticTribeIds =
-            new HashSet<int>();
-        // TEMP_SIEGE_MOVEMENT_DIAGNOSTIC_END
         private readonly List<int> unitIds =
             new List<int>(ExpectedMaximumTrackedUnits);
         private readonly Dictionary<eChimps, UnitTypeMovementInfo>
@@ -316,17 +312,6 @@ namespace BugfixesAndQoL
 
             if (args.Phase == EventHookPhase.Post)
             {
-                // TEMP_SIEGE_MOVEMENT_DIAGNOSTIC_BEGIN
-                if (siegeDiagnosticTribeIds.Remove(args.TribeId))
-                {
-                    TroopMovementFix3SiegeMovementDiagnostic.LogOrderSnapshot(
-                        log,
-                        args.TribeId,
-                        "ORDER_POST_AFTER_VANILLA",
-                        args.MoveType,
-                        args.ReturnValue);
-                }
-                // TEMP_SIEGE_MOVEMENT_DIAGNOSTIC_END
                 activeMoveOrderTribeIds.Remove(args.TribeId);
                 if (args.ReturnValue != 1)
                     RemoveSynchronization(args.TribeId, restoreSpeed: true);
@@ -337,38 +322,12 @@ namespace BugfixesAndQoL
                 return;
 
             activeMoveOrderTribeIds.Add(args.TribeId);
-            // TEMP_SIEGE_MOVEMENT_DIAGNOSTIC_BEGIN
-            siegeDiagnosticTribeIds.Remove(args.TribeId);
-            // TEMP_SIEGE_MOVEMENT_DIAGNOSTIC_END
             RemoveSynchronization(args.TribeId, restoreSpeed: true);
 
             if (args.MoveType != TribeMoveType.DefaultInSync)
                 return;
 
-            // TEMP_SIEGE_MOVEMENT_DIAGNOSTIC_BEGIN
-            if (TroopMovementFix3SiegeMovementDiagnostic.LogOrderSnapshot(
-                    log,
-                    args.TribeId,
-                    "ORDER_PRE_BEFORE_FIX",
-                    args.MoveType,
-                    returnValue: null))
-            {
-                siegeDiagnosticTribeIds.Add(args.TribeId);
-            }
-            // TEMP_SIEGE_MOVEMENT_DIAGNOSTIC_END
             TryApplyMixedGroupSynchronization(args.TribeId);
-
-            // TEMP_SIEGE_MOVEMENT_DIAGNOSTIC_BEGIN
-            if (siegeDiagnosticTribeIds.Contains(args.TribeId))
-            {
-                TroopMovementFix3SiegeMovementDiagnostic.LogOrderSnapshot(
-                    log,
-                    args.TribeId,
-                    "ORDER_PRE_AFTER_FIX",
-                    args.MoveType,
-                    returnValue: null);
-            }
-            // TEMP_SIEGE_MOVEMENT_DIAGNOSTIC_END
         }
 
         private void OnUnloadMap(MapUnloadEventArgs args)
@@ -429,7 +388,7 @@ namespace BugfixesAndQoL
             ushort slowestMaximumSpeed = 0;
             ushort sharedRunningSpeedBonus = 0;
             int activeUnitCount = 0;
-            bool synchronizeRunning = true;
+            bool supportsSharedCadence = true;
             bool improvedSpearmen =
                 GamePlayerManagerAPI.Instance.IsImprovedSpearman();
 
@@ -451,18 +410,14 @@ namespace BugfixesAndQoL
                         unitType,
                         out UnitTypeMovementInfo movementInfo))
                 {
-                    bool supportsSynchronizedRunning =
-                        cadencePatch.SupportsSynchronizedRunning(
-                            unitType) &&
-                        (unitType != eChimps.CHIMP_TYPE_SPEARMAN ||
-                         improvedSpearmen);
+                    bool supportsSynchronizedCadence =
+                        cadencePatch.TryGetSynchronizedCadenceBonus(
+                            unitType,
+                            improvedSpearmen,
+                            out ushort nativeRunningSpeedBonus);
                     movementInfo = new UnitTypeMovementInfo(
-                        supportsSynchronizedRunning,
-                        supportsSynchronizedRunning
-                            ? cadencePatch.GetNativeRunningSpeedBonus(
-                                unitType,
-                                improvedSpearmen)
-                            : (ushort)0);
+                        supportsSynchronizedCadence,
+                        nativeRunningSpeedBonus);
                     unitTypeMovementInfoByType.Add(
                         unitType,
                         movementInfo);
@@ -484,8 +439,8 @@ namespace BugfixesAndQoL
                         movementInfo.NativeRunningSpeedBonus;
                 }
 
-                if (!movementInfo.SupportsSynchronizedRunning)
-                    synchronizeRunning = false;
+                if (!movementInfo.SupportsSynchronizedCadence)
+                    supportsSharedCadence = false;
             }
 
             if (unitTypeMovementInfoByType.Count < 2)
@@ -499,10 +454,10 @@ namespace BugfixesAndQoL
 
             TribeSynchronization synchronization =
                 new TribeSynchronization(
-                    synchronizeRunning
+                    supportsSharedCadence && sharedRunningSpeedBonus > 0
                         ? SynchronizedMovementCadence.Running
                         : SynchronizedMovementCadence.Walking,
-                    runningSpeedBonus: synchronizeRunning
+                    runningSpeedBonus: supportsSharedCadence
                         ? sharedRunningSpeedBonus
                         : (ushort)0,
                     previousMovementSpeed: *movementSpeed,
@@ -574,10 +529,6 @@ namespace BugfixesAndQoL
         {
             synchronizationByTribeId.Clear();
             activeMoveOrderTribeIds.Clear();
-            // TEMP_SIEGE_MOVEMENT_DIAGNOSTIC_BEGIN
-            siegeDiagnosticTribeIds.Clear();
-            TroopMovementFix3SiegeMovementDiagnostic.Reset();
-            // TEMP_SIEGE_MOVEMENT_DIAGNOSTIC_END
             unitIds.Clear();
             unitTypeMovementInfoByType.Clear();
         }
@@ -597,16 +548,16 @@ namespace BugfixesAndQoL
         private readonly struct UnitTypeMovementInfo
         {
             public UnitTypeMovementInfo(
-                bool supportsSynchronizedRunning,
+                bool supportsSynchronizedCadence,
                 ushort nativeRunningSpeedBonus)
             {
-                SupportsSynchronizedRunning =
-                    supportsSynchronizedRunning;
+                SupportsSynchronizedCadence =
+                    supportsSynchronizedCadence;
                 NativeRunningSpeedBonus =
                     nativeRunningSpeedBonus;
             }
 
-            public bool SupportsSynchronizedRunning { get; }
+            public bool SupportsSynchronizedCadence { get; }
             public ushort NativeRunningSpeedBonus { get; }
         }
 
