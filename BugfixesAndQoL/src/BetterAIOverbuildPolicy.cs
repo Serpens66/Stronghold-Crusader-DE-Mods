@@ -1,5 +1,7 @@
 // Feature: Pure policy for improved AI obstruction cleanup.
 using System;
+using SHCDESE.Interop;
+using SHCDESE.Interop.Enums;
 
 namespace BugfixesAndQoL
 {
@@ -7,6 +9,7 @@ namespace BugfixesAndQoL
     {
         None,
         AlwaysBroad,
+        ReservedArea,
         KeepRadius,
     }
 
@@ -14,52 +17,119 @@ namespace BugfixesAndQoL
     {
         internal const int KeepManhattanRadius = 20;
 
-        internal const int MapperStores = 52;
-        internal const int MapperHovel = 54;
-        internal const int MapperTradepost = 77;
-        internal const int MapperBedouinStockade = 79;
-        internal const int MapperGranary = 80;
-        internal const int MapperArmoury = 81;
-        internal const int MapperBarracksWood = 86;
-        internal const int MapperBarracksStone = 87;
+        internal static readonly eMappers[] AlwaysBroadMappers =
+        {
+            eMappers.MAPPER_STORES,
+            eMappers.MAPPER_HOVEL,
+            eMappers.MAPPER_TRADEPOST,
+            eMappers.MAPPER_BEDOUIN_STOCKADE,
+            eMappers.MAPPER_GRANARY,
+            eMappers.MAPPER_ARMOURY,
+            eMappers.MAPPER_BARRACKS_WOOD,
+            eMappers.MAPPER_BARRACKS_STONE,
+        };
 
-        internal const int StructureHovel = 1;
-        internal const int StructureBedouinStockade = 2;
-        internal const int StructureBarracksWood = 8;
-        internal const int StructureBarracksStone = 9;
-        internal const int StructureGoodsYard = 10;
-        internal const int StructureArmoury = 11;
-        internal const int StructureGranary = 19;
-        internal const int StructureTradepost = 26;
+        internal static readonly eStructs[] AlwaysBroadStructures =
+        {
+            eStructs.STRUCT_GOODS_YARD,
+            eStructs.STRUCT_HOVEL,
+            eStructs.STRUCT_TRADEPOST,
+            eStructs.STRUCT_BEDOUIN_STOCKADE,
+            eStructs.STRUCT_GRANARY,
+            eStructs.STRUCT_ARMOURY,
+            eStructs.STRUCT_BARRACKS_WOOD,
+            eStructs.STRUCT_BARRACKS_STONE,
+        };
 
-        internal static bool IsAddedAlwaysBroadMapper(int mapper) =>
-            mapper == MapperStores ||
-            mapper == MapperTradepost ||
-            mapper == MapperGranary ||
-            mapper == MapperArmoury;
+        internal static bool IsAddedAlwaysBroadMapper(eMappers mapper) =>
+            mapper == eMappers.MAPPER_STORES ||
+            mapper == eMappers.MAPPER_TRADEPOST ||
+            mapper == eMappers.MAPPER_GRANARY ||
+            mapper == eMappers.MAPPER_ARMOURY;
 
-        internal static bool IsAlwaysBroadMapper(int mapper) =>
+        internal static bool IsAlwaysBroadMapper(eMappers mapper) =>
             IsAddedAlwaysBroadMapper(mapper) ||
-            mapper == MapperHovel ||
-            mapper == MapperBedouinStockade ||
-            mapper == MapperBarracksWood ||
-            mapper == MapperBarracksStone;
+            mapper == eMappers.MAPPER_HOVEL ||
+            mapper == eMappers.MAPPER_BEDOUIN_STOCKADE ||
+            mapper == eMappers.MAPPER_BARRACKS_WOOD ||
+            mapper == eMappers.MAPPER_BARRACKS_STONE;
 
-        internal static bool IsAlwaysBroadStructure(int structureType) =>
-            structureType == StructureHovel ||
-            structureType == StructureBedouinStockade ||
-            structureType == StructureBarracksWood ||
-            structureType == StructureBarracksStone ||
-            structureType == StructureGoodsYard ||
-            structureType == StructureArmoury ||
-            structureType == StructureGranary ||
-            structureType == StructureTradepost;
+        internal static bool IsAlwaysBroadStructure(eStructs structureType) =>
+            structureType == eStructs.STRUCT_HOVEL ||
+            structureType == eStructs.STRUCT_BEDOUIN_STOCKADE ||
+            structureType == eStructs.STRUCT_BARRACKS_WOOD ||
+            structureType == eStructs.STRUCT_BARRACKS_STONE ||
+            structureType == eStructs.STRUCT_GOODS_YARD ||
+            structureType == eStructs.STRUCT_ARMOURY ||
+            structureType == eStructs.STRUCT_GRANARY ||
+            structureType == eStructs.STRUCT_TRADEPOST;
+
+        internal static bool IsReservedAreaStructure(eStructs structureType) =>
+            structureType == eStructs.STRUCT_PARADEGROUND_OIL ||
+            structureType == eStructs.STRUCT_PARADEGROUND_ENG ||
+            structureType == eStructs.STRUCT_PARADEGROUND_MISS ||
+            structureType == eStructs.STRUCT_PARADEGROUND_LGT ||
+            structureType == eStructs.STRUCT_PARADEGROUND_HVY ||
+            structureType == eStructs.STRUCT_PARADEGROUND_TUN;
+
+        internal static bool IsAlwaysProtectedReservedArea(eStructs structureType) =>
+            structureType == eStructs.STRUCT_PARADEGROUND_MISS ||
+            structureType == eStructs.STRUCT_PARADEGROUND_LGT ||
+            structureType == eStructs.STRUCT_PARADEGROUND_HVY;
+
+        internal static bool IsReservationParentCandidate(
+            eStructs reservedAreaType,
+            eStructs candidateParentType)
+        {
+            switch (reservedAreaType)
+            {
+                case eStructs.STRUCT_PARADEGROUND_OIL:
+                    return candidateParentType == eStructs.STRUCT_OIL_SMELTER;
+                case eStructs.STRUCT_PARADEGROUND_ENG:
+                    return candidateParentType == eStructs.STRUCT_ENGINEERS_GUILD;
+                case eStructs.STRUCT_PARADEGROUND_TUN:
+                    return candidateParentType == eStructs.STRUCT_TUNNELLERS_GUILD;
+                case eStructs.STRUCT_PARADEGROUND_MISS:
+                case eStructs.STRUCT_PARADEGROUND_LGT:
+                case eStructs.STRUCT_PARADEGROUND_HVY:
+                    return candidateParentType == eStructs.STRUCT_BARRACKS_WOOD ||
+                        candidateParentType == eStructs.STRUCT_BARRACKS_STONE ||
+                        candidateParentType == eStructs.STRUCT_BEDOUIN_STOCKADE;
+                default:
+                    return false;
+            }
+        }
+
+        internal static int ReservationParentMaximumChebyshevDistance(eStructs reservedAreaType) =>
+            reservedAreaType == eStructs.STRUCT_PARADEGROUND_OIL
+                ? 4
+                : IsReservedAreaStructure(reservedAreaType) ? 5 : -1;
+
+        internal static bool IsWithinReservationParentRange(
+            eStructs reservedAreaType,
+            int reservedX,
+            int reservedY,
+            int parentX,
+            int parentY)
+        {
+            int maximum = ReservationParentMaximumChebyshevDistance(reservedAreaType);
+            if (maximum < 0)
+                return false;
+
+            long dx = Math.Abs((long)reservedX - parentX);
+            long dy = Math.Abs((long)reservedY - parentY);
+            // Compound components begin exactly one core width away from the
+            // visible parent; requiring that boundary avoids borrowing a nearby
+            // unrelated building of the same owner as a false parent.
+            return Math.Max(dx, dy) == maximum;
+        }
 
         internal static BetterAIOverbuildProtectionReason ClassifyForeignBlocker(
             int placingPlayerId,
             int blockerOwnerId,
             bool blockerOwnerIsAi,
-            int blockerStructureType,
+            eStructs blockerStructureType,
+            bool hasProtectedReservationParent,
             bool blockerHasKeep,
             int blockerAnchorX,
             int blockerAnchorY,
@@ -74,6 +144,13 @@ namespace BugfixesAndQoL
                 !blockerOwnerIsAi)
             {
                 return BetterAIOverbuildProtectionReason.None;
+            }
+
+            if (IsReservedAreaStructure(blockerStructureType) &&
+                (IsAlwaysProtectedReservedArea(blockerStructureType) ||
+                 hasProtectedReservationParent))
+            {
+                return BetterAIOverbuildProtectionReason.ReservedArea;
             }
 
             if (IsAlwaysBroadStructure(blockerStructureType))

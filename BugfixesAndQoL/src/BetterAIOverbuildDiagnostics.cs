@@ -37,6 +37,9 @@ namespace BugfixesAndQoL
             subscriptions.Add(BuildingR3EventHooks.OnBuildingBulldoze.Observable
                 .Where(args => args.Phase == EventHookPhase.Pre)
                 .Subscribe(OnBuildingBulldoze));
+            subscriptions.Add(BuildingR3EventHooks.OnBuildingDelete.Observable
+                .Where(args => args.Phase == EventHookPhase.Pre)
+                .Subscribe(OnBuildingDelete));
             subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable.Subscribe(OnMapStart));
             subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
@@ -59,12 +62,15 @@ namespace BugfixesAndQoL
 
         internal static void NativeHooksInstalled(
             int mapperRva,
-            int blockerRva,
+            int broadBlockerRva,
+            int narrowBlockerRva,
             bool referenceHashMatches,
             bool enabled)
         {
             TryInvoke(current => current.LogInfo(
-                $"native hooks installed: mapperRva=0x{mapperRva:X}, blockerRva=0x{blockerRva:X}, " +
+                $"native hooks installed: mapperRva=0x{mapperRva:X}, " +
+                $"broadBlockerRva=0x{broadBlockerRva:X}, " +
+                $"narrowBlockerRva=0x{narrowBlockerRva:X}, " +
                 $"referenceHashMatches={referenceHashMatches}, enabled={enabled}."));
         }
 
@@ -98,6 +104,7 @@ namespace BugfixesAndQoL
             int mapper,
             int targetX,
             int targetY,
+            string branch,
             int pass,
             int blockerId,
             uint blockerGlobalId,
@@ -109,7 +116,14 @@ namespace BugfixesAndQoL
             int keepX,
             int keepY,
             long distance,
-            BetterAIOverbuildProtectionReason protectionReason)
+            BetterAIOverbuildProtectionReason protectionReason,
+            bool reservationParentFound,
+            int reservationParentId,
+            uint reservationParentGlobalId,
+            int reservationParentStructureType,
+            int reservationParentX,
+            int reservationParentY,
+            BetterAIOverbuildProtectionReason reservationParentProtectionReason)
         {
             TryInvoke(current =>
             {
@@ -131,17 +145,26 @@ namespace BugfixesAndQoL
 
                 string reason = protectionReason == BetterAIOverbuildProtectionReason.AlwaysBroad
                     ? "protected-always-broad"
+                    : protectionReason == BetterAIOverbuildProtectionReason.ReservedArea
+                        ? "protected-reserved-area"
                     : protectionReason == BetterAIOverbuildProtectionReason.KeepRadius
                         ? "protected-keep-radius"
                         : "delegated-to-vanilla";
                 string keep = blockerHasKeep ? $"({keepX},{keepY})" : "none";
                 string distanceText = distance >= 0 ? distance.ToString() : "n/a";
+                string reservationParent = reservationParentFound
+                    ? $"type={reservationParentStructureType}:id={reservationParentId}:" +
+                      $"global={reservationParentGlobalId}:anchor=({reservationParentX}," +
+                      $"{reservationParentY}):protection={reservationParentProtectionReason}"
+                    : "none";
                 current.LogInfo(
-                    $"foreign-blocker-decision: tick={tick}, pass={pass}, placingPlayer={placingPlayerId}, " +
+                    $"foreign-blocker-decision: tick={tick}, branch={branch}, pass={pass}, " +
+                    $"placingPlayer={placingPlayerId}, " +
                     $"mapper={mapper}, target=({targetX},{targetY}), blockerOwner={blockerOwnerId}, " +
                     $"blockerType={blockerStructureType}, blockerId={blockerId}, " +
                     $"blockerGlobalId={blockerGlobalId}, blockerAnchor=({blockerX},{blockerY}), " +
-                    $"blockerKeep={keep}, manhattanDistance={distanceText}, decision={reason}.");
+                    $"blockerKeep={keep}, manhattanDistance={distanceText}, " +
+                    $"reservationParent={reservationParent}, decision={reason}.");
             });
         }
 
@@ -181,8 +204,10 @@ namespace BugfixesAndQoL
 
                 LogInfo(
                     $"map-start: enabled={IsEnabled()}, alwaysBroadMappers=" +
-                    "52,54,77,79,80,81,86,87, alwaysBroadStructures=" +
-                    "10,1,26,2,19,11,8,9, keepManhattanRadius=20.");
+                    $"{string.Join(",", BetterAIOverbuildPolicy.AlwaysBroadMappers.Select(value => (int)value))}, " +
+                    $"alwaysBroadStructures=" +
+                    $"{string.Join(",", BetterAIOverbuildPolicy.AlwaysBroadStructures.Select(value => (int)value))}, " +
+                    "reservedAreaStructures=51,53,56,57,58,59, keepManhattanRadius=20.");
             }
             catch (Exception ex)
             {
@@ -201,6 +226,7 @@ namespace BugfixesAndQoL
                     return;
                 }
 
+                LogRelevantRemoval("bulldoze", args.BuildingId, building);
                 int tick = CurrentTick();
                 if (!state.ConfirmRemoval(
                     tick, args.BuildingId, building->r_GlobalId, out PendingRemoval pending))
@@ -218,6 +244,67 @@ namespace BugfixesAndQoL
             {
                 LogCallbackFailure("bulldoze correlation", ex);
             }
+        }
+
+        private void OnBuildingDelete(BuildingDeleteEventArgs args)
+        {
+            try
+            {
+                if (args.BuildingId <= 0 ||
+                    !GameBuildingManagerAPI.Instance.TryGetBuildingById(
+                        args.BuildingId, out GameBuilding* building))
+                {
+                    return;
+                }
+
+                LogRelevantRemoval("delete", args.BuildingId, building);
+            }
+            catch (Exception ex)
+            {
+                LogCallbackFailure("delete observation", ex);
+            }
+        }
+
+        private void LogRelevantRemoval(string source, int buildingId, GameBuilding* building)
+        {
+            int ownerId = building->r_PlayerIdOwner;
+            if (ownerId < 1 || ownerId > 8 || !GamePlayerManagerAPI.Instance.IsAIPlayer(ownerId))
+                return;
+
+            int structureType = (int)building->r_BuildingType;
+            int keepId = GamePlayerManagerAPI.Instance.GetPlayerKeepId(ownerId);
+            bool hasKeep = keepId > 0;
+            UnmanagedVector2<int> keepPosition = hasKeep
+                ? GamePlayerManagerAPI.Instance.GetPlayerKeepPosition(ownerId)
+                : default;
+            long distance = hasKeep
+                ? BetterAIOverbuildPolicy.ManhattanDistance(
+                    building->r_TilePositionXBegin,
+                    building->r_TilePositionYBegin,
+                    keepPosition.X,
+                    keepPosition.Y)
+                : -1;
+            eStructs structure = (eStructs)structureType;
+            bool alwaysBroad = BetterAIOverbuildPolicy.IsAlwaysBroadStructure(structure);
+            bool alwaysProtectedReservedArea =
+                BetterAIOverbuildPolicy.IsAlwaysProtectedReservedArea(structure);
+            bool reservedArea = BetterAIOverbuildPolicy.IsReservedAreaStructure(structure);
+            bool withinKeepRadius = distance >= 0 &&
+                distance <= BetterAIOverbuildPolicy.KeepManhattanRadius;
+            if (!alwaysBroad && !reservedArea && !withinKeepRadius)
+                return;
+
+            string keep = hasKeep ? $"({keepPosition.X},{keepPosition.Y})" : "none";
+            string distanceText = distance >= 0 ? distance.ToString() : "n/a";
+            LogInfo(
+                $"protected-building-removal-observed: source={source}, tick={CurrentTick()}, " +
+                $"owner={ownerId}, type={structureType}, id={buildingId}, " +
+                $"globalId={building->r_GlobalId}, anchor=({building->r_TilePositionXBegin}," +
+                $"{building->r_TilePositionYBegin}), keep={keep}, " +
+                $"manhattanDistance={distanceText}, alwaysBroad={alwaysBroad}, " +
+                $"reservedArea={reservedArea}, " +
+                $"alwaysProtectedReservedArea={alwaysProtectedReservedArea}, " +
+                $"withinKeepRadius={withinKeepRadius}.");
         }
 
         private void EndMap(string reason)

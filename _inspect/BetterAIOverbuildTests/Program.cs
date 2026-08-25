@@ -1,4 +1,6 @@
 using BugfixesAndQoL;
+using SHCDESE.Interop;
+using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
 
@@ -11,6 +13,7 @@ namespace BetterAIOverbuildTests
         private static int Main()
         {
             TestAlwaysBroadSets();
+            TestReservedAreaSetsAndGeometry();
             TestForeignBlockerPolicy();
             TestOverflowSafeDistance();
             TestDiagnosticDeduplicationAndRetry();
@@ -29,14 +32,14 @@ namespace BetterAIOverbuildTests
         private static void TestAlwaysBroadSets()
         {
             int[] expectedMappers = { 52, 54, 77, 79, 80, 81, 86, 87 };
-            int[] expectedStructures = { 1, 2, 8, 9, 10, 11, 19, 26 };
+            int[] expectedStructures = { 1, 8, 9, 10, 11, 19, 26, 108 };
             for (int value = 0; value <= 120; value++)
             {
                 Assert(
-                    BetterAIOverbuildPolicy.IsAlwaysBroadMapper(value) == Contains(expectedMappers, value),
+                    BetterAIOverbuildPolicy.IsAlwaysBroadMapper((eMappers)value) == Contains(expectedMappers, value),
                     $"unexpected always-broad mapper classification for {value}");
                 Assert(
-                    BetterAIOverbuildPolicy.IsAlwaysBroadStructure(value) == Contains(expectedStructures, value),
+                    BetterAIOverbuildPolicy.IsAlwaysBroadStructure((eStructs)value) == Contains(expectedStructures, value),
                     $"unexpected always-broad structure classification for {value}");
             }
 
@@ -44,9 +47,61 @@ namespace BetterAIOverbuildTests
             for (int value = 0; value <= 120; value++)
             {
                 Assert(
-                    BetterAIOverbuildPolicy.IsAddedAlwaysBroadMapper(value) == Contains(addedMappers, value),
+                    BetterAIOverbuildPolicy.IsAddedAlwaysBroadMapper((eMappers)value) == Contains(addedMappers, value),
                     $"unexpected added mapper classification for {value}");
             }
+        }
+
+        private static void TestReservedAreaSetsAndGeometry()
+        {
+            int[] expectedReserved = { 51, 53, 56, 57, 58, 59 };
+            int[] expectedAlwaysProtected = { 56, 57, 58 };
+            for (int value = 0; value <= 120; value++)
+            {
+                Assert(
+                    BetterAIOverbuildPolicy.IsReservedAreaStructure((eStructs)value) ==
+                        Contains(expectedReserved, value),
+                    $"unexpected reserved-area structure classification for {value}");
+                Assert(
+                    BetterAIOverbuildPolicy.IsAlwaysProtectedReservedArea((eStructs)value) ==
+                        Contains(expectedAlwaysProtected, value),
+                    $"unexpected always-protected reserved-area classification for {value}");
+            }
+
+            Assert(BetterAIOverbuildPolicy.IsReservationParentCandidate(
+                eStructs.STRUCT_PARADEGROUND_LGT, eStructs.STRUCT_BARRACKS_WOOD),
+                "light paradeground should accept the mercenary post as parent");
+            Assert(BetterAIOverbuildPolicy.IsReservationParentCandidate(
+                eStructs.STRUCT_PARADEGROUND_MISS, eStructs.STRUCT_BEDOUIN_STOCKADE),
+                "missile paradeground should accept the Bedouin stockade as parent");
+            Assert(BetterAIOverbuildPolicy.IsReservationParentCandidate(
+                eStructs.STRUCT_PARADEGROUND_ENG, eStructs.STRUCT_ENGINEERS_GUILD),
+                "engineer paradeground should accept the engineers guild as parent");
+            Assert(BetterAIOverbuildPolicy.IsReservationParentCandidate(
+                eStructs.STRUCT_PARADEGROUND_TUN, eStructs.STRUCT_TUNNELLERS_GUILD),
+                "tunneller paradeground should accept the tunnellers guild as parent");
+            Assert(BetterAIOverbuildPolicy.IsReservationParentCandidate(
+                eStructs.STRUCT_PARADEGROUND_OIL, eStructs.STRUCT_OIL_SMELTER),
+                "oil paradeground should accept the oil smelter as parent");
+            Assert(!BetterAIOverbuildPolicy.IsReservationParentCandidate(
+                eStructs.STRUCT_PARADEGROUND_ENG, eStructs.STRUCT_OIL_SMELTER),
+                "reserved areas must reject unrelated parents");
+
+            Assert(BetterAIOverbuildPolicy.IsWithinReservationParentRange(
+                eStructs.STRUCT_PARADEGROUND_LGT, 105, 95, 100, 100),
+                "5-tile reservation offset should match");
+            Assert(!BetterAIOverbuildPolicy.IsWithinReservationParentRange(
+                eStructs.STRUCT_PARADEGROUND_LGT, 104, 96, 100, 100),
+                "inside the five-tile component boundary should not match");
+            Assert(!BetterAIOverbuildPolicy.IsWithinReservationParentRange(
+                eStructs.STRUCT_PARADEGROUND_LGT, 106, 95, 100, 100),
+                "6-tile reservation offset should not match");
+            Assert(BetterAIOverbuildPolicy.IsWithinReservationParentRange(
+                eStructs.STRUCT_PARADEGROUND_OIL, 104, 96, 100, 100),
+                "4-tile oil reservation offset should match");
+            Assert(!BetterAIOverbuildPolicy.IsWithinReservationParentRange(
+                eStructs.STRUCT_PARADEGROUND_OIL, 105, 96, 100, 100),
+                "5-tile oil reservation offset should not match");
         }
 
         private static void TestForeignBlockerPolicy()
@@ -54,38 +109,63 @@ namespace BetterAIOverbuildTests
             AssertReason(
                 BetterAIOverbuildProtectionReason.AlwaysBroad,
                 placing: 2, owner: 3, ownerIsAi: true, type: 10,
+                protectedReservationParent: false,
                 hasKeep: false, blockerX: 100, blockerY: 100, keepX: 0, keepY: 0,
                 "always-broad foreign AI building");
             AssertReason(
                 BetterAIOverbuildProtectionReason.KeepRadius,
                 placing: 2, owner: 3, ownerIsAi: true, type: 30,
+                protectedReservationParent: false,
                 hasKeep: true, blockerX: 110, blockerY: 110, keepX: 100, keepY: 100,
                 "distance exactly 20");
             AssertReason(
                 BetterAIOverbuildProtectionReason.None,
                 placing: 2, owner: 3, ownerIsAi: true, type: 30,
+                protectedReservationParent: false,
                 hasKeep: true, blockerX: 111, blockerY: 110, keepX: 100, keepY: 100,
                 "distance 21");
             AssertReason(
                 BetterAIOverbuildProtectionReason.None,
                 placing: 2, owner: 2, ownerIsAi: true, type: 10,
+                protectedReservationParent: false,
                 hasKeep: true, blockerX: 100, blockerY: 100, keepX: 100, keepY: 100,
                 "same owner");
             AssertReason(
                 BetterAIOverbuildProtectionReason.None,
                 placing: 2, owner: 3, ownerIsAi: false, type: 10,
+                protectedReservationParent: false,
                 hasKeep: true, blockerX: 100, blockerY: 100, keepX: 100, keepY: 100,
                 "human owner");
             AssertReason(
                 BetterAIOverbuildProtectionReason.None,
                 placing: 2, owner: 0, ownerIsAi: false, type: 10,
+                protectedReservationParent: false,
                 hasKeep: false, blockerX: 100, blockerY: 100, keepX: 0, keepY: 0,
                 "neutral owner");
             AssertReason(
                 BetterAIOverbuildProtectionReason.None,
                 placing: 2, owner: 3, ownerIsAi: true, type: 30,
+                protectedReservationParent: false,
                 hasKeep: false, blockerX: 100, blockerY: 100, keepX: 100, keepY: 100,
                 "missing keep");
+            AssertReason(
+                BetterAIOverbuildProtectionReason.ReservedArea,
+                placing: 2, owner: 3, ownerIsAi: true, type: 57,
+                protectedReservationParent: false,
+                hasKeep: false, blockerX: 100, blockerY: 100, keepX: 0, keepY: 0,
+                "recruitment reservation of an always-broad building");
+            AssertReason(
+                BetterAIOverbuildProtectionReason.ReservedArea,
+                placing: 2, owner: 3, ownerIsAi: true, type: 53,
+                protectedReservationParent: true,
+                hasKeep: true, blockerX: 125, blockerY: 100, keepX: 100, keepY: 100,
+                "reservation inherits protected parent classification");
+            AssertReason(
+                BetterAIOverbuildProtectionReason.None,
+                placing: 2, owner: 3, ownerIsAi: true, type: 53,
+                protectedReservationParent: false,
+                hasKeep: true, blockerX: 125, blockerY: 100, keepX: 100, keepY: 100,
+                "unprotected parent does not protect a distant reservation");
         }
 
         private static void TestOverflowSafeDistance()
@@ -152,7 +232,7 @@ namespace BetterAIOverbuildTests
                 "snapshot should reset all map state");
 
             // The gameplay policy has no diagnostic dependency and remains callable after resets.
-            Assert(BetterAIOverbuildPolicy.IsAlwaysBroadMapper(80),
+            Assert(BetterAIOverbuildPolicy.IsAlwaysBroadMapper(eMappers.MAPPER_GRANARY),
                 "diagnostic state must not influence gameplay policy");
         }
 
@@ -162,6 +242,7 @@ namespace BetterAIOverbuildTests
             int owner,
             bool ownerIsAi,
             int type,
+            bool protectedReservationParent,
             bool hasKeep,
             int blockerX,
             int blockerY,
@@ -174,7 +255,8 @@ namespace BetterAIOverbuildTests
                     placing,
                     owner,
                     ownerIsAi,
-                    type,
+                    (eStructs)type,
+                    protectedReservationParent,
                     hasKeep,
                     blockerX,
                     blockerY,

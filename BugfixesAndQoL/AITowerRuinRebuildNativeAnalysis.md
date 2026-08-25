@@ -223,31 +223,68 @@ even though it could not actually continue the cycle.
 
 The optional, host-synchronized `BetterAIOverbuildRules` setting implements the
 conservative policy above and is enabled by default underneath `EnableAiFixes`.
-It uses two adjacent but non-overlapping context hooks on the audited DLL:
+It uses three non-overlapping context hooks on the audited DLL:
 
 - `0x5CEAB` runs before Vanilla's hard-coded mapper comparison chain. For mapper
   52 (stockpile), 77 (market/tradepost), 80 (granary), or 81 (armoury), the hook
   temporarily supplies mapper 54 in `EBX`. The real mapper remains unchanged in
   the placement argument stack slot, so only policy selection changes; footprint
   construction and the eventual building spawn continue to use the requested
-  building.
-- `0x5D016-0x5D024` contains the complete `imul` and `movzx` that load an occupied
-  building's real structure type immediately before the broad classifier at
-  `0x5D025`. After those instructions, the hook preserves a blocker owned by a
-  different AI when its structure type maps to any of the eight unconditional
-  mappers, or when its anchor lies within Manhattan distance 20 of its owner's
-  valid stored keep. It supplies protected classifier type 40 in `RCX` without
-  modifying the live building record.
+  building. At `0x5CF15`, immediately after selecting the broad branch, Vanilla
+  reloads `EBX` with the X coordinate. No later code or callee can observe mapper
+  54 in place of the actual mapper.
+- `0x5D016-0x5D024` and `0x5D045-0x5D054` contain the complete structure-type
+  loads immediately before the broad classifier at `0x5D025` and the narrow
+  classifier at `0x5D055`. The two hooks preserve a blocker owned by a different
+  AI when its structure type maps to any of the eight unconditional mappers, or
+  when its anchor lies within Manhattan distance 20 of its owner's valid stored
+  keep. Covering both classifiers is necessary: ordinary buildings can select
+  the narrow branch and must not bypass reciprocal-overbuild protection. Both
+  hooks supply protected classifier type 40 in `RCX` without modifying the live
+  building record.
+
+The implementation names mapper and structure values through Script Extender's
+`eMappers` and `eStructs` enums. Numeric values below are retained only as native
+analysis evidence and diagnostic output, not as a second hand-maintained enum in
+the mod.
 
 The eight unconditional mapper values are 52, 54, 77, 79, 80, 81, 86, and 87.
-Their live structure types are 10, 1, 26, 2, 19, 11, 8, and 9 respectively.
+Their live structure types are 10, 1, 26, 108, 19, 11, 8, and 9 respectively.
 The protection applies regardless of alliance, but only between two different
 AI owners. Same-owner, human-owned, neutral, and invalid-owner blockers retain
 Vanilla behavior. A blocker without a valid stored keep can qualify only through
 the unconditional structure list.
 
+### Compound-building reservation areas
+
+The first runtime test exposed an indirect bypass at tick 965. A foreign
+Mercenary Post (structure 8) was itself protected, but its adjacent
+`STRUCT_PARADEGROUND_LGT` helper (57) was delegated to Vanilla and removed.
+Vanilla then bulldozed the Mercenary Post in the same callback. The visible main
+building therefore cannot be protected independently from the native building
+records which reserve the rest of its placement yard.
+
+Workspace AIV/Blueprint data identifies six compound buildings with extended
+placement reservations: stone Barracks, Mercenary Post, Bedouin Stockade,
+Engineers Guild, Tunnellers Guild, and Oil Smelter. Their reservation records are:
+
+- recruitment: `STRUCT_PARADEGROUND_MISS`, `STRUCT_PARADEGROUND_LGT`, and
+  `STRUCT_PARADEGROUND_HVY` (56-58), with a five-tile component offset;
+- Engineers Guild: `STRUCT_PARADEGROUND_ENG` (53), with a five-tile offset;
+- Tunnellers Guild: `STRUCT_PARADEGROUND_TUN` (59), with a five-tile offset;
+- Oil Smelter: `STRUCT_PARADEGROUND_OIL` (51), with a four-tile offset.
+
+The recruitment reservation records are always protected because every possible
+parent belongs to Vanilla's unconditional broad list. The other three helpers
+inherit their matched same-owner parent's protection: they are protected only
+when the corresponding guild or oil smelter anchor qualifies through the
+20-step Keep rule. Matching uses the expected parent structure, owner, live
+state, and the verified maximum component offset; it does not grant these helper
+records their own broad placement permission. If no parent can be matched, the
+helper retains the ordinary direct-anchor Keep-radius rule.
+
 Disabling the option, the parent AI-fixes switch, or all host features disables
-both hooks. Installation is atomic and fixed-layout gated. The hook ending at
+all three hooks. Installation is atomic and fixed-layout gated. The hook ending at
 `0x5D024` deliberately resumes at the existing tower-ruin broad classifier hook
 at `0x5D025`; neither patch overwrites the other.
 
@@ -261,6 +298,16 @@ actually removed. Repeated footprint hits with the same placement, pass, blocker
 and tick are suppressed, while a later retry tick remains visible. A map-end
 summary reports mapper promotion counts, protected and delegated blockers,
 confirmed removals, uncorrelated delegations, and suppressed duplicates.
+
+Reservation decisions use `protected-reserved-area` and include the matched
+parent's structure type, building/global ID, anchor, and protection reason. This
+allows the next ingame run to prove that the invisible reservation record and
+its visible main building receive one consistent decision.
+
+The diagnostics also report any actual removal of an AI building that belongs
+to the unconditional list or lies within its owner's keep radius, from both the
+bulldoze and direct-delete events. This makes protection bypasses visible even
+when no preceding classifier decision was observed.
 
 The temporary implementation is isolated in `BetterAIOverbuildDiagnostics.cs`
 and `BetterAIOverbuildDiagnosticState.cs`; production call sites are enclosed by
