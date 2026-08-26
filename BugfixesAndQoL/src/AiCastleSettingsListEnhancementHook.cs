@@ -579,10 +579,9 @@ namespace BugfixesAndQoL
             AivAicPresetDefinition existing = presetStore.Find(presetLordKey, name);
             if (existing != null)
             {
-                HUD_ConfirmationPopup.ShowConfirmationMessage(
+                ShowPresetConfirmation(
                     SerpLocalization.Get("BugfixesAndQoL.AivAicPresetOverwriteTitle"),
                     () => SavePresetConfirmed(name),
-                    () => { },
                     SerpLocalization.Get("BugfixesAndQoL.AivAicPresetOverwriteMessage", "PresetName", name));
                 return;
             }
@@ -646,11 +645,50 @@ namespace BugfixesAndQoL
             if (!CanUseSelectedPreset())
                 return;
             string name = selectedPreset.Name;
-            HUD_ConfirmationPopup.ShowConfirmationMessage(
+            ShowPresetConfirmation(
                 SerpLocalization.Get("BugfixesAndQoL.AivAicPresetDeleteTitle"),
                 () => DeletePresetConfirmed(name),
-                () => { },
                 SerpLocalization.Get("BugfixesAndQoL.AivAicPresetDeleteMessage", "PresetName", name));
+        }
+
+        private void ShowPresetConfirmation(string title, Action confirmedAction, string message)
+        {
+            // This dialog is injected after the Vanilla controls and otherwise covers the
+            // frontend confirmation popup, including its input surface.
+            ClosePresetDialog();
+            try
+            {
+                HUD_ConfirmationPopup.ShowConfirmationMessage(
+                    title,
+                    () =>
+                    {
+                        try
+                        {
+                            confirmedAction();
+                        }
+                        finally
+                        {
+                            ReopenPresetDialog();
+                        }
+                    },
+                    ReopenPresetDialog,
+                    message,
+                    MPConf: true);
+            }
+            catch
+            {
+                ReopenPresetDialog();
+                throw;
+            }
+        }
+
+        private void ReopenPresetDialog()
+        {
+            if (presetDialogOpen || !IsActive || activeView == null)
+                return;
+            presetDialogOpen = true;
+            OnPropertyChanged(nameof(PresetDialogVisibility));
+            UpdateDialogKeyboardState();
         }
 
         private void DeletePresetConfirmed(string name)

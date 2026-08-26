@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.94",
+  "Version": "1.0.95",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.95",
+      "Changes": [
+        "Fixed the Save / Load AIV and AIC preset delete and overwrite confirmations not appearing in the Skirmish and multiplayer frontend."
+      ]
+    },
     {
       "Version": "1.0.94",
       "Changes": [
