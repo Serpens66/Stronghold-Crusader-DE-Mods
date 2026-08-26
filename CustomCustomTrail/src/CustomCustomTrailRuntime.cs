@@ -545,6 +545,7 @@ namespace CustomCustomTrail
 
             bool rosterResolved = Shared.PlayerIdentityHelper.TryCaptureHumanRoster(
                 preferInGameRoster: false,
+                requireAuthoritativeLobbyRoster: true,
                 out Dictionary<int, ulong> playersById,
                 out string rosterError,
                 out string rosterDiagnostic);

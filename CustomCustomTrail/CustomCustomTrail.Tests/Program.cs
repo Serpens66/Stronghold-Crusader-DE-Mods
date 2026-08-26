@@ -291,6 +291,13 @@ static void TestCoordinatorOwnership()
     Assert(sharedPresetSystem.Contains("CopyProperties(defaults, hostProperties)") &&
         sharedPresetSystem.Contains("defaults.TryGetValue(property.Name, out bytes)"),
         "the shared mission preset no longer supplies defaults for missing current host settings");
+    Assert(sharedPresetSystem.Contains("PerPlayerIdentityHookAnchor") &&
+        sharedPresetSystem.Contains("ApplyPerPlayerUpdate") &&
+        sharedPresetSystem.Contains("ResolveAuthenticatedPerPlayerTarget") &&
+        sharedPresetSystem.Contains("requireAuthoritativeLobbyRoster: true") &&
+        sharedPresetSystem.Contains("waiting for an authoritative player slot without a deadline") &&
+        sharedPresetSystem.Contains("The transport identity wins"),
+        "the shared per-player workaround no longer queues authenticated updates until Vanilla's final slot wins");
     Assert(!coordinator.Contains("pendingTrailMakerSaveDocument"),
         "Trail saves still retain a snapshot for the next save operation");
     Assert(coordinator.Contains("!openingCustomTrailSetup") &&
@@ -486,6 +493,7 @@ static void TestCoopExporterIntegration()
     Assert(runtime.Contains("ReadyLock") && runtime.Contains("COOP_START") && runtime.Contains("AreAllHumanPlayersPackageReady"),
         "Ready/Play/COOP_START package validation is missing");
     Assert(runtime.Contains("PlayerIdentityHelper.TryCaptureHumanRoster") &&
+        runtime.Contains("requireAuthoritativeLobbyRoster: true") &&
         runtime.Contains("PlayerIdentityHelper.ResolvePlayerIdForSteamId") &&
         runtime.Contains("preferInGameRoster: false") &&
         !runtime.Contains("GameNetworkAPI.GetPlayerIdForSteamId(member.id)") &&

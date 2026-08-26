@@ -3,10 +3,17 @@
   "Author": "Serpens66",
   "Name": "CastlePlanner",
   "Description": "Displays AIVJSON blueprints, spawns personal human castles, and contains the gated AI lobby placement workflow.",
-  "Version": "0.8.14",
+  "Version": "0.8.15",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.8.15",
+      "Changes": [
+        "Fixed host/client castle-spawn divergence by committing each player's authenticated personal decoration choice in the shared castle manifest.",
+        "Extends the shared per-player settings workaround to wait for Vanilla's authoritative player slots instead of trusting provisional lobby order."
+      ]
+    },
     {
       "Version": "0.8.14",
       "Changes": [

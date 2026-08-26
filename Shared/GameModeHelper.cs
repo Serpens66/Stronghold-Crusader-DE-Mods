@@ -260,6 +260,22 @@ namespace Shared
             return Success(matches[0], string.Empty);
         }
 
+        internal static PlayerIdentityResolution ResolveAuthenticatedPerPlayerTarget(
+            ulong senderSteamId,
+            int payloadPlayerId,
+            IReadOnlyDictionary<int, ulong> playersById)
+        {
+            PlayerIdentityResolution resolution = ResolvePlayerIdForSteamId(
+                senderSteamId,
+                playersById);
+            if (!resolution.IsResolved || resolution.PlayerId == payloadPlayerId)
+                return resolution;
+            return Success(
+                resolution.PlayerId,
+                $"The per-player payload claimed slot {payloadPlayerId}, but authenticated " +
+                $"Steam identity {senderSteamId} belongs to final slot {resolution.PlayerId}.");
+        }
+
 #if !SHARED_PRESET_TESTS
         internal static PlayerIdentityResolution CaptureLocalPlayerId(
             bool preferInGameRoster) =>
@@ -396,12 +412,26 @@ namespace Shared
             out string error) =>
             TryCaptureHumanRoster(
                 preferInGameRoster,
+                requireAuthoritativeLobbyRoster: false,
                 out playersById,
                 out error,
                 out _);
 
         internal static bool TryCaptureHumanRoster(
             bool preferInGameRoster,
+            out Dictionary<int, ulong> playersById,
+            out string error,
+            out string diagnostic) =>
+            TryCaptureHumanRoster(
+                preferInGameRoster,
+                requireAuthoritativeLobbyRoster: false,
+                out playersById,
+                out error,
+                out diagnostic);
+
+        internal static bool TryCaptureHumanRoster(
+            bool preferInGameRoster,
+            bool requireAuthoritativeLobbyRoster,
             out Dictionary<int, ulong> playersById,
             out string error,
             out string diagnostic)
@@ -444,6 +474,12 @@ namespace Shared
                 ulong steamId = member.id.m_SteamID;
                 int vanillaPlayerId = lobby.getThisPlayerFromSteamID(steamId);
                 int networkLobbyPlayerId = GameNetworkAPI.GetPlayerIdForSteamId(member.id);
+                if (requireAuthoritativeLobbyRoster && !IsValidPlayerId(vanillaPlayerId))
+                {
+                    error =
+                        $"Vanilla has not assigned a final player slot to lobby member {steamId} yet.";
+                    return false;
+                }
                 int playerId = IsValidPlayerId(vanillaPlayerId)
                     ? vanillaPlayerId
                     : networkLobbyPlayerId;

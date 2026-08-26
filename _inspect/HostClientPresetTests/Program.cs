@@ -3212,6 +3212,13 @@ internal static class Program
         identity = PlayerIdentityHelper.ResolvePlayerIdForSteamId(1003UL, finalPlayers);
         Check(identity.IsResolved && identity.PlayerId == 3,
             "Shared Steam identity resolution did not return the final client slot after an interleaved AI");
+        identity = PlayerIdentityHelper.ResolveAuthenticatedPerPlayerTarget(
+            1003UL,
+            payloadPlayerId: 2,
+            finalPlayers);
+        Check(identity.IsResolved && identity.PlayerId == 3 &&
+              identity.Diagnostic.Contains("claimed slot 2"),
+            "authenticated per-player resolution trusted the provisional payload slot instead of final slot 3");
         identity = PlayerIdentityHelper.ResolvePlayerIdForSteamId(1002UL, finalPlayers);
         Check(!identity.IsResolved && identity.Error.Contains("not part"),
             "Shared Steam identity resolution fell back to a plausible but foreign lobby slot");
@@ -3257,6 +3264,7 @@ internal static class Program
             {
                 PlayerId = 2,
                 Rotation = 6,
+                SpawnBraziersAndFlags = true,
                 DisplayName = "Second Castle",
                 RawData = new short[] { 4, -2, 9 }
             },
@@ -3264,6 +3272,7 @@ internal static class Program
             {
                 PlayerId = 1,
                 Rotation = 0,
+                SpawnBraziersAndFlags = false,
                 DisplayName = "First Castle",
                 RawData = new short[] { 1, 2, 3 }
             }
@@ -3273,7 +3282,8 @@ internal static class Program
         byte[] restored = CastlePlanner.FreeCastleProtocol.Decompress(compressed, encoded.Length);
         List<CastlePlanner.FreeCastleSelection> decoded =
             CastlePlanner.FreeCastleProtocol.DecodeSelections(restored);
-        Check(decoded.Count == 2 && decoded[0].PlayerId == 1 && decoded[1].Rotation == 6,
+        Check(decoded.Count == 2 && decoded[0].PlayerId == 1 && decoded[1].Rotation == 6 &&
+              !decoded[0].SpawnBraziersAndFlags && decoded[1].SpawnBraziersAndFlags,
             "free-castle canonical transfer did not preserve player order and fixed rotation");
         Check(CastlePlanner.FreeCastleSelectionLookup.TryGetRotation(decoded, 2, out int spawnedRotation) &&
               spawnedRotation == 6,

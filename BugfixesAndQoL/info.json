@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.98",
+  "Version": "1.0.99",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.99",
+      "Changes": [
+        "Extends the shared multiplayer settings workaround to retain authenticated per-player updates until Vanilla exposes their authoritative player slots."
+      ]
+    },
     {
       "Version": "1.0.98",
       "Changes": [

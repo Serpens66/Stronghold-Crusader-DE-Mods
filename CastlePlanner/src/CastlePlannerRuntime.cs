@@ -351,12 +351,6 @@ namespace CastlePlanner
                 GameModeSnapshot gameMode = CaptureGameMode(args);
                 EnsureSupportedGameMode(gameMode);
                 int[] humanPlayerIds = CaptureHumanPlayerIds();
-                if (gameMode.SharedRealMultiplayer &&
-                    !settings.System_ArePerPlayerSettingsReady(humanPlayerIds, out string readinessError))
-                {
-                    throw new InvalidOperationException(
-                        $"Personal castle decoration settings are incomplete: {readinessError}");
-                }
 
                 // Parse and encode every file before the first native mutation. A single
                 // malformed AIV therefore aborts the whole transaction without partial imports.
@@ -364,8 +358,11 @@ namespace CastlePlanner
                     .Select(request =>
                     {
                         AivSpawnOptions options = settings.GetSpawnOptions(request.PlayerId);
-                        if (!gameMode.SharedRealMultiplayer)
-                            options.SpawnBraziersAndFlags = settings.SpawnBraziersAndFlags;
+                        // The authenticated manifest freezes each player's personal
+                        // decoration choice for the synchronized restart.
+                        options.SpawnBraziersAndFlags = gameMode.SharedRealMultiplayer
+                            ? request.SpawnBraziersAndFlags
+                            : settings.SpawnBraziersAndFlags;
                         ApplyFixesGoodsyardPolicy(request.PlayerId, options);
                         return PreparePlayerImport(request, options);
                     })

@@ -811,6 +811,7 @@ namespace CastlePlanner
                 {
                     PlayerId = playerId,
                     Rotation = rotation,
+                    SpawnBraziersAndFlags = SpawnBraziersAndFlags,
                     DisplayName = Path.GetFileNameWithoutExtension(selectedCastle),
                     RawData = raw,
                     ContentHash = FreeCastleProtocol.HashRaw(raw)

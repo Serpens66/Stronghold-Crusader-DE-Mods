@@ -18,6 +18,7 @@ using System.Runtime.CompilerServices;
 #if !SHARED_PRESET_TESTS
 using R3;
 using SHCDESE.EventAPI;
+using Steamworks;
 using UnityEngine;
 #endif
 using ComboBoxItem = Noesis.ComboBoxItem;
@@ -559,7 +560,9 @@ namespace Shared
 
             bool resolvedRoster = PlayerIdentityHelper.TryCaptureHumanRoster(
                 preferInGameRoster: false,
+                requireAuthoritativeLobbyRoster: true,
                 out Dictionary<int, ulong> players,
+                out _,
                 out _);
             bool unresolved = !resolvedRoster;
 
@@ -1873,38 +1876,61 @@ namespace Shared
     /// <summary>
     /// TEMPORARY SCRIPT EXTENDER WORKAROUND.
     /// Remove this class and its registration call once the upstream extender has
-    /// fixed all three multiplayer settings paths documented below.
+    /// fixed all multiplayer settings paths documented below.
     /// </summary>
     internal static class ScriptExtenderMultiplayerSyncWorkaround
     {
         private const string AnchorKey =
             "SerpsMods.Shared.ScriptExtenderMultiplayerSyncWorkaround.v1";
-        private const string GateKey = AnchorKey + ".Gate";
+        private const string PerPlayerAnchorKey =
+            "SerpsMods.Shared.ScriptExtenderPerPlayerIdentityWorkaround.v1";
+        private const string GateKey =
+            "SerpsMods.Shared.ScriptExtenderMultiplayerSyncWorkaround.Gate";
 
         internal static void EnsureInstalled(ManualLogSource log)
         {
             object gate = string.Intern(GateKey);
             lock (gate)
             {
-                if (AppDomain.CurrentDomain.GetData(AnchorKey) != null)
+                bool baseInstalled = AppDomain.CurrentDomain.GetData(AnchorKey) != null;
+                bool perPlayerInstalled =
+                    AppDomain.CurrentDomain.GetData(PerPlayerAnchorKey) != null;
+                if (baseInstalled && perPlayerInstalled)
                     return;
 
-                HookAnchor anchor = new HookAnchor(log);
+                HookAnchor anchor = null;
+                PerPlayerIdentityHookAnchor perPlayerAnchor = null;
                 try
                 {
-                    anchor.Install();
-                    // Shared source is compiled into every mod. AppDomain data makes
-                    // the three process-wide hooks a single installation transaction.
-                    AppDomain.CurrentDomain.SetData(AnchorKey, anchor);
+                    if (!baseInstalled)
+                    {
+                        anchor = new HookAnchor(log);
+                        anchor.Install();
+                        AppDomain.CurrentDomain.SetData(AnchorKey, anchor);
+                    }
+                    if (!perPlayerInstalled)
+                    {
+                        perPlayerAnchor = new PerPlayerIdentityHookAnchor(log);
+                        perPlayerAnchor.Install();
+                        AppDomain.CurrentDomain.SetData(
+                            PerPlayerAnchorKey,
+                            perPlayerAnchor);
+                    }
                     DebugLogHelper.LogInfo(
                         log,
                         "Temporary Script Extender multiplayer settings workaround installed " +
-                        "(join snapshot, reliable lobby delivery, in-game sender propagation). " +
+                        "(join snapshot, reliable lobby delivery, in-game sender propagation, " +
+                        "authoritative per-player identity application). " +
                         "Remove centrally after the upstream fixes are available.");
                 }
                 catch (Exception ex)
                 {
-                    anchor.RollBack();
+                    perPlayerAnchor?.RollBack();
+                    anchor?.RollBack();
+                    if (perPlayerAnchor != null)
+                        AppDomain.CurrentDomain.SetData(PerPlayerAnchorKey, null);
+                    if (anchor != null)
+                        AppDomain.CurrentDomain.SetData(AnchorKey, null);
                     Exception cause = Unwrap(ex);
                     DebugLogHelper.LogError(
                         log,
@@ -2303,6 +2329,379 @@ namespace Shared
                     .GetProperty("Hook", BindingFlags.Instance | BindingFlags.Public)
                     ?.GetValue(detour);
                 (hook as IDisposable)?.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// The extender authenticates per-player settings with the transport Steam ID,
+        /// but maps that identity through lobby list order. Vanilla can already expose
+        /// the final game slot while that provisional order still differs. Keep the
+        /// authenticated update until the authoritative roster is available and then
+        /// write it into the final companion-array slot.
+        /// </summary>
+        private sealed class PerPlayerIdentityHookAnchor
+        {
+            private delegate void ApplyPerPlayerUpdateDelegate(
+                object viewModel,
+                PropertyInfo property,
+                LobbyModSettingSyncPacket packet,
+                object value,
+                CSteamID? sender);
+
+            private readonly ManualLogSource log;
+            private readonly List<PendingPerPlayerUpdate> pending =
+                new List<PendingPerPlayerUpdate>();
+            private object applyPerPlayerUpdateDetour;
+            private int lastFlushFrame = -1;
+            private string lastFlushError = string.Empty;
+
+            internal PerPlayerIdentityHookAnchor(ManualLogSource log)
+            {
+                this.log = log;
+            }
+
+            internal void Install()
+            {
+                MethodInfo source = typeof(GameXAMLManagerAPI).GetMethod(
+                    "ApplyPerPlayerUpdate",
+                    BindingFlags.Static | BindingFlags.NonPublic,
+                    null,
+                    new[]
+                    {
+                        typeof(object),
+                        typeof(PropertyInfo),
+                        typeof(LobbyModSettingSyncPacket),
+                        typeof(object),
+                        typeof(CSteamID?),
+                    },
+                    null) ?? throw new MissingMethodException(
+                        typeof(GameXAMLManagerAPI).FullName,
+                        "ApplyPerPlayerUpdate");
+                applyPerPlayerUpdateDetour = CreateManagedDetour(
+                    typeof(ApplyPerPlayerUpdateDelegate),
+                    source,
+                    new ApplyPerPlayerUpdateDelegate(ApplyPerPlayerUpdateHook));
+                Application.onBeforeRender += FlushPendingUpdates;
+            }
+
+            internal void RollBack()
+            {
+                Application.onBeforeRender -= FlushPendingUpdates;
+                DisposeDetour(applyPerPlayerUpdateDetour);
+                applyPerPlayerUpdateDetour = null;
+                pending.Clear();
+            }
+
+            private void ApplyPerPlayerUpdateHook(
+                object viewModel,
+                PropertyInfo property,
+                LobbyModSettingSyncPacket packet,
+                object value,
+                CSteamID? sender)
+            {
+                if (viewModel == null || property == null || packet == null || value == null)
+                {
+                    DebugLogHelper.LogError(
+                        log,
+                        "Per-player settings update was rejected because its decoded payload is incomplete.");
+                    return;
+                }
+                if (!sender.HasValue || sender.Value.m_SteamID == 0)
+                {
+                    DebugLogHelper.LogError(
+                        log,
+                        $"Per-player setting [{packet.ModName}.{packet.PropertyName}] was rejected because the transport sender is unavailable.");
+                    return;
+                }
+
+                ulong senderSteamId = sender.Value.m_SteamID;
+                if (!IsCurrentHuman(senderSteamId))
+                {
+                    // Steam delivery can win the race against Vanilla's lobby-member
+                    // projection. Retain the authenticated value, but never apply it
+                    // until the same Steam identity appears in an authoritative roster.
+                    QueuePendingUpdate(
+                        viewModel,
+                        property,
+                        packet,
+                        value,
+                        senderSteamId,
+                        "The authenticated transport sender is not visible in the human roster yet.");
+                    return;
+                }
+
+                if (!TryResolveAuthoritativePlayer(
+                        senderSteamId,
+                        packet.SourcePlayerId,
+                        out int playerId,
+                        out string resolutionError,
+                        out string diagnostic))
+                {
+                    QueuePendingUpdate(
+                        viewModel,
+                        property,
+                        packet,
+                        value,
+                        senderSteamId,
+                        resolutionError);
+                    return;
+                }
+
+                ApplyResolvedUpdate(
+                    viewModel,
+                    property,
+                    packet,
+                    value,
+                    senderSteamId,
+                    playerId,
+                    diagnostic,
+                    deferred: false);
+            }
+
+            private void FlushPendingUpdates()
+            {
+                if (pending.Count == 0 || Time.frameCount == lastFlushFrame)
+                    return;
+                lastFlushFrame = Time.frameCount;
+
+                try
+                {
+                    FlushPendingUpdatesCore();
+                    lastFlushError = string.Empty;
+                }
+                catch (Exception ex)
+                {
+                    string error = ex.GetBaseException().Message;
+                    if (!string.Equals(lastFlushError, error, StringComparison.Ordinal))
+                    {
+                        lastFlushError = error;
+                        DebugLogHelper.LogError(
+                            log,
+                            $"Deferred per-player settings remain blocked because their retry failed: {error}");
+                    }
+                }
+            }
+
+            private void FlushPendingUpdatesCore()
+            {
+
+                ulong currentLobbyId = CurrentLobbyId();
+                for (int index = pending.Count - 1; index >= 0; index--)
+                {
+                    PendingPerPlayerUpdate update = pending[index];
+                    if (update.LobbyId != 0 && currentLobbyId != 0 &&
+                        update.LobbyId != currentLobbyId)
+                    {
+                        pending.RemoveAt(index);
+                        DebugLogHelper.LogError(
+                            log,
+                            $"Deferred per-player setting [{update.Packet.ModName}.{update.Packet.PropertyName}] from {update.SenderSteamId} was discarded because the lobby changed.");
+                        continue;
+                    }
+                    if (!IsCurrentHuman(update.SenderSteamId))
+                        continue;
+                    if (!TryResolveAuthoritativePlayer(
+                            update.SenderSteamId,
+                            update.Packet.SourcePlayerId,
+                            out int playerId,
+                            out _,
+                            out string diagnostic))
+                        continue;
+
+                    ApplyResolvedUpdate(
+                        update.ViewModel,
+                        update.Property,
+                        update.Packet,
+                        update.Value,
+                        update.SenderSteamId,
+                        playerId,
+                        diagnostic,
+                        deferred: true);
+                    pending.RemoveAt(index);
+                }
+            }
+
+            private void QueuePendingUpdate(
+                object viewModel,
+                PropertyInfo property,
+                LobbyModSettingSyncPacket packet,
+                object value,
+                ulong senderSteamId,
+                string reason)
+            {
+                int existing = pending.FindIndex(item =>
+                    ReferenceEquals(item.ViewModel, viewModel) &&
+                    string.Equals(item.Property.Name, property.Name, StringComparison.Ordinal) &&
+                    item.SenderSteamId == senderSteamId);
+                var update = new PendingPerPlayerUpdate(
+                    viewModel,
+                    property,
+                    packet,
+                    ClonePendingValue(value),
+                    senderSteamId,
+                    CurrentLobbyId());
+                if (existing >= 0)
+                    pending[existing] = update;
+                else
+                    pending.Add(update);
+
+                DebugLogHelper.LogError(
+                    log,
+                    $"Per-player setting [{packet.ModName}.{packet.PropertyName}] from authenticated Steam identity {senderSteamId} is waiting for an authoritative player slot without a deadline: {reason}");
+            }
+
+            private void ApplyResolvedUpdate(
+                object viewModel,
+                PropertyInfo property,
+                LobbyModSettingSyncPacket packet,
+                object value,
+                ulong senderSteamId,
+                int playerId,
+                string diagnostic,
+                bool deferred)
+            {
+                if (!string.IsNullOrEmpty(diagnostic))
+                {
+                    DebugLogHelper.LogError(
+                        log,
+                        $"Per-player identity sources differed for [{packet.ModName}.{packet.PropertyName}] from {senderSteamId}: {diagnostic}");
+                }
+                if (packet.SourcePlayerId != playerId)
+                {
+                    DebugLogHelper.LogError(
+                        log,
+                        $"Per-player payload slot differed from its authenticated final slot for [{packet.ModName}.{packet.PropertyName}]: payload={packet.SourcePlayerId}, final={playerId}, sender={senderSteamId}. The transport identity wins.");
+                }
+
+                string dataPropertyName = property.Name + "Data";
+                PropertyInfo dataProperty = viewModel.GetType().GetProperty(
+                    dataPropertyName,
+                    BindingFlags.Instance | BindingFlags.Public);
+                if (dataProperty?.GetValue(viewModel) is not Array data ||
+                    playerId < 0 || playerId >= data.Length)
+                {
+                    DebugLogHelper.LogError(
+                        log,
+                        $"Per-player setting [{packet.ModName}.{packet.PropertyName}] could not be applied to companion [{dataPropertyName}] at final slot {playerId}.");
+                    return;
+                }
+
+                data.SetValue(ClonePendingValue(value), playerId);
+                if (viewModel is LobbyModSettingsBaseViewModel baseViewModel)
+                    baseViewModel.System_TriggerUpdate(dataPropertyName);
+                DebugLogHelper.LogInfo(
+                    log,
+                    $"[MP-SYNC-EVIDENCE PER-PLAYER-IDENTITY] mod={packet.ModName}, property={packet.PropertyName}, senderSteamId={senderSteamId}, payloadPlayerId={packet.SourcePlayerId}, finalPlayerId={playerId}, deferred={deferred}.");
+            }
+
+            private static bool TryResolveAuthoritativePlayer(
+                ulong senderSteamId,
+                int payloadPlayerId,
+                out int playerId,
+                out string error,
+                out string diagnostic)
+            {
+                bool lobbyPhase = Platform_Multiplayer.Instance?.activeLobby?.members != null;
+                if (!PlayerIdentityHelper.TryCaptureHumanRoster(
+                        preferInGameRoster: !lobbyPhase,
+                        requireAuthoritativeLobbyRoster: true,
+                        out Dictionary<int, ulong> players,
+                        out error,
+                        out diagnostic))
+                {
+                    playerId = 0;
+                    return false;
+                }
+
+                PlayerIdentityResolution resolution =
+                    PlayerIdentityHelper.ResolveAuthenticatedPerPlayerTarget(
+                        senderSteamId,
+                        payloadPlayerId,
+                        players);
+                playerId = resolution.PlayerId;
+                if (!resolution.IsResolved)
+                {
+                    error = resolution.Error;
+                    return false;
+                }
+                error = string.Empty;
+                return true;
+            }
+
+            private static bool IsCurrentHuman(ulong steamId)
+            {
+                Platform_Multiplayer platform = Platform_Multiplayer.Instance;
+                if (platform?.activeLobby?.members != null)
+                {
+                    return platform.activeLobby.members.Any(member =>
+                        member != null && !member.dummyToBeKicked &&
+                        (!member.SkirmishMember || member.SkirmishHumanMember) &&
+                        member.id.m_SteamID == steamId);
+                }
+
+                return platform?.gameMembers?.Any(member =>
+                    member != null && !member.kicked && !member.skirmishAI &&
+                    member.steamID == steamId) == true;
+            }
+
+            private static ulong CurrentLobbyId() =>
+                Platform_Multiplayer.Instance?.activeLobby?.id.m_SteamID ?? 0;
+
+            private static object ClonePendingValue(object value)
+            {
+                if (value is Array array)
+                    return array.Clone();
+                if (value is byte[] bytes)
+                    return (byte[])bytes.Clone();
+                return value;
+            }
+
+            private static object CreateManagedDetour(
+                Type delegateType,
+                MethodInfo source,
+                Delegate target)
+            {
+                Type openType = typeof(GameNetworkAPI).Assembly.GetType(
+                    "SHCDESE.ManagedHooks.ManagedDetour`1",
+                    true);
+                Type closedType = openType.MakeGenericType(delegateType);
+                return Activator.CreateInstance(closedType, source, target);
+            }
+
+            private static void DisposeDetour(object detour)
+            {
+                if (detour == null)
+                    return;
+                object hook = detour.GetType()
+                    .GetProperty("Hook", BindingFlags.Instance | BindingFlags.Public)
+                    ?.GetValue(detour);
+                (hook as IDisposable)?.Dispose();
+            }
+
+            private sealed class PendingPerPlayerUpdate
+            {
+                internal PendingPerPlayerUpdate(
+                    object viewModel,
+                    PropertyInfo property,
+                    LobbyModSettingSyncPacket packet,
+                    object value,
+                    ulong senderSteamId,
+                    ulong lobbyId)
+                {
+                    ViewModel = viewModel;
+                    Property = property;
+                    Packet = packet;
+                    Value = value;
+                    SenderSteamId = senderSteamId;
+                    LobbyId = lobbyId;
+                }
+
+                internal object ViewModel { get; }
+                internal PropertyInfo Property { get; }
+                internal LobbyModSettingSyncPacket Packet { get; }
+                internal object Value { get; }
+                internal ulong SenderSteamId { get; }
+                internal ulong LobbyId { get; }
             }
         }
     }

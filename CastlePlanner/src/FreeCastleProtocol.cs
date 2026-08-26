@@ -192,6 +192,7 @@ namespace CastlePlanner
     {
         public int PlayerId;
         public int Rotation;
+        public bool SpawnBraziersAndFlags;
         public string DisplayName = string.Empty;
         public string ContentHash = string.Empty;
         public short[] RawData = Array.Empty<short>();
@@ -202,6 +203,7 @@ namespace CastlePlanner
         {
             PlayerId = PlayerId,
             Rotation = Rotation,
+            SpawnBraziersAndFlags = SpawnBraziersAndFlags,
             DisplayName = DisplayName ?? string.Empty,
             ContentHash = ContentHash ?? string.Empty,
             RawData = RawData == null ? Array.Empty<short>() : (short[])RawData.Clone()
@@ -210,7 +212,7 @@ namespace CastlePlanner
 
     internal static class FreeCastleProtocol
     {
-        internal const int ProtocolVersion = 2;
+        internal const int ProtocolVersion = 3;
         internal const int PreviewTimeoutSeconds = 120;
         internal const int MaximumChunkBytes = 24 * 1024;
         internal const int MaximumUncompressedBytes = 8 * 1024 * 1024;
@@ -241,6 +243,7 @@ namespace CastlePlanner
                     previousPlayerId = selection.PlayerId;
                     writer.Write(selection.PlayerId);
                     writer.Write(selection.Rotation);
+                    writer.Write(selection.SpawnBraziersAndFlags);
                     WriteString(writer, selection.DisplayName, 512);
                     writer.Write(selection.RawData.Length);
                     foreach (short value in selection.RawData)
@@ -281,6 +284,7 @@ namespace CastlePlanner
                 {
                     int playerId = reader.ReadInt32();
                     int rotation = reader.ReadInt32();
+                    bool spawnBraziersAndFlags = reader.ReadBoolean();
                     string displayName = ReadString(reader, 512);
                     int shortCount = reader.ReadInt32();
                     if (shortCount < 0 || shortCount > MaximumUncompressedBytes / 2)
@@ -293,6 +297,7 @@ namespace CastlePlanner
                     {
                         PlayerId = playerId,
                         Rotation = rotation,
+                        SpawnBraziersAndFlags = spawnBraziersAndFlags,
                         DisplayName = displayName,
                         RawData = raw,
                         ContentHash = HashRaw(raw)
