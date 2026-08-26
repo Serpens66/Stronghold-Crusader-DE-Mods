@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.100",
+  "Version": "1.0.101",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.101",
+      "Changes": [
+        "Fixed Vanilla's default Congratulations overlay remaining visible behind the live statistics screen for players who joined the match as spectators."
+      ]
+    },
     {
       "Version": "1.0.100",
       "Changes": [

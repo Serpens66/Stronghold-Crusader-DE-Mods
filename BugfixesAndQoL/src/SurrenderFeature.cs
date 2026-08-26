@@ -188,6 +188,7 @@ namespace BugfixesAndQoL
         private MethodInfo prepMpScoresMethod;
         private MethodInfo showMpScoreMethod;
         private MethodInfo updateHelpTextMethod;
+        private MethodInfo clearWeaselTextMethod;
         private FieldInfo lastStatsField;
         private FieldInfo mpSortTypeField;
         private FieldInfo sortReversedField;
@@ -649,6 +650,10 @@ namespace BugfixesAndQoL
                 "UpdateHelpText",
                 BindingFlags.Instance | BindingFlags.NonPublic,
                 typeof(int));
+            clearWeaselTextMethod = FindRequiredMethod(
+                typeof(HUD_MissionOver),
+                "ClearWeaselText",
+                BindingFlags.Instance | BindingFlags.NonPublic);
             lastStatsField = FindRequiredField(typeof(HUD_MissionOver), "last_stats", BindingFlags.Instance | BindingFlags.NonPublic);
             mpSortTypeField = FindRequiredField(typeof(HUD_MissionOver), "mp_sortType", BindingFlags.Instance | BindingFlags.NonPublic);
             sortReversedField = FindRequiredField(typeof(HUD_MissionOver), "sortReversed", BindingFlags.Instance | BindingFlags.NonPublic);
@@ -861,6 +866,9 @@ namespace BugfixesAndQoL
             MainViewModel viewModel = MainViewModel.Instance;
             if (initializeView)
             {
+                // Start spectators never pass through Vanilla's victory/defeat loaders, so
+                // dismiss the default Coop "Congratulations" overlay before showing scores.
+                clearWeaselTextMethod.Invoke(view, null);
                 mpSortTypeField.SetValue(view, 0);
                 sortReversedField.SetValue(view, false);
                 viewModel.MO_ShowPage1 = Visibility.Visible;
