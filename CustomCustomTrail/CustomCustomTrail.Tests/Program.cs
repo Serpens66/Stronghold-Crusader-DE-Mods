@@ -273,6 +273,7 @@ static void TestCoordinatorOwnership()
 
     string coordinator = File.ReadAllText(Path.Combine(projectRoot, "src", "TrailMissionSettingsCoordinator.cs"));
     string sharedPresetSystem = File.ReadAllText(Path.Combine(workspaceRoot, "Shared", "PresetLobbyModSettingsViewModel.cs"));
+    string sharedGameMode = File.ReadAllText(Path.Combine(workspaceRoot, "Shared", "GameModeHelper.cs"));
     Assert(CountOccurrences(coordinator, "InjectCoopCustomizeButton(pages[index]);") == 1,
         "Coop Trail button registration is not centralized and singular");
     Assert(coordinator.Contains("Margin = new Thickness(0, 0, 0, -30)"),
@@ -294,10 +295,14 @@ static void TestCoordinatorOwnership()
     Assert(sharedPresetSystem.Contains("PerPlayerIdentityHookAnchor") &&
         sharedPresetSystem.Contains("ApplyPerPlayerUpdate") &&
         sharedPresetSystem.Contains("ResolveAuthenticatedPerPlayerTarget") &&
+        sharedPresetSystem.Contains("CaptureProvisionalPlayerIdDiagnostic") &&
         sharedPresetSystem.Contains("requireAuthoritativeLobbyRoster: true") &&
         sharedPresetSystem.Contains("waiting for an authoritative player slot without a deadline") &&
         sharedPresetSystem.Contains("The transport identity wins"),
         "the shared per-player workaround no longer queues authenticated updates until Vanilla's final slot wins");
+    Assert(sharedGameMode.Contains("SCRIPT EXTENDER BUG WORKAROUND") &&
+        sharedGameMode.Contains("Revalidate all source semantics after every Extender update"),
+        "the shared Script Extender identity workaround is not marked for removal and update review");
     Assert(!coordinator.Contains("pendingTrailMakerSaveDocument"),
         "Trail saves still retain a snapshot for the next save operation");
     Assert(coordinator.Contains("!openingCustomTrailSetup") &&

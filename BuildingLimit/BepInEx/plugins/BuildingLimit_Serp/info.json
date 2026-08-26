@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Building Limit",
   "Description": "Limits the number of active buildings per kind for human players in Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.14",
+  "Version": "1.0.15",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.15",
+      "Changes": [
+        "Adds standalone support for the shared Script Extender per-player identity workaround."
+      ]
+    },
     {
       "Version": "1.0.14",
       "Changes": [

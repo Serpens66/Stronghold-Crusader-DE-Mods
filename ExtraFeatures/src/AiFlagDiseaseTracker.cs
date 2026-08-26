@@ -1,4 +1,4 @@
-// Feature: Identify Disease projectiles created specifically by Vanilla's AI flag routine.
+// Feature: Identify Disease projectiles that must retain their Vanilla lifetime.
 using BepInEx.Logging;
 using MessagePack;
 using R3;
@@ -155,20 +155,24 @@ namespace ExtraFeatures
         private void OnProjectileSpawn(ProjectileSpawnEventArgs args)
         {
             int playerId = activeFlagPlayerId;
-            if (!trackingAvailable || playerId < 1 || playerId > 8 ||
-                args.ProjectileType != ProjectileType.Disease ||
-                args.PlayerSourceId != playerId)
+            if (!trackingAvailable || args.ProjectileType != ProjectileType.Disease)
             {
                 return;
             }
 
             try
             {
+                bool spawnedByAiFlag = playerId >= 1 && playerId <= 8 &&
+                    args.PlayerSourceId == playerId;
+                bool spawnedOverCesspit = !spawnedByAiFlag && IsSpawnedOverCesspit(args);
+                if (!spawnedByAiFlag && !spawnedOverCesspit)
+                    return;
+
                 // Keep stale identities out of saves even if a delete event was skipped.
                 PruneInvalidProjectiles();
 
                 if (args.ReturnValue <= 0 || args.ReturnValue > int.MaxValue)
-                    throw new InvalidOperationException($"AI flag Disease returned an invalid slot ID: {args.ReturnValue}.");
+                    throw new InvalidOperationException($"Vanilla-duration Disease returned an invalid slot ID: {args.ReturnValue}.");
 
                 int slotId = checked((int)args.ReturnValue);
                 if (!GameProjectileManagerAPI.Instance.TryGetProjectileById(slotId, out GameProjectile* projectile) ||
@@ -176,7 +180,7 @@ namespace ExtraFeatures
                     projectile->r_ProjectileType != ProjectileType.Disease ||
                     projectile->r_GlobalId == 0)
                 {
-                    throw new InvalidOperationException($"AI flag Disease could not be identified after spawn: slot={slotId}.");
+                    throw new InvalidOperationException($"Vanilla-duration Disease could not be identified after spawn: slot={slotId}.");
                 }
 
                 registry.Track(slotId, projectile->r_GlobalId);
@@ -185,6 +189,41 @@ namespace ExtraFeatures
             {
                 DisableTracking(ex);
             }
+        }
+
+        private static bool IsSpawnedOverCesspit(ProjectileSpawnEventArgs args)
+        {
+            if (args.SourceWorldTileX < 0 || args.SourceWorldTileY < 0)
+            {
+                return false;
+            }
+
+            // Projectile world coordinates use eight native units per map tile.
+            int sourceTileX = args.SourceWorldTileX >> 3;
+            int sourceTileY = args.SourceWorldTileY >> 3;
+            var buildingEnumerator = GameBuildingManagerAPI.Instance
+                .QueryBuildings()
+                .GetEnumerator();
+            while (buildingEnumerator.MoveNext())
+            {
+                ref GameBuilding building = ref buildingEnumerator.Current;
+                if (building.r_BuildingType != eStructs.STRUCT_CESS_PIT ||
+                    (building.r_AliveState != AliveState.NeedsInit &&
+                     building.r_AliveState != AliveState.IsAlive))
+                {
+                    continue;
+                }
+
+                if (sourceTileX >= building.r_TilePositionXBegin &&
+                    sourceTileX <= building.r_TilePositionXEnd &&
+                    sourceTileY >= building.r_TilePositionYBegin &&
+                    sourceTileY <= building.r_TilePositionYEnd)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private byte[] SaveState(SaveContext context)
@@ -259,7 +298,7 @@ namespace ExtraFeatures
             callbackFailureLogged = true;
             Shared.DebugLogHelper.LogError(
                 log,
-                "Extra Features AI flag Disease tracking was disabled for this process; " +
+                "Extra Features Vanilla-duration Disease tracking was disabled for this process; " +
                 $"the configured global plague duration remains active: {failure}");
         }
 

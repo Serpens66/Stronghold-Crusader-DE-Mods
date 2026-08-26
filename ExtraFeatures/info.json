@@ -3,10 +3,22 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.77",
+  "Version": "1.0.79",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.79",
+      "Changes": [
+        "Keeps plague clouds spawned over Cesspits at Vanilla duration, matching the existing AI flag-cloud exception."
+      ]
+    },
+    {
+      "Version": "1.0.78",
+      "Changes": [
+        "Adds standalone support for the shared Script Extender per-player identity workaround."
+      ]
+    },
     {
       "Version": "1.0.77",
       "Changes": [

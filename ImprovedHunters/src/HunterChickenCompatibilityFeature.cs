@@ -58,8 +58,10 @@ namespace ImprovedHunters
                 return;
 
             PendingGranaryChickenSpawn pending = pendingGranaryChickenSpawns.Peek();
-            // The Script Extender's granary event exposes native local Y as TileX
-            // and local X as TileY; UnitCreate receives those coordinates scaled by 8.
+            // SCRIPT EXTENDER BUG WORKAROUND: the granary event exposes native local Y
+            // as TileX and local X as TileY; UnitCreate receives them scaled by 8.
+            // Remove this conversion only after the upstream event is demonstrably
+            // corrected. Revalidate its coordinate contract after every Extender update.
             if (!GranaryChickenSpawnPolicy.IsMatchingGranaryUnitCreate(
                     IsChickenManagementActive,
                     pending.UnitCreateMatched,

@@ -1876,7 +1876,10 @@ namespace Shared
     /// <summary>
     /// TEMPORARY SCRIPT EXTENDER WORKAROUND.
     /// Remove this class and its registration call once the upstream extender has
-    /// fixed all multiplayer settings paths documented below.
+    /// fixed all multiplayer settings paths documented below and the fixes have
+    /// been verified in a real Host/Client run. Revalidate the private method
+    /// signatures, packet routing, and detour behavior after every Extender update;
+    /// this workaround may need adaptation even before it can be removed.
     /// </summary>
     internal static class ScriptExtenderMultiplayerSyncWorkaround
     {
@@ -2337,7 +2340,9 @@ namespace Shared
         /// but maps that identity through lobby list order. Vanilla can already expose
         /// the final game slot while that provisional order still differs. Keep the
         /// authenticated update until the authoritative roster is available and then
-        /// write it into the final companion-array slot.
+        /// write it into the final companion-array slot. Remove this hook after an
+        /// upstream fix is verified in a real Host/Client run. Revalidate its private
+        /// target signature and semantics after every Script Extender update.
         /// </summary>
         private sealed class PerPlayerIdentityHookAnchor
         {
@@ -2601,13 +2606,14 @@ namespace Shared
                 out string error,
                 out string diagnostic)
             {
+                diagnostic = string.Empty;
                 bool lobbyPhase = Platform_Multiplayer.Instance?.activeLobby?.members != null;
                 if (!PlayerIdentityHelper.TryCaptureHumanRoster(
                         preferInGameRoster: !lobbyPhase,
                         requireAuthoritativeLobbyRoster: true,
                         out Dictionary<int, ulong> players,
                         out error,
-                        out diagnostic))
+                        out _))
                 {
                     playerId = 0;
                     return false;
@@ -2624,6 +2630,10 @@ namespace Shared
                     error = resolution.Error;
                     return false;
                 }
+                diagnostic = PlayerIdentityHelper.CaptureProvisionalPlayerIdDiagnostic(
+                    senderSteamId,
+                    playerId,
+                    inGame: !lobbyPhase);
                 error = string.Empty;
                 return true;
             }

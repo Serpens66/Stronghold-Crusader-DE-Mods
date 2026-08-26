@@ -15,7 +15,7 @@ namespace StartConditions
 
         public const string PluginGuid = "StartConditions_Serp";
         public const string PluginName = "Start Conditions";
-        public const string PluginVersion = "1.0.18";
+        public const string PluginVersion = "1.0.19";
 
         private StartConditionsRuntime runtime;
         private int libraryInitializationStarted;

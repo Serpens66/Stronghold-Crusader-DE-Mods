@@ -13,7 +13,10 @@ namespace ImprovedHunters
     /// Temporary workaround for SHCDE Script Extender issue 123. The public
     /// Hunter query event currently reports saved caller RBX instead of the
     /// native Hunter ID. Remove this once the minimum supported Extender has
-    /// fixed https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender/-/work_items/123.
+    /// fixed https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender/-/work_items/123
+    /// and a real runtime test has verified the fix. Revalidate the native pattern,
+    /// hook context, and event semantics after every Script Extender update; this
+    /// workaround may need adaptation before it can be removed.
     /// </summary>
     internal sealed unsafe class HunterQueryActorWorkaround : IDisposable
     {

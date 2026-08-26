@@ -46,6 +46,10 @@ namespace Shared
             }
 
             bool directorMultiplayer = director != null && director.MultiplayerGame;
+            // SCRIPT EXTENDER BUG WORKAROUND: IsMultiplayerGame() can become false
+            // during a real multiplayer map transition. Remove the additional
+            // Vanilla/roster evidence only after an upstream fix is verified. After
+            // every Script Extender update, revalidate these sources and precedence.
             bool platformMultiplayer = GameNetworkAPI.IsMultiplayerGame();
             bool realMultiplayer =
                 multiplayerSave ||
@@ -154,6 +158,10 @@ namespace Shared
 
     internal static class PlayerIdentityHelper
     {
+        // SCRIPT EXTENDER BUG WORKAROUND: the GameNetworkAPI local/Steam-ID methods
+        // can expose provisional lobby order instead of Vanilla's final player slot.
+        // Remove this multi-source resolver only after the upstream behavior is
+        // demonstrably fixed. Revalidate all source semantics after every Extender update.
         private const int FirstPlayerId = 1;
         private const int LastPlayerId = 8;
 
@@ -404,6 +412,37 @@ namespace Shared
                 }
             }
             return Success(resolution.PlayerId, diagnostic);
+        }
+
+        internal static string CaptureProvisionalPlayerIdDiagnostic(
+            ulong steamId,
+            int finalPlayerId,
+            bool inGame)
+        {
+            if (steamId == 0 || !IsValidPlayerId(finalPlayerId))
+                return string.Empty;
+
+            try
+            {
+                int provisionalPlayerId = GameNetworkAPI.GetPlayerIdForSteamId(
+                    new CSteamID(steamId));
+                if (!IsValidPlayerId(provisionalPlayerId) ||
+                    provisionalPlayerId == finalPlayerId)
+                {
+                    return string.Empty;
+                }
+
+                return inGame
+                    ? $"Lobby-order player ID differs from the final in-game slot for Steam identity " +
+                      $"{steamId}: networkLobby={provisionalPlayerId}, final={finalPlayerId}."
+                    : $"Script Extender lobby-order player ID differs from Vanilla's final lobby mapping " +
+                      $"for Steam identity {steamId}: networkLobby={provisionalPlayerId}, " +
+                      $"finalLobby={finalPlayerId}.";
+            }
+            catch
+            {
+                return string.Empty;
+            }
         }
 
         internal static bool TryCaptureHumanRoster(

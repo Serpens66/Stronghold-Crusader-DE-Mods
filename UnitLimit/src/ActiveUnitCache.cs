@@ -231,8 +231,10 @@ namespace UnitLimit
                 return;
             }
 
-            // Some Script Extender transition hooks expose an unreliable event owner. The
-            // validated native unit remains authoritative for every transition source.
+            // SCRIPT EXTENDER BUG WORKAROUND: some transition hooks expose an unreliable
+            // event owner. The validated native unit remains authoritative. Remove this
+            // normalization only after the upstream owner is verified correct for every
+            // transition source; revalidate event semantics after every Extender update.
             if (args.PlayerOwnerId != snapshot.OwnerId)
             {
                 if (TryReserveTransitionWarning(

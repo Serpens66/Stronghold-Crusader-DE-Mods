@@ -813,8 +813,10 @@ namespace RandomEvents
                     return;
                 }
 
-                // The sender supplied by the current Script Extender may be unavailable in-game.
-                // PlayerId is used only as a readiness receipt; it never authorizes a simulation action.
+                // SCRIPT EXTENDER BUG WORKAROUND: the transport sender may be unavailable
+                // in-game. PlayerId is used only as a readiness receipt and never authorizes
+                // a simulation action. Remove this exception only after sender propagation is
+                // verified fixed; revalidate packet sender semantics after every Extender update.
                 initializationAcknowledgedPlayerIds.Add(packet.PlayerId);
                 LogDebug(
                     $"Random Events initialization ACK accepted: operationId={packet.OperationId}, " +

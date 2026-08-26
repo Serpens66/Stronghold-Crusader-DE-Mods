@@ -14,7 +14,7 @@ namespace CheatMod
 
         public const string PluginGuid = "CheatMod_Serp";
         public const string PluginName = "Cheat Mod";
-        public const string PluginVersion = "1.0.2";
+        public const string PluginVersion = "1.0.3";
 
         private CheatModRuntime runtime;
         private int libraryInitializationStarted;

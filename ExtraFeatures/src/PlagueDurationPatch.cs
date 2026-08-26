@@ -144,7 +144,7 @@ namespace ExtraFeatures
                 conditionalExceptionAvailable = true;
                 Shared.DebugLogHelper.LogDebug(
                     log,
-                    $"Extra Features AI flag Disease lifetime exception initialized: " +
+                    $"Extra Features AI flag and Cesspit Disease lifetime exceptions initialized: " +
                     $"comparisonRva=0x{lifetimePatternRva + LifetimeComparisonOffset:X}, vanilla={VanillaLifetime}.");
             }
             catch (Exception ex)
@@ -157,7 +157,7 @@ namespace ExtraFeatures
                 aiFlagDiseaseTracker = null;
                 Shared.DebugLogHelper.LogWarning(
                     log,
-                    "Extra Features could not initialize the AI flag Disease lifetime exception; " +
+                    "Extra Features could not initialize the AI flag and Cesspit Disease lifetime exceptions; " +
                     $"the configured global plague duration remains active: {ex}");
             }
         }
@@ -186,7 +186,7 @@ namespace ExtraFeatures
                 conditionalCallbackFailureLogged = true;
                 Shared.DebugLogHelper.LogError(
                     log,
-                    "Extra Features AI flag Disease lifetime exception was disabled for this process; " +
+                    "Extra Features AI flag and Cesspit Disease lifetime exceptions were disabled for this process; " +
                     $"the configured global plague duration remains active: {ex}");
             }
         }

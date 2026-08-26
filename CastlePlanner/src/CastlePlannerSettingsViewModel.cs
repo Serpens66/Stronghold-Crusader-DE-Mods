@@ -128,9 +128,6 @@ namespace CastlePlanner
             settings
                 .ResetSlotsWith(nameof(SpawnBraziersAndFlags), () => false)
                 .ResetSlotsWith(nameof(SpawnBraziersAndFlagsReport), () => -1)
-                .RequireReport(
-                    nameof(SpawnBraziersAndFlagsReport),
-                    value => value is int report && report == 1)
                 .WhenLocalPlayerResolved(playerId =>
                 {
                     localPlayerId = playerId;
@@ -516,8 +513,9 @@ namespace CastlePlanner
 
         public int[] SpawnBraziersAndFlagsReportData => spawnBraziersAndFlagsReportData;
 
-        // A separate sentinel is required because every bool value is otherwise
-        // indistinguishable from an unreported slot reset to false.
+        // Retained as sync diagnostics and for compatibility with saved settings.
+        // Castle execution no longer gates on this sentinel: protocol v3 freezes
+        // the personal value inside the authenticated operation manifest instead.
         [SyncPerPlayer]
         public int SpawnBraziersAndFlagsReport
         {
