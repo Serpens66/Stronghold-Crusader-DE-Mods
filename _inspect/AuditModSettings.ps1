@@ -403,18 +403,24 @@ foreach ($required in @(
     'Height="{Binding PanelHeight}"',
     'VerticalScrollBarVisibility="Auto"',
     'HorizontalScrollBarVisibility="Auto"',
-    'x:Name="CastlePlannerCastleComboBox"',
+    'x:Name="CastlePlannerCastleSelector"',
+    'x:Name="CastlePlannerCastleOpenSurface"',
+    'x:Name="CastlePlannerCastleSearchPopup"',
+    'x:Name="CastlePlannerCastleSearchTextBox"',
+    'x:Name="CastlePlannerCastleSearchResults"',
     'x:Name="CastlePlannerRotationComboBox"',
     'IsEnabled="{Binding CanSelectCastle}"',
     'IsEnabled="{Binding CanSelectRotation}"',
-    'Text="{Binding CastleSearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"',
+    'Placement="Bottom"',
+    'VerticalOffset="-30"',
+    'StaysOpen="False"',
+    'Placeholder="{Binding SearchText}"',
     'Command="{Binding ConfirmCastleCommand}"')) {
     if (-not $castleHudXaml.Contains($required)) {
         throw "CastlePlanner unified preview HUD marker is missing: $required"
     }
 }
 foreach ($required in @(
-    'ToolTip="{Binding SearchHelpText}"',
     'ToolTip="{Binding ShowFortificationsHelpText}"',
     'ToolTip="{Binding ShowBuildingsHelpText}"',
     'ToolTip="{Binding ShowDefensiveGroundFeaturesHelpText}"',
@@ -425,11 +431,14 @@ foreach ($required in @(
 }
 if ([Text.RegularExpressions.Regex]::Matches(
         $castleHudXaml,
-        'ToolTip="').Count -ne 5 -or
+        'ToolTip="').Count -ne 4 -or
     [Text.RegularExpressions.Regex]::Matches(
         $castleHudXaml,
-        'ToolTipService\.ShowDuration="60000"').Count -ne 5) {
-    throw 'CastlePlanner must expose exactly five 60-second Blueprint HUD tooltips.'
+        'ToolTipService\.ShowDuration="60000"').Count -ne 4) {
+    throw 'CastlePlanner must expose exactly four 60-second Blueprint HUD tooltips.'
+}
+if ($castleHudXaml.Contains('ToolTip="{Binding SearchHelpText}"')) {
+    throw 'CastlePlanner search selector must not expose redundant tooltips.'
 }
 $castleHudSource = [IO.File]::ReadAllText((Join-Path $workspace 'CastlePlanner/src/BlueprintHudViewModel.cs'))
 foreach ($required in @(
@@ -437,9 +446,15 @@ foreach ($required in @(
     'filteredCastleOptions;',
     'ObservableCollection<string> source = PreviewVisible',
     'BlueprintSearchPolicy.Matches(option, castleSearchText)',
+    'castleSearchPopup.Opened += OnCastleSearchPopupOpened;',
+    'castleSearchPopup.Closed += OnCastleSearchPopupClosed;',
+    'castleSearchTextBox.IsKeyboardFocusedChanged +=',
+    'castleSearchResults.SelectionChanged +=',
+    'MainViewModel.Instance.SetNoesisKeyboardState(focused);',
+    'castleSearchTextBox.SelectAll();',
     'SettingsPanelVisible = true;',
     'current.PreviewMouseWheel += OnComboBoxPreviewMouseWheel;',
-    'castleComboBox?.IsDropDownOpen == true',
+    'castleSearchPopup?.IsOpen == true',
     'rotationComboBox?.IsDropDownOpen == true',
     'ProcessOpenDropDownWheel()',
     'UnityEngine.Input.mouseScrollDelta.y',

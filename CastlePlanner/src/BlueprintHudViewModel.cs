@@ -11,13 +11,19 @@ namespace CastlePlanner
         private const string HudHostName = "CastlePlannerBlueprintHud";
         private const string DragHandleName =
             "CastlePlannerBlueprintDragHandle";
-        private const string CastleComboBoxName =
-            "CastlePlannerCastleComboBox";
+        private const string CastleOpenSurfaceName =
+            "CastlePlannerCastleOpenSurface";
+        private const string CastleSearchPopupName =
+            "CastlePlannerCastleSearchPopup";
+        private const string CastleSearchTextBoxName =
+            "CastlePlannerCastleSearchTextBox";
+        private const string CastleSearchResultsName =
+            "CastlePlannerCastleSearchResults";
         private const string RotationComboBoxName =
             "CastlePlannerRotationComboBox";
         private const double DesiredPanelWidth = 360.0;
-        private const double NormalPanelHeight = 385.0;
-        private const double PreviewPanelHeight = 365.0;
+        private const double NormalPanelHeight = 330.0;
+        private const double PreviewPanelHeight = 310.0;
         private const double ScreenInset = 8.0;
         private const double DefaultPanelLeft = 44.0;
         private const double BaseButtonBottom = 34.0;
@@ -36,6 +42,8 @@ namespace CastlePlanner
         private bool settingsPanelVisible;
         private bool vanillaButtonOccupiesFirstSlot;
         private bool isDragging;
+        private bool castleSearchSessionActive;
+        private bool suppressCastleSearchTextChanged;
         private string castleSearchText = string.Empty;
         private double panelLeft;
         private double panelTop;
@@ -48,7 +56,10 @@ namespace CastlePlanner
         private Noesis.Point dragStartPointer;
         private Noesis.FrameworkElement hudHost;
         private Noesis.FrameworkElement dragHandle;
-        private Noesis.ComboBox castleComboBox;
+        private Noesis.FrameworkElement castleOpenSurface;
+        private Noesis.Popup castleSearchPopup;
+        private Noesis.TextBox castleSearchTextBox;
+        private Noesis.ListBox castleSearchResults;
         private Noesis.ComboBox rotationComboBox;
         private Noesis.UIElement castlePopupChild;
         private Noesis.UIElement rotationPopupChild;
@@ -107,26 +118,6 @@ namespace CastlePlanner
 
         public ObservableCollection<string> CastleOptions =>
             filteredCastleOptions;
-
-        public string CastleSearchText
-        {
-            get => castleSearchText;
-            set
-            {
-                string normalized = value ?? string.Empty;
-                if (string.Equals(
-                        castleSearchText,
-                        normalized,
-                        StringComparison.Ordinal))
-                {
-                    return;
-                }
-
-                castleSearchText = normalized;
-                OnPropertyChanged(nameof(CastleSearchText));
-                RefreshCastleOptionsFilter();
-            }
-        }
 
         public string SelectedCastle
         {
@@ -404,17 +395,30 @@ namespace CastlePlanner
 
         public bool ShouldSuppressMapZoom()
         {
-            return castleComboBox?.IsDropDownOpen == true ||
+            return castleSearchPopup?.IsOpen == true ||
                 rotationComboBox?.IsDropDownOpen == true;
         }
 
         public void ProcessOpenDropDownWheel()
         {
-            Noesis.ComboBox open = null;
-            if (castleComboBox?.IsDropDownOpen == true)
+            Noesis.ScrollViewer scrollViewer = null;
+            if (castleSearchPopup?.IsOpen == true)
             {
-                open = castleComboBox;
-                AttachPopupWheelGuard(open, ref castlePopupChild);
+                castleSearchResults?.ApplyTemplate();
+                scrollViewer = castleSearchResults == null
+                    ? null
+                    : FindDescendant<Noesis.ScrollViewer>(
+                        castleSearchResults);
+                if (scrollViewer != null)
+                {
+                    AttachPopupWheelGuard(
+                        castleSearchResults,
+                        ref castlePopupChild);
+                }
+                else
+                {
+                    DetachPopupWheelGuard(ref castlePopupChild);
+                }
             }
             else
             {
@@ -423,8 +427,14 @@ namespace CastlePlanner
 
             if (rotationComboBox?.IsDropDownOpen == true)
             {
-                open = rotationComboBox;
-                AttachPopupWheelGuard(open, ref rotationPopupChild);
+                Noesis.Popup rotationPopup = ResolvePopup(rotationComboBox);
+                AttachPopupWheelGuard(
+                    rotationPopup?.Child,
+                    ref rotationPopupChild);
+                scrollViewer = rotationPopup?.Child == null
+                    ? null
+                    : FindDescendant<Noesis.ScrollViewer>(
+                        rotationPopup.Child);
             }
             else
             {
@@ -432,14 +442,7 @@ namespace CastlePlanner
             }
 
             float wheel = UnityEngine.Input.mouseScrollDelta.y;
-            if (open == null || Math.Abs(wheel) < 0.01f)
-                return;
-
-            Noesis.Popup popup = ResolvePopup(open);
-            Noesis.ScrollViewer scrollViewer = popup?.Child == null
-                ? null
-                : FindDescendant<Noesis.ScrollViewer>(popup.Child);
-            if (scrollViewer == null)
+            if (scrollViewer == null || Math.Abs(wheel) < 0.01f)
                 return;
 
             int lines = Math.Max(1, (int)Math.Ceiling(Math.Abs(wheel)));
@@ -513,9 +516,7 @@ namespace CastlePlanner
                     $"{viewportHeight:0.0}.");
             }
 
-            AttachComboBox(
-                ref castleComboBox,
-                FindElement<Noesis.ComboBox>(host, CastleComboBoxName));
+            AttachCastleSearchControls(host);
             AttachComboBox(
                 ref rotationComboBox,
                 FindElement<Noesis.ComboBox>(host, RotationComboBoxName));
@@ -525,7 +526,7 @@ namespace CastlePlanner
         {
             FinishDrag(savePosition: true);
             DetachDragHandle();
-            DetachComboBox(ref castleComboBox);
+            DetachCastleSearchControls();
             DetachComboBox(ref rotationComboBox);
             DetachPopupWheelGuard(ref castlePopupChild);
             DetachPopupWheelGuard(ref rotationPopupChild);
@@ -555,6 +556,197 @@ namespace CastlePlanner
             comboBox = null;
         }
 
+        private void AttachCastleSearchControls(Noesis.FrameworkElement host)
+        {
+            Noesis.FrameworkElement openSurface =
+                FindElement<Noesis.FrameworkElement>(
+                    host,
+                    CastleOpenSurfaceName);
+            Noesis.Popup popup =
+                FindElement<Noesis.Popup>(host, CastleSearchPopupName);
+            Noesis.TextBox textBox =
+                FindElement<Noesis.TextBox>(host, CastleSearchTextBoxName);
+            Noesis.ListBox results =
+                FindElement<Noesis.ListBox>(host, CastleSearchResultsName);
+            if (openSurface == null || popup == null || textBox == null ||
+                results == null)
+            {
+                return;
+            }
+
+            if (ReferenceEquals(openSurface, castleOpenSurface) &&
+                ReferenceEquals(popup, castleSearchPopup) &&
+                ReferenceEquals(textBox, castleSearchTextBox) &&
+                ReferenceEquals(results, castleSearchResults))
+            {
+                return;
+            }
+
+            DetachCastleSearchControls();
+            castleOpenSurface = openSurface;
+            castleSearchPopup = popup;
+            castleSearchTextBox = textBox;
+            castleSearchResults = results;
+            castleOpenSurface.MouseLeftButtonUp +=
+                OnCastleOpenSurfaceMouseUp;
+            castleSearchPopup.Opened += OnCastleSearchPopupOpened;
+            castleSearchPopup.Closed += OnCastleSearchPopupClosed;
+            castleSearchTextBox.TextChanged += OnCastleSearchTextChanged;
+            castleSearchTextBox.IsKeyboardFocusedChanged +=
+                OnCastleSearchKeyboardFocusChanged;
+            castleSearchResults.SelectionChanged +=
+                OnCastleSearchResultSelected;
+        }
+
+        private void DetachCastleSearchControls()
+        {
+            EndCastleSearch();
+            if (castleOpenSurface != null)
+            {
+                castleOpenSurface.MouseLeftButtonUp -=
+                    OnCastleOpenSurfaceMouseUp;
+                castleOpenSurface = null;
+            }
+            if (castleSearchPopup != null)
+            {
+                castleSearchPopup.Opened -= OnCastleSearchPopupOpened;
+                castleSearchPopup.Closed -= OnCastleSearchPopupClosed;
+                castleSearchPopup.IsOpen = false;
+                castleSearchPopup = null;
+            }
+            if (castleSearchTextBox != null)
+            {
+                castleSearchTextBox.TextChanged -= OnCastleSearchTextChanged;
+                castleSearchTextBox.IsKeyboardFocusedChanged -=
+                    OnCastleSearchKeyboardFocusChanged;
+                castleSearchTextBox = null;
+            }
+            if (castleSearchResults != null)
+            {
+                castleSearchResults.SelectionChanged -=
+                    OnCastleSearchResultSelected;
+                castleSearchResults = null;
+            }
+        }
+
+        private void OnCastleOpenSurfaceMouseUp(
+            object sender,
+            Noesis.MouseButtonEventArgs args)
+        {
+            if (castleSearchPopup == null || castleSearchPopup.IsOpen)
+                return;
+
+            // Rebuild the complete result set while the popup is still closed.
+            // This keeps collection resets out of Noesis' open/close events.
+            castleSearchText = string.Empty;
+            RefreshCastleOptionsFilter();
+            castleSearchPopup.IsOpen = true;
+            args.Handled = true;
+        }
+
+        private void OnCastleSearchPopupOpened(
+            object sender,
+            Noesis.EventArgs args)
+        {
+            BeginCastleSearch();
+        }
+
+        private void OnCastleSearchPopupClosed(
+            object sender,
+            Noesis.EventArgs args)
+        {
+            EndCastleSearch();
+        }
+
+        private void BeginCastleSearch()
+        {
+            if (castleSearchTextBox == null)
+                return;
+
+            castleSearchSessionActive = true;
+            castleSearchText = string.Empty;
+            suppressCastleSearchTextChanged = true;
+            castleSearchTextBox.Text = SelectedCastle ?? string.Empty;
+            if (castleSearchResults != null)
+                castleSearchResults.SelectedIndex = -1;
+            suppressCastleSearchTextChanged = false;
+            castleSearchTextBox.Focus();
+            castleSearchTextBox.SelectAll();
+        }
+
+        private void EndCastleSearch()
+        {
+            if (!castleSearchSessionActive)
+                return;
+
+            castleSearchSessionActive = false;
+            castleSearchText = string.Empty;
+            suppressCastleSearchTextChanged = true;
+            if (castleSearchTextBox != null)
+            {
+                bool wasFocused = castleSearchTextBox.IsKeyboardFocused;
+                castleSearchTextBox.Text = SelectedCastle ?? string.Empty;
+                if (wasFocused)
+                {
+                    castleSearchTextBox.Keyboard.ClearFocus();
+                    SetNoesisKeyboardState(false);
+                }
+            }
+            if (castleSearchResults != null)
+                castleSearchResults.SelectedIndex = -1;
+            suppressCastleSearchTextChanged = false;
+            OnPropertyChanged(nameof(SelectedCastle));
+        }
+
+        private void OnCastleSearchTextChanged(
+            object sender,
+            Noesis.RoutedEventArgs args)
+        {
+            if (!castleSearchSessionActive ||
+                suppressCastleSearchTextChanged ||
+                castleSearchTextBox == null)
+            {
+                return;
+            }
+
+            string query = castleSearchTextBox.Text ?? string.Empty;
+            if (string.Equals(castleSearchText, query, StringComparison.Ordinal))
+                return;
+
+            castleSearchText = query;
+            RefreshCastleOptionsFilter();
+        }
+
+        private void OnCastleSearchKeyboardFocusChanged(
+            object sender,
+            Noesis.DependencyPropertyChangedEventArgs args)
+        {
+            bool focused = (bool)args.NewValue;
+            SetNoesisKeyboardState(focused);
+        }
+
+        private void OnCastleSearchResultSelected(
+            object sender,
+            Noesis.SelectionChangedEventArgs args)
+        {
+            if (!castleSearchSessionActive ||
+                suppressCastleSearchTextChanged ||
+                !(castleSearchResults?.SelectedItem is string selected))
+            {
+                return;
+            }
+
+            SelectedCastle = selected;
+            if (castleSearchPopup != null)
+                castleSearchPopup.IsOpen = false;
+        }
+
+        private static void SetNoesisKeyboardState(bool focused)
+        {
+            if (CrusaderDE.MainViewModel.viewModelLoaded)
+                CrusaderDE.MainViewModel.Instance.SetNoesisKeyboardState(focused);
+        }
+
         private static T FindElement<T>(
             Noesis.FrameworkElement host,
             string name)
@@ -575,10 +767,9 @@ namespace CastlePlanner
         }
 
         private static void AttachPopupWheelGuard(
-            Noesis.ComboBox comboBox,
+            Noesis.UIElement child,
             ref Noesis.UIElement currentChild)
         {
-            Noesis.UIElement child = ResolvePopup(comboBox)?.Child;
             if (ReferenceEquals(child, currentChild))
                 return;
             DetachPopupWheelGuard(ref currentChild);
@@ -1005,9 +1196,6 @@ namespace CastlePlanner
             }
 
             filteredCastleOptions.ReplaceWith(matches);
-            // Filtering must not change the persisted or preview selection.
-            // Reapply it when a previously hidden item becomes visible again.
-            OnPropertyChanged(nameof(SelectedCastle));
         }
 
         private bool SetField(
