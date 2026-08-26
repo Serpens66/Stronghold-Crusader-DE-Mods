@@ -43,6 +43,7 @@ namespace CastlePlanner
         private bool vanillaButtonOccupiesFirstSlot;
         private bool isDragging;
         private bool castleSearchSessionActive;
+        private bool castleSearchOpeningClickActive;
         private bool suppressCastleSearchTextChanged;
         private string castleSearchText = string.Empty;
         private double panelLeft;
@@ -399,6 +400,24 @@ namespace CastlePlanner
                 rotationComboBox?.IsDropDownOpen == true;
         }
 
+        public bool CloseSearchPopupForApplicationFocusLoss()
+        {
+            bool wasOpen = castleSearchPopup?.IsOpen == true;
+            bool hadSearchSession = castleSearchSessionActive;
+            if (!wasOpen && !hadSearchSession)
+                return false;
+
+            if (wasOpen)
+                castleSearchPopup.IsOpen = false;
+
+            // Closed normally ends the session synchronously. Keep this
+            // fallback fail-safe for focus transitions during Noesis teardown.
+            if (castleSearchSessionActive)
+                EndCastleSearch();
+            SetNoesisKeyboardState(false);
+            return true;
+        }
+
         public void ProcessOpenDropDownWheel()
         {
             Noesis.ScrollViewer scrollViewer = null;
@@ -453,6 +472,22 @@ namespace CastlePlanner
                 else
                     scrollViewer.LineDown();
             }
+        }
+
+        public void CompleteCastleSearchOpeningClick()
+        {
+            if (!castleSearchOpeningClickActive ||
+                UnityEngine.Input.GetMouseButton(0))
+            {
+                return;
+            }
+
+            // The popup opens on mouse-down. Keep Noesis' outside-click
+            // dismissal disabled until that same click has fully ended, or its
+            // mouse-up would immediately close the newly opened popup.
+            castleSearchOpeningClickActive = false;
+            if (castleSearchPopup != null)
+                castleSearchPopup.StaysOpen = false;
         }
 
         private void ToggleSettingsPanel(object parameter)
@@ -587,8 +622,8 @@ namespace CastlePlanner
             castleSearchPopup = popup;
             castleSearchTextBox = textBox;
             castleSearchResults = results;
-            castleOpenSurface.MouseLeftButtonUp +=
-                OnCastleOpenSurfaceMouseUp;
+            castleOpenSurface.MouseLeftButtonDown +=
+                OnCastleOpenSurfaceMouseDown;
             castleSearchPopup.Opened += OnCastleSearchPopupOpened;
             castleSearchPopup.Closed += OnCastleSearchPopupClosed;
             castleSearchTextBox.TextChanged += OnCastleSearchTextChanged;
@@ -603,8 +638,8 @@ namespace CastlePlanner
             EndCastleSearch();
             if (castleOpenSurface != null)
             {
-                castleOpenSurface.MouseLeftButtonUp -=
-                    OnCastleOpenSurfaceMouseUp;
+                castleOpenSurface.MouseLeftButtonDown -=
+                    OnCastleOpenSurfaceMouseDown;
                 castleOpenSurface = null;
             }
             if (castleSearchPopup != null)
@@ -612,8 +647,10 @@ namespace CastlePlanner
                 castleSearchPopup.Opened -= OnCastleSearchPopupOpened;
                 castleSearchPopup.Closed -= OnCastleSearchPopupClosed;
                 castleSearchPopup.IsOpen = false;
+                castleSearchPopup.StaysOpen = false;
                 castleSearchPopup = null;
             }
+            castleSearchOpeningClickActive = false;
             if (castleSearchTextBox != null)
             {
                 castleSearchTextBox.TextChanged -= OnCastleSearchTextChanged;
@@ -629,7 +666,7 @@ namespace CastlePlanner
             }
         }
 
-        private void OnCastleOpenSurfaceMouseUp(
+        private void OnCastleOpenSurfaceMouseDown(
             object sender,
             Noesis.MouseButtonEventArgs args)
         {
@@ -640,6 +677,8 @@ namespace CastlePlanner
             // This keeps collection resets out of Noesis' open/close events.
             castleSearchText = string.Empty;
             RefreshCastleOptionsFilter();
+            castleSearchOpeningClickActive = true;
+            castleSearchPopup.StaysOpen = true;
             castleSearchPopup.IsOpen = true;
             args.Handled = true;
         }
@@ -655,6 +694,9 @@ namespace CastlePlanner
             object sender,
             Noesis.EventArgs args)
         {
+            castleSearchOpeningClickActive = false;
+            if (castleSearchPopup != null)
+                castleSearchPopup.StaysOpen = false;
             EndCastleSearch();
         }
 

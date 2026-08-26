@@ -412,8 +412,9 @@ foreach ($required in @(
     'IsEnabled="{Binding CanSelectCastle}"',
     'IsEnabled="{Binding CanSelectRotation}"',
     'Placement="Bottom"',
-    'VerticalOffset="-30"',
     'StaysOpen="False"',
+    'ScrollViewer.HorizontalScrollBarVisibility="Auto"',
+    'ScrollViewer.VerticalScrollBarVisibility="Auto"',
     'Placeholder="{Binding SearchText}"',
     'Command="{Binding ConfirmCastleCommand}"')) {
     if (-not $castleHudXaml.Contains($required)) {
@@ -440,6 +441,9 @@ if ([Text.RegularExpressions.Regex]::Matches(
 if ($castleHudXaml.Contains('ToolTip="{Binding SearchHelpText}"')) {
     throw 'CastlePlanner search selector must not expose redundant tooltips.'
 }
+if ($castleHudXaml.Contains('VerticalOffset="-30"')) {
+    throw 'CastlePlanner search popup must not overlap its movable selector.'
+}
 $castleHudSource = [IO.File]::ReadAllText((Join-Path $workspace 'CastlePlanner/src/BlueprintHudViewModel.cs'))
 foreach ($required in @(
     'ObservableCollection<string> CastleOptions =>',
@@ -448,6 +452,9 @@ foreach ($required in @(
     'BlueprintSearchPolicy.Matches(option, castleSearchText)',
     'castleSearchPopup.Opened += OnCastleSearchPopupOpened;',
     'castleSearchPopup.Closed += OnCastleSearchPopupClosed;',
+    'castleOpenSurface.MouseLeftButtonDown +=',
+    'castleSearchPopup.StaysOpen = true;',
+    'CompleteCastleSearchOpeningClick()',
     'castleSearchTextBox.IsKeyboardFocusedChanged +=',
     'castleSearchResults.SelectionChanged +=',
     'MainViewModel.Instance.SetNoesisKeyboardState(focused);',
@@ -474,7 +481,10 @@ foreach ($required in @(
 $castleBlueprintRuntimeSource = [IO.File]::ReadAllText((Join-Path $workspace 'CastlePlanner/src/BlueprintRuntimeController.cs'))
 foreach ($required in @(
     'InstallCameraWheelGuard();',
+    'Application.focusChanged += OnApplicationFocusChanged;',
+    'Hud?.CloseSearchPopupForApplicationFocusLoss() == true',
     'Hud?.EnsureInteractiveElementsAttached();',
+    'Hud?.CompleteCastleSearchOpeningClick();',
     'Hud?.ProcessOpenDropDownWheel();',
     'Hud?.ShouldSuppressMapZoom() == true',
     'camera.AllowZoom = false;')) {

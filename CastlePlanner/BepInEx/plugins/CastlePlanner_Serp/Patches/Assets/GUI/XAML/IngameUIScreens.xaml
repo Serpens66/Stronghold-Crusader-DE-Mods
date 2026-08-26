@@ -87,7 +87,6 @@
               <Popup x:Name="CastlePlannerCastleSearchPopup"
                      Placement="Bottom"
                      PlacementTarget="{Binding ElementName=CastlePlannerCastleSelector}"
-                     VerticalOffset="-30"
                      StaysOpen="False"
                      AllowsTransparency="True">
                 <Border Width="{Binding ActualWidth, ElementName=CastlePlannerCastleSelector}"
@@ -102,6 +101,8 @@
                     <ListBox x:Name="CastlePlannerCastleSearchResults"
                              ItemsSource="{Binding CastleOptions}"
                              MaxHeight="390"
+                             ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto"
                              Background="{StaticResource Brush.ComboBox.Normal}"
                              BorderThickness="0"/>
                   </StackPanel>

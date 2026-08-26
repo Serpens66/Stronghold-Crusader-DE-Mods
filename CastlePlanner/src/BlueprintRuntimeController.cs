@@ -114,10 +114,36 @@ namespace CastlePlanner
             // simulation ticks are paused. This verified static callback survives startup, and
             // TickOncePerFrame deduplicates multiple callbacks within the same rendered frame.
             Application.onBeforeRender += OnBeforeRender;
+            Application.focusChanged += OnApplicationFocusChanged;
             Shared.DebugLogHelper.LogInfo(
                 log,
                 "Persistent local blueprint runtime initialized; " +
-                "Application.onBeforeRender frame loop registered.");
+                "Application.onBeforeRender frame loop and focus-loss guard " +
+                "registered.");
+        }
+
+        private void OnApplicationFocusChanged(bool focused)
+        {
+            if (focused)
+                return;
+
+            try
+            {
+                if (Hud?.CloseSearchPopupForApplicationFocusLoss() == true)
+                {
+                    Shared.DebugLogHelper.LogInfo(
+                        log,
+                        "Blueprint AIVJSON search popup closed because the " +
+                        "application lost focus.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Failed to close the Blueprint AIVJSON search popup " +
+                    $"during application focus loss: {ex}");
+            }
         }
 
         private void OnBeforeRender()
@@ -187,6 +213,7 @@ namespace CastlePlanner
                 (mainViewModel.Show_HUD_Extras_Button_Objectves ||
                  mainViewModel.Show_HUD_Extras_Button_Freebuild));
             Hud?.EnsureInteractiveElementsAttached();
+            Hud?.CompleteCastleSearchOpeningClick();
             Hud?.ProcessOpenDropDownWheel();
             UpdateHotkeyCapture();
             EnsureEditorMapState();
