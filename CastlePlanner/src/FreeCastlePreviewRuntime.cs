@@ -45,6 +45,7 @@ namespace CastlePlanner
             Loading,
             Selecting,
             Distributing,
+            Aborting,
             RestartCommitted,
             SpawnMap
         }
@@ -97,8 +98,9 @@ namespace CastlePlanner
         private bool localCatalogReady;
         private bool catalogWaitLogged;
         private long countdownStarted;
-        private long distributionStarted;
         private long lastReadySent;
+        private long lastAbortSent;
+        private string pendingAbortReason;
         private int lastFrame = -1;
         private string selectedChoice = string.Empty;
         private string selectedRotation = "0°";
@@ -120,7 +122,7 @@ namespace CastlePlanner
         public ObservableCollection<string> RotationChoices => rotations;
         public bool IsPreviewActive =>
             state == PreviewState.Loading || state == PreviewState.Selecting ||
-            state == PreviewState.Distributing;
+            state == PreviewState.Distributing || state == PreviewState.Aborting;
         private bool IsPreviewPendingOrActive =>
             state == PreviewState.AwaitingGameplay || IsPreviewActive;
         public bool IsSpawnMapPass => state == PreviewState.SpawnMap;
@@ -320,13 +322,15 @@ namespace CastlePlanner
                 state = PreviewState.AwaitingGameplay;
                 operationId = unchecked((int)DateTime.UtcNow.Ticks) & int.MaxValue;
                 realMultiplayer = Shared.GameModeHelper.IsRealMultiplayer(false);
-                localPlayerId = ResolveLocalPlayerId();
-                BuildRoster();
+                localPlayerId = ResolveLocalPlayerId(out string identityError);
+                BuildRoster(out string rosterError);
                 ApplyPause(true);
                 NotifyAll();
                 Shared.DebugLogHelper.LogInfo(
                     log,
                     $"Castle preview pause armed in OnStartMap(Pre): operation={operationId}, localPlayer={localPlayerId}, multiplayer={realMultiplayer}, roster=[{string.Join(",", roster.OrderBy(id => id))}].");
+                if (!string.IsNullOrEmpty(identityError) || !string.IsNullOrEmpty(rosterError))
+                    FailBeforeCommit(identityError ?? rosterError);
                 return;
             }
 
@@ -497,7 +501,6 @@ namespace CastlePlanner
             }
 
             state = PreviewState.Distributing;
-            distributionStarted = Stopwatch.GetTimestamp();
             byte[] encoded = FreeCastleProtocol.EncodeSelections(decisions.Values);
             committedSelections = FreeCastleProtocol.DecodeSelections(encoded);
             if (!realMultiplayer)
@@ -509,12 +512,17 @@ namespace CastlePlanner
             manifestAcks.Clear();
             manifestAcks.Add(SteamUser.GetSteamID().m_SteamID);
             SendManifestToPeers(encoded);
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                "Castle manifest distributed; waiting for every participant without a connection-speed deadline.");
             NotifyAll();
             TryCommitRestartWhenManifestReady();
         }
 
         private void TryCommitRestartWhenManifestReady()
         {
+            // Network delay must not turn into a peer-local outcome. Completion is
+            // readiness-driven and waits until every authenticated participant acks.
             if (state != PreviewState.Distributing ||
                 !FreeCastleParticipantReadiness.AreAllReady(HumanPeerSteamIds(), manifestAcks))
                 return;
@@ -528,8 +536,7 @@ namespace CastlePlanner
         private void OnPacket(ReceiveCustomPacketEventArgs<FreeCastlePacket> args)
         {
             FreeCastlePacket packet = args?.Packet;
-            if (packet == null || packet.ProtocolVersion != FreeCastleProtocol.ProtocolVersion ||
-                !args.SenderSteamId.HasValue || !IsPreviewActive)
+            if (packet == null || !args.SenderSteamId.HasValue || !IsPreviewPendingOrActive)
                 return;
             Platform_Multiplayer platform = Platform_Multiplayer.Instance;
             if (platform?.activeLobby == null)
@@ -537,11 +544,42 @@ namespace CastlePlanner
             ulong sender = args.SenderSteamId.Value.m_SteamID;
             bool host = platform.activeLobby.isHost;
             bool senderIsHost = sender == SteamMatchmaking.GetLobbyOwner(platform.activeLobby.id).m_SteamID;
-            FreeCastlePacketKind kind = (FreeCastlePacketKind)packet.Kind;
-            bool operationBootstrap = kind == FreeCastlePacketKind.PreviewReady ||
-                (!host && senderIsHost && kind == FreeCastlePacketKind.PreviewBegin);
-            if (!operationBootstrap && packet.OperationId != operationId)
+            if (!host && !senderIsHost)
                 return;
+            if (host && PlayerIdForSteam(sender) < 1)
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Ignored free-castle packet from unauthenticated transport sender {sender}.");
+                return;
+            }
+            if (packet.ProtocolVersion != FreeCastleProtocol.ProtocolVersion)
+            {
+                FailBeforeCommit(
+                    $"Castle protocol version mismatch from sender {sender}: " +
+                    $"received={packet.ProtocolVersion}, expected={FreeCastleProtocol.ProtocolVersion}.");
+                return;
+            }
+            if (!Enum.IsDefined(typeof(FreeCastlePacketKind), packet.Kind))
+            {
+                FailBeforeCommit($"Unknown castle packet kind {packet.Kind} from sender {sender}.");
+                return;
+            }
+            FreeCastlePacketKind kind = (FreeCastlePacketKind)packet.Kind;
+            if (state == PreviewState.Aborting &&
+                (host || kind != FreeCastlePacketKind.Reject))
+                return;
+            bool operationBootstrap = FreeCastlePacketRouting.IsOperationBootstrap(
+                kind,
+                host,
+                senderIsHost);
+            if (!operationBootstrap && packet.OperationId != operationId)
+            {
+                FailBeforeCommit(
+                    $"Castle operation mismatch from sender {sender}: " +
+                    $"received={packet.OperationId}, expected={operationId}, kind={kind}.");
+                return;
+            }
 
             try
             {
@@ -553,8 +591,7 @@ namespace CastlePlanner
             catch (Exception ex)
             {
                 Shared.DebugLogHelper.LogError(log, $"Rejected free-castle packet: kind={kind}, sender={sender}, error={ex}");
-                if (host)
-                    FailBeforeCommit(ex.GetBaseException().Message);
+                FailBeforeCommit(ex.GetBaseException().Message);
             }
         }
 
@@ -563,8 +600,20 @@ namespace CastlePlanner
             int senderPlayer = PlayerIdForSteam(sender);
             if (senderPlayer < 1 || packet.PlayerId != senderPlayer)
                 throw new InvalidOperationException("Packet player is not authenticated by its transport sender.");
-            if (kind == FreeCastlePacketKind.PreviewReady)
+            if (kind == FreeCastlePacketKind.AbortRequest)
             {
+                FailBeforeCommit(
+                    $"Player {senderPlayer} requested a synchronized castle-preview abort: " +
+                    (packet.Message ?? string.Empty));
+            }
+            else if (kind == FreeCastlePacketKind.PreviewReady &&
+                FreeCastlePacketRouting.CanHostAcceptPreviewReady(
+                    state == PreviewState.AwaitingGameplay,
+                    state == PreviewState.Loading,
+                    state == PreviewState.Selecting))
+            {
+                // Peers reach the gameplay HUD independently. Retain an authenticated
+                // early readiness signal until the host's own HUD/catalog is ready.
                 readyPlayers.Add(senderPlayer);
                 TryBeginSelectionAsHost();
             }
@@ -588,6 +637,8 @@ namespace CastlePlanner
                 manifestAcks.Add(sender);
                 TryCommitRestartWhenManifestReady();
             }
+            else
+                throw new InvalidOperationException($"Unexpected castle packet {kind} in host state {state}.");
         }
 
         private void HandleClientPacket(FreeCastlePacket packet, FreeCastlePacketKind kind)
@@ -607,12 +658,14 @@ namespace CastlePlanner
             else if (kind == FreeCastlePacketKind.ContinueWithoutCastles)
                 ContinueCurrentGame();
             else if (kind == FreeCastlePacketKind.Reject)
-                FailBeforeCommit(packet.Message);
+                CompleteSynchronizedAbort(packet.Message);
             else if (kind == FreeCastlePacketKind.ParticipantStatus)
             {
                 statusText = packet.Message ?? string.Empty;
                 NotifyAll();
             }
+            else
+                throw new InvalidOperationException($"Unexpected castle packet {kind} in client state {state}.");
         }
 
         private void AcceptTransferBegin(FreeCastlePacket packet, int transferKey, bool manifest)
@@ -693,6 +746,15 @@ namespace CastlePlanner
             if (!IsPreviewPendingOrActive || Time.frameCount == lastFrame)
                 return;
             lastFrame = Time.frameCount;
+            if (state == PreviewState.Aborting)
+            {
+                if (lastAbortSent == 0 ||
+                    Stopwatch.GetTimestamp() - lastAbortSent >= Stopwatch.Frequency)
+                {
+                    TryPropagateSynchronizedAbort();
+                }
+                return;
+            }
             if (state == PreviewState.AwaitingGameplay)
             {
                 TryBeginSelectionAfterVanillaStartScreen();
@@ -710,13 +772,6 @@ namespace CastlePlanner
                 (lastReadySent == 0 || Stopwatch.GetTimestamp() - lastReadySent >= Stopwatch.Frequency))
             {
                 TrySendPreviewReady();
-            }
-            if (state == PreviewState.Distributing && distributionStarted != 0 &&
-                Stopwatch.GetTimestamp() - distributionStarted >= 30 * Stopwatch.Frequency &&
-                Platform_Multiplayer.Instance?.activeLobby?.isHost == true)
-            {
-                FailBeforeCommit("Castle data readiness timed out.");
-                return;
             }
             if (countdownStarted == 0 ||
                 Stopwatch.GetTimestamp() - countdownStarted < TimeoutSeconds * Stopwatch.Frequency)
@@ -876,8 +931,9 @@ namespace CastlePlanner
             gameActionTrampoline(Enums.GameActionCommand.Game_Paused, 0, 0, 0);
             bypassPauseHook = false;
             state = PreviewState.Inactive;
-            distributionStarted = 0;
             lastReadySent = 0;
+            lastAbortSent = 0;
+            pendingAbortReason = null;
             committedSelections.Clear();
             NotifyAll();
             // Returning from a no-castle decision restores the independently
@@ -887,13 +943,66 @@ namespace CastlePlanner
 
         private void FailBeforeCommit(string reason)
         {
-            Shared.DebugLogHelper.LogError(log, $"Free-castle preview aborted before commit; continuing without castles: {reason}");
-            if (Platform_Multiplayer.Instance?.activeLobby?.isHost == true)
+            string normalizedReason = string.IsNullOrWhiteSpace(reason)
+                ? "Unknown castle-preview protocol error."
+                : reason.Trim();
+            Shared.DebugLogHelper.LogError(
+                log,
+                $"Free-castle preview requires a synchronized abort before commit: {normalizedReason}");
+            if (!realMultiplayer)
             {
-                FreeCastlePacket reject = NewPacket(FreeCastlePacketKind.Reject, 0);
-                reject.Message = reason ?? string.Empty;
-                Broadcast(reject);
+                ContinueCurrentGame();
+                return;
             }
+
+            pendingAbortReason = normalizedReason;
+            lastAbortSent = 0;
+            state = PreviewState.Aborting;
+            statusText = normalizedReason;
+            NotifyAll();
+            TryPropagateSynchronizedAbort();
+        }
+
+        private void TryPropagateSynchronizedAbort()
+        {
+            if (state != PreviewState.Aborting || string.IsNullOrEmpty(pendingAbortReason))
+                return;
+
+            lastAbortSent = Stopwatch.GetTimestamp();
+            Platform_Multiplayer platform = Platform_Multiplayer.Instance;
+            try
+            {
+                if (platform?.activeLobby?.isHost == true)
+                {
+                    FreeCastlePacket reject = NewPacket(FreeCastlePacketKind.Reject, 0);
+                    reject.Message = pendingAbortReason;
+                    Broadcast(reject);
+                    CompleteSynchronizedAbort(pendingAbortReason);
+                    return;
+                }
+
+                FreeCastlePacket request = NewPacket(
+                    FreeCastlePacketKind.AbortRequest,
+                    localPlayerId);
+                request.Message = pendingAbortReason;
+                SendToHost(request);
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    "Castle-preview abort request sent to the host; this client remains paused until the host broadcasts the shared outcome.");
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Castle-preview synchronized abort transmission failed and will be retried: {ex}");
+            }
+        }
+
+        private void CompleteSynchronizedAbort(string reason)
+        {
+            Shared.DebugLogHelper.LogError(
+                log,
+                $"Free-castle preview aborted consistently for this session; continuing without castles: {reason}");
             ContinueCurrentGame();
         }
 
@@ -915,36 +1024,33 @@ namespace CastlePlanner
             bypassPauseHook = false;
         }
 
-        private void BuildRoster()
+        private void BuildRoster(out string error)
         {
             roster.Clear();
-            Platform_Multiplayer platform = Platform_Multiplayer.Instance;
-            if (realMultiplayer && platform?.gameMembers != null)
+            error = string.Empty;
+            if (realMultiplayer)
             {
-                foreach (Platform_Multiplayer.MPGameMember member in platform.gameMembers)
-                    if (member != null && !member.kicked && !member.skirmishAI && member.playerID >= 1 && member.playerID <= 8)
-                        roster.Add(member.playerID);
+                if (!Shared.PlayerIdentityHelper.TryCaptureHumanRoster(
+                    preferInGameRoster: true,
+                    out Dictionary<int, ulong> players,
+                    out error))
+                    return;
+                foreach (int playerId in players.Keys)
+                    roster.Add(playerId);
             }
             if (roster.Count == 0 && localPlayerId >= 1)
                 roster.Add(localPlayerId);
-            if (realMultiplayer && platform?.activeLobby?.members != null)
-            {
-                foreach (Platform_Multiplayer.MPLobbyMember member in platform.activeLobby.members)
-                {
-                    if (member == null || member.dummyToBeKicked ||
-                        (member.SkirmishMember && !member.SkirmishHumanMember))
-                        continue;
-                    int playerId = platform.activeLobby.getThisPlayerFromSteamID(member.id.m_SteamID);
-                    if (playerId >= 1 && playerId <= 8)
-                        roster.Add(playerId);
-                }
-            }
         }
 
-        private int ResolveLocalPlayerId()
+        private int ResolveLocalPlayerId(out string identityError)
         {
-            int id = GameNetworkAPI.GetLocalPlayerId();
-            return id >= 1 && id <= 8 ? id : 1;
+            Shared.PlayerIdentityResolution identity =
+                Shared.PlayerIdentityHelper.CaptureLocalPlayerId(
+                    preferInGameRoster: true);
+            identityError = identity.IsResolved ? null : identity.Error;
+            if (!string.IsNullOrEmpty(identity.Diagnostic))
+                Shared.DebugLogHelper.LogError(log, identity.Diagnostic);
+            return identity.PlayerId;
         }
 
         private int PlayerIdForSteam(ulong steamId)
@@ -1060,6 +1166,9 @@ namespace CastlePlanner
             localCatalogReady = false;
             catalogWaitLogged = false;
             countdownStarted = 0;
+            lastReadySent = 0;
+            lastAbortSent = 0;
+            pendingAbortReason = null;
             statusText = string.Empty;
             ResetRotationToDefault();
             NotifyAll();

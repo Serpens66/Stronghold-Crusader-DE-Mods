@@ -485,7 +485,10 @@ static void TestCoopExporterIntegration()
         "the ineffective timing-based first-visit refresh still exists");
     Assert(runtime.Contains("ReadyLock") && runtime.Contains("COOP_START") && runtime.Contains("AreAllHumanPlayersPackageReady"),
         "Ready/Play/COOP_START package validation is missing");
-    Assert(runtime.Contains("GameNetworkAPI.GetPlayerIdForSteamId(member.id)") &&
+    Assert(runtime.Contains("PlayerIdentityHelper.TryCaptureHumanRoster") &&
+        runtime.Contains("PlayerIdentityHelper.ResolvePlayerIdForSteamId") &&
+        runtime.Contains("preferInGameRoster: false") &&
+        !runtime.Contains("GameNetworkAPI.GetPlayerIdForSteamId(member.id)") &&
         runtime.Contains("member.dummyToBeKicked") &&
         runtime.Contains("!member.SkirmishHumanMember && member.SkirmishMember") &&
         runtime.Contains("GetHumanPackageStates") &&

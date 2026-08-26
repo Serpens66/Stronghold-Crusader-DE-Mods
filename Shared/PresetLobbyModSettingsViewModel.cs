@@ -36,11 +36,6 @@ namespace Shared
             .GetField("id", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
         private static readonly FieldInfo SteamIdValueField = LobbyMemberIdField?.FieldType
             .GetField("m_SteamID", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-        private static readonly MethodInfo GetPlayerIdForSteamIdMethod = typeof(GameNetworkAPI)
-            .GetMethods(BindingFlags.Static | BindingFlags.Public)
-            .Single(method =>
-                method.Name == "GetPlayerIdForSteamId" &&
-                method.GetParameters().Length == 1);
 #endif
         private readonly PresetLobbyModSettingsViewModel owner;
         private readonly ManualLogSource log;
@@ -63,6 +58,7 @@ namespace Shared
         private IDisposable mapStartSubscription;
         private IDisposable mapUnloadSubscription;
         private bool mapStarted;
+        private string lastIdentityDiagnostic = string.Empty;
 #endif
 
         internal PerPlayerLobbySettingsCoordinator(
@@ -95,7 +91,10 @@ namespace Shared
                 mapStartSubscription = MapLoaderR3EventHooks.OnStartMap.Observable.Subscribe(args =>
                 {
                     if (args.Phase == EventHookPhase.Pre)
+                    {
+                        FinalizeRosterForMapTransition(args.bMultiplayerSave != 0);
                         mapStarted = true;
+                    }
                 });
                 mapUnloadSubscription = MapLoaderR3EventHooks.OnUnloadMap.Observable.Subscribe(args =>
                 {
@@ -187,6 +186,90 @@ namespace Shared
                 }
             }
 
+            error = string.Empty;
+            return true;
+        }
+
+        internal bool RemapForMapTransition(
+            IReadOnlyDictionary<int, ulong> finalPlayers,
+            int finalLocalPlayerId,
+            out string error)
+        {
+            var normalized = new Dictionary<int, ulong>();
+            foreach (KeyValuePair<int, ulong> player in finalPlayers ?? new Dictionary<int, ulong>())
+            {
+                if (!IsValidPlayerId(player.Key) || player.Value == 0 ||
+                    normalized.ContainsKey(player.Key) || normalized.ContainsValue(player.Value))
+                {
+                    error = "The final human roster contains an invalid or duplicate player identity.";
+                    SetReadiness(false, error);
+                    return false;
+                }
+                normalized[player.Key] = player.Value;
+            }
+
+            ulong[] previousSteamIds = playersById.Values.OrderBy(value => value).ToArray();
+            ulong[] finalSteamIds = normalized.Values.OrderBy(value => value).ToArray();
+            if (!hasLobby || previousSteamIds.Length == 0 ||
+                !previousSteamIds.SequenceEqual(finalSteamIds))
+            {
+                error = $"The final human roster [{FormatRoster(normalized)}] does not match the " +
+                    $"converged lobby identities [{FormatRoster(playersById)}].";
+                SetReadiness(false, error);
+                return false;
+            }
+            if (!IsValidPlayerId(finalLocalPlayerId) || !normalized.ContainsKey(finalLocalPlayerId))
+            {
+                error = "The final local player ID is not part of the final human roster.";
+                SetReadiness(false, error);
+                return false;
+            }
+
+            bool changed = normalized.Count != playersById.Count ||
+                normalized.Any(player =>
+                    !playersById.TryGetValue(player.Key, out ulong previousSteamId) ||
+                    previousSteamId != player.Value);
+            if (changed)
+            {
+                foreach (PerPlayerLobbySettingContract setting in contract.Settings)
+                {
+                    Array data = setting.GetData();
+                    var valuesBySteamId = new Dictionary<ulong, object>();
+                    foreach (KeyValuePair<int, ulong> previousPlayer in playersById)
+                        valuesBySteamId[previousPlayer.Value] = CloneValue(data.GetValue(previousPlayer.Key));
+                    for (int playerId = FirstPlayerId; playerId <= LastPlayerId; playerId++)
+                        data.SetValue(CloneValue(setting.CreateResetValue()), playerId);
+                    foreach (KeyValuePair<int, ulong> finalPlayer in normalized)
+                        data.SetValue(CloneValue(valuesBySteamId[finalPlayer.Value]), finalPlayer.Key);
+                }
+
+                playersById.Clear();
+                foreach (KeyValuePair<int, ulong> player in normalized)
+                    playersById[player.Key] = player.Value;
+            }
+
+            rosterHasUnresolvedPlayers = false;
+            resolvedLocalPlayerId = finalLocalPlayerId;
+            contract.LocalPlayerResolved?.Invoke(finalLocalPlayerId);
+            contract.LobbyChanged?.Invoke(new PerPlayerLobbySnapshot(
+                lobbyId,
+                new Dictionary<int, ulong>(playersById),
+                false,
+                finalLocalPlayerId));
+            if (!ArePlayersReady(playersById.Keys, out error))
+            {
+                SetReadiness(false, error);
+                return false;
+            }
+
+            SetReadiness(true, string.Empty);
+            if (changed)
+            {
+                DebugLogHelper.LogInfo(
+                    log,
+                    $"[{modName}] Shared personal settings remapped to final game slots: " +
+                    $"players=[{FormatRoster(playersById)}], localPlayerId={finalLocalPlayerId}.");
+            }
             error = string.Empty;
             return true;
         }
@@ -389,6 +472,45 @@ namespace Shared
         }
 
 #if !SHARED_PRESET_TESTS
+        private void FinalizeRosterForMapTransition(bool multiplayerSave)
+        {
+            if (!hasLobby || !GameModeHelper.IsRealMultiplayer(multiplayerSave))
+                return;
+
+            if (!PlayerIdentityHelper.TryCaptureHumanRoster(
+                preferInGameRoster: true,
+                out Dictionary<int, ulong> finalPlayers,
+                out string rosterError))
+            {
+                SetReadiness(false, rosterError);
+                DebugLogHelper.LogError(
+                    log,
+                    $"[{modName}] Shared final player roster resolution failed; dependent gameplay must remain blocked: {rosterError}");
+                return;
+            }
+
+            PlayerIdentityResolution localIdentity =
+                PlayerIdentityHelper.CaptureLocalPlayerId(
+                    realMultiplayer: true,
+                    preferInGameRoster: true);
+            ReportIdentityDiagnostic(localIdentity);
+            if (!localIdentity.IsResolved)
+            {
+                SetReadiness(false, localIdentity.Error);
+                DebugLogHelper.LogError(
+                    log,
+                    $"[{modName}] Shared final local player resolution failed; dependent gameplay must remain blocked: {localIdentity.Error}");
+                return;
+            }
+
+            if (!RemapForMapTransition(finalPlayers, localIdentity.PlayerId, out string remapError))
+            {
+                DebugLogHelper.LogError(
+                    log,
+                    $"[{modName}] Shared per-player map-transition remap failed; dependent gameplay must remain blocked: {remapError}");
+            }
+        }
+
         private void OnBeforeRender()
         {
             int frame = Time.frameCount;
@@ -435,32 +557,39 @@ namespace Shared
                 return;
             }
 
-            var players = new Dictionary<int, ulong>();
-            bool unresolved = false;
-            foreach (Platform_Multiplayer.MPLobbyMember member in lobby.members ?? Enumerable.Empty<Platform_Multiplayer.MPLobbyMember>())
-            {
-                if (member == null || member.dummyToBeKicked ||
-                    (member.SkirmishMember && !member.SkirmishHumanMember))
-                    continue;
-                object memberSteamId = LobbyMemberIdField?.GetValue(member);
-                int playerId = memberSteamId == null
-                    ? 0
-                    : (int)GetPlayerIdForSteamIdMethod.Invoke(null, new[] { memberSteamId });
-                ulong steamId = ReadSteamId(memberSteamId);
-                if (!IsValidPlayerId(playerId) || steamId == 0 ||
-                    (players.TryGetValue(playerId, out ulong previous) && previous != steamId))
-                {
-                    unresolved = true;
-                    players.Remove(playerId);
-                    continue;
-                }
-                players[playerId] = steamId;
-            }
+            bool resolvedRoster = PlayerIdentityHelper.TryCaptureHumanRoster(
+                preferInGameRoster: false,
+                out Dictionary<int, ulong> players,
+                out _);
+            bool unresolved = !resolvedRoster;
+
+            PlayerIdentityResolution localIdentity = PlayerIdentityHelper.CaptureLocalPlayerId(
+                preferInGameRoster: false);
+            ReportIdentityDiagnostic(localIdentity);
+            if (!localIdentity.IsResolved)
+                unresolved = true;
 
             ulong currentLobbyId = ReadSteamId(LobbyIdField?.GetValue(lobby));
             if (currentLobbyId == 0)
                 unresolved = true;
-            Observe(currentLobbyId, players, unresolved, GetLocalPlayerId(), false);
+            Observe(
+                currentLobbyId,
+                players,
+                unresolved,
+                localIdentity.IsResolved ? localIdentity.PlayerId : 0,
+                false);
+        }
+
+        private void ReportIdentityDiagnostic(PlayerIdentityResolution identity)
+        {
+            string diagnostic = identity.IsResolved ? identity.Diagnostic : identity.Error;
+            if (string.IsNullOrEmpty(diagnostic) ||
+                string.Equals(lastIdentityDiagnostic, diagnostic, StringComparison.Ordinal))
+                return;
+            lastIdentityDiagnostic = diagnostic;
+            DebugLogHelper.LogError(
+                log,
+                $"[{modName}] Shared player identity source mismatch: {diagnostic}");
         }
 
         private static ulong ReadSteamId(object steamId)
@@ -469,12 +598,12 @@ namespace Shared
             return value == null ? 0UL : Convert.ToUInt64(value);
         }
 
-        private static int GetLocalPlayerId()
-        {
-            int playerId = GameNetworkAPI.GetLocalPlayerId();
-            return IsValidPlayerId(playerId) ? playerId : 0;
-        }
 #endif
+
+        private static string FormatRoster(IReadOnlyDictionary<int, ulong> players) =>
+            string.Join(",", (players ?? new Dictionary<int, ulong>())
+                .OrderBy(player => player.Key)
+                .Select(player => $"{player.Key}:{player.Value}"));
 
         private static bool IsValidPlayerId(int playerId) =>
             playerId >= FirstPlayerId && playerId <= LastPlayerId;
@@ -810,6 +939,22 @@ namespace Shared
                 hasUnresolvedPlayers,
                 localPlayerId,
                 preserveForMapTransition);
+        }
+
+        internal bool System_TestRemapPerPlayerLobbyForMapTransition(
+            IReadOnlyDictionary<int, ulong> players,
+            int localPlayerId,
+            out string error)
+        {
+            if (perPlayerSettingsCoordinator == null)
+            {
+                error = "The per-player settings coordinator is unavailable.";
+                return false;
+            }
+            return perPlayerSettingsCoordinator.RemapForMapTransition(
+                players,
+                localPlayerId,
+                out error);
         }
 #endif
 

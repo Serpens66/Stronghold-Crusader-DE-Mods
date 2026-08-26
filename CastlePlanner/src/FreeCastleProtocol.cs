@@ -20,7 +20,32 @@ namespace CastlePlanner
         Commit = 7,
         ContinueWithoutCastles = 8,
         Reject = 9,
-        ParticipantStatus = 10
+        ParticipantStatus = 10,
+        AbortRequest = 11
+    }
+
+    internal static class FreeCastlePacketRouting
+    {
+        internal static bool IsOperationBootstrap(
+            FreeCastlePacketKind kind,
+            bool receiverIsHost,
+            bool senderIsHost)
+        {
+            if (receiverIsHost)
+                return kind == FreeCastlePacketKind.PreviewReady ||
+                    kind == FreeCastlePacketKind.AbortRequest;
+            if (!senderIsHost)
+                return false;
+            return kind == FreeCastlePacketKind.PreviewBegin ||
+                kind == FreeCastlePacketKind.ContinueWithoutCastles ||
+                kind == FreeCastlePacketKind.Reject;
+        }
+
+        internal static bool CanHostAcceptPreviewReady(
+            bool awaitingGameplay,
+            bool loading,
+            bool selecting) =>
+            awaitingGameplay || loading || selecting;
     }
 
     internal static class FreeCastleParticipantReadiness
@@ -185,7 +210,7 @@ namespace CastlePlanner
 
     internal static class FreeCastleProtocol
     {
-        internal const int ProtocolVersion = 1;
+        internal const int ProtocolVersion = 2;
         internal const int PreviewTimeoutSeconds = 120;
         internal const int MaximumChunkBytes = 24 * 1024;
         internal const int MaximumUncompressedBytes = 8 * 1024 * 1024;

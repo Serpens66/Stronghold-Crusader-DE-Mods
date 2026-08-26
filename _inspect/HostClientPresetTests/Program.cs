@@ -467,6 +467,26 @@ internal static class Program
         Check(viewModel.IsPerPlayerLobbySettingsReady,
             "Shared did not recognize a complete required per-player snapshot");
 
+        int broadcastsBeforeSlotRemap = GameXAMLManagerAPI.Instance.BroadcastCount;
+        Check(viewModel.System_TestRemapPerPlayerLobbyForMapTransition(
+                new Dictionary<int, ulong> { [1] = 11, [3] = 22 },
+                3,
+                out string slotRemapError),
+            "Shared could not remap lobby slots to final game slots: " + slotRemapError);
+        Check(viewModel.LocalPlayerId == 3 &&
+              viewModel.PreferenceData[2] == null &&
+              viewModel.PreferenceData[3].SequenceEqual(new[] { 9, 8, 7 }),
+            "Shared did not move personal settings with their Steam identity to the final game slot");
+        Check(viewModel.System_ArePerPlayerSettingsReady(new[] { 1, 3 }, out _),
+            "Shared did not accept the remapped final multiplayer roster");
+        Check(GameXAMLManagerAPI.Instance.BroadcastCount == broadcastsBeforeSlotRemap,
+            "Shared broadcast a local-only map-transition slot remap");
+        Check(viewModel.System_TestRemapPerPlayerLobbyForMapTransition(
+                new Dictionary<int, ulong> { [1] = 11, [2] = 22 },
+                2,
+                out slotRemapError),
+            "Shared could not restore the synthetic lobby slots after the remap test: " + slotRemapError);
+
         viewModel.System_TestObservePerPlayerLobby(
             100,
             new Dictionary<int, ulong> { [1] = 33, [2] = 22 },
@@ -3138,6 +3158,99 @@ internal static class Program
 
     private static void TestFreeCastleProtocol()
     {
+        PlayerIdentityResolution identity = PlayerIdentityHelper.ResolveLocalPlayerId(
+                realMultiplayer: true,
+                hasInGameHumanRoster: true,
+                nativePlayerId: 3,
+                gameMemberPlayerId: 3,
+                lobbyPlayerId: 3,
+                networkLobbyPlayerId: 2);
+        Check(identity.IsResolved && identity.PlayerId == 3 && !string.IsNullOrEmpty(identity.Diagnostic),
+            "Shared identity must prefer matching native/game sources and diagnose transitional lobby order");
+        identity = PlayerIdentityHelper.ResolveLocalPlayerId(
+                realMultiplayer: true,
+                hasInGameHumanRoster: true,
+                nativePlayerId: 4,
+                gameMemberPlayerId: 3,
+                lobbyPlayerId: 3,
+                networkLobbyPlayerId: 2);
+        Check(!identity.IsResolved && identity.Error.Contains("Authoritative"),
+            "Shared identity must reject conflicting native and Steam-roster sources");
+        identity = PlayerIdentityHelper.ResolveLocalPlayerId(
+                realMultiplayer: true,
+                hasInGameHumanRoster: false,
+                nativePlayerId: 4,
+                gameMemberPlayerId: 0,
+                lobbyPlayerId: 3,
+                networkLobbyPlayerId: 2);
+        Check(identity.IsResolved && identity.PlayerId == 3,
+            "Shared identity must ignore stale native state and use Vanilla's final mapping in the lobby phase");
+        identity = PlayerIdentityHelper.ResolveLocalPlayerId(
+                realMultiplayer: true,
+                hasInGameHumanRoster: true,
+                nativePlayerId: 3,
+                gameMemberPlayerId: 3,
+                lobbyPlayerId: 2,
+                networkLobbyPlayerId: 2);
+        Check(!identity.IsResolved && identity.Error.Contains("Final lobby mapping"),
+            "Shared identity must reject a final lobby mapping that conflicts with the in-game slot");
+        identity = PlayerIdentityHelper.ResolveLocalPlayerId(
+                realMultiplayer: true,
+                hasInGameHumanRoster: false,
+                nativePlayerId: 0,
+                gameMemberPlayerId: 0,
+                lobbyPlayerId: 0,
+                networkLobbyPlayerId: 2);
+        Check(identity.IsResolved && identity.PlayerId == 2 && !string.IsNullOrEmpty(identity.Diagnostic),
+            "Shared identity must retain the lobby-order ID only as a diagnosed provisional fallback");
+
+        var finalPlayers = new Dictionary<int, ulong>
+        {
+            [1] = 1001UL,
+            [3] = 1003UL
+        };
+        identity = PlayerIdentityHelper.ResolvePlayerIdForSteamId(1003UL, finalPlayers);
+        Check(identity.IsResolved && identity.PlayerId == 3,
+            "Shared Steam identity resolution did not return the final client slot after an interleaved AI");
+        identity = PlayerIdentityHelper.ResolvePlayerIdForSteamId(1002UL, finalPlayers);
+        Check(!identity.IsResolved && identity.Error.Contains("not part"),
+            "Shared Steam identity resolution fell back to a plausible but foreign lobby slot");
+        identity = PlayerIdentityHelper.ResolvePlayerIdForSteamId(
+            1003UL,
+            new Dictionary<int, ulong> { [2] = 1003UL, [3] = 1003UL });
+        Check(!identity.IsResolved && identity.Error.Contains("multiple"),
+            "Shared Steam identity resolution accepted a duplicated Steam identity");
+        identity = PlayerIdentityHelper.ResolvePlayerIdForSteamId(
+            1003UL,
+            new Dictionary<int, ulong> { [9] = 1003UL });
+        Check(!identity.IsResolved && identity.Error.Contains("invalid"),
+            "Shared Steam identity resolution accepted an invalid player slot");
+        Check(CastlePlanner.FreeCastlePacketRouting.IsOperationBootstrap(
+                CastlePlanner.FreeCastlePacketKind.AbortRequest,
+                receiverIsHost: true,
+                senderIsHost: false),
+            "Client abort requests must reach the host before operation IDs converge");
+        Check(CastlePlanner.FreeCastlePacketRouting.IsOperationBootstrap(
+                CastlePlanner.FreeCastlePacketKind.Reject,
+                receiverIsHost: false,
+                senderIsHost: true),
+            "Host abort broadcasts must reach clients before operation IDs converge");
+        Check(!CastlePlanner.FreeCastlePacketRouting.IsOperationBootstrap(
+                CastlePlanner.FreeCastlePacketKind.Commit,
+                receiverIsHost: false,
+                senderIsHost: true),
+            "Commit packets must remain bound to the converged operation ID");
+        Check(CastlePlanner.FreeCastlePacketRouting.CanHostAcceptPreviewReady(
+                awaitingGameplay: true,
+                loading: false,
+                selecting: false),
+            "The host must retain authenticated readiness from a client that reaches gameplay first");
+        Check(!CastlePlanner.FreeCastlePacketRouting.CanHostAcceptPreviewReady(
+                awaitingGameplay: false,
+                loading: false,
+                selecting: false),
+            "The host must reject PreviewReady outside the preview startup/selection phases");
+
         var selections = new[]
         {
             new CastlePlanner.FreeCastleSelection

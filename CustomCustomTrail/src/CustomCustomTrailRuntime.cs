@@ -81,6 +81,7 @@ namespace CustomCustomTrail
         private bool coopLaunchPending;
         private bool coopMapActive;
         private string lastShownLocalBlockSignature = string.Empty;
+        private string lastPackageRosterDiagnostic = string.Empty;
         private bool enabled;
 
         public CustomCustomTrailRuntime(
@@ -542,6 +543,14 @@ namespace CustomCustomTrail
             if (self?.currentLobby?.members == null)
                 return result;
 
+            bool rosterResolved = Shared.PlayerIdentityHelper.TryCaptureHumanRoster(
+                preferInGameRoster: false,
+                out Dictionary<int, ulong> playersById,
+                out string rosterError,
+                out string rosterDiagnostic);
+            ReportPackageRosterDiagnostic(
+                rosterResolved ? rosterDiagnostic : rosterError);
+
             foreach (Platform_Multiplayer.MPLobbyMember member in self.currentLobby.members)
             {
                 // Vanilla treats every non-Skirmish lobby member as human. The separate
@@ -550,9 +559,14 @@ namespace CustomCustomTrail
                     (!member.SkirmishHumanMember && member.SkirmishMember))
                     continue;
 
-                // The Vanilla this_player_to_SteamID_mapping is not populated reliably in the
-                // Coop lobby. Use the same Steam-ID mapping as SyncPerPlayer packet handling.
-                int playerId = GameNetworkAPI.GetPlayerIdForSteamId(member.id);
+                Shared.PlayerIdentityResolution identity = rosterResolved
+                    ? Shared.PlayerIdentityHelper.ResolvePlayerIdForSteamId(
+                        member.id.m_SteamID,
+                        playersById)
+                    : default(Shared.PlayerIdentityResolution);
+                int playerId = identity.IsResolved ? identity.PlayerId : 0;
+                if (rosterResolved && !identity.IsResolved)
+                    ReportPackageRosterDiagnostic(identity.Error);
                 string status = playerId > 0 && playerId < settings.CoopPackageStatusData.Length
                     ? settings.CoopPackageStatusData[playerId] ?? string.Empty
                     : string.Empty;
@@ -567,6 +581,20 @@ namespace CustomCustomTrail
                     member.SkirmishHumanMember));
             }
             return result;
+        }
+
+        private void ReportPackageRosterDiagnostic(string diagnostic)
+        {
+            diagnostic = diagnostic ?? string.Empty;
+            if (string.Equals(lastPackageRosterDiagnostic, diagnostic, StringComparison.Ordinal))
+                return;
+            lastPackageRosterDiagnostic = diagnostic;
+            if (!string.IsNullOrEmpty(diagnostic))
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Custom Coop package player identity mismatch; launch remains blocked until the roster converges: {diagnostic}");
+            }
         }
 
         private bool AreAllHumanPlayersPackageReady(IReadOnlyCollection<HumanPackageState> states) =>

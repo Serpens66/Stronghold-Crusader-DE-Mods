@@ -1293,23 +1293,39 @@ namespace BugfixesAndQoL
             !member.skirmishAI &&
             member.steamID > 1000;
 
-        private static bool TryResolveHumanSender(CSteamID sender, out int playerId)
+        private bool TryResolveHumanSender(CSteamID sender, out int playerId)
         {
-            playerId = GameNetworkAPI.GetPlayerIdForSteamId(sender);
-            Platform_Multiplayer multiplayer = Platform_Multiplayer.Instance;
-            if (playerId <= 0 && multiplayer?.gameMembers != null)
+            Shared.PlayerIdentityResolution identity =
+                Shared.PlayerIdentityHelper.CapturePlayerIdForSteamId(
+                    sender.m_SteamID,
+                    preferInGameRoster: true);
+            playerId = identity.PlayerId;
+            if (!identity.IsResolved)
             {
-                foreach (Platform_Multiplayer.MPGameMember member in multiplayer.gameMembers)
-                {
-                    if (member != null && member.steamID == sender.m_SteamID)
-                    {
-                        playerId = member.playerID;
-                        break;
-                    }
-                }
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Surrender sender identity resolution failed closed: steamId={sender.m_SteamID}, error={identity.Error}");
+                return false;
+            }
+            if (!string.IsNullOrEmpty(identity.Diagnostic))
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Surrender sender identity source mismatch: {identity.Diagnostic}");
             }
 
-            return IsHumanMember(multiplayer?.getPlayer(playerId));
+            Platform_Multiplayer multiplayer = Platform_Multiplayer.Instance;
+            Platform_Multiplayer.MPGameMember member = multiplayer?.getPlayer(playerId);
+            if (!IsHumanMember(member) || member.steamID != sender.m_SteamID)
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Surrender sender identity did not resolve back to the authenticated human: " +
+                    $"steamId={sender.m_SteamID}, playerId={playerId}.");
+                playerId = 0;
+                return false;
+            }
+            return true;
         }
 
         private static int NextNonZero(ref int value)
