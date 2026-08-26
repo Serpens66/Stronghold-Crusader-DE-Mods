@@ -220,8 +220,9 @@ function Write-ReadmeImage {
             $graphics.DrawString($item.Text, $item.Font, $item.Brush, $rectangle, $format)
         }
 
-        $outputPath = Join-Path $Readme.DirectoryName 'README.jpg'
-        $temporaryPath = Join-Path $Readme.DirectoryName 'README.jpg.tmp'
+        $outputFileName = "README_$($Readme.Directory.Name).jpg"
+        $outputPath = Join-Path $Readme.DirectoryName $outputFileName
+        $temporaryPath = Join-Path $Readme.DirectoryName "$outputFileName.tmp"
         $codec = Get-JpegCodec
         if ($null -eq $codec) {
             throw 'The Windows JPEG encoder is not available.'
