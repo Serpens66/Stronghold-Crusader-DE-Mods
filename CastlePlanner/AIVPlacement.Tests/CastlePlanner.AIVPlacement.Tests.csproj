@@ -12,6 +12,7 @@
     <Compile Include="..\src\AivRawDataEncoder.cs" Link="SpawnPlan\AivRawDataEncoder.cs" />
     <Compile Include="..\src\AivSpawnPlan.cs" Link="SpawnPlan\AivSpawnPlan.cs" />
     <Compile Include="..\src\AivWorldCoordinateTransform.cs" Link="SpawnPlan\AivWorldCoordinateTransform.cs" />
+    <Compile Include="..\src\BlueprintHudPolicy.cs" Link="Blueprint\BlueprintHudPolicy.cs" />
     <Reference Include="SHCDESE">
       <HintPath>..\..\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481\SHCDESE.dll</HintPath>
       <Private>true</Private>

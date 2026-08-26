@@ -41,6 +41,10 @@ namespace CastlePlanner
         private bool enableMod = true;
         private bool enableAivPlacementLobby;
         private bool blueprints = true;
+        private bool blueprintShowFortifications = true;
+        private bool blueprintShowBuildings = true;
+        private bool blueprintShowDefensiveGroundFeatures = true;
+        private bool blueprintShowFearFactorBuildings = true;
         private bool spawnCastle;
         private bool spawnBuildings = true;
         private bool spawnDefensiveGroundFeatures = true;
@@ -115,6 +119,7 @@ namespace CastlePlanner
 
         internal event Action SettingsChanged;
         internal event Action BlueprintVisualSettingsChanged;
+        internal event Action BlueprintContentSettingsChanged;
         internal event Action HotkeyCaptureRequested;
 
         public ObservableCollection<string> CastleOptions => castleOptions;
@@ -371,6 +376,46 @@ namespace CastlePlanner
             }
         }
 
+        [Shared.PresetLocal]
+        public bool BlueprintShowFortifications
+        {
+            get => blueprintShowFortifications;
+            set => SetBlueprintContentOption(
+                ref blueprintShowFortifications,
+                value,
+                nameof(BlueprintShowFortifications));
+        }
+
+        [Shared.PresetLocal]
+        public bool BlueprintShowBuildings
+        {
+            get => blueprintShowBuildings;
+            set => SetBlueprintContentOption(
+                ref blueprintShowBuildings,
+                value,
+                nameof(BlueprintShowBuildings));
+        }
+
+        [Shared.PresetLocal]
+        public bool BlueprintShowDefensiveGroundFeatures
+        {
+            get => blueprintShowDefensiveGroundFeatures;
+            set => SetBlueprintContentOption(
+                ref blueprintShowDefensiveGroundFeatures,
+                value,
+                nameof(BlueprintShowDefensiveGroundFeatures));
+        }
+
+        [Shared.PresetLocal]
+        public bool BlueprintShowFearFactorBuildings
+        {
+            get => blueprintShowFearFactorBuildings;
+            set => SetBlueprintContentOption(
+                ref blueprintShowFearFactorBuildings,
+                value,
+                nameof(BlueprintShowFearFactorBuildings));
+        }
+
         [SyncHostOnly]
         public bool SpawnCastle
         {
@@ -561,6 +606,36 @@ namespace CastlePlanner
             AivSpawnOptions options = GetSpawnOptions(localPlayerId);
             options.SpawnBraziersAndFlags = SpawnBraziersAndFlags;
             return options;
+        }
+
+        internal AivSpawnOptions GetBlueprintDisplayOptions()
+        {
+            return new AivSpawnOptions
+            {
+                SpawnFortifications = BlueprintShowFortifications,
+                SpawnBuildings = BlueprintShowBuildings,
+                SpawnDefensiveGroundFeatures =
+                    BlueprintShowDefensiveGroundFeatures,
+                SpawnFearFactorBuildings = BlueprintShowFearFactorBuildings,
+                SpawnSiegeEngines = false,
+                SpawnBraziersAndFlags = false
+            };
+        }
+
+        private void SetBlueprintContentOption(
+            ref bool field,
+            bool value,
+            string propertyName)
+        {
+            if (field == value)
+                return;
+
+            field = value;
+            OnPropertyChanged(propertyName);
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"CastlePlanner local {propertyName} changed to {value}.");
+            BlueprintContentSettingsChanged?.Invoke();
         }
 
         private void SetHostSpawnOption(ref bool field, bool value, string propertyName)
@@ -947,6 +1022,10 @@ namespace CastlePlanner
         {
             EnableClientFeatures = true;
             Blueprints = true;
+            BlueprintShowFortifications = true;
+            BlueprintShowBuildings = true;
+            BlueprintShowDefensiveGroundFeatures = true;
+            BlueprintShowFearFactorBuildings = true;
             if (CanEditHostSettings)
             {
                 EnableMod = true;

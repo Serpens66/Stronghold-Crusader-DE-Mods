@@ -2910,13 +2910,25 @@ internal static class Program
         castlePlanner.ActivatePresets();
         Check(castlePlanner.Blueprints,
             "CastlePlanner Blueprint code default was not enabled");
+        Check(castlePlanner.AllBlueprintCategoriesEnabled,
+            "CastlePlanner Blueprint category defaults were not enabled");
+        castlePlanner.BlueprintShowFortifications = false;
+        castlePlanner.BlueprintShowDefensiveGroundFeatures = false;
+        castlePlanner.SelectedPreset = 1;
+        castlePlanner.BlueprintShowBuildings = false;
+        castlePlanner.BlueprintShowFearFactorBuildings = false;
+        castlePlanner.SelectedPreset = 0;
 
         GameNetworkAPI.LocalHost = false;
         castlePlanner.System_RefreshSettingsAccess();
         GameNetworkAPI.LocalHost = true;
         castlePlanner.System_RefreshSettingsAccess();
-        Check(castlePlanner.Blueprints,
-            "CastlePlanner Blueprint changed during multiplayer role refresh");
+        Check(castlePlanner.Blueprints &&
+              !castlePlanner.BlueprintShowFortifications &&
+              castlePlanner.BlueprintShowBuildings &&
+              !castlePlanner.BlueprintShowDefensiveGroundFeatures &&
+              castlePlanner.BlueprintShowFearFactorBuildings,
+            "CastlePlanner local Blueprint filters changed during multiplayer role refresh");
 
         var restoredCastlePlanner = new CastlePlannerPresetProbeViewModel();
         restoredCastlePlanner.PreparePresets(
@@ -2924,8 +2936,18 @@ internal static class Program
             castlePlannerPluginPath,
             "CastlePlannerPresetProbe");
         restoredCastlePlanner.ActivatePresets();
-        Check(restoredCastlePlanner.Blueprints,
-            "CastlePlanner Blueprint did not survive preset restart");
+        Check(restoredCastlePlanner.Blueprints &&
+              !restoredCastlePlanner.BlueprintShowFortifications &&
+              restoredCastlePlanner.BlueprintShowBuildings &&
+              !restoredCastlePlanner.BlueprintShowDefensiveGroundFeatures &&
+              restoredCastlePlanner.BlueprintShowFearFactorBuildings,
+            "CastlePlanner Blueprint filters from preset 1 did not survive restart");
+        restoredCastlePlanner.SelectedPreset = 1;
+        Check(restoredCastlePlanner.BlueprintShowFortifications &&
+              !restoredCastlePlanner.BlueprintShowBuildings &&
+              restoredCastlePlanner.BlueprintShowDefensiveGroundFeatures &&
+              !restoredCastlePlanner.BlueprintShowFearFactorBuildings,
+            "CastlePlanner Blueprint filters from preset 2 did not survive restart");
     }
 
     private static void TestDoNotPersistPresetExclusion()
@@ -3443,6 +3465,16 @@ internal sealed class MixedViewModel : PresetLobbyModSettingsViewModel
 internal sealed class CastlePlannerPresetProbeViewModel : PresetLobbyModSettingsViewModel
 {
     private bool blueprints = true;
+    private bool blueprintShowFortifications = true;
+    private bool blueprintShowBuildings = true;
+    private bool blueprintShowDefensiveGroundFeatures = true;
+    private bool blueprintShowFearFactorBuildings = true;
+
+    public bool AllBlueprintCategoriesEnabled =>
+        BlueprintShowFortifications &&
+        BlueprintShowBuildings &&
+        BlueprintShowDefensiveGroundFeatures &&
+        BlueprintShowFearFactorBuildings;
 
     [PresetLocal]
     public bool Blueprints
@@ -3455,6 +3487,57 @@ internal sealed class CastlePlannerPresetProbeViewModel : PresetLobbyModSettings
             blueprints = value;
             OnPropertyChanged(nameof(Blueprints));
         }
+    }
+
+    [PresetLocal]
+    public bool BlueprintShowFortifications
+    {
+        get => blueprintShowFortifications;
+        set => SetBlueprintOption(
+            ref blueprintShowFortifications,
+            value,
+            nameof(BlueprintShowFortifications));
+    }
+
+    [PresetLocal]
+    public bool BlueprintShowBuildings
+    {
+        get => blueprintShowBuildings;
+        set => SetBlueprintOption(
+            ref blueprintShowBuildings,
+            value,
+            nameof(BlueprintShowBuildings));
+    }
+
+    [PresetLocal]
+    public bool BlueprintShowDefensiveGroundFeatures
+    {
+        get => blueprintShowDefensiveGroundFeatures;
+        set => SetBlueprintOption(
+            ref blueprintShowDefensiveGroundFeatures,
+            value,
+            nameof(BlueprintShowDefensiveGroundFeatures));
+    }
+
+    [PresetLocal]
+    public bool BlueprintShowFearFactorBuildings
+    {
+        get => blueprintShowFearFactorBuildings;
+        set => SetBlueprintOption(
+            ref blueprintShowFearFactorBuildings,
+            value,
+            nameof(BlueprintShowFearFactorBuildings));
+    }
+
+    private void SetBlueprintOption(
+        ref bool field,
+        bool value,
+        string propertyName)
+    {
+        if (field == value)
+            return;
+        field = value;
+        OnPropertyChanged(propertyName);
     }
 }
 

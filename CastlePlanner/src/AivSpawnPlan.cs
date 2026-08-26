@@ -26,6 +26,7 @@ namespace CastlePlanner
 
     internal sealed class AivSpawnOptions
     {
+        public bool SpawnFortifications { get; set; } = true;
         public bool SpawnBuildings { get; set; }
         public bool SpawnStockpile { get; set; } = true;
         public bool SpawnDefensiveGroundFeatures { get; set; }
@@ -150,7 +151,8 @@ namespace CastlePlanner
                 frames = source.frames
                     .Where(frame =>
                         (frame.itemType != (int)eMappers.MAPPER_STORES || options.SpawnStockpile) &&
-                        IsFrameEnabled(ClassifyFrame(frame.itemType), options))
+                        (AivMapperCatalog.IsKeep(frame.itemType) ||
+                         IsFrameEnabled(ClassifyFrame(frame.itemType), options)))
                     .Select(CloneFrame)
                     .ToList(),
                 miscItems = source.miscItems
@@ -163,16 +165,18 @@ namespace CastlePlanner
         public static AivFrameSpawnCategory ClassifyFrame(int itemType)
         {
             AivMapperInfo mapper = AivMapperCatalog.Resolve(itemType);
-            if (mapper.VisualGroup == AivVisualGroup.PositiveFear ||
-                mapper.VisualGroup == AivVisualGroup.NegativeFear)
-            {
-                return AivFrameSpawnCategory.FearFactor;
-            }
             if (mapper.Category == AivItemCategory.Trap ||
                 mapper.Category == AivItemCategory.PitchDitchPath ||
                 mapper.Category == AivItemCategory.MoatPath)
             {
                 return AivFrameSpawnCategory.DefensiveGroundFeature;
+            }
+            // Structural categories take precedence: Dog Cages have a negative
+            // Fear visual group, but are gameplay traps like Killing Pits.
+            if (mapper.VisualGroup == AivVisualGroup.PositiveFear ||
+                mapper.VisualGroup == AivVisualGroup.NegativeFear)
+            {
+                return AivFrameSpawnCategory.FearFactor;
             }
             if (mapper.Category == AivItemCategory.Keep ||
                 mapper.Category == AivItemCategory.HighWallPath ||
@@ -247,7 +251,7 @@ namespace CastlePlanner
         {
             switch (category)
             {
-                case AivFrameSpawnCategory.Fortification: return true;
+                case AivFrameSpawnCategory.Fortification: return options.SpawnFortifications;
                 case AivFrameSpawnCategory.Building: return options.SpawnBuildings;
                 case AivFrameSpawnCategory.DefensiveGroundFeature: return options.SpawnDefensiveGroundFeatures;
                 case AivFrameSpawnCategory.FearFactor: return options.SpawnFearFactorBuildings;

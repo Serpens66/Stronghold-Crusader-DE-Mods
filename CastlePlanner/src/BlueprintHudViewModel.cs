@@ -16,8 +16,8 @@ namespace CastlePlanner
         private const string RotationComboBoxName =
             "CastlePlannerRotationComboBox";
         private const double DesiredPanelWidth = 360.0;
-        private const double NormalPanelHeight = 210.0;
-        private const double PreviewPanelHeight = 310.0;
+        private const double NormalPanelHeight = 385.0;
+        private const double PreviewPanelHeight = 365.0;
         private const double ScreenInset = 8.0;
         private const double DefaultPanelLeft = 44.0;
         private const double BaseButtonBottom = 34.0;
@@ -26,6 +26,8 @@ namespace CastlePlanner
         private readonly Action toggle;
         private readonly CastlePlannerSettingsViewModel settings;
         private readonly FreeCastlePreviewRuntime preview;
+        private readonly BulkObservableCollection<string> filteredCastleOptions =
+            new BulkObservableCollection<string>();
         private bool hudVisible;
         private bool canToggle;
         private bool blueprintVisible;
@@ -34,6 +36,7 @@ namespace CastlePlanner
         private bool settingsPanelVisible;
         private bool vanillaButtonOccupiesFirstSlot;
         private bool isDragging;
+        private string castleSearchText = string.Empty;
         private double panelLeft;
         private double panelTop;
         private double viewportWidth;
@@ -69,6 +72,7 @@ namespace CastlePlanner
             // same selection and visual values.
             this.settings.PropertyChanged += OnSettingsPropertyChanged;
             this.preview.PropertyChanged += OnPreviewPropertyChanged;
+            RefreshCastleOptionsFilter();
         }
 
         public event PropertyChangedEventHandler PropertyChanged;
@@ -77,6 +81,7 @@ namespace CastlePlanner
         public ICommand ToggleSettingsPanelCommand { get; }
         public ICommand ConfirmCastleCommand => preview.ConfirmCommand;
         public bool PreviewVisible => preview.IsPreviewActive;
+        public bool NormalBlueprintSettingsVisible => !PreviewVisible;
         public string PreviewTitleText => preview.TitleText;
         public string PreviewTimerText => preview.TimerText;
         public string PreviewStatusText => preview.StatusText;
@@ -100,11 +105,28 @@ namespace CastlePlanner
             set => preview.SelectedRotation = value;
         }
 
-        // Preserve the original working ObservableCollection binding. The
-        // preview provides the same concrete collection type and adds None.
-        public ObservableCollection<string> CastleOptions => PreviewVisible
-            ? preview.CastleChoices
-            : settings.CastleOptions;
+        public ObservableCollection<string> CastleOptions =>
+            filteredCastleOptions;
+
+        public string CastleSearchText
+        {
+            get => castleSearchText;
+            set
+            {
+                string normalized = value ?? string.Empty;
+                if (string.Equals(
+                        castleSearchText,
+                        normalized,
+                        StringComparison.Ordinal))
+                {
+                    return;
+                }
+
+                castleSearchText = normalized;
+                OnPropertyChanged(nameof(CastleSearchText));
+                RefreshCastleOptionsFilter();
+            }
+        }
 
         public string SelectedCastle
         {
@@ -141,6 +163,30 @@ namespace CastlePlanner
             set => settings.BlueprintIconAlpha = value;
         }
 
+        public bool BlueprintShowFortifications
+        {
+            get => settings.BlueprintShowFortifications;
+            set => settings.BlueprintShowFortifications = value;
+        }
+
+        public bool BlueprintShowBuildings
+        {
+            get => settings.BlueprintShowBuildings;
+            set => settings.BlueprintShowBuildings = value;
+        }
+
+        public bool BlueprintShowDefensiveGroundFeatures
+        {
+            get => settings.BlueprintShowDefensiveGroundFeatures;
+            set => settings.BlueprintShowDefensiveGroundFeatures = value;
+        }
+
+        public bool BlueprintShowFearFactorBuildings
+        {
+            get => settings.BlueprintShowFearFactorBuildings;
+            set => settings.BlueprintShowFearFactorBuildings = value;
+        }
+
         public string BlueprintIconScaleText =>
             settings.BlueprintIconScaleText;
 
@@ -150,11 +196,44 @@ namespace CastlePlanner
         public string SettingsTitleText =>
             SerpLocalization.Get("CastlePlanner.Hud.Settings");
 
+        public string SearchText =>
+            SerpLocalization.Get("CastlePlanner.Hud.Search");
+
+        public string SearchHelpText =>
+            SerpLocalization.Get("CastlePlanner.Hud.SearchHelp");
+
         public string IconScaleText =>
             SerpLocalization.Get("CastlePlanner.Hud.IconScale");
 
         public string IconAlphaText =>
             SerpLocalization.Get("CastlePlanner.Hud.IconAlpha");
+
+        public string ShowFortificationsText =>
+            SerpLocalization.Get("CastlePlanner.Hud.ShowFortifications");
+
+        public string ShowFortificationsHelpText =>
+            SerpLocalization.Get("CastlePlanner.Hud.ShowFortificationsHelp");
+
+        public string ShowBuildingsText =>
+            SerpLocalization.Get("CastlePlanner.Hud.ShowBuildings");
+
+        public string ShowBuildingsHelpText =>
+            SerpLocalization.Get("CastlePlanner.Hud.ShowBuildingsHelp");
+
+        public string ShowDefensiveGroundFeaturesText =>
+            SerpLocalization.Get(
+                "CastlePlanner.Hud.ShowDefensiveGroundFeatures");
+
+        public string ShowDefensiveGroundFeaturesHelpText =>
+            SerpLocalization.Get(
+                "CastlePlanner.Hud.ShowDefensiveGroundFeaturesHelp");
+
+        public string ShowFearFactorBuildingsText =>
+            SerpLocalization.Get("CastlePlanner.Hud.ShowFearFactorBuildings");
+
+        public string ShowFearFactorBuildingsHelpText =>
+            SerpLocalization.Get(
+                "CastlePlanner.Hud.ShowFearFactorBuildingsHelp");
 
         public bool HudVisible
         {
@@ -838,6 +917,9 @@ namespace CastlePlanner
         {
             switch (args.PropertyName)
             {
+                case nameof(CastlePlannerSettingsViewModel.AvailableFileCount):
+                    RefreshCastleOptionsFilter();
+                    break;
                 case nameof(CastlePlannerSettingsViewModel.SelectedCastle):
                     OnPropertyChanged(nameof(SelectedCastle));
                     break;
@@ -849,6 +931,18 @@ namespace CastlePlanner
                 case nameof(CastlePlannerSettingsViewModel.BlueprintIconAlphaText):
                     OnPropertyChanged(args.PropertyName);
                     break;
+                case nameof(CastlePlannerSettingsViewModel.BlueprintShowFortifications):
+                    OnPropertyChanged(nameof(BlueprintShowFortifications));
+                    break;
+                case nameof(CastlePlannerSettingsViewModel.BlueprintShowBuildings):
+                    OnPropertyChanged(nameof(BlueprintShowBuildings));
+                    break;
+                case nameof(CastlePlannerSettingsViewModel.BlueprintShowDefensiveGroundFeatures):
+                    OnPropertyChanged(nameof(BlueprintShowDefensiveGroundFeatures));
+                    break;
+                case nameof(CastlePlannerSettingsViewModel.BlueprintShowFearFactorBuildings):
+                    OnPropertyChanged(nameof(BlueprintShowFearFactorBuildings));
+                    break;
             }
         }
 
@@ -857,7 +951,9 @@ namespace CastlePlanner
             switch (args.PropertyName)
             {
                 case nameof(FreeCastlePreviewRuntime.IsPreviewActive):
+                    RefreshCastleOptionsFilter();
                     OnPropertyChanged(nameof(PreviewVisible));
+                    OnPropertyChanged(nameof(NormalBlueprintSettingsVisible));
                     OnPropertyChanged(nameof(CastleOptions));
                     OnPropertyChanged(nameof(SelectedCastle));
                     OnPropertyChanged(nameof(CanSelectCastle));
@@ -885,7 +981,7 @@ namespace CastlePlanner
                     OnPropertyChanged(nameof(CanSelectRotation));
                     break;
                 case nameof(FreeCastlePreviewRuntime.CastleChoices):
-                    OnPropertyChanged(nameof(CastleOptions));
+                    RefreshCastleOptionsFilter();
                     break;
                 case nameof(FreeCastlePreviewRuntime.HasSelectedCastle):
                     OnPropertyChanged(nameof(CanSelectRotation));
@@ -894,6 +990,24 @@ namespace CastlePlanner
                     OnPropertyChanged(nameof(SelectedRotation));
                     break;
             }
+        }
+
+        private void RefreshCastleOptionsFilter()
+        {
+            ObservableCollection<string> source = PreviewVisible
+                ? preview.CastleChoices
+                : settings.CastleOptions;
+            var matches = new System.Collections.Generic.List<string>();
+            foreach (string option in source)
+            {
+                if (BlueprintSearchPolicy.Matches(option, castleSearchText))
+                    matches.Add(option);
+            }
+
+            filteredCastleOptions.ReplaceWith(matches);
+            // Filtering must not change the persisted or preview selection.
+            // Reapply it when a previously hidden item becomes visible again.
+            OnPropertyChanged(nameof(SelectedCastle));
         }
 
         private bool SetField(

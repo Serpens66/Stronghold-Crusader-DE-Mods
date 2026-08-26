@@ -91,6 +91,8 @@ namespace CastlePlanner
             settings.SettingsChanged += OnSettingsChanged;
             settings.BlueprintVisualSettingsChanged +=
                 OnBlueprintVisualSettingsChanged;
+            settings.BlueprintContentSettingsChanged +=
+                OnBlueprintContentSettingsChanged;
             settings.HotkeyCaptureRequested += OnHotkeyCaptureRequested;
             preview.SelectionVisualChanged += OnPreviewSelectionChanged;
             subscriptions.Add(
@@ -383,6 +385,16 @@ namespace CastlePlanner
                 settings.BlueprintIconAlphaValue);
         }
 
+        private void OnBlueprintContentSettingsChanged()
+        {
+            // Spawn-selection previews continue to follow the spawn options. The
+            // new local filters only rebuild normal in-game Blueprint layouts.
+            if (preview.IsPreviewActive)
+                return;
+
+            OnSettingsChanged();
+        }
+
         private void OnHotkeyCaptureRequested()
         {
             hotkeyCapturePending = true;
@@ -574,9 +586,12 @@ namespace CastlePlanner
             {
                 string json = File.ReadAllText(fullPath);
                 AivJsonDocument document = AivJsonReader.Parse(json);
+                AivSpawnOptions displayOptions = preview.IsPreviewActive
+                    ? settings.GetLocalPreviewSpawnOptions()
+                    : settings.GetBlueprintDisplayOptions();
                 AivJsonDocument filteredDocument = AivSpawnPlan.Filter(
                     document,
-                    settings.GetLocalPreviewSpawnOptions());
+                    displayOptions);
                 AIVParser.Core.AivRotation castleRotation = GetPreviewRotation();
                 layout = BlueprintLayoutBuilder.Build(
                     filteredDocument,

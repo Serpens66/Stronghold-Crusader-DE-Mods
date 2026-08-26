@@ -39,4 +39,15 @@ namespace CastlePlanner
                 availableChoices.Contains(candidate);
         }
     }
+
+    internal static class BlueprintSearchPolicy
+    {
+        public static bool Matches(string option, string searchText)
+        {
+            return string.IsNullOrWhiteSpace(searchText) ||
+                (!string.IsNullOrEmpty(option) &&
+                 option.IndexOf(searchText.Trim(),
+                     System.StringComparison.OrdinalIgnoreCase) >= 0);
+        }
+    }
 }

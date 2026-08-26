@@ -57,6 +57,7 @@ internal static class Program
             ("roundtrips known working AIVJSON files", RoundtripsKnownWorkingAivJsonFiles),
             ("rejects malformed native AIV spawn data", RejectsMalformedNativeSpawnData),
             ("filters every AIV spawn frame category", FiltersEverySpawnFrameCategory),
+            ("filters Blueprint castle choices case-insensitively", FiltersBlueprintCastleChoices),
             ("filters troops and maps only siege engines", FiltersTroopsAndMapsOnlySiegeEngines),
             ("maps braziers and owner-specific flags", MapsBraziersAndOwnerSpecificFlags),
             ("projects supplemental items for every rotation", ProjectsSupplementalItemsForEveryRotation),
@@ -1011,9 +1012,9 @@ internal static class Program
         int[] fortifications = [61, 25, 26, 35, 46, 105, 110, 114, 144, 147, 181, 186];
         foreach (int mapper in fortifications)
             Equal(CastlePlanner.AivFrameSpawnCategory.Fortification, CastlePlanner.AivSpawnPlan.ClassifyFrame(mapper));
-        foreach (int mapper in new[] { 98, 99, 106 })
+        foreach (int mapper in new[] { 98, 99, 106, 312 })
             Equal(CastlePlanner.AivFrameSpawnCategory.DefensiveGroundFeature, CastlePlanner.AivSpawnPlan.ClassifyFrame(mapper));
-        foreach (int mapper in new[] { 160, 166, 169, 175, 176, 177, 301, 305, 306, 307, 308, 310, 311, 312, 313, 318, 324, 325, 327 })
+        foreach (int mapper in new[] { 160, 166, 169, 175, 176, 177, 301, 305, 306, 307, 308, 310, 311, 313, 318, 324, 325, 327 })
             Equal(CastlePlanner.AivFrameSpawnCategory.FearFactor, CastlePlanner.AivSpawnPlan.ClassifyFrame(mapper));
         foreach (int mapper in new[] { 52, 53, 80, 178, 179 })
             Equal(CastlePlanner.AivFrameSpawnCategory.Building, CastlePlanner.AivSpawnPlan.ClassifyFrame(mapper));
@@ -1026,6 +1027,7 @@ internal static class Program
                 new CastlePlanner.AivJsonFrame { itemType = 25, tilePositionOfsets = [5543] },
                 new CastlePlanner.AivJsonFrame { itemType = 80, tilePositionOfsets = [5443] },
                 new CastlePlanner.AivJsonFrame { itemType = 98, tilePositionOfsets = [5343] },
+                new CastlePlanner.AivJsonFrame { itemType = 312, tilePositionOfsets = [5293] },
                 new CastlePlanner.AivJsonFrame { itemType = 160, tilePositionOfsets = [5243], shouldPause = true }
             ],
             miscItems = []
@@ -1039,8 +1041,48 @@ internal static class Program
             SpawnFearFactorBuildings = true
         };
         CastlePlanner.AivJsonDocument complete = CastlePlanner.AivSpawnPlan.Filter(source, all);
-        Equal(5, complete.frames.Count);
-        Assert(complete.frames[4].shouldPause, "frame pause was not preserved before reindexing");
+        Equal(6, complete.frames.Count);
+        Assert(complete.frames[5].shouldPause, "frame pause was not preserved before reindexing");
+
+        var withoutFortifications = new CastlePlanner.AivSpawnOptions
+        {
+            SpawnFortifications = false,
+            SpawnBuildings = true,
+            SpawnDefensiveGroundFeatures = true,
+            SpawnFearFactorBuildings = true
+        };
+        CastlePlanner.AivJsonDocument optionalOnly =
+            CastlePlanner.AivSpawnPlan.Filter(source, withoutFortifications);
+        Assert(
+            optionalOnly.frames.Select(frame => frame.itemType)
+                .SequenceEqual([61, 80, 98, 312, 160]),
+            "fortification filter removed the Keep anchor or retained a wall");
+
+        var buildingsAndFearOnly = new CastlePlanner.AivSpawnOptions
+        {
+            SpawnFortifications = false,
+            SpawnBuildings = true,
+            SpawnFearFactorBuildings = true
+        };
+        CastlePlanner.AivJsonDocument combined =
+            CastlePlanner.AivSpawnPlan.Filter(source, buildingsAndFearOnly);
+        Assert(
+            combined.frames.Select(frame => frame.itemType)
+                .SequenceEqual([61, 80, 160]),
+            "combined Blueprint category filter retained an unwanted category");
+
+        CastlePlanner.AivJsonDocument defensesOnly =
+            CastlePlanner.AivSpawnPlan.Filter(
+                source,
+                new CastlePlanner.AivSpawnOptions
+                {
+                    SpawnFortifications = false,
+                    SpawnDefensiveGroundFeatures = true
+                });
+        Assert(
+            defensesOnly.frames.Select(frame => frame.itemType)
+                .SequenceEqual([61, 98, 312]),
+            "defensive-ground filter did not retain the Dog Cage trap");
 
         var stockpileSource = new CastlePlanner.AivJsonDocument
         {
@@ -1065,6 +1107,22 @@ internal static class Program
                 SpawnStockpile = false
             });
         Equal(1, stockpilePreventedByFixes.frames.Count);
+    }
+
+    private static void FiltersBlueprintCastleChoices()
+    {
+        Assert(CastlePlanner.BlueprintSearchPolicy.Matches(
+            "VanillaAIV/Saladin1.aivjson",
+            "saladin"), "case-insensitive castle search did not match");
+        Assert(CastlePlanner.BlueprintSearchPolicy.Matches(
+            "Workshop/My Castle.aivjson",
+            "  my castle  "), "trimmed castle search did not match");
+        Assert(CastlePlanner.BlueprintSearchPolicy.Matches(
+            "Any.aivjson",
+            " "), "blank castle search did not retain all choices");
+        Assert(!CastlePlanner.BlueprintSearchPolicy.Matches(
+            "Rat1.aivjson",
+            "Snake"), "unrelated castle search unexpectedly matched");
     }
 
     private static void FiltersTroopsAndMapsOnlySiegeEngines()

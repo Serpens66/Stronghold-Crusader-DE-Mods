@@ -407,21 +407,36 @@ foreach ($required in @(
     'x:Name="CastlePlannerRotationComboBox"',
     'IsEnabled="{Binding CanSelectCastle}"',
     'IsEnabled="{Binding CanSelectRotation}"',
+    'Text="{Binding CastleSearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"',
     'Command="{Binding ConfirmCastleCommand}"')) {
     if (-not $castleHudXaml.Contains($required)) {
         throw "CastlePlanner unified preview HUD marker is missing: $required"
     }
 }
-foreach ($forbidden in @('ToolTip=', 'ToolTipService.')) {
-    if ($castleHudXaml.Contains($forbidden)) {
-        throw "CastlePlanner Ingame Blueprint HUD retained a hover tooltip: $forbidden"
+foreach ($required in @(
+    'ToolTip="{Binding SearchHelpText}"',
+    'ToolTip="{Binding ShowFortificationsHelpText}"',
+    'ToolTip="{Binding ShowBuildingsHelpText}"',
+    'ToolTip="{Binding ShowDefensiveGroundFeaturesHelpText}"',
+    'ToolTip="{Binding ShowFearFactorBuildingsHelpText}"')) {
+    if (-not $castleHudXaml.Contains($required)) {
+        throw "CastlePlanner Blueprint filter tooltip is missing: $required"
     }
+}
+if ([Text.RegularExpressions.Regex]::Matches(
+        $castleHudXaml,
+        'ToolTip="').Count -ne 5 -or
+    [Text.RegularExpressions.Regex]::Matches(
+        $castleHudXaml,
+        'ToolTipService\.ShowDuration="60000"').Count -ne 5) {
+    throw 'CastlePlanner must expose exactly five 60-second Blueprint HUD tooltips.'
 }
 $castleHudSource = [IO.File]::ReadAllText((Join-Path $workspace 'CastlePlanner/src/BlueprintHudViewModel.cs'))
 foreach ($required in @(
-    'ObservableCollection<string> CastleOptions => PreviewVisible',
-    '? preview.CastleChoices',
-    ': settings.CastleOptions;',
+    'ObservableCollection<string> CastleOptions =>',
+    'filteredCastleOptions;',
+    'ObservableCollection<string> source = PreviewVisible',
+    'BlueprintSearchPolicy.Matches(option, castleSearchText)',
     'SettingsPanelVisible = true;',
     'current.PreviewMouseWheel += OnComboBoxPreviewMouseWheel;',
     'castleComboBox?.IsDropDownOpen == true',

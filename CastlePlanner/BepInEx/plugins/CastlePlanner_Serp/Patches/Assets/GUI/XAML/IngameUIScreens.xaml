@@ -25,8 +25,7 @@
                 Background="#E614243A"
                 BorderBrush="#CC77AAFF"
                 BorderThickness="1"
-                Visibility="{Binding SettingsPanelVisible, Converter={StaticResource booleanToVisibilityConverter}}"
-                Tag="Ignore">
+                Visibility="{Binding SettingsPanelVisible, Converter={StaticResource booleanToVisibilityConverter}}">
           <Border.RenderTransform>
             <TranslateTransform X="{Binding PanelLeft}"
                                 Y="{Binding PanelTop}"/>
@@ -42,8 +41,7 @@
                     Padding="7,2"
                     Background="#AA203A5A"
                     BorderBrush="#8877AAFF"
-                    BorderThickness="0,0,0,1"
-                    Tag="Ignore">
+                    BorderThickness="0,0,0,1">
               <TextBlock Text="{Binding SettingsTitleText}"
                          FontSize="16"
                          FontWeight="Bold"
@@ -71,11 +69,20 @@
             <TextBlock Text="AIVJSON"
                        Foreground="#FFE8F2FF"
                        Margin="0,6,0,2"/>
+            <TextBlock Text="{Binding SearchText}"
+                       Foreground="#FFE8F2FF"
+                       Margin="0,0,0,2"/>
+            <TextBox Text="{Binding CastleSearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     Height="30"
+                     Padding="5,2"
+                     ToolTip="{Binding SearchHelpText}"
+                     ToolTipService.ShowDuration="60000"/>
             <ComboBox x:Name="CastlePlannerCastleComboBox"
                       ItemsSource="{Binding CastleOptions}"
                       SelectedItem="{Binding SelectedCastle, Mode=TwoWay}"
                       MaxDropDownHeight="420"
                       Height="30"
+                      Margin="0,5,0,0"
                       IsEnabled="{Binding CanSelectCastle}"/>
 
             <StackPanel Visibility="{Binding PreviewVisible, Converter={StaticResource booleanToVisibilityConverter}}">
@@ -98,6 +105,29 @@
                       Background="#CC2F6F42"
                       BorderBrush="#FF77DD99"
                       BorderThickness="1"/>
+            </StackPanel>
+
+            <StackPanel Margin="0,7,0,0"
+                        Visibility="{Binding NormalBlueprintSettingsVisible, Converter={StaticResource booleanToVisibilityConverter}}">
+              <CheckBox IsChecked="{Binding BlueprintShowFortifications, Mode=TwoWay}"
+                        Content="{Binding ShowFortificationsText}"
+                        ToolTip="{Binding ShowFortificationsHelpText}"
+                        ToolTipService.ShowDuration="60000"/>
+              <CheckBox IsChecked="{Binding BlueprintShowBuildings, Mode=TwoWay}"
+                        Content="{Binding ShowBuildingsText}"
+                        ToolTip="{Binding ShowBuildingsHelpText}"
+                        ToolTipService.ShowDuration="60000"
+                        Margin="0,3,0,0"/>
+              <CheckBox IsChecked="{Binding BlueprintShowDefensiveGroundFeatures, Mode=TwoWay}"
+                        Content="{Binding ShowDefensiveGroundFeaturesText}"
+                        ToolTip="{Binding ShowDefensiveGroundFeaturesHelpText}"
+                        ToolTipService.ShowDuration="60000"
+                        Margin="0,3,0,0"/>
+              <CheckBox IsChecked="{Binding BlueprintShowFearFactorBuildings, Mode=TwoWay}"
+                        Content="{Binding ShowFearFactorBuildingsText}"
+                        ToolTip="{Binding ShowFearFactorBuildingsHelpText}"
+                        ToolTipService.ShowDuration="60000"
+                        Margin="0,3,0,0"/>
             </StackPanel>
 
             <Grid Margin="0,6,0,0">
@@ -198,8 +228,7 @@
                 local:PropEx.Sprite4="{StaticResource UI-Buildings A001}"
                 Command="{Binding ToggleSettingsPanelCommand}"
                 CommandParameter="{Binding RelativeSource={RelativeSource Self}}"
-                Style="{StaticResource BTN_Building}"
-                Tag="Ignore">
+                Style="{StaticResource BTN_Building}">
           <Button.RenderTransform>
             <TranslateTransform Y="{Binding TriggerVerticalOffset}"/>
           </Button.RenderTransform>

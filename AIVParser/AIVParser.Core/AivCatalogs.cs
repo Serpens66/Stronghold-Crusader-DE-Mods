@@ -110,7 +110,7 @@ namespace AIVParser.Core
             Add(result, 308, "MAPPER_RACK_STRETCHING");
             Add(result, 310, "MAPPER_CHOPPING_BLOCK");
             Add(result, 311, "MAPPER_DUNKING_STOOL");
-            Add(result, 312, "MAPPER_DOG_CAGE");
+            Add(result, 312, "MAPPER_DOG_CAGE", AivItemCategory.Trap);
             Add(result, 313, "MAPPER_STATUE1");
             Add(result, 318, "MAPPER_SHRINE1");
             Add(result, 324, "MAPPER_DANCING_BEAR");

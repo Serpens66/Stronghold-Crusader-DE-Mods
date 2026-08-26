@@ -3,10 +3,17 @@
   "Author": "Serpens66",
   "Name": "CastlePlanner",
   "Description": "Displays AIVJSON blueprints, spawns personal human castles, and contains the gated AI lobby placement workflow.",
-  "Version": "0.8.11",
+  "Version": "0.8.12",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.8.12",
+      "Changes": [
+        "Added four independent, locally persisted filters for normal in-game Blueprints: fortifications, buildings, traps and ground defenses, and Fearfactor buildings.",
+        "Kept the castle spawn selection preview and the actual castle spawn settings independent from the new Blueprint display filters."
+      ]
+    },
     {
       "Version": "0.8.11",
       "Changes": [
