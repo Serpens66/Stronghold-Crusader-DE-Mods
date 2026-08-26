@@ -1,6 +1,8 @@
 # CastlePlanner localization
 CastlePlanner.SpawnBuildings=Also spawn buildings
-CastlePlanner.SpawnBuildingsHelp=Spawns all ordinary AIV buildings, including outposts. Fortifications are always spawned.
+CastlePlanner.SpawnFortifications=Also spawn fortifications
+CastlePlanner.SpawnFortificationsHelp=Spawns walls, crenels, towers, gates, drawbridges, and stairs from the selected AIV.
+CastlePlanner.SpawnBuildingsHelp=Spawns all ordinary AIV buildings, including outposts.
 CastlePlanner.SpawnDefensiveGroundFeatures=Also spawn traps, pitch ditches, and moats
 CastlePlanner.SpawnDefensiveGroundFeaturesHelp=Spawns Dog Cages, Killing Pits, Pitch Ditches, and Moats from the selected AIV.
 CastlePlanner.SpawnFearFactorBuildings=Also spawn Fearfactor buildings
@@ -30,7 +32,7 @@ CastlePlanner.Mode.Spawn=Spawn castle
 CastlePlanner.Blueprints=Blueprints
 CastlePlanner.BlueprintsHelp=Displays the selected castle as a local blueprint without changing the game simulation.
 CastlePlanner.SpawnCastle=Allow Free Castle Selection at Game Start
-CastlePlanner.SpawnCastleHelp=Host setting: pauses each new supported skirmish or Trail for up to 120 real seconds so every human player can preview, rotate, and confirm one free castle or choose No castle.
+CastlePlanner.SpawnCastleHelp=Host setting: pauses each new supported skirmish or Trail for up to 120 real seconds so every human player can preview, rotate, and confirm one free castle or choose No castle. Enabling this restores the default castle-content choices.
 CastlePlanner.Hotkey=Blueprint toggle key
 CastlePlanner.HotkeyHelp=Assigns the key or mouse button that toggles the blueprint display.
 CastlePlanner.ClearHelp=Removes the assigned blueprint toggle key.

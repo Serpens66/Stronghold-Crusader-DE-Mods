@@ -756,6 +756,13 @@ namespace Shared
 
         protected virtual string ResolveSettingsUiText(string key, string fallback) => fallback;
 
+        protected bool IsApplyingSettingsSnapshot =>
+            presetController?.IsApplyingSnapshot == true;
+
+        protected virtual void OnSettingsSnapshotApplied()
+        {
+        }
+
         /// <summary>
         /// Declares the few domain-specific parts of personal settings. Transport,
         /// player-slot ownership, lobby convergence and readiness stay in Shared.
@@ -1409,6 +1416,8 @@ namespace Shared
                 {
                     applying = false;
                 }
+
+                owner.OnSettingsSnapshotApplied();
 
                 if (writeLocalStorage)
                     WriteCombinedPayload();

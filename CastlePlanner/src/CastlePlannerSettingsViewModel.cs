@@ -46,10 +46,15 @@ namespace CastlePlanner
         private bool blueprintShowDefensiveGroundFeatures = true;
         private bool blueprintShowFearFactorBuildings = true;
         private bool spawnCastle;
-        private bool spawnBuildings = true;
-        private bool spawnDefensiveGroundFeatures = true;
-        private bool spawnFearFactorBuildings;
-        private bool spawnSiegeEngines;
+        private bool spawnFortifications =
+            CastleSpawnContentPolicy.DefaultFortifications;
+        private bool spawnBuildings = CastleSpawnContentPolicy.DefaultBuildings;
+        private bool spawnDefensiveGroundFeatures =
+            CastleSpawnContentPolicy.DefaultDefensiveGroundFeatures;
+        private bool spawnFearFactorBuildings =
+            CastleSpawnContentPolicy.DefaultFearFactorBuildings;
+        private bool spawnSiegeEngines =
+            CastleSpawnContentPolicy.DefaultSiegeEngines;
         private bool spawnBraziersAndFlags;
         private readonly bool[] spawnBraziersAndFlagsData = new bool[9];
         private readonly int[] spawnBraziersAndFlagsReportData =
@@ -68,6 +73,26 @@ namespace CastlePlanner
 
         protected override string ResolveSettingsUiText(string key, string fallback) =>
             SerpLocalization.Get(key);
+
+        protected override void OnSettingsSnapshotApplied()
+        {
+            base.OnSettingsSnapshotApplied();
+            if (!CanEditHostSettings ||
+                !CastleSpawnContentPolicy.ShouldDisableBeforeContentChange(
+                    spawnCastle,
+                    true,
+                    spawnFortifications,
+                    spawnBuildings,
+                    spawnDefensiveGroundFeatures,
+                    spawnFearFactorBuildings,
+                    spawnSiegeEngines))
+            {
+                return;
+            }
+
+            // Snapshot property order must not decide the final invariant.
+            SpawnCastle = false;
+        }
 
         public CastlePlannerSettingsViewModel(
             ManualLogSource log,
@@ -277,6 +302,8 @@ namespace CastlePlanner
         public string BlueprintsHelpText => SerpLocalization.Get("CastlePlanner.BlueprintsHelp");
         public string SpawnCastleText => SerpLocalization.Get("CastlePlanner.SpawnCastle");
         public string SpawnCastleHelpText => SerpLocalization.Get("CastlePlanner.SpawnCastleHelp");
+        public string SpawnFortificationsText => SerpLocalization.Get("CastlePlanner.SpawnFortifications");
+        public string SpawnFortificationsHelpText => SerpLocalization.Get("CastlePlanner.SpawnFortificationsHelp");
         public string SpawnBuildingsText => SerpLocalization.Get("CastlePlanner.SpawnBuildings");
         public string SpawnBuildingsHelpText => SerpLocalization.Get("CastlePlanner.SpawnBuildingsHelp");
         public string SpawnDefensiveGroundFeaturesText => SerpLocalization.Get("CastlePlanner.SpawnDefensiveGroundFeatures");
@@ -428,6 +455,14 @@ namespace CastlePlanner
                 if (spawnCastle == value)
                     return;
 
+                if (CastleSpawnContentPolicy.ShouldResetBeforeEnabling(
+                        spawnCastle,
+                        value,
+                        CanEditHostSettings && !IsApplyingSettingsSnapshot))
+                {
+                    ResetHostSpawnContentToDefaults();
+                }
+
                 spawnCastle = value;
                 OnPropertyChanged(nameof(SpawnCastle));
                 OnPropertyChanged(nameof(IsSpawnMode));
@@ -437,6 +472,16 @@ namespace CastlePlanner
                 PumpCastleCatalogLoad();
                 SettingsChanged?.Invoke();
             }
+        }
+
+        [SyncHostOnly]
+        public bool SpawnFortifications
+        {
+            get => spawnFortifications;
+            set => SetHostSpawnOption(
+                ref spawnFortifications,
+                value,
+                nameof(SpawnFortifications));
         }
 
         [SyncHostOnly]
@@ -593,6 +638,7 @@ namespace CastlePlanner
                 : false;
             return new AivSpawnOptions
             {
+                SpawnFortifications = SpawnFortifications,
                 SpawnBuildings = SpawnBuildings,
                 SpawnDefensiveGroundFeatures = SpawnDefensiveGroundFeatures,
                 SpawnFearFactorBuildings = SpawnFearFactorBuildings,
@@ -642,10 +688,56 @@ namespace CastlePlanner
         {
             if (!CanMutateSetting(propertyName) || field == value)
                 return;
+
+            bool projectedFortifications =
+                propertyName == nameof(SpawnFortifications)
+                    ? value
+                    : spawnFortifications;
+            bool projectedBuildings = propertyName == nameof(SpawnBuildings)
+                ? value
+                : spawnBuildings;
+            bool projectedDefensiveGroundFeatures =
+                propertyName == nameof(SpawnDefensiveGroundFeatures)
+                    ? value
+                    : spawnDefensiveGroundFeatures;
+            bool projectedFearFactorBuildings =
+                propertyName == nameof(SpawnFearFactorBuildings)
+                    ? value
+                    : spawnFearFactorBuildings;
+            bool projectedSiegeEngines =
+                propertyName == nameof(SpawnSiegeEngines)
+                    ? value
+                    : spawnSiegeEngines;
+
+            // Publish SpawnCastle=false before the last content option. Clients
+            // therefore never observe an enabled spawn with an empty castle.
+            if (CastleSpawnContentPolicy.ShouldDisableBeforeContentChange(
+                    spawnCastle,
+                    CanEditHostSettings && !IsApplyingSettingsSnapshot,
+                    projectedFortifications,
+                    projectedBuildings,
+                    projectedDefensiveGroundFeatures,
+                    projectedFearFactorBuildings,
+                    projectedSiegeEngines))
+            {
+                SpawnCastle = false;
+            }
+
             field = value;
             OnPropertyChanged(propertyName);
             Shared.DebugLogHelper.LogInfo(log, $"CastlePlanner host {propertyName} changed to {value}.");
             SettingsChanged?.Invoke();
+        }
+
+        private void ResetHostSpawnContentToDefaults()
+        {
+            SpawnFortifications = CastleSpawnContentPolicy.DefaultFortifications;
+            SpawnBuildings = CastleSpawnContentPolicy.DefaultBuildings;
+            SpawnDefensiveGroundFeatures =
+                CastleSpawnContentPolicy.DefaultDefensiveGroundFeatures;
+            SpawnFearFactorBuildings =
+                CastleSpawnContentPolicy.DefaultFearFactorBuildings;
+            SpawnSiegeEngines = CastleSpawnContentPolicy.DefaultSiegeEngines;
         }
 
         internal bool TryGetBlueprintHudPosition(
@@ -1031,10 +1123,7 @@ namespace CastlePlanner
                 EnableMod = true;
                 EnableAivPlacementLobby = false;
                 SpawnCastle = false;
-                SpawnBuildings = true;
-                SpawnDefensiveGroundFeatures = true;
-                SpawnFearFactorBuildings = false;
-                SpawnSiegeEngines = false;
+                ResetHostSpawnContentToDefaults();
             }
 
             // Every participant resets their own Blueprint preference.

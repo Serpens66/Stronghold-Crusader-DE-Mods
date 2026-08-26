@@ -61,6 +61,8 @@ internal static class Program
             TestPresetLocalRoundTrip();
             TestDoNotPersistPresetExclusion();
             TestCastlePlannerBlueprintHudPolicies();
+            TestCastleSpawnContentPolicy();
+            TestSnapshotCompletionHook();
             TestFreeCastleProtocol();
 
             string pluginPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "TestPlugin.dll");
@@ -2912,6 +2914,9 @@ internal static class Program
             "CastlePlanner Blueprint code default was not enabled");
         Check(castlePlanner.AllBlueprintCategoriesEnabled,
             "CastlePlanner Blueprint category defaults were not enabled");
+        Check(castlePlanner.SpawnFortifications,
+            "CastlePlanner SpawnFortifications default was not enabled");
+        castlePlanner.SpawnFortifications = false;
         castlePlanner.BlueprintShowFortifications = false;
         castlePlanner.BlueprintShowDefensiveGroundFeatures = false;
         castlePlanner.SelectedPreset = 1;
@@ -2924,6 +2929,7 @@ internal static class Program
         GameNetworkAPI.LocalHost = true;
         castlePlanner.System_RefreshSettingsAccess();
         Check(castlePlanner.Blueprints &&
+              !castlePlanner.SpawnFortifications &&
               !castlePlanner.BlueprintShowFortifications &&
               castlePlanner.BlueprintShowBuildings &&
               !castlePlanner.BlueprintShowDefensiveGroundFeatures &&
@@ -2937,6 +2943,7 @@ internal static class Program
             "CastlePlannerPresetProbe");
         restoredCastlePlanner.ActivatePresets();
         Check(restoredCastlePlanner.Blueprints &&
+              !restoredCastlePlanner.SpawnFortifications &&
               !restoredCastlePlanner.BlueprintShowFortifications &&
               restoredCastlePlanner.BlueprintShowBuildings &&
               !restoredCastlePlanner.BlueprintShowDefensiveGroundFeatures &&
@@ -3016,6 +3023,76 @@ internal static class Program
             "Blueprint selection rejected the valid no-castle choice");
         Check(CastlePlanner.BlueprintSelectionPolicy.IsValidBindingSelection("Example.aivjson", choices),
             "Blueprint selection rejected a valid castle choice");
+    }
+
+    private static void TestCastleSpawnContentPolicy()
+    {
+        Check(
+            CastlePlanner.CastleSpawnContentPolicy.DefaultFortifications &&
+            CastlePlanner.CastleSpawnContentPolicy.DefaultBuildings &&
+            CastlePlanner.CastleSpawnContentPolicy.DefaultDefensiveGroundFeatures &&
+            !CastlePlanner.CastleSpawnContentPolicy.DefaultFearFactorBuildings &&
+            !CastlePlanner.CastleSpawnContentPolicy.DefaultSiegeEngines,
+            "CastlePlanner castle-content defaults changed unexpectedly");
+        Check(
+            CastlePlanner.CastleSpawnContentPolicy.ShouldResetBeforeEnabling(
+                false,
+                true,
+                true),
+            "CastlePlanner did not reset content before an authoritative spawn enable");
+        Check(
+            !CastlePlanner.CastleSpawnContentPolicy.ShouldResetBeforeEnabling(
+                false,
+                true,
+                false),
+            "CastlePlanner allowed a client to reset host content");
+        Check(
+            CastlePlanner.CastleSpawnContentPolicy.ShouldDisableBeforeContentChange(
+                true,
+                true,
+                false,
+                false,
+                false,
+                false,
+                false),
+            "CastlePlanner retained an enabled spawn without host content");
+        Check(
+            !CastlePlanner.CastleSpawnContentPolicy.ShouldDisableBeforeContentChange(
+                true,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false),
+            "CastlePlanner allowed a client to derive a host spawn change");
+        Check(
+            !CastlePlanner.CastleSpawnContentPolicy.ShouldDisableBeforeContentChange(
+                true,
+                true,
+                false,
+                true,
+                false,
+                false,
+                false),
+            "CastlePlanner disabled spawning while a host content category remained enabled");
+    }
+
+    private static void TestSnapshotCompletionHook()
+    {
+        GameNetworkAPI.LocalHost = true;
+        var viewModel = new SnapshotCompletionProbeViewModel();
+        viewModel.PreparePresets(
+            null,
+            Path.Combine(
+                AppDomain.CurrentDomain.BaseDirectory,
+                "SnapshotCompletionProbe.dll"),
+            "SnapshotCompletionProbe");
+        viewModel.ActivatePresets();
+        Check(viewModel.CompletionCount == 1,
+            "Shared snapshot completion hook did not run exactly once during activation");
+        Check(!viewModel.ObservedApplyingState,
+            "Shared snapshot completion hook ran before snapshot application ended");
     }
 
     private static void AssertState(MixedViewModel vm, bool host, bool mission, bool editable, bool canEditHost, bool canReset, bool canChangePreset, string context)
@@ -3465,6 +3542,7 @@ internal sealed class MixedViewModel : PresetLobbyModSettingsViewModel
 internal sealed class CastlePlannerPresetProbeViewModel : PresetLobbyModSettingsViewModel
 {
     private bool blueprints = true;
+    private bool spawnFortifications = true;
     private bool blueprintShowFortifications = true;
     private bool blueprintShowBuildings = true;
     private bool blueprintShowDefensiveGroundFeatures = true;
@@ -3475,6 +3553,23 @@ internal sealed class CastlePlannerPresetProbeViewModel : PresetLobbyModSettings
         BlueprintShowBuildings &&
         BlueprintShowDefensiveGroundFeatures &&
         BlueprintShowFearFactorBuildings;
+
+    [SyncHostOnly]
+    public bool SpawnFortifications
+    {
+        get => spawnFortifications;
+        set
+        {
+            if (!CanMutateSetting(nameof(SpawnFortifications)) ||
+                spawnFortifications == value)
+            {
+                return;
+            }
+
+            spawnFortifications = value;
+            OnPropertyChanged(nameof(SpawnFortifications));
+        }
+    }
 
     [PresetLocal]
     public bool Blueprints
@@ -3538,6 +3633,33 @@ internal sealed class CastlePlannerPresetProbeViewModel : PresetLobbyModSettings
             return;
         field = value;
         OnPropertyChanged(propertyName);
+    }
+}
+
+internal sealed class SnapshotCompletionProbeViewModel : PresetLobbyModSettingsViewModel
+{
+    private bool value = true;
+
+    internal int CompletionCount { get; private set; }
+    internal bool ObservedApplyingState { get; private set; }
+
+    [SyncHostOnly]
+    public bool Value
+    {
+        get => value;
+        set
+        {
+            if (!CanMutateSetting(nameof(Value)) || this.value == value)
+                return;
+            this.value = value;
+            OnPropertyChanged(nameof(Value));
+        }
+    }
+
+    protected override void OnSettingsSnapshotApplied()
+    {
+        CompletionCount++;
+        ObservedApplyingState = IsApplyingSettingsSnapshot;
     }
 }
 

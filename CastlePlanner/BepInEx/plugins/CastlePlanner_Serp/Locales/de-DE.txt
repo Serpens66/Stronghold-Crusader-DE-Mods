@@ -1,6 +1,8 @@
 # CastlePlanner localization
 CastlePlanner.SpawnBuildings=Auch Gebäude erzeugen
-CastlePlanner.SpawnBuildingsHelp=Erzeugt alle normalen AIV-Gebäude einschließlich Außenposten. Befestigungen werden immer erzeugt.
+CastlePlanner.SpawnFortifications=Auch Befestigungen erzeugen
+CastlePlanner.SpawnFortificationsHelp=Erzeugt Mauern, Zinnen, Türme, Tore, Zugbrücken und Treppen aus der gewählten AIV.
+CastlePlanner.SpawnBuildingsHelp=Erzeugt alle normalen AIV-Gebäude einschließlich Außenposten.
 CastlePlanner.SpawnDefensiveGroundFeatures=Auch Fallen, Pechgräben und Burggräben erzeugen
 CastlePlanner.SpawnDefensiveGroundFeaturesHelp=Erzeugt Hundekäfige, Mörderlöcher, Pechgräben und Burggräben aus der gewählten AIV.
 CastlePlanner.SpawnFearFactorBuildings=Auch Fearfactor-Gebäude erzeugen
@@ -30,7 +32,7 @@ CastlePlanner.Mode.Spawn=Burg erzeugen
 CastlePlanner.Blueprints=Blaupausen
 CastlePlanner.BlueprintsHelp=Zeigt die ausgewählte Burg lokal als Blaupause an, ohne die Spielsimulation zu verändern.
 CastlePlanner.SpawnCastle=Kostenlose Burgauswahl bei Spielstart erlauben
-CastlePlanner.SpawnCastleHelp=Host-Einstellung: Pausiert jedes neue unterstützte Gefecht oder jede Trail-Mission bis zu 120 reale Sekunden, damit jeder menschliche Spieler eine kostenlose Burg ansehen, fest drehen und bestätigen oder Keine Burg wählen kann.
+CastlePlanner.SpawnCastleHelp=Host-Einstellung: Pausiert jedes neue unterstützte Gefecht oder jede Trail-Mission bis zu 120 reale Sekunden, damit jeder menschliche Spieler eine kostenlose Burg ansehen, fest drehen und bestätigen oder Keine Burg wählen kann. Beim Aktivieren werden die Standardwerte für den Burginhalt wiederhergestellt.
 CastlePlanner.Hotkey=Blaupausen-Umschalttaste
 CastlePlanner.HotkeyHelp=Weist die Taste oder Maustaste zu, mit der die Blaupause ein- und ausgeblendet wird.
 CastlePlanner.ClearHelp=Entfernt die zugewiesene Blaupausen-Umschalttaste.

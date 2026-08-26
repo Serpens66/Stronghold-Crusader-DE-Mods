@@ -17,6 +17,9 @@
     <Compile Include="..\..\CastlePlanner\src\CastleSpawnCompatibility.cs">
       <Link>CastleSpawnCompatibility.cs</Link>
     </Compile>
+    <Compile Include="..\..\CastlePlanner\src\CastleSpawnContentPolicy.cs">
+      <Link>CastleSpawnContentPolicy.cs</Link>
+    </Compile>
     <Compile Include="..\..\CastlePlanner\src\FreeCastleProtocol.cs">
       <Link>FreeCastleProtocol.cs</Link>
     </Compile>
