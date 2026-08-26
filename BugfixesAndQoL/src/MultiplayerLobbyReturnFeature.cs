@@ -69,7 +69,7 @@ namespace BugfixesAndQoL
             // Vanilla starts its Coop continuation lobby from this same on-screen signal.
             // It occurs early enough that packet type 10 can arrive before ManageGameOver
             // releases the clients' gameMembers receive path.
-            TryCreateReplacementLobby("ost-game-over");
+            TryCreateReplacementLobby("post-game-over");
         }
 
         internal void OnGameOverState(int state)
@@ -406,9 +406,46 @@ namespace BugfixesAndQoL
             FindFrontMethod("UpdateRadarShieldPositions", Type.EmptyTypes).Invoke(front, null);
             FindFrontMethod("UpdateHostInfo", new[] { typeof(bool) }).Invoke(front, new object[] { false });
             FindFrontMethod("ShowSetupScreen", Type.EmptyTypes).Invoke(front, null);
+            RestoreHostMapPresentation(front);
             RefreshHostLobbyRows(front);
             viewModel.Show_FrontMenus_Background_Main = false;
             viewModel.Show_Frontend_MainMenu = false;
+        }
+
+        private void RestoreHostMapPresentation(FRONT_Multiplayer front)
+        {
+            try
+            {
+                FileHeader header = MapFileManager.Instance?.GetHeaderFromFileNameMP(
+                    snapshot.MapFileName,
+                    snapshot.Crc);
+                if (header == null)
+                {
+                    Shared.DebugLogHelper.LogWarning(
+                        log,
+                        $"Post-game host lobby map presentation could not be restored because the exact map header was not found: map='{snapshot.MapFileName}', crc={snapshot.Crc}.");
+                    return;
+                }
+
+                // doOpen(false) preserves the replacement Steam lobby but clears the map
+                // presentation. Re-select through Vanilla so every bound detail is rebuilt.
+                front.ButtonClicked("ClearFilter");
+                FindFrontMethod(
+                    "populateMapList",
+                    new[] { typeof(FileHeader), typeof(bool) })
+                    .Invoke(front, new object[] { header, false });
+
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"Post-game host lobby map presentation restored through Vanilla selection: map='{snapshot.MapFileName}', crc={snapshot.Crc}.");
+            }
+            catch (Exception ex)
+            {
+                // The replacement Steam lobby is already valid; presentation recovery is cosmetic.
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    $"Post-game host lobby opened, but its map presentation could not be restored: map='{snapshot?.MapFileName ?? string.Empty}', crc={snapshot?.Crc ?? 0}, error={ex}");
+            }
         }
 
         private void RefreshHostLobbyRows(FRONT_Multiplayer front)

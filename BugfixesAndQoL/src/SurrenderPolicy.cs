@@ -102,21 +102,16 @@ namespace BugfixesAndQoL
             senderHuman &&
             IsValidLord(senderLord);
 
+        internal static bool IsChoreDelivery(bool senderSteamIdPresent) =>
+            !senderSteamIdPresent;
+
         internal static bool CanExecute(
-            int protocolVersion,
-            int expectedProtocolVersion,
             int packetPlayerId,
-            int packetOperationId,
-            int packetLordGlobalId,
-            bool duplicateOperation,
-            SurrenderLordSnapshot currentLord) =>
-            protocolVersion == expectedProtocolVersion &&
+            SurrenderLordSnapshot currentLord,
+            int resolvedUnitId) =>
             packetPlayerId >= 1 && packetPlayerId <= 8 &&
-            packetOperationId != 0 &&
-            packetLordGlobalId > 0 &&
-            !duplicateOperation &&
             IsValidLord(currentLord) &&
             currentLord.PlayerId == packetPlayerId &&
-            currentLord.GlobalId == packetLordGlobalId;
+            resolvedUnitId == currentLord.UnitId;
     }
 }

@@ -3,7 +3,6 @@ using BepInEx.Logging;
 using CrusaderDE;
 using MonoMod.RuntimeDetour;
 using System;
-using System.Diagnostics;
 using System.Reflection;
 using UnityEngine;
 
@@ -38,10 +37,6 @@ namespace BugfixesAndQoL
         private DisplaySnapshot lastSaveCall;
         private int manualApplyDepth;
         private int manualApplySequence;
-        private int lastRenderFrame = -1;
-        private int lastMonitorFrame = -1;
-        private long lastMonitorTimestamp;
-        private FatControler lastMonitorController;
         private bool observationActive;
         private bool failureLogged;
         private bool disposed;
@@ -122,9 +117,6 @@ namespace BugfixesAndQoL
                 observationActive = true;
                 lastObserved = SafeCapture("activation");
                 lastSaveCall = lastObserved;
-                lastRenderFrame = -1;
-                Application.onBeforeRender -= ObserveBeforeRender;
-                Application.onBeforeRender += ObserveBeforeRender;
                 LogInfo($"diagnostic-start reason={reason}, focused={Application.isFocused}, initial={lastObserved}");
                 return;
             }
@@ -134,11 +126,9 @@ namespace BugfixesAndQoL
 
         private void StopObservation(string reason)
         {
-            Application.onBeforeRender -= ObserveBeforeRender;
             if (observationActive)
                 LogInfo($"diagnostic-stopped reason={reason}");
             observationActive = false;
-            lastRenderFrame = -1;
         }
 
         private void LoadSettingsHook()
@@ -166,15 +156,29 @@ namespace BugfixesAndQoL
                 return;
             }
 
-            DisplaySnapshot before = SafeCapture("monitor-before");
-            LogTransitionIfChanged("monitor-entry", lastObserved, before, self);
-            lastMonitorFrame = Time.frameCount;
-            lastMonitorTimestamp = Stopwatch.GetTimestamp();
-            lastMonitorController = self;
+            // The monitor runs every frame. Keep its normal path to cheap scalar reads and
+            // only build the detailed snapshot when a display-relevant value changed.
+            DisplayFingerprint expected = DisplayFingerprint.FromSnapshot(lastObserved);
+            DisplayFingerprint beforeFingerprint = SafeCaptureFingerprint("monitor-before");
+            DisplaySnapshot before = lastObserved;
+            if (!expected.Equals(beforeFingerprint))
+            {
+                before = SafeCapture("monitor-before-detail");
+                LogTransitionIfChanged("monitor-entry", lastObserved, before, self);
+                lastObserved = before;
+            }
+
             monitorOriginal(self);
-            DisplaySnapshot after = SafeCapture("monitor-after");
-            LogTransitionIfChanged("monitor-vanilla", before, after, self);
-            lastObserved = after;
+            DisplayFingerprint afterFingerprint = SafeCaptureFingerprint("monitor-after");
+            if (!beforeFingerprint.Equals(afterFingerprint))
+            {
+                DisplaySnapshot after = SafeCapture("monitor-after-detail");
+                LogInfo(
+                    $"display-transition source=monitor-vanilla, focused={Application.isFocused}, " +
+                    $"manualApply={manualApplyDepth > 0}, frame={Time.frameCount}, " +
+                    $"from={beforeFingerprint}, to={after}, controller={DescribeController(self)}");
+                lastObserved = after;
+            }
         }
 
         private void OptionsButtonHook(HUD_Options self, int parameter)
@@ -211,14 +215,13 @@ namespace BugfixesAndQoL
             }
 
             DisplaySnapshot before = SafeCapture("save-before");
-            bool dirtyBefore = ReadBoolean(settingsDirtyField, null);
             bool changedSinceLastSave = !before.Equals(lastSaveCall);
-            bool interestingBefore = manualApplyDepth > 0 || dirtyBefore || changedSinceLastSave;
+            bool interestingBefore = manualApplyDepth > 0 || changedSinceLastSave;
             if (interestingBefore)
             {
                 LogInfo(
                     $"save-settings-begin manualApply={manualApplyDepth > 0}, onlyWhenAlreadyExists={onlyWhenAlreadyExists}, " +
-                    $"settingsDirty={dirtyBefore}, changedSinceLastSave={changedSinceLastSave}, state={before}");
+                    $"settingsDirty={ReadBoolean(settingsDirtyField, null)}, changedSinceLastSave={changedSinceLastSave}, state={before}");
             }
 
             saveSettingsOriginal(onlyWhenAlreadyExists);
@@ -233,29 +236,6 @@ namespace BugfixesAndQoL
 
             lastSaveCall = after;
             lastObserved = after;
-        }
-
-        private void ObserveBeforeRender()
-        {
-            if (!IsEnabled)
-            {
-                StopObservation("feature disabled");
-                return;
-            }
-            if (lastRenderFrame == Time.frameCount)
-                return;
-
-            lastRenderFrame = Time.frameCount;
-            DisplaySnapshot current = SafeCapture("before-render");
-            if (!lastObserved.Equals(current))
-            {
-                LogInfo(
-                    $"display-transition source=outside-observed-hooks, focused={Application.isFocused}, " +
-                    $"manualApply={manualApplyDepth > 0}, frame={Time.frameCount}, " +
-                    $"lastMonitorFrame={lastMonitorFrame}, msSinceMonitor={ElapsedMilliseconds(lastMonitorTimestamp)}, " +
-                    $"lastMonitorController={DescribeController(lastMonitorController)}, from={lastObserved}, to={current}");
-                lastObserved = current;
-            }
         }
 
         private void ObserveFocusChanged(bool focused)
@@ -292,6 +272,19 @@ namespace BugfixesAndQoL
             {
                 LogFailureOnce(phase, ex);
                 return lastObserved;
+            }
+        }
+
+        private DisplayFingerprint SafeCaptureFingerprint(string phase)
+        {
+            try
+            {
+                return DisplayFingerprint.Capture();
+            }
+            catch (Exception ex)
+            {
+                LogFailureOnce(phase, ex);
+                return DisplayFingerprint.FromSnapshot(lastObserved);
             }
         }
 
@@ -345,13 +338,6 @@ namespace BugfixesAndQoL
                 $"[DISPLAY_RESOLUTION_DIAGNOSTIC session={sessionId}] {message}");
         }
 
-        private static long ElapsedMilliseconds(long start)
-        {
-            if (start == 0)
-                return -1;
-            return (Stopwatch.GetTimestamp() - start) * 1000L / Stopwatch.Frequency;
-        }
-
         private static MethodInfo FindMethod(Type type, string name, bool isStatic, Type[] parameters)
         {
             BindingFlags flags = BindingFlags.Public | BindingFlags.NonPublic |
@@ -377,6 +363,88 @@ namespace BugfixesAndQoL
             hook?.Undo();
             hook?.Dispose();
             hook = null;
+        }
+
+        private readonly struct DisplayFingerprint : IEquatable<DisplayFingerprint>
+        {
+            private DisplayFingerprint(
+                int width,
+                int height,
+                FullScreenMode mode,
+                int configWidth,
+                int configHeight,
+                int configRefresh,
+                int configType,
+                int windowWidth,
+                int windowHeight)
+            {
+                Width = width;
+                Height = height;
+                Mode = mode;
+                ConfigWidth = configWidth;
+                ConfigHeight = configHeight;
+                ConfigRefresh = configRefresh;
+                ConfigType = configType;
+                WindowWidth = windowWidth;
+                WindowHeight = windowHeight;
+            }
+
+            private int Width { get; }
+            private int Height { get; }
+            private FullScreenMode Mode { get; }
+            private int ConfigWidth { get; }
+            private int ConfigHeight { get; }
+            private int ConfigRefresh { get; }
+            private int ConfigType { get; }
+            private int WindowWidth { get; }
+            private int WindowHeight { get; }
+
+            public static DisplayFingerprint Capture()
+            {
+                return new DisplayFingerprint(
+                    Screen.width,
+                    Screen.height,
+                    Screen.fullScreenMode,
+                    ConfigSettings.Settings_LastFullscreenWidth,
+                    ConfigSettings.Settings_LastFullscreenHeight,
+                    ConfigSettings.Settings_LastFullscreenRefresh,
+                    ConfigSettings.Settings_LastFullscreenType,
+                    ConfigSettings.Settings_LastWindowWidth,
+                    ConfigSettings.Settings_LastWindowHeight);
+            }
+
+            public static DisplayFingerprint FromSnapshot(DisplaySnapshot snapshot)
+            {
+                return new DisplayFingerprint(
+                    snapshot.Width,
+                    snapshot.Height,
+                    snapshot.Mode,
+                    snapshot.ConfigWidth,
+                    snapshot.ConfigHeight,
+                    snapshot.ConfigRefresh,
+                    snapshot.ConfigType,
+                    snapshot.WindowWidth,
+                    snapshot.WindowHeight);
+            }
+
+            public bool Equals(DisplayFingerprint other)
+            {
+                return Width == other.Width && Height == other.Height && Mode == other.Mode &&
+                    ConfigWidth == other.ConfigWidth && ConfigHeight == other.ConfigHeight &&
+                    ConfigRefresh == other.ConfigRefresh && ConfigType == other.ConfigType &&
+                    WindowWidth == other.WindowWidth && WindowHeight == other.WindowHeight;
+            }
+
+            public override bool Equals(object obj) => obj is DisplayFingerprint other && Equals(other);
+            public override int GetHashCode() => Width ^ Height ^ ConfigWidth ^ ConfigHeight ^ (int)Mode;
+
+            public override string ToString()
+            {
+                return
+                    $"screen={Width}x{Height}/{Mode}, " +
+                    $"configFullscreen={ConfigWidth}x{ConfigHeight}@{ConfigRefresh}Hz/type{ConfigType}, " +
+                    $"configWindow={WindowWidth}x{WindowHeight}";
+            }
         }
 
         private readonly struct DisplaySnapshot : IEquatable<DisplaySnapshot>

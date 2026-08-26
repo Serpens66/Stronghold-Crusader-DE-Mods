@@ -973,34 +973,36 @@ internal static class Program
 
     private static void TestSurrenderAndStatisticsSettingAndPolicy()
     {
-        var validLord = new SurrenderLordSnapshot(2, 120, 8120, 2, true);
+        const int testLordUnitId = 120;
+        const int testLordGlobalId = 8120;
+        var validLord = new SurrenderLordSnapshot(2, testLordUnitId, testLordGlobalId, 2, true);
         var missingLord = new SurrenderLordSnapshot(2, -1, -1, -1, false);
-        var deadLord = new SurrenderLordSnapshot(2, 120, 8120, 2, false);
-        var foreignLord = new SurrenderLordSnapshot(2, 120, 8120, 3, true);
+        var deadLord = new SurrenderLordSnapshot(2, testLordUnitId, testLordGlobalId, 2, false);
+        var foreignLord = new SurrenderLordSnapshot(2, testLordUnitId, testLordGlobalId, 3, true);
 
         Check(LordUnitControlsPolicy.CanActivate(
-                true, true, true, false, false, 1, 120, 2, validLord),
+                true, true, true, false, false, 1, testLordUnitId, 2, validLord),
             "compact Lord HUD rejected the sole selected local Lord");
         Check(!LordUnitControlsPolicy.CanActivate(
-                true, true, true, false, false, 2, 120, 2, validLord),
+                true, true, true, false, false, 2, testLordUnitId, 2, validLord),
             "compact Lord HUD accepted a mixed selection");
         Check(!LordUnitControlsPolicy.CanActivate(
-                true, true, true, false, false, 1, 121, 2, validLord),
+                true, true, true, false, false, 1, testLordUnitId + 1, 2, validLord),
             "compact Lord HUD accepted a non-Lord selected unit");
         Check(!LordUnitControlsPolicy.CanActivate(
-                true, true, true, false, false, 1, 120, 3, validLord),
+                true, true, true, false, false, 1, testLordUnitId, 3, validLord),
             "compact Lord HUD accepted another player's Lord");
         Check(!LordUnitControlsPolicy.CanActivate(
-                true, true, true, false, true, 1, 120, 2, validLord),
+                true, true, true, false, true, 1, testLordUnitId, 2, validLord),
             "compact Lord HUD appeared for a spectator");
         Check(LordUnitControlsPolicy.CanActivate(
-                true, true, false, true, false, 1, 120, 2, validLord),
+                true, true, false, true, false, 1, testLordUnitId, 2, validLord),
             "compact Lord HUD rejected the controlled player's Lord in the map editor");
         Check(!LordUnitControlsPolicy.CanActivate(
-                true, true, false, true, false, 1, 120, 3, validLord),
+                true, true, false, true, false, 1, testLordUnitId, 3, validLord),
             "compact Lord HUD accepted another player's Lord in the map editor");
         Check(!LordUnitControlsPolicy.CanActivate(
-                true, true, true, false, false, 1, 120, 2, deadLord),
+                true, true, true, false, false, 1, testLordUnitId, 2, deadLord),
             "compact Lord HUD accepted a dead Lord");
         Check(LordUnitControlsPolicy.CanShowDisband(true, true, false) &&
               !LordUnitControlsPolicy.CanShowDisband(true, false, false) &&
@@ -1109,14 +1111,22 @@ internal static class Program
         Check(!SurrenderPolicy.CanAcceptRequest(true, true, false, true, true, validLord),
             "non-host accepted a surrender request");
 
-        Check(SurrenderPolicy.CanExecute(1, 1, 2, 11, 8120, false, validLord),
+        Check(SurrenderPolicy.IsChoreDelivery(false),
+            "surrender execution rejected Chore delivery without a Steam sender");
+        Check(!SurrenderPolicy.IsChoreDelivery(true),
+            "surrender execution accepted direct non-Chore delivery with a Steam sender");
+        Check(SurrenderPolicy.CanExecute(2, validLord, testLordUnitId),
             "valid surrender execution was rejected");
-        Check(!SurrenderPolicy.CanExecute(1, 1, 3, 11, 8120, false, validLord),
+        Check(!SurrenderPolicy.CanExecute(3, validLord, testLordUnitId),
             "forged player ID was accepted");
-        Check(!SurrenderPolicy.CanExecute(1, 1, 2, 11, 9999, false, validLord),
-            "foreign global lord ID was accepted");
-        Check(!SurrenderPolicy.CanExecute(1, 1, 2, 11, 8120, true, validLord),
-            "duplicate surrender operation was accepted");
+        Check(!SurrenderPolicy.CanExecute(0, validLord, testLordUnitId),
+            "invalid surrender player slot was accepted");
+        Check(!SurrenderPolicy.CanExecute(2, deadLord, testLordUnitId),
+            "dead surrender lord was accepted");
+        Check(!SurrenderPolicy.CanExecute(2, foreignLord, testLordUnitId),
+            "foreign surrender lord was accepted");
+        Check(!SurrenderPolicy.CanExecute(2, validLord, testLordUnitId - 1),
+            "mismatched local global-ID resolution was accepted");
 
         var request = new SurrenderRequestPacket { ProtocolVersion = 1, RequestId = 17 };
         SurrenderRequestPacket requestRoundTrip = MessagePackSerializer.Deserialize<SurrenderRequestPacket>(
@@ -1128,27 +1138,18 @@ internal static class Program
 
         var execution = new SurrenderExecutionPacket
         {
-            ProtocolVersion = 1,
-            PlayerId = 2,
-            OperationId = 11,
-            LordGlobalId = 8120
+            PlayerId = 2
         };
         SurrenderExecutionPacket executionRoundTrip = MessagePackSerializer.Deserialize<SurrenderExecutionPacket>(
             MessagePackSerializer.Serialize(execution));
-        Check(executionRoundTrip.ProtocolVersion == 1 &&
-              executionRoundTrip.PlayerId == 2 &&
-              executionRoundTrip.OperationId == 11 &&
-              executionRoundTrip.LordGlobalId == 8120,
+        Check(executionRoundTrip.PlayerId == 2,
             "surrender execution packet did not round-trip");
         byte[] observedSurrenderBody = MessagePackSerializer.Serialize(new SurrenderExecutionPacket
         {
-            ProtocolVersion = 1,
-            PlayerId = 1,
-            OperationId = 1,
-            LordGlobalId = 3935
+            PlayerId = 1
         });
-        Check(observedSurrenderBody.SequenceEqual(new byte[] { 0x94, 0x01, 0x01, 0x01, 0xCD, 0x0F, 0x5F }),
-            "surrender execution body no longer matches the observed seven-byte canonical payload");
+        Check(observedSurrenderBody.SequenceEqual(new byte[] { 0x01 }),
+            "surrender execution body is no longer the expected one-byte minimal payload");
 
         string pluginPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SurrenderAndStatisticsSetting.dll");
         string settingsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "LobbyModSettings", "SurrenderAndStatisticsSettingTest.msgpack");

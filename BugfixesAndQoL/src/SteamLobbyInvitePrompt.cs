@@ -57,15 +57,18 @@ namespace BugfixesAndQoL
                 string format = SerpLocalization.Get("BugfixesAndQoL.SteamInvitePrompt");
                 string message = string.Format(CultureInfo.CurrentCulture, format, inviterName);
                 long sequence = ++inviteSequence;
+                bool useMultiplayerConfirmation = MainViewModel.Instance.Show_MultiplayerSetup;
 
                 HUD_ConfirmationPopup.ShowConfirmation(
                     message,
                     () => AcceptInvite(sequence, lobbyId),
-                    () => DeclineInvite(sequence));
+                    () => DeclineInvite(sequence),
+                    MPConf: useMultiplayerConfirmation);
 
                 Shared.DebugLogHelper.LogDebug(
                     log,
-                    $"Displayed in-game Steam lobby invitation from '{inviterName}' ({inviterId}) for lobby {lobbyId}.");
+                    $"Displayed in-game Steam lobby invitation from '{inviterName}' ({inviterId}) for lobby {lobbyId}; " +
+                    $"confirmationSurface={(useMultiplayerConfirmation ? "multiplayer" : "standard")}.");
             }
             catch (Exception ex)
             {
@@ -95,7 +98,8 @@ namespace BugfixesAndQoL
 
             state =
                 $"scene={scene}, screen={viewModel.CurrentScreenNo}, showFrontend={viewModel.Show_Frontend}, showInGame={viewModel.Show_InGame}, " +
-                $"loadingBlack={viewModel.Show_MP_LoadingBlack}, briefing={viewModel.Show_HUD_Briefing}, " +
+                $"showMultiplayerSetup={viewModel.Show_MultiplayerSetup}, " +
+                $"missionOver={viewModel.Show_HUD_MissionOver}, loadingBlack={viewModel.Show_MP_LoadingBlack}, briefing={viewModel.Show_HUD_Briefing}, " +
                 $"confirmationOpen={confirmationOpen}, simRunning={simulationRunning}, gameStateReady={gameStateReady}, " +
                 $"mainUiLoaded={viewModel.MainUILoaded}, radarLoaded={viewModel.RadarLoaded}";
 
@@ -106,6 +110,10 @@ namespace BugfixesAndQoL
             // The visible root is the reliable indication that the player can use the prompt.
             if (viewModel.Show_Frontend)
                 return !viewModel.Show_InGame;
+
+            // The post-game statistics remain on the in-game UI after simulation has stopped.
+            if (viewModel.Show_HUD_MissionOver)
+                return viewModel.Show_InGame && viewModel.MainUILoaded;
 
             if (scene != Enums.SceneIDS.ActualMainGame)
                 return false;

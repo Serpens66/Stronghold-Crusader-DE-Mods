@@ -157,7 +157,7 @@ namespace BugfixesAndQoL
 
     internal sealed unsafe class SurrenderFeature : IDisposable
     {
-        private const int ProtocolVersion = 1;
+        private const int RequestProtocolVersion = 1;
         private delegate void IngameMenuInitDelegate(HUD_IngameMenu self);
         private delegate void AddOnScreenTextEntryDelegate(
             OnScreenText self,
@@ -175,7 +175,6 @@ namespace BugfixesAndQoL
         private readonly MultiplayerLobbyReturnFeature lobbyReturnFeature;
         private readonly SurrenderAndStatisticsViewModel buttonViewModel;
         private readonly HashSet<string> acceptedRequests = new HashSet<string>(StringComparer.Ordinal);
-        private readonly HashSet<long> executedOperations = new HashSet<long>();
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
 
         private Hook ingameMenuInitHook;
@@ -199,7 +198,6 @@ namespace BugfixesAndQoL
         private IDisposable requestPacketSubscription;
         private IDisposable executionPacketSubscription;
         private int nextRequestId;
-        private int nextOperationId;
         private long confirmationSequence;
         private long confirmationOpenedFromMenuSequence;
         private HUD_MissionOver statisticsPreviewView;
@@ -285,7 +283,7 @@ namespace BugfixesAndQoL
             initialized = true;
             Shared.DebugLogHelper.LogInfo(
                 log,
-                $"Bugfixes and QoL surrender/statistics initialized: requestPacketId={requestPacketHook.GetPacketId()}, executionPacketId={executionPacketHook.GetPacketId()}, protocolVersion={ProtocolVersion}, statisticsReady={statisticsReady}.");
+                $"Bugfixes and QoL surrender/statistics initialized: requestPacketId={requestPacketHook.GetPacketId()}, executionPacketId={executionPacketHook.GetPacketId()}, requestProtocolVersion={RequestProtocolVersion}, statisticsReady={statisticsReady}.");
         }
 
         internal void RefreshButtonState()
@@ -1073,7 +1071,7 @@ namespace BugfixesAndQoL
                 int requestId = NextNonZero(ref nextRequestId);
                 var request = new SurrenderRequestPacket
                 {
-                    ProtocolVersion = ProtocolVersion,
+                    ProtocolVersion = RequestProtocolVersion,
                     RequestId = requestId
                 };
                 GameNetworkAPI.SendPacketToPlayerId(1, request, requestPacketHook.GetPacketId());
@@ -1106,7 +1104,7 @@ namespace BugfixesAndQoL
             SurrenderRequestPacket request = args?.Packet;
             try
             {
-                if (request == null || request.ProtocolVersion != ProtocolVersion || request.RequestId == 0)
+                if (request == null || request.ProtocolVersion != RequestProtocolVersion || request.RequestId == 0)
                 {
                     Shared.DebugLogHelper.LogWarning(log, "Rejected surrender request with an invalid payload.");
                     return;
@@ -1156,52 +1154,40 @@ namespace BugfixesAndQoL
             {
                 // Chore delivery has no Steam sender. A sender here identifies an attempted
                 // non-lockstep injection and must never execute a simulation mutation.
-                if (packet == null || args.SenderSteamId.HasValue)
+                if (packet == null || !SurrenderPolicy.IsChoreDelivery(args.SenderSteamId.HasValue))
                 {
                     Shared.DebugLogHelper.LogWarning(log, "Rejected surrender execution outside the Chore transport or with an empty payload.");
                     return;
                 }
 
-                long operationKey = ((long)packet.PlayerId << 32) | (uint)packet.OperationId;
-                bool duplicate = executedOperations.Contains(operationKey);
                 SurrenderLordSnapshot lord = CaptureLord(packet.PlayerId);
                 byte[] decodedBody = GameNetworkAPI.Serialize(packet);
                 string decodedBodyHex = ToCompactHex(decodedBody);
+                int resolvedUnitId = lord.GlobalId > 0
+                    ? GameUnitManagerAPI.Instance.GetByGlobalId(lord.GlobalId)
+                    : -1;
                 if (!IsActiveMatch() ||
                     !Shared.GameModeHelper.IsRealMultiplayer() ||
                     !SurrenderPolicy.CanExecute(
-                        packet.ProtocolVersion,
-                        ProtocolVersion,
                         packet.PlayerId,
-                        packet.OperationId,
-                        packet.LordGlobalId,
-                        duplicate,
-                        lord))
+                        lord,
+                        resolvedUnitId))
                 {
                     Shared.DebugLogHelper.LogWarning(
                         log,
-                        $"Rejected stale, duplicate, or mismatched surrender Chore: " +
-                        $"protocolVersion={packet.ProtocolVersion}, playerId={packet.PlayerId}, " +
-                        $"operationId={packet.OperationId}, lordGlobalId={packet.LordGlobalId}, " +
-                        $"decodedBodyHex={decodedBodyHex}, duplicate={duplicate}, " +
+                        $"Rejected stale or mismatched surrender Chore: " +
+                        $"playerId={packet.PlayerId}, decodedBodyHex={decodedBodyHex}, " +
                         $"currentLordUnitId={lord.UnitId}, currentLordGlobalId={lord.GlobalId}, " +
-                        $"currentLordOwner={lord.OwnerPlayerId}, currentLordAlive={lord.IsAlive}.");
+                        $"currentLordOwner={lord.OwnerPlayerId}, currentLordAlive={lord.IsAlive}, " +
+                        $"resolvedUnitId={resolvedUnitId}.");
                     return;
                 }
 
-                int resolvedUnitId = GameUnitManagerAPI.Instance.GetByGlobalId(packet.LordGlobalId);
-                if (resolvedUnitId != lord.UnitId)
-                {
-                    Shared.DebugLogHelper.LogWarning(log, $"Rejected surrender Chore because global-ID resolution no longer matches the current lord slot: playerId={packet.PlayerId}, operationId={packet.OperationId}, expectedUnitId={lord.UnitId}, resolvedUnitId={resolvedUnitId}.");
-                    return;
-                }
-
-                executedOperations.Add(operationKey);
                 GameUnitManagerAPI.Instance.KillUnit(resolvedUnitId);
                 Shared.DebugLogHelper.LogInfo(
                     log,
-                    $"Surrender Chore executed: playerId={packet.PlayerId}, operationId={packet.OperationId}, " +
-                    $"unitId={resolvedUnitId}, globalId={packet.LordGlobalId}, decodedBodyHex={decodedBodyHex}.");
+                    $"Surrender Chore executed: playerId={packet.PlayerId}, unitId={resolvedUnitId}, " +
+                    $"locallyResolvedGlobalId={lord.GlobalId}, decodedBodyHex={decodedBodyHex}.");
             }
             catch (Exception ex)
             {
@@ -1221,13 +1207,11 @@ namespace BugfixesAndQoL
                 return false;
             }
 
-            int operationId = NextNonZero(ref nextOperationId);
+            // Only the stable player slot crosses the currently unreliable Chore payload.
+            // Every peer resolves and validates that player's living Lord in the execution tick.
             var packet = new SurrenderExecutionPacket
             {
-                ProtocolVersion = ProtocolVersion,
-                PlayerId = lord.PlayerId,
-                OperationId = operationId,
-                LordGlobalId = lord.GlobalId
+                PlayerId = lord.PlayerId
             };
             byte[] body = GameNetworkAPI.Serialize(packet);
             byte[] blob = new byte[sizeof(short) + body.Length];
@@ -1238,14 +1222,14 @@ namespace BugfixesAndQoL
             bool queued = sendRawBlob != null && sendRawBlob(blob);
             if (!queued)
             {
-                Shared.DebugLogHelper.LogError(log, $"Surrender Chore was not queued; no local kill was applied: playerId={lord.PlayerId}, operationId={operationId}, payloadBytes={blob.Length}.");
+                Shared.DebugLogHelper.LogError(log, $"Surrender Chore was not queued; no local kill was applied: playerId={lord.PlayerId}, payloadBytes={blob.Length}.");
                 return false;
             }
 
             Shared.DebugLogHelper.LogInfo(
                 log,
-                $"Surrender Chore queued: playerId={lord.PlayerId}, operationId={operationId}, " +
-                $"lordGlobalId={lord.GlobalId}, bodyBytes={body.Length}, payloadBytes={blob.Length}, " +
+                $"Surrender Chore queued: playerId={lord.PlayerId}, locallyValidatedLordGlobalId={lord.GlobalId}, " +
+                $"bodyBytes={body.Length}, payloadBytes={blob.Length}, " +
                 $"bodyHex={ToCompactHex(body)}, blobHex={ToCompactHex(blob)}.");
             return true;
         }
@@ -1267,7 +1251,9 @@ namespace BugfixesAndQoL
                 unitId,
                 (int)unit->r_GlobalId,
                 unit->r_ControllableForPlayerId,
-                unit->r_AliveState == AliveState.IsAlive && unit->r_CurrentHealth > 0);
+                unit->r_AliveState == AliveState.IsAlive &&
+                    unit->r_UnitChimp == eChimps.CHIMP_TYPE_LORD &&
+                    unit->r_CurrentHealth > 0);
         }
 
         private bool IsActiveMatch()
@@ -1338,9 +1324,7 @@ namespace BugfixesAndQoL
         {
             CloseStatisticsPreview(reason);
             acceptedRequests.Clear();
-            executedOperations.Clear();
             nextRequestId = 0;
-            nextOperationId = 0;
             localPlayerHadLivingLord = false;
             spectatorPromotionRequested = false;
             spectatorPromotionConfirmed = false;

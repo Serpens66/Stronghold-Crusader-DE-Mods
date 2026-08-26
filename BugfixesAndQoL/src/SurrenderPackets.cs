@@ -53,16 +53,11 @@ namespace BugfixesAndQoL
     [MessagePackFormatter(typeof(SurrenderExecutionPacketFormatter))]
     internal sealed class SurrenderExecutionPacket
     {
-        [Key(0)] public int ProtocolVersion;
-        [Key(1)] public int PlayerId;
-        [Key(2)] public int OperationId;
-        [Key(3)] public int LordGlobalId;
+        [Key(0)] public int PlayerId;
     }
 
     internal sealed class SurrenderExecutionPacketFormatter : IMessagePackFormatter<SurrenderExecutionPacket>
     {
-        private const int FieldCount = 4;
-
         public void Serialize(ref MessagePackWriter writer, SurrenderExecutionPacket value, MessagePackSerializerOptions options)
         {
             if (value == null)
@@ -71,11 +66,8 @@ namespace BugfixesAndQoL
                 return;
             }
 
-            writer.WriteArrayHeader(FieldCount);
-            writer.Write(value.ProtocolVersion);
+            // A scalar keeps the Chore body to one byte for player slots 1-8.
             writer.Write(value.PlayerId);
-            writer.Write(value.OperationId);
-            writer.Write(value.LordGlobalId);
         }
 
         public SurrenderExecutionPacket Deserialize(ref MessagePackReader reader, MessagePackSerializerOptions options)
@@ -83,21 +75,10 @@ namespace BugfixesAndQoL
             if (reader.TryReadNil())
                 return null;
 
-            int fieldCount = reader.ReadArrayHeader();
-            var packet = new SurrenderExecutionPacket();
-            for (int index = 0; index < fieldCount; index++)
+            return new SurrenderExecutionPacket
             {
-                switch (index)
-                {
-                    case 0: packet.ProtocolVersion = reader.ReadInt32(); break;
-                    case 1: packet.PlayerId = reader.ReadInt32(); break;
-                    case 2: packet.OperationId = reader.ReadInt32(); break;
-                    case 3: packet.LordGlobalId = reader.ReadInt32(); break;
-                    default: reader.Skip(); break;
-                }
-            }
-
-            return packet;
+                PlayerId = reader.ReadInt32()
+            };
         }
     }
 }

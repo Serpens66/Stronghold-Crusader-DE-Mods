@@ -3,10 +3,25 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.95",
+  "Version": "1.0.97",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.97",
+      "Changes": [
+        "Fixed the game intermittently replacing the user's loaded borderless display resolution with another resolution during startup or focus changes, while continuing to allow intentional changes made through the options menu.",
+        "Reduced the resolution diagnostic overhead and log volume while retaining detailed diagnostics for actual display-setting changes."
+      ]
+    },
+    {
+      "Version": "1.0.96",
+      "Changes": [
+        "Fixed incoming Steam lobby invitation prompts not appearing in the multiplayer lobby browser or on the post-game statistics screen.",
+        "Fixed the selected map and its presentation not being restored for the host after returning to the multiplayer lobby at the end of a match.",
+        "Fixed intermittent multiplayer resyncs when surrendering by using a minimal synchronized payload and resolving and validating the surrendering player's Lord locally on every peer."
+      ]
+    },
     {
       "Version": "1.0.95",
       "Changes": [
