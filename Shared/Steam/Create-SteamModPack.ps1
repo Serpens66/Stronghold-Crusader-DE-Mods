@@ -429,7 +429,8 @@ function Get-PluginSourceMetadata {
         LatestTag = $null
         LatestUrl = $null
         LatestCommit = $null
-        CodeIsCurrent = $false
+        ReleaseContentIsCurrent = $false
+        ReleaseContentChanges = @()
         ReleaseArtifactValid = $false
         NeedsRelease = $false
         TargetVersion = [string]$manifest.Version
@@ -483,6 +484,31 @@ function Get-ReleasePackage {
     $roots = @(Get-ChildItem -LiteralPath $audit -Directory)
     if ($roots.Count -ne 1) { Fail-Pack 7 "Release ZIP for $($Mod.Name) must contain exactly one root directory." }
     return [pscustomobject]@{ Zip = $zip; Sha256 = $actual; Provenance = $prov; PackageDirectory = $roots[0].FullName }
+}
+
+function Get-PackagedContentComparison {
+    param(
+        [Parameter(Mandatory)]$Mod,
+        [Parameter(Mandatory)][string]$BaseCommit,
+        [Parameter(Mandatory)][string]$HeadCommit
+    )
+
+    $rootPrefix = $script:Root.TrimEnd('\') + '\'
+    if (-not $Mod.PackageDirectory.StartsWith($rootPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+        Fail-Pack 3 "Packaged plugin directory is outside the repository for $($Mod.Name): $($Mod.PackageDirectory)"
+    }
+
+    # Steam embeds exactly this canonical plugin directory. Changes elsewhere in
+    # the mod project (for example README artwork) cannot alter the packed mod.
+    $repositoryPath = $Mod.PackageDirectory.Substring($rootPrefix.Length).Replace('\', '/')
+    $result = Invoke-Git -Arguments @(
+        'diff', '--name-only', '--diff-filter=ACDMRTUXB', $BaseCommit, $HeadCommit, '--', $repositoryPath
+    ) -FailureCode 3
+    $changedPaths = @($result.Output | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })
+    return [pscustomobject]@{
+        IsCurrent = $changedPaths.Count -eq 0
+        Paths = $changedPaths
+    }
 }
 
 function Get-CecilPluginMetadata {
@@ -842,7 +868,6 @@ try {
     foreach ($parsedRelease in $parsedReleases) { $script:ReleaseList += $parsedRelease }
     Write-RunLog "Loaded $($script:ReleaseList.Count) published/draft release records from GitHub."
     . (Join-Path $script:Root 'Shared\Release\Release.Common.ps1')
-    . (Join-Path $script:Root 'Shared\Release\ReleaseStatus.Common.ps1')
     $headCommit = ((Invoke-Git @('rev-parse','HEAD')).Output -join '').Trim()
 
     foreach ($mod in $mods) {
@@ -851,8 +876,12 @@ try {
         if ($null -ne $latest) {
             $mod.LatestVersion = $latest.Version; $mod.LatestTag = $latest.Tag; $mod.LatestUrl = $latest.Url; $mod.LatestCommit = $latest.Commit
             if ([version]$mod.ManifestVersion -lt [version]$latest.Version) { Fail-Pack 3 "$($mod.Name) manifest version $($mod.ManifestVersion) is older than published $($latest.Version)." }
-            $comparison = Get-ModStatusComparison -Config (Get-ReleaseConfiguration) -Project $mod.Name -BaseCommit $latest.Commit -HeadCommit $headCommit
-            $mod.CodeIsCurrent = [bool]$comparison.IsCurrent
+            $comparison = Get-PackagedContentComparison -Mod $mod -BaseCommit $latest.Commit -HeadCommit $headCommit
+            $mod.ReleaseContentIsCurrent = [bool]$comparison.IsCurrent
+            $mod.ReleaseContentChanges = @($comparison.Paths)
+            if (-not $mod.ReleaseContentIsCurrent) {
+                Write-RunLog "Packaged plugin content changed for $($mod.Name): $($mod.ReleaseContentChanges -join ', ')"
+            }
             if ($mod.ManifestVersion -eq $latest.Version) {
                 $mod.TargetVersion = $latest.Version
                 try {
@@ -865,9 +894,9 @@ try {
                 }
             }
         }
-        $mod.NeedsRelease = $null -eq $latest -or -not $mod.CodeIsCurrent -or -not $mod.HasDependency -or -not $mod.ReleaseArtifactValid
+        $mod.NeedsRelease = $null -eq $latest -or -not $mod.ReleaseContentIsCurrent -or -not $mod.HasDependency -or -not $mod.ReleaseArtifactValid
         if ($mod.NeedsRelease -and $null -ne $latest -and $mod.ManifestVersion -eq $latest.Version) {
-            if (-not $mod.CodeIsCurrent -and $mod.HasDependency) { Fail-Pack 3 "$($mod.Name) has unreleased relevant code but no prepared higher version/changelog." }
+            if (-not $mod.ReleaseContentIsCurrent -and $mod.HasDependency) { Fail-Pack 3 "$($mod.Name) has changed packaged plugin content but no prepared higher version/changelog." }
             $mod.TargetVersion = Get-NextPatchVersion $latest.Version
             $mod.NeedsVersionBump = $true
         }
