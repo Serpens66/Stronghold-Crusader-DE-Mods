@@ -122,7 +122,8 @@ namespace ImprovedHunters
                 return;
 
             despawnPatchStateLogged = true;
-            log.LogInfo(
+            Shared.DebugLogHelper.LogInfo(
+                log,
                 $"Improved Hunters despawn patch state: " +
                 $"rabbit={FormatDespawnPatchState(rabbitDespawnTickTime, originalRabbitDespawnTicks, settings.EnableMod && settings.HuntRabbit ? RabbitCorpseDespawnTicks : originalRabbitDespawnTicks, rabbitDespawnTicksPatched)}, " +
                 $"camel={FormatDespawnPatchState(camelDespawnTickTime, originalCamelDespawnTicks, settings.EnableMod && settings.HuntCamel ? ExtraCorpseDespawnTicks : originalCamelDespawnTicks, camelDespawnTicksPatched)}, " +
@@ -232,7 +233,8 @@ namespace ImprovedHunters
                 return;
 
             lastLoggedDesiredCamelHealth = desiredCamelHealth;
-            log.LogInfo(
+            Shared.DebugLogHelper.LogInfo(
+                log,
                 $"Improved Hunters camel health patch: originalHealth={originalCamelHealth}, desiredHealth={desiredCamelHealth}, " +
                 $"originalArrowDamage={originalCamelArrowDamage}, enabled={settings.EnableMod && settings.HuntCamel}, " +
                 $"adjustedLiveCamels={adjustedLiveCamels}.");

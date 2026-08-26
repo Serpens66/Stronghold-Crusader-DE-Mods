@@ -10,7 +10,7 @@ namespace MultiplayerLeaveFix
 
         public const string PluginGuid = "MultiplayerLeaveFix_Serp";
         public const string PluginName = "Multiplayer Leave Fix";
-        public const string PluginVersion = "1.0.1";
+        public const string PluginVersion = "1.0.2";
 
         // SHCDE destroys the early BepInEx plugin object during startup. The native
         // hooks must therefore remain rooted independently for the process lifetime.

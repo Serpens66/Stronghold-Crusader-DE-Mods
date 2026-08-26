@@ -7,7 +7,7 @@ namespace MultiplayerLeaveFix
 {
     internal sealed class MultiplayerLeavePacketHook : IDisposable
     {
-        private const short LeaveGamePacketType = 8;
+        private const short LeaveGamePacketType = (short)Enums.MPFlags.LeaveGamePacket;
 
         private delegate bool ProcessMessageDelegate(Platform_Multiplayer self, Platform_Multiplayer.MPData data, Platform_Multiplayer.MPGameMember fromMember, bool fromThread);
 
@@ -24,7 +24,7 @@ namespace MultiplayerLeaveFix
 
             hook = new Hook(FindProcessMessageMethod(), (ProcessMessageDelegate)ProcessMessageHook);
             trampoline = hook.GenerateTrampoline<ProcessMessageDelegate>();
-            log.LogDebug("Multiplayer Leave Fix leave packet hook installed.");
+            Shared.DebugLogHelper.LogDebug(log, "Multiplayer Leave Fix leave packet hook installed.");
         }
 
         public void Dispose()
@@ -35,7 +35,7 @@ namespace MultiplayerLeaveFix
             disposed = true;
             hook?.Undo();
             hook?.Dispose();
-            log.LogDebug("Multiplayer Leave Fix leave packet hook disposed.");
+            Shared.DebugLogHelper.LogDebug(log, "Multiplayer Leave Fix leave packet hook disposed.");
         }
 
         private static MethodInfo FindProcessMessageMethod()
@@ -55,13 +55,25 @@ namespace MultiplayerLeaveFix
 
         private bool ProcessMessageHook(Platform_Multiplayer self, Platform_Multiplayer.MPData data, Platform_Multiplayer.MPGameMember fromMember, bool fromThread)
         {
-            if (data != null && data.packetType == LeaveGamePacketType && fromMember != null)
+            bool isMainThreadLeave =
+                !fromThread &&
+                data != null &&
+                data.packetType == LeaveGamePacketType &&
+                fromMember != null &&
+                !fromMember.kicked;
+            int playerId = isMainThreadLeave ? fromMember.playerID : 0;
+            string playerName = isMainThreadLeave ? fromMember.playerName : null;
+            ulong steamId = isMainThreadLeave ? fromMember.steamID : 0;
+
+            bool handled = trampoline(self, data, fromMember, fromThread);
+            if (isMainThreadLeave && handled && messageLimiterHook.RecordIntentionalLeave(playerId, playerName, steamId))
             {
-                messageLimiterHook.RecordIntentionalLeave(fromMember.playerID, fromMember.playerName);
-                log.LogDebug($"Multiplayer Leave Fix detected intentional leave packet: playerId={fromMember.playerID}, playerName={fromMember.playerName}.");
+                Shared.DebugLogHelper.LogDebug(
+                    log,
+                    $"Multiplayer Leave Fix confirmed intentional leave packet: playerId={playerId}, playerName={playerName}, steamId={steamId}.");
             }
 
-            return trampoline(self, data, fromMember, fromThread);
+            return handled;
         }
     }
 }

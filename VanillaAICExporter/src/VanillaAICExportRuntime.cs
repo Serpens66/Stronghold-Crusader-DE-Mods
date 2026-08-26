@@ -8,11 +8,12 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Reflection;
-using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using AILordSlot = SHCDESE.Interop.AILords;
+using DecoderInternalAIC = SHCDESE.AICDecoder.InternalAIC;
+using NativeInternalAIC = SHCDESE.Interop.InternalAIC;
 
 namespace VanillaAICExporter
 {
@@ -53,7 +54,32 @@ namespace VanillaAICExporter
             new LordDefinition(AILordSlot.SK_DLC4B, "Baibars")
         };
 
+        private static readonly int HighestOfficialLordSlot;
+
         private readonly ManualLogSource log;
+
+        static unsafe VanillaAICExportRuntime()
+        {
+            if (sizeof(NativeInternalAIC) != sizeof(DecoderInternalAIC))
+            {
+                throw new InvalidOperationException(
+                    "The Script Extender native and decoder InternalAIC layouts have different sizes.");
+            }
+
+            var seenSlots = new HashSet<int>();
+            foreach (LordDefinition definition in OfficialLordSlots)
+            {
+                int slot = (int)definition.Slot;
+                if (slot < 0)
+                    throw new InvalidOperationException($"Official AIC definition {definition.Name} has negative slot {slot}.");
+
+                if (!seenSlots.Add(slot))
+                    throw new InvalidOperationException($"Official AIC slot {slot} is defined more than once.");
+
+                if (slot > HighestOfficialLordSlot)
+                    HighestOfficialLordSlot = slot;
+            }
+        }
 
         public VanillaAICExportRuntime(ManualLogSource log)
         {
@@ -70,9 +96,16 @@ namespace VanillaAICExporter
                 return;
             }
 
-            IntPtr arrayAddress = GameAIManagerAPI.Instance.GetAICArray().GetArrayAddress();
-            if (arrayAddress == IntPtr.Zero)
+            var aicArray = GameAIManagerAPI.Instance.GetAICArray();
+            if (aicArray.GetArrayAddress() == IntPtr.Zero)
                 throw new InvalidOperationException("The Script Extender returned a null AIC array address.");
+
+            if (HighestOfficialLordSlot >= aicArray.Length)
+            {
+                throw new InvalidOperationException(
+                    $"The Script Extender AIC array contains {aicArray.Length} entries, " +
+                    $"but official slot {HighestOfficialLordSlot} is required.");
+            }
 
             string nativeLibraryPath = FindNativeLibrary();
             string steamBuildId = GetSteamBuildId();
@@ -81,13 +114,12 @@ namespace VanillaAICExporter
             string outputDirectory = Path.Combine(pluginDirectory, "Exports", runName);
             Directory.CreateDirectory(outputDirectory);
 
-            int structSize = Marshal.SizeOf<InternalAIC>();
             var exportedLords = new List<string>();
             var skippedSlots = new List<string>();
             foreach (LordDefinition definition in OfficialLordSlots)
             {
-                IntPtr source = IntPtr.Add(arrayAddress, checked((int)definition.Slot * structSize));
-                InternalAIC internalAic = Marshal.PtrToStructure<InternalAIC>(source);
+                NativeInternalAIC nativeAic = aicArray.GetValue((int)definition.Slot);
+                DecoderInternalAIC internalAic = ToDecoderInternalAic(nativeAic);
 
                 // Reserved DLC slots are present in the enum before their actual AIC data ships.
                 if (!HasAicData(internalAic))
@@ -130,7 +162,13 @@ namespace VanillaAICExporter
                 $"Vanilla AIC export complete: {exportedLords.Count} lordjson files in {outputDirectory}.");
         }
 
-        private static bool HasAicData(InternalAIC data)
+        private static unsafe DecoderInternalAIC ToDecoderInternalAic(NativeInternalAIC data)
+        {
+            // The runtime and decoder expose the same packed native layout as distinct managed types.
+            return *(DecoderInternalAIC*)&data;
+        }
+
+        private static bool HasAicData(DecoderInternalAIC data)
         {
             return data.opponent_type != 0 || data.lord_gfx_type != 0 || data.lord_hps_percent != 0;
         }

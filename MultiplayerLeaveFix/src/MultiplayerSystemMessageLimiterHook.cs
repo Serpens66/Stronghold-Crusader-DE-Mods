@@ -2,7 +2,6 @@ using BepInEx.Logging;
 using CrusaderDE;
 using MonoMod.RuntimeDetour;
 using System;
-using System.Collections.Generic;
 using System.Reflection;
 
 namespace MultiplayerLeaveFix
@@ -20,9 +19,7 @@ namespace MultiplayerLeaveFix
         private readonly ManualLogSource log;
         private readonly Hook hook;
         private readonly ReceiveIngameChatDelegate trampoline;
-        private readonly HashSet<string> seenMessages = new HashSet<string>(StringComparer.Ordinal);
-        private readonly Dictionary<int, LeftPlayerInfo> intentionalLeavesByPlayerId = new Dictionary<int, LeftPlayerInfo>();
-        private readonly Dictionary<string, LeftPlayerInfo> intentionalLeavesByPlayerName = new Dictionary<string, LeftPlayerInfo>(StringComparer.OrdinalIgnoreCase);
+        private readonly MultiplayerLeaveMessagePolicy policy = new MultiplayerLeaveMessagePolicy();
         private bool disposed;
 
         public MultiplayerSystemMessageLimiterHook(ManualLogSource log)
@@ -31,7 +28,7 @@ namespace MultiplayerLeaveFix
 
             hook = new Hook(FindReceiveIngameChatMethod(), (ReceiveIngameChatDelegate)ReceiveIngameChatHook);
             trampoline = hook.GenerateTrampoline<ReceiveIngameChatDelegate>();
-            log.LogDebug("Multiplayer Leave Fix message limiter hook installed.");
+            Shared.DebugLogHelper.LogDebug(log, "Multiplayer Leave Fix message limiter hook installed.");
         }
 
         public void Dispose()
@@ -42,29 +39,17 @@ namespace MultiplayerLeaveFix
             disposed = true;
             hook?.Undo();
             hook?.Dispose();
-            log.LogDebug("Multiplayer Leave Fix message limiter hook disposed.");
+            Shared.DebugLogHelper.LogDebug(log, "Multiplayer Leave Fix message limiter hook disposed.");
         }
 
         public void ClearSeenMessages()
         {
-            seenMessages.Clear();
-            intentionalLeavesByPlayerId.Clear();
-            intentionalLeavesByPlayerName.Clear();
+            policy.Clear();
         }
 
-        public void RecordIntentionalLeave(int playerId, string playerName)
+        public bool RecordIntentionalLeave(int playerId, string playerName, ulong steamId)
         {
-            LeftPlayerInfo info = new LeftPlayerInfo
-            {
-                PlayerId = playerId,
-                PlayerName = NormalizeSystemMessage(playerName)
-            };
-
-            if (playerId > 0)
-                intentionalLeavesByPlayerId[playerId] = info;
-
-            if (!string.IsNullOrEmpty(info.PlayerName))
-                intentionalLeavesByPlayerName[info.PlayerName] = info;
+            return policy.RecordProcessedLeave(playerId, playerName, steamId);
         }
 
         private static MethodInfo FindReceiveIngameChatMethod()
@@ -88,7 +73,7 @@ namespace MultiplayerLeaveFix
             }
             catch (Exception ex)
             {
-                log.LogError($"Multiplayer Leave Fix message limiter failed: {ex}");
+                Shared.DebugLogHelper.LogError(log, $"Multiplayer Leave Fix message limiter failed: {ex}");
             }
 
             trampoline(self, fromName, fromPlayerId, message, duration);
@@ -96,22 +81,28 @@ namespace MultiplayerLeaveFix
 
         private bool ShouldSuppress(string fromName, int fromPlayerId, string message)
         {
-            if (!TryGetLimitedMessageKey(fromName, fromPlayerId, message, out string key))
+            DiscardIntentionsForActiveRoster();
+            if (!TryClassifyLimitedMessage(fromName, fromPlayerId, message, out LeaveMessageDisposition disposition))
                 return false;
 
-            if (seenMessages.Add(key))
+            if (disposition == LeaveMessageDisposition.AllowFirst)
             {
-                log.LogDebug($"Multiplayer Leave Fix allowed first system message: fromName={fromName}, fromPlayerId={fromPlayerId}, message={message}.");
+                Shared.DebugLogHelper.LogDebug(log, $"Multiplayer Leave Fix allowed first system message in duplicate window: fromName={fromName}, fromPlayerId={fromPlayerId}, message={message}.");
                 return false;
             }
 
-            log.LogDebug($"Multiplayer Leave Fix suppressed repeated system message: fromName={fromName}, fromPlayerId={fromPlayerId}, message={message}.");
-            return true;
+            if (disposition == LeaveMessageDisposition.SuppressDuplicate)
+            {
+                Shared.DebugLogHelper.LogDebug(log, $"Multiplayer Leave Fix suppressed repeated system message in duplicate window: fromName={fromName}, fromPlayerId={fromPlayerId}, message={message}.");
+                return true;
+            }
+
+            return false;
         }
 
-        private bool TryGetLimitedMessageKey(string fromName, int fromPlayerId, string message, out string key)
+        private bool TryClassifyLimitedMessage(string fromName, int fromPlayerId, string message, out LeaveMessageDisposition disposition)
         {
-            key = null;
+            disposition = LeaveMessageDisposition.NotLimited;
             string normalizedMessage = NormalizeSystemMessage(message);
             string normalizedFromName = NormalizeSystemMessage(fromName);
             bool fromSystem = string.Equals(fromName, "SYSTEM", StringComparison.OrdinalIgnoreCase);
@@ -122,65 +113,44 @@ namespace MultiplayerLeaveFix
                 if (fromSystem && normalizedMessage.StartsWith(prefix, StringComparison.Ordinal))
                 {
                     string playerName = NormalizeSystemMessage(normalizedMessage.Substring(prefix.Length));
-                    if (WasIntentionalLeave(fromPlayerId, playerName))
-                    {
-                        key = BuildMessageKey(fromPlayerId, prefix, playerName);
-                        return true;
-                    }
-
-                    return false;
+                    disposition = policy.Classify(fromPlayerId, playerName, prefix);
+                    return disposition != LeaveMessageDisposition.NotLimited;
                 }
 
                 string combinedPrefix = "SYSTEM " + prefix;
                 if (normalizedMessage.StartsWith(combinedPrefix, StringComparison.Ordinal))
                 {
                     string playerName = NormalizeSystemMessage(normalizedMessage.Substring(combinedPrefix.Length));
-                    if (WasIntentionalLeave(fromPlayerId, playerName))
-                    {
-                        key = BuildMessageKey(fromPlayerId, prefix, playerName);
-                        return true;
-                    }
-
-                    return false;
+                    disposition = policy.Classify(fromPlayerId, playerName, prefix);
+                    return disposition != LeaveMessageDisposition.NotLimited;
                 }
 
                 if (!fromSystem && normalizedMessage.StartsWith(prefix, StringComparison.Ordinal))
                 {
-                    if (WasIntentionalLeave(fromPlayerId, normalizedFromName))
-                    {
-                        key = BuildMessageKey(fromPlayerId, prefix, normalizedFromName);
-                        return true;
-                    }
-
-                    return false;
+                    disposition = policy.Classify(fromPlayerId, normalizedFromName, prefix);
+                    return disposition != LeaveMessageDisposition.NotLimited;
                 }
             }
 
             return false;
         }
 
-        private bool WasIntentionalLeave(int fromPlayerId, string playerName)
+        private void DiscardIntentionsForActiveRoster()
         {
-            if (fromPlayerId > 0 && intentionalLeavesByPlayerId.ContainsKey(fromPlayerId))
-                return true;
+            Platform_Multiplayer platform = Platform_Multiplayer.Instance;
+            if (platform?.gameMembers == null)
+                return;
 
-            return !string.IsNullOrEmpty(playerName) && intentionalLeavesByPlayerName.ContainsKey(playerName);
-        }
-
-        private static string BuildMessageKey(int fromPlayerId, string prefix, string remainder)
-        {
-            return fromPlayerId + ":" + prefix + ":" + NormalizeSystemMessage(remainder);
+            foreach (Platform_Multiplayer.MPGameMember member in platform.gameMembers)
+            {
+                if (member != null && !member.kicked && !member.skirmishAI)
+                    policy.DiscardForActiveMember(member.playerID, member.playerName, member.steamID);
+            }
         }
 
         private static string NormalizeSystemMessage(string message)
         {
             return (message ?? string.Empty).Trim();
-        }
-
-        private sealed class LeftPlayerInfo
-        {
-            public int PlayerId;
-            public string PlayerName;
         }
     }
 }

@@ -24,7 +24,7 @@ namespace ImprovedHunters
 
         private void Awake()
         {
-            Logger.LogInfo($"{PluginName} {PluginVersion} loaded.");
+            Shared.DebugLogHelper.LogInfo(Logger, $"{PluginName} {PluginVersion} loaded.");
 
             if (persistentSettings == null)
                 persistentSettings = new ImprovedHuntersViewModel();
@@ -49,7 +49,7 @@ namespace ImprovedHunters
                 return;
             }
 
-            Logger.LogDebug("Preserving persistent runtime across BepInEx manager destruction.");
+            Shared.DebugLogHelper.LogDebug(Logger, "Preserving persistent runtime across BepInEx manager destruction.");
         }
 
         private void OnApplicationQuit()
@@ -70,7 +70,7 @@ namespace ImprovedHunters
             }
             catch (Exception exception)
             {
-                Logger.LogError($"Improved Hunters native version diagnostics failed; signature-validated features may continue: {exception}");
+                Shared.DebugLogHelper.LogError(Logger, $"Improved Hunters native version diagnostics failed; signature-validated features may continue: {exception}");
             }
 
             try
@@ -84,7 +84,7 @@ namespace ImprovedHunters
             }
             catch (Exception exception)
             {
-                Logger.LogError($"Improved Hunters settings registration failed; gameplay runtime stopped fail-closed: {exception}");
+                Shared.DebugLogHelper.LogError(Logger, $"Improved Hunters settings registration failed; gameplay runtime stopped fail-closed: {exception}");
                 return;
             }
 
@@ -94,11 +94,11 @@ namespace ImprovedHunters
                     memory,
                     (ulong)libraryHandle.ToInt64(),
                     referenceHashMatches);
-                Logger.LogInfo("Improved Hunters settings UI registered and runtime applied.");
+                Shared.DebugLogHelper.LogInfo(Logger, "Improved Hunters settings UI registered and runtime applied.");
             }
             catch (Exception exception)
             {
-                Logger.LogError($"Improved Hunters runtime initialization failed; successfully initialized independent features remain available: {exception}");
+                Shared.DebugLogHelper.LogError(Logger, $"Improved Hunters runtime initialization failed; successfully initialized independent features remain available: {exception}");
             }
         }
 
@@ -107,7 +107,7 @@ namespace ImprovedHunters
             if (runtimeDisposed)
                 return;
 
-            Logger.LogInfo($"Disposing runtime because of {reason}.");
+            Shared.DebugLogHelper.LogInfo(Logger, $"Disposing runtime because of {reason}.");
             if (libraryLoadedSubscriptionInstalled)
             {
                 CrusaderLibrary.Instance.LibraryLoaded -= OnCrusaderLibraryLoaded;

@@ -32,7 +32,7 @@ namespace MultiplayerLeaveFix
             }
             catch (Exception ex)
             {
-                log.LogError($"Multiplayer Leave Fix hooks could not be installed: {ex}");
+                Shared.DebugLogHelper.LogError(log, $"Multiplayer Leave Fix hooks could not be installed: {ex}");
             }
 
             if (messageLimiterHook != null)
@@ -43,7 +43,7 @@ namespace MultiplayerLeaveFix
             }
 
             applied = true;
-            log.LogDebug("Multiplayer Leave Fix hooks applied.");
+            Shared.DebugLogHelper.LogDebug(log, "Multiplayer Leave Fix hooks applied.");
         }
 
         public void Dispose()

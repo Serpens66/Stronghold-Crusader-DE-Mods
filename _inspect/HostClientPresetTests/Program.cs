@@ -46,6 +46,7 @@ internal static class Program
             TestQuarryPileTargetSelectionPolicy();
             TestTemporaryGateBlockagePolicy();
             TestGatehouseAutomationSaveState();
+            TestBoundedSaveStateDeserialization();
             TestPlagueFlagDiseaseRegistry();
             TestAIMarketNativeResolution();
             TestAiRecruitmentHorseDemandNativeResolution();
@@ -727,6 +728,120 @@ internal static class Program
         Check(changedIdsRoundTrip.ManualOnlyGateGlobalIds[0] == 900001 &&
             changedIdsRoundTrip.ManualOnlyGateLocators[0].TileXBegin == 120,
             "gatehouse map identity became dependent on the runtime global ID");
+    }
+
+    private static void TestBoundedSaveStateDeserialization()
+    {
+        ExpectMessagePackFailure(
+            () => MessagePackSerializer.Deserialize<GatehouseAutomationSaveState>(
+                new byte[] { 0x92, 0x01, 0xDD, 0x7F, 0xFF, 0xFF, 0xFF }),
+            "gatehouse int.MaxValue array header was not rejected before allocation");
+        ExpectMessagePackFailure(
+            () => MessagePackSerializer.Deserialize<GatehouseAutomationSaveState>(
+                new byte[] { 0x91, 0x02 }),
+            "gatehouse root field count was not validated");
+        ExpectMessagePackFailure(
+            () => MessagePackSerializer.Deserialize<GatehouseAutomationSaveState>(
+                new byte[] { 0x93, 0x02, 0x90, 0xDD, 0x7F, 0xFF, 0xFF, 0xFF }),
+            "gatehouse int.MaxValue locator header was not rejected before allocation");
+
+        int[] extendedGateIds = Enumerable.Range(1, 10001).ToArray();
+        var extendedGateState = new GatehouseAutomationSaveState
+        {
+            Version = GatehouseAutomationSaveState.CurrentVersion,
+            ManualOnlyGateGlobalIds = extendedGateIds,
+            ManualOnlyGateLocators = Array.Empty<GatehouseMapLocator>()
+        };
+        ExpectMessagePackFailure(
+            () => MessagePackSerializer.Serialize(extendedGateState),
+            "gatehouse default save limit accepted Maximum+1");
+        using (GatehouseAutomationSaveLimitPolicy.Register(
+            "tests.extended-gatehouses",
+            () => new GatehouseAutomationSaveLimits(extendedGateIds.Length)))
+        {
+            GatehouseAutomationSaveState restored =
+                MessagePackSerializer.Deserialize<GatehouseAutomationSaveState>(
+                    MessagePackSerializer.Serialize(extendedGateState));
+            Check(restored.ManualOnlyGateGlobalIds.Length == extendedGateIds.Length,
+                "registered dynamic gatehouse save limit was not honored");
+        }
+        Check(GatehouseAutomationSaveLimitPolicy.GetCurrent().MaximumSavedGatehouses == 10000,
+            "disposed gatehouse save-limit provider remained active");
+
+        ExpectMessagePackFailure(
+            () => MessagePackSerializer.Deserialize<PlaguePopularitySaveState>(
+                new byte[] { 0x93, 0x01, 0xDD, 0x7F, 0xFF, 0xFF, 0xFF }),
+            "plague int.MaxValue managed-player header was not rejected before allocation");
+        ExpectMessagePackFailure(
+            () => MessagePackSerializer.Deserialize<PlaguePopularitySaveState>(
+                new byte[] { 0x92, 0x01, 0x90 }),
+            "plague root field count was not validated");
+        ExpectMessagePackFailure(
+            () => MessagePackSerializer.Deserialize<PlaguePopularitySaveState>(
+                new byte[] { 0x93, 0x01, 0x90, 0xDD, 0x7F, 0xFF, 0xFF, 0xFF }),
+            "plague int.MaxValue herd header was not rejected before allocation");
+        ExpectMessagePackFailure(
+            () => MessagePackSerializer.Deserialize<PlaguePopularitySaveState>(
+                new byte[] { 0x93, 0x01, 0x90, 0x91, 0x93, 0x01, 0xDD, 0x7F, 0xFF, 0xFF, 0xFF }),
+            "plague int.MaxValue projectile header was not rejected before allocation");
+        ExpectMessagePackFailure(
+            () => MessagePackSerializer.Deserialize<PlaguePopularitySaveState>(
+                new byte[] { 0x93, 0x01, 0x90, 0x91, 0xC0 }),
+            "plague null herd record was not rejected");
+        ExpectMessagePackFailure(
+            () => MessagePackSerializer.Deserialize<PlaguePopularitySaveState>(
+                new byte[] { 0x93, 0x01, 0x90, 0x91, 0x93, 0x01, 0x91, 0x01, 0x92 }),
+            "plague parallel projectile arrays with different lengths were not rejected at the second header");
+
+        int[] slots = Enumerable.Range(1, 11).ToArray();
+        uint[] globals = slots.Select(value => (uint)(1000 + value)).ToArray();
+        var extendedPlagueState = new PlaguePopularitySaveState
+        {
+            ManagedPlayerIds = new[] { 1 },
+            Herds = new[]
+            {
+                new PlagueHerdSaveRecord
+                {
+                    PlayerId = 1,
+                    ProjectileSlotIds = slots,
+                    ProjectileGlobalIds = globals
+                }
+            }
+        };
+        ExpectMessagePackFailure(
+            () => MessagePackSerializer.Serialize(extendedPlagueState),
+            "plague default projectiles-per-herd limit accepted Maximum+1");
+        int dynamicProjectilesPerHerd = 11;
+        using (PlaguePopularitySaveLimitPolicy.Register(
+            "tests.extended-plague-herd",
+            () => new PlaguePopularitySaveLimits(9, 4097, dynamicProjectilesPerHerd, 10001, 10001)))
+        {
+            PlaguePopularitySaveLimits activeLimits = PlaguePopularitySaveLimitPolicy.GetCurrent();
+            Check(activeLimits.MaximumManagedPlayers == 9 && activeLimits.MaximumHerds == 4097 &&
+                activeLimits.MaximumProjectilesPerHerd == 11 && activeLimits.MaximumTotalProjectiles == 10001 &&
+                activeLimits.MaximumProjectileSlotId == 10001,
+                "registered plague save-limit provider did not vary every upper bound");
+            PlaguePopularitySaveState restored =
+                MessagePackSerializer.Deserialize<PlaguePopularitySaveState>(
+                    MessagePackSerializer.Serialize(extendedPlagueState));
+            Check(restored.Herds[0].ProjectileSlotIds.Length == dynamicProjectilesPerHerd,
+                "registered dynamic plague save limit was not honored");
+        }
+        Check(PlaguePopularitySaveLimitPolicy.GetCurrent().MaximumProjectilesPerHerd == 10,
+            "disposed plague save-limit provider remained active");
+    }
+
+    private static void ExpectMessagePackFailure(Action action, string message)
+    {
+        try
+        {
+            action();
+        }
+        catch (MessagePackSerializationException)
+        {
+            return;
+        }
+        Check(false, message);
     }
 
     private static void TestResyncHostKickPolicy()

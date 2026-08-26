@@ -18,13 +18,20 @@ namespace UnitLimit
         private readonly Dictionary<UnitCountKey, int> countsByOwnerAndType = new Dictionary<UnitCountKey, int>();
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private readonly ManualLogSource log;
+        private readonly bool verboseUnitEventLogging;
+        private static readonly TimeSpan TransitionWarningInterval = TimeSpan.FromSeconds(10);
+        private DateTime nextTransitionOwnerWarningUtc;
+        private DateTime nextTransitionTypeWarningUtc;
+        private int suppressedTransitionOwnerWarnings;
+        private int suppressedTransitionTypeWarnings;
         private bool subscribed;
 
         public event Action<ActiveUnitChangedEventArgs> OnActiveUnitChanged;
 
-        public ActiveUnitCache(ManualLogSource log = null)
+        public ActiveUnitCache(ManualLogSource log = null, bool verboseUnitEventLogging = false)
         {
             this.log = log;
+            this.verboseUnitEventLogging = verboseUnitEventLogging;
         }
 
         public void SubscribeHooks()
@@ -143,7 +150,8 @@ namespace UnitLimit
                     "humanActiveIds", humanActiveIds,
                     "humanCountKeys", humanCountKeys);
             }
-            LogAllCounts("ActiveUnitCache ResyncAll count");
+            if (verboseUnitEventLogging)
+                LogAllCounts("ActiveUnitCache ResyncAll count");
             RaiseEvents(events);
         }
 
@@ -152,41 +160,109 @@ namespace UnitLimit
             if (args.Phase != EventHookPhase.Post || args.ReturnValue <= 0 || args.ReturnValue > int.MaxValue)
                 return;
 
-            LogDebug($"OnUnitCreate: unitId={args.ReturnValue}, type={args.UnitType}, owner={args.PlayerOwnerId}, phase={args.Phase}");
+            if (verboseUnitEventLogging)
+                LogDebug($"OnUnitCreate: unitId={args.ReturnValue}, type={args.UnitType}, owner={args.PlayerOwnerId}, phase={args.Phase}");
 
             NotifyNativeSnapshotChanged((int)args.ReturnValue, ActiveUnitChangeReason.Created);
         }
 
         private void OnUnitDelete(UnitDeleteEventArgs args)
         {
-            LogDebug("OnUnitDelete", "unitId", args.UnitId, "phase", args.Phase);
-            if (args.Phase != EventHookPhase.Pre || args.UnitId > int.MaxValue)
+            if (args.Phase != EventHookPhase.Pre || args.UnitId == 0 || args.UnitId > int.MaxValue)
                 return;
 
+            if (verboseUnitEventLogging)
+                LogDebug("OnUnitDelete", "unitId", args.UnitId, "phase", args.Phase);
             RemoveUnit((int)args.UnitId, ActiveUnitChangeReason.Deleted);
         }
 
         private void OnUnitTransition(UnitTransitionEventArgs args)
         {
-            LogDebug(
-                "ActiveUnitCache OnUnitTransition fired: " +
-                "phase=" + args.Phase +
-                ", unitId=" + args.UnitId +
-                ", playerOwnerId=" + args.PlayerOwnerId +
-                ", nextUnitType=" + args.NextUnitType +
-                ", source=" + args.Source);
+            if (verboseUnitEventLogging)
+            {
+                LogDebug(
+                    "ActiveUnitCache OnUnitTransition fired: " +
+                    "phase=" + args.Phase +
+                    ", unitId=" + args.UnitId +
+                    ", playerOwnerId=" + args.PlayerOwnerId +
+                    ", nextUnitType=" + args.NextUnitType +
+                    ", source=" + args.Source);
+            }
 
             if (args.Phase != EventHookPhase.Pre || args.UnitId <= 0)
                 return;
 
+            if (!IsKnownUnitType(args.NextUnitType))
+            {
+                if (TryReserveTransitionWarning(
+                    ref nextTransitionTypeWarningUtc,
+                    ref suppressedTransitionTypeWarnings,
+                    out int suppressedWarnings))
+                {
+                    LogWarning(
+                        "ActiveUnitCache ignored transition with invalid target type: " +
+                        "source=" + args.Source +
+                        ", unitId=" + args.UnitId +
+                        ", eventOwner=" + args.PlayerOwnerId +
+                        ", nextUnitType=" + (int)args.NextUnitType +
+                        FormatSuppressedWarningSuffix(suppressedWarnings));
+                }
+                return;
+            }
+
             if (!TryReadSnapshot(args.UnitId, out UnitSnapshot snapshot))
                 return;
+
+            if (!IsValidPlayerId(snapshot.OwnerId))
+            {
+                if (TryReserveTransitionWarning(
+                    ref nextTransitionOwnerWarningUtc,
+                    ref suppressedTransitionOwnerWarnings,
+                    out int suppressedWarnings))
+                {
+                    LogWarning(
+                        "ActiveUnitCache ignored transition because the native snapshot owner is invalid: " +
+                        "source=" + args.Source +
+                        ", unitId=" + args.UnitId +
+                        ", eventOwner=" + args.PlayerOwnerId +
+                        ", snapshotOwner=" + snapshot.OwnerId +
+                        FormatSuppressedWarningSuffix(suppressedWarnings));
+                }
+                return;
+            }
+
+            // Some Script Extender transition hooks expose an unreliable event owner. The
+            // validated native unit remains authoritative for every transition source.
+            if (args.PlayerOwnerId != snapshot.OwnerId)
+            {
+                if (TryReserveTransitionWarning(
+                    ref nextTransitionOwnerWarningUtc,
+                    ref suppressedTransitionOwnerWarnings,
+                    out int suppressedWarnings))
+                {
+                    LogWarning(
+                        "ActiveUnitCache normalized mismatching transition owner: " +
+                        "source=" + args.Source +
+                        ", unitId=" + args.UnitId +
+                        ", eventOwner=" + args.PlayerOwnerId +
+                        ", snapshotOwner=" + snapshot.OwnerId +
+                        FormatSuppressedWarningSuffix(suppressedWarnings));
+                }
+            }
+            else if (verboseUnitEventLogging)
+            {
+                LogDebug(
+                    "ActiveUnitCache transition owner confirmed:",
+                    "source", args.Source,
+                    "unitId", args.UnitId,
+                    "owner", snapshot.OwnerId);
+            }
 
             UnitSnapshot transitionedSnapshot = new UnitSnapshot(
                 snapshot.AliveState,
                 args.NextUnitType,
                 snapshot.TransformIntoUnitOfType,
-                args.PlayerOwnerId);
+                snapshot.OwnerId);
 
             ActiveUnitChangeReason reason = args.Source == UnitTransitionSource.Disband
                 ? ActiveUnitChangeReason.Disbanded
@@ -527,9 +603,10 @@ namespace UnitLimit
             return false;
         }
 
-        private static bool ShouldLogCacheChange(ActiveUnitChangeReason reason, int playerId)
+        private bool ShouldLogCacheChange(ActiveUnitChangeReason reason, int playerId)
         {
-            return reason == ActiveUnitChangeReason.Disbanded || ShouldLogPlayer(playerId);
+            return verboseUnitEventLogging &&
+                (reason == ActiveUnitChangeReason.Disbanded || ShouldLogPlayer(playerId));
         }
 
         private static bool ShouldLogPlayer(int playerId)
@@ -551,20 +628,81 @@ namespace UnitLimit
                 aliveState == AliveState.NeedsInit;
         }
 
+        private static bool IsValidPlayerId(int playerId)
+        {
+            return playerId > 0 && playerId <= GamePlayerManagerAPI.MAX_PLAYERS;
+        }
+
+        private static bool IsKnownUnitType(eChimps unitType)
+        {
+            int value = (int)unitType;
+            return value >= (int)eChimps.CHIMP_TYPE_NULL &&
+                value < (int)eChimps.CHIMP_NUM_TYPES;
+        }
+
+        private bool TryReserveTransitionWarning(
+            ref DateTime nextWarningUtc,
+            ref int suppressedWarnings,
+            out int previouslySuppressedWarnings)
+        {
+            lock (syncRoot)
+            {
+                DateTime now = DateTime.UtcNow;
+                if (now < nextWarningUtc)
+                {
+                    suppressedWarnings++;
+                    previouslySuppressedWarnings = 0;
+                    return false;
+                }
+
+                nextWarningUtc = now + TransitionWarningInterval;
+                previouslySuppressedWarnings = suppressedWarnings;
+                suppressedWarnings = 0;
+                return true;
+            }
+        }
+
+        private static string FormatSuppressedWarningSuffix(int suppressedWarnings)
+        {
+            return suppressedWarnings > 0
+                ? ". Suppressed " + suppressedWarnings + " similar warnings since the previous sample."
+                : ".";
+        }
+
         private void Clear()
         {
+            int suppressedOwnerWarnings;
+            int suppressedTypeWarnings;
             lock (syncRoot)
             {
                 snapshotsById.Clear();
                 countsByOwnerAndType.Clear();
+                suppressedOwnerWarnings = suppressedTransitionOwnerWarnings;
+                suppressedTypeWarnings = suppressedTransitionTypeWarnings;
+                suppressedTransitionOwnerWarnings = 0;
+                suppressedTransitionTypeWarnings = 0;
+                nextTransitionOwnerWarningUtc = default(DateTime);
+                nextTransitionTypeWarningUtc = default(DateTime);
             }
 
+            if (suppressedOwnerWarnings > 0 || suppressedTypeWarnings > 0)
+            {
+                LogWarning(
+                    "ActiveUnitCache transition anomaly summary: " +
+                    "suppressedOwnerWarnings=" + suppressedOwnerWarnings +
+                    ", suppressedTypeWarnings=" + suppressedTypeWarnings + ".");
+            }
             LogDebug("ActiveUnitCache cleared.");
         }
 
         private void LogDebug(params object[] parts)
         {
             Shared.DebugLogHelper.LogDebug(log, parts);
+        }
+
+        private void LogWarning(string message)
+        {
+            Shared.DebugLogHelper.LogWarning(log, message);
         }
 
         internal enum ActiveUnitChangeReason

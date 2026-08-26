@@ -99,6 +99,7 @@
     </Compile>
     <Compile Include="src\MultiplayerLeaveFixPlugin.cs" />
     <Compile Include="src\MultiplayerLeaveFixRuntime.cs" />
+    <Compile Include="src\MultiplayerLeaveMessagePolicy.cs" />
     <Compile Include="src\MultiplayerLeavePacketHook.cs" />
     <Compile Include="src\MultiplayerSystemMessageLimiterHook.cs" />
   </ItemGroup>

@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Vanilla AIC Exporter",
   "Description": "One-shot utility that exports the currently installed embedded vanilla AIC data as editor-compatible lordjson files.",
-  "Version": "0.1.0",
+  "Version": "0.1.1",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.1.1",
+      "Changes": [
+        "Support Steam build 24816905 after validating the native AIC layout, conversion, and official lord slots."
+      ]
+    },
     {
       "Version": "0.1.0",
       "Changes": [

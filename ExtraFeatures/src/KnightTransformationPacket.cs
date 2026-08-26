@@ -1,5 +1,6 @@
 using MessagePack;
 using MessagePack.Formatters;
+using System.Collections.Generic;
 
 namespace ExtraFeatures
 {
@@ -7,6 +8,14 @@ namespace ExtraFeatures
     [MessagePackFormatter(typeof(KnightTransformationPacketFormatter))]
     public sealed class KnightTransformationPacket
     {
+        public const int ChorePayloadByteLimit = 1200;
+        public const int PacketIdPrefixByteCount = sizeof(short);
+        public const int MaximumPacketBodyBytes = ChorePayloadByteLimit - PacketIdPrefixByteCount;
+
+        // Every MessagePack array element consumes at least one byte, so the packet budget
+        // is also an absolute allocation ceiling without imposing a gameplay selection cap.
+        public const int MaximumEncodedTargetCount = MaximumPacketBodyBytes;
+
         [Key(0)] public int ProtocolVersion;
         [Key(1)] public int PlayerId;
         [Key(2)] public int OperationId;
@@ -26,18 +35,15 @@ namespace ExtraFeatures
                 return;
             }
 
+            int[] ids = value.UnitGlobalIds;
+            if (ids == null || ids.Length < 1 || ids.Length > KnightTransformationPacket.MaximumEncodedTargetCount)
+                throw new MessagePackSerializationException("Knight transformation target count is outside the protocol limit.");
+
             writer.WriteArrayHeader(FieldCount);
             writer.Write(value.ProtocolVersion);
             writer.Write(value.PlayerId);
             writer.Write(value.OperationId);
             writer.Write(value.Action);
-            int[] ids = value.UnitGlobalIds;
-            if (ids == null)
-            {
-                writer.WriteNil();
-                return;
-            }
-
             writer.WriteArrayHeader(ids.Length);
             for (int index = 0; index < ids.Length; index++)
                 writer.Write(ids[index]);
@@ -45,36 +51,64 @@ namespace ExtraFeatures
 
         public KnightTransformationPacket Deserialize(ref MessagePackReader reader, MessagePackSerializerOptions options)
         {
+            long packetBytes = reader.Sequence.Length - reader.Consumed;
+            if (packetBytes > KnightTransformationPacket.MaximumPacketBodyBytes)
+                throw new MessagePackSerializationException("Knight transformation packet exceeds the Chore payload limit.");
+
             if (reader.TryReadNil())
                 return null;
 
             int fieldCount = reader.ReadArrayHeader();
-            var packet = new KnightTransformationPacket();
-            for (int index = 0; index < fieldCount; index++)
-            {
-                switch (index)
-                {
-                    case 0: packet.ProtocolVersion = reader.ReadInt32(); break;
-                    case 1: packet.PlayerId = reader.ReadInt32(); break;
-                    case 2: packet.OperationId = reader.ReadInt32(); break;
-                    case 3: packet.Action = reader.ReadInt32(); break;
-                    case 4:
-                        if (reader.TryReadNil())
-                        {
-                            packet.UnitGlobalIds = null;
-                            break;
-                        }
+            if (fieldCount < FieldCount)
+                throw new MessagePackSerializationException($"Knight transformation packet has {fieldCount} fields; expected at least {FieldCount}.");
 
-                        int count = reader.ReadArrayHeader();
-                        packet.UnitGlobalIds = new int[count];
-                        for (int idIndex = 0; idIndex < count; idIndex++)
-                            packet.UnitGlobalIds[idIndex] = reader.ReadInt32();
-                        break;
-                    default: reader.Skip(); break;
-                }
-            }
+            var packet = new KnightTransformationPacket
+            {
+                ProtocolVersion = reader.ReadInt32(),
+                PlayerId = reader.ReadInt32(),
+                OperationId = reader.ReadInt32(),
+                Action = reader.ReadInt32()
+            };
+
+            int count = reader.ReadArrayHeader();
+            if (count < 1 || count > KnightTransformationPacket.MaximumEncodedTargetCount)
+                throw new MessagePackSerializationException("Knight transformation target count is outside the protocol limit.");
+
+            packet.UnitGlobalIds = new int[count];
+            for (int idIndex = 0; idIndex < count; idIndex++)
+                packet.UnitGlobalIds[idIndex] = reader.ReadInt32();
+
+            // Additive protocol revisions remain readable by older peers.
+            for (int index = FieldCount; index < fieldCount; index++)
+                reader.Skip();
 
             return packet;
+        }
+    }
+
+    internal static class KnightTransformationPacketValidation
+    {
+        public static bool HasValidMetadataAndTargets(KnightTransformationPacket packet, int maximumPlayers)
+        {
+            if (packet == null || maximumPlayers < 1 || packet.PlayerId < 1 || packet.PlayerId > maximumPlayers ||
+                packet.OperationId <= 0 || packet.UnitGlobalIds == null || packet.UnitGlobalIds.Length < 1 ||
+                packet.UnitGlobalIds.Length > KnightTransformationPacket.MaximumEncodedTargetCount)
+                return false;
+
+            var seen = new HashSet<int>();
+            for (int index = 0; index < packet.UnitGlobalIds.Length; index++)
+            {
+                int globalId = packet.UnitGlobalIds[index];
+                if (globalId <= 0 || !seen.Add(globalId))
+                    return false;
+            }
+
+            return true;
+        }
+
+        public static bool DoesSerializedBodyFitChore(int bodyLength)
+        {
+            return bodyLength > 0 && bodyLength <= KnightTransformationPacket.MaximumPacketBodyBytes;
         }
     }
 }

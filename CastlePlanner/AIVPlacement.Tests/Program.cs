@@ -53,6 +53,8 @@ internal static class Program
             ("randomizes every complete tie", FindsEveryCompleteTie),
             ("randomizes every highest partial score tie", FindsEveryHighestPartialScoreTie),
             ("roundtrips strict native AIV spawn data", RoundtripsStrictNativeSpawnData),
+            ("rejects malformed AIVJSON spawn data", RejectsMalformedAivJsonSpawnData),
+            ("roundtrips known working AIVJSON files", RoundtripsKnownWorkingAivJsonFiles),
             ("rejects malformed native AIV spawn data", RejectsMalformedNativeSpawnData),
             ("filters every AIV spawn frame category", FiltersEverySpawnFrameCategory),
             ("filters troops and maps only siege engines", FiltersTroopsAndMapsOnlySiegeEngines),
@@ -834,6 +836,149 @@ internal static class Program
         Equal(6, decoded.miscItems[0].itemType);
         Equal(7, decoded.miscItems[0].number);
         Equal(3, decoded.miscItems[1].number);
+    }
+
+    private static void RejectsMalformedAivJsonSpawnData()
+    {
+        CastlePlanner.AivJsonDocument emptyFrames = CreateStrictSpawnDocument();
+        emptyFrames.frames.Clear();
+        AssertAivJsonRejected(emptyFrames, "frames array is empty");
+
+        CastlePlanner.AivJsonDocument missingPositions = CreateStrictSpawnDocument();
+        missingPositions.frames[1].tilePositionOfsets = null;
+        AssertAivJsonRejected(missingPositions, "frames[1].tilePositionOfsets is missing");
+
+        CastlePlanner.AivJsonDocument emptyPositions = CreateStrictSpawnDocument();
+        emptyPositions.frames[1].tilePositionOfsets.Clear();
+        AssertAivJsonRejected(emptyPositions, "frames[1].tilePositionOfsets must contain at least one position");
+
+        CastlePlanner.AivJsonDocument emptyKeep = CreateStrictSpawnDocument();
+        emptyKeep.frames[0].tilePositionOfsets.Clear();
+        AssertAivJsonRejected(emptyKeep, "frames[0].tilePositionOfsets must contain at least one position");
+
+        CastlePlanner.AivJsonDocument compoundKeep = CreateStrictSpawnDocument();
+        compoundKeep.frames[0].tilePositionOfsets.Add(5144);
+        AssertAivJsonRejected(compoundKeep, "frames[0].tilePositionOfsets must contain exactly one Keep position");
+
+        CastlePlanner.AivJsonDocument missingKeep = CreateStrictSpawnDocument();
+        missingKeep.frames.RemoveAt(0);
+        AssertAivJsonRejected(missingKeep, "contains no keep frame");
+
+        CastlePlanner.AivJsonDocument duplicateKeep = CreateStrictSpawnDocument();
+        duplicateKeep.frames.Add(new CastlePlanner.AivJsonFrame
+        {
+            itemType = (int)eMappers.MAPPER_KEEP3,
+            tilePositionOfsets = [5144]
+        });
+        AssertAivJsonRejected(duplicateKeep, "must contain exactly one Keep position; found 2");
+
+        CastlePlanner.AivJsonDocument belowGrid = CreateStrictSpawnDocument();
+        belowGrid.frames[1].tilePositionOfsets[0] = -1;
+        AssertAivJsonRejected(belowGrid, "frames[1].tilePositionOfsets[0]");
+
+        CastlePlanner.AivJsonDocument aboveGrid = CreateStrictSpawnDocument();
+        aboveGrid.frames[1].tilePositionOfsets[0] = 10000;
+        AssertAivJsonRejected(aboveGrid, "frames[1].tilePositionOfsets[0]");
+
+        CastlePlanner.AivJsonDocument gridBoundaries = CreateStrictSpawnDocument();
+        gridBoundaries.frames[0].tilePositionOfsets[0] = 0;
+        gridBoundaries.frames[1].tilePositionOfsets[0] = 9999;
+        CastlePlanner.AivRawDataEncoder.Encode(gridBoundaries);
+
+        CastlePlanner.AivJsonDocument tooManyFrames = CreateStrictSpawnDocument();
+        while (tooManyFrames.frames.Count <= 1000)
+        {
+            tooManyFrames.frames.Add(new CastlePlanner.AivJsonFrame
+            {
+                itemType = (int)eMappers.MAPPER_HOVEL,
+                tilePositionOfsets = [4040]
+            });
+        }
+        AssertAivJsonRejected(tooManyFrames, "native 1000-frame queue");
+
+        CastlePlanner.AivJsonDocument tooManyPositions = CreateStrictSpawnDocument();
+        tooManyPositions.frames[1].tilePositionOfsets =
+            Enumerable.Repeat(4040, short.MaxValue + 1).ToList();
+        AssertAivJsonRejected(tooManyPositions, "frames[1].tilePositionOfsets count");
+    }
+
+    private static void RoundtripsKnownWorkingAivJsonFiles()
+    {
+        string vanillaDirectory = Path.GetFullPath(Path.Combine(
+            AppContext.BaseDirectory,
+            "..", "..", "..", "..",
+            "BepInEx", "plugins", "CastlePlanner_Serp", "VanillaAIV"));
+        foreach (string fileName in new[] { "rat1.aivjson", "wolf1.aivjson", "Nizar8.aivjson" })
+        {
+            string path = Path.Combine(vanillaDirectory, fileName);
+            AivJsonLoadResult loaded = AivJsonFileLoader.Load(path);
+            Assert(loaded.Document != null, $"known AIVJSON did not load: {path}");
+            Assert(
+                !loaded.Diagnostics.Any(d => d.Severity == AivDiagnosticSeverity.Error),
+                $"known AIVJSON has parser errors: {path}");
+
+            var document = new CastlePlanner.AivJsonDocument
+            {
+                pauseDelayAmount = loaded.Document.pauseDelayAmount,
+                frames = loaded.Document.frames.Select(frame => new CastlePlanner.AivJsonFrame
+                {
+                    itemType = frame.itemType,
+                    tilePositionOfsets = new List<int>(frame.tilePositionOfsets),
+                    shouldPause = frame.shouldPause
+                }).ToList(),
+                miscItems = loaded.Document.miscItems.Select(item => new CastlePlanner.AivJsonMiscItem
+                {
+                    itemType = item.itemType,
+                    positionOfset = item.positionOfset,
+                    number = item.number
+                }).ToList()
+            };
+
+            short[] encoded = CastlePlanner.AivRawDataEncoder.Encode(document);
+            CastlePlanner.AivJsonDocument decoded = CastlePlanner.AivSpawnPlan.Decode(encoded);
+            Assert(
+                encoded.SequenceEqual(CastlePlanner.AivRawDataEncoder.Encode(decoded)),
+                $"known AIVJSON native roundtrip changed data: {path}");
+        }
+    }
+
+    private static CastlePlanner.AivJsonDocument CreateStrictSpawnDocument() => new()
+    {
+        pauseDelayAmount = 7,
+        frames =
+        [
+            new CastlePlanner.AivJsonFrame
+            {
+                itemType = (int)eMappers.MAPPER_KEEP2,
+                tilePositionOfsets = [5044]
+            },
+            new CastlePlanner.AivJsonFrame
+            {
+                itemType = (int)eMappers.MAPPER_HOVEL,
+                tilePositionOfsets = [4040]
+            }
+        ],
+        miscItems = []
+    };
+
+    private static void AssertAivJsonRejected(
+        CastlePlanner.AivJsonDocument document,
+        string expectedMessagePart)
+    {
+        try
+        {
+            CastlePlanner.AivRawDataEncoder.Encode(document);
+        }
+        catch (InvalidDataException ex)
+        {
+            Assert(
+                ex.Message.Contains(expectedMessagePart, StringComparison.Ordinal),
+                $"rejection did not identify '{expectedMessagePart}': {ex.Message}");
+            return;
+        }
+
+        throw new InvalidOperationException(
+            $"malformed AIVJSON was accepted; expected '{expectedMessagePart}'");
     }
 
     private static void RejectsMalformedNativeSpawnData()

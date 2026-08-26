@@ -558,6 +558,13 @@ namespace ExtraFeatures
                 return false;
             }
 
+            if (snapshots == null || snapshots.Count < 1 ||
+                snapshots.Count > KnightTransformationPacket.MaximumEncodedTargetCount)
+            {
+                LogError($"Knight transformation refused because the target count cannot fit safely in a Chore packet: count={snapshots?.Count ?? 0}, absoluteMaximum={KnightTransformationPacket.MaximumEncodedTargetCount}.");
+                return false;
+            }
+
             var globalIds = new List<int>(snapshots.Count);
             for (int index = 0; index < snapshots.Count; index++)
             {
@@ -570,7 +577,8 @@ namespace ExtraFeatures
                 globalIds.Add(snapshots[index].GlobalId);
             }
 
-            int operationId = unchecked(++nextOperationId);
+            int operationId = nextOperationId == int.MaxValue ? 1 : nextOperationId + 1;
+            nextOperationId = operationId;
             var packet = new KnightTransformationPacket
             {
                 ProtocolVersion = ChoreProtocolVersion,
@@ -580,7 +588,19 @@ namespace ExtraFeatures
                 UnitGlobalIds = globalIds.ToArray()
             };
 
+            if (!KnightTransformationPacketValidation.HasValidMetadataAndTargets(packet, GamePlayerManagerAPI.MAX_PLAYERS))
+            {
+                LogError($"Knight transformation refused because the outgoing packet metadata is invalid: playerId={playerId}, operationId={operationId}.");
+                return false;
+            }
+
             byte[] body = GameNetworkAPI.Serialize(packet);
+            if (!KnightTransformationPacketValidation.DoesSerializedBodyFitChore(body.Length))
+            {
+                LogError($"Knight transformation refused because the serialized Chore body is too large: operationId={operationId}, bodyBytes={body.Length}, maximum={KnightTransformationPacket.MaximumPacketBodyBytes}.");
+                return false;
+            }
+
             byte[] blob = new byte[sizeof(short) + body.Length];
             BitConverter.GetBytes(transformationPacketHook.GetPacketId()).CopyTo(blob, 0);
             Buffer.BlockCopy(body, 0, blob, sizeof(short), body.Length);
@@ -600,7 +620,7 @@ namespace ExtraFeatures
             KnightTransformationPacket packet = args?.Packet;
             if (packet == null || packet.ProtocolVersion != ChoreProtocolVersion ||
                 (packet.Action != MountAction && packet.Action != DismountAction) ||
-                packet.PlayerId <= 0 || packet.UnitGlobalIds == null || packet.UnitGlobalIds.Length == 0)
+                !KnightTransformationPacketValidation.HasValidMetadataAndTargets(packet, GamePlayerManagerAPI.MAX_PLAYERS))
             {
                 LogError("Rejected a Knight transformation Chore with an invalid payload.");
                 return;

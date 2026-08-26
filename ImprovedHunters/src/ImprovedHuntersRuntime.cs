@@ -713,7 +713,8 @@ namespace ImprovedHunters
             double elapsedSeconds = elapsedTicks / (double)Stopwatch.Frequency;
             if (hunterTargetDiagnosticLogs < MaxHunterTargetDiagnosticLogs)
             {
-                log.LogInfo(
+                Shared.DebugLogHelper.LogInfo(
+                    log,
                     $"Improved Hunters meat trip timing: hunter={args.UnitId}, pickupToDropoffSeconds={elapsedSeconds:F2}, " +
                     $"assumedHutWorkTicks={HunterHutWorkCost}.");
             }
@@ -744,7 +745,8 @@ namespace ImprovedHunters
             if (loggedCollectedCorpseGlobalIds.Add(target.GlobalId) &&
                 hunterTargetDiagnosticLogs < MaxHunterTargetDiagnosticLogs)
             {
-                log.LogInfo(
+                Shared.DebugLogHelper.LogInfo(
+                    log,
                     $"Improved Hunters collected corpse removed: hunter={hunterUnitId}, target={target.UnitId}, " +
                     $"globalId={target.GlobalId}, aiState=0x{*(ushort*)(unitBytes + 0x2BC):X}.");
             }
@@ -756,10 +758,10 @@ namespace ImprovedHunters
                 return;
 
             shortLivedCorpsePreserveLogs++;
-            log.LogInfo($"{message} ({shortLivedCorpsePreserveLogs}/80).");
+            Shared.DebugLogHelper.LogInfo(log, $"{message} ({shortLivedCorpsePreserveLogs}/80).");
 
             if (shortLivedCorpsePreserveLogs == 80)
-                log.LogInfo("Improved Hunters corpse visible preserve diagnostic limit reached.");
+                Shared.DebugLogHelper.LogInfo(log, "Improved Hunters corpse visible preserve diagnostic limit reached.");
         }
 
         private unsafe bool TryGetCollectedCorpseTarget(int hunterUnitId, out HunterTargetSnapshot target)

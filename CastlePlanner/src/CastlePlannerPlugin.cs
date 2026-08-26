@@ -2,6 +2,7 @@ using BepInEx;
 using SHCDESE.API;
 using SHCDESE.API.LowLevel;
 using System;
+using System.Collections.Generic;
 
 namespace CastlePlanner
 {
@@ -52,6 +53,8 @@ namespace CastlePlanner
                 return;
             libraryLoadedHandled = true;
 
+            var failedOptionalStages = new List<string>();
+
             bool currentNativeLayout = false;
             try
             {
@@ -82,11 +85,11 @@ namespace CastlePlanner
             {
                 blueprintRuntime =
                     BlueprintRuntimeController.Create(Logger, Settings, previewRuntime);
-            });
+            }, failedOptionalStages);
             TryInitializeStage("free-castle preview runtime", () =>
             {
                 previewRuntime.Initialize();
-            });
+            }, failedOptionalStages);
             TryInitializeStage("Blueprint HUD binding", () =>
             {
                 if (blueprintRuntime == null)
@@ -94,7 +97,7 @@ namespace CastlePlanner
                 GameXAMLManagerAPI.Instance.RegisterBinding(
                     "CastlePlannerBlueprintHud",
                     blueprintRuntime.Hud);
-            });
+            }, failedOptionalStages);
 
             TryInitializeStage("AIV placement runtime", () =>
             {
@@ -109,7 +112,7 @@ namespace CastlePlanner
                         aivPlacementRuntime?.Deactivate();
                     }
                 };
-            });
+            }, failedOptionalStages);
             TryInitializeStage("AIV selection-list binding", () =>
             {
                 if (aivPlacementRuntime == null)
@@ -117,13 +120,13 @@ namespace CastlePlanner
                 GameXAMLManagerAPI.Instance.RegisterBinding(
                     "CastlePlannerAivSelectionListHost",
                     aivPlacementRuntime.SelectionList);
-            });
+            }, failedOptionalStages);
             TryInitializeStage("AIV placement hooks", () =>
             {
                 if (aivPlacementRuntime == null)
                     throw new InvalidOperationException("The AIV placement runtime is unavailable.");
                 aivPlacementRuntime.Install();
-            });
+            }, failedOptionalStages);
 
             if (currentNativeLayout)
             {
@@ -133,18 +136,32 @@ namespace CastlePlanner
                 }
                 catch (Exception ex)
                 {
+                    failedOptionalStages.Add("native Spawn mode");
                     Shared.DebugLogHelper.LogError(
                         Logger,
                         $"CastlePlanner native Spawn mode initialization failed; independent features continue: {ex}");
                 }
             }
 
-            Shared.DebugLogHelper.LogInfo(
-                Logger,
-                "Crusader library initialization completed; failed optional stages did not block independent CastlePlanner features.");
+            if (failedOptionalStages.Count == 0)
+            {
+                Shared.DebugLogHelper.LogInfo(
+                    Logger,
+                    "Crusader library initialization completed; all optional stages completed successfully.");
+            }
+            else
+            {
+                Shared.DebugLogHelper.LogWarning(
+                    Logger,
+                    $"Crusader library initialization completed with {failedOptionalStages.Count} failed optional " +
+                    $"stage(s) [{string.Join(", ", failedOptionalStages)}]; independent CastlePlanner features continue.");
+            }
         }
 
-        private void TryInitializeStage(string stageName, Action initialize)
+        private void TryInitializeStage(
+            string stageName,
+            Action initialize,
+            ICollection<string> failedOptionalStages)
         {
             try
             {
@@ -152,6 +169,7 @@ namespace CastlePlanner
             }
             catch (Exception ex)
             {
+                failedOptionalStages.Add(stageName);
                 Shared.DebugLogHelper.LogError(
                     Logger,
                     $"CastlePlanner {stageName} initialization failed; independent features continue: {ex}");

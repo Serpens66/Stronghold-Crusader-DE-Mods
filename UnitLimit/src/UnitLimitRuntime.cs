@@ -80,11 +80,11 @@ namespace UnitLimit
             eChimps.CHIMP_TYPE_BEDOUIN_DEMOLISHER,
         };
 
-        public UnitLimitRuntime(ManualLogSource log, UnitLimitLobbyViewModel settings)
+        public UnitLimitRuntime(ManualLogSource log, UnitLimitLobbyViewModel settings, bool verboseUnitEventLogging = false)
         {
             this.log = log;
             this.settings = settings;
-            activeUnitCache = new ActiveUnitCache(log);
+            activeUnitCache = new ActiveUnitCache(log, verboseUnitEventLogging);
             activeSiegeTentCache = new ActiveSiegeTentCache(log);
         }
 

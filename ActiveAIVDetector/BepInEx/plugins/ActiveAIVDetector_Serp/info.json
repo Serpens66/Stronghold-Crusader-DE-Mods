@@ -3,10 +3,17 @@
   "Author": "Serpens66",
   "Name": "Active AIV Detector",
   "Description": "Diagnostic mod that logs the lord and AIVJSON selected by the native castle placement engine.",
-  "Version": "0.9.4",
+  "Version": "0.9.6",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.9.6",
+      "Changes": [
+        "Support Steam build 24816905 after validating the native AIV, player, organism, and placement layouts.",
+        "Resolve the placement validator from a stable interior signature and expose an optional managed observer so compatible mods can share the native detour."
+      ]
+    },
     {
       "Version": "0.9.4",
       "Changes": [

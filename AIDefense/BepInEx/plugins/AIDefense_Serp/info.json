@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "AI Defense",
   "Description": "Keeps AI castle towers garrisoned with targetable ranged defenders held in private, neutral tribes outside normal AI command groups and troop categories.",
-  "Version": "1.2.5",
+  "Version": "1.2.6",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.2.6",
+      "Changes": [
+        "Support Steam build 24816905 after validating the unit, building, tribe, and Script Extender layouts used by AI Defense."
+      ]
+    },
     {
       "Version": "1.2.5",
       "Changes": [

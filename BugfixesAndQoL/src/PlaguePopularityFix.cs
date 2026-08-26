@@ -23,9 +23,7 @@ namespace BugfixesAndQoL
     internal sealed unsafe class PlaguePopularityFix : IDisposable
     {
         private const string SaveDataIdentifier = "serp-plague-popularity-v1";
-        private const int MaximumPlayerId = 8;
         private const int MinimumProjectilesPerHerd = 6;
-        private const int MaximumProjectilesPerHerd = 10;
         private const int PopularityPointsPerHerd = 25;
         private const int MissingPopularityCallbackWarningMilliseconds = 3000;
         private const ulong PopularityAccumulatorOffset = 0x12EC20UL;
@@ -212,7 +210,7 @@ namespace BugfixesAndQoL
             try
             {
                 if (capture.Members.Count < MinimumProjectilesPerHerd ||
-                    capture.Members.Count > MaximumProjectilesPerHerd)
+                    capture.Members.Count > PlaguePopularitySaveLimitPolicy.GetCurrent().MaximumProjectilesPerHerd)
                 {
                     throw new InvalidOperationException(
                         $"Vanilla created an unexpected plague-herd size: " +
@@ -318,7 +316,7 @@ namespace BugfixesAndQoL
             {
                 X64SmartCPUContext* registers = context.Pointer;
                 int playerId = unchecked((int)(uint)registers->R14);
-                if (playerId >= 0 && playerId <= MaximumPlayerId)
+                if (playerId >= 0 && playerId <= PlaguePopularitySaveLimitPolicy.GetCurrent().MaximumManagedPlayers)
                     IncrementCount(popularityCallbackCounts, playerId);
                 else
                 {
@@ -632,33 +630,36 @@ namespace BugfixesAndQoL
 
         private static void ValidateSaveState(PlaguePopularitySaveState state)
         {
+            PlaguePopularitySaveLimits limits = PlaguePopularitySaveLimitPolicy.GetCurrent();
             if (state == null || state.Version != PlaguePopularitySaveState.CurrentVersion ||
                 state.ManagedPlayerIds == null || state.Herds == null ||
-                state.ManagedPlayerIds.Length > MaximumPlayerId || state.Herds.Length > 4096)
+                state.ManagedPlayerIds.Length > limits.MaximumManagedPlayers ||
+                state.Herds.Length > limits.MaximumHerds)
             {
                 throw new InvalidOperationException("The plague save-data header is invalid.");
             }
 
             foreach (int playerId in state.ManagedPlayerIds)
             {
-                if (!IsValidPlayerId(playerId))
+                if (!IsValidPlayerId(playerId, limits))
                     throw new InvalidOperationException($"Invalid managed plague player ID: {playerId}.");
             }
 
             foreach (PlagueHerdSaveRecord record in state.Herds)
             {
-                if (record == null || !IsValidPlayerId(record.PlayerId) ||
+                if (record == null || !IsValidPlayerId(record.PlayerId, limits) ||
                     record.ProjectileSlotIds == null || record.ProjectileGlobalIds == null ||
                     record.ProjectileSlotIds.Length != record.ProjectileGlobalIds.Length ||
                     record.ProjectileSlotIds.Length < 1 ||
-                    record.ProjectileSlotIds.Length > MaximumProjectilesPerHerd)
+                    record.ProjectileSlotIds.Length > limits.MaximumProjectilesPerHerd)
                 {
                     throw new InvalidOperationException("A saved plague herd is invalid.");
                 }
 
                 for (int index = 0; index < record.ProjectileSlotIds.Length; index++)
                 {
-                    if (record.ProjectileSlotIds[index] < 1 || record.ProjectileSlotIds[index] > 10000 ||
+                    if (record.ProjectileSlotIds[index] < 1 ||
+                        record.ProjectileSlotIds[index] > limits.MaximumProjectileSlotId ||
                         record.ProjectileGlobalIds[index] == 0)
                     {
                         throw new InvalidOperationException("A saved plague projectile identity is invalid.");
@@ -680,7 +681,11 @@ namespace BugfixesAndQoL
                 $"Plague popularity fix disabled for this process; Vanilla behavior restored because {reason}: {ex}");
         }
 
-        private static bool IsValidPlayerId(int playerId) => playerId >= 1 && playerId <= MaximumPlayerId;
+        private static bool IsValidPlayerId(int playerId) =>
+            IsValidPlayerId(playerId, PlaguePopularitySaveLimitPolicy.GetCurrent());
+
+        private static bool IsValidPlayerId(int playerId, PlaguePopularitySaveLimits limits) =>
+            playerId >= 1 && playerId <= limits.MaximumManagedPlayers;
 
         private sealed class HerdCapture
         {
@@ -696,6 +701,8 @@ namespace BugfixesAndQoL
                 PlayerId = playerId;
                 TileX = tileX;
                 TileY = tileY;
+                Members = new List<ProjectileIdentity>(
+                    PlaguePopularitySaveLimitPolicy.GetCurrent().MaximumProjectilesPerHerd);
             }
 
             public int BuildingId { get; }
@@ -703,7 +710,7 @@ namespace BugfixesAndQoL
             public int PlayerId { get; }
             public ushort TileX { get; }
             public ushort TileY { get; }
-            public List<ProjectileIdentity> Members { get; } = new List<ProjectileIdentity>(MaximumProjectilesPerHerd);
+            public List<ProjectileIdentity> Members { get; }
 
             public void Add(int slotId, uint globalId)
             {

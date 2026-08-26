@@ -75,7 +75,6 @@ namespace ExtraFeatures
         private const string SaveDataIdentifier = "serp-extrafeatures-gatehouse-automation-v1";
         private const string AutomationIconAssetPath = "Assets/GUI/Sprites/ExtraFeatures_GatehouseAutomation.png";
         private const int ChoreProtocolVersion = 1;
-        private const int MaximumSavedGatehouses = 10000;
         private const int MaximumFailureLogs = 20;
 
         private readonly ManualLogSource log;
@@ -570,7 +569,7 @@ namespace ExtraFeatures
             bool supportedVersion = state != null && (state.Version == 1 || state.Version == GatehouseAutomationSaveState.CurrentVersion);
             int[] savedIds = state?.ManualOnlyGateGlobalIds ?? Array.Empty<int>();
             GatehouseMapLocator[] savedLocators = state?.ManualOnlyGateLocators ?? Array.Empty<GatehouseMapLocator>();
-            if (!supportedVersion || savedIds.Length > MaximumSavedGatehouses || savedLocators.Length > MaximumSavedGatehouses)
+            if (!supportedVersion)
             {
                 throw new InvalidOperationException("The gatehouse save state has an unsupported version or invalid entry count.");
             }

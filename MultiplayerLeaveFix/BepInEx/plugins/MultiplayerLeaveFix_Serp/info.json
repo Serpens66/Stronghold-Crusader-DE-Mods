@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Multiplayer Leave Fix",
   "Description": "Prevents repeated multiplayer leave and connection issue system messages from flooding the in-game chat.",
-  "Version": "1.0.1",
+  "Version": "1.0.2",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.2",
+      "Changes": [
+        "Limited intentional-leave detection to successfully processed main-thread packets and short duplicate windows, including safe rejoin and reused-slot handling."
+      ]
+    },
     {
       "Version": "1.0.1",
       "Changes": [

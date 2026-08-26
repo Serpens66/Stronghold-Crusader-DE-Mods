@@ -691,13 +691,14 @@ namespace ImprovedHunters
                 return;
 
             preyCacheDiagnosticLogs++;
-            log.LogInfo(
+            Shared.DebugLogHelper.LogInfo(
+                log,
                 $"Improved Hunters prey cache refreshed: eligible={preyCache.Count}, known={knownCount}, skippedKnown={skippedKnownCount}, " +
                 $"eligibleByType=deer:{eligibleDeer}/goat:{eligibleGoat}/rabbit:{eligibleRabbit}/camel:{eligibleCamel}/chicken:{eligibleChicken}, " +
                 $"skippedCamels={skippedCamels} ({preyCacheDiagnosticLogs}/{MaxPreyCacheDiagnosticLogs}).");
 
             if (preyCacheDiagnosticLogs == MaxPreyCacheDiagnosticLogs)
-                log.LogInfo("Improved Hunters prey cache diagnostic limit reached.");
+                Shared.DebugLogHelper.LogInfo(log, "Improved Hunters prey cache diagnostic limit reached.");
         }
 
         private void LogPreyCacheDiagnostic(int unitId, PreyEligibility eligibility, string status)
@@ -706,7 +707,8 @@ namespace ImprovedHunters
                 return;
 
             preyCacheDiagnosticLogs++;
-            log.LogInfo(
+            Shared.DebugLogHelper.LogInfo(
+                log,
                 $"Improved Hunters prey cache animal: unit={unitId}/{eligibility.Type}, globalId={eligibility.GlobalId}, " +
                 $"tile={eligibility.TileX},{eligibility.TileY}, status={status}, aliveState={eligibility.AliveState}, " +
                 $"flags92={eligibility.FlagsAt92}, aiState=0x{eligibility.AiState:X}, corpseFlag={eligibility.CorpseFlag}, " +
@@ -714,7 +716,7 @@ namespace ImprovedHunters
                 $"({preyCacheDiagnosticLogs}/{MaxPreyCacheDiagnosticLogs}).");
 
             if (preyCacheDiagnosticLogs == MaxPreyCacheDiagnosticLogs)
-                log.LogInfo("Improved Hunters prey cache diagnostic limit reached.");
+                Shared.DebugLogHelper.LogInfo(log, "Improved Hunters prey cache diagnostic limit reached.");
         }
 
         private static string GetPreyIneligibilityReason(PreyEligibility eligibility)

@@ -1,4 +1,5 @@
 using BepInEx;
+using BepInEx.Configuration;
 using SHCDESE.API;
 using SHCDESE.API.LowLevel;
 using System;
@@ -19,6 +20,7 @@ namespace UnitLimit
 
         private UnitLimitRuntime runtime;
         private int libraryInitializationStarted;
+        private ConfigEntry<bool> verboseUnitEventLogging;
 
         public UnitLimitLobbyViewModel Settings { get; private set; }
 
@@ -26,8 +28,13 @@ namespace UnitLimit
         {
             Shared.DebugLogHelper.LogDebug(Logger, $"{PluginName} {PluginVersion} loaded.");
 
+            verboseUnitEventLogging = Config.Bind(
+                "Diagnostics",
+                "VerboseUnitEventLogging",
+                false,
+                "Log every UnitLimit unit-cache event and count change. Keep disabled during normal play to avoid large logs.");
             Settings = new UnitLimitLobbyViewModel();
-            runtime = new UnitLimitRuntime(Logger, Settings);
+            runtime = new UnitLimitRuntime(Logger, Settings, verboseUnitEventLogging.Value);
             CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
         }
 

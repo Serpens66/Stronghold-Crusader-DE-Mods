@@ -65,6 +65,9 @@
     <Compile Include="..\..\BugfixesAndQoL\src\LocalPerPlayerSetting.cs">
       <Link>LocalPerPlayerSetting.cs</Link>
     </Compile>
+    <Compile Include="..\..\BugfixesAndQoL\src\PlaguePopularitySaveState.cs">
+      <Link>PlaguePopularitySaveState.cs</Link>
+    </Compile>
     <Compile Include="..\..\BugfixesAndQoL\src\AiRecruitmentHorseDemandNativeDefinition.cs">
       <Link>AiRecruitmentHorseDemandNativeDefinition.cs</Link>
     </Compile>

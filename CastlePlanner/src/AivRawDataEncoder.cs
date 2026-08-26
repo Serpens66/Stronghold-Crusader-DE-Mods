@@ -9,6 +9,8 @@ namespace CastlePlanner
     {
         private const int GridTileCount = 10000;
         private const int MaxPauseEntries = 50;
+        // Native AIV preparation owns a fixed 1000-entry build queue.
+        private const int MaxFrameEntries = 1000;
 
         public static short[] Encode(AivJsonDocument document)
         {
@@ -18,6 +20,13 @@ namespace CastlePlanner
                 throw new InvalidDataException("The AIVJSON frames array is missing.");
             if (document.miscItems == null)
                 throw new InvalidDataException("The AIVJSON miscItems array is missing.");
+            if (document.frames.Count == 0)
+                throw new InvalidDataException("The AIVJSON frames array is empty.");
+            if (document.frames.Count > MaxFrameEntries)
+            {
+                throw new InvalidDataException(
+                    $"The AIVJSON frames count exceeds the native {MaxFrameEntries}-frame queue: {document.frames.Count}.");
+            }
 
             var raw = new List<short>();
             raw.Add(ToShort(document.pauseDelayAmount, "pauseDelayAmount"));
@@ -40,7 +49,7 @@ namespace CastlePlanner
             raw.AddRange(pauses);
             raw.Add(ToShort(document.frames.Count, "frame count"));
 
-            bool hasKeep = false;
+            int keepPlacementCount = 0;
             for (int frameIndex = 0; frameIndex < document.frames.Count; frameIndex++)
             {
                 AivJsonFrame frame = document.frames[frameIndex];
@@ -50,9 +59,29 @@ namespace CastlePlanner
                     throw new InvalidDataException(
                         $"frames[{frameIndex}].tilePositionOfsets is missing.");
                 }
+                if (frame.tilePositionOfsets.Count == 0)
+                {
+                    throw new InvalidDataException(
+                        $"frames[{frameIndex}].tilePositionOfsets must contain at least one position.");
+                }
+                if (frame.tilePositionOfsets.Count > short.MaxValue)
+                {
+                    throw new InvalidDataException(
+                        $"frames[{frameIndex}].tilePositionOfsets count is outside the native positive Int16 range: {frame.tilePositionOfsets.Count}.");
+                }
 
-                hasKeep |= frame.itemType >= (int)eMappers.MAPPER_KEEP1 &&
+                bool isKeep = frame.itemType >= (int)eMappers.MAPPER_KEEP1 &&
                     frame.itemType <= (int)eMappers.MAPPER_KEEP5;
+                if (isKeep)
+                {
+                    // Keep cardinality is defined by placements, not merely Keep frames.
+                    keepPlacementCount += frame.tilePositionOfsets.Count;
+                    if (frame.tilePositionOfsets.Count != 1)
+                    {
+                        throw new InvalidDataException(
+                            $"frames[{frameIndex}].tilePositionOfsets must contain exactly one Keep position; found {frame.tilePositionOfsets.Count}.");
+                    }
+                }
                 if (frame.tilePositionOfsets.Count == 1)
                 {
                     raw.Add(ToShort(frame.itemType, $"frames[{frameIndex}].itemType"));
@@ -76,8 +105,13 @@ namespace CastlePlanner
                 }
             }
 
-            if (!hasKeep)
+            if (keepPlacementCount == 0)
                 throw new InvalidDataException("The AIVJSON contains no keep frame.");
+            if (keepPlacementCount != 1)
+            {
+                throw new InvalidDataException(
+                    $"The AIVJSON must contain exactly one Keep position; found {keepPlacementCount}.");
+            }
 
             raw.Add(ToShort(document.miscItems.Count, "miscItems count"));
             for (int index = 0; index < document.miscItems.Count; index++)
