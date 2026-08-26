@@ -29,6 +29,8 @@ namespace CastlePlanner
         private bool hudVisible;
         private bool canToggle;
         private bool blueprintVisible;
+        private BlueprintHudDisplayState displayState =
+            BlueprintHudDisplayState.Unavailable;
         private bool settingsPanelVisible;
         private bool vanillaButtonOccupiesFirstSlot;
         private bool isDragging;
@@ -110,9 +112,20 @@ namespace CastlePlanner
             set
             {
                 if (PreviewVisible)
-                    preview.SelectedChoice = value;
-                else
+                {
+                    if (BlueprintSelectionPolicy.IsValidBindingSelection(
+                            value,
+                            preview.CastleChoices))
+                    {
+                        preview.SelectedChoice = value;
+                    }
+                }
+                else if (BlueprintSelectionPolicy.IsValidBindingSelection(
+                             value,
+                             settings.CastleOptions))
+                {
                     settings.SelectedCastle = value;
+                }
             }
         }
 
@@ -211,21 +224,31 @@ namespace CastlePlanner
             }
         }
 
-        public string StatusText =>
-            !CanToggle
-                ? SerpLocalization.Get("CastlePlanner.Hud.Unavailable")
-                : BlueprintVisible && completedDepthCaptures < requestedDepthCaptures
-                    ? string.Format(
-                        SerpLocalization.Get("CastlePlanner.Hud.Loading"),
-                        completedDepthCaptures,
-                        requestedDepthCaptures)
-                : BlueprintVisible
-                    ? SerpLocalization.Get("CastlePlanner.Hud.On")
-                    : SerpLocalization.Get("CastlePlanner.Hud.Off");
+        public string StatusText
+        {
+            get
+            {
+                switch (displayState)
+                {
+                    case BlueprintHudDisplayState.Loading:
+                        return string.Format(
+                            SerpLocalization.Get("CastlePlanner.Hud.Loading"),
+                            completedDepthCaptures,
+                            requestedDepthCaptures);
+                    case BlueprintHudDisplayState.On:
+                        return SerpLocalization.Get("CastlePlanner.Hud.On");
+                    case BlueprintHudDisplayState.Off:
+                        return SerpLocalization.Get("CastlePlanner.Hud.Off");
+                    default:
+                        return SerpLocalization.Get("CastlePlanner.Hud.Unavailable");
+                }
+            }
+        }
 
         public void Update(
             bool isBlueprintMode,
             bool isMapActive,
+            bool controlledKeepAvailable,
             bool isReady,
             bool isVisible,
             int completedDepthCaptures,
@@ -235,6 +258,11 @@ namespace CastlePlanner
             this.requestedDepthCaptures = Math.Max(
                 this.completedDepthCaptures,
                 requestedDepthCaptures);
+            displayState = BlueprintHudStatePolicy.Resolve(
+                controlledKeepAvailable,
+                isVisible,
+                this.completedDepthCaptures,
+                this.requestedDepthCaptures);
             HudVisible = isBlueprintMode && isMapActive;
             CanToggle = HudVisible && isReady;
             BlueprintVisible = isVisible;

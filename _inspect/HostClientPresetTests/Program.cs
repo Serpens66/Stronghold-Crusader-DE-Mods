@@ -60,6 +60,7 @@ internal static class Program
             TestMarketOrderPresetRoundTrip();
             TestPresetLocalRoundTrip();
             TestDoNotPersistPresetExclusion();
+            TestCastlePlannerBlueprintHudPolicies();
             TestFreeCastleProtocol();
 
             string pluginPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "TestPlugin.dll");
@@ -2887,6 +2888,44 @@ internal static class Program
         restored.SelectedPreset = 1;
         Check(restored.LocalValue == 422,
             "PresetLocal value from preset 2 did not survive restart");
+
+        string castlePlannerPluginPath = Path.Combine(
+            AppDomain.CurrentDomain.BaseDirectory,
+            "CastlePlannerPresetProbe.dll");
+        string castlePlannerSettingsPath = Path.Combine(
+            AppDomain.CurrentDomain.BaseDirectory,
+            "LobbyModSettings",
+            "CastlePlannerPresetProbe.msgpack");
+        if (File.Exists(castlePlannerSettingsPath))
+            File.Delete(castlePlannerSettingsPath);
+
+        GameNetworkAPI.LocalHost = true;
+        GameNetworkAPI.Networked = true;
+        GameNetworkAPI.MultiplayerGame = true;
+        var castlePlanner = new CastlePlannerPresetProbeViewModel();
+        castlePlanner.PreparePresets(
+            null,
+            castlePlannerPluginPath,
+            "CastlePlannerPresetProbe");
+        castlePlanner.ActivatePresets();
+        Check(castlePlanner.Blueprints,
+            "CastlePlanner Blueprint code default was not enabled");
+
+        GameNetworkAPI.LocalHost = false;
+        castlePlanner.System_RefreshSettingsAccess();
+        GameNetworkAPI.LocalHost = true;
+        castlePlanner.System_RefreshSettingsAccess();
+        Check(castlePlanner.Blueprints,
+            "CastlePlanner Blueprint changed during multiplayer role refresh");
+
+        var restoredCastlePlanner = new CastlePlannerPresetProbeViewModel();
+        restoredCastlePlanner.PreparePresets(
+            null,
+            castlePlannerPluginPath,
+            "CastlePlannerPresetProbe");
+        restoredCastlePlanner.ActivatePresets();
+        Check(restoredCastlePlanner.Blueprints,
+            "CastlePlanner Blueprint did not survive preset restart");
     }
 
     private static void TestDoNotPersistPresetExclusion()
@@ -2923,6 +2962,38 @@ internal static class Program
             Check(!preset.ContainsKey(nameof(viewModel.TransientHostValue)),
                 "DoNotPersist host value entered " + key);
         }
+    }
+
+    private static void TestCastlePlannerBlueprintHudPolicies()
+    {
+        Check(
+            CastlePlanner.BlueprintHudStatePolicy.Resolve(false, false, 0, 0) ==
+                CastlePlanner.BlueprintHudDisplayState.Unavailable,
+            "Blueprint HUD did not reserve unavailable for a missing Keep");
+        Check(
+            CastlePlanner.BlueprintHudStatePolicy.Resolve(true, false, 0, 0) ==
+                CastlePlanner.BlueprintHudDisplayState.Off,
+            "Blueprint HUD treated a hidden or suppressed layout as unavailable");
+        Check(
+            CastlePlanner.BlueprintHudStatePolicy.Resolve(true, true, 1, 2) ==
+                CastlePlanner.BlueprintHudDisplayState.Loading,
+            "Blueprint HUD omitted the loading state");
+        Check(
+            CastlePlanner.BlueprintHudStatePolicy.Resolve(true, true, 2, 2) ==
+                CastlePlanner.BlueprintHudDisplayState.On,
+            "Blueprint HUD omitted the on state");
+
+        string[] choices = { "No castle", "Example.aivjson" };
+        Check(!CastlePlanner.BlueprintSelectionPolicy.IsValidBindingSelection(null, choices),
+            "Blueprint selection accepted a null binding transition");
+        Check(!CastlePlanner.BlueprintSelectionPolicy.IsValidBindingSelection(string.Empty, choices),
+            "Blueprint selection accepted an empty binding transition");
+        Check(!CastlePlanner.BlueprintSelectionPolicy.IsValidBindingSelection("Missing.aivjson", choices),
+            "Blueprint selection accepted a value outside the active list");
+        Check(CastlePlanner.BlueprintSelectionPolicy.IsValidBindingSelection("No castle", choices),
+            "Blueprint selection rejected the valid no-castle choice");
+        Check(CastlePlanner.BlueprintSelectionPolicy.IsValidBindingSelection("Example.aivjson", choices),
+            "Blueprint selection rejected a valid castle choice");
     }
 
     private static void AssertState(MixedViewModel vm, bool host, bool mission, bool editable, bool canEditHost, bool canReset, bool canChangePreset, string context)
@@ -3365,6 +3436,24 @@ internal sealed class MixedViewModel : PresetLobbyModSettingsViewModel
                 return;
             transientHostValue = value;
             OnPropertyChanged(nameof(TransientHostValue));
+        }
+    }
+}
+
+internal sealed class CastlePlannerPresetProbeViewModel : PresetLobbyModSettingsViewModel
+{
+    private bool blueprints = true;
+
+    [PresetLocal]
+    public bool Blueprints
+    {
+        get => blueprints;
+        set
+        {
+            if (blueprints == value)
+                return;
+            blueprints = value;
+            OnPropertyChanged(nameof(Blueprints));
         }
     }
 }

@@ -42,6 +42,7 @@ namespace CastlePlanner
         private bool preparePending;
         private bool showAfterPrepare;
         private bool blueprintVisible;
+        private bool controlledKeepAvailable;
         private bool hotkeyCapturePending;
         private int hotkeyCaptureStartFrame;
         private float nextPrepareAttemptTime;
@@ -357,7 +358,9 @@ namespace CastlePlanner
 
         private void OnPreviewSelectionChanged()
         {
-            bool restoreVisibility = preview.IsPreviewActive || blueprintVisible;
+            // Preview changes stay visible while choosing a castle. Leaving a
+            // no-castle preview always restores the normal layout hidden.
+            bool restoreVisibility = preview.IsPreviewActive;
             renderer.Clear();
             layout = null;
             layoutKeepX = int.MinValue;
@@ -496,7 +499,16 @@ namespace CastlePlanner
         {
             nextPrepareAttemptTime = Time.unscaledTime + 0.25f;
             if (!TryFindControlledKeep(out int keepX, out int keepY))
+            {
+                if (controlledKeepAvailable)
+                {
+                    controlledKeepAvailable = false;
+                    RefreshHud();
+                }
                 return;
+            }
+
+            controlledKeepAvailable = true;
 
             if (!TryBuildBlueprintLayout(
                     keepX,
@@ -672,16 +684,11 @@ namespace CastlePlanner
                 return;
             }
 
-            if (blueprintVisible)
-            {
-                SetBlueprintVisible(false, "HUD or configured hotkey");
-                return;
-            }
-
             // The editor can move or replace the local Keep without a map
-            // reload, so every activation must project from its live position.
+            // reload, so every toggle must validate its live position.
             if (!TryFindControlledKeep(out int keepX, out int keepY))
             {
+                controlledKeepAvailable = false;
                 renderer.Clear();
                 layout = null;
                 layoutKeepX = int.MinValue;
@@ -692,6 +699,13 @@ namespace CastlePlanner
                     log,
                     "Blueprint remains hidden because no live local Keep was found during activation.");
                 RefreshHud();
+                return;
+            }
+
+            controlledKeepAvailable = true;
+            if (blueprintVisible)
+            {
+                SetBlueprintVisible(false, "HUD or configured hotkey");
                 return;
             }
 
@@ -842,6 +856,7 @@ namespace CastlePlanner
             preparePending = false;
             showAfterPrepare = false;
             blueprintVisible = false;
+            controlledKeepAvailable = false;
             lastRotation = int.MinValue;
             lastFlattenedLandscape = false;
             pendingViewSettleTime = -1f;
@@ -853,6 +868,7 @@ namespace CastlePlanner
             Hud?.Update(
                 EffectiveBlueprintMode,
                 mapActive,
+                controlledKeepAvailable,
                 layout != null,
                 blueprintVisible,
                 renderer?.CompletedDepthCaptureCount ?? 0,

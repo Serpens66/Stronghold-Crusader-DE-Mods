@@ -1,5 +1,4 @@
 using BepInEx.Logging;
-using MessagePack;
 using SHCDESE.API;
 using SHCDESE.API.Components.ModManager;
 using SHCDESE.API.Components.Network;
@@ -87,7 +86,6 @@ namespace CastlePlanner
                 CastlePlannerPlugin.PluginGuid + ".Runtime");
             runtimeStorage.Load(runtimeState);
             NormalizeRuntimeState();
-            TryMigrateLegacySettings(pluginAssemblyLocation);
             ResetToDefaultCommand = new RelayCommand(ResetToDefault);
             AssignHotkeyCommand = new RelayCommand(BeginHotkeyCapture);
             ClearHotkeyCommand = new RelayCommand(ClearHotkey);
@@ -976,65 +974,6 @@ namespace CastlePlanner
                 runtimeState.BlueprintHudPositionY);
         }
 
-        private void TryMigrateLegacySettings(string pluginAssemblyLocation)
-        {
-            string pluginDirectory = Path.GetDirectoryName(pluginAssemblyLocation);
-            if (string.IsNullOrEmpty(pluginDirectory))
-                return;
-
-            string legacyPath = Path.Combine(
-                pluginDirectory,
-                LobbyModSettingsStorage.STORAGE_FOLDER_NAME,
-                CastlePlannerPlugin.PluginGuid + LobbyModSettingsStorage.FILE_EXTENSION);
-            if (!File.Exists(legacyPath) || IsSharedPresetPayload(legacyPath))
-                return;
-
-            LegacyPersistedSettings legacy = new LegacyPersistedSettings();
-            new LobbyModSettingsStorage(
-                pluginAssemblyLocation,
-                CastlePlannerPlugin.PluginGuid).Load(legacy);
-
-            blueprints = legacy.Mode == LegacyCastlePlannerMode.Blueprint;
-            spawnCastle = legacy.Mode == LegacyCastlePlannerMode.Spawn;
-            string defaultCastle = CastleOptions.Count > 0 ? CastleOptions[0] : string.Empty;
-            selectedCastle = NormalizeCastle(legacy.SelectedCastle, defaultCastle);
-            blueprintHotkey = NormalizeKeyCode(legacy.BlueprintHotkey);
-            blueprintIconScale = NormalizeIconScale(legacy.BlueprintIconScale);
-            blueprintIconAlpha = NormalizeIconAlpha(legacy.BlueprintIconAlpha);
-
-            if (legacy.HasBlueprintHudPosition)
-            {
-                runtimeState.HasBlueprintHudPosition = true;
-                runtimeState.BlueprintHudPositionX = NormalizeUnitValue(
-                    legacy.BlueprintHudPositionX);
-                runtimeState.BlueprintHudPositionY = NormalizeUnitValue(
-                    legacy.BlueprintHudPositionY);
-                runtimeStorage.Save(runtimeState);
-            }
-
-            // Preset activation rewrites the legacy file in the shared format.
-            Shared.DebugLogHelper.LogInfo(
-                log,
-                $"Legacy CastlePlanner settings prepared for preset migration: " +
-                $"blueprints={blueprints}, spawnCastle={spawnCastle}, " +
-                $"selection='{selectedCastle}'.");
-        }
-
-        private static bool IsSharedPresetPayload(string path)
-        {
-            try
-            {
-                Dictionary<string, byte[]> payload =
-                    MessagePackSerializer.Deserialize<Dictionary<string, byte[]>>(
-                        File.ReadAllBytes(path));
-                return payload != null && payload.ContainsKey("__SerpPresetSchemaVersion");
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
         private static string GetKeyDisplayName(KeyCode key)
         {
             try
@@ -1073,41 +1012,6 @@ namespace CastlePlanner
                 add { }
                 remove { }
             }
-        }
-
-        private enum LegacyCastlePlannerMode
-        {
-            Disabled,
-            Blueprint,
-            Spawn
-        }
-
-        private sealed class LegacyPersistedSettings
-        {
-            [SyncPerPlayer]
-            public LegacyCastlePlannerMode Mode { get; set; } =
-                LegacyCastlePlannerMode.Disabled;
-
-            [SyncPerPlayer]
-            public string SelectedCastle { get; set; } = string.Empty;
-
-            [SyncPerPlayer]
-            public int BlueprintHotkey { get; set; } = (int)KeyCode.None;
-
-            [SyncPerPlayer]
-            public double BlueprintIconScale { get; set; } = 1.0;
-
-            [SyncPerPlayer]
-            public double BlueprintIconAlpha { get; set; } = 0.3;
-
-            [SyncPerPlayer]
-            public bool HasBlueprintHudPosition { get; set; }
-
-            [SyncPerPlayer]
-            public double BlueprintHudPositionX { get; set; }
-
-            [SyncPerPlayer]
-            public double BlueprintHudPositionY { get; set; }
         }
 
         private sealed class RuntimePersistedState

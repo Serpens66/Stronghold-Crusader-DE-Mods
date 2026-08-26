@@ -880,6 +880,9 @@ namespace CastlePlanner
             lastReadySent = 0;
             committedSelections.Clear();
             NotifyAll();
+            // Returning from a no-castle decision restores the independently
+            // persisted local Blueprint choice, but never makes it visible.
+            SelectionVisualChanged?.Invoke();
         }
 
         private void FailBeforeCommit(string reason)

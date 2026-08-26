@@ -20,6 +20,9 @@
     <Compile Include="..\..\CastlePlanner\src\FreeCastleProtocol.cs">
       <Link>FreeCastleProtocol.cs</Link>
     </Compile>
+    <Compile Include="..\..\CastlePlanner\src\BlueprintHudPolicy.cs">
+      <Link>BlueprintHudPolicy.cs</Link>
+    </Compile>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="MessagePack">
