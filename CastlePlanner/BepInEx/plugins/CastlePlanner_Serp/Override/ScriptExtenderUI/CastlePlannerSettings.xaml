@@ -88,6 +88,12 @@
                 ToolTipService.ShowDuration="60000"
                 ToolTip="{Binding SpawnSiegeEnginesHelpText}"
                 Foreground="White"
+                Margin="18,0,0,6"/>
+      <CheckBox IsChecked="{Binding SpawnBraziersAndFlags, Mode=TwoWay}"
+                Content="{Binding SpawnBraziersAndFlagsText}"
+                ToolTipService.ShowDuration="60000"
+                ToolTip="{Binding SpawnBraziersAndFlagsHelpText}"
+                Foreground="White"
                 Margin="18,0,0,10"/>
     </StackPanel>
     <Separator Background="#444466" Margin="0,8"/>
@@ -97,12 +103,6 @@
                 Content="{Binding BlueprintsText}"
                 ToolTipService.ShowDuration="60000"
                 ToolTip="{Binding BlueprintsHelpText}"
-                Foreground="White"
-                Margin="0,0,0,10"/>
-      <CheckBox IsChecked="{Binding SpawnBraziersAndFlags, Mode=TwoWay}"
-                Content="{Binding SpawnBraziersAndFlagsText}"
-                ToolTipService.ShowDuration="60000"
-                ToolTip="{Binding SpawnBraziersAndFlagsHelpText}"
                 Foreground="White"
                 Margin="0,0,0,10"/>
       <TextBlock Text="{Binding PlacementControlsTitleText}" Style="{StaticResource SectionHeader}" Margin="0,4,0,4"/>

@@ -188,6 +188,7 @@
     <Compile Include="src\AivFileCatalog.cs" />
     <Compile Include="src\AivJsonModels.cs" />
     <Compile Include="src\AivJsonReader.cs" />
+    <Compile Include="src\AivLordJsonResolver.cs" />
     <Compile Include="src\AivRawDataEncoder.cs" />
     <Compile Include="src\AivSpawnPlan.cs" />
     <Compile Include="src\AivWorldCoordinateTransform.cs" />
@@ -209,6 +210,7 @@
     <Compile Include="src\BlueprintRuntimeController.cs" />
     <Compile Include="src\CastlePlannerPlugin.cs" />
     <Compile Include="src\CastleSpawnContentPolicy.cs" />
+    <Compile Include="src\ExtraFeaturesFlagBridge.cs" />
     <Compile Include="src\FreeCastleProtocol.cs" />
     <Compile Include="src\FreeCastlePreviewRuntime.cs" />
     <Compile Include="src\CastlePlannerRuntime.cs" />

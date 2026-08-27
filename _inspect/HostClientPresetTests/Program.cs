@@ -3074,11 +3074,13 @@ internal static class Program
                 false,
                 false,
                 false,
+                false,
                 false),
             "CastlePlanner retained an enabled spawn without host content");
         Check(
             !CastlePlanner.CastleSpawnContentPolicy.ShouldDisableBeforeContentChange(
                 true,
+                false,
                 false,
                 false,
                 false,
@@ -3094,8 +3096,20 @@ internal static class Program
                 true,
                 false,
                 false,
+                false,
                 false),
             "CastlePlanner disabled spawning while a host content category remained enabled");
+        Check(
+            !CastlePlanner.CastleSpawnContentPolicy.ShouldDisableBeforeContentChange(
+                true,
+                true,
+                false,
+                false,
+                false,
+                false,
+                false,
+                true),
+            "CastlePlanner disabled spawning while host-controlled braziers and flags remained enabled");
     }
 
     private static void TestSnapshotCompletionHook()
@@ -3265,6 +3279,7 @@ internal static class Program
                 PlayerId = 2,
                 Rotation = 6,
                 SpawnBraziersAndFlags = true,
+                FlagProjectileType = 22,
                 DisplayName = "Second Castle",
                 RawData = new short[] { 4, -2, 9 }
             },
@@ -3273,6 +3288,7 @@ internal static class Program
                 PlayerId = 1,
                 Rotation = 0,
                 SpawnBraziersAndFlags = false,
+                FlagProjectileType = ushort.MaxValue,
                 DisplayName = "First Castle",
                 RawData = new short[] { 1, 2, 3 }
             }
@@ -3283,8 +3299,31 @@ internal static class Program
         List<CastlePlanner.FreeCastleSelection> decoded =
             CastlePlanner.FreeCastleProtocol.DecodeSelections(restored);
         Check(decoded.Count == 2 && decoded[0].PlayerId == 1 && decoded[1].Rotation == 6 &&
-              !decoded[0].SpawnBraziersAndFlags && decoded[1].SpawnBraziersAndFlags,
+              !decoded[0].SpawnBraziersAndFlags && decoded[1].SpawnBraziersAndFlags &&
+              decoded[0].FlagProjectileType == ushort.MaxValue &&
+              decoded[1].FlagProjectileType == 22,
             "free-castle canonical transfer did not preserve player order and fixed rotation");
+        Check(CastlePlanner.FreeCastleProtocol.ProtocolVersion == 4,
+            "free-castle selection protocol was not advanced to v4");
+        Check(!string.Equals(
+                CastlePlanner.FreeCastleProtocol.HashSelectionContent(new short[] { 1, 2, 3 }, 9),
+                CastlePlanner.FreeCastleProtocol.HashSelectionContent(new short[] { 1, 2, 3 }, 22),
+                StringComparison.OrdinalIgnoreCase),
+            "free-castle content hash does not distinguish Lord flag types");
+
+        CastlePlanner.FreeCastleSelection tampered = decoded[1].Clone();
+        tampered.FlagProjectileType = 9;
+        bool rejectedFlagTampering = false;
+        try
+        {
+            CastlePlanner.FreeCastleProtocol.ValidateSelection(tampered);
+        }
+        catch (InvalidDataException)
+        {
+            rejectedFlagTampering = true;
+        }
+        Check(rejectedFlagTampering,
+            "free-castle protocol accepted a flag type changed after hashing");
         Check(CastlePlanner.FreeCastleSelectionLookup.TryGetRotation(decoded, 2, out int spawnedRotation) &&
               spawnedRotation == 6,
             "spawned-castle blueprint did not recover the controlled player's committed rotation");

@@ -56,10 +56,6 @@ namespace CastlePlanner
         private bool spawnSiegeEngines =
             CastleSpawnContentPolicy.DefaultSiegeEngines;
         private bool spawnBraziersAndFlags;
-        private readonly bool[] spawnBraziersAndFlagsData = new bool[9];
-        private readonly int[] spawnBraziersAndFlagsReportData =
-            Enumerable.Repeat(-1, 9).ToArray();
-        private int localPlayerId;
         private string selectedCastle;
         private bool castleCatalogLoaded;
         private Task<CatalogLoadResult> castleCatalogTask;
@@ -85,7 +81,8 @@ namespace CastlePlanner
                     spawnBuildings,
                     spawnDefensiveGroundFeatures,
                     spawnFearFactorBuildings,
-                    spawnSiegeEngines))
+                    spawnSiegeEngines,
+                    spawnBraziersAndFlags))
             {
                 return;
             }
@@ -120,23 +117,6 @@ namespace CastlePlanner
             ClearHotkeyCommand = new RelayCommand(ClearHotkey);
             HotkeyInputCommand =
                 new ParameterRelayCommand(CaptureNoesisHotkeyInput);
-        }
-
-        protected override void ConfigurePerPlayerLobbySettings(
-            Shared.PerPlayerLobbySettingsBuilder settings)
-        {
-            settings
-                .ResetSlotsWith(nameof(SpawnBraziersAndFlags), () => false)
-                .ResetSlotsWith(nameof(SpawnBraziersAndFlagsReport), () => -1)
-                .WhenLocalPlayerResolved(playerId =>
-                {
-                    localPlayerId = playerId;
-                    if (playerId >= 1 && playerId <= 8)
-                    {
-                        spawnBraziersAndFlagsData[playerId] = spawnBraziersAndFlags;
-                        spawnBraziersAndFlagsReportData[playerId] = 1;
-                    }
-                });
         }
 
         internal event Action SettingsChanged;
@@ -509,41 +489,14 @@ namespace CastlePlanner
             set => SetHostSpawnOption(ref spawnSiegeEngines, value, nameof(SpawnSiegeEngines));
         }
 
-        public bool[] SpawnBraziersAndFlagsData => spawnBraziersAndFlagsData;
-
-        public int[] SpawnBraziersAndFlagsReportData => spawnBraziersAndFlagsReportData;
-
-        // Retained as sync diagnostics and for compatibility with saved settings.
-        // Castle execution no longer gates on this sentinel: protocol v3 freezes
-        // the personal value inside the authenticated operation manifest instead.
-        [SyncPerPlayer]
-        public int SpawnBraziersAndFlagsReport
-        {
-            get => 1;
-            set { }
-        }
-
-        [SyncPerPlayer]
+        [SyncHostOnly]
         public bool SpawnBraziersAndFlags
         {
             get => spawnBraziersAndFlags;
-            set
-            {
-                if (!CanMutateSetting(nameof(SpawnBraziersAndFlags)) ||
-                    spawnBraziersAndFlags == value)
-                {
-                    return;
-                }
-
-                spawnBraziersAndFlags = value;
-                if (localPlayerId >= 1 && localPlayerId <= 8)
-                    spawnBraziersAndFlagsData[localPlayerId] = value;
-                OnPropertyChanged(nameof(SpawnBraziersAndFlags));
-                Shared.DebugLogHelper.LogInfo(
-                    log,
-                    $"CastlePlanner personal SpawnBraziersAndFlags changed to {value}.");
-                SettingsChanged?.Invoke();
-            }
+            set => SetHostSpawnOption(
+                ref spawnBraziersAndFlags,
+                value,
+                nameof(SpawnBraziersAndFlags));
         }
 
         [Shared.PresetLocal]
@@ -631,9 +584,6 @@ namespace CastlePlanner
 
         internal AivSpawnOptions GetSpawnOptions(int playerId)
         {
-            bool decorations = playerId >= 1 && playerId <= 8
-                ? spawnBraziersAndFlagsData[playerId]
-                : false;
             return new AivSpawnOptions
             {
                 SpawnFortifications = SpawnFortifications,
@@ -641,15 +591,13 @@ namespace CastlePlanner
                 SpawnDefensiveGroundFeatures = SpawnDefensiveGroundFeatures,
                 SpawnFearFactorBuildings = SpawnFearFactorBuildings,
                 SpawnSiegeEngines = SpawnSiegeEngines,
-                SpawnBraziersAndFlags = decorations
+                SpawnBraziersAndFlags = SpawnBraziersAndFlags
             };
         }
 
         internal AivSpawnOptions GetLocalPreviewSpawnOptions()
         {
-            AivSpawnOptions options = GetSpawnOptions(localPlayerId);
-            options.SpawnBraziersAndFlags = SpawnBraziersAndFlags;
-            return options;
+            return GetSpawnOptions(0);
         }
 
         internal AivSpawnOptions GetBlueprintDisplayOptions()
@@ -706,6 +654,10 @@ namespace CastlePlanner
                 propertyName == nameof(SpawnSiegeEngines)
                     ? value
                     : spawnSiegeEngines;
+            bool projectedBraziersAndFlags =
+                propertyName == nameof(SpawnBraziersAndFlags)
+                    ? value
+                    : spawnBraziersAndFlags;
 
             // Publish SpawnCastle=false before the last content option. Clients
             // therefore never observe an enabled spawn with an empty castle.
@@ -716,7 +668,8 @@ namespace CastlePlanner
                     projectedBuildings,
                     projectedDefensiveGroundFeatures,
                     projectedFearFactorBuildings,
-                    projectedSiegeEngines))
+                    projectedSiegeEngines,
+                    projectedBraziersAndFlags))
             {
                 SpawnCastle = false;
             }
@@ -736,6 +689,7 @@ namespace CastlePlanner
             SpawnFearFactorBuildings =
                 CastleSpawnContentPolicy.DefaultFearFactorBuildings;
             SpawnSiegeEngines = CastleSpawnContentPolicy.DefaultSiegeEngines;
+            SpawnBraziersAndFlags = false;
         }
 
         internal bool TryGetBlueprintHudPosition(
@@ -795,7 +749,11 @@ namespace CastlePlanner
                 return false;
             }
             if (!EnsureCastleCatalogLoaded() ||
-                !catalog.TryResolve(selectedCastle, out string filePath))
+                !catalog.TryResolveSelection(
+                    selectedCastle,
+                    out string filePath,
+                    out ushort flagProjectileType,
+                    out string flagWarning))
             {
                 error = $"The selected AIVJSON is unavailable: '{selectedCastle}'.";
                 return false;
@@ -803,6 +761,8 @@ namespace CastlePlanner
 
             try
             {
+                if (!string.IsNullOrEmpty(flagWarning))
+                    Shared.DebugLogHelper.LogWarning(log, flagWarning);
                 string json = File.ReadAllText(filePath);
                 short[] raw = AivRawDataEncoder.Encode(AivJsonReader.Parse(json));
                 selection = new FreeCastleSelection
@@ -810,9 +770,12 @@ namespace CastlePlanner
                     PlayerId = playerId,
                     Rotation = rotation,
                     SpawnBraziersAndFlags = SpawnBraziersAndFlags,
+                    FlagProjectileType = flagProjectileType,
                     DisplayName = Path.GetFileNameWithoutExtension(selectedCastle),
                     RawData = raw,
-                    ContentHash = FreeCastleProtocol.HashRaw(raw)
+                    ContentHash = FreeCastleProtocol.HashSelectionContent(
+                        raw,
+                        flagProjectileType)
                 };
                 FreeCastleProtocol.ValidateSelection(selection);
                 return true;
@@ -1130,7 +1093,6 @@ namespace CastlePlanner
             BlueprintHotkey = (int)KeyCode.None;
             BlueprintIconScale = 1.0;
             BlueprintIconAlpha = 0.3;
-            SpawnBraziersAndFlags = false;
         }
 
         private void NormalizeRuntimeState()

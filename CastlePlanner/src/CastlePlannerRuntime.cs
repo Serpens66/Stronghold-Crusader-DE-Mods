@@ -358,11 +358,9 @@ namespace CastlePlanner
                     .Select(request =>
                     {
                         AivSpawnOptions options = settings.GetSpawnOptions(request.PlayerId);
-                        // The authenticated manifest freezes each player's personal
-                        // decoration choice for the synchronized restart.
-                        options.SpawnBraziersAndFlags = gameMode.SharedRealMultiplayer
-                            ? request.SpawnBraziersAndFlags
-                            : settings.SpawnBraziersAndFlags;
+                        // Decorations can affect gameplay, so only the synchronized
+                        // host setting controls them on every peer.
+                        options.SpawnBraziersAndFlags = settings.SpawnBraziersAndFlags;
                         ApplyFixesGoodsyardPolicy(request.PlayerId, options);
                         return PreparePlayerImport(request, options);
                     })
@@ -409,6 +407,7 @@ namespace CastlePlanner
                 request.DisplayName,
                 request.ContentHash,
                 request.Rotation,
+                request.FlagProjectileType,
                 filteredRaw,
                 decoded,
                 filtered,
@@ -755,6 +754,7 @@ namespace CastlePlanner
                 ownedBuildingsBefore,
                 prepared.SourceDocument,
                 prepared.FilteredDocument,
+                prepared.FlagProjectileType,
                 prepared.Options);
         }
 
@@ -957,6 +957,7 @@ namespace CastlePlanner
                     if (!AivSpawnPlan.TryMapDecoration(
                             item.itemType,
                             castle.PlayerId,
+                            castle.FlagProjectileType,
                             out eMappers mapper,
                             out ProjectileType projectileType))
                     {
@@ -964,9 +965,12 @@ namespace CastlePlanner
                         continue;
                     }
 
-                    string decorationKey = $"{(int)mapper}:{tile.X}:{tile.Y}";
+                    string decorationKey = $"{(int)mapper}:{(ushort)projectileType}:{tile.X}:{tile.Y}";
                     if (!queuedDecorations.Add(decorationKey) ||
-                        HasMatchingDecoration(tileId, mapper, castle.PlayerId))
+                        HasMatchingDecoration(
+                            tileId,
+                            castle.PlayerId,
+                            projectileType))
                     {
                         Shared.DebugLogHelper.LogInfo(
                             log,
@@ -980,14 +984,17 @@ namespace CastlePlanner
                             tile.Y,
                             height,
                             mapper,
-                            projectileType))
+                            projectileType,
+                            out int projectileId))
                     {
                         Shared.DebugLogHelper.LogWarning(
                             log,
                             $"Supplemental decoration creation failed: playerId={castle.PlayerId}, sourceIndex={index}, mapper={mapper}, position=({tile.X},{tile.Y}), height={height}.");
                         continue;
                     }
-                    digestRows.Add($"decoration:{(int)mapper}:{castle.PlayerId}:{tile.X}:{tile.Y}:{height}");
+                    if (projectileType == ProjectileType.Disease)
+                        ExtraFeaturesFlagBridge.TryRegisterDiseaseFlag(projectileId, log);
+                    digestRows.Add($"decoration:{(int)mapper}:{(ushort)projectileType}:{castle.PlayerId}:{tile.X}:{tile.Y}:{height}");
                     continue;
                 }
 
@@ -1005,8 +1012,8 @@ namespace CastlePlanner
 
         private static bool HasMatchingDecoration(
             int tileId,
-            eMappers mapper,
-            int playerId)
+            int playerId,
+            ProjectileType expectedType)
         {
             short projectileId = GameTileManagerAPI.Instance.TileManager.FlyGrid[tileId];
             if (projectileId <= 0 ||
@@ -1016,15 +1023,8 @@ namespace CastlePlanner
                 return false;
             }
 
-            if (mapper == eMappers.MAPPER_BRAZIER)
-                return projectile->r_ProjectileType == ProjectileType.Brazier;
-
-            ProjectileType type = projectile->r_ProjectileType;
             return projectile->r_PlayerSourceId == (uint)playerId &&
-                (type == ProjectileType.Flag1 ||
-                 type == ProjectileType.Flag2 ||
-                 type == ProjectileType.Flag3 ||
-                 type == ProjectileType.CrusaderFlag);
+                projectile->r_ProjectileType == expectedType;
         }
 
         private bool TryCreateDecoration(
@@ -1033,8 +1033,10 @@ namespace CastlePlanner
             int worldY,
             int height,
             eMappers mapper,
-            ProjectileType projectileType)
+            ProjectileType projectileType,
+            out int projectileId)
         {
+            projectileId = 0;
             int projectileX;
             int projectileY;
             try
@@ -1076,17 +1078,21 @@ namespace CastlePlanner
             if (result <= 0 || result > int.MaxValue)
                 return false;
 
-            int projectileId = (int)result;
+            projectileId = (int)result;
             if (!GameProjectileManagerAPI.Instance.TryGetProjectileById(projectileId, out GameProjectile* projectile) ||
                 (projectile->r_AliveState != AliveState.NeedsInit && projectile->r_AliveState != AliveState.IsAlive) ||
                 projectile->r_ProjectileType != projectileType ||
                 projectile->r_PlayerSourceId != (uint)playerId ||
                 projectile->r_SourceWorldTileX != projectileX ||
-                projectile->r_SourceWorldTileY != projectileY)
+                projectile->r_SourceWorldTileY != projectileY ||
+                projectile->r_SourceElevation != height ||
+                projectile->r_TargetWorldTileX != projectileX ||
+                projectile->r_TargetWorldTileY != projectileY ||
+                projectile->r_TargetElevation != height)
             {
                 string observed = projectile == null
                     ? "unavailable"
-                    : $"state={projectile->r_AliveState}, type={projectile->r_ProjectileType}, owner={projectile->r_PlayerSourceId}, source=({projectile->r_SourceWorldTileX},{projectile->r_SourceWorldTileY}), current=({projectile->r_CurrentTileX},{projectile->r_CurrentTileY})";
+                    : $"state={projectile->r_AliveState}, type={projectile->r_ProjectileType}, owner={projectile->r_PlayerSourceId}, source=({projectile->r_SourceWorldTileX},{projectile->r_SourceWorldTileY},{projectile->r_SourceElevation}), target=({projectile->r_TargetWorldTileX},{projectile->r_TargetWorldTileY},{projectile->r_TargetElevation}), current=({projectile->r_CurrentTileX},{projectile->r_CurrentTileY})";
                 Shared.DebugLogHelper.LogWarning(
                     log,
                     $"Supplemental decoration verification failed: playerId={playerId}, projectileId={projectileId}, mapper={mapper}, projectileType={projectileType}, tile=({worldX},{worldY}), projectilePosition=({projectileX},{projectileY}), observed={observed}.");
@@ -2166,6 +2172,7 @@ namespace CastlePlanner
                 string displayName,
                 string contentHash,
                 int rotation,
+                ushort flagProjectileType,
                 short[] rawAiv,
                 AivJsonDocument sourceDocument,
                 AivJsonDocument filteredDocument,
@@ -2175,6 +2182,7 @@ namespace CastlePlanner
                 DisplayName = displayName ?? string.Empty;
                 ContentHash = contentHash ?? string.Empty;
                 Rotation = rotation;
+                FlagProjectileType = flagProjectileType;
                 RawAiv = rawAiv ?? throw new ArgumentNullException(nameof(rawAiv));
                 SourceDocument = sourceDocument ?? throw new ArgumentNullException(nameof(sourceDocument));
                 FilteredDocument = filteredDocument ?? throw new ArgumentNullException(nameof(filteredDocument));
@@ -2185,6 +2193,7 @@ namespace CastlePlanner
             public string DisplayName { get; }
             public string ContentHash { get; }
             public int Rotation { get; }
+            public ushort FlagProjectileType { get; }
             public short[] RawAiv { get; }
             public AivJsonDocument SourceDocument { get; }
             public AivJsonDocument FilteredDocument { get; }
@@ -2206,6 +2215,7 @@ namespace CastlePlanner
                 int ownedBuildingsAtPreparation,
                 AivJsonDocument sourceDocument,
                 AivJsonDocument filteredDocument,
+                ushort flagProjectileType,
                 AivSpawnOptions options)
             {
                 PlayerId = playerId;
@@ -2219,6 +2229,7 @@ namespace CastlePlanner
                 OwnedBuildingsAtPreparation = ownedBuildingsAtPreparation;
                 SourceDocument = sourceDocument;
                 FilteredDocument = filteredDocument;
+                FlagProjectileType = flagProjectileType;
                 Options = options;
             }
 
@@ -2233,6 +2244,7 @@ namespace CastlePlanner
             public int OwnedBuildingsAtPreparation { get; }
             public AivJsonDocument SourceDocument { get; }
             public AivJsonDocument FilteredDocument { get; }
+            public ushort FlagProjectileType { get; }
             public AivSpawnOptions Options { get; }
         }
 

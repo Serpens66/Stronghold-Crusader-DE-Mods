@@ -8,6 +8,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using SHCDESE.API;
+using SHCDESE.Interop.Enums;
 
 namespace CastlePlanner
 {
@@ -244,6 +245,24 @@ namespace CastlePlanner
                    File.Exists(fullPath);
         }
 
+        public bool TryResolveSelection(
+            string option,
+            out string fullPath,
+            out ushort flagProjectileType,
+            out string warning)
+        {
+            flagProjectileType = (ushort)ProjectileType.CrusaderFlag;
+            warning = string.Empty;
+            if (!TryResolve(option, out fullPath))
+                return false;
+
+            flagProjectileType = ResolveFlagProjectileType(
+                fullPath,
+                out _,
+                out warning);
+            return true;
+        }
+
         public IReadOnlyDictionary<string, string> CaptureHashes(
             Action<string> warning = null,
             bool forceRefresh = false)
@@ -256,7 +275,7 @@ namespace CastlePlanner
                 {
                     string path = entry.Value;
                     currentPaths.Add(path);
-                    hashes[entry.Key] = GetFingerprint(path, forceRefresh);
+                    hashes[entry.Key] = GetFingerprint(path, forceRefresh, warning);
                 }
                 catch (Exception exception)
                 {
@@ -290,7 +309,11 @@ namespace CastlePlanner
 
             try
             {
-                hash = ComputeHash(path);
+                ushort flagProjectileType = ResolveFlagProjectileType(
+                    path,
+                    out _,
+                    out _);
+                hash = ComputeHash(path, flagProjectileType);
                 return true;
             }
             catch (Exception exception)
@@ -300,31 +323,48 @@ namespace CastlePlanner
             }
         }
 
-        private static string ComputeHash(string path)
+        private static string ComputeHash(string path, ushort flagProjectileType)
         {
-            using (FileStream stream = File.OpenRead(path))
-            using (SHA256 sha256 = SHA256.Create())
-            {
-                return BitConverter.ToString(sha256.ComputeHash(stream))
-                    .Replace("-", string.Empty);
-            }
+            short[] raw = AivRawDataEncoder.Encode(
+                AivJsonReader.Parse(File.ReadAllText(path)));
+            return FreeCastleProtocol.HashSelectionContent(
+                raw,
+                flagProjectileType);
         }
 
-        private string GetFingerprint(string path, bool forceRefresh)
+        private string GetFingerprint(
+            string path,
+            bool forceRefresh,
+            Action<string> warning = null)
         {
             var info = new FileInfo(path);
+            ushort flagProjectileType = ResolveFlagProjectileType(
+                path,
+                out string lordPath,
+                out _);
+            FileInfo lordInfo = !string.IsNullOrEmpty(lordPath) && File.Exists(lordPath)
+                ? new FileInfo(lordPath)
+                : null;
             if (!forceRefresh &&
                 fingerprintByPath.TryGetValue(path, out CachedFingerprint cached) &&
                 cached.Length == info.Length &&
-                cached.LastWriteTimeUtcTicks == info.LastWriteTimeUtc.Ticks)
+                cached.LastWriteTimeUtcTicks == info.LastWriteTimeUtc.Ticks &&
+                cached.FlagProjectileType == flagProjectileType &&
+                string.Equals(cached.LordPath, lordPath, StringComparison.OrdinalIgnoreCase) &&
+                cached.LordLength == (lordInfo?.Length ?? -1) &&
+                cached.LordLastWriteTimeUtcTicks == (lordInfo?.LastWriteTimeUtc.Ticks ?? -1))
             {
                 return cached.Hash;
             }
 
-            string hash = ComputeHash(path);
+            string hash = ComputeHash(path, flagProjectileType);
             fingerprintByPath[path] = new CachedFingerprint(
                 info.Length,
                 info.LastWriteTimeUtc.Ticks,
+                flagProjectileType,
+                lordPath,
+                lordInfo?.Length ?? -1,
+                lordInfo?.LastWriteTimeUtc.Ticks ?? -1,
                 hash);
             return hash;
         }
@@ -341,7 +381,7 @@ namespace CastlePlanner
 
                 try
                 {
-                    string hash = GetFingerprint(path, forceRefresh: false);
+                    string hash = GetFingerprint(path, forceRefresh: false, warning);
                     if (firstOptionByHash.ContainsKey(hash))
                     {
                         pathByOption.Remove(option);
@@ -364,17 +404,41 @@ namespace CastlePlanner
 
         private sealed class CachedFingerprint
         {
-            public CachedFingerprint(long length, long lastWriteTimeUtcTicks, string hash)
+            public CachedFingerprint(
+                long length,
+                long lastWriteTimeUtcTicks,
+                ushort flagProjectileType,
+                string lordPath,
+                long lordLength,
+                long lordLastWriteTimeUtcTicks,
+                string hash)
             {
                 Length = length;
                 LastWriteTimeUtcTicks = lastWriteTimeUtcTicks;
+                FlagProjectileType = flagProjectileType;
+                LordPath = lordPath ?? string.Empty;
+                LordLength = lordLength;
+                LordLastWriteTimeUtcTicks = lordLastWriteTimeUtcTicks;
                 Hash = hash;
             }
 
             public long Length { get; }
             public long LastWriteTimeUtcTicks { get; }
+            public ushort FlagProjectileType { get; }
+            public string LordPath { get; }
+            public long LordLength { get; }
+            public long LordLastWriteTimeUtcTicks { get; }
             public string Hash { get; }
         }
+
+        internal static ushort ResolveFlagProjectileType(
+            string aivPath,
+            out string lordPath,
+            out string warning) =>
+            AivLordJsonResolver.ResolveFlagProjectileType(
+                aivPath,
+                out lordPath,
+                out warning);
 
         private static void AddLocalLordRoots(DiscoveryPlan plan)
         {

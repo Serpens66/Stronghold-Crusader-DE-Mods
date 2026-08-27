@@ -199,6 +199,17 @@ namespace AIVParser.Core
                     throw new JsonInputException($"Property '{location}' must be an object.");
                 }
 
+                if (frame.ObjectValue.Count == 0)
+                {
+                    result.Add(new AivJsonFrame
+                    {
+                        itemType = 0,
+                        tilePositionOfsets = new List<int>(),
+                        shouldPause = false
+                    });
+                    continue;
+                }
+
                 WarnUnknownProperties(frame, FrameProperties, location, diagnostics);
                 RequireProperty(frame, "itemType", location, diagnostics);
                 RequireProperty(frame, "tilePositionOfsets", location, diagnostics);

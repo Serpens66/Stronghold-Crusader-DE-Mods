@@ -21,7 +21,13 @@
              Link="CastlePlanner\BlueprintSortingPolicy.cs" />
     <Compile Include="..\..\CastlePlanner\src\AivJsonModels.cs"
              Link="CastlePlanner\AivJsonModels.cs" />
+    <Compile Include="..\..\CastlePlanner\src\AivWorldCoordinateTransform.cs"
+             Link="CastlePlanner\AivWorldCoordinateTransform.cs" />
     <Compile Include="..\..\CastlePlanner\src\BlueprintLayout.cs"
              Link="CastlePlanner\BlueprintLayout.cs" />
+    <Reference Include="SHCDESE">
+      <HintPath>..\..\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481\SHCDESE.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
   </ItemGroup>
 </Project>

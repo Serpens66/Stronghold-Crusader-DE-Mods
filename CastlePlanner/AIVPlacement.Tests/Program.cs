@@ -12,6 +12,8 @@ internal static class Program
     {
         if (args.Length == 3 && string.Equals(args[0], "--integration", StringComparison.Ordinal))
             return RunLocalIntegration(args[1], args[2]);
+        if (args.Length >= 2 && string.Equals(args[0], "--validate-spawn-aiv", StringComparison.Ordinal))
+            return ValidateSpawnAivFiles(args.Skip(1));
 
         var tests = new (string Name, Action Run)[]
         {
@@ -53,6 +55,9 @@ internal static class Program
             ("randomizes every complete tie", FindsEveryCompleteTie),
             ("randomizes every highest partial score tie", FindsEveryHighestPartialScoreTie),
             ("roundtrips strict native AIV spawn data", RoundtripsStrictNativeSpawnData),
+            ("roundtrips Vanilla no-op AIV frames", RoundtripsVanillaNoOpFrames),
+            ("accepts native Int16 AIV frame counts", AcceptsNativeInt16FrameCounts),
+            ("resolves LordJSON flag types deterministically", ResolvesLordJsonFlagTypesDeterministically),
             ("rejects malformed AIVJSON spawn data", RejectsMalformedAivJsonSpawnData),
             ("roundtrips known working AIVJSON files", RoundtripsKnownWorkingAivJsonFiles),
             ("rejects malformed native AIV spawn data", RejectsMalformedNativeSpawnData),
@@ -84,6 +89,36 @@ internal static class Program
         }
         Console.WriteLine($"{tests.Length - failures}/{tests.Length} tests passed.");
         return failures == 0 ? 0 : 1;
+    }
+
+    private static int ValidateSpawnAivFiles(IEnumerable<string> paths)
+    {
+        try
+        {
+            foreach (string path in paths)
+            {
+                CastlePlanner.AivJsonDocument document = CastlePlanner.AivJsonReader.Parse(
+                    File.ReadAllText(path));
+                short[] raw = CastlePlanner.AivRawDataEncoder.Encode(document);
+                CastlePlanner.AivJsonDocument decoded = CastlePlanner.AivSpawnPlan.Decode(raw);
+                ushort flagType = CastlePlanner.AivLordJsonResolver.ResolveFlagProjectileType(
+                    path,
+                    out string lordPath,
+                    out string warning);
+                Assert(raw.SequenceEqual(CastlePlanner.AivRawDataEncoder.Encode(decoded)),
+                    $"native roundtrip changed '{path}'");
+                Console.WriteLine(
+                    $"PASS spawn AIV '{path}': frames={document.frames.Count}, " +
+                    $"emptyFrames={document.frames.Count(frame => frame != null && (frame.tilePositionOfsets == null || frame.tilePositionOfsets.Count == 0))}, " +
+                    $"rawShorts={raw.Length}, flagType={flagType}, lord='{lordPath}', warning='{warning}'");
+            }
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"FAIL spawn AIV validation: {ex}");
+            return 1;
+        }
     }
 
     private static int RunLocalIntegration(string mapPath, string aivPath)
@@ -819,6 +854,8 @@ internal static class Program
             frames =
             [
                 new CastlePlanner.AivJsonFrame { itemType = 61, tilePositionOfsets = [5643], shouldPause = false },
+                new CastlePlanner.AivJsonFrame { itemType = 0, tilePositionOfsets = [], shouldPause = true },
+                new CastlePlanner.AivJsonFrame { itemType = 80, tilePositionOfsets = [], shouldPause = false },
                 new CastlePlanner.AivJsonFrame { itemType = 25, tilePositionOfsets = [5543, 5544], shouldPause = true },
                 new CastlePlanner.AivJsonFrame { itemType = 80, tilePositionOfsets = [5443], shouldPause = false }
             ],
@@ -832,12 +869,164 @@ internal static class Program
         short[] encoded = CastlePlanner.AivRawDataEncoder.Encode(document);
         CastlePlanner.AivJsonDocument decoded = CastlePlanner.AivSpawnPlan.Decode(encoded);
         Assert(encoded.SequenceEqual(CastlePlanner.AivRawDataEncoder.Encode(decoded)), "native AIV roundtrip changed data");
-        Assert(decoded.frames[1].shouldPause, "filtered pause frame was not decoded");
+        Assert(decoded.frames[1].shouldPause, "no-op pause frame was not decoded");
+        Equal(0, decoded.frames[1].itemType);
+        Equal(0, decoded.frames[1].tilePositionOfsets.Count);
+        Equal(80, decoded.frames[2].itemType);
+        Equal(0, decoded.frames[2].tilePositionOfsets.Count);
         Equal(2, decoded.miscItems.Count);
         Equal(6, decoded.miscItems[0].itemType);
         Equal(7, decoded.miscItems[0].number);
         Equal(3, decoded.miscItems[1].number);
     }
+
+    private static void RoundtripsVanillaNoOpFrames()
+    {
+        CastlePlanner.AivJsonDocument document = CreateStrictSpawnDocument();
+        document.frames.Insert(1, new CastlePlanner.AivJsonFrame
+        {
+            itemType = 0,
+            tilePositionOfsets = null,
+            shouldPause = false
+        });
+        document.frames.Insert(2, new CastlePlanner.AivJsonFrame
+        {
+            itemType = 80,
+            tilePositionOfsets = [],
+            shouldPause = true
+        });
+        document.frames.Insert(3, new CastlePlanner.AivJsonFrame
+        {
+            itemType = 0,
+            tilePositionOfsets = [],
+            shouldPause = true
+        });
+
+        short[] raw = CastlePlanner.AivRawDataEncoder.Encode(document);
+        CastlePlanner.AivJsonDocument decoded = CastlePlanner.AivSpawnPlan.Decode(raw);
+        Equal(0, decoded.frames[1].itemType);
+        Equal(0, decoded.frames[1].tilePositionOfsets.Count);
+        Assert(!decoded.frames[1].shouldPause, "unpaused no-op changed");
+        Equal(80, decoded.frames[2].itemType);
+        Equal(0, decoded.frames[2].tilePositionOfsets.Count);
+        Assert(decoded.frames[2].shouldPause, "typed empty pause was lost");
+        Equal(0, decoded.frames[3].itemType);
+        Equal(0, decoded.frames[3].tilePositionOfsets.Count);
+        Assert(decoded.frames[3].shouldPause, "no-op pause was lost");
+        Assert(raw.SequenceEqual(CastlePlanner.AivRawDataEncoder.Encode(decoded)),
+            "Vanilla no-op native roundtrip changed data");
+
+        CastlePlanner.AivJsonDocument filtered = CastlePlanner.AivSpawnPlan.Filter(
+            decoded,
+            new CastlePlanner.AivSpawnOptions
+            {
+                SpawnFortifications = true,
+                SpawnBuildings = false
+            });
+        Assert(filtered.frames.Any(frame => frame.itemType == 0 && frame.shouldPause),
+            "content filter removed a no-op frame");
+    }
+
+    private static void AcceptsNativeInt16FrameCounts()
+    {
+        foreach (int frameCount in new[] { 1000, 1025, short.MaxValue })
+        {
+            CastlePlanner.AivJsonDocument document = CreateStrictSpawnDocument();
+            while (document.frames.Count < frameCount)
+                document.frames.Add(new CastlePlanner.AivJsonFrame { itemType = 0, tilePositionOfsets = [] });
+
+            short[] raw = CastlePlanner.AivRawDataEncoder.Encode(document);
+            Equal(frameCount, CastlePlanner.AivSpawnPlan.Decode(raw).frames.Count);
+        }
+
+        CastlePlanner.AivJsonDocument excessive = CreateStrictSpawnDocument();
+        while (excessive.frames.Count <= short.MaxValue)
+            excessive.frames.Add(new CastlePlanner.AivJsonFrame { itemType = 0, tilePositionOfsets = [] });
+        AssertAivJsonRejected(excessive, "positive Int16 range");
+
+        CastlePlanner.AivJsonDocument unrepresentablePause = CreateStrictSpawnDocument();
+        while (unrepresentablePause.frames.Count < short.MaxValue)
+            unrepresentablePause.frames.Add(new CastlePlanner.AivJsonFrame { itemType = 0, tilePositionOfsets = [] });
+        unrepresentablePause.frames[short.MaxValue - 1].shouldPause = true;
+        AssertAivJsonRejected(unrepresentablePause, "pause index");
+    }
+
+    private static void ResolvesLordJsonFlagTypesDeterministically()
+    {
+        string root = Path.Combine(
+            Path.GetTempPath(),
+            "CastlePlannerLordResolverTests",
+            Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            string prefixDirectory = Path.Combine(root, "prefix");
+            Directory.CreateDirectory(prefixDirectory);
+            string plagueAiv = Path.Combine(prefixDirectory, "Plague Doctor3.aivjson");
+            File.WriteAllText(plagueAiv, "{}");
+            File.WriteAllText(Path.Combine(prefixDirectory, "Plague.lordjson"), LordJson(9));
+            string plagueLord = Path.Combine(prefixDirectory, "Plague Doctor.lordjson");
+            File.WriteAllText(plagueLord, LordJson(22));
+            Equal((ushort)22, CastlePlanner.AivLordJsonResolver.ResolveFlagProjectileType(
+                plagueAiv, out string resolvedLord, out string warning));
+            Equal(plagueLord, resolvedLord);
+            Equal(string.Empty, warning);
+
+            string singleDirectory = Path.Combine(root, "single");
+            Directory.CreateDirectory(singleDirectory);
+            string noxAiv = Path.Combine(singleDirectory, "Unrelated.aivjson");
+            File.WriteAllText(noxAiv, "{}");
+            File.WriteAllText(Path.Combine(singleDirectory, "Nox.lordjson"), LordJson(11));
+            Equal((ushort)11, CastlePlanner.AivLordJsonResolver.ResolveFlagProjectileType(
+                noxAiv, out _, out warning));
+            Equal(string.Empty, warning);
+
+            string ambiguousDirectory = Path.Combine(root, "ambiguous");
+            Directory.CreateDirectory(ambiguousDirectory);
+            string ambiguousAiv = Path.Combine(ambiguousDirectory, "Castle.aivjson");
+            File.WriteAllText(ambiguousAiv, "{}");
+            File.WriteAllText(Path.Combine(ambiguousDirectory, "Alpha.lordjson"), LordJson(9));
+            File.WriteAllText(Path.Combine(ambiguousDirectory, "Beta.lordjson"), LordJson(22));
+            Equal((ushort)13, CastlePlanner.AivLordJsonResolver.ResolveFlagProjectileType(
+                ambiguousAiv, out _, out warning));
+            Assert(warning.Contains("multiple", StringComparison.OrdinalIgnoreCase),
+                "ambiguous LordJSON fallback was not diagnosed");
+
+            string missingDirectory = Path.Combine(root, "missing");
+            Directory.CreateDirectory(missingDirectory);
+            string missingAiv = Path.Combine(missingDirectory, "Missing.aivjson");
+            File.WriteAllText(missingAiv, "{}");
+            Equal((ushort)13, CastlePlanner.AivLordJsonResolver.ResolveFlagProjectileType(
+                missingAiv, out _, out warning));
+            Assert(warning.Contains("no LordJSON", StringComparison.OrdinalIgnoreCase),
+                "missing LordJSON fallback was not diagnosed");
+
+            foreach ((string json, ushort expected) in new[]
+            {
+                (LordJson(0), (ushort)0),
+                (LordJson(ushort.MaxValue), ushort.MaxValue),
+                (LordJson(-1), (ushort)13),
+                (LordJson(ushort.MaxValue + 1), (ushort)13),
+                ("{broken", (ushort)13)
+            })
+            {
+                string valueDirectory = Path.Combine(root, Guid.NewGuid().ToString("N"));
+                Directory.CreateDirectory(valueDirectory);
+                string aiv = Path.Combine(valueDirectory, "Value.aivjson");
+                File.WriteAllText(aiv, "{}");
+                File.WriteAllText(Path.Combine(valueDirectory, "Value.lordjson"), json);
+                Equal(expected, CastlePlanner.AivLordJsonResolver.ResolveFlagProjectileType(
+                    aiv, out _, out _));
+            }
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    private static string LordJson(int flagType) =>
+        $"{{\"lord\":{{\"flag_type\":{flagType}}}}}";
 
     private static void RejectsMalformedAivJsonSpawnData()
     {
@@ -849,13 +1038,17 @@ internal static class Program
         missingPositions.frames[1].tilePositionOfsets = null;
         AssertAivJsonRejected(missingPositions, "frames[1].tilePositionOfsets is missing");
 
-        CastlePlanner.AivJsonDocument emptyPositions = CreateStrictSpawnDocument();
-        emptyPositions.frames[1].tilePositionOfsets.Clear();
-        AssertAivJsonRejected(emptyPositions, "frames[1].tilePositionOfsets must contain at least one position");
+        CastlePlanner.AivJsonDocument typedEmptyPositions = CreateStrictSpawnDocument();
+        typedEmptyPositions.frames[1].tilePositionOfsets.Clear();
+        CastlePlanner.AivRawDataEncoder.Encode(typedEmptyPositions);
+
+        CastlePlanner.AivJsonDocument noOpWithPosition = CreateStrictSpawnDocument();
+        noOpWithPosition.frames[1].itemType = 0;
+        AssertAivJsonRejected(noOpWithPosition, "itemType 0 must not contain positions");
 
         CastlePlanner.AivJsonDocument emptyKeep = CreateStrictSpawnDocument();
         emptyKeep.frames[0].tilePositionOfsets.Clear();
-        AssertAivJsonRejected(emptyKeep, "frames[0].tilePositionOfsets must contain at least one position");
+        AssertAivJsonRejected(emptyKeep, "must contain exactly one Keep position; found 0");
 
         CastlePlanner.AivJsonDocument compoundKeep = CreateStrictSpawnDocument();
         compoundKeep.frames[0].tilePositionOfsets.Add(5144);
@@ -885,17 +1078,6 @@ internal static class Program
         gridBoundaries.frames[0].tilePositionOfsets[0] = 0;
         gridBoundaries.frames[1].tilePositionOfsets[0] = 9999;
         CastlePlanner.AivRawDataEncoder.Encode(gridBoundaries);
-
-        CastlePlanner.AivJsonDocument tooManyFrames = CreateStrictSpawnDocument();
-        while (tooManyFrames.frames.Count <= 1000)
-        {
-            tooManyFrames.frames.Add(new CastlePlanner.AivJsonFrame
-            {
-                itemType = (int)eMappers.MAPPER_HOVEL,
-                tilePositionOfsets = [4040]
-            });
-        }
-        AssertAivJsonRejected(tooManyFrames, "native 1000-frame queue");
 
         CastlePlanner.AivJsonDocument tooManyPositions = CreateStrictSpawnDocument();
         tooManyPositions.frames[1].tilePositionOfsets =
@@ -1005,6 +1187,28 @@ internal static class Program
             rejectedPause = true;
         }
         Assert(rejectedPause, "invalid native pause index was accepted");
+
+        bool rejectedNoOpPositions = false;
+        try
+        {
+            CastlePlanner.AivSpawnPlan.Decode([0, 1, 0, 2, 61, 5044, 0, 1, 4040, 0]);
+        }
+        catch (InvalidDataException)
+        {
+            rejectedNoOpPositions = true;
+        }
+        Assert(rejectedNoOpPositions, "native item type 0 with positions was accepted");
+
+        bool rejectedCompoundKeep = false;
+        try
+        {
+            CastlePlanner.AivSpawnPlan.Decode([0, 1, 0, 1, -61, 2, 5044, 5144, 0]);
+        }
+        catch (InvalidDataException)
+        {
+            rejectedCompoundKeep = true;
+        }
+        Assert(rejectedCompoundKeep, "native Keep with multiple placements was accepted");
     }
 
     private static void FiltersEverySpawnFrameCategory()
@@ -1183,23 +1387,30 @@ internal static class Program
 
     private static void MapsBraziersAndOwnerSpecificFlags()
     {
-        Assert(CastlePlanner.AivSpawnPlan.TryMapDecoration(20, 1, out eMappers brazier, out ProjectileType brazierType), "brazier was not mapped");
+        Assert(CastlePlanner.AivSpawnPlan.TryMapDecoration(20, 1, 22, out eMappers brazier, out ProjectileType brazierType), "brazier was not mapped");
         Equal(eMappers.MAPPER_BRAZIER, brazier);
         Equal(ProjectileType.Brazier, brazierType);
-        Assert(CastlePlanner.AivSpawnPlan.TryMapDecoration(9020, 8, out eMappers encodedBrazier, out ProjectileType encodedBrazierType), "encoded brazier was not mapped");
+        Assert(CastlePlanner.AivSpawnPlan.TryMapDecoration(9020, 8, 22, out eMappers encodedBrazier, out ProjectileType encodedBrazierType), "encoded brazier was not mapped");
         Equal(eMappers.MAPPER_BRAZIER, encodedBrazier);
         Equal(ProjectileType.Brazier, encodedBrazierType);
 
         for (int playerId = 0; playerId <= 8; playerId++)
         {
-            Assert(CastlePlanner.AivSpawnPlan.TryMapDecoration(21, playerId, out eMappers flag, out ProjectileType flagType), $"flag for player {playerId} was not mapped");
+            Assert(CastlePlanner.AivSpawnPlan.TryMapDecoration(21, playerId, 22, out eMappers flag, out ProjectileType flagType), $"flag for player {playerId} was not mapped");
             Equal((eMappers)((int)eMappers.MAPPER_FLAG_TYPE0 + playerId), flag);
-            Equal(ProjectileType.CrusaderFlag, flagType);
+            Equal(ProjectileType.Disease, flagType);
         }
 
-        Assert(!CastlePlanner.AivSpawnPlan.TryMapDecoration(21, -1, out _, out _), "negative player id mapped a flag");
-        Assert(!CastlePlanner.AivSpawnPlan.TryMapDecoration(21, 9, out _, out _), "out-of-range player id mapped a flag");
-        Assert(!CastlePlanner.AivSpawnPlan.TryMapDecoration(22, 1, out _, out _), "unknown decoration type was mapped");
+        foreach (ushort value in new ushort[] { 0, 9, 10, 11, 12, 13, 22, 42, ushort.MaxValue })
+        {
+            Assert(CastlePlanner.AivSpawnPlan.TryMapDecoration(21, 1, value, out _, out ProjectileType type),
+                $"UInt16 flag type {value} was rejected");
+            Equal(value, (ushort)type);
+        }
+
+        Assert(!CastlePlanner.AivSpawnPlan.TryMapDecoration(21, -1, 22, out _, out _), "negative player id mapped a flag");
+        Assert(!CastlePlanner.AivSpawnPlan.TryMapDecoration(21, 9, 22, out _, out _), "out-of-range player id mapped a flag");
+        Assert(!CastlePlanner.AivSpawnPlan.TryMapDecoration(22, 1, 22, out _, out _), "unknown decoration type was mapped");
     }
 
     private static void KeepsSupplementalItemsOnNativeReferenceAnchor()

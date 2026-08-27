@@ -474,6 +474,8 @@ namespace CastlePlanner
 
         private void AcceptHostDecision(int playerId, FreeCastleSelection selection)
         {
+            if (selection != null)
+                selection.SpawnBraziersAndFlags = settings.SpawnBraziersAndFlags;
             if (!roster.Contains(playerId) || decisions.ContainsKey(playerId) || noneDecisions.Contains(playerId))
                 throw new InvalidOperationException("Duplicate or foreign castle decision.");
             if (selection == null)

@@ -70,15 +70,17 @@ namespace CastlePlanner
             for (int frameIndex = 0; frameIndex < frameCount; frameIndex++)
             {
                 int encodedType = Read(raw, ref cursor, $"frame[{frameIndex}].itemType");
-                if (encodedType == 0 || encodedType == short.MinValue)
+                if (encodedType == short.MinValue)
                     throw new InvalidDataException($"Invalid native item type at frame {frameIndex}: {encodedType}.");
 
                 int itemType = Math.Abs(encodedType);
                 int positionCount = encodedType > 0
                     ? 1
                     : Read(raw, ref cursor, $"frame[{frameIndex}].positionCount");
-                if (positionCount < 1)
+                if (positionCount < 0)
                     throw new InvalidDataException($"Invalid position count at frame {frameIndex}: {positionCount}.");
+                if (encodedType == 0 && positionCount != 0)
+                    throw new InvalidDataException($"Native no-op frame {frameIndex} contains positions.");
 
                 var positions = new List<int>(positionCount);
                 for (int positionIndex = 0; positionIndex < positionCount; positionIndex++)
@@ -89,7 +91,11 @@ namespace CastlePlanner
                 }
 
                 if (AivMapperCatalog.IsKeep(itemType))
-                    keepCount++;
+                {
+                    if (positionCount != 1)
+                        throw new InvalidDataException($"Native Keep frame {frameIndex} has {positionCount} positions.");
+                    keepCount += positionCount;
+                }
                 frames.Add(new AivJsonFrame
                 {
                     itemType = itemType,
@@ -150,9 +156,10 @@ namespace CastlePlanner
                 pauseDelayAmount = source.pauseDelayAmount,
                 frames = source.frames
                     .Where(frame =>
-                        (frame.itemType != (int)eMappers.MAPPER_STORES || options.SpawnStockpile) &&
+                        frame.itemType == 0 ||
+                        ((frame.itemType != (int)eMappers.MAPPER_STORES || options.SpawnStockpile) &&
                         (AivMapperCatalog.IsKeep(frame.itemType) ||
-                         IsFrameEnabled(ClassifyFrame(frame.itemType), options)))
+                         IsFrameEnabled(ClassifyFrame(frame.itemType), options))))
                     .Select(CloneFrame)
                     .ToList(),
                 miscItems = source.miscItems
@@ -225,6 +232,7 @@ namespace CastlePlanner
         public static bool TryMapDecoration(
             int itemType,
             int playerId,
+            ushort flagProjectileType,
             out eMappers mapper,
             out ProjectileType projectileType)
         {
@@ -236,7 +244,7 @@ namespace CastlePlanner
                     return true;
                 case 21 when playerId >= 0 && playerId <= 8:
                     mapper = (eMappers)((int)eMappers.MAPPER_FLAG_TYPE0 + playerId);
-                    projectileType = ProjectileType.CrusaderFlag;
+                    projectileType = (ProjectileType)flagProjectileType;
                     return true;
                 default:
                     mapper = default;

@@ -776,6 +776,19 @@ foreach ($sourceFile in $unsafeEditorChecks) {
 }
 if (Test-ModSelected 'CastlePlanner') {
     $castleSettingsSource = [IO.File]::ReadAllText((Join-Path $workspace 'CastlePlanner/src/CastlePlannerSettingsViewModel.cs'))
+    $castleSettingsXaml = [IO.File]::ReadAllText((Join-Path $workspace $settingsByMod.CastlePlanner))
+    if (-not $castleSettingsSource.Contains("[SyncHostOnly]`r`n        public bool SpawnBraziersAndFlags") -or
+        $castleSettingsSource.Contains('SpawnBraziersAndFlagsData') -or
+        $castleSettingsSource.Contains('SpawnBraziersAndFlagsReport')) {
+        throw 'CastlePlanner braziers and flags must be one host-only setting without per-player companions.'
+    }
+    $braziersBinding = 'IsChecked="{Binding SpawnBraziersAndFlags, Mode=TwoWay}"'
+    $braziersBindingIndex = $castleSettingsXaml.IndexOf($braziersBinding, [StringComparison]::Ordinal)
+    if ($braziersBindingIndex -lt 0 -or
+        $castleSettingsXaml.IndexOf($braziersBinding, $braziersBindingIndex + 1, [StringComparison]::Ordinal) -ge 0 -or
+        $braziersBindingIndex -gt $castleSettingsXaml.IndexOf('Text="{Binding ClientOptionsText}"', [StringComparison]::Ordinal)) {
+        throw 'CastlePlanner braziers and flags must appear exactly once in the host-options section.'
+    }
     if ($castleSettingsSource.Contains('SpawnSelectedCastleData[GetLocalPlayerId()]') -or
         $castleSettingsSource.Contains('SpawnInventoryManifestData[GetLocalPlayerId()]')) {
         throw 'CastlePlanner writes personal companion data through an unresolved slot-1 fallback.'

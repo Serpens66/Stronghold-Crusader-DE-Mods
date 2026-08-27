@@ -180,5 +180,9 @@ namespace ExtraFeatures
                     $"Extra Features market-price icon refresh failed; multiplier controls remain usable: {ex}");
             }
         }
+
+        public bool TryRegisterVanillaFlagDisease(int projectileId) =>
+            runtime != null &&
+            runtime.TryRegisterVanillaFlagDisease(projectileId);
     }
 }

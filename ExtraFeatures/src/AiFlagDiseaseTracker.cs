@@ -111,6 +111,41 @@ namespace ExtraFeatures
             projectile->r_ProjectileType == ProjectileType.Disease &&
             registry.ContainsGlobalId(projectile->r_GlobalId);
 
+        public bool TryTrackExternalDiseaseFlag(int slotId)
+        {
+            if (!trackingAvailable || slotId <= 0)
+                return false;
+
+            try
+            {
+                PruneInvalidProjectiles();
+                if (!GameProjectileManagerAPI.Instance.TryGetProjectileById(
+                        slotId,
+                        out GameProjectile* projectile) ||
+                    projectile == null ||
+                    projectile->r_ProjectileType != ProjectileType.Disease ||
+                    projectile->r_GlobalId == 0 ||
+                    (projectile->r_AliveState != AliveState.NeedsInit &&
+                     projectile->r_AliveState != AliveState.IsAlive))
+                {
+                    return false;
+                }
+
+                registry.Track(slotId, projectile->r_GlobalId);
+                Shared.DebugLogHelper.LogDebug(
+                    log,
+                    $"Registered external Vanilla-equivalent Disease flag: slot={slotId}, globalId={projectile->r_GlobalId}.");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    $"Could not register external Vanilla-equivalent Disease flag slot {slotId}: {ex.GetBaseException().Message}.");
+                return false;
+            }
+        }
+
         public void Dispose()
         {
             if (disposed)

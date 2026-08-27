@@ -25,7 +25,8 @@ namespace CastlePlanner
             bool buildings,
             bool defensiveGroundFeatures,
             bool fearFactorBuildings,
-            bool siegeEngines)
+            bool siegeEngines,
+            bool braziersAndFlags)
         {
             return currentSpawnCastle &&
                 canEditHostSettings &&
@@ -34,7 +35,8 @@ namespace CastlePlanner
                     buildings,
                     defensiveGroundFeatures,
                     fearFactorBuildings,
-                    siegeEngines);
+                    siegeEngines,
+                    braziersAndFlags);
         }
 
         internal static bool HasAnyEnabled(
@@ -42,13 +44,15 @@ namespace CastlePlanner
             bool buildings,
             bool defensiveGroundFeatures,
             bool fearFactorBuildings,
-            bool siegeEngines)
+            bool siegeEngines,
+            bool braziersAndFlags)
         {
             return fortifications ||
                 buildings ||
                 defensiveGroundFeatures ||
                 fearFactorBuildings ||
-                siegeEngines;
+                siegeEngines ||
+                braziersAndFlags;
         }
     }
 }

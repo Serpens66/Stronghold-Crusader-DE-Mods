@@ -90,14 +90,6 @@ namespace AIVParser.Core
                 diagnostics.Add(Error("AIV004", "The 'frames' array must not be empty.", "$.frames"));
             }
 
-            if (sourceFrames.Count > 1000)
-            {
-                diagnostics.Add(Warning(
-                    "AIV005",
-                    $"The file has {sourceFrames.Count} frames; the documented native AIV queue has 1000 slots.",
-                    "$.frames"));
-            }
-
             if (sourceFrames.Count > short.MaxValue)
             {
                 diagnostics.Add(Error(
@@ -126,14 +118,14 @@ namespace AIVParser.Core
                 }
 
                 AivMapperInfo mapper = AivMapperCatalog.Resolve(source.itemType);
-                if (source.itemType <= 0)
+                if (source.itemType < 0)
                 {
                     diagnostics.Add(Error(
                         "AIV009",
-                        $"itemType={source.itemType} must be positive in DE JSON.",
+                        $"itemType={source.itemType} must be non-negative in DE JSON.",
                         frameLocation + ".itemType"));
                 }
-                else if (!mapper.IsKnown)
+                else if (source.itemType != 0 && !mapper.IsKnown)
                 {
                     diagnostics.Add(Warning(
                         "AIV010",
@@ -149,11 +141,11 @@ namespace AIVParser.Core
                         "Required array 'tilePositionOfsets' is missing.",
                         frameLocation + ".tilePositionOfsets"));
                 }
-                else if (source.tilePositionOfsets.Count == 0)
+                else if (source.itemType == 0 && source.tilePositionOfsets.Count != 0)
                 {
                     diagnostics.Add(Error(
                         "AIV012",
-                        "A frame must contain at least one tile offset.",
+                        "A no-op frame with itemType 0 must not contain tile offsets.",
                         frameLocation + ".tilePositionOfsets"));
                 }
                 else

@@ -670,6 +670,11 @@ namespace ExtraFeatures
             }
         }
 
+        public bool TryRegisterVanillaFlagDisease(int projectileId) =>
+            !plagueDurationPatchUnavailable &&
+            plagueDurationPatch != null &&
+            plagueDurationPatch.TryRegisterVanillaFlagDisease(projectileId);
+
         private void DisablePlagueDurationPatch(Exception failure)
         {
             if (plagueDurationPatchUnavailable)

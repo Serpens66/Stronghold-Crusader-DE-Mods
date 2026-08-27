@@ -191,6 +191,11 @@ namespace ExtraFeatures
             }
         }
 
+        public bool TryRegisterVanillaFlagDisease(int projectileId) =>
+            conditionalExceptionAvailable &&
+            aiFlagDiseaseTracker != null &&
+            aiFlagDiseaseTracker.TryTrackExternalDiseaseFlag(projectileId);
+
         private void SetLifetime(int desiredLifetime)
         {
             if (desiredLifetime == expectedLifetime)

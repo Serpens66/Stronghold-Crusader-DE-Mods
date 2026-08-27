@@ -9,8 +9,6 @@ namespace CastlePlanner
     {
         private const int GridTileCount = 10000;
         private const int MaxPauseEntries = 50;
-        // Native AIV preparation owns a fixed 1000-entry build queue.
-        private const int MaxFrameEntries = 1000;
 
         public static short[] Encode(AivJsonDocument document)
         {
@@ -22,10 +20,10 @@ namespace CastlePlanner
                 throw new InvalidDataException("The AIVJSON miscItems array is missing.");
             if (document.frames.Count == 0)
                 throw new InvalidDataException("The AIVJSON frames array is empty.");
-            if (document.frames.Count > MaxFrameEntries)
+            if (document.frames.Count > short.MaxValue)
             {
                 throw new InvalidDataException(
-                    $"The AIVJSON frames count exceeds the native {MaxFrameEntries}-frame queue: {document.frames.Count}.");
+                    $"The AIVJSON frames count exceeds the native positive Int16 range: {document.frames.Count}.");
             }
 
             var raw = new List<short>();
@@ -33,16 +31,23 @@ namespace CastlePlanner
 
             // Vanilla always starts the pause table with frame zero.
             var pauses = new List<short> { 0 };
-            short nativeFrameNumber = 2;
-            foreach (AivJsonFrame frame in document.frames)
+            for (int frameIndex = 0; frameIndex < document.frames.Count; frameIndex++)
             {
+                AivJsonFrame frame = document.frames[frameIndex];
                 if (frame == null)
                     throw new InvalidDataException("The AIVJSON contains a null frame.");
 
-                if (frame.shouldPause && pauses.Count < MaxPauseEntries)
-                    pauses.Add(nativeFrameNumber);
-
-                nativeFrameNumber = checked((short)(nativeFrameNumber + 1));
+                int nativeFrameNumber = frameIndex + 2;
+                if (frame.shouldPause)
+                {
+                    if (nativeFrameNumber > short.MaxValue)
+                    {
+                        throw new InvalidDataException(
+                            $"frames[{frameIndex}] pause index is outside the native positive Int16 range: {nativeFrameNumber}.");
+                    }
+                    if (pauses.Count < MaxPauseEntries)
+                        pauses.Add((short)nativeFrameNumber);
+                }
             }
 
             raw.Add(ToShort(pauses.Count, "pause count"));
@@ -54,15 +59,22 @@ namespace CastlePlanner
             {
                 AivJsonFrame frame = document.frames[frameIndex];
                 ValidateItemType(frame.itemType, $"frames[{frameIndex}].itemType");
+                if (frame.itemType == 0)
+                {
+                    if (frame.tilePositionOfsets != null && frame.tilePositionOfsets.Count != 0)
+                    {
+                        throw new InvalidDataException(
+                            $"frames[{frameIndex}] with itemType 0 must not contain positions.");
+                    }
+
+                    raw.Add(0);
+                    raw.Add(0);
+                    continue;
+                }
                 if (frame.tilePositionOfsets == null)
                 {
                     throw new InvalidDataException(
                         $"frames[{frameIndex}].tilePositionOfsets is missing.");
-                }
-                if (frame.tilePositionOfsets.Count == 0)
-                {
-                    throw new InvalidDataException(
-                        $"frames[{frameIndex}].tilePositionOfsets must contain at least one position.");
                 }
                 if (frame.tilePositionOfsets.Count > short.MaxValue)
                 {
@@ -135,10 +147,10 @@ namespace CastlePlanner
 
         private static void ValidateItemType(int itemType, string field)
         {
-            if (itemType <= 0 || itemType > short.MaxValue)
+            if (itemType < 0 || itemType > short.MaxValue)
             {
                 throw new InvalidDataException(
-                    $"{field} is outside the native positive Int16 range: {itemType}.");
+                    $"{field} is outside the native non-negative Int16 range: {itemType}.");
             }
         }
 

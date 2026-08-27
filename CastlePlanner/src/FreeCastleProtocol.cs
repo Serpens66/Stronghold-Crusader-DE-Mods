@@ -193,6 +193,7 @@ namespace CastlePlanner
         public int PlayerId;
         public int Rotation;
         public bool SpawnBraziersAndFlags;
+        public ushort FlagProjectileType;
         public string DisplayName = string.Empty;
         public string ContentHash = string.Empty;
         public short[] RawData = Array.Empty<short>();
@@ -204,6 +205,7 @@ namespace CastlePlanner
             PlayerId = PlayerId,
             Rotation = Rotation,
             SpawnBraziersAndFlags = SpawnBraziersAndFlags,
+            FlagProjectileType = FlagProjectileType,
             DisplayName = DisplayName ?? string.Empty,
             ContentHash = ContentHash ?? string.Empty,
             RawData = RawData == null ? Array.Empty<short>() : (short[])RawData.Clone()
@@ -212,7 +214,7 @@ namespace CastlePlanner
 
     internal static class FreeCastleProtocol
     {
-        internal const int ProtocolVersion = 3;
+        internal const int ProtocolVersion = 4;
         internal const int PreviewTimeoutSeconds = 120;
         internal const int MaximumChunkBytes = 24 * 1024;
         internal const int MaximumUncompressedBytes = 8 * 1024 * 1024;
@@ -244,6 +246,7 @@ namespace CastlePlanner
                     writer.Write(selection.PlayerId);
                     writer.Write(selection.Rotation);
                     writer.Write(selection.SpawnBraziersAndFlags);
+                    writer.Write(selection.FlagProjectileType);
                     WriteString(writer, selection.DisplayName, 512);
                     writer.Write(selection.RawData.Length);
                     foreach (short value in selection.RawData)
@@ -285,6 +288,7 @@ namespace CastlePlanner
                     int playerId = reader.ReadInt32();
                     int rotation = reader.ReadInt32();
                     bool spawnBraziersAndFlags = reader.ReadBoolean();
+                    ushort flagProjectileType = reader.ReadUInt16();
                     string displayName = ReadString(reader, 512);
                     int shortCount = reader.ReadInt32();
                     if (shortCount < 0 || shortCount > MaximumUncompressedBytes / 2)
@@ -298,9 +302,10 @@ namespace CastlePlanner
                         PlayerId = playerId,
                         Rotation = rotation,
                         SpawnBraziersAndFlags = spawnBraziersAndFlags,
+                        FlagProjectileType = flagProjectileType,
                         DisplayName = displayName,
                         RawData = raw,
-                        ContentHash = HashRaw(raw)
+                        ContentHash = HashSelectionContent(raw, flagProjectileType)
                     };
                     ValidateSelection(selection);
                     if (playerId <= previousPlayerId)
@@ -387,6 +392,18 @@ namespace CastlePlanner
             return HashBytes(bytes);
         }
 
+        public static string HashSelectionContent(
+            short[] raw,
+            ushort flagProjectileType)
+        {
+            short[] source = raw ?? Array.Empty<short>();
+            var bytes = new byte[source.Length * 2 + 2];
+            Buffer.BlockCopy(source, 0, bytes, 0, source.Length * 2);
+            bytes[bytes.Length - 2] = (byte)(flagProjectileType & 0xff);
+            bytes[bytes.Length - 1] = (byte)(flagProjectileType >> 8);
+            return HashBytes(bytes);
+        }
+
         public static string HashBytes(byte[] data)
         {
             using (SHA256 sha = SHA256.Create())
@@ -411,7 +428,9 @@ namespace CastlePlanner
             }
             if (selection.RawData == null || selection.RawData.Length == 0)
                 throw new InvalidDataException("Selected castle has no AIV data.");
-            string hash = HashRaw(selection.RawData);
+            string hash = HashSelectionContent(
+                selection.RawData,
+                selection.FlagProjectileType);
             if (!string.IsNullOrEmpty(selection.ContentHash) &&
                 !string.Equals(selection.ContentHash, hash, StringComparison.OrdinalIgnoreCase))
             {

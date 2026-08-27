@@ -39,6 +39,7 @@ internal static class Program
             ("Project Blueprint rotations like Vanilla native fit", TestNativeBlueprintProjection),
             ("Combine castle and camera rotations for Blueprint visuals", TestBlueprintVisualRotation),
             ("Parse build order and multi-tile paths", TestValidParse),
+            ("Accept Vanilla no-op and long frame sequences", TestVanillaNoOpFrames),
             ("Normalize DE misc types", TestMiscNormalization),
             ("Preserve unknown positive types", TestUnknownTypes),
             ("Accept empty misc array", TestEmptyMisc),
@@ -1438,6 +1439,42 @@ internal static class Program
         AssertEqual(new AivGridPoint(5044), parsed.Blueprint.KeepAnchor!.Value);
     }
 
+    private static void TestVanillaNoOpFrames()
+    {
+        AivJsonLoadResult loaded = AivJsonFileLoader.LoadText(
+            "{\"pauseDelayAmount\":100,\"frames\":[" +
+            "{\"itemType\":61,\"tilePositionOfsets\":[5044],\"shouldPause\":false}," +
+            "{}," +
+            "{\"itemType\":80,\"tilePositionOfsets\":[],\"shouldPause\":true}]," +
+            "\"miscItems\":[]}",
+            "no-op.aivjson");
+        Assert(loaded.Document != null, "No-op JSON was not loaded.");
+        Assert(!loaded.Diagnostics.Any(diagnostic => diagnostic.Severity == AivDiagnosticSeverity.Error),
+            "An exact empty frame object produced loader errors.");
+        AssertEqual(0, loaded.Document.frames[1].itemType);
+        AssertEqual(0, loaded.Document.frames[1].tilePositionOfsets.Count);
+        Assert(!loaded.Document.frames[1].shouldPause, "Empty frame default pause was not false.");
+
+        while (loaded.Document.frames.Count < 1025)
+        {
+            loaded.Document.frames.Add(new AivJsonFrame
+            {
+                itemType = 0,
+                tilePositionOfsets = new List<int>(),
+                shouldPause = false
+            });
+        }
+
+        AivParseResult parsed = new AivBlueprintParser().Parse(loaded.Document);
+        Assert(parsed.IsValid, "Vanilla-compatible no-op or 1025-frame input was rejected.");
+        Assert(!parsed.Diagnostics.Any(diagnostic => diagnostic.Code == "AIV005"),
+            "The obsolete 1000-frame warning remains active.");
+        AssertEqual(1025, parsed.Blueprint.Frames.Count);
+        AssertEqual(0, parsed.Blueprint.Frames[1].Positions.Count);
+        AssertEqual(0, parsed.Blueprint.Frames[2].Positions.Count);
+        Assert(parsed.Blueprint.Frames[2].ShouldPause, "Typed empty pause was not preserved.");
+    }
+
     private static void TestMiscNormalization()
     {
         AivJsonDocument document = CreateValidDocument();
@@ -1509,7 +1546,12 @@ internal static class Program
     {
         AivJsonDocument empty = CreateValidDocument();
         empty.frames[1].tilePositionOfsets.Clear();
-        AssertHasError(new AivBlueprintParser().Parse(empty), "AIV012");
+        Assert(new AivBlueprintParser().Parse(empty).IsValid,
+            "A typed empty frame should be Vanilla-compatible.");
+
+        AivJsonDocument invalidNoOp = CreateValidDocument();
+        invalidNoOp.frames[1].itemType = 0;
+        AssertHasError(new AivBlueprintParser().Parse(invalidNoOp), "AIV012");
 
         AivJsonDocument offGrid = CreateValidDocument();
         offGrid.frames[1].tilePositionOfsets[0] = 10000;
