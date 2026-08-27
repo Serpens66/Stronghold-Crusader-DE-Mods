@@ -55,6 +55,9 @@ namespace BugfixesAndQoL
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
         private readonly AssassinClimbRuntime climbRuntime;
+        // ASSASSIN_RESERVED_CLIMB_DIAGNOSTIC_BEGIN
+        private readonly AssassinReservedClimbDiagnostic reservedClimbDiagnostic;
+        // ASSASSIN_RESERVED_CLIMB_DIAGNOSTIC_END
         private readonly int[] costs = new int[CoordinateCount];
         private readonly int[] parents = new int[CoordinateCount];
         private readonly int[] insertionOrder = new int[CoordinateCount];
@@ -68,6 +71,7 @@ namespace BugfixesAndQoL
         private AssassinPathBuilderDelegate rootedDetour;
         private SpecialTilePredicateDelegate specialTilePredicate;
         private NativeDetour detour;
+        private AssassinPathReconstructionPatch reconstructionPatch;
         private byte* validCoordinates;
         private int* rowLookup;
         private uint* tileFlags;
@@ -83,12 +87,18 @@ namespace BugfixesAndQoL
         private bool fallbackLogged;
         private bool coordinateMapValidated;
         private bool coordinateValidationFailureLogged;
+        // ASSASSIN_RESERVED_CLIMB_DIAGNOSTIC_BEGIN
+        private bool diagnosticTickSubscribed;
+        // ASSASSIN_RESERVED_CLIMB_DIAGNOSTIC_END
 
         public AssassinPathfindingRuntime(ManualLogSource log, BugfixesAndQoLViewModel settings, AssassinClimbRuntime climbRuntime)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
             this.climbRuntime = climbRuntime ?? throw new ArgumentNullException(nameof(climbRuntime));
+            // ASSASSIN_RESERVED_CLIMB_DIAGNOSTIC_BEGIN
+            reservedClimbDiagnostic = new AssassinReservedClimbDiagnostic(log);
+            // ASSASSIN_RESERVED_CLIMB_DIAGNOSTIC_END
             for (int node = 0; node < CoordinateCount; node++)
             {
                 costs[node] = int.MaxValue;
@@ -135,36 +145,79 @@ namespace BugfixesAndQoL
             rootedDetour = BuildWeightedPath;
             IntPtr detourAddress = Marshal.GetFunctionPointerForDelegate(rootedDetour);
             NativeDetour installed = null;
+            AssassinPathReconstructionPatch pendingReconstructionPatch = null;
             try
             {
+                pendingReconstructionPatch = new AssassinPathReconstructionPatch(
+                    log,
+                    newLibraryHandle,
+                    memory,
+                    referenceHashMatches: true);
                 installed = new NativeDetour(resolved, detourAddress, new NativeDetourConfig { ManualApply = true });
                 original = installed.GenerateTrampoline<AssassinPathBuilderDelegate>();
                 installed.Apply();
                 detour = installed;
+                reconstructionPatch = pendingReconstructionPatch;
+                ApplySetting();
                 LogDebug($"weighted Assassin pathfinding installed at RVA 0x{AssassinBuilderRva:X}; climb costs={AssassinClimbCostPolicy.MinimumClimbTicks}/{AssassinClimbCostPolicy.LowWallClimbTicks}/{AssassinClimbCostPolicy.NormalWallClimbTicks} ticks.");
             }
             catch
             {
+                if (pendingReconstructionPatch?.IsApplied == true)
+                    pendingReconstructionPatch.SetEnabled(false);
                 installed?.Dispose();
                 original = null;
                 rootedDetour = null;
+                detour = null;
+                reconstructionPatch = null;
                 throw;
             }
+        }
+
+        public void ApplySetting()
+        {
+            AssassinPathReconstructionPatch patch = reconstructionPatch;
+            if (patch == null)
+                return;
+
+            patch.SetEnabled(AssassinClimbTransitionPolicy.ShouldRelaxPathReconstruction(
+                settings.EnableMod,
+                settings.EnableImprovedAssassinPathfinding,
+                IsInstalled));
         }
 
         public void BeginMap()
         {
             ResetMapValidation();
+            // ASSASSIN_RESERVED_CLIMB_DIAGNOSTIC_BEGIN
+            reservedClimbDiagnostic.BeginMap();
+            if (!diagnosticTickSubscribed)
+            {
+                GameTimeManagerAPI.Instance.OnTick += OnDiagnosticGameTick;
+                diagnosticTickSubscribed = true;
+            }
+            // ASSASSIN_RESERVED_CLIMB_DIAGNOSTIC_END
         }
 
         public void EndMap()
         {
+            // ASSASSIN_RESERVED_CLIMB_DIAGNOSTIC_BEGIN
+            if (diagnosticTickSubscribed)
+            {
+                GameTimeManagerAPI.Instance.OnTick -= OnDiagnosticGameTick;
+                diagnosticTickSubscribed = false;
+            }
+            reservedClimbDiagnostic.EndMap();
+            // ASSASSIN_RESERVED_CLIMB_DIAGNOSTIC_END
             ResetMapValidation();
         }
 
         private int BuildWeightedPath(IntPtr context, int startX, int startY, int targetX, int targetY, int maximumNodes, int continuation)
         {
             AssassinPathBuilderDelegate vanilla = original;
+            // ASSASSIN_RESERVED_CLIMB_DIAGNOSTIC_BEGIN
+            int diagnosticRequestId = 0;
+            // ASSASSIN_RESERVED_CLIMB_DIAGNOSTIC_END
             if (vanilla == null)
                 return 0;
 
@@ -184,6 +237,22 @@ namespace BugfixesAndQoL
                     return vanillaResult;
 
                 bool allowClimbing = climbRuntime.IsClimbingAllowed(playerId);
+                // Never publish a relaxed route unless Vanilla can reconstruct the same
+                // validated reserved predecessor. This keeps patch failures fail-closed.
+                bool allowWalkableReservedStartTiles = improvedPathfindingEnabled &&
+                    reconstructionPatch?.IsApplied == true;
+                // ASSASSIN_RESERVED_CLIMB_DIAGNOSTIC_BEGIN
+                diagnosticRequestId = reservedClimbDiagnostic.BeginRequest(
+                    playerId,
+                    startX,
+                    startY,
+                    targetX,
+                    targetY,
+                    maximumNodes,
+                    speedDelay,
+                    allowClimbing,
+                    vanillaResult);
+                // ASSASSIN_RESERVED_CLIMB_DIAGNOSTIC_END
                 bool found = TryBuildWeightedRoute(
                     context,
                     startX,
@@ -193,11 +262,18 @@ namespace BugfixesAndQoL
                     maximumNodes,
                     speedDelay,
                     allowClimbing,
-                    allowWalkableReservedStartTiles: improvedPathfindingEnabled);
+                    allowWalkableReservedStartTiles: allowWalkableReservedStartTiles,
+                    diagnosticRequestId: diagnosticRequestId);
+                // ASSASSIN_RESERVED_CLIMB_DIAGNOSTIC_BEGIN
+                reservedClimbDiagnostic.CompleteRequest(diagnosticRequestId, found);
+                // ASSASSIN_RESERVED_CLIMB_DIAGNOSTIC_END
                 return found ? 1 : 0;
             }
             catch (Exception ex)
             {
+                // ASSASSIN_RESERVED_CLIMB_DIAGNOSTIC_BEGIN
+                reservedClimbDiagnostic.ReportFailure(diagnosticRequestId, ex);
+                // ASSASSIN_RESERVED_CLIMB_DIAGNOSTIC_END
                 if (!fallbackLogged)
                 {
                     fallbackLogged = true;
@@ -216,7 +292,8 @@ namespace BugfixesAndQoL
             int maximumNodes,
             int speedDelay,
             bool allowClimbing,
-            bool allowWalkableReservedStartTiles)
+            bool allowWalkableReservedStartTiles,
+            int diagnosticRequestId)
         {
             if (!IsValidCoordinate(startX, startY) || !IsValidCoordinate(targetX, targetY))
                 return false;
@@ -241,7 +318,7 @@ namespace BugfixesAndQoL
                 int currentNode = Pop();
                 expanded++;
                 if (currentNode == targetNode)
-                    return CommitRoute(context, startNode, targetNode);
+                    return CommitRoute(context, startNode, targetNode, expanded, diagnosticRequestId);
 
                 int currentX = currentNode % MapWidth;
                 int currentY = currentNode / MapWidth;
@@ -266,11 +343,41 @@ namespace BugfixesAndQoL
                     bool climbEdge = false;
                     if (!ordinaryEdge)
                     {
-                        if ((direction & 1) != 0 || !IsVanillaAssassinFallback(
-                                currentTile,
-                                nextTile,
-                                currentFlags,
-                                allowWalkableReservedStartTiles))
+                        if ((direction & 1) != 0)
+                            continue;
+                        bool fallbackAccepted = IsVanillaAssassinFallback(
+                            currentTile,
+                            nextTile,
+                            currentFlags,
+                            allowWalkableReservedStartTiles,
+                            out bool targetAccepted,
+                            out bool startAccepted,
+                            out bool targetBuildingAccepted,
+                            out bool hasWall);
+                        // ASSASSIN_RESERVED_CLIMB_DIAGNOSTIC_BEGIN
+                        reservedClimbDiagnostic.ObserveCandidate(
+                            diagnosticRequestId,
+                            currentX,
+                            currentY,
+                            currentTile,
+                            nextX,
+                            nextY,
+                            nextTile,
+                            direction,
+                            buildingLayer[currentTile],
+                            buildingLayer[nextTile],
+                            occupancyLayer[currentTile],
+                            occupancyLayer[nextTile],
+                            currentFlags,
+                            tileFlags[nextTile],
+                            targetAccepted,
+                            startAccepted,
+                            targetBuildingAccepted,
+                            hasWall,
+                            fallbackAccepted,
+                            allowClimbing);
+                        // ASSASSIN_RESERVED_CLIMB_DIAGNOSTIC_END
+                        if (!fallbackAccepted)
                             continue;
                         climbEdge = true;
                         if (!allowClimbing)
@@ -304,10 +411,14 @@ namespace BugfixesAndQoL
             int current,
             int target,
             uint currentFlags,
-            bool allowWalkableReservedStartTiles)
+            bool allowWalkableReservedStartTiles,
+            out bool targetAccepted,
+            out bool startAccepted,
+            out bool targetBuildingAccepted,
+            out bool hasWall)
         {
             uint targetFlags = tileFlags[target];
-            bool targetAccepted = (targetFlags & AssassinFallbackBlockingMask) == 0;
+            targetAccepted = (targetFlags & AssassinFallbackBlockingMask) == 0;
             if (!targetAccepted && (targetFlags & NativeSpecialTileFlag) != 0)
             {
                 targetAccepted = specialTilePredicate(
@@ -315,13 +426,13 @@ namespace BugfixesAndQoL
                     target) != 0;
             }
 
-            return targetAccepted &&
-                AssassinClimbTransitionPolicy.CanUseStartTile(
-                    allowWalkableReservedStartTiles,
-                    buildingLayer[current],
-                    occupancyLayer[current]) &&
-                AssassinClimbTransitionPolicy.CanUseTargetTile(buildingLayer[target]) &&
-                ((currentFlags | targetFlags) & IsWallFlag) != 0;
+            startAccepted = AssassinClimbTransitionPolicy.CanUseStartTile(
+                allowWalkableReservedStartTiles,
+                buildingLayer[current],
+                occupancyLayer[current]);
+            targetBuildingAccepted = AssassinClimbTransitionPolicy.CanUseTargetTile(buildingLayer[target]);
+            hasWall = ((currentFlags | targetFlags) & IsWallFlag) != 0;
+            return targetAccepted && startAccepted && targetBuildingAccepted && hasWall;
         }
 
         private int GetClimbTicks(int current, int target)
@@ -336,7 +447,12 @@ namespace BugfixesAndQoL
                 targetIsStairs: (targetFlags & IsStairsFlag) != 0);
         }
 
-        private bool CommitRoute(IntPtr context, int startNode, int targetNode)
+        private bool CommitRoute(
+            IntPtr context,
+            int startNode,
+            int targetNode,
+            int expandedNodes,
+            int diagnosticRequestId)
         {
             int routeLength = 0;
             int node = targetNode;
@@ -351,6 +467,39 @@ namespace BugfixesAndQoL
             if (routeLength == 0 || routeLength > MaximumCommittedPathLength || route[routeLength - 1] != startNode)
                 return false;
 
+            // ASSASSIN_RESERVED_CLIMB_DIAGNOSTIC_BEGIN
+            for (int pathIndex = routeLength - 1; pathIndex > 0; pathIndex--)
+            {
+                int currentNode = route[pathIndex];
+                int nextNode = route[pathIndex - 1];
+                int currentX = currentNode % MapWidth;
+                int currentY = currentNode / MapWidth;
+                int nextX = nextNode % MapWidth;
+                int nextY = nextNode / MapWidth;
+                int currentTile = GetTileId(currentX, currentY);
+                int nextTile = GetTileId(nextX, nextY);
+                int deltaX = nextX - currentX;
+                int deltaY = nextY - currentY;
+                int direction = GetDirectionIndex(deltaX, deltaY);
+                bool ordinaryEdge = direction >= 0 &&
+                    (directionMasks[direction] & occupancyLayer[currentTile]) != 0;
+                reservedClimbDiagnostic.ObserveSelectedEdge(
+                    currentX,
+                    currentY,
+                    currentTile,
+                    nextX,
+                    nextY,
+                    nextTile,
+                    ordinaryEdge,
+                    buildingLayer[currentTile],
+                    buildingLayer[nextTile],
+                    occupancyLayer[currentTile],
+                    occupancyLayer[nextTile],
+                    tileFlags[currentTile],
+                    tileFlags[nextTile]);
+            }
+            // ASSASSIN_RESERVED_CLIMB_DIAGNOSTIC_END
+
             int generation = *(int*)((byte*)context.ToPointer() + 4) + 1;
             if (generation > 32000)
             {
@@ -359,7 +508,9 @@ namespace BugfixesAndQoL
             }
             *(int*)((byte*)context.ToPointer() + 4) = generation;
 
-            for (int reverseIndex = routeLength - 1, distance = 1; reverseIndex >= 0; reverseIndex--, distance++)
+            for (int reverseIndex = routeLength - 1, distance = 1;
+                 reverseIndex >= 0;
+                 reverseIndex--, distance++)
             {
                 int routeNode = route[reverseIndex];
                 int routeX = routeNode % MapWidth;
@@ -370,6 +521,21 @@ namespace BugfixesAndQoL
                 nativeVisitStamps[routeTile] = (short)generation;
                 nativeDistances[routeTile] = (short)distance;
             }
+
+            // ASSASSIN_RESERVED_CLIMB_DIAGNOSTIC_BEGIN
+            int startTile = GetTileId(startNode % MapWidth, startNode / MapWidth);
+            int targetTile = GetTileId(targetNode % MapWidth, targetNode / MapWidth);
+            reservedClimbDiagnostic.ObservePublishedRoute(
+                diagnosticRequestId,
+                generation,
+                touchedCount,
+                expandedNodes,
+                routeLength,
+                nativeVisitStamps[startTile],
+                nativeDistances[startTile],
+                nativeVisitStamps[targetTile],
+                nativeDistances[targetTile]);
+            // ASSASSIN_RESERVED_CLIMB_DIAGNOSTIC_END
             return true;
         }
 
@@ -409,6 +575,18 @@ namespace BugfixesAndQoL
         private int GetTileId(int x, int y) => rowLookup[y * 3] + x;
 
         private static int GetCoordinateIndex(int x, int y) => y * MapWidth + x;
+
+        // ASSASSIN_RESERVED_CLIMB_DIAGNOSTIC_BEGIN
+        private static int GetDirectionIndex(int deltaX, int deltaY)
+        {
+            for (int direction = 0; direction < DirectionX.Length; direction++)
+            {
+                if (DirectionX[direction] == deltaX && DirectionY[direction] == deltaY)
+                    return direction;
+            }
+            return -1;
+        }
+        // ASSASSIN_RESERVED_CLIMB_DIAGNOSTIC_END
 
         private static bool IsNativeTile(int tile) => (uint)tile < TileCount;
 
@@ -558,6 +736,79 @@ namespace BugfixesAndQoL
             heap[position] = tile;
             heapPositions[tile] = position;
         }
+
+        // ASSASSIN_RESERVED_CLIMB_DIAGNOSTIC_BEGIN
+        private void OnDiagnosticGameTick(int tick)
+        {
+            if (!reservedClimbDiagnostic.BeginRuntimeTick(tick) ||
+                !settings.EnableMod || !settings.EnableImprovedAssassinPathfinding ||
+                !coordinateMapValidated)
+            {
+                return;
+            }
+
+            try
+            {
+                Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
+                for (int unitId = 0; unitId < units.Length; unitId++)
+                {
+                    ref GameUnit candidate = ref units[unitId];
+                    if (candidate.r_AliveState != AliveState.IsAlive ||
+                        candidate.r_UnitChimp != eChimps.CHIMP_TYPE_ARAB_ASSASIN ||
+                        !reservedClimbDiagnostic.ShouldObserveUnit(
+                            candidate.r_ControllableForPlayerId,
+                            candidate.r_CurrentTilePositionX,
+                            candidate.r_CurrentTilePositionY))
+                    {
+                        continue;
+                    }
+
+                    int x = candidate.r_CurrentTilePositionX;
+                    int y = candidate.r_CurrentTilePositionY;
+                    if (!IsValidCoordinate(x, y))
+                        continue;
+                    int tile = GetTileId(x, y);
+                    if (!IsNativeTile(tile))
+                        continue;
+
+                    fixed (GameUnit* unit = &candidate)
+                    {
+                        byte* raw = (byte*)unit;
+                        reservedClimbDiagnostic.ObserveRuntimeUnit(
+                            tick,
+                            unitId,
+                            candidate.r_GlobalId,
+                            x,
+                            y,
+                            candidate.r_TargetTilePositionX,
+                            candidate.r_TargetTilePositionY,
+                            candidate.r_NextTilePositionX2,
+                            candidate.r_NextTilePositionY2,
+                            candidate.r_CurrentPositionTileId,
+                            tile,
+                            candidate.r_AIState,
+                            candidate.r_MovingRelevant,
+                            candidate.r_PathPlanStateBitFlags,
+                            candidate.p_CurrentPathPlanPosition,
+                            candidate.p_PathPlanSize,
+                            candidate.r_AnimationTimer,
+                            *(raw + 0x40F),
+                            *(ushort*)(raw + 0x414),
+                            *(ushort*)(raw + 0x416),
+                            buildingLayer[tile],
+                            occupancyLayer[tile],
+                            tileFlags[tile],
+                            nativeVisitStamps[tile],
+                            nativeDistances[tile]);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                reservedClimbDiagnostic.ReportRuntimeFailure(tick, ex);
+            }
+        }
+        // ASSASSIN_RESERVED_CLIMB_DIAGNOSTIC_END
 
         private bool ComesBefore(int left, int right)
         {

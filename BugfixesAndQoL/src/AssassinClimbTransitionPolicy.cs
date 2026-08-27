@@ -20,5 +20,13 @@ namespace BugfixesAndQoL
             // proven wall surfaces and remain subject to Vanilla's strict check.
             return buildingId == 0;
         }
+
+        public static bool ShouldRelaxPathReconstruction(
+            bool enableMod,
+            bool enableImprovedAssassinPathfinding,
+            bool pathfinderInstalled)
+        {
+            return enableMod && enableImprovedAssassinPathfinding && pathfinderInstalled;
+        }
     }
 }

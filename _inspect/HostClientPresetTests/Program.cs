@@ -1607,6 +1607,12 @@ internal static class Program
         Check(AssassinClimbTransitionPolicy.CanUseTargetTile(0) &&
               !AssassinClimbTransitionPolicy.CanUseTargetTile(42),
             "Assassin climb transition policy relaxed the target building check");
+        Check(AssassinClimbTransitionPolicy.ShouldRelaxPathReconstruction(true, true, true),
+            "enabled improved Assassin pathfinding did not relax Vanilla's matching reconstruction guard");
+        Check(!AssassinClimbTransitionPolicy.ShouldRelaxPathReconstruction(false, true, true) &&
+              !AssassinClimbTransitionPolicy.ShouldRelaxPathReconstruction(true, false, true) &&
+              !AssassinClimbTransitionPolicy.ShouldRelaxPathReconstruction(true, true, false),
+            "Assassin reconstruction guard was relaxed outside the fully installed enabled feature");
 
         Check(AssassinClimbCostPolicy.GetCardinalMovementTicks(1) == 16,
             "Assassin cardinal movement did not include eight Vanilla substeps and the delay threshold");

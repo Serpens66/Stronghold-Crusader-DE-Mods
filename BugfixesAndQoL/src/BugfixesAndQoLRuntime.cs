@@ -272,6 +272,7 @@ namespace BugfixesAndQoL
             TryApplyFeature("multiplayer game speed", multiplayerGameSpeedRuntime.ApplySetting);
             TryApplyFeature("assembly-point placement fix", ApplyAssemblyPointPlacementPatchSetting);
             TryApplyFeature("AI stone-reserve fix", () => aiStoneReserveFix?.ApplySetting());
+            TryApplyFeature("Assassin path reconstruction", assassinPathfindingRuntime.ApplySetting);
             if (settings.EnableMod && settings.EnableImprovedAssassinPathfinding && assassinPathfindingRuntime.IsInstalled)
                 TryApplyFeature("Assassin climb button", assassinClimbRuntime.Initialize);
             else
