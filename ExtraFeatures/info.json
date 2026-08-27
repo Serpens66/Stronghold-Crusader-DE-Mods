@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.80",
+  "Version": "1.0.81",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.81",
+      "Changes": [
+        "Restricts Keep Storage Content to stockpiles, armories, and granaries so bulldozed production buildings no longer create undeliverable incoming intermediate goods."
+      ]
+    },
     {
       "Version": "1.0.80",
       "Changes": [

@@ -64,7 +64,11 @@ namespace ExtraFeatures
                     return;
                 }
 
-                if (building->r_BuildingType == eStructs.STRUCT_GOODS_YARD)
+                eStructs structure = building->r_BuildingType;
+                if (!IsRestorableStorageBuilding(structure))
+                    return;
+
+                if (structure == eStructs.STRUCT_GOODS_YARD)
                 {
                     pendingStockpileRefund = new PendingStockpileRefund
                     {
@@ -79,7 +83,6 @@ namespace ExtraFeatures
 
                 int[] goods = CopyLocalGoods(building);
                 RestoreGoods(args.PlayerId, goods);
-                eStructs structure = building->r_BuildingType;
                 uint buildingGlobalId = building->r_GlobalId;
                 Shared.DebugLogHelper.LogDebug(
                     log,
@@ -90,6 +93,15 @@ namespace ExtraFeatures
             {
                 Shared.DebugLogHelper.LogError(log, $"Extra Features storage restore hook failed: {ex}");
             }
+        }
+
+        private static bool IsRestorableStorageBuilding(eStructs structure)
+        {
+            // Only these structures own persistent player storage. Production-building
+            // buffers contain intermediate goods that cannot be delivered as incoming goods.
+            return structure == eStructs.STRUCT_GOODS_YARD ||
+                structure == eStructs.STRUCT_ARMOURY ||
+                structure == eStructs.STRUCT_GRANARY;
         }
 
         private unsafe static int[] CopyLocalGoods(GameBuilding* building)
