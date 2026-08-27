@@ -69,9 +69,8 @@
     <Compile Include="src\AssassinClimbRuntime.cs" />
     <Compile Include="src\AssassinClimbStatePacket.cs" />
     <Compile Include="src\AssassinClimbTransitionPolicy.cs" />
+    <Compile Include="src\AssassinPathReconstructionNativeDefinition.cs" />
     <Compile Include="src\AssassinPathReconstructionPatch.cs" />
-    <!-- ASSASSIN_RESERVED_CLIMB_DIAGNOSTIC -->
-    <Compile Include="src\AssassinReservedClimbDiagnostic.cs" />
     <Compile Include="src\AssassinPathfindingRuntime.cs" />
     <Compile Include="src\BugfixesAndQoLRuntime.CtrlMarketTrade.cs" />
     <Compile Include="src\CtrlMarketTradeHook.cs" />

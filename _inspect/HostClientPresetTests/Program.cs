@@ -41,6 +41,7 @@ internal static class Program
             TestEnemyProximityPolicy();
             TestAssassinClimbCancellationPolicy();
             TestAssassinClimbCostPolicy();
+            TestAssassinPathReconstructionNativeDefinition();
             TestTroopActionButtonLayoutPolicy();
             TestLordHealthMultiplierPolicy();
             TestQuarryPileTargetSelectionPolicy();
@@ -1604,9 +1605,15 @@ internal static class Program
             "improved Assassin pathfinding rejected a walkable reserved start tile");
         Check(!AssassinClimbTransitionPolicy.CanUseStartTile(true, 42, 0),
             "improved Assassin pathfinding accepted an impassable building start tile");
-        Check(AssassinClimbTransitionPolicy.CanUseTargetTile(0) &&
-              !AssassinClimbTransitionPolicy.CanUseTargetTile(42),
-            "Assassin climb transition policy relaxed the target building check");
+        Check(AssassinClimbTransitionPolicy.CanUseTargetTile(false, 0, 0),
+            "Assassin climb transition policy rejected Vanilla's free target tile");
+        Check(!AssassinClimbTransitionPolicy.CanUseTargetTile(false, 42, byte.MaxValue),
+            "disabled improved Assassin pathfinding relaxed a reserved target tile");
+        Check(AssassinClimbTransitionPolicy.CanUseTargetTile(true, 42, 1) &&
+              AssassinClimbTransitionPolicy.CanUseTargetTile(true, 42, byte.MaxValue),
+            "improved Assassin pathfinding rejected a walkable reserved target tile");
+        Check(!AssassinClimbTransitionPolicy.CanUseTargetTile(true, 42, 0),
+            "improved Assassin pathfinding accepted an impassable building target tile");
         Check(AssassinClimbTransitionPolicy.ShouldRelaxPathReconstruction(true, true, true),
             "enabled improved Assassin pathfinding did not relax Vanilla's matching reconstruction guard");
         Check(!AssassinClimbTransitionPolicy.ShouldRelaxPathReconstruction(false, true, true) &&
@@ -1638,6 +1645,56 @@ internal static class Program
             "Assassin stair ascent was not interpolated by height");
         Check(AssassinClimbCostPolicy.GetAdditionalTicks(true, 135, false, true, true) == 600,
             "Assassin high stair ascent did not continue the interpolation slope");
+    }
+
+    private static void TestAssassinPathReconstructionNativeDefinition()
+    {
+        const string dllPath = @"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll";
+        byte[] file = File.ReadAllBytes(dllPath);
+        string hash;
+        using (System.Security.Cryptography.SHA256 sha256 = System.Security.Cryptography.SHA256.Create())
+            hash = BitConverter.ToString(sha256.ComputeHash(file)).Replace("-", string.Empty);
+        Check(
+            string.Equals(
+                hash,
+                AssassinPathReconstructionNativeDefinition.ReferenceSha256,
+                StringComparison.OrdinalIgnoreCase),
+            "canonical CrusaderDE.dll hash changed for the Assassin reconstruction contract");
+
+        byte[] image = LoadPeImage(file);
+        NativeResolution reference = NativePatternResolver.ResolveUnique(
+            image,
+            AssassinPathReconstructionNativeDefinition.EndpointBuildingGuardsPattern,
+            AssassinPathReconstructionNativeDefinition.EndpointBuildingGuardsPatternRva,
+            referenceHashMatches: true,
+            "test Assassin reconstruction endpoint guards");
+        Check(
+            reference.Rva == AssassinPathReconstructionNativeDefinition.EndpointBuildingGuardsPatternRva &&
+            reference.Method == "reference-rva",
+            "Assassin reconstruction source signature did not match the canonical DLL at its reference RVA");
+
+        NativeResolution fallback = NativePatternResolver.ResolveUnique(
+            image,
+            AssassinPathReconstructionNativeDefinition.EndpointBuildingGuardsPattern,
+            AssassinPathReconstructionNativeDefinition.EndpointBuildingGuardsPatternRva,
+            referenceHashMatches: false,
+            "test Assassin reconstruction endpoint guards");
+        Check(
+            fallback.Rva == reference.Rva && fallback.Method == "signature-fallback",
+            "Assassin reconstruction source signature was not unique in the canonical DLL");
+
+        int currentJumpRva = reference.Rva +
+            AssassinPathReconstructionNativeDefinition.CurrentTileRejectJumpOffset;
+        int neighborJumpRva = reference.Rva +
+            AssassinPathReconstructionNativeDefinition.NeighborTileRejectJumpOffset;
+        Check(
+            image.Skip(currentJumpRva)
+                .Take(AssassinPathReconstructionNativeDefinition.OriginalCurrentTileRejectJump.Length)
+                .SequenceEqual(AssassinPathReconstructionNativeDefinition.OriginalCurrentTileRejectJump) &&
+            image.Skip(neighborJumpRva)
+                .Take(AssassinPathReconstructionNativeDefinition.OriginalNeighborTileRejectJump.Length)
+                .SequenceEqual(AssassinPathReconstructionNativeDefinition.OriginalNeighborTileRejectJump),
+            "Assassin reconstruction jump offsets no longer select both audited Vanilla guards");
     }
 
     private static void TestAssassinClimbCancellationPolicy()
@@ -2814,6 +2871,29 @@ internal static class Program
         WriteInt32(image, section + 12, 0x1000);
         WriteInt32(image, section + 16, length - 0x1000);
         WriteInt32(image, section + 36, unchecked((int)0x20000000));
+        return image;
+    }
+
+    private static byte[] LoadPeImage(byte[] file)
+    {
+        int peOffset = BitConverter.ToInt32(file, 0x3C);
+        int sectionCount = BitConverter.ToUInt16(file, peOffset + 6);
+        int optionalHeaderSize = BitConverter.ToUInt16(file, peOffset + 20);
+        int sizeOfImage = BitConverter.ToInt32(file, peOffset + 24 + 56);
+        int sizeOfHeaders = BitConverter.ToInt32(file, peOffset + 24 + 60);
+        byte[] image = new byte[sizeOfImage];
+        Buffer.BlockCopy(file, 0, image, 0, Math.Min(sizeOfHeaders, file.Length));
+        int sectionTable = peOffset + 24 + optionalHeaderSize;
+        for (int index = 0; index < sectionCount; index++)
+        {
+            int header = sectionTable + index * 40;
+            int virtualAddress = BitConverter.ToInt32(file, header + 12);
+            int rawSize = BitConverter.ToInt32(file, header + 16);
+            int rawOffset = BitConverter.ToInt32(file, header + 20);
+            if (rawSize <= 0)
+                continue;
+            Buffer.BlockCopy(file, rawOffset, image, virtualAddress, rawSize);
+        }
         return image;
     }
 

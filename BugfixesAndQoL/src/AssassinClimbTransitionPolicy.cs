@@ -14,11 +14,15 @@ namespace BugfixesAndQoL
                 (allowWalkableReservedStartTiles && movementMask != 0);
         }
 
-        public static bool CanUseTargetTile(ushort buildingId)
+        public static bool CanUseTargetTile(
+            bool allowWalkableReservedTargetTiles,
+            ushort buildingId,
+            byte movementMask)
         {
-            // Do not relax the destination side: building-backed targets are not
-            // proven wall surfaces and remain subject to Vanilla's strict check.
-            return buildingId == 0;
+            // A descent may land on the same kind of natively walkable reservation
+            // that an ascent may start on. Tile and wall checks remain separate.
+            return buildingId == 0 ||
+                (allowWalkableReservedTargetTiles && movementMask != 0);
         }
 
         public static bool ShouldRelaxPathReconstruction(

@@ -89,7 +89,7 @@ After a normal multiplayer match, the host prepares a replacement lobby based on
 The troop HUD displays current and maximum health for the selected units. Health is combined separately for each visible troop type and the current value is colored green, yellow, or red according to the remaining proportion.
 
 ### Improve and control Assassin climbing
-Assassins choose routes by expected travel time instead of treating every traversable step equally. The calculation includes normal movement speed as well as the additional time for climbing normal walls, low walls, stairs, and downward transitions, so a nearby open gate can be preferred while climbing remains worthwhile along sufficiently long detours.
+Assassins choose routes by expected travel time instead of treating every traversable step equally. The calculation includes normal movement speed as well as the additional time for climbing normal walls, low walls, stairs, and downward transitions, so a nearby open gate can be preferred while climbing remains worthwhile along sufficiently long detours. Wall climbs can also start and end on walkable reserved building areas, such as barracks forecourts.
 
 When an owned Assassin is selected, a troop-action button allows or forbids climbing globally for that player's Assassins. The setting affects new path requests only; ordinary stairs and already accessible wall surfaces remain usable. AI Assassins always retain climbing. Pressing the normal Stop button or Stop hotkey while an Assassin is climbing cancels the climb, clears the current movement order, and makes the unit immediately controllable again.
 

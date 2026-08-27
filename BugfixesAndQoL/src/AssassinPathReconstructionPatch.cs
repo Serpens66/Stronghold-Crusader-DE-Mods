@@ -10,18 +10,11 @@ namespace BugfixesAndQoL
 {
     internal sealed class AssassinPathReconstructionPatch
     {
-        private const int NeighborBuildingGuardPatternRva = 0xE19F0;
-        private const int RejectJumpOffset = 9;
-        private const string NeighborBuildingGuardPattern =
-            "66 45 39 9C 4F 50 AA B6 04 0F 85 88 00 00 00 45 85 C9 75 1B 41 F7 84 8F B0 71 8F 04 00 01 00 00 74 75";
-
-        private static readonly byte[] OriginalRejectJump =
-            { 0x0F, 0x85, 0x88, 0x00, 0x00, 0x00 };
         private static readonly byte[] RelaxedRejectJump =
             { 0x90, 0x90, 0x90, 0x90, 0x90, 0x90 };
 
         private readonly ManualLogSource log;
-        private readonly IntPtr address;
+        private readonly PatchSite[] sites;
         private bool applied;
 
         public AssassinPathReconstructionPatch(
@@ -36,21 +29,31 @@ namespace BugfixesAndQoL
 
             Shared.NativeResolution resolution = Shared.NativePatternResolver.ResolveUnique(
                 memory,
-                NeighborBuildingGuardPattern,
-                NeighborBuildingGuardPatternRva,
+                AssassinPathReconstructionNativeDefinition.EndpointBuildingGuardsPattern,
+                AssassinPathReconstructionNativeDefinition.EndpointBuildingGuardsPatternRva,
                 referenceHashMatches,
-                "Assassin path reconstruction neighbor-building guard",
+                "Assassin path reconstruction endpoint-building guards",
                 log);
-            int patchRva = checked(resolution.Rva + RejectJumpOffset);
-            if (patchRva < 0 || patchRva + OriginalRejectJump.Length > memory.Length ||
-                !memory.Slice(patchRva, OriginalRejectJump.Length).SequenceEqual(OriginalRejectJump))
+            sites = new[]
             {
-                throw new InvalidOperationException(
-                    "Assassin path reconstruction reject jump did not match the validated Vanilla bytes.");
-            }
+                CreateSite(
+                    libraryHandle,
+                    memory,
+                    resolution.Rva,
+                    AssassinPathReconstructionNativeDefinition.CurrentTileRejectJumpOffset,
+                    AssassinPathReconstructionNativeDefinition.OriginalCurrentTileRejectJump,
+                    "current route tile building guard"),
+                CreateSite(
+                    libraryHandle,
+                    memory,
+                    resolution.Rva,
+                    AssassinPathReconstructionNativeDefinition.NeighborTileRejectJumpOffset,
+                    AssassinPathReconstructionNativeDefinition.OriginalNeighborTileRejectJump,
+                    "neighbor route tile building guard")
+            };
 
-            address = IntPtr.Add(libraryHandle, patchRva);
-            VerifyCurrentBytes(OriginalRejectJump, "initialize");
+            foreach (PatchSite site in sites)
+                VerifyCurrentBytes(site, site.OriginalBytes, "initialize");
         }
 
         public bool IsApplied => applied;
@@ -60,37 +63,105 @@ namespace BugfixesAndQoL
             if (enabled == applied)
                 return;
 
-            if (enabled)
+            byte[] expected = enabled ? null : RelaxedRejectJump;
+            foreach (PatchSite site in sites)
+                VerifyCurrentBytes(site, expected ?? site.OriginalBytes, enabled ? "apply" : "restore");
+
+            int attemptedSite = -1;
+            try
             {
-                VerifyCurrentBytes(OriginalRejectJump, "apply");
-                // Mode 3 reconstructs the managed route backwards. Its prior zero-building
-                // guard makes this equality reject the reserved predecessor of a wall tile.
-                WriteBytes(RelaxedRejectJump);
-                applied = true;
-                LogDebug("enabled");
-                return;
+                for (int index = 0; index < sites.Length; index++)
+                {
+                    attemptedSite = index;
+                    WriteBytes(sites[index], enabled ? RelaxedRejectJump : sites[index].OriginalBytes);
+                }
+            }
+            catch (Exception transitionException)
+            {
+                Exception rollbackException = RollBackAttemptedSites(
+                    attemptedSite,
+                    enabled ? RelaxedRejectJump : null,
+                    enabled);
+                if (rollbackException != null)
+                {
+                    throw new AggregateException(
+                        "Assassin path reconstruction patch transition and rollback both failed.",
+                        transitionException,
+                        rollbackException);
+                }
+
+                throw;
             }
 
-            VerifyCurrentBytes(RelaxedRejectJump, "restore");
-            WriteBytes(OriginalRejectJump);
-            applied = false;
-            LogDebug("disabled");
+            applied = enabled;
+            LogDebug(enabled ? "enabled" : "disabled");
         }
 
-        private void VerifyCurrentBytes(byte[] expected, string operation)
+        private static PatchSite CreateSite(
+            IntPtr libraryHandle,
+            ReadOnlySpan<byte> memory,
+            int patternRva,
+            int jumpOffset,
+            byte[] originalBytes,
+            string label)
         {
-            byte[] current = new byte[expected.Length];
-            Marshal.Copy(address, current, 0, current.Length);
+            int patchRva = checked(patternRva + jumpOffset);
+            if (patchRva < 0 || patchRva + originalBytes.Length > memory.Length ||
+                !memory.Slice(patchRva, originalBytes.Length).SequenceEqual(originalBytes))
+            {
+                throw new InvalidOperationException(
+                    $"Assassin path reconstruction {label} did not match the validated Vanilla bytes.");
+            }
+
+            return new PatchSite(label, IntPtr.Add(libraryHandle, patchRva), originalBytes);
+        }
+
+        private Exception RollBackAttemptedSites(
+            int attemptedSite,
+            byte[] commonTransitionBytes,
+            bool enabling)
+        {
+            Exception firstFailure = null;
+            for (int index = attemptedSite; index >= 0; index--)
+            {
+                PatchSite site = sites[index];
+                byte[] transitionBytes = commonTransitionBytes ?? site.OriginalBytes;
+                byte[] rollbackBytes = enabling ? site.OriginalBytes : RelaxedRejectJump;
+                try
+                {
+                    byte[] current = ReadBytes(site.Address, transitionBytes.Length);
+                    if (current.AsSpan().SequenceEqual(rollbackBytes))
+                        continue;
+                    if (!current.AsSpan().SequenceEqual(transitionBytes))
+                    {
+                        throw new InvalidOperationException(
+                            $"Cannot roll back Assassin path reconstruction {site.Label} because its bytes changed.");
+                    }
+                    WriteBytes(site, rollbackBytes);
+                }
+                catch (Exception ex)
+                {
+                    if (firstFailure == null)
+                        firstFailure = ex;
+                }
+            }
+            return firstFailure;
+        }
+
+        private void VerifyCurrentBytes(PatchSite site, byte[] expected, string operation)
+        {
+            byte[] current = ReadBytes(site.Address, expected.Length);
             if (!current.AsSpan().SequenceEqual(expected))
             {
                 throw new InvalidOperationException(
-                    $"Cannot {operation} Assassin path reconstruction patch because the native bytes changed: " +
+                    $"Cannot {operation} Assassin path reconstruction {site.Label} because the native bytes changed: " +
                     $"expected={ToHex(expected)}, actual={ToHex(current)}.");
             }
         }
 
-        private void WriteBytes(byte[] bytes)
+        private void WriteBytes(PatchSite site, byte[] bytes)
         {
+            IntPtr address = site.Address;
             UIntPtr size = unchecked((UIntPtr)(uint)bytes.Length);
             if (!Kernel32.VirtualProtect(
                     address,
@@ -99,7 +170,7 @@ namespace BugfixesAndQoL
                     out Kernel32.MemoryPermissions oldProtection))
             {
                 throw new InvalidOperationException(
-                    "VirtualProtect failed for the Assassin path reconstruction patch.");
+                    $"VirtualProtect failed for Assassin path reconstruction {site.Label}.");
             }
 
             try
@@ -111,7 +182,7 @@ namespace BugfixesAndQoL
                 if (!Kernel32.VirtualProtect(address, size, oldProtection, out _))
                 {
                     throw new InvalidOperationException(
-                        "Restoring memory protection failed for the Assassin path reconstruction patch.");
+                        $"Restoring memory protection failed for Assassin path reconstruction {site.Label}.");
                 }
             }
 
@@ -121,22 +192,44 @@ namespace BugfixesAndQoL
                     size))
             {
                 throw new InvalidOperationException(
-                    "Flushing the instruction cache failed for the Assassin path reconstruction patch.");
+                    $"Flushing the instruction cache failed for Assassin path reconstruction {site.Label}.");
             }
 
-            VerifyCurrentBytes(bytes, "verify");
+            VerifyCurrentBytes(site, bytes, "verify");
         }
 
         private void LogDebug(string state)
         {
             log.LogDebug(
                 $"[{TimestampNow()}] Bugfixes and QoL Assassin path reconstruction patch {state} " +
-                $"at address=0x{address.ToInt64():X}.");
+                $"at currentTileAddress=0x{sites[0].Address.ToInt64():X}, " +
+                $"neighborTileAddress=0x{sites[1].Address.ToInt64():X}.");
+        }
+
+        private static byte[] ReadBytes(IntPtr address, int length)
+        {
+            byte[] bytes = new byte[length];
+            Marshal.Copy(address, bytes, 0, length);
+            return bytes;
         }
 
         private static string ToHex(byte[] bytes) => BitConverter.ToString(bytes).Replace('-', ' ');
 
         private static string TimestampNow() =>
             DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture);
+
+        private sealed class PatchSite
+        {
+            public PatchSite(string label, IntPtr address, byte[] originalBytes)
+            {
+                Label = label;
+                Address = address;
+                OriginalBytes = originalBytes;
+            }
+
+            public string Label { get; }
+            public IntPtr Address { get; }
+            public byte[] OriginalBytes { get; }
+        }
     }
 }
