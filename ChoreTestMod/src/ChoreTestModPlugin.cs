@@ -12,60 +12,46 @@ using System.Collections.Generic;
 
 namespace ChoreTestMod
 {
-    [BepInDependency(ScriptExtenderGuid, BepInDependency.DependencyFlags.HardDependency)]
-    [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
+    [BepInDependency("000shcdese", BepInDependency.DependencyFlags.HardDependency)]
+    [BepInPlugin("ChoreTestMod_Serp", "Chore Test Mod", "1.0.0")]
     public sealed class ChoreTestModPlugin : BaseUnityPlugin
     {
-        private const string ScriptExtenderGuid = "000shcdese";
-        private const string PluginGuid = "ChoreTestMod_Serp";
-        private const string PluginName = "Chore Test Mod";
-        private const string PluginVersion = "1.0.0";
-
-        private const int ProtocolVersion = 1;
-        private const int PlayerId = 1;
-        private const int LordGlobalId = 4254;
-        private const int ProbeCount = 127;
-        private const int FirstProbeDelayTicks = 100;
-        private const int ProbeIntervalTicks = 10;
+        private const int AttemptCount = 12;
+        private const int FirstAttemptTick = 100;
+        private const int AttemptIntervalTicks = 5 * 40;
+        private const int TargetDelayTicks = 1;
         private const int SummaryDelayTicks = 200;
 
-        private static readonly HashSet<int> MatchingOperationIds = new HashSet<int>();
-        private static readonly HashSet<int> ReceivedOperationIds = new HashSet<int>();
-        private static ManualLogSource diagnosticLog;
+        private const string FirstPreconditionBodyHex = "9401010001";
+        private const string ExpectedTargetBodyHex = "94010101CD109E";
+
+        private static readonly List<IDisposable> Subscriptions = new List<IDisposable>();
+        private static ManualLogSource log;
         private static R3PacketEventHook<ChoreTestPacket> packetHook;
-        private static IDisposable packetSubscription;
-        private static IDisposable mapStartSubscription;
-        private static IDisposable mapUnloadSubscription;
-        private static bool libraryLoadedSubscriptionInstalled;
-        private static bool serializerSelfTestPassed;
+        private static bool serializerReady;
         private static bool mapActive;
-        private static bool firstTickCaptured;
-        private static bool sendSummaryLogged;
-        private static bool receiveSummaryLogged;
-        private static bool transportUnavailableLogged;
-        private static int mapStartTick;
-        private static int nextOperationId;
-        private static int sendSuccessCount;
-        private static int sendFailureCount;
-        private static int receiveCount;
-        private static int matchCount;
-        private static int corruptionCount;
-        private static int duplicateCount;
-        private static int decodeFailureCount;
+        private static bool localHostAtMapStart;
+        private static bool tickBaselineCaptured;
+        private static bool summaryLogged;
+        private static int tickBaseline;
+        private static int nextAttempt = 1;
+        private static int pendingTargetAttempt;
+        private static int pendingTargetTick;
+        private static int preconditionSends;
+        private static int targetSends;
+        private static int preconditionReceives;
+        private static int targetReceives;
+        private static int targetMatches;
+        private static int targetCorruptions;
 
         private void Awake()
         {
-            diagnosticLog = Logger;
-            LogInfo($"STARTUP: modVersion={PluginVersion}, observerOnly=true, stateMutation=false.");
-
-            if (libraryLoadedSubscriptionInstalled)
-                return;
-
-            CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
-            libraryLoadedSubscriptionInstalled = true;
+            log = Logger;
+            LogInfo("STARTUP: observerOnly=true, stateMutation=false.");
+            CrusaderLibrary.Instance.LibraryLoaded += OnLibraryLoaded;
         }
 
-        private static void OnCrusaderLibraryLoaded(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
+        private static void OnLibraryLoaded(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
         {
             if (packetHook != null)
                 return;
@@ -73,306 +59,242 @@ namespace ChoreTestMod
             try
             {
                 packetHook = GameNetworkAPI.Instance.GetPacketEventFor<ChoreTestPacket>();
-                packetSubscription = packetHook.GetBaseHook().Observable.Subscribe(OnPacketReceived);
-                mapStartSubscription = MapLoaderR3EventHooks.OnStartMap.Observable
+                Subscriptions.Add(packetHook.GetBaseHook().Observable.Subscribe(OnPacketReceived));
+                Subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
                     .Where(args => args.Phase == EventHookPhase.Post)
-                    .Subscribe(args => OnMapStart());
-                mapUnloadSubscription = MapLoaderR3EventHooks.OnUnloadMap.Observable
+                    .Subscribe(args => OnMapStart()));
+                Subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
                     .Where(args => args.Phase == EventHookPhase.Post)
-                    .Subscribe(args => OnMapUnload());
-                GameTimeManagerAPI.Instance.OnTick += OnGameTick;
+                    .Subscribe(args => OnMapUnload()));
+                GameTimeManagerAPI.Instance.OnTick += OnTick;
 
-                serializerSelfTestPassed = RunSerializerSelfTest();
-                string extenderVersion = typeof(ChoreNetworkTransport).Assembly.GetName().Version?.ToString() ?? "<unknown>";
+                string preconditionHex = ToHex(SerializePacket(0, 1));
+                string targetHex = ToHex(SerializePacket(1, 4254));
+                serializerReady = preconditionHex == FirstPreconditionBodyHex &&
+                    targetHex == ExpectedTargetBodyHex;
                 LogInfo(
-                    $"INITIALIZED: packetId={packetHook.GetPacketId()}, extenderAssemblyVersion={extenderVersion}, " +
-                    $"transportAvailable={ChoreNetworkTransport.IsAvailable}, serializerSelfTestPassed={serializerSelfTestPassed}, " +
-                    $"probeCount={ProbeCount}, firstProbeDelayTicks={FirstProbeDelayTicks}, " +
-                    $"probeIntervalTicks={ProbeIntervalTicks}.");
+                    $"SERIALIZER_SELF_TEST_{(serializerReady ? "PASSED" : "FAILED")}: " +
+                    $"packetId={packetHook.GetPacketId()}, preconditionBodyHex={preconditionHex}, " +
+                    $"expectedPreconditionBodyHex={FirstPreconditionBodyHex}, targetBodyHex={targetHex}, " +
+                    $"expectedTargetBodyHex={ExpectedTargetBodyHex}, " +
+                    $"transportAvailable={ChoreNetworkTransport.IsAvailable}.");
             }
             catch (Exception exception)
             {
-                serializerSelfTestPassed = false;
                 LogError($"INITIALIZATION_FAILED: {exception}");
             }
         }
 
-        private static bool RunSerializerSelfTest()
-        {
-            byte[] firstBody = SerializeProbe(1);
-            byte[] expectedFirstBody = BuildExpectedBody(1);
-            byte[] lastBody = SerializeProbe(ProbeCount);
-            byte[] expectedLastBody = BuildExpectedBody(ProbeCount);
-
-            bool passed = BytesEqual(firstBody, expectedFirstBody) &&
-                BytesEqual(lastBody, expectedLastBody) &&
-                firstBody.Length == 7 &&
-                lastBody.Length == 7;
-
-            string marker = passed ? "SERIALIZER_SELF_TEST_PASSED" : "SERIALIZER_SELF_TEST_FAILED";
-            LogInfo(
-                $"{marker}: firstBodyHex={ToHex(firstBody)}, expectedFirstBodyHex={ToHex(expectedFirstBody)}, " +
-                $"lastBodyHex={ToHex(lastBody)}, expectedLastBodyHex={ToHex(expectedLastBody)}.");
-            return passed;
-        }
-
         private static void OnMapStart()
         {
-            ResetSession();
             mapActive = true;
+            localHostAtMapStart = GameNetworkAPI.IsLocalHost();
+            tickBaselineCaptured = false;
+            summaryLogged = false;
+            nextAttempt = 1;
+            pendingTargetAttempt = 0;
+            pendingTargetTick = 0;
+            preconditionSends = 0;
+            targetSends = 0;
+            preconditionReceives = 0;
+            targetReceives = 0;
+            targetMatches = 0;
+            targetCorruptions = 0;
             LogInfo(
-                $"MAP_START: localHost={GameNetworkAPI.IsLocalHost()}, " +
-                $"transportAvailable={ChoreNetworkTransport.IsAvailable}, serializerSelfTestPassed={serializerSelfTestPassed}.");
+                $"MAP_START: localHost={localHostAtMapStart}, serializerReady={serializerReady}, " +
+                $"transportAvailable={ChoreNetworkTransport.IsAvailable}, attempts={AttemptCount}, " +
+                $"intervalSeconds=5.");
         }
 
         private static void OnMapUnload()
         {
-            if (mapActive)
-                LogReceiveSummary("map-unload");
+            if (mapActive && !summaryLogged)
+                LogSummary("map-unload");
 
             mapActive = false;
-            firstTickCaptured = false;
-            LogInfo("MAP_UNLOAD.");
         }
 
-        private static void OnGameTick(int currentTick)
+        private static void OnTick(int currentTick)
         {
-            if (!mapActive || !serializerSelfTestPassed)
+            if (!mapActive || !serializerReady)
                 return;
 
-            if (!firstTickCaptured)
+            if (!tickBaselineCaptured)
             {
-                firstTickCaptured = true;
-                mapStartTick = currentTick;
-                LogInfo($"TICK_BASELINE: mapStartTick={mapStartTick}.");
+                tickBaselineCaptured = true;
+                tickBaseline = currentTick;
             }
 
-            int relativeTick = currentTick - mapStartTick;
-            if (relativeTick < 0)
-                return;
-
-            if (GameNetworkAPI.IsLocalHost())
-                TrySendScheduledProbe(relativeTick);
-
-            int finalProbeTick = FirstProbeDelayTicks + ((ProbeCount - 1) * ProbeIntervalTicks);
-            if (!receiveSummaryLogged && relativeTick >= finalProbeTick + SummaryDelayTicks)
-                LogReceiveSummary("scheduled-summary");
-        }
-
-        private static void TrySendScheduledProbe(int relativeTick)
-        {
-            if (nextOperationId > ProbeCount)
+            int relativeTick = currentTick - tickBaseline;
+            if (nextAttempt <= AttemptCount &&
+                relativeTick >= FirstAttemptTick + ((nextAttempt - 1) * AttemptIntervalTicks))
             {
-                if (!sendSummaryLogged)
-                    LogSendSummary();
-                return;
-            }
-
-            int scheduledTick = FirstProbeDelayTicks + ((nextOperationId - 1) * ProbeIntervalTicks);
-            if (relativeTick < scheduledTick)
-                return;
-
-            if (!ChoreNetworkTransport.IsAvailable || ChoreNetworkTransport.SendRawBlob == null)
-            {
-                if (!transportUnavailableLogged)
+                int attempt = nextAttempt++;
+                string expectedBodyHex = $"94010100{attempt:X2}";
+                // A local seven-byte blob leaves the shared native packed-size field at 11.
+                if (!SendPacket("PRECONDITION", attempt, 0, attempt, expectedBodyHex))
                 {
-                    transportUnavailableLogged = true;
-                    LogError("TRANSPORT_UNAVAILABLE: probe series is waiting and no payload was queued.");
+                    mapActive = false;
+                    return;
                 }
-                return;
+
+                preconditionSends++;
+                if (localHostAtMapStart)
+                {
+                    pendingTargetAttempt = attempt;
+                    pendingTargetTick = relativeTick + TargetDelayTicks;
+                }
             }
 
-            transportUnavailableLogged = false;
-            int operationId = nextOperationId++;
-            byte[] body = SerializeProbe(operationId);
-            byte[] expectedBody = BuildExpectedBody(operationId);
-            if (!BytesEqual(body, expectedBody))
+            if (localHostAtMapStart && pendingTargetAttempt > 0 && relativeTick >= pendingTargetTick)
             {
-                sendFailureCount++;
+                int attempt = pendingTargetAttempt;
+                pendingTargetAttempt = 0;
+                if (!SendPacket("TARGET", attempt, 1, 4254, ExpectedTargetBodyHex))
+                {
+                    mapActive = false;
+                    return;
+                }
+
+                targetSends++;
+            }
+
+            int finalTargetTick = FirstAttemptTick +
+                ((AttemptCount - 1) * AttemptIntervalTicks) + TargetDelayTicks;
+            if (!summaryLogged && relativeTick >= finalTargetTick + SummaryDelayTicks)
+                LogSummary("test-complete");
+        }
+
+        private static bool SendPacket(
+            string kind,
+            int attempt,
+            int operationId,
+            int lordGlobalId,
+            string expectedBodyHex)
+        {
+            Func<byte[], bool> send = ChoreNetworkTransport.SendRawBlob;
+            if (send == null)
+            {
+                mapActive = false;
+                LogError($"{kind}_SEND_FAILED: transport unavailable; test aborted.");
+                return false;
+            }
+
+            byte[] body = SerializePacket(operationId, lordGlobalId);
+            string bodyHex = ToHex(body);
+            if (bodyHex != expectedBodyHex)
+            {
+                serializerReady = false;
                 LogError(
-                    $"SEND_BODY_MISMATCH: operationId={operationId}, bodyHex={ToHex(body)}, " +
-                    $"expectedBodyHex={ToHex(expectedBody)}.");
-                return;
+                    $"{kind}_SEND_FAILED: serialized body changed; bodyHex={bodyHex}, " +
+                    $"expectedBodyHex={expectedBodyHex}.");
+                return false;
             }
 
             short packetId = packetHook.GetPacketId();
             byte[] blob = new byte[sizeof(short) + body.Length];
             BitConverter.GetBytes(packetId).CopyTo(blob, 0);
             Buffer.BlockCopy(body, 0, blob, sizeof(short), body.Length);
-
-            Func<byte[], bool> sendRawBlob = ChoreNetworkTransport.SendRawBlob;
-            bool queued = sendRawBlob != null && sendRawBlob(blob);
-            if (queued)
-                sendSuccessCount++;
-            else
-                sendFailureCount++;
+            bool queued = send(blob);
 
             LogInfo(
-                $"PROBE_SEND: operationId={operationId}, packetId={packetId}, queued={queued}, " +
-                $"bodyBytes={body.Length}, blobBytes={blob.Length}, bodyHex={ToHex(body)}, blobHex={ToHex(blob)}.");
-
-            if (nextOperationId > ProbeCount)
-                LogSendSummary();
+                $"{kind}_SEND: attempt={attempt}/{AttemptCount}, queued={queued}, " +
+                $"localHostAtMapStart={localHostAtMapStart}, " +
+                $"packetId={packetId}, bodyBytes={body.Length}, blobBytes={blob.Length}, " +
+                $"nativePackedBytes={sizeof(int) + blob.Length}, bodyHex={bodyHex}, blobHex={ToHex(blob)}.");
+            return queued;
         }
 
         private static void OnPacketReceived(ReceiveCustomPacketEventArgs<ChoreTestPacket> args)
         {
-            receiveCount++;
             ChoreTestPacket packet = args?.Packet;
-            byte[] receivedBody = packet?.ReceivedBody;
+            string bodyHex = ToHex(packet?.ReceivedBody);
+            bool isTarget = packet != null &&
+                packet.ProtocolVersion == 1 &&
+                packet.PlayerId == 1 &&
+                packet.OperationId == 1;
 
-            bool operationInRange = packet != null && packet.OperationId >= 1 && packet.OperationId <= ProbeCount;
-            byte[] expectedBody = operationInRange ? BuildExpectedBody(packet.OperationId) : null;
-            bool exactMatch = packet != null &&
-                !args.SenderSteamId.HasValue &&
-                packet.ProtocolVersion == ProtocolVersion &&
-                packet.PlayerId == PlayerId &&
-                packet.LordGlobalId == LordGlobalId &&
-                operationInRange &&
-                BytesEqual(receivedBody, expectedBody);
-
-            bool duplicate = operationInRange && !ReceivedOperationIds.Add(packet.OperationId);
-            string status;
-            if (exactMatch && !duplicate)
+            if (!isTarget)
             {
-                MatchingOperationIds.Add(packet.OperationId);
-                matchCount++;
-                status = "MATCH";
+                preconditionReceives++;
+                LogInfo(
+                    $"PRECONDITION_RECEIVE: encodedAttempt={packet?.LordGlobalId}, " +
+                    $"senderSteamIdPresent={args?.SenderSteamId.HasValue}, " +
+                    $"values=[{packet?.ProtocolVersion},{packet?.PlayerId},{packet?.OperationId},{packet?.LordGlobalId}], " +
+                    $"bodyHex={bodyHex}.");
+                return;
             }
+
+            targetReceives++;
+            bool match = !args.SenderSteamId.HasValue &&
+                packet.LordGlobalId == 4254 &&
+                bodyHex == ExpectedTargetBodyHex;
+            if (match)
+                targetMatches++;
             else
+                targetCorruptions++;
+
+            string marker = match ? "TARGET_RECEIVE_MATCH" : "CHORE_PAYLOAD_CORRUPTION_REPRODUCED";
+            LogInfo(
+                $"{marker}: receiveAttempt={targetReceives}/{AttemptCount}, " +
+                $"senderSteamIdPresent={args.SenderSteamId.HasValue}, " +
+                $"values=[{packet.ProtocolVersion},{packet.PlayerId},{packet.OperationId},{packet.LordGlobalId}], " +
+                $"bodyHex={bodyHex}, expectedBodyHex={ExpectedTargetBodyHex}.");
+        }
+
+        internal static void ReportDecodeFailure(byte[] body, Exception exception)
+        {
+            string bodyHex = ToHex(body);
+            bool targetPrefix = body != null && body.Length >= 4 &&
+                body[0] == 0x94 && body[1] == 0x01 && body[2] == 0x01 && body[3] == 0x01;
+            if (targetPrefix)
             {
-                corruptionCount++;
-                if (duplicate)
-                    duplicateCount++;
-                status = duplicate ? "DUPLICATE_OR_CORRUPT" : "CORRUPT";
+                targetReceives++;
+                targetCorruptions++;
+                LogError(
+                    $"CHORE_PAYLOAD_CORRUPTION_REPRODUCED: target decode failed; bodyHex={bodyHex}, " +
+                    $"decodeError={exception.GetType().Name}: {exception.Message}");
+                return;
             }
 
-            string marker = exactMatch && !duplicate
-                ? "PROBE_RECEIVE"
-                : "CHORE_PAYLOAD_CORRUPTION_REPRODUCED";
-            LogInfo(
-                $"{marker}: status={status}, receiveIndex={receiveCount}, packetId={args?.PacketId}, " +
-                $"senderSteamIdPresent={args?.SenderSteamId.HasValue}, " +
-                $"protocolVersion={packet?.ProtocolVersion}, playerId={packet?.PlayerId}, " +
-                $"operationId={packet?.OperationId}, lordGlobalId={packet?.LordGlobalId}, " +
-                $"bodyBytes={receivedBody?.Length ?? -1}, bodyHex={ToHex(receivedBody)}, " +
-                $"expectedBodyHex={ToHex(expectedBody)}.");
-        }
-
-        internal static void ReportDecodeFailure(byte[] receivedBody, Exception exception)
-        {
-            decodeFailureCount++;
-            corruptionCount++;
             LogError(
-                $"CHORE_PAYLOAD_CORRUPTION_REPRODUCED: status=DECODE_FAILURE, " +
-                $"decodeFailureCount={decodeFailureCount}, bodyBytes={receivedBody?.Length ?? -1}, " +
-                $"bodyHex={ToHex(receivedBody)}, exception={exception.GetType().FullName}: {exception.Message}");
+                $"PRECONDITION_DECODE_FAILURE: bodyHex={bodyHex}, " +
+                $"decodeError={exception.GetType().Name}: {exception.Message}");
         }
 
-        private static byte[] SerializeProbe(int operationId)
+        private static byte[] SerializePacket(int operationId, int lordGlobalId)
         {
             return GameNetworkAPI.Serialize(new ChoreTestPacket
             {
-                ProtocolVersion = ProtocolVersion,
-                PlayerId = PlayerId,
+                ProtocolVersion = 1,
+                PlayerId = 1,
                 OperationId = operationId,
-                LordGlobalId = LordGlobalId
+                LordGlobalId = lordGlobalId
             });
         }
 
-        private static byte[] BuildExpectedBody(int operationId)
+        private static void LogSummary(string reason)
         {
-            if (operationId < 1 || operationId > 127)
-                throw new ArgumentOutOfRangeException(nameof(operationId));
-
-            return new byte[]
-            {
-                0x94,
-                ProtocolVersion,
-                PlayerId,
-                (byte)operationId,
-                0xCD,
-                0x10,
-                0x9E
-            };
-        }
-
-        private static void ResetSession()
-        {
-            MatchingOperationIds.Clear();
-            ReceivedOperationIds.Clear();
-            firstTickCaptured = false;
-            sendSummaryLogged = false;
-            receiveSummaryLogged = false;
-            transportUnavailableLogged = false;
-            mapStartTick = 0;
-            nextOperationId = 1;
-            sendSuccessCount = 0;
-            sendFailureCount = 0;
-            receiveCount = 0;
-            matchCount = 0;
-            corruptionCount = 0;
-            duplicateCount = 0;
-            decodeFailureCount = 0;
-        }
-
-        private static void LogSendSummary()
-        {
-            if (sendSummaryLogged)
-                return;
-
-            sendSummaryLogged = true;
+            summaryLogged = true;
+            bool reproduced = !localHostAtMapStart && targetCorruptions > 0;
+            int missingTargets = Math.Max(0, AttemptCount - targetReceives);
+            bool complete = missingTargets == 0;
             LogInfo(
-                $"SEND_SUMMARY: attempted={sendSuccessCount + sendFailureCount}, " +
-                $"queued={sendSuccessCount}, failed={sendFailureCount}, expected={ProbeCount}.");
+                $"SUMMARY: reason={reason}, localHostAtMapStart={localHostAtMapStart}, " +
+                $"reproduced={reproduced}, complete={complete}, attempts={AttemptCount}, " +
+                $"preconditionSends={preconditionSends}, targetSends={targetSends}, " +
+                $"preconditionReceives={preconditionReceives}, targetReceives={targetReceives}, " +
+                $"targetMatches={targetMatches}, targetCorruptions={targetCorruptions}, " +
+                $"missingTargets={missingTargets}.");
         }
 
-        private static void LogReceiveSummary(string reason)
-        {
-            if (receiveSummaryLogged)
-                return;
+        private static string ToHex(byte[] bytes) =>
+            bytes == null ? "<null>" : BitConverter.ToString(bytes).Replace("-", string.Empty);
 
-            receiveSummaryLogged = true;
-            int missingCount = ProbeCount - MatchingOperationIds.Count;
-            string status = corruptionCount == 0 && duplicateCount == 0 &&
-                decodeFailureCount == 0 && missingCount == 0
-                ? "MATCH"
-                : "MISMATCH";
-            LogInfo(
-                $"RECEIVE_SUMMARY: status={status}, reason={reason}, received={receiveCount}, " +
-                $"matches={matchCount}, corruptions={corruptionCount}, duplicates={duplicateCount}, " +
-                $"decodeFailures={decodeFailureCount}, missing={missingCount}, expected={ProbeCount}.");
-        }
+        private static void LogInfo(string message) =>
+            log?.LogInfo($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] {message}");
 
-        private static bool BytesEqual(byte[] left, byte[] right)
-        {
-            if (ReferenceEquals(left, right))
-                return true;
-            if (left == null || right == null || left.Length != right.Length)
-                return false;
-
-            for (int index = 0; index < left.Length; index++)
-            {
-                if (left[index] != right[index])
-                    return false;
-            }
-
-            return true;
-        }
-
-        private static string ToHex(byte[] bytes)
-        {
-            return bytes == null ? "<null>" : BitConverter.ToString(bytes).Replace("-", string.Empty);
-        }
-
-        private static void LogInfo(string message)
-        {
-            diagnosticLog?.LogInfo($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] {message}");
-        }
-
-        private static void LogError(string message)
-        {
-            diagnosticLog?.LogError($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] {message}");
-        }
+        private static void LogError(string message) =>
+            log?.LogError($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] {message}");
     }
 }

@@ -45,7 +45,7 @@ Churches employ two priests and cathedrals employ three instead of one. The chan
 Set the maximum number of peasants who may wait at the campfire, from 0 to 200, or leave the Vanilla limit unchanged.
 
 ### Customize demolition refunds
-Set separate refund percentages from 0% to 100% for wood, stone, iron, pitch, and gold when buildings are demolished. Each resource can also be left at its normal Vanilla value.
+Set separate refund percentages from 0% to 100% for wood, stone, iron, pitch, and gold when buildings are demolished. Each resource can also be left at its normal Vanilla value. Wall refunds are not affected and remain at their Vanilla values because the Script Extender currently provides no supported way to adjust them.
 
 ### Preserve stored goods when demolishing storage buildings
 Goods inside a granary, stockpile, or armory are returned as incoming goods when the building is demolished instead of being lost. Contents of a granary that was built for free cannot be restored, which can occur when no wood was available during construction.

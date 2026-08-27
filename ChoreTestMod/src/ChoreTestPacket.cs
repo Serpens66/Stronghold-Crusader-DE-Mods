@@ -53,24 +53,17 @@ namespace ChoreTestMod
                     return null;
 
                 int fieldCount = reader.ReadArrayHeader();
-                var packet = new ChoreTestPacket
+                if (fieldCount != FieldCount)
+                    throw new MessagePackSerializationException($"Expected {FieldCount} fields, received {fieldCount}.");
+
+                return new ChoreTestPacket
                 {
+                    ProtocolVersion = reader.ReadInt32(),
+                    PlayerId = reader.ReadInt32(),
+                    OperationId = reader.ReadInt32(),
+                    LordGlobalId = reader.ReadInt32(),
                     ReceivedBody = receivedBody
                 };
-
-                for (int index = 0; index < fieldCount; index++)
-                {
-                    switch (index)
-                    {
-                        case 0: packet.ProtocolVersion = reader.ReadInt32(); break;
-                        case 1: packet.PlayerId = reader.ReadInt32(); break;
-                        case 2: packet.OperationId = reader.ReadInt32(); break;
-                        case 3: packet.LordGlobalId = reader.ReadInt32(); break;
-                        default: reader.Skip(); break;
-                    }
-                }
-
-                return packet;
             }
             catch (Exception exception)
             {

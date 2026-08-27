@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.79",
+  "Version": "1.0.80",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.80",
+      "Changes": [
+        "Prevents custom demolition refund percentages from corrupting Vanilla wall refunds; walls remain unchanged because wall refund adjustment is not currently supported."
+      ]
+    },
     {
       "Version": "1.0.79",
       "Changes": [

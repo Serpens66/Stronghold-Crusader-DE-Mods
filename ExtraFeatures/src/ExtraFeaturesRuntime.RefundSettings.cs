@@ -28,7 +28,8 @@ namespace ExtraFeatures
         private void NormalizeRefundPercentage(BuildingRefundEventArgs args)
         {
             // Negative building IDs are native refund sentinels such as walls, where the
-            // fourth argument is not a percentage and therefore must remain unchanged.
+            // fourth argument is not a percentage. The Script Extender currently exposes no
+            // supported wall-refund adjustment path, so these contexts must remain Vanilla.
             if (args.Phase != EventHookPhase.Pre || args.BuildingId <= 0 || !HasCustomRefundPercent())
                 return;
 
