@@ -11,6 +11,7 @@
     <AssemblyName>ChoreTestMod</AssemblyName>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <OutputPath>BepInEx\plugins\ChoreTestMod_Serp\</OutputPath>
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
@@ -40,6 +41,14 @@
     <Reference Include="System.Core" />
     <Reference Include="BepInEx">
       <HintPath>$(GameDir)\BepInEx\core\BepInEx.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="0Harmony">
+      <HintPath>$(GameDir)\BepInEx\core\0Harmony.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="UnityEngine">
@@ -87,6 +96,8 @@
     <Error Condition="!Exists('$(ExtenderDir)\SHCDESE.dll')" Text="SHCDESE.dll was not found: $(ExtenderDir)" />
     <Error Condition="!Exists('$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.dll')" Text="UnityEngine.dll was not found below GameDir: $(GameDir)" />
     <Error Condition="!Exists('$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.CoreModule.dll')" Text="UnityEngine.CoreModule.dll was not found below GameDir: $(GameDir)" />
+    <Error Condition="!Exists('$(GameDir)\BepInEx\core\0Harmony.dll')" Text="0Harmony.dll was not found below GameDir: $(GameDir)" />
+    <Error Condition="!Exists('$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll')" Text="Assembly-CSharp.dll was not found below GameDir: $(GameDir)" />
     <Error Condition="!Exists('$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\com.rlabrecque.steamworks.net.dll')" Text="Steamworks.NET was not found below GameDir: $(GameDir)" />
     <Error Condition="!Exists('$(ExtenderDir)\R3.dll')" Text="R3.dll was not found: $(ExtenderDir)" />
     <Error Condition="!Exists('$(ExtenderDir)\System.Memory.dll')" Text="System.Memory.dll was not found: $(ExtenderDir)" />

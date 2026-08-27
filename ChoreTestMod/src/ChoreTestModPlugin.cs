@@ -1,53 +1,61 @@
 using BepInEx;
 using BepInEx.Logging;
+using CrusaderDE;
+using HarmonyLib;
 using R3;
 using SHCDESE.API;
 using SHCDESE.API.Components.Network;
 using SHCDESE.API.LowLevel;
 using SHCDESE.EventAPI;
+using SHCDESE.EventAPI.Buildings;
 using SHCDESE.EventAPI.Network;
+using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 
 namespace ChoreTestMod
 {
     [BepInDependency("000shcdese", BepInDependency.DependencyFlags.HardDependency)]
-    [BepInPlugin("ChoreTestMod_Serp", "Chore Test Mod", "1.0.0")]
-    public sealed class ChoreTestModPlugin : BaseUnityPlugin
+    [BepInPlugin(PluginGuid, "Chore Test Mod", "1.0.0")]
+    public sealed unsafe class ChoreTestModPlugin : BaseUnityPlugin
     {
-        private const int AttemptCount = 12;
-        private const int FirstAttemptTick = 100;
-        private const int AttemptIntervalTicks = 5 * 40;
-        private const int TargetDelayTicks = 1;
-        private const int SummaryDelayTicks = 200;
-
-        private const string FirstPreconditionBodyHex = "9401010001";
-        private const string ExpectedTargetBodyHex = "94010101CD109E";
+        private const string PluginGuid = "ChoreTestMod_Serp";
+        private const string ExpectedBodyHex = "94010101CD109E";
+        private const int ControlProbeCount = 1;
+        private const int MethodProbeCount = 3;
+        private const int ProbesPerRepair = MethodProbeCount * 2;
+        private const int FirstControlTick = 100;
+        // Multiplayer host actions use player slot 1 on every peer.
+        private const int HostPlayerId = 1;
 
         private static readonly List<IDisposable> Subscriptions = new List<IDisposable>();
         private static ManualLogSource log;
         private static R3PacketEventHook<ChoreTestPacket> packetHook;
         private static bool serializerReady;
         private static bool mapActive;
-        private static bool localHostAtMapStart;
+        private static bool localHost;
+        private static bool controlSent;
         private static bool tickBaselineCaptured;
-        private static bool summaryLogged;
         private static int tickBaseline;
-        private static int nextAttempt = 1;
-        private static int pendingTargetAttempt;
-        private static int pendingTargetTick;
-        private static int preconditionSends;
-        private static int targetSends;
-        private static int preconditionReceives;
-        private static int targetReceives;
-        private static int targetMatches;
-        private static int targetCorruptions;
+        private static readonly Dictionary<int, eStructs> PendingTowers = new Dictionary<int, eStructs>();
+        private static readonly HashSet<int> PreparedTowers = new HashSet<int>();
+        private static int receivedProbes;
+        private static int repairCycle;
+        private static int eventSentCycle;
+        private static int completedReceiveCycles;
+        private static int controlCorruptions;
+        private static int eventCorruptions;
+        private static int postfixCorruptions;
+        private static int cycleDecodeFailures;
+        private static int totalCorruptions;
 
         private void Awake()
         {
             log = Logger;
-            LogInfo("STARTUP: observerOnly=true, stateMutation=false.");
+            new Harmony(PluginGuid).PatchAll(Assembly.GetExecutingAssembly());
+            LogInfo("STARTUP: repairEvent=true, repairButtonPostfix=true, automaticTowerDamage=true.");
             CrusaderLibrary.Instance.LibraryLoaded += OnLibraryLoaded;
         }
 
@@ -66,21 +74,24 @@ namespace ChoreTestMod
                 Subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
                     .Where(args => args.Phase == EventHookPhase.Post)
                     .Subscribe(args => OnMapUnload()));
+                Subscriptions.Add(BuildingR3EventHooks.OnBuildingSpawn.Observable
+                    .Where(args => args.Phase == EventHookPhase.Post)
+                    .Subscribe(OnBuildingSpawn));
+                Subscriptions.Add(BuildingR3EventHooks.OnBuildingRepair.Observable
+                    .Where(args => args.Phase == EventHookPhase.Post)
+                    .Subscribe(OnBuildingRepair));
                 GameTimeManagerAPI.Instance.OnTick += OnTick;
 
-                string preconditionHex = ToHex(SerializePacket(0, 1));
-                string targetHex = ToHex(SerializePacket(1, 4254));
-                serializerReady = preconditionHex == FirstPreconditionBodyHex &&
-                    targetHex == ExpectedTargetBodyHex;
+                string bodyHex = ToHex(SerializePacket());
+                serializerReady = bodyHex == ExpectedBodyHex;
                 LogInfo(
                     $"SERIALIZER_SELF_TEST_{(serializerReady ? "PASSED" : "FAILED")}: " +
-                    $"packetId={packetHook.GetPacketId()}, preconditionBodyHex={preconditionHex}, " +
-                    $"expectedPreconditionBodyHex={FirstPreconditionBodyHex}, targetBodyHex={targetHex}, " +
-                    $"expectedTargetBodyHex={ExpectedTargetBodyHex}, " +
+                    $"packetId={packetHook.GetPacketId()}, bodyHex={bodyHex}, expected={ExpectedBodyHex}, " +
                     $"transportAvailable={ChoreNetworkTransport.IsAvailable}.");
             }
             catch (Exception exception)
             {
+                serializerReady = false;
                 LogError($"INITIALIZATION_FAILED: {exception}");
             }
         }
@@ -88,29 +99,34 @@ namespace ChoreTestMod
         private static void OnMapStart()
         {
             mapActive = true;
-            localHostAtMapStart = GameNetworkAPI.IsLocalHost();
+            localHost = GameNetworkAPI.IsLocalHost();
+            controlSent = false;
             tickBaselineCaptured = false;
-            summaryLogged = false;
-            nextAttempt = 1;
-            pendingTargetAttempt = 0;
-            pendingTargetTick = 0;
-            preconditionSends = 0;
-            targetSends = 0;
-            preconditionReceives = 0;
-            targetReceives = 0;
-            targetMatches = 0;
-            targetCorruptions = 0;
+            tickBaseline = 0;
+            PendingTowers.Clear();
+            PreparedTowers.Clear();
+            receivedProbes = 0;
+            repairCycle = 0;
+            eventSentCycle = 0;
+            completedReceiveCycles = 0;
+            controlCorruptions = 0;
+            eventCorruptions = 0;
+            postfixCorruptions = 0;
+            cycleDecodeFailures = 0;
+            totalCorruptions = 0;
             LogInfo(
-                $"MAP_START: localHost={localHostAtMapStart}, serializerReady={serializerReady}, " +
-                $"transportAvailable={ChoreNetworkTransport.IsAvailable}, attempts={AttemptCount}, " +
-                $"intervalSeconds=5.");
+                $"MAP_START: localHost={localHost}, controlProbes={ControlProbeCount}, " +
+                $"eventProbes={MethodProbeCount}, postfixProbes={MethodProbeCount}.");
         }
 
         private static void OnMapUnload()
         {
-            if (mapActive && !summaryLogged)
-                LogSummary("map-unload");
-
+            if (mapActive)
+            {
+                LogInfo(
+                    $"SESSION_SUMMARY: repairCyclesSent={repairCycle}, receiveCyclesCompleted={completedReceiveCycles}, " +
+                    $"receivedProbes={receivedProbes}, totalCorruptions={totalCorruptions}.");
+            }
             mapActive = false;
         }
 
@@ -125,69 +141,134 @@ namespace ChoreTestMod
                 tickBaseline = currentTick;
             }
 
-            int relativeTick = currentTick - tickBaseline;
-            if (nextAttempt <= AttemptCount &&
-                relativeTick >= FirstAttemptTick + ((nextAttempt - 1) * AttemptIntervalTicks))
+            PrepareTowerWhenAlive();
+            if (localHost && !controlSent && currentTick - tickBaseline >= FirstControlTick)
             {
-                int attempt = nextAttempt++;
-                string expectedBodyHex = $"94010100{attempt:X2}";
-                // A local seven-byte blob leaves the shared native packed-size field at 11.
-                if (!SendPacket("PRECONDITION", attempt, 0, attempt, expectedBodyHex))
-                {
-                    mapActive = false;
-                    return;
-                }
-
-                preconditionSends++;
-                if (localHostAtMapStart)
-                {
-                    pendingTargetAttempt = attempt;
-                    pendingTargetTick = relativeTick + TargetDelayTicks;
-                }
+                controlSent = true;
+                SendSeries("CONTROL", ControlProbeCount, 0);
+                LogInfo("CONTROL_COMPLETE: place a tower, then select it and click Repair once.");
             }
-
-            if (localHostAtMapStart && pendingTargetAttempt > 0 && relativeTick >= pendingTargetTick)
-            {
-                int attempt = pendingTargetAttempt;
-                pendingTargetAttempt = 0;
-                if (!SendPacket("TARGET", attempt, 1, 4254, ExpectedTargetBodyHex))
-                {
-                    mapActive = false;
-                    return;
-                }
-
-                targetSends++;
-            }
-
-            int finalTargetTick = FirstAttemptTick +
-                ((AttemptCount - 1) * AttemptIntervalTicks) + TargetDelayTicks;
-            if (!summaryLogged && relativeTick >= finalTargetTick + SummaryDelayTicks)
-                LogSummary("test-complete");
         }
 
-        private static bool SendPacket(
-            string kind,
-            int attempt,
-            int operationId,
-            int lordGlobalId,
-            string expectedBodyHex)
+        private static void OnBuildingSpawn(BuildingSpawnEventArgs args)
         {
-            Func<byte[], bool> send = ChoreNetworkTransport.SendRawBlob;
-            if (send == null)
+            if (!mapActive || args == null ||
+                args.PlayerId != HostPlayerId || args.ReturnValue <= 0 || !IsTower(args.Building))
             {
-                mapActive = false;
-                LogError($"{kind}_SEND_FAILED: transport unavailable; test aborted.");
-                return false;
+                return;
             }
 
-            byte[] body = SerializePacket(operationId, lordGlobalId);
-            string bodyHex = ToHex(body);
-            if (bodyHex != expectedBodyHex)
+            int buildingId = unchecked((int)args.ReturnValue);
+            if (!PreparedTowers.Contains(buildingId))
+                PendingTowers[buildingId] = args.Building;
+        }
+
+        private static void PrepareTowerWhenAlive()
+        {
+            if (PendingTowers.Count == 0)
+                return;
+
+            GameBuildingManagerAPI buildingApi = GameBuildingManagerAPI.Instance;
+            int towerId = -1;
+            eStructs towerType = eStructs.STRUCT_NULL;
+            foreach (KeyValuePair<int, eStructs> pending in PendingTowers)
+            {
+                if (buildingApi.TryGetBuildingById(pending.Key, out GameBuilding* candidate) &&
+                    candidate->r_AliveState == AliveState.IsAlive)
+                {
+                    towerId = pending.Key;
+                    towerType = pending.Value;
+                    break;
+                }
+            }
+
+            if (towerId < 0 || !buildingApi.TryGetBuildingById(towerId, out GameBuilding* building))
+                return;
+
+            int oldHealth = building->r_CurrentHealth;
+            int maxHealth = building->r_MaxHealth;
+            if (oldHealth <= 1 || maxHealth <= 1)
+            {
+                LogError($"TOWER_PREPARATION_FAILED: id={towerId}, health={oldHealth}/{maxHealth}.");
+                PendingTowers.Remove(towerId);
+                return;
+            }
+
+            int newHealth = oldHealth;
+            if (oldHealth >= maxHealth)
+            {
+                // The same spawn event prepares the same tower independently on both peers.
+                newHealth = Math.Max(1, oldHealth - Math.Max(1, oldHealth / 20));
+                buildingApi.SetCurrentHealth(towerId, (short)newHealth);
+            }
+
+            PendingTowers.Remove(towerId);
+            PreparedTowers.Add(towerId);
+            LogInfo(
+                $"TOWER_READY: id={towerId}, type={towerType}, " +
+                $"health={oldHealth}->{buildingApi.GetCurrentHealth(towerId)}/{maxHealth}, " +
+                $"localHost={localHost}. This tower was damaged once.");
+        }
+
+        private static bool IsTower(eStructs structure)
+        {
+            return structure == eStructs.STRUCT_TOWER ||
+                ((int)structure >= (int)eStructs.STRUCT_TOWER1 &&
+                 (int)structure <= (int)eStructs.STRUCT_TOWER5);
+        }
+
+        private static void OnBuildingRepair(BuildingRepairEventArgs args)
+        {
+            if (!mapActive || !localHost || args == null || args.PlayerId != HostPlayerId)
+            {
+                return;
+            }
+
+            if (!serializerReady || !controlSent || eventSentCycle >= repairCycle)
+            {
+                LogError(
+                    $"REPAIR_TRIGGER_IGNORED: serializerReady={serializerReady}, " +
+                    $"controlSent={controlSent}, repairCycle={repairCycle}, eventSentCycle={eventSentCycle}.");
+                return;
+            }
+
+            int cycle = ++eventSentCycle;
+            LogInfo(
+                $"EVENT_TRIGGER: cycle={cycle}, buildingId={args.BuildingId}, " +
+                $"preparedTower={PreparedTowers.Contains(args.BuildingId)}, globalId={args.BuildingGlobalId}, " +
+                $"cost={args.WoodCost}w/{args.StoneCost}s.");
+            SendSeries("EVENT", MethodProbeCount, cycle);
+        }
+
+        private static void OnRepairButtonPostfix()
+        {
+            if (!mapActive || !localHost || !serializerReady || !controlSent || PreparedTowers.Count == 0)
+                return;
+
+            int cycle = ++repairCycle;
+            LogInfo(
+                $"POSTFIX_TRIGGER: cycle={cycle}, Vanilla repair call has returned; " +
+                "expected stale size=10, target size=13.");
+            SendSeries("POSTFIX", MethodProbeCount, cycle);
+        }
+
+        private static void SendSeries(string stage, int count, int cycle)
+        {
+            for (int sequence = 1; sequence <= count; sequence++)
+            {
+                if (!SendProbe(stage, sequence, count, cycle))
+                    break;
+            }
+        }
+
+        private static bool SendProbe(string stage, int sequence, int count, int cycle)
+        {
+            Func<byte[], bool> send = ChoreNetworkTransport.SendRawBlob;
+            byte[] body = SerializePacket();
+            if (send == null || ToHex(body) != ExpectedBodyHex)
             {
                 serializerReady = false;
-                LogError(
-                    $"{kind}_SEND_FAILED: serialized body changed; bodyHex={bodyHex}, " +
-                    $"expectedBodyHex={expectedBodyHex}.");
+                LogError($"{stage}_SEND_FAILED: transport or serializer validation failed.");
                 return false;
             }
 
@@ -196,12 +277,9 @@ namespace ChoreTestMod
             BitConverter.GetBytes(packetId).CopyTo(blob, 0);
             Buffer.BlockCopy(body, 0, blob, sizeof(short), body.Length);
             bool queued = send(blob);
-
             LogInfo(
-                $"{kind}_SEND: attempt={attempt}/{AttemptCount}, queued={queued}, " +
-                $"localHostAtMapStart={localHostAtMapStart}, " +
-                $"packetId={packetId}, bodyBytes={body.Length}, blobBytes={blob.Length}, " +
-                $"nativePackedBytes={sizeof(int) + blob.Length}, bodyHex={bodyHex}, blobHex={ToHex(blob)}.");
+                $"{stage}_SEND: cycle={cycle}, sequence={sequence}/{count}, queued={queued}, packetId={packetId}, " +
+                $"body={ToHex(body)}, blob={ToHex(blob)}, nativeBytes=13.");
             return queued;
         }
 
@@ -209,83 +287,107 @@ namespace ChoreTestMod
         {
             ChoreTestPacket packet = args?.Packet;
             string bodyHex = ToHex(packet?.ReceivedBody);
-            bool isTarget = packet != null &&
+            string stage = RecordReceive(out int cycle, out int sequence);
+            bool match = packet != null &&
+                !args.SenderSteamId.HasValue &&
                 packet.ProtocolVersion == 1 &&
                 packet.PlayerId == 1 &&
-                packet.OperationId == 1;
-
-            if (!isTarget)
-            {
-                preconditionReceives++;
-                LogInfo(
-                    $"PRECONDITION_RECEIVE: encodedAttempt={packet?.LordGlobalId}, " +
-                    $"senderSteamIdPresent={args?.SenderSteamId.HasValue}, " +
-                    $"values=[{packet?.ProtocolVersion},{packet?.PlayerId},{packet?.OperationId},{packet?.LordGlobalId}], " +
-                    $"bodyHex={bodyHex}.");
-                return;
-            }
-
-            targetReceives++;
-            bool match = !args.SenderSteamId.HasValue &&
+                packet.OperationId == 1 &&
                 packet.LordGlobalId == 4254 &&
-                bodyHex == ExpectedTargetBodyHex;
-            if (match)
-                targetMatches++;
-            else
-                targetCorruptions++;
+                bodyHex == ExpectedBodyHex;
 
-            string marker = match ? "TARGET_RECEIVE_MATCH" : "CHORE_PAYLOAD_CORRUPTION_REPRODUCED";
+            if (!match)
+                IncrementCorruption(stage);
+
             LogInfo(
-                $"{marker}: receiveAttempt={targetReceives}/{AttemptCount}, " +
-                $"senderSteamIdPresent={args.SenderSteamId.HasValue}, " +
-                $"values=[{packet.ProtocolVersion},{packet.PlayerId},{packet.OperationId},{packet.LordGlobalId}], " +
-                $"bodyHex={bodyHex}, expectedBodyHex={ExpectedTargetBodyHex}.");
+                $"{(match ? "MATCH" : "CHORE_PAYLOAD_CORRUPTION_REPRODUCED")}: " +
+                $"stage={stage}, cycle={cycle}, sequence={sequence}, " +
+                $"values=[{packet?.ProtocolVersion},{packet?.PlayerId},{packet?.OperationId},{packet?.LordGlobalId}], " +
+                $"body={bodyHex}, expected={ExpectedBodyHex}.");
+            FinishCycleIfComplete(stage, cycle, sequence);
         }
 
         internal static void ReportDecodeFailure(byte[] body, Exception exception)
         {
-            string bodyHex = ToHex(body);
             bool targetPrefix = body != null && body.Length >= 4 &&
                 body[0] == 0x94 && body[1] == 0x01 && body[2] == 0x01 && body[3] == 0x01;
-            if (targetPrefix)
+            if (!targetPrefix)
             {
-                targetReceives++;
-                targetCorruptions++;
-                LogError(
-                    $"CHORE_PAYLOAD_CORRUPTION_REPRODUCED: target decode failed; bodyHex={bodyHex}, " +
-                    $"decodeError={exception.GetType().Name}: {exception.Message}");
+                LogError($"UNCLASSIFIED_DECODE_FAILURE: body={ToHex(body)}, error={exception.Message}");
                 return;
             }
 
+            string stage = RecordReceive(out int cycle, out int sequence);
+            cycleDecodeFailures++;
+            IncrementCorruption(stage);
             LogError(
-                $"PRECONDITION_DECODE_FAILURE: bodyHex={bodyHex}, " +
+                $"CHORE_PAYLOAD_CORRUPTION_REPRODUCED: stage={stage}, cycle={cycle}, " +
+                $"sequence={sequence}, body={ToHex(body)}, " +
                 $"decodeError={exception.GetType().Name}: {exception.Message}");
+            FinishCycleIfComplete(stage, cycle, sequence);
         }
 
-        private static byte[] SerializePacket(int operationId, int lordGlobalId)
+        private static string RecordReceive(out int cycle, out int sequence)
+        {
+            receivedProbes++;
+            if (receivedProbes <= ControlProbeCount)
+            {
+                cycle = 0;
+                sequence = receivedProbes;
+                return "CONTROL";
+            }
+
+            int cycleIndex = receivedProbes - ControlProbeCount - 1;
+            cycle = (cycleIndex / ProbesPerRepair) + 1;
+            int cycleOffset = cycleIndex % ProbesPerRepair;
+            if (cycleOffset == 0)
+            {
+                eventCorruptions = 0;
+                postfixCorruptions = 0;
+                cycleDecodeFailures = 0;
+            }
+
+            if (cycleOffset < MethodProbeCount)
+            {
+                sequence = cycleOffset + 1;
+                return "POSTFIX";
+            }
+
+            sequence = cycleOffset - MethodProbeCount + 1;
+            return "EVENT";
+        }
+
+        private static void IncrementCorruption(string stage)
+        {
+            totalCorruptions++;
+            if (stage == "CONTROL") controlCorruptions++;
+            else if (stage == "EVENT") eventCorruptions++;
+            else postfixCorruptions++;
+        }
+
+        private static void FinishCycleIfComplete(string stage, int cycle, int sequence)
+        {
+            if (stage != "EVENT" || sequence != MethodProbeCount)
+                return;
+
+            completedReceiveCycles = cycle;
+            LogInfo(
+                $"CYCLE_SUMMARY: cycle={cycle}, localHost={localHost}, " +
+                $"event={MethodProbeCount - eventCorruptions}/{MethodProbeCount}, " +
+                $"postfix={MethodProbeCount - postfixCorruptions}/{MethodProbeCount}, " +
+                $"postfixReproduced={postfixCorruptions > 0}, " +
+                $"corruptions={eventCorruptions + postfixCorruptions}, decodeFailures={cycleDecodeFailures}.");
+        }
+
+        private static byte[] SerializePacket()
         {
             return GameNetworkAPI.Serialize(new ChoreTestPacket
             {
                 ProtocolVersion = 1,
                 PlayerId = 1,
-                OperationId = operationId,
-                LordGlobalId = lordGlobalId
+                OperationId = 1,
+                LordGlobalId = 4254
             });
-        }
-
-        private static void LogSummary(string reason)
-        {
-            summaryLogged = true;
-            bool reproduced = !localHostAtMapStart && targetCorruptions > 0;
-            int missingTargets = Math.Max(0, AttemptCount - targetReceives);
-            bool complete = missingTargets == 0;
-            LogInfo(
-                $"SUMMARY: reason={reason}, localHostAtMapStart={localHostAtMapStart}, " +
-                $"reproduced={reproduced}, complete={complete}, attempts={AttemptCount}, " +
-                $"preconditionSends={preconditionSends}, targetSends={targetSends}, " +
-                $"preconditionReceives={preconditionReceives}, targetReceives={targetReceives}, " +
-                $"targetMatches={targetMatches}, targetCorruptions={targetCorruptions}, " +
-                $"missingTargets={missingTargets}.");
         }
 
         private static string ToHex(byte[] bytes) =>
@@ -296,5 +398,13 @@ namespace ChoreTestMod
 
         private static void LogError(string message) =>
             log?.LogError($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] {message}");
+
+        [HarmonyPatch(typeof(MainViewModel), "ButtonRepairFunction")]
+        private static class RepairButtonPatch
+        {
+            [HarmonyPostfix]
+            private static void Postfix() => OnRepairButtonPostfix();
+        }
+
     }
 }
