@@ -1595,6 +1595,19 @@ internal static class Program
 
     private static void TestAssassinClimbCostPolicy()
     {
+        Check(AssassinClimbTransitionPolicy.CanUseStartTile(false, 0, 0),
+            "Assassin climb transition policy rejected Vanilla's free start tile");
+        Check(!AssassinClimbTransitionPolicy.CanUseStartTile(false, 42, byte.MaxValue),
+            "disabled improved Assassin pathfinding relaxed a reserved start tile");
+        Check(AssassinClimbTransitionPolicy.CanUseStartTile(true, 42, 1) &&
+              AssassinClimbTransitionPolicy.CanUseStartTile(true, 42, byte.MaxValue),
+            "improved Assassin pathfinding rejected a walkable reserved start tile");
+        Check(!AssassinClimbTransitionPolicy.CanUseStartTile(true, 42, 0),
+            "improved Assassin pathfinding accepted an impassable building start tile");
+        Check(AssassinClimbTransitionPolicy.CanUseTargetTile(0) &&
+              !AssassinClimbTransitionPolicy.CanUseTargetTile(42),
+            "Assassin climb transition policy relaxed the target building check");
+
         Check(AssassinClimbCostPolicy.GetCardinalMovementTicks(1) == 16,
             "Assassin cardinal movement did not include eight Vanilla substeps and the delay threshold");
         Check(AssassinClimbCostPolicy.GetDiagonalMovementTicks(1) == 23,

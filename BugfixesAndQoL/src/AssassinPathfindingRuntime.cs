@@ -170,7 +170,8 @@ namespace BugfixesAndQoL
 
             // Vanilla initializes internal queue state even when our compact route field replaces it.
             int vanillaResult = vanilla(context, startX, startY, targetX, targetY, maximumNodes, continuation);
-            if (!settings.EnableMod || !settings.EnableImprovedAssassinPathfinding || continuation != 0)
+            bool improvedPathfindingEnabled = settings.EnableMod && settings.EnableImprovedAssassinPathfinding;
+            if (!improvedPathfindingEnabled || continuation != 0)
                 return vanillaResult;
             if (targetX < 0 || targetY < 0)
                 return vanillaResult;
@@ -191,7 +192,8 @@ namespace BugfixesAndQoL
                     targetY,
                     maximumNodes,
                     speedDelay,
-                    allowClimbing);
+                    allowClimbing,
+                    allowWalkableReservedStartTiles: improvedPathfindingEnabled);
                 return found ? 1 : 0;
             }
             catch (Exception ex)
@@ -213,7 +215,8 @@ namespace BugfixesAndQoL
             int targetY,
             int maximumNodes,
             int speedDelay,
-            bool allowClimbing)
+            bool allowClimbing,
+            bool allowWalkableReservedStartTiles)
         {
             if (!IsValidCoordinate(startX, startY) || !IsValidCoordinate(targetX, targetY))
                 return false;
@@ -263,7 +266,11 @@ namespace BugfixesAndQoL
                     bool climbEdge = false;
                     if (!ordinaryEdge)
                     {
-                        if ((direction & 1) != 0 || !IsVanillaAssassinFallback(currentTile, nextTile, currentFlags))
+                        if ((direction & 1) != 0 || !IsVanillaAssassinFallback(
+                                currentTile,
+                                nextTile,
+                                currentFlags,
+                                allowWalkableReservedStartTiles))
                             continue;
                         climbEdge = true;
                         if (!allowClimbing)
@@ -293,7 +300,11 @@ namespace BugfixesAndQoL
             return false;
         }
 
-        private bool IsVanillaAssassinFallback(int current, int target, uint currentFlags)
+        private bool IsVanillaAssassinFallback(
+            int current,
+            int target,
+            uint currentFlags,
+            bool allowWalkableReservedStartTiles)
         {
             uint targetFlags = tileFlags[target];
             bool targetAccepted = (targetFlags & AssassinFallbackBlockingMask) == 0;
@@ -304,7 +315,12 @@ namespace BugfixesAndQoL
                     target) != 0;
             }
 
-            return targetAccepted && buildingLayer[current] == 0 && buildingLayer[target] == 0 &&
+            return targetAccepted &&
+                AssassinClimbTransitionPolicy.CanUseStartTile(
+                    allowWalkableReservedStartTiles,
+                    buildingLayer[current],
+                    occupancyLayer[current]) &&
+                AssassinClimbTransitionPolicy.CanUseTargetTile(buildingLayer[target]) &&
                 ((currentFlags | targetFlags) & IsWallFlag) != 0;
         }
 

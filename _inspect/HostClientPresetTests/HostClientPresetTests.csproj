@@ -122,6 +122,9 @@
     <Compile Include="..\..\BugfixesAndQoL\src\AssassinClimbCancellationPolicy.cs">
       <Link>AssassinClimbCancellationPolicy.cs</Link>
     </Compile>
+    <Compile Include="..\..\BugfixesAndQoL\src\AssassinClimbTransitionPolicy.cs">
+      <Link>AssassinClimbTransitionPolicy.cs</Link>
+    </Compile>
     <Compile Include="..\..\ExtraFeatures\src\LordHealthMultiplierPolicy.cs">
       <Link>LordHealthMultiplierPolicy.cs</Link>
     </Compile>

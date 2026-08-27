@@ -68,6 +68,7 @@
     <Compile Include="src\AssassinClimbCostPolicy.cs" />
     <Compile Include="src\AssassinClimbRuntime.cs" />
     <Compile Include="src\AssassinClimbStatePacket.cs" />
+    <Compile Include="src\AssassinClimbTransitionPolicy.cs" />
     <Compile Include="src\AssassinPathfindingRuntime.cs" />
     <Compile Include="src\BugfixesAndQoLRuntime.CtrlMarketTrade.cs" />
     <Compile Include="src\CtrlMarketTradeHook.cs" />
