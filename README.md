@@ -1,6 +1,6 @@
 # Stronghold Crusader DE Mods and Code
 
-<video src="https://githubusercontent.com" controls width="100%"></video>
+Preview Video: https://youtu.be/Jdz_aAA7CE4  
 
 ## Download:
 - Releases: https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases (see this [table](#latest-mod-releases) for specific mods)   
