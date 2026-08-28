@@ -21,41 +21,39 @@ namespace BugfixesAndQoL
             return true;
         }
 
-        internal static int GetMaximumAiCount(
+        internal static bool TryGetMaximumAiCount(
             int playerCap,
             int lobbyMaxPlayers,
             int selectedMapMaxPlayers,
             bool customCoopGame,
             bool singleplayerSkirmish,
             bool allowFullAiMultiplayerLobby,
-            int humanCount)
+            int humanCount,
+            out int maximumAiCount)
         {
-            if (humanCount < 0)
-                return 0;
+            maximumAiCount = 0;
+            if (humanCount < 1 || humanCount > MaximumPlayerSlots)
+                return false;
 
-            int capacity;
-            if (customCoopGame)
-            {
-                if (selectedMapMaxPlayers < 1 || selectedMapMaxPlayers > MaximumPlayerSlots)
-                    return 0;
-                capacity = selectedMapMaxPlayers;
-            }
-            else if (playerCap >= 1 && playerCap <= MaximumPlayerSlots &&
-                     lobbyMaxPlayers >= 1 && lobbyMaxPlayers <= MaximumPlayerSlots)
-            {
-                capacity = Math.Min(playerCap, lobbyMaxPlayers);
-            }
-            else
-            {
-                capacity = 0;
-            }
+            if (playerCap < 1 || playerCap > MaximumPlayerSlots ||
+                lobbyMaxPlayers < 1 || lobbyMaxPlayers > MaximumPlayerSlots ||
+                selectedMapMaxPlayers < 1 || selectedMapMaxPlayers > MaximumPlayerSlots)
+                return false;
+
+            int capacity = Math.Min(
+                selectedMapMaxPlayers,
+                Math.Min(playerCap, lobbyMaxPlayers));
+
+            if (humanCount > capacity)
+                return false;
 
             // Custom co-op always needs its partner; normal multiplayer does so when the feature is off.
             if (!singleplayerSkirmish && humanCount == 1 &&
                 (customCoopGame || !allowFullAiMultiplayerLobby))
                 capacity--;
 
-            return Math.Max(0, capacity - humanCount);
+            maximumAiCount = Math.Max(0, capacity - humanCount);
+            return true;
         }
 
         internal static bool ShouldReleaseFinalAiSeat(
@@ -66,6 +64,7 @@ namespace BugfixesAndQoL
             bool customCoopGame,
             int playerCap,
             int lobbyMaxPlayers,
+            int selectedMapMaxPlayers,
             int memberCount,
             int humanCount,
             int aiCount)
@@ -74,13 +73,74 @@ namespace BugfixesAndQoL
                 return false;
             if (playerCap < 1 || playerCap > MaximumPlayerSlots ||
                 lobbyMaxPlayers < 1 || lobbyMaxPlayers > MaximumPlayerSlots ||
-                memberCount < 1 || humanCount < 0 || aiCount < 0)
+                selectedMapMaxPlayers < 1 || selectedMapMaxPlayers > MaximumPlayerSlots ||
+                memberCount < 1 || memberCount > MaximumPlayerSlots ||
+                humanCount < 1 || humanCount > MaximumPlayerSlots ||
+                aiCount < 0 || aiCount > MaximumRandomOpponents)
                 return false;
 
-            int capacity = Math.Min(playerCap, lobbyMaxPlayers);
+            int capacity = Math.Min(
+                selectedMapMaxPlayers,
+                Math.Min(playerCap, lobbyMaxPlayers));
+            if (humanCount > capacity || memberCount > capacity)
+                return false;
+
             return memberCount == capacity - 1 &&
                    humanCount == 1 &&
                    aiCount == memberCount - 1;
+        }
+    }
+
+    internal static class TemporaryBooleanStateGuard
+    {
+        internal static void Execute(
+            Func<bool> readState,
+            Action<bool> writeState,
+            bool temporaryState,
+            Action action,
+            Action afterRestore,
+            Action<Exception> reportCleanupFailure)
+        {
+            if (readState == null)
+                throw new ArgumentNullException(nameof(readState));
+            if (writeState == null)
+                throw new ArgumentNullException(nameof(writeState));
+            if (action == null)
+                throw new ArgumentNullException(nameof(action));
+
+            bool originalState = readState();
+            try
+            {
+                writeState(temporaryState);
+                action();
+            }
+            finally
+            {
+                TryCleanup(() => writeState(originalState), reportCleanupFailure);
+                TryCleanup(afterRestore, reportCleanupFailure);
+            }
+        }
+
+        private static void TryCleanup(Action cleanup, Action<Exception> reportCleanupFailure)
+        {
+            if (cleanup == null)
+                return;
+
+            try
+            {
+                cleanup();
+            }
+            catch (Exception ex)
+            {
+                try
+                {
+                    reportCleanupFailure?.Invoke(ex);
+                }
+                catch
+                {
+                    // Cleanup diagnostics must never replace the original action exception.
+                }
+            }
         }
     }
 }

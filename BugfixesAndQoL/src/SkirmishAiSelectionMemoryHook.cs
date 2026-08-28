@@ -299,7 +299,8 @@ namespace BugfixesAndQoL
             if (!settings.EnableMod || self?.currentLobby == null)
                 return;
 
-            int maximumAiCount = GetMaximumAiCount(self);
+            int maximumAiCount = 0;
+            TryGetMaximumAiCount(self, out maximumAiCount);
             for (int index = 0; index < MultiplayerRandomAiButtonFields.Length; index++)
             {
                 if (MultiplayerRandomAiButtonFields[index].GetValue(self) is Noesis.Button button)
@@ -333,7 +334,7 @@ namespace BugfixesAndQoL
                 frontend.currentLobby.isHost;
         }
 
-        private int GetMaximumAiCount(FRONT_Multiplayer self)
+        private bool TryGetMaximumAiCount(FRONT_Multiplayer self, out int maximumAiCount)
         {
             int playerCap = self == null ? 0 : (int)MultiplayerPlayerCapField.GetValue(self);
             int lobbyMaxPlayers = self?.currentLobby?.iMaxPlayers ?? 0;
@@ -344,14 +345,41 @@ namespace BugfixesAndQoL
                 ? 0
                 : (int)FileHeaderMaxPlayersField.GetValue(selectedHeader);
             int humanCount = self?.currentLobby?.CountHumanPlayers() ?? 0;
-            return RandomOpponentLobbyPolicy.GetMaximumAiCount(
+            return RandomOpponentLobbyPolicy.TryGetMaximumAiCount(
                 playerCap,
                 lobbyMaxPlayers,
                 selectedMapMaxPlayers,
                 FRONT_Multiplayer.customCoopGame,
                 FRONT_Multiplayer.skirmishGame,
                 settings.EnableMod && settings.AllowFullAiMultiplayerLobby,
-                humanCount);
+                humanCount,
+                out maximumAiCount);
+        }
+
+        private static string BuildCapacityDiagnostic(FRONT_Multiplayer self)
+        {
+            try
+            {
+                int playerCap = self == null ? 0 : (int)MultiplayerPlayerCapField.GetValue(self);
+                int lobbyMaxPlayers = self?.currentLobby?.iMaxPlayers ?? 0;
+                FileHeader selectedHeader = self == null
+                    ? null
+                    : MultiplayerSelectedMpHeaderField.GetValue(self) as FileHeader;
+                int selectedMapMaxPlayers = selectedHeader == null
+                    ? 0
+                    : (int)FileHeaderMaxPlayersField.GetValue(selectedHeader);
+                int memberCount = self?.currentLobby?.members?.Count ?? 0;
+                int humanCount = self?.currentLobby?.CountHumanPlayers() ?? 0;
+                int aiCount = self?.currentLobby?.CountAIPlayers() ?? 0;
+                return
+                    $"playerCap={playerCap}, lobbyMaxPlayers={lobbyMaxPlayers}, " +
+                    $"selectedMapMaxPlayers={selectedMapMaxPlayers}, members={memberCount}, " +
+                    $"humans={humanCount}, ai={aiCount}";
+            }
+            catch (Exception ex)
+            {
+                return $"capacityDiagnosticUnavailable={ex.GetType().Name}";
+            }
         }
 
         private void SkirmishAiAddClickHook(FRONT_Multiplayer self, string param)
@@ -426,6 +454,15 @@ namespace BugfixesAndQoL
                 return true;
             }
 
+            if (!TryGetMaximumAiCount(self, out int maximumAiCount))
+            {
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    $"Bugfixes and QoL rejected a random-opponent command before mutation because " +
+                    $"the lobby capacity is invalid. requested={requestedCount}, {BuildCapacityDiagnostic(self)}");
+                return true;
+            }
+
             List<RandomLordCandidate> candidates = BuildRandomLordCandidates();
             if (candidates.Count == 0)
             {
@@ -441,47 +478,69 @@ namespace BugfixesAndQoL
 
             emptyRandomLordSelectionLogged = false;
             List<HumanLobbyMemberSnapshot> humans = CaptureHumanMembers(self);
-            int removedCount = RemoveExistingRandomOpponents(self);
-            if (!VerifyHumanMembers(self, humans, "after removing old random opponents"))
-            {
-                RefreshRandomOpponentUi(self);
-                return true;
-            }
-
-            var random = new Random();
-            int maximumAiCount = GetMaximumAiCount(self);
-            int targetCount = Math.Min(requestedCount, maximumAiCount);
+            int memberCountBefore = self.currentLobby.members.Count;
+            int humanCountBefore = self.currentLobby.CountHumanPlayers();
+            int aiCountBefore = self.currentLobby.CountAIPlayers();
+            int removedCount = 0;
             int addedCount = 0;
-            for (int i = 0; i < targetCount; i++)
+            bool mutationAttempted = false;
+            bool mutationCompleted = false;
+            try
             {
-                RandomLordCandidate candidate = candidates[random.Next(candidates.Count)];
-                Platform_Multiplayer.MPLobbyMember member = candidate.CustomLord == null
-                    ? Platform_Multiplayer.Instance.AddSkirmishPlayerLocal(candidate.BuiltInLordType)
-                    : Platform_Multiplayer.Instance.AddCustomSkirmishPlayerLocal(candidate.CustomLord);
-                UpdateSteamMappings(self);
-                if (member == null)
-                    continue;
+                mutationAttempted = true;
+                removedCount = RemoveExistingRandomOpponents(self);
+                if (!VerifyHumanMembers(self, humans, "after removing old random opponents"))
+                    return true;
 
-                if (candidate.CustomLord != null)
-                    FinalizeCustomLordIdentity(self, member);
-
-                int playerId = self.currentLobby.getThisPlayerFromSteamID(member.GetSteamID());
-                if (playerId < 1 || playerId > self.AIVs.Length)
-                    throw new InvalidOperationException("The newly added random lord has no valid lobby player slot.");
-
-                if (candidate.CustomLord == null)
+                var random = new Random();
+                int targetCount = Math.Min(requestedCount, maximumAiCount);
+                for (int i = 0; i < targetCount; i++)
                 {
-                    self.AIVs[playerId - 1].Init(candidate.BuiltInLordType, string.Empty);
+                    RandomLordCandidate candidate = candidates[random.Next(candidates.Count)];
+                    Platform_Multiplayer.MPLobbyMember member = candidate.CustomLord == null
+                        ? Platform_Multiplayer.Instance.AddSkirmishPlayerLocal(candidate.BuiltInLordType)
+                        : Platform_Multiplayer.Instance.AddCustomSkirmishPlayerLocal(candidate.CustomLord);
+                    UpdateSteamMappings(self);
+                    if (member == null)
+                        continue;
+
+                    if (candidate.CustomLord != null)
+                        FinalizeCustomLordIdentity(self, member);
+
+                    int playerId = self.currentLobby.getThisPlayerFromSteamID(member.GetSteamID());
+                    if (playerId < 1 || playerId > self.AIVs.Length)
+                        throw new InvalidOperationException("The newly added random lord has no valid lobby player slot.");
+
+                    if (candidate.CustomLord == null)
+                    {
+                        self.AIVs[playerId - 1].Init(candidate.BuiltInLordType, string.Empty);
+                    }
+                    else
+                    {
+                        InitializeCustomLord(self, member, playerId, candidate.CustomLord);
+                    }
+                    addedCount++;
                 }
-                else
-                {
-                    InitializeCustomLord(self, member, playerId, candidate.CustomLord);
-                }
-                addedCount++;
+
+                mutationCompleted = true;
+            }
+            finally
+            {
+                if (mutationAttempted)
+                    FinalizeRandomOpponentMutation(self);
+
+                LogRandomOpponentMutationResult(
+                    self,
+                    requestedCount,
+                    maximumAiCount,
+                    memberCountBefore,
+                    humanCountBefore,
+                    aiCountBefore,
+                    removedCount,
+                    addedCount,
+                    mutationCompleted);
             }
 
-            UpdateSteamMappings(self);
-            RefreshRandomOpponentUi(self);
             bool humansUnchanged = VerifyHumanMembers(self, humans, "after adding new random opponents");
             Shared.DebugLogHelper.LogDebug(
                 log,
@@ -508,6 +567,12 @@ namespace BugfixesAndQoL
             Platform_Multiplayer.MPLobby lobby = self?.currentLobby;
             int playerCap = self == null ? 0 : (int)MultiplayerPlayerCapField.GetValue(self);
             int lobbyMaxPlayers = lobby?.iMaxPlayers ?? 0;
+            FileHeader selectedHeader = self == null
+                ? null
+                : MultiplayerSelectedMpHeaderField.GetValue(self) as FileHeader;
+            int selectedMapMaxPlayers = selectedHeader == null
+                ? 0
+                : (int)FileHeaderMaxPlayersField.GetValue(selectedHeader);
             int memberCountBefore = lobby?.members?.Count ?? 0;
             int humanCountBefore = lobby?.CountHumanPlayers() ?? 0;
             int aiCountBefore = lobby?.CountAIPlayers() ?? 0;
@@ -519,6 +584,7 @@ namespace BugfixesAndQoL
                 FRONT_Multiplayer.customCoopGame,
                 playerCap,
                 lobbyMaxPlayers,
+                selectedMapMaxPlayers,
                 memberCountBefore,
                 humanCountBefore,
                 aiCountBefore);
@@ -529,31 +595,76 @@ namespace BugfixesAndQoL
                 return;
             }
 
-            bool originalSkirmishGame = FRONT_Multiplayer.skirmishGame;
+            bool vanillaCompleted = false;
+            TemporaryBooleanStateGuard.Execute(
+                () => FRONT_Multiplayer.skirmishGame,
+                value => FRONT_Multiplayer.skirmishGame = value,
+                true,
+                () =>
+                {
+                    // Vanilla's only extra restriction here is guarded by !skirmishGame.
+                    invokeVanilla();
+                    vanillaCompleted = true;
+                },
+                () => FinalizeFinalAiSeatRelease(
+                    self,
+                    lobby,
+                    source,
+                    playerCap,
+                    lobbyMaxPlayers,
+                    selectedMapMaxPlayers,
+                    memberCountBefore,
+                    humanCountBefore,
+                    aiCountBefore,
+                    vanillaCompleted),
+                ex => Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Bugfixes and QoL final multiplayer AI seat cleanup failed for {source}: {ex}"));
+        }
+
+        private void FinalizeFinalAiSeatRelease(
+            FRONT_Multiplayer self,
+            Platform_Multiplayer.MPLobby lobby,
+            string source,
+            int playerCap,
+            int lobbyMaxPlayers,
+            int selectedMapMaxPlayers,
+            int memberCountBefore,
+            int humanCountBefore,
+            int aiCountBefore,
+            bool vanillaCompleted)
+        {
             try
             {
-                // Vanilla's only extra restriction here is guarded by !skirmishGame.
-                // Restore the real mode before publishing any resulting lobby update.
-                FRONT_Multiplayer.skirmishGame = true;
-                invokeVanilla();
+                int memberCountAfter = lobby?.members?.Count ?? 0;
+                int humanCountAfter = lobby?.CountHumanPlayers() ?? 0;
+                int aiCountAfter = lobby?.CountAIPlayers() ?? 0;
+                bool added = memberCountAfter > memberCountBefore;
+                if (added)
+                {
+                    TryFinalizationStep(
+                        "publish the final multiplayer AI seat",
+                        () => UpdateHostInfo(self));
+                }
+
+                string status = vanillaCompleted ? "completed" : added ? "partial-mutation" : "failed";
+                string message =
+                    $"Bugfixes and QoL final multiplayer AI seat release: status={status}, source={source}, " +
+                    $"vanillaCompleted={vanillaCompleted}, members={memberCountBefore}->{memberCountAfter}, " +
+                    $"humans={humanCountBefore}->{humanCountAfter}, ai={aiCountBefore}->{aiCountAfter}, " +
+                    $"playerCap={playerCap}, lobbyMaxPlayers={lobbyMaxPlayers}, " +
+                    $"selectedMapMaxPlayers={selectedMapMaxPlayers}, added={added}.";
+                if (vanillaCompleted)
+                    Shared.DebugLogHelper.LogDebug(log, message);
+                else
+                    Shared.DebugLogHelper.LogError(log, message);
             }
-            finally
+            catch (Exception ex)
             {
-                FRONT_Multiplayer.skirmishGame = originalSkirmishGame;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Bugfixes and QoL could not finalize the final multiplayer AI seat for {source}: {ex}");
             }
-
-            int memberCountAfter = lobby.members.Count;
-            int humanCountAfter = lobby.CountHumanPlayers();
-            int aiCountAfter = lobby.CountAIPlayers();
-            if (memberCountAfter > memberCountBefore)
-                UpdateHostInfo(self);
-
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"Bugfixes and QoL final multiplayer AI seat release: source={source}, " +
-                $"members={memberCountBefore}->{memberCountAfter}, humans={humanCountBefore}->{humanCountAfter}, " +
-                $"ai={aiCountBefore}->{aiCountAfter}, playerCap={playerCap}, lobbyMaxPlayers={lobbyMaxPlayers}, " +
-                $"added={memberCountAfter > memberCountBefore}.");
         }
 
         private List<RandomLordCandidate> BuildRandomLordCandidates()
@@ -615,7 +726,7 @@ namespace BugfixesAndQoL
             }
         }
 
-        private static int RemoveExistingRandomOpponents(FRONT_Multiplayer self)
+        private int RemoveExistingRandomOpponents(FRONT_Multiplayer self)
         {
             var aiMembers = new List<Platform_Multiplayer.MPLobbyMember>();
             foreach (Platform_Multiplayer.MPLobbyMember member in self.currentLobby.members)
@@ -628,26 +739,22 @@ namespace BugfixesAndQoL
             }
 
             int removedCount = 0;
-            MultiplayerPlayKickSpeechField.SetValue(self, false);
-            try
-            {
-                foreach (Platform_Multiplayer.MPLobbyMember member in aiMembers)
+            TemporaryBooleanStateGuard.Execute(
+                () => (bool)MultiplayerPlayKickSpeechField.GetValue(self),
+                value => MultiplayerPlayKickSpeechField.SetValue(self, value),
+                false,
+                () =>
                 {
-                    Platform_Multiplayer.Instance.kickSkirmishPlayer(member.GetSteamID());
-                    removedCount++;
-                    self.currentLobby.validateTeams();
-                    UpdateSteamMappings(self);
-                    MultiplayerReSortTeamInfoMethod.Invoke(self, null);
-                    UpdateHostInfo(self);
-                    MultiplayerUpdateRadarShieldPositionsMethod.Invoke(self, null);
-                    MultiplayerUpdateRandomAiButtonsMethod.Invoke(self, null);
-                }
-            }
-            finally
-            {
-                MultiplayerPlayKickSpeechField.SetValue(self, true);
-            }
-            self.currentLobby.validateTeams();
+                    foreach (Platform_Multiplayer.MPLobbyMember member in aiMembers)
+                    {
+                        Platform_Multiplayer.Instance.kickSkirmishPlayer(member.GetSteamID());
+                        removedCount++;
+                    }
+                },
+                null,
+                ex => Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Bugfixes and QoL could not restore random-opponent speech state: {ex}"));
             return removedCount;
         }
 
@@ -758,13 +865,75 @@ namespace BugfixesAndQoL
             info.image = lord.image;
         }
 
-        private static void RefreshRandomOpponentUi(FRONT_Multiplayer self)
+        private void FinalizeRandomOpponentMutation(FRONT_Multiplayer self)
         {
-            MultiplayerReSortTeamInfoMethod.Invoke(self, null);
-            UpdateHostInfo(self);
-            MultiplayerCreateTeamShieldsMethod.Invoke(self, null);
-            MultiplayerUpdateRadarShieldPositionsMethod.Invoke(self, null);
-            MultiplayerUpdateRandomAiButtonsMethod.Invoke(self, null);
+            TryFinalizationStep("validate random-opponent teams", () => self.currentLobby.validateTeams());
+            TryFinalizationStep("update random-opponent mappings", () => UpdateSteamMappings(self));
+            TryFinalizationStep(
+                "sort random-opponent teams",
+                () => MultiplayerReSortTeamInfoMethod.Invoke(self, null));
+            TryFinalizationStep("publish random-opponent lobby", () => UpdateHostInfo(self));
+            TryFinalizationStep(
+                "create random-opponent team shields",
+                () => MultiplayerCreateTeamShieldsMethod.Invoke(self, null));
+            TryFinalizationStep(
+                "update random-opponent radar shields",
+                () => MultiplayerUpdateRadarShieldPositionsMethod.Invoke(self, null));
+            TryFinalizationStep(
+                "update random-opponent buttons",
+                () => MultiplayerUpdateRandomAiButtonsMethod.Invoke(self, null));
+        }
+
+        private void TryFinalizationStep(string step, Action action)
+        {
+            try
+            {
+                action();
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Bugfixes and QoL could not {step}; remaining finalization steps continue: {ex}");
+            }
+        }
+
+        private void LogRandomOpponentMutationResult(
+            FRONT_Multiplayer self,
+            int requestedCount,
+            int maximumAiCount,
+            int memberCountBefore,
+            int humanCountBefore,
+            int aiCountBefore,
+            int removedCount,
+            int addedCount,
+            bool completed)
+        {
+            try
+            {
+                Platform_Multiplayer.MPLobby lobby = self?.currentLobby;
+                int memberCountAfter = lobby?.members?.Count ?? 0;
+                int humanCountAfter = lobby?.CountHumanPlayers() ?? 0;
+                int aiCountAfter = lobby?.CountAIPlayers() ?? 0;
+                bool rosterChanged = memberCountAfter != memberCountBefore ||
+                    humanCountAfter != humanCountBefore || aiCountAfter != aiCountBefore;
+                string status = completed ? "completed" : rosterChanged ? "partial-mutation" : "failed";
+                string message =
+                    $"Bugfixes and QoL random-opponent mutation finalization: status={status}, completed={completed}, " +
+                    $"requested={requestedCount}, maximum={maximumAiCount}, removed={removedCount}, added={addedCount}, " +
+                    $"members={memberCountBefore}->{memberCountAfter}, humans={humanCountBefore}->{humanCountAfter}, " +
+                    $"ai={aiCountBefore}->{aiCountAfter}, {BuildCapacityDiagnostic(self)}.";
+                if (completed)
+                    Shared.DebugLogHelper.LogDebug(log, message);
+                else
+                    Shared.DebugLogHelper.LogError(log, message);
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Bugfixes and QoL could not log random-opponent mutation finalization: {ex}");
+            }
         }
 
         private static void UpdateSteamMappings(FRONT_Multiplayer self)
