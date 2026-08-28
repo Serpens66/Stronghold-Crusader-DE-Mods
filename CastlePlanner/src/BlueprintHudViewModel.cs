@@ -122,23 +122,43 @@ namespace CastlePlanner
 
         public string SelectedCastle
         {
-            get => PreviewVisible ? preview.SelectedChoice : settings.SelectedCastle;
+            get
+            {
+                string option = PreviewVisible
+                    ? preview.SelectedChoice
+                    : settings.SelectedCastle;
+                return PreviewVisible && string.Equals(
+                    option,
+                    preview.NoneText,
+                    StringComparison.Ordinal)
+                    ? option
+                    : settings.GetCastleDisplayName(option);
+            }
             set
             {
                 if (PreviewVisible)
                 {
-                    if (BlueprintSelectionPolicy.IsValidBindingSelection(
+                    if (string.Equals(
                             value,
-                            preview.CastleChoices))
+                            preview.NoneText,
+                            StringComparison.Ordinal))
                     {
-                        preview.SelectedChoice = value;
+                        preview.SelectedChoice = preview.NoneText;
+                    }
+                    else if (settings.TryResolveCastleDisplayName(
+                        value,
+                        preview.CastleChoices,
+                        out string previewOption))
+                    {
+                        preview.SelectedChoice = previewOption;
                     }
                 }
-                else if (BlueprintSelectionPolicy.IsValidBindingSelection(
-                             value,
-                             settings.CastleOptions))
+                else if (settings.TryResolveCastleDisplayName(
+                    value,
+                    settings.CastleOptions,
+                    out string selectedOption))
                 {
-                    settings.SelectedCastle = value;
+                    settings.SelectedCastle = selectedOption;
                 }
             }
         }
@@ -1152,6 +1172,9 @@ namespace CastlePlanner
             {
                 case nameof(CastlePlannerSettingsViewModel.AvailableFileCount):
                     RefreshCastleOptionsFilter();
+                    // The stable persisted key can remain unchanged while its
+                    // compact display name becomes available after catalog load.
+                    OnPropertyChanged(nameof(SelectedCastle));
                     break;
                 case nameof(CastlePlannerSettingsViewModel.SelectedCastle):
                     OnPropertyChanged(nameof(SelectedCastle));
@@ -1233,8 +1256,14 @@ namespace CastlePlanner
             var matches = new System.Collections.Generic.List<string>();
             foreach (string option in source)
             {
-                if (BlueprintSearchPolicy.Matches(option, castleSearchText))
-                    matches.Add(option);
+                string displayName = PreviewVisible && string.Equals(
+                    option,
+                    preview.NoneText,
+                    StringComparison.Ordinal)
+                    ? option
+                    : settings.GetCastleDisplayName(option);
+                if (BlueprintSearchPolicy.Matches(displayName, castleSearchText))
+                    matches.Add(displayName);
             }
 
             filteredCastleOptions.ReplaceWith(matches);

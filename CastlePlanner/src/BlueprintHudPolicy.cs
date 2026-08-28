@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-
 namespace CastlePlanner
 {
     internal enum BlueprintHudDisplayState
@@ -25,18 +23,6 @@ namespace CastlePlanner
             return completedDepthCaptures < requestedDepthCaptures
                 ? BlueprintHudDisplayState.Loading
                 : BlueprintHudDisplayState.On;
-        }
-    }
-
-    internal static class BlueprintSelectionPolicy
-    {
-        public static bool IsValidBindingSelection(
-            string candidate,
-            ICollection<string> availableChoices)
-        {
-            return !string.IsNullOrEmpty(candidate) &&
-                availableChoices != null &&
-                availableChoices.Contains(candidate);
         }
     }
 

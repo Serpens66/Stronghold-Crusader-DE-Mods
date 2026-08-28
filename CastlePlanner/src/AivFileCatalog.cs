@@ -50,6 +50,10 @@ namespace CastlePlanner
 
         private readonly Dictionary<string, string> pathByOption =
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, string> displayByOption =
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, string> optionByDisplay =
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         private readonly List<string> discoveryOrder = new List<string>();
         private readonly Dictionary<string, CachedFingerprint> fingerprintByPath =
             new Dictionary<string, CachedFingerprint>(StringComparer.OrdinalIgnoreCase);
@@ -96,6 +100,7 @@ namespace CastlePlanner
                 AddRoot(root.SourceName, root.Path);
 
             RemoveIdenticalFiles(warning);
+            BuildDisplayNames();
 
             return pathByOption.Keys
                 .OrderBy(option => option, StringComparer.OrdinalIgnoreCase)
@@ -243,6 +248,38 @@ namespace CastlePlanner
         {
             return pathByOption.TryGetValue(option ?? string.Empty, out fullPath) &&
                    File.Exists(fullPath);
+        }
+
+        public string GetDisplayName(string option)
+        {
+            return displayByOption.TryGetValue(option ?? string.Empty, out string display)
+                ? display
+                : option ?? string.Empty;
+        }
+
+        public bool TryResolveDisplayName(
+            string displayName,
+            IEnumerable<string> availableOptions,
+            out string option)
+        {
+            option = string.Empty;
+            if (!optionByDisplay.TryGetValue(
+                    displayName ?? string.Empty,
+                    out string candidate))
+            {
+                return false;
+            }
+
+            bool available = (availableOptions ?? Enumerable.Empty<string>())
+                .Any(value => string.Equals(
+                    value,
+                    candidate,
+                    StringComparison.OrdinalIgnoreCase));
+            if (!available)
+                return false;
+
+            option = candidate;
+            return true;
         }
 
         public bool TryResolveSelection(
@@ -491,6 +528,19 @@ namespace CastlePlanner
             if (!pathByOption.ContainsKey(option))
                 discoveryOrder.Add(option);
             pathByOption[option] = path;
+        }
+
+        private void BuildDisplayNames()
+        {
+            displayByOption.Clear();
+            optionByDisplay.Clear();
+            IReadOnlyDictionary<string, string> names =
+                AivOptionDisplayNames.Build(pathByOption.Keys);
+            foreach (KeyValuePair<string, string> entry in names)
+            {
+                displayByOption.Add(entry.Key, entry.Value);
+                optionByDisplay.Add(entry.Value, entry.Key);
+            }
         }
 
         private static string MakeRelativePath(string root, string file)

@@ -63,6 +63,8 @@ internal static class Program
             ("rejects malformed native AIV spawn data", RejectsMalformedNativeSpawnData),
             ("filters every AIV spawn frame category", FiltersEverySpawnFrameCategory),
             ("filters Blueprint castle choices case-insensitively", FiltersBlueprintCastleChoices),
+            ("formats compact AIVJSON display names", FormatsCompactAivDisplayNames),
+            ("disambiguates compact AIVJSON display names", DisambiguatesCompactAivDisplayNames),
             ("filters troops and maps only siege engines", FiltersTroopsAndMapsOnlySiegeEngines),
             ("maps braziers and owner-specific flags", MapsBraziersAndOwnerSpecificFlags),
             ("projects supplemental items for every rotation", ProjectsSupplementalItemsForEveryRotation),
@@ -1327,6 +1329,54 @@ internal static class Program
         Assert(!CastlePlanner.BlueprintSearchPolicy.Matches(
             "Rat1.aivjson",
             "Snake"), "unrelated castle search unexpectedly matched");
+    }
+
+    private static void FormatsCompactAivDisplayNames()
+    {
+        string[] options =
+        [
+            @"[Vanilla] Saladin1.aivjson",
+            @"[Mod] Packs\My Castle.aivjson",
+            @"[CustomLords] Lord\My Keep.aivjson",
+            @"[ExtendedLords] Lord\Extended Keep.aivjson",
+            @"[Editor] Villages\Editor Keep.aivjson",
+            @"[Steam Workshop 1234567890] Nested\Steam Keep.aivjson"
+        ];
+
+        IReadOnlyDictionary<string, string> names =
+            CastlePlanner.AivOptionDisplayNames.Build(options);
+
+        Equal("[Vanilla] Saladin1", names[options[0]]);
+        Equal("[Mod] My Castle", names[options[1]]);
+        Equal("[CustomLords] My Keep", names[options[2]]);
+        Equal("[ExtendedLords] Extended Keep", names[options[3]]);
+        Equal("[Editor] Editor Keep", names[options[4]]);
+        Equal("[Steam] Steam Keep (1234567890)", names[options[5]]);
+        Assert(options.All(names.ContainsKey),
+            "formatting changed a stable catalog option key");
+        Assert(names.Values.All(name =>
+            !name.EndsWith(".aivjson", StringComparison.OrdinalIgnoreCase)),
+            "an AIVJSON extension remained visible");
+    }
+
+    private static void DisambiguatesCompactAivDisplayNames()
+    {
+        string[] options =
+        [
+            @"[Mod] packA\common\Castle.aivjson",
+            @"[Mod] packB\common\Castle.aivjson",
+            @"[Steam Workshop 111] one\Castle.aivjson",
+            @"[Steam Workshop 222] two\Castle.aivjson"
+        ];
+
+        IReadOnlyDictionary<string, string> names =
+            CastlePlanner.AivOptionDisplayNames.Build(options);
+
+        Equal("[Mod] Castle — packA/common", names[options[0]]);
+        Equal("[Mod] Castle — packB/common", names[options[1]]);
+        Equal("[Steam] Castle (111)", names[options[2]]);
+        Equal("[Steam] Castle (222)", names[options[3]]);
+        Equal(names.Count, names.Values.Distinct(StringComparer.OrdinalIgnoreCase).Count());
     }
 
     private static void FiltersTroopsAndMapsOnlySiegeEngines()

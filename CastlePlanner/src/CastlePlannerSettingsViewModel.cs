@@ -133,6 +133,18 @@ namespace CastlePlanner
 
         public int AvailableFileCount => CastleOptions.Count;
 
+        internal string GetCastleDisplayName(string option) =>
+            catalog.GetDisplayName(option);
+
+        internal bool TryResolveCastleDisplayName(
+            string displayName,
+            IEnumerable<string> availableOptions,
+            out string option) =>
+            catalog.TryResolveDisplayName(
+                displayName,
+                availableOptions,
+                out option);
+
         internal bool EnsureCastleCatalogLoaded()
         {
             PumpCastleCatalogLoad();
