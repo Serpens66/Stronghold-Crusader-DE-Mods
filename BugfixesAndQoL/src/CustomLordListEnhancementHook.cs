@@ -51,6 +51,11 @@ namespace BugfixesAndQoL
         private bool firstRefreshLogged;
         private bool keyboardRoutingLogged;
         private bool keyboardRoutingFailureLogged;
+        private bool detailDisplayFailureLogged;
+        private bool customLordDetailsOwned;
+        private string selectedLordPower = string.Empty;
+        private Visibility selectedLordDetailsVisibility = Visibility.Collapsed;
+        private CustomisationFileManager.CustomLord selectedLordDetails;
         private bool disposed;
 
         public CustomLordListEnhancementHook(ManualLogSource log, BugfixesAndQoLViewModel settings)
@@ -66,6 +71,7 @@ namespace BugfixesAndQoL
             GameXAMLManagerAPI.Instance.RegisterBinding("CustomLordTypeHeader", this);
             GameXAMLManagerAPI.Instance.RegisterBinding("CustomLordNameHeader", this);
             GameXAMLManagerAPI.Instance.RegisterBinding("CustomLordPowerHeader", this);
+            GameXAMLManagerAPI.Instance.RegisterBinding("CustomLordVanillaDetailsOverlay", this);
 
             MethodInfo addClickMethod = typeof(FRONT_Multiplayer).GetMethod(
                 "SkirmishAIAddClick",
@@ -121,6 +127,8 @@ namespace BugfixesAndQoL
         public RelayCommand ClearSearchCommand { get; }
         public RelayCommand RandomCustomLordCommand { get; }
         public TextureSource SelectedLordPortrait => selectedLordPortrait;
+        public string SelectedLordPower => selectedLordPower;
+        public Visibility SelectedLordDetailsVisibility => selectedLordDetailsVisibility;
         public Visibility SelectedLordPortraitVisibility =>
             ReferenceEquals(selectedLordPortrait, null) ? Visibility.Collapsed : Visibility.Visible;
         public Visibility EnhancementVisibility => IsActive ? Visibility.Visible : Visibility.Collapsed;
@@ -168,6 +176,7 @@ namespace BugfixesAndQoL
                 return;
 
             disposed = true;
+            ReleaseCustomLordDetails();
             if (activeList != null)
                 activeList.SelectionChanged -= CustomLordSelectionChanged;
             updateHook?.Undo();
@@ -218,6 +227,21 @@ namespace BugfixesAndQoL
 
             if (direction != 0)
                 MoveCustomLordSelection(direction);
+
+            try
+            {
+                UpdateSelectedLordDetails(self);
+            }
+            catch (Exception ex)
+            {
+                if (!detailDisplayFailureLogged)
+                {
+                    detailDisplayFailureLogged = true;
+                    Shared.DebugLogHelper.LogError(
+                        log,
+                        $"Bugfixes and QoL could not update custom-lord details; the Vanilla panel remains usable: {ex}");
+                }
+            }
         }
 
         private int CaptureCustomLordKeyboardDirection(FRONT_Multiplayer self)
@@ -316,12 +340,12 @@ namespace BugfixesAndQoL
             if (!string.Equals(activeSearchBox.Text, searchText, StringComparison.Ordinal))
                 activeSearchBox.Text = searchText;
 
-            UpdateSelectedLordPortrait();
+            UpdateSelectedLordDetails(self);
         }
 
         private void CustomLordSelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            UpdateSelectedLordPortrait();
+            UpdateSelectedLordDetails(activeView);
         }
 
         private void HeaderClicked(object sender, RoutedEventArgs e)
@@ -447,19 +471,78 @@ namespace BugfixesAndQoL
             else if (rows.Count > 0)
                 activeList.SelectedIndex = 0;
 
-            UpdateSelectedLordPortrait();
+            UpdateSelectedLordDetails(activeView);
             RandomCustomLordCommand.RaiseCanExecuteChanged();
         }
 
-        private void UpdateSelectedLordPortrait()
+        private void UpdateSelectedLordDetails(FRONT_Multiplayer self)
         {
-            TextureSource portrait = (activeList?.SelectedItem as FileRow)?.lord?.image;
-            if (ReferenceEquals(selectedLordPortrait, portrait))
+            CustomisationFileManager.CustomLord lord =
+                (activeList?.SelectedItem as FileRow)?.lord;
+            TextureSource portrait = lord?.image;
+            string power = lord == null ? string.Empty : GetPower(lord).ToString();
+
+            if (!ReferenceEquals(selectedLordPortrait, portrait))
+            {
+                selectedLordPortrait = portrait;
+                OnPropertyChanged(nameof(SelectedLordPortrait));
+                OnPropertyChanged(nameof(SelectedLordPortraitVisibility));
+            }
+
+            if (!string.Equals(selectedLordPower, power, StringComparison.Ordinal))
+            {
+                selectedLordPower = power;
+                OnPropertyChanged(nameof(SelectedLordPower));
+            }
+
+            bool shouldShow = IsActive &&
+                              ReferenceEquals(activeView, self) &&
+                              lord != null &&
+                              MainViewModel.Instance.Show_AddAIPanel &&
+                              MainViewModel.Instance.Show_AddAIPanel_Custom;
+            Visibility visibility = shouldShow ? Visibility.Visible : Visibility.Collapsed;
+            if (selectedLordDetailsVisibility != visibility)
+            {
+                selectedLordDetailsVisibility = visibility;
+                OnPropertyChanged(nameof(SelectedLordDetailsVisibility));
+            }
+
+            if (!shouldShow)
+            {
+                ReleaseCustomLordDetails();
+                return;
+            }
+
+            if (customLordDetailsOwned && ReferenceEquals(selectedLordDetails, lord))
                 return;
 
-            selectedLordPortrait = portrait;
-            OnPropertyChanged(nameof(SelectedLordPortrait));
-            OnPropertyChanged(nameof(SelectedLordPortraitVisibility));
+            // Vanilla's enter path cancels any delayed rollover clear before we take ownership.
+            activeView.AILordEnter("98");
+            MainViewModel viewModel = MainViewModel.Instance;
+            viewModel.SkirmishLordRolloverName = lord.lordDisplayName ?? lord.lordName ?? string.Empty;
+            viewModel.SkirmishLordRolloverName2 = string.Empty;
+            viewModel.SkirmishLordRolloverDesc = string.Empty;
+            viewModel.SkirmishLordRolloverRating = string.Empty;
+            viewModel.SkirmishLordRolloverTroops = string.Empty;
+            viewModel.SkirmishLordRolloverCastle = string.Empty;
+            viewModel.SkirmishLordRolloverStyle = string.Empty;
+            viewModel.SkirmishLordRolloverSaying = string.Empty;
+            viewModel.SkirmishLordRolloverSayingOpacity = 0f;
+            // The custom overlay supplies portrait and power without exposing Vanilla's fixed labels.
+            viewModel.Show_AddAIPanel_Rollover = false;
+            selectedLordDetails = lord;
+            customLordDetailsOwned = true;
+        }
+
+        private void ReleaseCustomLordDetails()
+        {
+            if (!customLordDetailsOwned)
+                return;
+
+            customLordDetailsOwned = false;
+            selectedLordDetails = null;
+            // Reuse Vanilla's delayed clear so normal lord hover can immediately supersede it.
+            activeView?.AILordLeave("98");
         }
 
         private bool MatchesSearch(CustomisationFileManager.CustomLord lord)
