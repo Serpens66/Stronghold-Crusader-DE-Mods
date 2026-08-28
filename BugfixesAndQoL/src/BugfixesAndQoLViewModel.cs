@@ -28,6 +28,7 @@ namespace BugfixesAndQoL
         private bool enableStuckApothecaryFix = true;
         private bool enablePlagueTargetReservationFix = true;
         private bool enableAssemblyPointPlacementFix = true;
+        private bool enableMoatDiggingReachabilityFix = true;
         private bool enableFairSiegeAmmoRestock = true;
         private bool enableSurrenderAndStatistics = true;
         private bool enableLordUnitControls = true;
@@ -170,6 +171,8 @@ namespace BugfixesAndQoL
         public string ShowSelectedUnitHealthHelpText => SerpLocalization.Get("BugfixesAndQoL.ShowSelectedUnitHealthHelp");
         public string EnableAssemblyPointPlacementFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAssemblyPointPlacementFix");
         public string EnableAssemblyPointPlacementFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAssemblyPointPlacementFixHelp");
+        public string EnableMoatDiggingReachabilityFixText => SerpLocalization.Get("BugfixesAndQoL.EnableMoatDiggingReachabilityFix");
+        public string EnableMoatDiggingReachabilityFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableMoatDiggingReachabilityFixHelp");
         public string EnableFairSiegeAmmoRestockText => SerpLocalization.Get("BugfixesAndQoL.EnableFairSiegeAmmoRestock");
         public string EnableFairSiegeAmmoRestockHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableFairSiegeAmmoRestockHelp");
         public string EnableSurrenderAndStatisticsText => SerpLocalization.Get("BugfixesAndQoL.EnableSurrenderAndStatistics");
@@ -463,6 +466,13 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool EnableMoatDiggingReachabilityFix
+        {
+            get => enableMoatDiggingReachabilityFix;
+            set => SetSetting(ref enableMoatDiggingReachabilityFix, value, nameof(EnableMoatDiggingReachabilityFix));
+        }
+
+        [SyncHostOnly]
         public bool EnableFairSiegeAmmoRestock
         {
             get => enableFairSiegeAmmoRestock;
@@ -560,6 +570,7 @@ namespace BugfixesAndQoL
                 EnableStuckApothecaryFix = true;
                 EnablePlagueTargetReservationFix = true;
                 EnableAssemblyPointPlacementFix = true;
+                EnableMoatDiggingReachabilityFix = true;
                 EnableFairSiegeAmmoRestock = true;
                 EnableSurrenderAndStatistics = true;
                 EnableLordUnitControls = true;

@@ -40,6 +40,7 @@ namespace BugfixesAndQoL
         private LordUnitControlsFeature lordUnitControlsFeature;
         private SelectedUnitHealthFeature selectedUnitHealthFeature;
         private AssemblyPointPlacementPatch assemblyPointPlacementPatch;
+        private MoatDiggingReachabilityFix moatDiggingReachabilityFix;
         private AiRecruitmentHorseDemandFix aiRecruitmentHorseDemandFix;
         private AiStoneReserveFix aiStoneReserveFix;
         private AITowerRuinRepairFix aiTowerRuinRepairFix;
@@ -57,6 +58,7 @@ namespace BugfixesAndQoL
         private bool settingsSubscribed;
         private bool enemyProximityFixedLayoutErrorLogged;
         private bool assemblyPointPlacementPatchUnavailable;
+        private bool moatDiggingReachabilityFixUnavailable;
         private bool aiRecruitmentHorseDemandFixUnavailable;
         private bool aiStoneReserveFixUnavailable;
         private bool aiTowerRuinRepairFixUnavailable;
@@ -244,6 +246,7 @@ namespace BugfixesAndQoL
             TryInitializeFeature("plague target-reservation fix", EnsurePlagueTargetReservationFix);
             TryInitializeFeature("stuck-apothecary fix", EnsurePlagueApothecaryStateTransitionFix);
             TryInitializeFeature("assembly-point placement fix", ApplyAssemblyPointPlacementPatchSetting);
+            TryInitializeFeature("moat-digging reachability fix", EnsureMoatDiggingReachabilityFix);
             TryInitializeFeature("AI recruitment horse-demand fix", EnsureAiRecruitmentHorseDemandFix);
             TryInitializeFeature("AI stone-reserve fix", EnsureAiStoneReserveFix);
             TryInitializeFeature("AI tower-ruin repair fix", EnsureAiTowerRuinRepairFix);
@@ -304,6 +307,8 @@ namespace BugfixesAndQoL
             selectedUnitHealthFeature?.Dispose();
             selectedUnitHealthFeature = null;
             DisableAssemblyPointPlacementPatch();
+            moatDiggingReachabilityFix?.Dispose();
+            moatDiggingReachabilityFix = null;
             aiRecruitmentHorseDemandFix?.Dispose();
             aiRecruitmentHorseDemandFix = null;
             aiStoneReserveFix?.Dispose();
@@ -884,6 +889,35 @@ namespace BugfixesAndQoL
         {
             assemblyPointPlacementPatch?.Dispose();
             assemblyPointPlacementPatch = null;
+        }
+
+        private void EnsureMoatDiggingReachabilityFix()
+        {
+            if (!nativeLibraryAvailable || moatDiggingReachabilityFix != null ||
+                moatDiggingReachabilityFixUnavailable)
+            {
+                return;
+            }
+
+            try
+            {
+                // Keep the event and cursor hooks installed. The synchronized host setting is
+                // checked inside both hot paths, so disabling it restores Vanilla behavior.
+                moatDiggingReachabilityFix = new MoatDiggingReachabilityFix(
+                    log,
+                    settings,
+                    GetNativeLibraryMemory(),
+                    unchecked((ulong)libraryHandle.ToInt64()),
+                    fixedLayoutHashValidated);
+            }
+            catch (Exception ex)
+            {
+                moatDiggingReachabilityFixUnavailable = true;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Bugfixes and QoL moat-digging reachability fix could not be installed; " +
+                    $"Vanilla behavior remains active: {ex}");
+            }
         }
     }
 }
