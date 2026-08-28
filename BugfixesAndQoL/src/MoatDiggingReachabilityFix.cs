@@ -6,6 +6,7 @@ using SHCDESE.GameGlobals;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using Zhuqiaomon.Assembly;
 using Zhuqiaomon.Hooks;
@@ -33,7 +34,14 @@ namespace BugfixesAndQoL
         private const int Command6PrecheckHookRva = 0x120E6C;
         private const int MoatMovementResultHookRva = 0x13F7A9;
         private const int MoatBfsResultHookRva = 0x1964D6;
+        private const int MoatPathBuilderResultHookRva = 0x19667E;
+        private const int ValidCoordinateGridRva = 0x3A11EA4;
+        private const int RowLookupRva = 0x402FF2C;
+        private const int TileFlagsRva = 0x48F71B0;
         private const int PathRegionGridRva = 0x50EC690;
+        private const int NativeDistanceGridRva = 0x5225B10;
+        private const int NativeVisitStampGridRva = 0x52C2550;
+        private const int PathSearchManagerRva = 0x60AD660;
         private const int MoatMovementTargetXRva = 0x6097BE8;
         private const int MoatMovementTargetYRva = 0x6097BEC;
         private const int MoatPathModeRva = 0x60AD6E4;
@@ -43,7 +51,13 @@ namespace BugfixesAndQoL
         private const int Command6PrecheckHookLength = 21;
         private const int MoatMovementResultHookLength = 14;
         private const int MoatBfsResultHookLength = 18;
+        private const int MoatPathBuilderResultHookLength = 18;
         private const int GameUnitStride = 0x490;
+        private const int MapWidth = 800;
+        private const int TileCount = 320800;
+        private const int PathSearchGenerationOffset = 0x04;
+        private const int PathSearchQueueReadOffset = 0x155F3C;
+        private const int PathSearchQueueWriteOffset = 0x155F44;
         private const int MoatRecordArrayOffset = 0x1F3EE30;
         private const int MoatRecordCountOffset = 0x2038E30;
         private const int MoatRecordSize = 0x10;
@@ -51,6 +65,12 @@ namespace BugfixesAndQoL
         private const int MoatReservationOffset = 0x0F;
         private const int MoatReservationIncrement = 20;
         private const int MaximumFunctionalLogEntries = 128;
+        private const int MaximumPendingAttempts = 64;
+        private const int MaximumDeepDiagnostics = 4;
+        private const uint CompletedMoatFlag = 1u << 30;
+
+        private static readonly int[] DirectionX = { 0, 1, 1, 1, 0, -1, -1, -1 };
+        private static readonly int[] DirectionY = { -1, -1, 0, 1, 1, 1, 0, -1 };
 
         private const string DigMoatModePattern =
             "44 39 25 ?? ?? ?? ?? 74 3C 48 8B CE E8 ?? ?? ?? ?? " +
@@ -79,20 +99,32 @@ namespace BugfixesAndQoL
         private readonly int* moatPathMode;
         private readonly int* moatMovementTargetX;
         private readonly int* moatMovementTargetY;
+        private readonly byte* validCoordinates;
+        private readonly int* rowLookup;
+        private readonly uint* tileFlags;
         private readonly short* pathRegions;
+        private readonly short* nativeDistances;
+        private readonly short* nativeVisitStamps;
+        private readonly byte* pathSearchManager;
         private HookRef<X64InlineHook> cursorReachabilityHook = new HookRef<X64InlineHook>();
         private HookRef<X64InlineHook> command6PrecheckHook = new HookRef<X64InlineHook>();
         private HookRef<X64InlineHook> moatMovementResultHook = new HookRef<X64InlineHook>();
         private HookRef<X64InlineHook> moatBfsResultHook = new HookRef<X64InlineHook>();
+        private HookRef<X64InlineHook> moatPathBuilderResultHook = new HookRef<X64InlineHook>();
         private GetMoatIdAtTileDelegate getMoatIdAtTile;
         private FindNearestFriendlyMoatDelegate originalFindNearestFriendlyMoat;
         private FindNearestFriendlyMoatDelegate rootedFindNearestFriendlyMoat;
         private NativeDetour findNearestFriendlyMoatDetour;
         private readonly object functionalLogLock = new object();
+        private readonly object attemptLock = new object();
+        private readonly Dictionary<int, MoatAttempt> pendingAttempts = new Dictionary<int, MoatAttempt>();
+        private readonly HashSet<int> deeplyDiagnosedTargets = new HashSet<int>();
+        private long nextAttemptId;
         private int functionalLogEntryCount;
         private bool functionalLogLimitLogged;
         private bool commandPrecheckFailureLogged;
         private bool directedTargetFailureLogged;
+        private bool bfsPostStateFailureLogged;
         private bool cursorFailureLogged;
         private bool disposed;
 
@@ -171,7 +203,13 @@ namespace BugfixesAndQoL
             moatPathMode = (int*)(libraryBase + MoatPathModeRva);
             moatMovementTargetX = (int*)(libraryBase + MoatMovementTargetXRva);
             moatMovementTargetY = (int*)(libraryBase + MoatMovementTargetYRva);
+            validCoordinates = (byte*)(libraryBase + ValidCoordinateGridRva);
+            rowLookup = (int*)(libraryBase + RowLookupRva);
+            tileFlags = (uint*)(libraryBase + TileFlagsRva);
             pathRegions = (short*)(libraryBase + PathRegionGridRva);
+            nativeDistances = (short*)(libraryBase + NativeDistanceGridRva);
+            nativeVisitStamps = (short*)(libraryBase + NativeVisitStampGridRva);
+            pathSearchManager = (byte*)(libraryBase + PathSearchManagerRva);
             getMoatIdAtTile = Marshal.GetDelegateForFunctionPointer<GetMoatIdAtTileDelegate>(
                 (IntPtr)(libraryBase + unchecked((ulong)moatLookupResolution.Rva)));
 
@@ -214,10 +252,19 @@ namespace BugfixesAndQoL
                     hookSize: MoatBfsResultHookLength,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
+                transaction.AddContextHook(
+                    ref moatPathBuilderResultHook,
+                    libraryBase + MoatPathBuilderResultHookRva,
+                    RecordMoatPathBuilderResult,
+                    regs: X64SmartCPUContextRegs.All,
+                    hookSize: MoatPathBuilderResultHookLength,
+                    errorMode: CallbackErrorMode.LogAndContinue,
+                    placement: OverwrittenInstructionPlacement.AfterCallback);
                 transaction.Commit();
 
                 if (!cursorReachabilityHook.Success || !command6PrecheckHook.Success ||
-                    !moatMovementResultHook.Success || !moatBfsResultHook.Success)
+                    !moatMovementResultHook.Success || !moatBfsResultHook.Success ||
+                    !moatPathBuilderResultHook.Success)
                 {
                     throw new InvalidOperationException(
                         "The DigMoat functional and diagnostic hooks were not installed atomically.");
@@ -243,7 +290,8 @@ namespace BugfixesAndQoL
                     $"lookupRva=0x{moatLookupResolution.Rva:X}, searchRva=0x{moatSearchResolution.Rva:X}, " +
                     $"command6PrecheckRva=0x{Command6PrecheckHookRva:X}, " +
                     $"movementResultRva=0x{MoatMovementResultHookRva:X}, " +
-                    $"bfsResultRva=0x{MoatBfsResultHookRva:X}.");
+                    $"bfsResultRva=0x{MoatBfsResultHookRva:X}, " +
+                    $"pathBuilderResultRva=0x{MoatPathBuilderResultHookRva:X}.");
             }
             catch
             {
@@ -287,11 +335,20 @@ namespace BugfixesAndQoL
                         out int commandedMoatId))
                 {
                     byte reservationBefore = ReserveMoat(tileManager, commandedMoatId);
+                    MoatAttempt attempt = RegisterAttempt(
+                        playerId,
+                        unitId,
+                        unchecked((int)unit->r_UnitChimp),
+                        unit->r_ContextTargetTileX,
+                        unit->r_ContextTargetTileY,
+                        commandedMoatId,
+                        reservationBefore);
                     LogFunctional(
-                        $"stage=selection player={playerId} unit={unitId} " +
+                        $"stage=selection attempt={attempt.Id} player={playerId} unit={unitId} " +
+                        $"unitType={attempt.UnitType} " +
                         $"target=({unit->r_ContextTargetTileX},{unit->r_ContextTargetTileY}) " +
-                        $"moat={commandedMoatId} reservation={reservationBefore}->" +
-                        $"{unchecked((byte)(reservationBefore + MoatReservationIncrement))}");
+                        $"moat={commandedMoatId} reservation={attempt.ReservationBefore}->" +
+                        $"{unchecked((byte)(attempt.ReservationBefore + MoatReservationIncrement))}");
 
                     // Vanilla reserves every positive result before returning it. Mirroring the
                     // +20 here keeps its later success/release and failure/-20 paths symmetric.
@@ -376,49 +433,97 @@ namespace BugfixesAndQoL
 
         private void RecordMoatBfsResult(NativePointer<X64SmartCPUContext> context)
         {
-            if (!TryGetCurrentMoatUnit(out int unitId, out GameUnit* unit))
+            if (!TryGetPendingAttempt(out MoatAttempt attempt, out GameUnit* unit) ||
+                !AttemptMatchesNativeTarget(attempt))
                 return;
 
             X64SmartCPUContext* registers = context.Pointer;
             int startRegion = unchecked((int)(uint)registers->R12);
             int targetRegion = unchecked((int)(uint)registers->RBX);
-            int bfsResult = unchecked((int)(uint)registers->RAX);
+            int originalBfsResult = unchecked((int)(uint)registers->RAX);
             int targetX = *moatMovementTargetX;
             int targetY = *moatMovementTargetY;
             TileDiagnostic start = GetTileDiagnostic(
                 unit->r_CurrentTilePositionX,
                 unit->r_CurrentTilePositionY);
             TileDiagnostic target = GetTileDiagnostic(targetX, targetY);
+            int effectiveBfsResult = originalBfsResult;
+            bool bypassApplied = false;
+
+            if (originalBfsResult == 0 && *moatPathMode == 1 &&
+                startRegion >= 0 && targetRegion > 0 && startRegion != targetRegion &&
+                target.TileId == attempt.TargetTileId &&
+                TryGetFriendlyPlannedMoatId(
+                    GameTileManagerPointer,
+                    attempt.PlayerId,
+                    targetX,
+                    targetY,
+                    out int currentMoatId) &&
+                currentMoatId == attempt.MoatId)
+            {
+                if (TryClaimDeepDiagnosis(target.TileId))
+                    TryLogBfsPostState(attempt, targetRegion, targetX, targetY);
+
+                // A real E7C40 success with the target region only feeds this value
+                // into Vanilla's existing comparison. F4930 still validates and builds
+                // the actual path; its return value is never modified by this feature.
+                registers->RAX = unchecked((ulong)(uint)targetRegion);
+                effectiveBfsResult = targetRegion;
+                bypassApplied = true;
+                attempt.BypassApplied = true;
+            }
 
             LogFunctional(
-                $"stage=bfs-result unit={unitId} start=({unit->r_CurrentTilePositionX}," +
+                $"stage=bfs-result attempt={attempt.Id} unit={attempt.UnitId} " +
+                $"unitType={attempt.UnitType} start=({unit->r_CurrentTilePositionX}," +
                 $"{unit->r_CurrentTilePositionY}) target=({targetX},{targetY}) " +
                 $"startTile={start.TileId} startFlags=0x{start.Flags:X8} startGridRegion={start.Region} " +
                 $"targetTile={target.TileId} targetFlags=0x{target.Flags:X8} targetGridRegion={target.Region} " +
-                $"startRegion={startRegion} targetRegion={targetRegion} bfsResult={bfsResult} " +
-                $"pathMode={*moatPathMode}");
+                $"startRegion={startRegion} targetRegion={targetRegion} " +
+                $"originalBfs={originalBfsResult} effectiveBfs={effectiveBfsResult} " +
+                $"bypass={bypassApplied} pathMode={*moatPathMode}");
+        }
+
+        private void RecordMoatPathBuilderResult(NativePointer<X64SmartCPUContext> context)
+        {
+            if (!TryGetPendingAttempt(out MoatAttempt attempt, out GameUnit* unit) ||
+                !AttemptMatchesNativeTarget(attempt))
+            {
+                return;
+            }
+
+            int pathBuilderResult = unchecked((int)(uint)context.Pointer->RAX);
+            bool usedF4930 = unchecked((int)(uint)context.Pointer->R13) == 0;
+            LogFunctional(
+                $"stage=path-builder-result attempt={attempt.Id} unit={attempt.UnitId} " +
+                $"target=({attempt.TargetX},{attempt.TargetY}) result={pathBuilderResult} " +
+                $"builder={(usedF4930 ? "F4930" : "E32B0")} " +
+                $"bypass={attempt.BypassApplied} pathMode={*moatPathMode} " +
+                $"pathState=0x{unit->r_PathPlanStateBitFlags:X4} " +
+                $"pathPosition={unit->p_CurrentPathPlanPosition} pathSize={unit->p_PathPlanSize}");
         }
 
         private void RecordMoatMovementResult(NativePointer<X64SmartCPUContext> context)
         {
-            if (!TryGetCurrentMoatUnit(out int unitId, out GameUnit* unit))
+            if (!TryGetPendingAttempt(out MoatAttempt attempt, out GameUnit* unit) ||
+                !AttemptMatchesNativeTarget(attempt))
                 return;
 
             X64SmartCPUContext* registers = context.Pointer;
             int moveResult = unchecked((int)(uint)registers->RAX);
-            int moatId = unchecked((int)(uint)registers->RDI);
             int targetX = *moatMovementTargetX;
             int targetY = *moatMovementTargetY;
             TileDiagnostic start = GetTileDiagnostic(
                 unit->r_CurrentTilePositionX,
                 unit->r_CurrentTilePositionY);
             TileDiagnostic target = GetTileDiagnostic(targetX, targetY);
-            string reservation = TryGetMoatReservation(moatId, out byte reservationValue)
+            string reservation = TryGetMoatReservation(attempt.MoatId, out byte reservationValue)
                 ? reservationValue.ToString()
                 : "invalid";
 
             LogFunctional(
-                $"stage=movement-result unit={unitId} start=({unit->r_CurrentTilePositionX}," +
+                $"stage=movement-result attempt={attempt.Id} unit={attempt.UnitId} " +
+                $"start=({unit->r_CurrentTilePositionX}," +
                 $"{unit->r_CurrentTilePositionY}) target=({targetX},{targetY}) " +
                 $"storedTarget=({unit->r_ContextTargetTileX},{unit->r_ContextTargetTileY}) " +
                 $"startTile={start.TileId} startFlags=0x{start.Flags:X8} startRegion={start.Region} " +
@@ -426,22 +531,267 @@ namespace BugfixesAndQoL
                 $"moveResult={moveResult} pathMode={*moatPathMode} " +
                 $"pathState=0x{unit->r_PathPlanStateBitFlags:X4} " +
                 $"pathPosition={unit->p_CurrentPathPlanPosition} pathSize={unit->p_PathPlanSize} " +
-                $"aiState={unit->r_AIState} moat={moatId} reservation={reservation}");
+                $"aiState={unit->r_AIState} moat={attempt.MoatId} reservation={reservation} " +
+                $"bypass={attempt.BypassApplied}");
+
+            RemoveAttempt(attempt);
         }
 
-        private bool TryGetCurrentMoatUnit(out int unitId, out GameUnit* unit)
+        private bool TryGetPendingAttempt(out MoatAttempt attempt, out GameUnit* unit)
         {
-            unitId = 0;
+            attempt = null;
             unit = null;
             if (!IsEnabled)
                 return false;
 
-            unitId = *currentUnitId;
-            return unitId > 0 &&
-                GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out unit) &&
-                unit != null &&
-                unit->r_AI_LastIssuedTribeCommand == (ushort)TribeAICommand.DigMoatTileId;
+            int unitId = *currentUnitId;
+            if (unitId <= 0)
+                return false;
+
+            lock (attemptLock)
+            {
+                if (!pendingAttempts.TryGetValue(unitId, out attempt))
+                    return false;
+            }
+
+            return GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out unit) && unit != null;
         }
+
+        private MoatAttempt RegisterAttempt(
+            int playerId,
+            int unitId,
+            int unitType,
+            int targetX,
+            int targetY,
+            int moatId,
+            byte reservationBefore)
+        {
+            int targetTileId = GameTileManagerAPI.Instance.GetTileId(targetX, targetY);
+            lock (attemptLock)
+            {
+                MoatAttempt attempt = new MoatAttempt(
+                    ++nextAttemptId,
+                    playerId,
+                    unitId,
+                    unitType,
+                    targetX,
+                    targetY,
+                    targetTileId,
+                    moatId,
+                    reservationBefore);
+                pendingAttempts[unitId] = attempt;
+
+                while (pendingAttempts.Count > MaximumPendingAttempts)
+                {
+                    int oldestUnitId = 0;
+                    long oldestAttemptId = long.MaxValue;
+                    foreach (KeyValuePair<int, MoatAttempt> pair in pendingAttempts)
+                    {
+                        if (pair.Value.Id < oldestAttemptId)
+                        {
+                            oldestAttemptId = pair.Value.Id;
+                            oldestUnitId = pair.Key;
+                        }
+                    }
+
+                    if (oldestAttemptId == long.MaxValue)
+                        break;
+                    pendingAttempts.Remove(oldestUnitId);
+                }
+
+                return attempt;
+            }
+        }
+
+        private bool AttemptMatchesNativeTarget(MoatAttempt attempt) =>
+            attempt != null &&
+            *moatMovementTargetX == attempt.TargetX &&
+            *moatMovementTargetY == attempt.TargetY;
+
+        private void RemoveAttempt(MoatAttempt attempt)
+        {
+            lock (attemptLock)
+            {
+                if (pendingAttempts.TryGetValue(attempt.UnitId, out MoatAttempt current) &&
+                    current.Id == attempt.Id)
+                {
+                    pendingAttempts.Remove(attempt.UnitId);
+                }
+            }
+        }
+
+        private bool TryClaimDeepDiagnosis(int targetTileId)
+        {
+            lock (attemptLock)
+            {
+                if (deeplyDiagnosedTargets.Count >= MaximumDeepDiagnostics ||
+                    deeplyDiagnosedTargets.Contains(targetTileId))
+                {
+                    return false;
+                }
+
+                deeplyDiagnosedTargets.Add(targetTileId);
+                return true;
+            }
+        }
+
+        private void LogBfsPostState(
+            MoatAttempt attempt,
+            int targetRegion,
+            int targetX,
+            int targetY)
+        {
+            ushort generation = *(ushort*)(pathSearchManager + PathSearchGenerationOffset);
+            int queueRead = *(int*)(pathSearchManager + PathSearchQueueReadOffset);
+            int queueWrite = *(int*)(pathSearchManager + PathSearchQueueWriteOffset);
+            short visitStamp = unchecked((short)generation);
+            int visitedCount = 0;
+            int visitedCompletedMoats = 0;
+            int visitedTargetRegion = 0;
+            TileWitness nearestVisited = TileWitness.Invalid;
+            TileWitness nearestVisitedMoat = TileWitness.Invalid;
+            FrontierWitness nearestFrontier = FrontierWitness.Invalid;
+            int nearestVisitedDistance = int.MaxValue;
+            int nearestMoatDistance = int.MaxValue;
+            int nearestFrontierDistance = int.MaxValue;
+
+            for (int y = 0; y < MapWidth; y++)
+            {
+                int rowOffset = rowLookup[y * 3];
+                int coordinateOffset = y * MapWidth;
+                for (int x = 0; x < MapWidth; x++)
+                {
+                    if (validCoordinates[coordinateOffset + x] == 0)
+                        continue;
+
+                    int tileId = rowOffset + x;
+                    if ((uint)tileId >= TileCount || nativeVisitStamps[tileId] != visitStamp)
+                        continue;
+
+                    visitedCount++;
+                    uint flags = tileFlags[tileId];
+                    int region = pathRegions[tileId];
+                    int distanceToTarget = GetSquaredDistance(x, y, targetX, targetY);
+                    TileWitness witness = new TileWitness(
+                        x,
+                        y,
+                        tileId,
+                        flags,
+                        region,
+                        nativeDistances[tileId]);
+
+                    if (distanceToTarget < nearestVisitedDistance)
+                    {
+                        nearestVisitedDistance = distanceToTarget;
+                        nearestVisited = witness;
+                    }
+
+                    if ((flags & CompletedMoatFlag) != 0)
+                    {
+                        visitedCompletedMoats++;
+                        if (distanceToTarget < nearestMoatDistance)
+                        {
+                            nearestMoatDistance = distanceToTarget;
+                            nearestVisitedMoat = witness;
+                        }
+                    }
+
+                    if (region == targetRegion)
+                        visitedTargetRegion++;
+
+                    for (int direction = 0; direction < DirectionX.Length; direction++)
+                    {
+                        int candidateX = x + DirectionX[direction];
+                        int candidateY = y + DirectionY[direction];
+                        if ((uint)candidateX >= MapWidth || (uint)candidateY >= MapWidth ||
+                            validCoordinates[candidateY * MapWidth + candidateX] == 0)
+                        {
+                            continue;
+                        }
+
+                        int candidateTileId = rowLookup[candidateY * 3] + candidateX;
+                        if ((uint)candidateTileId >= TileCount ||
+                            nativeVisitStamps[candidateTileId] == visitStamp)
+                        {
+                            continue;
+                        }
+
+                        int candidateDistance = GetSquaredDistance(
+                            candidateX,
+                            candidateY,
+                            targetX,
+                            targetY);
+                        if (candidateDistance >= nearestFrontierDistance)
+                            continue;
+
+                        nearestFrontierDistance = candidateDistance;
+                        nearestFrontier = new FrontierWitness(
+                            witness,
+                            new TileWitness(
+                                candidateX,
+                                candidateY,
+                                candidateTileId,
+                                tileFlags[candidateTileId],
+                                pathRegions[candidateTileId],
+                                nativeDistances[candidateTileId]));
+                    }
+                }
+            }
+
+            bool targetVisited = attempt.TargetTileId >= 0 && attempt.TargetTileId < TileCount &&
+                nativeVisitStamps[attempt.TargetTileId] == visitStamp;
+            string targetDistance = targetVisited
+                ? nativeDistances[attempt.TargetTileId].ToString()
+                : "unvisited";
+
+            LogFunctional(
+                $"stage=bfs-poststate attempt={attempt.Id} generation={generation} " +
+                $"queueRead={queueRead} queueWrite={queueWrite} visited={visitedCount} " +
+                $"visitedCompletedMoats={visitedCompletedMoats} " +
+                $"visitedTargetRegion={visitedTargetRegion} targetVisited={targetVisited} " +
+                $"targetDistance={targetDistance}");
+            LogFunctional(
+                $"stage=bfs-frontier attempt={attempt.Id} " +
+                $"nearestVisited={FormatWitness(nearestVisited)} " +
+                $"nearestVisitedMoat={FormatWitness(nearestVisitedMoat)} " +
+                $"frontierFrom={FormatWitness(nearestFrontier.From)} " +
+                $"frontierTo={FormatWitness(nearestFrontier.To)}");
+        }
+
+        private void TryLogBfsPostState(
+            MoatAttempt attempt,
+            int targetRegion,
+            int targetX,
+            int targetY)
+        {
+            try
+            {
+                LogBfsPostState(attempt, targetRegion, targetX, targetY);
+            }
+            catch (Exception ex)
+            {
+                if (bfsPostStateFailureLogged)
+                    return;
+
+                bfsPostStateFailureLogged = true;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Bugfixes and QoL moat BFS post-state diagnosis failed once; " +
+                    $"the guarded BFS bypass remains active: {ex}");
+            }
+        }
+
+        private static int GetSquaredDistance(int x, int y, int targetX, int targetY)
+        {
+            int deltaX = x - targetX;
+            int deltaY = y - targetY;
+            return deltaX * deltaX + deltaY * deltaY;
+        }
+
+        private static string FormatWitness(TileWitness witness) => witness.IsValid
+            ? $"({witness.X},{witness.Y})/tile={witness.TileId}/flags=0x{witness.Flags:X8}/" +
+              $"region={witness.Region}/distance={witness.Distance}"
+            : "none";
 
         private TileDiagnostic GetTileDiagnostic(int tileX, int tileY)
         {
@@ -662,6 +1012,17 @@ namespace BugfixesAndQoL
                     0x0F, 0xBF, 0x8F, 0xB8, 0x09, 0x00, 0x00
                 },
                 "Moat BFS result");
+            ValidateHookSpan(
+                memory,
+                MoatPathBuilderResultHookRva,
+                new byte[]
+                {
+                    0x45, 0x33, 0xC0,
+                    0x44, 0x89, 0x05, 0x58, 0x70, 0xF1, 0x05,
+                    0x85, 0xC0,
+                    0x0F, 0x8E, 0xA4, 0x00, 0x00, 0x00
+                },
+                "Moat path-builder result");
         }
 
         private static void ValidateHookSpan(
@@ -692,6 +1053,87 @@ namespace BugfixesAndQoL
             public int TileId { get; }
             public uint Flags { get; }
             public int Region { get; }
+        }
+
+        private sealed class MoatAttempt
+        {
+            public MoatAttempt(
+                long id,
+                int playerId,
+                int unitId,
+                int unitType,
+                int targetX,
+                int targetY,
+                int targetTileId,
+                int moatId,
+                byte reservationBefore)
+            {
+                Id = id;
+                PlayerId = playerId;
+                UnitId = unitId;
+                UnitType = unitType;
+                TargetX = targetX;
+                TargetY = targetY;
+                TargetTileId = targetTileId;
+                MoatId = moatId;
+                ReservationBefore = reservationBefore;
+            }
+
+            public long Id { get; }
+            public int PlayerId { get; }
+            public int UnitId { get; }
+            public int UnitType { get; }
+            public int TargetX { get; }
+            public int TargetY { get; }
+            public int TargetTileId { get; }
+            public int MoatId { get; }
+            public byte ReservationBefore { get; }
+            public bool BypassApplied { get; set; }
+        }
+
+        private readonly struct TileWitness
+        {
+            public static readonly TileWitness Invalid =
+                new TileWitness(-1, -1, -1, 0, -1, 0);
+
+            public TileWitness(
+                int x,
+                int y,
+                int tileId,
+                uint flags,
+                int region,
+                int distance)
+            {
+                X = x;
+                Y = y;
+                TileId = tileId;
+                Flags = flags;
+                Region = region;
+                Distance = distance;
+            }
+
+            public int X { get; }
+            public int Y { get; }
+            public int TileId { get; }
+            public uint Flags { get; }
+            public int Region { get; }
+            public int Distance { get; }
+            public bool IsValid => TileId >= 0;
+        }
+
+        private readonly struct FrontierWitness
+        {
+            public static readonly FrontierWitness Invalid =
+                new FrontierWitness(TileWitness.Invalid, TileWitness.Invalid);
+
+            public FrontierWitness(TileWitness from, TileWitness to)
+            {
+                From = from;
+                To = to;
+            }
+
+            public TileWitness From { get; }
+            public TileWitness To { get; }
         }
 
     }
