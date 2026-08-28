@@ -6,7 +6,6 @@ using SHCDESE.GameGlobals;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
-using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using Zhuqiaomon.Assembly;
 using Zhuqiaomon.Hooks;
@@ -31,30 +30,27 @@ namespace BugfixesAndQoL
         private const int CursorReachabilityPatternRva = 0x8F3A8;
         private const int GetMoatIdAtTilePatternRva = 0x69560;
         private const int FindNearestFriendlyMoatPatternRva = 0x69D60;
-        private const int Command6EntryHookRva = 0x120EC5;
-        private const int EligibleUnitStoredHookRva = 0x120FCC;
-        private const int MoatMovementCoordinatesHookRva = 0x13F783;
-        private const int MoatMovementCallHookRva = 0x13F7A4;
-        private const int MoatMovementSuccessHookRva = 0x13F7FD;
-        private const int MoatCommandResetHookRva = 0x13F83E;
-        private const int CurrentUnitIdRva = 0x9302C4;
+        private const int Command6PrecheckHookRva = 0x120E6C;
+        private const int MoatMovementResultHookRva = 0x13F7A9;
+        private const int MoatBfsResultHookRva = 0x1964D6;
+        private const int PathRegionGridRva = 0x50EC690;
+        private const int MoatMovementTargetXRva = 0x6097BE8;
+        private const int MoatMovementTargetYRva = 0x6097BEC;
         private const int MoatPathModeRva = 0x60AD6E4;
+        private const int CurrentUnitIdRva = 0x9302C4;
         private const int CursorReachabilityHookOffset = 29;
-        private const int CursorReachabilityHookLength = 12;
-        private const int Command6EntryHookLength = 5;
-        private const int EligibleUnitStoredHookLength = 7;
-        private const int MoatMovementCoordinatesHookLength = 7;
-        private const int MoatMovementCallHookLength = 5;
-        private const int MoatMovementSuccessHookLength = 9;
-        private const int MoatCommandResetHookLength = 8;
+        private const int CursorReachabilityHookLength = 16;
+        private const int Command6PrecheckHookLength = 21;
+        private const int MoatMovementResultHookLength = 14;
+        private const int MoatBfsResultHookLength = 18;
+        private const int GameUnitStride = 0x490;
         private const int MoatRecordArrayOffset = 0x1F3EE30;
         private const int MoatRecordCountOffset = 0x2038E30;
         private const int MoatRecordSize = 0x10;
         private const int MoatOwnerOffset = 0x0C;
         private const int MoatReservationOffset = 0x0F;
         private const int MoatReservationIncrement = 20;
-        private const int Command6TargetYStackOffset = 0xF0;
-        private const int MaximumDiagnosticEntries = 256;
+        private const int MaximumFunctionalLogEntries = 128;
 
         private const string DigMoatModePattern =
             "44 39 25 ?? ?? ?? ?? 74 3C 48 8B CE E8 ?? ?? ?? ?? " +
@@ -81,24 +77,21 @@ namespace BugfixesAndQoL
         private readonly int* targetTileY;
         private readonly int* currentUnitId;
         private readonly int* moatPathMode;
+        private readonly int* moatMovementTargetX;
+        private readonly int* moatMovementTargetY;
+        private readonly short* pathRegions;
         private HookRef<X64InlineHook> cursorReachabilityHook = new HookRef<X64InlineHook>();
-        private HookRef<X64InlineHook> command6EntryHook = new HookRef<X64InlineHook>();
-        private HookRef<X64InlineHook> eligibleUnitStoredHook = new HookRef<X64InlineHook>();
-        private HookRef<X64InlineHook> moatMovementCoordinatesHook = new HookRef<X64InlineHook>();
-        private HookRef<X64InlineHook> moatMovementCallHook = new HookRef<X64InlineHook>();
-        private HookRef<X64InlineHook> moatMovementSuccessHook = new HookRef<X64InlineHook>();
-        private HookRef<X64InlineHook> moatCommandResetHook = new HookRef<X64InlineHook>();
+        private HookRef<X64InlineHook> command6PrecheckHook = new HookRef<X64InlineHook>();
+        private HookRef<X64InlineHook> moatMovementResultHook = new HookRef<X64InlineHook>();
+        private HookRef<X64InlineHook> moatBfsResultHook = new HookRef<X64InlineHook>();
         private GetMoatIdAtTileDelegate getMoatIdAtTile;
         private FindNearestFriendlyMoatDelegate originalFindNearestFriendlyMoat;
         private FindNearestFriendlyMoatDelegate rootedFindNearestFriendlyMoat;
         private NativeDetour findNearestFriendlyMoatDetour;
-        private readonly object diagnosticLock = new object();
-        private readonly Dictionary<int, DiagnosticCommand> diagnosticCommandsByUnit =
-            new Dictionary<int, DiagnosticCommand>();
-        private DiagnosticCommand activeDiagnosticCommand;
-        private int nextDiagnosticCommandId;
-        private int diagnosticEntryCount;
-        private bool diagnosticLimitLogged;
+        private readonly object functionalLogLock = new object();
+        private int functionalLogEntryCount;
+        private bool functionalLogLimitLogged;
+        private bool commandPrecheckFailureLogged;
         private bool directedTargetFailureLogged;
         private bool cursorFailureLogged;
         private bool disposed;
@@ -167,7 +160,8 @@ namespace BugfixesAndQoL
                 cursorResolution.Rva + 21,
                 "cursor target X");
             int hookRva = checked(cursorResolution.Rva + CursorReachabilityHookOffset);
-            ValidateHookSpan(memory, hookRva);
+            ValidateCursorHookSpan(memory, hookRva);
+            ValidateCommand6PrecheckHookSpan(memory);
             ValidateDiagnosticHookSpans(memory);
 
             digMoatMode = (int*)(libraryBase + unchecked((ulong)modeRva));
@@ -175,6 +169,11 @@ namespace BugfixesAndQoL
             targetTileY = (int*)(libraryBase + unchecked((ulong)targetYRva));
             currentUnitId = (int*)(libraryBase + CurrentUnitIdRva);
             moatPathMode = (int*)(libraryBase + MoatPathModeRva);
+            moatMovementTargetX = (int*)(libraryBase + MoatMovementTargetXRva);
+            moatMovementTargetY = (int*)(libraryBase + MoatMovementTargetYRva);
+            pathRegions = (short*)(libraryBase + PathRegionGridRva);
+            getMoatIdAtTile = Marshal.GetDelegateForFunctionPointer<GetMoatIdAtTileDelegate>(
+                (IntPtr)(libraryBase + unchecked((ulong)moatLookupResolution.Rva)));
 
             try
             {
@@ -192,66 +191,38 @@ namespace BugfixesAndQoL
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
                 transaction.AddContextHook(
-                    ref command6EntryHook,
-                    libraryBase + Command6EntryHookRva,
-                    RecordAcceptedCommand6,
+                    ref command6PrecheckHook,
+                    libraryBase + Command6PrecheckHookRva,
+                    PreserveFriendlyPlannedMoatCommandTarget,
                     regs: X64SmartCPUContextRegs.All,
-                    hookSize: Command6EntryHookLength,
+                    hookSize: Command6PrecheckHookLength,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
                 transaction.AddContextHook(
-                    ref eligibleUnitStoredHook,
-                    libraryBase + EligibleUnitStoredHookRva,
-                    RecordEligibleUnitCommand,
+                    ref moatMovementResultHook,
+                    libraryBase + MoatMovementResultHookRva,
+                    RecordMoatMovementResult,
                     regs: X64SmartCPUContextRegs.All,
-                    hookSize: EligibleUnitStoredHookLength,
+                    hookSize: MoatMovementResultHookLength,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
                 transaction.AddContextHook(
-                    ref moatMovementCoordinatesHook,
-                    libraryBase + MoatMovementCoordinatesHookRva,
-                    RecordGeneratedMovementCoordinates,
+                    ref moatBfsResultHook,
+                    libraryBase + MoatBfsResultHookRva,
+                    RecordMoatBfsResult,
                     regs: X64SmartCPUContextRegs.All,
-                    hookSize: MoatMovementCoordinatesHookLength,
+                    hookSize: MoatBfsResultHookLength,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
-                transaction.AddContextHook(
-                    ref moatMovementCallHook,
-                    libraryBase + MoatMovementCallHookRva,
-                    RecordMovementResult,
-                    regs: X64SmartCPUContextRegs.All,
-                    hookSize: MoatMovementCallHookLength,
-                    errorMode: CallbackErrorMode.LogAndContinue,
-                    placement: OverwrittenInstructionPlacement.BeforeCallback);
-                transaction.AddContextHook(
-                    ref moatMovementSuccessHook,
-                    libraryBase + MoatMovementSuccessHookRva,
-                    RecordMovementSuccessState,
-                    regs: X64SmartCPUContextRegs.All,
-                    hookSize: MoatMovementSuccessHookLength,
-                    errorMode: CallbackErrorMode.LogAndContinue,
-                    placement: OverwrittenInstructionPlacement.BeforeCallback);
-                transaction.AddContextHook(
-                    ref moatCommandResetHook,
-                    libraryBase + MoatCommandResetHookRva,
-                    RecordCommandResetState,
-                    regs: X64SmartCPUContextRegs.All,
-                    hookSize: MoatCommandResetHookLength,
-                    errorMode: CallbackErrorMode.LogAndContinue,
-                    placement: OverwrittenInstructionPlacement.BeforeCallback);
                 transaction.Commit();
 
-                if (!cursorReachabilityHook.Success || !command6EntryHook.Success ||
-                    !eligibleUnitStoredHook.Success || !moatMovementCoordinatesHook.Success ||
-                    !moatMovementCallHook.Success || !moatMovementSuccessHook.Success ||
-                    !moatCommandResetHook.Success)
+                if (!cursorReachabilityHook.Success || !command6PrecheckHook.Success ||
+                    !moatMovementResultHook.Success || !moatBfsResultHook.Success)
                 {
                     throw new InvalidOperationException(
-                        "The DigMoat cursor and diagnostic hooks were not installed atomically.");
+                        "The DigMoat functional and diagnostic hooks were not installed atomically.");
                 }
 
-                getMoatIdAtTile = Marshal.GetDelegateForFunctionPointer<GetMoatIdAtTileDelegate>(
-                    (IntPtr)(libraryBase + unchecked((ulong)moatLookupResolution.Rva)));
                 rootedFindNearestFriendlyMoat = DirectCommandedMoatTarget;
                 IntPtr moatSearchAddress = (IntPtr)(libraryBase + unchecked((ulong)moatSearchResolution.Rva));
                 findNearestFriendlyMoatDetour = new NativeDetour(
@@ -270,10 +241,9 @@ namespace BugfixesAndQoL
                     $"modeRva=0x{modeRva:X}, targetXRva=0x{targetXRva:X}, " +
                     $"targetYRva=0x{targetYRva:X}, hookRva=0x{hookRva:X}, " +
                     $"lookupRva=0x{moatLookupResolution.Rva:X}, searchRva=0x{moatSearchResolution.Rva:X}, " +
-                    $"command6Rva=0x{Command6EntryHookRva:X}, unitStoredRva=0x{EligibleUnitStoredHookRva:X}, " +
-                    $"coordinatesRva=0x{MoatMovementCoordinatesHookRva:X}, " +
-                    $"movementCallRva=0x{MoatMovementCallHookRva:X}, " +
-                    $"successRva=0x{MoatMovementSuccessHookRva:X}, resetRva=0x{MoatCommandResetHookRva:X}.");
+                    $"command6PrecheckRva=0x{Command6PrecheckHookRva:X}, " +
+                    $"movementResultRva=0x{MoatMovementResultHookRva:X}, " +
+                    $"bfsResultRva=0x{MoatBfsResultHookRva:X}.");
             }
             catch
             {
@@ -317,14 +287,11 @@ namespace BugfixesAndQoL
                         out int commandedMoatId))
                 {
                     byte reservationBefore = ReserveMoat(tileManager, commandedMoatId);
-                    LogMoatSelection(
-                        unitId,
-                        playerId,
-                        relationshipMode,
-                        commandedMoatId,
-                        "direct",
-                        reservationBefore,
-                        unchecked((byte)(reservationBefore + MoatReservationIncrement)));
+                    LogFunctional(
+                        $"stage=selection player={playerId} unit={unitId} " +
+                        $"target=({unit->r_ContextTargetTileX},{unit->r_ContextTargetTileY}) " +
+                        $"moat={commandedMoatId} reservation={reservationBefore}->" +
+                        $"{unchecked((byte)(reservationBefore + MoatReservationIncrement))}");
 
                     // Vanilla reserves every positive result before returning it. Mirroring the
                     // +20 here keeps its later success/release and failure/-20 paths symmetric.
@@ -342,20 +309,11 @@ namespace BugfixesAndQoL
                 }
             }
 
-            int vanillaResult = originalFindNearestFriendlyMoat(
-                tileManager, playerId, unitId, relationshipMode);
-            LogMoatSelection(
-                unitId,
-                playerId,
-                relationshipMode,
-                vanillaResult,
-                "vanilla",
-                null,
-                null);
-            return vanillaResult;
+            return originalFindNearestFriendlyMoat(tileManager, playerId, unitId, relationshipMode);
         }
 
-        private void RecordAcceptedCommand6(NativePointer<X64SmartCPUContext> context)
+        private void PreserveFriendlyPlannedMoatCommandTarget(
+            NativePointer<X64SmartCPUContext> context)
         {
             if (!IsEnabled)
                 return;
@@ -363,178 +321,185 @@ namespace BugfixesAndQoL
             X64SmartCPUContext* registers = context.Pointer;
             int tribeId = unchecked((int)(uint)registers->R13);
             int targetX = unchecked((int)(uint)registers->R14);
-            int targetY = *(int*)(registers->RSP + Command6TargetYStackOffset);
-            DiagnosticCommand command;
-            lock (diagnosticLock)
+            int targetY = unchecked((int)(uint)registers->R9);
+
+            try
             {
-                command = new DiagnosticCommand(
-                    ++nextDiagnosticCommandId,
-                    tribeId,
-                    targetX,
-                    targetY);
-                activeDiagnosticCommand = command;
-            }
-
-            LogDiagnostic(
-                command,
-                $"stage=accepted tribe={tribeId} requested=({targetX},{targetY})");
-        }
-
-        private void RecordEligibleUnitCommand(NativePointer<X64SmartCPUContext> context)
-        {
-            if (!IsEnabled)
-                return;
-
-            X64SmartCPUContext* registers = context.Pointer;
-            int unitId = unchecked((int)(uint)registers->RDX);
-            DiagnosticCommand command;
-            lock (diagnosticLock)
-            {
-                command = activeDiagnosticCommand;
-                if (command != null)
-                    diagnosticCommandsByUnit[unitId] = command;
-            }
-
-            if (command == null)
-                return;
-
-            if (GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) && unit != null)
-            {
-                LogDiagnostic(
-                    command,
-                    $"stage=eligible-unit unit={unitId} storedCommand={unit->r_AI_LastIssuedTribeCommand} " +
-                    $"storedTarget=({unit->r_ContextTargetTileX},{unit->r_ContextTargetTileY}) " +
-                    $"aiState={unit->r_AIState}");
-            }
-            else
-            {
-                LogDiagnostic(command, $"stage=eligible-unit unit={unitId} unitLookup=failed");
-            }
-        }
-
-        private void RecordGeneratedMovementCoordinates(NativePointer<X64SmartCPUContext> context)
-        {
-            if (!TryGetCurrentDiagnostic(out int unitId, out DiagnosticCommand command))
-                return;
-
-            X64SmartCPUContext* registers = context.Pointer;
-            LogDiagnostic(
-                command,
-                $"stage=coordinates unit={unitId} moat={unchecked((int)registers->RDI)} " +
-                $"generated=({*targetTileX},{*targetTileY}) source=0x6AF60");
-        }
-
-        private void RecordMovementResult(NativePointer<X64SmartCPUContext> context)
-        {
-            if (!TryGetCurrentDiagnostic(out int unitId, out DiagnosticCommand command))
-                return;
-
-            X64SmartCPUContext* registers = context.Pointer;
-            string unitState = "unitLookup=failed";
-            if (GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) && unit != null)
-            {
-                unitState =
-                    $"start=({unit->r_CurrentTilePositionX},{unit->r_CurrentTilePositionY}) " +
-                    $"aiState={unit->r_AIState} storedCommand={unit->r_AI_LastIssuedTribeCommand}";
-            }
-
-            LogDiagnostic(
-                command,
-                $"stage=movement-return unit={unitId} pathMode={*moatPathMode} " +
-                $"target=({*targetTileX},{*targetTileY}) result={unchecked((int)(uint)registers->RAX)} " +
-                unitState);
-        }
-
-        private void RecordMovementSuccessState(NativePointer<X64SmartCPUContext> context) =>
-            RecordFinalUnitState("success", removeCommand: true);
-
-        private void RecordCommandResetState(NativePointer<X64SmartCPUContext> context) =>
-            RecordFinalUnitState("reset", removeCommand: true);
-
-        private void RecordFinalUnitState(string stage, bool removeCommand)
-        {
-            if (!TryGetCurrentDiagnostic(out int unitId, out DiagnosticCommand command))
-                return;
-
-            if (GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) && unit != null)
-            {
-                LogDiagnostic(
-                    command,
-                    $"stage={stage} unit={unitId} aiState={unit->r_AIState} " +
-                    $"storedCommand={unit->r_AI_LastIssuedTribeCommand} " +
-                    $"storedTarget=({unit->r_ContextTargetTileX},{unit->r_ContextTargetTileY})");
-            }
-            else
-            {
-                LogDiagnostic(command, $"stage={stage} unit={unitId} unitLookup=failed");
-            }
-
-            if (removeCommand)
-            {
-                lock (diagnosticLock)
-                    diagnosticCommandsByUnit.Remove(unitId);
-            }
-        }
-
-        private bool TryGetCurrentDiagnostic(out int unitId, out DiagnosticCommand command)
-        {
-            unitId = *currentUnitId;
-            lock (diagnosticLock)
-                return diagnosticCommandsByUnit.TryGetValue(unitId, out command);
-        }
-
-        private void LogMoatSelection(
-            int unitId,
-            int playerId,
-            int relationshipMode,
-            int moatId,
-            string source,
-            byte? reservationBefore,
-            byte? reservationAfter)
-        {
-            DiagnosticCommand command;
-            lock (diagnosticLock)
-            {
-                if (!diagnosticCommandsByUnit.TryGetValue(unitId, out command))
+                ulong unitOffset = registers->RDX;
+                if (unitOffset % GameUnitStride != 0)
                     return;
-            }
 
-            string reservation = reservationBefore.HasValue
-                ? $" reservation={reservationBefore.Value}->{reservationAfter.Value}"
-                : string.Empty;
-            LogDiagnostic(
-                command,
-                $"stage=selection unit={unitId} player={playerId} relationshipMode={relationshipMode} " +
-                $"result={moatId} source={source}{reservation}");
+                ulong representativeUnitValue = unitOffset / GameUnitStride;
+                if (representativeUnitValue == 0 || representativeUnitValue > int.MaxValue)
+                    return;
+
+                int representativeUnitId = (int)representativeUnitValue;
+                if (!GameUnitManagerAPI.Instance.TryGetUnitById(
+                        representativeUnitId,
+                        out GameUnit* representativeUnit) ||
+                    representativeUnit == null)
+                {
+                    return;
+                }
+
+                int playerId = representativeUnit->r_ControllableForPlayerId;
+                if (!TryGetFriendlyPlannedMoatId(
+                    GameTileManagerPointer,
+                    playerId,
+                    targetX,
+                    targetY,
+                    out int moatId))
+                {
+                    return;
+                }
+
+                // The overwritten Vanilla test/branch follows this callback. Clearing R8
+                // selects its existing direct path, so the ordinary reachability search at
+                // 0xE7F60 cannot reject or replace the commanded moat coordinates.
+                registers->R8 = 0;
+                LogFunctional(
+                    $"stage=direct-command tribe={tribeId} player={playerId} " +
+                    $"representativeUnit={representativeUnitId} target=({targetX},{targetY}) moat={moatId}");
+            }
+            catch (Exception ex)
+            {
+                if (!commandPrecheckFailureLogged)
+                {
+                    commandPrecheckFailureLogged = true;
+                    Shared.DebugLogHelper.LogError(
+                        log,
+                        $"Bugfixes and QoL moat Command-6 validation failed once; " +
+                        $"Vanilla command validation remains active: {ex}");
+                }
+            }
         }
 
-        private void LogDiagnostic(DiagnosticCommand command, string details)
+        private void RecordMoatBfsResult(NativePointer<X64SmartCPUContext> context)
+        {
+            if (!TryGetCurrentMoatUnit(out int unitId, out GameUnit* unit))
+                return;
+
+            X64SmartCPUContext* registers = context.Pointer;
+            int startRegion = unchecked((int)(uint)registers->R12);
+            int targetRegion = unchecked((int)(uint)registers->RBX);
+            int bfsResult = unchecked((int)(uint)registers->RAX);
+            int targetX = *moatMovementTargetX;
+            int targetY = *moatMovementTargetY;
+            TileDiagnostic start = GetTileDiagnostic(
+                unit->r_CurrentTilePositionX,
+                unit->r_CurrentTilePositionY);
+            TileDiagnostic target = GetTileDiagnostic(targetX, targetY);
+
+            LogFunctional(
+                $"stage=bfs-result unit={unitId} start=({unit->r_CurrentTilePositionX}," +
+                $"{unit->r_CurrentTilePositionY}) target=({targetX},{targetY}) " +
+                $"startTile={start.TileId} startFlags=0x{start.Flags:X8} startGridRegion={start.Region} " +
+                $"targetTile={target.TileId} targetFlags=0x{target.Flags:X8} targetGridRegion={target.Region} " +
+                $"startRegion={startRegion} targetRegion={targetRegion} bfsResult={bfsResult} " +
+                $"pathMode={*moatPathMode}");
+        }
+
+        private void RecordMoatMovementResult(NativePointer<X64SmartCPUContext> context)
+        {
+            if (!TryGetCurrentMoatUnit(out int unitId, out GameUnit* unit))
+                return;
+
+            X64SmartCPUContext* registers = context.Pointer;
+            int moveResult = unchecked((int)(uint)registers->RAX);
+            int moatId = unchecked((int)(uint)registers->RDI);
+            int targetX = *moatMovementTargetX;
+            int targetY = *moatMovementTargetY;
+            TileDiagnostic start = GetTileDiagnostic(
+                unit->r_CurrentTilePositionX,
+                unit->r_CurrentTilePositionY);
+            TileDiagnostic target = GetTileDiagnostic(targetX, targetY);
+            string reservation = TryGetMoatReservation(moatId, out byte reservationValue)
+                ? reservationValue.ToString()
+                : "invalid";
+
+            LogFunctional(
+                $"stage=movement-result unit={unitId} start=({unit->r_CurrentTilePositionX}," +
+                $"{unit->r_CurrentTilePositionY}) target=({targetX},{targetY}) " +
+                $"storedTarget=({unit->r_ContextTargetTileX},{unit->r_ContextTargetTileY}) " +
+                $"startTile={start.TileId} startFlags=0x{start.Flags:X8} startRegion={start.Region} " +
+                $"targetTile={target.TileId} targetFlags=0x{target.Flags:X8} targetRegion={target.Region} " +
+                $"moveResult={moveResult} pathMode={*moatPathMode} " +
+                $"pathState=0x{unit->r_PathPlanStateBitFlags:X4} " +
+                $"pathPosition={unit->p_CurrentPathPlanPosition} pathSize={unit->p_PathPlanSize} " +
+                $"aiState={unit->r_AIState} moat={moatId} reservation={reservation}");
+        }
+
+        private bool TryGetCurrentMoatUnit(out int unitId, out GameUnit* unit)
+        {
+            unitId = 0;
+            unit = null;
+            if (!IsEnabled)
+                return false;
+
+            unitId = *currentUnitId;
+            return unitId > 0 &&
+                GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out unit) &&
+                unit != null &&
+                unit->r_AI_LastIssuedTribeCommand == (ushort)TribeAICommand.DigMoatTileId;
+        }
+
+        private TileDiagnostic GetTileDiagnostic(int tileX, int tileY)
+        {
+            GameTileManagerAPI tileApi = GameTileManagerAPI.Instance;
+            if (!tileApi.IsTileInsideMapBounds(tileX, tileY))
+                return TileDiagnostic.Invalid;
+
+            int tileId = tileApi.GetTileId(tileX, tileY);
+            if (!tileApi.IsValidTileId(tileId))
+                return TileDiagnostic.Invalid;
+
+            return new TileDiagnostic(
+                tileId,
+                unchecked((uint)tileApi.GetTilePropertyFlag(tileId)),
+                pathRegions[tileId]);
+        }
+
+        private bool TryGetMoatReservation(int moatId, out byte reservation)
+        {
+            reservation = 0;
+            IntPtr tileManager = GameTileManagerPointer;
+            if (tileManager == IntPtr.Zero)
+                return false;
+
+            int moatCount = *(int*)((byte*)tileManager.ToPointer() + MoatRecordCountOffset);
+            if (moatId <= 0 || moatId >= moatCount)
+                return false;
+
+            byte* moatRecord = (byte*)tileManager.ToPointer() +
+                MoatRecordArrayOffset + moatId * MoatRecordSize;
+            reservation = moatRecord[MoatReservationOffset];
+            return true;
+        }
+
+        private void LogFunctional(string details)
         {
             bool shouldLog;
             bool logLimit;
-            lock (diagnosticLock)
+            lock (functionalLogLock)
             {
-                shouldLog = diagnosticEntryCount < MaximumDiagnosticEntries;
+                shouldLog = functionalLogEntryCount < MaximumFunctionalLogEntries;
                 if (shouldLog)
-                    diagnosticEntryCount++;
-                logLimit = !shouldLog && !diagnosticLimitLogged;
+                    functionalLogEntryCount++;
+                logLimit = !shouldLog && !functionalLogLimitLogged;
                 if (logLimit)
-                    diagnosticLimitLogged = true;
+                    functionalLogLimitLogged = true;
             }
 
             if (shouldLog)
             {
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    $"Bugfixes and QoL MoatDiag command={command.Id} {details} " +
-                    $"requested=({command.TargetX},{command.TargetY}).");
+                Shared.DebugLogHelper.LogDebug(log, $"Bugfixes and QoL MoatCommand {details}.");
             }
             else if (logLimit)
             {
                 Shared.DebugLogHelper.LogWarning(
                     log,
-                    $"Bugfixes and QoL MoatDiag reached its {MaximumDiagnosticEntries}-entry limit; " +
-                    "further moat-command diagnostics are suppressed.");
+                    $"Bugfixes and QoL MoatCommand reached its {MaximumFunctionalLogEntries}-entry limit; " +
+                    "further moat-command logs are suppressed.");
             }
         }
 
@@ -643,12 +608,13 @@ namespace BugfixesAndQoL
             return resolvedRva;
         }
 
-        private static void ValidateHookSpan(ReadOnlySpan<byte> memory, int hookRva)
+        private static void ValidateCursorHookSpan(ReadOnlySpan<byte> memory, int hookRva)
         {
             byte[] expected =
             {
                 0x85, 0xC0, 0x74, 0x11,
-                0x44, 0x8B, 0xBC, 0x24, 0xC0, 0x00, 0x00, 0x00
+                0x44, 0x8B, 0xBC, 0x24, 0xC0, 0x00, 0x00, 0x00,
+                0x44, 0x8D, 0x6B, 0x02
             };
             if (hookRva < 0 || hookRva > memory.Length - expected.Length ||
                 !memory.Slice(hookRva, expected.Length).SequenceEqual(expected))
@@ -657,38 +623,45 @@ namespace BugfixesAndQoL
             }
         }
 
+        private static void ValidateCommand6PrecheckHookSpan(ReadOnlySpan<byte> memory)
+        {
+            ValidateHookSpan(
+                memory,
+                Command6PrecheckHookRva,
+                new byte[]
+                {
+                    0x45, 0x85, 0xC0,
+                    0x74, 0x54,
+                    0x0F, 0xBF, 0x8C, 0x1A, 0x1E, 0x07, 0x00, 0x00,
+                    0x0F, 0xBF, 0x84, 0x1A, 0x1C, 0x07, 0x00, 0x00
+                },
+                "Command-6 precheck");
+        }
+
         private static void ValidateDiagnosticHookSpans(ReadOnlySpan<byte> memory)
         {
             ValidateHookSpan(
                 memory,
-                Command6EntryHookRva,
-                new byte[] { 0xB8, 0x01, 0x00, 0x00, 0x00 },
-                "Command-6 entry");
+                MoatMovementResultHookRva,
+                new byte[]
+                {
+                    0x85, 0xC0,
+                    0x74, 0x5E,
+                    0x48, 0x63, 0x1D, 0x10, 0x0B, 0x7F, 0x00,
+                    0x44, 0x8B, 0xC5
+                },
+                "Moat movement result");
             ValidateHookSpan(
                 memory,
-                EligibleUnitStoredHookRva,
-                new byte[] { 0x89, 0xB4, 0x03, 0x00, 0x0A, 0x00, 0x00 },
-                "eligible Command-6 unit");
-            ValidateHookSpan(
-                memory,
-                MoatMovementCoordinatesHookRva,
-                new byte[] { 0x44, 0x8B, 0x0D, 0x62, 0x84, 0xF5, 0x05 },
-                "moat movement coordinates");
-            ValidateHookSpan(
-                memory,
-                MoatMovementCallHookRva,
-                new byte[] { 0xE8, 0xD7, 0x6A, 0x05, 0x00 },
-                "moat movement call");
-            ValidateHookSpan(
-                memory,
-                MoatMovementSuccessHookRva,
-                new byte[] { 0x66, 0x42, 0x89, 0x84, 0x31, 0x18, 0x09, 0x00, 0x00 },
-                "moat movement success state");
-            ValidateHookSpan(
-                memory,
-                MoatCommandResetHookRva,
-                new byte[] { 0x66, 0x44, 0x89, 0x00, 0x41, 0x0F, 0xB7, 0xC0 },
-                "moat command reset");
+                MoatBfsResultHookRva,
+                new byte[]
+                {
+                    0x44, 0x8B, 0xE0,
+                    0x3B, 0xC3,
+                    0x0F, 0x84, 0xA4, 0x00, 0x00, 0x00,
+                    0x0F, 0xBF, 0x8F, 0xB8, 0x09, 0x00, 0x00
+                },
+                "Moat BFS result");
         }
 
         private static void ValidateHookSpan(
@@ -705,20 +678,21 @@ namespace BugfixesAndQoL
             }
         }
 
-        private sealed class DiagnosticCommand
+        private readonly struct TileDiagnostic
         {
-            public DiagnosticCommand(int id, int tribeId, int targetX, int targetY)
+            public static readonly TileDiagnostic Invalid = new TileDiagnostic(-1, 0, -1);
+
+            public TileDiagnostic(int tileId, uint flags, int region)
             {
-                Id = id;
-                TribeId = tribeId;
-                TargetX = targetX;
-                TargetY = targetY;
+                TileId = tileId;
+                Flags = flags;
+                Region = region;
             }
 
-            public int Id { get; }
-            public int TribeId { get; }
-            public int TargetX { get; }
-            public int TargetY { get; }
+            public int TileId { get; }
+            public uint Flags { get; }
+            public int Region { get; }
         }
+
     }
 }

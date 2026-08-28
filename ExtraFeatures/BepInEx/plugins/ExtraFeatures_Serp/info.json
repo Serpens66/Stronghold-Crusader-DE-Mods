@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.85",
+  "Version": "1.0.86",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.86",
+      "Changes": [
+        "Fix relocated quarry stone piles surviving quarry destruction by restoring Vanilla's shared structure-group lifecycle instead of custom reverse-link removal, covering AI and player relocations in singleplayer and multiplayer and repairing affected 1.0.84 saves."
+      ]
+    },
     {
       "Version": "1.0.85",
       "Changes": [
