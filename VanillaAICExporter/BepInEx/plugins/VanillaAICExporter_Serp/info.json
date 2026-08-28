@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Vanilla AIC Exporter",
   "Description": "One-shot utility that exports the currently installed embedded vanilla AIC data as editor-compatible lordjson files.",
-  "Version": "0.1.1",
+  "Version": "0.1.2",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.1.2",
+      "Changes": [
+        "Generate Portable PDB debug symbols for Unity Mono-compatible stack traces and debugging."
+      ]
+    },
     {
       "Version": "0.1.1",
       "Changes": [

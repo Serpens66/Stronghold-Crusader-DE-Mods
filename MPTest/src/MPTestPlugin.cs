@@ -14,7 +14,7 @@ namespace MPTest
 
         public const string PluginGuid = "MPTest_Serp";
         public const string PluginName = "MPTest";
-        public const string PluginVersion = "1.3.2";
+        public const string PluginVersion = "1.3.3";
 
         private static MPTestRuntime runtime;
         private static bool libraryLoadedHandled;

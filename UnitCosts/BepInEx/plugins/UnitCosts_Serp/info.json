@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Unit Costs",
   "Description": "Configure recruit costs in Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.19",
+  "Version": "1.0.20",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.20",
+      "Changes": [
+        "Generate Portable PDB debug symbols for Unity Mono-compatible stack traces and debugging."
+      ]
+    },
     {
       "Version": "1.0.19",
       "Changes": [

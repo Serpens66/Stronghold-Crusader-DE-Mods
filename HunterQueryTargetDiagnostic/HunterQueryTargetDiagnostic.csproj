@@ -14,7 +14,7 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <OutputPath>BepInEx\plugins\HunterQueryTargetDiagnostic_Serp\</OutputPath>
     <DebugSymbols>true</DebugSymbols>
-    <DebugType>full</DebugType>
+    <DebugType>portable</DebugType>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
 

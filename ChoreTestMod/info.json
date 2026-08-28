@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Chore Test Mod",
   "Description": "Minimal multiplayer reproduction for Script Extender issue 137 using an automatically damaged tower and a normal Vanilla repair Chore before Chore 106.",
-  "Version": "1.0.0",
+  "Version": "1.0.1",
   "Website": "https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender/-/work_items/137",
   "Manifest": 1,
   "NetworkMode": 1,

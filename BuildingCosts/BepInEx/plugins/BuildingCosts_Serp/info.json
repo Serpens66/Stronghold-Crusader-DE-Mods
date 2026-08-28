@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Building Costs",
   "Description": "Lets you change construction costs for buildings in Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.98",
+  "Version": "1.0.99",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.99",
+      "Changes": [
+        "Generate Portable PDB debug symbols for Unity Mono-compatible stack traces and debugging."
+      ]
+    },
     {
       "Version": "1.0.98",
       "Changes": [

@@ -10,7 +10,7 @@ namespace LinuxModding
 
         public const string PluginGuid = "LinuxModding_Serp";
         public const string PluginName = "Linux Modding Compatibility";
-        public const string PluginVersion = "0.1.0";
+        public const string PluginVersion = "0.1.1";
 
         // SHCDE destroys the early BepInEx component during startup. Keep the detour
         // rooted independently for the complete lifetime of the game process.

@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Cheat Mod",
   "Description": "Provides optional host-controlled cheats for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.3",
+  "Version": "1.0.4",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.4",
+      "Changes": [
+        "Generate Portable PDB debug symbols for Unity Mono-compatible stack traces and debugging."
+      ]
+    },
     {
       "Version": "1.0.3",
       "Changes": [

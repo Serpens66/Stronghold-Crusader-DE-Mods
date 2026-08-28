@@ -18,7 +18,7 @@ using System.Reflection;
 namespace ChoreTestMod
 {
     [BepInDependency("000shcdese", BepInDependency.DependencyFlags.HardDependency)]
-    [BepInPlugin(PluginGuid, "Chore Test Mod", "1.0.0")]
+    [BepInPlugin(PluginGuid, "Chore Test Mod", "1.0.1")]
     public sealed unsafe class ChoreTestModPlugin : BaseUnityPlugin
     {
         private const string PluginGuid = "ChoreTestMod_Serp";
