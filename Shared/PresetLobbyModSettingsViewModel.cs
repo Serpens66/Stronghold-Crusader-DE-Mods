@@ -780,6 +780,7 @@ namespace Shared
         private string modSettingsSearchExactKey = string.Empty;
         private bool modSettingsSearchIncludeToolTips;
         private bool modSettingsSearchExpanded;
+        private int modSettingsSearchFocusRequest;
 #endif
 
         protected PresetLobbyModSettingsViewModel()
@@ -927,6 +928,8 @@ namespace Shared
 
         public string System_ModSettingsSearchExactKey => modSettingsSearchExactKey;
 
+        public int System_ModSettingsSearchFocusRequest => modSettingsSearchFocusRequest;
+
         public bool System_ModSettingsSearchHasActiveFilter =>
             modSettingsSearchExactKey.Length > 0 ||
             !string.IsNullOrWhiteSpace(modSettingsSearchText);
@@ -990,6 +993,16 @@ namespace Shared
         {
             modSettingsSearchExpanded = !modSettingsSearchExpanded;
             RaiseModSettingsSearchProperties();
+            if (!modSettingsSearchExpanded)
+                return;
+
+            unchecked
+            {
+                modSettingsSearchFocusRequest++;
+                if (modSettingsSearchFocusRequest <= 0)
+                    modSettingsSearchFocusRequest = 1;
+            }
+            base.OnPropertyChanged(nameof(System_ModSettingsSearchFocusRequest));
         }
 
         private void ClearModSettingsSearch()

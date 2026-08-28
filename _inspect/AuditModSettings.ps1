@@ -926,11 +926,13 @@ foreach ($entry in $settings.GetEnumerator()) {
         'Width="145"',
         'System_ToggleModSettingsSearchCommand',
         'System_ClearModSettingsSearchCommand',
+        'System_ModSettingsSearchFocusRequest',
         'System_ModSettingsSearchPanelVisibility',
         'System_ModSettingsSearchNoResultsVisibility',
         'shared:ModSettingsSearch.FilterText=',
         'shared:ModSettingsSearch.IncludeToolTips=',
         'shared:ModSettingsSearch.ExactKey=',
+        'shared:ModSettingsSearch.FocusRequest=',
         'shared:ModSettingsSearch.SectionKey=',
         'shared:ModSettingsSearch.SectionTitle=',
         'shared:ModSettingsSearch.IsSection="True"',
@@ -1013,6 +1015,16 @@ foreach ($entry in $settings.GetEnumerator()) {
     if ($duplicateLogicalSectionKeys.Count -gt 0) {
         throw "$($entry.Key) contains duplicate thematic section keys: $($duplicateLogicalSectionKeys.Name -join ', ')"
     }
+}
+
+if ([Text.RegularExpressions.Regex]::Matches(
+        $sharedSearchSource,
+        'textBox\.Focus\(\);[\s\S]*?textBox\.SelectAll\(\);').Count -ne 1 -or
+    -not $sharedSearchSource.Contains('!textBox.IsVisible') -or
+    -not $sharedSearchSource.Contains('!textBox.IsEnabled') -or
+    $hostSearchSource.Contains('.Focus()') -or
+    $sharedSettingsSource.Contains('.Focus()')) {
+    throw 'Local search focus must target only its visible, enabled TextBox through the shared attached property.'
 }
 
 $extraSearchPath = Join-Path $workspace 'ExtraFeatures/Override/ScriptExtenderUI/ExtraFeaturesSettings.xaml'

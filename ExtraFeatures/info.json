@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.82",
+  "Version": "1.0.83",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.83",
+      "Changes": [
+        "Add the shared Mod Settings search with title, optional tooltip and section filtering, safe global-search handoff, and automatic text-field focus."
+      ]
+    },
     {
       "Version": "1.0.82",
       "Changes": [

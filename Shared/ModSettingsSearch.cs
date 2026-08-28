@@ -177,6 +177,13 @@ namespace Shared
                 typeof(ModSettingsSearch),
                 new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.Inherits));
 
+        public static readonly DependencyProperty FocusRequestProperty =
+            DependencyProperty.RegisterAttached(
+                "FocusRequest",
+                typeof(int),
+                typeof(ModSettingsSearch),
+                new PropertyMetadata(0, OnFocusRequestChanged));
+
         public static string GetKey(DependencyObject value) =>
             value == null ? string.Empty : value.GetValue(KeyProperty) as string ?? string.Empty;
 
@@ -236,6 +243,32 @@ namespace Shared
 
         public static void SetIncludeToolTips(DependencyObject value, bool enabled) =>
             value?.SetValue(IncludeToolTipsProperty, enabled);
+
+        public static int GetFocusRequest(DependencyObject value) =>
+            value != null && value.GetValue(FocusRequestProperty) is int request ? request : 0;
+
+        public static void SetFocusRequest(DependencyObject value, int request) =>
+            value?.SetValue(FocusRequestProperty, request);
+
+        private static void OnFocusRequestChanged(
+            DependencyObject dependencyObject,
+            DependencyPropertyChangedEventArgs args)
+        {
+            if (!(dependencyObject is TextBox textBox) ||
+                !(args.NewValue is int request) ||
+                request <= 0 ||
+                Equals(args.OldValue, args.NewValue) ||
+                !textBox.IsVisible ||
+                !textBox.IsEnabled)
+            {
+                return;
+            }
+
+            // The request is raised only after the local search row became visible. Keeping the
+            // concrete TextBox as the target avoids tree traversal and cross-tab focus attempts.
+            textBox.Focus();
+            textBox.SelectAll();
+        }
 
         /// <summary>
         /// Registers the immutable XAML catalog used by the optional SerpsModsHost. Each mod

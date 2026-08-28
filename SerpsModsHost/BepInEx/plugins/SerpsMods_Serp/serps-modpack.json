@@ -1,8 +1,8 @@
 {
     "SchemaVersion":  1,
     "PackGuid":  "SerpsMods_Serp",
-    "PackVersion":  "1.0.5",
-    "HostVersion":  "1.0.5",
+    "PackVersion":  "1.0.6",
+    "HostVersion":  "1.0.6",
     "CreatedUtc":  "1970-01-01T00:00:00.0000000Z",
     "RepositoryCommit":  "local-development",
     "Mods":  [
