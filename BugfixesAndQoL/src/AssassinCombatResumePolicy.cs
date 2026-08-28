@@ -6,6 +6,8 @@ namespace BugfixesAndQoL
 {
     internal static class AssassinCombatResumePolicy
     {
+        public const ushort PostCombatRepathState = 122;
+
         public static bool IsValidNativeUnitIndex(int nativeUnitIndex, int unitCount)
         {
             return nativeUnitIndex >= 0 && nativeUnitIndex < unitCount;
@@ -25,6 +27,27 @@ namespace BugfixesAndQoL
                 unitResolved &&
                 aliveState == AliveState.IsAlive &&
                 unitType == eChimps.CHIMP_TYPE_ARAB_ASSASIN;
+        }
+
+        public static bool ShouldInjectPostCombatPathContext(
+            bool modEnabled,
+            bool improvedPathfindingEnabled,
+            bool nativeHookInstalled,
+            bool unitResolved,
+            AliveState aliveState,
+            eChimps unitType,
+            ushort aiState,
+            int currentPathContext)
+        {
+            return ShouldUseAssassinPathContext(
+                    modEnabled,
+                    improvedPathfindingEnabled,
+                    nativeHookInstalled,
+                    unitResolved,
+                    aliveState,
+                    unitType) &&
+                aiState == PostCombatRepathState &&
+                currentPathContext == 0;
         }
     }
 }

@@ -16,7 +16,27 @@ namespace BugfixesAndQoL
 
         public const int AssassinPathContextFlagRva = 0x60AD6E8;
         public const int CommonPathRequestRva = 0x196280;
+        public const string CommonPathRequestPattern =
+            "48 89 5C 24 20 55 56 57 41 54 41 55 41 56 41 57 48 83 EC 30 48 63 F2 45 33 D2 48 69 FE 90 04 00 00 4D 63 F0";
         public const int AssassinPathBuilderRva = 0xD9C40;
+
+        public const int AssassinStateRemapSequenceRva = 0x16E428;
+        public const int PostCombatStateRemapOffset = 10;
+        public const byte PostCombatStateRemapIndex = 13;
+        public const string AssassinStateRemapSequence =
+            "12 0B 0C 0C 0C 12 12 12 12 12 0D 12 12 12 0E 0F 10 11 CC CC CC CC CC CC";
+
+        public const int AssassinStateJumpTableSequenceRva = 0x16E39C;
+        public const int PostCombatStateJumpTargetOffset = 4;
+        public const int PostCombatStateHandlerRva = 0x16D21C;
+        public const string AssassinStateJumpTableSequence =
+            "20 E2 16 00 1C D2 16 00 F1 D6 16 00 A9 D9 16 00 E7 D8 16 00 5F DB 16 00 4B E3 16 00";
+
+        public const int PostCombatPathRequestSequenceRva = 0x16D2D7;
+        public const int PostCombatPathRequestCallOffset = 40;
+        public const int PostCombatMovementStateLoadOffset = 59;
+        public const string PostCombatPathRequestSequence =
+            "48 63 15 E6 2F 7C 00 48 69 CA 90 04 00 00 44 89 64 24 20 46 0F BF 8C 39 36 09 00 00 46 0F BF 84 39 34 09 00 00 49 8B CF E8 7C 8F 02 00 48 63 05 B9 2F 7C 00 48 69 C8 90 04 00 00 B8 65 00 00 00 66 42 89 84 39 18 09 00 00";
 
         public const int ResumePathRequestSequenceRva = 0x122AF7;
         public const int ResumePathRequestCallOffset = 24;

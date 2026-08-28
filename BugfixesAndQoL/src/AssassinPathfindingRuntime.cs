@@ -26,6 +26,14 @@ namespace BugfixesAndQoL
         private delegate int ResumeOldOrderDelegate(IntPtr tribeManager, int unitId, int internalCommand);
 
         [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+        private delegate int CommonPathRequestDelegate(
+            IntPtr unitBase,
+            int nativeUnitIndex,
+            int targetX,
+            int targetY,
+            int pathOption);
+
+        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
         private delegate byte SpecialTilePredicateDelegate(IntPtr context, int tileId);
 
         private const int MapWidth = 800;
@@ -71,9 +79,12 @@ namespace BugfixesAndQoL
         private AssassinPathBuilderDelegate rootedDetour;
         private ResumeOldOrderDelegate originalResumeOldOrder;
         private ResumeOldOrderDelegate rootedResumeOldOrderDetour;
+        private CommonPathRequestDelegate originalCommonPathRequest;
+        private CommonPathRequestDelegate rootedCommonPathRequestDetour;
         private SpecialTilePredicateDelegate specialTilePredicate;
         private NativeDetour detour;
         private NativeDetour resumeOldOrderDetour;
+        private NativeDetour commonPathRequestDetour;
         private AssassinPathReconstructionPatch reconstructionPatch;
         private int* assassinPathContextFlag;
         private byte* validCoordinates;
@@ -112,7 +123,10 @@ namespace BugfixesAndQoL
             }
         }
 
-        public bool IsInstalled => detour != null && resumeOldOrderDetour != null;
+        public bool IsInstalled =>
+            detour != null &&
+            resumeOldOrderDetour != null &&
+            commonPathRequestDetour != null;
 
         public void InitializeNative(IntPtr newLibraryHandle, ReadOnlySpan<byte> memory, bool fixedLayoutHashValidated)
         {
@@ -157,6 +171,19 @@ namespace BugfixesAndQoL
             if (nativeUnitIndexResolution.Rva != AssassinCombatResumeNativeDefinition.ResumeNativeUnitIndexAddressingRva)
                 throw new InvalidOperationException("Assassin movement-order resume no longer uses its validated native unit-index addressing");
 
+            Shared.NativeResolution commonPathResolution = Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                AssassinCombatResumeNativeDefinition.CommonPathRequestPattern,
+                AssassinCombatResumeNativeDefinition.CommonPathRequestRva,
+                referenceHashMatches: true,
+                "common path request used by Assassin post-combat repathing",
+                log);
+            if (commonPathResolution.Rva != AssassinCombatResumeNativeDefinition.CommonPathRequestRva)
+                throw new InvalidOperationException("common path request resolved outside its validated RVA");
+
+            ValidatePostCombatNativeContracts(memory);
+            IntPtr resolvedCommonPathRequest = IntPtr.Add(newLibraryHandle, commonPathResolution.Rva);
+
             libraryHandle = newLibraryHandle;
             validCoordinates = (byte*)IntPtr.Add(newLibraryHandle, ValidCoordinateGridRva).ToPointer();
             rowLookup = (int*)IntPtr.Add(newLibraryHandle, RowLookupRva).ToPointer();
@@ -177,11 +204,15 @@ namespace BugfixesAndQoL
             IntPtr detourAddress = Marshal.GetFunctionPointerForDelegate(rootedDetour);
             rootedResumeOldOrderDetour = ResumeOldOrderAfterCombat;
             IntPtr resumeDetourAddress = Marshal.GetFunctionPointerForDelegate(rootedResumeOldOrderDetour);
+            rootedCommonPathRequestDetour = RequestPathWithAssassinCombatContext;
+            IntPtr commonPathDetourAddress = Marshal.GetFunctionPointerForDelegate(rootedCommonPathRequestDetour);
             NativeDetour installed = null;
             NativeDetour installedResumeOldOrder = null;
+            NativeDetour installedCommonPathRequest = null;
             AssassinPathReconstructionPatch pendingReconstructionPatch = null;
             bool builderApplied = false;
             bool resumeApplied = false;
+            bool commonPathApplied = false;
             try
             {
                 pendingReconstructionPatch = new AssassinPathReconstructionPatch(
@@ -196,20 +227,31 @@ namespace BugfixesAndQoL
                     resumeDetourAddress,
                     new NativeDetourConfig { ManualApply = true });
                 originalResumeOldOrder = installedResumeOldOrder.GenerateTrampoline<ResumeOldOrderDelegate>();
+                installedCommonPathRequest = new NativeDetour(
+                    resolvedCommonPathRequest,
+                    commonPathDetourAddress,
+                    new NativeDetourConfig { ManualApply = true });
+                originalCommonPathRequest = installedCommonPathRequest.GenerateTrampoline<CommonPathRequestDelegate>();
                 installed.Apply();
                 builderApplied = true;
                 installedResumeOldOrder.Apply();
                 resumeApplied = true;
+                installedCommonPathRequest.Apply();
+                commonPathApplied = true;
                 detour = installed;
                 resumeOldOrderDetour = installedResumeOldOrder;
+                commonPathRequestDetour = installedCommonPathRequest;
                 reconstructionPatch = pendingReconstructionPatch;
                 ApplySetting();
-                LogDebug($"weighted Assassin pathfinding installed at RVA 0x{AssassinBuilderRva:X}, including post-combat order resume at RVA 0x{AssassinCombatResumeNativeDefinition.ResumeOldOrderRva:X}; climb costs={AssassinClimbCostPolicy.MinimumClimbTicks}/{AssassinClimbCostPolicy.LowWallClimbTicks}/{AssassinClimbCostPolicy.NormalWallClimbTicks} ticks.");
+                LogDebug($"weighted Assassin pathfinding installed at RVA 0x{AssassinBuilderRva:X}, including order resume at RVA 0x{AssassinCombatResumeNativeDefinition.ResumeOldOrderRva:X} and state-{AssassinCombatResumePolicy.PostCombatRepathState} repath via RVA 0x{AssassinCombatResumeNativeDefinition.CommonPathRequestRva:X}; climb costs={AssassinClimbCostPolicy.MinimumClimbTicks}/{AssassinClimbCostPolicy.LowWallClimbTicks}/{AssassinClimbCostPolicy.NormalWallClimbTicks} ticks.");
             }
             catch
             {
                 if (pendingReconstructionPatch?.IsApplied == true)
                     pendingReconstructionPatch.SetEnabled(false);
+                if (commonPathApplied)
+                    installedCommonPathRequest?.Undo();
+                installedCommonPathRequest?.Dispose();
                 if (resumeApplied)
                     installedResumeOldOrder?.Undo();
                 installedResumeOldOrder?.Dispose();
@@ -220,8 +262,11 @@ namespace BugfixesAndQoL
                 rootedDetour = null;
                 originalResumeOldOrder = null;
                 rootedResumeOldOrderDetour = null;
+                originalCommonPathRequest = null;
+                rootedCommonPathRequestDetour = null;
                 detour = null;
                 resumeOldOrderDetour = null;
+                commonPathRequestDetour = null;
                 reconstructionPatch = null;
                 throw;
             }
@@ -405,6 +450,97 @@ namespace BugfixesAndQoL
             }
         }
 
+        private int RequestPathWithAssassinCombatContext(
+            IntPtr unitBase,
+            int nativeUnitIndex,
+            int targetX,
+            int targetY,
+            int pathOption)
+        {
+            CommonPathRequestDelegate vanilla = originalCommonPathRequest;
+            if (vanilla == null)
+                return 0;
+            if (!settings.EnableMod ||
+                !settings.EnableImprovedAssassinPathfinding ||
+                !IsInstalled)
+            {
+                return vanilla(unitBase, nativeUnitIndex, targetX, targetY, pathOption);
+            }
+
+            Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
+            bool unitResolved = AssassinCombatResumePolicy.IsValidNativeUnitIndex(nativeUnitIndex, units.Length);
+            AliveState aliveState = unitResolved ? units[nativeUnitIndex].r_AliveState : default;
+            eChimps unitType = unitResolved ? units[nativeUnitIndex].r_UnitChimp : default;
+            ushort aiState = unitResolved ? units[nativeUnitIndex].r_AIState : (ushort)0;
+            int previousPathContext = *assassinPathContextFlag;
+            bool injectContext = AssassinCombatResumePolicy.ShouldInjectPostCombatPathContext(
+                settings.EnableMod,
+                settings.EnableImprovedAssassinPathfinding,
+                IsInstalled,
+                unitResolved,
+                aliveState,
+                unitType,
+                aiState,
+                previousPathContext);
+
+            int diagnosticId = BeginDirectRepathDiagnostic(
+                nativeUnitIndex,
+                units.Length,
+                unitResolved,
+                aliveState,
+                unitType,
+                aiState,
+                targetX,
+                targetY,
+                pathOption,
+                injectContext,
+                previousPathContext);
+            int previousDiagnosticId = activeCombatResumeDiagnosticId;
+            int previousBuilderCalls = activeCombatResumeBuilderCalls;
+            activeCombatResumeDiagnosticId = diagnosticId;
+            activeCombatResumeBuilderCalls = 0;
+
+            if (!injectContext)
+            {
+                try
+                {
+                    int vanillaResult = vanilla(unitBase, nativeUnitIndex, targetX, targetY, pathOption);
+                    LogCombatResumeDiagnostic(
+                        diagnosticId,
+                        $"direct-repath-exit injected=False, result={vanillaResult}, builderCalls={activeCombatResumeBuilderCalls}, flagAfterVanilla={*assassinPathContextFlag}");
+                    return vanillaResult;
+                }
+                finally
+                {
+                    activeCombatResumeDiagnosticId = previousDiagnosticId;
+                    activeCombatResumeBuilderCalls = previousBuilderCalls;
+                }
+            }
+
+            // State 122 directly requests the stored destination but omits MoveHere's Assassin
+            // context. Limit the correction to this one path request and preserve nesting.
+            *assassinPathContextFlag = 1;
+            int result = 0;
+            int pathContextAfterVanilla = int.MinValue;
+            bool completed = false;
+            try
+            {
+                result = vanilla(unitBase, nativeUnitIndex, targetX, targetY, pathOption);
+                pathContextAfterVanilla = *assassinPathContextFlag;
+                completed = true;
+                return result;
+            }
+            finally
+            {
+                *assassinPathContextFlag = previousPathContext;
+                LogCombatResumeDiagnostic(
+                    diagnosticId,
+                    $"direct-repath-exit injected=True, completed={completed}, result={result}, builderCalls={activeCombatResumeBuilderCalls}, flagBefore={previousPathContext}, flagAfterVanilla={pathContextAfterVanilla}, flagRestored={*assassinPathContextFlag}");
+                activeCombatResumeDiagnosticId = previousDiagnosticId;
+                activeCombatResumeBuilderCalls = previousBuilderCalls;
+            }
+        }
+
         #region TEMPORARY ASSASSIN_COMBAT_RESUME_DIAGNOSTICS - remove this entire region after validation
         private int BeginCombatResumeDiagnostic(
             int nativeUnitIndex,
@@ -429,6 +565,34 @@ namespace BugfixesAndQoL
             return diagnosticId;
         }
 
+        private int BeginDirectRepathDiagnostic(
+            int nativeUnitIndex,
+            int unitCount,
+            bool unitResolved,
+            AliveState aliveState,
+            eChimps unitType,
+            ushort aiState,
+            int targetX,
+            int targetY,
+            int pathOption,
+            bool injectContext,
+            int pathContext)
+        {
+            if (!settings.EnableMod ||
+                !settings.EnableImprovedAssassinPathfinding ||
+                aiState != AssassinCombatResumePolicy.PostCombatRepathState ||
+                combatResumeDiagnosticEventCount >= MaximumCombatResumeDiagnosticEventsPerMap)
+            {
+                return 0;
+            }
+
+            int diagnosticId = ++combatResumeDiagnosticEventCount;
+            LogCombatResumeDiagnostic(
+                diagnosticId,
+                $"direct-repath-enter nativeUnitIndex={nativeUnitIndex}, unitCount={unitCount}, resolved={unitResolved}, aliveState={aliveState}, unitType={unitType}, aiState={aiState}, target={targetX},{targetY}, pathOption={pathOption}, eligible={injectContext}, contextFlag={pathContext}");
+            return diagnosticId;
+        }
+
         private int ReturnCombatResumeBuilderDiagnostic(
             int diagnosticId,
             string outcome,
@@ -446,6 +610,53 @@ namespace BugfixesAndQoL
             combatResumeDiagnosticEventCount = 0;
             activeCombatResumeDiagnosticId = 0;
             activeCombatResumeBuilderCalls = 0;
+        }
+
+        private void ValidatePostCombatNativeContracts(ReadOnlySpan<byte> memory)
+        {
+            Shared.NativeResolution remap = Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                AssassinCombatResumeNativeDefinition.AssassinStateRemapSequence,
+                AssassinCombatResumeNativeDefinition.AssassinStateRemapSequenceRva,
+                referenceHashMatches: true,
+                "Assassin AI-state remap around post-combat state 122",
+                log);
+            if (memory[remap.Rva + AssassinCombatResumeNativeDefinition.PostCombatStateRemapOffset] !=
+                AssassinCombatResumeNativeDefinition.PostCombatStateRemapIndex)
+                throw new InvalidOperationException("Assassin state 122 no longer maps to the audited jump-table index");
+
+            Shared.NativeResolution jumpTable = Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                AssassinCombatResumeNativeDefinition.AssassinStateJumpTableSequence,
+                AssassinCombatResumeNativeDefinition.AssassinStateJumpTableSequenceRva,
+                referenceHashMatches: true,
+                "Assassin AI-state jump table around post-combat state 122",
+                log);
+            int stateHandlerRva = Shared.NativePatternResolver.ReadInt32(
+                memory,
+                jumpTable.Rva + AssassinCombatResumeNativeDefinition.PostCombatStateJumpTargetOffset);
+            if (stateHandlerRva != AssassinCombatResumeNativeDefinition.PostCombatStateHandlerRva)
+                throw new InvalidOperationException("Assassin state 122 no longer targets the audited post-combat handler");
+
+            Shared.NativeResolution directRepath = Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                AssassinCombatResumeNativeDefinition.PostCombatPathRequestSequence,
+                AssassinCombatResumeNativeDefinition.PostCombatPathRequestSequenceRva,
+                referenceHashMatches: true,
+                "Assassin state-122 direct path request",
+                log);
+            if (directRepath.Rva != AssassinCombatResumeNativeDefinition.PostCombatPathRequestSequenceRva)
+                throw new InvalidOperationException("Assassin state-122 direct path request resolved outside its validated RVA");
+            int directPathTarget = Shared.NativePatternResolver.ResolveRelativeTarget(
+                memory,
+                directRepath.Rva + AssassinCombatResumeNativeDefinition.PostCombatPathRequestCallOffset + 1,
+                directRepath.Rva + AssassinCombatResumeNativeDefinition.PostCombatPathRequestCallOffset + 5);
+            int nextState = Shared.NativePatternResolver.ReadInt32(
+                memory,
+                directRepath.Rva + AssassinCombatResumeNativeDefinition.PostCombatMovementStateLoadOffset + 1);
+            if (directPathTarget != AssassinCombatResumeNativeDefinition.CommonPathRequestRva || nextState != 101)
+                throw new InvalidOperationException(
+                    "Assassin state 122 no longer directly requests the audited path and then enters movement state 101");
         }
 
         private void LogCombatResumeDiagnostic(int diagnosticId, string message)
