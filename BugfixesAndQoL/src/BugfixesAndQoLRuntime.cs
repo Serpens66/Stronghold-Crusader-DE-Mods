@@ -901,8 +901,9 @@ namespace BugfixesAndQoL
 
             try
             {
-                // Keep the event and cursor hooks installed. The synchronized host setting is
-                // checked inside both hot paths, so disabling it restores Vanilla behavior.
+                // Keep the native target-selection detour and cursor hook installed. The
+                // synchronized host setting is checked inside both hot paths, so disabling it
+                // restores Vanilla behavior.
                 moatDiggingReachabilityFix = new MoatDiggingReachabilityFix(
                     log,
                     settings,

@@ -1,12 +1,12 @@
 // Feature: Let valid moat-digging orders traverse already completed friendly moats.
 using BepInEx.Logging;
-using R3;
+using MonoMod.RuntimeDetour;
 using SHCDESE.API;
-using SHCDESE.EventAPI;
-using SHCDESE.EventAPI.Tribes;
+using SHCDESE.GameGlobals;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
+using System.Runtime.InteropServices;
 using Zhuqiaomon.Assembly;
 using Zhuqiaomon.Hooks;
 using Zhuqiaomon.Hooks.Transaction;
@@ -16,10 +16,26 @@ namespace BugfixesAndQoL
 {
     internal sealed unsafe class MoatDiggingReachabilityFix : IDisposable
     {
+        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+        private delegate int FindNearestFriendlyMoatDelegate(
+            IntPtr tileManager,
+            int playerId,
+            int unitId,
+            int relationshipMode);
+
+        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+        private delegate int GetMoatIdAtTileDelegate(IntPtr tileManager, int tileId);
+
         private const int DigMoatModePatternRva = 0x8D3C2;
         private const int CursorReachabilityPatternRva = 0x8F3A8;
+        private const int GetMoatIdAtTilePatternRva = 0x69560;
+        private const int FindNearestFriendlyMoatPatternRva = 0x69D60;
         private const int CursorReachabilityHookOffset = 29;
         private const int CursorReachabilityHookLength = 12;
+        private const int MoatRecordArrayOffset = 0x1F3EE30;
+        private const int MoatRecordCountOffset = 0x2038E30;
+        private const int MoatRecordSize = 0x10;
+        private const int MoatOwnerOffset = 0x0C;
 
         private const string DigMoatModePattern =
             "44 39 25 ?? ?? ?? ?? 74 3C 48 8B CE E8 ?? ?? ?? ?? " +
@@ -30,6 +46,14 @@ namespace BugfixesAndQoL
             "44 8B 05 ?? ?? ?? ?? 41 8B D6 E8 ?? ?? ?? ?? " +
             "85 C0 74 11 44 8B BC 24 C0 00 00 00";
 
+        private const string GetMoatIdAtTilePattern =
+            "48 63 C2 0F B7 84 41 ?? ?? ?? ?? C3 CC CC CC";
+
+        private const string FindNearestFriendlyMoatPattern =
+            "44 89 44 24 18 89 54 24 10 55 56 57 41 54 41 55 41 56 " +
+            "48 83 EC 68 48 8B E9 48 8D 3D ?? ?? ?? ?? 45 8B F1 " +
+            "48 8D 87 1C 07 00 00 4D 63 C8 45 33 E4";
+
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
         private readonly HookTransaction transaction;
@@ -37,13 +61,12 @@ namespace BugfixesAndQoL
         private readonly int* targetTileX;
         private readonly int* targetTileY;
         private HookRef<X64InlineHook> cursorReachabilityHook = new HookRef<X64InlineHook>();
-        private IDisposable orderSubscription;
-        private PendingDigMoatCommand pendingCommand;
-        private bool hasPendingCommand;
-        private int replayDepth;
-        private bool firstAuthorizationDecisionLogged;
-        private bool firstReplayLogged;
-        private bool commandPairMismatchLogged;
+        private GetMoatIdAtTileDelegate getMoatIdAtTile;
+        private FindNearestFriendlyMoatDelegate originalFindNearestFriendlyMoat;
+        private FindNearestFriendlyMoatDelegate rootedFindNearestFriendlyMoat;
+        private NativeDetour findNearestFriendlyMoatDetour;
+        private bool firstDirectedTargetLogged;
+        private bool directedTargetFailureLogged;
         private bool cursorFailureLogged;
         private bool disposed;
 
@@ -56,6 +79,15 @@ namespace BugfixesAndQoL
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
+
+            // The moat record array is not exposed by the Script Extender. Its fixed
+            // offsets below are validated for the canonical DLL and must fail closed
+            // instead of being guessed for a later game version.
+            if (!referenceHashMatches)
+            {
+                throw new InvalidOperationException(
+                    "The moat-digging reachability fix requires the validated CrusaderDE.dll layout.");
+            }
 
             Shared.NativeResolution modeResolution = Shared.NativePatternResolver.ResolveUnique(
                 memory,
@@ -70,6 +102,20 @@ namespace BugfixesAndQoL
                 CursorReachabilityPatternRva,
                 referenceHashMatches,
                 "DigMoat cursor reachability check",
+                log: null);
+            Shared.NativeResolution moatLookupResolution = Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                GetMoatIdAtTilePattern,
+                GetMoatIdAtTilePatternRva,
+                referenceHashMatches,
+                "moat ID lookup by tile",
+                log: null);
+            Shared.NativeResolution moatSearchResolution = Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                FindNearestFriendlyMoatPattern,
+                FindNearestFriendlyMoatPatternRva,
+                referenceHashMatches,
+                "nearest friendly moat search",
                 log: null);
 
             int modeRva = ResolveGlobalRva(
@@ -114,21 +160,26 @@ namespace BugfixesAndQoL
                 if (!cursorReachabilityHook.Success)
                     throw new InvalidOperationException("The DigMoat cursor reachability hook was not installed.");
 
-                orderSubscription = TribeR3EventHooks.OnTribeIssueOrderWithTarget.Observable
-                    .Subscribe(OnTribeIssueOrderWithTarget);
+                getMoatIdAtTile = Marshal.GetDelegateForFunctionPointer<GetMoatIdAtTileDelegate>(
+                    (IntPtr)(libraryBase + unchecked((ulong)moatLookupResolution.Rva)));
+                rootedFindNearestFriendlyMoat = DirectCommandedMoatTarget;
+                IntPtr moatSearchAddress = (IntPtr)(libraryBase + unchecked((ulong)moatSearchResolution.Rva));
+                findNearestFriendlyMoatDetour = new NativeDetour(
+                    moatSearchAddress,
+                    Marshal.GetFunctionPointerForDelegate(rootedFindNearestFriendlyMoat),
+                    new NativeDetourConfig { ManualApply = true });
+                originalFindNearestFriendlyMoat =
+                    findNearestFriendlyMoatDetour.GenerateTrampoline<FindNearestFriendlyMoatDelegate>();
+                findNearestFriendlyMoatDetour.Apply();
 
                 Shared.DebugLogHelper.LogDebug(
                     log,
                     $"Bugfixes and QoL moat-digging reachability fix installed: " +
                     $"modeMethod={modeResolution.Method}, cursorMethod={cursorResolution.Method}, " +
+                    $"lookupMethod={moatLookupResolution.Method}, searchMethod={moatSearchResolution.Method}, " +
                     $"modeRva=0x{modeRva:X}, targetXRva=0x{targetXRva:X}, " +
-                    $"targetYRva=0x{targetYRva:X}, hookRva=0x{hookRva:X}.");
-                if (!referenceHashMatches)
-                {
-                    Shared.DebugLogHelper.LogWarning(
-                        log,
-                        "Bugfixes and QoL moat-digging reachability fix is running on an unknown CrusaderDE.dll because both native cursor contracts and their RIP-relative globals were validated.");
-                }
+                    $"targetYRva=0x{targetYRva:X}, hookRva=0x{hookRva:X}, " +
+                    $"lookupRva=0x{moatLookupResolution.Rva:X}, searchRva=0x{moatSearchResolution.Rva:X}.");
             }
             catch
             {
@@ -143,131 +194,62 @@ namespace BugfixesAndQoL
                 return;
 
             disposed = true;
-            orderSubscription?.Dispose();
-            orderSubscription = null;
+            findNearestFriendlyMoatDetour?.Dispose();
+            findNearestFriendlyMoatDetour = null;
+            originalFindNearestFriendlyMoat = null;
+            rootedFindNearestFriendlyMoat = null;
+            getMoatIdAtTile = null;
             transaction?.Unload();
             transaction?.Dispose();
         }
 
-        private void OnTribeIssueOrderWithTarget(TribeIssueOrderWithTargetEventArgs args)
+        private int DirectCommandedMoatTarget(
+            IntPtr tileManager,
+            int playerId,
+            int unitId,
+            int relationshipMode)
         {
-            if (replayDepth != 0)
-                return;
-
-            if (args.Phase == EventHookPhase.Pre)
-            {
-                // The original command may reserve or otherwise alter the planned tile before
-                // Post. Capture the permission while the cursor/AI target still has its original
-                // properties, then let Vanilla finish putting eligible units into DigMoat mode.
-                hasPendingCommand = false;
-                if (IsEnabled && args.AICommand == TribeAICommand.DigMoatTileId)
-                {
-                    bool ownerResolved = TryGetTribeOwner(args.TribeId, out int playerId);
-                    bool authorized = ownerResolved &&
-                        IsFriendlyPlannedMoat(playerId, args.TargetValue1, args.TargetValue2);
-                    if (!firstAuthorizationDecisionLogged)
-                    {
-                        firstAuthorizationDecisionLogged = true;
-                        Shared.DebugLogHelper.LogDebug(
-                            log,
-                            $"Bugfixes and QoL first moat-digging Pre authorization: authorized={authorized}, " +
-                            $"tribe={args.TribeId}, player={playerId}, " +
-                            $"target=({args.TargetValue1},{args.TargetValue2}).");
-                    }
-
-                    if (authorized)
-                    {
-                        pendingCommand = new PendingDigMoatCommand(args, playerId);
-                        hasPendingCommand = true;
-                    }
-                }
-
-                return;
-            }
-
-            if (args.Phase != EventHookPhase.Post || !hasPendingCommand)
-                return;
-
-            PendingDigMoatCommand command = pendingCommand;
-            hasPendingCommand = false;
-            if (!IsEnabled || !command.Matches(args))
-            {
-                if (IsEnabled && !commandPairMismatchLogged)
-                {
-                    commandPairMismatchLogged = true;
-                    Shared.DebugLogHelper.LogWarning(
-                        log,
-                        "Bugfixes and QoL discarded one moat-digging replay because the synchronous Pre/Post command pair did not match.");
-                }
-                return;
-            }
-
-            replayDepth++;
             try
             {
-                // Vanilla writes command 6 and the exact requested coordinates even when its
-                // first movement attempt fails. Replaying synchronously lets that second attempt
-                // use Vanilla's existing "already digging" permission to cross completed moats.
-                bool issued = GameTribeManagerAPI.Instance.IssueTargettedCommand(
-                    command.TribeId,
-                    command.AICommand,
-                    command.TargetValue1,
-                    command.TargetValue2,
-                    command.A6);
-                if (!issued)
+                if (IsEnabled && relationshipMode == 1 &&
+                    GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) &&
+                    unit != null &&
+                    unit->r_AI_LastIssuedTribeCommand == (ushort)TribeAICommand.DigMoatTileId &&
+                    TryGetFriendlyPlannedMoatId(
+                        tileManager,
+                        playerId,
+                        unit->r_ContextTargetTileX,
+                        unit->r_ContextTargetTileY,
+                        out int commandedMoatId))
                 {
-                    Shared.DebugLogHelper.LogWarning(
-                        log,
-                        $"Bugfixes and QoL moat-digging replay was rejected: tribe={command.TribeId}, " +
-                        $"target=({command.TargetValue1},{command.TargetValue2}).");
-                }
-                else if (!firstReplayLogged)
-                {
-                    firstReplayLogged = true;
-                    Shared.DebugLogHelper.LogDebug(
-                        log,
-                        $"Bugfixes and QoL first moat-digging replay issued: tribe={command.TribeId}, " +
-                        $"player={command.PlayerId}, target=({command.TargetValue1},{command.TargetValue2}).");
+                    if (!firstDirectedTargetLogged)
+                    {
+                        firstDirectedTargetLogged = true;
+                        Shared.DebugLogHelper.LogDebug(
+                            log,
+                            $"Bugfixes and QoL first directed moat target selected: unit={unitId}, " +
+                            $"player={playerId}, moat={commandedMoatId}, " +
+                            $"target=({unit->r_ContextTargetTileX},{unit->r_ContextTargetTileY}).");
+                    }
+
+                    // Vanilla sets its moat-capable path mode immediately after this lookup.
+                    // Returning the commanded record preserves that pathing while avoiding the
+                    // unrelated nearest-reachable moat which otherwise replaces the order.
+                    return commandedMoatId;
                 }
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Bugfixes and QoL moat-digging replay failed; later commands remain available: {ex}");
-            }
-            finally
-            {
-                replayDepth--;
-            }
-        }
-
-        private readonly struct PendingDigMoatCommand
-        {
-            public PendingDigMoatCommand(TribeIssueOrderWithTargetEventArgs args, int playerId)
-            {
-                TribeId = args.TribeId;
-                AICommand = args.AICommand;
-                TargetValue1 = args.TargetValue1;
-                TargetValue2 = args.TargetValue2;
-                A6 = args.a6;
-                PlayerId = playerId;
+                if (!directedTargetFailureLogged)
+                {
+                    directedTargetFailureLogged = true;
+                    Shared.DebugLogHelper.LogError(
+                        log,
+                        $"Bugfixes and QoL directed moat selection failed once; Vanilla selection remains active: {ex}");
+                }
             }
 
-            public int TribeId { get; }
-            public TribeAICommand AICommand { get; }
-            public int TargetValue1 { get; }
-            public int TargetValue2 { get; }
-            public int A6 { get; }
-            public int PlayerId { get; }
-
-            public bool Matches(TribeIssueOrderWithTargetEventArgs args) =>
-                args.AICommand == TribeAICommand.DigMoatTileId &&
-                args.TribeId == TribeId &&
-                args.AICommand == AICommand &&
-                args.TargetValue1 == TargetValue1 &&
-                args.TargetValue2 == TargetValue2 &&
-                args.a6 == A6;
+            return originalFindNearestFriendlyMoat(tileManager, playerId, unitId, relationshipMode);
         }
 
         private void AllowFriendlyPlannedMoatCursor(NativePointer<X64SmartCPUContext> context)
@@ -279,7 +261,12 @@ namespace BugfixesAndQoL
             try
             {
                 int playerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
-                if (IsFriendlyPlannedMoat(playerId, *targetTileX, *targetTileY))
+                if (TryGetFriendlyPlannedMoatId(
+                    GameTileManagerPointer,
+                    playerId,
+                    *targetTileX,
+                    *targetTileY,
+                    out _))
                     registers->RAX = 1;
             }
             catch (Exception ex)
@@ -297,23 +284,19 @@ namespace BugfixesAndQoL
         private bool IsEnabled =>
             !disposed && settings.EnableMod && settings.EnableMoatDiggingReachabilityFix;
 
-        private static bool TryGetTribeOwner(int tribeId, out int playerId)
-        {
-            playerId = 0;
-            if (!GameTribeManagerAPI.Instance.TryGetTribeById(tribeId, out GameTribe* tribe) ||
-                tribe == null)
-            {
-                return false;
-            }
+        private IntPtr GameTileManagerPointer =>
+            (IntPtr)GameGlobalsManager.Instance.GameTileManagerVA;
 
-            playerId = tribe->r_PlayerIdOwner;
-            return GamePlayerManagerAPI.Instance.IsPlayerIdValid(playerId);
-        }
-
-        private static bool IsFriendlyPlannedMoat(int playerId, int tileX, int tileY)
+        private bool TryGetFriendlyPlannedMoatId(
+            IntPtr tileManager,
+            int playerId,
+            int tileX,
+            int tileY,
+            out int moatId)
         {
+            moatId = 0;
             GamePlayerManagerAPI playerApi = GamePlayerManagerAPI.Instance;
-            if (!playerApi.IsPlayerIdValid(playerId))
+            if (tileManager == IntPtr.Zero || !playerApi.IsPlayerIdValid(playerId))
                 return false;
 
             GameTileManagerAPI tileApi = GameTileManagerAPI.Instance;
@@ -327,9 +310,22 @@ namespace BugfixesAndQoL
                 return false;
             }
 
-            int moatOwnerId = tileApi.GetTilePlayerOwnerId(tileId);
-            if (!playerApi.IsPlayerIdValid(moatOwnerId))
+            moatId = getMoatIdAtTile(tileManager, tileId);
+            int moatCount = *(int*)((byte*)tileManager.ToPointer() + MoatRecordCountOffset);
+            if (moatId <= 0 || moatId >= moatCount)
+            {
+                moatId = 0;
                 return false;
+            }
+
+            byte* moatRecord = (byte*)tileManager.ToPointer() +
+                MoatRecordArrayOffset + moatId * MoatRecordSize;
+            int moatOwnerId = moatRecord[MoatOwnerOffset];
+            if (!playerApi.IsPlayerIdValid(moatOwnerId))
+            {
+                moatId = 0;
+                return false;
+            }
 
             return moatOwnerId == playerId || playerApi.IsPlayerAlliedTo(playerId, moatOwnerId);
         }

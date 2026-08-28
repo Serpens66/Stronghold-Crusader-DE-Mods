@@ -32,11 +32,34 @@ namespace BugfixesAndQoL
                 capacity = 0;
             }
 
-            // Network lobbies keep one seat open until a second human has joined.
-            if (!singleplayerSkirmish && humanCount == 1)
+            // Custom co-op missions still require their human partner slot.
+            if (customCoopGame && !singleplayerSkirmish && humanCount == 1)
                 capacity--;
 
             return Math.Max(0, capacity - humanCount);
+        }
+
+        internal static bool ShouldReleaseFinalAiSeat(
+            bool modEnabled,
+            bool isHost,
+            bool singleplayerSkirmish,
+            bool coopGame,
+            bool customCoopGame,
+            int playerCap,
+            int lobbyMaxPlayers,
+            int memberCount,
+            int humanCount,
+            int aiCount)
+        {
+            if (!modEnabled || !isHost || singleplayerSkirmish || coopGame || customCoopGame)
+                return false;
+            if (playerCap <= 0 || lobbyMaxPlayers <= 0 || memberCount < 1)
+                return false;
+
+            int capacity = Math.Min(playerCap, lobbyMaxPlayers);
+            return memberCount == capacity - 1 &&
+                   humanCount == 1 &&
+                   aiCount == memberCount - 1;
         }
     }
 }

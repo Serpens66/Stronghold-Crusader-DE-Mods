@@ -257,7 +257,17 @@ namespace BugfixesAndQoL
             if (IsMemoryActive() && string.Equals(param, "Play", StringComparison.Ordinal))
                 SaveAllAiSettings(self);
 
-            multiplayerButtonClickedTrampoline(self, param);
+            if (mayAddAi)
+            {
+                InvokeWithFinalAiSeatReleased(
+                    self,
+                    "ButtonClicked AddCustomLord",
+                    () => multiplayerButtonClickedTrampoline(self, param));
+            }
+            else
+            {
+                multiplayerButtonClickedTrampoline(self, param);
+            }
 
             bool memoryActiveAfter = IsMemoryActive();
             if (!memoryActiveAfter || !mayAddAi)
@@ -362,7 +372,19 @@ namespace BugfixesAndQoL
             }
 
             if (!handled)
-                skirmishAiAddClickTrampoline(self, param);
+            {
+                if (IsIndividualAiSelection(param))
+                {
+                    InvokeWithFinalAiSeatReleased(
+                        self,
+                        "SkirmishAIAddClick " + param,
+                        () => skirmishAiAddClickTrampoline(self, param));
+                }
+                else
+                {
+                    skirmishAiAddClickTrampoline(self, param);
+                }
+            }
 
             bool memoryActiveAfter = IsMemoryActive();
             if (!memoryActiveAfter)
@@ -468,6 +490,68 @@ namespace BugfixesAndQoL
 
         private static bool IsRandomOpponentCount(string param, out int requestedValue) =>
             int.TryParse(param, out requestedValue) && requestedValue < 0 && requestedValue >= -8;
+
+        private static bool IsIndividualAiSelection(string param)
+        {
+            return int.TryParse(param, out int value) &&
+                   ((value >= 0 && value <= 26) || value == 99);
+        }
+
+        private void InvokeWithFinalAiSeatReleased(
+            FRONT_Multiplayer self,
+            string source,
+            Action invokeVanilla)
+        {
+            Platform_Multiplayer.MPLobby lobby = self?.currentLobby;
+            int playerCap = self == null ? 0 : (int)MultiplayerPlayerCapField.GetValue(self);
+            int lobbyMaxPlayers = lobby?.iMaxPlayers ?? 0;
+            int memberCountBefore = lobby?.members?.Count ?? 0;
+            int humanCountBefore = lobby?.CountHumanPlayers() ?? 0;
+            int aiCountBefore = lobby?.CountAIPlayers() ?? 0;
+            bool releaseSeat = RandomOpponentLobbyPolicy.ShouldReleaseFinalAiSeat(
+                settings.EnableMod,
+                lobby != null && lobby.isHost,
+                FRONT_Multiplayer.skirmishGame,
+                FRONT_Multiplayer.coopGame,
+                FRONT_Multiplayer.customCoopGame,
+                playerCap,
+                lobbyMaxPlayers,
+                memberCountBefore,
+                humanCountBefore,
+                aiCountBefore);
+
+            if (!releaseSeat)
+            {
+                invokeVanilla();
+                return;
+            }
+
+            bool originalSkirmishGame = FRONT_Multiplayer.skirmishGame;
+            try
+            {
+                // Vanilla's only extra restriction here is guarded by !skirmishGame.
+                // Restore the real mode before publishing any resulting lobby update.
+                FRONT_Multiplayer.skirmishGame = true;
+                invokeVanilla();
+            }
+            finally
+            {
+                FRONT_Multiplayer.skirmishGame = originalSkirmishGame;
+            }
+
+            int memberCountAfter = lobby.members.Count;
+            int humanCountAfter = lobby.CountHumanPlayers();
+            int aiCountAfter = lobby.CountAIPlayers();
+            if (memberCountAfter > memberCountBefore)
+                UpdateHostInfo(self);
+
+            Shared.DebugLogHelper.LogDebug(
+                log,
+                $"Bugfixes and QoL final multiplayer AI seat release: source={source}, " +
+                $"members={memberCountBefore}->{memberCountAfter}, humans={humanCountBefore}->{humanCountAfter}, " +
+                $"ai={aiCountBefore}->{aiCountAfter}, playerCap={playerCap}, lobbyMaxPlayers={lobbyMaxPlayers}, " +
+                $"added={memberCountAfter > memberCountBefore}.");
+        }
 
         private List<RandomLordCandidate> BuildRandomLordCandidates()
         {
