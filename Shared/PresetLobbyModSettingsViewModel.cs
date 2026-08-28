@@ -18,6 +18,7 @@ using System.Runtime.CompilerServices;
 #if !SHARED_PRESET_TESTS
 using R3;
 using SHCDESE.EventAPI;
+using SHCDESE.NoesisUtil;
 using Steamworks;
 using UnityEngine;
 #endif
@@ -774,6 +775,20 @@ namespace Shared
         private bool isRealMultiplayer;
         private bool isLocalHost = true;
         private PerPlayerLobbySettingsCoordinator perPlayerSettingsCoordinator;
+#if !SHARED_PRESET_TESTS
+        private string modSettingsSearchText = string.Empty;
+        private string modSettingsSearchExactKey = string.Empty;
+        private bool modSettingsSearchIncludeToolTips;
+        private bool modSettingsSearchExpanded;
+#endif
+
+        protected PresetLobbyModSettingsViewModel()
+        {
+#if !SHARED_PRESET_TESTS
+            System_ToggleModSettingsSearchCommand = new RelayCommand(ToggleModSettingsSearch);
+            System_ClearModSettingsSearchCommand = new RelayCommand(ClearModSettingsSearch);
+#endif
+        }
 
         public ComboBoxItem[] PresetOptions => presetOptions;
 
@@ -880,6 +895,122 @@ namespace Shared
         public string PresetHelpText =>
             ResolveSettingsUiText("Common.PresetHelp", "Selects a saved preset. Clients change only their personal settings.");
 
+#if !SHARED_PRESET_TESTS
+        public string System_ModSettingsSearchText
+        {
+            get => modSettingsSearchText;
+            set
+            {
+                string normalized = value ?? string.Empty;
+                if (string.Equals(modSettingsSearchText, normalized, StringComparison.Ordinal) &&
+                    modSettingsSearchExactKey.Length == 0)
+                {
+                    return;
+                }
+                modSettingsSearchText = normalized;
+                modSettingsSearchExactKey = string.Empty;
+                RaiseModSettingsSearchProperties();
+            }
+        }
+
+        public bool System_ModSettingsSearchIncludeToolTips
+        {
+            get => modSettingsSearchIncludeToolTips;
+            set
+            {
+                if (modSettingsSearchIncludeToolTips == value)
+                    return;
+                modSettingsSearchIncludeToolTips = value;
+                RaiseModSettingsSearchProperties();
+            }
+        }
+
+        public string System_ModSettingsSearchExactKey => modSettingsSearchExactKey;
+
+        public bool System_ModSettingsSearchHasActiveFilter =>
+            modSettingsSearchExactKey.Length > 0 ||
+            !string.IsNullOrWhiteSpace(modSettingsSearchText);
+
+        public Visibility System_ModSettingsSearchPanelVisibility =>
+            modSettingsSearchExpanded ? Visibility.Visible : Visibility.Collapsed;
+
+        public Visibility System_ModSettingsSearchInactiveVisibility =>
+            System_ModSettingsSearchHasActiveFilter ? Visibility.Collapsed : Visibility.Visible;
+
+        public Visibility System_ModSettingsSearchNoResultsVisibility =>
+            System_ModSettingsSearchHasActiveFilter &&
+            !ModSettingsSearch.HasMatches(
+                this,
+                modSettingsSearchText,
+                modSettingsSearchIncludeToolTips,
+                modSettingsSearchExactKey)
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+
+        public string System_ModSettingsSearchLabelText =>
+            ResolveSettingsUiText("Common.ModSettingsSearchLabel", "Search");
+
+        public string System_ModSettingsSearchHelpText =>
+            ResolveSettingsUiText("Common.ModSettingsSearchHelp", "Search setting titles. Optionally include tooltips.");
+
+        public string System_ModSettingsSearchToggleHelpText =>
+            ResolveSettingsUiText("Common.ModSettingsSearchToggleHelp", "Show or hide the settings search.");
+
+        public string System_ModSettingsSearchIncludeToolTipsText =>
+            ResolveSettingsUiText("Common.ModSettingsSearchIncludeToolTips", "Search tooltips");
+
+        public string System_ModSettingsSearchIncludeToolTipsHelpText =>
+            ResolveSettingsUiText("Common.ModSettingsSearchIncludeToolTipsHelp", "Also search the explanatory tooltips of settings.");
+
+        public string System_ModSettingsSearchClearHelpText =>
+            ResolveSettingsUiText("Common.ModSettingsSearchClearHelp", "Clear the settings filter.");
+
+        public string System_ModSettingsSearchNoResultsText =>
+            ResolveSettingsUiText("Common.ModSettingsSearchNoResults", "No matching settings found.");
+
+        public RelayCommand System_ToggleModSettingsSearchCommand { get; }
+
+        public RelayCommand System_ClearModSettingsSearchCommand { get; }
+
+        /// <summary>Safe reflection bridge used by the optional global search host.</summary>
+        public bool System_ApplyModSettingsSearchTarget(string key, string title)
+        {
+            string normalizedKey = ModSettingsSearchMatcher.Normalize(key);
+            if (normalizedKey.Length == 0)
+                return false;
+
+            modSettingsSearchText = title ?? string.Empty;
+            modSettingsSearchExactKey = normalizedKey;
+            modSettingsSearchExpanded = true;
+            RaiseModSettingsSearchProperties();
+            return true;
+        }
+
+        private void ToggleModSettingsSearch()
+        {
+            modSettingsSearchExpanded = !modSettingsSearchExpanded;
+            RaiseModSettingsSearchProperties();
+        }
+
+        private void ClearModSettingsSearch()
+        {
+            modSettingsSearchText = string.Empty;
+            modSettingsSearchExactKey = string.Empty;
+            RaiseModSettingsSearchProperties();
+        }
+
+        private void RaiseModSettingsSearchProperties()
+        {
+            base.OnPropertyChanged(nameof(System_ModSettingsSearchText));
+            base.OnPropertyChanged(nameof(System_ModSettingsSearchIncludeToolTips));
+            base.OnPropertyChanged(nameof(System_ModSettingsSearchExactKey));
+            base.OnPropertyChanged(nameof(System_ModSettingsSearchHasActiveFilter));
+            base.OnPropertyChanged(nameof(System_ModSettingsSearchPanelVisibility));
+            base.OnPropertyChanged(nameof(System_ModSettingsSearchInactiveVisibility));
+            base.OnPropertyChanged(nameof(System_ModSettingsSearchNoResultsVisibility));
+        }
+#endif
+
         // Compatibility alias for older views. New XAML binds host and client
         // sections separately so multiplayer and Trail locks remain independent.
         public bool AreSettingsEditable => CanEditHostSettings;
@@ -921,6 +1052,7 @@ namespace Shared
         public IReadOnlyList<ModSettingsSearchEntry> System_GetModSettingsSearchEntries(
             Noesis.FrameworkElement view) =>
             ModSettingsSearch.Export(this, view);
+
 #endif
 
         public bool System_ArePerPlayerSettingsReady(

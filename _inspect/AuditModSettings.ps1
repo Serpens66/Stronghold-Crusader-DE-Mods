@@ -697,6 +697,20 @@ foreach ($modName in $selectedModNames) {
         }
 
         $keys = @($values.Keys | Sort-Object)
+        if ($settings.Contains($entry.Key) -and $entry.Key -ne 'SerpsModsHost') {
+            foreach ($requiredSearchLocaleKey in @(
+                'Common.ModSettingsSearchLabel',
+                'Common.ModSettingsSearchHelp',
+                'Common.ModSettingsSearchToggleHelp',
+                'Common.ModSettingsSearchIncludeToolTips',
+                'Common.ModSettingsSearchIncludeToolTipsHelp',
+                'Common.ModSettingsSearchClearHelp',
+                'Common.ModSettingsSearchNoResults')) {
+                if (-not $values.Contains($requiredSearchLocaleKey)) {
+                    throw "$($entry.Key)/$($file.Name): missing shared search locale key $requiredSearchLocaleKey"
+                }
+            }
+        }
         if ($null -eq $referenceKeys) {
             $referenceKeys = $keys
         } elseif (Compare-Object $referenceKeys $keys) {
@@ -797,6 +811,15 @@ $sharedSearchSource = [IO.File]::ReadAllText((Join-Path $workspace 'Shared/ModSe
 foreach ($required in @(
     'DependencyProperty.RegisterAttached(',
     'System_GetModSettingsSearchEntries',
+    'System_ApplyModSettingsSearchTarget',
+    'FrameworkPropertyMetadataOptions.Inherits',
+    'ModSettingsSearchVisibilityConverter',
+    'ModSettingsSearchMatcher.IsMatch',
+    'IsSectionTitleMatch',
+    'SectionKeyProperty',
+    'SectionTitleProperty',
+    'IsSectionProperty',
+    'System_ModSettingsSearchExactKey',
     'GetExclude',
     'BuildAutomaticKey',
     'ToolTipService.GetToolTip',
@@ -817,45 +840,40 @@ foreach ($required in @(
 }
 
 $hostSearchSource = [IO.File]::ReadAllText((Join-Path $workspace 'SerpsModsHost/src/ModSettingsSearchViewModel.cs'))
-$hostEditorSource = [IO.File]::ReadAllText((Join-Path $workspace 'SerpsModsHost/src/ModSettingsSearchEditorFactory.cs'))
 $hostSettingsXaml = [IO.File]::ReadAllText((Join-Path $workspace 'SerpsModsHost/Override/ScriptExtenderUI/SerpsModsStatus.xaml'))
 $hostPluginSource = [IO.File]::ReadAllText((Join-Path $workspace 'SerpsModsHost/src/SerpsModsHostPlugin.cs'))
 $hostBuildSource = [IO.File]::ReadAllText((Join-Path $workspace 'SerpsModsHost/build.bat'))
 foreach ($required in @(
     'System_GetModSettingsSearchEntries',
+    'System_ApplyModSettingsSearchTarget',
+    'ShouldIncludeCandidate',
+    'matchedSections',
     'ReadAutomaticEntries',
-    'BringIntoView()',
-    'EnqueueDeferred',
     'using automatic text search',
     'Hub opened; indexing is deferred until the first query.',
     'Building search index without changing the selected tab.',
-    'Catalog results intentionally remain navigation-only.',
-    'editor = null;',
+    'Plugin.ModSettingsHubViewModel.SelectedTab = result.Tab',
+    'tab.ViewModel is SerpsModsDiagnosticsViewModel',
     'IncludeToolTips',
     'ModSettingsSearch.Exclude="True"',
     'HorizontalScrollBarVisibility="Disabled"',
     'ToolTip="{Binding DisplayToolTip}"',
-    'Content="{Binding Editor}"',
-    'CloneBinding',
-    'BindingOperations.SetBinding',
-    'new Binding(nameof(UIElement.IsEnabled), source)',
-    'KeyboardCaptureBinding.SetEnabled',
-    'DirectUnavailableVisibility',
     'diagnostics.SetSearch')) {
-    if (-not ($hostSearchSource + $hostEditorSource + $hostSettingsXaml + $hostPluginSource).Contains($required)) {
+    if (-not ($hostSearchSource + $hostSettingsXaml + $hostPluginSource).Contains($required)) {
         throw "SerpsModsHost search implementation marker is missing: $required"
     }
 }
 if ($hostSearchSource.Contains('InvalidateAfterSelectedTabChange') -or
     $hostSearchSource.Contains('ResolveCurrentTarget') -or
+    $hostSettingsXaml.Contains('DirectUnavailableText') -or
+    $hostSettingsXaml.Contains('Content="{Binding Editor}"') -or
     -not $hostSettingsXaml.Contains('x:Name="SerpsModSettingsSearchTextBox"') -or
     -not $hostPluginSource.Contains('searchTextBox.PreviewKeyDown += OnSearchTextBoxPreviewKeyDown') -or
     -not $hostPluginSource.Contains('args.Key == NoesisKey.Return') -or
     -not $hostPluginSource.Contains('args.Handled = true')) {
     throw 'Search catalogs must not be reindexed across tabs, and Enter must be consumed by the search field.'
 }
-if ($hostEditorSource.Contains('PropertyInfo.SetValue') -or
-    $hostSearchSource.Contains('ModSettingsSearchEditorFactory.Create(') -or
+if ((Test-Path -LiteralPath (Join-Path $workspace 'SerpsModsHost/src/ModSettingsSearchEditorFactory.cs')) -or
     $hostSearchSource.Contains('Plugin.ModSettingsHubViewModel.SelectedTab = tab') -or
     $hostSearchSource.Contains('view.Measure(') -or
     $hostSearchSource.Contains('view.Arrange(') -or
@@ -865,6 +883,19 @@ if ($hostEditorSource.Contains('PropertyInfo.SetValue') -or
     (Test-Path -LiteralPath (Join-Path $workspace 'SerpsModsHost/Patches/Assets/GUI/XAMLResources/FRONT_Multiplayer.xaml'))) {
     throw 'SerpsModsHost search must live only in its own modsettings and must not traverse or clone realized setting controls.'
 }
+foreach ($forbidden in @(
+    'System_FindModSettingsSearchTarget',
+    'ModSettingsSearchEditorFactory',
+    'BringIntoView',
+    'BeginAnimation',
+    'EnqueueDeferred',
+    'NavigateAndHighlight',
+    'FindSelectedTarget',
+    'CloneBinding')) {
+    if (($hostSearchSource + $sharedSearchSource + $sharedSettingsSource + $hostSettingsXaml).Contains($forbidden)) {
+        throw "Unsafe mod-settings search API is forbidden: $forbidden"
+    }
+}
 $hubOpenHandler = [Text.RegularExpressions.Regex]::Match(
     $hostSearchSource,
     'private void OnHubPropertyChanged[\s\S]*?private void RebuildModFilters')
@@ -872,13 +903,221 @@ if (-not $hubOpenHandler.Success -or
     $hubOpenHandler.Value.Contains('RebuildIndex()') -or
     $hubOpenHandler.Value.Contains('SelectedTab =') -or
     $hubOpenHandler.Value.Contains('PrepareView') -or
-    $hubOpenHandler.Value.Contains('ModSettingsSearchEditorFactory')) {
+    $hubOpenHandler.Value.Contains('System_ApplyModSettingsSearchTarget')) {
     throw 'Opening the native modsettings modal must not index, switch tabs, lay out views, or construct result editors.'
 }
 if ($hostSettingsXaml.Contains('<TextBlock Text="{Binding ToolTip}"') -or
     $hostSettingsXaml.IndexOf('<Border shared:ModSettingsSearch.Exclude="True"', [StringComparison]::Ordinal) -lt
         $hostSettingsXaml.IndexOf('<TextBlock Text="{Binding ErrorsText}"', [StringComparison]::Ordinal)) {
     throw 'SerpsModsHost search must follow the existing status text and expose result descriptions only as wrapping hover tooltips.'
+}
+
+# Every in-house preset page uses the same declarative local-search contract. Keeping
+# this audit generic makes new mods and settings fail closed instead of silently
+# falling back to an incomplete local filter.
+foreach ($entry in $settings.GetEnumerator()) {
+    if ($entry.Key -eq 'SerpsModsHost') {
+        continue
+    }
+
+    $searchPath = Join-Path $workspace $entry.Value
+    $searchXaml = [IO.File]::ReadAllText($searchPath)
+    foreach ($required in @(
+        'Width="145"',
+        'System_ToggleModSettingsSearchCommand',
+        'System_ClearModSettingsSearchCommand',
+        'System_ModSettingsSearchPanelVisibility',
+        'System_ModSettingsSearchNoResultsVisibility',
+        'shared:ModSettingsSearch.FilterText=',
+        'shared:ModSettingsSearch.IncludeToolTips=',
+        'shared:ModSettingsSearch.ExactKey=',
+        'shared:ModSettingsSearch.SectionKey=',
+        'shared:ModSettingsSearch.SectionTitle=',
+        'shared:ModSettingsSearch.IsSection="True"',
+        'ModSettingsSearchTargetGrid',
+        'ModSettingsSearchSectionGrid',
+        'shared:ModSettingsSearch.Exclude="True"')) {
+        if (-not $searchXaml.Contains($required)) {
+            throw "$($entry.Key) shared-search marker is missing: $required"
+        }
+    }
+    if ($searchXaml.Contains('Content="×"')) {
+        throw "$($entry.Key) search reset must use the centered vector icon, not a font glyph."
+    }
+
+    [xml]$searchDocument = $searchXaml
+    $logicalKeys = New-Object System.Collections.Generic.List[string]
+    $logicalSectionKeys = New-Object System.Collections.Generic.List[string]
+    foreach ($node in $searchDocument.SelectNodes('//*')) {
+        $keyAttribute = $node.Attributes | Where-Object LocalName -eq 'ModSettingsSearch.Key' | Select-Object -First 1
+        if ($null -ne $keyAttribute) {
+            if ([string]::IsNullOrWhiteSpace($keyAttribute.Value)) {
+                throw "$($entry.Key) contains an empty mod-settings search key."
+            }
+            if ($node.LocalName -ne 'Grid' -or $node.GetAttribute('Style') -ne '{StaticResource ModSettingsSearchTargetGrid}') {
+                throw "$($entry.Key) search target [$($keyAttribute.Value)] must use the neutral Grid search style."
+            }
+            foreach ($metadataName in @('ModSettingsSearch.Title','ModSettingsSearch.ToolTipText')) {
+                $metadata = $node.Attributes | Where-Object LocalName -eq $metadataName | Select-Object -First 1
+                if ($null -eq $metadata -or [string]::IsNullOrWhiteSpace($metadata.Value)) {
+                    throw "$($entry.Key) search target [$($keyAttribute.Value)] has no $metadataName metadata."
+                }
+            }
+            if (-not $keyAttribute.Value.StartsWith('{Binding ', [StringComparison]::Ordinal)) {
+                $logicalKeys.Add($keyAttribute.Value)
+            }
+        }
+
+        $sectionKeyAttribute = $node.Attributes | Where-Object LocalName -eq 'ModSettingsSearch.SectionKey' | Select-Object -First 1
+        if ($null -ne $sectionKeyAttribute) {
+            $sectionTitleAttribute = $node.Attributes | Where-Object LocalName -eq 'ModSettingsSearch.SectionTitle' | Select-Object -First 1
+            if ([string]::IsNullOrWhiteSpace($sectionKeyAttribute.Value) -or $null -eq $sectionTitleAttribute -or [string]::IsNullOrWhiteSpace($sectionTitleAttribute.Value)) {
+                throw "$($entry.Key) contains an incomplete thematic section declaration."
+            }
+            $logicalSectionKeys.Add($sectionKeyAttribute.Value)
+        }
+
+        $isSectionAttribute = $node.Attributes | Where-Object LocalName -eq 'ModSettingsSearch.IsSection' | Select-Object -First 1
+        if ($null -ne $isSectionAttribute -and $isSectionAttribute.Value -eq 'True' -and
+            ($node.LocalName -ne 'Grid' -or $node.GetAttribute('Style') -ne '{StaticResource ModSettingsSearchSectionGrid}')) {
+            throw "$($entry.Key) section headings must use a neutral Grid and the declarative section style."
+        }
+
+        if (@('Button','CheckBox','ComboBox','Slider','TextBox') -notcontains $node.LocalName) {
+            continue
+        }
+        $cursor = $node
+        $excluded = $false
+        $anchorCount = 0
+        while ($null -ne $cursor -and $cursor.NodeType -eq [Xml.XmlNodeType]::Element) {
+            foreach ($attribute in $cursor.Attributes) {
+                if ($attribute.LocalName -eq 'ModSettingsSearch.Exclude' -and $attribute.Value -eq 'True') {
+                    $excluded = $true
+                }
+                if ($attribute.LocalName -eq 'ModSettingsSearch.Key' -and -not [string]::IsNullOrWhiteSpace($attribute.Value)) {
+                    $anchorCount++
+                }
+            }
+            $cursor = $cursor.ParentNode
+        }
+        if (-not $excluded -and $anchorCount -ne 1) {
+            throw "$($entry.Key) interactive element [$($node.LocalName)] belongs to $anchorCount logical search targets instead of exactly one."
+        }
+    }
+
+    $duplicateLogicalKeys = @($logicalKeys | Group-Object | Where-Object Count -gt 1)
+    if ($duplicateLogicalKeys.Count -gt 0) {
+        throw "$($entry.Key) contains duplicate logical search keys: $($duplicateLogicalKeys.Name -join ', ')"
+    }
+    $duplicateLogicalSectionKeys = @($logicalSectionKeys | Group-Object | Where-Object Count -gt 1)
+    if ($duplicateLogicalSectionKeys.Count -gt 0) {
+        throw "$($entry.Key) contains duplicate thematic section keys: $($duplicateLogicalSectionKeys.Name -join ', ')"
+    }
+}
+
+$extraSearchPath = Join-Path $workspace 'ExtraFeatures/Override/ScriptExtenderUI/ExtraFeaturesSettings.xaml'
+$extraSearchXaml = [IO.File]::ReadAllText($extraSearchPath)
+foreach ($required in @(
+    'Width="145"',
+    'System_ToggleModSettingsSearchCommand',
+    'System_ClearModSettingsSearchCommand',
+    'System_ModSettingsSearchPanelVisibility',
+    'System_ModSettingsSearchInactiveVisibility',
+    'System_ModSettingsSearchNoResultsVisibility',
+    'shared:ModSettingsSearch.FilterText=',
+    'shared:ModSettingsSearch.IncludeToolTips=',
+    'shared:ModSettingsSearch.ExactKey=',
+    'shared:ModSettingsSearch.SectionKey=',
+    'shared:ModSettingsSearch.SectionTitle=',
+    'shared:ModSettingsSearch.IsSection="True"',
+    'ModSettingsSearchSectionGrid',
+    'shared:ModSettingsSearch.Exclude="True"',
+    'BuySearchKey',
+    'SellSearchKey')) {
+    if (-not $extraSearchXaml.Contains($required)) {
+        throw "ExtraFeatures shared-search marker is missing: $required"
+    }
+}
+[xml]$extraSearchDocument = $extraSearchXaml
+$interactiveNames = @('Button', 'CheckBox', 'ComboBox', 'Slider', 'TextBox')
+$searchKeys = New-Object System.Collections.Generic.List[string]
+$sectionKeys = New-Object System.Collections.Generic.List[string]
+foreach ($node in $extraSearchDocument.SelectNodes('//*')) {
+    foreach ($attribute in $node.Attributes) {
+        if ($attribute.LocalName -eq 'ModSettingsSearch.Key') {
+            if ([string]::IsNullOrWhiteSpace($attribute.Value)) {
+                throw 'ExtraFeatures contains an empty mod-settings search key.'
+            }
+            if ($node.LocalName -ne 'Grid') {
+                throw "ExtraFeatures search target [$($attribute.Value)] must use a neutral Grid wrapper, not [$($node.LocalName)]."
+            }
+            $styleAttribute = $node.Attributes | Where-Object LocalName -eq 'Style' | Select-Object -First 1
+            if ($null -eq $styleAttribute -or $styleAttribute.Value -ne '{StaticResource ModSettingsSearchTargetGrid}') {
+                throw "ExtraFeatures search target [$($attribute.Value)] does not use the neutral Grid search style."
+            }
+            $searchKeys.Add($attribute.Value)
+        }
+        if ($attribute.LocalName -eq 'ModSettingsSearch.SectionKey') {
+            if ([string]::IsNullOrWhiteSpace($attribute.Value)) {
+                throw 'ExtraFeatures contains an empty mod-settings section key.'
+            }
+            $sectionTitleAttribute = $node.Attributes | Where-Object LocalName -eq 'ModSettingsSearch.SectionTitle' | Select-Object -First 1
+            if ($null -eq $sectionTitleAttribute -or [string]::IsNullOrWhiteSpace($sectionTitleAttribute.Value)) {
+                throw "ExtraFeatures section [$($attribute.Value)] has no localized section title."
+            }
+            $sectionKeys.Add($attribute.Value)
+        }
+        if ($attribute.LocalName -eq 'ModSettingsSearch.IsSection' -and $attribute.Value -eq 'True') {
+            if ($node.LocalName -ne 'Grid' -or $node.GetAttribute('Style') -ne '{StaticResource ModSettingsSearchSectionGrid}') {
+                throw 'ExtraFeatures section headings must use a neutral Grid and the declarative section style.'
+            }
+        }
+    }
+    if ($interactiveNames -notcontains $node.LocalName) {
+        continue
+    }
+    $cursor = $node
+    $excluded = $false
+    $anchorCount = 0
+    while ($null -ne $cursor -and $cursor.NodeType -eq [Xml.XmlNodeType]::Element) {
+        foreach ($attribute in $cursor.Attributes) {
+            if ($attribute.LocalName -eq 'ModSettingsSearch.Exclude' -and $attribute.Value -eq 'True') {
+                $excluded = $true
+            }
+            if ($attribute.LocalName -eq 'ModSettingsSearch.Key' -and -not [string]::IsNullOrWhiteSpace($attribute.Value)) {
+                $anchorCount++
+            }
+        }
+        $cursor = $cursor.ParentNode
+    }
+    if (-not $excluded -and $anchorCount -ne 1) {
+        throw "ExtraFeatures interactive element [$($node.LocalName)] belongs to $anchorCount logical search targets instead of exactly one."
+    }
+}
+$duplicateSearchKeys = @($searchKeys | Group-Object | Where-Object Count -gt 1)
+if ($duplicateSearchKeys.Count -gt 0) {
+    throw "ExtraFeatures contains duplicate logical search keys: $($duplicateSearchKeys.Name -join ', ')"
+}
+$duplicateSectionKeys = @($sectionKeys | Group-Object | Where-Object Count -gt 1)
+if ($duplicateSectionKeys.Count -gt 0) {
+    throw "ExtraFeatures contains duplicate section keys: $($duplicateSectionKeys.Name -join ', ')"
+}
+if ($sectionKeys.Count -ne 10) {
+    throw "ExtraFeatures must declare all 10 thematic sections; found $($sectionKeys.Count)."
+}
+foreach ($target in $extraSearchDocument.SelectNodes('//*[@*[local-name()="ModSettingsSearch.Key"]]')) {
+    $sectionOwnerCount = 0
+    $cursor = $target.ParentNode
+    while ($null -ne $cursor -and $cursor.NodeType -eq [Xml.XmlNodeType]::Element) {
+        if ($null -ne ($cursor.Attributes | Where-Object LocalName -eq 'ModSettingsSearch.SectionKey' | Select-Object -First 1)) {
+            $sectionOwnerCount++
+        }
+        $cursor = $cursor.ParentNode
+    }
+    $targetKey = $target.Attributes | Where-Object LocalName -eq 'ModSettingsSearch.Key' | Select-Object -First 1
+    if ($sectionOwnerCount -ne 1) {
+        throw "ExtraFeatures search target [$($targetKey.Value)] belongs to $sectionOwnerCount thematic sections instead of exactly one."
+    }
 }
 if ([Text.RegularExpressions.Regex]::Matches(
         $sharedSettingsSource,
@@ -1004,7 +1243,6 @@ $crlfTargets = @($settings.Values) + @(
     'Shared/ModSettingsSearch.cs',
     'Shared/GameModeHelper.cs',
     'SerpsModsHost/src/ModSettingsSearchPolicy.cs',
-    'SerpsModsHost/src/ModSettingsSearchEditorFactory.cs',
     'SerpsModsHost/src/ModSettingsSearchViewModel.cs',
     '_inspect/HostClientPresetTests/Program.cs')
 $crlfTargets += $selectedAdditionalCrlfTargets

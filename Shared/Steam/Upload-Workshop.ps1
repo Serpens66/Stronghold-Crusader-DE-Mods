@@ -5,6 +5,7 @@ param(
     [Parameter(Mandatory)][string]$Visibility,
     [Parameter(Mandatory)][uint32]$AppId,
     [Parameter(Mandatory)][string]$ToolPath,
+    [switch]$ContentOnlyUpdate,
     [switch]$Validate
 )
 
@@ -281,11 +282,15 @@ try {
     }
     Write-UploadLog "Mode: $mode"
     Write-UploadLog "App ID: $AppId"
-    Write-UploadLog "Title: $ItemName"
     Write-UploadLog "Source: $resolvedFolder"
     Write-UploadLog "Map: $($mapFiles[0].Name)"
-    Write-UploadLog "Preview: $previewPath"
-    Write-UploadLog "Visibility: $Visibility"
+    if ($isUpdate -and $ContentOnlyUpdate) {
+        Write-UploadLog 'Workshop metadata: preserved (only content and changelog will be submitted).'
+    } else {
+        Write-UploadLog "Title: $ItemName"
+        Write-UploadLog "Preview: $previewPath"
+        Write-UploadLog "Visibility: $Visibility"
+    }
     Write-UploadLog "Changelog pack release: $($changeNoteInfo.PackReleaseDirectory)"
     Write-UploadLog "Changelog map SHA-256: $($changeNoteInfo.MapSha256)"
     foreach ($source in $changeNoteInfo.Sources) {
@@ -322,14 +327,13 @@ try {
     $arguments = @('-v', '-a', $AppId.ToString())
     if ($isUpdate) {
         $arguments += @('-i', $itemId, '-u', '-c', $changeNoteInfo.Text)
+        if (-not $ContentOnlyUpdate) {
+            $arguments += @('-k', $ItemName, '-o', $previewPath, '-h', $Visibility)
+        }
     } else {
-        $arguments += '-n'
+        $arguments += @('-n', '-k', $ItemName, '-o', $previewPath, '-h', $Visibility)
     }
-    $arguments += @(
-        '-k', $ItemName,
-        '-s', $resolvedFolder,
-        '-o', $previewPath,
-        '-h', $Visibility)
+    $arguments += @('-s', $resolvedFolder)
 
     Write-UploadLog "Starting pdengine.steamugc.tool $mode."
     $toolOutput = [Collections.Generic.List[string]]::new()

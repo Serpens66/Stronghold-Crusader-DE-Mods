@@ -26,7 +26,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Shared\Steam\Uploa
   -ConfiguredItemId "%ITEM_ID%" ^
   -Visibility "%VISIBILITY%" ^
   -AppId "%APP_ID%" ^
-  -ToolPath "%UPLOAD_TOOL%" %POWERSHELL_FLAGS%
+  -ToolPath "%UPLOAD_TOOL%" ^
+  -ContentOnlyUpdate %POWERSHELL_FLAGS%
 set "EXIT_CODE=%ERRORLEVEL%"
 
 if not "%EXIT_CODE%"=="0" (

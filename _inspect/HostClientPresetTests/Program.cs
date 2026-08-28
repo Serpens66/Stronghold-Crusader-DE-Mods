@@ -69,6 +69,7 @@ internal static class Program
             TestSnapshotCompletionHook();
             TestFreeCastleProtocol();
             TestModSettingsSearchPolicy();
+            TestSharedModSettingsSearchMatcher();
 
             string pluginPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "TestPlugin.dll");
             string settingsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "LobbyModSettings", "HostClientTest.msgpack");
@@ -345,6 +346,65 @@ internal static class Program
             "localized search did not ignore diacritics");
         Check(ModSettingsSearchPolicy.Rank("Lord health", "Multiplier", "missing", true) == int.MaxValue,
             "mod-settings search returned an unrelated entry");
+        Check(ModSettingsSearchPolicy.Rank("Buy prices", "Multiplier", "Market price multipliers", "market buy", false) < int.MaxValue,
+            "mod-settings search did not combine section and setting titles");
+        var matchedSections = new HashSet<string>(StringComparer.Ordinal) { "extra.section.market" };
+        Check(ModSettingsSearchPolicy.ShouldIncludeCandidate(true, "extra.section.market", "extra.section.market", matchedSections),
+            "global search omitted a directly matching section result");
+        Check(!ModSettingsSearchPolicy.ShouldIncludeCandidate(false, "extra.market-buy", "extra.section.market", matchedSections),
+            "global search did not suppress child settings for a pure section match");
+        Check(ModSettingsSearchPolicy.ShouldIncludeCandidate(false, "extra.plague", "extra.section.plague", matchedSections),
+            "global section deduplication suppressed an unrelated setting");
+    }
+
+    private static void TestSharedModSettingsSearchMatcher()
+    {
+        Check(ModSettingsSearchMatcher.IsMatch(" gate ", false, null, "gate", "Gate Closing", "Tooltip"),
+            "shared search did not normalize whitespace or ignore title casing");
+        Check(!ModSettingsSearchMatcher.IsMatch("plague", false, null, "range", "Apothecary Range", "Plague distance"),
+            "shared search included tooltips while tooltip search was disabled");
+        Check(ModSettingsSearchMatcher.IsMatch("plague", true, null, "range", "Apothecary Range", "Plague distance"),
+            "shared search omitted tooltips while tooltip search was enabled");
+        Check(ModSettingsSearchMatcher.IsMatch("uberbau regeln", false, null, "rules", "Überbau-Regeln", ""),
+            "shared search did not normalize diacritics or multi-word text");
+        Check(ModSettingsSearchMatcher.IsMatch("unrelated", false, "exact:key", "exact:key", "Duplicate title", ""),
+            "shared exact-key search did not override normal text matching");
+        Check(!ModSettingsSearchMatcher.IsMatch("Duplicate title", true, "missing:key", "exact:key", "Duplicate title", "Duplicate title"),
+            "shared exact-key search fell back to duplicate title or tooltip text");
+        Check(ModSettingsSearchMatcher.IsMatch(string.Empty, false, string.Empty, "key", "Title", "Tooltip"),
+            "empty shared filter did not show all settings");
+        Check(ModSettingsSearchMatcher.IsMatch(
+                "market buy",
+                false,
+                string.Empty,
+                "extra.market-buy",
+                "Buy prices",
+                "Multiplier",
+                "extra.section.market",
+                "Market price multipliers"),
+            "shared search did not combine section and setting title terms");
+        Check(ModSettingsSearchMatcher.IsMatch(
+                "unrelated",
+                false,
+                "extra.section.market",
+                "extra.market-buy",
+                "Buy prices",
+                "Multiplier",
+                "extra.section.market",
+                "Market price multipliers"),
+            "shared exact-section search did not include a child setting");
+        Check(!ModSettingsSearchMatcher.IsMatch(
+                "market",
+                false,
+                "extra.section.other",
+                "extra.market-buy",
+                "Buy prices",
+                "Multiplier",
+                "extra.section.market",
+                "Market price multipliers"),
+            "shared exact-section search fell back to textual section matching");
+        Check(ModSettingsSearchMatcher.IsSectionTitleMatch(" MARKET ", "Market price multipliers"),
+            "shared section-title matching did not normalize case and whitespace");
     }
 
     private static void TestLobbySettingsRouting()

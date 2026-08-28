@@ -57,7 +57,6 @@
     <Compile Include="src\LobbyModHashWarning.cs" />
     <Compile Include="src\ModHashCompatibility.cs" />
     <Compile Include="src\ModSettingsSearchPolicy.cs" />
-    <Compile Include="src\ModSettingsSearchEditorFactory.cs" />
     <Compile Include="src\ModSettingsSearchViewModel.cs" />
     <Compile Include="src\SerpsModsDiagnosticsViewModel.cs" />
     <Compile Include="src\SerpsModsHostPlugin.cs" />

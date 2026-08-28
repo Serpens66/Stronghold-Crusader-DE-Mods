@@ -194,7 +194,6 @@ public static class SerpLocalization
     public const string SerpsModsSearchResultCount = "SerpsModsHost.SearchResultCount";
     public const string SerpsModsSearchAllMods = "SerpsModsHost.SearchAllMods";
     public const string SerpsModsSearchOpenResultHelp = "SerpsModsHost.SearchOpenResultHelp";
-    public const string SerpsModsSearchDirectUnavailable = "SerpsModsHost.SearchDirectUnavailable";
     public const string PreventHovelDeletionHelp = "SomeSettings.PreventHovelDeletionHelp";
     public const string AivPlacementComplete = "CastlePlanner.AIVPlacement.Complete";
     public const string AivPlacementPartial = "CastlePlanner.AIVPlacement.Partial";
@@ -262,8 +261,7 @@ public static class SerpLocalization
         { SerpsModsSearchNoResults, "No matching settings found." },
         { SerpsModsSearchResultCount, "{Count} results" },
         { SerpsModsSearchAllMods, "All mods" },
-        { SerpsModsSearchOpenResultHelp, "Open this setting in its mod and scroll to it." },
-        { SerpsModsSearchDirectUnavailable, "Open this setting in its mod to edit it." },
+        { SerpsModsSearchOpenResultHelp, "Open this setting in its mod." },
         { ResetToDefault, "Reset to Default" },
         { EnableMod, "Enable Mod" },
         { HostActivationLabel, "(Host-)" },

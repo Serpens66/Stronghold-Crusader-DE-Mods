@@ -24,6 +24,8 @@ namespace BugfixesAndQoL
         public RelayCommand MovePreviousCommand { get; }
         public RelayCommand MoveNextCommand { get; }
         public int GoodId => goodId;
+        public string SearchKey => "bugfixes.market-good." + goodId;
+        public string SearchTitle => goodName;
         public ImageSource Icon => icon;
         public string PositionText => (position + 1).ToString();
         public string GoodToolTip => SerpLocalization.Get(
@@ -44,6 +46,8 @@ namespace BugfixesAndQoL
             goodName = newGoodName ?? string.Empty;
             icon = newIcon;
             OnPropertyChanged(nameof(GoodId));
+            OnPropertyChanged(nameof(SearchKey));
+            OnPropertyChanged(nameof(SearchTitle));
             OnPropertyChanged(nameof(Icon));
             OnPropertyChanged(nameof(PositionText));
             OnPropertyChanged(nameof(GoodToolTip));

@@ -46,12 +46,9 @@
                         <StackPanel>
                           <TextBlock Text="{Binding ModName}" Foreground="#FF77AAFF" FontWeight="Bold" TextWrapping="Wrap" Margin="2,0,0,3"/>
                           <Grid>
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <Button Command="{Binding OpenCommand}" HorizontalContentAlignment="Stretch" Padding="6,3" Margin="0,0,12,0" ToolTip="{Binding OpenResultHelpText}" ToolTipService.ShowDuration="60000">
+                            <Button Command="{Binding OpenCommand}" HorizontalContentAlignment="Stretch" Padding="6,3" ToolTip="{Binding OpenResultHelpText}" ToolTipService.ShowDuration="60000">
                               <TextBlock Text="{Binding Title}" TextWrapping="Wrap" TextAlignment="Left"/>
                             </Button>
-                            <ContentControl Grid.Column="1" Content="{Binding Editor}" Visibility="{Binding EditorVisibility}" MaxWidth="260" HorizontalContentAlignment="Left" VerticalContentAlignment="Center"/>
-                            <TextBlock Grid.Column="1" Text="{Binding DirectUnavailableText}" Visibility="{Binding DirectUnavailableVisibility}" MaxWidth="260" Foreground="#FFCCAA77" TextWrapping="Wrap" VerticalAlignment="Center"/>
                           </Grid>
                         </StackPanel>
                       </Border>

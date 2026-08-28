@@ -19,6 +19,7 @@ namespace SerpsModsHost
     public sealed class ModSettingsSearchViewModel : INotifyPropertyChanged
     {
         private const string ExportMethodName = "System_GetModSettingsSearchEntries";
+        private const string ApplyTargetMethodName = "System_ApplyModSettingsSearchTarget";
         private readonly ManualLogSource log;
         private readonly List<IndexedModSetting> index = new List<IndexedModSetting>();
         private string searchText = string.Empty;
@@ -140,7 +141,10 @@ namespace SerpsModsHost
                 SerpLocalization.Get(SerpLocalization.SerpsModsSearchAllMods),
                 null));
             foreach (LobbyModSettingsEntry tab in GameXAMLManagerAPI.Instance.RegisteredModSettings)
-                ModFilters.Add(new ModSettingsSearchFilter(tab.Name, tab.Name));
+            {
+                if (!(tab.ViewModel is SerpsModsDiagnosticsViewModel))
+                    ModFilters.Add(new ModSettingsSearchFilter(tab.Name, tab.Name));
+            }
             SelectedModFilter = ModFilters.FirstOrDefault(filter =>
                 string.Equals(filter.ModName, selectedName, StringComparison.Ordinal)) ?? ModFilters[0];
         }
@@ -153,6 +157,8 @@ namespace SerpsModsHost
                 "[ModSettingsSearch] Building search index without changing the selected tab.");
             foreach (LobbyModSettingsEntry tab in GameXAMLManagerAPI.Instance.RegisteredModSettings)
             {
+                if (tab.ViewModel is SerpsModsDiagnosticsViewModel)
+                    continue;
                 try
                 {
                     int previousCount = index.Count;
@@ -209,16 +215,28 @@ namespace SerpsModsHost
                 string key = ReadString(type, entry, "Key");
                 string title = ReadString(type, entry, "Title");
                 string toolTip = ReadString(type, entry, "ToolTip");
-                FrameworkElement target = type.GetProperty("Target")?.GetValue(entry, null) as FrameworkElement;
+                string sectionKey = ReadString(type, entry, "SectionKey");
+                string sectionTitle = ReadString(type, entry, "SectionTitle");
+                bool isSection = ReadBool(type, entry, "IsSection");
                 if (key.Length == 0 || title.Length == 0)
                     continue;
-                result.Add(new IndexedModSetting(tab, key, title, toolTip, target, true));
+                result.Add(new IndexedModSetting(
+                    tab,
+                    key,
+                    title,
+                    toolTip,
+                    sectionKey,
+                    sectionTitle,
+                    isSection));
             }
             return result;
         }
 
         private static string ReadString(Type type, object instance, string propertyName) =>
             type.GetProperty(propertyName)?.GetValue(instance, null)?.ToString()?.Trim() ?? string.Empty;
+
+        private static bool ReadBool(Type type, object instance, string propertyName) =>
+            type.GetProperty(propertyName)?.GetValue(instance, null) is bool value && value;
 
         private static List<IndexedModSetting> ReadAutomaticEntries(LobbyModSettingsEntry tab)
         {
@@ -254,7 +272,7 @@ namespace SerpsModsHost
                     title = FirstSentence(toolTip);
                 string identity = title + "\u001f" + toolTip;
                 if (title.Length > 0 && seen.Add(identity))
-                    result.Add(new IndexedModSetting(tab, identity, title, toolTip, element, false));
+                    result.Add(new IndexedModSetting(tab, identity, title, toolTip));
             }
 
             foreach (DependencyObject child in EnumerateChildren(current))
@@ -394,17 +412,41 @@ namespace SerpsModsHost
                     string.Equals(candidate.Tab.Name, selectedModFilter.ModName, StringComparison.Ordinal));
             }
 
-            foreach (IndexedModSetting candidate in candidates
+            List<IndexedModSetting> candidateList = candidates.ToList();
+            var matchedSections = new HashSet<string>(
+                candidateList
+                    .Where(candidate => candidate.IsSection &&
+                        Shared.ModSettingsSearchMatcher.IsSectionTitleMatch(query, candidate.Title))
+                    .Select(candidate => candidate.SectionIdentity),
+                StringComparer.Ordinal);
+
+            foreach (IndexedModSetting candidate in candidateList
+                .Where(candidate =>
+                    ModSettingsSearchPolicy.ShouldIncludeCandidate(
+                        candidate.IsSection,
+                        candidate.SectionIdentity,
+                        candidate.SectionIdentity,
+                        matchedSections) &&
+                    (candidate.IsSection ||
+                        Shared.ModSettingsSearchMatcher.IsMatch(
+                                query,
+                                includeToolTips,
+                                string.Empty,
+                                candidate.Key,
+                                candidate.Title,
+                                candidate.ToolTip,
+                                candidate.SectionKey,
+                                candidate.SectionTitle)))
                 .Select(candidate => new
                 {
                     Candidate = candidate,
                     Rank = ModSettingsSearchPolicy.Rank(
                         candidate.Title,
                         candidate.ToolTip,
+                        candidate.SectionTitle,
                         query,
                         includeToolTips)
                 })
-                .Where(item => item.Rank < int.MaxValue)
                 .OrderBy(item => item.Rank)
                 .ThenBy(item => item.Candidate.Tab.Name, StringComparer.CurrentCultureIgnoreCase)
                 .ThenBy(item => item.Candidate.Title, StringComparer.CurrentCultureIgnoreCase)
@@ -423,50 +465,26 @@ namespace SerpsModsHost
 
         private void OpenResult(IndexedModSetting result)
         {
-            Plugin.ModSettingsHubViewModel.SelectedTab = result.Tab;
-            SearchText = string.Empty;
-            UnityMainThreadDispatcher.Instance.EnqueueDeferred(() =>
+            try
             {
-                try
+                MethodInfo applyTarget = result.Tab.ViewModel?.GetType().GetMethod(
+                    ApplyTargetMethodName,
+                    BindingFlags.Instance | BindingFlags.Public);
+                if (applyTarget != null)
                 {
-                    FrameworkElement target = result.Target;
-                    if (target == null)
-                    {
-                        Shared.DebugLogHelper.LogWarning(
-                            log,
-                            $"[ModSettingsSearch] Opened [{result.Tab.Name}/{result.Key}], but its control is not available for focusing yet.");
-                        return;
-                    }
-                    FrameworkElement navigationTarget = ResolveVisibleNavigationTarget(target);
-                    navigationTarget.BringIntoView();
-                    if (ReferenceEquals(navigationTarget, target))
-                        target.Focus();
-                    var pulse = new DoubleAnimation
-                    {
-                        From = 1.0f,
-                        To = 0.45f,
-                        Duration = new Duration(TimeSpan.FromMilliseconds(220)),
-                        AutoReverse = true,
-                        RepeatBehavior = new RepeatBehavior(2.0f),
-                        FillBehavior = FillBehavior.Stop
-                    };
-                    navigationTarget.BeginAnimation(UIElement.OpacityProperty, pulse);
-                }
-                catch (Exception ex)
-                {
-                    Shared.DebugLogHelper.LogError(
+                    applyTarget.Invoke(result.Tab.ViewModel, new object[] { result.Key, result.Title });
+                    Shared.DebugLogHelper.LogDebug(
                         log,
-                        $"[ModSettingsSearch] Could not navigate to [{result.Tab.Name}/{result.Key}]: {ex}");
+                        $"[ModSettingsSearch] Applied exact local filter [{result.Tab.Name}/{result.Key}].");
                 }
-            });
-        }
-
-        private static FrameworkElement ResolveVisibleNavigationTarget(FrameworkElement target)
-        {
-            FrameworkElement current = target;
-            while (current != null && !current.IsVisible)
-                current = VisualTreeHelper.GetParent(current) as FrameworkElement;
-            return current ?? target;
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    $"[ModSettingsSearch] Could not apply the optional local filter for [{result.Tab.Name}/{result.Key}]; opening the tab normally: {ex}");
+            }
+            Plugin.ModSettingsHubViewModel.SelectedTab = result.Tab;
         }
 
         private void OnPropertyChanged([CallerMemberName] string propertyName = null) =>
@@ -490,24 +508,16 @@ namespace SerpsModsHost
         internal ModSettingsSearchResult(IndexedModSetting entry, Action<IndexedModSetting> open)
         {
             Entry = entry;
-            // Catalog results intentionally remain navigation-only. Cloning bindings requires
-            // walking realized native Noesis controls and proved unsafe across tab transitions.
-            editor = null;
             OpenCommand = new RelayCommand(() => open(entry));
         }
 
-        private readonly FrameworkElement editor;
         internal IndexedModSetting Entry { get; }
         public string ModName => Entry.Tab.Name;
         public string Title => Entry.Title;
         public string ToolTip => Entry.ToolTip;
         public string DisplayToolTip => string.IsNullOrWhiteSpace(ToolTip) ? Title : ToolTip;
         public string OpenResultHelpText => SerpLocalization.Get(SerpLocalization.SerpsModsSearchOpenResultHelp);
-        public string DirectUnavailableText => SerpLocalization.Get(SerpLocalization.SerpsModsSearchDirectUnavailable);
         public Visibility ToolTipVisibility => string.IsNullOrWhiteSpace(ToolTip) ? Visibility.Collapsed : Visibility.Visible;
-        public FrameworkElement Editor => editor;
-        public Visibility EditorVisibility => Editor == null ? Visibility.Collapsed : Visibility.Visible;
-        public Visibility DirectUnavailableVisibility => Editor == null ? Visibility.Visible : Visibility.Collapsed;
         public RelayCommand OpenCommand { get; }
     }
 
@@ -518,22 +528,27 @@ namespace SerpsModsHost
             string key,
             string title,
             string toolTip,
-            FrameworkElement target,
-            bool isExplicit)
+            string sectionKey = "",
+            string sectionTitle = "",
+            bool isSection = false)
         {
             Tab = tab;
             Key = key;
             Title = title ?? string.Empty;
             ToolTip = toolTip ?? string.Empty;
-            Target = target;
-            IsExplicit = isExplicit;
+            SectionKey = sectionKey ?? string.Empty;
+            SectionTitle = sectionTitle ?? string.Empty;
+            IsSection = isSection;
         }
 
         public LobbyModSettingsEntry Tab { get; }
         public string Key { get; }
         public string Title { get; }
         public string ToolTip { get; }
-        public FrameworkElement Target { get; }
-        public bool IsExplicit { get; }
+        public string SectionKey { get; }
+        public string SectionTitle { get; }
+        public bool IsSection { get; }
+        public string SectionIdentity =>
+            Tab.Name + "\u001f" + (IsSection ? Key : SectionKey);
     }
 }
