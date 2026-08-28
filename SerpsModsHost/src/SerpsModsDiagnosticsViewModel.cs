@@ -15,6 +15,7 @@ namespace SerpsModsHost
         private int expectedCount;
         private int validatedCount;
         private int registeredCount;
+        private ModSettingsSearchViewModel search;
 
         public SerpsModsDiagnosticsViewModel()
         {
@@ -27,6 +28,7 @@ namespace SerpsModsHost
 
         public RelayCommand RefreshCommand { get; }
         public RelayCommand ClearErrorsCommand { get; }
+        public ModSettingsSearchViewModel Search => search;
         public string TitleText => SerpLocalization.Get(SerpLocalization.SerpsModsStatusTitle);
         public string SummaryTitleText => SerpLocalization.Get(SerpLocalization.SerpsModsSummaryTitle);
         public string ErrorsTitleText => SerpLocalization.Get(SerpLocalization.SerpsModsErrorsTitle);
@@ -59,6 +61,12 @@ namespace SerpsModsHost
         }
 
         public void SetRefreshAction(Action action) => refreshAction = action;
+
+        public void SetSearch(ModSettingsSearchViewModel value)
+        {
+            search = value;
+            OnPropertyChanged(nameof(Search));
+        }
 
         public void SetStatus(string version, int expected, int validated, int registered)
         {

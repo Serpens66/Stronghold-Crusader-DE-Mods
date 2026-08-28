@@ -98,6 +98,55 @@ function Test-ModSelected([string] $Name) {
     return $selectedModNames -contains $Name
 }
 
+function Test-HasModSettingsSearchTitle([Xml.XmlElement] $Element) {
+    $current = $Element
+    for ($depth = 0; $depth -le 4 -and $null -ne $current; $depth++) {
+        $titleAttribute = @($current.Attributes | Where-Object { $_.LocalName -eq 'ModSettingsSearch.Title' })
+        if ($titleAttribute.Count -ne 0 -and -not [string]::IsNullOrWhiteSpace($titleAttribute[0].Value)) {
+            return $true
+        }
+
+        if ($depth -eq 0) {
+            $content = $current.GetAttribute('Content')
+            if (-not [string]::IsNullOrWhiteSpace($content)) {
+                return $true
+            }
+            $nestedText = $current.SelectSingleNode(".//*[local-name()='TextBlock' and string-length(normalize-space(@Text)) > 0]")
+            if ($null -ne $nestedText) {
+                return $true
+            }
+        }
+
+        $parent = $current.ParentNode
+        if ($parent -is [Xml.XmlElement]) {
+            $row = $Element.GetAttribute('Grid.Row')
+            $labels = @($parent.SelectNodes("./*[local-name()='TextBlock' and string-length(normalize-space(@Text)) > 0]"))
+            $labels += @($parent.SelectNodes("./*//*[local-name()='TextBlock' and string-length(normalize-space(@Text)) > 0]"))
+            foreach ($label in $labels) {
+                if ($parent.LocalName -ne 'Grid' -or
+                    [string]::IsNullOrWhiteSpace($row) -or
+                    $label.GetAttribute('Grid.Row') -eq $row) {
+                    return $true
+                }
+            }
+        }
+        $current = $parent
+    }
+    return $false
+}
+
+function Test-IsInsideExcludedModSettingsSearchArea([Xml.XmlElement] $Element) {
+    $current = $Element
+    while ($current -is [Xml.XmlElement]) {
+        $excludeAttribute = @($current.Attributes | Where-Object { $_.LocalName -eq 'ModSettingsSearch.Exclude' })
+        if ($excludeAttribute.Count -ne 0 -and $excludeAttribute[0].Value -eq 'True') {
+            return $true
+        }
+        $current = $current.ParentNode
+    }
+    return $false
+}
+
 $interactiveNames = @('Button', 'CheckBox', 'ComboBox', 'Slider', 'TextBox')
 foreach ($entry in $settings.GetEnumerator()) {
     $path = Join-Path $workspace $entry.Value
@@ -108,6 +157,7 @@ foreach ($entry in $settings.GetEnumerator()) {
 
     foreach ($elementName in $interactiveNames) {
         foreach ($element in $xml.SelectNodes("//p:$elementName", $manager)) {
+            $isSearchUi = Test-IsInsideExcludedModSettingsSearchArea $element
             $tooltip = $element.GetAttribute('ToolTip')
             $explicitTooltip = $element.SelectSingleNode("./p:$elementName.ToolTip/p:ToolTip", $manager)
             $hasExplicitTooltip = $null -ne $explicitTooltip -and
@@ -123,6 +173,16 @@ foreach ($entry in $settings.GetEnumerator()) {
             if ($hasExplicitTooltip -and
                 -not $explicitTooltip.GetAttribute('Style').Contains('ModSettingsToolTipStyle')) {
                 throw "$($entry.Key): explicit $elementName tooltip does not use the shared modsettings tooltip style."
+            }
+            if (-not $isSearchUi -and -not (Test-HasModSettingsSearchTitle $element)) {
+                $searchIdentity = @('IsChecked','SelectedValue','SelectedIndex','SelectedItem','Value','Text') |
+                    ForEach-Object { $element.GetAttribute($_) } |
+                    Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+                    Select-Object -First 1
+                throw "$($entry.Key): $elementName [$searchIdentity] cannot be assigned an automatic mod-settings search title; add an unambiguous same-row/container title or explicit shared:ModSettingsSearch metadata."
+            }
+            if ($isSearchUi) {
+                continue
             }
             foreach ($attributeName in @('IsChecked','SelectedValue','SelectedIndex','SelectedItem','Value','Text')) {
                 $binding = $element.GetAttribute($attributeName)
@@ -449,7 +509,7 @@ foreach ($required in @(
     'ObservableCollection<string> CastleOptions =>',
     'filteredCastleOptions;',
     'ObservableCollection<string> source = PreviewVisible',
-    'BlueprintSearchPolicy.Matches(option, castleSearchText)',
+    'BlueprintSearchPolicy.Matches(displayName, castleSearchText)',
     'castleSearchPopup.Opened += OnCastleSearchPopupOpened;',
     'castleSearchPopup.Closed += OnCastleSearchPopupClosed;',
     'castleOpenSurface.MouseLeftButtonDown +=',
@@ -467,8 +527,12 @@ foreach ($required in @(
     'UnityEngine.Input.mouseScrollDelta.y',
     'scrollViewer.LineUp();',
     'scrollViewer.LineDown();',
-    'get => PreviewVisible ? preview.SelectedChoice : settings.SelectedCastle;',
-    'preview.SelectedChoice = value;',
+    'string option = PreviewVisible',
+    '? preview.SelectedChoice',
+    ': settings.SelectedCastle;',
+    'settings.TryResolveCastleDisplayName(',
+    'preview.SelectedChoice = previewOption;',
+    'settings.SelectedCastle = selectedOption;',
     'ClampPanelExtent(',
     'OnPropertyChanged(nameof(PanelWidth));',
     'OnPropertyChanged(nameof(PanelHeight));',
@@ -682,6 +746,9 @@ foreach ($registrationFile in $registrationFiles) {
     if (-not $projectText.Contains('Shared\PresetLobbyModSettingsViewModel.cs')) {
         throw "$($project.Name): lobby settings do not compile the Shared preset/sync implementation."
     }
+    if (-not $projectText.Contains('Shared\ModSettingsSearch.cs')) {
+        throw "$($project.Name): lobby settings do not compile the Shared mod-settings search anchor implementation."
+    }
 }
 
 $settingsViewModels = @($productiveCsFiles | Where-Object {
@@ -725,6 +792,93 @@ foreach ($required in @(
     if (-not $sharedSettingsSource.Contains($required)) {
         throw "Shared multiplayer-settings contract marker is missing: $required"
     }
+}
+$sharedSearchSource = [IO.File]::ReadAllText((Join-Path $workspace 'Shared/ModSettingsSearch.cs'))
+foreach ($required in @(
+    'DependencyProperty.RegisterAttached(',
+    'System_GetModSettingsSearchEntries',
+    'GetExclude',
+    'BuildAutomaticKey',
+    'ToolTipService.GetToolTip',
+    'EnumerateChildren',
+    'current is Panel panel',
+    'current is Decorator decorator',
+    'current is ContentControl contentControl',
+    'VisualTreeHelper.GetChildrenCount',
+    'ModSettingsSearch.RegisterSource',
+    'XDocument.Load',
+    'ResolveDataContexts',
+    'ResolveElementContent',
+    'return source.GetEntries(viewModel);')) {
+    $searchContractText = $sharedSearchSource + $sharedSettingsSource
+    if (-not $searchContractText.Contains($required)) {
+        throw "Shared mod-settings search contract marker is missing: $required"
+    }
+}
+
+$hostSearchSource = [IO.File]::ReadAllText((Join-Path $workspace 'SerpsModsHost/src/ModSettingsSearchViewModel.cs'))
+$hostEditorSource = [IO.File]::ReadAllText((Join-Path $workspace 'SerpsModsHost/src/ModSettingsSearchEditorFactory.cs'))
+$hostSettingsXaml = [IO.File]::ReadAllText((Join-Path $workspace 'SerpsModsHost/Override/ScriptExtenderUI/SerpsModsStatus.xaml'))
+$hostPluginSource = [IO.File]::ReadAllText((Join-Path $workspace 'SerpsModsHost/src/SerpsModsHostPlugin.cs'))
+$hostBuildSource = [IO.File]::ReadAllText((Join-Path $workspace 'SerpsModsHost/build.bat'))
+foreach ($required in @(
+    'System_GetModSettingsSearchEntries',
+    'ReadAutomaticEntries',
+    'BringIntoView()',
+    'EnqueueDeferred',
+    'using automatic text search',
+    'Hub opened; indexing is deferred until the first query.',
+    'Building search index without changing the selected tab.',
+    'Catalog results intentionally remain navigation-only.',
+    'editor = null;',
+    'IncludeToolTips',
+    'ModSettingsSearch.Exclude="True"',
+    'HorizontalScrollBarVisibility="Disabled"',
+    'ToolTip="{Binding DisplayToolTip}"',
+    'Content="{Binding Editor}"',
+    'CloneBinding',
+    'BindingOperations.SetBinding',
+    'new Binding(nameof(UIElement.IsEnabled), source)',
+    'KeyboardCaptureBinding.SetEnabled',
+    'DirectUnavailableVisibility',
+    'diagnostics.SetSearch')) {
+    if (-not ($hostSearchSource + $hostEditorSource + $hostSettingsXaml + $hostPluginSource).Contains($required)) {
+        throw "SerpsModsHost search implementation marker is missing: $required"
+    }
+}
+if ($hostSearchSource.Contains('InvalidateAfterSelectedTabChange') -or
+    $hostSearchSource.Contains('ResolveCurrentTarget') -or
+    -not $hostSettingsXaml.Contains('x:Name="SerpsModSettingsSearchTextBox"') -or
+    -not $hostPluginSource.Contains('searchTextBox.PreviewKeyDown += OnSearchTextBoxPreviewKeyDown') -or
+    -not $hostPluginSource.Contains('args.Key == NoesisKey.Return') -or
+    -not $hostPluginSource.Contains('args.Handled = true')) {
+    throw 'Search catalogs must not be reindexed across tabs, and Enter must be consumed by the search field.'
+}
+if ($hostEditorSource.Contains('PropertyInfo.SetValue') -or
+    $hostSearchSource.Contains('ModSettingsSearchEditorFactory.Create(') -or
+    $hostSearchSource.Contains('Plugin.ModSettingsHubViewModel.SelectedTab = tab') -or
+    $hostSearchSource.Contains('view.Measure(') -or
+    $hostSearchSource.Contains('view.Arrange(') -or
+    $hostPluginSource.Contains('SerpsModSettingsSearchPanel') -or
+    $hostPluginSource.Contains('SerpsModSettingsSearchResults') -or
+    $hostBuildSource.Contains('xcopy "%PROJECT_DIR%Patches"') -or
+    (Test-Path -LiteralPath (Join-Path $workspace 'SerpsModsHost/Patches/Assets/GUI/XAMLResources/FRONT_Multiplayer.xaml'))) {
+    throw 'SerpsModsHost search must live only in its own modsettings and must not traverse or clone realized setting controls.'
+}
+$hubOpenHandler = [Text.RegularExpressions.Regex]::Match(
+    $hostSearchSource,
+    'private void OnHubPropertyChanged[\s\S]*?private void RebuildModFilters')
+if (-not $hubOpenHandler.Success -or
+    $hubOpenHandler.Value.Contains('RebuildIndex()') -or
+    $hubOpenHandler.Value.Contains('SelectedTab =') -or
+    $hubOpenHandler.Value.Contains('PrepareView') -or
+    $hubOpenHandler.Value.Contains('ModSettingsSearchEditorFactory')) {
+    throw 'Opening the native modsettings modal must not index, switch tabs, lay out views, or construct result editors.'
+}
+if ($hostSettingsXaml.Contains('<TextBlock Text="{Binding ToolTip}"') -or
+    $hostSettingsXaml.IndexOf('<Border shared:ModSettingsSearch.Exclude="True"', [StringComparison]::Ordinal) -lt
+        $hostSettingsXaml.IndexOf('<TextBlock Text="{Binding ErrorsText}"', [StringComparison]::Ordinal)) {
+    throw 'SerpsModsHost search must follow the existing status text and expose result descriptions only as wrapping hover tooltips.'
 }
 if ([Text.RegularExpressions.Regex]::Matches(
         $sharedSettingsSource,
@@ -847,7 +1001,11 @@ $crlfTargets = @($settings.Values) + @(
     }
 ) + @(
     'Shared/PresetLobbyModSettingsViewModel.cs',
+    'Shared/ModSettingsSearch.cs',
     'Shared/GameModeHelper.cs',
+    'SerpsModsHost/src/ModSettingsSearchPolicy.cs',
+    'SerpsModsHost/src/ModSettingsSearchEditorFactory.cs',
+    'SerpsModsHost/src/ModSettingsSearchViewModel.cs',
     '_inspect/HostClientPresetTests/Program.cs')
 $crlfTargets += $selectedAdditionalCrlfTargets
 foreach ($relativePath in $crlfTargets) {

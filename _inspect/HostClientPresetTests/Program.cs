@@ -1,6 +1,7 @@
 using MessagePack;
 using BugfixesAndQoL;
 using ExtraFeatures;
+using SerpsModsHost;
 using Shared;
 using SHCDESE.API;
 using SHCDESE.API.Components.ModManager;
@@ -67,6 +68,7 @@ internal static class Program
             TestCastleSpawnContentPolicy();
             TestSnapshotCompletionHook();
             TestFreeCastleProtocol();
+            TestModSettingsSearchPolicy();
 
             string pluginPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "TestPlugin.dll");
             string settingsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "LobbyModSettings", "HostClientTest.msgpack");
@@ -327,6 +329,22 @@ internal static class Program
             Console.Error.WriteLine("FAIL: " + exception);
             return 1;
         }
+    }
+
+    private static void TestModSettingsSearchPolicy()
+    {
+        Check(ModSettingsSearchPolicy.Rank("Gate closing distance", "Controls nearby enemies.", "gate closing", false) == 1,
+            "mod-settings search did not rank a title prefix");
+        Check(ModSettingsSearchPolicy.Rank("Gate closing distance", "Controls nearby enemies.", "GATE", false) < int.MaxValue,
+            "mod-settings search became case-sensitive");
+        Check(ModSettingsSearchPolicy.Rank("Apothecary range", "Search distance for plague clouds.", "plague distance", false) == int.MaxValue,
+            "title-only search unexpectedly matched a tooltip");
+        Check(ModSettingsSearchPolicy.Rank("Apothecary range", "Search distance for plague clouds.", "plague distance", true) == 3,
+            "tooltip search did not require and match all query words");
+        Check(ModSettingsSearchPolicy.Rank("Überbau-Regeln", "KI-Verhalten", "uberbau", false) < int.MaxValue,
+            "localized search did not ignore diacritics");
+        Check(ModSettingsSearchPolicy.Rank("Lord health", "Multiplier", "missing", true) == int.MaxValue,
+            "mod-settings search returned an unrelated entry");
     }
 
     private static void TestLobbySettingsRouting()

@@ -915,6 +915,14 @@ namespace Shared
             perPlayerSettingsCoordinator?.RequestPublish();
         }
 
+#if !SHARED_PRESET_TESTS
+        // SerpsModsHost discovers this method by reflection. Keeping the bridge on the
+        // common base type lets every mod remain usable without the optional pack host.
+        public IReadOnlyList<ModSettingsSearchEntry> System_GetModSettingsSearchEntries(
+            Noesis.FrameworkElement view) =>
+            ModSettingsSearch.Export(this, view);
+#endif
+
         public bool System_ArePerPlayerSettingsReady(
             IEnumerable<int> playerIds,
             out string error)
@@ -2930,6 +2938,14 @@ namespace Shared
 
 #if !SHARED_PRESET_TESTS
             ScriptExtenderMultiplayerSyncWorkaround.EnsureInstalled(log);
+            if (GameAssetManagerAPI.Instance.GetModifiedFilePath(
+                xamlSourceFile,
+                out string absoluteXamlSourceFile))
+            {
+                // The catalog is read from XAML and is therefore available before Noesis has
+                // materialized an unselected tab's controls. This avoids touching native layout.
+                ModSettingsSearch.RegisterSource(viewModel, absoluteXamlSourceFile, log, modName);
+            }
 #endif
             viewModel.PreparePresets(log, plugin.Info.Location, modName);
             // Structural validation must happen before the ViewModel can enter the

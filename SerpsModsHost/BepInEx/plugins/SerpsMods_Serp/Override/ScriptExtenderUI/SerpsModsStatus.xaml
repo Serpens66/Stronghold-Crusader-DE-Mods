@@ -1,5 +1,6 @@
 <Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:ui="clr-namespace:SHCDESE.UI;assembly=SHCDESE"
       xmlns:shared="clr-namespace:Shared;assembly=SerpsModsHost">
   <Grid.Resources>
     <Style TargetType="{x:Type ToolTip}">
@@ -10,16 +11,57 @@
   </Grid.Resources>
   <ScrollViewer HorizontalScrollBarVisibility="Auto"
                 VerticalScrollBarVisibility="Auto">
-    <StackPanel Margin="10">
-      <TextBlock Text="{Binding TitleText}" Foreground="White" FontSize="22" FontWeight="Bold" Margin="0,0,0,10"/>
-      <TextBlock Text="{Binding SummaryTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/>
+      <StackPanel Margin="10">
+        <TextBlock Text="{Binding TitleText}" Foreground="White" FontSize="22" FontWeight="Bold" Margin="0,0,0,10"/>
+        <TextBlock Text="{Binding SummaryTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/>
       <TextBlock Text="{Binding SummaryText}" Foreground="White" TextWrapping="Wrap" Margin="0,0,0,12"/>
       <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
         <Button Content="{Binding RefreshText}" Command="{Binding RefreshCommand}" Padding="10,3" Margin="0,0,8,0" ToolTipService.ShowDuration="60000" ToolTip="{Binding RefreshHelpText}"/>
         <Button Content="{Binding ClearErrorsText}" Command="{Binding ClearErrorsCommand}" Padding="10,3" ToolTipService.ShowDuration="60000" ToolTip="{Binding ClearErrorsHelpText}"/>
       </StackPanel>
-      <TextBlock Text="{Binding ErrorsTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/>
-      <TextBlock Text="{Binding ErrorsText}" Foreground="#FFFF7777" TextWrapping="Wrap"/>
-    </StackPanel>
+        <TextBlock Text="{Binding ErrorsTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/>
+        <TextBlock Text="{Binding ErrorsText}" Foreground="#FFFF7777" TextWrapping="Wrap"/>
+        <Border shared:ModSettingsSearch.Exclude="True" Background="#33251D13" BorderBrush="#887B674B" BorderThickness="1" CornerRadius="3" Padding="10" Margin="0,14,0,0">
+          <StackPanel>
+            <TextBlock Text="{Binding Search.SearchLabelText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,5"/>
+            <Grid>
+              <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="38"/></Grid.ColumnDefinitions>
+              <TextBox x:Name="SerpsModSettingsSearchTextBox" ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding Search.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" MaxLength="100" Padding="6,4" Foreground="White" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" ToolTip="{Binding Search.SearchHelpText}" ToolTipService.ShowDuration="60000"/>
+              <Button Grid.Column="1" Content="×" Command="{Binding Search.ClearSearchCommand}" Margin="4,0,0,0" ToolTip="{Binding Search.ClearSearchHelpText}" ToolTipService.ShowDuration="60000"/>
+            </Grid>
+            <Grid Margin="0,6,0,0">
+              <Grid.ColumnDefinitions><ColumnDefinition Width="260"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+              <ComboBox ItemsSource="{Binding Search.ModFilters}" DisplayMemberPath="DisplayName" SelectedItem="{Binding Search.SelectedModFilter, Mode=TwoWay}" ToolTip="{Binding Search.ModFilterHelpText}" ToolTipService.ShowDuration="60000"/>
+              <CheckBox Grid.Column="1" Content="{Binding Search.IncludeToolTipsText}" IsChecked="{Binding Search.IncludeToolTips, Mode=TwoWay}" Foreground="White" Margin="12,0,0,0" VerticalAlignment="Center" ToolTip="{Binding Search.IncludeToolTipsHelpText}" ToolTipService.ShowDuration="60000"/>
+            </Grid>
+            <StackPanel Visibility="{Binding Search.SearchResultsVisibility}" Margin="0,10,0,0">
+              <TextBlock Text="{Binding Search.ResultsTitleText}" Foreground="#FF77AAFF" FontWeight="Bold" FontSize="18"/>
+              <TextBlock Text="{Binding Search.ResultCountText}" Foreground="#BBBBBB" Margin="0,0,0,5"/>
+              <TextBlock Text="{Binding Search.NoResultsText}" Visibility="{Binding Search.NoResultsVisibility}" Foreground="#CCCCCC" FontSize="16" TextWrapping="Wrap" Margin="0,8"/>
+              <ScrollViewer MaxHeight="360" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <ItemsControl ItemsSource="{Binding Search.Results}" HorizontalAlignment="Stretch">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Border Background="#221F5F9F" BorderBrush="#5577AAFF" BorderThickness="1" CornerRadius="2" Padding="8,6" Margin="0,0,0,6" HorizontalAlignment="Stretch" ToolTip="{Binding DisplayToolTip}" ToolTipService.ShowDuration="60000">
+                        <StackPanel>
+                          <TextBlock Text="{Binding ModName}" Foreground="#FF77AAFF" FontWeight="Bold" TextWrapping="Wrap" Margin="2,0,0,3"/>
+                          <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <Button Command="{Binding OpenCommand}" HorizontalContentAlignment="Stretch" Padding="6,3" Margin="0,0,12,0" ToolTip="{Binding OpenResultHelpText}" ToolTipService.ShowDuration="60000">
+                              <TextBlock Text="{Binding Title}" TextWrapping="Wrap" TextAlignment="Left"/>
+                            </Button>
+                            <ContentControl Grid.Column="1" Content="{Binding Editor}" Visibility="{Binding EditorVisibility}" MaxWidth="260" HorizontalContentAlignment="Left" VerticalContentAlignment="Center"/>
+                            <TextBlock Grid.Column="1" Text="{Binding DirectUnavailableText}" Visibility="{Binding DirectUnavailableVisibility}" MaxWidth="260" Foreground="#FFCCAA77" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                          </Grid>
+                        </StackPanel>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </ScrollViewer>
+            </StackPanel>
+          </StackPanel>
+        </Border>
+      </StackPanel>
   </ScrollViewer>
 </Grid>

@@ -1,6 +1,10 @@
 using BepInEx;
 using BepInEx.Bootstrap;
 using BepInEx.Logging;
+using NoesisKey = Noesis.Key;
+using NoesisKeyEventArgs = Noesis.KeyEventArgs;
+using NoesisTextBox = Noesis.TextBox;
+using SHCDESE.API;
 using SHCDESE.API.Components.ModManager;
 using SHCDESE.API.LowLevel;
 using System;
@@ -30,6 +34,7 @@ namespace SerpsModsHost
         private readonly List<PackModRecord> activeMods = new List<PackModRecord>();
         private readonly HashSet<string> expectedLogSources = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private SerpsModsDiagnosticsViewModel diagnostics;
+        private ModSettingsSearchViewModel modSettingsSearch;
         private PackManifest manifest;
         private string packRoot;
         private int validatedCount;
@@ -40,6 +45,8 @@ namespace SerpsModsHost
             instance = this;
             diagnostics = new SerpsModsDiagnosticsViewModel();
             diagnostics.SetRefreshAction(() => AuditLoadedPlugins(true));
+            modSettingsSearch = new ModSettingsSearchViewModel(Logger);
+            diagnostics.SetSearch(modSettingsSearch);
 
             try
             {
@@ -184,12 +191,23 @@ namespace SerpsModsHost
                     PluginGuid,
                     diagnostics,
                     "ScriptExtenderUI/SerpsModsStatus.xaml");
+                LobbyModSettingsEntry registration = GameXAMLManagerAPI.Instance.RegisteredModSettings
+                    .FirstOrDefault(entry => ReferenceEquals(entry.ViewModel, diagnostics));
+                NoesisTextBox searchTextBox = registration?.View?.FindName("SerpsModSettingsSearchTextBox") as NoesisTextBox;
+                if (searchTextBox != null)
+                    searchTextBox.PreviewKeyDown += OnSearchTextBoxPreviewKeyDown;
                 AuditLoadedPlugins(false);
             }
             catch (Exception ex)
             {
                 ReportError("H005", $"Diagnostics UI registration failed: {ex}");
             }
+        }
+
+        private static void OnSearchTextBoxPreviewKeyDown(object sender, NoesisKeyEventArgs args)
+        {
+            if (args.Key == NoesisKey.Return)
+                args.Handled = true;
         }
 
         private void AuditLoadedPlugins(bool reportMissing)

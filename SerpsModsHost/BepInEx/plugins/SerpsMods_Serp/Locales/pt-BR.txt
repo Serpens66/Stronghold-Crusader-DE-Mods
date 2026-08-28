@@ -1,4 +1,16 @@
 SerpsModsHost.StatusTitle=Serps Mods diagnostics
+SerpsModsHost.SearchLabel=Search settings
+SerpsModsHost.SearchHelp=Searches the localized setting titles of all registered mods.
+SerpsModsHost.SearchClearHelp=Clears the mod-settings search.
+SerpsModsHost.SearchModFilterHelp=Limits search results to one registered mod.
+SerpsModsHost.SearchIncludeToolTips=Include tooltips
+SerpsModsHost.SearchIncludeToolTipsHelp=Also searches the detailed help text shown in setting tooltips.
+SerpsModsHost.SearchResultsTitle=Search results
+SerpsModsHost.SearchNoResults=No matching settings found.
+SerpsModsHost.SearchResultCount={Count} results
+SerpsModsHost.SearchAllMods=All mods
+SerpsModsHost.SearchOpenResultHelp=Open this setting in its mod and scroll to it.
+SerpsModsHost.SearchDirectUnavailable=Open this setting in its mod to edit it.
 SerpsModsHost.SummaryTitle=PACK STATUS
 SerpsModsHost.ErrorsTitle=ERRORS
 SerpsModsHost.Refresh=Refresh

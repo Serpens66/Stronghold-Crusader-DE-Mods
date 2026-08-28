@@ -183,6 +183,18 @@ public static class SerpLocalization
     public const string SerpsModsNoErrors = "SerpsModsHost.NoErrors";
     public const string SerpsModsSummaryFormat = "SerpsModsHost.SummaryFormat";
     public const string SerpsModsLobbyHashMismatch = "SerpsModsHost.LobbyHashMismatch";
+    public const string SerpsModsSearchLabel = "SerpsModsHost.SearchLabel";
+    public const string SerpsModsSearchHelp = "SerpsModsHost.SearchHelp";
+    public const string SerpsModsSearchClearHelp = "SerpsModsHost.SearchClearHelp";
+    public const string SerpsModsSearchModFilterHelp = "SerpsModsHost.SearchModFilterHelp";
+    public const string SerpsModsSearchIncludeToolTips = "SerpsModsHost.SearchIncludeToolTips";
+    public const string SerpsModsSearchIncludeToolTipsHelp = "SerpsModsHost.SearchIncludeToolTipsHelp";
+    public const string SerpsModsSearchResultsTitle = "SerpsModsHost.SearchResultsTitle";
+    public const string SerpsModsSearchNoResults = "SerpsModsHost.SearchNoResults";
+    public const string SerpsModsSearchResultCount = "SerpsModsHost.SearchResultCount";
+    public const string SerpsModsSearchAllMods = "SerpsModsHost.SearchAllMods";
+    public const string SerpsModsSearchOpenResultHelp = "SerpsModsHost.SearchOpenResultHelp";
+    public const string SerpsModsSearchDirectUnavailable = "SerpsModsHost.SearchDirectUnavailable";
     public const string PreventHovelDeletionHelp = "SomeSettings.PreventHovelDeletionHelp";
     public const string AivPlacementComplete = "CastlePlanner.AIVPlacement.Complete";
     public const string AivPlacementPartial = "CastlePlanner.AIVPlacement.Partial";
@@ -240,6 +252,18 @@ public static class SerpLocalization
         { SerpsModsNoErrors, "No errors recorded." },
         { SerpsModsSummaryFormat, "Pack {Version}: expected {Expected}, validated {Validated}, registered {Registered}." },
         { SerpsModsLobbyHashMismatch, "ERROR: The installed mods of {Player} differ from lobby host {Host} ({Player}: {PlayerHash}, {Host}: {HostHash})." },
+        { SerpsModsSearchLabel, "Search settings" },
+        { SerpsModsSearchHelp, "Searches the localized setting titles of all registered mods." },
+        { SerpsModsSearchClearHelp, "Clears the mod-settings search." },
+        { SerpsModsSearchModFilterHelp, "Limits search results to one registered mod." },
+        { SerpsModsSearchIncludeToolTips, "Include tooltips" },
+        { SerpsModsSearchIncludeToolTipsHelp, "Also searches the detailed help text shown in setting tooltips." },
+        { SerpsModsSearchResultsTitle, "Search results" },
+        { SerpsModsSearchNoResults, "No matching settings found." },
+        { SerpsModsSearchResultCount, "{Count} results" },
+        { SerpsModsSearchAllMods, "All mods" },
+        { SerpsModsSearchOpenResultHelp, "Open this setting in its mod and scroll to it." },
+        { SerpsModsSearchDirectUnavailable, "Open this setting in its mod to edit it." },
         { ResetToDefault, "Reset to Default" },
         { EnableMod, "Enable Mod" },
         { HostActivationLabel, "(Host-)" },

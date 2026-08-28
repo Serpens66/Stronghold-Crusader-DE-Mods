@@ -27,6 +27,10 @@ namespace ExtraFeatures
         public int GoodId { get; }
         public ImageSource Icon => icon;
         public string GoodToolTip => goodName;
+        public string BuySearchKey => "MarketGoodPrice.Buy." + GoodId.ToString(CultureInfo.InvariantCulture);
+        public string SellSearchKey => "MarketGoodPrice.Sell." + GoodId.ToString(CultureInfo.InvariantCulture);
+        public string BuySearchTitle => CreateSearchTitle(SerpLocalization.Get(SerpLocalization.MarketBuyPriceMultiplier));
+        public string SellSearchTitle => CreateSearchTitle(SerpLocalization.Get(SerpLocalization.MarketSellPriceMultiplier));
 
         public double BuyMultiplier
         {
@@ -66,6 +70,8 @@ namespace ExtraFeatures
             icon = newIcon;
             OnPropertyChanged(nameof(Icon));
             OnPropertyChanged(nameof(GoodToolTip));
+            OnPropertyChanged(nameof(BuySearchTitle));
+            OnPropertyChanged(nameof(SellSearchTitle));
             OnPropertyChanged(nameof(BuyToolTip));
             OnPropertyChanged(nameof(SellToolTip));
         }
@@ -88,6 +94,9 @@ namespace ExtraFeatures
                 "Good", goodName,
                 "Direction", direction,
                 "Value", valueText);
+
+        private string CreateSearchTitle(string direction) =>
+            string.IsNullOrWhiteSpace(goodName) ? direction : goodName + ": " + direction;
 
         private void SetMultiplierText(string text, Action<double> setValue, string propertyName)
         {

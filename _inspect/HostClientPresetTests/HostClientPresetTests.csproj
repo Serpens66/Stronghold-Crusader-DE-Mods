@@ -62,6 +62,12 @@
     <Compile Include="..\..\Shared\PresetLobbyModSettingsViewModel.cs">
       <Link>PresetLobbyModSettingsViewModel.cs</Link>
     </Compile>
+    <Compile Include="..\..\Shared\ModSettingsSearch.cs">
+      <Link>ModSettingsSearch.cs</Link>
+    </Compile>
+    <Compile Include="..\..\SerpsModsHost\src\ModSettingsSearchPolicy.cs">
+      <Link>ModSettingsSearchPolicy.cs</Link>
+    </Compile>
     <Compile Include="..\..\Shared\GameModeHelper.cs">
       <Link>GameModeHelper.cs</Link>
     </Compile>
