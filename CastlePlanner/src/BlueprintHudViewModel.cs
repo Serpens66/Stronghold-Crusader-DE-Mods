@@ -518,6 +518,13 @@ namespace CastlePlanner
             Noesis.FrameworkElement host = FindAncestorByName(
                 parameter as Noesis.DependencyObject,
                 HudHostName);
+            // The trigger lives in Vanilla's HUD container so it inherits all
+            // of Vanilla's visibility behavior; resolve the detached panel globally.
+            if (host == null)
+            {
+                host = SHCDESE.API.GameXAMLManagerAPI.Instance.FindGlobalElement(
+                    HudHostName);
+            }
             if (host != null)
             {
                 AttachHudElements(host);

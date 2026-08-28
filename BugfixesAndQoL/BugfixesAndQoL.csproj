@@ -127,6 +127,8 @@
     <Compile Include="src\SiegeAmmoRestockPolicy.cs" />
     <Compile Include="src\SkirmishAiSelectionMemoryHook.cs" />
     <Compile Include="src\SteamLobbyInvitePrompt.cs" />
+    <Compile Include="src\SteamLobbyInvitePolicy.cs" />
+    <Compile Include="src\SteamInviteBlacklistStore.cs" />
     <Compile Include="src\StartupDiagnosticPolicy.cs" />
     <Compile Include="src\SurrenderFeature.cs" />
     <Compile Include="src\SurrenderPackets.cs" />

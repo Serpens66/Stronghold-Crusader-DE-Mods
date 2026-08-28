@@ -239,26 +239,32 @@
           </StackPanel>
         </Border>
 
-        <!-- Keep this fixed trigger above the movable panel and Vanilla HUD. -->
-        <Button x:Name="CastlePlannerBlueprintSettingsButton"
-                Width="36"
-                Height="34"
-                Margin="0,0,0,34"
-                HorizontalAlignment="Left"
-                VerticalAlignment="Bottom"
-                Panel.ZIndex="10001"
-                local:PropEx.Sprite1="{StaticResource UI-Buildings A001}"
-                local:PropEx.Sprite2="{StaticResource UI-Buildings A002}"
-                local:PropEx.Sprite3="{StaticResource UI-Buildings A002}"
-                local:PropEx.Sprite4="{StaticResource UI-Buildings A001}"
-                Command="{Binding ToggleSettingsPanelCommand}"
-                CommandParameter="{Binding RelativeSource={RelativeSource Self}}"
-                Style="{StaticResource BTN_Building}">
-          <Button.RenderTransform>
-            <TranslateTransform Y="{Binding TriggerVerticalOffset}"/>
-          </Button.RenderTransform>
-        </Button>
       </Grid>
+    </Content>
+  </Operation>
+
+  <!-- Sharing Vanilla's extras container makes HUD hiding and report screens
+       affect this trigger exactly like the button directly below it. -->
+  <Operation Type="Add" XPath="/n:UserControl/n:Grid/n:Grid[@Name='HUD_ObjectivesPanel']">
+    <Content>
+      <Button x:Name="CastlePlannerBlueprintSettingsButton"
+              Width="36"
+              Height="34"
+              Margin="0,0,0,34"
+              HorizontalAlignment="Left"
+              VerticalAlignment="Bottom"
+              Visibility="{Binding HudVisible, Converter={StaticResource booleanToVisibilityConverter}}"
+              local:PropEx.Sprite1="{StaticResource UI-Buildings A001}"
+              local:PropEx.Sprite2="{StaticResource UI-Buildings A002}"
+              local:PropEx.Sprite3="{StaticResource UI-Buildings A002}"
+              local:PropEx.Sprite4="{StaticResource UI-Buildings A001}"
+              Command="{Binding ToggleSettingsPanelCommand}"
+              CommandParameter="{Binding RelativeSource={RelativeSource Self}}"
+              Style="{StaticResource BTN_Building}">
+        <Button.RenderTransform>
+          <TranslateTransform Y="{Binding TriggerVerticalOffset}"/>
+        </Button.RenderTransform>
+      </Button>
     </Content>
   </Operation>
 </Patch>

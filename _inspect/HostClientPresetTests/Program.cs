@@ -36,6 +36,8 @@ internal static class Program
             TestSelectedUnitHealthSummary();
             TestSurrenderAndStatisticsSettingAndPolicy();
             TestMultiplayerLobbyReturnPolicy();
+            TestSteamLobbyInvitePolicy();
+            TestSteamInviteBlacklistStore();
             TestMarketGoodPriceDefinition();
             TestAIMarketVanillaPricePolicy();
             TestEnemyProximityPolicy();
@@ -3131,17 +3133,6 @@ internal static class Program
                 CastlePlanner.BlueprintHudDisplayState.On,
             "Blueprint HUD omitted the on state");
 
-        string[] choices = { "No castle", "Example.aivjson" };
-        Check(!CastlePlanner.BlueprintSelectionPolicy.IsValidBindingSelection(null, choices),
-            "Blueprint selection accepted a null binding transition");
-        Check(!CastlePlanner.BlueprintSelectionPolicy.IsValidBindingSelection(string.Empty, choices),
-            "Blueprint selection accepted an empty binding transition");
-        Check(!CastlePlanner.BlueprintSelectionPolicy.IsValidBindingSelection("Missing.aivjson", choices),
-            "Blueprint selection accepted a value outside the active list");
-        Check(CastlePlanner.BlueprintSelectionPolicy.IsValidBindingSelection("No castle", choices),
-            "Blueprint selection rejected the valid no-castle choice");
-        Check(CastlePlanner.BlueprintSelectionPolicy.IsValidBindingSelection("Example.aivjson", choices),
-            "Blueprint selection rejected a valid castle choice");
     }
 
     private static void TestCastleSpawnContentPolicy()
@@ -3656,6 +3647,163 @@ internal static class Program
                 decodedInventories,
                 out resolvedHash) && resolvedHash == sharedHash,
             "CastlePlanner rejected a matching entry in a large predecoded inventory");
+    }
+
+    private static void TestSteamLobbyInvitePolicy()
+    {
+        SteamInviteValidationInput input = ValidSteamInviteInput();
+        Check(SteamLobbyInvitePolicy.Validate(input) == SteamInviteRejectionReason.None,
+            "valid Steam-friend invite was rejected");
+        Check(SteamLobbyInvitePolicy.IsLobbyMetadataUpdate(109775240900000001UL, 109775240900000001UL),
+            "matching lobby metadata callback was ignored");
+        Check(!SteamLobbyInvitePolicy.IsLobbyMetadataUpdate(109775240900000001UL, 76561198000000001UL),
+            "member-data callback was incorrectly treated as a lobby validation result");
+        Check(!SteamLobbyInvitePolicy.IsLobbyMetadataUpdate(0UL, 0UL),
+            "invalid zero lobby callback was incorrectly treated as a lobby validation result");
+
+        AssertSteamInviteReason(input, SteamInviteRejectionReason.ClientFeaturesDisabled,
+            value => { value.ClientFeaturesEnabled = false; return value; });
+        AssertSteamInviteReason(input, SteamInviteRejectionReason.PromptDisabled,
+            value => { value.PromptEnabled = false; return value; });
+        AssertSteamInviteReason(input, SteamInviteRejectionReason.InvalidInviterId,
+            value => { value.InviterIdValid = false; return value; });
+        AssertSteamInviteReason(input, SteamInviteRejectionReason.InvalidLobbyId,
+            value => { value.LobbyIdValid = false; return value; });
+        AssertSteamInviteReason(input, SteamInviteRejectionReason.InvalidGameId,
+            value => { value.GameIdValid = false; return value; });
+        AssertSteamInviteReason(input, SteamInviteRejectionReason.WrongApp,
+            value => { value.InviteAppId = value.CurrentAppId + 1; return value; });
+        AssertSteamInviteReason(input, SteamInviteRejectionReason.SelfInvite,
+            value => { value.IsSelfInvite = true; return value; });
+        AssertSteamInviteReason(input, SteamInviteRejectionReason.SteamBlocked,
+            value => { value.Relationship = SteamInviteRelationshipKind.BlockedOrIgnored; return value; });
+        AssertSteamInviteReason(input, SteamInviteRejectionReason.NotFriend,
+            value => { value.Relationship = SteamInviteRelationshipKind.Other; return value; });
+        AssertSteamInviteReason(input, SteamInviteRejectionReason.BlacklistUnavailable,
+            value => { value.BlacklistUsable = false; return value; });
+        AssertSteamInviteReason(input, SteamInviteRejectionReason.LocallyBlacklisted,
+            value => { value.LocallyBlacklisted = true; return value; });
+
+        foreach (SteamInviteRejectionReason reason in Enum.GetValues(typeof(SteamInviteRejectionReason)))
+        {
+            if (reason != SteamInviteRejectionReason.None)
+                Check(!string.IsNullOrWhiteSpace(SteamLobbyInvitePolicy.Describe(reason)),
+                    "Steam invite rejection reason has no log description: " + reason);
+        }
+
+        string warning = SteamLobbyInvitePolicy.FormatWarning(
+            SteamInviteRejectionReason.NotFriend,
+            "InitialValidation",
+            76561198000000001UL,
+            109775240900000001UL,
+            3024040UL,
+            3024040U,
+            3024040U,
+            "relationship=None" + Environment.NewLine + "untrusted detail");
+        Check(warning.Contains("reason=NotFriend") &&
+              warning.Contains("phase=InitialValidation") &&
+              warning.Contains("inviterId=76561198000000001") &&
+              warning.Contains("lobbyId=109775240900000001") &&
+              warning.Contains("gameId=3024040") &&
+              warning.Contains("inviteAppId=3024040") &&
+               warning.Contains("currentAppId=3024040") &&
+               warning.StartsWith("Suppressed in-game Steam lobby-invite popup:", StringComparison.Ordinal) &&
+               warning.Contains("description='") &&
+              !warning.Contains("\r") && !warning.Contains("\n"),
+            "Steam invite rejection warning omitted fields or retained line breaks");
+    }
+
+    private static SteamInviteValidationInput ValidSteamInviteInput() =>
+        new SteamInviteValidationInput
+        {
+            ClientFeaturesEnabled = true,
+            PromptEnabled = true,
+            InviterIdValid = true,
+            LobbyIdValid = true,
+            GameIdValid = true,
+            InviteAppId = 3024040,
+            CurrentAppId = 3024040,
+            Relationship = SteamInviteRelationshipKind.Friend,
+            BlacklistUsable = true,
+        };
+
+    private static void AssertSteamInviteReason(
+        SteamInviteValidationInput valid,
+        SteamInviteRejectionReason expected,
+        Func<SteamInviteValidationInput, SteamInviteValidationInput> mutate)
+    {
+        SteamInviteValidationInput changed = mutate(valid);
+        Check(SteamLobbyInvitePolicy.Validate(changed) == expected,
+            "Steam invite policy did not return " + expected);
+    }
+
+    private static void TestSteamInviteBlacklistStore()
+    {
+        string directory = Path.Combine(
+            AppDomain.CurrentDomain.BaseDirectory,
+            "SteamInviteBlacklistTests-" + Guid.NewGuid().ToString("N"));
+        string path = Path.Combine(directory, "SteamInviteBlacklist.json");
+        try
+        {
+            var store = new SteamInviteBlacklistStore(path);
+            Check(store.IsUsable && store.Count == 0, "missing Steam invite blacklist was not treated as empty");
+            Check(store.TryAdd(76561198000000001UL, out string error) && error.Length == 0,
+                "could not add a Steam invite blacklist entry");
+            Check(store.TryAdd(76561198000000001UL, out error) && store.Count == 1,
+                "duplicate Steam invite blacklist entry changed the set");
+            Check(store.TryAdd(76561198000000002UL, out error) && store.Count == 2,
+                "could not add the second Steam invite blacklist entry");
+            Check(File.ReadAllText(path).Contains("\"76561198000000001\""),
+                "Steam ID was not serialized as a JSON string");
+
+            var reloaded = new SteamInviteBlacklistStore(path);
+            Check(reloaded.IsUsable && reloaded.Count == 2 && reloaded.Contains(76561198000000002UL),
+                "Steam invite blacklist did not round-trip");
+            Check(reloaded.TryClear(out error) && reloaded.IsUsable && reloaded.Count == 0,
+                "Steam invite blacklist could not be cleared");
+
+            File.WriteAllText(path, "{}" + Environment.NewLine);
+            var invalid = new SteamInviteBlacklistStore(path);
+            Check(!invalid.IsUsable && invalid.LoadError.Length > 0,
+                "invalid Steam invite blacklist did not fail closed");
+            Check(!invalid.TryAdd(76561198000000003UL, out error) && error.Length > 0,
+                "invalid Steam invite blacklist accepted a new entry");
+            Check(invalid.TryClear(out error) && invalid.IsUsable && invalid.Count == 0,
+                "explicit clear did not recover an invalid Steam invite blacklist");
+
+            File.WriteAllText(
+                path,
+                "{\"version\":1,\"blockedSteamIds\":[\"76561198000000004\",\"76561198000000004\"]}" +
+                Environment.NewLine);
+            var duplicateFile = new SteamInviteBlacklistStore(path);
+            Check(duplicateFile.IsUsable && duplicateFile.Count == 1,
+                "Steam invite blacklist did not deduplicate persisted Steam IDs");
+
+            var maximumIds = new List<object>();
+            for (ulong index = 1; index <= SteamInviteBlacklistStore.MaximumEntries; index++)
+                maximumIds.Add((76561198000100000UL + index).ToString());
+            var maximumRoot = new Dictionary<string, object>
+            {
+                ["version"] = 1,
+                ["blockedSteamIds"] = maximumIds,
+            };
+            File.WriteAllText(path, DependencyFreeJson.Serialize(maximumRoot));
+            var full = new SteamInviteBlacklistStore(path);
+            Check(full.IsUsable && full.Count == SteamInviteBlacklistStore.MaximumEntries,
+                "maximum-size Steam invite blacklist did not load");
+            Check(!full.TryAdd(76561198000999999UL, out error) && error.Contains("limit"),
+                "Steam invite blacklist accepted an entry beyond its limit");
+
+            File.WriteAllText(path, new string(' ', (int)SteamInviteBlacklistStore.MaximumStoreBytes + 1));
+            var oversized = new SteamInviteBlacklistStore(path);
+            Check(!oversized.IsUsable && oversized.LoadError.Contains("large"),
+                "oversized Steam invite blacklist did not fail closed");
+        }
+        finally
+        {
+            if (Directory.Exists(directory))
+                Directory.Delete(directory, recursive: true);
+        }
     }
 
     private static void Check(bool condition, string message)

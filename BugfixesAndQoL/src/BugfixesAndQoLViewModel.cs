@@ -56,6 +56,8 @@ namespace BugfixesAndQoL
                 MarketGoodsOrderDefinition.CloneOrDefault);
         private readonly Dictionary<int, string> marketGoodNames = new Dictionary<int, string>();
         private readonly Dictionary<int, ImageSource> marketGoodIcons = new Dictionary<int, ImageSource>();
+        private readonly SteamInviteBlacklistStore steamInviteBlacklist;
+        private readonly ManualLogSource log;
         private ManualLogSource marketGoodsLog;
         private bool marketGoodsVisualsResolved;
         private bool marketGoodsVisualsDeferredLogged;
@@ -90,15 +92,25 @@ namespace BugfixesAndQoL
                 .WhenLocalPlayerResolved(playerId => TrySetLocalPlayerId(playerId));
         }
 
-        public BugfixesAndQoLViewModel(bool legacySomeSettingsLoaded)
+        internal BugfixesAndQoLViewModel(
+            bool legacySomeSettingsLoaded,
+            SteamInviteBlacklistStore steamInviteBlacklist,
+            ManualLogSource log)
         {
+            this.steamInviteBlacklist = steamInviteBlacklist ?? throw new ArgumentNullException(nameof(steamInviteBlacklist));
+            this.log = log ?? throw new ArgumentNullException(nameof(log));
             LegacyModWarningVisibility = legacySomeSettingsLoaded ? Visibility.Visible : Visibility.Collapsed;
             ResetToDefaultCommand = new RelayCommand(ResetToDefault);
             RestoreHdMarketOrderCommand = new RelayCommand(RestoreHdMarketOrder);
+            ClearSteamInviteBlacklistCommand = new RelayCommand(
+                ConfirmClearSteamInviteBlacklist,
+                CanClearSteamInviteBlacklist);
+            steamInviteBlacklist.Changed += OnSteamInviteBlacklistChanged;
         }
 
         public RelayCommand ResetToDefaultCommand { get; }
         public RelayCommand RestoreHdMarketOrderCommand { get; }
+        public RelayCommand ClearSteamInviteBlacklistCommand { get; }
         public ObservableCollection<MarketGoodOrderItemViewModel> MarketGoodsOrderItems { get; } =
             new ObservableCollection<MarketGoodOrderItemViewModel>();
         public Visibility LegacyModWarningVisibility { get; }
@@ -145,6 +157,8 @@ namespace BugfixesAndQoL
         public string EnableEnemyProximityBulldozeCursorFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableEnemyProximityBulldozeCursorFixHelp");
         public string EnableIngameSteamInvitePromptText => SerpLocalization.Get("BugfixesAndQoL.EnableIngameSteamInvitePrompt");
         public string EnableIngameSteamInvitePromptHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableIngameSteamInvitePromptHelp");
+        public string ClearSteamInviteBlacklistText => SerpLocalization.Get("BugfixesAndQoL.ClearSteamInviteBlacklist");
+        public string ClearSteamInviteBlacklistHelpText => SerpLocalization.Get("BugfixesAndQoL.ClearSteamInviteBlacklistHelp");
         public string ShowSelectedUnitHealthText => SerpLocalization.Get("BugfixesAndQoL.ShowSelectedUnitHealth");
         public string ShowSelectedUnitHealthHelpText => SerpLocalization.Get("BugfixesAndQoL.ShowSelectedUnitHealthHelp");
         public string EnableAssemblyPointPlacementFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAssemblyPointPlacementFix");
@@ -199,6 +213,34 @@ namespace BugfixesAndQoL
         public bool[] AllowCameraMovementWithModifiersData => allowCameraMovementWithModifiers.Data;
         public bool[] HdMarketViewData => hdMarketView.Data;
         public int[][] MarketGoodsOrderData => marketGoodsOrder.Data;
+
+        private bool CanClearSteamInviteBlacklist() =>
+            steamInviteBlacklist.Count > 0 || !steamInviteBlacklist.IsUsable;
+
+        private void ConfirmClearSteamInviteBlacklist()
+        {
+            HUD_ConfirmationPopup.ShowConfirmation(
+                SerpLocalization.Get("BugfixesAndQoL.ClearSteamInviteBlacklistConfirm"),
+                ClearSteamInviteBlacklist,
+                () => { },
+                MPConf: MainViewModel.Instance.Show_MultiplayerSetup);
+        }
+
+        private void ClearSteamInviteBlacklist()
+        {
+            if (steamInviteBlacklist.TryClear(out string error))
+            {
+                Shared.DebugLogHelper.LogDebug(log, "Cleared the local Steam invite blacklist.");
+                return;
+            }
+
+            Shared.DebugLogHelper.LogError(log, $"Could not clear the local Steam invite blacklist: {error}");
+        }
+
+        private void OnSteamInviteBlacklistChanged()
+        {
+            ClearSteamInviteBlacklistCommand.RaiseCanExecuteChanged();
+        }
 
         [SyncPerPlayer]
         public bool EnableMinimapCursorFollowFix

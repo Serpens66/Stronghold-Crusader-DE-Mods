@@ -16,7 +16,7 @@ namespace CastlePlanner
 
         public const string PluginGuid = "CastlePlanner_Serp";
         public const string PluginName = "CastlePlanner";
-        public const string PluginVersion = "0.8.18";
+        public const string PluginVersion = "0.8.19";
 
         // The BepInEx component is destroyed during startup, so runtime state remains static.
         private static CastlePlannerRuntime runtime;
@@ -97,6 +97,9 @@ namespace CastlePlanner
                     throw new InvalidOperationException("The Blueprint runtime is unavailable.");
                 GameXAMLManagerAPI.Instance.RegisterBinding(
                     "CastlePlannerBlueprintHud",
+                    blueprintRuntime.Hud);
+                GameXAMLManagerAPI.Instance.RegisterBinding(
+                    "CastlePlannerBlueprintSettingsButton",
                     blueprintRuntime.Hud);
             }, failedOptionalStages);
 

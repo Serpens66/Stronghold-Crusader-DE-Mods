@@ -62,7 +62,7 @@ Hold Ctrl while buying or selling at the market to trade exactly one unit instea
 In the ally goods-transfer panel, Shift multiplies the clicked amount by five and Ctrl reduces it to one fifth. Holding both modifiers uses the normal amount, and the displayed button values update to show what will be sent.
 
 ### Accept Steam lobby invitations in game
-Incoming invitations from Steam friends can appear as a Yes/No prompt inside the game, so they can be accepted without tabbing out. Accepting uses the game's normal leave-and-join flow; during loading screens or unsafe transitions the usual Steam invitation remains available instead.
+Incoming invitations can appear as a Yes/No prompt only after Steam confirms that the sender is a current friend and successfully resolves the invited lobby. Accepting uses the game's normal leave-and-join flow. When declining, an optional checkbox permanently suppresses further mod prompts from that Steam user; the complete local invite blacklist can be cleared beside this feature's mod setting. This validation affects only the mod's popup and never filters, rejects, or changes Steam's invitation or overlay handling. Every invitation for which the mod popup is suppressed is recorded as a warning with its exact validation reason in the BepInEx log.
 
 ### Move the camera while holding Ctrl or Alt
 Keyboard scrolling and edge scrolling continue to move the camera while Ctrl or Alt is held. This prevents modifier keys used for other controls from unnecessarily locking camera movement.

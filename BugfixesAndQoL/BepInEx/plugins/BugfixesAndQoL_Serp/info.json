@@ -3,10 +3,23 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.103",
+  "Version": "1.0.105",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.105",
+      "Changes": [
+        "Added the standard portrait background to the selected custom-lord preview and fixed Up/Down arrow keys navigating the background map list instead of the open custom-lord list.",
+        "Restricted the in-game Steam invitation prompt to validated invitations from current friends and added a local per-user prompt blacklist with detailed popup-suppression warnings; Steam's own invitation handling remains unchanged."
+      ]
+    },
+    {
+      "Version": "1.0.104",
+      "Changes": [
+        "Added a portrait preview for the selected custom lord and made the random-lord button visually distinct."
+      ]
+    },
     {
       "Version": "1.0.103",
       "Changes": [

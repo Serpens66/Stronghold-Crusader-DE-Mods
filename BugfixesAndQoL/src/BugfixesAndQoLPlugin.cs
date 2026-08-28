@@ -27,11 +27,12 @@ namespace BugfixesAndQoL
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.103";
+        public const string PluginVersion = "1.0.105";
 
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
         private static DisplayResolutionDiagnostic displayResolutionDiagnostic;
         private static SteamLobbyInvitePrompt steamLobbyInvitePrompt;
+        private static SteamInviteBlacklistStore steamInviteBlacklist;
         private BugfixesAndQoLRuntime runtime;
         private bool marketGoodsVisualRefreshFailureLogged;
 
@@ -50,7 +51,8 @@ namespace BugfixesAndQoL
             }
 
             // Pass the startup result into the view model so the warning occupies no UI space otherwise.
-            Settings = new BugfixesAndQoLViewModel(legacySomeSettingsLoaded);
+            steamInviteBlacklist = new SteamInviteBlacklistStore(SteamInviteBlacklistStore.GetDefaultPath());
+            Settings = new BugfixesAndQoLViewModel(legacySomeSettingsLoaded, steamInviteBlacklist, Logger);
             try
             {
                 // Install before FatControler.Start loads settings.cfg and begins screen monitoring.
@@ -254,7 +256,7 @@ namespace BugfixesAndQoL
 
             try
             {
-                steamLobbyInvitePrompt = new SteamLobbyInvitePrompt(Logger, Settings);
+                steamLobbyInvitePrompt = new SteamLobbyInvitePrompt(Logger, Settings, steamInviteBlacklist);
                 steamLobbyInvitePrompt.TryInitialize();
             }
             catch (Exception ex)

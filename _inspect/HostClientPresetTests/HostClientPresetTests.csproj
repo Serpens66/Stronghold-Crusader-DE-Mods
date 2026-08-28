@@ -155,6 +155,15 @@
     <Compile Include="..\..\BugfixesAndQoL\src\MultiplayerLobbyReturnPolicy.cs">
       <Link>MultiplayerLobbyReturnPolicy.cs</Link>
     </Compile>
+    <Compile Include="..\..\BugfixesAndQoL\src\SteamLobbyInvitePolicy.cs">
+      <Link>SteamLobbyInvitePolicy.cs</Link>
+    </Compile>
+    <Compile Include="..\..\BugfixesAndQoL\src\SteamInviteBlacklistStore.cs">
+      <Link>SteamInviteBlacklistStore.cs</Link>
+    </Compile>
+    <Compile Include="..\..\Shared\DependencyFreeJson.cs">
+      <Link>DependencyFreeJson.cs</Link>
+    </Compile>
     <Compile Include="..\..\BugfixesAndQoL\src\MarketTradeIntegration.cs">
       <Link>MarketTradeIntegration.cs</Link>
     </Compile>

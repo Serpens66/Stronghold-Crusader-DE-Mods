@@ -16,6 +16,9 @@ namespace BugfixesAndQoL
     internal sealed class CustomLordListEnhancementHook : INotifyPropertyChanged, IDisposable
     {
         private delegate void SkirmishAiAddClickDelegate(FRONT_Multiplayer self, string param);
+        private delegate void FrontMultiplayerUpdateDelegate(FRONT_Multiplayer self);
+
+        private const double KeyboardRepeatMilliseconds = 150.0;
 
         private enum SortField
         {
@@ -29,8 +32,11 @@ namespace BugfixesAndQoL
         private readonly BugfixesAndQoLViewModel settings;
         private readonly ObservableCollection<FileRow> rows = new ObservableCollection<FileRow>();
         private readonly Random random = new Random();
-        private readonly Hook hook;
-        private readonly SkirmishAiAddClickDelegate trampoline;
+        private readonly Hook addClickHook;
+        private readonly Hook updateHook;
+        private readonly SkirmishAiAddClickDelegate addClickTrampoline;
+        private readonly FrontMultiplayerUpdateDelegate updateTrampoline;
+        private readonly FieldInfo lastScrollTestField;
         private FRONT_Multiplayer activeView;
         private ListView activeList;
         private TextBox activeSearchBox;
@@ -41,7 +47,10 @@ namespace BugfixesAndQoL
         private bool sortAscending;
         private bool searchHasFocus;
         private string searchText = string.Empty;
+        private TextureSource selectedLordPortrait;
         private bool firstRefreshLogged;
+        private bool keyboardRoutingLogged;
+        private bool keyboardRoutingFailureLogged;
         private bool disposed;
 
         public CustomLordListEnhancementHook(ManualLogSource log, BugfixesAndQoLViewModel settings)
@@ -58,25 +67,50 @@ namespace BugfixesAndQoL
             GameXAMLManagerAPI.Instance.RegisterBinding("CustomLordNameHeader", this);
             GameXAMLManagerAPI.Instance.RegisterBinding("CustomLordPowerHeader", this);
 
-            MethodInfo method = typeof(FRONT_Multiplayer).GetMethod(
+            MethodInfo addClickMethod = typeof(FRONT_Multiplayer).GetMethod(
                 "SkirmishAIAddClick",
                 BindingFlags.Instance | BindingFlags.Public,
                 null,
                 new[] { typeof(string) },
                 null);
-            if (method == null)
+            if (addClickMethod == null)
                 throw new MissingMethodException(typeof(FRONT_Multiplayer).FullName, "SkirmishAIAddClick(string)");
 
-            Hook installedHook = null;
+            MethodInfo updateMethod = typeof(FRONT_Multiplayer).GetMethod(
+                "Update",
+                BindingFlags.Instance | BindingFlags.Public,
+                null,
+                Type.EmptyTypes,
+                null);
+            if (updateMethod == null)
+                throw new MissingMethodException(typeof(FRONT_Multiplayer).FullName, "Update()");
+
+            lastScrollTestField = typeof(FRONT_Multiplayer).GetField(
+                "lastScrollTest",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            if (lastScrollTestField == null || lastScrollTestField.FieldType != typeof(DateTime))
+                throw new MissingFieldException(typeof(FRONT_Multiplayer).FullName, "lastScrollTest");
+
+            Hook installedAddClickHook = null;
+            Hook installedUpdateHook = null;
             try
             {
-                installedHook = new Hook(method, (SkirmishAiAddClickDelegate)SkirmishAiAddClickHook);
-                trampoline = installedHook.GenerateTrampoline<SkirmishAiAddClickDelegate>();
-                hook = installedHook;
+                installedAddClickHook = new Hook(
+                    addClickMethod,
+                    (SkirmishAiAddClickDelegate)SkirmishAiAddClickHook);
+                addClickTrampoline = installedAddClickHook.GenerateTrampoline<SkirmishAiAddClickDelegate>();
+                addClickHook = installedAddClickHook;
+
+                installedUpdateHook = new Hook(
+                    updateMethod,
+                    (FrontMultiplayerUpdateDelegate)FrontMultiplayerUpdateHook);
+                updateTrampoline = installedUpdateHook.GenerateTrampoline<FrontMultiplayerUpdateDelegate>();
+                updateHook = installedUpdateHook;
             }
             catch
             {
-                installedHook?.Dispose();
+                installedUpdateHook?.Dispose();
+                installedAddClickHook?.Dispose();
                 throw;
             }
             Shared.DebugLogHelper.LogDebug(log, "Bugfixes and QoL custom-lord list hook installed.");
@@ -86,6 +120,9 @@ namespace BugfixesAndQoL
 
         public RelayCommand ClearSearchCommand { get; }
         public RelayCommand RandomCustomLordCommand { get; }
+        public TextureSource SelectedLordPortrait => selectedLordPortrait;
+        public Visibility SelectedLordPortraitVisibility =>
+            ReferenceEquals(selectedLordPortrait, null) ? Visibility.Collapsed : Visibility.Visible;
         public Visibility EnhancementVisibility => IsActive ? Visibility.Visible : Visibility.Collapsed;
         public Visibility SearchPlaceholderVisibility =>
             IsActive && !searchHasFocus && string.IsNullOrEmpty(searchText)
@@ -131,14 +168,18 @@ namespace BugfixesAndQoL
                 return;
 
             disposed = true;
-            hook?.Undo();
-            hook?.Dispose();
+            if (activeList != null)
+                activeList.SelectionChanged -= CustomLordSelectionChanged;
+            updateHook?.Undo();
+            updateHook?.Dispose();
+            addClickHook?.Undo();
+            addClickHook?.Dispose();
             Shared.DebugLogHelper.LogDebug(log, "Bugfixes and QoL custom-lord list hook disposed.");
         }
 
         private void SkirmishAiAddClickHook(FRONT_Multiplayer self, string param)
         {
-            trampoline(self, param);
+            addClickTrampoline(self, param);
             if (!string.Equals(param, "98", StringComparison.Ordinal))
                 return;
 
@@ -155,10 +196,93 @@ namespace BugfixesAndQoL
             }
         }
 
+        private void FrontMultiplayerUpdateHook(FRONT_Multiplayer self)
+        {
+            int direction = 0;
+            try
+            {
+                direction = CaptureCustomLordKeyboardDirection(self);
+            }
+            catch (Exception ex)
+            {
+                if (!keyboardRoutingFailureLogged)
+                {
+                    keyboardRoutingFailureLogged = true;
+                    Shared.DebugLogHelper.LogError(
+                        log,
+                        $"Bugfixes and QoL could not route custom-lord arrow-key input; Vanilla input remains active: {ex}");
+                }
+            }
+
+            updateTrampoline(self);
+
+            if (direction != 0)
+                MoveCustomLordSelection(direction);
+        }
+
+        private int CaptureCustomLordKeyboardDirection(FRONT_Multiplayer self)
+        {
+            if (!ShouldRouteCustomLordKeyboard(self) || KeyManager.instance == null)
+                return 0;
+
+            bool moveUp = KeyManager.instance.CursorUpHeld;
+            bool moveDown = !moveUp && KeyManager.instance.CursorDownHeld;
+            if (!moveUp && !moveDown)
+                return 0;
+
+            DateTime now = DateTime.UtcNow;
+            DateTime lastScroll = (DateTime)lastScrollTestField.GetValue(self);
+            if ((now - lastScroll).TotalMilliseconds <= KeyboardRepeatMilliseconds)
+                return 0;
+
+            // Advance Vanilla's own repeat gate before Update runs so the background map list stays unchanged.
+            lastScrollTestField.SetValue(self, now);
+            return moveUp ? -1 : 1;
+        }
+
+        private bool ShouldRouteCustomLordKeyboard(FRONT_Multiplayer self)
+        {
+            if (!IsActive || !ReferenceEquals(activeView, self) || activeList == null)
+                return false;
+
+            MainViewModel viewModel = MainViewModel.Instance;
+            return viewModel.Show_AddAIPanel &&
+                   viewModel.Show_AddAIPanel_Custom &&
+                   activeList.Items.Count > 0;
+        }
+
+        private void MoveCustomLordSelection(int direction)
+        {
+            int itemCount = activeList.Items.Count;
+            int currentIndex = activeList.SelectedIndex;
+            int nextIndex;
+            if (currentIndex < 0)
+                nextIndex = direction < 0 ? itemCount - 1 : 0;
+            else
+                nextIndex = Math.Max(0, Math.Min(itemCount - 1, currentIndex + direction));
+
+            if (nextIndex != currentIndex)
+                activeList.SelectedIndex = nextIndex;
+
+            if (activeList.SelectedItem != null)
+                activeList.ScrollIntoView(activeList.SelectedItem);
+
+            if (!keyboardRoutingLogged)
+            {
+                keyboardRoutingLogged = true;
+                Shared.DebugLogHelper.LogDebug(
+                    log,
+                    "Bugfixes and QoL routed arrow-key navigation to the open custom-lord list.");
+            }
+        }
+
         private void Attach(FRONT_Multiplayer self)
         {
             if (ReferenceEquals(activeView, self) && activeList != null && activeSearchBox != null)
                 return;
+
+            if (activeList != null)
+                activeList.SelectionChanged -= CustomLordSelectionChanged;
 
             ListView list = self.FindName("CustomLordList") as ListView;
             TextBox searchBox = self.FindName("CustomLordSearchBox") as TextBox;
@@ -185,11 +309,19 @@ namespace BugfixesAndQoL
             ((ButtonBase)typeHeader).Click += HeaderClicked;
             ((ButtonBase)nameHeader).Click += HeaderClicked;
             ((ButtonBase)powerHeader).Click += HeaderClicked;
+            activeList.SelectionChanged += CustomLordSelectionChanged;
             activeSearchBox.IsKeyboardFocusedChanged += SearchFocusChanged;
 
             // Reapply a retained query when the frontend recreates its lobby view.
             if (!string.Equals(activeSearchBox.Text, searchText, StringComparison.Ordinal))
                 activeSearchBox.Text = searchText;
+
+            UpdateSelectedLordPortrait();
+        }
+
+        private void CustomLordSelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            UpdateSelectedLordPortrait();
         }
 
         private void HeaderClicked(object sender, RoutedEventArgs e)
@@ -315,7 +447,19 @@ namespace BugfixesAndQoL
             else if (rows.Count > 0)
                 activeList.SelectedIndex = 0;
 
+            UpdateSelectedLordPortrait();
             RandomCustomLordCommand.RaiseCanExecuteChanged();
+        }
+
+        private void UpdateSelectedLordPortrait()
+        {
+            TextureSource portrait = (activeList?.SelectedItem as FileRow)?.lord?.image;
+            if (ReferenceEquals(selectedLordPortrait, portrait))
+                return;
+
+            selectedLordPortrait = portrait;
+            OnPropertyChanged(nameof(SelectedLordPortrait));
+            OnPropertyChanged(nameof(SelectedLordPortraitVisibility));
         }
 
         private bool MatchesSearch(CustomisationFileManager.CustomLord lord)
