@@ -27,13 +27,18 @@ namespace BugfixesAndQoL
         [UnmanagedFunctionPointer(CallingConvention.Winapi)]
         private delegate int GetMoatIdAtTileDelegate(IntPtr tileManager, int tileId);
 
+        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+        private delegate void ResetPathLinkageDelegate(IntPtr unitManager, int unitId);
+
         private const int DigMoatModePatternRva = 0x8D3C2;
         private const int CursorReachabilityPatternRva = 0x8F3A8;
         private const int GetMoatIdAtTilePatternRva = 0x69560;
         private const int FindNearestFriendlyMoatPatternRva = 0x69D60;
         private const int Command6PrecheckHookRva = 0x120E6C;
+        private const int MoatPostShorteningHookRva = 0x13F7C1;
         private const int MoatBfsResultHookRva = 0x1964D6;
         private const int MoatPathBuilderResultHookRva = 0x19667E;
+        private const int ResetPathLinkageRva = 0x197950;
         private const int TileFlagsRva = 0x48F71B0;
         private const int PathRegionGridRva = 0x50EC690;
         private const int MoatMovementTargetXRva = 0x6097BE8;
@@ -43,6 +48,7 @@ namespace BugfixesAndQoL
         private const int CursorReachabilityHookOffset = 29;
         private const int CursorReachabilityHookLength = 16;
         private const int Command6PrecheckHookLength = 21;
+        private const int MoatPostShorteningHookLength = 14;
         private const int MoatBfsResultHookLength = 18;
         private const int MoatPathBuilderResultHookLength = 18;
         private const int GameUnitStride = 0x490;
@@ -88,9 +94,11 @@ namespace BugfixesAndQoL
         private readonly short* pathRegions;
         private HookRef<X64InlineHook> cursorReachabilityHook = new HookRef<X64InlineHook>();
         private HookRef<X64InlineHook> command6PrecheckHook = new HookRef<X64InlineHook>();
+        private HookRef<X64InlineHook> moatPostShorteningHook = new HookRef<X64InlineHook>();
         private HookRef<X64InlineHook> moatBfsResultHook = new HookRef<X64InlineHook>();
         private HookRef<X64InlineHook> moatPathBuilderResultHook = new HookRef<X64InlineHook>();
         private GetMoatIdAtTileDelegate getMoatIdAtTile;
+        private ResetPathLinkageDelegate resetPathLinkage;
         private FindNearestFriendlyMoatDelegate originalFindNearestFriendlyMoat;
         private FindNearestFriendlyMoatDelegate rootedFindNearestFriendlyMoat;
         private NativeDetour findNearestFriendlyMoatDetour;
@@ -173,6 +181,7 @@ namespace BugfixesAndQoL
             ValidateCursorHookSpan(memory, hookRva);
             ValidateCommand6PrecheckHookSpan(memory);
             ValidateFunctionalHookSpans(memory);
+            ValidateResetPathLinkageHelper(memory);
 
             digMoatMode = (int*)(libraryBase + unchecked((ulong)modeRva));
             targetTileX = (int*)(libraryBase + unchecked((ulong)targetXRva));
@@ -185,6 +194,8 @@ namespace BugfixesAndQoL
             pathRegions = (short*)(libraryBase + PathRegionGridRva);
             getMoatIdAtTile = Marshal.GetDelegateForFunctionPointer<GetMoatIdAtTileDelegate>(
                 (IntPtr)(libraryBase + unchecked((ulong)moatLookupResolution.Rva)));
+            resetPathLinkage = Marshal.GetDelegateForFunctionPointer<ResetPathLinkageDelegate>(
+                (IntPtr)(libraryBase + ResetPathLinkageRva));
 
             try
             {
@@ -210,6 +221,14 @@ namespace BugfixesAndQoL
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
                 transaction.AddContextHook(
+                    ref moatPostShorteningHook,
+                    libraryBase + MoatPostShorteningHookRva,
+                    RecordMoatPostShorteningState,
+                    regs: X64SmartCPUContextRegs.All,
+                    hookSize: MoatPostShorteningHookLength,
+                    errorMode: CallbackErrorMode.LogAndContinue,
+                    placement: OverwrittenInstructionPlacement.AfterCallback);
+                transaction.AddContextHook(
                     ref moatBfsResultHook,
                     libraryBase + MoatBfsResultHookRva,
                     RecordMoatBfsResult,
@@ -228,7 +247,7 @@ namespace BugfixesAndQoL
                 transaction.Commit();
 
                 if (!cursorReachabilityHook.Success || !command6PrecheckHook.Success ||
-                    !moatBfsResultHook.Success ||
+                    !moatPostShorteningHook.Success || !moatBfsResultHook.Success ||
                     !moatPathBuilderResultHook.Success)
                 {
                     throw new InvalidOperationException(
@@ -255,6 +274,8 @@ namespace BugfixesAndQoL
                     $"targetYRva=0x{targetYRva:X}, hookRva=0x{hookRva:X}, " +
                     $"lookupRva=0x{moatLookupResolution.Rva:X}, searchRva=0x{moatSearchResolution.Rva:X}, " +
                     $"command6PrecheckRva=0x{Command6PrecheckHookRva:X}, " +
+                    $"resetPathLinkageRva=0x{ResetPathLinkageRva:X}, " +
+                    $"postShorteningRva=0x{MoatPostShorteningHookRva:X}, " +
                     $"bfsResultRva=0x{MoatBfsResultHookRva:X}, " +
                     $"pathBuilderResultRva=0x{MoatPathBuilderResultHookRva:X}.");
             }
@@ -277,6 +298,7 @@ namespace BugfixesAndQoL
             originalFindNearestFriendlyMoat = null;
             rootedFindNearestFriendlyMoat = null;
             getMoatIdAtTile = null;
+            resetPathLinkage = null;
             transaction?.Unload();
             transaction?.Dispose();
         }
@@ -300,21 +322,34 @@ namespace BugfixesAndQoL
                         unit->r_ContextTargetTileY,
                         out int commandedMoatId))
                 {
+                    int targetX = unit->r_ContextTargetTileX;
+                    int targetY = unit->r_ContextTargetTileY;
+                    string pathBeforeReset = FormatPathState(unit);
+
+                    // Other explicit Vanilla unit commands use this helper before replacing
+                    // a path. Command 6 omits that step, which otherwise leaves a moat order
+                    // queued behind an already active movement.
+                    resetPathLinkage(
+                        (IntPtr)GameUnitManagerAPI.Instance.GetUnitManager().Pointer,
+                        unitId);
+                    string pathAfterReset = FormatPathState(unit);
+
                     byte reservationBefore = ReserveMoat(tileManager, commandedMoatId);
                     MoatAttempt attempt = RegisterAttempt(
                         playerId,
                         unitId,
                         unchecked((int)unit->r_UnitChimp),
-                        unit->r_ContextTargetTileX,
-                        unit->r_ContextTargetTileY,
+                        targetX,
+                        targetY,
                         commandedMoatId,
                         reservationBefore);
                     LogFunctional(
                         $"stage=selection attempt={attempt.Id} player={playerId} unit={unitId} " +
                         $"unitType={attempt.UnitType} " +
-                        $"target=({unit->r_ContextTargetTileX},{unit->r_ContextTargetTileY}) " +
+                        $"target=({targetX},{targetY}) " +
                         $"moat={commandedMoatId} reservation={attempt.ReservationBefore}->" +
-                        $"{unchecked((byte)(attempt.ReservationBefore + MoatReservationIncrement))}");
+                        $"{unchecked((byte)(attempt.ReservationBefore + MoatReservationIncrement))} " +
+                        $"pathBefore=[{pathBeforeReset}] pathAfterReset=[{pathAfterReset}]");
 
                     // Vanilla reserves every positive result before returning it. Mirroring the
                     // +20 here keeps its later success/release and failure/-20 paths symmetric.
@@ -460,23 +495,12 @@ namespace BugfixesAndQoL
             bool usedF4930 = unchecked((int)(uint)registers->R13) == 0;
             int acceptedTargetX = unchecked((ushort)registers->R14);
             int acceptedTargetY = unchecked((ushort)registers->RBP);
-            int previousSecondaryTargetX = unit->r_TargetTilePositionX2;
-            int previousSecondaryTargetY = unit->r_TargetTilePositionY2;
             bool targetMatches = acceptedTargetX == attempt.TargetX &&
                 acceptedTargetY == attempt.TargetY &&
                 acceptedTargetX == *moatMovementTargetX &&
                 acceptedTargetY == *moatMovementTargetY;
-            bool targetSynchronized = pathBuilderResult > 0 &&
+            bool pathAccepted = pathBuilderResult > 0 &&
                 *moatPathMode == 1 && targetMatches;
-
-            if (targetSynchronized)
-            {
-                // MoveHere commits R14/RBP as its primary target immediately after this
-                // hook. Keep Vanilla's persistent command target in sync as well so its
-                // marker and any later path retry use the accepted moat destination.
-                unit->r_TargetTilePositionX2 = unchecked((ushort)acceptedTargetX);
-                unit->r_TargetTilePositionY2 = unchecked((ushort)acceptedTargetY);
-            }
 
             LogFunctional(
                 $"stage=path-builder-result attempt={attempt.Id} unit={attempt.UnitId} " +
@@ -484,21 +508,56 @@ namespace BugfixesAndQoL
                 $"builder={(usedF4930 ? "F4930" : "E32B0")} " +
                 $"bypass={attempt.BypassApplied} pathMode={*moatPathMode} " +
                 $"acceptedTarget=({acceptedTargetX},{acceptedTargetY}) targetMatches={targetMatches} " +
-                $"secondaryTarget=({previousSecondaryTargetX},{previousSecondaryTargetY})->" +
-                $"({unit->r_TargetTilePositionX2},{unit->r_TargetTilePositionY2}) " +
-                $"targetSynchronized={targetSynchronized}");
+                $"pathAccepted={pathAccepted} preCommit=[{FormatPathState(unit)}]");
 
+            if (!pathAccepted)
+            {
+                RemoveAttempt(attempt);
+                return;
+            }
+
+            attempt.AwaitingPostShortening = true;
+            attempt.AgeTicks = 0;
+        }
+
+        private void RecordMoatPostShorteningState(NativePointer<X64SmartCPUContext> context)
+        {
+            int unitId = unchecked((int)(uint)context.Pointer->RBX);
+            if (!TryGetPendingAttempt(unitId, out MoatAttempt attempt, out GameUnit* unit) ||
+                !attempt.AwaitingPostShortening || !AttemptMatchesNativeTarget(attempt))
+            {
+                return;
+            }
+
+            LogFunctional(
+                $"stage=post-shortening attempt={attempt.Id} unit={attempt.UnitId} " +
+                $"target=({attempt.TargetX},{attempt.TargetY}) state=[{FormatPathState(unit)}]");
             RemoveAttempt(attempt);
         }
 
         private bool TryGetPendingAttempt(out MoatAttempt attempt, out GameUnit* unit)
+        {
+            if (!IsEnabled)
+            {
+                attempt = null;
+                unit = null;
+                return false;
+            }
+
+            int unitId = *currentUnitId;
+            return TryGetPendingAttempt(unitId, out attempt, out unit);
+        }
+
+        private bool TryGetPendingAttempt(
+            int unitId,
+            out MoatAttempt attempt,
+            out GameUnit* unit)
         {
             attempt = null;
             unit = null;
             if (!IsEnabled)
                 return false;
 
-            int unitId = *currentUnitId;
             if (unitId <= 0)
                 return false;
 
@@ -509,6 +568,19 @@ namespace BugfixesAndQoL
             }
 
             return GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out unit) && unit != null;
+        }
+
+        private static string FormatPathState(GameUnit* unit)
+        {
+            ushort deferredShortening = *(ushort*)((byte*)unit + 0x28C);
+            return
+                $"current=({unit->r_CurrentTilePositionX},{unit->r_CurrentTilePositionY}) " +
+                $"next=({unit->r_NextTilePositionX2},{unit->r_NextTilePositionY2}) " +
+                $"primary=({unit->r_TargetTilePositionX},{unit->r_TargetTilePositionY}) " +
+                $"secondary=({unit->r_TargetTilePositionX2},{unit->r_TargetTilePositionY2}) " +
+                $"pathState=0x{unit->r_PathPlanStateBitFlags:X4} moving={unit->r_MovingRelevant} " +
+                $"pathPosition={unit->p_CurrentPathPlanPosition} pathSize={unit->p_PathPlanSize} " +
+                $"deferredShortening={deferredShortening} linkage={unit->r_PathPlanRelated3}";
         }
 
         private MoatAttempt RegisterAttempt(
@@ -801,6 +873,15 @@ namespace BugfixesAndQoL
         {
             ValidateHookSpan(
                 memory,
+                MoatPostShorteningHookRva,
+                new byte[]
+                {
+                    0x0F, 0xB7, 0x05, 0x20, 0x84, 0xF5, 0x05,
+                    0x48, 0x69, 0xCB, 0x90, 0x04, 0x00, 0x00
+                },
+                "Moat post-shortening state");
+            ValidateHookSpan(
+                memory,
                 MoatBfsResultHookRva,
                 new byte[]
                 {
@@ -821,6 +902,24 @@ namespace BugfixesAndQoL
                     0x0F, 0x8E, 0xA4, 0x00, 0x00, 0x00
                 },
                 "Moat path-builder result");
+        }
+
+        private static void ValidateResetPathLinkageHelper(ReadOnlySpan<byte> memory)
+        {
+            ValidateHookSpan(
+                memory,
+                ResetPathLinkageRva,
+                new byte[]
+                {
+                    0x48, 0x63, 0xC2,
+                    0x48, 0x69, 0xD0, 0x90, 0x04, 0x00, 0x00,
+                    0x33, 0xC0,
+                    0x89, 0x84, 0x0A, 0x52, 0x07, 0x00, 0x00,
+                    0x66, 0x89, 0x84, 0x0A, 0x2A, 0x09, 0x00, 0x00,
+                    0x66, 0x89, 0x84, 0x0A, 0xEC, 0x08, 0x00, 0x00,
+                    0xC3
+                },
+                "path-linkage reset helper");
         }
 
         private static void ValidateHookSpan(
@@ -887,6 +986,7 @@ namespace BugfixesAndQoL
             public int MoatId { get; }
             public byte ReservationBefore { get; }
             public bool BypassApplied { get; set; }
+            public bool AwaitingPostShortening { get; set; }
             public int AgeTicks { get; set; }
         }
 
