@@ -2450,6 +2450,61 @@ internal static class Program
                 out _),
             "game-speed action accepted a pause target");
 
+        Check(MultiplayerGameSpeedPolicy.TryResolveDelivery(
+                MultiplayerGameSpeedPolicy.PauseAction,
+                0,
+                1,
+                out MultiplayerTimeControlDelivery pauseDelivery) &&
+              pauseDelivery == MultiplayerTimeControlDelivery.Chore,
+            "multiplayer pause did not select Chore delivery");
+        Check(MultiplayerGameSpeedPolicy.TryResolveDelivery(
+                MultiplayerGameSpeedPolicy.PauseAction,
+                0,
+                0,
+                out MultiplayerTimeControlDelivery unpauseDelivery) &&
+              unpauseDelivery == MultiplayerTimeControlDelivery.Direct,
+            "multiplayer unpause did not select direct delivery");
+        foreach (int speedAction in new[]
+        {
+            MultiplayerGameSpeedPolicy.IncreaseAction,
+            MultiplayerGameSpeedPolicy.DecreaseAction,
+            MultiplayerGameSpeedPolicy.SetAction,
+            MultiplayerGameSpeedPolicy.FastIncreaseAction,
+            MultiplayerGameSpeedPolicy.FastDecreaseAction
+        })
+        {
+            int target = speedAction == MultiplayerGameSpeedPolicy.SetAction ? 70 : 0;
+            Check(MultiplayerGameSpeedPolicy.TryResolveDelivery(
+                    speedAction,
+                    target,
+                    0,
+                    out MultiplayerTimeControlDelivery speedDelivery) &&
+                  speedDelivery == MultiplayerTimeControlDelivery.Chore,
+                $"multiplayer game-speed action [{speedAction}] did not retain Chore delivery");
+        }
+        Check(!MultiplayerGameSpeedPolicy.TryResolveDelivery(
+                MultiplayerGameSpeedPolicy.PauseAction,
+                10,
+                0,
+                out _) &&
+              !MultiplayerGameSpeedPolicy.TryResolveDelivery(
+                MultiplayerGameSpeedPolicy.PauseAction,
+                0,
+                2,
+                out _) &&
+              !MultiplayerGameSpeedPolicy.TryResolveDelivery(
+                MultiplayerGameSpeedPolicy.IncreaseAction,
+                0,
+                1,
+                out _) &&
+              !MultiplayerGameSpeedPolicy.TryResolveDelivery(999, 0, 0, out _),
+            "invalid or mixed multiplayer time-control payload selected a delivery");
+        Check(MultiplayerGameSpeedPolicy.ShouldApplyPauseState(true, false) &&
+              !MultiplayerGameSpeedPolicy.ShouldApplyPauseState(false, false) &&
+              MultiplayerGameSpeedPolicy.ShouldApplyPauseState(false, true) &&
+              !MultiplayerGameSpeedPolicy.ShouldApplyPauseState(true, true),
+            "multiplayer pause idempotency policy is incorrect");
+
         Check(MultiplayerGameSpeedPolicy.TryResolvePacket(
                 40,
                 MultiplayerGameSpeedPolicy.ProtocolVersion,

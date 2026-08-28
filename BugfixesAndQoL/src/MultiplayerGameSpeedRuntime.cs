@@ -1,4 +1,4 @@
-// Feature: Tick-synchronized multiplayer game-speed controls.
+// Feature: Synchronized multiplayer game-speed and pause controls.
 using BepInEx.Logging;
 using CrusaderDE;
 using MonoMod.RuntimeDetour;
@@ -375,11 +375,14 @@ namespace BugfixesAndQoL
                 return;
 
             int pauseState = GamePlayerManagerAPI.Instance.IsLocalPaused() ? 0 : 1;
-            TryQueueChange(
-                MultiplayerGameSpeedPolicy.PauseAction,
-                0,
-                "keybind-pause",
-                pauseState);
+            if (pauseState == 0)
+                TryBroadcastDirectUnpause("keybind-pause");
+            else
+                TryQueueChange(
+                    MultiplayerGameSpeedPolicy.PauseAction,
+                    0,
+                    "keybind-pause",
+                    pauseState);
         }
 
         private void ResetRepeatState()
@@ -453,6 +456,17 @@ namespace BugfixesAndQoL
 
         private bool TryQueueChange(int action, int targetSpeed, string source, int pauseState = 0)
         {
+            if (!MultiplayerGameSpeedPolicy.TryResolveDelivery(
+                    action,
+                    targetSpeed,
+                    pauseState,
+                    out MultiplayerTimeControlDelivery delivery) ||
+                delivery != MultiplayerTimeControlDelivery.Chore)
+            {
+                LogTransportFailureThrottled($"{source} was refused because its payload is not a valid Chore action");
+                return false;
+            }
+
             if (!IsChoreTransportReady())
             {
                 LogTransportFailureThrottled($"{source} was refused because the Chore transport is unavailable");
@@ -483,12 +497,60 @@ namespace BugfixesAndQoL
             return true;
         }
 
+        private bool TryBroadcastDirectUnpause(string source)
+        {
+            if (!CanRequestMultiplayerChange())
+            {
+                LogInfo($"direct unpause refused: source={source}, reason=local player is not permitted.");
+                return false;
+            }
+
+            if (!IsDirectTransportReady())
+            {
+                LogTransportFailureThrottled($"direct unpause from {source} was refused because the direct multiplayer transport is unavailable");
+                return false;
+            }
+
+            var packet = new MultiplayerGameSpeedChangePacket
+            {
+                ProtocolVersion = MultiplayerGameSpeedPolicy.ProtocolVersion,
+                Action = MultiplayerGameSpeedPolicy.PauseAction,
+                TargetSpeed = 0,
+                PauseState = 0
+            };
+            if (!MultiplayerGameSpeedPolicy.TryResolveDelivery(
+                    packet.Action,
+                    packet.TargetSpeed,
+                    packet.PauseState,
+                    out MultiplayerTimeControlDelivery delivery) ||
+                delivery != MultiplayerTimeControlDelivery.Direct)
+            {
+                LogError($"direct unpause refused: source={source}, reason=invalid payload.");
+                return false;
+            }
+
+            try
+            {
+                GameNetworkAPI.SendPacketToAll(packet, packetHook.GetPacketId(), instantMessage: true);
+                LogInfo($"direct unpause broadcast: source={source}, packetId={packetHook.GetPacketId()}.");
+
+                // SendPacketToAll excludes the sender, so apply the same validated request locally.
+                ApplyPauseState(false, "direct unpause");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                LogError($"direct unpause broadcast failed: source={source}, error={ex}.");
+                return false;
+            }
+        }
+
         private void OnPacketReceived(ReceiveCustomPacketEventArgs<MultiplayerGameSpeedChangePacket> args)
         {
             MultiplayerGameSpeedChangePacket packet = args?.Packet;
             if (packet == null || packet.ProtocolVersion != MultiplayerGameSpeedPolicy.ProtocolVersion)
             {
-                LogError("rejected a multiplayer time-control Chore with an invalid payload.");
+                LogError("rejected a multiplayer time-control packet with an invalid payload.");
                 return;
             }
 
@@ -497,7 +559,7 @@ namespace BugfixesAndQoL
                 Director director = Director.instance;
                 if (director == null || !director.MultiplayerGame || !director.SimRunning)
                 {
-                    LogError("could not execute a multiplayer time-control Chore because no multiplayer simulation is running.");
+                    LogError("could not execute a multiplayer time-control packet because no multiplayer simulation is running.");
                     return;
                 }
 
@@ -510,11 +572,26 @@ namespace BugfixesAndQoL
                             packet.PauseState,
                             out bool requestedPaused))
                     {
-                        LogError("rejected a multiplayer pause Chore with an invalid payload.");
+                        LogError("rejected a multiplayer pause packet with an invalid payload.");
                         return;
                     }
 
-                    ApplyPauseState(requestedPaused);
+                    if (!MultiplayerGameSpeedPolicy.TryResolveDelivery(
+                            packet.Action,
+                            packet.TargetSpeed,
+                            packet.PauseState,
+                            out MultiplayerTimeControlDelivery delivery))
+                    {
+                        LogError("rejected a multiplayer pause packet with an invalid delivery classification.");
+                        return;
+                    }
+
+                    string deliveryName = delivery == MultiplayerTimeControlDelivery.Direct
+                        ? "direct unpause"
+                        : "pause Chore";
+                    if (delivery == MultiplayerTimeControlDelivery.Direct)
+                        LogInfo("direct unpause received.");
+                    ApplyPauseState(requestedPaused, deliveryName);
                     return;
                 }
 
@@ -547,12 +624,12 @@ namespace BugfixesAndQoL
             }
         }
 
-        private void ApplyPauseState(bool requestedPaused)
+        private void ApplyPauseState(bool requestedPaused, string deliveryName)
         {
             bool previousPaused = GamePlayerManagerAPI.Instance.IsLocalPaused();
-            if (previousPaused == requestedPaused)
+            if (!MultiplayerGameSpeedPolicy.ShouldApplyPauseState(previousPaused, requestedPaused))
             {
-                LogInfo($"pause Chore was already satisfied: paused={requestedPaused}.");
+                LogInfo($"{deliveryName} was already satisfied: paused={requestedPaused}.");
                 return;
             }
 
@@ -563,7 +640,7 @@ namespace BugfixesAndQoL
             bool appliedPaused = GamePlayerManagerAPI.Instance.IsLocalPaused();
             if (appliedPaused == previousPaused)
             {
-                LogInfo($"pause Chore was suppressed by the active game state: requestedPaused={requestedPaused}.");
+                LogInfo($"{deliveryName} was refused by the active game state: requestedPaused={requestedPaused}.");
                 return;
             }
 
@@ -576,7 +653,8 @@ namespace BugfixesAndQoL
                     1f);
             }
 
-            LogInfo($"pause Chore executed: previousPaused={previousPaused}, appliedPaused={appliedPaused}.");
+            string outcome = deliveryName == "direct unpause" ? "applied" : "executed";
+            LogInfo($"{deliveryName} {outcome}: previousPaused={previousPaused}, appliedPaused={appliedPaused}.");
         }
 
         private void RefreshOpenOptionsUi()
@@ -670,6 +748,11 @@ namespace BugfixesAndQoL
 
         private bool IsChoreTransportReady() =>
             networkInitialized && packetHook != null && ChoreNetworkTransport.IsAvailable;
+
+        private bool IsDirectTransportReady() =>
+            networkInitialized &&
+            packetHook != null &&
+            GameNetworkAPI.IsNetworkedEnvironment();
 
         private static MethodInfo FindInstanceMethod(
             Type type,

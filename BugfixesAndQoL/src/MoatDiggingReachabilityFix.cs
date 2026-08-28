@@ -312,7 +312,10 @@ namespace BugfixesAndQoL
 
             moatId = getMoatIdAtTile(tileManager, tileId);
             int moatCount = *(int*)((byte*)tileManager.ToPointer() + MoatRecordCountOffset);
-            if (moatId <= 0 || moatId >= moatCount)
+            // Vanilla uses -1 as the "not found" sentinel; moat record 0 is valid.
+            // The tile lookup returns an unsigned ID, while PlannedMoat above keeps
+            // an otherwise empty grid entry from being mistaken for that record.
+            if (moatId < 0 || moatId >= moatCount)
             {
                 moatId = 0;
                 return false;

@@ -2,6 +2,12 @@ using System;
 
 namespace BugfixesAndQoL
 {
+    public enum MultiplayerTimeControlDelivery
+    {
+        Chore = 0,
+        Direct = 1
+    }
+
     public static class MultiplayerGameSpeedPolicy
     {
         public const int ProtocolVersion = 2;
@@ -119,6 +125,44 @@ namespace BugfixesAndQoL
                 requestedTarget == 0 &&
                 (pauseState == 0 || pauseState == 1);
         }
+
+        public static bool TryResolveDelivery(
+            int action,
+            int requestedTarget,
+            int pauseState,
+            out MultiplayerTimeControlDelivery delivery)
+        {
+            delivery = MultiplayerTimeControlDelivery.Chore;
+            if (action == PauseAction)
+            {
+                if (requestedTarget != 0 || (pauseState != 0 && pauseState != 1))
+                    return false;
+
+                // A paused simulation cannot execute a queued Chore to wake itself again.
+                delivery = pauseState == 0
+                    ? MultiplayerTimeControlDelivery.Direct
+                    : MultiplayerTimeControlDelivery.Chore;
+                return true;
+            }
+
+            if (pauseState != 0)
+                return false;
+
+            switch (action)
+            {
+                case IncreaseAction:
+                case DecreaseAction:
+                case SetAction:
+                case FastIncreaseAction:
+                case FastDecreaseAction:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        public static bool ShouldApplyPauseState(bool currentPaused, bool requestedPaused) =>
+            currentPaused != requestedPaused;
 
         public static bool IsValidTarget(int speed) =>
             IsValidTarget(speed, MaximumSpeed);
