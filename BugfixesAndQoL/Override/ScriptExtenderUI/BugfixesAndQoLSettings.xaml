@@ -299,6 +299,12 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableCustomLordListEnhancementsText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-custom-lord-extended-packages" shared:ModSettingsSearch.Title="{Binding EnableCustomLordExtendedPackagesText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableCustomLordExtendedPackagesHelpText}"><CheckBox IsChecked="{Binding EnableCustomLordExtendedPackages, Mode=TwoWay}"
+                Foreground="White"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableCustomLordExtendedPackagesHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding EnableCustomLordExtendedPackagesText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox></Grid>
       </StackPanel>
       <StackPanel shared:ModSettingsSearch.SectionKey="bugfixes.section.troop-movement" shared:ModSettingsSearch.SectionTitle="{Binding TroopMovementTitleText}">
       <Grid Style="{StaticResource ModSettingsSearchSectionGrid}" shared:ModSettingsSearch.IsSection="True"><TextBlock Text="{Binding TroopMovementTitleText}" Style="{StaticResource SectionHeader}" Margin="0,4,0,4"/></Grid>

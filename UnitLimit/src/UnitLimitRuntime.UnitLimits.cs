@@ -74,11 +74,19 @@ namespace UnitLimit
             }
         }
 
-        internal MakeTroopGameActionDecision DecideMakeTroopGameAction(int amount, eChimps unitType, int rawUnitType)
+        internal MakeTroopGameActionDecision DecideMakeTroopGameAction(
+            int amount,
+            eChimps unitType,
+            int rawUnitType,
+            bool interpretCtrlSentinel)
         {
             try
             {
-                return DecideLocalUnitRecruitmentRequest(amount, unitType, rawUnitType);
+                return DecideLocalUnitRecruitmentRequest(
+                    amount,
+                    unitType,
+                    rawUnitType,
+                    interpretCtrlSentinel);
             }
             catch (Exception ex)
             {
@@ -87,7 +95,11 @@ namespace UnitLimit
             }
         }
 
-        private MakeTroopGameActionDecision DecideLocalUnitRecruitmentRequest(int amount, eChimps unitType, int rawUnitType)
+        private MakeTroopGameActionDecision DecideLocalUnitRecruitmentRequest(
+            int amount,
+            eChimps unitType,
+            int rawUnitType,
+            bool interpretCtrlSentinel)
         {
             if (!activeUnitCacheAvailable ||
                 (IsEngineerSiegeUnit(unitType) && !activeSiegeTentCacheAvailable))
@@ -118,22 +130,30 @@ namespace UnitLimit
             int remaining = limit - effectiveCount;
             int vanillaRequestedAmount = amount;
             if (remaining > 0 &&
-                amount == Shared.RecruitmentRequestPolicy.VanillaCtrlAllAmount &&
+                interpretCtrlSentinel &&
                 !TryGetCurrentVanillaRecruitAmount(unitType, out vanillaRequestedAmount))
             {
+                // Forward the remaining limit as a conservative ceiling. Vanilla
+                // still owns peasants, weapons, gold and its native feedback.
                 LogDebug(
-                    "UnitLimit blocked Ctrl recruitment because Vanilla's current recruitment amount could not be resolved safely:",
+                    "UnitLimit could not resolve Vanilla's current Ctrl amount; forwarding remaining limit:",
                     "unit", unitType,
                     "player", playerId,
+                    "remaining", remaining,
                     "rawUnitType", rawUnitType);
-                return MakeTroopGameActionDecision.BlockAction();
+                return MakeTroopGameActionDecision.ForwardAmount(
+                    remaining,
+                    playerId,
+                    unitType,
+                    remaining);
             }
 
             Shared.RecruitmentConstraintDecision constraint =
                 Shared.RecruitmentRequestPolicy.ApplyMaximum(
                     amount,
                     vanillaRequestedAmount,
-                    remaining);
+                    remaining,
+                    interpretCtrlSentinel);
             LogDebug(
                 log,
                 "UnitLimit recruitment decision:",
@@ -144,6 +164,7 @@ namespace UnitLimit
                 "effective", effectiveCount,
                 "remaining", remaining,
                 "incomingAmount", amount,
+                "interpretCtrlSentinel", interpretCtrlSentinel,
                 "vanillaRequestedAmount", vanillaRequestedAmount,
                 "effectiveRequestedAmount", constraint.EffectiveRequestedAmount,
                 "constraintAction", constraint.Action,
@@ -156,11 +177,16 @@ namespace UnitLimit
                 int amountToReserve = constraint.Action == Shared.RecruitmentConstraintAction.ForwardAmount
                     ? constraint.AmountToForward
                     : constraint.EffectiveRequestedAmount;
-                ReservePendingRecruitment(playerId, unitType, amountToReserve);
-                RefreshCurrentUnitLimitTooltip();
                 return constraint.Action == Shared.RecruitmentConstraintAction.ForwardAmount
-                    ? MakeTroopGameActionDecision.ForwardAmount(constraint.AmountToForward)
-                    : MakeTroopGameActionDecision.AllowOriginal();
+                    ? MakeTroopGameActionDecision.ForwardAmount(
+                        constraint.AmountToForward,
+                        playerId,
+                        unitType,
+                        amountToReserve)
+                    : MakeTroopGameActionDecision.AllowOriginalWithPending(
+                        playerId,
+                        unitType,
+                        amountToReserve);
             }
 
             LogDebug(
@@ -173,6 +199,7 @@ namespace UnitLimit
                 "effective", effectiveCount,
                 "remaining", remaining,
                 "incomingAmount", amount,
+                "interpretCtrlSentinel", interpretCtrlSentinel,
                 "vanillaRequestedAmount", vanillaRequestedAmount,
                 "effectiveRequestedAmount", constraint.EffectiveRequestedAmount,
                 "constraintAction", constraint.Action,
@@ -184,6 +211,33 @@ namespace UnitLimit
 
             RefreshCurrentUnitLimitTooltip();
             return MakeTroopGameActionDecision.BlockAction();
+        }
+
+        private void CompleteMakeTroopGameAction(
+            MakeTroopGameActionDecision decision,
+            int finalChainAmount,
+            bool hasConcreteChainAmount)
+        {
+            int amountToReserve = Shared.RecruitmentRequestPolicy.ReconcilePendingAmount(
+                decision.PendingAmount,
+                finalChainAmount,
+                hasConcreteChainAmount);
+            if (amountToReserve <= 0 || decision.PendingPlayerId <= 0)
+                return;
+
+            ReservePendingRecruitment(
+                decision.PendingPlayerId,
+                decision.PendingUnitType,
+                amountToReserve);
+            LogDebug(
+                "UnitLimit finalized pending recruitment:",
+                "unit", decision.PendingUnitType,
+                "player", decision.PendingPlayerId,
+                "plannedAmount", decision.PendingAmount,
+                "finalChainAmount", finalChainAmount,
+                "hasConcreteChainAmount", hasConcreteChainAmount,
+                "reservedAmount", amountToReserve);
+            RefreshCurrentUnitLimitTooltip();
         }
 
         private int CountAliveUnits(int playerId, eChimps unitType)

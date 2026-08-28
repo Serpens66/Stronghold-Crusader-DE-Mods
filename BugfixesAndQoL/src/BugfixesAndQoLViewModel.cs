@@ -18,6 +18,7 @@ namespace BugfixesAndQoL
         private bool enableMod = true;
         private bool rememberAiAivSettings = true;
         private bool enableCustomLordListEnhancements = true;
+        private bool enableCustomLordExtendedPackages = true;
         private bool enableAiFixes = true;
         private bool fixAITowerRepair = true;
         private bool betterAIOverbuildRules = true;
@@ -191,6 +192,8 @@ namespace BugfixesAndQoL
         public string RememberAiAivSettingsHelpText => SerpLocalization.Get(SerpLocalization.RememberAiAivSettingsHelp);
         public string EnableCustomLordListEnhancementsText => SerpLocalization.Get("BugfixesAndQoL.EnableCustomLordListEnhancements");
         public string EnableCustomLordListEnhancementsHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableCustomLordListEnhancementsHelp");
+        public string EnableCustomLordExtendedPackagesText => SerpLocalization.Get("BugfixesAndQoL.EnableCustomLordExtendedPackages");
+        public string EnableCustomLordExtendedPackagesHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableCustomLordExtendedPackagesHelp");
         public string EnableTroopMovementFixText => SerpLocalization.Get(SerpLocalization.EnableTroopMovementFix);
         public string EnableTroopMovementFixHelpText => SerpLocalization.Get(SerpLocalization.EnableTroopMovementFixHelp);
         public string EnableImprovedAssassinPathfindingText => SerpLocalization.Get(SerpLocalization.EnableImprovedAssassinPathfinding);
@@ -417,6 +420,13 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool EnableCustomLordExtendedPackages
+        {
+            get => enableCustomLordExtendedPackages;
+            set => SetSetting(ref enableCustomLordExtendedPackages, value, nameof(EnableCustomLordExtendedPackages));
+        }
+
+        [SyncHostOnly]
         public bool EnableTroopMovementFix
         {
             get => enableTroopMovementFix;
@@ -563,6 +573,7 @@ namespace BugfixesAndQoL
                 BetterAIOverbuildRules = true;
                 RememberAiAivSettings = true;
                 EnableCustomLordListEnhancements = true;
+                EnableCustomLordExtendedPackages = true;
                 EnableTroopMovementFix = true;
                 EnableImprovedAssassinPathfinding = true;
                 EnablePlaguePopularityFix = true;

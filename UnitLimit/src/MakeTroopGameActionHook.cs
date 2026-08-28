@@ -10,44 +10,75 @@ namespace UnitLimit
     internal struct MakeTroopGameActionDecision
     {
         public readonly bool Block;
+        public readonly bool ReplaceAmount;
         public readonly int AmountToForward;
+        public readonly int PendingPlayerId;
+        public readonly eChimps PendingUnitType;
+        public readonly int PendingAmount;
 
-        private MakeTroopGameActionDecision(bool block, int amountToForward)
+        private MakeTroopGameActionDecision(
+            bool block,
+            bool replaceAmount,
+            int amountToForward,
+            int pendingPlayerId,
+            eChimps pendingUnitType,
+            int pendingAmount)
         {
             Block = block;
+            ReplaceAmount = replaceAmount;
             AmountToForward = amountToForward;
+            PendingPlayerId = pendingPlayerId;
+            PendingUnitType = pendingUnitType;
+            PendingAmount = pendingAmount;
         }
 
         public static MakeTroopGameActionDecision AllowOriginal()
         {
-            return new MakeTroopGameActionDecision(false, 0);
+            return new MakeTroopGameActionDecision(false, false, 0, 0, eChimps.CHIMP_TYPE_NULL, 0);
         }
 
-        public static MakeTroopGameActionDecision ForwardAmount(int amount)
+        public static MakeTroopGameActionDecision AllowOriginalWithPending(
+            int playerId,
+            eChimps unitType,
+            int pendingAmount)
         {
-            return new MakeTroopGameActionDecision(false, amount);
+            return new MakeTroopGameActionDecision(false, false, 0, playerId, unitType, pendingAmount);
+        }
+
+        public static MakeTroopGameActionDecision ForwardAmount(
+            int amount,
+            int playerId,
+            eChimps unitType,
+            int pendingAmount)
+        {
+            return new MakeTroopGameActionDecision(false, true, amount, playerId, unitType, pendingAmount);
         }
 
         public static MakeTroopGameActionDecision BlockAction()
         {
-            return new MakeTroopGameActionDecision(true, 0);
+            return new MakeTroopGameActionDecision(true, false, 0, 0, eChimps.CHIMP_TYPE_NULL, 0);
         }
     }
 
     internal sealed class MakeTroopGameActionHook : IDisposable
     {
         private readonly ManualLogSource log;
-        private readonly Func<int, eChimps, int, MakeTroopGameActionDecision> decideMakeTroop;
+        private readonly Func<int, eChimps, int, bool, MakeTroopGameActionDecision> decideMakeTroop;
+        private readonly Action<MakeTroopGameActionDecision, int, bool> completeMakeTroop;
         private readonly Hook hook;
         private readonly EngineInterfaceGameActionDelegate trampoline;
         private bool disposed;
 
         private delegate int EngineInterfaceGameActionDelegate(Enums.GameActionCommand command, int structureID, int state, int value2);
 
-        public MakeTroopGameActionHook(ManualLogSource log, Func<int, eChimps, int, MakeTroopGameActionDecision> decideMakeTroop)
+        public MakeTroopGameActionHook(
+            ManualLogSource log,
+            Func<int, eChimps, int, bool, MakeTroopGameActionDecision> decideMakeTroop,
+            Action<MakeTroopGameActionDecision, int, bool> completeMakeTroop)
         {
             this.log = log;
             this.decideMakeTroop = decideMakeTroop;
+            this.completeMakeTroop = completeMakeTroop;
 
             MethodInfo gameActionMethod = typeof(EngineInterface).GetMethod(
                 nameof(EngineInterface.GameAction),
@@ -81,28 +112,43 @@ namespace UnitLimit
                 return trampoline(command, structureID, state, value2);
 
             int amount = NormalizeMakeTroopAmount(structureID, state, value2);
-            MakeTroopGameActionDecision decision = MakeTroopGameActionDecision.AllowOriginal();
-            try
+            using (Shared.RecruitmentHookContext.Scope scope = Shared.RecruitmentHookContext.Enter(amount))
             {
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    "UnitLimit MakeTroop hook enter:",
-                    "incomingAmount", amount,
-                    "state", state,
-                    "value2", value2);
+                bool interpretCtrlSentinel = Shared.RecruitmentHookContext.ShouldInterpretCtrlSentinel(amount);
+                MakeTroopGameActionDecision decision = MakeTroopGameActionDecision.AllowOriginal();
+                try
+                {
+                    Shared.DebugLogHelper.LogDebug(
+                        log,
+                        "UnitLimit MakeTroop hook enter:",
+                        "incomingAmount", amount,
+                        "interpretCtrlSentinel", interpretCtrlSentinel,
+                        "state", state,
+                        "value2", value2);
 
-                decision = decideMakeTroop(amount, (eChimps)state, state);
+                    decision = decideMakeTroop(amount, (eChimps)state, state, interpretCtrlSentinel);
+                }
+                catch (Exception ex)
+                {
+                    Shared.DebugLogHelper.LogDebug(log, "Unit limit game action decision failed:", ex.Message);
+                    decision = MakeTroopGameActionDecision.AllowOriginal();
+                }
+
+                int forwardedAmount = decision.ReplaceAmount ? decision.AmountToForward : structureID;
                 Shared.DebugLogHelper.LogDebug(
                     log,
                     "UnitLimit MakeTroop hook decision:",
                     "incomingAmount", amount,
+                    "interpretCtrlSentinel", interpretCtrlSentinel,
                     "state", state,
                     "value2", value2,
-                    "decision", GetDecisionName(decision, amount),
-                    "forwardedAmount", GetForwardedAmount(decision, amount, structureID));
+                    "decision", GetDecisionName(decision),
+                    "forwardedAmount", decision.Block ? 0 : forwardedAmount,
+                    "plannedPendingAmount", decision.PendingAmount);
 
                 if (decision.Block)
                 {
+                    Shared.RecruitmentHookContext.RecordBlocked();
                     Shared.DebugLogHelper.LogDebug(
                         log,
                         "UnitLimit MakeTroop hook blocked original action:",
@@ -112,8 +158,9 @@ namespace UnitLimit
                     return 0;
                 }
 
-                if (decision.AmountToForward > 0 && decision.AmountToForward != amount)
+                if (decision.ReplaceAmount)
                 {
+                    Shared.RecruitmentHookContext.RecordForwardedAmount(decision.AmountToForward);
                     Shared.DebugLogHelper.LogDebug(
                         log,
                         "UnitLimit MakeTroop hook replaced original action:",
@@ -121,15 +168,12 @@ namespace UnitLimit
                         "forwardedAmount", decision.AmountToForward,
                         "state", state,
                         "value2", value2);
-                    return CallTrampoline(command, decision.AmountToForward, state, value2, decision, amount);
                 }
-            }
-            catch (Exception ex)
-            {
-                Shared.DebugLogHelper.LogDebug(log, "Unit limit game action hook failed:", ex.Message);
-            }
 
-            return CallTrampoline(command, structureID, state, value2, decision, amount);
+                int result = CallTrampoline(command, forwardedAmount, state, value2, decision, amount);
+                CompleteDecision(decision);
+                return result;
+            }
         }
 
         private int CallTrampoline(
@@ -146,7 +190,7 @@ namespace UnitLimit
                 "incomingAmount", incomingAmount,
                 "state", state,
                 "value2", value2,
-                "decision", GetDecisionName(decision, incomingAmount),
+                "decision", GetDecisionName(decision),
                 "forwardedAmount", forwardedAmount);
             int result = trampoline(command, forwardedAmount, state, value2);
             Shared.DebugLogHelper.LogDebug(
@@ -155,32 +199,37 @@ namespace UnitLimit
                 "incomingAmount", incomingAmount,
                 "state", state,
                 "value2", value2,
-                "decision", GetDecisionName(decision, incomingAmount),
+                "decision", GetDecisionName(decision),
                 "forwardedAmount", forwardedAmount,
                 "result", result);
             return result;
         }
 
-        private static string GetDecisionName(MakeTroopGameActionDecision decision, int incomingAmount)
+        private void CompleteDecision(MakeTroopGameActionDecision decision)
+        {
+            if (completeMakeTroop == null || decision.PendingAmount <= 0)
+                return;
+
+            try
+            {
+                Shared.RecruitmentHookContext.Result chainResult = Shared.RecruitmentHookContext.GetResult();
+                completeMakeTroop(decision, chainResult.FinalAmount, chainResult.HasConcreteAmount);
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogDebug(log, "UnitLimit recruitment completion failed:", ex.Message);
+            }
+        }
+
+        private static string GetDecisionName(MakeTroopGameActionDecision decision)
         {
             if (decision.Block)
                 return "BlockAction";
 
-            if (decision.AmountToForward > 0 && decision.AmountToForward != incomingAmount)
+            if (decision.ReplaceAmount)
                 return "ForwardAmount";
 
             return "AllowOriginal";
-        }
-
-        private static int GetForwardedAmount(MakeTroopGameActionDecision decision, int incomingAmount, int originalAmount)
-        {
-            if (decision.Block)
-                return 0;
-
-            if (decision.AmountToForward > 0 && decision.AmountToForward != incomingAmount)
-                return decision.AmountToForward;
-
-            return originalAmount;
         }
 
         private int NormalizeMakeTroopAmount(int structureID, int state, int value2)

@@ -31,9 +31,10 @@ namespace Shared
         public static RecruitmentConstraintDecision ApplyMaximum(
             int incomingAmount,
             int vanillaCtrlAmount,
-            int maximumAllowed)
+            int maximumAllowed,
+            bool interpretCtrlSentinel = true)
         {
-            int effectiveRequestedAmount = incomingAmount == VanillaCtrlAllAmount
+            int effectiveRequestedAmount = interpretCtrlSentinel && incomingAmount == VanillaCtrlAllAmount
                 ? System.Math.Max(0, vanillaCtrlAmount)
                 : System.Math.Max(0, incomingAmount);
 
@@ -59,6 +60,18 @@ namespace Shared
                 RecruitmentConstraintAction.ForwardAmount,
                 effectiveRequestedAmount,
                 maximumAllowed);
+        }
+
+        public static int ReconcilePendingAmount(
+            int plannedAmount,
+            int finalChainAmount,
+            bool hasConcreteChainAmount)
+        {
+            int safePlannedAmount = System.Math.Max(0, plannedAmount);
+            if (!hasConcreteChainAmount)
+                return safePlannedAmount;
+
+            return System.Math.Min(safePlannedAmount, System.Math.Max(0, finalChainAmount));
         }
     }
 }

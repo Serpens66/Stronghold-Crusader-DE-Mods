@@ -91,6 +91,8 @@
     <Compile Include="src\AutoTradeSellZeroHook.cs" />
     <Compile Include="src\CameraMovementModifierHook.cs" />
     <Compile Include="src\CustomTrailExtremeGoldFixHook.cs" />
+    <Compile Include="src\CustomLordExtendedPackagePolicy.cs" />
+    <Compile Include="src\CustomLordExtendedPackageFeature.cs" />
     <Compile Include="src\CustomLordListEnhancementHook.cs" />
     <Compile Include="src\DisplayResolutionPersistenceHook.cs" />
     <Compile Include="src\DisplayResolutionDiagnostic.cs" />

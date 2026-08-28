@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>disable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../../Shared/RecruitmentRequestPolicy.cs" Link="RecruitmentRequestPolicy.cs" />
+    <Compile Include="../../../Shared/RecruitmentHookContext.cs" Link="RecruitmentHookContext.cs" />
+  </ItemGroup>
+</Project>

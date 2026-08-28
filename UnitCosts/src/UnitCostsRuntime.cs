@@ -309,11 +309,15 @@ namespace UnitCosts
             RefreshCurrentRecruitmentCostTooltip();
         }
 
-        private MakeTroopGameActionDecision DecideMakeTroopGameAction(int amount, eChimps unitType, int rawUnitType)
+        private MakeTroopGameActionDecision DecideMakeTroopGameAction(
+            int amount,
+            eChimps unitType,
+            int rawUnitType,
+            bool interpretCtrlSentinel)
         {
             try
             {
-                return DecideLocalHumanRecruitment(amount, unitType, rawUnitType);
+                return DecideLocalHumanRecruitment(amount, unitType, rawUnitType, interpretCtrlSentinel);
             }
             catch (Exception ex)
             {
@@ -322,7 +326,11 @@ namespace UnitCosts
             }
         }
 
-        private MakeTroopGameActionDecision DecideLocalHumanRecruitment(int amount, eChimps unitType, int rawUnitType)
+        private MakeTroopGameActionDecision DecideLocalHumanRecruitment(
+            int amount,
+            eChimps unitType,
+            int rawUnitType,
+            bool interpretCtrlSentinel)
         {
             if (IsMapEditor())
                 return MakeTroopGameActionDecision.AllowOriginal();
@@ -355,13 +363,20 @@ namespace UnitCosts
                 return MakeTroopGameActionDecision.AllowOriginal();
 
             int vanillaRequestedAmount = amount;
-            if (amount == Shared.RecruitmentRequestPolicy.VanillaCtrlAllAmount &&
+            if (interpretCtrlSentinel &&
                 !TryGetCurrentVanillaRecruitAmount(unitType, out vanillaRequestedAmount))
             {
-                Shared.DebugLogHelper.LogError(
+                // Keep the extra-cost ceiling even when the transient UI preview
+                // is unavailable. Native recruitment still applies all Vanilla costs.
+                Shared.DebugLogHelper.LogWarning(
                     log,
-                    $"UnitCosts blocked Ctrl recruitment because Vanilla's current recruitment amount " +
-                    $"could not be resolved safely: unit={unitType}, player={playerId}, rawUnitType={rawUnitType}.");
+                    $"UnitCosts could not resolve Vanilla's current Ctrl amount; forwarding the " +
+                    $"extra-cost ceiling instead: unit={unitType}, player={playerId}, " +
+                    $"extraAffordable={extraAffordableAmount}, rawUnitType={rawUnitType}.");
+                if (extraAffordableAmount > 0)
+                    return MakeTroopGameActionDecision.ForwardAmount(extraAffordableAmount);
+
+                ShowMissingResourcesMessage(extraLimitingGood);
                 return MakeTroopGameActionDecision.BlockAction();
             }
 
@@ -369,7 +384,8 @@ namespace UnitCosts
                 Shared.RecruitmentRequestPolicy.ApplyMaximum(
                     amount,
                     vanillaRequestedAmount,
-                    extraAffordableAmount);
+                    extraAffordableAmount,
+                    interpretCtrlSentinel);
 
             Shared.DebugLogHelper.LogDebug(
                 log,
@@ -377,6 +393,7 @@ namespace UnitCosts
                 "unit", unitType,
                 "player", playerId,
                 "incomingAmount", amount,
+                "interpretCtrlSentinel", interpretCtrlSentinel,
                 "vanillaRequestedAmount", vanillaRequestedAmount,
                 "effectiveRequestedAmount", constraint.EffectiveRequestedAmount,
                 "extraAffordable", extraAffordableAmount,

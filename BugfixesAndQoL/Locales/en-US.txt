@@ -181,3 +181,5 @@ Common.ModSettingsSearchIncludeToolTips=Search tooltips
 Common.ModSettingsSearchIncludeToolTipsHelp=Also search the explanatory tooltips of settings.
 Common.ModSettingsSearchClearHelp=Clear the settings filter.
 Common.ModSettingsSearchNoResults=No matching settings found.
+BugfixesAndQoL.EnableCustomLordExtendedPackages=Enable complete Custom Lord packages
+BugfixesAndQoL.EnableCustomLordExtendedPackagesHelp=Uploads and displays Script Extender media and localized Lord descriptions stored in info.json, lordmeta.json, and Override. When disabled, these extra files remain completely untouched.

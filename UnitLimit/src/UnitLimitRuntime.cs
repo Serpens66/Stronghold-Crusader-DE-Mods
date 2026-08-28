@@ -117,7 +117,12 @@ namespace UnitLimit
             }
             if (activeUnitCacheAvailable)
             {
-                TryInitializeFeature("recruitment enforcement", () => makeTroopGameActionHook = new MakeTroopGameActionHook(log, DecideMakeTroopGameAction));
+                TryInitializeFeature(
+                    "recruitment enforcement",
+                    () => makeTroopGameActionHook = new MakeTroopGameActionHook(
+                        log,
+                        DecideMakeTroopGameAction,
+                        CompleteMakeTroopGameAction));
                 TryInitializeFeature("recruitment tooltip", () => createTroopHoverHook = new CreateTroopHoverHook(log, UpdateRecruitmentLimitTooltip, ClearUnitLimitTooltip));
                 TryInitializeFeature("recruitment availability UI", () => recruitmentAvailabilityUiHook = new RecruitmentAvailabilityUiHook(log, RefreshRecruitmentButtonAvailability));
             }

@@ -614,6 +614,19 @@ public static class SerpLocalization
         return text;
     }
 
+    internal static string GetActiveLocale()
+    {
+        string source;
+        string rawLanguage;
+        string configuredProvider;
+        string extenderLanguage;
+        return GetCurrentLocale(
+            out source,
+            out rawLanguage,
+            out configuredProvider,
+            out extenderLanguage);
+    }
+
     private static void EnsureLoaded()
     {
         string source;

@@ -3,9 +3,14 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
+    <Nullable>disable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Remove="HookContextPeerA/**/*.cs" />
+    <Compile Remove="HookContextPeerB/**/*.cs" />
     <Compile Include="../../Shared/RecruitmentRequestPolicy.cs" Link="RecruitmentRequestPolicy.cs" />
+    <Compile Include="../../Shared/RecruitmentHookContext.cs" Link="RecruitmentHookContext.cs" />
+    <ProjectReference Include="HookContextPeerA/HookContextPeerA.csproj" />
+    <ProjectReference Include="HookContextPeerB/HookContextPeerB.csproj" />
   </ItemGroup>
 </Project>

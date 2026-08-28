@@ -30,6 +30,7 @@ namespace BugfixesAndQoL
 
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
+        private readonly Func<CustomisationFileManager.CustomLord, CustomLordPackageDetails> detailsProvider;
         private readonly ObservableCollection<FileRow> rows = new ObservableCollection<FileRow>();
         private readonly Random random = new Random();
         private readonly Hook addClickHook;
@@ -54,14 +55,24 @@ namespace BugfixesAndQoL
         private bool detailDisplayFailureLogged;
         private bool customLordDetailsOwned;
         private string selectedLordPower = string.Empty;
+        private string selectedLordDescription = string.Empty;
+        private string selectedLordDifficultyRating = string.Empty;
+        private string selectedLordFavouriteTroops = string.Empty;
+        private string selectedLordCastles = string.Empty;
+        private string selectedLordPlayStyle = string.Empty;
+        private string selectedLordFavouriteSaying = string.Empty;
         private Visibility selectedLordDetailsVisibility = Visibility.Collapsed;
         private CustomisationFileManager.CustomLord selectedLordDetails;
         private bool disposed;
 
-        public CustomLordListEnhancementHook(ManualLogSource log, BugfixesAndQoLViewModel settings)
+        public CustomLordListEnhancementHook(
+            ManualLogSource log,
+            BugfixesAndQoLViewModel settings,
+            Func<CustomisationFileManager.CustomLord, CustomLordPackageDetails> detailsProvider)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
+            this.detailsProvider = detailsProvider ?? throw new ArgumentNullException(nameof(detailsProvider));
             ClearSearchCommand = new RelayCommand(ClearSearch);
             RandomCustomLordCommand = new RelayCommand(AddRandomCustomLord, CanAddRandomCustomLord);
 
@@ -128,9 +139,21 @@ namespace BugfixesAndQoL
         public RelayCommand RandomCustomLordCommand { get; }
         public TextureSource SelectedLordPortrait => selectedLordPortrait;
         public string SelectedLordPower => selectedLordPower;
+        public string SelectedLordDescription => selectedLordDescription;
+        public string SelectedLordDifficultyRating => selectedLordDifficultyRating;
+        public string SelectedLordFavouriteTroops => selectedLordFavouriteTroops;
+        public string SelectedLordCastles => selectedLordCastles;
+        public string SelectedLordPlayStyle => selectedLordPlayStyle;
+        public string SelectedLordFavouriteSaying => selectedLordFavouriteSaying;
         public Visibility SelectedLordDetailsVisibility => selectedLordDetailsVisibility;
         public Visibility SelectedLordPortraitVisibility =>
             ReferenceEquals(selectedLordPortrait, null) ? Visibility.Collapsed : Visibility.Visible;
+        public Visibility SelectedLordDescriptionVisibility => GetTextVisibility(selectedLordDescription);
+        public Visibility SelectedLordDifficultyRatingVisibility => GetTextVisibility(selectedLordDifficultyRating);
+        public Visibility SelectedLordFavouriteTroopsVisibility => GetTextVisibility(selectedLordFavouriteTroops);
+        public Visibility SelectedLordCastlesVisibility => GetTextVisibility(selectedLordCastles);
+        public Visibility SelectedLordPlayStyleVisibility => GetTextVisibility(selectedLordPlayStyle);
+        public Visibility SelectedLordFavouriteSayingVisibility => GetTextVisibility(selectedLordFavouriteSaying);
         public Visibility EnhancementVisibility => IsActive ? Visibility.Visible : Visibility.Collapsed;
         public Visibility SearchPlaceholderVisibility =>
             IsActive && !searchHasFocus && string.IsNullOrEmpty(searchText)
@@ -164,6 +187,8 @@ namespace BugfixesAndQoL
 
         public void ApplySetting()
         {
+            // Force the selected row to be rebound when either Custom Lord setting changes.
+            selectedLordDetails = null;
             OnPropertyChanged(nameof(EnhancementVisibility));
             OnPropertyChanged(nameof(SearchPlaceholderVisibility));
             RandomCustomLordCommand.RaiseCanExecuteChanged();
@@ -509,6 +534,7 @@ namespace BugfixesAndQoL
 
             if (!shouldShow)
             {
+                SetPackageDetails(CustomLordPackageDetails.Empty);
                 ReleaseCustomLordDetails();
                 return;
             }
@@ -518,6 +544,7 @@ namespace BugfixesAndQoL
 
             // Vanilla's enter path cancels any delayed rollover clear before we take ownership.
             activeView.AILordEnter("98");
+            SetPackageDetails(detailsProvider(lord));
             MainViewModel viewModel = MainViewModel.Instance;
             viewModel.SkirmishLordRolloverName = lord.lordDisplayName ?? lord.lordName ?? string.Empty;
             viewModel.SkirmishLordRolloverName2 = string.Empty;
@@ -593,6 +620,58 @@ namespace BugfixesAndQoL
             return !string.IsNullOrEmpty(value) &&
                    value.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0;
         }
+
+        private void SetPackageDetails(CustomLordPackageDetails details)
+        {
+            details = details ?? CustomLordPackageDetails.Empty;
+            SetDetailText(
+                ref selectedLordDescription,
+                details.Description,
+                nameof(SelectedLordDescription),
+                nameof(SelectedLordDescriptionVisibility));
+            SetDetailText(
+                ref selectedLordDifficultyRating,
+                details.DifficultyRating,
+                nameof(SelectedLordDifficultyRating),
+                nameof(SelectedLordDifficultyRatingVisibility));
+            SetDetailText(
+                ref selectedLordFavouriteTroops,
+                details.FavouriteTroops,
+                nameof(SelectedLordFavouriteTroops),
+                nameof(SelectedLordFavouriteTroopsVisibility));
+            SetDetailText(
+                ref selectedLordCastles,
+                details.Castles,
+                nameof(SelectedLordCastles),
+                nameof(SelectedLordCastlesVisibility));
+            SetDetailText(
+                ref selectedLordPlayStyle,
+                details.PlayStyle,
+                nameof(SelectedLordPlayStyle),
+                nameof(SelectedLordPlayStyleVisibility));
+            SetDetailText(
+                ref selectedLordFavouriteSaying,
+                details.FavouriteSaying,
+                nameof(SelectedLordFavouriteSaying),
+                nameof(SelectedLordFavouriteSayingVisibility));
+        }
+
+        private void SetDetailText(
+            ref string field,
+            string value,
+            string propertyName,
+            string visibilityPropertyName)
+        {
+            value = value ?? string.Empty;
+            if (string.Equals(field, value, StringComparison.Ordinal))
+                return;
+            field = value;
+            OnPropertyChanged(propertyName);
+            OnPropertyChanged(visibilityPropertyName);
+        }
+
+        private static Visibility GetTextVisibility(string text) =>
+            string.IsNullOrWhiteSpace(text) ? Visibility.Collapsed : Visibility.Visible;
 
         private void OnPropertyChanged(string propertyName)
         {
