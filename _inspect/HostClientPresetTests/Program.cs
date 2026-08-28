@@ -6,6 +6,7 @@ using Shared;
 using SHCDESE.API;
 using SHCDESE.API.Components.ModManager;
 using SHCDESE.API.Components.Network;
+using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
@@ -44,6 +45,8 @@ internal static class Program
             TestEnemyProximityPolicy();
             TestAssassinClimbCancellationPolicy();
             TestAssassinClimbCostPolicy();
+            TestAssassinCombatResumePolicy();
+            TestAssassinCombatResumeNativeDefinition();
             TestAssassinPathReconstructionNativeDefinition();
             TestTroopActionButtonLayoutPolicy();
             TestLordHealthMultiplierPolicy();
@@ -1799,6 +1802,117 @@ internal static class Program
                 .Take(AssassinPathReconstructionNativeDefinition.OriginalNeighborTileRejectJump.Length)
                 .SequenceEqual(AssassinPathReconstructionNativeDefinition.OriginalNeighborTileRejectJump),
             "Assassin reconstruction jump offsets no longer select both audited Vanilla guards");
+    }
+
+    private static void TestAssassinCombatResumePolicy()
+    {
+        Check(AssassinCombatResumePolicy.ShouldUseAssassinPathContext(
+                true,
+                true,
+                true,
+                true,
+                AliveState.IsAlive,
+                eChimps.CHIMP_TYPE_ARAB_ASSASIN),
+            "enabled Assassin combat resume rejected a living Assassin");
+        Check(!AssassinCombatResumePolicy.ShouldUseAssassinPathContext(
+                false, true, true, true, AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN) &&
+              !AssassinCombatResumePolicy.ShouldUseAssassinPathContext(
+                true, false, true, true, AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN) &&
+              !AssassinCombatResumePolicy.ShouldUseAssassinPathContext(
+                true, true, false, true, AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN) &&
+              !AssassinCombatResumePolicy.ShouldUseAssassinPathContext(
+                true, true, true, false, AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN),
+            "Assassin combat resume did not fail closed outside the fully installed enabled feature");
+        Check(!AssassinCombatResumePolicy.ShouldUseAssassinPathContext(
+                true, true, true, true, AliveState.MarkedForDeletion, eChimps.CHIMP_TYPE_ARAB_ASSASIN) &&
+              !AssassinCombatResumePolicy.ShouldUseAssassinPathContext(
+                true, true, true, true, AliveState.IsAlive, eChimps.CHIMP_TYPE_KNIGHT),
+            "Assassin combat resume accepted a dead or non-Assassin unit");
+    }
+
+    private static void TestAssassinCombatResumeNativeDefinition()
+    {
+        const string dllPath = @"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll";
+        byte[] file = File.ReadAllBytes(dllPath);
+        string hash;
+        using (System.Security.Cryptography.SHA256 sha256 = System.Security.Cryptography.SHA256.Create())
+            hash = BitConverter.ToString(sha256.ComputeHash(file)).Replace("-", string.Empty);
+        Check(
+            string.Equals(hash, AssassinCombatResumeNativeDefinition.ReferenceSha256, StringComparison.OrdinalIgnoreCase),
+            "canonical CrusaderDE.dll hash changed for the Assassin combat-resume contract");
+
+        byte[] image = LoadPeImage(file);
+        NativeResolution resume = NativePatternResolver.ResolveUnique(
+            image,
+            AssassinCombatResumeNativeDefinition.ResumeOldOrderPattern,
+            AssassinCombatResumeNativeDefinition.ResumeOldOrderRva,
+            referenceHashMatches: false,
+            "test Assassin post-combat movement-order resume");
+        Check(
+            resume.Rva == AssassinCombatResumeNativeDefinition.ResumeOldOrderRva &&
+            resume.Method == "signature-fallback",
+            "Assassin post-combat movement-order resume signature was not unique at its audited RVA");
+
+        NativeResolution resumePath = NativePatternResolver.ResolveUnique(
+            image,
+            AssassinCombatResumeNativeDefinition.ResumePathRequestSequence,
+            AssassinCombatResumeNativeDefinition.ResumePathRequestSequenceRva,
+            referenceHashMatches: false,
+            "test Assassin resumed path request");
+        int resumedPathTarget = NativePatternResolver.ResolveRelativeTarget(
+            image,
+            resumePath.Rva + AssassinCombatResumeNativeDefinition.ResumePathRequestCallOffset + 1,
+            resumePath.Rva + AssassinCombatResumeNativeDefinition.ResumePathRequestCallOffset + 5);
+        Check(
+            resumedPathTarget == AssassinCombatResumeNativeDefinition.CommonPathRequestRva,
+            "Assassin combat resume no longer calls the audited common path request");
+
+        NativeResolution moveHereContext = NativePatternResolver.ResolveUnique(
+            image,
+            AssassinCombatResumeNativeDefinition.MoveHereContextSequence,
+            AssassinCombatResumeNativeDefinition.MoveHereContextSequenceRva,
+            referenceHashMatches: false,
+            "test MoveHere Assassin path context");
+        int clearedFlagTarget = NativePatternResolver.ResolveRelativeTarget(
+            image,
+            moveHereContext.Rva + AssassinCombatResumeNativeDefinition.MoveHereContextClearOffset + 2,
+            moveHereContext.Rva + AssassinCombatResumeNativeDefinition.MoveHereContextClearOffset + 6);
+        int setFlagTarget = NativePatternResolver.ResolveRelativeTarget(
+            image,
+            moveHereContext.Rva + AssassinCombatResumeNativeDefinition.MoveHereContextSetOffset + 2,
+            moveHereContext.Rva + AssassinCombatResumeNativeDefinition.MoveHereContextSetOffset + 6);
+        Check(
+            clearedFlagTarget == AssassinCombatResumeNativeDefinition.AssassinPathContextFlagRva &&
+            setFlagTarget == AssassinCombatResumeNativeDefinition.AssassinPathContextFlagRva,
+            "MoveHere no longer clears and sets the audited Assassin path-context flag");
+
+        NativeResolution moveHerePath = NativePatternResolver.ResolveUnique(
+            image,
+            AssassinCombatResumeNativeDefinition.MoveHerePathRequestSequence,
+            AssassinCombatResumeNativeDefinition.MoveHerePathRequestSequenceRva,
+            referenceHashMatches: false,
+            "test MoveHere path request");
+        int moveHerePathTarget = NativePatternResolver.ResolveRelativeTarget(
+            image,
+            moveHerePath.Rva + AssassinCombatResumeNativeDefinition.MoveHerePathRequestCallOffset + 1,
+            moveHerePath.Rva + AssassinCombatResumeNativeDefinition.MoveHerePathRequestCallOffset + 5);
+        Check(
+            moveHerePathTarget == AssassinCombatResumeNativeDefinition.CommonPathRequestRva,
+            "MoveHere and combat resume no longer use the same common path request");
+
+        NativeResolution dispatcher = NativePatternResolver.ResolveUnique(
+            image,
+            AssassinCombatResumeNativeDefinition.DispatcherAssassinBranchPattern,
+            AssassinCombatResumeNativeDefinition.DispatcherAssassinBranchRva,
+            referenceHashMatches: false,
+            "test Assassin path-builder dispatcher branch");
+        int assassinBuilderTarget = NativePatternResolver.ResolveRelativeTarget(
+            image,
+            dispatcher.Rva + AssassinCombatResumeNativeDefinition.DispatcherAssassinBuilderCallOffset + 1,
+            dispatcher.Rva + AssassinCombatResumeNativeDefinition.DispatcherAssassinBuilderCallOffset + 5);
+        Check(
+            assassinBuilderTarget == AssassinCombatResumeNativeDefinition.AssassinPathBuilderRva,
+            "path dispatcher no longer routes the special context to the Assassin path builder");
     }
 
     private static void TestAssassinClimbCancellationPolicy()
@@ -5112,12 +5226,21 @@ namespace SHCDESE.Interop
     public enum eChimps : ushort
     {
         CHIMP_TYPE_KNIGHT = 28,
+        CHIMP_TYPE_ARAB_ASSASIN = 73,
         CHIMP_TYPE_LORD = 55
     }
 }
 
 namespace SHCDESE.Interop.Enums
 {
+    public enum AliveState : short
+    {
+        None = 0,
+        NeedsInit = 1,
+        IsAlive = 2,
+        MarkedForDeletion = 3
+    }
+
     public enum TribeAICommand : uint
     {
         UnitStop = 31

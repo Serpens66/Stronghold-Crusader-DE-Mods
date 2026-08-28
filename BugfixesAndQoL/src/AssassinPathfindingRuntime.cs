@@ -23,13 +23,16 @@ namespace BugfixesAndQoL
             int continuation);
 
         [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+        private delegate int ResumeOldOrderDelegate(IntPtr tribeManager, int unitId, int internalCommand);
+
+        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
         private delegate byte SpecialTilePredicateDelegate(IntPtr context, int tileId);
 
         private const int MapWidth = 800;
         private const int CoordinateCount = MapWidth * MapWidth;
         private const int TileCount = 320800;
         private const int MaximumCommittedPathLength = 2000;
-        private const int AssassinBuilderRva = 0xD9C40;
+        private const int AssassinBuilderRva = AssassinCombatResumeNativeDefinition.AssassinPathBuilderRva;
         private const int SpecialTilePredicateRva = 0x107160;
         private const int SpecialTilePredicateContextRva = 0x32DE440;
         private const int ValidCoordinateGridRva = 0x3A11EA4;
@@ -66,9 +69,13 @@ namespace BugfixesAndQoL
         private IntPtr libraryHandle;
         private AssassinPathBuilderDelegate original;
         private AssassinPathBuilderDelegate rootedDetour;
+        private ResumeOldOrderDelegate originalResumeOldOrder;
+        private ResumeOldOrderDelegate rootedResumeOldOrderDetour;
         private SpecialTilePredicateDelegate specialTilePredicate;
         private NativeDetour detour;
+        private NativeDetour resumeOldOrderDetour;
         private AssassinPathReconstructionPatch reconstructionPatch;
+        private int* assassinPathContextFlag;
         private byte* validCoordinates;
         private int* rowLookup;
         private uint* tileFlags;
@@ -98,7 +105,7 @@ namespace BugfixesAndQoL
             }
         }
 
-        public bool IsInstalled => detour != null;
+        public bool IsInstalled => detour != null && resumeOldOrderDetour != null;
 
         public void InitializeNative(IntPtr newLibraryHandle, ReadOnlySpan<byte> memory, bool fixedLayoutHashValidated)
         {
@@ -106,7 +113,9 @@ namespace BugfixesAndQoL
                 return;
             if (!fixedLayoutHashValidated)
                 throw new InvalidOperationException("fixed native layout hash does not match the supported CrusaderDE.dll");
-            if (newLibraryHandle == IntPtr.Zero || memory.Length <= NativeVisitStampLayerRva + TileCount * sizeof(short))
+            if (newLibraryHandle == IntPtr.Zero ||
+                memory.Length <= NativeVisitStampLayerRva + TileCount * sizeof(short) ||
+                memory.Length <= AssassinCombatResumeNativeDefinition.AssassinPathContextFlagRva + sizeof(int))
                 throw new InvalidOperationException("native module memory does not cover the required Assassin pathfinding layers");
 
             Shared.NativeResolution resolution = Shared.NativePatternResolver.ResolveUnique(
@@ -120,6 +129,17 @@ namespace BugfixesAndQoL
             if (resolved != IntPtr.Add(newLibraryHandle, AssassinBuilderRva))
                 throw new InvalidOperationException("Assassin path-cost builder resolved outside its validated RVA");
 
+            Shared.NativeResolution resumeResolution = Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                AssassinCombatResumeNativeDefinition.ResumeOldOrderPattern,
+                AssassinCombatResumeNativeDefinition.ResumeOldOrderRva,
+                referenceHashMatches: true,
+                "Assassin post-combat movement-order resume",
+                log);
+            IntPtr resolvedResumeOldOrder = IntPtr.Add(newLibraryHandle, resumeResolution.Rva);
+            if (resumeResolution.Rva != AssassinCombatResumeNativeDefinition.ResumeOldOrderRva)
+                throw new InvalidOperationException("Assassin movement-order resume resolved outside its validated RVA");
+
             libraryHandle = newLibraryHandle;
             validCoordinates = (byte*)IntPtr.Add(newLibraryHandle, ValidCoordinateGridRva).ToPointer();
             rowLookup = (int*)IntPtr.Add(newLibraryHandle, RowLookupRva).ToPointer();
@@ -130,13 +150,21 @@ namespace BugfixesAndQoL
             nativeDistances = (short*)IntPtr.Add(newLibraryHandle, NativeDistanceLayerRva).ToPointer();
             nativeVisitStamps = (short*)IntPtr.Add(newLibraryHandle, NativeVisitStampLayerRva).ToPointer();
             directionMasks = (byte*)IntPtr.Add(newLibraryHandle, DirectionMaskRva).ToPointer();
+            assassinPathContextFlag = (int*)IntPtr.Add(
+                newLibraryHandle,
+                AssassinCombatResumeNativeDefinition.AssassinPathContextFlagRva).ToPointer();
             specialTilePredicate = Marshal.GetDelegateForFunctionPointer<SpecialTilePredicateDelegate>(
                 IntPtr.Add(newLibraryHandle, SpecialTilePredicateRva));
 
             rootedDetour = BuildWeightedPath;
             IntPtr detourAddress = Marshal.GetFunctionPointerForDelegate(rootedDetour);
+            rootedResumeOldOrderDetour = ResumeOldOrderAfterCombat;
+            IntPtr resumeDetourAddress = Marshal.GetFunctionPointerForDelegate(rootedResumeOldOrderDetour);
             NativeDetour installed = null;
+            NativeDetour installedResumeOldOrder = null;
             AssassinPathReconstructionPatch pendingReconstructionPatch = null;
+            bool builderApplied = false;
+            bool resumeApplied = false;
             try
             {
                 pendingReconstructionPatch = new AssassinPathReconstructionPatch(
@@ -146,20 +174,37 @@ namespace BugfixesAndQoL
                     referenceHashMatches: true);
                 installed = new NativeDetour(resolved, detourAddress, new NativeDetourConfig { ManualApply = true });
                 original = installed.GenerateTrampoline<AssassinPathBuilderDelegate>();
+                installedResumeOldOrder = new NativeDetour(
+                    resolvedResumeOldOrder,
+                    resumeDetourAddress,
+                    new NativeDetourConfig { ManualApply = true });
+                originalResumeOldOrder = installedResumeOldOrder.GenerateTrampoline<ResumeOldOrderDelegate>();
                 installed.Apply();
+                builderApplied = true;
+                installedResumeOldOrder.Apply();
+                resumeApplied = true;
                 detour = installed;
+                resumeOldOrderDetour = installedResumeOldOrder;
                 reconstructionPatch = pendingReconstructionPatch;
                 ApplySetting();
-                LogDebug($"weighted Assassin pathfinding installed at RVA 0x{AssassinBuilderRva:X}; climb costs={AssassinClimbCostPolicy.MinimumClimbTicks}/{AssassinClimbCostPolicy.LowWallClimbTicks}/{AssassinClimbCostPolicy.NormalWallClimbTicks} ticks.");
+                LogDebug($"weighted Assassin pathfinding installed at RVA 0x{AssassinBuilderRva:X}, including post-combat order resume at RVA 0x{AssassinCombatResumeNativeDefinition.ResumeOldOrderRva:X}; climb costs={AssassinClimbCostPolicy.MinimumClimbTicks}/{AssassinClimbCostPolicy.LowWallClimbTicks}/{AssassinClimbCostPolicy.NormalWallClimbTicks} ticks.");
             }
             catch
             {
                 if (pendingReconstructionPatch?.IsApplied == true)
                     pendingReconstructionPatch.SetEnabled(false);
+                if (resumeApplied)
+                    installedResumeOldOrder?.Undo();
+                installedResumeOldOrder?.Dispose();
+                if (builderApplied)
+                    installed?.Undo();
                 installed?.Dispose();
                 original = null;
                 rootedDetour = null;
+                originalResumeOldOrder = null;
+                rootedResumeOldOrderDetour = null;
                 detour = null;
+                resumeOldOrderDetour = null;
                 reconstructionPatch = null;
                 throw;
             }
@@ -233,6 +278,41 @@ namespace BugfixesAndQoL
                     LogError($"weighted Assassin pathfinding failed and this request fell back to Vanilla: {ex}");
                 }
                 return vanillaResult;
+            }
+        }
+
+        private int ResumeOldOrderAfterCombat(IntPtr tribeManager, int unitId, int internalCommand)
+        {
+            ResumeOldOrderDelegate vanilla = originalResumeOldOrder;
+            if (vanilla == null)
+                return 0;
+
+            GameUnit* unit = null;
+            bool unitResolved = unitId > 0 &&
+                GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out unit) &&
+                unit != null;
+            if (!AssassinCombatResumePolicy.ShouldUseAssassinPathContext(
+                    settings.EnableMod,
+                    settings.EnableImprovedAssassinPathfinding,
+                    IsInstalled,
+                    unitResolved,
+                    unitResolved ? unit->r_AliveState : default,
+                    unitResolved ? unit->r_UnitChimp : default))
+            {
+                return vanilla(tribeManager, unitId, internalCommand);
+            }
+
+            // MoveHere sets this flag before creating the path context, but Vanilla's combat
+            // resume omits it. Scope the correction to this one Assassin order reissue.
+            int previousPathContext = *assassinPathContextFlag;
+            *assassinPathContextFlag = 1;
+            try
+            {
+                return vanilla(tribeManager, unitId, internalCommand);
+            }
+            finally
+            {
+                *assassinPathContextFlag = previousPathContext;
             }
         }
 
