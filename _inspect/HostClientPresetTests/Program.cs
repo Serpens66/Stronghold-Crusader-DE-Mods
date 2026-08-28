@@ -48,7 +48,7 @@ internal static class Program
             TestTroopActionButtonLayoutPolicy();
             TestLordHealthMultiplierPolicy();
             TestQuarryPileTargetSelectionPolicy();
-            TestQuarryPileLinkRepairPolicy();
+            TestQuarryPileVanillaGroupPolicy();
             TestTemporaryGateBlockagePolicy();
             TestGatehouseAutomationSaveState();
             TestBoundedSaveStateDeserialization();
@@ -2118,43 +2118,66 @@ internal static class Program
             "AI quarry-pile selection accepted an empty valid-candidate set");
     }
 
-    private static void TestQuarryPileLinkRepairPolicy()
+    private static void TestQuarryPileVanillaGroupPolicy()
     {
-        var repairs = new List<QuarryPileLinkRepair>();
-        var conflicts = new List<int>();
-        QuarryPileLinkRepairSummary summary = QuarryPileLinkRepairPolicy.PlanRepairs(
+        QuarryPileVanillaGroupResolution valid = QuarryPileVanillaGroupPolicy.Resolve(700, 700);
+        Check(valid.Status == QuarryPileVanillaGroupStatus.Valid && valid.CanUse &&
+              !valid.RepairsPileGroup && valid.GroupId == 700,
+            "matching Vanilla quarry-pile groups were not accepted");
+
+        QuarryPileVanillaGroupResolution missingPile = QuarryPileVanillaGroupPolicy.Resolve(701, 0);
+        Check(missingPile.Status == QuarryPileVanillaGroupStatus.RepairMissingPileGroup &&
+              missingPile.CanUse && missingPile.RepairsPileGroup && missingPile.GroupId == 701,
+            "a missing legacy pile group was not resolved from its quarry");
+
+        QuarryPileVanillaGroupResolution missingQuarry = QuarryPileVanillaGroupPolicy.Resolve(0, 701);
+        QuarryPileVanillaGroupResolution conflict = QuarryPileVanillaGroupPolicy.Resolve(701, 702);
+        Check(!missingQuarry.CanUse && missingQuarry.Status == QuarryPileVanillaGroupStatus.MissingQuarryGroup &&
+              !conflict.CanUse && conflict.Status == QuarryPileVanillaGroupStatus.ConflictingGroups,
+            "missing or conflicting Vanilla structure groups were not rejected fail-closed");
+
+        var repairs = new List<QuarryPileVanillaGroupRepair>();
+        var ambiguities = new List<int>();
+        QuarryPileVanillaGroupRepairSummary summary = QuarryPileVanillaGroupPolicy.PlanRepairs(
             new[]
             {
-                new QuarryPileLinkCandidate(10, 20, 10, true),
-                new QuarryPileLinkCandidate(11, 21, 0, true),
-                new QuarryPileLinkCandidate(12, 22, 99, true),
-                new QuarryPileLinkCandidate(13, 0, 0, false)
+                new QuarryPileVanillaGroupCandidate(10, 20, 500, 500, 0, true),
+                new QuarryPileVanillaGroupCandidate(11, 21, 501, 0, 11, true),
+                new QuarryPileVanillaGroupCandidate(12, 22, 502, 502, 12, true),
+                new QuarryPileVanillaGroupCandidate(13, 23, 0, 0, 0, true),
+                new QuarryPileVanillaGroupCandidate(14, 0, 504, 0, 0, false)
             },
             repairs,
-            conflicts);
-        Check(summary.ValidPairs == 3 && summary.AlreadyLinked == 1 &&
+            ambiguities);
+        Check(summary.ValidPairs == 4 && summary.AlreadyValid == 1 &&
               summary.PlannedRepairs == 2 && summary.InvalidCandidates == 1 &&
-              summary.ConflictingPiles == 0,
-            "quarry-pile backlink repair summary was incorrect");
+              summary.AmbiguousPiles == 0 && summary.RejectedGroups == 1,
+            "Vanilla quarry-pile group repair summary was incorrect");
         Check(repairs.Count == 2 &&
-              repairs[0].QuarryId == 11 && repairs[0].PileId == 21 &&
-              repairs[1].QuarryId == 12 && repairs[1].PileId == 22,
-            "missing or stale quarry-pile backlinks were not planned deterministically");
+              repairs[0].QuarryId == 11 && repairs[0].PileId == 21 && repairs[0].GroupId == 501 &&
+              repairs[0].AssignPileGroup && repairs[0].ClearLegacyReverseLink &&
+              repairs[1].QuarryId == 12 && repairs[1].PileId == 22 && !repairs[1].AssignPileGroup &&
+              repairs[1].ClearLegacyReverseLink,
+            "missing Vanilla groups and legacy reverse links were not repaired deterministically");
+        Check(QuarryPileVanillaGroupPolicy.IsLegacyReverseLink(11, 11) &&
+              !QuarryPileVanillaGroupPolicy.IsLegacyReverseLink(11, 12) &&
+              !QuarryPileVanillaGroupPolicy.IsLegacyReverseLink(0, 0),
+            "legacy 1.0.84 reverse-link detection was not sufficiently narrow");
 
         repairs.Clear();
-        conflicts.Clear();
-        summary = QuarryPileLinkRepairPolicy.PlanRepairs(
+        ambiguities.Clear();
+        summary = QuarryPileVanillaGroupPolicy.PlanRepairs(
             new[]
             {
-                new QuarryPileLinkCandidate(30, 40, 0, true),
-                new QuarryPileLinkCandidate(31, 40, 0, true),
-                new QuarryPileLinkCandidate(32, 41, 0, false)
+                new QuarryPileVanillaGroupCandidate(30, 40, 600, 0, 30, true),
+                new QuarryPileVanillaGroupCandidate(31, 40, 601, 0, 31, true),
+                new QuarryPileVanillaGroupCandidate(32, 41, 602, 0, 32, false)
             },
             repairs,
-            conflicts);
-        Check(repairs.Count == 0 && conflicts.Count == 1 && conflicts[0] == 40 &&
-              summary.ConflictingPiles == 1 && summary.InvalidCandidates == 1,
-            "ambiguous or invalid quarry-pile links were not rejected fail-closed");
+            ambiguities);
+        Check(repairs.Count == 0 && ambiguities.Count == 1 && ambiguities[0] == 40 &&
+              summary.AmbiguousPiles == 1 && summary.InvalidCandidates == 1,
+            "ambiguous or invalid Vanilla quarry-pile groups were not rejected fail-closed");
     }
 
     private static void TestGameSpeedRepeatScheduler()

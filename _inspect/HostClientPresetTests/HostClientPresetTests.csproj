@@ -140,8 +140,8 @@
     <Compile Include="..\..\ExtraFeatures\src\QuarryPileTargetSelectionPolicy.cs">
       <Link>QuarryPileTargetSelectionPolicy.cs</Link>
     </Compile>
-    <Compile Include="..\..\ExtraFeatures\src\QuarryPileLinkRepairPolicy.cs">
-      <Link>QuarryPileLinkRepairPolicy.cs</Link>
+    <Compile Include="..\..\ExtraFeatures\src\QuarryPileVanillaGroupPolicy.cs">
+      <Link>QuarryPileVanillaGroupPolicy.cs</Link>
     </Compile>
     <Compile Include="..\..\ExtraFeatures\src\TemporaryGateBlockagePolicy.cs">
       <Link>TemporaryGateBlockagePolicy.cs</Link>
