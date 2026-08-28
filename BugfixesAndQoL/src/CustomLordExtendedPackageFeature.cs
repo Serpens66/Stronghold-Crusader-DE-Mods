@@ -23,6 +23,7 @@ namespace BugfixesAndQoL
         private sealed class CacheEntry
         {
             internal PackageSignature Signature;
+            internal string Locale;
             internal CustomLordPackageDetails Details;
         }
 
@@ -117,13 +118,18 @@ namespace BugfixesAndQoL
                 return CustomLordPackageDetails.Empty;
             }
 
-            if (metadataCache.TryGetValue(root, out CacheEntry cached) && cached.Signature.Equals(signature))
+            string locale = SerpLocalization.GetActiveLocale();
+            if (metadataCache.TryGetValue(root, out CacheEntry cached) &&
+                cached.Signature.Equals(signature) &&
+                string.Equals(cached.Locale, locale, StringComparison.OrdinalIgnoreCase))
+            {
                 return cached.Details;
+            }
 
             CustomLordPackageDetails details = CustomLordPackageDetails.Empty;
             if (!CustomLordExtendedPackagePolicy.TryLoadDetails(
                     root,
-                    SerpLocalization.GetActiveLocale(),
+                    locale,
                     out CustomLordPackageDetails loaded,
                     out string error))
             {
@@ -136,7 +142,7 @@ namespace BugfixesAndQoL
                 details = loaded;
             }
 
-            metadataCache[root] = new CacheEntry { Signature = signature, Details = details };
+            metadataCache[root] = new CacheEntry { Signature = signature, Locale = locale, Details = details };
             return details;
         }
 
@@ -162,7 +168,7 @@ namespace BugfixesAndQoL
             Action failAction)
         {
             // Do not enumerate lords or touch package files unless the host explicitly enables the feature.
-            if (IsEnabled && HasExactCustomLordTag(tags))
+            if (IsEnabled && CustomLordExtendedPackagePolicy.IsCustomLordWorkshopUpload(tags))
             {
                 try
                 {
@@ -199,6 +205,14 @@ namespace BugfixesAndQoL
                 return;
             }
 
+            if (string.IsNullOrWhiteSpace(uploadContentRoot) || !Directory.Exists(uploadContentRoot))
+            {
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    "Extended Custom Lord data was omitted because Vanilla's upload staging directory is unavailable.");
+                return;
+            }
+
             List<CustomisationFileManager.CustomLord> localLords =
                 CustomisationFileManager.Instance.GetCustomLords(includeWorkshop: false);
             CustomisationFileManager.CustomLord sourceLord = null;
@@ -225,11 +239,14 @@ namespace BugfixesAndQoL
                 .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
             string destination = Path.GetFullPath(Path.Combine(stagingRoot, mapTitle));
             string stagingPrefix = stagingRoot + Path.DirectorySeparatorChar;
-            if (!destination.StartsWith(stagingPrefix, StringComparison.OrdinalIgnoreCase))
+            if (!destination.StartsWith(stagingPrefix, StringComparison.OrdinalIgnoreCase) ||
+                (File.GetAttributes(stagingRoot) & FileAttributes.ReparsePoint) != 0 ||
+                !Directory.Exists(destination) ||
+                (File.GetAttributes(destination) & FileAttributes.ReparsePoint) != 0)
             {
                 Shared.DebugLogHelper.LogWarning(
                     log,
-                    "Extended Custom Lord data was omitted because the staging path escaped Vanilla's upload directory.");
+                    "Extended Custom Lord data was omitted because Vanilla's staging path is unsafe or incomplete.");
                 return;
             }
 
@@ -248,18 +265,6 @@ namespace BugfixesAndQoL
             Shared.DebugLogHelper.LogInfo(
                 log,
                 $"Added {copiedFileCount} extended Custom Lord package files to Workshop staging for [{mapTitle}].");
-        }
-
-        private static bool HasExactCustomLordTag(string[] tags)
-        {
-            if (tags == null)
-                return false;
-            foreach (string tag in tags)
-            {
-                if (string.Equals(tag, "Custom Lord", StringComparison.Ordinal))
-                    return true;
-            }
-            return false;
         }
 
         private static PackageSignature GetSignature(string root)

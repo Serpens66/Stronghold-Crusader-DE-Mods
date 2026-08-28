@@ -55,6 +55,18 @@ namespace BugfixesAndQoL
             "LocalizedFavouriteSaying"
         };
 
+        internal static bool IsCustomLordWorkshopUpload(string[] tags)
+        {
+            if (tags == null)
+                return false;
+            foreach (string tag in tags)
+            {
+                if (string.Equals(tag, "Custom Lord", StringComparison.Ordinal))
+                    return true;
+            }
+            return false;
+        }
+
         internal static bool TryLoadDetails(
             string lordRoot,
             string locale,
@@ -143,8 +155,9 @@ namespace BugfixesAndQoL
                     string destination = GetContainedPath(destinationRoot, file.RelativePath);
                     string destinationDirectory = Path.GetDirectoryName(destination);
                     CreateDirectoryChain(destinationRoot, destinationDirectory, createdDirectories);
-                    File.Copy(file.SourcePath, destination, true);
+                    // Track before copying so even a partially created destination is removed on failure.
                     copiedDestinations.Add(destination);
+                    File.Copy(file.SourcePath, destination, true);
                 }
 
                 copiedFileCount = copiedDestinations.Count;

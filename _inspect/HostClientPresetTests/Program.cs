@@ -60,6 +60,7 @@ internal static class Program
             TestMultiplayerGameSpeedPolicyAndPacket();
             TestSiegeAmmoRestockPolicyAndPacket();
             TestMarketTradeIntegration();
+            TestCustomLordExtendedPackagePolicy();
             TestGameSpeedRepeatScheduler();
             TestArrayPerPlayerSetting();
             TestMarketOrderPresetRoundTrip();
@@ -2178,6 +2179,190 @@ internal static class Program
         Check(repairs.Count == 0 && ambiguities.Count == 1 && ambiguities[0] == 40 &&
               summary.AmbiguousPiles == 1 && summary.InvalidCandidates == 1,
             "ambiguous or invalid Vanilla quarry-pile groups were not rejected fail-closed");
+    }
+
+    private static void TestCustomLordExtendedPackagePolicy()
+    {
+        string testRoot = Path.Combine(
+            Path.GetTempPath(),
+            "SerpCustomLordPackageTests-" + Guid.NewGuid().ToString("N"));
+        string source = Path.Combine(testRoot, "SourceLord");
+        string staging = Path.Combine(testRoot, "StagingLord");
+        try
+        {
+            Check(
+                CustomLordExtendedPackagePolicy.IsCustomLordWorkshopUpload(new[] { "Custom Lord" }),
+                "the exact Vanilla Custom Lord Workshop tag was not recognized");
+            Check(
+                !CustomLordExtendedPackagePolicy.IsCustomLordWorkshopUpload(new[] { "Custom Trail" }) &&
+                !CustomLordExtendedPackagePolicy.IsCustomLordWorkshopUpload(new[] { "custom lord" }) &&
+                !CustomLordExtendedPackagePolicy.IsCustomLordWorkshopUpload(null),
+                "an unrelated or non-exact Workshop tag entered Custom Lord package handling");
+
+            Directory.CreateDirectory(source);
+            File.WriteAllText(
+                Path.Combine(source, "info.json"),
+                @"{
+  ""GUID"": ""test-lord"",
+  ""Author"": ""Tester"",
+  ""Name"": ""Test Lord"",
+  ""Version"": ""1.0.0"",
+  ""Manifest"": 0
+}");
+            File.WriteAllText(
+                Path.Combine(source, "lordmeta.json"),
+                @"{
+  ""LocalizedDisplayName"": { ""en-US"": ""Test Lord"" },
+  ""FacePath"": ""Assets/GUI/Sprites/test-face"",
+  ""JoinAudioPath"": ""fx/speech/test-join"",
+  ""LeaveAudioPath"": """",
+  ""Messages"": {
+    ""Won"": [
+      {
+        ""VideoPath"": ""Assets/GUI/Video/test-win"",
+        ""AudioPath"": ""fx/speech/test-win"",
+        ""LocalizedText"": { ""en-US"": ""Victory"" }
+      }
+    ]
+  },
+  ""LocalizedDescription"": { ""de-DE"": """", ""en-US"": ""English fallback"" },
+  ""LocalizedDifficultyRating"": { ""de-DE"": ""Schwierig"", ""en-US"": ""Difficult"" },
+  ""LocalizedFavouriteTroops"": { ""en-US"": ""Archers"" },
+  ""LocalizedCastles"": { ""en-US"": ""Compact"" },
+  ""LocalizedPlayStyle"": { ""en-US"": ""Aggressive"" },
+  ""LocalizedFavouriteSaying"": { ""en-US"": ""Forward!"" }
+}");
+
+            string sprites = Path.Combine(source, "Override", "Assets", "GUI", "Sprites");
+            string speech = Path.Combine(source, "Override", "fx", "speech");
+            Directory.CreateDirectory(sprites);
+            Directory.CreateDirectory(speech);
+            File.WriteAllBytes(Path.Combine(sprites, "test-face.png"), new byte[] { 1, 2, 3 });
+            File.WriteAllBytes(Path.Combine(speech, "test-join.ogg"), new byte[] { 4, 5, 6 });
+            File.WriteAllText(Path.Combine(source, "Override", "ignored.txt"), "not uploaded");
+            File.WriteAllText(Path.Combine(source, "init.lua"), "not uploaded");
+
+            Check(
+                CustomLordExtendedPackagePolicy.TryLoadDetails(
+                    source,
+                    "de-DE",
+                    out CustomLordPackageDetails details,
+                    out string detailsError),
+                "valid Custom Lord details were rejected: " + detailsError);
+            Check(details.Description == "English fallback", "blank locale text did not fall back to en-US");
+            Check(details.DifficultyRating == "Schwierig", "current-locale Custom Lord text was not selected");
+            Check(details.FavouriteTroops == "Archers" && details.PlayStyle == "Aggressive",
+                "localized Custom Lord detail fields were not decoded");
+
+            Check(
+                CustomLordExtendedPackagePolicy.TryStageUploadFiles(
+                    source,
+                    staging,
+                    out int copied,
+                    out string stageError),
+                "valid Custom Lord package was not staged: " + stageError);
+            Check(copied == 4, "Custom Lord staging did not copy exactly metadata plus allowed media");
+            Check(File.Exists(Path.Combine(staging, "info.json")) &&
+                  File.Exists(Path.Combine(staging, "lordmeta.json")) &&
+                  File.Exists(Path.Combine(staging, "Override", "Assets", "GUI", "Sprites", "test-face.png")) &&
+                  File.Exists(Path.Combine(staging, "Override", "fx", "speech", "test-join.ogg")),
+                "Custom Lord staging omitted an allowed package file");
+            Check(!File.Exists(Path.Combine(staging, "Override", "ignored.txt")) &&
+                  !File.Exists(Path.Combine(staging, "init.lua")),
+                "Custom Lord staging copied an unsupported file");
+
+            File.WriteAllText(
+                Path.Combine(source, "lordmeta.json"),
+                @"{
+  ""FacePath"": ""Assets/GUI/Sprites/test-face"",
+  ""Messages"": {},
+  ""LocalizedDescription"": 42
+}");
+            Check(
+                CustomLordExtendedPackagePolicy.TryLoadDetails(
+                    source,
+                    "en-US",
+                    out CustomLordPackageDetails tolerantDetails,
+                    out string tolerantError),
+                "malformed optional details invalidated otherwise valid Script Extender metadata: " + tolerantError);
+            Check(tolerantDetails.Description.Length == 0,
+                "a non-dictionary optional Custom Lord detail was not ignored");
+
+            string failingStaging = Path.Combine(testRoot, "FailingStaging");
+            Directory.CreateDirectory(failingStaging);
+            string failingMarker = Path.Combine(failingStaging, "lord.lordjson");
+            File.WriteAllText(failingMarker, "vanilla");
+            Directory.CreateDirectory(Path.Combine(failingStaging, "lordmeta.json"));
+            Check(
+                !CustomLordExtendedPackagePolicy.TryStageUploadFiles(
+                    source,
+                    failingStaging,
+                    out int _,
+                    out string copyError) && copyError.Contains("Could not copy"),
+                "a forced extended-package copy failure was not reported");
+            Check(!File.Exists(Path.Combine(failingStaging, "info.json")) &&
+                  File.ReadAllText(failingMarker) == "vanilla",
+                "failed extended-package staging did not roll back extras while preserving Vanilla files");
+
+            File.WriteAllText(
+                Path.Combine(source, "lordmeta.json"),
+                @"{ ""FacePath"": ""../outside"", ""Messages"": {} }");
+            Check(
+                !CustomLordExtendedPackagePolicy.TryCollectUploadFiles(
+                    source,
+                    out List<CustomLordPackageFile> _,
+                    out string unsafeError) && unsafeError.Contains("unsafe"),
+                "an escaping Custom Lord asset reference was accepted");
+
+            string vanillaSource = Path.Combine(testRoot, "VanillaOnly");
+            string vanillaStaging = Path.Combine(testRoot, "VanillaStaging");
+            Directory.CreateDirectory(vanillaSource);
+            Directory.CreateDirectory(vanillaStaging);
+            string marker = Path.Combine(vanillaStaging, "lord.lordjson");
+            File.WriteAllText(marker, "vanilla");
+            Check(
+                !CustomLordExtendedPackagePolicy.TryStageUploadFiles(
+                    vanillaSource,
+                    vanillaStaging,
+                    out int _,
+                    out string _),
+                "a Vanilla-only Custom Lord was treated as an extended package");
+            Check(File.ReadAllText(marker) == "vanilla",
+                "failed extra-package staging changed Vanilla's staged files");
+
+            string workspaceRoot = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", ".."));
+            string viewModelSource = File.ReadAllText(
+                Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", "BugfixesAndQoLViewModel.cs"));
+            Check(viewModelSource.Contains("private bool enableCustomLordExtendedPackages = true;"),
+                "extended Custom Lord packages are not enabled by default");
+            int extendedProperty = viewModelSource.IndexOf(
+                "public bool EnableCustomLordExtendedPackages",
+                StringComparison.Ordinal);
+            int extendedClassification = extendedProperty < 0
+                ? -1
+                : viewModelSource.LastIndexOf("[SyncHostOnly]", extendedProperty, StringComparison.Ordinal);
+            Check(extendedProperty >= 0 && extendedClassification >= 0 &&
+                  extendedProperty - extendedClassification < 80,
+                "extended Custom Lord package setting is not SyncHostOnly");
+            Check(viewModelSource.Contains("EnableCustomLordExtendedPackages = true;"),
+                "reset does not restore extended Custom Lord packages");
+
+            string featureSource = File.ReadAllText(
+                Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", "CustomLordExtendedPackageFeature.cs"));
+            int detailsGuard = featureSource.IndexOf("if (!IsEnabled || lord == null", StringComparison.Ordinal);
+            int detailsFileAccess = featureSource.IndexOf("Path.GetFullPath(lord.customPath)", StringComparison.Ordinal);
+            int uploadGuard = featureSource.IndexOf("if (IsEnabled && CustomLordExtendedPackagePolicy.IsCustomLordWorkshopUpload(tags))", StringComparison.Ordinal);
+            int uploadFileAccess = featureSource.IndexOf("TryExtendCustomLordStaging(nameMap, mapTitle)", StringComparison.Ordinal);
+            Check(detailsGuard >= 0 && detailsFileAccess > detailsGuard,
+                "disabled detail handling can access extended package files before its setting guard");
+            Check(uploadGuard >= 0 && uploadFileAccess > uploadGuard,
+                "disabled upload handling can access extended package files before its setting guard");
+        }
+        finally
+        {
+            if (Directory.Exists(testRoot))
+                Directory.Delete(testRoot, true);
+        }
     }
 
     private static void TestGameSpeedRepeatScheduler()

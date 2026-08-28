@@ -1,0 +1,10 @@
+{
+  "GUID": "your-unique-lord-guid",
+  "Author": "Your Name",
+  "Name": "Your Lord",
+  "Description": "A Custom Lord package for Stronghold Crusader Definitive Edition.",
+  "Version": "1.0.0",
+  "SupportedGameVersions": [],
+  "Website": "",
+  "Manifest": 0
+}

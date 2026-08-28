@@ -1,0 +1,7 @@
+Place only supported media in these relative directories:
+
+Assets/GUI/Sprites/*.png
+Assets/GUI/Video/*.webm
+fx/speech/*.ogg or *.wav
+
+This instruction file is ignored by the Workshop staging feature and is not uploaded.

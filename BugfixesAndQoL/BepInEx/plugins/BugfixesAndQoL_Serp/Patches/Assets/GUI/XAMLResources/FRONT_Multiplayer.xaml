@@ -170,22 +170,58 @@
   </Operation>
   <Operation Type="Add" XPath="//n:Grid[n:Image[@Source='{Binding SkirmishLordRolloverFace}']]">
     <Content>
-      <Grid x:Name="CustomLordVanillaDetailsOverlay" Height="180"
+      <Grid x:Name="CustomLordVanillaDetailsOverlay" Height="350"
             HorizontalAlignment="Stretch" VerticalAlignment="Top"
             IsHitTestVisible="False" Visibility="{Binding SelectedLordDetailsVisibility}">
-        <Grid Width="100" Height="100" Margin="10,40,0,0"
-              HorizontalAlignment="Left" VerticalAlignment="Top"
-              Visibility="{Binding SelectedLordPortraitVisibility}">
-          <Image Width="100" Height="100" Source="{StaticResource Face Background Generic}" />
-          <Image Width="100" Height="100" Stretch="Fill" Source="{Binding SelectedLordPortrait}" />
+        <Grid Height="140" HorizontalAlignment="Stretch" VerticalAlignment="Top">
+          <Grid Width="100" Height="100" Margin="10,40,0,0"
+                HorizontalAlignment="Left" VerticalAlignment="Top"
+                Visibility="{Binding SelectedLordPortraitVisibility}">
+            <Image Width="100" Height="100" Source="{StaticResource Face Background Generic}" />
+            <Image Width="100" Height="100" Stretch="Fill" Source="{Binding SelectedLordPortrait}" />
+          </Grid>
+          <TextBlock Margin="120,40,10,0" HorizontalAlignment="Left" VerticalAlignment="Top"
+                     FontSize="16" TextAlignment="Left" TextWrapping="WrapWithOverflow"
+                     Text="{Binding SelectedLordDescription}"
+                     Visibility="{Binding SelectedLordDescriptionVisibility}" />
         </Grid>
-        <TextBlock Width="500" Margin="10,150,0,0"
-                   HorizontalAlignment="Left" VerticalAlignment="Top"
-                   TextAlignment="Left" TextWrapping="WrapWithOverflow">
-          <Run FontSize="16" Text="{Binding PowerHeaderText}" />
-          <Run Text=" : " />
-          <Run FontSize="16" Text="{Binding SelectedLordPower}" />
-        </TextBlock>
+        <StackPanel Margin="10,150,10,0" HorizontalAlignment="Stretch" VerticalAlignment="Top">
+          <TextBlock Width="500" HorizontalAlignment="Left" TextAlignment="Left" TextWrapping="WrapWithOverflow">
+            <Run FontSize="16" Text="{Binding PowerHeaderText}" /><!--
+         --><Run Text=" : " /><!--
+         --><Run FontSize="16" Text="{Binding SelectedLordPower}" />
+          </TextBlock>
+          <TextBlock Width="500" Margin="0,4,0,0" HorizontalAlignment="Left" TextAlignment="Left"
+                     TextWrapping="WrapWithOverflow" Visibility="{Binding SelectedLordDifficultyRatingVisibility}">
+            <Run FontSize="16" Text="{Binding GameTexts[TEXT_AI_LORD_HELP_001], Source={x:Static local:Translate.Instance}}" /><!--
+         --><Run Text=" : " /><!--
+         --><Run FontSize="16" Text="{Binding SelectedLordDifficultyRating}" />
+          </TextBlock>
+          <TextBlock Width="500" Margin="0,4,0,0" HorizontalAlignment="Left" TextAlignment="Left"
+                     TextWrapping="WrapWithOverflow" Visibility="{Binding SelectedLordFavouriteTroopsVisibility}">
+            <Run FontSize="16" Text="{Binding GameTexts[TEXT_AI_LORD_HELP_002], Source={x:Static local:Translate.Instance}}" /><!--
+         --><Run Text=" : " /><!--
+         --><Run FontSize="16" Text="{Binding SelectedLordFavouriteTroops}" />
+          </TextBlock>
+          <TextBlock Width="500" Margin="0,4,0,0" HorizontalAlignment="Left" TextAlignment="Left"
+                     TextWrapping="WrapWithOverflow" Visibility="{Binding SelectedLordCastlesVisibility}">
+            <Run FontSize="16" Text="{Binding GameTexts[TEXT_AI_LORD_HELP_003], Source={x:Static local:Translate.Instance}}" /><!--
+         --><Run Text=" : " /><!--
+         --><Run FontSize="16" Text="{Binding SelectedLordCastles}" />
+          </TextBlock>
+          <TextBlock Width="500" Margin="0,4,0,0" HorizontalAlignment="Left" TextAlignment="Left"
+                     TextWrapping="WrapWithOverflow" Visibility="{Binding SelectedLordPlayStyleVisibility}">
+            <Run FontSize="16" Text="{Binding GameTexts[TEXT_AI_LORD_HELP_004], Source={x:Static local:Translate.Instance}}" /><!--
+         --><Run Text=" : " /><!--
+         --><Run FontSize="16" Text="{Binding SelectedLordPlayStyle}" />
+          </TextBlock>
+          <TextBlock Width="500" Margin="0,4,0,0" HorizontalAlignment="Left" TextAlignment="Left"
+                     TextWrapping="WrapWithOverflow" Visibility="{Binding SelectedLordFavouriteSayingVisibility}">
+            <Run FontSize="16" Text="{Binding GameTexts[TEXT_AI_LORD_HELP_005], Source={x:Static local:Translate.Instance}}" /><!--
+         --><Run Text=" : " /><!--
+         --><Run FontSize="16" Text="{Binding SelectedLordFavouriteSaying}" />
+          </TextBlock>
+        </StackPanel>
       </Grid>
     </Content>
   </Operation>

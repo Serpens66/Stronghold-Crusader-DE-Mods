@@ -1,0 +1,30 @@
+{
+  "LocalizedDisplayName": {
+    "en-US": "Your Lord"
+  },
+  "LocalizedTitles": {
+    "en-US": []
+  },
+  "FacePath": "",
+  "JoinAudioPath": "",
+  "LeaveAudioPath": "",
+  "Messages": {},
+  "LocalizedDescription": {
+    "en-US": "Describe the lord here."
+  },
+  "LocalizedDifficultyRating": {
+    "en-US": "Describe the difficulty."
+  },
+  "LocalizedFavouriteTroops": {
+    "en-US": "List preferred troops."
+  },
+  "LocalizedCastles": {
+    "en-US": "Describe typical castles."
+  },
+  "LocalizedPlayStyle": {
+    "en-US": "Describe the play style."
+  },
+  "LocalizedFavouriteSaying": {
+    "en-US": "Add a favourite saying."
+  }
+}
