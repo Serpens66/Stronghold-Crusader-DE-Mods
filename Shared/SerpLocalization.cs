@@ -118,6 +118,9 @@ public static class SerpLocalization
     public const string EnableSingleBuildingPauseHelp = "SomeSettings.EnableSingleBuildingPauseHelp";
     public const string EnableMultiplayerGameSpeedChanges = "SomeSettings.EnableMultiplayerGameSpeedChanges";
     public const string EnableMultiplayerGameSpeedChangesHelp = "SomeSettings.EnableMultiplayerGameSpeedChangesHelp";
+    public const string MultiplayerTimeControlDisabled = "SomeSettings.MultiplayerTimeControlDisabled";
+    public const string MultiplayerTimeControlOnlyHost = "SomeSettings.MultiplayerTimeControlOnlyHost";
+    public const string MultiplayerTimeControlEveryone = "SomeSettings.MultiplayerTimeControlEveryone";
     public const string EnableShiftGameSpeedSteps = "SomeSettings.EnableShiftGameSpeedSteps";
     public const string EnableShiftGameSpeedStepsHelp = "SomeSettings.EnableShiftGameSpeedStepsHelp";
     public const string EnableTroopMovementFix = "SomeSettings.EnableTroopMovementFix";
@@ -512,8 +515,11 @@ public static class SerpLocalization
         { EnableAllyGoodsAmountModifiersHelp, "In the ally goods-transfer panel, hold Shift for 5x or Ctrl for 0.2x the clicked amount. Holding both uses the normal amount." },
         { EnableSingleBuildingPause, "Enable single-building pause" },
         { EnableSingleBuildingPauseHelp, "Hold Ctrl while toggling a production building's pause state to affect only the selected building. Multiplayer actions use Script Extender's tick-aligned Chore transport." },
-        { EnableMultiplayerGameSpeedChanges, "Change Gamespeed in Multiplayer" },
-        { EnableMultiplayerGameSpeedChangesHelp, "Lets every human player change the running multiplayer game's speed with the normal increase/decrease keybinds or the in-game options slider. Changes are executed for all players through Script Extender's tick-aligned Chore transport. Multiplayer speed uses Script Extender's configured maximum and is not saved as the local singleplayer default." },
+        { EnableMultiplayerGameSpeedChanges, "Multiplayer game speed and pause controls" },
+        { EnableMultiplayerGameSpeedChangesHelp, "Chooses who may change game speed or pause a running multiplayer game. Speed changes use the normal increase/decrease keybinds or the in-game options slider; pause uses the normal pause keybind. Changes are executed for all players through Script Extender's tick-aligned Chore transport. Multiplayer speed uses Script Extender's configured maximum and is not saved as the local singleplayer default." },
+        { MultiplayerTimeControlDisabled, "Disabled" },
+        { MultiplayerTimeControlOnlyHost, "Only Host" },
+        { MultiplayerTimeControlEveryone, "Everyone" },
         { EnableShiftGameSpeedSteps, "Enable 25-step game-speed keybinds" },
         { EnableShiftGameSpeedStepsHelp, "Press or hold the normal increase/decrease game-speed keybind. The first change is immediate and repeats every 0.25 seconds while held; hold Shift for 25 instead of 5 per step, up to Script Extender's configured maximum. The options slider keeps its 5-step increments. Multiplayer changes use Script Extender's tick-aligned Chore transport." },
         { EnableTroopMovementFix, "Troop Speed Fix" },

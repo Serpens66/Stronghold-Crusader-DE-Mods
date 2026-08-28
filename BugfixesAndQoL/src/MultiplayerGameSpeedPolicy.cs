@@ -4,12 +4,13 @@ namespace BugfixesAndQoL
 {
     public static class MultiplayerGameSpeedPolicy
     {
-        public const int ProtocolVersion = 1;
+        public const int ProtocolVersion = 2;
         public const int IncreaseAction = 1;
         public const int DecreaseAction = 2;
         public const int SetAction = 3;
         public const int FastIncreaseAction = 4;
         public const int FastDecreaseAction = 5;
+        public const int PauseAction = 6;
         public const int MinimumSpeed = 10;
         public const int MaximumSpeed = 5000;
         public const int SpeedStep = 5;
@@ -69,7 +70,7 @@ namespace BugfixesAndQoL
             int action,
             int requestedTarget,
             out int resolvedSpeed) =>
-            TryResolvePacket(currentSpeed, protocolVersion, action, requestedTarget, MaximumSpeed, out resolvedSpeed);
+            TryResolvePacket(currentSpeed, protocolVersion, action, requestedTarget, 0, MaximumSpeed, out resolvedSpeed);
 
         public static bool TryResolvePacket(
             int currentSpeed,
@@ -78,14 +79,45 @@ namespace BugfixesAndQoL
             int requestedTarget,
             int maximumSpeed,
             out int resolvedSpeed)
+            => TryResolvePacket(
+                currentSpeed,
+                protocolVersion,
+                action,
+                requestedTarget,
+                0,
+                maximumSpeed,
+                out resolvedSpeed);
+
+        public static bool TryResolvePacket(
+            int currentSpeed,
+            int protocolVersion,
+            int action,
+            int requestedTarget,
+            int pauseState,
+            int maximumSpeed,
+            out int resolvedSpeed)
         {
-            if (protocolVersion != ProtocolVersion)
+            if (protocolVersion != ProtocolVersion || pauseState != 0 || action == PauseAction)
             {
                 resolvedSpeed = NormalizeObservedSpeed(currentSpeed, maximumSpeed);
                 return false;
             }
 
             return TryResolve(currentSpeed, action, requestedTarget, maximumSpeed, out resolvedSpeed);
+        }
+
+        public static bool TryResolvePausePacket(
+            int protocolVersion,
+            int action,
+            int requestedTarget,
+            int pauseState,
+            out bool paused)
+        {
+            paused = pauseState == 1;
+            return protocolVersion == ProtocolVersion &&
+                action == PauseAction &&
+                requestedTarget == 0 &&
+                (pauseState == 0 || pauseState == 1);
         }
 
         public static bool IsValidTarget(int speed) =>

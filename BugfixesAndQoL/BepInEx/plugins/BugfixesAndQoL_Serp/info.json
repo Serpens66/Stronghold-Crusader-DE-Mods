@@ -10,7 +10,8 @@
     {
       "Version": "1.0.106",
       "Changes": [
-        "Add the shared Mod Settings search with title, optional tooltip and section filtering, safe global-search handoff, and automatic text-field focus."
+        "Add the shared Mod Settings search with title, optional tooltip and section filtering, safe global-search handoff, and automatic text-field focus.",
+        "Replace the multiplayer game-speed toggle with Disabled, Only Host, and Everyone permissions shared by synchronized game-speed and pause controls."
       ]
     },
     {

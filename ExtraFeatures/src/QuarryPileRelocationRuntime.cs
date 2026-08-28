@@ -188,10 +188,10 @@ namespace ExtraFeatures
                     .Subscribe(_ => BeginMapState()));
                 subscriptions.Add(MapLoaderR3EventHooks.OnLoadMap.Observable
                     .Where(args => args.Phase == EventHookPhase.Post)
-                    .Subscribe(_ => ResetAISpawnObservationAfterLoad()));
+                    .Subscribe(_ => OnMapContentLoaded()));
                 subscriptions.Add(MapLoaderR3EventHooks.OnLoadSave.Observable
                     .Where(args => args.Phase == EventHookPhase.Post)
-                    .Subscribe(_ => ResetAISpawnObservationAfterLoad()));
+                    .Subscribe(_ => OnMapContentLoaded()));
                 subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
                     .Where(args => args.Phase == EventHookPhase.Pre)
                     .Subscribe(_ => EndMapState()));
@@ -687,9 +687,19 @@ namespace ExtraFeatures
                     if (pile->r_PlayerIdOwner != building->r_PlayerIdOwner)
                         return;
 
+                    // Detach both sides before either object enters delayed native deletion.
+                    ushort previousQuarryPileId = building->r_StoneQuarry_StockPileBuildingId;
+                    ushort previousPileQuarryId = pile->r_StoneQuarry_StockPileBuildingId;
+                    building->r_StoneQuarry_StockPileBuildingId = 0;
+                    pile->r_StoneQuarry_StockPileBuildingId = 0;
                     ClearPileContentBeforeDeletion(pile);
-                    _ = pile->r_AliveState == AliveState.MarkedForDeletion ||
+                    bool pileDeletionAccepted = pile->r_AliveState == AliveState.MarkedForDeletion ||
                         DeleteBuildingWithoutLinkedPropagation(pileId);
+                    if (!pileDeletionAccepted)
+                    {
+                        building->r_StoneQuarry_StockPileBuildingId = previousQuarryPileId;
+                        pile->r_StoneQuarry_StockPileBuildingId = previousPileQuarryId;
+                    }
                     return;
                 }
 
@@ -698,13 +708,21 @@ namespace ExtraFeatures
 
                 int linkedQuarryId = FindAliveQuarryIdByPileId(buildingId, building->r_PlayerIdOwner);
                 if (linkedQuarryId <= 0 ||
-                    !GameBuildingManagerAPI.Instance.TryGetBuildingById(linkedQuarryId, out _))
+                    !GameBuildingManagerAPI.Instance.TryGetBuildingById(linkedQuarryId, out GameBuilding* linkedQuarry))
                 {
                     return;
                 }
 
+                ushort previousLinkedPileId = linkedQuarry->r_StoneQuarry_StockPileBuildingId;
+                ushort previousLinkedQuarryId = building->r_StoneQuarry_StockPileBuildingId;
+                linkedQuarry->r_StoneQuarry_StockPileBuildingId = 0;
+                building->r_StoneQuarry_StockPileBuildingId = 0;
                 ClearPileContentBeforeDeletion(building);
-                DeleteBuildingWithoutLinkedPropagation(linkedQuarryId);
+                if (!DeleteBuildingWithoutLinkedPropagation(linkedQuarryId))
+                {
+                    linkedQuarry->r_StoneQuarry_StockPileBuildingId = previousLinkedPileId;
+                    building->r_StoneQuarry_StockPileBuildingId = previousLinkedQuarryId;
+                }
             }
             catch (Exception ex)
             {
@@ -854,6 +872,7 @@ namespace ExtraFeatures
         {
             int quarryId = FindAliveBuildingIdByGlobalId(operation.QuarryGlobalId);
             if (quarryId <= 0 ||
+                quarryId > ushort.MaxValue ||
                 !GameBuildingManagerAPI.Instance.TryGetBuildingById(quarryId, out GameBuilding* quarry) ||
                 !IsAliveBuilding(quarry, eStructs.STRUCT_QUARRY, operation.PlayerId))
                 return false;
@@ -904,18 +923,27 @@ namespace ExtraFeatures
             }
 
             int newPileGlobalId = (int)newPile->r_GlobalId;
+            ushort previousOldPileQuarryId = oldPile->r_StoneQuarry_StockPileBuildingId;
             content.ApplyTo(newPile);
             newPile->r_CurrentHealth = previousCurrentHealth;
             newPile->r_MaxHealth = previousMaxHealth;
+
+            // Native destruction follows this reverse link from a quarry pile to its parent quarry.
+            newPile->r_StoneQuarry_StockPileBuildingId = checked((ushort)quarryId);
+            quarry->r_StoneQuarry_StockPileBuildingId = checked((ushort)newPileId);
+
+            // The old pile is deleted asynchronously, so it must no longer point at the live quarry.
+            oldPile->r_StoneQuarry_StockPileBuildingId = 0;
             ClearPileContentBeforeDeletion(oldPile);
 
-            quarry->r_StoneQuarry_StockPileBuildingId = checked((ushort)newPileId);
             bool oldPileMarkedForDeletion = oldPile->r_AliveState == AliveState.MarkedForDeletion ||
                 DeleteBuildingWithoutLinkedPropagation(oldPileId);
             if (!oldPileMarkedForDeletion)
             {
                 quarry->r_StoneQuarry_StockPileBuildingId = checked((ushort)oldPileId);
+                oldPile->r_StoneQuarry_StockPileBuildingId = previousOldPileQuarryId;
                 content.ApplyTo(oldPile);
+                newPile->r_StoneQuarry_StockPileBuildingId = 0;
                 newPile->r_StoneBlocksAmount = 0;
                 newPile->r_CurrentGoodStackAmount = 0;
                 DeleteBuildingWithoutLinkedPropagation(newPileId);
@@ -1667,10 +1695,75 @@ namespace ExtraFeatures
             aiSpawnObservationArmed = false;
         }
 
-        private void ResetAISpawnObservationAfterLoad()
+        private void OnMapContentLoaded()
         {
             pendingAIQuarriesByGlobalId.Clear();
             aiSpawnObservationArmed = false;
+            RepairLoadedQuarryPileLinks();
+        }
+
+        private void RepairLoadedQuarryPileLinks()
+        {
+            if (!IsRuntimeActive())
+                return;
+
+            Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
+            var candidates = new List<QuarryPileLinkCandidate>();
+            for (int index = 0; index < buildings.Length; index++)
+            {
+                ref GameBuilding quarry = ref buildings[index];
+                if (quarry.r_AliveState != AliveState.IsAlive ||
+                    quarry.r_BuildingType != eStructs.STRUCT_QUARRY)
+                {
+                    continue;
+                }
+
+                int quarryId = index + 1;
+                int pileId = quarry.r_StoneQuarry_StockPileBuildingId;
+                GameBuilding* pile = null;
+                bool valid = quarryId <= ushort.MaxValue &&
+                    pileId > 0 &&
+                    GameBuildingManagerAPI.Instance.TryGetBuildingById(pileId, out pile) &&
+                    IsAliveBuilding(pile, eStructs.STRUCT_QUARRYPILE, quarry.r_PlayerIdOwner);
+                int currentPileQuarryId = valid ? pile->r_StoneQuarry_StockPileBuildingId : 0;
+                candidates.Add(new QuarryPileLinkCandidate(quarryId, pileId, currentPileQuarryId, valid));
+            }
+
+            var repairs = new List<QuarryPileLinkRepair>();
+            var conflictingPileIds = new List<int>();
+            QuarryPileLinkRepairSummary summary = QuarryPileLinkRepairPolicy.PlanRepairs(
+                candidates,
+                repairs,
+                conflictingPileIds);
+
+            for (int index = 0; index < conflictingPileIds.Count; index++)
+            {
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    $"Extra Features did not repair an ambiguous quarry-pile link claimed by multiple quarries: pileId={conflictingPileIds[index]}.");
+            }
+
+            int corrected = 0;
+            for (int index = 0; index < repairs.Count; index++)
+            {
+                QuarryPileLinkRepair repair = repairs[index];
+                if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(repair.QuarryId, out GameBuilding* quarry) ||
+                    !GameBuildingManagerAPI.Instance.TryGetBuildingById(repair.PileId, out GameBuilding* pile) ||
+                    !IsAliveBuilding(quarry, eStructs.STRUCT_QUARRY, pile->r_PlayerIdOwner) ||
+                    !IsAliveBuilding(pile, eStructs.STRUCT_QUARRYPILE, quarry->r_PlayerIdOwner) ||
+                    quarry->r_StoneQuarry_StockPileBuildingId != repair.PileId)
+                {
+                    continue;
+                }
+
+                pile->r_StoneQuarry_StockPileBuildingId = checked((ushort)repair.QuarryId);
+                corrected++;
+            }
+
+            LogInfo(
+                $"loaded-link repair completed: candidates={candidates.Count}, validPairs={summary.ValidPairs}, " +
+                $"alreadyLinked={summary.AlreadyLinked}, plannedRepairs={summary.PlannedRepairs}, corrected={corrected}, " +
+                $"invalid={summary.InvalidCandidates}, conflicts={summary.ConflictingPiles}.");
         }
 
         private void EndMapState()

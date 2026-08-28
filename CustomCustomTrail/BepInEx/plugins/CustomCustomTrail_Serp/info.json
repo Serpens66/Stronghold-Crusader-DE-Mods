@@ -10,7 +10,8 @@
     {
       "Version": "1.3.43",
       "Changes": [
-        "Add the shared Mod Settings search with title, optional tooltip and section filtering, safe global-search handoff, and automatic text-field focus."
+        "Add the shared Mod Settings search with title, optional tooltip and section filtering, safe global-search handoff, and automatic text-field focus.",
+        "Restore backward-compatible loading of primitive Boolean and integer values when a Trail setting has migrated to an enum with a MessagePack formatter."
       ]
     },
     {

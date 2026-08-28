@@ -21,6 +21,7 @@ var tests = new (string Name, Action Run)[]
     ("dynamic third-party mod ids are preserved", TestModSettingsRegistry),
     ("missing mod entry remains unmanaged", TestMissingModEntry),
     ("Trail mod compatibility contract is validated", TestTrailModCompatibilityContract),
+    ("primitive enum migration policy is fail-closed", TestTrailSettingValueConversionPolicy),
     ("disabled Trail mod ids are normalized", TestDisabledTrailModIdNormalization),
     ("explicit plugin opt-out marker is honored", TestExplicitPluginOptOut),
     ("sidecar schema evolution keeps only current settings", TestSidecarSettingsSchemaEvolution),
@@ -87,6 +88,29 @@ static void TestNativeModSettingsRoundtrip()
     Assert(entry.Settings["DoubleArray"] is List<object> values &&
         values.Count == 3 && Math.Abs(Convert.ToDouble(values[2]) - 1.25) < 0.0001,
         "double array changed");
+}
+
+static void TestTrailSettingValueConversionPolicy()
+{
+    Assert(TrailSettingValueConversionPolicy.ShouldUseMessagePackEnumConversion(true, typeof(DayOfWeek)),
+        "Boolean source was not accepted for an enum target");
+    Assert(TrailSettingValueConversionPolicy.ShouldUseMessagePackEnumConversion(2, typeof(DayOfWeek)),
+        "integer source was not accepted for an enum target");
+    Assert(TrailSettingValueConversionPolicy.ShouldUseMessagePackEnumConversion((long)1, typeof(DayOfWeek?)),
+        "integer source was not accepted for a nullable enum target");
+    Assert(!TrailSettingValueConversionPolicy.ShouldUseMessagePackEnumConversion(1.0, typeof(DayOfWeek)),
+        "floating-point source was accepted for an enum target");
+    Assert(!TrailSettingValueConversionPolicy.ShouldUseMessagePackEnumConversion("1", typeof(DayOfWeek)),
+        "string source was accepted for an enum target");
+    Assert(!TrailSettingValueConversionPolicy.ShouldUseMessagePackEnumConversion(1, typeof(int)),
+        "non-enum target was accepted");
+
+    string root = FindProjectRoot();
+    string coordinator = File.ReadAllText(Path.Combine(root, "src", "TrailMissionSettingsCoordinator.cs"));
+    Assert(coordinator.Contains("TrailSettingValueConversionPolicy.ShouldUseMessagePackEnumConversion") &&
+        coordinator.Contains("MessagePackSerializer.Serialize(value.GetType(), value)") &&
+        coordinator.Contains("MessagePackSerializer.Deserialize(effectiveType, primitive)"),
+        "ConvertJsonValue does not use the guarded MessagePack enum migration path");
 }
 
 static void TestModSettingsRegistry()

@@ -48,6 +48,7 @@ internal static class Program
             TestTroopActionButtonLayoutPolicy();
             TestLordHealthMultiplierPolicy();
             TestQuarryPileTargetSelectionPolicy();
+            TestQuarryPileLinkRepairPolicy();
             TestTemporaryGateBlockagePolicy();
             TestGatehouseAutomationSaveState();
             TestBoundedSaveStateDeserialization();
@@ -2117,6 +2118,45 @@ internal static class Program
             "AI quarry-pile selection accepted an empty valid-candidate set");
     }
 
+    private static void TestQuarryPileLinkRepairPolicy()
+    {
+        var repairs = new List<QuarryPileLinkRepair>();
+        var conflicts = new List<int>();
+        QuarryPileLinkRepairSummary summary = QuarryPileLinkRepairPolicy.PlanRepairs(
+            new[]
+            {
+                new QuarryPileLinkCandidate(10, 20, 10, true),
+                new QuarryPileLinkCandidate(11, 21, 0, true),
+                new QuarryPileLinkCandidate(12, 22, 99, true),
+                new QuarryPileLinkCandidate(13, 0, 0, false)
+            },
+            repairs,
+            conflicts);
+        Check(summary.ValidPairs == 3 && summary.AlreadyLinked == 1 &&
+              summary.PlannedRepairs == 2 && summary.InvalidCandidates == 1 &&
+              summary.ConflictingPiles == 0,
+            "quarry-pile backlink repair summary was incorrect");
+        Check(repairs.Count == 2 &&
+              repairs[0].QuarryId == 11 && repairs[0].PileId == 21 &&
+              repairs[1].QuarryId == 12 && repairs[1].PileId == 22,
+            "missing or stale quarry-pile backlinks were not planned deterministically");
+
+        repairs.Clear();
+        conflicts.Clear();
+        summary = QuarryPileLinkRepairPolicy.PlanRepairs(
+            new[]
+            {
+                new QuarryPileLinkCandidate(30, 40, 0, true),
+                new QuarryPileLinkCandidate(31, 40, 0, true),
+                new QuarryPileLinkCandidate(32, 41, 0, false)
+            },
+            repairs,
+            conflicts);
+        Check(repairs.Count == 0 && conflicts.Count == 1 && conflicts[0] == 40 &&
+              summary.ConflictingPiles == 1 && summary.InvalidCandidates == 1,
+            "ambiguous or invalid quarry-pile links were not rejected fail-closed");
+    }
+
     private static void TestGameSpeedRepeatScheduler()
     {
         const long frequency = 1000;
@@ -2306,6 +2346,110 @@ internal static class Program
 
     private static void TestMultiplayerGameSpeedPolicyAndPacket()
     {
+        Check(MultiplayerGameSpeedPolicy.ProtocolVersion == 2,
+            "multiplayer time-control protocol is not version 2");
+
+        byte[] legacyDisabled = MessagePackSerializer.Serialize(false);
+        byte[] legacyEveryone = MessagePackSerializer.Serialize(true);
+        Check(MessagePackSerializer.Deserialize<MultiplayerTimeControlPermission>(legacyDisabled) ==
+                MultiplayerTimeControlPermission.Disabled &&
+              MessagePackSerializer.Deserialize<MultiplayerTimeControlPermission>(legacyEveryone) ==
+                MultiplayerTimeControlPermission.Everyone,
+            "legacy Boolean multiplayer time-control values were not migrated");
+        foreach (MultiplayerTimeControlPermission permission in new[]
+        {
+            MultiplayerTimeControlPermission.Disabled,
+            MultiplayerTimeControlPermission.OnlyHost,
+            MultiplayerTimeControlPermission.Everyone
+        })
+        {
+            byte[] permissionBytes = MessagePackSerializer.Serialize(permission);
+            Check(MessagePackSerializer.Deserialize<MultiplayerTimeControlPermission>(permissionBytes) == permission,
+                $"multiplayer time-control permission [{permission}] did not round-trip");
+        }
+
+        bool invalidPermissionTypeRejected = false;
+        try
+        {
+            MessagePackSerializer.Deserialize<MultiplayerTimeControlPermission>(
+                MessagePackSerializer.Serialize("invalid"));
+        }
+        catch (MessagePackSerializationException)
+        {
+            invalidPermissionTypeRejected = true;
+        }
+        Check(invalidPermissionTypeRejected,
+            "invalid multiplayer time-control MessagePack type was accepted");
+
+        bool invalidPermissionValueRejected = false;
+        try
+        {
+            MessagePackSerializer.Deserialize<MultiplayerTimeControlPermission>(
+                MessagePackSerializer.Serialize(3));
+        }
+        catch (MessagePackSerializationException)
+        {
+            invalidPermissionValueRejected = true;
+        }
+        Check(invalidPermissionValueRejected,
+            "invalid multiplayer time-control enum value was accepted");
+
+        bool invalidPermissionSerializationRejected = false;
+        try
+        {
+            MessagePackSerializer.Serialize((MultiplayerTimeControlPermission)3);
+        }
+        catch (MessagePackSerializationException)
+        {
+            invalidPermissionSerializationRejected = true;
+        }
+        Check(invalidPermissionSerializationRejected,
+            "invalid multiplayer time-control enum value was serialized");
+
+        Check(!MultiplayerTimeControlPolicy.CanRequest(MultiplayerTimeControlPermission.Disabled, false) &&
+              !MultiplayerTimeControlPolicy.CanRequest(MultiplayerTimeControlPermission.Disabled, true) &&
+              !MultiplayerTimeControlPolicy.CanRequest(MultiplayerTimeControlPermission.OnlyHost, false) &&
+              MultiplayerTimeControlPolicy.CanRequest(MultiplayerTimeControlPermission.OnlyHost, true) &&
+              MultiplayerTimeControlPolicy.CanRequest(MultiplayerTimeControlPermission.Everyone, false) &&
+              MultiplayerTimeControlPolicy.CanRequest(MultiplayerTimeControlPermission.Everyone, true),
+            "multiplayer time-control host/client permission matrix is incorrect");
+
+        Check(MultiplayerGameSpeedPolicy.TryResolvePausePacket(
+                MultiplayerGameSpeedPolicy.ProtocolVersion,
+                MultiplayerGameSpeedPolicy.PauseAction,
+                0,
+                0,
+                out bool running) && !running &&
+              MultiplayerGameSpeedPolicy.TryResolvePausePacket(
+                MultiplayerGameSpeedPolicy.ProtocolVersion,
+                MultiplayerGameSpeedPolicy.PauseAction,
+                0,
+                1,
+                out bool paused) && paused,
+            "valid multiplayer pause targets were rejected");
+        Check(!MultiplayerGameSpeedPolicy.TryResolvePausePacket(
+                MultiplayerGameSpeedPolicy.ProtocolVersion,
+                MultiplayerGameSpeedPolicy.PauseAction,
+                0,
+                2,
+                out _) &&
+              !MultiplayerGameSpeedPolicy.TryResolvePausePacket(
+                MultiplayerGameSpeedPolicy.ProtocolVersion,
+                MultiplayerGameSpeedPolicy.PauseAction,
+                10,
+                1,
+                out _),
+            "invalid multiplayer pause payload was accepted");
+        Check(!MultiplayerGameSpeedPolicy.TryResolvePacket(
+                40,
+                MultiplayerGameSpeedPolicy.ProtocolVersion,
+                MultiplayerGameSpeedPolicy.IncreaseAction,
+                0,
+                1,
+                MultiplayerGameSpeedPolicy.MaximumSpeed,
+                out _),
+            "game-speed action accepted a pause target");
+
         Check(MultiplayerGameSpeedPolicy.TryResolvePacket(
                 40,
                 MultiplayerGameSpeedPolicy.ProtocolVersion,
@@ -2471,14 +2615,16 @@ internal static class Program
         {
             ProtocolVersion = MultiplayerGameSpeedPolicy.ProtocolVersion,
             Action = MultiplayerGameSpeedPolicy.SetAction,
-            TargetSpeed = 70
+            TargetSpeed = 70,
+            PauseState = 0
         };
         byte[] serialized = MessagePackSerializer.Serialize(packet);
         MultiplayerGameSpeedChangePacket roundTrip =
             MessagePackSerializer.Deserialize<MultiplayerGameSpeedChangePacket>(serialized);
         Check(roundTrip.ProtocolVersion == packet.ProtocolVersion &&
             roundTrip.Action == packet.Action &&
-            roundTrip.TargetSpeed == packet.TargetSpeed,
+            roundTrip.TargetSpeed == packet.TargetSpeed &&
+            roundTrip.PauseState == packet.PauseState,
             "multiplayer game-speed packet did not round-trip");
 
         byte[] forwardBuffer = MessagePackSerializer.Serialize(new FutureMultiplayerGameSpeedPacket
@@ -2486,13 +2632,15 @@ internal static class Program
             ProtocolVersion = MultiplayerGameSpeedPolicy.ProtocolVersion,
             Action = MultiplayerGameSpeedPolicy.SetAction,
             TargetSpeed = 75,
+            PauseState = 0,
             FutureField = "future-field"
         });
         MultiplayerGameSpeedChangePacket forwardPacket =
             MessagePackSerializer.Deserialize<MultiplayerGameSpeedChangePacket>(forwardBuffer);
         Check(forwardPacket.ProtocolVersion == MultiplayerGameSpeedPolicy.ProtocolVersion &&
             forwardPacket.Action == MultiplayerGameSpeedPolicy.SetAction &&
-            forwardPacket.TargetSpeed == 75,
+            forwardPacket.TargetSpeed == 75 &&
+            forwardPacket.PauseState == 0,
             "multiplayer game-speed formatter rejected an unknown trailing field");
     }
 
@@ -3943,7 +4091,8 @@ public sealed class FutureMultiplayerGameSpeedPacket
     [Key(0)] public int ProtocolVersion;
     [Key(1)] public int Action;
     [Key(2)] public int TargetSpeed;
-    [Key(3)] public string FutureField;
+    [Key(3)] public int PauseState;
+    [Key(4)] public string FutureField;
 }
 
 internal sealed class RoutingProbeViewModel : SHCDESE.ViewModels.LobbyModSettingsBaseViewModel

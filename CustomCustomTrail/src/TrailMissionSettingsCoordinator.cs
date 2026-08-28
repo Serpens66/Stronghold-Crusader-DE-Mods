@@ -1985,6 +1985,12 @@ namespace CustomCustomTrail
                         array.SetValue(converted[index], index);
                     return array;
                 }
+                if (TrailSettingValueConversionPolicy.ShouldUseMessagePackEnumConversion(value, effectiveType))
+                {
+                    // Let the target enum's formatter migrate old primitive representations.
+                    byte[] primitive = MessagePackSerializer.Serialize(value.GetType(), value);
+                    return MessagePackSerializer.Deserialize(effectiveType, primitive);
+                }
                 return Convert.ChangeType(value, effectiveType, CultureInfo.InvariantCulture);
             }
 

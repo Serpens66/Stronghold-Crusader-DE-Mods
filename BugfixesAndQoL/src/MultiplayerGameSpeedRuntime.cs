@@ -196,6 +196,8 @@ namespace BugfixesAndQoL
                 suppressVanillaSpeedKeybinds = false;
             }
 
+            QueueMultiplayerPausePress(self);
+
             if (!repeatEnabled)
             {
                 ResetRepeatState();
@@ -363,6 +365,23 @@ namespace BugfixesAndQoL
                 TryQueueChange(MultiplayerGameSpeedPolicy.DecreaseAction, 0, "keybind-decrease");
         }
 
+        private void QueueMultiplayerPausePress(KeyManager self)
+        {
+            if (!CanRequestMultiplayerChange() || self == null ||
+                !self.IsActionPressed(Enums.KeyFunctions.Pause) ||
+                GameData.Instance?.lastGameState == null ||
+                !TryGetLoadedMainViewModel(out MainViewModel main) ||
+                main.Show_HUD_Briefing)
+                return;
+
+            int pauseState = GamePlayerManagerAPI.Instance.IsLocalPaused() ? 0 : 1;
+            TryQueueChange(
+                MultiplayerGameSpeedPolicy.PauseAction,
+                0,
+                "keybind-pause",
+                pauseState);
+        }
+
         private void ResetRepeatState()
         {
             increaseRepeat.Reset();
@@ -417,7 +436,9 @@ namespace BugfixesAndQoL
             try
             {
                 return settings.EnableMod &&
-                    settings.EnableMultiplayerGameSpeedChanges &&
+                    MultiplayerTimeControlPolicy.CanRequest(
+                        settings.EnableMultiplayerGameSpeedChanges,
+                        GameNetworkAPI.IsLocalHost()) &&
                     Director.instance != null &&
                     Director.instance.MultiplayerGame &&
                     Director.instance.SimRunning &&
@@ -430,7 +451,7 @@ namespace BugfixesAndQoL
             }
         }
 
-        private bool TryQueueChange(int action, int targetSpeed, string source)
+        private bool TryQueueChange(int action, int targetSpeed, string source, int pauseState = 0)
         {
             if (!IsChoreTransportReady())
             {
@@ -442,7 +463,8 @@ namespace BugfixesAndQoL
             {
                 ProtocolVersion = MultiplayerGameSpeedPolicy.ProtocolVersion,
                 Action = action,
-                TargetSpeed = targetSpeed
+                TargetSpeed = targetSpeed,
+                PauseState = pauseState
             };
             byte[] body = GameNetworkAPI.Serialize(packet);
             byte[] blob = new byte[sizeof(short) + body.Length];
@@ -457,24 +479,16 @@ namespace BugfixesAndQoL
                 return false;
             }
 
-            LogInfo($"game-speed Chore queued: source={source}, action={action}, targetSpeed={targetSpeed}, payloadBytes={blob.Length}.");
+            LogInfo($"multiplayer time-control Chore queued: source={source}, action={action}, targetSpeed={targetSpeed}, pauseState={pauseState}, payloadBytes={blob.Length}.");
             return true;
         }
 
         private void OnPacketReceived(ReceiveCustomPacketEventArgs<MultiplayerGameSpeedChangePacket> args)
         {
             MultiplayerGameSpeedChangePacket packet = args?.Packet;
-            if (packet == null ||
-                packet.ProtocolVersion != MultiplayerGameSpeedPolicy.ProtocolVersion ||
-                !MultiplayerGameSpeedPolicy.TryResolvePacket(
-                    GetCurrentSpeed(),
-                    packet.ProtocolVersion,
-                    packet.Action,
-                    packet.TargetSpeed,
-                    GetMaximumSpeed(),
-                    out int resolvedSpeed))
+            if (packet == null || packet.ProtocolVersion != MultiplayerGameSpeedPolicy.ProtocolVersion)
             {
-                LogError("rejected a multiplayer game-speed Chore with an invalid payload.");
+                LogError("rejected a multiplayer time-control Chore with an invalid payload.");
                 return;
             }
 
@@ -483,7 +497,37 @@ namespace BugfixesAndQoL
                 Director director = Director.instance;
                 if (director == null || !director.MultiplayerGame || !director.SimRunning)
                 {
-                    LogError("could not execute a multiplayer game-speed Chore because no multiplayer simulation is running.");
+                    LogError("could not execute a multiplayer time-control Chore because no multiplayer simulation is running.");
+                    return;
+                }
+
+                if (packet.Action == MultiplayerGameSpeedPolicy.PauseAction)
+                {
+                    if (!MultiplayerGameSpeedPolicy.TryResolvePausePacket(
+                            packet.ProtocolVersion,
+                            packet.Action,
+                            packet.TargetSpeed,
+                            packet.PauseState,
+                            out bool requestedPaused))
+                    {
+                        LogError("rejected a multiplayer pause Chore with an invalid payload.");
+                        return;
+                    }
+
+                    ApplyPauseState(requestedPaused);
+                    return;
+                }
+
+                if (!MultiplayerGameSpeedPolicy.TryResolvePacket(
+                        GetCurrentSpeed(),
+                        packet.ProtocolVersion,
+                        packet.Action,
+                        packet.TargetSpeed,
+                        packet.PauseState,
+                        GetMaximumSpeed(),
+                        out int resolvedSpeed))
+                {
+                    LogError("rejected a multiplayer game-speed Chore with an invalid payload.");
                     return;
                 }
 
@@ -499,8 +543,40 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                LogError($"multiplayer game-speed Chore execution failed: {ex}");
+                LogError($"multiplayer time-control Chore execution failed: {ex}");
             }
+        }
+
+        private void ApplyPauseState(bool requestedPaused)
+        {
+            bool previousPaused = GamePlayerManagerAPI.Instance.IsLocalPaused();
+            if (previousPaused == requestedPaused)
+            {
+                LogInfo($"pause Chore was already satisfied: paused={requestedPaused}.");
+                return;
+            }
+
+            int state = requestedPaused ? 1 : 0;
+            EngineInterface.GameAction(Enums.GameActionCommand.Game_Paused, state, state);
+
+            // CastlePlanner may intentionally reject an unpause while its preview is active.
+            bool appliedPaused = GamePlayerManagerAPI.Instance.IsLocalPaused();
+            if (appliedPaused == previousPaused)
+            {
+                LogInfo($"pause Chore was suppressed by the active game state: requestedPaused={requestedPaused}.");
+                return;
+            }
+
+            OnScreenText.Instance?.addOSTEntry(Enums.eOnScreenText.OST_GAME_PAUSED, appliedPaused ? 1 : 0);
+            if (SFXManager.instance != null)
+            {
+                SFXManager.instance.playGenieSpeech(
+                    3,
+                    appliedPaused ? "game_paused.wav" : "game_running.wav",
+                    1f);
+            }
+
+            LogInfo($"pause Chore executed: previousPaused={previousPaused}, appliedPaused={appliedPaused}.");
         }
 
         private void RefreshOpenOptionsUi()

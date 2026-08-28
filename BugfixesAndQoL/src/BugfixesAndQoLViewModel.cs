@@ -35,7 +35,8 @@ namespace BugfixesAndQoL
         private bool enableResyncHostKick = true;
         private bool enableReturnToMultiplayerLobby = true;
         private bool enableCtrlSingleMarketTrade = true;
-        private bool enableMultiplayerGameSpeedChanges = true;
+        private MultiplayerTimeControlPermission enableMultiplayerGameSpeedChanges =
+            MultiplayerTimeControlPermission.OnlyHost;
         private bool enableShiftGameSpeedSteps = true;
         private bool enableAllyGoodsAmountModifiers = true;
         private bool enableCustomTrailExtremeGoldFix = true;
@@ -140,6 +141,12 @@ namespace BugfixesAndQoL
         public string EnableAllyGoodsAmountModifiersHelpText => SerpLocalization.Get(SerpLocalization.EnableAllyGoodsAmountModifiersHelp);
         public string EnableMultiplayerGameSpeedChangesText => SerpLocalization.Get(SerpLocalization.EnableMultiplayerGameSpeedChanges);
         public string EnableMultiplayerGameSpeedChangesHelpText => SerpLocalization.Get(SerpLocalization.EnableMultiplayerGameSpeedChangesHelp);
+        public string[] MultiplayerTimeControlPermissionOptions => new[]
+        {
+            SerpLocalization.Get(SerpLocalization.MultiplayerTimeControlDisabled),
+            SerpLocalization.Get(SerpLocalization.MultiplayerTimeControlOnlyHost),
+            SerpLocalization.Get(SerpLocalization.MultiplayerTimeControlEveryone)
+        };
         public string EnableShiftGameSpeedStepsText => SerpLocalization.Get(SerpLocalization.EnableShiftGameSpeedSteps);
         public string EnableShiftGameSpeedStepsHelpText => SerpLocalization.Get(SerpLocalization.EnableShiftGameSpeedStepsHelp);
         public string EnableResyncHostKickText => SerpLocalization.Get("BugfixesAndQoL.EnableResyncHostKick");
@@ -505,10 +512,28 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
-        public bool EnableMultiplayerGameSpeedChanges
+        public MultiplayerTimeControlPermission EnableMultiplayerGameSpeedChanges
         {
             get => enableMultiplayerGameSpeedChanges;
-            set => SetSetting(ref enableMultiplayerGameSpeedChanges, value, nameof(EnableMultiplayerGameSpeedChanges));
+            set
+            {
+                MultiplayerTimeControlPermission previous = enableMultiplayerGameSpeedChanges;
+                SetSetting(ref enableMultiplayerGameSpeedChanges, value, nameof(EnableMultiplayerGameSpeedChanges));
+                if (previous != enableMultiplayerGameSpeedChanges)
+                    OnPropertyChanged(nameof(MultiplayerTimeControlPermissionIndex));
+            }
+        }
+
+        // The ComboBox index is intentionally transient; the classified enum remains the sole stored value.
+        public int MultiplayerTimeControlPermissionIndex
+        {
+            get => (int)EnableMultiplayerGameSpeedChanges;
+            set
+            {
+                var permission = (MultiplayerTimeControlPermission)value;
+                if (MultiplayerTimeControlPolicy.IsDefinedPermission(permission))
+                    EnableMultiplayerGameSpeedChanges = permission;
+            }
         }
 
         [SyncHostOnly]
@@ -542,7 +567,7 @@ namespace BugfixesAndQoL
                 EnableResyncHostKick = true;
                 EnableReturnToMultiplayerLobby = true;
                 EnableCtrlSingleMarketTrade = true;
-                EnableMultiplayerGameSpeedChanges = true;
+                EnableMultiplayerGameSpeedChanges = MultiplayerTimeControlPermission.OnlyHost;
                 EnableShiftGameSpeedSteps = true;
             }
 

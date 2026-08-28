@@ -140,6 +140,9 @@
     <Compile Include="..\..\ExtraFeatures\src\QuarryPileTargetSelectionPolicy.cs">
       <Link>QuarryPileTargetSelectionPolicy.cs</Link>
     </Compile>
+    <Compile Include="..\..\ExtraFeatures\src\QuarryPileLinkRepairPolicy.cs">
+      <Link>QuarryPileLinkRepairPolicy.cs</Link>
+    </Compile>
     <Compile Include="..\..\ExtraFeatures\src\TemporaryGateBlockagePolicy.cs">
       <Link>TemporaryGateBlockagePolicy.cs</Link>
     </Compile>
@@ -157,6 +160,9 @@
     </Compile>
     <Compile Include="..\..\BugfixesAndQoL\src\MultiplayerGameSpeedPolicy.cs">
       <Link>MultiplayerGameSpeedPolicy.cs</Link>
+    </Compile>
+    <Compile Include="..\..\BugfixesAndQoL\src\MultiplayerTimeControlPermission.cs">
+      <Link>MultiplayerTimeControlPermission.cs</Link>
     </Compile>
     <Compile Include="..\..\BugfixesAndQoL\src\MultiplayerLobbyReturnPolicy.cs">
       <Link>MultiplayerLobbyReturnPolicy.cs</Link>

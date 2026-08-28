@@ -84,6 +84,7 @@
     <Compile Include="src\MultiplayerGameSpeedChangePacket.cs" />
     <Compile Include="src\MultiplayerGameSpeedPolicy.cs" />
     <Compile Include="src\MultiplayerGameSpeedRuntime.cs" />
+    <Compile Include="src\MultiplayerTimeControlPermission.cs" />
     <Compile Include="src\MultiplayerLobbyReturnFeature.cs" />
     <Compile Include="src\MultiplayerLobbyReturnPolicy.cs" />
     <Compile Include="src\AssemblyPointPlacementPatch.cs" />

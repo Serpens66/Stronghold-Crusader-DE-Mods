@@ -71,6 +71,7 @@ $viewModelSources = @{
 # These bindings are deliberate editable proxies. Their setters update a classified
 # parent setting or a classified serialized table through the row callback.
 $editableProxyBindings = @{
+    BugfixesAndQoL = @('MultiplayerTimeControlPermissionIndex')
     BuildingCosts = @('GoldSlider','GoldText','IronSlider','IronText','PitchSlider','PitchText','StoneSlider','StoneText','WoodSlider','WoodText')
     BuildingLimit = @('LimitText','SliderLimit')
     CheatMod = @()

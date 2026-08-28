@@ -206,12 +206,15 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableReturnToMultiplayerLobbyText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
-      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-multiplayer-game-speed-changes" shared:ModSettingsSearch.Title="{Binding EnableMultiplayerGameSpeedChangesText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableMultiplayerGameSpeedChangesHelpText}"><CheckBox IsChecked="{Binding EnableMultiplayerGameSpeedChanges, Mode=TwoWay}"
-                Foreground="White"
-                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableMultiplayerGameSpeedChangesHelpText}"
-                Margin="0,0,14,8">
-        <TextBlock Text="{Binding EnableMultiplayerGameSpeedChangesText}" Foreground="White" TextWrapping="Wrap"/>
-      </CheckBox></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-multiplayer-game-speed-changes" shared:ModSettingsSearch.Title="{Binding EnableMultiplayerGameSpeedChangesText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableMultiplayerGameSpeedChangesHelpText}" Margin="0,0,14,8">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*"/>
+          <ColumnDefinition Width="260"/>
+        </Grid.ColumnDefinitions>
+        <TextBlock Grid.Column="0" Text="{Binding EnableMultiplayerGameSpeedChangesText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,12,0"/>
+        <ComboBox Grid.Column="1" ItemsSource="{Binding MultiplayerTimeControlPermissionOptions}" SelectedIndex="{Binding MultiplayerTimeControlPermissionIndex, Mode=TwoWay}"
+                  ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableMultiplayerGameSpeedChangesHelpText}"/>
+      </Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-shift-game-speed-steps" shared:ModSettingsSearch.Title="{Binding EnableShiftGameSpeedStepsText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableShiftGameSpeedStepsHelpText}"><CheckBox IsChecked="{Binding EnableShiftGameSpeedSteps, Mode=TwoWay}"
                 Foreground="White"
                 ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableShiftGameSpeedStepsHelpText}"
