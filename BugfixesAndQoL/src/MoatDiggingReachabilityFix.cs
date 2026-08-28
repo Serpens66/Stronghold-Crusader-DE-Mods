@@ -38,8 +38,12 @@ namespace BugfixesAndQoL
         private readonly int* targetTileY;
         private HookRef<X64InlineHook> cursorReachabilityHook = new HookRef<X64InlineHook>();
         private IDisposable orderSubscription;
+        private PendingDigMoatCommand pendingCommand;
+        private bool hasPendingCommand;
         private int replayDepth;
+        private bool firstAuthorizationDecisionLogged;
         private bool firstReplayLogged;
+        private bool commandPairMismatchLogged;
         private bool cursorFailureLogged;
         private bool disposed;
 
@@ -147,11 +151,54 @@ namespace BugfixesAndQoL
 
         private void OnTribeIssueOrderWithTarget(TribeIssueOrderWithTargetEventArgs args)
         {
-            if (!IsEnabled || replayDepth != 0 || args.Phase != EventHookPhase.Post ||
-                args.AICommand != TribeAICommand.DigMoatTileId ||
-                !TryGetTribeOwner(args.TribeId, out int playerId) ||
-                !IsFriendlyPlannedMoat(playerId, args.TargetValue1, args.TargetValue2))
+            if (replayDepth != 0)
+                return;
+
+            if (args.Phase == EventHookPhase.Pre)
             {
+                // The original command may reserve or otherwise alter the planned tile before
+                // Post. Capture the permission while the cursor/AI target still has its original
+                // properties, then let Vanilla finish putting eligible units into DigMoat mode.
+                hasPendingCommand = false;
+                if (IsEnabled && args.AICommand == TribeAICommand.DigMoatTileId)
+                {
+                    bool ownerResolved = TryGetTribeOwner(args.TribeId, out int playerId);
+                    bool authorized = ownerResolved &&
+                        IsFriendlyPlannedMoat(playerId, args.TargetValue1, args.TargetValue2);
+                    if (!firstAuthorizationDecisionLogged)
+                    {
+                        firstAuthorizationDecisionLogged = true;
+                        Shared.DebugLogHelper.LogDebug(
+                            log,
+                            $"Bugfixes and QoL first moat-digging Pre authorization: authorized={authorized}, " +
+                            $"tribe={args.TribeId}, player={playerId}, " +
+                            $"target=({args.TargetValue1},{args.TargetValue2}).");
+                    }
+
+                    if (authorized)
+                    {
+                        pendingCommand = new PendingDigMoatCommand(args, playerId);
+                        hasPendingCommand = true;
+                    }
+                }
+
+                return;
+            }
+
+            if (args.Phase != EventHookPhase.Post || !hasPendingCommand)
+                return;
+
+            PendingDigMoatCommand command = pendingCommand;
+            hasPendingCommand = false;
+            if (!IsEnabled || !command.Matches(args))
+            {
+                if (IsEnabled && !commandPairMismatchLogged)
+                {
+                    commandPairMismatchLogged = true;
+                    Shared.DebugLogHelper.LogWarning(
+                        log,
+                        "Bugfixes and QoL discarded one moat-digging replay because the synchronous Pre/Post command pair did not match.");
+                }
                 return;
             }
 
@@ -162,25 +209,25 @@ namespace BugfixesAndQoL
                 // first movement attempt fails. Replaying synchronously lets that second attempt
                 // use Vanilla's existing "already digging" permission to cross completed moats.
                 bool issued = GameTribeManagerAPI.Instance.IssueTargettedCommand(
-                    args.TribeId,
-                    args.AICommand,
-                    args.TargetValue1,
-                    args.TargetValue2,
-                    args.a6);
+                    command.TribeId,
+                    command.AICommand,
+                    command.TargetValue1,
+                    command.TargetValue2,
+                    command.A6);
                 if (!issued)
                 {
                     Shared.DebugLogHelper.LogWarning(
                         log,
-                        $"Bugfixes and QoL moat-digging replay was rejected: tribe={args.TribeId}, " +
-                        $"target=({args.TargetValue1},{args.TargetValue2}).");
+                        $"Bugfixes and QoL moat-digging replay was rejected: tribe={command.TribeId}, " +
+                        $"target=({command.TargetValue1},{command.TargetValue2}).");
                 }
                 else if (!firstReplayLogged)
                 {
                     firstReplayLogged = true;
                     Shared.DebugLogHelper.LogDebug(
                         log,
-                        $"Bugfixes and QoL first moat-digging replay issued: tribe={args.TribeId}, " +
-                        $"player={playerId}, target=({args.TargetValue1},{args.TargetValue2}).");
+                        $"Bugfixes and QoL first moat-digging replay issued: tribe={command.TribeId}, " +
+                        $"player={command.PlayerId}, target=({command.TargetValue1},{command.TargetValue2}).");
                 }
             }
             catch (Exception ex)
@@ -193,6 +240,34 @@ namespace BugfixesAndQoL
             {
                 replayDepth--;
             }
+        }
+
+        private readonly struct PendingDigMoatCommand
+        {
+            public PendingDigMoatCommand(TribeIssueOrderWithTargetEventArgs args, int playerId)
+            {
+                TribeId = args.TribeId;
+                AICommand = args.AICommand;
+                TargetValue1 = args.TargetValue1;
+                TargetValue2 = args.TargetValue2;
+                A6 = args.a6;
+                PlayerId = playerId;
+            }
+
+            public int TribeId { get; }
+            public TribeAICommand AICommand { get; }
+            public int TargetValue1 { get; }
+            public int TargetValue2 { get; }
+            public int A6 { get; }
+            public int PlayerId { get; }
+
+            public bool Matches(TribeIssueOrderWithTargetEventArgs args) =>
+                args.AICommand == TribeAICommand.DigMoatTileId &&
+                args.TribeId == TribeId &&
+                args.AICommand == AICommand &&
+                args.TargetValue1 == TargetValue1 &&
+                args.TargetValue2 == TargetValue2 &&
+                args.a6 == A6;
         }
 
         private void AllowFriendlyPlannedMoatCursor(NativePointer<X64SmartCPUContext> context)
