@@ -16,6 +16,7 @@ namespace BugfixesAndQoL
         public event Action<string> SettingChanged;
 
         private bool enableMod = true;
+        private bool allowFullAiMultiplayerLobby = true;
         private bool rememberAiAivSettings = true;
         private bool enableCustomLordListEnhancements = true;
         private bool enableCustomLordExtendedPackages = true;
@@ -137,6 +138,8 @@ namespace BugfixesAndQoL
         public string PlagueTitleText => SerpLocalization.Get("BugfixesAndQoL.PlagueTitle");
         public string GameplayTitleText => SerpLocalization.Get("BugfixesAndQoL.GameplayTitle");
         public string MultiplayerTitleText => SerpLocalization.Get("BugfixesAndQoL.MultiplayerTitle");
+        public string AllowFullAiMultiplayerLobbyText => SerpLocalization.Get("BugfixesAndQoL.AllowFullAiMultiplayerLobby");
+        public string AllowFullAiMultiplayerLobbyHelpText => SerpLocalization.Get("BugfixesAndQoL.AllowFullAiMultiplayerLobbyHelp");
         public string EnableCtrlSingleMarketTradeText => SerpLocalization.Get(SerpLocalization.EnableCtrlSingleMarketTrade);
         public string EnableCtrlSingleMarketTradeHelpText => SerpLocalization.Get(SerpLocalization.EnableCtrlSingleMarketTradeHelp);
         public string EnableAllyGoodsAmountModifiersText => SerpLocalization.Get(SerpLocalization.EnableAllyGoodsAmountModifiers);
@@ -330,6 +333,13 @@ namespace BugfixesAndQoL
         {
             get => enableMod;
             set => SetSetting(ref enableMod, value, nameof(EnableMod));
+        }
+
+        [SyncHostOnly]
+        public bool AllowFullAiMultiplayerLobby
+        {
+            get => allowFullAiMultiplayerLobby;
+            set => SetSetting(ref allowFullAiMultiplayerLobby, value, nameof(AllowFullAiMultiplayerLobby));
         }
 
         [SyncPerPlayer]
@@ -568,6 +578,7 @@ namespace BugfixesAndQoL
             if (CanEditHostSettings)
             {
                 EnableMod = true;
+                AllowFullAiMultiplayerLobby = true;
                 EnableAiFixes = true;
                 FixAITowerRepair = true;
                 BetterAIOverbuildRules = true;

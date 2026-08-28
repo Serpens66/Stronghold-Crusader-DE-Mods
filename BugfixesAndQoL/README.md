@@ -68,7 +68,7 @@ Incoming invitations can appear as a Yes/No prompt only after Steam confirms tha
 Keyboard scrolling and edge scrolling continue to move the camera while Ctrl or Alt is held. This prevents modifier keys used for other controls from unnecessarily locking camera movement.
 
 ### Improve custom-lord and random-opponent selection
-The custom-lord picker gains name search, sortable Name, Lord Power, and Steam Workshop origin columns, and a button that adds a random lord from the currently visible list. Random-opponent dialogs can independently use Vanilla, local, or Steam Workshop lords. Random-AI count buttons are also available in editable multiplayer skirmish lobbies and respect the lobby, map, and human-player limits.
+The custom-lord picker gains name search, sortable Name, Lord Power, and Steam Workshop origin columns, and a button that adds a random lord from the currently visible list. Random-opponent dialogs can independently use Vanilla, local, or Steam Workshop lords. Random-AI count buttons are also available in editable multiplayer skirmish lobbies and respect the lobby, map, and human-player limits. A host setting enabled by default can fill every available normal multiplayer slot with AI.
 
 ### Improve AIV and AIC selection
 AI castle lists can be searched and sorted by origin or name, while AI configuration lists can additionally be sorted by Lord Power. Each lord's last AIV list, AIC configuration, and castle rotation is remembered across singleplayer and multiplayer lobbies, and named presets can save and restore further setups. Up to 50 ordered AIV candidates may be selected per lord; in multiplayer, additional AIV data is validated and synchronized before the match starts. Missing files in a saved preset are handled safely.

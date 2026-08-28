@@ -1275,6 +1275,8 @@ internal static class Program
             "EnableEliminatedPlayersBecomeSpectators did not default to true");
         Check(setting.EnableReturnToMultiplayerLobby,
             "EnableReturnToMultiplayerLobby did not default to true");
+        Check(setting.AllowFullAiMultiplayerLobby,
+            "AllowFullAiMultiplayerLobby did not default to true");
         Check(typeof(SurrenderAndStatisticsSettingViewModel).GetProperty("EnableSurrender") == null,
             "obsolete EnableSurrender property remains present");
         setting.EnableAiFixes = false;
@@ -1282,6 +1284,7 @@ internal static class Program
         setting.EnableLordUnitControls = false;
         setting.EnableEliminatedPlayersBecomeSpectators = false;
         setting.EnableReturnToMultiplayerLobby = false;
+        setting.AllowFullAiMultiplayerLobby = false;
         setting.SelectedPreset = 1;
         Check(setting.EnableAiFixes, "new shared preset did not retain the EnableAiFixes default true value");
         Check(setting.EnableSurrenderAndStatistics, "new shared preset did not retain the default true value");
@@ -1290,6 +1293,8 @@ internal static class Program
             "new shared preset did not retain the spectator-promotion default true value");
         Check(setting.EnableReturnToMultiplayerLobby,
             "new shared preset did not retain the lobby-return default true value");
+        Check(setting.AllowFullAiMultiplayerLobby,
+            "new shared preset did not retain the full-AI-lobby default true value");
         setting.SelectedPreset = 0;
         Check(!setting.EnableAiFixes, "EnableAiFixes did not round-trip through presets");
         Check(!setting.EnableSurrenderAndStatistics, "shared host value did not round-trip through presets");
@@ -1298,6 +1303,8 @@ internal static class Program
             "spectator-promotion host value did not round-trip through presets");
         Check(!setting.EnableReturnToMultiplayerLobby,
             "lobby-return host value did not round-trip through presets");
+        Check(!setting.AllowFullAiMultiplayerLobby,
+            "full-AI-lobby host value did not round-trip through presets");
 
         GameNetworkAPI.LocalHost = false;
         setting.System_RefreshSettingsAccess();
@@ -1307,6 +1314,7 @@ internal static class Program
         setting.EnableLordUnitControls = true;
         setting.EnableEliminatedPlayersBecomeSpectators = true;
         setting.EnableReturnToMultiplayerLobby = true;
+        setting.AllowFullAiMultiplayerLobby = true;
         Check(!setting.EnableAiFixes, "client mutated the host-only EnableAiFixes setting");
         Check(beforeClientMutation.SequenceEqual(File.ReadAllBytes(settingsPath)),
             "client EnableAiFixes mutation changed the local preset file");
@@ -1316,6 +1324,8 @@ internal static class Program
             "client mutated the host-only EnableEliminatedPlayersBecomeSpectators setting");
         Check(!setting.EnableReturnToMultiplayerLobby,
             "client mutated the host-only EnableReturnToMultiplayerLobby setting");
+        Check(!setting.AllowFullAiMultiplayerLobby,
+            "client mutated the host-only AllowFullAiMultiplayerLobby setting");
         GameXAMLManagerAPI.Instance.ApplyNetworkSync(setting, () =>
         {
             setting.EnableAiFixes = true;
@@ -1323,6 +1333,7 @@ internal static class Program
             setting.EnableLordUnitControls = true;
             setting.EnableEliminatedPlayersBecomeSpectators = true;
             setting.EnableReturnToMultiplayerLobby = true;
+            setting.AllowFullAiMultiplayerLobby = true;
         });
         Check(setting.EnableAiFixes, "authoritative host sync did not update EnableAiFixes");
         Check(setting.EnableSurrenderAndStatistics, "authoritative host sync did not update EnableSurrenderAndStatistics");
@@ -1331,6 +1342,8 @@ internal static class Program
             "authoritative host sync did not update EnableEliminatedPlayersBecomeSpectators");
         Check(setting.EnableReturnToMultiplayerLobby,
             "authoritative host sync did not update EnableReturnToMultiplayerLobby");
+        Check(setting.AllowFullAiMultiplayerLobby,
+            "authoritative host sync did not update AllowFullAiMultiplayerLobby");
 
         setting.System_EnterMissionPreset(
             new Dictionary<string, byte[]>
@@ -1339,7 +1352,8 @@ internal static class Program
                 [nameof(setting.EnableSurrenderAndStatistics)] = MessagePackSerializer.Serialize(false),
                 [nameof(setting.EnableLordUnitControls)] = MessagePackSerializer.Serialize(false),
                 [nameof(setting.EnableEliminatedPlayersBecomeSpectators)] = MessagePackSerializer.Serialize(false),
-                [nameof(setting.EnableReturnToMultiplayerLobby)] = MessagePackSerializer.Serialize(false)
+                [nameof(setting.EnableReturnToMultiplayerLobby)] = MessagePackSerializer.Serialize(false),
+                [nameof(setting.AllowFullAiMultiplayerLobby)] = MessagePackSerializer.Serialize(false)
             },
             "Trail",
             editable: false);
@@ -1351,11 +1365,14 @@ internal static class Program
             "read-only Trail did not apply EnableEliminatedPlayersBecomeSpectators");
         Check(!setting.EnableReturnToMultiplayerLobby,
             "read-only Trail did not apply EnableReturnToMultiplayerLobby");
+        Check(!setting.AllowFullAiMultiplayerLobby,
+            "read-only Trail did not apply AllowFullAiMultiplayerLobby");
         setting.EnableAiFixes = true;
         setting.EnableSurrenderAndStatistics = true;
         setting.EnableLordUnitControls = true;
         setting.EnableEliminatedPlayersBecomeSpectators = true;
         setting.EnableReturnToMultiplayerLobby = true;
+        setting.AllowFullAiMultiplayerLobby = true;
         Check(!setting.EnableAiFixes, "client changed EnableAiFixes inside a read-only Trail");
         Check(!setting.EnableSurrenderAndStatistics, "client changed EnableSurrenderAndStatistics inside a read-only Trail");
         Check(!setting.EnableLordUnitControls, "client changed EnableLordUnitControls inside a read-only Trail");
@@ -1363,6 +1380,8 @@ internal static class Program
             "client changed EnableEliminatedPlayersBecomeSpectators inside a read-only Trail");
         Check(!setting.EnableReturnToMultiplayerLobby,
             "client changed EnableReturnToMultiplayerLobby inside a read-only Trail");
+        Check(!setting.AllowFullAiMultiplayerLobby,
+            "client changed AllowFullAiMultiplayerLobby inside a read-only Trail");
         setting.System_ExitMissionPreset();
 
         GameNetworkAPI.LocalHost = true;
@@ -1375,6 +1394,8 @@ internal static class Program
             "EnableEliminatedPlayersBecomeSpectators reset value was not true");
         Check(setting.EnableReturnToMultiplayerLobby,
             "EnableReturnToMultiplayerLobby reset value was not true");
+        Check(setting.AllowFullAiMultiplayerLobby,
+            "AllowFullAiMultiplayerLobby reset value was not true");
     }
 
     private static void TestMultiplayerLobbyReturnPolicy()
@@ -4569,6 +4590,7 @@ internal sealed class SurrenderAndStatisticsSettingViewModel : PresetLobbyModSet
     private bool enableLordUnitControls = true;
     private bool enableEliminatedPlayersBecomeSpectators = true;
     private bool enableReturnToMultiplayerLobby = true;
+    private bool allowFullAiMultiplayerLobby = true;
 
     [SyncHostOnly]
     public bool EnableAiFixes
@@ -4641,6 +4663,22 @@ internal sealed class SurrenderAndStatisticsSettingViewModel : PresetLobbyModSet
         }
     }
 
+    [SyncHostOnly]
+    public bool AllowFullAiMultiplayerLobby
+    {
+        get => allowFullAiMultiplayerLobby;
+        set
+        {
+            if (!CanMutateSetting(nameof(AllowFullAiMultiplayerLobby)) ||
+                allowFullAiMultiplayerLobby == value)
+            {
+                return;
+            }
+            allowFullAiMultiplayerLobby = value;
+            OnPropertyChanged(nameof(AllowFullAiMultiplayerLobby));
+        }
+    }
+
     internal void ResetSurrenderAndStatistics()
     {
         EnableAiFixes = true;
@@ -4648,6 +4686,7 @@ internal sealed class SurrenderAndStatisticsSettingViewModel : PresetLobbyModSet
         EnableLordUnitControls = true;
         EnableEliminatedPlayersBecomeSpectators = true;
         EnableReturnToMultiplayerLobby = true;
+        AllowFullAiMultiplayerLobby = true;
     }
 }
 

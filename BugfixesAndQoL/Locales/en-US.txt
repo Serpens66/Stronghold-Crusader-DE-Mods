@@ -183,3 +183,5 @@ Common.ModSettingsSearchClearHelp=Clear the settings filter.
 Common.ModSettingsSearchNoResults=No matching settings found.
 BugfixesAndQoL.EnableCustomLordExtendedPackages=Enable complete Custom Lord packages
 BugfixesAndQoL.EnableCustomLordExtendedPackagesHelp=Uploads and displays Script Extender media and localized Lord descriptions stored in info.json, lordmeta.json, and Override. When disabled, these extra files remain completely untouched.
+BugfixesAndQoL.AllowFullAiMultiplayerLobby=Fill all multiplayer slots with AI
+BugfixesAndQoL.AllowFullAiMultiplayerLobbyHelp=Allows the host to fill the final free player slot with AI in normal multiplayer lobbies. Custom co-op and the configured map and lobby limits remain unchanged.

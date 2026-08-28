@@ -219,8 +219,7 @@ namespace BugfixesAndQoL
         public void ApplySetting()
         {
             OnPropertyChanged(nameof(RandomLordFiltersVisibility));
-            if (settings.EnableMod)
-                EnsureRandomAiButtonVisibleInEditableLobby();
+            RefreshRandomAiControlsInEditableLobby();
         }
 
         public void Dispose()
@@ -308,7 +307,7 @@ namespace BugfixesAndQoL
             }
         }
 
-        private void EnsureRandomAiButtonVisibleInEditableLobby()
+        private void RefreshRandomAiControlsInEditableLobby()
         {
             // MainViewModel.Instance constructs the view model on first access and is not
             // safe during early plugin initialization before Vanilla finishes loading it.
@@ -316,8 +315,13 @@ namespace BugfixesAndQoL
                 return;
 
             MainViewModel viewModel = MainViewModel.Instance;
-            if (IsEditableHostLobby(viewModel))
+            if (!IsEditableHostLobby(viewModel))
+                return;
+
+            if (settings.EnableMod)
                 viewModel.Show_SkirmishRandomAI = true;
+
+            MultiplayerUpdateRandomAiButtonsMethod.Invoke(viewModel.FRONTMultiplayer, null);
         }
 
         private static bool IsEditableHostLobby(MainViewModel viewModel)
@@ -329,7 +333,7 @@ namespace BugfixesAndQoL
                 frontend.currentLobby.isHost;
         }
 
-        private static int GetMaximumAiCount(FRONT_Multiplayer self)
+        private int GetMaximumAiCount(FRONT_Multiplayer self)
         {
             int playerCap = self == null ? 0 : (int)MultiplayerPlayerCapField.GetValue(self);
             int lobbyMaxPlayers = self?.currentLobby?.iMaxPlayers ?? 0;
@@ -346,6 +350,7 @@ namespace BugfixesAndQoL
                 selectedMapMaxPlayers,
                 FRONT_Multiplayer.customCoopGame,
                 FRONT_Multiplayer.skirmishGame,
+                settings.EnableMod && settings.AllowFullAiMultiplayerLobby,
                 humanCount);
         }
 
@@ -353,7 +358,8 @@ namespace BugfixesAndQoL
         {
             bool memoryActiveBefore = IsMemoryActive();
             Dictionary<int, string> before = memoryActiveBefore ? CaptureAiSlotKeys(self) : null;
-            bool protectedRandomCommand = settings.EnableMod && IsRandomOpponentCount(param, out _);
+            bool protectedRandomCommand =
+                settings.EnableMod && RandomOpponentLobbyPolicy.TryGetRandomOpponentCount(param, out _);
 
             bool handled = false;
             try
@@ -405,7 +411,8 @@ namespace BugfixesAndQoL
 
         private bool TryCreateFilteredRandomAi(FRONT_Multiplayer self, string param)
         {
-            if (!IsRandomOpponentCount(param, out int requestedValue) || !settings.EnableMod)
+            if (!RandomOpponentLobbyPolicy.TryGetRandomOpponentCount(param, out int requestedCount) ||
+                !settings.EnableMod)
                 return false;
 
             if (self?.currentLobby == null)
@@ -442,7 +449,6 @@ namespace BugfixesAndQoL
             }
 
             var random = new Random();
-            int requestedCount = -requestedValue;
             int maximumAiCount = GetMaximumAiCount(self);
             int targetCount = Math.Min(requestedCount, maximumAiCount);
             int addedCount = 0;
@@ -488,9 +494,6 @@ namespace BugfixesAndQoL
             return true;
         }
 
-        private static bool IsRandomOpponentCount(string param, out int requestedValue) =>
-            int.TryParse(param, out requestedValue) && requestedValue < 0 && requestedValue >= -8;
-
         private static bool IsIndividualAiSelection(string param)
         {
             return int.TryParse(param, out int value) &&
@@ -509,7 +512,7 @@ namespace BugfixesAndQoL
             int humanCountBefore = lobby?.CountHumanPlayers() ?? 0;
             int aiCountBefore = lobby?.CountAIPlayers() ?? 0;
             bool releaseSeat = RandomOpponentLobbyPolicy.ShouldReleaseFinalAiSeat(
-                settings.EnableMod,
+                settings.EnableMod && settings.AllowFullAiMultiplayerLobby,
                 lobby != null && lobby.isHost,
                 FRONT_Multiplayer.skirmishGame,
                 FRONT_Multiplayer.coopGame,
