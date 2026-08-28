@@ -10,6 +10,8 @@ namespace UnitLimit
         private const BindingFlags MainViewModelFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
         private static readonly FieldInfo LastTroopBuildChimpField = typeof(MainViewModel).GetField("lastTroopBuildChimp", MainViewModelFlags);
         private static readonly PropertyInfo LastTroopBuildChimpProperty = typeof(MainViewModel).GetProperty("lastTroopBuildChimp", MainViewModelFlags);
+        private static readonly FieldInfo LastTroopsAmountToMakeField = typeof(MainViewModel).GetField("lastTroopsAmountToMake", MainViewModelFlags);
+        private static readonly PropertyInfo LastTroopsAmountToMakeProperty = typeof(MainViewModel).GetProperty("lastTroopsAmountToMake", MainViewModelFlags);
         private eChimps currentTooltipUnitType = eChimps.CHIMP_TYPE_NULL;
         private bool hasCurrentTooltipUnitType;
 
@@ -92,6 +94,39 @@ namespace UnitLimit
             catch
             {
                 return eChimps.CHIMP_TYPE_ARCHER;
+            }
+        }
+
+        private static bool TryGetCurrentVanillaRecruitAmount(eChimps unitType, out int amount)
+        {
+            amount = 0;
+            MainViewModel mainViewModel = MainViewModel.Instance;
+            if (mainViewModel == null)
+                return false;
+
+            object unitValue = GetMainViewModelMemberValue(
+                mainViewModel,
+                LastTroopBuildChimpField,
+                LastTroopBuildChimpProperty);
+            object amountValue = GetMainViewModelMemberValue(
+                mainViewModel,
+                LastTroopsAmountToMakeField,
+                LastTroopsAmountToMakeProperty);
+            if (unitValue == null || amountValue == null)
+                return false;
+
+            try
+            {
+                if ((eChimps)Convert.ToInt32(unitValue) != unitType)
+                    return false;
+
+                amount = Math.Max(0, Convert.ToInt32(amountValue));
+                return true;
+            }
+            catch
+            {
+                amount = 0;
+                return false;
             }
         }
 

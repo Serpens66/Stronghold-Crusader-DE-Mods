@@ -110,6 +110,9 @@
     <Compile Include="..\Shared\SerpLocalization.cs">
       <Link>Shared\SerpLocalization.cs</Link>
     </Compile>
+    <Compile Include="..\Shared\RecruitmentRequestPolicy.cs">
+      <Link>Shared\RecruitmentRequestPolicy.cs</Link>
+    </Compile>
     <Compile Include="src\ActiveSiegeTentCache.cs" />
     <Compile Include="src\ActiveUnitCache.cs" />
     <Compile Include="src\CreateTroopHoverHook.cs" />

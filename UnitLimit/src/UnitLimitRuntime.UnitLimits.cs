@@ -116,37 +116,51 @@ namespace UnitLimit
             int pendingCount = GetPendingRecruitmentCount(playerId, unitType);
             int effectiveCount = liveCount + pendingCount;
             int remaining = limit - effectiveCount;
-            int readyPeasants = -1;
-            int peasantLimitedRemaining = remaining;
-            if (!IsEngineerSiegeUnit(unitType) && TryGetReadyPeasantCount(playerId, out readyPeasants))
-                peasantLimitedRemaining = Math.Min(peasantLimitedRemaining, readyPeasants);
+            int vanillaRequestedAmount = amount;
+            if (remaining > 0 &&
+                amount == Shared.RecruitmentRequestPolicy.VanillaCtrlAllAmount &&
+                !TryGetCurrentVanillaRecruitAmount(unitType, out vanillaRequestedAmount))
+            {
+                LogDebug(
+                    "UnitLimit blocked Ctrl recruitment because Vanilla's current recruitment amount could not be resolved safely:",
+                    "unit", unitType,
+                    "player", playerId,
+                    "rawUnitType", rawUnitType);
+                return MakeTroopGameActionDecision.BlockAction();
+            }
 
-            int allowedAmount = peasantLimitedRemaining <= 0
-                ? 0
-                : amount == 1000
-                    ? peasantLimitedRemaining
-                    : Math.Min(amount, peasantLimitedRemaining);
+            Shared.RecruitmentConstraintDecision constraint =
+                Shared.RecruitmentRequestPolicy.ApplyMaximum(
+                    amount,
+                    vanillaRequestedAmount,
+                    remaining);
             LogDebug(
                 log,
-                "MakeTroop decision:",
+                "UnitLimit recruitment decision:",
                 "unit", unitType,
                 "player", playerId,
                 "live", liveCount,
                 "pending", pendingCount,
                 "effective", effectiveCount,
                 "remaining", remaining,
-                "readyPeasants", readyPeasants,
-                "peasantLimitedRemaining", peasantLimitedRemaining,
-                "requestedAmount", amount,
-                "allowedAmount", allowedAmount,
+                "incomingAmount", amount,
+                "vanillaRequestedAmount", vanillaRequestedAmount,
+                "effectiveRequestedAmount", constraint.EffectiveRequestedAmount,
+                "constraintAction", constraint.Action,
+                "forwardedAmount", constraint.AmountToForward,
                 "limit", limit,
                 "rawUnitType", rawUnitType);
 
-            if (allowedAmount > 0)
+            if (constraint.Action != Shared.RecruitmentConstraintAction.Block)
             {
-                ReservePendingRecruitment(playerId, unitType, allowedAmount);
+                int amountToReserve = constraint.Action == Shared.RecruitmentConstraintAction.ForwardAmount
+                    ? constraint.AmountToForward
+                    : constraint.EffectiveRequestedAmount;
+                ReservePendingRecruitment(playerId, unitType, amountToReserve);
                 RefreshCurrentUnitLimitTooltip();
-                return MakeTroopGameActionDecision.ForwardAmount(allowedAmount);
+                return constraint.Action == Shared.RecruitmentConstraintAction.ForwardAmount
+                    ? MakeTroopGameActionDecision.ForwardAmount(constraint.AmountToForward)
+                    : MakeTroopGameActionDecision.AllowOriginal();
             }
 
             LogDebug(
@@ -158,17 +172,15 @@ namespace UnitLimit
                 "pending", pendingCount,
                 "effective", effectiveCount,
                 "remaining", remaining,
-                "readyPeasants", readyPeasants,
-                "peasantLimitedRemaining", peasantLimitedRemaining,
-                "requestedAmount", amount,
-                "allowedAmount", allowedAmount,
+                "incomingAmount", amount,
+                "vanillaRequestedAmount", vanillaRequestedAmount,
+                "effectiveRequestedAmount", constraint.EffectiveRequestedAmount,
+                "constraintAction", constraint.Action,
                 "limit", limit,
                 "rawUnitType", rawUnitType);
 
             if (remaining <= 0)
                 ShowUnitLimitReachedMessageForLocalPlayer(playerId, unitType, limit);
-            else if (readyPeasants == 0 && peasantLimitedRemaining <= 0)
-                PlayRecruitsNeededSpeech();
 
             RefreshCurrentUnitLimitTooltip();
             return MakeTroopGameActionDecision.BlockAction();
@@ -203,23 +215,6 @@ namespace UnitLimit
                     return true;
                 default:
                     return false;
-            }
-        }
-
-        private static bool TryGetReadyPeasantCount(int playerId, out int readyPeasants)
-        {
-            readyPeasants = 0;
-            unsafe
-            {
-                if (!GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(playerId, out GamePlayerResources* resources) ||
-                    resources == null)
-                {
-                    return false;
-                }
-
-                uint readyPeasantValue = resources->r_ReadyPeasants;
-                readyPeasants = readyPeasantValue > (uint)int.MaxValue ? int.MaxValue : (int)readyPeasantValue;
-                return true;
             }
         }
 
