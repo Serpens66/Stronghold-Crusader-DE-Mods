@@ -6,6 +6,11 @@ namespace BugfixesAndQoL
 {
     internal static class AssassinCombatResumePolicy
     {
+        public static bool IsValidNativeUnitIndex(int nativeUnitIndex, int unitCount)
+        {
+            return nativeUnitIndex >= 0 && nativeUnitIndex < unitCount;
+        }
+
         public static bool ShouldUseAssassinPathContext(
             bool modEnabled,
             bool improvedPathfindingEnabled,

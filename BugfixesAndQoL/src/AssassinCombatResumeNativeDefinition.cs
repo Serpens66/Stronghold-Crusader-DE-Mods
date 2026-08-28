@@ -10,6 +10,10 @@ namespace BugfixesAndQoL
         public const string ResumeOldOrderPattern =
             "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 54 41 55 41 56 41 57 48 83 EC 30 48 63 DA";
 
+        public const int ResumeNativeUnitIndexAddressingRva = 0x12281C;
+        public const string ResumeNativeUnitIndexAddressingPattern =
+            "48 63 DA 48 8D 05 DA 5B 6C 06 4C 69 FB 90 04 00 00 33 F6 33 ED 33 FF 4C";
+
         public const int AssassinPathContextFlagRva = 0x60AD6E8;
         public const int CommonPathRequestRva = 0x196280;
         public const int AssassinPathBuilderRva = 0xD9C40;

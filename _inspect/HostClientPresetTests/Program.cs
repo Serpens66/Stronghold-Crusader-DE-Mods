@@ -1806,6 +1806,14 @@ internal static class Program
 
     private static void TestAssassinCombatResumePolicy()
     {
+        Check(AssassinCombatResumePolicy.IsValidNativeUnitIndex(0, 10000) &&
+              AssassinCombatResumePolicy.IsValidNativeUnitIndex(9999, 10000),
+            "Assassin combat resume rejected a valid native zero-based unit index");
+        Check(!AssassinCombatResumePolicy.IsValidNativeUnitIndex(-1, 10000) &&
+              !AssassinCombatResumePolicy.IsValidNativeUnitIndex(10000, 10000) &&
+              !AssassinCombatResumePolicy.IsValidNativeUnitIndex(0, 0),
+            "Assassin combat resume accepted an invalid native unit index");
+
         Check(AssassinCombatResumePolicy.ShouldUseAssassinPathContext(
                 true,
                 true,
@@ -1852,6 +1860,17 @@ internal static class Program
             resume.Rva == AssassinCombatResumeNativeDefinition.ResumeOldOrderRva &&
             resume.Method == "signature-fallback",
             "Assassin post-combat movement-order resume signature was not unique at its audited RVA");
+
+        NativeResolution nativeUnitIndexAddressing = NativePatternResolver.ResolveUnique(
+            image,
+            AssassinCombatResumeNativeDefinition.ResumeNativeUnitIndexAddressingPattern,
+            AssassinCombatResumeNativeDefinition.ResumeNativeUnitIndexAddressingRva,
+            referenceHashMatches: false,
+            "test Assassin resume native unit-index addressing");
+        Check(
+            nativeUnitIndexAddressing.Rva == AssassinCombatResumeNativeDefinition.ResumeNativeUnitIndexAddressingRva &&
+            nativeUnitIndexAddressing.Method == "signature-fallback",
+            "Assassin resume no longer directly addresses the zero-based native unit index with stride 0x490");
 
         NativeResolution resumePath = NativePatternResolver.ResolveUnique(
             image,

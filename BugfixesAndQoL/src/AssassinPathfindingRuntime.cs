@@ -92,6 +92,13 @@ namespace BugfixesAndQoL
         private bool coordinateMapValidated;
         private bool coordinateValidationFailureLogged;
 
+        #region TEMPORARY ASSASSIN_COMBAT_RESUME_DIAGNOSTICS - remove this entire region after validation
+        private const int MaximumCombatResumeDiagnosticEventsPerMap = 64;
+        private int combatResumeDiagnosticEventCount;
+        private int activeCombatResumeDiagnosticId;
+        private int activeCombatResumeBuilderCalls;
+        #endregion
+
         public AssassinPathfindingRuntime(ManualLogSource log, BugfixesAndQoLViewModel settings, AssassinClimbRuntime climbRuntime)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
@@ -139,6 +146,16 @@ namespace BugfixesAndQoL
             IntPtr resolvedResumeOldOrder = IntPtr.Add(newLibraryHandle, resumeResolution.Rva);
             if (resumeResolution.Rva != AssassinCombatResumeNativeDefinition.ResumeOldOrderRva)
                 throw new InvalidOperationException("Assassin movement-order resume resolved outside its validated RVA");
+
+            Shared.NativeResolution nativeUnitIndexResolution = Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                AssassinCombatResumeNativeDefinition.ResumeNativeUnitIndexAddressingPattern,
+                AssassinCombatResumeNativeDefinition.ResumeNativeUnitIndexAddressingRva,
+                referenceHashMatches: true,
+                "Assassin resume native unit-index addressing",
+                log);
+            if (nativeUnitIndexResolution.Rva != AssassinCombatResumeNativeDefinition.ResumeNativeUnitIndexAddressingRva)
+                throw new InvalidOperationException("Assassin movement-order resume no longer uses its validated native unit-index addressing");
 
             libraryHandle = newLibraryHandle;
             validCoordinates = (byte*)IntPtr.Add(newLibraryHandle, ValidCoordinateGridRva).ToPointer();
@@ -225,33 +242,60 @@ namespace BugfixesAndQoL
         public void BeginMap()
         {
             ResetMapValidation();
+            ResetCombatResumeDiagnostics();
         }
 
         public void EndMap()
         {
             ResetMapValidation();
+            ResetCombatResumeDiagnostics();
         }
 
         private int BuildWeightedPath(IntPtr context, int startX, int startY, int targetX, int targetY, int maximumNodes, int continuation)
         {
+            int diagnosticId = activeCombatResumeDiagnosticId;
+            if (diagnosticId > 0)
+            {
+                activeCombatResumeBuilderCalls++;
+                LogCombatResumeDiagnostic(
+                    diagnosticId,
+                    $"builder-enter call={activeCombatResumeBuilderCalls}, context=0x{context.ToInt64():X}, start={startX},{startY}, target={targetX},{targetY}, maximumNodes={maximumNodes}, continuation={continuation}, contextFlag={*assassinPathContextFlag}");
+            }
+
             AssassinPathBuilderDelegate vanilla = original;
             if (vanilla == null)
-                return 0;
+                return ReturnCombatResumeBuilderDiagnostic(diagnosticId, "missing-vanilla-trampoline", 0, 0);
 
             // Vanilla initializes internal queue state even when our compact route field replaces it.
             int vanillaResult = vanilla(context, startX, startY, targetX, targetY, maximumNodes, continuation);
             bool improvedPathfindingEnabled = settings.EnableMod && settings.EnableImprovedAssassinPathfinding;
             if (!improvedPathfindingEnabled || continuation != 0)
-                return vanillaResult;
+                return ReturnCombatResumeBuilderDiagnostic(
+                    diagnosticId,
+                    !improvedPathfindingEnabled ? "vanilla-feature-disabled" : "vanilla-continuation",
+                    vanillaResult,
+                    vanillaResult);
             if (targetX < 0 || targetY < 0)
-                return vanillaResult;
+                return ReturnCombatResumeBuilderDiagnostic(
+                    diagnosticId,
+                    "vanilla-negative-target",
+                    vanillaResult,
+                    vanillaResult);
 
             try
             {
                 if (!TryResolveAssassinRequest(startX, startY, out int playerId, out int speedDelay))
-                    return vanillaResult;
+                    return ReturnCombatResumeBuilderDiagnostic(
+                        diagnosticId,
+                        "vanilla-assassin-request-unresolved",
+                        vanillaResult,
+                        vanillaResult);
                 if (!EnsureCoordinateTileMappingValidated())
-                    return vanillaResult;
+                    return ReturnCombatResumeBuilderDiagnostic(
+                        diagnosticId,
+                        "vanilla-coordinate-map-unavailable",
+                        vanillaResult,
+                        vanillaResult);
 
                 bool allowClimbing = climbRuntime.IsClimbingAllowed(playerId);
                 // Never publish a relaxed route unless Vanilla can reconstruct the same
@@ -268,7 +312,11 @@ namespace BugfixesAndQoL
                     speedDelay,
                     allowClimbing,
                     allowWalkableReservedClimbEndpoints: allowWalkableReservedClimbEndpoints);
-                return found ? 1 : 0;
+                return ReturnCombatResumeBuilderDiagnostic(
+                    diagnosticId,
+                    found ? "weighted-route-found" : "weighted-route-not-found",
+                    found ? 1 : 0,
+                    vanillaResult);
             }
             catch (Exception ex)
             {
@@ -277,44 +325,136 @@ namespace BugfixesAndQoL
                     fallbackLogged = true;
                     LogError($"weighted Assassin pathfinding failed and this request fell back to Vanilla: {ex}");
                 }
-                return vanillaResult;
+                return ReturnCombatResumeBuilderDiagnostic(
+                    diagnosticId,
+                    "vanilla-after-weighted-exception",
+                    vanillaResult,
+                    vanillaResult);
             }
         }
 
-        private int ResumeOldOrderAfterCombat(IntPtr tribeManager, int unitId, int internalCommand)
+        private int ResumeOldOrderAfterCombat(IntPtr tribeManager, int nativeUnitIndex, int internalCommand)
         {
             ResumeOldOrderDelegate vanilla = originalResumeOldOrder;
             if (vanilla == null)
                 return 0;
 
-            GameUnit* unit = null;
-            bool unitResolved = unitId > 0 &&
-                GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out unit) &&
-                unit != null;
-            if (!AssassinCombatResumePolicy.ShouldUseAssassinPathContext(
+            Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
+            bool unitResolved = AssassinCombatResumePolicy.IsValidNativeUnitIndex(nativeUnitIndex, units.Length);
+            AliveState aliveState = unitResolved ? units[nativeUnitIndex].r_AliveState : default;
+            eChimps unitType = unitResolved ? units[nativeUnitIndex].r_UnitChimp : default;
+            bool eligible = AssassinCombatResumePolicy.ShouldUseAssassinPathContext(
                     settings.EnableMod,
                     settings.EnableImprovedAssassinPathfinding,
                     IsInstalled,
                     unitResolved,
-                    unitResolved ? unit->r_AliveState : default,
-                    unitResolved ? unit->r_UnitChimp : default))
+                    aliveState,
+                    unitType);
+
+            int diagnosticId = BeginCombatResumeDiagnostic(
+                nativeUnitIndex,
+                units.Length,
+                unitResolved,
+                aliveState,
+                unitType,
+                internalCommand,
+                eligible);
+            int previousDiagnosticId = activeCombatResumeDiagnosticId;
+            int previousBuilderCalls = activeCombatResumeBuilderCalls;
+            activeCombatResumeDiagnosticId = diagnosticId;
+            activeCombatResumeBuilderCalls = 0;
+            if (!eligible)
             {
-                return vanilla(tribeManager, unitId, internalCommand);
+                try
+                {
+                    int vanillaResult = vanilla(tribeManager, nativeUnitIndex, internalCommand);
+                    LogCombatResumeDiagnostic(
+                        diagnosticId,
+                        $"resume-exit eligible=False, result={vanillaResult}, builderCalls={activeCombatResumeBuilderCalls}, contextFlag={*assassinPathContextFlag}");
+                    return vanillaResult;
+                }
+                finally
+                {
+                    activeCombatResumeDiagnosticId = previousDiagnosticId;
+                    activeCombatResumeBuilderCalls = previousBuilderCalls;
+                }
             }
 
             // MoveHere sets this flag before creating the path context, but Vanilla's combat
             // resume omits it. Scope the correction to this one Assassin order reissue.
             int previousPathContext = *assassinPathContextFlag;
             *assassinPathContextFlag = 1;
+            int result = 0;
+            int pathContextAfterVanilla = int.MinValue;
+            bool completed = false;
             try
             {
-                return vanilla(tribeManager, unitId, internalCommand);
+                result = vanilla(tribeManager, nativeUnitIndex, internalCommand);
+                pathContextAfterVanilla = *assassinPathContextFlag;
+                completed = true;
+                return result;
             }
             finally
             {
                 *assassinPathContextFlag = previousPathContext;
+                LogCombatResumeDiagnostic(
+                    diagnosticId,
+                    $"resume-exit eligible=True, completed={completed}, result={result}, builderCalls={activeCombatResumeBuilderCalls}, flagBefore={previousPathContext}, flagAfterVanilla={pathContextAfterVanilla}, flagRestored={*assassinPathContextFlag}");
+                activeCombatResumeDiagnosticId = previousDiagnosticId;
+                activeCombatResumeBuilderCalls = previousBuilderCalls;
             }
         }
+
+        #region TEMPORARY ASSASSIN_COMBAT_RESUME_DIAGNOSTICS - remove this entire region after validation
+        private int BeginCombatResumeDiagnostic(
+            int nativeUnitIndex,
+            int unitCount,
+            bool unitResolved,
+            AliveState aliveState,
+            eChimps unitType,
+            int internalCommand,
+            bool eligible)
+        {
+            if (!settings.EnableMod ||
+                !settings.EnableImprovedAssassinPathfinding ||
+                combatResumeDiagnosticEventCount >= MaximumCombatResumeDiagnosticEventsPerMap)
+            {
+                return 0;
+            }
+
+            int diagnosticId = ++combatResumeDiagnosticEventCount;
+            LogCombatResumeDiagnostic(
+                diagnosticId,
+                $"resume-enter nativeUnitIndex={nativeUnitIndex}, unitCount={unitCount}, resolved={unitResolved}, aliveState={aliveState}, unitType={unitType}, internalCommand={internalCommand}, eligible={eligible}, contextFlag={*assassinPathContextFlag}");
+            return diagnosticId;
+        }
+
+        private int ReturnCombatResumeBuilderDiagnostic(
+            int diagnosticId,
+            string outcome,
+            int result,
+            int vanillaResult)
+        {
+            LogCombatResumeDiagnostic(
+                diagnosticId,
+                $"builder-exit call={activeCombatResumeBuilderCalls}, outcome={outcome}, result={result}, vanillaResult={vanillaResult}, contextFlag={*assassinPathContextFlag}");
+            return result;
+        }
+
+        private void ResetCombatResumeDiagnostics()
+        {
+            combatResumeDiagnosticEventCount = 0;
+            activeCombatResumeDiagnosticId = 0;
+            activeCombatResumeBuilderCalls = 0;
+        }
+
+        private void LogCombatResumeDiagnostic(int diagnosticId, string message)
+        {
+            if (diagnosticId <= 0)
+                return;
+            LogDebug($"[ASSASSIN_COMBAT_RESUME_DIAGNOSTIC event={diagnosticId}] {message}");
+        }
+        #endregion
 
         private bool TryBuildWeightedRoute(
             IntPtr context,
