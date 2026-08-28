@@ -2,6 +2,17 @@ Place only supported media in these relative directories:
 
 Assets/GUI/Sprites/*.png
 Assets/GUI/Video/*.webm
-fx/speech/*.ogg or *.wav
+Locales/en-US/fx/speech/*.ogg or *.wav (required English speech set)
+Locales/<locale>/fx/speech/*.ogg or *.wav (optional translations)
+
+Keep the same logical speech path in lordmeta.json for every language. The Script
+Extender resolves the current locale, then en-US. Do not shorten en-US to en. Keep
+global fx/speech files only for intentionally language-neutral audio. OGG Vorbis is
+recommended. WAV must be PCM at exactly 44100 Hz; 48000-Hz legacy WAV files are not
+accepted by the current Script Extender decoder.
+
+JoinAudioPath and LeaveAudioPath include the fx/speech/ prefix. AudioPath inside a
+Messages entry uses only the speech name because the native message path adds that
+prefix. Use lord-specific names so another asset package cannot overwrite them.
 
 This instruction file is ignored by the Workshop staging feature and is not uploaded.

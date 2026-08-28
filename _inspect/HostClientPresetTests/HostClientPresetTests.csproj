@@ -182,6 +182,9 @@
     <Compile Include="..\..\BugfixesAndQoL\src\CustomLordExtendedPackagePolicy.cs">
       <Link>CustomLordExtendedPackagePolicy.cs</Link>
     </Compile>
+    <Compile Include="..\..\BugfixesAndQoL\src\CustomLordTitlePolicy.cs">
+      <Link>CustomLordTitlePolicy.cs</Link>
+    </Compile>
     <Compile Include="..\..\BugfixesAndQoL\src\GameSpeedRepeatScheduler.cs">
       <Link>GameSpeedRepeatScheduler.cs</Link>
     </Compile>

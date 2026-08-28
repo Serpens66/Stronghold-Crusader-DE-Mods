@@ -27,6 +27,7 @@ namespace BugfixesAndQoL
         private MinimapPlacementClickHook minimapPlacementClickHook;
         private SkirmishAiSelectionMemoryHook skirmishAiSelectionMemoryHook;
         private CustomLordExtendedPackageFeature customLordExtendedPackageFeature;
+        private CustomLordTitleFeature customLordTitleFeature;
         private CustomLordListEnhancementHook customLordListEnhancementHook;
         private AiCastleSettingsListEnhancementHook aiCastleSettingsListEnhancementHook;
         private MapOriginSortHook mapOriginSortHook;
@@ -269,6 +270,8 @@ namespace BugfixesAndQoL
             TryApplyFeature("AI castle/settings selection memory", () => skirmishAiSelectionMemoryHook?.ApplySetting());
             TryInitializeFeature("extended Custom Lord packages", EnsureCustomLordExtendedPackageFeature);
             TryApplyFeature("extended Custom Lord packages", () => customLordExtendedPackageFeature?.ApplySetting());
+            TryInitializeFeature("Custom Lord titles", EnsureCustomLordTitleFeature);
+            TryApplyFeature("Custom Lord titles", () => customLordTitleFeature?.ApplySetting());
             TryInitializeFeature("custom-lord list enhancements", EnsureCustomLordListEnhancementHook);
             TryApplyFeature("custom-lord list enhancements", () => customLordListEnhancementHook?.ApplySetting());
             TryInitializeFeature("AI castle/settings list enhancements", EnsureAiCastleSettingsListEnhancementHook);
@@ -297,6 +300,8 @@ namespace BugfixesAndQoL
             skirmishAiSelectionMemoryHook = null;
             customLordExtendedPackageFeature?.Dispose();
             customLordExtendedPackageFeature = null;
+            customLordTitleFeature?.Dispose();
+            customLordTitleFeature = null;
             customLordListEnhancementHook?.Dispose();
             customLordListEnhancementHook = null;
             aiCastleSettingsListEnhancementHook?.Dispose();
@@ -492,6 +497,12 @@ namespace BugfixesAndQoL
         {
             if (customLordExtendedPackageFeature == null)
                 customLordExtendedPackageFeature = new CustomLordExtendedPackageFeature(log, settings);
+        }
+
+        private void EnsureCustomLordTitleFeature()
+        {
+            if (customLordTitleFeature == null)
+                customLordTitleFeature = new CustomLordTitleFeature(log, settings);
         }
 
         private void EnsureAiCastleSettingsListEnhancementHook()

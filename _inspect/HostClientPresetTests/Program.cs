@@ -61,6 +61,7 @@ internal static class Program
             TestSiegeAmmoRestockPolicyAndPacket();
             TestMarketTradeIntegration();
             TestCustomLordExtendedPackagePolicy();
+            TestCustomLordTitlePolicy();
             TestGameSpeedRepeatScheduler();
             TestArrayPerPlayerSetting();
             TestMarketOrderPresetRoundTrip();
@@ -2202,6 +2203,86 @@ internal static class Program
             "ambiguous or invalid Vanilla quarry-pile groups were not rejected fail-closed");
     }
 
+    private static void TestCustomLordTitlePolicy()
+    {
+        string[] ordinals =
+        {
+            "The First",
+            "The Second",
+            "The Third",
+            "The Fourth",
+            "The Fifth",
+            "The Sixth",
+            "The Seventh",
+            "The Eighth"
+        };
+        string[] unique =
+        {
+            ", Keeper of the Test Chamber",
+            ", The Methodical",
+            ", Master of Measures",
+            ", The Patient",
+            ", Warden of Proofs",
+            ", The Exact",
+            ", Keeper of Records",
+            ", The Final Examiner"
+        };
+
+        CustomLordResolvedTitle[] resolved = CustomLordTitlePolicy.ResolveAll(unique, ordinals);
+        Check(resolved.Length == 8 && resolved[0].UsesCustomTitle &&
+              resolved[0].ColumnTitle == "Keeper of the Test Chamber" &&
+              resolved[7].ColumnTitle == "The Final Examiner",
+            "eight unique Custom Lord titles were not preserved or cleaned for the lobby column");
+
+        string[] cycling =
+        {
+            ", Keeper of the Test Chamber",
+            ", The Methodical",
+            ", Keeper of the Test Chamber",
+            ", The Methodical",
+            ", Keeper of the Test Chamber",
+            ", The Methodical",
+            ", Keeper of the Test Chamber",
+            ", The Methodical"
+        };
+        resolved = CustomLordTitlePolicy.ResolveAll(cycling, ordinals);
+        Check(resolved[0].UsesCustomTitle && resolved[1].UsesCustomTitle &&
+              !resolved[2].UsesCustomTitle && resolved[2].ColumnTitle == "The Third" &&
+              !resolved[7].UsesCustomTitle && resolved[7].ColumnTitle == "The Eighth",
+            "cycled or duplicate Custom Lord titles did not fall back to unique Vanilla ordinals");
+
+        string[] blank = new string[8];
+        resolved = CustomLordTitlePolicy.ResolveAll(blank, ordinals);
+        Check(!resolved[0].UsesCustomTitle && resolved[0].ColumnTitle == "The First" &&
+              resolved[7].ColumnTitle == "The Eighth",
+            "missing Custom Lord titles did not fall back to Vanilla ordinals");
+
+        Check(
+            CustomLordTitlePolicy.TryRewriteFullName(
+                "Test Lord, The Methodical",
+                ", The Methodical",
+                ", Keeper of the Test Chamber",
+                CustomLordTitlePolicy.ResolveAll(cycling, ordinals)[2],
+                out string correctedWrongIndex) && correctedWrongIndex == "Test Lord The Third",
+            "the temporary Script Extender wrong-index suffix was not replaced");
+        Check(
+            CustomLordTitlePolicy.TryRewriteFullName(
+                "Test Lord, The Methodical",
+                ", Keeper of the Test Chamber",
+                ", The Methodical",
+                CustomLordTitlePolicy.ResolveAll(unique, ordinals)[1],
+                out string alreadyCorrect) && alreadyCorrect == "Test Lord, The Methodical",
+            "an already corrected upstream title was not preserved");
+        Check(
+            !CustomLordTitlePolicy.TryRewriteFullName(
+                "Unrecognized upstream format",
+                ", Wrong",
+                ", Correct",
+                CustomLordTitlePolicy.ResolveAll(unique, ordinals)[1],
+                out string unrecognized) && unrecognized == "Unrecognized upstream format",
+            "an unrecognized upstream name was not preserved fail-closed");
+    }
+
     private static void TestCustomLordExtendedPackagePolicy()
     {
         string testRoot = Path.Combine(
@@ -2241,7 +2322,7 @@ internal static class Program
     ""Won"": [
       {
         ""VideoPath"": ""Assets/GUI/Video/test-win"",
-        ""AudioPath"": ""fx/speech/test-win"",
+        ""AudioPath"": ""test-win"",
         ""LocalizedText"": { ""en-US"": ""Victory"" }
       }
     ]
@@ -2255,11 +2336,14 @@ internal static class Program
 }");
 
             string sprites = Path.Combine(source, "Override", "Assets", "GUI", "Sprites");
-            string speech = Path.Combine(source, "Override", "fx", "speech");
+            string englishSpeech = Path.Combine(source, "Override", "Locales", "en-US", "fx", "speech");
+            string localizedSpeech = Path.Combine(source, "Override", "Locales", "de-DE", "fx", "speech");
             Directory.CreateDirectory(sprites);
-            Directory.CreateDirectory(speech);
+            Directory.CreateDirectory(englishSpeech);
+            Directory.CreateDirectory(localizedSpeech);
             File.WriteAllBytes(Path.Combine(sprites, "test-face.png"), new byte[] { 1, 2, 3 });
-            File.WriteAllBytes(Path.Combine(speech, "test-join.ogg"), new byte[] { 4, 5, 6 });
+            File.WriteAllBytes(Path.Combine(englishSpeech, "test-join.ogg"), new byte[] { 4, 5, 6 });
+            File.WriteAllBytes(Path.Combine(localizedSpeech, "test-join.ogg"), new byte[] { 7, 8, 9 });
             File.WriteAllText(Path.Combine(source, "Override", "ignored.txt"), "not uploaded");
             File.WriteAllText(Path.Combine(source, "init.lua"), "not uploaded");
 
@@ -2282,11 +2366,12 @@ internal static class Program
                     out int copied,
                     out string stageError),
                 "valid Custom Lord package was not staged: " + stageError);
-            Check(copied == 4, "Custom Lord staging did not copy exactly metadata plus allowed media");
+            Check(copied == 5, "Custom Lord staging did not copy exactly metadata plus English and localized media");
             Check(File.Exists(Path.Combine(staging, "info.json")) &&
                   File.Exists(Path.Combine(staging, "lordmeta.json")) &&
                   File.Exists(Path.Combine(staging, "Override", "Assets", "GUI", "Sprites", "test-face.png")) &&
-                  File.Exists(Path.Combine(staging, "Override", "fx", "speech", "test-join.ogg")),
+                  File.Exists(Path.Combine(staging, "Override", "Locales", "en-US", "fx", "speech", "test-join.ogg")) &&
+                  File.Exists(Path.Combine(staging, "Override", "Locales", "de-DE", "fx", "speech", "test-join.ogg")),
                 "Custom Lord staging omitted an allowed package file");
             Check(!File.Exists(Path.Combine(staging, "Override", "ignored.txt")) &&
                   !File.Exists(Path.Combine(staging, "init.lua")),

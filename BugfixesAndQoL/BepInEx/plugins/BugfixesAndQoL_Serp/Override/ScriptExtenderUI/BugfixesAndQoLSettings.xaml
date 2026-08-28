@@ -194,6 +194,12 @@
       <StackPanel IsEnabled="{Binding CanEditHostSettings}">
       <StackPanel shared:ModSettingsSearch.SectionKey="bugfixes.section.multiplayer" shared:ModSettingsSearch.SectionTitle="{Binding MultiplayerTitleText}">
       <Grid Style="{StaticResource ModSettingsSearchSectionGrid}" shared:ModSettingsSearch.IsSection="True"><TextBlock Text="{Binding MultiplayerTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.allow-full-ai-multiplayer-lobby" shared:ModSettingsSearch.Title="{Binding AllowFullAiMultiplayerLobbyText}" shared:ModSettingsSearch.ToolTipText="{Binding AllowFullAiMultiplayerLobbyHelpText}"><CheckBox IsChecked="{Binding AllowFullAiMultiplayerLobby, Mode=TwoWay}"
+                Foreground="White"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding AllowFullAiMultiplayerLobbyHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding AllowFullAiMultiplayerLobbyText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox></Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-resync-host-kick" shared:ModSettingsSearch.Title="{Binding EnableResyncHostKickText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableResyncHostKickHelpText}"><CheckBox IsChecked="{Binding EnableResyncHostKick, Mode=TwoWay}"
                 Foreground="White"
                 ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableResyncHostKickHelpText}"
