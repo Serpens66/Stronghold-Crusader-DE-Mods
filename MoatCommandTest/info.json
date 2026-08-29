@@ -1,0 +1,12 @@
+{
+  "GUID": "MoatCommandTest_Serp",
+  "Author": "Serpens66",
+  "Name": "Moat Command Test",
+  "Description": "Isolated test mod for exact friendly planned-moat commands and moat-aware unit pathfinding diagnostics.",
+  "Version": "1.0.0",
+  "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
+  "Manifest": 1,
+  "SupportedGameVersions": [
+    "2.8.0.1"
+  ]
+}

@@ -13,7 +13,7 @@ using Zhuqiaomon.Hooks;
 using Zhuqiaomon.Hooks.Transaction;
 using Zhuqiaomon.Memory;
 
-namespace BugfixesAndQoL
+namespace MoatCommandTest
 {
     internal sealed unsafe class MoatDiggingReachabilityFix : IDisposable
     {
@@ -81,7 +81,6 @@ namespace BugfixesAndQoL
             "48 8D 87 1C 07 00 00 4D 63 C8 45 33 E4";
 
         private readonly ManualLogSource log;
-        private readonly BugfixesAndQoLViewModel settings;
         private readonly HookTransaction transaction;
         private readonly int* digMoatMode;
         private readonly int* targetTileX;
@@ -116,13 +115,11 @@ namespace BugfixesAndQoL
 
         public MoatDiggingReachabilityFix(
             ManualLogSource log,
-            BugfixesAndQoLViewModel settings,
             ReadOnlySpan<byte> memory,
             ulong libraryBase,
             bool referenceHashMatches)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
-            this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
 
             // The moat record array is not exposed by the Script Extender. Its fixed
             // offsets below are validated for the canonical DLL and must fail closed
@@ -267,7 +264,7 @@ namespace BugfixesAndQoL
 
                 Shared.DebugLogHelper.LogDebug(
                     log,
-                    $"Bugfixes and QoL moat-digging reachability fix installed: " +
+                    $"Moat Command Test feature installed: " +
                     $"modeMethod={modeResolution.Method}, cursorMethod={cursorResolution.Method}, " +
                     $"lookupMethod={moatLookupResolution.Method}, searchMethod={moatSearchResolution.Method}, " +
                     $"modeRva=0x{modeRva:X}, targetXRva=0x{targetXRva:X}, " +
@@ -363,7 +360,7 @@ namespace BugfixesAndQoL
                     directedTargetFailureLogged = true;
                     Shared.DebugLogHelper.LogError(
                         log,
-                        $"Bugfixes and QoL directed moat selection failed once; Vanilla selection remains active: {ex}");
+                        $"Moat Command Test directed moat selection failed once; Vanilla selection remains active: {ex}");
                 }
             }
 
@@ -426,7 +423,7 @@ namespace BugfixesAndQoL
                     commandPrecheckFailureLogged = true;
                     Shared.DebugLogHelper.LogError(
                         log,
-                        $"Bugfixes and QoL moat Command-6 validation failed once; " +
+                        $"Moat Command Test Command-6 validation failed once; " +
                         $"Vanilla command validation remains active: {ex}");
                 }
             }
@@ -686,7 +683,7 @@ namespace BugfixesAndQoL
                 attemptCleanupFailureLogged = true;
                 Shared.DebugLogHelper.LogError(
                     log,
-                    $"Bugfixes and QoL moat attempt cleanup failed once; " +
+                    $"Moat Command Test attempt cleanup failed once; " +
                     $"functional moat behavior remains unchanged: {ex}");
             }
         }
@@ -723,13 +720,13 @@ namespace BugfixesAndQoL
 
             if (shouldLog)
             {
-                Shared.DebugLogHelper.LogDebug(log, $"Bugfixes and QoL MoatCommand {details}.");
+                Shared.DebugLogHelper.LogDebug(log, $"Moat Command Test MoatCommand {details}.");
             }
             else if (logLimit)
             {
                 Shared.DebugLogHelper.LogWarning(
                     log,
-                    $"Bugfixes and QoL MoatCommand reached its {MaximumFunctionalLogEntries}-entry limit; " +
+                    $"Moat Command Test reached its {MaximumFunctionalLogEntries}-entry log limit; " +
                     "further moat-command logs are suppressed.");
             }
         }
@@ -769,12 +766,11 @@ namespace BugfixesAndQoL
                 cursorFailureLogged = true;
                 Shared.DebugLogHelper.LogError(
                     log,
-                    $"Bugfixes and QoL moat cursor validation failed once; Vanilla cursor behavior remains active: {ex}");
+                    $"Moat Command Test cursor validation failed once; Vanilla cursor behavior remains active: {ex}");
             }
         }
 
-        private bool IsEnabled =>
-            !disposed && settings.EnableMod && settings.EnableMoatDiggingReachabilityFix;
+        private bool IsEnabled => !disposed;
 
         private IntPtr GameTileManagerPointer =>
             (IntPtr)GameGlobalsManager.Instance.GameTileManagerVA;

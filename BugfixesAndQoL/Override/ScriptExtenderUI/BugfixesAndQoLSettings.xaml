@@ -266,12 +266,6 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableAssemblyPointPlacementFixText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
-      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-moat-digging-reachability-fix" shared:ModSettingsSearch.Title="{Binding EnableMoatDiggingReachabilityFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableMoatDiggingReachabilityFixHelpText}"><CheckBox IsChecked="{Binding EnableMoatDiggingReachabilityFix, Mode=TwoWay}"
-                Foreground="White"
-                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableMoatDiggingReachabilityFixHelpText}"
-                Margin="0,0,14,8">
-        <TextBlock Text="{Binding EnableMoatDiggingReachabilityFixText}" Foreground="White" TextWrapping="Wrap"/>
-      </CheckBox></Grid>
       </StackPanel>
       <StackPanel shared:ModSettingsSearch.SectionKey="bugfixes.section.ai-aiv" shared:ModSettingsSearch.SectionTitle="{Binding AiAivTitleText}">
       <Grid Style="{StaticResource ModSettingsSearchSectionGrid}" shared:ModSettingsSearch.IsSection="True"><TextBlock Text="{Binding AiAivTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/></Grid>
