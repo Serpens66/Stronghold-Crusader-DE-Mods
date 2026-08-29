@@ -1,4 +1,5 @@
 using BepInEx;
+using BepInEx.Bootstrap;
 using BepInEx.Logging;
 using R3;
 using SHCDESE.API.LowLevel;
@@ -22,6 +23,7 @@ namespace AssassinCombatFix
         // The BepInEx component is destroyed during startup. Static ownership keeps the
         // diagnostic hooks alive for the complete process.
         private static ManualLogSource persistentLog;
+        private static BugfixesAndQoL.BugfixesAndQoLViewModel settings;
         private static AssassinCombatResumeRuntime runtime;
         private static IDisposable mapStartSubscription;
         private static bool librarySubscriptionInstalled;
@@ -31,7 +33,19 @@ namespace AssassinCombatFix
             persistentLog = Logger;
             Shared.DebugLogHelper.LogInfo(
                 persistentLog,
-                $"{PluginName} {PluginVersion} loaded; Assassin combat-resume diagnostics are always active.");
+                $"{PluginName} {PluginVersion} loaded; Assassin combat-resume diagnostics follow the BugfixesAndQoL Assassin-pathfinding setting.");
+
+            if (!Chainloader.PluginInfos.TryGetValue(BugfixesAndQoLGuid, out var dependencyInfo) ||
+                !(dependencyInfo.Instance is BugfixesAndQoL.BugfixesAndQoLPlugin dependencyPlugin) ||
+                dependencyPlugin.Settings == null)
+            {
+                Shared.DebugLogHelper.LogError(
+                    persistentLog,
+                    $"{PluginName} could not obtain the required BugfixesAndQoL settings; Vanilla behavior remains active.");
+                return;
+            }
+
+            settings = dependencyPlugin.Settings;
 
             if (mapStartSubscription == null)
             {
@@ -61,7 +75,7 @@ namespace AssassinCombatFix
                 if (!referenceHashMatches)
                     return;
 
-                AssassinCombatResumeRuntime installed = new AssassinCombatResumeRuntime(persistentLog);
+                AssassinCombatResumeRuntime installed = new AssassinCombatResumeRuntime(persistentLog, settings);
                 installed.InitializeNative(libraryHandle, memory, referenceHashMatches);
                 runtime = installed;
             }

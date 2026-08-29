@@ -22,6 +22,7 @@ namespace AssassinCombatFix
             int pathOption);
 
         private readonly ManualLogSource log;
+        private readonly BugfixesAndQoL.BugfixesAndQoLViewModel settings;
         private ResumeOldOrderDelegate originalResumeOldOrder;
         private ResumeOldOrderDelegate rootedResumeOldOrderDetour;
         private CommonPathRequestDelegate originalCommonPathRequest;
@@ -35,9 +36,12 @@ namespace AssassinCombatFix
         private int diagnosticEventCount;
         #endregion
 
-        public AssassinCombatResumeRuntime(ManualLogSource log)
+        public AssassinCombatResumeRuntime(
+            ManualLogSource log,
+            BugfixesAndQoL.BugfixesAndQoLViewModel settings)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
+            this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
         }
 
         public bool IsInstalled => resumeOldOrderDetour != null && commonPathRequestDetour != null;
@@ -147,13 +151,18 @@ namespace AssassinCombatFix
             if (vanilla == null)
                 return 0;
 
+            bool modEnabled = settings.EnableMod;
+            bool improvedPathfindingEnabled = settings.EnableImprovedAssassinPathfinding;
+            if (!modEnabled || !improvedPathfindingEnabled)
+                return vanilla(tribeManager, nativeUnitIndex, internalCommand);
+
             Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
             bool unitResolved = AssassinCombatResumePolicy.IsValidNativeUnitIndex(nativeUnitIndex, units.Length);
             AliveState aliveState = unitResolved ? units[nativeUnitIndex].r_AliveState : default;
             eChimps unitType = unitResolved ? units[nativeUnitIndex].r_UnitChimp : default;
             bool eligible = AssassinCombatResumePolicy.ShouldUseAssassinPathContext(
-                true,
-                true,
+                modEnabled,
+                improvedPathfindingEnabled,
                 IsInstalled,
                 unitResolved,
                 aliveState,
@@ -207,6 +216,11 @@ namespace AssassinCombatFix
             if (vanilla == null)
                 return 0;
 
+            bool modEnabled = settings.EnableMod;
+            bool improvedPathfindingEnabled = settings.EnableImprovedAssassinPathfinding;
+            if (!modEnabled || !improvedPathfindingEnabled)
+                return vanilla(unitBase, nativeUnitIndex, targetX, targetY, pathOption);
+
             Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
             bool unitResolved = AssassinCombatResumePolicy.IsValidNativeUnitIndex(nativeUnitIndex, units.Length);
             AliveState aliveState = unitResolved ? units[nativeUnitIndex].r_AliveState : default;
@@ -214,8 +228,8 @@ namespace AssassinCombatFix
             ushort aiState = unitResolved ? units[nativeUnitIndex].r_AIState : (ushort)0;
             int previousPathContext = *assassinPathContextFlag;
             bool injectContext = AssassinCombatResumePolicy.ShouldInjectPostCombatPathContext(
-                true,
-                true,
+                modEnabled,
+                improvedPathfindingEnabled,
                 IsInstalled,
                 unitResolved,
                 aliveState,
@@ -320,7 +334,8 @@ namespace AssassinCombatFix
             int internalCommand,
             bool eligible)
         {
-            if (diagnosticEventCount >= MaximumDiagnosticEventsPerMap)
+            if (!AssassinCombatResumePolicy.ShouldLogResumeDiagnostic(unitResolved, unitType) ||
+                diagnosticEventCount >= MaximumDiagnosticEventsPerMap)
                 return 0;
             int diagnosticId = ++diagnosticEventCount;
             LogDiagnostic(
@@ -342,7 +357,10 @@ namespace AssassinCombatFix
             bool injectContext,
             int pathContext)
         {
-            if (aiState != AssassinCombatResumePolicy.PostCombatRepathState ||
+            if (!AssassinCombatResumePolicy.ShouldLogDirectRepathDiagnostic(
+                    unitResolved,
+                    unitType,
+                    aiState) ||
                 diagnosticEventCount >= MaximumDiagnosticEventsPerMap)
                 return 0;
             int diagnosticId = ++diagnosticEventCount;

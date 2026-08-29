@@ -1874,6 +1874,23 @@ internal static class Program
                 true, true, true, true, AliveState.IsAlive, eChimps.CHIMP_TYPE_KNIGHT,
                 AssassinCombatResumePolicy.PostCombatRepathState, 0),
             "Assassin state-122 repath accepted a dead or non-Assassin unit");
+
+        Check(AssassinCombatResumePolicy.ShouldLogResumeDiagnostic(
+                true, eChimps.CHIMP_TYPE_ARAB_ASSASIN) &&
+              !AssassinCombatResumePolicy.ShouldLogResumeDiagnostic(
+                false, eChimps.CHIMP_TYPE_ARAB_ASSASIN) &&
+              !AssassinCombatResumePolicy.ShouldLogResumeDiagnostic(
+                true, eChimps.CHIMP_TYPE_KNIGHT),
+            "Assassin combat-resume diagnostics did not restrict their event budget to resolved Assassins");
+        Check(AssassinCombatResumePolicy.ShouldLogDirectRepathDiagnostic(
+                true,
+                eChimps.CHIMP_TYPE_ARAB_ASSASIN,
+                AssassinCombatResumePolicy.PostCombatRepathState) &&
+              !AssassinCombatResumePolicy.ShouldLogDirectRepathDiagnostic(
+                true, eChimps.CHIMP_TYPE_ARAB_ASSASIN, 101) &&
+              !AssassinCombatResumePolicy.ShouldLogDirectRepathDiagnostic(
+                true, eChimps.CHIMP_TYPE_KNIGHT, AssassinCombatResumePolicy.PostCombatRepathState),
+            "direct Assassin repath diagnostics accepted an unrelated unit or AI state");
     }
 
     private static void TestAssassinCombatResumeNativeDefinition()

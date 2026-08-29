@@ -49,5 +49,19 @@ namespace AssassinCombatFix
                 aiState == PostCombatRepathState &&
                 currentPathContext == 0;
         }
+
+        public static bool ShouldLogResumeDiagnostic(bool unitResolved, eChimps unitType)
+        {
+            return unitResolved && unitType == eChimps.CHIMP_TYPE_ARAB_ASSASIN;
+        }
+
+        public static bool ShouldLogDirectRepathDiagnostic(
+            bool unitResolved,
+            eChimps unitType,
+            ushort aiState)
+        {
+            return ShouldLogResumeDiagnostic(unitResolved, unitType) &&
+                aiState == PostCombatRepathState;
+        }
     }
 }
