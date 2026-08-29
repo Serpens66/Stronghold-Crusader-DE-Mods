@@ -1,0 +1,12 @@
+{
+  "GUID": "MoveMoatTest_Serp",
+  "Author": "Serpens66",
+  "Name": "Move Moat Test",
+  "Description": "Isolated test mod that enables Vanilla's completed-moat path mode for ordinary unit movement and records central path diagnostics.",
+  "Version": "1.0.0",
+  "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
+  "Manifest": 1,
+  "SupportedGameVersions": [
+    "2.8.0.1"
+  ]
+}

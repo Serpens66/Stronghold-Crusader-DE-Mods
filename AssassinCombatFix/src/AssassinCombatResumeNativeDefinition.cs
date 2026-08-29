@@ -1,5 +1,5 @@
 // Audited native contract for Assassin movement-order resumption after combat.
-namespace BugfixesAndQoL
+namespace AssassinCombatFix
 {
     internal static class AssassinCombatResumeNativeDefinition
     {

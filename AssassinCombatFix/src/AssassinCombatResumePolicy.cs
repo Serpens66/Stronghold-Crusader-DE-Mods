@@ -2,7 +2,7 @@
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 
-namespace BugfixesAndQoL
+namespace AssassinCombatFix
 {
     internal static class AssassinCombatResumePolicy
     {

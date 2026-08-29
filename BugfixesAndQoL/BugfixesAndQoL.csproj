@@ -63,8 +63,6 @@
     <Compile Include="src\BetterAIOverbuildConflictState.cs" />
     <Compile Include="src\BetterAIOverbuildRulesFix.cs" />
     <Compile Include="src\AllyGoodsAmountModifierHook.cs" />
-    <Compile Include="src\AssassinCombatResumeNativeDefinition.cs" />
-    <Compile Include="src\AssassinCombatResumePolicy.cs" />
     <Compile Include="src\AssassinClimbCancellationPolicy.cs" />
     <Compile Include="src\AssassinClimbCancellationRuntime.cs" />
     <Compile Include="src\AssassinClimbCostPolicy.cs" />

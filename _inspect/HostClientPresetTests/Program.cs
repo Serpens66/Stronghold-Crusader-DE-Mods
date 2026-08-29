@@ -1,4 +1,5 @@
 using MessagePack;
+using AssassinCombatFix;
 using BugfixesAndQoL;
 using ExtraFeatures;
 using SerpsModsHost;
