@@ -10,6 +10,7 @@ namespace RandomEvents
         public int IntervalMonths;
         public int CooldownMonths;
         public int MultiplayerMode;
+        public bool IncludeAIPlayers;
         public int[] Chances = Array.Empty<int>();
         public int[] StrengthMinimums = Array.Empty<int>();
         public int[] StrengthMaximums = Array.Empty<int>();
@@ -24,6 +25,7 @@ namespace RandomEvents
                 writer.Write(IntervalMonths);
                 writer.Write(CooldownMonths);
                 writer.Write(MultiplayerMode);
+                writer.Write(IncludeAIPlayers);
                 WriteArray(writer, Chances);
                 WriteArray(writer, StrengthMinimums);
                 WriteArray(writer, StrengthMaximums);
@@ -38,6 +40,7 @@ namespace RandomEvents
             state.IntervalMonths = IntervalMonths;
             state.CooldownMonths = CooldownMonths;
             state.MultiplayerMode = MultiplayerMode;
+            state.IncludeAIPlayers = IncludeAIPlayers;
             state.Chances = (int[])Chances.Clone();
             state.StrengthMinimums = (int[])StrengthMinimums.Clone();
             state.StrengthMaximums = (int[])StrengthMaximums.Clone();
@@ -59,6 +62,7 @@ namespace RandomEvents
         public int IntervalMonths;
         public int CooldownMonths;
         public int MultiplayerMode;
+        public bool IncludeAIPlayers;
         public int[] Chances = Array.Empty<int>();
         public int[] StrengthMinimums = Array.Empty<int>();
         public int[] StrengthMaximums = Array.Empty<int>();

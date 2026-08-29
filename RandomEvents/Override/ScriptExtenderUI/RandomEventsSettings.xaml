@@ -119,6 +119,7 @@
       <TextBlock Text="{Binding MultiplayerModeText}" Foreground="White"/>
       <TextBlock Text="{Binding MultiplayerModeHelpText}" Foreground="#CCCCCC" TextWrapping="Wrap" Margin="0,2,0,5"/>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="random-events.multiplayer-mode" shared:ModSettingsSearch.Title="{Binding MultiplayerModeText}" shared:ModSettingsSearch.ToolTipText="{Binding MultiplayerModeHelpText}"><ComboBox ItemsSource="{Binding MultiplayerModeOptions}" SelectedIndex="{Binding MultiplayerEventModeIndex, Mode=TwoWay}" Width="260" HorizontalAlignment="Left" ToolTipService.ShowDuration="60000" ToolTip="{Binding MultiplayerModeHelpText}"/></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="random-events.include-ai-players" shared:ModSettingsSearch.Title="{Binding IncludeAIPlayersText}" shared:ModSettingsSearch.ToolTipText="{Binding IncludeAIPlayersHelpText}" Margin="0,8,0,0"><CheckBox IsChecked="{Binding IncludeAIPlayers, Mode=TwoWay}" Content="{Binding IncludeAIPlayersText}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding IncludeAIPlayersHelpText}"/></Grid>
       </StackPanel>
       </StackPanel>
     </StackPanel>

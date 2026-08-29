@@ -66,10 +66,10 @@ namespace RandomEvents
             if (!TryGetParticipatingKeepCenters(out List<MapPoint> keeps))
                 return false;
 
-            List<PlayerReachability> humanReachability;
+            List<PlayerReachability> participantReachability;
             try
             {
-                if (!TryBuildHumanReachability(out humanReachability, out _))
+                if (!TryBuildParticipantReachability(state.IncludeAIPlayers, out participantReachability, out _))
                     return false;
             }
             catch (Exception ex)
@@ -92,12 +92,12 @@ namespace RandomEvents
                     GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* signpost) &&
                     signpost->r_BuildingType == eStructs.STRUCT_SIGNPOST &&
                     (signpost->r_AliveState == AliveState.NeedsInit || signpost->r_AliveState == AliveState.IsAlive) &&
-                    IsReachableFromEveryHuman(
+                    IsReachableFromEveryParticipant(
                         signpost->r_TilePositionXBegin,
                         signpost->r_TilePositionYBegin,
                         signpost->r_TilePositionXEnd,
                         signpost->r_TilePositionYEnd,
-                        humanReachability);
+                        participantReachability);
                 if (!usableAndReachable)
                     registry.TryUnregister(buildingId);
             }
@@ -107,7 +107,7 @@ namespace RandomEvents
             for (int sideIndex = 0; sideIndex < 4; sideIndex++)
             {
                 MapEdge side = (MapEdge)sideIndex;
-                ExistingCandidate best = FindBestExisting(side, registered, used, keeps, humanReachability);
+                ExistingCandidate best = FindBestExisting(side, registered, used, keeps, participantReachability);
                 if (best.BuildingId <= 0)
                     continue;
 
@@ -127,7 +127,7 @@ namespace RandomEvents
                     continue;
                 }
 
-                if (TryPlaceForSide(side, keeps, humanReachability, placementRandom, out int buildingId))
+                if (TryPlaceForSide(side, keeps, participantReachability, placementRandom, out int buildingId))
                     selected[sideIndex] = buildingId;
                 else
                     LogWarning(
@@ -141,7 +141,7 @@ namespace RandomEvents
                     $"No usable registered signpost was found at the map edges; trying one center fallback " +
                     $"within radius {CenterFallbackRadius}.");
                 if (registry.HasFreeSlot() &&
-                    TryPlaceCenterFallback(keeps, humanReachability, placementRandom, out int fallbackBuildingId))
+                    TryPlaceCenterFallback(keeps, participantReachability, placementRandom, out int fallbackBuildingId))
                 {
                     // The save field remains four-wide; index zero also records the single emergency signpost.
                     selected[0] = fallbackBuildingId;
@@ -181,7 +181,7 @@ namespace RandomEvents
         private bool TryPlaceForSide(
             MapEdge side,
             List<MapPoint> keeps,
-            List<PlayerReachability> humanReachability,
+            List<PlayerReachability> participantReachability,
             Random random,
             out int buildingId)
         {
@@ -193,7 +193,7 @@ namespace RandomEvents
 
             foreach (int depth in depths)
             {
-                List<PlacementCandidate> candidates = GetCandidates(side, depth, keeps, humanReachability);
+                List<PlacementCandidate> candidates = GetCandidates(side, depth, keeps, participantReachability);
                 candidates.Sort((left, right) =>
                 {
                     int score = right.MinimumKeepDistance.CompareTo(left.MinimumKeepDistance);
@@ -239,7 +239,7 @@ namespace RandomEvents
 
         private bool TryPlaceCenterFallback(
             List<MapPoint> keeps,
-            List<PlayerReachability> humanReachability,
+            List<PlayerReachability> participantReachability,
             Random random,
             out int buildingId)
         {
@@ -253,7 +253,7 @@ namespace RandomEvents
                     double deltaY = y + 0.5 - MapCenter;
                     if (deltaX * deltaX + deltaY * deltaY > CenterFallbackRadius * CenterFallbackRadius ||
                         !IsFreeWalkableFootprint(x, y) ||
-                        !IsReachableFromEveryHuman(x, y, x + 1, y + 1, humanReachability))
+                        !IsReachableFromEveryParticipant(x, y, x + 1, y + 1, participantReachability))
                     {
                         continue;
                     }
@@ -336,7 +336,7 @@ namespace RandomEvents
             try
             {
                 // Nature (player 0) is not a valid player-placement owner. The caller already
-                // validates bounds, occupancy, flat terrain, and human path connectivity.
+                // validates bounds, occupancy, flat terrain, and participant path connectivity.
                 result = GameBuildingManagerAPI.Instance.CreatePrefab(
                     NaturePlayerId, x, y, eMappers.MAPPER_SIGNPOST, 2, 0, true, true);
             }
@@ -416,7 +416,7 @@ namespace RandomEvents
             MapEdge side,
             int depth,
             List<MapPoint> keeps,
-            List<PlayerReachability> humanReachability)
+            List<PlayerReachability> participantReachability)
         {
             List<PlacementCandidate> result = new List<PlacementCandidate>();
             int radius = GameTileManagerAPI.Instance.GetCurrentMapSize() / 2;
@@ -428,7 +428,7 @@ namespace RandomEvents
                     ? constant - x
                     : x - constant;
                 if (!IsFreeWalkableFootprint(x, y) ||
-                    !IsReachableFromEveryHuman(x, y, x + 1, y + 1, humanReachability))
+                    !IsReachableFromEveryParticipant(x, y, x + 1, y + 1, participantReachability))
                     continue;
 
                 double distance = MinimumDistance(x + 0.5, y + 0.5, keeps);
@@ -473,7 +473,7 @@ namespace RandomEvents
             int[] registered,
             HashSet<int> used,
             List<MapPoint> keeps,
-            List<PlayerReachability> humanReachability)
+            List<PlayerReachability> participantReachability)
         {
             ExistingCandidate best = default;
             foreach (int id in registered)
@@ -491,12 +491,12 @@ namespace RandomEvents
                 double edgeDepth = DistanceFromEdge(side, x, y);
                 if (edgeDepth + 0.0001 < MinimumEdgeDepth || edgeDepth > MaximumEdgeDepth + 0.0001)
                     continue;
-                if (!IsReachableFromEveryHuman(
+                if (!IsReachableFromEveryParticipant(
                         building->r_TilePositionXBegin,
                         building->r_TilePositionYBegin,
                         building->r_TilePositionXEnd,
                         building->r_TilePositionYEnd,
-                        humanReachability))
+                        participantReachability))
                 {
                     continue;
                 }
@@ -509,7 +509,8 @@ namespace RandomEvents
             return best;
         }
 
-        private static bool TryBuildHumanReachability(
+        private static bool TryBuildParticipantReachability(
+            bool includeAIPlayers,
             out List<PlayerReachability> result,
             out string failure)
         {
@@ -518,14 +519,15 @@ namespace RandomEvents
             GamePlayerManagerAPI players = GamePlayerManagerAPI.Instance;
             foreach (int playerId in Shared.ActivePlayerHelper.GetActivePlayerIds())
             {
-                if (!players.IsPlayerIdValid(playerId) || players.IsAIPlayer(playerId))
+                if (!players.IsPlayerIdValid(playerId) ||
+                    (!includeAIPlayers && players.IsAIPlayer(playerId)))
                     continue;
                 result.Add(new PlayerReachability(playerId));
             }
 
             if (result.Count == 0)
             {
-                failure = "no active human player is available for the Vanilla reachability check.";
+                failure = "no active event participant is available for the Vanilla reachability check.";
                 return false;
             }
 
@@ -586,19 +588,19 @@ namespace RandomEvents
             }
         }
 
-        private static bool IsReachableFromEveryHuman(
+        private static bool IsReachableFromEveryParticipant(
             int beginX,
             int beginY,
             int endX,
             int endY,
-            List<PlayerReachability> humanReachability)
+            List<PlayerReachability> participantReachability)
         {
             HashSet<ushort> sourceComponents = new HashSet<ushort>();
             AddApproachComponents(beginX, beginY, endX, endY, sourceComponents, includeFootprint: true);
             if (sourceComponents.Count == 0)
                 return false;
 
-            foreach (PlayerReachability player in humanReachability)
+            foreach (PlayerReachability player in participantReachability)
             {
                 bool connected = false;
                 foreach (ushort component in sourceComponents)

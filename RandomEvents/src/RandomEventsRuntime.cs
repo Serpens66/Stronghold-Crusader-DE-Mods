@@ -479,6 +479,7 @@ namespace RandomEvents
                 IntervalMonths = Math.Max(1, Math.Min(90, settings.IntervalMonths)),
                 CooldownMonths = Math.Max(0, Math.Min(90, settings.CooldownMonths)),
                 MultiplayerMode = Math.Max(0, Math.Min(1, settings.MultiplayerEventModeIndex)),
+                IncludeAIPlayers = settings.IncludeAIPlayers,
                 Chances = chances,
                 StrengthMinimums = minimums,
                 StrengthMaximums = maximums
@@ -487,10 +488,10 @@ namespace RandomEvents
 
         private bool PrepareBatch()
         {
-            int[] humanTargetPlayerIds = GetLivingHumanPlayerIds();
-            if (humanTargetPlayerIds.Length == 0)
+            int[] targetPlayerIds = GetLivingEventTargetPlayerIds();
+            if (targetPlayerIds.Length == 0)
                 return false;
-            Array.Sort(humanTargetPlayerIds);
+            Array.Sort(targetPlayerIds);
 
             string prngBefore = RandomEventsDiagnostics.FormatPrng(state.PrngState0, state.PrngState1);
             SavedPrng prng = new SavedPrng(state.PrngState0, state.PrngState1);
@@ -500,7 +501,7 @@ namespace RandomEvents
 
             if (state.MultiplayerMode == (int)MultiplayerEventMode.SharedEvents)
             {
-                // One roll and one strength are shared by every living human player.
+                // One roll and one strength are shared by every eligible living player.
                 foreach (RandomEventDefinition definition in RandomEventDefinitions.All)
                 {
                     if (!IsEventOffCooldown(definition.Kind, -1, state.NextDueAbsoluteMonth))
@@ -511,7 +512,7 @@ namespace RandomEvents
                         continue;
 
                     int strength = RollStrength(definition.StrengthKind, ref prng);
-                    foreach (int targetPlayerId in humanTargetPlayerIds)
+                    foreach (int targetPlayerId in targetPlayerIds)
                     {
                         directKinds.Add((int)definition.Kind);
                         directStrengths.Add(strength);
@@ -523,7 +524,7 @@ namespace RandomEvents
             {
                 // Every player consumes a separate chance and strength roll, but the host records
                 // the resulting global action order so no peer may advance either PRNG differently.
-                foreach (int targetPlayerId in humanTargetPlayerIds)
+                foreach (int targetPlayerId in targetPlayerIds)
                 {
                     foreach (RandomEventDefinition definition in RandomEventDefinitions.All)
                     {
@@ -553,7 +554,7 @@ namespace RandomEvents
                 state.PreparedDirectTargetPlayerIds);
             LogDebug(
                 $"Random Events batch prepared: mode={(MultiplayerEventMode)state.MultiplayerMode}, " +
-                $"dueAbsoluteMonth={state.NextDueAbsoluteMonth}, actions={directKinds.Count}, humanPlayers=[{string.Join(",", humanTargetPlayerIds)}], " +
+                $"dueAbsoluteMonth={state.NextDueAbsoluteMonth}, actions={directKinds.Count}, targetPlayers=[{string.Join(",", targetPlayerIds)}], " +
                 $"prngBefore={prngBefore}, prngAfter={RandomEventsDiagnostics.FormatPrng(state.PrngState0, state.PrngState1)}, " +
                 $"actionDigest={actionDigest}, actionOrder={RandomEventsDiagnostics.DescribeActions(state.PreparedDirectKinds, state.PreparedDirectStrengths, state.PreparedDirectTargetPlayerIds)}, " +
                 $"stateDigest={RandomEventsDiagnostics.GetStateDigest(state)}.");
@@ -1369,11 +1370,11 @@ namespace RandomEvents
                 return false;
             }
 
-            if (GamePlayerManagerAPI.Instance.IsAIPlayer(targetPlayerId))
+            if (!state.IncludeAIPlayers && GamePlayerManagerAPI.Instance.IsAIPlayer(targetPlayerId))
             {
                 LogDebug(
                     $"Random event skipped: event={definition.Name}, targetPlayerId={targetPlayerId}, " +
-                    "reason=target player is controlled by AI.");
+                    "reason=AI targets are disabled by the effective host setting.");
                 return false;
             }
 
@@ -1578,7 +1579,7 @@ namespace RandomEvents
                         targetPlayerId,
                         out int banditOwnerPlayerId,
                         out int banditTeam,
-                        out int[] humanPlayerIds,
+                        out int[] participantPlayerIds,
                         out string slotFailure))
                 {
                     LogDebug(
@@ -1692,7 +1693,7 @@ namespace RandomEvents
                     pendingBanditGroups.Add(new PendingBanditGroup(
                         banditOwnerPlayerId,
                         banditTeam,
-                        humanPlayerIds,
+                        participantPlayerIds,
                         targetPlayerId,
                         groupUnits,
                         target,
@@ -1754,7 +1755,7 @@ namespace RandomEvents
             int targetPlayerId,
             out int banditPlayerId,
             out int banditTeam,
-            out int[] humanPlayerIds,
+            out int[] participantPlayerIds,
             out string failure)
         {
             banditPlayerId = -1;
@@ -1764,26 +1765,29 @@ namespace RandomEvents
             int[] activePlayerIds = Shared.ActivePlayerHelper.GetActivePlayerIds();
             if (activePlayerIds.Length == 0)
             {
-                humanPlayerIds = Array.Empty<int>();
+                participantPlayerIds = Array.Empty<int>();
                 failure = "the synchronized gameMembers roster is unavailable or contains no active players";
                 return false;
             }
 
             HashSet<int> activePlayers = new HashSet<int>(activePlayerIds);
-            List<int> humans = new List<int>();
+            List<int> participants = new List<int>();
             foreach (int playerId in activePlayerIds)
             {
-                if (players.IsPlayerIdValid(playerId) && !players.IsAIPlayer(playerId))
-                    humans.Add(playerId);
+                if (players.IsPlayerIdValid(playerId) &&
+                    (state.IncludeAIPlayers || !players.IsAIPlayer(playerId)))
+                {
+                    participants.Add(playerId);
+                }
             }
-            if (!humans.Contains(targetPlayerId))
+            if (!participants.Contains(targetPlayerId))
             {
-                humanPlayerIds = humans.ToArray();
-                failure = $"target player {targetPlayerId} is not an active human in gameMembers=[{string.Join(",", activePlayerIds)}]";
+                participantPlayerIds = participants.ToArray();
+                failure = $"target player {targetPlayerId} is not an active event participant in gameMembers=[{string.Join(",", activePlayerIds)}]";
                 return false;
             }
-            humans.Sort();
-            humanPlayerIds = humans.ToArray();
+            participants.Sort();
+            participantPlayerIds = participants.ToArray();
 
             for (int playerId = 1; playerId <= GamePlayerManagerAPI.MAX_PLAYERS; playerId++)
             {
@@ -1806,16 +1810,17 @@ namespace RandomEvents
                 return false;
             }
 
-            bool[] humanTeams = new bool[GamePlayerManagerAPI.MAX_PLAYERS + 1];
-            foreach (int humanPlayerId in humanPlayerIds)
+            // The reserved owner must be hostile to every player that can receive this batch's events.
+            bool[] participantTeams = new bool[GamePlayerManagerAPI.MAX_PLAYERS + 1];
+            foreach (int participantPlayerId in participantPlayerIds)
             {
-                int team = players.GetPlayerTeam(humanPlayerId);
-                if (team >= 0 && team < humanTeams.Length)
-                    humanTeams[team] = true;
+                int team = players.GetPlayerTeam(participantPlayerId);
+                if (team >= 0 && team < participantTeams.Length)
+                    participantTeams[team] = true;
             }
             for (int team = 0; team <= GamePlayerManagerAPI.MAX_PLAYERS; team++)
             {
-                if (!humanTeams[team])
+                if (!participantTeams[team])
                 {
                     banditTeam = team;
                     break;
@@ -1823,7 +1828,7 @@ namespace RandomEvents
             }
             if (banditTeam < 0)
             {
-                failure = $"no team number remains distinct from human players [{string.Join(",", humanPlayerIds)}]";
+                failure = $"no team number remains distinct from event participants [{string.Join(",", participantPlayerIds)}]";
                 return false;
             }
 
@@ -1833,12 +1838,12 @@ namespace RandomEvents
                 failure = $"team assignment for reserved player {banditPlayerId} did not persist";
                 return false;
             }
-            foreach (int humanPlayerId in humanPlayerIds)
+            foreach (int participantPlayerId in participantPlayerIds)
             {
-                if (players.IsPlayerAlliedTo(banditPlayerId, humanPlayerId))
+                if (players.IsPlayerAlliedTo(banditPlayerId, participantPlayerId))
                 {
                     failure =
-                        $"reserved player {banditPlayerId} remains allied to human player {humanPlayerId} on team {banditTeam}";
+                        $"reserved player {banditPlayerId} remains allied to event participant {participantPlayerId} on team {banditTeam}";
                     return false;
                 }
             }
@@ -1891,12 +1896,12 @@ namespace RandomEvents
                 throw new InvalidOperationException(
                     $"Reserved bandit player {pending.OwnerPlayerId} changed from team {pending.Team}.");
             }
-            foreach (int humanPlayerId in pending.HumanPlayerIds)
+            foreach (int participantPlayerId in pending.ParticipantPlayerIds)
             {
-                if (players.IsPlayerAlliedTo(pending.OwnerPlayerId, humanPlayerId))
+                if (players.IsPlayerAlliedTo(pending.OwnerPlayerId, participantPlayerId))
                 {
                     throw new InvalidOperationException(
-                        $"Reserved bandit player {pending.OwnerPlayerId} became allied to human player {humanPlayerId}.");
+                        $"Reserved bandit player {pending.OwnerPlayerId} became allied to event participant {participantPlayerId}.");
                 }
             }
 
@@ -2216,12 +2221,23 @@ namespace RandomEvents
 
         private int[] GetLivingHumanPlayerIds()
         {
+            // Only real network members can acknowledge initialization; AI targets never enter the ACK quorum.
+            return GetLivingPlayerIds(includeAIPlayers: false);
+        }
+
+        private int[] GetLivingEventTargetPlayerIds()
+        {
+            return GetLivingPlayerIds(state != null && state.IncludeAIPlayers);
+        }
+
+        private static int[] GetLivingPlayerIds(bool includeAIPlayers)
+        {
             List<int> result = new List<int>();
             GamePlayerManagerAPI playerApi = GamePlayerManagerAPI.Instance;
             foreach (int playerId in Shared.ActivePlayerHelper.GetActivePlayerIds())
             {
                 if (!playerApi.IsPlayerIdValid(playerId) ||
-                    playerApi.IsAIPlayer(playerId) ||
+                    (!includeAIPlayers && playerApi.IsAIPlayer(playerId)) ||
                     !TryGetLivingLord(playerId, out _))
                 {
                     continue;
@@ -2516,7 +2532,7 @@ namespace RandomEvents
             public PendingBanditGroup(
                 int ownerPlayerId,
                 int team,
-                int[] humanPlayerIds,
+                int[] participantPlayerIds,
                 int targetPlayerId,
                 BanditUnitReference[] units,
                 BanditMoveTarget target,
@@ -2524,7 +2540,7 @@ namespace RandomEvents
             {
                 OwnerPlayerId = ownerPlayerId;
                 Team = team;
-                HumanPlayerIds = humanPlayerIds;
+                ParticipantPlayerIds = participantPlayerIds;
                 TargetPlayerId = targetPlayerId;
                 Units = units;
                 Target = target;
@@ -2533,7 +2549,7 @@ namespace RandomEvents
 
             public int OwnerPlayerId { get; }
             public int Team { get; }
-            public int[] HumanPlayerIds { get; }
+            public int[] ParticipantPlayerIds { get; }
             public int TargetPlayerId { get; }
             public BanditUnitReference[] Units { get; }
             public BanditMoveTarget Target { get; }

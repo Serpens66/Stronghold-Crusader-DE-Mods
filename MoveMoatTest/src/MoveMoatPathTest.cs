@@ -1,6 +1,10 @@
 using BepInEx.Logging;
 using MonoMod.RuntimeDetour;
+using R3;
 using SHCDESE.API;
+using SHCDESE.EventAPI;
+using SHCDESE.EventAPI.Tribes;
+using SHCDESE.EventAPI.Units;
 using SHCDESE.Interop;
 using System;
 using System.Collections.Generic;
@@ -40,12 +44,19 @@ namespace MoveMoatTest
             int targetY);
 
         private const int CentralMovementPlanRva = 0x18E1E0;
+        private const int TribeMovementPrecheckRva = 0x11B637;
+        private const int TribeFormationTargetResultRva = 0x11B919;
+        private const int TribeRepresentativeSelectionResultRva = 0x11B940;
+        private const int TribeUnitScanStartRva = 0x11B9D6;
+        private const int TribeEarlyReturnRva = 0x11BDF4;
+        private const int TribeUnitIterationEndRva = 0x11C14F;
         private const int MovementStepMoatGateRva = 0xDCEF2;
         private const int DetectCompletedMoatModeRva = 0x196840;
         private const int RegionReachabilityRva = 0xE7C40;
         private const int PathBuilderRva = 0xF4930;
         private const int MoveHereBuilderResultRva = 0x19667E;
         private const int TileFlagsRva = 0x48F71B0;
+        private const int MovementTargetAvailabilityRva = 0x3A11EA4;
         private const int PathRegionGridRva = 0x50EC690;
         private const int DirectionTileOffsetTableRva = 0x405EDB0;
         private const int MoatPathModeRva = 0x60AD6E4;
@@ -60,9 +71,16 @@ namespace MoveMoatTest
         private const int MaximumPlanLogs = 96;
         private const int MaximumTrackingLogs = 256;
         private const int MaximumStepGateLogs = 128;
+        private const int MaximumCommandLogs = 128;
         private const int MaximumTrackingTicks = 120;
         private const int MovementStepMoatGateHookLength = 18;
         private const int MoveHereBuilderResultHookLength = 18;
+        private const int TribeMovementPrecheckHookLength = 22;
+        private const int TribeFormationTargetResultHookLength = 18;
+        private const int TribeRepresentativeSelectionResultHookLength = 14;
+        private const int TribeUnitScanStartHookLength = 20;
+        private const int TribeEarlyReturnHookLength = 15;
+        private const int TribeUnitIterationEndHookLength = 14;
         private const int UnitPathBufferOffset = 0xB4FE78;
         private const int UnitPathBufferSize = 1000;
         private const int MaximumPackedPathEntries = UnitPathBufferSize * 2;
@@ -73,6 +91,27 @@ namespace MoveMoatTest
             "40 53 55 56 57 41 54 41 55 41 56 41 57 48 81 EC 38 04 00 00 " +
             "48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 84 24 20 04 00 00 4C 63 FA " +
             "4C 8D 35 ?? ?? ?? ?? 49 69 DF 90 04 00 00 49 63 E8 48 03 D9 49 63 F1";
+
+        private const string TribeMovementPrecheckPattern =
+            "48 8D 04 8D 00 00 00 00 42 F6 84 18 B0 71 8F 04 30 " +
+            "48 89 44 24 68";
+
+        private const string TribeFormationTargetResultPattern =
+            "44 8B BC 24 C8 00 00 00 48 8B CF 44 8B 05 39 1D F9 05";
+
+        private const string TribeRepresentativeSelectionResultPattern =
+            "44 8B 2D 51 7C 0E 06 48 8D 0D 12 1D F9 05";
+
+        private const string TribeUnitScanStartPattern =
+            "66 3B 48 5C 0F 8D AD 01 00 00 44 8B F9 " +
+            "8B 94 24 C8 00 00 00";
+
+        private const string TribeEarlyReturnPattern =
+            "48 8B 9C 24 C0 00 00 00 48 81 C4 80 00 00 00 " +
+            "41 5F 41 5E 41 5D 41 5C 5F 5E 5D C3";
+
+        private const string TribeUnitIterationEndPattern =
+            "33 ED 39 2D 85 15 F9 05 89 2D 83 15 F9 05";
 
         private const string DetectCompletedMoatModePattern =
             "48 63 C2 48 69 D0 90 04 00 00 48 63 84 0A 2C 07 00 00 " +
@@ -93,6 +132,7 @@ namespace MoveMoatTest
         private readonly int* pathTargetX;
         private readonly int* pathTargetY;
         private readonly uint* tileFlags;
+        private readonly byte* movementTargetAvailability;
         private readonly short* pathRegionGrid;
         private readonly int* directionTileOffsets;
         private readonly object trackingLock = new object();
@@ -101,6 +141,8 @@ namespace MoveMoatTest
         private static PlanAttempt activePlanAttempt;
         [ThreadStatic]
         private static PlanAttempt pendingMoveHereAttempt;
+        [ThreadStatic]
+        private static CommandAttempt activeCommandAttempt;
         private CentralMovementPlanDelegate originalCentralMovementPlan;
         private CentralMovementPlanDelegate rootedCentralMovementPlan;
         private DetectCompletedMoatModeDelegate originalDetectCompletedMoatMode;
@@ -115,19 +157,30 @@ namespace MoveMoatTest
         private NativeDetour centralMovementPlanDetour;
         private HookRef<X64InlineHook> movementStepMoatGateHook = new HookRef<X64InlineHook>();
         private HookRef<X64InlineHook> moveHereBuilderResultHook = new HookRef<X64InlineHook>();
+        private HookRef<X64InlineHook> tribeMovementPrecheckHook = new HookRef<X64InlineHook>();
+        private HookRef<X64InlineHook> tribeFormationTargetResultHook = new HookRef<X64InlineHook>();
+        private HookRef<X64InlineHook> tribeRepresentativeSelectionResultHook = new HookRef<X64InlineHook>();
+        private HookRef<X64InlineHook> tribeUnitScanStartHook = new HookRef<X64InlineHook>();
+        private HookRef<X64InlineHook> tribeEarlyReturnHook = new HookRef<X64InlineHook>();
+        private HookRef<X64InlineHook> tribeUnitIterationEndHook = new HookRef<X64InlineHook>();
+        private IDisposable tribeMoveSubscription;
+        private IDisposable unitMoveSubscription;
         private long nextPlanId;
+        private long nextCommandId;
         private int modeLogCount;
         private int reachabilityLogCount;
         private int builderLogCount;
         private int planLogCount;
         private int trackingLogCount;
         private int stepGateLogCount;
+        private int commandLogCount;
         private bool modeLogLimitReported;
         private bool reachabilityLogLimitReported;
         private bool builderLogLimitReported;
         private bool planLogLimitReported;
         private bool trackingLogLimitReported;
         private bool stepGateLogLimitReported;
+        private bool commandLogLimitReported;
         private bool tickSubscribed;
         private bool disposed;
 
@@ -158,6 +211,48 @@ namespace MoveMoatTest
                 referenceHashMatches,
                 "completed-moat path-mode detector",
                 log: null);
+            Shared.NativeResolution tribePrecheckResolution = Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                TribeMovementPrecheckPattern,
+                TribeMovementPrecheckRva,
+                referenceHashMatches,
+                "Tribe MoveHere target and region precheck",
+                log: null);
+            Shared.NativeResolution tribeFormationResultResolution = Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                TribeFormationTargetResultPattern,
+                TribeFormationTargetResultRva,
+                referenceHashMatches,
+                "Tribe formation-target helper result",
+                log: null);
+            Shared.NativeResolution tribeSelectionResultResolution = Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                TribeRepresentativeSelectionResultPattern,
+                TribeRepresentativeSelectionResultRva,
+                referenceHashMatches,
+                "Tribe representative-selection result",
+                log: null);
+            Shared.NativeResolution tribeUnitScanResolution = Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                TribeUnitScanStartPattern,
+                TribeUnitScanStartRva,
+                referenceHashMatches,
+                "Tribe unit-scan entry",
+                log: null);
+            Shared.NativeResolution tribeEarlyReturnResolution = Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                TribeEarlyReturnPattern,
+                TribeEarlyReturnRva,
+                referenceHashMatches,
+                "Tribe MoveHere central return",
+                log: null);
+            Shared.NativeResolution tribeUnitIterationEndResolution = Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                TribeUnitIterationEndPattern,
+                TribeUnitIterationEndRva,
+                referenceHashMatches,
+                "Tribe unit-iteration end",
+                log: null);
             Shared.NativeResolution reachabilityResolution = Shared.NativePatternResolver.ResolveUnique(
                 memory,
                 RegionReachabilityPattern,
@@ -174,6 +269,30 @@ namespace MoveMoatTest
                 log: null);
 
             RequireValidatedRva(planResolution, CentralMovementPlanRva, "central ordinary-movement planner");
+            RequireValidatedRva(
+                tribePrecheckResolution,
+                TribeMovementPrecheckRva,
+                "Tribe MoveHere target and region precheck");
+            RequireValidatedRva(
+                tribeFormationResultResolution,
+                TribeFormationTargetResultRva,
+                "Tribe formation-target helper result");
+            RequireValidatedRva(
+                tribeSelectionResultResolution,
+                TribeRepresentativeSelectionResultRva,
+                "Tribe representative-selection result");
+            RequireValidatedRva(
+                tribeUnitScanResolution,
+                TribeUnitScanStartRva,
+                "Tribe unit-scan entry");
+            RequireValidatedRva(
+                tribeEarlyReturnResolution,
+                TribeEarlyReturnRva,
+                "Tribe MoveHere central return");
+            RequireValidatedRva(
+                tribeUnitIterationEndResolution,
+                TribeUnitIterationEndRva,
+                "Tribe unit-iteration end");
             RequireValidatedRva(modeResolution, DetectCompletedMoatModeRva, "completed-moat path-mode detector");
             RequireValidatedRva(reachabilityResolution, RegionReachabilityRva, "moat-aware region reachability");
             RequireValidatedRva(builderResolution, PathBuilderRva, "central tile path builder");
@@ -186,6 +305,7 @@ namespace MoveMoatTest
             pathTargetX = (int*)(libraryBase + PathTargetXRva);
             pathTargetY = (int*)(libraryBase + PathTargetYRva);
             tileFlags = (uint*)(libraryBase + TileFlagsRva);
+            movementTargetAvailability = (byte*)(libraryBase + MovementTargetAvailabilityRva);
             pathRegionGrid = (short*)(libraryBase + PathRegionGridRva);
             directionTileOffsets = (int*)(libraryBase + DirectionTileOffsetTableRva);
 
@@ -262,9 +382,65 @@ namespace MoveMoatTest
                     hookSize: MoveHereBuilderResultHookLength,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
+                transaction.AddContextHook(
+                    ref tribeMovementPrecheckHook,
+                    libraryBase + unchecked((ulong)tribePrecheckResolution.Rva),
+                    ObserveTribeMovementPrecheck,
+                    regs: X64SmartCPUContextRegs.All,
+                    hookSize: TribeMovementPrecheckHookLength,
+                    errorMode: CallbackErrorMode.LogAndContinue,
+                    placement: OverwrittenInstructionPlacement.AfterCallback);
+                transaction.AddContextHook(
+                    ref tribeFormationTargetResultHook,
+                    libraryBase + unchecked((ulong)tribeFormationResultResolution.Rva),
+                    ObserveTribeFormationTargetResult,
+                    regs: X64SmartCPUContextRegs.All,
+                    hookSize: TribeFormationTargetResultHookLength,
+                    errorMode: CallbackErrorMode.LogAndContinue,
+                    placement: OverwrittenInstructionPlacement.AfterCallback);
+                transaction.AddContextHook(
+                    ref tribeRepresentativeSelectionResultHook,
+                    libraryBase + unchecked((ulong)tribeSelectionResultResolution.Rva),
+                    ObserveTribeRepresentativeSelectionResult,
+                    regs: X64SmartCPUContextRegs.All,
+                    hookSize: TribeRepresentativeSelectionResultHookLength,
+                    errorMode: CallbackErrorMode.LogAndContinue,
+                    placement: OverwrittenInstructionPlacement.AfterCallback);
+                transaction.AddContextHook(
+                    ref tribeUnitScanStartHook,
+                    libraryBase + unchecked((ulong)tribeUnitScanResolution.Rva),
+                    ObserveTribeUnitScanStart,
+                    regs: X64SmartCPUContextRegs.All,
+                    hookSize: TribeUnitScanStartHookLength,
+                    errorMode: CallbackErrorMode.LogAndContinue,
+                    placement: OverwrittenInstructionPlacement.AfterCallback);
+                transaction.AddContextHook(
+                    ref tribeUnitIterationEndHook,
+                    libraryBase + unchecked((ulong)tribeUnitIterationEndResolution.Rva),
+                    ObserveTribeUnitIterationEnd,
+                    regs: X64SmartCPUContextRegs.All,
+                    hookSize: TribeUnitIterationEndHookLength,
+                    errorMode: CallbackErrorMode.LogAndContinue,
+                    placement: OverwrittenInstructionPlacement.AfterCallback);
+                transaction.AddContextHook(
+                    ref tribeEarlyReturnHook,
+                    libraryBase + unchecked((ulong)tribeEarlyReturnResolution.Rva),
+                    ObserveTribeEarlyReturn,
+                    regs: X64SmartCPUContextRegs.All,
+                    hookSize: TribeEarlyReturnHookLength,
+                    errorMode: CallbackErrorMode.LogAndContinue,
+                    placement: OverwrittenInstructionPlacement.AfterCallback);
                 transaction.Commit();
-                if (!movementStepMoatGateHook.Success || !moveHereBuilderResultHook.Success)
+                if (!movementStepMoatGateHook.Success || !moveHereBuilderResultHook.Success ||
+                    !tribeMovementPrecheckHook.Success || !tribeFormationTargetResultHook.Success ||
+                    !tribeRepresentativeSelectionResultHook.Success || !tribeUnitScanStartHook.Success ||
+                    !tribeUnitIterationEndHook.Success || !tribeEarlyReturnHook.Success)
                     throw new InvalidOperationException("A central MoveHere diagnostic hook did not install.");
+
+                tribeMoveSubscription = TribeR3EventHooks.OnTribeIssueOrderMoveHere.Observable
+                    .Subscribe(ObserveTribeMoveOrder);
+                unitMoveSubscription = UnitR3EventHooks.OnUnitMoveHere.Observable
+                    .Subscribe(ObserveUnitMoveOrder);
 
                 GameTimeManagerAPI.Instance.OnTick += ObserveTrackedUnits;
                 tickSubscribed = true;
@@ -275,6 +451,8 @@ namespace MoveMoatTest
                     $"modeRva=0x{modeResolution.Rva:X}/method={modeResolution.Method}, " +
                     $"reachabilityRva=0x{reachabilityResolution.Rva:X}/method={reachabilityResolution.Method}, " +
                     $"builderRva=0x{builderResolution.Rva:X}/method={builderResolution.Method}, " +
+                    $"tribePrecheckRva=0x{tribePrecheckResolution.Rva:X}/method={tribePrecheckResolution.Method}, " +
+                    "tribeDispatcherBreadcrumbs=5, " +
                     $"moveHereResultRva=0x{MoveHereBuilderResultRva:X}, " +
                     $"stepGateRva=0x{MovementStepMoatGateRva:X}; " +
                     "allCompletedMoats=true, ownerFiltering=false, realBuilderResultUnchanged=true.");
@@ -288,6 +466,16 @@ namespace MoveMoatTest
                 }
                 moveHereBuilderResultHook?.Value?.Dispose();
                 movementStepMoatGateHook?.Value?.Dispose();
+                tribeMovementPrecheckHook?.Value?.Dispose();
+                tribeFormationTargetResultHook?.Value?.Dispose();
+                tribeRepresentativeSelectionResultHook?.Value?.Dispose();
+                tribeUnitScanStartHook?.Value?.Dispose();
+                tribeUnitIterationEndHook?.Value?.Dispose();
+                tribeEarlyReturnHook?.Value?.Dispose();
+                tribeMoveSubscription?.Dispose();
+                unitMoveSubscription?.Dispose();
+                tribeMoveSubscription = null;
+                unitMoveSubscription = null;
                 if (builderApplied)
                     pendingBuilderDetour?.Undo();
                 pendingBuilderDetour?.Dispose();
@@ -325,6 +513,16 @@ namespace MoveMoatTest
             }
             moveHereBuilderResultHook?.Value?.Dispose();
             movementStepMoatGateHook?.Value?.Dispose();
+            tribeMovementPrecheckHook?.Value?.Dispose();
+            tribeFormationTargetResultHook?.Value?.Dispose();
+            tribeRepresentativeSelectionResultHook?.Value?.Dispose();
+            tribeUnitScanStartHook?.Value?.Dispose();
+            tribeUnitIterationEndHook?.Value?.Dispose();
+            tribeEarlyReturnHook?.Value?.Dispose();
+            tribeMoveSubscription?.Dispose();
+            unitMoveSubscription?.Dispose();
+            tribeMoveSubscription = null;
+            unitMoveSubscription = null;
             pathBuilderDetour?.Dispose();
             regionReachabilityDetour?.Dispose();
             detectCompletedMoatModeDetour?.Dispose();
@@ -343,6 +541,303 @@ namespace MoveMoatTest
             rootedDetectCompletedMoatMode = null;
             lock (trackingLock)
                 trackedPlans.Clear();
+        }
+
+        private void ObserveTribeMoveOrder(TribeIssueOrderMoveHereEventArgs args)
+        {
+            if (disposed)
+                return;
+
+            try
+            {
+                if (args.Phase == EventHookPhase.Pre)
+                {
+                    CommandAttempt attempt = new CommandAttempt(
+                        ++nextCommandId,
+                        args.TribeId,
+                        args.TileX,
+                        args.TileY);
+                    activeCommandAttempt = attempt;
+                    TileDiagnostic target = GetTileDiagnostic(args.TileX, args.TileY);
+                    int availability = IsValidTileId(target.TileId)
+                        ? movementTargetAvailability[target.TileId]
+                        : -1;
+                    attempt.TargetTileId = target.TileId;
+                    attempt.TargetAvailability = availability;
+                    LogCommand(
+                        $"stage=tribe-order-pre command={attempt.Id} tribe={args.TribeId} " +
+                        $"target=({args.TileX},{args.TileY}) targetTile=[{target}] " +
+                        $"targetAvailability={availability} patrol={args.IsPatrolPath} " +
+                        $"newOrder={args.IsNewOrder} moveType={args.MoveType} " +
+                        $"skipOriginal={args.SkipOriginalFunction} pathMode={*moatPathMode}");
+                    return;
+                }
+
+                if (args.Phase != EventHookPhase.Post)
+                    return;
+
+                CommandAttempt current = activeCommandAttempt;
+                LogCommand(
+                    $"stage=tribe-order-post command={current?.Id ?? 0} tribe={args.TribeId} " +
+                    $"target=({args.TileX},{args.TileY}) result={args.ReturnValue} " +
+                    $"skipOriginal={args.SkipOriginalFunction} " +
+                    $"nativePrecheck={current?.NativePrecheckObserved ?? false} " +
+                    $"regionObserved={current?.RegionObserved ?? false} " +
+                    $"regionVanilla={current?.RegionVanillaResult ?? -1} " +
+                    $"regionEffective={current?.RegionEffectiveResult ?? -1} " +
+                    $"formationResult={current?.FormationTargetResult ?? int.MinValue} " +
+                    $"selectionResult={current?.RepresentativeSelectionResult ?? int.MinValue} " +
+                    $"unitScan={current?.UnitScanObserved ?? false} " +
+                    $"unitIterations={current?.UnitIterations ?? 0} " +
+                    $"lastNativeStage={current?.LastNativeStage ?? "none"} " +
+                    $"unitMoveObserved={current?.UnitMoveObserved ?? false}");
+                activeCommandAttempt = null;
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Move Moat Test tribe-order observer failed; event remains unchanged: {ex}");
+            }
+        }
+
+        private void ObserveUnitMoveOrder(UnitMoveHereEventArgs args)
+        {
+            if (disposed)
+                return;
+
+            try
+            {
+                CommandAttempt command = activeCommandAttempt;
+                if (command != null)
+                    command.UnitMoveObserved = true;
+
+                string unitState = "unavailable";
+                if (args.UnitId > 0 && GameUnitManagerAPI.Instance.TryGetUnitById(
+                        args.UnitId,
+                        out GameUnit* unit) && unit != null)
+                {
+                    unitState =
+                        $"player={unit->r_ControllableForPlayerId} unitType={(int)unit->r_UnitChimp} " +
+                        $"current=({unit->r_CurrentTilePositionX},{unit->r_CurrentTilePositionY}) " +
+                        $"marker={*(ushort*)((byte*)unit + UnitMoatMovementMarkerOffset)}";
+                }
+
+                LogCommand(
+                    $"stage=unit-order-{args.Phase.ToString().ToLowerInvariant()} " +
+                    $"command={command?.Id ?? 0} unit={args.UnitId} " +
+                    $"target=({args.TileX},{args.TileY}) unknown={args.Unknown} " +
+                    $"result={args.ReturnValue} skipOriginal={args.SkipOriginalFunction} " +
+                    $"state=[{unitState}]");
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Move Moat Test unit-order observer failed; event remains unchanged: {ex}");
+            }
+        }
+
+        private void ObserveTribeMovementPrecheck(NativePointer<X64SmartCPUContext> context)
+        {
+            X64SmartCPUContext* registers = context.Pointer;
+            int tribeId = unchecked((int)(uint)registers->R9);
+            int unitId = unchecked((int)(uint)registers->R15);
+            int targetX = unchecked((int)(uint)registers->RSI);
+            int targetY = unchecked((int)(uint)registers->RBP);
+            int targetTileId = unchecked((int)(uint)registers->RCX);
+            int startRegion = unchecked((int)(uint)registers->R14);
+            int targetRegion = unchecked((int)(uint)registers->R12);
+
+            try
+            {
+                CommandAttempt command = activeCommandAttempt;
+                if (command != null)
+                {
+                    command.NativePrecheckObserved = true;
+                    command.RepresentativeUnitId = unitId;
+                    command.StartRegion = startRegion;
+                    command.TargetRegion = targetRegion;
+                    command.LastNativeStage = "native-precheck";
+                }
+
+                uint flags = IsValidTileId(targetTileId) ? tileFlags[targetTileId] : 0;
+                string unitState = "unavailable";
+                if (unitId > 0 && GameUnitManagerAPI.Instance.TryGetUnitById(
+                        unitId,
+                        out GameUnit* unit) && unit != null)
+                {
+                    unitState =
+                        $"player={unit->r_ControllableForPlayerId} unitType={(int)unit->r_UnitChimp} " +
+                        $"current=({unit->r_CurrentTilePositionX},{unit->r_CurrentTilePositionY}) " +
+                        $"next=({unit->r_NextTilePositionX2},{unit->r_NextTilePositionY2})";
+                }
+
+                LogCommand(
+                    $"stage=tribe-native-precheck command={command?.Id ?? 0} tribe={tribeId} " +
+                    $"unit={unitId} target=({targetX},{targetY}) targetTile={targetTileId} " +
+                    $"targetFlags=0x{flags:X8} blockingLowBits=0x{flags & 0x30:X2} " +
+                    $"startRegion={startRegion} targetRegion={targetRegion} " +
+                    $"targetAvailability={(IsValidTileId(targetTileId) ? movementTargetAvailability[targetTileId] : -1)} " +
+                    $"pathMode={*moatPathMode} state=[{unitState}]");
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Move Moat Test native tribe-precheck observer failed; Vanilla continues unchanged: {ex}");
+            }
+        }
+
+        private void ObserveTribeFormationTargetResult(NativePointer<X64SmartCPUContext> context)
+        {
+            try
+            {
+                CommandAttempt command = activeCommandAttempt;
+                if (command == null)
+                    return;
+
+                int result = unchecked((int)(uint)context.Pointer->RAX);
+                command.FormationTargetResult = result;
+                command.LastNativeStage = "formation-target-result";
+                LogCommand(
+                    $"stage=tribe-formation-target-result command={command.Id} result={result} " +
+                    $"returnedPositive={result > 0} unitMoveObserved={command.UnitMoveObserved}");
+            }
+            catch (Exception ex)
+            {
+                LogBreadcrumbFailure("formation-target result", ex);
+            }
+        }
+
+        private void ObserveTribeRepresentativeSelectionResult(NativePointer<X64SmartCPUContext> context)
+        {
+            try
+            {
+                CommandAttempt command = activeCommandAttempt;
+                if (command == null)
+                    return;
+
+                // This block is reached only when Vanilla's preceding representative
+                // lookup returned zero and it falls back to a full tribe scan.
+                command.RepresentativeSelectionResult = 0;
+                command.LastNativeStage = "representative-selection-fallback";
+                LogCommand(
+                    $"stage=tribe-representative-selection-fallback command={command.Id} " +
+                    "result=0 fullTribeScan=true");
+            }
+            catch (Exception ex)
+            {
+                LogBreadcrumbFailure("representative-selection result", ex);
+            }
+        }
+
+        private void ObserveTribeUnitScanStart(NativePointer<X64SmartCPUContext> context)
+        {
+            try
+            {
+                CommandAttempt command = activeCommandAttempt;
+                if (command == null)
+                    return;
+
+                command.UnitScanObserved = true;
+                command.LastNativeStage = "unit-scan-start";
+                if (command.RepresentativeSelectionResult == int.MinValue)
+                    command.RepresentativeSelectionResult = 1;
+                int scanIndex = unchecked((int)(uint)context.Pointer->RCX);
+                LogCommand(
+                    $"stage=tribe-unit-scan-start command={command.Id} " +
+                    $"scanIndex={scanIndex} " +
+                    $"representativeUnit={command.RepresentativeUnitId} " +
+                    $"selectionResult={command.RepresentativeSelectionResult}");
+            }
+            catch (Exception ex)
+            {
+                LogBreadcrumbFailure("unit-scan entry", ex);
+            }
+        }
+
+        private void ObserveTribeUnitIterationEnd(NativePointer<X64SmartCPUContext> context)
+        {
+            try
+            {
+                CommandAttempt command = activeCommandAttempt;
+                if (command == null)
+                    return;
+
+                int unitId = unchecked((int)(uint)context.Pointer->RBP);
+                command.UnitIterations++;
+                command.LastNativeStage = "unit-iteration-end";
+                string unitState = "unavailable";
+                if (unitId > 0 && GameUnitManagerAPI.Instance.TryGetUnitById(
+                        unitId,
+                        out GameUnit* unit) && unit != null)
+                {
+                    unitState =
+                        $"player={unit->r_ControllableForPlayerId} unitType={(int)unit->r_UnitChimp} " +
+                        $"current=({unit->r_CurrentTilePositionX},{unit->r_CurrentTilePositionY}) " +
+                        $"aiState={unit->r_AIState} marker=" +
+                        $"{*(ushort*)((byte*)unit + UnitMoatMovementMarkerOffset)}";
+                }
+
+                LogCommand(
+                    $"stage=tribe-unit-iteration-end command={command.Id} iteration={command.UnitIterations} " +
+                    $"unit={unitId} unitMoveObserved={command.UnitMoveObserved} state=[{unitState}]");
+            }
+            catch (Exception ex)
+            {
+                LogBreadcrumbFailure("unit-iteration end", ex);
+            }
+        }
+
+        private void ObserveTribeEarlyReturn(NativePointer<X64SmartCPUContext> context)
+        {
+            try
+            {
+                CommandAttempt command = activeCommandAttempt;
+                if (command == null)
+                    return;
+
+                string previousStage = command.LastNativeStage;
+                int nativeResult = unchecked((int)(uint)context.Pointer->RAX);
+                command.LastNativeStage = "central-return";
+                LogCommand(
+                    $"stage=tribe-central-return command={command.Id} previousStage={previousStage} " +
+                    $"nativeResult={nativeResult} " +
+                    $"formationResult={command.FormationTargetResult} " +
+                    $"selectionResult={command.RepresentativeSelectionResult} " +
+                    $"unitScan={command.UnitScanObserved} unitIterations={command.UnitIterations} " +
+                    $"unitMoveObserved={command.UnitMoveObserved} " +
+                    $"outcome={(command.UnitMoveObserved ? "unit-dispatch-observed" : "no-unit-dispatch")}");
+            }
+            catch (Exception ex)
+            {
+                LogBreadcrumbFailure("central return", ex);
+            }
+        }
+
+        private void LogBreadcrumbFailure(string stage, Exception ex)
+        {
+            Shared.DebugLogHelper.LogError(
+                log,
+                $"Move Moat Test Tribe dispatcher {stage} observer failed; Vanilla continues unchanged: {ex}");
+        }
+
+        private void LogCommand(string message)
+        {
+            if (commandLogCount < MaximumCommandLogs)
+            {
+                commandLogCount++;
+                Shared.DebugLogHelper.LogInfo(log, $"MoveMoat {message}.");
+                return;
+            }
+
+            if (commandLogLimitReported)
+                return;
+            commandLogLimitReported = true;
+            Shared.DebugLogHelper.LogWarning(
+                log,
+                $"MoveMoat command diagnostics reached their {MaximumCommandLogs}-entry limit.");
         }
 
         private int ObserveCentralMovementPlan(
@@ -459,6 +954,14 @@ namespace MoveMoatTest
                     targetRegion <= MaximumRegionId;
                 if (bypassApplied)
                     effectiveResult = targetRegion;
+
+                CommandAttempt command = activeCommandAttempt;
+                if (command != null)
+                {
+                    command.RegionObserved = true;
+                    command.RegionVanillaResult = vanillaResult;
+                    command.RegionEffectiveResult = effectiveResult;
+                }
 
                 LogReachability(
                     movementClass,
@@ -674,13 +1177,18 @@ namespace MoveMoatTest
             int effectiveResult,
             bool bypassApplied)
         {
+            PlanAttempt plan = activePlanAttempt ?? pendingMoveHereAttempt;
+            CommandAttempt command = activeCommandAttempt;
+            if (plan == null && command == null && *moatPathMode == 0)
+                return;
+
             if (reachabilityLogCount < MaximumReachabilityLogs)
             {
                 reachabilityLogCount++;
-                long planId = activePlanAttempt?.Id ?? 0;
                 Shared.DebugLogHelper.LogInfo(
                     log,
-                    $"MoveMoat stage=region plan={planId} movementClass={movementClass} start=({startX},{startY}) " +
+                    $"MoveMoat stage=region plan={plan?.Id ?? 0} command={command?.Id ?? 0} " +
+                    $"movementClass={movementClass} start=({startX},{startY}) " +
                     $"targetRegion={targetRegion} vanilla={vanillaResult} effective={effectiveResult} " +
                     $"bypass={bypassApplied} pathMode={*moatPathMode}.");
                 return;
@@ -1086,6 +1594,36 @@ namespace MoveMoatTest
                 "central ordinary-movement planner");
             ValidatePatternSpan(
                 memory,
+                TribeMovementPrecheckRva,
+                TribeMovementPrecheckPattern,
+                "Tribe MoveHere target and region precheck");
+            ValidatePatternSpan(
+                memory,
+                TribeFormationTargetResultRva,
+                TribeFormationTargetResultPattern,
+                "Tribe formation-target helper result");
+            ValidatePatternSpan(
+                memory,
+                TribeRepresentativeSelectionResultRva,
+                TribeRepresentativeSelectionResultPattern,
+                "Tribe representative-selection result");
+            ValidatePatternSpan(
+                memory,
+                TribeUnitScanStartRva,
+                TribeUnitScanStartPattern,
+                "Tribe unit-scan entry");
+            ValidatePatternSpan(
+                memory,
+                TribeEarlyReturnRva,
+                TribeEarlyReturnPattern,
+                "Tribe MoveHere central return");
+            ValidatePatternSpan(
+                memory,
+                TribeUnitIterationEndRva,
+                TribeUnitIterationEndPattern,
+                "Tribe unit-iteration end");
+            ValidatePatternSpan(
+                memory,
                 DetectCompletedMoatModeRva,
                 DetectCompletedMoatModePattern,
                 "completed-moat path-mode detector");
@@ -1103,6 +1641,63 @@ namespace MoveMoatTest
 
         private static void ValidateInlineHookSpans(ReadOnlySpan<byte> memory)
         {
+            ValidateExactBytes(
+                memory,
+                TribeMovementPrecheckRva,
+                new byte[]
+                {
+                    0x48, 0x8D, 0x04, 0x8D, 0x00, 0x00, 0x00, 0x00,
+                    0x42, 0xF6, 0x84, 0x18, 0xB0, 0x71, 0x8F, 0x04, 0x30,
+                    0x48, 0x89, 0x44, 0x24, 0x68
+                },
+                "Tribe MoveHere target and region precheck");
+            ValidateExactBytes(
+                memory,
+                TribeFormationTargetResultRva,
+                new byte[]
+                {
+                    0x44, 0x8B, 0xBC, 0x24, 0xC8, 0x00, 0x00, 0x00,
+                    0x48, 0x8B, 0xCF, 0x44, 0x8B, 0x05, 0x39, 0x1D,
+                    0xF9, 0x05
+                },
+                "Tribe formation-target helper result");
+            ValidateExactBytes(
+                memory,
+                TribeRepresentativeSelectionResultRva,
+                new byte[]
+                {
+                    0x44, 0x8B, 0x2D, 0x51, 0x7C, 0x0E, 0x06,
+                    0x48, 0x8D, 0x0D, 0x12, 0x1D, 0xF9, 0x05
+                },
+                "Tribe representative-selection result");
+            ValidateExactBytes(
+                memory,
+                TribeUnitScanStartRva,
+                new byte[]
+                {
+                    0x66, 0x3B, 0x48, 0x5C, 0x0F, 0x8D, 0xAD, 0x01,
+                    0x00, 0x00, 0x44, 0x8B, 0xF9, 0x8B, 0x94, 0x24,
+                    0xC8, 0x00, 0x00, 0x00
+                },
+                "Tribe unit-scan entry");
+            ValidateExactBytes(
+                memory,
+                TribeEarlyReturnRva,
+                new byte[]
+                {
+                    0x48, 0x8B, 0x9C, 0x24, 0xC0, 0x00, 0x00, 0x00,
+                    0x48, 0x81, 0xC4, 0x80, 0x00, 0x00, 0x00
+                },
+                "Tribe MoveHere central return");
+            ValidateExactBytes(
+                memory,
+                TribeUnitIterationEndRva,
+                new byte[]
+                {
+                    0x33, 0xED, 0x39, 0x2D, 0x85, 0x15, 0xF9, 0x05,
+                    0x89, 0x2D, 0x83, 0x15, 0xF9, 0x05
+                },
+                "Tribe unit-iteration end");
             ValidateExactBytes(
                 memory,
                 MovementStepMoatGateRva,
@@ -1166,6 +1761,42 @@ namespace MoveMoatTest
             public int TargetY { get; set; }
             public int Result { get; set; }
             public bool VanillaModeDetected { get; set; }
+        }
+
+        private sealed class CommandAttempt
+        {
+            public CommandAttempt(long id, int tribeId, int targetX, int targetY)
+            {
+                Id = id;
+                TribeId = tribeId;
+                TargetX = targetX;
+                TargetY = targetY;
+                RegionVanillaResult = -1;
+                RegionEffectiveResult = -1;
+                FormationTargetResult = int.MinValue;
+                RepresentativeSelectionResult = int.MinValue;
+                LastNativeStage = "tribe-order-pre";
+            }
+
+            public long Id { get; }
+            public int TribeId { get; }
+            public int TargetX { get; }
+            public int TargetY { get; }
+            public int TargetTileId { get; set; }
+            public int TargetAvailability { get; set; }
+            public int RepresentativeUnitId { get; set; }
+            public int StartRegion { get; set; }
+            public int TargetRegion { get; set; }
+            public int RegionVanillaResult { get; set; }
+            public int RegionEffectiveResult { get; set; }
+            public int FormationTargetResult { get; set; }
+            public int RepresentativeSelectionResult { get; set; }
+            public int UnitIterations { get; set; }
+            public string LastNativeStage { get; set; }
+            public bool NativePrecheckObserved { get; set; }
+            public bool RegionObserved { get; set; }
+            public bool UnitScanObserved { get; set; }
+            public bool UnitMoveObserved { get; set; }
         }
 
         private sealed class TrackedPlan
