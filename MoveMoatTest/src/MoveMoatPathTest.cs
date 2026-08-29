@@ -43,10 +43,17 @@ namespace MoveMoatTest
             int targetX,
             int targetY);
 
+        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+        private delegate int TribeRegionMembershipDelegate(
+            IntPtr tribeManager,
+            int tribeId,
+            int targetRegion);
+
         private const int CentralMovementPlanRva = 0x18E1E0;
+        private const int TribeRegionMembershipRva = 0x124740;
         private const int TribeMovementPrecheckRva = 0x11B637;
         private const int TribeFormationTargetResultRva = 0x11B919;
-        private const int TribeRepresentativeSelectionResultRva = 0x11B940;
+        private const int TribeRegionCandidateRetryRva = 0x11B940;
         private const int TribeUnitScanStartRva = 0x11B9D6;
         private const int TribeEarlyReturnRva = 0x11BDF4;
         private const int TribeUnitIterationEndRva = 0x11C14F;
@@ -77,7 +84,7 @@ namespace MoveMoatTest
         private const int MoveHereBuilderResultHookLength = 18;
         private const int TribeMovementPrecheckHookLength = 22;
         private const int TribeFormationTargetResultHookLength = 18;
-        private const int TribeRepresentativeSelectionResultHookLength = 14;
+        private const int TribeRegionCandidateRetryHookLength = 14;
         private const int TribeUnitScanStartHookLength = 20;
         private const int TribeEarlyReturnHookLength = 15;
         private const int TribeUnitIterationEndHookLength = 14;
@@ -92,6 +99,10 @@ namespace MoveMoatTest
             "48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 84 24 20 04 00 00 4C 63 FA " +
             "4C 8D 35 ?? ?? ?? ?? 49 69 DF 90 04 00 00 49 63 E8 48 03 D9 49 63 F1";
 
+        private const string TribeRegionMembershipPattern =
+            "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 56 41 57 " +
+            "48 83 EC 20 48 63 F2 33 DB 4C 69 CE 88 06 00 00 45 8B F0 48 8B E9";
+
         private const string TribeMovementPrecheckPattern =
             "48 8D 04 8D 00 00 00 00 42 F6 84 18 B0 71 8F 04 30 " +
             "48 89 44 24 68";
@@ -99,7 +110,7 @@ namespace MoveMoatTest
         private const string TribeFormationTargetResultPattern =
             "44 8B BC 24 C8 00 00 00 48 8B CF 44 8B 05 39 1D F9 05";
 
-        private const string TribeRepresentativeSelectionResultPattern =
+        private const string TribeRegionCandidateRetryPattern =
             "44 8B 2D 51 7C 0E 06 48 8D 0D 12 1D F9 05";
 
         private const string TribeUnitScanStartPattern =
@@ -145,6 +156,8 @@ namespace MoveMoatTest
         private static CommandAttempt activeCommandAttempt;
         private CentralMovementPlanDelegate originalCentralMovementPlan;
         private CentralMovementPlanDelegate rootedCentralMovementPlan;
+        private TribeRegionMembershipDelegate originalTribeRegionMembership;
+        private TribeRegionMembershipDelegate rootedTribeRegionMembership;
         private DetectCompletedMoatModeDelegate originalDetectCompletedMoatMode;
         private DetectCompletedMoatModeDelegate rootedDetectCompletedMoatMode;
         private RegionReachabilityDelegate originalRegionReachability;
@@ -155,11 +168,12 @@ namespace MoveMoatTest
         private NativeDetour regionReachabilityDetour;
         private NativeDetour pathBuilderDetour;
         private NativeDetour centralMovementPlanDetour;
+        private NativeDetour tribeRegionMembershipDetour;
         private HookRef<X64InlineHook> movementStepMoatGateHook = new HookRef<X64InlineHook>();
         private HookRef<X64InlineHook> moveHereBuilderResultHook = new HookRef<X64InlineHook>();
         private HookRef<X64InlineHook> tribeMovementPrecheckHook = new HookRef<X64InlineHook>();
         private HookRef<X64InlineHook> tribeFormationTargetResultHook = new HookRef<X64InlineHook>();
-        private HookRef<X64InlineHook> tribeRepresentativeSelectionResultHook = new HookRef<X64InlineHook>();
+        private HookRef<X64InlineHook> tribeRegionCandidateRetryHook = new HookRef<X64InlineHook>();
         private HookRef<X64InlineHook> tribeUnitScanStartHook = new HookRef<X64InlineHook>();
         private HookRef<X64InlineHook> tribeEarlyReturnHook = new HookRef<X64InlineHook>();
         private HookRef<X64InlineHook> tribeUnitIterationEndHook = new HookRef<X64InlineHook>();
@@ -211,6 +225,13 @@ namespace MoveMoatTest
                 referenceHashMatches,
                 "completed-moat path-mode detector",
                 log: null);
+            Shared.NativeResolution tribeRegionMembershipResolution = Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                TribeRegionMembershipPattern,
+                TribeRegionMembershipRva,
+                referenceHashMatches,
+                "Tribe target-region membership helper",
+                log: null);
             Shared.NativeResolution tribePrecheckResolution = Shared.NativePatternResolver.ResolveUnique(
                 memory,
                 TribeMovementPrecheckPattern,
@@ -225,12 +246,12 @@ namespace MoveMoatTest
                 referenceHashMatches,
                 "Tribe formation-target helper result",
                 log: null);
-            Shared.NativeResolution tribeSelectionResultResolution = Shared.NativePatternResolver.ResolveUnique(
+            Shared.NativeResolution tribeRegionCandidateRetryResolution = Shared.NativePatternResolver.ResolveUnique(
                 memory,
-                TribeRepresentativeSelectionResultPattern,
-                TribeRepresentativeSelectionResultRva,
+                TribeRegionCandidateRetryPattern,
+                TribeRegionCandidateRetryRva,
                 referenceHashMatches,
-                "Tribe representative-selection result",
+                "Tribe region-candidate retry",
                 log: null);
             Shared.NativeResolution tribeUnitScanResolution = Shared.NativePatternResolver.ResolveUnique(
                 memory,
@@ -270,6 +291,10 @@ namespace MoveMoatTest
 
             RequireValidatedRva(planResolution, CentralMovementPlanRva, "central ordinary-movement planner");
             RequireValidatedRva(
+                tribeRegionMembershipResolution,
+                TribeRegionMembershipRva,
+                "Tribe target-region membership helper");
+            RequireValidatedRva(
                 tribePrecheckResolution,
                 TribeMovementPrecheckRva,
                 "Tribe MoveHere target and region precheck");
@@ -278,9 +303,9 @@ namespace MoveMoatTest
                 TribeFormationTargetResultRva,
                 "Tribe formation-target helper result");
             RequireValidatedRva(
-                tribeSelectionResultResolution,
-                TribeRepresentativeSelectionResultRva,
-                "Tribe representative-selection result");
+                tribeRegionCandidateRetryResolution,
+                TribeRegionCandidateRetryRva,
+                "Tribe region-candidate retry");
             RequireValidatedRva(
                 tribeUnitScanResolution,
                 TribeUnitScanStartRva,
@@ -310,6 +335,7 @@ namespace MoveMoatTest
             directionTileOffsets = (int*)(libraryBase + DirectionTileOffsetTableRva);
 
             rootedCentralMovementPlan = ObserveCentralMovementPlan;
+            rootedTribeRegionMembership = AllowTribeTargetRegionForMoveOrder;
             rootedDetectCompletedMoatMode = ForceCompletedMoatMode;
             rootedRegionReachability = AllowBuilderAfterFailedRegionSearch;
             rootedPathBuilder = ObservePathBuilder;
@@ -318,7 +344,9 @@ namespace MoveMoatTest
             NativeDetour pendingReachabilityDetour = null;
             NativeDetour pendingBuilderDetour = null;
             NativeDetour pendingPlanDetour = null;
+            NativeDetour pendingTribeRegionMembershipDetour = null;
             bool planApplied = false;
+            bool tribeRegionMembershipApplied = false;
             bool modeApplied = false;
             bool reachabilityApplied = false;
             bool builderApplied = false;
@@ -329,6 +357,12 @@ namespace MoveMoatTest
                     rootedCentralMovementPlan);
                 originalCentralMovementPlan =
                     pendingPlanDetour.GenerateTrampoline<CentralMovementPlanDelegate>();
+
+                pendingTribeRegionMembershipDetour = CreateDetour(
+                    libraryBase + unchecked((ulong)tribeRegionMembershipResolution.Rva),
+                    rootedTribeRegionMembership);
+                originalTribeRegionMembership =
+                    pendingTribeRegionMembershipDetour.GenerateTrampoline<TribeRegionMembershipDelegate>();
 
                 pendingModeDetour = CreateDetour(
                     libraryBase + unchecked((ulong)modeResolution.Rva),
@@ -349,6 +383,8 @@ namespace MoveMoatTest
 
                 pendingPlanDetour.Apply();
                 planApplied = true;
+                pendingTribeRegionMembershipDetour.Apply();
+                tribeRegionMembershipApplied = true;
                 pendingModeDetour.Apply();
                 modeApplied = true;
                 pendingReachabilityDetour.Apply();
@@ -360,6 +396,7 @@ namespace MoveMoatTest
                 regionReachabilityDetour = pendingReachabilityDetour;
                 pathBuilderDetour = pendingBuilderDetour;
                 centralMovementPlanDetour = pendingPlanDetour;
+                tribeRegionMembershipDetour = pendingTribeRegionMembershipDetour;
 
                 HookTransaction transaction = new HookTransaction(
                     memory,
@@ -399,11 +436,11 @@ namespace MoveMoatTest
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
                 transaction.AddContextHook(
-                    ref tribeRepresentativeSelectionResultHook,
-                    libraryBase + unchecked((ulong)tribeSelectionResultResolution.Rva),
-                    ObserveTribeRepresentativeSelectionResult,
+                    ref tribeRegionCandidateRetryHook,
+                    libraryBase + unchecked((ulong)tribeRegionCandidateRetryResolution.Rva),
+                    ObserveTribeRegionCandidateRetry,
                     regs: X64SmartCPUContextRegs.All,
-                    hookSize: TribeRepresentativeSelectionResultHookLength,
+                    hookSize: TribeRegionCandidateRetryHookLength,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
                 transaction.AddContextHook(
@@ -433,7 +470,7 @@ namespace MoveMoatTest
                 transaction.Commit();
                 if (!movementStepMoatGateHook.Success || !moveHereBuilderResultHook.Success ||
                     !tribeMovementPrecheckHook.Success || !tribeFormationTargetResultHook.Success ||
-                    !tribeRepresentativeSelectionResultHook.Success || !tribeUnitScanStartHook.Success ||
+                    !tribeRegionCandidateRetryHook.Success || !tribeUnitScanStartHook.Success ||
                     !tribeUnitIterationEndHook.Success || !tribeEarlyReturnHook.Success)
                     throw new InvalidOperationException("A central MoveHere diagnostic hook did not install.");
 
@@ -449,13 +486,16 @@ namespace MoveMoatTest
                     log,
                     $"Move Moat Test installed: planRva=0x{planResolution.Rva:X}/method={planResolution.Method}, " +
                     $"modeRva=0x{modeResolution.Rva:X}/method={modeResolution.Method}, " +
+                    $"tribeRegionMembershipRva=0x{tribeRegionMembershipResolution.Rva:X}/method=" +
+                    $"{tribeRegionMembershipResolution.Method}, " +
                     $"reachabilityRva=0x{reachabilityResolution.Rva:X}/method={reachabilityResolution.Method}, " +
                     $"builderRva=0x{builderResolution.Rva:X}/method={builderResolution.Method}, " +
                     $"tribePrecheckRva=0x{tribePrecheckResolution.Rva:X}/method={tribePrecheckResolution.Method}, " +
-                    "tribeDispatcherBreadcrumbs=5, " +
+                    "tribeDispatcherBreadcrumbs=6, " +
                     $"moveHereResultRva=0x{MoveHereBuilderResultRva:X}, " +
                     $"stepGateRva=0x{MovementStepMoatGateRva:X}; " +
-                    "allCompletedMoats=true, ownerFiltering=false, realBuilderResultUnchanged=true.");
+                    "allCompletedMoats=true, ownerFiltering=false, " +
+                    "tribeRegionBypass=activeMoveHereOnly, realBuilderResultUnchanged=true.");
             }
             catch
             {
@@ -468,7 +508,7 @@ namespace MoveMoatTest
                 movementStepMoatGateHook?.Value?.Dispose();
                 tribeMovementPrecheckHook?.Value?.Dispose();
                 tribeFormationTargetResultHook?.Value?.Dispose();
-                tribeRepresentativeSelectionResultHook?.Value?.Dispose();
+                tribeRegionCandidateRetryHook?.Value?.Dispose();
                 tribeUnitScanStartHook?.Value?.Dispose();
                 tribeUnitIterationEndHook?.Value?.Dispose();
                 tribeEarlyReturnHook?.Value?.Dispose();
@@ -485,14 +525,19 @@ namespace MoveMoatTest
                 if (modeApplied)
                     pendingModeDetour?.Undo();
                 pendingModeDetour?.Dispose();
+                if (tribeRegionMembershipApplied)
+                    pendingTribeRegionMembershipDetour?.Undo();
+                pendingTribeRegionMembershipDetour?.Dispose();
                 if (planApplied)
                     pendingPlanDetour?.Undo();
                 pendingPlanDetour?.Dispose();
                 originalCentralMovementPlan = null;
+                originalTribeRegionMembership = null;
                 originalDetectCompletedMoatMode = null;
                 originalRegionReachability = null;
                 originalPathBuilder = null;
                 rootedCentralMovementPlan = null;
+                rootedTribeRegionMembership = null;
                 rootedDetectCompletedMoatMode = null;
                 rootedRegionReachability = null;
                 rootedPathBuilder = null;
@@ -515,7 +560,7 @@ namespace MoveMoatTest
             movementStepMoatGateHook?.Value?.Dispose();
             tribeMovementPrecheckHook?.Value?.Dispose();
             tribeFormationTargetResultHook?.Value?.Dispose();
-            tribeRepresentativeSelectionResultHook?.Value?.Dispose();
+            tribeRegionCandidateRetryHook?.Value?.Dispose();
             tribeUnitScanStartHook?.Value?.Dispose();
             tribeUnitIterationEndHook?.Value?.Dispose();
             tribeEarlyReturnHook?.Value?.Dispose();
@@ -526,16 +571,20 @@ namespace MoveMoatTest
             pathBuilderDetour?.Dispose();
             regionReachabilityDetour?.Dispose();
             detectCompletedMoatModeDetour?.Dispose();
+            tribeRegionMembershipDetour?.Dispose();
             centralMovementPlanDetour?.Dispose();
             pathBuilderDetour = null;
             regionReachabilityDetour = null;
             detectCompletedMoatModeDetour = null;
+            tribeRegionMembershipDetour = null;
             centralMovementPlanDetour = null;
             originalCentralMovementPlan = null;
+            originalTribeRegionMembership = null;
             originalPathBuilder = null;
             originalRegionReachability = null;
             originalDetectCompletedMoatMode = null;
             rootedCentralMovementPlan = null;
+            rootedTribeRegionMembership = null;
             rootedPathBuilder = null;
             rootedRegionReachability = null;
             rootedDetectCompletedMoatMode = null;
@@ -586,7 +635,12 @@ namespace MoveMoatTest
                     $"regionVanilla={current?.RegionVanillaResult ?? -1} " +
                     $"regionEffective={current?.RegionEffectiveResult ?? -1} " +
                     $"formationResult={current?.FormationTargetResult ?? int.MinValue} " +
-                    $"selectionResult={current?.RepresentativeSelectionResult ?? int.MinValue} " +
+                    $"regionMembershipCalls={current?.RegionMembershipCalls ?? 0} " +
+                    $"regionMembershipBypasses={current?.RegionMembershipBypasses ?? 0} " +
+                    $"lastMembershipRegion={current?.LastRegionMembershipTarget ?? -1} " +
+                    $"lastMembershipVanilla={current?.LastRegionMembershipVanillaResult ?? -1} " +
+                    $"lastMembershipEffective={current?.LastRegionMembershipEffectiveResult ?? -1} " +
+                    $"regionCandidateRetries={current?.RegionCandidateRetries ?? 0} " +
                     $"unitScan={current?.UnitScanObserved ?? false} " +
                     $"unitIterations={current?.UnitIterations ?? 0} " +
                     $"lastNativeStage={current?.LastNativeStage ?? "none"} " +
@@ -710,7 +764,7 @@ namespace MoveMoatTest
             }
         }
 
-        private void ObserveTribeRepresentativeSelectionResult(NativePointer<X64SmartCPUContext> context)
+        private void ObserveTribeRegionCandidateRetry(NativePointer<X64SmartCPUContext> context)
         {
             try
             {
@@ -718,17 +772,20 @@ namespace MoveMoatTest
                 if (command == null)
                     return;
 
-                // This block is reached only when Vanilla's preceding representative
-                // lookup returned zero and it falls back to a full tribe scan.
-                command.RepresentativeSelectionResult = 0;
-                command.LastNativeStage = "representative-selection-fallback";
+                // Vanilla reaches this block when the preceding target-region candidate
+                // was rejected and it retries with another formation candidate.
+                command.RegionCandidateRetries++;
+                command.LastNativeStage = "region-candidate-retry";
                 LogCommand(
-                    $"stage=tribe-representative-selection-fallback command={command.Id} " +
-                    "result=0 fullTribeScan=true");
+                    $"stage=tribe-region-candidate-retry command={command.Id} " +
+                    $"retry={command.RegionCandidateRetries} " +
+                    $"membershipCalls={command.RegionMembershipCalls} " +
+                    $"lastMembershipVanilla={command.LastRegionMembershipVanillaResult} " +
+                    $"lastMembershipEffective={command.LastRegionMembershipEffectiveResult}");
             }
             catch (Exception ex)
             {
-                LogBreadcrumbFailure("representative-selection result", ex);
+                LogBreadcrumbFailure("region-candidate retry", ex);
             }
         }
 
@@ -742,14 +799,13 @@ namespace MoveMoatTest
 
                 command.UnitScanObserved = true;
                 command.LastNativeStage = "unit-scan-start";
-                if (command.RepresentativeSelectionResult == int.MinValue)
-                    command.RepresentativeSelectionResult = 1;
                 int scanIndex = unchecked((int)(uint)context.Pointer->RCX);
                 LogCommand(
                     $"stage=tribe-unit-scan-start command={command.Id} " +
                     $"scanIndex={scanIndex} " +
                     $"representativeUnit={command.RepresentativeUnitId} " +
-                    $"selectionResult={command.RepresentativeSelectionResult}");
+                    $"membershipCalls={command.RegionMembershipCalls} " +
+                    $"membershipBypasses={command.RegionMembershipBypasses}");
             }
             catch (Exception ex)
             {
@@ -805,7 +861,12 @@ namespace MoveMoatTest
                     $"stage=tribe-central-return command={command.Id} previousStage={previousStage} " +
                     $"nativeResult={nativeResult} " +
                     $"formationResult={command.FormationTargetResult} " +
-                    $"selectionResult={command.RepresentativeSelectionResult} " +
+                    $"membershipCalls={command.RegionMembershipCalls} " +
+                    $"membershipBypasses={command.RegionMembershipBypasses} " +
+                    $"lastMembershipRegion={command.LastRegionMembershipTarget} " +
+                    $"lastMembershipVanilla={command.LastRegionMembershipVanillaResult} " +
+                    $"lastMembershipEffective={command.LastRegionMembershipEffectiveResult} " +
+                    $"regionCandidateRetries={command.RegionCandidateRetries} " +
                     $"unitScan={command.UnitScanObserved} unitIterations={command.UnitIterations} " +
                     $"unitMoveObserved={command.UnitMoveObserved} " +
                     $"outcome={(command.UnitMoveObserved ? "unit-dispatch-observed" : "no-unit-dispatch")}");
@@ -895,6 +956,56 @@ namespace MoveMoatTest
             }
 
             return result;
+        }
+
+        private int AllowTribeTargetRegionForMoveOrder(
+            IntPtr tribeManager,
+            int tribeId,
+            int targetRegion)
+        {
+            int vanillaResult = originalTribeRegionMembership(tribeManager, tribeId, targetRegion);
+            int effectiveResult = vanillaResult;
+
+            try
+            {
+                CommandAttempt command = activeCommandAttempt;
+                bool bypassApplied = !disposed &&
+                    command != null &&
+                    tribeManager != IntPtr.Zero &&
+                    tribeId == command.TribeId &&
+                    targetRegion > 0 &&
+                    targetRegion <= MaximumRegionId &&
+                    vanillaResult == 0;
+                if (bypassApplied)
+                    effectiveResult = 1;
+
+                if (command != null)
+                {
+                    command.RegionMembershipCalls++;
+                    if (bypassApplied)
+                        command.RegionMembershipBypasses++;
+                    command.LastRegionMembershipTarget = targetRegion;
+                    command.LastRegionMembershipVanillaResult = vanillaResult;
+                    command.LastRegionMembershipEffectiveResult = effectiveResult;
+                    command.LastNativeStage = "region-membership";
+
+                    LogCommand(
+                        $"stage=tribe-region-membership command={command.Id} " +
+                        $"tribeArgument={tribeId} targetRegion={targetRegion} " +
+                        $"vanilla={vanillaResult} effective={effectiveResult} " +
+                        $"bypass={bypassApplied} call={command.RegionMembershipCalls}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Move Moat Test Tribe region-membership callback failed; " +
+                    $"Vanilla result {vanillaResult} remains active: {ex}");
+                return vanillaResult;
+            }
+
+            return effectiveResult;
         }
 
         private int ForceCompletedMoatMode(IntPtr unitManager, int unitId)
@@ -1594,6 +1705,11 @@ namespace MoveMoatTest
                 "central ordinary-movement planner");
             ValidatePatternSpan(
                 memory,
+                TribeRegionMembershipRva,
+                TribeRegionMembershipPattern,
+                "Tribe target-region membership helper");
+            ValidatePatternSpan(
+                memory,
                 TribeMovementPrecheckRva,
                 TribeMovementPrecheckPattern,
                 "Tribe MoveHere target and region precheck");
@@ -1604,9 +1720,9 @@ namespace MoveMoatTest
                 "Tribe formation-target helper result");
             ValidatePatternSpan(
                 memory,
-                TribeRepresentativeSelectionResultRva,
-                TribeRepresentativeSelectionResultPattern,
-                "Tribe representative-selection result");
+                TribeRegionCandidateRetryRva,
+                TribeRegionCandidateRetryPattern,
+                "Tribe region-candidate retry");
             ValidatePatternSpan(
                 memory,
                 TribeUnitScanStartRva,
@@ -1663,13 +1779,13 @@ namespace MoveMoatTest
                 "Tribe formation-target helper result");
             ValidateExactBytes(
                 memory,
-                TribeRepresentativeSelectionResultRva,
+                TribeRegionCandidateRetryRva,
                 new byte[]
                 {
                     0x44, 0x8B, 0x2D, 0x51, 0x7C, 0x0E, 0x06,
                     0x48, 0x8D, 0x0D, 0x12, 0x1D, 0xF9, 0x05
                 },
-                "Tribe representative-selection result");
+                "Tribe region-candidate retry");
             ValidateExactBytes(
                 memory,
                 TribeUnitScanStartRva,
@@ -1774,7 +1890,9 @@ namespace MoveMoatTest
                 RegionVanillaResult = -1;
                 RegionEffectiveResult = -1;
                 FormationTargetResult = int.MinValue;
-                RepresentativeSelectionResult = int.MinValue;
+                LastRegionMembershipTarget = -1;
+                LastRegionMembershipVanillaResult = -1;
+                LastRegionMembershipEffectiveResult = -1;
                 LastNativeStage = "tribe-order-pre";
             }
 
@@ -1790,7 +1908,12 @@ namespace MoveMoatTest
             public int RegionVanillaResult { get; set; }
             public int RegionEffectiveResult { get; set; }
             public int FormationTargetResult { get; set; }
-            public int RepresentativeSelectionResult { get; set; }
+            public int RegionMembershipCalls { get; set; }
+            public int RegionMembershipBypasses { get; set; }
+            public int LastRegionMembershipTarget { get; set; }
+            public int LastRegionMembershipVanillaResult { get; set; }
+            public int LastRegionMembershipEffectiveResult { get; set; }
+            public int RegionCandidateRetries { get; set; }
             public int UnitIterations { get; set; }
             public string LastNativeStage { get; set; }
             public bool NativePrecheckObserved { get; set; }

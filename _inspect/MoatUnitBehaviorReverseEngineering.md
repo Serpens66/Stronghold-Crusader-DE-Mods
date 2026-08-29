@@ -1,6 +1,7 @@
 # Moat-Verhalten von Units: Vanilla-Reverse-Engineering und Testergebnisse
 
-Stand: 2026-08-29  
+Stand: 2026-08-30
+
 Thema: geplante und fertige Moats, Command 6 (`DigMoatTileId`), Cursorprüfung, Unit-Auswahl, Wegfindung, Reservierung und bestehende Bewegungsaufträge
 
 ## 1. Zweck und Status dieses Dokuments
@@ -10,7 +11,7 @@ Dieses Dokument bündelt die bislang über Quellcode, Disassemblierung, BepInEx-
 Wichtig ist die Trennung zwischen:
 
 - **nachgewiesenen Fakten** aus der kanonischen DLL, validierten Hooks oder Logs;
-- **aktuellen Implementierungsentscheidungen** in `BugfixesAndQoL/src/MoatDiggingReachabilityFix.cs`;
+- **aktuellen Implementierungsentscheidungen** in `MoatCommandTest/src/MoatDiggingReachabilityFix.cs`;
 - **noch offenen Fragen** und geplanten, aber noch nicht umgesetzten Änderungen.
 
 Der aktuelle funktionale Stand ist:
@@ -23,6 +24,8 @@ Der aktuelle funktionale Stand ist:
 - Die grünen Zielmarker bleiben dadurch ebenfalls am alten Bewegungsziel beziehungsweise an Zuständen des alten Pfads. Das ist kein isolierter Renderfehler.
 
 Die nächste fachlich abgesicherte Änderung ist am Ende dieses Dokuments beschrieben, aber zum Stand dieses Dokuments noch **nicht** umgesetzt.
+
+Die Implementierung wurde aus `BugfixesAndQoL` in den eigenständigen Testmod `MoatCommandTest` extrahiert. Der Testmod ist ohne Settings-UI immer aktiv, verwendet die Plugin-GUID `MoatCommandTest_Serp` und deklariert mit `NetworkMode: 1`, dass er in Multiplayer-Partien bei allen Teilnehmern vorhanden sein muss. `BugfixesAndQoL` enthält weder den Moat-Featurecode noch dessen frühere Initialisierung, Setting-, XAML- oder Locale-Einträge. Der getrennte experimentelle Mod `MoveMoatTest` untersucht eine allgemeinere Moat-Passierbarkeit und soll für isolierte Diagnosen nicht gleichzeitig mit `MoatCommandTest` installiert werden.
 
 ## 2. Maßgebliche Binärdatei und Quellen
 
@@ -40,7 +43,9 @@ Alle festen RVAs müssen bei einem anderen Hash als inkompatibel behandelt werde
 
 ### 2.2 Weitere relevante Quellen
 
-- `BugfixesAndQoL/src/MoatDiggingReachabilityFix.cs`: gegenwärtige Feature- und Diagnoselogik.
+- `MoatCommandTest/src/MoatDiggingReachabilityFix.cs`: gegenwärtige Feature- und Diagnoselogik.
+- `MoatCommandTest/src/MoatCommandTestPlugin.cs`: persistenter BepInEx-/Script-Extender-Einstieg; der native Featurecode bleibt über eine statische Referenz für die Prozesslaufzeit aktiv.
+- `MoatCommandTest/MoatCommandTest.csproj`, `MoatCommandTest/info.json` und `MoatCommandTest/build.bat`: eigenständige Abhängigkeiten, Metadaten sowie Build- und Installationsweg des Testmods.
 - `shcde-script-extender/src/SHCDESE.BepInEx/Interop/GameUnit.cs`: öffentlich bekannte Unit-Felder und Offsets.
 - `shcde-script-extender/src/SHCDESE.BepInEx/API/GameTribeManagerAPI.cs`: Script-Extender-Aufruf für `DigMoat`.
 - `shcde-script-extender/src/SHCDESE.BepInEx/Detour/BulkTribeDetours.cs`: gemeinsamer Tribe-Command-Dispatcher und bereits existierender Detour.
@@ -189,7 +194,7 @@ Dieser Zweig schreibt später den letzten Tribe-Command und das Context-Ziel in 
 
 Der spätere Moat-State-Pfad liegt um RVA `0x13F77E`. Dort wird die Funktion RVA `0x6AF60` aufgerufen, um einen geeigneten Moat auszuwählen.
 
-Die Funktion RVA `0x69D60` ist Vanillas Suche nach einem nahen freundlichen Moat. Die aktuelle Mod detourt diese Funktion gezielt:
+Die Funktion RVA `0x69D60` ist Vanillas Suche nach einem nahen freundlichen Moat. `MoatCommandTest` detourt diese Funktion gezielt:
 
 - besitzt die Unit Command 6;
 - stimmen gespeicherte Context-Koordinaten mit einem eigenen oder verbündeten geplanten Moat überein;
@@ -530,7 +535,7 @@ Nach einer Änderung am frühen Reset oder an verwandten Moat-Pfaden sollten min
 6. Eigener, verbündeter und feindlicher geplanter Moat.
 7. KI-Lord beziehungsweise `GameTribeManagerAPI.DigMoat`.
 8. Normale Bewegungsbefehle ohne Command 6.
-9. Deaktivierte Modsetting-Option.
+9. Vanilla-Kontrolle ohne installierten `MoatCommandTest`; der Testmod besitzt bewusst keine Deaktivierungsoption.
 10. Zwei frische Spielstarts ohne Moat-Interaktion, um frühe Hook-/Instruktionscrashes auszuschließen.
 
 Besonders prüfen:
@@ -567,7 +572,7 @@ Das BepInEx-Log wird angehängt. Jeder neue Spielstart beginnt mit:
 
 `[Message:   BepInEx] BepInEx 5.4.23.2 - Stronghold Crusader Definitive Edition`
 
-Die Uhrzeit dieser BepInEx-Zeile ist nicht zuverlässig. Für die zeitliche Zuordnung die eigenen Modlogs mit Millisekunden verwenden. Relevante Einträge lassen sich über `MoatCommand stage=` beziehungsweise die konkreten Stages filtern:
+Die Uhrzeit dieser BepInEx-Zeile ist nicht zuverlässig. Für die zeitliche Zuordnung die eigenen Modlogs mit Millisekunden verwenden. Die aktuelle Logpräfixfolge lautet `Moat Command Test MoatCommand`; relevante Einträge lassen sich zusätzlich über `stage=` beziehungsweise die konkreten Stages filtern:
 
 - `direct-command`
 - `selection`
