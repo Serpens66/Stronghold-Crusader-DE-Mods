@@ -25,7 +25,7 @@ namespace MoveMoatTest
             persistentLog = Logger;
             Shared.DebugLogHelper.LogInfo(
                 persistentLog,
-                $"{PluginName} {PluginVersion} loaded; all completed moats are enabled for the central pathfinding test.");
+                $"{PluginName} {PluginVersion} loaded; friendly/allied completed-moat movement and enemy-owner diagnostics are enabled.");
 
             if (librarySubscriptionInstalled)
                 return;

@@ -117,9 +117,6 @@ namespace AssassinCombatFix
                 commonPathRequestDetour = installedCommonPath;
                 LogInfo(
                     $"installed Assassin combat-resume hooks at RVAs 0x{resume.Rva:X} and 0x{commonPath.Rva:X}.");
-                Shared.DebugLogHelper.LogWarning(
-                    log,
-                    "Assassin Combat Fix is experimental: its shared common-path detour currently has observable effects on non-Assassin units too.");
             }
             catch
             {
