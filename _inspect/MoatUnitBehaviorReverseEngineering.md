@@ -391,14 +391,17 @@ erreicht. Für die aktuelle Teststufe werden ausschließlich diese Schranken ge�
    positiver Zielregion den realen Builder erreichen.
 5. Ebenfalls nur für denselben Tribe und denselben aktiven Move-Auftrag darf `0x124740` eine
    fehlgeschlagene Flood-Fill-Mitgliedschaft überbrücken.
-6. Unmittelbar vor dem echten Tile-Builder `0xF4930` muss dessen Routenvariante bei
-   `pathManager+0x80` von `1` auf `0` wechseln. Vanilla verwendet Variante `0`, wenn eine Unit
-   bereits auf einem fertigen Moat steht; erst diese Variante konsumiert den zuvor aktivierten
-   moat-aware Pfadmodus auch für eine gewöhnliche Unit. Die Änderung erfolgt ausschließlich,
-   wenn der Modus für den korrelierten Unit-Plan erzwungen wurde und derselbe aktive
-   `MoveHere`-Auftrag zuvor tatsächlich die Tribe-Flood-Fill-Schranke überbrückt hat. Liefert
-   der Builder keinen positiven Pfad oder wirft er eine Exception, wird der ursprüngliche Wert
-   sofort wiederhergestellt. Bei Erfolg bleibt Vanillas eigener Ausgabewert `0` erhalten.
+6. Der echte Tile-Builder `0xF4930` läuft zunächst mit Vanillas ursprünglicher Routenvariante bei
+   `pathManager+0x80` und dem vom Modushelfer ursprünglich gelieferten Moat-Modus. Liefert dieser
+   erste Lauf einen positiven Pfad, wird er unverändert übernommen; Owner-Suche und
+   Routenvariantenwechsel finden dann nicht statt. Nur bei Ergebnis `0`, ursprünglicher Variante
+   `1`, beobachtetem Moduskontext und unmittelbar bestätigter freundlicher Owner-/Allianzroute
+   folgt ein zweiter Builderlauf mit Variante `0` und aktiviertem Moat-Modus. Vanilla verwendet
+   Variante `0` natürlich, wenn eine Unit bereits auf einem fertigen Moat steht; diese Variante
+   konsumiert den moat-aware Pfadmodus auch für eine gewöhnliche Unit. Ein vorheriger
+   `0→1`-Tribe-Flood-Bypass ist nach dem Patrol-Befund vom 30.08.2026 keine Voraussetzung. Liefert
+   der Fallback keinen positiven Pfad oder wirft er eine Exception, wird die ursprüngliche
+   Routenvariante sofort wiederhergestellt.
 7. Der echte Tile-Builder bleibt damit die endgültige Schranke. Er erzeugt den realen Pfad
    durch den Moat oder lehnt Mauern, Wasser und tatsächlich unerreichbare Ziele weiterhin ab.
 
@@ -414,17 +417,20 @@ beschriebene Cursor-/Command-Kette, den zentralen Planner ausschließlich als si
 per-Unit-Kontext und den Builder für die eng begrenzte Routenvariantenänderung. Entfernt
 bleiben Common-Path-Observer, Unit-Tick-Tracking, Path-Preview, Cursor-Frame-Polling,
 Verbotblock-Observer, Direction-Seed- und Tile-Expander-Diagnosen, alle nicht installierten
-Breadcrumb-Hooks sowie der nachweislich unbenutzte Bewegungsschritt-Hook. Zusätzlich besitzen
-Cursor und Bewegung getrennte Loglimits, damit häufige Hover-Aufrufe die späteren Builderlogs
-nicht mehr verdrängen.
+Breadcrumb-Hooks sowie der nachweislich unbenutzte Bewegungsschritt-Hook. Zusätzlich besaßen
+Cursor und Bewegung in dieser Zwischenfassung getrennte Loglimits, damit häufige Hover-Aufrufe
+die späteren Builderlogs nicht mehr verdrängten. Diese globalen Lebenszeitlimits wurden später
+durch die unten beschriebene Moat-bezogene Befehlsfilterung ersetzt.
 
 Der Bereinigungs-Re-Test vom 2026-08-30 bestätigte diese reduzierte Fassung erneut. Sechs
 aufeinanderfolgende Builder-Aufrufe protokollierten jeweils `original=1`, `effective=0`, einen
 positiven echten Pfad mit Längen `9`, `5`, `10`, `6`, `2` und `6` sowie `retained=True`.
 Es gab sechs korrelierte Tribe-Flood-Fill-Bypasses, keinen Builder-Rollback und keinen
-Callback-, Installations- oder Restore-Fehler. Die getrennten Cursor- und Bewegungsloglimits
-wurden erwartungsgemäß erreicht; häufige Hover- beziehungsweise Skirmish-Gruppenaufrufe
-verdrängten die sechs Builder-Nachweise dabei nicht mehr.
+Callback-, Installations- oder Restore-Fehler. Die damals getrennten Cursor- und
+Bewegungsloglimits wurden erwartungsgemäß erreicht; häufige Hover- beziehungsweise
+Skirmish-Gruppenaufrufe verdrängten die sechs Builder-Nachweise dabei nicht mehr. Der spätere
+Patrol-Test zeigte jedoch, dass auch getrennte globale Limits ungeeignet sind: automatische
+Kartenstartbefehle konnten sämtliche Budgets noch vor dem eigentlichen Test verbrauchen.
 
 ### 4.2 Gemeinsamer Tribe-Command-Dispatcher
 
@@ -1003,14 +1009,33 @@ Hin- und Rückläufe tatsächlich wiederholt über `TribeIssueOrderMoveHere`. Fe
 als Zucken sichtbare Versuche erreichten `move-command` und teilweise `mode`, aber nicht die bisher
 nur bei einem echten `0→1`-Bypass protokollierten Flood-Fill-, Owner- und Builderstufen. Spätere
 Versuche derselben Patrol erzeugten vollständige positive Builderpfade. Patrol benötigt deshalb
-voraussichtlich keinen eigenen Bewegungsbefehlspatch; zuerst ist die möglicherweise zu strenge
-Kopplung des Builder-Overrides an `FloodFillBypasses > 0` zu untersuchen.
+voraussichtlich keinen eigenen Bewegungsbefehlspatch. Das Entfernen der zu strengen Kopplung des
+Builder-Overrides an `FloodFillBypasses > 0` bestätigte anschließend, dass ein Builderpfad auch bei
+`tribe-flood-observed ... vanilla=1 bypass=False` erfolgreich sein kann. Die weiterhin zuckenden
+Versuche endeten jedoch bereits nach `mode` und erreichten weder Region noch Builder.
+
+Die anschließende statische Analyse der kanonischen DLL fand nur zwei direkte Calls auf den
+Tribe-Flood-Helper `0x124740`, bei `0x11B92E` und `0x11B9B1` in derselben übergeordneten
+Tribe-/Unit-Verarbeitung. Danach führen zwei Calls bei `0x11C057` und `0x11C0BC` in `MoveHere`
+`0x196280`. Innerhalb von `MoveHere` wird der Modus bei `0x19634D` abgefragt, der Builder aber erst
+bei `0x196679` erreicht. Dazwischen liegen frühe Ausgänge für bereits erreichtes Ziel, bestimmte
+Target-Tile-Flags und fehlgeschlagene Zwischenprüfungen. Deshalb protokolliert die nächste
+Diagnosestufe den vollständigen `TribeIssueOrderMoveHere`-Pre/Post-Kontext einschließlich
+`IsPatrolPath`, `IsNewOrder`, `MoveType` und `ReturnValue`, eine per-Command-Zählung der erreichten
+Planner-/Flood-/Mode-/Region-/Builderstufen sowie beim Mode-Aufruf Position, Ziel, Regionen,
+Tile-Flags und Zielverfügbarkeit. Diese Diagnose verändert keine Entscheidung.
 
 Ein Attack-Klick auf eine feindliche Unit hinter dem Moat erzeugte dagegen nachweislich einen
 gewöhnlichen `move-command` mit positivem MoveHere-Builderpfad. Der grüne Bewegungscursor war also
 nicht nur eine falsche Darstellung: Vanillas Angriffsauswahl wurde vor der eigentlichen
 Angriffsbewegung nicht erreicht. Ob der spätere Attack-Bewegungszustand denselben zentralen Planer
 nutzt, ist damit noch nicht getestet.
+
+Der Script Extender stellt dafür bereits das konfliktfreie Ereignis
+`TribeR3EventHooks.OnTribeIssueOrderWithTarget` bereit. `MoveMoatTest` protokolliert dessen Pre- und
+Post-Phase nun als `target-command` mit `AICommand`, beiden Targetwerten, `a6` und `ReturnValue`.
+Bleibt dieser Stage beim Klick aus, wurde der echte Target-/Attack-Auftrag bereits vor dem nativen
+Tribe-Dispatcher verworfen oder in einen gewöhnlichen Move-Auftrag umklassifiziert.
 
 Eine erneute statische Calleranalyse derselben Referenz-DLL spricht gegen befehlsspezifische
 Bewegungspatches:
@@ -1050,10 +1075,58 @@ Sie pauschal freizugeben wäre erst vertretbar, wenn Unit-ID und Ziel am Builder
 korreliert werden können. Die Attack-Cursor-/Befehlsauswahl liegt außerdem vor beiden Planern und
 wird durch diese Erweiterung bewusst nicht umklassifiziert.
 
-Für einen positiven Moat-Pfad müssen im reduzierten Diagnosemodus mindestens
-`tribe-flood-fill`, bei getrennter Region `region`, ein erzwungener `mode`-Eintrag und
-`builder-route80 ... result>0 retained=True` korrelieren. `retained=False`, Callbackfehler oder
-ein positiver feindlicher Pfad sind Fehlerbefunde.
+Der Lauf vom 30.08.2026 zeigte bei Patrol einen weiteren wichtigen Sonderfall: Vanillas
+Tribe-Floodprüfung kann bereits `1` liefern, obwohl der anschließend gebaute Pfad den fertigen
+Moat nicht überquert. Deshalb ist ein vorheriger `tribe-flood-fill`-Bypass keine Voraussetzung
+mehr für die Buildervariante. Er bleibt Diagnose. Die Freigabe beruht stattdessen auf dem
+synchronen Move-/Planner-Scope, erzwungenem Moat-Modus und der unmittelbar am Builder erneut
+bestätigten Owner-/Allianzroute. Ohne diese letzte Routenprüfung bleibt der Builder Vanilla.
+
+Für einen positiven Moat-Pfad müssen im reduzierten Diagnosemodus mindestens ein erzwungener
+`mode`-Eintrag, bei getrennter Region `region`, `owner-gate ... effective=allow` und
+`builder-route80 ... result>0 retained=True` korrelieren. `tribe-flood-observed ... vanilla=1`
+ist dabei zulässig. `retained=False`, Callbackfehler oder ein positiver feindlicher Pfad sind
+Fehlerbefunde.
+
+Der anschließende Patrol-Vergleich zeigte eine zu breite Eingriffsbedingung der damaligen
+Owner-first-Fassung: Auch die Kontrollstrecke ohne zu überquerenden Moat fand innerhalb derselben
+verbundenen Kartenfläche eine alternative Route mit 282 freundlichen Moat-Tiles. Deshalb wechselte
+der Mod dort bei 30 von 31 erfolgreichen Builderaufrufen ebenfalls vorsorglich auf Variante `0`.
+Die Kontroll- und Moat-Strecken hatten zwar keinen einzigen negativen Command- oder Builderausgang,
+waren dadurch aber beide modifiziert und nicht als Vanilla-Vergleich verwertbar.
+
+Die daraus abgeleitete Vanilla-first-Fassung verwendet `0xF4930` selbst als maßgebliche
+„ohne Moat erreichbar“-Prüfung. Eine zusätzliche BFS dafür existiert nicht. Die statische Analyse
+der kanonischen DLL bestätigt die Wiederaufruf-Sicherheit des Fallbacks: Frühe Abbrüche vor der
+eigentlichen Suche verändern keinen Suchzustand. Jeder Eintritt, der die unteren Suchroutinen
+erreicht, setzt bei `0xF49D7` `pathManager+0x7C = 1`, löscht bei `0xF49DE` das Ergebnisfeld
+`pathManager+0x155F68` und erhöht bei `0xF4A2B` beziehungsweise `0xF4A95` einen neuen
+Generations-/Stamp-Zähler an `+0xAC` beziehungsweise `+0xA8`. Ein erster Fehlschlag wird daher
+nicht fortgesetzt; der zweite Lauf beginnt entweder ohne vorherige Suchmutation oder mit frisch
+initialisiertem Suchzustand. `builder-vanilla-first` protokolliert Originalvariante, ursprünglichen
+Moat-Modus und Ergebnis. Nur `result=0 fallbackCandidate=True` darf anschließend zu `owner-gate`
+und `builder-route80` führen.
+
+Der erste Ingame-Test dieser Fassung bestätigte die Trennung exakt. Neun Builderläufe auf
+Vanilla-erreichbaren Zielen lieferten unmittelbar positive Ergebnisse (`7×4`, `2×2`), jeweils mit
+`fallbackBuilderCalls=0`. Acht nur über den eigenen fertigen Moat erreichbare Teilwege lieferten
+zuerst `builder-vanilla-first result=0`; jeder davon erzeugte genau einen
+`owner-gate ... effective=allow`-Fallback und anschließend einen positiven echten Pfad (`7×4`,
+`1×6`). Es gab keinen positiven Vanilla-Lauf mit Fallback, keinen Nuller ohne Fallback, kein
+`retained=False` und keinen Callbackfehler. Die Mauer-Negativkontrolle erzeugte erwartungsgemäß
+keinen Move-Auftrag.
+
+Die nachfolgende Diagnosebereinigung kennzeichnet bereits das Erreichen von `0xF4930`, nicht erst
+eine ausgeführte Owner-BFS. Dadurch führt die Post-Phase ihre read-only Frühabbruchprüfung nur für
+Aufträge aus, die wirklich vor dem Builder endeten. Ein positiver normaler Builderlauf löst weder
+eine nachträgliche Owner-Suche noch einen unnötigen Logblock aus.
+
+`planner-owner-rejected` protokolliert separat nur Moat-relevante oder belegte Ziele, die der
+zentrale Planner außerhalb eines MoveHere-Scopes nicht owner-sicher qualifizieren konnte. Für
+Attack ist insbesondere `targetAvailability=0 reason=target-unavailable-or-occupied` relevant:
+Dann wurde der Planner zwar erreicht, die derzeitige Routensuche verlangt aber noch das belegte
+Ziel statt eines zulässigen Angriffs-/Annäherungsfelds. Dieses Logging verändert die Entscheidung
+nicht.
 
 ## 12. Reverse-Engineering- und Log-Arbeitsweise
 
@@ -1191,7 +1264,11 @@ beziehungsweise die konkreten Stages filtern:
 - `cursor-region`
 - `cursor-direct`
 - `move-command`
+- `move-command-result`
+- `mode-context`
+- `target-command`
 - `planner-owner-qualified`
+- `planner-owner-rejected`
 - `tribe-flood-observed`
 - `tribe-flood-fill`
 - `mode`
@@ -1199,17 +1276,33 @@ beziehungsweise die konkreten Stages filtern:
 - `owner-gate`
 - `cursor-region-owner-block`
 - `cursor-direct-owner-block`
+- `builder-vanilla-first`
 - `builder-route80`
 - `builder-gate`
 
-Cursor-, häufige Bewegungskontext- und entscheidende Builderlogs besitzen getrennte Limits.
-`move-command`, `mode`, `region` und `tribe-flood-fill` teilen sich das Bewegungskontextlimit;
-`owner-gate` und `builder-route80` besitzen ein eigenes Builderlimit. Die vollständigen
-`tribe-flood-observed`-Ergebnisse und vor dem Owner-Gate verworfene `builder-gate`-Aufrufe teilen
-sich ein drittes Pipeline-Diagnoselimit. Dadurch können Gruppenbewegungen das Kontextlimit
-ausschöpfen, ohne die spätere Diagnose der eigentlichen Owner-, Pipeline- und Builderentscheidung
-zu verdecken. Eine Limitwarnung ist kein Fehler und beendet keine Funktion; sie verhindert nur
-weitere Einträge der jeweiligen Kategorie.
+Es gibt keine globalen Diagnosegrenzen mehr. Während eines synchronen `move-command` sammelt der
+Mod zunächst dessen vollständige Command-, Flood-, Mode-, Region-, Owner- und Builderdiagnose im
+zugehörigen `MoveCommandScope`. Erst wenn die konservative Owner-Routenprüfung tatsächlich
+mindestens ein freundliches oder feindliches Moat-Tile beobachtet, wird der gesamte gepufferte
+Befehl nach dessen Post-Phase ausgegeben. Befehle ohne jeden Moat-Befund werden verworfen. Dadurch
+bleiben wiederholte Patrol-Hin- und Rückläufe vollständig sichtbar, während die zahlreichen
+internen `MoveHere`-Aufträge beim Kartenstart das Log nicht füllen. Cursorentscheidungen werden
+weiterhin anhand der bereits vorhandenen BFS-Generation dedupliziert; sie besitzen ebenfalls kein
+abschaltendes Lebenszeitlimit.
+
+Falls ein Befehl wie ein zuckender Patrol-Teilweg bereits nach der Moduswahl und vor dem Builder
+endet, führt seine Post-Phase genau eine zusätzliche read-only Owner-Routenprüfung für den letzten
+korrelierten Unit-Plan aus. Sie dient ausschließlich dazu, den gepufferten Befehl als Moat-relevant
+zu erkennen; ihr Ergebnis ändert weder den Rückgabewert noch irgendeinen nativen Pfadzustand.
+
+Für die Vanilla-Negativkontrolle ohne Moat wird ein Tribe ab dem ersten
+`move-command ... patrol=1` gezielt als Patrol-Diagnosesitzung verfolgt. Nur für diesen Tribe
+werden danach auch Moat-freie automatische `MoveHere`-Teilwege ausgegeben. Ein neuer expliziter
+Nicht-Patrol-Befehl desselben Tribes oder ein Kartenwechsel beendet die Verfolgung. Der vorhandene
+Script-Extender-Hook `OnTribeGetNextPatrolWaypoint` liefert zusätzlich `patrol-waypoint` mit
+Tribe-ID und Wegpunktindex. Damit lassen sich Kontroll- und Moat-Test anhand derselben Command-,
+Mode-, Region- und Builderstufen vergleichen, ohne allgemeine KI- oder Kartenstartbewegungen zu
+protokollieren.
 
 Ein fehlender späterer Logeintrag darf nicht sofort als fehlender nativer Funktionsaufruf interpretiert werden. Zuerst prüfen, ob Attempt-ID, globale Zielwerte oder Current-Unit-Korrelation den Callback herausfiltern.
 
@@ -1239,8 +1332,9 @@ Diese Liste belegt die breite Verwendung des Helpers, ersetzt aber bei einer neu
 - Allgemeine wiederholte Bewegung durch fertige Moats funktioniert im Editor und Skirmish.
 - Der Cursor benötigt den Fallthrough bei `0x8F393` und zwei konservativ gefilterte echte
   Reachability-Funktionen.
-- Der Auftrag benötigt Flood-Fill-, Modus- und Regionsfreigabe sowie zwingend die korrelierte
-  Builder-Routenvariante `pathManager+0x80 = 0`.
+- Der Auftrag benötigt Flood-Fill-, Modus- und Regionsfreigabe; der Builder verwendet
+  `pathManager+0x80 = 0` erst als owner-geprüften Fallback, nachdem Vanillas erster Lauf mit der
+  ursprünglichen Variante tatsächlich `0` geliefert hat.
 - Der echte Builder-Rückgabewert wird nie erzwungen; Mauerziele blieben im Test blockiert.
 - Der bereinigte Re-Test lieferte sechs positive, beibehaltene Builderpfade ohne Fehler.
 - Der Feindtest zeigte, dass die bisherige Gesamtkette Owner nicht wirksam blockiert; der

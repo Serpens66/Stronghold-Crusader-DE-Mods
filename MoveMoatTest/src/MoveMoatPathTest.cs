@@ -6,6 +6,7 @@ using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.Tribes;
 using SHCDESE.Interop;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Zhuqiaomon.Assembly;
@@ -73,11 +74,6 @@ namespace MoveMoatTest
 
         private const int MaximumRegionId = short.MaxValue;
         private const int MaximumFloodFillStamp = 0x7D00;
-        private const int MaximumCursorDecisionLogs = 32;
-        private const int MaximumCursorOwnerBlockLogs = 16;
-        private const int MaximumMovementContextLogs = 48;
-        private const int MaximumBuilderDecisionLogs = 64;
-        private const int MaximumPipelineDiagnosticLogs = 64;
         private const int MapWidth = 800;
         private const int MapCellCount = MapWidth * MapWidth;
         private const int MoatStateBit = 1 << 20;
@@ -170,6 +166,8 @@ namespace MoveMoatTest
         private NativeDetour cursorRegionPrecheckDetour;
         private NativeCodePatch cursorGateJumpPatch;
         private IDisposable tribeMoveSubscription;
+        private IDisposable tribeTargetSubscription;
+        private IDisposable tribePatrolWaypointSubscription;
         private IDisposable mapLoadSubscription;
         private IDisposable mapStartSubscription;
         private IDisposable mapUnloadSubscription;
@@ -187,17 +185,8 @@ namespace MoveMoatTest
         private int cacheTargetRegion = -1;
         private int cachePlayerId = -1;
         private RouteProbeSummary cachedRouteSummary;
+        private readonly HashSet<int> patrolDiagnosticTribes = new HashSet<int>();
         private bool cursorChecksArmed;
-        private int cursorDecisionLogCount;
-        private int cursorOwnerBlockLogCount;
-        private int movementContextLogCount;
-        private int builderDecisionLogCount;
-        private int pipelineDiagnosticLogCount;
-        private bool cursorDecisionLogLimitReported;
-        private bool cursorOwnerBlockLogLimitReported;
-        private bool movementContextLogLimitReported;
-        private bool builderDecisionLogLimitReported;
-        private bool pipelineDiagnosticLogLimitReported;
         private int lastCursorRegionPositiveGeneration = -1;
         private int lastCursorDirectPositiveGeneration = -1;
         private int lastCursorRegionBlockGeneration = -1;
@@ -351,6 +340,8 @@ namespace MoveMoatTest
                 cursorRegionPrecheckDetour = pendingCursorRegion;
 
                 tribeMoveSubscription = TribeR3EventHooks.OnTribeIssueOrderMoveHere.Observable.Subscribe(ObserveTribeMoveOrder);
+                tribeTargetSubscription = TribeR3EventHooks.OnTribeIssueOrderWithTarget.Observable.Subscribe(ObserveTribeTargetOrder);
+                tribePatrolWaypointSubscription = TribeR3EventHooks.OnTribeGetNextPatrolWaypoint.Observable.Subscribe(ObservePatrolWaypoint);
                 mapLoadSubscription = MapLoaderR3EventHooks.OnLoadMap.Observable.Subscribe(_ => ResetMapState());
                 mapStartSubscription = MapLoaderR3EventHooks.OnStartMap.Observable.Subscribe(_ => ResetMapState());
                 mapUnloadSubscription = MapLoaderR3EventHooks.OnUnloadMap.Observable.Subscribe(_ => ResetMapState());
@@ -373,6 +364,8 @@ namespace MoveMoatTest
             {
                 TryRestoreCursorPatch();
                 tribeMoveSubscription?.Dispose();
+                tribeTargetSubscription?.Dispose();
+                tribePatrolWaypointSubscription?.Dispose();
                 mapLoadSubscription?.Dispose();
                 mapStartSubscription?.Dispose();
                 mapUnloadSubscription?.Dispose();
@@ -396,6 +389,8 @@ namespace MoveMoatTest
             disposed = true;
             TryRestoreCursorPatch();
             tribeMoveSubscription?.Dispose();
+            tribeTargetSubscription?.Dispose();
+            tribePatrolWaypointSubscription?.Dispose();
             mapLoadSubscription?.Dispose();
             mapStartSubscription?.Dispose();
             mapUnloadSubscription?.Dispose();
@@ -419,11 +414,26 @@ namespace MoveMoatTest
 
             if (args.Phase == EventHookPhase.Pre)
             {
-                activeMoveCommand = new MoveCommandScope(args.TribeId, args.TileX, args.TileY);
+                bool startsPatrolTrace = args.IsPatrolPath != 0;
+                if (startsPatrolTrace)
+                    patrolDiagnosticTribes.Add(args.TribeId);
+                else if (args.IsNewOrder)
+                    patrolDiagnosticTribes.Remove(args.TribeId);
+
+                activeMoveCommand = new MoveCommandScope(
+                    args.TribeId,
+                    args.TileX,
+                    args.TileY,
+                    args.IsPatrolPath,
+                    args.IsNewOrder,
+                    args.MoveType.ToString(),
+                    patrolDiagnosticTribes.Contains(args.TribeId));
                 try
                 {
-                    LogMovementContext(
-                        $"stage=move-command tribe={args.TribeId} target=({args.TileX},{args.TileY}) phase=pre");
+                    LogCommandDiagnostic(
+                        $"stage=move-command tribe={args.TribeId} target=({args.TileX},{args.TileY}) " +
+                        $"phase=pre patrol={args.IsPatrolPath} newOrder={args.IsNewOrder} " +
+                        $"moveType={args.MoveType}");
                 }
                 catch
                 {
@@ -432,9 +442,79 @@ namespace MoveMoatTest
             }
             else if (args.Phase == EventHookPhase.Post)
             {
+                MoveCommandScope command = activeMoveCommand;
+                try
+                {
+                    QualifyPendingCommandDiagnostics(command);
+                    string lastBuilderResult = command != null && command.BuilderCalls > 0
+                        ? command.LastBuilderResult.ToString()
+                        : "none";
+                    string lastVanillaBuilderResult = command != null &&
+                        command.VanillaBuilderCalls > 0
+                            ? command.LastVanillaBuilderResult.ToString()
+                            : "none";
+                    LogCommandDiagnostic(
+                        $"stage=move-command-result tribe={args.TribeId} " +
+                        $"target=({args.TileX},{args.TileY}) patrol={args.IsPatrolPath} " +
+                        $"newOrder={args.IsNewOrder} moveType={args.MoveType} return={args.ReturnValue} " +
+                        $"plannerCalls={command?.CentralPlannerCalls ?? 0} " +
+                        $"floodCalls={command?.FloodCalls ?? 0} " +
+                        $"floodVanillaPositive={command?.FloodVanillaPositive ?? 0} " +
+                        $"floodBypasses={command?.FloodFillBypasses ?? 0} " +
+                        $"modeCalls={command?.ModeCalls ?? 0} regionCalls={command?.RegionCalls ?? 0} " +
+                        $"builderCalls={command?.BuilderCalls ?? 0} " +
+                        $"vanillaBuilderCalls={command?.VanillaBuilderCalls ?? 0} " +
+                        $"fallbackBuilderCalls={command?.FallbackBuilderCalls ?? 0} " +
+                        $"positiveBuilders={command?.PositiveBuilderCalls ?? 0} " +
+                        $"lastVanillaBuilderResult={lastVanillaBuilderResult} " +
+                        $"lastBuilderResult={lastBuilderResult}");
+                    FlushCommandDiagnostics(command);
+                }
+                catch
+                {
+                    // Diagnostics must not escape into the synchronous command event.
+                }
                 activeMoveCommand = null;
                 activePlan = null;
                 pendingPlan = null;
+            }
+        }
+
+        private void ObservePatrolWaypoint(TribeGetNextPatrolWaypointEventArgs args)
+        {
+            if (disposed || !patrolDiagnosticTribes.Contains(args.TribeId))
+                return;
+
+            try
+            {
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"MoveMoat stage=patrol-waypoint tribe={args.TribeId} " +
+                    $"phase={args.Phase.ToString().ToLowerInvariant()} " +
+                    $"pointIndex={args.PatrolPointIndex} return={args.ReturnValue}.");
+            }
+            catch
+            {
+                // Patrol observation must never affect Vanilla waypoint selection.
+            }
+        }
+
+        private void ObserveTribeTargetOrder(TribeIssueOrderWithTargetEventArgs args)
+        {
+            if (disposed)
+                return;
+
+            try
+            {
+                LogCommandDiagnostic(
+                    $"stage=target-command phase={args.Phase.ToString().ToLowerInvariant()} " +
+                    $"tribe={args.TribeId} aiCommand={args.AICommand} " +
+                    $"target1={args.TargetValue1} target2={args.TargetValue2} a6={args.a6} " +
+                    $"return={args.ReturnValue}");
+            }
+            catch
+            {
+                // Target-order observation must never affect attack command dispatch.
             }
         }
 
@@ -446,12 +526,17 @@ namespace MoveMoatTest
 
             PlanScope previous = activePlan;
             PlanScope plan = new PlanScope(unitId, targetX, targetY);
+            if (activeMoveCommand != null)
+                activeMoveCommand.CentralPlannerCalls++;
             if (activeMoveCommand == null)
             {
                 try
                 {
                     if (!TryFindFriendlyCompletedMoatRouteForPlan(plan, out RouteProbeSummary summary))
+                    {
+                        LogRejectedPlannerRoute(plan, summary);
                         return originalCentralMovementPlan(unitManager, unitId, targetX, targetY);
+                    }
 
                     plan.FriendlyRouteQualified = true;
                     try
@@ -517,8 +602,19 @@ namespace MoveMoatTest
                         activeMoveCommand.TargetY);
                     pendingPlan = plan;
                 }
+                plan.ModeObserved = true;
                 plan.VanillaModeDetected = vanillaResult != 0;
                 plan.PlayerId = unit->r_ControllableForPlayerId;
+                if (activeMoveCommand != null)
+                    activeMoveCommand.ModeCalls++;
+                try
+                {
+                    LogModeContext(plan, unit, vanillaResult);
+                }
+                catch
+                {
+                    // Context logging must not change the native mode decision.
+                }
                 if (vanillaResult == 0)
                     LogMovementContext($"stage=mode unit={unitId} vanilla=0 effective=1");
                 return 1;
@@ -539,6 +635,9 @@ namespace MoveMoatTest
                 (plan != null && plan.FriendlyRouteQualified);
             if (disposed || !scoped)
                 return vanillaResult;
+
+            if (activeMoveCommand != null)
+                activeMoveCommand.RegionCalls++;
 
             try
             {
@@ -574,6 +673,9 @@ namespace MoveMoatTest
                 bool bypass = vanillaResult == 0 && managerValid && matchingTribe && stampValid;
                 if (command != null)
                 {
+                    command.FloodCalls++;
+                    if (vanillaResult != 0)
+                        command.FloodVanillaPositive++;
                     try
                     {
                         LogPipelineDiagnostic(
@@ -621,19 +723,29 @@ namespace MoveMoatTest
                 return originalPathBuilder(pathManager, movementClass, movementProfile);
             }
 
+            if (command != null)
+            {
+                command.BuilderCalls++;
+                command.BuilderReached = true;
+            }
+
             int currentMoatMode = *moatPathMode;
             int floodFillBypasses = command?.FloodFillBypasses ?? 0;
-            bool pipelineQualified = plannerQualified || floodFillBypasses > 0;
-            bool builderEligible = !plan.VanillaModeDetected &&
-                pipelineQualified && currentMoatMode == 1;
+            // Flood membership is not a reliable reachability verdict. The unchanged builder
+            // gets the first decision; owner-aware moat fallback is considered only after 0.
+            bool builderEligible = plan.ModeObserved && !plan.VanillaModeDetected &&
+                currentMoatMode == 1;
             if (!builderEligible)
             {
                 int vanillaBuilderResult = originalPathBuilder(pathManager, movementClass, movementProfile);
+                RecordVanillaBuilderResult(command, vanillaBuilderResult);
+                RecordBuilderResult(command, vanillaBuilderResult);
                 try
                 {
                     LogPipelineDiagnostic(
                         $"stage=builder-gate unit={plan.UnitId} player={plan.PlayerId} " +
                         $"target=({plan.TargetX},{plan.TargetY}) eligible=False " +
+                        $"modeObserved={plan.ModeObserved} " +
                         $"vanillaModeDetected={plan.VanillaModeDetected} " +
                         $"plannerQualified={plannerQualified} floodBypasses={floodFillBypasses} " +
                         $"moatMode={currentMoatMode} " +
@@ -647,22 +759,64 @@ namespace MoveMoatTest
                 return vanillaBuilderResult;
             }
 
+            int* routeVariant = (int*)((byte*)pathManager.ToPointer() + 0x80);
+            int originalRouteVariant = *routeVariant;
+            int vanillaMoatMode = plan.VanillaModeDetected ? 1 : 0;
+            bool vanillaModeAdjusted = currentMoatMode != vanillaMoatMode;
+            int vanillaResult;
+            if (vanillaModeAdjusted)
+                *moatPathMode = vanillaMoatMode;
+            try
+            {
+                vanillaResult = originalPathBuilder(
+                    pathManager, movementClass, movementProfile);
+            }
+            finally
+            {
+                if (vanillaModeAdjusted)
+                    *moatPathMode = currentMoatMode;
+            }
+
+            RecordVanillaBuilderResult(command, vanillaResult);
+            try
+            {
+                LogPipelineDiagnostic(
+                    $"stage=builder-vanilla-first unit={plan.UnitId} player={plan.PlayerId} " +
+                    $"target=({plan.TargetX},{plan.TargetY}) route80={originalRouteVariant} " +
+                    $"moatMode={vanillaMoatMode} result={vanillaResult} " +
+                    $"fallbackCandidate={vanillaResult == 0 && originalRouteVariant == 1}");
+            }
+            catch
+            {
+                // Diagnostics must not change the Vanilla-first builder result.
+            }
+            if (vanillaResult > 0 || originalRouteVariant != 1)
+            {
+                RecordBuilderResult(command, vanillaResult);
+                return vanillaResult;
+            }
+
             RouteProbeSummary routeSummary;
             try
             {
-                if (!TryFindFriendlyCompletedMoatRouteForPlan(plan, out routeSummary))
+                bool friendlyRoute = TryFindFriendlyCompletedMoatRouteForPlan(
+                    plan, out routeSummary);
+                MarkCommandMoatRelevant(command, routeSummary);
+                if (!friendlyRoute)
                 {
                     LogBuilderDecision(
                         $"stage=owner-gate unit={plan.UnitId} player={plan.PlayerId} " +
                         $"target=({plan.TargetX},{plan.TargetY}) effective=vanilla " +
                         routeSummary.ToLogFields());
-                    return originalPathBuilder(pathManager, movementClass, movementProfile);
+                    RecordBuilderResult(command, vanillaResult);
+                    return vanillaResult;
                 }
             }
             catch (Exception ex)
             {
                 LogFailure("owner-gate", ex);
-                return originalPathBuilder(pathManager, movementClass, movementProfile);
+                RecordBuilderResult(command, vanillaResult);
+                return vanillaResult;
             }
 
             LogBuilderDecision(
@@ -670,43 +824,39 @@ namespace MoveMoatTest
                 $"target=({plan.TargetX},{plan.TargetY}) effective=allow " +
                 routeSummary.ToLogFields());
 
-            int* routeVariant = (int*)((byte*)pathManager.ToPointer() + 0x80);
-            int originalRouteVariant = *routeVariant;
-            bool overrideApplied = originalRouteVariant == 1;
-            if (overrideApplied)
-                *routeVariant = 0;
+            *routeVariant = 0;
 
             int result;
             try
             {
+                if (command != null)
+                    command.FallbackBuilderCalls++;
                 result = originalPathBuilder(pathManager, movementClass, movementProfile);
             }
             catch
             {
-                if (overrideApplied)
-                    *routeVariant = originalRouteVariant;
+                *routeVariant = originalRouteVariant;
                 throw;
             }
 
-            bool retained = overrideApplied && result > 0;
-            if (overrideApplied && !retained)
+            bool retained = result > 0;
+            if (!retained)
                 *routeVariant = originalRouteVariant;
 
-            if (overrideApplied)
+            try
             {
-                try
-                {
-                    LogBuilderDecision(
-                        $"stage=builder-route80 unit={plan.UnitId} movementClass={movementClass} " +
-                        $"movementProfile={movementProfile} original=1 " +
-                        $"effective={(retained ? 0 : originalRouteVariant)} " +
-                        $"result={result} retained={retained}");
-                }
-                catch
-                {
-                    // Logging must never change a successfully produced native path.
-                }
+                LogBuilderDecision(
+                    $"stage=builder-route80 unit={plan.UnitId} movementClass={movementClass} " +
+                    $"movementProfile={movementProfile} original=1 " +
+                    $"effective={(retained ? 0 : originalRouteVariant)} " +
+                    $"vanillaResult={vanillaResult} result={result} retained={retained}");
             }
+            catch
+            {
+                // Logging must never change a successfully produced native path.
+            }
+
+            RecordBuilderResult(command, result);
 
             return result;
         }
@@ -1141,6 +1291,7 @@ namespace MoveMoatTest
             lastCursorRegionBlockGeneration = -1;
             lastCursorDirectBlockGeneration = -1;
             cursorChecksArmed = false;
+            patrolDiagnosticTribes.Clear();
             activeMoveCommand = null;
             activePlan = null;
             pendingPlan = null;
@@ -1148,19 +1299,7 @@ namespace MoveMoatTest
 
         private void LogCursorDecision(string message)
         {
-            if (cursorDecisionLogCount < MaximumCursorDecisionLogs)
-            {
-                cursorDecisionLogCount++;
-                Shared.DebugLogHelper.LogInfo(log, $"MoveMoat {message}.");
-                return;
-            }
-
-            if (cursorDecisionLogLimitReported)
-                return;
-            cursorDecisionLogLimitReported = true;
-            Shared.DebugLogHelper.LogWarning(
-                log,
-                $"MoveMoat cursor diagnostics reached their {MaximumCursorDecisionLogs}-entry limit.");
+            Shared.DebugLogHelper.LogInfo(log, $"MoveMoat {message}.");
         }
 
         private void LogPositiveCursorDecision(ref int lastLoggedGeneration, string message)
@@ -1178,71 +1317,165 @@ namespace MoveMoatTest
                 return;
 
             lastLoggedGeneration = gridGeneration;
-            if (cursorOwnerBlockLogCount < MaximumCursorOwnerBlockLogs)
-            {
-                cursorOwnerBlockLogCount++;
-                Shared.DebugLogHelper.LogInfo(log, $"MoveMoat {message}.");
-                return;
-            }
-
-            if (cursorOwnerBlockLogLimitReported)
-                return;
-            cursorOwnerBlockLogLimitReported = true;
-            Shared.DebugLogHelper.LogWarning(
-                log,
-                $"MoveMoat cursor owner-block diagnostics reached their " +
-                $"{MaximumCursorOwnerBlockLogs}-entry limit.");
+            LogCursorDecision(message);
         }
 
         private void LogMovementContext(string message)
         {
-            if (movementContextLogCount < MaximumMovementContextLogs)
-            {
-                movementContextLogCount++;
-                Shared.DebugLogHelper.LogInfo(log, $"MoveMoat {message}.");
-                return;
-            }
-
-            if (movementContextLogLimitReported)
-                return;
-            movementContextLogLimitReported = true;
-            Shared.DebugLogHelper.LogWarning(
-                log,
-                $"MoveMoat movement-context diagnostics reached their {MaximumMovementContextLogs}-entry limit.");
+            BufferOrLogCommandDiagnostic(message);
         }
 
         private void LogBuilderDecision(string message)
         {
-            if (builderDecisionLogCount < MaximumBuilderDecisionLogs)
-            {
-                builderDecisionLogCount++;
-                Shared.DebugLogHelper.LogInfo(log, $"MoveMoat {message}.");
-                return;
-            }
-
-            if (builderDecisionLogLimitReported)
-                return;
-            builderDecisionLogLimitReported = true;
-            Shared.DebugLogHelper.LogWarning(
-                log,
-                $"MoveMoat builder diagnostics reached their {MaximumBuilderDecisionLogs}-entry limit.");
+            BufferOrLogCommandDiagnostic(message);
         }
 
         private void LogPipelineDiagnostic(string message)
         {
-            if (pipelineDiagnosticLogCount < MaximumPipelineDiagnosticLogs)
+            BufferOrLogCommandDiagnostic(message);
+        }
+
+        private void LogCommandDiagnostic(string message)
+        {
+            BufferOrLogCommandDiagnostic(message);
+        }
+
+        private void BufferOrLogCommandDiagnostic(string message)
+        {
+            MoveCommandScope command = activeMoveCommand;
+            if (command != null)
             {
-                pipelineDiagnosticLogCount++;
-                Shared.DebugLogHelper.LogInfo(log, $"MoveMoat {message}.");
+                command.Diagnostics.Add(message);
                 return;
             }
 
-            if (pipelineDiagnosticLogLimitReported)
+            Shared.DebugLogHelper.LogInfo(log, $"MoveMoat {message}.");
+        }
+
+        private static void MarkCommandMoatRelevant(
+            MoveCommandScope command, RouteProbeSummary summary)
+        {
+            if (command != null &&
+                (summary.FriendlyMoatTiles > 0 || summary.EnemyMoatTiles > 0))
+            {
+                command.MoatRelevant = true;
+            }
+        }
+
+        private void QualifyPendingCommandDiagnostics(MoveCommandScope command)
+        {
+            if (command == null || command.BuilderReached || pendingPlan == null)
                 return;
-            pipelineDiagnosticLogLimitReported = true;
-            Shared.DebugLogHelper.LogWarning(
+
+            // A Patrol leg can leave MoveHere after mode selection but before the builder.
+            // Probe once in Post so precisely that early exit remains diagnosable.
+            try
+            {
+                TryFindFriendlyCompletedMoatRouteForPlan(
+                    pendingPlan, out RouteProbeSummary summary);
+                MarkCommandMoatRelevant(command, summary);
+            }
+            catch (Exception ex)
+            {
+                LogFailure("command-diagnostic-route", ex);
+            }
+        }
+
+        private void FlushCommandDiagnostics(MoveCommandScope command)
+        {
+            if (command == null ||
+                (!command.MoatRelevant && !command.PatrolTraceRelevant))
+                return;
+
+            foreach (string message in command.Diagnostics)
+                Shared.DebugLogHelper.LogInfo(log, $"MoveMoat {message}.");
+        }
+
+        private void LogModeContext(PlanScope plan, GameUnit* unit, int vanillaResult)
+        {
+            int startX = unit->r_CurrentTilePositionX;
+            int startY = unit->r_CurrentTilePositionY;
+            int startTileId = GameTileManagerAPI.Instance.GetTileId(startX, startY);
+            int startRegion = IsValidTileId(startTileId) ? pathRegionGrid[startTileId] : 0;
+            uint startFlags = IsValidTileId(startTileId) ? tileFlags[startTileId] : 0;
+
+            bool targetInBounds = plan.TargetX >= 0 && plan.TargetX < MapWidth &&
+                plan.TargetY >= 0 && plan.TargetY < MapWidth;
+            int targetCell = targetInBounds ? (plan.TargetY * MapWidth) + plan.TargetX : -1;
+            int targetTileId = targetInBounds
+                ? GameTileManagerAPI.Instance.GetTileId(plan.TargetX, plan.TargetY)
+                : -1;
+            int targetRegion = IsValidTileId(targetTileId) ? pathRegionGrid[targetTileId] : 0;
+            uint targetFlags = IsValidTileId(targetTileId) ? tileFlags[targetTileId] : 0;
+            int targetAvailability = targetCell >= 0 ? movementTargetAvailability[targetCell] : -1;
+            string source = ReferenceEquals(activePlan, plan) ? "central-planner" : "movehere-direct";
+
+            LogCommandDiagnostic(
+                $"stage=mode-context unit={plan.UnitId} player={plan.PlayerId} source={source} " +
+                $"start=({startX},{startY}) target=({plan.TargetX},{plan.TargetY}) " +
+                $"sameTile={startX == plan.TargetX && startY == plan.TargetY} " +
+                $"startTile={startTileId} startRegion={startRegion} startFlags=0x{startFlags:X8} " +
+                $"targetTile={targetTileId} targetRegion={targetRegion} " +
+                $"targetFlags=0x{targetFlags:X8} targetAvailability={targetAvailability} " +
+                $"vanillaMode={vanillaResult} effectiveMode=1");
+        }
+
+        private static void RecordBuilderResult(MoveCommandScope command, int result)
+        {
+            if (command == null)
+                return;
+
+            command.LastBuilderResult = result;
+            if (result > 0)
+                command.PositiveBuilderCalls++;
+        }
+
+        private static void RecordVanillaBuilderResult(
+            MoveCommandScope command, int result)
+        {
+            if (command == null)
+                return;
+
+            command.VanillaBuilderCalls++;
+            command.LastVanillaBuilderResult = result;
+        }
+
+        private void LogRejectedPlannerRoute(PlanScope plan, RouteProbeSummary summary)
+        {
+            if (plan == null)
+                return;
+
+            int targetAvailability = -1;
+            int targetRegion = 0;
+            bool targetInBounds = plan.TargetX >= 0 && plan.TargetX < MapWidth &&
+                plan.TargetY >= 0 && plan.TargetY < MapWidth;
+            if (targetInBounds)
+            {
+                int targetCell = (plan.TargetY * MapWidth) + plan.TargetX;
+                targetAvailability = movementTargetAvailability[targetCell];
+                int targetTileId = GameTileManagerAPI.Instance.GetTileId(plan.TargetX, plan.TargetY);
+                if (IsValidTileId(targetTileId))
+                    targetRegion = pathRegionGrid[targetTileId];
+            }
+
+            bool moatRelevant = summary.FriendlyMoatTiles > 0 ||
+                summary.EnemyMoatTiles > 0;
+            if (!moatRelevant)
+                return;
+
+            string reason = !targetInBounds
+                ? "target-out-of-bounds"
+                : targetAvailability == 0
+                    ? "target-unavailable-or-occupied"
+                    : summary.EnemyMoatTiles > 0 && summary.FriendlyMoatTiles == 0
+                        ? "enemy-moat-only"
+                        : "no-qualified-friendly-moat-route";
+
+            Shared.DebugLogHelper.LogInfo(
                 log,
-                $"MoveMoat pipeline diagnostics reached their {MaximumPipelineDiagnosticLogs}-entry limit.");
+                $"MoveMoat stage=planner-owner-rejected unit={plan.UnitId} player={plan.PlayerId} " +
+                $"target=({plan.TargetX},{plan.TargetY}) targetAvailability={targetAvailability} " +
+                $"targetRegion={targetRegion} reason={reason} {summary.ToLogFields()}.");
         }
 
         private void LogFailure(string stage, Exception ex)
@@ -1319,17 +1552,46 @@ namespace MoveMoatTest
 
         private sealed class MoveCommandScope
         {
-            public MoveCommandScope(int tribeId, int targetX, int targetY)
+            public MoveCommandScope(
+                int tribeId,
+                int targetX,
+                int targetY,
+                short isPatrolPath,
+                bool isNewOrder,
+                string moveType,
+                bool patrolTraceRelevant)
             {
                 TribeId = tribeId;
                 TargetX = targetX;
                 TargetY = targetY;
+                IsPatrolPath = isPatrolPath;
+                IsNewOrder = isNewOrder;
+                MoveType = moveType;
+                PatrolTraceRelevant = patrolTraceRelevant;
             }
 
             public int TribeId { get; }
             public int TargetX { get; }
             public int TargetY { get; }
+            public short IsPatrolPath { get; }
+            public bool IsNewOrder { get; }
+            public string MoveType { get; }
+            public bool PatrolTraceRelevant { get; }
+            public int CentralPlannerCalls { get; set; }
+            public int FloodCalls { get; set; }
+            public int FloodVanillaPositive { get; set; }
             public int FloodFillBypasses { get; set; }
+            public int ModeCalls { get; set; }
+            public int RegionCalls { get; set; }
+            public int BuilderCalls { get; set; }
+            public int VanillaBuilderCalls { get; set; }
+            public int FallbackBuilderCalls { get; set; }
+            public int PositiveBuilderCalls { get; set; }
+            public int LastBuilderResult { get; set; } = int.MinValue;
+            public int LastVanillaBuilderResult { get; set; } = int.MinValue;
+            public bool MoatRelevant { get; set; }
+            public bool BuilderReached { get; set; }
+            public List<string> Diagnostics { get; } = new List<string>();
         }
 
         private sealed class PlanScope
@@ -1345,6 +1607,7 @@ namespace MoveMoatTest
             public int TargetX { get; }
             public int TargetY { get; }
             public int PlayerId { get; set; } = -1;
+            public bool ModeObserved { get; set; }
             public bool VanillaModeDetected { get; set; }
             public bool FriendlyRouteQualified { get; set; }
         }

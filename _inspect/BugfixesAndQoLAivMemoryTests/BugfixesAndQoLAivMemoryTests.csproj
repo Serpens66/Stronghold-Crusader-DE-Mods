@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition="'$(Configuration)' == ''">Debug</Configuration>
+    <Platform Condition="'$(Platform)' == ''">AnyCPU</Platform>
+    <ProjectGuid>{9D189C12-73A3-4CA4-A801-CB7986A05D01}</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>BugfixesAndQoL</RootNamespace>
+    <AssemblyName>BugfixesAndQoLAivMemoryTests</AssemblyName>
+    <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
+    <LangVersion>latest</LangVersion>
+    <OutputPath>bin\</OutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(GameDir)' == ''"><GameDir>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir></PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="BepInEx"><HintPath>$(GameDir)\BepInEx\core\BepInEx.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="Assembly-CSharp"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="Noesis.NoesisGUI"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Noesis.NoesisGUI.dll</HintPath><Private>true</Private></Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\..\BugfixesAndQoL\src\AiAivSelectionCodec.cs"><Link>AiAivSelectionCodec.cs</Link></Compile>
+    <Compile Include="..\..\BugfixesAndQoL\src\AivAicPresetStore.cs"><Link>AivAicPresetStore.cs</Link></Compile>
+    <Compile Include="..\..\BugfixesAndQoL\src\AivCandidateSelectionPolicy.cs"><Link>AivCandidateSelectionPolicy.cs</Link></Compile>
+    <Compile Include="..\..\Shared\DependencyFreeJson.cs"><Link>DependencyFreeJson.cs</Link></Compile>
+    <Compile Include="..\..\Shared\DebugLogHelper.cs"><Link>DebugLogHelper.cs</Link></Compile>
+    <Compile Include="Program.cs" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

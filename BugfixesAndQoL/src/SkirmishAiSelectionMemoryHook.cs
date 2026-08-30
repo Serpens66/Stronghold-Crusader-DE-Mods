@@ -1105,6 +1105,7 @@ namespace BugfixesAndQoL
             }
 
             bool applied = false;
+            bool assetRefreshEvaluated = false;
             foreach (Platform_Multiplayer.MPLobbyMember member in parent.currentLobby.members)
             {
                 if (!TryGetAiSlotInfo(parent, member, out int playerId, out string key))
@@ -1120,7 +1121,8 @@ namespace BugfixesAndQoL
                     continue;
                 if (!AiAivSelectionCodec.TryDecode(
                         encoded,
-                        out FRONT_Multiplayer.MPAIVInfo decoded,
+                        out AiAivSelectionSnapshot decoded,
+                        out _,
                         out string decodeError))
                 {
                     Shared.DebugLogHelper.LogWarning(
@@ -1128,27 +1130,53 @@ namespace BugfixesAndQoL
                         $"Bugfixes and QoL ignored invalid stored AI selection for {key}: {decodeError}");
                     continue;
                 }
-                if (!string.IsNullOrEmpty(decodeError))
+                string decodedKey = AiAivSelectionCodec.BuildLordKey(decoded);
+                if (!string.Equals(decodedKey, key, StringComparison.OrdinalIgnoreCase))
                 {
                     Shared.DebugLogHelper.LogWarning(
                         log,
-                        $"Bugfixes and QoL migrated stored AI selection for {key}: {decodeError}");
-                }
-                if (!string.Equals(BuildLordKey(decoded), key, StringComparison.OrdinalIgnoreCase))
-                {
-                    Shared.DebugLogHelper.LogWarning(
-                        log,
-                        $"Bugfixes and QoL ignored stored AI selection for {key}: decoded lord is {BuildLordKey(decoded)}.");
+                        $"Bugfixes and QoL ignored stored AI selection for {key}: decoded lord is {decodedKey}.");
                     continue;
                 }
 
-                AiAivSelectionCodec.CopyInto(decoded, parent.AIVs[playerId - 1]);
+                if (!assetRefreshEvaluated && AiAivSelectionCodec.UsesFileBackedAssets(decoded))
+                {
+                    // Vanilla's watchers cover local extended/custom-lord files. Avoid its expensive
+                    // full local/workshop rescan unless a relevant remembered selection needs changed files.
+                    if (AiAivSelectionCodec.ShouldRefreshAssetLists(
+                            decoded,
+                            CustomisationFileManager.Instance.filesChanged))
+                        CustomisationFileManager.Instance.BuildFileLists();
+                    assetRefreshEvaluated = true;
+                }
+
+                IList<CustomisationFileManager.CustomAIV> availableAivs =
+                    string.IsNullOrEmpty(decoded.LordName)
+                        ? CustomisationFileManager.Instance.getLordAIVList(decoded.LordType)
+                        : CustomisationFileManager.Instance.getLordAIVList(-1, decoded.LordName);
+                IList<CustomisationFileManager.CustomLordConfig> availableAics =
+                    string.IsNullOrEmpty(decoded.LordName)
+                        ? CustomisationFileManager.Instance.getLordLordList(decoded.LordType)
+                        : CustomisationFileManager.Instance.getLordLordList(-1, decoded.LordName);
+                FRONT_Multiplayer.MPAIVInfo target = parent.AIVs[playerId - 1];
+                AiAivSelectionApplyResult result = AiAivSelectionCodec.Apply(
+                    decoded,
+                    target,
+                    availableAivs,
+                    availableAics);
+                if (result.MissingAivs > 0 || result.MissingAic)
+                {
+                    Shared.DebugLogHelper.LogWarning(
+                        log,
+                        $"Bugfixes and QoL restored AI selection for {key} with missing current files: " +
+                        $"missingAivs={result.MissingAivs}, missingAic={result.MissingAic}.");
+                }
                 applied = true;
                 Shared.DebugLogHelper.LogDebug(
                     log,
                     () =>
                         $"Bugfixes and QoL restored shared AI AIV/AIC selection: reason={reason}, key={key}, " +
-                        $"player={playerId}, {BuildInfoSummary(decoded)}.");
+                        $"player={playerId}, loadedAivs={result.LoadedAivs}, {BuildInfoSummary(target)}.");
             }
 
             return applied;
@@ -1284,17 +1312,41 @@ namespace BugfixesAndQoL
                 }
 
                 Dictionary<string, string> parsed = ParseJsonObject(File.ReadAllText(storePath));
+                bool migratedStore = false;
                 foreach (KeyValuePair<string, string> entry in parsed)
                 {
-                    if (!entry.Value.StartsWith("v2:", StringComparison.Ordinal))
+                    if (!AiAivSelectionCodec.TryDecode(
+                            entry.Value,
+                            out AiAivSelectionSnapshot snapshot,
+                            out bool legacyPayload,
+                            out string decodeError))
                     {
                         Shared.DebugLogHelper.LogWarning(
                             log,
-                            $"Bugfixes and QoL ignored unsupported AI selection entry: key={entry.Key}.");
+                            $"Bugfixes and QoL ignored invalid AI selection entry for {entry.Key}: {decodeError}");
+                        continue;
+                    }
+                    string decodedKey = AiAivSelectionCodec.BuildLordKey(snapshot);
+                    if (!string.Equals(decodedKey, entry.Key, StringComparison.OrdinalIgnoreCase))
+                    {
+                        Shared.DebugLogHelper.LogWarning(
+                            log,
+                            $"Bugfixes and QoL ignored stored AI selection for {entry.Key}: decoded lord is {decodedKey}.");
                         continue;
                     }
 
-                    storedSelections[entry.Key] = entry.Value;
+                    storedSelections[entry.Key] = legacyPayload
+                        ? AiAivSelectionCodec.Encode(snapshot)
+                        : entry.Value;
+                    migratedStore |= legacyPayload;
+                }
+
+                if (migratedStore)
+                {
+                    SaveStore();
+                    Shared.DebugLogHelper.LogDebug(
+                        log,
+                        () => "Bugfixes and QoL migrated AI AIV/AIC selection memory to file references.");
                 }
 
                 Shared.DebugLogHelper.LogDebug(

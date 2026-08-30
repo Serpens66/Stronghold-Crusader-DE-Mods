@@ -175,7 +175,7 @@ namespace BugfixesAndQoL
                 : "builtin:" + info.lordType.ToString(CultureInfo.InvariantCulture);
         }
 
-        private static AivAicAssetReference CaptureAiv(CustomisationFileManager.CustomAIV aiv)
+        internal static AivAicAssetReference CaptureAiv(CustomisationFileManager.CustomAIV aiv)
         {
             return new AivAicAssetReference
             {
@@ -188,7 +188,7 @@ namespace BugfixesAndQoL
             };
         }
 
-        private static AivAicAssetReference CaptureAic(CustomisationFileManager.CustomLordConfig aic)
+        internal static AivAicAssetReference CaptureAic(CustomisationFileManager.CustomLordConfig aic)
         {
             return new AivAicAssetReference
             {
@@ -201,7 +201,7 @@ namespace BugfixesAndQoL
             };
         }
 
-        private static CustomisationFileManager.CustomAIV ResolveAiv(
+        internal static CustomisationFileManager.CustomAIV ResolveAiv(
             AivAicAssetReference reference,
             IList<CustomisationFileManager.CustomAIV> available)
         {
@@ -231,7 +231,7 @@ namespace BugfixesAndQoL
             return null;
         }
 
-        private static CustomisationFileManager.CustomLordConfig ResolveAic(
+        internal static CustomisationFileManager.CustomLordConfig ResolveAic(
             AivAicAssetReference reference,
             IList<CustomisationFileManager.CustomLordConfig> available)
         {
