@@ -179,7 +179,5 @@ Common.ModSettingsSearchIncludeToolTips=Tooltips durchsuchen
 Common.ModSettingsSearchIncludeToolTipsHelp=Durchsucht zusätzlich die erklärenden Tooltips der Einstellungen.
 Common.ModSettingsSearchClearHelp=Leert den Einstellungsfilter.
 Common.ModSettingsSearchNoResults=Keine passenden Einstellungen gefunden.
-BugfixesAndQoL.EnableCustomLordExtendedPackages=Vollständige Custom-Lord-Pakete aktivieren
-BugfixesAndQoL.EnableCustomLordExtendedPackagesHelp=Lädt Script-Extender-Medien und lokalisierte Lordbeschreibungen aus info.json, lordmeta.json und Override mit hoch und zeigt sie an. Ist diese Option deaktiviert, bleiben diese Zusatzdateien vollständig unangetastet.
 BugfixesAndQoL.AllowFullAiMultiplayerLobby=Alle Multiplayer-Plätze mit KI belegen
 BugfixesAndQoL.AllowFullAiMultiplayerLobbyHelp=Erlaubt dem Host, in normalen Multiplayer-Lobbys auch den letzten freien Spielerplatz mit einer KI zu belegen. Custom-Coop sowie die eingestellten Karten- und Lobbylimits bleiben unverändert.
