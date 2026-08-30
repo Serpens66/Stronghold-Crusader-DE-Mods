@@ -990,6 +990,51 @@ Nach einer Änderung an allgemeiner Bewegung oder Owner-Filterung mindestens get
 8. Falls relevant Attack- und Patrol-Ziele, da nicht jeder Auftrag zwingend dieselbe
    `TribeIssueOrderMoveHere`-Ereigniskette verwendet.
 
+Der aktuelle funktionale Bypass ist absichtlich auf den synchronen Umfang von
+`TribeIssueOrderMoveHere` begrenzt. Ein `stage=move-command`-Eintrag beweist, dass ein getesteter
+Auftrag diese zentrale Kette betreten hat. Für Attack, Patrol und autonome Folgebewegungen ist
+noch nicht bestätigt, dass Vanilla sie sämtlich darüber abwickelt. Fehlt bei einem solchen Test
+bereits `stage=move-command`, darf der Auftrag nicht durch einen pauschalen dauerhaften Moat-Modus
+freigeschaltet werden; stattdessen ist zuerst dessen übergeordneter Vanilla-Dispatcher zu finden
+und derselbe eng begrenzte Command-Scope dort wiederzuverwenden.
+
+Der Patrol-Test vom 2026-08-30 präzisierte diese offene Frage: Patrol erzeugt seine automatischen
+Hin- und Rückläufe tatsächlich wiederholt über `TribeIssueOrderMoveHere`. Fehlgeschlagene, ingame
+als Zucken sichtbare Versuche erreichten `move-command` und teilweise `mode`, aber nicht die bisher
+nur bei einem echten `0→1`-Bypass protokollierten Flood-Fill-, Owner- und Builderstufen. Spätere
+Versuche derselben Patrol erzeugten vollständige positive Builderpfade. Patrol benötigt deshalb
+voraussichtlich keinen eigenen Bewegungsbefehlspatch; zuerst ist die möglicherweise zu strenge
+Kopplung des Builder-Overrides an `FloodFillBypasses > 0` zu untersuchen.
+
+Ein Attack-Klick auf eine feindliche Unit hinter dem Moat erzeugte dagegen nachweislich einen
+gewöhnlichen `move-command` mit positivem MoveHere-Builderpfad. Der grüne Bewegungscursor war also
+nicht nur eine falsche Darstellung: Vanillas Angriffsauswahl wurde vor der eigentlichen
+Angriffsbewegung nicht erreicht. Ob der spätere Attack-Bewegungszustand denselben zentralen Planer
+nutzt, ist damit noch nicht getestet.
+
+Eine erneute statische Calleranalyse derselben Referenz-DLL spricht gegen befehlsspezifische
+Bewegungspatches:
+
+- `0x196280` (`MoveHere`) besitzt 339 direkte CALL-Sites in zahlreichen Command- und AI-States.
+  Diese einzeln zu erkennen oder zu patchen wäre weder wartbar noch nötig.
+- `0x18E1E0` (zentraler per-Unit-Planer) besitzt nur eine direkte CALL-Site bei `0x120608` im
+  großen Dispatcher `0x11E960`; seine Signatur enthält bereits Unit-ID und Ziel X/Y.
+- `0xF4930` (der hier relevante echte Builder) besitzt nur zwei direkte CALL-Sites: `0x18E455`
+  innerhalb des zentralen Planers und `0x196679` innerhalb von `MoveHere`.
+- `0x196840` (Moat-Modus) wird ebenfalls aus beiden Planern aufgerufen; die dritte CALL-Site
+  `0x69F91` gehört zu Vanillas Moat-spezifischem Pfad.
+
+Damit existieren zwei sinnvollere gemeinsame Integrationsgrenzen. Der zentrale Planer kann
+grundsätzlich allein aus seinen Argumenten durch eine read-only Owner-/Moat-Routensuche
+qualifiziert werden, unabhängig vom auslösenden Befehl. Für den sehr breit verwendeten
+`MoveHere`-Pfad muss ein ebenso sicherer Unit-/Ziel-Scope gewonnen werden. Ein zusätzlicher
+vollständiger Detour von `MoveHere` wäre technisch naheliegend, überlappt aber mit dem eigenständig
+funktionsfähigen `AssassinCombatFix` und ist deshalb keine konfliktfreie Endlösung. Eine universelle
+Freigabe erst im Builder wäre noch kompakter, setzt jedoch eine belastbar korrelierte aktuelle
+Unit-ID und das zugehörige Ziel an beiden CALL-Sites voraus; diese Daten dürfen nicht aus einem
+unbestätigten Global geraten werden. Bis diese Korrelation bewiesen ist, bleibt der bestehende
+synchrone MoveHere-Event-Scope die sichere Grenze.
+
 Für einen positiven Moat-Pfad müssen im reduzierten Diagnosemodus mindestens
 `tribe-flood-fill`, bei getrennter Region `region`, ein erzwungener `mode`-Eintrag und
 `builder-route80 ... result>0 retained=True` korrelieren. `retained=False`, Callbackfehler oder
@@ -1130,6 +1175,8 @@ beziehungsweise die konkreten Stages filtern:
 
 - `cursor-region`
 - `cursor-direct`
+- `move-command`
+- `tribe-flood-observed`
 - `tribe-flood-fill`
 - `mode`
 - `region`
@@ -1137,9 +1184,16 @@ beziehungsweise die konkreten Stages filtern:
 - `cursor-region-owner-block`
 - `cursor-direct-owner-block`
 - `builder-route80`
+- `builder-gate`
 
-Cursor- und Bewegungslogs besitzen getrennte Limits. Eine Limitwarnung ist kein Fehler und
-beendet keine Funktion; sie verhindert nur weitere Einträge der jeweiligen Kategorie.
+Cursor-, häufige Bewegungskontext- und entscheidende Builderlogs besitzen getrennte Limits.
+`move-command`, `mode`, `region` und `tribe-flood-fill` teilen sich das Bewegungskontextlimit;
+`owner-gate` und `builder-route80` besitzen ein eigenes Builderlimit. Die vollständigen
+`tribe-flood-observed`-Ergebnisse und vor dem Owner-Gate verworfene `builder-gate`-Aufrufe teilen
+sich ein drittes Pipeline-Diagnoselimit. Dadurch können Gruppenbewegungen das Kontextlimit
+ausschöpfen, ohne die spätere Diagnose der eigentlichen Owner-, Pipeline- und Builderentscheidung
+zu verdecken. Eine Limitwarnung ist kein Fehler und beendet keine Funktion; sie verhindert nur
+weitere Einträge der jeweiligen Kategorie.
 
 Ein fehlender späterer Logeintrag darf nicht sofort als fehlender nativer Funktionsaufruf interpretiert werden. Zuerst prüfen, ob Attempt-ID, globale Zielwerte oder Current-Unit-Korrelation den Callback herausfiltern.
 

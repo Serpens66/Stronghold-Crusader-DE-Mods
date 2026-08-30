@@ -75,7 +75,9 @@ namespace MoveMoatTest
         private const int MaximumFloodFillStamp = 0x7D00;
         private const int MaximumCursorDecisionLogs = 32;
         private const int MaximumCursorOwnerBlockLogs = 16;
-        private const int MaximumMovementDecisionLogs = 48;
+        private const int MaximumMovementContextLogs = 48;
+        private const int MaximumBuilderDecisionLogs = 64;
+        private const int MaximumPipelineDiagnosticLogs = 64;
         private const int MapWidth = 800;
         private const int MapCellCount = MapWidth * MapWidth;
         private const int MoatStateBit = 1 << 20;
@@ -188,10 +190,14 @@ namespace MoveMoatTest
         private bool cursorChecksArmed;
         private int cursorDecisionLogCount;
         private int cursorOwnerBlockLogCount;
-        private int movementDecisionLogCount;
+        private int movementContextLogCount;
+        private int builderDecisionLogCount;
+        private int pipelineDiagnosticLogCount;
         private bool cursorDecisionLogLimitReported;
         private bool cursorOwnerBlockLogLimitReported;
-        private bool movementDecisionLogLimitReported;
+        private bool movementContextLogLimitReported;
+        private bool builderDecisionLogLimitReported;
+        private bool pipelineDiagnosticLogLimitReported;
         private int lastCursorRegionPositiveGeneration = -1;
         private int lastCursorDirectPositiveGeneration = -1;
         private int lastCursorRegionBlockGeneration = -1;
@@ -412,7 +418,18 @@ namespace MoveMoatTest
                 return;
 
             if (args.Phase == EventHookPhase.Pre)
+            {
                 activeMoveCommand = new MoveCommandScope(args.TribeId, args.TileX, args.TileY);
+                try
+                {
+                    LogMovementContext(
+                        $"stage=move-command tribe={args.TribeId} target=({args.TileX},{args.TileY}) phase=pre");
+                }
+                catch
+                {
+                    // Diagnostics must not escape into the synchronous command event.
+                }
+            }
             else if (args.Phase == EventHookPhase.Post)
             {
                 activeMoveCommand = null;
@@ -468,7 +485,7 @@ namespace MoveMoatTest
                 plan.VanillaModeDetected = vanillaResult != 0;
                 plan.PlayerId = unit->r_ControllableForPlayerId;
                 if (vanillaResult == 0)
-                    LogMovementDecision($"stage=mode unit={unitId} vanilla=0 effective=1");
+                    LogMovementContext($"stage=mode unit={unitId} vanilla=0 effective=1");
                 return 1;
             }
             catch (Exception ex)
@@ -492,7 +509,7 @@ namespace MoveMoatTest
                 if (!bypass)
                     return vanillaResult;
 
-                LogMovementDecision(
+                LogMovementContext(
                     $"stage=region movementClass={movementClass} start=({startX},{startY}) " +
                     $"targetRegion={targetRegion} vanilla=0 effective={targetRegion}");
                 return targetRegion;
@@ -513,13 +530,38 @@ namespace MoveMoatTest
             try
             {
                 MoveCommandScope command = activeMoveCommand;
-                bool bypass = vanillaResult == 0 && command != null && tribeManager != IntPtr.Zero &&
-                    tribeId == command.TribeId && floodFillStamp > 0 && floodFillStamp <= MaximumFloodFillStamp;
+                bool managerValid = tribeManager != IntPtr.Zero;
+                bool matchingTribe = command != null && tribeId == command.TribeId;
+                bool stampValid = floodFillStamp > 0 && floodFillStamp <= MaximumFloodFillStamp;
+                bool bypass = vanillaResult == 0 && managerValid && matchingTribe && stampValid;
+                if (command != null)
+                {
+                    try
+                    {
+                        LogPipelineDiagnostic(
+                            $"stage=tribe-flood-observed commandTribe={command.TribeId} callTribe={tribeId} " +
+                            $"matchingTribe={matchingTribe} stamp={floodFillStamp} stampValid={stampValid} " +
+                            $"managerValid={managerValid} vanilla={vanillaResult} " +
+                            $"effective={(bypass ? 1 : vanillaResult)} bypass={bypass}");
+                    }
+                    catch
+                    {
+                        // Diagnostics must not change the flood-fill decision.
+                    }
+                }
                 if (!bypass)
                     return vanillaResult;
 
                 command.FloodFillBypasses++;
-                LogMovementDecision($"stage=tribe-flood-fill tribe={tribeId} stamp={floodFillStamp} vanilla=0 effective=1");
+                try
+                {
+                    LogMovementContext(
+                        $"stage=tribe-flood-fill tribe={tribeId} stamp={floodFillStamp} vanilla=0 effective=1");
+                }
+                catch
+                {
+                    // Diagnostics must not undo an otherwise valid scoped bypass.
+                }
                 return 1;
             }
             catch (Exception ex)
@@ -534,10 +576,32 @@ namespace MoveMoatTest
         {
             MoveCommandScope command = activeMoveCommand;
             PlanScope plan = activePlan ?? pendingPlan;
-            if (disposed || pathManager == IntPtr.Zero || command == null || plan == null ||
-                plan.VanillaModeDetected || command.FloodFillBypasses <= 0 || *moatPathMode != 1)
+            if (disposed || pathManager == IntPtr.Zero || command == null || plan == null)
             {
                 return originalPathBuilder(pathManager, movementClass, movementProfile);
+            }
+
+            int currentMoatMode = *moatPathMode;
+            bool builderEligible = !plan.VanillaModeDetected &&
+                command.FloodFillBypasses > 0 && currentMoatMode == 1;
+            if (!builderEligible)
+            {
+                int vanillaBuilderResult = originalPathBuilder(pathManager, movementClass, movementProfile);
+                try
+                {
+                    LogPipelineDiagnostic(
+                        $"stage=builder-gate unit={plan.UnitId} player={plan.PlayerId} " +
+                        $"target=({plan.TargetX},{plan.TargetY}) eligible=False " +
+                        $"vanillaModeDetected={plan.VanillaModeDetected} " +
+                        $"floodBypasses={command.FloodFillBypasses} moatMode={currentMoatMode} " +
+                        $"movementClass={movementClass} movementProfile={movementProfile} " +
+                        $"vanillaBuilderResult={vanillaBuilderResult}");
+                }
+                catch
+                {
+                    // Diagnostics must not change the native builder result.
+                }
+                return vanillaBuilderResult;
             }
 
             RouteProbeSummary routeSummary;
@@ -545,7 +609,7 @@ namespace MoveMoatTest
             {
                 if (!TryFindFriendlyCompletedMoatRouteForPlan(plan, out routeSummary))
                 {
-                    LogMovementDecision(
+                    LogBuilderDecision(
                         $"stage=owner-gate unit={plan.UnitId} player={plan.PlayerId} " +
                         $"target=({plan.TargetX},{plan.TargetY}) effective=vanilla " +
                         routeSummary.ToLogFields());
@@ -558,7 +622,7 @@ namespace MoveMoatTest
                 return originalPathBuilder(pathManager, movementClass, movementProfile);
             }
 
-            LogMovementDecision(
+            LogBuilderDecision(
                 $"stage=owner-gate unit={plan.UnitId} player={plan.PlayerId} " +
                 $"target=({plan.TargetX},{plan.TargetY}) effective=allow " +
                 routeSummary.ToLogFields());
@@ -589,7 +653,7 @@ namespace MoveMoatTest
             {
                 try
                 {
-                    LogMovementDecision(
+                    LogBuilderDecision(
                         $"stage=builder-route80 unit={plan.UnitId} movementClass={movementClass} " +
                         $"movementProfile={movementProfile} original=1 " +
                         $"effective={(retained ? 0 : originalRouteVariant)} " +
@@ -1087,21 +1151,55 @@ namespace MoveMoatTest
                 $"{MaximumCursorOwnerBlockLogs}-entry limit.");
         }
 
-        private void LogMovementDecision(string message)
+        private void LogMovementContext(string message)
         {
-            if (movementDecisionLogCount < MaximumMovementDecisionLogs)
+            if (movementContextLogCount < MaximumMovementContextLogs)
             {
-                movementDecisionLogCount++;
+                movementContextLogCount++;
                 Shared.DebugLogHelper.LogInfo(log, $"MoveMoat {message}.");
                 return;
             }
 
-            if (movementDecisionLogLimitReported)
+            if (movementContextLogLimitReported)
                 return;
-            movementDecisionLogLimitReported = true;
+            movementContextLogLimitReported = true;
             Shared.DebugLogHelper.LogWarning(
                 log,
-                $"MoveMoat movement diagnostics reached their {MaximumMovementDecisionLogs}-entry limit.");
+                $"MoveMoat movement-context diagnostics reached their {MaximumMovementContextLogs}-entry limit.");
+        }
+
+        private void LogBuilderDecision(string message)
+        {
+            if (builderDecisionLogCount < MaximumBuilderDecisionLogs)
+            {
+                builderDecisionLogCount++;
+                Shared.DebugLogHelper.LogInfo(log, $"MoveMoat {message}.");
+                return;
+            }
+
+            if (builderDecisionLogLimitReported)
+                return;
+            builderDecisionLogLimitReported = true;
+            Shared.DebugLogHelper.LogWarning(
+                log,
+                $"MoveMoat builder diagnostics reached their {MaximumBuilderDecisionLogs}-entry limit.");
+        }
+
+        private void LogPipelineDiagnostic(string message)
+        {
+            if (pipelineDiagnosticLogCount < MaximumPipelineDiagnosticLogs)
+            {
+                pipelineDiagnosticLogCount++;
+                Shared.DebugLogHelper.LogInfo(log, $"MoveMoat {message}.");
+                return;
+            }
+
+            if (pipelineDiagnosticLogLimitReported)
+                return;
+            pipelineDiagnosticLogLimitReported = true;
+            Shared.DebugLogHelper.LogWarning(
+                log,
+                $"MoveMoat pipeline diagnostics reached their {MaximumPipelineDiagnosticLogs}-entry limit.");
         }
 
         private void LogFailure(string stage, Exception ex)
