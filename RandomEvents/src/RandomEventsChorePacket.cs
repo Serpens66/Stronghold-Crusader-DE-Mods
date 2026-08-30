@@ -66,7 +66,8 @@ namespace RandomEvents
                 ConfigurationDigest = RandomEventsMessagePack.ReadByteArray(ref reader, 32),
                 PrngState0 = reader.ReadUInt64(), PrngState1 = reader.ReadUInt64(),
                 NextDueAbsoluteMonth = reader.ReadInt32(), StartAbsoluteMonth = reader.ReadInt32(),
-                CooldownEncoding = reader.ReadInt32(), CooldownData = RandomEventsMessagePack.ReadIntArray(ref reader, 240)
+                CooldownEncoding = reader.ReadInt32(),
+                CooldownData = RandomEventsMessagePack.ReadIntArray(ref reader, RandomEventsCooldownCodec.MaximumPayloadLength)
             };
         }
     }
@@ -93,9 +94,9 @@ namespace RandomEvents
             {
                 ProtocolVersion = reader.ReadInt32(), OperationId = reader.ReadInt32(),
                 PrngState0 = reader.ReadUInt64(), PrngState1 = reader.ReadUInt64(), DueAbsoluteMonth = reader.ReadInt32(),
-                EventKinds = RandomEventsMessagePack.ReadIntArray(ref reader, 135),
-                EventStrengths = RandomEventsMessagePack.ReadIntArray(ref reader, 135),
-                TargetPlayerIds = RandomEventsMessagePack.ReadIntArray(ref reader, 135)
+                EventKinds = RandomEventsMessagePack.ReadIntArray(ref reader, RandomEventsBatchValidator.MaximumActionCount),
+                EventStrengths = RandomEventsMessagePack.ReadIntArray(ref reader, RandomEventsBatchValidator.MaximumActionCount),
+                TargetPlayerIds = RandomEventsMessagePack.ReadIntArray(ref reader, RandomEventsBatchValidator.MaximumActionCount)
             };
         }
     }

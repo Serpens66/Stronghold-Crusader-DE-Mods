@@ -3,10 +3,17 @@
   "Author": "Serpens66",
   "Name": "Random Events",
   "Description": "Runs configurable Vanilla scenario events in skirmishes, Trail missions, and multiplayer games.",
-  "Version": "1.0.32",
+  "Version": "1.0.33",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.33",
+      "Changes": [
+        "Add an optional host setting that includes living AI players in shared or individual random-event targeting while keeping AI-only events hidden from human players.",
+        "Harden synchronized event targeting, bandit participation, and batch validation, with event-count-dependent limits that remain extensible for additional events."
+      ]
+    },
     {
       "Version": "1.0.32",
       "Changes": [

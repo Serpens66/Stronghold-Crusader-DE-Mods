@@ -58,12 +58,12 @@ namespace RandomEvents
                 PrngState1 = reader.ReadUInt64(),
                 NextDueAbsoluteMonth = reader.ReadInt32(),
                 StartAbsoluteMonth = reader.ReadInt32(),
-                SharedCooldownUntilAbsoluteMonths = RandomEventsMessagePack.ReadIntArray(ref reader, 15),
-                IndividualCooldownUntilAbsoluteMonths = RandomEventsMessagePack.ReadIntArray(ref reader, 135),
+                SharedCooldownUntilAbsoluteMonths = RandomEventsMessagePack.ReadIntArray(ref reader, RandomEventsCooldownCodec.EventCount),
+                IndividualCooldownUntilAbsoluteMonths = RandomEventsMessagePack.ReadIntArray(ref reader, RandomEventsCooldownCodec.FullIndividualLength),
                 BatchPrepared = reader.ReadBoolean(),
-                PreparedDirectKinds = RandomEventsMessagePack.ReadIntArray(ref reader, 135),
-                PreparedDirectStrengths = RandomEventsMessagePack.ReadIntArray(ref reader, 135),
-                PreparedDirectTargetPlayerIds = RandomEventsMessagePack.ReadIntArray(ref reader, 135),
+                PreparedDirectKinds = RandomEventsMessagePack.ReadIntArray(ref reader, RandomEventsBatchValidator.MaximumActionCount),
+                PreparedDirectStrengths = RandomEventsMessagePack.ReadIntArray(ref reader, RandomEventsBatchValidator.MaximumActionCount),
+                PreparedDirectTargetPlayerIds = RandomEventsMessagePack.ReadIntArray(ref reader, RandomEventsBatchValidator.MaximumActionCount),
                 SignpostsInitialized = reader.ReadBoolean(),
                 SignpostBuildingIds = RandomEventsMessagePack.ReadIntArray(ref reader, 4)
             };

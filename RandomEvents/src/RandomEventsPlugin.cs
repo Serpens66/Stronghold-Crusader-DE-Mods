@@ -13,7 +13,7 @@ namespace RandomEvents
         private const string ScriptExtenderGuid = "000shcdese";
         public const string PluginGuid = "RandomEvents_Serp";
         public const string PluginName = "Random Events";
-        public const string PluginVersion = "1.0.32";
+        public const string PluginVersion = "1.0.33";
 
         private RandomEventsRuntime runtime;
 

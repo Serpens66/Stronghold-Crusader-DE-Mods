@@ -516,14 +516,8 @@ namespace RandomEvents
         {
             result = new List<PlayerReachability>();
             failure = string.Empty;
-            GamePlayerManagerAPI players = GamePlayerManagerAPI.Instance;
-            foreach (int playerId in Shared.ActivePlayerHelper.GetActivePlayerIds())
-            {
-                if (!players.IsPlayerIdValid(playerId) ||
-                    (!includeAIPlayers && players.IsAIPlayer(playerId)))
-                    continue;
+            foreach (int playerId in RandomEventsParticipantResolver.GetLivingEventParticipantIds(includeAIPlayers))
                 result.Add(new PlayerReachability(playerId));
-            }
 
             if (result.Count == 0)
             {

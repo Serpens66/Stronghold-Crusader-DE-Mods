@@ -98,6 +98,24 @@ namespace RandomEvents
 
         public static RandomEventDefinition Get(RandomEventKind kind) => All[(int)kind];
 
+        public static void GetEncodedStrengthLimits(
+            RandomEventStrengthKind kind,
+            out int minimum,
+            out int maximum)
+        {
+            switch (kind)
+            {
+                case RandomEventStrengthKind.None: minimum = 0; maximum = 0; return;
+                case RandomEventStrengthKind.Plague:
+                case RandomEventStrengthKind.LionAttack:
+                case RandomEventStrengthKind.Fire: minimum = 1; maximum = 10; return;
+                case RandomEventStrengthKind.Bandits:
+                case RandomEventStrengthKind.Archers: minimum = 1; maximum = 50; return;
+                case RandomEventStrengthKind.GranaryTheft: minimum = 1; maximum = 100; return;
+                default: throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown event strength kind.");
+            }
+        }
+
         public static bool RequiresSignposts(int[] chances)
         {
             if (chances == null || chances.Length < All.Length)

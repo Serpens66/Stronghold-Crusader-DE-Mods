@@ -15,6 +15,8 @@ namespace AssassinCombatFix
             "48 63 DA 48 8D 05 DA 5B 6C 06 4C 69 FB 90 04 00 00 33 F6 33 ED 33 FF 4C";
 
         public const int AssassinPathContextFlagRva = 0x60AD6E8;
+        // This entry point is shared by ordinary unit movement. Despite the Assassin-only
+        // context filter, the current experimental detour observably affects other units too.
         public const int CommonPathRequestRva = 0x196280;
         public const string CommonPathRequestPattern =
             "48 89 5C 24 20 55 56 57 41 54 41 55 41 56 41 57 48 83 EC 30 48 63 F2 45 33 D2 48 69 FE 90 04 00 00 4D 63 F0";

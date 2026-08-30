@@ -42,10 +42,12 @@
     <Compile Include="src\NativeWildlifeEventDispatcher.cs" />
     <Compile Include="src\RandomEventsPlugin.cs" />
     <Compile Include="src\RandomEventsChorePacket.cs" />
+    <Compile Include="src\RandomEventsBatchValidator.cs" />
     <Compile Include="src\RandomEventsCooldownCodec.cs" />
     <Compile Include="src\RandomEventsDiagnostics.cs" />
     <Compile Include="src\RandomEventsInitializationAckPacket.cs" />
     <Compile Include="src\RandomEventsPresentationScope.cs" />
+    <Compile Include="src\RandomEventsParticipantResolver.cs" />
     <Compile Include="src\RandomEventsRuntime.cs" />
     <Compile Include="src\RandomEventsSaveState.cs" />
     <Compile Include="src\RandomEventsState.cs" />

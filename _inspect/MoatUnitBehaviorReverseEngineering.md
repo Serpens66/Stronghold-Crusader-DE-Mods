@@ -138,6 +138,35 @@ Validierte 16-Byte-Spanne:
 
 Der Cursorfix ist erforderlich, löst aber allein nicht die spätere Command- oder Wegfindungsablehnung.
 
+### 4.1.1 Gewöhnlicher Move-Cursor und frühe Ablehnung
+
+Für die alternative allgemeine Moat-Bewegung wurde der gewöhnliche Move-Cursor gegen die kanonische
+`CrusaderDE.dll` mit SHA-256
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
+weiter verfolgt. Der relevante Ablauf im großen Cursor-Update lautet:
+
+1. `0x8F325` ruft den Auswahl-Sondermodus `0x196870` auf.
+2. Bei dessen Ergebnis `0` geht Vanilla nach `0x8F365` in den normalen Unit-Pfad.
+3. `EBX != 0` würde die folgenden Erreichbarkeitsprüfungen überspringen.
+4. `R15D == 0` führt direkt zum Verbotsergebnis bei `0x8F3DA`.
+5. Danach müssen die Flags des aktuellen Unit-Tiles die Maske `0x10000100` treffen.
+6. Erst anschließend werden die Regionsvorprüfung `0xE9D90` und die eigentliche
+   Cursor-Erreichbarkeit `0xE9FF0` aufgerufen.
+7. `0x8F3DA` schreibt das Verbotsergebnis in die Cursor-Globals (`560=-10`, `548=0x41`,
+   `550=0x10`, `54C=0xAC`, `55C=0x11`).
+
+Ein Testlauf ohne `AssassinCombatFix` erreichte `0x196870` 77-mal, aber weder `0xE9D90`
+noch `0xE9FF0`. Die Ablehnung liegt damit nachweislich vor den bislang behandelten
+Regions- und Direktprüfungen. `MoveMoatTest` beobachtet deshalb testweise den geradlinigen
+Fehlerblock bei `0x8F3DA`, ohne ein Ergebnis oder einen bedingten Sprung zu verändern. Dort
+sind `R14` (nativer Unit-Index), `R15` (vorgeschaltetes Gate), `EBX` und der native aktuelle
+Unit-Tile noch verfügbar. Das soll unterscheiden, ob das `R15`-Gate oder die Tile-Flag-Maske
+den gewöhnlichen Cursor vorzeitig sperrt.
+
+Validierte 26-Byte-Spanne bei `0x8F3DA`:
+
+`C7 05 7C E1 01 06 F6 FF FF FF 41 BD 04 00 00 00 C7 05 54 E1 01 06 41 00 00 00`
+
 ### 4.2 Gemeinsamer Tribe-Command-Dispatcher
 
 Der Script Extender identifiziert die Funktion als `c_game_tribe_issueorder_withtarget`. Die Signatur entspricht sinngemäß:

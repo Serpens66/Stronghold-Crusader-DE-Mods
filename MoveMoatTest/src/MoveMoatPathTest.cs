@@ -10,6 +10,7 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
+using UnityEngine;
 using Zhuqiaomon.Assembly;
 using Zhuqiaomon.Hooks;
 using Zhuqiaomon.Hooks.Transaction;
@@ -57,6 +58,27 @@ namespace MoveMoatTest
             int targetX,
             int targetY);
 
+        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+        private delegate int CursorReachabilityDelegate(
+            IntPtr pathManager,
+            int nativeUnitIndex,
+            int targetX,
+            int targetY);
+
+        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+        private delegate int CursorSpecialModeDelegate(IntPtr selectionState);
+
+        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+        private delegate int CursorRegionPrecheckDelegate(IntPtr pathManager, int nativeUnitIndex);
+
+        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+        private delegate int CommonPathRequestDelegate(
+            IntPtr unitBase,
+            int nativeUnitIndex,
+            int targetX,
+            int targetY,
+            int pathOption);
+
         private const int CentralMovementPlanRva = 0x18E1E0;
         private const int TribeFloodFillMembershipRva = 0x124740;
         private const int TribeMovementPrecheckRva = 0x11B637;
@@ -66,6 +88,12 @@ namespace MoveMoatTest
         private const int TribeEarlyReturnRva = 0x11BDF4;
         private const int TribeUnitIterationEndRva = 0x11C14F;
         private const int MovementStepMoatGateRva = 0xDCEF2;
+        private const int CursorForbiddenResultRva = 0x8F3DA;
+        private const int CursorReachabilityPatternRva = 0x8F3A8;
+        private const int CursorReachabilityRva = 0xE9FF0;
+        private const int CursorSpecialModeRva = 0x196870;
+        private const int CursorRegionPrecheckRva = 0xE9D90;
+        private const int CommonPathRequestRva = 0x196280;
         private const int DetectCompletedMoatModeRva = 0x196840;
         private const int RegionReachabilityRva = 0xE7C40;
         private const int PrimaryDirectionSeedBuilderRva = 0xF3060;
@@ -78,10 +106,19 @@ namespace MoveMoatTest
         private const int MoveHereBuilderResultRva = 0x19667E;
         private const int TileFlagsRva = 0x48F71B0;
         private const int MovementTargetAvailabilityRva = 0x3A11EA4;
+        private const int CursorTargetXRva = 0x3A11E2C;
+        private const int CursorTargetYRva = 0x3A11E30;
         private const int PathRegionGridRva = 0x50EC690;
         private const int DirectionTileOffsetTableRva = 0x405EDB0;
         private const int AllianceGroupTableRva = 0x37EDF3C;
         private const int MoatPathModeRva = 0x60AD6E4;
+        private const int AssassinPathContextFlagRva = 0x60AD6E8;
+        private const int CursorState548Rva = 0x60AD548;
+        private const int CursorState54CRva = 0x60AD54C;
+        private const int CursorState550Rva = 0x60AD550;
+        private const int CursorState55CRva = 0x60AD55C;
+        private const int CursorState560Rva = 0x60AD560;
+        private const int NativeUnitManagerRva = 0x67E8400;
         private const int PathStartXRva = 0x60AD668;
         private const int PathStartYRva = 0x60AD66C;
         private const int PathTargetXRva = 0x60AD670;
@@ -90,6 +127,12 @@ namespace MoveMoatTest
         private const int MaximumFloodFillStamp = 0x7D00;
         private const int MaximumModeLogs = 24;
         private const int MaximumReachabilityLogs = 96;
+        private const int MaximumCursorReachabilityLogs = 64;
+        private const int MaximumDirectCursorLogs = 128;
+        private const int MaximumCursorPollLogs = 128;
+        private const int MaximumCursorPrecheckLogs = 128;
+        private const int MaximumCursorForbiddenLogs = 128;
+        private const int MaximumCommonPathLogs = 128;
         private const int MaximumBuilderLogs = 96;
         private const int MaximumPlanLogs = 96;
         private const int MaximumTrackingLogs = 256;
@@ -97,6 +140,7 @@ namespace MoveMoatTest
         private const int MaximumCommandLogs = 128;
         private const int MaximumTrackingTicks = 120;
         private const int MovementStepMoatGateHookLength = 18;
+        private const int CursorForbiddenResultHookLength = 26;
         private const int MoveHereBuilderResultHookLength = 18;
         private const int TribeMovementPrecheckHookLength = 22;
         private const int TribeFormationTargetResultHookLength = 18;
@@ -113,11 +157,37 @@ namespace MoveMoatTest
         private const int MaximumPackedPathEntries = UnitPathBufferSize * 2;
         private const int UnitMoatMovementMarkerOffset = 0x36C;
         private const uint CompletedMoatTileFlag = 0x40000000;
+        private const uint CursorCurrentTileRequiredFlags = 0x10000100;
 
         private const string CentralMovementPlanPattern =
             "40 53 55 56 57 41 54 41 55 41 56 41 57 48 81 EC 38 04 00 00 " +
             "48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 84 24 20 04 00 00 4C 63 FA " +
             "4C 8D 35 ?? ?? ?? ?? 49 69 DF 90 04 00 00 49 63 E8 48 03 D9 49 63 F1";
+
+        private const string CursorReachabilityPattern =
+            "44 8B 0D ?? ?? ?? ?? 48 8D 0D ?? ?? ?? ?? " +
+            "44 8B 05 ?? ?? ?? ?? 41 8B D6 E8 ?? ?? ?? ?? " +
+            "85 C0 74 11 44 8B BC 24 C0 00 00 00";
+
+        private const string CursorForbiddenResultPattern =
+            "C7 05 ?? ?? ?? ?? F6 FF FF FF 41 BD 04 00 00 00 " +
+            "C7 05 ?? ?? ?? ?? 41 00 00 00";
+
+        private const string CursorReachabilityFunctionPattern =
+            "44 89 4C 24 20 44 89 44 24 18 53 55 56 57 41 54 41 55 41 56 " +
+            "48 83 EC 50 48 63 F2 45 33 ED 33 D2 49 63 E8 49 63 C1 48 8B D9";
+
+        private const string CursorSpecialModePattern =
+            "83 B9 BC 05 00 00 00 74 27 33 C0 48 81 C1 64 05 00 00 48 83 F8 16 " +
+            "74 05 83 39 00 75 13 48 FF C0 48 83 C1 04 48 83 F8 23 7C E8 B8 01 00 00 00 C3";
+
+        private const string CursorRegionPrecheckPattern =
+            "40 53 55 57 41 54 41 56 48 83 EC 20 FF 41 04 48 8B D9 81 79 04 00 7D 00 00 " +
+            "41 BC 01 00 00 00 48 63 FA 7E 1F 44 89 61 04";
+
+        private const string CommonPathRequestPattern =
+            "48 89 5C 24 20 55 56 57 41 54 41 55 41 56 41 57 48 83 EC 30 48 63 F2 " +
+            "45 33 D2 48 69 FE 90 04 00 00 4D 63 F0";
 
         private const string TribeFloodFillMembershipPattern =
             "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 56 41 57 " +
@@ -180,6 +250,15 @@ namespace MoveMoatTest
 
         private readonly ManualLogSource log;
         private readonly int* moatPathMode;
+        private readonly int* assassinPathContextFlag;
+        private readonly int* cursorTargetX;
+        private readonly int* cursorTargetY;
+        private readonly int* cursorState548;
+        private readonly int* cursorState54C;
+        private readonly int* cursorState550;
+        private readonly int* cursorState55C;
+        private readonly int* cursorState560;
+        private readonly byte* nativeUnitManager;
         private readonly int* pathStartX;
         private readonly int* pathStartY;
         private readonly int* pathTargetX;
@@ -202,9 +281,15 @@ namespace MoveMoatTest
         private TribeFloodFillMembershipDelegate originalTribeFloodFillMembership;
         private TribeFloodFillMembershipDelegate rootedTribeFloodFillMembership;
         private DirectionSeedBuilderDelegate originalPrimaryDirectionSeedBuilder;
-        private DirectionSeedBuilderDelegate rootedPrimaryDirectionSeedBuilder;
         private DirectionSeedBuilderDelegate originalFallbackDirectionSeedBuilder;
-        private DirectionSeedBuilderDelegate rootedFallbackDirectionSeedBuilder;
+        private CursorReachabilityDelegate originalCursorReachability;
+        private CursorReachabilityDelegate rootedCursorReachability;
+        private CursorSpecialModeDelegate originalCursorSpecialMode;
+        private CursorSpecialModeDelegate rootedCursorSpecialMode;
+        private CursorRegionPrecheckDelegate originalCursorRegionPrecheck;
+        private CursorRegionPrecheckDelegate rootedCursorRegionPrecheck;
+        private CommonPathRequestDelegate originalCommonPathRequest;
+        private CommonPathRequestDelegate rootedCommonPathRequest;
         private DetectCompletedMoatModeDelegate originalDetectCompletedMoatMode;
         private DetectCompletedMoatModeDelegate rootedDetectCompletedMoatMode;
         private RegionReachabilityDelegate originalRegionReachability;
@@ -218,7 +303,12 @@ namespace MoveMoatTest
         private NativeDetour tribeFloodFillMembershipDetour;
         private NativeDetour primaryDirectionSeedBuilderDetour;
         private NativeDetour fallbackDirectionSeedBuilderDetour;
+        private NativeDetour cursorReachabilityDetour;
+        private NativeDetour cursorSpecialModeDetour;
+        private NativeDetour cursorRegionPrecheckDetour;
+        private NativeDetour commonPathRequestDetour;
         private HookRef<X64InlineHook> movementStepMoatGateHook = new HookRef<X64InlineHook>();
+        private HookRef<X64InlineHook> cursorForbiddenResultHook = new HookRef<X64InlineHook>();
         private HookRef<X64InlineHook> moveHereBuilderResultHook = new HookRef<X64InlineHook>();
         private HookRef<X64InlineHook> tribeMovementPrecheckHook = new HookRef<X64InlineHook>();
         private HookRef<X64InlineHook> tribeFormationTargetResultHook = new HookRef<X64InlineHook>();
@@ -232,10 +322,20 @@ namespace MoveMoatTest
         private HookRef<X64InlineHook> moatAwareAllianceComparisonHook = new HookRef<X64InlineHook>();
         private IDisposable tribeMoveSubscription;
         private IDisposable unitMoveSubscription;
+        private IDisposable mapLoadSubscription;
+        private IDisposable mapStartSubscription;
+        private IDisposable mapUnloadSubscription;
         private long nextPlanId;
         private long nextCommandId;
+        private int mapEpoch;
         private int modeLogCount;
         private int reachabilityLogCount;
+        private int cursorReachabilityLogCount;
+        private int directCursorLogCount;
+        private int cursorPollLogCount;
+        private int cursorPrecheckLogCount;
+        private int cursorForbiddenLogCount;
+        private int commonPathLogCount;
         private int builderLogCount;
         private int planLogCount;
         private int trackingLogCount;
@@ -243,12 +343,78 @@ namespace MoveMoatTest
         private int commandLogCount;
         private bool modeLogLimitReported;
         private bool reachabilityLogLimitReported;
+        private bool cursorReachabilityLogLimitReported;
+        private bool directCursorLogLimitReported;
+        private bool cursorPollLogLimitReported;
+        private bool cursorPrecheckLogLimitReported;
+        private bool cursorForbiddenLogLimitReported;
+        private bool commonPathLogLimitReported;
+        private bool hasLastCursorReachabilityState;
+        private int lastCursorMovementClass;
+        private int lastCursorStartX;
+        private int lastCursorStartY;
+        private int lastCursorTargetX;
+        private int lastCursorTargetY;
+        private int lastCursorTargetRegion;
+        private int lastCursorVanillaResult;
+        private int lastCursorEffectiveResult;
+        private int lastCursorPathMode;
+        private bool hasLastDirectCursorState;
+        private int lastDirectCursorNativeUnitIndex;
+        private int lastDirectCursorTargetX;
+        private int lastDirectCursorTargetY;
+        private int lastDirectCursorResult;
+        private int lastDirectCursorPathMode;
+        private int lastDirectCursorAssassinContext;
+        private long directCursorCallSerial;
+        private bool hasLastCursorPollState;
+        private int lastCursorPollFrame = -1;
+        private int lastCursorPollTargetX;
+        private int lastCursorPollTargetY;
+        private int lastCursorPollState548;
+        private int lastCursorPollState54C;
+        private int lastCursorPollState550;
+        private int lastCursorPollState55C;
+        private int lastCursorPollState560;
+        private int lastCursorPollPathMode;
+        private int lastCursorPollAssassinContext;
+        private bool cursorPollArmed;
+        private bool hasLastCursorForbiddenState;
+        private int lastCursorForbiddenNativeUnitIndex;
+        private int lastCursorForbiddenTargetX;
+        private int lastCursorForbiddenTargetY;
+        private int lastCursorForbiddenAvailabilityGate;
+        private int lastCursorForbiddenCurrentTileId;
+        private string lastCursorForbiddenReason;
+        private long cursorEvaluationSerial;
+        private long cursorRegionEvaluationSerial;
+        private long cursorDirectEvaluationSerial;
+        private bool hasLastCursorSpecialModeState;
+        private int lastCursorSpecialModeTargetX;
+        private int lastCursorSpecialModeTargetY;
+        private int lastCursorSpecialModeResult;
+        private int lastCursorSpecialModeGate;
+        private int lastCursorSpecialModeOccupiedSlots;
+        private bool hasLastCursorRegionPrecheckState;
+        private int lastCursorRegionPrecheckNativeUnitIndex;
+        private int lastCursorRegionPrecheckTargetX;
+        private int lastCursorRegionPrecheckTargetY;
+        private int lastCursorRegionPrecheckResult;
+        private bool hasLastCommonPathState;
+        private int lastCommonPathNativeUnitIndex;
+        private int lastCommonPathTargetX;
+        private int lastCommonPathTargetY;
+        private int lastCommonPathOption;
+        private int lastCommonPathResult;
+        private int lastCommonPathContextBefore;
+        private int lastCommonPathContextAfter;
         private bool builderLogLimitReported;
         private bool planLogLimitReported;
         private bool trackingLogLimitReported;
         private bool stepGateLogLimitReported;
         private bool commandLogLimitReported;
         private bool tickSubscribed;
+        private volatile bool mapRuntimeActive;
         private bool disposed;
 
         public MoveMoatPathTest(
@@ -270,6 +436,48 @@ namespace MoveMoatTest
                 CentralMovementPlanRva,
                 referenceHashMatches,
                 "central ordinary-movement planner",
+                log: null);
+            Shared.NativeResolution cursorResolution = Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                CursorReachabilityPattern,
+                CursorReachabilityPatternRva,
+                referenceHashMatches,
+                "ordinary-movement cursor reachability caller",
+                log: null);
+            Shared.NativeResolution cursorForbiddenResultResolution = Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                CursorForbiddenResultPattern,
+                CursorForbiddenResultRva,
+                referenceHashMatches,
+                "ordinary-movement forbidden-cursor result block",
+                log: null);
+            Shared.NativeResolution cursorFunctionResolution = Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                CursorReachabilityFunctionPattern,
+                CursorReachabilityRva,
+                referenceHashMatches,
+                "ordinary-movement cursor reachability function",
+                log: null);
+            Shared.NativeResolution cursorSpecialModeResolution = Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                CursorSpecialModePattern,
+                CursorSpecialModeRva,
+                referenceHashMatches,
+                "ordinary-movement cursor special-mode precheck",
+                log: null);
+            Shared.NativeResolution cursorRegionPrecheckResolution = Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                CursorRegionPrecheckPattern,
+                CursorRegionPrecheckRva,
+                referenceHashMatches,
+                "ordinary-movement cursor region precheck",
+                log: null);
+            Shared.NativeResolution commonPathRequestResolution = Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                CommonPathRequestPattern,
+                CommonPathRequestRva,
+                referenceHashMatches,
+                "shared common path request",
                 log: null);
             Shared.NativeResolution modeResolution = Shared.NativePatternResolver.ResolveUnique(
                 memory,
@@ -386,6 +594,30 @@ namespace MoveMoatTest
 
             RequireValidatedRva(planResolution, CentralMovementPlanRva, "central ordinary-movement planner");
             RequireValidatedRva(
+                cursorResolution,
+                CursorReachabilityPatternRva,
+                "ordinary-movement cursor reachability caller");
+            RequireValidatedRva(
+                cursorForbiddenResultResolution,
+                CursorForbiddenResultRva,
+                "ordinary-movement forbidden-cursor result block");
+            RequireValidatedRva(
+                cursorFunctionResolution,
+                CursorReachabilityRva,
+                "ordinary-movement cursor reachability function");
+            RequireValidatedRva(
+                cursorSpecialModeResolution,
+                CursorSpecialModeRva,
+                "ordinary-movement cursor special-mode precheck");
+            RequireValidatedRva(
+                cursorRegionPrecheckResolution,
+                CursorRegionPrecheckRva,
+                "ordinary-movement cursor region precheck");
+            RequireValidatedRva(
+                commonPathRequestResolution,
+                CommonPathRequestRva,
+                "shared common path request");
+            RequireValidatedRva(
                 tribeFloodFillMembershipResolution,
                 TribeFloodFillMembershipRva,
                 "Tribe flood-fill membership helper");
@@ -443,7 +675,41 @@ namespace MoveMoatTest
             ValidatePatternSpans(memory);
             ValidateInlineHookSpans(memory);
 
+            int cursorTargetYRva = ResolveGlobalRva(
+                memory,
+                cursorResolution.Rva + 3,
+                cursorResolution.Rva + 7,
+                "cursor target Y");
+            int cursorTargetXRva = ResolveGlobalRva(
+                memory,
+                cursorResolution.Rva + 17,
+                cursorResolution.Rva + 21,
+                "cursor target X");
+            int cursorFunctionTargetRva = Shared.NativePatternResolver.ResolveRelativeTarget(
+                memory,
+                cursorResolution.Rva + 25,
+                cursorResolution.Rva + 29);
+            if (cursorTargetXRva != CursorTargetXRva || cursorTargetYRva != CursorTargetYRva)
+            {
+                throw new InvalidOperationException(
+                    "The ordinary-movement cursor target globals did not match their validated RVAs.");
+            }
+            if (cursorFunctionTargetRva != cursorFunctionResolution.Rva)
+            {
+                throw new InvalidOperationException(
+                    "The ordinary-movement cursor caller no longer targets the validated reachability function.");
+            }
+
             moatPathMode = (int*)(libraryBase + MoatPathModeRva);
+            assassinPathContextFlag = (int*)(libraryBase + AssassinPathContextFlagRva);
+            cursorTargetX = (int*)(libraryBase + unchecked((ulong)cursorTargetXRva));
+            cursorTargetY = (int*)(libraryBase + unchecked((ulong)cursorTargetYRva));
+            cursorState548 = (int*)(libraryBase + CursorState548Rva);
+            cursorState54C = (int*)(libraryBase + CursorState54CRva);
+            cursorState550 = (int*)(libraryBase + CursorState550Rva);
+            cursorState55C = (int*)(libraryBase + CursorState55CRva);
+            cursorState560 = (int*)(libraryBase + CursorState560Rva);
+            nativeUnitManager = (byte*)(libraryBase + NativeUnitManagerRva);
             pathStartX = (int*)(libraryBase + PathStartXRva);
             pathStartY = (int*)(libraryBase + PathStartYRva);
             pathTargetX = (int*)(libraryBase + PathTargetXRva);
@@ -458,24 +724,30 @@ namespace MoveMoatTest
             rootedTribeFloodFillMembership = AllowTribeFloodFillForMoveOrder;
             rootedDetectCompletedMoatMode = ForceCompletedMoatMode;
             rootedRegionReachability = AllowBuilderAfterFailedRegionSearch;
-            rootedPrimaryDirectionSeedBuilder = ObservePrimaryDirectionSeedBuilder;
-            rootedFallbackDirectionSeedBuilder = ObserveFallbackDirectionSeedBuilder;
             rootedPathBuilder = ObservePathBuilder;
+            rootedCursorReachability = ObserveCursorReachability;
+            rootedCursorSpecialMode = ObserveCursorSpecialMode;
+            rootedCursorRegionPrecheck = ObserveCursorRegionPrecheck;
+            rootedCommonPathRequest = ObserveCommonPathRequest;
 
             NativeDetour pendingModeDetour = null;
             NativeDetour pendingReachabilityDetour = null;
             NativeDetour pendingBuilderDetour = null;
             NativeDetour pendingPlanDetour = null;
             NativeDetour pendingTribeFloodFillMembershipDetour = null;
-            NativeDetour pendingPrimaryDirectionSeedBuilderDetour = null;
-            NativeDetour pendingFallbackDirectionSeedBuilderDetour = null;
+            NativeDetour pendingCursorReachabilityDetour = null;
+            NativeDetour pendingCursorSpecialModeDetour = null;
+            NativeDetour pendingCursorRegionPrecheckDetour = null;
+            NativeDetour pendingCommonPathRequestDetour = null;
             bool planApplied = false;
             bool tribeFloodFillMembershipApplied = false;
             bool modeApplied = false;
             bool reachabilityApplied = false;
-            bool primaryDirectionSeedApplied = false;
-            bool fallbackDirectionSeedApplied = false;
             bool builderApplied = false;
+            bool cursorReachabilityApplied = false;
+            bool cursorSpecialModeApplied = false;
+            bool cursorRegionPrecheckApplied = false;
+            bool commonPathRequestApplied = false;
             try
             {
                 pendingPlanDetour = CreateDetour(
@@ -502,22 +774,34 @@ namespace MoveMoatTest
                 originalRegionReachability =
                     pendingReachabilityDetour.GenerateTrampoline<RegionReachabilityDelegate>();
 
-                pendingPrimaryDirectionSeedBuilderDetour = CreateDetour(
-                    libraryBase + unchecked((ulong)primaryDirectionSeedResolution.Rva),
-                    rootedPrimaryDirectionSeedBuilder);
-                originalPrimaryDirectionSeedBuilder =
-                    pendingPrimaryDirectionSeedBuilderDetour.GenerateTrampoline<DirectionSeedBuilderDelegate>();
-
-                pendingFallbackDirectionSeedBuilderDetour = CreateDetour(
-                    libraryBase + unchecked((ulong)fallbackDirectionSeedResolution.Rva),
-                    rootedFallbackDirectionSeedBuilder);
-                originalFallbackDirectionSeedBuilder =
-                    pendingFallbackDirectionSeedBuilderDetour.GenerateTrampoline<DirectionSeedBuilderDelegate>();
-
                 pendingBuilderDetour = CreateDetour(
                     libraryBase + unchecked((ulong)builderResolution.Rva),
                     rootedPathBuilder);
                 originalPathBuilder = pendingBuilderDetour.GenerateTrampoline<PathBuilderDelegate>();
+
+                pendingCursorReachabilityDetour = CreateDetour(
+                    libraryBase + unchecked((ulong)cursorFunctionResolution.Rva),
+                    rootedCursorReachability);
+                originalCursorReachability =
+                    pendingCursorReachabilityDetour.GenerateTrampoline<CursorReachabilityDelegate>();
+
+                pendingCursorSpecialModeDetour = CreateDetour(
+                    libraryBase + unchecked((ulong)cursorSpecialModeResolution.Rva),
+                    rootedCursorSpecialMode);
+                originalCursorSpecialMode =
+                    pendingCursorSpecialModeDetour.GenerateTrampoline<CursorSpecialModeDelegate>();
+
+                pendingCursorRegionPrecheckDetour = CreateDetour(
+                    libraryBase + unchecked((ulong)cursorRegionPrecheckResolution.Rva),
+                    rootedCursorRegionPrecheck);
+                originalCursorRegionPrecheck =
+                    pendingCursorRegionPrecheckDetour.GenerateTrampoline<CursorRegionPrecheckDelegate>();
+
+                pendingCommonPathRequestDetour = CreateDetour(
+                    libraryBase + unchecked((ulong)commonPathRequestResolution.Rva),
+                    rootedCommonPathRequest);
+                originalCommonPathRequest =
+                    pendingCommonPathRequestDetour.GenerateTrampoline<CommonPathRequestDelegate>();
 
                 pendingPlanDetour.Apply();
                 planApplied = true;
@@ -527,20 +811,26 @@ namespace MoveMoatTest
                 modeApplied = true;
                 pendingReachabilityDetour.Apply();
                 reachabilityApplied = true;
-                pendingPrimaryDirectionSeedBuilderDetour.Apply();
-                primaryDirectionSeedApplied = true;
-                pendingFallbackDirectionSeedBuilderDetour.Apply();
-                fallbackDirectionSeedApplied = true;
                 pendingBuilderDetour.Apply();
                 builderApplied = true;
+                pendingCursorReachabilityDetour.Apply();
+                cursorReachabilityApplied = true;
+                pendingCursorSpecialModeDetour.Apply();
+                cursorSpecialModeApplied = true;
+                pendingCursorRegionPrecheckDetour.Apply();
+                cursorRegionPrecheckApplied = true;
+                pendingCommonPathRequestDetour.Apply();
+                commonPathRequestApplied = true;
 
                 detectCompletedMoatModeDetour = pendingModeDetour;
                 regionReachabilityDetour = pendingReachabilityDetour;
                 pathBuilderDetour = pendingBuilderDetour;
                 centralMovementPlanDetour = pendingPlanDetour;
                 tribeFloodFillMembershipDetour = pendingTribeFloodFillMembershipDetour;
-                primaryDirectionSeedBuilderDetour = pendingPrimaryDirectionSeedBuilderDetour;
-                fallbackDirectionSeedBuilderDetour = pendingFallbackDirectionSeedBuilderDetour;
+                cursorReachabilityDetour = pendingCursorReachabilityDetour;
+                cursorSpecialModeDetour = pendingCursorSpecialModeDetour;
+                cursorRegionPrecheckDetour = pendingCursorRegionPrecheckDetour;
+                commonPathRequestDetour = pendingCommonPathRequestDetour;
 
                 HookTransaction transaction = new HookTransaction(
                     memory,
@@ -556,109 +846,31 @@ namespace MoveMoatTest
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
                 transaction.AddContextHook(
-                    ref moveHereBuilderResultHook,
-                    libraryBase + MoveHereBuilderResultRva,
-                    RecordMoveHereBuilderResult,
+                    ref cursorForbiddenResultHook,
+                    libraryBase + CursorForbiddenResultRva,
+                    ObserveCursorForbiddenResult,
                     regs: X64SmartCPUContextRegs.All,
-                    hookSize: MoveHereBuilderResultHookLength,
-                    errorMode: CallbackErrorMode.LogAndContinue,
-                    placement: OverwrittenInstructionPlacement.AfterCallback);
-                transaction.AddContextHook(
-                    ref tribeMovementPrecheckHook,
-                    libraryBase + unchecked((ulong)tribePrecheckResolution.Rva),
-                    ObserveTribeMovementPrecheck,
-                    regs: X64SmartCPUContextRegs.All,
-                    hookSize: TribeMovementPrecheckHookLength,
-                    errorMode: CallbackErrorMode.LogAndContinue,
-                    placement: OverwrittenInstructionPlacement.AfterCallback);
-                transaction.AddContextHook(
-                    ref tribeFormationTargetResultHook,
-                    libraryBase + unchecked((ulong)tribeFormationResultResolution.Rva),
-                    ObserveTribeFormationTargetResult,
-                    regs: X64SmartCPUContextRegs.All,
-                    hookSize: TribeFormationTargetResultHookLength,
-                    errorMode: CallbackErrorMode.LogAndContinue,
-                    placement: OverwrittenInstructionPlacement.AfterCallback);
-                transaction.AddContextHook(
-                    ref tribeRegionCandidateRetryHook,
-                    libraryBase + unchecked((ulong)tribeRegionCandidateRetryResolution.Rva),
-                    ObserveTribeRegionCandidateRetry,
-                    regs: X64SmartCPUContextRegs.All,
-                    hookSize: TribeRegionCandidateRetryHookLength,
-                    errorMode: CallbackErrorMode.LogAndContinue,
-                    placement: OverwrittenInstructionPlacement.AfterCallback);
-                transaction.AddContextHook(
-                    ref tribeUnitScanStartHook,
-                    libraryBase + unchecked((ulong)tribeUnitScanResolution.Rva),
-                    ObserveTribeUnitScanStart,
-                    regs: X64SmartCPUContextRegs.All,
-                    hookSize: TribeUnitScanStartHookLength,
-                    errorMode: CallbackErrorMode.LogAndContinue,
-                    placement: OverwrittenInstructionPlacement.AfterCallback);
-                transaction.AddContextHook(
-                    ref tribeUnitIterationEndHook,
-                    libraryBase + unchecked((ulong)tribeUnitIterationEndResolution.Rva),
-                    ObserveTribeUnitIterationEnd,
-                    regs: X64SmartCPUContextRegs.All,
-                    hookSize: TribeUnitIterationEndHookLength,
-                    errorMode: CallbackErrorMode.LogAndContinue,
-                    placement: OverwrittenInstructionPlacement.AfterCallback);
-                transaction.AddContextHook(
-                    ref tribeEarlyReturnHook,
-                    libraryBase + unchecked((ulong)tribeEarlyReturnResolution.Rva),
-                    ObserveTribeEarlyReturn,
-                    regs: X64SmartCPUContextRegs.All,
-                    hookSize: TribeEarlyReturnHookLength,
-                    errorMode: CallbackErrorMode.LogAndContinue,
-                    placement: OverwrittenInstructionPlacement.AfterCallback);
-                transaction.AddContextHook(
-                    ref standardTileExpanderHook,
-                    libraryBase + unchecked((ulong)standardTileExpanderResolution.Rva),
-                    ObserveStandardTileExpander,
-                    regs: X64SmartCPUContextRegs.All,
-                    hookSize: StandardTileExpanderHookLength,
-                    errorMode: CallbackErrorMode.LogAndContinue,
-                    placement: OverwrittenInstructionPlacement.AfterCallback);
-                transaction.AddContextHook(
-                    ref moatAwareTileExpanderHook,
-                    libraryBase + unchecked((ulong)moatAwareTileExpanderResolution.Rva),
-                    ObserveMoatAwareTileExpander,
-                    regs: X64SmartCPUContextRegs.All,
-                    hookSize: MoatAwareTileExpanderHookLength,
-                    errorMode: CallbackErrorMode.LogAndContinue,
-                    placement: OverwrittenInstructionPlacement.AfterCallback);
-                transaction.AddContextHook(
-                    ref moatAwareCandidateResultHook,
-                    libraryBase + unchecked((ulong)moatAwareCandidateResultResolution.Rva),
-                    ObserveMoatAwareCandidateResult,
-                    regs: X64SmartCPUContextRegs.All,
-                    hookSize: MoatAwareCandidateResultHookLength,
-                    errorMode: CallbackErrorMode.LogAndContinue,
-                    placement: OverwrittenInstructionPlacement.AfterCallback);
-                transaction.AddContextHook(
-                    ref moatAwareAllianceComparisonHook,
-                    libraryBase + unchecked((ulong)moatAwareAllianceComparisonResolution.Rva),
-                    ObserveMoatAwareAllianceComparison,
-                    regs: X64SmartCPUContextRegs.All,
-                    hookSize: MoatAwareAllianceComparisonHookLength,
+                    hookSize: CursorForbiddenResultHookLength,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
                 transaction.Commit();
-                if (!movementStepMoatGateHook.Success || !moveHereBuilderResultHook.Success ||
-                    !tribeMovementPrecheckHook.Success || !tribeFormationTargetResultHook.Success ||
-                    !tribeRegionCandidateRetryHook.Success || !tribeUnitScanStartHook.Success ||
-                    !tribeUnitIterationEndHook.Success || !tribeEarlyReturnHook.Success ||
-                    !standardTileExpanderHook.Success || !moatAwareTileExpanderHook.Success ||
-                    !moatAwareCandidateResultHook.Success || !moatAwareAllianceComparisonHook.Success)
-                    throw new InvalidOperationException("A central MoveHere diagnostic hook did not install.");
+                if (!movementStepMoatGateHook.Success)
+                    throw new InvalidOperationException("The completed-moat movement-step hook did not install.");
+                if (!cursorForbiddenResultHook.Success)
+                    throw new InvalidOperationException("The forbidden-cursor result hook did not install.");
+
+                Application.onBeforeRender += ObserveCursorFrame;
 
                 tribeMoveSubscription = TribeR3EventHooks.OnTribeIssueOrderMoveHere.Observable
                     .Subscribe(ObserveTribeMoveOrder);
                 unitMoveSubscription = UnitR3EventHooks.OnUnitMoveHere.Observable
                     .Subscribe(ObserveUnitMoveOrder);
-
-                GameTimeManagerAPI.Instance.OnTick += ObserveTrackedUnits;
-                tickSubscribed = true;
+                mapLoadSubscription = MapLoaderR3EventHooks.OnLoadMap.Observable
+                    .Subscribe(args => ObserveMapLifecycle("load", args.Phase));
+                mapStartSubscription = MapLoaderR3EventHooks.OnStartMap.Observable
+                    .Subscribe(args => ObserveMapLifecycle("start", args.Phase));
+                mapUnloadSubscription = MapLoaderR3EventHooks.OnUnloadMap.Observable
+                    .Subscribe(args => ObserveMapLifecycle("unload", args.Phase));
 
                 Shared.DebugLogHelper.LogInfo(
                     log,
@@ -667,14 +879,21 @@ namespace MoveMoatTest
                     $"tribeFloodFillMembershipRva=0x{tribeFloodFillMembershipResolution.Rva:X}/method=" +
                     $"{tribeFloodFillMembershipResolution.Method}, " +
                     $"reachabilityRva=0x{reachabilityResolution.Rva:X}/method={reachabilityResolution.Method}, " +
+                    $"cursorFunctionRva=0x{cursorFunctionResolution.Rva:X}/method=" +
+                    $"{cursorFunctionResolution.Method}, " +
+                    $"cursorPrechecks=0x{cursorSpecialModeResolution.Rva:X}/" +
+                    $"0x{cursorRegionPrecheckResolution.Rva:X}, " +
+                    $"cursorForbiddenRva=0x{cursorForbiddenResultResolution.Rva:X}, " +
+                    $"commonPathRva=0x{commonPathRequestResolution.Rva:X}/method=" +
+                    $"{commonPathRequestResolution.Method}, " +
                     $"builderRva=0x{builderResolution.Rva:X}/method={builderResolution.Method}, " +
-                    $"directionSeeds=0x{primaryDirectionSeedResolution.Rva:X}/" +
+                    $"validatedDirectionSeeds=0x{primaryDirectionSeedResolution.Rva:X}/" +
                     $"0x{fallbackDirectionSeedResolution.Rva:X}, " +
                     $"tileExpanders=0x{standardTileExpanderResolution.Rva:X}/" +
                     $"0x{moatAwareTileExpanderResolution.Rva:X}, " +
                     $"tribePrecheckRva=0x{tribePrecheckResolution.Rva:X}/method={tribePrecheckResolution.Method}, " +
-                    "tribeDispatcherBreadcrumbs=6, " +
-                    $"moveHereResultRva=0x{MoveHereBuilderResultRva:X}, " +
+                    "legacyDiagnosticInlineHooks=disabled-for-runtime-safety, " +
+                    "cursorForbiddenObserver=read-only, " +
                     $"stepGateRva=0x{MovementStepMoatGateRva:X}; " +
                     "allCompletedMoats=true, ownerFiltering=false, " +
                     "tribeFloodFillBypass=activeMoveHereOnly, realBuilderResultUnchanged=true.");
@@ -687,6 +906,8 @@ namespace MoveMoatTest
                     tickSubscribed = false;
                 }
                 moveHereBuilderResultHook?.Value?.Dispose();
+                Application.onBeforeRender -= ObserveCursorFrame;
+                cursorForbiddenResultHook?.Value?.Dispose();
                 movementStepMoatGateHook?.Value?.Dispose();
                 tribeMovementPrecheckHook?.Value?.Dispose();
                 tribeFormationTargetResultHook?.Value?.Dispose();
@@ -700,17 +921,29 @@ namespace MoveMoatTest
                 moatAwareAllianceComparisonHook?.Value?.Dispose();
                 tribeMoveSubscription?.Dispose();
                 unitMoveSubscription?.Dispose();
+                mapLoadSubscription?.Dispose();
+                mapStartSubscription?.Dispose();
+                mapUnloadSubscription?.Dispose();
                 tribeMoveSubscription = null;
                 unitMoveSubscription = null;
+                mapLoadSubscription = null;
+                mapStartSubscription = null;
+                mapUnloadSubscription = null;
+                if (commonPathRequestApplied)
+                    pendingCommonPathRequestDetour?.Undo();
+                pendingCommonPathRequestDetour?.Dispose();
+                if (cursorRegionPrecheckApplied)
+                    pendingCursorRegionPrecheckDetour?.Undo();
+                pendingCursorRegionPrecheckDetour?.Dispose();
+                if (cursorSpecialModeApplied)
+                    pendingCursorSpecialModeDetour?.Undo();
+                pendingCursorSpecialModeDetour?.Dispose();
+                if (cursorReachabilityApplied)
+                    pendingCursorReachabilityDetour?.Undo();
+                pendingCursorReachabilityDetour?.Dispose();
                 if (builderApplied)
                     pendingBuilderDetour?.Undo();
                 pendingBuilderDetour?.Dispose();
-                if (fallbackDirectionSeedApplied)
-                    pendingFallbackDirectionSeedBuilderDetour?.Undo();
-                pendingFallbackDirectionSeedBuilderDetour?.Dispose();
-                if (primaryDirectionSeedApplied)
-                    pendingPrimaryDirectionSeedBuilderDetour?.Undo();
-                pendingPrimaryDirectionSeedBuilderDetour?.Dispose();
                 if (reachabilityApplied)
                     pendingReachabilityDetour?.Undo();
                 pendingReachabilityDetour?.Dispose();
@@ -730,13 +963,19 @@ namespace MoveMoatTest
                 originalDetectCompletedMoatMode = null;
                 originalRegionReachability = null;
                 originalPathBuilder = null;
+                originalCursorReachability = null;
+                originalCursorSpecialMode = null;
+                originalCursorRegionPrecheck = null;
+                originalCommonPathRequest = null;
                 rootedCentralMovementPlan = null;
                 rootedTribeFloodFillMembership = null;
-                rootedPrimaryDirectionSeedBuilder = null;
-                rootedFallbackDirectionSeedBuilder = null;
                 rootedDetectCompletedMoatMode = null;
                 rootedRegionReachability = null;
                 rootedPathBuilder = null;
+                rootedCursorReachability = null;
+                rootedCursorSpecialMode = null;
+                rootedCursorRegionPrecheck = null;
+                rootedCommonPathRequest = null;
                 throw;
             }
         }
@@ -753,6 +992,8 @@ namespace MoveMoatTest
                 tickSubscribed = false;
             }
             moveHereBuilderResultHook?.Value?.Dispose();
+            Application.onBeforeRender -= ObserveCursorFrame;
+            cursorForbiddenResultHook?.Value?.Dispose();
             movementStepMoatGateHook?.Value?.Dispose();
             tribeMovementPrecheckHook?.Value?.Dispose();
             tribeFormationTargetResultHook?.Value?.Dispose();
@@ -766,8 +1007,18 @@ namespace MoveMoatTest
             moatAwareAllianceComparisonHook?.Value?.Dispose();
             tribeMoveSubscription?.Dispose();
             unitMoveSubscription?.Dispose();
+            mapLoadSubscription?.Dispose();
+            mapStartSubscription?.Dispose();
+            mapUnloadSubscription?.Dispose();
             tribeMoveSubscription = null;
             unitMoveSubscription = null;
+            mapLoadSubscription = null;
+            mapStartSubscription = null;
+            mapUnloadSubscription = null;
+            commonPathRequestDetour?.Dispose();
+            cursorRegionPrecheckDetour?.Dispose();
+            cursorSpecialModeDetour?.Dispose();
+            cursorReachabilityDetour?.Dispose();
             pathBuilderDetour?.Dispose();
             fallbackDirectionSeedBuilderDetour?.Dispose();
             primaryDirectionSeedBuilderDetour?.Dispose();
@@ -775,6 +1026,10 @@ namespace MoveMoatTest
             detectCompletedMoatModeDetour?.Dispose();
             tribeFloodFillMembershipDetour?.Dispose();
             centralMovementPlanDetour?.Dispose();
+            commonPathRequestDetour = null;
+            cursorRegionPrecheckDetour = null;
+            cursorSpecialModeDetour = null;
+            cursorReachabilityDetour = null;
             pathBuilderDetour = null;
             fallbackDirectionSeedBuilderDetour = null;
             primaryDirectionSeedBuilderDetour = null;
@@ -789,20 +1044,74 @@ namespace MoveMoatTest
             originalPathBuilder = null;
             originalRegionReachability = null;
             originalDetectCompletedMoatMode = null;
+            originalCursorReachability = null;
+            originalCursorSpecialMode = null;
+            originalCursorRegionPrecheck = null;
+            originalCommonPathRequest = null;
             rootedCentralMovementPlan = null;
             rootedTribeFloodFillMembership = null;
-            rootedPrimaryDirectionSeedBuilder = null;
-            rootedFallbackDirectionSeedBuilder = null;
             rootedPathBuilder = null;
             rootedRegionReachability = null;
             rootedDetectCompletedMoatMode = null;
+            rootedCursorReachability = null;
+            rootedCursorSpecialMode = null;
+            rootedCursorRegionPrecheck = null;
+            rootedCommonPathRequest = null;
             lock (trackingLock)
                 trackedPlans.Clear();
         }
 
-        private void ObserveTribeMoveOrder(TribeIssueOrderMoveHereEventArgs args)
+        private void ObserveMapLifecycle(string eventName, EventHookPhase phase)
         {
             if (disposed)
+                return;
+
+            // Unit IDs and their native path buffers are recycled between maps. Never let
+            // diagnostic state from the previous map dereference a newly initialized unit.
+            bool activate = eventName != "unload" && phase == EventHookPhase.Post;
+            int clearedPlans;
+            int epoch;
+            lock (trackingLock)
+            {
+                mapRuntimeActive = false;
+                clearedPlans = trackedPlans.Count;
+                trackedPlans.Clear();
+                epoch = ++mapEpoch;
+                if (activate)
+                    mapRuntimeActive = true;
+            }
+
+            activePlanAttempt = null;
+            pendingMoveHereAttempt = null;
+            activeCommandAttempt = null;
+            hasLastCursorReachabilityState = false;
+            hasLastDirectCursorState = false;
+            hasLastCursorPollState = false;
+            cursorPollArmed = false;
+            hasLastCursorSpecialModeState = false;
+            hasLastCursorRegionPrecheckState = false;
+            hasLastCursorForbiddenState = false;
+            hasLastCommonPathState = false;
+            lastCursorPollFrame = -1;
+            cursorPollLogCount = 0;
+            cursorPollLogLimitReported = false;
+            cursorPrecheckLogCount = 0;
+            cursorPrecheckLogLimitReported = false;
+            cursorForbiddenLogCount = 0;
+            cursorForbiddenLogLimitReported = false;
+            cursorEvaluationSerial = 0;
+            cursorRegionEvaluationSerial = -1;
+            cursorDirectEvaluationSerial = -1;
+
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"MoveMoat map lifecycle: event={eventName}, phase={phase}, epoch={epoch}, " +
+                $"runtimeActive={activate}, clearedTrackedPlans={clearedPlans}.");
+        }
+
+        private void ObserveTribeMoveOrder(TribeIssueOrderMoveHereEventArgs args)
+        {
+            if (disposed || !mapRuntimeActive)
                 return;
 
             try
@@ -863,7 +1172,7 @@ namespace MoveMoatTest
 
         private void ObserveUnitMoveOrder(UnitMoveHereEventArgs args)
         {
-            if (disposed)
+            if (disposed || !mapRuntimeActive)
                 return;
 
             try
@@ -889,6 +1198,9 @@ namespace MoveMoatTest
                     $"target=({args.TileX},{args.TileY}) unknown={args.Unknown} " +
                     $"result={args.ReturnValue} skipOriginal={args.SkipOriginalFunction} " +
                     $"state=[{unitState}]");
+
+                if (args.Phase == EventHookPhase.Post)
+                    pendingMoveHereAttempt = null;
             }
             catch (Exception ex)
             {
@@ -1113,6 +1425,9 @@ namespace MoveMoatTest
             int targetX,
             int targetY)
         {
+            if (disposed || !mapRuntimeActive || activeCommandAttempt == null)
+                return originalCentralMovementPlan(unitManager, unitId, targetX, targetY);
+
             PlanAttempt attempt = null;
             PlanAttempt previousAttempt = activePlanAttempt;
             try
@@ -1170,6 +1485,9 @@ namespace MoveMoatTest
             int floodFillStamp)
         {
             int vanillaResult = originalTribeFloodFillMembership(tribeManager, tribeId, floodFillStamp);
+            if (disposed || !mapRuntimeActive)
+                return vanillaResult;
+
             int effectiveResult = vanillaResult;
 
             try
@@ -1217,7 +1535,8 @@ namespace MoveMoatTest
         private int ForceCompletedMoatMode(IntPtr unitManager, int unitId)
         {
             int vanillaResult = originalDetectCompletedMoatMode(unitManager, unitId);
-            if (disposed || unitManager == IntPtr.Zero || unitId <= 0)
+            if (disposed || !mapRuntimeActive || activeCommandAttempt == null ||
+                unitManager == IntPtr.Zero || unitId <= 0)
                 return vanillaResult;
 
             try
@@ -1260,6 +1579,9 @@ namespace MoveMoatTest
                 targetRegion,
                 startX,
                 startY);
+            if (disposed || !mapRuntimeActive || activeCommandAttempt == null)
+                return vanillaResult;
+
             int effectiveResult = vanillaResult;
 
             try
@@ -1480,6 +1802,9 @@ namespace MoveMoatTest
             int movementClass,
             int movementProfile)
         {
+            if (disposed || !mapRuntimeActive || activeCommandAttempt == null)
+                return originalPathBuilder(pathManager, movementClass, movementProfile);
+
             BuilderStateSnapshot inputState = default;
             bool inputStateCaptured = false;
             int* routeVariant = null;
@@ -1645,7 +1970,8 @@ namespace MoveMoatTest
             int unitId = unchecked((int)(uint)registers->R11);
             int currentTileId = unchecked((int)(uint)registers->RDI);
             int nextTileId = unchecked((int)(uint)registers->RDX);
-            if (disposed || unitId <= 0 || !IsValidTileId(currentTileId) || !IsValidTileId(nextTileId))
+            if (disposed || !mapRuntimeActive || unitId <= 0 ||
+                !IsValidTileId(currentTileId) || !IsValidTileId(nextTileId))
                 return;
 
             uint currentFlags = tileFlags[currentTileId];
@@ -1747,6 +2073,568 @@ namespace MoveMoatTest
                 $"MoveMoat mode diagnostics reached their {MaximumModeLogs}-entry limit.");
         }
 
+        private void ObserveCursorForbiddenResult(NativePointer<X64SmartCPUContext> context)
+        {
+            if (disposed || !cursorPollArmed)
+                return;
+
+            try
+            {
+                X64SmartCPUContext* registers = context.Pointer;
+                int nativeUnitIndex = unchecked((int)(uint)registers->R14);
+                int availabilityGate = unchecked((int)(uint)registers->R15);
+                int shortcutResult = unchecked((int)(uint)registers->RBX);
+                int targetX = *cursorTargetX;
+                int targetY = *cursorTargetY;
+                int currentTileId = -1;
+                uint currentTileFlags = 0;
+                int nextUnitId = *(int*)nativeUnitManager;
+                if (nativeUnitIndex > 0 && nativeUnitIndex < nextUnitId)
+                {
+                    currentTileId = *(int*)(nativeUnitManager +
+                        (nativeUnitIndex * 0x490) + 0x72C);
+                    if (IsValidTileId(currentTileId))
+                        currentTileFlags = tileFlags[currentTileId];
+                }
+
+                bool regionObserved = cursorRegionEvaluationSerial == cursorEvaluationSerial &&
+                    hasLastCursorRegionPrecheckState &&
+                    lastCursorRegionPrecheckNativeUnitIndex == nativeUnitIndex &&
+                    lastCursorRegionPrecheckTargetX == targetX &&
+                    lastCursorRegionPrecheckTargetY == targetY;
+                bool directObserved = cursorDirectEvaluationSerial == cursorEvaluationSerial &&
+                    hasLastDirectCursorState &&
+                    lastDirectCursorNativeUnitIndex == nativeUnitIndex &&
+                    lastDirectCursorTargetX == targetX &&
+                    lastDirectCursorTargetY == targetY;
+
+                string reason;
+                if (shortcutResult != 0)
+                    reason = "unexpected-nonzero-shortcut";
+                else if (availabilityGate == 0)
+                    reason = "availability-or-global-unit-gate";
+                else if (!IsValidTileId(currentTileId))
+                    reason = "invalid-selected-unit-current-tile";
+                else if ((currentTileFlags & CursorCurrentTileRequiredFlags) == 0)
+                    reason = "selected-unit-current-tile-flags";
+                else if (!regionObserved)
+                    reason = "before-region-precheck-despite-visible-gates";
+                else if (lastCursorRegionPrecheckResult == 0)
+                    reason = "region-precheck";
+                else if (!directObserved)
+                    reason = "before-direct-reachability";
+                else if (lastDirectCursorResult == 0)
+                    reason = "direct-reachability";
+                else
+                    reason = "post-reachability-or-other";
+
+                bool changed = !hasLastCursorForbiddenState ||
+                    nativeUnitIndex != lastCursorForbiddenNativeUnitIndex ||
+                    targetX != lastCursorForbiddenTargetX ||
+                    targetY != lastCursorForbiddenTargetY ||
+                    availabilityGate != lastCursorForbiddenAvailabilityGate ||
+                    currentTileId != lastCursorForbiddenCurrentTileId ||
+                    !string.Equals(reason, lastCursorForbiddenReason, StringComparison.Ordinal);
+                if (!changed)
+                    return;
+
+                hasLastCursorForbiddenState = true;
+                lastCursorForbiddenNativeUnitIndex = nativeUnitIndex;
+                lastCursorForbiddenTargetX = targetX;
+                lastCursorForbiddenTargetY = targetY;
+                lastCursorForbiddenAvailabilityGate = availabilityGate;
+                lastCursorForbiddenCurrentTileId = currentTileId;
+                lastCursorForbiddenReason = reason;
+
+                if (cursorForbiddenLogCount >= MaximumCursorForbiddenLogs)
+                {
+                    if (!cursorForbiddenLogLimitReported)
+                    {
+                        cursorForbiddenLogLimitReported = true;
+                        Shared.DebugLogHelper.LogWarning(
+                            log,
+                            $"MoveMoat forbidden-cursor diagnostics reached their {MaximumCursorForbiddenLogs}-entry limit.");
+                    }
+                    return;
+                }
+
+                cursorForbiddenLogCount++;
+                string unitState = "unavailable";
+                Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
+                if (nativeUnitIndex >= 0 && nativeUnitIndex < units.Length)
+                {
+                    GameUnit unit = units[nativeUnitIndex];
+                    unitState =
+                        $"player={unit.r_ControllableForPlayerId} type={(int)unit.r_UnitChimp} " +
+                        $"current=({unit.r_CurrentTilePositionX},{unit.r_CurrentTilePositionY}) " +
+                        $"aiState={unit.r_AIState} moving={unit.r_MovingRelevant}";
+                }
+
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"MoveMoat stage=cursor-forbidden reason={reason} target=({targetX},{targetY}) " +
+                    $"nativeUnitIndex={nativeUnitIndex} nextUnitId={nextUnitId} " +
+                    $"shortcut={shortcutResult} availabilityGate={availabilityGate} " +
+                    $"currentTile={currentTileId} currentFlags=0x{currentTileFlags:X8} " +
+                    $"requiredFlags=0x{CursorCurrentTileRequiredFlags:X8} " +
+                    $"evaluation={cursorEvaluationSerial} specialResult={lastCursorSpecialModeResult} " +
+                    $"regionObserved={regionObserved} regionResult={lastCursorRegionPrecheckResult} " +
+                    $"directObserved={directObserved} directResult={lastDirectCursorResult} " +
+                    $"unitState=[{unitState}].");
+            }
+            catch (Exception ex)
+            {
+                if (cursorForbiddenLogLimitReported)
+                    return;
+                cursorForbiddenLogLimitReported = true;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"MoveMoat forbidden-cursor diagnostics failed once; Vanilla cursor behavior remains active: {ex}");
+            }
+        }
+
+        private int ObserveCursorSpecialMode(IntPtr selectionState)
+        {
+            CursorSpecialModeDelegate vanilla = originalCursorSpecialMode;
+            if (vanilla == null)
+                return 0;
+
+            int vanillaResult = vanilla(selectionState);
+            if (disposed)
+                return vanillaResult;
+
+            cursorEvaluationSerial++;
+
+            try
+            {
+                int targetX = *cursorTargetX;
+                int targetY = *cursorTargetY;
+                int gate = int.MinValue;
+                int occupiedSlots = 0;
+                if (selectionState != IntPtr.Zero)
+                {
+                    byte* state = (byte*)selectionState.ToPointer();
+                    gate = *(int*)(state + 0x5BC);
+                    int* slots = (int*)(state + 0x564);
+                    for (int index = 0; index < 35; index++)
+                    {
+                        if (index != 22 && slots[index] != 0)
+                            occupiedSlots++;
+                    }
+                }
+
+                if (occupiedSlots > 0 && !cursorPollArmed)
+                {
+                    // Ignore menu and pre-selection mouse movement so the bounded poll log
+                    // remains available for the actual selected-unit hover test.
+                    cursorPollArmed = true;
+                    cursorPollLogCount = 0;
+                    cursorPollLogLimitReported = false;
+                    hasLastCursorPollState = false;
+                }
+
+                bool changed = !hasLastCursorSpecialModeState ||
+                    targetX != lastCursorSpecialModeTargetX ||
+                    targetY != lastCursorSpecialModeTargetY ||
+                    vanillaResult != lastCursorSpecialModeResult ||
+                    gate != lastCursorSpecialModeGate ||
+                    occupiedSlots != lastCursorSpecialModeOccupiedSlots;
+                if (!changed)
+                    return vanillaResult;
+
+                hasLastCursorSpecialModeState = true;
+                lastCursorSpecialModeTargetX = targetX;
+                lastCursorSpecialModeTargetY = targetY;
+                lastCursorSpecialModeResult = vanillaResult;
+                lastCursorSpecialModeGate = gate;
+                lastCursorSpecialModeOccupiedSlots = occupiedSlots;
+                if (TryReserveCursorPrecheckLog())
+                {
+                    Shared.DebugLogHelper.LogInfo(
+                        log,
+                        $"MoveMoat stage=cursor-special-mode target=({targetX},{targetY}) " +
+                        $"result={vanillaResult} gate5BC={gate} occupiedSlotsExcluding22={occupiedSlots} " +
+                        $"selectionState=0x{selectionState.ToInt64():X}.");
+                }
+            }
+            catch (Exception ex)
+            {
+                ReportCursorPrecheckFailure("special-mode", ex);
+            }
+
+            return vanillaResult;
+        }
+
+        private int ObserveCursorRegionPrecheck(IntPtr pathManager, int nativeUnitIndex)
+        {
+            CursorRegionPrecheckDelegate vanilla = originalCursorRegionPrecheck;
+            if (vanilla == null)
+                return 0;
+
+            int vanillaResult = vanilla(pathManager, nativeUnitIndex);
+            if (disposed)
+                return vanillaResult;
+
+            cursorRegionEvaluationSerial = cursorEvaluationSerial;
+
+            try
+            {
+                int targetX = *cursorTargetX;
+                int targetY = *cursorTargetY;
+                bool changed = !hasLastCursorRegionPrecheckState ||
+                    nativeUnitIndex != lastCursorRegionPrecheckNativeUnitIndex ||
+                    targetX != lastCursorRegionPrecheckTargetX ||
+                    targetY != lastCursorRegionPrecheckTargetY ||
+                    vanillaResult != lastCursorRegionPrecheckResult;
+                if (!changed)
+                    return vanillaResult;
+
+                hasLastCursorRegionPrecheckState = true;
+                lastCursorRegionPrecheckNativeUnitIndex = nativeUnitIndex;
+                lastCursorRegionPrecheckTargetX = targetX;
+                lastCursorRegionPrecheckTargetY = targetY;
+                lastCursorRegionPrecheckResult = vanillaResult;
+                if (TryReserveCursorPrecheckLog())
+                {
+                    Shared.DebugLogHelper.LogInfo(
+                        log,
+                        $"MoveMoat stage=cursor-region-precheck nativeUnitIndex={nativeUnitIndex} " +
+                        $"target=({targetX},{targetY}) result={vanillaResult} " +
+                        $"pathMode={*moatPathMode} assassinContext={*assassinPathContextFlag} " +
+                        $"pathManager=0x{pathManager.ToInt64():X}.");
+                }
+            }
+            catch (Exception ex)
+            {
+                ReportCursorPrecheckFailure("region", ex);
+            }
+
+            return vanillaResult;
+        }
+
+        private int ObserveCommonPathRequest(
+            IntPtr unitBase,
+            int nativeUnitIndex,
+            int targetX,
+            int targetY,
+            int pathOption)
+        {
+            CommonPathRequestDelegate vanilla = originalCommonPathRequest;
+            if (vanilla == null)
+                return 0;
+
+            int contextBefore = *assassinPathContextFlag;
+            int vanillaResult = vanilla(unitBase, nativeUnitIndex, targetX, targetY, pathOption);
+            int contextAfter = *assassinPathContextFlag;
+            if (disposed)
+                return vanillaResult;
+
+            try
+            {
+                Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
+                bool unitResolved = nativeUnitIndex >= 0 && nativeUnitIndex < units.Length;
+                ActivateRuntimeFromValidatedNativeCall(
+                    unitResolved,
+                    targetX,
+                    targetY,
+                    "shared-common-path");
+
+                bool changed = !hasLastCommonPathState ||
+                    nativeUnitIndex != lastCommonPathNativeUnitIndex ||
+                    targetX != lastCommonPathTargetX ||
+                    targetY != lastCommonPathTargetY ||
+                    pathOption != lastCommonPathOption ||
+                    vanillaResult != lastCommonPathResult ||
+                    contextBefore != lastCommonPathContextBefore ||
+                    contextAfter != lastCommonPathContextAfter;
+                if (!changed)
+                    return vanillaResult;
+
+                hasLastCommonPathState = true;
+                lastCommonPathNativeUnitIndex = nativeUnitIndex;
+                lastCommonPathTargetX = targetX;
+                lastCommonPathTargetY = targetY;
+                lastCommonPathOption = pathOption;
+                lastCommonPathResult = vanillaResult;
+                lastCommonPathContextBefore = contextBefore;
+                lastCommonPathContextAfter = contextAfter;
+
+                if (commonPathLogCount >= MaximumCommonPathLogs)
+                {
+                    if (!commonPathLogLimitReported)
+                    {
+                        commonPathLogLimitReported = true;
+                        Shared.DebugLogHelper.LogWarning(
+                            log,
+                            $"MoveMoat common-path diagnostics reached their {MaximumCommonPathLogs}-entry limit.");
+                    }
+                    return vanillaResult;
+                }
+
+                commonPathLogCount++;
+                string unitState = "unavailable";
+                if (unitResolved)
+                {
+                    GameUnit unit = units[nativeUnitIndex];
+                    unitState =
+                        $"player={unit.r_ControllableForPlayerId} type={(int)unit.r_UnitChimp} " +
+                        $"current=({unit.r_CurrentTilePositionX},{unit.r_CurrentTilePositionY}) " +
+                        $"aiState={unit.r_AIState} moving={unit.r_MovingRelevant}";
+                }
+
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"MoveMoat stage=common-path nativeUnitIndex={nativeUnitIndex} " +
+                    $"target=({targetX},{targetY}) pathOption={pathOption} result={vanillaResult} " +
+                    $"assassinContextBefore={contextBefore} assassinContextAfter={contextAfter} " +
+                    $"unitBase=0x{unitBase.ToInt64():X} unitState=[{unitState}].");
+            }
+            catch (Exception ex)
+            {
+                if (!commonPathLogLimitReported)
+                {
+                    commonPathLogLimitReported = true;
+                    Shared.DebugLogHelper.LogError(
+                        log,
+                        $"MoveMoat common-path diagnostics failed once; Vanilla result remains unchanged: {ex}");
+                }
+            }
+
+            return vanillaResult;
+        }
+
+        private int ObserveCursorReachability(
+            IntPtr pathManager,
+            int nativeUnitIndex,
+            int targetX,
+            int targetY)
+        {
+            CursorReachabilityDelegate vanilla = originalCursorReachability;
+            if (vanilla == null)
+                return 0;
+
+            int vanillaResult = vanilla(pathManager, nativeUnitIndex, targetX, targetY);
+            if (disposed)
+                return vanillaResult;
+
+            cursorDirectEvaluationSerial = cursorEvaluationSerial;
+
+            try
+            {
+                // The complete function detour leaves the caller's conditional branch untouched.
+                // Seeing this call is itself a safe indication that native map/unit state is live.
+                Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
+                bool unitResolved = nativeUnitIndex >= 0 && nativeUnitIndex < units.Length;
+                ActivateRuntimeFromValidatedNativeCall(
+                    unitResolved,
+                    targetX,
+                    targetY,
+                    "cursor-reachability");
+
+                int pathMode = *moatPathMode;
+                int assassinContext = *assassinPathContextFlag;
+                directCursorCallSerial++;
+
+                bool changed = !hasLastDirectCursorState ||
+                    nativeUnitIndex != lastDirectCursorNativeUnitIndex ||
+                    targetX != lastDirectCursorTargetX ||
+                    targetY != lastDirectCursorTargetY ||
+                    vanillaResult != lastDirectCursorResult ||
+                    pathMode != lastDirectCursorPathMode ||
+                    assassinContext != lastDirectCursorAssassinContext;
+                if (!changed)
+                    return vanillaResult;
+
+                hasLastDirectCursorState = true;
+                lastDirectCursorNativeUnitIndex = nativeUnitIndex;
+                lastDirectCursorTargetX = targetX;
+                lastDirectCursorTargetY = targetY;
+                lastDirectCursorResult = vanillaResult;
+                lastDirectCursorPathMode = pathMode;
+                lastDirectCursorAssassinContext = assassinContext;
+
+                if (directCursorLogCount >= MaximumDirectCursorLogs)
+                {
+                    if (!directCursorLogLimitReported)
+                    {
+                        directCursorLogLimitReported = true;
+                        Shared.DebugLogHelper.LogWarning(
+                            log,
+                            $"MoveMoat direct cursor diagnostics reached their {MaximumDirectCursorLogs}-entry limit.");
+                    }
+                    return vanillaResult;
+                }
+
+                directCursorLogCount++;
+                string unitState = "unavailable";
+                if (unitResolved)
+                {
+                    GameUnit unit = units[nativeUnitIndex];
+                    unitState =
+                        $"player={unit.r_ControllableForPlayerId} type={(int)unit.r_UnitChimp} " +
+                        $"current=({unit.r_CurrentTilePositionX},{unit.r_CurrentTilePositionY}) " +
+                        $"unitTarget=({unit.r_TargetTilePositionX},{unit.r_TargetTilePositionY}) " +
+                        $"aiState={unit.r_AIState} moving={unit.r_MovingRelevant}";
+                }
+
+                TileDiagnostic target = GetTileDiagnostic(targetX, targetY);
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"MoveMoat stage=cursor-direct serial={directCursorCallSerial} " +
+                    $"nativeUnitIndex={nativeUnitIndex} pathManager=0x{pathManager.ToInt64():X} " +
+                    $"target=({targetX},{targetY}) targetTile=[{target}] " +
+                    $"targetAvailability={GetMovementAvailability(targetX, targetY)} " +
+                    $"vanilla={vanillaResult} pathMode={pathMode} assassinContext={assassinContext} " +
+                    $"cursorGlobals=({*cursorTargetX},{*cursorTargetY}) unitState=[{unitState}].");
+            }
+            catch (Exception ex)
+            {
+                if (directCursorLogLimitReported)
+                    return vanillaResult;
+                directCursorLogLimitReported = true;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"MoveMoat direct cursor diagnostics failed once; Vanilla cursor behavior remains active: {ex}");
+            }
+
+            return vanillaResult;
+        }
+
+        private void ObserveCursorFrame()
+        {
+            if (disposed || !cursorPollArmed || Time.frameCount == lastCursorPollFrame)
+                return;
+            lastCursorPollFrame = Time.frameCount;
+
+            try
+            {
+                int targetX = *cursorTargetX;
+                int targetY = *cursorTargetY;
+                int state548 = *cursorState548;
+                int state54C = *cursorState54C;
+                int state550 = *cursorState550;
+                int state55C = *cursorState55C;
+                int state560 = *cursorState560;
+                int pathMode = *moatPathMode;
+                int assassinContext = *assassinPathContextFlag;
+                long directSerial = directCursorCallSerial;
+                bool changed = !hasLastCursorPollState ||
+                    targetX != lastCursorPollTargetX ||
+                    targetY != lastCursorPollTargetY ||
+                    state548 != lastCursorPollState548 ||
+                    state54C != lastCursorPollState54C ||
+                    state550 != lastCursorPollState550 ||
+                    state55C != lastCursorPollState55C ||
+                    state560 != lastCursorPollState560 ||
+                    pathMode != lastCursorPollPathMode ||
+                    assassinContext != lastCursorPollAssassinContext;
+                if (!changed)
+                    return;
+
+                hasLastCursorPollState = true;
+                lastCursorPollTargetX = targetX;
+                lastCursorPollTargetY = targetY;
+                lastCursorPollState548 = state548;
+                lastCursorPollState54C = state54C;
+                lastCursorPollState550 = state550;
+                lastCursorPollState55C = state55C;
+                lastCursorPollState560 = state560;
+                lastCursorPollPathMode = pathMode;
+                lastCursorPollAssassinContext = assassinContext;
+
+                if (cursorPollLogCount >= MaximumCursorPollLogs)
+                {
+                    if (!cursorPollLogLimitReported)
+                    {
+                        cursorPollLogLimitReported = true;
+                        Shared.DebugLogHelper.LogWarning(
+                            log,
+                            $"MoveMoat cursor polling diagnostics reached their {MaximumCursorPollLogs}-entry limit.");
+                    }
+                    return;
+                }
+
+                cursorPollLogCount++;
+                TileDiagnostic target = GetTileDiagnostic(targetX, targetY);
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"MoveMoat stage=cursor-poll frame={lastCursorPollFrame} " +
+                    $"target=({targetX},{targetY}) targetTile=[{target}] " +
+                    $"targetAvailability={GetMovementAvailability(targetX, targetY)} " +
+                    $"cursorState=[548={state548},54C={state54C},550={state550}," +
+                    $"55C={state55C},560={state560}] pathMode={pathMode} " +
+                    $"assassinContext={assassinContext} directSerial={directSerial} " +
+                    $"lastDirect=[nativeUnitIndex={lastDirectCursorNativeUnitIndex},target=({lastDirectCursorTargetX}," +
+                    $"{lastDirectCursorTargetY}),result={lastDirectCursorResult}].");
+            }
+            catch (Exception ex)
+            {
+                if (cursorPollLogLimitReported)
+                    return;
+                cursorPollLogLimitReported = true;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"MoveMoat cursor polling diagnostics failed once; Vanilla cursor behavior remains active: {ex}");
+            }
+        }
+
+        private void ActivateRuntimeFromValidatedNativeCall(
+            bool unitResolved,
+            int targetX,
+            int targetY,
+            string source)
+        {
+            if (mapRuntimeActive || !unitResolved ||
+                targetX < 0 || targetX >= 800 || targetY < 0 || targetY >= 800)
+                return;
+
+            bool activated = false;
+            lock (trackingLock)
+            {
+                if (!mapRuntimeActive)
+                {
+                    mapRuntimeActive = true;
+                    mapEpoch++;
+                    activated = true;
+                }
+            }
+
+            if (activated)
+            {
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"MoveMoat runtime activated from validated native stage={source} because map-load/start events were not observed.");
+            }
+        }
+
+        private bool TryReserveCursorPrecheckLog()
+        {
+            if (cursorPrecheckLogCount < MaximumCursorPrecheckLogs)
+            {
+                cursorPrecheckLogCount++;
+                return true;
+            }
+
+            if (!cursorPrecheckLogLimitReported)
+            {
+                cursorPrecheckLogLimitReported = true;
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    $"MoveMoat cursor-precheck diagnostics reached their {MaximumCursorPrecheckLogs}-entry limit.");
+            }
+            return false;
+        }
+
+        private void ReportCursorPrecheckFailure(string stage, Exception ex)
+        {
+            if (cursorPrecheckLogLimitReported)
+                return;
+            cursorPrecheckLogLimitReported = true;
+            Shared.DebugLogHelper.LogError(
+                log,
+                $"MoveMoat cursor {stage} diagnostics failed once; Vanilla result remains unchanged: {ex}");
+        }
+
         private void LogReachability(
             int movementClass,
             int targetRegion,
@@ -1758,8 +2646,18 @@ namespace MoveMoatTest
         {
             PlanAttempt plan = activePlanAttempt ?? pendingMoveHereAttempt;
             CommandAttempt command = activeCommandAttempt;
-            if (plan == null && command == null && *moatPathMode == 0)
+            if (plan == null && command == null)
+            {
+                LogCursorReachabilityChange(
+                    movementClass,
+                    targetRegion,
+                    startX,
+                    startY,
+                    vanillaResult,
+                    effectiveResult,
+                    bypassApplied);
                 return;
+            }
 
             if (reachabilityLogCount < MaximumReachabilityLogs)
             {
@@ -1779,6 +2677,65 @@ namespace MoveMoatTest
             Shared.DebugLogHelper.LogWarning(
                 log,
                 $"MoveMoat region diagnostics reached their {MaximumReachabilityLogs}-entry limit.");
+        }
+
+        private void LogCursorReachabilityChange(
+            int movementClass,
+            int targetRegion,
+            int startX,
+            int startY,
+            int vanillaResult,
+            int effectiveResult,
+            bool bypassApplied)
+        {
+            int targetX = *pathTargetX;
+            int targetY = *pathTargetY;
+            int pathMode = *moatPathMode;
+            bool changed = !hasLastCursorReachabilityState ||
+                movementClass != lastCursorMovementClass ||
+                startX != lastCursorStartX ||
+                startY != lastCursorStartY ||
+                targetX != lastCursorTargetX ||
+                targetY != lastCursorTargetY ||
+                targetRegion != lastCursorTargetRegion ||
+                vanillaResult != lastCursorVanillaResult ||
+                effectiveResult != lastCursorEffectiveResult ||
+                pathMode != lastCursorPathMode;
+            if (!changed)
+                return;
+
+            hasLastCursorReachabilityState = true;
+            lastCursorMovementClass = movementClass;
+            lastCursorStartX = startX;
+            lastCursorStartY = startY;
+            lastCursorTargetX = targetX;
+            lastCursorTargetY = targetY;
+            lastCursorTargetRegion = targetRegion;
+            lastCursorVanillaResult = vanillaResult;
+            lastCursorEffectiveResult = effectiveResult;
+            lastCursorPathMode = pathMode;
+
+            if (cursorReachabilityLogCount < MaximumCursorReachabilityLogs)
+            {
+                cursorReachabilityLogCount++;
+                TileDiagnostic target = GetTileDiagnostic(targetX, targetY);
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"MoveMoat stage=cursor-region-candidate movementClass={movementClass} " +
+                    $"start=({startX},{startY}) target=({targetX},{targetY}) " +
+                    $"targetTile=[{target}] targetAvailability={GetMovementAvailability(targetX, targetY)} " +
+                    $"targetRegionArgument={targetRegion} vanilla={vanillaResult} " +
+                    $"effective={effectiveResult} bypass={bypassApplied} pathMode={pathMode}.");
+                return;
+            }
+
+            if (cursorReachabilityLogLimitReported)
+                return;
+            cursorReachabilityLogLimitReported = true;
+            Shared.DebugLogHelper.LogWarning(
+                log,
+                $"MoveMoat cursor reachability diagnostics reached their " +
+                $"{MaximumCursorReachabilityLogs}-entry limit.");
         }
 
         private void LogBuilderResult(
@@ -1877,31 +2834,58 @@ namespace MoveMoatTest
 
         private void TrackPlan(PlanAttempt attempt, GameUnit* unit)
         {
-            TrackedPlan tracked = new TrackedPlan(
-                attempt.Id,
-                attempt.UnitId,
-                attempt.TargetX,
-                attempt.TargetY,
-                attempt.Result,
-                CreateTrackingSignature(unit));
             lock (trackingLock)
+            {
+                if (!mapRuntimeActive)
+                    return;
+
+                TrackedPlan tracked = new TrackedPlan(
+                    attempt.Id,
+                    attempt.UnitId,
+                    attempt.TargetX,
+                    attempt.TargetY,
+                    attempt.Result,
+                    mapEpoch,
+                    CreateTrackingSignature(unit));
                 trackedPlans[attempt.UnitId] = tracked;
+            }
         }
 
         private void ObserveTrackedUnits(int currentTick)
         {
-            if (disposed)
+            if (disposed || !mapRuntimeActive)
                 return;
 
             List<TrackedPlan> plans;
+            int currentEpoch;
             lock (trackingLock)
+            {
+                if (!mapRuntimeActive)
+                    return;
+
+                currentEpoch = mapEpoch;
                 plans = new List<TrackedPlan>(trackedPlans.Values);
+            }
 
             foreach (TrackedPlan tracked in plans)
             {
                 bool remove = false;
                 try
                 {
+                    if (!mapRuntimeActive || tracked.MapEpoch != currentEpoch ||
+                        currentEpoch != mapEpoch)
+                    {
+                        lock (trackingLock)
+                        {
+                            if (trackedPlans.TryGetValue(tracked.UnitId, out TrackedPlan current) &&
+                                ReferenceEquals(current, tracked))
+                            {
+                                trackedPlans.Remove(tracked.UnitId);
+                            }
+                        }
+                        continue;
+                    }
+
                     tracked.AgeTicks++;
                     if (!GameUnitManagerAPI.Instance.TryGetUnitById(
                             tracked.UnitId,
@@ -2189,6 +3173,21 @@ namespace MoveMoatTest
                 Marshal.GetFunctionPointerForDelegate(callback),
                 new NativeDetourConfig { ManualApply = true });
 
+        private static int ResolveGlobalRva(
+            ReadOnlySpan<byte> memory,
+            int displacementRva,
+            int nextInstructionRva,
+            string label)
+        {
+            int resolvedRva = Shared.NativePatternResolver.ResolveRelativeTarget(
+                memory,
+                displacementRva,
+                nextInstructionRva);
+            if (resolvedRva < 0 || resolvedRva > memory.Length - sizeof(int))
+                throw new InvalidOperationException($"The native {label} global is outside CrusaderDE.dll.");
+            return resolvedRva;
+        }
+
         private static void RequireValidatedRva(
             Shared.NativeResolution resolution,
             int expectedRva,
@@ -2203,6 +3202,36 @@ namespace MoveMoatTest
 
         private static void ValidatePatternSpans(ReadOnlySpan<byte> memory)
         {
+            ValidatePatternSpan(
+                memory,
+                CursorReachabilityPatternRva,
+                CursorReachabilityPattern,
+                "ordinary-movement cursor reachability caller");
+            ValidatePatternSpan(
+                memory,
+                CursorForbiddenResultRva,
+                CursorForbiddenResultPattern,
+                "ordinary-movement forbidden-cursor result block");
+            ValidatePatternSpan(
+                memory,
+                CursorReachabilityRva,
+                CursorReachabilityFunctionPattern,
+                "ordinary-movement cursor reachability function");
+            ValidatePatternSpan(
+                memory,
+                CursorSpecialModeRva,
+                CursorSpecialModePattern,
+                "ordinary-movement cursor special-mode precheck");
+            ValidatePatternSpan(
+                memory,
+                CursorRegionPrecheckRva,
+                CursorRegionPrecheckPattern,
+                "ordinary-movement cursor region precheck");
+            ValidatePatternSpan(
+                memory,
+                CommonPathRequestRva,
+                CommonPathRequestPattern,
+                "shared common path request");
             ValidatePatternSpan(
                 memory,
                 CentralMovementPlanRva,
@@ -2292,6 +3321,16 @@ namespace MoveMoatTest
 
         private static void ValidateInlineHookSpans(ReadOnlySpan<byte> memory)
         {
+            ValidateExactBytes(
+                memory,
+                CursorForbiddenResultRva,
+                new byte[]
+                {
+                    0xC7, 0x05, 0x7C, 0xE1, 0x01, 0x06, 0xF6, 0xFF, 0xFF, 0xFF,
+                    0x41, 0xBD, 0x04, 0x00, 0x00, 0x00,
+                    0xC7, 0x05, 0x54, 0xE1, 0x01, 0x06, 0x41, 0x00, 0x00, 0x00
+                },
+                "ordinary-movement forbidden-cursor result block");
             ValidateExactBytes(
                 memory,
                 TribeMovementPrecheckRva,
@@ -2564,6 +3603,7 @@ namespace MoveMoatTest
                 int targetX,
                 int targetY,
                 int result,
+                int mapEpoch,
                 string lastSignature)
             {
                 Id = id;
@@ -2571,6 +3611,7 @@ namespace MoveMoatTest
                 TargetX = targetX;
                 TargetY = targetY;
                 Result = result;
+                MapEpoch = mapEpoch;
                 LastSignature = lastSignature;
             }
 
@@ -2579,6 +3620,7 @@ namespace MoveMoatTest
             public int TargetX { get; }
             public int TargetY { get; }
             public int Result { get; }
+            public int MapEpoch { get; }
             public int AgeTicks { get; set; }
             public int UnchangedTicks { get; set; }
             public string LastSignature { get; set; }

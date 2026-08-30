@@ -11,7 +11,7 @@ namespace RandomEvents
         private bool enableMod = true;
         private int intervalMonths = 3;
         private int cooldownMonths = 6;
-        private readonly int[] chances = new int[15];
+        private readonly int[] chances = new int[RandomEventDefinitions.All.Length];
         private int plagueMin = 1, plagueMax = 10;
         private int lionMin = 1, lionMax = 10;
         private double banditMin = 0.1, banditMax = 5.0;

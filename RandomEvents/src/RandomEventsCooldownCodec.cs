@@ -11,9 +11,10 @@ namespace RandomEvents
 
     internal static class RandomEventsCooldownCodec
     {
-        internal const int EventCount = 15;
+        internal static int EventCount => RandomEventDefinitions.All.Length;
         internal const int MaximumPlayers = 8;
-        internal const int FullIndividualLength = (MaximumPlayers + 1) * EventCount;
+        internal static int FullIndividualLength => checked((MaximumPlayers + 1) * EventCount);
+        internal static int MaximumPayloadLength => checked(MaximumPlayers * EventCount * 2);
 
         public static RandomEventsCooldownPayload[] CreateCandidates(RandomEventsRuntimeState state)
         {
@@ -52,7 +53,7 @@ namespace RandomEvents
             if (multiplayerMode == 0)
             {
                 if (encoding != RandomEventsCooldownEncoding.SharedDense || values.Length != EventCount)
-                    throw new InvalidOperationException("Shared mode requires exactly 15 dense cooldown values.");
+                    throw new InvalidOperationException($"Shared mode requires exactly {EventCount} dense cooldown values.");
                 ValidateNonNegative(values); Array.Copy(values, shared, EventCount); return;
             }
             if (multiplayerMode != 1)

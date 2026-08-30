@@ -29,13 +29,12 @@ namespace RandomEvents
         private const int MaximumBanditGroups = 5;
         private const int ScaledStrengthTenthsPerUnit = 10;
         private const int ScaledStrengthMonthsPerPeriod = 3;
-        private const int EventKindCount = 15;
+        private static int EventKindCount => RandomEventDefinitions.All.Length;
         private const int BanditGroupActivationDelayTicks = 20;
         private const int ChoreProtocolVersion = 2;
         private const int MultiplayerStartupDelayMilliseconds = 5000;
         private const int MultiplayerStartupMinimumTicks = 30;
         private const int MaximumChorePayloadBytes = 1200;
-        private const int MaximumChoreActions = EventKindCount * (GamePlayerManagerAPI.MAX_PLAYERS + 1);
 
         private readonly ManualLogSource log;
         private readonly RandomEventsSettingsViewModel settings;
@@ -466,9 +465,10 @@ namespace RandomEvents
 
         private RandomEventsConfigurationSnapshot CaptureConfiguration()
         {
-            int[] minimums = new int[6];
-            int[] maximums = new int[6];
-            for (int index = 0; index < 6; index++)
+            int strengthKindCount = Enum.GetValues(typeof(RandomEventStrengthKind)).Length - 1;
+            int[] minimums = new int[strengthKindCount];
+            int[] maximums = new int[strengthKindCount];
+            for (int index = 0; index < strengthKindCount; index++)
                 settings.GetStrengthRange((RandomEventStrengthKind)(index + 1), out minimums[index], out maximums[index]);
             int[] chances = settings.SnapshotChances();
             for (int index = 0; index < chances.Length; index++)
@@ -491,7 +491,6 @@ namespace RandomEvents
             int[] targetPlayerIds = GetLivingEventTargetPlayerIds();
             if (targetPlayerIds.Length == 0)
                 return false;
-            Array.Sort(targetPlayerIds);
 
             string prngBefore = RandomEventsDiagnostics.FormatPrng(state.PrngState0, state.PrngState1);
             SavedPrng prng = new SavedPrng(state.PrngState0, state.PrngState1);
@@ -554,7 +553,8 @@ namespace RandomEvents
                 state.PreparedDirectTargetPlayerIds);
             LogDebug(
                 $"Random Events batch prepared: mode={(MultiplayerEventMode)state.MultiplayerMode}, " +
-                $"dueAbsoluteMonth={state.NextDueAbsoluteMonth}, actions={directKinds.Count}, targetPlayers=[{string.Join(",", targetPlayerIds)}], " +
+                $"includeAIPlayers={state.IncludeAIPlayers}, dueAbsoluteMonth={state.NextDueAbsoluteMonth}, " +
+                $"actions={directKinds.Count}, targetPlayers=[{string.Join(",", targetPlayerIds)}], " +
                 $"prngBefore={prngBefore}, prngAfter={RandomEventsDiagnostics.FormatPrng(state.PrngState0, state.PrngState1)}, " +
                 $"actionDigest={actionDigest}, actionOrder={RandomEventsDiagnostics.DescribeActions(state.PreparedDirectKinds, state.PreparedDirectStrengths, state.PreparedDirectTargetPlayerIds)}, " +
                 $"stateDigest={RandomEventsDiagnostics.GetStateDigest(state)}.");
@@ -622,7 +622,8 @@ namespace RandomEvents
             LogDebug(
                 $"Random Events initialization Chore queued: attempt={initializationAttemptCount}, operationId={initializationOperationId}, " +
                 $"bodyBytes={cachedInitializationBody.Length}, bodySha256={cachedInitializationBodyHash}, cooldownEncoding={cachedInitializationCooldownEncoding}, " +
-                $"configurationDigest={RandomEventsDiagnostics.ToHex(state.ConfigurationDigest)}, stateDigest={RandomEventsDiagnostics.ToHex(initializationStateDigest)}, " +
+                $"includeAIPlayers={state.IncludeAIPlayers}, configurationDigest={RandomEventsDiagnostics.ToHex(state.ConfigurationDigest)}, " +
+                $"stateDigest={RandomEventsDiagnostics.ToHex(initializationStateDigest)}, " +
                 $"expectedPlayers=[{string.Join(",", expected)}], missingPlayers=[{string.Join(",", missing)}].");
             return true;
         }
@@ -682,9 +683,11 @@ namespace RandomEvents
                 TargetPlayerIds = (int[])(state.PreparedDirectTargetPlayerIds ?? Array.Empty<int>()).Clone()
             };
 
-            if (!ValidateActionArrays(packet))
+            if (!ValidateActionArrays(packet, out string validationFailure))
             {
-                LogError($"Random Events event batch failed local validation and was not queued: operationId={packet.OperationId}.");
+                LogError(
+                    $"Random Events event batch failed local validation and was not queued: " +
+                    $"operationId={packet.OperationId}, reason={validationFailure}.");
                 return false;
             }
 
@@ -1049,10 +1052,10 @@ namespace RandomEvents
 
         private void ApplyBatchChore(RandomEventsBatchChorePacket packet)
         {
-            if (!ValidateActionArrays(packet))
+            if (!ValidateActionArrays(packet, out string validationFailure))
             {
                 mapActive = false;
-                LogError("Random Events rejected an invalid batch Chore.");
+                LogError($"Random Events rejected an invalid batch Chore: reason={validationFailure}.");
                 return;
             }
             if (isRealMultiplayer && (!multiplayerInitializationReceived || !multiplayerInitializationConfirmed))
@@ -1094,23 +1097,9 @@ namespace RandomEvents
                 $"stateDigestBefore={stateDigestBefore}, stateDigestAfter={RandomEventsDiagnostics.GetStateDigest(state)}.");
         }
 
-        private static bool ValidateActionArrays(RandomEventsBatchChorePacket packet)
+        private bool ValidateActionArrays(RandomEventsBatchChorePacket packet, out string failure)
         {
-            if (packet == null || packet.ProtocolVersion != ChoreProtocolVersion || packet.OperationId <= 0 ||
-                packet.DueAbsoluteMonth < 0 || (packet.PrngState0 | packet.PrngState1) == 0)
-                return false;
-            int count = packet.EventKinds?.Length ?? -1;
-            if (count < 0 || count > MaximumChoreActions ||
-                packet.EventStrengths?.Length != count || packet.TargetPlayerIds?.Length != count)
-                return false;
-
-            for (int index = 0; index < count; index++)
-            {
-                if (packet.EventKinds[index] < 0 || packet.EventKinds[index] >= EventKindCount ||
-                    packet.TargetPlayerIds[index] < 1 || packet.TargetPlayerIds[index] > GamePlayerManagerAPI.MAX_PLAYERS)
-                    return false;
-            }
-            return true;
+            return RandomEventsBatchValidator.Validate(packet, ChoreProtocolVersion, state, out failure);
         }
 
         private int NextOperationId()
@@ -1378,7 +1367,7 @@ namespace RandomEvents
                 return false;
             }
 
-            if (!TryGetLivingLord(targetPlayerId, out string lordFailure))
+            if (!RandomEventsParticipantResolver.TryGetLivingLord(targetPlayerId, out string lordFailure))
             {
                 LogDebug(
                     $"Random event skipped: event={definition.Name}, targetPlayerId={targetPlayerId}, " +
@@ -1771,23 +1760,12 @@ namespace RandomEvents
             }
 
             HashSet<int> activePlayers = new HashSet<int>(activePlayerIds);
-            List<int> participants = new List<int>();
-            foreach (int playerId in activePlayerIds)
+            participantPlayerIds = RandomEventsParticipantResolver.GetLivingEventParticipantIds(state.IncludeAIPlayers);
+            if (Array.IndexOf(participantPlayerIds, targetPlayerId) < 0)
             {
-                if (players.IsPlayerIdValid(playerId) &&
-                    (state.IncludeAIPlayers || !players.IsAIPlayer(playerId)))
-                {
-                    participants.Add(playerId);
-                }
-            }
-            if (!participants.Contains(targetPlayerId))
-            {
-                participantPlayerIds = participants.ToArray();
                 failure = $"target player {targetPlayerId} is not an active event participant in gameMembers=[{string.Join(",", activePlayerIds)}]";
                 return false;
             }
-            participants.Sort();
-            participantPlayerIds = participants.ToArray();
 
             for (int playerId = 1; playerId <= GamePlayerManagerAPI.MAX_PLAYERS; playerId++)
             {
@@ -2222,29 +2200,12 @@ namespace RandomEvents
         private int[] GetLivingHumanPlayerIds()
         {
             // Only real network members can acknowledge initialization; AI targets never enter the ACK quorum.
-            return GetLivingPlayerIds(includeAIPlayers: false);
+            return RandomEventsParticipantResolver.GetLivingEventParticipantIds(includeAIPlayers: false);
         }
 
         private int[] GetLivingEventTargetPlayerIds()
         {
-            return GetLivingPlayerIds(state != null && state.IncludeAIPlayers);
-        }
-
-        private static int[] GetLivingPlayerIds(bool includeAIPlayers)
-        {
-            List<int> result = new List<int>();
-            GamePlayerManagerAPI playerApi = GamePlayerManagerAPI.Instance;
-            foreach (int playerId in Shared.ActivePlayerHelper.GetActivePlayerIds())
-            {
-                if (!playerApi.IsPlayerIdValid(playerId) ||
-                    (!includeAIPlayers && playerApi.IsAIPlayer(playerId)) ||
-                    !TryGetLivingLord(playerId, out _))
-                {
-                    continue;
-                }
-                result.Add(playerId);
-            }
-            return result.ToArray();
+            return RandomEventsParticipantResolver.GetLivingEventParticipantIds(state != null && state.IncludeAIPlayers);
         }
 
         private bool SpawnRabbitInfestation(int targetPlayerId)
@@ -2421,43 +2382,6 @@ namespace RandomEvents
                 return;
             }
             LogError($"Native Vanilla wildlife event disabled or failed: event={eventName}, targetPlayerId={targetPlayerId}, {details}.");
-        }
-
-        private static unsafe bool TryGetLivingLord(int playerId, out string failure)
-        {
-            failure = string.Empty;
-            if (!GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(
-                    playerId,
-                    out GamePlayerResources* resources) ||
-                resources == null)
-            {
-                failure = "player resources unavailable";
-                return false;
-            }
-
-            uint lordUnitId = resources->r_LordUnitId;
-            if (lordUnitId == 0 || lordUnitId > int.MaxValue)
-            {
-                failure = "no valid Lord unit is registered";
-                return false;
-            }
-            if (!GameUnitManagerAPI.Instance.TryGetUnitById((int)lordUnitId, out GameUnit* lord) || lord == null)
-            {
-                failure = "registered Lord unit cannot be resolved";
-                return false;
-            }
-            if (lord->r_AliveState != AliveState.IsAlive)
-            {
-                failure = $"registered Lord unit state is {lord->r_AliveState}";
-                return false;
-            }
-            if (lord->r_UnitChimp != eChimps.CHIMP_TYPE_LORD || lord->r_ControllableForPlayerId != playerId)
-            {
-                failure = "registered unit is not the target player's Lord";
-                return false;
-            }
-
-            return true;
         }
 
         private int GetCurrentAbsoluteMonth()
