@@ -1,18 +1,29 @@
-Place only supported media in these relative directories:
+Examples of logical asset locations below Override:
 
-Assets/GUI/Sprites/*.png
-Assets/GUI/Video/*.webm
-Locales/en-US/fx/speech/*.ogg or *.wav (required English speech set)
-Locales/<locale>/fx/speech/*.ogg or *.wav (optional translations)
+Assets/GUI/Sprites/your-lord.png
+Assets/GUI/Video/your-lord-neutral.webm
+fx/speech/your-lord-neutral.ogg
+Locales/en-US/fx/speech/your-lord-message.ogg
+Locales/<locale>/fx/speech/your-lord-message.ogg
 
-Keep the same logical speech path in lordmeta.json for every language. The Script
-Extender resolves the current locale, then en-US. Do not shorten en-US to en. Keep
-global fx/speech files only for intentionally language-neutral audio. OGG Vorbis is
-recommended. WAV must be PCM at exactly 44100 Hz; 48000-Hz legacy WAV files are not
-accepted by the current Script Extender decoder.
+JoinAudioPath and LeaveAudioPath use the full logical path, for example
+fx/speech/your-lord-join. AudioPath in a Messages clip uses only the speech name.
+VideoPath uses the bare message-video stem, backed by a WEBM in Assets/GUI/Video.
 
-JoinAudioPath and LeaveAudioPath include the fx/speech/ prefix. AudioPath inside a
-Messages entry uses only the speech name because the native message path adds that
-prefix. Use lord-specific names so another asset package cannot overwrite them.
+Locale-aware audio resolves the current locale, then en-US, then the global path.
+OGG Vorbis is recommended. WAV must be RIFF/WAVE PCM format 1, mono or stereo,
+exactly 44.1 kHz (44100 Hz), 16-bit, and contain a valid non-empty data chunk.
+For maximum compatibility, export a conventional PCM WAV with the normal fmt
+chunk directly after the WAVE header and no odd-sized metadata chunk before data.
+The Script Extender does not resample 48-kHz legacy speech; such WAV files are
+rejected at playback even though the uploader transports them.
 
-This instruction file is ignored by the Workshop staging feature and is not uploaded.
+The complete package may also use other Override assets supported by the Script
+Extender Asset API. It may contain root init.lua and relative Lord-AI modules,
+root Locales/<locale>/crusader.txt, and Scripts/init.lua for an Asset Mod script.
+
+The uploader copies every regular extra file without an extension allowlist. This
+instruction file and the template screenshot will therefore also be uploaded if
+they are left in a copied Lord folder. Remove template instructions, screenshots,
+source media, archives, conversion projects, executables, DLLs, and backups before
+publishing. Keep the final Lord directory limited to intentional package content.

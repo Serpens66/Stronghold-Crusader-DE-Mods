@@ -31,7 +31,7 @@
   "Messages": {
     "IncomingMessage": [
       {
-        "VideoPath": "Assets/GUI/Video/your-lord-neutral",
+        "VideoPath": "your-lord-neutral",
         "AudioPath": "your-lord-incoming",
         "LocalizedText": {
           "en-US": "A message from Your Lord.",
