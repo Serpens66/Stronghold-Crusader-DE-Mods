@@ -9,6 +9,7 @@ using SHCDESE.API.Components.ModManager;
 using SHCDESE.API.LowLevel;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -24,7 +25,7 @@ namespace SerpsModsHost
         private const string InfoFileName = "info.json";
         public const string PluginGuid = "SerpsMods_Serp";
         public const string PluginName = "Serps Mods";
-        public const string PluginVersion = "1.1.0";
+        public const string PluginVersion = "1.1.1";
         public const bool CustomCustomTrailModSettingsOptOut = true;
         private const string ManifestFileName = "serps-modpack.json";
 
@@ -151,10 +152,24 @@ namespace SerpsModsHost
                     out string minimumVersion,
                     out string maximumVersion);
 
-                string scriptExtenderInfoPath = ResolveScriptExtenderInfoPath();
-                string installedVersion = PackManifestJson.ReadStringProperty(
-                    File.ReadAllText(scriptExtenderInfoPath),
-                    "Version");
+                string scriptExtenderAssemblyPath = ResolveScriptExtenderAssemblyPath();
+                ScriptExtenderVersionResolution versionResolution = ResolveScriptExtenderVersion(
+                    scriptExtenderAssemblyPath);
+                if (!versionResolution.IsResolved)
+                {
+                    if (versionResolution.ContainsOnlyPlaceholders)
+                    {
+                        diagnostics.SetScriptExtenderCompatibilityWarning(string.Empty);
+                        Shared.DebugLogHelper.LogWarning(
+                            Logger,
+                            $"[{PluginName}] Script Extender compatibility check skipped because all usable " +
+                            $"version values are the known 1.0.0 placeholder; {versionResolution.Diagnostic}.");
+                        return;
+                    }
+                    throw new InvalidDataException(versionResolution.Diagnostic);
+                }
+
+                string installedVersion = versionResolution.Version;
                 ScriptExtenderCompatibilityResult result = ScriptExtenderCompatibility.Evaluate(
                     installedVersion,
                     minimumVersion,
@@ -166,7 +181,8 @@ namespace SerpsModsHost
                     Shared.DebugLogHelper.LogDebug(
                         Logger,
                         $"[{PluginName}] Script Extender {result.InstalledVersion} is within the supported range " +
-                        $"{result.MinimumVersion} to {(result.HasMaximum ? result.MaximumVersion : "unlimited")}.");
+                        $"{result.MinimumVersion} to {(result.HasMaximum ? result.MaximumVersion : "unlimited")}; " +
+                        versionResolution.Diagnostic + ".");
                     return;
                 }
 
@@ -202,21 +218,68 @@ namespace SerpsModsHost
             }
         }
 
-        private static string ResolveScriptExtenderInfoPath()
+        private static ScriptExtenderVersionResolution ResolveScriptExtenderVersion(string assemblyPath)
         {
-            if (Chainloader.PluginInfos.TryGetValue(ScriptExtenderGuid, out PluginInfo pluginInfo) &&
-                !string.IsNullOrWhiteSpace(pluginInfo.Location))
+            var evidence = new List<ScriptExtenderVersionEvidence>();
+            string directory = Path.GetDirectoryName(assemblyPath);
+            string infoPath = Path.Combine(directory, InfoFileName);
+            try
             {
-                string besidePlugin = Path.Combine(Path.GetDirectoryName(pluginInfo.Location), InfoFileName);
-                if (File.Exists(besidePlugin))
-                    return besidePlugin;
+                evidence.Add(new ScriptExtenderVersionEvidence(
+                    "info.json",
+                    File.Exists(infoPath)
+                        ? PackManifestJson.ReadStringProperty(File.ReadAllText(infoPath), "Version")
+                        : string.Empty));
+            }
+            catch (Exception ex)
+            {
+                evidence.Add(new ScriptExtenderVersionEvidence("info.json", "invalid: " + ex.Message));
             }
 
-            string conventionalPath = Path.Combine(Paths.PluginPath, ScriptExtenderGuid, InfoFileName);
+            if (Chainloader.PluginInfos.TryGetValue(ScriptExtenderGuid, out PluginInfo pluginInfo))
+            {
+                evidence.Add(new ScriptExtenderVersionEvidence(
+                    "BepInEx metadata",
+                    pluginInfo.Metadata.Version?.ToString()));
+            }
+
+            try
+            {
+                evidence.Add(new ScriptExtenderVersionEvidence(
+                    "assembly version",
+                    AssemblyName.GetAssemblyName(assemblyPath).Version?.ToString()));
+            }
+            catch (Exception ex)
+            {
+                evidence.Add(new ScriptExtenderVersionEvidence("assembly version", "invalid: " + ex.Message));
+            }
+
+            try
+            {
+                FileVersionInfo fileVersion = FileVersionInfo.GetVersionInfo(assemblyPath);
+                evidence.Add(new ScriptExtenderVersionEvidence("file version", fileVersion.FileVersion));
+                evidence.Add(new ScriptExtenderVersionEvidence("product version", fileVersion.ProductVersion));
+            }
+            catch (Exception ex)
+            {
+                evidence.Add(new ScriptExtenderVersionEvidence("file/product version", "invalid: " + ex.Message));
+            }
+
+            return ScriptExtenderVersionResolver.Resolve(evidence);
+        }
+
+        private static string ResolveScriptExtenderAssemblyPath()
+        {
+            if (Chainloader.PluginInfos.TryGetValue(ScriptExtenderGuid, out PluginInfo pluginInfo) &&
+                !string.IsNullOrWhiteSpace(pluginInfo.Location) &&
+                File.Exists(pluginInfo.Location))
+                return pluginInfo.Location;
+
+            string conventionalPath = Path.Combine(Paths.PluginPath, ScriptExtenderGuid, "SHCDESE.dll");
             if (File.Exists(conventionalPath))
                 return conventionalPath;
 
-            throw new FileNotFoundException("The installed Script Extender info.json could not be found.", conventionalPath);
+            throw new FileNotFoundException("The installed Script Extender assembly could not be found.", conventionalPath);
         }
 
         private static void ValidateRecord(

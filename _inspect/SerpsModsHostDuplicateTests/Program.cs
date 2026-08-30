@@ -159,6 +159,23 @@ namespace SerpsModsHostDuplicateTests
 
         private static void TestScriptExtenderCompatibility()
         {
+            AssertResolvedVersion(
+                "1.43.2",
+                false,
+                new ScriptExtenderVersionEvidence("info", "1.0.0"),
+                new ScriptExtenderVersionEvidence("assembly", "1.43.2.0"),
+                new ScriptExtenderVersionEvidence("product", "1.43.2+commit"));
+            AssertResolvedVersion(
+                null,
+                true,
+                new ScriptExtenderVersionEvidence("info", "1.0.0"),
+                new ScriptExtenderVersionEvidence("assembly", "1.0.0.0"));
+            AssertResolvedVersion(
+                null,
+                false,
+                new ScriptExtenderVersionEvidence("info", "1.43.2"),
+                new ScriptExtenderVersionEvidence("assembly", "1.44.0"));
+
             AssertCompatibility("1.43.2", "1.43.2", "", ScriptExtenderCompatibilityStatus.Compatible);
             AssertCompatibility("1.44.0", "1.43.2", null, ScriptExtenderCompatibilityStatus.Compatible);
             AssertCompatibility("1.43", "1.43.0", "1.43.0.0", ScriptExtenderCompatibilityStatus.Compatible);
@@ -168,6 +185,22 @@ namespace SerpsModsHostDuplicateTests
             AssertCompatibility("preview", "1.43.2", "", ScriptExtenderCompatibilityStatus.InvalidInstalledVersion);
             AssertCompatibility("1.43.2", "", "", ScriptExtenderCompatibilityStatus.InvalidMinimumVersion);
             AssertCompatibility("1.43.2", "1.43.2", "latest", ScriptExtenderCompatibilityStatus.InvalidMaximumVersion);
+        }
+
+        private static void AssertResolvedVersion(
+            string expected,
+            bool expectedOnlyPlaceholders = false,
+            params ScriptExtenderVersionEvidence[] evidence)
+        {
+            ScriptExtenderVersionResolution result = ScriptExtenderVersionResolver.Resolve(evidence);
+            if (!string.Equals(result.Version, expected, StringComparison.Ordinal) ||
+                result.ContainsOnlyPlaceholders != expectedOnlyPlaceholders)
+            {
+                throw new InvalidOperationException(
+                    $"Expected resolved Script Extender version '{expected ?? "<none>"}', " +
+                    $"placeholderOnly={expectedOnlyPlaceholders}; got '{result.Version ?? "<none>"}', " +
+                    $"placeholderOnly={result.ContainsOnlyPlaceholders}: {result.Diagnostic}");
+            }
         }
 
         private static void AssertCompatibility(
