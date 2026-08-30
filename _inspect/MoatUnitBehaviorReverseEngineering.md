@@ -167,6 +167,216 @@ Validierte 26-Byte-Spanne bei `0x8F3DA`:
 
 `C7 05 7C E1 01 06 F6 FF FF FF 41 BD 04 00 00 00 C7 05 54 E1 01 06 41 00 00 00`
 
+Die Diagnose ergab anschließend für die ausgewählte Unit:
+
+- Vanillas Zielverfügbarkeit war `1`;
+- der normale Cursorpfad hatte noch keinen Erfolg gesetzt (`EBX=0`);
+- `R15D` war ebenfalls gültig (`1`);
+- das aktuelle Unit-Tile hatte `0x00008000`, während der nachfolgende Sonderpfad die
+  Maske `0x10000100` verlangt;
+- deshalb wurden `0xE9D90` und `0xE9FF0` nicht erreicht.
+
+Ein erster allgemeiner Moat-Cursorfix setzte deshalb früher an RVA `0x8F1C4` an, unmittelbar
+nach Vanillas normaler Erreichbarkeitsfunktion `0xE2610`. Er konnte den Cursor tatsächlich
+grün machen. Der folgende Klick erzeugte jedoch weder `MoveHere`- noch gemeinsame Pfadlogs.
+Zusätzlich wurden erreichbare Bodentiles hinter einer Mauer fälschlich grün. Der Test belegte
+damit, dass eine lokale Änderung des `EAX`-Ergebnisses an dieser Callsite nur das sichtbare
+Feedback ändert, nicht aber alle für die Befehlsannahme erforderlichen Prüfungen und Zustände.
+Dieser Inline-Bypass ist daher wieder deaktiviert; seine Bytes bleiben nur zur Revisionskontrolle
+validiert.
+
+Validierte 14-Byte-Spanne bei `0x8F1C4`:
+
+`85 C0 48 8D 3D E3 FB FC 03 B8 01 00 00 00`
+
+Die Logkorrelation zeigte beim Klick auf das nur durch den Moat erreichbare Ziel anschließend
+`0` in der echten Regionsvorprüfung `0xE9D90`; `0xE9FF0`, `MoveHere` und die gemeinsamen
+Pfadfunktionen wurden nicht erreicht. Die Freigabe muss deshalb in den von Hover und Klick
+gemeinsam verwendeten nativen Prüffunktionen erfolgen. `MoveMoatTest` lässt nun zuerst jeweils
+Vanilla laufen und ersetzt ein Ergebnis `0` nur dann durch `1`, wenn eine konservative
+read-only Tile-Suche einen Weg vom nativen Unit-Tile zum Ziel findet, der mindestens ein
+fertiges Moat-Tile (`0x40000000`) benutzt. Die Suche
+
+- verwendet nur orthogonale Nachbarn, um kein diagonales Schneiden über Mauer-/Wasserecken
+  zu simulieren;
+- lässt vor dem ersten Moat nur die Startregion zu;
+- lässt danach neben Moat-Tiles nur Start- und konkrete Zielregion zu;
+- verlangt ein gültiges, verfügbares Ziel in einer positiven Pfadregion;
+- verändert weder Tileflags noch den nativen Builderzustand und fällt bei Fehlern auf Vanilla
+  zurück.
+
+Damit sollen `0xE9D90` und anschließend `0xE9FF0` denselben effektiven Erfolg sehen. Die Logs
+weisen für beide Funktionen `vanilla`, `effective`, `completedMoatRoute` und den Cache-Neuaufbau
+separat aus. Ob dies bereits genügt, damit der Klick den Auftrag erzeugt, ist der nächste
+Ingame-Test; `0xE9FF0` schreibt bei einem echten Vanilla-Erfolg zusätzlich interne
+Pathmanager-Ausgabefelder, die der Testmod bewusst noch nicht künstlich setzt.
+
+Der folgende Test zeigte, dass allein diese beiden Detours noch nicht erreichbar waren:
+Bei allen getrennten Zielen sprang Vanilla weiterhin an `0x8F393` nach dem fehlgeschlagenen
+`test [currentTileFlags],0x10000100` direkt in den Verbotblock. Die Logs meldeten konsistent
+`reason=selected-unit-current-tile-flags`, `currentFlags=0x00008000`, `regionObserved=False`
+und `directObserved=False`. Deshalb erhielt `MoveMoatTest` zunächst einen eng begrenzten Hook auf
+der vollständigen 11-Byte-TEST-Instruktion bei `0x8F388`. Die verdrängte Instruktion läuft
+zuerst. Nur wenn ihr Ergebnis ZF setzt und die konservative Moat-Suche für genau die ausgewählte
+Unit und das aktuelle Cursorziel positiv ist, löscht der Callback ausschließlich ZF. Der
+unveränderte `JE` bei `0x8F393` fällt dann in Vanillas `0xE9D90`-/`0xE9FF0`-Kette durch.
+Tileflags, Register und Sprungcode werden nicht verändert; bei einer negativen Suche und bei
+jedem Fehler bleibt das Vanilla-ZF bestehen.
+
+Der erste Lauf mit diesem Hook erreichte weiterhin den Verbotblock und erzeugte keinen
+`cursor-moat-grid`-Eintrag. Ursache war die Hookregistrierung nur mit
+`X64SmartCPUContextRegs.All`: Statusflags müssen bei Zhuqiaomons Context-Hooks wie in den
+bereits bewährten ImprovedHunters-ZF-Hooks ausdrücklich zusätzlich mit
+`X64SmartCPUContextRegs.Flags` angefordert werden. Die Registrierung verwendet deshalb nun
+`All | Flags`. Außerdem loggte der Callback direkt `vanillaZeroFlag`, das Ergebnis der
+Moat-Suche und die Aktion `clear-zf` beziehungsweise `vanilla-je`.
+
+Da auch der folgende Lauf keinen dieser Entscheidungslogs erzeugte, wurden für die nächsten
+24 Callback-Eintritte zusätzlich bereits vor der ZF-/Armed-Schranke
+`cursor-current-tile-flag-gate-entry` mit rohem `Rflags`, decodiertem ZF und
+`cursorPollArmed` geschrieben. Fehlt selbst dieser Eintrag trotz nachfolgendem Verbotblock,
+wird die Hookstelle nicht ausgeführt beziehungsweise später überschrieben; erscheint er,
+ist die genaue früh zurückkehrende Bedingung unmittelbar sichtbar.
+
+Validierte 11-Byte-Spanne bei `0x8F388`:
+
+`F7 84 97 00 84 89 00 00 01 00 10`
+
+Der anschließende Lauf bestätigte die Cursorfreigabe: Das nur durch den fertigen Moat
+erreichbare Ziel blieb grün. Beim Klick bewegte sich die Unit trotzdem nicht. In diesem
+Testaufbau hatten Boden, Moat und Ziel dieselbe positive Regions-ID, weshalb die grüne Farbe
+teilweise sogar Vanillas regulärem Regionsergebnis entsprach. Ein grüner Cursor ist damit
+kein Nachweis dafür, dass ein Bewegungsauftrag erzeugt oder konsumiert wurde.
+
+Die weitere native Analyse des gewöhnlichen Ground-Move-Klicks ergab einen bislang getrennt
+betrachteten Auftragspfad:
+
+1. Im großen Eingabedispatcher beginnt der Ground-Move-Zweig bei `0x8F75E`. Nur
+   `R13D == 2` fällt in diesen Zweig; danach werden Cursorzustand, lokaler Spieler und Ziel
+   geladen.
+2. Bei `0x8F7BA` wird `0x195E30` mit Spieler und Zielkoordinaten aufgerufen. Diese Funktion
+   führt eigene Auswahl-, Unit-, Tile- und Modusprüfungen aus. Sie kann außerdem abhängig von
+   `0x180B60` den separaten Floodfill-Helfer `0xDB650` verwenden.
+3. Der Rückgabeblock dieses optionalen Floodfills bei `0x195FC5` ist keine sichere
+   Inline-Hookstelle: Ein Vanilla-Sprung von `0x195F65` landet bei `0x195FD1` mitten in einer
+   ausreichend großen möglichen Hookspanne. Er wird deshalb bewusst nicht gepatcht.
+4. Der Eingabezweig ruft danach `0x199C30` für die eigentliche Weitergabe des Auftrags auf.
+5. Der dekodierte beziehungsweise eingereihte Move-Auftrag wird an der Callsite `0x10CAB`
+   durch den Wrapper `0x196100` konsumiert. Dieser ruft bei `0x19614F` den zentralen
+   Tribe-MoveHere-Pfad `0x11B520` auf, der schließlich die bereits beobachteten per-Unit-
+   MoveHere- und Pfadfunktionen erreicht.
+
+Ein Diagnoseversuch beobachtete deshalb ausschließlich read-only und mit gemeinsamem
+64-Einträge-Limit die Stationen `0x8F75E`, `0x195E30` und `0x196100`.
+Die drei Logstufen `ground-click-branch`, `ground-command-entry` und
+`ground-command-queue-consumer` unterscheiden, ob der Klick schon im UI-Dispatcher verloren
+geht, zwar geprüft aber nicht weitergegeben wird oder erst nach der Queue in der eigentlichen
+Tribe-/Unit-Bewegung scheitert. Alle drei Stellen sind gegen eindeutige Patterns und die
+vollständigen verdrängten Originalbytes der kanonischen DLL validiert.
+
+Dieser Diagnoseversuch wurde nach dem ersten Lauf vollständig zurückgenommen: Das Spiel
+stürzte beim ersten gewöhnlichen, erreichbaren Move-Klick ab. Das Log endete noch während
+eines normalen `cursor-poll`-Eintrags und enthielt keinen der neuen `ground-*`-Einträge. Am
+wahrscheinlichsten wurde damit der interne Kontrollfluss-Hook bei `0x8F75E` bereits beim
+Betreten seiner Trampoline beschädigt; eine formal vollständige Instruktionsspanne genügt an
+einem internen Sprungziel nicht als Sicherheitsnachweis. Um keine weitere ungetestete ABI-
+Annahme in denselben Reparaturlauf einzubauen, wurden auch die beiden Funktionsanfangs-
+Observer bei `0x195E30` und `0x196100` zunächst entfernt. Die drei RVAs und der oben
+dokumentierte Vanilla-Ablauf bleiben Analyseerkenntnisse, sind aber keine aktiven Hooks mehr.
+
+Der nächste crashfreie Lauf erklärte anschließend das scheinbare „nur einmal pro Spielstart“:
+Der erste erfolgreiche Moat-Auftrag lief von Region `1` zu Region `1`. Während der realen
+Überquerung änderte sich die Regionskarte jedoch sichtbar. Das letzte Moat-Tile wechselte von
+Region `1` auf `0`, das erste Bodentile auf der anderen Seite von Region `1` auf Region `2`.
+Der Unit-Moat-Marker blieb dabei korrekt auf `1`. Ein weiterer normaler Auftrag innerhalb der
+neuen Region `2` funktionierte; beim Hover zurück nach Region `1` sprang Vanilla wieder bei
+`0x8F393` direkt in den Verbotblock. Es handelt sich damit nicht um eine verbrauchte
+Moat-Freigabe, sondern um die erst nach dem ersten echten Pfad sichtbare Regionstrennung.
+
+Im selben Lauf erschien trotz hunderter nachweislich nachfolgender Verbotblock-Aufrufe kein
+einziger Entry des Hooks bei `0x8F388`. Die erste grüne Anzeige stammte folglich von der noch
+gemeinsamen Region, nicht von der beabsichtigten ZF-Anpassung. Der wirkungslose 11-Byte-Hook
+wurde vollständig entfernt.
+
+Aktuell wird stattdessen ausschließlich der unmittelbar folgende Zwei-Byte-Sprung bei
+`0x8F393` von `74 45` (`je 0x8F3DA`) auf `90 90` geändert. Dadurch fällt der Cursorpfad in
+Vanillas echte Regionsprüfung `0xE9D90` und Direktprüfung `0xE9FF0` durch. Beide Funktionen
+bleiben unverändert aufgerufen; ihre vorhandenen vollständigen Detours ersetzen ein
+Vanilla-Ergebnis `0` nur bei einer konservativ nachgewiesenen Route durch mindestens einen
+fertigen Moat. Ohne eine solche Route bleiben Mauer, Wasser und andere unerreichbare Ziele
+abgelehnt. Der Patch validiert Originalbytes, verwendet `VirtualProtect`, stellt den
+Speicherschutz wieder her, leert den Instruktionscache und wird bei einer fehlgeschlagenen
+Installation zurückgerollt. Er benötigt kein Trampolin und keinen Managed-Callback im
+internen Cursor-Kontrollfluss.
+
+### 4.1.2 Erfolgreicher Gesamtversuch und reduzierte Lösungskette
+
+Der anschließende Referenzlauf bestätigte die vollständige Kette sowohl im Map Editor als
+auch in einer normalen Skirmish-Partie. Mehrere aufeinanderfolgende gewöhnliche Move-Befehle
+über fertige Moats wurden angenommen und wirklich ausgeführt. Ein durch eine Mauer getrenntes
+Ziel blieb dagegen bereits am Cursor gesperrt. Im erfolgreichen Log gab es keine Fehler. Die
+für die Entscheidung relevanten Zähler waren:
+
+- zentraler Moat-Modus `0x196840`: 23 erzwungene und 1 natürlicher positiver Rückgabewert;
+- Bewegungs-Regionsprüfung `0xE7C40`: 20 echte Änderungen von Vanilla `0` auf die gültige
+  Zielregion;
+- Tribe-Flood-Fill-Mitgliedschaft `0x124740`: 8 Änderungen von Vanilla `0` auf `1`;
+- konservative Cursor-Moat-Suche: 59 positive und 7 negative Entscheidungen;
+- Cursor-Regionsvorprüfung `0xE9D90`: 13 echte Änderungen von Vanilla `0` auf `1`;
+- direkte Cursor-Erreichbarkeit `0xE9FF0`: 31 echte Änderungen von Vanilla `0` auf `1`;
+- beobachtetes Bewegungsschritt-Gate `0xDCEF2`: 100 natürliche Freigaben, aber kein einziger
+  notwendiger Bypass.
+
+Die Regionsänderung während der ersten echten Überquerung erklärt dabei den früheren
+Einmal-Effekt vollständig: Vor der Überquerung lagen Start und Ziel noch in Region `1`.
+Danach war der fertige Moat Region `0` und das gegenüberliegende Land Region `2`. Erst diese
+korrekte dynamische Trennung machte bei weiteren Befehlen die zusätzlichen Freigaben sichtbar.
+
+Die vermutliche Gesamtlösung besteht daher nicht aus einem globalen „Moat ist begehbar“-Bit.
+Vanilla besitzt bereits einen vollständigen moat-aware Tile-Builder. Dieser wird nur durch
+mehrere vorgeschaltete, voneinander getrennte Grobprüfungen nicht für gewöhnliche Bewegung
+erreicht. Für die aktuelle Teststufe werden ausschließlich diese Schranken geöffnet:
+
+1. Der gewöhnliche Cursor darf an `0x8F393` trotz des für normale Bodeneinheiten ungeeigneten
+   Current-Tile-Flag-Tests zu Vanillas echten Prüfungen weiterlaufen.
+2. `0xE9D90` und `0xE9FF0` werden nur dann positiv überstimmt, wenn eine read-only Suche einen
+   orthogonalen Weg findet, der mindestens ein fertiges Moat-Tile benutzt. Die Suche lässt
+   gewöhnliche Tiles nur in Start- und Zielregion zu und übernimmt Vanillas Zielverfügbarkeit.
+   Dadurch wird ein bloßes Ziel hinter einer Mauer nicht freigegeben.
+3. Während eines echten `TribeIssueOrderMoveHere`-Auftrags liefert `0x196840` für eine gültige
+   Unit den Moat-Modus `1`.
+4. In genau diesem Auftragskontext darf `0xE7C40` bei aktivem Moat-Modus trotz getrennter
+   positiver Zielregion den realen Builder erreichen.
+5. Ebenfalls nur für denselben Tribe und denselben aktiven Move-Auftrag darf `0x124740` eine
+   fehlgeschlagene Flood-Fill-Mitgliedschaft überbrücken.
+6. Unmittelbar vor dem echten Tile-Builder `0xF4930` muss dessen Routenvariante bei
+   `pathManager+0x80` von `1` auf `0` wechseln. Vanilla verwendet Variante `0`, wenn eine Unit
+   bereits auf einem fertigen Moat steht; erst diese Variante konsumiert den zuvor aktivierten
+   moat-aware Pfadmodus auch für eine gewöhnliche Unit. Die Änderung erfolgt ausschließlich,
+   wenn der Modus für den korrelierten Unit-Plan erzwungen wurde und derselbe aktive
+   `MoveHere`-Auftrag zuvor tatsächlich die Tribe-Flood-Fill-Schranke überbrückt hat. Liefert
+   der Builder keinen positiven Pfad oder wirft er eine Exception, wird der ursprüngliche Wert
+   sofort wiederhergestellt. Bei Erfolg bleibt Vanillas eigener Ausgabewert `0` erhalten.
+7. Der echte Tile-Builder bleibt damit die endgültige Schranke. Er erzeugt den realen Pfad
+   durch den Moat oder lehnt Mauern, Wasser und tatsächlich unerreichbare Ziele weiterhin ab.
+
+Ein erster Bereinigungsversuch entfernte den Planner- und Builder-Detour irrtümlich als reine
+Diagnose. Danach blieb der Cursor grün, aber es entstand kein ausführbarer Pfad. Die erneute
+Auswertung des erfolgreichen Referenzlaufs zeigte den Fehler eindeutig: Alle sechs einzeln
+ausgewerteten Editor-Moat-Befehle hatten einen positiven Builder-Ausgang zusammen mit
+`route80Override=retained`; insgesamt wurde die Variante im Referenzlauf 33-mal erfolgreich
+beibehalten. Der Builder-Detour war daher funktional und nicht nur beobachtend.
+
+Die korrigierte Reduktion behält acht vollständige Funktionsdetours: sechs für die bereits
+beschriebene Cursor-/Command-Kette, den zentralen Planner ausschließlich als sicheren
+per-Unit-Kontext und den Builder für die eng begrenzte Routenvariantenänderung. Entfernt
+bleiben Common-Path-Observer, Unit-Tick-Tracking, Path-Preview, Cursor-Frame-Polling,
+Verbotblock-Observer, Direction-Seed- und Tile-Expander-Diagnosen, alle nicht installierten
+Breadcrumb-Hooks sowie der nachweislich unbenutzte Bewegungsschritt-Hook. Zusätzlich besitzen
+Cursor und Bewegung getrennte Loglimits, damit häufige Hover-Aufrufe die späteren Builderlogs
+nicht mehr verdrängen. Besitzer- und Allianzfilter sind noch ausdrücklich nicht enthalten;
+in dieser Stufe sind alle fertigen Moats gleichgestellt.
+
 ### 4.2 Gemeinsamer Tribe-Command-Dispatcher
 
 Der Script Extender identifiziert die Funktion als `c_game_tribe_issueorder_withtarget`. Die Signatur entspricht sinngemäß:
