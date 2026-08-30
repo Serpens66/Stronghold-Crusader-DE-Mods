@@ -44,13 +44,21 @@ namespace MoveMoatTest
             int targetY);
 
         [UnmanagedFunctionPointer(CallingConvention.Winapi)]
-        private delegate int TribeRegionMembershipDelegate(
+        private delegate int TribeFloodFillMembershipDelegate(
             IntPtr tribeManager,
             int tribeId,
-            int targetRegion);
+            int floodFillStamp);
+
+        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+        private delegate int DirectionSeedBuilderDelegate(
+            IntPtr pathManager,
+            int startX,
+            int startY,
+            int targetX,
+            int targetY);
 
         private const int CentralMovementPlanRva = 0x18E1E0;
-        private const int TribeRegionMembershipRva = 0x124740;
+        private const int TribeFloodFillMembershipRva = 0x124740;
         private const int TribeMovementPrecheckRva = 0x11B637;
         private const int TribeFormationTargetResultRva = 0x11B919;
         private const int TribeRegionCandidateRetryRva = 0x11B940;
@@ -60,18 +68,26 @@ namespace MoveMoatTest
         private const int MovementStepMoatGateRva = 0xDCEF2;
         private const int DetectCompletedMoatModeRva = 0x196840;
         private const int RegionReachabilityRva = 0xE7C40;
+        private const int PrimaryDirectionSeedBuilderRva = 0xF3060;
+        private const int FallbackDirectionSeedBuilderRva = 0xF32B0;
         private const int PathBuilderRva = 0xF4930;
+        private const int StandardTileExpanderRva = 0xF09A0;
+        private const int MoatAwareTileExpanderRva = 0xF1A80;
+        private const int MoatAwareCandidateResultRva = 0xF1C58;
+        private const int MoatAwareAllianceComparisonRva = 0xF1C72;
         private const int MoveHereBuilderResultRva = 0x19667E;
         private const int TileFlagsRva = 0x48F71B0;
         private const int MovementTargetAvailabilityRva = 0x3A11EA4;
         private const int PathRegionGridRva = 0x50EC690;
         private const int DirectionTileOffsetTableRva = 0x405EDB0;
+        private const int AllianceGroupTableRva = 0x37EDF3C;
         private const int MoatPathModeRva = 0x60AD6E4;
         private const int PathStartXRva = 0x60AD668;
         private const int PathStartYRva = 0x60AD66C;
         private const int PathTargetXRva = 0x60AD670;
         private const int PathTargetYRva = 0x60AD674;
         private const int MaximumRegionId = short.MaxValue;
+        private const int MaximumFloodFillStamp = 0x7D00;
         private const int MaximumModeLogs = 24;
         private const int MaximumReachabilityLogs = 96;
         private const int MaximumBuilderLogs = 96;
@@ -88,6 +104,10 @@ namespace MoveMoatTest
         private const int TribeUnitScanStartHookLength = 20;
         private const int TribeEarlyReturnHookLength = 15;
         private const int TribeUnitIterationEndHookLength = 14;
+        private const int StandardTileExpanderHookLength = 16;
+        private const int MoatAwareTileExpanderHookLength = 15;
+        private const int MoatAwareCandidateResultHookLength = 18;
+        private const int MoatAwareAllianceComparisonHookLength = 14;
         private const int UnitPathBufferOffset = 0xB4FE78;
         private const int UnitPathBufferSize = 1000;
         private const int MaximumPackedPathEntries = UnitPathBufferSize * 2;
@@ -99,9 +119,31 @@ namespace MoveMoatTest
             "48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 84 24 20 04 00 00 4C 63 FA " +
             "4C 8D 35 ?? ?? ?? ?? 49 69 DF 90 04 00 00 49 63 E8 48 03 D9 49 63 F1";
 
-        private const string TribeRegionMembershipPattern =
+        private const string TribeFloodFillMembershipPattern =
             "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 56 41 57 " +
             "48 83 EC 20 48 63 F2 33 DB 4C 69 CE 88 06 00 00 45 8B F0 48 8B E9";
+
+        private const string PrimaryDirectionSeedBuilderPattern =
+            "48 89 5C 24 10 48 89 6C 24 18 56 57 41 55 41 56 41 57 48 83 EC 20 " +
+            "4C 63 7C 24 70 4C 8B E9 48 63 DA 49 63 F9 49 63 E8";
+
+        private const string FallbackDirectionSeedBuilderPattern =
+            "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 54 41 55 41 56 41 57 " +
+            "48 83 EC 30 4C 63 BC 24 80 00 00 00 4C 8B E9 48 63 DA 49 63 F9 49 63 E8";
+
+        private const string StandardTileExpanderPattern =
+            "48 89 5C 24 10 55 56 57 41 54 41 55 41 56 41 57 48 83 EC 20 " +
+            "FF 81 A0 00 00 00 45 8B E8 49 63 F1";
+
+        private const string MoatAwareTileExpanderPattern =
+            "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 54 41 55 41 56 41 57 " +
+            "48 83 EC 20 49 63 F8 48 8B D9 49 63 F1 4C 63 E2";
+
+        private const string MoatAwareCandidateResultPattern =
+            "85 C0 74 24 48 98 48 03 C0 49 0F BE 8C C1 3C EE F3 01";
+
+        private const string MoatAwareAllianceComparisonPattern =
+            "41 39 84 88 3C DF 7E 03 0F 84 82 05 00 00";
 
         private const string TribeMovementPrecheckPattern =
             "48 8D 04 8D 00 00 00 00 42 F6 84 18 B0 71 8F 04 30 " +
@@ -146,6 +188,7 @@ namespace MoveMoatTest
         private readonly byte* movementTargetAvailability;
         private readonly short* pathRegionGrid;
         private readonly int* directionTileOffsets;
+        private readonly int* allianceGroupTable;
         private readonly object trackingLock = new object();
         private readonly Dictionary<int, TrackedPlan> trackedPlans = new Dictionary<int, TrackedPlan>();
         [ThreadStatic]
@@ -156,8 +199,12 @@ namespace MoveMoatTest
         private static CommandAttempt activeCommandAttempt;
         private CentralMovementPlanDelegate originalCentralMovementPlan;
         private CentralMovementPlanDelegate rootedCentralMovementPlan;
-        private TribeRegionMembershipDelegate originalTribeRegionMembership;
-        private TribeRegionMembershipDelegate rootedTribeRegionMembership;
+        private TribeFloodFillMembershipDelegate originalTribeFloodFillMembership;
+        private TribeFloodFillMembershipDelegate rootedTribeFloodFillMembership;
+        private DirectionSeedBuilderDelegate originalPrimaryDirectionSeedBuilder;
+        private DirectionSeedBuilderDelegate rootedPrimaryDirectionSeedBuilder;
+        private DirectionSeedBuilderDelegate originalFallbackDirectionSeedBuilder;
+        private DirectionSeedBuilderDelegate rootedFallbackDirectionSeedBuilder;
         private DetectCompletedMoatModeDelegate originalDetectCompletedMoatMode;
         private DetectCompletedMoatModeDelegate rootedDetectCompletedMoatMode;
         private RegionReachabilityDelegate originalRegionReachability;
@@ -168,7 +215,9 @@ namespace MoveMoatTest
         private NativeDetour regionReachabilityDetour;
         private NativeDetour pathBuilderDetour;
         private NativeDetour centralMovementPlanDetour;
-        private NativeDetour tribeRegionMembershipDetour;
+        private NativeDetour tribeFloodFillMembershipDetour;
+        private NativeDetour primaryDirectionSeedBuilderDetour;
+        private NativeDetour fallbackDirectionSeedBuilderDetour;
         private HookRef<X64InlineHook> movementStepMoatGateHook = new HookRef<X64InlineHook>();
         private HookRef<X64InlineHook> moveHereBuilderResultHook = new HookRef<X64InlineHook>();
         private HookRef<X64InlineHook> tribeMovementPrecheckHook = new HookRef<X64InlineHook>();
@@ -177,6 +226,10 @@ namespace MoveMoatTest
         private HookRef<X64InlineHook> tribeUnitScanStartHook = new HookRef<X64InlineHook>();
         private HookRef<X64InlineHook> tribeEarlyReturnHook = new HookRef<X64InlineHook>();
         private HookRef<X64InlineHook> tribeUnitIterationEndHook = new HookRef<X64InlineHook>();
+        private HookRef<X64InlineHook> standardTileExpanderHook = new HookRef<X64InlineHook>();
+        private HookRef<X64InlineHook> moatAwareTileExpanderHook = new HookRef<X64InlineHook>();
+        private HookRef<X64InlineHook> moatAwareCandidateResultHook = new HookRef<X64InlineHook>();
+        private HookRef<X64InlineHook> moatAwareAllianceComparisonHook = new HookRef<X64InlineHook>();
         private IDisposable tribeMoveSubscription;
         private IDisposable unitMoveSubscription;
         private long nextPlanId;
@@ -225,12 +278,12 @@ namespace MoveMoatTest
                 referenceHashMatches,
                 "completed-moat path-mode detector",
                 log: null);
-            Shared.NativeResolution tribeRegionMembershipResolution = Shared.NativePatternResolver.ResolveUnique(
+            Shared.NativeResolution tribeFloodFillMembershipResolution = Shared.NativePatternResolver.ResolveUnique(
                 memory,
-                TribeRegionMembershipPattern,
-                TribeRegionMembershipRva,
+                TribeFloodFillMembershipPattern,
+                TribeFloodFillMembershipRva,
                 referenceHashMatches,
-                "Tribe target-region membership helper",
+                "Tribe flood-fill membership helper",
                 log: null);
             Shared.NativeResolution tribePrecheckResolution = Shared.NativePatternResolver.ResolveUnique(
                 memory,
@@ -281,6 +334,20 @@ namespace MoveMoatTest
                 referenceHashMatches,
                 "moat-aware region reachability",
                 log: null);
+            Shared.NativeResolution primaryDirectionSeedResolution = Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                PrimaryDirectionSeedBuilderPattern,
+                PrimaryDirectionSeedBuilderRva,
+                referenceHashMatches,
+                "primary direction-seed builder",
+                log: null);
+            Shared.NativeResolution fallbackDirectionSeedResolution = Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                FallbackDirectionSeedBuilderPattern,
+                FallbackDirectionSeedBuilderRva,
+                referenceHashMatches,
+                "fallback direction-seed builder",
+                log: null);
             Shared.NativeResolution builderResolution = Shared.NativePatternResolver.ResolveUnique(
                 memory,
                 PathBuilderPattern,
@@ -288,12 +355,40 @@ namespace MoveMoatTest
                 referenceHashMatches,
                 "central tile path builder",
                 log: null);
+            Shared.NativeResolution standardTileExpanderResolution = Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                StandardTileExpanderPattern,
+                StandardTileExpanderRva,
+                referenceHashMatches,
+                "standard tile expander",
+                log: null);
+            Shared.NativeResolution moatAwareTileExpanderResolution = Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                MoatAwareTileExpanderPattern,
+                MoatAwareTileExpanderRva,
+                referenceHashMatches,
+                "moat-aware tile expander",
+                log: null);
+            Shared.NativeResolution moatAwareCandidateResultResolution = Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                MoatAwareCandidateResultPattern,
+                MoatAwareCandidateResultRva,
+                referenceHashMatches,
+                "moat-aware completed-moat candidate result",
+                log: null);
+            Shared.NativeResolution moatAwareAllianceComparisonResolution = Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                MoatAwareAllianceComparisonPattern,
+                MoatAwareAllianceComparisonRva,
+                referenceHashMatches,
+                "moat-aware alliance comparison",
+                log: null);
 
             RequireValidatedRva(planResolution, CentralMovementPlanRva, "central ordinary-movement planner");
             RequireValidatedRva(
-                tribeRegionMembershipResolution,
-                TribeRegionMembershipRva,
-                "Tribe target-region membership helper");
+                tribeFloodFillMembershipResolution,
+                TribeFloodFillMembershipRva,
+                "Tribe flood-fill membership helper");
             RequireValidatedRva(
                 tribePrecheckResolution,
                 TribeMovementPrecheckRva,
@@ -320,7 +415,31 @@ namespace MoveMoatTest
                 "Tribe unit-iteration end");
             RequireValidatedRva(modeResolution, DetectCompletedMoatModeRva, "completed-moat path-mode detector");
             RequireValidatedRva(reachabilityResolution, RegionReachabilityRva, "moat-aware region reachability");
+            RequireValidatedRva(
+                primaryDirectionSeedResolution,
+                PrimaryDirectionSeedBuilderRva,
+                "primary direction-seed builder");
+            RequireValidatedRva(
+                fallbackDirectionSeedResolution,
+                FallbackDirectionSeedBuilderRva,
+                "fallback direction-seed builder");
             RequireValidatedRva(builderResolution, PathBuilderRva, "central tile path builder");
+            RequireValidatedRva(
+                standardTileExpanderResolution,
+                StandardTileExpanderRva,
+                "standard tile expander");
+            RequireValidatedRva(
+                moatAwareTileExpanderResolution,
+                MoatAwareTileExpanderRva,
+                "moat-aware tile expander");
+            RequireValidatedRva(
+                moatAwareCandidateResultResolution,
+                MoatAwareCandidateResultRva,
+                "moat-aware completed-moat candidate result");
+            RequireValidatedRva(
+                moatAwareAllianceComparisonResolution,
+                MoatAwareAllianceComparisonRva,
+                "moat-aware alliance comparison");
             ValidatePatternSpans(memory);
             ValidateInlineHookSpans(memory);
 
@@ -333,22 +452,29 @@ namespace MoveMoatTest
             movementTargetAvailability = (byte*)(libraryBase + MovementTargetAvailabilityRva);
             pathRegionGrid = (short*)(libraryBase + PathRegionGridRva);
             directionTileOffsets = (int*)(libraryBase + DirectionTileOffsetTableRva);
+            allianceGroupTable = (int*)(libraryBase + AllianceGroupTableRva);
 
             rootedCentralMovementPlan = ObserveCentralMovementPlan;
-            rootedTribeRegionMembership = AllowTribeTargetRegionForMoveOrder;
+            rootedTribeFloodFillMembership = AllowTribeFloodFillForMoveOrder;
             rootedDetectCompletedMoatMode = ForceCompletedMoatMode;
             rootedRegionReachability = AllowBuilderAfterFailedRegionSearch;
+            rootedPrimaryDirectionSeedBuilder = ObservePrimaryDirectionSeedBuilder;
+            rootedFallbackDirectionSeedBuilder = ObserveFallbackDirectionSeedBuilder;
             rootedPathBuilder = ObservePathBuilder;
 
             NativeDetour pendingModeDetour = null;
             NativeDetour pendingReachabilityDetour = null;
             NativeDetour pendingBuilderDetour = null;
             NativeDetour pendingPlanDetour = null;
-            NativeDetour pendingTribeRegionMembershipDetour = null;
+            NativeDetour pendingTribeFloodFillMembershipDetour = null;
+            NativeDetour pendingPrimaryDirectionSeedBuilderDetour = null;
+            NativeDetour pendingFallbackDirectionSeedBuilderDetour = null;
             bool planApplied = false;
-            bool tribeRegionMembershipApplied = false;
+            bool tribeFloodFillMembershipApplied = false;
             bool modeApplied = false;
             bool reachabilityApplied = false;
+            bool primaryDirectionSeedApplied = false;
+            bool fallbackDirectionSeedApplied = false;
             bool builderApplied = false;
             try
             {
@@ -358,11 +484,11 @@ namespace MoveMoatTest
                 originalCentralMovementPlan =
                     pendingPlanDetour.GenerateTrampoline<CentralMovementPlanDelegate>();
 
-                pendingTribeRegionMembershipDetour = CreateDetour(
-                    libraryBase + unchecked((ulong)tribeRegionMembershipResolution.Rva),
-                    rootedTribeRegionMembership);
-                originalTribeRegionMembership =
-                    pendingTribeRegionMembershipDetour.GenerateTrampoline<TribeRegionMembershipDelegate>();
+                pendingTribeFloodFillMembershipDetour = CreateDetour(
+                    libraryBase + unchecked((ulong)tribeFloodFillMembershipResolution.Rva),
+                    rootedTribeFloodFillMembership);
+                originalTribeFloodFillMembership =
+                    pendingTribeFloodFillMembershipDetour.GenerateTrampoline<TribeFloodFillMembershipDelegate>();
 
                 pendingModeDetour = CreateDetour(
                     libraryBase + unchecked((ulong)modeResolution.Rva),
@@ -376,6 +502,18 @@ namespace MoveMoatTest
                 originalRegionReachability =
                     pendingReachabilityDetour.GenerateTrampoline<RegionReachabilityDelegate>();
 
+                pendingPrimaryDirectionSeedBuilderDetour = CreateDetour(
+                    libraryBase + unchecked((ulong)primaryDirectionSeedResolution.Rva),
+                    rootedPrimaryDirectionSeedBuilder);
+                originalPrimaryDirectionSeedBuilder =
+                    pendingPrimaryDirectionSeedBuilderDetour.GenerateTrampoline<DirectionSeedBuilderDelegate>();
+
+                pendingFallbackDirectionSeedBuilderDetour = CreateDetour(
+                    libraryBase + unchecked((ulong)fallbackDirectionSeedResolution.Rva),
+                    rootedFallbackDirectionSeedBuilder);
+                originalFallbackDirectionSeedBuilder =
+                    pendingFallbackDirectionSeedBuilderDetour.GenerateTrampoline<DirectionSeedBuilderDelegate>();
+
                 pendingBuilderDetour = CreateDetour(
                     libraryBase + unchecked((ulong)builderResolution.Rva),
                     rootedPathBuilder);
@@ -383,12 +521,16 @@ namespace MoveMoatTest
 
                 pendingPlanDetour.Apply();
                 planApplied = true;
-                pendingTribeRegionMembershipDetour.Apply();
-                tribeRegionMembershipApplied = true;
+                pendingTribeFloodFillMembershipDetour.Apply();
+                tribeFloodFillMembershipApplied = true;
                 pendingModeDetour.Apply();
                 modeApplied = true;
                 pendingReachabilityDetour.Apply();
                 reachabilityApplied = true;
+                pendingPrimaryDirectionSeedBuilderDetour.Apply();
+                primaryDirectionSeedApplied = true;
+                pendingFallbackDirectionSeedBuilderDetour.Apply();
+                fallbackDirectionSeedApplied = true;
                 pendingBuilderDetour.Apply();
                 builderApplied = true;
 
@@ -396,7 +538,9 @@ namespace MoveMoatTest
                 regionReachabilityDetour = pendingReachabilityDetour;
                 pathBuilderDetour = pendingBuilderDetour;
                 centralMovementPlanDetour = pendingPlanDetour;
-                tribeRegionMembershipDetour = pendingTribeRegionMembershipDetour;
+                tribeFloodFillMembershipDetour = pendingTribeFloodFillMembershipDetour;
+                primaryDirectionSeedBuilderDetour = pendingPrimaryDirectionSeedBuilderDetour;
+                fallbackDirectionSeedBuilderDetour = pendingFallbackDirectionSeedBuilderDetour;
 
                 HookTransaction transaction = new HookTransaction(
                     memory,
@@ -467,11 +611,45 @@ namespace MoveMoatTest
                     hookSize: TribeEarlyReturnHookLength,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
+                transaction.AddContextHook(
+                    ref standardTileExpanderHook,
+                    libraryBase + unchecked((ulong)standardTileExpanderResolution.Rva),
+                    ObserveStandardTileExpander,
+                    regs: X64SmartCPUContextRegs.All,
+                    hookSize: StandardTileExpanderHookLength,
+                    errorMode: CallbackErrorMode.LogAndContinue,
+                    placement: OverwrittenInstructionPlacement.AfterCallback);
+                transaction.AddContextHook(
+                    ref moatAwareTileExpanderHook,
+                    libraryBase + unchecked((ulong)moatAwareTileExpanderResolution.Rva),
+                    ObserveMoatAwareTileExpander,
+                    regs: X64SmartCPUContextRegs.All,
+                    hookSize: MoatAwareTileExpanderHookLength,
+                    errorMode: CallbackErrorMode.LogAndContinue,
+                    placement: OverwrittenInstructionPlacement.AfterCallback);
+                transaction.AddContextHook(
+                    ref moatAwareCandidateResultHook,
+                    libraryBase + unchecked((ulong)moatAwareCandidateResultResolution.Rva),
+                    ObserveMoatAwareCandidateResult,
+                    regs: X64SmartCPUContextRegs.All,
+                    hookSize: MoatAwareCandidateResultHookLength,
+                    errorMode: CallbackErrorMode.LogAndContinue,
+                    placement: OverwrittenInstructionPlacement.AfterCallback);
+                transaction.AddContextHook(
+                    ref moatAwareAllianceComparisonHook,
+                    libraryBase + unchecked((ulong)moatAwareAllianceComparisonResolution.Rva),
+                    ObserveMoatAwareAllianceComparison,
+                    regs: X64SmartCPUContextRegs.All,
+                    hookSize: MoatAwareAllianceComparisonHookLength,
+                    errorMode: CallbackErrorMode.LogAndContinue,
+                    placement: OverwrittenInstructionPlacement.AfterCallback);
                 transaction.Commit();
                 if (!movementStepMoatGateHook.Success || !moveHereBuilderResultHook.Success ||
                     !tribeMovementPrecheckHook.Success || !tribeFormationTargetResultHook.Success ||
                     !tribeRegionCandidateRetryHook.Success || !tribeUnitScanStartHook.Success ||
-                    !tribeUnitIterationEndHook.Success || !tribeEarlyReturnHook.Success)
+                    !tribeUnitIterationEndHook.Success || !tribeEarlyReturnHook.Success ||
+                    !standardTileExpanderHook.Success || !moatAwareTileExpanderHook.Success ||
+                    !moatAwareCandidateResultHook.Success || !moatAwareAllianceComparisonHook.Success)
                     throw new InvalidOperationException("A central MoveHere diagnostic hook did not install.");
 
                 tribeMoveSubscription = TribeR3EventHooks.OnTribeIssueOrderMoveHere.Observable
@@ -486,16 +664,20 @@ namespace MoveMoatTest
                     log,
                     $"Move Moat Test installed: planRva=0x{planResolution.Rva:X}/method={planResolution.Method}, " +
                     $"modeRva=0x{modeResolution.Rva:X}/method={modeResolution.Method}, " +
-                    $"tribeRegionMembershipRva=0x{tribeRegionMembershipResolution.Rva:X}/method=" +
-                    $"{tribeRegionMembershipResolution.Method}, " +
+                    $"tribeFloodFillMembershipRva=0x{tribeFloodFillMembershipResolution.Rva:X}/method=" +
+                    $"{tribeFloodFillMembershipResolution.Method}, " +
                     $"reachabilityRva=0x{reachabilityResolution.Rva:X}/method={reachabilityResolution.Method}, " +
                     $"builderRva=0x{builderResolution.Rva:X}/method={builderResolution.Method}, " +
+                    $"directionSeeds=0x{primaryDirectionSeedResolution.Rva:X}/" +
+                    $"0x{fallbackDirectionSeedResolution.Rva:X}, " +
+                    $"tileExpanders=0x{standardTileExpanderResolution.Rva:X}/" +
+                    $"0x{moatAwareTileExpanderResolution.Rva:X}, " +
                     $"tribePrecheckRva=0x{tribePrecheckResolution.Rva:X}/method={tribePrecheckResolution.Method}, " +
                     "tribeDispatcherBreadcrumbs=6, " +
                     $"moveHereResultRva=0x{MoveHereBuilderResultRva:X}, " +
                     $"stepGateRva=0x{MovementStepMoatGateRva:X}; " +
                     "allCompletedMoats=true, ownerFiltering=false, " +
-                    "tribeRegionBypass=activeMoveHereOnly, realBuilderResultUnchanged=true.");
+                    "tribeFloodFillBypass=activeMoveHereOnly, realBuilderResultUnchanged=true.");
             }
             catch
             {
@@ -512,6 +694,10 @@ namespace MoveMoatTest
                 tribeUnitScanStartHook?.Value?.Dispose();
                 tribeUnitIterationEndHook?.Value?.Dispose();
                 tribeEarlyReturnHook?.Value?.Dispose();
+                standardTileExpanderHook?.Value?.Dispose();
+                moatAwareTileExpanderHook?.Value?.Dispose();
+                moatAwareCandidateResultHook?.Value?.Dispose();
+                moatAwareAllianceComparisonHook?.Value?.Dispose();
                 tribeMoveSubscription?.Dispose();
                 unitMoveSubscription?.Dispose();
                 tribeMoveSubscription = null;
@@ -519,25 +705,35 @@ namespace MoveMoatTest
                 if (builderApplied)
                     pendingBuilderDetour?.Undo();
                 pendingBuilderDetour?.Dispose();
+                if (fallbackDirectionSeedApplied)
+                    pendingFallbackDirectionSeedBuilderDetour?.Undo();
+                pendingFallbackDirectionSeedBuilderDetour?.Dispose();
+                if (primaryDirectionSeedApplied)
+                    pendingPrimaryDirectionSeedBuilderDetour?.Undo();
+                pendingPrimaryDirectionSeedBuilderDetour?.Dispose();
                 if (reachabilityApplied)
                     pendingReachabilityDetour?.Undo();
                 pendingReachabilityDetour?.Dispose();
                 if (modeApplied)
                     pendingModeDetour?.Undo();
                 pendingModeDetour?.Dispose();
-                if (tribeRegionMembershipApplied)
-                    pendingTribeRegionMembershipDetour?.Undo();
-                pendingTribeRegionMembershipDetour?.Dispose();
+                if (tribeFloodFillMembershipApplied)
+                    pendingTribeFloodFillMembershipDetour?.Undo();
+                pendingTribeFloodFillMembershipDetour?.Dispose();
                 if (planApplied)
                     pendingPlanDetour?.Undo();
                 pendingPlanDetour?.Dispose();
                 originalCentralMovementPlan = null;
-                originalTribeRegionMembership = null;
+                originalTribeFloodFillMembership = null;
+                originalPrimaryDirectionSeedBuilder = null;
+                originalFallbackDirectionSeedBuilder = null;
                 originalDetectCompletedMoatMode = null;
                 originalRegionReachability = null;
                 originalPathBuilder = null;
                 rootedCentralMovementPlan = null;
-                rootedTribeRegionMembership = null;
+                rootedTribeFloodFillMembership = null;
+                rootedPrimaryDirectionSeedBuilder = null;
+                rootedFallbackDirectionSeedBuilder = null;
                 rootedDetectCompletedMoatMode = null;
                 rootedRegionReachability = null;
                 rootedPathBuilder = null;
@@ -564,27 +760,39 @@ namespace MoveMoatTest
             tribeUnitScanStartHook?.Value?.Dispose();
             tribeUnitIterationEndHook?.Value?.Dispose();
             tribeEarlyReturnHook?.Value?.Dispose();
+            standardTileExpanderHook?.Value?.Dispose();
+            moatAwareTileExpanderHook?.Value?.Dispose();
+            moatAwareCandidateResultHook?.Value?.Dispose();
+            moatAwareAllianceComparisonHook?.Value?.Dispose();
             tribeMoveSubscription?.Dispose();
             unitMoveSubscription?.Dispose();
             tribeMoveSubscription = null;
             unitMoveSubscription = null;
             pathBuilderDetour?.Dispose();
+            fallbackDirectionSeedBuilderDetour?.Dispose();
+            primaryDirectionSeedBuilderDetour?.Dispose();
             regionReachabilityDetour?.Dispose();
             detectCompletedMoatModeDetour?.Dispose();
-            tribeRegionMembershipDetour?.Dispose();
+            tribeFloodFillMembershipDetour?.Dispose();
             centralMovementPlanDetour?.Dispose();
             pathBuilderDetour = null;
+            fallbackDirectionSeedBuilderDetour = null;
+            primaryDirectionSeedBuilderDetour = null;
             regionReachabilityDetour = null;
             detectCompletedMoatModeDetour = null;
-            tribeRegionMembershipDetour = null;
+            tribeFloodFillMembershipDetour = null;
             centralMovementPlanDetour = null;
             originalCentralMovementPlan = null;
-            originalTribeRegionMembership = null;
+            originalTribeFloodFillMembership = null;
+            originalPrimaryDirectionSeedBuilder = null;
+            originalFallbackDirectionSeedBuilder = null;
             originalPathBuilder = null;
             originalRegionReachability = null;
             originalDetectCompletedMoatMode = null;
             rootedCentralMovementPlan = null;
-            rootedTribeRegionMembership = null;
+            rootedTribeFloodFillMembership = null;
+            rootedPrimaryDirectionSeedBuilder = null;
+            rootedFallbackDirectionSeedBuilder = null;
             rootedPathBuilder = null;
             rootedRegionReachability = null;
             rootedDetectCompletedMoatMode = null;
@@ -608,9 +816,7 @@ namespace MoveMoatTest
                         args.TileY);
                     activeCommandAttempt = attempt;
                     TileDiagnostic target = GetTileDiagnostic(args.TileX, args.TileY);
-                    int availability = IsValidTileId(target.TileId)
-                        ? movementTargetAvailability[target.TileId]
-                        : -1;
+                    int availability = GetMovementAvailability(args.TileX, args.TileY);
                     attempt.TargetTileId = target.TileId;
                     attempt.TargetAvailability = availability;
                     LogCommand(
@@ -635,11 +841,11 @@ namespace MoveMoatTest
                     $"regionVanilla={current?.RegionVanillaResult ?? -1} " +
                     $"regionEffective={current?.RegionEffectiveResult ?? -1} " +
                     $"formationResult={current?.FormationTargetResult ?? int.MinValue} " +
-                    $"regionMembershipCalls={current?.RegionMembershipCalls ?? 0} " +
-                    $"regionMembershipBypasses={current?.RegionMembershipBypasses ?? 0} " +
-                    $"lastMembershipRegion={current?.LastRegionMembershipTarget ?? -1} " +
-                    $"lastMembershipVanilla={current?.LastRegionMembershipVanillaResult ?? -1} " +
-                    $"lastMembershipEffective={current?.LastRegionMembershipEffectiveResult ?? -1} " +
+                    $"floodFillMembershipCalls={current?.FloodFillMembershipCalls ?? 0} " +
+                    $"floodFillMembershipBypasses={current?.FloodFillMembershipBypasses ?? 0} " +
+                    $"lastFloodFillStamp={current?.LastFloodFillStamp ?? -1} " +
+                    $"lastFloodFillVanilla={current?.LastFloodFillVanillaResult ?? -1} " +
+                    $"lastFloodFillEffective={current?.LastFloodFillEffectiveResult ?? -1} " +
                     $"regionCandidateRetries={current?.RegionCandidateRetries ?? 0} " +
                     $"unitScan={current?.UnitScanObserved ?? false} " +
                     $"unitIterations={current?.UnitIterations ?? 0} " +
@@ -732,7 +938,7 @@ namespace MoveMoatTest
                     $"unit={unitId} target=({targetX},{targetY}) targetTile={targetTileId} " +
                     $"targetFlags=0x{flags:X8} blockingLowBits=0x{flags & 0x30:X2} " +
                     $"startRegion={startRegion} targetRegion={targetRegion} " +
-                    $"targetAvailability={(IsValidTileId(targetTileId) ? movementTargetAvailability[targetTileId] : -1)} " +
+                    $"targetAvailability={GetMovementAvailability(targetX, targetY)} " +
                     $"pathMode={*moatPathMode} state=[{unitState}]");
             }
             catch (Exception ex)
@@ -779,9 +985,9 @@ namespace MoveMoatTest
                 LogCommand(
                     $"stage=tribe-region-candidate-retry command={command.Id} " +
                     $"retry={command.RegionCandidateRetries} " +
-                    $"membershipCalls={command.RegionMembershipCalls} " +
-                    $"lastMembershipVanilla={command.LastRegionMembershipVanillaResult} " +
-                    $"lastMembershipEffective={command.LastRegionMembershipEffectiveResult}");
+                    $"floodFillCalls={command.FloodFillMembershipCalls} " +
+                    $"lastFloodFillVanilla={command.LastFloodFillVanillaResult} " +
+                    $"lastFloodFillEffective={command.LastFloodFillEffectiveResult}");
             }
             catch (Exception ex)
             {
@@ -804,8 +1010,8 @@ namespace MoveMoatTest
                     $"stage=tribe-unit-scan-start command={command.Id} " +
                     $"scanIndex={scanIndex} " +
                     $"representativeUnit={command.RepresentativeUnitId} " +
-                    $"membershipCalls={command.RegionMembershipCalls} " +
-                    $"membershipBypasses={command.RegionMembershipBypasses}");
+                    $"floodFillCalls={command.FloodFillMembershipCalls} " +
+                    $"floodFillBypasses={command.FloodFillMembershipBypasses}");
             }
             catch (Exception ex)
             {
@@ -861,11 +1067,11 @@ namespace MoveMoatTest
                     $"stage=tribe-central-return command={command.Id} previousStage={previousStage} " +
                     $"nativeResult={nativeResult} " +
                     $"formationResult={command.FormationTargetResult} " +
-                    $"membershipCalls={command.RegionMembershipCalls} " +
-                    $"membershipBypasses={command.RegionMembershipBypasses} " +
-                    $"lastMembershipRegion={command.LastRegionMembershipTarget} " +
-                    $"lastMembershipVanilla={command.LastRegionMembershipVanillaResult} " +
-                    $"lastMembershipEffective={command.LastRegionMembershipEffectiveResult} " +
+                    $"floodFillCalls={command.FloodFillMembershipCalls} " +
+                    $"floodFillBypasses={command.FloodFillMembershipBypasses} " +
+                    $"lastFloodFillStamp={command.LastFloodFillStamp} " +
+                    $"lastFloodFillVanilla={command.LastFloodFillVanillaResult} " +
+                    $"lastFloodFillEffective={command.LastFloodFillEffectiveResult} " +
                     $"regionCandidateRetries={command.RegionCandidateRetries} " +
                     $"unitScan={command.UnitScanObserved} unitIterations={command.UnitIterations} " +
                     $"unitMoveObserved={command.UnitMoveObserved} " +
@@ -958,12 +1164,12 @@ namespace MoveMoatTest
             return result;
         }
 
-        private int AllowTribeTargetRegionForMoveOrder(
+        private int AllowTribeFloodFillForMoveOrder(
             IntPtr tribeManager,
             int tribeId,
-            int targetRegion)
+            int floodFillStamp)
         {
-            int vanillaResult = originalTribeRegionMembership(tribeManager, tribeId, targetRegion);
+            int vanillaResult = originalTribeFloodFillMembership(tribeManager, tribeId, floodFillStamp);
             int effectiveResult = vanillaResult;
 
             try
@@ -973,34 +1179,34 @@ namespace MoveMoatTest
                     command != null &&
                     tribeManager != IntPtr.Zero &&
                     tribeId == command.TribeId &&
-                    targetRegion > 0 &&
-                    targetRegion <= MaximumRegionId &&
+                    floodFillStamp > 0 &&
+                    floodFillStamp <= MaximumFloodFillStamp &&
                     vanillaResult == 0;
                 if (bypassApplied)
                     effectiveResult = 1;
 
                 if (command != null)
                 {
-                    command.RegionMembershipCalls++;
+                    command.FloodFillMembershipCalls++;
                     if (bypassApplied)
-                        command.RegionMembershipBypasses++;
-                    command.LastRegionMembershipTarget = targetRegion;
-                    command.LastRegionMembershipVanillaResult = vanillaResult;
-                    command.LastRegionMembershipEffectiveResult = effectiveResult;
-                    command.LastNativeStage = "region-membership";
+                        command.FloodFillMembershipBypasses++;
+                    command.LastFloodFillStamp = floodFillStamp;
+                    command.LastFloodFillVanillaResult = vanillaResult;
+                    command.LastFloodFillEffectiveResult = effectiveResult;
+                    command.LastNativeStage = "flood-fill-membership";
 
                     LogCommand(
-                        $"stage=tribe-region-membership command={command.Id} " +
-                        $"tribeArgument={tribeId} targetRegion={targetRegion} " +
+                        $"stage=tribe-flood-fill-membership command={command.Id} " +
+                        $"tribeArgument={tribeId} floodFillStamp={floodFillStamp} " +
                         $"vanilla={vanillaResult} effective={effectiveResult} " +
-                        $"bypass={bypassApplied} call={command.RegionMembershipCalls}");
+                        $"bypass={bypassApplied} call={command.FloodFillMembershipCalls}");
                 }
             }
             catch (Exception ex)
             {
                 Shared.DebugLogHelper.LogError(
                     log,
-                    $"Move Moat Test Tribe region-membership callback failed; " +
+                    $"Move Moat Test Tribe flood-fill membership callback failed; " +
                     $"Vanilla result {vanillaResult} remains active: {ex}");
                 return vanillaResult;
             }
@@ -1094,16 +1300,261 @@ namespace MoveMoatTest
             return effectiveResult;
         }
 
+        private int ObservePrimaryDirectionSeedBuilder(
+            IntPtr pathManager,
+            int startX,
+            int startY,
+            int targetX,
+            int targetY)
+        {
+            int result = originalPrimaryDirectionSeedBuilder(
+                pathManager,
+                startX,
+                startY,
+                targetX,
+                targetY);
+            RecordDirectionSeedResult(
+                "primary",
+                startX,
+                startY,
+                targetX,
+                targetY,
+                result);
+            return result;
+        }
+
+        private int ObserveFallbackDirectionSeedBuilder(
+            IntPtr pathManager,
+            int startX,
+            int startY,
+            int targetX,
+            int targetY)
+        {
+            int result = originalFallbackDirectionSeedBuilder(
+                pathManager,
+                startX,
+                startY,
+                targetX,
+                targetY);
+            RecordDirectionSeedResult(
+                "fallback",
+                startX,
+                startY,
+                targetX,
+                targetY,
+                result);
+            return result;
+        }
+
+        private void RecordDirectionSeedResult(
+            string variant,
+            int startX,
+            int startY,
+            int targetX,
+            int targetY,
+            int result)
+        {
+            try
+            {
+                PlanAttempt attempt = activePlanAttempt ?? pendingMoveHereAttempt;
+                if (disposed || attempt == null)
+                    return;
+
+                if (variant == "primary")
+                {
+                    attempt.PrimaryDirectionSeedCalls++;
+                    attempt.LastPrimaryDirectionSeedResult = result;
+                }
+                else
+                {
+                    attempt.FallbackDirectionSeedCalls++;
+                    attempt.LastFallbackDirectionSeedResult = result;
+                }
+
+                if (builderLogCount < MaximumBuilderLogs)
+                {
+                    builderLogCount++;
+                    Shared.DebugLogHelper.LogInfo(
+                        log,
+                        $"MoveMoat stage=direction-seed-{variant} plan={attempt.Id} unit={attempt.UnitId} " +
+                        $"start=({startX},{startY}) startAvailability={GetMovementAvailability(startX, startY)} " +
+                        $"target=({targetX},{targetY}) targetAvailability=" +
+                        $"{GetMovementAvailability(targetX, targetY)} result={result} " +
+                        $"returnedPositive={result > 0} modeSource={GetModeSource(attempt)} " +
+                        $"pathMode={*moatPathMode}.");
+                }
+                else if (!builderLogLimitReported)
+                {
+                    builderLogLimitReported = true;
+                    Shared.DebugLogHelper.LogWarning(
+                        log,
+                        $"MoveMoat builder diagnostics reached their {MaximumBuilderLogs}-entry limit.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Move Moat Test {variant} direction-seed observer failed; " +
+                    $"real result {result} remains unchanged: {ex}");
+            }
+        }
+
+        private void ObserveStandardTileExpander(NativePointer<X64SmartCPUContext> context)
+        {
+            PlanAttempt attempt = activePlanAttempt ?? pendingMoveHereAttempt;
+            if (!disposed && attempt != null)
+                attempt.StandardTileExpanderCalls++;
+        }
+
+        private void ObserveMoatAwareTileExpander(NativePointer<X64SmartCPUContext> context)
+        {
+            PlanAttempt attempt = activePlanAttempt ?? pendingMoveHereAttempt;
+            if (!disposed && attempt != null)
+                attempt.MoatAwareTileExpanderCalls++;
+        }
+
+        private void ObserveMoatAwareCandidateResult(NativePointer<X64SmartCPUContext> context)
+        {
+            try
+            {
+                PlanAttempt attempt = activePlanAttempt ?? pendingMoveHereAttempt;
+                if (disposed || attempt == null)
+                    return;
+
+                X64SmartCPUContext* registers = context.Pointer;
+                int tileId = unchecked((int)(uint)registers->RDI);
+                int moatObjectId = unchecked((int)(uint)registers->RAX);
+                attempt.CompletedMoatCandidates++;
+                attempt.LastCompletedMoatCandidateTileId = tileId;
+                attempt.LastCompletedMoatObjectId = moatObjectId;
+                if (moatObjectId == 0)
+                    attempt.CompletedMoatCandidatesWithoutObject++;
+            }
+            catch (Exception ex)
+            {
+                LogBreadcrumbFailure("moat-aware candidate counter", ex);
+            }
+        }
+
+        private void ObserveMoatAwareAllianceComparison(NativePointer<X64SmartCPUContext> context)
+        {
+            try
+            {
+                PlanAttempt attempt = activePlanAttempt ?? pendingMoveHereAttempt;
+                if (disposed || attempt == null)
+                    return;
+
+                X64SmartCPUContext* registers = context.Pointer;
+                int movingPlayerIndex = unchecked((int)(uint)registers->R12);
+                long moatOwnerIndex = unchecked((long)registers->RCX);
+                int movingAllianceGroup = unchecked((int)(uint)registers->RAX);
+                attempt.MoatAllianceComparisons++;
+                attempt.LastMovingPlayerIndex = movingPlayerIndex;
+                attempt.LastMoatOwnerIndex = moatOwnerIndex >= int.MinValue && moatOwnerIndex <= int.MaxValue
+                    ? (int)moatOwnerIndex
+                    : -1;
+                attempt.LastMovingAllianceGroup = movingAllianceGroup;
+
+                if (moatOwnerIndex < 0 || moatOwnerIndex > 8)
+                {
+                    attempt.InvalidMoatOwnerIndices++;
+                    return;
+                }
+
+                int moatAllianceGroup = allianceGroupTable[moatOwnerIndex];
+                attempt.LastMoatAllianceGroup = moatAllianceGroup;
+                if (moatAllianceGroup == movingAllianceGroup)
+                    attempt.AlliedMoatComparisons++;
+                else
+                    attempt.EnemyMoatComparisons++;
+            }
+            catch (Exception ex)
+            {
+                LogBreadcrumbFailure("moat-aware alliance counter", ex);
+            }
+        }
+
         private int ObservePathBuilder(
             IntPtr pathManager,
             int movementClass,
             int movementProfile)
         {
-            int result = originalPathBuilder(pathManager, movementClass, movementProfile);
+            BuilderStateSnapshot inputState = default;
+            bool inputStateCaptured = false;
+            int* routeVariant = null;
+            int originalRouteVariant = 0;
+            bool routeVariantOverrideApplied = false;
+            bool routeVariantOverrideRetained = false;
+            try
+            {
+                inputState = CaptureBuilderState(pathManager);
+                inputStateCaptured = true;
+
+                PlanAttempt attempt = activePlanAttempt ?? pendingMoveHereAttempt;
+                CommandAttempt command = activeCommandAttempt;
+                if (!disposed &&
+                    *moatPathMode == 1 &&
+                    attempt != null &&
+                    !attempt.VanillaModeDetected &&
+                    command != null &&
+                    command.FloodFillMembershipBypasses > 0)
+                {
+                    routeVariant = (int*)((byte*)pathManager + 0x80);
+                    originalRouteVariant = *routeVariant;
+                    if (originalRouteVariant == 1)
+                    {
+                        // Vanilla uses zero here when a unit starts on a completed moat.
+                        // Limit the experiment to commands that reached us through the
+                        // correlated flood-fill bypass; unrelated movement stays untouched.
+                        *routeVariant = 0;
+                        routeVariantOverrideApplied = true;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                if (routeVariantOverrideApplied && routeVariant != null)
+                {
+                    *routeVariant = originalRouteVariant;
+                    routeVariantOverrideApplied = false;
+                }
+                // Diagnostics must never prevent Vanilla's real builder from running.
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Move Moat Test could not prepare builder input; Vanilla builder will still run: {ex}");
+            }
+
+            int result;
+            try
+            {
+                result = originalPathBuilder(pathManager, movementClass, movementProfile);
+                routeVariantOverrideRetained = routeVariantOverrideApplied && result > 0;
+                if (routeVariantOverrideApplied && !routeVariantOverrideRetained)
+                    *routeVariant = originalRouteVariant;
+            }
+            catch
+            {
+                if (routeVariantOverrideApplied && routeVariant != null)
+                    *routeVariant = originalRouteVariant;
+                throw;
+            }
+
             try
             {
                 if (!disposed && *moatPathMode == 1)
-                    LogBuilderResult(movementClass, movementProfile, result);
+                {
+                    BuilderStateSnapshot outputState = CaptureBuilderState(pathManager);
+                    LogBuilderResult(
+                        movementClass,
+                        movementProfile,
+                        result,
+                        inputStateCaptured,
+                        inputState,
+                        outputState,
+                        routeVariantOverrideApplied,
+                        routeVariantOverrideRetained);
+                }
             }
             catch (Exception ex)
             {
@@ -1113,6 +1564,23 @@ namespace MoveMoatTest
             }
 
             return result;
+        }
+
+        private static BuilderStateSnapshot CaptureBuilderState(IntPtr pathManager)
+        {
+            if (pathManager == IntPtr.Zero)
+                throw new ArgumentNullException(nameof(pathManager));
+
+            byte* state = (byte*)pathManager;
+            return new BuilderStateSnapshot(
+                *(int*)(state + 0x7C),
+                *(int*)(state + 0x80),
+                *(int*)(state + 0x84),
+                *(int*)(state + 0x88),
+                *(int*)(state + 0x94),
+                *(int*)(state + 0xA8),
+                *(int*)(state + 0xAC),
+                *(int*)(state + 0x155F68));
         }
 
         private void RecordMoveHereBuilderResult(NativePointer<X64SmartCPUContext> context)
@@ -1313,7 +1781,15 @@ namespace MoveMoatTest
                 $"MoveMoat region diagnostics reached their {MaximumReachabilityLogs}-entry limit.");
         }
 
-        private void LogBuilderResult(int movementClass, int movementProfile, int result)
+        private void LogBuilderResult(
+            int movementClass,
+            int movementProfile,
+            int result,
+            bool inputStateCaptured,
+            BuilderStateSnapshot inputState,
+            BuilderStateSnapshot outputState,
+            bool routeVariantOverrideApplied,
+            bool routeVariantOverrideRetained)
         {
             if (builderLogCount < MaximumBuilderLogs)
             {
@@ -1339,7 +1815,29 @@ namespace MoveMoatTest
                     $"start=({*pathStartX},{*pathStartY}) target=({*pathTargetX},{*pathTargetY}) " +
                     $"requestedTarget=({attempt?.TargetX ?? -1},{attempt?.TargetY ?? -1}) " +
                     $"result={result} returnedPositive={result > 0} targetMatchesPlan={targetMatchesPlan} " +
-                    $"modeSource={GetModeSource(attempt)} pathMode={*moatPathMode} state=[{unitState}].");
+                    $"modeSource={GetModeSource(attempt)} pathMode={*moatPathMode} " +
+                    $"builderState=[input={(inputStateCaptured ? inputState.ToString() : "unavailable")};" +
+                    $"output={outputState};route80Override=" +
+                    $"{(routeVariantOverrideApplied ? (routeVariantOverrideRetained ? "retained" : "restored") : "none")}] " +
+                    $"directionSeeds=[primaryCalls={attempt?.PrimaryDirectionSeedCalls ?? 0}," +
+                    $"primaryResult={attempt?.LastPrimaryDirectionSeedResult ?? -1}," +
+                    $"fallbackCalls={attempt?.FallbackDirectionSeedCalls ?? 0}," +
+                    $"fallbackResult={attempt?.LastFallbackDirectionSeedResult ?? -1}] " +
+                    $"expanders=[standard={attempt?.StandardTileExpanderCalls ?? 0}," +
+                    $"moatAware={attempt?.MoatAwareTileExpanderCalls ?? 0}] " +
+                    $"moatCandidates=[completed={attempt?.CompletedMoatCandidates ?? 0}," +
+                    $"withoutObject={attempt?.CompletedMoatCandidatesWithoutObject ?? 0}," +
+                    $"allianceChecks={attempt?.MoatAllianceComparisons ?? 0}," +
+                    $"allied={attempt?.AlliedMoatComparisons ?? 0}," +
+                    $"enemy={attempt?.EnemyMoatComparisons ?? 0}," +
+                    $"invalidOwner={attempt?.InvalidMoatOwnerIndices ?? 0}," +
+                    $"lastTile={attempt?.LastCompletedMoatCandidateTileId ?? -1}," +
+                    $"lastObject={attempt?.LastCompletedMoatObjectId ?? -1}," +
+                    $"lastMovingPlayer={attempt?.LastMovingPlayerIndex ?? -1}," +
+                    $"lastMoatOwner={attempt?.LastMoatOwnerIndex ?? -1}," +
+                    $"lastMovingGroup={attempt?.LastMovingAllianceGroup ?? -1}," +
+                    $"lastMoatGroup={attempt?.LastMoatAllianceGroup ?? -1}] " +
+                    $"state=[{unitState}].");
                 return;
             }
 
@@ -1677,6 +2175,13 @@ namespace MoveMoatTest
             return new TileDiagnostic(tileId, tileFlags[tileId], pathRegionGrid[tileId]);
         }
 
+        private int GetMovementAvailability(int x, int y)
+        {
+            if (x < 0 || x >= 800 || y < 0 || y >= 800)
+                return -1;
+            return movementTargetAvailability[(y * 800) + x];
+        }
+
         private static NativeDetour CreateDetour<TDelegate>(ulong targetAddress, TDelegate callback)
             where TDelegate : Delegate =>
             new NativeDetour(
@@ -1705,9 +2210,9 @@ namespace MoveMoatTest
                 "central ordinary-movement planner");
             ValidatePatternSpan(
                 memory,
-                TribeRegionMembershipRva,
-                TribeRegionMembershipPattern,
-                "Tribe target-region membership helper");
+                TribeFloodFillMembershipRva,
+                TribeFloodFillMembershipPattern,
+                "Tribe flood-fill membership helper");
             ValidatePatternSpan(
                 memory,
                 TribeMovementPrecheckRva,
@@ -1750,9 +2255,39 @@ namespace MoveMoatTest
                 "moat-aware region reachability");
             ValidatePatternSpan(
                 memory,
+                PrimaryDirectionSeedBuilderRva,
+                PrimaryDirectionSeedBuilderPattern,
+                "primary direction-seed builder");
+            ValidatePatternSpan(
+                memory,
+                FallbackDirectionSeedBuilderRva,
+                FallbackDirectionSeedBuilderPattern,
+                "fallback direction-seed builder");
+            ValidatePatternSpan(
+                memory,
                 PathBuilderRva,
                 PathBuilderPattern,
                 "central tile path builder");
+            ValidatePatternSpan(
+                memory,
+                StandardTileExpanderRva,
+                StandardTileExpanderPattern,
+                "standard tile expander");
+            ValidatePatternSpan(
+                memory,
+                MoatAwareTileExpanderRva,
+                MoatAwareTileExpanderPattern,
+                "moat-aware tile expander");
+            ValidatePatternSpan(
+                memory,
+                MoatAwareCandidateResultRva,
+                MoatAwareCandidateResultPattern,
+                "moat-aware completed-moat candidate result");
+            ValidatePatternSpan(
+                memory,
+                MoatAwareAllianceComparisonRva,
+                MoatAwareAllianceComparisonPattern,
+                "moat-aware alliance comparison");
         }
 
         private static void ValidateInlineHookSpans(ReadOnlySpan<byte> memory)
@@ -1832,6 +2367,43 @@ namespace MoveMoatTest
                     0x05, 0x85, 0xC0, 0x0F, 0x8E, 0xA4, 0x00, 0x00, 0x00
                 },
                 "MoveHere builder-result commit gate");
+            ValidateExactBytes(
+                memory,
+                StandardTileExpanderRva,
+                new byte[]
+                {
+                    0x48, 0x89, 0x5C, 0x24, 0x10, 0x55, 0x56, 0x57,
+                    0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x41, 0x57
+                },
+                "standard tile-expander entry");
+            ValidateExactBytes(
+                memory,
+                MoatAwareTileExpanderRva,
+                new byte[]
+                {
+                    0x48, 0x89, 0x5C, 0x24, 0x08,
+                    0x48, 0x89, 0x6C, 0x24, 0x10,
+                    0x48, 0x89, 0x74, 0x24, 0x18
+                },
+                "moat-aware tile-expander entry");
+            ValidateExactBytes(
+                memory,
+                MoatAwareCandidateResultRva,
+                new byte[]
+                {
+                    0x85, 0xC0, 0x74, 0x24, 0x48, 0x98, 0x48, 0x03, 0xC0,
+                    0x49, 0x0F, 0xBE, 0x8C, 0xC1, 0x3C, 0xEE, 0xF3, 0x01
+                },
+                "moat-aware completed-moat candidate result");
+            ValidateExactBytes(
+                memory,
+                MoatAwareAllianceComparisonRva,
+                new byte[]
+                {
+                    0x41, 0x39, 0x84, 0x88, 0x3C, 0xDF, 0x7E, 0x03,
+                    0x0F, 0x84, 0x82, 0x05, 0x00, 0x00
+                },
+                "moat-aware alliance comparison");
         }
 
         private static void ValidateExactBytes(
@@ -1869,6 +2441,14 @@ namespace MoveMoatTest
                 UnitId = unitId;
                 TargetX = targetX;
                 TargetY = targetY;
+                LastPrimaryDirectionSeedResult = -1;
+                LastFallbackDirectionSeedResult = -1;
+                LastCompletedMoatCandidateTileId = -1;
+                LastCompletedMoatObjectId = -1;
+                LastMovingPlayerIndex = -1;
+                LastMoatOwnerIndex = -1;
+                LastMovingAllianceGroup = -1;
+                LastMoatAllianceGroup = -1;
             }
 
             public long Id { get; }
@@ -1876,7 +2456,61 @@ namespace MoveMoatTest
             public int TargetX { get; set; }
             public int TargetY { get; set; }
             public int Result { get; set; }
+            public int PrimaryDirectionSeedCalls { get; set; }
+            public int LastPrimaryDirectionSeedResult { get; set; }
+            public int FallbackDirectionSeedCalls { get; set; }
+            public int LastFallbackDirectionSeedResult { get; set; }
+            public int StandardTileExpanderCalls { get; set; }
+            public int MoatAwareTileExpanderCalls { get; set; }
+            public int CompletedMoatCandidates { get; set; }
+            public int CompletedMoatCandidatesWithoutObject { get; set; }
+            public int MoatAllianceComparisons { get; set; }
+            public int AlliedMoatComparisons { get; set; }
+            public int EnemyMoatComparisons { get; set; }
+            public int InvalidMoatOwnerIndices { get; set; }
+            public int LastCompletedMoatCandidateTileId { get; set; }
+            public int LastCompletedMoatObjectId { get; set; }
+            public int LastMovingPlayerIndex { get; set; }
+            public int LastMoatOwnerIndex { get; set; }
+            public int LastMovingAllianceGroup { get; set; }
+            public int LastMoatAllianceGroup { get; set; }
             public bool VanillaModeDetected { get; set; }
+        }
+
+        private readonly struct BuilderStateSnapshot
+        {
+            public BuilderStateSnapshot(
+                int offset7C,
+                int offset80,
+                int offset84,
+                int offset88,
+                int offset94,
+                int offsetA8,
+                int offsetAC,
+                int pathLength)
+            {
+                Offset7C = offset7C;
+                Offset80 = offset80;
+                Offset84 = offset84;
+                Offset88 = offset88;
+                Offset94 = offset94;
+                OffsetA8 = offsetA8;
+                OffsetAC = offsetAC;
+                PathLength = pathLength;
+            }
+
+            public int Offset7C { get; }
+            public int Offset80 { get; }
+            public int Offset84 { get; }
+            public int Offset88 { get; }
+            public int Offset94 { get; }
+            public int OffsetA8 { get; }
+            public int OffsetAC { get; }
+            public int PathLength { get; }
+
+            public override string ToString() =>
+                $"7C={Offset7C},80={Offset80},84={Offset84},88={Offset88}," +
+                $"94={Offset94},A8={OffsetA8},AC={OffsetAC},length={PathLength}";
         }
 
         private sealed class CommandAttempt
@@ -1890,9 +2524,9 @@ namespace MoveMoatTest
                 RegionVanillaResult = -1;
                 RegionEffectiveResult = -1;
                 FormationTargetResult = int.MinValue;
-                LastRegionMembershipTarget = -1;
-                LastRegionMembershipVanillaResult = -1;
-                LastRegionMembershipEffectiveResult = -1;
+                LastFloodFillStamp = -1;
+                LastFloodFillVanillaResult = -1;
+                LastFloodFillEffectiveResult = -1;
                 LastNativeStage = "tribe-order-pre";
             }
 
@@ -1908,11 +2542,11 @@ namespace MoveMoatTest
             public int RegionVanillaResult { get; set; }
             public int RegionEffectiveResult { get; set; }
             public int FormationTargetResult { get; set; }
-            public int RegionMembershipCalls { get; set; }
-            public int RegionMembershipBypasses { get; set; }
-            public int LastRegionMembershipTarget { get; set; }
-            public int LastRegionMembershipVanillaResult { get; set; }
-            public int LastRegionMembershipEffectiveResult { get; set; }
+            public int FloodFillMembershipCalls { get; set; }
+            public int FloodFillMembershipBypasses { get; set; }
+            public int LastFloodFillStamp { get; set; }
+            public int LastFloodFillVanillaResult { get; set; }
+            public int LastFloodFillEffectiveResult { get; set; }
             public int RegionCandidateRetries { get; set; }
             public int UnitIterations { get; set; }
             public string LastNativeStage { get; set; }
