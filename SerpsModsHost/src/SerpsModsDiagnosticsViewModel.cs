@@ -15,6 +15,7 @@ namespace SerpsModsHost
         private int expectedCount;
         private int validatedCount;
         private int registeredCount;
+        private string scriptExtenderCompatibilityWarning = string.Empty;
         private ModSettingsSearchViewModel search;
 
         public SerpsModsDiagnosticsViewModel()
@@ -37,6 +38,11 @@ namespace SerpsModsHost
         public string ClearErrorsText => SerpLocalization.Get(SerpLocalization.SerpsModsClearErrors);
         public string ClearErrorsHelpText => SerpLocalization.Get(SerpLocalization.SerpsModsClearErrorsHelp);
         public string NoErrorsText => SerpLocalization.Get(SerpLocalization.SerpsModsNoErrors);
+        public string ScriptExtenderCompatibilityWarning => scriptExtenderCompatibilityWarning;
+        public Visibility ScriptExtenderCompatibilityWarningVisibility =>
+            string.IsNullOrWhiteSpace(scriptExtenderCompatibilityWarning)
+                ? Visibility.Collapsed
+                : Visibility.Visible;
         public string SummaryText => SerpLocalization.Get(
             SerpLocalization.SerpsModsSummaryFormat,
             "Version", packVersion,
@@ -75,6 +81,13 @@ namespace SerpsModsHost
             validatedCount = validated;
             registeredCount = registered;
             OnPropertyChanged(nameof(SummaryText));
+        }
+
+        public void SetScriptExtenderCompatibilityWarning(string warning)
+        {
+            scriptExtenderCompatibilityWarning = warning ?? string.Empty;
+            OnPropertyChanged(nameof(ScriptExtenderCompatibilityWarning));
+            OnPropertyChanged(nameof(ScriptExtenderCompatibilityWarningVisibility));
         }
 
         public void RecordError(string text)

@@ -3,11 +3,19 @@
     "Author":  "Serpens66",
     "Name":  "Serps Mods - Fully Customizable Collection",
     "Description":  "All included mods can be freely configured in the in-game Mod Settings.\n\nIncluded mods:\n- Bugfixes and QoL\n- Building Costs\n- Building Limit\n- Extra Features\n- Random Events\n- CastlePlanner\n- Start Conditions\n- Unit Costs\n- Unit Limit",
-    "Version":  "1.0.6",
+    "Version":  "1.1.0",
     "Website":  "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods",
+    "MinimumScriptExtenderVersion":  "1.42.0",
+    "MaximumScriptExtenderVersion":  "1.42.0",
     "Manifest":  1,
     "NetworkMode":  1,
     "SerpChangelog":  [
+                          {
+                              "Version": "1.1.0",
+                              "Changes": [
+                                "Check the installed Script Extender version against the supported range declared in info.json and show a prominent Mod Settings warning when it is incompatible."
+                              ]
+                          },
                           {
                               "Version": "1.0.6",
                               "Changes": [

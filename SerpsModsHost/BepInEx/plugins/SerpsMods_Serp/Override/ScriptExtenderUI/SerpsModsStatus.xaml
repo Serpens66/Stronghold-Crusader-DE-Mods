@@ -13,6 +13,9 @@
                 VerticalScrollBarVisibility="Auto">
       <StackPanel Margin="10">
         <TextBlock Text="{Binding TitleText}" Foreground="White" FontSize="22" FontWeight="Bold" Margin="0,0,0,10"/>
+        <Border Visibility="{Binding ScriptExtenderCompatibilityWarningVisibility}" Background="#DD4A160F" BorderBrush="#FFFFB347" BorderThickness="3" CornerRadius="4" Padding="14,10" Margin="0,0,0,14">
+          <TextBlock Text="{Binding ScriptExtenderCompatibilityWarning}" Foreground="#FFFFE0A3" FontSize="20" FontWeight="Bold" TextWrapping="Wrap"/>
+        </Border>
         <TextBlock Text="{Binding SummaryTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/>
       <TextBlock Text="{Binding SummaryText}" Foreground="White" TextWrapping="Wrap" Margin="0,0,0,12"/>
       <StackPanel Orientation="Horizontal" Margin="0,0,0,12">

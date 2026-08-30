@@ -21,9 +21,10 @@ namespace SerpsModsHost
     public sealed class SerpsModsHostPlugin : BaseUnityPlugin
     {
         private const string ScriptExtenderGuid = "000shcdese";
+        private const string InfoFileName = "info.json";
         public const string PluginGuid = "SerpsMods_Serp";
         public const string PluginName = "Serps Mods";
-        public const string PluginVersion = "1.0.6";
+        public const string PluginVersion = "1.1.0";
         public const bool CustomCustomTrailModSettingsOptOut = true;
         private const string ManifestFileName = "serps-modpack.json";
 
@@ -81,6 +82,7 @@ namespace SerpsModsHost
         {
             string root = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
             packRoot = root;
+            CheckScriptExtenderCompatibility(root);
             string manifestPath = Path.Combine(root, ManifestFileName);
             if (!File.Exists(manifestPath))
                 throw new InvalidDataException($"H001: Missing pack manifest: {manifestPath}");
@@ -132,6 +134,89 @@ namespace SerpsModsHost
             Shared.DebugLogHelper.LogDebug(
                 Logger,
                 $"[{PluginName}] pack={manifest.PackVersion}, expected={activeMods.Count}, validated={validatedCount}, registered={registeredCount}.");
+        }
+
+        private void CheckScriptExtenderCompatibility(string root)
+        {
+            try
+            {
+                string hostInfoPath = Path.Combine(root, InfoFileName);
+                if (!File.Exists(hostInfoPath))
+                    throw new FileNotFoundException("The Serps Mods info.json is missing.", hostInfoPath);
+
+                PackManifestJson.ReadStringProperties(
+                    File.ReadAllText(hostInfoPath),
+                    "MinimumScriptExtenderVersion",
+                    "MaximumScriptExtenderVersion",
+                    out string minimumVersion,
+                    out string maximumVersion);
+
+                string scriptExtenderInfoPath = ResolveScriptExtenderInfoPath();
+                string installedVersion = PackManifestJson.ReadStringProperty(
+                    File.ReadAllText(scriptExtenderInfoPath),
+                    "Version");
+                ScriptExtenderCompatibilityResult result = ScriptExtenderCompatibility.Evaluate(
+                    installedVersion,
+                    minimumVersion,
+                    maximumVersion);
+
+                if (result.IsCompatible)
+                {
+                    diagnostics.SetScriptExtenderCompatibilityWarning(string.Empty);
+                    Shared.DebugLogHelper.LogDebug(
+                        Logger,
+                        $"[{PluginName}] Script Extender {result.InstalledVersion} is within the supported range " +
+                        $"{result.MinimumVersion} to {(result.HasMaximum ? result.MaximumVersion : "unlimited")}.");
+                    return;
+                }
+
+                if (result.Status == ScriptExtenderCompatibilityStatus.BelowMinimum ||
+                    result.Status == ScriptExtenderCompatibilityStatus.AboveMaximum)
+                {
+                    string warning = result.HasMaximum
+                        ? SerpLocalization.Get(
+                            SerpLocalization.SerpsModsScriptExtenderRangeWarning,
+                            "Installed", result.InstalledVersion,
+                            "Minimum", result.MinimumVersion,
+                            "Maximum", result.MaximumVersion)
+                        : SerpLocalization.Get(
+                            SerpLocalization.SerpsModsScriptExtenderMinimumWarning,
+                            "Installed", result.InstalledVersion,
+                            "Minimum", result.MinimumVersion);
+                    diagnostics.SetScriptExtenderCompatibilityWarning(warning);
+                    ReportError("H008", warning);
+                    return;
+                }
+
+                throw new InvalidDataException(
+                    $"Invalid Script Extender compatibility data ({result.Status}): installed='{result.InstalledVersion}', " +
+                    $"minimum='{result.MinimumVersion}', maximum='{result.MaximumVersion}'.");
+            }
+            catch (Exception ex)
+            {
+                string warning = SerpLocalization.Get(
+                    SerpLocalization.SerpsModsScriptExtenderCheckFailed,
+                    "Reason", ex.Message);
+                diagnostics.SetScriptExtenderCompatibilityWarning(warning);
+                ReportError("H008", warning);
+            }
+        }
+
+        private static string ResolveScriptExtenderInfoPath()
+        {
+            if (Chainloader.PluginInfos.TryGetValue(ScriptExtenderGuid, out PluginInfo pluginInfo) &&
+                !string.IsNullOrWhiteSpace(pluginInfo.Location))
+            {
+                string besidePlugin = Path.Combine(Path.GetDirectoryName(pluginInfo.Location), InfoFileName);
+                if (File.Exists(besidePlugin))
+                    return besidePlugin;
+            }
+
+            string conventionalPath = Path.Combine(Paths.PluginPath, ScriptExtenderGuid, InfoFileName);
+            if (File.Exists(conventionalPath))
+                return conventionalPath;
+
+            throw new FileNotFoundException("The installed Script Extender info.json could not be found.", conventionalPath);
         }
 
         private static void ValidateRecord(

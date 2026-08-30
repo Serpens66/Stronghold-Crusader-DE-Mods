@@ -9,6 +9,7 @@ namespace SerpsModsHostDuplicateTests
     {
         private static int Main()
         {
+            TestScriptExtenderCompatibility();
             string root = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "runs", Guid.NewGuid().ToString("N"));
             string pluginRoot = Path.Combine(root, "BepInEx", "plugins");
             string expected = Path.Combine(pluginRoot, "SerpsMods_Serp", "Mods", "Test_GUID");
@@ -154,6 +155,33 @@ namespace SerpsModsHostDuplicateTests
             Console.WriteLine("PASS: host diagnostics, mod-hash comparison, and deterministic serialization.");
             Console.WriteLine("Duplicate: " + duplicates[0]);
             return 0;
+        }
+
+        private static void TestScriptExtenderCompatibility()
+        {
+            AssertCompatibility("1.43.2", "1.43.2", "", ScriptExtenderCompatibilityStatus.Compatible);
+            AssertCompatibility("1.44.0", "1.43.2", null, ScriptExtenderCompatibilityStatus.Compatible);
+            AssertCompatibility("1.43", "1.43.0", "1.43.0.0", ScriptExtenderCompatibilityStatus.Compatible);
+            AssertCompatibility("1.43.1", "1.43.2", "", ScriptExtenderCompatibilityStatus.BelowMinimum);
+            AssertCompatibility("1.44.1", "1.43.2", "1.44.0", ScriptExtenderCompatibilityStatus.AboveMaximum);
+            AssertCompatibility("1.43.2", "1.44.0", "1.43.0", ScriptExtenderCompatibilityStatus.InvalidRange);
+            AssertCompatibility("preview", "1.43.2", "", ScriptExtenderCompatibilityStatus.InvalidInstalledVersion);
+            AssertCompatibility("1.43.2", "", "", ScriptExtenderCompatibilityStatus.InvalidMinimumVersion);
+            AssertCompatibility("1.43.2", "1.43.2", "latest", ScriptExtenderCompatibilityStatus.InvalidMaximumVersion);
+        }
+
+        private static void AssertCompatibility(
+            string installed,
+            string minimum,
+            string maximum,
+            ScriptExtenderCompatibilityStatus expected)
+        {
+            ScriptExtenderCompatibilityResult result = ScriptExtenderCompatibility.Evaluate(installed, minimum, maximum);
+            if (result.Status != expected)
+            {
+                throw new InvalidOperationException(
+                    $"Compatibility {installed}/{minimum}/{maximum}: expected {expected}, got {result.Status}.");
+            }
         }
 
         private static void WriteManifest(string directory, string guid)

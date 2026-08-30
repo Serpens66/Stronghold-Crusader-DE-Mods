@@ -185,6 +185,9 @@ public static class SerpLocalization
     public const string SerpsModsClearErrorsHelp = "SerpsModsHost.ClearErrorsHelp";
     public const string SerpsModsNoErrors = "SerpsModsHost.NoErrors";
     public const string SerpsModsSummaryFormat = "SerpsModsHost.SummaryFormat";
+    public const string SerpsModsScriptExtenderRangeWarning = "SerpsModsHost.ScriptExtenderRangeWarning";
+    public const string SerpsModsScriptExtenderMinimumWarning = "SerpsModsHost.ScriptExtenderMinimumWarning";
+    public const string SerpsModsScriptExtenderCheckFailed = "SerpsModsHost.ScriptExtenderCheckFailed";
     public const string SerpsModsLobbyHashMismatch = "SerpsModsHost.LobbyHashMismatch";
     public const string SerpsModsSearchLabel = "SerpsModsHost.SearchLabel";
     public const string SerpsModsSearchHelp = "SerpsModsHost.SearchHelp";
@@ -253,6 +256,9 @@ public static class SerpLocalization
         { SerpsModsClearErrorsHelp, "Clears only this diagnostic display. The BepInEx log remains unchanged." },
         { SerpsModsNoErrors, "No errors recorded." },
         { SerpsModsSummaryFormat, "Pack {Version}: expected {Expected}, validated {Validated}, registered {Registered}." },
+        { SerpsModsScriptExtenderRangeWarning, "WARNING: Script Extender {Installed} is not supported by this Serps Mods version. Install a Script Extender version between {Minimum} and {Maximum} (inclusive) to make sure all mods work correctly." },
+        { SerpsModsScriptExtenderMinimumWarning, "WARNING: Script Extender {Installed} is not supported by this Serps Mods version. Install Script Extender {Minimum} or newer to make sure all mods work correctly." },
+        { SerpsModsScriptExtenderCheckFailed, "WARNING: Script Extender compatibility could not be verified. Make sure a supported Script Extender version is installed. Reason: {Reason}" },
         { SerpsModsLobbyHashMismatch, "ERROR: The installed mods of {Player} differ from lobby host {Host} ({Player}: {PlayerHash}, {Host}: {HostHash})." },
         { SerpsModsSearchLabel, "Search settings" },
         { SerpsModsSearchHelp, "Searches the localized setting titles of all registered mods." },

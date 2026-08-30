@@ -18,4 +18,7 @@ SerpsModsHost.ClearErrors=Angezeigte Fehler leeren
 SerpsModsHost.ClearErrorsHelp=Leert nur diese Diagnoseanzeige. Das BepInEx-Log bleibt unverändert.
 SerpsModsHost.NoErrors=Keine Fehler aufgezeichnet.
 SerpsModsHost.SummaryFormat=Pack {Version}: erwartet {Expected}, geprüft {Validated}, registriert {Registered}.
+SerpsModsHost.ScriptExtenderRangeWarning=WARNUNG: Script Extender {Installed} wird von dieser Serps-Mods-Version nicht unterstützt. Installiere eine Script-Extender-Version zwischen {Minimum} und {Maximum} (einschließlich), damit alle Mods sicher funktionieren.
+SerpsModsHost.ScriptExtenderMinimumWarning=WARNUNG: Script Extender {Installed} wird von dieser Serps-Mods-Version nicht unterstützt. Installiere Script Extender {Minimum} oder neuer, damit alle Mods sicher funktionieren.
+SerpsModsHost.ScriptExtenderCheckFailed=WARNUNG: Die Script-Extender-Kompatibilität konnte nicht geprüft werden. Stelle sicher, dass eine unterstützte Script-Extender-Version installiert ist. Grund: {Reason}
 SerpsModsHost.LobbyHashMismatch=FEHLER: Die installierten Mods von {Player} unterscheiden sich von Lobbyhost {Host} ({Player}: {PlayerHash}, {Host}: {HostHash}).
