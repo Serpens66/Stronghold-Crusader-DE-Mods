@@ -1285,8 +1285,8 @@ Mod zunächst dessen vollständige Command-, Flood-, Mode-, Region-, Owner- und 
 zugehörigen `MoveCommandScope`. Erst wenn die konservative Owner-Routenprüfung tatsächlich
 mindestens ein freundliches oder feindliches Moat-Tile beobachtet, wird der gesamte gepufferte
 Befehl nach dessen Post-Phase ausgegeben. Befehle ohne jeden Moat-Befund werden verworfen. Dadurch
-bleiben wiederholte Patrol-Hin- und Rückläufe vollständig sichtbar, während die zahlreichen
-internen `MoveHere`-Aufträge beim Kartenstart das Log nicht füllen. Cursorentscheidungen werden
+bleiben Moat-relevante Patrol-Hin- und Rückläufe sichtbar, während normale Patrol-, KI- und
+Kartenstartbewegungen das Log nicht füllen. Cursorentscheidungen werden
 weiterhin anhand der bereits vorhandenen BFS-Generation dedupliziert; sie besitzen ebenfalls kein
 abschaltendes Lebenszeitlimit.
 
@@ -1295,14 +1295,12 @@ endet, führt seine Post-Phase genau eine zusätzliche read-only Owner-Routenpr�
 korrelierten Unit-Plan aus. Sie dient ausschließlich dazu, den gepufferten Befehl als Moat-relevant
 zu erkennen; ihr Ergebnis ändert weder den Rückgabewert noch irgendeinen nativen Pfadzustand.
 
-Für die Vanilla-Negativkontrolle ohne Moat wird ein Tribe ab dem ersten
-`move-command ... patrol=1` gezielt als Patrol-Diagnosesitzung verfolgt. Nur für diesen Tribe
-werden danach auch Moat-freie automatische `MoveHere`-Teilwege ausgegeben. Ein neuer expliziter
-Nicht-Patrol-Befehl desselben Tribes oder ein Kartenwechsel beendet die Verfolgung. Der vorhandene
-Script-Extender-Hook `OnTribeGetNextPatrolWaypoint` liefert zusätzlich `patrol-waypoint` mit
-Tribe-ID und Wegpunktindex. Damit lassen sich Kontroll- und Moat-Test anhand derselben Command-,
-Mode-, Region- und Builderstufen vergleichen, ohne allgemeine KI- oder Kartenstartbewegungen zu
-protokollieren.
+Nach dem bestätigten Patrol-Vergleich wurde die dafür vorübergehend vorhandene tribeweite
+Diagnosesitzung wieder entfernt. Insbesondere installiert `MoveMoatTest` keinen
+`OnTribeGetNextPatrolWaypoint`-Observer mehr und speichert keinen Patrolzustand über einzelne
+Move-Aufträge hinweg. Patrol bleibt funktional durch denselben allgemeinen Move-/Builderpfad
+abgedeckt; nur Moat-relevante Teilwege werden weiterhin gepuffert ausgegeben. Die unabhängige
+`target-command`-Beobachtung bleibt dagegen gezielt für die weitere Attack-Analyse aktiv.
 
 Ein fehlender späterer Logeintrag darf nicht sofort als fehlender nativer Funktionsaufruf interpretiert werden. Zuerst prüfen, ob Attempt-ID, globale Zielwerte oder Current-Unit-Korrelation den Callback herausfiltern.
 

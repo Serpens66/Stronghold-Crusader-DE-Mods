@@ -167,7 +167,6 @@ namespace MoveMoatTest
         private NativeCodePatch cursorGateJumpPatch;
         private IDisposable tribeMoveSubscription;
         private IDisposable tribeTargetSubscription;
-        private IDisposable tribePatrolWaypointSubscription;
         private IDisposable mapLoadSubscription;
         private IDisposable mapStartSubscription;
         private IDisposable mapUnloadSubscription;
@@ -185,7 +184,6 @@ namespace MoveMoatTest
         private int cacheTargetRegion = -1;
         private int cachePlayerId = -1;
         private RouteProbeSummary cachedRouteSummary;
-        private readonly HashSet<int> patrolDiagnosticTribes = new HashSet<int>();
         private bool cursorChecksArmed;
         private int lastCursorRegionPositiveGeneration = -1;
         private int lastCursorDirectPositiveGeneration = -1;
@@ -341,7 +339,6 @@ namespace MoveMoatTest
 
                 tribeMoveSubscription = TribeR3EventHooks.OnTribeIssueOrderMoveHere.Observable.Subscribe(ObserveTribeMoveOrder);
                 tribeTargetSubscription = TribeR3EventHooks.OnTribeIssueOrderWithTarget.Observable.Subscribe(ObserveTribeTargetOrder);
-                tribePatrolWaypointSubscription = TribeR3EventHooks.OnTribeGetNextPatrolWaypoint.Observable.Subscribe(ObservePatrolWaypoint);
                 mapLoadSubscription = MapLoaderR3EventHooks.OnLoadMap.Observable.Subscribe(_ => ResetMapState());
                 mapStartSubscription = MapLoaderR3EventHooks.OnStartMap.Observable.Subscribe(_ => ResetMapState());
                 mapUnloadSubscription = MapLoaderR3EventHooks.OnUnloadMap.Observable.Subscribe(_ => ResetMapState());
@@ -365,7 +362,6 @@ namespace MoveMoatTest
                 TryRestoreCursorPatch();
                 tribeMoveSubscription?.Dispose();
                 tribeTargetSubscription?.Dispose();
-                tribePatrolWaypointSubscription?.Dispose();
                 mapLoadSubscription?.Dispose();
                 mapStartSubscription?.Dispose();
                 mapUnloadSubscription?.Dispose();
@@ -390,7 +386,6 @@ namespace MoveMoatTest
             TryRestoreCursorPatch();
             tribeMoveSubscription?.Dispose();
             tribeTargetSubscription?.Dispose();
-            tribePatrolWaypointSubscription?.Dispose();
             mapLoadSubscription?.Dispose();
             mapStartSubscription?.Dispose();
             mapUnloadSubscription?.Dispose();
@@ -414,20 +409,10 @@ namespace MoveMoatTest
 
             if (args.Phase == EventHookPhase.Pre)
             {
-                bool startsPatrolTrace = args.IsPatrolPath != 0;
-                if (startsPatrolTrace)
-                    patrolDiagnosticTribes.Add(args.TribeId);
-                else if (args.IsNewOrder)
-                    patrolDiagnosticTribes.Remove(args.TribeId);
-
                 activeMoveCommand = new MoveCommandScope(
                     args.TribeId,
                     args.TileX,
-                    args.TileY,
-                    args.IsPatrolPath,
-                    args.IsNewOrder,
-                    args.MoveType.ToString(),
-                    patrolDiagnosticTribes.Contains(args.TribeId));
+                    args.TileY);
                 try
                 {
                     LogCommandDiagnostic(
@@ -477,25 +462,6 @@ namespace MoveMoatTest
                 activeMoveCommand = null;
                 activePlan = null;
                 pendingPlan = null;
-            }
-        }
-
-        private void ObservePatrolWaypoint(TribeGetNextPatrolWaypointEventArgs args)
-        {
-            if (disposed || !patrolDiagnosticTribes.Contains(args.TribeId))
-                return;
-
-            try
-            {
-                Shared.DebugLogHelper.LogInfo(
-                    log,
-                    $"MoveMoat stage=patrol-waypoint tribe={args.TribeId} " +
-                    $"phase={args.Phase.ToString().ToLowerInvariant()} " +
-                    $"pointIndex={args.PatrolPointIndex} return={args.ReturnValue}.");
-            }
-            catch
-            {
-                // Patrol observation must never affect Vanilla waypoint selection.
             }
         }
 
@@ -1291,7 +1257,6 @@ namespace MoveMoatTest
             lastCursorRegionBlockGeneration = -1;
             lastCursorDirectBlockGeneration = -1;
             cursorChecksArmed = false;
-            patrolDiagnosticTribes.Clear();
             activeMoveCommand = null;
             activePlan = null;
             pendingPlan = null;
@@ -1384,7 +1349,7 @@ namespace MoveMoatTest
         private void FlushCommandDiagnostics(MoveCommandScope command)
         {
             if (command == null ||
-                (!command.MoatRelevant && !command.PatrolTraceRelevant))
+                !command.MoatRelevant)
                 return;
 
             foreach (string message in command.Diagnostics)
@@ -1555,28 +1520,16 @@ namespace MoveMoatTest
             public MoveCommandScope(
                 int tribeId,
                 int targetX,
-                int targetY,
-                short isPatrolPath,
-                bool isNewOrder,
-                string moveType,
-                bool patrolTraceRelevant)
+                int targetY)
             {
                 TribeId = tribeId;
                 TargetX = targetX;
                 TargetY = targetY;
-                IsPatrolPath = isPatrolPath;
-                IsNewOrder = isNewOrder;
-                MoveType = moveType;
-                PatrolTraceRelevant = patrolTraceRelevant;
             }
 
             public int TribeId { get; }
             public int TargetX { get; }
             public int TargetY { get; }
-            public short IsPatrolPath { get; }
-            public bool IsNewOrder { get; }
-            public string MoveType { get; }
-            public bool PatrolTraceRelevant { get; }
             public int CentralPlannerCalls { get; set; }
             public int FloodCalls { get; set; }
             public int FloodVanillaPositive { get; set; }
