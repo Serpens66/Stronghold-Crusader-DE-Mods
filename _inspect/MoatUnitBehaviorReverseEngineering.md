@@ -1035,6 +1035,21 @@ Unit-ID und das zugehörige Ziel an beiden CALL-Sites voraus; diese Daten dürfe
 unbestätigten Global geraten werden. Bis diese Korrelation bewiesen ist, bleibt der bestehende
 synchrone MoveHere-Event-Scope die sichere Grenze.
 
+Die nächste Teststufe setzt den konfliktfreien Teil dieser Alternative um: Betritt eine Bewegung
+`0x18E1E0` außerhalb eines bekannten `TribeIssueOrderMoveHere`-Scopes, wird aus Unit-ID und Ziel
+zuerst dieselbe konservative freundliche Moat-Route read-only geprüft. Nur bei positivem Ergebnis
+entsteht ein `planner-owner-qualified`-Scope. Ausschließlich innerhalb dieses synchronen Scopes
+dürfen Moat-Modus, Regionsweiterleitung und Buildervariante wie beim bewährten MoveHere-Pfad
+wirken. Der Builder wiederholt die Owner-/Routenprüfung vor der Änderung von `pathManager+0x80`.
+Damit werden zentrale Bewegungsplanungen unabhängig vom Command-Typ abgedeckt, ohne einen
+zweiten Detour auf dem von `AssassinCombatFix` belegten `MoveHere`-Funktionsanfang zu installieren.
+
+Dies ist noch kein globaler Builder-Bypass. `F4930`-Aufrufe aus `MoveHere`, die weder vom
+Script-Extender-Event umschlossen noch vom zentralen Planer aufgerufen werden, bleiben Vanilla.
+Sie pauschal freizugeben wäre erst vertretbar, wenn Unit-ID und Ziel am Builder zweifelsfrei
+korreliert werden können. Die Attack-Cursor-/Befehlsauswahl liegt außerdem vor beiden Planern und
+wird durch diese Erweiterung bewusst nicht umklassifiziert.
+
 Für einen positiven Moat-Pfad müssen im reduzierten Diagnosemodus mindestens
 `tribe-flood-fill`, bei getrennter Region `region`, ein erzwungener `mode`-Eintrag und
 `builder-route80 ... result>0 retained=True` korrelieren. `retained=False`, Callbackfehler oder
@@ -1176,6 +1191,7 @@ beziehungsweise die konkreten Stages filtern:
 - `cursor-region`
 - `cursor-direct`
 - `move-command`
+- `planner-owner-qualified`
 - `tribe-flood-observed`
 - `tribe-flood-fill`
 - `mode`

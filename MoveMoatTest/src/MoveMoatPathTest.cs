@@ -441,11 +441,44 @@ namespace MoveMoatTest
         private int RunCentralMovementPlanWithContext(
             IntPtr unitManager, int unitId, int targetX, int targetY)
         {
-            if (disposed || activeMoveCommand == null || unitManager == IntPtr.Zero || unitId <= 0)
+            if (disposed || unitManager == IntPtr.Zero || unitId <= 0)
                 return originalCentralMovementPlan(unitManager, unitId, targetX, targetY);
 
             PlanScope previous = activePlan;
             PlanScope plan = new PlanScope(unitId, targetX, targetY);
+            if (activeMoveCommand == null)
+            {
+                try
+                {
+                    if (!TryFindFriendlyCompletedMoatRouteForPlan(plan, out RouteProbeSummary summary))
+                        return originalCentralMovementPlan(unitManager, unitId, targetX, targetY);
+
+                    plan.FriendlyRouteQualified = true;
+                    try
+                    {
+                        LogPipelineDiagnostic(
+                            $"stage=planner-owner-qualified unit={unitId} player={plan.PlayerId} " +
+                            $"target=({targetX},{targetY}) {summary.ToLogFields()}");
+                    }
+                    catch
+                    {
+                        // Diagnostics must not reject an otherwise qualified planner scope.
+                    }
+                }
+                catch (Exception ex)
+                {
+                    try
+                    {
+                        LogFailure("planner-owner-qualification", ex);
+                    }
+                    catch
+                    {
+                        // Never let diagnostics escape across the native planner callback.
+                    }
+                    return originalCentralMovementPlan(unitManager, unitId, targetX, targetY);
+                }
+            }
+
             activePlan = plan;
             try
             {
@@ -462,7 +495,10 @@ namespace MoveMoatTest
         private int ForceCompletedMoatMode(IntPtr unitManager, int unitId)
         {
             int vanillaResult = originalDetectCompletedMoatMode(unitManager, unitId);
-            if (disposed || activeMoveCommand == null || unitManager == IntPtr.Zero || unitId <= 0)
+            PlanScope plan = activePlan;
+            bool plannerQualified = plan != null && plan.FriendlyRouteQualified;
+            if (disposed || (activeMoveCommand == null && !plannerQualified) ||
+                unitManager == IntPtr.Zero || unitId <= 0)
                 return vanillaResult;
 
             try
@@ -470,7 +506,6 @@ namespace MoveMoatTest
                 if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) || unit == null)
                     return vanillaResult;
 
-                PlanScope plan = activePlan;
                 if (plan == null)
                 {
                     // Some ordinary MoveHere paths reach the mode helper without passing
@@ -499,7 +534,10 @@ namespace MoveMoatTest
             IntPtr pathManager, int movementClass, int targetRegion, int startX, int startY)
         {
             int vanillaResult = originalRegionReachability(pathManager, movementClass, targetRegion, startX, startY);
-            if (disposed || activeMoveCommand == null)
+            PlanScope plan = activePlan ?? pendingPlan;
+            bool scoped = activeMoveCommand != null ||
+                (plan != null && plan.FriendlyRouteQualified);
+            if (disposed || !scoped)
                 return vanillaResult;
 
             try
@@ -576,14 +614,18 @@ namespace MoveMoatTest
         {
             MoveCommandScope command = activeMoveCommand;
             PlanScope plan = activePlan ?? pendingPlan;
-            if (disposed || pathManager == IntPtr.Zero || command == null || plan == null)
+            bool plannerQualified = plan != null && plan.FriendlyRouteQualified;
+            if (disposed || pathManager == IntPtr.Zero || plan == null ||
+                (command == null && !plannerQualified))
             {
                 return originalPathBuilder(pathManager, movementClass, movementProfile);
             }
 
             int currentMoatMode = *moatPathMode;
+            int floodFillBypasses = command?.FloodFillBypasses ?? 0;
+            bool pipelineQualified = plannerQualified || floodFillBypasses > 0;
             bool builderEligible = !plan.VanillaModeDetected &&
-                command.FloodFillBypasses > 0 && currentMoatMode == 1;
+                pipelineQualified && currentMoatMode == 1;
             if (!builderEligible)
             {
                 int vanillaBuilderResult = originalPathBuilder(pathManager, movementClass, movementProfile);
@@ -593,7 +635,8 @@ namespace MoveMoatTest
                         $"stage=builder-gate unit={plan.UnitId} player={plan.PlayerId} " +
                         $"target=({plan.TargetX},{plan.TargetY}) eligible=False " +
                         $"vanillaModeDetected={plan.VanillaModeDetected} " +
-                        $"floodBypasses={command.FloodFillBypasses} moatMode={currentMoatMode} " +
+                        $"plannerQualified={plannerQualified} floodBypasses={floodFillBypasses} " +
+                        $"moatMode={currentMoatMode} " +
                         $"movementClass={movementClass} movementProfile={movementProfile} " +
                         $"vanillaBuilderResult={vanillaBuilderResult}");
                 }
@@ -1303,6 +1346,7 @@ namespace MoveMoatTest
             public int TargetY { get; }
             public int PlayerId { get; set; } = -1;
             public bool VanillaModeDetected { get; set; }
+            public bool FriendlyRouteQualified { get; set; }
         }
 
         private struct RouteProbeSummary
