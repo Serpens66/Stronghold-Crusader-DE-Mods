@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition="'$(Configuration)' == ''">Debug</Configuration>
+    <Platform Condition="'$(Platform)' == ''">AnyCPU</Platform>
+    <ProjectGuid>{4A893741-1634-489A-85C9-72C09067CD8D}</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>EnemyGatePathfindingTest</RootNamespace>
+    <AssemblyName>EnemyGatePathfindingTest.PolicyTests</AssemblyName>
+    <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
+    <LangVersion>latest</LangVersion>
+    <OutputPath>tests\bin\</OutputPath>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="src\EnemyGatePathfindingNativeDefinition.cs"><Link>EnemyGatePathfindingNativeDefinition.cs</Link></Compile>
+    <Compile Include="src\EnemyGatePathfindingPolicy.cs"><Link>EnemyGatePathfindingPolicy.cs</Link></Compile>
+    <Compile Include="tests\Program.cs" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>
