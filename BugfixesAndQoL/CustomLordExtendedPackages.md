@@ -231,3 +231,6 @@ Before publishing:
 One package is usable in separate Vanilla and Script Extender installations. This does not guarantee deterministic mixed multiplayer when only some participants run gameplay-changing Lua or other Extender features; multiplayer participants should use a consistent mod setup for such features.
 
 The `CustomLordExtendedPackageTemplate` directory beside this guide contains starter `info.json`, `lordmeta.json`, and asset-path notes. Replace every placeholder before publishing.
+
+## Official Script Extender guide
+https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender/-/blob/main/docs/guides/extended-ai-modding.md
