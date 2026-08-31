@@ -12,16 +12,28 @@
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <OutputPath>bin\Debug\</OutputPath>
+    <GameDir>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="BepInEx"><HintPath>$(GameDir)\BepInEx\core\BepInEx.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="Assembly-CSharp"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll</HintPath><Private>true</Private></Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="..\..\CustomLordUpload\src\CustomLordCompatibilityProfile.cs"><Link>CustomLordCompatibilityProfile.cs</Link></Compile>
+    <Compile Include="..\..\CustomLordUpload\src\CustomLordRuntimeRules.cs"><Link>CustomLordRuntimeRules.cs</Link></Compile>
+    <Compile Include="..\..\CustomLordUpload\src\CustomLordUploadIssue.cs"><Link>CustomLordUploadIssue.cs</Link></Compile>
+    <Compile Include="..\..\CustomLordUpload\src\CustomLordUploadContracts.cs"><Link>CustomLordUploadContracts.cs</Link></Compile>
+    <Compile Include="..\..\CustomLordUpload\src\CustomLordUploadRequest.cs"><Link>CustomLordUploadRequest.cs</Link></Compile>
+    <Compile Include="..\..\CustomLordUpload\src\CustomLordUploadWorkflow.cs"><Link>CustomLordUploadWorkflow.cs</Link></Compile>
     <Compile Include="..\..\CustomLordUpload\src\CustomLordWorkshopPackagePolicy.cs"><Link>CustomLordWorkshopPackagePolicy.cs</Link></Compile>
     <Compile Include="..\..\CustomLordUpload\src\CustomLordWorkshopPreflight.cs"><Link>CustomLordWorkshopPreflight.cs</Link></Compile>
     <Compile Include="..\..\Shared\DependencyFreeJson.cs"><Link>DependencyFreeJson.cs</Link></Compile>
+    <Compile Include="..\..\Shared\DebugLogHelper.cs"><Link>DebugLogHelper.cs</Link></Compile>
     <Compile Include="Program.cs" />
+    <Compile Include="SerpLocalizationStub.cs" />
+    <Compile Include="TestExtenderTypes.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

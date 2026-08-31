@@ -7,14 +7,17 @@ namespace CustomLordUpload
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class CustomLordUploadPlugin : BaseUnityPlugin
     {
+        // COMPATIBILITY: Recheck the hard dependency GUID after Script Extender packaging changes.
         private const string ScriptExtenderGuid = "000shcdese";
 
         public const string PluginGuid = "CustomLordUpload_Serp";
         public const string PluginName = "Custom Lord Upload";
         public const string PluginVersion = "1.0.0";
 
-        // The BepInEx component is destroyed during startup, so the process-lifetime detour stays rooted here.
+        // COMPATIBILITY: The BepInEx component is destroyed during startup in the current loader;
+        // recheck lifecycle behavior after BepInEx/Script Extender updates. Process-lifetime services stay rooted here.
         private static CustomLordUploadHook? uploadHook;
+        private static CustomLordPopupPatchVerifier? popupPatchVerifier;
 
         private void Awake()
         {
@@ -23,6 +26,7 @@ namespace CustomLordUpload
 
             try
             {
+                popupPatchVerifier = new CustomLordPopupPatchVerifier(Logger);
                 uploadHook = new CustomLordUploadHook(Logger);
                 Shared.DebugLogHelper.LogInfo(Logger, $"{PluginName} {PluginVersion} loaded; Workshop upload hook installed.");
             }

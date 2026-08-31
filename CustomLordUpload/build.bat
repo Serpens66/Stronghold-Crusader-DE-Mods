@@ -40,10 +40,13 @@ if errorlevel 1 goto build_failed_popd
 popd
 
 copy /Y "%PROJECT_DIR%info.json" "%LOCAL_PLUGIN_DIR%\info.json" >nul
-xcopy "%PROJECT_DIR%Override" "%LOCAL_PLUGIN_DIR%\Override\" /E /I /Q /Y >nul
+xcopy "%PROJECT_DIR%Patches" "%LOCAL_PLUGIN_DIR%\Patches\" /E /I /Q /Y >nul
+xcopy "%PROJECT_DIR%Locales" "%LOCAL_PLUGIN_DIR%\Locales\" /E /I /Q /Y >nul
 if not exist "%LOCAL_PLUGIN_DIR%\CustomLordUpload.dll" goto package_failed
 if not exist "%LOCAL_PLUGIN_DIR%\info.json" goto package_failed
-if not exist "%LOCAL_PLUGIN_DIR%\Override\Assets\GUI\XAMLResources\HUD_ConfirmationPopup.xaml" goto package_failed
+if not exist "%LOCAL_PLUGIN_DIR%\Patches\Assets\GUI\XAMLResources\HUD_ConfirmationPopup.xaml" goto package_failed
+if not exist "%LOCAL_PLUGIN_DIR%\Locales\en-US.txt" goto package_failed
+if exist "%LOCAL_PLUGIN_DIR%\Override\Assets\GUI\XAMLResources\HUD_ConfirmationPopup.xaml" goto package_failed
 
 if exist "%GAME_PLUGIN_DIR%\" rmdir /S /Q "%GAME_PLUGIN_DIR%"
 xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Q /Y >nul

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using BepInEx.Logging;
 
 namespace CustomLordUpload
 {
@@ -15,26 +16,24 @@ namespace CustomLordUpload
             if (args.Length == 2 && args[0] == "--expect-unsafe-package")
                 return ExpectUnsafePackage(args[1]);
 
-            Run("exact tag", TestExactTag);
             Run("complete package and retry", TestCompletePackageAndRetry);
             Run("conflict rollback", TestConflictRollback);
+            Run("dynamic rules", TestDynamicRules);
+            Run("unknown version profile", TestUnknownVersionProfile);
+            Run("version-specific info.json warning", TestVersionSpecificInfoWarning);
+            Run("exact tag workflow", TestExactTagWorkflow);
+            Run("yes/no workflow", TestConfirmationWorkflow);
+            Run("completion callback tracking", TestCompletionCallbackTracking);
             Run("valid metadata and version", TestValidPreflight);
             Run("message IDs", TestMessageIds);
             Run("invalid WAV", TestInvalidWave);
+            Run("separate WAV defects", TestSeparateWaveDefects);
             Run("misplaced paths", TestMisplacedPaths);
 
             Console.WriteLine(failures == 0
                 ? "All CustomLordUpload tests passed."
                 : failures + " CustomLordUpload test(s) failed.");
             return failures == 0 ? 0 : 1;
-        }
-
-        private static void TestExactTag()
-        {
-            Assert(CustomLordWorkshopPackagePolicy.IsCustomLordUpload(new[] { "Custom Lord" }), "exact tag rejected");
-            Assert(!CustomLordWorkshopPackagePolicy.IsCustomLordUpload(new[] { "custom lord" }), "case variant accepted");
-            Assert(!CustomLordWorkshopPackagePolicy.IsCustomLordUpload(new[] { "Map", "Custom Lord Extra" }), "partial tag accepted");
-            Assert(!CustomLordWorkshopPackagePolicy.IsCustomLordUpload(null), "null tags accepted");
         }
 
         private static void TestCompletePackageAndRetry()
@@ -58,20 +57,26 @@ namespace CustomLordUpload
                 WriteText(Path.Combine(staging, "avatar.png"), "vanilla avatar");
 
                 bool first = CustomLordWorkshopPackagePolicy.TryStageFiles(
-                    source, staging, out int copied, out int existing, out string error);
+                    source, staging, out int copied, out int existing,
+                    out int packageFiles, out long packageBytes, out string error);
                 Assert(first, error);
                 Assert(copied == 7, "unexpected copied file count: " + copied);
                 Assert(existing == 0, "unexpected initial existing count: " + existing);
+                Assert(packageFiles == 7, "unexpected package file count: " + packageFiles);
+                Assert(packageBytes > 0, "package byte count was not reported");
                 Assert(File.ReadAllText(Path.Combine(staging, "avatar.png")) == "vanilla avatar", "avatar overwritten");
                 Assert(!File.Exists(Path.Combine(staging, "local.data")), ".data copied");
                 Assert(!File.Exists(Path.Combine(staging, "local.ldata")), ".ldata copied");
                 Assert(File.Exists(Path.Combine(staging, "Override", "Locales", "de-DE", "fx", "Speech", "line.ogg")), "localized speech missing");
 
                 bool retry = CustomLordWorkshopPackagePolicy.TryStageFiles(
-                    source, staging, out int retryCopied, out int retryExisting, out string retryError);
+                    source, staging, out int retryCopied, out int retryExisting,
+                    out int retryPackageFiles, out long retryPackageBytes, out string retryError);
                 Assert(retry, retryError);
                 Assert(retryCopied == 0, "retry copied files");
                 Assert(retryExisting == copied, "retry did not recognize all existing extras");
+                Assert(retryPackageFiles == packageFiles, "retry package file count changed");
+                Assert(retryPackageBytes == packageBytes, "retry package byte count changed");
             });
         }
 
@@ -84,7 +89,7 @@ namespace CustomLordUpload
                 WriteText(Path.Combine(staging, "z-conflict.txt"), "destination");
 
                 bool result = CustomLordWorkshopPackagePolicy.TryStageFiles(
-                    source, staging, out _, out _, out string error);
+                    source, staging, out _, out _, out _, out _, out string error);
                 Assert(!result, "conflict unexpectedly succeeded");
                 Assert(error.IndexOf("different package destination", StringComparison.OrdinalIgnoreCase) >= 0, "wrong conflict error");
                 Assert(!File.Exists(Path.Combine(staging, "a-created.txt")), "rollback left copied file");
@@ -99,14 +104,14 @@ namespace CustomLordUpload
                 WriteVanillaBase(source);
                 WriteText(Path.Combine(source, "info.json"), ValidInfo);
                 WriteText(Path.Combine(source, "lordmeta.json"), ValidLordMeta);
-                IReadOnlyList<string> issues = CustomLordWorkshopPreflight.Inspect(source);
+                IReadOnlyList<CustomLordUploadIssue> issues = Inspect(source);
                 Assert(issues.Count == 0, string.Join(" | ", issues));
 
                 WriteText(Path.Combine(source, "info.json"),
                     "{\"GUID\":\"test\",\"Version\":\"v1.0.0-beta.2\"}");
-                issues = CustomLordWorkshopPreflight.Inspect(source);
-                Assert(!issues.Any(issue => issue.IndexOf("Version", StringComparison.OrdinalIgnoreCase) >= 0),
-                    "accepted SemVer-style version warned: " + string.Join(" | ", issues));
+                issues = Inspect(source);
+                Assert(!issues.Any(issue => issue.Code == "InfoVersionInvalid"),
+                    "accepted SemVer-style version warned");
             });
         }
 
@@ -119,15 +124,15 @@ namespace CustomLordUpload
                 WriteText(
                     Path.Combine(source, "lordmeta.json"),
                     "{\"Messages\":{\"DefeatedAgain\":[],\"AllyNotificationCongratulations\":[]}}");
-                IReadOnlyList<string> issues = CustomLordWorkshopPreflight.Inspect(source);
-                Assert(!issues.Any(issue => issue.IndexOf("both use native ID", StringComparison.OrdinalIgnoreCase) >= 0),
+                IReadOnlyList<CustomLordUploadIssue> issues = Inspect(source);
+                Assert(!issues.Any(issue => issue.Code == "DuplicateMessageId"),
                     "corrected IDs reported as duplicate");
 
                 WriteText(
                     Path.Combine(source, "lordmeta.json"),
                     "{\"Messages\":{\"DefeatedAgain\":[],\"16\":[]}}");
-                issues = CustomLordWorkshopPreflight.Inspect(source);
-                Assert(issues.Any(issue => issue.IndexOf("both use native ID 16", StringComparison.OrdinalIgnoreCase) >= 0),
+                issues = Inspect(source);
+                Assert(issues.Any(issue => issue.Code == "DuplicateMessageId"),
                     "real duplicate ID not reported");
             });
         }
@@ -140,8 +145,8 @@ namespace CustomLordUpload
                 WriteText(Path.Combine(source, "info.json"), ValidInfo);
                 WriteText(Path.Combine(source, "lordmeta.json"), ValidLordMeta);
                 WriteText(Path.Combine(source, "Override", "fx", "Speech", "bad.wav"), "not-wave");
-                IReadOnlyList<string> issues = CustomLordWorkshopPreflight.Inspect(source);
-                Assert(issues.Any(issue => issue.IndexOf("WAV", StringComparison.OrdinalIgnoreCase) >= 0),
+                IReadOnlyList<CustomLordUploadIssue> issues = Inspect(source);
+                Assert(issues.Any(issue => issue.Code == "WaveHeader"),
                     "invalid WAV not reported");
             });
         }
@@ -153,10 +158,208 @@ namespace CustomLordUpload
                 WriteVanillaBase(source);
                 WriteText(Path.Combine(source, "nested", "info.json"), ValidInfo);
                 WriteText(Path.Combine(source, "fx", "speech.ogg"), "audio");
-                IReadOnlyList<string> issues = CustomLordWorkshopPreflight.Inspect(source);
-                Assert(issues.Any(issue => issue.IndexOf("misplaced", StringComparison.OrdinalIgnoreCase) >= 0), "misplaced info not reported");
-                Assert(issues.Any(issue => issue.IndexOf("root/fx", StringComparison.OrdinalIgnoreCase) >= 0), "root/fx not reported");
+                IReadOnlyList<CustomLordUploadIssue> issues = Inspect(source);
+                Assert(issues.Any(issue => issue.Code == "MisplacedMetadata"), "misplaced info not reported");
+                Assert(issues.Any(issue => issue.Code == "RootFx"), "root/fx not reported");
             });
+        }
+
+        private static void TestSeparateWaveDefects()
+        {
+            WithSource(source =>
+            {
+                WriteVanillaBase(source);
+                WriteText(Path.Combine(source, "info.json"), ValidInfo);
+                WriteText(Path.Combine(source, "lordmeta.json"), ValidLordMeta);
+                string wavePath = Path.Combine(source, "Override", "fx", "Speech", "bad.wav");
+                string? directory = Path.GetDirectoryName(wavePath);
+                if (directory != null)
+                    Directory.CreateDirectory(directory);
+                byte[] wave = new byte[48];
+                Encoding.ASCII.GetBytes("RIFF").CopyTo(wave, 0);
+                BitConverter.GetBytes(40).CopyTo(wave, 4);
+                Encoding.ASCII.GetBytes("WAVEfmt ").CopyTo(wave, 8);
+                BitConverter.GetBytes(16).CopyTo(wave, 16);
+                BitConverter.GetBytes((short)3).CopyTo(wave, 20);
+                BitConverter.GetBytes((short)4).CopyTo(wave, 22);
+                BitConverter.GetBytes(22050).CopyTo(wave, 24);
+                BitConverter.GetBytes((short)8).CopyTo(wave, 34);
+                Encoding.ASCII.GetBytes("data").CopyTo(wave, 36);
+                BitConverter.GetBytes(4).CopyTo(wave, 40);
+                File.WriteAllBytes(wavePath, wave);
+
+                IReadOnlyList<CustomLordUploadIssue> issues = Inspect(source);
+                Assert(issues.Any(issue => issue.Code == "WaveFormat"), "WAV format defect missing");
+                Assert(issues.Any(issue => issue.Code == "WaveChannels"), "WAV channel defect missing");
+                Assert(issues.Any(issue => issue.Code == "WaveSampleRate"), "WAV sample-rate defect missing");
+                Assert(issues.Any(issue => issue.Code == "WaveBits"), "WAV bit-depth defect missing");
+            });
+        }
+
+        private static void TestDynamicRules()
+        {
+            CustomLordRuntimeRules rules = CustomLordRuntimeRules.Discover(
+                typeof(TestExtender.LordInfo).Assembly,
+                "1.0.0+a7775a6",
+                typeof(TestExtender.LordInfo).FullName,
+                typeof(TestExtender.AILordMessageType).FullName);
+            Assert(rules.IsKnownIdentity, "known identity not recognized");
+            Assert(rules.MessageTypes["AllyNotificationCongratulations"] == 17, "message ID 17 not reflected");
+            Assert(rules.MessageTypes["FutureMessage"] == 34, "future message enum not reflected");
+            Assert(rules.LordInfoFields.Contains("FutureMetadata"), "future LordInfo property not reflected");
+        }
+
+        private static void TestUnknownVersionProfile()
+        {
+            WithSource(source =>
+            {
+                WriteVanillaBase(source);
+                WriteText(Path.Combine(source, "info.json"), ValidInfo);
+                WriteText(Path.Combine(source, "lordmeta.json"), ValidLordMeta);
+                CustomLordRuntimeRules rules = CustomLordRuntimeRules.CreateCompatibilityProfile("future-build", false);
+                IReadOnlyList<CustomLordUploadIssue> issues = CustomLordWorkshopPreflight.Inspect(source, rules);
+                Assert(issues.Any(issue => issue.Code == "UnknownExtenderVersion"), "unknown version warning missing");
+            });
+        }
+
+        private static void TestVersionSpecificInfoWarning()
+        {
+            WithSource(source =>
+            {
+                WriteVanillaBase(source);
+                WriteText(Path.Combine(source, "info.json"), "{\"GUID\":\"test-lord\",\"Version\":\"invalid\"}");
+                WriteText(Path.Combine(source, "lordmeta.json"), ValidLordMeta);
+
+                IReadOnlyList<CustomLordUploadIssue> v142Issues = CustomLordWorkshopPreflight.Inspect(
+                    source,
+                    CustomLordRuntimeRules.CreateCompatibilityProfile("1.0.0+171d68e", true));
+                Assert(v142Issues.Any(issue => issue.Code == "InfoVersionRecommended"),
+                    "v1.42 recommendation missing");
+                Assert(!v142Issues.Any(issue => issue.Code == "InfoVersionInvalid"),
+                    "v1.42 incorrectly claimed versioned duplicate resolution");
+
+                IReadOnlyList<CustomLordUploadIssue> branchAIssues = CustomLordWorkshopPreflight.Inspect(
+                    source,
+                    CustomLordRuntimeRules.CreateCompatibilityProfile("1.0.0+a7775a6", true));
+                Assert(branchAIssues.Any(issue => issue.Code == "InfoVersionInvalid"),
+                    "Branch-A version rule missing");
+                Assert(!branchAIssues.Any(issue => issue.Code == "InfoVersionRecommended"),
+                    "Branch A used the legacy recommendation");
+            });
+        }
+
+        private static IReadOnlyList<CustomLordUploadIssue> Inspect(string source)
+        {
+            return CustomLordWorkshopPreflight.Inspect(
+                source,
+                CustomLordRuntimeRules.CreateCompatibilityProfile("1.0.0+a7775a6", true));
+        }
+
+        private static void TestExactTagWorkflow()
+        {
+            WithSource(source =>
+            {
+                FakeStager stager = new FakeStager(source);
+                FakeConfirmation confirmation = new FakeConfirmation();
+                CustomLordUploadWorkflow workflow = CreateWorkflow(stager, confirmation);
+                int originals = 0;
+                workflow.Handle(
+                    CreateRequest(new[] { "custom lord" }, () => { }, () => { }),
+                    _ => originals++);
+                Assert(originals == 1, "case-variant tag did not pass directly to Vanilla");
+                Assert(confirmation.ShowCount == 0, "case-variant tag triggered preflight");
+
+                workflow.Handle(
+                    CreateRequest(new[] { "Custom Lord Extra" }, () => { }, () => { }),
+                    _ => originals++);
+                Assert(originals == 2, "partial tag did not pass directly to Vanilla");
+            });
+        }
+
+        private static void TestConfirmationWorkflow()
+        {
+            WithSource(source =>
+            {
+                FakeStager stager = new FakeStager(source);
+                FakeConfirmation confirmation = new FakeConfirmation();
+                CustomLordUploadWorkflow workflow = CreateWorkflow(stager, confirmation);
+                int originalCalls = 0;
+                int failures = 0;
+                workflow.Handle(
+                    CreateRequest(new[] { "Custom Lord" }, () => { }, () => failures++),
+                    _ => originalCalls++);
+                Assert(confirmation.ShowCount == 1, "warnings did not open confirmation");
+                Assert(originalCalls == 0, "Vanilla upload started before confirmation");
+                confirmation.Cancel();
+                Assert(failures == 1 && originalCalls == 0, "No did not cancel safely");
+
+                confirmation = new FakeConfirmation();
+                workflow = CreateWorkflow(stager, confirmation);
+                workflow.Handle(
+                    CreateRequest(new[] { "Custom Lord" }, () => { }, () => failures++),
+                    request =>
+                    {
+                        originalCalls++;
+                        request.SuccessAction();
+                    });
+                confirmation.Confirm();
+                Assert(originalCalls == 1, "Yes did not continue to Vanilla");
+                Assert(stager.StageCount == 1, "Yes did not add extended staging files");
+            });
+        }
+
+        private static void TestCompletionCallbackTracking()
+        {
+            WithSource(source =>
+            {
+                WriteVanillaBase(source);
+                WriteText(Path.Combine(source, "info.json"), ValidInfo);
+                WriteText(Path.Combine(source, "lordmeta.json"), ValidLordMeta);
+
+                FakeStager stager = new FakeStager(source);
+                FakeConfirmation confirmation = new FakeConfirmation();
+                CustomLordUploadWorkflow workflow = CreateWorkflow(stager, confirmation);
+                int successes = 0;
+                int failures = 0;
+                int originalCalls = 0;
+
+                workflow.Handle(
+                    CreateRequest(new[] { "Custom Lord" }, () => successes++, () => failures++),
+                    request =>
+                    {
+                        originalCalls++;
+                        request.SuccessAction();
+                        request.SuccessAction();
+                        request.FailAction();
+                    });
+
+                Assert(confirmation.ShowCount == 0, "valid package unexpectedly requested confirmation");
+                Assert(originalCalls == 1, "valid upload was not handed to Vanilla exactly once");
+                Assert(successes == 1, "success callback was not forwarded exactly once");
+                Assert(failures == 0, "late failure callback was incorrectly forwarded");
+                Assert(stager.StageCount == 1, "valid upload did not extend staging");
+            });
+        }
+
+        private static CustomLordUploadWorkflow CreateWorkflow(
+            ICustomLordUploadStager stager,
+            ICustomLordUploadConfirmation confirmation)
+        {
+            return new CustomLordUploadWorkflow(
+                new ManualLogSource("CustomLordUploadTests"),
+                stager,
+                confirmation,
+                CustomLordRuntimeRules.CreateCompatibilityProfile("1.0.0+a7775a6", true));
+        }
+
+        private static CustomLordUploadRequest CreateRequest(
+            string[] tags,
+            Action success,
+            Action failure)
+        {
+            return new CustomLordUploadRequest(
+                null!, "staging-" + Guid.NewGuid().ToString("N"), "testlord", "", tags,
+                false, "", success, failure);
         }
 
         private static void WriteVanillaBase(string source)
@@ -223,7 +426,7 @@ namespace CustomLordUpload
         private static int ExpectUnsafePackage(string source)
         {
             bool result = CustomLordWorkshopPackagePolicy.TryCollectFilesForInspection(
-                source, out _, out _, out string error);
+                source, out _, out string error);
             if (!result && error.IndexOf("reparse point", StringComparison.OrdinalIgnoreCase) >= 0)
             {
                 Console.WriteLine("PASS: reparse point rejected");
@@ -236,5 +439,56 @@ namespace CustomLordUpload
 
         private const string ValidInfo = "{\"GUID\":\"test-lord\",\"Version\":\"1.0.110\"}";
         private const string ValidLordMeta = "{\"Messages\":{\"WillAttack\":[]}}";
+
+        private sealed class FakeStager : ICustomLordUploadStager
+        {
+            private readonly string source;
+
+            internal FakeStager(string source) { this.source = source; }
+            internal int StageCount { get; private set; }
+
+            public bool TryResolveSource(string mapTitle, out string sourcePath, out string error)
+            {
+                sourcePath = source;
+                error = string.Empty;
+                return true;
+            }
+
+            public bool TryExtendStaging(
+                string uploadContentRoot,
+                string mapTitle,
+                out CustomLordUploadStagingSummary? summary,
+                out string error)
+            {
+                StageCount++;
+                summary = new CustomLordUploadStagingSummary(
+                    source,
+                    Path.Combine(uploadContentRoot, mapTitle),
+                    1,
+                    123,
+                    1,
+                    0);
+                error = string.Empty;
+                return true;
+            }
+        }
+
+        private sealed class FakeConfirmation : ICustomLordUploadConfirmation
+        {
+            private Action? confirm;
+            private Action? cancel;
+
+            internal int ShowCount { get; private set; }
+
+            public void Show(IReadOnlyList<CustomLordUploadIssue> issues, Action confirmAction, Action cancelAction)
+            {
+                ShowCount++;
+                confirm = confirmAction;
+                cancel = cancelAction;
+            }
+
+            internal void Confirm() => confirm?.Invoke();
+            internal void Cancel() => cancel?.Invoke();
+        }
     }
 }

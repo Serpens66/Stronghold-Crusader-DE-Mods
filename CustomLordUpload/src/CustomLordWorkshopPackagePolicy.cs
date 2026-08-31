@@ -22,39 +22,19 @@ namespace CustomLordUpload
     /// </summary>
     internal static class CustomLordWorkshopPackagePolicy
     {
-        internal static bool IsCustomLordUpload(string[]? tags)
-        {
-            if (tags == null)
-                return false;
-            foreach (string tag in tags)
-            {
-                if (string.Equals(tag, "Custom Lord", StringComparison.Ordinal))
-                    return true;
-            }
-            return false;
-        }
-
-        internal static bool IsSafeDirectoryName(string? name)
-        {
-            if (name == null || string.IsNullOrWhiteSpace(name) || Path.IsPathRooted(name) ||
-                name.IndexOf(':') >= 0 || name == "." || name == ".." ||
-                name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 ||
-                !string.Equals(name, name.TrimEnd(' ', '.'), StringComparison.Ordinal))
-            {
-                return false;
-            }
-            return string.Equals(name, Path.GetFileName(name), StringComparison.Ordinal);
-        }
-
         internal static bool TryStageFiles(
             string sourceLordRoot,
             string stagingLordRoot,
             out int copiedFileCount,
             out int existingFileCount,
+            out int packageFileCount,
+            out long packageByteCount,
             out string error)
         {
             copiedFileCount = 0;
             existingFileCount = 0;
+            packageFileCount = 0;
+            packageByteCount = 0;
             if (!TryCollectFiles(
                     sourceLordRoot,
                     includeVanillaAndControlRootFiles: false,
@@ -86,6 +66,7 @@ namespace CustomLordUpload
                 {
                     // Revalidate immediately before use to reduce the opportunity for a filesystem swap.
                     ValidateRegularFile(file.SourcePath, "Custom Lord package file");
+                    packageByteCount = checked(packageByteCount + new FileInfo(file.SourcePath).Length);
                     string destination = GetContainedPath(destinationRoot, file.RelativePath);
                     string? destinationDirectory = Path.GetDirectoryName(destination);
                     if (destinationDirectory == null)
@@ -110,12 +91,15 @@ namespace CustomLordUpload
                 }
 
                 copiedFileCount = copiedDestinations.Count;
+                packageFileCount = files.Count;
                 error = string.Empty;
                 return true;
             }
             catch (Exception exception)
             {
                 bool rollbackComplete = RollBackExtras(copiedDestinations, createdDirectories);
+                packageFileCount = 0;
+                packageByteCount = 0;
                 error = "Could not copy the extended package into Workshop staging: " + exception.Message;
                 if (!rollbackComplete)
                     error += " Rollback was incomplete; inspect the staging directory before uploading.";
@@ -125,16 +109,16 @@ namespace CustomLordUpload
 
         internal static bool TryCollectFilesForInspection(
             string sourceLordRoot,
-            out string normalizedRoot,
             out List<CustomLordWorkshopPackageFile> files,
             out string error)
         {
-            return TryCollectFiles(
+            bool result = TryCollectFiles(
                 sourceLordRoot,
                 includeVanillaAndControlRootFiles: true,
-                out normalizedRoot,
+                out _,
                 out files,
                 out error);
+            return result;
         }
 
         private static bool TryCollectFiles(
@@ -230,6 +214,7 @@ namespace CustomLordUpload
 
         private static bool IsVanillaOrControlRootFile(string relativePath)
         {
+            // COMPATIBILITY: Vanilla owns these direct files; .data/.ldata are local uploader controls.
             if (relativePath.IndexOf(Path.DirectorySeparatorChar) >= 0 ||
                 relativePath.IndexOf(Path.AltDirectorySeparatorChar) >= 0)
             {

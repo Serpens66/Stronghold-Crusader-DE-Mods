@@ -1,86 +1,35 @@
 using Shared;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 
 namespace CustomLordUpload
 {
     /// <summary>
-    /// Reports high-confidence package problems before a Custom Lord upload. These checks are
-    /// advisory only; the game and Script Extender loaders remain the semantic authorities.
+    /// Reports high-confidence package problems. The checks are advisory; Vanilla and the
+    /// Script Extender remain the semantic authorities.
     /// </summary>
     internal static class CustomLordWorkshopPreflight
     {
-        private static readonly HashSet<string> RootMediaExtensions =
-            new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-            {
-                ".wav", ".ogg", ".webm", ".mp4", ".jpg", ".jpeg", ".tga"
-            };
-
-        private static readonly HashSet<string> DevelopmentExtensions =
-            new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-            {
-                ".7z", ".aup", ".aup3", ".bak", ".cs", ".csproj", ".dll", ".exe", ".pdb",
-                ".psd", ".rar", ".sln", ".tmp", ".zip"
-            };
-
-        private static readonly HashSet<string> DevelopmentDirectoryNames =
-            new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-            {
-                ".git", ".svn", "_LegacyMediaSource", "bin", "node_modules", "obj"
-            };
-
-        // Local copy of the loader's accepted names keeps this mod compatible with Script Extender 1.42.0
-        // while retaining Branch B's corrected, unique ID for AllyNotificationCongratulations.
-        private enum LordMessageType
+        internal static IReadOnlyList<CustomLordUploadIssue> Inspect(
+            string sourceLordRoot,
+            CustomLordRuntimeRules rules)
         {
-            IncomingMessage = 0,
-            WillAttack = 1,
-            TauntSiege2 = 2,
-            TauntSiege3 = 3,
-            TauntSiege4 = 4,
-            AngerSiegeFailed = 5,
-            AngerFortressDamaged = 6,
-            PleadDeath = 7,
-            PleadOutsideWalls = 8,
-            NervousInsideWalls = 9,
-            Counterattack = 10,
-            Unk11 = 11,
-            Won = 12,
-            Unk13 = 13,
-            RequestGoods = 14,
-            ReceivedGoods = 15,
-            DefeatedAgain = 16,
-            AllyNotificationCongratulations = 17,
-            AllyNotificationHasDefeatedEnemy = 18,
-            AllyNotificationRequestReinforcements = 19,
-            AllyNotificationMerryChristmas = 20,
-            Unk21 = 21,
-            Unk22 = 22,
-            AllyNotificationWillSiegeEnemySoon = 23,
-            AllyNotificationCannotAttackEnemy = 24,
-            AllyNotificationWillNotAttackToday = 25,
-            AllyNotificationCannotNotHelp = 26,
-            AllyNotificationWillNotHelp = 27,
-            AllyNotificationWillNotSendRequestedGoods = 28,
-            AllyNotificationHasSentRequestedGoods = 29,
-            AllyNotificationConfidentInVictory = 30,
-            AllyNotificationConfidentInLosing = 31,
-            AllyNotificationSentReinforcements = 32,
-            AllyNotificationAgree = 33
-        }
+            if (rules == null)
+                throw new ArgumentNullException(nameof(rules));
 
-        internal static IReadOnlyList<string> Inspect(string sourceLordRoot)
-        {
-            List<string> issues = new List<string>();
+            List<CustomLordUploadIssue> issues = new List<CustomLordUploadIssue>();
+            if (!rules.IsKnownIdentity)
+                issues.Add(Issue("UnknownExtenderVersion", "Version", rules.ExtenderIdentity));
+
             if (!CustomLordWorkshopPackagePolicy.TryCollectFilesForInspection(
                     sourceLordRoot,
-                    out _,
                     out List<CustomLordWorkshopPackageFile> files,
                     out string error))
             {
-                issues.Add("The package could not be inspected safely: " + error);
+                issues.Add(IssueWithDetail("UnsafeInspection", error));
                 return issues;
             }
 
@@ -89,8 +38,8 @@ namespace CustomLordUpload
                 StringComparer.OrdinalIgnoreCase);
 
             CheckVanillaBase(files, issues);
-            CheckRequiredExtendedMetadata(byPath, issues);
-            CheckPaths(files, byPath, issues);
+            CheckExtendedMetadata(byPath, rules, issues);
+            CheckPackageHygiene(files, byPath, issues);
             foreach (CustomLordWorkshopPackageFile file in files)
             {
                 string relativePath = NormalizeRelativePath(file.RelativePath);
@@ -101,13 +50,15 @@ namespace CustomLordUpload
             if (byPath.TryGetValue("avatar.png", out CustomLordWorkshopPackageFile? avatar))
                 CheckAvatar(avatar.SourcePath, issues);
 
+            RunPublicValidator(sourceLordRoot, rules, issues);
             return issues;
         }
 
         private static void CheckVanillaBase(
             IEnumerable<CustomLordWorkshopPackageFile> files,
-            List<string> issues)
+            List<CustomLordUploadIssue> issues)
         {
+            // COMPATIBILITY: Vanilla currently requires direct .lordjson and .aivjson files.
             List<CustomLordWorkshopPackageFile> lordFiles = new List<CustomLordWorkshopPackageFile>();
             List<CustomLordWorkshopPackageFile> castleFiles = new List<CustomLordWorkshopPackageFile>();
             foreach (CustomLordWorkshopPackageFile file in files)
@@ -123,9 +74,9 @@ namespace CustomLordUpload
             }
 
             if (lordFiles.Count == 0)
-                issues.Add("No direct .lordjson exists; Vanilla cannot load a lord configuration from this package.");
+                issues.Add(Issue("MissingLordJson"));
             if (castleFiles.Count == 0)
-                issues.Add("No direct .aivjson exists; Vanilla cannot load a castle from this package.");
+                issues.Add(Issue("MissingAivJson"));
 
             foreach (CustomLordWorkshopPackageFile file in lordFiles.Concat(castleFiles))
             {
@@ -136,74 +87,90 @@ namespace CustomLordUpload
                     value =>
                     {
                         if (!(value is Dictionary<string, object>))
-                            issues.Add($"{relativePath} must contain a JSON object for Vanilla.");
+                            issues.Add(Issue("VanillaJsonNotObject", "Path", relativePath));
                     },
                     issues);
             }
         }
 
-        private static void CheckRequiredExtendedMetadata(
+        private static void CheckExtendedMetadata(
             Dictionary<string, CustomLordWorkshopPackageFile> files,
-            List<string> issues)
+            CustomLordRuntimeRules rules,
+            List<CustomLordUploadIssue> issues)
         {
+            // COMPATIBILITY: The reviewed Extender discovers both metadata files only in the lord root.
             if (!files.TryGetValue("info.json", out CustomLordWorkshopPackageFile? infoFile))
             {
-                issues.Add("info.json is missing from the lord root; Script Extender assets will not be registered.");
+                issues.Add(Issue("MissingInfoJson"));
             }
             else
             {
                 TryInspectJson(
                     infoFile.SourcePath,
                     "info.json",
-                    value => InspectInfoJson(value, issues),
+                    value => InspectInfoJson(value, rules, issues),
                     issues);
             }
 
             if (!files.TryGetValue("lordmeta.json", out CustomLordWorkshopPackageFile? lordMetaFile))
             {
-                issues.Add("lordmeta.json is missing from the lord root; extended lord metadata will not be loaded.");
+                issues.Add(Issue("MissingLordMetaJson"));
             }
             else
             {
                 TryInspectJson(
                     lordMetaFile.SourcePath,
                     "lordmeta.json",
-                    value => InspectLordMetaJson(value, issues),
+                    value => InspectLordMetaJson(value, rules, issues),
                     issues);
             }
         }
 
-        private static void InspectInfoJson(object value, List<string> issues)
+        private static void InspectInfoJson(
+            object value,
+            CustomLordRuntimeRules rules,
+            List<CustomLordUploadIssue> issues)
         {
             if (!(value is Dictionary<string, object> root))
             {
-                issues.Add("info.json must contain a JSON object.");
+                issues.Add(Issue("InfoJsonNotObject"));
                 return;
             }
 
             string? guid = GetOptionalString(root, "GUID");
             if (string.IsNullOrWhiteSpace(guid))
-                issues.Add("info.json has no non-empty string GUID; the asset mod cannot be registered reliably.");
+                issues.Add(Issue("InfoGuidMissing"));
 
             string? version = GetOptionalString(root, "Version");
             if (!TryParseModVersion(version, out _))
             {
-                issues.Add(
-                    "info.json has no valid string Version; duplicate asset-mod resolution will treat it as an unknown version.");
+                issues.Add(Issue(
+                    rules.UsesVersionedAssetModResolution
+                        ? "InfoVersionInvalid"
+                        : "InfoVersionRecommended"));
             }
         }
 
-        private static void InspectLordMetaJson(object value, List<string> issues)
+        private static void InspectLordMetaJson(
+            object value,
+            CustomLordRuntimeRules rules,
+            List<CustomLordUploadIssue> issues)
         {
             if (!(value is Dictionary<string, object> root))
             {
-                issues.Add("lordmeta.json must contain a JSON object.");
+                issues.Add(Issue("LordMetaNotObject"));
                 return;
+            }
+
+            foreach (string field in root.Keys.OrderBy(key => key, StringComparer.OrdinalIgnoreCase))
+            {
+                if (!rules.LordInfoFields.Contains(field, StringComparer.OrdinalIgnoreCase))
+                    issues.Add(Issue("UnknownLordMetaField", "Field", field));
             }
 
             string? incomingMessage = GetOptionalString(root, "IncomingMessage");
             if (!string.IsNullOrWhiteSpace(incomingMessage))
-                issues.Add("lordmeta.json IncomingMessage is currently not evaluated by the Script Extender.");
+                issues.Add(Issue("IncomingMessageUnused"));
 
             if (!root.TryGetValue("Messages", out object messagesValue) || messagesValue == null)
                 return;
@@ -213,20 +180,20 @@ namespace CustomLordUpload
             Dictionary<int, string> messageIds = new Dictionary<int, string>();
             foreach (KeyValuePair<string, object> message in messages)
             {
-                // Match BuildLordEntry: named keys are case-insensitive and numeric values are accepted.
-                if (!Enum.TryParse(message.Key, true, out LordMessageType messageType))
+                if (!TryResolveMessageId(message.Key, rules.MessageTypes, out int messageId))
                 {
-                    issues.Add(
-                        $"lordmeta.json message key [{message.Key}] is not a supported AI lord message type and will be ignored.");
+                    issues.Add(Issue("UnknownMessageType", "Message", message.Key));
                     continue;
                 }
 
-                int messageId = (int)messageType;
                 if (messageIds.TryGetValue(messageId, out string? existingKey) &&
                     !string.Equals(existingKey, message.Key, StringComparison.OrdinalIgnoreCase))
                 {
-                    issues.Add(
-                        $"lordmeta.json message keys [{existingKey}] and [{message.Key}] both use native ID {messageId}; one replaces the other.");
+                    issues.Add(Issue(
+                        "DuplicateMessageId",
+                        "First", existingKey,
+                        "Second", message.Key,
+                        "Id", messageId));
                 }
                 else
                 {
@@ -235,30 +202,25 @@ namespace CustomLordUpload
 
                 if (message.Value == null)
                 {
-                    issues.Add(
-                        $"lordmeta.json message key [{message.Key}] has a null clip list and cannot be played safely.");
+                    issues.Add(Issue("NullMessageList", "Message", message.Key));
                     continue;
                 }
                 if (!(message.Value is List<object> clips))
-                    throw new InvalidDataException($"lordmeta.json message key [{message.Key}] must contain a clip array.");
+                    throw new InvalidDataException("lordmeta.json message values must contain clip arrays.");
                 if (clips.Any(clip => clip == null))
-                {
-                    issues.Add(
-                        $"lordmeta.json message key [{message.Key}] contains a null clip and cannot be played safely.");
-                }
-                foreach (object clip in clips)
-                {
-                    if (clip != null && !(clip is Dictionary<string, object>))
-                        throw new InvalidDataException($"lordmeta.json message key [{message.Key}] contains an invalid clip.");
-                }
+                    issues.Add(Issue("NullMessageClip", "Message", message.Key));
+                if (clips.Any(clip => clip != null && !(clip is Dictionary<string, object>)))
+                    throw new InvalidDataException("lordmeta.json message arrays may only contain clip objects.");
             }
         }
 
-        private static void CheckPaths(
+        private static void CheckPackageHygiene(
             IEnumerable<CustomLordWorkshopPackageFile> files,
             Dictionary<string, CustomLordWorkshopPackageFile> filesByPath,
-            List<string> issues)
+            List<CustomLordUploadIssue> issues)
         {
+            // COMPATIBILITY: Recheck the reviewed Override and localized Override path conventions
+            // when Script Extender asset indexing changes.
             HashSet<string> reportedDevelopmentDirectories =
                 new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (CustomLordWorkshopPackageFile file in files)
@@ -271,125 +233,152 @@ namespace CustomLordUpload
 
                 foreach (string directory in segments.Take(segments.Length - 1))
                 {
-                    if (DevelopmentDirectoryNames.Contains(directory) &&
+                    if (CustomLordCompatibilityProfile.DevelopmentDirectoryNames.Contains(directory) &&
                         reportedDevelopmentDirectories.Add(directory))
                     {
-                        issues.Add(
-                            $"Development/source directory [{directory}] is inside the publishable lord folder and will be uploaded.");
+                        issues.Add(Issue("DevelopmentDirectory", "Directory", directory));
                     }
                 }
 
-                if (DevelopmentExtensions.Contains(extension))
-                {
-                    issues.Add(
-                        $"File [{relativePath}] looks like development/archive material and is not loaded automatically; it will still be uploaded. Keep it only if another script or system consumes it intentionally.");
-                }
+                if (CustomLordCompatibilityProfile.DevelopmentExtensions.Contains(extension))
+                    issues.Add(Issue("DevelopmentFile", "Path", relativePath));
 
                 if (!rootFile &&
                     (string.Equals(fileName, "info.json", StringComparison.OrdinalIgnoreCase) ||
                      string.Equals(fileName, "lordmeta.json", StringComparison.OrdinalIgnoreCase)) &&
                     !filesByPath.ContainsKey(fileName))
                 {
-                    issues.Add(
-                        $"[{relativePath}] looks misplaced; the required {fileName} is absent from the lord root, where the Script Extender reads it.");
+                    issues.Add(Issue("MisplacedMetadata", "Path", relativePath, "File", fileName));
                 }
 
                 if (rootFile &&
                     !string.Equals(fileName, "avatar.png", StringComparison.OrdinalIgnoreCase) &&
-                    (RootMediaExtensions.Contains(extension) ||
+                    (CustomLordCompatibilityProfile.RootMediaExtensions.Contains(extension) ||
                      string.Equals(extension, ".png", StringComparison.OrdinalIgnoreCase)))
                 {
-                    issues.Add(
-                        $"Media file [{relativePath}] is in the lord root and is not indexed as an asset; place it below Override with its logical asset path.");
+                    issues.Add(Issue("RootMedia", "Path", relativePath));
                 }
 
                 if (segments.Length > 1 && string.Equals(segments[0], "fx", StringComparison.OrdinalIgnoreCase))
-                {
-                    issues.Add(
-                        $"[{relativePath}] is below root/fx; speech assets must be below Override/fx (optionally Override/Locales/<locale>/fx).");
-                }
+                    issues.Add(Issue("RootFx", "Path", relativePath));
             }
         }
 
-        private static void CheckWave(string path, string relativePath, List<string> issues)
+        private static void CheckWave(
+            string path,
+            string relativePath,
+            List<CustomLordUploadIssue> issues)
         {
             try
             {
                 byte[] wav = File.ReadAllBytes(path);
-                if (wav.Length < 44)
-                    throw new InvalidDataException("too short to contain the header required by the Script Extender");
-                if (ReadAscii(wav, 0) != "RIFF" || ReadAscii(wav, 8) != "WAVE")
-                    throw new InvalidDataException("missing the RIFF/WAVE header");
+                if (wav.Length < 44 || ReadAscii(wav, 0) != "RIFF" || ReadAscii(wav, 8) != "WAVE")
+                {
+                    issues.Add(Issue("WaveHeader", "Path", relativePath));
+                    return;
+                }
 
                 short format = BitConverter.ToInt16(wav, 20);
                 short channels = BitConverter.ToInt16(wav, 22);
                 int sampleRate = BitConverter.ToInt32(wav, 24);
                 short bitsPerSample = BitConverter.ToInt16(wav, 34);
-                bool hasData = false;
-                int position = 12;
-                while (position + 8 < wav.Length)
-                {
-                    string chunkId = ReadAscii(wav, position);
-                    int chunkSize = BitConverter.ToInt32(wav, position + 4);
-                    if (chunkSize < 0)
-                        throw new InvalidDataException("contains a negative chunk size");
-                    long chunkEnd = (long)position + 8 + chunkSize;
-                    if (chunkEnd > wav.Length)
-                        throw new InvalidDataException("contains a chunk whose size exceeds the file length");
-                    if (chunkId == "data" && chunkSize > 0)
-                    {
-                        hasData = true;
-                        break;
-                    }
-                    position = checked(position + 8 + chunkSize);
-                }
+                bool hasData = HasValidWaveDataChunk(wav);
 
-                List<string> defects = new List<string>();
-                if (format != 1) defects.Add("PCM format 1 required");
-                if (channels != 1 && channels != 2) defects.Add("mono or stereo required");
-                if (sampleRate != 44100) defects.Add($"44,100 Hz required (found {sampleRate})");
-                if (bitsPerSample != 16) defects.Add("16-bit required");
-                if (!hasData) defects.Add("valid non-empty data chunk required");
-                if (defects.Count > 0)
-                    issues.Add($"WAV [{relativePath}] is unsupported: {string.Join(", ", defects)}.");
+                if (format != CustomLordCompatibilityProfile.WavePcmFormat)
+                    issues.Add(Issue("WaveFormat", "Path", relativePath, "Value", format));
+                if (channels != 1 && channels != 2)
+                    issues.Add(Issue("WaveChannels", "Path", relativePath, "Value", channels));
+                if (sampleRate != CustomLordCompatibilityProfile.WaveSampleRate)
+                    issues.Add(Issue("WaveSampleRate", "Path", relativePath, "Value", sampleRate));
+                if (bitsPerSample != CustomLordCompatibilityProfile.WaveBitsPerSample)
+                    issues.Add(Issue("WaveBits", "Path", relativePath, "Value", bitsPerSample));
+                if (!hasData)
+                    issues.Add(Issue("WaveData", "Path", relativePath));
             }
             catch (Exception exception)
             {
-                issues.Add($"WAV [{relativePath}] is unsupported or unreadable: {exception.Message}.");
+                issues.Add(IssueWithDetail("WaveUnreadable", exception.ToString(), "Path", relativePath));
             }
         }
 
-        private static void CheckAvatar(string path, List<string> issues)
+        private static bool HasValidWaveDataChunk(byte[] wav)
+        {
+            int position = 12;
+            while (position + 8 <= wav.Length)
+            {
+                string chunkId = ReadAscii(wav, position);
+                int chunkSize = BitConverter.ToInt32(wav, position + 4);
+                if (chunkSize < 0)
+                    return false;
+                long chunkEnd = (long)position + 8 + chunkSize;
+                if (chunkEnd > wav.Length)
+                    return false;
+                if (chunkId == "data" && chunkSize > 0)
+                    return true;
+                position = checked(position + 8 + chunkSize + (chunkSize & 1));
+            }
+            return false;
+        }
+
+        private static void CheckAvatar(string path, List<CustomLordUploadIssue> issues)
         {
             try
             {
                 FileInfo info = new FileInfo(path);
-                if (info.Length >= 80000)
-                    issues.Add($"avatar.png is {info.Length:N0} bytes; Vanilla requires less than 80,000 bytes.");
+                if (info.Length >= CustomLordCompatibilityProfile.AvatarMaximumExclusiveBytes)
+                    issues.Add(Issue("AvatarSize", "Bytes", info.Length.ToString("N0", CultureInfo.CurrentCulture)));
 
                 byte[] header = new byte[24];
                 using (FileStream stream = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.Read))
                 {
                     if (stream.Read(header, 0, header.Length) != header.Length)
                     {
-                        issues.Add("avatar.png is too short to be a usable image; Vanilla will ignore it.");
+                        issues.Add(Issue("AvatarHeader"));
                         return;
                     }
                 }
 
                 byte[] signature = { 137, 80, 78, 71, 13, 10, 26, 10 };
                 bool isPng = BytesEqual(header, 0, signature) && ReadAscii(header, 12) == "IHDR";
-                if (isPng)
+                if (!isPng)
                 {
-                    uint width = ReadUInt32BigEndian(header, 16);
-                    uint height = ReadUInt32BigEndian(header, 20);
-                    if (width != 144 || height != 144)
-                        issues.Add($"avatar.png is {width}x{height}; Vanilla requires exactly 144x144 pixels.");
+                    issues.Add(Issue("AvatarHeader"));
+                    return;
+                }
+
+                uint width = ReadUInt32BigEndian(header, 16);
+                uint height = ReadUInt32BigEndian(header, 20);
+                if (width != CustomLordCompatibilityProfile.AvatarWidth ||
+                    height != CustomLordCompatibilityProfile.AvatarHeight)
+                {
+                    issues.Add(Issue("AvatarDimensions", "Width", width, "Height", height));
                 }
             }
             catch (Exception exception)
             {
-                issues.Add("avatar.png could not be inspected: " + exception.Message);
+                issues.Add(IssueWithDetail("AvatarUnreadable", exception.ToString()));
+            }
+        }
+
+        private static void RunPublicValidator(
+            string sourceLordRoot,
+            CustomLordRuntimeRules rules,
+            List<CustomLordUploadIssue> issues)
+        {
+            if (rules.PublicValidator == null)
+                return;
+
+            try
+            {
+                foreach (string problem in rules.PublicValidator(sourceLordRoot) ?? Array.Empty<string>())
+                {
+                    if (!string.IsNullOrWhiteSpace(problem))
+                        issues.Add(IssueWithDetail("ExtenderValidatorIssue", problem));
+                }
+            }
+            catch (Exception exception)
+            {
+                issues.Add(IssueWithDetail("ExtenderValidatorFailed", exception.ToString()));
             }
         }
 
@@ -397,7 +386,7 @@ namespace CustomLordUpload
             string path,
             string displayName,
             Action<object> inspect,
-            List<string> issues)
+            List<CustomLordUploadIssue> issues)
         {
             try
             {
@@ -406,7 +395,7 @@ namespace CustomLordUpload
             }
             catch (Exception exception)
             {
-                issues.Add($"{displayName} is malformed or unreadable: {exception.Message}");
+                issues.Add(IssueWithDetail("JsonUnreadable", exception.ToString(), "Path", displayName));
             }
         }
 
@@ -419,8 +408,19 @@ namespace CustomLordUpload
             throw new InvalidDataException(key + " must be a JSON string.");
         }
 
+        private static bool TryResolveMessageId(
+            string key,
+            IReadOnlyDictionary<string, int> messageTypes,
+            out int messageId)
+        {
+            if (messageTypes.TryGetValue(key, out messageId))
+                return true;
+            return int.TryParse(key, NumberStyles.Integer, CultureInfo.InvariantCulture, out messageId);
+        }
+
         private static bool TryParseModVersion(string? rawVersion, out Version version)
         {
+            // COMPATIBILITY: Mirrors the currently reviewed Script Extender asset-mod version parser.
             version = new Version(0, 0, 0, 0);
             if (string.IsNullOrWhiteSpace(rawVersion))
                 return false;
@@ -428,7 +428,6 @@ namespace CustomLordUpload
             string text = rawVersion!.Trim();
             if (text.Length > 1 && (text[0] == 'v' || text[0] == 'V'))
                 text = text.Substring(1);
-
             int suffixIndex = text.IndexOfAny(new[] { '-', '+', ' ' });
             if (suffixIndex >= 0)
                 text = text.Substring(0, suffixIndex);
@@ -441,16 +440,20 @@ namespace CustomLordUpload
             return true;
         }
 
-        private static bool BytesEqual(byte[] bytes, int offset, byte[] expected)
+        private static string NormalizeRelativePath(string path)
         {
-            if (offset < 0 || bytes.Length - offset < expected.Length)
-                return false;
-            for (int index = 0; index < expected.Length; index++)
+            return path.Replace(Path.DirectorySeparatorChar, '/').Replace(Path.AltDirectorySeparatorChar, '/');
+        }
+
+        private static string ReadAscii(byte[] bytes, int offset)
+        {
+            if (offset < 0 || offset + 4 > bytes.Length)
+                return string.Empty;
+            return new string(new[]
             {
-                if (bytes[offset + index] != expected[index])
-                    return false;
-            }
-            return true;
+                (char)bytes[offset], (char)bytes[offset + 1],
+                (char)bytes[offset + 2], (char)bytes[offset + 3]
+            });
         }
 
         private static uint ReadUInt32BigEndian(byte[] bytes, int offset)
@@ -461,14 +464,29 @@ namespace CustomLordUpload
                    bytes[offset + 3];
         }
 
-        private static string NormalizeRelativePath(string path)
+        private static bool BytesEqual(byte[] source, int offset, byte[] expected)
         {
-            return path.Replace('\\', '/');
+            if (offset < 0 || offset + expected.Length > source.Length)
+                return false;
+            for (int index = 0; index < expected.Length; index++)
+            {
+                if (source[offset + index] != expected[index])
+                    return false;
+            }
+            return true;
         }
 
-        private static string ReadAscii(byte[] bytes, int offset)
+        private static CustomLordUploadIssue Issue(string code, params object[] replacements)
         {
-            return System.Text.Encoding.ASCII.GetString(bytes, offset, 4);
+            return new CustomLordUploadIssue(code, replacements);
+        }
+
+        private static CustomLordUploadIssue IssueWithDetail(
+            string code,
+            string technicalDetail,
+            params object[] replacements)
+        {
+            return new CustomLordUploadIssue(code, technicalDetail, replacements);
         }
     }
 }
