@@ -3,9 +3,11 @@ using BepInEx.Logging;
 using R3;
 using SHCDESE.API.LowLevel;
 using SHCDESE.EventAPI;
+using SHCDESE.EventAPI.Units;
 using System;
 using System.Diagnostics;
 using System.Reflection;
+using UnityEngine;
 
 namespace EnemyGatePathfindingTest
 {
@@ -24,7 +26,10 @@ namespace EnemyGatePathfindingTest
         private static EnemyGatePathfindingRuntime runtime;
         private static IDisposable mapStartSubscription;
         private static IDisposable mapUnloadSubscription;
+        private static IDisposable moveHereSubscription;
         private static bool librarySubscriptionInstalled;
+        private static bool beforeRenderInstalled;
+        private static int lastDiagnosticFrame = -1;
 
         private void Awake()
         {
@@ -48,11 +53,36 @@ namespace EnemyGatePathfindingTest
                     .Where(args => args.Phase == EventHookPhase.Post)
                     .Subscribe(_ => runtime?.EndMap());
             }
+            // UPDATE REVIEW (Script Extender): 1.42.0 owns the native detour at
+            // CrusaderDE.dll RVA 0x196280. Its synchronous Pre/Post event deliberately
+            // observes the issued command without installing a competing native hook;
+            // cursor/PCL validation happens earlier and is correlated by timestamp.
+            if (moveHereSubscription == null)
+            {
+                moveHereSubscription = UnitR3EventHooks.OnUnitMoveHere.Observable
+                    .Subscribe(args => runtime?.ObserveMoveHere(args));
+            }
+            if (!beforeRenderInstalled)
+            {
+                // UPDATE REVIEW (Unity/Script Extender): this proven persistent static
+                // callback drains diagnostics only after native simulation work returned.
+                Application.onBeforeRender += ProcessDeferredDiagnostics;
+                beforeRenderInstalled = true;
+            }
             if (librarySubscriptionInstalled)
                 return;
 
             CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
             librarySubscriptionInstalled = true;
+        }
+
+        private static void ProcessDeferredDiagnostics()
+        {
+            int frame = Time.frameCount;
+            if (lastDiagnosticFrame == frame)
+                return;
+            lastDiagnosticFrame = frame;
+            runtime?.ProcessDeferredDiagnostics();
         }
 
         // UPDATE REVIEW (Script Extender): revalidate LibraryLoaded timing, mapped-memory

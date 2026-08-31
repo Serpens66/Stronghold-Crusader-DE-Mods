@@ -45,6 +45,7 @@ xcopy "%PROJECT_DIR%Locales" "%LOCAL_PLUGIN_DIR%\Locales\" /E /I /Q /Y >nul
 if not exist "%LOCAL_PLUGIN_DIR%\CustomLordUpload.dll" goto package_failed
 if not exist "%LOCAL_PLUGIN_DIR%\info.json" goto package_failed
 if not exist "%LOCAL_PLUGIN_DIR%\Patches\Assets\GUI\XAMLResources\HUD_ConfirmationPopup.xaml" goto package_failed
+if not exist "%LOCAL_PLUGIN_DIR%\Patches\Assets\GUI\XAMLResources\FRONT_EditorSetup.xaml" goto package_failed
 if not exist "%LOCAL_PLUGIN_DIR%\Locales\en-US.txt" goto package_failed
 if exist "%LOCAL_PLUGIN_DIR%\Override\Assets\GUI\XAMLResources\HUD_ConfirmationPopup.xaml" goto package_failed
 

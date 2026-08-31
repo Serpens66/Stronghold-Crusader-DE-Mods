@@ -41,3 +41,6 @@ CustomLordUpload.ExtenderValidatorFailed=The Script Extender package validator f
 CustomLordUpload.JsonUnreadable={Path} is malformed or unreadable. See the log for details.
 CustomLordUpload.SourceNotUnique=The local non-Workshop source for {Lord} was not uniquely resolved. Only Vanilla's staged base files can be uploaded.
 CustomLordUpload.UnexpectedPreflight=The package preflight failed unexpectedly and cannot confirm that extended files are usable. See the log.
+WorkshopUpload.IncludeAdditionalFiles=Upload additional files for mod support
+WorkshopUpload.IncludeAdditionalFilesHelp=Uploads mod-specific files alongside Vanilla content. Disable to upload only the files the unmodded game normally includes.
+WorkshopUpload.StagingCleanupFailed=The temporary Workshop upload folder could not be prepared safely. The upload was cancelled. See the log for details.

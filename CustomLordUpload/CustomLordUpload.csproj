@@ -39,12 +39,16 @@
     <Compile Include="..\Shared\DebugLogHelper.cs"><Link>Shared\DebugLogHelper.cs</Link></Compile>
     <Compile Include="..\Shared\DependencyFreeJson.cs"><Link>Shared\DependencyFreeJson.cs</Link></Compile>
     <Compile Include="..\Shared\SerpLocalization.cs"><Link>Shared\SerpLocalization.cs</Link></Compile>
+    <Compile Include="..\Shared\ToolTipPresentation.cs"><Link>Shared\ToolTipPresentation.cs</Link></Compile>
+    <Compile Include="..\Shared\WorkshopUploadStaging.cs"><Link>Shared\WorkshopUploadStaging.cs</Link></Compile>
     <Compile Include="src\CustomLordCompatibilityProfile.cs" />
     <Compile Include="src\CustomLordRuntimeRules.cs" />
     <Compile Include="src\CustomLordUploadConfirmation.cs" />
     <Compile Include="src\CustomLordUploadContracts.cs" />
     <Compile Include="src\CustomLordUploadHook.cs" />
     <Compile Include="src\CustomLordUploadIssue.cs" />
+    <Compile Include="src\CustomLordUploadOptionsController.cs" />
+    <Compile Include="src\CustomLordUploadOptionsViewModel.cs" />
     <Compile Include="src\CustomLordUploadPlugin.cs" />
     <Compile Include="src\CustomLordPopupPatchVerifier.cs" />
     <Compile Include="src\CustomLordUploadRequest.cs" />
@@ -56,6 +60,7 @@
   <ItemGroup>
     <Content Include="Locales\*.txt" />
     <Content Include="Patches\Assets\GUI\XAMLResources\HUD_ConfirmationPopup.xaml" />
+    <Content Include="Patches\Assets\GUI\XAMLResources\FRONT_EditorSetup.xaml" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="ValidateScriptExtenderReference" BeforeTargets="BeforeBuild"><Error Condition="!Exists('$(ExtenderDir)\SHCDESE.dll')" Text="SHCDESE.dll was not found: $(ExtenderDir)" /></Target>

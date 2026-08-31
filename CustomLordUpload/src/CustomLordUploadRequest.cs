@@ -14,7 +14,8 @@ namespace CustomLordUpload
             bool publicMap,
             string previewImage,
             Action successAction,
-            Action failAction)
+            Action failAction,
+            bool includeAdditionalFiles = true)
         {
             Instance = instance;
             NameMap = nameMap;
@@ -25,6 +26,7 @@ namespace CustomLordUpload
             PreviewImage = previewImage;
             SuccessAction = successAction;
             FailAction = failAction;
+            IncludeAdditionalFiles = includeAdditionalFiles;
         }
 
         internal Platform_Workshop Instance { get; }
@@ -36,12 +38,13 @@ namespace CustomLordUpload
         internal string PreviewImage { get; }
         internal Action SuccessAction { get; }
         internal Action FailAction { get; }
+        internal bool IncludeAdditionalFiles { get; }
 
         internal CustomLordUploadRequest WithCallbacks(Action success, Action failure)
         {
             return new CustomLordUploadRequest(
                 Instance, NameMap, MapTitle, Description, Tags, PublicMap,
-                PreviewImage, success, failure);
+                PreviewImage, success, failure, IncludeAdditionalFiles);
         }
     }
 }

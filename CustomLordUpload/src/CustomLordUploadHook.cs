@@ -23,9 +23,11 @@ namespace CustomLordUpload
         private readonly Hook hook;
         private readonly UploadWorkshopMapDelegate trampoline;
         private readonly CustomLordUploadWorkflow workflow;
+        private readonly CustomLordUploadOptionsController options;
 
-        internal CustomLordUploadHook(ManualLogSource log)
+        internal CustomLordUploadHook(ManualLogSource log, CustomLordUploadOptionsController options)
         {
+            this.options = options ?? throw new ArgumentNullException(nameof(options));
             // COMPATIBILITY: Recheck the exact Vanilla upload signature after game-DLL updates.
             MethodInfo? method = typeof(Platform_Workshop).GetMethod(
                 nameof(Platform_Workshop.UploadWorkshopMap),
@@ -83,7 +85,8 @@ namespace CustomLordUpload
             workflow.Handle(
                 new CustomLordUploadRequest(
                     instance, nameMap, mapTitle, description, tags, publicMap,
-                    previewImage, successAction, failAction),
+                    previewImage, successAction, failAction,
+                    options.ConsumeDecision(nameMap, mapTitle)),
                 CallOriginal);
         }
 

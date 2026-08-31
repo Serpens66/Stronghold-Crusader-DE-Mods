@@ -1,4 +1,5 @@
 using CustomCustomTrail.Core;
+using Shared;
 using System.Text;
 
 var tests = new (string Name, Action Run)[]
@@ -34,6 +35,7 @@ var tests = new (string Name, Action Run)[]
     ("Trail Maker Coop export is integrated", TestCoopExporterIntegration),
     ("Coop package JSON is Unity dependency-free", TestDependencyFreeCoopJson),
     ("mission and manifest JSON use CRLF", TestCoopJsonLineEndings),
+    ("Workshop Trail staging filters sidecars", TestWorkshopTrailSidecars),
 };
 
 int failed = 0;
@@ -88,6 +90,43 @@ static void TestNativeModSettingsRoundtrip()
     Assert(entry.Settings["DoubleArray"] is List<object> values &&
         values.Count == 3 && Math.Abs(Convert.ToDouble(values[2]) - 1.25) < 0.0001,
         "double array changed");
+}
+
+static void TestWorkshopTrailSidecars()
+{
+    string root = Path.Combine(Path.GetTempPath(), "CustomCustomTrailTests", Guid.NewGuid().ToString("N"));
+    string source = Path.Combine(root, "source");
+    string stagingRoot = Path.Combine(root, "staging");
+    Directory.CreateDirectory(source);
+    Directory.CreateDirectory(stagingRoot);
+    try
+    {
+        File.WriteAllText(Path.Combine(source, "01.trail"), "trail");
+        File.WriteAllText(Path.Combine(source, "01.modjson"), "included");
+        File.WriteAllText(Path.Combine(source, "orphan.modjson"), "excluded");
+        Assert(WorkshopUploadStaging.TryResetDirectChild(
+                stagingRoot,
+                "Trail",
+                out string destination,
+                out string resetError),
+            resetError);
+        File.WriteAllText(Path.Combine(destination, "01.trail"), "vanilla");
+
+        Assert(WorkshopUploadStaging.TryStageTrailSidecars(
+                source,
+                destination,
+                out int copied,
+                out string stageError),
+            stageError);
+        Assert(copied == 1, "unexpected sidecar count: " + copied);
+        Assert(File.Exists(Path.Combine(destination, "01.modjson")), "matching sidecar was not staged");
+        Assert(!File.Exists(Path.Combine(destination, "orphan.modjson")), "orphan sidecar was staged");
+        Assert(File.ReadAllText(Path.Combine(destination, "01.trail")) == "vanilla", "Vanilla Trail was changed");
+    }
+    finally
+    {
+        Directory.Delete(root, true);
+    }
 }
 
 static void TestTrailSettingValueConversionPolicy()

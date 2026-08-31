@@ -9,5 +9,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\CustomCustomTrail.Core\CustomCustomTrail.Core.csproj" />
+    <Compile Include="..\..\Shared\WorkshopUploadStaging.cs" Link="WorkshopUploadStaging.cs" />
   </ItemGroup>
 </Project>

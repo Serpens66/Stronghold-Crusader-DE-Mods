@@ -31,6 +31,7 @@
     <Compile Include="..\..\CustomLordUpload\src\CustomLordWorkshopPreflight.cs"><Link>CustomLordWorkshopPreflight.cs</Link></Compile>
     <Compile Include="..\..\Shared\DependencyFreeJson.cs"><Link>DependencyFreeJson.cs</Link></Compile>
     <Compile Include="..\..\Shared\DebugLogHelper.cs"><Link>DebugLogHelper.cs</Link></Compile>
+    <Compile Include="..\..\Shared\WorkshopUploadStaging.cs"><Link>WorkshopUploadStaging.cs</Link></Compile>
     <Compile Include="Program.cs" />
     <Compile Include="SerpLocalizationStub.cs" />
     <Compile Include="TestExtenderTypes.cs" />

@@ -53,6 +53,7 @@
     <Compile Include="src\EnemyGatePathfindingTestPlugin.cs" />
     <Compile Include="src\EnemyGatePathfindingNativeDefinition.cs" />
     <Compile Include="src\EnemyGatePathfindingPolicy.cs" />
+    <Compile Include="src\SamePclBridgeDiagnostics.cs" />
     <Compile Include="src\EnemyGatePathfindingRuntime.cs" />
     <Compile Include="..\Shared\DebugLogHelper.cs"><Link>Shared\DebugLogHelper.cs</Link></Compile>
     <Compile Include="..\Shared\NativePatternResolver.cs"><Link>Shared\NativePatternResolver.cs</Link></Compile>

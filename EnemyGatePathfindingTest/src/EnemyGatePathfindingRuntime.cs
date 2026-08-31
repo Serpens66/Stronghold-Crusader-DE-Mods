@@ -2,6 +2,7 @@ using BepInEx.Logging;
 using SHCDESE.API;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
+using SHCDESE.EventAPI.Units;
 using System;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -24,35 +25,18 @@ namespace EnemyGatePathfindingTest
             int sourcePcl,
             int mode);
 
-        [DllImport("kernel32.dll", EntryPoint = "RtlCaptureStackBackTrace")]
-        private static extern ushort CaptureStackBackTrace(
-            uint framesToSkip,
-            uint framesToCapture,
-            [Out] IntPtr[] backTrace,
-            IntPtr backTraceHash);
-
         private const ulong ZeroFlagMask = 1UL << 6;
-        private const int MaximumHumanSamplesPerMap = 24;
-        private const int MaximumAiSamplesPerMap = 24;
-        private const int MaximumUnknownSamplesPerMap = 16;
         private const int MaximumCallbackWarningsPerMap = 8;
-        private const int MaximumCallerDiscoveryQueriesPerMap = 256;
-        private const int MaximumCallerFrames = 32;
 
         private readonly ManualLogSource log;
+        private SamePclBridgeDiagnostics samePclDiagnostics;
         private HookTransaction transaction;
         private HookRef<X64ManagedFunctionDetourAOB<GetNextReachablePclDelegate>> reachabilityHook =
             new HookRef<X64ManagedFunctionDetourAOB<GetNextReachablePclDelegate>>();
         private HookRef<X64InlineHook> capturedByFilterHook = new HookRef<X64InlineHook>();
         private ulong libraryBase;
-        private ulong libraryEnd;
         private int mapActive;
-        private int humanSamples;
-        private int aiSamples;
-        private int unknownSamples;
         private int callbackWarnings;
-        private int callerDiscoveryQueries;
-        private int humanCursorConfirmationLogged;
 
         private long totalQueries;
         private long localHumanQueries;
@@ -65,10 +49,6 @@ namespace EnemyGatePathfindingTest
         private long alliedCapturedEnemyRecordsAllowed;
         private long foreignCapturedEnemyRecordsRejected;
         private long filterFailOpenRecords;
-        private long sampledHumanCursorOrigins;
-        private long sampledCommonPathBuilderOrigins;
-        private long sampledOtherOrigins;
-        private long sampledUnavailableOrigins;
 
         [ThreadStatic]
         private static int traceDepth;
@@ -113,16 +93,45 @@ namespace EnemyGatePathfindingTest
                 referenceHashMatches: true,
                 "hostile-gate captured-player comparison",
                 log);
+            Shared.NativeResolution moveHereResolution = Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                EnemyGatePathfindingNativeDefinition.MoveHerePattern,
+                EnemyGatePathfindingNativeDefinition.MoveHereRva,
+                referenceHashMatches: true,
+                "Script-Extender-owned common MoveHere entry",
+                log);
+            Shared.NativeResolution cursorResolution = Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                EnemyGatePathfindingNativeDefinition.CursorTargetPattern,
+                EnemyGatePathfindingNativeDefinition.CursorTargetSignatureRva,
+                referenceHashMatches: true,
+                "human cursor target coordinate loads",
+                log);
             int compareRva = compareSequenceResolution.Rva +
                 EnemyGatePathfindingNativeDefinition.CapturedByCompareOffsetInPattern;
+            int cursorXRva = Shared.NativePatternResolver.ResolveRelativeTarget(
+                memory,
+                cursorResolution.Rva + EnemyGatePathfindingNativeDefinition.CursorTargetXDisplacementOffset,
+                cursorResolution.Rva + EnemyGatePathfindingNativeDefinition.CursorTargetXNextInstructionOffset);
+            int cursorYRva = Shared.NativePatternResolver.ResolveRelativeTarget(
+                memory,
+                cursorResolution.Rva + EnemyGatePathfindingNativeDefinition.CursorTargetYDisplacementOffset,
+                cursorResolution.Rva + EnemyGatePathfindingNativeDefinition.CursorTargetYNextInstructionOffset);
             if (functionResolution.Rva != EnemyGatePathfindingNativeDefinition.GetNextReachablePclRva ||
-                compareRva != EnemyGatePathfindingNativeDefinition.CapturedByCompareRva)
+                compareRva != EnemyGatePathfindingNativeDefinition.CapturedByCompareRva ||
+                moveHereResolution.Rva != EnemyGatePathfindingNativeDefinition.MoveHereRva ||
+                cursorResolution.Rva != EnemyGatePathfindingNativeDefinition.CursorTargetSignatureRva ||
+                cursorXRva != EnemyGatePathfindingNativeDefinition.CursorTargetXRva ||
+                cursorYRva != EnemyGatePathfindingNativeDefinition.CursorTargetYRva)
             {
                 throw new InvalidOperationException("native PCL signatures resolved outside their audited RVAs");
             }
 
             libraryBase = unchecked((ulong)libraryHandle.ToInt64());
-            libraryEnd = libraryBase + unchecked((ulong)memory.Length);
+            samePclDiagnostics = new SamePclBridgeDiagnostics(
+                log,
+                (int*)(libraryBase + unchecked((ulong)cursorXRva)),
+                (int*)(libraryBase + unchecked((ulong)cursorYRva)));
             // UPDATE REVIEW (Script Extender): revalidate HookTransaction context-save
             // semantics and that BeforeCallback executes relocated instructions first.
             transaction = new HookTransaction(
@@ -158,6 +167,13 @@ namespace EnemyGatePathfindingTest
                 $"dllSha256={EnemyGatePathfindingNativeDefinition.ReferenceSha256}.");
             Shared.DebugLogHelper.LogInfo(
                 log,
+                "Diagnostic native contract validated: " +
+                $"MoveHereRva=0x{moveHereResolution.Rva:X} (observed through Script Extender 1.42.0 Pre/Post event; no overlapping hook), " +
+                $"cursorSignatureRva=0x{cursorResolution.Rva:X}, cursorX=0x{cursorXRva:X}, cursorY=0x{cursorYRva:X}. " +
+                "Diagnostics are active immediately, auto-start an epoch on the first valid query, " +
+                "and correlate prior cursor/PCL checks with MoveHere over a deferred 1500-ms window.");
+            Shared.DebugLogHelper.LogInfo(
+                log,
                 "Native audit contract: " +
                 $"directCallers={EnemyGatePathfindingNativeDefinition.AuditedDirectCallerCount}, " +
                 $"humanCursorCommandRange=[0x{EnemyGatePathfindingNativeDefinition.HumanCursorCommandStartRva:X}," +
@@ -173,8 +189,10 @@ namespace EnemyGatePathfindingTest
 
         internal void BeginMap()
         {
+            if (Interlocked.CompareExchange(ref mapActive, 1, 0) != 0)
+                return;
             ResetMapCounters();
-            Volatile.Write(ref mapActive, 1);
+            samePclDiagnostics?.BeginExplicitEpoch("OnStartMap(Post)");
             Shared.DebugLogHelper.LogInfo(
                 log,
                 "Enemy-gate PCL test map started. The native hostile-owner filter is active for AI, " +
@@ -183,11 +201,14 @@ namespace EnemyGatePathfindingTest
 
         internal void EndMap()
         {
-            Volatile.Write(ref mapActive, 0);
+            bool hadActiveEpoch = Interlocked.CompareExchange(ref mapActive, 0, 1) == 1;
+            samePclDiagnostics?.EndEpoch("OnUnloadMap(Post)");
+            if (!hadActiveEpoch)
+                return;
             Shared.DebugLogHelper.LogInfo(
                 log,
                 "Enemy-gate PCL map summary: " +
-                $"queries={Read(ref totalQueries)}, localHuman={Read(ref localHumanQueries)}, " +
+                $"queries={Read(ref totalQueries)}, human={Read(ref localHumanQueries)}, " +
                 $"ai={Read(ref aiQueries)}, unknownRole={Read(ref unknownRoleQueries)}, " +
                 $"enemyRecordQueries={Read(ref enemyRecordQueries)}, " +
                 $"enemyQueryResultZero={Read(ref enemyQueriesReturningZero)}, " +
@@ -195,11 +216,34 @@ namespace EnemyGatePathfindingTest
                 $"uncapturedExcludedByVanilla={Read(ref uncapturedEnemyRecordsExcludedByVanilla)}, " +
                 $"alliedCapturedAllowed={Read(ref alliedCapturedEnemyRecordsAllowed)}, " +
                 $"foreignCapturedRejected={Read(ref foreignCapturedEnemyRecordsRejected)}, " +
-                $"filterFailOpen={Read(ref filterFailOpenRecords)}, " +
-                $"sampledOrigins(cursorOrCommand={Read(ref sampledHumanCursorOrigins)}, " +
-                $"commonPathBuilder={Read(ref sampledCommonPathBuilderOrigins)}, " +
-                $"other={Read(ref sampledOtherOrigins)}, unavailable={Read(ref sampledUnavailableOrigins)}), " +
-                $"humanCursorHookConfirmed={Volatile.Read(ref humanCursorConfirmationLogged) != 0}.");
+                $"filterFailOpen={Read(ref filterFailOpenRecords)}. " +
+                "See the Same-PCL final summary for cursor, MoveHere and topology diagnostics.");
+        }
+
+        internal void ObserveMoveHere(UnitMoveHereEventArgs args)
+        {
+            if (args == null)
+                return;
+            try
+            {
+                samePclDiagnostics?.OnMoveHere(args);
+            }
+            catch
+            {
+                samePclDiagnostics?.RecordHotPathFailure();
+            }
+        }
+
+        internal void ProcessDeferredDiagnostics()
+        {
+            try
+            {
+                samePclDiagnostics?.ProcessDeferred();
+            }
+            catch (Exception ex)
+            {
+                TryLogDiagnosticFailure(ex);
+            }
         }
 
         private void FilterUnrelatedCapturedEnemyGate(NativePointer<X64SmartCPUContext> context)
@@ -318,12 +362,12 @@ namespace EnemyGatePathfindingTest
                         return;
                 }
             }
-            catch (Exception ex)
+            catch
             {
                 // Preserve the relocated CMP flags. Diagnostics are never allowed to
                 // turn a fail-open record into either an accepted or rejected record.
                 RecordFilterDecision(FilterTraceKind.FailOpen, default);
-                TryLogCallbackFailure(ex);
+                Interlocked.Increment(ref callbackWarnings);
             }
         }
 
@@ -334,11 +378,8 @@ namespace EnemyGatePathfindingTest
             int sourcePcl,
             int mode)
         {
-            if (Volatile.Read(ref mapActive) == 0)
-            {
-                return reachabilityHook.Value.Hook.Trampoline(
-                    pathfindingContext, playerId, targetPcl, sourcePcl, mode);
-            }
+            // Hot-path safety: no game API, stack walk, string, logging or topology
+            // access is permitted before calling Vanilla.
 
             bool outerTrace = traceDepth++ == 0;
             if (outerTrace)
@@ -364,9 +405,9 @@ namespace EnemyGatePathfindingTest
             {
                 ObserveCompletedQuery(playerId, sourcePcl, targetPcl, mode, result, trace);
             }
-            catch (Exception ex)
+            catch
             {
-                TryLogDiagnosticFailure(ex);
+                samePclDiagnostics?.RecordHotPathFailure();
             }
             return result;
         }
@@ -380,20 +421,6 @@ namespace EnemyGatePathfindingTest
             QueryTrace trace)
         {
             Interlocked.Increment(ref totalQueries);
-            QueryPlayerRole role = GetQueryPlayerRole(playerId);
-            switch (role)
-            {
-                case QueryPlayerRole.LocalHuman:
-                    Interlocked.Increment(ref localHumanQueries);
-                    break;
-                case QueryPlayerRole.Ai:
-                    Interlocked.Increment(ref aiQueries);
-                    break;
-                default:
-                    Interlocked.Increment(ref unknownRoleQueries);
-                    break;
-            }
-
             bool hasEnemyRecord = trace.Total != 0;
             if (hasEnemyRecord)
             {
@@ -404,42 +431,14 @@ namespace EnemyGatePathfindingTest
                     Interlocked.Increment(ref enemyQueriesReturningPositive);
             }
 
-            bool discoverCaller = hasEnemyRecord ||
-                (role == QueryPlayerRole.LocalHuman &&
-                 Interlocked.Increment(ref callerDiscoveryQueries) <= MaximumCallerDiscoveryQueriesPerMap);
-            ulong callerRva = discoverCaller ? TryCaptureNativeCallerRva() : 0;
-            NativeQueryOrigin origin = EnemyGatePathfindingPolicy.ClassifyCallerRva(callerRva);
-            if (discoverCaller)
-                CountSampledOrigin(origin);
+            samePclDiagnostics?.ObserveQuery(
+                playerId,
+                sourcePcl,
+                targetPcl,
+                mode,
+                result,
+                trace.Total);
 
-            if (role == QueryPlayerRole.LocalHuman &&
-                origin == NativeQueryOrigin.HumanCursorOrCommandValidation &&
-                Interlocked.CompareExchange(ref humanCursorConfirmationLogged, 1, 0) == 0)
-            {
-                Shared.DebugLogHelper.LogInfo(
-                    log,
-                    "HUMAN CURSOR/COMMAND PCL HOOK CONFIRMED: " +
-                    $"player={playerId}, sourcePcl={sourcePcl}, targetPcl={targetPcl}, mode={mode}, " +
-                    $"result={result}, callerRva=0x{callerRva:X}. The central corrected function is " +
-                    "therefore active before the human cursor/command code consumes its result.");
-            }
-
-            if (!hasEnemyRecord || !TryReserveQuerySample(role))
-                return;
-
-            GateRecordTrace first = trace.FirstRecord;
-            Shared.DebugLogHelper.LogInfo(
-                log,
-                "Enemy-gate PCL query sample: " +
-                $"role={FormatRole(role)}, player={playerId}, sourcePcl={sourcePcl}, " +
-                $"targetPcl={targetPcl}, mode={mode}, finalResult={result}, " +
-                $"callerRva={(callerRva == 0 ? "unavailable" : "0x" + callerRva.ToString("X"))}, " +
-                $"origin={origin}, uncapturedExcluded={trace.Uncaptured}, " +
-                $"alliedCapturedAllowed={trace.AlliedCaptured}, " +
-                $"foreignCapturedRejected={trace.ForeignRejected}, failOpen={trace.FailOpen}, " +
-                $"firstRecord=[kind={first.Kind ?? "none"}, building={first.BuildingId}, " +
-                $"global={first.GlobalId}, owner={first.OwnerPlayerId}, captured={first.CapturedByPlayerId}, " +
-                $"pcls={first.FirstPcl}/{first.SecondPcl}/{first.ThirdPcl}].");
         }
 
         private void RecordFilterDecision(FilterTraceKind kind, GateRecordTrace record)
@@ -485,105 +484,6 @@ namespace EnemyGatePathfindingTest
         private static bool AreAllied(int firstPlayerId, int secondPlayerId) =>
             firstPlayerId == secondPlayerId ||
             GamePlayerManagerAPI.Instance.IsPlayerAlliedTo(firstPlayerId, secondPlayerId);
-
-        private QueryPlayerRole GetQueryPlayerRole(int playerId)
-        {
-            try
-            {
-                GamePlayerManagerAPI players = GamePlayerManagerAPI.Instance;
-                if (!players.IsPlayerIdValid(playerId))
-                    return QueryPlayerRole.Unknown;
-                if (players.IsAIPlayer(playerId))
-                    return QueryPlayerRole.Ai;
-                return players.GetLocalPlayerId() == playerId
-                    ? QueryPlayerRole.LocalHuman
-                    : QueryPlayerRole.OtherHuman;
-            }
-            catch
-            {
-                return QueryPlayerRole.Unknown;
-            }
-        }
-
-        private ulong TryCaptureNativeCallerRva()
-        {
-            try
-            {
-                // UPDATE REVIEW (CrusaderDE.dll): caller ranges and function end must be
-                // re-derived before stack attribution is trusted after a game update.
-                var frames = new IntPtr[MaximumCallerFrames];
-                ushort count = CaptureStackBackTrace(0, MaximumCallerFrames, frames, IntPtr.Zero);
-                for (int index = 0; index < count; index++)
-                {
-                    ulong address = unchecked((ulong)frames[index].ToInt64());
-                    if (address < libraryBase || address >= libraryEnd)
-                        continue;
-                    ulong rva = address - libraryBase;
-                    if (rva >= unchecked((ulong)EnemyGatePathfindingNativeDefinition.GetNextReachablePclRva) &&
-                        rva < unchecked((ulong)EnemyGatePathfindingNativeDefinition.GetNextReachablePclEndRva))
-                    {
-                        continue;
-                    }
-                    return rva;
-                }
-            }
-            catch
-            {
-                // Stack attribution is diagnostics only.
-            }
-            return 0;
-        }
-
-        private void CountSampledOrigin(NativeQueryOrigin origin)
-        {
-            switch (origin)
-            {
-                case NativeQueryOrigin.HumanCursorOrCommandValidation:
-                    Interlocked.Increment(ref sampledHumanCursorOrigins);
-                    break;
-                case NativeQueryOrigin.CommonUnitPathBuilder:
-                    Interlocked.Increment(ref sampledCommonPathBuilderOrigins);
-                    break;
-                case NativeQueryOrigin.OtherNativeCaller:
-                    Interlocked.Increment(ref sampledOtherOrigins);
-                    break;
-                default:
-                    Interlocked.Increment(ref sampledUnavailableOrigins);
-                    break;
-            }
-        }
-
-        private bool TryReserveQuerySample(QueryPlayerRole role)
-        {
-            switch (role)
-            {
-                case QueryPlayerRole.LocalHuman:
-                case QueryPlayerRole.OtherHuman:
-                    return Interlocked.Increment(ref humanSamples) <= MaximumHumanSamplesPerMap;
-                case QueryPlayerRole.Ai:
-                    return Interlocked.Increment(ref aiSamples) <= MaximumAiSamplesPerMap;
-                default:
-                    return Interlocked.Increment(ref unknownSamples) <= MaximumUnknownSamplesPerMap;
-            }
-        }
-
-        private void TryLogCallbackFailure(Exception ex)
-        {
-            try
-            {
-                if (Interlocked.Increment(ref callbackWarnings) <= MaximumCallbackWarningsPerMap)
-                {
-                    Shared.DebugLogHelper.LogWarning(
-                        log,
-                        "Enemy-gate native filter failed open and preserved Vanilla flags: " +
-                        $"{ex.GetType().Name}: {ex.Message}");
-                }
-            }
-            catch
-            {
-                // Logging must never change native policy.
-            }
-        }
 
         private void TryLogDiagnosticFailure(Exception ex)
         {
@@ -632,16 +532,7 @@ namespace EnemyGatePathfindingTest
             Interlocked.Exchange(ref alliedCapturedEnemyRecordsAllowed, 0);
             Interlocked.Exchange(ref foreignCapturedEnemyRecordsRejected, 0);
             Interlocked.Exchange(ref filterFailOpenRecords, 0);
-            Interlocked.Exchange(ref sampledHumanCursorOrigins, 0);
-            Interlocked.Exchange(ref sampledCommonPathBuilderOrigins, 0);
-            Interlocked.Exchange(ref sampledOtherOrigins, 0);
-            Interlocked.Exchange(ref sampledUnavailableOrigins, 0);
-            Interlocked.Exchange(ref humanSamples, 0);
-            Interlocked.Exchange(ref aiSamples, 0);
-            Interlocked.Exchange(ref unknownSamples, 0);
             Interlocked.Exchange(ref callbackWarnings, 0);
-            Interlocked.Exchange(ref callerDiscoveryQueries, 0);
-            Interlocked.Exchange(ref humanCursorConfirmationLogged, 0);
         }
 
         private static long Read(ref long value) => Interlocked.Read(ref value);

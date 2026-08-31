@@ -24,6 +24,8 @@ namespace CustomLordUpload
             Run("exact tag workflow", TestExactTagWorkflow);
             Run("yes/no workflow", TestConfirmationWorkflow);
             Run("completion callback tracking", TestCompletionCallbackTracking);
+            Run("explicit Vanilla upload bypasses extras", TestVanillaOnlyWorkflow);
+            Run("staging reset removes stale extras", TestStagingReset);
             Run("valid metadata and version", TestValidPreflight);
             Run("message IDs", TestMessageIds);
             Run("invalid WAV", TestInvalidWave);
@@ -339,6 +341,63 @@ namespace CustomLordUpload
                 Assert(failures == 0, "late failure callback was incorrectly forwarded");
                 Assert(stager.StageCount == 1, "valid upload did not extend staging");
             });
+        }
+
+        private static void TestVanillaOnlyWorkflow()
+        {
+            WithSource(source =>
+            {
+                FakeStager stager = new FakeStager(source);
+                FakeConfirmation confirmation = new FakeConfirmation();
+                CustomLordUploadWorkflow workflow = CreateWorkflow(stager, confirmation);
+                int originals = 0;
+                workflow.Handle(
+                    new CustomLordUploadRequest(
+                        null!, "staging", "testlord", "", new[] { "Custom Lord" },
+                        false, "", () => { }, () => { }, includeAdditionalFiles: false),
+                    request =>
+                    {
+                        originals++;
+                        request.SuccessAction();
+                    });
+                Assert(originals == 1, "Vanilla upload was not called");
+                Assert(stager.StageCount == 0, "extended staging ran for a Vanilla-only upload");
+                Assert(confirmation.ShowCount == 0, "preflight confirmation ran for a Vanilla-only upload");
+            });
+        }
+
+        private static void TestStagingReset()
+        {
+            string root = NewTempRoot();
+            try
+            {
+                string stagingRoot = Path.Combine(root, "upload-content");
+                string destination = Path.Combine(stagingRoot, "Lord");
+                WriteText(Path.Combine(destination, "Override", "stale.txt"), "stale");
+                WriteText(Path.Combine(destination, "info.json"), "stale");
+
+                bool result = Shared.WorkshopUploadStaging.TryResetDirectChild(
+                    stagingRoot,
+                    "Lord",
+                    out string actualDestination,
+                    out string error);
+                Assert(result, error);
+                Assert(string.Equals(destination, actualDestination, StringComparison.OrdinalIgnoreCase),
+                    "unexpected staging destination");
+                Assert(Directory.Exists(destination), "clean staging destination was not recreated");
+                Assert(!Directory.EnumerateFileSystemEntries(destination).Any(), "stale files survived reset");
+
+                Assert(!Shared.WorkshopUploadStaging.TryResetDirectChild(
+                        stagingRoot,
+                        "..\\escape",
+                        out _,
+                        out _),
+                    "unsafe item name was accepted");
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
         }
 
         private static CustomLordUploadWorkflow CreateWorkflow(

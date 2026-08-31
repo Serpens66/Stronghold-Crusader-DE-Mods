@@ -41,3 +41,6 @@ CustomLordUpload.ExtenderValidatorFailed=Die Paketpruefung des Script Extenders 
 CustomLordUpload.JsonUnreadable={Path} ist fehlerhaft oder unlesbar. Details stehen im Log.
 CustomLordUpload.SourceNotUnique=Die lokale Nicht-Workshop-Quelle fuer {Lord} konnte nicht eindeutig bestimmt werden. Nur Vanillas Basisdateien koennen hochgeladen werden.
 CustomLordUpload.UnexpectedPreflight=Der Paket-Preflight ist unerwartet fehlgeschlagen und kann die erweiterten Dateien nicht bestaetigen. Details stehen im Log.
+WorkshopUpload.IncludeAdditionalFiles=Zusätzliche Dateien für Mod-Unterstützung hochladen
+WorkshopUpload.IncludeAdditionalFilesHelp=Lädt zusätzlich zu den Vanilla-Inhalten mod-spezifische Dateien hoch. Deaktivieren, um nur die Dateien hochzuladen, die das unmodifizierte Spiel normalerweise einschließt.
+WorkshopUpload.StagingCleanupFailed=Der temporäre Workshop-Uploadordner konnte nicht sicher vorbereitet werden. Der Upload wurde abgebrochen. Weitere Informationen stehen im Log.

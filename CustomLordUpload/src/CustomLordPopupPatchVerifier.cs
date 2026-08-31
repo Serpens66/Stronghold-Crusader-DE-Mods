@@ -8,11 +8,15 @@ namespace CustomLordUpload
     internal sealed class CustomLordPopupPatchVerifier
     {
         private const string PopupPath = "Assets/GUI/XAMLResources/HUD_ConfirmationPopup.xaml";
-        private const string Marker = "CustomLordUploadWarningScrollViewer";
+        private const string UploadPagePath = "Assets/GUI/XAMLResources/FRONT_EditorSetup.xaml";
+        private const string PopupMarker = "CustomLordUploadWarningScrollViewer";
+        private const string UploadPageMarker = "CustomLordUploadOptionsHost";
         private readonly ManualLogSource log;
         private readonly object mismatchLock = new object();
-        private int successfulVerificationLogged;
-        private int lastLoggedMismatchCount = int.MinValue;
+        private int popupVerificationLogged;
+        private int uploadPageVerificationLogged;
+        private int lastPopupMismatchCount = int.MinValue;
+        private int lastUploadPageMismatchCount = int.MinValue;
 
         internal CustomLordPopupPatchVerifier(ManualLogSource log)
         {
@@ -24,35 +28,51 @@ namespace CustomLordUpload
 
         private void VerifyPatchedPopup(string relativePath, ref string text)
         {
-            if (!string.Equals(
-                    relativePath.Replace('\\', '/'),
-                    PopupPath,
-                    StringComparison.OrdinalIgnoreCase))
+            string normalizedPath = relativePath.Replace('\\', '/');
+            string marker;
+            string description;
+            if (string.Equals(normalizedPath, PopupPath, StringComparison.OrdinalIgnoreCase))
             {
-                return;
+                marker = PopupMarker;
+                description = "Custom Lord upload popup";
             }
+            else if (string.Equals(normalizedPath, UploadPagePath, StringComparison.OrdinalIgnoreCase))
+            {
+                marker = UploadPageMarker;
+                description = "Custom Lord upload checkbox";
+            }
+            else
+                return;
 
-            int count = CountOccurrences(text ?? string.Empty, Marker);
+            int count = CountOccurrences(text ?? string.Empty, marker);
             if (count == 1)
             {
-                if (Interlocked.Exchange(ref successfulVerificationLogged, 1) == 0)
+                bool firstSuccess = string.Equals(marker, PopupMarker, StringComparison.Ordinal)
+                    ? Interlocked.Exchange(ref popupVerificationLogged, 1) == 0
+                    : Interlocked.Exchange(ref uploadPageVerificationLogged, 1) == 0;
+                if (firstSuccess)
                 {
                     Shared.DebugLogHelper.LogInfo(
                         log,
-                        "Custom Lord upload popup XAML patch matched exactly once.");
+                        description + " XAML patch matched exactly once.");
                 }
             }
             else
             {
                 lock (mismatchLock)
                 {
-                    if (lastLoggedMismatchCount == count)
+                    bool popup = string.Equals(marker, PopupMarker, StringComparison.Ordinal);
+                    int previous = popup ? lastPopupMismatchCount : lastUploadPageMismatchCount;
+                    if (previous == count)
                         return;
-                    lastLoggedMismatchCount = count;
+                    if (popup)
+                        lastPopupMismatchCount = count;
+                    else
+                        lastUploadPageMismatchCount = count;
                 }
                 Shared.DebugLogHelper.LogWarning(
                     log,
-                    "Custom Lord upload popup XAML patch verification found " + count +
+                    description + " XAML patch verification found " + count +
                     " markers; expected exactly one. Review the XAML patch for this game/Extender version.");
             }
         }

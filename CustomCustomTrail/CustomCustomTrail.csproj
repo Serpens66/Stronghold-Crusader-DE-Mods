@@ -58,11 +58,14 @@
     <Compile Include="..\Shared\SerpLocalization.cs"><Link>Shared\SerpLocalization.cs</Link></Compile>
     <Compile Include="..\Shared\ToolTipPresentation.cs"><Link>Shared\ToolTipPresentation.cs</Link></Compile>
     <Compile Include="..\Shared\WorkshopContentPaths.cs"><Link>Shared\WorkshopContentPaths.cs</Link></Compile>
+    <Compile Include="..\Shared\WorkshopUploadStaging.cs"><Link>Shared\WorkshopUploadStaging.cs</Link></Compile>
     <Compile Include="src\CustomCustomTrailPlugin.cs" />
     <Compile Include="src\CustomCustomTrailSettingsViewModel.cs" />
     <Compile Include="src\CustomCustomTrailRuntime.cs" />
     <Compile Include="src\CoopCustomizePacket.cs" />
     <Compile Include="src\TrailMissionSettingsCoordinator.cs" />
+    <Compile Include="src\TrailWorkshopPatchVerifier.cs" />
+    <Compile Include="src\TrailWorkshopUploadOptionsViewModel.cs" />
     <Compile Include="src\MissionAssetResolver.cs" />
     <Compile Include="src\CoopTrailPackageExporter.cs" />
     <Compile Include="src\ResolvedMission.cs" />
@@ -74,6 +77,9 @@
     <Content Include="Override\ScriptExtenderUI\CustomCustomTrailSettings.xaml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Link>Override\ScriptExtenderUI\CustomCustomTrailSettings.xaml</Link>
+    </Content>
+    <Content Include="Patches\Assets\GUI\XAMLResources\FRONT_EditorSetup.xaml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

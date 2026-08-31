@@ -40,6 +40,13 @@ namespace CustomLordUpload
                 return;
             }
 
+            if (!request.IncludeAdditionalFiles)
+            {
+                Info("Custom Lord upload [" + request.MapTitle + "] uses Vanilla files only by explicit user choice.");
+                StartVanillaUpload(request, callOriginal, releaseApprovalKey: null);
+                return;
+            }
+
             try
             {
                 string uploadKey = GetUploadKey(request.NameMap, request.MapTitle);

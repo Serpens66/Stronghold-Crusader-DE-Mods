@@ -59,6 +59,16 @@ namespace CustomCustomTrail
                 HUD_IngameMenu.RestartSkirmishMapInfo restartInfo);
             private delegate void ManageTrailButtonDelegate(FRONT_ManageTrail self, string command);
             private delegate void EditorSetupButtonDelegate(FRONT_EditorSetup self, string command);
+            private delegate void UploadWorkshopMapDelegate(
+                Platform_Workshop instance,
+                string nameMap,
+                string mapTitle,
+                string description,
+                string[] tags,
+                bool publicMap,
+                string previewImage,
+                Action successAction,
+                Action failAction);
             private delegate void ManageTrailInitDelegate(FRONT_ManageTrail self, bool preserveSelection);
             private delegate void ImportDelegate(FRONT_ManageTrail self, string customFolderName);
             private delegate void ExportDelegate(FRONT_ManageTrail self, string destination);
@@ -98,6 +108,7 @@ namespace CustomCustomTrail
             private SaveCustomTrailMapDelegate saveCustomTrailMapOriginal;
             private ManageTrailButtonDelegate manageTrailButtonOriginal;
             private EditorSetupButtonDelegate editorSetupButtonOriginal;
+            private UploadWorkshopMapDelegate uploadWorkshopMapOriginal;
             private ManageTrailInitDelegate manageTrailInitOriginal;
             private TwoStringDelegate backupOriginal;
             private ImportDelegate importOriginal;
@@ -134,6 +145,10 @@ namespace CustomCustomTrail
             private readonly Dictionary<string, string> coopImportSourceBySelection =
                 new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             private CheckBox coopTrailExportCheckbox;
+            private readonly TrailWorkshopUploadOptionsViewModel uploadOptions = new TrailWorkshopUploadOptionsViewModel();
+            private TrailWorkshopPatchVerifier workshopPatchVerifier;
+            private readonly object uploadDecisionLock = new object();
+            private PendingUploadDecision pendingUploadDecision;
             private string coopPackageDisplayName = string.Empty;
             private int coopPackageMissionCount;
             private short coopCustomizePacketId;
@@ -237,6 +252,7 @@ namespace CustomCustomTrail
                     coopTrailExportCheckbox.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
                 if (!value)
                 {
+                    uploadOptions.Close();
                     SetCoopPackagePresentation(null, 0);
                     if (MainViewModel.Instance != null)
                         MainViewModel.Instance.Show_TrailCustomisationButtons = false;
@@ -246,6 +262,17 @@ namespace CustomCustomTrail
 
             public void Initialize()
             {
+                workshopPatchVerifier = new TrailWorkshopPatchVerifier(log);
+                try
+                {
+                    GameXAMLManagerAPI.Instance.RegisterBinding("CustomCustomTrailUploadOptionsHost", uploadOptions);
+                }
+                catch (Exception exception)
+                {
+                    DebugLogHelper.LogWarning(
+                        log,
+                        "Custom Trail upload checkbox binding failed; additional files remain enabled: " + exception);
+                }
                 CaptureVanillaCoopTrailTitles();
                 R3PacketEventHook<CoopCustomizePacket> packetHook =
                     GameNetworkAPI.Instance.GetPacketEventFor<CoopCustomizePacket>();
@@ -260,6 +287,18 @@ namespace CustomCustomTrail
                 editorSetupButtonOriginal = InstallHook(
                     typeof(FRONT_EditorSetup).GetMethod("ButtonClicked", BindingFlags.Instance | BindingFlags.Public),
                     (EditorSetupButtonDelegate)EditorSetupButtonHook);
+                uploadWorkshopMapOriginal = InstallHook(
+                    typeof(Platform_Workshop).GetMethod(
+                        nameof(Platform_Workshop.UploadWorkshopMap),
+                        BindingFlags.Instance | BindingFlags.Public,
+                        null,
+                        new[]
+                        {
+                            typeof(string), typeof(string), typeof(string), typeof(string[]),
+                            typeof(bool), typeof(string), typeof(Action), typeof(Action)
+                        },
+                        null),
+                    (UploadWorkshopMapDelegate)UploadWorkshopMapHook);
                 manageTrailInitOriginal = InstallHook(
                     RequireManageTrailMethod("Init", typeof(bool)),
                     (ManageTrailInitDelegate)ManageTrailInitHook);
@@ -512,10 +551,21 @@ namespace CustomCustomTrail
 
             private void EditorSetupButtonHook(FRONT_EditorSetup self, string command)
             {
-                if (enabled && string.Equals(command, "DoUpload", StringComparison.Ordinal))
+                FileRow selectedRow = (self.FindName("UploadList") as ListView)?.SelectedItem as FileRow;
+                if (enabled && string.Equals(command, "DoUpload", StringComparison.Ordinal) && selectedRow?.trail != null)
                 {
-                    FileRow selectedRow = (self.FindName("UploadList") as ListView)?.SelectedItem as FileRow;
-                    if (selectedRow?.trail != null && IsCoopPackageFolder(selectedRow.trail.Name))
+                    string uploadRoot = ConfigSettings.GetWorkshopUploadContentPath();
+                    string itemName = selectedRow.trail.Name;
+                    if (!WorkshopUploadStaging.TryResetDirectChild(uploadRoot, itemName, out _, out string cleanupError))
+                    {
+                        DebugLogHelper.LogError(log, $"Custom Trail Workshop staging cleanup failed for [{itemName}]: {cleanupError}");
+                        HUD_ConfirmationPopup.ShowOK(
+                            SerpLocalization.Get("WorkshopUpload.StagingCleanupFailed"),
+                            delegate { });
+                        return;
+                    }
+
+                    if (IsCoopPackageFolder(itemName))
                     {
                         try
                         {
@@ -530,12 +580,120 @@ namespace CustomCustomTrail
                         }
                         return;
                     }
+
+                    ArmUploadDecision(uploadRoot, itemName, uploadOptions.IncludeAdditionalFiles);
+                    try
+                    {
+                        editorSetupButtonOriginal(self, command);
+                    }
+                    finally
+                    {
+                        ClearUploadDecision(uploadRoot, itemName);
+                    }
+                    return;
                 }
 
                 editorSetupButtonOriginal(self, command);
 
-                if (enabled && string.Equals(command, "UploadTrail", StringComparison.Ordinal))
+                if (!enabled)
+                    return;
+                if (string.Equals(command, "UploadTrail", StringComparison.Ordinal))
+                {
                     TryFileOperation("add Coop Trails to Vanilla's Workshop upload list", () => AddCoopWorkshopRows(self));
+                }
+                else if (string.Equals(command, "Upload", StringComparison.Ordinal))
+                {
+                    if (selectedRow?.trail != null)
+                        uploadOptions.Open(IsCoopPackageFolder(selectedRow.trail.Name));
+                    else
+                        uploadOptions.Close();
+                }
+                else if (string.Equals(command, "CloseDoUpload", StringComparison.Ordinal) ||
+                         string.Equals(command, "CloseUpload", StringComparison.Ordinal))
+                {
+                    uploadOptions.Close();
+                }
+            }
+
+            private void UploadWorkshopMapHook(
+                Platform_Workshop instance,
+                string nameMap,
+                string mapTitle,
+                string description,
+                string[] tags,
+                bool publicMap,
+                string previewImage,
+                Action successAction,
+                Action failAction)
+            {
+                PendingUploadDecision decision = ConsumeUploadDecision(nameMap, mapTitle);
+                if (decision != null && decision.IncludeAdditionalFiles && IsCustomTrailUpload(tags))
+                {
+                    string source = IOPath.Combine(ConfigSettings.GetUserCustomTrailsPath(), mapTitle);
+                    string destination = IOPath.Combine(nameMap, mapTitle);
+                    if (!WorkshopUploadStaging.TryStageTrailSidecars(
+                            source,
+                            destination,
+                            out int copiedFiles,
+                            out string error))
+                    {
+                        DebugLogHelper.LogError(
+                            log,
+                            $"Custom Trail sidecars could not be staged for [{mapTitle}]; upload aborted: {error}");
+                        failAction?.Invoke();
+                        return;
+                    }
+                    DebugLogHelper.LogInfo(
+                        log,
+                        $"Added {copiedFiles} Custom Trail mod-settings sidecar(s) to Workshop staging for [{mapTitle}].");
+                }
+                else if (decision != null && !decision.IncludeAdditionalFiles)
+                {
+                    DebugLogHelper.LogInfo(
+                        log,
+                        $"Custom Trail upload [{mapTitle}] uses Vanilla files only by explicit user choice.");
+                }
+
+                uploadWorkshopMapOriginal(
+                    instance,
+                    nameMap,
+                    mapTitle,
+                    description,
+                    tags,
+                    publicMap,
+                    previewImage,
+                    successAction,
+                    failAction);
+            }
+
+            private static bool IsCustomTrailUpload(string[] tags) =>
+                tags != null && tags.Any(tag => string.Equals(tag, "Custom Trail", StringComparison.Ordinal));
+
+            private void ArmUploadDecision(string root, string itemName, bool includeAdditionalFiles)
+            {
+                lock (uploadDecisionLock)
+                    pendingUploadDecision = new PendingUploadDecision(root, itemName, includeAdditionalFiles);
+            }
+
+            private PendingUploadDecision ConsumeUploadDecision(string root, string itemName)
+            {
+                lock (uploadDecisionLock)
+                {
+                    if (pendingUploadDecision == null || !pendingUploadDecision.Matches(root, itemName))
+                        return null;
+                    PendingUploadDecision result = pendingUploadDecision;
+                    pendingUploadDecision = null;
+                    return result;
+                }
+            }
+
+            private void ClearUploadDecision(string root, string itemName)
+            {
+                lock (uploadDecisionLock)
+                {
+                    if (pendingUploadDecision?.Matches(root, itemName) == true)
+                        pendingUploadDecision = null;
+                }
             }
 
             private void ManageTrailInitHook(FRONT_ManageTrail self, bool preserveSelection)
@@ -2050,6 +2208,31 @@ namespace CustomCustomTrail
                 var hook = new Hook(method, replacement);
                 hooks.Add(hook);
                 return hook.GenerateTrampoline<T>();
+            }
+
+            private sealed class PendingUploadDecision
+            {
+                private readonly string root;
+                private readonly string itemName;
+
+                internal PendingUploadDecision(string root, string itemName, bool includeAdditionalFiles)
+                {
+                    this.root = Normalize(root);
+                    this.itemName = itemName ?? string.Empty;
+                    IncludeAdditionalFiles = includeAdditionalFiles;
+                }
+
+                internal bool IncludeAdditionalFiles { get; }
+
+                internal bool Matches(string candidateRoot, string candidateItemName) =>
+                    string.Equals(root, Normalize(candidateRoot), StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(itemName, candidateItemName, StringComparison.OrdinalIgnoreCase);
+
+                private static string Normalize(string value)
+                {
+                    try { return IOPath.GetFullPath(value ?? string.Empty); }
+                    catch { return value ?? string.Empty; }
+                }
             }
 
             private static object Invoke(object target, string method, params object[] arguments)
