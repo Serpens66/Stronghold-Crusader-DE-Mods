@@ -236,3 +236,84 @@ Wichtige Zusammenfassungsfelder:
 - Native Fehler immer fail-open behandeln und Vanilla-Rückgabewerte unverändert lassen.
 - Nach Codeänderungen zuerst sämtliche Audits durchführen und danach `build.bat` genau einmal direkt und erhöht ausführen.
 - Alle Textdateien im Mod verwenden CRLF.
+
+## Auswertung des Tests vom 31. August 2026 um 20:02 bis 20:04 Uhr
+
+Der jüngste Karteneditortest lief ohne Absturz, Diagnosefehler oder verworfene Ringpuffereinträge.
+Er bestätigt die Same-PCL-Ursache jetzt sowohl für das Torhaus als auch für die Zugbrücke.
+
+### Torhaus
+
+- Torhaus 1, Global-ID 1, Besitzer 1 und Eroberer 0 wurde als eigenständiges Tor korrekt erfasst.
+- Für den feindlichen Spieler 2 blieben Quelle und Ziel in PCL 1.
+- Vanilla lieferte positiv, obwohl das Tor feindlich und nicht erobert war.
+- Der Capturer-Filter wurde nicht erreicht. Damit ist bewiesen, dass auch ein Torhaus selbst den
+  Same-PCL-Schnellpfad benutzen kann; dieses Problem ist nicht auf Zugbrücken beschränkt.
+- Ein positiver `MoveHere`-Befehl für Einheit 1 ließ sich mit dieser Cursor-/PCL-Prüfung korrelieren.
+- Öffnen und späteres Schließen des Tores änderten an dieser frühen Same-PCL-Entscheidung zunächst
+  nichts. Die PCL-Nummern wurden erst bei späteren Kartenaktualisierungen neu aufgebaut.
+
+### Zugbrücke
+
+- Zugbrücke 2, Global-ID 44, Besitzer 1 und Eroberer 0 wurde als aktives Editor-Gebäude erkannt.
+- `r_GatehouseId` war weiterhin 0. Dieser Wert ist im Editor daher keine belastbare Verknüpfung.
+- Die gespeicherten Rechteckgrenzen waren widersprüchlich (`384/412-386/411`) und ergaben eine
+  irreführende Rechteckdistanz von 6.
+- Die tatsächlich belegten Tiles reichten dagegen bis Y 416 und grenzten direkt kardinal an den
+  Tor-Footprint ab Y 417. Diese belegten Footprints sind die belastbare räumliche Beziehung.
+- Der Zugbrückenbefehl verwendete erneut `sourcePcl=1`, `targetPcl=1`, ein positives PCL-Ergebnis
+  und einen positiven `MoveHere`-Rückgabewert; der Capturer-Filter wurde wieder umgangen.
+
+### Konsequenz
+
+Der Tor-Capturer-Filter bleibt für Different-PCL-Fälle sinnvoll, kann das Vanilla-Fehlverhalten
+aber nicht vollständig beheben. Weder eine reine Tor-Ein-/Ausgangsverbindung noch eine pauschale
+Same-PCL-Ablehnung ist geeignet. Der Fix muss die konkrete Tile-Route spielerbezogen bewerten:
+
+- existiert ein langer Weg um die Mauer, muss Vanilla diesen statt des feindlichen Tores wählen;
+- ist die feindliche Zugbrücke die einzige Verbindung, müssen Cursor und Builder negativ werden;
+- eigene, verbündete oder passend eroberte Strukturen bleiben verfügbar.
+
+## Diagnosebuild für die tatsächliche Tile-Route
+
+Der nachfolgende Diagnosebuild verändert weiterhin keine Rückgabewerte oder Pfadbuffer. Er beobachtet
+die gemeinsamen befehlsunabhängigen Grenzen:
+
+- zentraler Unit-Planer RVA `0x18E1E0` für Unit-, Spieler- und Zielkontext;
+- Hauptbuilder RVA `0xF4930`;
+- alternativer Builder RVA `0xE32B0`;
+- Cursor-Reachability RVA `0xE9FF0`;
+- `MoveHere` weiterhin ausschließlich über den Script-Extender-1.42.0-Event, ohne zweiten Detour.
+
+Die statische Analyse der validierten DLL bestätigte das native Ausgabeformat:
+
+- Start und Ziel liegen bei `pathManager+0x08/+0x0C/+0x10/+0x14`;
+- die Pfadlänge liegt bei `pathManager+0x155F68` und ist auf 2000 Schritte begrenzt;
+- `pathManager+0x155F60` zeigt auf gepackte Richtungsnibbles, zuerst das niedrige und dann das hohe;
+- die Richtungen 0 bis 7 bilden die acht Nachbartiles im Uhrzeigersinn ab.
+
+Die Dekodierung wird nur akzeptiert, wenn sämtliche Richtungen, Koordinaten und der Endpunkt gültig
+sind. Fehlschläge bleiben rein diagnostisch und fail-open.
+
+Für die Strukturklassifikation werden pro Spieler unveränderliche Bitsets aus den tatsächlichen
+Gebäude-Footprints erzeugt. Bei `r_GatehouseId=0` wird eine Brücke nur dann räumlich zugeordnet, wenn
+genau ein Tor desselben Besitzers direkt kardinal angrenzt. Keine oder mehrere passende Kandidaten
+bleiben fail-open. Rechteckgrenzen werden dafür nicht verwendet.
+
+Um lange vorgespulte KI-Tests nicht auszubremsen, dekodiert der Hot Path nur dann eine Route, wenn
+für den konkreten Spieler überhaupt ein feindliches Tor- oder Brücken-Tile im Snapshot vorhanden ist.
+Auch dann werden lediglich primitive Bitset-Lesezugriffe und begrenzte Ringpuffer verwendet. Details
+erscheinen nur für Strukturkreuzungen und wenige Negativkontrollen; alle zehn Sekunden folgt eine
+kompakte Zusammenfassung.
+
+`MoveMoatTest_Serp` detourt dieselben Builder-, Planner- und Cursorfunktionen. Ist dieser Testmod
+gleichzeitig geladen, installiert `EnemyGatePathfindingTest` die neuen Routenhooks ausdrücklich nicht.
+Der PCL-Filter und die bisherige Topologiediagnose bleiben konfliktfrei aktiv.
+
+Beim nächsten Test sind insbesondere folgende Zeilen entscheidend:
+
+- `Observational tile-route hooks installed` mit allen vier erwarteten RVAs;
+- `linkMethod=unique-footprint-adjacency` für die Editor-Zugbrücke;
+- `Tile-route diagnostic sample` mit `gateHits`, `bridgeHits`, erster/letzter Tile-ID sowie
+  PCL-, Cursor- und MoveHere-/Planner-Kontext;
+- `Tile-route periodic summary` mit Builderrollen, Kreuzungen, Fail-open-, Drop- und Fehlerzählern.

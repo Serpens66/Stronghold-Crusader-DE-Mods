@@ -42,6 +42,7 @@ namespace BugfixesAndQoL
         private bool enableShiftGameSpeedSteps = true;
         private bool enableAllyGoodsAmountModifiers = true;
         private bool enableCustomTrailExtremeGoldFix = true;
+        private bool showVanillaMapsInEditor = true;
         private bool preserveDisplayResolution = true;
         private readonly LocalPerPlayerSetting<bool> enableClientFeatures = new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> enableMinimapCursorFollowFix = new LocalPerPlayerSetting<bool>(true);
@@ -186,6 +187,8 @@ namespace BugfixesAndQoL
         public string EnableEliminatedPlayersBecomeSpectatorsHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableEliminatedPlayersBecomeSpectatorsHelp");
         public string EnableCustomTrailExtremeGoldFixText => SerpLocalization.Get("BugfixesAndQoL.EnableCustomTrailExtremeGoldFix");
         public string EnableCustomTrailExtremeGoldFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableCustomTrailExtremeGoldFixHelp");
+        public string ShowVanillaMapsInEditorText => SerpLocalization.Get("BugfixesAndQoL.ShowVanillaMapsInEditor");
+        public string ShowVanillaMapsInEditorHelpText => SerpLocalization.Get("BugfixesAndQoL.ShowVanillaMapsInEditorHelp");
         public string PreserveDisplayResolutionText => SerpLocalization.Get("BugfixesAndQoL.PreserveDisplayResolution");
         public string PreserveDisplayResolutionHelpText => SerpLocalization.Get("BugfixesAndQoL.PreserveDisplayResolutionHelp");
         public string AllowMinimapWhilePlacingBuildingText => SerpLocalization.Get(SerpLocalization.AllowMinimapWhilePlacingBuilding);
@@ -309,6 +312,13 @@ namespace BugfixesAndQoL
         {
             get => enableCustomTrailExtremeGoldFix;
             set => SetSetting(ref enableCustomTrailExtremeGoldFix, value, nameof(EnableCustomTrailExtremeGoldFix));
+        }
+
+        [Shared.PresetLocal]
+        public bool ShowVanillaMapsInEditor
+        {
+            get => showVanillaMapsInEditor;
+            set => SetSetting(ref showVanillaMapsInEditor, value, nameof(ShowVanillaMapsInEditor));
         }
 
         [Shared.PresetLocal]
@@ -606,6 +616,7 @@ namespace BugfixesAndQoL
             EnableIngameSteamInvitePrompt = true;
             ShowSelectedUnitHealth = true;
             EnableCustomTrailExtremeGoldFix = true;
+            ShowVanillaMapsInEditor = true;
             PreserveDisplayResolution = true;
             EnableAllyGoodsAmountModifiers = true;
         }

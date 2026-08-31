@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition="'$(Configuration)' == ''">Debug</Configuration><Platform Condition="'$(Platform)' == ''">AnyCPU</Platform>
+    <ProjectGuid>{F44CFE4D-4A30-4AD5-AEC6-ECA744599A01}</ProjectGuid><OutputType>Library</OutputType>
+    <RootNamespace>ExtremePowers.API</RootNamespace><AssemblyName>ExtremePowers.API</AssemblyName><TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
+    <LangVersion>latest</LangVersion><AllowUnsafeBlocks>true</AllowUnsafeBlocks><FileAlignment>512</FileAlignment>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'"><DebugSymbols>true</DebugSymbols><DebugType>portable</DebugType><Optimize>false</Optimize><OutputPath>bin\Debug\</OutputPath><DefineConstants>DEBUG;TRACE</DefineConstants><WarningLevel>4</WarningLevel></PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|AnyCPU'"><DebugType>portable</DebugType><Optimize>true</Optimize><OutputPath>bin\Release\</OutputPath><DefineConstants>TRACE</DefineConstants><WarningLevel>4</WarningLevel></PropertyGroup>
+  <PropertyGroup><LocalScriptExtenderRoot>$(MSBuildThisFileDirectory)..\shcde-script-extender</LocalScriptExtenderRoot><LocalScriptExtenderBuildOutput>$(LocalScriptExtenderRoot)\src\SHCDESE.BepInEx\bin\net481</LocalScriptExtenderBuildOutput><LocalScriptExtenderModOutput>$(LocalScriptExtenderRoot)\mod_output\000shcdese</LocalScriptExtenderModOutput></PropertyGroup>
+  <PropertyGroup Condition="'$(GameDir)' == ''"><GameDir>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir></PropertyGroup>
+  <PropertyGroup Condition="'$(ExtenderDir)' == '' and Exists('$(LocalScriptExtenderBuildOutput)\MessagePack.dll')"><ExtenderDir>$(LocalScriptExtenderBuildOutput)</ExtenderDir></PropertyGroup><PropertyGroup Condition="'$(ExtenderDir)' == '' and Exists('$(LocalScriptExtenderModOutput)\MessagePack.dll')"><ExtenderDir>$(LocalScriptExtenderModOutput)</ExtenderDir></PropertyGroup>
+  <ItemGroup><Reference Include="System"/><Reference Include="System.Core"/><Reference Include="MonoMod.RuntimeDetour"><HintPath>$(GameDir)\BepInEx\core\MonoMod.RuntimeDetour.dll</HintPath><Private>false</Private></Reference><Reference Include="Assembly-CSharp"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll</HintPath><Private>false</Private></Reference><Reference Include="Noesis.NoesisGUI"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Noesis.NoesisGUI.dll</HintPath><Private>false</Private></Reference><Reference Include="com.rlabrecque.steamworks.net"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\com.rlabrecque.steamworks.net.dll</HintPath><Private>false</Private></Reference><Reference Include="SHCDESE"><HintPath>$(ExtenderDir)\SHCDESE.dll</HintPath><Private>false</Private></Reference><Reference Include="R3"><HintPath>$(ExtenderDir)\R3.dll</HintPath><Private>false</Private></Reference><Reference Include="MessagePack"><HintPath>$(ExtenderDir)\MessagePack.dll</HintPath><Private>false</Private></Reference><Reference Include="MessagePack.Annotations"><HintPath>$(ExtenderDir)\MessagePack.Annotations.dll</HintPath><Private>false</Private></Reference><Reference Include="System.Memory"><HintPath>$(ExtenderDir)\System.Memory.dll</HintPath><Private>false</Private></Reference><Reference Include="Zhuqiaomon"><HintPath>$(ExtenderDir)\Zhuqiaomon.dll</HintPath><Private>false</Private></Reference></ItemGroup>
+  <ItemGroup>
+    <Compile Include="api\Contracts\ExtremePowerContracts.cs"/>
+    <Compile Include="api\Contracts\VanillaConfigurations.cs"/>
+    <Compile Include="api\Bootstrap\ExtremePowersBootstrap.cs"/>
+    <Compile Include="api\Native\NativeBuildGuard.cs"/>
+    <Compile Include="api\Native\ExtremePowersBuildCompatibility.cs"/>
+    <Compile Include="api\Native\ExtremePowersApi.cs"/>
+    <Compile Include="api\Native\NativeExtremePowersRuntime.cs"/>
+    <Compile Include="api\Native\RegenerationAccumulator.cs"/>
+    <Compile Include="api\Networking\ExtremePowerChoreCodec.cs"/>
+    <Compile Include="api\Networking\ExtremePowerChoreFormatter.cs"/>
+    <Compile Include="api\Networking\ExtremePowerNetworkRuntime.cs"/>
+    <Compile Include="api\Targeting\ExtremePowerTargetValidator.cs"/>
+    <Compile Include="api\Properties\ApiAssemblyInfo.cs"/>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets"/>
+</Project>

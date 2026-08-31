@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 
 namespace EnemyGatePathfindingTest
 {
@@ -28,6 +29,11 @@ namespace EnemyGatePathfindingTest
                 MoveCorrelationUsesNearestMatchingPredecessor();
                 MoveCorrelationRejectsMismatchesAndExpiredQueries();
                 MoveRoleAccountingAlwaysBalances();
+                FootprintAdjacencyIgnoresBrokenEditorBounds();
+                UniqueSpatialGateAssociationFailsOpenWhenAmbiguous();
+                PackedRouteDecodingValidatesEndpointAndLimits();
+                TileRouteNativeContractIsPinned();
+                NativeRouteHotPathsRemainPrimitiveOnly();
                 Console.WriteLine("EnemyGatePathfindingPolicy: {0} assertions passed.", assertions);
                 return 0;
             }
@@ -269,6 +275,122 @@ namespace EnemyGatePathfindingTest
                 "unclassified MoveHere calls remain unknown");
             Assert(EnemyGatePathfindingPolicy.CalculateUnknownRoleCount(2, 4, 1) == 0,
                 "role accounting never becomes negative");
+        }
+
+        private static void FootprintAdjacencyIgnoresBrokenEditorBounds()
+        {
+            var bridge = new[] { new RouteTilePoint(385, 416), new RouteTilePoint(386, 416) };
+            var gate = new[] { new RouteTilePoint(385, 417), new RouteTilePoint(386, 417) };
+            var distant = new[] { new RouteTilePoint(390, 420) };
+            Assert(EnemyGatePathfindingPolicy.AreFootprintsCardinallyAdjacent(bridge, gate),
+                "occupied bridge and gate footprints are directly adjacent");
+            Assert(!EnemyGatePathfindingPolicy.AreFootprintsCardinallyAdjacent(bridge, distant),
+                "distant footprints are not associated");
+            Assert(!EnemyGatePathfindingPolicy.AreFootprintsCardinallyAdjacent(null, gate),
+                "missing footprint fails open");
+        }
+
+        private static void UniqueSpatialGateAssociationFailsOpenWhenAmbiguous()
+        {
+            var bridge = new[] { new RouteTilePoint(10, 10) };
+            var gates = new[]
+            {
+                new[] { new RouteTilePoint(10, 11) },
+                new[] { new RouteTilePoint(11, 10) },
+                new[] { new RouteTilePoint(30, 30) }
+            };
+            Assert(EnemyGatePathfindingPolicy.FindUniqueAdjacentCandidate(
+                    bridge, gates, new[] { true, false, true }) == 0,
+                "same-owner eligibility selects one adjacent gate");
+            Assert(EnemyGatePathfindingPolicy.FindUniqueAdjacentCandidate(
+                    bridge, gates, new[] { true, true, true }) == -1,
+                "two adjacent candidates fail open");
+            Assert(EnemyGatePathfindingPolicy.FindUniqueAdjacentCandidate(
+                    bridge, gates, new[] { false, false, true }) == -1,
+                "no eligible adjacent candidate fails open");
+        }
+
+        private static void PackedRouteDecodingValidatesEndpointAndLimits()
+        {
+            Assert(EnemyGatePathfindingPolicy.TrySelectPackedRouteDecoding(
+                    new byte[] { 0x22 }, 2, 10, 10, 12, 10,
+                    out bool fromTarget, out bool invert) && !fromTarget && !invert,
+                "low nibble then high nibble decode an eastward route");
+            Assert(!EnemyGatePathfindingPolicy.TrySelectPackedRouteDecoding(
+                    new byte[] { 0x08 }, 1, 10, 10, 11, 10, out _, out _),
+                "invalid direction nibble is rejected");
+            Assert(!EnemyGatePathfindingPolicy.TrySelectPackedRouteDecoding(
+                    new byte[] { 0x22 }, 3, 10, 10, 13, 10, out _, out _),
+                "short packed buffer is rejected");
+            Assert(!EnemyGatePathfindingPolicy.TrySelectPackedRouteDecoding(
+                    new byte[1001], 2001, 10, 10, 10, 10, out _, out _),
+                "path length above native limit is rejected");
+        }
+
+        private static void TileRouteNativeContractIsPinned()
+        {
+            Assert(EnemyGatePathfindingNativeDefinition.CentralMovementPlanRva == 0x18E1E0,
+                "central planner RVA");
+            Assert(EnemyGatePathfindingNativeDefinition.MainPathBuilderRva == 0xF4930,
+                "main builder RVA");
+            Assert(EnemyGatePathfindingNativeDefinition.AlternatePathBuilderRva == 0xE32B0,
+                "alternate builder RVA");
+            Assert(EnemyGatePathfindingNativeDefinition.CursorReachabilityRva == 0xE9FF0,
+                "cursor reachability RVA");
+            Assert(EnemyGatePathfindingNativeDefinition.PathDirectionBufferOffset == 0x155F60,
+                "path direction buffer offset");
+            Assert(EnemyGatePathfindingNativeDefinition.PathLengthOffset == 0x155F68,
+                "path length offset");
+            Assert(EnemyGatePathfindingNativeDefinition.MaximumDecodedPathLength == 2000,
+                "native path length limit");
+        }
+
+        private static void NativeRouteHotPathsRemainPrimitiveOnly()
+        {
+            string source = File.ReadAllText(Path.Combine("src", "TileRouteDiagnostics.cs"));
+            string[] methods =
+            {
+                "OnMoveHere", "ObserveCentralPlan", "ObserveMainBuilder",
+                "ObserveAlternateBuilder", "ObserveCursor", "ObserveBuilderResult",
+                "QueueRoute", "QueueCursor"
+            };
+            string[] forbidden =
+            {
+                "GamePlayerManagerAPI", "GameUnitManagerAPI", "DebugLogHelper",
+                "Monitor.", "lock (", "StringBuilder", "Console.",
+                "new List", "new Dictionary", "new int[", "new byte[", "new string"
+            };
+            foreach (string method in methods)
+            {
+                string body = ExtractMethodBody(source, method);
+                foreach (string token in forbidden)
+                    Assert(body.IndexOf(token, StringComparison.Ordinal) < 0,
+                        method + " hot path excludes " + token);
+            }
+        }
+
+        private static string ExtractMethodBody(string source, string methodName)
+        {
+            bool returnsInt = methodName == "ObserveCentralPlan" ||
+                methodName == "ObserveMainBuilder" || methodName == "ObserveAlternateBuilder" ||
+                methodName == "ObserveCursor";
+            string signature = methodName == "OnMoveHere"
+                ? "internal void " + methodName + "("
+                : (returnsInt ? "private int " : "private void ") + methodName + "(";
+            int name = source.IndexOf(signature, StringComparison.Ordinal);
+            if (name < 0)
+                throw new InvalidOperationException("Method not found for hot-path audit: " + methodName);
+            int open = source.IndexOf('{', name);
+            if (open < 0)
+                throw new InvalidOperationException("Method body not found for hot-path audit: " + methodName);
+            int depth = 0;
+            for (int index = open; index < source.Length; index++)
+            {
+                if (source[index] == '{') depth++;
+                else if (source[index] == '}' && --depth == 0)
+                    return source.Substring(open, index - open + 1);
+            }
+            throw new InvalidOperationException("Unterminated method body: " + methodName);
         }
 
         private static void AssertTopology(TopologyDiagnosticDisposition expected,

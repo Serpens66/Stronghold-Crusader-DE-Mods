@@ -39,6 +39,7 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="BepInEx"><HintPath>$(GameDir)\BepInEx\core\BepInEx.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="MonoMod.RuntimeDetour"><HintPath>$(GameDir)\BepInEx\core\MonoMod.RuntimeDetour.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.CoreModule"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="SHCDESE"><HintPath>$(ExtenderDir)\SHCDESE.dll</HintPath><Private>false</Private></Reference>
@@ -54,6 +55,7 @@
     <Compile Include="src\EnemyGatePathfindingNativeDefinition.cs" />
     <Compile Include="src\EnemyGatePathfindingPolicy.cs" />
     <Compile Include="src\SamePclBridgeDiagnostics.cs" />
+    <Compile Include="src\TileRouteDiagnostics.cs" />
     <Compile Include="src\EnemyGatePathfindingRuntime.cs" />
     <Compile Include="..\Shared\DebugLogHelper.cs"><Link>Shared\DebugLogHelper.cs</Link></Compile>
     <Compile Include="..\Shared\NativePatternResolver.cs"><Link>Shared\NativePatternResolver.cs</Link></Compile>
@@ -61,6 +63,7 @@
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="ValidateReferences" BeforeTargets="BeforeBuild">
     <Error Condition="!Exists('$(GameDir)\BepInEx\core\BepInEx.dll')" Text="BepInEx.dll was not found below GameDir: $(GameDir)" />
+    <Error Condition="!Exists('$(GameDir)\BepInEx\core\MonoMod.RuntimeDetour.dll')" Text="MonoMod.RuntimeDetour.dll was not found below GameDir: $(GameDir)" />
     <Error Condition="!Exists('$(ExtenderDir)\SHCDESE.dll')" Text="SHCDESE.dll was not found: $(ExtenderDir)" />
     <Error Condition="!Exists('$(ExtenderDir)\R3.dll')" Text="R3.dll was not found: $(ExtenderDir)" />
     <Error Condition="!Exists('$(ExtenderDir)\System.Memory.dll')" Text="System.Memory.dll was not found: $(ExtenderDir)" />

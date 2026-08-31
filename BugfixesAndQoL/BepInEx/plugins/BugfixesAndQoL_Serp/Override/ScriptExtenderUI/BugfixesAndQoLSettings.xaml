@@ -79,6 +79,12 @@
       </StackPanel>
       <StackPanel shared:ModSettingsSearch.SectionKey="bugfixes.section.client-interface" shared:ModSettingsSearch.SectionTitle="{Binding ClientInterfaceTitleText}">
       <Grid Style="{StaticResource ModSettingsSearchSectionGrid}" shared:ModSettingsSearch.IsSection="True"><TextBlock Text="{Binding ClientInterfaceTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.show-vanilla-maps-in-editor" shared:ModSettingsSearch.Title="{Binding ShowVanillaMapsInEditorText}" shared:ModSettingsSearch.ToolTipText="{Binding ShowVanillaMapsInEditorHelpText}"><CheckBox IsChecked="{Binding ShowVanillaMapsInEditor, Mode=TwoWay}"
+                Foreground="White"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding ShowVanillaMapsInEditorHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding ShowVanillaMapsInEditorText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox></Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-minimap-cursor-follow-fix" shared:ModSettingsSearch.Title="{Binding EnableMinimapCursorFollowFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableMinimapCursorFollowFixHelpText}"><CheckBox IsChecked="{Binding EnableMinimapCursorFollowFix, Mode=TwoWay}"
                 Foreground="White"
                 ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableMinimapCursorFollowFixHelpText}"

@@ -1,4 +1,5 @@
 using BepInEx.Logging;
+using BepInEx.Bootstrap;
 using SHCDESE.API;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
@@ -30,6 +31,7 @@ namespace EnemyGatePathfindingTest
 
         private readonly ManualLogSource log;
         private SamePclBridgeDiagnostics samePclDiagnostics;
+        private TileRouteDiagnostics tileRouteDiagnostics;
         private HookTransaction transaction;
         private HookRef<X64ManagedFunctionDetourAOB<GetNextReachablePclDelegate>> reachabilityHook =
             new HookRef<X64ManagedFunctionDetourAOB<GetNextReachablePclDelegate>>();
@@ -155,6 +157,28 @@ namespace EnemyGatePathfindingTest
             if (!capturedByFilterHook.Success || !reachabilityHook.Success)
                 throw new InvalidOperationException("PCL filter and diagnostic detour were not installed atomically");
 
+            // UPDATE REVIEW (CrusaderDE.dll + Script Extender 1.42.0): these native
+            // diagnostics are independent from the PCL fix. A failure leaves the
+            // already validated PCL hook active and all route behavior Vanilla.
+            bool moveMoatLoaded = Chainloader.PluginInfos.ContainsKey("MoveMoatTest_Serp");
+            try
+            {
+                tileRouteDiagnostics = new TileRouteDiagnostics(
+                    log, memory, libraryBase, installNativeHooks: !moveMoatLoaded);
+                samePclDiagnostics.SetRoutePolicyConsumer(tileRouteDiagnostics.UpdatePolicy);
+                tileRouteDiagnostics.SetPclCorrelation(
+                    samePclDiagnostics.FindRecentRoutePclCorrelation);
+                tileRouteDiagnostics.SetTopologyEpochStarter(
+                    () => samePclDiagnostics.BeginExplicitEpoch("first native route or cursor query"));
+            }
+            catch (Exception ex)
+            {
+                tileRouteDiagnostics = null;
+                Shared.DebugLogHelper.LogWarning(log,
+                    "Tile-route diagnostics could not be installed; PCL diagnostics remain active and " +
+                    $"Vanilla route behavior is unchanged: {ex.GetType().Name}: {ex.Message}");
+            }
+
             ulong functionAddress = libraryBase + unchecked((ulong)functionResolution.Rva);
             ulong filterAddress = libraryBase + unchecked((ulong)compareRva);
             Shared.DebugLogHelper.LogInfo(
@@ -193,6 +217,7 @@ namespace EnemyGatePathfindingTest
                 return;
             ResetMapCounters();
             samePclDiagnostics?.BeginExplicitEpoch("OnStartMap(Post)");
+            tileRouteDiagnostics?.BeginEpoch("OnStartMap(Post)");
             Shared.DebugLogHelper.LogInfo(
                 log,
                 "Enemy-gate PCL test map started. The native hostile-owner filter is active for AI, " +
@@ -203,6 +228,7 @@ namespace EnemyGatePathfindingTest
         {
             bool hadActiveEpoch = Interlocked.CompareExchange(ref mapActive, 0, 1) == 1;
             samePclDiagnostics?.EndEpoch("OnUnloadMap(Post)");
+            tileRouteDiagnostics?.EndEpoch("OnUnloadMap(Post)");
             if (!hadActiveEpoch)
                 return;
             Shared.DebugLogHelper.LogInfo(
@@ -227,6 +253,7 @@ namespace EnemyGatePathfindingTest
             try
             {
                 samePclDiagnostics?.OnMoveHere(args);
+                tileRouteDiagnostics?.OnMoveHere(args);
             }
             catch
             {
@@ -239,6 +266,7 @@ namespace EnemyGatePathfindingTest
             try
             {
                 samePclDiagnostics?.ProcessDeferred();
+                tileRouteDiagnostics?.ProcessDeferred();
             }
             catch (Exception ex)
             {

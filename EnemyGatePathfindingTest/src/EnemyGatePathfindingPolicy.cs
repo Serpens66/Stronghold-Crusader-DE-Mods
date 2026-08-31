@@ -2,6 +2,13 @@ using System;
 
 namespace EnemyGatePathfindingTest
 {
+    internal readonly struct RouteTilePoint
+    {
+        internal RouteTilePoint(int x, int y) { X = x; Y = y; }
+        internal int X { get; }
+        internal int Y { get; }
+    }
+
     internal readonly struct QueryCorrelationCandidate
     {
         internal QueryCorrelationCandidate(
@@ -61,6 +68,8 @@ namespace EnemyGatePathfindingTest
 
     internal static class EnemyGatePathfindingPolicy
     {
+        private static readonly int[] DirectionX = { 0, 1, 1, 1, 0, -1, -1, -1 };
+        private static readonly int[] DirectionY = { -1, -1, 0, 1, 1, 1, 0, -1 };
         internal const int NeedsInitAliveState = 1;
         internal const int IsAliveAliveState = 2;
 
@@ -246,5 +255,91 @@ namespace EnemyGatePathfindingTest
 
         internal static long CalculateUnknownRoleCount(long total, long human, long ai) =>
             Math.Max(0, total - Math.Max(0, human) - Math.Max(0, ai));
+
+        internal static bool AreFootprintsCardinallyAdjacent(
+            RouteTilePoint[] first,
+            RouteTilePoint[] second)
+        {
+            if (first == null || second == null || first.Length == 0 || second.Length == 0)
+                return false;
+            for (int firstIndex = 0; firstIndex < first.Length; firstIndex++)
+            {
+                for (int secondIndex = 0; secondIndex < second.Length; secondIndex++)
+                {
+                    int dx = Math.Abs(first[firstIndex].X - second[secondIndex].X);
+                    int dy = Math.Abs(first[firstIndex].Y - second[secondIndex].Y);
+                    if (dx + dy == 1)
+                        return true;
+                }
+            }
+            return false;
+        }
+
+        internal static int FindUniqueAdjacentCandidate(
+            RouteTilePoint[] bridge,
+            RouteTilePoint[][] gates,
+            bool[] eligible)
+        {
+            if (bridge == null || gates == null || eligible == null)
+                return -1;
+            int count = Math.Min(gates.Length, eligible.Length);
+            int match = -1;
+            for (int index = 0; index < count; index++)
+            {
+                if (!eligible[index] || !AreFootprintsCardinallyAdjacent(bridge, gates[index]))
+                    continue;
+                if (match >= 0)
+                    return -1;
+                match = index;
+            }
+            return match;
+        }
+
+        internal static bool TrySelectPackedRouteDecoding(
+            byte[] packedDirections,
+            int pathLength,
+            int startX,
+            int startY,
+            int targetX,
+            int targetY,
+            out bool beginAtTarget,
+            out bool invertDirections)
+        {
+            beginAtTarget = false;
+            invertDirections = false;
+            if (packedDirections == null || pathLength <= 0 ||
+                pathLength > EnemyGatePathfindingNativeDefinition.MaximumDecodedPathLength ||
+                packedDirections.Length < (pathLength + 1) / 2)
+                return false;
+
+            for (int variant = 0; variant < 4; variant++)
+            {
+                bool fromTarget = (variant & 2) != 0;
+                bool invert = (variant & 1) != 0;
+                int x = fromTarget ? targetX : startX;
+                int y = fromTarget ? targetY : startY;
+                for (int step = 0; step < pathLength; step++)
+                {
+                    int direction = (packedDirections[step >> 1] >> ((step & 1) * 4)) & 0x0F;
+                    if (direction > 7)
+                        return false;
+                    int sign = invert ? -1 : 1;
+                    x += DirectionX[direction] * sign;
+                    y += DirectionY[direction] * sign;
+                    if (x < 0 || x >= EnemyGatePathfindingNativeDefinition.MapGridWidth ||
+                        y < 0 || y >= EnemyGatePathfindingNativeDefinition.MapGridWidth)
+                        break;
+                }
+                int expectedX = fromTarget ? startX : targetX;
+                int expectedY = fromTarget ? startY : targetY;
+                if (x == expectedX && y == expectedY)
+                {
+                    beginAtTarget = fromTarget;
+                    invertDirections = invert;
+                    return true;
+                }
+            }
+            return false;
+        }
     }
 }

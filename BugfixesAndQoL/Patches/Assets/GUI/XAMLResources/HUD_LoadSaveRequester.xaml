@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+       xmlns:local="clr-namespace:CrusaderDE"
+       xmlns:shared="clr-namespace:Shared;assembly=BugfixesAndQoL">
+  <Operation Type="InsertBefore" XPath="//n:CheckBox[@x:Name='HideQuicksaveCheck']">
+    <Content>
+      <Grid x:Name="BugfixesAndQoLShowVanillaMapsHost"
+            Width="250"
+            Height="28"
+            Margin="45,440,0,0"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top"
+            Visibility="{Binding ShowVanillaMapsVisibility}">
+        <Grid.Resources>
+          <Style TargetType="{x:Type ToolTip}">
+            <Setter Property="Background" Value="#FF1D1710" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontSize" Value="{x:Static shared:ToolTipPresentation.FontSize}" />
+            <Setter Property="BorderBrush" Value="#FFF2D48A" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Template">
+              <Setter.Value>
+                <ControlTemplate TargetType="{x:Type ToolTip}">
+                  <Border Background="{TemplateBinding Background}"
+                          BorderBrush="{TemplateBinding BorderBrush}"
+                          BorderThickness="{TemplateBinding BorderThickness}"
+                          CornerRadius="2"
+                          Padding="10,7"
+                          MaxWidth="{x:Static shared:ToolTipPresentation.MaximumWidth}">
+                    <TextBlock Text="{TemplateBinding Content}"
+                               Foreground="{TemplateBinding Foreground}"
+                               FontSize="{x:Static shared:ToolTipPresentation.FontSize}"
+                               TextWrapping="Wrap" />
+                  </Border>
+                </ControlTemplate>
+              </Setter.Value>
+            </Setter>
+          </Style>
+        </Grid.Resources>
+        <CheckBox Width="250"
+                  Height="28"
+                  HorizontalAlignment="Left"
+                  VerticalAlignment="Center"
+                  IsChecked="{Binding ShowVanillaMaps, Mode=TwoWay}"
+                  Style="{StaticResource CheckBox_Template}"
+                  ToolTip="{Binding ShowVanillaMapsHelpText}"
+                  ToolTipService.ShowDuration="60000">
+          <TextBlock Margin="0,2,0,-2"
+                     VerticalAlignment="Center"
+                     FontSize="18"
+                     Text="{Binding ShowVanillaMapsText}"
+                     TextTrimming="CharacterEllipsis" />
+        </CheckBox>
+      </Grid>
+    </Content>
+  </Operation>
+
+  <Operation Type="InsertBefore" XPath="//n:TextBox[@Name='SearchFilter']">
+    <Content>
+      <Grid x:Name="BugfixesAndQoLDeleteMapHost"
+            Width="170"
+            Height="34"
+            Margin="12,0,0,-40"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Bottom"
+            Visibility="{Binding DeleteMapVisibility}">
+        <Grid.Resources>
+          <Style TargetType="{x:Type ToolTip}">
+            <Setter Property="Background" Value="#FF1D1710" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontSize" Value="{x:Static shared:ToolTipPresentation.FontSize}" />
+            <Setter Property="BorderBrush" Value="#FFF2D48A" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Template">
+              <Setter.Value>
+                <ControlTemplate TargetType="{x:Type ToolTip}">
+                  <Border Background="{TemplateBinding Background}"
+                          BorderBrush="{TemplateBinding BorderBrush}"
+                          BorderThickness="{TemplateBinding BorderThickness}"
+                          CornerRadius="2"
+                          Padding="10,7"
+                          MaxWidth="{x:Static shared:ToolTipPresentation.MaximumWidth}">
+                    <TextBlock Text="{TemplateBinding Content}"
+                               Foreground="{TemplateBinding Foreground}"
+                               FontSize="{x:Static shared:ToolTipPresentation.FontSize}"
+                               TextWrapping="Wrap" />
+                  </Border>
+                </ControlTemplate>
+              </Setter.Value>
+            </Setter>
+          </Style>
+        </Grid.Resources>
+        <Button Width="170"
+                Height="34"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch"
+                IsEnabled="{Binding DeleteMapEnabled}"
+                local:PropEx.TextCentre="{Binding DeleteMapText}"
+                local:PropEx.TextLeft=""
+                local:PropEx.TextRight=""
+                Command="{Binding DeleteMapCommand}"
+                MouseEnter="CommonRedButtonEnter"
+                Style="{StaticResource BTN_SH_GlowSDisable}"
+                ToolTip="{Binding DeleteMapHelpText}"
+                ToolTipService.ShowDuration="60000" />
+      </Grid>
+    </Content>
+  </Operation>
+</Patch>

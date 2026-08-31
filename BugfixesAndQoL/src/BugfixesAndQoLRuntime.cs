@@ -29,6 +29,7 @@ namespace BugfixesAndQoL
         private CustomLordListEnhancementHook customLordListEnhancementHook;
         private AiCastleSettingsListEnhancementHook aiCastleSettingsListEnhancementHook;
         private MapOriginSortHook mapOriginSortHook;
+        private VanillaMapEditorHook vanillaMapEditorHook;
         private AutoTradeSellZeroHook autoTradeSellZeroHook;
         private EnemyProximityBulldozeCursorHook enemyProximityBulldozeCursorHook;
         private MarketKeyMainTradeMenuHook marketKeyMainTradeMenuHook;
@@ -272,6 +273,7 @@ namespace BugfixesAndQoL
             TryInitializeFeature("AI castle/settings list enhancements", EnsureAiCastleSettingsListEnhancementHook);
             TryApplyFeature("AI castle/settings list enhancements", () => aiCastleSettingsListEnhancementHook?.ApplySetting());
             TryInitializeFeature("map-origin sorting", EnsureMapOriginSortHook);
+            TryInitializeFeature("Vanilla maps in the editor", EnsureVanillaMapEditorHook);
             TryApplyFeature("troop movement fix", troopMovementFixRuntime.ApplySetting);
             TryApplyFeature("multiplayer game speed", multiplayerGameSpeedRuntime.ApplySetting);
             TryApplyFeature("assembly-point placement fix", ApplyAssemblyPointPlacementPatchSetting);
@@ -299,6 +301,8 @@ namespace BugfixesAndQoL
             aiCastleSettingsListEnhancementHook = null;
             mapOriginSortHook?.Dispose();
             mapOriginSortHook = null;
+            vanillaMapEditorHook?.Dispose();
+            vanillaMapEditorHook = null;
             resyncHostKickFeature?.Dispose();
             resyncHostKickFeature = null;
             abruptHostMigrationFix?.Dispose();
@@ -495,6 +499,12 @@ namespace BugfixesAndQoL
         {
             if (mapOriginSortHook == null)
                 mapOriginSortHook = new MapOriginSortHook(log, settings);
+        }
+
+        private void EnsureVanillaMapEditorHook()
+        {
+            if (vanillaMapEditorHook == null)
+                vanillaMapEditorHook = new VanillaMapEditorHook(log, settings);
         }
 
         private void EnsureResyncHostKickFeature()

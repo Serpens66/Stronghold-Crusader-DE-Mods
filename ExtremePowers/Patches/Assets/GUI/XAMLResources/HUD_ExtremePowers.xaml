@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Patch>
+  <Operation Type="SetAttribute" XPath="//n:Button[@CommandParameter='0']" AttributeName="Name" Value="ExtremePowersButton0" />
+  <Operation Type="SetAttribute" XPath="//n:Button[@CommandParameter='1']" AttributeName="Name" Value="ExtremePowersButton1" />
+  <Operation Type="SetAttribute" XPath="//n:Button[@CommandParameter='2']" AttributeName="Name" Value="ExtremePowersButton2" />
+  <Operation Type="SetAttribute" XPath="//n:Button[@CommandParameter='3']" AttributeName="Name" Value="ExtremePowersButton3" />
+  <Operation Type="SetAttribute" XPath="//n:Button[@CommandParameter='4']" AttributeName="Name" Value="ExtremePowersButton4" />
+  <Operation Type="SetAttribute" XPath="//n:Button[@CommandParameter='5']" AttributeName="Name" Value="ExtremePowersButton5" />
+  <Operation Type="SetAttribute" XPath="//n:Button[@CommandParameter='6']" AttributeName="Name" Value="ExtremePowersButton6" />
+  <Operation Type="SetAttribute" XPath="//n:Button[@CommandParameter='7']" AttributeName="Name" Value="ExtremePowersButton7" />
+</Patch>

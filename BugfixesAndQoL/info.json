@@ -3,10 +3,22 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.110",
+  "Version": "1.0.112",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.112",
+      "Changes": [
+        "Added a persistent Show Vanilla maps checkbox and a confirmation-protected Delete Map button to the editor map dialogs; deletion is restricted to direct user Maps files."
+      ]
+    },
+    {
+      "Version": "1.0.111",
+      "Changes": [
+        "Added a local option that exposes editable built-in maps in the map editor while redirecting any attempted Vanilla-map save to the user Maps folder."
+      ]
+    },
     {
       "Version": "1.0.110",
       "Changes": [

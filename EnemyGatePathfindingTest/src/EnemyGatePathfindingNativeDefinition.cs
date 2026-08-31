@@ -31,6 +31,39 @@ namespace EnemyGatePathfindingTest
         public const int CursorTargetXRva = 0x3A11E2C;
         public const int CursorTargetYRva = 0x3A11E30;
 
+        // UPDATE REVIEW (CrusaderDE.dll): these four observational detours and their
+        // Win64 ABIs were audited only for the reference DLL. MoveMoatTest_Serp owns
+        // the same functions when loaded, so this mod must never install them then.
+        public const int CentralMovementPlanRva = 0x18E1E0;
+        public const string CentralMovementPlanPattern =
+            "40 53 55 56 57 41 54 41 55 41 56 41 57 48 81 EC 38 04 00 00 " +
+            "48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 84 24 20 04 00 00 4C 63 FA " +
+            "4C 8D 35 ?? ?? ?? ?? 49 69 DF 90 04 00 00 49 63 E8 48 03 D9 49 63 F1";
+        public const int MainPathBuilderRva = 0xF4930;
+        public const string MainPathBuilderPattern =
+            "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 48 83 EC 40 " +
+            "48 63 41 0C 48 8B D9 41 8B F0 44 8B D2";
+        public const int AlternatePathBuilderRva = 0xE32B0;
+        public const string AlternatePathBuilderPattern =
+            "40 53 48 83 EC 30 44 8B 49 10 33 C0 44 8B 41 0C 48 8B D9 8B 51 08 " +
+            "89 44 24 28 89 81 68 5F 15 00 8B 41 14 89 44 24 20 E8 ?? ?? ?? ??";
+        public const int CursorReachabilityRva = 0xE9FF0;
+        public const string CursorReachabilityPattern =
+            "44 89 4C 24 20 44 89 44 24 18 53 55 56 57 41 54 41 55 41 56 " +
+            "48 83 EC 50 48 63 F2 45 33 ED 33 D2 49 63 E8 49 63 C1 48 8B D9";
+
+        // UPDATE REVIEW (CrusaderDE.dll): offsets in the native PathManager used by
+        // both builders. The direction buffer stores low nibble first, then high.
+        public const int PathStartXOffset = 0x08;
+        public const int PathStartYOffset = 0x0C;
+        public const int PathTargetXOffset = 0x10;
+        public const int PathTargetYOffset = 0x14;
+        public const int PathDirectionBufferOffset = 0x155F60;
+        public const int PathLengthOffset = 0x155F68;
+        public const int MaximumDecodedPathLength = 2000;
+        public const int MaximumTileIdExclusive = 320800;
+        public const int MapGridWidth = 800;
+
         // This CMP is reached only for a hostile owner. Vanilla accepts every non-zero
         // r_CapturedByPlayerId; the callback changes ZF only for an unrelated capturer.
         public const int CapturedByCompareRva = 0xE2710;

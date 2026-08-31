@@ -52,6 +52,7 @@ namespace EnemyGatePathfindingTest
             new PendingQuery[PendingQueryCapacity];
 
         private volatile TopologySnapshot snapshot = TopologySnapshot.Empty;
+        private Action<RouteTilePolicySnapshot> routePolicyConsumer;
         private int epochActive;
         private int epochNumber;
         private int initializedDeferredEpoch;
@@ -116,6 +117,33 @@ namespace EnemyGatePathfindingTest
             this.log = log;
             this.cursorTargetX = cursorTargetX;
             this.cursorTargetY = cursorTargetY;
+        }
+
+        internal void SetRoutePolicyConsumer(Action<RouteTilePolicySnapshot> consumer)
+        {
+            routePolicyConsumer = consumer;
+            consumer?.Invoke(snapshot.RoutePolicy);
+        }
+
+        internal RoutePclCorrelation FindRecentRoutePclCorrelation(
+            long routeTimestamp, int playerId, int targetX, int targetY)
+        {
+            int count = recentQueryCount;
+            long bestAge = long.MaxValue;
+            PendingQuery best = default;
+            for (int index = 0; index < count; index++)
+            {
+                PendingQuery query = recentQueries[index];
+                long age = routeTimestamp - query.Timestamp;
+                if (query.Timestamp == 0 || age < 0 || age > CorrelationWindow || age >= bestAge ||
+                    query.PlayerId != playerId || query.CursorX != targetX || query.CursorY != targetY)
+                    continue;
+                best = query;
+                bestAge = age;
+            }
+            return best.Timestamp == 0
+                ? default
+                : new RoutePclCorrelation(true, best.SourcePcl, best.TargetPcl, best.Result);
         }
 
         internal void BeginExplicitEpoch(string reason)
@@ -427,6 +455,7 @@ namespace EnemyGatePathfindingTest
             {
                 TopologySnapshot rebuilt = BuildTopologySnapshot();
                 snapshot = rebuilt;
+                routePolicyConsumer?.Invoke(rebuilt.RoutePolicy);
                 Interlocked.Increment(ref topologyBuilds);
                 if (rebuilt.Fingerprint != lastTopologyFingerprint)
                 {
@@ -600,7 +629,11 @@ namespace EnemyGatePathfindingTest
                     continue;
                 }
                 int rawGatehouseId = building.r_GatehouseId;
-                if (!gateInfosById.TryGetValue(rawGatehouseId, out GateBridgeInfo gateInfo))
+                bool nativeLink = gateInfosById.TryGetValue(rawGatehouseId, out GateBridgeInfo gateInfo) &&
+                    gateInfo.Owner == building.r_PlayerIdOwner;
+                bool spatialLink = !nativeLink && TryFindUniqueAdjacentGate(
+                    bridgeTiles, building.r_PlayerIdOwner, gateInfosById, out gateInfo);
+                if (!nativeLink && !spatialLink)
                 {
                     rejections.Add(TopologyDiagnosticDisposition.InvalidGatehouseId);
                     var orphanInfo = new GateBridgeInfo(
@@ -614,7 +647,8 @@ namespace EnemyGatePathfindingTest
                     rejections.OrphanBridgeCandidates++;
                     fingerprint = Mix(fingerprint, orphanInfo);
                     string orphan = FormatOrphanBridge(
-                        buildingId, building, rawGatehouseId, bridgeTiles, gateBuildingsById);
+                        buildingId, building, rawGatehouseId, bridgeTiles,
+                        gateBuildingsById, gateInfosById);
                     AppendTopologyDetail(detail, orphan);
                     fingerprint = MixOrphanBridge(
                         fingerprint, buildingId, building, rawGatehouseId, gateBuildingsById);
@@ -631,9 +665,9 @@ namespace EnemyGatePathfindingTest
                 var bridgeInfo = new GateBridgeInfo(
                     gateInfo.GateId, gateInfo.GateGlobal, gateInfo.Owner, gateInfo.CapturedBy,
                     gateInfo.IsOpen, gateInfo.GateAliveState, gateInfo.EntryPcl, gateInfo.ExitPcl,
-                    buildingId, building.r_GlobalId, rawGatehouseId, (int)building.r_AliveState,
+                    buildingId, building.r_GlobalId, gateInfo.GateId, (int)building.r_AliveState,
                     CollectRelevantPcls(bridgeTiles), bridgeTiles, gateInfo.UnrelatedByPlayer,
-                    rawGatehouseId, "native-building-id");
+                    rawGatehouseId, nativeLink ? "native-building-id" : "unique-footprint-adjacency");
                 combinations.Add(bridgeInfo);
                 rejections.Add(TopologyDiagnosticDisposition.Accepted);
                 fingerprint = Mix(fingerprint, bridgeInfo);
@@ -643,8 +677,103 @@ namespace EnemyGatePathfindingTest
                 detail.Append("no active gatehouse or drawbridge record");
             detail.Append(" | ").Append(rejections.Format());
             fingerprint = Mix(fingerprint, rejections);
+            GateBridgeInfo[] combinationArray = combinations.ToArray();
+            TopologySnapshot previous = snapshot;
+            RouteTilePolicySnapshot routePolicy = previous.Fingerprint == fingerprint
+                ? previous.RoutePolicy
+                : BuildRoutePolicySnapshot(tileApi, fingerprint, combinationArray);
             return new TopologySnapshot(
-                fingerprint, combinations.ToArray(), detail.ToString(), rejections);
+                fingerprint, combinationArray, detail.ToString(), rejections, routePolicy);
+        }
+
+        private static bool TryFindUniqueAdjacentGate(
+            TileDiagnostic[] bridgeTiles,
+            int bridgeOwner,
+            Dictionary<int, GateBridgeInfo> gates,
+            out GateBridgeInfo match)
+        {
+            match = default;
+            RouteTilePoint[] bridge = ToFootprintPoints(bridgeTiles);
+            var candidates = new List<GateBridgeInfo>();
+            var points = new List<RouteTilePoint[]>();
+            foreach (KeyValuePair<int, GateBridgeInfo> pair in gates)
+            {
+                candidates.Add(pair.Value);
+                points.Add(ToFootprintPoints(pair.Value.Tiles));
+            }
+            bool[] eligible = new bool[candidates.Count];
+            for (int index = 0; index < candidates.Count; index++)
+                eligible[index] = candidates[index].Owner == bridgeOwner;
+            int selected = EnemyGatePathfindingPolicy.FindUniqueAdjacentCandidate(
+                bridge, points.ToArray(), eligible);
+            if (selected < 0)
+                return false;
+            match = candidates[selected];
+            return true;
+        }
+
+        private static RouteTilePoint[] ToFootprintPoints(TileDiagnostic[] tiles)
+        {
+            var points = new List<RouteTilePoint>();
+            if (tiles != null)
+            {
+                for (int index = 0; index < tiles.Length; index++)
+                    if (tiles[index].Footprint)
+                        points.Add(new RouteTilePoint(tiles[index].X, tiles[index].Y));
+            }
+            return points.ToArray();
+        }
+
+        private static RouteTilePolicySnapshot BuildRoutePolicySnapshot(
+            GameTileManagerAPI tiles,
+            ulong fingerprint,
+            GateBridgeInfo[] combinations)
+        {
+            int wordCount = (EnemyGatePathfindingNativeDefinition.MaximumTileIdExclusive + 63) >> 6;
+            ulong[][] gateBits = new ulong[9][];
+            ulong[][] bridgeBits = new ulong[9][];
+            bool[] hasBlockedTiles = new bool[9];
+            for (int player = 1; player <= 8; player++)
+            {
+                gateBits[player] = new ulong[wordCount];
+                bridgeBits[player] = new ulong[wordCount];
+            }
+            var identities = new Dictionary<int, RouteTileIdentity>();
+            for (int infoIndex = 0; infoIndex < combinations.Length; infoIndex++)
+            {
+                GateBridgeInfo info = combinations[infoIndex];
+                bool isGate = info.GateId > 0 && info.BridgeId == 0;
+                bool isBridge = info.BridgeId > 0 && info.GateId > 0;
+                if (!isGate && !isBridge)
+                    continue;
+                for (int tileIndex = 0; tileIndex < info.Tiles.Length; tileIndex++)
+                {
+                    TileDiagnostic tile = info.Tiles[tileIndex];
+                    if (!tile.Footprint || tile.TileId < 0 ||
+                        tile.TileId >= EnemyGatePathfindingNativeDefinition.MaximumTileIdExclusive)
+                        continue;
+                    for (int player = 1; player <= 8; player++)
+                    {
+                        if (player >= info.UnrelatedByPlayer.Length || !info.UnrelatedByPlayer[player])
+                            continue;
+                        ulong[] bits = isGate ? gateBits[player] : bridgeBits[player];
+                        bits[tile.TileId >> 6] |= 1UL << (tile.TileId & 63);
+                        hasBlockedTiles[player] = true;
+                    }
+                    identities.TryGetValue(tile.TileId, out RouteTileIdentity identity);
+                    identities[tile.TileId] = identity.Merge(
+                        info.GateId,
+                        isBridge ? info.BridgeId : 0);
+                }
+            }
+            int[] rowStarts = new int[EnemyGatePathfindingNativeDefinition.MapGridWidth];
+            if (tiles.MapRowLookupTable != null)
+            {
+                for (int y = 0; y < rowStarts.Length; y++)
+                    rowStarts[y] = tiles.MapRowLookupTable[3 * y];
+            }
+            return new RouteTilePolicySnapshot(
+                gateBits, bridgeBits, rowStarts, identities, hasBlockedTiles, fingerprint);
         }
 
         private static bool TryCollectBuildingTiles(GameTileManagerAPI tiles,
@@ -740,7 +869,8 @@ namespace EnemyGatePathfindingTest
             GameBuilding bridge,
             int rawGatehouseId,
             TileDiagnostic[] tiles,
-            Dictionary<int, GameBuilding> gates)
+            Dictionary<int, GameBuilding> gates,
+            Dictionary<int, GateBridgeInfo> gateInfos)
         {
             List<KeyValuePair<int, int>> candidates = GetSpatialGateCandidates(bridge, gates);
             var text = new StringBuilder();
@@ -753,7 +883,20 @@ namespace EnemyGatePathfindingTest
                 .Append(bridge.r_TilePositionYBegin).Append('-')
                 .Append(bridge.r_TilePositionXEnd).Append('/').Append(bridge.r_TilePositionYEnd)
                 .Append(" pcls=").Append(string.Join("/", CollectRelevantPcls(tiles)))
-                .Append(" spatialGateCandidates=[");
+                .Append(" footprintAdjacentSameOwnerGates=[");
+            bool firstAdjacent = true;
+            RouteTilePoint[] bridgePoints = ToFootprintPoints(tiles);
+            foreach (KeyValuePair<int, GateBridgeInfo> pair in gateInfos)
+            {
+                if (pair.Value.Owner != bridge.r_PlayerIdOwner ||
+                    !EnemyGatePathfindingPolicy.AreFootprintsCardinallyAdjacent(
+                        bridgePoints, ToFootprintPoints(pair.Value.Tiles)))
+                    continue;
+                if (!firstAdjacent) text.Append(';');
+                text.Append("gate#").Append(pair.Key);
+                firstAdjacent = false;
+            }
+            text.Append("] spatialGateCandidates=[");
             for (int index = 0; index < candidates.Count && index < 8; index++)
             {
                 if (index > 0) text.Append(';');
@@ -1410,15 +1553,17 @@ namespace EnemyGatePathfindingTest
         private sealed class TopologySnapshot
         {
             internal static readonly TopologySnapshot Empty = new TopologySnapshot(
-                0, Array.Empty<GateBridgeInfo>(), "not captured", default);
+                0, Array.Empty<GateBridgeInfo>(), "not captured", default,
+                RouteTilePolicySnapshot.Empty);
             internal TopologySnapshot(ulong fingerprint, GateBridgeInfo[] combinations,
-                string detail, TopologyRejections rejections)
+                string detail, TopologyRejections rejections, RouteTilePolicySnapshot routePolicy)
             { Fingerprint = fingerprint; Combinations = combinations; Detail = detail;
-                Rejections = rejections; }
+                Rejections = rejections; RoutePolicy = routePolicy ?? RouteTilePolicySnapshot.Empty; }
             internal ulong Fingerprint { get; }
             internal GateBridgeInfo[] Combinations { get; }
             internal string Detail { get; }
             internal TopologyRejections Rejections { get; }
+            internal RouteTilePolicySnapshot RoutePolicy { get; }
         }
 
         private readonly struct GateBridgeInfo

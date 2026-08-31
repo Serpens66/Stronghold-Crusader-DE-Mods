@@ -12,6 +12,9 @@ using UnityEngine;
 namespace EnemyGatePathfindingTest
 {
     [BepInDependency(ScriptExtenderGuid, BepInDependency.DependencyFlags.HardDependency)]
+    // Load after the optional test mod when it exists, so PluginInfos can suppress
+    // our overlapping observational route hooks while keeping the PCL hook active.
+    [BepInDependency("MoveMoatTest_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class EnemyGatePathfindingTestPlugin : BaseUnityPlugin
     {
@@ -37,7 +40,7 @@ namespace EnemyGatePathfindingTest
             LogScriptExtenderIdentity();
             Shared.DebugLogHelper.LogInfo(
                 persistentLog,
-                $"{PluginName} {PluginVersion} loaded; no settings or dependencies beyond Script Extender are used.");
+                $"{PluginName} {PluginVersion} loaded; no settings and no hard dependency beyond Script Extender are used.");
 
             // UPDATE REVIEW (Script Extender): revalidate map event phases and lifetime;
             // the BaseUnityPlugin component itself is intentionally not the runtime owner.
