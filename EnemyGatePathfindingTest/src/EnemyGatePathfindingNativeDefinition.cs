@@ -31,9 +31,9 @@ namespace EnemyGatePathfindingTest
         public const int CursorTargetXRva = 0x3A11E2C;
         public const int CursorTargetYRva = 0x3A11E30;
 
-        // UPDATE REVIEW (CrusaderDE.dll): these four observational detours and their
-        // Win64 ABIs were audited only for the reference DLL. MoveMoatTest_Serp owns
-        // the same functions when loaded, so this mod must never install them then.
+        // UPDATE REVIEW (CrusaderDE.dll): these functional boundaries and their Win64
+        // ABIs were audited only for the reference DLL. MoveMoatTest_Serp owns overlapping
+        // planner/builder/cursor code, so this mod must never install them then.
         public const int CentralMovementPlanRva = 0x18E1E0;
         public const string CentralMovementPlanPattern =
             "40 53 55 56 57 41 54 41 55 41 56 41 57 48 81 EC 38 04 00 00 " +
@@ -43,6 +43,8 @@ namespace EnemyGatePathfindingTest
         public const string MainPathBuilderPattern =
             "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 48 83 EC 40 " +
             "48 63 41 0C 48 8B D9 41 8B F0 44 8B D2";
+        // E32B0 is reconstruction-only. It remains documented for update audits but is
+        // deliberately not hooked by the functional fix.
         public const int AlternatePathBuilderRva = 0xE32B0;
         public const string AlternatePathBuilderPattern =
             "40 53 48 83 EC 30 44 8B 49 10 33 C0 44 8B 41 0C 48 8B D9 8B 51 08 " +
@@ -51,6 +53,28 @@ namespace EnemyGatePathfindingTest
         public const string CursorReachabilityPattern =
             "44 89 4C 24 20 44 89 44 24 18 53 55 56 57 41 54 41 55 41 56 " +
             "48 83 EC 50 48 63 F2 45 33 ED 33 D2 49 63 E8 49 63 C1 48 8B D9";
+
+        // UPDATE REVIEW (CrusaderDE.dll + Zhuqiaomon): this is the ordinary movement
+        // cursor's PCL-result decision documented by MoveMoatTest. The callback must run
+        // before the relocated TEST so changing EAX to zero affects Vanilla's CMOV path.
+        public const int CursorPclDecisionRva = 0x8F1C4;
+        public const int CursorPclDecisionHookLength = 14;
+        public const string CursorPclDecisionPattern =
+            "E8 ?? ?? ?? ?? 85 C0 48 8D 3D E3 FB FC 03 B8 01 00 00 00";
+        public const int CursorPclDecisionOffsetInPattern = 5;
+
+        // UPDATE REVIEW (CrusaderDE.dll): one byte per native tile, one bit per one of
+        // the eight audited neighbor directions. Vanilla maintains opposite edge bits.
+        public const int PathDirectionGridRva = 0x51890D0;
+
+        // UPDATE REVIEW (CrusaderDE.dll): a second shared order path accepts positive
+        // PCL results here before E9D90/E9FF0. The span contains an internal branch and
+        // is intentionally audited/logged but not hooked in this crash-safe build.
+        public const int CommandPclDecisionRva = 0x11B75A;
+        public const int CommandPclDecisionHookLength = 14;
+        public const string CommandPclDecisionPattern =
+            "E8 ?? ?? ?? ?? 41 8B D7 85 C0 75 52 48 8D 0D ?? ?? ?? ?? E8";
+        public const int CommandPclDecisionOffsetInPattern = 5;
 
         // UPDATE REVIEW (CrusaderDE.dll): offsets in the native PathManager used by
         // both builders. The direction buffer stores low nibble first, then high.

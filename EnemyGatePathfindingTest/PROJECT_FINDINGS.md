@@ -317,3 +317,60 @@ Beim nächsten Test sind insbesondere folgende Zeilen entscheidend:
 - `Tile-route diagnostic sample` mit `gateHits`, `bridgeHits`, erster/letzter Tile-ID sowie
   PCL-, Cursor- und MoveHere-/Planner-Kontext;
 - `Tile-route periodic summary` mit Builderrollen, Kreuzungen, Fail-open-, Drop- und Fehlerzählern.
+
+## Funktionaler Vanilla-first-Build vom 1. September 2026
+
+Die blockweise Analyse der vollständigen `.text`-Section ersetzt die zuvor praktisch nicht
+abschließbare monolithische Vollanalyse. Die gespeicherten Blockdaten in `.native-analysis` belegen:
+
+- `0xF4930` ist der gemeinsame echte Tile-Builder und besitzt genau zwei direkte Aufrufer:
+  `0x18E455` im zentralen Unit-Planer und `0x196679` in `MoveHere`;
+- `0xE32B0` setzt nur das Ergebnisfeld zurück und rekonstruiert einen bereits bestimmten Pfad;
+  diese Funktion ist kein zweiter Suchbuilder und wird nicht mehr gehookt;
+- `0xE9FF0` besitzt nur zwei direkte Aufrufer und wird im gewöhnlichen Same-PCL-Cursorpfad
+  übersprungen;
+- alle tatsächlichen Suchvarianten unter `0xF4930` verwenden das Richtungsgrid bei RVA
+  `0x51890D0`. Ein Byte beschreibt die acht Nachbarkanten eines Tiles; Vanilla aktualisiert
+  Kante und Gegenkante symmetrisch.
+
+Die lokale Referenz `MoveMoatTest\MoatUnitBehaviorReverseEngineering.md` bestätigt zusätzlich die
+Cursorentscheidung bei `0x8F1C4`. Die validierte 14-Byte-Spanne lautet weiterhin
+`85 C0 48 8D 3D E3 FB FC 03 B8 01 00 00 00`. Ein negativer Filter vor dem verlagerten `TEST EAX,EAX`
+begrenzt nur ein positives PCL-Ergebnis; er kann kein negatives Vanilla-Ergebnis freigeben.
+
+### Was der funktionale Build jetzt tut
+
+1. `0xF4930` läuft zuerst vollständig Vanilla.
+2. Nur ein positiver, korrekt dekodierter Pfad, der ein für den anfragenden Spieler feindliches
+   Tor- oder Zugbrücken-Footprinttile berührt, löst einen zweiten Lauf aus.
+3. Für diesen zweiten Lauf werden alle Kanten der gesperrten Tiles und die jeweiligen Gegenkanten
+   der Nachbartiles temporär im Richtungsgrid geschlossen.
+4. Vanilla sucht dadurch selbst den langen Umweg oder liefert `0`, wenn die Zugbrücke die einzige
+   Verbindung war. Danach werden sämtliche veränderten Gridbytes in einem `finally` bytegenau
+   wiederhergestellt.
+5. Der menschliche Cursor prüft positive Same-PCL-Ergebnisse an `0x8F1C4` mit einer vorallokierten,
+   read-only Suche über dasselbe Richtungsgrid und denselben Spieler-Snapshot. Ein existierender
+   Umweg bleibt erlaubt; ohne Umweg wird ausschließlich dieses positive Ergebnis auf `0` begrenzt.
+
+Die gesperrten Overlaytiles übernehmen X/Y direkt aus den validierten Gebäude-Footprints. Eine
+Rückrechnung von Tile-ID auf Koordinaten ist auf der isometrischen Karte nicht eindeutig genug und
+wird für das Overlay nicht verwendet. Besitzer-, Eroberer- und Lebenszustände akzeptierter
+Kombinationen werden pro Spieltick günstig verglichen. Eine Änderung erzwingt den nächsten
+verzögerten Snapshot; der vollständige Gebäudescan bleibt auf höchstens vier Läufe pro Sekunde
+begrenzt.
+
+### Bewusst nicht umgesetzt
+
+- Keine pauschale Same-PCL-Sperre: Sie würde den realen langen Umweg ebenfalls blockieren.
+- Keine einzelnen Move-, Attack-, Patrol- oder KI-Commandpatches: Der gemeinsame Builder deckt die
+  tatsächliche Wegerzeugung ab.
+- Kein funktionaler Hook bei `0x11B75A`: Die Stelle enthält einen internen bedingten Sprung. Sie
+  bleibt bis zu einem konkreten Nachweis für fortgesetztes KI-Auftragsflattern unangetastet.
+- Kein paralleler `E9FF0`- oder `E32B0`-Hook.
+- Kein funktionaler Tilehook bei gleichzeitig geladenem `MoveMoatTest_Serp`; in diesem Fall bleibt
+  nur der konfliktfreie Different-PCL-Filter aktiv und das Log weist ausdrücklich darauf hin.
+
+Für den nächsten Test sind `Functional route sample` und `Functional tile-route ... summary`
+maßgeblich. Erwartet werden `action=rerouted` beim Tor mit langem Umweg und `action=blocked` bei der
+Zugbrücke als einziger Verbindung. `overlay.restoreMismatch`, Fehler und verworfene Proben müssen
+jeweils 0 bleiben.

@@ -70,6 +70,28 @@ namespace EnemyGatePathfindingTest
     {
         private static readonly int[] DirectionX = { 0, 1, 1, 1, 0, -1, -1, -1 };
         private static readonly int[] DirectionY = { -1, -1, 0, 1, 1, 1, 0, -1 };
+
+        // UPDATE REVIEW (CrusaderDE.dll): the direction-bit order is tied to the
+        // eight native neighbor vectors and must be revalidated after a DLL update.
+        internal static bool IsBidirectionalEdgeOpen(
+            byte sourceDirectionBits,
+            byte targetDirectionBits,
+            int direction)
+        {
+            if (direction < 0 || direction > 7)
+                return false;
+            int opposite = (direction + 4) & 7;
+            return (sourceDirectionBits & (1 << direction)) != 0 &&
+                (targetDirectionBits & (1 << opposite)) != 0;
+        }
+
+        internal static byte CloseNeighborEdge(byte neighborDirectionBits, int directionFromBlockedTile)
+        {
+            if (directionFromBlockedTile < 0 || directionFromBlockedTile > 7)
+                return neighborDirectionBits;
+            int opposite = (directionFromBlockedTile + 4) & 7;
+            return unchecked((byte)(neighborDirectionBits & ~(1 << opposite)));
+        }
         internal const int NeedsInitAliveState = 1;
         internal const int IsAliveAliveState = 2;
 

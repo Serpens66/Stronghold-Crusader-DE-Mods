@@ -109,6 +109,14 @@ namespace EnemyGatePathfindingTest
                 referenceHashMatches: true,
                 "human cursor target coordinate loads",
                 log);
+            Shared.NativeResolution commandDecisionResolution = Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                EnemyGatePathfindingNativeDefinition.CommandPclDecisionPattern,
+                EnemyGatePathfindingNativeDefinition.CommandPclDecisionRva -
+                    EnemyGatePathfindingNativeDefinition.CommandPclDecisionOffsetInPattern,
+                referenceHashMatches: true,
+                "shared command PCL decision (audit only)",
+                log);
             int compareRva = compareSequenceResolution.Rva +
                 EnemyGatePathfindingNativeDefinition.CapturedByCompareOffsetInPattern;
             int cursorXRva = Shared.NativePatternResolver.ResolveRelativeTarget(
@@ -119,10 +127,13 @@ namespace EnemyGatePathfindingTest
                 memory,
                 cursorResolution.Rva + EnemyGatePathfindingNativeDefinition.CursorTargetYDisplacementOffset,
                 cursorResolution.Rva + EnemyGatePathfindingNativeDefinition.CursorTargetYNextInstructionOffset);
+            int commandDecisionRva = commandDecisionResolution.Rva +
+                EnemyGatePathfindingNativeDefinition.CommandPclDecisionOffsetInPattern;
             if (functionResolution.Rva != EnemyGatePathfindingNativeDefinition.GetNextReachablePclRva ||
                 compareRva != EnemyGatePathfindingNativeDefinition.CapturedByCompareRva ||
                 moveHereResolution.Rva != EnemyGatePathfindingNativeDefinition.MoveHereRva ||
                 cursorResolution.Rva != EnemyGatePathfindingNativeDefinition.CursorTargetSignatureRva ||
+                commandDecisionRva != EnemyGatePathfindingNativeDefinition.CommandPclDecisionRva ||
                 cursorXRva != EnemyGatePathfindingNativeDefinition.CursorTargetXRva ||
                 cursorYRva != EnemyGatePathfindingNativeDefinition.CursorTargetYRva)
             {
@@ -164,7 +175,12 @@ namespace EnemyGatePathfindingTest
             try
             {
                 tileRouteDiagnostics = new TileRouteDiagnostics(
-                    log, memory, libraryBase, installNativeHooks: !moveMoatLoaded);
+                    log,
+                    memory,
+                    libraryBase,
+                    (int*)(libraryBase + unchecked((ulong)cursorXRva)),
+                    (int*)(libraryBase + unchecked((ulong)cursorYRva)),
+                    installNativeHooks: !moveMoatLoaded);
                 samePclDiagnostics.SetRoutePolicyConsumer(tileRouteDiagnostics.UpdatePolicy);
                 tileRouteDiagnostics.SetPclCorrelation(
                     samePclDiagnostics.FindRecentRoutePclCorrelation);
@@ -175,7 +191,7 @@ namespace EnemyGatePathfindingTest
             {
                 tileRouteDiagnostics = null;
                 Shared.DebugLogHelper.LogWarning(log,
-                    "Tile-route diagnostics could not be installed; PCL diagnostics remain active and " +
+                    "Functional tile-route correction could not be installed; PCL diagnostics remain active and " +
                     $"Vanilla route behavior is unchanged: {ex.GetType().Name}: {ex.Message}");
             }
 
@@ -195,7 +211,8 @@ namespace EnemyGatePathfindingTest
                 $"MoveHereRva=0x{moveHereResolution.Rva:X} (observed through Script Extender 1.42.0 Pre/Post event; no overlapping hook), " +
                 $"cursorSignatureRva=0x{cursorResolution.Rva:X}, cursorX=0x{cursorXRva:X}, cursorY=0x{cursorYRva:X}. " +
                 "Diagnostics are active immediately, auto-start an epoch on the first valid query, " +
-                "and correlate prior cursor/PCL checks with MoveHere over a deferred 1500-ms window.");
+                "and correlate prior cursor/PCL checks with MoveHere over a deferred 1500-ms window. " +
+                $"The shared command PCL decision at 0x{commandDecisionRva:X} is signature-validated but intentionally not hooked.");
             Shared.DebugLogHelper.LogInfo(
                 log,
                 "Native audit contract: " +
@@ -271,6 +288,18 @@ namespace EnemyGatePathfindingTest
             catch (Exception ex)
             {
                 TryLogDiagnosticFailure(ex);
+            }
+        }
+
+        internal void OnGameTick()
+        {
+            try
+            {
+                samePclDiagnostics?.OnGameTick();
+            }
+            catch
+            {
+                samePclDiagnostics?.RecordHotPathFailure();
             }
         }
 
@@ -466,6 +495,7 @@ namespace EnemyGatePathfindingTest
                 mode,
                 result,
                 trace.Total);
+            tileRouteDiagnostics?.RequestEpoch();
 
         }
 

@@ -6,6 +6,7 @@ param(
         'BuildingLimit',
         'CheatMod',
         'ExtraFeatures',
+        'ExtremePowers',
         'ImprovedHunters',
         'RandomEvents',
         'SerpsModsHost',
@@ -26,6 +27,7 @@ $settingsByMod = [ordered]@{
     BuildingLimit = 'BuildingLimit/BepInEx/plugins/BuildingLimit_Serp/Override/ScriptExtenderUI/BuildingLimitSettings.xaml'
     CheatMod = 'CheatMod/Override/ScriptExtenderUI/CheatModSettings.xaml'
     ExtraFeatures = 'ExtraFeatures/Override/ScriptExtenderUI/ExtraFeaturesSettings.xaml'
+    ExtremePowers = 'ExtremePowers/Override/ScriptExtenderUI/ExtremePowersSettings.xaml'
     ImprovedHunters = 'ImprovedHunters/BepInEx/plugins/ImprovedHunters_Serp/Override/ScriptExtenderUI/ImprovedHuntersSettings.xaml'
     RandomEvents = 'RandomEvents/Override/ScriptExtenderUI/RandomEventsSettings.xaml'
     SerpsModsHost = 'SerpsModsHost/Override/ScriptExtenderUI/SerpsModsStatus.xaml'
@@ -42,6 +44,7 @@ $localeDirectories = [ordered]@{
     BuildingLimit = 'BuildingLimit/Locales'
     CheatMod = 'CheatMod/Locales'
     ExtraFeatures = 'ExtraFeatures/Locales'
+    ExtremePowers = 'ExtremePowers/Locales'
     ImprovedHunters = 'ImprovedHunters/Locales'
     RandomEvents = 'RandomEvents/Locales'
     SerpsModsHost = 'SerpsModsHost/Locales'
@@ -60,6 +63,7 @@ $viewModelSources = @{
     CastlePlanner = 'CastlePlanner/src/CastlePlannerSettingsViewModel.cs'
     CustomCustomTrail = 'CustomCustomTrail/src/CustomCustomTrailSettingsViewModel.cs'
     ExtraFeatures = 'ExtraFeatures/src/ExtraFeaturesViewModel.cs'
+    ExtremePowers = 'ExtremePowers/src/Settings/ExtremePowersSettings.cs'
     ImprovedHunters = 'ImprovedHunters/src/ImprovedHuntersViewModel.cs'
     RandomEvents = 'RandomEvents/src/RandomEventsSettingsViewModel.cs'
     SerpsModsHost = 'SerpsModsHost/src/SerpsModsDiagnosticsViewModel.cs'
@@ -78,6 +82,7 @@ $editableProxyBindings = @{
     CastlePlanner = @()
     CustomCustomTrail = @('IsEnabled','SelectedCoopPackage')
     ExtraFeatures = @('AIEnemyProximityMultiplayerValueText','AIEnemyProximitySingleplayerValueText','AITowerGateRebuildDelayValueText','AIGateClosingDistanceValueText','AIGateReopenDelayValueText','AILordHealthPercentText','ApothecaryPlagueSearchDistanceValueText','BuyMultiplier','BuyMultiplierValueText','CampfirePeasantsLimitText','GoldRefundPercentValueText','HumanEnemyProximityMultiplayerValueText','HumanEnemyProximitySingleplayerValueText','HumanGateClosingDistanceValueText','HumanGateReopenDelayValueText','HumanLordHealthPercentText','IronRefundPercentValueText','MarketBuyPriceMultiplierValueText','MarketSellPriceMultiplierValueText','MultiplyGoodsGainAIText','MultiplyGoodsGainHumanText','MultiplyGoodsGainInMoneyAIText','MultiplyGoodsGainInMoneyHumanText','PitchRefundPercentValueText','PlagueDurationMultiplierValueText','SellMultiplier','SellMultiplierValueText','StoneRefundPercentValueText','WoodRefundPercentValueText')
+    ExtremePowers = @()
     ImprovedHunters = @('CamelMeatText','ChickenMeatText','DeerMeatText','GoatMeatText','MaxNeutralChickensPerPlayerValueText','RabbitMeatText')
     RandomEvents = @('AppleBlightChanceValueText','ArcherMaxValueText','ArcherMinValueText','ArchersChanceValueText','BanditMaxValueText','BanditMinValueText','BanditsChanceValueText','BardChanceValueText','CooldownMonthsValueText','FairChanceValueText','FireChanceValueText','FireMaxValueText','FireMinValueText','GranaryTheftChanceValueText','HopsBeetlesChanceValueText','IntervalMonthsValueText','LionAttackChanceValueText','LionMaxValueText','LionMinValueText','MadCowsChanceValueText','MarriageChanceValueText','PlagueChanceValueText','PlagueMaxValueText','PlagueMinValueText','RabbitsChanceValueText','TheftMaxValueText','TheftMinValueText','TreeBlightChanceValueText','WheatInfestationChanceValueText')
     StartConditions = @('AddStartGoldAISlider','AddStartGoldAIText','AddStartGoldHumanSlider','AddStartGoldHumanText','AIAmountSlider','AIAmountText','HumanAmountSlider','HumanAmountText','MultiplyStartTroopsAISlider','MultiplyStartTroopsAIText','MultiplyStartTroopsHumanSlider','MultiplyStartTroopsHumanText','SetStartGoldAISlider','SetStartGoldAIText','SetStartGoldHumanSlider','SetStartGoldHumanText')
@@ -154,6 +159,7 @@ foreach ($entry in $settings.GetEnumerator()) {
     [xml]$xml = [IO.File]::ReadAllText($path)
     $manager = [Xml.XmlNamespaceManager]::new($xml.NameTable)
     $manager.AddNamespace('p', 'http://schemas.microsoft.com/winfx/2006/xaml/presentation')
+    $manager.AddNamespace('x', 'http://schemas.microsoft.com/winfx/2006/xaml')
     $editableBindings = @()
 
     foreach ($elementName in $interactiveNames) {
@@ -164,12 +170,25 @@ foreach ($entry in $settings.GetEnumerator()) {
             $hasExplicitTooltip = $null -ne $explicitTooltip -and
                 -not [string]::IsNullOrWhiteSpace($explicitTooltip.GetAttribute('Content'))
             $duration = $element.GetAttribute('ToolTipService.ShowDuration')
-            if (([string]::IsNullOrWhiteSpace($tooltip) -and -not $hasExplicitTooltip) -or $duration -ne '60000') {
+            $styleReference = $element.GetAttribute('Style')
+            $styleKey = if ($styleReference -match '^\{StaticResource\s+([^}\s]+)\}$') { $matches[1] } else { $null }
+            $styleNode = if (-not [string]::IsNullOrWhiteSpace($styleKey)) { $xml.SelectSingleNode("//*[local-name()='Style' and @x:Key='$styleKey']", $manager) } else { $null }
+            $styleTooltipSetter = if ($null -ne $styleNode) { $styleNode.SelectSingleNode("./*[local-name()='Setter' and @Property='ToolTip']") } else { $null }
+            $styleDurationSetter = if ($null -ne $styleNode) { $styleNode.SelectSingleNode("./*[local-name()='Setter' and @Property='ToolTipService.ShowDuration']") } else { $null }
+            $hasStyledTooltip = $null -ne $styleTooltipSetter -and -not [string]::IsNullOrWhiteSpace($styleTooltipSetter.GetAttribute('Value'))
+            $hasStyledDuration = $null -ne $styleDurationSetter -and $styleDurationSetter.GetAttribute('Value') -eq '60000'
+            if (([string]::IsNullOrWhiteSpace($tooltip) -and -not $hasExplicitTooltip -and -not $hasStyledTooltip) -or ($duration -ne '60000' -and -not $hasStyledDuration)) {
                 throw "$($entry.Key): $elementName without a nonempty tooltip and exact 60000 ms duration."
             }
             if ($elementName -eq 'TextBox' -and
                 $element.GetAttribute('KeyboardCaptureBinding.Enabled', 'clr-namespace:SHCDESE.UI;assembly=SHCDESE') -ne 'True') {
-                throw "$($entry.Key): TextBox without ui:KeyboardCaptureBinding.Enabled=True."
+                $styleEnablesKeyboardCapture = $false
+                if ($null -ne $styleNode) {
+                    $styleEnablesKeyboardCapture = $null -ne $styleNode.SelectSingleNode("./*[local-name()='Setter' and @Property='ui:KeyboardCaptureBinding.Enabled' and @Value='True']")
+                }
+                if (-not $styleEnablesKeyboardCapture) {
+                    throw "$($entry.Key): TextBox without ui:KeyboardCaptureBinding.Enabled=True, directly or through its explicit style."
+                }
             }
             if ($hasExplicitTooltip -and
                 -not $explicitTooltip.GetAttribute('Style').Contains('ModSettingsToolTipStyle')) {
@@ -222,11 +241,11 @@ foreach ($entry in $settings.GetEnumerator()) {
     $activationNodes = @($xml.SelectNodes(
         "//*[local-name()='CheckBox' and (contains(@IsChecked, 'HostSettingsEnabled') or contains(@IsChecked, 'ClientSettingsEnabled'))]"))
     $expectedActivationBindings = @()
-    if ($hasHostSettings -and $classifiedProperties -contains 'EnableMod') {
+    if ($hasHostSettings -and [Text.RegularExpressions.Regex]::IsMatch($viewModelSource, '(?s)\[[^\]]*SyncHostOnly[^\]]*\]\s*public\s+[^\r\n{]+\s+EnableMod\s*\{')) {
         $expectedActivationBindings += 'HostSettingsEnabled'
     }
     if ($hasClientSettings -and
-        ($classifiedProperties -contains 'EnableClientFeatures' -or $classifiedProperties -contains 'EnableMod')) {
+        [Text.RegularExpressions.Regex]::IsMatch($viewModelSource, '(?s)\[[^\]]*(?:SyncPerPlayer|PresetLocal)[^\]]*\]\s*public\s+[^\r\n{]+\s+(?:EnableClientFeatures|EnableMod)\s*\{')) {
         $expectedActivationBindings += 'ClientSettingsEnabled'
     }
     $actualActivationBindings = @()
@@ -636,6 +655,7 @@ $currentTooltipXamlByMod = @{
     ExtraFeatures = @(
         'ExtraFeatures/Override/ScriptExtenderUI/ExtraFeaturesSettings.xaml',
         'ExtraFeatures/BepInEx/plugins/ExtraFeatures_Serp/Override/ScriptExtenderUI/ExtraFeaturesSettings.xaml')
+    ExtremePowers = @('ExtremePowers/Override/ScriptExtenderUI/ExtremePowersSettings.xaml')
     ImprovedHunters = @('ImprovedHunters/BepInEx/plugins/ImprovedHunters_Serp/Override/ScriptExtenderUI/ImprovedHuntersSettings.xaml')
     RandomEvents = @(
         'RandomEvents/Override/ScriptExtenderUI/RandomEventsSettings.xaml',
@@ -756,7 +776,12 @@ foreach ($registrationFile in $registrationFiles) {
     if ($null -eq $projectDirectory) {
         throw "No project found for lobby-settings registration: $($registrationFile.FullName)"
     }
-    $project = @(Get-ChildItem -LiteralPath $projectDirectory.FullName -File -Filter '*.csproj')[0]
+    $projectCandidates = @(Get-ChildItem -LiteralPath $projectDirectory.FullName -File -Filter '*.csproj')
+    $project = @($projectCandidates | Where-Object { [IO.File]::ReadAllText($_.FullName).Contains('Shared\PresetLobbyModSettingsViewModel.cs') } | Select-Object -First 1)
+    if ($project.Count -eq 0) {
+        throw "No lobby-settings project found for registration: $($registrationFile.FullName)"
+    }
+    $project = $project[0]
     $projectText = [IO.File]::ReadAllText($project.FullName)
     if (-not $projectText.Contains('Shared\PresetLobbyModSettingsViewModel.cs')) {
         throw "$($project.Name): lobby settings do not compile the Shared preset/sync implementation."
@@ -1241,6 +1266,13 @@ $additionalCrlfTargetsByMod = @{
     CustomCustomTrail = @(
         'CustomCustomTrail/src/CustomCustomTrailSettingsViewModel.cs',
         'CustomCustomTrail/src/CustomCustomTrailRuntime.cs')
+    ExtremePowers = @(
+        'ExtremePowers/src/Settings/ExtremePowersSettings.cs',
+        'ExtremePowers/src/ExtremePowersPlugin.cs',
+        'ExtremePowers/ExtremePowers.csproj',
+        'ExtremePowers/ExtremePowers.API.csproj',
+        'ExtremePowers/info.json',
+        'ExtremePowers/build.bat')
 }
 $selectedLocaleDirectories = @($selectedModNames | ForEach-Object { $localeDirectories[$_] })
 $selectedAdditionalCrlfTargets = @($selectedModNames |

@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.112",
+  "Version": "1.0.113",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.113",
+      "Changes": [
+        "Swapped the positions of the editor map deletion button and Vanilla-map checkbox for a clearer Load/Save layout."
+      ]
+    },
     {
       "Version": "1.0.112",
       "Changes": [

@@ -32,6 +32,7 @@ namespace EnemyGatePathfindingTest
                 FootprintAdjacencyIgnoresBrokenEditorBounds();
                 UniqueSpatialGateAssociationFailsOpenWhenAmbiguous();
                 PackedRouteDecodingValidatesEndpointAndLimits();
+                DirectionEdgesRequireBothNativeDirections();
                 TileRouteNativeContractIsPinned();
                 NativeRouteHotPathsRemainPrimitiveOnly();
                 Console.WriteLine("EnemyGatePathfindingPolicy: {0} assertions passed.", assertions);
@@ -327,6 +328,24 @@ namespace EnemyGatePathfindingTest
                 "path length above native limit is rejected");
         }
 
+        private static void DirectionEdgesRequireBothNativeDirections()
+        {
+            Assert(EnemyGatePathfindingPolicy.IsBidirectionalEdgeOpen(0x04, 0x40, 2),
+                "east edge and west opposite edge form a native connection");
+            Assert(!EnemyGatePathfindingPolicy.IsBidirectionalEdgeOpen(0x04, 0x00, 2),
+                "missing opposite edge is closed");
+            Assert(!EnemyGatePathfindingPolicy.IsBidirectionalEdgeOpen(0x00, 0x40, 2),
+                "missing source edge is closed");
+            Assert(!EnemyGatePathfindingPolicy.IsBidirectionalEdgeOpen(0xFF, 0xFF, -1),
+                "invalid negative direction fails closed inside the managed search");
+            Assert(!EnemyGatePathfindingPolicy.IsBidirectionalEdgeOpen(0xFF, 0xFF, 8),
+                "direction above native range fails closed inside the managed search");
+            Assert(EnemyGatePathfindingPolicy.CloseNeighborEdge(0xFF, 2) == 0xBF,
+                "blocking east clears only the western neighbor edge");
+            Assert(EnemyGatePathfindingPolicy.CloseNeighborEdge(0x55, -1) == 0x55,
+                "invalid edge closure leaves the native byte unchanged");
+        }
+
         private static void TileRouteNativeContractIsPinned()
         {
             Assert(EnemyGatePathfindingNativeDefinition.CentralMovementPlanRva == 0x18E1E0,
@@ -337,6 +356,16 @@ namespace EnemyGatePathfindingTest
                 "alternate builder RVA");
             Assert(EnemyGatePathfindingNativeDefinition.CursorReachabilityRva == 0xE9FF0,
                 "cursor reachability RVA");
+            Assert(EnemyGatePathfindingNativeDefinition.CursorPclDecisionRva == 0x8F1C4,
+                "ordinary cursor PCL decision RVA");
+            Assert(EnemyGatePathfindingNativeDefinition.CursorPclDecisionHookLength == 14,
+                "ordinary cursor PCL decision span");
+            Assert(EnemyGatePathfindingNativeDefinition.PathDirectionGridRva == 0x51890D0,
+                "native direction grid RVA");
+            Assert(EnemyGatePathfindingNativeDefinition.CommandPclDecisionRva == 0x11B75A,
+                "shared command PCL decision RVA");
+            Assert(EnemyGatePathfindingNativeDefinition.CommandPclDecisionHookLength == 14,
+                "shared command PCL decision audited span");
             Assert(EnemyGatePathfindingNativeDefinition.PathDirectionBufferOffset == 0x155F60,
                 "path direction buffer offset");
             Assert(EnemyGatePathfindingNativeDefinition.PathLengthOffset == 0x155F68,
@@ -350,9 +379,9 @@ namespace EnemyGatePathfindingTest
             string source = File.ReadAllText(Path.Combine("src", "TileRouteDiagnostics.cs"));
             string[] methods =
             {
-                "OnMoveHere", "ObserveCentralPlan", "ObserveMainBuilder",
-                "ObserveAlternateBuilder", "ObserveCursor", "ObserveBuilderResult",
-                "QueueRoute", "QueueCursor"
+                "OnMoveHere", "ObservePlan", "BuildPlayerAwareRoute",
+                "FilterPositiveCursorPcl", "SearchWithoutBlocked", "ApplyOverlay",
+                "RestoreOverlay", "QueueSample"
             };
             string[] forbidden =
             {
@@ -371,9 +400,8 @@ namespace EnemyGatePathfindingTest
 
         private static string ExtractMethodBody(string source, string methodName)
         {
-            bool returnsInt = methodName == "ObserveCentralPlan" ||
-                methodName == "ObserveMainBuilder" || methodName == "ObserveAlternateBuilder" ||
-                methodName == "ObserveCursor";
+            bool returnsInt = methodName == "ObservePlan" ||
+                methodName == "BuildPlayerAwareRoute" || methodName == "SearchWithoutBlocked";
             string signature = methodName == "OnMoveHere"
                 ? "internal void " + methodName + "("
                 : (returnsInt ? "private int " : "private void ") + methodName + "(";

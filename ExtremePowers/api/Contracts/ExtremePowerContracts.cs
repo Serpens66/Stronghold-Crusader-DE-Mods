@@ -33,6 +33,20 @@ namespace ExtremePowers.API
     public delegate bool ExtremePowerCanExecute(in ExtremePowerExecutionContext context, out string rejectionReason);
     public delegate void ExtremePowerExecute(in ExtremePowerExecutionContext context);
 
+    public readonly struct ExtremePowersReadiness
+    {
+        public ExtremePowersReadiness(bool ready, string reason)
+        {
+            Ready = ready;
+            Reason = reason ?? string.Empty;
+        }
+
+        public bool Ready { get; }
+        public string Reason { get; }
+        public static ExtremePowersReadiness Available => new ExtremePowersReadiness(true, string.Empty);
+        public static ExtremePowersReadiness Unavailable(string reason) => new ExtremePowersReadiness(false, reason);
+    }
+
     public sealed class ExtremePowerReplacement
     {
         public ExtremePowerReplacement(string name, string tooltip, string sprite, ExtremePowerTargetKind targetKind, ExtremePowerCanExecute canExecute, ExtremePowerExecute execute)
@@ -52,14 +66,17 @@ namespace ExtremePowers.API
 
     public sealed class ExtremePowersBootstrapOptions
     {
-        public Func<bool> IsSynchronizedSessionReady { get; set; }
+        public Func<string, ExtremePowersReadiness> GetSessionReadiness { get; set; }
+        public Action<string> Diagnostic { get; set; }
     }
 
     public interface IExtremePowersApi
     {
         string ProtocolVersion { get; }
+        string CompatibilityToken { get; }
         bool NativeBackendAvailable { get; }
         string NativeBackendStatus { get; }
+        bool SupportsUnitTargeting { get; }
         VanillaExtremePowersConfiguration Vanilla { get; }
         ExtremePowersTuning Current { get; }
         void Apply(ExtremePowersTuning tuning);
@@ -67,6 +84,6 @@ namespace ExtremePowers.API
         IDisposable RegisterReplacement(ExtremePowerId power, ExtremePowerReplacement replacement);
         bool TryGetReplacement(ExtremePowerId power, out ExtremePowerReplacement replacement);
         bool TryExecuteReplacement(ExtremePowerExecutionContext context, out string rejectionReason);
-        bool QueueReplacement(ExtremePowerId power, int playerId, ExtremePowerTarget target);
+        bool QueueReplacement(ExtremePowerId power, int playerId, ExtremePowerTarget target, out string rejectionReason);
     }
 }

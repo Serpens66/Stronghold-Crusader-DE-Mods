@@ -75,7 +75,7 @@ Es gibt bislang keine Script-Extender-API für Kosten, Regeneration, Effektparam
 |---|---:|---|
 | Kosten 0–7 | `636 × (ID + 1)` | im Managed HUD und in nativer Auswahlprüfung bestätigt |
 | Mana | `GamePlayerResources + 0x39D4` | Script Extender und native Auswahlfunktion bestätigt |
-| Regeneration | Vanilla-Delta × `0..1000 %` | API-Korrektur im persistenten Pre-Tick-Hook; native Erzeugungsroutine noch nicht isoliert |
+| Regeneration | Vanilla erhöht höchstens um `1`, Grenze `7000`; API-Skalierung `0..1000 %` | Ressourcenroutine und interner Writer bestätigt und signaturgesichert |
 | Pfeil-/Steinsalve | Schaden `6000`/`18000`, Radius `6`/`9`, Projektilmodus `1`/`0` | Aufruf und Schadenspfad bestätigt; keine separate Projektilzahl/Streuung belegt |
 | Heilung | Menge `8000`, Radiusparameter `6` | finaler Effektzweig bestätigt |
 | Speerträger | Typ `24`, Anzahl `20` | finaler Effektzweig bestätigt |
@@ -88,11 +88,14 @@ Unbekannte Effektwerte werden in der API nicht als angebliche Vanilla-Werte ausg
 
 ## Regeneration
 
-- Die eigentliche native Mana-Erzeugungsroutine ist noch nicht eindeutig isoliert.
-- Die API beobachtet deshalb im persistenten `GameTimeManagerAPI.OnTick`-Pre-Hook ausschließlich positive Vanilla-Mana-Deltas und skaliert diese deterministisch auf `0..1000 %`; `100 %` lässt das Delta unverändert.
+- Die Ressourcenroutine beginnt bei VA `0x1800CDB20`, RVA `0xCDB20`. Der einzige bestätigte direkte Aufrufer liegt bei VA `0x1800CE261`; unmittelbar davor steht `mov rcx, rbx` bei RVA `0xCE25E`.
+- Funktionsprolog: `48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 54 41 55 41 56 41 57 4C 8B D1`.
+- Der Regenerationsblock reicht von VA `0x1800CDD87` bis `0x1800CDDCB` (RVA `0xCDD87..0xCDDCB`). Er liest das durch die lokale Basisverschiebung als `+0x3950` adressierte Ressourcenfeld, entsprechend `GamePlayerResources.r_ExtremePowersMana + 0x39D4`, vergleicht mit `0x1B58 = 7000` und schreibt höchstens `+1` zurück.
+- Blockanfang: `45 8B 88 50 39 00 00 41 81 F9 58 1B 00 00 7D 35`. Der vollständige 69-Byte-Block, die Callsite und der Funktionstail bei RVA `0xCDE3C` sind Teil des Build-Guards.
+- Die Vanilla-Kadenz verwendet eine Division-durch-drei-Sequenz (`0x55555556`) und erhöht nur bei dem bestätigten Restwert `2`.
+- Die API detourt ausschließlich diese Ressourcenroutine, nimmt vor dem Originalaufruf einen Mana-Snapshot und skaliert nachher nur das exakt bestätigte Delta `+1`. Andere Deltas bleiben unverändert und werden einmalig protokolliert. Dadurch werden Mana-Gutschriften von Cheat Mod oder anderen Schreibern außerhalb dieser Routine nicht mehr als Regeneration interpretiert.
 - Ganzzahlige Reste werden pro Spieler akkumuliert, sodass zum Beispiel zwei Vanilla-Schritte bei `50 %` zusammen genau einen Punkt ergeben.
-- Manaausgaben werden unmittelbar nach API-eigener Abbuchung als neue Basis erfasst und nicht als negative Regeneration interpretiert.
-- Tick-Rücklauf, Karten-Unload und fehlende Protokollbereitschaft löschen alle Akkumulatoren. Diese Lösung muss im Spiel noch gegen sämtliche nicht-regenerativen Mana-Gutschriften geprüft werden.
+- `100 %` lässt Vanilla unverändert; `0 %` entfernt den bestätigten Schritt; `1000 %` erzeugt zehn Punkte pro bestätigtem Vanilla-Schritt, stets begrenzt auf `7000`. Karten-Unload löscht alle Akkumulatoren.
 
 ## Netzwerk und Determinismus
 
@@ -101,9 +104,24 @@ Unbekannte Effektwerte werden in der API nicht als angebliche Vanilla-Werte ausg
 - `ExtremePowers.API.dll` registriert einen eigenen `R3PacketEventHook<ExtremePowerChore>` mit explizitem `IMessagePackFormatter`; das Array besitzt exakt sieben Felder.
 - `QueueReplacement` sendet über den Script-Extender-Chore-Transport. Empfangene Pakete werden auf Protokoll, Power, Spieler, Zielart, Tile/globaler Unit-ID, Registrierung, Kosten und Duplikate geprüft. Erst danach laufen Callback und Manaabbuchung im empfangenden Chore-Tick.
 - Der Chore-Empfang des Script Extenders liefert absichtlich keine `SenderSteamId`; Pakete mit gesetzter Sender-ID werden verworfen. Eine kryptographische Absender-Spieler-Zuordnung ist in diesem Transport daher nicht verfügbar. Spieler-ID, aktiver Spielerslot und alle deterministischen Nutzdaten werden dennoch auf jedem Peer neu validiert.
-- Das gemeinsame Per-Player-System verlangt von jedem aktiven menschlichen Teilnehmer den Protokollbericht `1`. Solange ein Bericht fehlt oder abweicht, deaktiviert die Bereitschaftsschranke Kosten, Effekte, Regeneration und Replacements gemeinsam und lässt Vanilla laufen.
+- Die Loganalyse des lokalen Skirmish zeigte `players=[1], unresolved=True`. Die frühere Bereitschaftsschranke verlangte auch dort `System_ArePerPlayerSettingsReady(...)`, weshalb Auswahl und Dispatcher still an Vanilla weiterleiteten und die Gold-Power weiterhin Gold gab. Das war die bestätigte Ursache des Testfehlers.
+- Singleplayer, Trail und lokaler Skirmish umgehen Teilnehmerberichte jetzt vollständig. Nur ein mit `Shared.GameModeHelper.Capture(args.bMultiplayerSave != 0)` als echter Multiplayer festgehaltener Kartenlauf verlangt vollständige Berichte aller menschlichen Teilnehmer.
+- Der Bericht ist kein bloßes `1` mehr, sondern enthält API-Protokoll, kanonischen DLL-Hash, Native-/Vanilla-Backendstatus und die vom Script Extender dynamisch zugeteilte Paket-ID. Da `GetPacketEventFor<T>()` freie IDs in Registrierungsreihenfolge vergibt, wird eine abweichende Mod-Ladereihenfolge dadurch erkannt und die gesamte Modifikation fällt auf Vanilla zurück.
 - Der direkte Vanilla-HUD-Weg nutzt den bereits synchronisierten Extreme-Power-Chore des Spiels. Für die Gold-Demo wird zur Kartenpunktwahl die Vanilla-Auswahl der Pfeilsalve vorbereitet und danach nur der ausgewählte Power-Index wieder auf Gold gestellt.
 - Operationen des generischen API-Chores werden pro Spieler und Operation-ID dedupliziert; Karten-Unload verwirft die Historie.
+- `QueueReplacement` liefert neben dem Ergebnis einen Ablehnungsgrund. Auswahl, Dispatcher und Chorepfad melden Zustandswechsel beziehungsweise begrenzte Ausführungsdiagnosen mit Power, Spieler, Ziel, Mana, Kosten, Operation und Callbackfehler.
+
+## Spawn- und Kostenregel
+
+- Im Vanilla-Dispatcher ruft der Spawnzweig RVA `0x1264D0` auf und prüft dessen Rückgabewert nur für eine nachgelagerte Einheiteninitialisierung. Der gemeinsame Manaabzug bei RVA `0xCD814` wird auch bei Rückgabewert `0` erreicht.
+- Die API übernimmt diese Semantik: Nach erfolgreichem `CanExecute` und normal zurückgekehrtem Callback werden die vollständigen Kosten abgezogen, auch wenn wegen des Einheitenlimits nur ein Teil oder keine Einheit erzeugt wurde. Eine `CanExecute`-Ablehnung oder Callback-Exception kostet nichts.
+- Spawn-Typen müssen definierte `eChimps`-Werte strikt zwischen `CHIMP_TYPE_NULL` und `CHIMP_NUM_TYPES` sein. Die tatsächliche Spawnanzahl wird protokolliert.
+- Temporäre Kostenkompensation verwendet einen breiteren Zwischenwert und fällt bei nicht darstellbarem Ergebnis ohne Exception auf Vanilla zurück. Goldaddition sättigt am nativen `UInt32`-Maximum.
+
+## Targeting-Status
+
+- `None` und `MapPoint` sind implementiert. Kartenpunkte verwenden weiterhin Vanillas Zielmodus und Abbruchverhalten.
+- Für `Unit` wurde im kanonischen Build noch kein eindeutig validierter gemeinsamer Click-/Unit-Pick-Einstieg nachgewiesen. `SupportsUnitTargeting` ist daher bewusst `false`; Unit-Replacements werden bereits bei der Registrierung abgelehnt und niemals als Kartenpunkt fehlinterpretiert.
 
 ## Implementierte Assemblies und Extraktionsgrenze
 
@@ -126,6 +144,8 @@ Rizin ausschließlich über den Workspace-Wrapper starten:
     & '.native-analysis\Run-Rizin-With-Ghidra.cmd' -c "iE~GameAction" -c "q" '<CrusaderDE.dll>'
     & '.native-analysis\Run-Rizin-With-Ghidra.cmd' -c "pxw 4 @ 0x180083308" -c "pd 100 @ 0x180082540" -c "q" '<CrusaderDE.dll>'
     & '.native-analysis\Run-Rizin-With-Ghidra.cmd' -c "pd 240 @ 0x180105510" -c "pdf @ 0x1800CD630" -c "pxw 32 @ 0x1800CD830" -c "q" '<CrusaderDE.dll>'
+    & '.native-analysis\Run-Rizin-With-Ghidra.cmd' -q -c 's 0x1800ce240' -c 'pd 20' -c 's 0x1800cdb20' -c 'pd 30' '<CrusaderDE.dll>'
+    & '.native-analysis\Run-Rizin-With-Ghidra.cmd' -q -c 's 0x1800cdb20' -c 'p8 32' -c 's 0x1800cdd87' -c 'p8 69' -c 's 0x1800ce25e' -c 'p8 8' '<CrusaderDE.dll>'
 
 Hash und Metadaten:
 
@@ -134,10 +154,10 @@ Hash und Metadaten:
 
 ## Offene Fragen
 
-1. Welche Routine regeneriert `r_ExtremePowersMana`, und welche anderen positiven Mana-Gutschriften können die beobachtende Delta-Skalierung beeinflussen?
-2. Besitzt die Salvenroutine intern eine anderweitig steuerbare Projektilzahl oder Streuung, obwohl diese nicht als Aufrufparameter vorliegen?
-3. Ist die dynamische Script-Extender-Paket-ID über verschiedene Mod-Ladereihenfolgen hinweg im echten Host-/Client-Lauf identisch?
-4. Kann der Chore-Transport künftig eine verifizierbare Absender-Spieler-Zuordnung bereitstellen?
+1. Besitzt die Salvenroutine intern eine anderweitig steuerbare Projektilzahl oder Streuung, obwohl diese nicht als Aufrufparameter vorliegen?
+2. Ist die dynamische Script-Extender-Paket-ID bei identischer Modinstallation im echten Host-/Client-Lauf gleich, und zeigt der neue Token eine absichtlich abweichende Registrierungsreihenfolge zuverlässig an?
+3. Kann der Chore-Transport künftig eine verifizierbare Absender-Spieler-Zuordnung bereitstellen?
+4. Wo liegt ein für alle Unit-Ziele eindeutiger und sicher detourbarer Click-/Unit-Pick-Einstieg?
 
 ## Verworfene Hypothesen
 

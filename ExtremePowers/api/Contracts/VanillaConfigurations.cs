@@ -37,7 +37,8 @@ namespace ExtremePowers.API
             if (Gold == null || Gold.Minimum < 0 || Gold.Maximum < Gold.Minimum) throw new ArgumentOutOfRangeException(nameof(Gold));
         }
         private static void ValidateVolley(VolleyConfiguration value) { if (value == null || value.Damage < 0 || value.Radius < 0 || value.ProjectileMode < 0 || value.ProjectileMode > 1) throw new ArgumentOutOfRangeException(nameof(value)); }
-        private static void ValidateSpawn(SpawnConfiguration value) { if (value == null || value.UnitType < 0 || value.Count < 0 || value.Count > 10000) throw new ArgumentOutOfRangeException(nameof(value)); }
+        // eChimps is sequential in the supported Script Extender: 0 is NULL and 90 is the end sentinel.
+        private static void ValidateSpawn(SpawnConfiguration value) { if (value == null || value.UnitType <= 0 || value.UnitType >= 90 || value.Count < 0 || value.Count > 10000) throw new ArgumentOutOfRangeException(nameof(value)); }
     }
 
     public sealed class VanillaExtremePowersConfiguration : ExtremePowersTuning { }

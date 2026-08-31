@@ -16,6 +16,8 @@
   <ItemGroup>
     <Compile Include="api\Contracts\ExtremePowerContracts.cs"/>
     <Compile Include="api\Contracts\VanillaConfigurations.cs"/>
+    <Compile Include="api\Contracts\ExtremePowerSafety.cs"/>
+    <Compile Include="api\Contracts\ExtremePowersCompatibility.cs"/>
     <Compile Include="api\Bootstrap\ExtremePowersBootstrap.cs"/>
     <Compile Include="api\Native\NativeBuildGuard.cs"/>
     <Compile Include="api\Native\ExtremePowersBuildCompatibility.cs"/>
@@ -25,6 +27,7 @@
     <Compile Include="api\Networking\ExtremePowerChoreCodec.cs"/>
     <Compile Include="api\Networking\ExtremePowerChoreFormatter.cs"/>
     <Compile Include="api\Networking\ExtremePowerNetworkRuntime.cs"/>
+    <Compile Include="api\Networking\ExtremePowerOperationTracker.cs"/>
     <Compile Include="api\Targeting\ExtremePowerTargetValidator.cs"/>
     <Compile Include="api\Properties\ApiAssemblyInfo.cs"/>
   </ItemGroup>

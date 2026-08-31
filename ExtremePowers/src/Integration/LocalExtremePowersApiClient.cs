@@ -6,13 +6,28 @@ namespace ExtremePowers.Integration
     internal sealed class LocalExtremePowersApiClient : IExtremePowersApiClient
     {
         private readonly IExtremePowersApi api;
-        internal LocalExtremePowersApiClient(IExtremePowersApi api) { this.api = api ?? throw new ArgumentNullException(nameof(api)); }
-        internal static IExtremePowersApiClient Create(string dllPath, IntPtr libraryHandle, ReadOnlySpan<byte> libraryMemory, Func<bool> isSynchronizedSessionReady)
+        private readonly Action<string> diagnostic;
+        internal LocalExtremePowersApiClient(IExtremePowersApi api, Action<string> diagnostic) { this.api = api ?? throw new ArgumentNullException(nameof(api)); this.diagnostic = diagnostic; }
+        internal static IExtremePowersApiClient Create(string dllPath, IntPtr libraryHandle, ReadOnlySpan<byte> libraryMemory, Func<string, ApiReadiness> getSessionReadiness, Action<string> diagnostic)
         {
-            var options = new ExtremePowersBootstrapOptions { IsSynchronizedSessionReady = isSynchronizedSessionReady };
-            return new LocalExtremePowersApiClient(ExtremePowersBootstrap.Initialize(dllPath, libraryHandle, libraryMemory, options));
+            var options = new ExtremePowersBootstrapOptions
+            {
+                GetSessionReadiness = token =>
+                {
+                    ApiReadiness readiness = getSessionReadiness == null ? ApiReadiness.Available : getSessionReadiness(token);
+                    return new ExtremePowersReadiness(readiness.Ready, readiness.Reason);
+                },
+                Diagnostic = diagnostic
+            };
+            return new LocalExtremePowersApiClient(ExtremePowersBootstrap.Initialize(dllPath, libraryHandle, libraryMemory, options), diagnostic);
         }
         public string Status => api.NativeBackendStatus;
+        public string CompatibilityToken => api.CompatibilityToken;
+        public ApiReadiness EvaluateSession(bool realMultiplayer, string[] reports, int[] players)
+        {
+            ExtremePowersReadiness value = ExtremePowersCompatibility.EvaluateSession(realMultiplayer, CompatibilityToken, reports, players);
+            return new ApiReadiness(value.Ready, value.Reason);
+        }
         public void Apply(Settings.ExtremePowersSettings s)
         {
             var t = api.Vanilla.Clone(); t.RegenerationPercent = s.RegenerationPercent;
@@ -26,7 +41,11 @@ namespace ExtremePowers.Integration
         public IDisposable InstallGoldDemo(Settings.ExtremePowersSettings s) => api.RegisterReplacement(ExtremePowerId.Gold,
             new ExtremePowerReplacement(s.DemoName, s.DemoTooltip, s.DemoSprite, ExtremePowerTargetKind.MapPoint,
                 (in ExtremePowerExecutionContext context, out string reason) => Demo.GoldSpawnDemo.CanExecute(s, context.PlayerId, context.Target.TileIndex, out reason),
-                (in ExtremePowerExecutionContext context) => Demo.GoldSpawnDemo.Execute(s, context.PlayerId, context.Target.TileIndex)));
+                (in ExtremePowerExecutionContext context) =>
+                {
+                    int spawned = Demo.GoldSpawnDemo.Execute(s, context.PlayerId, context.Target.TileIndex);
+                    diagnostic?.Invoke("Gold replacement spawn player=" + context.PlayerId + " unitType=" + s.DemoUnitType + " requested=" + s.DemoSpawnCount + " spawned=" + spawned + ".");
+                }));
         private static void Fill(SpawnConfiguration c, int type, int count) { c.UnitType = type; c.Count = count; }
     }
 }

@@ -7,21 +7,24 @@ namespace ExtremePowers.API
     {
         private readonly object gate = new object();
         private readonly Dictionary<ExtremePowerId, Registration> replacements = new Dictionary<ExtremePowerId, Registration>();
-        private readonly bool recognizedBuild;
         private readonly NativeExtremePowersRuntime nativeRuntime;
         private readonly ExtremePowerNetworkRuntime networkRuntime;
-        private readonly Func<bool> synchronizedSessionReady;
+        private readonly Func<string, ExtremePowersReadiness> sessionReadiness;
+        private readonly Action<string> diagnostic;
+        private readonly Dictionary<string, string> diagnosticStates = new Dictionary<string, string>(StringComparer.Ordinal);
+        private string lastReadinessDiagnostic;
         private ExtremePowersTuning current;
 
         internal ExtremePowersApi(string dllPath)
         {
-            recognizedBuild = NativeBuildGuard.IsSupported(dllPath, out string status); NativeBackendStatus = status;
+            NativeBuildGuard.IsSupported(dllPath, out string status); NativeBackendStatus = status;
             Vanilla = CreateVanillaPlaceholder(); current = Vanilla.Clone();
         }
         internal ExtremePowersApi(string dllPath, IntPtr libraryHandle, ReadOnlySpan<byte> libraryMemory, ExtremePowersBootstrapOptions options)
         {
-            synchronizedSessionReady = options?.IsSynchronizedSessionReady;
-            recognizedBuild = NativeBuildGuard.IsSupported(dllPath, out string status);
+            sessionReadiness = options?.GetSessionReadiness;
+            diagnostic = options?.Diagnostic;
+            bool recognizedBuild = NativeBuildGuard.IsSupported(dllPath, out string status);
             Vanilla = CreateVanillaPlaceholder(); current = Vanilla.Clone();
             if (!recognizedBuild)
             {
@@ -43,9 +46,12 @@ namespace ExtremePowers.API
             }
         }
         public string ProtocolVersion => "1";
+        public string CompatibilityToken => ExtremePowersCompatibility.CreateToken(ProtocolVersion, NativeBuildGuard.SupportedSha256, NativeBackendAvailable, networkRuntime?.PacketId ?? -1);
         // Recognition alone is intentionally insufficient: every mutation signature must validate first.
         public bool NativeBackendAvailable => nativeRuntime != null;
         public string NativeBackendStatus { get; }
+        // No canonical, uniquely validated native unit-pick hook is known for build 24816905 yet.
+        public bool SupportsUnitTargeting => false;
         public VanillaExtremePowersConfiguration Vanilla { get; }
         public ExtremePowersTuning Current { get { lock (gate) return current.Clone(); } }
         public void Apply(ExtremePowersTuning tuning) { if (tuning == null) throw new ArgumentNullException(nameof(tuning)); tuning.Validate(); lock (gate) current = tuning.Clone(); }
@@ -53,6 +59,7 @@ namespace ExtremePowers.API
         public IDisposable RegisterReplacement(ExtremePowerId power, ExtremePowerReplacement replacement)
         {
             ValidatePower(power); if (replacement == null) throw new ArgumentNullException(nameof(replacement));
+            if (replacement.TargetKind == ExtremePowerTargetKind.Unit && !SupportsUnitTargeting) throw new NotSupportedException("Unit targeting is unavailable because no canonical native unit-pick hook has been validated.");
             lock (gate) { if (replacements.ContainsKey(power)) throw new InvalidOperationException("A replacement is already registered for " + power + "."); var r = new Registration(this, power, replacement); replacements.Add(power, r); return r; }
         }
         public bool TryGetReplacement(ExtremePowerId power, out ExtremePowerReplacement replacement) { lock (gate) { if (replacements.TryGetValue(power, out Registration r)) { replacement = r.Value; return true; } replacement = null; return false; } }
@@ -74,12 +81,33 @@ namespace ExtremePowers.API
             }
         }
         internal ExtremePowersTuning Snapshot() { lock (gate) return current.Clone(); }
-        internal bool IsSynchronizedSessionReady()
+        internal ExtremePowersReadiness GetSessionReadiness()
         {
-            try { return synchronizedSessionReady == null || synchronizedSessionReady(); }
-            catch { return false; }
+            ExtremePowersReadiness value;
+            try { value = sessionReadiness == null ? ExtremePowersReadiness.Available : sessionReadiness(CompatibilityToken); }
+            catch (Exception ex) { value = ExtremePowersReadiness.Unavailable("Session readiness callback failed: " + ex.Message); }
+            string message = value.Ready ? "Extreme Powers session is ready." : "Extreme Powers Vanilla fallback: " + (string.IsNullOrWhiteSpace(value.Reason) ? "unspecified readiness failure" : value.Reason);
+            if (!string.Equals(lastReadinessDiagnostic, message, StringComparison.Ordinal)) { lastReadinessDiagnostic = message; Log(message); }
+            return value;
         }
-        public bool QueueReplacement(ExtremePowerId power, int playerId, ExtremePowerTarget target) => networkRuntime != null && networkRuntime.Queue(power, playerId, target);
+        internal void Log(string message)
+        {
+            try { diagnostic?.Invoke(message ?? string.Empty); } catch { }
+        }
+        internal void LogState(string key, string message)
+        {
+            lock (gate)
+            {
+                if (diagnosticStates.TryGetValue(key ?? string.Empty, out string previous) && string.Equals(previous, message, StringComparison.Ordinal)) return;
+                diagnosticStates[key ?? string.Empty] = message;
+            }
+            Log(message);
+        }
+        public bool QueueReplacement(ExtremePowerId power, int playerId, ExtremePowerTarget target, out string rejectionReason)
+        {
+            if (networkRuntime == null) { rejectionReason = "Native/network backend is unavailable."; Log(rejectionReason); return false; }
+            return networkRuntime.Queue(power, playerId, target, out rejectionReason);
+        }
         private void Remove(Registration registration) { lock (gate) if (replacements.TryGetValue(registration.Power, out Registration existing) && ReferenceEquals(existing, registration)) replacements.Remove(registration.Power); }
         private static void ValidatePower(ExtremePowerId power) { if ((int)power < 0 || (int)power > 7) throw new ArgumentOutOfRangeException(nameof(power)); }
         private static VanillaExtremePowersConfiguration CreateVanillaPlaceholder() => new VanillaExtremePowersConfiguration

@@ -1,6 +1,7 @@
 using BepInEx;
 using BepInEx.Logging;
 using R3;
+using SHCDESE.API;
 using SHCDESE.API.LowLevel;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.Units;
@@ -32,6 +33,7 @@ namespace EnemyGatePathfindingTest
         private static IDisposable moveHereSubscription;
         private static bool librarySubscriptionInstalled;
         private static bool beforeRenderInstalled;
+        private static bool gameTickInstalled;
         private static int lastDiagnosticFrame = -1;
 
         private void Awake()
@@ -107,6 +109,13 @@ namespace EnemyGatePathfindingTest
                 var installed = new EnemyGatePathfindingRuntime(persistentLog);
                 installed.InitializeNative(libraryHandle, memory, referenceHashMatches);
                 runtime = installed;
+                if (!gameTickInstalled)
+                {
+                    // UPDATE REVIEW (Script Extender 1.42.0): OnTick is used only to
+                    // invalidate accepted gate state; rebuilding remains deferred.
+                    GameTimeManagerAPI.Instance.OnTick += ProcessGameTick;
+                    gameTickInstalled = true;
+                }
             }
             catch (Exception ex)
             {
@@ -115,6 +124,8 @@ namespace EnemyGatePathfindingTest
                     $"{PluginName} could not install its native hook; Vanilla behavior remains active: {ex}");
             }
         }
+
+        private static void ProcessGameTick(int tick) => runtime?.OnGameTick();
 
         private static void LogScriptExtenderIdentity()
         {

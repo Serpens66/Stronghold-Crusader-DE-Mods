@@ -52,6 +52,11 @@ The Origin column in singleplayer and multiplayer map selection now sorts maps i
 
 ## Quality-of-life features
 
+### Open and safely manage Vanilla maps in the map editor
+The map editor's Load Map dialog includes a **Show Vanilla maps** checkbox. When enabled, it adds the editable built-in Skirmish, Free Build, and multiplayer maps to the normal list. Campaign and tutorial maps remain hidden. Saving a loaded Vanilla map always creates or overwrites a separate copy in your user `Maps` folder; the original game files are never changed.
+
+The Load Map and Save Map dialogs also include a **Delete Map** button. It asks for confirmation and can delete only maps stored directly in your user `Maps` folder. Vanilla maps and Steam Workshop maps are always protected from deletion.
+
 ### Customize the detailed market's goods order
 The circular order of goods in the detailed market view can be rearranged freely in the mod settings. It defaults to the classic Stronghold Crusader HD order and includes a button that restores that order at any time.
 

@@ -331,6 +331,61 @@ namespace EnemyGatePathfindingTest
             }
         }
 
+        internal void OnGameTick()
+        {
+            // UPDATE REVIEW (Script Extender 1.42.0): this is a cheap accepted-record
+            // freshness probe only. Full topology/footprint rebuilding remains deferred
+            // to onBeforeRender and is still capped at four times per second.
+            if (Volatile.Read(ref epochActive) == 0)
+                return;
+            try
+            {
+                TopologySnapshot current = snapshot;
+                if (current.Combinations.Length == 0)
+                    return;
+                GameBuildingManagerAPI buildings = GameBuildingManagerAPI.Instance;
+                for (int index = 0; index < current.Combinations.Length; index++)
+                {
+                    GateBridgeInfo info = current.Combinations[index];
+                    if ((info.GateId > 0 && HasBuildingStateChanged(
+                            buildings, info.GateId, info.GateGlobal,
+                            info.Owner, info.CapturedBy, info.GateAliveState, checkCaptured: true)) ||
+                        (info.BridgeId > 0 && HasBuildingStateChanged(
+                            buildings, info.BridgeId, info.BridgeGlobal,
+                            info.Owner, 0, info.BridgeAliveState, checkCaptured: false)))
+                    {
+                        Volatile.Write(ref nextSnapshotAt, 0);
+                        return;
+                    }
+                }
+            }
+            catch
+            {
+                // A tick-side freshness failure is fail-open. The bounded deferred
+                // full scan remains authoritative and will retry normally.
+                Interlocked.Increment(ref snapshotErrors);
+            }
+        }
+
+        private static bool HasBuildingStateChanged(
+            GameBuildingManagerAPI buildings,
+            int buildingId,
+            uint globalId,
+            int owner,
+            int capturedBy,
+            int aliveState,
+            bool checkCaptured)
+        {
+            if (buildingId <= 0 || !buildings.IsValidId(buildingId) ||
+                !buildings.TryGetBuildingById(buildingId, out GameBuilding* building) ||
+                building == null)
+                return true;
+            return building->r_GlobalId != globalId ||
+                building->r_PlayerIdOwner != owner ||
+                (checkCaptured && building->r_CapturedByPlayerId != capturedBy) ||
+                (int)building->r_AliveState != aliveState;
+        }
+
         internal void RecordHotPathFailure()
         {
             Interlocked.Increment(ref queryErrors);
@@ -733,10 +788,14 @@ namespace EnemyGatePathfindingTest
             ulong[][] gateBits = new ulong[9][];
             ulong[][] bridgeBits = new ulong[9][];
             bool[] hasBlockedTiles = new bool[9];
+            var blockedTileLists = new List<RouteBlockedTile>[9];
+            var blockedTileIds = new HashSet<int>[9];
             for (int player = 1; player <= 8; player++)
             {
                 gateBits[player] = new ulong[wordCount];
                 bridgeBits[player] = new ulong[wordCount];
+                blockedTileLists[player] = new List<RouteBlockedTile>();
+                blockedTileIds[player] = new HashSet<int>();
             }
             var identities = new Dictionary<int, RouteTileIdentity>();
             for (int infoIndex = 0; infoIndex < combinations.Length; infoIndex++)
@@ -759,6 +818,11 @@ namespace EnemyGatePathfindingTest
                         ulong[] bits = isGate ? gateBits[player] : bridgeBits[player];
                         bits[tile.TileId >> 6] |= 1UL << (tile.TileId & 63);
                         hasBlockedTiles[player] = true;
+                        if (blockedTileIds[player].Add(tile.TileId))
+                        {
+                            blockedTileLists[player].Add(new RouteBlockedTile(
+                                tile.TileId, tile.X, tile.Y));
+                        }
                     }
                     identities.TryGetValue(tile.TileId, out RouteTileIdentity identity);
                     identities[tile.TileId] = identity.Merge(
@@ -772,8 +836,12 @@ namespace EnemyGatePathfindingTest
                 for (int y = 0; y < rowStarts.Length; y++)
                     rowStarts[y] = tiles.MapRowLookupTable[3 * y];
             }
+            RouteBlockedTile[][] blockedTiles = new RouteBlockedTile[9][];
+            for (int player = 1; player <= 8; player++)
+                blockedTiles[player] = blockedTileLists[player].ToArray();
             return new RouteTilePolicySnapshot(
-                gateBits, bridgeBits, rowStarts, identities, hasBlockedTiles, fingerprint);
+                gateBits, bridgeBits, rowStarts, identities, hasBlockedTiles, fingerprint,
+                blockedTiles);
         }
 
         private static bool TryCollectBuildingTiles(GameTileManagerAPI tiles,
