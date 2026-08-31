@@ -153,8 +153,61 @@ namespace EnemyGatePathfindingTest
         }
 
         internal static bool ShouldQueueDeferredDiagnostic(
-            int sourcePcl, int targetPcl, int filterRecordCount) =>
-            sourcePcl == targetPcl || filterRecordCount > 0;
+            int sourcePcl, int targetPcl, long result, int filterRecordCount) =>
+            sourcePcl == targetPcl || result == 0 || filterRecordCount > 0;
+
+        internal static bool IsTopologyRelevantToQuery(
+            int sourcePcl,
+            int targetPcl,
+            int entryPcl,
+            int exitPcl,
+            int[] footprintAndBorderPcls)
+        {
+            if (sourcePcl == targetPcl)
+            {
+                return ContainsPcl(footprintAndBorderPcls, sourcePcl);
+            }
+
+            // Editor NeedsInit gates can precede their authoritative gatehouse-array
+            // entry. Their footprint is useful for diagnosis, but never for a fix.
+            if (entryPcl < 0 || exitPcl < 0)
+                return ContainsPcl(footprintAndBorderPcls, sourcePcl) ||
+                    ContainsPcl(footprintAndBorderPcls, targetPcl);
+
+            return (entryPcl == sourcePcl && exitPcl == targetPcl) ||
+                (entryPcl == targetPcl && exitPcl == sourcePcl);
+        }
+
+        private static bool ContainsPcl(int[] values, int value)
+        {
+            if (values == null)
+                return false;
+            for (int index = 0; index < values.Length; index++)
+            {
+                if (values[index] == value)
+                    return true;
+            }
+            return false;
+        }
+
+        internal static int CalculateRectangleDistance(
+            int firstBeginX,
+            int firstBeginY,
+            int firstEndX,
+            int firstEndY,
+            int secondBeginX,
+            int secondBeginY,
+            int secondEndX,
+            int secondEndY)
+        {
+            int dx = firstEndX < secondBeginX
+                ? secondBeginX - firstEndX
+                : secondEndX < firstBeginX ? firstBeginX - secondEndX : 0;
+            int dy = firstEndY < secondBeginY
+                ? secondBeginY - firstEndY
+                : secondEndY < firstBeginY ? firstBeginY - secondEndY : 0;
+            return Math.Max(dx, dy);
+        }
 
         internal static int FindNearestPrecedingCorrelation(
             QueryCorrelationCandidate[] candidates,

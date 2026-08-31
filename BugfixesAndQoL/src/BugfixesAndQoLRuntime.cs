@@ -35,6 +35,7 @@ namespace BugfixesAndQoL
         private HdMarketViewHook hdMarketViewHook;
         private CameraMovementModifierHook cameraMovementModifierHook;
         private CustomTrailExtremeGoldFixHook customTrailExtremeGoldFixHook;
+        private AbruptHostMigrationFix abruptHostMigrationFix;
         private ResyncHostKickFeature resyncHostKickFeature;
         private SurrenderFeature surrenderFeature;
         private LordUnitControlsFeature lordUnitControlsFeature;
@@ -113,6 +114,9 @@ namespace BugfixesAndQoL
             TryInitializePersistentFeature(
                 "fair siege-ammunition restock",
                 siegeAmmoRestockFeature.Initialize);
+            TryInitializePersistentFeature(
+                "abrupt host migration",
+                EnsureAbruptHostMigrationFix);
 
             if (playerMarketSubscription == null)
             {
@@ -297,6 +301,8 @@ namespace BugfixesAndQoL
             mapOriginSortHook = null;
             resyncHostKickFeature?.Dispose();
             resyncHostKickFeature = null;
+            abruptHostMigrationFix?.Dispose();
+            abruptHostMigrationFix = null;
             lordUnitControlsFeature?.Dispose();
             lordUnitControlsFeature = null;
             surrenderFeature?.Dispose();
@@ -495,6 +501,12 @@ namespace BugfixesAndQoL
         {
             if (resyncHostKickFeature == null)
                 resyncHostKickFeature = new ResyncHostKickFeature(log, settings);
+        }
+
+        private void EnsureAbruptHostMigrationFix()
+        {
+            if (abruptHostMigrationFix == null)
+                abruptHostMigrationFix = new AbruptHostMigrationFix(log, settings);
         }
 
         private void InstallAllyGoodsAmountModifierHook()

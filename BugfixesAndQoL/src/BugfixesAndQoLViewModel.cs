@@ -33,6 +33,7 @@ namespace BugfixesAndQoL
         private bool enableSurrenderAndStatistics = true;
         private bool enableLordUnitControls = true;
         private bool enableEliminatedPlayersBecomeSpectators = true;
+        private bool enableAbruptHostMigrationFix = true;
         private bool enableResyncHostKick = true;
         private bool enableReturnToMultiplayerLobby = true;
         private bool enableCtrlSingleMarketTrade = true;
@@ -154,6 +155,8 @@ namespace BugfixesAndQoL
         public string EnableShiftGameSpeedStepsHelpText => SerpLocalization.Get(SerpLocalization.EnableShiftGameSpeedStepsHelp);
         public string EnableResyncHostKickText => SerpLocalization.Get("BugfixesAndQoL.EnableResyncHostKick");
         public string EnableResyncHostKickHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableResyncHostKickHelp");
+        public string EnableAbruptHostMigrationFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAbruptHostMigrationFix");
+        public string EnableAbruptHostMigrationFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAbruptHostMigrationFixHelp");
         public string EnableReturnToMultiplayerLobbyText => SerpLocalization.Get("BugfixesAndQoL.EnableReturnToMultiplayerLobby");
         public string EnableReturnToMultiplayerLobbyHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableReturnToMultiplayerLobbyHelp");
         public string CustomTrailsTitleText => SerpLocalization.Get("BugfixesAndQoL.CustomTrailsTitle");
@@ -501,6 +504,13 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool EnableAbruptHostMigrationFix
+        {
+            get => enableAbruptHostMigrationFix;
+            set => SetSetting(ref enableAbruptHostMigrationFix, value, nameof(EnableAbruptHostMigrationFix));
+        }
+
+        [SyncHostOnly]
         public bool EnableResyncHostKick
         {
             get => enableResyncHostKick;
@@ -575,6 +585,7 @@ namespace BugfixesAndQoL
                 EnableSurrenderAndStatistics = true;
                 EnableLordUnitControls = true;
                 EnableEliminatedPlayersBecomeSpectators = true;
+                EnableAbruptHostMigrationFix = true;
                 EnableResyncHostKick = true;
                 EnableReturnToMultiplayerLobby = true;
                 EnableCtrlSingleMarketTrade = true;

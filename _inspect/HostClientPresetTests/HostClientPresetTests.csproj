@@ -95,6 +95,9 @@
     <Compile Include="..\..\BugfixesAndQoL\src\ResyncHostKickPolicy.cs">
       <Link>ResyncHostKickPolicy.cs</Link>
     </Compile>
+    <Compile Include="..\..\BugfixesAndQoL\src\AbruptHostMigrationPolicy.cs">
+      <Link>AbruptHostMigrationPolicy.cs</Link>
+    </Compile>
     <Compile Include="..\..\BugfixesAndQoL\src\SelectedUnitHealthSummary.cs">
       <Link>SelectedUnitHealthSummary.cs</Link>
     </Compile>

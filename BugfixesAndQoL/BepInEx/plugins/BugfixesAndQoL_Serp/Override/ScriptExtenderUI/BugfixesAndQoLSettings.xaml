@@ -200,6 +200,12 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding AllowFullAiMultiplayerLobbyText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-abrupt-host-migration-fix" shared:ModSettingsSearch.Title="{Binding EnableAbruptHostMigrationFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableAbruptHostMigrationFixHelpText}"><CheckBox IsChecked="{Binding EnableAbruptHostMigrationFix, Mode=TwoWay}"
+              Foreground="White"
+              ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableAbruptHostMigrationFixHelpText}"
+              Margin="0,0,14,8">
+        <TextBlock Text="{Binding EnableAbruptHostMigrationFixText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox></Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-resync-host-kick" shared:ModSettingsSearch.Title="{Binding EnableResyncHostKickText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableResyncHostKickHelpText}"><CheckBox IsChecked="{Binding EnableResyncHostKick, Mode=TwoWay}"
                 Foreground="White"
                 ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableResyncHostKickHelpText}"

@@ -36,6 +36,7 @@ internal static class Program
             TestLocalPerPlayerSetting();
             TestMarketGoodsOrderDefinition();
             TestResyncHostKickPolicy();
+            TestAbruptHostMigrationPolicy();
             TestSelectedUnitHealthSummary();
             TestSurrenderAndStatisticsSettingAndPolicy();
             TestMultiplayerLobbyReturnPolicy();
@@ -986,6 +987,79 @@ internal static class Program
             "resync host kick treated the exact timeout boundary as overdue");
     }
 
+    private static void TestAbruptHostMigrationPolicy()
+    {
+        var soleLocalSurvivor = new[]
+        {
+            new AbruptHostMigrationCandidate(1, false, true, true, false, false),
+            new AbruptHostMigrationCandidate(2, true, false, true, false, false),
+            new AbruptHostMigrationCandidate(3, false, false, false, false, false)
+        };
+        Check(AbruptHostMigrationPolicy.TrySelectLocalSuccessor(
+                  true, 1, false, true, true, false, false,
+                  soleLocalSurvivor, out int successorPlayerId) && successorPlayerId == 2,
+            "abrupt host migration did not select the sole local human survivor");
+
+        Check(!AbruptHostMigrationPolicy.TrySelectLocalSuccessor(
+                  false, 1, false, true, true, false, false,
+                  soleLocalSurvivor, out _),
+            "disabled abrupt host migration selected a successor");
+        Check(!AbruptHostMigrationPolicy.TrySelectLocalSuccessor(
+                  true, 1, false, false, true, false, false,
+                  soleLocalSurvivor, out _),
+            "abrupt host migration accepted a departing non-host");
+        Check(!AbruptHostMigrationPolicy.TrySelectLocalSuccessor(
+                  true, 1, false, true, false, false, false,
+                  soleLocalSurvivor, out _),
+            "abrupt host migration accepted a non-human departing host");
+        Check(!AbruptHostMigrationPolicy.TrySelectLocalSuccessor(
+                  true, 1, false, true, true, true, false,
+                  soleLocalSurvivor, out _),
+            "abrupt host migration repeated after the host was already kicked");
+        Check(!AbruptHostMigrationPolicy.TrySelectLocalSuccessor(
+                  true, 1, false, true, true, false, true,
+                  soleLocalSurvivor, out _),
+            "abrupt host migration repeated for a pending host kick");
+        Check(!AbruptHostMigrationPolicy.TrySelectLocalSuccessor(
+                  true, 0, false, true, true, false, false,
+                  soleLocalSurvivor, out _),
+            "abrupt host migration accepted an invalid departing player ID");
+
+        var remoteSurvivor = new[]
+        {
+            new AbruptHostMigrationCandidate(1, false, true, true, false, false),
+            new AbruptHostMigrationCandidate(2, false, false, true, false, false)
+        };
+        Check(!AbruptHostMigrationPolicy.TrySelectLocalSuccessor(
+                  true, 1, false, true, true, false, false,
+                  remoteSurvivor, out _),
+            "abrupt host migration promoted a remote successor");
+
+        var multipleSurvivors = new[]
+        {
+            new AbruptHostMigrationCandidate(1, false, true, true, false, false),
+            new AbruptHostMigrationCandidate(2, true, false, true, false, false),
+            new AbruptHostMigrationCandidate(3, false, false, true, false, false)
+        };
+        Check(!AbruptHostMigrationPolicy.TrySelectLocalSuccessor(
+                  true, 1, false, true, true, false, false,
+                  multipleSurvivors, out _),
+            "abrupt host migration replaced Vanilla's multi-survivor selection");
+
+        var ineligibleSurvivors = new[]
+        {
+            new AbruptHostMigrationCandidate(1, false, true, true, false, false),
+            new AbruptHostMigrationCandidate(2, true, false, false, false, false),
+            new AbruptHostMigrationCandidate(3, true, false, true, true, false),
+            new AbruptHostMigrationCandidate(4, true, false, true, false, true),
+            new AbruptHostMigrationCandidate(0, true, false, true, false, false)
+        };
+        Check(!AbruptHostMigrationPolicy.TrySelectLocalSuccessor(
+                  true, 1, false, true, true, false, false,
+                  ineligibleSurvivors, out _),
+            "abrupt host migration selected an AI, kicked, pending, or invalid survivor");
+    }
+
     private static void TestGameModeHelper()
     {
         CrusaderDE.MainViewModel.Reset();
@@ -1276,6 +1350,8 @@ internal static class Program
         Check(setting.EnableLordUnitControls, "EnableLordUnitControls did not default to true");
         Check(setting.EnableEliminatedPlayersBecomeSpectators,
             "EnableEliminatedPlayersBecomeSpectators did not default to true");
+        Check(setting.EnableAbruptHostMigrationFix,
+            "EnableAbruptHostMigrationFix did not default to true");
         Check(setting.EnableReturnToMultiplayerLobby,
             "EnableReturnToMultiplayerLobby did not default to true");
         Check(setting.AllowFullAiMultiplayerLobby,
@@ -1286,6 +1362,7 @@ internal static class Program
         setting.EnableSurrenderAndStatistics = false;
         setting.EnableLordUnitControls = false;
         setting.EnableEliminatedPlayersBecomeSpectators = false;
+        setting.EnableAbruptHostMigrationFix = false;
         setting.EnableReturnToMultiplayerLobby = false;
         setting.AllowFullAiMultiplayerLobby = false;
         setting.SelectedPreset = 1;
@@ -1294,6 +1371,8 @@ internal static class Program
         Check(setting.EnableLordUnitControls, "new shared preset did not retain the Lord-controls default true value");
         Check(setting.EnableEliminatedPlayersBecomeSpectators,
             "new shared preset did not retain the spectator-promotion default true value");
+        Check(setting.EnableAbruptHostMigrationFix,
+            "new shared preset did not retain the abrupt host-migration default true value");
         Check(setting.EnableReturnToMultiplayerLobby,
             "new shared preset did not retain the lobby-return default true value");
         Check(setting.AllowFullAiMultiplayerLobby,
@@ -1304,6 +1383,8 @@ internal static class Program
         Check(!setting.EnableLordUnitControls, "Lord-controls host value did not round-trip through presets");
         Check(!setting.EnableEliminatedPlayersBecomeSpectators,
             "spectator-promotion host value did not round-trip through presets");
+        Check(!setting.EnableAbruptHostMigrationFix,
+            "abrupt host-migration value did not round-trip through presets");
         Check(!setting.EnableReturnToMultiplayerLobby,
             "lobby-return host value did not round-trip through presets");
         Check(!setting.AllowFullAiMultiplayerLobby,
@@ -1335,6 +1416,7 @@ internal static class Program
         setting.EnableSurrenderAndStatistics = true;
         setting.EnableLordUnitControls = true;
         setting.EnableEliminatedPlayersBecomeSpectators = true;
+        setting.EnableAbruptHostMigrationFix = true;
         setting.EnableReturnToMultiplayerLobby = true;
         setting.AllowFullAiMultiplayerLobby = true;
         Check(!setting.EnableAiFixes, "client mutated the host-only EnableAiFixes setting");
@@ -1344,6 +1426,8 @@ internal static class Program
         Check(!setting.EnableLordUnitControls, "client mutated the host-only EnableLordUnitControls setting");
         Check(!setting.EnableEliminatedPlayersBecomeSpectators,
             "client mutated the host-only EnableEliminatedPlayersBecomeSpectators setting");
+        Check(!setting.EnableAbruptHostMigrationFix,
+            "client mutated the host-only EnableAbruptHostMigrationFix setting");
         Check(!setting.EnableReturnToMultiplayerLobby,
             "client mutated the host-only EnableReturnToMultiplayerLobby setting");
         Check(!setting.AllowFullAiMultiplayerLobby,
@@ -1354,6 +1438,7 @@ internal static class Program
             setting.EnableSurrenderAndStatistics = true;
             setting.EnableLordUnitControls = true;
             setting.EnableEliminatedPlayersBecomeSpectators = true;
+            setting.EnableAbruptHostMigrationFix = true;
             setting.EnableReturnToMultiplayerLobby = true;
             setting.AllowFullAiMultiplayerLobby = true;
         });
@@ -1362,6 +1447,8 @@ internal static class Program
         Check(setting.EnableLordUnitControls, "authoritative host sync did not update EnableLordUnitControls");
         Check(setting.EnableEliminatedPlayersBecomeSpectators,
             "authoritative host sync did not update EnableEliminatedPlayersBecomeSpectators");
+        Check(setting.EnableAbruptHostMigrationFix,
+            "authoritative host sync did not update EnableAbruptHostMigrationFix");
         Check(setting.EnableReturnToMultiplayerLobby,
             "authoritative host sync did not update EnableReturnToMultiplayerLobby");
         Check(setting.AllowFullAiMultiplayerLobby,
@@ -1374,6 +1461,7 @@ internal static class Program
                 [nameof(setting.EnableSurrenderAndStatistics)] = MessagePackSerializer.Serialize(false),
                 [nameof(setting.EnableLordUnitControls)] = MessagePackSerializer.Serialize(false),
                 [nameof(setting.EnableEliminatedPlayersBecomeSpectators)] = MessagePackSerializer.Serialize(false),
+                [nameof(setting.EnableAbruptHostMigrationFix)] = MessagePackSerializer.Serialize(false),
                 [nameof(setting.EnableReturnToMultiplayerLobby)] = MessagePackSerializer.Serialize(false),
                 [nameof(setting.AllowFullAiMultiplayerLobby)] = MessagePackSerializer.Serialize(false)
             },
@@ -1385,6 +1473,8 @@ internal static class Program
         Check(!setting.EnableLordUnitControls, "read-only Trail did not apply EnableLordUnitControls");
         Check(!setting.EnableEliminatedPlayersBecomeSpectators,
             "read-only Trail did not apply EnableEliminatedPlayersBecomeSpectators");
+        Check(!setting.EnableAbruptHostMigrationFix,
+            "read-only Trail did not apply EnableAbruptHostMigrationFix");
         Check(!setting.EnableReturnToMultiplayerLobby,
             "read-only Trail did not apply EnableReturnToMultiplayerLobby");
         Check(!setting.AllowFullAiMultiplayerLobby,
@@ -1393,6 +1483,7 @@ internal static class Program
         setting.EnableSurrenderAndStatistics = true;
         setting.EnableLordUnitControls = true;
         setting.EnableEliminatedPlayersBecomeSpectators = true;
+        setting.EnableAbruptHostMigrationFix = true;
         setting.EnableReturnToMultiplayerLobby = true;
         setting.AllowFullAiMultiplayerLobby = true;
         Check(!setting.EnableAiFixes, "client changed EnableAiFixes inside a read-only Trail");
@@ -1400,6 +1491,8 @@ internal static class Program
         Check(!setting.EnableLordUnitControls, "client changed EnableLordUnitControls inside a read-only Trail");
         Check(!setting.EnableEliminatedPlayersBecomeSpectators,
             "client changed EnableEliminatedPlayersBecomeSpectators inside a read-only Trail");
+        Check(!setting.EnableAbruptHostMigrationFix,
+            "client changed EnableAbruptHostMigrationFix inside a read-only Trail");
         Check(!setting.EnableReturnToMultiplayerLobby,
             "client changed EnableReturnToMultiplayerLobby inside a read-only Trail");
         Check(!setting.AllowFullAiMultiplayerLobby,
@@ -1414,6 +1507,8 @@ internal static class Program
         Check(setting.EnableLordUnitControls, "EnableLordUnitControls reset value was not true");
         Check(setting.EnableEliminatedPlayersBecomeSpectators,
             "EnableEliminatedPlayersBecomeSpectators reset value was not true");
+        Check(setting.EnableAbruptHostMigrationFix,
+            "EnableAbruptHostMigrationFix reset value was not true");
         Check(setting.EnableReturnToMultiplayerLobby,
             "EnableReturnToMultiplayerLobby reset value was not true");
         Check(setting.AllowFullAiMultiplayerLobby,
@@ -4670,6 +4765,7 @@ internal sealed class SurrenderAndStatisticsSettingViewModel : PresetLobbyModSet
     private bool enableSurrenderAndStatistics = true;
     private bool enableLordUnitControls = true;
     private bool enableEliminatedPlayersBecomeSpectators = true;
+    private bool enableAbruptHostMigrationFix = true;
     private bool enableReturnToMultiplayerLobby = true;
     private bool allowFullAiMultiplayerLobby = true;
 
@@ -4729,6 +4825,22 @@ internal sealed class SurrenderAndStatisticsSettingViewModel : PresetLobbyModSet
     }
 
     [SyncHostOnly]
+    public bool EnableAbruptHostMigrationFix
+    {
+        get => enableAbruptHostMigrationFix;
+        set
+        {
+            if (!CanMutateSetting(nameof(EnableAbruptHostMigrationFix)) ||
+                enableAbruptHostMigrationFix == value)
+            {
+                return;
+            }
+            enableAbruptHostMigrationFix = value;
+            OnPropertyChanged(nameof(EnableAbruptHostMigrationFix));
+        }
+    }
+
+    [SyncHostOnly]
     public bool EnableReturnToMultiplayerLobby
     {
         get => enableReturnToMultiplayerLobby;
@@ -4766,6 +4878,7 @@ internal sealed class SurrenderAndStatisticsSettingViewModel : PresetLobbyModSet
         EnableSurrenderAndStatistics = true;
         EnableLordUnitControls = true;
         EnableEliminatedPlayersBecomeSpectators = true;
+        EnableAbruptHostMigrationFix = true;
         EnableReturnToMultiplayerLobby = true;
         AllowFullAiMultiplayerLobby = true;
     }

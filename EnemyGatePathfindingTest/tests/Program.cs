@@ -21,6 +21,8 @@ namespace EnemyGatePathfindingTest
                 SamePclCandidatePolicyIsFailOpenAndAllianceAware();
                 DiagnosticNativeContractIsPinned();
                 DeferredDiagnosticQueuePolicyIsSelective();
+                TopologyQueryMatchingDistinguishesGateAndBridgeCases();
+                RectangleDistanceSupportsSpatialBridgeDiagnosis();
                 DiagnosticBuildingStatesAreEditorSafe();
                 TopologyRejectionClassificationIsDeterministic();
                 MoveCorrelationUsesNearestMatchingPredecessor();
@@ -142,12 +144,56 @@ namespace EnemyGatePathfindingTest
 
         private static void DeferredDiagnosticQueuePolicyIsSelective()
         {
-            Assert(EnemyGatePathfindingPolicy.ShouldQueueDeferredDiagnostic(7, 7, 0),
+            Assert(EnemyGatePathfindingPolicy.ShouldQueueDeferredDiagnostic(7, 7, 1, 0),
                 "Same-PCL query is deferred");
-            Assert(EnemyGatePathfindingPolicy.ShouldQueueDeferredDiagnostic(7, 8, 1),
+            Assert(EnemyGatePathfindingPolicy.ShouldQueueDeferredDiagnostic(7, 8, 1, 1),
                 "capturer-filter query is deferred");
-            Assert(!EnemyGatePathfindingPolicy.ShouldQueueDeferredDiagnostic(7, 8, 0),
+            Assert(EnemyGatePathfindingPolicy.ShouldQueueDeferredDiagnostic(7, 8, 0, 0),
+                "negative different-PCL query is deferred for blocked-cursor diagnosis");
+            Assert(!EnemyGatePathfindingPolicy.ShouldQueueDeferredDiagnostic(7, 8, 1, 0),
                 "ordinary different-PCL query stays counter-only");
+        }
+
+        private static void TopologyQueryMatchingDistinguishesGateAndBridgeCases()
+        {
+            int[] footprintPcls = { 11, 12, 13 };
+            Assert(EnemyGatePathfindingPolicy.IsTopologyRelevantToQuery(
+                12, 12, 20, 21, footprintPcls),
+                "Same-PCL bridge or gate footprint is relevant");
+            Assert(!EnemyGatePathfindingPolicy.IsTopologyRelevantToQuery(
+                14, 14, 20, 21, footprintPcls),
+                "unrelated Same-PCL query is ignored");
+            Assert(EnemyGatePathfindingPolicy.IsTopologyRelevantToQuery(
+                20, 21, 20, 21, footprintPcls),
+                "forward gate entry/exit query is relevant");
+            Assert(EnemyGatePathfindingPolicy.IsTopologyRelevantToQuery(
+                21, 20, 20, 21, footprintPcls),
+                "reverse gate entry/exit query is relevant");
+            Assert(!EnemyGatePathfindingPolicy.IsTopologyRelevantToQuery(
+                20, 22, 20, 21, footprintPcls),
+                "different unrelated PCL pair is ignored");
+            Assert(EnemyGatePathfindingPolicy.IsTopologyRelevantToQuery(
+                12, 22, -1, -1, footprintPcls),
+                "NeedsInit gate fallback associates a touching source PCL");
+            Assert(!EnemyGatePathfindingPolicy.IsTopologyRelevantToQuery(
+                14, 22, -1, -1, footprintPcls),
+                "NeedsInit gate fallback ignores an unrelated PCL pair");
+            Assert(!EnemyGatePathfindingPolicy.IsTopologyRelevantToQuery(
+                12, 12, 20, 21, null),
+                "missing footprint data fails open");
+        }
+
+        private static void RectangleDistanceSupportsSpatialBridgeDiagnosis()
+        {
+            Assert(EnemyGatePathfindingPolicy.CalculateRectangleDistance(
+                1, 1, 3, 3, 2, 2, 4, 4) == 0,
+                "overlapping rectangles have zero distance");
+            Assert(EnemyGatePathfindingPolicy.CalculateRectangleDistance(
+                1, 1, 3, 3, 4, 1, 6, 3) == 1,
+                "touching tile columns have distance one");
+            Assert(EnemyGatePathfindingPolicy.CalculateRectangleDistance(
+                1, 1, 3, 3, 8, 9, 10, 11) == 6,
+                "Chebyshev rectangle distance uses the farther axis");
         }
 
         private static void DiagnosticBuildingStatesAreEditorSafe()

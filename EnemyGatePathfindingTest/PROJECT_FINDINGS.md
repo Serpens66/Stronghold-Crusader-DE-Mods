@@ -14,6 +14,37 @@ Der derzeitige Build ist teilweise funktional und teilweise diagnostisch:
 - Positive Same-PCL-Ergebnisse werden bewusst noch nicht verändert.
 - Die weiterhin problematische seitliche Zugbrückenroute wird momentan nur vermessen und protokolliert.
 
+## Bestätigtes Vanilla-Verhalten beim menschlichen Spieler
+
+Die Cursorprüfung und die spätere konkrete Routenwahl müssen getrennt betrachtet werden. Die folgenden Fälle wurden im Karteneditor mit menschlichen Befehlen beobachtet:
+
+### Vollständig eingeschlossener Zielbereich hinter einem feindlichen Tor
+
+Ist ein Bereich vollständig umschlossen und ausschließlich durch ein feindliches Torhaus erreichbar, blockiert Vanilla den Cursor bereits korrekt. Der Bewegungsbefehl wird nicht erteilt.
+
+Das zeigt, dass Vanillas spielerbezogene Erreichbarkeitsprüfung ein feindliches Tor grundsätzlich als nicht verfügbare Verbindung berücksichtigen kann, wenn keine andere globale Verbindung zum Ziel existiert.
+
+### Feindliches Tor in einer langen, aber umgehbaren Mauer
+
+Endet die Mauer weit entfernt und ist der Zielpunkt hinter dem Tor über einen langen Umweg prinzipiell erreichbar, blockiert der Cursor nicht. Das ist für die reine globale Erreichbarkeitsfrage zunächst korrekt: Es existiert irgendein gültiger Weg zum Ziel.
+
+Die anschließende Vanilla-Routenwahl bevorzugt jedoch den vermeintlich kürzeren Weg durch das momentan offene feindliche Tor. Sobald sich die Einheit nähert, schließt das Tor. Die Einheit kann den gewählten Weg dann nicht praktisch ausführen, obwohl ein längerer Weg um die Mauer existiert.
+
+Folgerung: Eine Korrektur ausschließlich des Cursor-Erreichbarkeitstests reicht für Torhäuser nicht aus. Auch die konkrete globale Routenbewertung beziehungsweise der Tile-Path-Builder muss feindliche Torflächen unabhängig vom momentanen Öffnungszustand als geschlossen behandeln. Gleichzeitig darf der Cursor in diesem Beispiel weiterhin einen Befehl erlauben, sofern der lange Umweg tatsächlich erreichbar ist.
+
+### Zugbrücke als einzige Verbindung zu einem sonst unerreichbaren Bereich
+
+Erzeugt das Feld einer heruntergelassenen feindlichen Zugbrücke die einzige Verbindung zu einem ansonsten vollständig unerreichbaren Bereich, blockiert Vanilla den Cursor nicht. Die Zugbrückenfläche verbindet dabei normale Wegflächen innerhalb derselben PCL, sodass die feindliche Torprüfung vollständig umgangen wird.
+
+Folgerung: Bei Zugbrücken ist bereits die globale Erreichbarkeitsentscheidung falsch. Nach dem Schließen existiert im Gegensatz zum langen Mauerbeispiel überhaupt kein alternativer Weg. Dieser Fall muss deshalb sowohl in der Cursorprüfung als auch in der tatsächlichen Routenbildung korrigiert werden.
+
+### Zusammenfassung der benötigten Semantik
+
+- Tor mit realem Umweg: Cursor darf den Befehl erlauben, aber die Route darf nicht durch das feindliche Tor geplant werden.
+- Tor ohne Umweg: Cursor muss wie bereits in Vanilla blockieren.
+- Zugbrücke als einzige Same-PCL-Verbindung: Cursor muss blockieren und die Route darf die feindliche Brückenfläche nicht verwenden.
+- Eigene, verbündete oder passend eroberte Tor-/Brückenverbindungen müssen weiterhin nutzbar bleiben.
+
 ## Bestätigte technische Grundlage
 
 - Kanonische Spiel-DLL: installierte `CrusaderDE.dll`
@@ -49,7 +80,8 @@ Alle davon abhängigen Codestellen tragen `UPDATE REVIEW`-Marker. Bei einer Änd
 
 ### Editorzustände und Gebäude-IDs
 
-- `GetBuildingsAsSpan()` ist nullbasiert, öffentliche Gebäude-IDs und `r_GatehouseId` sind dagegen einsbasiert. Die korrekte Abbildung lautet `buildingId = buildingIndex + 1`.
+- `GetBuildingsAsSpan()` ist nullbasiert; die dazugehörige öffentliche Gebäude-ID lautet `buildingId = buildingIndex + 1`.
+- Für `r_GatehouseId` ist dagegen noch nicht bestätigt, welcher ID-Raum im Editorzustand verwendet wird. Der Wert darf nicht ungeprüft als öffentliche lokale Gebäude-ID interpretiert werden.
 - `AliveState.NeedsInit` ist im Karteneditor ein temporär aktiver Zustand und muss für Diagnosen ebenso wie `AliveState.IsAlive` berücksichtigt werden.
 - Vor dem Lesen eines Zugbrücken-Footprints werden Gebäude-ID, Global-ID, Gatehouse-Verknüpfung und eine begrenzte Gridgröße validiert.
 - Ausschlüsse werden getrennt nach Brückenzustand, Gatehouse-ID, Torzustand, Global-ID, Gatehouse-Eintrag, Tür-Tiles, Footprint und inkonsistenter Rücklesung gezählt.
@@ -70,7 +102,36 @@ Alle davon abhängigen Codestellen tragen `UPDATE REVIEW`-Marker. Bei einer Änd
   - der Capturer-Filter wurde bei allen diesen Same-PCL-Prüfungen umgangen;
   - nur 5 Prüfungen verwendeten unterschiedliche PCLs, und diese waren negativ.
 - 13 menschliche `MoveHere`-Befehle wurden erkannt und positiv beendet. Es gab keine verschachtelte PCL-Abfrage innerhalb von `MoveHere`, wodurch die zeitliche Nachkorrelation notwendig wurde.
-- Aktueller Build: 64 Policy-Assertions, 0 Compilerwarnungen, 0 Compilerfehler.
+- Aktueller Build: 76 Policy-Assertions, 0 Compilerwarnungen, 0 Compilerfehler.
+
+Der Editortest vom 31. August 2026 um 19:26 bis 19:27 Uhr prüfte zuerst nur das Torhaus und anschließend die Zugbrücke:
+
+- 2272 menschliche PCL-Prüfungen wurden erfasst.
+- 2271 Prüfungen waren positive Same-PCL-Ergebnisse; eine Different-PCL-Prüfung war negativ.
+- Der Capturer-Filter wurde bei sämtlichen Prüfungen umgangen. In diesem konkreten Aufbau wurde also kein fremder Tor-Datensatz im bestehenden Filter erreicht.
+- 5 positive menschliche `MoveHere`-Befehle wurden beobachtet.
+- 4 davon ließen sich mit einer vorherigen positiven Same-PCL-Prüfung korrelieren.
+- Ein Befehl scheiterte nur an der Diagnosekorrelation `target-coordinate-mismatch`. Das bestätigt, dass Cursorziel-Globals und endgültige `MoveHere`-Koordinaten nicht bei jedem Befehl identisch sind; die Korrelation darf daher nicht selbst Teil eines funktionalen Fixes werden.
+- Vor dem Bau der Zugbrücke wurden erwartungsgemäß keine Brückendatensätze gefunden.
+- Nach dem Bau wurde genau eine Zugbrücke im Zustand `NeedsInit` erkannt. Sie passierte den Zustands- und Global-ID-Filter, während der Ausschlusszähler `gateId` dauerhaft auf 1 stieg.
+- Dieser Zähler bedeutet, dass `r_GatehouseId` entweder 0, außerhalb des lokalen Gebäude-ID-Bereichs oder anderweitig nicht als gültige lokale Gebäude-ID auflösbar war. Der Rohwert wurde in diesem damaligen Build noch nicht ausgegeben.
+- Weil keine Tor-/Brückenkombination aufgebaut werden konnte, blieben `samePclCandidates=0` und die Detailproben leer.
+- Es gab keine Diagnosefehler, keine verworfenen Query-/Move-Puffereinträge und keinen Crash. Das Spiel wurde regulär geschlossen.
+
+Der reine Torhausteil dieses Testlaufs wurde noch nicht ausreichend erfasst:
+
+- Die damalige Topologieerfassung begann ausschließlich bei Zugbrücken. Ein eigenständiges Torhaus ohne zugeordnete Brücke erzeugte daher keinen Kandidatendatensatz.
+- Die eine negative Different-PCL-Prüfung wurde vom damaligen Deferred-Filter nicht gespeichert, weil nur Same-PCL- und bereits vom Capturer-Filter berührte Abfragen detailliert ausgewertet wurden.
+- Deshalb ist aus diesem Torhaustest noch kein belastbarer funktionaler Patchpunkt ableitbar. Das beobachtete Vanilla-Verhalten grenzt die Aufgabe fachlich ein, beweist aber noch nicht, welche konkrete Tile-Path-Funktion das offene Fremdtor als Abkürzung bewertet.
+
+Der folgende Diagnosebuild schließt diese Lücken, ohne Pfadergebnisse zu verändern:
+
+- Lebende Torhäuser werden direkt aus dem nativen Gatehouse-Array erfasst, auch ohne Zugbrücke.
+- Ein `NeedsInit`-Tor, das noch keinen Gatehouse-Array-Eintrag besitzt, wird als deutlich markierter Footprint-Fallback erfasst.
+- Auch negative Different-PCL-Abfragen werden in den Deferred-Puffer übernommen.
+- Different-PCL-Kandidaten werden gegen die Tor-Ein-/Ausgangs-PCLs abgeglichen; beim Editor-Fallback wird nur eine diagnostische räumliche Berührung gemeldet.
+- Zugbrückenlogs enthalten den rohen `r_GatehouseId`, ihren Footprint, Rand-PCLs und nach Rechteckdistanz sortierte Torhauskandidaten. Eine räumliche Nähe wird noch nicht als funktionale Verknüpfung verwendet.
+- Eine nicht nativ zuordenbare Zugbrücke bleibt als `unlinked-bridge-diagnostic` anhand ihres eigenen Besitzers und ihrer Footprint-/Rand-PCLs mit Same-PCL-Abfragen korrelierbar. Auch dieser Datensatz ist rein diagnostisch.
 
 ## Was nicht funktioniert hat oder nicht ausreicht
 
@@ -109,6 +170,16 @@ Beides darf nicht wieder eingeführt werden.
 
 Im Editor wurden Tor und Zugbrücke bei der Erstellung als `NeedsInit` gemeldet. Der alte Scanner verwarf sie und protokollierte trotz vorhandener Gebäude dauerhaft `combinations=0`. Für die Diagnose müssen beide aktiven Zustände gelten; zerstörte oder andere inkonsistente Zustände bleiben ausgeschlossen.
 
+Der Test vom 31. August 2026 bestätigt, dass diese Änderung funktioniert: Die neue Zugbrücke wurde im Zustand `NeedsInit` gescannt und erst in der nachfolgenden Gatehouse-ID-Prüfung verworfen.
+
+### `r_GatehouseId` ungeprüft als lokale Gebäude-ID verwenden
+
+Der aktuelle Editortest zeigt, dass diese Annahme zumindest für die dort erstellte Zugbrücke nicht ausreicht. Obwohl Torhaus 1 und Zugbrücke 2 vorhanden waren, konnte der gespeicherte `r_GatehouseId` nicht als gültige lokale Gebäude-ID aufgelöst werden.
+
+Vor der nächsten fachlichen Korrektur müssen der rohe `r_GatehouseId`-Wert sowie mögliche alternative Zuordnungen protokolliert werden. Zu prüfen sind insbesondere 0 als fehlende Verknüpfung, ein globaler statt lokaler ID-Raum und eine räumliche Zuordnung über Gatehouse-/Zugbrücken-Tiles. Bis diese Semantik bestätigt ist, darf der Wert nicht zur funktionalen Blockierung verwendet werden.
+
+Der folgende Diagnosebuild gibt diese Informationen als `orphanBridge` aus. `spatialGateCandidates` ist dabei ausschließlich ein Messwert und kein stiller Ersatz für eine bestätigte native Beziehung.
+
 ### Zu grobe Probendeduplizierung
 
 Die erste Deduplizierung verwendete im Wesentlichen nur Spieler, PCL und Modus. Dadurch verbrauchte eine frühe bedeutungslose Prüfung bei Cursor `0/0` den Schlüssel, und der spätere Ritterbefehl wurde nicht mehr im Detail ausgegeben.
@@ -121,14 +192,16 @@ Ein normaler, vorgespulter KI-Test erzeugt sehr viele PCL-Abfragen und Befehle. 
 
 ## Empfohlener weiterer Ablauf
 
-1. Zuerst im Karteneditor ein feindliches Tor mit seitlich passierbarer heruntergelassener Zugbrücke bauen.
-2. Eine eigene Einheit auswählen und einen Zielpunkt hinter der Brücke anklicken.
+1. Zuerst ein feindliches Torhaus ohne Zugbrücke testen: einmal vollständig eingeschlossen und einmal mit einem langen realen Umweg um die Mauer.
+2. Danach am selben oder einem klar identifizierbaren Tor eine seitlich passierbare heruntergelassene Zugbrücke bauen und erneut hinter die Brücke klicken.
 3. Im Log prüfen:
-   - `Gate/drawbridge topology changed` mit `combinations=1`, oder einen eindeutigen Ausschlusszähler;
+   - `Gate/drawbridge topology changed` mit einem `standalone-gate`- oder ausdrücklich als Fallback bezeichneten Torhausdatensatz;
+   - beim reinen Torhaustest `differentPclGate`, `pclResult`, Ein-/Ausgangs-PCLs und den tatsächlichen Cursor-/MoveHere-Verlauf;
    - Gate-/Bridge-ID, Besitzer, Eroberer, Zustände, Footprint und Rand-PCLs;
    - `callerClass=cursor-to-MoveHere`;
    - einen positiven Same-PCL-Treffer und einen korrelierten positiven `MoveHere`-Befehl;
    - `pendingDropped(query=0,move=0)` und keine Diagnosefehler.
+   - falls die Brückenkombination erneut an `gateId` scheitert: `orphanBridge`, den rohen `r_GatehouseId`-Wert und `spatialGateCandidates` auswerten, bevor eine Policyentscheidung getroffen wird.
 4. Vergleichsfälle mit eigenem, verbündetem, selbst/verbündet erobertem und von einem dritten Spieler erobertem Tor testen.
 5. Danach mehrere Minuten normales Spiel stark vorspulen. KI-PCL-Abfragen und Befehle müssen steigen, ohne Logflut oder merkliche Blockade.
 6. Erst anhand der bestätigten Footprint-/Randdaten den eigentlichen Same-PCL-Fix entwerfen. Keine pauschale Same-PCL-Sperre einbauen.
@@ -148,7 +221,7 @@ Wichtige Zusammenfassungsfelder:
 - `queries`, aufgeteilt in `human`, `ai`, `unknown`
 - `same`, `different`, `positive`, `negative`
 - `capturerFilter(reached=..., bypassed=...)`
-- `samePclCandidates`
+- `candidates(samePcl=...,differentPclGate=...)`
 - `MoveHere` mit Rollen, Returnwerten, `correlated` und Miss-Gründen
 - `topologyRecords` mit akzeptierten und getrennt verworfenen Datensätzen
 - `pendingDropped(query=...,move=...)`

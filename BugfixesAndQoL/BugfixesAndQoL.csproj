@@ -48,6 +48,8 @@
     <Compile Include="..\Shared\NativePatternResolver.cs"><Link>Shared\NativePatternResolver.cs</Link></Compile>
     <Compile Include="..\Shared\SerpLocalization.cs"><Link>Shared\SerpLocalization.cs</Link></Compile>
     <Compile Include="src\AiAivSelectionCodec.cs" />
+    <Compile Include="src\AbruptHostMigrationFix.cs" />
+    <Compile Include="src\AbruptHostMigrationPolicy.cs" />
     <Compile Include="src\AivCandidateStatusApi.cs" />
     <Compile Include="src\AivCandidateSelectionPolicy.cs" />
     <Compile Include="src\AivAicPresetStore.cs" />
