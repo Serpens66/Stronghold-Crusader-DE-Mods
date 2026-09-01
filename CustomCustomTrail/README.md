@@ -1,100 +1,91 @@
 # Custom Custom Trail
 
-- Adds "customize" Button to all trails.
-- Allows you to create "custom coop trails".
-- Define specific modsetting presets for your trail mission, eg. including the unit/building limit and costs or even RandomEvents mods to make the game more challenging!
+- Fügt allen Custom Trails die Schaltfläche „Anpassen“ hinzu.
+- Speichert passende Modsettings zusammen mit einzelnen Trailmissionen.
+- Ermöglicht das Erstellen, Teilen und Spielen eigener Koop-Trails.
 
+Custom Custom Trail erweitert den Traileditor und die Auswahl der Trails, ohne den gewohnten Ablauf des Spiels unnötig zu verändern. Normale Custom Trails erhalten eigene Modsettings pro Mission. Zusätzlich kannst du aus den Missionen deines Traileditors vollständige Koop-Trails für zwei menschliche Spieler erstellen.
 
+## Modsettings in Trailmissionen
 
+In den Modsettings von Custom Custom Trail findest du den Bereich „MOD SETTINGS IN CUSTOM TRAILS“. Dort wählst du aus, welche kompatiblen Mods beim Speichern einer Trailmission berücksichtigt werden sollen. Erkannte kompatible Mods sind zunächst aktiviert.
 
-## Koop-Trail ingame erstellen
+Gespeichert werden nur Einstellungen, die der Host für die jeweilige Mission vorgibt. Persönliche Einstellungen einzelner Spieler bleiben unberührt. So kann eine Mission beispielsweise mit einer bestimmten Einheitenbegrenzung, angepassten Kosten oder passenden Zufallsereignissen erstellt werden, sofern die jeweiligen Mods Custom Custom Trail unterstützen.
 
-1. Missionen wie gewohnt im Traileditor anlegen und speichern.
-2. Im Exportdialog „Koop-Trail“ aktivieren.
-3. Den Trail normal exportieren.
+Beim Öffnen einer normalen oder einer Koop-Trailmission zeigt die Schaltfläche „Anpassen“ das gespeicherte Preset „Trail“. Im Traileditor kannst du diese Einstellungen bearbeiten. Beim normalen Spielen sind die Vorgaben der Mission geschützt, während die persönlichen Presets 1 und 2 der beteiligten Mods weiterhin unabhängig verwendet werden können.
 
-Nur vorhandene Missionen zählen; Lücken werden wie beim Vanilla-Export entfernt:
+Hat eine Mission keine gespeicherten Modsettings, bleibt sie vollständig spielbar. Custom Custom Trail verändert dann die aktuellen Einstellungen anderer Mods nicht.
+
+## Einen normalen Custom Trail erstellen
+
+Normale Custom Trails erstellst und exportierst du weiterhin mit den üblichen Funktionen des Traileditors:
+
+1. Wähle in den Modsettings von Custom Custom Trail aus, welche kompatiblen Mods berücksichtigt werden sollen.
+2. Lege deine Missionen an und speichere sie.
+3. Exportiere den Trail wie gewohnt.
+
+Die Modsettings werden passend zu jeder einzelnen Mission gespeichert. Beim Importieren, Sichern, Umbenennen oder Löschen eines Trails hält Custom Custom Trail diese zusätzlichen Missionsdaten automatisch mit den Trail-Dateien zusammen.
+
+## Einen Koop-Trail erstellen
+
+Ein Koop-Trail verwendet zwei menschliche Spieler und kann zusätzlich bis zu sechs KI-Gegner enthalten.
+
+1. Richte jede Mission im Traileditor mit den gewünschten Spielern, Teams, Positionen und Einstellungen ein.
+2. Speichere die Missionen wie gewohnt.
+3. Öffne „Pfad exportieren“.
+4. Aktiviere die Checkbox „Koop-Trail“.
+5. Vergib einen Namen und exportiere den Trail.
+
+Beim Export werden die Missionen diesen vier Koop-Trails zugeordnet:
 
 - Mission 1–10 ersetzt Koop-Trail 1.
 - Mission 11–20 ersetzt Koop-Trail 2.
 - Mission 21–30 ersetzt Koop-Trail 3.
 - Mission 31–40 ersetzt Koop-Trail 4.
-- Weitere Missionen werden nicht als Koop-Missionen verwendet, bleiben aber in den editierbaren Trail-Maker-Quelldateien erhalten.
 
-Die ersten beiden belegten Spielerslots werden Host und Gast. Positionen und Farben bleiben erhalten, der Gast wird automatisch dem Team des Hosts zugeordnet. Ab dem dritten belegten Slot folgen die KIs. Fairness, Startgüter und Gebäudefreigaben stammen aus dem gespeicherten Lobbysetup; die gemeinsamen Gebäudefreigaben gelten identisch für Host und Gast.
+Nur tatsächlich vorhandene Missionen werden übernommen; Lücken werden entfernt. Missionen nach Nummer 40 gehören zu keinem spielbaren Koop-Trail, bleiben aber in den bearbeitbaren Quelldateien des exportierten Pakets erhalten.
 
-Vor der Veröffentlichung wird das gesamte Koop-Paket geprüft. Eine Mission ohne zwei belegte Slots oder mit nicht auffindbaren Map-, Lord- oder AIV-Dateien bricht den Export mit einer Ingame-Meldung ab. Ein fehlendes `.modjson` ist zulässig; für diese Mission bleiben die aktuell lokalen Einstellungen anderer Mods unverändert.
+Die ersten beiden belegten Spielerslots werden Host und Gast. Ihre Positionen und Farben bleiben erhalten. Der Gast wird automatisch dem Team des Hosts zugeordnet. Ab dem dritten belegten Slot werden die Spieler als KI-Gegner übernommen. Fairness, Startgüter und Gebäudefreigaben stammen ebenfalls aus dem gespeicherten Lobbysetup.
 
-Normale und Koop-Exporte verwenden dieselbe Modsettings-Quelle pro Mission. Ein unmittelbar vor Vanillas Speichervorgang erfasster Snapshot hat Vorrang vor dem vorhandenen `.modjson`; danach folgt der gespeicherte Sidecar. Fehlen beide Quellen, enthält die Mission keine fremden Modsettings und verwaltet diese Mods beim Laden nicht. Dadurch bleiben auch Exporte korrekt, die Vanilla noch innerhalb des laufenden Missionsspeicherns auslöst.
+Custom Maps, Custom Lords und AIV-Dateien, die von den Missionen benötigt werden, werden beim Export in das Koop-Paket aufgenommen. Dadurch kann das Paket vollständig weitergegeben werden, ohne dass andere Spieler die verwendeten Dateien einzeln zusammensuchen müssen.
 
-Einfache Werte bleiben direkt lesbar im JSON. Komplexe oder künftig neu hinzukommende `[SyncHostOnly]`-Propertytypen werden typisiert mit derselben MessagePack-Serialisierung abgelegt, die das gemeinsame Presetsystem verwendet. Damit benötigt `CustomCustomTrail` für neue unterstützte Preset-Propertytypen keine eigene JSON-Typerweiterung.
+Vor dem Export prüft der Mod alle Missionen und benötigten Dateien. Fehlen beispielsweise der zweite menschliche Spielerslot, eine Karte, ein Lord oder eine AIV-Datei, wird der Export abgebrochen und im Spiel eine verständliche Meldung angezeigt.
 
-Ein aktivierter Koop-Export erscheint ausschließlich im Koop-Pfadmenü und nicht zusätzlich als normaler Custom Trail. Damit das Paket später trotzdem wieder in den Trail Maker importiert und bearbeitet werden kann, liegen die normalen `.trail`-Quelldateien nur im Unterordner `TrailMakerSource`. Der Mod ergänzt solche Pakete in Vanillas Ingame-Liste „Pfad importieren“ und leitet Vanillas originale Trail-Importmethode auf diesen Unterordner um. Der anschließende Import verwendet vollständig Vanillas Ablauf: Abhängig von der sichtbaren Backup-Checkbox wird zuerst ein Backup erstellt, danach leert Vanilla den aktuellen Trail-Maker-Arbeitsordner und importiert den gewählten Pfad. Zugehörige `.modjson`-Dateien werden erst danach und niemals über bereits vorhandene Sidecars kopiert.
+## Einen Koop-Trail bearbeiten
 
-Vorhandene Koop-Pakete erscheinen außerdem in Vanillas Liste „Pfad exportieren“. Ihre Auswahl übernimmt wie bei einem normalen Custom Trail den vorhandenen Paketnamen in das Export-Namensfeld; Bestätigung, optionales Backup und Überschreiben folgen weiterhin Vanillas Exportablauf.
+Exportierte Koop-Trails erscheinen im Traileditor sowohl unter „Pfad importieren“ als auch unter „Pfad exportieren“.
 
-## Installiertes Paket auswählen
+Über „Pfad importieren“ kannst du einen Koop-Trail wieder in den Traileditor laden und dort weiterbearbeiten. Die sichtbare Option zum Erstellen eines Backups funktioniert dabei wie bei normalen Trails. Beim erneuten Export kannst du das vorhandene Paket überschreiben oder einen neuen Namen vergeben.
 
-Unter den Modsettings wählt der Host „Vanilla – kein eigenes Paket“ oder genau ein installiertes Koop-Trail-Paket. Gäste sehen die Hostauswahl schreibgeschützt. Das Dropdown wird beim Öffnen sowie nach Import und Export neu eingelesen.
+Ein als Koop-Trail exportiertes Paket erscheint nur im Koop-Trail-Menü und nicht zusätzlich als normaler Custom Trail.
 
-Im Koop-Pfadmenü wird der beim Export gespeicherte Kartenname als Missionsname angezeigt. Für jeden durch das Paket belegten Koop-Trail ersetzt der Paketname außerdem die jeweilige Vanilla-Trailüberschrift; unbelegte Trails behalten ihren Vanilla-Namen.
+## Einen Koop-Trail spielen
 
-Paket-ID und SHA-256-Inhaltsfingerprint werden synchronisiert. Jeder Teilnehmer prüft sein lokales Paket. Nach dem Beitritt aktualisiert der Client die bereits sichtbare Koop-Mission nochmals mit den empfangenen Hostdaten und meldet ein fehlendes oder abweichendes Paket sofort. Bei einem ersetzten Missionsplatz blockiert der Mod `Ready`, `ReadyLock` und beim Host `Play`, solange einem Teilnehmer das Paket fehlt, es beschädigt ist oder vom Hostinhalt abweicht. Die Hostmeldung unterscheidet fehlende und inhaltlich abweichende Pakete samt Spielernamen. Nicht belegte Paketplätze bleiben Vanilla und benötigen das Paket für ihren Start nicht.
+Der Host wählt in den Modsettings von Custom Custom Trail entweder „Vanilla – kein eigenes Paket“ oder ein installiertes Koop-Trail-Paket aus. Gäste sehen die Auswahl des Hosts, können sie aber nicht selbst ändern.
 
-Das Paket wird nicht über das Spielnetz übertragen. Zum Verteilen muss der vollständige Custom-Trail-Ordner kopiert werden.
+Das ausgewählte Paket ersetzt nur die Koop-Trails und Missionen, für die es Inhalte besitzt. Nicht belegte Plätze bleiben unveränderte Vanilla-Koop-Trails.
 
-Beim Auswählen und direkten Start einer ersetzten Koop-Mission wird derselbe zentrale Trail-Preset-Kontext wie bei normalen Custom Trails aktiviert und über den Kartenwechsel beibehalten. „Anpassen“ öffnet denselben Missionssnapshot als sichtbares, editierbares Preset „Trail“ und wendet ihn vor einem anschließenden Start erneut an.
+Alle Teilnehmer benötigen Custom Custom Trail und dasselbe vollständige Koop-Paket. Der Mod prüft dies automatisch. Fehlt das Paket bei einem Spieler oder unterscheidet sich dessen Inhalt von der Version des Hosts, zeigt das Spiel eine passende Meldung mit dem betroffenen Spielernamen an. Eine ersetzte Mission kann erst gestartet werden, wenn die benötigten Pakete übereinstimmen.
 
-## Paketstruktur
+Die Auswahl und Prüfung gelten nur für Missionen des gewählten Pakets. Vanilla-Missionen lassen sich weiterhin ohne dieses Paket starten.
 
-Der Koop-Paketordner enthält:
+## Einen Trail über den Steam Workshop teilen
 
-    Mein Trail\
-      cooptrail.json
-      CoopMissions\
-        01.coopmission.json
-        ...
-        40.coopmission.json
-        Assets\
-          01\
-            map.map
-            lord-3.lordjson
-            aiv-3-1.aivjson
-      TrailMakerSource\
-        Trail_Mission_1.trail
-        Trail_Mission_1.modjson
+Öffne nach dem Export die Ingame-Seite zum Hochladen eines Custom Trails und wähle den gewünschten Trail aus. Für normale und Koop-Trails zeigt Custom Custom Trail dort die Checkbox „Modsettings aufnehmen“ an. Sie ist bei jedem Öffnen der Seite aktiviert.
 
-`cooptrail.json` enthält `schemaVersion`, eine beim Überschreiben stabil bleibende `packageId`, `displayName`, `missionCount` und den Fingerprint aller Missions-JSONs und gebündelten Dateien. Ordner mit ungültigem Manifest, ungültigen Missionen, falschem Fingerprint oder doppelter Paket-ID erscheinen nicht im Dropdown.
+- Aktiviert: Die zur Mission gespeicherten Modsettings werden zusammen mit dem Trail hochgeladen.
+- Deaktiviert: Der Trail wird ohne Modsettings hochgeladen.
 
-Das frühere Pluginlayout `BepInEx\plugins\CustomCustomTrail_Serp\CoopTrails\TrailN\NN.coopmission.json` wird nicht mehr geladen.
+Die Checkbox entscheidet nur, ob bereits gespeicherte Modsettings Teil des Uploads sind. Welche kompatiblen Mods beim Speichern einer Mission aufgenommen werden, legst du weiterhin im Bereich „MOD SETTINGS IN CUSTOM TRAILS“ fest.
 
-## Missionsformat
+Bei Koop-Trails bleibt die vollständige Paketstruktur mit Missionen und benötigten Dateien in beiden Fällen erhalten. Nur die gespeicherten Modsettings werden auf Wunsch weggelassen.
 
-Das bestehende `coopmission.json`-Schema 2 bleibt erhalten. Eine Datei enthält:
+Nach dem Abonnieren muss das vollständige Paket bei allen Mitspielern installiert sein. Das Spiel überträgt Koop-Trail-Pakete nicht automatisch über die Mehrspieler-Lobby.
 
-- Namen und optionale Beschreibung;
-- Mapreferenz;
-- Fairness, Startgüter und getrennte Host-/Gast-Gebäudefreigaben;
-- zwei menschliche sowie bis zu sechs KI-Spieler mit Team, Farbe und Keep-Position;
-- Lord- und AIV-Referenzen;
-- den missionsabhängigen `modSettings`-Snapshot.
+## Hinweise für Ersteller und Spieler
 
-Assets unterstützen weiterhin `builtIn`, `installed` und `bundled`. Der Ingame-Exporter verwendet für Custom Maps, Lords und AIVs bewusst `bundled`, sodass das Paket portabel bleibt. Relative Pfade dürfen ihren Paketordner nicht verlassen.
-
-Ein vollständiges manuelles Missionsbeispiel und ein Manifestbeispiel liegen unter `Examples`. Der Fingerprint im Manifestbeispiel ist nur ein Platzhalter; produktive Pakete sollten über den Ingame-Exporter erzeugt werden.
-
-## Modsettings der Trails
-
-Die Modsettings zeigen automatisch alle derzeit installierten kompatiblen Mods als Checkboxen. Sie sind standardmäßig aktiviert; `CustomCustomTrail` selbst wird nicht angeboten. Eine deaktivierte Checkbox lässt die betreffende Mod beim Erstellen neuer Trail-Snapshots vollständig unverwaltet. Inkompatible installierte Mods erscheinen darunter ausschließlich als kommagetrennte Namensliste.
-
-Normale Custom-Trail-Missionen speichern für die ausgewählten Mods ausschließlich persistente `[SyncHostOnly]`-Properties als gleichnamige `.modjson`. Die stabile Identität ist jeweils die BepInEx-Plugin-GUID. Welche Mods unterstützt werden, ist nicht fest im Code hinterlegt: Jede registrierte Modsettings-ViewModel, die den sicheren Mission-Preset-Vertrag erfüllt und keinen expliziten Opt-out setzt, wird automatisch erkannt.
-
-Der verlinkte Guide [`Mod Compatibilty CustomCustomTrail.md`](../Mod%20Compatibilty%20CustomCustomTrail.md) beschreibt für fremde Modautoren die empfohlene Shared-Integration, die exakten Vertragsmethoden, Property-Regeln und Diagnose über das BepInEx-Log.
-
-Speichern, Laden, Import, Export, Backup, Renummerierung und Löschen spiegeln diese Sidecars. Beim Koop-Export wird der jeweilige normalisierte Stand in die Mission eingebettet. Empfangene Hostwerte und persönliche Client-Einstellungen werden nicht in Trail-Dateien oder lokale Presets geschrieben.
-
-Custom- und Koop-Trail-Missionen bieten vor dem Start „Anpassen“. Das gespeicherte Missionspreset `Trail` ist beim Spielen schreibgeschützt; im Traileditor bleibt es editierbar. Die lokalen Presets 1 und 2 der beteiligten Mods funktionieren unabhängig weiter. Eingebaute Vanilla-Trails besitzen keine eigenen gespeicherten Missions-Modsettings.
-
-## Entwicklung
-
-`build.bat` führt Core-, Struktur-, Host-/Client- und XAML-Prüfungen aus, baut das Paket und installiert es atomar in den Spieleordner. `/nopause` unterdrückt die Abschlussabfrage.
+- Verwende vor dem Teilen am besten die Ingame-Exportfunktion, damit alle benötigten Dateien aufgenommen und geprüft werden.
+- Teste jede Koop-Mission einmal mit den vorgesehenen Mods und Einstellungen.
+- Teile den vollständigen exportierten Ordner, wenn du den Trail nicht über den Workshop verteilst.
+- Achte darauf, dass Host und Gäste dieselbe Paketversion verwenden.
+- Nicht installierte oder nicht kompatible Mods können von Custom Custom Trail nicht als Missionsvorgabe gespeichert werden.

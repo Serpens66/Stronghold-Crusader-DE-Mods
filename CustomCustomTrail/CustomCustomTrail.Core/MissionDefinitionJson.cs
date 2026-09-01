@@ -21,20 +21,9 @@ namespace CustomCustomTrail.Core
 
             if (root.TryGetValue("settings", out object settingsValue) && settingsValue != null)
                 mission.Settings = ParseSettings(RequireObject(settingsValue, "settings"));
+            if (root.ContainsKey("modSettings"))
+                throw new InvalidDataException("Embedded modSettings are not supported; use the matching .modjson sidecar.");
 
-            if (root.TryGetValue("modSettings", out object modSettingsValue) && modSettingsValue != null)
-            {
-                try
-                {
-                    mission.ModSettings = ModSettingsJson.ParseObject(RequireObject(modSettingsValue, "modSettings"));
-                }
-                catch (Exception exception)
-                {
-                    // A broken embedded preset must not make the mission assets unusable.
-                    mission.ModSettings = ModSettingsDefinition.CreateUnmanaged();
-                    mission.ModSettingsError = exception.Message;
-                }
-            }
             return mission;
         }
 
@@ -48,7 +37,6 @@ namespace CustomCustomTrail.Core
                 ["map"] = WriteAsset(mission.Map),
                 ["settings"] = WriteSettings(mission.Settings),
                 ["players"] = mission.Players.Select(WritePlayer).Cast<object>().ToList(),
-                ["modSettings"] = Shared.DependencyFreeJson.Parse(ModSettingsJson.Serialize(mission.ModSettings)),
             };
             return Shared.DependencyFreeJson.Serialize(root);
         }

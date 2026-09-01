@@ -93,10 +93,14 @@ namespace CustomCustomTrail
                     CoopMissionDefinition definition = CreateDefinition(
                         trailPath,
                         ordinal,
-                        missionsRoot,
-                        readModSettings);
+                        missionsRoot);
                     string jsonPath = Path.Combine(missionsRoot, ordinal.ToString("00") + ".coopmission.json");
                     MissionLoader.WriteAtomic(jsonPath, definition);
+                    ModSettingsDefinition modSettings = readModSettings != null
+                        ? readModSettings(trailPath)
+                        : ReadModSettings(trailPath);
+                    if (modSettings?.Mods?.Count > 0)
+                        ModSettingsJson.WriteAtomic(MissionLoader.GetModSettingsPath(jsonPath), modSettings);
                     jsonPaths.Add(jsonPath);
                 }
                 if (ordinal == 0)
@@ -109,6 +113,8 @@ namespace CustomCustomTrail
                 {
                     LoadedMission loaded = loader.Load(jsonPaths[index], (index / 10) + 1, (index % 10) + 1);
                     fingerprintFiles.AddRange(loaded.BundledFiles);
+                    if (loaded.ModSettingsPath != null)
+                        fingerprintFiles.Add(loaded.ModSettingsPath);
                 }
                 var manifest = new CoopTrailPackageManifest
                 {
@@ -136,8 +142,7 @@ namespace CustomCustomTrail
         private static CoopMissionDefinition CreateDefinition(
             string trailPath,
             int ordinal,
-            string missionsRoot,
-            Func<string, ModSettingsDefinition> readModSettings)
+            string missionsRoot)
         {
             FileHeader container = MapFileManager.Instance.GetFileInfoFromFileName(
                 trailPath,
@@ -166,7 +171,6 @@ namespace CustomCustomTrail
                 Map = CreateMapReference(restart.selectedHeader, assetRoot, ordinal),
                 Settings = CreateSettings(restart.MPsetupData),
                 Players = new List<PlayerDefinition>(),
-                ModSettings = readModSettings != null ? readModSettings(trailPath) : ReadModSettings(trailPath),
             };
 
             for (int activeIndex = 0; activeIndex < activeSlots.Count; activeIndex++)

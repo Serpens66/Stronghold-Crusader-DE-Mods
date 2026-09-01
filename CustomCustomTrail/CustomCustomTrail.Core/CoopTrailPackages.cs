@@ -9,7 +9,7 @@ namespace CustomCustomTrail.Core
 {
     public static class CoopTrailPackageManifestJson
     {
-        public const int CurrentSchemaVersion = 1;
+        public const int CurrentSchemaVersion = 2;
 
         public static CoopTrailPackageManifest Read(string path)
         {
@@ -206,6 +206,8 @@ namespace CustomCustomTrail.Core
                 missions.Add(loaded);
                 fingerprintFiles.Add(loaded.JsonPath);
                 fingerprintFiles.AddRange(loaded.BundledFiles);
+                if (loaded.ModSettingsPath != null)
+                    fingerprintFiles.Add(loaded.ModSettingsPath);
             }
             string fingerprint = CoopTrailPackageFingerprint.Compute(root, fingerprintFiles);
             if (!string.Equals(fingerprint, manifest.ContentFingerprint, StringComparison.OrdinalIgnoreCase))

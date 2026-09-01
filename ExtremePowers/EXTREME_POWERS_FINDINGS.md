@@ -69,6 +69,13 @@ Es gibt bislang keine Script-Extender-API für Kosten, Regeneration, Effektparam
 - Schreibstellen befinden sich im `DLL_GameAction`-Fall bei VA `0x1800825E3` bis `0x180082667`.
 - Dieser Wert ist UI-/Auswahlzustand, nicht der finale Effekt-Dispatcher. Mehrere weitere Leser gehören Save-/Diagnose- oder Darstellungspfaden und dürfen nicht vorschnell als Effektausführung interpretiert werden.
 
+### Kartenpunkt-Targeting und Pending-Power
+
+- Die Power-Auswahl schreibt die Power-ID bei VA `0x1801055C7` in VA `0x1860AD574` (RVA `0x60AD574`) und setzt unmittelbar danach bei VA `0x1801055CF` den Targetingmodus `5`.
+- Der Kartenpunkt-Abschluss liest diese Pending-Power bei VA `0x18008CAF2`. Im bestätigten Erfolgszweig wird sie ab VA `0x18008CE0C` zusammen mit Ziel und Spieler in die native Chore-Struktur geschrieben und anschließend versendet.
+- Die erste Gold-Demo-Version startete für die Kartenpunktwahl korrekt die Pfeilsalve, schrieb danach jedoch fälschlich den UI-Auswahlzustand bei RVA `0x366A0C4` zurück. Dadurch blieb die Pending-Power `0` und der Zielabschluss führte einen echten Vanilla-Pfeilhagel aus.
+- Der korrigierte Pfad schreibt nach der Vanilla-Zielvorbereitung die ursprüngliche Gold-ID `5` in RVA `0x60AD574`. Writer samt Targetingmodus, Reader und Chore-Transfer sind zusätzliche Build-Guards; eine Abweichung deaktiviert alle Modifikationen.
+
 ## Vanilla-Werte und Validierungsstatus
 
 | Bereich | Wert | Status |
@@ -107,7 +114,7 @@ Unbekannte Effektwerte werden in der API nicht als angebliche Vanilla-Werte ausg
 - Die Loganalyse des lokalen Skirmish zeigte `players=[1], unresolved=True`. Die frühere Bereitschaftsschranke verlangte auch dort `System_ArePerPlayerSettingsReady(...)`, weshalb Auswahl und Dispatcher still an Vanilla weiterleiteten und die Gold-Power weiterhin Gold gab. Das war die bestätigte Ursache des Testfehlers.
 - Singleplayer, Trail und lokaler Skirmish umgehen Teilnehmerberichte jetzt vollständig. Nur ein mit `Shared.GameModeHelper.Capture(args.bMultiplayerSave != 0)` als echter Multiplayer festgehaltener Kartenlauf verlangt vollständige Berichte aller menschlichen Teilnehmer.
 - Der Bericht ist kein bloßes `1` mehr, sondern enthält API-Protokoll, kanonischen DLL-Hash, Native-/Vanilla-Backendstatus und die vom Script Extender dynamisch zugeteilte Paket-ID. Da `GetPacketEventFor<T>()` freie IDs in Registrierungsreihenfolge vergibt, wird eine abweichende Mod-Ladereihenfolge dadurch erkannt und die gesamte Modifikation fällt auf Vanilla zurück.
-- Der direkte Vanilla-HUD-Weg nutzt den bereits synchronisierten Extreme-Power-Chore des Spiels. Für die Gold-Demo wird zur Kartenpunktwahl die Vanilla-Auswahl der Pfeilsalve vorbereitet und danach nur der ausgewählte Power-Index wieder auf Gold gestellt.
+- Der direkte Vanilla-HUD-Weg nutzt den bereits synchronisierten Extreme-Power-Chore des Spiels. Für die Gold-Demo wird zur Kartenpunktwahl die Vanilla-Auswahl der Pfeilsalve vorbereitet und danach die vom Zielabschluss gelesene Pending-Power auf Gold zurückgestellt.
 - Operationen des generischen API-Chores werden pro Spieler und Operation-ID dedupliziert; Karten-Unload verwirft die Historie.
 - `QueueReplacement` liefert neben dem Ergebnis einen Ablehnungsgrund. Auswahl, Dispatcher und Chorepfad melden Zustandswechsel beziehungsweise begrenzte Ausführungsdiagnosen mit Power, Spieler, Ziel, Mana, Kosten, Operation und Callbackfehler.
 
@@ -117,6 +124,7 @@ Unbekannte Effektwerte werden in der API nicht als angebliche Vanilla-Werte ausg
 - Die API übernimmt diese Semantik: Nach erfolgreichem `CanExecute` und normal zurückgekehrtem Callback werden die vollständigen Kosten abgezogen, auch wenn wegen des Einheitenlimits nur ein Teil oder keine Einheit erzeugt wurde. Eine `CanExecute`-Ablehnung oder Callback-Exception kostet nichts.
 - Spawn-Typen müssen definierte `eChimps`-Werte strikt zwischen `CHIMP_TYPE_NULL` und `CHIMP_NUM_TYPES` sein. Die tatsächliche Spawnanzahl wird protokolliert.
 - Temporäre Kostenkompensation verwendet einen breiteren Zwischenwert und fällt bei nicht darstellbarem Ergebnis ohne Exception auf Vanilla zurück. Goldaddition sättigt am nativen `UInt32`-Maximum.
+- Benutzerdefinierte Kosten bleiben eine funktionsfähige API-Funktion: Anzeige-Freigabe, Auswahlprüfung und Abbuchung verwenden den konfigurierten Wert. Die sichtbaren Vanilla-Kostenbeschriftungen sind jedoch an die acht Positionen gebunden und werden von der API derzeit nicht ersetzt. Kostenänderungen sind deshalb ohne zusätzlichen HUD-Patch nicht empfohlen; der Beispielmod verwendet ausschließlich die Vanilla-Kosten.
 
 ## Targeting-Status
 

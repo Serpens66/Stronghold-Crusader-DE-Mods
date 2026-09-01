@@ -24,7 +24,10 @@ namespace ExtremePowers.API
         private const int ResourceRegenerationBlockRva = 0xCDD87;
         private const int ResourceUpdateCallsiteRva = 0xCE25E;
         private const int ResourceUpdateTailRva = 0xCDE3C;
-        private const int SelectedPowerRva = 0x366A0C4;
+        private const int PendingTargetPowerRva = 0x60AD574;
+        private const int PendingTargetWriterRva = 0x1055C7;
+        private const int PendingTargetReaderRva = 0x8CAF2;
+        private const int PendingTargetChoreWriteRva = 0x8CE0A;
         private const int ManaRva = 0x379E7A4;
         private const int GoldRva = 0x379E7A8;
         private const int GoldCycleRva = 0x856A6D2;
@@ -39,6 +42,9 @@ namespace ExtremePowers.API
         private static readonly byte[] ResourceRegenerationBlockSignature = { 0x45,0x8B,0x88,0x50,0x39,0x00,0x00,0x41,0x81,0xF9,0x58,0x1B,0x00,0x00,0x7D,0x35,0x81,0x3D,0x93,0xB0,0x59,0x03,0xB8,0x0B,0x00,0x00,0x7F,0x1E,0x8B,0x0D,0xAF,0x81,0x59,0x03,0xB8,0x56,0x55,0x55,0x55,0xF7,0xE9,0x8B,0xC2,0xC1,0xE8,0x1F,0x03,0xD0,0x8D,0x04,0x52,0x2B,0xC8,0x83,0xF9,0x02,0x75,0x0B,0x41,0x8D,0x41,0x01,0x41,0x89,0x80,0x50,0x39,0x00,0x00 };
         private static readonly byte[] ResourceUpdateCallsiteSignature = { 0x48,0x8B,0xCB,0xE8,0xBA,0xF8,0xFF,0xFF };
         private static readonly byte[] ResourceUpdateTailSignature = { 0x48,0x8B,0x6C,0x24,0x38,0x48,0x8B,0x74,0x24,0x40,0x41,0x5F,0x41,0x5E,0x41,0x5D,0x41,0x5C,0x5F,0xE9,0x7C,0xDB,0xFF,0xFF };
+        private static readonly byte[] PendingTargetWriterSignature = { 0x89,0x1D,0xA7,0x7F,0xFA,0x05,0xFF,0xCB,0xC7,0x05,0x93,0x7F,0xFA,0x05,0x05,0x00,0x00,0x00 };
+        private static readonly byte[] PendingTargetReaderSignature = { 0x8B,0x3D,0x7C,0x0A,0x02,0x06,0x4C,0x8D,0x15,0xB1,0x22,0xFD,0x03 };
+        private static readonly byte[] PendingTargetChoreWriteSignature = { 0xB2,0x77,0x89,0x3D,0x1A,0x45,0x63,0x08,0x48,0x8D,0x0D,0x07,0x75,0x4E,0x08,0x44,0x89,0x25,0x10,0x45,0x63,0x08,0x44,0x89,0x3D,0x0D,0x45,0x63,0x08 };
 
         [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate void DispatcherDelegate(IntPtr self, int playerId, int powerId, int targetTileId);
         [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate void SelectionDelegate(int powerId);
@@ -92,6 +98,9 @@ namespace ExtremePowers.API
             RequireSignature(memory, ResourceRegenerationBlockRva, ResourceRegenerationBlockSignature, "resource regeneration block");
             RequireSignature(memory, ResourceUpdateCallsiteRva, ResourceUpdateCallsiteSignature, "resource update callsite");
             RequireSignature(memory, ResourceUpdateTailRva, ResourceUpdateTailSignature, "resource update function tail");
+            RequireSignature(memory, PendingTargetWriterRva, PendingTargetWriterSignature, "pending target power writer and target mode");
+            RequireSignature(memory, PendingTargetReaderRva, PendingTargetReaderSignature, "pending target power reader");
+            RequireSignature(memory, PendingTargetChoreWriteRva, PendingTargetChoreWriteSignature, "pending target chore transfer");
             moduleBase = unchecked((ulong)libraryHandle.ToInt64());
             heal = InteropMarshal.GetDelegateForFunctionPointer<HealDelegate>((IntPtr)(moduleBase + HealRva));
             volley = InteropMarshal.GetDelegateForFunctionPointer<VolleyDelegate>((IntPtr)(moduleBase + VolleyRva));
@@ -209,7 +218,8 @@ namespace ExtremePowers.API
             *mana = compensated;
             try { originalSelection(selectedForVanilla); }
             finally { *mana = before; }
-            if (selectedForVanilla != powerId) *(int*)(moduleBase + SelectedPowerRva) = powerId;
+            // Vanilla Arrow Volley supplies map targeting; restore the original power in the field consumed by target completion.
+            if (selectedForVanilla != powerId) *(int*)(moduleBase + PendingTargetPowerRva) = powerId;
         }
 
         private void Dispatch(IntPtr self, int playerId, int powerId, int targetTileId)

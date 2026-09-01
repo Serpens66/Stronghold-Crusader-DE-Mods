@@ -377,7 +377,7 @@ namespace CustomCustomTrail
                 }
                 catch (Exception exception)
                 {
-                    DebugLogHelper.LogError(log, $"Could not load {source} mod settings; embedded mod settings are ignored: {exception}");
+                    DebugLogHelper.LogError(log, $"Could not load {source} mod settings; sidecar mod settings are ignored: {exception}");
                     ApplyDocument(ModSettingsDefinition.CreateUnmanaged(), editable);
                     return Array.Empty<string>();
                 }
@@ -569,7 +569,7 @@ namespace CustomCustomTrail
                     {
                         try
                         {
-                            UploadCoopTrailPackage(self, selectedRow.trail);
+                            UploadCoopTrailPackage(self, selectedRow.trail, uploadOptions.IncludeModSettings);
                         }
                         catch (Exception exception)
                         {
@@ -581,7 +581,7 @@ namespace CustomCustomTrail
                         return;
                     }
 
-                    ArmUploadDecision(uploadRoot, itemName, uploadOptions.IncludeAdditionalFiles);
+                    ArmUploadDecision(uploadRoot, itemName, uploadOptions.IncludeModSettings);
                     try
                     {
                         editorSetupButtonOriginal(self, command);
@@ -604,7 +604,7 @@ namespace CustomCustomTrail
                 else if (string.Equals(command, "Upload", StringComparison.Ordinal))
                 {
                     if (selectedRow?.trail != null)
-                        uploadOptions.Open(IsCoopPackageFolder(selectedRow.trail.Name));
+                        uploadOptions.Open();
                     else
                         uploadOptions.Close();
                 }
@@ -627,7 +627,7 @@ namespace CustomCustomTrail
                 Action failAction)
             {
                 PendingUploadDecision decision = ConsumeUploadDecision(nameMap, mapTitle);
-                if (decision != null && decision.IncludeAdditionalFiles && IsCustomTrailUpload(tags))
+                if (decision != null && decision.IncludeModSettings && IsCustomTrailUpload(tags))
                 {
                     string source = IOPath.Combine(ConfigSettings.GetUserCustomTrailsPath(), mapTitle);
                     string destination = IOPath.Combine(nameMap, mapTitle);
@@ -647,11 +647,11 @@ namespace CustomCustomTrail
                         log,
                         $"Added {copiedFiles} Custom Trail mod-settings sidecar(s) to Workshop staging for [{mapTitle}].");
                 }
-                else if (decision != null && !decision.IncludeAdditionalFiles)
+                else if (decision != null && !decision.IncludeModSettings)
                 {
                     DebugLogHelper.LogInfo(
                         log,
-                        $"Custom Trail upload [{mapTitle}] uses Vanilla files only by explicit user choice.");
+                        $"Custom Trail upload [{mapTitle}] excludes mod-settings sidecars by explicit user choice.");
                 }
 
                 uploadWorkshopMapOriginal(
@@ -669,10 +669,10 @@ namespace CustomCustomTrail
             private static bool IsCustomTrailUpload(string[] tags) =>
                 tags != null && tags.Any(tag => string.Equals(tag, "Custom Trail", StringComparison.Ordinal));
 
-            private void ArmUploadDecision(string root, string itemName, bool includeAdditionalFiles)
+            private void ArmUploadDecision(string root, string itemName, bool includeModSettings)
             {
                 lock (uploadDecisionLock)
-                    pendingUploadDecision = new PendingUploadDecision(root, itemName, includeAdditionalFiles);
+                    pendingUploadDecision = new PendingUploadDecision(root, itemName, includeModSettings);
             }
 
             private PendingUploadDecision ConsumeUploadDecision(string root, string itemName)
@@ -790,14 +790,26 @@ namespace CustomCustomTrail
                     File.Exists(IOPath.Combine(packageRoot, "cooptrail.json"));
             }
 
-            private void UploadCoopTrailPackage(FRONT_EditorSetup page, MapFileManager.CustomTrailInfo trail)
+            private void UploadCoopTrailPackage(
+                FRONT_EditorSetup page,
+                MapFileManager.CustomTrailInfo trail,
+                bool includeModSettings)
             {
                 string source = IOPath.GetFullPath(IOPath.Combine(ConfigSettings.GetUserCustomTrailsPath(), trail.Name));
                 CoopTrailPackage package = CoopTrailPackageCatalog.Load(source);
                 string uploadContent = ConfigSettings.GetWorkshopUploadContentPath();
                 string destination = IOPath.Combine(uploadContent, trail.Name);
-                Directory.CreateDirectory(destination);
-                CopyWorkshopPackage(source, destination, trail.Name + ".data");
+                CoopTrailPackage stagedPackage = CoopWorkshopPackageStaging.Stage(
+                    package,
+                    destination,
+                    trail.Name + ".data",
+                    includeModSettings,
+                    out int copiedModSettings);
+                DebugLogHelper.LogInfo(
+                    log,
+                    $"Prepared Coop Trail Workshop package [{trail.Name}] with " +
+                    $"mod-settings included={includeModSettings}, sidecars={copiedModSettings}, " +
+                    $"fingerprint={stagedPackage.Manifest.ContentFingerprint}.");
 
                 var tags = new List<string> { "Custom Trail" };
                 string previewName;
@@ -862,19 +874,6 @@ namespace CustomCustomTrail
                                 uploadPanel.Visibility = Visibility.Hidden;
                             });
                     });
-            }
-
-            private static void CopyWorkshopPackage(string source, string destination, string metadataFileName)
-            {
-                Directory.CreateDirectory(destination);
-                foreach (string file in Directory.GetFiles(source))
-                {
-                    if (string.Equals(IOPath.GetFileName(file), metadataFileName, StringComparison.OrdinalIgnoreCase))
-                        continue;
-                    File.Copy(file, IOPath.Combine(destination, IOPath.GetFileName(file)), true);
-                }
-                foreach (string directory in Directory.GetDirectories(source))
-                    CopyDirectory(directory, IOPath.Combine(destination, IOPath.GetFileName(directory)));
             }
 
             private void AddCoopRows(
@@ -1126,7 +1125,7 @@ namespace CustomCustomTrail
                     Name = "CustomCustomTrailCoopExport",
                     Content = SerpLocalization.Get("CustomCustomTrail.TrailMakerCoop"),
                     ToolTip = SerpLocalization.Get("CustomCustomTrail.TrailMakerCoopHelp"),
-                    Foreground = new SolidColorBrush(Color.FromArgb(byte.MaxValue, byte.MaxValue, byte.MaxValue, byte.MaxValue)),
+                    Foreground = new SolidColorBrush(Color.FromArgb(byte.MaxValue, 0, 0, 0)),
                     FontSize = 20,
                     Style = anchor.Style,
                     Height = anchor.Height,
@@ -2215,14 +2214,14 @@ namespace CustomCustomTrail
                 private readonly string root;
                 private readonly string itemName;
 
-                internal PendingUploadDecision(string root, string itemName, bool includeAdditionalFiles)
+                internal PendingUploadDecision(string root, string itemName, bool includeModSettings)
                 {
                     this.root = Normalize(root);
                     this.itemName = itemName ?? string.Empty;
-                    IncludeAdditionalFiles = includeAdditionalFiles;
+                    IncludeModSettings = includeModSettings;
                 }
 
-                internal bool IncludeAdditionalFiles { get; }
+                internal bool IncludeModSettings { get; }
 
                 internal bool Matches(string candidateRoot, string candidateItemName) =>
                     string.Equals(root, Normalize(candidateRoot), StringComparison.OrdinalIgnoreCase) &&

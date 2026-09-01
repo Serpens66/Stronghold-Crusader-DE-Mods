@@ -100,6 +100,7 @@ namespace CustomCustomTrail.Core
         public int MissionNumber { get; set; }
         public string JsonPath { get; set; }
         public string MissionRoot { get; set; }
+        public string ModSettingsPath { get; set; }
         public CoopMissionDefinition Definition { get; set; }
         public IReadOnlyList<string> BundledFiles { get; set; }
     }

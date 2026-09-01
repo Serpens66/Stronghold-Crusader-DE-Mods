@@ -31,7 +31,8 @@ namespace ExtremePowers.Integration
         public void Apply(Settings.ExtremePowersSettings s)
         {
             var t = api.Vanilla.Clone(); t.RegenerationPercent = s.RegenerationPercent;
-            t.Costs = new[] { s.ArrowCost, s.HealCost, s.SpearmenCost, s.EngineersCost, s.MacemenCost, s.GoldCost, s.KnightsCost, s.RockCost };
+            // The example keeps Vanilla costs because the stock HUD labels are fixed to their slot values.
+            t.Costs = (int[])api.Vanilla.Costs.Clone();
             t.ArrowVolley.Damage = s.ArrowDamage; t.ArrowVolley.Radius = s.ArrowRadius; t.ArrowVolley.ProjectileMode = s.ArrowMode;
             t.Heal.Amount = s.HealAmount; t.Heal.Radius = s.HealRadius; t.RockVolley.Damage = s.RockDamage; t.RockVolley.Radius = s.RockRadius; t.RockVolley.ProjectileMode = s.RockMode;
             Fill(t.Spearmen, s.SpearmenType, s.SpearmenCount); Fill(t.Engineers, s.EngineersType, s.EngineersCount); Fill(t.Macemen, s.MacemenType, s.MacemenCount); Fill(t.Knights, s.KnightsType, s.KnightsCount);

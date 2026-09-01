@@ -20,8 +20,7 @@
                   VerticalAlignment="Center"
                   Foreground="Black"
                   Content="{Binding LabelText}"
-                  IsChecked="{Binding IncludeAdditionalFiles, Mode=TwoWay}"
-                  IsEnabled="{Binding CanChangeOption}"
+                  IsChecked="{Binding IncludeModSettings, Mode=TwoWay}"
                   ToolTipService.ShowDuration="60000">
           <CheckBox.ToolTip>
             <ToolTip Content="{Binding HelpText}"

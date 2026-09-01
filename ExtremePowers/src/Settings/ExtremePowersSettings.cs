@@ -9,7 +9,6 @@ namespace ExtremePowers.Settings
     {
         private bool enableMod = true, enableGoldReplacement;
         private int regenerationPercent = 100;
-        private int arrowCost = 636, healCost = 1272, spearmenCost = 1908, engineersCost = 2544, macemenCost = 3180, goldCost = 3816, knightsCost = 4452, rockCost = 5088;
         private int arrowDamage = 6000, arrowRadius = 6, arrowMode = 1, healAmount = 8000, healRadius = 6, rockDamage = 18000, rockRadius = 9, rockMode;
         private int spearmenType = 24, spearmenCount = 20, engineersType = 30, engineersCount = 14, macemenType = 26, macemenCount = 20, knightsType = 28, knightsCount = 10, goldMinimum = 1000, goldMaximum = 2499;
         private int demoUnitType = 2, demoSpawnCount = 10;
@@ -23,21 +22,13 @@ namespace ExtremePowers.Settings
             settings.ResetSlotsWith(nameof(ApiProtocolReport), () => null).RequireReport(nameof(ApiProtocolReport), value => !string.IsNullOrWhiteSpace(value as string) && string.Equals(value as string, ApiProtocolReport, StringComparison.Ordinal));
         }
         public ICommand ResetToDefaultCommand { get; }
-        public string TitleText => L("ExtremePowers.Title"); public string HelpText => L("ExtremePowers.Help"); public string EnableText => L("Common.EnableMod"); public string ResetText => L("Common.ResetToDefault"); public string CostsText => L("ExtremePowers.Costs"); public string EffectsText => L("ExtremePowers.Effects"); public string DemoText => L("ExtremePowers.Demo"); public string GenericHelp => L("ExtremePowers.GenericHelp");
-        public string RegenerationText => L("ExtremePowers.Regeneration"); public string ArrowText => L("ExtremePowers.Arrow"); public string HealText => L("ExtremePowers.Heal"); public string SpearmenText => L("ExtremePowers.Spearmen"); public string EngineersText => L("ExtremePowers.Engineers"); public string MacemenText => L("ExtremePowers.Macemen"); public string GoldText => L("ExtremePowers.Gold"); public string KnightsText => L("ExtremePowers.Knights"); public string RockText => L("ExtremePowers.Rock");
+        public string TitleText => L("ExtremePowers.Title"); public string HelpText => L("ExtremePowers.Help"); public string EnableText => L("Common.EnableMod"); public string ResetText => L("Common.ResetToDefault"); public string EffectsText => L("ExtremePowers.Effects"); public string DemoText => L("ExtremePowers.Demo"); public string GenericHelp => L("ExtremePowers.GenericHelp");
+        public string RegenerationText => L("ExtremePowers.Regeneration");
         public string ArrowDamageText => L("ExtremePowers.ArrowDamage"); public string ArrowRadiusText => L("ExtremePowers.ArrowRadius"); public string ArrowModeText => L("ExtremePowers.ArrowSpread"); public string HealAmountText => L("ExtremePowers.HealAmount"); public string HealRadiusText => L("ExtremePowers.HealRadius"); public string RockDamageText => L("ExtremePowers.RockDamage"); public string RockRadiusText => L("ExtremePowers.RockRadius"); public string RockModeText => L("ExtremePowers.RockSpread");
         public string SpearmenSpawnText => L("ExtremePowers.SpearmenSpawn"); public string EngineersSpawnText => L("ExtremePowers.EngineersSpawn"); public string MacemenSpawnText => L("ExtremePowers.MacemenSpawn"); public string KnightsSpawnText => L("ExtremePowers.KnightsSpawn"); public string GoldRangeText => L("ExtremePowers.GoldRange"); public string EnableDemoText => L("ExtremePowers.EnableDemo"); public string DemoUnitTypeText => L("ExtremePowers.DemoUnitType"); public string DemoUnitCountText => L("ExtremePowers.DemoUnitCount"); public string HudNameText => L("ExtremePowers.HudName"); public string HudTooltipText => L("ExtremePowers.HudTooltip"); public string HudSpriteText => L("ExtremePowers.HudSprite"); public string NoClientOptionsText => L("ExtremePowers.NoClientOptions");
 
         [SyncHostOnly] public bool EnableMod { get => enableMod; set => Set(ref enableMod, value, nameof(EnableMod)); }
         [SyncHostOnly] public int RegenerationPercent { get => regenerationPercent; set => Set(ref regenerationPercent, Clamp(value, 0, 1000), nameof(RegenerationPercent)); }
-        [SyncHostOnly] public int ArrowCost { get => arrowCost; set => Set(ref arrowCost, NonNegative(value), nameof(ArrowCost)); }
-        [SyncHostOnly] public int HealCost { get => healCost; set => Set(ref healCost, NonNegative(value), nameof(HealCost)); }
-        [SyncHostOnly] public int SpearmenCost { get => spearmenCost; set => Set(ref spearmenCost, NonNegative(value), nameof(SpearmenCost)); }
-        [SyncHostOnly] public int EngineersCost { get => engineersCost; set => Set(ref engineersCost, NonNegative(value), nameof(EngineersCost)); }
-        [SyncHostOnly] public int MacemenCost { get => macemenCost; set => Set(ref macemenCost, NonNegative(value), nameof(MacemenCost)); }
-        [SyncHostOnly] public int GoldCost { get => goldCost; set => Set(ref goldCost, NonNegative(value), nameof(GoldCost)); }
-        [SyncHostOnly] public int RockCost { get => rockCost; set => Set(ref rockCost, NonNegative(value), nameof(RockCost)); }
-        [SyncHostOnly] public int KnightsCost { get => knightsCost; set => Set(ref knightsCost, NonNegative(value), nameof(KnightsCost)); }
         [SyncHostOnly] public int ArrowDamage { get => arrowDamage; set => Set(ref arrowDamage, NonNegative(value), nameof(ArrowDamage)); }
         [SyncHostOnly] public int ArrowRadius { get => arrowRadius; set => Set(ref arrowRadius, NonNegative(value), nameof(ArrowRadius)); }
         [SyncHostOnly] public int ArrowMode { get => arrowMode; set => Set(ref arrowMode, Clamp(value, 0, 1), nameof(ArrowMode)); }
@@ -69,7 +60,6 @@ namespace ExtremePowers.Settings
         {
             if (!CanEditHostSettings) return;
             EnableMod = true; RegenerationPercent = 100;
-            ArrowCost = 636; HealCost = 1272; SpearmenCost = 1908; EngineersCost = 2544; MacemenCost = 3180; GoldCost = 3816; KnightsCost = 4452; RockCost = 5088;
             ArrowDamage = 6000; ArrowRadius = 6; ArrowMode = 1; HealAmount = 8000; HealRadius = 6;
             SpearmenType = 24; SpearmenCount = 20; EngineersType = 30; EngineersCount = 14; MacemenType = 26; MacemenCount = 20; KnightsType = 28; KnightsCount = 10;
             GoldMinimum = 1000; GoldMaximum = 2499; RockDamage = 18000; RockRadius = 9; RockMode = 0; EnableGoldReplacement = false;

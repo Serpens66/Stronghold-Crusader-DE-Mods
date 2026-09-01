@@ -94,6 +94,11 @@ internal static class Program
         string integrationAdapter = Path.GetFullPath(Path.Combine(modRoot, "src", "Integration", "LocalExtremePowersApiClient.cs"));
         foreach (string file in Directory.GetFiles(Path.Combine(modRoot, "src"), "*.cs", SearchOption.AllDirectories).Where(value => File.ReadAllText(value).Contains("ExtremePowers.API")))
             Check(string.Equals(Path.GetFullPath(file), integrationAdapter, StringComparison.OrdinalIgnoreCase), "API types are isolated to the replaceable adapter: " + file);
+        string adapterText = File.ReadAllText(integrationAdapter);
+        string settingsText = File.ReadAllText(Path.Combine(modRoot, "src", "Settings", "ExtremePowersSettings.cs"));
+        string settingsXaml = File.ReadAllText(Path.Combine(modRoot, "Override", "ScriptExtenderUI", "ExtremePowersSettings.xaml"));
+        Check(adapterText.Contains("api.Vanilla.Costs.Clone()") && !adapterText.Contains("s.ArrowCost"), "example adapter always keeps Vanilla costs");
+        Check(!settingsText.Contains("ArrowCost") && !settingsXaml.Contains("extreme-powers.costs"), "example cost settings remain removed");
     }
     private static void TestBuildGuard(string path)
     {
@@ -107,7 +112,17 @@ internal static class Program
         byte[] tamperedRegen = (byte[])bytes.Clone(); byte[] regen = { 0x45,0x8B,0x88,0x50,0x39,0x00,0x00,0x41,0x81,0xF9,0x58,0x1B,0x00,0x00,0x7D,0x35 };
         position = Find(tamperedRegen, regen); Check(position >= 0, "regeneration signature located in PE");
         if (position >= 0) { tamperedRegen[position] ^= 1; Check(!ExtremePowersBuildCompatibility.HasExpectedNativeSignatures(tamperedRegen), "tampered regeneration signature rejection"); }
+        CheckTamperedNativeSignature(bytes, new byte[] { 0x89,0x1D,0xA7,0x7F,0xFA,0x05,0xFF,0xCB,0xC7,0x05,0x93,0x7F,0xFA,0x05,0x05,0x00,0x00,0x00 }, "pending target writer");
+        CheckTamperedNativeSignature(bytes, new byte[] { 0x8B,0x3D,0x7C,0x0A,0x02,0x06,0x4C,0x8D,0x15,0xB1,0x22,0xFD,0x03 }, "pending target reader");
+        CheckTamperedNativeSignature(bytes, new byte[] { 0xB2,0x77,0x89,0x3D,0x1A,0x45,0x63,0x08,0x48,0x8D,0x0D,0x07,0x75,0x4E,0x08,0x44,0x89,0x25,0x10,0x45,0x63,0x08,0x44,0x89,0x3D,0x0D,0x45,0x63,0x08 }, "pending target chore transfer");
         bytes[0] ^= 1; Check(!ExtremePowersBuildCompatibility.IsSupportedImage(bytes), "tampered DLL rejection");
+    }
+    private static void CheckTamperedNativeSignature(byte[] source, byte[] signature, string name)
+    {
+        byte[] tampered = (byte[])source.Clone();
+        int position = Find(tampered, signature);
+        Check(position >= 0, name + " signature located in PE");
+        if (position >= 0) { tampered[position] ^= 1; Check(!ExtremePowersBuildCompatibility.HasExpectedNativeSignatures(tampered), "tampered " + name + " rejection"); }
     }
     private static int Find(byte[] haystack, byte[] needle) { for (int i = 0; i <= haystack.Length - needle.Length; i++) { int j = 0; while (j < needle.Length && haystack[i + j] == needle[j]) j++; if (j == needle.Length) return i; } return -1; }
     private static void Check(bool condition, string name) { if (!condition) { failures++; Console.Error.WriteLine("FAIL: " + name); } }

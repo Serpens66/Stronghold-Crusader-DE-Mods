@@ -15,6 +15,8 @@ namespace ExtremePowers.API
             Spearmen = new SpawnConfiguration(); Engineers = new SpawnConfiguration(); Macemen = new SpawnConfiguration(); Knights = new SpawnConfiguration();
             Gold = new GoldConfiguration(); RockVolley = new VolleyConfiguration(); RegenerationPercent = 100;
         }
+        /// <summary>Gets or sets the execution cost for power IDs 0 through 7.</summary>
+        /// <remarks>The supported game build keeps the visible HUD labels tied to each slot's Vanilla cost. Custom values are functional but not recommended unless the consumer also provides matching HUD labels.</remarks>
         public int[] Costs { get; set; }
         public int RegenerationPercent { get; set; }
         public VolleyConfiguration ArrowVolley { get; set; }

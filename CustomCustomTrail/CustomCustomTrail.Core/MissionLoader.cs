@@ -8,7 +8,7 @@ namespace CustomCustomTrail.Core
 {
     public sealed class MissionLoader
     {
-        public const int CurrentSchemaVersion = 2;
+        public const int CurrentSchemaVersion = 3;
         private static readonly HashSet<int> Rotations = new HashSet<int> { 0, 90, 180, 270 };
 
         public LoadedMission Load(string jsonPath, int trailNumber, int missionNumber)
@@ -23,6 +23,8 @@ namespace CustomCustomTrail.Core
             CoopMissionDefinition definition = MissionDefinitionJson.Parse(File.ReadAllText(fullJsonPath, Encoding.UTF8));
 
             Validate(definition);
+            string modSettingsPath = GetModSettingsPath(fullJsonPath);
+            LoadModSettings(definition, modSettingsPath);
             List<string> bundledFiles = ResolveBundledFiles(definition, missionRoot);
             return new LoadedMission
             {
@@ -30,6 +32,7 @@ namespace CustomCustomTrail.Core
                 MissionNumber = missionNumber,
                 JsonPath = fullJsonPath,
                 MissionRoot = missionRoot,
+                ModSettingsPath = File.Exists(modSettingsPath) ? modSettingsPath : null,
                 Definition = definition,
                 BundledFiles = bundledFiles,
             };
@@ -129,16 +132,6 @@ namespace CustomCustomTrail.Core
                     throw new InvalidDataException("All selectable AIVs need the same rotation unless preferredAiv selects one explicitly.");
             }
 
-            try
-            {
-                NormalizeAndValidateModSettings(mission);
-            }
-            catch (Exception exception)
-            {
-                // Mission assets remain usable; only the transactionally invalid Trail preset is discarded.
-                mission.ModSettingsError = exception.Message;
-                mission.ModSettings = ModSettingsDefinition.CreateUnmanaged();
-            }
         }
 
         private static void ValidateAsset(AssetReference asset, string label, string extension)
@@ -158,9 +151,34 @@ namespace CustomCustomTrail.Core
                 throw new InvalidDataException(label + " bundled reference requires a " + extension + " file.");
         }
 
-        private static void NormalizeAndValidateModSettings(CoopMissionDefinition mission)
+        public static string GetModSettingsPath(string jsonPath)
         {
-            mission.ModSettings = ModSettingsJson.NormalizeAndValidate(mission.ModSettings, "modSettings");
+            string fullJsonPath = Path.GetFullPath(jsonPath ?? throw new ArgumentNullException(nameof(jsonPath)));
+            const string suffix = ".coopmission.json";
+            string fileName = Path.GetFileName(fullJsonPath);
+            if (!fileName.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException("Coop mission files must end with " + suffix + ".");
+            return Path.Combine(
+                Path.GetDirectoryName(fullJsonPath),
+                fileName.Substring(0, fileName.Length - suffix.Length) + ".modjson");
+        }
+
+        private static void LoadModSettings(CoopMissionDefinition mission, string sidecarPath)
+        {
+            mission.ModSettings = ModSettingsDefinition.CreateUnmanaged();
+            mission.ModSettingsError = null;
+            if (!File.Exists(sidecarPath))
+                return;
+            try
+            {
+                mission.ModSettings = ModSettingsJson.Read(sidecarPath);
+            }
+            catch (Exception exception)
+            {
+                // A broken optional preset must not make the Coop mission assets unusable.
+                mission.ModSettingsError = exception.Message;
+                mission.ModSettings = ModSettingsDefinition.CreateUnmanaged();
+            }
         }
 
         private static List<string> ResolveBundledFiles(CoopMissionDefinition mission, string root)

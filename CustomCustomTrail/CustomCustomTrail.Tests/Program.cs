@@ -5,16 +5,19 @@ using System.Text;
 var tests = new (string Name, Action Run)[]
 {
     ("bundled mission loads", TestBundledMission),
+    ("Coop mission modsettings use an optional sidecar", TestCoopMissionModSettingsSidecar),
     ("path escape rejected", TestPathEscape),
     ("invalid rotation rejected", TestInvalidRotation),
     ("package catalog rejects invalid packages", TestCatalogIsolation),
-    ("schema 1 is rejected", TestSchemaOneRejected),
+    ("old mission schemas are rejected", TestOldMissionSchemasRejected),
+    ("old Coop package schema is rejected", TestOldPackageSchemaRejected),
     ("locally edited mission JSON reloads from the same slot", TestEditedMissionReload),
     ("invalid mod settings are isolated", TestInvalidModSettings),
     ("first two active players become allied humans", TestHumanProjection),
     ("preferred AIV permits differing rotations", TestPreferredAiv),
     ("fourth trail tenth slot is addressable", TestLastCatalogSlot),
     ("package fingerprint detects content changes", TestPackageFingerprint),
+    ("Coop Workshop staging filters modsettings", TestCoopWorkshopStaging),
     ("duplicate package IDs are rejected", TestDuplicatePackageIds),
     ("identical local and Workshop replicas are merged", TestIdenticalPackageReplicas),
     ("ordinal mapping covers four trails and ignores mission 41", TestOrdinalMapping),
@@ -36,6 +39,7 @@ var tests = new (string Name, Action Run)[]
     ("Coop package JSON is Unity dependency-free", TestDependencyFreeCoopJson),
     ("mission and manifest JSON use CRLF", TestCoopJsonLineEndings),
     ("Workshop Trail staging filters sidecars", TestWorkshopTrailSidecars),
+    ("Workshop upload checkbox is unified", TestWorkshopUploadCheckbox),
 };
 
 int failed = 0;
@@ -62,6 +66,28 @@ static void TestBundledMission()
     LoadedMission loaded = new MissionLoader().Load(fixture.JsonPath, 1, 1);
     Assert(loaded.BundledFiles.Count == 3, "expected map, lord and AIV bundle files");
     Assert(loaded.Definition.Players.Where(player => player.Active).Take(2).Count() == 2, "human slots missing");
+}
+
+static void TestCoopMissionModSettingsSidecar()
+{
+    using Fixture fixture = Fixture.Create();
+    string missionJson = File.ReadAllText(fixture.JsonPath);
+    Assert(!missionJson.Contains("modSettings", StringComparison.Ordinal), "mission JSON still embeds modsettings");
+
+    LoadedMission loaded = new MissionLoader().Load(fixture.JsonPath, 1, 1);
+    Assert(loaded.ModSettingsPath == fixture.SidecarPath, "mission sidecar path was not retained");
+    Assert(loaded.Definition.ModSettings.Mods.ContainsKey("StartConditions_Serp"), "mission sidecar was not loaded");
+
+    File.Delete(fixture.SidecarPath);
+    loaded = new MissionLoader().Load(fixture.JsonPath, 1, 1);
+    Assert(loaded.ModSettingsPath == null, "missing mission sidecar was reported as present");
+    Assert(loaded.Definition.ModSettings.Mods.Count == 0, "missing mission sidecar did not remain unmanaged");
+
+    int closingBrace = missionJson.LastIndexOf("\r\n}", StringComparison.Ordinal);
+    Assert(closingBrace >= 0, "mission fixture has no root closing brace");
+    string embedded = missionJson.Insert(closingBrace, ",\r\n  \"modSettings\": {}");
+    File.WriteAllText(fixture.JsonPath, embedded, new UTF8Encoding(false));
+    ExpectFailure(() => new MissionLoader().Load(fixture.JsonPath, 1, 1), "embedded schema-3 modsettings were accepted");
 }
 
 static void TestNativeModSettingsRoundtrip()
@@ -127,6 +153,29 @@ static void TestWorkshopTrailSidecars()
     {
         Directory.Delete(root, true);
     }
+}
+
+static void TestWorkshopUploadCheckbox()
+{
+    string root = FindProjectRoot();
+    string xaml = File.ReadAllText(Path.Combine(root, "Patches", "Assets", "GUI", "XAMLResources", "FRONT_EditorSetup.xaml"));
+    string viewModel = File.ReadAllText(Path.Combine(root, "src", "TrailWorkshopUploadOptionsViewModel.cs"));
+    string coordinator = File.ReadAllText(Path.Combine(root, "src", "TrailMissionSettingsCoordinator.cs"));
+    Assert(xaml.Contains("IsChecked=\"{Binding IncludeModSettings, Mode=TwoWay}\"", StringComparison.Ordinal) &&
+        !xaml.Contains("CanChangeOption", StringComparison.Ordinal),
+        "Workshop modsettings checkbox is not uniformly editable");
+    Assert(xaml.Contains("Foreground=\"Black\"", StringComparison.Ordinal) &&
+        xaml.Contains("ToolTipService.ShowDuration=\"60000\"", StringComparison.Ordinal) &&
+        xaml.Contains("ToolTipPresentation.MaximumWidth", StringComparison.Ordinal),
+        "Workshop checkbox presentation does not match the required tooltip style");
+    Assert(viewModel.Contains("WorkshopUpload.IncludeModSettings", StringComparison.Ordinal) &&
+        viewModel.Contains("includeModSettings = true", StringComparison.Ordinal) &&
+        !viewModel.Contains("IncludeAdditionalFiles", StringComparison.Ordinal) &&
+        !viewModel.Contains("coopPackage", StringComparison.Ordinal),
+        "Workshop checkbox model still uses additional-file or Coop-lock semantics");
+    Assert(coordinator.Contains("UploadCoopTrailPackage(self, selectedRow.trail, uploadOptions.IncludeModSettings)", StringComparison.Ordinal) &&
+        coordinator.Contains("CoopWorkshopPackageStaging.Stage", StringComparison.Ordinal),
+        "Coop upload does not honor the unified modsettings choice");
 }
 
 static void TestTrailSettingValueConversionPolicy()
@@ -494,6 +543,8 @@ static void TestCoopExporterIntegration()
     string packet = File.ReadAllText(Path.Combine(root, "src", "CoopCustomizePacket.cs"));
     string project = File.ReadAllText(Path.Combine(root, "CustomCustomTrail.csproj"));
     Assert(coordinator.Contains("CustomCustomTrailCoopExport") && coordinator.Contains("cooptrail.enabled"), "Trail Maker Coop checkbox/marker is missing");
+    Assert(coordinator.Contains("Foreground = new SolidColorBrush(Color.FromArgb(byte.MaxValue, 0, 0, 0))"),
+        "Trail Maker Coop checkbox text is not black");
     Assert(coordinator.Contains("Orientation = Orientation.Horizontal") && coordinator.Contains("host.Children.Remove(anchor)"),
         "Trail Maker Coop and Backup options are not arranged side by side");
     Assert(coordinator.Contains("prepared.Publish(destination)") && coordinator.IndexOf("Prepare(", StringComparison.Ordinal) < coordinator.IndexOf("prepared.Publish(destination)", StringComparison.Ordinal),
@@ -526,12 +577,15 @@ static void TestCoopExporterIntegration()
         coordinator.Contains("GetImportableCoopSources(includeWorkshop: false)"),
         "local Coop packages are not added to Vanilla's in-game Trail export list or Workshop folders became writable destinations");
     Assert(coordinator.Contains("AddCoopWorkshopRows(self)") &&
-        coordinator.Contains("UploadCoopTrailPackage(self, selectedRow.trail)") &&
-        coordinator.Contains("CopyWorkshopPackage(source, destination") &&
+        coordinator.Contains("UploadCoopTrailPackage(self, selectedRow.trail, uploadOptions.IncludeModSettings)") &&
+        coordinator.Contains("CoopWorkshopPackageStaging.Stage(") &&
         coordinator.Contains("CoopTrailPackageCatalog.Load(source)"),
-        "Coop packages are not validated, listed, and copied completely through Vanilla's Workshop uploader");
+        "Coop packages are not validated, listed, and staged through the unified Workshop uploader");
     Assert(exporter.Contains("ordinal < 40") && exporter.Contains("activeSlots.Count < 2"), "export limits or two-human validation are missing");
-    Assert(exporter.Contains("ModSettingsJson.Read(sidecar)") && exporter.Contains("ModSettingsDefinition.CreateUnmanaged()"), "mission mod-settings embedding is missing");
+    Assert(exporter.Contains("ModSettingsJson.Read(sidecar)") &&
+        exporter.Contains("ModSettingsJson.WriteAtomic(MissionLoader.GetModSettingsPath(jsonPath), modSettings)") &&
+        !File.ReadAllText(Path.Combine(root, "CustomCustomTrail.Core", "MissionDefinitionJson.cs")).Contains("[\"modSettings\"]"),
+        "Coop mission modsettings are not stored exclusively in sidecars");
     Assert(exporter.Contains("restart.selectedHeader.display_filename") && runtime.Contains("CoopMissionTitle = selected.Loaded.Definition.DisplayName"),
         "exported map names are not shown as Coop mission titles");
     Assert(coordinator.Contains("SetCoopPackagePresentation") && coordinator.Contains("TEXT_COOP_0"),
@@ -639,7 +693,7 @@ static void TestCoopJsonLineEndings()
 
     var manifest = new CoopTrailPackageManifest
     {
-        SchemaVersion = 1,
+        SchemaVersion = CoopTrailPackageManifestJson.CurrentSchemaVersion,
         PackageId = Guid.NewGuid().ToString("D"),
         DisplayName = "Test",
         MissionCount = 1,
@@ -709,10 +763,23 @@ static void TestCatalogIsolation()
     Assert(errors.Count == 1, "invalid package error was not reported once");
 }
 
-static void TestSchemaOneRejected()
+static void TestOldMissionSchemasRejected()
 {
-    using Fixture fixture = Fixture.Create(schemaVersion: 1);
-    ExpectFailure(() => new MissionLoader().Load(fixture.JsonPath, 1, 1), "schema 1 was accepted");
+    using Fixture schemaOne = Fixture.Create(schemaVersion: 1);
+    ExpectFailure(() => new MissionLoader().Load(schemaOne.JsonPath, 1, 1), "mission schema 1 was accepted");
+    using Fixture schemaTwo = Fixture.Create(schemaVersion: 2);
+    ExpectFailure(() => new MissionLoader().Load(schemaTwo.JsonPath, 1, 1), "mission schema 2 was accepted");
+}
+
+static void TestOldPackageSchemaRejected()
+{
+    using Fixture fixture = Fixture.Create();
+    string root = Path.Combine(fixture.Root, "CustomTrails");
+    string package = CreatePackage(fixture, root, "OldSchema", 1);
+    string manifestPath = Path.Combine(package, "cooptrail.json");
+    string manifest = File.ReadAllText(manifestPath).Replace("\"schemaVersion\": 2", "\"schemaVersion\": 1");
+    File.WriteAllText(manifestPath, manifest, new UTF8Encoding(false));
+    ExpectFailure(() => CoopTrailPackageCatalog.Load(package), "Coop package schema 1 was accepted");
 }
 
 static void TestEditedMissionReload()
@@ -730,11 +797,11 @@ static void TestEditedMissionReload()
 static void TestInvalidModSettings()
 {
     using Fixture fixture = Fixture.Create();
-    string json = File.ReadAllText(fixture.JsonPath).Replace("\"schemaVersion\": 1", "\"schemaVersion\": 99");
-    File.WriteAllText(fixture.JsonPath, json, new UTF8Encoding(false));
+    string json = File.ReadAllText(fixture.SidecarPath).Replace("\"schemaVersion\": 1", "\"schemaVersion\": 99");
+    File.WriteAllText(fixture.SidecarPath, json, new UTF8Encoding(false));
     LoadedMission loaded = new MissionLoader().Load(fixture.JsonPath, 1, 1);
-    Assert(!string.IsNullOrWhiteSpace(loaded.Definition.ModSettingsError), "invalid block was not reported");
-    Assert(loaded.Definition.ModSettings.Mods.Count == 0, "invalid block was partially retained instead of remaining unmanaged");
+    Assert(!string.IsNullOrWhiteSpace(loaded.Definition.ModSettingsError), "invalid sidecar was not reported");
+    Assert(loaded.Definition.ModSettings.Mods.Count == 0, "invalid sidecar was partially retained instead of remaining unmanaged");
 }
 
 static void TestHumanProjection()
@@ -769,8 +836,41 @@ static void TestPackageFingerprint()
     using Fixture fixture = Fixture.Create();
     string root = Path.Combine(fixture.Root, "CustomTrails");
     string package = CreatePackage(fixture, root, "Changed", 1);
-    File.AppendAllText(Path.Combine(package, "CoopMissions", "map.map"), "changed");
-    ExpectFailure(() => CoopTrailPackageCatalog.Load(package), "changed package content passed its fingerprint");
+    File.AppendAllText(Path.Combine(package, "CoopMissions", "01.modjson"), "changed");
+    ExpectFailure(() => CoopTrailPackageCatalog.Load(package), "changed mission sidecar passed its fingerprint");
+}
+
+static void TestCoopWorkshopStaging()
+{
+    using Fixture fixture = Fixture.Create();
+    string packagesRoot = Path.Combine(fixture.Root, "CustomTrails");
+    string source = CreatePackage(fixture, packagesRoot, "Upload", 2);
+    string trailMakerSource = Path.Combine(source, "TrailMakerSource");
+    Directory.CreateDirectory(trailMakerSource);
+    File.WriteAllText(Path.Combine(trailMakerSource, "Trail_Mission_01.trail"), "trail");
+    File.WriteAllText(Path.Combine(trailMakerSource, "Trail_Mission_01.modjson"), "editable sidecar");
+    File.WriteAllText(Path.Combine(source, "Upload.data"), "metadata");
+    CoopTrailPackage package = CoopTrailPackageCatalog.Load(source);
+
+    string included = Path.Combine(fixture.Root, "staging-included");
+    CoopTrailPackage includedPackage = CoopWorkshopPackageStaging.Stage(
+        package, included, "Upload.data", includeModSettings: true, out int includedCount);
+    Assert(includedCount == 3, "not all Coop and Trail Maker sidecars were staged");
+    Assert(File.Exists(Path.Combine(included, "CoopMissions", "01.modjson")), "Coop sidecar was omitted");
+    Assert(File.Exists(Path.Combine(included, "TrailMakerSource", "Trail_Mission_01.modjson")), "Trail Maker sidecar was omitted");
+    Assert(!File.Exists(Path.Combine(included, "Upload.data")), "Workshop metadata was copied into content");
+
+    string excluded = Path.Combine(fixture.Root, "staging-excluded");
+    CoopTrailPackage excludedPackage = CoopWorkshopPackageStaging.Stage(
+        package, excluded, "Upload.data", includeModSettings: false, out int excludedCount);
+    Assert(excludedCount == 0, "excluded Coop staging reported copied sidecars");
+    Assert(!Directory.GetFiles(excluded, "*.modjson", SearchOption.AllDirectories).Any(), "excluded Coop staging contains modsettings");
+    Assert(includedPackage.Manifest.ContentFingerprint != excludedPackage.Manifest.ContentFingerprint,
+        "including mission sidecars did not affect the staged package fingerprint");
+    Assert(CoopTrailPackageCatalog.Load(included).Missions[0].Definition.ModSettings.Mods.Count == 1,
+        "included staged package lost mission modsettings");
+    Assert(CoopTrailPackageCatalog.Load(excluded).Missions[0].Definition.ModSettings.Mods.Count == 0,
+        "excluded staged package retained mission modsettings");
 }
 
 static void TestDuplicatePackageIds()
@@ -848,10 +948,13 @@ static string CreatePackage(Fixture fixture, string customTrailsRoot, string nam
         string target = Path.Combine(missions, ordinal.ToString("00") + ".coopmission.json");
         File.Copy(fixture.JsonPath, target);
         fingerprintFiles.Add(target);
+        string sidecar = Path.Combine(missions, ordinal.ToString("00") + ".modjson");
+        File.Copy(fixture.SidecarPath, sidecar);
+        fingerprintFiles.Add(sidecar);
     }
     var manifest = new CoopTrailPackageManifest
     {
-        SchemaVersion = 1,
+        SchemaVersion = CoopTrailPackageManifestJson.CurrentSchemaVersion,
         PackageId = packageId ?? Guid.NewGuid().ToString("D"),
         DisplayName = name,
         MissionCount = missionCount,
@@ -884,8 +987,9 @@ sealed class Fixture : IDisposable
 {
     public string Root { get; private set; }
     public string JsonPath { get; private set; }
+    public string SidecarPath { get; private set; }
 
-    public static Fixture Create(int aivRotation = 90, int? secondAivRotation = null, int preferredAiv = -1, int schemaVersion = 2, int startGold = 500, bool includeLegacyModSetting = false)
+    public static Fixture Create(int aivRotation = 90, int? secondAivRotation = null, int preferredAiv = -1, int schemaVersion = 3, int startGold = 500, bool includeLegacyModSetting = false)
     {
         string root = Path.Combine(Path.GetTempPath(), "CustomCustomTrailTests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
@@ -933,16 +1037,18 @@ sealed class Fixture : IDisposable
         if (requestedAivRotation != 0 && requestedAivRotation != 90 && requestedAivRotation != 180 && requestedAivRotation != 270)
             definition.Players[2].Aivs[0].Rotation = 90;
         MissionLoader.WriteAtomic(jsonPath, definition);
+        string sidecarPath = MissionLoader.GetModSettingsPath(jsonPath);
+        ModSettingsJson.WriteAtomic(sidecarPath, definition.ModSettings);
         if (requestedSchemaVersion != MissionLoader.CurrentSchemaVersion || requestedAivRotation != definition.Players[2].Aivs[0].Rotation)
         {
             string json = File.ReadAllText(jsonPath, Encoding.UTF8);
             if (requestedSchemaVersion != MissionLoader.CurrentSchemaVersion)
-                json = json.Replace("\"schemaVersion\": 2", "\"schemaVersion\": " + requestedSchemaVersion, StringComparison.Ordinal);
+                json = json.Replace("\"schemaVersion\": 3", "\"schemaVersion\": " + requestedSchemaVersion, StringComparison.Ordinal);
             if (requestedAivRotation != definition.Players[2].Aivs[0].Rotation)
                 json = json.Replace("\"rotation\": 90", "\"rotation\": " + requestedAivRotation, StringComparison.Ordinal);
             File.WriteAllText(jsonPath, json, new UTF8Encoding(false));
         }
-        return new Fixture { Root = root, JsonPath = jsonPath };
+        return new Fixture { Root = root, JsonPath = jsonPath, SidecarPath = sidecarPath };
     }
 
     public void Dispose()
