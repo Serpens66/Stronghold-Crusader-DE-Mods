@@ -170,9 +170,9 @@ namespace ExtraFeatures
             }
 
             Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
-            for (int index = 0; index < buildings.Length; index++)
+            for (int spanIndex = 0; spanIndex < buildings.Length; spanIndex++)
             {
-                ref GameBuilding candidate = ref buildings[index];
+                ref GameBuilding candidate = ref buildings[spanIndex];
                 if (candidate.r_AliveState != AliveState.IsAlive ||
                     candidate.r_PlayerIdOwner != playerId ||
                     candidate.r_GlobalId == 0 ||
@@ -181,7 +181,7 @@ namespace ExtraFeatures
                     continue;
                 }
 
-                if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(index + 1, out GameBuilding* keep) ||
+                if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(spanIndex + 1, out GameBuilding* keep) ||
                     keep == null)
                 {
                     snapshot = null;

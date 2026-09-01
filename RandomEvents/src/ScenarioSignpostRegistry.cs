@@ -241,9 +241,9 @@ namespace RandomEvents
         {
             HashSet<ushort> result = new HashSet<ushort>();
             Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
-            for (int index = 0; index < buildings.Length; index++)
+            for (int spanIndex = 0; spanIndex < buildings.Length; spanIndex++)
             {
-                ref GameBuilding building = ref buildings[index];
+                ref GameBuilding building = ref buildings[spanIndex];
                 if (building.r_GlobalId == 0 || building.r_PlayerIdOwner != targetPlayerId ||
                     building.r_AliveState != AliveState.IsAlive)
                 {

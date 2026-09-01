@@ -528,9 +528,9 @@ namespace RandomEvents
             Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
             foreach (PlayerReachability player in result)
             {
-                for (int index = 0; index < buildings.Length; index++)
+                for (int spanIndex = 0; spanIndex < buildings.Length; spanIndex++)
                 {
-                    ref GameBuilding building = ref buildings[index];
+                    ref GameBuilding building = ref buildings[spanIndex];
                     if (building.r_PlayerIdOwner != player.PlayerId ||
                         (building.r_AliveState != AliveState.NeedsInit && building.r_AliveState != AliveState.IsAlive))
                     {

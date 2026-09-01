@@ -6,9 +6,38 @@ namespace AssassinCombatFix
 {
     internal static class AssassinCombatResumePolicy
     {
-        public static bool IsValidNativeUnitIndex(int nativeUnitIndex, int unitCount)
+        public static bool IsValidSpanIndex(int spanIndex, int unitCount)
         {
-            return nativeUnitIndex >= 0 && nativeUnitIndex < unitCount;
+            return spanIndex >= 0 && spanIndex < unitCount;
+        }
+
+        public static bool TryConvertUnitIdToSpanIndex(
+            int unitId,
+            int unitCount,
+            out int spanIndex)
+        {
+            spanIndex = unitId - 1;
+            return unitId > 0 && spanIndex < unitCount;
+        }
+
+        public static bool ShouldInjectPostCombatPathContext(
+            bool modEnabled,
+            bool improvedPathfindingEnabled,
+            bool nativeHooksInstalled,
+            bool unitResolved,
+            AliveState aliveState,
+            eChimps unitType,
+            ushort aiState,
+            bool expectedCaller)
+        {
+            return modEnabled &&
+                improvedPathfindingEnabled &&
+                nativeHooksInstalled &&
+                unitResolved &&
+                aliveState == AliveState.IsAlive &&
+                unitType == eChimps.CHIMP_TYPE_ARAB_ASSASIN &&
+                aiState == 106 &&
+                expectedCaller;
         }
 
         public static bool ShouldLogPassiveDiagnostic(

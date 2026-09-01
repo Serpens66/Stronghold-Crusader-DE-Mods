@@ -416,9 +416,9 @@ namespace BugfixesAndQoL
             playerId = -1;
             speedDelay = -1;
             Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
-            for (int index = 0; index < units.Length; index++)
+            for (int spanIndex = 0; spanIndex < units.Length; spanIndex++)
             {
-                ref GameUnit candidate = ref units[index];
+                ref GameUnit candidate = ref units[spanIndex];
                 if (candidate.r_AliveState != AliveState.IsAlive ||
                     candidate.r_UnitChimp != eChimps.CHIMP_TYPE_ARAB_ASSASIN ||
                     candidate.r_CurrentTilePositionX != startX || candidate.r_CurrentTilePositionY != startY)

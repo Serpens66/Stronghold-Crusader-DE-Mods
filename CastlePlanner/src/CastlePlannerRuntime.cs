@@ -581,9 +581,9 @@ namespace CastlePlanner
 
             var components = new List<string>();
             Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
-            for (int buildingId = 1; buildingId < buildings.Length; buildingId++)
+            for (int spanIndex = 0; spanIndex < buildings.Length; spanIndex++)
             {
-                GameBuilding building = buildings[buildingId];
+                GameBuilding building = buildings[spanIndex];
                 if (building.r_PlayerIdOwner != castle.PlayerId ||
                     (building.r_AliveState != AliveState.NeedsInit &&
                      building.r_AliveState != AliveState.IsAlive) ||
@@ -593,7 +593,7 @@ namespace CastlePlanner
                 }
 
                 components.Add(
-                    $"{buildingId + 1}:{building.r_BuildingType}:" +
+                    $"{spanIndex + 1}:{building.r_BuildingType}:" +
                     $"({building.r_TilePositionXBegin},{building.r_TilePositionYBegin})-" +
                     $"({building.r_TilePositionXEnd},{building.r_TilePositionYEnd}):" +
                     $"tile={building.r_TileIdBegin}:global={building.r_GlobalId}");
@@ -1427,9 +1427,9 @@ namespace CastlePlanner
         {
             eStructs structure = placement.Mapper.ConvertToEStructs();
             Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
-            for (int index = 0; index < buildings.Length; index++)
+            for (int spanIndex = 0; spanIndex < buildings.Length; spanIndex++)
             {
-                GameBuilding building = buildings[index];
+                GameBuilding building = buildings[spanIndex];
                 if (building.r_PlayerIdOwner == playerId &&
                     building.r_BuildingType == structure &&
                     building.r_TilePositionXBegin == placement.BuildOrigin.X &&
@@ -1437,7 +1437,7 @@ namespace CastlePlanner
                     (building.r_AliveState == AliveState.NeedsInit ||
                      building.r_AliveState == AliveState.IsAlive))
                 {
-                    buildingId = index;
+                    buildingId = spanIndex + 1;
                     aliveState = building.r_AliveState;
                     return true;
                 }
@@ -2036,9 +2036,9 @@ namespace CastlePlanner
             int hovelCount = 0;
             Span<GameBuilding> buildings =
                 GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
-            for (int buildingId = 0; buildingId < buildings.Length; buildingId++)
+            for (int spanIndex = 0; spanIndex < buildings.Length; spanIndex++)
             {
-                GameBuilding building = buildings[buildingId];
+                GameBuilding building = buildings[spanIndex];
                 if (building.r_PlayerIdOwner != playerId ||
                     (building.r_BuildingType != eStructs.STRUCT_GRANARY &&
                      building.r_BuildingType != eStructs.STRUCT_HOVEL))
@@ -2054,7 +2054,7 @@ namespace CastlePlanner
                 Shared.DebugLogHelper.LogInfo(
                     log,
                     $"Native special-building diagnostics: playerId={playerId}, " +
-                    $"buildingId={buildingId}, globalId={building.r_GlobalId}, " +
+                    $"buildingId={spanIndex + 1}, globalId={building.r_GlobalId}, " +
                     $"type={building.r_BuildingType}, aliveState={building.r_AliveState}, " +
                     $"tiles=({building.r_TilePositionXBegin},{building.r_TilePositionYBegin})-" +
                     $"({building.r_TilePositionXEnd},{building.r_TilePositionYEnd}), " +

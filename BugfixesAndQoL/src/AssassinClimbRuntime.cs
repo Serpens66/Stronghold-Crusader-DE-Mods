@@ -298,9 +298,9 @@ namespace BugfixesAndQoL
             }
 
             Span<GameUnit> units = api.GetUnitsAsSpan();
-            for (int index = 0; index < units.Length; index++)
+            for (int spanIndex = 0; spanIndex < units.Length; spanIndex++)
             {
-                ref GameUnit unit = ref units[index];
+                ref GameUnit unit = ref units[spanIndex];
                 if ((unit.r_UnitSelected != 0 || unit.r_UnitSelected2 != 0) &&
                     unit.r_AliveState == AliveState.IsAlive &&
                     unit.r_UnitChimp == eChimps.CHIMP_TYPE_ARAB_ASSASIN &&

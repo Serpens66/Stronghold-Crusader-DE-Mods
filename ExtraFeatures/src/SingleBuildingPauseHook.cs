@@ -516,11 +516,11 @@ namespace ExtraFeatures
         private static int FindAliveBuildingIdByGlobalId(int globalId)
         {
             Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
-            for (int index = 0; index < buildings.Length; index++)
+            for (int spanIndex = 0; spanIndex < buildings.Length; spanIndex++)
             {
-                ref GameBuilding building = ref buildings[index];
+                ref GameBuilding building = ref buildings[spanIndex];
                 if (building.r_AliveState == AliveState.IsAlive && (int)building.r_GlobalId == globalId)
-                    return index + 1;
+                    return spanIndex + 1;
             }
 
             return 0;

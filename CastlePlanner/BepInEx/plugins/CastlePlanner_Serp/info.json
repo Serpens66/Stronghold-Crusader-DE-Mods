@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "CastlePlanner",
   "Description": "Displays AIVJSON blueprints, spawns personal human castles, and contains the gated AI lobby placement workflow.",
-  "Version": "0.8.20",
+  "Version": "0.8.21",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.8.21",
+      "Changes": [
+        "Correct native building-span diagnostics to include the first slot and consistently report one-based building IDs."
+      ]
+    },
     {
       "Version": "0.8.20",
       "Changes": [

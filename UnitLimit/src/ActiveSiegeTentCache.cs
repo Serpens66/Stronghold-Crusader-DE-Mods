@@ -85,10 +85,10 @@ namespace UnitLimit
         {
             Dictionary<int, SiegeTentSnapshot> seenSnapshots = new Dictionary<int, SiegeTentSnapshot>();
             Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
-            for (int i = 0; i < buildings.Length; i++)
+            for (int spanIndex = 0; spanIndex < buildings.Length; spanIndex++)
             {
-                if (TryCreateSnapshot(buildings[i], out SiegeTentSnapshot snapshot))
-                    seenSnapshots[i + 1] = snapshot;
+                if (TryCreateSnapshot(buildings[spanIndex], out SiegeTentSnapshot snapshot))
+                    seenSnapshots[spanIndex + 1] = snapshot;
             }
 
             List<ActiveSiegeTentChangedEventArgs> events = null;

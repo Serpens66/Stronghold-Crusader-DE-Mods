@@ -89,6 +89,10 @@ namespace MoveMoatTest
             int targetRegion,
             int routeKind);
 
+        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+        private delegate void CursorWallCommandStagerDelegate(
+            IntPtr unitManager, int commandContext, int command, int targetTileId);
+
         private const int CentralMovementPlanRva = 0x18E1E0;
         private const int TribeFloodFillMembershipRva = 0x124740;
         private const int UnitStandingOnCompletedMoatRva = 0x196840;
@@ -128,6 +132,9 @@ namespace MoveMoatTest
         private const int BuildingConsumerFallbackBuilderCallRva = 0x123102;
         private const int BuildingConsumerAssassinBuilderCallRva = 0x123125;
         private const int BuildingConsumerGroundBuilderCallRva = 0x12312C;
+        private const int CursorWallCommandStagerRva = 0x199B70;
+        private const int CursorAttackWallCallRva = 0x8FBB3;
+        private const int CursorAttachLadderCallRva = 0x8FC03;
         private const int CursorCurrentTileFlagGateRva = 0x8F388;
         private const int CursorCurrentTileFlagGateJumpRva = 0x8F393;
         private const int AttackUnitPairGateJumpRva = 0x8D72B;
@@ -232,6 +239,12 @@ namespace MoveMoatTest
             "83 B9 BC 05 00 00 00 74 27 33 C0 48 81 C1 64 05 00 00 48 83 F8 16 " +
             "74 05 83 39 00 75 13 48 FF C0 48 83 C1 04 48 83 F8 23 7C E8 B8 01 00 00 00 C3";
 
+        private const string CursorWallCommandStagerPattern =
+            "48 89 5C 24 08 57 48 83 EC 20 48 8B D9 89 15 ?? ?? ?? ?? B2 24 " +
+            "44 89 05 ?? ?? ?? ?? 48 8D 0D ?? ?? ?? ?? 44 89 0D ?? ?? ?? ?? " +
+            "41 8B F8 E8 ?? ?? ?? ?? BA 01 00 00 00 48 8B CB E8 ?? ?? ?? ?? " +
+            "85 C0 74 41";
+
         private const string CursorRegionPrecheckPattern =
             "40 53 55 57 41 54 41 56 48 83 EC 20 FF 41 04 48 8B D9 81 79 04 00 7D 00 00 " +
             "41 BC 01 00 00 00 48 63 FA 7E 1F 44 89 61 04";
@@ -321,6 +334,8 @@ namespace MoveMoatTest
         private AllSelectedUnitsAssassinsDelegate allSelectedUnitsAssassins;
         private RegionPairReachabilityDelegate originalRegionPairReachability;
         private RegionPairReachabilityDelegate rootedRegionPairReachability;
+        private CursorWallCommandStagerDelegate originalCursorWallCommandStager;
+        private CursorWallCommandStagerDelegate rootedCursorWallCommandStager;
 
         private NativeDetour centralMovementPlanDetour;
         private NativeDetour pathBuilderDetour;
@@ -335,6 +350,7 @@ namespace MoveMoatTest
         private NativeDetour buildingApproachBuilderDetour;
         private NativeDetour buildingCandidateConsumerDetour;
         private NativeDetour regionPairReachabilityDetour;
+        private NativeDetour cursorWallCommandStagerDetour;
         private IDisposable tribeMoveSubscription;
         private IDisposable tribeTargetSubscription;
         private IDisposable mapLoadSubscription;
@@ -617,6 +633,7 @@ namespace MoveMoatTest
                 // This separately validated hook group only observes the earlier unit/building
                 // approach pipelines and cannot roll back the proven movement feature.
                 TryInstallAttackApproachDiagnostics(memory, libraryBase);
+                TryInstallWallCommandDiagnostics(memory, libraryBase);
             }
             catch
             {
@@ -663,6 +680,7 @@ namespace MoveMoatTest
             buildingApproachBuilderDetour?.Dispose();
             attackApproachFloodBuilderDetour?.Dispose();
             regionPairReachabilityDetour?.Dispose();
+            cursorWallCommandStagerDetour?.Dispose();
             cursorTilePairReachabilityDetour?.Dispose();
             cursorRegionPrecheckDetour?.Dispose();
             cursorTilePairFallbackSelectionDetour?.Dispose();
@@ -683,6 +701,66 @@ namespace MoveMoatTest
             trackedMoatMoves.Clear();
             trackedWallClimbs.Clear();
             lastAttackCommandCandidates.Clear();
+        }
+
+        private void TryInstallWallCommandDiagnostics(ReadOnlySpan<byte> memory, ulong libraryBase)
+        {
+            NativeDetour pendingStager = null;
+            bool stagerApplied = false;
+            try
+            {
+                Shared.NativeResolution stagerResolution = Resolve(
+                    memory, CursorWallCommandStagerPattern, CursorWallCommandStagerRva,
+                    "cursor wall-command stager");
+                ValidateExactBytes(
+                    memory, CursorWallCommandStagerRva,
+                    new byte[]
+                    {
+                        0x48, 0x89, 0x5C, 0x24, 0x08, 0x57, 0x48, 0x83,
+                        0xEC, 0x20, 0x48, 0x8B, 0xD9, 0x89, 0x15, 0xA9,
+                        0x77, 0x52, 0x08, 0xB2, 0x24, 0x44, 0x89, 0x05,
+                        0xA4, 0x77, 0x52, 0x08, 0x48, 0x8D, 0x0D, 0x8D,
+                        0xA7, 0x3D, 0x08, 0x44, 0x89, 0x0D, 0x9A, 0x77,
+                        0x52, 0x08, 0x41, 0x8B, 0xF8, 0xE8, 0xEE, 0x9D,
+                        0xE8, 0xFF, 0xBA, 0x01, 0x00, 0x00, 0x00, 0x48,
+                        0x8B, 0xCB, 0xE8, 0xB1, 0x38, 0xFF, 0xFF, 0x85,
+                        0xC0, 0x74, 0x41
+                    },
+                    "cursor wall-command stager entry");
+                ValidateCallTarget(
+                    memory, CursorAttackWallCallRva, CursorWallCommandStagerRva,
+                    new byte[] { 0xE8, 0xB8, 0x9F, 0x10, 0x00 },
+                    "cursor AttackWallTileId staging call");
+                ValidateCallTarget(
+                    memory, CursorAttachLadderCallRva, CursorWallCommandStagerRva,
+                    new byte[] { 0xE8, 0x68, 0x9F, 0x10, 0x00 },
+                    "cursor AttachLadderToWall staging call");
+
+                rootedCursorWallCommandStager = ObserveCursorWallCommandStager;
+                pendingStager = CreateDetour(
+                    libraryBase + unchecked((ulong)stagerResolution.Rva),
+                    rootedCursorWallCommandStager);
+                originalCursorWallCommandStager =
+                    pendingStager.GenerateTrampoline<CursorWallCommandStagerDelegate>();
+                pendingStager.Apply();
+                stagerApplied = true;
+                cursorWallCommandStagerDetour = pendingStager;
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    "MoveMoat read-only wall-command diagnostics installed: " +
+                    $"stager=0x{stagerResolution.Rva:X}, calls=0x{CursorAttackWallCallRva:X}/" +
+                    $"0x{CursorAttachLadderCallRva:X}.");
+            }
+            catch (Exception ex)
+            {
+                UndoAndDispose(pendingStager, stagerApplied);
+                rootedCursorWallCommandStager = null;
+                originalCursorWallCommandStager = null;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    "MoveMoat read-only wall-command diagnostics were not installed; " +
+                    $"the movement feature remains active: {ex}");
+            }
         }
 
         private void TryInstallAttackApproachDiagnostics(ReadOnlySpan<byte> memory, ulong libraryBase)
@@ -2498,7 +2576,8 @@ namespace MoveMoatTest
                 return AttackRegionFallbackDecision.Reject("invalid-scope");
             if (scope.UnitId <= 0 || scope.PlayerId < 0 ||
                 movementClass != scope.MovementClass || sourceRegion != scope.SourceRegion ||
-                routeKind != 0)
+                sourceRegion <= 0 || sourceRegion > MaximumRegionId ||
+                targetRegion < 0 || targetRegion > MaximumRegionId || routeKind != 0)
             {
                 return AttackRegionFallbackDecision.Reject("movement-or-region-context-mismatch");
             }
@@ -2542,7 +2621,11 @@ namespace MoveMoatTest
                 routeScope, out int approachX, out int approachY, out RouteProbeSummary summary);
             if (!routeFound)
                 return AttackRegionFallbackDecision.Reject("no-required-friendly-moat-route", summary);
-            if (summary.StartRegion != sourceRegion || summary.TargetRegion != targetRegion)
+            // Native UnitFlood legitimately uses targetRegion=0 as an approach-search
+            // sentinel. Bind a positive target region when supplied, but never reject the
+            // owner-qualified concrete approach tile merely because Vanilla passed zero.
+            if (summary.StartRegion != sourceRegion ||
+                (targetRegion > 0 && summary.TargetRegion != targetRegion))
             {
                 return AttackRegionFallbackDecision.Reject(
                     "resolved-region-pair-mismatch", summary, approachX, approachY);
@@ -2727,6 +2810,20 @@ namespace MoveMoatTest
                 int startTileId = -1;
                 int targetTileId = -1;
                 string rejectionReason;
+                GameCursorManager* cursorManager =
+                    GamePlayerManagerAPI.Instance.GetCursorManager().Pointer;
+                uint rawHoverBuildingId = cursorManager != null
+                    ? cursorManager->r_HoverOverBuildingId : 0;
+                uint rawHoverUnitId = cursorManager != null
+                    ? cursorManager->r_HoverOverUnitId : 0;
+                uint rawHoverBuildingTileId = cursorManager != null
+                    ? cursorManager->r_HoverOverBuildingTileId : 0;
+                uint rawMouseTileId2 = cursorManager != null
+                    ? cursorManager->r_MouseTileId2 : 0;
+                uint rawHoveringOverWall = cursorManager != null
+                    ? cursorManager->r_HoveringOverWall : 0;
+                uint rawMouseTileId = cursorManager != null
+                    ? cursorManager->r_MouseTileId : 0;
 
                 bool validTarget = targetX >= 0 && targetX < MapWidth &&
                     targetY >= 0 && targetY < MapWidth;
@@ -2764,6 +2861,9 @@ namespace MoveMoatTest
                         out occupiedByLivingUnit);
                     hostileBuildingTarget = TryGetHostileLivingBuildingForCursor(
                         playerId, targetTileId, out buildingTarget, out wallTarget);
+                    // Walls are not reliably represented as living GameBuilding records.
+                    // The cursor's dedicated wall field is the authoritative raw signal.
+                    wallTarget |= rawHoveringOverWall != 0;
                     int targetCell = (targetY * MapWidth) + targetX;
                     freeOrdinaryTarget = !occupiedByLivingUnit && !hostileBuildingTarget && !wallTarget &&
                         movementTargetAvailability[targetCell] != 0 &&
@@ -2822,7 +2922,13 @@ namespace MoveMoatTest
                     rejectionReason,
                     buildingTarget.BuildingId,
                     buildingTarget.GlobalId,
-                    buildingTarget.BuildingType);
+                    buildingTarget.BuildingType,
+                    rawHoverBuildingId,
+                    rawHoverUnitId,
+                    rawHoverBuildingTileId,
+                    rawMouseTileId2,
+                    rawHoveringOverWall,
+                    rawMouseTileId);
                 pendingCursorSelectionDiagnostic = diagnostic;
                 LogCursorSelectionDiagnostic(diagnostic);
 
@@ -2837,7 +2943,10 @@ namespace MoveMoatTest
                     unit->r_UnitChimp == eChimps.CHIMP_TYPE_ARAB_ASSASIN)
                 {
                     TrackWallClimbCandidate(unitId, playerId, startX, startY,
-                        targetX, targetY, targetTileId, buildingTarget);
+                        targetX, targetY, targetTileId, buildingTarget,
+                        rawHoveringOverWall, rawHoverBuildingId,
+                        rawHoverBuildingTileId, rawMouseTileId2, rawMouseTileId,
+                        false, 0, 0);
                 }
 
                 // A positive Vanilla answer is authoritative. Only a Vanilla rejection may be
@@ -2864,6 +2973,9 @@ namespace MoveMoatTest
                 $"{diagnostic.OccupiedSlots:X}:{diagnostic.HasEligibleSlot}:" +
                 $"{diagnostic.FunctionalFallbackArmed}:{diagnostic.FallbackKind}:" +
                 $"{diagnostic.BuildingId}:{diagnostic.BuildingGlobalId}:" +
+                $"{diagnostic.RawHoverBuildingId}:{diagnostic.RawHoverUnitId}:" +
+                $"{diagnostic.RawHoverBuildingTileId}:{diagnostic.RawMouseTileId2}:" +
+                $"{diagnostic.RawHoveringOverWall}:{diagnostic.RawMouseTileId}:" +
                 $"{diagnostic.RejectionReason}";
             if (string.Equals(lastCursorSelectionDiagnostic, signature, StringComparison.Ordinal))
                 return;
@@ -2880,6 +2992,10 @@ namespace MoveMoatTest
                 $"fallbackKind={diagnostic.FallbackKind} " +
                 $"building={diagnostic.BuildingId}/{diagnostic.BuildingGlobalId}/" +
                 $"{diagnostic.BuildingType} " +
+                $"rawCursor=building:{diagnostic.RawHoverBuildingId}/" +
+                $"unit:{diagnostic.RawHoverUnitId}/buildingTile:" +
+                $"{diagnostic.RawHoverBuildingTileId}/mouse2:{diagnostic.RawMouseTileId2}/" +
+                $"wall:{diagnostic.RawHoveringOverWall}/mouse:{diagnostic.RawMouseTileId} " +
                 $"reason={diagnostic.RejectionReason}.");
         }
 
@@ -3237,7 +3353,7 @@ namespace MoveMoatTest
             summary.ReachedWithoutMoat = reachedWithoutMoat;
             summary.RegionTopologyQualified = regionTopologyQualified;
             summary.RouteFound = reachedWithMoat && !reachedWithoutMoat &&
-                regionTopologyQualified && summary.FriendlyMoatTiles > 0;
+                summary.FriendlyMoatTiles > 0;
             return summary.RouteFound;
         }
 
@@ -3318,7 +3434,7 @@ namespace MoveMoatTest
             summary.ReachedWithoutMoat = reachedWithoutMoat;
             summary.RegionTopologyQualified = regionTopologyQualified;
             summary.RouteFound = reachedWithMoat && !reachedWithoutMoat &&
-                regionTopologyQualified && summary.FriendlyMoatTiles > 0;
+                summary.FriendlyMoatTiles > 0;
             return summary.RouteFound;
         }
 
@@ -3497,7 +3613,7 @@ namespace MoveMoatTest
                     candidate.ReachedWithMoat = withMoat;
                     candidate.ReachedWithoutMoat = withoutMoat;
                     candidate.RegionTopologyQualified = topology;
-                    candidate.RouteFound = withMoat && !withoutMoat && topology &&
+                    candidate.RouteFound = withMoat && !withoutMoat &&
                         candidate.FriendlyMoatTiles > 0;
                     observed.MergeObservations(candidate);
                     if (!candidate.RouteFound)
@@ -3636,7 +3752,7 @@ namespace MoveMoatTest
                     candidateSummary.ReachedWithoutMoat = reachedWithoutMoat;
                     candidateSummary.RegionTopologyQualified = regionTopologyQualified;
                     candidateSummary.RouteFound = reachedWithMoat && !reachedWithoutMoat &&
-                        regionTopologyQualified && candidateSummary.FriendlyMoatTiles > 0;
+                        candidateSummary.FriendlyMoatTiles > 0;
                     bestObserved.MergeObservations(candidateSummary);
                     if (!candidateSummary.RouteFound)
                         continue;
@@ -3884,6 +4000,80 @@ namespace MoveMoatTest
             trackedWallClimbs.Clear();
         }
 
+        private void ObserveCursorWallCommandStager(
+            IntPtr unitManager, int commandContext, int command, int targetTileId)
+        {
+            int unitId = -1;
+            int playerId = -1;
+            int startX = -1;
+            int startY = -1;
+            int targetX = -1;
+            int targetY = -1;
+            GameCursorManager* cursorManager = null;
+            uint rawHoveringOverWall = 0;
+            try
+            {
+                unitId = getRepresentativeSelectedUnit(unitManager, 1);
+                if (GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) &&
+                    unit != null && unit->r_AliveState == AliveState.IsAlive)
+                {
+                    playerId = unit->r_ControllableForPlayerId;
+                    startX = unit->r_CurrentTilePositionX;
+                    startY = unit->r_CurrentTilePositionY;
+                }
+                if (IsValidTileId(targetTileId))
+                {
+                    UnmanagedVector2<ushort> target =
+                        GameTileManagerAPI.Instance.GetTileVectorFromId(targetTileId);
+                    targetX = target.X;
+                    targetY = target.Y;
+                }
+                cursorManager = GamePlayerManagerAPI.Instance.GetCursorManager().Pointer;
+                rawHoveringOverWall = cursorManager != null
+                    ? cursorManager->r_HoveringOverWall : 0;
+
+                if ((command == (int)TribeAICommand.AttackWallTileId ||
+                     command == (int)TribeAICommand.AttachLadderToWall) &&
+                    unitId > 0 && playerId >= 0)
+                {
+                    TrackWallClimbCandidate(
+                        unitId, playerId, startX, startY, targetX, targetY,
+                        targetTileId, default,
+                        rawHoveringOverWall,
+                        cursorManager != null ? cursorManager->r_HoverOverBuildingId : 0,
+                        cursorManager != null ? cursorManager->r_HoverOverBuildingTileId : 0,
+                        cursorManager != null ? cursorManager->r_MouseTileId2 : 0,
+                        cursorManager != null ? cursorManager->r_MouseTileId : 0,
+                        true, command, commandContext);
+                }
+            }
+            catch (Exception ex)
+            {
+                TryLogDiagnosticFailure("wall-command-stager-pre", ex);
+            }
+
+            // The observer never changes or suppresses the native wall command.
+            originalCursorWallCommandStager(unitManager, commandContext, command, targetTileId);
+
+            try
+            {
+                if (command == (int)TribeAICommand.AttackWallTileId ||
+                    command == (int)TribeAICommand.AttachLadderToWall)
+                {
+                    Shared.DebugLogHelper.LogInfo(
+                        log,
+                        $"MoveMoat stage=wall-command-staged unit={unitId} player={playerId} " +
+                        $"command={(TribeAICommand)command}/{command:X} context={commandContext} " +
+                        $"start=({startX},{startY}) target=({targetX},{targetY})/{targetTileId} " +
+                        $"rawWall={rawHoveringOverWall}.");
+                }
+            }
+            catch (Exception ex)
+            {
+                TryLogDiagnosticFailure("wall-command-stager-post", ex);
+            }
+        }
+
         private void TrackWallClimbCandidate(
             int unitId,
             int playerId,
@@ -3892,12 +4082,29 @@ namespace MoveMoatTest
             int targetX,
             int targetY,
             int targetTileId,
-            BuildingCursorTarget wall)
+            BuildingCursorTarget wall,
+            uint rawHoveringOverWall,
+            uint rawHoverBuildingId,
+            uint rawHoverBuildingTileId,
+            uint rawMouseTileId2,
+            uint rawMouseTileId,
+            bool commandStaged,
+            int stagedCommand,
+            int commandContext)
         {
             if (trackedWallClimbs.TryGetValue(unitId, out WallClimbTracker existing) &&
                 existing.MapEpoch == mapEpoch && existing.TargetTileId == targetTileId &&
                 existing.WallBuildingId == wall.BuildingId)
+            {
+                existing.CommandStaged |= commandStaged;
+                existing.Activated |= commandStaged;
+                if (commandStaged)
+                {
+                    existing.StagedCommand = stagedCommand;
+                    existing.CommandContext = commandContext;
+                }
                 return;
+            }
             if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
                 unit == null || unit->r_AliveState != AliveState.IsAlive)
                 return;
@@ -3915,13 +4122,26 @@ namespace MoveMoatTest
                 WallBuildingId = wall.BuildingId,
                 WallGlobalId = wall.GlobalId,
                 WallType = wall.BuildingType,
+                RawHoveringOverWall = rawHoveringOverWall,
+                RawHoverBuildingId = rawHoverBuildingId,
+                RawHoverBuildingTileId = rawHoverBuildingTileId,
+                RawMouseTileId2 = rawMouseTileId2,
+                RawMouseTileId = rawMouseTileId,
+                CommandStaged = commandStaged,
+                StagedCommand = stagedCommand,
+                CommandContext = commandContext,
+                Activated = commandStaged,
                 InitialSignature = GetWallUnitSignature(unit)
             };
             trackedWallClimbs[unitId] = tracker;
             Shared.DebugLogHelper.LogInfo(log,
                 $"MoveMoat stage=wall-track-start unit={unitId} type={unit->r_UnitChimp} " +
                 $"player={playerId} start=({startX},{startY}) target=({targetX},{targetY})/" +
-                $"{targetTileId} wall={wall.BuildingId}/{wall.GlobalId}/{wall.BuildingType}.");
+                $"{targetTileId} wall={wall.BuildingId}/{wall.GlobalId}/{wall.BuildingType} " +
+                $"rawCursor=building:{rawHoverBuildingId}/buildingTile:{rawHoverBuildingTileId}/" +
+                $"mouse2:{rawMouseTileId2}/wall:{rawHoveringOverWall}/mouse:{rawMouseTileId} " +
+                $"commandStaged={commandStaged} command={(TribeAICommand)stagedCommand}/" +
+                $"{stagedCommand:X} context={commandContext}.");
         }
 
         private void ObserveTrackedWallClimbStates(int tick)
@@ -4021,7 +4241,9 @@ namespace MoveMoatTest
                      unit->r_TargetTilePositionY2 == tracker.TargetY) ||
                     (unit->r_ContextTargetTileX == tracker.TargetX &&
                      unit->r_ContextTargetTileY == tracker.TargetY);
-                if (!targetMatches)
+                // The native wall stager proves the command/unit/tile relation before the
+                // later AI state necessarily copies that tile into ordinary move fields.
+                if (!targetMatches && !tracker.CommandStaged)
                     continue;
                 if (match != null)
                     return null;
@@ -4798,7 +5020,13 @@ namespace MoveMoatTest
                 string rejectionReason,
                 int buildingId = 0,
                 uint buildingGlobalId = 0,
-                eStructs buildingType = eStructs.STRUCT_NULL)
+                eStructs buildingType = eStructs.STRUCT_NULL,
+                uint rawHoverBuildingId = 0,
+                uint rawHoverUnitId = 0,
+                uint rawHoverBuildingTileId = 0,
+                uint rawMouseTileId2 = 0,
+                uint rawHoveringOverWall = 0,
+                uint rawMouseTileId = 0)
             {
                 MapEpoch = mapEpoch;
                 VanillaSelectionResult = vanillaSelectionResult;
@@ -4818,6 +5046,12 @@ namespace MoveMoatTest
                 BuildingId = buildingId;
                 BuildingGlobalId = buildingGlobalId;
                 BuildingType = buildingType;
+                RawHoverBuildingId = rawHoverBuildingId;
+                RawHoverUnitId = rawHoverUnitId;
+                RawHoverBuildingTileId = rawHoverBuildingTileId;
+                RawMouseTileId2 = rawMouseTileId2;
+                RawHoveringOverWall = rawHoveringOverWall;
+                RawMouseTileId = rawMouseTileId;
             }
 
             public int MapEpoch { get; }
@@ -4838,6 +5072,12 @@ namespace MoveMoatTest
             public int BuildingId { get; }
             public uint BuildingGlobalId { get; }
             public eStructs BuildingType { get; }
+            public uint RawHoverBuildingId { get; }
+            public uint RawHoverUnitId { get; }
+            public uint RawHoverBuildingTileId { get; }
+            public uint RawMouseTileId2 { get; }
+            public uint RawHoveringOverWall { get; }
+            public uint RawMouseTileId { get; }
         }
 
         private sealed class WallClimbTracker
@@ -4853,6 +5093,14 @@ namespace MoveMoatTest
             public int WallBuildingId;
             public uint WallGlobalId;
             public eStructs WallType;
+            public uint RawHoveringOverWall;
+            public uint RawHoverBuildingId;
+            public uint RawHoverBuildingTileId;
+            public uint RawMouseTileId2;
+            public uint RawMouseTileId;
+            public bool CommandStaged;
+            public int StagedCommand;
+            public int CommandContext;
             public string InitialSignature;
             public string LastSignature;
             public bool Activated;

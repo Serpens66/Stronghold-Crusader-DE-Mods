@@ -98,14 +98,14 @@ namespace BuildingLimit
             Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
             int scannedBuildings = buildings.Length;
             int aliveBuildings = 0;
-            for (int i = 0; i < buildings.Length; i++)
+            for (int spanIndex = 0; spanIndex < buildings.Length; spanIndex++)
             {
-                BuildingSnapshot snapshot = BuildingSnapshot.From(buildings[i]);
+                BuildingSnapshot snapshot = BuildingSnapshot.From(buildings[spanIndex]);
                 if (!IsActiveBuildingState(snapshot.AliveState))
                     continue;
 
                 aliveBuildings++;
-                seenSnapshots[i + 1] = snapshot;
+                seenSnapshots[spanIndex + 1] = snapshot;
             }
 
             List<ActiveBuildingChangedEventArgs> events = null;

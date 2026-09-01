@@ -59,6 +59,21 @@ namespace AssassinCombatFix
             "48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 30 48 63 FA 48 8B F1 " +
             "48 69 DF 90 04 00 00 48 03 D9 66 83 BB F8 08 00 00 00";
 
+        public const int InlineHookMinimumOverwriteLength = 14;
+        public const int PostCombatPathContextHookRva = 0x197716;
+        public const int PostCombatPathContextHookLength = 14;
+        public static readonly byte[] PostCombatPathContextHookBytes =
+        {
+            0x66, 0x89, 0x8B, 0x4E, 0x07, 0x00, 0x00,
+            0x89, 0x4C, 0x24, 0x20,
+            0x48, 0x8B, 0xCE
+        };
+        public const int PostCombatRestoredStateWriteRva = 0x197724;
+        public static readonly byte[] PostCombatRestoredStateWriteBytes =
+        {
+            0x66, 0x89, 0x83, 0x18, 0x09, 0x00, 0x00
+        };
+
         // This sequence restores the saved state and secondary target immediately
         // before Vanilla requests a replacement path after combat.
         public const int PostCombatPathRequestSequenceRva = 0x197702;

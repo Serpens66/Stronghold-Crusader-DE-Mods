@@ -1171,14 +1171,22 @@ freien Nachbartiles geprüft. Für Gebäude werden StructureGrid-ID, Alive-State
 Typ und der reale belegte Footprint gebunden; Kandidaten sind alle freien Außenfelder dieses
 Footprints. Das tatsächliche `0xE2CA0`-Zieltile muss weiterhin zum gespeicherten Gebäude gehören.
 Reine Holz-/Stein-/Zinnenmauern, Treppen und ehemalige Mauerstrukturen sind ausdrücklich kein
-Building-Scope. Ein Annäherungstile wird ausschließlich
-positiv, wenn es mit Moat erreichbar, ohne Moat nicht erreichbar und die Region vom Start getrennt
-ist. Die einzige Sonderform ist eine Unit, die bereits auf einem regionslosen fertigen Moat-Tile
-steht. Zusätzlich muss der gefundene Zustandsweg mindestens ein eigenes oder verbündetes fertiges
-Moat-Tile benutzen. Die Logfelder `attackWithMoat`, `attackWithoutMoat` und
-`attackRegionTopology` machen diese drei Bedingungen einzeln prüfbar. Feindliche Moats, Mauern,
-Wasser, ungültige Daten, freie Vanilla-Routen, gleichregionale Ziele mit irrelevantem Moat-Umweg
-und fremde Aufrufkontexte bleiben Vanilla.
+Building-Scope. Ein Annäherungstile wird ausschließlich positiv, wenn es mit Moat erreichbar und
+ohne Moat nicht erreichbar ist und der gefundene Zustandsweg mindestens ein eigenes oder
+verbündetes fertiges Moat-Tile benutzt. Eine zusätzlich abgeleitete Trennung der Regionsnummern
+ist **keine** Freigabebedingung: Der gültige Lauf zeigte sowohl gleich nummerierte konkrete
+Regionen als auch Vanillas `targetRegion=0`-Sentinel innerhalb von `UnitFlood`, obwohl dieselbe
+owner-geprüfte Tile-BFS die notwendige Moat-Route eindeutig mit
+`attackWithMoat=true/attackWithoutMoat=false` belegte. `attackRegionTopology` bleibt deshalb nur
+als Diagnosewert erhalten. Feindliche Moats, Mauern, Wasser, ungültige Daten, freie
+Vanilla-Routen, irrelevante Moat-Umwege und fremde Aufrufkontexte bleiben durch dieselbe
+Tile-Traversierung ausgeschlossen.
+
+Beim funktionalen `0xE2610`-Fallback muss die aufgelöste Quellregion weiterhin exakt zum nativen
+`sourceRegion` passen. Eine positive native Zielregion wird ebenfalls exakt gebunden. Nur der
+Wert `targetRegion=0` wird als bestätigter Annäherungssuch-Sentinel akzeptiert; in diesem Fall
+entscheidet die positive Region des konkret gefundenen freien Annäherungstiles. Tribe, Unit,
+Spieler, Bewegungsklasse, Command und feindliches Ziel bleiben unverändert exakt gebunden.
 
 Diese Stufe soll zunächst nur beweisen, ob Cursor und Target-Command dadurch korrekt werden. Der
 spätere Attack-AI-Pfad wird nicht vorauseilend verändert. Nach einem erfolgreichen
@@ -1232,6 +1240,7 @@ Quelldateien. Für `MoveMoatTest` sind dies:
 |---|---:|---|
 | `CursorCurrentTileFlagGatePattern` | `0x8F388`, Sprung `0x8F393` | allgemeiner Tile-/Mauerzweig; Originalbytes validieren, niemals global öffnen |
 | `CursorTilePairFallbackSelectionPattern` | `0x196870` | Auswahlarten-Gate: 35 Slots ab Struktur-Offset `0x564`, Slot 22 ausgenommen |
+| `CursorWallCommandStagerPattern` | `0x199B70` | direkter Cursor-Stager für `AttackWallTileId=0x17` und `AttachLadderToWall=0x18`; schreibt Command-/Tile-Globals und signalisiert Event `0x24` |
 | `GetRepresentativeSelectedUnitPattern` | `0x18D460` | vom Cursor verwendete repräsentative ausgewählte Unit ab Startindex 1 |
 | `CursorTilePairReachabilityPattern` | `0xE2CA0` | Start-/Zieltilevergleich; bei getrennten Regionen Call auf BFS `0xD9C40` |
 | `AttackUnitPairGatePattern` | `0x8D71D`, Sprung `0x8D72B` | Call auf `0x196870`, danach Tilepaarprüfung für Unit-Angriffszweig |
@@ -1513,7 +1522,8 @@ beziehungsweise die konkreten Stages filtern:
 - `move-state`
 - `move-state-end`
 - `attack-approach` mit `UnitFlood`, `BuildingApproach` oder `BuildingCandidateConsumer`
-- `wall-track-start`, `wall-state`, `wall-mode`, `wall-planner` und `wall-builder-entry/return`
+- `wall-command-staged`, `wall-track-start`, `wall-state`, `wall-mode`, `wall-planner` und
+  `wall-builder-entry/return`
 
 Es gibt keine globalen Diagnosegrenzen mehr. Während eines synchronen `move-command` sammelt der
 Mod zunächst dessen vollständige Command-, Flood-, Mode-, Region-, Owner- und Builderdiagnose im
@@ -1646,11 +1656,22 @@ Diese Liste belegt die breite Verwendung des Helpers, ersetzt aber bei einer neu
 - Der streng owner-geprüfte `UnitFlood`-Regionsfallback ist für normale `AttackUnit`-Befehle
   funktional bestätigt: `0xDBC60` erzeugte 50 Kandidaten und der echte Builderpfad wurde
   vollständig bewegt. Gebäudeangriffe über `0xDA020`/`0x123090` bleiben vorerst diagnostisch.
-- Normales Mauerklettern ist durch das Entfernen der globalen Cursorpatches wieder vollständig
-  Vanilla. Ein semantisch deduplizierter Wall-Tracker beobachtet für Assassinen nach Wall-Hover
-  nur Zustandsänderungen sowie ungescopte Planer-, Moat-Modus- und Builderaufrufe. Er verändert
-  weder Commands noch Tiles noch Builderwerte. Klettern hinter Moat bleibt bis zum Nachweis der
-  kombinierten Vanilla-Kletterpipeline bewusst offen.
+- Alle globalen Cursorpatches sind entfernt, dennoch bestätigt ein A/B-Test weiterhin eine durch
+  `MoveMoatTest` ausgelöste Kletterregression. Die frühere Erklärung, allein `0x8F393` habe sie
+  verursacht und ihre Entfernung habe normales Klettern repariert, ist damit widerlegt.
+  `GameCursorManager.r_HoveringOverWall` wird nun unabhängig von einer `GameBuilding`-ID geloggt.
+  Zusätzlich beobachtet ein separat validierter, rein lesender Detour den nativen Cursor-Stager
+  `0x199B70` an seinen Calls `0x8FBB3` und `0x8FC03`. Er bindet Assassin, Command, exaktes
+  Wall-Tile und Cursor-Rohwerte und korreliert danach Zustands-, Planer-, Moat-Modus- und
+  Builderaufrufe. Er verändert weder Command noch Tiles noch Rückgabewerte. Klettern hinter Moat
+  bleibt bis zum Nachweis der kombinierten Vanilla-Kletterpipeline bewusst offen.
+- Die hashgleiche semantische Baseline beschreibt `0x199B70` als 143 Byte große Funktion. Sie
+  schreibt ihre Parameter in die Globals `0x86C132C`, `0x86C1330` und `0x86C1334`, signalisiert
+  Event `0x24` über `0x23990` und bestimmt danach über `0x18D460` die repräsentative Unit.
+  Direkte Cursor-Calls liegen bei `0x8FBB3` und `0x8FC03`. Der Versionsmatcher ordnet sie mit
+  `confidence=confirmed`, `reason=unique-normalized-hash-and-cfg` der historischen Funktion
+  `0x198B20` zu. Pattern, vollständige Entrybytes und beide Callziele müssen bei einem Update
+  trotzdem erneut gemeinsam validiert werden.
 - `0x196840` bedeutet nachweislich „Unit steht auf einem Tile mit fertigem-Moat-Bit“, während
   `0x196870` nur Auswahlarten prüft; diese Semantik bei Updates nicht wieder verallgemeinern.
 - Als Nächstes diese Stufe mit eigenem, verbündetem und feindlichem Moat sowie Umweg-, Mauer-

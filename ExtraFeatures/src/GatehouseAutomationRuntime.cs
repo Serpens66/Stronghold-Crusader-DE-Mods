@@ -710,9 +710,9 @@ namespace ExtraFeatures
             building = null;
             int matches = 0;
             Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
-            for (int index = 0; index < buildings.Length; index++)
+            for (int spanIndex = 0; spanIndex < buildings.Length; spanIndex++)
             {
-                ref GameBuilding candidate = ref buildings[index];
+                ref GameBuilding candidate = ref buildings[spanIndex];
                 if (candidate.r_AliveState != AliveState.IsAlive ||
                     candidate.r_PlayerIdOwner != locator.OwnerPlayerId ||
                     (int)candidate.r_BuildingType != locator.BuildingType ||
@@ -724,7 +724,7 @@ namespace ExtraFeatures
                     continue;
                 }
 
-                int candidateId = index + 1;
+                int candidateId = spanIndex + 1;
                 if (!TryGetLiveGatehouse(candidateId, out GameBuilding* candidateBuilding, out _))
                     continue;
                 matches++;
@@ -877,13 +877,13 @@ namespace ExtraFeatures
                 return false;
 
             Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
-            for (int index = 0; index < buildings.Length; index++)
+            for (int spanIndex = 0; spanIndex < buildings.Length; spanIndex++)
             {
-                ref GameBuilding candidate = ref buildings[index];
+                ref GameBuilding candidate = ref buildings[spanIndex];
                 if (candidate.r_AliveState != AliveState.IsAlive || candidate.r_GlobalId != (uint)globalId)
                     continue;
 
-                int candidateId = index + 1;
+                int candidateId = spanIndex + 1;
                 if (GameBuildingManagerAPI.Instance.TryGetGatehouseEntryById(candidateId, out GameGatehouseEntry* gatehouse) &&
                     gatehouse != null && gatehouse->r_BuildingId == (uint)candidateId && gatehouse->r_GlobalId == candidate.r_GlobalId)
                 {

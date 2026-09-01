@@ -96,14 +96,14 @@ namespace UnitLimit
             Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
             int scannedUnits = units.Length;
             int aliveUnits = 0;
-            for (int i = 0; i < units.Length; i++)
+            for (int spanIndex = 0; spanIndex < units.Length; spanIndex++)
             {
-                UnitSnapshot snapshot = UnitSnapshot.From(units[i]);
+                UnitSnapshot snapshot = UnitSnapshot.From(units[spanIndex]);
                 if (!IsActiveUnitState(snapshot.AliveState))
                     continue;
 
                 aliveUnits++;
-                seenSnapshots[i + 1] = snapshot;
+                seenSnapshots[spanIndex + 1] = snapshot;
             }
 
             List<ActiveUnitChangedEventArgs> events = null;

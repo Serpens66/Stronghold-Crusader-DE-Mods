@@ -14,6 +14,7 @@ using Zhuqiaomon.Assembly;
 using Zhuqiaomon.Extensions;
 using Zhuqiaomon.Hooks;
 using Zhuqiaomon.Hooks.Transaction;
+using Zhuqiaomon.Memory;
 using static Iced.Intel.AssemblerRegisters;
 
 namespace AssassinCombatFix
@@ -25,6 +26,7 @@ namespace AssassinCombatFix
         private HookTransaction transaction;
         private HookRef<X64FunctionCloneHook> assassinStateMachineDiagnosticHook =
             new HookRef<X64FunctionCloneHook>();
+        private HookRef<X64InlineHook> postCombatPathContextHook = new HookRef<X64InlineHook>();
         private int* assassinPathContextFlag;
         private ulong libraryBase;
         private bool tickObserverSubscribed;
@@ -64,6 +66,9 @@ namespace AssassinCombatFix
         public bool IsInstalled =>
             transaction != null &&
             assassinStateMachineDiagnosticHook.Success &&
+            assassinStateMachineDiagnosticHook.Value.IsActive &&
+            postCombatPathContextHook.Success &&
+            postCombatPathContextHook.Value.IsActive &&
             moveHereSubscription != null &&
             killedByMeleeSubscription != null;
 
@@ -103,9 +108,20 @@ namespace AssassinCombatFix
                     ref assassinStateMachineDiagnosticHook,
                     libraryBase + unchecked((ulong)AssassinCombatResumeNativeDefinition.AssassinStateMachineRva),
                     new[] { CreateStateWriteDiagnosticPatch() });
+                installedTransaction.AddContextHook(
+                    ref postCombatPathContextHook,
+                    libraryBase + unchecked((ulong)AssassinCombatResumeNativeDefinition.PostCombatPathContextHookRva),
+                    PreparePostCombatPathContext,
+                    regs: X64SmartCPUContextRegs.All,
+                    hookSize: AssassinCombatResumeNativeDefinition.PostCombatPathContextHookLength,
+                    errorMode: CallbackErrorMode.LogAndContinue,
+                    placement: OverwrittenInstructionPlacement.BeforeCallback);
                 installedTransaction.Commit();
 
                 if (!assassinStateMachineDiagnosticHook.Success ||
+                    !assassinStateMachineDiagnosticHook.Value.IsActive ||
+                    !postCombatPathContextHook.Success ||
+                    !postCombatPathContextHook.Value.IsActive ||
                     clonedStateWriteSiteCount != AssassinCombatResumeNativeDefinition.AssassinAiStateWriteRvas.Length)
                 {
                     throw new InvalidOperationException(
@@ -122,7 +138,9 @@ namespace AssassinCombatFix
                 GameTimeManagerAPI.Instance.OnTick += ObserveAssassinStates;
                 tickObserverSubscribed = true;
                 LogInfo(
-                    $"installed passive Assassin state-machine clone diagnostics at RVA " +
+                    $"installed Assassin post-combat path-context hook at RVA " +
+                    $"0x{AssassinCombatResumeNativeDefinition.PostCombatPathContextHookRva:X} and passive " +
+                    $"state-machine clone diagnostics at RVA " +
                     $"0x{AssassinCombatResumeNativeDefinition.AssassinStateMachineRva:X} with " +
                     $"{clonedStateWriteSiteCount} audited state-write sites; subscribed to Script Extender " +
                     $"MoveHere and melee-kill events.");
@@ -142,6 +160,7 @@ namespace AssassinCombatFix
                 }
                 transaction = null;
                 assassinStateMachineDiagnosticHook = new HookRef<X64FunctionCloneHook>();
+                postCombatPathContextHook = new HookRef<X64InlineHook>();
                 stateWriteDiagnosticCallbacks.Clear();
                 clonedStateWriteSiteCount = 0;
                 assassinPathContextFlag = null;
@@ -236,17 +255,17 @@ namespace AssassinCombatFix
         {
             try
             {
-                int nativeUnitIndex = GameUnitManagerAPI.Instance.GetCurrentContextUnitId();
+                int unitId = GameUnitManagerAPI.Instance.GetCurrentContextUnitId();
                 Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
-                if (!TryGetLoggableAssassin(nativeUnitIndex, units, out GameUnit unit))
+                if (!TryGetLoggableAssassin(unitId, units, out int spanIndex, out GameUnit unit))
                     return;
 
                 int diagnosticId = BeginRawResumeDiagnostic(true, unit.r_AliveState, unit.r_UnitChimp);
                 LogDiagnostic(
                     diagnosticId,
                     $"state-write tick={currentTick}, siteRva=0x{siteRva:X}, " +
-                    $"nativeUnitIndex={nativeUnitIndex}, oldState={unit.r_AIState}, " +
-                    $"proposedState={proposedState}, ticksSinceState106={GetTicksSinceState106(nativeUnitIndex)}, " +
+                    $"unitId={unitId}, spanIndex={spanIndex}, oldState={unit.r_AIState}, " +
+                    $"proposedState={proposedState}, ticksSinceState106={GetTicksSinceState106(spanIndex)}, " +
                     DescribeUnit(unit));
             }
             catch (Exception ex)
@@ -259,19 +278,19 @@ namespace AssassinCombatFix
         {
             try
             {
-                int nativeUnitIndex = args.UnitId;
+                int unitId = args.UnitId;
                 Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
-                if (!TryGetLoggableAssassin(nativeUnitIndex, units, out GameUnit unit))
+                if (!TryGetLoggableAssassin(unitId, units, out int spanIndex, out GameUnit unit))
                     return;
 
                 int diagnosticId = BeginRawResumeDiagnostic(true, unit.r_AliveState, unit.r_UnitChimp);
                 LogDiagnostic(
                     diagnosticId,
-                    $"move-here phase={args.Phase}, tick={currentTick}, nativeUnitIndex={nativeUnitIndex}, " +
+                    $"move-here phase={args.Phase}, tick={currentTick}, unitId={unitId}, spanIndex={spanIndex}, " +
                     $"requestTarget={args.TileX},{args.TileY}, pathOption={args.Unknown}, " +
                     $"returnValue={args.ReturnValue}, skipOriginal={args.SkipOriginalFunction}, " +
                     $"assassinContextFlag={*assassinPathContextFlag}, " +
-                    $"ticksSinceState106={GetTicksSinceState106(nativeUnitIndex)}, {DescribeUnit(unit)}");
+                    $"ticksSinceState106={GetTicksSinceState106(spanIndex)}, {DescribeUnit(unit)}");
             }
             catch (Exception ex)
             {
@@ -284,8 +303,8 @@ namespace AssassinCombatFix
             try
             {
                 Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
-                if (!TryResolveAssassinEventIndex(args.AttackingUnitId, units, out int nativeUnitIndex, out string basis) ||
-                    !TryGetLoggableAssassin(nativeUnitIndex, units, out GameUnit unit))
+                int unitId = args.AttackingUnitId;
+                if (!TryGetLoggableAssassin(unitId, units, out int spanIndex, out GameUnit unit))
                 {
                     return;
                 }
@@ -294,13 +313,60 @@ namespace AssassinCombatFix
                 LogDiagnostic(
                     diagnosticId,
                     $"melee-kill phase={args.Phase}, tick={currentTick}, rawAttacker={args.AttackingUnitId}, " +
-                    $"rawVictim={args.AttackedUnitId}, attackerResolution={basis}, " +
-                    $"nativeUnitIndex={nativeUnitIndex}, assassinContextFlag={*assassinPathContextFlag}, " +
-                    $"ticksSinceState106={GetTicksSinceState106(nativeUnitIndex)}, {DescribeUnit(unit)}");
+                    $"rawVictim={args.AttackedUnitId}, unitId={unitId}, spanIndex={spanIndex}, " +
+                    $"assassinContextFlag={*assassinPathContextFlag}, " +
+                    $"ticksSinceState106={GetTicksSinceState106(spanIndex)}, {DescribeUnit(unit)}");
             }
             catch (Exception ex)
             {
                 LogDiagnosticFailure("melee-kill", ex);
+            }
+        }
+
+        private void PreparePostCombatPathContext(NativePointer<X64SmartCPUContext> context)
+        {
+            try
+            {
+                int unitId = unchecked((int)context.Pointer->RDI);
+                Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
+                bool unitResolved = AssassinCombatResumePolicy.TryConvertUnitIdToSpanIndex(
+                    unitId,
+                    units.Length,
+                    out int spanIndex);
+                GameUnit unit = unitResolved ? units[spanIndex] : default;
+                ulong returnAddress = *(ulong*)(context.Pointer->RSP +
+                    AssassinCombatResumeNativeDefinition.PostCombatCallerReturnAddressStackOffset);
+                long callerRva = unchecked((long)returnAddress - (long)libraryBase);
+                bool expectedCaller = callerRva ==
+                    AssassinCombatResumeNativeDefinition.CombatFinishResumeReturnRva;
+                bool eligible = AssassinCombatResumePolicy.ShouldInjectPostCombatPathContext(
+                    settings.EnableMod,
+                    settings.EnableImprovedAssassinPathfinding,
+                    IsInstalled,
+                    unitResolved,
+                    unitResolved ? unit.r_AliveState : default,
+                    unitResolved ? unit.r_UnitChimp : default,
+                    unitResolved ? unit.r_AIState : default,
+                    expectedCaller);
+                int flagBefore = *assassinPathContextFlag;
+                bool contextSet = eligible && flagBefore == 0;
+                if (contextSet)
+                    *assassinPathContextFlag = 1;
+
+                int diagnosticId = BeginRawResumeDiagnostic(
+                    unitResolved,
+                    unitResolved ? unit.r_AliveState : default,
+                    unitResolved ? unit.r_UnitChimp : default);
+                LogDiagnostic(
+                    diagnosticId,
+                    $"post-combat-path-context tick={currentTick}, unitId={unitId}, spanIndex={spanIndex}, " +
+                    $"callerRva={FormatRva(callerRva)}, eligible={eligible}, flagBefore={flagBefore}, " +
+                    $"contextSet={contextSet}, flagForRequest={*assassinPathContextFlag}, " +
+                    $"ticksSinceState106={GetTicksSinceState106(spanIndex)}, {DescribeUnit(unit)}");
+            }
+            catch (Exception ex)
+            {
+                LogDiagnosticFailure("post-combat-path-context", ex);
             }
         }
 
@@ -325,9 +391,9 @@ namespace AssassinCombatFix
             try
             {
                 Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
-                for (int nativeUnitIndex = 0; nativeUnitIndex < units.Length; nativeUnitIndex++)
+                for (int spanIndex = 0; spanIndex < units.Length; spanIndex++)
                 {
-                    GameUnit unit = units[nativeUnitIndex];
+                    GameUnit unit = units[spanIndex];
                     if (!AssassinCombatResumePolicy.ShouldLogRawResumeDiagnostic(
                             true,
                             unit.r_AliveState,
@@ -338,7 +404,7 @@ namespace AssassinCombatFix
 
                     string signature = BuildUnitSignature(unit);
                     bool hasTrackedUnit = trackedAssassins.TryGetValue(
-                        nativeUnitIndex,
+                        spanIndex,
                         out AssassinTraceSnapshot tracked);
                     bool isNewUnit = AssassinCombatResumePolicy.ShouldTreatAsNewTrackedUnit(
                         hasTrackedUnit,
@@ -353,7 +419,7 @@ namespace AssassinCombatFix
                             Signature = signature,
                             LastLogTick = tick
                         };
-                        trackedAssassins[nativeUnitIndex] = tracked;
+                        trackedAssassins[spanIndex] = tracked;
                     }
 
                     if (unit.r_AIState == 106)
@@ -390,7 +456,7 @@ namespace AssassinCombatFix
                     Shared.DebugLogHelper.LogDebug(
                         log,
                         $"[ASSASSIN_COMBAT_RESUME_DIAGNOSTIC trace={traceId}] state-trace " +
-                        $"tick={tick}, reason={reason}, nativeUnitIndex={nativeUnitIndex}, {DescribeUnit(unit)}");
+                        $"tick={tick}, reason={reason}, spanIndex={spanIndex}, unitId={spanIndex + 1}, {DescribeUnit(unit)}");
                 }
             }
             catch (Exception ex)
@@ -490,6 +556,31 @@ namespace AssassinCombatFix
             {
                 throw new InvalidOperationException(
                     "the post-combat helper no longer restores the saved request through the audited calls");
+            }
+
+            ValidateHookSpan(
+                memory,
+                AssassinCombatResumeNativeDefinition.PostCombatPathContextHookRva,
+                AssassinCombatResumeNativeDefinition.PostCombatPathContextHookBytes,
+                "post-combat path-context hook");
+            ValidateHookSpan(
+                memory,
+                AssassinCombatResumeNativeDefinition.PostCombatRestoredStateWriteRva,
+                AssassinCombatResumeNativeDefinition.PostCombatRestoredStateWriteBytes,
+                "post-combat restored-state write");
+            if (AssassinCombatResumeNativeDefinition.PostCombatPathContextHookLength !=
+                    AssassinCombatResumeNativeDefinition.PostCombatPathContextHookBytes.Length ||
+                AssassinCombatResumeNativeDefinition.PostCombatPathContextHookLength <
+                    AssassinCombatResumeNativeDefinition.InlineHookMinimumOverwriteLength ||
+                AssassinCombatResumeNativeDefinition.PostCombatPathContextHookRva +
+                    AssassinCombatResumeNativeDefinition.PostCombatPathContextHookLength !=
+                    AssassinCombatResumeNativeDefinition.PostCombatRestoredStateWriteRva ||
+                AssassinCombatResumeNativeDefinition.PostCombatRestoredStateWriteRva +
+                    AssassinCombatResumeNativeDefinition.PostCombatRestoredStateWriteBytes.Length !=
+                    AssassinCombatResumeNativeDefinition.PostCombatPathRequestCallRva)
+            {
+                throw new InvalidOperationException(
+                    "the post-combat path-context hook no longer ends on the audited instruction boundaries");
             }
 
             Shared.NativeResolution contextRead = Resolve(
@@ -598,6 +689,20 @@ namespace AssassinCombatFix
             }
         }
 
+        private static void ValidateHookSpan(
+            ReadOnlySpan<byte> memory,
+            int hookRva,
+            byte[] expectedBytes,
+            string description)
+        {
+            if (hookRva < 0 || hookRva + expectedBytes.Length > memory.Length ||
+                !memory.Slice(hookRva, expectedBytes.Length).SequenceEqual(expectedBytes))
+            {
+                throw new InvalidOperationException(
+                    $"the Assassin combat-resume {description} no longer matches the audited instructions");
+            }
+        }
+
         private static void ValidateLiveStateMachineEntry(IntPtr libraryHandle)
         {
             IntPtr vtableEntry = IntPtr.Add(
@@ -647,12 +752,16 @@ namespace AssassinCombatFix
         }
 
         private bool TryGetLoggableAssassin(
-            int nativeUnitIndex,
+            int unitId,
             Span<GameUnit> units,
+            out int spanIndex,
             out GameUnit unit)
         {
-            bool resolved = AssassinCombatResumePolicy.IsValidNativeUnitIndex(nativeUnitIndex, units.Length);
-            unit = resolved ? units[nativeUnitIndex] : default;
+            bool resolved = AssassinCombatResumePolicy.TryConvertUnitIdToSpanIndex(
+                unitId,
+                units.Length,
+                out spanIndex);
+            unit = resolved ? units[spanIndex] : default;
             return AssassinCombatResumePolicy.ShouldLogPassiveDiagnostic(
                 settings.EnableMod,
                 settings.EnableImprovedAssassinPathfinding,
@@ -663,39 +772,16 @@ namespace AssassinCombatFix
                 resolved ? unit.r_UnitChimp : default);
         }
 
-        private static bool TryResolveAssassinEventIndex(
-            int rawUnitId,
-            Span<GameUnit> units,
-            out int nativeUnitIndex,
-            out string basis)
-        {
-            if (AssassinCombatResumePolicy.IsValidNativeUnitIndex(rawUnitId, units.Length) &&
-                units[rawUnitId].r_UnitChimp == eChimps.CHIMP_TYPE_ARAB_ASSASIN)
-            {
-                nativeUnitIndex = rawUnitId;
-                basis = "zero-based";
-                return true;
-            }
-
-            int oneBasedCandidate = rawUnitId - 1;
-            if (AssassinCombatResumePolicy.IsValidNativeUnitIndex(oneBasedCandidate, units.Length) &&
-                units[oneBasedCandidate].r_UnitChimp == eChimps.CHIMP_TYPE_ARAB_ASSASIN)
-            {
-                nativeUnitIndex = oneBasedCandidate;
-                basis = "one-based";
-                return true;
-            }
-
-            nativeUnitIndex = -1;
-            basis = "unresolved";
-            return false;
-        }
-
         private void LogDiagnosticFailure(string source, Exception ex)
         {
             Shared.DebugLogHelper.LogError(
                 log,
                 $"[ASSASSIN_COMBAT_RESUME_DIAGNOSTIC] passive {source} trace failed: {ex}");
+        }
+
+        private static string FormatRva(long rva)
+        {
+            return rva >= 0 ? $"0x{rva:X}" : "outside-module";
         }
 
         private static string BuildUnitSignature(GameUnit unit)
@@ -758,9 +844,9 @@ namespace AssassinCombatFix
             return unchecked((ushort)(unit.N000000AB >> 16));
         }
 
-        private int GetTicksSinceState106(int nativeUnitIndex)
+        private int GetTicksSinceState106(int spanIndex)
         {
-            if (!trackedAssassins.TryGetValue(nativeUnitIndex, out AssassinTraceSnapshot tracked) ||
+            if (!trackedAssassins.TryGetValue(spanIndex, out AssassinTraceSnapshot tracked) ||
                 tracked.LastState106Tick < 0 ||
                 currentTick < tracked.LastState106Tick)
             {

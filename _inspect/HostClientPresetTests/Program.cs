@@ -1920,13 +1920,56 @@ internal static class Program
 
     private static void TestAssassinCombatResumePolicy()
     {
-        Check(AssassinCombatResumePolicy.IsValidNativeUnitIndex(0, 10000) &&
-              AssassinCombatResumePolicy.IsValidNativeUnitIndex(9999, 10000),
-            "Assassin combat resume rejected a valid native zero-based unit index");
-        Check(!AssassinCombatResumePolicy.IsValidNativeUnitIndex(-1, 10000) &&
-              !AssassinCombatResumePolicy.IsValidNativeUnitIndex(10000, 10000) &&
-              !AssassinCombatResumePolicy.IsValidNativeUnitIndex(0, 0),
-            "Assassin combat resume accepted an invalid native unit index");
+        Check(AssassinCombatResumePolicy.IsValidSpanIndex(0, 10000) &&
+              AssassinCombatResumePolicy.IsValidSpanIndex(9999, 10000),
+            "Assassin combat resume rejected a valid zero-based span index");
+        Check(!AssassinCombatResumePolicy.IsValidSpanIndex(-1, 10000) &&
+              !AssassinCombatResumePolicy.IsValidSpanIndex(10000, 10000) &&
+              !AssassinCombatResumePolicy.IsValidSpanIndex(0, 0),
+            "Assassin combat resume accepted an invalid span index");
+
+        Check(AssassinCombatResumePolicy.TryConvertUnitIdToSpanIndex(1, 10000, out int firstSpanIndex) &&
+              firstSpanIndex == 0 &&
+              AssassinCombatResumePolicy.TryConvertUnitIdToSpanIndex(10000, 10000, out int lastSpanIndex) &&
+              lastSpanIndex == 9999 &&
+              AssassinCombatResumePolicy.TryConvertUnitIdToSpanIndex(7, 10000, out int observedSpanIndex) &&
+              observedSpanIndex == 6,
+            "Assassin combat resume did not convert one-based unit IDs exactly once");
+        Check(!AssassinCombatResumePolicy.TryConvertUnitIdToSpanIndex(0, 10000, out _) &&
+              !AssassinCombatResumePolicy.TryConvertUnitIdToSpanIndex(-1, 10000, out _) &&
+              !AssassinCombatResumePolicy.TryConvertUnitIdToSpanIndex(10001, 10000, out _) &&
+              !AssassinCombatResumePolicy.TryConvertUnitIdToSpanIndex(1, 0, out _),
+            "Assassin combat resume accepted an invalid one-based unit ID");
+
+        Check(AssassinCombatResumePolicy.ShouldInjectPostCombatPathContext(
+                true, true, true, true,
+                AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN, 106, true),
+            "eligible Assassin state-106 combat resume did not request its path context");
+        Check(!AssassinCombatResumePolicy.ShouldInjectPostCombatPathContext(
+                false, true, true, true,
+                AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN, 106, true) &&
+              !AssassinCombatResumePolicy.ShouldInjectPostCombatPathContext(
+                true, false, true, true,
+                AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN, 106, true) &&
+              !AssassinCombatResumePolicy.ShouldInjectPostCombatPathContext(
+                true, true, false, true,
+                AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN, 106, true) &&
+              !AssassinCombatResumePolicy.ShouldInjectPostCombatPathContext(
+                true, true, true, false,
+                AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN, 106, true) &&
+              !AssassinCombatResumePolicy.ShouldInjectPostCombatPathContext(
+                true, true, true, true,
+                AliveState.MarkedForDeletion, eChimps.CHIMP_TYPE_ARAB_ASSASIN, 106, true) &&
+              !AssassinCombatResumePolicy.ShouldInjectPostCombatPathContext(
+                true, true, true, true,
+                AliveState.IsAlive, eChimps.CHIMP_TYPE_KNIGHT, 106, true) &&
+              !AssassinCombatResumePolicy.ShouldInjectPostCombatPathContext(
+                true, true, true, true,
+                AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN, 101, true) &&
+              !AssassinCombatResumePolicy.ShouldInjectPostCombatPathContext(
+                true, true, true, true,
+                AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN, 106, false),
+            "Assassin post-combat path context did not fail closed outside its audited state-106 caller");
 
         Check(AssassinCombatResumePolicy.ShouldLogPassiveDiagnostic(
                 true, true, true, true, true,
@@ -2117,6 +2160,24 @@ internal static class Program
             finalizeCallRva == AssassinCombatResumeNativeDefinition.PostCombatFinalizeCallRva &&
             finalizeTarget == AssassinCombatResumeNativeDefinition.PostPathRequestRva,
             "post-combat helper no longer restores the saved state and target through the audited path calls");
+        Check(
+            AssassinCombatResumeNativeDefinition.PostCombatPathContextHookLength ==
+                AssassinCombatResumeNativeDefinition.PostCombatPathContextHookBytes.Length &&
+            AssassinCombatResumeNativeDefinition.PostCombatPathContextHookLength >=
+                AssassinCombatResumeNativeDefinition.InlineHookMinimumOverwriteLength &&
+            image.Skip(AssassinCombatResumeNativeDefinition.PostCombatPathContextHookRva)
+                .Take(AssassinCombatResumeNativeDefinition.PostCombatPathContextHookLength)
+                .SequenceEqual(AssassinCombatResumeNativeDefinition.PostCombatPathContextHookBytes) &&
+            AssassinCombatResumeNativeDefinition.PostCombatPathContextHookRva +
+                AssassinCombatResumeNativeDefinition.PostCombatPathContextHookLength ==
+                AssassinCombatResumeNativeDefinition.PostCombatRestoredStateWriteRva &&
+            image.Skip(AssassinCombatResumeNativeDefinition.PostCombatRestoredStateWriteRva)
+                .Take(AssassinCombatResumeNativeDefinition.PostCombatRestoredStateWriteBytes.Length)
+                .SequenceEqual(AssassinCombatResumeNativeDefinition.PostCombatRestoredStateWriteBytes) &&
+            AssassinCombatResumeNativeDefinition.PostCombatRestoredStateWriteRva +
+                AssassinCombatResumeNativeDefinition.PostCombatRestoredStateWriteBytes.Length ==
+                AssassinCombatResumeNativeDefinition.PostCombatPathRequestCallRva,
+            "post-combat Assassin context hook no longer preserves complete instruction boundaries before the path call");
 
         NativeResolution contextRead = NativePatternResolver.ResolveUnique(
             image,

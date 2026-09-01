@@ -1521,9 +1521,9 @@ namespace RandomEvents
         {
             HashSet<uint> globalIds = new HashSet<uint>();
             Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
-            for (int index = 0; index < units.Length; index++)
+            for (int spanIndex = 0; spanIndex < units.Length; spanIndex++)
             {
-                uint globalId = units[index].r_GlobalId;
+                uint globalId = units[spanIndex].r_GlobalId;
                 if (globalId != 0)
                     globalIds.Add(globalId);
             }
@@ -1537,14 +1537,14 @@ namespace RandomEvents
 
             List<string> descriptions = new List<string>();
             Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
-            for (int index = 0; index < units.Length; index++)
+            for (int spanIndex = 0; spanIndex < units.Length; spanIndex++)
             {
-                ref GameUnit unit = ref units[index];
+                ref GameUnit unit = ref units[spanIndex];
                 if (unit.r_GlobalId == 0 || existingGlobalIds.Contains(unit.r_GlobalId))
                     continue;
 
                 descriptions.Add(
-                    $"id={index + 1}/global={unit.r_GlobalId}/owner={unit.r_ControllableForPlayerId}/" +
+                    $"id={spanIndex + 1}/global={unit.r_GlobalId}/owner={unit.r_ControllableForPlayerId}/" +
                     $"spawnedFor={unit.r_SpawnedForPlayerIndex}/chimp={(int)unit.r_UnitChimp}/" +
                     $"alive={(int)unit.r_AliveState}/tile=({unit.r_CurrentTilePositionX},{unit.r_CurrentTilePositionY})/" +
                     $"target=({unit.r_TargetTilePositionX},{unit.r_TargetTilePositionY})");
@@ -1981,9 +1981,9 @@ namespace RandomEvents
         {
             List<BanditMoveTarget> targets = new List<BanditMoveTarget>();
             Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
-            for (int buildingIndex = 0; buildingIndex < buildings.Length; buildingIndex++)
+            for (int spanIndex = 0; spanIndex < buildings.Length; spanIndex++)
             {
-                ref GameBuilding building = ref buildings[buildingIndex];
+                ref GameBuilding building = ref buildings[spanIndex];
                 if (building.r_PlayerIdOwner != targetPlayerId ||
                     building.r_AliveState != AliveState.IsAlive ||
                     building.r_GlobalId == 0 ||
@@ -1995,7 +1995,7 @@ namespace RandomEvents
 
                 // Script Extender entity IDs are one-based while spans are indexed from zero.
                 targets.Add(new BanditMoveTarget(
-                    buildingIndex + 1,
+                    spanIndex + 1,
                     building.r_GlobalId,
                     tileX,
                     tileY));
@@ -2182,9 +2182,9 @@ namespace RandomEvents
         private unsafe bool HasAnyBanditTargetInComponent(int targetPlayerId, ushort sourcePathComponent)
         {
             Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
-            for (int index = 0; index < buildings.Length; index++)
+            for (int spanIndex = 0; spanIndex < buildings.Length; spanIndex++)
             {
-                ref GameBuilding building = ref buildings[index];
+                ref GameBuilding building = ref buildings[spanIndex];
                 if (building.r_PlayerIdOwner == targetPlayerId &&
                     building.r_AliveState == AliveState.IsAlive &&
                     building.r_GlobalId != 0 &&
@@ -2220,9 +2220,9 @@ namespace RandomEvents
 
             List<RabbitFarm> farms = new List<RabbitFarm>();
             Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
-            for (int buildingId = 0; buildingId < buildings.Length; buildingId++)
+            for (int spanIndex = 0; spanIndex < buildings.Length; spanIndex++)
             {
-                ref GameBuilding building = ref buildings[buildingId];
+                ref GameBuilding building = ref buildings[spanIndex];
                 if (building.r_PlayerIdOwner != targetPlayerId ||
                     building.r_AliveState != AliveState.IsAlive ||
                     (building.r_BuildingType != eStructs.STRUCT_WHEATFARM &&
@@ -2232,7 +2232,7 @@ namespace RandomEvents
                 }
 
                 farms.Add(new RabbitFarm(
-                    buildingId,
+                    spanIndex + 1,
                     building.r_BuildingType,
                     (building.r_TilePositionXBegin + building.r_TilePositionXEnd) / 2,
                     (building.r_TilePositionYBegin + building.r_TilePositionYEnd) / 2));
