@@ -66,13 +66,15 @@ namespace MoveMoatTest
         private const int GetRepresentativeSelectedUnitRva = 0x18D460;
         private const int CursorRegionPrecheckRva = 0xE9D90;
         private const int PathBuilderRva = 0xF4930;
+        private const int AssassinPathBuilderRva = 0xD9C40;
+        private const int PathBuilderAssassinBranchRva = 0xF4B0C;
+        private const int PathBuilderAssassinCallOffset = 0x1B;
         private const int GetMoatIdAtTileRva = 0x69560;
         private const int CursorCurrentTileFlagGateRva = 0x8F388;
         private const int CursorCurrentTileFlagGateJumpRva = 0x8F393;
         private const int AttackUnitPairGateJumpRva = 0x8D72B;
         private const int AttackBuildingPairGateJumpRva = 0x8E2C6;
         private const int AttackAlternativePairGateJumpRva = 0x8E557;
-        private const int AttackFinalPairGateJumpRva = 0x8F32F;
         private const int TileFlagsRva = 0x48F71B0;
         private const int MovementTargetAvailabilityRva = 0x3A11EA4;
         private const int CursorTargetXRva = 0x3A11E2C;
@@ -93,6 +95,8 @@ namespace MoveMoatTest
         private const int MoatStateBit = 1 << 20;
         private const uint CompletedMoatTileFlag = 0x40000000;
         private const uint OrdinaryWalkableTileFlag = 0x00008000;
+        private const int PathManagerRouteVariantOffset = 0x80;
+        private const int PathManagerAssassinModeOffset = 0x88;
 
         private const string TribeFloodFillMembershipPattern =
             "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 56 41 57 " +
@@ -114,6 +118,10 @@ namespace MoveMoatTest
         private const string PathBuilderPattern =
             "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 48 83 EC 40 " +
             "48 63 41 0C 48 8B D9 41 8B F0 44 8B D2";
+
+        private const string PathBuilderAssassinBranchPattern =
+            "39 AB 88 00 00 00 74 1D 89 6C 24 30 48 8B CB C7 44 24 28 80 1A 06 00 " +
+            "89 44 24 20 E8 14 51 FE FF";
 
         private const string GetMoatIdAtTilePattern =
             "48 63 C2 0F B7 84 41 ?? ?? ?? ?? C3 CC CC CC";
@@ -155,16 +163,11 @@ namespace MoveMoatTest
             "85 C0 75 48 49 8B CC E8 ?? ?? ?? ?? 85 C0 74 23 45 8B 84 2C 2C 07 00 00 " +
             "48 8D 0D ?? ?? ?? ?? 43 8B 94 26 2C 07 00 00 41 B1 01";
 
-        private const string AttackFinalPairGatePattern =
-            "48 8B CE E8 ?? ?? ?? ?? 49 8B FE 85 C0 74 34 8B 15 ?? ?? ?? ?? " +
-            "48 8D 0D ?? ?? ?? ?? 49 69 C6 90 04 00 00 41 B1 01";
-
         private static readonly byte[] CursorGateJumpOriginal = { 0x74, 0x45 };
         private static readonly byte[] CursorGateJumpReplacement = { 0x90, 0x90 };
         private static readonly byte[] AttackUnitPairGateOriginal = { 0x74, 0x23 };
         private static readonly byte[] AttackBuildingPairGateOriginal = { 0x74, 0x63 };
         private static readonly byte[] AttackAlternativePairGateOriginal = { 0x74, 0x23 };
-        private static readonly byte[] AttackFinalPairGateOriginal = { 0x74, 0x34 };
         private static readonly byte[] OpenConditionalJump = { 0x90, 0x90 };
 
         private readonly ManualLogSource log;
@@ -184,6 +187,8 @@ namespace MoveMoatTest
         private static PlanScope pendingPlan;
         [ThreadStatic]
         private static AttackCursorPairScope pendingAttackCursorPair;
+        [ThreadStatic]
+        private static AttackCommandScope activeAttackCommand;
 
         private CentralMovementPlanDelegate originalCentralMovementPlan;
         private CentralMovementPlanDelegate rootedCentralMovementPlan;
@@ -222,6 +227,7 @@ namespace MoveMoatTest
         private IDisposable mapLoadSubscription;
         private IDisposable mapStartSubscription;
         private IDisposable mapUnloadSubscription;
+        private bool attackTickSubscribed;
 
         private int[] visitedWithoutMoat;
         private int[] visitedWithMoat;
@@ -243,6 +249,9 @@ namespace MoveMoatTest
         private int lastCursorDirectBlockGeneration = -1;
         private string lastAttackCursorDecision;
         private readonly Dictionary<int, string> lastUnscopedAttackModes = new Dictionary<int, string>();
+        private readonly Dictionary<int, string> lastAttackCommandCandidates = new Dictionary<int, string>();
+        private readonly Dictionary<int, AttackUnitTracker> trackedAttackUnits =
+            new Dictionary<int, AttackUnitTracker>();
         private bool callbackFailureReported;
         private bool disposed;
 
@@ -274,6 +283,9 @@ namespace MoveMoatTest
             Shared.NativeResolution builderResolution = Resolve(
                 memory, PathBuilderPattern, PathBuilderRva,
                 "central tile path builder");
+            Shared.NativeResolution assassinBranchResolution = Resolve(
+                memory, PathBuilderAssassinBranchPattern, PathBuilderAssassinBranchRva,
+                "Assassin path-builder dispatcher branch");
             Shared.NativeResolution moatLookupResolution = Resolve(
                 memory, GetMoatIdAtTilePattern, GetMoatIdAtTileRva,
                 "moat ID lookup by tile");
@@ -301,8 +313,6 @@ namespace MoveMoatTest
                 "attack-building cursor tile-pair gate context");
             Resolve(memory, AttackAlternativePairGatePattern, AttackAlternativePairGateJumpRva - 0x0E,
                 "alternative attack cursor tile-pair gate context");
-            Resolve(memory, AttackFinalPairGatePattern, AttackFinalPairGateJumpRva - 0x0D,
-                "final attack cursor tile-pair gate context");
 
             ValidateExactBytes(
                 memory,
@@ -320,8 +330,6 @@ namespace MoveMoatTest
                 AttackBuildingPairGateOriginal, "attack-building cursor tile-pair gate jump");
             ValidateExactBytes(memory, AttackAlternativePairGateJumpRva,
                 AttackAlternativePairGateOriginal, "alternative attack cursor tile-pair gate jump");
-            ValidateExactBytes(memory, AttackFinalPairGateJumpRva,
-                AttackFinalPairGateOriginal, "final attack cursor tile-pair gate jump");
             ValidateExactBytes(
                 memory,
                 CursorTilePairReachabilityRva,
@@ -342,6 +350,26 @@ namespace MoveMoatTest
                     0x00, 0x00
                 },
                 "representative selected-unit helper entry");
+            ValidateExactBytes(
+                memory,
+                PathBuilderAssassinBranchRva,
+                new byte[]
+                {
+                    0x39, 0xAB, 0x88, 0x00, 0x00, 0x00, 0x74, 0x1D,
+                    0x89, 0x6C, 0x24, 0x30, 0x48, 0x8B, 0xCB, 0xC7,
+                    0x44, 0x24, 0x28, 0x80, 0x1A, 0x06, 0x00, 0x89,
+                    0x44, 0x24, 0x20, 0xE8, 0x14, 0x51, 0xFE, 0xFF
+                },
+                "Assassin path-builder dispatcher branch and call");
+            int assassinBuilderTarget = Shared.NativePatternResolver.ResolveRelativeTarget(
+                memory,
+                assassinBranchResolution.Rva + PathBuilderAssassinCallOffset + 1,
+                assassinBranchResolution.Rva + PathBuilderAssassinCallOffset + 5);
+            if (assassinBuilderTarget != AssassinPathBuilderRva)
+            {
+                throw new InvalidOperationException(
+                    "The central builder no longer selects the audited Assassin path builder.");
+            }
 
             moatPathMode = (int*)(libraryBase + MoatPathModeRva);
             cursorTargetX = (int*)(libraryBase + CursorTargetXRva);
@@ -369,10 +397,7 @@ namespace MoveMoatTest
                     AttackBuildingPairGateOriginal, OpenConditionalJump),
                 new NativeCodePatch("alternative attack cursor tile-pair gate jump",
                     libraryBase + AttackAlternativePairGateJumpRva,
-                    AttackAlternativePairGateOriginal, OpenConditionalJump),
-                new NativeCodePatch("final attack cursor tile-pair gate jump",
-                    libraryBase + AttackFinalPairGateJumpRva,
-                    AttackFinalPairGateOriginal, OpenConditionalJump)
+                    AttackAlternativePairGateOriginal, OpenConditionalJump)
             };
 
             rootedCentralMovementPlan = RunCentralMovementPlanWithContext;
@@ -466,6 +491,8 @@ namespace MoveMoatTest
                 mapLoadSubscription = MapLoaderR3EventHooks.OnLoadMap.Observable.Subscribe(_ => ResetMapState());
                 mapStartSubscription = MapLoaderR3EventHooks.OnStartMap.Observable.Subscribe(_ => ResetMapState());
                 mapUnloadSubscription = MapLoaderR3EventHooks.OnUnloadMap.Observable.Subscribe(_ => ResetMapState());
+                GameTimeManagerAPI.Instance.OnTick += ObserveTrackedAttackStates;
+                attackTickSubscribed = true;
 
                 // Vanilla skips both real cursor reachability functions for ordinary ground.
                 // Falling through is constrained by the conservative completed-moat route test.
@@ -480,9 +507,10 @@ namespace MoveMoatTest
                     $"cursorRegion=0x{cursorRegionResolution.Rva:X}, cursorDirect=0x{cursorResolution.Rva:X}, " +
                     $"cursorPair=0x{cursorTilePairResolution.Rva:X}, representativeUnit=0x{representativeUnitResolution.Rva:X}, " +
                     $"attackPairGates=0x{AttackUnitPairGateJumpRva:X}/0x{AttackBuildingPairGateJumpRva:X}/" +
-                    $"0x{AttackAlternativePairGateJumpRva:X}/0x{AttackFinalPairGateJumpRva:X}, " +
+                    $"0x{AttackAlternativePairGateJumpRva:X}, genericTileGate=vanilla, " +
                     $"plan=0x{planResolution.Rva:X}, mode=0x{modeResolution.Rva:X}, " +
                     $"region=0x{regionResolution.Rva:X}, builder=0x{builderResolution.Rva:X}, " +
+                    $"assassinBuilderBranch=0x{assassinBranchResolution.Rva:X}->0x{assassinBuilderTarget:X}, " +
                     $"tribeFloodFill=0x{floodResolution.Rva:X}, moatLookup=0x{moatLookupResolution.Rva:X}; " +
                     "friendlyAndAlliedCompletedMoats=true, enemyMoats=fail-closed-experimental.");
             }
@@ -494,6 +522,11 @@ namespace MoveMoatTest
                 mapLoadSubscription?.Dispose();
                 mapStartSubscription?.Dispose();
                 mapUnloadSubscription?.Dispose();
+                if (attackTickSubscribed)
+                {
+                    GameTimeManagerAPI.Instance.OnTick -= ObserveTrackedAttackStates;
+                    attackTickSubscribed = false;
+                }
                 UndoAndDispose(pendingCursorTilePair, cursorTilePairApplied);
                 UndoAndDispose(pendingCursorRegion, cursorRegionApplied);
                 UndoAndDispose(pendingCursorMode, cursorModeApplied);
@@ -519,6 +552,11 @@ namespace MoveMoatTest
             mapLoadSubscription?.Dispose();
             mapStartSubscription?.Dispose();
             mapUnloadSubscription?.Dispose();
+            if (attackTickSubscribed)
+            {
+                GameTimeManagerAPI.Instance.OnTick -= ObserveTrackedAttackStates;
+                attackTickSubscribed = false;
+            }
             cursorTilePairReachabilityDetour?.Dispose();
             cursorRegionPrecheckDetour?.Dispose();
             cursorTilePairFallbackSelectionDetour?.Dispose();
@@ -532,6 +570,9 @@ namespace MoveMoatTest
             activePlan = null;
             pendingPlan = null;
             pendingAttackCursorPair = null;
+            activeAttackCommand = null;
+            trackedAttackUnits.Clear();
+            lastAttackCommandCandidates.Clear();
         }
 
         private void ObserveTribeMoveOrder(TribeIssueOrderMoveHereEventArgs args)
@@ -541,6 +582,7 @@ namespace MoveMoatTest
 
             if (args.Phase == EventHookPhase.Pre)
             {
+                RemoveTrackedAttacksForTribe(args.TribeId, "move-command");
                 activeMoveCommand = new MoveCommandScope(
                     args.TribeId,
                     args.TileX,
@@ -604,23 +646,390 @@ namespace MoveMoatTest
 
             try
             {
+                if (args.Phase == EventHookPhase.Pre)
+                {
+                    RemoveTrackedAttacksForTribe(args.TribeId, "new-target-command");
+                    if (IsAttackCommand(args.AICommand))
+                    {
+                        activeAttackCommand = null;
+                        activeAttackCommand = new AttackCommandScope(
+                            null,
+                            mapEpoch,
+                            args.TribeId,
+                            args.AICommand,
+                            args.TargetValue1,
+                            args.TargetValue2);
+                        CaptureAttackCommandCandidates(activeAttackCommand);
+                        LogAttackCommandCandidates(activeAttackCommand, "pre");
+                    }
+                }
+
                 LogCommandDiagnostic(
                     $"stage=target-command phase={args.Phase.ToString().ToLowerInvariant()} " +
                     $"tribe={args.TribeId} aiCommand={args.AICommand} " +
                     $"target1={args.TargetValue1} target2={args.TargetValue2} a6={args.a6} " +
                     $"return={args.ReturnValue}");
+
+                if (args.Phase == EventHookPhase.Post && IsAttackCommand(args.AICommand))
+                {
+                    AttackCommandScope scope = activeAttackCommand;
+                    if (scope != null && scope.Matches(args, mapEpoch))
+                    {
+                        LogAttackCommandCandidates(scope, "post");
+                        if (args.ReturnValue > 0)
+                            TrackUnitsUpdatedByAttackCommand(args, scope);
+                        else
+                            RemoveSynchronousAttackTrackers(scope, "command-rejected");
+                    }
+                }
             }
             catch
             {
                 // Target-order observation must never affect attack command dispatch.
             }
+            finally
+            {
+                if (args.Phase == EventHookPhase.Post && IsAttackCommand(args.AICommand))
+                {
+                    AttackCommandScope scope = activeAttackCommand;
+                    if (scope != null)
+                        activeAttackCommand = scope.Previous;
+                    if (pendingPlan != null && pendingPlan.AttackMovementQualified)
+                        pendingPlan = null;
+                }
+            }
         }
+
+        private void TrackUnitsUpdatedByAttackCommand(
+            TribeIssueOrderWithTargetEventArgs args,
+            AttackCommandScope scope)
+        {
+            int trackedCount = 0;
+            Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
+            for (int unitId = 1; unitId <= units.Length; unitId++)
+            {
+                if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+                    unit == null || unit->r_AliveState != AliveState.IsAlive ||
+                    unit->r_TribeId != args.TribeId ||
+                    (TribeAICommand)unit->r_AI_LastIssuedTribeCommand != args.AICommand ||
+                    !MatchesAttackTargetContext(
+                        unit, args.AICommand, args.TargetValue1, args.TargetValue2))
+                {
+                    continue;
+                }
+
+                GetOrCreateAttackTracker(scope, unitId);
+                trackedCount++;
+            }
+
+            LogCommandDiagnostic(
+                $"stage=attack-track-start tribe={args.TribeId} command={args.AICommand} " +
+                $"target1={args.TargetValue1} target2={args.TargetValue2} units={trackedCount}");
+        }
+
+        private void CaptureAttackCommandCandidates(AttackCommandScope scope)
+        {
+            Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
+            for (int unitId = 1; unitId <= units.Length; unitId++)
+            {
+                if (GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) &&
+                    unit != null && unit->r_AliveState == AliveState.IsAlive &&
+                    unit->r_TribeId == scope.TribeId)
+                {
+                    scope.CandidateUnitIds.Add(unitId);
+                    scope.PreCandidateSignatures[unitId] = GetAttackCandidateSignature(unit);
+                }
+            }
+        }
+
+        private void LogAttackCommandCandidates(AttackCommandScope scope, string phase)
+        {
+            if (phase == "pre")
+            {
+                LogCommandDiagnostic(
+                    $"stage=attack-command-candidate phase=pre tribe={scope.TribeId} " +
+                    $"command={scope.Command} target={scope.TargetValue1}/{scope.TargetValue2} " +
+                    $"tribeUnits={scope.CandidateUnitIds.Count}");
+                return;
+            }
+
+            int logged = 0;
+            foreach (int unitId in scope.CandidateUnitIds)
+            {
+                if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) || unit == null)
+                    continue;
+
+                string candidateState = GetAttackCandidateSignature(unit);
+                if (scope.PreCandidateSignatures.TryGetValue(unitId, out string preState) &&
+                    string.Equals(preState, candidateState, StringComparison.Ordinal) &&
+                    !MatchesAttackTargetContext(
+                        unit, scope.Command, scope.TargetValue1, scope.TargetValue2))
+                {
+                    continue;
+                }
+                string signature =
+                    $"{phase}:{scope.MapEpoch}:{scope.TribeId}:{scope.Command}:" +
+                    $"{scope.TargetValue1}:{scope.TargetValue2}:{candidateState}";
+                if (lastAttackCommandCandidates.TryGetValue(unitId, out string previous) &&
+                    string.Equals(previous, signature, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                lastAttackCommandCandidates[unitId] = signature;
+                logged++;
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"MoveMoat stage=attack-command-candidate phase={phase} unit={unitId} " +
+                    $"type={unit->r_UnitChimp} global={unit->r_GlobalId} player={unit->r_ControllableForPlayerId} " +
+                    $"tribe={unit->r_TribeId}/{scope.TribeId} aiState={unit->r_AIState} " +
+                    $"command={(TribeAICommand)unit->r_AI_LastIssuedTribeCommand}/{scope.Command} " +
+                    $"target={scope.TargetValue1}/{scope.TargetValue2} " +
+                    $"contextUnit={unit->r_AI_ContextTargetUnitId}/{unit->r_AI_ContextTargetUnitGlobalId} " +
+                    $"contextBuildingTile={unit->r_AI_ContextTargetBuildingTileId} " +
+                    $"current=({unit->r_CurrentTilePositionX},{unit->r_CurrentTilePositionY}) " +
+                    $"attackMove=({unit->r_AttackMoveToTargetTileX},{unit->r_AttackMoveToTargetTileY}).");
+            }
+
+            if (logged == 0 && phase == "post")
+            {
+                LogCommandDiagnostic(
+                    $"stage=attack-command-candidate phase=post tribe={scope.TribeId} " +
+                    $"command={scope.Command} target={scope.TargetValue1}/{scope.TargetValue2} changedUnits=0");
+            }
+        }
+
+        private static string GetAttackCandidateSignature(GameUnit* unit) =>
+            $"{unit->r_AIState}:{unit->r_AI_LastIssuedTribeCommand}:" +
+            $"{unit->r_AI_ContextTargetUnitId}:{unit->r_AI_ContextTargetUnitGlobalId}:" +
+            $"{unit->r_AI_ContextTargetBuildingTileId}:" +
+            $"{unit->r_AttackMoveToTargetTileX}:{unit->r_AttackMoveToTargetTileY}:" +
+            $"{unit->r_TargetTilePositionX}:{unit->r_TargetTilePositionY}";
+
+        private AttackUnitTracker GetOrCreateAttackTracker(AttackCommandScope scope, int unitId)
+        {
+            if (trackedAttackUnits.TryGetValue(unitId, out AttackUnitTracker tracker) &&
+                tracker.MapEpoch == scope.MapEpoch && tracker.TribeId == scope.TribeId &&
+                tracker.Command == scope.Command && tracker.TargetValue1 == scope.TargetValue1 &&
+                tracker.TargetValue2 == scope.TargetValue2)
+            {
+                scope.SynchronousTrackerUnitIds.Add(unitId);
+                return tracker;
+            }
+
+            tracker = new AttackUnitTracker(
+                scope.MapEpoch,
+                unitId,
+                scope.TribeId,
+                scope.Command,
+                scope.TargetValue1,
+                scope.TargetValue2);
+            trackedAttackUnits[unitId] = tracker;
+            scope.SynchronousTrackerUnitIds.Add(unitId);
+            return tracker;
+        }
+
+        private void RemoveSynchronousAttackTrackers(AttackCommandScope scope, string reason)
+        {
+            foreach (int unitId in scope.SynchronousTrackerUnitIds)
+            {
+                if (trackedAttackUnits.TryGetValue(unitId, out AttackUnitTracker tracker))
+                    EndTrackedAttack(unitId, tracker, reason);
+            }
+        }
+
+        private void ObserveTrackedAttackStates(int tick)
+        {
+            if (disposed || trackedAttackUnits.Count == 0)
+                return;
+
+            try
+            {
+                List<int> unitIds = new List<int>(trackedAttackUnits.Keys);
+                foreach (int unitId in unitIds)
+                {
+                    if (!trackedAttackUnits.TryGetValue(unitId, out AttackUnitTracker tracker))
+                        continue;
+                    if (tracker.MapEpoch != mapEpoch)
+                    {
+                        EndTrackedAttack(unitId, tracker, "map-changed");
+                        continue;
+                    }
+                    if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+                        unit == null || unit->r_AliveState != AliveState.IsAlive)
+                    {
+                        EndTrackedAttack(unitId, tracker, "unit-dead-or-invalid");
+                        continue;
+                    }
+
+                    TribeAICommand currentCommand =
+                        (TribeAICommand)unit->r_AI_LastIssuedTribeCommand;
+                    if (unit->r_TribeId != tracker.TribeId || currentCommand != tracker.Command)
+                    {
+                        EndTrackedAttack(unitId, tracker, "command-ended-or-replaced");
+                        continue;
+                    }
+                    if (!MatchesAttackTargetContext(
+                        unit, tracker.Command, tracker.TargetValue1, tracker.TargetValue2))
+                    {
+                        EndTrackedAttack(unitId, tracker, "target-changed");
+                        continue;
+                    }
+
+                    string signature =
+                        $"{unit->r_AIState}:{unit->r_CurrentTilePositionX}:{unit->r_CurrentTilePositionY}:" +
+                        $"{unit->r_TargetTilePositionX}:{unit->r_TargetTilePositionY}:" +
+                        $"{unit->r_TargetTilePositionX2}:{unit->r_TargetTilePositionY2}:" +
+                        $"{unit->r_NextTilePositionX2}:{unit->r_NextTilePositionY2}:" +
+                        $"{unit->r_AttackMoveToTargetTileX}:{unit->r_AttackMoveToTargetTileY}:" +
+                        $"{unit->r_CurrentPositionTileId}:{unit->r_TargetPositionTileId}:" +
+                        $"{unit->r_NextPositionTileId2}:{unit->r_ContextCurrentPositionTileId}:" +
+                        $"{unit->r_PathPlanRelated1}:{unit->r_PathPlanStateBitFlags}:" +
+                        $"{unit->r_MovingRelevant}:{unit->p_CurrentPathPlanPosition}:" +
+                        $"{unit->p_PathPlanSize}:{unit->r_CurrentSpeed}:{unit->r_CurrentSpeed2}:" +
+                        $"{tracker.ModeObserved}:{tracker.PlannerObserved}:{tracker.BuilderObserved}:" +
+                        $"{tracker.VanillaModeDetected}:{tracker.LastPlannerTargetX}:" +
+                        $"{tracker.LastPlannerTargetY}";
+                    if (string.Equals(tracker.LastSignature, signature, StringComparison.Ordinal))
+                        continue;
+
+                    tracker.LastSignature = signature;
+                    Shared.DebugLogHelper.LogInfo(
+                        log,
+                        $"MoveMoat stage=attack-state tick={tick} unit={unitId} " +
+                        $"type={unit->r_UnitChimp} global={unit->r_GlobalId} " +
+                        $"player={unit->r_ControllableForPlayerId} " +
+                        $"tribe={unit->r_TribeId} aiState={unit->r_AIState} " +
+                        $"command={currentCommand}({(uint)currentCommand}) " +
+                        $"current=({unit->r_CurrentTilePositionX},{unit->r_CurrentTilePositionY}) " +
+                        $"target=({unit->r_TargetTilePositionX},{unit->r_TargetTilePositionY}) " +
+                        $"target2=({unit->r_TargetTilePositionX2},{unit->r_TargetTilePositionY2}) " +
+                        $"next=({unit->r_NextTilePositionX2},{unit->r_NextTilePositionY2}) " +
+                        $"attackMove=({unit->r_AttackMoveToTargetTileX},{unit->r_AttackMoveToTargetTileY}) " +
+                        $"tiles={unit->r_CurrentPositionTileId}/{unit->r_TargetPositionTileId}/" +
+                        $"{unit->r_NextPositionTileId2} contextCurrentTile={unit->r_ContextCurrentPositionTileId} " +
+                        $"contextUnit={unit->r_AI_ContextTargetUnitId}/" +
+                        $"{unit->r_AI_ContextTargetUnitGlobalId} " +
+                        $"contextBuildingTile={unit->r_AI_ContextTargetBuildingTileId} " +
+                        $"contextTile=({unit->r_ContextTargetTileX},{unit->r_ContextTargetTileY}) " +
+                        $"speed={unit->r_CurrentSpeed}/{unit->r_CurrentSpeed2} " +
+                        $"path={unit->r_PathPlanRelated1}/{unit->r_PathPlanStateBitFlags}/" +
+                        $"{unit->r_MovingRelevant}/{unit->p_CurrentPathPlanPosition}/" +
+                        $"{unit->p_PathPlanSize} mode={tracker.ModeObserved} " +
+                        $"planner={tracker.PlannerObserved} builder={tracker.BuilderObserved} " +
+                        $"vanillaStandingOnMoat={tracker.VanillaModeDetected} " +
+                        $"plannerTarget=({tracker.LastPlannerTargetX},{tracker.LastPlannerTargetY}).");
+                }
+            }
+            catch (Exception ex)
+            {
+                try
+                {
+                    LogFailure("attack-state-tick", ex);
+                }
+                catch
+                {
+                    // Read-only attack diagnostics must never escape into the simulation tick.
+                }
+            }
+        }
+
+        private void MarkTrackedAttackPipeline(
+            int unitId,
+            AttackPipelineStage stage,
+            int targetX,
+            int targetY,
+            bool vanillaModeDetected)
+        {
+            try
+            {
+                if (!trackedAttackUnits.TryGetValue(unitId, out AttackUnitTracker tracker))
+                    return;
+
+                switch (stage)
+                {
+                    case AttackPipelineStage.Mode:
+                        tracker.ModeObserved = true;
+                        tracker.VanillaModeDetected |= vanillaModeDetected;
+                        break;
+                    case AttackPipelineStage.Planner:
+                        tracker.PlannerObserved = true;
+                        tracker.LastPlannerTargetX = targetX;
+                        tracker.LastPlannerTargetY = targetY;
+                        break;
+                    case AttackPipelineStage.Builder:
+                        tracker.BuilderObserved = true;
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                try
+                {
+                    LogFailure("attack-pipeline-marker", ex);
+                }
+                catch
+                {
+                    // A diagnostic marker must never escape across a native callback.
+                }
+            }
+        }
+
+        private void RemoveTrackedAttacksForTribe(int tribeId, string reason)
+        {
+            if (trackedAttackUnits.Count == 0)
+                return;
+
+            List<int> unitIds = new List<int>(trackedAttackUnits.Keys);
+            foreach (int unitId in unitIds)
+            {
+                if (trackedAttackUnits.TryGetValue(unitId, out AttackUnitTracker tracker) &&
+                    tracker.TribeId == tribeId)
+                {
+                    EndTrackedAttack(unitId, tracker, reason);
+                }
+            }
+        }
+
+        private void EndTrackedAttack(int unitId, AttackUnitTracker tracker, string reason)
+        {
+            trackedAttackUnits.Remove(unitId);
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"MoveMoat stage=attack-state-end unit={unitId} command={tracker.Command} " +
+                $"reason={reason} mode={tracker.ModeObserved} planner={tracker.PlannerObserved} " +
+                $"builder={tracker.BuilderObserved}.");
+        }
+
+        private static bool MatchesAttackTargetContext(
+            GameUnit* unit,
+            TribeAICommand command,
+            int targetValue1,
+            int targetValue2)
+        {
+            if (command == TribeAICommand.AttackUnit)
+            {
+                return unit->r_AI_ContextTargetUnitId == targetValue1 &&
+                    unit->r_AI_ContextTargetUnitGlobalId == unchecked((uint)targetValue2);
+            }
+
+            return (command == TribeAICommand.AttackBuilding ||
+                    command == TribeAICommand.ForceAttackBuilding) &&
+                unit->r_AI_ContextTargetBuildingTileId == unchecked((uint)targetValue1);
+        }
+
+        private static bool IsAttackCommand(TribeAICommand command) =>
+            command == TribeAICommand.AttackUnit ||
+            command == TribeAICommand.AttackBuilding ||
+            command == TribeAICommand.ForceAttackBuilding;
 
         private int RunCentralMovementPlanWithContext(
             IntPtr unitManager, int unitId, int targetX, int targetY)
         {
             if (disposed || unitManager == IntPtr.Zero || unitId <= 0)
                 return originalCentralMovementPlan(unitManager, unitId, targetX, targetY);
+
+            MarkTrackedAttackPipeline(unitId, AttackPipelineStage.Planner, targetX, targetY, false);
 
             PlanScope previous = activePlan;
             PlanScope plan = new PlanScope(unitId, targetX, targetY);
@@ -690,9 +1099,44 @@ namespace MoveMoatTest
 
                 if (activeMoveCommand == null && !plannerQualified)
                 {
-                    LogUnscopedAttackMode(unitId, unit, vanillaResult);
-                    return vanillaResult;
+                    if (!TryQualifyAttackMovementPlan(
+                        unitId, unit, vanillaResult, out plan, out RouteProbeSummary attackSummary,
+                        out string rejectionReason))
+                    {
+                        if (activeAttackCommand != null || IsAttackCommand(
+                            (TribeAICommand)unit->r_AI_LastIssuedTribeCommand))
+                        {
+                            try
+                            {
+                                LogAttackScopeDecision(
+                                    "attack-scope-rejected", unitId, unit, vanillaResult,
+                                    rejectionReason, attackSummary);
+                            }
+                            catch
+                            {
+                                // Rejection diagnostics must not affect Vanilla behavior.
+                            }
+                        }
+                        LogUnscopedAttackMode(unitId, unit, vanillaResult);
+                        return vanillaResult;
+                    }
+
+                    plannerQualified = true;
+                    pendingPlan = plan;
+                    try
+                    {
+                        LogAttackScopeDecision(
+                            "attack-scope-qualified", unitId, unit, vanillaResult,
+                            "friendly-moat-required", attackSummary);
+                    }
+                    catch
+                    {
+                        // Qualification remains valid even if diagnostics fail.
+                    }
                 }
+
+                MarkTrackedAttackPipeline(
+                    unitId, AttackPipelineStage.Mode, -1, -1, vanillaResult != 0);
 
                 if (plan == null)
                 {
@@ -727,6 +1171,126 @@ namespace MoveMoatTest
                 LogFailure("mode", ex);
                 return vanillaResult;
             }
+        }
+
+        private bool TryQualifyAttackMovementPlan(
+            int unitId,
+            GameUnit* unit,
+            int vanillaResult,
+            out PlanScope plan,
+            out RouteProbeSummary summary,
+            out string rejectionReason)
+        {
+            plan = null;
+            summary = default;
+            rejectionReason = "no-active-attack-command";
+            AttackCommandScope scope = activeAttackCommand;
+            if (scope == null || scope.MapEpoch != mapEpoch || !IsAttackCommand(scope.Command))
+                return false;
+            if (!scope.CandidateUnitIds.Contains(unitId))
+            {
+                rejectionReason = "unit-not-command-candidate";
+                return false;
+            }
+            try
+            {
+                LogSynchronousAttackCandidate(scope, unitId, unit);
+            }
+            catch
+            {
+                // Candidate diagnostics must not reject an otherwise valid attack scope.
+            }
+            if (unit->r_AliveState != AliveState.IsAlive || unit->r_TribeId != scope.TribeId)
+            {
+                rejectionReason = "unit-or-tribe-mismatch";
+                return false;
+            }
+            if ((TribeAICommand)unit->r_AI_LastIssuedTribeCommand != scope.Command ||
+                !MatchesAttackTargetContext(
+                    unit, scope.Command, scope.TargetValue1, scope.TargetValue2))
+            {
+                rejectionReason = "command-or-target-context-mismatch";
+                return false;
+            }
+
+            int targetX = unit->r_AttackMoveToTargetTileX;
+            int targetY = unit->r_AttackMoveToTargetTileY;
+            if (targetX < 0 || targetX >= MapWidth || targetY < 0 || targetY >= MapWidth)
+            {
+                rejectionReason = "invalid-attack-move-target";
+                return false;
+            }
+
+            plan = new PlanScope(unitId, targetX, targetY)
+            {
+                PlayerId = unit->r_ControllableForPlayerId,
+                AttackMovementQualified = true
+            };
+            if (!TryFindFriendlyCompletedMoatRouteForAttackPlan(plan, out summary))
+            {
+                plan = null;
+                rejectionReason = "no-required-friendly-moat-route";
+                return false;
+            }
+
+            plan.FriendlyRouteQualified = true;
+            GetOrCreateAttackTracker(scope, unitId);
+            return true;
+        }
+
+        private void LogSynchronousAttackCandidate(
+            AttackCommandScope scope, int unitId, GameUnit* unit)
+        {
+            string signature = $"sync:{scope.MapEpoch}:{scope.TribeId}:{scope.Command}:" +
+                $"{scope.TargetValue1}:{scope.TargetValue2}:{GetAttackCandidateSignature(unit)}";
+            if (lastAttackCommandCandidates.TryGetValue(unitId, out string previous) &&
+                string.Equals(previous, signature, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            lastAttackCommandCandidates[unitId] = signature;
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"MoveMoat stage=attack-command-candidate phase=sync unit={unitId} " +
+                $"type={unit->r_UnitChimp} global={unit->r_GlobalId} player={unit->r_ControllableForPlayerId} " +
+                $"tribe={unit->r_TribeId}/{scope.TribeId} aiState={unit->r_AIState} " +
+                $"command={(TribeAICommand)unit->r_AI_LastIssuedTribeCommand}/{scope.Command} " +
+                $"target={scope.TargetValue1}/{scope.TargetValue2} " +
+                $"contextUnit={unit->r_AI_ContextTargetUnitId}/{unit->r_AI_ContextTargetUnitGlobalId} " +
+                $"contextBuildingTile={unit->r_AI_ContextTargetBuildingTileId} " +
+                $"attackMove=({unit->r_AttackMoveToTargetTileX},{unit->r_AttackMoveToTargetTileY}).");
+        }
+
+        private void LogAttackScopeDecision(
+            string stage,
+            int unitId,
+            GameUnit* unit,
+            int vanillaResult,
+            string reason,
+            RouteProbeSummary summary)
+        {
+            AttackCommandScope scope = activeAttackCommand;
+            string signature =
+                $"{stage}:{mapEpoch}:{scope?.TribeId}:{scope?.Command}:{scope?.TargetValue1}:" +
+                $"{scope?.TargetValue2}:{unit->r_AIState}:{unit->r_AttackMoveToTargetTileX}:" +
+                $"{unit->r_AttackMoveToTargetTileY}:{reason}:{summary.RouteFound}";
+            if (scope != null && scope.LastDecisionByUnit.TryGetValue(unitId, out string previous) &&
+                string.Equals(previous, signature, StringComparison.Ordinal))
+            {
+                return;
+            }
+            if (scope != null)
+                scope.LastDecisionByUnit[unitId] = signature;
+
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"MoveMoat stage={stage} unit={unitId} type={unit->r_UnitChimp} " +
+                $"player={unit->r_ControllableForPlayerId} tribe={unit->r_TribeId}/{scope?.TribeId} " +
+                $"command={(TribeAICommand)unit->r_AI_LastIssuedTribeCommand}/{scope?.Command} " +
+                $"target={scope?.TargetValue1}/{scope?.TargetValue2} " +
+                $"attackMove=({unit->r_AttackMoveToTargetTileX},{unit->r_AttackMoveToTargetTileY}) " +
+                $"vanillaMode={vanillaResult} reason={reason} {summary.ToLogFields()}.");
         }
 
         private int AllowBuilderAfterFailedRegionSearch(
@@ -826,6 +1390,9 @@ namespace MoveMoatTest
                 return originalPathBuilder(pathManager, movementClass, movementProfile);
             }
 
+            MarkTrackedAttackPipeline(
+                plan.UnitId, AttackPipelineStage.Builder, plan.TargetX, plan.TargetY, false);
+
             if (command != null)
             {
                 command.BuilderCalls++;
@@ -862,7 +1429,7 @@ namespace MoveMoatTest
                 return vanillaBuilderResult;
             }
 
-            int* routeVariant = (int*)((byte*)pathManager.ToPointer() + 0x80);
+            int* routeVariant = (int*)((byte*)pathManager.ToPointer() + PathManagerRouteVariantOffset);
             int originalRouteVariant = *routeVariant;
             int vanillaMoatMode = plan.VanillaModeDetected ? 1 : 0;
             bool vanillaModeAdjusted = currentMoatMode != vanillaMoatMode;
@@ -928,18 +1495,34 @@ namespace MoveMoatTest
                 routeSummary.ToLogFields());
 
             *routeVariant = 0;
+            int* assassinMode =
+                (int*)((byte*)pathManager.ToPointer() + PathManagerAssassinModeOffset);
+            int originalAssassinMode = *assassinMode;
+            // The first unchanged run keeps Assassin wall weighting. A qualified pure-moat
+            // retry needs the ordinary ground builder because D9C40 still rejects moat tiles.
+            bool useAssassinGroundFallback = originalAssassinMode != 0 &&
+                GameUnitManagerAPI.Instance.TryGetUnitById(plan.UnitId, out GameUnit* builderUnit) &&
+                builderUnit != null &&
+                builderUnit->r_UnitChimp == eChimps.CHIMP_TYPE_ARAB_ASSASIN;
 
             int result;
             try
             {
                 if (command != null)
                     command.FallbackBuilderCalls++;
+                if (useAssassinGroundFallback)
+                    *assassinMode = 0;
                 result = originalPathBuilder(pathManager, movementClass, movementProfile);
             }
             catch
             {
                 *routeVariant = originalRouteVariant;
                 throw;
+            }
+            finally
+            {
+                if (useAssassinGroundFallback)
+                    *assassinMode = originalAssassinMode;
             }
 
             bool retained = result > 0;
@@ -948,6 +1531,14 @@ namespace MoveMoatTest
 
             try
             {
+                if (useAssassinGroundFallback)
+                {
+                    LogBuilderDecision(
+                        $"stage=builder-assassin-ground-fallback unit={plan.UnitId} " +
+                        $"target=({plan.TargetX},{plan.TargetY}) path88={originalAssassinMode}->0->" +
+                        $"{*assassinMode} vanillaResult={vanillaResult} result={result} " +
+                        $"retained={retained} {routeSummary.ToLogFields()}");
+                }
                 LogBuilderDecision(
                     $"stage=builder-route80 unit={plan.UnitId} movementClass={movementClass} " +
                     $"movementProfile={movementProfile} original=1 " +
@@ -984,7 +1575,7 @@ namespace MoveMoatTest
                     }
                 }
 
-                // The four patched cursor branches only differed by this zero result.
+                // The three retained entity-attack branches differ by this zero result.
                 // Capture the exact pair that the immediately following E2CA0 call must use.
                 if (vanillaResult == 0)
                 {
@@ -1257,6 +1848,43 @@ namespace MoveMoatTest
                 out summary);
         }
 
+        private bool TryFindFriendlyCompletedMoatRouteForAttackPlan(
+            PlanScope plan, out RouteProbeSummary summary)
+        {
+            summary = default;
+            if (plan == null || plan.TargetX < 0 || plan.TargetX >= MapWidth ||
+                plan.TargetY < 0 || plan.TargetY >= MapWidth ||
+                !GameUnitManagerAPI.Instance.TryGetUnitById(plan.UnitId, out GameUnit* unit) ||
+                unit == null)
+            {
+                return false;
+            }
+
+            bool reachedTargetWithMoat = TryFindFriendlyCompletedMoatRouteForPlan(plan, out summary);
+            if (!reachedTargetWithMoat)
+                return false;
+            int targetCell = (plan.TargetY * MapWidth) + plan.TargetX;
+            bool reachedWithMoat = gridGeneration > 0 &&
+                visitedWithMoat != null && visitedWithMoat[targetCell] == gridGeneration;
+            bool reachedWithoutMoat = gridGeneration > 0 &&
+                visitedWithoutMoat != null && visitedWithoutMoat[targetCell] == gridGeneration;
+            int startTileId = GameTileManagerAPI.Instance.GetTileId(
+                unit->r_CurrentTilePositionX, unit->r_CurrentTilePositionY);
+            bool startOnCompletedMoat = IsValidTileId(startTileId) &&
+                (tileFlags[startTileId] & CompletedMoatTileFlag) != 0;
+            bool regionTopologyQualified =
+                (summary.StartRegion > 0 && summary.StartRegion != summary.TargetRegion) ||
+                (summary.StartRegion == 0 && startOnCompletedMoat);
+
+            summary.AttackProbeEvaluated = true;
+            summary.ReachedWithMoat = reachedWithMoat;
+            summary.ReachedWithoutMoat = reachedWithoutMoat;
+            summary.RegionTopologyQualified = regionTopologyQualified;
+            summary.RouteFound = reachedWithMoat && !reachedWithoutMoat &&
+                regionTopologyQualified && summary.FriendlyMoatTiles > 0;
+            return summary.RouteFound;
+        }
+
         private bool TryFindFriendlyCompletedMoatRoute(
             int cacheKey,
             int playerId,
@@ -1310,6 +1938,8 @@ namespace MoveMoatTest
             }
 
             RouteProbeSummary bestObserved = new RouteProbeSummary(scope.PlayerId);
+            bool startOnCompletedMoat = IsValidTileId(scope.StartTileId) &&
+                (tileFlags[scope.StartTileId] & CompletedMoatTileFlag) != 0;
             for (int yOffset = -1; yOffset <= 1; yOffset++)
             {
                 for (int xOffset = -1; xOffset <= 1; xOffset++)
@@ -1349,8 +1979,18 @@ namespace MoveMoatTest
                         scope.StartY,
                         candidateRegion);
                     RouteProbeSummary candidateSummary = cachedRouteSummary;
-                    candidateSummary.RouteFound =
-                        visitedWithMoat[candidateCell] == gridGeneration;
+                    bool reachedWithMoat = visitedWithMoat[candidateCell] == gridGeneration;
+                    bool reachedWithoutMoat = visitedWithoutMoat[candidateCell] == gridGeneration;
+                    bool regionTopologyQualified =
+                        (candidateSummary.StartRegion > 0 &&
+                         candidateSummary.StartRegion != candidateSummary.TargetRegion) ||
+                        (candidateSummary.StartRegion == 0 && startOnCompletedMoat);
+                    candidateSummary.AttackProbeEvaluated = true;
+                    candidateSummary.ReachedWithMoat = reachedWithMoat;
+                    candidateSummary.ReachedWithoutMoat = reachedWithoutMoat;
+                    candidateSummary.RegionTopologyQualified = regionTopologyQualified;
+                    candidateSummary.RouteFound = reachedWithMoat && !reachedWithoutMoat &&
+                        regionTopologyQualified && candidateSummary.FriendlyMoatTiles > 0;
                     bestObserved.MergeObservations(candidateSummary);
                     if (!candidateSummary.RouteFound)
                         continue;
@@ -1583,10 +2223,13 @@ namespace MoveMoatTest
             cursorChecksArmed = false;
             lastAttackCursorDecision = null;
             lastUnscopedAttackModes.Clear();
+            lastAttackCommandCandidates.Clear();
+            trackedAttackUnits.Clear();
             activeMoveCommand = null;
             activePlan = null;
             pendingPlan = null;
             pendingAttackCursorPair = null;
+            activeAttackCommand = null;
         }
 
         private void LogCursorDecision(string message)
@@ -1845,6 +2488,83 @@ namespace MoveMoatTest
             detour?.Dispose();
         }
 
+        private enum AttackPipelineStage
+        {
+            Mode,
+            Planner,
+            Builder
+        }
+
+        private sealed class AttackCommandScope
+        {
+            public AttackCommandScope(
+                AttackCommandScope previous,
+                int mapEpoch,
+                int tribeId,
+                TribeAICommand command,
+                int targetValue1,
+                int targetValue2)
+            {
+                Previous = previous;
+                MapEpoch = mapEpoch;
+                TribeId = tribeId;
+                Command = command;
+                TargetValue1 = targetValue1;
+                TargetValue2 = targetValue2;
+            }
+
+            public AttackCommandScope Previous { get; }
+            public int MapEpoch { get; }
+            public int TribeId { get; }
+            public TribeAICommand Command { get; }
+            public int TargetValue1 { get; }
+            public int TargetValue2 { get; }
+            public HashSet<int> CandidateUnitIds { get; } = new HashSet<int>();
+            public Dictionary<int, string> PreCandidateSignatures { get; } =
+                new Dictionary<int, string>();
+            public HashSet<int> SynchronousTrackerUnitIds { get; } = new HashSet<int>();
+            public Dictionary<int, string> LastDecisionByUnit { get; } =
+                new Dictionary<int, string>();
+
+            public bool Matches(TribeIssueOrderWithTargetEventArgs args, int currentMapEpoch) =>
+                MapEpoch == currentMapEpoch && TribeId == args.TribeId &&
+                Command == args.AICommand && TargetValue1 == args.TargetValue1 &&
+                TargetValue2 == args.TargetValue2;
+        }
+
+        private sealed class AttackUnitTracker
+        {
+            public AttackUnitTracker(
+                int mapEpoch,
+                int unitId,
+                int tribeId,
+                TribeAICommand command,
+                int targetValue1,
+                int targetValue2)
+            {
+                MapEpoch = mapEpoch;
+                UnitId = unitId;
+                TribeId = tribeId;
+                Command = command;
+                TargetValue1 = targetValue1;
+                TargetValue2 = targetValue2;
+            }
+
+            public int MapEpoch { get; }
+            public int UnitId { get; }
+            public int TribeId { get; }
+            public TribeAICommand Command { get; }
+            public int TargetValue1 { get; }
+            public int TargetValue2 { get; }
+            public string LastSignature { get; set; }
+            public bool ModeObserved { get; set; }
+            public bool PlannerObserved { get; set; }
+            public bool BuilderObserved { get; set; }
+            public bool VanillaModeDetected { get; set; }
+            public int LastPlannerTargetX { get; set; } = -1;
+            public int LastPlannerTargetY { get; set; } = -1;
+        }
+
         private sealed class MoveCommandScope
         {
             public MoveCommandScope(
@@ -1893,6 +2613,7 @@ namespace MoveMoatTest
             public bool ModeObserved { get; set; }
             public bool VanillaModeDetected { get; set; }
             public bool FriendlyRouteQualified { get; set; }
+            public bool AttackMovementQualified { get; set; }
         }
 
         private sealed class AttackCursorPairScope
@@ -1942,6 +2663,10 @@ namespace MoveMoatTest
                 StartRegion = 0;
                 TargetRegion = 0;
                 RouteFound = false;
+                AttackProbeEvaluated = false;
+                ReachedWithMoat = false;
+                ReachedWithoutMoat = false;
+                RegionTopologyQualified = false;
             }
 
             public int PlayerId;
@@ -1952,6 +2677,10 @@ namespace MoveMoatTest
             public int StartRegion;
             public int TargetRegion;
             public bool RouteFound;
+            public bool AttackProbeEvaluated;
+            public bool ReachedWithMoat;
+            public bool ReachedWithoutMoat;
+            public bool RegionTopologyQualified;
 
             public void MergeObservations(RouteProbeSummary other)
             {
@@ -1965,6 +2694,10 @@ namespace MoveMoatTest
                 if (other.TargetRegion != 0)
                     TargetRegion = other.TargetRegion;
                 RouteFound |= other.RouteFound;
+                AttackProbeEvaluated |= other.AttackProbeEvaluated;
+                ReachedWithMoat |= other.ReachedWithMoat;
+                ReachedWithoutMoat |= other.ReachedWithoutMoat;
+                RegionTopologyQualified |= other.RegionTopologyQualified;
             }
 
             public void ObserveOwner(int ownerId)
@@ -1973,11 +2706,17 @@ namespace MoveMoatTest
                     ObservedOwnerMask |= 1u << ownerId;
             }
 
-            public string ToLogFields() =>
-                $"route={RouteFound} friendlyTiles={FriendlyMoatTiles} " +
-                $"enemyTiles={EnemyMoatTiles} invalidTiles={InvalidMoatTiles} " +
-                $"ownerMask=0x{ObservedOwnerMask:X} " +
-                $"regions={StartRegion}->{TargetRegion}";
+            public string ToLogFields()
+            {
+                string attackFields = AttackProbeEvaluated
+                    ? $" attackWithMoat={ReachedWithMoat} attackWithoutMoat={ReachedWithoutMoat} " +
+                      $"attackRegionTopology={RegionTopologyQualified}"
+                    : string.Empty;
+                return $"route={RouteFound} friendlyTiles={FriendlyMoatTiles} " +
+                    $"enemyTiles={EnemyMoatTiles} invalidTiles={InvalidMoatTiles} " +
+                    $"ownerMask=0x{ObservedOwnerMask:X} regions={StartRegion}->{TargetRegion}" +
+                    attackFields;
+            }
         }
 
         private sealed class NativeCodePatch

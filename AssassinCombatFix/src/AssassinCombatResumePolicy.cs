@@ -1,4 +1,4 @@
-// Feature: Pure eligibility rules for the audited Assassin state-122 callsite.
+// Feature: Pure eligibility rules for the audited Assassin combat-resume path.
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 
@@ -6,41 +6,64 @@ namespace AssassinCombatFix
 {
     internal static class AssassinCombatResumePolicy
     {
-        public const ushort PostCombatRepathState = 122;
-
         public static bool IsValidNativeUnitIndex(int nativeUnitIndex, int unitCount)
         {
             return nativeUnitIndex >= 0 && nativeUnitIndex < unitCount;
         }
 
-        public static bool ShouldInjectPostCombatPathContext(
+        public static bool IsKnownAssassinCombatReturnRva(long returnRva)
+        {
+            return returnRva == AssassinCombatResumeNativeDefinition.AssassinCombatResumeReturn1Rva ||
+                returnRva == AssassinCombatResumeNativeDefinition.AssassinCombatResumeReturn2Rva;
+        }
+
+        public static bool ShouldForceFullRepath(
             bool modEnabled,
             bool improvedPathfindingEnabled,
             bool nativeHooksInstalled,
+            bool knownCombatCaller,
             bool unitResolved,
             AliveState aliveState,
-            eChimps unitType,
-            ushort aiState,
-            int currentPathContext)
+            eChimps unitType)
         {
             return modEnabled &&
                 improvedPathfindingEnabled &&
                 nativeHooksInstalled &&
+                knownCombatCaller &&
                 unitResolved &&
                 aliveState == AliveState.IsAlive &&
-                unitType == eChimps.CHIMP_TYPE_ARAB_ASSASIN &&
-                aiState == PostCombatRepathState &&
-                currentPathContext == 0;
+                unitType == eChimps.CHIMP_TYPE_ARAB_ASSASIN;
         }
 
-        public static bool ShouldLogCallsiteDiagnostic(
+        public static bool ShouldLogRawResumeDiagnostic(
             bool unitResolved,
-            eChimps unitType,
-            ushort aiState)
+            AliveState aliveState,
+            eChimps unitType)
         {
             return unitResolved &&
-                unitType == eChimps.CHIMP_TYPE_ARAB_ASSASIN &&
-                aiState == PostCombatRepathState;
+                aliveState == AliveState.IsAlive &&
+                unitType == eChimps.CHIMP_TYPE_ARAB_ASSASIN;
+        }
+
+        public static bool ShouldTreatAsNewTrackedUnit(
+            bool hasTrackedUnit,
+            uint trackedGlobalId,
+            uint currentGlobalId)
+        {
+            return !hasTrackedUnit || trackedGlobalId != currentGlobalId;
+        }
+
+        public static bool ShouldLogStateTrace(
+            bool isNewUnit,
+            bool aiStateChanged,
+            bool signatureChanged,
+            bool activeState,
+            int ticksSinceLastLog)
+        {
+            return isNewUnit ||
+                aiStateChanged ||
+                (signatureChanged && ticksSinceLastLog >= 8) ||
+                (!signatureChanged && activeState && ticksSinceLastLog >= 32);
         }
     }
 }

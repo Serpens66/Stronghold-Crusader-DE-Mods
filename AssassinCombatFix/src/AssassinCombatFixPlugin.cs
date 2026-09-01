@@ -26,6 +26,7 @@ namespace AssassinCombatFix
         private static BugfixesAndQoL.BugfixesAndQoLViewModel settings;
         private static AssassinCombatResumeRuntime runtime;
         private static IDisposable mapStartSubscription;
+        private static IDisposable mapUnloadSubscription;
         private static bool librarySubscriptionInstalled;
 
         private void Awake()
@@ -52,6 +53,12 @@ namespace AssassinCombatFix
                 mapStartSubscription = MapLoaderR3EventHooks.OnStartMap.Observable
                     .Where(args => args.Phase == EventHookPhase.Post)
                     .Subscribe(_ => runtime?.BeginMap());
+            }
+            if (mapUnloadSubscription == null)
+            {
+                mapUnloadSubscription = MapLoaderR3EventHooks.OnUnloadMap.Observable
+                    .Where(args => args.Phase == EventHookPhase.Post)
+                    .Subscribe(_ => runtime?.EndMap());
             }
 
             if (librarySubscriptionInstalled)

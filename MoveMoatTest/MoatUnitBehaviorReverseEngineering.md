@@ -1155,18 +1155,38 @@ nur aus Laufzeitbeobachtungen abgeleitete Blockade:
   Dieser Helper bleibt unverändert und wird nur gelesen, damit Starttile, Owner und Zielpaar des
   unmittelbar folgenden `0xE2CA0`-Aufrufs exakt gebunden werden können.
 
-Der aktuelle Testkandidat öffnet ausschließlich die vier genannten bedingten Sprünge. Alle
-darauffolgenden Vanilla-Typ-, Eignungs- und Angriffsprüfungen bleiben bestehen. Der Detour auf
+Der vierte Sprung `0x8F32F` gehört jedoch nicht zu einem reinen Entity-Angriffszweig, sondern zum
+allgemeinen Tile-/Mauerpfad. Seine testweise Öffnung erzeugte eine bestätigte Regression: normale
+nicht kletterfähige Units erhielten einen falschen Mauercursor, während Assassinen nicht mehr
+korrekt kletterten. Dieser Sprung wird deshalb weder gepatcht noch durch den Mod validiert; sein
+Vanilla-Code bleibt vollständig unangetastet. Der aktuelle Testkandidat öffnet nur die drei
+Entity-Angriffszweige `0x8D72B`, `0x8E2C6` und `0x8E557`. Alle darauffolgenden Vanilla-Typ-,
+Eignungs- und Angriffsprüfungen bleiben bestehen. Der Detour auf
 `0x196870` gibt Vanillas Wert unverändert zurück und erfasst bei `0` nur einen threadlokalen,
 einmal verwendbaren Kontext. `0xE2CA0` läuft immer zuerst unverändert. Nur wenn Vanilla `0`
 liefert und Starttile, Zieltile, Cachemodus, Kartenepoch und repräsentative Unit exakt zum direkt
 vorher erfassten Kontext passen, prüft die bestehende Owner-/Allianz-BFS die acht freien
-Annäherungstiles neben dem belegten Unit- oder Gebäudetile. Positiv ist nur eine Route, die
-tatsächlich mindestens ein eigenes oder verbündetes fertiges Moat-Tile benutzt. Feindliche Moats,
-Mauern, Wasser, ungültige Daten, freie Vanilla-Routen und fremde Aufrufkontexte bleiben Vanilla.
+Annäherungstiles neben dem belegten Unit- oder Gebäudetile. Ein Annäherungstile wird ausschließlich
+positiv, wenn es mit Moat erreichbar, ohne Moat nicht erreichbar und die Region vom Start getrennt
+ist. Die einzige Sonderform ist eine Unit, die bereits auf einem regionslosen fertigen Moat-Tile
+steht. Zusätzlich muss der gefundene Zustandsweg mindestens ein eigenes oder verbündetes fertiges
+Moat-Tile benutzen. Die Logfelder `attackWithMoat`, `attackWithoutMoat` und
+`attackRegionTopology` machen diese drei Bedingungen einzeln prüfbar. Feindliche Moats, Mauern,
+Wasser, ungültige Daten, freie Vanilla-Routen, gleichregionale Ziele mit irrelevantem Moat-Umweg
+und fremde Aufrufkontexte bleiben Vanilla.
 
 Diese Stufe soll zunächst nur beweisen, ob Cursor und Target-Command dadurch korrekt werden. Der
-spätere Attack-AI-Pfad wird nicht vorauseilend verändert. Erreicht eine Unit mit
+spätere Attack-AI-Pfad wird nicht vorauseilend verändert. Nach einem erfolgreichen
+`AttackUnit`-, `AttackBuilding`- oder `ForceAttackBuilding`-Target-Command werden ausschließlich
+die Units erfasst, deren Tribe-ID, gespeicherter Command und nativer Unit-/Building-Zielkontext
+exakt zu den Eventparametern passen. `GameTimeManagerAPI.OnTick` liest diese Units danach nur bei
+Zustandsänderungen: AI-State, Positionen, Ziel- und Next-Tiles, Attack-Move-Ziel, Kontextziele,
+Geschwindigkeit und bekannte Pfadstatusfelder. Zusätzlich markieren die bereits vorhandenen
+Hooks lesend, ob Moat-Standhelper, zentraler Planer oder Builder für genau diese Unit erreicht
+wurden. Ein neuer Command, ein anderes Ziel, Tod, Kartenwechsel oder Commandende beendet den
+Tracker semantisch; es gibt kein Logbudget und keine Attack-Bewegungserzwingung.
+
+Erreicht eine Unit mit
 `AttackUnit`, `AttackBuilding` oder `ForceAttackBuilding` den Moat-Standhelper außerhalb eines
 bekannten Move-/Planner-Scopes, protokolliert `attack-mode-unscoped` dedupliziert AI-State,
 Position, Attack-Move-Ziel, Unit-/Building-/Tilekontext und Vanillas echtes Bit-30-Ergebnis. Ein
@@ -1212,7 +1232,7 @@ Quelldateien. Für `MoveMoatTest` sind dies:
 | `AttackUnitPairGatePattern` | `0x8D71D`, Sprung `0x8D72B` | Call auf `0x196870`, danach Tilepaarprüfung für Unit-Angriffszweig |
 | `AttackBuildingPairGatePattern` | `0x8E2B5`, Sprung `0x8E2C6` | Auswahlgate vor erhaltenem Vanilla-Typ-Switch und Tilepaarprüfung |
 | `AttackAlternativePairGatePattern` | `0x8E549`, Sprung `0x8E557` | weiterer Attack-Cursorzweig vor Tilepaarprüfung |
-| `AttackFinalPairGatePattern` | `0x8F322`, Sprung `0x8F32F` | letzter bestätigter Auswahlgate-Zweig vor Tilepaarprüfung |
+| historischer Disassembly-Anker (bewusst kein Patchpattern) | `0x8F322`, Sprung `0x8F32F` | allgemeiner Tile-/Mauerzweig; wegen bestätigter Kletterregression vollständig Vanilla lassen |
 | `CursorRegionPrecheckPattern` | `0xE9D90` | Cursor-Regionsvorprüfung mit Flood-Fill-Zähler im PathManager |
 | `CursorReachabilityFunctionPattern` | `0xE9FF0` | direkte Cursorprüfung mit Unitindex und Ziel X/Y |
 | `TribeFloodFillMembershipPattern` | `0x124740` | Tribe-ID mal Strukturgröße `0x688` und Flood-Fill-Stamp |
@@ -1279,6 +1299,10 @@ hat. Vor einem Rebuild sind mindestens folgende Verträge zu prüfen:
 
 - `TribeR3EventHooks.OnTribeIssueOrderMoveHere` liefert weiterhin Pre/Post mit stabiler
   `TribeId` und umschließt die per-Unit-Planung synchron;
+- `TribeR3EventHooks.OnTribeIssueOrderWithTarget` liefert weiterhin Pre/Post mit stabilen
+  Command-, Tribe- und Zielwerten und setzt die Unit-Kontextfelder vor der positiven Post-Phase;
+- `GameTimeManagerAPI.OnTick` bleibt ein persistenter Simulationstick und führt reine Leser auf
+  `GameUnit` in einem gültigen Kartenkontext aus;
 - `MapLoaderR3EventHooks` und `EventHookPhase` sind binär und semantisch kompatibel;
 - `GameUnitManagerAPI.TryGetUnitById`, `GameTileManagerAPI.GetTileManager`, `GetTileId`,
   `GamePlayerManagerAPI.IsPlayerIdValid` und `IsPlayerAlliedTo` besitzen weiterhin dieselbe
@@ -1297,6 +1321,38 @@ Die lokalen Extender-Quellen und die tatsächlich zum Build verwendete `SHCDESE.
 dabei zusammenpassen. Bei Abweichungen die Assembly mit `ilspycmd` prüfen und die nativen
 Extender-Hooktabellen beziehungsweise `BulkTribeDetours` vergleichen. Erst nach erfolgreichem
 Compile und einem Startup-Log mit allen erwarteten aufgelösten RVAs folgt der Ingame-Test.
+
+### 12.1.3 Synchroner Attack-Scope und Assassin-Builderzweig
+
+Der fehlgeschlagene Attack-Test zeigte die wiederholte Statefolge `101 → 0 → 1`. Noch wichtiger:
+`0x196840` wurde bereits synchron innerhalb von
+`OnTribeIssueOrderWithTarget(Pre/Post)` erreicht, während der erst in Post angelegte Tracker zu
+diesem Zeitpunkt noch nicht existierte. Der Mod legt deshalb für `AttackUnit`, `AttackBuilding`
+und `ForceAttackBuilding` bereits in Pre einen threadlokalen Scope an. Eine Unit wird nur
+qualifiziert, wenn Tribe, Command, Zielwerte und die nativen `r_AI_ContextTarget...`-Felder exakt
+passen. Als Bewegungsziel dienen ausschließlich die von Vanilla bereits gesetzten
+`r_AttackMoveToTargetTileX/Y`. Zusätzlich muss der owner-geprüfte Weg das Ziel mit eigenem oder
+verbündetem fertigem Moat erreichen, ohne Moat aber nicht. Erst dann simuliert `0x196840` den
+Vanilla-Zustand „Unit steht auf fertigem Moat“ und erzeugt denselben `PlanScope`, den Regions- und
+Builderfallback bereits verwenden. Post entfernt den synchronen Scope stets; nur nach positivem
+Command-Ergebnis bleibt die read-only Tick-Verfolgung bestehen.
+
+Der zentrale Builder `0xF4930` besitzt neben `pathManager+0x80` einen Assassin-Zweig über
+`pathManager+0x88`. In der Referenz-DLL beginnt dessen eindeutige Folge bei `0xF4B0C`; der CALL
+bei `0xF4B27` zielt auf den speziellen Builder `0xD9C40`. Normale Units erreichten im zweiten
+Moat-Fallback den Bodenbuilder, Assassinen wegen `+0x88 != 0` weiterhin `0xD9C40` und scheiterten
+am fertigen Moat. Der erste Vanilla-Builderlauf bleibt nun vollständig unangetastet. Nur nach
+dessen echtem Nuller, positivem Owner-/Allianzbefund und einer reinen, tatsächlich notwendigen
+Moat-Route wird `+0x88` für genau den synchronen zweiten Aufruf temporär auf null gesetzt und in
+`finally` wiederhergestellt. Es gibt keinen Hook auf `0xD9C40`; die gewichtete
+Assassin-Mauerpfadfindung aus `BugfixesAndQoL` bleibt daher für Vanilla- und Mauerwege zuständig.
+
+Bei einem Spielupdate ist der Assassin-Zweig nicht nur über das Bytepattern wiederzufinden:
+Innerhalb des zentralen Builders muss ein Vergleich des Kontextfelds `pathManager+0x88` den
+Spezialzweig wählen, der CALL muss weiterhin zum für Kletterkanten gewichteten Builder führen,
+und der alternative Zweig muss den normalen Bodenbuilder verwenden. Instruktionsgrenzen,
+vollständige Bytes und relatives Callziel sind gemeinsam zu validieren. Ändern sich die Offsets
+`+0x80` oder `+0x88`, dürfen sie nicht aus der alten Version übernommen werden.
 
 ### 12.2 Logauswertung
 
@@ -1324,7 +1380,13 @@ beziehungsweise die konkreten Stages filtern:
 - `mode-context`
 - `target-command`
 - `attack-cursor-pair`
+- `attack-track-start`
+- `attack-state`
+- `attack-state-end`
 - `attack-mode-unscoped`
+- `attack-command-candidate`
+- `attack-scope-qualified`
+- `attack-scope-rejected`
 - `planner-owner-qualified`
 - `planner-owner-rejected`
 - `tribe-flood-observed`
@@ -1336,6 +1398,7 @@ beziehungsweise die konkreten Stages filtern:
 - `cursor-direct-owner-block`
 - `builder-vanilla-first`
 - `builder-route80`
+- `builder-assassin-ground-fallback`
 - `builder-gate`
 
 Es gibt keine globalen Diagnosegrenzen mehr. Während eines synchronen `move-command` sammelt der
@@ -1347,6 +1410,11 @@ bleiben Moat-relevante Patrol-Hin- und Rückläufe sichtbar, während normale Pa
 Kartenstartbewegungen das Log nicht füllen. Cursorentscheidungen werden
 weiterhin anhand der bereits vorhandenen BFS-Generation dedupliziert; sie besitzen ebenfalls kein
 abschaltendes Lebenszeitlimit.
+
+Die Attack-State-Diagnose wird nicht über eine Mengen- oder Zeitgrenze abgeschnitten. Sie schreibt
+einen Eintrag nur dann, wenn sich mindestens eines der gelesenen Zustands-, Positions-, Ziel-,
+Geschwindigkeits-, Pfad- oder Pipelinefelder ändert. So bleiben auch lange festhängende Angriffe
+vollständig klassifizierbar, ohne pro unverändertem Tick Logspam zu erzeugen.
 
 Falls ein Befehl wie ein zuckender Patrol-Teilweg bereits nach der Moduswahl und vor dem Builder
 endet, führt seine Post-Phase genau eine zusätzliche read-only Owner-Routenprüfung für den letzten
@@ -1398,9 +1466,20 @@ Diese Liste belegt die breite Verwendung des Helpers, ersetzt aber bei einer neu
 - Die erste owner-aware Teststufe filtert Cursor und funktionalen Builder-Override
   konservativ auf eigene/verbündete Moats und protokolliert Owner-Maske sowie
   friendly/enemy/invalid Tiles.
-- Der Attack-Cursor-Kandidat öffnet vier bestätigte Auswahlgate-Sprünge und lässt die
-  nachfolgende Vanilla-Tilepaarprüfung zuerst laufen. Nur das exakt korrelierte Nullergebnis darf
-  durch eine owner-sichere Route zu einem freien Annäherungstile positiv werden.
+- Der Attack-Cursor-Kandidat öffnet drei bestätigte Entity-Auswahlgate-Sprünge und lässt die
+  nachfolgende Vanilla-Tilepaarprüfung zuerst laufen. `0x8F32F` bleibt als allgemeiner
+  Tile-/Mauerzweig wegen der bestätigten Kletterregression vollständig Vanilla. Nur das exakt
+  korrelierte Nullergebnis darf durch eine owner-sichere, ohne Moat unmögliche Route zu einem
+  freien Annäherungstile positiv werden.
+- Attack-Commands erhalten während ihres synchronen Pre/Post-Aufrufs einen exakten
+  Tribe-/Command-/Zielscope. Nur das von Vanilla gesetzte Attack-Move-Ziel und eine ohne
+  eigenen/verbündeten Moat unmögliche Route dürfen denselben allgemeinen Plan-, Regions- und
+  Builderfallback aktivieren. Früh angelegte Tracker behalten ihre Mode-, Planer- und
+  Buildermarkierungen in der anschließenden read-only Tick-Verfolgung.
+- Assassinen verwenden bei `pathManager+0x88 != 0` den Spezialbuilder `0xD9C40`. Nur im zweiten,
+  bereits owner-qualifizierten reinen Moat-Lauf wird `+0x88` synchron `1 → 0 → 1` geschaltet.
+  Der erste Vanilla-Lauf und damit Kletterrouten bleiben unverändert; `0xD9C40` wird nicht
+  zusätzlich gehookt.
 - `0x196840` bedeutet nachweislich „Unit steht auf einem Tile mit fertigem-Moat-Bit“, während
   `0x196870` nur Auswahlarten prüft; diese Semantik bei Updates nicht wieder verallgemeinern.
 - Als Nächstes diese Stufe mit eigenem, verbündetem und feindlichem Moat sowie Umweg-, Mauer-
