@@ -4,6 +4,18 @@ using System.Collections.Generic;
 
 namespace SerpNativeAPI
 {
+    internal readonly struct NativeByteInvariant
+    {
+        public NativeByteInvariant(long address, byte value)
+        {
+            Address = address;
+            Value = value;
+        }
+
+        public long Address { get; }
+        public byte Value { get; }
+    }
+
     internal sealed class GatehouseTimingTarget
     {
         public const int VanillaAiDistance = 200;
@@ -11,12 +23,18 @@ namespace SerpNativeAPI
         public const int VanillaHumanDistance = 140;
         public const int VanillaHumanDelay = 100;
 
-        public GatehouseTimingTarget(long aiDistance, long aiDelay, long humanDistance, long humanDelay)
+        public GatehouseTimingTarget(
+            long aiDistance,
+            long aiDelay,
+            long humanDistance,
+            long humanDelay,
+            IReadOnlyList<NativeByteInvariant> instructionInvariants = null)
         {
             AiDistance = aiDistance;
             AiDelay = aiDelay;
             HumanDistance = humanDistance;
             HumanDelay = humanDelay;
+            InstructionInvariants = instructionInvariants ?? Array.Empty<NativeByteInvariant>();
             Intervals = new[]
             {
                 new NativeInterval(aiDistance, aiDistance + 4),
@@ -31,6 +49,7 @@ namespace SerpNativeAPI
         public long HumanDistance { get; }
         public long HumanDelay { get; }
         public IReadOnlyList<NativeInterval> Intervals { get; }
+        public IReadOnlyList<NativeByteInvariant> InstructionInvariants { get; }
     }
 
     internal sealed class GatehouseTimingService
@@ -75,14 +94,14 @@ namespace SerpNativeAPI
             {
                 if (settings.Enabled)
                 {
-                    ValidateRange(settings.HumanDelaySeconds, 0.0, 30.0, nameof(settings.HumanDelaySeconds));
-                    ValidateRange(settings.AiDelaySeconds, 0.0, 120.0, nameof(settings.AiDelaySeconds));
-                    ValidateRange(settings.HumanDistanceTiles, 5.0, 50.0, nameof(settings.HumanDistanceTiles));
-                    ValidateRange(settings.AiDistanceTiles, 5.0, 50.0, nameof(settings.AiDistanceTiles));
-                    humanDelay = Convert(settings.HumanDelaySeconds, TicksPerSecond);
-                    aiDelay = Convert(settings.AiDelaySeconds, TicksPerSecond);
-                    humanDistance = Convert(settings.HumanDistanceTiles, UnitsPerTile);
-                    aiDistance = Convert(settings.AiDistanceTiles, UnitsPerTile);
+                    ValidateRange(settings.HumanReopenDelaySeconds, 0.0, 30.0, nameof(settings.HumanReopenDelaySeconds));
+                    ValidateRange(settings.AiReopenDelaySeconds, 0.0, 120.0, nameof(settings.AiReopenDelaySeconds));
+                    ValidateRange(settings.HumanCloseDistanceTiles, 5.0, 50.0, nameof(settings.HumanCloseDistanceTiles));
+                    ValidateRange(settings.AiCloseDistanceTiles, 5.0, 50.0, nameof(settings.AiCloseDistanceTiles));
+                    humanDelay = ConvertNativeUInt16(settings.HumanReopenDelaySeconds, TicksPerSecond, nameof(settings.HumanReopenDelaySeconds));
+                    aiDelay = ConvertNativeUInt16(settings.AiReopenDelaySeconds, TicksPerSecond, nameof(settings.AiReopenDelaySeconds));
+                    humanDistance = ConvertNativeUInt16(settings.HumanCloseDistanceTiles, UnitsPerTile, nameof(settings.HumanCloseDistanceTiles));
+                    aiDistance = ConvertNativeUInt16(settings.AiCloseDistanceTiles, UnitsPerTile, nameof(settings.AiCloseDistanceTiles));
                 }
                 else
                 {
@@ -116,24 +135,24 @@ namespace SerpNativeAPI
                     return false;
                 }
 
-                if (aiDistance == expectedAiDistance && aiDelay == expectedAiDelay &&
-                    humanDistance == expectedHumanDistance && humanDelay == expectedHumanDelay)
-                {
-                    diagnostic = Diagnostic(NativeCapabilityState.Available, "The requested gatehouse timing values are already active.");
-                    return true;
-                }
-
                 try
                 {
                     VerifyExpected();
+                    if (aiDistance == expectedAiDistance && aiDelay == expectedAiDelay &&
+                        humanDistance == expectedHumanDistance && humanDelay == expectedHumanDelay)
+                    {
+                        diagnostic = Diagnostic(NativeCapabilityState.Available, "The requested gatehouse values are already active and were verified.");
+                        return true;
+                    }
                     WriteTransaction(aiDistance, aiDelay, humanDistance, humanDelay);
                     expectedAiDistance = aiDistance;
                     expectedAiDelay = aiDelay;
                     expectedHumanDistance = humanDistance;
                     expectedHumanDelay = humanDelay;
                     VerifyExpected();
-                    diagnostic = Diagnostic(NativeCapabilityState.Available, "Gatehouse timing values were applied and verified.");
-                    NativeApiLog.Info(log, $"capability={NativeCapabilityIds.GatehouseTiming}, build={binaryHash}, owner={ownerGuid}, enabled={settings.Enabled}, status=applied.");
+                    string values = FormatValues(aiDistance, aiDelay, humanDistance, humanDelay);
+                    diagnostic = Diagnostic(NativeCapabilityState.Available, "Gatehouse values were applied and verified: " + values);
+                    NativeApiLog.Info(log, $"capability={NativeCapabilityIds.GatehouseTiming}, build={binaryHash}, owner={ownerGuid}, enabled={settings.Enabled}, status=applied, {values}");
                     return true;
                 }
                 catch (Exception ex)
@@ -147,20 +166,22 @@ namespace SerpNativeAPI
 
         private void WriteTransaction(int aiDistance, int aiDelay, int humanDistance, int humanDelay)
         {
-            int oldAiDistance = memory.ReadInt32(target.AiDistance);
-            int oldAiDelay = memory.ReadInt32(target.AiDelay);
-            int oldHumanDistance = memory.ReadInt32(target.HumanDistance);
-            int oldHumanDelay = memory.ReadInt32(target.HumanDelay);
-            long first = Math.Min(Math.Min(target.AiDistance, target.AiDelay), Math.Min(target.HumanDistance, target.HumanDelay));
-            long last = Math.Max(Math.Max(target.AiDistance, target.AiDelay), Math.Max(target.HumanDistance, target.HumanDelay));
-            int length = checked((int)(last - first + 4));
-            uint oldProtection = memory.MakeWritable(first, length);
+            int oldAiDistance = expectedAiDistance;
+            int oldAiDelay = expectedAiDelay;
+            int oldHumanDistance = expectedHumanDistance;
+            int oldHumanDelay = expectedHumanDelay;
+            List<PageProtection> protections = AcquireWritablePages();
             Exception primary = null;
             Exception cleanup = null;
+            bool writesStarted = false;
             try
             {
                 try
                 {
+                    // Recheck after acquiring write access so a change between the public
+                    // preflight and the transaction cannot be silently adopted as rollback state.
+                    VerifyExpected();
+                    writesStarted = true;
                     memory.WriteInt32(target.AiDistance, aiDistance);
                     memory.WriteInt32(target.AiDelay, aiDelay);
                     memory.WriteInt32(target.HumanDistance, humanDistance);
@@ -173,29 +194,39 @@ namespace SerpNativeAPI
                 catch (Exception ex)
                 {
                     primary = ex;
-                    try
+                    if (writesStarted)
                     {
-                        memory.WriteInt32(target.AiDistance, oldAiDistance);
-                        memory.WriteInt32(target.AiDelay, oldAiDelay);
-                        memory.WriteInt32(target.HumanDistance, oldHumanDistance);
-                        memory.WriteInt32(target.HumanDelay, oldHumanDelay);
-                        Verify(target.AiDistance, oldAiDistance, "rolled-back AI distance");
-                        Verify(target.AiDelay, oldAiDelay, "rolled-back AI delay");
-                        Verify(target.HumanDistance, oldHumanDistance, "rolled-back human distance");
-                        Verify(target.HumanDelay, oldHumanDelay, "rolled-back human delay");
-                    }
-                    catch (Exception rollback)
-                    {
-                        primary = new AggregateException("The native write and rollback both failed.", primary, rollback);
+                        try
+                        {
+                            memory.WriteInt32(target.AiDistance, oldAiDistance);
+                            memory.WriteInt32(target.AiDelay, oldAiDelay);
+                            memory.WriteInt32(target.HumanDistance, oldHumanDistance);
+                            memory.WriteInt32(target.HumanDelay, oldHumanDelay);
+                            Verify(target.AiDistance, oldAiDistance, "rolled-back AI distance");
+                            Verify(target.AiDelay, oldAiDelay, "rolled-back AI delay");
+                            Verify(target.HumanDistance, oldHumanDistance, "rolled-back human distance");
+                            Verify(target.HumanDelay, oldHumanDelay, "rolled-back human delay");
+                        }
+                        catch (Exception rollback)
+                        {
+                            primary = new AggregateException("The native write and rollback both failed.", primary, rollback);
+                        }
                     }
                 }
             }
             finally
             {
-                try { memory.RestoreProtection(first, length, oldProtection); }
-                catch (Exception ex) { cleanup = ex; }
-                try { memory.Flush(first, length); }
-                catch (Exception ex) { cleanup = cleanup == null ? ex : new AggregateException(cleanup, ex); }
+                for (int index = protections.Count - 1; index >= 0; index--)
+                {
+                    PageProtection protection = protections[index];
+                    try { memory.RestoreProtection(protection.Address, memory.PageSize, protection.Protection); }
+                    catch (Exception ex) { cleanup = Combine(cleanup, ex); }
+                }
+                foreach (NativeInterval interval in target.Intervals)
+                {
+                    try { memory.Flush(interval.Start, checked((int)(interval.End - interval.Start))); }
+                    catch (Exception ex) { cleanup = Combine(cleanup, ex); }
+                }
             }
 
             if (primary != null && cleanup != null)
@@ -206,8 +237,50 @@ namespace SerpNativeAPI
                 throw cleanup;
         }
 
+        private List<PageProtection> AcquireWritablePages()
+        {
+            if (memory.PageSize <= 0)
+                throw new InvalidOperationException("The native memory adapter returned an invalid page size.");
+
+            var pages = new SortedSet<long>();
+            foreach (NativeInterval interval in target.Intervals)
+            {
+                long firstPage = PageStart(interval.Start, memory.PageSize);
+                long lastPage = PageStart(interval.End - 1, memory.PageSize);
+                for (long page = firstPage; page <= lastPage; page = checked(page + memory.PageSize))
+                    pages.Add(page);
+            }
+
+            var protections = new List<PageProtection>();
+            try
+            {
+                foreach (long page in pages)
+                    protections.Add(new PageProtection(page, memory.MakeWritable(page, memory.PageSize)));
+                return protections;
+            }
+            catch (Exception primary)
+            {
+                Exception cleanup = null;
+                for (int index = protections.Count - 1; index >= 0; index--)
+                {
+                    PageProtection protection = protections[index];
+                    try { memory.RestoreProtection(protection.Address, memory.PageSize, protection.Protection); }
+                    catch (Exception ex) { cleanup = Combine(cleanup, ex); }
+                }
+                if (cleanup != null)
+                    throw new AggregateException("Acquiring writable native pages and cleanup both failed.", primary, cleanup);
+                throw;
+            }
+        }
+
         private void VerifyExpected()
         {
+            foreach (NativeByteInvariant invariant in target.InstructionInvariants)
+            {
+                byte actual = memory.ReadByte(invariant.Address);
+                if (actual != invariant.Value)
+                    throw new InvalidOperationException($"Gatehouse instruction byte changed unexpectedly at target offset: expected=0x{invariant.Value:X2}, actual=0x{actual:X2}.");
+            }
             Verify(target.AiDistance, expectedAiDistance, "AI distance");
             Verify(target.AiDelay, expectedAiDelay, "AI delay");
             Verify(target.HumanDistance, expectedHumanDistance, "human distance");
@@ -230,8 +303,36 @@ namespace SerpNativeAPI
                 throw new ArgumentOutOfRangeException(name, $"{name} must be finite and between {minimum} and {maximum}.");
         }
 
-        private static int Convert(double value, int multiplier) =>
-            checked((int)Math.Round(value * multiplier, MidpointRounding.AwayFromZero));
+        internal static int ConvertNativeUInt16(double value, int multiplier, string name)
+        {
+            int converted = checked((int)Math.Round(value * multiplier, MidpointRounding.AwayFromZero));
+            if (converted < ushort.MinValue || converted > ushort.MaxValue)
+                throw new ArgumentOutOfRangeException(name, $"{name} converts to {converted}, outside the native UInt16 range.");
+            return converted;
+        }
+
+        private static long PageStart(long address, int pageSize) => address - address % pageSize;
+
+        private static Exception Combine(Exception current, Exception next) =>
+            current == null ? next : new AggregateException(current, next);
+
+        private static string FormatValues(int aiDistance, int aiDelay, int humanDistance, int humanDelay) =>
+            $"humanClose={humanDistance / (double)UnitsPerTile:0.###}tiles/{humanDistance}units, " +
+            $"humanReopen={humanDelay / (double)TicksPerSecond:0.###}s/{humanDelay}ticks, " +
+            $"aiClose={aiDistance / (double)UnitsPerTile:0.###}tiles/{aiDistance}units, " +
+            $"aiReopen={aiDelay / (double)TicksPerSecond:0.###}s/{aiDelay}ticks";
+
+        private readonly struct PageProtection
+        {
+            public PageProtection(long address, uint protection)
+            {
+                Address = address;
+                Protection = protection;
+            }
+
+            public long Address { get; }
+            public uint Protection { get; }
+        }
 
         private sealed class OwnerCapability : IGatehouseTimingCapability
         {

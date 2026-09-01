@@ -1,15 +1,13 @@
 using BepInEx.Logging;
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Runtime.InteropServices;
 
 namespace SerpNativeAPI
 {
     internal enum NativeReservationMode
     {
-        Exclusive,
-        SharedHook
+        Exclusive
     }
 
     internal readonly struct NativeInterval
@@ -49,13 +47,6 @@ namespace SerpNativeAPI
                         existing.Mode == mode && IntervalsEqual(existing.Intervals, intervals))
                     {
                         return true;
-                    }
-
-                    if (mode == NativeReservationMode.SharedHook &&
-                        existing.Mode == NativeReservationMode.SharedHook &&
-                        string.Equals(existing.CapabilityId, capabilityId, StringComparison.Ordinal))
-                    {
-                        continue;
                     }
 
                     if (AnyOverlap(existing.Intervals, intervals))
@@ -116,6 +107,8 @@ namespace SerpNativeAPI
 
     internal interface INativeMemory
     {
+        int PageSize { get; }
+        byte ReadByte(long address);
         int ReadInt32(long address);
         void WriteInt32(long address, int value);
         uint MakeWritable(long address, int length);
@@ -127,6 +120,8 @@ namespace SerpNativeAPI
     {
         private const uint PageExecuteReadWrite = 0x40;
 
+        public int PageSize => Environment.SystemPageSize;
+        public byte ReadByte(long address) => Marshal.ReadByte(new IntPtr(address));
         public int ReadInt32(long address) => Marshal.ReadInt32(new IntPtr(address));
         public void WriteInt32(long address, int value) => Marshal.WriteInt32(new IntPtr(address), value);
 
@@ -251,93 +246,6 @@ namespace SerpNativeAPI
 
         private static int ReadUInt16(ReadOnlySpan<byte> memory, int offset) => memory[offset] | memory[offset + 1] << 8;
         private static uint ReadUInt32(ReadOnlySpan<byte> memory, int offset) => unchecked((uint)ReadInt32(memory, offset));
-    }
-
-    internal static class NativePattern
-    {
-        public static int ResolveKnownBuild(
-            ReadOnlySpan<byte> memory,
-            NativePeImage pe,
-            string pattern,
-            int referenceRva,
-            string target,
-            bool allowFallback)
-        {
-            PatternByte[] parsed = Parse(pattern);
-            pe.RequireExecutableRange(referenceRva, parsed.Length, target);
-            if (Matches(memory, referenceRva, parsed))
-                return referenceRva;
-            if (!allowFallback)
-                throw new NativeResolutionException(NativeCapabilityState.ValidationFailed, target + " bytes do not match the catalogued RVA.");
-
-            int match = -1;
-            int count = 0;
-            foreach (NativeSection section in pe.Sections)
-            {
-                if (!section.Executable)
-                    continue;
-                int end = section.End - parsed.Length;
-                for (int offset = section.Start; offset <= end; offset++)
-                {
-                    if (!Matches(memory, offset, parsed))
-                        continue;
-                    match = offset;
-                    count++;
-                    if (count > 1)
-                        throw new NativeResolutionException(NativeCapabilityState.Ambiguous, target + " pattern matched more than once.");
-                }
-            }
-            if (count == 0)
-                throw new NativeResolutionException(NativeCapabilityState.PatternMissing, target + " pattern was not found.");
-            return match;
-        }
-
-        public static int ResolveRelativeTarget(ReadOnlySpan<byte> memory, NativePeImage pe, int displacementRva, int nextInstructionRva, string target)
-        {
-            int resolved;
-            try
-            {
-                resolved = checked(nextInstructionRva + NativePeImage.ReadInt32(memory, displacementRva));
-            }
-            catch (OverflowException)
-            {
-                throw new NativeResolutionException(NativeCapabilityState.ValidationFailed, target + " overflows the PE address range.");
-            }
-            if (resolved < 0 || resolved >= pe.ImageSize)
-                throw new NativeResolutionException(NativeCapabilityState.ValidationFailed, target + " resolves outside the PE image.");
-            return resolved;
-        }
-
-        private static bool Matches(ReadOnlySpan<byte> memory, int offset, PatternByte[] pattern)
-        {
-            if (offset < 0 || offset > memory.Length - pattern.Length)
-                return false;
-            for (int index = 0; index < pattern.Length; index++)
-                if (!pattern[index].Wildcard && memory[offset + index] != pattern[index].Value)
-                    return false;
-            return true;
-        }
-
-        private static PatternByte[] Parse(string pattern)
-        {
-            string[] tokens = pattern.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-            var result = new PatternByte[tokens.Length];
-            for (int index = 0; index < tokens.Length; index++)
-            {
-                bool wildcard = tokens[index] == "?" || tokens[index] == "??";
-                result[index] = new PatternByte(
-                    wildcard ? (byte)0 : byte.Parse(tokens[index], NumberStyles.HexNumber, CultureInfo.InvariantCulture),
-                    wildcard);
-            }
-            return result;
-        }
-
-        private readonly struct PatternByte
-        {
-            public PatternByte(byte value, bool wildcard) { Value = value; Wildcard = wildcard; }
-            public byte Value { get; }
-            public bool Wildcard { get; }
-        }
     }
 
     internal static class NativeApiLog

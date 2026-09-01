@@ -40,7 +40,7 @@ namespace SerpNativeAPI
                 memory,
                 hash,
                 new ProcessNativeMemory(),
-                new NativeDetourSelectedUnitCommandHookFactory(),
+                new ScriptExtenderSelectedUnitCommandEventSource(),
                 Logger);
         }
 

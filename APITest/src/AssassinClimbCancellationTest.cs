@@ -32,7 +32,7 @@ namespace APITest
 
         public void OnSelectedUnitCommand(SelectedUnitCommandContext context)
         {
-            if ((uint)context.Command != (uint)TribeAICommand.UnitStop)
+            if (context.Command != TribeAICommand.UnitStop)
                 return;
             stopCallbacks++;
             if (!firstStopLogged)

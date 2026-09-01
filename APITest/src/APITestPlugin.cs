@@ -66,7 +66,7 @@ namespace APITest
                 return;
             }
             LogDiagnostic("GATEHOUSE_APPLIED", diagnostic);
-            Log("GATEHOUSE_TEST_ACTIVE: humanDelay=0s, aiDelay=0s, humanDistance=5tiles, aiDistance=5tiles.");
+            Log("GATEHOUSE_TEST_ACTIVE: humanReopen=0s/0ticks, aiReopen=0s/0ticks, humanClose=5tiles/40units, aiClose=5tiles/40units.");
         }
 
         private static void RegisterAssassin(ISerpNativeApi api)

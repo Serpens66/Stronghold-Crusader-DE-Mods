@@ -1,39 +1,48 @@
 using BepInEx.Logging;
-using MonoMod.RuntimeDetour;
+using R3;
+using SHCDESE.EventAPI;
 using System;
 using System.Collections.Generic;
-using System.Runtime.InteropServices;
 
 namespace SerpNativeAPI
 {
-    internal readonly struct NativeSelectedUnitCommandArguments
+    internal readonly struct SelectedUnitCommandEventData
     {
-        public NativeSelectedUnitCommandArguments(IntPtr unitManager, int tribeId, int command, int argument1, int argument2, int argument3)
+        public SelectedUnitCommandEventData(EventHookPhase phase, SelectedUnitCommandContext context)
         {
-            UnitManager = unitManager;
-            TribeId = tribeId;
-            Command = command;
-            Argument1 = argument1;
-            Argument2 = argument2;
-            Argument3 = argument3;
+            Phase = phase;
+            Context = context;
         }
 
-        public IntPtr UnitManager { get; }
-        public int TribeId { get; }
-        public int Command { get; }
-        public int Argument1 { get; }
-        public int Argument2 { get; }
-        public int Argument3 { get; }
-        public SelectedUnitCommandContext ToPublic() => new SelectedUnitCommandContext(TribeId, Command, Argument1, Argument2, Argument3);
+        public EventHookPhase Phase { get; }
+        public SelectedUnitCommandContext Context { get; }
     }
 
-    internal interface ISelectedUnitCommandHook
+    internal interface ISelectedUnitCommandEventSource
     {
+        IDisposable Subscribe(Action<SelectedUnitCommandEventData> callback);
     }
 
-    internal interface ISelectedUnitCommandHookFactory
+    internal sealed class ScriptExtenderSelectedUnitCommandEventSource : ISelectedUnitCommandEventSource
     {
-        ISelectedUnitCommandHook Install(long targetAddress, SelectedUnitCommandBroker broker);
+        public IDisposable Subscribe(Action<SelectedUnitCommandEventData> callback)
+        {
+            if (callback == null)
+                throw new ArgumentNullException(nameof(callback));
+
+            return TribeR3EventHooks.OnTribeIssueOrderWithTarget.Observable.Subscribe(eventArgs =>
+            {
+                // Copy the mutable Script Extender event data. API consumers never receive the
+                // original EventArgs and therefore cannot alter Vanilla control flow or results.
+                var context = new SelectedUnitCommandContext(
+                    eventArgs.TribeId,
+                    eventArgs.AICommand,
+                    eventArgs.TargetValue1,
+                    eventArgs.TargetValue2,
+                    eventArgs.a6);
+                callback(new SelectedUnitCommandEventData(eventArgs.Phase, context));
+            });
+        }
     }
 
     internal sealed class SelectedUnitCommandBroker
@@ -42,9 +51,9 @@ namespace SerpNativeAPI
         private readonly SortedDictionary<string, Registration> registrations =
             new SortedDictionary<string, Registration>(StringComparer.Ordinal);
         private readonly string binaryHash;
-        private readonly ManualLogSource log;
+        private readonly BepInEx.Logging.ManualLogSource log;
 
-        public SelectedUnitCommandBroker(string binaryHash, ManualLogSource log)
+        public SelectedUnitCommandBroker(string binaryHash, BepInEx.Logging.ManualLogSource log)
         {
             this.binaryHash = binaryHash;
             this.log = log;
@@ -64,7 +73,7 @@ namespace SerpNativeAPI
             }
         }
 
-        public int Dispatch(NativeSelectedUnitCommandArguments arguments, Func<NativeSelectedUnitCommandArguments, int> original)
+        public void Dispatch(SelectedUnitCommandContext context)
         {
             Registration[] snapshot;
             lock (sync)
@@ -76,7 +85,6 @@ namespace SerpNativeAPI
                 snapshot = active.ToArray();
             }
 
-            SelectedUnitCommandContext context = arguments.ToPublic();
             foreach (Registration registration in snapshot)
             {
                 try { registration.Invoke(context); }
@@ -85,7 +93,6 @@ namespace SerpNativeAPI
                     NativeApiLog.Error(log, $"capability={NativeCapabilityIds.SelectedUnitCommand}, build={binaryHash}, owner={registration.OwnerGuid}, callbackError={ex}");
                 }
             }
-            return original(arguments);
         }
 
         private void Remove(Registration registration)
@@ -133,81 +140,24 @@ namespace SerpNativeAPI
         }
     }
 
-    internal sealed class NativeDetourSelectedUnitCommandHookFactory : ISelectedUnitCommandHookFactory
-    {
-        public ISelectedUnitCommandHook Install(long targetAddress, SelectedUnitCommandBroker broker) =>
-            new Hook(targetAddress, broker);
-
-        private sealed class Hook : ISelectedUnitCommandHook
-        {
-            [UnmanagedFunctionPointer(CallingConvention.Winapi)]
-            private delegate int CommandDelegate(IntPtr unitManager, int tribeId, int command, int argument1, int argument2, int argument3);
-
-            private readonly SelectedUnitCommandBroker broker;
-            private readonly CommandDelegate rootedDetour;
-            private readonly CommandDelegate original;
-            private readonly NativeDetour detour;
-
-            public Hook(long targetAddress, SelectedUnitCommandBroker broker)
-            {
-                this.broker = broker;
-                rootedDetour = OnCommand;
-                NativeDetour created = null;
-                try
-                {
-                    created = new NativeDetour(
-                        new IntPtr(targetAddress),
-                        Marshal.GetFunctionPointerForDelegate(rootedDetour),
-                        new NativeDetourConfig { ManualApply = true });
-                    original = created.GenerateTrampoline<CommandDelegate>();
-                    created.Apply();
-                    detour = created;
-                }
-                catch
-                {
-                    created?.Dispose();
-                    throw;
-                }
-            }
-
-            private int OnCommand(IntPtr unitManager, int tribeId, int command, int argument1, int argument2, int argument3)
-            {
-                var args = new NativeSelectedUnitCommandArguments(unitManager, tribeId, command, argument1, argument2, argument3);
-                return broker.Dispatch(args, InvokeOriginal);
-            }
-
-            private int InvokeOriginal(NativeSelectedUnitCommandArguments args) =>
-                original(args.UnitManager, args.TribeId, args.Command, args.Argument1, args.Argument2, args.Argument3);
-        }
-    }
-
     internal sealed class SelectedUnitCommandService
     {
         private readonly object sync = new object();
         private readonly string binaryHash;
-        private readonly long targetAddress;
-        private readonly NativeInterval[] intervals;
-        private readonly NativeOwnershipRegistry ownership;
-        private readonly ISelectedUnitCommandHookFactory hookFactory;
+        private readonly ISelectedUnitCommandEventSource eventSource;
         private readonly SelectedUnitCommandBroker broker;
-        private readonly ManualLogSource log;
-        private ISelectedUnitCommandHook hook;
+        private readonly BepInEx.Logging.ManualLogSource log;
+        private IDisposable rootedSubscription;
 
         public SelectedUnitCommandService(
             string binaryHash,
-            long targetAddress,
-            int targetLength,
-            NativeOwnershipRegistry ownership,
-            ISelectedUnitCommandHookFactory hookFactory,
-            ManualLogSource log)
+            ISelectedUnitCommandEventSource eventSource,
+            BepInEx.Logging.ManualLogSource log)
         {
-            this.binaryHash = binaryHash;
-            this.targetAddress = targetAddress;
-            intervals = new[] { new NativeInterval(targetAddress, targetAddress + targetLength) };
-            this.ownership = ownership;
-            this.hookFactory = hookFactory;
+            this.binaryHash = binaryHash ?? string.Empty;
+            this.eventSource = eventSource ?? throw new ArgumentNullException(nameof(eventSource));
             this.log = log;
-            broker = new SelectedUnitCommandBroker(binaryHash, log);
+            broker = new SelectedUnitCommandBroker(this.binaryHash, log);
         }
 
         public ISelectedUnitCommandCapability Bind(string ownerGuid) => new OwnerCapability(this, ownerGuid);
@@ -227,35 +177,39 @@ namespace SerpNativeAPI
 
             lock (sync)
             {
-                if (!ownership.TryReserve(ownerGuid, NativeCapabilityIds.SelectedUnitCommand, NativeReservationMode.SharedHook, intervals, out string conflictOwner))
-                {
-                    diagnostic = new NativeCapabilityDiagnostic(
-                        NativeCapabilityIds.SelectedUnitCommand,
-                        NativeCapabilityState.Conflict,
-                        binaryHash,
-                        "The selected-unit command target conflicts with an exclusive reservation.",
-                        conflictOwner);
-                    return false;
-                }
-
+                ISelectedUnitCommandRegistration candidate = null;
                 try
                 {
-                    if (hook == null)
+                    candidate = broker.Register(ownerGuid, callback);
+                    if (rootedSubscription == null)
                     {
-                        hook = hookFactory.Install(targetAddress, broker);
-                        NativeApiLog.Info(log, $"capability={NativeCapabilityIds.SelectedUnitCommand}, build={binaryHash}, owner={ownerGuid}, status=detour-installed.");
+                        IDisposable subscription = eventSource.Subscribe(OnEvent);
+                        if (subscription == null)
+                            throw new InvalidOperationException("The Script Extender event source returned no subscription handle.");
+                        rootedSubscription = subscription;
+                        NativeApiLog.Info(log, $"capability={NativeCapabilityIds.SelectedUnitCommand}, build={binaryHash}, owner={ownerGuid}, status=script-extender-event-subscribed.");
                     }
-                    registration = broker.Register(ownerGuid, callback);
-                    diagnostic = Diagnostic(NativeCapabilityState.Available, "The selected-unit Before callback is registered.");
+                    registration = candidate;
+                    diagnostic = Diagnostic(NativeCapabilityState.Available, "The selected-unit Before callback is registered through the Script Extender event.");
                     return true;
                 }
                 catch (Exception ex)
                 {
+                    // A failed first subscription must not leave an unusable owner registration.
+                    if (rootedSubscription == null)
+                        candidate?.Dispose();
                     diagnostic = Diagnostic(NativeCapabilityState.Faulted, ex.Message);
                     NativeApiLog.Error(log, $"capability={NativeCapabilityIds.SelectedUnitCommand}, build={binaryHash}, owner={ownerGuid}, status=failed, error={ex}");
                     return false;
                 }
             }
+        }
+
+        private void OnEvent(SelectedUnitCommandEventData eventData)
+        {
+            if (eventData.Phase != EventHookPhase.Pre)
+                return;
+            broker.Dispatch(eventData.Context);
         }
 
         private NativeCapabilityDiagnostic Diagnostic(NativeCapabilityState state, string reason) =>

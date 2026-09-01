@@ -1,4 +1,5 @@
 using System;
+using SHCDESE.Interop.Enums;
 
 namespace SerpNativeAPI
 {
@@ -54,41 +55,46 @@ namespace SerpNativeAPI
     {
         public GatehouseTimingSettings(
             bool enabled,
-            double humanDelaySeconds,
-            double aiDelaySeconds,
-            double humanDistanceTiles,
-            double aiDistanceTiles)
+            double humanReopenDelaySeconds,
+            double aiReopenDelaySeconds,
+            double humanCloseDistanceTiles,
+            double aiCloseDistanceTiles)
         {
             Enabled = enabled;
-            HumanDelaySeconds = humanDelaySeconds;
-            AiDelaySeconds = aiDelaySeconds;
-            HumanDistanceTiles = humanDistanceTiles;
-            AiDistanceTiles = aiDistanceTiles;
+            HumanReopenDelaySeconds = humanReopenDelaySeconds;
+            AiReopenDelaySeconds = aiReopenDelaySeconds;
+            HumanCloseDistanceTiles = humanCloseDistanceTiles;
+            AiCloseDistanceTiles = aiCloseDistanceTiles;
         }
 
         public bool Enabled { get; }
-        public double HumanDelaySeconds { get; }
-        public double AiDelaySeconds { get; }
-        public double HumanDistanceTiles { get; }
-        public double AiDistanceTiles { get; }
+        public double HumanReopenDelaySeconds { get; }
+        public double AiReopenDelaySeconds { get; }
+        public double HumanCloseDistanceTiles { get; }
+        public double AiCloseDistanceTiles { get; }
     }
 
     public readonly struct SelectedUnitCommandContext
     {
-        public SelectedUnitCommandContext(int tribeId, int command, int argument1, int argument2, int argument3)
+        public SelectedUnitCommandContext(
+            int tribeId,
+            TribeAICommand command,
+            int targetValue1,
+            int targetValue2,
+            int argument6)
         {
             TribeId = tribeId;
             Command = command;
-            Argument1 = argument1;
-            Argument2 = argument2;
-            Argument3 = argument3;
+            TargetValue1 = targetValue1;
+            TargetValue2 = targetValue2;
+            Argument6 = argument6;
         }
 
         public int TribeId { get; }
-        public int Command { get; }
-        public int Argument1 { get; }
-        public int Argument2 { get; }
-        public int Argument3 { get; }
+        public TribeAICommand Command { get; }
+        public int TargetValue1 { get; }
+        public int TargetValue2 { get; }
+        public int Argument6 { get; }
     }
 
     public interface IGatehouseTimingCapability

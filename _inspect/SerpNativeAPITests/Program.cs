@@ -1,4 +1,6 @@
 using SerpNativeAPI;
+using SHCDESE.EventAPI;
+using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
 
@@ -6,84 +8,114 @@ namespace SerpNativeAPITests
 {
     internal static class Program
     {
-        private const int GateDecisionRva = 0xB7BBB;
-        private const int GateHumanRva = 0xB7C32;
-        private const int SelectedRva = 0x199C70;
-        private const int FullImageSize = 0x7CC8000;
         private const long ModuleBase = 0x10000000;
-        private static readonly byte[] GateDecision = PatternBytes(
-            "40 84 F6 75 10 41 81 F8 C8 00 00 00 7D 10 B8 B0 04 00 00 EB 69 " +
-            "41 81 F8 8C 00 00 00 7C 5B 48 8D 2D 00 00 00 00 49 FF C6 49 83 C3 02");
-        private static readonly byte[] GateHuman = PatternBytes(
-            "EB 50 B8 64 00 00 00 48 8D 2D 00 00 00 00 66 89 84 2B 00 00 00 00 " +
-            "80 BC 2B 00 00 00 00 00");
-        private static readonly byte[] Selected = PatternBytes("48 8D 0D A9 CA B2 07 E9 E4 4C F8 FF");
+        private const int FunctionRva = 0x1100;
+        private const int FunctionSize = 0x300;
+        private const int DecisionRva = 0x1200;
+        private const int HumanDelayRva = 0x1280;
+        private static readonly byte[] DecisionBytes = Hex(
+            "40 84 F6 75 10 41 81 F8 C8 00 00 00 7D 10 B8 B0 04 00 00 EB 69 41 81 F8 8C 00 00 00 7C 5B");
+        private static readonly byte[] HumanDelayBytes = Hex("EB 50 B8 64 00 00 00 48 8D 2D C0 83 F4 FF");
         private static int failures;
 
         private static int Main()
         {
-            TestPeAndPatternResolution();
-            TestPatternMissingAndAmbiguous();
-            TestRelativeTargetValidation();
+            TestPeValidation();
+            TestFixedCatalogValidation();
+            TestReadinessAndIndependentCapabilities();
             TestOwnership();
-            TestReadinessAndUnknownBuild();
-            TestIndependentCapabilities();
-            TestKnownBuildCapabilities();
-            TestGatehouseTransaction();
-            TestGatehouseRollbackAndCleanup();
+            TestGatehouseTransactionAndRounding();
+            TestGatehouseRollbackAndPageCleanup();
             TestSelectedBroker();
-            TestSelectedServiceInstallsOnce();
+            TestSelectedEventService();
             if (failures == 0)
             {
-                Console.WriteLine("PASS: SerpNativeAPI focused tests passed.");
+                Console.WriteLine("PASS: SerpNativeAPI baseline-hardened tests passed.");
                 return 0;
             }
             Console.Error.WriteLine($"FAIL: SerpNativeAPI tests reported {failures} failure(s).");
             return 1;
         }
 
-        private static void TestPeAndPatternResolution()
+        private static void TestPeValidation()
         {
-            byte[] image = CreatePeImage(0x3000);
-            Copy(image, 0x1200, new byte[] { 0xAA, 0xBB, 0xCC });
+            byte[] image = CreatePeImage(0x4000, true);
             NativePeImage pe = NativePeImage.Parse(image);
             Assert(pe.ImageSize == image.Length, "PE image size should parse");
             AssertThrowsState(NativeCapabilityState.ValidationFailed,
-                () => pe.RequireExecutableRange(0x200, 1, "header target"),
-                "target outside executable sections");
-            Assert(NativePattern.ResolveKnownBuild(image, pe, "AA BB CC", 0x1200, "test", true) == 0x1200,
-                "known RVA should resolve");
-            Copy(image, 0x1200, new byte[] { 0, 0, 0 });
-            Copy(image, 0x1400, new byte[] { 0xAA, 0xBB, 0xCC });
-            Assert(NativePattern.ResolveKnownBuild(image, pe, "AA BB CC", 0x1200, "test", true) == 0x1400,
-                "unique known-build fallback should resolve");
+                () => pe.RequireExecutableRange(0x200, 1, "header"), "headers are not executable targets");
+
+            byte[] nonExecutable = CreatePeImage(0x4000, false);
+            GatehouseBuildTarget catalog = InstallTestGatehouse(nonExecutable);
+            var runtime = InitializeRuntime(nonExecutable, catalog, SeedRuntimeMemory(nonExecutable, catalog), new FakeEventSource());
+            Assert(!runtime.TryGetGatehouseTiming("owner", out _, out NativeCapabilityDiagnostic diagnostic) &&
+                diagnostic.State == NativeCapabilityState.ValidationFailed, "gatehouse function must be executable");
         }
 
-        private static void TestPatternMissingAndAmbiguous()
+        private static void TestFixedCatalogValidation()
         {
-            byte[] image = CreatePeImage(0x3000);
-            NativePeImage pe = NativePeImage.Parse(image);
-            AssertThrowsState(NativeCapabilityState.PatternMissing,
-                () => NativePattern.ResolveKnownBuild(image, pe, "AA BB", 0x1200, "missing", true),
-                "missing pattern state");
-            Copy(image, 0x1300, new byte[] { 0xAA, 0xBB });
-            Copy(image, 0x1400, new byte[] { 0xAA, 0xBB });
-            AssertThrowsState(NativeCapabilityState.Ambiguous,
-                () => NativePattern.ResolveKnownBuild(image, pe, "AA BB", 0x1200, "ambiguous", true),
-                "ambiguous pattern state");
+            byte[] image = CreatePeImage(0x4000, true);
+            GatehouseBuildTarget catalog = InstallTestGatehouse(image);
+            FakeMemory memory = SeedRuntimeMemory(image, catalog);
+            SerpNativeApiRuntime runtime = InitializeRuntime(image, catalog, memory, new FakeEventSource());
+            Assert(runtime.TryGetGatehouseTiming("owner", out _, out NativeCapabilityDiagnostic available) &&
+                available.State == NativeCapabilityState.Available && available.Reason.Contains("function SHA-256"),
+                "matching fixed catalog should validate with provenance");
+
+            byte[] wrongHashImage = (byte[])image.Clone();
+            var wrongHashCatalog = CloneCatalog(catalog, functionHash: new string('0', 64));
+            runtime = InitializeRuntime(wrongHashImage, wrongHashCatalog, SeedRuntimeMemory(wrongHashImage, wrongHashCatalog), new FakeEventSource());
+            AssertGateValidationFailure(runtime, "wrong function hash must fail");
+
+            byte[] wrongOpcode = (byte[])image.Clone();
+            wrongOpcode[DecisionRva] ^= 1;
+            Copy(wrongOpcode, 0x1500, DecisionBytes); // A decoy must never be used as a fallback.
+            GatehouseBuildTarget wrongOpcodeCatalog = CloneCatalog(catalog, functionHash: SerpNativeApiRuntime.ComputeSha256(
+                new ReadOnlySpan<byte>(wrongOpcode, FunctionRva, FunctionSize)));
+            runtime = InitializeRuntime(wrongOpcode, wrongOpcodeCatalog, SeedRuntimeMemory(wrongOpcode, wrongOpcodeCatalog), new FakeEventSource());
+            AssertGateValidationFailure(runtime, "wrong opcode must fail without accepting a decoy");
+
+            byte[] wrongImmediate = (byte[])image.Clone();
+            WriteInt32(wrongImmediate, DecisionRva + 8, 201);
+            GatehouseBuildTarget wrongImmediateCatalog = CloneCatalog(catalog, functionHash: SerpNativeApiRuntime.ComputeSha256(
+                new ReadOnlySpan<byte>(wrongImmediate, FunctionRva, FunctionSize)));
+            runtime = InitializeRuntime(wrongImmediate, wrongImmediateCatalog, SeedRuntimeMemory(wrongImmediate, wrongImmediateCatalog), new FakeEventSource());
+            AssertGateValidationFailure(runtime, "wrong Vanilla immediate must fail");
+
+            GatehouseBuildTarget outside = CloneCatalog(catalog, aiCloseDistanceRva: FunctionRva - 4);
+            runtime = InitializeRuntime(image, outside, SeedRuntimeMemory(image, catalog), new FakeEventSource());
+            AssertGateValidationFailure(runtime, "catalogued immediate outside function must fail");
         }
 
-        private static void TestRelativeTargetValidation()
+        private static void TestReadinessAndIndependentCapabilities()
         {
-            byte[] image = CreatePeImage(0x3000);
-            NativePeImage pe = NativePeImage.Parse(image);
-            WriteInt32(image, 0x1100, 0x20);
-            Assert(NativePattern.ResolveRelativeTarget(image, pe, 0x1100, 0x1104, "relative") == 0x1124,
-                "valid relative target");
-            WriteInt32(image, 0x1100, int.MaxValue);
-            AssertThrowsState(NativeCapabilityState.ValidationFailed,
-                () => NativePattern.ResolveRelativeTarget(image, pe, 0x1100, 0x1104, "relative"),
-                "relative target outside image");
+            byte[] image = CreatePeImage(0x4000, true);
+            var runtime = new SerpNativeApiRuntime();
+            Assert(!runtime.TryGetGatehouseTiming("owner", out _, out NativeCapabilityDiagnostic pending) &&
+                pending.State == NativeCapabilityState.Pending, "pre-initialization query should be Pending");
+            int readyBefore = 0;
+            runtime.WhenReady(_ => readyBefore++);
+            var memory = new FakeMemory();
+            var events = new FakeEventSource();
+            runtime.Initialize(ModuleBase, image, "UNKNOWN", memory, events, null);
+            Assert(runtime.State == NativeApiState.Ready && readyBefore == 1, "unknown build should still publish Ready");
+            Assert(!runtime.TryGetGatehouseTiming("owner", out _, out NativeCapabilityDiagnostic gate) &&
+                gate.State == NativeCapabilityState.UnsupportedBuild, "unknown build should disable only gatehouse");
+            Assert(runtime.TryGetSelectedUnitCommand("owner", out ISelectedUnitCommandCapability selected, out NativeCapabilityDiagnostic selectedDiagnostic) &&
+                selectedDiagnostic.State == NativeCapabilityState.Available, "event capability should support unknown native hashes");
+            Assert(memory.OperationCount == 0 && events.SubscribeCount == 0, "unknown build performs no native operation or eager subscription");
+            Assert(selected.TryRegisterBefore(_ => { }, out _, out _) && events.SubscribeCount == 1,
+                "event capability should subscribe lazily on unknown hashes");
+            int readyAfter = 0;
+            runtime.WhenReady(_ => readyAfter++);
+            Assert(readyAfter == 1, "post-initialization readiness callback should be synchronous");
+
+            runtime = new SerpNativeApiRuntime();
+            runtime.Initialize(0, ReadOnlySpan<byte>.Empty, string.Empty, new FakeMemory(), new FakeEventSource(), null);
+            Assert(runtime.State == NativeApiState.Ready, "missing native module is a gate capability error, not a global failure");
+            Assert(runtime.TryGetSelectedUnitCommand("owner", out _, out _), "selected event survives missing native module");
+            Assert(!runtime.TryGetGatehouseTiming("owner", out _, out NativeCapabilityDiagnostic missingHash) &&
+                missingHash.State == NativeCapabilityState.UnsupportedBuild, "missing hash is unsupported for gatehouse");
         }
 
         private static void TestOwnership()
@@ -91,132 +123,95 @@ namespace SerpNativeAPITests
             var registry = new NativeOwnershipRegistry();
             var first = new[] { new NativeInterval(100, 110) };
             Assert(registry.TryReserve("A", "cap", NativeReservationMode.Exclusive, first, out _), "first reservation");
-            Assert(registry.TryReserve("A", "cap", NativeReservationMode.Exclusive, first, out _), "same reservation idempotent");
-            Assert(registry.TryReserve("B", "other", NativeReservationMode.Exclusive, new[] { new NativeInterval(110, 120) }, out _),
-                "adjacent interval should not overlap");
-            Assert(!registry.TryReserve("C", "third", NativeReservationMode.Exclusive, new[] { new NativeInterval(109, 111) }, out string conflict) && conflict == "A",
-                "overlapping exclusive reservation should identify owner");
-            var hooks = new NativeOwnershipRegistry();
-            Assert(hooks.TryReserve("B", "hook", NativeReservationMode.SharedHook, first, out _), "first hook reservation");
-            Assert(hooks.TryReserve("A", "hook", NativeReservationMode.SharedHook, first, out _), "shared hook reservation");
+            Assert(registry.TryReserve("A", "cap", NativeReservationMode.Exclusive, first, out _), "same reservation is idempotent");
+            Assert(registry.TryReserve("B", "other", NativeReservationMode.Exclusive,
+                new[] { new NativeInterval(110, 120) }, out _), "adjacent half-open intervals do not overlap");
+            Assert(!registry.TryReserve("C", "third", NativeReservationMode.Exclusive,
+                new[] { new NativeInterval(109, 111) }, out string conflict) && conflict == "A",
+                "exclusive overlap identifies the first owner");
         }
 
-        private static void TestReadinessAndUnknownBuild()
+        private static void TestGatehouseTransactionAndRounding()
         {
-            var runtime = new SerpNativeApiRuntime();
-            Assert(!runtime.TryGetGatehouseTiming("test", out _, out NativeCapabilityDiagnostic pending) &&
-                pending.State == NativeCapabilityState.Pending, "query before initialization should remain Pending");
-            int before = 0;
-            runtime.WhenReady(_ => before++);
-            var memory = new FakeMemory();
-            var hooks = new FakeHookFactory();
-            byte[] image = CreatePeImage(0x3000);
-            runtime.Initialize(ModuleBase, image, "UNKNOWN", memory, hooks, null);
-            Assert(before == 1 && runtime.State == NativeApiState.Ready, "pre-init readiness callback");
-            int after = 0;
-            runtime.WhenReady(_ => after++);
-            Assert(after == 1, "post-init readiness callback should be synchronous");
-            Assert(!runtime.TryGetGatehouseTiming("test", out _, out NativeCapabilityDiagnostic gate) && gate.State == NativeCapabilityState.UnsupportedBuild,
-                "unknown gatehouse build");
-            Assert(!runtime.TryGetSelectedUnitCommand("test", out _, out NativeCapabilityDiagnostic selected) && selected.State == NativeCapabilityState.UnsupportedBuild,
-                "unknown selected-command build");
-            Assert(memory.OperationCount == 0 && hooks.InstallCount == 0, "unknown build must not mutate or hook");
-            Assert(!runtime.TryGetGatehouseTiming("", out _, out NativeCapabilityDiagnostic invalid) && invalid.State == NativeCapabilityState.ValidationFailed,
-                "empty owner should fail validation");
-
-            var missingHash = new SerpNativeApiRuntime();
-            missingHash.Initialize(ModuleBase, image, string.Empty, new FakeMemory(), new FakeHookFactory(), null);
-            Assert(missingHash.State == NativeApiState.Unavailable, "missing module hash should make the API unavailable");
-        }
-
-        private static void TestIndependentCapabilities()
-        {
-            byte[] image = CreatePeImage(0x200000);
-            InstallGatePatterns(image);
-            Copy(image, SelectedRva, Selected);
-            var memory = SeedGateMemory();
-            var runtime = new SerpNativeApiRuntime();
-            runtime.Initialize(ModuleBase, image, SerpNativeApiRuntime.SupportedHash, memory, new FakeHookFactory(), null);
-            Assert(runtime.TryGetGatehouseTiming("test", out _, out NativeCapabilityDiagnostic gate) && gate.State == NativeCapabilityState.Available,
-                "gatehouse should survive selected-target failure");
-            Assert(!runtime.TryGetSelectedUnitCommand("test", out _, out NativeCapabilityDiagnostic selected) && selected.State == NativeCapabilityState.ValidationFailed,
-                "selected target outside small image should fail independently");
-        }
-
-        private static void TestKnownBuildCapabilities()
-        {
-            byte[] image = CreatePeImage(FullImageSize);
-            InstallGatePatterns(image);
-            Copy(image, SelectedRva, Selected);
-            var memory = SeedGateMemory();
-            var hooks = new FakeHookFactory();
-            var runtime = new SerpNativeApiRuntime();
-            runtime.Initialize(ModuleBase, image, SerpNativeApiRuntime.SupportedHash, memory, hooks, null);
-            Assert(runtime.State == NativeApiState.Ready, "known build reaches Ready");
-            Assert(runtime.TryGetGatehouseTiming("test", out _, out NativeCapabilityDiagnostic gate) && gate.State == NativeCapabilityState.Available,
-                "known build gatehouse target validates");
-            Assert(runtime.TryGetSelectedUnitCommand("test", out ISelectedUnitCommandCapability selected, out NativeCapabilityDiagnostic selectedDiagnostic) &&
-                selectedDiagnostic.State == NativeCapabilityState.Available, "known build selected target validates");
-            Assert(hooks.InstallCount == 0, "known selected target remains lazy after resolution");
-            Assert(selected.TryRegisterBefore(_ => { }, out _, out _) && hooks.InstallCount == 1,
-                "known selected target installs through broker");
-        }
-
-        private static void TestGatehouseTransaction()
-        {
-            FakeMemory memory = SeedGateMemory();
-            GatehouseTimingService service = CreateGateService(memory, new NativeOwnershipRegistry());
-            IGatehouseTimingCapability capability = service.Bind("owner");
-            Assert(!capability.TryApply(new GatehouseTimingSettings(true, double.NaN, 0, 5, 5), out NativeCapabilityDiagnostic invalid) &&
-                invalid.State == NativeCapabilityState.ValidationFailed, "active non-finite gatehouse value should fail");
-            Assert(!capability.TryApply(new GatehouseTimingSettings(true, 31, 0, 5, 5), out invalid) &&
-                invalid.State == NativeCapabilityState.ValidationFailed, "active out-of-range gatehouse value should fail");
-            var active = new GatehouseTimingSettings(true, 0, 0, 5, 5);
-            Assert(capability.TryApply(active, out NativeCapabilityDiagnostic applied) && applied.State == NativeCapabilityState.Available,
-                "gatehouse active values apply");
-            Assert(memory.ReadRaw(ModuleBase + GateDecisionRva + 8) == 40 &&
-                memory.ReadRaw(ModuleBase + GateDecisionRva + 15) == 0 &&
-                memory.ReadRaw(ModuleBase + GateDecisionRva + 24) == 40 &&
-                memory.ReadRaw(ModuleBase + GateHumanRva + 3) == 0,
-                "all four converted values written");
-            int writes = memory.WriteCount;
-            Assert(capability.TryApply(active, out _ ) && memory.WriteCount == writes, "identical gatehouse apply is idempotent");
-            Assert(capability.TryApply(new GatehouseTimingSettings(false, double.NaN, double.NaN, double.NaN, double.NaN), out _),
-                "disabled settings restore Vanilla without validating unused fields");
-            Assert(memory.ReadRaw(ModuleBase + GateDecisionRva + 8) == 200 && memory.ReadRaw(ModuleBase + GateHumanRva + 3) == 100,
-                "gatehouse disable restores Vanilla");
-            memory.Set(ModuleBase + GateDecisionRva + 8, 201);
-            Assert(!capability.TryApply(active, out NativeCapabilityDiagnostic changed) && changed.State == NativeCapabilityState.ValidationFailed,
-                "external change must fail closed");
-        }
-
-        private static void TestGatehouseRollbackAndCleanup()
-        {
-            FakeMemory memory = SeedGateMemory();
+            FakeMemory memory = SeedDirectGateMemory();
             IGatehouseTimingCapability capability = CreateGateService(memory, new NativeOwnershipRegistry()).Bind("owner");
-            memory.FailNextWriteAddress = ModuleBase + GateDecisionRva + 15;
+            Assert(!capability.TryApply(new GatehouseTimingSettings(true, double.NaN, 0, 5, 5), out NativeCapabilityDiagnostic invalid) &&
+                invalid.State == NativeCapabilityState.ValidationFailed, "non-finite gatehouse input should fail");
+            AssertThrows<ArgumentOutOfRangeException>(
+                () => GatehouseTimingService.ConvertNativeUInt16(8192, 8, "value"), "native UInt16 overflow should fail");
+
+            var rounded = new GatehouseTimingSettings(true, 0.0125, 0.0125, 5.0625, 5.0625);
+            Assert(capability.TryApply(rounded, out NativeCapabilityDiagnostic applied) &&
+                applied.Reason.Contains("41units") && applied.Reason.Contains("1ticks"),
+                "AwayFromZero values and verified native units should be diagnosed");
+            Assert(memory.ReadRaw(ModuleBase + 0xB7BC3) == 41 && memory.ReadRaw(ModuleBase + 0xB7BCA) == 1 &&
+                memory.ReadRaw(ModuleBase + 0xB7BD3) == 41 && memory.ReadRaw(ModuleBase + 0xB7C35) == 1,
+                "all four rounded values should be written");
+            int writes = memory.WriteCount;
+            Assert(capability.TryApply(rounded, out _) && memory.WriteCount == writes, "identical apply should be idempotent");
+            memory.Set(ModuleBase + 0xB7BC3, 42);
+            Assert(!capability.TryApply(rounded, out NativeCapabilityDiagnostic identicalChanged) &&
+                identicalChanged.State == NativeCapabilityState.ValidationFailed,
+                "idempotent apply must still detect external memory changes");
+            memory.Set(ModuleBase + 0xB7BC3, 41);
+            Assert(capability.TryApply(new GatehouseTimingSettings(false, double.NaN, double.NaN, double.NaN, double.NaN), out _),
+                "disabled settings restore Vanilla without validating unused values");
+            Assert(memory.ReadRaw(ModuleBase + 0xB7BC3) == 200 && memory.ReadRaw(ModuleBase + 0xB7C35) == 100,
+                "disabled settings restore all Vanilla values");
+
+            memory.Set(ModuleBase + 0xB7BC3, 201);
+            Assert(!capability.TryApply(rounded, out NativeCapabilityDiagnostic changed) &&
+                changed.State == NativeCapabilityState.ValidationFailed, "external immediate mutation fails closed");
+            memory.Set(ModuleBase + 0xB7BC3, 200);
+            memory.SetByte(ModuleBase + 0xB7BC0, 0x90);
+            Assert(!capability.TryApply(rounded, out changed) && changed.State == NativeCapabilityState.ValidationFailed,
+                "external opcode mutation fails closed before writing");
+        }
+
+        private static void TestGatehouseRollbackAndPageCleanup()
+        {
+            FakeMemory memory = SeedDirectGateMemory();
+            IGatehouseTimingCapability capability = CreateGateService(memory, new NativeOwnershipRegistry()).Bind("owner");
+            memory.FailNextWriteAddress = ModuleBase + 0xB7BCA;
             Assert(!capability.TryApply(new GatehouseTimingSettings(true, 1, 5, 10, 15), out _), "partial write should fail");
-            Assert(memory.ReadRaw(ModuleBase + GateDecisionRva + 8) == 200 &&
-                memory.ReadRaw(ModuleBase + GateDecisionRva + 15) == 1200 &&
-                memory.ReadRaw(ModuleBase + GateDecisionRva + 24) == 140 &&
-                memory.ReadRaw(ModuleBase + GateHumanRva + 3) == 100,
-                "partial write should roll back all values");
+            Assert(memory.ReadRaw(ModuleBase + 0xB7BC3) == 200 && memory.ReadRaw(ModuleBase + 0xB7BCA) == 1200 &&
+                memory.ReadRaw(ModuleBase + 0xB7BD3) == 140 && memory.ReadRaw(ModuleBase + 0xB7C35) == 100,
+                "partial write should roll back all four values");
+            Assert(memory.WritablePages.Count == 1 && memory.RestoredProtections.Count == 1,
+                "the four current RVAs share one 4 KiB page");
 
-            memory = SeedGateMemory();
+            FakeMemory changedDuringAcquire = SeedDirectGateMemory();
+            capability = CreateGateService(changedDuringAcquire, new NativeOwnershipRegistry()).Bind("owner");
+            changedDuringAcquire.MutateOnMakeWritableAddress = ModuleBase + 0xB7BC3;
+            changedDuringAcquire.MutateOnMakeWritableValue = 202;
+            Assert(!capability.TryApply(new GatehouseTimingSettings(true, 1, 5, 10, 15), out _) &&
+                changedDuringAcquire.ReadRaw(ModuleBase + 0xB7BC3) == 202 && changedDuringAcquire.WriteCount == 0,
+                "a change during protection acquisition fails closed without overwriting or rollback adoption");
+
+            FakeMemory crossPageMemory = SeedCrossPageGateMemory();
+            capability = CreateCrossPageGateService(crossPageMemory).Bind("owner");
+            Assert(capability.TryApply(new GatehouseTimingSettings(true, 1, 5, 10, 15), out _),
+                "generic gatehouse transaction should support targets crossing a page boundary");
+            Assert(crossPageMemory.WritablePages.Count == 2 && crossPageMemory.RestoredProtections.Count == 2,
+                "cross-page transaction should protect both pages separately");
+            Assert(crossPageMemory.RestoredProtections[0].Protection != crossPageMemory.RestoredProtections[1].Protection,
+                "each page should restore its own original protection");
+
+            memory = SeedDirectGateMemory();
             capability = CreateGateService(memory, new NativeOwnershipRegistry()).Bind("owner");
-            memory.FailNextWriteAddress = ModuleBase + GateDecisionRva + 15;
+            memory.FailNextWriteAddress = ModuleBase + 0xB7BCA;
             memory.FailRestore = true;
+            memory.FailFlush = true;
             Assert(!capability.TryApply(new GatehouseTimingSettings(true, 1, 5, 10, 15), out NativeCapabilityDiagnostic combined) &&
-                combined.Reason.Contains("transaction and cleanup"), "write and cleanup failures should remain combined");
+                combined.Reason.Contains("transaction and cleanup"), "write, restore, and flush failures should remain combined");
 
-            memory = SeedGateMemory();
+            memory = SeedDirectGateMemory();
             var registry = new NativeOwnershipRegistry();
-            GatehouseTimingService sharedService = CreateGateService(memory, registry);
-            capability = sharedService.Bind("ownerA");
-            Assert(capability.TryApply(new GatehouseTimingSettings(true, 1, 5, 10, 15), out _), "owner A applies");
-            IGatehouseTimingCapability other = sharedService.Bind("ownerB");
-            Assert(!other.TryApply(new GatehouseTimingSettings(true, 2, 6, 11, 16), out NativeCapabilityDiagnostic conflict) &&
-                conflict.State == NativeCapabilityState.Conflict && conflict.ConflictOwnerGuid == "ownerA", "gatehouse ownership conflict");
+            GatehouseTimingService service = CreateGateService(memory, registry);
+            Assert(service.Bind("A").TryApply(new GatehouseTimingSettings(true, 1, 5, 10, 15), out _), "first owner applies");
+            Assert(!service.Bind("B").TryApply(new GatehouseTimingSettings(true, 2, 6, 11, 16), out NativeCapabilityDiagnostic conflict) &&
+                conflict.State == NativeCapabilityState.Conflict && conflict.ConflictOwnerGuid == "A",
+                "second owner receives conflict diagnostics");
         }
 
         private static void TestSelectedBroker()
@@ -226,64 +221,154 @@ namespace SerpNativeAPITests
             ISelectedUnitCommandRegistration b = broker.Register("B", _ => order.Add("B"));
             ISelectedUnitCommandRegistration a = broker.Register("A", _ => order.Add("A"));
             broker.Register("C", _ => { order.Add("C"); throw new InvalidOperationException("expected"); });
-            int originals = 0;
-            int result = broker.Dispatch(new NativeSelectedUnitCommandArguments(IntPtr.Zero, 2, 3, 4, 5, 6), _ => { originals++; return 77; });
-            Assert(string.Join(string.Empty, order) == "ABC", "callbacks should use ordinal owner order");
-            Assert(originals == 1 && result == 77, "throwing callback must not prevent exact Vanilla result");
+            var context = new SelectedUnitCommandContext(2, TribeAICommand.UnitStop, 4, 5, 6);
+            broker.Dispatch(context);
+            Assert(string.Join(string.Empty, order) == "ABC", "callbacks use ordinal owner order and continue after errors");
             Assert(ReferenceEquals(b, broker.Register("B", _ => order.Add("replacement"))), "same owner registration is idempotent");
             order.Clear();
             a.Disable();
-            broker.Dispatch(new NativeSelectedUnitCommandArguments(), _ => 0);
-            Assert(string.Join(string.Empty, order) == "BC", "disabled registration omitted");
-
-            var reentrant = new SelectedUnitCommandBroker("hash", null);
-            ISelectedUnitCommandRegistration self = null;
-            self = reentrant.Register("A", _ => self.Disable());
-            int calls = 0;
-            reentrant.Register("B", _ => calls++);
-            reentrant.Dispatch(new NativeSelectedUnitCommandArguments(), _ => 0);
-            reentrant.Dispatch(new NativeSelectedUnitCommandArguments(), _ => 0);
-            Assert(calls == 2 && !self.IsEnabled, "reentrant disable applies on the next snapshot");
+            broker.Dispatch(context);
+            Assert(string.Join(string.Empty, order) == "BC", "disabled registration is omitted");
         }
 
-        private static void TestSelectedServiceInstallsOnce()
+        private static void TestSelectedEventService()
         {
-            var factory = new FakeHookFactory();
-            var service = new SelectedUnitCommandService("hash", 1000, 12, new NativeOwnershipRegistry(), factory, null);
-            ISelectedUnitCommandCapability a = service.Bind("A");
-            Assert(factory.InstallCount == 0, "selected detour is lazy");
-            Assert(a.TryRegisterBefore(_ => { }, out ISelectedUnitCommandRegistration first, out _), "first selected callback registration");
-            Assert(a.TryRegisterBefore(_ => { }, out ISelectedUnitCommandRegistration repeated, out _) && ReferenceEquals(first, repeated),
-                "same selected owner registration idempotent");
-            Assert(service.Bind("B").TryRegisterBefore(_ => { }, out _, out _), "second selected owner registration");
-            Assert(factory.InstallCount == 1, "selected target detoured exactly once");
-            first.Dispose();
-            Assert(factory.InstallCount == 1, "disposing registration preserves detour");
-            Assert(a.TryRegisterBefore(_ => { }, out ISelectedUnitCommandRegistration recreated, out _) &&
-                !ReferenceEquals(first, recreated), "disposed owner registration can be recreated");
+            var source = new FakeEventSource();
+            var service = new SelectedUnitCommandService("hash", source, null);
+            ISelectedUnitCommandCapability capabilityA = service.Bind("A");
+            Assert(source.SubscribeCount == 0, "selected event subscription is lazy");
+            int callsA = 0;
+            Assert(capabilityA.TryRegisterBefore(_ => callsA++, out ISelectedUnitCommandRegistration registrationA, out _),
+                "first selected callback registration");
+            Assert(capabilityA.TryRegisterBefore(_ => callsA += 100, out ISelectedUnitCommandRegistration repeated, out _) &&
+                ReferenceEquals(registrationA, repeated), "same selected owner registration is idempotent");
+            int callsB = 0;
+            ISelectedUnitCommandRegistration registrationB = null;
+            Assert(service.Bind("B").TryRegisterBefore(_ => callsB++, out registrationB, out _), "second selected owner registration");
+            Assert(source.SubscribeCount == 1, "all selected callbacks share one event subscription");
+
+            var context = new SelectedUnitCommandContext(7, TribeAICommand.UnitStop, 1, 2, 3);
+            source.Publish(EventHookPhase.Post, context);
+            Assert(callsA == 0 && callsB == 0, "Post events are not exposed as Before callbacks");
+            source.Publish(EventHookPhase.Pre, context);
+            Assert(callsA == 1 && callsB == 1, "Pre event reaches both registrations");
+
+            registrationB.Disable();
+            service.Bind("0").TryRegisterBefore(_ => registrationB.Enable(), out _, out _);
+            source.Publish(EventHookPhase.Pre, context);
+            Assert(callsB == 1, "reentrant enable affects the next callback snapshot");
+            source.Publish(EventHookPhase.Pre, context);
+            Assert(callsB == 2, "reentrantly enabled callback runs on the next event");
+            registrationA.Dispose();
+            Assert(source.SubscribeCount == 1, "disposing registrations preserves the process subscription");
+
+            var failingSource = new FakeEventSource { FailNextSubscribe = true };
+            var failingService = new SelectedUnitCommandService("hash", failingSource, null);
+            ISelectedUnitCommandCapability retry = failingService.Bind("owner");
+            Assert(!retry.TryRegisterBefore(_ => { }, out _, out NativeCapabilityDiagnostic failed) &&
+                failed.State == NativeCapabilityState.Faulted, "subscription failure is reported");
+            Assert(retry.TryRegisterBefore(_ => { }, out _, out _) && failingSource.SubscribeCount == 2,
+                "failed first subscription leaves registration retryable");
+        }
+
+        private static SerpNativeApiRuntime InitializeRuntime(
+            byte[] image,
+            GatehouseBuildTarget catalog,
+            FakeMemory memory,
+            FakeEventSource events)
+        {
+            var runtime = new SerpNativeApiRuntime();
+            runtime.Initialize(ModuleBase, image, catalog.BuildHash, memory, events, null, catalog);
+            return runtime;
+        }
+
+        private static void AssertGateValidationFailure(SerpNativeApiRuntime runtime, string message) =>
+            Assert(!runtime.TryGetGatehouseTiming("owner", out _, out NativeCapabilityDiagnostic diagnostic) &&
+                diagnostic.State == NativeCapabilityState.ValidationFailed, message);
+
+        private static GatehouseBuildTarget InstallTestGatehouse(byte[] image)
+        {
+            Copy(image, DecisionRva, DecisionBytes);
+            Copy(image, HumanDelayRva, HumanDelayBytes);
+            return new GatehouseBuildTarget(
+                "TESTHASH", FunctionRva, FunctionSize,
+                SerpNativeApiRuntime.ComputeSha256(new ReadOnlySpan<byte>(image, FunctionRva, FunctionSize)),
+                DecisionRva, DecisionBytes, HumanDelayRva, HumanDelayBytes,
+                DecisionRva + 8, DecisionRva + 15, DecisionRva + 24, HumanDelayRva + 3);
+        }
+
+        private static GatehouseBuildTarget CloneCatalog(
+            GatehouseBuildTarget source,
+            string functionHash = null,
+            int? aiCloseDistanceRva = null) =>
+            new GatehouseBuildTarget(
+                source.BuildHash, source.FunctionRva, source.FunctionSize, functionHash ?? source.FunctionHash,
+                source.DecisionBlockRva, source.DecisionBlockBytes, source.HumanDelayBlockRva, source.HumanDelayBlockBytes,
+                aiCloseDistanceRva ?? source.AiCloseDistanceRva, source.AiReopenDelayRva,
+                source.HumanCloseDistanceRva, source.HumanReopenDelayRva);
+
+        private static FakeMemory SeedRuntimeMemory(byte[] image, GatehouseBuildTarget target)
+        {
+            var memory = new FakeMemory();
+            for (int index = 0; index < target.DecisionBlockBytes.Length; index++)
+                memory.SetByte(ModuleBase + target.DecisionBlockRva + index, image[target.DecisionBlockRva + index]);
+            for (int index = 0; index < target.HumanDelayBlockBytes.Length; index++)
+                memory.SetByte(ModuleBase + target.HumanDelayBlockRva + index, image[target.HumanDelayBlockRva + index]);
+            memory.Set(ModuleBase + target.AiCloseDistanceRva, 200);
+            memory.Set(ModuleBase + target.AiReopenDelayRva, 1200);
+            memory.Set(ModuleBase + target.HumanCloseDistanceRva, 140);
+            memory.Set(ModuleBase + target.HumanReopenDelayRva, 100);
+            return memory;
         }
 
         private static GatehouseTimingService CreateGateService(FakeMemory memory, NativeOwnershipRegistry ownership)
         {
+            var invariants = new[]
+            {
+                new NativeByteInvariant(ModuleBase + 0xB7BC0, 0x41),
+                new NativeByteInvariant(ModuleBase + 0xB7BC1, 0x81),
+                new NativeByteInvariant(ModuleBase + 0xB7BC2, 0xF8),
+                new NativeByteInvariant(ModuleBase + 0xB7C34, 0xB8)
+            };
             var target = new GatehouseTimingTarget(
-                ModuleBase + GateDecisionRva + 8,
-                ModuleBase + GateDecisionRva + 15,
-                ModuleBase + GateDecisionRva + 24,
-                ModuleBase + GateHumanRva + 3);
+                ModuleBase + 0xB7BC3, ModuleBase + 0xB7BCA,
+                ModuleBase + 0xB7BD3, ModuleBase + 0xB7C35, invariants);
             return new GatehouseTimingService("hash", target, memory, ownership, null);
         }
 
-        private static FakeMemory SeedGateMemory()
+        private static FakeMemory SeedDirectGateMemory()
         {
             var memory = new FakeMemory();
-            memory.Set(ModuleBase + GateDecisionRva + 8, 200);
-            memory.Set(ModuleBase + GateDecisionRva + 15, 1200);
-            memory.Set(ModuleBase + GateDecisionRva + 24, 140);
-            memory.Set(ModuleBase + GateHumanRva + 3, 100);
+            memory.SetByte(ModuleBase + 0xB7BC0, 0x41);
+            memory.SetByte(ModuleBase + 0xB7BC1, 0x81);
+            memory.SetByte(ModuleBase + 0xB7BC2, 0xF8);
+            memory.SetByte(ModuleBase + 0xB7C34, 0xB8);
+            memory.Set(ModuleBase + 0xB7BC3, 200);
+            memory.Set(ModuleBase + 0xB7BCA, 1200);
+            memory.Set(ModuleBase + 0xB7BD3, 140);
+            memory.Set(ModuleBase + 0xB7C35, 100);
             return memory;
         }
 
-        private static byte[] CreatePeImage(int size)
+        private static GatehouseTimingService CreateCrossPageGateService(FakeMemory memory)
+        {
+            var target = new GatehouseTimingTarget(
+                ModuleBase + 0x1FF0, ModuleBase + 0x1FF4,
+                ModuleBase + 0x1FF8, ModuleBase + 0x2004);
+            return new GatehouseTimingService("hash", target, memory, new NativeOwnershipRegistry(), null);
+        }
+
+        private static FakeMemory SeedCrossPageGateMemory()
+        {
+            var memory = new FakeMemory();
+            memory.Set(ModuleBase + 0x1FF0, 200);
+            memory.Set(ModuleBase + 0x1FF4, 1200);
+            memory.Set(ModuleBase + 0x1FF8, 140);
+            memory.Set(ModuleBase + 0x2004, 100);
+            return memory;
+        }
+
+        private static byte[] CreatePeImage(int size, bool executable)
         {
             var image = new byte[size];
             image[0] = 0x4D; image[1] = 0x5A;
@@ -297,19 +382,13 @@ namespace SerpNativeAPITests
             WriteInt32(image, section + 8, size - 0x1000);
             WriteInt32(image, section + 12, 0x1000);
             WriteInt32(image, section + 16, size - 0x1000);
-            WriteInt32(image, section + 36, unchecked((int)0x60000020));
+            WriteInt32(image, section + 36, unchecked((int)(executable ? 0x60000020 : 0x40000040)));
             return image;
         }
 
-        private static void InstallGatePatterns(byte[] image)
+        private static byte[] Hex(string text)
         {
-            Copy(image, GateDecisionRva, GateDecision);
-            Copy(image, GateHumanRva, GateHuman);
-        }
-
-        private static byte[] PatternBytes(string value)
-        {
-            string[] tokens = value.Split(' ');
+            string[] tokens = text.Split(' ');
             var bytes = new byte[tokens.Length];
             for (int index = 0; index < tokens.Length; index++)
                 bytes[index] = Convert.ToByte(tokens[index], 16);
@@ -331,6 +410,13 @@ namespace SerpNativeAPITests
             catch (Exception ex) { Assert(false, message + $" threw {ex.GetType().Name}"); }
         }
 
+        private static void AssertThrows<T>(Action action, string message) where T : Exception
+        {
+            try { action(); Assert(false, message + " did not throw"); }
+            catch (T) { }
+            catch (Exception ex) { Assert(false, message + $" threw {ex.GetType().Name}"); }
+        }
+
         private static void Assert(bool condition, string message)
         {
             if (condition) return;
@@ -341,12 +427,21 @@ namespace SerpNativeAPITests
         private sealed class FakeMemory : INativeMemory
         {
             private readonly Dictionary<long, int> values = new Dictionary<long, int>();
+            private readonly Dictionary<long, byte> bytes = new Dictionary<long, byte>();
+            public int PageSize => 0x1000;
             public long? FailNextWriteAddress { get; set; }
             public bool FailRestore { get; set; }
+            public bool FailFlush { get; set; }
+            public long? MutateOnMakeWritableAddress { get; set; }
+            public int MutateOnMakeWritableValue { get; set; }
             public int OperationCount { get; private set; }
             public int WriteCount { get; private set; }
+            public List<long> WritablePages { get; } = new List<long>();
+            public List<RestoredProtection> RestoredProtections { get; } = new List<RestoredProtection>();
             public void Set(long address, int value) => values[address] = value;
+            public void SetByte(long address, byte value) => bytes[address] = value;
             public int ReadRaw(long address) => values[address];
+            public byte ReadByte(long address) { OperationCount++; return bytes[address]; }
             public int ReadInt32(long address) { OperationCount++; return values[address]; }
             public void WriteInt32(long address, int value)
             {
@@ -354,24 +449,56 @@ namespace SerpNativeAPITests
                 if (FailNextWriteAddress == address) { FailNextWriteAddress = null; throw new InvalidOperationException("injected write failure"); }
                 values[address] = value;
             }
-            public uint MakeWritable(long address, int length) { OperationCount++; return 0x20; }
+            public uint MakeWritable(long address, int length)
+            {
+                OperationCount++;
+                WritablePages.Add(address);
+                if (MutateOnMakeWritableAddress.HasValue)
+                {
+                    values[MutateOnMakeWritableAddress.Value] = MutateOnMakeWritableValue;
+                    MutateOnMakeWritableAddress = null;
+                }
+                return (uint)(0x20 + WritablePages.Count);
+            }
             public void RestoreProtection(long address, int length, uint protection)
             {
                 OperationCount++;
+                RestoredProtections.Add(new RestoredProtection(address, protection));
                 if (FailRestore) { FailRestore = false; throw new InvalidOperationException("injected restore failure"); }
             }
-            public void Flush(long address, int length) { OperationCount++; }
+            public void Flush(long address, int length)
+            {
+                OperationCount++;
+                if (FailFlush) { FailFlush = false; throw new InvalidOperationException("injected flush failure"); }
+            }
         }
 
-        private sealed class FakeHookFactory : ISelectedUnitCommandHookFactory
+        private readonly struct RestoredProtection
         {
-            public int InstallCount { get; private set; }
-            public ISelectedUnitCommandHook Install(long targetAddress, SelectedUnitCommandBroker broker)
+            public RestoredProtection(long address, uint protection) { Address = address; Protection = protection; }
+            public long Address { get; }
+            public uint Protection { get; }
+        }
+
+        private sealed class FakeEventSource : ISelectedUnitCommandEventSource
+        {
+            private Action<SelectedUnitCommandEventData> callback;
+            public int SubscribeCount { get; private set; }
+            public bool FailNextSubscribe { get; set; }
+            public IDisposable Subscribe(Action<SelectedUnitCommandEventData> handler)
             {
-                InstallCount++;
-                return new FakeHook();
+                SubscribeCount++;
+                if (FailNextSubscribe)
+                {
+                    FailNextSubscribe = false;
+                    throw new InvalidOperationException("injected subscription failure");
+                }
+                callback = handler;
+                return new FakeSubscription();
             }
-            private sealed class FakeHook : ISelectedUnitCommandHook { }
+            public void Publish(EventHookPhase phase, SelectedUnitCommandContext context) =>
+                callback?.Invoke(new SelectedUnitCommandEventData(phase, context));
+            private sealed class FakeSubscription : IDisposable { public void Dispose() { } }
         }
     }
 }

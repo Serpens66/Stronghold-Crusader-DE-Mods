@@ -1,6 +1,6 @@
 TargetGroup,ReferenceRva,Consumers,Mechanism,Overlap,MigrationPriority,Notes
-GatehouseTiming,0xB7BBB|0xB7C32,ExtraFeatures,ImmediateDataPatch,Four related values,DoneInAPI,APITest is the V1 consumer
-SelectedUnitCommand,0x199C70,BugfixesAndQoL,NativeDetour,Shared command entry,DoneInAPI,APITest is the V1 consumer
+GatehouseTiming,0xB73D0 function|0xB7BC3|0xB7BCA|0xB7BD3|0xB7C35,ExtraFeatures,FixedHashImmediateTransaction,Four related values on current 4 KiB page,DoneInAPI,Full function hash and exact opcodes; page-aware protection; no AOB fallback; APITest is the V1 consumer
+SelectedUnitCommand,SHCDESE OnTribeIssueOrderWithTarget Pre event,BugfixesAndQoL,ManagedEventBroker,No API-owned native target,DoneInAPI,Script Extender owns the native detour; APITest is the V1 consumer
 AssassinPathfinding,local catalog,BugfixesAndQoL|AssassinCombatFix,NativeDetour|DataPatch,Related Assassin behavior,High,Audit both mods before centralizing
 HunterQuery,local catalog,ImprovedHunters|HunterQueryTargetDiagnostic,NativeDetour|Observer,Shared native query path,High,Prefer one broker with observer callbacks
 GatePathfinding,local catalog,EnemyGatePathfindingTest|ExtraFeatures,NativeDetour|PatternResolution,Gate behavior family,Medium,Keep semantic capabilities separate
