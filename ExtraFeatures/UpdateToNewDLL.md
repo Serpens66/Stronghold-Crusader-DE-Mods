@@ -12,6 +12,45 @@ relocation remains inactive because its fixed native layout is not proven by
 the function signature alone. Knight mount/dismount uses only public Script
 Extender fields and the bidirectional stable-link API, so it has no private RVA.
 
+## Semantic-baseline audit (2026-09-02)
+
+This pass used `_inspect/CrusaderDE-Native-Baseline/CURRENT.json` and the
+semantic database under `sem/FBCB9319`. The installed canonical DLL hashes to
+the same complete value shown above. Candidate function names were treated only
+as search hints; conclusions below use exact bytes, function boundaries,
+callers/callees, referenced globals, Script Extender source provenance and
+managed/native links as applicable.
+
+| Feature group | Baseline evidence checked | Result |
+| --- | --- | --- |
+| Building refunds and retained storage goods | Building delete/resource events, `GameBuilding` goods fields and pre-delete lifetime | Existing Script Extender event path remains correct; no private native address is used. |
+| Goods-gain and money multipliers | Resource-change event direction, market-trade exclusion and Vanilla price conversion | Existing event guards and arithmetic remain correct. |
+| Global and per-good market prices | AI buy/sell helpers at `0xCEB10`/`0xCEB90`, complete 31-byte functions, ABI, 10-byte detour spans and transaction callers | Existing paired hooks remain valid and self-validating on unknown hashes. |
+| Plague duration and AI flag disease | Handler `0x9A080..0x9A21A`, lifetime block at `0x9A164`, AI flag routine `0x504F0..0x50620`, projectile spawn provenance and save identity | Existing hook/data contracts remain valid. |
+| Apothecary plague range | Handler `0x9F700..0x9F90D`, comparison at `0x9F86B`, Vanilla distance 30 and projectile/building context | Existing bounded comparison hook remains valid. |
+| Campfire peasants and Lord health | Public Script Extender player/unit APIs, Lord IDs and `GameUnit` health fields | No private native target; current 1-based ID use is correct. |
+| Single-building pause | Building IDs, `r_IsSleeping`, managed UI hooks, synchronized Chore path and sleep-state resynchronization | Current IDs are 1-based and all span conversions use `spanIndex + 1`; no correction required. |
+| Fast recruit rally movement | Script Extender unit events plus the optional single-owner movement bridge | No new private native target; existing optional integration remains isolated. |
+| Monks always run | Monk handler `0x151090..0x152011`, decision at `0x151436`, complete overwrite instructions, branch targets and state/speed writes | Existing semantics-validated unknown-hash path remains valid. |
+| Knight mount/dismount | Public `GameUnit`/stable fields, 1-based alive-unit IDs, stable links, horse slots and Chore synchronization | Current public-API implementation and ID basis remain correct. |
+| Quarry pile relocation | Helper `0xC0270..0xC04BE`, manager globals, `GameBuilding` size `0x32C`, pile link `0x192`, structure group `0x2A8` and 1-based span boundaries | Existing exact-hash restriction remains required and correct. |
+| Extra church priests | Complete worker table beginning at `0x2E5DE0`, unique pattern at `0x2E5E58` and church/cathedral worker lifecycle | Existing table-start calculation and reversible writes remain valid. |
+| AI economy protection | Handlers containing `0xC7DCB`, `0x2F454`, `0x3B1D0` and `0x3B2FF`; hook registers, building-owner/sleep fields and demolition callers | Existing individually validated hooks remain valid. |
+| AI proximity and defense repair | Functions `0x51790..0x52266` and `0x5CD90..0x5D1C5`, placement pairing, origin globals and damage/spawn observations | Existing exact-hash restriction remains required and correct. |
+| Gatehouse automation and reachability | Handler `0xB73D0..0xB7CE5`, gate entries, 1-based building IDs and PCL reachability context | Reachability remains exact-hash-only; save/map locator logic needs no correction. |
+| Gatehouse timing values | Full handler raw SHA-256 `F73E9FF6...FA57C8`, executable section, decision blocks and four immediates | Hardened locally: full catalog validation, instruction invariants, finite/UInt16 conversion and page-based transactional writes. Unknown hashes now fail closed. |
+
+The ID/index audit found no double conversions or missing boundary conversions.
+All direct building spans use zero-based `spanIndex`; every transition to a
+manager ID uses exactly `spanIndex + 1`. `GetAllAliveUnits`, selected-unit IDs
+and building-event IDs are consumed directly as 1-based game IDs.
+
+Automated gatehouse coverage is in `_inspect/ExtraFeaturesNativeTests`. It maps
+the canonical PE into its virtual image, validates the DLL and handler hashes,
+and exercises idempotence, Vanilla restoration, invalid numeric input, external
+mutation, partial writes, rollback and protection/cache-cleanup failures with a
+fake native-memory adapter.
+
 ## Native address map
 
 | Source pattern | Reference RVA | Unknown-hash behavior / use |

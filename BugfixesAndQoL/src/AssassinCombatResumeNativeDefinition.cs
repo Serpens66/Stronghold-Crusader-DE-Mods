@@ -1,5 +1,5 @@
 // Audited native contracts for correcting Assassin combat-order resumption.
-namespace AssassinCombatFix
+namespace BugfixesAndQoL
 {
     internal static class AssassinCombatResumeNativeDefinition
     {
@@ -51,8 +51,6 @@ namespace AssassinCombatFix
             0x66, 0x89, 0x83, 0x18, 0x09, 0x00, 0x00
         };
 
-        // This sequence restores the saved state and secondary target immediately
-        // before Vanilla requests a replacement path after combat.
         public const int PostCombatPathRequestSequenceRva = 0x197702;
         public const int PostCombatPathRequestCallOffset = 41;
         public const int PostCombatPathRequestCallRva = 0x19772B;

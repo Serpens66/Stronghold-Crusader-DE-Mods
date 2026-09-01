@@ -9,19 +9,19 @@ using Zhuqiaomon.Hooks;
 using Zhuqiaomon.Hooks.Transaction;
 using Zhuqiaomon.Memory;
 
-namespace AssassinCombatFix
+namespace BugfixesAndQoL
 {
     internal sealed unsafe class AssassinCombatResumeRuntime
     {
         private readonly ManualLogSource log;
-        private readonly BugfixesAndQoL.BugfixesAndQoLViewModel settings;
+        private readonly BugfixesAndQoLViewModel settings;
         private HookTransaction transaction;
         private HookRef<X64InlineHook> postCombatPathContextHook = new HookRef<X64InlineHook>();
         private int* assassinPathContextFlag;
         private ulong libraryBase;
         private int callbackFailureLogged;
 
-        public AssassinCombatResumeRuntime(ManualLogSource log, BugfixesAndQoL.BugfixesAndQoLViewModel settings)
+        public AssassinCombatResumeRuntime(ManualLogSource log, BugfixesAndQoLViewModel settings)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
@@ -99,7 +99,7 @@ namespace AssassinCombatFix
                     unchecked((ulong)AssassinCombatResumeNativeDefinition.CombatFinishResumeReturnRva);
                 if (!AssassinCombatResumePolicy.ShouldProcessPostCombatPathRequest(
                     settings.EnableMod,
-                    settings.EnableImprovedAssassinPathfinding,
+                    settings.EnableAssassinCombatResumeFix,
                     IsInstalled,
                     expectedCaller))
                 {

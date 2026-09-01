@@ -326,6 +326,12 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableImprovedAssassinPathfindingText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-assassin-combat-resume-fix" shared:ModSettingsSearch.Title="{Binding EnableAssassinCombatResumeFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableAssassinCombatResumeFixHelpText}"><CheckBox IsChecked="{Binding EnableAssassinCombatResumeFix, Mode=TwoWay}"
+                Foreground="White"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableAssassinCombatResumeFixHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding EnableAssassinCombatResumeFixText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox></Grid>
       </StackPanel>
       <StackPanel shared:ModSettingsSearch.SectionKey="bugfixes.section.plague" shared:ModSettingsSearch.SectionTitle="{Binding PlagueTitleText}">
       <Grid Style="{StaticResource ModSettingsSearchSectionGrid}" shared:ModSettingsSearch.IsSection="True"><TextBlock Text="{Binding PlagueTitleText}" Style="{StaticResource SectionHeader}" Margin="0,4,0,4"/></Grid>

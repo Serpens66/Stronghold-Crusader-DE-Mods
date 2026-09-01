@@ -1,5 +1,4 @@
 using MessagePack;
-using AssassinCombatFix;
 using BugfixesAndQoL;
 using ExtraFeatures;
 using SerpsModsHost;
@@ -1409,6 +1408,16 @@ internal static class Program
             Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", "BugfixesAndQoLViewModel.cs"));
         Check(!bugfixesViewModelSource.Contains("EnableCustomLordExtendedPackages"),
             "the obsolete Custom Lord package setting remains in the BugfixesAndQoL view model");
+        string normalizedBugfixesViewModelSource = bugfixesViewModelSource.Replace(Environment.NewLine, "\n");
+        Check(normalizedBugfixesViewModelSource.Contains("private bool enableAssassinCombatResumeFix = true;") &&
+              normalizedBugfixesViewModelSource.Contains("[SyncHostOnly]\n        public bool EnableAssassinCombatResumeFix") &&
+              bugfixesViewModelSource.Contains("EnableAssassinCombatResumeFix = true;"),
+            "Assassin combat resume is not a default-enabled, resettable host setting");
+        string combatResumeRuntimeSource = File.ReadAllText(
+            Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", "AssassinCombatResumeRuntime.cs"));
+        Check(combatResumeRuntimeSource.Contains("settings.EnableAssassinCombatResumeFix") &&
+              !combatResumeRuntimeSource.Contains("EnableImprovedAssassinPathfinding"),
+            "Assassin combat resume is not initialized independently from improved pathfinding");
 
         GameNetworkAPI.LocalHost = false;
         setting.System_RefreshSettingsAccess();
@@ -1940,6 +1949,16 @@ internal static class Program
               !AssassinCombatResumePolicy.ShouldProcessPostCombatPathRequest(true, true, false, true) &&
               !AssassinCombatResumePolicy.ShouldProcessPostCombatPathRequest(true, true, true, false),
             "Assassin post-combat caller gate did not fail closed outside its enabled audited context");
+        foreach (bool combatResumeEnabled in new[] { false, true })
+        {
+            foreach (bool improvedPathfindingEnabled in new[] { false, true })
+            {
+                bool resumes = AssassinCombatResumePolicy.ShouldProcessPostCombatPathRequest(
+                    true, combatResumeEnabled, true, true);
+                Check(resumes == combatResumeEnabled,
+                    $"combat-resume gate incorrectly depended on improved pathfinding={improvedPathfindingEnabled}");
+            }
+        }
 
         Check(AssassinCombatResumePolicy.IsEligibleAssassin(
                 true, AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN, 106),

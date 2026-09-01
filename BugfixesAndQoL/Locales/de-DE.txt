@@ -2,6 +2,8 @@
 # Format: key=value
 SomeSettings.EnableImprovedAssassinPathfinding=Verbesserte Meuchelmoerder-Wegfindung
 SomeSettings.EnableImprovedAssassinPathfindingHelp=Waehlt Wege fuer Meuchelmoerder nach der erwarteten Dauer einschliesslich Kletteranimationen und aktiviert den spielerbezogenen Klettermodus-Button.
+BugfixesAndQoL.EnableAssassinCombatResumeFix=Meuchelmoerder-Bewegung nach Kaempfen fortsetzen
+BugfixesAndQoL.EnableAssassinCombatResumeFixHelp=Laesst Meuchelmoerder ihren urspruenglichen Bewegungsbefehl nach einem automatisch ausgetragenen Nahkampf fortsetzen, einschliesslich Wegen, die Klettern erfordern.
 SomeSettings.AssassinClimbingDisableTooltip=Klettern verbieten
 SomeSettings.AssassinClimbingDisableTooltipBody=Neue Befehle fuer alle eigenen Meuchelmoerder vermeiden Kletterkanten. Normale Treppen und bereits zugaengliche Mauerflaechen bleiben nutzbar.
 SomeSettings.AssassinClimbingEnableTooltip=Klettern erlauben

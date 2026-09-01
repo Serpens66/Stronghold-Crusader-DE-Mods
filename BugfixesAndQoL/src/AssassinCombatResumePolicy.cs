@@ -2,7 +2,7 @@
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 
-namespace AssassinCombatFix
+namespace BugfixesAndQoL
 {
     internal static class AssassinCombatResumePolicy
     {
@@ -17,13 +17,13 @@ namespace AssassinCombatFix
 
         public static bool ShouldProcessPostCombatPathRequest(
             bool modEnabled,
-            bool improvedPathfindingEnabled,
-            bool nativeHooksInstalled,
+            bool combatResumeFixEnabled,
+            bool nativeHookInstalled,
             bool expectedCaller)
         {
             return modEnabled &&
-                improvedPathfindingEnabled &&
-                nativeHooksInstalled &&
+                combatResumeFixEnabled &&
+                nativeHookInstalled &&
                 expectedCaller;
         }
 

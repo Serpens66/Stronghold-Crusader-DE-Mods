@@ -18,6 +18,7 @@ namespace BugfixesAndQoL
         private readonly AssassinClimbRuntime assassinClimbRuntime;
         private readonly AssassinClimbCancellationRuntime assassinClimbCancellationRuntime;
         private readonly AssassinPathfindingRuntime assassinPathfindingRuntime;
+        private readonly AssassinCombatResumeRuntime assassinCombatResumeRuntime;
         private readonly MultiplayerGameSpeedRuntime multiplayerGameSpeedRuntime;
         private readonly MultiplayerAivSyncRuntime multiplayerAivSyncRuntime;
         private readonly SiegeAmmoRestockFeature siegeAmmoRestockFeature;
@@ -79,6 +80,7 @@ namespace BugfixesAndQoL
             assassinClimbRuntime = new AssassinClimbRuntime(log, settings, multiplayerFeatureGate);
             assassinClimbCancellationRuntime = new AssassinClimbCancellationRuntime(log, settings);
             assassinPathfindingRuntime = new AssassinPathfindingRuntime(log, settings, assassinClimbRuntime);
+            assassinCombatResumeRuntime = new AssassinCombatResumeRuntime(log, settings);
             troopActionHudCoordinator.Register(assassinClimbRuntime.RefreshButtonVisibility);
             multiplayerGameSpeedRuntime = new MultiplayerGameSpeedRuntime(log, settings, multiplayerFeatureGate);
             multiplayerAivSyncRuntime = new MultiplayerAivSyncRuntime(log, settings);
@@ -224,12 +226,37 @@ namespace BugfixesAndQoL
                         log,
                         $"Bugfixes and QoL weighted Assassin pathfinding could not be initialized and remains inactive: {ex}");
                 }
+
+                try
+                {
+                    // This hook is independent of the weighted builder: with that option off,
+                    // Vanilla's own Assassin builder receives the restored post-combat request.
+                    assassinCombatResumeRuntime.InitializeNative(
+                        newLibraryHandle,
+                        memory,
+                        fixedLayoutHashValidated: true);
+                }
+                catch (Exception ex)
+                {
+                    Shared.DebugLogHelper.LogError(
+                        log,
+                        $"Bugfixes and QoL Assassin combat-resume fix could not be initialized and remains inactive: {ex}");
+                }
             }
-            else if (settings.EnableMod && settings.EnableImprovedAssassinPathfinding)
+            else
             {
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    "Bugfixes and QoL weighted Assassin pathfinding remains inactive because the fixed native layout is not validated for this CrusaderDE.dll; Vanilla pathfinding remains active.");
+                if (settings.EnableMod && settings.EnableImprovedAssassinPathfinding)
+                {
+                    Shared.DebugLogHelper.LogError(
+                        log,
+                        "Bugfixes and QoL weighted Assassin pathfinding remains inactive because the fixed native layout is not validated for this CrusaderDE.dll; Vanilla pathfinding remains active.");
+                }
+                if (settings.EnableMod && settings.EnableAssassinCombatResumeFix)
+                {
+                    Shared.DebugLogHelper.LogError(
+                        log,
+                        "Bugfixes and QoL Assassin combat-resume fix remains inactive because the fixed native layout is not validated for this CrusaderDE.dll; Vanilla behavior remains active.");
+                }
             }
 
             // Every native feature has its own compatibility surface. A changed signature in

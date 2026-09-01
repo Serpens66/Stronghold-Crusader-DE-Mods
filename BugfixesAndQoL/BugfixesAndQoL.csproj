@@ -71,6 +71,9 @@
     <Compile Include="src\AssassinClimbRuntime.cs" />
     <Compile Include="src\AssassinClimbStatePacket.cs" />
     <Compile Include="src\AssassinClimbTransitionPolicy.cs" />
+    <Compile Include="src\AssassinCombatResumeNativeDefinition.cs" />
+    <Compile Include="src\AssassinCombatResumePolicy.cs" />
+    <Compile Include="src\AssassinCombatResumeRuntime.cs" />
     <Compile Include="src\AssassinPathReconstructionNativeDefinition.cs" />
     <Compile Include="src\AssassinPathReconstructionPatch.cs" />
     <Compile Include="src\AssassinPathfindingRuntime.cs" />

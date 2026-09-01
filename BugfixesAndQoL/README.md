@@ -19,6 +19,9 @@ In borderless fullscreen mode, the game can automatically replace the resolution
 ### Fix synchronized movement for mixed troop groups
 With a normal synchronized movement order, every unit in a mixed group now uses the slowest member's maximum speed and a matching animation pace. Units that can all run are no longer incorrectly forced to walk merely because their individual movement speeds differ.
 
+### Resume Assassin movement after combat
+Assassins resume their original movement order after automatically fighting an enemy encountered along the way, including routes that climb onto or down from walls. This host setting works independently with Vanilla Assassin pathfinding; when improved Assassin pathfinding is also enabled, resumed orders use its weighted routes and support for walkable reserved building areas.
+
 ### Fix plague and apothecary behavior
 Each active plague outbreak now applies exactly one point of negative popularity, which is reliably removed after all associated clouds are gone. Apothecary treatments make every affected cloud fade correctly, while reserving the entire treatment area so other healers choose a different useful target. The intended building-exit transition is also completed when a target is found, preventing apothecaries from becoming stuck inside their buildings.
 

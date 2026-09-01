@@ -143,6 +143,8 @@ public static class SerpLocalization
     public const string EnableKnightDismountHelp = "SomeSettings.EnableKnightDismountHelp";
     public const string EnableImprovedAssassinPathfinding = "SomeSettings.EnableImprovedAssassinPathfinding";
     public const string EnableImprovedAssassinPathfindingHelp = "SomeSettings.EnableImprovedAssassinPathfindingHelp";
+    public const string EnableAssassinCombatResumeFix = "BugfixesAndQoL.EnableAssassinCombatResumeFix";
+    public const string EnableAssassinCombatResumeFixHelp = "BugfixesAndQoL.EnableAssassinCombatResumeFixHelp";
     public const string AssassinClimbingDisableTooltip = "SomeSettings.AssassinClimbingDisableTooltip";
     public const string AssassinClimbingDisableTooltipBody = "SomeSettings.AssassinClimbingDisableTooltipBody";
     public const string AssassinClimbingEnableTooltip = "SomeSettings.AssassinClimbingEnableTooltip";
@@ -550,6 +552,8 @@ public static class SerpLocalization
         { EnableKnightDismountHelp, "Adds command buttons to mount swordsmen and dismount mounted knights. Multiplayer actions use Script Extender's tick-aligned Chore transport." },
         { EnableImprovedAssassinPathfinding, "Improved Assassin pathfinding" },
         { EnableImprovedAssassinPathfindingHelp, "Chooses Assassin routes by expected travel time, including climbing animations, and enables the per-player climbing-mode button." },
+        { EnableAssassinCombatResumeFix, "Resume Assassin movement after combat" },
+        { EnableAssassinCombatResumeFixHelp, "Makes Assassins continue their original movement order after an automatically fought melee combat, including routes that require climbing." },
         { AssassinClimbingDisableTooltip, "Forbid climbing" },
         { AssassinClimbingDisableTooltipBody, "New orders for all of your Assassins avoid climbing edges. Normal stairs and already accessible wall surfaces remain usable." },
         { AssassinClimbingEnableTooltip, "Allow climbing" },

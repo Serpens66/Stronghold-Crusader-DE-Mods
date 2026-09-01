@@ -4,8 +4,8 @@
 
 - Kanonische DLL: installierte `CrusaderDE.dll` mit SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
 - Native-Baseline: `_inspect/CrusaderDE-Native-Baseline` für denselben DLL-Hash.
-- `AssassinCombatFix` ist hart von `BugfixesAndQoL` abhängig und ergänzt ausschließlich dessen aktiviertes `EnableImprovedAssassinPathfinding`.
-- Der gewichtete Assassin-Pathbuilder und die Korrekturen für reservierte Kletterflächen bleiben in `BugfixesAndQoL`.
+- Der Fix ist seit `BugfixesAndQoL` 1.0.115 direkt in diesem Mod enthalten und wird über die standardmäßig aktive Host-Einstellung `EnableAssassinCombatResumeFix` gesteuert.
+- Die Einstellung ist unabhängig von `EnableImprovedAssassinPathfinding`: Allein aktiviert verwendet sie Vanillas Assassin-Builder; gemeinsam aktiviert verwendet sie den gewichteten Builder und dessen Korrekturen für reservierte Kletterflächen.
 
 ## Bestätigte Ursache
 
@@ -19,7 +19,7 @@
 
 - Ein einzelner `X64InlineHook` liegt bei RVA `0x197716` über exakt 14 Byte.
 - Die überschriebenen Vanilla-Instruktionen laufen vollständig vor dem Callback. Der Zustandswrite bei `0x197724` und die Calls bei `0x19772B` und `0x197735` bleiben unverändert im nativen Code.
-- Der Hook setzt das Kontextflag nur bei aktivem `BugfixesAndQoL`, aktivem verbessertem Assassin-Pathfinding, gültiger 1-basierter Unit-ID, lebendem Assassin, Zustand `106` und Rücksprung-RVA `0x185412`.
+- Der Hook setzt das Kontextflag nur bei aktivem `BugfixesAndQoL`, aktiver eigener Kampf-Fortsetzungsoption, gültiger 1-basierter Unit-ID, lebendem Assassin, Zustand `106` und Rücksprung-RVA `0x185412`.
 - Das Setzen des Flags ist die letzte Callback-Operation. `0x196280` liest das Flag und löscht es auf beiden auditierten Ausgängen selbst; eine manuelle Wiederherstellung ist weder nötig noch erwünscht.
 - R3 wird nicht mehr benötigt. Iced bleibt nur als nicht kopierte transitive Compile-Referenz bestehen, weil Zhuqiaomons öffentliche Context-Hook-Signatur `Iced.Instruction` enthält; der Mod verwendet Iced nicht direkt.
 - DLL-Hash, Callkette, Hookbytes, Instruktionsgrenzen, Pfad-Call, Flagzugriffe und Auswahl des Assassin-Builders werden vor Installation geprüft. Bei einer Abweichung bleibt Vanilla fail-closed aktiv.
@@ -44,5 +44,6 @@
 
 1. Kampf vor einem Weg mit Hochklettern und vor einem Weg mit Herunterklettern auslösen.
 2. Einzelne und mehrere Assassinen sowie einen normalen Weg ohne Klettern kontrollieren.
-3. Deaktiviertes Klettern und deaktiviertes verbessertes Assassin-Pathfinding müssen Vanilla-Verhalten behalten.
-4. Host und Client müssen denselben wiederaufgenommenen Weg bestimmen.
+3. Beide Assassin-Einstellungen einzeln und gemeinsam prüfen: Der Kampf-Fix muss mit Vanillas sowie mit dem verbesserten Assassin-Builder funktionieren.
+4. Bei deaktiviertem Kampf-Fix muss Vanillas Nachkampfverhalten unverändert bleiben; deaktiviertes Klettern darf keine Kletterkante erzwingen.
+5. Host und Client müssen denselben wiederaufgenommenen Weg bestimmen.

@@ -128,10 +128,10 @@
     <Compile Include="..\..\BugfixesAndQoL\src\AssassinClimbCostPolicy.cs">
       <Link>AssassinClimbCostPolicy.cs</Link>
     </Compile>
-    <Compile Include="..\..\AssassinCombatFix\src\AssassinCombatResumeNativeDefinition.cs">
+    <Compile Include="..\..\BugfixesAndQoL\src\AssassinCombatResumeNativeDefinition.cs">
       <Link>AssassinCombatResumeNativeDefinition.cs</Link>
     </Compile>
-    <Compile Include="..\..\AssassinCombatFix\src\AssassinCombatResumePolicy.cs">
+    <Compile Include="..\..\BugfixesAndQoL\src\AssassinCombatResumePolicy.cs">
       <Link>AssassinCombatResumePolicy.cs</Link>
     </Compile>
     <Compile Include="..\..\BugfixesAndQoL\src\AssassinClimbCancellationPolicy.cs">

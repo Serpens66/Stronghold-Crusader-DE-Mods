@@ -24,6 +24,7 @@ namespace BugfixesAndQoL
         private bool betterAIOverbuildRules = true;
         private bool enableTroopMovementFix = true;
         private bool enableImprovedAssassinPathfinding = true;
+        private bool enableAssassinCombatResumeFix = true;
         private bool enablePlaguePopularityFix = true;
         private bool enablePlagueCloudRemovalFix = true;
         private bool enableStuckApothecaryFix = true;
@@ -201,6 +202,8 @@ namespace BugfixesAndQoL
         public string EnableTroopMovementFixHelpText => SerpLocalization.Get(SerpLocalization.EnableTroopMovementFixHelp);
         public string EnableImprovedAssassinPathfindingText => SerpLocalization.Get(SerpLocalization.EnableImprovedAssassinPathfinding);
         public string EnableImprovedAssassinPathfindingHelpText => SerpLocalization.Get(SerpLocalization.EnableImprovedAssassinPathfindingHelp);
+        public string EnableAssassinCombatResumeFixText => SerpLocalization.Get(SerpLocalization.EnableAssassinCombatResumeFix);
+        public string EnableAssassinCombatResumeFixHelpText => SerpLocalization.Get(SerpLocalization.EnableAssassinCombatResumeFixHelp);
         public string EnablePlaguePopularityFixText => SerpLocalization.Get(SerpLocalization.EnablePlaguePopularityFix);
         public string EnablePlaguePopularityFixHelpText => SerpLocalization.Get(SerpLocalization.EnablePlaguePopularityFixHelp);
         public string EnablePlagueCloudRemovalFixText => SerpLocalization.Get(SerpLocalization.EnablePlagueCloudRemovalFix);
@@ -451,6 +454,13 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool EnableAssassinCombatResumeFix
+        {
+            get => enableAssassinCombatResumeFix;
+            set => SetSetting(ref enableAssassinCombatResumeFix, value, nameof(EnableAssassinCombatResumeFix));
+        }
+
+        [SyncHostOnly]
         public bool EnablePlaguePopularityFix
         {
             get => enablePlaguePopularityFix;
@@ -586,6 +596,7 @@ namespace BugfixesAndQoL
                 EnableCustomLordListEnhancements = true;
                 EnableTroopMovementFix = true;
                 EnableImprovedAssassinPathfinding = true;
+                EnableAssassinCombatResumeFix = true;
                 EnablePlaguePopularityFix = true;
                 EnablePlagueCloudRemovalFix = true;
                 EnableStuckApothecaryFix = true;
