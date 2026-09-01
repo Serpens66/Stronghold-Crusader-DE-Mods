@@ -2,7 +2,8 @@ using System;
 
 namespace ExtremePowers.API
 {
-    public sealed class VolleyConfiguration { public int Damage { get; set; } public int Radius { get; set; } public int ProjectileMode { get; set; } public VolleyConfiguration Clone() => (VolleyConfiguration)MemberwiseClone(); }
+    public enum ExtremePowerProjectileKind { Rock = 0, Arrow = 1 }
+    public sealed class VolleyConfiguration { public int Damage { get; set; } public int Radius { get; set; } public ExtremePowerProjectileKind ProjectileKind { get; set; } public VolleyConfiguration Clone() => (VolleyConfiguration)MemberwiseClone(); }
     public sealed class HealingConfiguration { public int Amount { get; set; } public int Radius { get; set; } public HealingConfiguration Clone() => (HealingConfiguration)MemberwiseClone(); }
     public sealed class SpawnConfiguration { public int UnitType { get; set; } public int Count { get; set; } public SpawnConfiguration Clone() => (SpawnConfiguration)MemberwiseClone(); }
     public sealed class GoldConfiguration { public int Minimum { get; set; } public int Maximum { get; set; } public GoldConfiguration Clone() => (GoldConfiguration)MemberwiseClone(); }
@@ -38,7 +39,7 @@ namespace ExtremePowers.API
             ValidateSpawn(Spearmen); ValidateSpawn(Engineers); ValidateSpawn(Macemen); ValidateSpawn(Knights);
             if (Gold == null || Gold.Minimum < 0 || Gold.Maximum < Gold.Minimum) throw new ArgumentOutOfRangeException(nameof(Gold));
         }
-        private static void ValidateVolley(VolleyConfiguration value) { if (value == null || value.Damage < 0 || value.Radius < 0 || value.ProjectileMode < 0 || value.ProjectileMode > 1) throw new ArgumentOutOfRangeException(nameof(value)); }
+        private static void ValidateVolley(VolleyConfiguration value) { if (value == null || value.Damage < 0 || value.Radius < 0 || !Enum.IsDefined(typeof(ExtremePowerProjectileKind), value.ProjectileKind)) throw new ArgumentOutOfRangeException(nameof(value)); }
         // eChimps is sequential in the supported Script Extender: 0 is NULL and 90 is the end sentinel.
         private static void ValidateSpawn(SpawnConfiguration value) { if (value == null || value.UnitType <= 0 || value.UnitType >= 90 || value.Count < 0 || value.Count > 10000) throw new ArgumentOutOfRangeException(nameof(value)); }
     }

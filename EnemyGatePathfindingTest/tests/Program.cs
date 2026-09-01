@@ -20,6 +20,7 @@ namespace EnemyGatePathfindingTest
                 ImmutableGateSnapshotIsAllianceAwareAndFailOpen();
                 CallerRangesCoverHumanCursorAndCommonPathBuilder();
                 NativeContractIncludesDrawbridgePclAndExactFilterSite();
+                CapturerHooksCoverBothNativeSitesAtomically();
                 SamePclCandidatePolicyIsFailOpenAndAllianceAware();
                 DiagnosticNativeContractIsPinned();
                 DeferredDiagnosticQueuePolicyIsSelective();
@@ -146,9 +147,44 @@ namespace EnemyGatePathfindingTest
             Assert(EnemyGatePathfindingNativeDefinition.RecordFirstPclOffset == -0x1E8, "first PCL");
             Assert(EnemyGatePathfindingNativeDefinition.RecordSecondPclOffset == -0x1E4, "second PCL");
             Assert(EnemyGatePathfindingNativeDefinition.RecordThirdPclOffset == -0x34, "drawbridge PCL");
-            Assert(EnemyGatePathfindingNativeDefinition.CapturedByCompareRva == 0xE2710, "filter RVA");
-            Assert(EnemyGatePathfindingNativeDefinition.CapturedByCompareHookLength == 9, "filter span");
+            Assert(EnemyGatePathfindingNativeDefinition.PclGraphCapturedByCompareRva == 0xE2710,
+                "PCL-graph filter RVA");
+            Assert(EnemyGatePathfindingNativeDefinition.PclGraphCapturedByCompareHookLength == 9,
+                "PCL-graph filter span");
+            Assert(EnemyGatePathfindingNativeDefinition.BuilderPrecheckCapturedByCompareRva == 0xE302F,
+                "builder-precheck filter RVA");
+            Assert(EnemyGatePathfindingNativeDefinition.BuilderPrecheckCapturedByCompareHookLength == 9,
+                "builder-precheck filter span");
             Assert(EnemyGatePathfindingNativeDefinition.AuditedDirectCallerCount == 84, "caller inventory");
+        }
+
+        private static void CapturerHooksCoverBothNativeSitesAtomically()
+        {
+            string runtimeSource = File.ReadAllText(Path.Combine("src", "EnemyGatePathfindingRuntime.cs"));
+            string pclGraphBody = ExtractMethodBody(
+                runtimeSource, "FilterUnrelatedCapturedEnemyGatePclGraph");
+            string builderBody = ExtractMethodBody(
+                runtimeSource, "FilterUnrelatedCapturedEnemyGateBuilderPrecheck");
+            string sharedBody = ExtractMethodBody(runtimeSource, "FilterUnrelatedCapturedEnemyGate");
+
+            Assert(pclGraphBody.IndexOf("context, false", StringComparison.Ordinal) >= 0,
+                "PCL-graph hook selects the R14 query context");
+            Assert(builderBody.IndexOf("context, true", StringComparison.Ordinal) >= 0,
+                "builder-precheck hook selects the RBP query context");
+            Assert(sharedBody.IndexOf("registers->R14", StringComparison.Ordinal) >= 0,
+                "PCL-graph query player is read from R14");
+            Assert(sharedBody.IndexOf("registers->RBP", StringComparison.Ordinal) >= 0,
+                "builder-precheck query player is read from RBP");
+            Assert(sharedBody.IndexOf("registers->RCX", StringComparison.Ordinal) >= 0,
+                "both filters read the building id from RCX");
+            Assert(sharedBody.IndexOf("registers->R9", StringComparison.Ordinal) >= 0,
+                "both filters read the gate record from R9");
+            Assert(runtimeSource.IndexOf("RollbackAndThrow", StringComparison.Ordinal) >= 0,
+                "both filters use the atomic rollback transaction");
+            Assert(runtimeSource.IndexOf("ref pclGraphCapturedByFilterHook", StringComparison.Ordinal) >= 0,
+                "PCL-graph filter is registered");
+            Assert(runtimeSource.IndexOf("ref builderPrecheckCapturedByFilterHook", StringComparison.Ordinal) >= 0,
+                "builder-precheck filter is registered");
         }
 
         private static void SamePclCandidatePolicyIsFailOpenAndAllianceAware()
@@ -399,10 +435,10 @@ namespace EnemyGatePathfindingTest
                 "path length offset");
             Assert(EnemyGatePathfindingNativeDefinition.MaximumDecodedPathLength == 2000,
                 "native path length limit");
+            Assert(EnemyGatePathfindingNativeDefinition.BuilderSearchVariantF32B0Rva == 0xF32B0,
+                "builder search F32B0");
             Assert(EnemyGatePathfindingNativeDefinition.BuilderSearchVariantF3060Rva == 0xF3060,
                 "builder search F3060");
-            Assert(EnemyGatePathfindingNativeDefinition.BuilderSearchVariant79C0Rva == 0x79C0,
-                "builder search 79C0");
             Assert(EnemyGatePathfindingNativeDefinition.BuilderSearchVariantDA590Rva == 0xDA590,
                 "builder search DA590");
             Assert(EnemyGatePathfindingNativeDefinition.BuilderSearchVariantDAAC0Rva == 0xDAAC0,
@@ -411,6 +447,31 @@ namespace EnemyGatePathfindingTest
                 "builder search D9C40");
             Assert(EnemyGatePathfindingNativeDefinition.BuilderSearchVariantDAFD0Rva == 0xDAFD0,
                 "builder search DAFD0");
+            Assert(EnemyGatePathfindingNativeDefinition.BuilderConditionalPostSearchDB650Rva == 0xDB650,
+                "conditional builder post-search DB650");
+            Assert(EnemyGatePathfindingNativeDefinition.BuilderRouteReconstructionE1640Rva == 0xE1640,
+                "builder route reconstruction E1640");
+            Assert(EnemyGatePathfindingNativeDefinition.BuilderDistanceHelper79C0Rva == 0x79C0,
+                "builder distance helper 79C0");
+            Assert(EnemyGatePathfindingNativeDefinition.DirectionReadF32B0Rva == 0xF33F5,
+                "F32B0 direction-grid read");
+            Assert(EnemyGatePathfindingNativeDefinition.DirectionReadF3060Rva == 0xF31A8,
+                "F3060 direction-grid read");
+            Assert(EnemyGatePathfindingNativeDefinition.DirectionReadD9C40Rva == 0xD9EA6,
+                "D9C40 direction-grid read");
+            Assert(EnemyGatePathfindingNativeDefinition.DirectionReadDA590Rva == 0xDA783,
+                "DA590 direction-grid read");
+            Assert(EnemyGatePathfindingNativeDefinition.DirectionReadDAAC0Rva == 0xDACB2,
+                "DAAC0 direction-grid read");
+            Assert(EnemyGatePathfindingNativeDefinition.DirectionReadDAFD0Rva == 0xDB242,
+                "DAFD0 direction-grid read");
+            Assert(EnemyGatePathfindingNativeDefinition.DirectionTestDB650FirstRva == 0xDB860 &&
+                EnemyGatePathfindingNativeDefinition.DirectionTestDB650SecondRva == 0xDB950 &&
+                EnemyGatePathfindingNativeDefinition.DirectionTestDB650ThirdRva == 0xDBA3F &&
+                EnemyGatePathfindingNativeDefinition.DirectionTestDB650FourthRva == 0xDBB2F,
+                "DB650 unrolled direction-grid tests");
+            Assert(EnemyGatePathfindingNativeDefinition.DirectionReadE1640Rva == 0xE1777,
+                "E1640 direction-grid read");
         }
 
         private static void NativeRouteHotPathsRemainPrimitiveOnly()
@@ -430,10 +491,18 @@ namespace EnemyGatePathfindingTest
                     Assert(body.IndexOf(token, StringComparison.Ordinal) < 0,
                         method + " hot path excludes " + token);
             }
-            string capturedBody = ExtractMethodBody(runtimeSource, "FilterUnrelatedCapturedEnemyGate");
-            foreach (string token in forbidden)
-                Assert(capturedBody.IndexOf(token, StringComparison.Ordinal) < 0,
-                    "Capturer hot path excludes " + token);
+            foreach (string method in new[]
+            {
+                "FilterUnrelatedCapturedEnemyGatePclGraph",
+                "FilterUnrelatedCapturedEnemyGateBuilderPrecheck",
+                "FilterUnrelatedCapturedEnemyGate"
+            })
+            {
+                string capturedBody = ExtractMethodBody(runtimeSource, method);
+                foreach (string token in forbidden)
+                    Assert(capturedBody.IndexOf(token, StringComparison.Ordinal) < 0,
+                        method + " hot path excludes " + token);
+            }
         }
 
         private static void UnsafeGlobalMutationAndWholePclDetourAreAbsent()

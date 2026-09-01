@@ -45,7 +45,7 @@ namespace ExtremePowers.API
                 NativeBackendStatus = "Native hook validation failed; Vanilla fallback is active: " + ex.Message;
             }
         }
-        public string ProtocolVersion => "2";
+        public string ProtocolVersion => "3";
         public string CompatibilityToken => ExtremePowersCompatibility.CreateToken(ProtocolVersion, NativeBuildGuard.SupportedSha256, NativeBackendAvailable, networkRuntime?.PacketId ?? -1);
         // Recognition alone is intentionally insufficient: every mutation signature must validate first.
         public bool NativeBackendAvailable => nativeRuntime != null;
@@ -133,8 +133,8 @@ namespace ExtremePowers.API
             Macemen = new SpawnConfiguration { UnitType = 26, Count = 20 },
             Knights = new SpawnConfiguration { UnitType = 28, Count = 10 },
             Gold = new GoldConfiguration { Minimum = 1000, Maximum = 2499 }
-            ,ArrowVolley = new VolleyConfiguration { Damage = 6000, Radius = 6, ProjectileMode = 1 }
-            ,RockVolley = new VolleyConfiguration { Damage = 18000, Radius = 9, ProjectileMode = 0 }
+            ,ArrowVolley = new VolleyConfiguration { Damage = 6000, Radius = 6, ProjectileKind = ExtremePowerProjectileKind.Arrow }
+            ,RockVolley = new VolleyConfiguration { Damage = 18000, Radius = 9, ProjectileKind = ExtremePowerProjectileKind.Rock }
         };
         private sealed class Registration : IDisposable { private ExtremePowersApi owner; internal Registration(ExtremePowersApi owner, ExtremePowerId power, ExtremePowerReplacement value) { this.owner = owner; Power = power; Value = value; } internal ExtremePowerId Power { get; } internal ExtremePowerReplacement Value { get; } public void Dispose() { var value = owner; if (value == null) return; owner = null; value.Remove(this); } }
     }

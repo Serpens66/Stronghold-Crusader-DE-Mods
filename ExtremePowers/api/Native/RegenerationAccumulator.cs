@@ -13,7 +13,7 @@ namespace ExtremePowers.API
         {
             adjusted = after;
             if (after == before) return true;
-            if (before == uint.MaxValue || after != before + 1) return false;
+            if (before >= cap || before == uint.MaxValue || after != before + 1) return false;
             int desiredIncrease = ScaleDelta(1, percent);
             ulong value = (ulong)before + (uint)desiredIncrease;
             adjusted = value > cap ? cap : (uint)value;

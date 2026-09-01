@@ -20,6 +20,7 @@
     <Compile Include="api\Contracts\ExtremePowersCompatibility.cs"/>
     <Compile Include="api\Bootstrap\ExtremePowersBootstrap.cs"/>
     <Compile Include="api\Native\NativeBuildGuard.cs"/>
+    <Compile Include="api\Native\NativeExtremePowersSignatures.cs"/>
     <Compile Include="api\Native\ExtremePowersBuildCompatibility.cs"/>
     <Compile Include="api\Native\ExtremePowersApi.cs"/>
     <Compile Include="api\Native\NativeExtremePowersRuntime.cs"/>

@@ -39,28 +39,30 @@ Es gibt bislang keine Script-Extender-API für Kosten, Regeneration, Effektparam
 
 ### Power-Auswahl, Kostenprüfung und Targeting-Vorbereitung
 
-- Funktion VA `0x180105510`, RVA `0x105510`, Funktionsende `0x180105655`.
+- Funktion VA `0x180105510`, RVA `0x105510`, Größe `326` Bytes, Funktionsende `0x180105655`. Die Native-Baseline weist genau einen direkten Codeaufruf nach; dessen `call` liegt bei RVA `0x825A5`. Aufrufersequenz und Funktionstail bei RVA `0x105646` sind Build-Guards.
 - Spielerressourcen haben den Stride `0x583C`; die Funktion liest das Mana aus dem bestätigten Ressourcenfeld `+0x39D4` (als bildbasierte Adresse `0x379E7A4`).
 - Für reguläre IDs berechnet `imul ecx, eax, 0x27C` mit `eax = powerId + 1` exakt `(powerId + 1) * 636`.
 - Die Prüfung ist `cmp edi, ecx` / `jl reject`.
 - Power 5 (Gold) wechselt direkt in einen Chore-/Befehlsweg. Die übrigen Powers setzen einen Zielmodus; die Sprungtabelle beginnt bei VA `0x180105658`.
 - Bestätigte Eintrittssignatur: `40 53 48 83 EC 20 8B 05 ?? ?? ?? ?? 8B D9 85 C0`.
 - Die API detourt diese Auswahlfunktion erst nach Hash- und Signaturprüfung. Für abweichende Kosten wird das Mana nur während des Vanilla-Aufrufs kompensiert; danach wird der unveränderte Wert wiederhergestellt. Damit bleiben Vanilla-Targeting und Abbruchverhalten erhalten.
+- Ein registriertes `None`-Replacement wird dagegen unmittelbar als synchronisiertes API-Chore eingereiht. Es startet kein Vanilla-Targeting; bei einer Ablehnung laufen weder Callback noch Manaabbuchung.
 
 ### Finaler Effekt-Dispatcher, Kostenprüfung und Manaabzug
 
-- Funktion VA `0x1800CD630`, RVA `0xCD630`, Funktionsende `0x1800CD82F`.
+- Funktion VA `0x1800CD630`, RVA `0xCD630`, Größe `512` Bytes, Funktionsende `0x1800CD82F`. Der einzige direkte Codeaufruf liegt bei RVA `0x1ADFE`; Aufrufersequenz und Dispatcher-Tail bei RVA `0xCD81B` werden zusätzlich geprüft.
 - Signatur: `48 89 5C 24 10 48 89 6C 24 18 48 89 74 24 20 57 48 83 EC 40`.
 - Aufrufparameter: Spieler-ID in `EDX`, Power-ID in `R8D`, Ziel-Tile-ID in `R9D`.
 - Die Funktion berechnet erneut `(powerId + 1) * 636`, prüft das Mana und zieht es erst nach dem Effekt bei VA `0x1800CD814` ab.
 - Sprungtabelle bei VA `0x1800CD830`: `CD7AF, CD73E, CD688, CD688, CD688, CD774, CD688, CD7D6`.
 - Die gemeinsame Spawn-Routine ruft VA `0x1801264D0` auf. Bestätigte Vanilla-Paare Einheit/Anzahl: Power 2 `24/20`, Power 3 `30/14`, Power 4 `26/20`, Power 6 `28/10`.
 - Heilung (Power 1) ruft VA `0x1800E1E70` mit Radiusparameter `6` und Wert `0x1F40 = 8000` auf.
-- Gold (Power 5) addiert `1000 + (Zeitwert mod 1500)`, also inklusive Grenzen `1000..2499`, zum Goldfeld direkt hinter dem Manafeld.
+- Gold (Power 5) liest deterministisch einen vorzeichenbehafteten 16-Bit-RNG-Wert aus `DAT_18856A6D2`, addiert `1000 + (RNG-Wert mod 1500)` und schaltet die gemeinsame Sequenz genau einmal über RVA `0x7530` weiter. Der Wert ist kein Zeitwert.
 - Pfeilsalve (Power 0) ruft VA `0x1800DD6C0` mit Radius `6`, Wert `0x1770 = 6000` und Projektilmodus `1` auf.
 - Steinsalve (Power 7) ruft dieselbe Routine mit Radius `9`, Wert `0x4650 = 18000` und Projektilmodus `0` auf.
 - Die Routine reicht den Wert an die Trefferpunkte-Subtraktion gefundener Einheiten weiter; er ist damit als Stärke/Schaden verwendbar. Die Routine ist `0x9C2 = 2498` Bytes groß und durchsucht Einheiten innerhalb der Zielregion.
-- Eine separat steuerbare Projektilzahl oder Streuung ist weder im Aufruf noch in der untersuchten Routine belegt. Die API bietet dafür bewusst keine wirkungslose Eigenschaft an.
+- Die Salvenroutine erhält Schaden, Flood-Fill-Radius und Projektilart. Eine separat steuerbare Projektilzahl oder Streuung ist weder im Aufruf noch in der untersuchten Routine belegt. Die API bietet dafür bewusst keine wirkungslose Eigenschaft an; `ExtremePowerProjectileKind` bildet nur `Rock = 0` und `Arrow = 1` ab.
+- Getunte Effekte umgehen den Vanilla-Dispatcher. Die API stellt deshalb dessen bestätigte lokale Abschluss-Audios wieder her: Heilung `0xCF`, alle vier Spawn-Powers `0x104`, Steinsalve `0x105`. Der Audiohelfer bei RVA `0x2940` ist `22` Bytes groß und wird nur aufgerufen, wenn Effektspieler und lokaler Spieler übereinstimmen. Replacements erhalten bewusst keinen automatisch erfundenen Sound.
 - Zusätzlich abgesicherte Hilfseingänge: Heilung RVA `0xE1E70` mit `48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 48`, Salve RVA `0xDD6C0` mit `44 89 4C 24 20 44 89 44 24 18 48 89 4C 24 08 53` und Gold-Zyklus RVA `0x7530` mit `4C 63 81 48 9C 00 00 33 C0 42 0F B7 54 41 08 41`.
 
 ### Auswahlzustand
@@ -89,7 +91,7 @@ Es gibt bislang keine Script-Extender-API für Kosten, Regeneration, Effektparam
 | Ingenieure | Typ `30`, Anzahl `14` | finaler Effektzweig bestätigt |
 | Streitkolbenkämpfer | Typ `26`, Anzahl `20` | finaler Effektzweig bestätigt |
 | Ritter | Typ `28`, Anzahl `10` | finaler Effektzweig bestätigt |
-| Gold | `1000 + (Zeitwert mod 1500)`, somit `1000..2499` | finaler Effektzweig bestätigt |
+| Gold | `1000 + (signierter 16-Bit-RNG-Wert mod 1500)` | finaler Effektzweig und einmaliges Fortschalten der gemeinsamen RNG-Sequenz bestätigt; kein Zeitwert |
 
 Unbekannte Effektwerte werden in der API nicht als angebliche Vanilla-Werte ausgegeben. Der native Mutationspfad wird ausschließlich für den exakten DLL-Hash und zusätzlich passende Eintrittssignaturen aktiviert.
 
@@ -102,7 +104,7 @@ Unbekannte Effektwerte werden in der API nicht als angebliche Vanilla-Werte ausg
 - Die Vanilla-Kadenz verwendet eine Division-durch-drei-Sequenz (`0x55555556`) und erhöht nur bei dem bestätigten Restwert `2`.
 - Die API detourt ausschließlich diese Ressourcenroutine, nimmt vor dem Originalaufruf einen Mana-Snapshot und skaliert nachher nur das exakt bestätigte Delta `+1`. Andere Deltas bleiben unverändert und werden einmalig protokolliert. Dadurch werden Mana-Gutschriften von Cheat Mod oder anderen Schreibern außerhalb dieser Routine nicht mehr als Regeneration interpretiert.
 - Ganzzahlige Reste werden pro Spieler akkumuliert, sodass zum Beispiel zwei Vanilla-Schritte bei `50 %` zusammen genau einen Punkt ergeben.
-- `100 %` lässt Vanilla unverändert; `0 %` entfernt den bestätigten Schritt; `1000 %` erzeugt zehn Punkte pro bestätigtem Vanilla-Schritt, stets begrenzt auf `7000`. Karten-Unload löscht alle Akkumulatoren.
+- `100 %` lässt Vanilla unverändert; `0 %` entfernt den bestätigten Schritt; `1000 %` erzeugt zehn Punkte pro bestätigtem Vanilla-Schritt, stets begrenzt auf `7000`. Skalierung findet nur bei `before < 7000` und exakt `after = before + 1` statt. Überhöhte oder durch UInt32-Wrap entstandene Werte bleiben unverändert. Karten-Unload löscht alle Akkumulatoren.
 
 ## Netzwerk und Determinismus
 
@@ -114,7 +116,7 @@ Unbekannte Effektwerte werden in der API nicht als angebliche Vanilla-Werte ausg
 - Die Loganalyse des lokalen Skirmish zeigte `players=[1], unresolved=True`. Die frühere Bereitschaftsschranke verlangte auch dort `System_ArePerPlayerSettingsReady(...)`, weshalb Auswahl und Dispatcher still an Vanilla weiterleiteten und die Gold-Power weiterhin Gold gab. Das war die bestätigte Ursache des Testfehlers.
 - Singleplayer, Trail und lokaler Skirmish umgehen Teilnehmerberichte jetzt vollständig. Nur ein mit `Shared.GameModeHelper.Capture(args.bMultiplayerSave != 0)` als echter Multiplayer festgehaltener Kartenlauf verlangt vollständige Berichte aller menschlichen Teilnehmer.
 - Der Bericht ist kein bloßes `1` mehr, sondern enthält API-Protokoll, kanonischen DLL-Hash, Native-/Vanilla-Backendstatus und die vom Script Extender dynamisch zugeteilte Paket-ID. Da `GetPacketEventFor<T>()` freie IDs in Registrierungsreihenfolge vergibt, wird eine abweichende Mod-Ladereihenfolge dadurch erkannt und die gesamte Modifikation fällt auf Vanilla zurück.
-- Die explizite Spawn-Owner-Semantik erhöht den API-Kompatibilitätsanteil des Tokens auf `2`. Das binäre Chore-Paket selbst bleibt bei Formatversion `1`, weil der Owner weiterhin deterministisch im bereits synchronisierten Replacement-Callback aus den Hostsettings bestimmt wird und nicht Bestandteil des generischen Zielpakets ist.
+- Die neuen Baseline-Semantiken erhöhen den API-Kompatibilitätsanteil des Tokens auf `3`. Das binäre Chore-Paket selbst bleibt bei Formatversion `1`, weil sein Schema unverändert ist und der Owner weiterhin deterministisch im bereits synchronisierten Replacement-Callback bestimmt wird.
 - Der direkte Vanilla-HUD-Weg nutzt den bereits synchronisierten Extreme-Power-Chore des Spiels. Für die Gold-Demo wird zur Kartenpunktwahl die Vanilla-Auswahl der Pfeilsalve vorbereitet und danach die vom Zielabschluss gelesene Pending-Power auf Gold zurückgestellt.
 - `HUD_ExtremePowers` bleibt zwischen normalen Skirmish-Kartenwechseln bestehen. Das frühere Löschen der gespeicherten Buttonreferenzen beim Map-Unload verhinderte deshalb im zweiten Spiel den Sprite-Refresh, obwohl das Gold-Replacement bereits aktiv war. Die API behält diese Referenzen nun, invalidiert den Sprite-Cache bei Registrierung/Entfernung und wendet die Settings nach der finalen Spielmodus-Erfassung erneut an.
 - Operationen des generischen API-Chores werden pro Spieler und Operation-ID dedupliziert; Karten-Unload verwirft die Historie.
@@ -127,15 +129,17 @@ Unbekannte Effektwerte werden in der API nicht als angebliche Vanilla-Werte ausg
 - Spawn-Typen müssen definierte `eChimps`-Werte strikt zwischen `CHIMP_TYPE_NULL` und `CHIMP_NUM_TYPES` sein. Die tatsächliche Spawnanzahl wird protokolliert.
 - Die erste Gold-Demo verwendete fälschlich den numerischen Typ `2`. Dieser ist im aktuellen `eChimps`-Enum `CHIMP_TYPE_BURNING_MAN`, nicht Speerträger. Zehn erfolgreiche `CreateUnitLocal`-Aufrufe setzten außerdem alle Instanzen auf dieselbe Koordinate, sodass im Spiel nur eine scheinbar einzelne brennende Person sichtbar war.
 - Dasselbe überlagerte Einzelspawnmuster betraf zunächst auch getunte Vanilla-Spawn-Powers. Die API verwendet nun die echte Gruppenroutine RVA `0x1264D0`. Ihr Aufruf erhält Modus `1`, den anhand der Höhen-/Zeilentabellen transformierten Ziel-Tile, Höhe, Spieler, Einheitentyp und Gruppengröße; ein positiver Rückgabewert wird wie im Dispatcher am Unit-Feld `+0x634` mit Zustand `2` als Extreme-Power-Gruppe markiert.
-- Gruppenspawn-Prolog RVA `0x1264D0`, Tail RVA `0x12658E` und die vollständige Argumentvorbereitung samt Callsite RVA `0xCD6CF` sind Bestandteil des Build-Guards. Der öffentliche Spawnhelfer führt keinen eigenen Netzwerktransport aus und darf deshalb nur aus einem bereits synchronisierten Replacement-Callback aufgerufen werden.
-- Der Spielerparameter der nativen Gruppenroutine ist der Besitzer der erzeugten Gruppe und muss nicht dem auslösenden Spieler des Replacement-Chores entsprechen. Die öffentliche API nimmt ihn deshalb ausdrücklich als `ownerPlayerId` entgegen. `0` ist der neutrale Naturspieler, `1–8` sind normale Spielerslots; andere Werte werden vor dem nativen Aufruf abgelehnt. Die Demo bietet „auslösender Spieler“, Natur und feste Slots an. `CHIMP_TYPE_DEER` erzwingt immer Besitzer `0`.
-- Ein benannter `TextBox`-Style ohne `BasedOn` ersetzte in Noesis den impliziten Spielstil samt ControlTemplate und erzeugte die auffälligen pinken Eingabeflächen. `NumericBox` basiert nun ausdrücklich auf `{x:Type TextBox}` und ändert nur Darstellungseigenschaften, ohne das normale Template zu verlieren.
-- Temporäre Kostenkompensation verwendet einen breiteren Zwischenwert und fällt bei nicht darstellbarem Ergebnis ohne Exception auf Vanilla zurück. Goldaddition sättigt am nativen `UInt32`-Maximum.
+- Gruppenspawn-Prolog RVA `0x1264D0`, Tail RVA `0x12658E` und die vollständige Argumentvorbereitung samt Callsite RVA `0xCD6CF` sind Bestandteil des Build-Guards. Die Gruppenmitglied-Funktion RVA `0x11D370` ist `172` Bytes groß; ihr Writer bei RVA `0x11D3B0` erhöht das bestätigte Gruppenfeld `group + 0x5C`. Die API liest daraus direkt die tatsächlich erzeugte Null-, Teil- oder Vollanzahl und verwendet keinen ungenauen globalen Einheitentyp-Scan mehr.
+- Der öffentliche Spawnhelfer führt keinen eigenen Netzwerktransport aus und darf deshalb nur aus einem bereits synchronisierten Replacement-Callback aufgerufen werden. Bei angeforderter Anzahl `0` wird die native Gruppenroutine nicht aufgerufen.
+- Der Spielerparameter der nativen Gruppenroutine ist der Besitzer der erzeugten Gruppe und muss nicht dem auslösenden Spieler des Replacement-Chores entsprechen. Die öffentliche API nimmt ihn deshalb ausdrücklich als `ownerPlayerId` entgegen und verwendet ihn unverändert. `0` ist der neutrale Naturspieler, `1–8` sind normale Spielerslots; andere Werte werden vor dem nativen Aufruf abgelehnt. Ausschließlich der Demo-Adapter erzwingt für `CHIMP_TYPE_DEER` Besitzer `0`; die allgemeine API trifft keine solche fachliche Owner-Entscheidung.
+- Auch ein benannter `TextBox`-Style mit `BasedOn="{StaticResource {x:Type TextBox}}"` wurde von Noesis in diesem View nicht zuverlässig mit dem impliziten Spiel-Template aufgelöst; die Felder blieben pink. Die numerischen Felder verwenden deshalb wie funktionierende Workspace-Modsettings keinen expliziten Style mehr, sondern nur Inline-Eigenschaften auf dem impliziten Spiel-Control.
+- Direkte Zweiwege-Bindings von `TextBox.Text` an `int` ließen temporär leere Eingaben nicht zuverlässig zu: Zeichen konnten angefügt, vorhandene Ziffern aber nicht zum Ersetzen gelöscht werden. Nicht persistierte `...ValueText`-String-Proxys erlauben nun die vollständige Bearbeitung und validieren beziehungsweise begrenzen den Wert erst beim Verlassen des Feldes.
+- Temporäre Kostenkompensation verwendet einen breiteren Zwischenwert, begrenzt Quell- und Zielwert aber auf den vom nativen Code vorzeichenbehaftet verglichenen Bereich bis `Int32.MaxValue`; andere Werte fallen ohne Exception auf Vanilla zurück. Goldaddition sättigt am nativen `UInt32`-Maximum.
 - Benutzerdefinierte Kosten bleiben eine funktionsfähige API-Funktion: Anzeige-Freigabe, Auswahlprüfung und Abbuchung verwenden den konfigurierten Wert. Die sichtbaren Vanilla-Kostenbeschriftungen sind jedoch an die acht Positionen gebunden und werden von der API derzeit nicht ersetzt. Kostenänderungen sind deshalb ohne zusätzlichen HUD-Patch nicht empfohlen; der Beispielmod verwendet ausschließlich die Vanilla-Kosten.
 
 ## Targeting-Status
 
-- `None` und `MapPoint` sind implementiert. Kartenpunkte verwenden weiterhin Vanillas Zielmodus und Abbruchverhalten.
+- `None` und `MapPoint` sind implementiert. `None` sendet unmittelbar das synchronisierte API-Chore, ohne Vanilla-Targeting zu starten. Kartenpunkte verwenden weiterhin Vanillas Zielmodus und Abbruchverhalten.
 - Für `Unit` wurde im kanonischen Build noch kein eindeutig validierter gemeinsamer Click-/Unit-Pick-Einstieg nachgewiesen. `SupportsUnitTargeting` ist daher bewusst `false`; Unit-Replacements werden bereits bei der Registrierung abgelehnt und niemals als Kartenpunkt fehlinterpretiert.
 
 ## Implementierte Assemblies und Extraktionsgrenze
@@ -161,6 +165,8 @@ Rizin ausschließlich über den Workspace-Wrapper starten:
     & '.native-analysis\Run-Rizin-With-Ghidra.cmd' -c "pd 240 @ 0x180105510" -c "pdf @ 0x1800CD630" -c "pxw 32 @ 0x1800CD830" -c "q" '<CrusaderDE.dll>'
     & '.native-analysis\Run-Rizin-With-Ghidra.cmd' -q -c 's 0x1800ce240' -c 'pd 20' -c 's 0x1800cdb20' -c 'pd 30' '<CrusaderDE.dll>'
     & '.native-analysis\Run-Rizin-With-Ghidra.cmd' -q -c 's 0x1800cdb20' -c 'p8 32' -c 's 0x1800cdd87' -c 'p8 69' -c 's 0x1800ce25e' -c 'p8 8' '<CrusaderDE.dll>'
+
+Die vollständige Ghidra-Baseline für den kanonischen Hash liegt unter `_inspect/CrusaderDE-Native-Baseline/FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2/`. Relevante reproduzierbare Quellen sind `exports/functions.jsonl`, `exports/xrefs.jsonl` und `exports/decompiled-functions.c`.
 
 Hash und Metadaten:
 

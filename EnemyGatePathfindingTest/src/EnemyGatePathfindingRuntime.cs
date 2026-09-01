@@ -18,7 +18,8 @@ namespace EnemyGatePathfindingTest
         private SamePclBridgeDiagnostics samePclDiagnostics;
         private TileRouteDiagnostics tileRouteDiagnostics;
         private HookTransaction transaction;
-        private HookRef<X64InlineHook> capturedByFilterHook = new HookRef<X64InlineHook>();
+        private HookRef<X64InlineHook> pclGraphCapturedByFilterHook = new HookRef<X64InlineHook>();
+        private HookRef<X64InlineHook> builderPrecheckCapturedByFilterHook = new HookRef<X64InlineHook>();
         private volatile NativeGateAccessSnapshot gateAccess = NativeGateAccessSnapshot.Empty;
         private ulong libraryBase;
         private int mapActive;
@@ -27,6 +28,10 @@ namespace EnemyGatePathfindingTest
         private long alliedCapturedEnemyRecordsAllowed;
         private long foreignCapturedEnemyRecordsRejected;
         private long filterFailOpenRecords;
+        private long pclGraphFilterRecords;
+        private long builderPrecheckFilterRecords;
+        private long pclGraphForeignCapturedRejected;
+        private long builderPrecheckForeignCapturedRejected;
 
         internal EnemyGatePathfindingRuntime(ManualLogSource log)
         {
@@ -43,13 +48,21 @@ namespace EnemyGatePathfindingTest
             if (libraryHandle == IntPtr.Zero)
                 throw new InvalidOperationException("native library handle is null");
 
-            Shared.NativeResolution compareSequenceResolution = Shared.NativePatternResolver.ResolveUnique(
+            Shared.NativeResolution pclGraphCompareResolution = Shared.NativePatternResolver.ResolveUnique(
                 memory,
-                EnemyGatePathfindingNativeDefinition.CapturedByComparePattern,
-                EnemyGatePathfindingNativeDefinition.CapturedByCompareRva -
-                    EnemyGatePathfindingNativeDefinition.CapturedByCompareOffsetInPattern,
+                EnemyGatePathfindingNativeDefinition.PclGraphCapturedByComparePattern,
+                EnemyGatePathfindingNativeDefinition.PclGraphCapturedByCompareRva -
+                    EnemyGatePathfindingNativeDefinition.PclGraphCapturedByCompareOffsetInPattern,
                 referenceHashMatches: true,
-                "hostile-gate captured-player comparison",
+                "PCL-graph hostile-gate captured-player comparison",
+                log);
+            Shared.NativeResolution builderPrecheckCompareResolution = Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                EnemyGatePathfindingNativeDefinition.BuilderPrecheckCapturedByComparePattern,
+                EnemyGatePathfindingNativeDefinition.BuilderPrecheckCapturedByCompareRva -
+                    EnemyGatePathfindingNativeDefinition.BuilderPrecheckCapturedByCompareOffsetInPattern,
+                referenceHashMatches: true,
+                "builder-precheck hostile-gate captured-player comparison",
                 log);
             Shared.NativeResolution cursorResolution = Shared.NativePatternResolver.ResolveUnique(
                 memory,
@@ -67,8 +80,10 @@ namespace EnemyGatePathfindingTest
                 "shared command PCL decision (audit only)",
                 log);
 
-            int compareRva = compareSequenceResolution.Rva +
-                EnemyGatePathfindingNativeDefinition.CapturedByCompareOffsetInPattern;
+            int pclGraphCompareRva = pclGraphCompareResolution.Rva +
+                EnemyGatePathfindingNativeDefinition.PclGraphCapturedByCompareOffsetInPattern;
+            int builderPrecheckCompareRva = builderPrecheckCompareResolution.Rva +
+                EnemyGatePathfindingNativeDefinition.BuilderPrecheckCapturedByCompareOffsetInPattern;
             int cursorXRva = Shared.NativePatternResolver.ResolveRelativeTarget(
                 memory,
                 cursorResolution.Rva + EnemyGatePathfindingNativeDefinition.CursorTargetXDisplacementOffset,
@@ -79,7 +94,9 @@ namespace EnemyGatePathfindingTest
                 cursorResolution.Rva + EnemyGatePathfindingNativeDefinition.CursorTargetYNextInstructionOffset);
             int commandDecisionRva = commandDecisionResolution.Rva +
                 EnemyGatePathfindingNativeDefinition.CommandPclDecisionOffsetInPattern;
-            if (compareRva != EnemyGatePathfindingNativeDefinition.CapturedByCompareRva ||
+            if (pclGraphCompareRva != EnemyGatePathfindingNativeDefinition.PclGraphCapturedByCompareRva ||
+                builderPrecheckCompareRva !=
+                    EnemyGatePathfindingNativeDefinition.BuilderPrecheckCapturedByCompareRva ||
                 cursorResolution.Rva != EnemyGatePathfindingNativeDefinition.CursorTargetSignatureRva ||
                 commandDecisionRva != EnemyGatePathfindingNativeDefinition.CommandPclDecisionRva ||
                 cursorXRva != EnemyGatePathfindingNativeDefinition.CursorTargetXRva ||
@@ -101,16 +118,25 @@ namespace EnemyGatePathfindingTest
                 loggerFactory: null,
                 failureMode: TransactionFailureMode.RollbackAndThrow);
             transaction.AddContextHook(
-                ref capturedByFilterHook,
-                libraryBase + unchecked((ulong)compareRva),
-                FilterUnrelatedCapturedEnemyGate,
+                ref pclGraphCapturedByFilterHook,
+                libraryBase + unchecked((ulong)pclGraphCompareRva),
+                FilterUnrelatedCapturedEnemyGatePclGraph,
                 regs: X64SmartCPUContextRegs.All,
-                hookSize: EnemyGatePathfindingNativeDefinition.CapturedByCompareHookLength,
+                hookSize: EnemyGatePathfindingNativeDefinition.PclGraphCapturedByCompareHookLength,
+                errorMode: CallbackErrorMode.LogAndContinue,
+                placement: OverwrittenInstructionPlacement.BeforeCallback);
+            transaction.AddContextHook(
+                ref builderPrecheckCapturedByFilterHook,
+                libraryBase + unchecked((ulong)builderPrecheckCompareRva),
+                FilterUnrelatedCapturedEnemyGateBuilderPrecheck,
+                regs: X64SmartCPUContextRegs.All,
+                hookSize: EnemyGatePathfindingNativeDefinition.BuilderPrecheckCapturedByCompareHookLength,
                 errorMode: CallbackErrorMode.LogAndContinue,
                 placement: OverwrittenInstructionPlacement.BeforeCallback);
             transaction.Commit();
-            if (!capturedByFilterHook.Success)
-                throw new InvalidOperationException("snapshot-based captured-player filter was not installed");
+            if (!pclGraphCapturedByFilterHook.Success || !builderPrecheckCapturedByFilterHook.Success)
+                throw new InvalidOperationException(
+                    "both snapshot-based captured-player filters were not installed atomically");
 
             bool moveMoatLoaded = Chainloader.PluginInfos.ContainsKey("MoveMoatTest_Serp");
             try
@@ -136,14 +162,19 @@ namespace EnemyGatePathfindingTest
 
             Shared.DebugLogHelper.LogInfo(log,
                 "Crash-safe enemy-gate hooks installed: " +
-                $"capturerFilter=0x{compareRva:X} ({compareSequenceResolution.Method}+0x" +
-                $"{EnemyGatePathfindingNativeDefinition.CapturedByCompareOffsetInPattern:X}), " +
+                $"pclGraphCapturerFilter=0x{pclGraphCompareRva:X} " +
+                $"({pclGraphCompareResolution.Method}+0x" +
+                $"{EnemyGatePathfindingNativeDefinition.PclGraphCapturedByCompareOffsetInPattern:X}), " +
+                $"builderPrecheckCapturerFilter=0x{builderPrecheckCompareRva:X} " +
+                $"({builderPrecheckCompareResolution.Method}+0x" +
+                $"{EnemyGatePathfindingNativeDefinition.BuilderPrecheckCapturedByCompareOffsetInPattern:X}), " +
                 $"cursorTarget=0x{cursorResolution.Rva:X}, commandAudit=0x{commandDecisionRva:X}, " +
                 $"dllSha256={EnemyGatePathfindingNativeDefinition.ReferenceSha256}. " +
                 "The whole PCL detour and every global Direction-Grid write were removed.");
             Shared.DebugLogHelper.LogWarning(log,
-                "Same-PCL AI tile rerouting is disabled fail-open: F4930 dispatches to six " +
-                "native search variants and no common local edge-acceptance hook is fully validated. " +
+                "Same-PCL AI tile rerouting is disabled fail-open: F4930 dispatches to six primary " +
+                "searches plus a conditional DB650 post-search, and no complete local edge filter " +
+                "is validated. 79C0 is distance-only. " +
                 "Cursor reachability remains read-only; no builder/planner hook is installed.");
         }
 
@@ -169,6 +200,10 @@ namespace EnemyGatePathfindingTest
                 return;
             Shared.DebugLogHelper.LogInfo(log,
                 "Enemy-gate map summary: " +
+                $"capturerSites(pclGraph={Read(ref pclGraphFilterRecords)}, " +
+                $"builderPrecheck={Read(ref builderPrecheckFilterRecords)}), " +
+                $"foreignRejectedBySite(pclGraph={Read(ref pclGraphForeignCapturedRejected)}, " +
+                $"builderPrecheck={Read(ref builderPrecheckForeignCapturedRejected)}), " +
                 $"uncapturedExcludedByVanilla={Read(ref uncapturedEnemyRecordsExcludedByVanilla)}, " +
                 $"alliedCapturedAllowed={Read(ref alliedCapturedEnemyRecordsAllowed)}, " +
                 $"foreignCapturedRejected={Read(ref foreignCapturedEnemyRecordsRejected)}, " +
@@ -198,23 +233,51 @@ namespace EnemyGatePathfindingTest
         private void UpdateGateAccess(NativeGateAccessSnapshot updated) =>
             gateAccess = updated ?? NativeGateAccessSnapshot.Empty;
 
-        private void FilterUnrelatedCapturedEnemyGate(NativePointer<X64SmartCPUContext> context)
+        private void FilterUnrelatedCapturedEnemyGatePclGraph(
+            NativePointer<X64SmartCPUContext> context)
+        {
+            // UPDATE REVIEW (CrusaderDE.dll): E2610 keeps query player in R14 here.
+            FilterUnrelatedCapturedEnemyGate(context, false);
+        }
+
+        private void FilterUnrelatedCapturedEnemyGateBuilderPrecheck(
+            NativePointer<X64SmartCPUContext> context)
+        {
+            // UPDATE REVIEW (CrusaderDE.dll): E2F60 keeps query player in RBP here.
+            FilterUnrelatedCapturedEnemyGate(context, true);
+        }
+
+        private void FilterUnrelatedCapturedEnemyGate(
+            NativePointer<X64SmartCPUContext> context,
+            bool builderPrecheck)
         {
             try
             {
+                if (Volatile.Read(ref mapActive) != 0)
+                {
+                    if (builderPrecheck)
+                        Interlocked.Increment(ref builderPrecheckFilterRecords);
+                    else
+                        Interlocked.Increment(ref pclGraphFilterRecords);
+                }
+
                 X64SmartCPUContext* registers = context.Pointer;
                 if (registers == null)
                 {
-                    RecordFilterDecision(CapturedGateFilterDecision.FailOpen, false);
+                    RecordFilterDecision(
+                        CapturedGateFilterDecision.FailOpen, false, builderPrecheck);
                     return;
                 }
 
-                int queryPlayerId = unchecked((int)(uint)registers->R14);
+                int queryPlayerId = builderPrecheck
+                    ? unchecked((int)(uint)registers->RBP)
+                    : unchecked((int)(uint)registers->R14);
                 int buildingId = unchecked((int)(uint)registers->RCX);
                 byte* record = (byte*)registers->R9;
                 if (record == null)
                 {
-                    RecordFilterDecision(CapturedGateFilterDecision.FailOpen, false);
+                    RecordFilterDecision(
+                        CapturedGateFilterDecision.FailOpen, false, builderPrecheck);
                     return;
                 }
 
@@ -225,7 +288,8 @@ namespace EnemyGatePathfindingTest
                 bool vanillaSawUncaptured = (registers->Rflags & ZeroFlagMask) != 0;
                 if (buildingId != recordBuildingId)
                 {
-                    RecordFilterDecision(CapturedGateFilterDecision.FailOpen, vanillaSawUncaptured);
+                    RecordFilterDecision(
+                        CapturedGateFilterDecision.FailOpen, vanillaSawUncaptured, builderPrecheck);
                     return;
                 }
 
@@ -234,21 +298,31 @@ namespace EnemyGatePathfindingTest
                     queryPlayerId, buildingId, ownerPlayerId, vanillaSawUncaptured);
                 if (decision == CapturedGateFilterDecision.ExcludeForeignCapture)
                     registers->Rflags |= ZeroFlagMask;
-                RecordFilterDecision(decision, vanillaSawUncaptured);
+                RecordFilterDecision(decision, vanillaSawUncaptured, builderPrecheck);
             }
             catch
             {
-                RecordFilterDecision(CapturedGateFilterDecision.FailOpen, false);
+                RecordFilterDecision(
+                    CapturedGateFilterDecision.FailOpen, false, builderPrecheck);
                 Interlocked.Increment(ref callbackWarnings);
             }
         }
 
-        private void RecordFilterDecision(CapturedGateFilterDecision decision, bool vanillaUncaptured)
+        private void RecordFilterDecision(
+            CapturedGateFilterDecision decision,
+            bool vanillaUncaptured,
+            bool builderPrecheck)
         {
             if (Volatile.Read(ref mapActive) == 0)
                 return;
             if (decision == CapturedGateFilterDecision.ExcludeForeignCapture)
+            {
                 Interlocked.Increment(ref foreignCapturedEnemyRecordsRejected);
+                if (builderPrecheck)
+                    Interlocked.Increment(ref builderPrecheckForeignCapturedRejected);
+                else
+                    Interlocked.Increment(ref pclGraphForeignCapturedRejected);
+            }
             else if (decision == CapturedGateFilterDecision.FailOpen)
                 Interlocked.Increment(ref filterFailOpenRecords);
             else if (vanillaUncaptured)
@@ -271,6 +345,10 @@ namespace EnemyGatePathfindingTest
             Interlocked.Exchange(ref alliedCapturedEnemyRecordsAllowed, 0);
             Interlocked.Exchange(ref foreignCapturedEnemyRecordsRejected, 0);
             Interlocked.Exchange(ref filterFailOpenRecords, 0);
+            Interlocked.Exchange(ref pclGraphFilterRecords, 0);
+            Interlocked.Exchange(ref builderPrecheckFilterRecords, 0);
+            Interlocked.Exchange(ref pclGraphForeignCapturedRejected, 0);
+            Interlocked.Exchange(ref builderPrecheckForeignCapturedRejected, 0);
             Interlocked.Exchange(ref callbackWarnings, 0);
         }
 

@@ -2,6 +2,7 @@ using SHCDESE.API.Components.Network;
 using SHCDESE.API.Components.ModManager;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Windows.Input;
 
 namespace ExtremePowers.Settings
@@ -24,6 +25,7 @@ namespace ExtremePowers.Settings
             ResetToDefaultCommand = new LocalCommand(Reset);
             UnitTypeOptions = CreateOptions("ExtremePowers.Unit.", SelectableUnitKeys);
             SpriteOptions = CreateOptions("ExtremePowers.Sprite.", SelectableSpriteKeys);
+            ProjectileKindOptions = CreateOptions("ExtremePowers.Projectile.", new[] { "Rock", "Arrow" });
             DemoOwnerOptions = CreateOwnerOptions();
         }
         protected override string ResolveSettingsUiText(string key, string fallback) => SerpLocalization.Get(key);
@@ -34,6 +36,7 @@ namespace ExtremePowers.Settings
         public ICommand ResetToDefaultCommand { get; }
         public IReadOnlyList<string> UnitTypeOptions { get; }
         public IReadOnlyList<string> SpriteOptions { get; }
+        public IReadOnlyList<string> ProjectileKindOptions { get; }
         public IReadOnlyList<string> DemoOwnerOptions { get; }
         public string TitleText => L("ExtremePowers.Title"); public string HelpText => L("ExtremePowers.Help"); public string EnableText => L("Common.EnableMod"); public string ResetText => L("Common.ResetToDefault"); public string EffectsText => L("ExtremePowers.Effects"); public string SpawnEffectsText => L("ExtremePowers.SpawnEffects"); public string GoldEffectText => L("ExtremePowers.GoldEffect"); public string DemoText => L("ExtremePowers.Demo"); public string GenericHelp => L("ExtremePowers.GenericHelp");
         public string RegenerationText => L("ExtremePowers.Regeneration");
@@ -68,6 +71,20 @@ namespace ExtremePowers.Settings
         [SyncHostOnly] public string DemoName { get => demoName; set => Set(ref demoName, value ?? string.Empty, nameof(DemoName)); }
         [SyncHostOnly] public string DemoTooltip { get => demoTooltip; set => Set(ref demoTooltip, value ?? string.Empty, nameof(DemoTooltip)); }
         [SyncHostOnly] public string DemoSprite { get => demoSprite; set { value = value ?? string.Empty; if (!CanMutateSetting(nameof(DemoSprite)) || demoSprite == value) return; demoSprite = value; OnPropertyChanged(nameof(DemoSprite)); OnPropertyChanged(nameof(DemoSpriteIndex)); } }
+        [DoNotPersist] public string RegenerationPercentValueText { get => FormatInt(RegenerationPercent); set => SetIntValueText(value, parsed => RegenerationPercent = parsed, nameof(RegenerationPercentValueText)); }
+        [DoNotPersist] public string ArrowDamageValueText { get => FormatInt(ArrowDamage); set => SetIntValueText(value, parsed => ArrowDamage = parsed, nameof(ArrowDamageValueText)); }
+        [DoNotPersist] public string ArrowRadiusValueText { get => FormatInt(ArrowRadius); set => SetIntValueText(value, parsed => ArrowRadius = parsed, nameof(ArrowRadiusValueText)); }
+        [DoNotPersist] public string HealAmountValueText { get => FormatInt(HealAmount); set => SetIntValueText(value, parsed => HealAmount = parsed, nameof(HealAmountValueText)); }
+        [DoNotPersist] public string HealRadiusValueText { get => FormatInt(HealRadius); set => SetIntValueText(value, parsed => HealRadius = parsed, nameof(HealRadiusValueText)); }
+        [DoNotPersist] public string SpearmenCountValueText { get => FormatInt(SpearmenCount); set => SetIntValueText(value, parsed => SpearmenCount = parsed, nameof(SpearmenCountValueText)); }
+        [DoNotPersist] public string EngineersCountValueText { get => FormatInt(EngineersCount); set => SetIntValueText(value, parsed => EngineersCount = parsed, nameof(EngineersCountValueText)); }
+        [DoNotPersist] public string MacemenCountValueText { get => FormatInt(MacemenCount); set => SetIntValueText(value, parsed => MacemenCount = parsed, nameof(MacemenCountValueText)); }
+        [DoNotPersist] public string GoldMinimumValueText { get => FormatInt(GoldMinimum); set => SetIntValueText(value, parsed => GoldMinimum = parsed, nameof(GoldMinimumValueText)); }
+        [DoNotPersist] public string GoldMaximumValueText { get => FormatInt(GoldMaximum); set => SetIntValueText(value, parsed => GoldMaximum = parsed, nameof(GoldMaximumValueText)); }
+        [DoNotPersist] public string RockDamageValueText { get => FormatInt(RockDamage); set => SetIntValueText(value, parsed => RockDamage = parsed, nameof(RockDamageValueText)); }
+        [DoNotPersist] public string RockRadiusValueText { get => FormatInt(RockRadius); set => SetIntValueText(value, parsed => RockRadius = parsed, nameof(RockRadiusValueText)); }
+        [DoNotPersist] public string KnightsCountValueText { get => FormatInt(KnightsCount); set => SetIntValueText(value, parsed => KnightsCount = parsed, nameof(KnightsCountValueText)); }
+        [DoNotPersist] public string DemoSpawnCountValueText { get => FormatInt(DemoSpawnCount); set => SetIntValueText(value, parsed => DemoSpawnCount = parsed, nameof(DemoSpawnCountValueText)); }
         [DoNotPersist] public int SpearmenTypeIndex { get => IndexOfUnit(SpearmenType); set => SetIndexedUnit(value, v => SpearmenType = v); }
         [DoNotPersist] public int EngineersTypeIndex { get => IndexOfUnit(EngineersType); set => SetIndexedUnit(value, v => EngineersType = v); }
         [DoNotPersist] public int MacemenTypeIndex { get => IndexOfUnit(MacemenType); set => SetIndexedUnit(value, v => MacemenType = v); }
@@ -102,7 +119,42 @@ namespace ExtremePowers.Settings
             if (IndexOfSprite(DemoSprite) < 0) DemoSprite = "extreme power 3";
         }
         public int ResolveDemoOwner(int activatingPlayerId) => DemoUnitType == 44 ? 0 : DemoOwner < 0 ? activatingPlayerId : DemoOwner;
-        private void Set<T>(ref T field, T value, string name) { if (!CanMutateSetting(name) || Equals(field, value)) return; field = value; OnPropertyChanged(name); }
+        private void Set<T>(ref T field, T value, string name)
+        {
+            if (!CanMutateSetting(name) || Equals(field, value)) return;
+            field = value;
+            OnPropertyChanged(name);
+            string valueTextName = GetValueTextPropertyName(name);
+            if (valueTextName != null) OnPropertyChanged(valueTextName);
+        }
+        private static string GetValueTextPropertyName(string propertyName)
+        {
+            switch (propertyName)
+            {
+                case nameof(RegenerationPercent): return nameof(RegenerationPercentValueText);
+                case nameof(ArrowDamage): return nameof(ArrowDamageValueText);
+                case nameof(ArrowRadius): return nameof(ArrowRadiusValueText);
+                case nameof(HealAmount): return nameof(HealAmountValueText);
+                case nameof(HealRadius): return nameof(HealRadiusValueText);
+                case nameof(SpearmenCount): return nameof(SpearmenCountValueText);
+                case nameof(EngineersCount): return nameof(EngineersCountValueText);
+                case nameof(MacemenCount): return nameof(MacemenCountValueText);
+                case nameof(GoldMinimum): return nameof(GoldMinimumValueText);
+                case nameof(GoldMaximum): return nameof(GoldMaximumValueText);
+                case nameof(RockDamage): return nameof(RockDamageValueText);
+                case nameof(RockRadius): return nameof(RockRadiusValueText);
+                case nameof(KnightsCount): return nameof(KnightsCountValueText);
+                case nameof(DemoSpawnCount): return nameof(DemoSpawnCountValueText);
+                default: return null;
+            }
+        }
+        private void SetIntValueText(string text, Action<int> setter, string textPropertyName)
+        {
+            if (Shared.NumericTextInput.TryParseInt(text, out int parsed)) setter(parsed);
+            // Empty, malformed and clamped input returns to the authoritative value after focus leaves the field.
+            OnPropertyChanged(textPropertyName);
+        }
+        private static string FormatInt(int value) => value.ToString(CultureInfo.InvariantCulture);
         private void SetUnitType(ref int field, int value, string propertyName, string indexPropertyName)
         {
             value = NonNegative(value); if (!CanMutateSetting(propertyName) || field == value) return; field = value; OnPropertyChanged(propertyName); OnPropertyChanged(indexPropertyName);

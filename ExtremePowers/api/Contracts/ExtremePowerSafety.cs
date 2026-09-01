@@ -16,8 +16,10 @@ namespace ExtremePowers.API
         {
             compensated = mana;
             if (desiredCost < 0 || vanillaCost < 0) return false;
+            // Native selection/dispatch compare this UInt32 field as a signed Int32.
+            if (mana > int.MaxValue) return false;
             long value = (long)mana + vanillaCost - desiredCost;
-            if (value < 0 || value > uint.MaxValue) return false;
+            if (value < 0 || value > int.MaxValue) return false;
             compensated = (uint)value;
             return true;
         }

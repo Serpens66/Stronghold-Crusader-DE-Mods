@@ -11,58 +11,18 @@ using System;
 using System.Runtime.InteropServices;
 using System.Reflection;
 using InteropMarshal = System.Runtime.InteropServices.Marshal;
+using static ExtremePowers.API.NativeExtremePowersSignatures;
 
 namespace ExtremePowers.API
 {
     internal sealed unsafe class NativeExtremePowersRuntime
     {
-        private const int DispatcherRva = 0xCD630;
-        private const int SelectionRva = 0x105510;
-        private const int HealRva = 0xE1E70;
-        private const int VolleyRva = 0xDD6C0;
-        private const int GoldAdvanceRva = 0x7530;
-        private const int ResourceUpdateRva = 0xCDB20;
-        private const int ResourceRegenerationBlockRva = 0xCDD87;
-        private const int ResourceUpdateCallsiteRva = 0xCE25E;
-        private const int ResourceUpdateTailRva = 0xCDE3C;
-        private const int PendingTargetPowerRva = 0x60AD574;
-        private const int PendingTargetWriterRva = 0x1055C7;
-        private const int PendingTargetReaderRva = 0x8CAF2;
-        private const int PendingTargetChoreWriteRva = 0x8CE0A;
-        private const int SpawnGroupRva = 0x1264D0;
-        private const int SpawnGroupTailRva = 0x12658E;
-        private const int SpawnDispatcherCallRva = 0xCD6CF;
-        private const int UnitManagerRva = 0x7CC6720;
-        private const int TileHeightRva = 0x3AAE2A4;
-        private const int TileRowOffsetRva = 0x402FF2C;
-        private const int UnitStride = 0x688;
-        private const int ExtremeSpawnStateOffset = 0x634;
-        private const int ManaRva = 0x379E7A4;
-        private const int GoldRva = 0x379E7A8;
-        private const int GoldCycleRva = 0x856A6D2;
-        private const int PlayerStride = 0x583C;
-        private static readonly byte[] DispatcherSignature = { 0x48,0x89,0x5C,0x24,0x10,0x48,0x89,0x6C,0x24,0x18,0x48,0x89,0x74,0x24,0x20,0x57,0x48,0x83,0xEC,0x40 };
-        // Complete 14-byte entry span: push, stack allocation, RIP-relative load, and mov ebx/ecx.
-        private static readonly byte[] SelectionSignature = { 0x40,0x53,0x48,0x83,0xEC,0x20,0x8B,0x05,0x74,0xF6,0x46,0x08,0x8B,0xD9 };
-        private static readonly byte[] HealSignature = { 0x48,0x89,0x5C,0x24,0x08,0x48,0x89,0x6C,0x24,0x10,0x48,0x89,0x74,0x24,0x18,0x48 };
-        private static readonly byte[] VolleySignature = { 0x44,0x89,0x4C,0x24,0x20,0x44,0x89,0x44,0x24,0x18,0x48,0x89,0x4C,0x24,0x08,0x53 };
-        private static readonly byte[] GoldAdvanceSignature = { 0x4C,0x63,0x81,0x48,0x9C,0x00,0x00,0x33,0xC0,0x42,0x0F,0xB7,0x54,0x41,0x08,0x41 };
-        private static readonly byte[] ResourceUpdateSignature = { 0x48,0x89,0x5C,0x24,0x08,0x48,0x89,0x6C,0x24,0x10,0x48,0x89,0x74,0x24,0x18,0x57,0x41,0x54,0x41,0x55,0x41,0x56,0x41,0x57,0x4C,0x8B,0xD1 };
-        private static readonly byte[] ResourceRegenerationBlockSignature = { 0x45,0x8B,0x88,0x50,0x39,0x00,0x00,0x41,0x81,0xF9,0x58,0x1B,0x00,0x00,0x7D,0x35,0x81,0x3D,0x93,0xB0,0x59,0x03,0xB8,0x0B,0x00,0x00,0x7F,0x1E,0x8B,0x0D,0xAF,0x81,0x59,0x03,0xB8,0x56,0x55,0x55,0x55,0xF7,0xE9,0x8B,0xC2,0xC1,0xE8,0x1F,0x03,0xD0,0x8D,0x04,0x52,0x2B,0xC8,0x83,0xF9,0x02,0x75,0x0B,0x41,0x8D,0x41,0x01,0x41,0x89,0x80,0x50,0x39,0x00,0x00 };
-        private static readonly byte[] ResourceUpdateCallsiteSignature = { 0x48,0x8B,0xCB,0xE8,0xBA,0xF8,0xFF,0xFF };
-        private static readonly byte[] ResourceUpdateTailSignature = { 0x48,0x8B,0x6C,0x24,0x38,0x48,0x8B,0x74,0x24,0x40,0x41,0x5F,0x41,0x5E,0x41,0x5D,0x41,0x5C,0x5F,0xE9,0x7C,0xDB,0xFF,0xFF };
-        private static readonly byte[] PendingTargetWriterSignature = { 0x89,0x1D,0xA7,0x7F,0xFA,0x05,0xFF,0xCB,0xC7,0x05,0x93,0x7F,0xFA,0x05,0x05,0x00,0x00,0x00 };
-        private static readonly byte[] PendingTargetReaderSignature = { 0x8B,0x3D,0x7C,0x0A,0x02,0x06,0x4C,0x8D,0x15,0xB1,0x22,0xFD,0x03 };
-        private static readonly byte[] PendingTargetChoreWriteSignature = { 0xB2,0x77,0x89,0x3D,0x1A,0x45,0x63,0x08,0x48,0x8D,0x0D,0x07,0x75,0x4E,0x08,0x44,0x89,0x25,0x10,0x45,0x63,0x08,0x44,0x89,0x3D,0x0D,0x45,0x63,0x08 };
-        private static readonly byte[] SpawnGroupSignature = { 0x48,0x89,0x5C,0x24,0x08,0x48,0x89,0x74,0x24,0x10,0x48,0x89,0x7C,0x24,0x18,0x4C,0x89,0x74,0x24,0x20,0x41,0x57,0x48,0x83,0xEC,0x40 };
-        private static readonly byte[] SpawnGroupTailSignature = { 0x48,0x8B,0x5C,0x24,0x50,0x48,0x8B,0x74,0x24,0x58,0x48,0x8B,0x7C,0x24,0x60,0x4C,0x8B,0x74,0x24,0x68,0x48,0x83,0xC4,0x40,0x41,0x5F,0xC3 };
-        private static readonly byte[] SpawnDispatcherCallSignature = { 0x4E,0x0F,0xBF,0x8C,0x5D,0xA4,0xE2,0xAA,0x03,0x4C,0x8D,0x35,0x41,0x90,0xBF,0x07,0x89,0x54,0x24,0x30,0xBA,0x01,0x00,0x00,0x00,0x44,0x89,0x54,0x24,0x28,0x89,0x5C,0x24,0x20,0x4B,0x8D,0x0C,0x49,0x44,0x2B,0x9C,0x8D,0x2C,0xFF,0x02,0x04,0x49,0x8B,0xCE,0x45,0x8B,0xC3,0xE8,0xC8,0x8D,0x05,0x00 };
-
         [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate void DispatcherDelegate(IntPtr self, int playerId, int powerId, int targetTileId);
         [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate void SelectionDelegate(int powerId);
         [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate void HealDelegate(IntPtr manager, int targetTileId, int radius, int playerId, int amount);
         [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate void VolleyDelegate(IntPtr manager, int targetTileId, int radiusOrMode, int playerId, int strength, bool arrowMode);
         [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate void GoldAdvanceDelegate(IntPtr cycleState);
+        [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate void AudioDelegate(IntPtr audioManager, int soundId);
         [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate void ResourceUpdateDelegate(IntPtr self);
         [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate int SpawnGroupDelegate(IntPtr manager, int mode, int adjustedTileId, int elevation, int playerId, int unitType, int count);
         private delegate void SetGameStateDelegate(GameData self, EngineInterface.PlayState state);
@@ -83,6 +43,7 @@ namespace ExtremePowers.API
         private readonly HealDelegate heal;
         private readonly VolleyDelegate volley;
         private readonly GoldAdvanceDelegate advanceGoldCycle;
+        private readonly AudioDelegate playAudio;
         private readonly SpawnGroupDelegate spawnGroup;
         private readonly IDisposable mapUnloadSubscription;
         private Hook hudHook;
@@ -103,25 +64,12 @@ namespace ExtremePowers.API
         {
             this.owner = owner ?? throw new ArgumentNullException(nameof(owner));
             if (libraryHandle == IntPtr.Zero) throw new ArgumentException("The native library handle is missing.", nameof(libraryHandle));
-            RequireSignature(memory, DispatcherRva, DispatcherSignature, "dispatcher");
-            RequireSignature(memory, SelectionRva, SelectionSignature, "selection");
-            RequireSignature(memory, HealRva, HealSignature, "heal effect");
-            RequireSignature(memory, VolleyRva, VolleySignature, "volley effect");
-            RequireSignature(memory, GoldAdvanceRva, GoldAdvanceSignature, "gold cycle");
-            RequireSignature(memory, ResourceUpdateRva, ResourceUpdateSignature, "resource update");
-            RequireSignature(memory, ResourceRegenerationBlockRva, ResourceRegenerationBlockSignature, "resource regeneration block");
-            RequireSignature(memory, ResourceUpdateCallsiteRva, ResourceUpdateCallsiteSignature, "resource update callsite");
-            RequireSignature(memory, ResourceUpdateTailRva, ResourceUpdateTailSignature, "resource update function tail");
-            RequireSignature(memory, PendingTargetWriterRva, PendingTargetWriterSignature, "pending target power writer and target mode");
-            RequireSignature(memory, PendingTargetReaderRva, PendingTargetReaderSignature, "pending target power reader");
-            RequireSignature(memory, PendingTargetChoreWriteRva, PendingTargetChoreWriteSignature, "pending target chore transfer");
-            RequireSignature(memory, SpawnGroupRva, SpawnGroupSignature, "unit group spawn");
-            RequireSignature(memory, SpawnGroupTailRva, SpawnGroupTailSignature, "unit group spawn function tail");
-            RequireSignature(memory, SpawnDispatcherCallRva, SpawnDispatcherCallSignature, "dispatcher unit group spawn arguments");
+            if (!NativeExtremePowersSignatures.MatchesMappedImage(memory, out string signatureError)) throw new InvalidOperationException(signatureError);
             moduleBase = unchecked((ulong)libraryHandle.ToInt64());
             heal = InteropMarshal.GetDelegateForFunctionPointer<HealDelegate>((IntPtr)(moduleBase + HealRva));
             volley = InteropMarshal.GetDelegateForFunctionPointer<VolleyDelegate>((IntPtr)(moduleBase + VolleyRva));
             advanceGoldCycle = InteropMarshal.GetDelegateForFunctionPointer<GoldAdvanceDelegate>((IntPtr)(moduleBase + GoldAdvanceRva));
+            playAudio = InteropMarshal.GetDelegateForFunctionPointer<AudioDelegate>((IntPtr)(moduleBase + AudioRva));
             spawnGroup = InteropMarshal.GetDelegateForFunctionPointer<SpawnGroupDelegate>((IntPtr)(moduleBase + SpawnGroupRva));
             rootedDispatcher = Dispatch;
             rootedSelection = Select;
@@ -228,16 +176,24 @@ namespace ExtremePowers.API
             if ((uint)powerId > 7) { originalSelection(powerId); return; }
             ExtremePowersTuning tuning = owner.Snapshot();
             int selectedForVanilla = powerId;
-            if (powerId == (int)ExtremePowerId.Gold && owner.TryGetReplacement(ExtremePowerId.Gold, out ExtremePowerReplacement replacement) && replacement.TargetKind == ExtremePowerTargetKind.MapPoint)
+            owner.TryGetReplacement((ExtremePowerId)powerId, out ExtremePowerReplacement replacement);
+            if (powerId == (int)ExtremePowerId.Gold && replacement != null && replacement.TargetKind == ExtremePowerTargetKind.MapPoint)
                 selectedForVanilla = (int)ExtremePowerId.ArrowVolley;
 
-            int player = *(int*)(moduleBase + 0x88E3D70);
+            int player = *(int*)(moduleBase + LocalPlayerRva);
             if (!GamePlayerManagerAPI.Instance.IsPlayerIdValid(player)) { originalSelection(powerId); return; }
             uint* mana = PlayerMana(player);
             uint before = *mana;
             int desiredCost = tuning.Costs[powerId];
-            int vanillaSelectionCost = (selectedForVanilla + 1) * 636;
+            if (before > int.MaxValue) { owner.Log("Selection Vanilla fallback power=" + powerId + " player=" + player + ": mana exceeds the native signed range."); originalSelection(powerId); return; }
             if (before < desiredCost) return;
+            if (ShouldQueueReplacementImmediately(replacement))
+            {
+                if (!owner.QueueReplacement((ExtremePowerId)powerId, player, ExtremePowerTarget.None, out string rejection))
+                    owner.Log("Immediate replacement selection rejected power=" + powerId + " player=" + player + ": " + rejection);
+                return;
+            }
+            int vanillaSelectionCost = (selectedForVanilla + 1) * 636;
             if (!ExtremePowerSafety.TryCompensateMana(before, desiredCost, vanillaSelectionCost, out uint compensated)) { owner.Log("Selection Vanilla fallback power=" + powerId + " player=" + player + ": mana compensation overflow."); originalSelection(powerId); return; }
             *mana = compensated;
             try { originalSelection(selectedForVanilla); }
@@ -255,6 +211,7 @@ namespace ExtremePowers.API
             ExtremePowersTuning tuning = owner.Snapshot();
             uint* mana = PlayerMana(playerId);
             int cost = tuning.Costs[powerId];
+            if (*mana > int.MaxValue) { owner.Log("Dispatcher Vanilla fallback power=" + powerId + " player=" + playerId + ": mana exceeds the native signed range."); originalDispatcher(self, playerId, powerId, targetTileId); return; }
             if (*mana < cost) { owner.Log("Rejected power=" + powerId + " player=" + playerId + " mana=" + *mana + " cost=" + cost + "."); return; }
 
             ExtremePowerId power = (ExtremePowerId)powerId;
@@ -327,14 +284,14 @@ namespace ExtremePowers.API
             {
                 case ExtremePowerId.ArrowVolley:
                     if (Same(tuning.ArrowVolley, owner.Vanilla.ArrowVolley)) return false;
-                    volley((IntPtr)(moduleBase + 0x60AD660), tile, tuning.ArrowVolley.Radius, playerId, tuning.ArrowVolley.Damage, tuning.ArrowVolley.ProjectileMode != 0); return true;
+                    volley((IntPtr)(moduleBase + EffectManagerRva), tile, tuning.ArrowVolley.Radius, playerId, tuning.ArrowVolley.Damage, tuning.ArrowVolley.ProjectileKind == ExtremePowerProjectileKind.Arrow); return true;
                 case ExtremePowerId.Heal:
                     if (tuning.Heal.Amount == owner.Vanilla.Heal.Amount && tuning.Heal.Radius == owner.Vanilla.Heal.Radius) return false;
-                    heal((IntPtr)(moduleBase + 0x60AD660), tile, tuning.Heal.Radius, playerId, tuning.Heal.Amount); return true;
-                case ExtremePowerId.Spearmen: return SpawnIfChanged(tuning.Spearmen, owner.Vanilla.Spearmen, playerId, tile);
-                case ExtremePowerId.Engineers: return SpawnIfChanged(tuning.Engineers, owner.Vanilla.Engineers, playerId, tile);
-                case ExtremePowerId.Macemen: return SpawnIfChanged(tuning.Macemen, owner.Vanilla.Macemen, playerId, tile);
-                case ExtremePowerId.Knights: return SpawnIfChanged(tuning.Knights, owner.Vanilla.Knights, playerId, tile);
+                    heal((IntPtr)(moduleBase + EffectManagerRva), tile, tuning.Heal.Radius, playerId, tuning.Heal.Amount); PlayLocalCompletionAudio(playerId, ExtremePowerId.Heal); return true;
+                case ExtremePowerId.Spearmen: return SpawnIfChanged(tuning.Spearmen, owner.Vanilla.Spearmen, playerId, tile, power);
+                case ExtremePowerId.Engineers: return SpawnIfChanged(tuning.Engineers, owner.Vanilla.Engineers, playerId, tile, power);
+                case ExtremePowerId.Macemen: return SpawnIfChanged(tuning.Macemen, owner.Vanilla.Macemen, playerId, tile, power);
+                case ExtremePowerId.Knights: return SpawnIfChanged(tuning.Knights, owner.Vanilla.Knights, playerId, tile, power);
                 case ExtremePowerId.Gold:
                     if (tuning.Gold.Minimum == 1000 && tuning.Gold.Maximum == 2499) return false;
                     int cycle = *(short*)(moduleBase + GoldCycleRva);
@@ -344,16 +301,17 @@ namespace ExtremePowers.API
                     advanceGoldCycle((IntPtr)(moduleBase + GoldCycleRva - 2)); return true;
                 case ExtremePowerId.RockVolley:
                     if (Same(tuning.RockVolley, owner.Vanilla.RockVolley)) return false;
-                    volley((IntPtr)(moduleBase + 0x60AD660), tile, tuning.RockVolley.Radius, playerId, tuning.RockVolley.Damage, tuning.RockVolley.ProjectileMode != 0); return true;
+                    volley((IntPtr)(moduleBase + EffectManagerRva), tile, tuning.RockVolley.Radius, playerId, tuning.RockVolley.Damage, tuning.RockVolley.ProjectileKind == ExtremePowerProjectileKind.Arrow); PlayLocalCompletionAudio(playerId, ExtremePowerId.RockVolley); return true;
                 default: return false;
             }
         }
 
-        private bool SpawnIfChanged(SpawnConfiguration value, SpawnConfiguration vanilla, int playerId, int tile)
+        private bool SpawnIfChanged(SpawnConfiguration value, SpawnConfiguration vanilla, int playerId, int tile, ExtremePowerId power)
         {
             if (value.UnitType == vanilla.UnitType && value.Count == vanilla.Count) return false;
             ExtremePowerSpawnResult result = SpawnUnitGroup(playerId, tile, value.UnitType, value.Count);
             owner.Log("Spawn power player=" + playerId + " unitType=" + value.UnitType + " requested=" + value.Count + " spawned=" + result.SpawnedUnitCount + " groupId=" + result.GroupUnitId + ".");
+            PlayLocalCompletionAudio(playerId, power);
             return true;
         }
 
@@ -367,23 +325,36 @@ namespace ExtremePowers.API
             if (!ExtremePowerSafety.IsSpawnableUnitType(unitType) || !Enum.IsDefined(typeof(eChimps), (ushort)unitType)) throw new ArgumentOutOfRangeException(nameof(unitType));
             if (count == 0) return new ExtremePowerSpawnResult(ownerPlayerId, 0, 0, 0);
 
-            int before = CountLivingUnitsOfType((eChimps)unitType);
             short elevation = *(short*)(moduleBase + TileHeightRva + (ulong)(tile * sizeof(short)));
             int rowOffset = *(int*)(moduleBase + TileRowOffsetRva + (ulong)(elevation * 3 * sizeof(int)));
             int adjustedTile = tile - rowOffset;
             int groupId = spawnGroup((IntPtr)(moduleBase + UnitManagerRva), 1, adjustedTile, elevation, ownerPlayerId, unitType, count);
             if (groupId > 0) *(ushort*)(moduleBase + UnitManagerRva + (ulong)(groupId * UnitStride + ExtremeSpawnStateOffset)) = 2;
-            int after = CountLivingUnitsOfType((eChimps)unitType);
-            return new ExtremePowerSpawnResult(ownerPlayerId, groupId, count, Math.Max(0, after - before));
+            ulong groupAddress = moduleBase + UnitManagerRva + (ulong)(groupId * UnitStride);
+            int actualCount = groupId > 0 ? ReadGroupMemberCount(new ReadOnlySpan<byte>((void*)groupAddress, GroupMemberCountOffset + sizeof(ushort))) : 0;
+            return new ExtremePowerSpawnResult(ownerPlayerId, groupId, count, actualCount);
         }
 
-        private static int CountLivingUnitsOfType(eChimps unitType)
+        internal static int ReadGroupMemberCount(ReadOnlySpan<byte> groupRecord)
         {
-            Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
-            int count = 0;
-            for (int index = 0; index < units.Length; index++)
-                if (units[index].r_AliveState == AliveState.IsAlive && units[index].r_UnitChimp == unitType) count++;
-            return count;
+            if (groupRecord.Length < GroupMemberCountOffset + sizeof(ushort)) throw new ArgumentException("The native group record is truncated.", nameof(groupRecord));
+            return groupRecord[GroupMemberCountOffset] | (groupRecord[GroupMemberCountOffset + 1] << 8);
+        }
+
+        internal static int GetTunedEffectAudioId(ExtremePowerId power)
+        {
+            if (power == ExtremePowerId.Heal) return 0xCF;
+            if (power == ExtremePowerId.Spearmen || power == ExtremePowerId.Engineers || power == ExtremePowerId.Macemen || power == ExtremePowerId.Knights) return 0x104;
+            return power == ExtremePowerId.RockVolley ? 0x105 : 0;
+        }
+
+        internal static bool ShouldQueueReplacementImmediately(ExtremePowerReplacement replacement) => replacement != null && replacement.TargetKind == ExtremePowerTargetKind.None;
+        internal static bool ShouldPlayTunedEffectAudio(ExtremePowerId power, int effectPlayerId, int localPlayerId) => effectPlayerId == localPlayerId && GetTunedEffectAudioId(power) != 0;
+
+        private void PlayLocalCompletionAudio(int playerId, ExtremePowerId power)
+        {
+            int soundId = GetTunedEffectAudioId(power);
+            if (ShouldPlayTunedEffectAudio(power, playerId, *(int*)(moduleBase + LocalPlayerRva))) playAudio((IntPtr)(moduleBase + AudioManagerRva), soundId);
         }
 
         private uint* PlayerMana(int playerId) => (uint*)(moduleBase + ManaRva + (ulong)(playerId * PlayerStride));
@@ -406,12 +377,7 @@ namespace ExtremePowers.API
             for (int index = 0; index < values.Length; index++) values[index] = new RegenerationAccumulator();
             return values;
         }
-        private static bool Same(VolleyConfiguration a, VolleyConfiguration b) => a.Damage == b.Damage && a.Radius == b.Radius && a.ProjectileMode == b.ProjectileMode;
+        private static bool Same(VolleyConfiguration a, VolleyConfiguration b) => a.Damage == b.Damage && a.Radius == b.Radius && a.ProjectileKind == b.ProjectileKind;
         private static long PositiveModulo(long value, long divisor) { long result = value % divisor; return result < 0 ? result + divisor : result; }
-        private static void RequireSignature(ReadOnlySpan<byte> memory, int rva, byte[] expected, string name)
-        {
-            if (rva < 0 || rva + expected.Length > memory.Length) throw new InvalidOperationException(name + " RVA is outside the mapped library image.");
-            for (int i = 0; i < expected.Length; i++) if (memory[rva + i] != expected[i]) throw new InvalidOperationException(name + " signature mismatch at RVA 0x" + rva.ToString("X") + ".");
-        }
     }
 }

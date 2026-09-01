@@ -414,21 +414,49 @@ Editorergebnis beweist die fachliche Tile-Policy, nicht die Threadsicherheit des
 Die fortgesetzte blockweise Analyse der gespeicherten Referenz-DLL zeigt, dass `0xF4930` je nach
 Modus an sechs unterschiedliche Suchroutinen delegiert:
 
+- `0xF32B0`
 - `0xF3060`
-- `0x79C0`
 - `0xDA590`
 - `0xDAAC0`
 - `0xD9C40`
 - `0xDAFD0`
 
-Für diese sechs Varianten ist noch keine gemeinsame lokale Nachbar- oder Kantenannahme vollständig
-belegt. Die bekannten direkten Zugriffe auf das Richtungsgrid umfassen außerdem Vanilla-Schreiber
-und sind daher keine sichere Filtergrenze. Ein nur teilweise abdeckender Hook würde abhängig vom
-Suchmodus falsche Sicherheit erzeugen. Gemäß der festgelegten Fail-open-Regel bleibt der Tile-Fix
-deshalb deaktiviert, bis Registerbelegung, Hookspanne, interne Sprünge und sämtliche sechs Varianten
+`0x79C0` ist keine Suche, sondern berechnet nur absolute X-/Y-Abstände und eine Distanzsumme für
+Suchbudgets. Zusätzlich kann `0xF4930` nach einer erfolgreichen Primärsuche den Floodfill `0xDB650`
+ausführen; `0xE1640` rekonstruiert anschließend die Route. Für diese vollständige Kette ist noch
+keine gemeinsame lokale Nachbar- oder Kantenannahme vollständig belegt. Die bekannten direkten
+Zugriffe auf das Richtungsgrid umfassen außerdem Vanilla-Schreiber und sind daher keine sichere
+Filtergrenze. Ein nur teilweise abdeckender Hook würde abhängig vom Suchmodus falsche Sicherheit
+erzeugen. Gemäß der festgelegten Fail-open-Regel bleibt der Tile-Fix deshalb deaktiviert, bis
+Registerbelegung, Hookspanne, interne Sprünge, alle sechs Primärsuchen und der bedingte Nachlauf
 gegen den festgelegten DLL-Hash eindeutig validiert sind. Das globale Overlay wird nicht als
 Fallback zurückgebracht.
 
 Die maßgebliche Laufzeitmeldung lautet nun `builderFix=disabled-unvalidated-local-edge-coverage`
 und bestätigt zugleich `directionGridWrites=0`. Cursorzahlen erscheinen weiterhin höchstens alle
 zehn Sekunden; Builder- und PCL-Hot-Path-Ringpuffer existieren in diesem Build nicht mehr.
+
+## Ergänzende Native-Baseline-Auswertung vom 1. September 2026
+
+Die allgemeine Analyse unter `_inspect\CrusaderDE-Native-Baseline` verwendet dieselbe kanonische
+DLL mit SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+Ihre vollständige Ghidra-Dekompilierung und XRef-Inventur ergänzt die projektspezifische Analyse:
+
+- `0xE2610` besitzt weiterhin genau 84 direkte CALL-Sites. Der bisherige Caller-Audit stimmt.
+- Der Capturer-Vergleich bei `0xE2710` ist nicht die einzige Vanilla-Stelle. `0xE2F60`, das
+  `0xF4930` bei unterschiedlichen Start-/Ziel-PCLs direkt verwendet, wiederholt dieselbe Regel bei
+  `0xE302F`: Ein beliebiger Wert `r_CapturedByPlayerId != 0` lässt einen feindlichen Gate-Record zu.
+- Bei `0xE302F` wurde `EAX` zuvor bei `0xE2F9A` auf null gesetzt. Die Instruktion vergleicht das
+  Capturer-Wort deshalb effektiv ebenfalls mit null. Spieler, Gebäude-ID und Gate-Record liegen
+  dort in `RBP`, `RCX` und `R9`; bei `0xE2710` liegt der Spieler dagegen in `R14`.
+- `0xB73D0` schreibt tatsächlich eine Spieler-ID nach `r_CapturedByPlayerId` und setzt das Feld bei
+  Rückgabe an den Besitzer wieder auf null. Das Feld darf nicht als bloßer Boolean behandelt werden.
+- Die sechs primären Direction-Grid-Ladestellen liegen bei `0xF33F5`, `0xF31A8`, `0xD9EA6`,
+  `0xDA783`, `0xDACB2` und `0xDB242`. Der entrollte `0xDB650`-Nachlauf prüft das Grid zusätzlich bei
+  `0xDB860`, `0xDB950`, `0xDBA3F` und `0xDBB2F`; `0xE1640` liest es bei `0xE1777`.
+
+Der crashsichere Different-PCL-Filter deckt deshalb nun beide Capturer-Vergleiche atomar ab. Beide
+Callbacks lesen ausschließlich denselben unveränderlichen Gate-/Allianzsnapshot und verändern nur
+das Zero Flag für eine nicht verbündete Fremderoberung. Der zweite Hook führt weder Game-API-Aufrufe
+noch Direction-Grid-Schreibzugriffe ein. Die Same-PCL-Korrektur für KI und cursorlose Befehle bleibt
+weiterhin ausdrücklich deaktiviert, bis eine vollständige lokale Kantenfilterung sicher validiert ist.

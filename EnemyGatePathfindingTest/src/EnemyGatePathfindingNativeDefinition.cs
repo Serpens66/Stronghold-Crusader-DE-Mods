@@ -43,15 +43,19 @@ namespace EnemyGatePathfindingTest
         public const string MainPathBuilderPattern =
             "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 48 83 EC 40 " +
             "48 63 41 0C 48 8B D9 41 8B F0 44 8B D2";
-        // UPDATE REVIEW (CrusaderDE.dll): F4930 dispatches among all six searches.
-        // No common local neighbor/edge acceptance boundary has yet been proven across
-        // them, therefore none is hooked and no global grid overlay is permitted.
+        // UPDATE REVIEW (CrusaderDE.dll): F4930 dispatches among these six primary
+        // searches. 79C0 is only the distance helper used to size search budgets.
+        // DB650 is a conditional post-search flood and E1640 reconstructs the route.
+        // None is hooked and no global grid overlay is permitted.
+        public const int BuilderSearchVariantF32B0Rva = 0xF32B0;
         public const int BuilderSearchVariantF3060Rva = 0xF3060;
-        public const int BuilderSearchVariant79C0Rva = 0x79C0;
         public const int BuilderSearchVariantDA590Rva = 0xDA590;
         public const int BuilderSearchVariantDAAC0Rva = 0xDAAC0;
         public const int BuilderSearchVariantD9C40Rva = 0xD9C40;
         public const int BuilderSearchVariantDAFD0Rva = 0xDAFD0;
+        public const int BuilderConditionalPostSearchDB650Rva = 0xDB650;
+        public const int BuilderRouteReconstructionE1640Rva = 0xE1640;
+        public const int BuilderDistanceHelper79C0Rva = 0x79C0;
         // E32B0 is reconstruction-only. It remains documented for update audits but is
         // deliberately not hooked by the functional fix.
         public const int AlternatePathBuilderRva = 0xE32B0;
@@ -75,6 +79,19 @@ namespace EnemyGatePathfindingTest
         // UPDATE REVIEW (CrusaderDE.dll): one byte per native tile, one bit per one of
         // the eight audited neighbor directions. Vanilla maintains opposite edge bits.
         public const int PathDirectionGridRva = 0x51890D0;
+        // UPDATE REVIEW (CrusaderDE.dll): audited read sites from the exact-hash native
+        // baseline. These are documentation for a future local filter, not hook sites.
+        public const int DirectionReadF32B0Rva = 0xF33F5;
+        public const int DirectionReadF3060Rva = 0xF31A8;
+        public const int DirectionReadD9C40Rva = 0xD9EA6;
+        public const int DirectionReadDA590Rva = 0xDA783;
+        public const int DirectionReadDAAC0Rva = 0xDACB2;
+        public const int DirectionReadDAFD0Rva = 0xDB242;
+        public const int DirectionTestDB650FirstRva = 0xDB860;
+        public const int DirectionTestDB650SecondRva = 0xDB950;
+        public const int DirectionTestDB650ThirdRva = 0xDBA3F;
+        public const int DirectionTestDB650FourthRva = 0xDBB2F;
+        public const int DirectionReadE1640Rva = 0xE1777;
 
         // UPDATE REVIEW (CrusaderDE.dll): a second shared order path accepts positive
         // PCL results here before E9D90/E9FF0. The span contains an internal branch and
@@ -97,13 +114,19 @@ namespace EnemyGatePathfindingTest
         public const int MaximumTileIdExclusive = 320800;
         public const int MapGridWidth = 800;
 
-        // This CMP is reached only for a hostile owner. Vanilla accepts every non-zero
-        // r_CapturedByPlayerId; the callback changes ZF only for an unrelated capturer.
-        public const int CapturedByCompareRva = 0xE2710;
-        public const int CapturedByCompareHookLength = 9;
-        public const string CapturedByComparePattern =
+        // UPDATE REVIEW (CrusaderDE.dll): both CMPs are reached only for a hostile
+        // owner. Vanilla accepts every non-zero r_CapturedByPlayerId. The callbacks
+        // change ZF only for an unrelated capturer and use different player registers.
+        public const int PclGraphCapturedByCompareRva = 0xE2710;
+        public const int PclGraphCapturedByCompareHookLength = 9;
+        public const string PclGraphCapturedByComparePattern =
             "49 63 49 F4 48 69 D1 2C 03 00 00 66 83 BC 02 D2 CE 4C 06 00 74 11";
-        public const int CapturedByCompareOffsetInPattern = 11;
+        public const int PclGraphCapturedByCompareOffsetInPattern = 11;
+        public const int BuilderPrecheckCapturedByCompareRva = 0xE302F;
+        public const int BuilderPrecheckCapturedByCompareHookLength = 9;
+        public const string BuilderPrecheckCapturedByComparePattern =
+            "49 63 49 F4 48 69 D1 2C 03 00 00 66 42 39 84 2A D2 CE 4C 06 74 0D";
+        public const int BuilderPrecheckCapturedByCompareOffsetInPattern = 11;
 
         // UPDATE REVIEW (CrusaderDE.dll): these offsets are relative to native R9 at
         // the compare callback. The third PCL is the drawbridge-capable connection.
