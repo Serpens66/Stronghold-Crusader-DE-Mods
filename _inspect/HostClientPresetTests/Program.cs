@@ -1928,42 +1928,43 @@ internal static class Program
             "Assassin combat resume accepted an invalid native unit index");
 
         Check(
-            AssassinCombatResumePolicy.IsKnownAssassinCombatReturnRva(
-                AssassinCombatResumeNativeDefinition.AssassinCombatResumeReturn1Rva) &&
-            AssassinCombatResumePolicy.IsKnownAssassinCombatReturnRva(
-                AssassinCombatResumeNativeDefinition.AssassinCombatResumeReturn2Rva) &&
-            !AssassinCombatResumePolicy.IsKnownAssassinCombatReturnRva(
-                AssassinCombatResumeNativeDefinition.AssassinCombatResumeReturn1Rva - 1) &&
-            !AssassinCombatResumePolicy.IsKnownAssassinCombatReturnRva(0x122B14),
-            "Assassin combat resume did not restrict itself to both audited state-107 return addresses");
+            AssassinCombatResumePolicy.IsConfirmedCombatFinishCallerRva(
+                AssassinCombatResumeNativeDefinition.CombatFinishResumeReturnRva) &&
+            !AssassinCombatResumePolicy.IsConfirmedCombatFinishCallerRva(
+                AssassinCombatResumeNativeDefinition.CombatFinishResumeReturnRva - 1),
+            "Assassin combat resume did not restrict itself to the audited state-106 helper return address");
 
-        Check(AssassinCombatResumePolicy.ShouldForceFullRepath(
+        Check(AssassinCombatResumePolicy.IsEligiblePostCombatPathRequest(
                 true, true, true, true, true,
                 AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN),
-            "enabled Assassin combat resume did not force a full weighted repath");
-        Check(!AssassinCombatResumePolicy.ShouldForceFullRepath(
+            "enabled Assassin combat resume did not accept the confirmed weighted repath request");
+        Check(!AssassinCombatResumePolicy.IsEligiblePostCombatPathRequest(
                 false, true, true, true, true,
                 AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN) &&
-              !AssassinCombatResumePolicy.ShouldForceFullRepath(
+              !AssassinCombatResumePolicy.IsEligiblePostCombatPathRequest(
                 true, false, true, true, true,
                 AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN) &&
-              !AssassinCombatResumePolicy.ShouldForceFullRepath(
+              !AssassinCombatResumePolicy.IsEligiblePostCombatPathRequest(
                 true, true, false, true, true,
                 AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN) &&
-              !AssassinCombatResumePolicy.ShouldForceFullRepath(
+              !AssassinCombatResumePolicy.IsEligiblePostCombatPathRequest(
                 true, true, true, false, true,
                 AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN) &&
-              !AssassinCombatResumePolicy.ShouldForceFullRepath(
+              !AssassinCombatResumePolicy.IsEligiblePostCombatPathRequest(
                 true, true, true, true, false,
                 AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN),
             "Assassin combat resume did not fail closed outside the installed enabled callsite");
-        Check(!AssassinCombatResumePolicy.ShouldForceFullRepath(
+        Check(!AssassinCombatResumePolicy.IsEligiblePostCombatPathRequest(
                 true, true, true, true, true,
                 AliveState.MarkedForDeletion, eChimps.CHIMP_TYPE_ARAB_ASSASIN) &&
-              !AssassinCombatResumePolicy.ShouldForceFullRepath(
+              !AssassinCombatResumePolicy.IsEligiblePostCombatPathRequest(
                 true, true, true, true, true,
                 AliveState.IsAlive, eChimps.CHIMP_TYPE_KNIGHT),
             "Assassin combat resume accepted a dead or non-Assassin unit");
+        Check(AssassinCombatResumePolicy.ShouldSetAssassinPathContext(true, 0) &&
+              !AssassinCombatResumePolicy.ShouldSetAssassinPathContext(true, 1) &&
+              !AssassinCombatResumePolicy.ShouldSetAssassinPathContext(false, 0),
+            "Assassin combat resume overwrote an existing context or set one for an ineligible request");
 
         Check(AssassinCombatResumePolicy.ShouldLogRawResumeDiagnostic(
                 true, AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN) &&
@@ -2003,125 +2004,94 @@ internal static class Program
             "canonical CrusaderDE.dll hash changed for the Assassin combat-resume contract");
 
         byte[] image = LoadPeImage(file);
-        NativeResolution resumePrologue = NativePatternResolver.ResolveUnique(
+        NativeResolution state106Callsite = NativePatternResolver.ResolveUnique(
             image,
-            AssassinCombatResumeNativeDefinition.GeneralResumePrologueSequence,
-            AssassinCombatResumeNativeDefinition.GeneralResumePrologueRva,
+            AssassinCombatResumeNativeDefinition.State106CombatFinishCallSequence,
+            AssassinCombatResumeNativeDefinition.State106CombatFinishCallSequenceRva,
             referenceHashMatches: false,
-            "test general unit-order resume prologue");
+            "test Assassin state-106 combat-finish callsite");
+        int state106CallRva = state106Callsite.Rva +
+            AssassinCombatResumeNativeDefinition.State106CombatFinishCallOffset;
+        int state106CallTarget = NativePatternResolver.ResolveRelativeTarget(
+            image, state106CallRva + 1, state106CallRva + 5);
         Check(
-            resumePrologue.Rva == AssassinCombatResumeNativeDefinition.GeneralResumeRva &&
-            resumePrologue.Method == "signature-fallback" &&
-            AssassinCombatResumeNativeDefinition.GeneralResumeReturnAddressStackOffset ==
-                (5 * sizeof(ulong)) + 0x30,
-            "general resume prologue no longer preserves its caller return address at RSP+0x58");
+            state106Callsite.Method == "signature-fallback" &&
+            state106CallRva == AssassinCombatResumeNativeDefinition.State106CombatFinishCallRva &&
+            state106CallTarget == AssassinCombatResumeNativeDefinition.CombatFinishHelperRva,
+            "Assassin state 106 no longer enters the audited combat-finish helper");
 
-        NativeResolution combatCall1 = NativePatternResolver.ResolveUnique(
+        NativeResolution combatFinish = NativePatternResolver.ResolveUnique(
             image,
-            AssassinCombatResumeNativeDefinition.AssassinCombatResumeCall1Sequence,
-            AssassinCombatResumeNativeDefinition.AssassinCombatResumeCall1SequenceRva,
+            AssassinCombatResumeNativeDefinition.CombatFinishHelperSequence,
+            AssassinCombatResumeNativeDefinition.CombatFinishHelperSequenceRva,
             referenceHashMatches: false,
-            "test first Assassin state-107 resume callsite");
-        int combatCall1Rva = combatCall1.Rva +
-            AssassinCombatResumeNativeDefinition.AssassinCombatResumeCall1Offset;
-        int combatCall1Target = NativePatternResolver.ResolveRelativeTarget(
-            image, combatCall1Rva + 1, combatCall1Rva + 5);
-        int state107ContextUnitIndexTarget = NativePatternResolver.ResolveRelativeTarget(
-            image, combatCall1.Rva + 3, combatCall1.Rva + 7);
+            "test combat-finish resume helper callsite");
+        int resumeCallRva = combatFinish.Rva +
+            AssassinCombatResumeNativeDefinition.CombatFinishResumeCallOffset;
+        int resumeCallTarget = NativePatternResolver.ResolveRelativeTarget(
+            image, resumeCallRva + 1, resumeCallRva + 5);
         Check(
-            combatCall1.Method == "signature-fallback" &&
-            combatCall1Rva == AssassinCombatResumeNativeDefinition.AssassinCombatResumeCall1Rva &&
-            combatCall1Rva + 5 == AssassinCombatResumeNativeDefinition.AssassinCombatResumeReturn1Rva &&
-            combatCall1Target == AssassinCombatResumeNativeDefinition.GeneralResumeRva &&
-            state107ContextUnitIndexTarget == AssassinCombatResumeNativeDefinition.CurrentContextUnitIndexRva,
-            "first Assassin state-107 callsite no longer enters the audited resume helper");
+            combatFinish.Method == "signature-fallback" &&
+            resumeCallRva == AssassinCombatResumeNativeDefinition.CombatFinishResumeCallRva &&
+            resumeCallRva + 5 == AssassinCombatResumeNativeDefinition.CombatFinishResumeReturnRva &&
+            resumeCallTarget == AssassinCombatResumeNativeDefinition.PostCombatRepathRva,
+            "combat-finish helper no longer enters the audited post-combat repath helper");
 
-        NativeResolution combatCall2 = NativePatternResolver.ResolveUnique(
+        NativeResolution repathPrologue = NativePatternResolver.ResolveUnique(
             image,
-            AssassinCombatResumeNativeDefinition.AssassinCombatResumeCall2Sequence,
-            AssassinCombatResumeNativeDefinition.AssassinCombatResumeCall2SequenceRva,
+            AssassinCombatResumeNativeDefinition.PostCombatRepathPrologueSequence,
+            AssassinCombatResumeNativeDefinition.PostCombatRepathPrologueRva,
             referenceHashMatches: false,
-            "test second Assassin state-107 resume callsite");
-        int combatCall2Rva = combatCall2.Rva +
-            AssassinCombatResumeNativeDefinition.AssassinCombatResumeCall2Offset;
-        int combatCall2Target = NativePatternResolver.ResolveRelativeTarget(
-            image, combatCall2Rva + 1, combatCall2Rva + 5);
+            "test post-combat repath helper prologue");
         Check(
-            combatCall2.Method == "signature-fallback" &&
-            combatCall2Rva == AssassinCombatResumeNativeDefinition.AssassinCombatResumeCall2Rva &&
-            combatCall2Rva + 5 == AssassinCombatResumeNativeDefinition.AssassinCombatResumeReturn2Rva &&
-            combatCall2Target == AssassinCombatResumeNativeDefinition.GeneralResumeRva,
-            "second Assassin state-107 callsite no longer enters the audited resume helper");
+            repathPrologue.Method == "signature-fallback" &&
+            repathPrologue.Rva == AssassinCombatResumeNativeDefinition.PostCombatRepathRva &&
+            AssassinCombatResumeNativeDefinition.PostCombatCallerReturnAddressStackOffset ==
+                sizeof(ulong) + 0x30,
+            "post-combat repath prologue no longer preserves its caller return address at RSP+0x38");
 
-        NativeResolution state107TargetCheck = NativePatternResolver.ResolveUnique(
+        NativeResolution pathRequest = NativePatternResolver.ResolveUnique(
             image,
-            AssassinCombatResumeNativeDefinition.State107TargetCheckSequence,
-            AssassinCombatResumeNativeDefinition.State107TargetCheckSequenceRva,
+            AssassinCombatResumeNativeDefinition.PostCombatPathRequestSequence,
+            AssassinCombatResumeNativeDefinition.PostCombatPathRequestSequenceRva,
             referenceHashMatches: false,
-            "test Assassin state-107 target check");
-        int state107TargetCallRva = state107TargetCheck.Rva +
-            AssassinCombatResumeNativeDefinition.State107TargetCheckCallOffset;
-        int state107Target = NativePatternResolver.ResolveRelativeTarget(
-            image,
-            state107TargetCallRva + 1,
-            state107TargetCallRva + 5);
+            "test post-combat saved-state path request");
+        int pathRequestCallRva = pathRequest.Rva +
+            AssassinCombatResumeNativeDefinition.PostCombatPathRequestCallOffset;
+        int pathRequestTarget = NativePatternResolver.ResolveRelativeTarget(
+            image, pathRequestCallRva + 1, pathRequestCallRva + 5);
+        int finalizeCallRva = pathRequest.Rva +
+            AssassinCombatResumeNativeDefinition.PostCombatFinalizeCallOffset;
+        int finalizeTarget = NativePatternResolver.ResolveRelativeTarget(
+            image, finalizeCallRva + 1, finalizeCallRva + 5);
         Check(
-            state107TargetCheck.Method == "signature-fallback" &&
-            state107TargetCallRva == AssassinCombatResumeNativeDefinition.State107TargetCheckCallRva &&
-            state107Target == AssassinCombatResumeNativeDefinition.State107TargetCheckRva &&
-            AssassinCombatResumeNativeDefinition.State107TargetResultHookRva ==
-                state107TargetCheck.Rva + AssassinCombatResumeNativeDefinition.State107TargetResultHookOffset &&
-            image.Skip(AssassinCombatResumeNativeDefinition.State107TargetResultHookRva)
-                .Take(AssassinCombatResumeNativeDefinition.State107TargetResultHookLength)
-                .SequenceEqual(AssassinCombatResumeNativeDefinition.State107TargetResultHookBytes),
-            "Assassin state-107 target-result hook no longer covers the complete audited compare and branch");
-        Check(
-            AssassinCombatResumeNativeDefinition.State107TargetCheckCallRva + 5 <=
-                AssassinCombatResumeNativeDefinition.State107TargetResultHookRva,
-            "Assassin state-107 target-result hook overlaps the native target-check call");
-
-        NativeResolution resumeDecision = NativePatternResolver.ResolveUnique(
-            image,
-            AssassinCombatResumeNativeDefinition.ResumeDecisionSequence,
-            AssassinCombatResumeNativeDefinition.ResumeDecisionSequenceRva,
-            referenceHashMatches: false,
-            "test general resume shortcut and full-repath branch");
-        int shortResumeTarget = NativePatternResolver.ResolveRelativeTarget(
-            image,
-            resumeDecision.Rva + AssassinCombatResumeNativeDefinition.ShortResumeCallOffset + 1,
-            resumeDecision.Rva + AssassinCombatResumeNativeDefinition.ShortResumeCallOffset + 5);
-        int fullRepathTarget = NativePatternResolver.ResolveRelativeTarget(
-            image,
-            resumeDecision.Rva + AssassinCombatResumeNativeDefinition.FullRepathCallOffset + 1,
-            resumeDecision.Rva + AssassinCombatResumeNativeDefinition.FullRepathCallOffset + 5);
-        Check(
-            resumeDecision.Rva == AssassinCombatResumeNativeDefinition.ResumeDecisionSequenceRva &&
-            resumeDecision.Method == "signature-fallback" &&
-            shortResumeTarget == AssassinCombatResumeNativeDefinition.ShortResumeRva &&
-            fullRepathTarget == AssassinCombatResumeNativeDefinition.CommonPathRequestRva &&
-            resumeDecision.Rva + AssassinCombatResumeNativeDefinition.FullRepathCallOffset ==
-                AssassinCombatResumeNativeDefinition.FullRepathCallRva,
-            "general resume helper no longer uses the audited shortcut followed by the full path request");
+            pathRequest.Method == "signature-fallback" &&
+            pathRequestCallRva == AssassinCombatResumeNativeDefinition.PostCombatPathRequestCallRva &&
+            pathRequestCallRva == pathRequest.Rva +
+                AssassinCombatResumeNativeDefinition.PostCombatPathRequestCallOffset &&
+            pathRequestTarget == AssassinCombatResumeNativeDefinition.CommonPathRequestRva &&
+            AssassinCombatResumeNativeDefinition.PostCombatPathResultHookRva == pathRequest.Rva +
+                AssassinCombatResumeNativeDefinition.PostCombatPathResultHookOffset &&
+            finalizeCallRva == AssassinCombatResumeNativeDefinition.PostCombatFinalizeCallRva &&
+            finalizeTarget == AssassinCombatResumeNativeDefinition.PostPathRequestRva,
+            "post-combat helper no longer restores the saved state and target through the audited path calls");
 
         Check(
-            AssassinCombatResumeNativeDefinition.ShortResumeDecisionHookRva ==
-                resumeDecision.Rva + AssassinCombatResumeNativeDefinition.ShortResumeDecisionHookOffset &&
-            AssassinCombatResumeNativeDefinition.FullRepathResultHookRva ==
-                resumeDecision.Rva + AssassinCombatResumeNativeDefinition.FullRepathResultHookOffset &&
-            image.Skip(AssassinCombatResumeNativeDefinition.ShortResumeDecisionHookRva)
-                .Take(AssassinCombatResumeNativeDefinition.ShortResumeDecisionHookLength)
-                .SequenceEqual(AssassinCombatResumeNativeDefinition.ShortResumeDecisionHookBytes) &&
-            image.Skip(AssassinCombatResumeNativeDefinition.FullRepathResultHookRva)
-                .Take(AssassinCombatResumeNativeDefinition.FullRepathResultHookLength)
-                .SequenceEqual(AssassinCombatResumeNativeDefinition.FullRepathResultHookBytes),
-            "Assassin combat-resume hook spans no longer cover the audited complete instructions");
+            image.Skip(AssassinCombatResumeNativeDefinition.PostCombatPathRequestCallRva)
+                .Take(AssassinCombatResumeNativeDefinition.PostCombatPathRequestHookLength)
+                .SequenceEqual(AssassinCombatResumeNativeDefinition.PostCombatPathRequestHookBytes) &&
+            image.Skip(AssassinCombatResumeNativeDefinition.PostCombatPathResultHookRva)
+                .Take(AssassinCombatResumeNativeDefinition.PostCombatPathResultHookLength)
+                .SequenceEqual(AssassinCombatResumeNativeDefinition.PostCombatPathResultHookBytes),
+            "post-combat hooks no longer cover the complete audited instructions");
         Check(
-            AssassinCombatResumeNativeDefinition.ShortResumeDecisionHookRva +
-                AssassinCombatResumeNativeDefinition.ShortResumeDecisionHookLength <=
-                AssassinCombatResumeNativeDefinition.FullRepathCallRva &&
-            AssassinCombatResumeNativeDefinition.FullRepathCallRva + 5 <=
-                AssassinCombatResumeNativeDefinition.FullRepathResultHookRva,
-            "Assassin combat-resume hooks overlap the full native path-request call");
+            AssassinCombatResumeNativeDefinition.PostCombatPathRequestCallRva +
+                AssassinCombatResumeNativeDefinition.PostCombatPathRequestHookLength ==
+                AssassinCombatResumeNativeDefinition.PostCombatPathResultHookRva &&
+            AssassinCombatResumeNativeDefinition.PostCombatPathResultHookRva +
+                AssassinCombatResumeNativeDefinition.PostCombatPathResultHookLength ==
+                AssassinCombatResumeNativeDefinition.PostCombatFinalizeCallRva,
+            "post-combat hook spans overlap a call or leave an unaudited instruction gap");
 
         NativeResolution contextRead = NativePatternResolver.ResolveUnique(
             image,

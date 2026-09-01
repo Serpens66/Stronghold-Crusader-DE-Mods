@@ -1322,12 +1322,12 @@ dabei zusammenpassen. Bei Abweichungen die Assembly mit `ilspycmd` prüfen und d
 Extender-Hooktabellen beziehungsweise `BulkTribeDetours` vergleichen. Erst nach erfolgreichem
 Compile und einem Startup-Log mit allen erwarteten aufgelösten RVAs folgt der Ingame-Test.
 
-### 12.1.3 Synchroner Attack-Scope und Assassin-Builderzweig
+### 12.1.3 Versuchter synchroner Attack-Scope und Assassin-Builderzweig
 
-Der fehlgeschlagene Attack-Test zeigte die wiederholte Statefolge `101 → 0 → 1`. Noch wichtiger:
-`0x196840` wurde bereits synchron innerhalb von
-`OnTribeIssueOrderWithTarget(Pre/Post)` erreicht, während der erst in Post angelegte Tracker zu
-diesem Zeitpunkt noch nicht existierte. Der Mod legt deshalb für `AttackUnit`, `AttackBuilding`
+Ein früherer fehlgeschlagener Attack-Test zeigte die wiederholte Statefolge `101 → 0 → 1` und
+erreichte `0x196840` synchron innerhalb von `OnTribeIssueOrderWithTarget(Pre/Post)`, während der
+erst in Post angelegte Tracker zu diesem Zeitpunkt noch nicht existierte. Daraus entstand der
+folgende Kandidat: Der Mod legt für `AttackUnit`, `AttackBuilding`
 und `ForceAttackBuilding` bereits in Pre einen threadlokalen Scope an. Eine Unit wird nur
 qualifiziert, wenn Tribe, Command, Zielwerte und die nativen `r_AI_ContextTarget...`-Felder exakt
 passen. Als Bewegungsziel dienen ausschließlich die von Vanilla bereits gesetzten
@@ -1335,7 +1335,9 @@ passen. Als Bewegungsziel dienen ausschließlich die von Vanilla bereits gesetzt
 verbündetem fertigem Moat erreichen, ohne Moat aber nicht. Erst dann simuliert `0x196840` den
 Vanilla-Zustand „Unit steht auf fertigem Moat“ und erzeugt denselben `PlanScope`, den Regions- und
 Builderfallback bereits verwenden. Post entfernt den synchronen Scope stets; nur nach positivem
-Command-Ergebnis bleibt die read-only Tick-Verfolgung bestehen.
+Command-Ergebnis bleibt die read-only Tick-Verfolgung bestehen. Die späteren `changedUnits=0`-Läufe
+erreichten diesen Scope jedoch nicht mehr und belegen den noch früheren Abbruch aus Abschnitt
+12.1.4.
 
 Der zentrale Builder `0xF4930` besitzt neben `pathManager+0x80` einen Assassin-Zweig über
 `pathManager+0x88`. In der Referenz-DLL beginnt dessen eindeutige Folge bei `0xF4B0C`; der CALL
@@ -1347,12 +1349,61 @@ Moat-Route wird `+0x88` für genau den synchronen zweiten Aufruf temporär auf n
 `finally` wiederhergestellt. Es gibt keinen Hook auf `0xD9C40`; die gewichtete
 Assassin-Mauerpfadfindung aus `BugfixesAndQoL` bleibt daher für Vanilla- und Mauerwege zuständig.
 
+Wichtig: Der Lauf nach Einbau dieses Kandidaten bestätigte den angenommenen `+0x88`-Fallback
+nicht. Der zweite Builderlauf lieferte zwar einen positiven Wert, aber
+`builder-assassin-ground-fallback` erschien nicht. Damit ist weder belegt, dass die getestete
+Unit an dieser Stelle als Assassin erkannt wurde, noch dass `pathManager+0x88` beim Eintritt
+gesetzt war. Das temporäre Umschalten bleibt eine eng begrenzte Hypothese und darf nicht als
+fertige Assassin-Lösung behandelt werden. Die neue Builderdiagnose liest deshalb `+0x80`,
+`+0x84` und `+0x88` am Eintritt, nach Vanillas erstem Lauf, unmittelbar vor dem Fallback und
+nach dessen Rückkehr. Dazu werden Unittyp und die Pfadverbrauchsfelder derselben Unit erfasst.
+
 Bei einem Spielupdate ist der Assassin-Zweig nicht nur über das Bytepattern wiederzufinden:
 Innerhalb des zentralen Builders muss ein Vergleich des Kontextfelds `pathManager+0x88` den
 Spezialzweig wählen, der CALL muss weiterhin zum für Kletterkanten gewichteten Builder führen,
 und der alternative Zweig muss den normalen Bodenbuilder verwenden. Instruktionsgrenzen,
 vollständige Bytes und relatives Callziel sind gemeinsam zu validieren. Ändern sich die Offsets
 `+0x80` oder `+0x88`, dürfen sie nicht aus der alten Version übernommen werden.
+
+### 12.1.4 Vorgelagerte Attack-Annäherungssuche `0xDBC60`
+
+Die jüngsten Logs korrigieren auch die frühere Attack-Einordnung: In den aktuellen fehlgeschlagenen
+Attack-Aufrufen wird `0x196840` gerade nicht erreicht. Der positive Target-Dispatcher endet mit
+`changedUnits=0`; weder Unitfelder noch `MoveHere`, zentraler Planer oder Builder folgen. Die
+hashgleiche Ghidra-Baseline zeigt davor die tribeweite Annäherungssuche `0xDBC60`. Ihre direkten
+Calls im Attack-Dispatcher liegen bei `0x11EE47` und `0x11F46B`. Die Funktion erhält PathManager,
+Tribe, Zielkontext, angepasste Zielkoordinaten, gewünschte Ergebniszahl, Ausgangsregion und
+Bewegungsklasse. Sie füllt ihre Queue ab `pathManager+0x155F3C/+0x155F44` und schreibt
+Annäherungsergebnisse als 12-Byte-Einträge ab `pathManager+0x1B344`.
+
+Beim Übergang zwischen Regionen ruft `0xDBC60` an `0xDBF0D` Vanillas breiten Regionshelper
+`0xE2610(pathManager, movementClass, sourceRegion, targetRegion, routeKind)` auf. Nur wenn die
+aktuelle Auswahl vollständig aus Assassinen besteht, kann danach an `0xDBF33` zusätzlich die
+Tilepaarprüfung `0xE2CA0` folgen. Der bereits vorhandene `0xE2CA0`-Fallback war bislang absichtlich
+an einen unmittelbar zuvor erzeugten Cursor-Kontext gebunden und kann diese internen Flood-Aufrufe
+daher nicht freigeben.
+
+Für den kanonischen DLL-Hash
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2` detourt die neue Diagnose
+`0xDBC60` und `0xE2610` ausschließlich read-only und nur innerhalb des synchronen `AttackUnit`-,
+`AttackBuilding`- oder `ForceAttackBuilding`-Events. Vanilla wird immer
+unverändert ausgeführt. Regionpaare werden nach Region, Bewegungsklasse, Routekind und
+Vanilla-Ergebnis semantisch aggregiert. Interne `0xE2CA0`-Aufrufe werden ebenfalls unverändert
+zurückgegeben; zusätzlich wird protokolliert, ob die owner-geprüfte Moat-BFS das konkrete
+Tilepaar erreichen könnte. Tilepaare werden nach Ergebnis-/Ownersemantik gruppiert und mit erstem
+und letztem Paar ausgegeben, statt pro untersuchtem Nachbartile eine Logzeile zu erzeugen.
+Da diese Boden-/Moat-Erreichbarkeit symmetrisch ist, startet die Diagnose ihre Map am innerhalb
+eines Flood-Aufrufs stabilen Ziel und prüft die wechselnden Nachbartiles rückwärts. Dadurch wird
+dieselbe Reachability-Map für alle Paare derselben Zielregion wiederverwendet; es entsteht nicht
+für jedes untersuchte Tile eine neue Vollkarten-BFS.
+
+Bei einem Update müssen beide Funktions-Entries über eindeutige Patterns und vollständige
+Instruktionsbytes neu gefunden werden. Zusätzlich müssen die beiden `0xDBC60`-Calls im
+Target-Dispatcher, der `0xE2610`-Call innerhalb des Floods und der dortige `0xE2CA0`-Call weiterhin
+relativ auf die semantisch passenden Funktionen zeigen. Alle vier Callziele sind zu validieren;
+die alten RVAs allein genügen nicht. Die Diagnosehooks werden als eigene Gruppe installiert. Ein
+Validierungs- oder Installationsfehler rollt nur diese Gruppe zurück und lässt den bereits
+funktionierenden normalen Moat-Bewegungspfad aktiv.
 
 ### 12.2 Logauswertung
 
@@ -1400,6 +1451,14 @@ beziehungsweise die konkreten Stages filtern:
 - `builder-route80`
 - `builder-assassin-ground-fallback`
 - `builder-gate`
+- `builder-native-entry`
+- `builder-native-after-vanilla-first`
+- `builder-native-before-fallback`
+- `builder-native-after-fallback`
+- `move-track-start`
+- `move-state`
+- `move-state-end`
+- `attack-flood`
 
 Es gibt keine globalen Diagnosegrenzen mehr. Während eines synchronen `move-command` sammelt der
 Mod zunächst dessen vollständige Command-, Flood-, Mode-, Region-, Owner- und Builderdiagnose im
@@ -1415,6 +1474,13 @@ Die Attack-State-Diagnose wird nicht über eine Mengen- oder Zeitgrenze abgeschn
 einen Eintrag nur dann, wenn sich mindestens eines der gelesenen Zustands-, Positions-, Ziel-,
 Geschwindigkeits-, Pfad- oder Pipelinefelder ändert. So bleiben auch lange festhängende Angriffe
 vollständig klassifizierbar, ohne pro unverändertem Tick Logspam zu erzeugen.
+
+Dasselbe Verfahren verwendet der allgemeine Moat-Move-Tracker nach einem positiven,
+owner-qualifizierten Builderfallback. Er schreibt nur bei einer Änderung von AI-State, Command,
+Position, Ziel, nächstem Tile, Geschwindigkeit oder Pfadfortschritt. Zusätzlich kennzeichnet er,
+ob aktuelles, Ziel- oder nächstes Tile das fertige-Moat-Bit tragen. Damit lässt sich unterscheiden,
+ob ein Assassin den erzeugten Pfad sofort verwirft, bis zum ersten Moat-Tile läuft oder erst dort
+stoppt. Ein neuer Tribe-Befehl, Tod oder Kartenwechsel beendet die jeweilige Verfolgung.
 
 Falls ein Befehl wie ein zuckender Patrol-Teilweg bereits nach der Moduswahl und vor dem Builder
 endet, führt seine Post-Phase genau eine zusätzliche read-only Owner-Routenprüfung für den letzten
@@ -1476,10 +1542,14 @@ Diese Liste belegt die breite Verwendung des Helpers, ersetzt aber bei einer neu
   eigenen/verbündeten Moat unmögliche Route dürfen denselben allgemeinen Plan-, Regions- und
   Builderfallback aktivieren. Früh angelegte Tracker behalten ihre Mode-, Planer- und
   Buildermarkierungen in der anschließenden read-only Tick-Verfolgung.
-- Assassinen verwenden bei `pathManager+0x88 != 0` den Spezialbuilder `0xD9C40`. Nur im zweiten,
-  bereits owner-qualifizierten reinen Moat-Lauf wird `+0x88` synchron `1 → 0 → 1` geschaltet.
-  Der erste Vanilla-Lauf und damit Kletterrouten bleiben unverändert; `0xD9C40` wird nicht
-  zusätzlich gehookt.
+- Assassinen verwenden bei `pathManager+0x88 != 0` den Spezialbuilder `0xD9C40`. Das nur im
+  zweiten, owner-qualifizierten Lauf vorgesehene Umschalten `1 → 0 → 1` wurde in den Logs bislang
+  nicht ausgelöst und ist daher eine unbestätigte Hypothese. Der erste Vanilla-Lauf bleibt
+  unverändert; `0xD9C40` wird nicht zusätzlich gehookt.
+- Attack endet im beobachteten Fehlfall bereits in der tribeweiten Annäherungssuche `0xDBC60`,
+  bevor Unitfelder und `MoveHere` erreicht werden. Die aktuelle Stufe beobachtet deren
+  `0xE2610`-/`0xE2CA0`-Entscheidungen nur read-only und gruppiert sie semantisch; sie gibt dort
+  noch keinen Pfad frei.
 - `0x196840` bedeutet nachweislich „Unit steht auf einem Tile mit fertigem-Moat-Bit“, während
   `0x196870` nur Auswahlarten prüft; diese Semantik bei Updates nicht wieder verallgemeinern.
 - Als Nächstes diese Stufe mit eigenem, verbündetem und feindlichem Moat sowie Umweg-, Mauer-

@@ -1,4 +1,4 @@
-// Feature: Pure eligibility rules for the audited Assassin combat-resume path.
+// Feature: Pure eligibility rules for the audited Assassin state-106 resume path.
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 
@@ -11,17 +11,16 @@ namespace AssassinCombatFix
             return nativeUnitIndex >= 0 && nativeUnitIndex < unitCount;
         }
 
-        public static bool IsKnownAssassinCombatReturnRva(long returnRva)
+        public static bool IsConfirmedCombatFinishCallerRva(long returnRva)
         {
-            return returnRva == AssassinCombatResumeNativeDefinition.AssassinCombatResumeReturn1Rva ||
-                returnRva == AssassinCombatResumeNativeDefinition.AssassinCombatResumeReturn2Rva;
+            return returnRva == AssassinCombatResumeNativeDefinition.CombatFinishResumeReturnRva;
         }
 
-        public static bool ShouldForceFullRepath(
+        public static bool IsEligiblePostCombatPathRequest(
             bool modEnabled,
             bool improvedPathfindingEnabled,
             bool nativeHooksInstalled,
-            bool knownCombatCaller,
+            bool confirmedCombatFinishCaller,
             bool unitResolved,
             AliveState aliveState,
             eChimps unitType)
@@ -29,10 +28,15 @@ namespace AssassinCombatFix
             return modEnabled &&
                 improvedPathfindingEnabled &&
                 nativeHooksInstalled &&
-                knownCombatCaller &&
+                confirmedCombatFinishCaller &&
                 unitResolved &&
                 aliveState == AliveState.IsAlive &&
                 unitType == eChimps.CHIMP_TYPE_ARAB_ASSASIN;
+        }
+
+        public static bool ShouldSetAssassinPathContext(bool eligible, int currentContextFlag)
+        {
+            return eligible && currentContextFlag == 0;
         }
 
         public static bool ShouldLogRawResumeDiagnostic(

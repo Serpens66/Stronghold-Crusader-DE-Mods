@@ -5,73 +5,63 @@ Diese Datei dokumentiert den Wissensstand des Testmods `AssassinCombatFix`. Sie 
 ## Referenz und Abgrenzung
 
 - Kanonische DLL: installierte `CrusaderDE.dll` mit SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
-- Native-Baseline: `_inspect/CrusaderDE-Native-Baseline/FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+- Native-Baseline: `_inspect/CrusaderDE-Native-Baseline`, einschließlich der semantischen Funktions- und Callgraph-Suche für denselben DLL-Hash.
 - Der Testmod ist hart von `BugfixesAndQoL` abhängig und ergänzt ausschließlich dessen aktiviertes `EnableImprovedAssassinPathfinding`.
 - Der gewichtete Assassin-Pathbuilder und die Korrekturen für reservierte Kletterflächen bleiben vollständig in `BugfixesAndQoL`.
 
 ## Bestätigte Erkenntnisse
 
-### Reproduziertes Verhalten
+### Reproduziertes Verhalten und Zustandsfolge
 
 - Nach einem zufälligen Kampf auf einem Bewegungsweg mit Klettern bleibt der Assassin stehen, obwohl der grüne Zielmarker bestehen bleibt.
-- Ohne Kletteranteil setzt Vanilla den ursprünglichen Bewegungsbefehl normalerweise fort.
-- Im letzten Map-Editor-Test waren die damaligen Zustand-122-Hooks installiert und Debug-Logging aktiv. Keine einzige ihrer Diagnosezeilen wurde erreicht.
-- Auch mit den Hooks im allgemeinen Resume-Helper blieb der Assassin stehen; die bisherige Diagnose blieb leer, weil sie erst nach einer positiven Rücksprungadressen-Prüfung protokollierte. Damit war weder ein unerreichter Helper noch eine falsche Stack-Zuordnung bewiesen.
+- Der passive Map-Editor-Trace zeigt für den reproduzierten Ablauf `101 → 106 → 101 → 0 → 1`.
+- Beim Übergang aus Zustand `106` wird der aktive Pfad gelöscht. Das gespeicherte Ziel bleibt erhalten, aber Vanilla erzeugt ohne Assassin-Kontext keinen verwendbaren Kletterweg.
+- Die zuvor untersuchten Hooks in Zustand `107`, Zustand `122` und `FUN_180122800` wurden in diesem Ablauf nicht erreicht.
 
 ### Tatsächlicher Nachkampfpfad
 
-- Der Assassin beendet den relevanten Kampfablauf im AI-Zustand `107`.
-- Dieser Handler ruft den allgemeinen Resume-Helper `FUN_180122800` an den RVAs `0x16D599` und `0x16D642` auf.
-- Die zugehörigen Rücksprungadressen `0x16D59E` und `0x16D647` identifizieren diese beiden Aufrufer innerhalb des gemeinsam genutzten Helpers eindeutig.
-- `0x122800` erhält in `EDX` einen 0-basierten Unit-Index und adressiert das Unit-Array mit `index * 0x490`.
+- Der Assassin-Zustandsautomat `FUN_18016CD70` behandelt Zustand `106` und ruft bei RVA `0x16DFD3` `FUN_1801853F0` auf.
+- `FUN_1801853F0` ruft bei RVA `0x18540D` `FUN_1801976C0` auf. Die Rücksprung-RVA `0x185412` identifiziert diesen Kampfpfad gegenüber den anderen Aufrufern von `0x1976C0`.
+- Der Prolog von `FUN_1801976C0` legt diese ursprüngliche Rücksprungadresse am Pfad-Callsite bei `RSP+0x38` ab.
+- `FUN_1801976C0` löscht die bisherigen Pfadflags, stellt den gespeicherten AI-Zustand aus Unit-Offset `0x91E` wieder her und übernimmt die sekundären Zielkoordinaten aus `0x744/0x746`.
+- Danach ruft es bei RVA `0x19772B` die gemeinsame Pfadroutine `FUN_180196280` auf und bei `0x197735` die Nachbearbeitung `FUN_180196810`.
+- Am Call `0x19772B` enthält `RDI` den 0-basierten Unit-Index; `R8D/R9D` enthalten die gespeicherten Zielkoordinaten.
 
-### Zwei Resume-Probleme
+### Fehlender Assassin-Kontext
 
-- `0x122800` ruft bei `0x122AF7` zunächst `FUN_1801946A0` auf. Ein Rückgabewert ungleich null überspringt den vollständigen Repath.
-- Ein unterbrochener Kletterpfad kann damit als lokal wiederaufnehmbar gelten, ohne die notwendige Kletterbewegung tatsächlich neu zu aktivieren.
-- Bei einem Rückgabewert null ruft Vanilla bei `0x122B0F` `FUN_180196280` auf, setzt vorher aber nicht den Assassin-Pfadkontext.
-- Ohne diesen Kontext wählt der Dispatcher nicht den Assassin-Pathbuilder.
-- Bei `0x122B14` überschreibt Vanilla das Ergebnis anschließend immer mit `1`; der Aufrufer kann einen fehlgeschlagenen Repath daher nicht erkennen.
-
-### Pfadkontext und sichere Hookgrenzen
-
-- `FUN_180196280` liest das Assassin-Flag bei RVA `0x60AD6E8` und löscht es auf beiden auditierten Ausgängen bei `0x196743` und `0x19676C`.
-- Der Dispatcher wählt mit diesem Kontext bei `0xF4B27` den Assassin-Pathbuilder `FUN_1800D9C40`.
-- Hook `0x122AFC`, Länge 4 Byte, ersetzt vollständig `test eax,eax` und den kurzen bedingten Sprung. Die Originalinstruktionen laufen nach dem Callback.
-- Hook `0x122B14`, Länge 7 Byte, ersetzt vollständig `mov eax,1` und den anschließenden Sprung. Dadurch kann der Callback zuvor das echte Repath-Ergebnis lesen.
-- Der Prolog von `0x122800` bewahrt die Rücksprungadresse an beiden Hookpunkten bei `RSP+0x58`.
-- Im Zustand-107-Handler ruft `0x16D54D` die Zielprüfung `FUN_18007EB00` auf. Direkt danach liegen `test eax,eax; je ...` bei `0x16D552`; der neue passive Hook deckt genau diese vier Byte ab und verändert Vergleich oder Verzweigung nicht.
+- Vor dem Call bei `0x19772B` setzt Vanilla das Assassin-Pfadkontextflag bei RVA `0x60AD6E8` nicht.
+- `FUN_180196280` liest dieses Flag bei `0x1964EE` und löscht es auf beiden auditierten Ausgängen bei `0x196743` und `0x19676C`.
+- Der Dispatcher wählt mit gesetztem Kontext bei `0xF4B27` den Assassin-Pathbuilder `FUN_1800D9C40`.
+- Ein regulärer Assassin-Pfad im selben Zustandsautomaten setzt das Flag vor seiner Pfadanfrage, was den fehlenden Schreibzugriff im Zustand-106-Nachkampfpfad als Vanilla-Auslassung bestätigt.
 
 ## Aktueller Patch und Diagnostik
 
-- Innerhalb `0x122800` wird über die Rücksprungadresse ausschließlich einer der beiden bestätigten Assassin-Kampfaufrufer akzeptiert.
-- Zusätzlich werden aktive Mods/Settings, Indexgrenzen, Lebenszustand und Assassin-Typ geprüft.
-- Für einen zulässigen Aufruf wird das Ergebnis des kurzen Resumes protokolliert und auf `0` gesetzt. Dadurch führt Vanilla immer genau einen vollständigen Repath aus.
-- Vor diesem Repath wird der Assassin-Kontext gesetzt; `0x196280` übernimmt und löscht ihn selbst.
-- Vor Vanillas pauschalem Erfolgsergebnis werden der echte Repath-Rückgabewert und der bereinigte Flagwert protokolliert.
-- Jeder aufgelöste lebende Assassin wird nun bereits beim Eintritt in `0x122AFC` protokolliert, noch bevor die Rücksprungadresse als bekannte Kampf-Callsite bewertet wird. Das Log enthält die absolute Adresse, RVA und die Rohwerte bei `RSP+0x50`, `+0x58` und `+0x60`.
-- Der passive Hook bei `0x16D552` protokolliert den Rückgabewert der Zustand-107-Zielprüfung und den vollständigen Unit-Zustand, ohne Register oder Unit-Daten zu ändern.
-- Ein passiver `OnTick`-Beobachter verfolgt lebende Assassins über 0-basierten Index plus `r_GlobalId`. Er protokolliert Zustands-/Pfadänderungen und begrenzte Stillstandsintervalle; Kartenstart und Kartenende verwerfen den kompletten Beobachterzustand.
-- Der Map Editor erzeugt eine spielbare Simulation, ohne zuverlässig `OnStartMap` auszulösen. Nach `OnUnloadMap` eröffnet deshalb der erste persistente Simulationstick mit `GameModeHelper.IsMapEditor() == true` automatisch eine neue Diagnose-Epoche. Normale Partien verwenden weiterhin `OnStartMap(Post)`.
-- Die untersuchten Script-Extender-Editorereignisse melden nur konkrete Bearbeitungsaktionen. Sie sind kein vollständiger Editor-Lifecycle und werden deshalb nicht als Startsignal verwendet.
+- Der Pre-Hook ersetzt exakt den fünf Byte langen Call bei `0x19772B`. Der Callback läuft zuerst; anschließend wird der unveränderte Call ausgeführt.
+- Der Kontext wird nur bei aktiven Mods/Settings, gültigem 0-basiertem Index, lebendem Assassin und ursprünglicher Rücksprung-RVA `0x185412` gesetzt.
+- Ein bereits gesetztes Flag wird nicht überschrieben. Die gemeinsame Pfadroutine übernimmt dessen normale Bereinigung; es gibt keine manuelle Wiederherstellung im Erfolgsablauf.
+- Der Post-Hook deckt exakt `mov edx,edi; mov rcx,rsi` bei `0x197730–0x197734` ab. Er protokolliert das Pfadergebnis und den erwarteten bereinigten Flagwert, bevor Vanilla `0x196810` aufruft.
+- Beide Hooks werden atomar installiert und bei einem Teilfehler vollständig zurückgerollt.
+- Der passive `OnTick`-Beobachter bleibt während der Ingame-Validierung bestehen. Im Map Editor beginnt er mangels zuverlässigem `OnStartMap` beim ersten Simulationstick mit `GameModeHelper.IsMapEditor() == true`.
 - Alle temporären Zeilen tragen `[ASSASSIN_COMBAT_RESUME_DIAGNOSTIC]`. Native Ereignisse sind auf 128 und Tick-Zustandszeilen auf 256 Einträge pro Karte begrenzt.
 
 Erwartete Folge:
 
-- `state-trace ... aiState=...` vom Kampf bis zum Stillstand
-- `state107-target-check ... result=...`, falls Zustand 107 diesen Zweig erreicht
-- `raw-resume-entry ... stack50=... stack58=... stack60=... knownCombatCaller=...`
-- `full-repath-forced ... flagForRequest=1`
-- Gewichteter Assassin-Builder aus `BugfixesAndQoL`
-- `full-repath-result ... fullRepathCalls=1 ... flagAfterVanilla=0`
+- `state-trace ... aiState=106`
+- `post-combat-path-entry ... returnRva=0x185412 ... eligible=True`
+- `post-combat-path-context ... contextSet=True ... flagForRequest=1`
+- gewichteter Assassin-Pathbuilder aus `BugfixesAndQoL`
+- `post-combat-path-result ... result=1 ... flagAfterVanilla=0`
+- ein weiter fortschreitender Pfad bis zum gespeicherten Ziel
 
 ## Getestete oder verworfene Ansätze
 
 - Eine zunächst falsche 1-/0-basierte Unit-Auflösung wurde korrigiert, war aber nicht die alleinige Ursache.
-- Ein alleiniger Entry-Detour von `0x122800` kann den erfolgreichen Kurzweg nicht dazu zwingen, den vollständigen Repath auszuführen.
-- Ein breiter Detour von `0x196280` beeinflusst unnötig andere Einheitentypen und Befehle und bleibt entfernt.
-- Zustand `122` ist kein allgemeiner Nachkampfzustand. Er wird beim fehlgeschlagenen Gruppen-Pathfinding als Fallbackzustand gesetzt; die früheren Hooks bei `0x16D2EA` und `0x16D304` adressierten deshalb nicht den reproduzierten Ablauf und sind entfernt.
-- Eine manuelle normale Flagrestaurierung ist nicht nötig, weil `0x196280` beide relevanten Ausgänge selbst bereinigt.
+- Zustand `122` ist ein Fallback für fehlgeschlagene Gruppenwege und kein allgemeiner Nachkampfzustand.
+- Zustand `107` und seine beiden Aufrufe von `FUN_180122800` sind reale Vanilla-Pfade, wurden im reproduzierten Map-Editor-Ablauf aber nicht erreicht.
+- `FUN_180122800` bleibt ein realer allgemeiner Wiederaufnahmeweg, ist für diesen Fehler jedoch nicht nachgewiesen und wird nicht mehr gehookt.
+- Ein breiter Detour von `FUN_180196280` würde fremde Einheiten und Befehle unnötig erfassen und bleibt entfernt.
+- Das Erzwingen eines vollständigen Repaths nach `FUN_1801946A0` adressiert den tatsächlich beobachteten Zustand-106-Ablauf nicht und ist entfernt.
+- Eine normale manuelle Flagrestaurierung ist nicht nötig, weil `FUN_180196280` beide relevanten Ausgänge selbst bereinigt.
 
 ## Reproduzierbare Ingame-Tests
 
