@@ -1,0 +1,50 @@
+2026-09-01 13:20:28 INFO  (LoggingInitialization) Using log config file: jar:file:/D:/CDesktopLink/Unterlagen/Mods/Stronghold%20Crusader%20DE/Meine%20Mods/.tools/ghidra-12.1.3/ghidra_12.1.3_PUBLIC/Ghidra/Framework/Generic/lib/Generic.jar!/generic.log4j.xml  
+2026-09-01 13:20:28 INFO  (LoggingInitialization) Using log file: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.native-analysis\CrusaderDE-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\logs\ghidra-headless.log  
+2026-09-01 13:20:28 DEBUG (GhidraObjectInputFilter) Including serial input filter: FileSystem/data/client.rmi.serial.filter  
+2026-09-01 13:20:28 INFO  (Preferences) Loading user preferences: C:\Users\Serpens66\AppData\Roaming\ghidra\ghidra_12.1.3_PUBLIC\preferences  
+2026-09-01 13:20:28 INFO  (ClassSearcher) Searching for classes...  
+2026-09-01 13:20:29 INFO  (ClassSearcher) Class search complete (861 ms)  
+2026-09-01 13:20:29 INFO  (DefaultSSLContextInitializer) Initializing SSL Context  
+2026-09-01 13:20:29 INFO  (SecureRandomFactory) Initializing Random Number Generator...  
+2026-09-01 13:20:29 INFO  (SecureRandomFactory) Random Number Generator initialization complete: SHA1PRNG  
+2026-09-01 13:20:29 INFO  (DefaultTrustManagerFactory) Trust manager disabled, cacerts have not been set  
+2026-09-01 13:20:29 INFO  (FileCacheMaintenanceDaemon) Starting cache cleanup: C:\Users\Serpens66\AppData\Local\ghidra\fscache2  
+2026-09-01 13:20:29 INFO  (FileCacheMaintenanceDaemon) Finished cache cleanup, estimated storage used: 0  
+2026-09-01 13:20:30 INFO  (AnalyzeHeadless) Headless startup complete (5061 ms)  
+2026-09-01 13:20:30 INFO  (ClassSearcher) Class searcher loaded 59 extension points (20 false positives)  
+2026-09-01 13:20:30 INFO  (HeadlessAnalyzer) HEADLESS Script Paths:
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Processors\PIC\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\GnuDemangler\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Processors\Atmel\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Processors\DATA\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\BytePatterns\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\Decompiler\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Debug\Debugger-rmi-trace\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.native-analysis\CrusaderDE-Baseline\tools
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\Base\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\PDB\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\WildcardAssembler\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\BSim\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\FunctionID\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\VersionTracking\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\FileFormats\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\DecompilerDependent\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\SwiftDemangler\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Debug\Debugger\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\SystemEmulation\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Processors\8051\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\PyGhidra\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Processors\JVM\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\MicrosoftCodeAnalyzer\ghidra_scripts  
+2026-09-01 13:20:30 INFO  (HeadlessAnalyzer) HEADLESS: execution starts  
+2026-09-01 13:20:30 ERROR (HeadlessAnalyzer) Abort due to Headless analyzer error: Path element starting with '.' is not permitted java.lang.IllegalArgumentException: Path element starting with '.' is not permitted
+	at ghidra.util.NamingUtilities.checkName(NamingUtilities.java:108)
+	at ghidra.framework.protocol.ghidra.GhidraURL.checkValidProjectPath(GhidraURL.java:440)
+	at ghidra.framework.protocol.ghidra.GhidraURL.checkLocalAbsolutePath(GhidraURL.java:421)
+	at ghidra.framework.model.ProjectLocator.<init>(ProjectLocator.java:75)
+	at ghidra.framework.model.ProjectLocator.<init>(ProjectLocator.java:60)
+	at ghidra.app.util.headless.HeadlessAnalyzer.processLocal(HeadlessAnalyzer.java:420)
+	at ghidra.app.util.headless.AnalyzeHeadless.launch(AnalyzeHeadless.java:199)
+	at ghidra.GhidraLauncher.launch(GhidraLauncher.java:81)
+	at ghidra.Ghidra.main(Ghidra.java:54)
+ 
