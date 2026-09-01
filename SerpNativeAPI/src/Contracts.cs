@@ -37,6 +37,8 @@ namespace SerpNativeAPI
     /// <summary>Stable identifiers for capabilities exposed by this API version.</summary>
     public static class NativeCapabilityIds
     {
+        /// <summary>Capability for selecting the native gatehouse distance origin.</summary>
+        public const string GatehouseDistanceOrigin = "gatehouse-distance-origin";
         /// <summary>Capability for configuring gatehouse timing and closing distances.</summary>
         public const string GatehouseTiming = "gatehouse-timing";
         /// <summary>Capability for observing selected-unit commands before Vanilla handles them.</summary>
@@ -78,12 +80,26 @@ namespace SerpNativeAPI
     {
         /// <summary>Gets the global initialization state.</summary>
         NativeApiState State { get; }
-        /// <summary>Attempts to acquire the gatehouse timing capability for a stable owner GUID.</summary>
+        /// <summary>
+        /// Attempts to acquire the gatehouse distance-origin capability for a stable owner GUID.
+        /// The intended future consumer is BugfixesAndQoL; this is documentation, not a runtime dependency.
+        /// </summary>
+        bool TryGetGatehouseDistanceOrigin(
+            string ownerGuid,
+            out IGatehouseDistanceOriginCapability capability,
+            out NativeCapabilityDiagnostic diagnostic);
+        /// <summary>
+        /// Attempts to acquire the gatehouse timing capability for a stable owner GUID.
+        /// The intended future consumer is ExtraFeatures; this is documentation, not a runtime dependency.
+        /// </summary>
         bool TryGetGatehouseTiming(
             string ownerGuid,
             out IGatehouseTimingCapability capability,
             out NativeCapabilityDiagnostic diagnostic);
-        /// <summary>Attempts to acquire the selected-unit command capability for a stable owner GUID.</summary>
+        /// <summary>
+        /// Attempts to acquire the selected-unit command capability for a stable owner GUID.
+        /// The intended future consumer is BugfixesAndQoL; this is documentation, not a runtime dependency.
+        /// </summary>
         bool TryGetSelectedUnitCommand(
             string ownerGuid,
             out ISelectedUnitCommandCapability capability,

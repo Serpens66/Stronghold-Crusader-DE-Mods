@@ -13,8 +13,10 @@ namespace SerpNativeAPI
         private readonly List<Action<ISerpNativeApi>> readyCallbacks = new List<Action<ISerpNativeApi>>();
         private NativeApiState state;
         private string binaryHash = string.Empty;
+        private GatehouseDistanceOriginService gatehouseDistanceOrigin;
         private GatehouseTimingService gatehouse;
         private SelectedUnitCommandService selectedCommand;
+        private NativeCapabilityDiagnostic gatehouseDistanceOriginDiagnostic = Pending(NativeCapabilityIds.GatehouseDistanceOrigin);
         private NativeCapabilityDiagnostic gatehouseDiagnostic = Pending(NativeCapabilityIds.GatehouseTiming);
         private NativeCapabilityDiagnostic selectedDiagnostic = Pending(NativeCapabilityIds.SelectedUnitCommand);
         private ManualLogSource log;
@@ -64,14 +66,19 @@ namespace SerpNativeAPI
                     log,
                     out selectedCommand,
                     out selectedDiagnostic);
+                var gatehouseOwnership = new NativeOwnershipRegistry();
+                var gatehouseMutationSync = new object();
                 GatehouseCapabilityResolver.Resolve(
                     binaryHash,
                     moduleBase,
                     memory,
                     nativeMemory,
-                    new NativeOwnershipRegistry(),
+                    gatehouseOwnership,
+                    gatehouseMutationSync,
                     log,
                     gateTarget ?? GatehouseBuildTarget.Supported,
+                    out gatehouseDistanceOrigin,
+                    out gatehouseDistanceOriginDiagnostic,
                     out gatehouse,
                     out gatehouseDiagnostic);
             }
@@ -80,8 +87,10 @@ namespace SerpNativeAPI
                 // Capability resolvers contain their own error boundaries. Reaching this catch
                 // means publication itself failed and the API cannot be trusted globally.
                 terminalState = NativeApiState.Unavailable;
+                gatehouseDistanceOrigin = null;
                 gatehouse = null;
                 selectedCommand = null;
+                gatehouseDistanceOriginDiagnostic = Faulted(NativeCapabilityIds.GatehouseDistanceOrigin, ex.Message);
                 gatehouseDiagnostic = Faulted(NativeCapabilityIds.GatehouseTiming, ex.Message);
                 selectedDiagnostic = Faulted(NativeCapabilityIds.SelectedUnitCommand, ex.Message);
                 NativeApiLog.Error(log, $"SerpNativeAPI initialization failed globally: build={binaryHash}, error={ex}");
@@ -94,11 +103,32 @@ namespace SerpNativeAPI
                 callbacks = readyCallbacks.ToArray();
                 readyCallbacks.Clear();
             }
-            NativeApiLog.Info(log, $"SerpNativeAPI initialized: state={terminalState}, build={binaryHash}, gatehouse={gatehouseDiagnostic.State}, selectedUnitCommand={selectedDiagnostic.State}.");
+            NativeApiLog.Info(log, $"SerpNativeAPI initialized: state={terminalState}, build={binaryHash}, gatehouseDistanceOrigin={gatehouseDistanceOriginDiagnostic.State}, gatehouseTiming={gatehouseDiagnostic.State}, selectedUnitCommand={selectedDiagnostic.State}.");
             foreach (Action<ISerpNativeApi> callback in callbacks)
             {
                 try { callback(this); }
                 catch (Exception ex) { NativeApiLog.Error(log, $"SerpNativeAPI readiness callback failed: build={binaryHash}, error={ex}"); }
+            }
+        }
+
+        public bool TryGetGatehouseDistanceOrigin(
+            string ownerGuid,
+            out IGatehouseDistanceOriginCapability capability,
+            out NativeCapabilityDiagnostic diagnostic)
+        {
+            capability = null;
+            if (!ValidateOwner(ownerGuid, NativeCapabilityIds.GatehouseDistanceOrigin, out diagnostic))
+                return false;
+            lock (sync)
+            {
+                if (gatehouseDistanceOrigin == null)
+                {
+                    diagnostic = gatehouseDistanceOriginDiagnostic;
+                    return false;
+                }
+                capability = gatehouseDistanceOrigin.Bind(ownerGuid);
+                diagnostic = gatehouseDistanceOriginDiagnostic;
+                return true;
             }
         }
 

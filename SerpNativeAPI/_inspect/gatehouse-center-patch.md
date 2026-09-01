@@ -48,11 +48,13 @@ The five trailing NOPs pad the replacement to the exact original boundary. `R8D`
 
 ## Safety and validation
 
-- The resolver validates full DLL hash, full handler hash, executable section, function bounds, original distance bytes, decision bytes, delay bytes, and all four Vanilla immediates before exposing the capability.
+- The resolver validates the full DLL hash, full handler hash, executable section, and function bounds as common provenance. It then validates distance-origin bytes and timing instructions/immediates independently before exposing either capability.
 - Live memory must contain the expected complete Vanilla or centered block before every operation.
-- The distance block and four immediates share one exclusive ownership transaction. Any write or verification failure rolls the complete block and all values back to their preceding expected state.
-- `Enabled=false` restores Vanilla timing values but intentionally retains the capability-wide midpoint correction.
+- `gatehouse-distance-origin` exclusively owns only the 75-byte block and can transactionally apply either `VanillaBuildingBegin` or `BuildingBoundsCenter`.
+- `gatehouse-timing` exclusively owns only the four immediates. `Enabled=false` restores their Vanilla values without reading or changing the distance block.
+- The two non-overlapping transactions use one shared mutation lock because all current intervals occupy the same 4 KiB page. Each transaction rolls back only its own preceding expected state.
 - Unknown hashes or any byte mismatch fail closed without mutation.
+- A capability-specific target mismatch disables only that Gatehouse capability after common build/function provenance succeeds.
 - The regression test pins all 75 replacement bytes and verifies that the complete `unitY` load precedes the first `cdq` write to `RDX`.
 
 Automated coverage is in `_inspect/SerpNativeAPITests`. In-game acceptance for small and large gatehouses in every orientation remains required before release/versioning.

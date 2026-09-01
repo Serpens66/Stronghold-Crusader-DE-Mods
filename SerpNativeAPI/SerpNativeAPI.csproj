@@ -41,6 +41,7 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="src\Contracts.cs" />
     <Compile Include="src\NativeInfrastructure.cs" />
+    <Compile Include="src\GatehouseDistanceOriginCapability.cs" />
     <Compile Include="src\GatehouseTimingCapability.cs" />
     <Compile Include="src\SelectedUnitCommandCapability.cs" />
     <Compile Include="src\SerpNativeApiRuntime.cs" />

@@ -25,8 +25,8 @@ Statuswerte: `ERLEDIGT`, `NÄCHSTES`, `OFFEN`, `WARTET AUF SPIELTEST`, `BLOCKIER
 | Phase 2A | BLOCKIERT DURCH ENTSCHEIDUNG | API-Releaseprojekt und reproduzierbare Auswahl des veröffentlichten API-Artefakts |
 | Phase 2B | OFFEN | Thin-/Bundle-Erzeugung, Provenance-Schema und Archiv-Audits |
 | Phase 2C | OFFEN | Laufzeit-Duplikatschutz und Tests |
-| Phase 3A | OFFEN | Gatehouse-Pilot in `ExtraFeatures` |
-| Phase 3B | OFFEN | Selected-Unit-Pilot in `BugfixesAndQoL` |
+| Phase 3A | OFFEN | Gatehouse-Timing-Pilot in `ExtraFeatures` |
+| Phase 3B | OFFEN | Gatehouse-Distanzursprung- und Selected-Unit-Piloten in `BugfixesAndQoL` |
 | Phase 4 | OFFEN | Spieltests, Logauswertung und anschließende `APITest`-Bereinigung |
 | Phase 5A–5E | OFFEN | Je eine Welle für AIV, Assassinen, Hunter, Troop Movement und Recruitment |
 | Phase 6A–6C | OFFEN | Random Events, AI-Economy/Fixes und Vanilla-AIC-Export |
@@ -45,7 +45,7 @@ Phase 1 aus Abschnitt 7 ist umgesetzt; nach ihrer Prüfung endet der aktuelle Um
 - Native Infrastruktur, Zielkataloge, RVAs, Adressen, PE-Auswertung, Ownership-Registry, Speicherzugriff, konkrete Services, Broker, Eventadapter und Resolver sind weiterhin `internal`. Tests greifen ausschließlich über `[InternalsVisibleTo("SerpNativeAPITests")]` darauf zu.
 - Alle öffentlichen Typen und Member besitzen XML-Dokumentation. `SerpNativeAPI.csproj` erzeugt `SerpNativeAPI.xml`; fehlende öffentliche XML-Dokumentation wird über Compilerfehler `CS1591` verhindert.
 - `_inspect/SerpNativeAPITests` enthält einen expliziten Allowlist-Audit aller exportierten Typen und lehnt Pointer, `IntPtr`/`UIntPtr` sowie nach RVA-, Pattern-, Detour- oder Memory-Writer-Implementierung benannte Signaturtypen ab.
-- Die vorhandene, parallel in einem anderen Chat verbesserte Gatehouse-API ist als aktueller Ausgangsstand übernommen. Insbesondere die Center-Distance-Änderungen in `GatehouseTimingCapability.cs`, `NativeInfrastructure.cs`, `_inspect/SerpNativeAPITests/Program.cs` und den Gatehouse-Notizen dürfen nicht auf den älteren Stand dieses Plans zurückgesetzt werden.
+- Die Gatehouse-API trennt `IGatehouseDistanceOriginCapability` für den 75-Byte-Distanzblock von `IGatehouseTimingCapability` für die vier Immediates. Die Capabilities haben getrennte Diagnosen, Besitzer und Intervalle, verwenden wegen der gemeinsamen Speicherseite aber einen gemeinsamen Mutations-Lock. Diese Trennung darf nicht wieder zu einer monolithischen Capability zurückgebaut werden.
 - Phase 1 ist technisch geprüft: Rebuild von `_inspect/SerpNativeAPITests` erfolgreich, gesamte Testsuite einschließlich Surface-Audit erfolgreich, abschließender `SerpNativeAPI/build.bat /nopause` mit 0 Warnungen und 0 Fehlern erfolgreich und in den Spielordner installiert. Die erzeugte XML-Dokumentation liegt neben DLL und PDB.
 - Der CRLF-Audit der geänderten API-, Gatehouse-Dokumentations- und API-Testdateien meldet keine nackten LF und keine versehentlich ausgeschriebenen Zeilenumbruch-Ersatzsequenzen.
 - Es wurden keine Versionsnummern geändert und keine README-Datei bearbeitet.
@@ -53,7 +53,7 @@ Phase 1 aus Abschnitt 7 ist umgesetzt; nach ihrer Prüfung endet der aktuelle Um
 ### Bewusst noch nicht umgesetzt
 
 - Phase 2 (API-Releaseprojekt, Thin-/Bundle-Schema, Provenance, Duplikatschutz und Archiv-Audits) ist noch vollständig offen. Eine zwischenzeitlich angelegte `SerpNativeAPI/release.bat`, eine Registrierung in `Shared/Release/release-projects.json` und ein erster Installationswächter wurden wieder entfernt, damit Phase 2 atomar in einem eigenen Chat umgesetzt werden kann.
-- Die Pilotmigrationen aus Phase 3 sind noch nicht begonnen. Zwischenzeitliche Consumer-Änderungen wurden vollständig zurückgenommen: `ExtraFeatures` verwendet weiterhin `GatehouseTimingPatch`, `BugfixesAndQoL` weiterhin seinen vorhandenen Selected-Unit-Code. Es besteht noch keine API-HardDependency in diesen beiden Mods.
+- Die Pilotmigrationen aus Phase 3 sind noch nicht begonnen. `ExtraFeatures` verwendet weiterhin `GatehouseTimingPatch`; `BugfixesAndQoL` verwendet weiterhin seinen vorhandenen Selected-Unit-Code und besitzt noch keinen Mittelpunkt-Consumer. Es besteht noch keine API-HardDependency in diesen beiden Mods.
 - `APITest` bleibt unverändert als Vergleichs- und Smoke-Test bestehen. Es darf erst nach abgeschlossener Pilotintegration, automatisierten Tests und bestätigtem Spieltest entfernt werden.
 - Die weiteren Capability-Wellen, Shared-Migrationen sowie Steam-/Nexus-Anpassungen sind offen.
 
@@ -126,13 +126,13 @@ Ein späteres Zentralisieren der Settings-Infrastruktur wäre ein eigenes ABI-/X
 |---|---|---|
 | `ActiveAIVDetector` | Native AIV-Einstiegspunkte und Oracle-Hooks in eine `IAivPlacementCapability`; Beobachterregistrierung über Besitzer-GUID. Gemeinsame Ziele mit `CastlePlanner` werden nur einmal gehookt. | Auswahlbewertung, Trace-Dateien, Lord-/AIVJSON-Auflösung und Diagnose-UI. |
 | `AIDefense` | Zunächst nur gemeinsame Player-/Readiness-Dienste, wenn dadurch vorhandene Eigenlogik ersetzt wird. Keine Capability nur zur Erzeugung einer Abhängigkeit. | Verteidigungsregeln und Script-Extender-Eventverarbeitung. |
-| `BugfixesAndQoL` | Pilot `ISelectedUnitCommandCapability`; danach typisierte Capabilities für Assassinen-Pfadfindung/-rekonstruktion, AI-Rekrutierungsbedarf, Steinreserve, Assembly-Point-Patch, Overbuild, Plague-Prüfungen und Troop-Movement-Broker. | Feature-Schalter, Policies, UI, Multiplayerpakete und modbezogene Entscheidungen. |
+| `BugfixesAndQoL` | Piloten `IGatehouseDistanceOriginCapability` und `ISelectedUnitCommandCapability`; danach typisierte Capabilities für Assassinen-Pfadfindung/-rekonstruktion, AI-Rekrutierungsbedarf, Steinreserve, Assembly-Point-Patch, Overbuild, Plague-Prüfungen und Troop-Movement-Broker. | Mittelpunkt-Schalter, Feature-Policies, UI, Multiplayerpakete und modbezogene Entscheidungen. |
 | `BuildingCosts` | Keine erzwungene Migration; nur spätere gemeinsame Dienste verwenden, wenn echte Duplikation entsteht. | Kostenregeln, Einstellungen und Extender-Events. |
 | `BuildingLimit` | Optional zentraler Building-Snapshot-Dienst, falls er nachweislich mit anderen Mods geteilt wird. | Limitregeln, UI und modbezogener Cache. |
 | `CastlePlanner` | Native AIV-Funktionen, Human-Start-Hook und versionsabhängige AIV-Zugriffe in dieselbe AIV-Capability wie `ActiveAIVDetector`. | JSON-Import, Bauplanung, Zusatzgebäude und Benutzeroptionen. |
 | `CheatMod` | Keine erzwungene API-Abhängigkeit. | Cheatlogik und UI. |
 | `CustomCustomTrail` | Keine native Migration; bestehendes Preset-/Trail-System bleibt source-linked. | Trail-Dateien, Snapshots, Missionseinstellungen und Upload-Staging. |
-| `ExtraFeatures` | Gatehouse-Pilot vollständig über `IGatehouseTimingCapability`; danach AI-Economy/Market, Monk-Run, Plague-Werte, Church-/Quarry-/Repair-Zugriffe als getrennte fachliche Capabilities. | Einstellungen, Automatisierung und Gameplay-Policies. |
+| `ExtraFeatures` | Gatehouse-Timing-Pilot ausschließlich über `IGatehouseTimingCapability`; danach AI-Economy/Market, Monk-Run, Plague-Werte, Church-/Quarry-/Repair-Zugriffe als getrennte fachliche Capabilities. | Timing-Einstellungen, Automatisierung und Gameplay-Policies; keine Entscheidung über den Gatehouse-Distanzursprung. |
 | `ImprovedHunters` | Alle zusammengehörigen Hunter-Query-, Chicken-, Visibility-, Path- und Post-Shot-Hooks in eine intern zusammenhängende `IHunterBehaviorCapability`; Beobachter werden gebrokert. | Hunter-Regeln, Wiederholungsbudgets, Diagnoseauswertung und Settings. |
 | `LinuxModding` | Keine API-Abhängigkeit, solange keine gemeinsame Capability verwendet wird. | Linux-/Proton-spezifische Anpassungen. |
 | `RandomEvents` | Typisierte Capabilities für Vanilla-Eventdispatch, Wildlife-Dispatch, Signpost-Registry und Banditen-Popularitätsmutation. Temporäre Playerkontextänderungen werden transaktional gekapselt. | RNG, Zeitplanung, Netzwerkprotokoll, Save-State und Eventauswahl. |
@@ -152,12 +152,15 @@ Der festgelegte Migrationsumfang umfasst die 16 Mods dieser Tabelle, die jeweils
 - `GatehouseTimingPatch` durch `IGatehouseTimingCapability` ersetzen.
 - Settings erst nach `SerpNativeApi.WhenReady(...)` anwenden.
 - Aktivieren, Ändern und Deaktivieren ausschließlich über `GatehouseTimingSettings`.
-- `Enabled=false` stellt die vier konfigurierbaren Vanilla-Distanz-/Delay-Werte über die API wieder her. Die inzwischen zur Capability gehörende Center-Distance-Korrektur bleibt entsprechend dem aktuellen API-Vertrag aktiv; ein neuer Chat darf sie nicht irrtümlich als Consumer-Fallback zurückbauen.
+- `Enabled=false` stellt ausschließlich die vier konfigurierbaren Vanilla-Distanz-/Delay-Werte über die API wieder her. ExtraFeatures fordert `IGatehouseDistanceOriginCapability` nicht an und verändert den Distanzursprung weder direkt noch indirekt.
 - Der Mod hält keine Adresse, keinen Scanner und keinen Memory-Writer mehr.
 - Die kurzlebige BepInEx-Komponente darf in `OnDisable()`, `OnDestroy()` oder einem dadurch ausgelösten `Dispose()` weder die API-Registrierung lösen noch native Prozesszustände zurücksetzen. Einstellungen werden durch explizite Settings-Änderungen angewendet; die Capability bleibt prozesslang verwurzelt.
 
 ### `BugfixesAndQoL`
 
+- `IGatehouseDistanceOriginCapability` über `SerpNativeApi.WhenReady(...)` beziehen und prozesslang halten.
+- Einen standardmäßig aktiven `[SyncHostOnly]`-Schalter `EnableCenteredGatehouseDistanceFix` ergänzen. Der effektive Zustand ist `EnableMod && EnableCenteredGatehouseDistanceFix`.
+- Bei aktivem Zustand `BuildingBoundsCenter`, sonst `VanillaBuildingBegin` anwenden. Der Mod enthält hierfür keinen eigenen RVA, Scanner, Seitenschutzaufruf oder Memory-Writer.
 - Den eigenen Selected-Unit-NativeDetour durch `ISelectedUnitCommandCapability.TryRegisterBefore(...)` ersetzen.
 - Das Registrierungs-Handle prozesslang statisch verwurzeln.
 - Die Assassinen-Prüfung und Feldänderungen aus `APITest` sinnvoll in die bestehende Hauptmod-Policy integrieren.
@@ -167,6 +170,7 @@ Der festgelegte Migrationsumfang umfasst die 16 Mods dieser Tabelle, die jeweils
 ### `APITest`
 
 - Während der Pilotintegration als Vergleichs- und Smoke-Test behalten.
+- Erst in der späteren Pilot-/Laufzeitphase zusätzlich auf die getrennte `IGatehouseDistanceOriginCapability` umstellen; der aktuelle Timing-Aufruf aktiviert nach der API-Trennung keinen Mittelpunkt mehr.
 - Nach Integration, automatisierten Tests und bestätigtem Spieltest vollständig entfernen.
 - Es bleibt weder als veröffentlichter Mod noch als Produktions-Fallback bestehen.
 - Wiederverwendbare Assertions wandern nach `_inspect/SerpNativeAPITests`; fachlicher Verbrauchercode wandert in die beiden Hauptmods.
@@ -312,47 +316,50 @@ Umfang:
 
 Austritt: Duplikat- und Readiness-Tests sind grün, der Surface-Audit bleibt unverändert grün und der API-Build enthält keine neue öffentliche Infrastruktur. Danach ist Phase 3A das nächste Arbeitspaket.
 
-### Phase 3A: Gatehouse-Pilot in `ExtraFeatures`
+### Phase 3A: Gatehouse-Timing-Pilot in `ExtraFeatures`
 
-Eingang: Phasen 2A–2C sind abgeschlossen; die aktuelle Gatehouse-Capability einschließlich Center-Distance-Korrektur ist grün.
+Eingang: Phasen 2A–2C sind abgeschlossen; `IGatehouseTimingCapability` ist getrennt von `IGatehouseDistanceOriginCapability` grün.
 
 Primäre Dateien: `ExtraFeatures.csproj`, `src/ExtraFeaturesPlugin.cs`, `src/ExtraFeaturesRuntime.cs`, `src/ExtraFeaturesViewModel.cs`, `src/GatehouseAutomationRuntime.cs` und der zu ersetzende `src/GatehouseTimingPatch.cs`.
 
 Umfang:
 
 1. API-Referenz mit `<Private>false>` und HardDependency auf die kleinste tatsächlich benötigte API-Version hinzufügen.
-2. Capability ausschließlich über `SerpNativeApi.WhenReady(...)` beziehen. Pending, unavailable und capability-spezifische Fehler verständlich loggen; andere ExtraFeatures-Funktionen bleiben funktionsfähig.
+2. Ausschließlich `IGatehouseTimingCapability` über `SerpNativeApi.WhenReady(...)` beziehen. Pending, unavailable und capability-spezifische Fehler verständlich loggen; andere ExtraFeatures-Funktionen bleiben funktionsfähig.
 3. Settings und UI-Grenzen aus den öffentlichen `GatehouseTimingValues` beziehen. Änderungen über ein einziges `GatehouseTimingSettings`-Objekt transaktional anwenden.
 4. Den alten `GatehouseTimingPatch`, seine Projektaufnahme und nur die dadurch überflüssigen nativen Abhängigkeiten entfernen. `Shared/NativePatternResolver.cs` noch nicht pauschal entlinken, solange andere ExtraFeatures-Komponenten ihn benötigen.
-5. Kein Cleanup im frühen BepInEx-`OnDestroy`/`Dispose`, das die prozesslange API-Nutzung beendet. Deaktivierung erfolgt durch Settings und stellt nur die vier dokumentierten Vanilla-Werte wieder her; die Center-Distance-Korrektur bleibt API-Verhalten.
+5. Kein Cleanup im frühen BepInEx-`OnDestroy`/`Dispose`, das die prozesslange API-Nutzung beendet. Deaktivierung erfolgt durch Settings und stellt nur die vier dokumentierten Vanilla-Werte wieder her. ExtraFeatures fordert die Distance-Origin-Capability nie an.
 
 Austritt: API-/ExtraFeatures-Tests und Build grün; statischer Audit findet die Gatehouse-RVAs/Patterns/Writes nicht mehr in `ExtraFeatures`; Bundle-/Thin-Fixture für den nun echten Consumer grün. Status anschließend `WARTET AUF SPIELTEST`, aber Phase 3B darf code-seitig separat beginnen.
 
-### Phase 3B: Selected-Unit-Pilot in `BugfixesAndQoL`
+### Phase 3B: Gatehouse-Distanzursprung- und Selected-Unit-Piloten in `BugfixesAndQoL`
 
 Eingang: Phasen 2A–2C sind abgeschlossen. Phase 3A darf bereits auf Spieltest warten.
 
-Primäre Dateien: `BugfixesAndQoL.csproj`, `src/BugfixesAndQoLPlugin.cs`, `src/BugfixesAndQoLRuntime.cs`, `src/AssassinClimbCancellationRuntime.cs`, `src/AssassinClimbCancellationPolicy.cs` sowie `APITest/src/AssassinClimbCancellationTest.cs` als Vergleichsquelle.
+Primäre Dateien: `BugfixesAndQoL.csproj`, `src/BugfixesAndQoLPlugin.cs`, `src/BugfixesAndQoLRuntime.cs`, `src/BugfixesAndQoLViewModel.cs`, Modsettings-XAML und Locales, `src/AssassinClimbCancellationRuntime.cs`, `src/AssassinClimbCancellationPolicy.cs` sowie APITest als spätere Vergleichsquelle.
 
 Umfang:
 
 1. API-Referenz und HardDependency wie in Phase 3A hinzufügen.
-2. `ISelectedUnitCommandCapability.TryRegisterBefore(...)` verwenden. Das Handle prozesslang statisch verwurzeln; der frühe BepInEx-Lifecycle darf es nicht disposen.
-3. Die API liefert nur den immutable Pre-Event-Kontext des Script Extenders. Assassinenzustände, Auswahlbitmap, Einheitenprüfung und Feldänderungen bleiben Modpolicy.
-4. Den ersetzten Selected-Unit-`NativeDetour`, seine RVA-/Patternauflösung und nur dadurch unnötige Imports entfernen. Andere native Bugfixes und der eventuell weiterhin benötigte `NativePatternResolver`-Link bleiben unberührt.
-5. Callbackfehler isoliert und mit Millisekunden-Zeitstempel loggen; Vanilla-Verarbeitung darf durch die API nicht übersprungen oder verändert werden.
+2. `IGatehouseDistanceOriginCapability` über `SerpNativeApi.WhenReady(...)` beziehen und prozesslang halten. Den standardmäßig aktiven `[SyncHostOnly]`-Schalter `EnableCenteredGatehouseDistanceFix` einschließlich Preset, Reset, XAML, Suche, Tooltip und aller Locales ergänzen.
+3. Effektiv `EnableMod && EnableCenteredGatehouseDistanceFix` auswerten und explizit `BuildingBoundsCenter` beziehungsweise `VanillaBuildingBegin` anwenden. BugfixesAndQoL enthält dafür keinen eigenen RVA, Scanner, Seitenschutzaufruf oder Memory-Writer.
+4. `ISelectedUnitCommandCapability.TryRegisterBefore(...)` verwenden. Das Handle prozesslang statisch verwurzeln; der frühe BepInEx-Lifecycle darf es nicht disposen.
+5. Die API liefert nur den immutable Pre-Event-Kontext des Script Extenders. Assassinenzustände, Auswahlbitmap, Einheitenprüfung und Feldänderungen bleiben Modpolicy.
+6. Den ersetzten Selected-Unit-`NativeDetour`, seine RVA-/Patternauflösung und nur dadurch unnötige Imports entfernen. Andere native Bugfixes und der eventuell weiterhin benötigte `NativePatternResolver`-Link bleiben unberührt.
+7. Capability- und Callbackfehler isoliert und mit Millisekunden-Zeitstempel loggen; andere Bugfixes und Vanilla-Verarbeitung bleiben funktionsfähig.
 
-Austritt: API-/Bugfixes-Tests und Build grün; statischer Audit bestätigt, dass genau der ersetzte Selected-Unit-Detour verschwunden ist; gemeinsam installierte Pilotmods initialisieren die API nur einmal. Status danach `WARTET AUF SPIELTEST`.
+Austritt: API-/Bugfixes-Tests, Host-/Client-Presettests, XAML-Audit und Build grün; statischer Audit bestätigt den fehlenden eigenen Gatehouse-Mittelpunktpatch und das Verschwinden genau des ersetzten Selected-Unit-Detours; gemeinsam installierte Pilotmods initialisieren die API nur einmal. Status danach `WARTET AUF SPIELTEST`.
 
 ### Phase 4: Pilot-Spieltest und Bereinigung
 
 Diese Phase erfordert Benutzerinteraktion und darf nicht in einem unbeaufsichtigten Codechat als bestanden markiert werden.
 
-1. Einen Testbuild für API und beide Consumer bereitstellen, ohne Versionserhöhung.
-2. Der Benutzer führt die in Abschnitt 8 beschriebenen Singleplayer-/Host-/Client-Tests aus. Der Chat wertet Host- und, wenn erreichbar, Client-Log anhand des Startmarkers und der eigenen Millisekunden-Zeitstempel aus.
-3. Bei Fehlern werden API oder Consumer korrigiert; der alte Produktionshook wird nicht als Fallback wieder eingeführt.
-4. Erst nach ausdrücklicher Bestätigung beider Piloten wiederverwendbare Assertions nach `_inspect/SerpNativeAPITests` verschieben und `APITest` vollständig entfernen. Vor der Entfernung noch einmal workspaceweit prüfen, dass kein Test oder Build darauf verweist.
-5. `ARCHITECTURE.md`, `SerpNativeAPI/_inspect/native-surface-audit.csv` und dieser Übergabeabschnitt erhalten den bestätigten Laufzeitstand.
+1. APITest temporär auf beide getrennten Gatehouse-Capabilities umstellen und damit zunächst den Mittelpunktblock sowie Timing isoliert prüfen. Vor der Abnahme der Hauptmods APITest deaktivieren oder aus der Spielinstallation entfernen, damit es keine Capability reserviert.
+2. Einen Testbuild für API und beide Consumer bereitstellen, ohne Versionserhöhung.
+3. Der Benutzer führt die in Abschnitt 8 beschriebenen Singleplayer-/Host-/Client-Tests aus. Der Chat wertet Host- und, wenn erreichbar, Client-Log anhand des Startmarkers und der eigenen Millisekunden-Zeitstempel aus.
+4. Bei Fehlern werden API oder Consumer korrigiert; der alte Produktionshook wird nicht als Fallback wieder eingeführt.
+5. Erst nach ausdrücklicher Bestätigung beider Piloten wiederverwendbare Assertions nach `_inspect/SerpNativeAPITests` verschieben und `APITest` vollständig entfernen. Vor der Entfernung noch einmal workspaceweit prüfen, dass kein Test oder Build darauf verweist.
+6. `ARCHITECTURE.md`, `SerpNativeAPI/_inspect/native-surface-audit.csv` und dieser Übergabeabschnitt erhalten den bestätigten Laufzeitstand.
 
 Austritt: beide Piloten bestätigt, `APITest` entfernt, keine parallelen Alt-Hooks und keine offenen Pilotfehler. Danach Phase 5A.
 
@@ -432,7 +439,8 @@ Austritt: maschinenlesbarer Auditbericht ohne ungeklärten Treffer für bereits 
 ### Laufzeit-Smoke-Tests
 
 - `ExtraFeatures`: Gatehouse-Werte aktivieren, ändern, deaktivieren und Vanilla-Werte bestätigen.
-- `BugfixesAndQoL`: Assassinen während Kletterzuständen per synchronisiertem Stop abbrechen; Singleplayer sowie Host/Client prüfen.
+- `BugfixesAndQoL`: Mittelpunktfix an/aus schalten und gleiche Schließdistanz an kleinen/großen Toren von beiden Seiten und diagonal bestätigen; außerdem Assassinen während Kletterzuständen per synchronisiertem Stop abbrechen. Singleplayer sowie Host/Client prüfen.
+- Kombinationsmatrix: nur BugfixesAndQoL ergibt Mittelpunkt mit Vanilla-Werten; nur ExtraFeatures ergibt konfigurierbare Werte mit Vanilla-Ursprung; beide zusammen ergeben Mittelpunkt mit konfigurierbaren Werten.
 - mehrere API-Verbraucher gemeinsam laden und genau eine API-Initialisierung bestätigen;
 - fehlende/alte API erzeugt verständliche BepInEx-Abhängigkeitsfehler;
 - doppelte API-Dateien werden erkannt und native Mutationen bleiben gesperrt;
@@ -458,7 +466,7 @@ Diese Liste ergänzt die capability-spezifischen Tests; ein Folgechat muss nicht
 | Phase 2B | positive und negative Thin-/Bundle-/Provenance-Fixtures; bytegenauer Entpackaudit; unabhängiger Mod unverändert |
 | Phase 2C | `_inspect/SerpNativeAPITests`; Duplikatbaum-Fixtures; Public-Surface- und XML-Dokumentationsaudit |
 | Phase 3A | `_inspect/SerpNativeAPITests`; relevante ExtraFeatures-Tests; `_inspect/HostClientPresetTests` nach dessen README und erhöhtem EXE-Aufruf; Gatehouse-Legacy-Suche; API- und ExtraFeatures-Build |
-| Phase 3B | `_inspect/SerpNativeAPITests`; relevante Bugfixes-/Assassinen-Tests; `_inspect/HostClientPresetTests`; Selected-Unit-Legacy-Suche; API- und Bugfixes-Build |
+| Phase 3B | `_inspect/SerpNativeAPITests`; relevante Bugfixes-/Assassinen-Tests; `_inspect/HostClientPresetTests`; XAML-/Locale-Audit; Gatehouse-Origin- und Selected-Unit-Legacy-Suche; API- und Bugfixes-Build |
 | Phase 4 | dokumentierte manuelle Smoke-Tests und Logauswertung; danach Tests erneut, bevor `APITest` entfernt bleibt |
 | Phase 5–7 | API-Tests plus alle Tests jedes berührten Consumers/Diagnosemods, Surface-Audit, capability-spezifische Legacy-Suche und jeweilige Builds |
 | Phase 8 | workspaceweiter statischer Audit und Builds aller 16 festgelegten Release-Mods gegen fehlende, zu alte, passende und neuere API, soweit sie tatsächlich Consumer sind |

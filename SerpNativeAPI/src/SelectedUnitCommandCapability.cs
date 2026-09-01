@@ -48,7 +48,10 @@ namespace SerpNativeAPI
         void Disable();
     }
 
-    /// <summary>Brokers selected-unit command callbacks through one process-wide subscription.</summary>
+    /// <summary>
+    /// Brokers selected-unit command callbacks through one process-wide subscription. The intended
+    /// future consumer is BugfixesAndQoL; this is documentation, not a runtime dependency.
+    /// </summary>
     public interface ISelectedUnitCommandCapability
     {
         /// <summary>Registers one idempotent before-callback for the capability owner.</summary>

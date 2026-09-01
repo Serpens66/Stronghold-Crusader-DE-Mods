@@ -46,6 +46,9 @@
         <member name="T:SerpNativeAPI.NativeCapabilityIds">
             <summary>Stable identifiers for capabilities exposed by this API version.</summary>
         </member>
+        <member name="F:SerpNativeAPI.NativeCapabilityIds.GatehouseDistanceOrigin">
+            <summary>Capability for selecting the native gatehouse distance origin.</summary>
+        </member>
         <member name="F:SerpNativeAPI.NativeCapabilityIds.GatehouseTiming">
             <summary>Capability for configuring gatehouse timing and closing distances.</summary>
         </member>
@@ -79,11 +82,23 @@
         <member name="P:SerpNativeAPI.ISerpNativeApi.State">
             <summary>Gets the global initialization state.</summary>
         </member>
+        <member name="M:SerpNativeAPI.ISerpNativeApi.TryGetGatehouseDistanceOrigin(System.String,SerpNativeAPI.IGatehouseDistanceOriginCapability@,SerpNativeAPI.NativeCapabilityDiagnostic@)">
+            <summary>
+            Attempts to acquire the gatehouse distance-origin capability for a stable owner GUID.
+            The intended future consumer is BugfixesAndQoL; this is documentation, not a runtime dependency.
+            </summary>
+        </member>
         <member name="M:SerpNativeAPI.ISerpNativeApi.TryGetGatehouseTiming(System.String,SerpNativeAPI.IGatehouseTimingCapability@,SerpNativeAPI.NativeCapabilityDiagnostic@)">
-            <summary>Attempts to acquire the gatehouse timing capability for a stable owner GUID.</summary>
+            <summary>
+            Attempts to acquire the gatehouse timing capability for a stable owner GUID.
+            The intended future consumer is ExtraFeatures; this is documentation, not a runtime dependency.
+            </summary>
         </member>
         <member name="M:SerpNativeAPI.ISerpNativeApi.TryGetSelectedUnitCommand(System.String,SerpNativeAPI.ISelectedUnitCommandCapability@,SerpNativeAPI.NativeCapabilityDiagnostic@)">
-            <summary>Attempts to acquire the selected-unit command capability for a stable owner GUID.</summary>
+            <summary>
+            Attempts to acquire the selected-unit command capability for a stable owner GUID.
+            The intended future consumer is BugfixesAndQoL; this is documentation, not a runtime dependency.
+            </summary>
         </member>
         <member name="T:SerpNativeAPI.SerpNativeApi">
             <summary>Static access to the process-wide API and its readiness notification.</summary>
@@ -96,6 +111,24 @@
             Registers a callback that runs when initialization reaches a terminal state. Late
             registrations run synchronously.
             </summary>
+        </member>
+        <member name="T:SerpNativeAPI.GatehouseDistanceOrigin">
+            <summary>Selects the native coordinate used as the origin of gatehouse enemy distance checks.</summary>
+        </member>
+        <member name="F:SerpNativeAPI.GatehouseDistanceOrigin.VanillaBuildingBegin">
+            <summary>Use Vanilla's begin coordinate at one corner of the gatehouse bounds.</summary>
+        </member>
+        <member name="F:SerpNativeAPI.GatehouseDistanceOrigin.BuildingBoundsCenter">
+            <summary>Use the exact center of the complete gatehouse bounding box.</summary>
+        </member>
+        <member name="T:SerpNativeAPI.IGatehouseDistanceOriginCapability">
+            <summary>
+            Applies a validated, transactional gatehouse distance origin. The intended future consumer
+            is BugfixesAndQoL; this is documentation, not a runtime dependency.
+            </summary>
+        </member>
+        <member name="M:SerpNativeAPI.IGatehouseDistanceOriginCapability.TryApply(SerpNativeAPI.GatehouseDistanceOrigin,SerpNativeAPI.NativeCapabilityDiagnostic@)">
+            <summary>Attempts to apply and verify the requested process-wide gatehouse distance origin.</summary>
         </member>
         <member name="T:SerpNativeAPI.GatehouseTimingValues">
             <summary>Documented Vanilla values and supported UI ranges for gatehouse timing.</summary>
@@ -138,8 +171,8 @@
         </member>
         <member name="P:SerpNativeAPI.GatehouseTimingSettings.Enabled">
             <summary>
-            Gets whether custom timing values should be applied. False restores the four Vanilla
-            timing values while retaining the capability-wide centered distance origin.
+            Gets whether custom timing values should be applied. False restores only the four
+            Vanilla timing values and does not change the independently owned distance origin.
             </summary>
         </member>
         <member name="P:SerpNativeAPI.GatehouseTimingSettings.HumanReopenDelaySeconds">
@@ -156,12 +189,12 @@
         </member>
         <member name="T:SerpNativeAPI.IGatehouseTimingCapability">
             <summary>
-            Applies a validated, transactional gatehouse configuration and activates the centered
-            distance origin on the first successful application.
+            Applies validated, transactional gatehouse timing values. The intended future consumer is
+            ExtraFeatures; this is documentation, not a runtime dependency.
             </summary>
         </member>
         <member name="M:SerpNativeAPI.IGatehouseTimingCapability.TryApply(SerpNativeAPI.GatehouseTimingSettings,SerpNativeAPI.NativeCapabilityDiagnostic@)">
-            <summary>Attempts to apply the centered distance block and all gatehouse values as one transaction.</summary>
+            <summary>Attempts to apply and verify all four gatehouse timing values as one transaction.</summary>
         </member>
         <member name="T:SerpNativeAPI.SelectedUnitCommandContext">
             <summary>Immutable snapshot of a selected-unit command before Vanilla processes it.</summary>
@@ -197,7 +230,10 @@
             <summary>Disables future callback dispatch without releasing the registration.</summary>
         </member>
         <member name="T:SerpNativeAPI.ISelectedUnitCommandCapability">
-            <summary>Brokers selected-unit command callbacks through one process-wide subscription.</summary>
+            <summary>
+            Brokers selected-unit command callbacks through one process-wide subscription. The intended
+            future consumer is BugfixesAndQoL; this is documentation, not a runtime dependency.
+            </summary>
         </member>
         <member name="M:SerpNativeAPI.ISelectedUnitCommandCapability.TryRegisterBefore(System.Action{SerpNativeAPI.SelectedUnitCommandContext},SerpNativeAPI.ISelectedUnitCommandRegistration@,SerpNativeAPI.NativeCapabilityDiagnostic@)">
             <summary>Registers one idempotent before-callback for the capability owner.</summary>

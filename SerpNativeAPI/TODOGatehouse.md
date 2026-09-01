@@ -42,9 +42,10 @@ Im bestätigten Build liegt der Extender-Hook unmittelbar vor dem nativen Distan
 
 1. Der Resolver verwirft unbekannte DLL-Hashes sowie abweichende Funktions- oder Blockbytes fail-closed.
 2. Der rein native Ersatz belegt exakt `[0xB7B70, 0xB7BBB)` und fällt vor den unveränderten Human-/AI-Vergleichen zurück in Vanilla.
-3. Mittelpunktblock und vier Immediates werden gemeinsam exklusiv reserviert, geschrieben, verifiziert und bei einem Teilfehler vollständig zurückgerollt.
-4. `Enabled=false` stellt die vier Vanilla-Timingwerte wieder her; der capabilityweite Mittelpunkt-Fix bleibt aktiv.
-5. Vollständige Provenienz, Original-/Patchbytes und Registervertrag stehen in `_inspect/gatehouse-center-patch.md`.
+3. `gatehouse-distance-origin` reserviert, schreibt und verifiziert ausschließlich den Mittelpunktblock und kann ihn explizit wieder auf `VanillaBuildingBegin` zurückstellen.
+4. `gatehouse-timing` besitzt ausschließlich die vier Immediates; `Enabled=false` stellt nur deren Vanilla-Werte wieder her.
+5. Beide Capabilities besitzen getrennte Diagnosen und Intervalle, teilen wegen der gemeinsamen Speicherseite aber einen Mutations-Lock.
+6. Vollständige Provenienz, Original-/Patchbytes und Registervertrag stehen in `_inspect/gatehouse-center-patch.md`.
 
 Der erste Mittelpunktblock verursachte beim Eintritt einer Unit in die Gatehouse-Abfrage einen nativen Crash: `cdq` für `abs(dx)` zerstörte den noch für das Laden von `unitY` benötigten Unit-Offset in `RDX`. Der korrigierte 75-Byte-Block lädt beide Unit-Koordinaten vor dem ersten `cdq`; ein exakter Byte-Regressionstest sichert diese Reihenfolge ab.
 
@@ -58,8 +59,10 @@ Der erste Mittelpunktblock verursachte beim Eintritt einer Unit in die Gatehouse
 - unbekannter DLL-Hash, falscher Funktionshash, veränderte Bytes und überlappender Fremdpatch jeweils fail-closed ohne Mutation;
 - keine Überschneidung mit dem Script-Extender-`OnGatehouseQuery`-Hook;
 - idempotente Wiederholung, externe Mutation, vollständige Transaktion, Rollback sowie kombinierte Schutz-/Cache-Flush-Fehler;
-- Deaktivierung stellt nachweislich die vier Vanilla-Timingwerte wieder her und behält den Mittelpunkt-Fix bei;
+- `VanillaBuildingBegin` stellt nachweislich alle 75 Originalbytes wieder her, ohne Timingwerte zu verändern;
+- Timing-Deaktivierung stellt nachweislich nur die vier Vanilla-Timingwerte wieder her, ohne den Distanzursprung zu verändern;
+- unterschiedliche Besitzer können Mittelpunkt und Timing wegen überschneidungsfreier Intervalle gleichzeitig verwenden;
 - APITest enthält weiterhin keine Gatehouse-RVAs, Scanner, Seitenschutzaufrufe oder eigene Detours.
 - beide Unit-Koordinaten werden vor der ersten überschreibenden Verwendung von `RDX` geladen.
 
-Der RDX-Liveness-Hotfix ist implementiert und automatisiert geprüft. Die aufgeführten Laufzeittests sind vor finaler Versionierung weiterhin offen.
+Der RDX-Liveness-Hotfix und die Trennung in zwei Gatehouse-Capabilities sind implementiert und automatisiert geprüft. Die aufgeführten Laufzeittests sind vor finaler Versionierung weiterhin offen.

@@ -34,6 +34,7 @@ namespace SerpNativeAPITests
             TestReadinessAndIndependentCapabilities();
             TestOwnership();
             TestCenteredDistanceSemantics();
+            TestGatehouseDistanceOriginTransaction();
             TestGatehouseTransactionAndRounding();
             TestGatehouseRollbackAndPageCleanup();
             TestSelectedBroker();
@@ -51,8 +52,10 @@ namespace SerpNativeAPITests
         {
             var expected = new HashSet<string>(StringComparer.Ordinal)
             {
+                "SerpNativeAPI.GatehouseDistanceOrigin",
                 "SerpNativeAPI.GatehouseTimingSettings",
                 "SerpNativeAPI.GatehouseTimingValues",
+                "SerpNativeAPI.IGatehouseDistanceOriginCapability",
                 "SerpNativeAPI.IGatehouseTimingCapability",
                 "SerpNativeAPI.ISelectedUnitCommandCapability",
                 "SerpNativeAPI.ISelectedUnitCommandRegistration",
@@ -88,6 +91,22 @@ namespace SerpNativeAPITests
 
             foreach (string missing in expected)
                 Assert(false, $"expected exported API type is missing: {missing}");
+
+            var expectedAcquisitionMethods = new HashSet<string>(StringComparer.Ordinal)
+            {
+                "TryGetGatehouseDistanceOrigin",
+                "TryGetGatehouseTiming",
+                "TryGetSelectedUnitCommand"
+            };
+            foreach (MethodInfo method in typeof(ISerpNativeApi).GetMethods())
+                expectedAcquisitionMethods.Remove(method.Name);
+            foreach (string missing in expectedAcquisitionMethods)
+                Assert(false, $"expected capability acquisition method is missing: ISerpNativeApi.{missing}");
+
+            Assert(NativeCapabilityIds.GatehouseDistanceOrigin == "gatehouse-distance-origin",
+                "distance-origin capability ID must remain stable");
+            Assert(NativeCapabilityIds.GatehouseTiming == "gatehouse-timing",
+                "gatehouse-timing capability ID must remain stable");
         }
 
         private static void AssertSafePublicType(Type type, string location)
@@ -115,6 +134,8 @@ namespace SerpNativeAPITests
             var runtime = InitializeRuntime(nonExecutable, catalog, SeedRuntimeMemory(nonExecutable, catalog), new FakeEventSource());
             Assert(!runtime.TryGetGatehouseTiming("owner", out _, out NativeCapabilityDiagnostic diagnostic) &&
                 diagnostic.State == NativeCapabilityState.ValidationFailed, "gatehouse function must be executable");
+            Assert(!runtime.TryGetGatehouseDistanceOrigin("owner", out _, out diagnostic) &&
+                diagnostic.State == NativeCapabilityState.ValidationFailed, "distance origin also requires an executable gatehouse function");
         }
 
         private static void TestFixedCatalogValidation()
@@ -126,11 +147,16 @@ namespace SerpNativeAPITests
             Assert(runtime.TryGetGatehouseTiming("owner", out _, out NativeCapabilityDiagnostic available) &&
                 available.State == NativeCapabilityState.Available && available.Reason.Contains("function SHA-256"),
                 "matching fixed catalog should validate with provenance");
+            Assert(runtime.TryGetGatehouseDistanceOrigin("origin-owner", out _, out NativeCapabilityDiagnostic originAvailable) &&
+                originAvailable.State == NativeCapabilityState.Available && originAvailable.Reason.Contains("function SHA-256"),
+                "matching distance-origin catalog should validate with provenance");
+            Assert(memory.WriteCount == 0,
+                "initialization and capability acquisition must not activate either gatehouse gameplay change");
 
             byte[] wrongHashImage = (byte[])image.Clone();
             var wrongHashCatalog = CloneCatalog(catalog, functionHash: new string('0', 64));
             runtime = InitializeRuntime(wrongHashImage, wrongHashCatalog, SeedRuntimeMemory(wrongHashImage, wrongHashCatalog), new FakeEventSource());
-            AssertGateValidationFailure(runtime, "wrong function hash must fail");
+            AssertBothGateValidationFailures(runtime, "wrong function hash must fail both gatehouse capabilities");
 
             byte[] wrongOpcode = (byte[])image.Clone();
             wrongOpcode[DecisionRva] ^= 1;
@@ -138,31 +164,41 @@ namespace SerpNativeAPITests
             GatehouseBuildTarget wrongOpcodeCatalog = CloneCatalog(catalog, functionHash: SerpNativeApiRuntime.ComputeSha256(
                 new ReadOnlySpan<byte>(wrongOpcode, FunctionRva, FunctionSize)));
             runtime = InitializeRuntime(wrongOpcode, wrongOpcodeCatalog, SeedRuntimeMemory(wrongOpcode, wrongOpcodeCatalog), new FakeEventSource());
-            AssertGateValidationFailure(runtime, "wrong opcode must fail without accepting a decoy");
+            AssertTimingValidationFailure(runtime, "wrong timing opcode must fail without accepting a decoy");
+            Assert(runtime.TryGetGatehouseDistanceOrigin("owner", out _, out _),
+                "a timing-only opcode mismatch must not disable distance-origin capability");
 
             byte[] wrongImmediate = (byte[])image.Clone();
             WriteInt32(wrongImmediate, DecisionRva + 8, 201);
             GatehouseBuildTarget wrongImmediateCatalog = CloneCatalog(catalog, functionHash: SerpNativeApiRuntime.ComputeSha256(
                 new ReadOnlySpan<byte>(wrongImmediate, FunctionRva, FunctionSize)));
             runtime = InitializeRuntime(wrongImmediate, wrongImmediateCatalog, SeedRuntimeMemory(wrongImmediate, wrongImmediateCatalog), new FakeEventSource());
-            AssertGateValidationFailure(runtime, "wrong Vanilla immediate must fail");
+            AssertTimingValidationFailure(runtime, "wrong Vanilla immediate must fail timing");
+            Assert(runtime.TryGetGatehouseDistanceOrigin("owner", out _, out _),
+                "a timing immediate mismatch must not disable distance-origin capability");
 
             byte[] wrongDistance = (byte[])image.Clone();
             wrongDistance[DistanceRva] ^= 1;
             GatehouseBuildTarget wrongDistanceCatalog = CloneCatalog(catalog, functionHash: SerpNativeApiRuntime.ComputeSha256(
                 new ReadOnlySpan<byte>(wrongDistance, FunctionRva, FunctionSize)));
             runtime = InitializeRuntime(wrongDistance, wrongDistanceCatalog, SeedRuntimeMemory(wrongDistance, wrongDistanceCatalog), new FakeEventSource());
-            AssertGateValidationFailure(runtime, "wrong Vanilla distance block must fail");
+            AssertOriginValidationFailure(runtime, "wrong Vanilla distance block must fail distance origin");
+            Assert(runtime.TryGetGatehouseTiming("owner", out _, out _),
+                "a distance-origin mismatch must not disable gatehouse timing");
 
             GatehouseBuildTarget outside = CloneCatalog(catalog, aiCloseDistanceRva: FunctionRva - 4);
             runtime = InitializeRuntime(image, outside, SeedRuntimeMemory(image, catalog), new FakeEventSource());
-            AssertGateValidationFailure(runtime, "catalogued immediate outside function must fail");
+            AssertTimingValidationFailure(runtime, "catalogued immediate outside function must fail timing");
+            Assert(runtime.TryGetGatehouseDistanceOrigin("owner", out _, out _),
+                "an invalid timing address must not disable distance origin");
         }
 
         private static void TestReadinessAndIndependentCapabilities()
         {
             byte[] image = CreatePeImage(0x4000, true);
             var runtime = new SerpNativeApiRuntime();
+            Assert(!runtime.TryGetGatehouseDistanceOrigin("owner", out _, out NativeCapabilityDiagnostic originPending) &&
+                originPending.State == NativeCapabilityState.Pending, "pre-initialization origin query should be Pending");
             Assert(!runtime.TryGetGatehouseTiming("owner", out _, out NativeCapabilityDiagnostic pending) &&
                 pending.State == NativeCapabilityState.Pending, "pre-initialization query should be Pending");
             int readyBefore = 0;
@@ -173,6 +209,8 @@ namespace SerpNativeAPITests
             Assert(runtime.State == NativeApiState.Ready && readyBefore == 1, "unknown build should still publish Ready");
             Assert(!runtime.TryGetGatehouseTiming("owner", out _, out NativeCapabilityDiagnostic gate) &&
                 gate.State == NativeCapabilityState.UnsupportedBuild, "unknown build should disable only gatehouse");
+            Assert(!runtime.TryGetGatehouseDistanceOrigin("owner", out _, out NativeCapabilityDiagnostic origin) &&
+                origin.State == NativeCapabilityState.UnsupportedBuild, "unknown build should disable distance origin without mutation");
             Assert(runtime.TryGetSelectedUnitCommand("owner", out ISelectedUnitCommandCapability selected, out NativeCapabilityDiagnostic selectedDiagnostic) &&
                 selectedDiagnostic.State == NativeCapabilityState.Available, "event capability should support unknown native hashes");
             Assert(memory.OperationCount == 0 && events.SubscribeCount == 0, "unknown build performs no native operation or eager subscription");
@@ -188,6 +226,8 @@ namespace SerpNativeAPITests
             Assert(runtime.TryGetSelectedUnitCommand("owner", out _, out _), "selected event survives missing native module");
             Assert(!runtime.TryGetGatehouseTiming("owner", out _, out NativeCapabilityDiagnostic missingHash) &&
                 missingHash.State == NativeCapabilityState.UnsupportedBuild, "missing hash is unsupported for gatehouse");
+            Assert(!runtime.TryGetGatehouseDistanceOrigin("owner", out _, out NativeCapabilityDiagnostic missingOriginHash) &&
+                missingOriginHash.State == NativeCapabilityState.UnsupportedBuild, "missing hash is unsupported for distance origin");
         }
 
         private static void TestOwnership()
@@ -215,30 +255,114 @@ namespace SerpNativeAPITests
             AssertSequenceEqual(supported.CenteredDistanceBlockBytes, SupportedCenteredDistanceBytes,
                 "supported centered distance bytes must match the reviewed crash-safe sequence");
 
+            var originTarget = new GatehouseDistanceOriginTarget(
+                ModuleBase + supported.DistanceBlockRva,
+                supported.VanillaDistanceBlockBytes,
+                supported.CenteredDistanceBlockBytes);
+            var timingTarget = new GatehouseTimingTarget(
+                ModuleBase + supported.AiCloseDistanceRva,
+                ModuleBase + supported.AiReopenDelayRva,
+                ModuleBase + supported.HumanCloseDistanceRva,
+                ModuleBase + supported.HumanReopenDelayRva);
+            Assert(originTarget.Intervals.Count == 1 &&
+                originTarget.Intervals[0].Start == ModuleBase + 0xB7B70 &&
+                originTarget.Intervals[0].End == ModuleBase + 0xB7BBB,
+                "distance-origin capability must own exactly [0xB7B70, 0xB7BBB)");
+            Assert(timingTarget.Intervals.Count == 4 &&
+                timingTarget.Intervals[0].Start == ModuleBase + 0xB7BC3 && timingTarget.Intervals[0].End == ModuleBase + 0xB7BC7 &&
+                timingTarget.Intervals[1].Start == ModuleBase + 0xB7BCA && timingTarget.Intervals[1].End == ModuleBase + 0xB7BCE &&
+                timingTarget.Intervals[2].Start == ModuleBase + 0xB7BD3 && timingTarget.Intervals[2].End == ModuleBase + 0xB7BD7 &&
+                timingTarget.Intervals[3].Start == ModuleBase + 0xB7C35 && timingTarget.Intervals[3].End == ModuleBase + 0xB7C39,
+                "timing capability must own exactly the four immediate intervals");
+            foreach (NativeInterval timingInterval in timingTarget.Intervals)
+                Assert(!originTarget.Intervals[0].Overlaps(timingInterval),
+                    "distance-origin and timing intervals must be disjoint");
+
             byte[] unitYLoad = Hex("0F BF 8C 2A 10 8B 7E 06");
             int unitYLoadOffset = IndexOfSequence(supported.CenteredDistanceBlockBytes, unitYLoad);
             int firstCdqOffset = Array.IndexOf(supported.CenteredDistanceBlockBytes, (byte)0x99);
             Assert(unitYLoadOffset == 9 && unitYLoadOffset + unitYLoad.Length <= firstCdqOffset,
                 "unit Y must be loaded through the live RDX unit offset before CDQ overwrites RDX");
 
-            Assert(GatehouseTimingService.ComputeCenteredDistanceNative(10, 20, 12, 24, 88, 176) == 0,
+            Assert(GatehouseDistanceOriginService.ComputeCenteredDistanceNative(10, 20, 12, 24, 88, 176) == 0,
                 "integer midpoint should map to zero native distance");
-            Assert(GatehouseTimingService.ComputeCenteredDistanceNative(10, 20, 11, 23, 84, 172) == 0,
+            Assert(GatehouseDistanceOriginService.ComputeCenteredDistanceNative(10, 20, 11, 23, 84, 172) == 0,
                 "half-tile midpoint should remain exact in native coordinates");
-            Assert(GatehouseTimingService.ComputeCenteredDistanceNative(12, 24, 10, 20, 88, 176) == 0,
+            Assert(GatehouseDistanceOriginService.ComputeCenteredDistanceNative(12, 24, 10, 20, 88, 176) == 0,
                 "reversed bounds should produce the same midpoint");
-            Assert(GatehouseTimingService.ComputeCenteredDistanceNative(10, 20, 12, 24, 80, 176) == 8 &&
-                GatehouseTimingService.ComputeCenteredDistanceNative(10, 20, 12, 24, 96, 176) == 8,
+            Assert(GatehouseDistanceOriginService.ComputeCenteredDistanceNative(10, 20, 12, 24, 80, 176) == 8 &&
+                GatehouseDistanceOriginService.ComputeCenteredDistanceNative(10, 20, 12, 24, 96, 176) == 8,
                 "opposite horizontal approaches should have equal distance");
-            Assert(GatehouseTimingService.ComputeCenteredDistanceNative(10, 20, 12, 24, 80, 168) == 8 &&
-                GatehouseTimingService.ComputeCenteredDistanceNative(10, 20, 12, 24, 96, 184) == 8,
+            Assert(GatehouseDistanceOriginService.ComputeCenteredDistanceNative(10, 20, 12, 24, 80, 168) == 8 &&
+                GatehouseDistanceOriginService.ComputeCenteredDistanceNative(10, 20, 12, 24, 96, 184) == 8,
                 "diagonal approaches should retain Vanilla Chebyshev distance");
+        }
+
+        private static void TestGatehouseDistanceOriginTransaction()
+        {
+            FakeMemory memory = SeedDirectGateMemory();
+            var ownership = new NativeOwnershipRegistry();
+            var mutationSync = new object();
+            IGatehouseDistanceOriginCapability origin =
+                CreateOriginService(memory, ownership, mutationSync).Bind("BugfixesAndQoL_Serp");
+            IGatehouseTimingCapability timing =
+                CreateGateService(memory, ownership, mutationSync).Bind("ExtraFeatures_Serp");
+
+            Assert(!origin.TryApply((GatehouseDistanceOrigin)99, out NativeCapabilityDiagnostic invalid) &&
+                invalid.State == NativeCapabilityState.ValidationFailed && memory.WriteCount == 0,
+                "unknown distance-origin values fail before native mutation");
+            Assert(origin.TryApply(GatehouseDistanceOrigin.BuildingBoundsCenter, out NativeCapabilityDiagnostic centered) &&
+                centered.CapabilityId == NativeCapabilityIds.GatehouseDistanceOrigin,
+                "Bugfixes owner should apply the centered distance origin");
+            AssertBytes(memory, ModuleBase + 0xB7B70, CenteredDistanceBytes,
+                "distance-origin capability writes only the centered block");
+            Assert(memory.ReadRaw(ModuleBase + 0xB7BC3) == 200 && memory.ReadRaw(ModuleBase + 0xB7C35) == 100,
+                "distance-origin mutation leaves all timing values Vanilla");
+            int writes = memory.WriteCount;
+            Assert(origin.TryApply(GatehouseDistanceOrigin.BuildingBoundsCenter, out _) && memory.WriteCount == writes,
+                "identical distance-origin apply is idempotent");
+
+            Assert(timing.TryApply(new GatehouseTimingSettings(true, 1, 5, 10, 15), out NativeCapabilityDiagnostic timingApplied) &&
+                timingApplied.CapabilityId == NativeCapabilityIds.GatehouseTiming,
+                "different owners can reserve the adjacent timing and origin intervals");
+            AssertBytes(memory, ModuleBase + 0xB7B70, CenteredDistanceBytes,
+                "timing mutation leaves the independently selected origin unchanged");
+
+            Assert(origin.TryApply(GatehouseDistanceOrigin.VanillaBuildingBegin, out _),
+                "distance-origin capability restores Vanilla on explicit request");
+            AssertBytes(memory, ModuleBase + 0xB7B70, VanillaDistanceBytes,
+                "Vanilla distance-origin request restores all original bytes");
+            Assert(memory.ReadRaw(ModuleBase + 0xB7BC3) == 120 && memory.ReadRaw(ModuleBase + 0xB7C35) == 40,
+                "restoring the origin does not change customized timing values");
+
+            memory.SetByte(ModuleBase + 0xB7B70, 0x90);
+            Assert(!origin.TryApply(GatehouseDistanceOrigin.BuildingBoundsCenter, out NativeCapabilityDiagnostic changed) &&
+                changed.State == NativeCapabilityState.ValidationFailed,
+                "external distance-block mutation fails closed");
+
+            FakeMemory rollbackMemory = SeedDirectGateMemory();
+            origin = CreateOriginService(rollbackMemory, new NativeOwnershipRegistry(), new object()).Bind("owner");
+            rollbackMemory.FailNextWriteByteAddress = ModuleBase + 0xB7B72;
+            Assert(!origin.TryApply(GatehouseDistanceOrigin.BuildingBoundsCenter, out _),
+                "partial centered-block write fails");
+            AssertBytes(rollbackMemory, ModuleBase + 0xB7B70, VanillaDistanceBytes,
+                "partial centered-block write restores the complete Vanilla block");
+
+            FakeMemory conflictMemory = SeedDirectGateMemory();
+            var conflictRegistry = new NativeOwnershipRegistry();
+            GatehouseDistanceOriginService originService =
+                CreateOriginService(conflictMemory, conflictRegistry, new object());
+            Assert(originService.Bind("A").TryApply(GatehouseDistanceOrigin.BuildingBoundsCenter, out _),
+                "first distance-origin owner applies");
+            Assert(!originService.Bind("B").TryApply(GatehouseDistanceOrigin.VanillaBuildingBegin, out NativeCapabilityDiagnostic conflict) &&
+                conflict.State == NativeCapabilityState.Conflict && conflict.ConflictOwnerGuid == "A",
+                "second distance-origin owner receives conflict diagnostics");
         }
 
         private static void TestGatehouseTransactionAndRounding()
         {
             FakeMemory memory = SeedDirectGateMemory();
-            IGatehouseTimingCapability capability = CreateGateService(memory, new NativeOwnershipRegistry()).Bind("owner");
+            IGatehouseTimingCapability capability = CreateGateService(memory, new NativeOwnershipRegistry(), new object()).Bind("owner");
             Assert(!capability.TryApply(new GatehouseTimingSettings(true, double.NaN, 0, 5, 5), out NativeCapabilityDiagnostic invalid) &&
                 invalid.State == NativeCapabilityState.ValidationFailed, "non-finite gatehouse input should fail");
             AssertThrows<ArgumentOutOfRangeException>(
@@ -251,8 +375,8 @@ namespace SerpNativeAPITests
             Assert(memory.ReadRaw(ModuleBase + 0xB7BC3) == 41 && memory.ReadRaw(ModuleBase + 0xB7BCA) == 1 &&
                 memory.ReadRaw(ModuleBase + 0xB7BD3) == 41 && memory.ReadRaw(ModuleBase + 0xB7C35) == 1,
                 "all four rounded values should be written");
-            AssertBytes(memory, ModuleBase + 0xB7B70, CenteredDistanceBytes,
-                "first application should activate the centered distance block");
+            AssertBytes(memory, ModuleBase + 0xB7B70, VanillaDistanceBytes,
+                "timing apply must not change the independently owned distance-origin block");
             int writes = memory.WriteCount;
             Assert(capability.TryApply(rounded, out _) && memory.WriteCount == writes, "identical apply should be idempotent");
             memory.Set(ModuleBase + 0xB7BC3, 42);
@@ -264,8 +388,8 @@ namespace SerpNativeAPITests
                 "disabled settings restore Vanilla without validating unused values");
             Assert(memory.ReadRaw(ModuleBase + 0xB7BC3) == 200 && memory.ReadRaw(ModuleBase + 0xB7C35) == 100,
                 "disabled settings restore all Vanilla values");
-            AssertBytes(memory, ModuleBase + 0xB7B70, CenteredDistanceBytes,
-                "disabled timing should retain the capability-wide midpoint fix");
+            AssertBytes(memory, ModuleBase + 0xB7B70, VanillaDistanceBytes,
+                "disabled timing must not change the independently owned distance origin");
 
             memory.Set(ModuleBase + 0xB7BC3, 201);
             Assert(!capability.TryApply(rounded, out NativeCapabilityDiagnostic changed) &&
@@ -277,34 +401,26 @@ namespace SerpNativeAPITests
 
             memory.SetByte(ModuleBase + 0xB7BC0, 0x41);
             memory.SetByte(ModuleBase + 0xB7B70, 0x90);
-            Assert(!capability.TryApply(rounded, out changed) && changed.State == NativeCapabilityState.ValidationFailed,
-                "external midpoint patch mutation fails closed before writing");
+            Assert(capability.TryApply(rounded, out changed),
+                "timing capability ignores mutations outside its owned intervals");
         }
 
         private static void TestGatehouseRollbackAndPageCleanup()
         {
-            FakeMemory codeWriteFailure = SeedDirectGateMemory();
-            IGatehouseTimingCapability codeCapability = CreateGateService(codeWriteFailure, new NativeOwnershipRegistry()).Bind("owner");
-            codeWriteFailure.FailNextWriteByteAddress = ModuleBase + 0xB7B72;
-            Assert(!codeCapability.TryApply(new GatehouseTimingSettings(true, 1, 5, 10, 15), out _),
-                "partial midpoint code write should fail");
-            AssertBytes(codeWriteFailure, ModuleBase + 0xB7B70, VanillaDistanceBytes,
-                "partial midpoint code write should restore the complete Vanilla block");
-
             FakeMemory memory = SeedDirectGateMemory();
-            IGatehouseTimingCapability capability = CreateGateService(memory, new NativeOwnershipRegistry()).Bind("owner");
+            IGatehouseTimingCapability capability = CreateGateService(memory, new NativeOwnershipRegistry(), new object()).Bind("owner");
             memory.FailNextWriteAddress = ModuleBase + 0xB7BCA;
             Assert(!capability.TryApply(new GatehouseTimingSettings(true, 1, 5, 10, 15), out _), "partial write should fail");
             Assert(memory.ReadRaw(ModuleBase + 0xB7BC3) == 200 && memory.ReadRaw(ModuleBase + 0xB7BCA) == 1200 &&
                 memory.ReadRaw(ModuleBase + 0xB7BD3) == 140 && memory.ReadRaw(ModuleBase + 0xB7C35) == 100,
                 "partial write should roll back all four values");
             AssertBytes(memory, ModuleBase + 0xB7B70, VanillaDistanceBytes,
-                "partial write should roll back the Vanilla distance block");
+                "timing rollback leaves the distance-origin block untouched");
             Assert(memory.WritablePages.Count == 1 && memory.RestoredProtections.Count == 1,
                 "the four current RVAs share one 4 KiB page");
 
             FakeMemory changedDuringAcquire = SeedDirectGateMemory();
-            capability = CreateGateService(changedDuringAcquire, new NativeOwnershipRegistry()).Bind("owner");
+            capability = CreateGateService(changedDuringAcquire, new NativeOwnershipRegistry(), new object()).Bind("owner");
             changedDuringAcquire.MutateOnMakeWritableAddress = ModuleBase + 0xB7BC3;
             changedDuringAcquire.MutateOnMakeWritableValue = 202;
             Assert(!capability.TryApply(new GatehouseTimingSettings(true, 1, 5, 10, 15), out _) &&
@@ -321,7 +437,7 @@ namespace SerpNativeAPITests
                 "each page should restore its own original protection");
 
             memory = SeedDirectGateMemory();
-            capability = CreateGateService(memory, new NativeOwnershipRegistry()).Bind("owner");
+            capability = CreateGateService(memory, new NativeOwnershipRegistry(), new object()).Bind("owner");
             memory.FailNextWriteAddress = ModuleBase + 0xB7BCA;
             memory.FailRestore = true;
             memory.FailFlush = true;
@@ -330,7 +446,7 @@ namespace SerpNativeAPITests
 
             memory = SeedDirectGateMemory();
             var registry = new NativeOwnershipRegistry();
-            GatehouseTimingService service = CreateGateService(memory, registry);
+            GatehouseTimingService service = CreateGateService(memory, registry, new object());
             Assert(service.Bind("A").TryApply(new GatehouseTimingSettings(true, 1, 5, 10, 15), out _), "first owner applies");
             Assert(!service.Bind("B").TryApply(new GatehouseTimingSettings(true, 2, 6, 11, 16), out NativeCapabilityDiagnostic conflict) &&
                 conflict.State == NativeCapabilityState.Conflict && conflict.ConflictOwnerGuid == "A",
@@ -405,9 +521,19 @@ namespace SerpNativeAPITests
             return runtime;
         }
 
-        private static void AssertGateValidationFailure(SerpNativeApiRuntime runtime, string message) =>
+        private static void AssertTimingValidationFailure(SerpNativeApiRuntime runtime, string message) =>
             Assert(!runtime.TryGetGatehouseTiming("owner", out _, out NativeCapabilityDiagnostic diagnostic) &&
                 diagnostic.State == NativeCapabilityState.ValidationFailed, message);
+
+        private static void AssertOriginValidationFailure(SerpNativeApiRuntime runtime, string message) =>
+            Assert(!runtime.TryGetGatehouseDistanceOrigin("owner", out _, out NativeCapabilityDiagnostic diagnostic) &&
+                diagnostic.State == NativeCapabilityState.ValidationFailed, message);
+
+        private static void AssertBothGateValidationFailures(SerpNativeApiRuntime runtime, string message)
+        {
+            AssertTimingValidationFailure(runtime, message + " (timing)");
+            AssertOriginValidationFailure(runtime, message + " (origin)");
+        }
 
         private static GatehouseBuildTarget InstallTestGatehouse(byte[] image)
         {
@@ -449,7 +575,22 @@ namespace SerpNativeAPITests
             return memory;
         }
 
-        private static GatehouseTimingService CreateGateService(FakeMemory memory, NativeOwnershipRegistry ownership)
+        private static GatehouseDistanceOriginService CreateOriginService(
+            FakeMemory memory,
+            NativeOwnershipRegistry ownership,
+            object mutationSync)
+        {
+            var target = new GatehouseDistanceOriginTarget(
+                ModuleBase + 0xB7B70,
+                VanillaDistanceBytes,
+                CenteredDistanceBytes);
+            return new GatehouseDistanceOriginService("hash", target, memory, ownership, mutationSync, null);
+        }
+
+        private static GatehouseTimingService CreateGateService(
+            FakeMemory memory,
+            NativeOwnershipRegistry ownership,
+            object mutationSync)
         {
             var invariants = new[]
             {
@@ -459,10 +600,9 @@ namespace SerpNativeAPITests
                 new NativeByteInvariant(ModuleBase + 0xB7C34, 0xB8)
             };
             var target = new GatehouseTimingTarget(
-                ModuleBase + 0xB7B70, VanillaDistanceBytes, CenteredDistanceBytes,
                 ModuleBase + 0xB7BC3, ModuleBase + 0xB7BCA,
                 ModuleBase + 0xB7BD3, ModuleBase + 0xB7C35, invariants);
-            return new GatehouseTimingService("hash", target, memory, ownership, null);
+            return new GatehouseTimingService("hash", target, memory, ownership, mutationSync, null);
         }
 
         private static FakeMemory SeedDirectGateMemory()
@@ -484,10 +624,9 @@ namespace SerpNativeAPITests
         private static GatehouseTimingService CreateCrossPageGateService(FakeMemory memory)
         {
             var target = new GatehouseTimingTarget(
-                ModuleBase + 0x1FE0, VanillaDistanceBytes, CenteredDistanceBytes,
                 ModuleBase + 0x1FF0, ModuleBase + 0x1FF4,
                 ModuleBase + 0x1FF8, ModuleBase + 0x2004);
-            return new GatehouseTimingService("hash", target, memory, new NativeOwnershipRegistry(), null);
+            return new GatehouseTimingService("hash", target, memory, new NativeOwnershipRegistry(), new object(), null);
         }
 
         private static FakeMemory SeedCrossPageGateMemory()

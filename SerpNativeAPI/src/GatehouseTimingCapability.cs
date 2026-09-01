@@ -48,8 +48,8 @@ namespace SerpNativeAPI
         }
 
         /// <summary>
-        /// Gets whether custom timing values should be applied. False restores the four Vanilla
-        /// timing values while retaining the capability-wide centered distance origin.
+        /// Gets whether custom timing values should be applied. False restores only the four
+        /// Vanilla timing values and does not change the independently owned distance origin.
         /// </summary>
         public bool Enabled { get; }
         /// <summary>Gets the human gate reopening delay in seconds.</summary>
@@ -63,12 +63,12 @@ namespace SerpNativeAPI
     }
 
     /// <summary>
-    /// Applies a validated, transactional gatehouse configuration and activates the centered
-    /// distance origin on the first successful application.
+    /// Applies validated, transactional gatehouse timing values. The intended future consumer is
+    /// ExtraFeatures; this is documentation, not a runtime dependency.
     /// </summary>
     public interface IGatehouseTimingCapability
     {
-        /// <summary>Attempts to apply the centered distance block and all gatehouse values as one transaction.</summary>
+        /// <summary>Attempts to apply and verify all four gatehouse timing values as one transaction.</summary>
         bool TryApply(GatehouseTimingSettings settings, out NativeCapabilityDiagnostic diagnostic);
     }
 
@@ -160,46 +160,155 @@ namespace SerpNativeAPI
             ReadOnlySpan<byte> memory,
             INativeMemory nativeMemory,
             NativeOwnershipRegistry ownership,
+            object mutationSync,
             ManualLogSource log,
             GatehouseBuildTarget target,
+            out GatehouseDistanceOriginService distanceOriginService,
+            out NativeCapabilityDiagnostic distanceOriginDiagnostic,
+            out GatehouseTimingService timingService,
+            out NativeCapabilityDiagnostic timingDiagnostic)
+        {
+            distanceOriginService = null;
+            timingService = null;
+            NativeSection functionSection;
+
+            if (!string.Equals(binaryHash, target.BuildHash, StringComparison.OrdinalIgnoreCase))
+            {
+                const string reason = "The installed CrusaderDE.dll hash is not present in the compiled target catalog.";
+                distanceOriginDiagnostic = Diagnostic(
+                    NativeCapabilityIds.GatehouseDistanceOrigin,
+                    NativeCapabilityState.UnsupportedBuild,
+                    binaryHash,
+                    reason);
+                timingDiagnostic = Diagnostic(
+                    NativeCapabilityIds.GatehouseTiming,
+                    NativeCapabilityState.UnsupportedBuild,
+                    binaryHash,
+                    reason);
+                return;
+            }
+
+            try
+            {
+                if (moduleBase == 0 || memory.Length == 0)
+                    throw new NativeResolutionException(NativeCapabilityState.ValidationFailed, "The Crusader native module is unavailable.");
+                if (nativeMemory == null)
+                    throw new NativeResolutionException(NativeCapabilityState.ValidationFailed, "The native memory adapter is unavailable.");
+                if (ownership == null)
+                    throw new NativeResolutionException(NativeCapabilityState.ValidationFailed, "The native ownership registry is unavailable.");
+                if (mutationSync == null)
+                    throw new NativeResolutionException(NativeCapabilityState.ValidationFailed, "The gatehouse mutation coordinator is unavailable.");
+
+                NativePeImage pe = NativePeImage.Parse(memory);
+                functionSection = pe.RequireExecutableRange(target.FunctionRva, target.FunctionSize, "gatehouse handler function");
+
+                string actualFunctionHash = SerpNativeApiRuntime.ComputeSha256(memory.Slice(target.FunctionRva, target.FunctionSize));
+                if (!string.Equals(actualFunctionHash, target.FunctionHash, StringComparison.OrdinalIgnoreCase))
+                    throw new NativeResolutionException(NativeCapabilityState.ValidationFailed, $"The gatehouse handler function hash changed: expected={target.FunctionHash}, actual={actualFunctionHash}.");
+            }
+            catch (NativeResolutionException ex)
+            {
+                distanceOriginDiagnostic = Diagnostic(NativeCapabilityIds.GatehouseDistanceOrigin, ex.State, binaryHash, ex.Message);
+                timingDiagnostic = Diagnostic(NativeCapabilityIds.GatehouseTiming, ex.State, binaryHash, ex.Message);
+                return;
+            }
+            catch (Exception ex)
+            {
+                distanceOriginDiagnostic = Diagnostic(NativeCapabilityIds.GatehouseDistanceOrigin, NativeCapabilityState.Faulted, binaryHash, ex.Message);
+                timingDiagnostic = Diagnostic(NativeCapabilityIds.GatehouseTiming, NativeCapabilityState.Faulted, binaryHash, ex.Message);
+                return;
+            }
+
+            ResolveDistanceOrigin(
+                binaryHash,
+                moduleBase,
+                memory,
+                nativeMemory,
+                ownership,
+                mutationSync,
+                log,
+                target,
+                functionSection,
+                out distanceOriginService,
+                out distanceOriginDiagnostic);
+            ResolveTiming(
+                binaryHash,
+                moduleBase,
+                memory,
+                nativeMemory,
+                ownership,
+                mutationSync,
+                log,
+                target,
+                functionSection,
+                out timingService,
+                out timingDiagnostic);
+        }
+
+        private static void ResolveDistanceOrigin(
+            string binaryHash,
+            long moduleBase,
+            ReadOnlySpan<byte> memory,
+            INativeMemory nativeMemory,
+            NativeOwnershipRegistry ownership,
+            object mutationSync,
+            ManualLogSource log,
+            GatehouseBuildTarget target,
+            NativeSection functionSection,
+            out GatehouseDistanceOriginService service,
+            out NativeCapabilityDiagnostic diagnostic)
+        {
+            service = null;
+            try
+            {
+                if (target.VanillaDistanceBlockBytes == null || target.CenteredDistanceBlockBytes == null ||
+                    target.VanillaDistanceBlockBytes.Length != target.CenteredDistanceBlockBytes.Length)
+                    throw new NativeResolutionException(NativeCapabilityState.ValidationFailed, "The gatehouse distance patch catalog is incomplete or has mismatched block lengths.");
+                RequireInsideFunction(target, target.DistanceBlockRva, target.VanillaDistanceBlockBytes.Length, "gatehouse distance block");
+                RequireSameSection(functionSection, target.DistanceBlockRva, target.VanillaDistanceBlockBytes.Length, "gatehouse distance block");
+                RequireBytes(memory, target.DistanceBlockRva, target.VanillaDistanceBlockBytes, "gatehouse distance block");
+
+                var memoryTarget = new GatehouseDistanceOriginTarget(
+                    moduleBase + target.DistanceBlockRva,
+                    target.VanillaDistanceBlockBytes,
+                    target.CenteredDistanceBlockBytes);
+                service = new GatehouseDistanceOriginService(binaryHash, memoryTarget, nativeMemory, ownership, mutationSync, log);
+                diagnostic = AvailableDiagnostic(NativeCapabilityIds.GatehouseDistanceOrigin, binaryHash, target);
+            }
+            catch (NativeResolutionException ex)
+            {
+                diagnostic = Diagnostic(NativeCapabilityIds.GatehouseDistanceOrigin, ex.State, binaryHash, ex.Message);
+            }
+            catch (Exception ex)
+            {
+                diagnostic = Diagnostic(NativeCapabilityIds.GatehouseDistanceOrigin, NativeCapabilityState.Faulted, binaryHash, ex.Message);
+            }
+        }
+
+        private static void ResolveTiming(
+            string binaryHash,
+            long moduleBase,
+            ReadOnlySpan<byte> memory,
+            INativeMemory nativeMemory,
+            NativeOwnershipRegistry ownership,
+            object mutationSync,
+            ManualLogSource log,
+            GatehouseBuildTarget target,
+            NativeSection functionSection,
             out GatehouseTimingService service,
             out NativeCapabilityDiagnostic diagnostic)
         {
             service = null;
             try
             {
-                if (!string.Equals(binaryHash, target.BuildHash, StringComparison.OrdinalIgnoreCase))
-                {
-                    diagnostic = new NativeCapabilityDiagnostic(
-                        NativeCapabilityIds.GatehouseTiming,
-                        NativeCapabilityState.UnsupportedBuild,
-                        binaryHash,
-                        "The installed CrusaderDE.dll hash is not present in the compiled target catalog.");
-                    return;
-                }
-                if (moduleBase == 0 || memory.Length == 0)
-                    throw new NativeResolutionException(NativeCapabilityState.ValidationFailed, "The Crusader native module is unavailable.");
-                if (nativeMemory == null)
-                    throw new NativeResolutionException(NativeCapabilityState.ValidationFailed, "The native memory adapter is unavailable.");
-
-                NativePeImage pe = NativePeImage.Parse(memory);
-                NativeSection functionSection = pe.RequireExecutableRange(target.FunctionRva, target.FunctionSize, "gatehouse handler function");
-                if (target.VanillaDistanceBlockBytes == null || target.CenteredDistanceBlockBytes == null ||
-                    target.VanillaDistanceBlockBytes.Length != target.CenteredDistanceBlockBytes.Length)
-                    throw new NativeResolutionException(NativeCapabilityState.ValidationFailed, "The gatehouse distance patch catalog is incomplete or has mismatched block lengths.");
-                RequireInsideFunction(target, target.DistanceBlockRva, target.VanillaDistanceBlockBytes.Length, "gatehouse distance block");
                 RequireInsideFunction(target, target.DecisionBlockRva, target.DecisionBlockBytes.Length, "gatehouse decision block");
                 RequireInsideFunction(target, target.HumanDelayBlockRva, target.HumanDelayBlockBytes.Length, "gatehouse human delay block");
                 RequireInsideFunction(target, target.AiCloseDistanceRva, 4, "gatehouse AI close distance");
                 RequireInsideFunction(target, target.AiReopenDelayRva, 4, "gatehouse AI reopen delay");
                 RequireInsideFunction(target, target.HumanCloseDistanceRva, 4, "gatehouse human close distance");
                 RequireInsideFunction(target, target.HumanReopenDelayRva, 4, "gatehouse human reopen delay");
-                RequireSameSection(functionSection, target, "gatehouse targets");
-
-                string actualFunctionHash = SerpNativeApiRuntime.ComputeSha256(memory.Slice(target.FunctionRva, target.FunctionSize));
-                if (!string.Equals(actualFunctionHash, target.FunctionHash, StringComparison.OrdinalIgnoreCase))
-                    throw new NativeResolutionException(NativeCapabilityState.ValidationFailed, $"The gatehouse handler function hash changed: expected={target.FunctionHash}, actual={actualFunctionHash}.");
-                RequireBytes(memory, target.DistanceBlockRva, target.VanillaDistanceBlockBytes, "gatehouse distance block");
+                RequireSameSection(functionSection, target.DecisionBlockRva, target.DecisionBlockBytes.Length, "gatehouse decision block");
+                RequireSameSection(functionSection, target.HumanDelayBlockRva, target.HumanDelayBlockBytes.Length, "gatehouse human delay block");
                 RequireBytes(memory, target.DecisionBlockRva, target.DecisionBlockBytes, "gatehouse decision block");
                 RequireBytes(memory, target.HumanDelayBlockRva, target.HumanDelayBlockBytes, "gatehouse human delay block");
                 RequireInt32(memory, target.AiCloseDistanceRva, GatehouseTimingTarget.VanillaAiDistance, "gatehouse AI close distance");
@@ -209,30 +318,40 @@ namespace SerpNativeAPI
 
                 IReadOnlyList<NativeByteInvariant> invariants = CreateInstructionInvariants(moduleBase, target);
                 var memoryTarget = new GatehouseTimingTarget(
-                    moduleBase + target.DistanceBlockRva,
-                    target.VanillaDistanceBlockBytes,
-                    target.CenteredDistanceBlockBytes,
                     moduleBase + target.AiCloseDistanceRva,
                     moduleBase + target.AiReopenDelayRva,
                     moduleBase + target.HumanCloseDistanceRva,
                     moduleBase + target.HumanReopenDelayRva,
                     invariants);
-                service = new GatehouseTimingService(binaryHash, memoryTarget, nativeMemory, ownership, log);
-                diagnostic = new NativeCapabilityDiagnostic(
-                    NativeCapabilityIds.GatehouseTiming,
-                    NativeCapabilityState.Available,
-                    binaryHash,
-                    $"Validated gatehouse handler RVA 0x{target.FunctionRva:X}-0x{target.FunctionEndRva:X} with function SHA-256 {target.FunctionHash}.");
+                service = new GatehouseTimingService(binaryHash, memoryTarget, nativeMemory, ownership, mutationSync, log);
+                diagnostic = AvailableDiagnostic(NativeCapabilityIds.GatehouseTiming, binaryHash, target);
             }
             catch (NativeResolutionException ex)
             {
-                diagnostic = new NativeCapabilityDiagnostic(NativeCapabilityIds.GatehouseTiming, ex.State, binaryHash, ex.Message);
+                diagnostic = Diagnostic(NativeCapabilityIds.GatehouseTiming, ex.State, binaryHash, ex.Message);
             }
             catch (Exception ex)
             {
-                diagnostic = new NativeCapabilityDiagnostic(NativeCapabilityIds.GatehouseTiming, NativeCapabilityState.Faulted, binaryHash, ex.Message);
+                diagnostic = Diagnostic(NativeCapabilityIds.GatehouseTiming, NativeCapabilityState.Faulted, binaryHash, ex.Message);
             }
         }
+
+        private static NativeCapabilityDiagnostic AvailableDiagnostic(
+            string capabilityId,
+            string binaryHash,
+            GatehouseBuildTarget target) =>
+            Diagnostic(
+                capabilityId,
+                NativeCapabilityState.Available,
+                binaryHash,
+                $"Validated gatehouse handler RVA 0x{target.FunctionRva:X}-0x{target.FunctionEndRva:X} with function SHA-256 {target.FunctionHash}.");
+
+        private static NativeCapabilityDiagnostic Diagnostic(
+            string capabilityId,
+            NativeCapabilityState state,
+            string binaryHash,
+            string reason) =>
+            new NativeCapabilityDiagnostic(capabilityId, state, binaryHash, reason);
 
         private static IReadOnlyList<NativeByteInvariant> CreateInstructionInvariants(long moduleBase, GatehouseBuildTarget target)
         {
@@ -269,13 +388,10 @@ namespace SerpNativeAPI
                 throw new NativeResolutionException(NativeCapabilityState.ValidationFailed, name + " lies outside the catalogued gatehouse function.");
         }
 
-        private static void RequireSameSection(NativeSection section, GatehouseBuildTarget target, string name)
+        private static void RequireSameSection(NativeSection section, int rva, int length, string name)
         {
-            int[] starts = { target.DistanceBlockRva, target.DecisionBlockRva, target.HumanDelayBlockRva, target.AiCloseDistanceRva,
-                target.AiReopenDelayRva, target.HumanCloseDistanceRva, target.HumanReopenDelayRva };
-            foreach (int start in starts)
-                if (!section.Contains(start, 4))
-                    throw new NativeResolutionException(NativeCapabilityState.ValidationFailed, name + " do not share the gatehouse function's executable section.");
+            if (!section.Contains(rva, length))
+                throw new NativeResolutionException(NativeCapabilityState.ValidationFailed, name + " does not share the gatehouse function's executable section.");
         }
 
         private static void RequireBytes(ReadOnlySpan<byte> memory, int rva, byte[] expected, string target)
@@ -315,21 +431,12 @@ namespace SerpNativeAPI
         public const int VanillaHumanDelay = 100;
 
         public GatehouseTimingTarget(
-            long distanceBlock,
-            byte[] vanillaDistanceBytes,
-            byte[] centeredDistanceBytes,
             long aiDistance,
             long aiDelay,
             long humanDistance,
             long humanDelay,
             IReadOnlyList<NativeByteInvariant> instructionInvariants = null)
         {
-            if (vanillaDistanceBytes == null || centeredDistanceBytes == null || vanillaDistanceBytes.Length == 0 ||
-                vanillaDistanceBytes.Length != centeredDistanceBytes.Length)
-                throw new ArgumentException("Gatehouse distance blocks must be non-empty and have equal lengths.");
-            DistanceBlock = distanceBlock;
-            VanillaDistanceBytes = (byte[])vanillaDistanceBytes.Clone();
-            CenteredDistanceBytes = (byte[])centeredDistanceBytes.Clone();
             AiDistance = aiDistance;
             AiDelay = aiDelay;
             HumanDistance = humanDistance;
@@ -337,7 +444,6 @@ namespace SerpNativeAPI
             InstructionInvariants = instructionInvariants ?? Array.Empty<NativeByteInvariant>();
             Intervals = new[]
             {
-                new NativeInterval(distanceBlock, checked(distanceBlock + vanillaDistanceBytes.Length)),
                 new NativeInterval(aiDistance, aiDistance + 4),
                 new NativeInterval(aiDelay, aiDelay + 4),
                 new NativeInterval(humanDistance, humanDistance + 4),
@@ -345,9 +451,6 @@ namespace SerpNativeAPI
             };
         }
 
-        public long DistanceBlock { get; }
-        public byte[] VanillaDistanceBytes { get; }
-        public byte[] CenteredDistanceBytes { get; }
         public long AiDistance { get; }
         public long AiDelay { get; }
         public long HumanDistance { get; }
@@ -360,29 +463,30 @@ namespace SerpNativeAPI
     {
         private const int TicksPerSecond = 40;
         private const int UnitsPerTile = 8;
-        private readonly object sync = new object();
         private readonly string binaryHash;
         private readonly GatehouseTimingTarget target;
         private readonly INativeMemory memory;
         private readonly NativeOwnershipRegistry ownership;
+        private readonly object mutationSync;
         private readonly ManualLogSource log;
         private int expectedAiDistance = GatehouseTimingTarget.VanillaAiDistance;
         private int expectedAiDelay = GatehouseTimingTarget.VanillaAiDelay;
         private int expectedHumanDistance = GatehouseTimingTarget.VanillaHumanDistance;
         private int expectedHumanDelay = GatehouseTimingTarget.VanillaHumanDelay;
-        private bool midpointPatchActive;
 
         public GatehouseTimingService(
             string binaryHash,
             GatehouseTimingTarget target,
             INativeMemory memory,
             NativeOwnershipRegistry ownership,
+            object mutationSync,
             ManualLogSource log)
         {
             this.binaryHash = binaryHash;
-            this.target = target;
-            this.memory = memory;
-            this.ownership = ownership;
+            this.target = target ?? throw new ArgumentNullException(nameof(target));
+            this.memory = memory ?? throw new ArgumentNullException(nameof(memory));
+            this.ownership = ownership ?? throw new ArgumentNullException(nameof(ownership));
+            this.mutationSync = mutationSync ?? throw new ArgumentNullException(nameof(mutationSync));
             this.log = log;
             VerifyExpected();
         }
@@ -422,7 +526,7 @@ namespace SerpNativeAPI
                 return false;
             }
 
-            lock (sync)
+            lock (mutationSync)
             {
                 if (!ownership.TryReserve(
                         ownerGuid,
@@ -443,10 +547,10 @@ namespace SerpNativeAPI
                 try
                 {
                     VerifyExpected();
-                    if (midpointPatchActive && aiDistance == expectedAiDistance && aiDelay == expectedAiDelay &&
+                    if (aiDistance == expectedAiDistance && aiDelay == expectedAiDelay &&
                         humanDistance == expectedHumanDistance && humanDelay == expectedHumanDelay)
                     {
-                        diagnostic = Diagnostic(NativeCapabilityState.Available, "The requested gatehouse values and centered distance origin are already active and were verified.");
+                        diagnostic = Diagnostic(NativeCapabilityState.Available, "The requested gatehouse timing values are already active and were verified.");
                         return true;
                     }
                     WriteTransaction(aiDistance, aiDelay, humanDistance, humanDelay);
@@ -454,11 +558,10 @@ namespace SerpNativeAPI
                     expectedAiDelay = aiDelay;
                     expectedHumanDistance = humanDistance;
                     expectedHumanDelay = humanDelay;
-                    midpointPatchActive = true;
                     VerifyExpected();
                     string values = FormatValues(aiDistance, aiDelay, humanDistance, humanDelay);
-                    diagnostic = Diagnostic(NativeCapabilityState.Available, "Gatehouse centered distance origin and values were applied and verified: " + values);
-                    NativeApiLog.Info(log, $"capability={NativeCapabilityIds.GatehouseTiming}, build={binaryHash}, owner={ownerGuid}, enabled={settings.Enabled}, distanceOrigin=center, status=applied, {values}");
+                    diagnostic = Diagnostic(NativeCapabilityState.Available, "Gatehouse timing values were applied and verified: " + values);
+                    NativeApiLog.Info(log, $"capability={NativeCapabilityIds.GatehouseTiming}, build={binaryHash}, owner={ownerGuid}, enabled={settings.Enabled}, status=applied, {values}");
                     return true;
                 }
                 catch (Exception ex)
@@ -476,112 +579,32 @@ namespace SerpNativeAPI
             int oldAiDelay = expectedAiDelay;
             int oldHumanDistance = expectedHumanDistance;
             int oldHumanDelay = expectedHumanDelay;
-            byte[] oldDistanceBytes = midpointPatchActive ? target.CenteredDistanceBytes : target.VanillaDistanceBytes;
-            List<PageProtection> protections = AcquireWritablePages();
-            Exception primary = null;
-            Exception cleanup = null;
-            bool writesStarted = false;
-            try
-            {
-                try
+            GatehouseNativeMutation.Execute(
+                memory,
+                target.Intervals,
+                VerifyExpected,
+                () =>
                 {
-                    // Recheck after acquiring write access so a change between the public
-                    // preflight and the transaction cannot be silently adopted as rollback state.
-                    VerifyExpected();
-                    writesStarted = true;
-                    WriteBytes(target.DistanceBlock, target.CenteredDistanceBytes);
                     memory.WriteInt32(target.AiDistance, aiDistance);
                     memory.WriteInt32(target.AiDelay, aiDelay);
                     memory.WriteInt32(target.HumanDistance, humanDistance);
                     memory.WriteInt32(target.HumanDelay, humanDelay);
-                    VerifyBytes(target.DistanceBlock, target.CenteredDistanceBytes, "centered distance block");
                     Verify(target.AiDistance, aiDistance, "AI distance");
                     Verify(target.AiDelay, aiDelay, "AI delay");
                     Verify(target.HumanDistance, humanDistance, "human distance");
                     Verify(target.HumanDelay, humanDelay, "human delay");
-                }
-                catch (Exception ex)
+                },
+                () =>
                 {
-                    primary = ex;
-                    if (writesStarted)
-                    {
-                        try
-                        {
-                            WriteBytes(target.DistanceBlock, oldDistanceBytes);
-                            memory.WriteInt32(target.AiDistance, oldAiDistance);
-                            memory.WriteInt32(target.AiDelay, oldAiDelay);
-                            memory.WriteInt32(target.HumanDistance, oldHumanDistance);
-                            memory.WriteInt32(target.HumanDelay, oldHumanDelay);
-                            VerifyBytes(target.DistanceBlock, oldDistanceBytes, "rolled-back distance block");
-                            Verify(target.AiDistance, oldAiDistance, "rolled-back AI distance");
-                            Verify(target.AiDelay, oldAiDelay, "rolled-back AI delay");
-                            Verify(target.HumanDistance, oldHumanDistance, "rolled-back human distance");
-                            Verify(target.HumanDelay, oldHumanDelay, "rolled-back human delay");
-                        }
-                        catch (Exception rollback)
-                        {
-                            primary = new AggregateException("The native write and rollback both failed.", primary, rollback);
-                        }
-                    }
-                }
-            }
-            finally
-            {
-                for (int index = protections.Count - 1; index >= 0; index--)
-                {
-                    PageProtection protection = protections[index];
-                    try { memory.RestoreProtection(protection.Address, memory.PageSize, protection.Protection); }
-                    catch (Exception ex) { cleanup = Combine(cleanup, ex); }
-                }
-                foreach (NativeInterval interval in target.Intervals)
-                {
-                    try { memory.Flush(interval.Start, checked((int)(interval.End - interval.Start))); }
-                    catch (Exception ex) { cleanup = Combine(cleanup, ex); }
-                }
-            }
-
-            if (primary != null && cleanup != null)
-                throw new AggregateException("The gatehouse transaction and cleanup both failed.", primary, cleanup);
-            if (primary != null)
-                throw primary;
-            if (cleanup != null)
-                throw cleanup;
-        }
-
-        private List<PageProtection> AcquireWritablePages()
-        {
-            if (memory.PageSize <= 0)
-                throw new InvalidOperationException("The native memory adapter returned an invalid page size.");
-
-            var pages = new SortedSet<long>();
-            foreach (NativeInterval interval in target.Intervals)
-            {
-                long firstPage = PageStart(interval.Start, memory.PageSize);
-                long lastPage = PageStart(interval.End - 1, memory.PageSize);
-                for (long page = firstPage; page <= lastPage; page = checked(page + memory.PageSize))
-                    pages.Add(page);
-            }
-
-            var protections = new List<PageProtection>();
-            try
-            {
-                foreach (long page in pages)
-                    protections.Add(new PageProtection(page, memory.MakeWritable(page, memory.PageSize)));
-                return protections;
-            }
-            catch (Exception primary)
-            {
-                Exception cleanup = null;
-                for (int index = protections.Count - 1; index >= 0; index--)
-                {
-                    PageProtection protection = protections[index];
-                    try { memory.RestoreProtection(protection.Address, memory.PageSize, protection.Protection); }
-                    catch (Exception ex) { cleanup = Combine(cleanup, ex); }
-                }
-                if (cleanup != null)
-                    throw new AggregateException("Acquiring writable native pages and cleanup both failed.", primary, cleanup);
-                throw;
-            }
+                    memory.WriteInt32(target.AiDistance, oldAiDistance);
+                    memory.WriteInt32(target.AiDelay, oldAiDelay);
+                    memory.WriteInt32(target.HumanDistance, oldHumanDistance);
+                    memory.WriteInt32(target.HumanDelay, oldHumanDelay);
+                    Verify(target.AiDistance, oldAiDistance, "rolled-back AI distance");
+                    Verify(target.AiDelay, oldAiDelay, "rolled-back AI delay");
+                    Verify(target.HumanDistance, oldHumanDistance, "rolled-back human distance");
+                    Verify(target.HumanDelay, oldHumanDelay, "rolled-back human delay");
+                });
         }
 
         private void VerifyExpected()
@@ -592,9 +615,6 @@ namespace SerpNativeAPI
                 if (actual != invariant.Value)
                     throw new InvalidOperationException($"Gatehouse instruction byte changed unexpectedly at target offset: expected=0x{invariant.Value:X2}, actual=0x{actual:X2}.");
             }
-            VerifyBytes(target.DistanceBlock,
-                midpointPatchActive ? target.CenteredDistanceBytes : target.VanillaDistanceBytes,
-                midpointPatchActive ? "centered distance block" : "Vanilla distance block");
             Verify(target.AiDistance, expectedAiDistance, "AI distance");
             Verify(target.AiDelay, expectedAiDelay, "AI delay");
             Verify(target.HumanDistance, expectedHumanDistance, "human distance");
@@ -606,22 +626,6 @@ namespace SerpNativeAPI
             int actual = memory.ReadInt32(address);
             if (actual != expected)
                 throw new InvalidOperationException($"Gatehouse {name} changed unexpectedly: expected={expected}, actual={actual}.");
-        }
-
-        private void WriteBytes(long address, byte[] values)
-        {
-            for (int index = 0; index < values.Length; index++)
-                memory.WriteByte(address + index, values[index]);
-        }
-
-        private void VerifyBytes(long address, byte[] expected, string name)
-        {
-            for (int index = 0; index < expected.Length; index++)
-            {
-                byte actual = memory.ReadByte(address + index);
-                if (actual != expected[index])
-                    throw new InvalidOperationException($"Gatehouse {name} changed unexpectedly at +0x{index:X}: expected=0x{expected[index]:X2}, actual=0x{actual:X2}.");
-            }
         }
 
         private NativeCapabilityDiagnostic Diagnostic(NativeCapabilityState state, string reason) =>
@@ -641,41 +645,11 @@ namespace SerpNativeAPI
             return converted;
         }
 
-        internal static int ComputeCenteredDistanceNative(
-            int beginX,
-            int beginY,
-            int endX,
-            int endY,
-            int unitX,
-            int unitY)
-        {
-            int dx = Math.Abs(checked((beginX + endX) * 4 - unitX));
-            int dy = Math.Abs(checked((beginY + endY) * 4 - unitY));
-            return Math.Max(dx, dy);
-        }
-
-        private static long PageStart(long address, int pageSize) => address - address % pageSize;
-
-        private static Exception Combine(Exception current, Exception next) =>
-            current == null ? next : new AggregateException(current, next);
-
         private static string FormatValues(int aiDistance, int aiDelay, int humanDistance, int humanDelay) =>
             $"humanClose={humanDistance / (double)UnitsPerTile:0.###}tiles/{humanDistance}units, " +
             $"humanReopen={humanDelay / (double)TicksPerSecond:0.###}s/{humanDelay}ticks, " +
             $"aiClose={aiDistance / (double)UnitsPerTile:0.###}tiles/{aiDistance}units, " +
             $"aiReopen={aiDelay / (double)TicksPerSecond:0.###}s/{aiDelay}ticks";
-
-        private readonly struct PageProtection
-        {
-            public PageProtection(long address, uint protection)
-            {
-                Address = address;
-                Protection = protection;
-            }
-
-            public long Address { get; }
-            public uint Protection { get; }
-        }
 
         private sealed class OwnerCapability : IGatehouseTimingCapability
         {
