@@ -39,6 +39,32 @@ namespace AssassinCombatFix
             return eligible && currentContextFlag == 0;
         }
 
+        public static bool IsSafePreparationHookSpan(
+            int hookRva,
+            int declaredLength,
+            int minimumOverwriteLength,
+            int firstProtectedRva)
+        {
+            return hookRva >= 0 &&
+                declaredLength >= minimumOverwriteLength &&
+                minimumOverwriteLength > 0 &&
+                hookRva <= firstProtectedRva - declaredLength;
+        }
+
+        public static bool DoMinimumInlineHookRangesOverlap(
+            int firstRva,
+            int firstDeclaredLength,
+            int secondRva,
+            int secondDeclaredLength,
+            int minimumOverwriteLength)
+        {
+            long firstLength = System.Math.Max(firstDeclaredLength, minimumOverwriteLength);
+            long secondLength = System.Math.Max(secondDeclaredLength, minimumOverwriteLength);
+            long firstEnd = (long)firstRva + firstLength;
+            long secondEnd = (long)secondRva + secondLength;
+            return firstRva < secondEnd && secondRva < firstEnd;
+        }
+
         public static bool ShouldLogRawResumeDiagnostic(
             bool unitResolved,
             AliveState aliveState,

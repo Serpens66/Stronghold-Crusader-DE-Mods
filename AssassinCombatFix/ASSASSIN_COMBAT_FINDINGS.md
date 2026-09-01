@@ -36,11 +36,12 @@ Diese Datei dokumentiert den Wissensstand des Testmods `AssassinCombatFix`. Sie 
 
 ## Aktueller Patch und Diagnostik
 
-- Der Pre-Hook ersetzt exakt den fünf Byte langen Call bei `0x19772B`. Der Callback läuft zuerst; anschließend wird der unveränderte Call ausgeführt.
+- `X64InlineHook` benötigt für seinen absoluten Sprung immer mindestens 14 Byte. Die frühere Konfiguration mit Hooks bei `0x19772B` und `0x197730` war deshalb trotz deklarierter 5-Byte-Spannen überlappend: Der zweite Hook überschrieb einen Teil des ersten Sprungs einschließlich seiner Zieladresse und verursachte beim Kampfende einen nativen Absturz.
+- Der korrigierte Einzelhook belegt bei `0x197716–0x197723` genau drei vollständige Vanilla-Instruktionen mit zusammen 14 Byte. Diese werden vor dem Callback unverändert ausgeführt.
+- Der Zustandsschreibzugriff bei `0x197724–0x19772A`, die Pfadanfrage bei `0x19772B` und die Nachbearbeitung bei `0x197735` bleiben im nativen Code und werden nicht verschoben oder überschrieben.
 - Der Kontext wird nur bei aktiven Mods/Settings, gültigem 0-basiertem Index, lebendem Assassin und ursprünglicher Rücksprung-RVA `0x185412` gesetzt.
 - Ein bereits gesetztes Flag wird nicht überschrieben. Die gemeinsame Pfadroutine übernimmt dessen normale Bereinigung; es gibt keine manuelle Wiederherstellung im Erfolgsablauf.
-- Der Post-Hook deckt exakt `mov edx,edi; mov rcx,rsi` bei `0x197730–0x197734` ab. Er protokolliert das Pfadergebnis und den erwarteten bereinigten Flagwert, bevor Vanilla `0x196810` aufruft.
-- Beide Hooks werden atomar installiert und bei einem Teilfehler vollständig zurückgerollt.
+- Der Einzelhook wird transaktional installiert; bei einem Fehler bleibt der native Testfix inaktiv.
 - Der passive `OnTick`-Beobachter bleibt während der Ingame-Validierung bestehen. Im Map Editor beginnt er mangels zuverlässigem `OnStartMap` beim ersten Simulationstick mit `GameModeHelper.IsMapEditor() == true`.
 - Alle temporären Zeilen tragen `[ASSASSIN_COMBAT_RESUME_DIAGNOSTIC]`. Native Ereignisse sind auf 128 und Tick-Zustandszeilen auf 256 Einträge pro Karte begrenzt.
 
@@ -50,7 +51,6 @@ Erwartete Folge:
 - `post-combat-path-entry ... returnRva=0x185412 ... eligible=True`
 - `post-combat-path-context ... contextSet=True ... flagForRequest=1`
 - gewichteter Assassin-Pathbuilder aus `BugfixesAndQoL`
-- `post-combat-path-result ... result=1 ... flagAfterVanilla=0`
 - ein weiter fortschreitender Pfad bis zum gespeicherten Ziel
 
 ## Getestete oder verworfene Ansätze

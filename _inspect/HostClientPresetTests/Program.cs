@@ -1966,6 +1966,19 @@ internal static class Program
               !AssassinCombatResumePolicy.ShouldSetAssassinPathContext(false, 0),
             "Assassin combat resume overwrote an existing context or set one for an ineligible request");
 
+        Check(AssassinCombatResumePolicy.IsSafePreparationHookSpan(
+                0x197716, 14, 14, 0x197724) &&
+              !AssassinCombatResumePolicy.IsSafePreparationHookSpan(
+                0x197716, 5, 14, 0x197724) &&
+              !AssassinCombatResumePolicy.IsSafePreparationHookSpan(
+                0x19771D, 14, 14, 0x197724),
+            "Assassin combat resume did not reject short or call-crossing inline-hook spans");
+        Check(AssassinCombatResumePolicy.DoMinimumInlineHookRangesOverlap(
+                0x19772B, 5, 0x197730, 5, 14) &&
+              !AssassinCombatResumePolicy.DoMinimumInlineHookRangesOverlap(
+                0x197716, 14, 0x197730, 5, 14),
+            "Assassin combat resume did not account for the inline hook's physical 14-byte minimum");
+
         Check(AssassinCombatResumePolicy.ShouldLogRawResumeDiagnostic(
                 true, AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN) &&
               !AssassinCombatResumePolicy.ShouldLogRawResumeDiagnostic(
@@ -2070,28 +2083,40 @@ internal static class Program
             pathRequestCallRva == pathRequest.Rva +
                 AssassinCombatResumeNativeDefinition.PostCombatPathRequestCallOffset &&
             pathRequestTarget == AssassinCombatResumeNativeDefinition.CommonPathRequestRva &&
-            AssassinCombatResumeNativeDefinition.PostCombatPathResultHookRva == pathRequest.Rva +
-                AssassinCombatResumeNativeDefinition.PostCombatPathResultHookOffset &&
             finalizeCallRva == AssassinCombatResumeNativeDefinition.PostCombatFinalizeCallRva &&
             finalizeTarget == AssassinCombatResumeNativeDefinition.PostPathRequestRva,
             "post-combat helper no longer restores the saved state and target through the audited path calls");
 
         Check(
-            image.Skip(AssassinCombatResumeNativeDefinition.PostCombatPathRequestCallRva)
-                .Take(AssassinCombatResumeNativeDefinition.PostCombatPathRequestHookLength)
-                .SequenceEqual(AssassinCombatResumeNativeDefinition.PostCombatPathRequestHookBytes) &&
-            image.Skip(AssassinCombatResumeNativeDefinition.PostCombatPathResultHookRva)
-                .Take(AssassinCombatResumeNativeDefinition.PostCombatPathResultHookLength)
-                .SequenceEqual(AssassinCombatResumeNativeDefinition.PostCombatPathResultHookBytes),
-            "post-combat hooks no longer cover the complete audited instructions");
+            image.Skip(AssassinCombatResumeNativeDefinition.PostCombatPathPreparationHookRva)
+                .Take(AssassinCombatResumeNativeDefinition.PostCombatPathPreparationHookLength)
+                .SequenceEqual(AssassinCombatResumeNativeDefinition.PostCombatPathPreparationHookBytes) &&
+            image.Skip(AssassinCombatResumeNativeDefinition.PostCombatStateRestoreRva)
+                .Take(AssassinCombatResumeNativeDefinition.PostCombatStateRestoreLength)
+                .SequenceEqual(AssassinCombatResumeNativeDefinition.PostCombatStateRestoreBytes),
+            "post-combat preparation hook or untouched state restore no longer matches audited instructions");
         Check(
-            AssassinCombatResumeNativeDefinition.PostCombatPathRequestCallRva +
-                AssassinCombatResumeNativeDefinition.PostCombatPathRequestHookLength ==
-                AssassinCombatResumeNativeDefinition.PostCombatPathResultHookRva &&
-            AssassinCombatResumeNativeDefinition.PostCombatPathResultHookRva +
-                AssassinCombatResumeNativeDefinition.PostCombatPathResultHookLength ==
-                AssassinCombatResumeNativeDefinition.PostCombatFinalizeCallRva,
-            "post-combat hook spans overlap a call or leave an unaudited instruction gap");
+            AssassinCombatResumeNativeDefinition.PostCombatPathPreparationHookRva == pathRequest.Rva +
+                AssassinCombatResumeNativeDefinition.PostCombatPathPreparationHookOffset &&
+            AssassinCombatResumeNativeDefinition.PostCombatPathPreparationHookLength ==
+                AssassinCombatResumeNativeDefinition.InlineHookMinimumOverwriteLength &&
+            AssassinCombatResumeNativeDefinition.PostCombatPathPreparationHookRva +
+                AssassinCombatResumeNativeDefinition.PostCombatPathPreparationHookLength ==
+                AssassinCombatResumeNativeDefinition.PostCombatStateRestoreRva &&
+            AssassinCombatResumeNativeDefinition.PostCombatStateRestoreRva == pathRequest.Rva +
+                AssassinCombatResumeNativeDefinition.PostCombatStateRestoreOffset &&
+            AssassinCombatResumeNativeDefinition.PostCombatStateRestoreRva +
+                AssassinCombatResumeNativeDefinition.PostCombatStateRestoreLength ==
+                AssassinCombatResumeNativeDefinition.PostCombatPathRequestCallRva,
+            "post-combat hook does not occupy one complete 14-byte span ending before the native path call");
+        Check(
+            AssassinCombatResumePolicy.DoMinimumInlineHookRangesOverlap(
+                AssassinCombatResumeNativeDefinition.PostCombatPathRequestCallRva,
+                5,
+                AssassinCombatResumeNativeDefinition.PostCombatPathRequestCallRva + 5,
+                5,
+                AssassinCombatResumeNativeDefinition.InlineHookMinimumOverwriteLength),
+            "regression fixture no longer demonstrates why adjacent five-byte context hooks overlap physically");
 
         NativeResolution contextRead = NativePatternResolver.ResolveUnique(
             image,

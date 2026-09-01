@@ -38,25 +38,30 @@ namespace AssassinCombatFix
         // This sequence restores the saved state and secondary target immediately
         // before Vanilla requests a replacement path after combat.
         public const int PostCombatPathRequestSequenceRva = 0x197702;
+        public const int InlineHookMinimumOverwriteLength = 14;
+        public const int PostCombatPathPreparationHookOffset = 20;
+        public const int PostCombatPathPreparationHookRva = 0x197716;
+        public const int PostCombatPathPreparationHookLength = 14;
+        public const int PostCombatStateRestoreOffset = 34;
+        public const int PostCombatStateRestoreRva = 0x197724;
+        public const int PostCombatStateRestoreLength = 7;
         public const int PostCombatPathRequestCallOffset = 41;
         public const int PostCombatPathRequestCallRva = 0x19772B;
-        public const int PostCombatPathRequestHookLength = 5;
-        public const int PostCombatPathResultHookOffset = 46;
-        public const int PostCombatPathResultHookRva = 0x197730;
-        public const int PostCombatPathResultHookLength = 5;
         public const int PostCombatFinalizeCallOffset = 51;
         public const int PostCombatFinalizeCallRva = 0x197735;
         public const string PostCombatPathRequestSequence =
             "33 C9 44 0F BF 8B 46 07 00 00 8B D7 44 0F BF 83 44 07 00 00 " +
             "66 89 8B 4E 07 00 00 89 4C 24 20 48 8B CE " +
             "66 89 83 18 09 00 00 E8 ? ? ? ? 8B D7 48 8B CE E8 ? ? ? ?";
-        public static readonly byte[] PostCombatPathRequestHookBytes =
+        public static readonly byte[] PostCombatPathPreparationHookBytes =
         {
-            0xE8, 0x50, 0xEB, 0xFF, 0xFF
+            0x66, 0x89, 0x8B, 0x4E, 0x07, 0x00, 0x00,
+            0x89, 0x4C, 0x24, 0x20,
+            0x48, 0x8B, 0xCE
         };
-        public static readonly byte[] PostCombatPathResultHookBytes =
+        public static readonly byte[] PostCombatStateRestoreBytes =
         {
-            0x8B, 0xD7, 0x48, 0x8B, 0xCE
+            0x66, 0x89, 0x83, 0x18, 0x09, 0x00, 0x00
         };
 
         public const int CommonPathContextReadRva = 0x1964EE;

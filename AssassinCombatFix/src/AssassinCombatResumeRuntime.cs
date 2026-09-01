@@ -16,8 +16,7 @@ namespace AssassinCombatFix
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoL.BugfixesAndQoLViewModel settings;
         private HookTransaction transaction;
-        private HookRef<X64InlineHook> postCombatPathRequestHook = new HookRef<X64InlineHook>();
-        private HookRef<X64InlineHook> postCombatPathResultHook = new HookRef<X64InlineHook>();
+        private HookRef<X64InlineHook> postCombatPathPreparationHook = new HookRef<X64InlineHook>();
         private int* assassinPathContextFlag;
         private ulong libraryBase;
         private bool tickObserverSubscribed;
@@ -30,20 +29,6 @@ namespace AssassinCombatFix
         private int stateTraceEventCount;
         private readonly Dictionary<int, AssassinTraceSnapshot> trackedAssassins =
             new Dictionary<int, AssassinTraceSnapshot>();
-
-        [ThreadStatic]
-        private static Stack<PendingDiagnostic> pendingDiagnostics;
-
-        private sealed class PendingDiagnostic
-        {
-            public int Id;
-            public int NativeUnitIndex;
-            public long CallerReturnRva;
-            public int PreviousPathContext;
-            public bool ContextSet;
-            public int TargetX;
-            public int TargetY;
-        }
 
         private sealed class AssassinTraceSnapshot
         {
@@ -64,8 +49,7 @@ namespace AssassinCombatFix
 
         public bool IsInstalled =>
             transaction != null &&
-            postCombatPathRequestHook.Success &&
-            postCombatPathResultHook.Success;
+            postCombatPathPreparationHook.Success;
 
         public void InitializeNative(
             IntPtr libraryHandle,
@@ -99,37 +83,27 @@ namespace AssassinCombatFix
                     loggerFactory: null,
                     failureMode: TransactionFailureMode.RollbackAndThrow);
                 installedTransaction.AddContextHook(
-                    ref postCombatPathRequestHook,
-                    libraryBase + unchecked((ulong)AssassinCombatResumeNativeDefinition.PostCombatPathRequestCallRva),
+                    ref postCombatPathPreparationHook,
+                    libraryBase + unchecked((ulong)AssassinCombatResumeNativeDefinition.PostCombatPathPreparationHookRva),
                     BeforePostCombatPathRequest,
                     regs: X64SmartCPUContextRegs.All,
-                    hookSize: AssassinCombatResumeNativeDefinition.PostCombatPathRequestHookLength,
+                    hookSize: AssassinCombatResumeNativeDefinition.PostCombatPathPreparationHookLength,
                     errorMode: CallbackErrorMode.LogAndContinue,
-                    placement: OverwrittenInstructionPlacement.AfterCallback);
-                installedTransaction.AddContextHook(
-                    ref postCombatPathResultHook,
-                    libraryBase + unchecked((ulong)AssassinCombatResumeNativeDefinition.PostCombatPathResultHookRva),
-                    AfterPostCombatPathRequest,
-                    regs: X64SmartCPUContextRegs.All,
-                    hookSize: AssassinCombatResumeNativeDefinition.PostCombatPathResultHookLength,
-                    errorMode: CallbackErrorMode.LogAndContinue,
-                    placement: OverwrittenInstructionPlacement.AfterCallback);
+                    placement: OverwrittenInstructionPlacement.BeforeCallback);
                 installedTransaction.Commit();
 
-                if (!postCombatPathRequestHook.Success ||
-                    !postCombatPathResultHook.Success)
+                if (!postCombatPathPreparationHook.Success)
                 {
                     throw new InvalidOperationException(
-                        "one or both exact Assassin post-combat path hooks were not installed");
+                        "the exact Assassin post-combat path preparation hook was not installed");
                 }
 
                 transaction = installedTransaction;
                 GameTimeManagerAPI.Instance.OnTick += ObserveAssassinStates;
                 tickObserverSubscribed = true;
                 LogInfo(
-                    $"installed exact state-106 post-combat path hooks at RVAs " +
-                    $"0x{AssassinCombatResumeNativeDefinition.PostCombatPathRequestCallRva:X} and " +
-                    $"0x{AssassinCombatResumeNativeDefinition.PostCombatPathResultHookRva:X}.");
+                    $"installed exact state-106 post-combat path preparation hook at RVA " +
+                    $"0x{AssassinCombatResumeNativeDefinition.PostCombatPathPreparationHookRva:X}.");
             }
             catch
             {
@@ -141,8 +115,7 @@ namespace AssassinCombatFix
                     tickObserverSubscribed = false;
                 }
                 transaction = null;
-                postCombatPathRequestHook = new HookRef<X64InlineHook>();
-                postCombatPathResultHook = new HookRef<X64InlineHook>();
+                postCombatPathPreparationHook = new HookRef<X64InlineHook>();
                 assassinPathContextFlag = null;
                 libraryBase = 0;
                 throw;
@@ -160,7 +133,6 @@ namespace AssassinCombatFix
             diagnosticEventCount = 0;
             stateTraceEventCount = 0;
             trackedAssassins.Clear();
-            pendingDiagnostics?.Clear();
             Shared.DebugLogHelper.LogDebug(
                 log,
                 $"[ASSASSIN_COMBAT_RESUME_DIAGNOSTIC] trace lifecycle started: reason={reason}.");
@@ -171,7 +143,6 @@ namespace AssassinCombatFix
             bool wasActive = mapActive;
             mapActive = false;
             trackedAssassins.Clear();
-            pendingDiagnostics?.Clear();
             if (wasActive)
             {
                 Shared.DebugLogHelper.LogDebug(
@@ -183,7 +154,6 @@ namespace AssassinCombatFix
         private void BeforePostCombatPathRequest(NativePointer<X64SmartCPUContext> context)
         {
             bool contextChanged = false;
-            bool diagnosticPushed = false;
             int previousPathContext = 0;
             try
             {
@@ -237,19 +207,6 @@ namespace AssassinCombatFix
                 bool shouldSetContext = AssassinCombatResumePolicy.ShouldSetAssassinPathContext(
                     eligible,
                     previousPathContext);
-                Stack<PendingDiagnostic> stack = pendingDiagnostics ??
-                    (pendingDiagnostics = new Stack<PendingDiagnostic>());
-                stack.Push(new PendingDiagnostic
-                {
-                    Id = diagnosticId,
-                    NativeUnitIndex = nativeUnitIndex,
-                    CallerReturnRva = returnRva,
-                    PreviousPathContext = previousPathContext,
-                    ContextSet = shouldSetContext,
-                    TargetX = targetX,
-                    TargetY = targetY
-                });
-                diagnosticPushed = true;
 
                 // 0x196280 owns normal cleanup of this one-shot context on both exits.
                 if (shouldSetContext)
@@ -266,43 +223,14 @@ namespace AssassinCombatFix
             }
             catch (Exception ex)
             {
-                // The relocated Vanilla call has not run yet. Restore only this exceptional
+                // The native Vanilla call has not run yet. Restore only this exceptional
                 // partial write so a failed callback cannot leak context to another request.
                 if (contextChanged && assassinPathContextFlag != null)
                     *assassinPathContextFlag = previousPathContext;
-                if (diagnosticPushed && pendingDiagnostics != null && pendingDiagnostics.Count > 0)
-                    pendingDiagnostics.Pop();
                 Shared.DebugLogHelper.LogError(
                     log,
                     $"[ASSASSIN_COMBAT_RESUME_DIAGNOSTIC] post-combat path-context validation failed; " +
                     $"Vanilla behavior remains active: {ex}");
-            }
-        }
-
-        private void AfterPostCombatPathRequest(NativePointer<X64SmartCPUContext> context)
-        {
-            Stack<PendingDiagnostic> stack = pendingDiagnostics;
-            if (stack == null || stack.Count == 0)
-                return;
-
-            PendingDiagnostic diagnostic = stack.Pop();
-            try
-            {
-                int pathRequestResult = unchecked((int)(uint)context.Pointer->RAX);
-                int flagAfterVanilla = *assassinPathContextFlag;
-                LogDiagnostic(
-                    diagnostic.Id,
-                    $"post-combat-path-result returnRva=0x{diagnostic.CallerReturnRva:X}, " +
-                    $"nativeUnitIndex={diagnostic.NativeUnitIndex}, target={diagnostic.TargetX},{diagnostic.TargetY}, " +
-                    $"pathRequestCalls=1, weightedBuilderExpected=True, result={pathRequestResult}, " +
-                    $"flagBefore={diagnostic.PreviousPathContext}, contextSet={diagnostic.ContextSet}, " +
-                    $"flagAfterVanilla={flagAfterVanilla}");
-            }
-            catch (Exception ex)
-            {
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"[ASSASSIN_COMBAT_RESUME_DIAGNOSTIC] post-combat path result logging failed: {ex}");
             }
         }
 
@@ -468,8 +396,6 @@ namespace AssassinCombatFix
                 finalizeCallRva + 5);
             if (pathRequestCallRva != AssassinCombatResumeNativeDefinition.PostCombatPathRequestCallRva ||
                 pathRequestTarget != AssassinCombatResumeNativeDefinition.CommonPathRequestRva ||
-                pathRequest.Rva + AssassinCombatResumeNativeDefinition.PostCombatPathResultHookOffset !=
-                    AssassinCombatResumeNativeDefinition.PostCombatPathResultHookRva ||
                 finalizeCallRva != AssassinCombatResumeNativeDefinition.PostCombatFinalizeCallRva ||
                 finalizeTarget != AssassinCombatResumeNativeDefinition.PostPathRequestRva)
             {
@@ -479,23 +405,32 @@ namespace AssassinCombatFix
 
             ValidateHookSpan(
                 memory,
-                AssassinCombatResumeNativeDefinition.PostCombatPathRequestCallRva,
-                AssassinCombatResumeNativeDefinition.PostCombatPathRequestHookBytes,
-                "post-combat path request");
+                AssassinCombatResumeNativeDefinition.PostCombatPathPreparationHookRva,
+                AssassinCombatResumeNativeDefinition.PostCombatPathPreparationHookBytes,
+                "post-combat path preparation");
             ValidateHookSpan(
                 memory,
-                AssassinCombatResumeNativeDefinition.PostCombatPathResultHookRva,
-                AssassinCombatResumeNativeDefinition.PostCombatPathResultHookBytes,
-                "post-combat path result");
-            if (AssassinCombatResumeNativeDefinition.PostCombatPathRequestCallRva +
-                    AssassinCombatResumeNativeDefinition.PostCombatPathRequestHookLength !=
-                    AssassinCombatResumeNativeDefinition.PostCombatPathResultHookRva ||
-                AssassinCombatResumeNativeDefinition.PostCombatPathResultHookRva +
-                    AssassinCombatResumeNativeDefinition.PostCombatPathResultHookLength !=
-                    AssassinCombatResumeNativeDefinition.PostCombatFinalizeCallRva)
+                AssassinCombatResumeNativeDefinition.PostCombatStateRestoreRva,
+                AssassinCombatResumeNativeDefinition.PostCombatStateRestoreBytes,
+                "post-combat state restore");
+            if (AssassinCombatResumeNativeDefinition.PostCombatPathPreparationHookLength !=
+                    AssassinCombatResumeNativeDefinition.InlineHookMinimumOverwriteLength ||
+                pathRequest.Rva + AssassinCombatResumeNativeDefinition.PostCombatPathPreparationHookOffset !=
+                    AssassinCombatResumeNativeDefinition.PostCombatPathPreparationHookRva ||
+                AssassinCombatResumeNativeDefinition.PostCombatPathPreparationHookRva +
+                    AssassinCombatResumeNativeDefinition.PostCombatPathPreparationHookLength !=
+                    AssassinCombatResumeNativeDefinition.PostCombatStateRestoreRva ||
+                AssassinCombatResumeNativeDefinition.PostCombatStateRestoreRva +
+                    AssassinCombatResumeNativeDefinition.PostCombatStateRestoreLength !=
+                    AssassinCombatResumeNativeDefinition.PostCombatPathRequestCallRva ||
+                !AssassinCombatResumePolicy.IsSafePreparationHookSpan(
+                    AssassinCombatResumeNativeDefinition.PostCombatPathPreparationHookRva,
+                    AssassinCombatResumeNativeDefinition.PostCombatPathPreparationHookLength,
+                    AssassinCombatResumeNativeDefinition.InlineHookMinimumOverwriteLength,
+                    AssassinCombatResumeNativeDefinition.PostCombatStateRestoreRva))
             {
                 throw new InvalidOperationException(
-                    "the post-combat hooks no longer cover complete non-overlapping instruction spans");
+                    "the post-combat preparation hook no longer ends safely before the native path call");
             }
 
             Shared.NativeResolution contextRead = Resolve(

@@ -289,6 +289,8 @@ namespace MoveMoatTest
         [ThreadStatic]
         private static AttackCursorPairScope pendingAttackCursorPair;
         [ThreadStatic]
+        private static CursorSelectionDiagnosticScope pendingCursorSelectionDiagnostic;
+        [ThreadStatic]
         private static AttackCommandScope activeAttackCommand;
         [ThreadStatic]
         private static AttackApproachDiagnosticScope activeAttackApproachDiagnostic;
@@ -364,6 +366,8 @@ namespace MoveMoatTest
         private int lastCursorRegionBlockGeneration = -1;
         private int lastCursorDirectBlockGeneration = -1;
         private string lastAttackCursorDecision;
+        private string lastCursorSelectionDiagnostic;
+        private string lastCursorTilePairDiagnostic;
         private readonly Dictionary<int, string> lastUnscopedAttackModes = new Dictionary<int, string>();
         private readonly Dictionary<int, string> lastAttackCommandCandidates = new Dictionary<int, string>();
         private readonly Dictionary<int, AttackUnitTracker> trackedAttackUnits =
@@ -701,6 +705,7 @@ namespace MoveMoatTest
             activePlan = null;
             pendingPlan = null;
             pendingAttackCursorPair = null;
+            pendingCursorSelectionDiagnostic = null;
             activeAttackCommand = null;
             activeAttackApproachDiagnostic = null;
             trackedAttackUnits.Clear();
@@ -893,7 +898,7 @@ namespace MoveMoatTest
         private static void ValidateAttackApproachCalls(ReadOnlySpan<byte> memory)
         {
             int tribeManagerTarget = Shared.NativePatternResolver.ResolveRelativeTarget(
-                memory, AttackApproachFloodBuilderRva + 0x1E, AttackApproachFloodBuilderRva + 0x22);
+                memory, AttackApproachFloodBuilderRva + 0x1D, AttackApproachFloodBuilderRva + 0x21);
             if (tribeManagerTarget != NativeTribeManagerRva)
             {
                 throw new InvalidOperationException(
@@ -2548,6 +2553,7 @@ namespace MoveMoatTest
         {
             int vanillaResult = originalCursorTilePairFallbackSelection(selectionState);
             pendingAttackCursorPair = null;
+            pendingCursorSelectionDiagnostic = null;
             if (disposed || selectionState == IntPtr.Zero)
                 return vanillaResult;
 
@@ -2555,54 +2561,170 @@ namespace MoveMoatTest
             {
                 byte* state = (byte*)selectionState.ToPointer();
                 int* slots = (int*)(state + 0x564);
+                ulong occupiedSlots = 0;
+                bool hasEligibleSlot = false;
                 for (int index = 0; index < 35; index++)
                 {
-                    if (index != 22 && slots[index] != 0)
+                    if (slots[index] == 0)
+                        continue;
+
+                    occupiedSlots |= 1UL << index;
+                    if (index != 22)
                     {
                         cursorChecksArmed = true;
-                        break;
+                        hasEligibleSlot = true;
                     }
                 }
 
-                // The three retained entity-attack branches differ by this zero result.
-                // Capture the exact pair that the immediately following E2CA0 call must use.
-                if (vanillaResult == 0)
+                int unitId = getRepresentativeSelectedUnit(selectionState, 1);
+                int nextUnitId = *(int*)nativeUnitManager;
+                int targetX = *cursorTargetX;
+                int targetY = *cursorTargetY;
+                int playerId = -1;
+                int startX = -1;
+                int startY = -1;
+                int startTileId = -1;
+                int targetTileId = -1;
+                string rejectionReason;
+
+                bool validTarget = targetX >= 0 && targetX < MapWidth &&
+                    targetY >= 0 && targetY < MapWidth;
+                GameUnit* unit = null;
+                bool validUnit = unitId > 0 && unitId < nextUnitId &&
+                    GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out unit) && unit != null;
+                if (validUnit)
                 {
-                    int unitId = getRepresentativeSelectedUnit(selectionState, 1);
-                    int nextUnitId = *(int*)nativeUnitManager;
-                    int targetX = *cursorTargetX;
-                    int targetY = *cursorTargetY;
-                    if (unitId > 0 && unitId < nextUnitId &&
-                        targetX >= 0 && targetX < MapWidth && targetY >= 0 && targetY < MapWidth &&
-                        GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) && unit != null)
-                    {
-                        int startTileId = GameTileManagerAPI.Instance.GetTileId(
-                            unit->r_CurrentTilePositionX, unit->r_CurrentTilePositionY);
-                        int targetTileId = GameTileManagerAPI.Instance.GetTileId(targetX, targetY);
-                        if (IsValidTileId(startTileId) && IsValidTileId(targetTileId))
-                        {
-                            pendingAttackCursorPair = new AttackCursorPairScope(
-                                mapEpoch,
-                                unitId,
-                                unit->r_ControllableForPlayerId,
-                                unit->r_CurrentTilePositionX,
-                                unit->r_CurrentTilePositionY,
-                                startTileId,
-                                targetX,
-                                targetY,
-                                targetTileId);
-                        }
-                    }
+                    playerId = unit->r_ControllableForPlayerId;
+                    startX = unit->r_CurrentTilePositionX;
+                    startY = unit->r_CurrentTilePositionY;
+                    startTileId = GameTileManagerAPI.Instance.GetTileId(startX, startY);
+                }
+                if (validTarget)
+                    targetTileId = GameTileManagerAPI.Instance.GetTileId(targetX, targetY);
+
+                bool validPair = validUnit && validTarget &&
+                    IsValidTileId(startTileId) && IsValidTileId(targetTileId);
+                bool functionalArmed = vanillaResult == 0 && validPair;
+                if (!validUnit)
+                    rejectionReason = "invalid-representative-unit";
+                else if (!validTarget)
+                    rejectionReason = "invalid-cursor-target";
+                else if (!validPair)
+                    rejectionReason = "invalid-tile-pair";
+                else if (vanillaResult != 0)
+                    rejectionReason = "vanilla-selection-positive";
+                else
+                    rejectionReason = "none";
+
+                CursorSelectionDiagnosticScope diagnostic = new CursorSelectionDiagnosticScope(
+                    mapEpoch,
+                    vanillaResult,
+                    unitId,
+                    playerId,
+                    startX,
+                    startY,
+                    startTileId,
+                    targetX,
+                    targetY,
+                    targetTileId,
+                    occupiedSlots,
+                    hasEligibleSlot,
+                    functionalArmed,
+                    rejectionReason);
+                pendingCursorSelectionDiagnostic = diagnostic;
+                LogCursorSelectionDiagnostic(diagnostic);
+
+                // A positive selection-gate result is diagnostic only. The functional moat
+                // fallback retains its proven Vanilla-zero requirement.
+                if (functionalArmed)
+                {
+                    pendingAttackCursorPair = new AttackCursorPairScope(
+                        mapEpoch,
+                        unitId,
+                        playerId,
+                        startX,
+                        startY,
+                        startTileId,
+                        targetX,
+                        targetY,
+                        targetTileId);
                 }
             }
             catch (Exception ex)
             {
                 cursorChecksArmed = false;
                 pendingAttackCursorPair = null;
+                pendingCursorSelectionDiagnostic = null;
                 LogFailure("cursor-selection", ex);
             }
 
             return vanillaResult;
+        }
+
+        private void LogCursorSelectionDiagnostic(CursorSelectionDiagnosticScope diagnostic)
+        {
+            string signature =
+                $"{diagnostic.MapEpoch}:{diagnostic.VanillaSelectionResult}:{diagnostic.UnitId}:" +
+                $"{diagnostic.PlayerId}:{diagnostic.StartTileId}:{diagnostic.TargetTileId}:" +
+                $"{diagnostic.OccupiedSlots:X}:{diagnostic.HasEligibleSlot}:" +
+                $"{diagnostic.FunctionalFallbackArmed}:{diagnostic.RejectionReason}";
+            if (string.Equals(lastCursorSelectionDiagnostic, signature, StringComparison.Ordinal))
+                return;
+
+            lastCursorSelectionDiagnostic = signature;
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"MoveMoat stage=cursor-selection-gate vanilla={diagnostic.VanillaSelectionResult} " +
+                $"unit={diagnostic.UnitId} player={diagnostic.PlayerId} " +
+                $"start=({diagnostic.StartX},{diagnostic.StartY})/{diagnostic.StartTileId} " +
+                $"target=({diagnostic.TargetX},{diagnostic.TargetY})/{diagnostic.TargetTileId} " +
+                $"slots=0x{diagnostic.OccupiedSlots:X9} eligibleSlot={diagnostic.HasEligibleSlot} " +
+                $"fallbackArmed={diagnostic.FunctionalFallbackArmed} " +
+                $"reason={diagnostic.RejectionReason}.");
+        }
+
+        private void LogCursorTilePairDiagnostic(
+            CursorSelectionDiagnosticScope diagnostic,
+            int actualTargetTileId,
+            int actualSelectedUnitTileId,
+            byte useCache,
+            int vanillaTilePairResult)
+        {
+            bool mapMatches = diagnostic.MapEpoch == mapEpoch;
+            bool pairMatches = diagnostic.StartTileId == actualSelectedUnitTileId &&
+                diagnostic.TargetTileId == actualTargetTileId;
+            bool effectiveFallbackScope = diagnostic.FunctionalFallbackArmed && mapMatches &&
+                pairMatches && useCache == 1 && vanillaTilePairResult == 0;
+            string reason;
+            if (!mapMatches)
+                reason = "map-epoch-mismatch";
+            else if (!diagnostic.FunctionalFallbackArmed)
+                reason = diagnostic.RejectionReason;
+            else if (!pairMatches)
+                reason = "tile-pair-mismatch";
+            else if (useCache != 1)
+                reason = "cache-mode-not-one";
+            else if (vanillaTilePairResult != 0)
+                reason = "vanilla-tile-pair-positive";
+            else
+                reason = "none";
+
+            string signature =
+                $"{diagnostic.MapEpoch}:{diagnostic.VanillaSelectionResult}:{diagnostic.UnitId}:" +
+                $"{diagnostic.StartTileId}:{diagnostic.TargetTileId}:{actualSelectedUnitTileId}:" +
+                $"{actualTargetTileId}:{useCache}:{vanillaTilePairResult}:{pairMatches}:" +
+                $"{effectiveFallbackScope}:{reason}";
+            if (string.Equals(lastCursorTilePairDiagnostic, signature, StringComparison.Ordinal))
+                return;
+
+            lastCursorTilePairDiagnostic = signature;
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"MoveMoat stage=cursor-tile-pair-observed selectionVanilla=" +
+                $"{diagnostic.VanillaSelectionResult} tilePairVanilla={vanillaTilePairResult} " +
+                $"unit={diagnostic.UnitId} expected={diagnostic.StartTileId}->{diagnostic.TargetTileId} " +
+                $"actual={actualSelectedUnitTileId}->{actualTargetTileId} cache={useCache} " +
+                $"pairMatches={pairMatches} fallbackScope={effectiveFallbackScope} reason={reason}.");
         }
 
         private int AllowAttackCursorTilePairThroughCompletedMoat(
@@ -2612,6 +2734,8 @@ namespace MoveMoatTest
                 pathManager, targetTileId, selectedUnitTileId, useCache);
             AttackCursorPairScope scope = pendingAttackCursorPair;
             pendingAttackCursorPair = null;
+            CursorSelectionDiagnosticScope cursorDiagnostic = pendingCursorSelectionDiagnostic;
+            pendingCursorSelectionDiagnostic = null;
             AttackApproachDiagnosticScope attackApproachScope = activeAttackApproachDiagnostic;
             if (attackApproachScope != null)
             {
@@ -2630,6 +2754,19 @@ namespace MoveMoatTest
                     TryLogDiagnosticFailure("attack-approach-tile-pair", ex);
                 }
                 return vanillaResult;
+            }
+
+            if (cursorDiagnostic != null)
+            {
+                try
+                {
+                    LogCursorTilePairDiagnostic(
+                        cursorDiagnostic, targetTileId, selectedUnitTileId, useCache, vanillaResult);
+                }
+                catch (Exception ex)
+                {
+                    TryLogDiagnosticFailure("cursor-tile-pair-observer", ex);
+                }
             }
 
             if (disposed || vanillaResult != 0)
@@ -3231,6 +3368,8 @@ namespace MoveMoatTest
             lastCursorDirectBlockGeneration = -1;
             cursorChecksArmed = false;
             lastAttackCursorDecision = null;
+            lastCursorSelectionDiagnostic = null;
+            lastCursorTilePairDiagnostic = null;
             lastUnscopedAttackModes.Clear();
             lastAttackCommandCandidates.Clear();
             trackedAttackUnits.Clear();
@@ -3238,6 +3377,7 @@ namespace MoveMoatTest
             activePlan = null;
             pendingPlan = null;
             pendingAttackCursorPair = null;
+            pendingCursorSelectionDiagnostic = null;
             activeAttackCommand = null;
             activeAttackApproachDiagnostic = null;
             trackedMoatMoves.Clear();
@@ -3923,6 +4063,56 @@ namespace MoveMoatTest
             public int TargetX { get; }
             public int TargetY { get; }
             public int TargetTileId { get; }
+        }
+
+        private sealed class CursorSelectionDiagnosticScope
+        {
+            public CursorSelectionDiagnosticScope(
+                int mapEpoch,
+                int vanillaSelectionResult,
+                int unitId,
+                int playerId,
+                int startX,
+                int startY,
+                int startTileId,
+                int targetX,
+                int targetY,
+                int targetTileId,
+                ulong occupiedSlots,
+                bool hasEligibleSlot,
+                bool functionalFallbackArmed,
+                string rejectionReason)
+            {
+                MapEpoch = mapEpoch;
+                VanillaSelectionResult = vanillaSelectionResult;
+                UnitId = unitId;
+                PlayerId = playerId;
+                StartX = startX;
+                StartY = startY;
+                StartTileId = startTileId;
+                TargetX = targetX;
+                TargetY = targetY;
+                TargetTileId = targetTileId;
+                OccupiedSlots = occupiedSlots;
+                HasEligibleSlot = hasEligibleSlot;
+                FunctionalFallbackArmed = functionalFallbackArmed;
+                RejectionReason = rejectionReason;
+            }
+
+            public int MapEpoch { get; }
+            public int VanillaSelectionResult { get; }
+            public int UnitId { get; }
+            public int PlayerId { get; }
+            public int StartX { get; }
+            public int StartY { get; }
+            public int StartTileId { get; }
+            public int TargetX { get; }
+            public int TargetY { get; }
+            public int TargetTileId { get; }
+            public ulong OccupiedSlots { get; }
+            public bool HasEligibleSlot { get; }
+            public bool FunctionalFallbackArmed { get; }
+            public string RejectionReason { get; }
         }
 
         private struct RouteProbeSummary

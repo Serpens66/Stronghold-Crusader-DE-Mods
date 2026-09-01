@@ -1419,6 +1419,26 @@ ordnungsgemäß fail-closed nicht, während die bereits funktionierende normale 
 blieb. Aus dem Fehlen von `attack-approach`-Logs in diesem Lauf darf keine Aussage über den
 nativen Attackpfad abgeleitet werden.
 
+Auch der darauffolgende Lauf vom 1. September 2026 ist für diese Diagnose ungültig. Das Pattern war
+zwar korrigiert, aber die zusätzliche Prüfung der RIP-relativen `LEA` am Anfang von `0xDBC60` las
+den Displacementbereich um ein Byte versetzt als `+0x1E/+0x22`. Die Instruktion beginnt bei
+`+0x1A`, ihr Displacement liegt bei `+0x1D` und ihr Ende bei `+0x21`; nur diese Grenzen ergeben den
+in der Baseline bestätigten Tribe-Manager `0x7CC6720`. Die falsche Berechnung ergab
+`0x45157B2C`, woraufhin die gesamte neue Hookgruppe erneut korrekt fail-closed zurückgerollt wurde.
+Die gleichzeitig beobachteten `AttackUnit`-Commands und AI-Zustände stammen nur aus der älteren
+Command-/Tick-Diagnose und belegen noch keinen Aufruf von `0xDBC60`.
+
+Ein Gebäude hinter dem Moat blieb in demselben Lauf bereits am roten Cursor hängen; es entstand
+kein `AttackBuilding`- oder `ForceAttackBuilding`-Event. Damit können `0xDA020` und `0x123090` in
+diesem Fall noch nicht laufen. Zur Trennung beobachtet `0x196870` deshalb zusätzlich read-only
+Vanillas Rückgabewert, die repräsentative Unit, das Cursor-Tile und eine 35-Bit-Maske der belegten
+Auswahlslots. Ein separater kurzlebiger Diagnosekontext wird auch bei positivem Vanilla-Ergebnis an
+den unmittelbar folgenden `0xE2CA0`-Aufruf weitergegeben. Er protokolliert das tatsächliche
+Tilepaar und den Grund, weshalb der funktionale Fallback nicht bewaffnet war, verändert aber nie
+das Ergebnis. Der funktionale `AttackCursorPairScope` entsteht weiterhin ausschließlich nach
+Vanilla `0`, mit gültiger Unit und gültigem Tilepaar. Dadurch erhalten insbesondere Gebäude-,
+Mauer-, Wasser- und Kletterpfade keine neue Freigabe durch diese Diagnose.
+
 Bei einem Update müssen alle vier gehookten Funktions-Entries und `0x117820` über eindeutige
 Patterns und vollständige Instruktionsbytes neu gefunden werden. Zusätzlich müssen sämtliche
 Dispatcher- und internen Calls weiterhin relativ auf die semantisch passenden Funktionen zeigen;
@@ -1456,6 +1476,8 @@ beziehungsweise die konkreten Stages filtern:
 - `move-command-result`
 - `mode-context`
 - `target-command`
+- `cursor-selection-gate`
+- `cursor-tile-pair-observed`
 - `attack-cursor-pair`
 - `attack-track-start`
 - `attack-state`
@@ -1493,8 +1515,9 @@ mindestens ein freundliches oder feindliches Moat-Tile beobachtet, wird der gesa
 Befehl nach dessen Post-Phase ausgegeben. Befehle ohne jeden Moat-Befund werden verworfen. Dadurch
 bleiben Moat-relevante Patrol-Hin- und Rückläufe sichtbar, während normale Patrol-, KI- und
 Kartenstartbewegungen das Log nicht füllen. Cursorentscheidungen werden
-weiterhin anhand der bereits vorhandenen BFS-Generation dedupliziert; sie besitzen ebenfalls kein
-abschaltendes Lebenszeitlimit.
+weiterhin anhand der bereits vorhandenen BFS-Generation beziehungsweise des unveränderten
+Auswahl-, Unit- und Tilepaarzustands dedupliziert; sie besitzen ebenfalls kein abschaltendes
+Lebenszeitlimit.
 
 Die Attack-State-Diagnose wird nicht über eine Mengen- oder Zeitgrenze abgeschnitten. Sie schreibt
 einen Eintrag nur dann, wenn sich mindestens eines der gelesenen Zustands-, Positions-, Ziel-,
