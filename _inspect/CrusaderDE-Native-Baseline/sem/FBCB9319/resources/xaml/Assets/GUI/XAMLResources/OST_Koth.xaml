@@ -1,0 +1,418 @@
+<UserControl
+    x:Class="CrusaderDE.OST_Koth"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:b="http://schemas.microsoft.com/xaml/behaviors"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:CrusaderDE"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    d:DesignHeight="60"
+    d:DesignWidth="800"
+    mc:Ignorable="d">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="booleanToVisibilityConverter" />
+
+    </UserControl.Resources>
+
+
+    <StackPanel
+        Tag="Ignore"
+        Orientation="Horizontal"
+        >
+
+        <Grid
+                Width="220"
+                HorizontalAlignment="Center"
+                Visibility="{Binding OST_KOTH_Visible[0], Converter={StaticResource booleanToVisibilityConverter}}"
+                >
+
+            <TextBlock
+                Margin="0,5,0,0"
+                Width="200"
+                Height="60"
+                HorizontalAlignment="Center"
+                TextAlignment="Center"
+                VerticalAlignment="Top"
+                Panel.ZIndex="1"
+                FontSize="24"
+                Foreground="{Binding OST_KOTH_Color[0]}"
+                Background="#55000000"
+                Text="{Binding OST_KOTH_Name[0]}"
+                Tag="Ignore">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                         ShadowDepth="2"
+                         Direction="315"
+                         Color="#CC000000"
+                         BlurRadius="0"/>
+                </TextBlock.Effect>
+            </TextBlock>
+
+            <TextBlock
+                Margin="0,32,0,0"
+                Width="200"
+                HorizontalAlignment="Center"
+                TextAlignment="Center"
+                VerticalAlignment="Top"
+                Panel.ZIndex="1"
+                FontSize="24"
+                Foreground="{Binding OST_KOTH_Color[0]}"
+                Text="{Binding OST_KOTH_Value[0]}"
+                Tag="Ignore">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                         ShadowDepth="2"
+                         Direction="315"
+                         Color="#CC000000"
+                         BlurRadius="0"/>
+                </TextBlock.Effect>
+            </TextBlock>
+        </Grid>
+
+        <Grid
+                Width="220"
+                HorizontalAlignment="Center"
+                Visibility="{Binding OST_KOTH_Visible[1], Converter={StaticResource booleanToVisibilityConverter}}"
+                >
+
+            <TextBlock
+                Margin="0,5,0,0"
+                Width="200"
+                Height="60"
+                HorizontalAlignment="Center"
+                TextAlignment="Center"
+                VerticalAlignment="Top"
+                Panel.ZIndex="1"
+                FontSize="24"
+                Foreground="{Binding OST_KOTH_Color[1]}"
+                Background="#55000000"
+                Text="{Binding OST_KOTH_Name[1]}"
+                Tag="Ignore">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                         ShadowDepth="2"
+                         Direction="315"
+                         Color="#CC000000"
+                         BlurRadius="0"/>
+                </TextBlock.Effect>
+            </TextBlock>
+
+            <TextBlock
+                Margin="0,32,0,0"
+                Width="200"
+                HorizontalAlignment="Center"
+                TextAlignment="Center"
+                VerticalAlignment="Top"
+                Panel.ZIndex="1"
+                FontSize="24"
+                Foreground="{Binding OST_KOTH_Color[1]}"
+                Text="{Binding OST_KOTH_Value[1]}"
+                Tag="Ignore">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                         ShadowDepth="2"
+                         Direction="315"
+                         Color="#CC000000"
+                         BlurRadius="0"/>
+                </TextBlock.Effect>
+            </TextBlock>
+        </Grid>
+
+        <Grid
+                Width="220"
+                HorizontalAlignment="Center"
+                Visibility="{Binding OST_KOTH_Visible[2], Converter={StaticResource booleanToVisibilityConverter}}"
+                >
+
+            <TextBlock
+                Margin="0,5,0,0"
+                Width="200"
+                Height="60"
+                HorizontalAlignment="Center"
+                TextAlignment="Center"
+                VerticalAlignment="Top"
+                Panel.ZIndex="1"
+                FontSize="24"
+                Foreground="{Binding OST_KOTH_Color[2]}"
+                Background="#55000000"
+                Text="{Binding OST_KOTH_Name[2]}"
+                Tag="Ignore">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                         ShadowDepth="2"
+                         Direction="315"
+                         Color="#CC000000"
+                         BlurRadius="0"/>
+                </TextBlock.Effect>
+            </TextBlock>
+
+            <TextBlock
+                Margin="0,32,0,0"
+                Width="200"
+                HorizontalAlignment="Center"
+                TextAlignment="Center"
+                VerticalAlignment="Top"
+                Panel.ZIndex="1"
+                FontSize="24"
+                Foreground="{Binding OST_KOTH_Color[2]}"
+                Text="{Binding OST_KOTH_Value[2]}"
+                Tag="Ignore">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                         ShadowDepth="2"
+                         Direction="315"
+                         Color="#CC000000"
+                         BlurRadius="0"/>
+                </TextBlock.Effect>
+            </TextBlock>
+        </Grid>
+
+        <Grid
+                Width="220"
+                HorizontalAlignment="Center"
+                Visibility="{Binding OST_KOTH_Visible[3], Converter={StaticResource booleanToVisibilityConverter}}"
+                >
+
+            <TextBlock
+                Margin="0,5,0,0"
+                Width="200"
+                Height="60"
+                HorizontalAlignment="Center"
+                TextAlignment="Center"
+                VerticalAlignment="Top"
+                Panel.ZIndex="1"
+                FontSize="24"
+                Foreground="{Binding OST_KOTH_Color[3]}"
+                Background="#55000000"
+                Text="{Binding OST_KOTH_Name[3]}"
+                Tag="Ignore">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                         ShadowDepth="2"
+                         Direction="315"
+                         Color="#CC000000"
+                         BlurRadius="0"/>
+                </TextBlock.Effect>
+            </TextBlock>
+
+            <TextBlock
+                Margin="0,32,0,0"
+                Width="200"
+                HorizontalAlignment="Center"
+                TextAlignment="Center"
+                VerticalAlignment="Top"
+                Panel.ZIndex="1"
+                FontSize="24"
+                Foreground="{Binding OST_KOTH_Color[3]}"
+                Text="{Binding OST_KOTH_Value[3]}"
+                Tag="Ignore">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                         ShadowDepth="2"
+                         Direction="315"
+                         Color="#CC000000"
+                         BlurRadius="0"/>
+                </TextBlock.Effect>
+            </TextBlock>
+        </Grid>
+
+        <Grid
+                Width="220"
+                HorizontalAlignment="Center"
+                Visibility="{Binding OST_KOTH_Visible[4], Converter={StaticResource booleanToVisibilityConverter}}"
+                >
+
+            <TextBlock
+                Margin="0,5,0,0"
+                Width="200"
+                Height="60"
+                HorizontalAlignment="Center"
+                TextAlignment="Center"
+                VerticalAlignment="Top"
+                Panel.ZIndex="1"
+                FontSize="24"
+                Foreground="{Binding OST_KOTH_Color[4]}"
+                Background="#55000000"
+                Text="{Binding OST_KOTH_Name[4]}"
+                Tag="Ignore">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                         ShadowDepth="2"
+                         Direction="315"
+                         Color="#CC000000"
+                         BlurRadius="0"/>
+                </TextBlock.Effect>
+            </TextBlock>
+
+            <TextBlock
+                Margin="0,32,0,0"
+                Width="200"
+                HorizontalAlignment="Center"
+                TextAlignment="Center"
+                VerticalAlignment="Top"
+                Panel.ZIndex="1"
+                FontSize="24"
+                Foreground="{Binding OST_KOTH_Color[4]}"
+                Text="{Binding OST_KOTH_Value[4]}"
+                Tag="Ignore">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                         ShadowDepth="2"
+                         Direction="315"
+                         Color="#CC000000"
+                         BlurRadius="0"/>
+                </TextBlock.Effect>
+            </TextBlock>
+        </Grid>
+
+        <Grid
+                Width="220"
+                HorizontalAlignment="Center"
+                Visibility="{Binding OST_KOTH_Visible[5], Converter={StaticResource booleanToVisibilityConverter}}"
+                >
+
+            <TextBlock
+                Margin="0,5,0,0"
+                Width="200"
+                Height="60"
+                HorizontalAlignment="Center"
+                TextAlignment="Center"
+                VerticalAlignment="Top"
+                Panel.ZIndex="1"
+                FontSize="24"
+                Foreground="{Binding OST_KOTH_Color[5]}"
+                Background="#55000000"
+                Text="{Binding OST_KOTH_Name[5]}"
+                Tag="Ignore">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                         ShadowDepth="2"
+                         Direction="315"
+                         Color="#CC000000"
+                         BlurRadius="0"/>
+                </TextBlock.Effect>
+            </TextBlock>
+
+            <TextBlock
+                Margin="0,32,0,0"
+                Width="200"
+                HorizontalAlignment="Center"
+                TextAlignment="Center"
+                VerticalAlignment="Top"
+                Panel.ZIndex="1"
+                FontSize="24"
+                Foreground="{Binding OST_KOTH_Color[5]}"
+                Text="{Binding OST_KOTH_Value[5]}"
+                Tag="Ignore">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                         ShadowDepth="2"
+                         Direction="315"
+                         Color="#CC000000"
+                         BlurRadius="0"/>
+                </TextBlock.Effect>
+            </TextBlock>
+        </Grid>
+
+        <Grid
+                Width="220"
+                HorizontalAlignment="Center"
+                Visibility="{Binding OST_KOTH_Visible[6], Converter={StaticResource booleanToVisibilityConverter}}"
+                >
+
+            <TextBlock
+                Margin="0,5,0,0"
+                Width="200"
+                Height="60"
+                HorizontalAlignment="Center"
+                TextAlignment="Center"
+                VerticalAlignment="Top"
+                Panel.ZIndex="1"
+                FontSize="24"
+                Foreground="{Binding OST_KOTH_Color[6]}"
+                Background="#55000000"
+                Text="{Binding OST_KOTH_Name[6]}"
+                Tag="Ignore">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                         ShadowDepth="2"
+                         Direction="315"
+                         Color="#CC000000"
+                         BlurRadius="0"/>
+                </TextBlock.Effect>
+            </TextBlock>
+
+            <TextBlock
+                Margin="0,32,0,0"
+                Width="200"
+                HorizontalAlignment="Center"
+                TextAlignment="Center"
+                VerticalAlignment="Top"
+                Panel.ZIndex="1"
+                FontSize="24"
+                Foreground="{Binding OST_KOTH_Color[6]}"
+                Text="{Binding OST_KOTH_Value[6]}"
+                Tag="Ignore">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                         ShadowDepth="2"
+                         Direction="315"
+                         Color="#CC000000"
+                         BlurRadius="0"/>
+                </TextBlock.Effect>
+            </TextBlock>
+        </Grid>
+
+        <Grid
+                Width="220"
+                HorizontalAlignment="Center"
+                Visibility="{Binding OST_KOTH_Visible[7], Converter={StaticResource booleanToVisibilityConverter}}"
+                >
+
+            <TextBlock
+                Margin="0,5,0,0"
+                Width="200"
+                Height="60"
+                HorizontalAlignment="Center"
+                TextAlignment="Center"
+                VerticalAlignment="Top"
+                Panel.ZIndex="1"
+                FontSize="24"
+                Foreground="{Binding OST_KOTH_Color[7]}"
+                Background="#55000000"
+                Text="{Binding OST_KOTH_Name[7]}"
+                Tag="Ignore">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                         ShadowDepth="2"
+                         Direction="315"
+                         Color="#CC000000"
+                         BlurRadius="0"/>
+                </TextBlock.Effect>
+            </TextBlock>
+
+            <TextBlock
+                Margin="0,32,0,0"
+                Width="200"
+                HorizontalAlignment="Center"
+                TextAlignment="Center"
+                VerticalAlignment="Top"
+                Panel.ZIndex="1"
+                FontSize="24"
+                Foreground="{Binding OST_KOTH_Color[7]}"
+                Text="{Binding OST_KOTH_Value[7]}"
+                Tag="Ignore">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                         ShadowDepth="2"
+                         Direction="315"
+                         Color="#CC000000"
+                         BlurRadius="0"/>
+                </TextBlock.Effect>
+            </TextBlock>
+        </Grid>
+
+
+    </StackPanel>
+</UserControl>

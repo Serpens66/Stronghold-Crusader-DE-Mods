@@ -1927,82 +1927,64 @@ internal static class Program
               !AssassinCombatResumePolicy.IsValidNativeUnitIndex(0, 0),
             "Assassin combat resume accepted an invalid native unit index");
 
-        Check(AssassinCombatResumePolicy.ShouldUseAssassinPathContext(
-                true,
-                true,
-                true,
-                true,
-                AliveState.IsAlive,
-                eChimps.CHIMP_TYPE_ARAB_ASSASIN),
-            "enabled Assassin combat resume rejected a living Assassin");
-        Check(!AssassinCombatResumePolicy.ShouldUseAssassinPathContext(
-                false, true, true, true, AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN) &&
-              !AssassinCombatResumePolicy.ShouldUseAssassinPathContext(
-                true, false, true, true, AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN) &&
-              !AssassinCombatResumePolicy.ShouldUseAssassinPathContext(
-                true, true, false, true, AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN) &&
-              !AssassinCombatResumePolicy.ShouldUseAssassinPathContext(
-                true, true, true, false, AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN),
-            "Assassin combat resume did not fail closed outside the fully installed enabled feature");
-        Check(!AssassinCombatResumePolicy.ShouldUseAssassinPathContext(
-                true, true, true, true, AliveState.MarkedForDeletion, eChimps.CHIMP_TYPE_ARAB_ASSASIN) &&
-              !AssassinCombatResumePolicy.ShouldUseAssassinPathContext(
-                true, true, true, true, AliveState.IsAlive, eChimps.CHIMP_TYPE_KNIGHT),
+        Check(
+            AssassinCombatResumePolicy.IsKnownAssassinCombatReturnRva(
+                AssassinCombatResumeNativeDefinition.AssassinCombatResumeReturn1Rva) &&
+            AssassinCombatResumePolicy.IsKnownAssassinCombatReturnRva(
+                AssassinCombatResumeNativeDefinition.AssassinCombatResumeReturn2Rva) &&
+            !AssassinCombatResumePolicy.IsKnownAssassinCombatReturnRva(
+                AssassinCombatResumeNativeDefinition.AssassinCombatResumeReturn1Rva - 1) &&
+            !AssassinCombatResumePolicy.IsKnownAssassinCombatReturnRva(0x122B14),
+            "Assassin combat resume did not restrict itself to both audited state-107 return addresses");
+
+        Check(AssassinCombatResumePolicy.ShouldForceFullRepath(
+                true, true, true, true, true,
+                AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN),
+            "enabled Assassin combat resume did not force a full weighted repath");
+        Check(!AssassinCombatResumePolicy.ShouldForceFullRepath(
+                false, true, true, true, true,
+                AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN) &&
+              !AssassinCombatResumePolicy.ShouldForceFullRepath(
+                true, false, true, true, true,
+                AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN) &&
+              !AssassinCombatResumePolicy.ShouldForceFullRepath(
+                true, true, false, true, true,
+                AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN) &&
+              !AssassinCombatResumePolicy.ShouldForceFullRepath(
+                true, true, true, false, true,
+                AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN) &&
+              !AssassinCombatResumePolicy.ShouldForceFullRepath(
+                true, true, true, true, false,
+                AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN),
+            "Assassin combat resume did not fail closed outside the installed enabled callsite");
+        Check(!AssassinCombatResumePolicy.ShouldForceFullRepath(
+                true, true, true, true, true,
+                AliveState.MarkedForDeletion, eChimps.CHIMP_TYPE_ARAB_ASSASIN) &&
+              !AssassinCombatResumePolicy.ShouldForceFullRepath(
+                true, true, true, true, true,
+                AliveState.IsAlive, eChimps.CHIMP_TYPE_KNIGHT),
             "Assassin combat resume accepted a dead or non-Assassin unit");
 
-        Check(AssassinCombatResumePolicy.ShouldInjectPostCombatPathContext(
-                true,
-                true,
-                true,
-                true,
-                AliveState.IsAlive,
-                eChimps.CHIMP_TYPE_ARAB_ASSASIN,
-                AssassinCombatResumePolicy.PostCombatRepathState,
-                0),
-            "enabled Assassin state-122 repath did not request the missing path context");
-        Check(!AssassinCombatResumePolicy.ShouldInjectPostCombatPathContext(
-                true, true, true, true, AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN, 101, 0) &&
-              !AssassinCombatResumePolicy.ShouldInjectPostCombatPathContext(
-                true, true, true, true, AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN,
-                AssassinCombatResumePolicy.PostCombatRepathState, 1),
-            "Assassin state-122 repath accepted another state or an already active path context");
-        Check(!AssassinCombatResumePolicy.ShouldInjectPostCombatPathContext(
-                false, true, true, true, AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN,
-                AssassinCombatResumePolicy.PostCombatRepathState, 0) &&
-              !AssassinCombatResumePolicy.ShouldInjectPostCombatPathContext(
-                true, false, true, true, AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN,
-                AssassinCombatResumePolicy.PostCombatRepathState, 0) &&
-              !AssassinCombatResumePolicy.ShouldInjectPostCombatPathContext(
-                true, true, false, true, AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN,
-                AssassinCombatResumePolicy.PostCombatRepathState, 0) &&
-              !AssassinCombatResumePolicy.ShouldInjectPostCombatPathContext(
-                true, true, true, false, AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN,
-                AssassinCombatResumePolicy.PostCombatRepathState, 0),
-            "Assassin state-122 repath did not fail closed outside the installed enabled feature");
-        Check(!AssassinCombatResumePolicy.ShouldInjectPostCombatPathContext(
-                true, true, true, true, AliveState.MarkedForDeletion, eChimps.CHIMP_TYPE_ARAB_ASSASIN,
-                AssassinCombatResumePolicy.PostCombatRepathState, 0) &&
-              !AssassinCombatResumePolicy.ShouldInjectPostCombatPathContext(
-                true, true, true, true, AliveState.IsAlive, eChimps.CHIMP_TYPE_KNIGHT,
-                AssassinCombatResumePolicy.PostCombatRepathState, 0),
-            "Assassin state-122 repath accepted a dead or non-Assassin unit");
-
-        Check(AssassinCombatResumePolicy.ShouldLogResumeDiagnostic(
-                true, eChimps.CHIMP_TYPE_ARAB_ASSASIN) &&
-              !AssassinCombatResumePolicy.ShouldLogResumeDiagnostic(
-                false, eChimps.CHIMP_TYPE_ARAB_ASSASIN) &&
-              !AssassinCombatResumePolicy.ShouldLogResumeDiagnostic(
-                true, eChimps.CHIMP_TYPE_KNIGHT),
-            "Assassin combat-resume diagnostics did not restrict their event budget to resolved Assassins");
-        Check(AssassinCombatResumePolicy.ShouldLogDirectRepathDiagnostic(
-                true,
-                eChimps.CHIMP_TYPE_ARAB_ASSASIN,
-                AssassinCombatResumePolicy.PostCombatRepathState) &&
-              !AssassinCombatResumePolicy.ShouldLogDirectRepathDiagnostic(
-                true, eChimps.CHIMP_TYPE_ARAB_ASSASIN, 101) &&
-              !AssassinCombatResumePolicy.ShouldLogDirectRepathDiagnostic(
-                true, eChimps.CHIMP_TYPE_KNIGHT, AssassinCombatResumePolicy.PostCombatRepathState),
-            "direct Assassin repath diagnostics accepted an unrelated unit or AI state");
+        Check(AssassinCombatResumePolicy.ShouldLogRawResumeDiagnostic(
+                true, AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN) &&
+              !AssassinCombatResumePolicy.ShouldLogRawResumeDiagnostic(
+                false, AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN) &&
+              !AssassinCombatResumePolicy.ShouldLogRawResumeDiagnostic(
+                true, AliveState.MarkedForDeletion, eChimps.CHIMP_TYPE_ARAB_ASSASIN) &&
+              !AssassinCombatResumePolicy.ShouldLogRawResumeDiagnostic(
+                true, AliveState.IsAlive, eChimps.CHIMP_TYPE_KNIGHT),
+            "raw Assassin resume diagnostics did not restrict themselves to resolved living Assassins");
+        Check(!AssassinCombatResumePolicy.ShouldTreatAsNewTrackedUnit(true, 42, 42) &&
+              AssassinCombatResumePolicy.ShouldTreatAsNewTrackedUnit(true, 42, 43) &&
+              AssassinCombatResumePolicy.ShouldTreatAsNewTrackedUnit(false, 42, 42),
+            "Assassin trace did not detect native-index reuse or a cleared map tracker");
+        Check(AssassinCombatResumePolicy.ShouldLogStateTrace(true, false, false, false, 0) &&
+              AssassinCombatResumePolicy.ShouldLogStateTrace(false, true, false, true, 0) &&
+              !AssassinCombatResumePolicy.ShouldLogStateTrace(false, false, true, true, 7) &&
+              AssassinCombatResumePolicy.ShouldLogStateTrace(false, false, true, true, 8) &&
+              !AssassinCombatResumePolicy.ShouldLogStateTrace(false, false, false, true, 31) &&
+              AssassinCombatResumePolicy.ShouldLogStateTrace(false, false, false, true, 32),
+            "Assassin state trace did not apply its change and bounded stall intervals");
     }
 
     private static void TestAssassinCombatResumeNativeDefinition()
@@ -2017,133 +1999,166 @@ internal static class Program
             "canonical CrusaderDE.dll hash changed for the Assassin combat-resume contract");
 
         byte[] image = LoadPeImage(file);
-        NativeResolution resume = NativePatternResolver.ResolveUnique(
+        NativeResolution resumePrologue = NativePatternResolver.ResolveUnique(
             image,
-            AssassinCombatResumeNativeDefinition.ResumeOldOrderPattern,
-            AssassinCombatResumeNativeDefinition.ResumeOldOrderRva,
+            AssassinCombatResumeNativeDefinition.GeneralResumePrologueSequence,
+            AssassinCombatResumeNativeDefinition.GeneralResumePrologueRva,
             referenceHashMatches: false,
-            "test Assassin post-combat movement-order resume");
+            "test general unit-order resume prologue");
         Check(
-            resume.Rva == AssassinCombatResumeNativeDefinition.ResumeOldOrderRva &&
-            resume.Method == "signature-fallback",
-            "Assassin post-combat movement-order resume signature was not unique at its audited RVA");
+            resumePrologue.Rva == AssassinCombatResumeNativeDefinition.GeneralResumeRva &&
+            resumePrologue.Method == "signature-fallback" &&
+            AssassinCombatResumeNativeDefinition.GeneralResumeReturnAddressStackOffset ==
+                (5 * sizeof(ulong)) + 0x30,
+            "general resume prologue no longer preserves its caller return address at RSP+0x58");
 
-        NativeResolution nativeUnitIndexAddressing = NativePatternResolver.ResolveUnique(
+        NativeResolution combatCall1 = NativePatternResolver.ResolveUnique(
             image,
-            AssassinCombatResumeNativeDefinition.ResumeNativeUnitIndexAddressingPattern,
-            AssassinCombatResumeNativeDefinition.ResumeNativeUnitIndexAddressingRva,
+            AssassinCombatResumeNativeDefinition.AssassinCombatResumeCall1Sequence,
+            AssassinCombatResumeNativeDefinition.AssassinCombatResumeCall1SequenceRva,
             referenceHashMatches: false,
-            "test Assassin resume native unit-index addressing");
+            "test first Assassin state-107 resume callsite");
+        int combatCall1Rva = combatCall1.Rva +
+            AssassinCombatResumeNativeDefinition.AssassinCombatResumeCall1Offset;
+        int combatCall1Target = NativePatternResolver.ResolveRelativeTarget(
+            image, combatCall1Rva + 1, combatCall1Rva + 5);
+        int state107ContextUnitIndexTarget = NativePatternResolver.ResolveRelativeTarget(
+            image, combatCall1.Rva + 3, combatCall1.Rva + 7);
         Check(
-            nativeUnitIndexAddressing.Rva == AssassinCombatResumeNativeDefinition.ResumeNativeUnitIndexAddressingRva &&
-            nativeUnitIndexAddressing.Method == "signature-fallback",
-            "Assassin resume no longer directly addresses the zero-based native unit index with stride 0x490");
+            combatCall1.Method == "signature-fallback" &&
+            combatCall1Rva == AssassinCombatResumeNativeDefinition.AssassinCombatResumeCall1Rva &&
+            combatCall1Rva + 5 == AssassinCombatResumeNativeDefinition.AssassinCombatResumeReturn1Rva &&
+            combatCall1Target == AssassinCombatResumeNativeDefinition.GeneralResumeRva &&
+            state107ContextUnitIndexTarget == AssassinCombatResumeNativeDefinition.CurrentContextUnitIndexRva,
+            "first Assassin state-107 callsite no longer enters the audited resume helper");
 
-        NativeResolution commonPath = NativePatternResolver.ResolveUnique(
+        NativeResolution combatCall2 = NativePatternResolver.ResolveUnique(
             image,
-            AssassinCombatResumeNativeDefinition.CommonPathRequestPattern,
-            AssassinCombatResumeNativeDefinition.CommonPathRequestRva,
+            AssassinCombatResumeNativeDefinition.AssassinCombatResumeCall2Sequence,
+            AssassinCombatResumeNativeDefinition.AssassinCombatResumeCall2SequenceRva,
             referenceHashMatches: false,
-            "test common path request used by Assassin post-combat repathing");
+            "test second Assassin state-107 resume callsite");
+        int combatCall2Rva = combatCall2.Rva +
+            AssassinCombatResumeNativeDefinition.AssassinCombatResumeCall2Offset;
+        int combatCall2Target = NativePatternResolver.ResolveRelativeTarget(
+            image, combatCall2Rva + 1, combatCall2Rva + 5);
         Check(
-            commonPath.Rva == AssassinCombatResumeNativeDefinition.CommonPathRequestRva &&
-            commonPath.Method == "signature-fallback",
-            "common path request signature was not unique at its audited RVA");
+            combatCall2.Method == "signature-fallback" &&
+            combatCall2Rva == AssassinCombatResumeNativeDefinition.AssassinCombatResumeCall2Rva &&
+            combatCall2Rva + 5 == AssassinCombatResumeNativeDefinition.AssassinCombatResumeReturn2Rva &&
+            combatCall2Target == AssassinCombatResumeNativeDefinition.GeneralResumeRva,
+            "second Assassin state-107 callsite no longer enters the audited resume helper");
 
-        NativeResolution stateRemap = NativePatternResolver.ResolveUnique(
+        NativeResolution state107TargetCheck = NativePatternResolver.ResolveUnique(
             image,
-            AssassinCombatResumeNativeDefinition.AssassinStateRemapSequence,
-            AssassinCombatResumeNativeDefinition.AssassinStateRemapSequenceRva,
+            AssassinCombatResumeNativeDefinition.State107TargetCheckSequence,
+            AssassinCombatResumeNativeDefinition.State107TargetCheckSequenceRva,
             referenceHashMatches: false,
-            "test Assassin AI-state remap around post-combat state 122");
+            "test Assassin state-107 target check");
+        int state107TargetCallRva = state107TargetCheck.Rva +
+            AssassinCombatResumeNativeDefinition.State107TargetCheckCallOffset;
+        int state107Target = NativePatternResolver.ResolveRelativeTarget(
+            image,
+            state107TargetCallRva + 1,
+            state107TargetCallRva + 5);
         Check(
-            stateRemap.Rva == AssassinCombatResumeNativeDefinition.AssassinStateRemapSequenceRva &&
-            stateRemap.Method == "signature-fallback" &&
-            image[stateRemap.Rva + AssassinCombatResumeNativeDefinition.PostCombatStateRemapOffset] ==
-                AssassinCombatResumeNativeDefinition.PostCombatStateRemapIndex,
-            "Assassin state 122 no longer maps uniquely to jump-table index 13");
+            state107TargetCheck.Method == "signature-fallback" &&
+            state107TargetCallRva == AssassinCombatResumeNativeDefinition.State107TargetCheckCallRva &&
+            state107Target == AssassinCombatResumeNativeDefinition.State107TargetCheckRva &&
+            AssassinCombatResumeNativeDefinition.State107TargetResultHookRva ==
+                state107TargetCheck.Rva + AssassinCombatResumeNativeDefinition.State107TargetResultHookOffset &&
+            image.Skip(AssassinCombatResumeNativeDefinition.State107TargetResultHookRva)
+                .Take(AssassinCombatResumeNativeDefinition.State107TargetResultHookLength)
+                .SequenceEqual(AssassinCombatResumeNativeDefinition.State107TargetResultHookBytes),
+            "Assassin state-107 target-result hook no longer covers the complete audited compare and branch");
+        Check(
+            AssassinCombatResumeNativeDefinition.State107TargetCheckCallRva + 5 <=
+                AssassinCombatResumeNativeDefinition.State107TargetResultHookRva,
+            "Assassin state-107 target-result hook overlaps the native target-check call");
 
-        NativeResolution stateJumpTable = NativePatternResolver.ResolveUnique(
+        NativeResolution resumeDecision = NativePatternResolver.ResolveUnique(
             image,
-            AssassinCombatResumeNativeDefinition.AssassinStateJumpTableSequence,
-            AssassinCombatResumeNativeDefinition.AssassinStateJumpTableSequenceRva,
+            AssassinCombatResumeNativeDefinition.ResumeDecisionSequence,
+            AssassinCombatResumeNativeDefinition.ResumeDecisionSequenceRva,
             referenceHashMatches: false,
-            "test Assassin AI-state jump table around post-combat state 122");
-        int postCombatStateHandler = BitConverter.ToInt32(
+            "test general resume shortcut and full-repath branch");
+        int shortResumeTarget = NativePatternResolver.ResolveRelativeTarget(
             image,
-            stateJumpTable.Rva + AssassinCombatResumeNativeDefinition.PostCombatStateJumpTargetOffset);
+            resumeDecision.Rva + AssassinCombatResumeNativeDefinition.ShortResumeCallOffset + 1,
+            resumeDecision.Rva + AssassinCombatResumeNativeDefinition.ShortResumeCallOffset + 5);
+        int fullRepathTarget = NativePatternResolver.ResolveRelativeTarget(
+            image,
+            resumeDecision.Rva + AssassinCombatResumeNativeDefinition.FullRepathCallOffset + 1,
+            resumeDecision.Rva + AssassinCombatResumeNativeDefinition.FullRepathCallOffset + 5);
         Check(
-            stateJumpTable.Rva == AssassinCombatResumeNativeDefinition.AssassinStateJumpTableSequenceRva &&
-            stateJumpTable.Method == "signature-fallback" &&
-            postCombatStateHandler == AssassinCombatResumeNativeDefinition.PostCombatStateHandlerRva,
-            "Assassin state 122 no longer targets the audited direct-repath handler");
+            resumeDecision.Rva == AssassinCombatResumeNativeDefinition.ResumeDecisionSequenceRva &&
+            resumeDecision.Method == "signature-fallback" &&
+            shortResumeTarget == AssassinCombatResumeNativeDefinition.ShortResumeRva &&
+            fullRepathTarget == AssassinCombatResumeNativeDefinition.CommonPathRequestRva &&
+            resumeDecision.Rva + AssassinCombatResumeNativeDefinition.FullRepathCallOffset ==
+                AssassinCombatResumeNativeDefinition.FullRepathCallRva,
+            "general resume helper no longer uses the audited shortcut followed by the full path request");
 
-        NativeResolution directRepath = NativePatternResolver.ResolveUnique(
-            image,
-            AssassinCombatResumeNativeDefinition.PostCombatPathRequestSequence,
-            AssassinCombatResumeNativeDefinition.PostCombatPathRequestSequenceRva,
-            referenceHashMatches: false,
-            "test Assassin state-122 direct path request");
-        int directRepathTarget = NativePatternResolver.ResolveRelativeTarget(
-            image,
-            directRepath.Rva + AssassinCombatResumeNativeDefinition.PostCombatPathRequestCallOffset + 1,
-            directRepath.Rva + AssassinCombatResumeNativeDefinition.PostCombatPathRequestCallOffset + 5);
-        int postCombatNextState = BitConverter.ToInt32(
-            image,
-            directRepath.Rva + AssassinCombatResumeNativeDefinition.PostCombatMovementStateLoadOffset + 1);
         Check(
-            directRepath.Rva == AssassinCombatResumeNativeDefinition.PostCombatPathRequestSequenceRva &&
-            directRepath.Method == "signature-fallback" &&
-            directRepathTarget == AssassinCombatResumeNativeDefinition.CommonPathRequestRva &&
-            postCombatNextState == 101,
-            "Assassin state 122 no longer directly requests a path and then unconditionally enters movement state 101");
+            AssassinCombatResumeNativeDefinition.ShortResumeDecisionHookRva ==
+                resumeDecision.Rva + AssassinCombatResumeNativeDefinition.ShortResumeDecisionHookOffset &&
+            AssassinCombatResumeNativeDefinition.FullRepathResultHookRva ==
+                resumeDecision.Rva + AssassinCombatResumeNativeDefinition.FullRepathResultHookOffset &&
+            image.Skip(AssassinCombatResumeNativeDefinition.ShortResumeDecisionHookRva)
+                .Take(AssassinCombatResumeNativeDefinition.ShortResumeDecisionHookLength)
+                .SequenceEqual(AssassinCombatResumeNativeDefinition.ShortResumeDecisionHookBytes) &&
+            image.Skip(AssassinCombatResumeNativeDefinition.FullRepathResultHookRva)
+                .Take(AssassinCombatResumeNativeDefinition.FullRepathResultHookLength)
+                .SequenceEqual(AssassinCombatResumeNativeDefinition.FullRepathResultHookBytes),
+            "Assassin combat-resume hook spans no longer cover the audited complete instructions");
+        Check(
+            AssassinCombatResumeNativeDefinition.ShortResumeDecisionHookRva +
+                AssassinCombatResumeNativeDefinition.ShortResumeDecisionHookLength <=
+                AssassinCombatResumeNativeDefinition.FullRepathCallRva &&
+            AssassinCombatResumeNativeDefinition.FullRepathCallRva + 5 <=
+                AssassinCombatResumeNativeDefinition.FullRepathResultHookRva,
+            "Assassin combat-resume hooks overlap the full native path-request call");
 
-        NativeResolution resumePath = NativePatternResolver.ResolveUnique(
+        NativeResolution contextRead = NativePatternResolver.ResolveUnique(
             image,
-            AssassinCombatResumeNativeDefinition.ResumePathRequestSequence,
-            AssassinCombatResumeNativeDefinition.ResumePathRequestSequenceRva,
+            AssassinCombatResumeNativeDefinition.CommonPathContextReadSequence,
+            AssassinCombatResumeNativeDefinition.CommonPathContextReadRva,
             referenceHashMatches: false,
-            "test Assassin resumed path request");
-        int resumedPathTarget = NativePatternResolver.ResolveRelativeTarget(
+            "test common path Assassin-context read");
+        int readFlagTarget = NativePatternResolver.ResolveRelativeTarget(
             image,
-            resumePath.Rva + AssassinCombatResumeNativeDefinition.ResumePathRequestCallOffset + 1,
-            resumePath.Rva + AssassinCombatResumeNativeDefinition.ResumePathRequestCallOffset + 5);
+            contextRead.Rva + 3,
+            contextRead.Rva + 7);
         Check(
-            resumedPathTarget == AssassinCombatResumeNativeDefinition.CommonPathRequestRva,
-            "Assassin combat resume no longer calls the audited common path request");
+            readFlagTarget == AssassinCombatResumeNativeDefinition.AssassinPathContextFlagRva,
+            "the common path request no longer reads the audited Assassin context flag");
 
-        NativeResolution moveHereContext = NativePatternResolver.ResolveUnique(
+        NativeResolution successClear = NativePatternResolver.ResolveUnique(
             image,
-            AssassinCombatResumeNativeDefinition.MoveHereContextSequence,
-            AssassinCombatResumeNativeDefinition.MoveHereContextSequenceRva,
+            AssassinCombatResumeNativeDefinition.CommonPathSuccessClearSequence,
+            AssassinCombatResumeNativeDefinition.CommonPathSuccessClearSequenceRva,
             referenceHashMatches: false,
-            "test MoveHere Assassin path context");
-        int clearedFlagTarget = NativePatternResolver.ResolveRelativeTarget(
+            "test common path success context clear");
+        int successClearInstruction = successClear.Rva +
+            AssassinCombatResumeNativeDefinition.CommonPathSuccessFlagClearOffset;
+        int successClearTarget = NativePatternResolver.ResolveRelativeTarget(
             image,
-            moveHereContext.Rva + AssassinCombatResumeNativeDefinition.MoveHereContextClearOffset + 2,
-            moveHereContext.Rva + AssassinCombatResumeNativeDefinition.MoveHereContextClearOffset + 6);
-        int setFlagTarget = NativePatternResolver.ResolveRelativeTarget(
+            successClearInstruction + 3,
+            successClearInstruction + 7);
+        NativeResolution failureClear = NativePatternResolver.ResolveUnique(
             image,
-            moveHereContext.Rva + AssassinCombatResumeNativeDefinition.MoveHereContextSetOffset + 2,
-            moveHereContext.Rva + AssassinCombatResumeNativeDefinition.MoveHereContextSetOffset + 6);
-        Check(
-            clearedFlagTarget == AssassinCombatResumeNativeDefinition.AssassinPathContextFlagRva &&
-            setFlagTarget == AssassinCombatResumeNativeDefinition.AssassinPathContextFlagRva,
-            "MoveHere no longer clears and sets the audited Assassin path-context flag");
-
-        NativeResolution moveHerePath = NativePatternResolver.ResolveUnique(
-            image,
-            AssassinCombatResumeNativeDefinition.MoveHerePathRequestSequence,
-            AssassinCombatResumeNativeDefinition.MoveHerePathRequestSequenceRva,
+            AssassinCombatResumeNativeDefinition.CommonPathFailureClearSequence,
+            AssassinCombatResumeNativeDefinition.CommonPathFailureClearRva,
             referenceHashMatches: false,
-            "test MoveHere path request");
-        int moveHerePathTarget = NativePatternResolver.ResolveRelativeTarget(
+            "test common path failure context clear");
+        int failureClearTarget = NativePatternResolver.ResolveRelativeTarget(
             image,
-            moveHerePath.Rva + AssassinCombatResumeNativeDefinition.MoveHerePathRequestCallOffset + 1,
-            moveHerePath.Rva + AssassinCombatResumeNativeDefinition.MoveHerePathRequestCallOffset + 5);
+            failureClear.Rva + 3,
+            failureClear.Rva + 7);
         Check(
-            moveHerePathTarget == AssassinCombatResumeNativeDefinition.CommonPathRequestRva,
-            "MoveHere and combat resume no longer use the same common path request");
+            successClearTarget == AssassinCombatResumeNativeDefinition.AssassinPathContextFlagRva &&
+            failureClearTarget == AssassinCombatResumeNativeDefinition.AssassinPathContextFlagRva,
+            "the common path request no longer clears the Assassin context on both audited exits");
 
         NativeResolution dispatcher = NativePatternResolver.ResolveUnique(
             image,

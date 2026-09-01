@@ -1,0 +1,663 @@
+[2026-09-01T13:07:22.6529364Z] RETRY 1/51 BTN_FrontMenu
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [1/1] Exporting MonoBehaviour: BTN_FrontMenu
+[Info] Finished exporting 1 assets.
+[2026-09-01T13:07:22.9809591Z] RETRY 2/51 FRONT_CoopTrail1
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [1/1] Exporting MonoBehaviour: FRONT_CoopTrail1
+[Info] Finished exporting 1 assets.
+[2026-09-01T13:07:23.3004011Z] RETRY 3/51 FRONT_CoopTrail2
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [1/1] Exporting MonoBehaviour: FRONT_CoopTrail2
+[Info] Finished exporting 1 assets.
+[2026-09-01T13:07:23.6021576Z] RETRY 4/51 FRONT_CoopTrail3
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [1/1] Exporting MonoBehaviour: FRONT_CoopTrail3
+[Info] Finished exporting 1 assets.
+[2026-09-01T13:07:23.9158471Z] RETRY 5/51 FRONT_CoopTrail4
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [1/1] Exporting MonoBehaviour: FRONT_CoopTrail4
+[Info] Finished exporting 1 assets.
+[2026-09-01T13:07:24.2247185Z] RETRY 6/51 FRONT_Credits
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [1/1] Exporting MonoBehaviour: FRONT_Credits
+[Info] Finished exporting 1 assets.
+[2026-09-01T13:07:24.5264684Z] RETRY 7/51 FRONT_EditorSetup
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [1/1] Exporting MonoBehaviour: FRONT_EditorSetup
+[Info] Finished exporting 1 assets.
+[2026-09-01T13:07:24.8304154Z] RETRY 8/51 FRONT_Extra2Campaign
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [1/1] Exporting MonoBehaviour: FRONT_Extra2Campaign
+[Info] Finished exporting 1 assets.
+[2026-09-01T13:07:25.1333637Z] RETRY 9/51 FRONT_Extra6Campaign
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [1/1] Exporting MonoBehaviour: FRONT_Extra6Campaign
+[Info] Finished exporting 1 assets.
+[2026-09-01T13:07:25.4345322Z] RETRY 10/51 FRONT_Extra7Campaign
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [1/1] Exporting MonoBehaviour: FRONT_Extra7Campaign
+[Info] Finished exporting 1 assets.
+[2026-09-01T13:07:25.7468147Z] RETRY 11/51 FRONT_ManageTrail
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [1/1] Exporting MonoBehaviour: FRONT_ManageTrail
+[Info] Finished exporting 1 assets.
+[2026-09-01T13:07:26.0564275Z] RETRY 12/51 FRONT_Multiplayer_AISettings
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [1/1] Exporting MonoBehaviour: FRONT_Multiplayer_AISettings
+[Info] Finished exporting 1 assets.
+[2026-09-01T13:07:26.3561050Z] RETRY 13/51 FRONT_Multiplayer_Setup
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [1/1] Exporting MonoBehaviour: FRONT_Multiplayer_Setup
+[Info] Finished exporting 1 assets.
+[2026-09-01T13:07:26.6660053Z] RETRY 14/51 FRONT_SandsTrail1
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [1/1] Exporting MonoBehaviour: FRONT_SandsTrail1
+[Info] Finished exporting 1 assets.
+[2026-09-01T13:07:26.9676727Z] RETRY 15/51 FRONT_SandsTrail4
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [1/1] Exporting MonoBehaviour: FRONT_SandsTrail4
+[Info] Finished exporting 1 assets.
+[2026-09-01T13:07:27.2709534Z] RETRY 16/51 FRONT_SandsTrail6
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [1/1] Exporting MonoBehaviour: FRONT_SandsTrail6
+[Info] Finished exporting 1 assets.
+[2026-09-01T13:07:27.5681149Z] RETRY 17/51 FRONT_SandsTrail7
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [1/1] Exporting MonoBehaviour: FRONT_SandsTrail7
+[Info] Finished exporting 1 assets.
+[2026-09-01T13:07:27.8665707Z] RETRY 18/51 FRONT_SandsTrail8
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [1/1] Exporting MonoBehaviour: FRONT_SandsTrail8
+[Info] Finished exporting 1 assets.
+[2026-09-01T13:07:28.1723028Z] RETRY 19/51 FRONT_SkirmishMasters
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [1/1] Exporting MonoBehaviour: FRONT_SkirmishMasters
+[Info] Finished exporting 1 assets.
+[2026-09-01T13:07:28.4735607Z] RETRY 20/51 FRONT_StandaloneMission
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [1/1] Exporting MonoBehaviour: FRONT_StandaloneMission
+[Info] Finished exporting 1 assets.
+[2026-09-01T13:07:28.7724397Z] RETRY 21/51 FRONT_Story
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [1/1] Exporting MonoBehaviour: FRONT_Story
+[Info] Finished exporting 1 assets.
+[2026-09-01T13:07:29.0745076Z] RETRY 22/51 FRONT_Trail
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [1/1] Exporting MonoBehaviour: FRONT_Trail
+[Info] Finished exporting 1 assets.
+[2026-09-01T13:07:29.3707234Z] RETRY 23/51 FRONT_Trail3
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [1/1] Exporting MonoBehaviour: FRONT_Trail3
+[Info] Finished exporting 1 assets.
+[2026-09-01T13:07:29.6680332Z] RETRY 24/51 FrontendMenus
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [1/1] Exporting MonoBehaviour: FrontendMenus
+[Info] Finished exporting 1 assets.
+[2026-09-01T13:07:29.9685633Z] RETRY 25/51 HUD_AlliesPanel
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [1/1] Exporting MonoBehaviour: HUD_AlliesPanel
+[Info] Finished exporting 1 assets.
+[2026-09-01T13:07:30.2699014Z] RETRY 26/51 HUD_Briefing
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [1/1] Exporting MonoBehaviour: HUD_Briefing
+[Info] Finished exporting 1 assets.
+[2026-09-01T13:07:30.5671346Z] RETRY 27/51 HUD_Buildings
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [1/1] Exporting MonoBehaviour: HUD_Buildings
+[Info] Nothing exported. 1 assets skipped (not extractable or files already exist)
+[2026-09-01T13:07:30.8653177Z] RETRY 28/51 HUD_CoatOfArms
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [1/1] Exporting MonoBehaviour: HUD_CoatOfArms
+[Info] Finished exporting 1 assets.
+[2026-09-01T13:07:31.1663959Z] RETRY 29/51 HUD_ConfirmationPopup
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [1/1] Exporting MonoBehaviour: HUD_ConfirmationPopup
+[Info] Finished exporting 1 assets.
+[2026-09-01T13:07:31.4610632Z] RETRY 30/51 HUD_ControlGroups
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [1/1] Exporting MonoBehaviour: HUD_ControlGroups
+[Info] Finished exporting 1 assets.
+[2026-09-01T13:07:31.7585502Z] RETRY 31/51 HUD_CustomTrailsSelect
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [1/1] Exporting MonoBehaviour: HUD_CustomTrailsSelect
+[Info] Finished exporting 1 assets.
+[2026-09-01T13:07:32.0575361Z] RETRY 32/51 HUD_ExtremePowers
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [1/1] Exporting MonoBehaviour: HUD_ExtremePowers
+[Info] Finished exporting 1 assets.
+[2026-09-01T13:07:32.3643969Z] RETRY 33/51 HUD_FreebuildMenu
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [1/1] Exporting MonoBehaviour: HUD_FreebuildMenu
+[Info] Finished exporting 1 assets.
+[2026-09-01T13:07:32.6809625Z] RETRY 34/51 HUD_Goods
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [1/1] Exporting MonoBehaviour: HUD_Goods
+[Info] Finished exporting 1 assets.
+[2026-09-01T13:07:32.9939699Z] RETRY 35/51 HUD_Markers
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [1/1] Exporting MonoBehaviour: HUD_Markers
+[Info] Finished exporting 1 assets.
+[2026-09-01T13:07:33.2922212Z] RETRY 36/51 HUD_MeritPanel
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [1/1] Exporting MonoBehaviour: HUD_MeritPanel
+[Info] Finished exporting 1 assets.
+[2026-09-01T13:07:33.5888453Z] RETRY 37/51 HUD_MissionOver
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [1/1] Exporting MonoBehaviour: HUD_MissionOver
+[Info] Finished exporting 1 assets.
+[2026-09-01T13:07:33.8897355Z] RETRY 38/51 HUD_Scenario_Popup
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [1/1] Exporting MonoBehaviour: HUD_Scenario_Popup
+[Info] Finished exporting 1 assets.
+[2026-09-01T13:07:34.1906928Z] RETRY 39/51 HUD_ScenarioSpecial
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [1/1] Exporting MonoBehaviour: HUD_ScenarioSpecial
+[Info] Finished exporting 1 assets.
+[2026-09-01T13:07:34.4865507Z] RETRY 40/51 IngameUIScreens
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [1/1] Exporting MonoBehaviour: IngameUIScreens
+[Info] Finished exporting 1 assets.
+[2026-09-01T13:07:34.7831387Z] RETRY 41/51 IntroSequence
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [1/1] Exporting MonoBehaviour: IntroSequence
+[Info] Finished exporting 1 assets.
+[2026-09-01T13:07:35.0800668Z] RETRY 42/51 NoesisTheme.Styles
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [1/1] Exporting MonoBehaviour: NoesisTheme.Styles
+[Info] Finished exporting 1 assets.
+[2026-09-01T13:07:35.3769662Z] RETRY 43/51 OST_Koth
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [1/1] Exporting MonoBehaviour: OST_Koth
+[Info] Finished exporting 1 assets.
+[2026-09-01T13:07:35.6777761Z] RETRY 44/51 OST_Pings
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [1/1] Exporting MonoBehaviour: OST_Pings
+[Info] Finished exporting 1 assets.
+[2026-09-01T13:07:35.9782902Z] RETRY 45/51 OST_StartingGoods
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [1/1] Exporting MonoBehaviour: OST_StartingGoods
+[Info] Finished exporting 1 assets.
+[2026-09-01T13:07:36.2808256Z] RETRY 46/51 SVG_Images
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [1/1] Exporting MonoBehaviour: SVG_Images
+[Info] Finished exporting 1 assets.
+[2026-09-01T13:07:36.5786293Z] RETRY 47/51 UI-MasterAtlas
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [1/1] Exporting MonoBehaviour: UI-MasterAtlas
+[Info] Finished exporting 1 assets.
+[2026-09-01T13:07:36.8770074Z] RETRY 48/51 UI-TrailAtlas
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [1/1] Exporting MonoBehaviour: UI-TrailAtlas
+[Info] Finished exporting 1 assets.
+[2026-09-01T13:07:37.1773466Z] RETRY 49/51 WGT_Heading
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [1/1] Exporting MonoBehaviour: WGT_Heading
+[Info] Finished exporting 1 assets.
+[2026-09-01T13:07:37.4729111Z] RETRY 50/51 WGT_Objective
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [1/1] Exporting MonoBehaviour: WGT_Objective
+[Info] Finished exporting 1 assets.
+[2026-09-01T13:07:37.7703485Z] RETRY 51/51 WGT_SkirmishMastersRow
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [1/1] Exporting MonoBehaviour: WGT_SkirmishMastersRow
+[Info] Finished exporting 1 assets.

@@ -1,0 +1,482 @@
+[Info] Scanning for files...
+[Info] Found 1 files
+[Info] Detected Unity version from globalgamemanagers: 2021.3.45f2
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\globalgamemanagers.assets
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity_builtin_extra
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Resources\unity default resources
+[Info] Loading E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets0.assets
+[Info] Read assets...
+[Info] Process Assets...
+[Info] [2/114] Exporting MonoBehaviour: HUD_RightClick
+[Info] [1/114] Exporting MonoBehaviour: FRONT_CoopTrail1
+[Info] [3/114] Exporting MonoBehaviour: HUD_MeritPanel
+[Info] [4/114] Exporting MonoBehaviour: FRONT_Multiplayer_Setup
+[Info] [5/114] Exporting MonoBehaviour: FRONT_Extra6Campaign
+[Info] [6/114] Exporting MonoBehaviour: OST_Koth
+[Info] [8/114] Exporting MonoBehaviour: WGT_Objective
+[Info] [7/114] Exporting MonoBehaviour: HUD_ConfirmationPopup
+[Info] [9/114] Exporting MonoBehaviour: FRONT_Trail
+[Info] [10/114] Exporting MonoBehaviour: OST_Pings
+[Info] [11/114] Exporting MonoBehaviour: FRONT_Multiplayer_AISettings
+[Info] [12/114] Exporting MonoBehaviour: FRONT_SandsTrail4
+[Info] [13/114] Exporting MonoBehaviour: HUD_MPResync
+[Info] [14/114] Exporting MonoBehaviour: HUD_Scenario_Popup
+[Info] [15/114] Exporting MonoBehaviour: FRONT_CoopTrail2
+[Info] [16/114] Exporting MonoBehaviour: FRONT_CoopTrail3
+[Info] [17/114] Exporting MonoBehaviour: WGT_Heading
+[Info] [18/114] Exporting MonoBehaviour: HUD_ExtremePowers
+[Info] [19/114] Exporting MonoBehaviour: HUD_WorkshopUploader
+[Info] [20/114] Exporting MonoBehaviour: FRONT_StandaloneMission
+[Info] [21/114] Exporting MonoBehaviour: HUD_Help
+[Info] [22/114] Exporting MonoBehaviour: FrontendMenus
+[Info] [23/114] Exporting MonoBehaviour: FRONT_Trail3
+[Info] [24/114] Exporting MonoBehaviour: FRONT_SandsTrail1
+[Info] [25/114] Exporting MonoBehaviour: HUD_MissionOver
+[Info] [26/114] Exporting MonoBehaviour: FRONT_EditorSetup
+[Info] [27/114] Exporting MonoBehaviour: HUD_ControlGroups
+[Info] [28/114] Exporting MonoBehaviour: OST_StartingGoods
+[Info] [29/114] Exporting MonoBehaviour: HUD_Briefing
+[Info] [30/114] Exporting MonoBehaviour: HUD_Buildings
+[Info] [31/114] Exporting MonoBehaviour: GameSkin
+[Info] [32/114] Exporting MonoBehaviour: Theme.Brushes.DarkRed
+[Info] [33/114] Exporting MonoBehaviour: NoesisTheme.Colors.Dark
+[Info] [34/114] Exporting MonoBehaviour: CheckBox_Template
+[Info] [35/114] Exporting MonoBehaviour: BTN_SH_Plain
+[Info] [36/114] Exporting MonoBehaviour: BTN_RADIO_Image
+[Info] [37/114] Exporting MonoBehaviour: BTN_FrontMenu
+[Info] [38/114] Exporting MonoBehaviour: BackgroundScreens
+[Info] [39/114] Exporting MonoBehaviour: SDR_SH_Plain
+[Info] [40/114] Exporting MonoBehaviour: BDR_Stronghold
+[Info] [41/114] Exporting MonoBehaviour: BTN_SH_BuySell
+[Info] [42/114] Exporting MonoBehaviour: BTN_SH_Glow
+[Info] [43/114] Exporting MonoBehaviour: UI-TrailAtlas
+[Info] [44/114] Exporting MonoBehaviour: ListViewItem_Styles
+[Info] [45/114] Exporting MonoBehaviour: UI-Colour2Atlas
+[Info] [46/114] Exporting MonoBehaviour: SVG_Images
+[Info] [47/114] Exporting MonoBehaviour: NoesisTheme.Fonts
+[Info] [48/114] Exporting MonoBehaviour: TOOLTIPS
+[Info] [49/114] Exporting MonoBehaviour: Theme.DarkRed
+[Info] [50/114] Exporting MonoBehaviour: BTN_NewFrontend
+[Info] [51/114] Exporting MonoBehaviour: BTN_Building
+[Info] [52/114] Exporting MonoBehaviour: BTN_Image
+[Info] [53/114] Exporting MonoBehaviour: BTN_StartingGood
+[Info] [54/114] Exporting MonoBehaviour: UI-Colour1Atlas
+[Info] [55/114] Exporting MonoBehaviour: NoesisTheme.Styles
+[Info] [56/114] Exporting MonoBehaviour: ApplicationResources
+[Info] [57/114] Exporting MonoBehaviour: URP-2D
+[Info] [58/114] Exporting MonoBehaviour: Universal Render Pipeline Asset_Renderer
+[Info] [59/114] Exporting MonoBehaviour: PostProcessData
+[Info] [60/114] Exporting MonoBehaviour: UniversalRenderPipelineGlobalSettings
+[Info] [61/114] Exporting MonoBehaviour: PT Root UI_Bold
+[Info] [62/114] Exporting MonoBehaviour: FRONT_Multiplayer
+[Info] [63/114] Exporting MonoBehaviour: PT Root UI_Regular
+[Info] [64/114] Exporting MonoBehaviour: HUD_Scenario
+[Info] [65/114] Exporting MonoBehaviour: HUD_FreebuildMenu
+[Info] [66/114] Exporting MonoBehaviour: HUD_MPConnectionIssue
+[Info] [67/114] Exporting MonoBehaviour: FRONT_Trail2
+[Info] [68/114] Exporting MonoBehaviour: WGT_Popularity
+[Info] [69/114] Exporting MonoBehaviour: MasterController
+[Info] [70/114] Exporting MonoBehaviour: WGT_Heading2
+[Info] [71/114] Exporting MonoBehaviour: HUD_Main
+[Info] [72/114] Exporting MonoBehaviour: HUD_Options
+[Info] [73/114] Exporting MonoBehaviour: HUD_Troops
+[Info] [74/114] Exporting MonoBehaviour: FRONT_SandsTrail5
+[Info] [75/114] Exporting MonoBehaviour: HUD_IngameMenu
+[Info] [76/114] Exporting MonoBehaviour: FRONT_Extra1Campaign
+[Error] Export MonoBehaviour:WGT_Heading error
+Unable to read beyond the end of the stream.
+   at AssetStudio.ObjectReader.Read(Byte[] buffer, Int32 index, Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\ObjectReader.cs:line 49
+   at AssetStudio.EndianBinaryReader.ReadBytes(Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\EndianBinaryReader.cs:line 122
+   at AssetStudio.Object.GetRawData() in D:\a\assetstudio\assetstudio\AssetStudio\Classes\Object.cs:line 106
+   at AssetStudio.CLI.Exporter.ExportRawFile(AssetItem item, String exportPath)
+   at AssetStudio.CLI.Studio.<>c__DisplayClass17_0.<ExportAssets>b__0(AssetItem asset)
+[Error] Export MonoBehaviour:HUD_MeritPanel error
+Unable to read beyond the end of the stream.
+   at AssetStudio.ObjectReader.Read(Byte[] buffer, Int32 index, Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\ObjectReader.cs:line 49
+   at AssetStudio.EndianBinaryReader.ReadBytes(Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\EndianBinaryReader.cs:line 122
+   at AssetStudio.Object.GetRawData() in D:\a\assetstudio\assetstudio\AssetStudio\Classes\Object.cs:line 106
+   at AssetStudio.CLI.Exporter.ExportRawFile(AssetItem item, String exportPath)
+   at AssetStudio.CLI.Studio.<>c__DisplayClass17_0.<ExportAssets>b__0(AssetItem asset)
+[Error] Export MonoBehaviour:FRONT_SandsTrail1 error
+Unable to read beyond the end of the stream.
+   at AssetStudio.ObjectReader.Read(Byte[] buffer, Int32 index, Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\ObjectReader.cs:line 49
+   at AssetStudio.EndianBinaryReader.ReadBytes(Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\EndianBinaryReader.cs:line 122
+   at AssetStudio.Object.GetRawData() in D:\a\assetstudio\assetstudio\AssetStudio\Classes\Object.cs:line 106
+   at AssetStudio.CLI.Exporter.ExportRawFile(AssetItem item, String exportPath)
+   at AssetStudio.CLI.Studio.<>c__DisplayClass17_0.<ExportAssets>b__0(AssetItem asset)
+[Info] [78/114] Exporting MonoBehaviour: HUD_MPChatMessages
+[Error] Export MonoBehaviour:HUD_ControlGroups error
+Unable to read beyond the end of the stream.
+   at AssetStudio.ObjectReader.Read(Byte[] buffer, Int32 index, Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\ObjectReader.cs:line 49
+   at AssetStudio.EndianBinaryReader.ReadBytes(Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\EndianBinaryReader.cs:line 122
+   at AssetStudio.Object.GetRawData() in D:\a\assetstudio\assetstudio\AssetStudio\Classes\Object.cs:line 106
+   at AssetStudio.CLI.Exporter.ExportRawFile(AssetItem item, String exportPath)
+   at AssetStudio.CLI.Studio.<>c__DisplayClass17_0.<ExportAssets>b__0(AssetItem asset)
+[Error] Export MonoBehaviour:FRONT_Trail3 error
+Unable to read beyond the end of the stream.
+   at AssetStudio.ObjectReader.Read(Byte[] buffer, Int32 index, Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\ObjectReader.cs:line 49
+   at AssetStudio.EndianBinaryReader.ReadBytes(Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\EndianBinaryReader.cs:line 122
+   at AssetStudio.Object.GetRawData() in D:\a\assetstudio\assetstudio\AssetStudio\Classes\Object.cs:line 106
+   at AssetStudio.CLI.Exporter.ExportRawFile(AssetItem item, String exportPath)
+   at AssetStudio.CLI.Studio.<>c__DisplayClass17_0.<ExportAssets>b__0(AssetItem asset)
+[Error] Export MonoBehaviour:FRONT_CoopTrail1 error
+Unable to read beyond the end of the stream.
+   at AssetStudio.ObjectReader.Read(Byte[] buffer, Int32 index, Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\ObjectReader.cs:line 49
+   at AssetStudio.EndianBinaryReader.ReadBytes(Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\EndianBinaryReader.cs:line 122
+   at AssetStudio.Object.GetRawData() in D:\a\assetstudio\assetstudio\AssetStudio\Classes\Object.cs:line 106
+   at AssetStudio.CLI.Exporter.ExportRawFile(AssetItem item, String exportPath)
+   at AssetStudio.CLI.Studio.<>c__DisplayClass17_0.<ExportAssets>b__0(AssetItem asset)
+[Error] Export MonoBehaviour:FRONT_CoopTrail2 error
+Unable to read beyond the end of the stream.
+   at AssetStudio.ObjectReader.Read(Byte[] buffer, Int32 index, Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\ObjectReader.cs:line 49
+   at AssetStudio.EndianBinaryReader.ReadBytes(Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\EndianBinaryReader.cs:line 122
+   at AssetStudio.Object.GetRawData() in D:\a\assetstudio\assetstudio\AssetStudio\Classes\Object.cs:line 106
+   at AssetStudio.CLI.Exporter.ExportRawFile(AssetItem item, String exportPath)
+   at AssetStudio.CLI.Studio.<>c__DisplayClass17_0.<ExportAssets>b__0(AssetItem asset)
+[Error] Export MonoBehaviour:HUD_FreebuildMenu error
+Unable to read beyond the end of the stream.
+   at AssetStudio.ObjectReader.Read(Byte[] buffer, Int32 index, Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\ObjectReader.cs:line 49
+   at AssetStudio.EndianBinaryReader.ReadBytes(Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\EndianBinaryReader.cs:line 122
+   at AssetStudio.Object.GetRawData() in D:\a\assetstudio\assetstudio\AssetStudio\Classes\Object.cs:line 106
+   at AssetStudio.CLI.Exporter.ExportRawFile(AssetItem item, String exportPath)
+   at AssetStudio.CLI.Studio.<>c__DisplayClass17_0.<ExportAssets>b__0(AssetItem asset)
+[Error] Export MonoBehaviour:BTN_FrontMenu error
+Unable to read beyond the end of the stream.
+   at AssetStudio.ObjectReader.Read(Byte[] buffer, Int32 index, Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\ObjectReader.cs:line 49
+   at AssetStudio.EndianBinaryReader.ReadBytes(Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\EndianBinaryReader.cs:line 122
+   at AssetStudio.Object.GetRawData() in D:\a\assetstudio\assetstudio\AssetStudio\Classes\Object.cs:line 106
+   at AssetStudio.CLI.Exporter.ExportRawFile(AssetItem item, String exportPath)
+   at AssetStudio.CLI.Studio.<>c__DisplayClass17_0.<ExportAssets>b__0(AssetItem asset)
+[Info] [84/114] Exporting MonoBehaviour: HUD_Tutorial
+[Info] [85/114] Exporting MonoBehaviour: UI-MasterAtlas
+[Info] [77/114] Exporting MonoBehaviour: HUD_MPChatPanel
+[Error] Export MonoBehaviour:UI-TrailAtlas error
+Unable to read beyond the end of the stream.
+   at AssetStudio.ObjectReader.Read(Byte[] buffer, Int32 index, Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\ObjectReader.cs:line 49
+   at AssetStudio.EndianBinaryReader.ReadBytes(Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\EndianBinaryReader.cs:line 122
+   at AssetStudio.Object.GetRawData() in D:\a\assetstudio\assetstudio\AssetStudio\Classes\Object.cs:line 106
+   at AssetStudio.CLI.Exporter.ExportRawFile(AssetItem item, String exportPath)
+   at AssetStudio.CLI.Studio.<>c__DisplayClass17_0.<ExportAssets>b__0(AssetItem asset)
+[Error] Export MonoBehaviour:NoesisTheme.Styles error
+Unable to read beyond the end of the stream.
+   at AssetStudio.ObjectReader.Read(Byte[] buffer, Int32 index, Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\ObjectReader.cs:line 49
+   at AssetStudio.EndianBinaryReader.ReadBytes(Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\EndianBinaryReader.cs:line 122
+   at AssetStudio.Object.GetRawData() in D:\a\assetstudio\assetstudio\AssetStudio\Classes\Object.cs:line 106
+   at AssetStudio.CLI.Exporter.ExportRawFile(AssetItem item, String exportPath)
+   at AssetStudio.CLI.Studio.<>c__DisplayClass17_0.<ExportAssets>b__0(AssetItem asset)
+[Info] [86/114] Exporting MonoBehaviour: LST_SH_HotKeys
+[Error] Export MonoBehaviour:WGT_Objective error
+Unable to read beyond the end of the stream.
+   at AssetStudio.ObjectReader.Read(Byte[] buffer, Int32 index, Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\ObjectReader.cs:line 49
+   at AssetStudio.EndianBinaryReader.ReadBytes(Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\EndianBinaryReader.cs:line 122
+   at AssetStudio.Object.GetRawData() in D:\a\assetstudio\assetstudio\AssetStudio\Classes\Object.cs:line 106
+   at AssetStudio.CLI.Exporter.ExportRawFile(AssetItem item, String exportPath)
+   at AssetStudio.CLI.Studio.<>c__DisplayClass17_0.<ExportAssets>b__0(AssetItem asset)
+[Error] Export MonoBehaviour:FRONT_Extra6Campaign error
+Unable to read beyond the end of the stream.
+   at AssetStudio.ObjectReader.Read(Byte[] buffer, Int32 index, Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\ObjectReader.cs:line 49
+   at AssetStudio.EndianBinaryReader.ReadBytes(Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\EndianBinaryReader.cs:line 122
+   at AssetStudio.Object.GetRawData() in D:\a\assetstudio\assetstudio\AssetStudio\Classes\Object.cs:line 106
+   at AssetStudio.CLI.Exporter.ExportRawFile(AssetItem item, String exportPath)
+   at AssetStudio.CLI.Studio.<>c__DisplayClass17_0.<ExportAssets>b__0(AssetItem asset)
+[Info] [88/114] Exporting MonoBehaviour: FRONT_SkirmishMasters
+[Info] [89/114] Exporting MonoBehaviour: HUD_CoatOfArms
+[Error] Export MonoBehaviour:FRONT_Multiplayer_AISettings error
+Unable to read beyond the end of the stream.
+   at AssetStudio.ObjectReader.Read(Byte[] buffer, Int32 index, Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\ObjectReader.cs:line 49
+   at AssetStudio.EndianBinaryReader.ReadBytes(Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\EndianBinaryReader.cs:line 122
+   at AssetStudio.Object.GetRawData() in D:\a\assetstudio\assetstudio\AssetStudio\Classes\Object.cs:line 106
+   at AssetStudio.CLI.Exporter.ExportRawFile(AssetItem item, String exportPath)
+   at AssetStudio.CLI.Studio.<>c__DisplayClass17_0.<ExportAssets>b__0(AssetItem asset)
+[Info] [79/114] Exporting MonoBehaviour: FRONT_Credits
+[Info] [90/114] Exporting MonoBehaviour: HUD_CustomTrailsSelect
+[Error] Export MonoBehaviour:HUD_ExtremePowers error
+Unable to read beyond the end of the stream.
+   at AssetStudio.ObjectReader.Read(Byte[] buffer, Int32 index, Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\ObjectReader.cs:line 49
+   at AssetStudio.EndianBinaryReader.ReadBytes(Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\EndianBinaryReader.cs:line 122
+   at AssetStudio.Object.GetRawData() in D:\a\assetstudio\assetstudio\AssetStudio\Classes\Object.cs:line 106
+   at AssetStudio.CLI.Exporter.ExportRawFile(AssetItem item, String exportPath)
+   at AssetStudio.CLI.Studio.<>c__DisplayClass17_0.<ExportAssets>b__0(AssetItem asset)
+[Info] [91/114] Exporting MonoBehaviour: FRONT_SandsTrail7
+[Error] Export MonoBehaviour:HUD_Briefing error
+Unable to read beyond the end of the stream.
+   at AssetStudio.ObjectReader.Read(Byte[] buffer, Int32 index, Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\ObjectReader.cs:line 49
+   at AssetStudio.EndianBinaryReader.ReadBytes(Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\EndianBinaryReader.cs:line 122
+   at AssetStudio.Object.GetRawData() in D:\a\assetstudio\assetstudio\AssetStudio\Classes\Object.cs:line 106
+   at AssetStudio.CLI.Exporter.ExportRawFile(AssetItem item, String exportPath)
+   at AssetStudio.CLI.Studio.<>c__DisplayClass17_0.<ExportAssets>b__0(AssetItem asset)
+[Info] [92/114] Exporting MonoBehaviour: HUD_Markers
+[Error] Export MonoBehaviour:FRONT_CoopTrail3 error
+Unable to read beyond the end of the stream.
+   at AssetStudio.ObjectReader.Read(Byte[] buffer, Int32 index, Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\ObjectReader.cs:line 49
+   at AssetStudio.EndianBinaryReader.ReadBytes(Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\EndianBinaryReader.cs:line 122
+   at AssetStudio.Object.GetRawData() in D:\a\assetstudio\assetstudio\AssetStudio\Classes\Object.cs:line 106
+   at AssetStudio.CLI.Exporter.ExportRawFile(AssetItem item, String exportPath)
+   at AssetStudio.CLI.Studio.<>c__DisplayClass17_0.<ExportAssets>b__0(AssetItem asset)
+[Error] Export MonoBehaviour:OST_StartingGoods error
+Unable to read beyond the end of the stream.
+   at AssetStudio.ObjectReader.Read(Byte[] buffer, Int32 index, Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\ObjectReader.cs:line 49
+   at AssetStudio.EndianBinaryReader.ReadBytes(Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\EndianBinaryReader.cs:line 122
+   at AssetStudio.Object.GetRawData() in D:\a\assetstudio\assetstudio\AssetStudio\Classes\Object.cs:line 106
+   at AssetStudio.CLI.Exporter.ExportRawFile(AssetItem item, String exportPath)
+   at AssetStudio.CLI.Studio.<>c__DisplayClass17_0.<ExportAssets>b__0(AssetItem asset)
+[Info] [80/114] Exporting MonoBehaviour: HUD_AlliesPanel
+[Info] [94/114] Exporting MonoBehaviour: IntroSequence
+[Info] [95/114] Exporting MonoBehaviour: FRONT_SandsTrail8
+[Info] [81/114] Exporting MonoBehaviour: FRONT_Extra2Campaign
+[Error] Export MonoBehaviour:SVG_Images error
+Unable to read beyond the end of the stream.
+   at AssetStudio.ObjectReader.Read(Byte[] buffer, Int32 index, Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\ObjectReader.cs:line 49
+   at AssetStudio.EndianBinaryReader.ReadBytes(Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\EndianBinaryReader.cs:line 122
+   at AssetStudio.Object.GetRawData() in D:\a\assetstudio\assetstudio\AssetStudio\Classes\Object.cs:line 106
+   at AssetStudio.CLI.Exporter.ExportRawFile(AssetItem item, String exportPath)
+   at AssetStudio.CLI.Studio.<>c__DisplayClass17_0.<ExportAssets>b__0(AssetItem asset)
+[Info] [96/114] Exporting MonoBehaviour: FRONT_SandsTrail3
+[Error] Export MonoBehaviour:FRONT_Multiplayer_Setup error
+Unable to read beyond the end of the stream.
+   at AssetStudio.ObjectReader.Read(Byte[] buffer, Int32 index, Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\ObjectReader.cs:line 49
+   at AssetStudio.EndianBinaryReader.ReadBytes(Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\EndianBinaryReader.cs:line 122
+   at AssetStudio.Object.GetRawData() in D:\a\assetstudio\assetstudio\AssetStudio\Classes\Object.cs:line 106
+   at AssetStudio.CLI.Exporter.ExportRawFile(AssetItem item, String exportPath)
+   at AssetStudio.CLI.Studio.<>c__DisplayClass17_0.<ExportAssets>b__0(AssetItem asset)
+[Info] [82/114] Exporting MonoBehaviour: FRONT_CoopTrail4
+[Info] [97/114] Exporting MonoBehaviour: MainHUD
+[Error] Export MonoBehaviour:HUD_ConfirmationPopup error
+Unable to read beyond the end of the stream.
+   at AssetStudio.ObjectReader.Read(Byte[] buffer, Int32 index, Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\ObjectReader.cs:line 49
+   at AssetStudio.EndianBinaryReader.ReadBytes(Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\EndianBinaryReader.cs:line 122
+   at AssetStudio.Object.GetRawData() in D:\a\assetstudio\assetstudio\AssetStudio\Classes\Object.cs:line 106
+   at AssetStudio.CLI.Exporter.ExportRawFile(AssetItem item, String exportPath)
+   at AssetStudio.CLI.Studio.<>c__DisplayClass17_0.<ExportAssets>b__0(AssetItem asset)
+[Info] [83/114] Exporting MonoBehaviour: HUD_MPInviteWarning
+[Error] Export MonoBehaviour:FRONT_EditorSetup error
+Unable to read beyond the end of the stream.
+   at AssetStudio.ObjectReader.Read(Byte[] buffer, Int32 index, Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\ObjectReader.cs:line 49
+   at AssetStudio.EndianBinaryReader.ReadBytes(Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\EndianBinaryReader.cs:line 122
+   at AssetStudio.Object.GetRawData() in D:\a\assetstudio\assetstudio\AssetStudio\Classes\Object.cs:line 106
+   at AssetStudio.CLI.Exporter.ExportRawFile(AssetItem item, String exportPath)
+   at AssetStudio.CLI.Studio.<>c__DisplayClass17_0.<ExportAssets>b__0(AssetItem asset)
+[Error] Export MonoBehaviour:FRONT_StandaloneMission error
+Unable to read beyond the end of the stream.
+   at AssetStudio.ObjectReader.Read(Byte[] buffer, Int32 index, Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\ObjectReader.cs:line 49
+   at AssetStudio.EndianBinaryReader.ReadBytes(Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\EndianBinaryReader.cs:line 122
+   at AssetStudio.Object.GetRawData() in D:\a\assetstudio\assetstudio\AssetStudio\Classes\Object.cs:line 106
+   at AssetStudio.CLI.Exporter.ExportRawFile(AssetItem item, String exportPath)
+   at AssetStudio.CLI.Studio.<>c__DisplayClass17_0.<ExportAssets>b__0(AssetItem asset)
+[Info] [87/114] Exporting MonoBehaviour: LST_SH_BuildingAvailable
+[Info] [93/114] Exporting MonoBehaviour: HUD_Goods
+[Error] Export MonoBehaviour:HUD_Scenario_Popup error
+Unable to read beyond the end of the stream.
+   at AssetStudio.ObjectReader.Read(Byte[] buffer, Int32 index, Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\ObjectReader.cs:line 49
+   at AssetStudio.EndianBinaryReader.ReadBytes(Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\EndianBinaryReader.cs:line 122
+   at AssetStudio.Object.GetRawData() in D:\a\assetstudio\assetstudio\AssetStudio\Classes\Object.cs:line 106
+   at AssetStudio.CLI.Exporter.ExportRawFile(AssetItem item, String exportPath)
+   at AssetStudio.CLI.Studio.<>c__DisplayClass17_0.<ExportAssets>b__0(AssetItem asset)
+[Error] Export MonoBehaviour:OST_Pings error
+Unable to read beyond the end of the stream.
+   at AssetStudio.ObjectReader.Read(Byte[] buffer, Int32 index, Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\ObjectReader.cs:line 49
+   at AssetStudio.EndianBinaryReader.ReadBytes(Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\EndianBinaryReader.cs:line 122
+   at AssetStudio.Object.GetRawData() in D:\a\assetstudio\assetstudio\AssetStudio\Classes\Object.cs:line 106
+   at AssetStudio.CLI.Exporter.ExportRawFile(AssetItem item, String exportPath)
+   at AssetStudio.CLI.Studio.<>c__DisplayClass17_0.<ExportAssets>b__0(AssetItem asset)
+[Error] Export MonoBehaviour:UI-MasterAtlas error
+Unable to read beyond the end of the stream.
+   at AssetStudio.ObjectReader.Read(Byte[] buffer, Int32 index, Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\ObjectReader.cs:line 49
+   at AssetStudio.EndianBinaryReader.ReadBytes(Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\EndianBinaryReader.cs:line 122
+   at AssetStudio.Object.GetRawData() in D:\a\assetstudio\assetstudio\AssetStudio\Classes\Object.cs:line 106
+   at AssetStudio.CLI.Exporter.ExportRawFile(AssetItem item, String exportPath)
+   at AssetStudio.CLI.Studio.<>c__DisplayClass17_0.<ExportAssets>b__0(AssetItem asset)
+[Error] Export MonoBehaviour:HUD_MissionOver error
+Unable to read beyond the end of the stream.
+   at AssetStudio.ObjectReader.Read(Byte[] buffer, Int32 index, Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\ObjectReader.cs:line 49
+   at AssetStudio.EndianBinaryReader.ReadBytes(Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\EndianBinaryReader.cs:line 122
+   at AssetStudio.Object.GetRawData() in D:\a\assetstudio\assetstudio\AssetStudio\Classes\Object.cs:line 106
+   at AssetStudio.CLI.Exporter.ExportRawFile(AssetItem item, String exportPath)
+   at AssetStudio.CLI.Studio.<>c__DisplayClass17_0.<ExportAssets>b__0(AssetItem asset)
+[Error] Export MonoBehaviour:FRONT_Trail error
+Unable to read beyond the end of the stream.
+   at AssetStudio.ObjectReader.Read(Byte[] buffer, Int32 index, Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\ObjectReader.cs:line 49
+   at AssetStudio.EndianBinaryReader.ReadBytes(Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\EndianBinaryReader.cs:line 122
+   at AssetStudio.Object.GetRawData() in D:\a\assetstudio\assetstudio\AssetStudio\Classes\Object.cs:line 106
+   at AssetStudio.CLI.Exporter.ExportRawFile(AssetItem item, String exportPath)
+   at AssetStudio.CLI.Studio.<>c__DisplayClass17_0.<ExportAssets>b__0(AssetItem asset)
+[Error] Export MonoBehaviour:FRONT_SkirmishMasters error
+Unable to read beyond the end of the stream.
+   at AssetStudio.ObjectReader.Read(Byte[] buffer, Int32 index, Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\ObjectReader.cs:line 49
+   at AssetStudio.EndianBinaryReader.ReadBytes(Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\EndianBinaryReader.cs:line 122
+   at AssetStudio.Object.GetRawData() in D:\a\assetstudio\assetstudio\AssetStudio\Classes\Object.cs:line 106
+   at AssetStudio.CLI.Exporter.ExportRawFile(AssetItem item, String exportPath)
+   at AssetStudio.CLI.Studio.<>c__DisplayClass17_0.<ExportAssets>b__0(AssetItem asset)
+[Error] Export MonoBehaviour:HUD_CustomTrailsSelect error
+Unable to read beyond the end of the stream.
+   at AssetStudio.ObjectReader.Read(Byte[] buffer, Int32 index, Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\ObjectReader.cs:line 49
+   at AssetStudio.EndianBinaryReader.ReadBytes(Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\EndianBinaryReader.cs:line 122
+   at AssetStudio.Object.GetRawData() in D:\a\assetstudio\assetstudio\AssetStudio\Classes\Object.cs:line 106
+   at AssetStudio.CLI.Exporter.ExportRawFile(AssetItem item, String exportPath)
+   at AssetStudio.CLI.Studio.<>c__DisplayClass17_0.<ExportAssets>b__0(AssetItem asset)
+[Error] Export MonoBehaviour:FRONT_SandsTrail4 error
+Unable to read beyond the end of the stream.
+   at AssetStudio.ObjectReader.Read(Byte[] buffer, Int32 index, Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\ObjectReader.cs:line 49
+   at AssetStudio.EndianBinaryReader.ReadBytes(Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\EndianBinaryReader.cs:line 122
+   at AssetStudio.Object.GetRawData() in D:\a\assetstudio\assetstudio\AssetStudio\Classes\Object.cs:line 106
+   at AssetStudio.CLI.Exporter.ExportRawFile(AssetItem item, String exportPath)
+   at AssetStudio.CLI.Studio.<>c__DisplayClass17_0.<ExportAssets>b__0(AssetItem asset)
+[Error] Export MonoBehaviour:HUD_Markers error
+Unable to read beyond the end of the stream.
+   at AssetStudio.ObjectReader.Read(Byte[] buffer, Int32 index, Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\ObjectReader.cs:line 49
+   at AssetStudio.EndianBinaryReader.ReadBytes(Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\EndianBinaryReader.cs:line 122
+   at AssetStudio.Object.GetRawData() in D:\a\assetstudio\assetstudio\AssetStudio\Classes\Object.cs:line 106
+   at AssetStudio.CLI.Exporter.ExportRawFile(AssetItem item, String exportPath)
+   at AssetStudio.CLI.Studio.<>c__DisplayClass17_0.<ExportAssets>b__0(AssetItem asset)
+[Error] Export MonoBehaviour:FRONT_SandsTrail8 error
+Unable to read beyond the end of the stream.
+   at AssetStudio.ObjectReader.Read(Byte[] buffer, Int32 index, Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\ObjectReader.cs:line 49
+   at AssetStudio.EndianBinaryReader.ReadBytes(Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\EndianBinaryReader.cs:line 122
+   at AssetStudio.Object.GetRawData() in D:\a\assetstudio\assetstudio\AssetStudio\Classes\Object.cs:line 106
+   at AssetStudio.CLI.Exporter.ExportRawFile(AssetItem item, String exportPath)
+   at AssetStudio.CLI.Studio.<>c__DisplayClass17_0.<ExportAssets>b__0(AssetItem asset)
+[Info] [100/114] Exporting MonoBehaviour: HUD_EditorWarning
+[Error] Export MonoBehaviour:HUD_CoatOfArms error
+Unable to read beyond the end of the stream.
+   at AssetStudio.ObjectReader.Read(Byte[] buffer, Int32 index, Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\ObjectReader.cs:line 49
+   at AssetStudio.EndianBinaryReader.ReadBytes(Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\EndianBinaryReader.cs:line 122
+   at AssetStudio.Object.GetRawData() in D:\a\assetstudio\assetstudio\AssetStudio\Classes\Object.cs:line 106
+   at AssetStudio.CLI.Exporter.ExportRawFile(AssetItem item, String exportPath)
+   at AssetStudio.CLI.Studio.<>c__DisplayClass17_0.<ExportAssets>b__0(AssetItem asset)
+[Error] Export MonoBehaviour:FRONT_SandsTrail7 error
+Unable to read beyond the end of the stream.
+   at AssetStudio.ObjectReader.Read(Byte[] buffer, Int32 index, Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\ObjectReader.cs:line 49
+   at AssetStudio.EndianBinaryReader.ReadBytes(Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\EndianBinaryReader.cs:line 122
+   at AssetStudio.Object.GetRawData() in D:\a\assetstudio\assetstudio\AssetStudio\Classes\Object.cs:line 106
+   at AssetStudio.CLI.Exporter.ExportRawFile(AssetItem item, String exportPath)
+   at AssetStudio.CLI.Studio.<>c__DisplayClass17_0.<ExportAssets>b__0(AssetItem asset)
+[Info] [101/114] Exporting MonoBehaviour: FRONT_Extra7Campaign
+[Info] [102/114] Exporting MonoBehaviour: FRONT_Story
+[Error] Export MonoBehaviour:FRONT_Credits error
+Unable to read beyond the end of the stream.
+   at AssetStudio.ObjectReader.Read(Byte[] buffer, Int32 index, Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\ObjectReader.cs:line 49
+   at AssetStudio.EndianBinaryReader.ReadBytes(Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\EndianBinaryReader.cs:line 122
+   at AssetStudio.Object.GetRawData() in D:\a\assetstudio\assetstudio\AssetStudio\Classes\Object.cs:line 106
+   at AssetStudio.CLI.Exporter.ExportRawFile(AssetItem item, String exportPath)
+   at AssetStudio.CLI.Studio.<>c__DisplayClass17_0.<ExportAssets>b__0(AssetItem asset)
+[Error] Export MonoBehaviour:HUD_AlliesPanel error
+Unable to read beyond the end of the stream.
+   at AssetStudio.ObjectReader.Read(Byte[] buffer, Int32 index, Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\ObjectReader.cs:line 49
+   at AssetStudio.EndianBinaryReader.ReadBytes(Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\EndianBinaryReader.cs:line 122
+   at AssetStudio.Object.GetRawData() in D:\a\assetstudio\assetstudio\AssetStudio\Classes\Object.cs:line 106
+   at AssetStudio.CLI.Exporter.ExportRawFile(AssetItem item, String exportPath)
+   at AssetStudio.CLI.Studio.<>c__DisplayClass17_0.<ExportAssets>b__0(AssetItem asset)
+[Info] [103/114] Exporting MonoBehaviour: HUD_Objectives
+[Info] [99/114] Exporting MonoBehaviour: WGT_SkirmishMastersRow
+[Info] [104/114] Exporting MonoBehaviour: FRONT_SandsTrail6
+[Error] Export MonoBehaviour:FRONT_Extra2Campaign error
+Unable to read beyond the end of the stream.
+   at AssetStudio.ObjectReader.Read(Byte[] buffer, Int32 index, Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\ObjectReader.cs:line 49
+   at AssetStudio.EndianBinaryReader.ReadBytes(Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\EndianBinaryReader.cs:line 122
+   at AssetStudio.Object.GetRawData() in D:\a\assetstudio\assetstudio\AssetStudio\Classes\Object.cs:line 106
+   at AssetStudio.CLI.Exporter.ExportRawFile(AssetItem item, String exportPath)
+   at AssetStudio.CLI.Studio.<>c__DisplayClass17_0.<ExportAssets>b__0(AssetItem asset)
+[Info] [98/114] Exporting MonoBehaviour: IngameUIScreens
+[Error] Export MonoBehaviour:FrontendMenus error
+Unable to read beyond the end of the stream.
+   at AssetStudio.ObjectReader.Read(Byte[] buffer, Int32 index, Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\ObjectReader.cs:line 49
+   at AssetStudio.EndianBinaryReader.ReadBytes(Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\EndianBinaryReader.cs:line 122
+   at AssetStudio.Object.GetRawData() in D:\a\assetstudio\assetstudio\AssetStudio\Classes\Object.cs:line 106
+   at AssetStudio.CLI.Exporter.ExportRawFile(AssetItem item, String exportPath)
+   at AssetStudio.CLI.Studio.<>c__DisplayClass17_0.<ExportAssets>b__0(AssetItem asset)
+[Error] Export MonoBehaviour:OST_Koth error
+Unable to read beyond the end of the stream.
+   at AssetStudio.ObjectReader.Read(Byte[] buffer, Int32 index, Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\ObjectReader.cs:line 49
+   at AssetStudio.EndianBinaryReader.ReadBytes(Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\EndianBinaryReader.cs:line 122
+   at AssetStudio.Object.GetRawData() in D:\a\assetstudio\assetstudio\AssetStudio\Classes\Object.cs:line 106
+   at AssetStudio.CLI.Exporter.ExportRawFile(AssetItem item, String exportPath)
+   at AssetStudio.CLI.Studio.<>c__DisplayClass17_0.<ExportAssets>b__0(AssetItem asset)
+[Error] Export MonoBehaviour:HUD_Buildings error
+Unable to read beyond the end of the stream.
+   at AssetStudio.ObjectReader.Read(Byte[] buffer, Int32 index, Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\ObjectReader.cs:line 49
+   at AssetStudio.EndianBinaryReader.ReadBytes(Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\EndianBinaryReader.cs:line 122
+   at AssetStudio.Object.GetRawData() in D:\a\assetstudio\assetstudio\AssetStudio\Classes\Object.cs:line 106
+   at AssetStudio.CLI.Exporter.ExportRawFile(AssetItem item, String exportPath)
+   at AssetStudio.CLI.Studio.<>c__DisplayClass17_0.<ExportAssets>b__0(AssetItem asset)
+[Error] Export MonoBehaviour:FRONT_CoopTrail4 error
+Unable to read beyond the end of the stream.
+   at AssetStudio.ObjectReader.Read(Byte[] buffer, Int32 index, Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\ObjectReader.cs:line 49
+   at AssetStudio.EndianBinaryReader.ReadBytes(Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\EndianBinaryReader.cs:line 122
+   at AssetStudio.Object.GetRawData() in D:\a\assetstudio\assetstudio\AssetStudio\Classes\Object.cs:line 106
+   at AssetStudio.CLI.Exporter.ExportRawFile(AssetItem item, String exportPath)
+   at AssetStudio.CLI.Studio.<>c__DisplayClass17_0.<ExportAssets>b__0(AssetItem asset)
+[Info] [105/114] Exporting MonoBehaviour: FRONT_ManageTrail
+[Error] Export MonoBehaviour:IntroSequence error
+Unable to read beyond the end of the stream.
+   at AssetStudio.ObjectReader.Read(Byte[] buffer, Int32 index, Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\ObjectReader.cs:line 49
+   at AssetStudio.EndianBinaryReader.ReadBytes(Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\EndianBinaryReader.cs:line 122
+   at AssetStudio.Object.GetRawData() in D:\a\assetstudio\assetstudio\AssetStudio\Classes\Object.cs:line 106
+   at AssetStudio.CLI.Exporter.ExportRawFile(AssetItem item, String exportPath)
+   at AssetStudio.CLI.Studio.<>c__DisplayClass17_0.<ExportAssets>b__0(AssetItem asset)
+[Info] [106/114] Exporting MonoBehaviour: HUD_ScenarioSpecial
+[Error] Export MonoBehaviour:FRONT_Extra7Campaign error
+Unable to read beyond the end of the stream.
+   at AssetStudio.ObjectReader.Read(Byte[] buffer, Int32 index, Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\ObjectReader.cs:line 49
+   at AssetStudio.EndianBinaryReader.ReadBytes(Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\EndianBinaryReader.cs:line 122
+   at AssetStudio.Object.GetRawData() in D:\a\assetstudio\assetstudio\AssetStudio\Classes\Object.cs:line 106
+   at AssetStudio.CLI.Exporter.ExportRawFile(AssetItem item, String exportPath)
+   at AssetStudio.CLI.Studio.<>c__DisplayClass17_0.<ExportAssets>b__0(AssetItem asset)
+[Error] Export MonoBehaviour:FRONT_SandsTrail6 error
+Unable to read beyond the end of the stream.
+   at AssetStudio.ObjectReader.Read(Byte[] buffer, Int32 index, Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\ObjectReader.cs:line 49
+   at AssetStudio.EndianBinaryReader.ReadBytes(Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\EndianBinaryReader.cs:line 122
+   at AssetStudio.Object.GetRawData() in D:\a\assetstudio\assetstudio\AssetStudio\Classes\Object.cs:line 106
+   at AssetStudio.CLI.Exporter.ExportRawFile(AssetItem item, String exportPath)
+   at AssetStudio.CLI.Studio.<>c__DisplayClass17_0.<ExportAssets>b__0(AssetItem asset)
+[Error] Export MonoBehaviour:IngameUIScreens error
+Unable to read beyond the end of the stream.
+   at AssetStudio.ObjectReader.Read(Byte[] buffer, Int32 index, Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\ObjectReader.cs:line 49
+   at AssetStudio.EndianBinaryReader.ReadBytes(Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\EndianBinaryReader.cs:line 122
+   at AssetStudio.Object.GetRawData() in D:\a\assetstudio\assetstudio\AssetStudio\Classes\Object.cs:line 106
+   at AssetStudio.CLI.Exporter.ExportRawFile(AssetItem item, String exportPath)
+   at AssetStudio.CLI.Studio.<>c__DisplayClass17_0.<ExportAssets>b__0(AssetItem asset)
+[Error] Export MonoBehaviour:HUD_ScenarioSpecial error
+Unable to read beyond the end of the stream.
+   at AssetStudio.ObjectReader.Read(Byte[] buffer, Int32 index, Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\ObjectReader.cs:line 49
+   at AssetStudio.EndianBinaryReader.ReadBytes(Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\EndianBinaryReader.cs:line 122
+   at AssetStudio.Object.GetRawData() in D:\a\assetstudio\assetstudio\AssetStudio\Classes\Object.cs:line 106
+   at AssetStudio.CLI.Exporter.ExportRawFile(AssetItem item, String exportPath)
+   at AssetStudio.CLI.Studio.<>c__DisplayClass17_0.<ExportAssets>b__0(AssetItem asset)
+[Error] Export MonoBehaviour:HUD_Goods error
+Unable to read beyond the end of the stream.
+   at AssetStudio.ObjectReader.Read(Byte[] buffer, Int32 index, Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\ObjectReader.cs:line 49
+   at AssetStudio.EndianBinaryReader.ReadBytes(Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\EndianBinaryReader.cs:line 122
+   at AssetStudio.Object.GetRawData() in D:\a\assetstudio\assetstudio\AssetStudio\Classes\Object.cs:line 106
+   at AssetStudio.CLI.Exporter.ExportRawFile(AssetItem item, String exportPath)
+   at AssetStudio.CLI.Studio.<>c__DisplayClass17_0.<ExportAssets>b__0(AssetItem asset)
+[Info] [107/114] Exporting MonoBehaviour: FRONT_SandsTrail2
+[Error] Export MonoBehaviour:FRONT_ManageTrail error
+Unable to read beyond the end of the stream.
+   at AssetStudio.ObjectReader.Read(Byte[] buffer, Int32 index, Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\ObjectReader.cs:line 49
+   at AssetStudio.EndianBinaryReader.ReadBytes(Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\EndianBinaryReader.cs:line 122
+   at AssetStudio.Object.GetRawData() in D:\a\assetstudio\assetstudio\AssetStudio\Classes\Object.cs:line 106
+   at AssetStudio.CLI.Exporter.ExportRawFile(AssetItem item, String exportPath)
+   at AssetStudio.CLI.Studio.<>c__DisplayClass17_0.<ExportAssets>b__0(AssetItem asset)
+[Error] Export MonoBehaviour:FRONT_Story error
+Unable to read beyond the end of the stream.
+   at AssetStudio.ObjectReader.Read(Byte[] buffer, Int32 index, Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\ObjectReader.cs:line 49
+   at AssetStudio.EndianBinaryReader.ReadBytes(Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\EndianBinaryReader.cs:line 122
+   at AssetStudio.Object.GetRawData() in D:\a\assetstudio\assetstudio\AssetStudio\Classes\Object.cs:line 106
+   at AssetStudio.CLI.Exporter.ExportRawFile(AssetItem item, String exportPath)
+   at AssetStudio.CLI.Studio.<>c__DisplayClass17_0.<ExportAssets>b__0(AssetItem asset)
+[Info] [108/114] Exporting MonoBehaviour: FRONT_Extra3Campaign
+[Error] Export MonoBehaviour:WGT_SkirmishMastersRow error
+Unable to read beyond the end of the stream.
+   at AssetStudio.ObjectReader.Read(Byte[] buffer, Int32 index, Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\ObjectReader.cs:line 49
+   at AssetStudio.EndianBinaryReader.ReadBytes(Int32 count) in D:\a\assetstudio\assetstudio\AssetStudio\EndianBinaryReader.cs:line 122
+   at AssetStudio.Object.GetRawData() in D:\a\assetstudio\assetstudio\AssetStudio\Classes\Object.cs:line 106
+   at AssetStudio.CLI.Exporter.ExportRawFile(AssetItem item, String exportPath)
+   at AssetStudio.CLI.Studio.<>c__DisplayClass17_0.<ExportAssets>b__0(AssetItem asset)
+[Info] [109/114] Exporting MonoBehaviour: FRONT_Extra4Campaign
+[Info] [110/114] Exporting MonoBehaviour: FRONT_Extra5Campaign
+[Info] [111/114] Exporting MonoBehaviour: Noesis.settings
+[Info] [112/114] Exporting MonoBehaviour: HUD_LoadSaveRequester
+[Info] [113/114] Exporting MonoBehaviour: HUD_Leaderboard
+[Info] [114/114] Exporting MonoBehaviour: DefaultGamepadActions
+[Info] Finished exporting 63 assets. 51 assets skipped (not extractable or files already exist)

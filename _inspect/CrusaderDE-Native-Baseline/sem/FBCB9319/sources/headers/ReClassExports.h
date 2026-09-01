@@ -1,0 +1,740 @@
+// Created with ReClass.NET 1.2 by KN4CK3R
+
+
+enum GM16 : __int16
+{
+    GM_LAND = 2,
+    GM_PILLARS,
+    GM_SEA_CHEVRONS,
+    GM_SEA,
+    GM_BUILDINGS1,
+    GM_BUILDINGS2,
+    GM_WORKSHOPS,
+    GM_CLIFFS,
+    GM_WALLS,
+    GM_SPECIAL_LAND,
+    GM_MISC_LAND,
+    GM_RIVERS,
+    GM_FARMLAND,
+    GM_GOODS,
+    GM_FLOATS,
+    GM_BODY_PEASANT,
+    GM_BODY_ARCHER,
+    GM_BODY_WOODCUTTER,
+    GM_BODY_FLETCHER,
+    GM_BODY_OXCART,
+    GM_BUILDING_ANIMS2,
+    GM_SMOKE_ANIMS,
+    GM_55X55_ANIMS,
+    GM_QUARRY_ANIMS,
+    GM_WINDMILL_ANIMS,
+    GM_FLETCHER_ANIMS,
+    GM_GOODS_ANIMS,
+    GM_TREE_BIRCH,
+    GM_TREE_PINE,
+    GM_TREE_CHESTNUT,
+    GM_BODY_STONEMASON,
+    GM_BODY_FARMER,
+    GM_BODY_MISSILE,
+    GM_BODY_LADDERMAN,
+    GM_BODY_BAKER,
+    GM_BODY_MILLER,
+    GM_DATA,
+    GM_BODY_SPEARMAN,
+    GM_BODY_PIKEMAN,
+    GM_BODY_CROSSBOWMAN,
+    GM_BODY_SWORDSMAN,
+    GM_BODY_MACEMAN,
+    GM_BODY_KNIGHT,
+    GM_INTERFACE_BUTTONS,
+    GM_INTERFACE_ICONS2,
+    GM_MINE_ANIMS,
+    GM_TILE_BURNT,
+    GM_CHURCHS,
+    GM_INTERFACE_PANELS,
+    GM_WORKSHOP_BREW_ANIMS,
+    GM_CASTLES,
+    GM_BODY_BREWER,
+    GM_CASTLE_ANIMS,
+    GM_MACRO_LAND,
+    GM_ROCKS,
+    GM_ROCKS_CHEVRONS,
+    GM_WORKSHOP_SMITH_ANIMS,
+    GM_BODY_BLACKSMITH,
+    GM_LAND_AND_STONES,
+    GM_BODY_IRONMINER,
+    GM_BODY_CATAPULT,
+    GM_BODY_COW,
+    GM_WORKSHOP_POLE_ANIMS,
+    GM_PITCH_ANIMS,
+    GM_WORKSHOP_BAKER_ANIMS,
+    GM_WOODCUTTER_ANIMS,
+    GM_DRAWBRIDGE_ANIMS,
+    GM_WORKSHOP_TANNER_ANIMS,
+    GM_TREE_OAK,
+    GM_TREE_SHRUB1,
+    GM_TREE_SHRUB2,
+    GM_BODY_PITCHWORKER,
+    GM_BODY_POLETURNER,
+    GM_BODY_TANNER,
+    GM_FLAG_ANIMS,
+    GM_BODY_TRADER_HORSE,
+    GM_BODY_TRADER,
+    GM_ICONS,
+    GM_ICONS_ALPHA,
+    GM_BODY_DRUNKARD,
+    GM_BODY_TENT,
+    GM_BODY_MANGONEL,
+    GM_BODY_TREBUCHET,
+    GM_FLOAT_POP_CIRC,
+    GM_BODY_SIEGE_ENGINEER,
+    GM_FONT_STRONGHOLD_AA,
+    GM_FARMER_ANIMS,
+    GM_BODY_HUNTER,
+    GM_HUNTER_ANIMS,
+    GM_BODY_DEER,
+    GM_BODY_LION,
+    GM_BODY_RABBIT,
+    GM_BODY_CAMEL,
+    GM_BODY_DOG,
+    GM_BODY_PRIEST,
+    GM_TREE_APPLE,
+    GM_STABLE_ANIMS,
+    GM_BODY_LADY,
+    GM_BODY_LORD,
+    GM_BODY_JESTER,
+    GM_BODY_ARMOURER,
+    GM_ARMOURER_ANIMS,
+    GM_SHEILD_ANIMS,
+    GM_ANIM_TUNNELERS_GUILD,
+    GM_BODY_TUNNELER,
+    GM_CURSORS,
+    GM_MAPEDIT_BUTTONS,
+    GM_BODY_FIGHTING_MONK,
+    GM_OIL_ANIMS = 113,
+    GM_GALLOWS_ANIMS,
+    GM_MAYPOLE_ANIMS,
+    GM_BODY_OIL,
+    GM_FONT_STRONGHOLD,
+    GM_BODY_FIRE,
+    GM_BODY_BURNING_MAN,
+    GM_BODY_BALLISTA,
+    GM_BODY_SHIELD,
+    GM_BODY_MISSILE_2,
+    GM_BODY_BATTERING_RAM,
+    GM_BODY_SIEGE_TOWER,
+    GM_BODY_STEAM,
+    GM_BODY_CHICKEN,
+    GM_BODY_MOTHER,
+    GM_BODY_BOY,
+    GM_BODY_GIRL,
+    GM_ANIM_TUNNELS,
+    GM_BODY_JUGGLER,
+    GM_BODY_FIREEATER,
+    GM_BODY_HEALER,
+    GM_BODY_DISEASE,
+    GM_BODY_MISSILE_COW,
+    GM_CRACKS,
+    GM_BODY_GATE,
+    GM_BODY_BRAZIER,
+    GM_KILLING_PITS,
+    GM_PITCH_DITCHES,
+    GM_BLAST,
+    GM_SCRIBE,
+    GM_ANIM_ICON_KNIGHT,
+    GM_BODY_FIRE2,
+    GM_ANIM_MISSILE_FIRE,
+    GM_FONT_SLANTED,
+    GM_BODY_INNKEEPER,
+    GM_ICONS_FRONT_END,
+    GM_TILE_RUINS,
+    GM_ICONS_FRONT_END_COMBAT,
+    GM_ICONS_FRONT_END_ECONOMICS,
+    GM_ICONS_FRONT_END_BUILDER,
+    GM_MINI_CURSORS,
+    GM_BODY_CHICKEN_BROWN,
+    GM_ANIM_MARKET,
+    GM_INTERFACE_ICONS3,
+    GM_TILE_FLATTIES,
+    GM_ROCK_CHIPS,
+    GM_ANIM_DUNKING_STOOL,
+    GM_ANIM_DUNGEON,
+    GM_ANIM_GIBBET,
+    GM_ANIM_HEALER,
+    GM_ANIM_STOCKS,
+    GM_INTERFACE_SLIDER,
+    GM_MAP_FLAGS,
+    GM_NEW_SEA,
+    GM_BODY_SEAGULL,
+    GM_BODY_CROW,
+    GM_PUFF_OF_SMOKE,
+    GM_BODY_SPLASH,
+    GM_ANIM_INN,
+    GM_FLOATS_NEW,
+    GM_ANIM_WHITECAPS,
+    GM_ARMY_UNITS,
+    GM_ANIM_STAKE,
+    GM_ANIM_KILLING_PITS,
+    GM_ENEMY_FACES,
+    GM_ANIM_RACK,
+    GM_ANIM_DOG_CAGE,
+    GM_ANIM_DANCING_BEAR,
+    GM_ANIM_CHOPPING_BLOCK,
+    GM_BODY_FIREMAN,
+    GM_INTERFACE_ARMY,
+    GM_INTERFACE_RUINS,
+    GM_BODY_ANIMAL_BURNING_BIG,
+    GM_BODY_ANIMAL_BURNING_SMALL,
+    GM_ANIM_HEADS,
+    GM_BODY_GHOST,
+    GM_ANIM_FLAG_SMALL,
+    GM_BODY_ARAB_BOW,
+    GM_BODY_ARAB_SLAVE,
+    GM_BODY_ARAB_SLINGER,
+    GM_BODY_ARAB_ASSASIN,
+    GM_BODY_ARAB_HORSEMAN,
+    GM_BODY_ARAB_SWORDSMAN,
+    GM_BODY_ARAB_GRENADIER,
+    GM_BODY_ARAB_BALLISTA,
+    GM_ASSASIN_ROPE,
+    GM_BODY_ARAB_HORSE,
+    GM_TREE_CACTII,
+    GM_ANIM_CRUSADER_FLAG,
+    GM_BODY_INFO,
+    GM_BODY_WOLF,
+    GM_BODY_ARABIC_LORD = 205,
+    GM_ADDITIONAL_GFX = 207,
+    GM_BODY_BEDOUIN_CAMEL_LANCER,
+    GM_BODY_BEDOUIN_HEALER,
+    GM_BODY_BEDOUIN_EUNUCH,
+    GM_BODY_BEDOUIN_AMBUSHER,
+    GM_BODY_BEDOUIN_SKIRMISHER,
+    GM_BODY_BEDOUIN_HEAVY_CAMEL,
+    GM_BODY_BEDOUIN_SAPPER,
+    GM_BODY_BEDOUIN_DEMOLISHER,
+    GM_FLOAT_POP_CIRC_2 = 218,
+    GM_BODY_MISSILE_FIREPOT,
+    GM_BODY_JAVELIN,
+    GM_BODY_GOAT,
+    GM_BODY_HYENA,
+    GM_BODY_CONDOR,
+    GM_BODY_CROCODILE,
+    GM_BODY_IMAM,
+    GM_BODY_BEDOUIN_LORD,
+    GM_BODY_SCRIBE_LORD,
+    GM_BODY_LORD_FEMALE,
+    GM_BODY_TEMPLE_GUARD,
+    GM_BODY_LORD_BESSY,
+    GM_BODY_ARABIC_LORD_FEMALE,
+    GM_BODY_BEDOUIN_LORD_FEMALE,
+    GM_ANIM_ARAB_FLAG
+};
+
+enum Dircs16 : __int16
+{
+    Invalid = -1,
+    Centre,
+    North,
+    NE,
+    East,
+    SE,
+    South,
+    SW,
+    West,
+    NW,
+    Base
+};
+
+enum eChimps16 : __int16
+{
+    CHIMP_TYPE_NULL,
+    CHIMP_TYPE_PEASANT,
+    CHIMP_TYPE_BURNING_MAN,
+    CHIMP_TYPE_WOODCUTTER,
+    CHIMP_TYPE_FLETCHER,
+    CHIMP_TYPE_TUNNELER,
+    CHIMP_TYPE_HUNTER,
+    CHIMP_TYPE_QUARRY_MASON,
+    CHIMP_TYPE_QUARRY_GRUNT,
+    CHIMP_TYPE_QUARRY_OX,
+    CHIMP_TYPE_PITCHMAN,
+    CHIMP_TYPE_FARMER_WHEAT,
+    CHIMP_TYPE_FARMER_HOPS,
+    CHIMP_TYPE_FARMER_APPLE,
+    CHIMP_TYPE_FARMER_CATTLE,
+    CHIMP_TYPE_MILLER,
+    CHIMP_TYPE_BAKER,
+    CHIMP_TYPE_BREWER,
+    CHIMP_TYPE_POLETURNER,
+    CHIMP_TYPE_BLACKSMITH,
+    CHIMP_TYPE_ARMOURER,
+    CHIMP_TYPE_TANNER,
+    CHIMP_TYPE_ARCHER,
+    CHIMP_TYPE_XBOWMAN,
+    CHIMP_TYPE_SPEARMAN,
+    CHIMP_TYPE_PIKEMAN,
+    CHIMP_TYPE_MACEMAN,
+    CHIMP_TYPE_SWORDSMAN,
+    CHIMP_TYPE_KNIGHT,
+    CHIMP_TYPE_LADDERMAN,
+    CHIMP_TYPE_ENGINEER,
+    CHIMP_TYPE_MINER1,
+    CHIMP_TYPE_MINER2,
+    CHIMP_TYPE_PRIEST,
+    CHIMP_TYPE_HEALER,
+    CHIMP_TYPE_DRUNKARD,
+    CHIMP_TYPE_INNKEEPER,
+    CHIMP_TYPE_MONK,
+    CHIMP_TYPE_ARCHER_debug,
+    CHIMP_TYPE_CATAPULT,
+    CHIMP_TYPE_TREBUCHET,
+    CHIMP_TYPE_MANGONEL,
+    CHIMP_TYPE_TRADER,
+    CHIMP_TYPE_TRADER_HORSE,
+    CHIMP_TYPE_DEER,
+    CHIMP_TYPE_LION,
+    CHIMP_TYPE_RABBIT,
+    CHIMP_TYPE_CAMEL,
+    CHIMP_TYPE_CROW,
+    CHIMP_TYPE_SEAGULL,
+    CHIMP_SIEGE_TENT,
+    CHIMP_TYPE_COW,
+    CHIMP_TYPE_DOG,
+    CHIMP_TYPE_FIREMAN,
+    CHIMP_TYPE_GHOST,
+    CHIMP_TYPE_LORD,
+    CHIMP_TYPE_LADY,
+    CHIMP_TYPE_JESTER,
+    CHIMP_TYPE_SIEGE_TOWER,
+    CHIMP_TYPE_BATTERING_RAM,
+    CHIMP_TYPE_PORTABLE_SHIELD,
+    CHIMP_TYPE_BALLISTA,
+    CHIMP_TYPE_CHICKEN,
+    CHIMP_TYPE_MOTHER,
+    CHIMP_TYPE_CHILD,
+    CHIMP_TYPE_JUGGLER,
+    CHIMP_TYPE_FIREEATER,
+    CHIMP_TYPE_WAR_DOG,
+    CHIMP_TYPE_BURNING_ANIMAL_BIG,
+    CHIMP_TYPE_BURNING_ANIMAL_SMALL,
+    CHIMP_TYPE_ARAB_BOW,
+    CHIMP_TYPE_ARAB_SLAVE,
+    CHIMP_TYPE_ARAB_SLINGER,
+    CHIMP_TYPE_ARAB_ASSASIN,
+    CHIMP_TYPE_ARAB_HORSEMAN,
+    CHIMP_TYPE_ARAB_SWORDSMAN,
+    CHIMP_TYPE_ARAB_GRENADIER,
+    CHIMP_TYPE_ARAB_BALLISTA,
+    CHIMP_TYPE_BEDOUIN_CAMEL_LANCER,
+    CHIMP_TYPE_BEDOUIN_HEALER,
+    CHIMP_TYPE_BEDOUIN_EUNUCH,
+    CHIMP_TYPE_BEDOUIN_AMBUSHER,
+    CHIMP_TYPE_BEDOUIN_SKIRMISHER,
+    CHIMP_TYPE_BEDOUIN_HEAVY_CAMEL,
+    CHIMP_TYPE_BEDOUIN_SAPPER,
+    CHIMP_TYPE_BEDOUIN_DEMOLISHER,
+    CHIMP_TYPE_GOAT,
+    CHIMP_TYPE_HYENA,
+    CHIMP_TYPE_CROCODILE,
+    CHIMP_NUM_TYPES
+};
+
+typedef enum AISiegeRole16
+{
+    SiegeStormTribe = 15,
+    SiegeCoverTribe = 186,
+	SiegeReserveTribe = 190,
+	SiegeWallTribe = 192
+} AISiegeRole;
+
+class GameUnitData
+{
+public:
+	uint32_t r_AnimationFrame; //0x0000
+	uint32_t N000000F4; //0x0004
+	GM16	r_GameMaterialIndex; //0x0008
+	uint16_t N0000542F; //0x000A
+	uint32_t r_SpritePlayerColorId; //0x000C
+	uint16_t N00000055; //0x0010
+	uint16_t N000002FB; //0x0012
+	uint32_t N000000F8; //0x0014
+	uint16_t N00000056; //0x0018
+	uint16_t N000002F7; //0x001A
+	uint16_t N000000FA; //0x001C
+	uint16_t N00000301; //0x001E
+	uint32_t N00000057; //0x0020
+	uint32_t N000000FC; //0x0024
+	uint32_t N00000058; //0x0028
+	uint32_t N000000FE; //0x002C
+	uint32_t r_UnitSelected; //0x0030
+	uint32_t r_HealthBarBlocks; //0x0034
+	uint32_t r_TicksAlive1; //0x0038
+	uint32_t r_TicksAlive2; //0x003C
+	uint32_t N0000005B; //0x0040
+	uint32_t r_UnknownFrameRelated; //0x0044
+	uint32_t N0000005C; //0x0048
+	uint32_t N00000106; //0x004C
+	Dircs16	r_Direction; //0x0050
+	uint16_t Unknown; //0x0052
+	uint32_t N00000108; //0x0054
+	uint32_t N0000005E; //0x0058
+	uint32_t N0000010A; //0x005C
+	uint32_t N0000005F; //0x0060
+	uint32_t r_IsInvisible; //0x0064
+	uint32_t N00000060; //0x0068
+	uint32_t N0000010E; //0x006C
+	uint32_t N00000061; //0x0070
+	uint32_t N00000110; //0x0074
+	uint32_t N00000062; //0x0078
+	uint32_t r_SpawnedForPlayerIndex; //0x007C
+	uint32_t N00000063; //0x0080
+	uint32_t N00000114; //0x0084
+	eAliveState r_UnitState; //0x0088
+	eChimps16 r_UnitChimp; //0x008A
+	uint32_t N00000116; //0x008C
+	uint8_t N00000573; //0x0090
+	uint8_t N00000568; //0x0091
+	uint8_t r_ControllableForPlayerId; //0x0092
+	uint8_t N00000569; //0x0093
+	uint32_t r_GlobalId; //0x0094
+	uint32_t N00000066; //0x0098
+	uint32_t N0000011A; //0x009C
+	uint32_t N00000067; //0x00A0
+	uint32_t r_WorkerTargetContextEntityGlobalId; //0x00A4
+	uint32_t N00000068; //0x00A8
+	uint16_t N0000011E; //0x00AC
+	uint16_t r_UnitSelected2; //0x00AE
+	uint16_t N00000069; //0x00B0
+	uint16_t r_CurrentWorldPositionX; //0x00B2
+	uint16_t r_CurrentWorldPositionY; //0x00B4
+	uint16_t r_HeightElevation; //0x00B6
+	int16_t N0000006A; //0x00B8
+	uint16_t r_LookAtWorldPositionX; //0x00BA
+	uint16_t r_LookAtWorldPositionY; //0x00BC
+	uint16_t r_LookAtHeight; //0x00BE
+	uint16_t r_CurrentTilePositionX; //0x00C0
+	uint16_t r_CurrentTilePositionY; //0x00C2
+	uint16_t r_TargetTilePositionX; //0x00C4
+	uint16_t r_TargetTilePositionY; //0x00C6
+	uint16_t r_PreviousTilePositionX; //0x00C8
+	uint16_t r_PreviousTilePositionY; //0x00CA
+	uint32_t N00000126; //0x00CC
+	uint32_t r_CurrentPositionTileId; //0x00D0
+	uint32_t r_TargetPositionTileId; //0x00D4
+	uint32_t r_PreviousPositionTileId; //0x00D8
+	uint16_t r_NextTilePositionX2; //0x00DC
+	uint16_t r_NextTilePositionY2; //0x00DE
+	uint32_t r_NextPositionTileId2; //0x00E0
+	uint32_t N0000012C; //0x00E4
+	uint16_t r_TargetTilePositionX2; //0x00E8
+	uint16_t r_TargetTilePositionY2; //0x00EA
+	uint32_t N0000012E; //0x00EC
+	uint32_t r_PathingRelevant; //0x00F0
+	uint16_t r_MovingRelevant; //0x00F4
+	uint16_t p_CurrentPathPlanPosition; //0x00F6
+	uint32_t p_PathPlanSize; //0x00F8
+	uint32_t N00000132; //0x00FC
+	uint32_t N00000073; //0x0100
+	uint32_t N00000134; //0x0104
+	uint32_t N00000074; //0x0108
+	uint32_t N00000136; //0x010C
+	uint32_t N00000075; //0x0110
+	uint32_t N00000138; //0x0114
+	uint32_t N00000076; //0x0118
+	uint32_t N0000013A; //0x011C
+	uint32_t N00000077; //0x0120
+	uint32_t N0000013C; //0x0124
+	uint32_t N00000078; //0x0128
+	uint32_t N0000013E; //0x012C
+	uint32_t N00000079; //0x0130
+	uint32_t N00000140; //0x0134
+	uint32_t N0000007A; //0x0138
+	uint32_t N00000142; //0x013C
+	uint32_t N0000007B; //0x0140
+	uint32_t N00000144; //0x0144
+	uint32_t N0000007C; //0x0148
+	uint32_t N00000146; //0x014C
+	uint32_t N0000007D; //0x0150
+	uint32_t N00000148; //0x0154
+	uint32_t N0000007E; //0x0158
+	uint32_t N0000014A; //0x015C
+	uint32_t N0000007F; //0x0160
+	uint32_t N0000014C; //0x0164
+	uint32_t N00000080; //0x0168
+	uint32_t N0000014E; //0x016C
+	uint32_t N00000081; //0x0170
+	uint32_t N00000150; //0x0174
+	uint32_t N00000082; //0x0178
+	uint32_t N00000152; //0x017C
+	uint32_t N00000083; //0x0180
+	uint32_t N00000154; //0x0184
+	uint32_t N00000084; //0x0188
+	uint32_t N00000156; //0x018C
+	uint32_t N00000085; //0x0190
+	uint32_t N00000158; //0x0194
+	uint32_t N00000086; //0x0198
+	uint32_t N0000015A; //0x019C
+	uint32_t N00000087; //0x01A0
+	uint32_t N0000015C; //0x01A4
+	uint32_t N00000088; //0x01A8
+	uint32_t N0000015E; //0x01AC
+	uint32_t N00000089; //0x01B0
+	uint32_t N00000160; //0x01B4
+	uint32_t N0000008A; //0x01B8
+	uint32_t N00000162; //0x01BC
+	uint32_t N0000008B; //0x01C0
+	uint32_t N00000164; //0x01C4
+	uint32_t N0000008C; //0x01C8
+	uint32_t N00000166; //0x01CC
+	uint32_t N0000008D; //0x01D0
+	uint32_t N00000168; //0x01D4
+	uint32_t N0000008E; //0x01D8
+	uint32_t N0000016A; //0x01DC
+	uint32_t N0000008F; //0x01E0
+	uint32_t N0000016C; //0x01E4
+	uint32_t N00000090; //0x01E8
+	uint32_t N0000016E; //0x01EC
+	uint32_t N00000091; //0x01F0
+	uint32_t N00000170; //0x01F4
+	uint32_t N00000092; //0x01F8
+	uint32_t N00000172; //0x01FC
+	uint32_t N00000093; //0x0200
+	uint32_t N00000174; //0x0204
+	uint32_t N00000094; //0x0208
+	uint32_t N00000176; //0x020C
+	uint32_t N00000095; //0x0210
+	uint32_t N00000178; //0x0214
+	uint32_t N00000096; //0x0218
+	uint32_t N0000017A; //0x021C
+	uint32_t N00000097; //0x0220
+	uint32_t N0000017C; //0x0224
+	uint32_t N00000098; //0x0228
+	uint32_t N0000017E; //0x022C
+	uint32_t N00000099; //0x0230
+	uint32_t N00000180; //0x0234
+	uint32_t N0000009A; //0x0238
+	uint32_t N00000182; //0x023C
+	uint32_t N0000009B; //0x0240
+	uint32_t N00000184; //0x0244
+	uint32_t N0000009C; //0x0248
+	uint32_t N00000186; //0x024C
+	uint32_t N0000009D; //0x0250
+	uint32_t N00000188; //0x0254
+	uint32_t N0000009E; //0x0258
+	uint32_t N0000018A; //0x025C
+	uint32_t N0000009F; //0x0260
+	uint32_t N0000018C; //0x0264
+	uint32_t N000000A0; //0x0268
+	uint32_t N0000018E; //0x026C
+	uint32_t N000000A1; //0x0270
+	uint32_t N00000190; //0x0274
+	uint32_t N000000A2; //0x0278
+	uint32_t N00000192; //0x027C
+	uint32_t N000000A3; //0x0280
+	uint32_t N00000194; //0x0284
+	uint32_t N000000A4; //0x0288
+	uint32_t N00000196; //0x028C
+	uint32_t N000000A5; //0x0290
+	uint32_t N00000198; //0x0294
+	uint32_t N000000A6; //0x0298
+	uint16_t r_IsKilledByProjectile; //0x029C
+	uint16_t N00008641; //0x029E
+	uint16_t p_r_SelectionAllowed; //0x02A0
+	uint16_t r_WorldDistanceToNearestEnemy; //0x02A2
+	uint32_t N0000019C; //0x02A4
+	uint32_t N000000A8; //0x02A8
+	uint32_t N0000019E; //0x02AC
+	uint32_t r_AutoTargetRelated; //0x02B0
+	uint32_t N000001A0; //0x02B4
+	uint16_t N000000AA; //0x02B8
+	uint16_t r_SpeedBonus; //0x02BA
+	uint32_t r_AIState; //0x02BC
+	uint32_t N000000AB; //0x02C0
+	int16_t r_TimeSinceDeathTicker; //0x02C4
+	eChimps16 r_TransformIntoUnitOfType; //0x02C6
+	uint32_t N000000AC; //0x02C8
+	uint32_t N000001A6; //0x02CC
+	uint16_t r_CurrentHealthPercentage; //0x02D0
+	uint16_t r_TribeLeaderUnitId; //0x02D2
+	uint16_t r_TribeId; //0x02D4
+	uint16_t UnknownAIFlag; //0x02D6
+	uint16_t r_AttackMoveToTargetTileX; //0x02D8
+	uint16_t r_AttackMoveToTargetTileY; //0x02DA
+	uint32_t N000001AA; //0x02DC
+	uint32_t N000000AF; //0x02E0
+	uint32_t N000001AC; //0x02E4
+	uint32_t N000000B0; //0x02E8
+	uint32_t N000001AE; //0x02EC
+	uint32_t N000000B1; //0x02F0
+	uint32_t N000001B0; //0x02F4
+	uint32_t N000000B2; //0x02F8
+	uint32_t N000001B2; //0x02FC
+	uint16_t r_CarryOverGoodsAmount; //0x0300
+	uint16_t r_CarryBonusYieldAmount; //0x0302
+	uint32_t N000001B4; //0x0304
+	uint32_t N000000B4; //0x0308
+	uint32_t N000001B6; //0x030C
+	uint32_t N000000B5; //0x0310
+	uint32_t N000001B8; //0x0314
+	uint32_t N000000B6; //0x0318
+	uint32_t N000001BA; //0x031C
+	uint32_t N000000B7; //0x0320
+	uint32_t N000001BC; //0x0324
+	uint16_t N000000B8; //0x0328
+	uint16_t UnknownRelevant2; //0x032A
+	uint32_t N000001BE; //0x032C
+	uint32_t N000000B9; //0x0330
+	uint16_t r_LinkedProductionBuildingId; //0x0334
+	uint16_t N00008638; //0x0336
+	uint16_t N000000BA; //0x0338
+	uint16_t r_AttackingUnitId; //0x033A
+	uint32_t N000001C2; //0x033C
+	uint32_t r_RangedAttackTargetUnitId; //0x0340
+	uint16_t N000001C4; //0x0344
+	uint16_t r_CurrentSpeed2; //0x0346
+	uint16_t r_CurrentSpeed; //0x0348
+	uint16_t N00008635; //0x034A
+	uint32_t r_AliveTicks1; //0x034C
+	uint32_t r_AliveTicks2; //0x0350
+	uint32_t r_SelectionRelevant3; //0x0354
+	uint32_t N000000BE; //0x0358
+	uint16_t N000001CA; //0x035C
+	uint8_t r_StoneAmmoLeft; //0x035E
+	uint8_t r_StoneAmmoStacksLeft; //0x035F
+	uint32_t N000000BF; //0x0360
+	uint32_t N000001CC; //0x0364
+	uint32_t N000000C0; //0x0368
+	uint8_t N000001CE; //0x036C
+	uint8_t UnknownRelevant1; //0x036D
+	uint16_t N0000026E; //0x036E
+	uint32_t Unknown2; //0x0370
+	uint32_t N000001D0; //0x0374
+	uint32_t N000000C2; //0x0378
+	uint32_t TimeUntilResting4thBit; //0x037C
+	uint16_t TimeUntilResting; //0x0380
+	uint16_t N0000026B; //0x0382
+	uint16_t r_CarryGoodAmount; //0x0384
+	uint16_t N0001184A; //0x0386
+	uint32_t N000000C4; //0x0388
+	uint32_t N000001D6; //0x038C
+	uint32_t N000000C5; //0x0390
+	uint32_t N000001D8; //0x0394
+	uint16_t r_AI_LastIssuedTribeCommand; //0x0398
+	uint16_t r_AI_ContextTargetUnitId; //0x039A
+	uint32_t r_AI_ContextTargetUnitGlobalId; //0x039C
+	uint32_t N000000C7; //0x03A0
+	uint32_t r_AI_ContextTargetBuildingTileId; //0x03A4
+	uint32_t N000000C8; //0x03A8
+	uint32_t N000001DE; //0x03AC
+	uint32_t N000000C9; //0x03B0
+	uint32_t N000001E0; //0x03B4
+	uint32_t N000000CA; //0x03B8
+	uint32_t N000001E2; //0x03BC
+	uint32_t N000000CB; //0x03C0
+	uint32_t r_CurrentHealth; //0x03C4
+	uint32_t r_MaxHealth; //0x03C8
+	uint32_t N000001E6; //0x03CC
+	uint32_t N000000CD; //0x03D0
+	uint32_t r_ShootingSalvoLeft; //0x03D4
+	uint32_t N000000CE; //0x03D8
+	uint32_t N000001EA; //0x03DC
+	uint32_t r_BlessedElapseTickTimer; //0x03E0
+	uint16_t r_ContextTargetTileX; //0x03E4
+	uint16_t r_ContextTargetTileY; //0x03E6
+	uint16_t N000000D0; //0x03E8
+	uint16_t r_UnknownAttackiterator; //0x03EA
+	uint32_t N000001EE; //0x03EC
+	uint32_t N000000D1; //0x03F0
+	uint32_t N000001F0; //0x03F4
+	uint16_t N000000D2; //0x03F8
+	uint16_t r_AISiegeEngineRelatedMaybe; //0x03FA
+	uint32_t N000001F2; //0x03FC
+	uint32_t r_ContextCurrentPositionTileId; //0x0400
+	uint32_t N000001F4; //0x0404
+	uint32_t N000000D4; //0x0408
+	uint32_t N000001F6; //0x040C
+	uint32_t N000000D5; //0x0410
+	uint32_t N000001F8; //0x0414
+	uint32_t N000000D6; //0x0418
+	uint32_t N000001FA; //0x041C
+	uint32_t N000000D7; //0x0420
+	uint16_t r_AITribeRoleRelatedUnknown; //0x0424
+	AISiegeRole16	r_AITribeRole; //0x0426
+	uint32_t N000000D8; //0x0428
+	uint32_t N000001FE; //0x042C
+	uint16_t N000000D9; //0x0430
+	uint16_t r_FarmerAIRelatedUnknown; //0x0432
+	uint32_t r_NearestEnemyWorldTiles; //0x0434
+	uint32_t N000000DA; //0x0438
+	uint32_t N00000202; //0x043C
+	uint16_t r_TimeAlive; //0x0440
+	uint16_t N00008AA0; //0x0442
+	uint32_t N00000204; //0x0444
+	uint32_t N000000DC; //0x0448
+	uint32_t N00000206; //0x044C
+	uint32_t N000000DD; //0x0450
+	uint32_t N00000208; //0x0454
+	uint16_t N000000DE; //0x0458
+	uint16_t r_DemolisherShieldHealth; //0x045A
+	uint32_t r_DemolisherShieldLastTakenDamageCooldown; //0x045C
+	uint32_t N000000DF; //0x0460
+	uint32_t N0000020C; //0x0464
+	uint32_t N000000E3; //0x0468
+	uint32_t N0000020E; //0x046C
+	uint32_t N000000E4; //0x0470
+	uint32_t N00000210; //0x0474
+	uint32_t N000000E5; //0x0478
+	uint32_t N00000212; //0x047C
+	uint32_t N000000E6; //0x0480
+	uint32_t N00000214; //0x0484
+	uint32_t N000000E7; //0x0488
+	uint32_t N00000216; //0x048C
+}; //Size: 0x0490
+
+
+class GameUnitManager
+{
+public:
+	uint32_t r_NextUnitId; //0x0000
+	uint32_t r_TotalUnits; //0x0004
+	uint32_t N000003DC; //0x0008
+	uint32_t N00002C1F; //0x000C
+	uint32_t N000003DD; //0x0010
+	uint32_t N00002C21; //0x0014
+	uint32_t N000003DE; //0x0018
+	uint32_t N00002C23; //0x001C
+	uint32_t r_HoveredChimpsCount; //0x0020
+	uint32_t N00002C25; //0x0024
+	uint32_t r_SelectedChimpsCount; //0x0028
+	uint32_t N00002C27; //0x002C
+	uint32_t N000003E1; //0x0030
+	uint32_t N00002C29; //0x0034
+	uint32_t N000003E2; //0x0038
+	uint32_t N00002C2B; //0x003C
+	uint32_t N000003E3; //0x0040
+	uint32_t N00002C2D; //0x0044
+	uint32_t N000003E4; //0x0048
+	uint32_t N00002C2F; //0x004C
+	uint32_t N000003E5; //0x0050
+	uint32_t N00002C31; //0x0054
+	uint32_t N000003E6; //0x0058
+	uint32_t N00002C33; //0x005C
+	uint32_t N000003E7; //0x0060
+	uint32_t N00002C35; //0x0064
+	uint32_t N000003E8; //0x0068
+	uint32_t N00002C37; //0x006C
+	uint32_t N000003E9; //0x0070
+	uint32_t N00002C39; //0x0074
+	uint32_t N000003EA; //0x0078
+	uint32_t N00002C3B; //0x007C
+	uint32_t N000003EB; //0x0080
+	uint32_t N000091DA; //0x0084
+	uint32_t N000003EC; //0x0088
+	uint32_t N000091DD; //0x008C
+	uint32_t N000003ED; //0x0090
+	uint32_t N000091E0; //0x0094
+	char pad_0098[1472]; //0x0098
+	uint32_t EmptyUnitFillValue; //0x0658
+	class GameUnitData LastOrderedUnit; //0x065C
+	class GameUnitData GameUnitArray[10000]; //0x0AEC
+}; //Size: 0x8F42C

@@ -1,0 +1,2155 @@
+<UserControl
+    x:Class="CrusaderDE.HUD_Troops"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:b="http://schemas.microsoft.com/xaml/behaviors"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:CrusaderDE"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    d:DataContext="{d:DesignInstance {x:Type local:MainViewModel},
+                                     IsDesignTimeCreatable=True}"
+    d:DesignHeight="155"
+    d:DesignWidth="800"
+    mc:Ignorable="d">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter
+            x:Key="booleanToVisibilityConverter" />
+        <Style
+            TargetType="{x:Type TextBlock}">
+            <Setter
+                Property="FontSize"
+                Value="24" />
+            <Setter
+                Property="HorizontalAlignment"
+                Value="Left" />
+            <Setter
+                Property="Foreground"
+                Value="#FFDDDDDD" />
+        </Style>
+    </UserControl.Resources>
+
+    <UserControl.Triggers>
+        <EventTrigger
+            RoutedEvent="FrameworkElement.Loaded" />
+    </UserControl.Triggers>
+
+    <Grid
+        x:Name="LayoutRoot"
+        Width="800"
+        Height="155"
+        Background="#00E2F383"
+        Tag="IgnoreSelf"
+        UseLayoutRounding="True">
+        <Grid.RenderTransform>
+            <TranslateTransform />
+        </Grid.RenderTransform>
+
+
+
+
+
+        <!--  Picture Frame troops  -->
+        <Grid
+            Name="MainFrameTroops"
+            Width="800"
+            Height="155"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Bottom"
+            IsHitTestVisible="False">
+            <Image
+                Width="800"
+                Height="155"
+                IsHitTestVisible="True"
+                RenderTransformOrigin="0.5,0.5"
+                FlowDirection="{Binding GlobalTextFlow}"
+                Source="{StaticResource UI-HUD 006}">
+                <Image.RenderTransform>
+                    <TransformGroup>
+                        <TranslateTransform
+                            Y="0" />
+                    </TransformGroup>
+                </Image.RenderTransform>
+            </Image>
+        </Grid>
+
+        <TextBlock
+            x:Name="TroopsPanelRollover"
+            Padding="4,2,4,0"
+            Margin="140,3,0,0"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top"
+            Panel.ZIndex="1"
+            FontSize="16"
+            Foreground="#FFDDDDDD"
+            Background="#55000000"
+            FlowDirection="{Binding GlobalTextFlowAL2R}"
+            Tag="Ignore">
+            <TextBlock.Effect>
+                <DropShadowEffect
+                    ShadowDepth="2"
+                    Direction="315"
+                    Color="#CC000000"
+                    BlurRadius="0" />
+            </TextBlock.Effect>
+            <Run
+                Text="{Binding TroopsPanelRollover}" /><!--
+         --><Run
+                Text="{Binding TroopsPanelRollover_AmountReq1}" /><!--
+         --><InlineUIContainer><Image
+                    Source="{Binding TroopsPanelRollover_GoodsImage1}"
+                    Height="18"
+                    Margin="0" /></InlineUIContainer><!--
+         --><Run
+                Text="{Binding TroopsPanelRollover_AmountGot1}" />
+        </TextBlock>
+
+        <TextBlock
+            x:Name="TroopsPanelRollover2"
+            Padding="4,2,4,0"
+            Margin="140,-400,0,127"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Bottom"
+            Panel.ZIndex="1"
+            FontSize="16"
+            MaxWidth="380"
+            TextWrapping="Wrap"
+            Foreground="#FFDDDDDD"
+            Background="#55000000"
+            FlowDirection="{Binding GlobalTextFlowAL2R}"
+            Tag="Ignore">
+            <TextBlock.Effect>
+                <DropShadowEffect
+                    ShadowDepth="2"
+                    Direction="315"
+                    Color="#CC000000"
+                    BlurRadius="0" />
+            </TextBlock.Effect>
+            <Run
+                Text="{Binding TroopsPanelRollover}" /><LineBreak /><!--
+         --><Run
+                FontSize="12"
+                Foreground="#FFEFF3C6"
+                Text="{Binding TroopsPanelRollover_AmountGot1}" />
+        </TextBlock>
+
+        <Button
+            Name="ToggleControlGroups"
+            Width="35"
+            Height="35"
+            Margin="519,11,0,0"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top"
+            Panel.ZIndex="2"
+            local:PropEx.Sprite1="{StaticResource Control_Group}"
+            local:PropEx.Sprite2="{StaticResource Control_Group_Highlight}"
+            local:PropEx.Sprite3="{StaticResource Control_Group_Highlight}"
+            local:PropEx.Sprite4="{StaticResource Control_Group_Highlight}"
+            Command="{Binding ButtonTroopPanelToggleCGCommand}"
+            CommandParameter="ToggleCG"
+            Style="{StaticResource BTN_Image}">
+            <b:Interaction.Triggers>
+                <b:EventTrigger
+                    EventName="MouseEnter">
+                    <b:InvokeCommandAction
+                        Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                        CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                </b:EventTrigger>
+                <b:EventTrigger
+                    EventName="MouseLeave">
+                    <b:InvokeCommandAction
+                        Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                        CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                </b:EventTrigger>
+            </b:Interaction.Triggers>
+        </Button>
+
+        <!--  Stance Tabs  -->
+        <StackPanel
+            Name="StanceTabs"
+            Width="150"
+            Height="64"
+            Margin="0,5,0,0"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top"
+            Background="#00E2F383"
+            Orientation="Horizontal">
+            <RadioButton
+                Name="GuardStanceButton"
+                Width="46"
+                Height="65"
+                Margin="0,0,0,0"
+                local:PropEx.Sprite1="{StaticResource UI-Buttons I001}"
+                local:PropEx.Sprite2="{StaticResource UI-Buttons I002}"
+                local:PropEx.Sprite3="{StaticResource UI-Buttons I003}"
+                local:PropEx.Sprite4="{StaticResource UI-Buttons I001}"
+                IsChecked="{Binding GuardStanceActive}"
+                Command="{Binding ButtonChangeStanceCommand}"
+                CommandParameter="1"
+                Content=""
+                Style="{StaticResource BTN_RADIO_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseEnter">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type RadioButton}}}" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseLeave">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type RadioButton}}}" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </RadioButton>
+            <RadioButton
+                Name="DefensiveStanceButton"
+                Width="40"
+                Height="46"
+                Margin="0,18,0,0"
+                local:PropEx.Sprite1="{StaticResource UI-Buttons I004}"
+                local:PropEx.Sprite2="{StaticResource UI-Buttons I005}"
+                local:PropEx.Sprite3="{StaticResource UI-Buttons I006}"
+                local:PropEx.Sprite4="{StaticResource UI-Buttons I004}"
+                IsChecked="{Binding DefensiveStanceActive}"
+                Command="{Binding ButtonChangeStanceCommand}"
+                CommandParameter="2"
+                Content=""
+                Style="{StaticResource BTN_RADIO_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseEnter">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type RadioButton}}}" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseLeave">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type RadioButton}}}" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </RadioButton>
+            <RadioButton
+                Name="AggressiveStanceButton"
+                Width="43"
+                Height="50"
+                Margin="0,14,0,0"
+                local:PropEx.Sprite1="{StaticResource UI-Buttons I007}"
+                local:PropEx.Sprite2="{StaticResource UI-Buttons I008}"
+                local:PropEx.Sprite3="{StaticResource UI-Buttons I009}"
+                local:PropEx.Sprite4="{StaticResource UI-Buttons I007}"
+                IsChecked="{Binding AggressiveStanceActive}"
+                Command="{Binding ButtonChangeStanceCommand}"
+                CommandParameter="3"
+                Content=""
+                Style="{StaticResource BTN_RADIO_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseEnter">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type RadioButton}}}" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseLeave">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type RadioButton}}}" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </RadioButton>
+        </StackPanel>
+
+        <!--  Uniit Controls  -->
+        <Grid
+            Name="UnitControls"
+            Width="130"
+            Height="88"
+            Margin="0,0,0,0"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Bottom"
+            Background="#00E2F383">
+            <!--  Disband (1)  -->
+            <Button
+                Name="UnitDisband"
+                Width="37"
+                Height="37"
+                Margin="2,0,83,43"
+                local:PropEx.Sprite1="{StaticResource UI-Buttons J004}"
+                local:PropEx.Sprite2="{StaticResource UI-Buttons J005}"
+                local:PropEx.Sprite3="{StaticResource UI-Buttons J006}"
+                local:PropEx.Sprite4="{StaticResource UI-Buttons J004}"
+                Command="{Binding ButtonUnitDisbandCommand}"
+                Content=""
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseEnter">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseLeave">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+
+            <!--  Build cat (1)  -->
+            <Button
+                Name="UnitBuildCat"
+                Width="37"
+                Height="37"
+                Margin="2,0,83,43"
+                local:PropEx.Sprite1="{StaticResource UI-Buttons J031}"
+                local:PropEx.Sprite2="{StaticResource UI-Buttons J032}"
+                local:PropEx.Sprite3="{StaticResource UI-Buttons J033}"
+                local:PropEx.Sprite4="{StaticResource UI-Buttons J031}"
+                Command="{Binding ButtonUnitBuildCatCommand}"
+                Content=""
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseEnter">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseLeave">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+
+            <!--  Stop (2)  -->
+            <Button
+                Name="UnitStop"
+                Width="37"
+                Height="37"
+                Margin="1,0,0,43"
+                local:PropEx.Sprite1="{StaticResource UI-Buttons J010}"
+                local:PropEx.Sprite2="{StaticResource UI-Buttons J011}"
+                local:PropEx.Sprite3="{StaticResource UI-Buttons J012}"
+                local:PropEx.Sprite4="{StaticResource UI-Buttons J010}"
+                Command="{Binding ButtonUnitStopCommand}"
+                Content=""
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseEnter">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseLeave">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+
+            <!--  Build treb (2)  -->
+            <Button
+                Name="UnitBuildTreb"
+                Width="37"
+                Height="37"
+                Margin="1,0,0,43"
+                local:PropEx.Sprite1="{Binding UIButtonsJ034}"
+                local:PropEx.Sprite2="{Binding UIButtonsJ035}"
+                local:PropEx.Sprite3="{Binding UIButtonsJ036}"
+                local:PropEx.Sprite4="{Binding UIButtonsJ034}"
+                Command="{Binding ButtonUnitBuildTrebCommand}"
+                Content=""
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseEnter">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseLeave">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+
+            <!--  Patrol (3)  -->
+            <Button
+                Name="UnitPatrol"
+                Width="36"
+                Height="37"
+                Margin="80,0,0,43"
+                local:PropEx.Sprite1="{StaticResource UI-Buttons J001}"
+                local:PropEx.Sprite2="{StaticResource UI-Buttons J002}"
+                local:PropEx.Sprite3="{StaticResource UI-Buttons J003}"
+                local:PropEx.Sprite4="{StaticResource UI-Buttons J001}"
+                Command="{Binding ButtonUnitPatrolCommand}"
+                Content=""
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseEnter">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseLeave">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+            <Button
+                Name="UnitPatrolActive"
+                Width="36"
+                Height="37"
+                Margin="80,0,0,43"
+                local:PropEx.Sprite1="{StaticResource UI-Buttons J003}"
+                local:PropEx.Sprite2="{StaticResource UI-Buttons J002}"
+                local:PropEx.Sprite3="{StaticResource UI-Buttons J001}"
+                local:PropEx.Sprite4="{StaticResource UI-Buttons J003}"
+                Command="{Binding ButtonUnitPatrolCommand}"
+                Content=""
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseEnter">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseLeave">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+            <!--  Build siege twr (3)  -->
+            <Button
+                Name="UnitBuildTower"
+                Width="36"
+                Height="37"
+                Margin="80,0,0,43"
+                local:PropEx.Sprite1="{StaticResource UI-Buttons J037}"
+                local:PropEx.Sprite2="{StaticResource UI-Buttons J038}"
+                local:PropEx.Sprite3="{StaticResource UI-Buttons J039}"
+                local:PropEx.Sprite4="{StaticResource UI-Buttons J037}"
+                Command="{Binding ButtonUnitBuildTwrCommand}"
+                Content=""
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseEnter">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseLeave">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+
+            <!--  Attack here (4)  -->
+            <Grid
+                Name="UnitAttackHere"
+                Width="37"
+                Height="37"
+                Margin="2,40,83,3">
+                <Button
+                    local:PropEx.Sprite1="{StaticResource UI-Buttons J016}"
+                    local:PropEx.Sprite2="{StaticResource UI-Buttons J017}"
+                    local:PropEx.Sprite3="{StaticResource UI-Buttons J018}"
+                    local:PropEx.Sprite4="{StaticResource UI-Buttons J016}"
+                    Command="{Binding ButtonUnitAttackHereCommand}"
+                    Content=""
+                    Style="{StaticResource BTN_Image}">
+                    <b:Interaction.Triggers>
+                        <b:EventTrigger
+                            EventName="MouseEnter">
+                            <b:InvokeCommandAction
+                                Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                                CommandParameter="UnitAttackHere" />
+                        </b:EventTrigger>
+                        <b:EventTrigger
+                            EventName="MouseLeave">
+                            <b:InvokeCommandAction
+                                Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                                CommandParameter="UnitAttackHere" />
+                        </b:EventTrigger>
+                    </b:Interaction.Triggers>
+                </Button>
+                <TextBlock
+                    Text="{Binding AmmoLeft}"
+                    Width="34"
+                    VerticalAlignment="Top"
+                    Margin="4,0,0,0"
+                    TextAlignment="Left"
+                    FontSize="16"
+                    IsHitTestVisible="False"
+                    Foreground="Black" />
+            </Grid>
+            <!--  tunnel here (4)  -->
+            <Button
+                Name="UnitTunnelHere"
+                Width="37"
+                Height="37"
+                Margin="2,40,83,3"
+                local:PropEx.Sprite1="{StaticResource UI-Buttons J022}"
+                local:PropEx.Sprite2="{StaticResource UI-Buttons J023}"
+                local:PropEx.Sprite3="{StaticResource UI-Buttons J024}"
+                local:PropEx.Sprite4="{StaticResource UI-Buttons J022}"
+                Command="{Binding ButtonUnitBuildTunnelCommand}"
+                Content=""
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseEnter">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseLeave">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+
+            <!--  pour oil (4)  -->
+            <Button
+                Name="UnitPourOil"
+                Width="37"
+                Height="37"
+                Margin="2,40,83,3"
+                local:PropEx.Sprite1="{StaticResource UI-Buttons J019}"
+                local:PropEx.Sprite2="{StaticResource UI-Buttons J020}"
+                local:PropEx.Sprite3="{StaticResource UI-Buttons J021}"
+                local:PropEx.Sprite4="{StaticResource UI-Buttons J019}"
+                Command="{Binding ButtonUnitPourOilCommand}"
+                Content=""
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseEnter">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseLeave">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+
+            <!--  build ram (4)  -->
+            <Button
+                Name="UnitBuildRam"
+                Width="37"
+                Height="37"
+                Margin="2,40,83,3"
+                local:PropEx.Sprite1="{Binding UIButtonsJ040}"
+                local:PropEx.Sprite2="{Binding UIButtonsJ041}"
+                local:PropEx.Sprite3="{Binding UIButtonsJ042}"
+                local:PropEx.Sprite4="{Binding UIButtonsJ040}"
+                Command="{Binding ButtonUnitBuildRamCommand}"
+                Content=""
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseEnter">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseLeave">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+
+            <!--  Build siege kit (5)  -->
+            <Button
+                Name="UnitBuild"
+                Width="36"
+                Height="37"
+                Margin="1,40,2,3"
+                local:PropEx.Sprite1="{StaticResource UI-Buttons J013}"
+                local:PropEx.Sprite2="{StaticResource UI-Buttons J014}"
+                local:PropEx.Sprite3="{StaticResource UI-Buttons J015}"
+                local:PropEx.Sprite4="{StaticResource UI-Buttons J013}"
+                Command="{Binding ButtonUnitBuildSiegeKitCommand}"
+                Content=""
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseEnter">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseLeave">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+
+            <!--  Recharge rocks (5)  -->
+            <Grid
+                Name="UnitReload"
+                Width="37"
+                Height="37"
+                Margin="1,40,2,3">
+                <Button
+                    local:PropEx.Sprite1="{StaticResource UI-Buttons J025}"
+                    local:PropEx.Sprite2="{StaticResource UI-Buttons J026}"
+                    local:PropEx.Sprite3="{StaticResource UI-Buttons J027}"
+                    local:PropEx.Sprite4="{StaticResource UI-Buttons J026}"
+                    Command="{Binding ButtonUnitRechargeRockCommand}"
+                    Style="{StaticResource BTN_Image}">
+                    <b:Interaction.Triggers>
+                        <b:EventTrigger
+                            EventName="MouseEnter">
+                            <b:InvokeCommandAction
+                                Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                                CommandParameter="UnitReload" />
+                        </b:EventTrigger>
+                        <b:EventTrigger
+                            EventName="MouseLeave">
+                            <b:InvokeCommandAction
+                                Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                                CommandParameter="UnitReload" />
+                        </b:EventTrigger>
+                    </b:Interaction.Triggers>
+                </Button>
+
+            </Grid>
+            <!--  build mantlet (5)  -->
+            <Button
+                Name="UnitbuildMantlet"
+                Width="36"
+                Height="37"
+                Margin="1,40,2,3"
+                local:PropEx.Sprite1="{Binding UIButtonsJ043}"
+                local:PropEx.Sprite2="{Binding UIButtonsJ044}"
+                local:PropEx.Sprite3="{Binding UIButtonsJ045}"
+                local:PropEx.Sprite4="{Binding UIButtonsJ043}"
+                Command="{Binding ButtonUnitBuildMantletCommand}"
+                Content=""
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseEnter">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseLeave">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+
+            <!--  Launch Cow (6)  -->
+            <Grid
+                Name="UnitFireCow"
+                Width="37"
+                Height="37"
+                Margin="81,40,0,3">
+                <Button
+                    local:PropEx.Sprite1="{StaticResource UI-Buttons J007}"
+                    local:PropEx.Sprite2="{StaticResource UI-Buttons J008}"
+                    local:PropEx.Sprite3="{StaticResource UI-Buttons J009}"
+                    local:PropEx.Sprite4="{StaticResource UI-Buttons J007}"
+                    Command="{Binding ButtonUnitLaunchCowCommand}"
+                    Content=""
+                    Style="{StaticResource BTN_Image}">
+                    <b:Interaction.Triggers>
+                        <b:EventTrigger
+                            EventName="MouseEnter">
+                            <b:InvokeCommandAction
+                                Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                                CommandParameter="UnitFireCow" />
+                        </b:EventTrigger>
+                        <b:EventTrigger
+                            EventName="MouseLeave">
+                            <b:InvokeCommandAction
+                                Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                                CommandParameter="UnitFireCow" />
+                        </b:EventTrigger>
+                    </b:Interaction.Triggers>
+                </Button>
+                <TextBlock
+                    Text="{Binding CowAmmoLeft}"
+                    Width="34"
+                    VerticalAlignment="Top"
+                    TextAlignment="Right"
+                    FontSize="16"
+                    IsHitTestVisible="False"
+                    Foreground="Black" />
+            </Grid>
+            <!--  build - back (X)  -->
+            <Button
+                Name="UnitBack"
+                Width="15"
+                Height="17"
+                Margin="91,0,-50,3"
+                local:PropEx.Sprite1="{StaticResource UI-Buttons J028}"
+                local:PropEx.Sprite2="{StaticResource UI-Buttons J029}"
+                local:PropEx.Sprite3="{StaticResource UI-Buttons J030}"
+                local:PropEx.Sprite4="{StaticResource UI-Buttons J028}"
+                Command="{Binding ButtonUnitbackCommand}"
+                Content=""
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseEnter">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseLeave">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+            <!--  build - arab ballista (6)  -->
+            <Button
+                Name="UnitbuildArabBallista"
+                Width="37"
+                Height="37"
+                Margin="81,40,0,3"
+                local:PropEx.Sprite1="{Binding UIButtonsJ046}"
+                local:PropEx.Sprite2="{Binding UIButtonsJ047}"
+                local:PropEx.Sprite3="{Binding UIButtonsJ048}"
+                local:PropEx.Sprite4="{Binding UIButtonsJ046}"
+                Command="{Binding ButtonUnitBuildArabBallistaCommand}"
+                Content=""
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseEnter">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseLeave">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+        </Grid>
+
+        <!--  Troop selection Controls  -->
+        <Grid
+            Name="TroopSelectionControls"
+            Width="408"
+            Height="120"
+            Margin="142,0,0,2"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Bottom"
+            Background="#00E2F383">
+
+            <!--  Archers  -->
+            <Button
+                Name="ArchersSelected"
+                Width="45"
+                Height="86"
+                local:PropEx.Sprite1="{Binding UIButtonsK023}"
+                local:PropEx.Sprite2="{Binding UIButtonsK024}"
+                local:PropEx.Sprite3="{Binding UIButtonsK024}"
+                Command="{Binding LeftClickSelectedTroopCommand}"
+                CommandParameter="CHIMP_TYPE_ARCHER"
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseRightButtonDown">
+                        <b:InvokeCommandAction
+                            Command="{Binding RightClickSelectedTroopCommand}"
+                            CommandParameter="CHIMP_TYPE_ARCHER" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseEnter">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseLeave">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+
+            <!--  Spearmen  -->
+            <Button
+                Name="SpearmenSelected"
+                Width="45"
+                Height="86"
+                local:PropEx.Sprite1="{Binding UIButtonsK001}"
+                local:PropEx.Sprite2="{Binding UIButtonsK002}"
+                local:PropEx.Sprite3="{Binding UIButtonsK002}"
+                Command="{Binding LeftClickSelectedTroopCommand}"
+                CommandParameter="CHIMP_TYPE_SPEARMAN"
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseRightButtonDown">
+                        <b:InvokeCommandAction
+                            Command="{Binding RightClickSelectedTroopCommand}"
+                            CommandParameter="CHIMP_TYPE_SPEARMAN" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseEnter">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseLeave">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+
+            <!--  Macemen  -->
+            <Button
+                Name="MacemenSelected"
+                Width="45"
+                Height="86"
+                local:PropEx.Sprite1="{Binding UIButtonsK003}"
+                local:PropEx.Sprite2="{Binding UIButtonsK004}"
+                local:PropEx.Sprite3="{Binding UIButtonsK004}"
+                Command="{Binding LeftClickSelectedTroopCommand}"
+                CommandParameter="CHIMP_TYPE_MACEMAN"
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseRightButtonDown">
+                        <b:InvokeCommandAction
+                            Command="{Binding RightClickSelectedTroopCommand}"
+                            CommandParameter="CHIMP_TYPE_MACEMAN" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseEnter">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseLeave">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+
+            <!--  XBowmen  -->
+            <Button
+                Name="XBowmenSelected"
+                Width="45"
+                Height="86"
+                local:PropEx.Sprite1="{Binding UIButtonsK005}"
+                local:PropEx.Sprite2="{Binding UIButtonsK006}"
+                local:PropEx.Sprite3="{Binding UIButtonsK006}"
+                Command="{Binding LeftClickSelectedTroopCommand}"
+                CommandParameter="CHIMP_TYPE_XBOWMAN"
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseRightButtonDown">
+                        <b:InvokeCommandAction
+                            Command="{Binding RightClickSelectedTroopCommand}"
+                            CommandParameter="CHIMP_TYPE_XBOWMAN" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseEnter">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseLeave">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+
+            <!--  Pikemen  -->
+            <Button
+                Name="PikemenSelected"
+                Width="45"
+                Height="86"
+                local:PropEx.Sprite1="{Binding UIButtonsK025}"
+                local:PropEx.Sprite2="{Binding UIButtonsK026}"
+                local:PropEx.Sprite3="{Binding UIButtonsK026}"
+                Command="{Binding LeftClickSelectedTroopCommand}"
+                CommandParameter="CHIMP_TYPE_PIKEMAN"
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseRightButtonDown">
+                        <b:InvokeCommandAction
+                            Command="{Binding RightClickSelectedTroopCommand}"
+                            CommandParameter="CHIMP_TYPE_PIKEMAN" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseEnter">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseLeave">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+
+            <!--  Swordsmen  -->
+            <Button
+                Name="SwordsmenSelected"
+                Width="45"
+                Height="86"
+                local:PropEx.Sprite1="{Binding UIButtonsK007}"
+                local:PropEx.Sprite2="{Binding UIButtonsK008}"
+                local:PropEx.Sprite3="{Binding UIButtonsK008}"
+                Command="{Binding LeftClickSelectedTroopCommand}"
+                CommandParameter="CHIMP_TYPE_SWORDSMAN"
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseRightButtonDown">
+                        <b:InvokeCommandAction
+                            Command="{Binding RightClickSelectedTroopCommand}"
+                            CommandParameter="CHIMP_TYPE_SWORDSMAN" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseEnter">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseLeave">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+
+            <!--  Knights  -->
+            <Button
+                Name="KnightsSelected"
+                Width="45"
+                Height="86"
+                local:PropEx.Sprite1="{Binding UIButtonsK027}"
+                local:PropEx.Sprite2="{Binding UIButtonsK028}"
+                local:PropEx.Sprite3="{Binding UIButtonsK028}"
+                Command="{Binding LeftClickSelectedTroopCommand}"
+                CommandParameter="CHIMP_TYPE_KNIGHT"
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseRightButtonDown">
+                        <b:InvokeCommandAction
+                            Command="{Binding RightClickSelectedTroopCommand}"
+                            CommandParameter="CHIMP_TYPE_KNIGHT" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseEnter">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseLeave">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+
+            <!--  Engineers  -->
+            <Button
+                Name="EngineersSelected"
+                Width="45"
+                Height="86"
+                local:PropEx.Sprite1="{Binding UIButtonsK009}"
+                local:PropEx.Sprite2="{Binding UIButtonsK010}"
+                local:PropEx.Sprite3="{Binding UIButtonsK010}"
+                Command="{Binding LeftClickSelectedTroopCommand}"
+                CommandParameter="CHIMP_TYPE_ENGINEER"
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseRightButtonDown">
+                        <b:InvokeCommandAction
+                            Command="{Binding RightClickSelectedTroopCommand}"
+                            CommandParameter="CHIMP_TYPE_ENGINEER" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseEnter">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseLeave">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+
+            <!--  Monks  -->
+            <Button
+                Name="MonksSelected"
+                Width="45"
+                Height="86"
+                local:PropEx.Sprite1="{Binding UIButtonsK011}"
+                local:PropEx.Sprite2="{Binding UIButtonsK012}"
+                local:PropEx.Sprite3="{Binding UIButtonsK012}"
+                Command="{Binding LeftClickSelectedTroopCommand}"
+                CommandParameter="CHIMP_TYPE_MONK"
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseRightButtonDown">
+                        <b:InvokeCommandAction
+                            Command="{Binding RightClickSelectedTroopCommand}"
+                            CommandParameter="CHIMP_TYPE_MONK" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseEnter">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseLeave">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+
+            <!--  Laddermen  -->
+            <Button
+                Name="LaddermenSelected"
+                Width="45"
+                Height="86"
+                local:PropEx.Sprite1="{Binding UIButtonsK029}"
+                local:PropEx.Sprite2="{Binding UIButtonsK030}"
+                local:PropEx.Sprite3="{Binding UIButtonsK030}"
+                Command="{Binding LeftClickSelectedTroopCommand}"
+                CommandParameter="CHIMP_TYPE_LADDERMAN"
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseRightButtonDown">
+                        <b:InvokeCommandAction
+                            Command="{Binding RightClickSelectedTroopCommand}"
+                            CommandParameter="CHIMP_TYPE_LADDERMAN" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseEnter">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseLeave">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+
+            <!--  Tunnelers  -->
+            <Button
+                Name="TunnelersSelected"
+                Width="45"
+                Height="86"
+                local:PropEx.Sprite1="{Binding UIButtonsK031}"
+                local:PropEx.Sprite2="{Binding UIButtonsK032}"
+                local:PropEx.Sprite3="{Binding UIButtonsK032}"
+                Command="{Binding LeftClickSelectedTroopCommand}"
+                CommandParameter="CHIMP_TYPE_TUNNELER"
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseRightButtonDown">
+                        <b:InvokeCommandAction
+                            Command="{Binding RightClickSelectedTroopCommand}"
+                            CommandParameter="CHIMP_TYPE_TUNNELER" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseEnter">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseLeave">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+
+            <!--  Catapults  -->
+            <Button
+                Name="CatapultsSelected"
+                Width="45"
+                Height="86"
+                local:PropEx.Sprite1="{Binding UIButtonsK013}"
+                local:PropEx.Sprite2="{Binding UIButtonsK014}"
+                local:PropEx.Sprite3="{Binding UIButtonsK014}"
+                Command="{Binding LeftClickSelectedTroopCommand}"
+                CommandParameter="CHIMP_TYPE_CATAPULT"
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseRightButtonDown">
+                        <b:InvokeCommandAction
+                            Command="{Binding RightClickSelectedTroopCommand}"
+                            CommandParameter="CHIMP_TYPE_CATAPULT" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseEnter">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseLeave">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+
+            <!--  Trebuchets  -->
+            <Button
+                Name="TrebuchetsSelected"
+                Width="45"
+                Height="86"
+                local:PropEx.Sprite1="{Binding UIButtonsK015}"
+                local:PropEx.Sprite2="{Binding UIButtonsK016}"
+                local:PropEx.Sprite3="{Binding UIButtonsK016}"
+                Command="{Binding LeftClickSelectedTroopCommand}"
+                CommandParameter="CHIMP_TYPE_TREBUCHET"
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseRightButtonDown">
+                        <b:InvokeCommandAction
+                            Command="{Binding RightClickSelectedTroopCommand}"
+                            CommandParameter="CHIMP_TYPE_TREBUCHET" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseEnter">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseLeave">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+
+            <!--  Rams  -->
+            <Button
+                Name="RamsSelected"
+                Width="45"
+                Height="86"
+                local:PropEx.Sprite1="{Binding UIButtonsK017}"
+                local:PropEx.Sprite2="{Binding UIButtonsK018}"
+                local:PropEx.Sprite3="{Binding UIButtonsK018}"
+                Command="{Binding LeftClickSelectedTroopCommand}"
+                CommandParameter="CHIMP_TYPE_BATTERING_RAM"
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseRightButtonDown">
+                        <b:InvokeCommandAction
+                            Command="{Binding RightClickSelectedTroopCommand}"
+                            CommandParameter="CHIMP_TYPE_BATTERING_RAM" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseEnter">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseLeave">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+
+            <!--  Siege Towers  -->
+            <Button
+                Name="SiegeTowersSelected"
+                Width="45"
+                Height="86"
+                local:PropEx.Sprite1="{Binding UIButtonsK019}"
+                local:PropEx.Sprite2="{Binding UIButtonsK020}"
+                local:PropEx.Sprite3="{Binding UIButtonsK020}"
+                Command="{Binding LeftClickSelectedTroopCommand}"
+                CommandParameter="CHIMP_TYPE_SIEGE_TOWER"
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseRightButtonDown">
+                        <b:InvokeCommandAction
+                            Command="{Binding RightClickSelectedTroopCommand}"
+                            CommandParameter="CHIMP_TYPE_SIEGE_TOWER" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseEnter">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseLeave">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+
+            <!--  Mantlets  -->
+            <Button
+                Name="MantletsSelected"
+                Width="45"
+                Height="86"
+                local:PropEx.Sprite1="{Binding UIButtonsK033}"
+                local:PropEx.Sprite2="{Binding UIButtonsK034}"
+                local:PropEx.Sprite3="{Binding UIButtonsK034}"
+                Command="{Binding LeftClickSelectedTroopCommand}"
+                CommandParameter="CHIMP_TYPE_PORTABLE_SHIELD"
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseRightButtonDown">
+                        <b:InvokeCommandAction
+                            Command="{Binding RightClickSelectedTroopCommand}"
+                            CommandParameter="CHIMP_TYPE_PORTABLE_SHIELD" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseEnter">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseLeave">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+
+            <!--  Mangonels  -->
+            <Button
+                Name="MangonelsSelected"
+                Width="45"
+                Height="86"
+                local:PropEx.Sprite1="{Binding UIButtonsK021}"
+                local:PropEx.Sprite2="{Binding UIButtonsK022}"
+                local:PropEx.Sprite3="{Binding UIButtonsK022}"
+                Command="{Binding LeftClickSelectedTroopCommand}"
+                CommandParameter="CHIMP_TYPE_MANGONEL"
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseRightButtonDown">
+                        <b:InvokeCommandAction
+                            Command="{Binding RightClickSelectedTroopCommand}"
+                            CommandParameter="CHIMP_TYPE_MANGONEL" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseEnter">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseLeave">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+
+            <!--  Balistae  -->
+            <Button
+                Name="BalistaeSelected"
+                Width="45"
+                Height="86"
+                local:PropEx.Sprite1="{Binding UIButtonsK035}"
+                local:PropEx.Sprite2="{Binding UIButtonsK036}"
+                local:PropEx.Sprite3="{Binding UIButtonsK036}"
+                Command="{Binding LeftClickSelectedTroopCommand}"
+                CommandParameter="CHIMP_TYPE_BALLISTA"
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseRightButtonDown">
+                        <b:InvokeCommandAction
+                            Command="{Binding RightClickSelectedTroopCommand}"
+                            CommandParameter="CHIMP_TYPE_BALLISTA" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseEnter">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseLeave">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+
+            <!--  arab Bow  -->
+            <Button
+                Name="ArabBowSelected"
+                Width="45"
+                Height="86"
+                local:PropEx.Sprite1="{Binding UIButtonsK037}"
+                local:PropEx.Sprite2="{Binding UIButtonsK038}"
+                local:PropEx.Sprite3="{Binding UIButtonsK038}"
+                Command="{Binding LeftClickSelectedTroopCommand}"
+                CommandParameter="CHIMP_TYPE_ARAB_BOW"
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseRightButtonDown">
+                        <b:InvokeCommandAction
+                            Command="{Binding RightClickSelectedTroopCommand}"
+                            CommandParameter="CHIMP_TYPE_ARAB_BOW" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseEnter">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseLeave">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+
+            <!--  arab slave  -->
+            <Button
+                Name="ArabSlaveSelected"
+                Width="45"
+                Height="86"
+                local:PropEx.Sprite1="{Binding UIButtonsK039}"
+                local:PropEx.Sprite2="{Binding UIButtonsK040}"
+                local:PropEx.Sprite3="{Binding UIButtonsK040}"
+                Command="{Binding LeftClickSelectedTroopCommand}"
+                CommandParameter="CHIMP_TYPE_ARAB_SLAVE"
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseRightButtonDown">
+                        <b:InvokeCommandAction
+                            Command="{Binding RightClickSelectedTroopCommand}"
+                            CommandParameter="CHIMP_TYPE_ARAB_SLAVE" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseEnter">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseLeave">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+
+            <!--  arab slinger  -->
+            <Button
+                Name="ArabSlingerSelected"
+                Width="45"
+                Height="86"
+                local:PropEx.Sprite1="{Binding UIButtonsK041}"
+                local:PropEx.Sprite2="{Binding UIButtonsK042}"
+                local:PropEx.Sprite3="{Binding UIButtonsK042}"
+                Command="{Binding LeftClickSelectedTroopCommand}"
+                CommandParameter="CHIMP_TYPE_ARAB_SLINGER"
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseRightButtonDown">
+                        <b:InvokeCommandAction
+                            Command="{Binding RightClickSelectedTroopCommand}"
+                            CommandParameter="CHIMP_TYPE_ARAB_SLINGER" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseEnter">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseLeave">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+
+            <!--  arab assassin  -->
+            <Button
+                Name="ArabAssassinSelected"
+                Width="45"
+                Height="86"
+                local:PropEx.Sprite1="{Binding UIButtonsK043}"
+                local:PropEx.Sprite2="{Binding UIButtonsK044}"
+                local:PropEx.Sprite3="{Binding UIButtonsK044}"
+                Command="{Binding LeftClickSelectedTroopCommand}"
+                CommandParameter="CHIMP_TYPE_ARAB_ASSASIN"
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseRightButtonDown">
+                        <b:InvokeCommandAction
+                            Command="{Binding RightClickSelectedTroopCommand}"
+                            CommandParameter="CHIMP_TYPE_ARAB_ASSASIN" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseEnter">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseLeave">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+
+            <!--  arab horse archer  -->
+            <Button
+                Name="ArabHorseArcherSelected"
+                Width="45"
+                Height="86"
+                local:PropEx.Sprite1="{Binding UIButtonsK045}"
+                local:PropEx.Sprite2="{Binding UIButtonsK046}"
+                local:PropEx.Sprite3="{Binding UIButtonsK046}"
+                Command="{Binding LeftClickSelectedTroopCommand}"
+                CommandParameter="CHIMP_TYPE_ARAB_HORSEMAN"
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseRightButtonDown">
+                        <b:InvokeCommandAction
+                            Command="{Binding RightClickSelectedTroopCommand}"
+                            CommandParameter="CHIMP_TYPE_ARAB_HORSEMAN" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseEnter">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseLeave">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+
+            <!--  arab swordsmen  -->
+            <Button
+                Name="ArabSwordsmanSelected"
+                Width="45"
+                Height="86"
+                local:PropEx.Sprite1="{Binding UIButtonsK047}"
+                local:PropEx.Sprite2="{Binding UIButtonsK048}"
+                local:PropEx.Sprite3="{Binding UIButtonsK048}"
+                Command="{Binding LeftClickSelectedTroopCommand}"
+                CommandParameter="CHIMP_TYPE_ARAB_SWORDSMAN"
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseRightButtonDown">
+                        <b:InvokeCommandAction
+                            Command="{Binding RightClickSelectedTroopCommand}"
+                            CommandParameter="CHIMP_TYPE_ARAB_SWORDSMAN" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseEnter">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseLeave">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+
+            <!--  arab grenadier  -->
+            <Button
+                Name="ArabGrenadierSelected"
+                Width="45"
+                Height="86"
+                local:PropEx.Sprite1="{Binding UIButtonsK049}"
+                local:PropEx.Sprite2="{Binding UIButtonsK050}"
+                local:PropEx.Sprite3="{Binding UIButtonsK050}"
+                Command="{Binding LeftClickSelectedTroopCommand}"
+                CommandParameter="CHIMP_TYPE_ARAB_GRENADIER"
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseRightButtonDown">
+                        <b:InvokeCommandAction
+                            Command="{Binding RightClickSelectedTroopCommand}"
+                            CommandParameter="CHIMP_TYPE_ARAB_GRENADIER" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseEnter">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseLeave">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+
+            <!--  arab ballista  -->
+            <Button
+                Name="ArabBallistaSelected"
+                Width="45"
+                Height="86"
+                local:PropEx.Sprite1="{Binding UIButtonsK051}"
+                local:PropEx.Sprite2="{Binding UIButtonsK052}"
+                local:PropEx.Sprite3="{Binding UIButtonsK052}"
+                Command="{Binding LeftClickSelectedTroopCommand}"
+                CommandParameter="CHIMP_TYPE_ARAB_BALLISTA"
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseRightButtonDown">
+                        <b:InvokeCommandAction
+                            Command="{Binding RightClickSelectedTroopCommand}"
+                            CommandParameter="CHIMP_TYPE_ARAB_BALLISTA" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseEnter">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseLeave">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+            
+            <!-- Bedouin troops -->
+
+            <!--  camel lancer  -->
+            <Button
+                Name="BedouinCamelLancerSelected"
+                Width="45"
+                Height="86"
+                local:PropEx.Sprite1="{Binding UIButtonsK053}"
+                local:PropEx.Sprite2="{Binding UIButtonsK054}"
+                local:PropEx.Sprite3="{Binding UIButtonsK054}"
+                Command="{Binding LeftClickSelectedTroopCommand}"
+                CommandParameter="CHIMP_TYPE_BEDOUIN_CAMEL_LANCER"
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseRightButtonDown">
+                        <b:InvokeCommandAction
+                            Command="{Binding RightClickSelectedTroopCommand}"
+                            CommandParameter="CHIMP_TYPE_BEDOUIN_CAMEL_LANCER" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseEnter">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseLeave">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+
+            <!--  Healer  -->
+            <Button
+                Name="BedouinHealerSelected"
+                Width="45"
+                Height="86"
+                local:PropEx.Sprite1="{Binding UIButtonsK055}"
+                local:PropEx.Sprite2="{Binding UIButtonsK056}"
+                local:PropEx.Sprite3="{Binding UIButtonsK056}"
+                Command="{Binding LeftClickSelectedTroopCommand}"
+                CommandParameter="CHIMP_TYPE_BEDOUIN_HEALER"
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseRightButtonDown">
+                        <b:InvokeCommandAction
+                            Command="{Binding RightClickSelectedTroopCommand}"
+                            CommandParameter="CHIMP_TYPE_BEDOUIN_HEALER" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseEnter">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseLeave">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+
+            <!--  Eunuch  -->
+            <Button
+                Name="BedouinEunuchSelected"
+                Width="45"
+                Height="86"
+                local:PropEx.Sprite1="{Binding UIButtonsK057}"
+                local:PropEx.Sprite2="{Binding UIButtonsK058}"
+                local:PropEx.Sprite3="{Binding UIButtonsK058}"
+                Command="{Binding LeftClickSelectedTroopCommand}"
+                CommandParameter="CHIMP_TYPE_BEDOUIN_EUNUCH"
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseRightButtonDown">
+                        <b:InvokeCommandAction
+                            Command="{Binding RightClickSelectedTroopCommand}"
+                            CommandParameter="CHIMP_TYPE_BEDOUIN_EUNUCH" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseEnter">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseLeave">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+
+            <!--  Ambusher  -->
+            <Button
+                Name="BedouinAmbusherSelected"
+                Width="45"
+                Height="86"
+                local:PropEx.Sprite1="{Binding UIButtonsK059}"
+                local:PropEx.Sprite2="{Binding UIButtonsK060}"
+                local:PropEx.Sprite3="{Binding UIButtonsK060}"
+                Command="{Binding LeftClickSelectedTroopCommand}"
+                CommandParameter="CHIMP_TYPE_BEDOUIN_AMBUSHER"
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseRightButtonDown">
+                        <b:InvokeCommandAction
+                            Command="{Binding RightClickSelectedTroopCommand}"
+                            CommandParameter="CHIMP_TYPE_BEDOUIN_AMBUSHER" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseEnter">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseLeave">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+
+            <!--  Skirmisher  -->
+            <Button
+                Name="BedouinSkirmisherSelected"
+                Width="45"
+                Height="86"
+                local:PropEx.Sprite1="{Binding UIButtonsK061}"
+                local:PropEx.Sprite2="{Binding UIButtonsK062}"
+                local:PropEx.Sprite3="{Binding UIButtonsK062}"
+                Command="{Binding LeftClickSelectedTroopCommand}"
+                CommandParameter="CHIMP_TYPE_BEDOUIN_SKIRMISHER"
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseRightButtonDown">
+                        <b:InvokeCommandAction
+                            Command="{Binding RightClickSelectedTroopCommand}"
+                            CommandParameter="CHIMP_TYPE_BEDOUIN_SKIRMISHER" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseEnter">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseLeave">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+
+            <!--  Heavy Camel  -->
+            <Button
+                Name="BedouinHeavyCamelSelected"
+                Width="45"
+                Height="86"
+                local:PropEx.Sprite1="{Binding UIButtonsK063}"
+                local:PropEx.Sprite2="{Binding UIButtonsK064}"
+                local:PropEx.Sprite3="{Binding UIButtonsK064}"
+                Command="{Binding LeftClickSelectedTroopCommand}"
+                CommandParameter="CHIMP_TYPE_BEDOUIN_HEAVY_CAMEL"
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseRightButtonDown">
+                        <b:InvokeCommandAction
+                            Command="{Binding RightClickSelectedTroopCommand}"
+                            CommandParameter="CHIMP_TYPE_BEDOUIN_HEAVY_CAMEL" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseEnter">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseLeave">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+
+            <!--  Sapper  -->
+            <Button
+                Name="BedouinSapperSelected"
+                Width="45"
+                Height="86"
+                local:PropEx.Sprite1="{Binding UIButtonsK065}"
+                local:PropEx.Sprite2="{Binding UIButtonsK066}"
+                local:PropEx.Sprite3="{Binding UIButtonsK066}"
+                Command="{Binding LeftClickSelectedTroopCommand}"
+                CommandParameter="CHIMP_TYPE_BEDOUIN_SAPPER"
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseRightButtonDown">
+                        <b:InvokeCommandAction
+                            Command="{Binding RightClickSelectedTroopCommand}"
+                            CommandParameter="CHIMP_TYPE_BEDOUIN_SAPPER" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseEnter">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseLeave">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+
+            <!--  Demolisher  -->
+            <Button
+                Name="BedouinDemolisherSelected"
+                Width="45"
+                Height="86"
+                local:PropEx.Sprite1="{Binding UIButtonsK067}"
+                local:PropEx.Sprite2="{Binding UIButtonsK068}"
+                local:PropEx.Sprite3="{Binding UIButtonsK068}"
+                Command="{Binding LeftClickSelectedTroopCommand}"
+                CommandParameter="CHIMP_TYPE_BEDOUIN_DEMOLISHER"
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseRightButtonDown">
+                        <b:InvokeCommandAction
+                            Command="{Binding RightClickSelectedTroopCommand}"
+                            CommandParameter="CHIMP_TYPE_BEDOUIN_DEMOLISHER" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseEnter">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                    <b:EventTrigger
+                        EventName="MouseLeave">
+                        <b:InvokeCommandAction
+                            Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                            CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+        </Grid>
+
+
+        <Grid
+            Name="TroopSelectionNumbers"
+            Width="820"
+            Height="30"
+            Margin="132,0,0,8"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Bottom"
+            IsHitTestVisible="False">
+            <TextBlock
+                Name="SelectedTroopCount1"
+                FontSize="22"
+                TextAlignment="Center"
+                Width="64"
+                Margin="0,0"
+                Text="X">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                        ShadowDepth="2"
+                        Direction="315"
+                        Color="#CC000000"
+                        BlurRadius="0" />
+                </TextBlock.Effect>
+            </TextBlock>
+            <TextBlock
+                Name="SelectedTroopCount2"
+                FontSize="22"
+                TextAlignment="Center"
+                Width="64"
+                Margin="52,0"
+                Text="X">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                        ShadowDepth="2"
+                        Direction="315"
+                        Color="#CC000000"
+                        BlurRadius="0" />
+                </TextBlock.Effect>
+            </TextBlock>
+            <TextBlock
+                Name="SelectedTroopCount3"
+                FontSize="22"
+                TextAlignment="Center"
+                Width="64"
+                Margin="104,0"
+                Text="X">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                        ShadowDepth="2"
+                        Direction="315"
+                        Color="#CC000000"
+                        BlurRadius="0" />
+                </TextBlock.Effect>
+            </TextBlock>
+            <TextBlock
+                Name="SelectedTroopCount4"
+                FontSize="22"
+                TextAlignment="Center"
+                Width="64"
+                Margin="156,0"
+                Text="X">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                        ShadowDepth="2"
+                        Direction="315"
+                        Color="#CC000000"
+                        BlurRadius="0" />
+                </TextBlock.Effect>
+            </TextBlock>
+            <TextBlock
+                Name="SelectedTroopCount5"
+                FontSize="22"
+                TextAlignment="Center"
+                Width="64"
+                Margin="208,0"
+                Text="X">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                        ShadowDepth="2"
+                        Direction="315"
+                        Color="#CC000000"
+                        BlurRadius="0" />
+                </TextBlock.Effect>
+            </TextBlock>
+            <TextBlock
+                Name="SelectedTroopCount6"
+                Width="64"
+                TextAlignment="Center"
+                FontSize="22"
+                Margin="260,0"
+                Text="X">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                        ShadowDepth="2"
+                        Direction="315"
+                        Color="#CC000000"
+                        BlurRadius="0" />
+                </TextBlock.Effect>
+            </TextBlock>
+            <TextBlock
+                Name="SelectedTroopCount7"
+                FontSize="22"
+                TextAlignment="Center"
+                Width="64"
+                Margin="312,0"
+                Text="X">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                        ShadowDepth="2"
+                        Direction="315"
+                        Color="#CC000000"
+                        BlurRadius="0" />
+                </TextBlock.Effect>
+            </TextBlock>
+            <TextBlock
+                Name="SelectedTroopCount8"
+                FontSize="22"
+                TextAlignment="Center"
+                Width="64"
+                Margin="364,0"
+                Text="X">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                        ShadowDepth="2"
+                        Direction="315"
+                        Color="#CC000000"
+                        BlurRadius="0" />
+                </TextBlock.Effect>
+            </TextBlock>
+
+        </Grid>
+
+        <Button
+            Name="ButtonTroopPanelPage1"
+            Width="21"
+            Height="21"
+            Margin="0,0,245,0"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Bottom"
+            local:PropEx.ImageFlow="{Binding GlobalTextFlow}"
+            local:PropEx.Sprite1="{StaticResource UI-Buttons L001}"
+            local:PropEx.Sprite2="{StaticResource UI-Buttons L002}"
+            Command="{Binding ButtonTroopPanelPageCommand}"
+            CommandParameter="1"
+            Style="{StaticResource BTN_Building}" />
+        <Button
+            Name="ButtonTroopPanelPage2"
+            Width="21"
+            Height="21"
+            Margin="0,0,266,0"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Bottom"
+            local:PropEx.ImageFlow="{Binding GlobalTextFlow}"
+            local:PropEx.Sprite1="{StaticResource UI-Buttons L003}"
+            local:PropEx.Sprite2="{StaticResource UI-Buttons L004}"
+            Command="{Binding ButtonTroopPanelPageCommand}"
+            CommandParameter="0"
+            Style="{StaticResource BTN_Building}" />
+
+
+        <!--  Left side padding  -->
+        <Image
+            Name="Leftpadding"
+            Width="240"
+            Height="136"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Bottom"
+            FlowDirection="{Binding GlobalTextFlow}"
+            Source="{StaticResource UI-HUD 008}">
+            <Image.RenderTransform>
+                <TransformGroup>
+                    <TranslateTransform
+                        X="-240" />
+                    <TranslateTransform
+                        Y="0" />
+                </TransformGroup>
+            </Image.RenderTransform>
+        </Image>
+        <Rectangle
+            Width="560"
+            Height="25"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top"
+            Fill="#00F4F4F5" />
+
+        <Rectangle
+            Width="144"
+            Height="15"
+            Margin="560,0,0,0"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top"
+            Fill="#00F4F4F5" />
+
+        <Grid
+            Width="620"
+            Height="32"
+            VerticalAlignment="Bottom"
+            HorizontalAlignment="Right"
+            Margin="-400,0,237,126"
+            Background="#00FF00FF"
+            Tag="Ignore"
+            IsHitTestVisible="False"
+            UseLayoutRounding="True" />
+
+        <Grid
+            Width="150"
+            Height="12"
+            VerticalAlignment="Bottom"
+            HorizontalAlignment="Right"
+            Margin="0,0,89,144"
+            Background="#00FF55FF"
+            Tag="Ignore"
+            UseLayoutRounding="True" />
+
+        <Grid
+            Width="200"
+            Height="158"
+            VerticalAlignment="Bottom"
+            HorizontalAlignment="Right"
+            Margin="-400,0,847,0"
+            Background="#00FF55FF"
+            Tag="Ignore"
+            UseLayoutRounding="True" />
+
+        <local:HUD_ControlGroups
+            HorizontalAlignment="Right"
+            VerticalAlignment="Bottom"
+            Margin="-1000,-1000,80,150"
+            Width="760"
+            Height="165"
+            Visibility="{Binding Show_HUD_ControlGroups, Converter={StaticResource booleanToVisibilityConverter}}">
+        </local:HUD_ControlGroups>
+
+    </Grid>
+
+</UserControl>

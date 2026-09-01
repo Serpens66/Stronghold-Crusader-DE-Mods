@@ -1,0 +1,737 @@
+<!-- Created using Noesis XAML exporter for TexturePacker (https://www.codeandweb.com/texturepacker) -->
+<ResourceDictionary
+  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <BitmapImage x:Key="UI-Colour1Atlas" UriSource="UI-Colour1Atlas.png"/>
+  <CroppedBitmap x:Key="UI-Buttons O034 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2,2,144,240"/>
+  <CroppedBitmap x:Key="UI-Buttons O034 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2,246,144,240"/>
+  <CroppedBitmap x:Key="UI-Buttons O034 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2,490,144,240"/>
+  <CroppedBitmap x:Key="UI-Buttons O035 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2,734,144,240"/>
+  <CroppedBitmap x:Key="UI-Buttons O035 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2,978,144,240"/>
+  <CroppedBitmap x:Key="UI-Buttons O035 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2,1222,144,240"/>
+  <CroppedBitmap x:Key="UI-Buttons O036 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2,1466,144,240"/>
+  <CroppedBitmap x:Key="UI-Buttons O036 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2,1710,144,240"/>
+  <CroppedBitmap x:Key="UI-Buttons O036 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2,1954,144,240"/>
+  <CroppedBitmap x:Key="UI-Buttons O064 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2,2198,142,240"/>
+  <CroppedBitmap x:Key="UI-Buttons O064 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2,2442,142,240"/>
+  <CroppedBitmap x:Key="UI-Buttons O064 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2,2686,142,240"/>
+  <CroppedBitmap x:Key="UI-Buttons O065 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2,2930,142,240"/>
+  <CroppedBitmap x:Key="UI-Buttons O065 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2,3174,142,240"/>
+  <CroppedBitmap x:Key="UI-Buttons O065 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2,3418,142,240"/>
+  <CroppedBitmap x:Key="UI-Buttons O066 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2,3662,142,240"/>
+  <CroppedBitmap x:Key="UI-Buildings O037 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2,3906,126,188"/>
+  <CroppedBitmap x:Key="UI-Buildings O037 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="132,3906,126,188"/>
+  <CroppedBitmap x:Key="UI-Buttons O066 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="148,2198,142,240"/>
+  <CroppedBitmap x:Key="UI-Buttons O066 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="148,2442,142,240"/>
+  <CroppedBitmap x:Key="UI-Buttons O046 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="148,2686,130,240"/>
+  <CroppedBitmap x:Key="UI-Buttons O046 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="148,2930,130,240"/>
+  <CroppedBitmap x:Key="UI-Buttons O046 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="148,3174,130,240"/>
+  <CroppedBitmap x:Key="UI-Buttons O047 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="148,3418,130,240"/>
+  <CroppedBitmap x:Key="UI-Buttons O047 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="148,3662,130,240"/>
+  <CroppedBitmap x:Key="UI-Buildings O037 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="262,3906,126,188"/>
+  <CroppedBitmap x:Key="UI-Buttons O047 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="282,2686,130,240"/>
+  <CroppedBitmap x:Key="UI-Buttons O048 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="282,2930,130,240"/>
+  <CroppedBitmap x:Key="UI-Buttons O048 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="282,3174,130,240"/>
+  <CroppedBitmap x:Key="UI-Buttons O048 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="282,3418,130,240"/>
+  <CroppedBitmap x:Key="UI-Buttons O031 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="282,3662,128,239"/>
+  <CroppedBitmap x:Key="UI-Buildings O038 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="392,3905,126,188"/>
+  <CroppedBitmap x:Key="UI-Buttons O031 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="414,3662,128,239"/>
+  <CroppedBitmap x:Key="UI-Buildings O038 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="522,3905,126,188"/>
+  <CroppedBitmap x:Key="UI-Buttons O031 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="150,2,128,239"/>
+  <CroppedBitmap x:Key="UI-Buttons O032 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="150,245,128,239"/>
+  <CroppedBitmap x:Key="UI-Buttons O032 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="150,488,128,239"/>
+  <CroppedBitmap x:Key="UI-Buttons O032 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="150,731,128,239"/>
+  <CroppedBitmap x:Key="UI-Buttons O033 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="150,974,128,239"/>
+  <CroppedBitmap x:Key="UI-Buttons O033 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="150,1217,128,239"/>
+  <CroppedBitmap x:Key="UI-Buttons O033 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="150,1460,128,239"/>
+  <CroppedBitmap x:Key="UI-Buttons O001 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="150,1703,106,239"/>
+  <CroppedBitmap x:Key="UI-Buttons O001 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="150,1946,106,239"/>
+  <CroppedBitmap x:Key="UI-Buttons O001 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="260,1703,106,239"/>
+  <CroppedBitmap x:Key="UI-Buttons O002 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="260,1946,106,239"/>
+  <CroppedBitmap x:Key="UI-Buttons O002 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="294,2189,106,239"/>
+  <CroppedBitmap x:Key="UI-Buttons O002 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="294,2432,106,239"/>
+  <CroppedBitmap x:Key="UI-Buttons O003 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="282,2,106,239"/>
+  <CroppedBitmap x:Key="UI-Buttons O003 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="282,245,106,239"/>
+  <CroppedBitmap x:Key="UI-Buttons O003 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="282,488,106,239"/>
+  <CroppedBitmap x:Key="UI-Buttons O013 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="282,731,87,236"/>
+  <CroppedBitmap x:Key="UI-Buttons O013 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="282,971,87,236"/>
+  <CroppedBitmap x:Key="UI-Buttons O013 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="282,1211,87,236"/>
+  <CroppedBitmap x:Key="UI-Buttons O014 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="282,1451,87,236"/>
+  <CroppedBitmap x:Key="UI-Buttons O014 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="370,1691,87,236"/>
+  <CroppedBitmap x:Key="UI-Buttons O014 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="370,1931,87,236"/>
+  <CroppedBitmap x:Key="UI-Buttons O015 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="404,2171,87,236"/>
+  <CroppedBitmap x:Key="UI-Buttons O015 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="404,2411,87,236"/>
+  <CroppedBitmap x:Key="UI-Buttons O015 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="373,731,87,236"/>
+  <CroppedBitmap x:Key="UI-Buttons O073 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="373,971,120,230"/>
+  <CroppedBitmap x:Key="UI-Buttons O073 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="373,1205,120,230"/>
+  <CroppedBitmap x:Key="UI-Buttons O073 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="373,1439,120,230"/>
+  <CroppedBitmap x:Key="UI-Buttons O074 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="461,1673,120,230"/>
+  <CroppedBitmap x:Key="UI-Buttons O074 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="461,1907,120,230"/>
+  <CroppedBitmap x:Key="UI-Buttons O074 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="392,2,120,230"/>
+  <CroppedBitmap x:Key="UI-Buttons O075 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="392,236,120,230"/>
+  <CroppedBitmap x:Key="UI-Buttons O075 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="392,470,120,230"/>
+  <CroppedBitmap x:Key="UI-Buttons O075 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="464,704,120,230"/>
+  <CroppedBitmap x:Key="UI-Buttons O061 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="516,2,112,230"/>
+  <CroppedBitmap x:Key="UI-Buttons O061 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="516,236,112,230"/>
+  <CroppedBitmap x:Key="UI-Buttons O061 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="516,470,112,230"/>
+  <CroppedBitmap x:Key="UI-Buttons O062 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="497,938,112,230"/>
+  <CroppedBitmap x:Key="UI-Buttons O062 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="588,704,112,230"/>
+  <CroppedBitmap x:Key="UI-Buttons O062 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="497,1172,112,230"/>
+  <CroppedBitmap x:Key="UI-Buttons O063 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="497,1406,112,230"/>
+  <CroppedBitmap x:Key="UI-Buttons O063 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="632,2,112,230"/>
+  <CroppedBitmap x:Key="UI-Buttons O063 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="632,236,112,230"/>
+  <CroppedBitmap x:Key="UI-Buttons O079 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="632,470,118,229"/>
+  <CroppedBitmap x:Key="UI-Buttons O079 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="748,2,118,229"/>
+  <CroppedBitmap x:Key="UI-Buttons O079 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="748,235,118,229"/>
+  <CroppedBitmap x:Key="UI-Buttons O080 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="416,2651,118,229"/>
+  <CroppedBitmap x:Key="UI-Buttons O080 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="495,2141,118,229"/>
+  <CroppedBitmap x:Key="UI-Buttons O080 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="495,2374,118,229"/>
+  <CroppedBitmap x:Key="UI-Buttons O081 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="585,1640,118,229"/>
+  <CroppedBitmap x:Key="UI-Buttons O081 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="585,1873,118,229"/>
+  <CroppedBitmap x:Key="UI-Buttons O081 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="613,938,118,229"/>
+  <CroppedBitmap x:Key="UI-Buttons O067 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="704,703,90,228"/>
+  <CroppedBitmap x:Key="UI-Buttons O067 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="754,468,90,228"/>
+  <CroppedBitmap x:Key="UI-Buttons O067 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="613,1171,90,228"/>
+  <CroppedBitmap x:Key="UI-Buttons O068 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="613,1403,90,228"/>
+  <CroppedBitmap x:Key="UI-Buttons O068 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="416,2884,90,228"/>
+  <CroppedBitmap x:Key="UI-Buttons O068 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="416,3116,90,228"/>
+  <CroppedBitmap x:Key="UI-Buttons O069 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="416,3348,90,228"/>
+  <CroppedBitmap x:Key="UI-Buttons J034 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="416,3580,68,68"/>
+  <CroppedBitmap x:Key="UI-Buttons J034 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="488,3580,68,68"/>
+  <CroppedBitmap x:Key="UI-Buttons O069 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="546,3652,90,228"/>
+  <CroppedBitmap x:Key="UI-Buttons O069 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="510,2884,90,228"/>
+  <CroppedBitmap x:Key="UI-Buttons O070 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="538,2607,138,226"/>
+  <CroppedBitmap x:Key="UI-Buttons O070 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="510,3116,138,226"/>
+  <CroppedBitmap x:Key="UI-Buttons O070 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="510,3346,138,226"/>
+  <CroppedBitmap x:Key="UI-Buttons J034 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="560,3576,68,68"/>
+  <CroppedBitmap x:Key="UI-Buttons J035 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="632,3576,68,68"/>
+  <CroppedBitmap x:Key="UI-Buttons O071 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="640,3648,138,226"/>
+  <CroppedBitmap x:Key="UI-Buttons O049 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="652,3878,135,214"/>
+  <CroppedBitmap x:Key="UI-Buttons O071 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="604,2837,138,226"/>
+  <CroppedBitmap x:Key="UI-Buttons O071 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="617,2106,138,226"/>
+  <CroppedBitmap x:Key="UI-Buttons O072 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="617,2336,138,226"/>
+  <CroppedBitmap x:Key="UI-Buttons O072 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="680,2566,138,226"/>
+  <CroppedBitmap x:Key="UI-Buttons O072 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="652,3067,138,226"/>
+  <CroppedBitmap x:Key="UI-Buttons O055 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="746,2796,137,226"/>
+  <CroppedBitmap x:Key="UI-Buttons O055 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="652,3297,137,226"/>
+  <CroppedBitmap x:Key="UI-Buildings O027 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="704,3527,108,116"/>
+  <CroppedBitmap x:Key="UI-Buttons O055 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="793,3297,137,226"/>
+  <CroppedBitmap x:Key="UI-Buttons O056 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="782,3647,137,226"/>
+  <CroppedBitmap x:Key="UI-Buildings O027 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="816,3527,108,116"/>
+  <CroppedBitmap x:Key="UI-Buttons O049 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="791,3877,135,214"/>
+  <CroppedBitmap x:Key="UI-Buttons O056 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="923,3647,137,226"/>
+  <CroppedBitmap x:Key="UI-Buildings O027 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="928,3527,108,116"/>
+  <CroppedBitmap x:Key="UI-Buttons O049 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="930,3877,135,214"/>
+  <CroppedBitmap x:Key="UI-Buttons O056 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="794,3026,137,226"/>
+  <CroppedBitmap x:Key="UI-Buttons O057 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="934,3256,137,226"/>
+  <CroppedBitmap x:Key="UI-Buildings O049 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1040,3486,146,155"/>
+  <CroppedBitmap x:Key="UI-Buttons O057 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1064,3645,137,226"/>
+  <CroppedBitmap x:Key="UI-Buttons O076 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1069,3875,120,219"/>
+  <CroppedBitmap x:Key="UI-Buttons O076 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1193,3875,120,219"/>
+  <CroppedBitmap x:Key="UI-Buttons O057 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="707,1171,137,226"/>
+  <CroppedBitmap x:Key="UI-Buttons O043 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="735,935,130,226"/>
+  <CroppedBitmap x:Key="UI-Buttons O043 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="798,700,130,226"/>
+  <CroppedBitmap x:Key="UI-Buttons O043 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="848,468,130,226"/>
+  <CroppedBitmap x:Key="UI-Buttons O044 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="870,2,130,226"/>
+  <CroppedBitmap x:Key="UI-Buttons O044 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="870,232,130,226"/>
+  <CroppedBitmap x:Key="UI-Buttons O044 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="707,1401,130,226"/>
+  <CroppedBitmap x:Key="UI-Buttons O045 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="707,1631,130,226"/>
+  <CroppedBitmap x:Key="UI-Buttons O045 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="707,1861,130,226"/>
+  <CroppedBitmap x:Key="UI-Buttons O045 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="759,2091,130,226"/>
+  <CroppedBitmap x:Key="UI-Buildings O035 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="759,2321,124,224"/>
+  <CroppedBitmap x:Key="UI-Buildings O035 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="822,2549,124,224"/>
+  <CroppedBitmap x:Key="UI-Buildings O035 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="887,2321,124,224"/>
+  <CroppedBitmap x:Key="UI-Buildings O036 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="887,2777,124,224"/>
+  <CroppedBitmap x:Key="UI-Buildings O036 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="950,2549,124,224"/>
+  <CroppedBitmap x:Key="UI-Buildings O036 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="935,3005,124,224"/>
+  <CroppedBitmap x:Key="UI-Buttons O037 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1015,2777,106,224"/>
+  <CroppedBitmap x:Key="UI-Buttons O037 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1063,3005,106,224"/>
+  <CroppedBitmap x:Key="UI-Buttons O037 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1075,3233,106,224"/>
+  <CroppedBitmap x:Key="UI-Buttons O038 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="841,1401,106,224"/>
+  <CroppedBitmap x:Key="UI-Buttons O038 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="848,1165,106,224"/>
+  <CroppedBitmap x:Key="UI-Buttons O038 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="869,930,106,224"/>
+  <CroppedBitmap x:Key="UI-Buttons O039 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="932,698,106,224"/>
+  <CroppedBitmap x:Key="UI-Buttons O039 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="982,462,106,224"/>
+  <CroppedBitmap x:Key="UI-Buttons O039 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1004,2,106,224"/>
+  <CroppedBitmap x:Key="UI-Buttons O058 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1004,230,141,223"/>
+  <CroppedBitmap x:Key="UI-Buttons O058 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1114,2,141,223"/>
+  <CroppedBitmap x:Key="UI-Buttons O058 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="841,1629,141,223"/>
+  <CroppedBitmap x:Key="UI-Buttons O059 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="841,1856,141,223"/>
+  <CroppedBitmap x:Key="UI-Buttons O059 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="951,1393,141,223"/>
+  <CroppedBitmap x:Key="UI-Buttons O059 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="958,1158,141,223"/>
+  <CroppedBitmap x:Key="UI-Buttons O060 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="979,926,141,223"/>
+  <CroppedBitmap x:Key="UI-Buttons O060 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1042,690,141,223"/>
+  <CroppedBitmap x:Key="UI-Buttons O060 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1092,457,141,223"/>
+  <CroppedBitmap x:Key="UI-Buttons O007 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1149,229,117,222"/>
+  <CroppedBitmap x:Key="UI-Buttons O007 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1259,2,117,222"/>
+  <CroppedBitmap x:Key="UI-Buttons O007 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="893,2083,117,222"/>
+  <CroppedBitmap x:Key="UI-Buttons O008 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="986,1620,117,222"/>
+  <CroppedBitmap x:Key="UI-Buttons O008 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1096,1385,117,222"/>
+  <CroppedBitmap x:Key="UI-Buttons O008 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1103,1153,117,222"/>
+  <CroppedBitmap x:Key="UI-Buttons O009 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1124,917,117,222"/>
+  <CroppedBitmap x:Key="UI-Buttons O009 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1187,684,117,222"/>
+  <CroppedBitmap x:Key="UI-Buttons O009 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1237,455,117,222"/>
+  <CroppedBitmap x:Key="UI-Buttons O019 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1270,228,133,220"/>
+  <CroppedBitmap x:Key="UI-Buttons O019 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1380,2,133,220"/>
+  <CroppedBitmap x:Key="UI-Buttons O019 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="986,1846,133,220"/>
+  <CroppedBitmap x:Key="UI-Buttons O020 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1107,1611,133,220"/>
+  <CroppedBitmap x:Key="UI-Buttons O020 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1217,1379,133,220"/>
+  <CroppedBitmap x:Key="UI-Buttons O020 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1224,1143,133,220"/>
+  <CroppedBitmap x:Key="UI-Buttons O021 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1245,910,133,220"/>
+  <CroppedBitmap x:Key="UI-Buttons O021 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1308,681,133,220"/>
+  <CroppedBitmap x:Key="UI-Buttons O021 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1358,452,133,220"/>
+  <CroppedBitmap x:Key="UI-Buttons O028 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1407,226,106,220"/>
+  <CroppedBitmap x:Key="UI-Buttons O028 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1014,2070,106,220"/>
+  <CroppedBitmap x:Key="UI-Buttons O028 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1123,1835,106,220"/>
+  <CroppedBitmap x:Key="UI-Buttons O029 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1015,2294,106,220"/>
+  <CroppedBitmap x:Key="UI-Buttons O029 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1124,2059,106,220"/>
+  <CroppedBitmap x:Key="UI-Buttons O029 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1233,1835,106,220"/>
+  <CroppedBitmap x:Key="UI-Buttons O030 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1244,1603,106,220"/>
+  <CroppedBitmap x:Key="UI-Buttons O030 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1078,2518,106,220"/>
+  <CroppedBitmap x:Key="UI-Buttons O030 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1125,2283,106,220"/>
+  <CroppedBitmap x:Key="UI-Buttons O076 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1234,2059,120,219"/>
+  <CroppedBitmap x:Key="UI-Buttons O077 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1343,1827,120,219"/>
+  <CroppedBitmap x:Key="UI-Buttons O077 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1125,2742,120,219"/>
+  <CroppedBitmap x:Key="UI-Buttons O077 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1188,2507,120,219"/>
+  <CroppedBitmap x:Key="UI-Buttons O078 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1235,2282,120,219"/>
+  <CroppedBitmap x:Key="UI-Buttons O078 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1358,2050,120,219"/>
+  <CroppedBitmap x:Key="UI-Buttons O078 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1173,2965,120,219"/>
+  <CroppedBitmap x:Key="UI-Buttons O050 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1249,2730,135,214"/>
+  <CroppedBitmap x:Key="UI-Buttons O050 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1312,2505,135,214"/>
+  <CroppedBitmap x:Key="UI-Buttons O050 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1359,2273,135,214"/>
+  <CroppedBitmap x:Key="UI-Buttons O051 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1185,3188,135,214"/>
+  <CroppedBitmap x:Key="UI-Buttons J035 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1185,3406,68,68"/>
+  <CroppedBitmap x:Key="UI-Buildings O015 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1190,3478,95,163"/>
+  <CroppedBitmap x:Key="UI-Buttons J035 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1257,3406,68,68"/>
+  <CroppedBitmap x:Key="UI-Buttons O051 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1205,3645,135,214"/>
+  <CroppedBitmap x:Key="UI-Buildings O015 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1289,3478,95,163"/>
+  <CroppedBitmap x:Key="UI-Buttons O051 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1317,3863,135,214"/>
+  <CroppedBitmap x:Key="UI-Buildings O043 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1344,3645,124,210"/>
+  <CroppedBitmap x:Key="UI-Buildings O043 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1456,3859,124,210"/>
+  <CroppedBitmap x:Key="UI-Buildings O043 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1297,2948,124,210"/>
+  <CroppedBitmap x:Key="UI-Buildings O044 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1388,2723,124,210"/>
+  <CroppedBitmap x:Key="UI-Buildings O044 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1451,2491,124,210"/>
+  <CroppedBitmap x:Key="UI-Buildings O044 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1324,3162,124,210"/>
+  <CroppedBitmap x:Key="UI-Buttons O004 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1425,2937,127,209"/>
+  <CroppedBitmap x:Key="UI-Buildings O023 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1329,3376,108,80"/>
+  <CroppedBitmap x:Key="UI-Buttons O022 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1388,3460,92,176"/>
+  <CroppedBitmap x:Key="UI-Buildings O023 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1441,3376,108,80"/>
+  <CroppedBitmap x:Key="UI-Buttons O004 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1472,3640,127,209"/>
+  <CroppedBitmap x:Key="UI-Buttons O022 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1484,3460,92,176"/>
+  <CroppedBitmap x:Key="UI-Buttons O004 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1452,3150,127,209"/>
+  <CroppedBitmap x:Key="UI-Buildings O023 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1553,3363,108,80"/>
+  <CroppedBitmap x:Key="UI-Buildings O038 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1580,3447,126,188"/>
+  <CroppedBitmap x:Key="UI-Buttons O005 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1516,2705,127,209"/>
+  <CroppedBitmap x:Key="UI-Buttons O005 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1556,2918,127,209"/>
+  <CroppedBitmap x:Key="UI-Buttons O005 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1583,3131,127,209"/>
+  <CroppedBitmap x:Key="UI-Buildings O024 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1665,3344,108,80"/>
+  <CroppedBitmap x:Key="UI-Buttons O006 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1584,3853,127,209"/>
+  <CroppedBitmap x:Key="UI-Buttons O006 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1603,3639,127,209"/>
+  <CroppedBitmap x:Key="UI-Buttons O055a Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1710,3428,136,206"/>
+  <CroppedBitmap x:Key="UI-Buttons O006 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1715,3852,127,209"/>
+  <CroppedBitmap x:Key="UI-Buttons O055a Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1734,3638,136,206"/>
+  <CroppedBitmap x:Key="UI-Buttons O055a Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1846,3848,136,206"/>
+  <CroppedBitmap x:Key="UI-Buttons O056a Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1354,1367,136,206"/>
+  <CroppedBitmap x:Key="UI-Buttons O056a Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1361,1134,136,206"/>
+  <CroppedBitmap x:Key="UI-Buttons O056a Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1382,905,136,206"/>
+  <CroppedBitmap x:Key="UI-Buttons O057a Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1445,676,136,206"/>
+  <CroppedBitmap x:Key="UI-Buttons O057a Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1495,450,136,206"/>
+  <CroppedBitmap x:Key="UI-Buttons O057a Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1354,1577,136,206"/>
+  <CroppedBitmap x:Key="UI-Buttons O042 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1467,1787,139,204"/>
+  <CroppedBitmap x:Key="UI-Buildings O045 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1482,1995,111,202"/>
+  <CroppedBitmap x:Key="UI-Buttons J036 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1482,2201,68,68"/>
+  <CroppedBitmap x:Key="UI-Buildings O045 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1498,2273,111,202"/>
+  <CroppedBitmap x:Key="UI-Buttons J036 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1554,2201,68,68"/>
+  <CroppedBitmap x:Key="UI-Buildings O045 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1597,1995,111,202"/>
+  <CroppedBitmap x:Key="UI-Buildings O046 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1579,2479,111,202"/>
+  <CroppedBitmap x:Key="UI-Buildings O046 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1613,2273,111,202"/>
+  <CroppedBitmap x:Key="UI-Buttons J036 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1626,2201,68,68"/>
+  <CroppedBitmap x:Key="UI-Buttons J040 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1698,2201,68,68"/>
+  <CroppedBitmap x:Key="UI-Buildings O046 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1647,2685,111,202"/>
+  <CroppedBitmap x:Key="UI-Buttons O016 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1694,2479,107,201"/>
+  <CroppedBitmap x:Key="UI-Buttons O016 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1728,2273,107,201"/>
+  <CroppedBitmap x:Key="UI-Buttons O016 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1687,2891,107,201"/>
+  <CroppedBitmap x:Key="UI-Buttons O017 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1762,2684,107,201"/>
+  <CroppedBitmap x:Key="UI-Buttons O017 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1805,2478,107,201"/>
+  <CroppedBitmap x:Key="UI-Buttons O017 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1714,3096,107,201"/>
+  <CroppedBitmap x:Key="UI-Buttons O018 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1798,2889,107,201"/>
+  <CroppedBitmap x:Key="UI-Buttons O018 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1873,2683,107,201"/>
+  <CroppedBitmap x:Key="UI-Buildings O025 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1777,3301,108,120"/>
+  <CroppedBitmap x:Key="UI-Buttons O018 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1825,3094,107,201"/>
+  <CroppedBitmap x:Key="UI-Buttons O025 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1909,2888,120,200"/>
+  <CroppedBitmap x:Key="UI-Buttons O025 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1850,3425,120,200"/>
+  <CroppedBitmap x:Key="UI-Buildings O025 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1889,3299,108,120"/>
+  <CroppedBitmap x:Key="UI-Buttons O025 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1936,3092,120,200"/>
+  <CroppedBitmap x:Key="UI-Buttons O026 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1874,3629,120,200"/>
+  <CroppedBitmap x:Key="UI-Buttons O026 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1974,3423,120,200"/>
+  <CroppedBitmap x:Key="UI-Buildings O025 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2001,3296,108,120"/>
+  <CroppedBitmap x:Key="UI-Buttons O026 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1986,3833,120,200"/>
+  <CroppedBitmap x:Key="UI-Buttons O027 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1998,3627,120,200"/>
+  <CroppedBitmap x:Key="UI-Buttons O027 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2098,3420,120,200"/>
+  <CroppedBitmap x:Key="UI-Buttons O027 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2110,3831,120,200"/>
+  <CroppedBitmap x:Key="UI-Buttons O040 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2122,3624,139,198"/>
+  <CroppedBitmap x:Key="UI-Buildings O057 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2234,3826,82,198"/>
+  <CroppedBitmap x:Key="UI-Buttons J043 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2234,4028,44,63"/>
+  <CroppedBitmap x:Key="UI-Buildings O057 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1494,1344,82,198"/>
+  <CroppedBitmap x:Key="UI-Buildings O057 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1501,1115,82,198"/>
+  <CroppedBitmap x:Key="UI-Buildings O058 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1522,886,82,198"/>
+  <CroppedBitmap x:Key="UI-Buildings O058 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1585,660,82,198"/>
+  <CroppedBitmap x:Key="UI-Buildings O058 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1494,1546,82,198"/>
+  <CroppedBitmap x:Key="UI-Buttons O041 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1517,2,139,197"/>
+  <CroppedBitmap x:Key="UI-Buttons O041 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1517,203,139,197"/>
+  <CroppedBitmap x:Key="UI-Buttons O040 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1635,404,139,196"/>
+  <CroppedBitmap x:Key="UI-Buttons O041 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1660,2,139,196"/>
+  <CroppedBitmap x:Key="UI-Buttons O042 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1660,202,139,195"/>
+  <CroppedBitmap x:Key="UI-Buttons O042 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1580,1317,139,193"/>
+  <CroppedBitmap x:Key="UI-Buildings O061 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1587,1088,103,192"/>
+  <CroppedBitmap x:Key="UI-Buildings O061 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1608,862,103,192"/>
+  <CroppedBitmap x:Key="UI-Buildings O061 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1671,604,103,192"/>
+  <CroppedBitmap x:Key="UI-Buildings O062 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1694,1058,103,192"/>
+  <CroppedBitmap x:Key="UI-Buildings O062 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1715,800,103,192"/>
+  <CroppedBitmap x:Key="UI-Buildings O062 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1580,1514,103,192"/>
+  <CroppedBitmap x:Key="UI-Buttons J040 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1580,1710,68,68"/>
+  <CroppedBitmap x:Key="UI-Buttons O040 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1610,1782,139,191"/>
+  <CroppedBitmap x:Key="UI-Buttons J040 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1652,1710,68,68"/>
+  <CroppedBitmap x:Key="UI-Buildings O051 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1687,1514,117,191"/>
+  <CroppedBitmap x:Key="UI-Buttons J041 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1724,1709,68,68"/>
+  <CroppedBitmap x:Key="UI-Buildings O051 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1712,1977,117,191"/>
+  <CroppedBitmap x:Key="UI-Buildings O051 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1753,1781,117,191"/>
+  <CroppedBitmap x:Key="UI-Buttons J041 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1796,1709,68,68"/>
+  <CroppedBitmap x:Key="UI-Buildings O024 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1770,2172,108,80"/>
+  <CroppedBitmap x:Key="UI-Buildings O052 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1833,1976,117,191"/>
+  <CroppedBitmap x:Key="UI-Buildings O052 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1839,2256,117,191"/>
+  <CroppedBitmap x:Key="UI-Buildings O024 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1882,2171,108,80"/>
+  <CroppedBitmap x:Key="UI-Buildings O052 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1916,2451,117,191"/>
+  <CroppedBitmap x:Key="UI-Buttons K001 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1960,2255,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K001 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1984,2646,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K001 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2037,2449,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K002 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2033,2840,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K002 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2088,2643,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K002 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1723,1254,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K003 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1801,996,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K003 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1808,1448,100,190"/>
+  <CroppedBitmap x:Key="UI-Buildings O009 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1868,1642,90,134"/>
+  <CroppedBitmap x:Key="UI-Buttons K003 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1874,1780,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K004 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1954,1974,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons J041 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1994,2168,68,68"/>
+  <CroppedBitmap x:Key="UI-Buttons K004 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2064,2240,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K004 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2141,2434,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K005 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1827,1190,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K005 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1912,1384,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K005 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1962,1578,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K006 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1978,1772,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K006 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2058,1966,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons J042 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2066,2160,68,68"/>
+  <CroppedBitmap x:Key="UI-Buttons J042 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2138,2160,68,68"/>
+  <CroppedBitmap x:Key="UI-Buttons K006 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2168,2232,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K007 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2060,3034,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons O010 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2113,3228,120,188"/>
+  <CroppedBitmap x:Key="UI-Buttons K007 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2137,2837,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K007 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2164,3031,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K008 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2222,3420,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K008 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2237,3225,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K008 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2192,2628,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K009 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2245,2426,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K009 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2241,2822,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K009 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2296,2620,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K010 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2268,3016,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K010 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2345,2814,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K010 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2265,3614,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K011 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2326,3419,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K011 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2341,3210,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K011 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2372,3008,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K011a Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2320,3808,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K011a Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2369,3613,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K011a Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2430,3404,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K012 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2445,3202,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons J042 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2320,4002,68,68"/>
+  <CroppedBitmap x:Key="UI-Buttons J043 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2392,4002,68,68"/>
+  <CroppedBitmap x:Key="UI-Buttons K012 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2424,3807,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K012 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2473,3598,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K012a Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2534,3396,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons J043 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2464,4001,68,68"/>
+  <CroppedBitmap x:Key="UI-Buttons K012a Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2528,3792,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K012a Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2577,3590,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons J044 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2536,3986,68,68"/>
+  <CroppedBitmap x:Key="UI-Buttons J044 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2608,3986,68,68"/>
+  <CroppedBitmap x:Key="UI-Buttons K013 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2632,3784,100,190"/>
+  <CroppedBitmap x:Key="UI-Buildings O028 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2680,3978,108,116"/>
+  <CroppedBitmap x:Key="UI-Buttons K013 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1778,401,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K013 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1778,595,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K014 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1822,789,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K014 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1905,983,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K014 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1931,1177,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K015 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2016,1371,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K015 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2066,1565,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K015 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2082,1759,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K016 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2162,1953,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons J044 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2210,2147,68,68"/>
+  <CroppedBitmap x:Key="UI-Buttons K016 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2272,2219,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K016 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2349,2413,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K017 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2400,2607,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K017 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2449,2801,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K017 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2476,2995,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K018 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2549,3189,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K018 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2638,3383,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K018 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2681,3577,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K021 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2736,3771,100,190"/>
+  <CroppedBitmap x:Key="UI-Buildings O003 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2792,3965,83,129"/>
+  <CroppedBitmap x:Key="UI-Buttons K021 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1803,2,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K021 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1803,196,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K022 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1882,390,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K022 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1882,584,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K022 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1926,778,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K023 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2009,972,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K023 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2035,1166,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K023 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2120,1360,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K024 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2170,1554,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K024 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2186,1748,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K024 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2266,1942,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons J045 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2282,2136,68,68"/>
+  <CroppedBitmap x:Key="UI-Buttons J045 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2354,2136,68,68"/>
+  <CroppedBitmap x:Key="UI-Buttons K025 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2376,2208,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K025 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2453,2402,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K025 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2504,2596,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K026 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2553,2790,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K026 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2580,2984,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K026 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2653,3178,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K027 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2742,3372,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K027 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2785,3566,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K027 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2840,3760,100,190"/>
+  <CroppedBitmap x:Key="UI-Buildings O017 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2879,3954,74,139"/>
+  <CroppedBitmap x:Key="UI-Buttons K028 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1907,2,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K028 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1907,196,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K028 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1986,390,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K029 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="1986,584,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K029 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2030,778,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K029 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2113,972,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K030 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2139,1166,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K030 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2224,1360,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K030 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2274,1554,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K031 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2290,1748,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K031 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2370,1942,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons J045 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2426,2136,68,68"/>
+  <CroppedBitmap x:Key="UI-Buttons K031 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2480,2208,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K032 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2557,2402,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K032 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2608,2596,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K032 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2657,2790,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K035 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2684,2984,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K035 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2757,3178,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K035 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2846,3372,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K036 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2889,3566,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K036 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2944,3760,100,190"/>
+  <CroppedBitmap x:Key="UI-Buildings O017 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2957,3954,74,139"/>
+  <CroppedBitmap x:Key="UI-Buildings O017 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3035,3954,74,139"/>
+  <CroppedBitmap x:Key="UI-Buttons K036 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2011,2,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K037 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2011,196,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K037 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2090,390,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K037 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2090,584,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K038 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2134,778,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K038 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2217,972,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K038 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2243,1166,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K039 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2328,1360,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K039 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2378,1554,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K039 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2394,1748,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K040 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2474,1942,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons J046 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2498,2136,68,68"/>
+  <CroppedBitmap x:Key="UI-Buttons J046 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2570,2136,68,68"/>
+  <CroppedBitmap x:Key="UI-Buttons K040 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2584,2208,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K040 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2661,2402,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K041 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2712,2596,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K041 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2761,2790,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K041 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2788,2984,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K042 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2861,3178,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K042 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2950,3372,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K042 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2993,3566,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K043 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3048,3760,100,190"/>
+  <CroppedBitmap x:Key="UI-Buildings O018 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3113,3954,74,139"/>
+  <CroppedBitmap x:Key="UI-Buttons K043 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2115,2,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K043 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2115,196,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K044 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2194,390,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K044 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2194,584,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K044 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2238,778,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K045 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2321,972,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K045 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2347,1166,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K045 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2432,1360,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K046 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2482,1554,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K046 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2498,1748,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K046 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2578,1942,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons J046 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2642,2136,68,68"/>
+  <CroppedBitmap x:Key="UI-Buttons K047 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2688,2208,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K047 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2765,2402,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K047 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2816,2596,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K048 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2865,2790,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K048 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2892,2984,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K048 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2965,3178,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K049 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3054,3372,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K049 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3097,3566,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K049 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3152,3760,100,190"/>
+  <CroppedBitmap x:Key="UI-Buildings O018 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3191,3954,74,139"/>
+  <CroppedBitmap x:Key="UI-Buttons K050 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2219,2,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K050 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2219,196,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K050 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2298,390,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K051 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2298,584,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K051 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2342,778,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K051 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2425,972,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K052 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2451,1166,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K052 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2536,1360,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K052 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2586,1554,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K053 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2602,1748,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K053 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2682,1942,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons J047 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2714,2136,68,68"/>
+  <CroppedBitmap x:Key="UI-Buttons K053 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2323,2,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K054 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2323,196,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K054 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2402,390,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K054 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2402,584,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K055 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2446,778,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K055 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2529,972,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K055 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2555,1166,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K056 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2640,1360,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K056 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2690,1554,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K056 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2706,1748,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K057 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2786,1942,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons J047 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2786,2136,68,68"/>
+  <CroppedBitmap x:Key="UI-Buttons K057 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2792,2208,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K057 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2869,2402,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K058 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2920,2596,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K058 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2969,2790,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K058 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2996,2984,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K059 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3069,3178,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K059 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3158,3372,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K059 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3201,3566,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K060 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3256,3760,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons J047 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2858,2136,68,68"/>
+  <CroppedBitmap x:Key="UI-Buttons K060 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2896,2208,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K060 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2973,2402,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K061 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3024,2596,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K061 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3073,2790,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K061 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3100,2984,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K062 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3173,3178,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K062 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3262,3372,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K062 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3305,3566,100,190"/>
+  <CroppedBitmap x:Key="UI-Buildings O018 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3269,3954,74,139"/>
+  <CroppedBitmap x:Key="UI-Buildings O009 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3347,3954,90,134"/>
+  <CroppedBitmap x:Key="UI-Buttons K063 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3360,3760,100,190"/>
+  <CroppedBitmap x:Key="UI-Buildings O009 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3441,3954,90,134"/>
+  <CroppedBitmap x:Key="UI-Buttons K063 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2427,2,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K063 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2427,196,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K064 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2506,390,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K064 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2506,584,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K064 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2550,778,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K065 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2633,972,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K065 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2659,1166,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K065 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2744,1360,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K066 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2794,1554,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K066 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2810,1748,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K066 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2890,1942,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons J048 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2930,2136,68,68"/>
+  <CroppedBitmap x:Key="UI-Buttons K067 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3000,2208,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K067 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3077,2402,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K067 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3128,2596,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K068 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3177,2790,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K068 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3204,2984,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons K068 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3277,3178,100,190"/>
+  <CroppedBitmap x:Key="UI-Buttons O010 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3366,3372,120,188"/>
+  <CroppedBitmap x:Key="UI-Buttons O010 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3409,3564,120,188"/>
+  <CroppedBitmap x:Key="UI-Buttons O011 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3464,3756,120,188"/>
+  <CroppedBitmap x:Key="UI-Buildings O021 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3535,3948,95,146"/>
+  <CroppedBitmap x:Key="UI-Buttons O011 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2531,2,120,188"/>
+  <CroppedBitmap x:Key="UI-Buttons O011 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2531,194,120,188"/>
+  <CroppedBitmap x:Key="UI-Buttons O012 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2610,386,120,188"/>
+  <CroppedBitmap x:Key="UI-Buttons O012 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2610,578,120,188"/>
+  <CroppedBitmap x:Key="UI-Buttons O012 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2654,770,120,188"/>
+  <CroppedBitmap x:Key="UI-Buildings O055 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2737,962,115,187"/>
+  <CroppedBitmap x:Key="UI-Buildings O055 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2763,1153,115,187"/>
+  <CroppedBitmap x:Key="UI-Buildings O055 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2848,1344,115,187"/>
+  <CroppedBitmap x:Key="UI-Buildings O056 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2898,1535,115,187"/>
+  <CroppedBitmap x:Key="UI-Buildings O056 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2914,1726,115,187"/>
+  <CroppedBitmap x:Key="UI-Buildings O056 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2994,1917,115,187"/>
+  <CroppedBitmap x:Key="UI-Buttons J048 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3002,2108,68,68"/>
+  <CroppedBitmap x:Key="UI-Buttons J048 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3074,2108,68,68"/>
+  <CroppedBitmap x:Key="UI-Buttons O022 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3104,2180,92,176"/>
+  <CroppedBitmap x:Key="UI-Buttons O023 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3181,2360,92,176"/>
+  <CroppedBitmap x:Key="UI-Buttons O023 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3232,2540,92,176"/>
+  <CroppedBitmap x:Key="UI-Buttons O023 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3281,2720,92,176"/>
+  <CroppedBitmap x:Key="UI-Buttons O024 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3308,2900,92,176"/>
+  <CroppedBitmap x:Key="UI-Buttons O024 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3381,3080,92,176"/>
+  <CroppedBitmap x:Key="UI-Buttons O024 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2655,2,92,176"/>
+  <CroppedBitmap x:Key="UI-Buildings O039 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2655,182,84,174"/>
+  <CroppedBitmap x:Key="UI-Buildings O039 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2734,360,84,174"/>
+  <CroppedBitmap x:Key="UI-Buildings O039 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2743,182,84,174"/>
+  <CroppedBitmap x:Key="UI-Buildings O040 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2751,2,84,174"/>
+  <CroppedBitmap x:Key="UI-Buildings O040 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2734,538,84,174"/>
+  <CroppedBitmap x:Key="UI-Buildings O040 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2778,716,84,174"/>
+  <CroppedBitmap x:Key="UI-Buildings O047 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2856,894,107,172"/>
+  <CroppedBitmap x:Key="UI-Buildings O047 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2882,1070,107,172"/>
+  <CroppedBitmap x:Key="UI-Buildings O047 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2967,1246,107,172"/>
+  <CroppedBitmap x:Key="UI-Buildings O048 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3017,1422,107,172"/>
+  <CroppedBitmap x:Key="UI-Buildings O026 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3017,1598,108,120"/>
+  <CroppedBitmap x:Key="UI-Buildings O048 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3033,1722,107,172"/>
+  <CroppedBitmap x:Key="UI-Buildings O048 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3113,1898,107,172"/>
+  <CroppedBitmap x:Key="UI-Buildings O059 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3200,2074,109,171"/>
+  <CroppedBitmap x:Key="UI-Buildings O059 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3277,2249,109,171"/>
+  <CroppedBitmap x:Key="UISprites Z001 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3277,2424,110,110"/>
+  <CroppedBitmap x:Key="UI-Buildings O059 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3328,2538,109,171"/>
+  <CroppedBitmap x:Key="UI-Buildings O060 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3377,2713,109,171"/>
+  <CroppedBitmap x:Key="UI-Buildings O060 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3404,2888,109,171"/>
+  <CroppedBitmap x:Key="UI-Buildings O060 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3477,3063,109,171"/>
+  <CroppedBitmap x:Key="UI-Buildings O003 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3477,3238,83,129"/>
+  <CroppedBitmap x:Key="UI-Buildings O065 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3490,3371,94,171"/>
+  <CroppedBitmap x:Key="UI-Buildings O003 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3564,3238,83,129"/>
+  <CroppedBitmap x:Key="UI-Buildings O065 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3533,3546,94,171"/>
+  <CroppedBitmap x:Key="UI-Buildings O065 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3588,3371,94,171"/>
+  <CroppedBitmap x:Key="UI-Buildings O066 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3588,3721,94,171"/>
+  <CroppedBitmap x:Key="UI-Buildings O066 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3631,3546,94,171"/>
+  <CroppedBitmap x:Key="UI-Buildings O066 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3634,3896,94,171"/>
+  <CroppedBitmap x:Key="UI-Buildings O001 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3686,3721,90,171"/>
+  <CroppedBitmap x:Key="UI-Buildings O001 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3732,3896,90,171"/>
+  <CroppedBitmap x:Key="UI-Buildings O049 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3826,2,146,155"/>
+  <CroppedBitmap x:Key="UI-Buildings O001 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3729,2,90,171"/>
+  <CroppedBitmap x:Key="UI-Buildings O005 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3651,2,70,171"/>
+  <CroppedBitmap x:Key="UISprites Z001 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3976,2,110,110"/>
+  <CroppedBitmap x:Key="UISprites Z001 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3976,116,110,110"/>
+  <CroppedBitmap x:Key="UI-Buildings O049 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3826,161,146,155"/>
+  <CroppedBitmap x:Key="UI-Buildings O002 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3729,177,90,171"/>
+  <CroppedBitmap x:Key="UI-Buildings O005 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3651,177,70,171"/>
+  <CroppedBitmap x:Key="UISprites Z002 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3976,230,110,110"/>
+  <CroppedBitmap x:Key="UI-Buildings O050 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3826,320,146,155"/>
+  <CroppedBitmap x:Key="UI-Buildings O002 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3729,352,90,171"/>
+  <CroppedBitmap x:Key="UI-Buildings O005 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3651,352,70,171"/>
+  <CroppedBitmap x:Key="UISprites Z002 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3976,344,110,110"/>
+  <CroppedBitmap x:Key="UISprites Z002 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3976,458,110,110"/>
+  <CroppedBitmap x:Key="UI-Buildings O050 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3826,479,146,155"/>
+  <CroppedBitmap x:Key="UI-Buildings O002 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3729,527,90,171"/>
+  <CroppedBitmap x:Key="UI-Buildings O006 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3651,527,70,171"/>
+  <CroppedBitmap x:Key="UISprites Z003 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3976,572,110,110"/>
+  <CroppedBitmap x:Key="UI-Buildings O050 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3826,638,146,155"/>
+  <CroppedBitmap x:Key="UI-Buildings O010 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3729,702,90,134"/>
+  <CroppedBitmap x:Key="UI-Buildings O006 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3651,702,70,171"/>
+  <CroppedBitmap x:Key="UISprites Z003 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3976,686,110,110"/>
+  <CroppedBitmap x:Key="UI-Buildings M005 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3826,797,145,158"/>
+  <CroppedBitmap x:Key="UI-Buildings O063 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3725,840,95,166"/>
+  <CroppedBitmap x:Key="UI-Buildings O006 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3651,877,70,171"/>
+  <CroppedBitmap x:Key="UI-Buildings O041 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3517,2,121,164"/>
+  <CroppedBitmap x:Key="UI-Buildings O041 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3391,2,121,164"/>
+  <CroppedBitmap x:Key="UI-Buildings O041 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3517,170,121,164"/>
+  <CroppedBitmap x:Key="UI-Buildings O042 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3391,170,121,164"/>
+  <CroppedBitmap x:Key="UI-Buildings O042 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3517,338,121,164"/>
+  <CroppedBitmap x:Key="UI-Buildings O042 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3391,338,121,164"/>
+  <CroppedBitmap x:Key="UISprites Z003 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3975,800,110,110"/>
+  <CroppedBitmap x:Key="UISprites Z004 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3975,914,110,110"/>
+  <CroppedBitmap x:Key="UI-Buildings M005 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3826,959,145,158"/>
+  <CroppedBitmap x:Key="UI-Buildings O026 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2993,1121,108,120"/>
+  <CroppedBitmap x:Key="UI-Buildings O033 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3078,1245,85,171"/>
+  <CroppedBitmap x:Key="UI-Buildings O026 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3105,1121,108,120"/>
+  <CroppedBitmap x:Key="UI-Buildings O063 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3725,1010,95,166"/>
+  <CroppedBitmap x:Key="UI-Buildings O033 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3128,1420,85,171"/>
+  <CroppedBitmap x:Key="UI-Buildings O033 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3167,1245,85,171"/>
+  <CroppedBitmap x:Key="UI-Buildings O028 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3129,1595,108,116"/>
+  <CroppedBitmap x:Key="UI-Buildings O034 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3217,1420,85,171"/>
+  <CroppedBitmap x:Key="UI-Buildings O053 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3306,2,80,154"/>
+  <CroppedBitmap x:Key="UI-Buildings O034 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3217,2,85,171"/>
+  <CroppedBitmap x:Key="UI-Buildings O053 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3306,160,80,154"/>
+  <CroppedBitmap x:Key="UI-Buildings O034 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3217,177,85,171"/>
+  <CroppedBitmap x:Key="UI-Buildings O053 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3306,318,80,154"/>
+  <CroppedBitmap x:Key="UI-Buildings O054 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3306,476,80,154"/>
+  <CroppedBitmap x:Key="UI-Buildings O004 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3217,352,83,129"/>
+  <CroppedBitmap x:Key="UI-Buildings O004 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3217,485,83,129"/>
+  <CroppedBitmap x:Key="UI-Buildings O004 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3217,618,83,129"/>
+  <CroppedBitmap x:Key="UI-Buildings O010 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2866,751,90,134"/>
+  <CroppedBitmap x:Key="UI-Buildings O010 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2960,751,90,134"/>
+  <CroppedBitmap x:Key="UISprites Z004 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3975,1028,110,110"/>
+  <CroppedBitmap x:Key="UI-Buildings M005 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3826,1121,145,158"/>
+  <CroppedBitmap x:Key="UI-Buildings O013 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3729,1180,89,162"/>
+  <CroppedBitmap x:Key="UISprites Z004 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3975,1142,110,110"/>
+  <CroppedBitmap x:Key="UISprites Z005 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3975,1256,110,110"/>
+  <CroppedBitmap x:Key="UI-Buildings M006 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3826,1283,145,158"/>
+  <CroppedBitmap x:Key="UI-Buildings O013 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3729,1346,89,162"/>
+  <CroppedBitmap x:Key="UISprites Z005 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3975,1370,110,110"/>
+  <CroppedBitmap x:Key="UI-Buildings M006 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3826,1445,145,158"/>
+  <CroppedBitmap x:Key="UI-Buildings O013 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3729,1512,89,162"/>
+  <CroppedBitmap x:Key="UISprites Z005 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3975,1484,110,110"/>
+  <CroppedBitmap x:Key="UISprites Z006 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3975,1598,110,110"/>
+  <CroppedBitmap x:Key="UI-Buildings M006 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3826,1607,145,158"/>
+  <CroppedBitmap x:Key="UI-Buildings O014 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3729,1678,89,162"/>
+  <CroppedBitmap x:Key="UISprites Z006 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3975,1712,110,110"/>
+  <CroppedBitmap x:Key="UI-Buttons O052 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3826,1769,139,152"/>
+  <CroppedBitmap x:Key="UI-Buildings O021a Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3224,1925,101,144"/>
+  <CroppedBitmap x:Key="UI-Buildings O014 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3729,1844,89,162"/>
+  <CroppedBitmap x:Key="UI-Buildings O063 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3313,2073,95,166"/>
+  <CroppedBitmap x:Key="UI-Buildings O064 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="2967,889,95,166"/>
+  <CroppedBitmap x:Key="UI-Buildings O019 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3054,751,100,126"/>
+  <CroppedBitmap x:Key="UI-Buildings O064 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3390,2243,95,166"/>
+  <CroppedBitmap x:Key="UI-Buildings O028 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3391,2413,108,116"/>
+  <CroppedBitmap x:Key="UI-Buttons O052 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3503,506,139,152"/>
+  <CroppedBitmap x:Key="UI-Buildings O007 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3412,506,82,147"/>
+  <CroppedBitmap x:Key="UI-Buildings O011 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3329,634,79,142"/>
+  <CroppedBitmap x:Key="UI-Buildings O007 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3412,657,82,147"/>
+  <CroppedBitmap x:Key="UI-Buildings O011 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3329,780,79,142"/>
+  <CroppedBitmap x:Key="UI-Buttons O052 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3503,662,139,152"/>
+  <CroppedBitmap x:Key="UI-Buildings O007 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3412,808,82,147"/>
+  <CroppedBitmap x:Key="UI-Buildings O011 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3329,926,79,142"/>
+  <CroppedBitmap x:Key="UI-Buildings O064 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3217,1072,95,166"/>
+  <CroppedBitmap x:Key="UI-Buttons O053 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3503,818,139,152"/>
+  <CroppedBitmap x:Key="UI-Buildings O008 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3412,959,82,147"/>
+  <CroppedBitmap x:Key="UI-Buildings O012 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3329,1072,79,142"/>
+  <CroppedBitmap x:Key="UI-Buttons O053 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3503,974,139,152"/>
+  <CroppedBitmap x:Key="UI-Buildings O008 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3412,1110,82,147"/>
+  <CroppedBitmap x:Key="UI-Buildings O012 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3329,1218,79,142"/>
+  <CroppedBitmap x:Key="UI-Buttons O053 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3066,881,139,152"/>
+  <CroppedBitmap x:Key="UI-Buildings O019 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3158,751,100,126"/>
+  <CroppedBitmap x:Key="UISprites Z006 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3209,881,110,110"/>
+  <CroppedBitmap x:Key="UI-Buildings O015 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3441,2533,95,163"/>
+  <CroppedBitmap x:Key="UISprites Z007 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3969,1826,110,110"/>
+  <CroppedBitmap x:Key="UI-Buttons O054 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3826,1925,139,152"/>
+  <CroppedBitmap x:Key="UI-Buildings O054 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3412,2081,80,154"/>
+  <CroppedBitmap x:Key="UI-Buildings O014 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3729,2010,89,162"/>
+  <CroppedBitmap x:Key="UI-Buildings O016 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3489,2239,95,163"/>
+  <CroppedBitmap x:Key="UISprites Z007 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3503,2406,110,110"/>
+  <CroppedBitmap x:Key="UI-Buildings O021a Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3617,1130,101,144"/>
+  <CroppedBitmap x:Key="UISprites Z007 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3498,1130,110,110"/>
+  <CroppedBitmap x:Key="UISprites Z008 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3498,1244,110,110"/>
+  <CroppedBitmap x:Key="UI-Buildings O008 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3412,1261,82,147"/>
+  <CroppedBitmap x:Key="UI-Buildings O012 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3329,1364,79,142"/>
+  <CroppedBitmap x:Key="UISprites Z008 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3612,1278,110,110"/>
+  <CroppedBitmap x:Key="UISprites Z008 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3498,1358,110,110"/>
+  <CroppedBitmap x:Key="UI-Buildings O054 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3412,1412,80,154"/>
+  <CroppedBitmap x:Key="UI-Buildings O021a Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3306,1510,101,144"/>
+  <CroppedBitmap x:Key="UISprites Z009 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3612,1392,110,110"/>
+  <CroppedBitmap x:Key="UISprites Z009 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3496,1472,110,110"/>
+  <CroppedBitmap x:Key="UISprites Z009 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3610,1506,110,110"/>
+  <CroppedBitmap x:Key="UISprites Z010 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3496,1586,110,110"/>
+  <CroppedBitmap x:Key="UISprites Z010 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3610,1620,110,110"/>
+  <CroppedBitmap x:Key="UISprites Z010 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3496,1700,110,110"/>
+  <CroppedBitmap x:Key="UISprites Z011 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3610,1734,110,110"/>
+  <CroppedBitmap x:Key="UISprites Z011 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3496,1814,110,110"/>
+  <CroppedBitmap x:Key="UI-Buildings O021 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3412,1928,95,146"/>
+  <CroppedBitmap x:Key="UI-Buttons O054 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3496,2078,139,152"/>
+  <CroppedBitmap x:Key="UI-Buildings O021 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3511,1928,95,146"/>
+  <CroppedBitmap x:Key="UISprites Z011 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3610,1848,110,110"/>
+  <CroppedBitmap x:Key="UISprites Z011a Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3610,1962,110,110"/>
+  <CroppedBitmap x:Key="UI-Buildings O016 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3588,2234,95,163"/>
+  <CroppedBitmap x:Key="UISprites Z011a Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3969,1940,110,110"/>
+  <CroppedBitmap x:Key="UISprites Z011a Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3969,2054,110,110"/>
+  <CroppedBitmap x:Key="UI-Buttons O054 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3826,2081,139,152"/>
+  <CroppedBitmap x:Key="UISprites Z012 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3969,2168,110,110"/>
+  <CroppedBitmap x:Key="UI-Buildings O016 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3144,1715,95,163"/>
+  <CroppedBitmap x:Key="UISprites Z012 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3687,2176,110,110"/>
+  <CroppedBitmap x:Key="UISprites Z012 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3826,2237,110,110"/>
+  <CroppedBitmap x:Key="UISprites Z013 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3687,2290,110,110"/>
+  <CroppedBitmap x:Key="UI-Buildings O022 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3490,2700,95,146"/>
+  <CroppedBitmap x:Key="UI-Buildings O022 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3540,2520,95,146"/>
+  <CroppedBitmap x:Key="UISprites Z013 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3617,2404,110,110"/>
+  <CroppedBitmap x:Key="UISprites Z013 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3940,2282,110,110"/>
+  <CroppedBitmap x:Key="UISprites Z015 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3826,2351,110,110"/>
+  <CroppedBitmap x:Key="UISprites Z015 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3940,2396,110,110"/>
+  <CroppedBitmap x:Key="UISprites Z015 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3826,2465,110,110"/>
+  <CroppedBitmap x:Key="UI-Buildings O022a Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3686,2518,101,144"/>
+  <CroppedBitmap x:Key="UI-Buildings O022a Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3940,2510,101,144"/>
+  <CroppedBitmap x:Key="UI-Buildings O022a Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3826,2579,101,144"/>
+  <CroppedBitmap x:Key="UI-Buildings O019 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3686,2666,100,126"/>
+  <CroppedBitmap x:Key="UI-Buildings O020 Green" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3329,1658,100,126"/>
+  <CroppedBitmap x:Key="UI-Buildings O020 Light Blue" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3243,1788,100,126"/>
+  <CroppedBitmap x:Key="UI-Buildings O020 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3347,1788,100,126"/>
+  <CroppedBitmap x:Key="UI-Buildings O022 Orange" Source="{StaticResource UI-Colour1Atlas}" SourceRect="3517,2850,95,146"/>
+
+</ResourceDictionary>

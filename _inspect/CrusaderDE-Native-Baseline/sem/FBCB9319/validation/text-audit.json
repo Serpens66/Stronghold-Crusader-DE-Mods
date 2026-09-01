@@ -1,0 +1,2514 @@
+{
+  "files": 358,
+  "nakedLfFiles": 0,
+  "literalEscapeFiles": 12,
+  "literalEscapeOccurrences": 13786,
+  "details": [
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\CURRENT.json",
+      "bytes": 218,
+      "crlf": 6,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\CURRENT.md",
+      "bytes": 2343,
+      "crlf": 38,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\diff\\17F8DD4A-FBCB9319\\added-functions.jsonl",
+      "bytes": 429925,
+      "crlf": 660,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\diff\\17F8DD4A-FBCB9319\\changed-functions.jsonl",
+      "bytes": 1034834,
+      "crlf": 2529,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\diff\\17F8DD4A-FBCB9319\\exports\\data-types.jsonl",
+      "bytes": 78074,
+      "crlf": 165,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\diff\\17F8DD4A-FBCB9319\\exports\\globals.jsonl",
+      "bytes": 15595382,
+      "crlf": 82596,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\diff\\17F8DD4A-FBCB9319\\exports\\rtti-vtables.jsonl",
+      "bytes": 24642,
+      "crlf": 142,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\diff\\17F8DD4A-FBCB9319\\exports\\semantic-decompile-status.jsonl",
+      "bytes": 795438,
+      "crlf": 4476,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\diff\\17F8DD4A-FBCB9319\\exports\\semantic-decompiled-functions.c",
+      "bytes": 10811995,
+      "crlf": 332043,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\diff\\17F8DD4A-FBCB9319\\exports\\semantic-functions.jsonl",
+      "bytes": 3032392,
+      "crlf": 4476,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\diff\\17F8DD4A-FBCB9319\\IDENTITY.json",
+      "bytes": 243,
+      "crlf": 6,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\diff\\17F8DD4A-FBCB9319\\logs\\ghidra-historical-script.log",
+      "bytes": 746,
+      "crlf": 6,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\diff\\17F8DD4A-FBCB9319\\logs\\ghidra-historical.log",
+      "bytes": 18507,
+      "crlf": 159,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\diff\\17F8DD4A-FBCB9319\\logs\\ghidra-readonly-validation.log",
+      "bytes": 31919,
+      "crlf": 215,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\diff\\17F8DD4A-FBCB9319\\removed-functions.jsonl",
+      "bytes": 428077,
+      "crlf": 658,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\diff\\17F8DD4A-FBCB9319\\version-matches.jsonl",
+      "bytes": 1548366,
+      "crlf": 3818,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\diff\\17F8DD4A-FBCB9319\\VERSION_DIFF.md",
+      "bytes": 1019,
+      "crlf": 25,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\DATABASE_INFO.json",
+      "bytes": 7027,
+      "crlf": 189,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\exports\\applied-labels.json",
+      "bytes": 2319,
+      "crlf": 11,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\exports\\data-types.jsonl",
+      "bytes": 701188,
+      "crlf": 259,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\exports\\globals.jsonl",
+      "bytes": 15598176,
+      "crlf": 82610,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\exports\\rtti-vtables.jsonl",
+      "bytes": 24642,
+      "crlf": 142,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\exports\\semantic-decompile-status.jsonl",
+      "bytes": 796010,
+      "crlf": 4478,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\exports\\semantic-decompiled-functions.c",
+      "bytes": 10854236,
+      "crlf": 332839,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\exports\\semantic-functions.jsonl",
+      "bytes": 3051408,
+      "crlf": 4478,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\IDENTITY.json",
+      "bytes": 336,
+      "crlf": 8,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\logs\\assetstudio-xaml-retries.log",
+      "bytes": 57907,
+      "crlf": 663,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\logs\\assetstudio-xaml.log",
+      "bytes": 41444,
+      "crlf": 482,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\logs\\dat2xaml.log",
+      "bytes": 31216,
+      "crlf": 854,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\logs\\ghidra-readonly-validation.log",
+      "bytes": 31395,
+      "crlf": 215,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\logs\\ghidra-semantic-script.log",
+      "bytes": 1542,
+      "crlf": 13,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\logs\\ghidra-semantic.log",
+      "bytes": 32226,
+      "crlf": 377,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\logs\\ghidra-type-import-script.log",
+      "bytes": 488,
+      "crlf": 4,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\logs\\ghidra-type-import.log",
+      "bytes": 38334,
+      "crlf": 248,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\AchievementsCommon.cs",
+      "bytes": 6456,
+      "crlf": 223,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\AIVLoader.cs",
+      "bytes": 2922852,
+      "crlf": 50689,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\Assembly-CSharp.csproj",
+      "bytes": 5169,
+      "crlf": 70,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\Avatars.cs",
+      "bytes": 39403,
+      "crlf": 787,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\BuildingAnim.cs",
+      "bytes": 138,
+      "crlf": 10,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CameraControls2D.cs",
+      "bytes": 11197,
+      "crlf": 433,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\Chimp.cs",
+      "bytes": 2323,
+      "crlf": 157,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\ConfigSettings.cs",
+      "bytes": 100091,
+      "crlf": 4449,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\AnImage.cs",
+      "bytes": 143,
+      "crlf": 10,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\AVideo.cs",
+      "bytes": 142,
+      "crlf": 10,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\DelegateCommand.cs",
+      "bytes": 1045,
+      "crlf": 55,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\FileRow.cs",
+      "bytes": 1868,
+      "crlf": 127,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\FRONT_CoopTrail1.cs",
+      "bytes": 11377,
+      "crlf": 319,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\FRONT_CoopTrail2.cs",
+      "bytes": 11377,
+      "crlf": 319,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\FRONT_CoopTrail3.cs",
+      "bytes": 11681,
+      "crlf": 319,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\FRONT_CoopTrail4.cs",
+      "bytes": 11681,
+      "crlf": 319,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\FRONT_Credits.cs",
+      "bytes": 2830,
+      "crlf": 115,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\FRONT_EditorSetup.cs",
+      "bytes": 39316,
+      "crlf": 1132,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\FRONT_Extra1Campaign.cs",
+      "bytes": 2993,
+      "crlf": 125,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\FRONT_Extra2Campaign.cs",
+      "bytes": 2997,
+      "crlf": 125,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\FRONT_Extra3Campaign.cs",
+      "bytes": 2993,
+      "crlf": 125,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\FRONT_Extra4Campaign.cs",
+      "bytes": 2997,
+      "crlf": 125,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\FRONT_Extra5Campaign.cs",
+      "bytes": 2995,
+      "crlf": 125,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\FRONT_Extra6Campaign.cs",
+      "bytes": 2999,
+      "crlf": 125,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\FRONT_Extra7Campaign.cs",
+      "bytes": 2995,
+      "crlf": 125,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\FRONT_ManageTrail.cs",
+      "bytes": 34781,
+      "crlf": 1173,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\FRONT_Multiplayer.cs",
+      "bytes": 412601,
+      "crlf": 11707,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\FRONT_Multiplayer_AISettings.cs",
+      "bytes": 20820,
+      "crlf": 759,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\FRONT_Multiplayer_Setup.cs",
+      "bytes": 5503,
+      "crlf": 178,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\FRONT_SandsTrail1.cs",
+      "bytes": 1557,
+      "crlf": 58,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\FRONT_SandsTrail2.cs",
+      "bytes": 1557,
+      "crlf": 58,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\FRONT_SandsTrail3.cs",
+      "bytes": 1557,
+      "crlf": 58,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\FRONT_SandsTrail4.cs",
+      "bytes": 1557,
+      "crlf": 58,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\FRONT_SandsTrail5.cs",
+      "bytes": 1557,
+      "crlf": 58,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\FRONT_SandsTrail6.cs",
+      "bytes": 1557,
+      "crlf": 58,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\FRONT_SandsTrail7.cs",
+      "bytes": 1557,
+      "crlf": 58,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\FRONT_SandsTrail8.cs",
+      "bytes": 1557,
+      "crlf": 58,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\FRONT_SkirmishMasters.cs",
+      "bytes": 13278,
+      "crlf": 422,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\FRONT_StandaloneMission.cs",
+      "bytes": 37092,
+      "crlf": 1133,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\FRONT_Story.cs",
+      "bytes": 16154,
+      "crlf": 468,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\FRONT_Trail.cs",
+      "bytes": 2195,
+      "crlf": 86,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\FRONT_Trail2.cs",
+      "bytes": 2198,
+      "crlf": 86,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\FRONT_Trail3.cs",
+      "bytes": 2198,
+      "crlf": 86,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\FrontendMenus.cs",
+      "bytes": 126806,
+      "crlf": 3583,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\HotKeyRow.cs",
+      "bytes": 1766,
+      "crlf": 117,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\HUD_AlliesPanel.cs",
+      "bytes": 23157,
+      "crlf": 707,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\HUD_Briefing.cs",
+      "bytes": 11751,
+      "crlf": 358,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\HUD_Buildings.cs",
+      "bytes": 53001,
+      "crlf": 1648,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\HUD_CoatOfArms.cs",
+      "bytes": 42402,
+      "crlf": 1535,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\HUD_ConfirmationPopup.cs",
+      "bytes": 17596,
+      "crlf": 595,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\HUD_ControlGroups.cs",
+      "bytes": 19704,
+      "crlf": 497,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\HUD_CustomTrailsSelect.cs",
+      "bytes": 8828,
+      "crlf": 345,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\HUD_EditorWarning.cs",
+      "bytes": 283,
+      "crlf": 16,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\HUD_ExtremePowers.cs",
+      "bytes": 422,
+      "crlf": 19,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\HUD_FreebuildMenu.cs",
+      "bytes": 16009,
+      "crlf": 538,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\HUD_Goods.cs",
+      "bytes": 302,
+      "crlf": 17,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\HUD_Help.cs",
+      "bytes": 10346,
+      "crlf": 324,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\HUD_IngameMenu.cs",
+      "bytes": 41672,
+      "crlf": 1350,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\HUD_Leaderboard.cs",
+      "bytes": 12987,
+      "crlf": 459,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\HUD_LoadSaveRequester.cs",
+      "bytes": 29005,
+      "crlf": 1003,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\HUD_Main.cs",
+      "bytes": 115122,
+      "crlf": 3198,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\HUD_Markers.cs",
+      "bytes": 1841,
+      "crlf": 66,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\HUD_MeritPanel.cs",
+      "bytes": 14362,
+      "crlf": 518,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\HUD_MissionOver.cs",
+      "bytes": 79502,
+      "crlf": 2396,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\HUD_MPChatMessages.cs",
+      "bytes": 4407,
+      "crlf": 138,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\HUD_MPChatPanel.cs",
+      "bytes": 16169,
+      "crlf": 592,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\HUD_MPConnectionIssue.cs",
+      "bytes": 1896,
+      "crlf": 67,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\HUD_MPInviteWarning.cs",
+      "bytes": 1429,
+      "crlf": 61,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\HUD_MPResync.cs",
+      "bytes": 1457,
+      "crlf": 56,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\HUD_Objectives.cs",
+      "bytes": 1387,
+      "crlf": 44,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\HUD_Options.cs",
+      "bytes": 117817,
+      "crlf": 3127,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\HUD_RightClick.cs",
+      "bytes": 7599,
+      "crlf": 241,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\HUD_Scenario.cs",
+      "bytes": 108339,
+      "crlf": 3067,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\HUD_Scenario_Popup.cs",
+      "bytes": 9573,
+      "crlf": 282,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\HUD_ScenarioSpecial.cs",
+      "bytes": 933,
+      "crlf": 39,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\HUD_StartingGoods.cs",
+      "bytes": 291,
+      "crlf": 16,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\HUD_Troops.cs",
+      "bytes": 27437,
+      "crlf": 930,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\HUD_Tutorial.cs",
+      "bytes": 7623,
+      "crlf": 228,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\HUD_WorkshopUploader.cs",
+      "bytes": 9675,
+      "crlf": 317,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\IngameUIScreens.cs",
+      "bytes": 8714,
+      "crlf": 267,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\IntroSequence.cs",
+      "bytes": 17653,
+      "crlf": 519,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\MainHUD.cs",
+      "bytes": 4165,
+      "crlf": 176,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\MainViewModel.cs",
+      "bytes": 1085066,
+      "crlf": 44656,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\MainWindow.cs",
+      "bytes": 299,
+      "crlf": 17,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\MasterController.cs",
+      "bytes": 362,
+      "crlf": 18,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\OST_Koth.cs",
+      "bytes": 256,
+      "crlf": 16,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\OST_Pings.cs",
+      "bytes": 259,
+      "crlf": 16,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\OST_StartingGoods.cs",
+      "bytes": 813,
+      "crlf": 37,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\PropEx.cs",
+      "bytes": 12148,
+      "crlf": 344,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\ScenarioEditorRow.cs",
+      "bytes": 3053,
+      "crlf": 174,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\SkirmishMastersRow.cs",
+      "bytes": 10862,
+      "crlf": 603,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\TestBed.cs",
+      "bytes": 290,
+      "crlf": 17,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\TintEffect.cs",
+      "bytes": 1030,
+      "crlf": 48,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\Translate.cs",
+      "bytes": 27994,
+      "crlf": 668,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\WGT_Heading.cs",
+      "bytes": 1363,
+      "crlf": 67,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\WGT_Heading2.cs",
+      "bytes": 1403,
+      "crlf": 67,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\WGT_Objective.cs",
+      "bytes": 2678,
+      "crlf": 111,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\WGT_Popularity.cs",
+      "bytes": 1484,
+      "crlf": 77,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CrusaderDE\\WGT_SkirmishMastersRow.cs",
+      "bytes": 417,
+      "crlf": 21,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CustomisationFileManager.cs",
+      "bytes": 25924,
+      "crlf": 1012,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\debugBox.cs",
+      "bytes": 191,
+      "crlf": 13,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\DebugDirector.cs",
+      "bytes": 72,
+      "crlf": 5,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\debugLine.cs",
+      "bytes": 202,
+      "crlf": 15,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\debugTile.cs",
+      "bytes": 149,
+      "crlf": 10,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\Director.cs",
+      "bytes": 22994,
+      "crlf": 983,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\DLL_Object_Types.cs",
+      "bytes": 525,
+      "crlf": 29,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\DLL_Org_Defs.cs",
+      "bytes": 809,
+      "crlf": 38,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\EditorDirector.cs",
+      "bytes": 62701,
+      "crlf": 1990,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\EngineInterface.cs",
+      "bytes": 227779,
+      "crlf": 7511,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\Enums.cs",
+      "bytes": 148923,
+      "crlf": 5668,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\FatControler.cs",
+      "bytes": 146783,
+      "crlf": 3489,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\FileHeader.cs",
+      "bytes": 4970,
+      "crlf": 241,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\Fly.cs",
+      "bytes": 723,
+      "crlf": 42,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\GameData.cs",
+      "bytes": 83766,
+      "crlf": 3101,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\GameMap.cs",
+      "bytes": 125636,
+      "crlf": 4396,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\GameMapTile.cs",
+      "bytes": 1094,
+      "crlf": 71,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\GameSprite.cs",
+      "bytes": 334,
+      "crlf": 26,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\gameTile.cs",
+      "bytes": 5355,
+      "crlf": 193,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\GPUTextureScaler.cs",
+      "bytes": 1225,
+      "crlf": 33,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\KeyManager.cs",
+      "bytes": 69198,
+      "crlf": 2220,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\LineDrawing.cs",
+      "bytes": 8977,
+      "crlf": 325,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\MainControls.cs",
+      "bytes": 9955,
+      "crlf": 425,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\MapFileManager.cs",
+      "bytes": 52064,
+      "crlf": 1853,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\MemoryBuffers.cs",
+      "bytes": 2457,
+      "crlf": 133,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\MinimumWindowSize.cs",
+      "bytes": 3709,
+      "crlf": 135,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\MyAudioManager.cs",
+      "bytes": 20502,
+      "crlf": 893,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\ObjectPool.cs",
+      "bytes": 7666,
+      "crlf": 312,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\ObjPoolEntry.cs",
+      "bytes": 162,
+      "crlf": 12,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\OnScreenText.cs",
+      "bytes": 54301,
+      "crlf": 1344,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\Org.cs",
+      "bytes": 120,
+      "crlf": 10,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\PerfectPixelWithZoom.cs",
+      "bytes": 6003,
+      "crlf": 325,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\Pixie.cs",
+      "bytes": 122,
+      "crlf": 10,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\Platform_Achievements.cs",
+      "bytes": 19714,
+      "crlf": 485,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\Platform_Leaderboards.cs",
+      "bytes": 10007,
+      "crlf": 370,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\Platform_Multiplayer.cs",
+      "bytes": 141486,
+      "crlf": 4899,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\Platform_Workshop.cs",
+      "bytes": 5725,
+      "crlf": 188,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\prefabEntry.cs",
+      "bytes": 75,
+      "crlf": 6,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\Properties\\AssemblyInfo.cs",
+      "bytes": 195,
+      "crlf": 7,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\SFXManager.cs",
+      "bytes": 152566,
+      "crlf": 2029,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\spriteLoader.cs",
+      "bytes": 31923,
+      "crlf": 673,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\SpriteMapping.cs",
+      "bytes": 14823,
+      "crlf": 676,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\SteamManager.cs",
+      "bytes": 3079,
+      "crlf": 126,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\TilemapManager.cs",
+      "bytes": 11282,
+      "crlf": 450,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\TroopSelector.cs",
+      "bytes": 1297,
+      "crlf": 56,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\Vectrosity\\Brightness.cs",
+      "bytes": 69,
+      "crlf": 7,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\Vectrosity\\BrightnessControl.cs",
+      "bytes": 1256,
+      "crlf": 65,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\Vectrosity\\CanvasState.cs",
+      "bytes": 90,
+      "crlf": 8,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\Vectrosity\\CapInfo.cs",
+      "bytes": 714,
+      "crlf": 37,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\Vectrosity\\EndCap.cs",
+      "bytes": 93,
+      "crlf": 10,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\Vectrosity\\IVectorObject.cs",
+      "bytes": 577,
+      "crlf": 36,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\Vectrosity\\Joins.cs",
+      "bytes": 73,
+      "crlf": 8,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\Vectrosity\\LineManager.cs",
+      "bytes": 2721,
+      "crlf": 147,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\Vectrosity\\LineType.cs",
+      "bytes": 88,
+      "crlf": 8,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\Vectrosity\\RefInt.cs",
+      "bytes": 119,
+      "crlf": 11,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\Vectrosity\\Vector3Pair.cs",
+      "bytes": 174,
+      "crlf": 10,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\Vectrosity\\VectorChar.cs",
+      "bytes": 22292,
+      "crlf": 878,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\Vectrosity\\VectorLine.cs",
+      "bytes": 148879,
+      "crlf": 5453,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\Vectrosity\\VectorManager.cs",
+      "bytes": 12527,
+      "crlf": 462,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\Vectrosity\\VectorObject2D.cs",
+      "bytes": 3730,
+      "crlf": 205,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\Vectrosity\\VectorObject3D.cs",
+      "bytes": 3447,
+      "crlf": 185,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\Vectrosity\\Visibility.cs",
+      "bytes": 93,
+      "crlf": 9,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\Vectrosity\\VisibilityControl.cs",
+      "bytes": 1432,
+      "crlf": 70,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\Vectrosity\\VisibilityControlAlways.cs",
+      "bytes": 849,
+      "crlf": 42,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\Vectrosity\\VisibilityControlStatic.cs",
+      "bytes": 1773,
+      "crlf": 84,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\WallFillin.cs",
+      "bytes": 127,
+      "crlf": 10,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\managed-calls.jsonl",
+      "bytes": 22716685,
+      "crlf": 72559,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\managed-methods.jsonl",
+      "bytes": 2914477,
+      "crlf": 8138,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\managed-native-links.jsonl",
+      "bytes": 50618035,
+      "crlf": 56123,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\managed-summary.json",
+      "bytes": 336,
+      "crlf": 1,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\pinvokes.jsonl",
+      "bytes": 47856,
+      "crlf": 84,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml-index.jsonl",
+      "bytes": 237497,
+      "crlf": 105,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml-managed-links.jsonl",
+      "bytes": 1140525,
+      "crlf": 7860,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\Sprites\\UI-Colour1Atlas.xaml",
+      "bytes": 91211,
+      "crlf": 736,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\Sprites\\UI-Colour2Atlas.xaml",
+      "bytes": 90215,
+      "crlf": 736,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\Sprites\\UI-MasterAtlas.xaml",
+      "bytes": 258119,
+      "crlf": 2229,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\Sprites\\UI-TrailAtlas.xaml",
+      "bytes": 25909,
+      "crlf": 217,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAML\\FrontendMenus.xaml",
+      "bytes": 383851,
+      "crlf": 6340,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAML\\IngameUIScreens.xaml",
+      "bytes": 64751,
+      "crlf": 1624,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAML\\IntroSequence.xaml",
+      "bytes": 35379,
+      "crlf": 677,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAML\\MainHUD.xaml",
+      "bytes": 38479,
+      "crlf": 895,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAML\\MasterController.xaml",
+      "bytes": 3235,
+      "crlf": 84,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\ApplicationResources.xaml",
+      "bytes": 1704,
+      "crlf": 27,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\BackgroundScreens.xaml",
+      "bytes": 166,
+      "crlf": 2,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\BDR_Stronghold.xaml",
+      "bytes": 57811,
+      "crlf": 1191,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\BTN_Building.xaml",
+      "bytes": 10402,
+      "crlf": 197,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\BTN_FrontMenu.xaml",
+      "bytes": 24613,
+      "crlf": 302,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\BTN_Image.xaml",
+      "bytes": 20258,
+      "crlf": 352,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\BTN_NewFrontend.xaml",
+      "bytes": 93492,
+      "crlf": 1763,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\BTN_RADIO_Image.xaml",
+      "bytes": 4698,
+      "crlf": 86,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\BTN_SH_BuySell.xaml",
+      "bytes": 7092,
+      "crlf": 137,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\BTN_SH_Glow.xaml",
+      "bytes": 148819,
+      "crlf": 2755,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\BTN_SH_Plain.xaml",
+      "bytes": 4827,
+      "crlf": 93,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\BTN_StartingGood.xaml",
+      "bytes": 305,
+      "crlf": 6,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\CheckBox_Template.xaml",
+      "bytes": 30806,
+      "crlf": 591,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\FRONT_CoopTrail1.xaml",
+      "bytes": 191494,
+      "crlf": 3318,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\FRONT_CoopTrail2.xaml",
+      "bytes": 191494,
+      "crlf": 3318,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\FRONT_CoopTrail3.xaml",
+      "bytes": 194824,
+      "crlf": 3360,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\FRONT_CoopTrail4.xaml",
+      "bytes": 194824,
+      "crlf": 3360,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\FRONT_Credits.xaml",
+      "bytes": 81286,
+      "crlf": 1744,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\FRONT_EditorSetup.xaml",
+      "bytes": 75989,
+      "crlf": 1427,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\FRONT_Extra1Campaign.xaml",
+      "bytes": 11157,
+      "crlf": 223,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\FRONT_Extra2Campaign.xaml",
+      "bytes": 9516,
+      "crlf": 199,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\FRONT_Extra3Campaign.xaml",
+      "bytes": 9506,
+      "crlf": 198,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\FRONT_Extra4Campaign.xaml",
+      "bytes": 9508,
+      "crlf": 199,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\FRONT_Extra5Campaign.xaml",
+      "bytes": 9508,
+      "crlf": 199,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\FRONT_Extra6Campaign.xaml",
+      "bytes": 9506,
+      "crlf": 198,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\FRONT_Extra7Campaign.xaml",
+      "bytes": 9504,
+      "crlf": 197,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\FRONT_ManageTrail.xaml",
+      "bytes": 90419,
+      "crlf": 1820,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\FRONT_Multiplayer.xaml",
+      "bytes": 340210,
+      "crlf": 6983,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\FRONT_Multiplayer_AISettings.xaml",
+      "bytes": 52991,
+      "crlf": 1052,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\FRONT_Multiplayer_Setup.xaml",
+      "bytes": 237973,
+      "crlf": 3977,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\FRONT_SandsTrail1.xaml",
+      "bytes": 60800,
+      "crlf": 535,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\FRONT_SandsTrail2.xaml",
+      "bytes": 64246,
+      "crlf": 570,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\FRONT_SandsTrail3.xaml",
+      "bytes": 67662,
+      "crlf": 602,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\FRONT_SandsTrail4.xaml",
+      "bytes": 71114,
+      "crlf": 641,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\FRONT_SandsTrail5.xaml",
+      "bytes": 67629,
+      "crlf": 605,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\FRONT_SandsTrail6.xaml",
+      "bytes": 67669,
+      "crlf": 605,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\FRONT_SandsTrail7.xaml",
+      "bytes": 67669,
+      "crlf": 605,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\FRONT_SandsTrail8.xaml",
+      "bytes": 67669,
+      "crlf": 605,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\FRONT_SkirmishMasters.xaml",
+      "bytes": 17755,
+      "crlf": 445,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\FRONT_StandaloneMission.xaml",
+      "bytes": 41274,
+      "crlf": 954,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\FRONT_Story.xaml",
+      "bytes": 40611,
+      "crlf": 1014,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\FRONT_Trail.xaml",
+      "bytes": 68673,
+      "crlf": 374,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\FRONT_Trail2.xaml",
+      "bytes": 59486,
+      "crlf": 346,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\FRONT_Trail3.xaml",
+      "bytes": 55076,
+      "crlf": 336,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\HUD_AlliesPanel.xaml",
+      "bytes": 84163,
+      "crlf": 1967,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\HUD_Briefing.xaml",
+      "bytes": 89212,
+      "crlf": 1871,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\HUD_Buildings.xaml",
+      "bytes": 395704,
+      "crlf": 9324,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\HUD_CoatOfArms.xaml",
+      "bytes": 238308,
+      "crlf": 4631,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\HUD_ConfirmationPopup.xaml",
+      "bytes": 7135,
+      "crlf": 181,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\HUD_ControlGroups.xaml",
+      "bytes": 106048,
+      "crlf": 1874,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\HUD_CustomTrailsSelect.xaml",
+      "bytes": 28654,
+      "crlf": 631,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\HUD_EditorWarning.xaml",
+      "bytes": 3326,
+      "crlf": 91,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\HUD_ExtremePowers.xaml",
+      "bytes": 14521,
+      "crlf": 337,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\HUD_FreebuildMenu.xaml",
+      "bytes": 49080,
+      "crlf": 1100,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\HUD_Goods.xaml",
+      "bytes": 42081,
+      "crlf": 905,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\HUD_Help.xaml",
+      "bytes": 3518,
+      "crlf": 99,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\HUD_IngameMenu.xaml",
+      "bytes": 10577,
+      "crlf": 241,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\HUD_Leaderboard.xaml",
+      "bytes": 32913,
+      "crlf": 714,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\HUD_LoadSaveRequester.xaml",
+      "bytes": 16102,
+      "crlf": 370,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\HUD_Main.xaml",
+      "bytes": 332899,
+      "crlf": 5598,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\HUD_Markers.xaml",
+      "bytes": 11568,
+      "crlf": 257,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\HUD_MeritPanel.xaml",
+      "bytes": 35661,
+      "crlf": 724,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\HUD_MissionOver.xaml",
+      "bytes": 330017,
+      "crlf": 5641,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\HUD_MPChatMessages.xaml",
+      "bytes": 4386,
+      "crlf": 93,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\HUD_MPChatPanel.xaml",
+      "bytes": 35613,
+      "crlf": 769,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\HUD_MPConnectionIssue.xaml",
+      "bytes": 2303,
+      "crlf": 63,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\HUD_MPInviteWarning.xaml",
+      "bytes": 2790,
+      "crlf": 73,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\HUD_MPResync.xaml",
+      "bytes": 2548,
+      "crlf": 80,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\HUD_Objectives.xaml",
+      "bytes": 5885,
+      "crlf": 165,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\HUD_Options.xaml",
+      "bytes": 138489,
+      "crlf": 2478,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\HUD_RightClick.xaml",
+      "bytes": 2314,
+      "crlf": 69,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\HUD_Scenario.xaml",
+      "bytes": 187299,
+      "crlf": 4142,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\HUD_Scenario_Popup.xaml",
+      "bytes": 17148,
+      "crlf": 368,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\HUD_ScenarioSpecial.xaml",
+      "bytes": 4344,
+      "crlf": 104,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\HUD_Troops.xaml",
+      "bytes": 108925,
+      "crlf": 2154,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\HUD_Tutorial.xaml",
+      "bytes": 3742,
+      "crlf": 99,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\HUD_WorkshopUploader.xaml",
+      "bytes": 10356,
+      "crlf": 275,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\ListViewItem_Styles.xaml",
+      "bytes": 5638,
+      "crlf": 82,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\LST_SH_BuildingAvailable.xaml",
+      "bytes": 10531,
+      "crlf": 197,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\LST_SH_HotKeys.xaml",
+      "bytes": 2901,
+      "crlf": 62,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\OST_Koth.xaml",
+      "bytes": 14973,
+      "crlf": 417,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\OST_Pings.xaml",
+      "bytes": 15458,
+      "crlf": 423,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\OST_StartingGoods.xaml",
+      "bytes": 33445,
+      "crlf": 833,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\SDR_SH_Plain.xaml",
+      "bytes": 10872,
+      "crlf": 257,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\SVG_Images.xaml",
+      "bytes": 57994,
+      "crlf": 446,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\Theme.Brushes.DarkRed.xaml",
+      "bytes": 8685,
+      "crlf": 127,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\Theme.DarkRed.xaml",
+      "bytes": 612,
+      "crlf": 11,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\TOOLTIPS.xaml",
+      "bytes": 8074,
+      "crlf": 104,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\WGT_Heading.xaml",
+      "bytes": 2611,
+      "crlf": 74,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\WGT_Heading2.xaml",
+      "bytes": 2766,
+      "crlf": 76,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\WGT_Objective.xaml",
+      "bytes": 2632,
+      "crlf": 77,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\WGT_Popularity.xaml",
+      "bytes": 2446,
+      "crlf": 66,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Assets\\GUI\\XAMLResources\\WGT_SkirmishMastersRow.xaml",
+      "bytes": 18728,
+      "crlf": 430,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Packages\\com.noesis.noesisgui\\Theme\\NoesisTheme.Colors.Dark.xaml",
+      "bytes": 769,
+      "crlf": 18,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Packages\\com.noesis.noesisgui\\Theme\\NoesisTheme.Fonts.xaml",
+      "bytes": 485,
+      "crlf": 10,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\resources\\xaml\\Packages\\com.noesis.noesisgui\\Theme\\NoesisTheme.Styles.xaml",
+      "bytes": 194594,
+      "crlf": 2998,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\SEMANTIC_INFO.md",
+      "bytes": 12965,
+      "crlf": 212,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\sources\\aob-labels.tsv",
+      "bytes": 1372,
+      "crlf": 10,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\sources\\Dat2XAML-source\\NoesisDatFile.cs",
+      "bytes": 6757,
+      "crlf": 212,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\sources\\Dat2XAML-source\\Program.cs",
+      "bytes": 2541,
+      "crlf": 81,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\sources\\Dat2XAML-source\\SHCDESE.Dat2XAML.csproj",
+      "bytes": 451,
+      "crlf": 16,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\sources\\delegates.jsonl",
+      "bytes": 86944,
+      "crlf": 135,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 91
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\sources\\ghidra-header-manifest.jsonl",
+      "bytes": 1339,
+      "crlf": 13,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\sources\\header-manifest.jsonl",
+      "bytes": 3419,
+      "crlf": 13,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\sources\\headers\\AILordMessageType.h",
+      "bytes": 1152,
+      "crlf": 36,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\sources\\headers\\Custom.h",
+      "bytes": 187294,
+      "crlf": 6037,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\sources\\headers\\engineinterface.h",
+      "bytes": 28070,
+      "crlf": 927,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\sources\\headers\\Enums.h",
+      "bytes": 135032,
+      "crlf": 5691,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\sources\\headers\\InternalAIC.h",
+      "bytes": 14085,
+      "crlf": 382,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\sources\\headers\\MessageManager.h",
+      "bytes": 581,
+      "crlf": 17,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\sources\\headers\\PlayerResources.h",
+      "bytes": 178576,
+      "crlf": 5691,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\sources\\headers\\RationsMode.h",
+      "bytes": 108,
+      "crlf": 7,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\sources\\headers\\ReClassExports.h",
+      "bytes": 21045,
+      "crlf": 739,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\sources\\headers\\TaxesMode.h",
+      "bytes": 229,
+      "crlf": 14,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\sources\\headers\\TilePropertyFlags.h",
+      "bytes": 794,
+      "crlf": 33,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\sources\\headers\\TileType.h",
+      "bytes": 254,
+      "crlf": 12,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\sources\\headers\\TribeAICommand.h",
+      "bytes": 3489,
+      "crlf": 67,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\sources\\pattern-matches.jsonl",
+      "bytes": 374784,
+      "crlf": 668,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 304
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\sources\\patterns.jsonl",
+      "bytes": 130823,
+      "crlf": 332,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 151
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\sources\\pinvoke-prototypes.tsv",
+      "bytes": 11345,
+      "crlf": 78,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\sources\\sanitized-header-manifest.jsonl",
+      "bytes": 1339,
+      "crlf": 13,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\sources\\script-extender-types-ghidra.h",
+      "bytes": 629006,
+      "crlf": 19654,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\sources\\script-extender-types.h",
+      "bytes": 801,
+      "crlf": 25,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\sources\\source-files.jsonl",
+      "bytes": 98538,
+      "crlf": 460,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\sources\\source-summary.json",
+      "bytes": 277,
+      "crlf": 1,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\sources\\source-types.jsonl",
+      "bytes": 575997,
+      "crlf": 81,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 13220
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\sources\\type-fields.jsonl",
+      "bytes": 3728760,
+      "crlf": 9389,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 2
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\sources\\vtable-members.jsonl",
+      "bytes": 170249,
+      "crlf": 345,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\validation\\raw-baseline-before.jsonl",
+      "bytes": 4584,
+      "crlf": 34,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\validation\\script-extender-before.jsonl",
+      "bytes": 403735,
+      "crlf": 2306,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\validation\\text-audit.json",
+      "bytes": 87034,
+      "crlf": 2514,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\validation\\validation-report.json",
+      "bytes": 1670,
+      "crlf": 36,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\tools\\semantic\\ApplyCrusaderSemantics.java",
+      "bytes": 11022,
+      "crlf": 223,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 4
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\tools\\semantic\\Build-SemanticBaseline.ps1",
+      "bytes": 15704,
+      "crlf": 207,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\tools\\semantic\\database_manifest.py",
+      "bytes": 10117,
+      "crlf": 233,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 1
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\tools\\semantic\\ExportCrusaderSemantics.java",
+      "bytes": 14631,
+      "crlf": 228,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 2
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\tools\\semantic\\query.ps1",
+      "bytes": 2383,
+      "crlf": 46,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\tools\\semantic\\query.py",
+      "bytes": 6547,
+      "crlf": 112,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\tools\\semantic\\semantic_tools.py",
+      "bytes": 41770,
+      "crlf": 743,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 3
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\tools\\semantic\\SemanticExtract\\Program.cs",
+      "bytes": 27400,
+      "crlf": 583,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 1
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\tools\\semantic\\SemanticExtract\\SemanticExtract.csproj",
+      "bytes": 673,
+      "crlf": 18,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\tools\\semantic\\text_audit.py",
+      "bytes": 2649,
+      "crlf": 67,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 5
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\tools\\semantic\\validate.py",
+      "bytes": 7938,
+      "crlf": 158,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 2
+    }
+  ]
+}

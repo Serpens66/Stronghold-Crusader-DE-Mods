@@ -1,0 +1,189 @@
+{
+  "manifestSchemaVersion": 1,
+  "database": {
+    "path": "sem/FBCB9319/CrusaderDE-semantic.sqlite",
+    "schemaVersion": 1,
+    "referenceSize": 147181568,
+    "referenceSha256": "288FEACB7EF209E259D41ABA20D107C442CAD2859F0A495C890640173AA54594",
+    "referenceSqliteVersion": "3.45.3"
+  },
+  "identities": {
+    "currentNativeHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+    "managedHash": "BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789",
+    "oldNativeHash": "17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4",
+    "scriptExtenderCommit": "171d68e155a8f98c5f8c4ee154d9af154c9a2443"
+  },
+  "binaries": [
+    {
+      "hash": "BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789",
+      "role": "current-managed",
+      "sourcePath": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\Stronghold Crusader Definitive Edition_Data\\Managed\\Assembly-CSharp.dll",
+      "size": 3693056
+    },
+    {
+      "hash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+      "role": "current-native",
+      "sourcePath": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\Stronghold Crusader Definitive Edition_Data\\Plugins\\x86_64\\CrusaderDE.dll",
+      "size": 3451392
+    },
+    {
+      "hash": "17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4",
+      "role": "historical-native",
+      "sourcePath": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\x86_64\\CrusaderDE.dll",
+      "size": 3446784
+    }
+  ],
+  "validation": {
+    "integrityCheck": "ok",
+    "foreignKeyErrors": 0,
+    "ftsProbe": {
+      "query": "operator",
+      "hits": 185
+    },
+    "counts": {
+      "binaries": 3,
+      "functions": 8954,
+      "call_edges": 23692,
+      "xrefs": 236382,
+      "strings": 4248,
+      "globals": 82610,
+      "managed_methods": 8138,
+      "pinvokes": 84,
+      "managed_calls": 72559,
+      "managed_native_links": 56123,
+      "patterns": 668,
+      "data_types": 259,
+      "source_types": 81,
+      "type_fields": 9389,
+      "vtable_members": 345,
+      "delegates": 135,
+      "rtti_vtables": 142,
+      "xaml_resources": 105,
+      "xaml_links": 7860,
+      "classifications": 601,
+      "version_matches": 3818
+    }
+  },
+  "inputs": [
+    {
+      "path": "sem/FBCB9319/IDENTITY.json",
+      "sha256": "551AF76BB4A9685440472F4E560737B1E442FF11D075D253F326FE0AF5E0D7B9",
+      "bytes": 336
+    },
+    {
+      "path": "diff/17F8DD4A-FBCB9319/IDENTITY.json",
+      "sha256": "4E869E731EDEB4E6FC5FD4F3071C4166B82AFA9979FDCFEE81F8ACEFD0C07275",
+      "bytes": 243
+    },
+    {
+      "path": "sem/FBCB9319/exports/semantic-functions.jsonl",
+      "sha256": "722BFB54DC73A9E8562326BABE05857B2B042875932DA3D2668F4F2166C6241C",
+      "bytes": 3051408
+    },
+    {
+      "path": "sem/FBCB9319/exports/semantic-decompiled-functions.c",
+      "sha256": "7E81BA2CAE728AC6D5F027098FEF1E813F136BB883E8AF958E0FE37D4BAB42BE",
+      "bytes": 10854236
+    },
+    {
+      "path": "sem/FBCB9319/exports/globals.jsonl",
+      "sha256": "1121EF2B29F90EB559128F492549F2C64EAB2DA1E7D10DD6F06AB83923E71354",
+      "bytes": 15598176
+    },
+    {
+      "path": "sem/FBCB9319/exports/data-types.jsonl",
+      "sha256": "2F48CF922F1EA4A36CCB65C35C8ABC6213AB2B7D50887A57FB232B2D09F8FA0F",
+      "bytes": 701188
+    },
+    {
+      "path": "sem/FBCB9319/exports/rtti-vtables.jsonl",
+      "sha256": "32E15DBC9A98D0929F99E43F362CD6989C2B221D26B76D700FC4C086469EED21",
+      "bytes": 24642
+    },
+    {
+      "path": "diff/17F8DD4A-FBCB9319/exports/semantic-functions.jsonl",
+      "sha256": "5F85A4EADC59DEEB51311CE113401B22DFACD20E77697D97B90363DDDDDF495C",
+      "bytes": 3032392
+    },
+    {
+      "path": "diff/17F8DD4A-FBCB9319/version-matches.jsonl",
+      "sha256": "53F0E3D2D64C4734340B9DEF8AD3C6D668029A7F9BE33CE1FDB5876064087F11",
+      "bytes": 1548366
+    },
+    {
+      "path": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2/exports/xrefs.jsonl",
+      "sha256": "1F642B432B26D255323D40C8E8CAC1706774727E639468D0847DE9D8E1D9D72D",
+      "bytes": 34691937
+    },
+    {
+      "path": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2/exports/strings.jsonl",
+      "sha256": "E03364C1BD73DC46F667E6278A7252804043411D71D5F18F26C405A8D4F936CD",
+      "bytes": 503758
+    },
+    {
+      "path": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2/exports/imports.jsonl",
+      "sha256": "E68745936AE2757F5CEC0EF679FF56161440FD52CA89B89DC71A4F14F1EEA816",
+      "bytes": 8767
+    },
+    {
+      "path": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2/exports/exports.jsonl",
+      "sha256": "3A9184545C838BD7AC8740562B18E8DA80BE915C6AA2717155D545505A325FB3",
+      "bytes": 5663
+    },
+    {
+      "path": "sem/FBCB9319/managed/BC8B6A39/managed-methods.jsonl",
+      "sha256": "96BE080D421FA94CA652A861AF5D15753143B85820D951A5F0DD5D202ACCF9C6",
+      "bytes": 2914477
+    },
+    {
+      "path": "sem/FBCB9319/managed/BC8B6A39/pinvokes.jsonl",
+      "sha256": "13630DF90C98E32876AE5FFF945B3092B44630A0E652491B01300203E5B8B075",
+      "bytes": 47856
+    },
+    {
+      "path": "sem/FBCB9319/managed/BC8B6A39/managed-calls.jsonl",
+      "sha256": "D09F16829006E24092541AA6914B1A5123059CF70FE3F8E0D3CBD070DACC96F4",
+      "bytes": 22716685
+    },
+    {
+      "path": "sem/FBCB9319/managed/BC8B6A39/managed-native-links.jsonl",
+      "sha256": "0E02C5179944BA20E1341149D3B60181E89603504CC69AF801F01B565D4B73B6",
+      "bytes": 50618035
+    },
+    {
+      "path": "sem/FBCB9319/sources/pattern-matches.jsonl",
+      "sha256": "C97C8A87399AEB6E93C8B68E496DE1EBC240D67AF935120FECE9B8D19F942D5C",
+      "bytes": 374784
+    },
+    {
+      "path": "sem/FBCB9319/sources/source-types.jsonl",
+      "sha256": "AFC88340736CD110E8D1DB25F218F27F977C657E5BF42280D5BB0BD6B6E8787D",
+      "bytes": 575997
+    },
+    {
+      "path": "sem/FBCB9319/sources/type-fields.jsonl",
+      "sha256": "30B85DC844C5FB3856E3C0DA4813E4C379547CEE23F9C91ED39AE9C849B66BB5",
+      "bytes": 3728760
+    },
+    {
+      "path": "sem/FBCB9319/sources/vtable-members.jsonl",
+      "sha256": "34C821A3E5EFF7FD153C606764BCA395C8C1C4DD24F5B8F928FF7ACFEB2E6CC2",
+      "bytes": 170249
+    },
+    {
+      "path": "sem/FBCB9319/sources/delegates.jsonl",
+      "sha256": "810B6A864BC4093194AC933E720DB2EC7DD86F02573328406A9B725D2B45ADB6",
+      "bytes": 86944
+    },
+    {
+      "path": "sem/FBCB9319/resources/xaml-index.jsonl",
+      "sha256": "EAC9F3CFE4316D57E92FBC1ABC3299FE3ED7A111F8A13FECD39E70EA66C5FF0C",
+      "bytes": 237497
+    },
+    {
+      "path": "sem/FBCB9319/resources/xaml-managed-links.jsonl",
+      "sha256": "89B87F26A839B05C0CCC6EDF386D5D7642D119BEDC210CF6EF996D4351B5670B",
+      "bytes": 1140525
+    }
+  ]
+}

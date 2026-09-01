@@ -1,0 +1,36 @@
+{
+  "status": "ok",
+  "hashes": {
+    "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\Stronghold Crusader Definitive Edition_Data\\Plugins\\x86_64\\CrusaderDE.dll": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+    "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\Stronghold Crusader Definitive Edition_Data\\Managed\\Assembly-CSharp.dll": "BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789",
+    "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\x86_64\\CrusaderDE.dll": "17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4"
+  },
+  "rawBaselineUnchanged": true,
+  "scriptExtenderUnchanged": true,
+  "parsedJsonFiles": 18,
+  "parsedJsonlRecords": 350145,
+  "validatedAddressRecords": 9622,
+  "resolvedCrusaderPInvokes": 77,
+  "validXamlFiles": 105,
+  "versionMatches": 3818,
+  "sqliteIntegrity": "ok",
+  "foreignKeyErrors": 0,
+  "ftsOperatorHits": 185,
+  "pathLimit": 240,
+  "maxPathLength": 233,
+  "longestPath": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\_inspect\\CrusaderDE-Native-Baseline\\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\\ghidra\\CrusaderDE-Ghidra-12.1.3.rep\\idata\\00\\~00000000.db\\db.1.gbf",
+  "filesOverPathLimit": 0,
+  "counts": {
+    "functions": 8954,
+    "xrefs": 236382,
+    "managed_methods": 8138,
+    "pinvokes": 84,
+    "managed_native_links": 56123,
+    "patterns": 668,
+    "source_types": 81,
+    "type_fields": 9389,
+    "vtable_members": 345,
+    "xaml_resources": 105,
+    "version_matches": 3818
+  }
+}

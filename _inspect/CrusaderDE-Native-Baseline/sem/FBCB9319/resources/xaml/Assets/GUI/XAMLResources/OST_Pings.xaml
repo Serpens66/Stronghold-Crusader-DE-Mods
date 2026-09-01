@@ -1,0 +1,424 @@
+<UserControl
+    x:Class="CrusaderDE.OST_Pings"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:b="http://schemas.microsoft.com/xaml/behaviors"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:CrusaderDE"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    d:DesignHeight="200"
+    d:DesignWidth="80"
+    mc:Ignorable="d">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="booleanToVisibilityConverter" />
+
+    </UserControl.Resources>
+
+    <StackPanel
+            Tag="Ignore"
+            Visibility="{Binding OST_Ping_Vis, Converter={StaticResource booleanToVisibilityConverter}}"
+            >
+
+        <Grid
+                Width="140"
+                Height="25"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Center"
+                Background="#77000000"
+                Visibility="{Binding OST_Ping_Visible[0], Converter={StaticResource booleanToVisibilityConverter}}"
+                >
+
+            <TextBlock
+                Margin="10,0,10,0"
+                Width="80"
+                HorizontalAlignment="Left"
+                TextAlignment="Left"
+                VerticalAlignment="Center"
+                Panel.ZIndex="1"
+                FontSize="16"
+                Foreground="{Binding OST_Ping_Color[0]}"
+                Text="{Binding OST_Ping_Name[0]}"
+                Tag="Ignore">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                         ShadowDepth="2"
+                         Direction="315"
+                         Color="#CC000000"
+                         BlurRadius="0"/>
+                </TextBlock.Effect>
+            </TextBlock>
+
+            <TextBlock
+                Margin="10,0,10,0"
+                Width="120"
+                HorizontalAlignment="Right"
+                TextAlignment="Right"
+                VerticalAlignment="Center"
+                Panel.ZIndex="1"
+                FontSize="16"
+                Foreground="{Binding OST_Ping_Value_Color[0]}"
+                Text="{Binding OST_Ping_Value[0]}"
+                Tag="Ignore">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                         ShadowDepth="2"
+                         Direction="315"
+                         Color="#CC000000"
+                         BlurRadius="0"/>
+                </TextBlock.Effect>
+            </TextBlock>
+        </Grid>
+
+        <Grid
+                Width="140"
+                Height="25"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Center"
+                Background="#77000000"
+                Visibility="{Binding OST_Ping_Visible[1], Converter={StaticResource booleanToVisibilityConverter}}"
+                >
+
+            <TextBlock
+                Margin="10,0,10,0"
+                Width="80"
+                HorizontalAlignment="Left"
+                TextAlignment="Left"
+                VerticalAlignment="Center"
+                Panel.ZIndex="1"
+                FontSize="16"
+                Foreground="{Binding OST_Ping_Color[1]}"
+                Text="{Binding OST_Ping_Name[1]}"
+                Tag="Ignore">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                         ShadowDepth="2"
+                         Direction="315"
+                         Color="#CC000000"
+                         BlurRadius="0"/>
+                </TextBlock.Effect>
+            </TextBlock>
+
+            <TextBlock
+                Margin="10,0,10,0"
+                Width="120"
+                HorizontalAlignment="Right"
+                TextAlignment="Right"
+                VerticalAlignment="Center"
+                Panel.ZIndex="1"
+                FontSize="16"
+                Foreground="{Binding OST_Ping_Value_Color[1]}"
+                Text="{Binding OST_Ping_Value[1]}"
+                Tag="Ignore">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                         ShadowDepth="2"
+                         Direction="315"
+                         Color="#CC000000"
+                         BlurRadius="0"/>
+                </TextBlock.Effect>
+            </TextBlock>
+        </Grid>
+
+        <Grid
+                Width="140"
+                Height="25"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Center"
+                Background="#77000000"
+                Visibility="{Binding OST_Ping_Visible[2], Converter={StaticResource booleanToVisibilityConverter}}"
+                >
+
+            <TextBlock
+                Margin="10,0,10,0"
+                Width="80"
+                HorizontalAlignment="Left"
+                TextAlignment="Left"
+                VerticalAlignment="Center"
+                Panel.ZIndex="1"
+                FontSize="16"
+                Foreground="{Binding OST_Ping_Color[2]}"
+                Text="{Binding OST_Ping_Name[2]}"
+                Tag="Ignore">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                         ShadowDepth="2"
+                         Direction="315"
+                         Color="#CC000000"
+                         BlurRadius="0"/>
+                </TextBlock.Effect>
+            </TextBlock>
+
+            <TextBlock
+                Margin="10,0,10,0"
+                Width="120"
+                HorizontalAlignment="Right"
+                TextAlignment="Right"
+                VerticalAlignment="Center"
+                Panel.ZIndex="1"
+                FontSize="16"
+                Foreground="{Binding OST_Ping_Value_Color[2]}"
+                Text="{Binding OST_Ping_Value[2]}"
+                Tag="Ignore">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                         ShadowDepth="2"
+                         Direction="315"
+                         Color="#CC000000"
+                         BlurRadius="0"/>
+                </TextBlock.Effect>
+            </TextBlock>
+        </Grid>
+
+        <Grid
+                Width="140"
+                Height="25"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Center"
+                Background="#77000000"
+                Visibility="{Binding OST_Ping_Visible[3], Converter={StaticResource booleanToVisibilityConverter}}"
+                >
+
+            <TextBlock
+                Margin="10,0,10,0"
+                Width="80"
+                HorizontalAlignment="Left"
+                TextAlignment="Left"
+                VerticalAlignment="Center"
+                Panel.ZIndex="1"
+                FontSize="16"
+                Foreground="{Binding OST_Ping_Color[3]}"
+                Text="{Binding OST_Ping_Name[3]}"
+                Tag="Ignore">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                         ShadowDepth="2"
+                         Direction="315"
+                         Color="#CC000000"
+                         BlurRadius="0"/>
+                </TextBlock.Effect>
+            </TextBlock>
+
+            <TextBlock
+                Margin="10,0,10,0"
+                Width="120"
+                HorizontalAlignment="Right"
+                TextAlignment="Right"
+                VerticalAlignment="Center"
+                Panel.ZIndex="1"
+                FontSize="16"
+                Foreground="{Binding OST_Ping_Value_Color[3]}"
+                Text="{Binding OST_Ping_Value[3]}"
+                Tag="Ignore">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                         ShadowDepth="2"
+                         Direction="315"
+                         Color="#CC000000"
+                         BlurRadius="0"/>
+                </TextBlock.Effect>
+            </TextBlock>
+        </Grid>
+
+        <Grid
+                Width="140"
+                Height="25"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Center"
+                Background="#77000000"
+                Visibility="{Binding OST_Ping_Visible[4], Converter={StaticResource booleanToVisibilityConverter}}"
+                >
+
+            <TextBlock
+                Margin="10,0,10,0"
+                Width="80"
+                HorizontalAlignment="Left"
+                TextAlignment="Left"
+                VerticalAlignment="Center"
+                Panel.ZIndex="1"
+                FontSize="16"
+                Foreground="{Binding OST_Ping_Color[4]}"
+                Text="{Binding OST_Ping_Name[4]}"
+                Tag="Ignore">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                         ShadowDepth="2"
+                         Direction="315"
+                         Color="#CC000000"
+                         BlurRadius="0"/>
+                </TextBlock.Effect>
+            </TextBlock>
+
+            <TextBlock
+                Margin="10,0,10,0"
+                Width="120"
+                HorizontalAlignment="Right"
+                TextAlignment="Right"
+                VerticalAlignment="Center"
+                Panel.ZIndex="1"
+                FontSize="16"
+                Foreground="{Binding OST_Ping_Value_Color[4]}"
+                Text="{Binding OST_Ping_Value[4]}"
+                Tag="Ignore">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                         ShadowDepth="2"
+                         Direction="315"
+                         Color="#CC000000"
+                         BlurRadius="0"/>
+                </TextBlock.Effect>
+            </TextBlock>
+        </Grid>
+
+        <Grid
+                Width="140"
+                Height="25"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Center"
+                Background="#77000000"
+                Visibility="{Binding OST_Ping_Visible[5], Converter={StaticResource booleanToVisibilityConverter}}"
+                >
+
+            <TextBlock
+                Margin="10,0,10,0"
+                Width="80"
+                HorizontalAlignment="Left"
+                TextAlignment="Left"
+                VerticalAlignment="Center"
+                Panel.ZIndex="1"
+                FontSize="16"
+                Foreground="{Binding OST_Ping_Color[5]}"
+                Text="{Binding OST_Ping_Name[5]}"
+                Tag="Ignore">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                         ShadowDepth="2"
+                         Direction="315"
+                         Color="#CC000000"
+                         BlurRadius="0"/>
+                </TextBlock.Effect>
+            </TextBlock>
+
+            <TextBlock
+                Margin="10,0,10,0"
+                Width="120"
+                HorizontalAlignment="Right"
+                TextAlignment="Right"
+                VerticalAlignment="Center"
+                Panel.ZIndex="1"
+                FontSize="16"
+                Foreground="{Binding OST_Ping_Value_Color[5]}"
+                Text="{Binding OST_Ping_Value[5]}"
+                Tag="Ignore">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                         ShadowDepth="2"
+                         Direction="315"
+                         Color="#CC000000"
+                         BlurRadius="0"/>
+                </TextBlock.Effect>
+            </TextBlock>
+        </Grid>
+
+        <Grid
+                Width="140"
+                Height="25"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Center"
+                Background="#77000000"
+                Visibility="{Binding OST_Ping_Visible[6], Converter={StaticResource booleanToVisibilityConverter}}"
+                >
+
+            <TextBlock
+                Margin="10,0,10,0"
+                Width="80"
+                HorizontalAlignment="Left"
+                TextAlignment="Left"
+                VerticalAlignment="Center"
+                Panel.ZIndex="1"
+                FontSize="16"
+                Foreground="{Binding OST_Ping_Color[6]}"
+                Text="{Binding OST_Ping_Name[6]}"
+                Tag="Ignore">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                         ShadowDepth="2"
+                         Direction="315"
+                         Color="#CC000000"
+                         BlurRadius="0"/>
+                </TextBlock.Effect>
+            </TextBlock>
+
+            <TextBlock
+                Margin="10,0,10,0"
+                Width="120"
+                HorizontalAlignment="Right"
+                TextAlignment="Right"
+                VerticalAlignment="Center"
+                Panel.ZIndex="1"
+                FontSize="16"
+                Foreground="{Binding OST_Ping_Value_Color[6]}"
+                Text="{Binding OST_Ping_Value[6]}"
+                Tag="Ignore">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                         ShadowDepth="2"
+                         Direction="315"
+                         Color="#CC000000"
+                         BlurRadius="0"/>
+                </TextBlock.Effect>
+            </TextBlock>
+        </Grid>
+
+        <Grid
+                Width="140"
+                Height="25"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Center"
+                Background="#77000000"
+                Visibility="{Binding OST_Ping_Visible[7], Converter={StaticResource booleanToVisibilityConverter}}"
+                >
+
+            <TextBlock
+                Margin="10,0,10,0"
+                Width="80"
+                HorizontalAlignment="Left"
+                TextAlignment="Left"
+                VerticalAlignment="Center"
+                Panel.ZIndex="1"
+                FontSize="16"
+                Foreground="{Binding OST_Ping_Color[7]}"
+                Text="{Binding OST_Ping_Name[7]}"
+                Tag="Ignore">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                         ShadowDepth="2"
+                         Direction="315"
+                         Color="#CC000000"
+                         BlurRadius="0"/>
+                </TextBlock.Effect>
+            </TextBlock>
+
+            <TextBlock
+                Margin="10,0,10,0"
+                Width="120"
+                HorizontalAlignment="Right"
+                TextAlignment="Right"
+                VerticalAlignment="Center"
+                Panel.ZIndex="1"
+                FontSize="16"
+                Foreground="{Binding OST_Ping_Value_Color[7]}"
+                Text="{Binding OST_Ping_Value[7]}"
+                Tag="Ignore">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                         ShadowDepth="2"
+                         Direction="315"
+                         Color="#CC000000"
+                         BlurRadius="0"/>
+                </TextBlock.Effect>
+            </TextBlock>
+        </Grid>
+    </StackPanel>
+
+</UserControl>

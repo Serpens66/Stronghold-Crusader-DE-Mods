@@ -1,0 +1,854 @@
+CONVERT 1/114 ApplicationResources.dat
+Class Name: ApplicationResources2
+Path:       Assets/GUI/XAMLResources/ApplicationResources.xaml
+--- Content Start ---
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http:
+--- Content End ---
+CONVERT 2/114 BackgroundScreens.dat
+Input file does not contain XAML: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\resources\xaml-raw\BackgroundScreens.dat
+CONVERT 3/114 BDR_Stronghold.dat
+Class Name: BDR_Stronghold
+Path:       Assets/GUI/XAMLResources/BDR_Stronghold.xaml
+--- Content Start ---
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmln
+--- Content End ---
+CONVERT 4/114 BTN_Building.dat
+Class Name: BTN_Building*
+Path:       Assets/GUI/XAMLResources/BTN_Building.xaml
+--- Content Start ---
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmln
+--- Content End ---
+CONVERT 5/114 BTN_FrontMenu.dat
+Class Name: BTN_FrontMenu
+Path:       Assets/GUI/XAMLResources/BTN_FrontMenu.xaml
+--- Content Start ---
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmln
+--- Content End ---
+CONVERT 6/114 BTN_Image.dat
+Class Name: BTN_Image
+Path:       Assets/GUI/XAMLResources/BTN_Image.xaml
+--- Content Start ---
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmln
+--- Content End ---
+CONVERT 7/114 BTN_NewFrontend.dat
+Class Name: BTN_NewFrontend
+Path:       Assets/GUI/XAMLResources/BTN_NewFrontend.xaml
+--- Content Start ---
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmln
+--- Content End ---
+CONVERT 8/114 BTN_RADIO_Image.dat
+Input file does not contain XAML: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\resources\xaml-raw\BTN_RADIO_Image.dat
+CONVERT 9/114 BTN_SH_BuySell.dat
+Class Name: BTN_SH_BuySell
+Path:       Assets/GUI/XAMLResources/BTN_SH_BuySell.xaml
+--- Content Start ---
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmln
+--- Content End ---
+CONVERT 10/114 BTN_SH_Glow.dat
+Class Name: BTN_SH_Glow
+Path:       Assets/GUI/XAMLResources/BTN_SH_Glow.xaml
+--- Content Start ---
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmln
+--- Content End ---
+CONVERT 11/114 BTN_SH_Plain.dat
+Class Name: BTN_SH_Plain*
+Path:       Assets/GUI/XAMLResources/BTN_SH_Plain.xaml
+--- Content Start ---
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmln
+--- Content End ---
+CONVERT 12/114 BTN_StartingGood.dat
+Class Name: BTN_StartingGood.
+Path:       Assets/GUI/XAMLResources/BTN_StartingGood.xaml
+--- Content Start ---
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmln
+--- Content End ---
+CONVERT 13/114 CheckBox_Template.dat
+Input file does not contain XAML: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\resources\xaml-raw\CheckBox_Template.dat
+CONVERT 14/114 DefaultGamepadActions.dat
+Input file does not contain XAML: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\resources\xaml-raw\DefaultGamepadActions.dat
+CONVERT 15/114 FRONT_CoopTrail1.dat
+Class Name: FRONT_CoopTrail1.
+Path:       Assets/GUI/XAMLResources/FRONT_CoopTrail1.xaml
+--- Content Start ---
+<!-- NOTDEMOSTART -->
+<UserControl
+    x:Class="CrusaderDE.FRONT_CoopTrail1"
+    xmlns="http://sc
+--- Content End ---
+CONVERT 16/114 FRONT_CoopTrail2.dat
+Class Name: FRONT_CoopTrail2.
+Path:       Assets/GUI/XAMLResources/FRONT_CoopTrail2.xaml
+--- Content Start ---
+<!-- NOTDEMOSTART -->
+<UserControl
+    x:Class="CrusaderDE.FRONT_CoopTrail2"
+    xmlns="http://sc
+--- Content End ---
+CONVERT 17/114 FRONT_CoopTrail3.dat
+Class Name: FRONT_CoopTrail3.
+Path:       Assets/GUI/XAMLResources/FRONT_CoopTrail3.xaml
+--- Content Start ---
+<!-- NOTDEMOSTART -->
+<UserControl
+    x:Class="CrusaderDE.FRONT_CoopTrail3"
+    xmlns="http://sc
+--- Content End ---
+CONVERT 18/114 FRONT_CoopTrail4.dat
+Class Name: FRONT_CoopTrail4.
+Path:       Assets/GUI/XAMLResources/FRONT_CoopTrail4.xaml
+--- Content Start ---
+<!-- NOTDEMOSTART -->
+<UserControl
+    x:Class="CrusaderDE.FRONT_CoopTrail4"
+    xmlns="http://sc
+--- Content End ---
+CONVERT 19/114 FRONT_Credits.dat
+Class Name: FRONT_Credits
+Path:       Assets/GUI/XAMLResources/FRONT_Credits.xaml
+--- Content Start ---
+<UserControl
+    x:Class="CrusaderDE.FRONT_Credits"
+    xmlns="http://schemas.microsoft.com/winfx/
+--- Content End ---
+CONVERT 20/114 FRONT_EditorSetup.dat
+Class Name: FRONT_EditorSetup
+Path:       Assets/GUI/XAMLResources/FRONT_EditorSetup.xaml
+--- Content Start ---
+<!-- NOTDEMOSTART -->
+<UserControl
+    x:Class="CrusaderDE.FRONT_EditorSetup"
+    xmlns="http://s
+--- Content End ---
+CONVERT 21/114 FRONT_Extra1Campaign.dat
+Class Name: FRONT_Extra1Campaign2
+Path:       Assets/GUI/XAMLResources/FRONT_Extra1Campaign.xaml
+--- Content Start ---
+<!-- NOTDEMOSTART -->
+<UserControl
+    x:Class="CrusaderDE.FRONT_Extra1Campaign"
+    xmlns="http:
+--- Content End ---
+CONVERT 22/114 FRONT_Extra2Campaign.dat
+Class Name: FRONT_Extra2Campaign2
+Path:       Assets/GUI/XAMLResources/FRONT_Extra2Campaign.xaml
+--- Content Start ---
+<!-- NOTDEMOSTART -->
+<UserControl
+    x:Class="CrusaderDE.FRONT_Extra2Campaign"
+    xmlns="http:
+--- Content End ---
+CONVERT 23/114 FRONT_Extra3Campaign.dat
+Class Name: FRONT_Extra3Campaign2
+Path:       Assets/GUI/XAMLResources/FRONT_Extra3Campaign.xaml
+--- Content Start ---
+<!-- NOTDEMOSTART -->
+<UserControl
+    x:Class="CrusaderDE.FRONT_Extra3Campaign"
+    xmlns="http:
+--- Content End ---
+CONVERT 24/114 FRONT_Extra4Campaign.dat
+Class Name: FRONT_Extra4Campaign2
+Path:       Assets/GUI/XAMLResources/FRONT_Extra4Campaign.xaml
+--- Content Start ---
+<!-- NOTDEMOSTART -->
+<UserControl
+    x:Class="CrusaderDE.FRONT_Extra4Campaign"
+    xmlns="http:
+--- Content End ---
+CONVERT 25/114 FRONT_Extra5Campaign.dat
+Class Name: FRONT_Extra5Campaign2
+Path:       Assets/GUI/XAMLResources/FRONT_Extra5Campaign.xaml
+--- Content Start ---
+<!-- NOTDEMOSTART -->
+<UserControl
+    x:Class="CrusaderDE.FRONT_Extra5Campaign"
+    xmlns="http:
+--- Content End ---
+CONVERT 26/114 FRONT_Extra6Campaign.dat
+Class Name: FRONT_Extra6Campaign2
+Path:       Assets/GUI/XAMLResources/FRONT_Extra6Campaign.xaml
+--- Content Start ---
+<!-- NOTDEMOSTART -->
+<UserControl
+    x:Class="CrusaderDE.FRONT_Extra6Campaign"
+    xmlns="http:
+--- Content End ---
+CONVERT 27/114 FRONT_Extra7Campaign.dat
+Class Name: FRONT_Extra7Campaign2
+Path:       Assets/GUI/XAMLResources/FRONT_Extra7Campaign.xaml
+--- Content Start ---
+<!-- NOTDEMOSTART -->
+<UserControl
+    x:Class="CrusaderDE.FRONT_Extra7Campaign"
+    xmlns="http:
+--- Content End ---
+CONVERT 28/114 FRONT_ManageTrail.dat
+Class Name: FRONT_ManageTrail
+Path:       Assets/GUI/XAMLResources/FRONT_ManageTrail.xaml
+--- Content Start ---
+<!-- NOTDEMOSTART -->
+<UserControl
+    x:Class="CrusaderDE.FRONT_ManageTrail"
+    xmlns="http://s
+--- Content End ---
+CONVERT 29/114 FRONT_Multiplayer_AISettings.dat
+Class Name: FRONT_Multiplayer_AISettings:
+Path:       Assets/GUI/XAMLResources/FRONT_Multiplayer_AISettings.xaml
+--- Content Start ---
+<!-- NOTDEMOSTART -->
+<UserControl
+    x:Class="CrusaderDE.FRONT_Multiplayer_AISettings"
+    xmln
+--- Content End ---
+CONVERT 30/114 FRONT_Multiplayer_Setup.dat
+Class Name: FRONT_Multiplayer_Setup
+Path:       Assets/GUI/XAMLResources/FRONT_Multiplayer_Setup.xaml
+--- Content Start ---
+<!-- NOTDEMOSTART -->
+<UserControl
+    x:Class="CrusaderDE.FRONT_Multiplayer_Setup"
+    xmlns="ht
+--- Content End ---
+CONVERT 31/114 FRONT_Multiplayer.dat
+Class Name: FRONT_Multiplayer
+Path:       Assets/GUI/XAMLResources/FRONT_Multiplayer.xaml
+--- Content Start ---
+<!-- NOTDEMOSTART -->
+<UserControl
+    x:Class="CrusaderDE.FRONT_Multiplayer"
+    xmlns="http://s
+--- Content End ---
+CONVERT 32/114 FRONT_SandsTrail1.dat
+Class Name: FRONT_SandsTrail1
+Path:       Assets/GUI/XAMLResources/FRONT_SandsTrail1.xaml
+--- Content Start ---
+<!-- NOTDEMOSTART -->
+<UserControl
+    x:Class="CrusaderDE.FRONT_SandsTrail1"
+    xmlns="http://s
+--- Content End ---
+CONVERT 33/114 FRONT_SandsTrail2.dat
+Class Name: FRONT_SandsTrail2
+Path:       Assets/GUI/XAMLResources/FRONT_SandsTrail2.xaml
+--- Content Start ---
+<!-- NOTDEMOSTART -->
+<UserControl
+    x:Class="CrusaderDE.FRONT_SandsTrail2"
+    xmlns="http://s
+--- Content End ---
+CONVERT 34/114 FRONT_SandsTrail3.dat
+Class Name: FRONT_SandsTrail3
+Path:       Assets/GUI/XAMLResources/FRONT_SandsTrail3.xaml
+--- Content Start ---
+<!-- NOTDEMOSTART -->
+<UserControl
+    x:Class="CrusaderDE.FRONT_SandsTrail3"
+    xmlns="http://s
+--- Content End ---
+CONVERT 35/114 FRONT_SandsTrail4.dat
+Class Name: FRONT_SandsTrail4
+Path:       Assets/GUI/XAMLResources/FRONT_SandsTrail4.xaml
+--- Content Start ---
+<!-- NOTDEMOSTART -->
+<UserControl
+    x:Class="CrusaderDE.FRONT_SandsTrail4"
+    xmlns="http://s
+--- Content End ---
+CONVERT 36/114 FRONT_SandsTrail5.dat
+Class Name: FRONT_SandsTrail5
+Path:       Assets/GUI/XAMLResources/FRONT_SandsTrail5.xaml
+--- Content Start ---
+<!-- NOTDEMOSTART -->
+<UserControl
+    x:Class="CrusaderDE.FRONT_SandsTrail5"
+    xmlns="http://s
+--- Content End ---
+CONVERT 37/114 FRONT_SandsTrail6.dat
+Class Name: FRONT_SandsTrail6
+Path:       Assets/GUI/XAMLResources/FRONT_SandsTrail6.xaml
+--- Content Start ---
+<!-- NOTDEMOSTART -->
+<UserControl
+    x:Class="CrusaderDE.FRONT_SandsTrail6"
+    xmlns="http://s
+--- Content End ---
+CONVERT 38/114 FRONT_SandsTrail7.dat
+Class Name: FRONT_SandsTrail7
+Path:       Assets/GUI/XAMLResources/FRONT_SandsTrail7.xaml
+--- Content Start ---
+<!-- NOTDEMOSTART -->
+<UserControl
+    x:Class="CrusaderDE.FRONT_SandsTrail7"
+    xmlns="http://s
+--- Content End ---
+CONVERT 39/114 FRONT_SandsTrail8.dat
+Class Name: FRONT_SandsTrail8
+Path:       Assets/GUI/XAMLResources/FRONT_SandsTrail8.xaml
+--- Content Start ---
+<!-- NOTDEMOSTART -->
+<UserControl
+    x:Class="CrusaderDE.FRONT_SandsTrail8"
+    xmlns="http://s
+--- Content End ---
+CONVERT 40/114 FRONT_SkirmishMasters.dat
+Class Name: FRONT_SkirmishMasters
+Path:       Assets/GUI/XAMLResources/FRONT_SkirmishMasters.xaml
+--- Content Start ---
+<!-- NOTDEMOSTART -->
+<UserControl
+    x:Class="CrusaderDE.FRONT_SkirmishMasters"
+    xmlns="http
+--- Content End ---
+CONVERT 41/114 FRONT_StandaloneMission.dat
+Class Name: FRONT_StandaloneMission
+Path:       Assets/GUI/XAMLResources/FRONT_StandaloneMission.xaml
+--- Content Start ---
+<!-- NOTDEMOSTART -->
+<UserControl
+    x:Class="CrusaderDE.FRONT_StandaloneMission"
+    xmlns="ht
+--- Content End ---
+CONVERT 42/114 FRONT_Story.dat
+Class Name: FRONT_Story
+Path:       Assets/GUI/XAMLResources/FRONT_Story.xaml
+--- Content Start ---
+<!-- NOTDEMOSTART -->
+<UserControl
+    x:Class="CrusaderDE.FRONT_Story"
+    xmlns="http://schemas
+--- Content End ---
+CONVERT 43/114 FRONT_Trail.dat
+Class Name: FRONT_Trail
+Path:       Assets/GUI/XAMLResources/FRONT_Trail.xaml
+--- Content Start ---
+<!-- NOTDEMOSTART -->
+<UserControl
+    x:Class="CrusaderDE.FRONT_Trail"
+    xmlns="http://schemas
+--- Content End ---
+CONVERT 44/114 FRONT_Trail2.dat
+Class Name: FRONT_Trail2*
+Path:       Assets/GUI/XAMLResources/FRONT_Trail2.xaml
+--- Content Start ---
+<!-- NOTDEMOSTART -->
+<UserControl
+    x:Class="CrusaderDE.FRONT_Trail2"
+    xmlns="http://schema
+--- Content End ---
+CONVERT 45/114 FRONT_Trail3.dat
+Class Name: FRONT_Trail3*
+Path:       Assets/GUI/XAMLResources/FRONT_Trail3.xaml
+--- Content Start ---
+<!-- NOTDEMOSTART -->
+<UserControl
+    x:Class="CrusaderDE.FRONT_Trail3"
+    xmlns="http://schema
+--- Content End ---
+CONVERT 46/114 FrontendMenus.dat
+Class Name: FrontendMenus
+Path:       Assets/GUI/XAML/FrontendMenus.xaml
+--- Content Start ---
+<UserControl
+    x:Class="CrusaderDE.FrontendMenus"
+    xmlns="http://schemas.microsoft.com/winfx/
+--- Content End ---
+CONVERT 47/114 GameSkin.dat
+Input file does not contain XAML: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\resources\xaml-raw\GameSkin.dat
+CONVERT 48/114 HUD_AlliesPanel.dat
+Class Name: HUD_AlliesPanel
+Path:       Assets/GUI/XAMLResources/HUD_AlliesPanel.xaml
+--- Content Start ---
+<UserControl
+    x:Class="CrusaderDE.HUD_AlliesPanel"
+    xmlns="http://schemas.microsoft.com/winf
+--- Content End ---
+CONVERT 49/114 HUD_Briefing.dat
+Class Name: HUD_Briefing*
+Path:       Assets/GUI/XAMLResources/HUD_Briefing.xaml
+--- Content Start ---
+<UserControl
+    x:Class="CrusaderDE.HUD_Briefing"
+    xmlns="http://schemas.microsoft.com/winfx/2
+--- Content End ---
+CONVERT 50/114 HUD_Buildings.dat
+Class Name: HUD_Buildings
+Path:       Assets/GUI/XAMLResources/HUD_Buildings.xaml
+--- Content Start ---
+<UserControl
+    x:Class="CrusaderDE.HUD_Buildings"
+    xmlns="http://schemas.microsoft.com/winfx/
+--- Content End ---
+CONVERT 51/114 HUD_CoatOfArms.dat
+Class Name: HUD_CoatOfArms
+Path:       Assets/GUI/XAMLResources/HUD_CoatOfArms.xaml
+--- Content Start ---
+<UserControl
+    x:Class="CrusaderDE.HUD_CoatOfArms"
+    xmlns="http://schemas.microsoft.com/winfx
+--- Content End ---
+CONVERT 52/114 HUD_ConfirmationPopup.dat
+Class Name: HUD_ConfirmationPopup
+Path:       Assets/GUI/XAMLResources/HUD_ConfirmationPopup.xaml
+--- Content Start ---
+<UserControl
+    x:Class="CrusaderDE.HUD_ConfirmationPopup"
+    xmlns="http://schemas.microsoft.co
+--- Content End ---
+CONVERT 53/114 HUD_ControlGroups.dat
+Class Name: HUD_ControlGroups
+Path:       Assets/GUI/XAMLResources/HUD_ControlGroups.xaml
+--- Content Start ---
+<UserControl
+    x:Class="CrusaderDE.HUD_ControlGroups"
+    xmlns="http://schemas.microsoft.com/wi
+--- Content End ---
+CONVERT 54/114 HUD_CustomTrailsSelect.dat
+Class Name: HUD_CustomTrailsSelect
+Path:       Assets/GUI/XAMLResources/HUD_CustomTrailsSelect.xaml
+--- Content Start ---
+<UserControl
+    x:Class="CrusaderDE.HUD_CustomTrailsSelect"
+    xmlns="http://schemas.microsoft.c
+--- Content End ---
+CONVERT 55/114 HUD_EditorWarning.dat
+Class Name: HUD_EditorWarning
+Path:       Assets/GUI/XAMLResources/HUD_EditorWarning.xaml
+--- Content Start ---
+<UserControl
+    x:Class="CrusaderDE.HUD_EditorWarning"
+    xmlns="http://schemas.microsoft.com/wi
+--- Content End ---
+CONVERT 56/114 HUD_ExtremePowers.dat
+Class Name: HUD_ExtremePowers
+Path:       Assets/GUI/XAMLResources/HUD_ExtremePowers.xaml
+--- Content Start ---
+<UserControl
+    x:Class="CrusaderDE.HUD_ExtremePowers"
+    xmlns="http://schemas.microsoft.com/wi
+--- Content End ---
+CONVERT 57/114 HUD_FreebuildMenu.dat
+Class Name: HUD_FreebuildMenu
+Path:       Assets/GUI/XAMLResources/HUD_FreebuildMenu.xaml
+--- Content Start ---
+<UserControl
+    x:Class="CrusaderDE.HUD_FreebuildMenu"
+    xmlns="http://schemas.microsoft.com/wi
+--- Content End ---
+CONVERT 58/114 HUD_Goods.dat
+Class Name: HUD_Goods
+Path:       Assets/GUI/XAMLResources/HUD_Goods.xaml
+--- Content Start ---
+<UserControl
+    x:Class="CrusaderDE.HUD_Goods"
+    xmlns="http://schemas.microsoft.com/winfx/2006
+--- Content End ---
+CONVERT 59/114 HUD_Help.dat
+Class Name: HUD_Help&
+Path:       Assets/GUI/XAMLResources/HUD_Help.xaml
+--- Content Start ---
+<UserControl
+    x:Class="CrusaderDE.HUD_Help"
+    xmlns="http://schemas.microsoft.com/winfx/2006/
+--- Content End ---
+CONVERT 60/114 HUD_IngameMenu.dat
+Class Name: HUD_IngameMenu
+Path:       Assets/GUI/XAMLResources/HUD_IngameMenu.xaml
+--- Content Start ---
+<UserControl
+    x:Class="CrusaderDE.HUD_IngameMenu"
+    xmlns="http://schemas.microsoft.com/winfx
+--- Content End ---
+CONVERT 61/114 HUD_Leaderboard.dat
+Class Name: HUD_Leaderboard
+Path:       Assets/GUI/XAMLResources/HUD_Leaderboard.xaml
+--- Content Start ---
+<UserControl
+    x:Class="CrusaderDE.HUD_Leaderboard"
+    xmlns="http://schemas.microsoft.com/winf
+--- Content End ---
+CONVERT 62/114 HUD_LoadSaveRequester.dat
+Class Name: HUD_LoadSaveRequester
+Path:       Assets/GUI/XAMLResources/HUD_LoadSaveRequester.xaml
+--- Content Start ---
+<UserControl
+    x:Class="CrusaderDE.HUD_LoadSaveRequester"
+    xmlns="http://schemas.microsoft.co
+--- Content End ---
+CONVERT 63/114 HUD_Main.dat
+Class Name: HUD_Main&
+Path:       Assets/GUI/XAMLResources/HUD_Main.xaml
+--- Content Start ---
+<UserControl
+    x:Class="CrusaderDE.HUD_Main"
+    xmlns="http://schemas.microsoft.com/winfx/2006/
+--- Content End ---
+CONVERT 64/114 HUD_Markers.dat
+Class Name: HUD_Markers
+Path:       Assets/GUI/XAMLResources/HUD_Markers.xaml
+--- Content Start ---
+<UserControl
+    x:Class="CrusaderDE.HUD_Markers"
+    xmlns="http://schemas.microsoft.com/winfx/20
+--- Content End ---
+CONVERT 65/114 HUD_MeritPanel.dat
+Class Name: HUD_MeritPanel
+Path:       Assets/GUI/XAMLResources/HUD_MeritPanel.xaml
+--- Content Start ---
+<UserControl
+    x:Class="CrusaderDE.HUD_MeritPanel"
+    xmlns="http://schemas.microsoft.com/winfx
+--- Content End ---
+CONVERT 66/114 HUD_MissionOver.dat
+Class Name: HUD_MissionOver
+Path:       Assets/GUI/XAMLResources/HUD_MissionOver.xaml
+--- Content Start ---
+<UserControl
+    x:Class="CrusaderDE.HUD_MissionOver"
+    xmlns="http://schemas.microsoft.com/winf
+--- Content End ---
+CONVERT 67/114 HUD_MPChatMessages.dat
+Class Name: HUD_MPChatMessages
+Path:       Assets/GUI/XAMLResources/HUD_MPChatMessages.xaml
+--- Content Start ---
+<UserControl
+    x:Class="CrusaderDE.HUD_MPChatMessages"
+    xmlns="http://schemas.microsoft.com/w
+--- Content End ---
+CONVERT 68/114 HUD_MPChatPanel.dat
+Class Name: HUD_MPChatPanel
+Path:       Assets/GUI/XAMLResources/HUD_MPChatPanel.xaml
+--- Content Start ---
+<UserControl
+    x:Class="CrusaderDE.HUD_MPChatPanel"
+    xmlns="http://schemas.microsoft.com/winf
+--- Content End ---
+CONVERT 69/114 HUD_MPConnectionIssue.dat
+Class Name: HUD_MPConnectionIssue
+Path:       Assets/GUI/XAMLResources/HUD_MPConnectionIssue.xaml
+--- Content Start ---
+<UserControl
+    x:Class="CrusaderDE.HUD_MPConnectionIssue"
+    xmlns="http://schemas.microsoft.co
+--- Content End ---
+CONVERT 70/114 HUD_MPInviteWarning.dat
+Class Name: HUD_MPInviteWarning
+Path:       Assets/GUI/XAMLResources/HUD_MPInviteWarning.xaml
+--- Content Start ---
+<UserControl
+    x:Class="CrusaderDE.HUD_MPInviteWarning"
+    xmlns="http://schemas.microsoft.com/
+--- Content End ---
+CONVERT 71/114 HUD_MPResync.dat
+Input file does not contain XAML: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\resources\xaml-raw\HUD_MPResync.dat
+CONVERT 72/114 HUD_Objectives.dat
+Class Name: HUD_Objectives
+Path:       Assets/GUI/XAMLResources/HUD_Objectives.xaml
+--- Content Start ---
+<UserControl
+    x:Class="CrusaderDE.HUD_Objectives"
+    xmlns="http://schemas.microsoft.com/winfx
+--- Content End ---
+CONVERT 73/114 HUD_Options.dat
+Class Name: HUD_Options
+Path:       Assets/GUI/XAMLResources/HUD_Options.xaml
+--- Content Start ---
+<UserControl
+    x:Class="CrusaderDE.HUD_Options"
+    xmlns="http://schemas.microsoft.com/winfx/20
+--- Content End ---
+CONVERT 74/114 HUD_RightClick.dat
+Class Name: HUD_RightClick
+Path:       Assets/GUI/XAMLResources/HUD_RightClick.xaml
+--- Content Start ---
+<UserControl
+    x:Class="CrusaderDE.HUD_RightClick"
+    xmlns="http://schemas.microsoft.com/winfx
+--- Content End ---
+CONVERT 75/114 HUD_Scenario_Popup.dat
+Class Name: HUD_Scenario_Popup
+Path:       Assets/GUI/XAMLResources/HUD_Scenario_Popup.xaml
+--- Content Start ---
+<UserControl
+    x:Class="CrusaderDE.HUD_Scenario_Popup"
+    xmlns="http://schemas.microsoft.com/w
+--- Content End ---
+CONVERT 76/114 HUD_Scenario.dat
+Class Name: HUD_Scenario*
+Path:       Assets/GUI/XAMLResources/HUD_Scenario.xaml
+--- Content Start ---
+<!-- NOTDEMOSTART -->
+<UserControl
+    x:Class="CrusaderDE.HUD_Scenario"
+    xmlns="http://schema
+--- Content End ---
+CONVERT 77/114 HUD_ScenarioSpecial.dat
+Class Name: HUD_ScenarioSpecial
+Path:       Assets/GUI/XAMLResources/HUD_ScenarioSpecial.xaml
+--- Content Start ---
+<UserControl
+    x:Class="CrusaderDE.HUD_ScenarioSpecial"
+    xmlns="http://schemas.microsoft.com/
+--- Content End ---
+CONVERT 78/114 HUD_Troops.dat
+Class Name: HUD_Troops
+Path:       Assets/GUI/XAMLResources/HUD_Troops.xaml
+--- Content Start ---
+<UserControl
+    x:Class="CrusaderDE.HUD_Troops"
+    xmlns="http://schemas.microsoft.com/winfx/200
+--- Content End ---
+CONVERT 79/114 HUD_Tutorial.dat
+Class Name: HUD_Tutorial*
+Path:       Assets/GUI/XAMLResources/HUD_Tutorial.xaml
+--- Content Start ---
+<UserControl
+    x:Class="CrusaderDE.HUD_Tutorial"
+    xmlns="http://schemas.microsoft.com/winfx/2
+--- Content End ---
+CONVERT 80/114 HUD_WorkshopUploader.dat
+Class Name: HUD_ExtremePowers
+Path:       Assets/GUI/XAMLResources/HUD_ExtremePowers.xaml
+--- Content Start ---
+<UserControl
+    x:Class="CrusaderDE.HUD_ExtremePowers"
+    xmlns="http://schemas.microsoft.com/wi
+--- Content End ---
+CONVERT 81/114 IngameUIScreens.dat
+Class Name: IngameUIScreens
+Path:       Assets/GUI/XAML/IngameUIScreens.xaml
+--- Content Start ---
+<UserControl
+    x:Class="CrusaderDE.IngameUIScreens"
+    xmlns="http://schemas.microsoft.com/winf
+--- Content End ---
+CONVERT 82/114 IntroSequence.dat
+Class Name: IntroSequence
+Path:       Assets/GUI/XAML/IntroSequence.xaml
+--- Content Start ---
+<UserControl
+    x:Class="CrusaderDE.IntroSequence"
+    xmlns="http://schemas.microsoft.com/winfx/
+--- Content End ---
+CONVERT 83/114 ListViewItem_Styles.dat
+Class Name: ListViewItem_Styles
+Path:       Assets/GUI/XAMLResources/ListViewItem_Styles.xaml
+--- Content Start ---
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmln
+--- Content End ---
+CONVERT 84/114 LST_SH_BuildingAvailable.dat
+Class Name: LST_SH_BuildingAvailable6
+Path:       Assets/GUI/XAMLResources/LST_SH_BuildingAvailable.xaml
+--- Content Start ---
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmln
+--- Content End ---
+CONVERT 85/114 LST_SH_HotKeys.dat
+Class Name: LST_SH_HotKeys
+Path:       Assets/GUI/XAMLResources/LST_SH_HotKeys.xaml
+--- Content Start ---
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmln
+--- Content End ---
+CONVERT 86/114 MainHUD.dat
+Class Name: MainHUD
+Path:       Assets/GUI/XAML/MainHUD.xaml
+--- Content Start ---
+<UserControl
+    x:Class="CrusaderDE.MainHUD"
+    xmlns="http://schemas.microsoft.com/winfx/2006/x
+--- Content End ---
+CONVERT 87/114 MasterController.dat
+Class Name: MasterController%
+Path:       Assets/GUI/XAML/MasterController.xaml
+--- Content Start ---
+<UserControl
+    x:Class="CrusaderDE.MasterController"
+    xmlns="http://schemas.microsoft.com/win
+--- Content End ---
+CONVERT 88/114 Noesis.settings.dat
+Input file does not contain XAML: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\resources\xaml-raw\Noesis.settings.dat
+CONVERT 89/114 NoesisTheme.Colors.Dark.dat
+Class Name: NoesisTheme.Colors.Dark
+Path:       Packages/com.noesis.noesisgui/Theme/NoesisTheme.Colors.Dark.xaml
+--- Content Start ---
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             
+--- Content End ---
+CONVERT 90/114 NoesisTheme.Fonts.dat
+Class Name: NoesisTheme.Fonts
+Path:       Packages/com.noesis.noesisgui/Theme/NoesisTheme.Fonts.xaml
+--- Content Start ---
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmln
+--- Content End ---
+CONVERT 91/114 NoesisTheme.Styles.dat
+Class Name: NoesisTheme.Styles
+Path:       Packages/com.noesis.noesisgui/Theme/NoesisTheme.Styles.xaml
+--- Content Start ---
+<ResourceDictionary
+  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+  xmlns:x=
+--- Content End ---
+CONVERT 92/114 OST_Koth.dat
+Class Name: OST_Koth&
+Path:       Assets/GUI/XAMLResources/OST_Koth.xaml
+--- Content Start ---
+<UserControl
+    x:Class="CrusaderDE.OST_Koth"
+    xmlns="http://schemas.microsoft.com/winfx/2006/
+--- Content End ---
+CONVERT 93/114 OST_Pings.dat
+Class Name: OST_Pings
+Path:       Assets/GUI/XAMLResources/OST_Pings.xaml
+--- Content Start ---
+<  
+
+
+<UserControl
+    x:Class="CrusaderDE.OST_Pings"
+    xmlns="http://schemas.microsoft.com/w
+--- Content End ---
+CONVERT 94/114 OST_StartingGoods.dat
+Class Name: OST_StartingGoods
+Path:       Assets/GUI/XAMLResources/OST_StartingGoods.xaml
+--- Content Start ---
+<UserControl
+    x:Class="CrusaderDE.OST_StartingGoods"
+    xmlns="http://schemas.microsoft.com/wi
+--- Content End ---
+CONVERT 95/114 PostProcessData.dat
+Input file does not contain XAML: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\resources\xaml-raw\PostProcessData.dat
+CONVERT 96/114 PT Root UI_Bold.dat
+Input file does not contain XAML: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\resources\xaml-raw\PT Root UI_Bold.dat
+CONVERT 97/114 PT Root UI_Regular.dat
+Input file does not contain XAML: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\resources\xaml-raw\PT Root UI_Regular.dat
+CONVERT 98/114 SDR_SH_Plain.dat
+Class Name: SDR_SH_Plain*
+Path:       Assets/GUI/XAMLResources/SDR_SH_Plain.xaml
+--- Content Start ---
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmln
+--- Content End ---
+CONVERT 99/114 SVG_Images.dat
+Class Name: SVG_Images
+Path:       Assets/GUI/XAMLResources/SVG_Images.xaml
+--- Content Start ---
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http:
+--- Content End ---
+CONVERT 100/114 Theme.Brushes.DarkRed.dat
+Class Name: Theme.Brushes.DarkRed
+Path:       Assets/GUI/XAMLResources/Theme.Brushes.DarkRed.xaml
+--- Content Start ---
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             
+--- Content End ---
+CONVERT 101/114 Theme.DarkRed.dat
+Class Name: Theme.DarkRed
+Path:       Assets/GUI/XAMLResources/Theme.DarkRed.xaml
+--- Content Start ---
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmln
+--- Content End ---
+CONVERT 102/114 TOOLTIPS.dat
+Class Name: TOOLTIPS&
+Path:       Assets/GUI/XAMLResources/TOOLTIPS.xaml
+--- Content Start ---
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmln
+--- Content End ---
+CONVERT 103/114 UI-Colour1Atlas.dat
+Class Name: Colour1Atlas
+Path:       Assets/GUI/Sprites/UI-Colour1Atlas.xaml
+--- Content Start ---
+<!-- Created using Noesis XAML exporter for TexturePacker (https://www.codeandweb.com/texturepacker)
+--- Content End ---
+CONVERT 104/114 UI-Colour2Atlas.dat
+Class Name: Colour2Atlas
+Path:       Assets/GUI/Sprites/UI-Colour2Atlas.xaml
+--- Content Start ---
+<!-- Created using Noesis XAML exporter for TexturePacker (https://www.codeandweb.com/texturepacker)
+--- Content End ---
+CONVERT 105/114 UI-MasterAtlas.dat
+Class Name: MasterAtlas
+Path:       Assets/GUI/Sprites/UI-MasterAtlas.xaml
+--- Content Start ---
+<!-- Created using Noesis XAML exporter for TexturePacker (https://www.codeandweb.com/texturepacker)
+--- Content End ---
+CONVERT 106/114 UI-TrailAtlas.dat
+Class Name: TrailAtlas
+Path:       Assets/GUI/Sprites/UI-TrailAtlas.xaml
+--- Content Start ---
+<!-- Created using Noesis XAML exporter for TexturePacker (https://www.codeandweb.com/texturepacker)
+--- Content End ---
+CONVERT 107/114 Universal Render Pipeline Asset_Renderer.dat
+Input file does not contain XAML: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\resources\xaml-raw\Universal Render Pipeline Asset_Renderer.dat
+CONVERT 108/114 UniversalRenderPipelineGlobalSettings.dat
+Input file does not contain XAML: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\resources\xaml-raw\UniversalRenderPipelineGlobalSettings.dat
+CONVERT 109/114 URP-2D.dat
+Input file does not contain XAML: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\resources\xaml-raw\URP-2D.dat
+CONVERT 110/114 WGT_Heading.dat
+Class Name: WGT_Heading
+Path:       Assets/GUI/XAMLResources/WGT_Heading.xaml
+--- Content Start ---
+<UserControl
+    x:Class="CrusaderDE.WGT_Heading"
+    xmlns="http://schemas.microsoft.com/winfx/20
+--- Content End ---
+CONVERT 111/114 WGT_Heading2.dat
+Class Name: WGT_Heading2*
+Path:       Assets/GUI/XAMLResources/WGT_Heading2.xaml
+--- Content Start ---
+<UserControl
+    x:Class="CrusaderDE.WGT_Heading2"
+    xmlns="http://schemas.microsoft.com/winfx/2
+--- Content End ---
+CONVERT 112/114 WGT_Objective.dat
+Class Name: WGT_Objective
+Path:       Assets/GUI/XAMLResources/WGT_Objective.xaml
+--- Content Start ---
+<UserControl
+    x:Class="CrusaderDE.WGT_Objective"
+    xmlns="http://schemas.microsoft.com/winfx/
+--- Content End ---
+CONVERT 113/114 WGT_Popularity.dat
+Class Name: WGT_Popularity
+Path:       Assets/GUI/XAMLResources/WGT_Popularity.xaml
+--- Content Start ---
+<UserControl
+    x:Class="CrusaderDE.WGT_Popularity"
+    xmlns="http://schemas.microsoft.com/winfx
+--- Content End ---
+CONVERT 114/114 WGT_SkirmishMastersRow.dat
+Class Name: WGT_SkirmishMastersRow
+Path:       Assets/GUI/XAMLResources/WGT_SkirmishMastersRow.xaml
+--- Content Start ---
+<UserControl
+    x:Class="CrusaderDE.WGT_SkirmishMastersRow"
+    xmlns="http://schemas.microsoft.c
+--- Content End ---

@@ -1,0 +1,81 @@
+<UserControl
+    x:Class="CrusaderDE.HUD_MPResync"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:b="http://schemas.microsoft.com/xaml/behaviors"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:CrusaderDE"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    d:DesignHeight="110"
+    d:DesignWidth="620"
+    mc:Ignorable="d">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter
+            x:Key="booleanToVisibilityConverter" />
+
+    </UserControl.Resources>
+
+    <Grid
+        x:Name="LayoutRoot"
+        Width="620"
+        Height="65"
+        HorizontalAlignment="Center"
+        VerticalAlignment="Top"
+        Background="#00000000"
+        Opacity="0.8"
+        IsHitTestVisible="False"
+        UseLayoutRounding="True">
+        <Grid.RenderTransform>
+            <TranslateTransform />
+        </Grid.RenderTransform>
+
+
+
+
+        <Button
+            Width="440"
+            Height="65"
+            Margin="0,0,0,0"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Top"
+            Style="{StaticResource BDR_SH1DEb}" />
+
+        <TextBlock
+            Width="420"
+            Margin="0,7,0,0"
+            HorizontalAlignment="Center"
+            FontSize="18"
+            Foreground="#FF000000"
+            VerticalAlignment="Top"
+            TextAlignment="Center"
+            Text="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_NEW_CTEXT_297]}" />
+
+        <Border
+            VerticalAlignment="Top"
+            HorizontalAlignment="Center"
+            Margin="0,30,0,0"
+            Width="400"
+            Height="20"
+            BorderBrush="Black"
+            BorderThickness="1"
+            Background="#33000000">
+            <Grid>
+                <Grid
+                    HorizontalAlignment="Left"
+                    Width="{Binding MP_ResyncProgress}"
+                    Background="#3300FF00" />
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    Margin="0,2,0,0"
+                    Width="400"
+                    Height="20"
+                    FontSize="14"
+                    VerticalAlignment="Top"
+                    TextAlignment="Center"
+                    Text="{Binding MP_ResyncInfo}" />
+            </Grid>
+        </Border>
+    </Grid>
+
+</UserControl>

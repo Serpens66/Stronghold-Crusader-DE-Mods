@@ -1,0 +1,1968 @@
+<UserControl
+    x:Class="CrusaderDE.HUD_AlliesPanel"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:b="http://schemas.microsoft.com/xaml/behaviors"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:CrusaderDE"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    d:DesignHeight="320"
+    d:DesignWidth="700"
+    mc:Ignorable="d">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="booleanToVisibilityConverter" />
+        <Style TargetType="{x:Type TextBlock}">
+            <Setter Property="FlowDirection" Value="{Binding GlobalTextFlowAL2R}" />
+        </Style>
+
+    </UserControl.Resources>
+
+    <Grid
+        x:Name="LayoutRoot"
+        Width="700"
+        Height="320"
+        HorizontalAlignment="Center"
+        VerticalAlignment="Top"
+        Background="#00000000"
+        UseLayoutRounding="True">
+        <Grid.RenderTransform>
+            <TranslateTransform />
+        </Grid.RenderTransform>
+
+
+
+        <!-- main view -->
+        <Button
+            Width="700"
+            Height="320"
+            Margin="0,0,0,0"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Top"
+            Visibility="{Binding Allies_MainViewVis, Converter={StaticResource booleanToVisibilityConverter}}"
+            Style="{StaticResource BDR_SH1DE60}" />
+
+        <Grid
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch"
+            Visibility="{Binding Allies_MainViewVis, Converter={StaticResource booleanToVisibilityConverter}}"
+            >
+            <TextBlock
+                Width="600"
+                Margin="20,15,0,0"
+                HorizontalAlignment="Left"
+                FontSize="22"
+                Foreground="#FFEFF3C6"
+                VerticalAlignment="Top"
+                TextAlignment="{Binding AL2RTextLeft}"
+                Text="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_ALLIES_001]}">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                        ShadowDepth="2"
+                        Direction="315"
+                        Color="#CC000000"
+                        BlurRadius="0" />
+                </TextBlock.Effect>
+            </TextBlock>
+            <Button
+                Width="29"
+                Height="29"
+                Margin="0,10,10,0"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource UI-Buttons S043}"
+                local:PropEx.Sprite2="{StaticResource UI-Buttons S044}"
+                local:PropEx.Sprite3="{StaticResource UI-Buttons S044}"
+                local:PropEx.Sprite4="{StaticResource UI-Buttons S043}"
+                Command="{Binding AlliesClickCommand}"
+                CommandParameter="Exit"
+                Style="{StaticResource BTN_Image}"/>
+            <Image
+                Width="72"
+                Height="72"
+                Margin="60,60,0,0"
+                Opacity="{Binding AlliesOpacity0}"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                Source="{Binding AlliesFaceBackground0}" />
+            <Button
+                Width="72"
+                Height="72"
+                Margin="60,60,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                Opacity="{Binding AlliesOpacity0}"
+                local:PropEx.Sprite1="{Binding AlliesFace0}"
+                local:PropEx.Sprite2="{Binding AlliesFace0}"
+                local:PropEx.Sprite3="{Binding AlliesFace0}"
+                local:PropEx.Sprite4="{Binding AlliesFace0}"
+                Command="{Binding AlliesClickCommand}"
+                CommandParameter="0"
+                Style="{StaticResource BTN_Image}"/>
+            <Image
+                Width="72"
+                Height="72"
+                Margin="60,60,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                IsHitTestVisible="False"
+                Visibility="{Binding AlliesHumanFaceVis[0], Converter={StaticResource booleanToVisibilityConverter}}"
+                Opacity="{Binding AlliesOpacity0}"
+                Source="{StaticResource Face Border}" />
+            <Image
+                Width="24"
+                Height="25"
+                Margin="120,48,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                IsHitTestVisible="False"
+                Opacity="{Binding AlliesOpacity0}"
+                Source="{Binding AlliesRequestedGoods0}" />
+            <Image
+                Width="24"
+                Height="25"
+                Margin="120,120,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                IsHitTestVisible="False"
+                Opacity="{Binding AlliesOpacity0}"
+                Source="{Binding AlliesHelp0}" />
+            <Image
+                Width="24"
+                Height="25"
+                Margin="52,120,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                IsHitTestVisible="False"
+                Opacity="{Binding AlliesOpacity0}"
+                Source="{Binding AlliesOrders0}" />
+
+            <Image
+                Width="72"
+                Height="72"
+                Margin="160,60,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                Opacity="{Binding AlliesOpacity1}"
+                Source="{Binding AlliesFaceBackground1}" />
+            <Button
+                Width="72"
+                Height="72"
+                Margin="160,60,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                Opacity="{Binding AlliesOpacity1}"
+                local:PropEx.Sprite1="{Binding AlliesFace1}"
+                local:PropEx.Sprite2="{Binding AlliesFace1}"
+                local:PropEx.Sprite3="{Binding AlliesFace1}"
+                local:PropEx.Sprite4="{Binding AlliesFace1}"
+                Command="{Binding AlliesClickCommand}"
+                CommandParameter="1"
+                Style="{StaticResource BTN_Image}"
+                />
+            <Image
+                Width="72"
+                Height="72"
+                Margin="60,60,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                IsHitTestVisible="False"
+                Visibility="{Binding AlliesHumanFaceVis[1], Converter={StaticResource booleanToVisibilityConverter}}"
+                Opacity="{Binding AlliesOpacity0}"
+                Source="{StaticResource Face Border}" />
+
+            <Image
+                Width="24"
+                Height="25"
+                Margin="220,48,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                IsHitTestVisible="False"
+                Opacity="{Binding AlliesOpacity1}"
+                Source="{Binding AlliesRequestedGoods1}" />
+            <Image
+                Width="24"
+                Height="25"
+                Margin="220,120,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                IsHitTestVisible="False"
+                Opacity="{Binding AlliesOpacity1}"
+                Source="{Binding AlliesHelp1}" />
+            <Image
+                Width="24"
+                Height="25"
+                Margin="152,120,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                IsHitTestVisible="False"
+                Opacity="{Binding AlliesOpacity1}"
+                Source="{Binding AlliesOrders1}" />
+
+            <Image
+                Width="72"
+                Height="72"
+                Margin="260,60,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                Opacity="{Binding AlliesOpacity2}"
+                Source="{Binding AlliesFaceBackground2}" />
+            <Button
+                Width="72"
+                Height="72"
+                Margin="260,60,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                Opacity="{Binding AlliesOpacity2}"
+                local:PropEx.Sprite1="{Binding AlliesFace2}"
+                local:PropEx.Sprite2="{Binding AlliesFace2}"
+                local:PropEx.Sprite3="{Binding AlliesFace2}"
+                local:PropEx.Sprite4="{Binding AlliesFace2}"
+                Command="{Binding AlliesClickCommand}"
+                CommandParameter="2"
+                Style="{StaticResource BTN_Image}"
+                />
+            <Image
+                Width="72"
+                Height="72"
+                Margin="260,60,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                IsHitTestVisible="False"
+                Visibility="{Binding AlliesHumanFaceVis[2], Converter={StaticResource booleanToVisibilityConverter}}"
+                Opacity="{Binding AlliesOpacity0}"
+                Source="{StaticResource Face Border}" />
+            <Image
+                Width="24"
+                Height="25"
+                Margin="320,48,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                IsHitTestVisible="False"
+                Opacity="{Binding AlliesOpacity2}"
+                Source="{Binding AlliesRequestedGoods2}" />
+            <Image
+                Width="24"
+                Height="25"
+                Margin="320,120,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                IsHitTestVisible="False"
+                Opacity="{Binding AlliesOpacity2}"
+                Source="{Binding AlliesHelp2}" />
+            <Image
+                Width="24"
+                Height="25"
+                Margin="252,120,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                IsHitTestVisible="False"
+                Opacity="{Binding AlliesOpacity2}"
+                Source="{Binding AlliesOrders2}" />
+
+            <Image
+                Width="72"
+                Height="72"
+                Margin="360,60,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                Opacity="{Binding AlliesOpacity3}"
+                Source="{Binding AlliesFaceBackground3}" />
+            <Button
+                Width="72"
+                Height="72"
+                Margin="360,60,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                Opacity="{Binding AlliesOpacity3}"
+                local:PropEx.Sprite1="{Binding AlliesFace3}"
+                local:PropEx.Sprite2="{Binding AlliesFace3}"
+                local:PropEx.Sprite3="{Binding AlliesFace3}"
+                local:PropEx.Sprite4="{Binding AlliesFace3}"
+                Command="{Binding AlliesClickCommand}"
+                CommandParameter="3"
+                Style="{StaticResource BTN_Image}"
+                />
+            <Image
+                Width="72"
+                Height="72"
+                Margin="360,60,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                IsHitTestVisible="False"
+                Visibility="{Binding AlliesHumanFaceVis[3], Converter={StaticResource booleanToVisibilityConverter}}"
+                Opacity="{Binding AlliesOpacity0}"
+                Source="{StaticResource Face Border}" />
+            <Image
+                Width="24"
+                Height="25"
+                Margin="420,48,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                IsHitTestVisible="False"
+                Opacity="{Binding AlliesOpacity3}"
+                Source="{Binding AlliesRequestedGoods3}" />
+            <Image
+                Width="24"
+                Height="25"
+                Margin="420,120,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                IsHitTestVisible="False"
+                Opacity="{Binding AlliesOpacity3}"
+                Source="{Binding AlliesHelp3}" />
+            <Image
+                Width="24"
+                Height="25"
+                Margin="352,120,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                IsHitTestVisible="False"
+                Opacity="{Binding AlliesOpacity3}"
+                Source="{Binding AlliesOrders3}" />
+
+            <Image
+                Width="72"
+                Height="72"
+                Margin="460,60,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                Opacity="{Binding AlliesOpacity4}"
+                Source="{Binding AlliesFaceBackground4}" />
+            <Button
+                Width="72"
+                Height="72"
+                Margin="460,60,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                Opacity="{Binding AlliesOpacity4}"
+                local:PropEx.Sprite1="{Binding AlliesFace4}"
+                local:PropEx.Sprite2="{Binding AlliesFace4}"
+                local:PropEx.Sprite3="{Binding AlliesFace4}"
+                local:PropEx.Sprite4="{Binding AlliesFace4}"
+                Command="{Binding AlliesClickCommand}"
+                CommandParameter="4"
+                Style="{StaticResource BTN_Image}"
+                />
+            <Image
+                Width="72"
+                Height="72"
+                Margin="460,60,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                IsHitTestVisible="False"
+                Visibility="{Binding AlliesHumanFaceVis[4], Converter={StaticResource booleanToVisibilityConverter}}"
+                Opacity="{Binding AlliesOpacity0}"
+                Source="{StaticResource Face Border}" />
+            <Image
+                Width="24"
+                Height="25"
+                Margin="520,48,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                IsHitTestVisible="False"
+                Opacity="{Binding AlliesOpacity4}"
+                Source="{Binding AlliesRequestedGoods4}" />
+            <Image
+                Width="24"
+                Height="25"
+                Margin="520,120,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                IsHitTestVisible="False"
+                Opacity="{Binding AlliesOpacity4}"
+                Source="{Binding AlliesHelp4}" />
+            <Image
+                Width="24"
+                Height="25"
+                Margin="452,120,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                IsHitTestVisible="False"
+                Opacity="{Binding AlliesOpacity4}"
+                Source="{Binding AlliesOrders4}" />
+
+            <Image
+                Width="72"
+                Height="72"
+                Margin="560,60,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                Opacity="{Binding AlliesOpacity5}"
+                Source="{Binding AlliesFaceBackground5}" />
+            <Button
+                Width="72"
+                Height="72"
+                Margin="560,60,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                Opacity="{Binding AlliesOpacity5}"
+                local:PropEx.Sprite1="{Binding AlliesFace5}"
+                local:PropEx.Sprite2="{Binding AlliesFace5}"
+                local:PropEx.Sprite3="{Binding AlliesFace5}"
+                local:PropEx.Sprite4="{Binding AlliesFace5}"
+                Command="{Binding AlliesClickCommand}"
+                CommandParameter="5"
+                Style="{StaticResource BTN_Image}"
+                />
+            <Image
+                Width="72"
+                Height="72"
+                Margin="560,60,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                IsHitTestVisible="False"
+                Visibility="{Binding AlliesHumanFaceVis[5], Converter={StaticResource booleanToVisibilityConverter}}"
+                Opacity="{Binding AlliesOpacity0}"
+                Source="{StaticResource Face Border}" />
+            <Image
+                Width="24"
+                Height="25"
+                Margin="620,48,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                IsHitTestVisible="False"
+                Opacity="{Binding AlliesOpacity5}"
+                Source="{Binding AlliesRequestedGoods5}" />
+            <Image
+                Width="24"
+                Height="25"
+                Margin="620,120,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                IsHitTestVisible="False"
+                Opacity="{Binding AlliesOpacity5}"
+                Source="{Binding AlliesHelp5}" />
+            <Image
+                Width="24"
+                Height="25"
+                Margin="552,120,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                IsHitTestVisible="False"
+                Opacity="{Binding AlliesOpacity5}"
+                Source="{Binding AlliesOrders5}" />
+
+
+            <Grid
+                Width="660"
+                Height="120"
+                Margin="20,180,20,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top">
+                <Button
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch"
+                Style="{StaticResource BDR_SH1DEe}" />
+
+                <TextBlock
+                    Margin="15,10,0,0"
+                    HorizontalAlignment="Left"
+                    FontSize="20"
+                    VerticalAlignment="Top"
+                    TextAlignment="Left"
+                    Foreground="{Binding AlliesSelectedLordColour}"
+                    Text="{Binding AlliesSelectedLord}">
+                    <TextBlock.Effect>
+                        <DropShadowEffect
+                         ShadowDepth="2"
+                         Direction="315"
+                         Color="#CC000000"
+                         BlurRadius="0"/>
+                    </TextBlock.Effect>
+                </TextBlock>
+
+                <TextBlock
+                    Margin="15,40,0,0"
+                    HorizontalAlignment="Left"
+                    FontSize="18"
+                    VerticalAlignment="Top"
+                    TextAlignment="Left"
+                    Foreground="#FFEFF3C6"
+                    Text="{Binding AlliesSelectedGoods}">
+                    <TextBlock.Effect>
+                        <DropShadowEffect
+                         ShadowDepth="2"
+                         Direction="315"
+                         Color="#CC000000"
+                         BlurRadius="0"/>
+                    </TextBlock.Effect>
+                </TextBlock>
+                <Image
+                    Width="24"
+                    Height="25"
+                    Margin="15,37,0,0"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Source="{Binding AlliesRequestedGoodsCurrent}" />
+
+
+                <TextBlock
+                    Margin="15,65,0,0"
+                    HorizontalAlignment="Left"
+                    FontSize="18"
+                    VerticalAlignment="Top"
+                    TextAlignment="Left"
+                    Foreground="#FFEFF3C6"
+                    Text="{Binding AlliesSelectedOrder}">
+                    <TextBlock.Effect>
+                        <DropShadowEffect
+                         ShadowDepth="2"
+                         Direction="315"
+                         Color="#CC000000"
+                         BlurRadius="0"/>
+                    </TextBlock.Effect>
+                </TextBlock>
+                <Image
+                    Width="24"
+                    Height="24"
+                    Margin="15,62,0,0"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Source="{Binding AlliesOrderCurrentBackground}" />
+                <Image
+                    Width="24"
+                    Height="24"
+                    Margin="15,62,0,0"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Source="{Binding AlliesOrderCurrentFace}" />
+                
+                <TextBlock
+                    Margin="15,90,0,0"
+                    HorizontalAlignment="Left"
+                    FontSize="18"
+                    VerticalAlignment="Top"
+                    TextAlignment="Left"
+                    Foreground="#FFEFF3C6"
+                    Text="{Binding AlliesSelectedHelp}">
+                    <TextBlock.Effect>
+                        <DropShadowEffect
+                         ShadowDepth="2"
+                         Direction="315"
+                         Color="#CC000000"
+                         BlurRadius="0"/>
+                    </TextBlock.Effect>
+                </TextBlock>
+                <Image
+                    Width="24"
+                    Height="24"
+                    Margin="15,87,0,0"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Source="{Binding AlliesHelpCurrentBackground}" />
+                <Image
+                    Width="24"
+                    Height="24"
+                    Margin="15,87,0,0"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Source="{Binding AlliesHelpCurrentFace}" />
+
+                <!-- Confirm orders -->
+                <Button
+                Width="35"
+                Height="35"
+                Margin="240,75,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                local:PropEx.Sprite1="{StaticResource UI-Buttons S037}"
+                local:PropEx.Sprite2="{StaticResource UI-Buttons S039}"
+                local:PropEx.Sprite3="{StaticResource UI-Buttons S039}"
+                local:PropEx.Sprite4="{StaticResource UI-Buttons S037}"
+                Command="{Binding AlliesClickCommand}"
+                CommandParameter="ConfirmOrders"
+                Visibility="{Binding Allies_OrdersConfirmVis, Converter={StaticResource booleanToVisibilityConverter}}"
+                Style="{StaticResource BTN_Image}"/>
+
+                <!-- Cancel orders -->
+                <Button
+                Width="35"
+                Height="35"
+                Margin="280,75,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                local:PropEx.Sprite1="{StaticResource UI-Buttons S038}"
+                local:PropEx.Sprite2="{StaticResource UI-Buttons S040}"
+                local:PropEx.Sprite3="{StaticResource UI-Buttons S040}"
+                local:PropEx.Sprite4="{StaticResource UI-Buttons S038}"
+                Command="{Binding AlliesClickCommand}"
+                CommandParameter="CancelOrders"
+                Visibility="{Binding Allies_OrdersConfirmVis, Converter={StaticResource booleanToVisibilityConverter}}"
+                Style="{StaticResource BTN_Image}"/>
+            
+
+            <!-- Command rollvoer -->
+                <TextBlock
+                    Margin="300,10,50,0"
+                    HorizontalAlignment="Center"
+                    FontSize="20"
+                    Foreground="#FFEFF3C6"
+                    VerticalAlignment="Top"
+                    TextAlignment="Center"
+                    Text="{Binding AlliesCommandsRolloverText}">
+                    <TextBlock.Effect>
+                        <DropShadowEffect
+                         ShadowDepth="2"
+                         Direction="315"
+                         Color="#CC000000"
+                         BlurRadius="0"/>
+                    </TextBlock.Effect>
+                </TextBlock>
+                <Button
+                Width="49"
+                Height="69"
+                Margin="330,20,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                local:PropEx.Sprite1="{StaticResource UI-Buttons S024}"
+                local:PropEx.Sprite2="{StaticResource UI-Buttons S025}"
+                local:PropEx.Sprite3="{StaticResource UI-Buttons S025}"
+                local:PropEx.Sprite4="{StaticResource UI-Buttons S024}"
+                Command="{Binding AlliesClickCommand}"
+                CommandParameter="Orders"
+                MouseEnter="MouseEnterRolloverHandler"
+                MouseLeave="MouseLeaveRolloverHandler"
+                Style="{StaticResource BTN_Image}"
+                />
+            <Button
+                Width="79"
+                Height="56"
+                Margin="420,20,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                local:PropEx.Sprite1="{StaticResource UI-Buttons S026}"
+                local:PropEx.Sprite2="{StaticResource UI-Buttons S027}"
+                local:PropEx.Sprite3="{StaticResource UI-Buttons S027}"
+                local:PropEx.Sprite4="{StaticResource UI-Buttons S028}"
+                Command="{Binding AlliesClickCommand}"
+                CommandParameter="Send"
+                MouseEnter="MouseEnterRolloverHandler"
+                MouseLeave="MouseLeaveRolloverHandler"
+                Style="{StaticResource BTN_Image}"
+                />
+            <Button
+                Width="79"
+                Height="58"
+                Margin="530,20,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                local:PropEx.Sprite1="{StaticResource UI-Buttons S029}"
+                local:PropEx.Sprite2="{StaticResource UI-Buttons S030}"
+                local:PropEx.Sprite3="{StaticResource UI-Buttons S030}"
+                local:PropEx.Sprite4="{StaticResource UI-Buttons S029}"
+                Command="{Binding AlliesClickCommand}"
+                CommandParameter="Request"
+                MouseEnter="MouseEnterRolloverHandler"
+                MouseLeave="MouseLeaveRolloverHandler"
+                Style="{StaticResource BTN_Image}"
+                />
+            </Grid>
+            <!--        <Button
+                    Name="XXXX"
+                    Width="232"
+                    Margin="20,44,0,0"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    local:PropEx.TextCentre="Player 1"
+                    local:PropEx.TextLeft=""
+                    local:PropEx.TextRight=""
+                    Command="{Binding ButtonMPChatCommand}"
+                    CommandParameter="P1"
+                    MouseEnter="CommonRedButtonEnter"
+                    Style="{StaticResource BTN_SH_GlowSB}" RenderTransformOrigin="0.911,3.714" />
+            -->
+        </Grid>
+
+        <!-- No Allies -->
+        <Button
+            Width="700"
+            Height="320"
+            Margin="0,0,0,0"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Top"
+            Visibility="{Binding Allies_NoAlliesViewVis, Converter={StaticResource booleanToVisibilityConverter}}"
+            Style="{StaticResource BDR_SH1DE60}" />
+        <Grid
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch"
+            Visibility="{Binding Allies_NoAlliesViewVis, Converter={StaticResource booleanToVisibilityConverter}}"
+            >
+            <TextBlock
+                Width="600"
+                Margin="20,15,0,0"
+                HorizontalAlignment="Left"
+                FontSize="22"
+                Foreground="#FFEFF3C6"
+                VerticalAlignment="Top"
+                TextAlignment="{Binding AL2RTextLeft}"
+                Text="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_ALLIES_001]}">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                        ShadowDepth="2"
+                        Direction="315"
+                        Color="#CC000000"
+                        BlurRadius="0" />
+                </TextBlock.Effect>
+            </TextBlock>
+            <Button
+                Width="29"
+                Height="29"
+                Margin="0,10,10,0"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource UI-Buttons S043}"
+                local:PropEx.Sprite2="{StaticResource UI-Buttons S044}"
+                local:PropEx.Sprite3="{StaticResource UI-Buttons S044}"
+                local:PropEx.Sprite4="{StaticResource UI-Buttons S043}"
+                Command="{Binding AlliesClickCommand}"
+                CommandParameter="Exit"
+                Style="{StaticResource BTN_Image}"/>
+            <TextBlock
+                Width="600"
+                Margin="20,45,0,0"
+                HorizontalAlignment="Left"
+                FontSize="22"
+                Foreground="#FFEFF3C6"
+                VerticalAlignment="Top"
+                TextAlignment="{Binding AL2RTextLeft}"
+                Text="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_ALLIES_020]}">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                        ShadowDepth="2"
+                        Direction="315"
+                        Color="#CC000000"
+                        BlurRadius="0" />
+                </TextBlock.Effect>
+            </TextBlock>
+
+        </Grid>
+
+        <!-- Orders -->
+        <Button
+            Width="700"
+            Height="160"
+            Margin="0,0,0,0"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Top"
+            Visibility="{Binding Allies_OrdersViewVis, Converter={StaticResource booleanToVisibilityConverter}}"
+            Style="{StaticResource BDR_SH1DE60}" />
+        <Grid
+            Width="700"
+            Height="160"
+            Margin="0,0,0,0"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Top"
+            Visibility="{Binding Allies_OrdersViewVis, Converter={StaticResource booleanToVisibilityConverter}}"
+            >
+            <TextBlock
+                Width="600"
+                Margin="20,15,0,0"
+                HorizontalAlignment="Left"
+                FontSize="22"
+                Foreground="#FFEFF3C6"
+                VerticalAlignment="Top"
+                TextAlignment="{Binding AL2RTextLeft}"
+                Text="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_ALLIES_006]}">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                        ShadowDepth="2"
+                        Direction="315"
+                        Color="#CC000000"
+                        BlurRadius="0" />
+                </TextBlock.Effect>
+            </TextBlock>
+            <Button
+                Width="29"
+                Height="29"
+                Margin="0,10,10,0"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource UI-Buttons L005}"
+                local:PropEx.Sprite2="{StaticResource UI-Buttons L006}"
+                local:PropEx.Sprite3="{StaticResource UI-Buttons L006}"
+                local:PropEx.Sprite4="{StaticResource UI-Buttons L005}"
+                Command="{Binding AlliesClickCommand}"
+                CommandParameter="Back"
+                Style="{StaticResource BTN_Image}"/>
+            <TextBlock
+                Margin="20,0,50,10"
+                HorizontalAlignment="Left"
+                FontSize="20"
+                Foreground="#FFEFF3C6"
+                VerticalAlignment="Bottom"
+                TextAlignment="Left"
+                Text="{Binding AlliesCommandsRolloverText}">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                        ShadowDepth="2"
+                        Direction="315"
+                        Color="#CC000000"
+                        BlurRadius="0" />
+                </TextBlock.Effect>
+            </TextBlock>
+
+            <Button
+                Width="50"
+                Height="69"
+                Margin="30,10,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                local:PropEx.Sprite1="{StaticResource UI-Buttons S031}"
+                local:PropEx.Sprite2="{StaticResource UI-Buttons S032}"
+                local:PropEx.Sprite3="{StaticResource UI-Buttons S032}"
+                local:PropEx.Sprite4="{StaticResource UI-Buttons S031}"
+                Command="{Binding AlliesClickCommand}"
+                CommandParameter="Cancel"
+                MouseEnter="MouseEnterRolloverHandler"
+                MouseLeave="MouseLeaveRolloverHandler"
+                Style="{StaticResource BTN_Image}"
+                />
+            <Button
+                Width="50"
+                Height="61"
+                Margin="100,10,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                local:PropEx.Sprite1="{StaticResource UI-Buttons S033}"
+                local:PropEx.Sprite2="{StaticResource UI-Buttons S034}"
+                local:PropEx.Sprite3="{StaticResource UI-Buttons S034}"
+                local:PropEx.Sprite4="{StaticResource UI-Buttons S033}"
+                Command="{Binding AlliesClickCommand}"
+                CommandParameter="Defend"
+                MouseEnter="MouseEnterRolloverHandler"
+                MouseLeave="MouseLeaveRolloverHandler"
+                Style="{StaticResource BTN_Image}"
+                />
+
+
+            <Image
+                Width="72"
+                Height="72"
+                Margin="170,10,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                Source="{Binding AlliesFaceBackground0}" />
+            <Button
+                Width="72"
+                Height="72"
+                Margin="170,10,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                local:PropEx.Sprite1="{Binding AlliesFace0}"
+                local:PropEx.Sprite2="{Binding AlliesFace0}"
+                local:PropEx.Sprite3="{Binding AlliesFace0}"
+                local:PropEx.Sprite4="{Binding AlliesFace0}"
+                Command="{Binding AlliesClickCommand}"
+                CommandParameter="Attack0"
+                MouseEnter="MouseEnterRolloverHandler"
+                MouseLeave="MouseLeaveRolloverHandler"
+                Style="{StaticResource BTN_Image}"/>
+            <Image
+                Width="72"
+                Height="72"
+                Margin="170,10,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                IsHitTestVisible="False"
+                Visibility="{Binding AlliesHumanFaceVis[0], Converter={StaticResource booleanToVisibilityConverter}}"
+                Opacity="{Binding AlliesOpacity0}"
+                Source="{StaticResource Face Border}" />
+            <Image
+                Width="24"
+                Height="25"
+                Margin="170,10,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                IsHitTestVisible="False"
+                Source="{Binding AlliesOrders0}" />
+
+            <Image
+                Width="72"
+                Height="72"
+                Margin="250,10,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                Opacity="{Binding AlliesOpacity1}"
+                Source="{Binding AlliesFaceBackground1}" />
+            <Button
+                Width="72"
+                Height="72"
+                Margin="250,10,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                local:PropEx.Sprite1="{Binding AlliesFace1}"
+                local:PropEx.Sprite2="{Binding AlliesFace1}"
+                local:PropEx.Sprite3="{Binding AlliesFace1}"
+                local:PropEx.Sprite4="{Binding AlliesFace1}"
+                Command="{Binding AlliesClickCommand}"
+                CommandParameter="Attack1"
+                MouseEnter="MouseEnterRolloverHandler"
+                MouseLeave="MouseLeaveRolloverHandler"
+                Style="{StaticResource BTN_Image}"
+                />
+            <Image
+                Width="72"
+                Height="72"
+                Margin="250,10,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                IsHitTestVisible="False"
+                Visibility="{Binding AlliesHumanFaceVis[1], Converter={StaticResource booleanToVisibilityConverter}}"
+                Opacity="{Binding AlliesOpacity0}"
+                Source="{StaticResource Face Border}" />
+            <Image
+                Width="24"
+                Height="25"
+                Margin="250,10,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                IsHitTestVisible="False"
+                Source="{Binding AlliesOrders1}" />
+
+            <Image
+                Width="72"
+                Height="72"
+                Margin="330,10,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                Source="{Binding AlliesFaceBackground2}" />
+            <Button
+                Width="72"
+                Height="72"
+                Margin="330,10,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                local:PropEx.Sprite1="{Binding AlliesFace2}"
+                local:PropEx.Sprite2="{Binding AlliesFace2}"
+                local:PropEx.Sprite3="{Binding AlliesFace2}"
+                local:PropEx.Sprite4="{Binding AlliesFace2}"
+                Command="{Binding AlliesClickCommand}"
+                CommandParameter="Attack2"
+                MouseEnter="MouseEnterRolloverHandler"
+                MouseLeave="MouseLeaveRolloverHandler"
+                Style="{StaticResource BTN_Image}"
+                />
+            <Image
+                Width="72"
+                Height="72"
+                Margin="330,10,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                IsHitTestVisible="False"
+                Visibility="{Binding AlliesHumanFaceVis[2], Converter={StaticResource booleanToVisibilityConverter}}"
+                Opacity="{Binding AlliesOpacity0}"
+                Source="{StaticResource Face Border}" />
+            <Image
+                Width="24"
+                Height="25"
+                Margin="330,10,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                IsHitTestVisible="False"
+                Source="{Binding AlliesOrders2}" />
+
+            <Image
+                Width="72"
+                Height="72"
+                Margin="410,10,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                Source="{Binding AlliesFaceBackground3}" />
+            <Button
+                Width="72"
+                Height="72"
+                Margin="410,10,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                local:PropEx.Sprite1="{Binding AlliesFace3}"
+                local:PropEx.Sprite2="{Binding AlliesFace3}"
+                local:PropEx.Sprite3="{Binding AlliesFace3}"
+                local:PropEx.Sprite4="{Binding AlliesFace3}"
+                Command="{Binding AlliesClickCommand}"
+                CommandParameter="Attack3"
+                MouseEnter="MouseEnterRolloverHandler"
+                MouseLeave="MouseLeaveRolloverHandler"
+                Style="{StaticResource BTN_Image}"
+                />
+            <Image
+                Width="72"
+                Height="72"
+                Margin="410,10,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                IsHitTestVisible="False"
+                Visibility="{Binding AlliesHumanFaceVis[3], Converter={StaticResource booleanToVisibilityConverter}}"
+                Opacity="{Binding AlliesOpacity0}"
+                Source="{StaticResource Face Border}" />
+            <Image
+                Width="24"
+                Height="25"
+                Margin="410,10,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                IsHitTestVisible="False"
+                Source="{Binding AlliesOrders3}" />
+
+            <Image
+                Width="72"
+                Height="72"
+                Margin="490,10,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                Source="{Binding AlliesFaceBackground4}" />
+            <Button
+                Width="72"
+                Height="72"
+                Margin="490,10,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                local:PropEx.Sprite1="{Binding AlliesFace4}"
+                local:PropEx.Sprite2="{Binding AlliesFace4}"
+                local:PropEx.Sprite3="{Binding AlliesFace4}"
+                local:PropEx.Sprite4="{Binding AlliesFace4}"
+                Command="{Binding AlliesClickCommand}"
+                CommandParameter="Attack4"
+                MouseEnter="MouseEnterRolloverHandler"
+                MouseLeave="MouseLeaveRolloverHandler"
+                Style="{StaticResource BTN_Image}"
+                />
+            <Image
+                Width="72"
+                Height="72"
+                Margin="490,10,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                IsHitTestVisible="False"
+                Visibility="{Binding AlliesHumanFaceVis[4], Converter={StaticResource booleanToVisibilityConverter}}"
+                Opacity="{Binding AlliesOpacity0}"
+                Source="{StaticResource Face Border}" />
+            <Image
+                Width="24"
+                Height="25"
+                Margin="490,10,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                IsHitTestVisible="False"
+                Source="{Binding AlliesOrders4}" />
+
+            <Image
+                Width="72"
+                Height="72"
+                Margin="570,10,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                Source="{Binding AlliesFaceBackground5}" />
+            <Button
+                Width="72"
+                Height="72"
+                Margin="570,10,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                local:PropEx.Sprite1="{Binding AlliesFace5}"
+                local:PropEx.Sprite2="{Binding AlliesFace5}"
+                local:PropEx.Sprite3="{Binding AlliesFace5}"
+                local:PropEx.Sprite4="{Binding AlliesFace5}"
+                Command="{Binding AlliesClickCommand}"
+                CommandParameter="Attack5"
+                MouseEnter="MouseEnterRolloverHandler"
+                MouseLeave="MouseLeaveRolloverHandler"
+                Style="{StaticResource BTN_Image}"
+                />
+            <Image
+                Width="72"
+                Height="72"
+                Margin="570,10,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                IsHitTestVisible="False"
+                Visibility="{Binding AlliesHumanFaceVis[5], Converter={StaticResource booleanToVisibilityConverter}}"
+                Opacity="{Binding AlliesOpacity0}"
+                Source="{StaticResource Face Border}" />
+            <Image
+                Width="24"
+                Height="25"
+                Margin="570,10,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                IsHitTestVisible="False"
+                Source="{Binding AlliesOrders5}" />
+
+
+
+        </Grid>
+
+        <!-- Goods -->
+        <Button
+            Width="700"
+            Height="320"
+            Margin="0,0,0,0"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Top"
+            Visibility="{Binding Allies_GoodsViewVis, Converter={StaticResource booleanToVisibilityConverter}}"
+            Style="{StaticResource BDR_SH1DE60}" />
+        <Grid
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch"
+            Visibility="{Binding Allies_GoodsViewVis, Converter={StaticResource booleanToVisibilityConverter}}"
+            >
+            <TextBlock
+                Width="600"
+                Margin="20,15,0,0"
+                HorizontalAlignment="Left"
+                FontSize="22"
+                Foreground="#FFEFF3C6"
+                VerticalAlignment="Top"
+                TextAlignment="{Binding AL2RTextLeft}"
+                Visibility="{Binding Allies_SendGoodsViewVis, Converter={StaticResource booleanToVisibilityConverter}}"
+                Text="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_ALLIES_007]}"/>
+            <TextBlock
+                Width="600"
+                Margin="20,15,0,0"
+                HorizontalAlignment="Left"
+                FontSize="22"
+                Foreground="#FFEFF3C6"
+                VerticalAlignment="Top"
+                TextAlignment="{Binding AL2RTextLeft}"
+                Visibility="{Binding Allies_RequestGoodsViewVis, Converter={StaticResource booleanToVisibilityConverter}}"
+                Text="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_ALLIES_008]}"/>
+            <Button
+                Width="29"
+                Height="29"
+                Margin="0,10,10,0"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource UI-Buttons L005}"
+                local:PropEx.Sprite2="{StaticResource UI-Buttons L006}"
+                local:PropEx.Sprite3="{StaticResource UI-Buttons L006}"
+                local:PropEx.Sprite4="{StaticResource UI-Buttons L005}"
+                Command="{Binding AlliesClickCommand}"
+                CommandParameter="Back"
+                Style="{StaticResource BTN_Image}"/>
+
+            <Grid
+                 Margin="10,-10,0,0"
+                >
+                 <!-- wood -->
+                <Button
+                    Width="35"
+                    Height="35"
+                    Margin="30,60,0,0"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    local:PropEx.Sprite1="{StaticResource UISprites E001}"
+                    local:PropEx.Sprite2="{StaticResource UISprites E002}"
+                    local:PropEx.Sprite3="{StaticResource UISprites E002}"
+                    local:PropEx.Sprite4="{StaticResource UISprites E001}"
+                    Command="{Binding AlliesClickCommand}"
+                    CommandParameter="G02"
+                    Style="{StaticResource BTN_Image}"/>
+                <TextBlock
+                    Width="45"
+                    FontSize="12"
+                    Margin="25, 95, 0, 0"
+                    TextAlignment="Center"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Foreground="#FFEFF3C6"
+                    IsHitTestVisible="False"
+                    Text="{Binding AllStoredGoods[2]}"/>
+
+                <!-- hops -->
+                <Button
+                    Width="35"
+                    Height="35"
+                    Margin="94,60,0,0"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    local:PropEx.Sprite1="{StaticResource UISprites E003}"
+                    local:PropEx.Sprite2="{StaticResource UISprites E004}"
+                    local:PropEx.Sprite3="{StaticResource UISprites E004}"
+                    local:PropEx.Sprite4="{StaticResource UISprites E003}"
+                    Command="{Binding AlliesClickCommand}"
+                    CommandParameter="G03"
+                    Style="{StaticResource BTN_Image}"/>
+                <TextBlock
+                    Width="45"
+                    FontSize="12"
+                    Margin="89, 95, 0, 0"
+                    TextAlignment="Center"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Foreground="#FFEFF3C6"
+                    IsHitTestVisible="False"
+                    Text="{Binding AllStoredGoods[3]}"/>
+
+                <!-- stone -->
+                <Button
+                    Width="35"
+                    Height="35"
+                    Margin="158,60,0,0"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    local:PropEx.Sprite1="{StaticResource UISprites E005}"
+                    local:PropEx.Sprite2="{StaticResource UISprites E006}"
+                    local:PropEx.Sprite3="{StaticResource UISprites E006}"
+                    local:PropEx.Sprite4="{StaticResource UISprites E005}"
+                    Command="{Binding AlliesClickCommand}"
+                    CommandParameter="G04"
+                    Style="{StaticResource BTN_Image}"/>
+                <TextBlock
+                    Width="45"
+                    FontSize="12"
+                    Margin="153, 95, 0, 0"
+                    TextAlignment="Center"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Foreground="#FFEFF3C6"
+                    IsHitTestVisible="False"
+                    Text="{Binding AllStoredGoods[4]}"/>
+
+                <!-- iron -->
+                <Button
+                    Width="35"
+                    Height="35"
+                    Margin="222,60,0,0"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    local:PropEx.Sprite1="{StaticResource UISprites E007}"
+                    local:PropEx.Sprite2="{StaticResource UISprites E008}"
+                    local:PropEx.Sprite3="{StaticResource UISprites E008}"
+                    local:PropEx.Sprite4="{StaticResource UISprites E007}"
+                    Command="{Binding AlliesClickCommand}"
+                    CommandParameter="G06"
+                    Style="{StaticResource BTN_Image}"/>
+                <TextBlock
+                    Width="45"
+                    FontSize="12"
+                    Margin="217 , 95, 0, 0"
+                    TextAlignment="Center"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Foreground="#FFEFF3C6"
+                    IsHitTestVisible="False"
+                    Text="{Binding AllStoredGoods[6]}"/>
+                
+                <!-- pitch -->
+                <Button
+                    Width="35"
+                    Height="35"
+                    Margin="286,60,0,0"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    local:PropEx.Sprite1="{StaticResource UISprites E009}"
+                    local:PropEx.Sprite2="{StaticResource UISprites E010}"
+                    local:PropEx.Sprite3="{StaticResource UISprites E010}"
+                    local:PropEx.Sprite4="{StaticResource UISprites E009}"
+                    Command="{Binding AlliesClickCommand}"
+                    CommandParameter="G07"
+                    Style="{StaticResource BTN_Image}"/>
+                <TextBlock
+                    Width="45"
+                    FontSize="12"
+                    Margin="281 , 95, 0, 0"
+                    TextAlignment="Center"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Foreground="#FFEFF3C6"
+                    IsHitTestVisible="False"
+                    Text="{Binding AllStoredGoods[7]}"/>
+
+                <!-- wheat -->
+                <Button
+                    Width="35"
+                    Height="35"
+                    Margin="350,60,0,0"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    local:PropEx.Sprite1="{StaticResource UISprites E011}"
+                    local:PropEx.Sprite2="{StaticResource UISprites E012}"
+                    local:PropEx.Sprite3="{StaticResource UISprites E012}"
+                    local:PropEx.Sprite4="{StaticResource UISprites E011}"
+                    Command="{Binding AlliesClickCommand}"
+                    CommandParameter="G09"
+                    Style="{StaticResource BTN_Image}"/>
+                <TextBlock
+                    Width="45"
+                    FontSize="12"
+                    Margin="345 , 95, 0, 0"
+                    TextAlignment="Center"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Foreground="#FFEFF3C6"
+                    IsHitTestVisible="False"
+                    Text="{Binding AllStoredGoods[9]}"/>
+
+                <!-- bread -->
+                <Button
+                    Width="35"
+                    Height="35"
+                    Margin="414,60,0,0"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    local:PropEx.Sprite1="{StaticResource UISprites E013}"
+                    local:PropEx.Sprite2="{StaticResource UISprites E014}"
+                    local:PropEx.Sprite3="{StaticResource UISprites E014}"
+                    local:PropEx.Sprite4="{StaticResource UISprites E013}"
+                    Command="{Binding AlliesClickCommand}"
+                    CommandParameter="G10"
+                    Style="{StaticResource BTN_Image}"/>
+                <TextBlock
+                    Width="45"
+                    FontSize="12"
+                    Margin="409 , 95, 0, 0"
+                    TextAlignment="Center"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Foreground="#FFEFF3C6"
+                    IsHitTestVisible="False"
+                    Text="{Binding AllStoredGoods[10]}"/>
+
+                <!-- cheese -->
+                <Button
+                    Width="35"
+                    Height="35"
+                    Margin="478,60,0,0"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    local:PropEx.Sprite1="{StaticResource UISprites E015}"
+                    local:PropEx.Sprite2="{StaticResource UISprites E016}"
+                    local:PropEx.Sprite3="{StaticResource UISprites E016}"
+                    local:PropEx.Sprite4="{StaticResource UISprites E015}"
+                    Command="{Binding AlliesClickCommand}"
+                    CommandParameter="G11"
+                    Style="{StaticResource BTN_Image}"/>
+                <TextBlock
+                    Width="45"
+                    FontSize="12"
+                    Margin="473 , 95, 0, 0"
+                    TextAlignment="Center"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Foreground="#FFEFF3C6"
+                    IsHitTestVisible="False"
+                    Text="{Binding AllStoredGoods[11]}"/>
+
+                <!-- meat -->
+                <Button
+                    Width="35"
+                    Height="35"
+                    Margin="542,60,0,0"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    local:PropEx.Sprite1="{StaticResource UISprites E017}"
+                    local:PropEx.Sprite2="{StaticResource UISprites E018}"
+                    local:PropEx.Sprite3="{StaticResource UISprites E018}"
+                    local:PropEx.Sprite4="{StaticResource UISprites E017}"
+                    Command="{Binding AlliesClickCommand}"
+                    CommandParameter="G12"
+                    Style="{StaticResource BTN_Image}"/>
+                <TextBlock
+                    Width="45"
+                    FontSize="12"
+                    Margin="537 , 95, 0, 0"
+                    TextAlignment="Center"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Foreground="#FFEFF3C6"
+                    IsHitTestVisible="False"
+                    Text="{Binding AllStoredGoods[12]}"/>
+
+                <!-- apples -->
+                <Button
+                    Width="35"
+                    Height="35"
+                    Margin="606,60,0,0"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    local:PropEx.Sprite1="{StaticResource UISprites E019}"
+                    local:PropEx.Sprite2="{StaticResource UISprites E020}"
+                    local:PropEx.Sprite3="{StaticResource UISprites E020}"
+                    local:PropEx.Sprite4="{StaticResource UISprites E019}"
+                    Command="{Binding AlliesClickCommand}"
+                    CommandParameter="G13"
+                    Style="{StaticResource BTN_Image}"/>
+                <TextBlock
+                    Width="45"
+                    FontSize="12"
+                    Margin="601 , 95, 0, 0"
+                    TextAlignment="Center"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Foreground="#FFEFF3C6"
+                    IsHitTestVisible="False"
+                    Text="{Binding AllStoredGoods[13]}"/>
+
+                <!-- Row 2-->
+
+                <!-- ale -->
+                <Button
+                    Width="35"
+                    Height="35"
+                    Margin="30,120,0,0"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    local:PropEx.Sprite1="{StaticResource UISprites E021}"
+                    local:PropEx.Sprite2="{StaticResource UISprites E022}"
+                    local:PropEx.Sprite3="{StaticResource UISprites E022}"
+                    local:PropEx.Sprite4="{StaticResource UISprites E021}"
+                    Command="{Binding AlliesClickCommand}"
+                    CommandParameter="G14"
+                    Style="{StaticResource BTN_Image}"/>
+                <TextBlock
+                    Width="45"
+                    FontSize="12"
+                    Margin="25, 155, 0, 0"
+                    TextAlignment="Center"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Foreground="#FFEFF3C6"
+                    IsHitTestVisible="False"
+                    Text="{Binding AllStoredGoods[14]}"/>
+
+                <!-- flour -->
+                <Button
+                    Width="35"
+                    Height="35"
+                    Margin="94,120,0,0"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    local:PropEx.Sprite1="{StaticResource UISprites E025}"
+                    local:PropEx.Sprite2="{StaticResource UISprites E026}"
+                    local:PropEx.Sprite3="{StaticResource UISprites E026}"
+                    local:PropEx.Sprite4="{StaticResource UISprites E025}"
+                    Command="{Binding AlliesClickCommand}"
+                    CommandParameter="G16"
+                    Style="{StaticResource BTN_Image}"/>
+                <TextBlock
+                    Width="45"
+                    FontSize="12"
+                    Margin="89, 155, 0, 0"
+                    TextAlignment="Center"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Foreground="#FFEFF3C6"
+                    IsHitTestVisible="False"
+                    Text="{Binding AllStoredGoods[16]}"/>
+
+                <!-- bow -->
+                <Button
+                    Width="35"
+                    Height="35"
+                    Margin="158,120,0,0"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    local:PropEx.Sprite1="{StaticResource UISprites E027}"
+                    local:PropEx.Sprite2="{StaticResource UISprites E028}"
+                    local:PropEx.Sprite3="{StaticResource UISprites E028}"
+                    local:PropEx.Sprite4="{StaticResource UISprites E027}"
+                    Command="{Binding AlliesClickCommand}"
+                    CommandParameter="G17"
+                    Style="{StaticResource BTN_Image}"/>
+                <TextBlock
+                    Width="45"
+                    FontSize="12"
+                    Margin="153, 155, 0, 0"
+                    TextAlignment="Center"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Foreground="#FFEFF3C6"
+                    IsHitTestVisible="False"
+                    Text="{Binding AllStoredGoods[17]}"/>
+
+                <!-- xbow -->
+                <Button
+                    Width="35"
+                    Height="35"
+                    Margin="222,120,0,0"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    local:PropEx.Sprite1="{StaticResource UISprites E029}"
+                    local:PropEx.Sprite2="{StaticResource UISprites E030}"
+                    local:PropEx.Sprite3="{StaticResource UISprites E030}"
+                    local:PropEx.Sprite4="{StaticResource UISprites E029}"
+                    Command="{Binding AlliesClickCommand}"
+                    CommandParameter="G18"
+                    Style="{StaticResource BTN_Image}"/>
+                <TextBlock
+                    Width="45"
+                    FontSize="12"
+                    Margin="217 , 155, 0, 0"
+                    TextAlignment="Center"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Foreground="#FFEFF3C6"
+                    IsHitTestVisible="False"
+                    Text="{Binding AllStoredGoods[18]}"/>
+
+                <!-- spear -->
+                <Button
+                    Width="35"
+                    Height="35"
+                    Margin="286,120,0,0"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    local:PropEx.Sprite1="{StaticResource UISprites E031}"
+                    local:PropEx.Sprite2="{StaticResource UISprites E032}"
+                    local:PropEx.Sprite3="{StaticResource UISprites E032}"
+                    local:PropEx.Sprite4="{StaticResource UISprites E031}"
+                    Command="{Binding AlliesClickCommand}"
+                    CommandParameter="G19"
+                    Style="{StaticResource BTN_Image}"/>
+                <TextBlock
+                    Width="45"
+                    FontSize="12"
+                    Margin="281 , 155, 0, 0"
+                    TextAlignment="Center"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Foreground="#FFEFF3C6"
+                    IsHitTestVisible="False"
+                    Text="{Binding AllStoredGoods[19]}"/>
+
+                <!-- pike -->
+                <Button
+                    Width="35"
+                    Height="35"
+                    Margin="350,120,0,0"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    local:PropEx.Sprite1="{StaticResource UISprites E033}"
+                    local:PropEx.Sprite2="{StaticResource UISprites E034}"
+                    local:PropEx.Sprite3="{StaticResource UISprites E034}"
+                    local:PropEx.Sprite4="{StaticResource UISprites E033}"
+                    Command="{Binding AlliesClickCommand}"
+                    CommandParameter="G20"
+                    Style="{StaticResource BTN_Image}"/>
+                <TextBlock
+                    Width="45"
+                    FontSize="12"
+                    Margin="345 , 155, 0, 0"
+                    TextAlignment="Center"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Foreground="#FFEFF3C6"
+                    IsHitTestVisible="False"
+                    Text="{Binding AllStoredGoods[20]}"/>
+
+                <!-- mace -->
+                <Button
+                    Width="35"
+                    Height="35"
+                    Margin="414,120,0,0"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    local:PropEx.Sprite1="{StaticResource UISprites E035}"
+                    local:PropEx.Sprite2="{StaticResource UISprites E036}"
+                    local:PropEx.Sprite3="{StaticResource UISprites E036}"
+                    local:PropEx.Sprite4="{StaticResource UISprites E035}"
+                    Command="{Binding AlliesClickCommand}"
+                    CommandParameter="G21"
+                    Style="{StaticResource BTN_Image}"/>
+                <TextBlock
+                    Width="45"
+                    FontSize="12"
+                    Margin="409 , 155, 0, 0"
+                    TextAlignment="Center"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Foreground="#FFEFF3C6"
+                    IsHitTestVisible="False"
+                    Text="{Binding AllStoredGoods[21]}"/>
+
+                <!-- sword -->
+                <Button
+                    Width="35"
+                    Height="35"
+                    Margin="478,120,0,0"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    local:PropEx.Sprite1="{StaticResource UISprites E037}"
+                    local:PropEx.Sprite2="{StaticResource UISprites E038}"
+                    local:PropEx.Sprite3="{StaticResource UISprites E038}"
+                    local:PropEx.Sprite4="{StaticResource UISprites E037}"
+                    Command="{Binding AlliesClickCommand}"
+                    CommandParameter="G22"
+                    Style="{StaticResource BTN_Image}"/>
+                <TextBlock
+                    Width="45"
+                    FontSize="12"
+                    Margin="473 , 155, 0, 0"
+                    TextAlignment="Center"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Foreground="#FFEFF3C6"
+                    IsHitTestVisible="False"
+                    Text="{Binding AllStoredGoods[22]}"/>
+
+                <!-- leather armour -->
+                <Button
+                    Width="35"
+                    Height="35"
+                    Margin="542,120,0,0"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    local:PropEx.Sprite1="{StaticResource UISprites E039}"
+                    local:PropEx.Sprite2="{StaticResource UISprites E040}"
+                    local:PropEx.Sprite3="{StaticResource UISprites E040}"
+                    local:PropEx.Sprite4="{StaticResource UISprites E039}"
+                    Command="{Binding AlliesClickCommand}"
+                    CommandParameter="G23"
+                    Style="{StaticResource BTN_Image}"/>
+                <TextBlock
+                    Width="45"
+                    FontSize="12"
+                    Margin="537 , 155, 0, 0"
+                    TextAlignment="Center"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Foreground="#FFEFF3C6"
+                    IsHitTestVisible="False"
+                    Text="{Binding AllStoredGoods[23]}"/>
+
+                <!-- armour -->
+                <Button
+                    Width="35"
+                    Height="35"
+                    Margin="606,120,0,0"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    local:PropEx.Sprite1="{StaticResource UISprites E041}"
+                    local:PropEx.Sprite2="{StaticResource UISprites E042}"
+                    local:PropEx.Sprite3="{StaticResource UISprites E042}"
+                    local:PropEx.Sprite4="{StaticResource UISprites E041}"
+                    Command="{Binding AlliesClickCommand}"
+                    CommandParameter="G24"
+                    Style="{StaticResource BTN_Image}"/>
+                <TextBlock
+                    Width="45"
+                    FontSize="12"
+                    Margin="601 , 155, 0, 0"
+                    TextAlignment="Center"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Foreground="#FFEFF3C6"
+                    IsHitTestVisible="False"
+                    Text="{Binding AllStoredGoods[24]}"/>
+
+                <!-- Row 3-->
+
+                <!-- gold -->
+                <Button
+                    Width="35"
+                    Height="35"
+                    Margin="30,170,0,0"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    local:PropEx.Sprite1="{StaticResource UISprites E023}"
+                    local:PropEx.Sprite2="{StaticResource UISprites E024}"
+                    local:PropEx.Sprite3="{StaticResource UISprites E024}"
+                    local:PropEx.Sprite4="{StaticResource UISprites E023}"
+                    Command="{Binding AlliesClickCommand}"
+                    CommandParameter="G15"
+                    Style="{StaticResource BTN_Image}"/>
+                <TextBlock
+                    Width="45"
+                    FontSize="12"
+                    Margin="25, 205, 0, 0"
+                    TextAlignment="Center"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Foreground="#FFEFF3C6"
+                    IsHitTestVisible="False"
+                    Text="{Binding AllStoredGoods[15]}"/>
+            </Grid>
+
+            <!-- 5 -->
+            <Button
+                Width="35"
+                Height="35"
+                Margin="130,170,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource UI-Buttons S035}"
+                local:PropEx.Sprite2="{StaticResource UI-Buttons S036}"
+                local:PropEx.Sprite3="{StaticResource UI-Buttons S036}"
+                local:PropEx.Sprite4="{StaticResource UI-Buttons S035}"
+                Command="{Binding AlliesClickCommand}"
+                CommandParameter="X5"
+                Tag="RightIgnore"
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseRightButtonUp">
+                        <b:InvokeCommandAction
+                            Command="{Binding AlliesClickCommand}"
+                            CommandParameter="X5-" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+            <TextBlock
+                Width="35"
+                FontSize="20"
+                Margin="130, 176, 0, 0"
+                TextAlignment="Center"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                Foreground="White"
+                IsHitTestVisible="False"
+                Tag="RightIgnore"
+                Text="5">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                        ShadowDepth="2"
+                        Direction="315"
+                        Color="#CC000000"
+                        BlurRadius="0" />
+                </TextBlock.Effect>
+            </TextBlock>
+
+            <!-- 10 -->
+            <Button
+                Width="35"
+                Height="35"
+                Margin="230,170,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource UI-Buttons S035}"
+                local:PropEx.Sprite2="{StaticResource UI-Buttons S036}"
+                local:PropEx.Sprite3="{StaticResource UI-Buttons S036}"
+                local:PropEx.Sprite4="{StaticResource UI-Buttons S035}"
+                Command="{Binding AlliesClickCommand}"
+                CommandParameter="X10"
+                Tag="RightIgnore"
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseRightButtonUp">
+                        <b:InvokeCommandAction
+                            Command="{Binding AlliesClickCommand}"
+                            CommandParameter="X10-" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+            <TextBlock
+                Width="35"
+                FontSize="20"
+                Margin="230, 176, 0, 0"
+                TextAlignment="Center"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                Foreground="White"
+                IsHitTestVisible="False"
+                Tag="RightIgnore"
+                Text="10">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                        ShadowDepth="2"
+                        Direction="315"
+                        Color="#CC000000"
+                        BlurRadius="0" />
+                </TextBlock.Effect>
+            </TextBlock>
+
+            <!-- 25 -->
+            <Button
+                Width="35"
+                Height="35"
+                Margin="330,170,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource UI-Buttons S035}"
+                local:PropEx.Sprite2="{StaticResource UI-Buttons S036}"
+                local:PropEx.Sprite3="{StaticResource UI-Buttons S036}"
+                local:PropEx.Sprite4="{StaticResource UI-Buttons S035}"
+                Command="{Binding AlliesClickCommand}"
+                CommandParameter="X25"
+                Tag="RightIgnore"
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseRightButtonUp">
+                        <b:InvokeCommandAction
+                            Command="{Binding AlliesClickCommand}"
+                            CommandParameter="X25-" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+            <TextBlock
+                Width="35"
+                FontSize="20"
+                Margin="330, 176, 0, 0"
+                TextAlignment="Center"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                Foreground="White"
+                IsHitTestVisible="False"
+                Tag="RightIgnore"
+                Text="25">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                        ShadowDepth="2"
+                        Direction="315"
+                        Color="#CC000000"
+                        BlurRadius="0" />
+                </TextBlock.Effect>
+            </TextBlock>
+
+            <!-- 100 -->
+            <Button
+                Width="35"
+                Height="35"
+                Margin="430,170,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource UI-Buttons S035}"
+                local:PropEx.Sprite2="{StaticResource UI-Buttons S036}"
+                local:PropEx.Sprite3="{StaticResource UI-Buttons S036}"
+                local:PropEx.Sprite4="{StaticResource UI-Buttons S035}"
+                Command="{Binding AlliesClickCommand}"
+                CommandParameter="X100"
+                Tag="RightIgnore"
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseRightButtonUp">
+                        <b:InvokeCommandAction
+                            Command="{Binding AlliesClickCommand}"
+                            CommandParameter="X100-" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+            <TextBlock
+                Width="35"
+                FontSize="19"
+                Margin="430, 177, 0, 0"
+                TextAlignment="Center"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                Foreground="White"
+                IsHitTestVisible="False"
+                Tag="RightIgnore"
+                Text="100">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                        ShadowDepth="2"
+                        Direction="315"
+                        Color="#CC000000"
+                        BlurRadius="0" />
+                </TextBlock.Effect>
+            </TextBlock>
+
+            <!-- 500 -->
+            <Button
+                Width="35"
+                Height="35"
+                Margin="530,170,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource UI-Buttons S035}"
+                local:PropEx.Sprite2="{StaticResource UI-Buttons S036}"
+                local:PropEx.Sprite3="{StaticResource UI-Buttons S036}"
+                local:PropEx.Sprite4="{StaticResource UI-Buttons S035}"
+                Command="{Binding AlliesClickCommand}"
+                Tag="RightIgnore"
+                CommandParameter="X500"
+                Style="{StaticResource BTN_Image}">
+                <b:Interaction.Triggers>
+                    <b:EventTrigger
+                        EventName="MouseRightButtonUp">
+                        <b:InvokeCommandAction
+                            Command="{Binding AlliesClickCommand}"
+                            CommandParameter="X500-" />
+                    </b:EventTrigger>
+                </b:Interaction.Triggers>
+            </Button>
+            <TextBlock
+                Width="35"
+                FontSize="19"
+                Margin="530, 177, 0, 0"
+                TextAlignment="Center"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                Foreground="White"
+                IsHitTestVisible="False"
+                Tag="RightIgnore"
+                Text="500">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                        ShadowDepth="2"
+                        Direction="315"
+                        Color="#CC000000"
+                        BlurRadius="0" />
+                </TextBlock.Effect>
+            </TextBlock>
+
+            <Grid
+                Width="660"
+                Height="80"
+                Margin="20,220,20,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top">
+            <Button
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch"
+                Style="{StaticResource BDR_SH1DEe}" />
+
+            <Image
+                Width="35"
+                Height="35"
+                Margin="30,0,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                Source="{Binding AlliesGoodsSelected}" />
+
+            <TextBlock
+                Width="400"
+                Margin="75,0,0,0"
+                HorizontalAlignment="Left"
+                FontSize="22"
+                Foreground="#FFEFF3C6"
+                VerticalAlignment="Center"
+                TextAlignment="{Binding AL2RTextLeft}"
+                Text="{Binding AlliesGoods_Info}">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                        ShadowDepth="2"
+                        Direction="315"
+                        Color="#CC000000"
+                        BlurRadius="0"/>
+                </TextBlock.Effect>
+            </TextBlock>
+
+            <!-- Confirm -->
+            <Button
+                Width="35"
+                Height="35"
+                Margin="0,0,90,0"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Center"
+                local:PropEx.Sprite1="{StaticResource UI-Buttons S037}"
+                local:PropEx.Sprite2="{StaticResource UI-Buttons S039}"
+                local:PropEx.Sprite3="{StaticResource UI-Buttons S039}"
+                local:PropEx.Sprite4="{StaticResource UI-Buttons S037}"
+                Command="{Binding AlliesClickCommand}"
+                Visibility="{Binding Allies_GoodConfirmVis, Converter={StaticResource booleanToVisibilityConverter}}"
+                CommandParameter="ConfirmGoods"
+                Style="{StaticResource BTN_Image}"/>
+
+            <!-- Reset -->
+            <Button
+                Width="35"
+                Height="35"
+                Margin="0,0,40,0"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Center"
+                local:PropEx.Sprite1="{StaticResource UI-Buttons S038}"
+                local:PropEx.Sprite2="{StaticResource UI-Buttons S040}"
+                local:PropEx.Sprite3="{StaticResource UI-Buttons S040}"
+                local:PropEx.Sprite4="{StaticResource UI-Buttons S038}"
+                Command="{Binding AlliesClickCommand}"
+                CommandParameter="CancelGoods"
+                Style="{StaticResource BTN_Image}"/>
+            </Grid>
+
+        </Grid>
+    </Grid>
+
+</UserControl>

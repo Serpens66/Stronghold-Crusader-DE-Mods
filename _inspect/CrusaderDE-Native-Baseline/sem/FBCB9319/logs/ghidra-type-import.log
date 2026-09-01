@@ -1,0 +1,248 @@
+2026-09-01 15:14:51 INFO  (LoggingInitialization) Using log config file: jar:file:/D:/CDesktopLink/Unterlagen/Mods/Stronghold%20Crusader%20DE/Meine%20Mods/.tools/ghidra-12.1.3/ghidra_12.1.3_PUBLIC/Ghidra/Framework/Generic/lib/Generic.jar!/generic.log4j.xml  
+2026-09-01 15:14:51 INFO  (LoggingInitialization) Using log file: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\logs\ghidra-type-import.log  
+2026-09-01 15:14:51 DEBUG (GhidraObjectInputFilter) Including serial input filter: FileSystem/data/client.rmi.serial.filter  
+2026-09-01 15:14:51 INFO  (Preferences) Loading user preferences: C:\Users\Serpens66\AppData\Roaming\ghidra\ghidra_12.1.3_PUBLIC\preferences  
+2026-09-01 15:14:51 INFO  (ClassSearcher) Searching for classes...  
+2026-09-01 15:14:51 INFO  (ClassSearcher) Class search complete (680 ms)  
+2026-09-01 15:14:51 INFO  (DefaultSSLContextInitializer) Initializing SSL Context  
+2026-09-01 15:14:51 INFO  (SecureRandomFactory) Initializing Random Number Generator...  
+2026-09-01 15:14:51 INFO  (SecureRandomFactory) Random Number Generator initialization complete: SHA1PRNG  
+2026-09-01 15:14:51 INFO  (DefaultTrustManagerFactory) Trust manager disabled, cacerts have not been set  
+2026-09-01 15:14:52 INFO  (AnalyzeHeadless) Headless startup complete (1720 ms)  
+2026-09-01 15:14:52 INFO  (ClassSearcher) Class searcher loaded 59 extension points (20 false positives)  
+2026-09-01 15:14:52 INFO  (HeadlessAnalyzer) HEADLESS Script Paths:
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Processors\PIC\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\GnuDemangler\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Processors\Atmel\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Processors\DATA\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\BytePatterns\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\Decompiler\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Debug\Debugger-rmi-trace\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\Base\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\PDB\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\WildcardAssembler\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\BSim\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\FunctionID\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\VersionTracking\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\tools\semantic
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\FileFormats\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\DecompilerDependent\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\SwiftDemangler\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Debug\Debugger\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\SystemEmulation\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Processors\8051\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\PyGhidra\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Processors\JVM\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\MicrosoftCodeAnalyzer\ghidra_scripts  
+2026-09-01 15:14:52 INFO  (HeadlessAnalyzer) HEADLESS: execution starts  
+2026-09-01 15:14:52 INFO  (HeadlessAnalyzer) Opening existing project: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\ghidra\CrusaderDE-Semantic  
+2026-09-01 15:14:52 INFO  (HeadlessProject) Opening project: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\ghidra\CrusaderDE-Semantic  
+2026-09-01 15:14:53 INFO  (HeadlessAnalyzer) REPORT: Processing project file: /CrusaderDE.dll  
+2026-09-01 15:14:53 INFO  (HeadlessAnalyzer) REPORT: Execute script: ApplyCrusaderSemantics.java 'D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\sources\aob-labels.tsv' 'D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\sources\pinvoke-prototypes.tsv' 'D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\sources\script-extender-types-ghidra.h' 'D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\sources\CrusaderDE-ScriptExtender.gdt' 'D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\exports\applied-labels.json'   
+2026-09-01 15:14:53 INFO  (HeadlessAnalyzer) SCRIPT: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\tools\semantic\ApplyCrusaderSemantics.java  
+2026-09-01 15:14:53 DEBUG (PackedDatabase) Packing database C:\Users\SERPEN~1\AppData\Local\Temp\ghidra\~tmpA8CE1002.pdb.db\db.1.gbf -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\sources\CrusaderDE-ScriptExtender.gdt  
+2026-09-01 15:14:53 INFO  (FileDataTypeManager) Updating program-architecture for Archive: CrusaderDE-ScriptExtender
+   Language: x86:LE:64:default version 4.x, CompilerSpec: windows  
+2026-09-01 15:14:53 INFO  (CParserUtils) parse D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\sources\script-extender-types-ghidra.h  
+2026-09-01 15:14:53 ERROR (CParserUtils) Parsing file :D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\sources\script-extender-types-ghidra.h  
+2026-09-01 15:14:53 ERROR (CParserUtils) Unexpected Exception: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\sources\script-extender-types-ghidra.h'19655Unbalanced IF directive detected ghidra.app.util.cparser.CPP.ParseException: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\sources\script-extender-types-ghidra.h'19655Unbalanced IF directive detected
+	at ghidra.app.util.cparser.CPP.PreProcessor.IFGroup(PreProcessor.java:1673)
+	at ghidra.app.util.cparser.CPP.PreProcessor.IFSection(PreProcessor.java:1588)
+	at ghidra.app.util.cparser.CPP.PreProcessor.GroupPart(PreProcessor.java:1483)
+	at ghidra.app.util.cparser.CPP.PreProcessor.Group(PreProcessor.java:1414)
+	at ghidra.app.util.cparser.CPP.PreProcessor.TranslationUnit(PreProcessor.java:1395)
+	at ghidra.app.util.cparser.CPP.PreProcessor.Input(PreProcessor.java:1372)
+	at ghidra.app.util.cparser.CPP.PreProcessor.parse(PreProcessor.java:1237)
+	at ghidra.app.util.cparser.C.CParserUtils.parseFile(CParserUtils.java:579)
+	at ghidra.app.util.cparser.C.CParserUtils.parseHeaderFiles(CParserUtils.java:524)
+	at ghidra.app.util.cparser.C.CParserUtils.parseHeaderFiles(CParserUtils.java:374)
+	at ApplyCrusaderSemantics.importTypes(ApplyCrusaderSemantics.java:78)
+	at ApplyCrusaderSemantics.run(ApplyCrusaderSemantics.java:57)
+	at ghidra.app.script.GhidraScript.executeNormal(GhidraScript.java:460)
+	at ghidra.app.script.GhidraScript.doExecute(GhidraScript.java:314)
+	at ghidra.app.script.GhidraScript.execute(GhidraScript.java:290)
+	at ghidra.app.util.headless.HeadlessAnalyzer.runScript(HeadlessAnalyzer.java:585)
+	at ghidra.app.util.headless.HeadlessAnalyzer.runScriptsList(HeadlessAnalyzer.java:929)
+	at ghidra.app.util.headless.HeadlessAnalyzer.analyzeProgram(HeadlessAnalyzer.java:1085)
+	at ghidra.app.util.headless.HeadlessAnalyzer.processFileNoImport(HeadlessAnalyzer.java:1183)
+	at ghidra.app.util.headless.HeadlessAnalyzer.processFolderNoImport(HeadlessAnalyzer.java:1355)
+	at ghidra.app.util.headless.HeadlessAnalyzer.processNoImport(HeadlessAnalyzer.java:1384)
+	at ghidra.app.util.headless.HeadlessAnalyzer.processLocal(HeadlessAnalyzer.java:449)
+	at ghidra.app.util.headless.AnalyzeHeadless.launch(AnalyzeHeadless.java:199)
+	at ghidra.GhidraLauncher.launch(GhidraLauncher.java:81)
+	at ghidra.Ghidra.main(Ghidra.java:54)
+ 
+2026-09-01 15:14:53 INFO  (PreProcessor) D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\sources\script-extender-types-ghidra.h'19655Unbalanced ENDIF directive detected
+   In file D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\sources\script-extender-types-ghidra.h
+PreProcessor Parse Error:  D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\sources\script-extender-types-ghidra.h'19655Unbalanced IF directive detected
+  
+2026-09-01 15:14:53 INFO  (CParserUtils) PreProcessor Messages:
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\sources\script-extender-types-ghidra.h'19655Unbalanced ENDIF directive detected
+   In file D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\sources\script-extender-types-ghidra.h
+PreProcessor Parse Error:  D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\sources\script-extender-types-ghidra.h'19655Unbalanced IF directive detected
+  
+2026-09-01 15:14:54 DEBUG (PackedDatabase) Packing database C:\Users\SERPEN~1\AppData\Local\Temp\ghidra\~tmpA8CE1002.pdb.db\db.2.gbf -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\sources\CrusaderDE-ScriptExtender.gdt  
+2026-09-01 15:14:54 INFO  (GhidraScript) ApplyCrusaderSemantics.java> SEMANTIC_APPLY_COMPLETE labels=9 prototypes=77 importedTypes=0  
+2026-09-01 15:14:54 INFO  (HeadlessAnalyzer) REPORT: Save succeeded for processed file: /CrusaderDE.dll  
+2026-09-01 15:17:58 INFO  (LoggingInitialization) Using log config file: jar:file:/D:/CDesktopLink/Unterlagen/Mods/Stronghold%20Crusader%20DE/Meine%20Mods/.tools/ghidra-12.1.3/ghidra_12.1.3_PUBLIC/Ghidra/Framework/Generic/lib/Generic.jar!/generic.log4j.xml  
+2026-09-01 15:17:58 INFO  (LoggingInitialization) Using log file: _inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\logs\ghidra-type-import.log  
+2026-09-01 15:17:58 DEBUG (GhidraObjectInputFilter) Including serial input filter: FileSystem/data/client.rmi.serial.filter  
+2026-09-01 15:17:58 INFO  (Preferences) Loading user preferences: C:\Users\Serpens66\AppData\Roaming\ghidra\ghidra_12.1.3_PUBLIC\preferences  
+2026-09-01 15:17:58 INFO  (ClassSearcher) Searching for classes...  
+2026-09-01 15:17:59 INFO  (ClassSearcher) Class search complete (680 ms)  
+2026-09-01 15:17:59 INFO  (DefaultSSLContextInitializer) Initializing SSL Context  
+2026-09-01 15:17:59 INFO  (SecureRandomFactory) Initializing Random Number Generator...  
+2026-09-01 15:17:59 INFO  (SecureRandomFactory) Random Number Generator initialization complete: SHA1PRNG  
+2026-09-01 15:17:59 INFO  (DefaultTrustManagerFactory) Trust manager disabled, cacerts have not been set  
+2026-09-01 15:17:59 INFO  (AnalyzeHeadless) Headless startup complete (1720 ms)  
+2026-09-01 15:17:59 INFO  (ClassSearcher) Class searcher loaded 59 extension points (20 false positives)  
+2026-09-01 15:18:00 INFO  (HeadlessAnalyzer) HEADLESS Script Paths:
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Processors\PIC\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\GnuDemangler\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Processors\Atmel\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Processors\DATA\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\BytePatterns\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\Decompiler\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Debug\Debugger-rmi-trace\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\Base\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\PDB\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\WildcardAssembler\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\BSim\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\FunctionID\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\VersionTracking\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\tools\semantic
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\FileFormats\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\DecompilerDependent\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\SwiftDemangler\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Debug\Debugger\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\SystemEmulation\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Processors\8051\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\PyGhidra\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Processors\JVM\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\MicrosoftCodeAnalyzer\ghidra_scripts  
+2026-09-01 15:18:00 INFO  (HeadlessAnalyzer) HEADLESS: execution starts  
+2026-09-01 15:18:00 INFO  (HeadlessAnalyzer) Opening existing project: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\ghidra\CrusaderDE-Semantic  
+2026-09-01 15:18:00 INFO  (HeadlessProject) Opening project: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\ghidra\CrusaderDE-Semantic  
+2026-09-01 15:18:01 INFO  (HeadlessAnalyzer) REPORT: Processing project file: /CrusaderDE.dll  
+2026-09-01 15:18:01 INFO  (HeadlessAnalyzer) REPORT: Execute script: ApplyCrusaderSemantics.java '_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\sources\aob-labels.tsv' '_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\sources\pinvoke-prototypes.tsv' '_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\sources\script-extender-types-ghidra.h' '_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\sources\CrusaderDE-ScriptExtender.gdt' '_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\exports\applied-labels.json'   
+2026-09-01 15:18:01 INFO  (HeadlessAnalyzer) SCRIPT: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\tools\semantic\ApplyCrusaderSemantics.java  
+2026-09-01 15:18:01 DEBUG (PackedDatabase) Packing database C:\Users\SERPEN~1\AppData\Local\Temp\ghidra\~tmp27263A39.pdb.db\db.1.gbf -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\sources\CrusaderDE-ScriptExtender.gdt  
+2026-09-01 15:18:01 INFO  (FileDataTypeManager) Updating program-architecture for Archive: CrusaderDE-ScriptExtender
+   Language: x86:LE:64:default version 4.x, CompilerSpec: windows  
+2026-09-01 15:18:01 INFO  (CParserUtils) parse D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\sources\script-extender-types-ghidra.h  
+2026-09-01 15:18:01 ERROR (GhidraScript) ApplyCrusaderSemantics.java> SEMANTIC_TYPES_FAILED ghidra.app.util.cparser.C.ParseException: C Parser:  Encountered errors during parse.
+         in D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\sources\script-extender-types-ghidra.h near line -1
+Error: Undefined data type "eAliveState"
+         near token: null
+Possibly Undefined : eAliveState
+         Last Valid Datatype: uint32_t
+         Check around CrusaderDE-ScriptExtender around line: 6055
+  
+2026-09-01 15:18:01 INFO  (GhidraScript) ApplyCrusaderSemantics.java> SEMANTIC_APPLY_COMPLETE labels=9 prototypes=77 importedTypes=-1  
+2026-09-01 15:18:01 INFO  (HeadlessAnalyzer) REPORT: Save succeeded for processed file: /CrusaderDE.dll  
+2026-09-01 15:19:10 INFO  (LoggingInitialization) Using log config file: jar:file:/D:/CDesktopLink/Unterlagen/Mods/Stronghold%20Crusader%20DE/Meine%20Mods/.tools/ghidra-12.1.3/ghidra_12.1.3_PUBLIC/Ghidra/Framework/Generic/lib/Generic.jar!/generic.log4j.xml  
+2026-09-01 15:19:10 INFO  (LoggingInitialization) Using log file: _inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\logs\ghidra-type-import.log  
+2026-09-01 15:19:10 DEBUG (GhidraObjectInputFilter) Including serial input filter: FileSystem/data/client.rmi.serial.filter  
+2026-09-01 15:19:10 INFO  (Preferences) Loading user preferences: C:\Users\Serpens66\AppData\Roaming\ghidra\ghidra_12.1.3_PUBLIC\preferences  
+2026-09-01 15:19:10 INFO  (ClassSearcher) Searching for classes...  
+2026-09-01 15:19:10 INFO  (ClassSearcher) Class search complete (679 ms)  
+2026-09-01 15:19:10 INFO  (DefaultSSLContextInitializer) Initializing SSL Context  
+2026-09-01 15:19:10 INFO  (SecureRandomFactory) Initializing Random Number Generator...  
+2026-09-01 15:19:10 INFO  (SecureRandomFactory) Random Number Generator initialization complete: SHA1PRNG  
+2026-09-01 15:19:10 INFO  (DefaultTrustManagerFactory) Trust manager disabled, cacerts have not been set  
+2026-09-01 15:19:11 INFO  (AnalyzeHeadless) Headless startup complete (1740 ms)  
+2026-09-01 15:19:11 INFO  (ClassSearcher) Class searcher loaded 59 extension points (20 false positives)  
+2026-09-01 15:19:11 INFO  (HeadlessAnalyzer) HEADLESS Script Paths:
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Processors\PIC\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\GnuDemangler\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Processors\Atmel\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Processors\DATA\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\BytePatterns\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\Decompiler\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Debug\Debugger-rmi-trace\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\Base\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\PDB\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\WildcardAssembler\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\BSim\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\FunctionID\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\VersionTracking\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\tools\semantic
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\FileFormats\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\DecompilerDependent\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\SwiftDemangler\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Debug\Debugger\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\SystemEmulation\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Processors\8051\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\PyGhidra\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Processors\JVM\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\MicrosoftCodeAnalyzer\ghidra_scripts  
+2026-09-01 15:19:11 INFO  (HeadlessAnalyzer) HEADLESS: execution starts  
+2026-09-01 15:19:11 INFO  (HeadlessAnalyzer) Opening existing project: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\ghidra\CrusaderDE-Semantic  
+2026-09-01 15:19:11 INFO  (HeadlessProject) Opening project: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\ghidra\CrusaderDE-Semantic  
+2026-09-01 15:19:12 INFO  (HeadlessAnalyzer) REPORT: Processing project file: /CrusaderDE.dll  
+2026-09-01 15:19:12 INFO  (HeadlessAnalyzer) REPORT: Execute script: ApplyCrusaderSemantics.java '_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\sources\aob-labels.tsv' '_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\sources\pinvoke-prototypes.tsv' '_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\sources\script-extender-types-ghidra.h' '_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\sources\CrusaderDE-ScriptExtender.gdt' '_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\exports\applied-labels.json'   
+2026-09-01 15:19:12 INFO  (HeadlessAnalyzer) SCRIPT: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\tools\semantic\ApplyCrusaderSemantics.java  
+2026-09-01 15:19:12 DEBUG (PackedDatabase) Packing database C:\Users\SERPEN~1\AppData\Local\Temp\ghidra\~tmp1BB53700.pdb.db\db.1.gbf -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\sources\CrusaderDE-ScriptExtender.gdt  
+2026-09-01 15:19:12 INFO  (FileDataTypeManager) Updating program-architecture for Archive: CrusaderDE-ScriptExtender
+   Language: x86:LE:64:default version 4.x, CompilerSpec: windows  
+2026-09-01 15:19:12 INFO  (CParserUtils) parse D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\sources\script-extender-types-ghidra.h  
+2026-09-01 15:19:16 ERROR (GhidraScript) ApplyCrusaderSemantics.java> SEMANTIC_TYPES_FAILED ghidra.app.util.cparser.C.ParseException: C Parser:  Encountered errors during parse.
+         in D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\sources\script-extender-types-ghidra.h near line -1
+Error: Undefined data type "class"
+         near token: null
+Possibly Undefined : class
+         Last Valid Datatype: uint32_t
+         Check around CrusaderDE-ScriptExtender around line: 12626
+  
+2026-09-01 15:19:16 INFO  (GhidraScript) ApplyCrusaderSemantics.java> SEMANTIC_APPLY_COMPLETE labels=9 prototypes=77 importedTypes=-1  
+2026-09-01 15:19:16 INFO  (HeadlessAnalyzer) REPORT: Save succeeded for processed file: /CrusaderDE.dll  
+2026-09-01 15:20:03 INFO  (LoggingInitialization) Using log config file: jar:file:/D:/CDesktopLink/Unterlagen/Mods/Stronghold%20Crusader%20DE/Meine%20Mods/.tools/ghidra-12.1.3/ghidra_12.1.3_PUBLIC/Ghidra/Framework/Generic/lib/Generic.jar!/generic.log4j.xml  
+2026-09-01 15:20:03 INFO  (LoggingInitialization) Using log file: _inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\logs\ghidra-type-import.log  
+2026-09-01 15:20:03 DEBUG (GhidraObjectInputFilter) Including serial input filter: FileSystem/data/client.rmi.serial.filter  
+2026-09-01 15:20:03 INFO  (Preferences) Loading user preferences: C:\Users\Serpens66\AppData\Roaming\ghidra\ghidra_12.1.3_PUBLIC\preferences  
+2026-09-01 15:20:03 INFO  (ClassSearcher) Searching for classes...  
+2026-09-01 15:20:04 INFO  (ClassSearcher) Class search complete (674 ms)  
+2026-09-01 15:20:04 INFO  (DefaultSSLContextInitializer) Initializing SSL Context  
+2026-09-01 15:20:04 INFO  (SecureRandomFactory) Initializing Random Number Generator...  
+2026-09-01 15:20:04 INFO  (SecureRandomFactory) Random Number Generator initialization complete: SHA1PRNG  
+2026-09-01 15:20:04 INFO  (DefaultTrustManagerFactory) Trust manager disabled, cacerts have not been set  
+2026-09-01 15:20:05 INFO  (AnalyzeHeadless) Headless startup complete (1699 ms)  
+2026-09-01 15:20:05 INFO  (ClassSearcher) Class searcher loaded 59 extension points (20 false positives)  
+2026-09-01 15:20:05 INFO  (HeadlessAnalyzer) HEADLESS Script Paths:
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Processors\PIC\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\GnuDemangler\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Processors\Atmel\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Processors\DATA\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\BytePatterns\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\Decompiler\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Debug\Debugger-rmi-trace\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\Base\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\PDB\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\WildcardAssembler\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\BSim\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\FunctionID\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\VersionTracking\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\tools\semantic
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\FileFormats\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\DecompilerDependent\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\SwiftDemangler\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Debug\Debugger\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\SystemEmulation\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Processors\8051\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\PyGhidra\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Processors\JVM\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\MicrosoftCodeAnalyzer\ghidra_scripts  
+2026-09-01 15:20:05 INFO  (HeadlessAnalyzer) HEADLESS: execution starts  
+2026-09-01 15:20:05 INFO  (HeadlessAnalyzer) Opening existing project: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\ghidra\CrusaderDE-Semantic  
+2026-09-01 15:20:05 INFO  (HeadlessProject) Opening project: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\ghidra\CrusaderDE-Semantic  
+2026-09-01 15:20:06 INFO  (HeadlessAnalyzer) REPORT: Processing project file: /CrusaderDE.dll  
+2026-09-01 15:20:06 INFO  (HeadlessAnalyzer) REPORT: Execute script: ApplyCrusaderSemantics.java '_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\sources\aob-labels.tsv' '_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\sources\pinvoke-prototypes.tsv' '_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\sources\script-extender-types-ghidra.h' '_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\sources\CrusaderDE-ScriptExtender.gdt' '_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\exports\applied-labels.json'   
+2026-09-01 15:20:06 INFO  (HeadlessAnalyzer) SCRIPT: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\tools\semantic\ApplyCrusaderSemantics.java  
+2026-09-01 15:20:06 DEBUG (PackedDatabase) Packing database C:\Users\SERPEN~1\AppData\Local\Temp\ghidra\~tmpE29A1C9B.pdb.db\db.1.gbf -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\sources\CrusaderDE-ScriptExtender.gdt  
+2026-09-01 15:20:06 INFO  (FileDataTypeManager) Updating program-architecture for Archive: CrusaderDE-ScriptExtender
+   Language: x86:LE:64:default version 4.x, CompilerSpec: windows  
+2026-09-01 15:20:06 INFO  (CParserUtils) parse D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\sources\script-extender-types-ghidra.h  
+2026-09-01 15:20:14 INFO  (CParserUtils)   
+2026-09-01 15:20:14 DEBUG (PackedDatabase) Packing database C:\Users\SERPEN~1\AppData\Local\Temp\ghidra\~tmpE29A1C9B.pdb.db\db.2.gbf -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\sources\CrusaderDE-ScriptExtender.gdt  
+2026-09-01 15:20:14 INFO  (GhidraScript) ApplyCrusaderSemantics.java> SEMANTIC_APPLY_COMPLETE labels=9 prototypes=77 importedTypes=119  
+2026-09-01 15:20:14 INFO  (HeadlessAnalyzer) REPORT: Save succeeded for processed file: /CrusaderDE.dll  

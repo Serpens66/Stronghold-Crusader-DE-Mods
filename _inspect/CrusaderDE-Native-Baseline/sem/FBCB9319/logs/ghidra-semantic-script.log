@@ -1,0 +1,13 @@
+2026-09-01 15:10:51 INFO  ApplyCrusaderSemantics.java> SEMANTIC_APPLY_COMPLETE labels=9 prototypes=77 importedTypes=-1  
+2026-09-01 15:10:55 INFO  ExportCrusaderSemantics.java> SEMANTIC_FUNCTIONS count=4478  
+2026-09-01 15:10:55 INFO  ExportCrusaderSemantics.java> SEMANTIC_GLOBALS count=82610  
+2026-09-01 15:10:55 INFO  ExportCrusaderSemantics.java> SEMANTIC_TYPES count=165  
+2026-09-01 15:10:56 INFO  ExportCrusaderSemantics.java> SEMANTIC_RTTI count=142  
+2026-09-01 15:13:06 INFO  ExportCrusaderSemantics.java> SEMANTIC_DECOMPILATION attempted=4478 completed=4475 failed=3  
+2026-09-01 15:13:06 INFO  ExportCrusaderSemantics.java> SEMANTIC_EXPORT_COMPLETE directory=D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\exports  
+2026-09-01 15:20:55 INFO  ExportCrusaderSemantics.java> SEMANTIC_FUNCTIONS count=4478  
+2026-09-01 15:20:56 INFO  ExportCrusaderSemantics.java> SEMANTIC_GLOBALS count=82610  
+2026-09-01 15:20:56 INFO  ExportCrusaderSemantics.java> SEMANTIC_TYPES count=259  
+2026-09-01 15:20:56 INFO  ExportCrusaderSemantics.java> SEMANTIC_RTTI count=142  
+2026-09-01 15:23:02 INFO  ExportCrusaderSemantics.java> SEMANTIC_DECOMPILATION attempted=4478 completed=4475 failed=3  
+2026-09-01 15:23:02 INFO  ExportCrusaderSemantics.java> SEMANTIC_EXPORT_COMPLETE directory=_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\semantic\exports  

@@ -17,6 +17,13 @@
 /release.local.json
 /.nexusmods-api-key.dpapi
 
+# Reproducible native-analysis search indexes (rebuilt from tracked exports)
+/_inspect/CrusaderDE-Native-Baseline/sem/*/CrusaderDE-semantic.sqlite
+/_inspect/CrusaderDE-Native-Baseline/sem/*/CrusaderDE-semantic.sqlite-wal
+/_inspect/CrusaderDE-Native-Baseline/sem/*/CrusaderDE-semantic.sqlite-shm
+/_inspect/CrusaderDE-Native-Baseline/sem/*/CrusaderDE-semantic.sqlite-journal
+/_inspect/CrusaderDE-Native-Baseline/sem/*/CrusaderDE-semantic.sqlite-building
+
 # IDE and OS files
 .vs/
 .vscode/
