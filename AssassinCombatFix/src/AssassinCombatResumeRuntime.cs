@@ -16,19 +16,21 @@ namespace AssassinCombatFix
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoL.BugfixesAndQoLViewModel settings;
         private HookTransaction transaction;
-        private HookRef<X64InlineHook> postCombatPathPreparationHook = new HookRef<X64InlineHook>();
+        private HookRef<X64InlineHook> combatFinishDiagnosticHook = new HookRef<X64InlineHook>();
+        private HookRef<X64InlineHook> commonPathDiagnosticHook = new HookRef<X64InlineHook>();
         private int* assassinPathContextFlag;
         private ulong libraryBase;
         private bool tickObserverSubscribed;
         private bool mapActive;
 
         #region TEMPORARY ASSASSIN_COMBAT_RESUME_DIAGNOSTICS - remove this entire region after validation
-        private const int MaximumDiagnosticEventsPerMap = 128;
+        private const int MaximumDiagnosticEventsPerMap = 256;
         private const int MaximumStateTraceEventsPerMap = 256;
         private int diagnosticEventCount;
         private int stateTraceEventCount;
         private readonly Dictionary<int, AssassinTraceSnapshot> trackedAssassins =
             new Dictionary<int, AssassinTraceSnapshot>();
+        private int currentTick;
 
         private sealed class AssassinTraceSnapshot
         {
@@ -36,6 +38,7 @@ namespace AssassinCombatFix
             public ushort AiState;
             public string Signature;
             public int LastLogTick;
+            public int LastState106Tick = -1;
         }
         #endregion
 
@@ -49,7 +52,8 @@ namespace AssassinCombatFix
 
         public bool IsInstalled =>
             transaction != null &&
-            postCombatPathPreparationHook.Success;
+            combatFinishDiagnosticHook.Success &&
+            commonPathDiagnosticHook.Success;
 
         public void InitializeNative(
             IntPtr libraryHandle,
@@ -83,27 +87,36 @@ namespace AssassinCombatFix
                     loggerFactory: null,
                     failureMode: TransactionFailureMode.RollbackAndThrow);
                 installedTransaction.AddContextHook(
-                    ref postCombatPathPreparationHook,
-                    libraryBase + unchecked((ulong)AssassinCombatResumeNativeDefinition.PostCombatPathPreparationHookRva),
-                    BeforePostCombatPathRequest,
+                    ref combatFinishDiagnosticHook,
+                    libraryBase + unchecked((ulong)AssassinCombatResumeNativeDefinition.CombatFinishDiagnosticHookRva),
+                    TraceCombatFinishEntry,
                     regs: X64SmartCPUContextRegs.All,
-                    hookSize: AssassinCombatResumeNativeDefinition.PostCombatPathPreparationHookLength,
+                    hookSize: AssassinCombatResumeNativeDefinition.CombatFinishDiagnosticHookLength,
+                    errorMode: CallbackErrorMode.LogAndContinue,
+                    placement: OverwrittenInstructionPlacement.BeforeCallback);
+                installedTransaction.AddContextHook(
+                    ref commonPathDiagnosticHook,
+                    libraryBase + unchecked((ulong)AssassinCombatResumeNativeDefinition.CommonPathDiagnosticHookRva),
+                    TraceCommonPathRequest,
+                    regs: X64SmartCPUContextRegs.All,
+                    hookSize: AssassinCombatResumeNativeDefinition.CommonPathDiagnosticHookLength,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.BeforeCallback);
                 installedTransaction.Commit();
 
-                if (!postCombatPathPreparationHook.Success)
+                if (!combatFinishDiagnosticHook.Success || !commonPathDiagnosticHook.Success)
                 {
                     throw new InvalidOperationException(
-                        "the exact Assassin post-combat path preparation hook was not installed");
+                        "the passive Assassin combat diagnostic hooks were not installed atomically");
                 }
 
                 transaction = installedTransaction;
                 GameTimeManagerAPI.Instance.OnTick += ObserveAssassinStates;
                 tickObserverSubscribed = true;
                 LogInfo(
-                    $"installed exact state-106 post-combat path preparation hook at RVA " +
-                    $"0x{AssassinCombatResumeNativeDefinition.PostCombatPathPreparationHookRva:X}.");
+                    $"installed passive combat-finish and common-path diagnostic hooks at RVAs " +
+                    $"0x{AssassinCombatResumeNativeDefinition.CombatFinishDiagnosticHookRva:X} and " +
+                    $"0x{AssassinCombatResumeNativeDefinition.CommonPathDiagnosticHookRva:X}.");
             }
             catch
             {
@@ -115,7 +128,8 @@ namespace AssassinCombatFix
                     tickObserverSubscribed = false;
                 }
                 transaction = null;
-                postCombatPathPreparationHook = new HookRef<X64InlineHook>();
+                combatFinishDiagnosticHook = new HookRef<X64InlineHook>();
+                commonPathDiagnosticHook = new HookRef<X64InlineHook>();
                 assassinPathContextFlag = null;
                 libraryBase = 0;
                 throw;
@@ -133,6 +147,7 @@ namespace AssassinCombatFix
             diagnosticEventCount = 0;
             stateTraceEventCount = 0;
             trackedAssassins.Clear();
+            currentTick = 0;
             Shared.DebugLogHelper.LogDebug(
                 log,
                 $"[ASSASSIN_COMBAT_RESUME_DIAGNOSTIC] trace lifecycle started: reason={reason}.");
@@ -142,6 +157,7 @@ namespace AssassinCombatFix
         {
             bool wasActive = mapActive;
             mapActive = false;
+            currentTick = 0;
             trackedAssassins.Clear();
             if (wasActive)
             {
@@ -151,91 +167,106 @@ namespace AssassinCombatFix
             }
         }
 
-        private void BeforePostCombatPathRequest(NativePointer<X64SmartCPUContext> context)
+        private void TraceCombatFinishEntry(NativePointer<X64SmartCPUContext> context)
         {
-            bool contextChanged = false;
-            int previousPathContext = 0;
             try
             {
                 bool modEnabled = settings.EnableMod;
                 bool improvedPathfindingEnabled = settings.EnableImprovedAssassinPathfinding;
-                if (!modEnabled || !improvedPathfindingEnabled)
-                    return;
-
                 ulong returnAddress = *(ulong*)(context.Pointer->RSP +
-                    AssassinCombatResumeNativeDefinition.PostCombatCallerReturnAddressStackOffset);
+                    AssassinCombatResumeNativeDefinition.CombatFinishCallerReturnAddressStackOffset);
                 long returnRva = returnAddress >= libraryBase
                     ? unchecked((long)(returnAddress - libraryBase))
                     : -1;
-                bool confirmedCombatFinishCaller =
-                    AssassinCombatResumePolicy.IsConfirmedCombatFinishCallerRva(returnRva);
-                int nativeUnitIndex = unchecked((int)(uint)context.Pointer->RDI);
+                int nativeUnitIndex = unchecked((int)(uint)context.Pointer->RDX);
                 Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
                 bool unitResolved = AssassinCombatResumePolicy.IsValidNativeUnitIndex(
                     nativeUnitIndex,
                     units.Length);
                 AliveState aliveState = unitResolved ? units[nativeUnitIndex].r_AliveState : default;
                 eChimps unitType = unitResolved ? units[nativeUnitIndex].r_UnitChimp : default;
-                int targetX = unchecked((int)(uint)context.Pointer->R8);
-                int targetY = unchecked((int)(uint)context.Pointer->R9);
-                bool eligible = AssassinCombatResumePolicy.IsEligiblePostCombatPathRequest(
+                bool shouldLog = AssassinCombatResumePolicy.ShouldLogPassiveDiagnostic(
                     modEnabled,
                     improvedPathfindingEnabled,
                     IsInstalled,
-                    confirmedCombatFinishCaller,
+                    mapActive,
                     unitResolved,
                     aliveState,
                     unitType);
-
-                int diagnosticId = BeginRawResumeDiagnostic(unitResolved, aliveState, unitType);
-                if (diagnosticId > 0)
-                {
-                    LogDiagnostic(
-                        diagnosticId,
-                        $"post-combat-path-entry returnAddress=0x{returnAddress:X16}, " +
-                        $"returnRva={FormatRva(returnRva)}, confirmedCombatFinishCaller={confirmedCombatFinishCaller}, " +
-                        $"nativeUnitIndex={nativeUnitIndex}, unitCount={units.Length}, resolved={unitResolved}, " +
-                        $"aliveState={aliveState}, unitType={unitType}, target={targetX},{targetY}, " +
-                        $"eligible={eligible}" +
-                        (unitResolved ? $", {DescribeUnit(units[nativeUnitIndex])}" : string.Empty));
-                }
-
-                if (!eligible)
+                if (!shouldLog)
                     return;
 
-                previousPathContext = *assassinPathContextFlag;
-                bool shouldSetContext = AssassinCombatResumePolicy.ShouldSetAssassinPathContext(
-                    eligible,
-                    previousPathContext);
-
-                // 0x196280 owns normal cleanup of this one-shot context on both exits.
-                if (shouldSetContext)
-                {
-                    *assassinPathContextFlag = 1;
-                    contextChanged = true;
-                }
-
+                GameUnit unit = units[nativeUnitIndex];
+                int diagnosticId = BeginRawResumeDiagnostic(true, aliveState, unitType);
                 LogDiagnostic(
                     diagnosticId,
-                    $"post-combat-path-context flagBefore={previousPathContext}, " +
-                    $"contextSet={shouldSetContext}, flagForRequest={*assassinPathContextFlag}, " +
-                    $"weightedBuilderExpected=True");
+                    $"combat-finish-entry tick={currentTick}, returnAddress=0x{returnAddress:X16}, " +
+                    $"returnRva={FormatRva(returnRva)}, state106Caller=" +
+                    $"{returnRva == AssassinCombatResumeNativeDefinition.State106CombatFinishReturnRva}, " +
+                    $"nativeUnitIndex={nativeUnitIndex}, attackingUnitId={unit.r_AttackingUnitId}, " +
+                    $"attackingUnitGlobalId={unit.N000001C2}, resumeCallAllowed={unit.r_AttackingUnitId == 0}, " +
+                    $"unitStatus029C=0x{unit.N0000019A:X8}, repathGuardAllowed={(ushort)unit.N0000019A == 0}, " +
+                    $"savedAiState={GetSavedAiState(unit)}, ticksSinceState106={GetTicksSinceState106(nativeUnitIndex)}, " +
+                    DescribeUnit(unit));
             }
             catch (Exception ex)
             {
-                // The native Vanilla call has not run yet. Restore only this exceptional
-                // partial write so a failed callback cannot leak context to another request.
-                if (contextChanged && assassinPathContextFlag != null)
-                    *assassinPathContextFlag = previousPathContext;
                 Shared.DebugLogHelper.LogError(
                     log,
-                    $"[ASSASSIN_COMBAT_RESUME_DIAGNOSTIC] post-combat path-context validation failed; " +
-                    $"Vanilla behavior remains active: {ex}");
+                    $"[ASSASSIN_COMBAT_RESUME_DIAGNOSTIC] passive combat-finish trace failed: {ex}");
+            }
+        }
+
+        private void TraceCommonPathRequest(NativePointer<X64SmartCPUContext> context)
+        {
+            try
+            {
+                int nativeUnitIndex = unchecked((int)(uint)context.Pointer->RDX);
+                Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
+                bool unitResolved = AssassinCombatResumePolicy.IsValidNativeUnitIndex(nativeUnitIndex, units.Length);
+                AliveState aliveState = unitResolved ? units[nativeUnitIndex].r_AliveState : default;
+                eChimps unitType = unitResolved ? units[nativeUnitIndex].r_UnitChimp : default;
+                if (!AssassinCombatResumePolicy.ShouldLogPassiveDiagnostic(
+                        settings.EnableMod,
+                        settings.EnableImprovedAssassinPathfinding,
+                        IsInstalled,
+                        mapActive,
+                        unitResolved,
+                        aliveState,
+                        unitType))
+                {
+                    return;
+                }
+
+                ulong returnAddress = *(ulong*)(context.Pointer->RSP +
+                    AssassinCombatResumeNativeDefinition.CommonPathCallerReturnAddressStackOffset);
+                long returnRva = returnAddress >= libraryBase
+                    ? unchecked((long)(returnAddress - libraryBase))
+                    : -1;
+                int pathOption = *(int*)(context.Pointer->RSP +
+                    AssassinCombatResumeNativeDefinition.CommonPathOptionStackOffset);
+                GameUnit unit = units[nativeUnitIndex];
+                int diagnosticId = BeginRawResumeDiagnostic(true, aliveState, unitType);
+                LogDiagnostic(
+                    diagnosticId,
+                    $"common-path-entry tick={currentTick}, returnAddress=0x{returnAddress:X16}, " +
+                    $"returnRva={FormatRva(returnRva)}, nativeUnitIndex={nativeUnitIndex}, " +
+                    $"requestTarget={unchecked((int)(uint)context.Pointer->R8)}," +
+                    $"{unchecked((int)(uint)context.Pointer->R9)}, pathOption={pathOption}, " +
+                    $"assassinContextFlag={*assassinPathContextFlag}, " +
+                    $"ticksSinceState106={GetTicksSinceState106(nativeUnitIndex)}, {DescribeUnit(unit)}");
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"[ASSASSIN_COMBAT_RESUME_DIAGNOSTIC] passive common-path trace failed: {ex}");
             }
         }
 
         private void ObserveAssassinStates(int tick)
         {
+            currentTick = tick;
             if (!settings.EnableMod || !settings.EnableImprovedAssassinPathfinding)
                 return;
 
@@ -246,6 +277,7 @@ namespace AssassinCombatFix
                 // The map editor creates a playable simulation without raising OnStartMap.
                 // Its first simulation tick is the narrow point where unit data is ready.
                 BeginMap($"first-map-editor-simulation-tick, tick={tick}");
+                currentTick = tick;
             }
             if (!mapActive)
                 return;
@@ -283,6 +315,9 @@ namespace AssassinCombatFix
                         };
                         trackedAssassins[nativeUnitIndex] = tracked;
                     }
+
+                    if (unit.r_AIState == 106)
+                        tracked.LastState106Tick = tick;
 
                     bool aiStateChanged = !isNewUnit && tracked.AiState != unit.r_AIState;
                     bool signatureChanged = !isNewUnit && !string.Equals(tracked.Signature, signature, StringComparison.Ordinal);
@@ -340,6 +375,7 @@ namespace AssassinCombatFix
                 state106CallRva + 1,
                 state106CallRva + 5);
             if (state106CallRva != AssassinCombatResumeNativeDefinition.State106CombatFinishCallRva ||
+                state106CallRva + 5 != AssassinCombatResumeNativeDefinition.State106CombatFinishReturnRva ||
                 state106CallTarget != AssassinCombatResumeNativeDefinition.CombatFinishHelperRva)
             {
                 throw new InvalidOperationException(
@@ -405,32 +441,28 @@ namespace AssassinCombatFix
 
             ValidateHookSpan(
                 memory,
-                AssassinCombatResumeNativeDefinition.PostCombatPathPreparationHookRva,
-                AssassinCombatResumeNativeDefinition.PostCombatPathPreparationHookBytes,
-                "post-combat path preparation");
+                AssassinCombatResumeNativeDefinition.CombatFinishDiagnosticHookRva,
+                AssassinCombatResumeNativeDefinition.CombatFinishDiagnosticHookBytes,
+                "combat-finish entry diagnostic");
             ValidateHookSpan(
                 memory,
-                AssassinCombatResumeNativeDefinition.PostCombatStateRestoreRva,
-                AssassinCombatResumeNativeDefinition.PostCombatStateRestoreBytes,
-                "post-combat state restore");
-            if (AssassinCombatResumeNativeDefinition.PostCombatPathPreparationHookLength !=
-                    AssassinCombatResumeNativeDefinition.InlineHookMinimumOverwriteLength ||
-                pathRequest.Rva + AssassinCombatResumeNativeDefinition.PostCombatPathPreparationHookOffset !=
-                    AssassinCombatResumeNativeDefinition.PostCombatPathPreparationHookRva ||
-                AssassinCombatResumeNativeDefinition.PostCombatPathPreparationHookRva +
-                    AssassinCombatResumeNativeDefinition.PostCombatPathPreparationHookLength !=
-                    AssassinCombatResumeNativeDefinition.PostCombatStateRestoreRva ||
-                AssassinCombatResumeNativeDefinition.PostCombatStateRestoreRva +
-                    AssassinCombatResumeNativeDefinition.PostCombatStateRestoreLength !=
-                    AssassinCombatResumeNativeDefinition.PostCombatPathRequestCallRva ||
-                !AssassinCombatResumePolicy.IsSafePreparationHookSpan(
-                    AssassinCombatResumeNativeDefinition.PostCombatPathPreparationHookRva,
-                    AssassinCombatResumeNativeDefinition.PostCombatPathPreparationHookLength,
+                AssassinCombatResumeNativeDefinition.CommonPathDiagnosticHookRva,
+                AssassinCombatResumeNativeDefinition.CommonPathDiagnosticHookBytes,
+                "common-path entry diagnostic");
+            if (!AssassinCombatResumePolicy.IsSafeDiagnosticHookSpan(
+                    AssassinCombatResumeNativeDefinition.CombatFinishDiagnosticHookLength,
                     AssassinCombatResumeNativeDefinition.InlineHookMinimumOverwriteLength,
-                    AssassinCombatResumeNativeDefinition.PostCombatStateRestoreRva))
+                    AssassinCombatResumeNativeDefinition.CombatFinishDiagnosticHookBytes.Length) ||
+                !AssassinCombatResumePolicy.IsSafeDiagnosticHookSpan(
+                    AssassinCombatResumeNativeDefinition.CommonPathDiagnosticHookLength,
+                    AssassinCombatResumeNativeDefinition.InlineHookMinimumOverwriteLength,
+                    AssassinCombatResumeNativeDefinition.CommonPathDiagnosticHookBytes.Length) ||
+                AssassinCombatResumeNativeDefinition.CombatFinishCallerReturnAddressStackOffset != 0x28 ||
+                AssassinCombatResumeNativeDefinition.CommonPathCallerReturnAddressStackOffset != 0x30 ||
+                AssassinCombatResumeNativeDefinition.CommonPathOptionStackOffset != 0x58)
             {
                 throw new InvalidOperationException(
-                    "the post-combat preparation hook no longer ends safely before the native path call");
+                    "the passive Assassin diagnostic hook spans or stack contracts are invalid");
             }
 
             Shared.NativeResolution contextRead = Resolve(
@@ -527,7 +559,9 @@ namespace AssassinCombatFix
                     unitResolved,
                     aliveState,
                     unitType) ||
-                diagnosticEventCount >= MaximumDiagnosticEventsPerMap)
+                !AssassinCombatResumePolicy.IsWithinDiagnosticLimit(
+                    diagnosticEventCount,
+                    MaximumDiagnosticEventsPerMap))
             {
                 return 0;
             }
@@ -545,6 +579,10 @@ namespace AssassinCombatFix
             return string.Join(
                 ":",
                 unit.r_AIState,
+                GetSavedAiState(unit),
+                unit.r_AttackingUnitId,
+                unit.N000001C2,
+                unit.N0000019A,
                 unit.r_CurrentTilePositionX,
                 unit.r_CurrentTilePositionY,
                 unit.r_TargetTilePositionX,
@@ -573,6 +611,8 @@ namespace AssassinCombatFix
         private static string DescribeUnit(GameUnit unit)
         {
             return $"globalId={unit.r_GlobalId}, aiState={unit.r_AIState}, " +
+                $"savedAiState={GetSavedAiState(unit)}, attackingUnit={unit.r_AttackingUnitId}/{unit.N000001C2}, " +
+                $"unitStatus029C=0x{unit.N0000019A:X8}, " +
                 $"position={unit.r_CurrentTilePositionX},{unit.r_CurrentTilePositionY}, " +
                 $"target={unit.r_TargetTilePositionX},{unit.r_TargetTilePositionY}, " +
                 $"secondaryTarget={unit.r_TargetTilePositionX2},{unit.r_TargetTilePositionY2}, " +
@@ -586,6 +626,24 @@ namespace AssassinCombatFix
                 $"pathRelated3={unit.r_PathPlanRelated3}, moving={unit.r_MovingRelevant}, " +
                 $"pathPosition={unit.p_CurrentPathPlanPosition}, pathLength={unit.p_PathPlanSize}, " +
                 $"speed={unit.r_CurrentSpeed}/{unit.r_CurrentSpeed2}";
+        }
+
+        private static ushort GetSavedAiState(GameUnit unit)
+        {
+            // Native +0x91E is the upper word of the field at GameUnit offset 0x2C0.
+            return unchecked((ushort)(unit.N000000AB >> 16));
+        }
+
+        private int GetTicksSinceState106(int nativeUnitIndex)
+        {
+            if (!trackedAssassins.TryGetValue(nativeUnitIndex, out AssassinTraceSnapshot tracked) ||
+                tracked.LastState106Tick < 0 ||
+                currentTick < tracked.LastState106Tick)
+            {
+                return -1;
+            }
+
+            return currentTick - tracked.LastState106Tick;
         }
 
         private void LogDiagnostic(int diagnosticId, string message)

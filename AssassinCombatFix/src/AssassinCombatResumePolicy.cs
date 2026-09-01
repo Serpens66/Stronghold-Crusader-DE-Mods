@@ -11,16 +11,11 @@ namespace AssassinCombatFix
             return nativeUnitIndex >= 0 && nativeUnitIndex < unitCount;
         }
 
-        public static bool IsConfirmedCombatFinishCallerRva(long returnRva)
-        {
-            return returnRva == AssassinCombatResumeNativeDefinition.CombatFinishResumeReturnRva;
-        }
-
-        public static bool IsEligiblePostCombatPathRequest(
+        public static bool ShouldLogPassiveDiagnostic(
             bool modEnabled,
             bool improvedPathfindingEnabled,
             bool nativeHooksInstalled,
-            bool confirmedCombatFinishCaller,
+            bool mapActive,
             bool unitResolved,
             AliveState aliveState,
             eChimps unitType)
@@ -28,27 +23,20 @@ namespace AssassinCombatFix
             return modEnabled &&
                 improvedPathfindingEnabled &&
                 nativeHooksInstalled &&
-                confirmedCombatFinishCaller &&
+                mapActive &&
                 unitResolved &&
                 aliveState == AliveState.IsAlive &&
                 unitType == eChimps.CHIMP_TYPE_ARAB_ASSASIN;
         }
 
-        public static bool ShouldSetAssassinPathContext(bool eligible, int currentContextFlag)
-        {
-            return eligible && currentContextFlag == 0;
-        }
-
-        public static bool IsSafePreparationHookSpan(
-            int hookRva,
+        public static bool IsSafeDiagnosticHookSpan(
             int declaredLength,
             int minimumOverwriteLength,
-            int firstProtectedRva)
+            int expectedInstructionLength)
         {
-            return hookRva >= 0 &&
-                declaredLength >= minimumOverwriteLength &&
+            return declaredLength >= minimumOverwriteLength &&
                 minimumOverwriteLength > 0 &&
-                hookRva <= firstProtectedRva - declaredLength;
+                declaredLength == expectedInstructionLength;
         }
 
         public static bool DoMinimumInlineHookRangesOverlap(
@@ -81,6 +69,11 @@ namespace AssassinCombatFix
             uint currentGlobalId)
         {
             return !hasTrackedUnit || trackedGlobalId != currentGlobalId;
+        }
+
+        public static bool IsWithinDiagnosticLimit(int currentCount, int maximumCount)
+        {
+            return currentCount >= 0 && maximumCount > 0 && currentCount < maximumCount;
         }
 
         public static bool ShouldBeginEditorTrace(bool mapActive, bool isMapEditor)

@@ -1545,6 +1545,37 @@ abgedeckt; nur Moat-relevante Teilwege werden weiterhin gepuffert ausgegeben. Di
 
 Ein fehlender späterer Logeintrag darf nicht sofort als fehlender nativer Funktionsaufruf interpretiert werden. Zuerst prüfen, ob Attempt-ID, globale Zielwerte oder Current-Unit-Korrelation den Callback herausfiltern.
 
+### 12.1.2 Gültiger Attack-Approach-Lauf und erster funktionaler Regionsfallback
+
+Nach Korrektur des `0xDBC60`-Patterns und der RIP-relativen Tribe-Manager-`LEA` wurde die gesamte
+Attack-Approach-Diagnose beim Start nachweislich installiert. Der gültige Lauf vom 1. September
+2026 zeigte für drei `AttackUnit`-Befehle eines Maceman jeweils dasselbe Ergebnis:
+
+- `0xDBC60` lief als `UnitFlood` mit `sourceRegion=1`, `movementClass=1` und einer normalen,
+  nicht ausschließlich aus Assassinen bestehenden Auswahl.
+- `0xE2610` prüfte achtmal `regions=1->2`, `routeKind=0`; Vanilla lieferte jedes Mal `0`.
+- `0xDBC60` beendete den Lauf mit `results=0`. Der äußere Target-Command lieferte zwar `1`,
+  aktualisierte aber keine Unitfelder.
+- Für dieselben Ziele hatte die owner-geprüfte Suche bereits `visitedWithMoat=true`,
+  `visitedWithoutMoat=false`, freundliche fertige Moats und getrennte Regionen bestätigt.
+
+`0xE2610` erhält deshalb nun ausschließlich innerhalb eines passenden `UnitFlood` einen
+funktionalen Vanilla-first-Fallback. Er validiert Command, Tribe, repräsentative Unit,
+Bewegungsklasse, Quellregion, Target-Unit-ID und Global-ID sowie das tatsächlich durch die
+Owner-BFS erreichte Annäherungs-Regionspaar. Nur eine ohne Moat unmögliche Route über eigenen oder
+verbündeten fertigen Moat darf aus Vanilla `0` effektiv `1` machen. Die Entscheidung wird pro
+Command und Regionspaar wiederverwendet und als `attack-unit-region-fallback` protokolliert.
+
+Der positive Rückgabewert von `0x196870` bezeichnet bei ausschließlich belegtem Slot 22 die
+Assassin-Auswahlart. Für diesen Fall darf der nachfolgende `0xE2CA0`-Nuller nur noch in zwei
+belegbaren Situationen überstimmt werden: ein freies gewöhnlich begehbares Ziel mit notwendiger
+freundlicher Moat-Route oder eine lebende feindliche Unit exakt auf dem Zieltile mit entsprechend
+notwendigem Annäherungsweg. Der allgemeine Cursorzweig `0x8F32F` bleibt ungepatcht; Gebäude,
+Mauern und sonstige belegte Tiles werden durch diese Assassin-Erweiterung nicht freigegeben. Für
+direkte Ziele und Annäherungstiles schließt sie zusätzlich Vanillas Struktur-/Höhenmaske
+`0x10000300` aus; damit reicht das allgemeine Walkable-Bit allein nicht zur Freigabe eines
+Mauertiles.
+
 ## 13. Appendix: direkte CALL-Sites auf `0x197950`
 
 Für die kanonische DLL wurden folgende 85 direkten Aufrufstellen gefunden:
@@ -1595,10 +1626,10 @@ Diese Liste belegt die breite Verwendung des Helpers, ersetzt aber bei einer neu
   zweiten, owner-qualifizierten Lauf vorgesehene Umschalten `1 → 0 → 1` wurde in den Logs bislang
   nicht ausgelöst und ist daher eine unbestätigte Hypothese. Der erste Vanilla-Lauf bleibt
   unverändert; `0xD9C40` wird nicht zusätzlich gehookt.
-- Attack endet im beobachteten Fehlfall bereits vor Unitfeldern und `MoveHere`. Die aktuelle Stufe
-  trennt `AttackUnit` über `0xDBC60` von Gebäudeangriffen über `0xDA020`/`0x123090`, beobachtet
-  deren `0xE2610`-/`0xE2CA0`-Entscheidungen nur read-only und gibt dort noch keinen Pfad frei. Der
-  erste Diagnoseversuch war wegen des dokumentierten `45`/`4D`-Patternfehlers nicht auswertbar.
+- Attack endet im bestätigten Fehlfall bereits vor Unitfeldern und `MoveHere`. `AttackUnit` läuft
+  über `0xDBC60` und scheiterte reproduzierbar an acht negativen `0xE2610`-Prüfungen desselben
+  Regionspaars. Nur dieser `UnitFlood` besitzt nun den streng owner-geprüften funktionalen
+  Regionsfallback. Gebäudeangriffe über `0xDA020`/`0x123090` bleiben vorerst diagnostisch.
 - `0x196840` bedeutet nachweislich „Unit steht auf einem Tile mit fertigem-Moat-Bit“, während
   `0x196870` nur Auswahlarten prüft; diese Semantik bei Updates nicht wieder verallgemeinern.
 - Als Nächstes diese Stufe mit eigenem, verbündetem und feindlichem Moat sowie Umweg-, Mauer-

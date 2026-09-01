@@ -1927,52 +1927,39 @@ internal static class Program
               !AssassinCombatResumePolicy.IsValidNativeUnitIndex(0, 0),
             "Assassin combat resume accepted an invalid native unit index");
 
-        Check(
-            AssassinCombatResumePolicy.IsConfirmedCombatFinishCallerRva(
-                AssassinCombatResumeNativeDefinition.CombatFinishResumeReturnRva) &&
-            !AssassinCombatResumePolicy.IsConfirmedCombatFinishCallerRva(
-                AssassinCombatResumeNativeDefinition.CombatFinishResumeReturnRva - 1),
-            "Assassin combat resume did not restrict itself to the audited state-106 helper return address");
-
-        Check(AssassinCombatResumePolicy.IsEligiblePostCombatPathRequest(
+        Check(AssassinCombatResumePolicy.ShouldLogPassiveDiagnostic(
                 true, true, true, true, true,
                 AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN),
-            "enabled Assassin combat resume did not accept the confirmed weighted repath request");
-        Check(!AssassinCombatResumePolicy.IsEligiblePostCombatPathRequest(
+            "enabled Assassin combat diagnostics rejected a living Assassin on an active map");
+        Check(!AssassinCombatResumePolicy.ShouldLogPassiveDiagnostic(
                 false, true, true, true, true,
                 AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN) &&
-              !AssassinCombatResumePolicy.IsEligiblePostCombatPathRequest(
+              !AssassinCombatResumePolicy.ShouldLogPassiveDiagnostic(
                 true, false, true, true, true,
                 AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN) &&
-              !AssassinCombatResumePolicy.IsEligiblePostCombatPathRequest(
+              !AssassinCombatResumePolicy.ShouldLogPassiveDiagnostic(
                 true, true, false, true, true,
                 AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN) &&
-              !AssassinCombatResumePolicy.IsEligiblePostCombatPathRequest(
+              !AssassinCombatResumePolicy.ShouldLogPassiveDiagnostic(
                 true, true, true, false, true,
                 AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN) &&
-              !AssassinCombatResumePolicy.IsEligiblePostCombatPathRequest(
+              !AssassinCombatResumePolicy.ShouldLogPassiveDiagnostic(
                 true, true, true, true, false,
                 AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN),
-            "Assassin combat resume did not fail closed outside the installed enabled callsite");
-        Check(!AssassinCombatResumePolicy.IsEligiblePostCombatPathRequest(
+            "Assassin combat diagnostics did not fail closed outside their active installed context");
+        Check(!AssassinCombatResumePolicy.ShouldLogPassiveDiagnostic(
                 true, true, true, true, true,
                 AliveState.MarkedForDeletion, eChimps.CHIMP_TYPE_ARAB_ASSASIN) &&
-              !AssassinCombatResumePolicy.IsEligiblePostCombatPathRequest(
+              !AssassinCombatResumePolicy.ShouldLogPassiveDiagnostic(
                 true, true, true, true, true,
                 AliveState.IsAlive, eChimps.CHIMP_TYPE_KNIGHT),
-            "Assassin combat resume accepted a dead or non-Assassin unit");
-        Check(AssassinCombatResumePolicy.ShouldSetAssassinPathContext(true, 0) &&
-              !AssassinCombatResumePolicy.ShouldSetAssassinPathContext(true, 1) &&
-              !AssassinCombatResumePolicy.ShouldSetAssassinPathContext(false, 0),
-            "Assassin combat resume overwrote an existing context or set one for an ineligible request");
+            "Assassin combat diagnostics accepted a dead or non-Assassin unit");
 
-        Check(AssassinCombatResumePolicy.IsSafePreparationHookSpan(
-                0x197716, 14, 14, 0x197724) &&
-              !AssassinCombatResumePolicy.IsSafePreparationHookSpan(
-                0x197716, 5, 14, 0x197724) &&
-              !AssassinCombatResumePolicy.IsSafePreparationHookSpan(
-                0x19771D, 14, 14, 0x197724),
-            "Assassin combat resume did not reject short or call-crossing inline-hook spans");
+        Check(AssassinCombatResumePolicy.IsSafeDiagnosticHookSpan(14, 14, 14) &&
+              AssassinCombatResumePolicy.IsSafeDiagnosticHookSpan(16, 14, 16) &&
+              !AssassinCombatResumePolicy.IsSafeDiagnosticHookSpan(5, 14, 5) &&
+              !AssassinCombatResumePolicy.IsSafeDiagnosticHookSpan(16, 14, 14),
+            "Assassin combat diagnostics did not reject short or partial-instruction hook spans");
         Check(AssassinCombatResumePolicy.DoMinimumInlineHookRangesOverlap(
                 0x19772B, 5, 0x197730, 5, 14) &&
               !AssassinCombatResumePolicy.DoMinimumInlineHookRangesOverlap(
@@ -1992,6 +1979,12 @@ internal static class Program
               AssassinCombatResumePolicy.ShouldTreatAsNewTrackedUnit(true, 42, 43) &&
               AssassinCombatResumePolicy.ShouldTreatAsNewTrackedUnit(false, 42, 42),
             "Assassin trace did not detect native-index reuse or a cleared map tracker");
+        Check(AssassinCombatResumePolicy.IsWithinDiagnosticLimit(0, 256) &&
+              AssassinCombatResumePolicy.IsWithinDiagnosticLimit(255, 256) &&
+              !AssassinCombatResumePolicy.IsWithinDiagnosticLimit(256, 256) &&
+              !AssassinCombatResumePolicy.IsWithinDiagnosticLimit(-1, 256) &&
+              !AssassinCombatResumePolicy.IsWithinDiagnosticLimit(0, 0),
+            "Assassin trace did not enforce its bounded per-map diagnostic count");
         Check(AssassinCombatResumePolicy.ShouldBeginEditorTrace(false, true) &&
               !AssassinCombatResumePolicy.ShouldBeginEditorTrace(true, true) &&
               !AssassinCombatResumePolicy.ShouldBeginEditorTrace(false, false),
@@ -2030,6 +2023,7 @@ internal static class Program
         Check(
             state106Callsite.Method == "signature-fallback" &&
             state106CallRva == AssassinCombatResumeNativeDefinition.State106CombatFinishCallRva &&
+            state106CallRva + 5 == AssassinCombatResumeNativeDefinition.State106CombatFinishReturnRva &&
             state106CallTarget == AssassinCombatResumeNativeDefinition.CombatFinishHelperRva,
             "Assassin state 106 no longer enters the audited combat-finish helper");
 
@@ -2088,27 +2082,25 @@ internal static class Program
             "post-combat helper no longer restores the saved state and target through the audited path calls");
 
         Check(
-            image.Skip(AssassinCombatResumeNativeDefinition.PostCombatPathPreparationHookRva)
-                .Take(AssassinCombatResumeNativeDefinition.PostCombatPathPreparationHookLength)
-                .SequenceEqual(AssassinCombatResumeNativeDefinition.PostCombatPathPreparationHookBytes) &&
-            image.Skip(AssassinCombatResumeNativeDefinition.PostCombatStateRestoreRva)
-                .Take(AssassinCombatResumeNativeDefinition.PostCombatStateRestoreLength)
-                .SequenceEqual(AssassinCombatResumeNativeDefinition.PostCombatStateRestoreBytes),
-            "post-combat preparation hook or untouched state restore no longer matches audited instructions");
+            image.Skip(AssassinCombatResumeNativeDefinition.CombatFinishDiagnosticHookRva)
+                .Take(AssassinCombatResumeNativeDefinition.CombatFinishDiagnosticHookLength)
+                .SequenceEqual(AssassinCombatResumeNativeDefinition.CombatFinishDiagnosticHookBytes) &&
+            image.Skip(AssassinCombatResumeNativeDefinition.CommonPathDiagnosticHookRva)
+                .Take(AssassinCombatResumeNativeDefinition.CommonPathDiagnosticHookLength)
+                .SequenceEqual(AssassinCombatResumeNativeDefinition.CommonPathDiagnosticHookBytes),
+            "passive Assassin diagnostic hook spans no longer match complete audited instructions");
         Check(
-            AssassinCombatResumeNativeDefinition.PostCombatPathPreparationHookRva == pathRequest.Rva +
-                AssassinCombatResumeNativeDefinition.PostCombatPathPreparationHookOffset &&
-            AssassinCombatResumeNativeDefinition.PostCombatPathPreparationHookLength ==
+            AssassinCombatResumeNativeDefinition.CombatFinishDiagnosticHookLength == 16 &&
+            AssassinCombatResumeNativeDefinition.CombatFinishDiagnosticHookBytes.Length == 16 &&
+            AssassinCombatResumeNativeDefinition.CombatFinishCallerReturnAddressStackOffset == 0x28 &&
+            AssassinCombatResumeNativeDefinition.CommonPathDiagnosticHookLength ==
                 AssassinCombatResumeNativeDefinition.InlineHookMinimumOverwriteLength &&
-            AssassinCombatResumeNativeDefinition.PostCombatPathPreparationHookRva +
-                AssassinCombatResumeNativeDefinition.PostCombatPathPreparationHookLength ==
-                AssassinCombatResumeNativeDefinition.PostCombatStateRestoreRva &&
-            AssassinCombatResumeNativeDefinition.PostCombatStateRestoreRva == pathRequest.Rva +
-                AssassinCombatResumeNativeDefinition.PostCombatStateRestoreOffset &&
-            AssassinCombatResumeNativeDefinition.PostCombatStateRestoreRva +
-                AssassinCombatResumeNativeDefinition.PostCombatStateRestoreLength ==
-                AssassinCombatResumeNativeDefinition.PostCombatPathRequestCallRva,
-            "post-combat hook does not occupy one complete 14-byte span ending before the native path call");
+            AssassinCombatResumeNativeDefinition.CommonPathDiagnosticHookBytes.Length == 14 &&
+            AssassinCombatResumeNativeDefinition.CommonPathDiagnosticHookRva +
+                AssassinCombatResumeNativeDefinition.CommonPathDiagnosticHookLength == 0x19628E &&
+            AssassinCombatResumeNativeDefinition.CommonPathCallerReturnAddressStackOffset == 0x30 &&
+            AssassinCombatResumeNativeDefinition.CommonPathOptionStackOffset == 0x58,
+            "passive Assassin diagnostic hooks no longer match their exact instruction and stack contracts");
         Check(
             AssassinCombatResumePolicy.DoMinimumInlineHookRangesOverlap(
                 AssassinCombatResumeNativeDefinition.PostCombatPathRequestCallRva,

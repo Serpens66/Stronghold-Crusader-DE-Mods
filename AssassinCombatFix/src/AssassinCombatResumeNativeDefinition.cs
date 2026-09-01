@@ -15,6 +15,7 @@ namespace AssassinCombatFix
         public const int State106CombatFinishCallSequenceRva = 0x16DFCE;
         public const int State106CombatFinishCallOffset = 5;
         public const int State106CombatFinishCallRva = 0x16DFD3;
+        public const int State106CombatFinishReturnRva = 0x16DFD8;
         public const int CombatFinishHelperRva = 0x1853F0;
         public const string State106CombatFinishCallSequence =
             "8B D7 49 8B CF E8 ? ? ? ? E9 6E 03 00 00 66 46 89 A4 3B 70 0A 00 00";
@@ -29,6 +30,33 @@ namespace AssassinCombatFix
             "66 83 BB 96 09 00 00 00 75 14 E8 ? ? ? ? 33 C0 " +
             "66 89 83 96 09 00 00 89 83 98 09 00 00";
 
+        public const int InlineHookMinimumOverwriteLength = 14;
+        public const int CombatFinishDiagnosticHookRva = 0x1853F0;
+        public const int CombatFinishDiagnosticHookLength = 16;
+        public const int CombatFinishCallerReturnAddressStackOffset = 0x28;
+        public static readonly byte[] CombatFinishDiagnosticHookBytes =
+        {
+            0x40, 0x53,
+            0x48, 0x83, 0xEC, 0x20,
+            0x48, 0x63, 0xC2,
+            0x48, 0x69, 0xD8, 0x90, 0x04, 0x00, 0x00
+        };
+
+        public const int CommonPathDiagnosticHookRva = 0x196280;
+        public const int CommonPathDiagnosticHookLength = 14;
+        public const int CommonPathCallerReturnAddressStackOffset = 0x30;
+        public const int CommonPathOptionStackOffset = 0x58;
+        public static readonly byte[] CommonPathDiagnosticHookBytes =
+        {
+            0x48, 0x89, 0x5C, 0x24, 0x20,
+            0x55,
+            0x56,
+            0x57,
+            0x41, 0x54,
+            0x41, 0x55,
+            0x41, 0x56
+        };
+
         public const int PostCombatRepathPrologueRva = 0x1976C0;
         public const int PostCombatCallerReturnAddressStackOffset = 0x38;
         public const string PostCombatRepathPrologueSequence =
@@ -38,13 +66,6 @@ namespace AssassinCombatFix
         // This sequence restores the saved state and secondary target immediately
         // before Vanilla requests a replacement path after combat.
         public const int PostCombatPathRequestSequenceRva = 0x197702;
-        public const int InlineHookMinimumOverwriteLength = 14;
-        public const int PostCombatPathPreparationHookOffset = 20;
-        public const int PostCombatPathPreparationHookRva = 0x197716;
-        public const int PostCombatPathPreparationHookLength = 14;
-        public const int PostCombatStateRestoreOffset = 34;
-        public const int PostCombatStateRestoreRva = 0x197724;
-        public const int PostCombatStateRestoreLength = 7;
         public const int PostCombatPathRequestCallOffset = 41;
         public const int PostCombatPathRequestCallRva = 0x19772B;
         public const int PostCombatFinalizeCallOffset = 51;
@@ -53,17 +74,6 @@ namespace AssassinCombatFix
             "33 C9 44 0F BF 8B 46 07 00 00 8B D7 44 0F BF 83 44 07 00 00 " +
             "66 89 8B 4E 07 00 00 89 4C 24 20 48 8B CE " +
             "66 89 83 18 09 00 00 E8 ? ? ? ? 8B D7 48 8B CE E8 ? ? ? ?";
-        public static readonly byte[] PostCombatPathPreparationHookBytes =
-        {
-            0x66, 0x89, 0x8B, 0x4E, 0x07, 0x00, 0x00,
-            0x89, 0x4C, 0x24, 0x20,
-            0x48, 0x8B, 0xCE
-        };
-        public static readonly byte[] PostCombatStateRestoreBytes =
-        {
-            0x66, 0x89, 0x83, 0x18, 0x09, 0x00, 0x00
-        };
-
         public const int CommonPathContextReadRva = 0x1964EE;
         public const string CommonPathContextReadSequence =
             "44 39 15 F3 71 F1 05 0F 85 8A 00 00 00 45 85 ED 0F 85 81 00 00 00";
