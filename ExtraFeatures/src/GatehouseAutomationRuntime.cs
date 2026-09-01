@@ -126,6 +126,9 @@ namespace ExtraFeatures
             if (initialized)
                 return;
 
+            // SE-GATEHOUSE-UNIT-ID-COMPAT: Re-audit this subscription after every
+            // Script Extender update. The handler compensates for the 0-based
+            // UnitId emitted by the audited 1.42.0 implementation.
             gatehouseQuerySubscription = BuildingR3EventHooks.OnGatehouseQuery.Observable.Subscribe(OnGatehouseQuery);
             if (!ModSaveDataAPI.Instance.RegisterModDataHandler(
                     SaveDataIdentifier,
@@ -455,11 +458,42 @@ namespace ExtraFeatures
                 if (!TryGetLiveGatehouse(args.BuildingId, out GameBuilding* building, out GameGatehouseEntry* gatehouse))
                     return;
 
+                // SE-GATEHOUSE-UNIT-ID-COMPAT: Script Extender 1.42.0
+                // creates this event field with GetIndexByOffset(...), so it is
+                // a zero-based span index despite being named UnitId. Re-audit
+                // after an SE update; remove this conversion once upstream emits
+                // the documented one-based ID, or it would become an off-by-one.
+                int unitSpanIndex = args.UnitId;
+                Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
+                if (!GatehouseQueryUnitIdPolicy.TryConvertSpanIndexToGameId(
+                        unitSpanIndex,
+                        units.Length,
+                        out int unitId) ||
+                    !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+                    unit == null)
+                {
+                    return;
+                }
+
+                // The Script Extender replaces these Vanilla comparisons at the
+                // native hook. Re-evaluate them for the corrected candidate slot.
+                bool vanillaCandidateCanClose =
+                    unit->r_AliveState == AliveState.IsAlive &&
+                    unit->r_UnitChimp != eChimps.CHIMP_TYPE_LION &&
+                    unit->r_ControllableForPlayerId != 0;
+                // Preserve an intentional decision made by an earlier event
+                // subscriber; only repair the Script Extender's broken default.
+                args.ShouldClose = GatehouseQueryUnitIdPolicy.ResolveCandidateDecision(
+                    args.ShouldClose,
+                    vanillaCandidateCanClose);
+                if (args.ShouldClose != true)
+                    return;
+
                 int globalId = (int)building->r_GlobalId;
                 if (!firstQueryLogged)
                 {
                     firstQueryLogged = true;
-                    LogInfo($"gatehouse query hook confirmed: buildingId={args.BuildingId}, globalId={globalId}, owner={building->r_PlayerIdOwner}, tileX={building->r_TilePositionXBegin}, tileY={building->r_TilePositionYBegin}.");
+                    LogInfo($"gatehouse query hook confirmed: buildingId={args.BuildingId}, rawUnitSpanIndex={unitSpanIndex}, unitId={unitId}, globalId={globalId}, owner={building->r_PlayerIdOwner}, tileX={building->r_TilePositionXBegin}, tileY={building->r_TilePositionYBegin}.");
                 }
 
                 if (manualOnlyGateGlobalIds.Contains(globalId))
@@ -471,22 +505,25 @@ namespace ExtraFeatures
                 if (!settings.RequireReachableEnemyForAutomaticGateClosing || !reachabilityAvailable)
                     return;
 
-                if (TryIsUnitReachableToGate(args.UnitId, gatehouse, out bool reachable) && !reachable)
+                if (TryIsUnitReachableToGate(unitId, unit, gatehouse, out bool reachable) && !reachable)
                     args.ShouldClose = false;
             }
             catch (Exception ex)
             {
                 // Fail open: a diagnostic or PCL failure must never suppress Vanilla closure.
-                LogFailure($"gatehouse reachability query failed: buildingId={args.BuildingId}, unitId={args.UnitId}, error={ex}");
+                LogFailure($"gatehouse reachability query failed: buildingId={args.BuildingId}, rawUnitSpanIndex={args.UnitId}, error={ex}");
             }
         }
 
-        private bool TryIsUnitReachableToGate(int unitId, GameGatehouseEntry* gatehouse, out bool reachable)
+        private bool TryIsUnitReachableToGate(
+            int unitId,
+            GameUnit* unit,
+            GameGatehouseEntry* gatehouse,
+            out bool reachable)
         {
             reachable = true;
-            if (unitId <= 0 || gatehouse == null ||
-                !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
-                unit == null || unit->r_AliveState != AliveState.IsAlive || unit->r_CurrentHealth == 0 ||
+            if (unitId <= 0 || gatehouse == null || unit == null ||
+                unit->r_AliveState != AliveState.IsAlive || unit->r_CurrentHealth == 0 ||
                 unit->r_ControllableForPlayerId <= 0)
             {
                 return false;

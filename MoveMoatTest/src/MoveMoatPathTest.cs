@@ -8,6 +8,7 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using Zhuqiaomon.Assembly;
 
@@ -398,6 +399,10 @@ namespace MoveMoatTest
             new Dictionary<int, WallClimbTracker>();
         private readonly HashSet<string> reportedDiagnosticFailureStages =
             new HashSet<string>(StringComparer.Ordinal);
+        private Func<int, int, bool> rootedAssassinMoatClassifier;
+        private Func<int, int, int, int, int, int> assassinRouteProbe;
+        private MethodInfo unregisterAssassinMoatProvider;
+        private bool assassinMoatBridgeActive;
         private int attackCommandSequence;
         private bool callbackFailureReported;
         private bool disposed;
@@ -643,6 +648,7 @@ namespace MoveMoatTest
                 // approach pipelines and cannot roll back the proven movement feature.
                 TryInstallAttackApproachDiagnostics(memory, libraryBase);
                 TryInstallCursorMoveCommandDiagnostics(memory, libraryBase);
+                TryRegisterAssassinMoatPathBridge();
             }
             catch
             {
@@ -675,6 +681,7 @@ namespace MoveMoatTest
                 return;
 
             disposed = true;
+            TryUnregisterAssassinMoatPathBridge();
             tribeMoveSubscription?.Dispose();
             tribeTargetSubscription?.Dispose();
             mapLoadSubscription?.Dispose();
@@ -711,6 +718,127 @@ namespace MoveMoatTest
             trackedMoatMoves.Clear();
             trackedWallClimbs.Clear();
             lastAttackCommandCandidates.Clear();
+        }
+
+        private void TryRegisterAssassinMoatPathBridge()
+        {
+            try
+            {
+                Type bridgeType = Type.GetType(
+                    "BugfixesAndQoL.AssassinMoatPathBridge, BugfixesAndQoL",
+                    throwOnError: false);
+                if (bridgeType == null)
+                {
+                    Shared.DebugLogHelper.LogWarning(
+                        log,
+                        "MoveMoat Assassin bridge is unavailable; the existing pure-moat ground retry remains active, but combined moat/climb routes stay Vanilla.");
+                    return;
+                }
+
+                const BindingFlags flags = BindingFlags.Static |
+                    BindingFlags.Public | BindingFlags.NonPublic;
+                MethodInfo register = bridgeType.GetMethod(
+                    "RegisterProvider",
+                    flags,
+                    binder: null,
+                    types: new[] { typeof(string), typeof(Func<int, int, bool>) },
+                    modifiers: null);
+                MethodInfo probe = bridgeType.GetMethod(
+                    "ProbeRoute",
+                    flags,
+                    binder: null,
+                    types: new[]
+                    {
+                        typeof(int), typeof(int), typeof(int), typeof(int), typeof(int)
+                    },
+                    modifiers: null);
+                MethodInfo unregister = bridgeType.GetMethod(
+                    "UnregisterProvider",
+                    flags,
+                    binder: null,
+                    types: new[] { typeof(string) },
+                    modifiers: null);
+                if (register == null || probe == null || unregister == null)
+                    throw new MissingMethodException(bridgeType.FullName, "MoveMoat bridge contract");
+
+                rootedAssassinMoatClassifier = ClassifyFriendlyCompletedMoatForBridge;
+                unregisterAssassinMoatProvider = unregister;
+                object registered = register.Invoke(
+                    null,
+                    new object[] { "MoveMoatTest_Serp", rootedAssassinMoatClassifier });
+                if (!(registered is bool accepted) || !accepted)
+                    throw new InvalidOperationException("BugfixesAndQoL rejected the MoveMoat provider");
+
+                assassinRouteProbe =
+                    (Func<int, int, int, int, int, int>)Delegate.CreateDelegate(
+                        typeof(Func<int, int, int, int, int, int>), probe);
+                assassinMoatBridgeActive = true;
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    "MoveMoat Assassin bridge registered; BugfixesAndQoL exclusively owns RVA 0xD9C40 and combined owner-safe moat/climb routes are active.");
+            }
+            catch (Exception ex)
+            {
+                try
+                {
+                    unregisterAssassinMoatProvider?.Invoke(
+                        null, new object[] { "MoveMoatTest_Serp" });
+                }
+                catch
+                {
+                    // Registration is optional. If rollback itself fails, keeping the
+                    // classifier rooted is safer than exposing a collected callback.
+                }
+                assassinRouteProbe = null;
+                unregisterAssassinMoatProvider = null;
+                assassinMoatBridgeActive = false;
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    $"MoveMoat Assassin bridge registration failed closed; the existing pure-moat fallback remains active: {ex.GetBaseException().Message}");
+            }
+        }
+
+        private void TryUnregisterAssassinMoatPathBridge()
+        {
+            try
+            {
+                if (assassinMoatBridgeActive && unregisterAssassinMoatProvider != null)
+                {
+                    unregisterAssassinMoatProvider.Invoke(
+                        null, new object[] { "MoveMoatTest_Serp" });
+                }
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    $"MoveMoat Assassin bridge removal failed closed: {ex.GetBaseException().Message}");
+            }
+            finally
+            {
+                assassinMoatBridgeActive = false;
+                assassinRouteProbe = null;
+                unregisterAssassinMoatProvider = null;
+                rootedAssassinMoatClassifier = null;
+            }
+        }
+
+        private bool ClassifyFriendlyCompletedMoatForBridge(int playerId, int tileId)
+        {
+            if (disposed || !IsValidTileId(tileId) ||
+                (tileFlags[tileId] & CompletedMoatTileFlag) == 0)
+            {
+                return false;
+            }
+
+            IntPtr tileManager = GameTileManagerAPI.Instance.GetTileManager();
+            GamePlayerManagerAPI playerApi = GamePlayerManagerAPI.Instance;
+            if (tileManager == IntPtr.Zero || !playerApi.IsPlayerIdValid(playerId))
+                return false;
+
+            RouteProbeSummary ignored = new RouteProbeSummary(playerId);
+            return TryClassifyFriendlyMoat(
+                tileManager, playerApi, tileId, playerId, ref ignored);
         }
 
         private void TryInstallCursorMoveCommandDiagnostics(ReadOnlySpan<byte> memory, ulong libraryBase)
@@ -2213,9 +2341,11 @@ namespace MoveMoatTest
             LogBuilderNativeState(
                 "after-vanilla-first", pathManager, plan,
                 movementClass, movementProfile, vanillaResult);
-            bool route80FallbackCandidate = vanillaResult == 0 && originalRouteVariant == 1;
+            bool route80FallbackCandidate = vanillaResult == 0 && originalRouteVariant == 1 &&
+                (!isAssassin || !assassinMoatBridgeActive);
             bool assassinGroundFallbackCandidate = vanillaResult == 0 &&
-                originalRouteVariant == 0 && originalAssassinMode != 0 && isAssassin;
+                originalRouteVariant == 0 && originalAssassinMode != 0 && isAssassin &&
+                !assassinMoatBridgeActive;
             string fallbackCandidate = route80FallbackCandidate
                 ? "route80"
                 : assassinGroundFallbackCandidate ? "assassin-ground" : "none";
@@ -2272,7 +2402,8 @@ namespace MoveMoatTest
                 movementClass, movementProfile, vanillaResult);
             // The first unchanged run keeps Assassin wall weighting. A qualified pure-moat
             // retry needs the ordinary ground builder because D9C40 still rejects moat tiles.
-            bool useAssassinGroundFallback = originalAssassinMode != 0 && isAssassin;
+            bool useAssassinGroundFallback = originalAssassinMode != 0 && isAssassin &&
+                !assassinMoatBridgeActive;
 
             int result;
             try
@@ -3097,6 +3228,7 @@ namespace MoveMoatTest
 
         private void LogCursorTilePairDiagnostic(
             CursorSelectionDiagnosticScope diagnostic,
+            AttackCursorPairScope functionalScope,
             int actualTargetTileId,
             int actualSelectedUnitTileId,
             byte useCache,
@@ -3106,11 +3238,13 @@ namespace MoveMoatTest
             bool pairMatches = diagnostic.StartTileId == actualSelectedUnitTileId &&
                 (diagnostic.TargetTileId == actualTargetTileId ||
                  (diagnostic.FallbackKind == CursorPairFallbackKind.BuildingApproach &&
-                  diagnostic.BuildingId > 0 && IsValidTileId(actualTargetTileId) &&
-                  GameTileManagerAPI.Instance.GetTileBuildingId(actualTargetTileId) ==
-                      diagnostic.BuildingId));
+                  functionalScope != null &&
+                  CursorScopeMatchesTargetTile(functionalScope, actualTargetTileId)));
+            bool cacheAccepted = useCache == 1 ||
+                (diagnostic.FallbackKind == CursorPairFallbackKind.BuildingApproach &&
+                 useCache == 0);
             bool effectiveFallbackScope = diagnostic.FunctionalFallbackArmed && mapMatches &&
-                pairMatches && useCache == 1 && vanillaTilePairResult == 0;
+                pairMatches && cacheAccepted && vanillaTilePairResult == 0;
             string reason;
             if (!mapMatches)
                 reason = "map-epoch-mismatch";
@@ -3118,8 +3252,8 @@ namespace MoveMoatTest
                 reason = diagnostic.RejectionReason;
             else if (!pairMatches)
                 reason = "tile-pair-mismatch";
-            else if (useCache != 1)
-                reason = "cache-mode-not-one";
+            else if (!cacheAccepted)
+                reason = "cache-mode-not-supported";
             else if (vanillaTilePairResult != 0)
                 reason = "vanilla-tile-pair-positive";
             else
@@ -3177,7 +3311,8 @@ namespace MoveMoatTest
                 try
                 {
                     LogCursorTilePairDiagnostic(
-                        cursorDiagnostic, targetTileId, selectedUnitTileId, useCache, vanillaResult);
+                        cursorDiagnostic, scope, targetTileId, selectedUnitTileId,
+                        useCache, vanillaResult);
                 }
                 catch (Exception ex)
                 {
@@ -3188,7 +3323,15 @@ namespace MoveMoatTest
             if (disposed || vanillaResult != 0)
                 return vanillaResult;
 
-            if (scope == null || scope.MapEpoch != mapEpoch || useCache != 1 ||
+            int actualApproachX = -1;
+            int actualApproachY = -1;
+            bool buildingApproachPair = scope != null &&
+                scope.FallbackKind == CursorPairFallbackKind.BuildingApproach &&
+                TryResolveVerifiedBuildingApproachTile(
+                    scope, targetTileId, out actualApproachX, out actualApproachY);
+            bool cacheModeAccepted = useCache == 1 ||
+                (buildingApproachPair && useCache == 0);
+            if (scope == null || scope.MapEpoch != mapEpoch || !cacheModeAccepted ||
                 scope.StartTileId != selectedUnitTileId ||
                 !CursorScopeMatchesTargetTile(scope, targetTileId))
             {
@@ -3201,8 +3344,18 @@ namespace MoveMoatTest
                 int approachX;
                 int approachY;
                 RouteProbeSummary summary;
-                friendlyRoute = TryQualifyCursorScope(
-                    scope, out approachX, out approachY, out summary);
+                if (buildingApproachPair)
+                {
+                    approachX = actualApproachX;
+                    approachY = actualApproachY;
+                    friendlyRoute = TryQualifyExactBuildingApproach(
+                        scope, approachX, approachY, targetTileId, out summary);
+                }
+                else
+                {
+                    friendlyRoute = TryQualifyCursorScope(
+                        scope, out approachX, out approachY, out summary);
+                }
                 string decisionKey = $"{scope.MapEpoch}:{scope.UnitId}:{scope.PlayerId}:" +
                     $"{scope.StartTileId}:{scope.TargetTileId}:{friendlyRoute}:" +
                     $"{scope.FallbackKind}:{summary.ObservedOwnerMask}:" +
@@ -3216,7 +3369,8 @@ namespace MoveMoatTest
                         $"start=({scope.StartX},{scope.StartY})/{scope.StartTileId} " +
                         $"target=({scope.TargetX},{scope.TargetY})/{scope.TargetTileId} " +
                         $"kind={scope.FallbackKind} approach=({approachX},{approachY}) vanilla=0 " +
-                        $"effective={(friendlyRoute ? 1 : 0)} {summary.ToLogFields()}.");
+                        $"effective={(friendlyRoute ? 1 : 0)} cache={useCache} " +
+                        $"actualTarget={targetTileId} {summary.ToLogFields()}.");
                 }
 
                 return friendlyRoute ? 1 : vanillaResult;
@@ -3423,9 +3577,43 @@ namespace MoveMoatTest
 
             int targetTileId = GameTileManagerAPI.Instance.GetTileId(targetX, targetY);
             int playerId = unit->r_ControllableForPlayerId;
-            if (!IsValidTileId(targetTileId) || pathRegionGrid[targetTileId] <= 0 ||
-                pathRegionGrid[targetTileId] > MaximumRegionId ||
+            if (!IsValidTileId(targetTileId) ||
                 !GamePlayerManagerAPI.Instance.IsPlayerIdValid(playerId))
+            {
+                return false;
+            }
+
+            if (unit->r_UnitChimp == eChimps.CHIMP_TYPE_ARAB_ASSASIN &&
+                assassinMoatBridgeActive && assassinRouteProbe != null)
+            {
+                AttackCursorPairScope directScope = new AttackCursorPairScope(
+                    mapEpoch,
+                    nativeUnitIndex,
+                    playerId,
+                    startX,
+                    startY,
+                    GameTileManagerAPI.Instance.GetTileId(startX, startY),
+                    targetX,
+                    targetY,
+                    targetTileId,
+                    CursorPairFallbackKind.DirectTile);
+                bool assassinRoute = TryProbeCombinedAssassinRoute(
+                    directScope, targetX, targetY, out summary);
+                if (assassinRoute)
+                {
+                    ownerSafeRoute = true;
+                    requiredFriendlyMoatRoute = true;
+                    return true;
+                }
+
+                // A negative combined probe does not explain why the route failed. Let the
+                // owner-aware ground probe below retain its enemy-moat evidence so a positive
+                // Vanilla cursor cannot accidentally stay green at a hostile moat boundary.
+                summary = default;
+            }
+
+            if (pathRegionGrid[targetTileId] <= 0 ||
+                pathRegionGrid[targetTileId] > MaximumRegionId)
             {
                 return false;
             }
@@ -3488,6 +3676,33 @@ namespace MoveMoatTest
                 return false;
             }
 
+            if (unit->r_UnitChimp == eChimps.CHIMP_TYPE_ARAB_ASSASIN &&
+                assassinMoatBridgeActive && assassinRouteProbe != null)
+            {
+                int startX = unit->r_CurrentTilePositionX;
+                int startY = unit->r_CurrentTilePositionY;
+                int startTileId = GameTileManagerAPI.Instance.GetTileId(startX, startY);
+                int targetTileId = GameTileManagerAPI.Instance.GetTileId(
+                    plan.TargetX, plan.TargetY);
+                if (!IsValidTileId(startTileId) || !IsValidTileId(targetTileId))
+                    return false;
+
+                plan.PlayerId = unit->r_ControllableForPlayerId;
+                AttackCursorPairScope probeScope = new AttackCursorPairScope(
+                    mapEpoch,
+                    plan.UnitId,
+                    plan.PlayerId,
+                    startX,
+                    startY,
+                    startTileId,
+                    plan.TargetX,
+                    plan.TargetY,
+                    targetTileId,
+                    CursorPairFallbackKind.DirectTile);
+                return TryProbeCombinedAssassinRoute(
+                    probeScope, plan.TargetX, plan.TargetY, out summary);
+            }
+
             bool reachedTargetWithMoat = TryFindFriendlyCompletedMoatRouteForPlan(plan, out summary);
             if (!reachedTargetWithMoat)
                 return false;
@@ -3496,10 +3711,10 @@ namespace MoveMoatTest
                 visitedWithMoat != null && visitedWithMoat[targetCell] == gridGeneration;
             bool reachedWithoutMoat = gridGeneration > 0 &&
                 visitedWithoutMoat != null && visitedWithoutMoat[targetCell] == gridGeneration;
-            int startTileId = GameTileManagerAPI.Instance.GetTileId(
+            int groundStartTileId = GameTileManagerAPI.Instance.GetTileId(
                 unit->r_CurrentTilePositionX, unit->r_CurrentTilePositionY);
-            bool startOnCompletedMoat = IsValidTileId(startTileId) &&
-                (tileFlags[startTileId] & CompletedMoatTileFlag) != 0;
+            bool startOnCompletedMoat = IsValidTileId(groundStartTileId) &&
+                (tileFlags[groundStartTileId] & CompletedMoatTileFlag) != 0;
             bool regionTopologyQualified =
                 (summary.StartRegion > 0 && summary.StartRegion != summary.TargetRegion) ||
                 (summary.StartRegion == 0 && startOnCompletedMoat);
@@ -3606,10 +3821,17 @@ namespace MoveMoatTest
             if (scope == null)
                 return false;
 
+            bool assassinScope = IsAssassinScope(scope);
+
             if (scope.FallbackKind == CursorPairFallbackKind.DirectTile)
             {
                 approachX = scope.TargetX;
                 approachY = scope.TargetY;
+                if (assassinScope && TryProbeCombinedAssassinRoute(
+                    scope, approachX, approachY, out summary))
+                {
+                    return true;
+                }
                 return TryFindRequiredFriendlyCompletedMoatRouteToDirectTile(scope, out summary);
             }
 
@@ -3621,6 +3843,13 @@ namespace MoveMoatTest
 
             if (scope.FallbackKind == CursorPairFallbackKind.WallApproach)
             {
+                if (assassinScope && TryProbeCombinedAssassinRoute(
+                    scope, scope.TargetX, scope.TargetY, out summary))
+                {
+                    approachX = scope.TargetX;
+                    approachY = scope.TargetY;
+                    return true;
+                }
                 return TryFindFriendlyCompletedMoatRouteToAttackApproach(
                     scope, out approachX, out approachY, out summary);
             }
@@ -3629,12 +3858,174 @@ namespace MoveMoatTest
                 scope, out approachX, out approachY, out summary);
         }
 
+        private bool IsAssassinScope(AttackCursorPairScope scope)
+        {
+            return scope != null && assassinMoatBridgeActive && assassinRouteProbe != null &&
+                GameUnitManagerAPI.Instance.TryGetUnitById(scope.UnitId, out GameUnit* unit) &&
+                unit != null && unit->r_AliveState == AliveState.IsAlive &&
+                unit->r_UnitChimp == eChimps.CHIMP_TYPE_ARAB_ASSASIN;
+        }
+
+        private bool TryProbeCombinedAssassinRoute(
+            AttackCursorPairScope scope,
+            int targetX,
+            int targetY,
+            out RouteProbeSummary summary)
+        {
+            summary = default;
+            if (!IsAssassinScope(scope) || targetX < 0 || targetX >= MapWidth ||
+                targetY < 0 || targetY >= MapWidth)
+            {
+                return false;
+            }
+
+            try
+            {
+                int targetTileId = GameTileManagerAPI.Instance.GetTileId(targetX, targetY);
+                if (!IsValidTileId(targetTileId))
+                    return false;
+                int result = assassinRouteProbe(
+                    scope.PlayerId,
+                    scope.StartX,
+                    scope.StartY,
+                    targetX,
+                    targetY);
+                bool reachable = (result & 1) != 0;
+                bool usedFriendlyMoat = (result & 2) != 0;
+                summary = new RouteProbeSummary(scope.PlayerId)
+                {
+                    FriendlyMoatTiles = usedFriendlyMoat ? 1 : 0,
+                    StartRegion = IsValidTileId(scope.StartTileId)
+                        ? pathRegionGrid[scope.StartTileId]
+                        : 0,
+                    TargetRegion = pathRegionGrid[targetTileId],
+                    RouteFound = reachable && usedFriendlyMoat,
+                    AttackProbeEvaluated = true,
+                    ReachedWithMoat = reachable && usedFriendlyMoat,
+                    ReachedWithoutMoat = false,
+                    RegionTopologyQualified = true,
+                    AssassinCombinedProbe = true,
+                    AssassinUsedClimb = (result & 4) != 0
+                };
+                return summary.RouteFound;
+            }
+            catch (Exception ex)
+            {
+                TryLogDiagnosticFailure("assassin-combined-route-probe", ex);
+                return false;
+            }
+        }
+
         private bool CursorScopeMatchesTargetTile(AttackCursorPairScope scope, int targetTileId)
         {
             if (scope.FallbackKind != CursorPairFallbackKind.BuildingApproach)
                 return scope.TargetTileId == targetTileId;
             return IsValidTileId(targetTileId) && scope.BuildingId > 0 &&
-                GameTileManagerAPI.Instance.GetTileBuildingId(targetTileId) == scope.BuildingId;
+                (GameTileManagerAPI.Instance.GetTileBuildingId(targetTileId) == scope.BuildingId ||
+                 TryResolveVerifiedBuildingApproachTile(
+                     scope, targetTileId, out _, out _));
+        }
+
+        private bool TryQualifyExactBuildingApproach(
+            AttackCursorPairScope scope,
+            int approachX,
+            int approachY,
+            int approachTileId,
+            out RouteProbeSummary summary)
+        {
+            summary = default;
+            if (IsAssassinScope(scope) && TryProbeCombinedAssassinRoute(
+                scope, approachX, approachY, out summary))
+            {
+                return true;
+            }
+
+            AttackCursorPairScope directScope = new AttackCursorPairScope(
+                scope.MapEpoch,
+                scope.UnitId,
+                scope.PlayerId,
+                scope.StartX,
+                scope.StartY,
+                scope.StartTileId,
+                approachX,
+                approachY,
+                approachTileId,
+                CursorPairFallbackKind.DirectTile);
+            return TryFindRequiredFriendlyCompletedMoatRouteToDirectTile(
+                directScope, out summary);
+        }
+
+        private bool TryResolveVerifiedBuildingApproachTile(
+            AttackCursorPairScope scope,
+            int candidateTileId,
+            out int candidateX,
+            out int candidateY)
+        {
+            candidateX = -1;
+            candidateY = -1;
+            if (scope == null || scope.BuildingId <= 0 || !IsValidTileId(candidateTileId) ||
+                !GameBuildingManagerAPI.Instance.TryGetBuildingById(
+                    scope.BuildingId, out GameBuilding* building) || building == null ||
+                building->r_AliveState != AliveState.IsAlive ||
+                building->r_GlobalId != scope.BuildingGlobalId ||
+                building->r_PlayerIdOwner != scope.BuildingOwnerId ||
+                building->r_BuildingType != scope.BuildingType ||
+                IsWallStairOrRampStructure(building->r_BuildingType))
+            {
+                return false;
+            }
+
+            UnmanagedVector2<ushort> position =
+                GameTileManagerAPI.Instance.GetTileVectorFromId(candidateTileId);
+            candidateX = position.X;
+            candidateY = position.Y;
+            if (candidateX < 0 || candidateX >= MapWidth ||
+                candidateY < 0 || candidateY >= MapWidth ||
+                GameTileManagerAPI.Instance.GetTileId(candidateX, candidateY) != candidateTileId)
+            {
+                return false;
+            }
+            int minX = Math.Max(0, Math.Min(
+                building->r_TilePositionXBegin, building->r_TilePositionXEnd) - 1);
+            int maxX = Math.Min(MapWidth - 1, Math.Max(
+                building->r_TilePositionXBegin, building->r_TilePositionXEnd) + 1);
+            int minY = Math.Max(0, Math.Min(
+                building->r_TilePositionYBegin, building->r_TilePositionYEnd) - 1);
+            int maxY = Math.Min(MapWidth - 1, Math.Max(
+                building->r_TilePositionYBegin, building->r_TilePositionYEnd) + 1);
+            if (candidateX < minX || candidateX > maxX ||
+                candidateY < minY || candidateY > maxY ||
+                GameTileManagerAPI.Instance.GetTileBuildingId(candidateTileId) == scope.BuildingId)
+            {
+                return false;
+            }
+
+            bool adjacent = false;
+            for (int dy = -1; dy <= 1 && !adjacent; dy++)
+            {
+                for (int dx = -1; dx <= 1; dx++)
+                {
+                    if ((dx == 0 && dy == 0) || candidateX + dx < 0 ||
+                        candidateX + dx >= MapWidth || candidateY + dy < 0 ||
+                        candidateY + dy >= MapWidth)
+                    {
+                        continue;
+                    }
+                    int neighbor = GameTileManagerAPI.Instance.GetTileId(
+                        candidateX + dx, candidateY + dy);
+                    if (IsValidTileId(neighbor) &&
+                        GameTileManagerAPI.Instance.GetTileBuildingId(neighbor) == scope.BuildingId)
+                    {
+                        adjacent = true;
+                        break;
+                    }
+                }
+            }
+
+            int cell = candidateY * MapWidth + candidateX;
+            return adjacent && movementTargetAvailability[cell] != 0 &&
+                (tileFlags[candidateTileId] & OrdinaryWalkableTileFlag) != 0 &&
+                (tileFlags[candidateTileId] & CursorSpecialStructureTileFlagMask) == 0;
         }
 
         private bool TryResolveHostileLivingBuildingFromRawCursor(
@@ -3864,6 +4255,15 @@ namespace MoveMoatTest
                     if (region <= 0 || region > MaximumRegionId)
                         continue;
 
+                    if (IsAssassinScope(scope) && TryProbeCombinedAssassinRoute(
+                        scope, x, y, out RouteProbeSummary assassinCandidate))
+                    {
+                        approachX = x;
+                        approachY = y;
+                        summary = assassinCandidate;
+                        return true;
+                    }
+
                     EnsureReachabilityMap(scope.UnitId, scope.PlayerId, tileManager, playerApi,
                         scope.StartX, scope.StartY, region);
                     RouteProbeSummary candidate = cachedRouteSummary;
@@ -3994,6 +4394,16 @@ namespace MoveMoatTest
                     int candidateRegion = pathRegionGrid[candidateTileId];
                     if (candidateRegion <= 0 || candidateRegion > MaximumRegionId)
                         continue;
+
+                    if (IsAssassinScope(scope) && TryProbeCombinedAssassinRoute(
+                        scope, candidateX, candidateY,
+                        out RouteProbeSummary assassinCandidate))
+                    {
+                        approachX = candidateX;
+                        approachY = candidateY;
+                        summary = assassinCandidate;
+                        return true;
+                    }
 
                     EnsureReachabilityMap(
                         scope.UnitId,
@@ -4478,8 +4888,7 @@ namespace MoveMoatTest
             $"{unit->r_NextTilePositionX2}:{unit->r_NextTilePositionY2}:" +
             $"{unit->r_ContextTargetTileX}:{unit->r_ContextTargetTileY}:" +
             $"{unit->r_PathPlanRelated1}:{unit->r_PathPlanStateBitFlags}:" +
-            $"{unit->r_MovingRelevant}:{unit->p_CurrentPathPlanPosition}:" +
-            $"{unit->p_PathPlanSize}:{unit->r_CurrentSpeed}:{unit->r_CurrentSpeed2}";
+            $"{unit->p_PathPlanSize}:{unit->r_CurrentSpeed}";
 
         private void MarkTrackedWallPipeline(
             int unitId, string stage, int targetX, int targetY,
@@ -5406,6 +5815,8 @@ namespace MoveMoatTest
                 ReachedWithMoat = false;
                 ReachedWithoutMoat = false;
                 RegionTopologyQualified = false;
+                AssassinCombinedProbe = false;
+                AssassinUsedClimb = false;
             }
 
             public int PlayerId;
@@ -5420,6 +5831,8 @@ namespace MoveMoatTest
             public bool ReachedWithMoat;
             public bool ReachedWithoutMoat;
             public bool RegionTopologyQualified;
+            public bool AssassinCombinedProbe;
+            public bool AssassinUsedClimb;
 
             public void MergeObservations(RouteProbeSummary other)
             {
@@ -5437,6 +5850,8 @@ namespace MoveMoatTest
                 ReachedWithMoat |= other.ReachedWithMoat;
                 ReachedWithoutMoat |= other.ReachedWithoutMoat;
                 RegionTopologyQualified |= other.RegionTopologyQualified;
+                AssassinCombinedProbe |= other.AssassinCombinedProbe;
+                AssassinUsedClimb |= other.AssassinUsedClimb;
             }
 
             public void ObserveOwner(int ownerId)
@@ -5454,7 +5869,10 @@ namespace MoveMoatTest
                 return $"route={RouteFound} friendlyTiles={FriendlyMoatTiles} " +
                     $"enemyTiles={EnemyMoatTiles} invalidTiles={InvalidMoatTiles} " +
                     $"ownerMask=0x{ObservedOwnerMask:X} regions={StartRegion}->{TargetRegion}" +
-                    attackFields;
+                    attackFields +
+                    (AssassinCombinedProbe
+                        ? $" assassinCombined=true assassinClimb={AssassinUsedClimb}"
+                        : string.Empty);
             }
         }
 

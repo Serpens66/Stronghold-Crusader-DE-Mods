@@ -125,7 +125,7 @@ namespace ExtraFeatures
 
             buildingId = 0;
             LogError(
-                $"building query returned an invalid 1.41 game ID: queryId={queryId}, " +
+                $"building query returned an invalid 1-based game ID: queryId={queryId}, " +
                 $"expectedStructure={expectedStructure}.");
             return false;
         }

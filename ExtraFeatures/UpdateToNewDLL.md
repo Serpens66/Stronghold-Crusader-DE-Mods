@@ -26,7 +26,7 @@ managed/native links as applicable.
 | Building refunds and retained storage goods | Building delete/resource events, `GameBuilding` goods fields and pre-delete lifetime | Existing Script Extender event path remains correct; no private native address is used. |
 | Goods-gain and money multipliers | Resource-change event direction, market-trade exclusion and Vanilla price conversion | Existing event guards and arithmetic remain correct. |
 | Global and per-good market prices | AI buy/sell helpers at `0xCEB10`/`0xCEB90`, complete 31-byte functions, ABI, 10-byte detour spans and transaction callers | Existing paired hooks remain valid and self-validating on unknown hashes. |
-| Plague duration and AI flag disease | Handler `0x9A080..0x9A21A`, lifetime block at `0x9A164`, AI flag routine `0x504F0..0x50620`, projectile spawn provenance and save identity | Existing hook/data contracts remain valid. |
+| Plague duration and AI flag disease | Handler `0x9A080..0x9A21A`, lifetime block at `0x9A164`, AI flag routine `0x504F0..0x50620`, projectile spawn provenance and save identity | Confirmed contracts remain valid. Corrected fail-closed behavior: on unknown DLL hashes only the self-validating global lifetime block is used; the separate layout-/provenance-dependent AI-flag/Cesspit exception detour is not installed. |
 | Apothecary plague range | Handler `0x9F700..0x9F90D`, comparison at `0x9F86B`, Vanilla distance 30 and projectile/building context | Existing bounded comparison hook remains valid. |
 | Campfire peasants and Lord health | Public Script Extender player/unit APIs, Lord IDs and `GameUnit` health fields | No private native target; current 1-based ID use is correct. |
 | Single-building pause | Building IDs, `r_IsSleeping`, managed UI hooks, synchronized Chore path and sleep-state resynchronization | Current IDs are 1-based and all span conversions use `spanIndex + 1`; no correction required. |
@@ -35,15 +35,27 @@ managed/native links as applicable.
 | Knight mount/dismount | Public `GameUnit`/stable fields, 1-based alive-unit IDs, stable links, horse slots and Chore synchronization | Current public-API implementation and ID basis remain correct. |
 | Quarry pile relocation | Helper `0xC0270..0xC04BE`, manager globals, `GameBuilding` size `0x32C`, pile link `0x192`, structure group `0x2A8` and 1-based span boundaries | Existing exact-hash restriction remains required and correct. |
 | Extra church priests | Complete worker table beginning at `0x2E5DE0`, unique pattern at `0x2E5E58` and church/cathedral worker lifecycle | Existing table-start calculation and reversible writes remain valid. |
-| AI economy protection | Handlers containing `0xC7DCB`, `0x2F454`, `0x3B1D0` and `0x3B2FF`; hook registers, building-owner/sleep fields and demolition callers | Existing individually validated hooks remain valid. |
+| AI economy protection | Handlers containing `0xC7DCB`, `0x2F454`, `0x3B1D0` and `0x3B2FF`; hook registers, building-owner/sleep fields and demolition callers | Confirmed targets remain valid. Corrected fail-closed behavior: owner-offset-based AI pause suppression is inactive and the layout-dependent inaccessible-building target at `0x3B2FF` is neither resolved nor hooked on an unknown DLL hash. The signaturally validated sleep hook remains available for the independent single-building pause bookkeeping. |
 | AI proximity and defense repair | Functions `0x51790..0x52266` and `0x5CD90..0x5D1C5`, placement pairing, origin globals and damage/spawn observations | Existing exact-hash restriction remains required and correct. |
-| Gatehouse automation and reachability | Handler `0xB73D0..0xB7CE5`, gate entries, 1-based building IDs and PCL reachability context | Reachability remains exact-hash-only; save/map locator logic needs no correction. |
+| Gatehouse automation and reachability | Handler `0xB73D0..0xB7CE5`, gate-query hook `0xB7B4B`, native unit offset at `0xB7B34`, gate entries, building IDs and PCL reachability context | Corrected: the locally built and installed Script Extender 1.42.0 exposes `GatehouseQueryEventArgs.UnitId` as a 0-based span index. ExtraFeatures now converts it exactly once and evaluates the replaced Vanilla candidate checks against the intended unit. Reachability remains exact-hash-only. |
 | Gatehouse timing values | Full handler raw SHA-256 `F73E9FF6...FA57C8`, executable section, decision blocks and four immediates | Hardened locally: full catalog validation, instruction invariants, finite/UInt16 conversion and page-based transactional writes. Unknown hashes now fail closed. |
 
-The ID/index audit found no double conversions or missing boundary conversions.
-All direct building spans use zero-based `spanIndex`; every transition to a
-manager ID uses exactly `spanIndex + 1`. `GetAllAliveUnits`, selected-unit IDs
-and building-event IDs are consumed directly as 1-based game IDs.
+The ID/index audit found one missing boundary conversion in the Script Extender
+gatehouse-query event. `BulkBuildingDetours` obtains the candidate with
+`GetIndexByOffset(...)` but publishes it as `GatehouseQueryEventArgs.UnitId`
+without `+1`. Native RVA `0xB7B34` proves that this value is a byte offset based
+on a zero-based unit slot (`slot * 0x490`). ExtraFeatures therefore treats only
+this event field as `unitSpanIndex` and converts it once before calling any
+manager ID API. All direct building spans likewise use zero-based `spanIndex`;
+every transition to a manager ID uses exactly `spanIndex + 1`.
+`GetAllAliveUnits`, selected-unit IDs and all other audited event IDs are
+consumed directly as 1-based game IDs.
+
+Every local dependency on this workaround is tagged
+`SE-GATEHOUSE-UNIT-ID-COMPAT`. After any Script Extender update, inspect those
+tags and the upstream `BulkBuildingDetours` implementation before rebuilding.
+If upstream adds the missing `+1`, remove the local conversion and adjust its
+regression test together; retaining both would introduce a new off-by-one.
 
 Automated gatehouse coverage is in `_inspect/ExtraFeaturesNativeTests`. It maps
 the canonical PE into its virtual image, validates the DLL and handler hashes,
@@ -55,16 +67,16 @@ fake native-memory adapter.
 
 | Source pattern | Reference RVA | Unknown-hash behavior / use |
 | --- | ---: | --- |
-| `SleepStateComparisonPattern` | `0xC7DCB` | scan; context hook |
+| `SleepStateComparisonPattern` | `0xC7DCB` | scan; context hook; unknown hashes allow only single-building pause bookkeeping, not owner-offset-based AI suppression |
 | `SleepStateSynchronizationFunctionPattern` | `0xC7D50` | scan; delegate |
 | `EmergencyDemolitionComparisonPattern` | `0x2F454` | scan; context hook |
 | `AIHovelDemolitionFunctionPattern` | `0x3B1D0` | scan; detour at the AI decision point |
-| `InaccessibleBuildingComparisonPattern` | `0x3B2FF` | executable-section unique scan; inaccessible-building context hook |
+| `InaccessibleBuildingComparisonPattern` | `0x3B2FF` | audited-hash-only inaccessible-building context hook; not resolved on unknown hashes |
 | `ExecuteBuildStepPattern` | `0x51790` | audited-hash-only defense rebuild detour |
 | `PlacementPattern` | `0x5CD90` | audited-hash-only paired AIV placement detour |
 | AI buy-price helper (`49 63 C0 8B 8C C1 B8 17 18 00 B8 67 66 66 66 F7 E9 D1 FA 8B C2 C1 E8 1F 03 C2 41 0F AF C1 C3`) | `0xCEB10` | executable-section unique scan; managed function detour |
 | AI sell-price helper (`49 63 C0 8B 8C C1 BC 17 18 00 B8 67 66 66 66 F7 E9 D1 FA 8B C2 C1 E8 1F 03 C2 41 0F AF C1 C3`) | `0xCEB90` | executable-section unique scan; managed function detour |
-| `AiFlagRoutinePattern` | `0x504F0` | scan; detour captures exact AI flag projectile provenance |
+| `AiFlagRoutinePattern` | `0x504F0` | audited-hash-only detour captures exact AI flag projectile provenance |
 | `LifetimePattern` | `0x9A164` | scan; lifetime immediate at `+9`, conditional comparison hook at `+18` (`0x9A176`) |
 | `BuildingDistanceComparisonPattern` | `0x9F86B` | scan; distance context hook |
 | `MovementDecisionPattern` (Monk handler) | `0x151436` | executable-section unique scan; 20-byte inline decision hook |
@@ -115,14 +127,14 @@ depends on the audited gatehouse query context and native gate entry layout.
      the two spans do not overlap;
    - buy callers still include the AI gold decision and the actual purchase,
      while the sell helper still supplies the transaction proceeds.
-9. Update every RVA and only then approve the shared hash.
-10. Revalidate the Monk handler at `0x151040` and its movement decision:
-    - the hook at `0x1513E6` remains three complete instructions of `9+2+9`
-      bytes and the following `je` remains at `0x1513FA`;
+8. Update every RVA and only then approve the shared hash.
+9. Revalidate the Monk handler at `0x151090` and its movement decision:
+    - the hook at `0x151436` remains three complete instructions of `9+2+9`
+      bytes and the following `je` remains at `0x15144A`;
     - no direct control transfer enters the open interval
-      `0x1513E6..0x1513FA`;
-    - walking remains `state=1, speedBonus=0` at `0x151413`, while running
-      remains `state=0x81, speedBonus=1` at `0x1513FC`;
+      `0x151436..0x15144A`;
+    - walking remains `state=1, speedBonus=0` at `0x151463`, while running
+      remains `state=0x81, speedBonus=1` at `0x15144C`;
     - the enabled branch still matches the official Improved-Spearmen
       translation of the ordinary Archer decision (`+0x914`, tribe `+0x582`,
       and `+0xA64`), while the disabled branch reproduces Monk Vanilla

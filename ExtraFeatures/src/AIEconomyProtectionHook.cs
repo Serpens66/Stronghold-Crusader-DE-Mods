@@ -68,6 +68,7 @@ namespace ExtraFeatures
 
         private readonly ManualLogSource log;
         private readonly ExtraFeaturesViewModel settings;
+        private readonly bool aiPauseProtectionSupported;
         private readonly bool inaccessibleBuildingProtectionSupported;
         private readonly HookTransaction transaction;
         private HookRef<X64InlineHook> sleepStateHook = new HookRef<X64InlineHook>();
@@ -98,6 +99,7 @@ namespace ExtraFeatures
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
+            aiPauseProtectionSupported = referenceHashMatches;
             inaccessibleBuildingProtectionSupported = referenceHashMatches;
 
             ulong libraryBase = unchecked((ulong)libraryHandle.ToInt64());
@@ -113,16 +115,19 @@ namespace ExtraFeatures
             int aiHovelDemolitionRva = Resolve(
                 memory, AIHovelDemolitionFunctionPattern, AIHovelDemolitionFunctionRva,
                 referenceHashMatches, "AI hovel-demolition function");
-            int inaccessibleBuildingComparisonRva = Resolve(
-                memory, InaccessibleBuildingComparisonPattern, InaccessibleBuildingComparisonRva,
-                referenceHashMatches, "AI inaccessible-building demolition comparison");
+            int inaccessibleBuildingComparisonRva = referenceHashMatches
+                ? Resolve(
+                    memory, InaccessibleBuildingComparisonPattern, InaccessibleBuildingComparisonRva,
+                    true, "AI inaccessible-building demolition comparison")
+                : -1;
 
             temporaryAccessClassifier = new AIBuildingTemporaryAccessClassifier(log);
             if (!referenceHashMatches)
             {
                 log.LogWarning(
-                    $"[{TimestampNow()}] Extra Features inaccessible AI building-demolition protection " +
-                    "is disabled for this unknown CrusaderDE.dll; Vanilla behavior is retained.");
+                    $"[{TimestampNow()}] Extra Features layout-dependent AI pause and inaccessible " +
+                    "building-demolition protection are disabled for this unknown CrusaderDE.dll; " +
+                    "Vanilla behavior is retained for those settings.");
             }
 
             synchronizeSleepStates = Marshal.GetDelegateForFunctionPointer<SynchronizeSleepStatesDelegate>(
@@ -150,13 +155,16 @@ namespace ExtraFeatures
                 errorMode: CallbackErrorMode.LogAndContinue,
                 placement: OverwrittenInstructionPlacement.AfterCallback);
 
-            transaction.AddContextHook(
-                ref inaccessibleBuildingDemolitionHook,
-                libraryBase + unchecked((ulong)inaccessibleBuildingComparisonRva),
-                PreventInaccessibleBuildingDemolition,
-                regs: X64SmartCPUContextRegs.Volatile | X64SmartCPUContextRegs.RDI,
-                errorMode: CallbackErrorMode.LogAndContinue,
-                placement: OverwrittenInstructionPlacement.AfterCallback);
+            if (inaccessibleBuildingProtectionSupported)
+            {
+                transaction.AddContextHook(
+                    ref inaccessibleBuildingDemolitionHook,
+                    libraryBase + unchecked((ulong)inaccessibleBuildingComparisonRva),
+                    PreventInaccessibleBuildingDemolition,
+                    regs: X64SmartCPUContextRegs.Volatile | X64SmartCPUContextRegs.RDI,
+                    errorMode: CallbackErrorMode.LogAndContinue,
+                    placement: OverwrittenInstructionPlacement.AfterCallback);
+            }
 
             transaction.AddDetour(
                 ref aiHovelDemolitionHook,
@@ -171,7 +179,7 @@ namespace ExtraFeatures
                 throw new InvalidOperationException("The AI emergency-demolition AOB signature was not found.");
             if (!aiHovelDemolitionHook.Success)
                 throw new InvalidOperationException("The AI hovel-demolition AOB signature was not found.");
-            if (!inaccessibleBuildingDemolitionHook.Success)
+            if (inaccessibleBuildingProtectionSupported && !inaccessibleBuildingDemolitionHook.Success)
                 throw new InvalidOperationException("The AI inaccessible-building demolition AOB signature was not found.");
         }
 
@@ -209,7 +217,7 @@ namespace ExtraFeatures
                 if (ApplySingleBuildingSleepOverride(registers))
                     return;
 
-                if (!settings.EnableMod || !settings.PreventAIPause)
+                if (!settings.EnableMod || !settings.PreventAIPause || !aiPauseProtectionSupported)
                     return;
 
                 byte requestedState = (byte)registers->RCX;

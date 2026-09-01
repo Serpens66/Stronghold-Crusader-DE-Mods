@@ -1602,6 +1602,65 @@ denselben owner-qualifizierten Plan, blieb aber am oben beschriebenen `+0x80=0/+
 hängen. Damit ist dieser Builderzweig der einzige im Lauf beobachtete verbleibende
 Assassin-Abbruch.
 
+### 12.1.5 Zentrale Assassin-Moat-Kanten im gewichteten Builder
+
+Für die kanonische DLL mit SHA-256
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
+ist `0xD9C40` die gemeinsame Assassin-Graphsuche. Die Baseline weist vier direkte Caller aus:
+`0xE2CA0`, `0xF4930`, `0x11B520` und `0x123090`. Damit liegt die Funktion unter Cursor-Tilepaar,
+zentralem Pfadbuilder, Kletterbewegung und Gebäude-Kandidatenverbrauch. Ihr Vanilla-Fallback prüft
+Zieltile mit der Maske `0x4A5014B1`; Bit 30 für fertige Moats ist darin enthalten. Das erklärt,
+warum einzelne Cursor- oder Commandfreigaben einen Assassin zwar bis zu diesem Builder bringen,
+aber keine kombinierte Moat-/Kletterroute erzeugen können.
+
+`BugfixesAndQoL` besitzt bereits den einzigen Detour auf `0xD9C40` und ersetzt ihn bei aktivierter
+verbesserter Assassin-Wegfindung durch eine gewichtete Suche. Die Testlösung erweitert genau diese
+Suche um owner-sichere Moat-Kanten. `MoveMoatTest` installiert ausdrücklich keinen zweiten Hook,
+sondern registriert per Reflection einen internen Callback `playerId/tileId -> friendly moat`.
+Die Brücke akzeptiert höchstens einen Provider, hält ohne Provider das bisherige Verhalten logisch
+unverändert und behandelt fehlende oder fehlerhafte Daten als nicht begehbar. Die
+Rekonstruktionsfreigabe wird nur aktiv, solange entweder die vorhandene Assassin-Option oder dieser
+Testprovider aktiv ist.
+
+Die gewichtete Suche unterscheidet drei Kantenarten:
+
+- normale Boden-/Diagonalübergänge nach den unveränderten nativen Richtungs- und
+  Belegungsmasken;
+- kardinale Übergänge Boden↔freundlicher Moat und freundlicher Moat↔freundlicher Moat;
+- kardinale Kletterübergänge, weiterhin gebunden an Vanillas Wall-, Stair-, Building- und
+  Kletterfreigaben sowie an die bestehenden Kletterkosten.
+
+Ein fertiger Moat mit negativem Providerergebnis ist keine Kante. Eine nur durch den Testprovider
+aktivierte Route wird ausschließlich veröffentlicht, wenn Vanillas erster Lauf `0` lieferte und
+die rekonstruierte Route tatsächlich mindestens ein eigenes oder verbündetes fertiges Moat-Tile
+enthält. Ohne aktive verbesserte Assassin-Wegfindung kann die Brücke daher keine reine alternative
+Boden- oder Kletterroute ersetzen. Der bisherige zweite Bodenbuilderlauf in `MoveMoatTest` bleibt
+nur als Kompatibilitätspfad erhalten, wenn `BugfixesAndQoL` beziehungsweise die Brücke fehlt.
+
+Dieselbe Suche besitzt eine read-only Probe. Sie schreibt weder Generationen noch Distanzfelder
+und liefert nur die Flags `reachable`, `used friendly moat` und `used climb edge`. Der Cursor kann
+dadurch Startpositionen auf Mauern und Ziele nach kombinierten Moat-/Kletterkanten prüfen, ohne für
+jeden Assassin-Command oder AI-State einen eigenen Bewegungsfallback zu benötigen. Die Probe ist
+nicht reentrant; Fehler behalten Vanilla.
+
+Beim Gebäude-Hover ist die Argumentsemantik von `0xE2CA0` wichtig: Der beobachtete relevante
+Aufruf verwendet als Zieltile bereits ein freies Annäherungsfeld außerhalb des verifizierten
+Gebäude-Footprints und `useCache=0`. Es ist weder das Hovertile noch zwingend der zuvor gespeicherte
+globale Zielpunkt. Der Building-Scope darf deshalb `useCache=0` nur akzeptieren, wenn Starttile und
+ausgewählte Unit exakt passen und das tatsächliche Zieltile ein freies Außenfeld desselben
+lebenden, feindlichen Gebäudes ist. Die owner-sichere Route wird genau zu diesem Tile geprüft;
+Wall-, Stair- und Ramp-Strukturen bleiben aus dem Building-Scope ausgeschlossen. `0xDA020` und
+`0x123090` bleiben zunächst read-only, bis ein echter Building-Command den nächsten möglichen
+Abbruch belegt.
+
+Nach einem Spielupdate darf weder die RVA noch die Maske allein übernommen werden. Zuerst den
+aktuellen Hash gegen `CURRENT.json` prüfen, dann die Funktion über Signatur, CFG beziehungsweise
+normalisierten Hash und ihre vier Caller wiederfinden. Anschließend die Zugriffe auf
+Validitätsgrid, Row-Lookup, Tileflags, Building-Layer, Occupancy-Layer, Distanz-/Visit-Felder und
+Richtungsmasken erneut bestätigen. Die historische Zuordnung `0xD8E10 -> 0xD9C40` ist in der
+aktuellen Baseline mit `unique-normalized-hash-and-cfg` bestätigt und eignet sich nur als
+zusätzlicher Suchanker.
+
 ## 13. Appendix: direkte CALL-Sites auf `0x197950`
 
 Für die kanonische DLL wurden folgende 85 direkten Aufrufstellen gefunden:
@@ -1646,7 +1705,9 @@ Diese Liste belegt die breite Verwendung des Helpers, ersetzt aber bei einer neu
   friendly/enemy/invalid Tiles.
 - Unit- und Gebäudeziele verwenden denselben Gate-Mechanismus. Gebäude werden über Hover-ID,
   StructureGrid-ID, Alive-State, Global-ID, Owner, Typ und realen Footprint gebunden; reine
-  Mauer-/Treppenstrukturen sind ausgeschlossen. `0xDA020` und `0x123090` bleiben zunächst
+  Mauer-/Treppenstrukturen sind ausgeschlossen. Der relevante `0xE2CA0`-Aufruf darf im exakt
+  gebundenen Building-Scope `useCache=0` verwenden und wird gegen sein tatsächliches freies
+  Annäherungstile außerhalb des Footprints geprüft. `0xDA020` und `0x123090` bleiben zunächst
   read-only, damit der nächste Gebäudetest den späteren Abbruch eindeutig zeigt.
 - Attack-Commands erhalten während ihres synchronen Pre/Post-Aufrufs einen exakten
   Tribe-/Command-/Zielscope. Nur das von Vanilla gesetzte Attack-Move-Ziel und eine ohne
@@ -1654,9 +1715,11 @@ Diese Liste belegt die breite Verwendung des Helpers, ersetzt aber bei einer neu
   Builderfallback aktivieren. Früh angelegte Tracker behalten ihre Mode-, Planer- und
   Buildermarkierungen in der anschließenden read-only Tick-Verfolgung.
 - Assassinen verwenden bei `pathManager+0x88 != 0` den Spezialbuilder `0xD9C40`. Der bestätigte
-  Moat-Fehlfall tritt mit `+0x80=0/+0x88=1` ein. Nach Vanilla `0` und positiver notwendiger
-  Owner-Moat-Route darf ausschließlich `+0x88` für den zweiten Aufruf `1 → 0 → 1` wechseln;
-  `+0x80` bleibt unverändert. `0xD9C40` wird nicht zusätzlich gehookt.
+  Moat-Fehlfall tritt mit `+0x80=0/+0x88=1` ein. Die bevorzugte Lösung ist jetzt die zentrale
+  owner-sichere Erweiterung des bereits von `BugfixesAndQoL` kontrollierten gewichteten Builders;
+  sie erhält Boden- und Kletterkanten in derselben Suche. `MoveMoatTest` installiert keinen
+  zweiten Hook. Der frühere temporäre Wechsel `+0x88: 1 → 0 → 1` bleibt ausschließlich als
+  fail-closed Kompatibilitätspfad ohne aktive Brücke bestehen.
 - Der streng owner-geprüfte `UnitFlood`-Regionsfallback ist für normale `AttackUnit`-Befehle
   funktional bestätigt: `0xDBC60` erzeugte 50 Kandidaten und der echte Builderpfad wurde
   vollständig bewegt. Gebäudeangriffe über `0xDA020`/`0x123090` bleiben vorerst diagnostisch.
@@ -1678,11 +1741,10 @@ Diese Liste belegt die breite Verwendung des Helpers, ersetzt aber bei einer neu
   `GetTileId(x,y)`-Prüfung eindeutig innerhalb des realen Footprints liegt. Global-ID, Owner,
   StructureGrid-ID und Typ werden erneut gebunden; Wall-, Stair- und Ramp-Typen bleiben draußen.
 - Für eine Mauer hinter freundlichem Moat wird nur ein Assassin-Scope geöffnet, wenn Vanilla das
-  Wall-Hover grundsätzlich akzeptiert und ein freies Annäherungsfeld ausschließlich über
-  eigenen/verbündeten Moat erreichbar ist. Dies öffnet Cursor und Diagnose, erzwingt aber noch
-  keinen kombinierten Pfad. `0xD9C40` bleibt ungehookt, weil `BugfixesAndQoL` dort bereits seinen
-  vollständigen gewichteten Assassin-Builder installiert; eine spätere Moat-plus-Kletterlösung
-  muss diese Konfliktgrenze ausdrücklich erhalten.
+  Wall-Hover grundsätzlich akzeptiert und die read-only Probe des gewichteten Builders eine
+  notwendige owner-sichere Route mit mindestens einer freundlichen Moat-Kante bestätigt. Dieselbe
+  zentrale Suche erzeugt anschließend die kombinierte Moat-/Kletterroute und deckt auch einen
+  Assassin-Start auf einer Mauer ab.
 - `0x196840` bedeutet nachweislich „Unit steht auf einem Tile mit fertigem-Moat-Bit“, während
   `0x196870` nur Auswahlarten prüft; diese Semantik bei Updates nicht wieder verallgemeinern.
 - Als Nächstes diese Stufe mit eigenem, verbündetem und feindlichem Moat sowie Umweg-, Mauer-

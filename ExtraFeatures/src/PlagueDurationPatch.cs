@@ -71,7 +71,18 @@ namespace ExtraFeatures
                     $"The plague lifetime has an unexpected native value: expected={VanillaLifetime}, actual={currentLifetime}.");
             }
 
-            TryInitializeAiFlagException(libraryHandle, memory, referenceHashMatches, matchOffset);
+            if (referenceHashMatches)
+            {
+                TryInitializeAiFlagException(libraryHandle, memory, referenceHashMatches, matchOffset);
+            }
+            else
+            {
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    "Extra Features AI flag and Cesspit Disease lifetime exceptions are disabled " +
+                    "for this unknown CrusaderDE.dll; only the signature-validated global plague " +
+                    "duration is available.");
+            }
         }
 
         public void Apply(double multiplier, bool enabled)
