@@ -1240,7 +1240,8 @@ Quelldateien. Für `MoveMoatTest` sind dies:
 |---|---:|---|
 | `CursorCurrentTileFlagGatePattern` | `0x8F388`, Sprung `0x8F393` | allgemeiner Tile-/Mauerzweig; Originalbytes validieren, niemals global öffnen |
 | `CursorTilePairFallbackSelectionPattern` | `0x196870` | Auswahlarten-Gate: 35 Slots ab Struktur-Offset `0x564`, Slot 22 ausgenommen |
-| `CursorWallCommandStagerPattern` | `0x199B70` | direkter Cursor-Stager für `AttackWallTileId=0x17` und `AttachLadderToWall=0x18`; schreibt Command-/Tile-Globals und signalisiert Event `0x24` |
+| historischer Wall-Stager | `0x199B70` | Stager für `AttackWallTileId=0x17` und `AttachLadderToWall=0x18`; der beobachtete Assassin-Kletterklick läuft nicht primär hierüber |
+| `CursorMoveCommandStagerPattern` | `0x195E30` | allgemeiner Cursor-`MoveHere`-Stager; vier bestätigte Calls bei `0x8F7BA`, `0x8FD3C`, `0x8FDC6` und `0x8FE54` |
 | `GetRepresentativeSelectedUnitPattern` | `0x18D460` | vom Cursor verwendete repräsentative ausgewählte Unit ab Startindex 1 |
 | `CursorTilePairReachabilityPattern` | `0xE2CA0` | Start-/Zieltilevergleich; bei getrennten Regionen Call auf BFS `0xD9C40` |
 | `AttackUnitPairGatePattern` | `0x8D71D`, Sprung `0x8D72B` | Call auf `0x196870`, danach Tilepaarprüfung für Unit-Angriffszweig |
@@ -1627,9 +1628,12 @@ Diese Liste belegt die breite Verwendung des Helpers, ersetzt aber bei einer neu
 - Allgemeine wiederholte Bewegung durch fertige Moats funktioniert im Editor und Skirmish.
 - Der frühere globale Fallthrough bei `0x8F393` sowie die drei Entity-Sprungpatches sind entfernt.
   Alle vier Stellen bleiben Vanilla und werden nur als bytevalidierte Update-Suchanker geführt.
-- `0x196870` ist nun das semantische Cursor-Gate: Vanilla-positive Antworten bleiben unangetastet;
-  nur ein Vanilla-Nuller wird nach exakter Zielklassifikation und notwendiger owner-sicherer
-  Moat-Route effektiv positiv. `0xE2CA0` validiert denselben kurzlebigen Kontext erneut.
+- `0x196870` ist nun das semantische Cursor-Gate: Ein Vanilla-Nuller wird nur nach exakter
+  Zielklassifikation und notwendiger owner-sicherer Moat-Route effektiv positiv. `0xE2CA0`
+  validiert denselben kurzlebigen Kontext erneut. Positive Regions-/Direktresultate werden
+  zusätzlich owner-sicher geprüft, weil der Editor auch bei gleicher Region hinter feindlichem
+  Moat positiv antworten kann. Nur ein nachgewiesenes ausschließlich feindliches Moat-Hindernis
+  darf dabei Vanillas positives Ergebnis auf `0` ändern; unvollständige Daten bleiben Vanilla.
 - Der Auftrag benötigt Flood-Fill-, Modus- und Regionsfreigabe; der Builder verwendet
   `pathManager+0x80 = 0` erst als owner-geprüften Fallback, nachdem Vanillas erster Lauf mit der
   ursprünglichen Variante tatsächlich `0` geliefert hat.
@@ -1656,22 +1660,29 @@ Diese Liste belegt die breite Verwendung des Helpers, ersetzt aber bei einer neu
 - Der streng owner-geprüfte `UnitFlood`-Regionsfallback ist für normale `AttackUnit`-Befehle
   funktional bestätigt: `0xDBC60` erzeugte 50 Kandidaten und der echte Builderpfad wurde
   vollständig bewegt. Gebäudeangriffe über `0xDA020`/`0x123090` bleiben vorerst diagnostisch.
-- Alle globalen Cursorpatches sind entfernt, dennoch bestätigt ein A/B-Test weiterhin eine durch
-  `MoveMoatTest` ausgelöste Kletterregression. Die frühere Erklärung, allein `0x8F393` habe sie
-  verursacht und ihre Entfernung habe normales Klettern repariert, ist damit widerlegt.
-  `GameCursorManager.r_HoveringOverWall` wird nun unabhängig von einer `GameBuilding`-ID geloggt.
-  Zusätzlich beobachtet ein separat validierter, rein lesender Detour den nativen Cursor-Stager
-  `0x199B70` an seinen Calls `0x8FBB3` und `0x8FC03`. Er bindet Assassin, Command, exaktes
-  Wall-Tile und Cursor-Rohwerte und korreliert danach Zustands-, Planer-, Moat-Modus- und
-  Builderaufrufe. Er verändert weder Command noch Tiles noch Rückgabewerte. Klettern hinter Moat
-  bleibt bis zum Nachweis der kombinierten Vanilla-Kletterpipeline bewusst offen.
-- Die hashgleiche semantische Baseline beschreibt `0x199B70` als 143 Byte große Funktion. Sie
-  schreibt ihre Parameter in die Globals `0x86C132C`, `0x86C1330` und `0x86C1334`, signalisiert
-  Event `0x24` über `0x23990` und bestimmt danach über `0x18D460` die repräsentative Unit.
-  Direkte Cursor-Calls liegen bei `0x8FBB3` und `0x8FC03`. Der Versionsmatcher ordnet sie mit
-  `confidence=confirmed`, `reason=unique-normalized-hash-and-cfg` der historischen Funktion
-  `0x198B20` zu. Pattern, vollständige Entrybytes und beide Callziele müssen bei einem Update
-  trotzdem erneut gemeinsam validiert werden.
+- Der A/B-bestätigte normale Kletterfehler entstand nach den Laufzeitlogs dadurch, dass
+  `0x196840` für jeden synchronen `MoveHere`-Aufruf `0 → 1` erzwang, auch wenn kein Moat nötig
+  war. Ein aktiver Command ist daher keine ausreichende Freigabe mehr: Modus, Plan und Builder
+  werden nur nach `reachedWithMoat=true`, `reachedWithoutMoat=false` und mindestens einem
+  eigenen/verbündeten Moat aktiviert. Gewöhnliche Wege und normale Mauerannäherungen bleiben
+  vollständig bei Vanilla.
+- `0x199B70` war als Hauptdiagnose für Assassin-Klettern falsch gewählt. Die hashgleiche Baseline
+  bestätigt stattdessen `0x195E30 → 0x11B520`: `0x195E30` übernimmt Unitmanager, Tribe und
+  Zielkoordinaten, prüft die repräsentative Unit über `0x18D460` und stößt den allgemeinen
+  `MoveHere`-Pfad an. Der neue read-only Detour validiert die 33 Entrybytes sowie alle vier Calls
+  `0x8F7BA`, `0x8FD3C`, `0x8FDC6` und `0x8FE54`. `0x199B70` bleibt nur historischer Suchanker.
+- Gebäude-Hover dürfen nicht von den globalen Zielkoordinaten abhängen: Im beobachteten roten
+  Hover waren diese `(0,0)` beziehungsweise ergaben Tile `-399`, während rohe Building-ID und
+  Mouse-Tile gültig waren. Der aktuelle Scope akzeptiert deshalb ausschließlich eine 1-basierte,
+  lebende feindliche Building-ID und ein `r_MouseTileId`/`r_MouseTileId2`, das durch erneute
+  `GetTileId(x,y)`-Prüfung eindeutig innerhalb des realen Footprints liegt. Global-ID, Owner,
+  StructureGrid-ID und Typ werden erneut gebunden; Wall-, Stair- und Ramp-Typen bleiben draußen.
+- Für eine Mauer hinter freundlichem Moat wird nur ein Assassin-Scope geöffnet, wenn Vanilla das
+  Wall-Hover grundsätzlich akzeptiert und ein freies Annäherungsfeld ausschließlich über
+  eigenen/verbündeten Moat erreichbar ist. Dies öffnet Cursor und Diagnose, erzwingt aber noch
+  keinen kombinierten Pfad. `0xD9C40` bleibt ungehookt, weil `BugfixesAndQoL` dort bereits seinen
+  vollständigen gewichteten Assassin-Builder installiert; eine spätere Moat-plus-Kletterlösung
+  muss diese Konfliktgrenze ausdrücklich erhalten.
 - `0x196840` bedeutet nachweislich „Unit steht auf einem Tile mit fertigem-Moat-Bit“, während
   `0x196870` nur Auswahlarten prüft; diese Semantik bei Updates nicht wieder verallgemeinern.
 - Als Nächstes diese Stufe mit eigenem, verbündetem und feindlichem Moat sowie Umweg-, Mauer-

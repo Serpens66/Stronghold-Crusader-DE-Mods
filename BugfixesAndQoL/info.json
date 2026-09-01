@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.113",
+  "Version": "1.0.114",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.114",
+      "Changes": [
+        "Revalidated all fixes and quality-of-life features against the current native and managed baseline, and moved Assassin Stop handling to the Script Extender selected-unit Pre event without a duplicate native detour."
+      ]
+    },
     {
       "Version": "1.0.113",
       "Changes": [

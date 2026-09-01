@@ -12,6 +12,74 @@ path. On another hash, independently validated features search executable PE
 sections for exactly one semantic pattern match. Fixed tribe/unit layouts remain
 inactive until a new DLL has been audited.
 
+## Complete feature audit for Steam build 24816905
+
+The installed native DLL, the managed assembly, and the Script Extender sources
+were compared with the semantic baseline before this audit:
+
+- installed `CrusaderDE.dll`: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`;
+- installed `Assembly-CSharp.dll`: `BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789`;
+- Script Extender commit: `171d68e155a8f98c5f8c4ee154d9af154c9a2443`.
+
+The README currently describes 28 independently configurable features (13 fixes
+and 15 quality-of-life features). Every entry was traced from its setting through
+its runtime implementation to the relevant native, managed, Script Extender, XAML,
+network, or filesystem contract. The result is:
+
+| Feature | Audited surface | Result |
+| --- | --- | --- |
+| Demolition cursor near enemies | Managed `Director.setCursor`, Script Extender repair-proximity function, building begin position, and hash-gated `ChoreManager +0x870` mode flag | Valid; fixed layout remains fail-closed on other hashes |
+| HD-style minimap controls | Managed `FatControler` radar fields/methods and Vanilla camera `GameAction` calls | Valid against the managed baseline |
+| Market-hotkey main-menu return | Script Extender key event, selected-market validation, and managed market-panel state | Valid |
+| Display-resolution persistence | Managed `FatControler`, Unity display/focus state, and explicit apply guards | Valid |
+| Synchronized mixed-group movement | Three unique native signatures at `0x143BD9`, `0x19B506`, `0x18410C`/`0x184203`; unit stride `0x490`, manager header `0x65C`, tribe fields and cadence states | Valid; fixed layouts remain hash-gated |
+| Plague and apothecary fixes | Seven unique creation, popularity, search, treatment, healer-exit, and state-transition signatures plus projectile/unit identities | Valid; detours and context hooks remain isolated and reversible |
+| Unrestricted rally points | Seven unique rejection sites inside `0x90CD0-0x92F31`, with original conditional-jump bytes verified before every write | Valid |
+| Custom Trail extreme-gold fix | Managed Trail Maker/customize load and save flow | Valid; no native address dependency |
+| AI knight horse-demand fix | Unique recruitment entry `0x190CA0`, result fields `+0x650/+0x654`, ordered equipment/horse checks, and AI demand consumers | Valid |
+| AI tower rebuilding | Unique broad/narrow classifiers `0x5D025/0x5D055`, complete instruction spans, stack inputs, runtime building identity, and Vanilla cleanup flow | Valid |
+| Better AI overbuild rules | Unique mapper/blocker sites `0x5CEAB/0x5D016/0x5D045`, complete spans, stack inputs, protected-yard policy, and conflict guard | Valid |
+| AI stone reserve | Unique seller hook and six AIV layout/lifecycle signatures; slot/step strides, player mapping, and first-build states | Valid |
+| Autotrade sell threshold zero | Managed HUD slider callback, state fields, and `Autotrade_SetSell` action | Valid |
+| Map-origin sorting | Managed map header/list contracts and stable malformed-entry fallback | Valid |
+| Vanilla maps in the editor | Managed load/save requester flow and canonical-path containment policy | Valid; source Vanilla and Workshop files remain protected |
+| Detailed-market goods order | Managed/XAML bindings, local preset storage, and visual refresh | Valid |
+| Ctrl single-unit market trade | Four unique validator, packet, storage, and statistic signatures in their expected functions | Valid; future hashes require all four signatures together |
+| Ally goods-transfer modifiers | Managed allies-panel button/update hooks and displayed amount bindings | Valid |
+| Steam lobby invitations | Managed Steam callback/friend/lobby validation and Vanilla leave/join flow | Valid; local blacklist does not alter Steam handling |
+| Camera movement with modifiers | Managed camera input hook and key-state filtering | Valid |
+| Custom-lord/random-opponent selection | Managed lobby lists, slot caps, lord metadata, and random-button refresh methods | Valid |
+| AIV/AIC selection | Managed AI-settings fields/methods, bounded codec/presets, Script Extender `ImportAIV`, and validated multiplayer manifest/Chore flow | Valid |
+| Game-speed controls | Managed key/slider hooks, permission policy, pause action, and validated Chore transport | Valid |
+| Surrender and spectator features | Managed lord resolution/statistics UI/Chore flow plus local-only native `SpectatorMode` dispatch and player-ID restore sequence | Valid |
+| Resync host kick | Managed authenticated lobby members, heartbeat age, host authority, and forced-kick method | Valid |
+| Multiplayer lobby return | Managed lobby identity/replacement/join lifecycle | Valid |
+| Selected-unit health | Script Extender unit fields, managed troop paging, and current health table at RVA `0x322820` | Valid; all inspected defaults are divisible by display scale 10 |
+| Assassin climbing/control | Unique builder/reconstruction signatures, coordinate/global layers, states `126-129`, unit fields `+0x40F/+0x414/+0x416`, per-player Chore, and Script Extender selected-unit Pre event | Valid; the redundant mod-owned selected-unit detour was removed |
+| Lord troop-HUD controls | Managed lord identity, troop-HUD methods, command routing, and synchronized surrender replacement | Valid |
+
+All 38 production AOBs matched exactly once at their declared reference RVAs.
+The PE runtime-function table placed each match in the expected containing
+function. Baseline Xrefs show no incoming branch into the interior of the eight
+fixed-length inline overwrite spans used by movement, AI stone reserve, tower
+repair, and overbuild. Context callbacks preserve every register they read or
+modify, and their before/after placement retains the original instruction data
+flow. Direct byte patches validate current bytes, transition atomically, and
+restore only from a known state.
+
+Direct span loops use explicitly named zero-based indices. Calls to
+`TryGetUnitById`, `TryGetBuildingById`, and tribe APIs retain one-based game IDs.
+The mod does not use the exceptional zero-based `BuildingR3EventHooks.OnTogglePause`
+ID or the defective `BuildingExtensions.UpdateLocalGoodsResourceVisuals` helper.
+
+The Assassin Stop callback now subscribes to the Script Extender's existing
+`OnTribeIssueOrderWithTarget` event and acts only in its `Pre` phase. The former
+mod-owned detour at `0x199C70`, its trampoline, and its selected-command pattern
+were removed. The field mutation itself remains gated by the audited native hash
+because offsets `+0x40F/+0x414/+0x416` are fixed unit-layout contracts. After the
+callback, the Script Extender invokes Vanilla unchanged so it can clear the
+tribe's paths and orders normally.
+
 ## Native address map
 
 | Source pattern | Reference RVA | Use / offset |
@@ -110,9 +178,9 @@ lord transition, and post-transition identity checks remain fail-closed.
 
 The display reads live `GameUnit.r_CurrentHealth` and `r_MaxHealth` through the
 Script Extender and has no production RVA access. For the canonical DLL with
-SHA-256 `33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469`,
-the Script Extender resolved `gUnitHealthTable` at RVA `0x321820` (`.data`, raw
-file offset `0x320C20`). All 34 unit types represented by
+SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`,
+the Script Extender resolves `gUnitHealthTable` at RVA `0x322820` (`.data`, raw
+file offset `0x320E20`). All 34 unit types represented by
 `HUD_Troops.SetSelectedTroopVisible` have default HP divisible by 10: the range
 is 5,000 (ladderman/engineer) through 240,000 (siege tower). The HUD therefore
 displays current and maximum sums divided by 10 and rounded to the nearest

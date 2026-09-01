@@ -1,10 +1,7 @@
 using BepInEx;
 using BepInEx.Bootstrap;
 using BepInEx.Logging;
-using R3;
 using SHCDESE.API.LowLevel;
-using SHCDESE.EventAPI;
-using SHCDESE.EventAPI.MapLoader;
 using System;
 
 namespace AssassinCombatFix
@@ -21,12 +18,10 @@ namespace AssassinCombatFix
         private const string PluginVersion = "0.1.0";
 
         // The BepInEx component is destroyed during startup. Static ownership keeps the
-        // diagnostic hooks alive for the complete process.
+        // native hook alive for the complete process.
         private static ManualLogSource persistentLog;
         private static BugfixesAndQoL.BugfixesAndQoLViewModel settings;
         private static AssassinCombatResumeRuntime runtime;
-        private static IDisposable mapStartSubscription;
-        private static IDisposable mapUnloadSubscription;
         private static bool librarySubscriptionInstalled;
 
         private void Awake()
@@ -34,7 +29,7 @@ namespace AssassinCombatFix
             persistentLog = Logger;
             Shared.DebugLogHelper.LogInfo(
                 persistentLog,
-                $"{PluginName} {PluginVersion} loaded; Assassin combat-resume diagnostics follow the BugfixesAndQoL Assassin-pathfinding setting.");
+                $"{PluginName} {PluginVersion} loaded; the fix follows the BugfixesAndQoL Assassin-pathfinding setting.");
 
             if (!Chainloader.PluginInfos.TryGetValue(BugfixesAndQoLGuid, out var dependencyInfo) ||
                 !(dependencyInfo.Instance is BugfixesAndQoL.BugfixesAndQoLPlugin dependencyPlugin) ||
@@ -47,19 +42,6 @@ namespace AssassinCombatFix
             }
 
             settings = dependencyPlugin.Settings;
-
-            if (mapStartSubscription == null)
-            {
-                mapStartSubscription = MapLoaderR3EventHooks.OnStartMap.Observable
-                    .Where(args => args.Phase == EventHookPhase.Post)
-                    .Subscribe(_ => runtime?.BeginMap());
-            }
-            if (mapUnloadSubscription == null)
-            {
-                mapUnloadSubscription = MapLoaderR3EventHooks.OnUnloadMap.Observable
-                    .Where(args => args.Phase == EventHookPhase.Post)
-                    .Subscribe(_ => runtime?.EndMap());
-            }
 
             if (librarySubscriptionInstalled)
                 return;
@@ -90,7 +72,7 @@ namespace AssassinCombatFix
             {
                 Shared.DebugLogHelper.LogError(
                     persistentLog,
-                    $"{PluginName} could not install its diagnostic hooks; Vanilla behavior remains active: {ex}");
+                    $"{PluginName} could not install its native hook; Vanilla behavior remains active: {ex}");
             }
         }
     }

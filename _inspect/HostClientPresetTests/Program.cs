@@ -1,5 +1,4 @@
 using MessagePack;
-using Iced.Intel;
 using AssassinCombatFix;
 using BugfixesAndQoL;
 using ExtraFeatures;
@@ -8,6 +7,7 @@ using Shared;
 using SHCDESE.API;
 using SHCDESE.API.Components.ModManager;
 using SHCDESE.API.Components.Network;
+using SHCDESE.EventAPI;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
@@ -1920,14 +1920,6 @@ internal static class Program
 
     private static void TestAssassinCombatResumePolicy()
     {
-        Check(AssassinCombatResumePolicy.IsValidSpanIndex(0, 10000) &&
-              AssassinCombatResumePolicy.IsValidSpanIndex(9999, 10000),
-            "Assassin combat resume rejected a valid zero-based span index");
-        Check(!AssassinCombatResumePolicy.IsValidSpanIndex(-1, 10000) &&
-              !AssassinCombatResumePolicy.IsValidSpanIndex(10000, 10000) &&
-              !AssassinCombatResumePolicy.IsValidSpanIndex(0, 0),
-            "Assassin combat resume accepted an invalid span index");
-
         Check(AssassinCombatResumePolicy.TryConvertUnitIdToSpanIndex(1, 10000, out int firstSpanIndex) &&
               firstSpanIndex == 0 &&
               AssassinCombatResumePolicy.TryConvertUnitIdToSpanIndex(10000, 10000, out int lastSpanIndex) &&
@@ -1941,94 +1933,27 @@ internal static class Program
               !AssassinCombatResumePolicy.TryConvertUnitIdToSpanIndex(1, 0, out _),
             "Assassin combat resume accepted an invalid one-based unit ID");
 
-        Check(AssassinCombatResumePolicy.ShouldInjectPostCombatPathContext(
-                true, true, true, true,
-                AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN, 106, true),
-            "eligible Assassin state-106 combat resume did not request its path context");
-        Check(!AssassinCombatResumePolicy.ShouldInjectPostCombatPathContext(
-                false, true, true, true,
-                AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN, 106, true) &&
-              !AssassinCombatResumePolicy.ShouldInjectPostCombatPathContext(
-                true, false, true, true,
-                AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN, 106, true) &&
-              !AssassinCombatResumePolicy.ShouldInjectPostCombatPathContext(
-                true, true, false, true,
-                AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN, 106, true) &&
-              !AssassinCombatResumePolicy.ShouldInjectPostCombatPathContext(
-                true, true, true, false,
-                AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN, 106, true) &&
-              !AssassinCombatResumePolicy.ShouldInjectPostCombatPathContext(
-                true, true, true, true,
-                AliveState.MarkedForDeletion, eChimps.CHIMP_TYPE_ARAB_ASSASIN, 106, true) &&
-              !AssassinCombatResumePolicy.ShouldInjectPostCombatPathContext(
-                true, true, true, true,
-                AliveState.IsAlive, eChimps.CHIMP_TYPE_KNIGHT, 106, true) &&
-              !AssassinCombatResumePolicy.ShouldInjectPostCombatPathContext(
-                true, true, true, true,
-                AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN, 101, true) &&
-              !AssassinCombatResumePolicy.ShouldInjectPostCombatPathContext(
-                true, true, true, true,
-                AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN, 106, false),
-            "Assassin post-combat path context did not fail closed outside its audited state-106 caller");
+        Check(AssassinCombatResumePolicy.ShouldProcessPostCombatPathRequest(true, true, true, true),
+            "eligible Assassin post-combat caller did not enter unit inspection");
+        Check(!AssassinCombatResumePolicy.ShouldProcessPostCombatPathRequest(false, true, true, true) &&
+              !AssassinCombatResumePolicy.ShouldProcessPostCombatPathRequest(true, false, true, true) &&
+              !AssassinCombatResumePolicy.ShouldProcessPostCombatPathRequest(true, true, false, true) &&
+              !AssassinCombatResumePolicy.ShouldProcessPostCombatPathRequest(true, true, true, false),
+            "Assassin post-combat caller gate did not fail closed outside its enabled audited context");
 
-        Check(AssassinCombatResumePolicy.ShouldLogPassiveDiagnostic(
-                true, true, true, true, true,
-                AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN),
-            "enabled Assassin combat diagnostics rejected a living Assassin on an active map");
-        Check(!AssassinCombatResumePolicy.ShouldLogPassiveDiagnostic(
-                false, true, true, true, true,
-                AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN) &&
-              !AssassinCombatResumePolicy.ShouldLogPassiveDiagnostic(
-                true, false, true, true, true,
-                AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN) &&
-              !AssassinCombatResumePolicy.ShouldLogPassiveDiagnostic(
-                true, true, false, true, true,
-                AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN) &&
-              !AssassinCombatResumePolicy.ShouldLogPassiveDiagnostic(
-                true, true, true, false, true,
-                AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN) &&
-              !AssassinCombatResumePolicy.ShouldLogPassiveDiagnostic(
-                true, true, true, true, false,
-                AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN),
-            "Assassin combat diagnostics did not fail closed outside their active installed context");
-        Check(!AssassinCombatResumePolicy.ShouldLogPassiveDiagnostic(
-                true, true, true, true, true,
-                AliveState.MarkedForDeletion, eChimps.CHIMP_TYPE_ARAB_ASSASIN) &&
-              !AssassinCombatResumePolicy.ShouldLogPassiveDiagnostic(
-                true, true, true, true, true,
-                AliveState.IsAlive, eChimps.CHIMP_TYPE_KNIGHT),
-            "Assassin combat diagnostics accepted a dead or non-Assassin unit");
+        Check(AssassinCombatResumePolicy.IsEligibleAssassin(
+                true, AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN, 106),
+            "eligible living Assassin in state 106 was rejected");
+        Check(!AssassinCombatResumePolicy.IsEligibleAssassin(
+                false, AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN, 106) &&
+              !AssassinCombatResumePolicy.IsEligibleAssassin(
+                true, AliveState.MarkedForDeletion, eChimps.CHIMP_TYPE_ARAB_ASSASIN, 106) &&
+              !AssassinCombatResumePolicy.IsEligibleAssassin(
+                true, AliveState.IsAlive, eChimps.CHIMP_TYPE_KNIGHT, 106) &&
+              !AssassinCombatResumePolicy.IsEligibleAssassin(
+                true, AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN, 101),
+            "Assassin post-combat unit gate accepted an unresolved, dead, foreign, or wrong-state unit");
 
-        Check(AssassinCombatResumePolicy.ShouldLogRawResumeDiagnostic(
-                true, AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN) &&
-              !AssassinCombatResumePolicy.ShouldLogRawResumeDiagnostic(
-                false, AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN) &&
-              !AssassinCombatResumePolicy.ShouldLogRawResumeDiagnostic(
-                true, AliveState.MarkedForDeletion, eChimps.CHIMP_TYPE_ARAB_ASSASIN) &&
-              !AssassinCombatResumePolicy.ShouldLogRawResumeDiagnostic(
-                true, AliveState.IsAlive, eChimps.CHIMP_TYPE_KNIGHT),
-            "raw Assassin resume diagnostics did not restrict themselves to resolved living Assassins");
-        Check(!AssassinCombatResumePolicy.ShouldTreatAsNewTrackedUnit(true, 42, 42) &&
-              AssassinCombatResumePolicy.ShouldTreatAsNewTrackedUnit(true, 42, 43) &&
-              AssassinCombatResumePolicy.ShouldTreatAsNewTrackedUnit(false, 42, 42),
-            "Assassin trace did not detect native-index reuse or a cleared map tracker");
-        Check(AssassinCombatResumePolicy.IsWithinDiagnosticLimit(0, 256) &&
-              AssassinCombatResumePolicy.IsWithinDiagnosticLimit(255, 256) &&
-              !AssassinCombatResumePolicy.IsWithinDiagnosticLimit(256, 256) &&
-              !AssassinCombatResumePolicy.IsWithinDiagnosticLimit(-1, 256) &&
-              !AssassinCombatResumePolicy.IsWithinDiagnosticLimit(0, 0),
-            "Assassin trace did not enforce its bounded per-map diagnostic count");
-        Check(AssassinCombatResumePolicy.ShouldBeginEditorTrace(false, true) &&
-              !AssassinCombatResumePolicy.ShouldBeginEditorTrace(true, true) &&
-              !AssassinCombatResumePolicy.ShouldBeginEditorTrace(false, false),
-            "Assassin trace did not restrict lazy activation to an inactive map-editor simulation");
-        Check(AssassinCombatResumePolicy.ShouldLogStateTrace(true, false, false, false, 0) &&
-              AssassinCombatResumePolicy.ShouldLogStateTrace(false, true, false, true, 0) &&
-              !AssassinCombatResumePolicy.ShouldLogStateTrace(false, false, true, true, 7) &&
-              AssassinCombatResumePolicy.ShouldLogStateTrace(false, false, true, true, 8) &&
-              !AssassinCombatResumePolicy.ShouldLogStateTrace(false, false, false, true, 31) &&
-              AssassinCombatResumePolicy.ShouldLogStateTrace(false, false, false, true, 32),
-            "Assassin state trace did not apply its change and bounded stall intervals");
     }
 
     private static void TestAssassinCombatResumeNativeDefinition()
@@ -2043,53 +1968,6 @@ internal static class Program
             "canonical CrusaderDE.dll hash changed for the Assassin combat-resume contract");
 
         byte[] image = LoadPeImage(file);
-        NativeResolution stateMachine = NativePatternResolver.ResolveUnique(
-            image,
-            AssassinCombatResumeNativeDefinition.AssassinStateMachineEntryPattern,
-            AssassinCombatResumeNativeDefinition.AssassinStateMachineRva,
-            referenceHashMatches: false,
-            "test Assassin state-machine entry");
-        Check(
-            stateMachine.Method == "signature-fallback" &&
-            stateMachine.Rva == AssassinCombatResumeNativeDefinition.AssassinStateMachineRva &&
-            AssassinCombatResumeNativeDefinition.AssassinUnitTypeValue ==
-                (int)eChimps.CHIMP_TYPE_ARAB_ASSASIN &&
-            BitConverter.ToUInt64(
-                image,
-                AssassinCombatResumeNativeDefinition.UnitFunctionsVTableRva +
-                    AssassinCombatResumeNativeDefinition.AssassinUnitTypeValue * sizeof(ulong)) -
-                AssassinCombatResumeNativeDefinition.ReferenceImageBase ==
-                unchecked((ulong)AssassinCombatResumeNativeDefinition.AssassinStateMachineRva) &&
-            image.Skip(stateMachine.Rva)
-                .Take(AssassinCombatResumeNativeDefinition.AssassinStateMachineEntryBytes.Length)
-                .SequenceEqual(AssassinCombatResumeNativeDefinition.AssassinStateMachineEntryBytes),
-            "Assassin state-machine identity or entry bytes changed");
-
-        byte[] stateMachineBytes = image.Skip(stateMachine.Rva)
-            .Take(AssassinCombatResumeNativeDefinition.AssassinStateMachineSize)
-            .ToArray();
-        Decoder stateDecoder = Decoder.Create(64, new ByteArrayCodeReader(stateMachineBytes));
-        stateDecoder.IP = unchecked((ulong)stateMachine.Rva);
-        List<int> stateWriteRvas = new List<int>();
-        while (stateDecoder.IP < unchecked((ulong)(stateMachine.Rva + stateMachineBytes.Length)) &&
-            stateDecoder.LastError == DecoderError.None)
-        {
-            Instruction instruction = stateDecoder.Decode();
-            if (instruction.Mnemonic == Mnemonic.Mov &&
-                instruction.GetOpKind(0) == OpKind.Memory &&
-                instruction.MemoryDisplacement32 ==
-                    AssassinCombatResumeNativeDefinition.AssassinAiStateFieldOffset)
-            {
-                stateWriteRvas.Add(unchecked((int)instruction.IP));
-            }
-        }
-        Check(
-            stateMachineBytes.Length == 5625 &&
-            stateDecoder.LastError == DecoderError.None &&
-            stateDecoder.IP == unchecked((ulong)(stateMachine.Rva + stateMachineBytes.Length)) &&
-            stateWriteRvas.SequenceEqual(AssassinCombatResumeNativeDefinition.AssassinAiStateWriteRvas),
-            "Assassin state-machine size or complete +0x918 write-site contract changed");
-
         NativeResolution state106Callsite = NativePatternResolver.ResolveUnique(
             image,
             AssassinCombatResumeNativeDefinition.State106CombatFinishCallSequence,
@@ -2238,17 +2116,28 @@ internal static class Program
     private static void TestAssassinClimbCancellationPolicy()
     {
         Check(AssassinClimbCancellationPolicy.ShouldHandleCommand(
-                true, true, true, (uint)TribeAICommand.UnitStop),
-            "Assassin climb cancellation rejected Vanilla's synchronized UnitStop command");
+                true, true, true, true, EventHookPhase.Pre,
+                (uint)TribeAICommand.UnitStop),
+            "Assassin climb cancellation rejected the Script Extender Pre event for Vanilla's synchronized UnitStop command");
         Check(!AssassinClimbCancellationPolicy.ShouldHandleCommand(
-                false, true, true, (uint)TribeAICommand.UnitStop) &&
+                false, true, true, true, EventHookPhase.Pre,
+                (uint)TribeAICommand.UnitStop) &&
               !AssassinClimbCancellationPolicy.ShouldHandleCommand(
-                true, false, true, (uint)TribeAICommand.UnitStop) &&
+                true, false, true, true, EventHookPhase.Pre,
+                (uint)TribeAICommand.UnitStop) &&
               !AssassinClimbCancellationPolicy.ShouldHandleCommand(
-                true, true, false, (uint)TribeAICommand.UnitStop) &&
+                true, true, false, true, EventHookPhase.Pre,
+                (uint)TribeAICommand.UnitStop) &&
               !AssassinClimbCancellationPolicy.ShouldHandleCommand(
-                true, true, true, (uint)TribeAICommand.UnitStop + 1),
-            "Assassin climb cancellation did not fail closed outside the enabled synchronized UnitStop path");
+                true, true, true, false, EventHookPhase.Pre,
+                (uint)TribeAICommand.UnitStop) &&
+              !AssassinClimbCancellationPolicy.ShouldHandleCommand(
+                true, true, true, true, EventHookPhase.Post,
+                (uint)TribeAICommand.UnitStop) &&
+              !AssassinClimbCancellationPolicy.ShouldHandleCommand(
+                true, true, true, true, EventHookPhase.Pre,
+                (uint)TribeAICommand.UnitStop + 1),
+            "Assassin climb cancellation did not fail closed outside the enabled, layout-validated UnitStop Pre event");
         Check(AssassinClimbCancellationPolicy.IsClimbingState(126) &&
               AssassinClimbCancellationPolicy.IsClimbingState(127) &&
               AssassinClimbCancellationPolicy.IsClimbingState(128) &&
@@ -5314,6 +5203,15 @@ namespace SHCDESE.Interop.Enums
     public enum TribeAICommand : uint
     {
         UnitStop = 31
+    }
+}
+
+namespace SHCDESE.EventAPI
+{
+    public enum EventHookPhase
+    {
+        Pre,
+        Post
     }
 }
 

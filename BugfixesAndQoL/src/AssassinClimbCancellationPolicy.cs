@@ -13,10 +13,13 @@ namespace BugfixesAndQoL
         public static bool ShouldHandleCommand(
             bool modEnabled,
             bool improvedPathfindingEnabled,
-            bool nativeHookInstalled,
+            bool eventSubscriptionActive,
+            bool fixedUnitLayoutValidated,
+            SHCDESE.EventAPI.EventHookPhase phase,
             uint command)
         {
-            return modEnabled && improvedPathfindingEnabled && nativeHookInstalled &&
+            return modEnabled && improvedPathfindingEnabled && eventSubscriptionActive &&
+                fixedUnitLayoutValidated && phase == SHCDESE.EventAPI.EventHookPhase.Pre &&
                 command == (uint)TribeAICommand.UnitStop;
         }
 

@@ -90,8 +90,13 @@ namespace MoveMoatTest
             int routeKind);
 
         [UnmanagedFunctionPointer(CallingConvention.Winapi)]
-        private delegate void CursorWallCommandStagerDelegate(
-            IntPtr unitManager, int commandContext, int command, int targetTileId);
+        private delegate void CursorMoveCommandStagerDelegate(
+            IntPtr unitManager,
+            int tribeId,
+            int targetX,
+            int targetY,
+            int commandContext,
+            int commandVariant);
 
         private const int CentralMovementPlanRva = 0x18E1E0;
         private const int TribeFloodFillMembershipRva = 0x124740;
@@ -132,9 +137,11 @@ namespace MoveMoatTest
         private const int BuildingConsumerFallbackBuilderCallRva = 0x123102;
         private const int BuildingConsumerAssassinBuilderCallRva = 0x123125;
         private const int BuildingConsumerGroundBuilderCallRva = 0x12312C;
-        private const int CursorWallCommandStagerRva = 0x199B70;
-        private const int CursorAttackWallCallRva = 0x8FBB3;
-        private const int CursorAttachLadderCallRva = 0x8FC03;
+        private const int CursorMoveCommandStagerRva = 0x195E30;
+        private const int CursorMoveCommandCallRva = 0x8F7BA;
+        private const int CursorMoveCommandAlternativeCallRva = 0x8FD3C;
+        private const int CursorMoveCommandFallbackCallRva = 0x8FDC6;
+        private const int CursorMoveCommandSpecialCallRva = 0x8FE54;
         private const int CursorCurrentTileFlagGateRva = 0x8F388;
         private const int CursorCurrentTileFlagGateJumpRva = 0x8F393;
         private const int AttackUnitPairGateJumpRva = 0x8D72B;
@@ -239,11 +246,11 @@ namespace MoveMoatTest
             "83 B9 BC 05 00 00 00 74 27 33 C0 48 81 C1 64 05 00 00 48 83 F8 16 " +
             "74 05 83 39 00 75 13 48 FF C0 48 83 C1 04 48 83 F8 23 7C E8 B8 01 00 00 00 C3";
 
-        private const string CursorWallCommandStagerPattern =
-            "48 89 5C 24 08 57 48 83 EC 20 48 8B D9 89 15 ?? ?? ?? ?? B2 24 " +
-            "44 89 05 ?? ?? ?? ?? 48 8D 0D ?? ?? ?? ?? 44 89 0D ?? ?? ?? ?? " +
-            "41 8B F8 E8 ?? ?? ?? ?? BA 01 00 00 00 48 8B CB E8 ?? ?? ?? ?? " +
-            "85 C0 74 41";
+        private const string CursorMoveCommandStagerPattern =
+            "48 89 5C 24 10 48 89 6C 24 18 48 89 74 24 20 48 89 4C 24 08 " +
+            "57 41 54 41 55 41 56 41 57 48 83 EC 30 8B 84 24 80 00 00 00 " +
+            "48 8B F1 8B AC 24 88 00 00 00 48 8D 0D ?? ?? ?? ?? 4C 63 F2 " +
+            "45 8B E0 4D 63 F9 B2 11";
 
         private const string CursorRegionPrecheckPattern =
             "40 53 55 57 41 54 41 56 48 83 EC 20 FF 41 04 48 8B D9 81 79 04 00 7D 00 00 " +
@@ -301,6 +308,8 @@ namespace MoveMoatTest
         [ThreadStatic]
         private static CursorSelectionDiagnosticScope pendingCursorSelectionDiagnostic;
         [ThreadStatic]
+        private static AttackCursorPairScope pendingEntityCursorCommand;
+        [ThreadStatic]
         private static AttackCommandScope activeAttackCommand;
         [ThreadStatic]
         private static AttackApproachDiagnosticScope activeAttackApproachDiagnostic;
@@ -334,8 +343,8 @@ namespace MoveMoatTest
         private AllSelectedUnitsAssassinsDelegate allSelectedUnitsAssassins;
         private RegionPairReachabilityDelegate originalRegionPairReachability;
         private RegionPairReachabilityDelegate rootedRegionPairReachability;
-        private CursorWallCommandStagerDelegate originalCursorWallCommandStager;
-        private CursorWallCommandStagerDelegate rootedCursorWallCommandStager;
+        private CursorMoveCommandStagerDelegate originalCursorMoveCommandStager;
+        private CursorMoveCommandStagerDelegate rootedCursorMoveCommandStager;
 
         private NativeDetour centralMovementPlanDetour;
         private NativeDetour pathBuilderDetour;
@@ -350,7 +359,7 @@ namespace MoveMoatTest
         private NativeDetour buildingApproachBuilderDetour;
         private NativeDetour buildingCandidateConsumerDetour;
         private NativeDetour regionPairReachabilityDetour;
-        private NativeDetour cursorWallCommandStagerDetour;
+        private NativeDetour cursorMoveCommandStagerDetour;
         private IDisposable tribeMoveSubscription;
         private IDisposable tribeTargetSubscription;
         private IDisposable mapLoadSubscription;
@@ -371,7 +380,6 @@ namespace MoveMoatTest
         private int cacheTargetRegion = -1;
         private int cachePlayerId = -1;
         private RouteProbeSummary cachedRouteSummary;
-        private bool cursorChecksArmed;
         private int lastCursorRegionPositiveGeneration = -1;
         private int lastCursorDirectPositiveGeneration = -1;
         private int lastCursorRegionBlockGeneration = -1;
@@ -379,6 +387,7 @@ namespace MoveMoatTest
         private string lastAttackCursorDecision;
         private string lastCursorSelectionDiagnostic;
         private string lastCursorTilePairDiagnostic;
+        private string lastEntityCursorPrecheckDecision;
         private readonly Dictionary<int, string> lastUnscopedAttackModes = new Dictionary<int, string>();
         private readonly Dictionary<int, string> lastAttackCommandCandidates = new Dictionary<int, string>();
         private readonly Dictionary<int, AttackUnitTracker> trackedAttackUnits =
@@ -633,7 +642,7 @@ namespace MoveMoatTest
                 // This separately validated hook group only observes the earlier unit/building
                 // approach pipelines and cannot roll back the proven movement feature.
                 TryInstallAttackApproachDiagnostics(memory, libraryBase);
-                TryInstallWallCommandDiagnostics(memory, libraryBase);
+                TryInstallCursorMoveCommandDiagnostics(memory, libraryBase);
             }
             catch
             {
@@ -680,7 +689,7 @@ namespace MoveMoatTest
             buildingApproachBuilderDetour?.Dispose();
             attackApproachFloodBuilderDetour?.Dispose();
             regionPairReachabilityDetour?.Dispose();
-            cursorWallCommandStagerDetour?.Dispose();
+            cursorMoveCommandStagerDetour?.Dispose();
             cursorTilePairReachabilityDetour?.Dispose();
             cursorRegionPrecheckDetour?.Dispose();
             cursorTilePairFallbackSelectionDetour?.Dispose();
@@ -695,6 +704,7 @@ namespace MoveMoatTest
             pendingPlan = null;
             pendingAttackCursorPair = null;
             pendingCursorSelectionDiagnostic = null;
+            pendingEntityCursorCommand = null;
             activeAttackCommand = null;
             activeAttackApproachDiagnostic = null;
             trackedAttackUnits.Clear();
@@ -703,62 +713,67 @@ namespace MoveMoatTest
             lastAttackCommandCandidates.Clear();
         }
 
-        private void TryInstallWallCommandDiagnostics(ReadOnlySpan<byte> memory, ulong libraryBase)
+        private void TryInstallCursorMoveCommandDiagnostics(ReadOnlySpan<byte> memory, ulong libraryBase)
         {
             NativeDetour pendingStager = null;
             bool stagerApplied = false;
             try
             {
                 Shared.NativeResolution stagerResolution = Resolve(
-                    memory, CursorWallCommandStagerPattern, CursorWallCommandStagerRva,
-                    "cursor wall-command stager");
+                    memory, CursorMoveCommandStagerPattern, CursorMoveCommandStagerRva,
+                    "general cursor MoveHere stager");
                 ValidateExactBytes(
-                    memory, CursorWallCommandStagerRva,
+                    memory, CursorMoveCommandStagerRva,
                     new byte[]
                     {
-                        0x48, 0x89, 0x5C, 0x24, 0x08, 0x57, 0x48, 0x83,
-                        0xEC, 0x20, 0x48, 0x8B, 0xD9, 0x89, 0x15, 0xA9,
-                        0x77, 0x52, 0x08, 0xB2, 0x24, 0x44, 0x89, 0x05,
-                        0xA4, 0x77, 0x52, 0x08, 0x48, 0x8D, 0x0D, 0x8D,
-                        0xA7, 0x3D, 0x08, 0x44, 0x89, 0x0D, 0x9A, 0x77,
-                        0x52, 0x08, 0x41, 0x8B, 0xF8, 0xE8, 0xEE, 0x9D,
-                        0xE8, 0xFF, 0xBA, 0x01, 0x00, 0x00, 0x00, 0x48,
-                        0x8B, 0xCB, 0xE8, 0xB1, 0x38, 0xFF, 0xFF, 0x85,
-                        0xC0, 0x74, 0x41
+                        0x48, 0x89, 0x5C, 0x24, 0x10, 0x48, 0x89, 0x6C,
+                        0x24, 0x18, 0x48, 0x89, 0x74, 0x24, 0x20, 0x48,
+                        0x89, 0x4C, 0x24, 0x08, 0x57, 0x41, 0x54, 0x41,
+                        0x55, 0x41, 0x56, 0x41, 0x57, 0x48, 0x83, 0xEC,
+                        0x30
                     },
-                    "cursor wall-command stager entry");
+                    "general cursor MoveHere stager entry");
                 ValidateCallTarget(
-                    memory, CursorAttackWallCallRva, CursorWallCommandStagerRva,
-                    new byte[] { 0xE8, 0xB8, 0x9F, 0x10, 0x00 },
-                    "cursor AttackWallTileId staging call");
+                    memory, CursorMoveCommandCallRva, CursorMoveCommandStagerRva,
+                    new byte[] { 0xE8, 0x71, 0x66, 0x10, 0x00 },
+                    "primary cursor MoveHere staging call");
                 ValidateCallTarget(
-                    memory, CursorAttachLadderCallRva, CursorWallCommandStagerRva,
-                    new byte[] { 0xE8, 0x68, 0x9F, 0x10, 0x00 },
-                    "cursor AttachLadderToWall staging call");
+                    memory, CursorMoveCommandAlternativeCallRva, CursorMoveCommandStagerRva,
+                    new byte[] { 0xE8, 0xEF, 0x60, 0x10, 0x00 },
+                    "alternative cursor MoveHere staging call");
+                ValidateCallTarget(
+                    memory, CursorMoveCommandFallbackCallRva, CursorMoveCommandStagerRva,
+                    new byte[] { 0xE8, 0x65, 0x60, 0x10, 0x00 },
+                    "fallback cursor MoveHere staging call");
+                ValidateCallTarget(
+                    memory, CursorMoveCommandSpecialCallRva, CursorMoveCommandStagerRva,
+                    new byte[] { 0xE8, 0xD7, 0x5F, 0x10, 0x00 },
+                    "special cursor MoveHere staging call");
 
-                rootedCursorWallCommandStager = ObserveCursorWallCommandStager;
+                rootedCursorMoveCommandStager = ObserveCursorMoveCommandStager;
                 pendingStager = CreateDetour(
                     libraryBase + unchecked((ulong)stagerResolution.Rva),
-                    rootedCursorWallCommandStager);
-                originalCursorWallCommandStager =
-                    pendingStager.GenerateTrampoline<CursorWallCommandStagerDelegate>();
+                    rootedCursorMoveCommandStager);
+                originalCursorMoveCommandStager =
+                    pendingStager.GenerateTrampoline<CursorMoveCommandStagerDelegate>();
                 pendingStager.Apply();
                 stagerApplied = true;
-                cursorWallCommandStagerDetour = pendingStager;
+                cursorMoveCommandStagerDetour = pendingStager;
                 Shared.DebugLogHelper.LogInfo(
                     log,
-                    "MoveMoat read-only wall-command diagnostics installed: " +
-                    $"stager=0x{stagerResolution.Rva:X}, calls=0x{CursorAttackWallCallRva:X}/" +
-                    $"0x{CursorAttachLadderCallRva:X}.");
+                    "MoveMoat read-only entity MoveHere diagnostics installed: " +
+                    $"stager=0x{stagerResolution.Rva:X}, calls=0x{CursorMoveCommandCallRva:X}/" +
+                    $"0x{CursorMoveCommandAlternativeCallRva:X}/0x{CursorMoveCommandFallbackCallRva:X}/" +
+                    $"0x{CursorMoveCommandSpecialCallRva:X}.");
             }
             catch (Exception ex)
             {
                 UndoAndDispose(pendingStager, stagerApplied);
-                rootedCursorWallCommandStager = null;
-                originalCursorWallCommandStager = null;
+                rootedCursorMoveCommandStager = null;
+                originalCursorMoveCommandStager = null;
                 Shared.DebugLogHelper.LogError(
                     log,
-                    "MoveMoat read-only wall-command diagnostics were not installed; " +
+                    "MoveMoat read-only entity MoveHere diagnostics were not installed; " +
                     $"the movement feature remains active: {ex}");
             }
         }
@@ -1698,7 +1713,8 @@ namespace MoveMoatTest
             {
                 try
                 {
-                    if (!TryFindFriendlyCompletedMoatRouteForPlan(plan, out RouteProbeSummary summary))
+                    if (!TryFindRequiredFriendlyCompletedMoatRouteForPlan(
+                        plan, out RouteProbeSummary summary))
                     {
                         LogRejectedPlannerRoute(plan, summary);
                         return originalCentralMovementPlan(unitManager, unitId, targetX, targetY);
@@ -1757,7 +1773,55 @@ namespace MoveMoatTest
                 if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) || unit == null)
                     return vanillaResult;
 
-                if (activeMoveCommand == null && !plannerQualified)
+                if (!plannerQualified && activeMoveCommand != null)
+                {
+                    PlanScope movePlan = plan;
+                    if (movePlan == null || movePlan.UnitId != unitId ||
+                        movePlan.TargetX != activeMoveCommand.TargetX ||
+                        movePlan.TargetY != activeMoveCommand.TargetY)
+                    {
+                        movePlan = new PlanScope(
+                            unitId,
+                            activeMoveCommand.TargetX,
+                            activeMoveCommand.TargetY);
+                    }
+
+                    if (!TryFindRequiredFriendlyCompletedMoatRouteForPlan(
+                        movePlan, out RouteProbeSummary moveSummary))
+                    {
+                        try
+                        {
+                            LogPipelineDiagnostic(
+                                $"stage=mode-move-rejected unit={unitId} " +
+                                $"target=({movePlan.TargetX},{movePlan.TargetY}) " +
+                                $"vanilla={vanillaResult} reason=no-required-friendly-moat-route " +
+                                moveSummary.ToLogFields());
+                        }
+                        catch
+                        {
+                            // A failed qualification must remain Vanilla even if logging fails.
+                        }
+                        return vanillaResult;
+                    }
+
+                    movePlan.FriendlyRouteQualified = true;
+                    plan = movePlan;
+                    plannerQualified = true;
+                    pendingPlan = movePlan;
+                    try
+                    {
+                        LogPipelineDiagnostic(
+                            $"stage=mode-move-owner-qualified unit={unitId} player={movePlan.PlayerId} " +
+                            $"target=({movePlan.TargetX},{movePlan.TargetY}) " +
+                            moveSummary.ToLogFields());
+                    }
+                    catch
+                    {
+                        // Qualification remains valid even if diagnostics fail.
+                    }
+                }
+
+                if (!plannerQualified)
                 {
                     if (!TryQualifyAttackMovementPlan(
                         unitId, unit, vanillaResult, out plan, out RouteProbeSummary attackSummary,
@@ -1799,16 +1863,7 @@ namespace MoveMoatTest
                     unitId, AttackPipelineStage.Mode, -1, -1, vanillaResult != 0);
 
                 if (plan == null)
-                {
-                    // Some ordinary MoveHere paths reach the mode helper without passing
-                    // through the central planner detour. The surrounding Extender event
-                    // still owns the exact command target for this synchronous call chain.
-                    plan = new PlanScope(
-                        unitId,
-                        activeMoveCommand.TargetX,
-                        activeMoveCommand.TargetY);
-                    pendingPlan = plan;
-                }
+                    return vanillaResult;
                 plan.ModeObserved = true;
                 plan.VanillaModeDetected = vanillaResult != 0;
                 plan.PlayerId = unit->r_ControllableForPlayerId;
@@ -1886,7 +1941,7 @@ namespace MoveMoatTest
                 PlayerId = unit->r_ControllableForPlayerId,
                 AttackMovementQualified = true
             };
-            if (!TryFindFriendlyCompletedMoatRouteForAttackPlan(plan, out summary))
+            if (!TryFindRequiredFriendlyCompletedMoatRouteForPlan(plan, out summary))
             {
                 plan = null;
                 rejectionReason = "no-required-friendly-moat-route";
@@ -2778,6 +2833,7 @@ namespace MoveMoatTest
             int vanillaResult = originalCursorTilePairFallbackSelection(selectionState);
             pendingAttackCursorPair = null;
             pendingCursorSelectionDiagnostic = null;
+            pendingEntityCursorCommand = null;
             if (disposed || selectionState == IntPtr.Zero)
                 return vanillaResult;
 
@@ -2795,7 +2851,6 @@ namespace MoveMoatTest
                     occupiedSlots |= 1UL << index;
                     if (index != 22)
                     {
-                        cursorChecksArmed = true;
                         hasEligibleSlot = true;
                     }
                 }
@@ -2825,6 +2880,9 @@ namespace MoveMoatTest
                 uint rawMouseTileId = cursorManager != null
                     ? cursorManager->r_MouseTileId : 0;
 
+                BuildingCursorTarget buildingTarget = default;
+                bool hostileBuildingTarget = false;
+                bool wallTarget = false;
                 bool validTarget = targetX >= 0 && targetX < MapWidth &&
                     targetY >= 0 && targetY < MapWidth;
                 GameUnit* unit = null;
@@ -2840,15 +2898,33 @@ namespace MoveMoatTest
                 if (validTarget)
                     targetTileId = GameTileManagerAPI.Instance.GetTileId(targetX, targetY);
 
+                // Building hovers can leave the dispatcher's global target at (0,0). Recover
+                // only a tile that is proven to belong to the raw 1-based building ID.
+                if (validUnit && (!validTarget || !IsValidTileId(targetTileId)) &&
+                    TryResolveHostileLivingBuildingFromRawCursor(
+                        playerId,
+                        rawHoverBuildingId,
+                        rawMouseTileId,
+                        rawMouseTileId2,
+                        out int recoveredTargetX,
+                        out int recoveredTargetY,
+                        out int recoveredTargetTileId,
+                        out BuildingCursorTarget recoveredBuilding))
+                {
+                    targetX = recoveredTargetX;
+                    targetY = recoveredTargetY;
+                    targetTileId = recoveredTargetTileId;
+                    buildingTarget = recoveredBuilding;
+                    hostileBuildingTarget = true;
+                    validTarget = true;
+                }
+
                 bool validPair = validUnit && validTarget &&
                     IsValidTileId(startTileId) && IsValidTileId(targetTileId);
                 CursorPairFallbackKind fallbackKind = CursorPairFallbackKind.DirectTile;
                 bool hostileUnitTarget = false;
                 bool occupiedByLivingUnit = false;
                 bool freeOrdinaryTarget = false;
-                BuildingCursorTarget buildingTarget = default;
-                bool hostileBuildingTarget = false;
-                bool wallTarget = false;
                 if (validPair)
                 {
                     hostileUnitTarget = TryGetHostileLivingUnitAtTile(
@@ -2859,8 +2935,11 @@ namespace MoveMoatTest
                         -1,
                         out _,
                         out occupiedByLivingUnit);
-                    hostileBuildingTarget = TryGetHostileLivingBuildingForCursor(
-                        playerId, targetTileId, out buildingTarget, out wallTarget);
+                    if (!hostileBuildingTarget)
+                    {
+                        hostileBuildingTarget = TryGetHostileLivingBuildingForCursor(
+                            playerId, targetTileId, out buildingTarget, out wallTarget);
+                    }
                     // Walls are not reliably represented as living GameBuilding records.
                     // The cursor's dedicated wall field is the authoritative raw signal.
                     wallTarget |= rawHoveringOverWall != 0;
@@ -2873,10 +2952,18 @@ namespace MoveMoatTest
                         fallbackKind = CursorPairFallbackKind.BuildingApproach;
                     else if (hostileUnitTarget)
                         fallbackKind = CursorPairFallbackKind.UnitApproach;
+                    else if (wallTarget &&
+                        unit->r_UnitChimp == eChimps.CHIMP_TYPE_ARAB_ASSASIN)
+                    {
+                        fallbackKind = CursorPairFallbackKind.WallApproach;
+                    }
                 }
 
+                bool assassinWallTarget = validPair && wallTarget &&
+                    unit->r_UnitChimp == eChimps.CHIMP_TYPE_ARAB_ASSASIN;
                 AttackCursorPairScope candidateScope = validPair &&
-                    (freeOrdinaryTarget || hostileUnitTarget || hostileBuildingTarget)
+                    (freeOrdinaryTarget || hostileUnitTarget || hostileBuildingTarget ||
+                     assassinWallTarget)
                     ? new AttackCursorPairScope(
                         mapEpoch, unitId, playerId, startX, startY, startTileId,
                         targetX, targetY, targetTileId, fallbackKind,
@@ -2893,9 +2980,10 @@ namespace MoveMoatTest
                     rejectionReason = "invalid-cursor-target";
                 else if (!validPair)
                     rejectionReason = "invalid-tile-pair";
-                else if (wallTarget)
+                else if (wallTarget && !assassinWallTarget)
                     rejectionReason = "wall-or-stair-kept-vanilla";
-                else if (!freeOrdinaryTarget && !hostileUnitTarget && !hostileBuildingTarget)
+                else if (!freeOrdinaryTarget && !hostileUnitTarget && !hostileBuildingTarget &&
+                    !assassinWallTarget)
                     rejectionReason = "target-not-free-or-hostile-entity";
                 else if (!ownerRoute)
                     rejectionReason = "no-required-friendly-moat-route";
@@ -2938,6 +3026,14 @@ namespace MoveMoatTest
                 {
                     pendingAttackCursorPair = candidateScope;
                 }
+                if (candidateScope != null &&
+                    ((functionalArmed &&
+                      (fallbackKind == CursorPairFallbackKind.BuildingApproach ||
+                       fallbackKind == CursorPairFallbackKind.WallApproach)) ||
+                     (assassinWallTarget && vanillaResult != 0)))
+                {
+                    pendingEntityCursorCommand = candidateScope;
+                }
 
                 if (wallTarget && validUnit &&
                     unit->r_UnitChimp == eChimps.CHIMP_TYPE_ARAB_ASSASIN)
@@ -2956,9 +3052,9 @@ namespace MoveMoatTest
             }
             catch (Exception ex)
             {
-                cursorChecksArmed = false;
                 pendingAttackCursorPair = null;
                 pendingCursorSelectionDiagnostic = null;
+                pendingEntityCursorCommand = null;
                 LogFailure("cursor-selection", ex);
             }
 
@@ -3142,17 +3238,20 @@ namespace MoveMoatTest
             {
                 int targetX = *cursorTargetX;
                 int targetY = *cursorTargetY;
-                if (vanillaResult != 0 &&
-                    !HasSeparatedPositiveRegions(nativeUnitIndex, targetX, targetY))
+                if (TryAllowScopedEntityCursorPrecheck(
+                    nativeUnitIndex, targetX, targetY, vanillaResult, "cursor-region",
+                    out int scopedEntityResult))
                 {
-                    return vanillaResult;
+                    return scopedEntityResult;
                 }
 
-                bool friendlyRoute = HasConservativeFriendlyCompletedMoatRoute(
-                    nativeUnitIndex, targetX, targetY, out RouteProbeSummary summary);
+                bool probeCompleted = TryProbeConservativeCursorRoute(
+                    nativeUnitIndex, targetX, targetY,
+                    out bool ownerSafeRoute, out bool requiredFriendlyMoatRoute,
+                    out RouteProbeSummary summary);
                 if (vanillaResult != 0)
                 {
-                    if (ShouldBlockPositiveCursorResult(friendlyRoute, summary))
+                    if (probeCompleted && ShouldBlockPositiveCursorResult(ownerSafeRoute, summary))
                     {
                         LogCursorOwnerBlockDecision(
                             ref lastCursorRegionBlockGeneration,
@@ -3165,7 +3264,7 @@ namespace MoveMoatTest
                     return vanillaResult;
                 }
 
-                if (!friendlyRoute)
+                if (!probeCompleted || !requiredFriendlyMoatRoute)
                     return vanillaResult;
 
                 LogPositiveCursorDecision(
@@ -3181,6 +3280,58 @@ namespace MoveMoatTest
             }
         }
 
+        private bool TryAllowScopedEntityCursorPrecheck(
+            int nativeUnitIndex,
+            int targetX,
+            int targetY,
+            int vanillaResult,
+            string stage,
+            out int effectiveResult)
+        {
+            effectiveResult = vanillaResult;
+            AttackCursorPairScope scope = pendingEntityCursorCommand;
+            if (vanillaResult != 0 || scope == null || scope.MapEpoch != mapEpoch ||
+                scope.UnitId != nativeUnitIndex ||
+                (scope.FallbackKind != CursorPairFallbackKind.BuildingApproach &&
+                 scope.FallbackKind != CursorPairFallbackKind.WallApproach))
+            {
+                return false;
+            }
+
+            bool targetMatches = targetX == scope.TargetX && targetY == scope.TargetY;
+            if (!targetMatches && scope.FallbackKind == CursorPairFallbackKind.BuildingApproach)
+            {
+                GameCursorManager* cursorManager =
+                    GamePlayerManagerAPI.Instance.GetCursorManager().Pointer;
+                targetMatches = cursorManager != null && scope.BuildingId > 0 &&
+                    cursorManager->r_HoverOverBuildingId == unchecked((uint)scope.BuildingId);
+            }
+            if (!targetMatches)
+                return false;
+
+            if (!TryQualifyCursorScope(
+                scope, out int approachX, out int approachY, out RouteProbeSummary summary))
+            {
+                return false;
+            }
+
+            effectiveResult = 1;
+            string decision = $"{mapEpoch}:{stage}:{scope.UnitId}:{scope.TargetTileId}:" +
+                $"{scope.FallbackKind}:{approachX}:{approachY}:{summary.ObservedOwnerMask}:" +
+                $"{summary.FriendlyMoatTiles}:{summary.EnemyMoatTiles}";
+            if (!string.Equals(
+                lastEntityCursorPrecheckDecision, decision, StringComparison.Ordinal))
+            {
+                lastEntityCursorPrecheckDecision = decision;
+                LogCursorDecision(
+                    $"stage={stage}-entity unit={scope.UnitId} player={scope.PlayerId} " +
+                    $"target=({scope.TargetX},{scope.TargetY})/{scope.TargetTileId} " +
+                    $"kind={scope.FallbackKind} approach=({approachX},{approachY}) " +
+                    $"vanilla=0 effective=1 {summary.ToLogFields()}");
+            }
+            return true;
+        }
+
         private int AllowCursorReachabilityThroughCompletedMoat(
             IntPtr pathManager, int nativeUnitIndex, int targetX, int targetY)
         {
@@ -3190,17 +3341,20 @@ namespace MoveMoatTest
 
             try
             {
-                if (vanillaResult != 0 &&
-                    !HasSeparatedPositiveRegions(nativeUnitIndex, targetX, targetY))
+                if (TryAllowScopedEntityCursorPrecheck(
+                    nativeUnitIndex, targetX, targetY, vanillaResult, "cursor-direct",
+                    out int scopedEntityResult))
                 {
-                    return vanillaResult;
+                    return scopedEntityResult;
                 }
 
-                bool friendlyRoute = HasConservativeFriendlyCompletedMoatRoute(
-                    nativeUnitIndex, targetX, targetY, out RouteProbeSummary summary);
+                bool probeCompleted = TryProbeConservativeCursorRoute(
+                    nativeUnitIndex, targetX, targetY,
+                    out bool ownerSafeRoute, out bool requiredFriendlyMoatRoute,
+                    out RouteProbeSummary summary);
                 if (vanillaResult != 0)
                 {
-                    if (ShouldBlockPositiveCursorResult(friendlyRoute, summary))
+                    if (probeCompleted && ShouldBlockPositiveCursorResult(ownerSafeRoute, summary))
                     {
                         LogCursorOwnerBlockDecision(
                             ref lastCursorDirectBlockGeneration,
@@ -3213,7 +3367,7 @@ namespace MoveMoatTest
                     return vanillaResult;
                 }
 
-                if (!friendlyRoute)
+                if (!probeCompleted || !requiredFriendlyMoatRoute)
                     return vanillaResult;
 
                 LogPositiveCursorDecision(
@@ -3230,41 +3384,21 @@ namespace MoveMoatTest
         }
 
         private static bool ShouldBlockPositiveCursorResult(
-            bool friendlyRoute, RouteProbeSummary summary) =>
-            !friendlyRoute && summary.EnemyMoatTiles > 0 &&
-            summary.StartRegion > 0 && summary.TargetRegion > 0 &&
-            summary.StartRegion != summary.TargetRegion;
+            bool ownerSafeRoute, RouteProbeSummary summary) =>
+            !ownerSafeRoute && summary.EnemyMoatTiles > 0;
 
-        private bool HasSeparatedPositiveRegions(int nativeUnitIndex, int targetX, int targetY)
+        private bool TryProbeConservativeCursorRoute(
+            int nativeUnitIndex,
+            int targetX,
+            int targetY,
+            out bool ownerSafeRoute,
+            out bool requiredFriendlyMoatRoute,
+            out RouteProbeSummary summary)
         {
-            if (targetX < 0 || targetX >= MapWidth || targetY < 0 || targetY >= MapWidth)
-                return false;
-
-            int nextUnitId = *(int*)nativeUnitManager;
-            if (nativeUnitIndex <= 0 || nativeUnitIndex >= nextUnitId)
-                return false;
-
-            byte* nativeUnit = nativeUnitManager + (nativeUnitIndex * 0x490);
-            int startX = *(ushort*)(nativeUnit + 0x71C);
-            int startY = *(ushort*)(nativeUnit + 0x71E);
-            if (startX < 0 || startX >= MapWidth || startY < 0 || startY >= MapWidth)
-                return false;
-
-            int startTileId = GameTileManagerAPI.Instance.GetTileId(startX, startY);
-            int targetTileId = GameTileManagerAPI.Instance.GetTileId(targetX, targetY);
-            if (!IsValidTileId(startTileId) || !IsValidTileId(targetTileId))
-                return false;
-
-            int startRegion = pathRegionGrid[startTileId];
-            int targetRegion = pathRegionGrid[targetTileId];
-            return startRegion > 0 && targetRegion > 0 && startRegion != targetRegion;
-        }
-
-        private bool HasConservativeFriendlyCompletedMoatRoute(
-            int nativeUnitIndex, int targetX, int targetY, out RouteProbeSummary summary)
-        {
+            ownerSafeRoute = false;
+            requiredFriendlyMoatRoute = false;
             summary = default;
-            if (!cursorChecksArmed || targetX < 0 || targetX >= MapWidth ||
+            if (targetX < 0 || targetX >= MapWidth ||
                 targetY < 0 || targetY >= MapWidth ||
                 movementTargetAvailability[(targetY * MapWidth) + targetX] == 0)
             {
@@ -3287,14 +3421,36 @@ namespace MoveMoatTest
                 return false;
             }
 
-            return TryFindFriendlyCompletedMoatRoute(
+            int targetTileId = GameTileManagerAPI.Instance.GetTileId(targetX, targetY);
+            int playerId = unit->r_ControllableForPlayerId;
+            if (!IsValidTileId(targetTileId) || pathRegionGrid[targetTileId] <= 0 ||
+                pathRegionGrid[targetTileId] > MaximumRegionId ||
+                !GamePlayerManagerAPI.Instance.IsPlayerIdValid(playerId))
+            {
+                return false;
+            }
+
+            TryFindFriendlyCompletedMoatRoute(
                 nativeUnitIndex,
-                unit->r_ControllableForPlayerId,
+                playerId,
                 startX,
                 startY,
                 targetX,
                 targetY,
                 out summary);
+            int targetCell = (targetY * MapWidth) + targetX;
+            bool reachedWithoutMoat = gridGeneration > 0 && visitedWithoutMoat != null &&
+                visitedWithoutMoat[targetCell] == gridGeneration;
+            bool reachedWithMoat = gridGeneration > 0 && visitedWithMoat != null &&
+                visitedWithMoat[targetCell] == gridGeneration;
+            ownerSafeRoute = reachedWithoutMoat || reachedWithMoat;
+            requiredFriendlyMoatRoute = reachedWithMoat && !reachedWithoutMoat &&
+                summary.FriendlyMoatTiles > 0;
+            summary.AttackProbeEvaluated = true;
+            summary.ReachedWithMoat = reachedWithMoat;
+            summary.ReachedWithoutMoat = reachedWithoutMoat;
+            summary.RouteFound = ownerSafeRoute;
+            return true;
         }
 
         private bool TryFindFriendlyCompletedMoatRouteForPlan(
@@ -3320,7 +3476,7 @@ namespace MoveMoatTest
                 out summary);
         }
 
-        private bool TryFindFriendlyCompletedMoatRouteForAttackPlan(
+        private bool TryFindRequiredFriendlyCompletedMoatRouteForPlan(
             PlanScope plan, out RouteProbeSummary summary)
         {
             summary = default;
@@ -3463,6 +3619,12 @@ namespace MoveMoatTest
                     scope, out approachX, out approachY, out summary);
             }
 
+            if (scope.FallbackKind == CursorPairFallbackKind.WallApproach)
+            {
+                return TryFindFriendlyCompletedMoatRouteToAttackApproach(
+                    scope, out approachX, out approachY, out summary);
+            }
+
             return TryFindFriendlyCompletedMoatRouteToAttackApproach(
                 scope, out approachX, out approachY, out summary);
         }
@@ -3473,6 +3635,107 @@ namespace MoveMoatTest
                 return scope.TargetTileId == targetTileId;
             return IsValidTileId(targetTileId) && scope.BuildingId > 0 &&
                 GameTileManagerAPI.Instance.GetTileBuildingId(targetTileId) == scope.BuildingId;
+        }
+
+        private bool TryResolveHostileLivingBuildingFromRawCursor(
+            int playerId,
+            uint rawBuildingId,
+            uint rawMouseTileId,
+            uint rawMouseTileId2,
+            out int targetX,
+            out int targetY,
+            out int targetTileId,
+            out BuildingCursorTarget target)
+        {
+            targetX = -1;
+            targetY = -1;
+            targetTileId = -1;
+            target = default;
+            GamePlayerManagerAPI playerApi = GamePlayerManagerAPI.Instance;
+            if (!playerApi.IsPlayerIdValid(playerId) || rawBuildingId == 0 ||
+                rawBuildingId > int.MaxValue)
+            {
+                return false;
+            }
+
+            int buildingId = (int)rawBuildingId;
+            if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(
+                    buildingId, out GameBuilding* building) ||
+                building == null || building->r_AliveState != AliveState.IsAlive ||
+                building->r_GlobalId == 0 || IsWallStairOrRampStructure(building->r_BuildingType))
+            {
+                return false;
+            }
+
+            int ownerId = building->r_PlayerIdOwner;
+            if (!playerApi.IsPlayerIdValid(ownerId) || ownerId == playerId ||
+                playerApi.IsPlayerAlliedTo(playerId, ownerId))
+            {
+                return false;
+            }
+
+            if (!TryResolveRawBuildingFootprintTile(
+                buildingId, building, rawMouseTileId,
+                out targetX, out targetY, out targetTileId) &&
+                !TryResolveRawBuildingFootprintTile(
+                    buildingId, building, rawMouseTileId2,
+                    out targetX, out targetY, out targetTileId))
+            {
+                return false;
+            }
+
+            target = new BuildingCursorTarget
+            {
+                BuildingId = buildingId,
+                GlobalId = building->r_GlobalId,
+                OwnerId = ownerId,
+                BuildingType = building->r_BuildingType,
+                HoverTileId = targetTileId
+            };
+            return true;
+        }
+
+        private bool TryResolveRawBuildingFootprintTile(
+            int buildingId,
+            GameBuilding* building,
+            uint rawTileId,
+            out int targetX,
+            out int targetY,
+            out int targetTileId)
+        {
+            targetX = -1;
+            targetY = -1;
+            targetTileId = -1;
+            if (building == null || rawTileId > int.MaxValue || !IsValidTileId((int)rawTileId))
+                return false;
+
+            int candidateTileId = (int)rawTileId;
+            if (GameTileManagerAPI.Instance.GetTileBuildingId(candidateTileId) != buildingId)
+                return false;
+
+            int minX = Math.Max(0, Math.Min(
+                (int)building->r_TilePositionXBegin, (int)building->r_TilePositionXEnd));
+            int maxX = Math.Min(MapWidth - 1, Math.Max(
+                (int)building->r_TilePositionXBegin, (int)building->r_TilePositionXEnd));
+            int minY = Math.Max(0, Math.Min(
+                (int)building->r_TilePositionYBegin, (int)building->r_TilePositionYEnd));
+            int maxY = Math.Min(MapWidth - 1, Math.Max(
+                (int)building->r_TilePositionYBegin, (int)building->r_TilePositionYEnd));
+            for (int y = minY; y <= maxY; y++)
+            {
+                for (int x = minX; x <= maxX; x++)
+                {
+                    if (GameTileManagerAPI.Instance.GetTileId(x, y) != candidateTileId)
+                        continue;
+
+                    targetX = x;
+                    targetY = y;
+                    targetTileId = candidateTileId;
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private bool TryGetHostileLivingBuildingForCursor(
@@ -3982,10 +4245,10 @@ namespace MoveMoatTest
             lastCursorDirectPositiveGeneration = -1;
             lastCursorRegionBlockGeneration = -1;
             lastCursorDirectBlockGeneration = -1;
-            cursorChecksArmed = false;
             lastAttackCursorDecision = null;
             lastCursorSelectionDiagnostic = null;
             lastCursorTilePairDiagnostic = null;
+            lastEntityCursorPrecheckDecision = null;
             lastUnscopedAttackModes.Clear();
             lastAttackCommandCandidates.Clear();
             trackedAttackUnits.Clear();
@@ -3994,23 +4257,28 @@ namespace MoveMoatTest
             pendingPlan = null;
             pendingAttackCursorPair = null;
             pendingCursorSelectionDiagnostic = null;
+            pendingEntityCursorCommand = null;
             activeAttackCommand = null;
             activeAttackApproachDiagnostic = null;
             trackedMoatMoves.Clear();
             trackedWallClimbs.Clear();
         }
 
-        private void ObserveCursorWallCommandStager(
-            IntPtr unitManager, int commandContext, int command, int targetTileId)
+        private void ObserveCursorMoveCommandStager(
+            IntPtr unitManager,
+            int tribeId,
+            int targetX,
+            int targetY,
+            int commandContext,
+            int commandVariant)
         {
             int unitId = -1;
             int playerId = -1;
             int startX = -1;
             int startY = -1;
-            int targetX = -1;
-            int targetY = -1;
             GameCursorManager* cursorManager = null;
-            uint rawHoveringOverWall = 0;
+            AttackCursorPairScope scope = pendingEntityCursorCommand;
+            bool scopeMatches = false;
             try
             {
                 unitId = getRepresentativeSelectedUnit(unitManager, 1);
@@ -4021,56 +4289,68 @@ namespace MoveMoatTest
                     startX = unit->r_CurrentTilePositionX;
                     startY = unit->r_CurrentTilePositionY;
                 }
-                if (IsValidTileId(targetTileId))
-                {
-                    UnmanagedVector2<ushort> target =
-                        GameTileManagerAPI.Instance.GetTileVectorFromId(targetTileId);
-                    targetX = target.X;
-                    targetY = target.Y;
-                }
                 cursorManager = GamePlayerManagerAPI.Instance.GetCursorManager().Pointer;
-                rawHoveringOverWall = cursorManager != null
-                    ? cursorManager->r_HoveringOverWall : 0;
+                if (scope != null && scope.MapEpoch == mapEpoch && scope.UnitId == unitId)
+                {
+                    scopeMatches = targetX == scope.TargetX && targetY == scope.TargetY;
+                    if (!scopeMatches &&
+                        scope.FallbackKind == CursorPairFallbackKind.BuildingApproach)
+                    {
+                        scopeMatches = cursorManager != null && scope.BuildingId > 0 &&
+                            cursorManager->r_HoverOverBuildingId ==
+                                unchecked((uint)scope.BuildingId);
+                    }
+                }
 
-                if ((command == (int)TribeAICommand.AttackWallTileId ||
-                     command == (int)TribeAICommand.AttachLadderToWall) &&
+                if (scopeMatches && scope.FallbackKind == CursorPairFallbackKind.WallApproach &&
                     unitId > 0 && playerId >= 0)
                 {
                     TrackWallClimbCandidate(
-                        unitId, playerId, startX, startY, targetX, targetY,
-                        targetTileId, default,
-                        rawHoveringOverWall,
+                        unitId, playerId, startX, startY, scope.TargetX, scope.TargetY,
+                        scope.TargetTileId, default,
+                        cursorManager != null ? cursorManager->r_HoveringOverWall : 0,
                         cursorManager != null ? cursorManager->r_HoverOverBuildingId : 0,
                         cursorManager != null ? cursorManager->r_HoverOverBuildingTileId : 0,
                         cursorManager != null ? cursorManager->r_MouseTileId2 : 0,
                         cursorManager != null ? cursorManager->r_MouseTileId : 0,
-                        true, command, commandContext);
+                        true, -1, commandContext);
                 }
-            }
-            catch (Exception ex)
-            {
-                TryLogDiagnosticFailure("wall-command-stager-pre", ex);
-            }
 
-            // The observer never changes or suppresses the native wall command.
-            originalCursorWallCommandStager(unitManager, commandContext, command, targetTileId);
-
-            try
-            {
-                if (command == (int)TribeAICommand.AttackWallTileId ||
-                    command == (int)TribeAICommand.AttachLadderToWall)
+                if (scopeMatches)
                 {
                     Shared.DebugLogHelper.LogInfo(
                         log,
-                        $"MoveMoat stage=wall-command-staged unit={unitId} player={playerId} " +
-                        $"command={(TribeAICommand)command}/{command:X} context={commandContext} " +
-                        $"start=({startX},{startY}) target=({targetX},{targetY})/{targetTileId} " +
-                        $"rawWall={rawHoveringOverWall}.");
+                        $"MoveMoat stage=entity-move-stager-pre unit={unitId} player={playerId} " +
+                        $"tribe={tribeId} kind={scope.FallbackKind} " +
+                        $"start=({startX},{startY}) requested=({targetX},{targetY}) " +
+                        $"scoped=({scope.TargetX},{scope.TargetY})/{scope.TargetTileId} " +
+                        $"context={commandContext} variant={commandVariant}.");
                 }
             }
             catch (Exception ex)
             {
-                TryLogDiagnosticFailure("wall-command-stager-post", ex);
+                TryLogDiagnosticFailure("entity-move-stager-pre", ex);
+            }
+
+            // This observer never changes or suppresses the native cursor command.
+            originalCursorMoveCommandStager(
+                unitManager, tribeId, targetX, targetY, commandContext, commandVariant);
+
+            try
+            {
+                if (scopeMatches)
+                {
+                    Shared.DebugLogHelper.LogInfo(
+                        log,
+                        $"MoveMoat stage=entity-move-stager-post unit={unitId} player={playerId} " +
+                        $"tribe={tribeId} kind={scope.FallbackKind} " +
+                        $"requested=({targetX},{targetY}) context={commandContext} " +
+                        $"variant={commandVariant}.");
+                }
+            }
+            catch (Exception ex)
+            {
+                TryLogDiagnosticFailure("entity-move-stager-post", ex);
             }
         }
 
@@ -4558,6 +4838,7 @@ namespace MoveMoatTest
         {
             UnitApproach,
             BuildingApproach,
+            WallApproach,
             DirectTile
         }
 

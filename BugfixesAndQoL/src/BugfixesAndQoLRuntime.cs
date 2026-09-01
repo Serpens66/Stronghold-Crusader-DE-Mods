@@ -99,6 +99,9 @@ namespace BugfixesAndQoL
                 "Assassin climb-state synchronization",
                 assassinClimbRuntime.InitializeNetwork);
             TryInitializePersistentFeature(
+                "Assassin climb cancellation event",
+                assassinClimbCancellationRuntime.Initialize);
+            TryInitializePersistentFeature(
                 "troop action HUD coordinator",
                 troopActionHudCoordinator.Initialize);
             // These registrations serve independent features. Keep each failure isolated so a
@@ -195,18 +198,15 @@ namespace BugfixesAndQoL
             libraryLength = memory.Length;
             fixedLayoutHashValidated = isFixedLayoutHashValidated;
             nativeLibraryAvailable = true;
-            try
+            assassinClimbCancellationRuntime.SetFixedUnitLayoutValidated(
+                isFixedLayoutHashValidated);
+            if (!isFixedLayoutHashValidated &&
+                settings.EnableMod &&
+                settings.EnableImprovedAssassinPathfinding)
             {
-                assassinClimbCancellationRuntime.InitializeNative(
-                    newLibraryHandle,
-                    memory,
-                    isFixedLayoutHashValidated);
-            }
-            catch (Exception ex)
-            {
-                Shared.DebugLogHelper.LogError(
+                Shared.DebugLogHelper.LogWarning(
                     log,
-                    $"Bugfixes and QoL Assassin climb cancellation could not be initialized and remains inactive: {ex}");
+                    "Bugfixes and QoL Assassin climb cancellation remains inactive because its fixed unit-field layout is not validated for this CrusaderDE.dll.");
             }
 
             if (isFixedLayoutHashValidated)

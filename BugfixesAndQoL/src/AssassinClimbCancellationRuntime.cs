@@ -1,23 +1,17 @@
 // Feature: Cancels active Assassin climbing through Vanilla's synchronized Stop command.
 using BepInEx.Logging;
-using MonoMod.RuntimeDetour;
+using R3;
 using SHCDESE.API;
+using SHCDESE.EventAPI;
+using SHCDESE.EventAPI.Tribes;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
-using System.Runtime.InteropServices;
 
 namespace BugfixesAndQoL
 {
     internal sealed unsafe class AssassinClimbCancellationRuntime : IDisposable
     {
-        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
-        private delegate int SelectedUnitCommandDelegate(
-            IntPtr unitManager, int tribeId, int command, int argument1, int argument2, int argument3);
-
-        private const int SelectedUnitCommandRva = 0x199C70;
-        private const int SelectedUnitCommandImplementationRva = 0x11E960;
-        private const int TribeManagerRva = 0x7CC6720;
         private const int SelectionBitmapWordCount = 625;
         private const int UnitIdBitsPerWord = 16;
         private const ushort NormalMovementState = 101;
@@ -26,14 +20,10 @@ namespace BugfixesAndQoL
         private const int AssassinClimbProgressOffset = 0x414;
         private const int AssassinFacingOffset = 0x416;
         private const ushort CompletedClimbFacing = 0x20;
-        private const string SelectedUnitCommandPattern =
-            "48 8D 0D A9 CA B2 07 E9 E4 4C F8 FF";
-
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
-        private SelectedUnitCommandDelegate original;
-        private SelectedUnitCommandDelegate rootedDetour;
-        private NativeDetour detour;
+        private IDisposable selectedUnitCommandSubscription;
+        private bool fixedUnitLayoutValidated;
         private bool invalidTribeLogged;
 
         public AssassinClimbCancellationRuntime(ManualLogSource log, BugfixesAndQoLViewModel settings)
@@ -42,88 +32,44 @@ namespace BugfixesAndQoL
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
         }
 
-        public void InitializeNative(IntPtr libraryHandle, ReadOnlySpan<byte> memory, bool fixedLayoutHashValidated)
+        public void Initialize()
         {
-            if (detour != null)
+            if (selectedUnitCommandSubscription != null)
                 return;
-            if (!fixedLayoutHashValidated)
-                throw new InvalidOperationException("fixed native layout hash does not match the supported CrusaderDE.dll");
-            if (libraryHandle == IntPtr.Zero || memory.Length <= SelectedUnitCommandRva + 12)
-                throw new InvalidOperationException("native module memory does not cover the selected-unit command executor");
+            selectedUnitCommandSubscription =
+                TribeR3EventHooks.OnTribeIssueOrderWithTarget.Observable.Subscribe(OnSelectedUnitCommand);
+            Shared.DebugLogHelper.LogDebug(
+                log,
+                "Bugfixes and QoL Assassin climb cancellation subscribed to the Script Extender selected-unit Pre event.");
+        }
 
-            Shared.NativeResolution resolution = Shared.NativePatternResolver.ResolveUnique(
-                memory,
-                SelectedUnitCommandPattern,
-                SelectedUnitCommandRva,
-                referenceHashMatches: true,
-                "selected-unit command executor",
-                log);
-            if (resolution.Rva != SelectedUnitCommandRva)
-                throw new InvalidOperationException("selected-unit command executor resolved outside its validated RVA");
-
-            int resolvedSelectionManagerRva = Shared.NativePatternResolver.ResolveRelativeTarget(
-                memory, SelectedUnitCommandRva + 3, SelectedUnitCommandRva + 7);
-            int resolvedImplementationRva = Shared.NativePatternResolver.ResolveRelativeTarget(
-                memory, SelectedUnitCommandRva + 8, SelectedUnitCommandRva + 12);
-            if (resolvedSelectionManagerRva != TribeManagerRva ||
-                resolvedImplementationRva != SelectedUnitCommandImplementationRva)
-            {
-                throw new InvalidOperationException(
-                    $"selected-unit command executor targets changed: tribeManager=0x{resolvedSelectionManagerRva:X}, implementation=0x{resolvedImplementationRva:X}");
-            }
-
-            rootedDetour = OnSelectedUnitCommand;
-            IntPtr detourAddress = Marshal.GetFunctionPointerForDelegate(rootedDetour);
-            NativeDetour installed = null;
-            try
-            {
-                installed = new NativeDetour(
-                    IntPtr.Add(libraryHandle, SelectedUnitCommandRva),
-                    detourAddress,
-                    new NativeDetourConfig { ManualApply = true });
-                original = installed.GenerateTrampoline<SelectedUnitCommandDelegate>();
-                installed.Apply();
-                detour = installed;
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    "Bugfixes and QoL Assassin climb cancellation installed on Vanilla's synchronized selected-unit Stop processing.");
-            }
-            catch
-            {
-                installed?.Dispose();
-                original = null;
-                rootedDetour = null;
-                throw;
-            }
+        public void SetFixedUnitLayoutValidated(bool value)
+        {
+            fixedUnitLayoutValidated = value;
         }
 
         public void Dispose()
         {
-            detour?.Undo();
-            detour?.Dispose();
-            detour = null;
-            original = null;
-            rootedDetour = null;
+            selectedUnitCommandSubscription?.Dispose();
+            selectedUnitCommandSubscription = null;
+            fixedUnitLayoutValidated = false;
         }
 
-        private int OnSelectedUnitCommand(
-            IntPtr unitManager, int tribeId, int command, int argument1, int argument2, int argument3)
+        private void OnSelectedUnitCommand(TribeIssueOrderWithTargetEventArgs args)
         {
-            SelectedUnitCommandDelegate vanilla = original;
-            if (vanilla == null)
-                return 0;
-
-            // Vanilla ignores Stop in states 126-129. Complete only that transition first,
-            // then let the original command clear the tribe's paths and orders.
+            // Vanilla ignores Stop in states 126-129. Complete only that transition during
+            // the Script Extender's Pre phase; its shared hook then runs Vanilla unchanged.
             if (AssassinClimbCancellationPolicy.ShouldHandleCommand(
                     settings.EnableMod,
                     settings.EnableImprovedAssassinPathfinding,
-                    detour != null,
-                    (uint)command))
+                    selectedUnitCommandSubscription != null,
+                    fixedUnitLayoutValidated,
+                    args.Phase,
+                    (uint)args.AICommand))
             {
                 try
                 {
-                    CancelClimbingAssassins(tribeId);
+                    CancelClimbingAssassins(args.TribeId);
                 }
                 catch (Exception ex)
                 {
@@ -132,8 +78,6 @@ namespace BugfixesAndQoL
                         $"Bugfixes and QoL Assassin climb cancellation failed before Vanilla Stop: {ex}");
                 }
             }
-
-            return vanilla(unitManager, tribeId, command, argument1, argument2, argument3);
         }
 
         private void CancelClimbingAssassins(int tribeId)
