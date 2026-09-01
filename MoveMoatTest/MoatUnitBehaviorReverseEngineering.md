@@ -1365,16 +1365,17 @@ und der alternative Zweig muss den normalen Bodenbuilder verwenden. Instruktions
 vollständige Bytes und relatives Callziel sind gemeinsam zu validieren. Ändern sich die Offsets
 `+0x80` oder `+0x88`, dürfen sie nicht aus der alten Version übernommen werden.
 
-### 12.1.4 Vorgelagerte Attack-Annäherungssuche `0xDBC60`
+### 12.1.4 Vorgelagerte Attack-Annäherungssuchen
 
 Die jüngsten Logs korrigieren auch die frühere Attack-Einordnung: In den aktuellen fehlgeschlagenen
 Attack-Aufrufen wird `0x196840` gerade nicht erreicht. Der positive Target-Dispatcher endet mit
 `changedUnits=0`; weder Unitfelder noch `MoveHere`, zentraler Planer oder Builder folgen. Die
-hashgleiche Ghidra-Baseline zeigt davor die tribeweite Annäherungssuche `0xDBC60`. Ihre direkten
-Calls im Attack-Dispatcher liegen bei `0x11EE47` und `0x11F46B`. Die Funktion erhält PathManager,
-Tribe, Zielkontext, angepasste Zielkoordinaten, gewünschte Ergebniszahl, Ausgangsregion und
-Bewegungsklasse. Sie füllt ihre Queue ab `pathManager+0x155F3C/+0x155F44` und schreibt
-Annäherungsergebnisse als 12-Byte-Einträge ab `pathManager+0x1B344`.
+hashgleiche Ghidra-Baseline zeigt davor getrennte Annäherungspipelines. `AttackUnit` verwendet die
+tribeweite Floodsuche `0xDBC60`; ihre direkten Calls im Dispatcher liegen bei `0x11EE47` und
+`0x11F46B`. Die Funktion erhält PathManager, Tribe, Zielkontext, angepasste Zielkoordinaten,
+gewünschte Ergebniszahl, Ausgangsregion und Bewegungsklasse. Sie füllt ihre Queue ab
+`pathManager+0x155F3C/+0x155F44` und schreibt Annäherungsergebnisse als 12-Byte-Einträge ab
+`pathManager+0x1B344`.
 
 Beim Übergang zwischen Regionen ruft `0xDBC60` an `0xDBF0D` Vanillas breiten Regionshelper
 `0xE2610(pathManager, movementClass, sourceRegion, targetRegion, routeKind)` auf. Nur wenn die
@@ -1383,27 +1384,52 @@ Tilepaarprüfung `0xE2CA0` folgen. Der bereits vorhandene `0xE2CA0`-Fallback war
 an einen unmittelbar zuvor erzeugten Cursor-Kontext gebunden und kann diese internen Flood-Aufrufe
 daher nicht freigeben.
 
+Die Auswahlentscheidung stammt aus `0x117820`: Der Helper iteriert die aktiven ausgewählten Units
+des Tribes und liefert nur dann positiv, wenn jede davon den Chimp-Typ `0x49` besitzt. Dieser Wert
+ist im Extender-Enum `CHIMP_TYPE_ARAB_ASSASIN`. Damit ist „alle ausgewählten Units sind
+Assassinen“ bestätigt und keine bloße Ableitung aus dem Builderverhalten.
+
+`AttackBuilding` und `ForceAttackBuilding` verwenden dagegen den Approach-Builder `0xDA020`,
+aufgerufen bei `0x11FF9A`. Er prüft seine Gebäuderandkandidaten ebenfalls zuerst über `0xE2610`
+und für reine Assassin-Auswahlen zusätzlich über `0xE2CA0`; die beiden Paare liegen bei
+`0xDA1F9/0xDA232` und `0xDA47C/0xDA4B1`. Danach konsumiert `0x123090` die erzeugten Kandidaten.
+Sein dritter Parameter ist nach aktuellem Stand nur als Buildervariante belegt, nicht als
+Kandidatenzahl. `0x123090` wählt über dasselbe Assassin-Gate zwischen `0xD9C40`, dem Bodenbuilder
+`0xDA590` und der Alternative `0xDB650`.
+
 Für den kanonischen DLL-Hash
-`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2` detourt die neue Diagnose
-`0xDBC60` und `0xE2610` ausschließlich read-only und nur innerhalb des synchronen `AttackUnit`-,
-`AttackBuilding`- oder `ForceAttackBuilding`-Events. Vanilla wird immer
-unverändert ausgeführt. Regionpaare werden nach Region, Bewegungsklasse, Routekind und
-Vanilla-Ergebnis semantisch aggregiert. Interne `0xE2CA0`-Aufrufe werden ebenfalls unverändert
-zurückgegeben; zusätzlich wird protokolliert, ob die owner-geprüfte Moat-BFS das konkrete
-Tilepaar erreichen könnte. Tilepaare werden nach Ergebnis-/Ownersemantik gruppiert und mit erstem
-und letztem Paar ausgegeben, statt pro untersuchtem Nachbartile eine Logzeile zu erzeugen.
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2` detourt die Diagnose
+`0xDBC60`, `0xDA020`, `0x123090` und `0xE2610` ausschließlich read-only und nur im jeweils
+passenden synchronen Attack-Event. Vanilla wird immer unverändert ausgeführt. Regionpaare werden
+nach Region, Bewegungsklasse, Routekind und Vanilla-Ergebnis semantisch aggregiert. Interne
+`0xE2CA0`-Aufrufe werden ebenfalls unverändert zurückgegeben; zusätzlich wird protokolliert, ob
+die owner-geprüfte Moat-BFS das konkrete Tilepaar erreichen könnte. Tilepaare werden nach
+Ergebnis-/Ownersemantik gruppiert und mit erstem und letztem Paar ausgegeben, statt pro
+untersuchtem Nachbartile eine Logzeile zu erzeugen.
 Da diese Boden-/Moat-Erreichbarkeit symmetrisch ist, startet die Diagnose ihre Map am innerhalb
 eines Flood-Aufrufs stabilen Ziel und prüft die wechselnden Nachbartiles rückwärts. Dadurch wird
 dieselbe Reachability-Map für alle Paare derselben Zielregion wiederverwendet; es entsteht nicht
-für jedes untersuchte Tile eine neue Vollkarten-BFS.
+für jedes untersuchte Tile eine neue Vollkarten-BFS. Unveränderte Kombinationen aus Command,
+Tribe, Ziel und Ergebniszustand werden innerhalb desselben Commands semantisch dedupliziert; es
+gibt kein abschaltendes Mengenlimit.
 
-Bei einem Update müssen beide Funktions-Entries über eindeutige Patterns und vollständige
-Instruktionsbytes neu gefunden werden. Zusätzlich müssen die beiden `0xDBC60`-Calls im
-Target-Dispatcher, der `0xE2610`-Call innerhalb des Floods und der dortige `0xE2CA0`-Call weiterhin
-relativ auf die semantisch passenden Funktionen zeigen. Alle vier Callziele sind zu validieren;
-die alten RVAs allein genügen nicht. Die Diagnosehooks werden als eigene Gruppe installiert. Ein
-Validierungs- oder Installationsfehler rollt nur diese Gruppe zurück und lässt den bereits
-funktionierenden normalen Moat-Bewegungspfad aktiv.
+Der erste Lauf dieser Diagnose ist ungültig: Das Entry-Pattern für `0xDBC60` enthielt irrtümlich
+`4D 8B E6` statt der realen Bytes `45 8B E6`. Die Diagnosegruppe installierte deshalb
+ordnungsgemäß fail-closed nicht, während die bereits funktionierende normale Moat-Bewegung aktiv
+blieb. Aus dem Fehlen von `attack-approach`-Logs in diesem Lauf darf keine Aussage über den
+nativen Attackpfad abgeleitet werden.
+
+Bei einem Update müssen alle vier gehookten Funktions-Entries und `0x117820` über eindeutige
+Patterns und vollständige Instruktionsbytes neu gefunden werden. Zusätzlich müssen sämtliche
+Dispatcher- und internen Calls weiterhin relativ auf die semantisch passenden Funktionen zeigen;
+alte RVAs allein genügen nicht. Die historische Baseline bietet zusätzliche Suchanker:
+`0xDBC60` entspricht semantisch dem historischen Kandidaten `0xDAE20`, `0xDA020` dem Kandidaten
+`0xD91F0`, und `0x117820` ist automatisch bestätigt auf historisch `0x116940` abgebildet. Die
+ersten beiden Kandidaten wurden vom automatischen Versionsmatcher nicht akzeptiert, besitzen aber
+gleiche Signatur, Blockanzahl, Callee-Rollen und Kontrollflussstruktur und dürfen deshalb nur als
+Suchhilfe, nicht als alleiniger Adressbeweis verwendet werden. Ein Validierungs- oder
+Installationsfehler rollt die ganze Diagnosegruppe zurück und lässt den normalen Bewegungspfad
+aktiv.
 
 ### 12.2 Logauswertung
 
@@ -1458,7 +1484,7 @@ beziehungsweise die konkreten Stages filtern:
 - `move-track-start`
 - `move-state`
 - `move-state-end`
-- `attack-flood`
+- `attack-approach` mit `UnitFlood`, `BuildingApproach` oder `BuildingCandidateConsumer`
 
 Es gibt keine globalen Diagnosegrenzen mehr. Während eines synchronen `move-command` sammelt der
 Mod zunächst dessen vollständige Command-, Flood-, Mode-, Region-, Owner- und Builderdiagnose im
@@ -1546,10 +1572,10 @@ Diese Liste belegt die breite Verwendung des Helpers, ersetzt aber bei einer neu
   zweiten, owner-qualifizierten Lauf vorgesehene Umschalten `1 → 0 → 1` wurde in den Logs bislang
   nicht ausgelöst und ist daher eine unbestätigte Hypothese. Der erste Vanilla-Lauf bleibt
   unverändert; `0xD9C40` wird nicht zusätzlich gehookt.
-- Attack endet im beobachteten Fehlfall bereits in der tribeweiten Annäherungssuche `0xDBC60`,
-  bevor Unitfelder und `MoveHere` erreicht werden. Die aktuelle Stufe beobachtet deren
-  `0xE2610`-/`0xE2CA0`-Entscheidungen nur read-only und gruppiert sie semantisch; sie gibt dort
-  noch keinen Pfad frei.
+- Attack endet im beobachteten Fehlfall bereits vor Unitfeldern und `MoveHere`. Die aktuelle Stufe
+  trennt `AttackUnit` über `0xDBC60` von Gebäudeangriffen über `0xDA020`/`0x123090`, beobachtet
+  deren `0xE2610`-/`0xE2CA0`-Entscheidungen nur read-only und gibt dort noch keinen Pfad frei. Der
+  erste Diagnoseversuch war wegen des dokumentierten `45`/`4D`-Patternfehlers nicht auswertbar.
 - `0x196840` bedeutet nachweislich „Unit steht auf einem Tile mit fertigem-Moat-Bit“, während
   `0x196870` nur Auswahlarten prüft; diese Semantik bei Updates nicht wieder verallgemeinern.
 - Als Nächstes diese Stufe mit eigenem, verbündetem und feindlichem Moat sowie Umweg-, Mauer-
