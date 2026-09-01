@@ -44,10 +44,6 @@
       <HintPath>..\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\BugfixesAndQoL.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <Reference Include="MonoMod.RuntimeDetour">
-      <HintPath>$(GameDir)\BepInEx\core\MonoMod.RuntimeDetour.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
     <Reference Include="UnityEngine">
       <HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.dll</HintPath>
       <Private>false</Private>
@@ -68,6 +64,10 @@
       <HintPath>$(ExtenderDir)\System.Memory.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="Zhuqiaomon"><HintPath>$(ExtenderDir)\Zhuqiaomon.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="PolyHook2.NET"><HintPath>$(ExtenderDir)\PolyHook2.NET.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Iced"><HintPath>$(ExtenderDir)\Iced.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Microsoft.Extensions.Logging.Abstractions"><HintPath>$(ExtenderDir)\Microsoft.Extensions.Logging.Abstractions.dll</HintPath><Private>false</Private></Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="src\AssassinCombatFixPlugin.cs" />
@@ -85,11 +85,14 @@
   <Target Name="ValidateReferences" BeforeTargets="BeforeBuild">
     <Error Condition="!Exists('$(GameDir)\BepInEx\core\BepInEx.dll')" Text="BepInEx.dll was not found below GameDir: $(GameDir)" />
     <Error Condition="!Exists('..\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\BugfixesAndQoL.dll')" Text="The required BugfixesAndQoL build was not found in its local plugin package." />
-    <Error Condition="!Exists('$(GameDir)\BepInEx\core\MonoMod.RuntimeDetour.dll')" Text="MonoMod.RuntimeDetour.dll was not found below GameDir: $(GameDir)" />
     <Error Condition="!Exists('$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.dll')" Text="UnityEngine.dll was not found below GameDir: $(GameDir)" />
     <Error Condition="!Exists('$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.CoreModule.dll')" Text="UnityEngine.CoreModule.dll was not found below GameDir: $(GameDir)" />
     <Error Condition="!Exists('$(ExtenderDir)\SHCDESE.dll')" Text="SHCDESE.dll was not found: $(ExtenderDir)" />
     <Error Condition="!Exists('$(ExtenderDir)\R3.dll')" Text="R3.dll was not found: $(ExtenderDir)" />
     <Error Condition="!Exists('$(ExtenderDir)\System.Memory.dll')" Text="System.Memory.dll was not found: $(ExtenderDir)" />
+    <Error Condition="!Exists('$(ExtenderDir)\Zhuqiaomon.dll')" Text="Zhuqiaomon.dll was not found: $(ExtenderDir)" />
+    <Error Condition="!Exists('$(ExtenderDir)\PolyHook2.NET.dll')" Text="PolyHook2.NET.dll was not found: $(ExtenderDir)" />
+    <Error Condition="!Exists('$(ExtenderDir)\Iced.dll')" Text="Iced.dll was not found: $(ExtenderDir)" />
+    <Error Condition="!Exists('$(ExtenderDir)\Microsoft.Extensions.Logging.Abstractions.dll')" Text="Microsoft.Extensions.Logging.Abstractions.dll was not found: $(ExtenderDir)" />
   </Target>
 </Project>

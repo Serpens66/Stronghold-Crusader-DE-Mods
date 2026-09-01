@@ -1,6 +1,6 @@
 # Moat-Verhalten von Units: Vanilla-Reverse-Engineering und Testergebnisse
 
-Stand: 2026-08-30
+Stand: 2026-09-01
 
 Thema: geplante und fertige Moats, Command 6 (`DigMoatTileId`), gewöhnliche Bewegung,
 Cursorprüfung, Unit-Auswahl, Wegfindung, Besitzer/Allianz, Reservierung und bestehende
@@ -40,11 +40,13 @@ Der davon getrennte funktionale Stand von `MoveMoatTest` ist:
   Besitzer ignoriert: Die feindliche Unit durchquerte den fertigen Moat ebenso wie dessen
   Besitzer. Der echte Builder ist in der derzeit aktivierten Variante also keine ausreichende
   Owner-Schranke.
-- Als erste abgesicherte Owner-Stufe liest der Testmod nun vor Cursorfreigabe und
+- Die inzwischen in Editor und Skirmish mit mehreren Units bestätigte Owner-Stufe liest vor Cursorfreigabe und
   Builder-Routenvariantenwechsel Moat-ID, Owner und Allianz aus. Nur eigene und verbündete
   fertige Moats werden von der Sonderfreigabe akzeptiert; feindliche oder ungültige Daten
-  fallen fail-closed auf Vanilla zurück. Diese Stufe ist implementiert, aber noch nicht
-  ingame bestätigt.
+  fallen fail-closed auf Vanilla zurück. Eigener Moat funktioniert wiederholt; eine feindliche
+  Unit wird nach der Editor-Regionsaktualisierung korrekt abgelehnt. Verbündete Moats bleiben
+  mangels einfachem Testaufbau noch praktisch zu bestätigen, verwenden aber denselben
+  `IsPlayerAlliedTo`-Zweig.
 
 Die Implementierung wurde aus `BugfixesAndQoL` in den eigenständigen Testmod `MoatCommandTest` extrahiert. Der Testmod ist ohne Settings-UI immer aktiv, verwendet die Plugin-GUID `MoatCommandTest_Serp` und deklariert mit `NetworkMode: 1`, dass er in Multiplayer-Partien bei allen Teilnehmern vorhanden sein muss. `BugfixesAndQoL` enthält weder den Moat-Featurecode noch dessen frühere Initialisierung, Setting-, XAML- oder Locale-Einträge. Der getrennte experimentelle Mod `MoveMoatTest` untersucht eine allgemeinere Moat-Passierbarkeit und soll für isolierte Diagnosen nicht gleichzeitig mit `MoatCommandTest` installiert werden.
 
@@ -1128,6 +1130,51 @@ Dann wurde der Planner zwar erreicht, die derzeitige Routensuche verlangt aber n
 Ziel statt eines zulässigen Angriffs-/Annäherungsfelds. Dieses Logging verändert die Entscheidung
 nicht.
 
+### 11.2.1 Bestätigte Attack-Cursor-Kette und aktueller Testkandidat
+
+Die hashgleiche Ghidra-Baseline unter `_inspect/CrusaderDE-Native-Baseline` präzisiert die zuvor
+nur aus Laufzeitbeobachtungen abgeleitete Blockade:
+
+- `0x196840` ist kein abstrakter Commandmodus. Die Funktion skaliert die Unit-ID mit `0x490`,
+  liest deren Current-Tile-ID bei Manageroffset `0x72C` und gibt ausschließlich Bit 30 der
+  Tileflags zurück. Semantisch lautet die Frage daher: **Steht diese Unit gerade auf einem
+  fertigen Moat?** Der bestehende Detour simuliert gezielt diesen natürlichen Vanilla-Zustand.
+- `0x196870` ist keine Reachability-Funktion. Sie prüft die belegten Auswahlarten-Slots ab
+  `UnitManager+0x564`, mit Sonderbehandlung für Slot 22.
+- Der Cursor-Dispatcher ab `0x8C5F0` überspringt nach einem Nullergebnis von `0x196870` an den
+  vier Sprüngen `0x8D72B`, `0x8E2C6`, `0x8E557` und `0x8F32F` die genauere Tilepaarprüfung.
+  Die Sprünge sind jeweils vollständige Zwei-Byte-Instruktionen; die Baseline enthält keine
+  eingehenden XRefs auf ihre inneren Patchadressen.
+- Die Tilepaarprüfung `0xE2CA0(pathManager, targetTile, selectedUnitTile, 1)` vergleicht Start-
+  und Zielregion. Sind sie getrennt, ruft sie den echten BFS-Helfer `0xD9C40` auf. Dieser BFS
+  behandelt das fertige-Moat-Bit weiterhin als Blockade und konsumiert keinen Moat-Modus.
+- Ein Nullergebnis entsteht damit vor dem Target-Command-Dispatcher. Das Hoverziel wird zu Move
+  oder „verboten“ umklassifiziert. Erst danach würden `AttackUnit = 4`, `AttackBuilding = 9`
+  beziehungsweise in bestimmten Modi `ForceAttackBuilding = 36` ausgegeben.
+- Vanillas repräsentative ausgewählte Unit bestimmt der Cursor über `0x18D460(unitManager, 1)`.
+  Dieser Helper bleibt unverändert und wird nur gelesen, damit Starttile, Owner und Zielpaar des
+  unmittelbar folgenden `0xE2CA0`-Aufrufs exakt gebunden werden können.
+
+Der aktuelle Testkandidat öffnet ausschließlich die vier genannten bedingten Sprünge. Alle
+darauffolgenden Vanilla-Typ-, Eignungs- und Angriffsprüfungen bleiben bestehen. Der Detour auf
+`0x196870` gibt Vanillas Wert unverändert zurück und erfasst bei `0` nur einen threadlokalen,
+einmal verwendbaren Kontext. `0xE2CA0` läuft immer zuerst unverändert. Nur wenn Vanilla `0`
+liefert und Starttile, Zieltile, Cachemodus, Kartenepoch und repräsentative Unit exakt zum direkt
+vorher erfassten Kontext passen, prüft die bestehende Owner-/Allianz-BFS die acht freien
+Annäherungstiles neben dem belegten Unit- oder Gebäudetile. Positiv ist nur eine Route, die
+tatsächlich mindestens ein eigenes oder verbündetes fertiges Moat-Tile benutzt. Feindliche Moats,
+Mauern, Wasser, ungültige Daten, freie Vanilla-Routen und fremde Aufrufkontexte bleiben Vanilla.
+
+Diese Stufe soll zunächst nur beweisen, ob Cursor und Target-Command dadurch korrekt werden. Der
+spätere Attack-AI-Pfad wird nicht vorauseilend verändert. Erreicht eine Unit mit
+`AttackUnit`, `AttackBuilding` oder `ForceAttackBuilding` den Moat-Standhelper außerhalb eines
+bekannten Move-/Planner-Scopes, protokolliert `attack-mode-unscoped` dedupliziert AI-State,
+Position, Attack-Move-Ziel, Unit-/Building-/Tilekontext und Vanillas echtes Bit-30-Ergebnis. Ein
+anschließendes `planner-owner-qualified` würde belegen, dass der bestehende gemeinsame Planer-
+und Builderfallback genügt. Bleibt ausschließlich `attack-mode-unscoped`, kann im nächsten
+Schritt daraus ein eng begrenzter Attack-Bewegungsscope abgeleitet werden; ein pauschaler
+`MoveHere`-Detour oder global positiver Builder ist weiterhin nicht gerechtfertigt.
+
 ## 12. Reverse-Engineering- und Log-Arbeitsweise
 
 ### 12.1 Binärprüfung
@@ -1159,12 +1206,18 @@ Quelldateien. Für `MoveMoatTest` sind dies:
 | Pattern-Konstante | alte Referenz-RVA | semantischer Anker |
 |---|---:|---|
 | `CursorCurrentTileFlagGatePattern` | `0x8F388` | Test der Current-Tile-Flags unmittelbar vor dem Sprung bei `+0x0B` |
-| `CursorSpecialModePattern` | `0x196870` | 35 Auswahlslots ab Struktur-Offset `0x564`, Slot 22 ausgenommen |
+| `CursorTilePairFallbackSelectionPattern` | `0x196870` | Auswahlarten-Gate: 35 Slots ab Struktur-Offset `0x564`, Slot 22 ausgenommen |
+| `GetRepresentativeSelectedUnitPattern` | `0x18D460` | vom Cursor verwendete repräsentative ausgewählte Unit ab Startindex 1 |
+| `CursorTilePairReachabilityPattern` | `0xE2CA0` | Start-/Zieltilevergleich; bei getrennten Regionen Call auf BFS `0xD9C40` |
+| `AttackUnitPairGatePattern` | `0x8D71D`, Sprung `0x8D72B` | Call auf `0x196870`, danach Tilepaarprüfung für Unit-Angriffszweig |
+| `AttackBuildingPairGatePattern` | `0x8E2B5`, Sprung `0x8E2C6` | Auswahlgate vor erhaltenem Vanilla-Typ-Switch und Tilepaarprüfung |
+| `AttackAlternativePairGatePattern` | `0x8E549`, Sprung `0x8E557` | weiterer Attack-Cursorzweig vor Tilepaarprüfung |
+| `AttackFinalPairGatePattern` | `0x8F322`, Sprung `0x8F32F` | letzter bestätigter Auswahlgate-Zweig vor Tilepaarprüfung |
 | `CursorRegionPrecheckPattern` | `0xE9D90` | Cursor-Regionsvorprüfung mit Flood-Fill-Zähler im PathManager |
 | `CursorReachabilityFunctionPattern` | `0xE9FF0` | direkte Cursorprüfung mit Unitindex und Ziel X/Y |
 | `TribeFloodFillMembershipPattern` | `0x124740` | Tribe-ID mal Strukturgröße `0x688` und Flood-Fill-Stamp |
 | `CentralMovementPlanPattern` | `0x18E1E0` | Unit-ID mal `0x490`, Ziel X/Y und großer per-Unit-Planer |
-| `DetectCompletedMoatModePattern` | `0x196840` | Unit-ID mal `0x490`, Feld bei Manageroffset `0x72C`, Bitextraktion |
+| `UnitStandingOnCompletedMoatPattern` | `0x196840` | Unit-ID mal `0x490`, Current-Tile-ID bei Manageroffset `0x72C`, Tileflag-Bit 30 |
 | `RegionReachabilityPattern` | `0xE7C40` | PathManager, Movement-Class, Zielregion und Start X/Y |
 | `PathBuilderPattern` | `0xF4930` | zentraler Builder; liest früh PathManager-Feld `+0x0C` |
 | `GetMoatIdAtTilePattern` | `0x69560` | Tile-ID → 16-Bit-Moat-ID aus TileManager-Tabelle |
@@ -1230,8 +1283,11 @@ hat. Vor einem Rebuild sind mindestens folgende Verträge zu prüfen:
 - `GameUnitManagerAPI.TryGetUnitById`, `GameTileManagerAPI.GetTileManager`, `GetTileId`,
   `GamePlayerManagerAPI.IsPlayerIdValid` und `IsPlayerAlliedTo` besitzen weiterhin dieselbe
   Bedeutung;
-- `GameUnit` behält insbesondere `r_ControllableForPlayerId` und
-  `r_CurrentTilePositionX/Y` an den erwarteten nativen Offsets;
+- `GameUnit` behält insbesondere `r_ControllableForPlayerId`, `r_CurrentTilePositionX/Y`,
+  `r_AIState`, `r_AI_LastIssuedTribeCommand`, `r_AttackMoveToTargetTileX/Y` sowie die
+  `r_AI_ContextTarget...`-/`r_ContextTargetTile...`-Felder an den erwarteten nativen Offsets;
+- `TribeAICommand` behält für die Diagnose die Werte `AttackUnit=4`, `AttackBuilding=9` und
+  `ForceAttackBuilding=36`;
 - Zhuqiaomons `NativePatternResolver`-/Detour-Verhalten und MonoMods Trampolinerzeugung sind
   unverändert;
 - der Extender installiert keinen neuen überlappenden Detour oder Bytepatch an den hier
@@ -1267,6 +1323,8 @@ beziehungsweise die konkreten Stages filtern:
 - `move-command-result`
 - `mode-context`
 - `target-command`
+- `attack-cursor-pair`
+- `attack-mode-unscoped`
 - `planner-owner-qualified`
 - `planner-owner-rejected`
 - `tribe-flood-observed`
@@ -1340,6 +1398,11 @@ Diese Liste belegt die breite Verwendung des Helpers, ersetzt aber bei einer neu
 - Die erste owner-aware Teststufe filtert Cursor und funktionalen Builder-Override
   konservativ auf eigene/verbündete Moats und protokolliert Owner-Maske sowie
   friendly/enemy/invalid Tiles.
+- Der Attack-Cursor-Kandidat öffnet vier bestätigte Auswahlgate-Sprünge und lässt die
+  nachfolgende Vanilla-Tilepaarprüfung zuerst laufen. Nur das exakt korrelierte Nullergebnis darf
+  durch eine owner-sichere Route zu einem freien Annäherungstile positiv werden.
+- `0x196840` bedeutet nachweislich „Unit steht auf einem Tile mit fertigem-Moat-Bit“, während
+  `0x196870` nur Auswahlarten prüft; diese Semantik bei Updates nicht wieder verallgemeinern.
 - Als Nächstes diese Stufe mit eigenem, verbündetem und feindlichem Moat sowie Umweg-, Mauer-
   und Wasser-Kontrollen im Editor testen; danach Skirmish und Gruppenbewegung.
 - Nach einem DLL-Update die semantische Wiederauffindungsanleitung in Abschnitt 12.1.1 nutzen;

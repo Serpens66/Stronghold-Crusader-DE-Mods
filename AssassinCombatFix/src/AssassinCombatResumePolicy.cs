@@ -1,4 +1,4 @@
-// Feature: Pure eligibility rules for restoring Assassin path context after combat.
+// Feature: Pure eligibility rules for the audited Assassin state-122 callsite.
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 
@@ -13,54 +13,33 @@ namespace AssassinCombatFix
             return nativeUnitIndex >= 0 && nativeUnitIndex < unitCount;
         }
 
-        public static bool ShouldUseAssassinPathContext(
-            bool modEnabled,
-            bool improvedPathfindingEnabled,
-            bool nativeHookInstalled,
-            bool unitResolved,
-            AliveState aliveState,
-            eChimps unitType)
-        {
-            return modEnabled &&
-                improvedPathfindingEnabled &&
-                nativeHookInstalled &&
-                unitResolved &&
-                aliveState == AliveState.IsAlive &&
-                unitType == eChimps.CHIMP_TYPE_ARAB_ASSASIN;
-        }
-
         public static bool ShouldInjectPostCombatPathContext(
             bool modEnabled,
             bool improvedPathfindingEnabled,
-            bool nativeHookInstalled,
+            bool nativeHooksInstalled,
             bool unitResolved,
             AliveState aliveState,
             eChimps unitType,
             ushort aiState,
             int currentPathContext)
         {
-            return ShouldUseAssassinPathContext(
-                    modEnabled,
-                    improvedPathfindingEnabled,
-                    nativeHookInstalled,
-                    unitResolved,
-                    aliveState,
-                    unitType) &&
+            return modEnabled &&
+                improvedPathfindingEnabled &&
+                nativeHooksInstalled &&
+                unitResolved &&
+                aliveState == AliveState.IsAlive &&
+                unitType == eChimps.CHIMP_TYPE_ARAB_ASSASIN &&
                 aiState == PostCombatRepathState &&
                 currentPathContext == 0;
         }
 
-        public static bool ShouldLogResumeDiagnostic(bool unitResolved, eChimps unitType)
-        {
-            return unitResolved && unitType == eChimps.CHIMP_TYPE_ARAB_ASSASIN;
-        }
-
-        public static bool ShouldLogDirectRepathDiagnostic(
+        public static bool ShouldLogCallsiteDiagnostic(
             bool unitResolved,
             eChimps unitType,
             ushort aiState)
         {
-            return ShouldLogResumeDiagnostic(unitResolved, unitType) &&
+            return unitResolved &&
+                unitType == eChimps.CHIMP_TYPE_ARAB_ASSASIN &&
                 aiState == PostCombatRepathState;
         }
     }
