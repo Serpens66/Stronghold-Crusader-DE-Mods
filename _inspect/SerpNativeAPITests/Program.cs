@@ -3,6 +3,7 @@ using SHCDESE.EventAPI;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 
 namespace SerpNativeAPITests
 {
@@ -11,8 +12,15 @@ namespace SerpNativeAPITests
         private const long ModuleBase = 0x10000000;
         private const int FunctionRva = 0x1100;
         private const int FunctionSize = 0x300;
+        private const int DistanceRva = 0x1180;
         private const int DecisionRva = 0x1200;
         private const int HumanDelayRva = 0x1280;
+        private static readonly byte[] VanillaDistanceBytes = Hex("01 02 03 04");
+        private static readonly byte[] CenteredDistanceBytes = Hex("05 06 07 08");
+        private static readonly byte[] SupportedCenteredDistanceBytes = Hex(
+            "44 0F BF 84 2A 0E 8B 7E 06 0F BF 8C 2A 10 8B 7E 06 0F BF 84 2B 0A CD 4C 06 " +
+            "44 01 F8 C1 E0 02 44 29 C0 99 31 D0 29 D0 41 89 C0 0F BF 84 2B 0C CD 4C 06 " +
+            "44 01 E0 C1 E0 02 29 C8 99 31 D0 29 D0 41 39 C0 44 0F 4C C0 90 90 90 90 90");
         private static readonly byte[] DecisionBytes = Hex(
             "40 84 F6 75 10 41 81 F8 C8 00 00 00 7D 10 B8 B0 04 00 00 EB 69 41 81 F8 8C 00 00 00 7C 5B");
         private static readonly byte[] HumanDelayBytes = Hex("EB 50 B8 64 00 00 00 48 8D 2D C0 83 F4 FF");
@@ -20,10 +28,12 @@ namespace SerpNativeAPITests
 
         private static int Main()
         {
+            TestPublicSurface();
             TestPeValidation();
             TestFixedCatalogValidation();
             TestReadinessAndIndependentCapabilities();
             TestOwnership();
+            TestCenteredDistanceSemantics();
             TestGatehouseTransactionAndRounding();
             TestGatehouseRollbackAndPageCleanup();
             TestSelectedBroker();
@@ -35,6 +45,61 @@ namespace SerpNativeAPITests
             }
             Console.Error.WriteLine($"FAIL: SerpNativeAPI tests reported {failures} failure(s).");
             return 1;
+        }
+
+        private static void TestPublicSurface()
+        {
+            var expected = new HashSet<string>(StringComparer.Ordinal)
+            {
+                "SerpNativeAPI.GatehouseTimingSettings",
+                "SerpNativeAPI.GatehouseTimingValues",
+                "SerpNativeAPI.IGatehouseTimingCapability",
+                "SerpNativeAPI.ISelectedUnitCommandCapability",
+                "SerpNativeAPI.ISelectedUnitCommandRegistration",
+                "SerpNativeAPI.ISerpNativeApi",
+                "SerpNativeAPI.NativeApiState",
+                "SerpNativeAPI.NativeCapabilityDiagnostic",
+                "SerpNativeAPI.NativeCapabilityIds",
+                "SerpNativeAPI.NativeCapabilityState",
+                "SerpNativeAPI.SelectedUnitCommandContext",
+                "SerpNativeAPI.SerpNativeApi",
+                // BepInEx discovers the plugin type; it is public but is not a consumer service.
+                "SerpNativeAPI.SerpNativeAPIPlugin"
+            };
+
+            Type[] exported = typeof(ISerpNativeApi).Assembly.GetExportedTypes();
+            foreach (Type type in exported)
+            {
+                Assert(expected.Remove(type.FullName), $"unexpected exported API type: {type.FullName}");
+                foreach (MethodInfo method in type.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly))
+                {
+                    AssertSafePublicType(method.ReturnType, $"{type.FullName}.{method.Name} return type");
+                    foreach (ParameterInfo parameter in method.GetParameters())
+                        AssertSafePublicType(parameter.ParameterType, $"{type.FullName}.{method.Name} parameter {parameter.Name}");
+                }
+                foreach (ConstructorInfo constructor in type.GetConstructors(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly))
+                    foreach (ParameterInfo parameter in constructor.GetParameters())
+                        AssertSafePublicType(parameter.ParameterType, $"{type.FullName} constructor parameter {parameter.Name}");
+                foreach (PropertyInfo property in type.GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly))
+                    AssertSafePublicType(property.PropertyType, $"{type.FullName}.{property.Name} property type");
+                foreach (FieldInfo field in type.GetFields(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly))
+                    AssertSafePublicType(field.FieldType, $"{type.FullName}.{field.Name} field type");
+            }
+
+            foreach (string missing in expected)
+                Assert(false, $"expected exported API type is missing: {missing}");
+        }
+
+        private static void AssertSafePublicType(Type type, string location)
+        {
+            while (type.IsByRef || type.IsArray)
+                type = type.GetElementType();
+            bool forbidden = type.IsPointer || type == typeof(IntPtr) || type == typeof(UIntPtr) ||
+                type.FullName.IndexOf("NativeDetour", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                type.FullName.IndexOf("MemoryWriter", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                type.FullName.IndexOf("Pattern", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                type.FullName.IndexOf("Rva", StringComparison.OrdinalIgnoreCase) >= 0;
+            Assert(!forbidden, $"forbidden native implementation type at {location}: {type.FullName}");
         }
 
         private static void TestPeValidation()
@@ -81,6 +146,13 @@ namespace SerpNativeAPITests
                 new ReadOnlySpan<byte>(wrongImmediate, FunctionRva, FunctionSize)));
             runtime = InitializeRuntime(wrongImmediate, wrongImmediateCatalog, SeedRuntimeMemory(wrongImmediate, wrongImmediateCatalog), new FakeEventSource());
             AssertGateValidationFailure(runtime, "wrong Vanilla immediate must fail");
+
+            byte[] wrongDistance = (byte[])image.Clone();
+            wrongDistance[DistanceRva] ^= 1;
+            GatehouseBuildTarget wrongDistanceCatalog = CloneCatalog(catalog, functionHash: SerpNativeApiRuntime.ComputeSha256(
+                new ReadOnlySpan<byte>(wrongDistance, FunctionRva, FunctionSize)));
+            runtime = InitializeRuntime(wrongDistance, wrongDistanceCatalog, SeedRuntimeMemory(wrongDistance, wrongDistanceCatalog), new FakeEventSource());
+            AssertGateValidationFailure(runtime, "wrong Vanilla distance block must fail");
 
             GatehouseBuildTarget outside = CloneCatalog(catalog, aiCloseDistanceRva: FunctionRva - 4);
             runtime = InitializeRuntime(image, outside, SeedRuntimeMemory(image, catalog), new FakeEventSource());
@@ -131,6 +203,38 @@ namespace SerpNativeAPITests
                 "exclusive overlap identifies the first owner");
         }
 
+        private static void TestCenteredDistanceSemantics()
+        {
+            GatehouseBuildTarget supported = GatehouseBuildTarget.Supported;
+            Assert(supported.DistanceBlockRva == 0xB7B70 &&
+                supported.DistanceBlockRva + supported.VanillaDistanceBlockBytes.Length == 0xB7BBB,
+                "distance patch must occupy exactly the post-hook Vanilla arithmetic block");
+            Assert(supported.VanillaDistanceBlockBytes.Length == 75 &&
+                supported.CenteredDistanceBlockBytes.Length == supported.VanillaDistanceBlockBytes.Length,
+                "centered distance patch must preserve the 75-byte block size");
+            AssertSequenceEqual(supported.CenteredDistanceBlockBytes, SupportedCenteredDistanceBytes,
+                "supported centered distance bytes must match the reviewed crash-safe sequence");
+
+            byte[] unitYLoad = Hex("0F BF 8C 2A 10 8B 7E 06");
+            int unitYLoadOffset = IndexOfSequence(supported.CenteredDistanceBlockBytes, unitYLoad);
+            int firstCdqOffset = Array.IndexOf(supported.CenteredDistanceBlockBytes, (byte)0x99);
+            Assert(unitYLoadOffset == 9 && unitYLoadOffset + unitYLoad.Length <= firstCdqOffset,
+                "unit Y must be loaded through the live RDX unit offset before CDQ overwrites RDX");
+
+            Assert(GatehouseTimingService.ComputeCenteredDistanceNative(10, 20, 12, 24, 88, 176) == 0,
+                "integer midpoint should map to zero native distance");
+            Assert(GatehouseTimingService.ComputeCenteredDistanceNative(10, 20, 11, 23, 84, 172) == 0,
+                "half-tile midpoint should remain exact in native coordinates");
+            Assert(GatehouseTimingService.ComputeCenteredDistanceNative(12, 24, 10, 20, 88, 176) == 0,
+                "reversed bounds should produce the same midpoint");
+            Assert(GatehouseTimingService.ComputeCenteredDistanceNative(10, 20, 12, 24, 80, 176) == 8 &&
+                GatehouseTimingService.ComputeCenteredDistanceNative(10, 20, 12, 24, 96, 176) == 8,
+                "opposite horizontal approaches should have equal distance");
+            Assert(GatehouseTimingService.ComputeCenteredDistanceNative(10, 20, 12, 24, 80, 168) == 8 &&
+                GatehouseTimingService.ComputeCenteredDistanceNative(10, 20, 12, 24, 96, 184) == 8,
+                "diagonal approaches should retain Vanilla Chebyshev distance");
+        }
+
         private static void TestGatehouseTransactionAndRounding()
         {
             FakeMemory memory = SeedDirectGateMemory();
@@ -147,6 +251,8 @@ namespace SerpNativeAPITests
             Assert(memory.ReadRaw(ModuleBase + 0xB7BC3) == 41 && memory.ReadRaw(ModuleBase + 0xB7BCA) == 1 &&
                 memory.ReadRaw(ModuleBase + 0xB7BD3) == 41 && memory.ReadRaw(ModuleBase + 0xB7C35) == 1,
                 "all four rounded values should be written");
+            AssertBytes(memory, ModuleBase + 0xB7B70, CenteredDistanceBytes,
+                "first application should activate the centered distance block");
             int writes = memory.WriteCount;
             Assert(capability.TryApply(rounded, out _) && memory.WriteCount == writes, "identical apply should be idempotent");
             memory.Set(ModuleBase + 0xB7BC3, 42);
@@ -158,6 +264,8 @@ namespace SerpNativeAPITests
                 "disabled settings restore Vanilla without validating unused values");
             Assert(memory.ReadRaw(ModuleBase + 0xB7BC3) == 200 && memory.ReadRaw(ModuleBase + 0xB7C35) == 100,
                 "disabled settings restore all Vanilla values");
+            AssertBytes(memory, ModuleBase + 0xB7B70, CenteredDistanceBytes,
+                "disabled timing should retain the capability-wide midpoint fix");
 
             memory.Set(ModuleBase + 0xB7BC3, 201);
             Assert(!capability.TryApply(rounded, out NativeCapabilityDiagnostic changed) &&
@@ -166,10 +274,23 @@ namespace SerpNativeAPITests
             memory.SetByte(ModuleBase + 0xB7BC0, 0x90);
             Assert(!capability.TryApply(rounded, out changed) && changed.State == NativeCapabilityState.ValidationFailed,
                 "external opcode mutation fails closed before writing");
+
+            memory.SetByte(ModuleBase + 0xB7BC0, 0x41);
+            memory.SetByte(ModuleBase + 0xB7B70, 0x90);
+            Assert(!capability.TryApply(rounded, out changed) && changed.State == NativeCapabilityState.ValidationFailed,
+                "external midpoint patch mutation fails closed before writing");
         }
 
         private static void TestGatehouseRollbackAndPageCleanup()
         {
+            FakeMemory codeWriteFailure = SeedDirectGateMemory();
+            IGatehouseTimingCapability codeCapability = CreateGateService(codeWriteFailure, new NativeOwnershipRegistry()).Bind("owner");
+            codeWriteFailure.FailNextWriteByteAddress = ModuleBase + 0xB7B72;
+            Assert(!codeCapability.TryApply(new GatehouseTimingSettings(true, 1, 5, 10, 15), out _),
+                "partial midpoint code write should fail");
+            AssertBytes(codeWriteFailure, ModuleBase + 0xB7B70, VanillaDistanceBytes,
+                "partial midpoint code write should restore the complete Vanilla block");
+
             FakeMemory memory = SeedDirectGateMemory();
             IGatehouseTimingCapability capability = CreateGateService(memory, new NativeOwnershipRegistry()).Bind("owner");
             memory.FailNextWriteAddress = ModuleBase + 0xB7BCA;
@@ -177,6 +298,8 @@ namespace SerpNativeAPITests
             Assert(memory.ReadRaw(ModuleBase + 0xB7BC3) == 200 && memory.ReadRaw(ModuleBase + 0xB7BCA) == 1200 &&
                 memory.ReadRaw(ModuleBase + 0xB7BD3) == 140 && memory.ReadRaw(ModuleBase + 0xB7C35) == 100,
                 "partial write should roll back all four values");
+            AssertBytes(memory, ModuleBase + 0xB7B70, VanillaDistanceBytes,
+                "partial write should roll back the Vanilla distance block");
             Assert(memory.WritablePages.Count == 1 && memory.RestoredProtections.Count == 1,
                 "the four current RVAs share one 4 KiB page");
 
@@ -288,11 +411,13 @@ namespace SerpNativeAPITests
 
         private static GatehouseBuildTarget InstallTestGatehouse(byte[] image)
         {
+            Copy(image, DistanceRva, VanillaDistanceBytes);
             Copy(image, DecisionRva, DecisionBytes);
             Copy(image, HumanDelayRva, HumanDelayBytes);
             return new GatehouseBuildTarget(
                 "TESTHASH", FunctionRva, FunctionSize,
                 SerpNativeApiRuntime.ComputeSha256(new ReadOnlySpan<byte>(image, FunctionRva, FunctionSize)),
+                DistanceRva, VanillaDistanceBytes, CenteredDistanceBytes,
                 DecisionRva, DecisionBytes, HumanDelayRva, HumanDelayBytes,
                 DecisionRva + 8, DecisionRva + 15, DecisionRva + 24, HumanDelayRva + 3);
         }
@@ -303,6 +428,7 @@ namespace SerpNativeAPITests
             int? aiCloseDistanceRva = null) =>
             new GatehouseBuildTarget(
                 source.BuildHash, source.FunctionRva, source.FunctionSize, functionHash ?? source.FunctionHash,
+                source.DistanceBlockRva, source.VanillaDistanceBlockBytes, source.CenteredDistanceBlockBytes,
                 source.DecisionBlockRva, source.DecisionBlockBytes, source.HumanDelayBlockRva, source.HumanDelayBlockBytes,
                 aiCloseDistanceRva ?? source.AiCloseDistanceRva, source.AiReopenDelayRva,
                 source.HumanCloseDistanceRva, source.HumanReopenDelayRva);
@@ -310,6 +436,8 @@ namespace SerpNativeAPITests
         private static FakeMemory SeedRuntimeMemory(byte[] image, GatehouseBuildTarget target)
         {
             var memory = new FakeMemory();
+            for (int index = 0; index < target.VanillaDistanceBlockBytes.Length; index++)
+                memory.SetByte(ModuleBase + target.DistanceBlockRva + index, image[target.DistanceBlockRva + index]);
             for (int index = 0; index < target.DecisionBlockBytes.Length; index++)
                 memory.SetByte(ModuleBase + target.DecisionBlockRva + index, image[target.DecisionBlockRva + index]);
             for (int index = 0; index < target.HumanDelayBlockBytes.Length; index++)
@@ -331,6 +459,7 @@ namespace SerpNativeAPITests
                 new NativeByteInvariant(ModuleBase + 0xB7C34, 0xB8)
             };
             var target = new GatehouseTimingTarget(
+                ModuleBase + 0xB7B70, VanillaDistanceBytes, CenteredDistanceBytes,
                 ModuleBase + 0xB7BC3, ModuleBase + 0xB7BCA,
                 ModuleBase + 0xB7BD3, ModuleBase + 0xB7C35, invariants);
             return new GatehouseTimingService("hash", target, memory, ownership, null);
@@ -343,6 +472,8 @@ namespace SerpNativeAPITests
             memory.SetByte(ModuleBase + 0xB7BC1, 0x81);
             memory.SetByte(ModuleBase + 0xB7BC2, 0xF8);
             memory.SetByte(ModuleBase + 0xB7C34, 0xB8);
+            for (int index = 0; index < VanillaDistanceBytes.Length; index++)
+                memory.SetByte(ModuleBase + 0xB7B70 + index, VanillaDistanceBytes[index]);
             memory.Set(ModuleBase + 0xB7BC3, 200);
             memory.Set(ModuleBase + 0xB7BCA, 1200);
             memory.Set(ModuleBase + 0xB7BD3, 140);
@@ -353,6 +484,7 @@ namespace SerpNativeAPITests
         private static GatehouseTimingService CreateCrossPageGateService(FakeMemory memory)
         {
             var target = new GatehouseTimingTarget(
+                ModuleBase + 0x1FE0, VanillaDistanceBytes, CenteredDistanceBytes,
                 ModuleBase + 0x1FF0, ModuleBase + 0x1FF4,
                 ModuleBase + 0x1FF8, ModuleBase + 0x2004);
             return new GatehouseTimingService("hash", target, memory, new NativeOwnershipRegistry(), null);
@@ -361,6 +493,8 @@ namespace SerpNativeAPITests
         private static FakeMemory SeedCrossPageGateMemory()
         {
             var memory = new FakeMemory();
+            for (int index = 0; index < VanillaDistanceBytes.Length; index++)
+                memory.SetByte(ModuleBase + 0x1FE0 + index, VanillaDistanceBytes[index]);
             memory.Set(ModuleBase + 0x1FF0, 200);
             memory.Set(ModuleBase + 0x1FF4, 1200);
             memory.Set(ModuleBase + 0x1FF8, 140);
@@ -396,6 +530,41 @@ namespace SerpNativeAPITests
         }
 
         private static void Copy(byte[] target, int offset, byte[] source) => Array.Copy(source, 0, target, offset, source.Length);
+        private static void AssertBytes(FakeMemory memory, long address, byte[] expected, string message)
+        {
+            for (int index = 0; index < expected.Length; index++)
+                if (memory.ReadByte(address + index) != expected[index])
+                {
+                    Assert(false, message + $" (mismatch at +0x{index:X})");
+                    return;
+                }
+        }
+        private static void AssertSequenceEqual(byte[] actual, byte[] expected, string message)
+        {
+            if (actual.Length != expected.Length)
+            {
+                Assert(false, message + $" (length {actual.Length}, expected {expected.Length})");
+                return;
+            }
+            for (int index = 0; index < expected.Length; index++)
+                if (actual[index] != expected[index])
+                {
+                    Assert(false, message + $" (mismatch at +0x{index:X})");
+                    return;
+                }
+        }
+        private static int IndexOfSequence(byte[] source, byte[] sequence)
+        {
+            for (int start = 0; start <= source.Length - sequence.Length; start++)
+            {
+                int index = 0;
+                while (index < sequence.Length && source[start + index] == sequence[index])
+                    index++;
+                if (index == sequence.Length)
+                    return start;
+            }
+            return -1;
+        }
         private static void WriteUInt16(byte[] data, int offset, int value) { data[offset] = (byte)value; data[offset + 1] = (byte)(value >> 8); }
         private static void WriteInt32(byte[] data, int offset, int value)
         {
@@ -430,6 +599,7 @@ namespace SerpNativeAPITests
             private readonly Dictionary<long, byte> bytes = new Dictionary<long, byte>();
             public int PageSize => 0x1000;
             public long? FailNextWriteAddress { get; set; }
+            public long? FailNextWriteByteAddress { get; set; }
             public bool FailRestore { get; set; }
             public bool FailFlush { get; set; }
             public long? MutateOnMakeWritableAddress { get; set; }
@@ -443,6 +613,12 @@ namespace SerpNativeAPITests
             public int ReadRaw(long address) => values[address];
             public byte ReadByte(long address) { OperationCount++; return bytes[address]; }
             public int ReadInt32(long address) { OperationCount++; return values[address]; }
+            public void WriteByte(long address, byte value)
+            {
+                OperationCount++; WriteCount++;
+                if (FailNextWriteByteAddress == address) { FailNextWriteByteAddress = null; throw new InvalidOperationException("injected byte write failure"); }
+                bytes[address] = value;
+            }
             public void WriteInt32(long address, int value)
             {
                 OperationCount++; WriteCount++;

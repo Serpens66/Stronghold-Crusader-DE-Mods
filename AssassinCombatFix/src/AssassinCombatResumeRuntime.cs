@@ -446,6 +446,11 @@ namespace AssassinCombatFix
                 "combat-finish entry diagnostic");
             ValidateHookSpan(
                 memory,
+                AssassinCombatResumeNativeDefinition.CommonPathPrologueRva,
+                AssassinCombatResumeNativeDefinition.CommonPathPrologueBytes,
+                "common-path native prologue");
+            ValidateHookSpan(
+                memory,
                 AssassinCombatResumeNativeDefinition.CommonPathDiagnosticHookRva,
                 AssassinCombatResumeNativeDefinition.CommonPathDiagnosticHookBytes,
                 "common-path entry diagnostic");
@@ -457,9 +462,20 @@ namespace AssassinCombatFix
                     AssassinCombatResumeNativeDefinition.CommonPathDiagnosticHookLength,
                     AssassinCombatResumeNativeDefinition.InlineHookMinimumOverwriteLength,
                     AssassinCombatResumeNativeDefinition.CommonPathDiagnosticHookBytes.Length) ||
+                AssassinCombatResumeNativeDefinition.CommonPathPrologueLength !=
+                    AssassinCombatResumeNativeDefinition.CommonPathPrologueBytes.Length ||
+                AssassinCombatResumeNativeDefinition.CommonPathPrologueRva +
+                    AssassinCombatResumeNativeDefinition.CommonPathPrologueLength !=
+                    AssassinCombatResumeNativeDefinition.CommonPathDiagnosticHookRva ||
+                !AssassinCombatResumePolicy.IsManagedCallbackStackAligned(
+                    sizeof(ulong),
+                    AssassinCombatResumeNativeDefinition.CombatFinishStackDeltaAtCallback) ||
+                !AssassinCombatResumePolicy.IsManagedCallbackStackAligned(
+                    sizeof(ulong),
+                    AssassinCombatResumeNativeDefinition.CommonPathStackDeltaAtCallback) ||
                 AssassinCombatResumeNativeDefinition.CombatFinishCallerReturnAddressStackOffset != 0x28 ||
-                AssassinCombatResumeNativeDefinition.CommonPathCallerReturnAddressStackOffset != 0x30 ||
-                AssassinCombatResumeNativeDefinition.CommonPathOptionStackOffset != 0x58)
+                AssassinCombatResumeNativeDefinition.CommonPathCallerReturnAddressStackOffset != 0x68 ||
+                AssassinCombatResumeNativeDefinition.CommonPathOptionStackOffset != 0x90)
             {
                 throw new InvalidOperationException(
                     "the passive Assassin diagnostic hook spans or stack contracts are invalid");

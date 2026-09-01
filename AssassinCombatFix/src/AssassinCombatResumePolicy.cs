@@ -39,6 +39,17 @@ namespace AssassinCombatFix
                 declaredLength == expectedInstructionLength;
         }
 
+        public static bool IsManagedCallbackStackAligned(
+            int entryStackModulo16,
+            int nativeStackDelta)
+        {
+            if (entryStackModulo16 < 0 || entryStackModulo16 >= 16 || nativeStackDelta < 0)
+                return false;
+
+            int callbackModulo16 = (entryStackModulo16 - (nativeStackDelta & 0xF) + 16) & 0xF;
+            return callbackModulo16 == 0;
+        }
+
         public static bool DoMinimumInlineHookRangesOverlap(
             int firstRva,
             int firstDeclaredLength,

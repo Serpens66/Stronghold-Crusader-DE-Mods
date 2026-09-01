@@ -33,6 +33,7 @@ namespace AssassinCombatFix
         public const int InlineHookMinimumOverwriteLength = 14;
         public const int CombatFinishDiagnosticHookRva = 0x1853F0;
         public const int CombatFinishDiagnosticHookLength = 16;
+        public const int CombatFinishStackDeltaAtCallback = 0x28;
         public const int CombatFinishCallerReturnAddressStackOffset = 0x28;
         public static readonly byte[] CombatFinishDiagnosticHookBytes =
         {
@@ -42,11 +43,10 @@ namespace AssassinCombatFix
             0x48, 0x69, 0xD8, 0x90, 0x04, 0x00, 0x00
         };
 
-        public const int CommonPathDiagnosticHookRva = 0x196280;
-        public const int CommonPathDiagnosticHookLength = 14;
-        public const int CommonPathCallerReturnAddressStackOffset = 0x30;
-        public const int CommonPathOptionStackOffset = 0x58;
-        public static readonly byte[] CommonPathDiagnosticHookBytes =
+        public const int CommonPathPrologueRva = 0x196280;
+        public const int CommonPathPrologueLength = 20;
+        public const int CommonPathStackDeltaAtCallback = 0x68;
+        public static readonly byte[] CommonPathPrologueBytes =
         {
             0x48, 0x89, 0x5C, 0x24, 0x20,
             0x55,
@@ -54,7 +54,21 @@ namespace AssassinCombatFix
             0x57,
             0x41, 0x54,
             0x41, 0x55,
-            0x41, 0x56
+            0x41, 0x56,
+            0x41, 0x57,
+            0x48, 0x83, 0xEC, 0x30
+        };
+
+        public const int CommonPathDiagnosticHookRva = 0x196294;
+        public const int CommonPathDiagnosticHookLength = 16;
+        public const int CommonPathCallerReturnAddressStackOffset = 0x68;
+        public const int CommonPathOptionStackOffset = 0x90;
+        public static readonly byte[] CommonPathDiagnosticHookBytes =
+        {
+            0x48, 0x63, 0xF2,
+            0x45, 0x33, 0xD2,
+            0x48, 0x69, 0xFE, 0x90, 0x04, 0x00, 0x00,
+            0x4D, 0x63, 0xF0
         };
 
         public const int PostCombatRepathPrologueRva = 0x1976C0;

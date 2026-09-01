@@ -1517,6 +1517,22 @@ namespace MoveMoatTest
                         continue;
                     }
 
+                    bool reachedRequestedTarget =
+                        unit->r_CurrentTilePositionX == tracker.TargetX &&
+                        unit->r_CurrentTilePositionY == tracker.TargetY;
+                    bool pathConsumed = unit->p_PathPlanSize > 0 &&
+                        unit->p_CurrentPathPlanPosition >= unit->p_PathPlanSize;
+                    bool settledOnCurrentTile =
+                        unit->r_TargetTilePositionX == unit->r_CurrentTilePositionX &&
+                        unit->r_TargetTilePositionY == unit->r_CurrentTilePositionY &&
+                        unit->r_NextTilePositionX2 == unit->r_CurrentTilePositionX &&
+                        unit->r_NextTilePositionY2 == unit->r_CurrentTilePositionY;
+                    if (reachedRequestedTarget && pathConsumed && settledOnCurrentTile)
+                    {
+                        EndTrackedMoatMove(unitId, tracker, "path-completed-at-target");
+                        continue;
+                    }
+
                     bool currentMoat = IsCompletedMoatTile(unchecked((int)unit->r_CurrentPositionTileId));
                     bool nextMoat = IsCompletedMoatTile(unchecked((int)unit->r_NextPositionTileId2));
                     bool targetMoat = IsCompletedMoatTile(unchecked((int)unit->r_TargetPositionTileId));
@@ -2029,6 +2045,14 @@ namespace MoveMoatTest
 
             int* routeVariant = (int*)((byte*)pathManager.ToPointer() + PathManagerRouteVariantOffset);
             int originalRouteVariant = *routeVariant;
+            int* assassinMode =
+                (int*)((byte*)pathManager.ToPointer() + PathManagerAssassinModeOffset);
+            int originalAssassinMode = *assassinMode;
+            bool isAssassin =
+                GameUnitManagerAPI.Instance.TryGetUnitById(plan.UnitId, out GameUnit* builderUnit) &&
+                builderUnit != null &&
+                builderUnit->r_AliveState == AliveState.IsAlive &&
+                builderUnit->r_UnitChimp == eChimps.CHIMP_TYPE_ARAB_ASSASIN;
             int vanillaMoatMode = plan.VanillaModeDetected ? 1 : 0;
             bool vanillaModeAdjusted = currentMoatMode != vanillaMoatMode;
             int vanillaResult;
@@ -2049,19 +2073,25 @@ namespace MoveMoatTest
             LogBuilderNativeState(
                 "after-vanilla-first", pathManager, plan,
                 movementClass, movementProfile, vanillaResult);
+            bool route80FallbackCandidate = vanillaResult == 0 && originalRouteVariant == 1;
+            bool assassinGroundFallbackCandidate = vanillaResult == 0 &&
+                originalRouteVariant == 0 && originalAssassinMode != 0 && isAssassin;
+            string fallbackCandidate = route80FallbackCandidate
+                ? "route80"
+                : assassinGroundFallbackCandidate ? "assassin-ground" : "none";
             try
             {
                 LogPipelineDiagnostic(
                     $"stage=builder-vanilla-first unit={plan.UnitId} player={plan.PlayerId} " +
                     $"target=({plan.TargetX},{plan.TargetY}) route80={originalRouteVariant} " +
-                    $"moatMode={vanillaMoatMode} result={vanillaResult} " +
-                    $"fallbackCandidate={vanillaResult == 0 && originalRouteVariant == 1}");
+                    $"path88={originalAssassinMode} moatMode={vanillaMoatMode} " +
+                    $"result={vanillaResult} fallbackCandidate={fallbackCandidate}");
             }
             catch
             {
                 // Diagnostics must not change the Vanilla-first builder result.
             }
-            if (vanillaResult > 0 || originalRouteVariant != 1)
+            if (!route80FallbackCandidate && !assassinGroundFallbackCandidate)
             {
                 RecordBuilderResult(command, vanillaResult);
                 return vanillaResult;
@@ -2095,19 +2125,14 @@ namespace MoveMoatTest
                 $"target=({plan.TargetX},{plan.TargetY}) effective=allow " +
                 routeSummary.ToLogFields());
 
-            *routeVariant = 0;
-            int* assassinMode =
-                (int*)((byte*)pathManager.ToPointer() + PathManagerAssassinModeOffset);
-            int originalAssassinMode = *assassinMode;
+            if (route80FallbackCandidate)
+                *routeVariant = 0;
             LogBuilderNativeState(
                 "before-fallback", pathManager, plan,
                 movementClass, movementProfile, vanillaResult);
             // The first unchanged run keeps Assassin wall weighting. A qualified pure-moat
             // retry needs the ordinary ground builder because D9C40 still rejects moat tiles.
-            bool useAssassinGroundFallback = originalAssassinMode != 0 &&
-                GameUnitManagerAPI.Instance.TryGetUnitById(plan.UnitId, out GameUnit* builderUnit) &&
-                builderUnit != null &&
-                builderUnit->r_UnitChimp == eChimps.CHIMP_TYPE_ARAB_ASSASIN;
+            bool useAssassinGroundFallback = originalAssassinMode != 0 && isAssassin;
 
             int result;
             try
@@ -2130,7 +2155,7 @@ namespace MoveMoatTest
             }
 
             bool retained = result > 0;
-            if (!retained)
+            if (route80FallbackCandidate && !retained)
                 *routeVariant = originalRouteVariant;
 
             LogBuilderNativeState(
@@ -2143,15 +2168,20 @@ namespace MoveMoatTest
                 {
                     LogBuilderDecision(
                         $"stage=builder-assassin-ground-fallback unit={plan.UnitId} " +
-                        $"target=({plan.TargetX},{plan.TargetY}) path88={originalAssassinMode}->0->" +
+                        $"target=({plan.TargetX},{plan.TargetY}) " +
+                        $"path80={originalRouteVariant}->{*routeVariant} " +
+                        $"path88={originalAssassinMode}->0->" +
                         $"{*assassinMode} vanillaResult={vanillaResult} result={result} " +
                         $"retained={retained} {routeSummary.ToLogFields()}");
                 }
-                LogBuilderDecision(
-                    $"stage=builder-route80 unit={plan.UnitId} movementClass={movementClass} " +
-                    $"movementProfile={movementProfile} original=1 " +
-                    $"effective={(retained ? 0 : originalRouteVariant)} " +
-                    $"vanillaResult={vanillaResult} result={result} retained={retained}");
+                if (route80FallbackCandidate)
+                {
+                    LogBuilderDecision(
+                        $"stage=builder-route80 unit={plan.UnitId} movementClass={movementClass} " +
+                        $"movementProfile={movementProfile} original=1 " +
+                        $"effective={(retained ? 0 : originalRouteVariant)} " +
+                        $"vanillaResult={vanillaResult} result={result} retained={retained}");
+                }
             }
             catch
             {

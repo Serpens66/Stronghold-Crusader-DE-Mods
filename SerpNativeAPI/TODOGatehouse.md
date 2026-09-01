@@ -1,4 +1,4 @@
-# TODO: Gatehouse-Distanz vom Gebäudemittelpunkt
+# Gatehouse-Distanz vom Gebäudemittelpunkt
 
 ## Beobachtung und bestätigte Ursache
 
@@ -28,7 +28,7 @@ Für den Mittelpunkt der inklusiven Gebäude-Bounding-Box lässt sich ohne Rundu
 
 Dadurch bleiben auch Mittelpunkte auf einem halben Feld exakt darstellbar. Die vorhandene Chebyshev-Metrik und die konfigurierten Human-/AI-Grenzwerte sollten unverändert bleiben.
 
-Vor einer Implementierung muss noch belegt werden, dass dieser Bounding-Box-Mittelpunkt für alle Gatehouse-Typen und Ausrichtungen der fachlich richtige Bezugspunkt ist. Als Alternative sind die Mittelpunkte zwischen `GameGatehouseEntry.r_EntryDoorTilePositionX/Y` und `r_ExitDoorTilePositionX/Y` zu vergleichen. Dafür sollten Laufzeitdiagnosen mehrere kleine und große Gatehouses in allen Ausrichtungen erfassen.
+Der Bounding-Box-Mittelpunkt ist als fachlicher Bezugspunkt festgelegt. Die Door-Koordinaten beschreiben den Durchgang, nicht die Mitte des vollständigen schließenden Bauwerks. Die Laufzeitabnahme muss dennoch mehrere kleine und große Gatehouses in allen Ausrichtungen erfassen.
 
 ## Warum `OnGatehouseQuery` allein nicht genügt
 
@@ -38,15 +38,15 @@ Ein Event-Abonnent kann deshalb einen Kandidaten ablehnen, aber ein `ShouldClose
 
 Im bestätigten Build liegt der Extender-Hook unmittelbar vor dem nativen Distanzblock. Der Distanzblock beginnt bei RVA `0xB7B70`; die Grenzwertentscheidung beginnt bei RVA `0xB7BBB`. Ein eigener Eingriff darf den Extender-Bereich nicht überlappen und muss dessen Register- und Kontrollflussvertrag erhalten.
 
-## Empfohlene nächste Analyse
+## Implementierter Ansatz
 
-1. Den Hash der installierten DLL erneut gegen `CURRENT.json` prüfen und alle Adressen bei Abweichung verwerfen.
-2. Bounding-Box- und Door-Mittelpunkte für sämtliche Gatehouse-Typen und Drehungen protokollieren und gegen die sichtbare Gebäudemitte sowie das beobachtete Schließverhalten vergleichen.
-3. Die exakten Bytes, Registerwerte, Sprungziele und Live-Patches im Bereich um `0xB7B4B` bis `0xB7BBB` nach geladenem Script Extender dokumentieren.
-4. Bevorzugt einen kleinen, rein nativen und hashgebundenen Ersatz ausschließlich für die Distanzarithmetik untersuchen. Er soll den Mittelpunkt berechnen, Chebyshev-Distanz liefern und vor den vorhandenen Human-/AI-Vergleichen zurückkehren. Ein Managed Callback pro Gate/Einheit wäre wegen Aufruffrequenz und Reentranz weniger attraktiv.
-5. Alternativ einen Event-gestützten Ansatz nur dann verwenden, wenn formal nachgewiesen wird, dass er Kandidaten auf beiden Seiten vollständig erfasst und fremde Event-Abonnenten die Filterung nicht wieder überschreiben können.
-6. Den neuen Codebereich als exklusives halboffenes Intervall im Besitzmanager führen. Aktivierung, vier Immediates und Mittelpunktpatch müssen einen konsistenten erwarteten Zustand besitzen.
-7. `Enabled=false` muss sämtliche Mittelpunktbytes und alle vier Vanilla-Immediates wiederherstellen, den Prozessbesitz aber wie bisher nicht freigeben.
+1. Der Resolver verwirft unbekannte DLL-Hashes sowie abweichende Funktions- oder Blockbytes fail-closed.
+2. Der rein native Ersatz belegt exakt `[0xB7B70, 0xB7BBB)` und fällt vor den unveränderten Human-/AI-Vergleichen zurück in Vanilla.
+3. Mittelpunktblock und vier Immediates werden gemeinsam exklusiv reserviert, geschrieben, verifiziert und bei einem Teilfehler vollständig zurückgerollt.
+4. `Enabled=false` stellt die vier Vanilla-Timingwerte wieder her; der capabilityweite Mittelpunkt-Fix bleibt aktiv.
+5. Vollständige Provenienz, Original-/Patchbytes und Registervertrag stehen in `_inspect/gatehouse-center-patch.md`.
+
+Der erste Mittelpunktblock verursachte beim Eintritt einer Unit in die Gatehouse-Abfrage einen nativen Crash: `cdq` für `abs(dx)` zerstörte den noch für das Laden von `unitY` benötigten Unit-Offset in `RDX`. Der korrigierte 75-Byte-Block lädt beide Unit-Koordinaten vor dem ersten `cdq`; ein exakter Byte-Regressionstest sichert diese Reihenfolge ab.
 
 ## Erforderliche Tests
 
@@ -58,7 +58,8 @@ Im bestätigten Build liegt der Extender-Hook unmittelbar vor dem nativen Distan
 - unbekannter DLL-Hash, falscher Funktionshash, veränderte Bytes und überlappender Fremdpatch jeweils fail-closed ohne Mutation;
 - keine Überschneidung mit dem Script-Extender-`OnGatehouseQuery`-Hook;
 - idempotente Wiederholung, externe Mutation, vollständige Transaktion, Rollback sowie kombinierte Schutz-/Cache-Flush-Fehler;
-- Deaktivierung stellt nachweislich Vanilla-Bezugspunkt und Vanilla-Werte wieder her;
+- Deaktivierung stellt nachweislich die vier Vanilla-Timingwerte wieder her und behält den Mittelpunkt-Fix bei;
 - APITest enthält weiterhin keine Gatehouse-RVAs, Scanner, Seitenschutzaufrufe oder eigene Detours.
+- beide Unit-Koordinaten werden vor der ersten überschreibenden Verwendung von `RDX` geladen.
 
-Der Mittelpunkt-Fix ist mit diesem Dokument ausdrücklich noch nicht implementiert.
+Der RDX-Liveness-Hotfix ist implementiert und automatisiert geprüft. Die aufgeführten Laufzeittests sind vor finaler Versionierung weiterhin offen.

@@ -7,8 +7,10 @@ using System.Collections.Generic;
 
 namespace SerpNativeAPI
 {
+    /// <summary>Immutable snapshot of a selected-unit command before Vanilla processes it.</summary>
     public readonly struct SelectedUnitCommandContext
     {
+        /// <summary>Creates a selected-unit command snapshot.</summary>
         public SelectedUnitCommandContext(
             int tribeId,
             TribeAICommand command,
@@ -23,22 +25,33 @@ namespace SerpNativeAPI
             Argument6 = argument6;
         }
 
+        /// <summary>Gets the issuing tribe identifier.</summary>
         public int TribeId { get; }
+        /// <summary>Gets the typed command.</summary>
         public TribeAICommand Command { get; }
+        /// <summary>Gets the first target value supplied by the Script Extender event.</summary>
         public int TargetValue1 { get; }
+        /// <summary>Gets the second target value supplied by the Script Extender event.</summary>
         public int TargetValue2 { get; }
+        /// <summary>Gets the sixth native argument exposed by the Script Extender event.</summary>
         public int Argument6 { get; }
     }
 
+    /// <summary>Controls the lifetime and enabled state of one owner registration.</summary>
     public interface ISelectedUnitCommandRegistration : IDisposable
     {
+        /// <summary>Gets whether the callback is currently enabled.</summary>
         bool IsEnabled { get; }
+        /// <summary>Enables future callback dispatch.</summary>
         void Enable();
+        /// <summary>Disables future callback dispatch without releasing the registration.</summary>
         void Disable();
     }
 
+    /// <summary>Brokers selected-unit command callbacks through one process-wide subscription.</summary>
     public interface ISelectedUnitCommandCapability
     {
+        /// <summary>Registers one idempotent before-callback for the capability owner.</summary>
         bool TryRegisterBefore(
             Action<SelectedUnitCommandContext> callback,
             out ISelectedUnitCommandRegistration registration,

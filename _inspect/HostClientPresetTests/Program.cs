@@ -1960,6 +1960,13 @@ internal static class Program
               !AssassinCombatResumePolicy.IsSafeDiagnosticHookSpan(5, 14, 5) &&
               !AssassinCombatResumePolicy.IsSafeDiagnosticHookSpan(16, 14, 14),
             "Assassin combat diagnostics did not reject short or partial-instruction hook spans");
+        Check(!AssassinCombatResumePolicy.IsManagedCallbackStackAligned(8, 0x30) &&
+              AssassinCombatResumePolicy.IsManagedCallbackStackAligned(8, 0x28) &&
+              AssassinCombatResumePolicy.IsManagedCallbackStackAligned(8, 0x68) &&
+              !AssassinCombatResumePolicy.IsManagedCallbackStackAligned(-1, 0x68) &&
+              !AssassinCombatResumePolicy.IsManagedCallbackStackAligned(16, 0x68) &&
+              !AssassinCombatResumePolicy.IsManagedCallbackStackAligned(8, -1),
+            "Assassin diagnostic hooks did not enforce Windows x64 managed-callback stack alignment");
         Check(AssassinCombatResumePolicy.DoMinimumInlineHookRangesOverlap(
                 0x19772B, 5, 0x197730, 5, 14) &&
               !AssassinCombatResumePolicy.DoMinimumInlineHookRangesOverlap(
@@ -2085,6 +2092,9 @@ internal static class Program
             image.Skip(AssassinCombatResumeNativeDefinition.CombatFinishDiagnosticHookRva)
                 .Take(AssassinCombatResumeNativeDefinition.CombatFinishDiagnosticHookLength)
                 .SequenceEqual(AssassinCombatResumeNativeDefinition.CombatFinishDiagnosticHookBytes) &&
+            image.Skip(AssassinCombatResumeNativeDefinition.CommonPathPrologueRva)
+                .Take(AssassinCombatResumeNativeDefinition.CommonPathPrologueLength)
+                .SequenceEqual(AssassinCombatResumeNativeDefinition.CommonPathPrologueBytes) &&
             image.Skip(AssassinCombatResumeNativeDefinition.CommonPathDiagnosticHookRva)
                 .Take(AssassinCombatResumeNativeDefinition.CommonPathDiagnosticHookLength)
                 .SequenceEqual(AssassinCombatResumeNativeDefinition.CommonPathDiagnosticHookBytes),
@@ -2092,14 +2102,26 @@ internal static class Program
         Check(
             AssassinCombatResumeNativeDefinition.CombatFinishDiagnosticHookLength == 16 &&
             AssassinCombatResumeNativeDefinition.CombatFinishDiagnosticHookBytes.Length == 16 &&
+            AssassinCombatResumeNativeDefinition.CombatFinishStackDeltaAtCallback == 0x28 &&
             AssassinCombatResumeNativeDefinition.CombatFinishCallerReturnAddressStackOffset == 0x28 &&
-            AssassinCombatResumeNativeDefinition.CommonPathDiagnosticHookLength ==
-                AssassinCombatResumeNativeDefinition.InlineHookMinimumOverwriteLength &&
-            AssassinCombatResumeNativeDefinition.CommonPathDiagnosticHookBytes.Length == 14 &&
+            AssassinCombatResumeNativeDefinition.CommonPathPrologueLength == 20 &&
+            AssassinCombatResumeNativeDefinition.CommonPathPrologueBytes.Length == 20 &&
+            AssassinCombatResumeNativeDefinition.CommonPathPrologueRva +
+                AssassinCombatResumeNativeDefinition.CommonPathPrologueLength ==
+                AssassinCombatResumeNativeDefinition.CommonPathDiagnosticHookRva &&
+            AssassinCombatResumeNativeDefinition.CommonPathStackDeltaAtCallback == 0x68 &&
+            AssassinCombatResumeNativeDefinition.CommonPathDiagnosticHookLength == 16 &&
+            AssassinCombatResumeNativeDefinition.CommonPathDiagnosticHookBytes.Length == 16 &&
             AssassinCombatResumeNativeDefinition.CommonPathDiagnosticHookRva +
-                AssassinCombatResumeNativeDefinition.CommonPathDiagnosticHookLength == 0x19628E &&
-            AssassinCombatResumeNativeDefinition.CommonPathCallerReturnAddressStackOffset == 0x30 &&
-            AssassinCombatResumeNativeDefinition.CommonPathOptionStackOffset == 0x58,
+                AssassinCombatResumeNativeDefinition.CommonPathDiagnosticHookLength == 0x1962A4 &&
+            AssassinCombatResumeNativeDefinition.CommonPathCallerReturnAddressStackOffset == 0x68 &&
+            AssassinCombatResumeNativeDefinition.CommonPathOptionStackOffset == 0x90 &&
+            AssassinCombatResumePolicy.IsManagedCallbackStackAligned(
+                sizeof(ulong),
+                AssassinCombatResumeNativeDefinition.CombatFinishStackDeltaAtCallback) &&
+            AssassinCombatResumePolicy.IsManagedCallbackStackAligned(
+                sizeof(ulong),
+                AssassinCombatResumeNativeDefinition.CommonPathStackDeltaAtCallback),
             "passive Assassin diagnostic hooks no longer match their exact instruction and stack contracts");
         Check(
             AssassinCombatResumePolicy.DoMinimumInlineHookRangesOverlap(

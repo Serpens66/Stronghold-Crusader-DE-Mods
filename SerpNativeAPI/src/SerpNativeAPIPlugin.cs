@@ -6,13 +6,17 @@ using System.Security.Cryptography;
 
 namespace SerpNativeAPI
 {
+    /// <summary>BepInEx host for the process-wide Serp native API.</summary>
     [BepInDependency(ScriptExtenderGuid, BepInDependency.DependencyFlags.HardDependency)]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class SerpNativeAPIPlugin : BaseUnityPlugin
     {
         private const string ScriptExtenderGuid = "000shcdese";
+        /// <summary>Stable BepInEx plugin GUID.</summary>
         public const string PluginGuid = "SerpNativeAPI_Serp";
+        /// <summary>Display name of the API plugin.</summary>
         public const string PluginName = "Serp Native API";
+        /// <summary>Current API plugin version.</summary>
         public const string PluginVersion = "0.1.0";
 
         private void Awake()

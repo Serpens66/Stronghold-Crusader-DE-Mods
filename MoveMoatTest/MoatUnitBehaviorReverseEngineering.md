@@ -1349,14 +1349,15 @@ Moat-Route wird `+0x88` für genau den synchronen zweiten Aufruf temporär auf n
 `finally` wiederhergestellt. Es gibt keinen Hook auf `0xD9C40`; die gewichtete
 Assassin-Mauerpfadfindung aus `BugfixesAndQoL` bleibt daher für Vanilla- und Mauerwege zuständig.
 
-Wichtig: Der Lauf nach Einbau dieses Kandidaten bestätigte den angenommenen `+0x88`-Fallback
-nicht. Der zweite Builderlauf lieferte zwar einen positiven Wert, aber
-`builder-assassin-ground-fallback` erschien nicht. Damit ist weder belegt, dass die getestete
-Unit an dieser Stelle als Assassin erkannt wurde, noch dass `pathManager+0x88` beim Eintritt
-gesetzt war. Das temporäre Umschalten bleibt eine eng begrenzte Hypothese und darf nicht als
-fertige Assassin-Lösung behandelt werden. Die neue Builderdiagnose liest deshalb `+0x80`,
-`+0x84` und `+0x88` am Eintritt, nach Vanillas erstem Lauf, unmittelbar vor dem Fallback und
-nach dessen Rückkehr. Dazu werden Unittyp und die Pfadverbrauchsfelder derselben Unit erfasst.
+Der gültige Lauf nach der funktionalen Attack-Regionsfreigabe bestätigte die genaue
+Assassin-Konstellation: `0xF4930` wurde mit `pathManager+0x80=0`, `+0x84=1` und `+0x88=1`
+erreicht. Der unveränderte erste Lauf verwendete damit bei getrennten Regionen `0xD9C40` und
+lieferte `0`. `builder-assassin-ground-fallback` fehlte nur, weil die damalige gemeinsame
+Retry-Schranke zusätzlich `+0x80==1` verlangte. Der Assassin benötigt stattdessen einen eigenen
+zweiten Kandidaten: Nach demselben Vanilla-Nuller und derselben notwendigen owner-geprüften
+Moat-Route bleibt `+0x80` unverändert `0`, während nur `+0x88` für den synchronen Retry
+`1 → 0 → 1` wechselt. Die Builderdiagnose liest weiterhin alle drei Felder am Eintritt, nach
+Vanilla, vor dem Retry und nach dessen Rückkehr.
 
 Bei einem Spielupdate ist der Assassin-Zweig nicht nur über das Bytepattern wiederzufinden:
 Innerhalb des zentralen Builders muss ein Vergleich des Kontextfelds `pathManager+0x88` den
@@ -1576,6 +1577,14 @@ direkte Ziele und Annäherungstiles schließt sie zusätzlich Vanillas Struktur-
 `0x10000300` aus; damit reicht das allgemeine Walkable-Bit allein nicht zur Freigabe eines
 Mauertiles.
 
+Der anschließende Funktionslauf bestätigte die `UnitFlood`-Freigabe: Für einen Maceman entstanden
+aus zuvor `results=0` nun 50 Annäherungskandidaten. Attack-Scope, Moat-Modus, Regionsfallback und
+der zweite Builderlauf wurden erreicht; dessen echter Rückgabewert `14` erzeugte einen
+vollständig konsumierten Pfad über den Moat. Ein Assassin erreichte danach dieselbe Pipeline und
+denselben owner-qualifizierten Plan, blieb aber am oben beschriebenen `+0x80=0/+0x88=1`-Fall
+hängen. Damit ist dieser Builderzweig der einzige im Lauf beobachtete verbleibende
+Assassin-Abbruch.
+
 ## 13. Appendix: direkte CALL-Sites auf `0x197950`
 
 Für die kanonische DLL wurden folgende 85 direkten Aufrufstellen gefunden:
@@ -1622,14 +1631,13 @@ Diese Liste belegt die breite Verwendung des Helpers, ersetzt aber bei einer neu
   eigenen/verbündeten Moat unmögliche Route dürfen denselben allgemeinen Plan-, Regions- und
   Builderfallback aktivieren. Früh angelegte Tracker behalten ihre Mode-, Planer- und
   Buildermarkierungen in der anschließenden read-only Tick-Verfolgung.
-- Assassinen verwenden bei `pathManager+0x88 != 0` den Spezialbuilder `0xD9C40`. Das nur im
-  zweiten, owner-qualifizierten Lauf vorgesehene Umschalten `1 → 0 → 1` wurde in den Logs bislang
-  nicht ausgelöst und ist daher eine unbestätigte Hypothese. Der erste Vanilla-Lauf bleibt
-  unverändert; `0xD9C40` wird nicht zusätzlich gehookt.
-- Attack endet im bestätigten Fehlfall bereits vor Unitfeldern und `MoveHere`. `AttackUnit` läuft
-  über `0xDBC60` und scheiterte reproduzierbar an acht negativen `0xE2610`-Prüfungen desselben
-  Regionspaars. Nur dieser `UnitFlood` besitzt nun den streng owner-geprüften funktionalen
-  Regionsfallback. Gebäudeangriffe über `0xDA020`/`0x123090` bleiben vorerst diagnostisch.
+- Assassinen verwenden bei `pathManager+0x88 != 0` den Spezialbuilder `0xD9C40`. Der bestätigte
+  Moat-Fehlfall tritt mit `+0x80=0/+0x88=1` ein. Nach Vanilla `0` und positiver notwendiger
+  Owner-Moat-Route darf ausschließlich `+0x88` für den zweiten Aufruf `1 → 0 → 1` wechseln;
+  `+0x80` bleibt unverändert. `0xD9C40` wird nicht zusätzlich gehookt.
+- Der streng owner-geprüfte `UnitFlood`-Regionsfallback ist für normale `AttackUnit`-Befehle
+  funktional bestätigt: `0xDBC60` erzeugte 50 Kandidaten und der echte Builderpfad wurde
+  vollständig bewegt. Gebäudeangriffe über `0xDA020`/`0x123090` bleiben vorerst diagnostisch.
 - `0x196840` bedeutet nachweislich „Unit steht auf einem Tile mit fertigem-Moat-Bit“, während
   `0x196870` nur Auswahlarten prüft; diese Semantik bei Updates nicht wieder verallgemeinern.
 - Als Nächstes diese Stufe mit eigenem, verbündetem und feindlichem Moat sowie Umweg-, Mauer-

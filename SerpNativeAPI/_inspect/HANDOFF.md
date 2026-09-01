@@ -18,6 +18,9 @@ Die kanonische Native-Basis ist `_inspect/CrusaderDE-Native-Baseline/CURRENT.jso
 - Der Resolver akzeptiert ausschließlich den festen Katalog des vollständigen bekannten DLL-Hashes. Es gibt keinen AOB-Fallback.
 - Funktionshash, ausführbare Section, Funktionsgrenzen, Instruktionsbytes, Immediate-Grenzen und Vanilla-Werte werden vor Freigabe geprüft. Vor jeder späteren Mutation werden die unveränderlichen Opcodebytes und der erwartete aktuelle Zustand erneut gelesen.
 - Die vier Immediates werden exklusiv und transaktional geschrieben. Die aktuellen RVAs liegen gemeinsam auf der 4-KiB-Page ab RVA `0xB7000`; der Schutzadapter arbeitet dennoch allgemein pro Page und restauriert bei zukünftigen Mehrseitenkatalogen jeden eigenen Schutzwert. Teilfehler rollen alle Werte zurück und Cleanupfehler werden gemeinsam gemeldet.
+- Der Distanzblock `[0xB7B70, 0xB7BBB)` wird beim ersten Anwenden derselben Capability auf den Mittelpunkt der vollständigen Gebäude-Bounds umgestellt. Er bleibt auch bei `Enabled=false` aktiv, während die vier Timingwerte auf Vanilla zurückkehren.
+- Original- und Ersatzblock sind jeweils 75 Bytes lang und werden gemeinsam mit den Immediates reserviert, live verifiziert und transaktional zurückgerollt. Die Byte- und Disassembly-Evidenz steht in `_inspect/gatehouse-center-patch.md`.
+- Der erste Ersatzblock crashte beim ersten relevanten Unit-Zugriff, weil sein X-`cdq` den für den nachfolgenden Y-Read noch lebenden Unit-Offset in `RDX` zerstörte. Der korrigierte Block lädt X und Y vor dem ersten `cdq`; die Tests pinnen alle 75 Bytes und diese Registerreihenfolge.
 
 ## Selected unit command
 
@@ -39,6 +42,6 @@ Die kanonische Native-Basis ist `_inspect/CrusaderDE-Native-Baseline/CURRENT.jso
 
 ## Tests und Laufzeitabnahme
 
-`_inspect/SerpNativeAPITests` verwendet Fake-PE-, Speicher-, Seitenschutz- und Eventadapter. Abgedeckt sind feste Hash-/RVA-/Opcodevalidierung ohne Decoy-Fallback, unabhängige Capabilities, Besitzkonflikte, Rundung und native Grenzen, die reale Einseitenlage sowie ein künstlicher Mehrseitenkatalog, Rollback und kombinierte Cleanupfehler sowie Eventphase, Reihenfolge, Fehlerisolierung, Reentranz, Idempotenz und genau eine Subscription.
+`_inspect/SerpNativeAPITests` verwendet Fake-PE-, Speicher-, Seitenschutz- und Eventadapter. Abgedeckt sind feste Hash-/RVA-/Opcodevalidierung ohne Decoy-Fallback, Mittelpunktarithmetik einschließlich Halbfeldern und umgekehrten Bounds, Symmetrie und Chebyshev-Diagonalen, Codeblock-Rollback, unabhängige Capabilities, Besitzkonflikte, Rundung und native Grenzen, die reale Einseitenlage sowie ein künstlicher Mehrseitenkatalog, Rollback und kombinierte Cleanupfehler sowie Eventphase, Reihenfolge, Fehlerisolierung, Reentranz, Idempotenz und genau eine Subscription.
 
 APITest aktiviert Gatehouse fest mit 0 Sekunden und 5 Feldern für Human und AI. Die Assassin-Fachlogik reagiert ausschließlich auf den typisierten `TribeAICommand.UnitStop`. Der Nutzer hat beide Funktionen im Spiel bereits grundsätzlich bestätigt; nach dieser Härtung ist ein erneuter Laufzeittest vorgesehen.

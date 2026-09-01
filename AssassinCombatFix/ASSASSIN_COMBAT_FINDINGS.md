@@ -42,7 +42,9 @@ Diese Datei dokumentiert den Wissensstand des Testmods `AssassinCombatFix`. Sie 
 - `X64InlineHook` benötigt für seinen absoluten Sprung immer mindestens 14 Byte. Die frühere Konfiguration mit Hooks bei `0x19772B` und `0x197730` war deshalb trotz deklarierter 5-Byte-Spannen überlappend: Der zweite Hook überschrieb einen Teil des ersten Sprungs einschließlich seiner Zieladresse und verursachte beim Kampfende einen nativen Absturz.
 - Der unerreichte Verhaltenshook bei `0x197716` ist entfernt. Der Testmod verändert derzeit weder Register, Unit-Daten noch das Assassin-Kontextflag.
 - Ein passiver Hook umfasst den vollständigen 16-Byte-Prolog `0x1853F0–0x1853FF`. Nach dessen Ausführung liegt die Aufruferadresse bei `RSP+0x28`; protokolliert werden insbesondere Kampfverknüpfung, Unit-Status und gespeicherter Zustand.
-- Ein zweiter passiver Hook umfasst exakt 14 Byte bei `0x196280–0x19628D`. Diese Spanne enthält sechs Push-Instruktionen. Deshalb liegen die Aufruferadresse bei `RSP+0x30` und die fünfte Pfadoption bei `RSP+0x58`.
+- Der erste Common-Path-Diagnosehook bei `0x196280–0x19628D` war trotz vollständiger Instruktionsgrenzen nicht ABI-sicher: Er führte vor dem Managed Callback nur sechs Pushes aus. Der Hook-Generator subtrahiert anschließend ausschließlich Vielfache von 16 und korrigiert das dadurch verbleibende `RSP mod 16 == 8` nicht. Der Prozess stürzte deshalb beim ersten Pfadaufruf vor der Callback-Ausgabe ab.
+- Der korrigierte Common-Path-Hook beginnt erst bei `0x196294`, nachdem Vanilla sieben Register gesichert und `0x30` Byte lokalen Stack reserviert hat. Der vollständige native Prolog besitzt damit ein Stackdelta von `0x68` und der Managed Callback läuft mit `RSP mod 16 == 0`.
+- Die neue Hookspanne `0x196294–0x1962A3` umfasst vier vollständige, stackneutrale Instruktionen mit 16 Byte. Die Aufruferadresse liegt dort bei `RSP+0x68`, die fünfte Pfadoption bei `RSP+0x90`.
 - Der Common-Path-Trace erfasst nur lebende Assassinen und zeigt für jede Pfadanfrage Aufrufer-RVA, Ziel, Option, aktuellen AI-Zustand und Assassin-Kontextflag.
 - Beide Hooks werden transaktional installiert; bei einem Teilfehler bleiben beide inaktiv.
 - Der passive `OnTick`-Beobachter bleibt während der Ingame-Validierung bestehen. Im Map Editor beginnt er mangels zuverlässigem `OnStartMap` beim ersten Simulationstick mit `GameModeHelper.IsMapEditor() == true`.
@@ -66,6 +68,7 @@ Erwartete Folge:
 - Das Erzwingen eines vollständigen Repaths nach `FUN_1801946A0` adressiert den tatsächlich beobachteten Zustand-106-Ablauf nicht und ist entfernt.
 - Eine normale manuelle Flagrestaurierung ist nicht nötig, weil `FUN_180196280` beide relevanten Ausgänge selbst bereinigt.
 - Der Hook bei `0x197716` war nach Behebung seiner früheren Überlappung absturzfrei, wurde im reproduzierten Lauf jedoch nicht erreicht und ist deshalb als Verhaltenspatch entfernt.
+- Der Common-Path-Einstiegshook bei `0x196280` ist wegen der nicht ausgerichteten Managed-Callback-Stacklage verworfen. Vollständige Instruktionsgrenzen allein reichen für Context-Hooks nicht; der neue Regressionstest prüft zusätzlich die Windows-x64-ABI-Ausrichtung.
 
 ## Reproduzierbare Ingame-Tests
 

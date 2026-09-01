@@ -8,7 +8,9 @@ Initialization occurs once from `CrusaderLibrary.LibraryLoaded`. Capabilities ha
 
 The supported DLL SHA-256 is `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`. The catalog also validates the complete native gatehouse handler interval `[0xB73D0, 0xB7CE5)` against SHA-256 `F73E9FF6F69D9EC1ECD59D528BC6D4861739F54E0A9C59C6E6BAD91369FA57C8`, its executable PE section, exact instruction blocks, immediate boundaries, and Vanilla values. There is intentionally no AOB fallback.
 
-The four settings are the AI and human enemy-proximity closing distances plus their gate reopening delays. Distances use eight native units per tile; delays use forty ticks per second. Writes are an exclusive four-value transaction with expected-state and opcode checks, rollback, per-page protection restoration, instruction-cache flushing, and post-write verification. The current four RVAs share one 4 KiB page; the protection lease nevertheless preserves every individual page protection if a future catalog spans multiple pages.
+The four settings are the AI and human enemy-proximity closing distances plus their gate reopening delays. Distances use eight native units per tile; delays use forty ticks per second. The capability also replaces the Vanilla distance origin at `[0xB7B70, 0xB7BBB)` with the center of the complete gatehouse bounds while preserving the original Chebyshev metric. The 75-byte block ends exactly where the unchanged Human/AI decision begins and does not overlap the Script Extender's preceding `OnGatehouseQuery` hook.
+
+The distance block and four values form one exclusive transaction with expected-state and opcode checks, rollback, per-page protection restoration, instruction-cache flushing, and post-write verification. `Enabled=false` restores the four Vanilla timing values but intentionally retains the capability-wide centered origin. All current targets share one 4 KiB page; the protection lease nevertheless preserves every individual page protection if a future catalog spans multiple pages.
 
 ## Selected-unit commands
 
@@ -18,4 +20,4 @@ Callbacks run in ordinal owner-GUID order. One callback's exception does not sto
 
 V1 is intended for the workspace's own mods. Public contracts are typed, but third-party ABI stability is not promised before version 1.0.
 
-Capability-specific public contracts, target resolution, adapters, and implementation live together in the corresponding capability source file. Shared lifecycle, diagnostics, native infrastructure, and publication remain separate. Consumer guidance is in `README.md`; the open gatehouse-center investigation is recorded in `TODOGatehouse.md`, and implementation evidence is kept under `_inspect`.
+Capability-specific public contracts, target resolution, adapters, and implementation live together in the corresponding capability source file. Shared lifecycle, diagnostics, native infrastructure, and publication remain separate. The exported consumer surface is guarded by an allowlist audit and XML-documentation warnings. Consumer guidance is in `README.md`; gatehouse-center status is recorded in `TODOGatehouse.md`, and byte/disassembly evidence is kept under `_inspect`.
