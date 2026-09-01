@@ -52,6 +52,14 @@
       <HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="com.rlabrecque.steamworks.net">
+      <HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\com.rlabrecque.steamworks.net.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="SHCDESE">
       <HintPath>$(ExtenderDir)\SHCDESE.dll</HintPath>
       <Private>false</Private>
@@ -80,6 +88,9 @@
     <Compile Include="..\Shared\NativePatternResolver.cs">
       <Link>Shared\NativePatternResolver.cs</Link>
     </Compile>
+    <Compile Include="..\Shared\GameModeHelper.cs">
+      <Link>Shared\GameModeHelper.cs</Link>
+    </Compile>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="ValidateReferences" BeforeTargets="BeforeBuild">
@@ -87,6 +98,8 @@
     <Error Condition="!Exists('..\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\BugfixesAndQoL.dll')" Text="The required BugfixesAndQoL build was not found in its local plugin package." />
     <Error Condition="!Exists('$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.dll')" Text="UnityEngine.dll was not found below GameDir: $(GameDir)" />
     <Error Condition="!Exists('$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.CoreModule.dll')" Text="UnityEngine.CoreModule.dll was not found below GameDir: $(GameDir)" />
+    <Error Condition="!Exists('$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll')" Text="Assembly-CSharp.dll was not found below GameDir: $(GameDir)" />
+    <Error Condition="!Exists('$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\com.rlabrecque.steamworks.net.dll')" Text="com.rlabrecque.steamworks.net.dll was not found below GameDir: $(GameDir)" />
     <Error Condition="!Exists('$(ExtenderDir)\SHCDESE.dll')" Text="SHCDESE.dll was not found: $(ExtenderDir)" />
     <Error Condition="!Exists('$(ExtenderDir)\R3.dll')" Text="R3.dll was not found: $(ExtenderDir)" />
     <Error Condition="!Exists('$(ExtenderDir)\System.Memory.dll')" Text="System.Memory.dll was not found: $(ExtenderDir)" />

@@ -53,6 +53,11 @@ namespace AssassinCombatFix
             return !hasTrackedUnit || trackedGlobalId != currentGlobalId;
         }
 
+        public static bool ShouldBeginEditorTrace(bool mapActive, bool isMapEditor)
+        {
+            return !mapActive && isMapEditor;
+        }
+
         public static bool ShouldLogStateTrace(
             bool isNewUnit,
             bool aiStateChanged,

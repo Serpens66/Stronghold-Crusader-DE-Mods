@@ -1978,6 +1978,10 @@ internal static class Program
               AssassinCombatResumePolicy.ShouldTreatAsNewTrackedUnit(true, 42, 43) &&
               AssassinCombatResumePolicy.ShouldTreatAsNewTrackedUnit(false, 42, 42),
             "Assassin trace did not detect native-index reuse or a cleared map tracker");
+        Check(AssassinCombatResumePolicy.ShouldBeginEditorTrace(false, true) &&
+              !AssassinCombatResumePolicy.ShouldBeginEditorTrace(true, true) &&
+              !AssassinCombatResumePolicy.ShouldBeginEditorTrace(false, false),
+            "Assassin trace did not restrict lazy activation to an inactive map-editor simulation");
         Check(AssassinCombatResumePolicy.ShouldLogStateTrace(true, false, false, false, 0) &&
               AssassinCombatResumePolicy.ShouldLogStateTrace(false, true, false, true, 0) &&
               !AssassinCombatResumePolicy.ShouldLogStateTrace(false, false, true, true, 7) &&

@@ -169,18 +169,33 @@ namespace AssassinCombatFix
 
         public void BeginMap()
         {
+            BeginMap("OnStartMap(Post)");
+        }
+
+        private void BeginMap(string reason)
+        {
             mapActive = true;
             diagnosticEventCount = 0;
             stateTraceEventCount = 0;
             trackedAssassins.Clear();
             pendingDiagnostics?.Clear();
+            Shared.DebugLogHelper.LogDebug(
+                log,
+                $"[ASSASSIN_COMBAT_RESUME_DIAGNOSTIC] trace lifecycle started: reason={reason}.");
         }
 
         public void EndMap()
         {
+            bool wasActive = mapActive;
             mapActive = false;
             trackedAssassins.Clear();
             pendingDiagnostics?.Clear();
+            if (wasActive)
+            {
+                Shared.DebugLogHelper.LogDebug(
+                    log,
+                    "[ASSASSIN_COMBAT_RESUME_DIAGNOSTIC] trace lifecycle ended: reason=OnUnloadMap(Post).");
+            }
         }
 
         private void AfterShortResumeAttempt(NativePointer<X64SmartCPUContext> context)
@@ -346,7 +361,18 @@ namespace AssassinCombatFix
 
         private void ObserveAssassinStates(int tick)
         {
-            if (!mapActive || !settings.EnableMod || !settings.EnableImprovedAssassinPathfinding)
+            if (!settings.EnableMod || !settings.EnableImprovedAssassinPathfinding)
+                return;
+
+            if (!mapActive && AssassinCombatResumePolicy.ShouldBeginEditorTrace(
+                    mapActive,
+                    Shared.GameModeHelper.IsMapEditor()))
+            {
+                // The map editor creates a playable simulation without raising OnStartMap.
+                // Its first simulation tick is the narrow point where unit data is ready.
+                BeginMap($"first-map-editor-simulation-tick, tick={tick}");
+            }
+            if (!mapActive)
                 return;
 
             try

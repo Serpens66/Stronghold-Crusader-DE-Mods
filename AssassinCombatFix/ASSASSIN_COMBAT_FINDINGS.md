@@ -52,6 +52,8 @@ Diese Datei dokumentiert den Wissensstand des Testmods `AssassinCombatFix`. Sie 
 - Jeder aufgelöste lebende Assassin wird nun bereits beim Eintritt in `0x122AFC` protokolliert, noch bevor die Rücksprungadresse als bekannte Kampf-Callsite bewertet wird. Das Log enthält die absolute Adresse, RVA und die Rohwerte bei `RSP+0x50`, `+0x58` und `+0x60`.
 - Der passive Hook bei `0x16D552` protokolliert den Rückgabewert der Zustand-107-Zielprüfung und den vollständigen Unit-Zustand, ohne Register oder Unit-Daten zu ändern.
 - Ein passiver `OnTick`-Beobachter verfolgt lebende Assassins über 0-basierten Index plus `r_GlobalId`. Er protokolliert Zustands-/Pfadänderungen und begrenzte Stillstandsintervalle; Kartenstart und Kartenende verwerfen den kompletten Beobachterzustand.
+- Der Map Editor erzeugt eine spielbare Simulation, ohne zuverlässig `OnStartMap` auszulösen. Nach `OnUnloadMap` eröffnet deshalb der erste persistente Simulationstick mit `GameModeHelper.IsMapEditor() == true` automatisch eine neue Diagnose-Epoche. Normale Partien verwenden weiterhin `OnStartMap(Post)`.
+- Die untersuchten Script-Extender-Editorereignisse melden nur konkrete Bearbeitungsaktionen. Sie sind kein vollständiger Editor-Lifecycle und werden deshalb nicht als Startsignal verwendet.
 - Alle temporären Zeilen tragen `[ASSASSIN_COMBAT_RESUME_DIAGNOSTIC]`. Native Ereignisse sind auf 128 und Tick-Zustandszeilen auf 256 Einträge pro Karte begrenzt.
 
 Erwartete Folge:
