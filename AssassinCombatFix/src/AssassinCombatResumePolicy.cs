@@ -1,4 +1,4 @@
-// Feature: Pure eligibility rules for the audited Assassin state-106 resume path.
+// Feature: Pure eligibility rules for passive Assassin combat-resume diagnostics.
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 
@@ -27,41 +27,6 @@ namespace AssassinCombatFix
                 unitResolved &&
                 aliveState == AliveState.IsAlive &&
                 unitType == eChimps.CHIMP_TYPE_ARAB_ASSASIN;
-        }
-
-        public static bool IsSafeDiagnosticHookSpan(
-            int declaredLength,
-            int minimumOverwriteLength,
-            int expectedInstructionLength)
-        {
-            return declaredLength >= minimumOverwriteLength &&
-                minimumOverwriteLength > 0 &&
-                declaredLength == expectedInstructionLength;
-        }
-
-        public static bool IsManagedCallbackStackAligned(
-            int entryStackModulo16,
-            int nativeStackDelta)
-        {
-            if (entryStackModulo16 < 0 || entryStackModulo16 >= 16 || nativeStackDelta < 0)
-                return false;
-
-            int callbackModulo16 = (entryStackModulo16 - (nativeStackDelta & 0xF) + 16) & 0xF;
-            return callbackModulo16 == 0;
-        }
-
-        public static bool DoMinimumInlineHookRangesOverlap(
-            int firstRva,
-            int firstDeclaredLength,
-            int secondRva,
-            int secondDeclaredLength,
-            int minimumOverwriteLength)
-        {
-            long firstLength = System.Math.Max(firstDeclaredLength, minimumOverwriteLength);
-            long secondLength = System.Math.Max(secondDeclaredLength, minimumOverwriteLength);
-            long firstEnd = (long)firstRva + firstLength;
-            long secondEnd = (long)secondRva + secondLength;
-            return firstRva < secondEnd && secondRva < firstEnd;
         }
 
         public static bool ShouldLogRawResumeDiagnostic(

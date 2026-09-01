@@ -48,6 +48,10 @@
       <HintPath>..\..\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481\System.Memory.dll</HintPath>
       <Private>true</Private>
     </Reference>
+    <Reference Include="Iced">
+      <HintPath>..\..\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481\Iced.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
     <Reference Include="System.Buffers">
       <HintPath>..\..\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481\System.Buffers.dll</HintPath>
       <Private>true</Private>

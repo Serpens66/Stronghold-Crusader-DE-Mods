@@ -1,4 +1,5 @@
 using MessagePack;
+using Iced.Intel;
 using AssassinCombatFix;
 using BugfixesAndQoL;
 using ExtraFeatures;
@@ -1955,24 +1956,6 @@ internal static class Program
                 AliveState.IsAlive, eChimps.CHIMP_TYPE_KNIGHT),
             "Assassin combat diagnostics accepted a dead or non-Assassin unit");
 
-        Check(AssassinCombatResumePolicy.IsSafeDiagnosticHookSpan(14, 14, 14) &&
-              AssassinCombatResumePolicy.IsSafeDiagnosticHookSpan(16, 14, 16) &&
-              !AssassinCombatResumePolicy.IsSafeDiagnosticHookSpan(5, 14, 5) &&
-              !AssassinCombatResumePolicy.IsSafeDiagnosticHookSpan(16, 14, 14),
-            "Assassin combat diagnostics did not reject short or partial-instruction hook spans");
-        Check(!AssassinCombatResumePolicy.IsManagedCallbackStackAligned(8, 0x30) &&
-              AssassinCombatResumePolicy.IsManagedCallbackStackAligned(8, 0x28) &&
-              AssassinCombatResumePolicy.IsManagedCallbackStackAligned(8, 0x68) &&
-              !AssassinCombatResumePolicy.IsManagedCallbackStackAligned(-1, 0x68) &&
-              !AssassinCombatResumePolicy.IsManagedCallbackStackAligned(16, 0x68) &&
-              !AssassinCombatResumePolicy.IsManagedCallbackStackAligned(8, -1),
-            "Assassin diagnostic hooks did not enforce Windows x64 managed-callback stack alignment");
-        Check(AssassinCombatResumePolicy.DoMinimumInlineHookRangesOverlap(
-                0x19772B, 5, 0x197730, 5, 14) &&
-              !AssassinCombatResumePolicy.DoMinimumInlineHookRangesOverlap(
-                0x197716, 14, 0x197730, 5, 14),
-            "Assassin combat resume did not account for the inline hook's physical 14-byte minimum");
-
         Check(AssassinCombatResumePolicy.ShouldLogRawResumeDiagnostic(
                 true, AliveState.IsAlive, eChimps.CHIMP_TYPE_ARAB_ASSASIN) &&
               !AssassinCombatResumePolicy.ShouldLogRawResumeDiagnostic(
@@ -2017,6 +2000,53 @@ internal static class Program
             "canonical CrusaderDE.dll hash changed for the Assassin combat-resume contract");
 
         byte[] image = LoadPeImage(file);
+        NativeResolution stateMachine = NativePatternResolver.ResolveUnique(
+            image,
+            AssassinCombatResumeNativeDefinition.AssassinStateMachineEntryPattern,
+            AssassinCombatResumeNativeDefinition.AssassinStateMachineRva,
+            referenceHashMatches: false,
+            "test Assassin state-machine entry");
+        Check(
+            stateMachine.Method == "signature-fallback" &&
+            stateMachine.Rva == AssassinCombatResumeNativeDefinition.AssassinStateMachineRva &&
+            AssassinCombatResumeNativeDefinition.AssassinUnitTypeValue ==
+                (int)eChimps.CHIMP_TYPE_ARAB_ASSASIN &&
+            BitConverter.ToUInt64(
+                image,
+                AssassinCombatResumeNativeDefinition.UnitFunctionsVTableRva +
+                    AssassinCombatResumeNativeDefinition.AssassinUnitTypeValue * sizeof(ulong)) -
+                AssassinCombatResumeNativeDefinition.ReferenceImageBase ==
+                unchecked((ulong)AssassinCombatResumeNativeDefinition.AssassinStateMachineRva) &&
+            image.Skip(stateMachine.Rva)
+                .Take(AssassinCombatResumeNativeDefinition.AssassinStateMachineEntryBytes.Length)
+                .SequenceEqual(AssassinCombatResumeNativeDefinition.AssassinStateMachineEntryBytes),
+            "Assassin state-machine identity or entry bytes changed");
+
+        byte[] stateMachineBytes = image.Skip(stateMachine.Rva)
+            .Take(AssassinCombatResumeNativeDefinition.AssassinStateMachineSize)
+            .ToArray();
+        Decoder stateDecoder = Decoder.Create(64, new ByteArrayCodeReader(stateMachineBytes));
+        stateDecoder.IP = unchecked((ulong)stateMachine.Rva);
+        List<int> stateWriteRvas = new List<int>();
+        while (stateDecoder.IP < unchecked((ulong)(stateMachine.Rva + stateMachineBytes.Length)) &&
+            stateDecoder.LastError == DecoderError.None)
+        {
+            Instruction instruction = stateDecoder.Decode();
+            if (instruction.Mnemonic == Mnemonic.Mov &&
+                instruction.GetOpKind(0) == OpKind.Memory &&
+                instruction.MemoryDisplacement32 ==
+                    AssassinCombatResumeNativeDefinition.AssassinAiStateFieldOffset)
+            {
+                stateWriteRvas.Add(unchecked((int)instruction.IP));
+            }
+        }
+        Check(
+            stateMachineBytes.Length == 5625 &&
+            stateDecoder.LastError == DecoderError.None &&
+            stateDecoder.IP == unchecked((ulong)(stateMachine.Rva + stateMachineBytes.Length)) &&
+            stateWriteRvas.SequenceEqual(AssassinCombatResumeNativeDefinition.AssassinAiStateWriteRvas),
+            "Assassin state-machine size or complete +0x918 write-site contract changed");
+
         NativeResolution state106Callsite = NativePatternResolver.ResolveUnique(
             image,
             AssassinCombatResumeNativeDefinition.State106CombatFinishCallSequence,
@@ -2087,50 +2117,6 @@ internal static class Program
             finalizeCallRva == AssassinCombatResumeNativeDefinition.PostCombatFinalizeCallRva &&
             finalizeTarget == AssassinCombatResumeNativeDefinition.PostPathRequestRva,
             "post-combat helper no longer restores the saved state and target through the audited path calls");
-
-        Check(
-            image.Skip(AssassinCombatResumeNativeDefinition.CombatFinishDiagnosticHookRva)
-                .Take(AssassinCombatResumeNativeDefinition.CombatFinishDiagnosticHookLength)
-                .SequenceEqual(AssassinCombatResumeNativeDefinition.CombatFinishDiagnosticHookBytes) &&
-            image.Skip(AssassinCombatResumeNativeDefinition.CommonPathPrologueRva)
-                .Take(AssassinCombatResumeNativeDefinition.CommonPathPrologueLength)
-                .SequenceEqual(AssassinCombatResumeNativeDefinition.CommonPathPrologueBytes) &&
-            image.Skip(AssassinCombatResumeNativeDefinition.CommonPathDiagnosticHookRva)
-                .Take(AssassinCombatResumeNativeDefinition.CommonPathDiagnosticHookLength)
-                .SequenceEqual(AssassinCombatResumeNativeDefinition.CommonPathDiagnosticHookBytes),
-            "passive Assassin diagnostic hook spans no longer match complete audited instructions");
-        Check(
-            AssassinCombatResumeNativeDefinition.CombatFinishDiagnosticHookLength == 16 &&
-            AssassinCombatResumeNativeDefinition.CombatFinishDiagnosticHookBytes.Length == 16 &&
-            AssassinCombatResumeNativeDefinition.CombatFinishStackDeltaAtCallback == 0x28 &&
-            AssassinCombatResumeNativeDefinition.CombatFinishCallerReturnAddressStackOffset == 0x28 &&
-            AssassinCombatResumeNativeDefinition.CommonPathPrologueLength == 20 &&
-            AssassinCombatResumeNativeDefinition.CommonPathPrologueBytes.Length == 20 &&
-            AssassinCombatResumeNativeDefinition.CommonPathPrologueRva +
-                AssassinCombatResumeNativeDefinition.CommonPathPrologueLength ==
-                AssassinCombatResumeNativeDefinition.CommonPathDiagnosticHookRva &&
-            AssassinCombatResumeNativeDefinition.CommonPathStackDeltaAtCallback == 0x68 &&
-            AssassinCombatResumeNativeDefinition.CommonPathDiagnosticHookLength == 16 &&
-            AssassinCombatResumeNativeDefinition.CommonPathDiagnosticHookBytes.Length == 16 &&
-            AssassinCombatResumeNativeDefinition.CommonPathDiagnosticHookRva +
-                AssassinCombatResumeNativeDefinition.CommonPathDiagnosticHookLength == 0x1962A4 &&
-            AssassinCombatResumeNativeDefinition.CommonPathCallerReturnAddressStackOffset == 0x68 &&
-            AssassinCombatResumeNativeDefinition.CommonPathOptionStackOffset == 0x90 &&
-            AssassinCombatResumePolicy.IsManagedCallbackStackAligned(
-                sizeof(ulong),
-                AssassinCombatResumeNativeDefinition.CombatFinishStackDeltaAtCallback) &&
-            AssassinCombatResumePolicy.IsManagedCallbackStackAligned(
-                sizeof(ulong),
-                AssassinCombatResumeNativeDefinition.CommonPathStackDeltaAtCallback),
-            "passive Assassin diagnostic hooks no longer match their exact instruction and stack contracts");
-        Check(
-            AssassinCombatResumePolicy.DoMinimumInlineHookRangesOverlap(
-                AssassinCombatResumeNativeDefinition.PostCombatPathRequestCallRva,
-                5,
-                AssassinCombatResumeNativeDefinition.PostCombatPathRequestCallRva + 5,
-                5,
-                AssassinCombatResumeNativeDefinition.InlineHookMinimumOverwriteLength),
-            "regression fixture no longer demonstrates why adjacent five-byte context hooks overlap physically");
 
         NativeResolution contextRead = NativePatternResolver.ResolveUnique(
             image,

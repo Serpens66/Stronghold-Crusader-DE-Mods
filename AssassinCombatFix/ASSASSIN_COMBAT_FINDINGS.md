@@ -15,13 +15,13 @@ Diese Datei dokumentiert den Wissensstand des Testmods `AssassinCombatFix`. Sie 
 
 - Nach einem zufälligen Kampf auf einem Bewegungsweg mit Klettern bleibt der Assassin stehen, obwohl der grüne Zielmarker bestehen bleibt.
 - Der passive Map-Editor-Trace zeigt für den reproduzierten Ablauf `101 → 106 → 101 → 0 → 1`.
-- Beim Übergang aus Zustand `106` verschwindet der aktive Pfad im fehlerhaften Kletterfall. Das gespeicherte Ziel bleibt erhalten.
-- Ein normaler Kontrollweg erzeugt nach demselben Kampf wieder einen Pfad und wird fortgesetzt.
+- Im fehlerhaften Kletterfall bleibt der alte Pfad unverändert bei Position/Länge `4/11`, verliert seine aktiven Flags und wird anschließend nicht mehr verfolgt. Das gespeicherte Ziel bleibt erhalten.
+- Ein normaler Kontrollweg ersetzt den unterbrochenen Pfad dagegen nach Zustand `106` durch einen kürzeren neuen Pfad und wird fortgesetzt.
 - Die zuvor untersuchten Hooks in Zustand `107`, Zustand `122` und `FUN_180122800` wurden in diesem Ablauf nicht erreicht.
 
 ### Statisch bestätigter Zustand-106-Pfad
 
-- Der Assassin-Zustandsautomat `FUN_18016CD70` behandelt Zustand `106` und ruft bei RVA `0x16DFD3` `FUN_1801853F0` auf.
+- Der Assassin-Zustandsautomat `FUN_18016CD70` behandelt Zustand `106` und kann nach abgeschlossenem Animationszweig bei RVA `0x16DFD3` `FUN_1801853F0` aufrufen. Der aktuelle Log beweist jedoch, dass der reproduzierte Fehler diesen Call nicht erreicht.
 - `FUN_1801853F0` ruft bei RVA `0x18540D` `FUN_1801976C0` auf. Die Rücksprung-RVA `0x185412` identifiziert diesen Kampfpfad gegenüber den anderen Aufrufern von `0x1976C0`.
 - Der Prolog von `FUN_1801976C0` legt diese ursprüngliche Rücksprungadresse am Pfad-Callsite bei `RSP+0x38` ab.
 - `FUN_1801976C0` löscht die bisherigen Pfadflags, stellt den gespeicherten AI-Zustand aus Unit-Offset `0x91E` wieder her und übernimmt die sekundären Zielkoordinaten aus `0x744/0x746`.
@@ -41,22 +41,23 @@ Diese Datei dokumentiert den Wissensstand des Testmods `AssassinCombatFix`. Sie 
 
 - `X64InlineHook` benötigt für seinen absoluten Sprung immer mindestens 14 Byte. Die frühere Konfiguration mit Hooks bei `0x19772B` und `0x197730` war deshalb trotz deklarierter 5-Byte-Spannen überlappend: Der zweite Hook überschrieb einen Teil des ersten Sprungs einschließlich seiner Zieladresse und verursachte beim Kampfende einen nativen Absturz.
 - Der unerreichte Verhaltenshook bei `0x197716` ist entfernt. Der Testmod verändert derzeit weder Register, Unit-Daten noch das Assassin-Kontextflag.
-- Ein passiver Hook umfasst den vollständigen 16-Byte-Prolog `0x1853F0–0x1853FF`. Nach dessen Ausführung liegt die Aufruferadresse bei `RSP+0x28`; protokolliert werden insbesondere Kampfverknüpfung, Unit-Status und gespeicherter Zustand.
+- Die späteren passiven Hooks bei `0x1853F0` und `0x196294` sind ebenfalls entfernt: Der erste wurde im reproduzierten Fehler nicht erreicht; `0x196280` wird bereits vom Script Extender für `OnUnitMoveHere` detourt, sodass ein zusätzlicher Hook innerhalb des ursprünglichen Funktionskörpers kein verlässlicher Beobachtungspunkt ist.
 - Der erste Common-Path-Diagnosehook bei `0x196280–0x19628D` war trotz vollständiger Instruktionsgrenzen nicht ABI-sicher: Er führte vor dem Managed Callback nur sechs Pushes aus. Der Hook-Generator subtrahiert anschließend ausschließlich Vielfache von 16 und korrigiert das dadurch verbleibende `RSP mod 16 == 8` nicht. Der Prozess stürzte deshalb beim ersten Pfadaufruf vor der Callback-Ausgabe ab.
-- Der korrigierte Common-Path-Hook beginnt erst bei `0x196294`, nachdem Vanilla sieben Register gesichert und `0x30` Byte lokalen Stack reserviert hat. Der vollständige native Prolog besitzt damit ein Stackdelta von `0x68` und der Managed Callback läuft mit `RSP mod 16 == 0`.
-- Die neue Hookspanne `0x196294–0x1962A3` umfasst vier vollständige, stackneutrale Instruktionen mit 16 Byte. Die Aufruferadresse liegt dort bei `RSP+0x68`, die fünfte Pfadoption bei `RSP+0x90`.
-- Der Common-Path-Trace erfasst nur lebende Assassinen und zeigt für jede Pfadanfrage Aufrufer-RVA, Ziel, Option, aktuellen AI-Zustand und Assassin-Kontextflag.
-- Beide Hooks werden transaktional installiert; bei einem Teilfehler bleiben beide inaktiv.
+- Die Native-Baseline bestätigt den Assassin als `eChimps`-Index `73`, dessen VTable-Eintrag bei RVA `0x321EF8` auf `FUN_18016CD70` zeigt. Die Funktion ist exakt 5625 Byte lang und enthält 19 vollständige Schreibinstruktionen auf das AI-State-Feld `GameUnit+0x918`.
+- Ein einzelner `X64FunctionCloneHook` instrumentiert genau diese 19 bestätigten Schreibstellen. Jede Diagnose enthält die ursprüngliche Schreib-RVA sowie alten und vorgeschlagenen Zustand; die originale Schreibinstruktion wird unverändert ausgeführt.
+- Vor der Installation werden DLL-Hash, VTable-Zuordnung, Live-Eintrittsbytes, Funktionsgröße und die vollständige Liste der 19 Schreib-RVAs geprüft. Jede Abweichung lässt den Testmod fail-closed inaktiv.
+- Pfadanfragen werden konfliktfrei über `UnitR3EventHooks.OnUnitMoveHere` in Pre und Post erfasst. Zusätzlich korreliert `OnUnitKilledByMelee` den Todeszeitpunkt mit dem Assassin-Zustand.
+- Der Clone-Hook wird transaktional installiert; Event-Abonnements werden erst nach erfolgreichem Commit aktiviert.
 - Der passive `OnTick`-Beobachter bleibt während der Ingame-Validierung bestehen. Im Map Editor beginnt er mangels zuverlässigem `OnStartMap` beim ersten Simulationstick mit `GameModeHelper.IsMapEditor() == true`.
 - Alle temporären Zeilen tragen `[ASSASSIN_COMBAT_RESUME_DIAGNOSTIC]`. Native Ereignisse und Tick-Zustandszeilen sind jeweils auf 256 Einträge pro Karte begrenzt.
 
 Erwartete Folge:
 
 - `state-trace ... aiState=106`
-- `combat-finish-entry ... returnRva=0x16DFD8`
-- Kampfverknüpfung und beide Resume-Schranken unmittelbar beim Ende der Animation
-- `common-path-entry` mit der tatsächlichen Aufrufer-RVA für den Kletter- und den normalen Kontrollfall
-- Vergleich von Ziel, Pfadoption und Kontextflag beider Abläufe
+- `melee-kill ...` mit Kampfverknüpfung und vollständigem Unit-Zustand
+- `state-write ... siteRva=... oldState=106, proposedState=101`, falls der Assassin-Handler selbst den Zustand wechselt
+- `move-here phase=Pre/Post ...` mit Ziel, Pfadoption, Rückgabewert und Kontextflag, falls Vanilla einen neuen Pfad anfordert
+- Vergleich der exakten Schreib-RVA und der MoveHere-Folge zwischen Kletter- und normalem Kontrollfall
 
 ## Getestete oder verworfene Ansätze
 
@@ -68,11 +69,12 @@ Erwartete Folge:
 - Das Erzwingen eines vollständigen Repaths nach `FUN_1801946A0` adressiert den tatsächlich beobachteten Zustand-106-Ablauf nicht und ist entfernt.
 - Eine normale manuelle Flagrestaurierung ist nicht nötig, weil `FUN_180196280` beide relevanten Ausgänge selbst bereinigt.
 - Der Hook bei `0x197716` war nach Behebung seiner früheren Überlappung absturzfrei, wurde im reproduzierten Lauf jedoch nicht erreicht und ist deshalb als Verhaltenspatch entfernt.
-- Der Common-Path-Einstiegshook bei `0x196280` ist wegen der nicht ausgerichteten Managed-Callback-Stacklage verworfen. Vollständige Instruktionsgrenzen allein reichen für Context-Hooks nicht; der neue Regressionstest prüft zusätzlich die Windows-x64-ABI-Ausrichtung.
+- Der Common-Path-Einstiegshook bei `0x196280` ist wegen der nicht ausgerichteten Managed-Callback-Stacklage verworfen. Vollständige Instruktionsgrenzen allein reichen für Context-Hooks nicht.
+- Auch der spätere Hook bei `0x196294` ist verworfen, weil der Script Extender bereits den Funktionseinstieg von `0x196280` detourt und über `OnUnitMoveHere` den dafür vorgesehenen konfliktfreien Beobachtungspunkt bereitstellt.
 
 ## Reproduzierbare Ingame-Tests
 
 1. Einen einzelnen Assassin vor einem Kletterweg in einen zufälligen Kampf laufen lassen und den Stillstand bestätigen.
 2. Im selben Lauf einen Weg ohne Klettern als fortgesetzten Kontrollfall testen.
-3. `combat-finish-entry`, Kampfverknüpfung, Resume-Schranken und sämtliche nach Zustand `106` auftretenden `common-path-entry`-Zeilen vergleichen.
+3. `melee-kill`, die exakte `state-write`-RVA und sämtliche nach Zustand `106` auftretenden `move-here`-Zeilen vergleichen.
 4. Nach Identifikation der tatsächlichen Callsite Hoch- und Herunterklettern sowie mehrere Assassinen erneut prüfen.

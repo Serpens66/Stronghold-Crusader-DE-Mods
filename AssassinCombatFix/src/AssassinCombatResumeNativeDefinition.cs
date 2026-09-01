@@ -1,4 +1,4 @@
-// Audited native contract for Assassin state-106 combat-order resumption.
+// Audited native contracts for tracing Assassin combat-order resumption.
 namespace AssassinCombatFix
 {
     internal static class AssassinCombatResumeNativeDefinition
@@ -11,7 +11,30 @@ namespace AssassinCombatFix
         public const int PostPathRequestRva = 0x196810;
         public const int AssassinPathBuilderRva = 0xD9C40;
 
+        public const int AssassinUnitTypeValue = 73;
+        public const ulong ReferenceImageBase = 0x180000000;
+        public const int UnitFunctionsVTableRva = 0x321CB0;
         public const int AssassinStateMachineRva = 0x16CD70;
+        public const int AssassinStateMachineSize = 5625;
+        public const int AssassinAiStateFieldOffset = 0x918;
+        public const string AssassinStateMachineEntryPattern =
+            "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 54 41 55 41 56 41 57 48 83 EC 50 " +
+            "48 63 15 ? ? ? ? 4C 8D 3D ? ? ? ? 48 69 CA 90 04 00 00 B8 C6 00 00 00 45 33 E4 41 BD 01 00 00 00";
+        public static readonly byte[] AssassinStateMachineEntryBytes =
+        {
+            0x48, 0x89, 0x5C, 0x24, 0x08,
+            0x48, 0x89, 0x6C, 0x24, 0x10,
+            0x48, 0x89, 0x74, 0x24, 0x18,
+            0x57, 0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x41, 0x57,
+            0x48, 0x83, 0xEC, 0x50
+        };
+        public static readonly int[] AssassinAiStateWriteRvas =
+        {
+            0x16CEF5, 0x16CF03, 0x16D11B, 0x16D18B, 0x16D1D1,
+            0x16D1E4, 0x16D317, 0x16D4DC, 0x16D5B4, 0x16D835,
+            0x16D970, 0x16DB35, 0x16DCAA, 0x16DDCB, 0x16E0E7,
+            0x16E16B, 0x16E19B, 0x16E205, 0x16E27C
+        };
         public const int State106CombatFinishCallSequenceRva = 0x16DFCE;
         public const int State106CombatFinishCallOffset = 5;
         public const int State106CombatFinishCallRva = 0x16DFD3;
@@ -29,47 +52,6 @@ namespace AssassinCombatFix
             "40 53 48 83 EC 20 48 63 C2 48 69 D8 90 04 00 00 48 03 D9 " +
             "66 83 BB 96 09 00 00 00 75 14 E8 ? ? ? ? 33 C0 " +
             "66 89 83 96 09 00 00 89 83 98 09 00 00";
-
-        public const int InlineHookMinimumOverwriteLength = 14;
-        public const int CombatFinishDiagnosticHookRva = 0x1853F0;
-        public const int CombatFinishDiagnosticHookLength = 16;
-        public const int CombatFinishStackDeltaAtCallback = 0x28;
-        public const int CombatFinishCallerReturnAddressStackOffset = 0x28;
-        public static readonly byte[] CombatFinishDiagnosticHookBytes =
-        {
-            0x40, 0x53,
-            0x48, 0x83, 0xEC, 0x20,
-            0x48, 0x63, 0xC2,
-            0x48, 0x69, 0xD8, 0x90, 0x04, 0x00, 0x00
-        };
-
-        public const int CommonPathPrologueRva = 0x196280;
-        public const int CommonPathPrologueLength = 20;
-        public const int CommonPathStackDeltaAtCallback = 0x68;
-        public static readonly byte[] CommonPathPrologueBytes =
-        {
-            0x48, 0x89, 0x5C, 0x24, 0x20,
-            0x55,
-            0x56,
-            0x57,
-            0x41, 0x54,
-            0x41, 0x55,
-            0x41, 0x56,
-            0x41, 0x57,
-            0x48, 0x83, 0xEC, 0x30
-        };
-
-        public const int CommonPathDiagnosticHookRva = 0x196294;
-        public const int CommonPathDiagnosticHookLength = 16;
-        public const int CommonPathCallerReturnAddressStackOffset = 0x68;
-        public const int CommonPathOptionStackOffset = 0x90;
-        public static readonly byte[] CommonPathDiagnosticHookBytes =
-        {
-            0x48, 0x63, 0xF2,
-            0x45, 0x33, 0xD2,
-            0x48, 0x69, 0xFE, 0x90, 0x04, 0x00, 0x00,
-            0x4D, 0x63, 0xF0
-        };
 
         public const int PostCombatRepathPrologueRva = 0x1976C0;
         public const int PostCombatCallerReturnAddressStackOffset = 0x38;

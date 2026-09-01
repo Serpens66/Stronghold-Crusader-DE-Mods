@@ -735,14 +735,15 @@ Die Unit-Typ-Sprungtabelle zielt auf den Anfang `0x120F7A`. Es wurde kein XRef i
 
 ### 7.2 `MoveMoatTest`
 
-Der reduzierte allgemeine Bewegungstest verwendet keine internen Inline-Trampoline. Sämtliche
-Funktionsdetours laufen zuerst durch Vanilla; der Zwei-Byte-Patch besitzt eine exakte
-Originalbyteprüfung und wird bei einer fehlgeschlagenen Installation zurückgerollt.
+Der reduzierte allgemeine Bewegungstest verwendet keine internen Inline-Trampoline und keine
+Bytepatches im Cursor-Dispatcher. Sämtliche Funktionsdetours laufen zuerst durch Vanilla. Die
+früher testweise veränderten Sprünge werden weiterhin durch Pattern und Originalbytes validiert,
+bleiben zur Laufzeit aber unverändert.
 
 | RVA | Art | Rolle | Effekt |
 |---:|---|---|---|
-| `0x8F393` | Bytepatch `74 45` → `90 90` | früher gewöhnlicher Cursor-Sprung | lässt Vanillas echte Prüfungen erreichen |
-| `0x196870` | Funktion | Auswahl-/Cursor-Vorprüfung | schaltet die abgesicherte Cursor-Auswertung erst bei belegter Auswahl scharf |
+| `0x8F393` | unveränderter Suchanker `74 45` | allgemeiner Tile-/Mauerzweig | bleibt Vanilla; seine frühere globale Öffnung verursachte die Kletterregression |
+| `0x196870` | Funktion | Auswahlarten-/Cursor-Gate | Vanilla-first; hebt nur ein konkretes owner-geprüftes notwendiges Moat-Ziel von `0` auf `1` |
 | `0xE9D90` | Funktion | Cursor-Regionsvorprüfung | `0→1` nur bei konservativem Weg durch mindestens ein fertiges Moat-Tile |
 | `0xE9FF0` | Funktion | direkte Cursor-Erreichbarkeit | dieselbe konservative Freigabe; interne Ausgabefelder bleiben Vanilla |
 | `0x124740` | Funktion | Tribe-Flood-Fill-Mitgliedschaft | `0→1` nur für Tribe des aktiven `MoveHere`-Auftrags |
@@ -1155,18 +1156,22 @@ nur aus Laufzeitbeobachtungen abgeleitete Blockade:
   Dieser Helper bleibt unverändert und wird nur gelesen, damit Starttile, Owner und Zielpaar des
   unmittelbar folgenden `0xE2CA0`-Aufrufs exakt gebunden werden können.
 
-Der vierte Sprung `0x8F32F` gehört jedoch nicht zu einem reinen Entity-Angriffszweig, sondern zum
+Der vierte Sprung `0x8F32F` und der spätere Sprung `0x8F393` gehören jedoch nicht zu einem reinen Entity-Angriffszweig, sondern zum
 allgemeinen Tile-/Mauerpfad. Seine testweise Öffnung erzeugte eine bestätigte Regression: normale
 nicht kletterfähige Units erhielten einen falschen Mauercursor, während Assassinen nicht mehr
-korrekt kletterten. Dieser Sprung wird deshalb weder gepatcht noch durch den Mod validiert; sein
-Vanilla-Code bleibt vollständig unangetastet. Der aktuelle Testkandidat öffnet nur die drei
-Entity-Angriffszweige `0x8D72B`, `0x8E2C6` und `0x8E557`. Alle darauffolgenden Vanilla-Typ-,
-Eignungs- und Angriffsprüfungen bleiben bestehen. Der Detour auf
-`0x196870` gibt Vanillas Wert unverändert zurück und erfasst bei `0` nur einen threadlokalen,
-einmal verwendbaren Kontext. `0xE2CA0` läuft immer zuerst unverändert. Nur wenn Vanilla `0`
-liefert und Starttile, Zieltile, Cachemodus, Kartenepoch und repräsentative Unit exakt zum direkt
-vorher erfassten Kontext passen, prüft die bestehende Owner-/Allianz-BFS die acht freien
-Annäherungstiles neben dem belegten Unit- oder Gebäudetile. Ein Annäherungstile wird ausschließlich
+korrekt kletterten. Deshalb bleiben jetzt alle vier zuvor geöffneten Sprünge `0x8F393`,
+`0x8D72B`, `0x8E2C6` und `0x8E557` bytegenau Vanilla. Ihre Patterns und Originalbytes dienen nur
+als Update-Suchanker. Stattdessen läuft `0x196870` zuerst durch Vanilla. Ein positives Ergebnis
+bleibt unverändert; nur ein Nullergebnis darf nach vollständiger Prüfung der repräsentativen Unit,
+Kartenepoch, Zielidentität und notwendigen owner-sicheren Moat-Route effektiv `1` werden.
+`0xE2CA0` läuft ebenfalls immer zuerst unverändert. Nur wenn Vanilla `0` liefert und Starttile,
+Zieltile, Cachemodus, Kartenepoch und repräsentative Unit exakt zum direkt vorher erfassten Kontext
+passen, wird derselbe bereits vorqualifizierte Fallback erneut geprüft. Für Units werden die acht
+freien Nachbartiles geprüft. Für Gebäude werden StructureGrid-ID, Alive-State, Global-ID, Owner,
+Typ und der reale belegte Footprint gebunden; Kandidaten sind alle freien Außenfelder dieses
+Footprints. Das tatsächliche `0xE2CA0`-Zieltile muss weiterhin zum gespeicherten Gebäude gehören.
+Reine Holz-/Stein-/Zinnenmauern, Treppen und ehemalige Mauerstrukturen sind ausdrücklich kein
+Building-Scope. Ein Annäherungstile wird ausschließlich
 positiv, wenn es mit Moat erreichbar, ohne Moat nicht erreichbar und die Region vom Start getrennt
 ist. Die einzige Sonderform ist eine Unit, die bereits auf einem regionslosen fertigen Moat-Tile
 steht. Zusätzlich muss der gefundene Zustandsweg mindestens ein eigenes oder verbündetes fertiges
@@ -1225,14 +1230,14 @@ Quelldateien. Für `MoveMoatTest` sind dies:
 
 | Pattern-Konstante | alte Referenz-RVA | semantischer Anker |
 |---|---:|---|
-| `CursorCurrentTileFlagGatePattern` | `0x8F388` | Test der Current-Tile-Flags unmittelbar vor dem Sprung bei `+0x0B` |
+| `CursorCurrentTileFlagGatePattern` | `0x8F388`, Sprung `0x8F393` | allgemeiner Tile-/Mauerzweig; Originalbytes validieren, niemals global öffnen |
 | `CursorTilePairFallbackSelectionPattern` | `0x196870` | Auswahlarten-Gate: 35 Slots ab Struktur-Offset `0x564`, Slot 22 ausgenommen |
 | `GetRepresentativeSelectedUnitPattern` | `0x18D460` | vom Cursor verwendete repräsentative ausgewählte Unit ab Startindex 1 |
 | `CursorTilePairReachabilityPattern` | `0xE2CA0` | Start-/Zieltilevergleich; bei getrennten Regionen Call auf BFS `0xD9C40` |
 | `AttackUnitPairGatePattern` | `0x8D71D`, Sprung `0x8D72B` | Call auf `0x196870`, danach Tilepaarprüfung für Unit-Angriffszweig |
 | `AttackBuildingPairGatePattern` | `0x8E2B5`, Sprung `0x8E2C6` | Auswahlgate vor erhaltenem Vanilla-Typ-Switch und Tilepaarprüfung |
 | `AttackAlternativePairGatePattern` | `0x8E549`, Sprung `0x8E557` | weiterer Attack-Cursorzweig vor Tilepaarprüfung |
-| historischer Disassembly-Anker (bewusst kein Patchpattern) | `0x8F322`, Sprung `0x8F32F` | allgemeiner Tile-/Mauerzweig; wegen bestätigter Kletterregression vollständig Vanilla lassen |
+| historischer Disassembly-Anker | `0x8F322`, Sprung `0x8F32F` | frühes allgemeines Tile-/Mauergate; vollständig Vanilla lassen |
 | `CursorRegionPrecheckPattern` | `0xE9D90` | Cursor-Regionsvorprüfung mit Flood-Fill-Zähler im PathManager |
 | `CursorReachabilityFunctionPattern` | `0xE9FF0` | direkte Cursorprüfung mit Unitindex und Ziel X/Y |
 | `TribeFloodFillMembershipPattern` | `0x124740` | Tribe-ID mal Strukturgröße `0x688` und Flood-Fill-Stamp |
@@ -1508,6 +1513,7 @@ beziehungsweise die konkreten Stages filtern:
 - `move-state`
 - `move-state-end`
 - `attack-approach` mit `UnitFlood`, `BuildingApproach` oder `BuildingCandidateConsumer`
+- `wall-track-start`, `wall-state`, `wall-mode`, `wall-planner` und `wall-builder-entry/return`
 
 Es gibt keine globalen Diagnosegrenzen mehr. Während eines synchronen `move-command` sammelt der
 Mod zunächst dessen vollständige Command-, Flood-, Mode-, Region-, Owner- und Builderdiagnose im
@@ -1609,8 +1615,11 @@ Diese Liste belegt die breite Verwendung des Helpers, ersetzt aber bei einer neu
 ### 14.2 `MoveMoatTest`
 
 - Allgemeine wiederholte Bewegung durch fertige Moats funktioniert im Editor und Skirmish.
-- Der Cursor benötigt den Fallthrough bei `0x8F393` und zwei konservativ gefilterte echte
-  Reachability-Funktionen.
+- Der frühere globale Fallthrough bei `0x8F393` sowie die drei Entity-Sprungpatches sind entfernt.
+  Alle vier Stellen bleiben Vanilla und werden nur als bytevalidierte Update-Suchanker geführt.
+- `0x196870` ist nun das semantische Cursor-Gate: Vanilla-positive Antworten bleiben unangetastet;
+  nur ein Vanilla-Nuller wird nach exakter Zielklassifikation und notwendiger owner-sicherer
+  Moat-Route effektiv positiv. `0xE2CA0` validiert denselben kurzlebigen Kontext erneut.
 - Der Auftrag benötigt Flood-Fill-, Modus- und Regionsfreigabe; der Builder verwendet
   `pathManager+0x80 = 0` erst als owner-geprüften Fallback, nachdem Vanillas erster Lauf mit der
   ursprünglichen Variante tatsächlich `0` geliefert hat.
@@ -1621,11 +1630,10 @@ Diese Liste belegt die breite Verwendung des Helpers, ersetzt aber bei einer neu
 - Die erste owner-aware Teststufe filtert Cursor und funktionalen Builder-Override
   konservativ auf eigene/verbündete Moats und protokolliert Owner-Maske sowie
   friendly/enemy/invalid Tiles.
-- Der Attack-Cursor-Kandidat öffnet drei bestätigte Entity-Auswahlgate-Sprünge und lässt die
-  nachfolgende Vanilla-Tilepaarprüfung zuerst laufen. `0x8F32F` bleibt als allgemeiner
-  Tile-/Mauerzweig wegen der bestätigten Kletterregression vollständig Vanilla. Nur das exakt
-  korrelierte Nullergebnis darf durch eine owner-sichere, ohne Moat unmögliche Route zu einem
-  freien Annäherungstile positiv werden.
+- Unit- und Gebäudeziele verwenden denselben Gate-Mechanismus. Gebäude werden über Hover-ID,
+  StructureGrid-ID, Alive-State, Global-ID, Owner, Typ und realen Footprint gebunden; reine
+  Mauer-/Treppenstrukturen sind ausgeschlossen. `0xDA020` und `0x123090` bleiben zunächst
+  read-only, damit der nächste Gebäudetest den späteren Abbruch eindeutig zeigt.
 - Attack-Commands erhalten während ihres synchronen Pre/Post-Aufrufs einen exakten
   Tribe-/Command-/Zielscope. Nur das von Vanilla gesetzte Attack-Move-Ziel und eine ohne
   eigenen/verbündeten Moat unmögliche Route dürfen denselben allgemeinen Plan-, Regions- und
@@ -1638,6 +1646,11 @@ Diese Liste belegt die breite Verwendung des Helpers, ersetzt aber bei einer neu
 - Der streng owner-geprüfte `UnitFlood`-Regionsfallback ist für normale `AttackUnit`-Befehle
   funktional bestätigt: `0xDBC60` erzeugte 50 Kandidaten und der echte Builderpfad wurde
   vollständig bewegt. Gebäudeangriffe über `0xDA020`/`0x123090` bleiben vorerst diagnostisch.
+- Normales Mauerklettern ist durch das Entfernen der globalen Cursorpatches wieder vollständig
+  Vanilla. Ein semantisch deduplizierter Wall-Tracker beobachtet für Assassinen nach Wall-Hover
+  nur Zustandsänderungen sowie ungescopte Planer-, Moat-Modus- und Builderaufrufe. Er verändert
+  weder Commands noch Tiles noch Builderwerte. Klettern hinter Moat bleibt bis zum Nachweis der
+  kombinierten Vanilla-Kletterpipeline bewusst offen.
 - `0x196840` bedeutet nachweislich „Unit steht auf einem Tile mit fertigem-Moat-Bit“, während
   `0x196870` nur Auswahlarten prüft; diese Semantik bei Updates nicht wieder verallgemeinern.
 - Als Nächstes diese Stufe mit eigenem, verbündetem und feindlichem Moat sowie Umweg-, Mauer-
