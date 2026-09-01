@@ -17,3 +17,5 @@ The selected-unit capability installs no native hook. One process-lifetime subsc
 Callbacks run in ordinal owner-GUID order. One callback's exception does not stop the remaining API callbacks. SerpNativeAPI never sets `SkipOriginalFunction`, changes arguments, or changes return values. Direct third-party subscribers to the underlying Script Extender event remain outside that guarantee.
 
 V1 is intended for the workspace's own mods. Public contracts are typed, but third-party ABI stability is not promised before version 1.0.
+
+Capability-specific public contracts, target resolution, adapters, and implementation live together in the corresponding capability source file. Shared lifecycle, diagnostics, native infrastructure, and publication remain separate. Consumer guidance is in `README.md`; the open gatehouse-center investigation is recorded in `TODOGatehouse.md`, and implementation evidence is kept under `_inspect`.

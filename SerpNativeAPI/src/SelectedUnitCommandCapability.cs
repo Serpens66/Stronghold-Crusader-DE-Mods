@@ -1,11 +1,82 @@
 using BepInEx.Logging;
 using R3;
 using SHCDESE.EventAPI;
+using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
 
 namespace SerpNativeAPI
 {
+    public readonly struct SelectedUnitCommandContext
+    {
+        public SelectedUnitCommandContext(
+            int tribeId,
+            TribeAICommand command,
+            int targetValue1,
+            int targetValue2,
+            int argument6)
+        {
+            TribeId = tribeId;
+            Command = command;
+            TargetValue1 = targetValue1;
+            TargetValue2 = targetValue2;
+            Argument6 = argument6;
+        }
+
+        public int TribeId { get; }
+        public TribeAICommand Command { get; }
+        public int TargetValue1 { get; }
+        public int TargetValue2 { get; }
+        public int Argument6 { get; }
+    }
+
+    public interface ISelectedUnitCommandRegistration : IDisposable
+    {
+        bool IsEnabled { get; }
+        void Enable();
+        void Disable();
+    }
+
+    public interface ISelectedUnitCommandCapability
+    {
+        bool TryRegisterBefore(
+            Action<SelectedUnitCommandContext> callback,
+            out ISelectedUnitCommandRegistration registration,
+            out NativeCapabilityDiagnostic diagnostic);
+    }
+
+    internal static class SelectedUnitCommandCapabilityResolver
+    {
+        public static void Resolve(
+            string binaryHash,
+            ISelectedUnitCommandEventSource eventSource,
+            ManualLogSource log,
+            out SelectedUnitCommandService service,
+            out NativeCapabilityDiagnostic diagnostic)
+        {
+            service = null;
+            try
+            {
+                if (eventSource == null)
+                    throw new NativeResolutionException(NativeCapabilityState.ValidationFailed, "The Script Extender selected-unit event source is unavailable.");
+                service = new SelectedUnitCommandService(binaryHash, eventSource, log);
+                diagnostic = new NativeCapabilityDiagnostic(
+                    NativeCapabilityIds.SelectedUnitCommand,
+                    NativeCapabilityState.Available,
+                    binaryHash,
+                    "Provided through the Script Extender OnTribeIssueOrderWithTarget Pre event; SerpNativeAPI installs no native detour.");
+            }
+            catch (NativeResolutionException ex)
+            {
+                diagnostic = new NativeCapabilityDiagnostic(NativeCapabilityIds.SelectedUnitCommand, ex.State, binaryHash, ex.Message);
+            }
+            catch (Exception ex)
+            {
+                diagnostic = new NativeCapabilityDiagnostic(NativeCapabilityIds.SelectedUnitCommand, NativeCapabilityState.Faulted, binaryHash, ex.Message);
+            }
+        }
+    }
+
     internal readonly struct SelectedUnitCommandEventData
     {
         public SelectedUnitCommandEventData(EventHookPhase phase, SelectedUnitCommandContext context)

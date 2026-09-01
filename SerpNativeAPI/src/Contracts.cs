@@ -1,5 +1,4 @@
 using System;
-using SHCDESE.Interop.Enums;
 
 namespace SerpNativeAPI
 {
@@ -49,72 +48,6 @@ namespace SerpNativeAPI
         public string BinaryHash { get; }
         public string Reason { get; }
         public string ConflictOwnerGuid { get; }
-    }
-
-    public readonly struct GatehouseTimingSettings
-    {
-        public GatehouseTimingSettings(
-            bool enabled,
-            double humanReopenDelaySeconds,
-            double aiReopenDelaySeconds,
-            double humanCloseDistanceTiles,
-            double aiCloseDistanceTiles)
-        {
-            Enabled = enabled;
-            HumanReopenDelaySeconds = humanReopenDelaySeconds;
-            AiReopenDelaySeconds = aiReopenDelaySeconds;
-            HumanCloseDistanceTiles = humanCloseDistanceTiles;
-            AiCloseDistanceTiles = aiCloseDistanceTiles;
-        }
-
-        public bool Enabled { get; }
-        public double HumanReopenDelaySeconds { get; }
-        public double AiReopenDelaySeconds { get; }
-        public double HumanCloseDistanceTiles { get; }
-        public double AiCloseDistanceTiles { get; }
-    }
-
-    public readonly struct SelectedUnitCommandContext
-    {
-        public SelectedUnitCommandContext(
-            int tribeId,
-            TribeAICommand command,
-            int targetValue1,
-            int targetValue2,
-            int argument6)
-        {
-            TribeId = tribeId;
-            Command = command;
-            TargetValue1 = targetValue1;
-            TargetValue2 = targetValue2;
-            Argument6 = argument6;
-        }
-
-        public int TribeId { get; }
-        public TribeAICommand Command { get; }
-        public int TargetValue1 { get; }
-        public int TargetValue2 { get; }
-        public int Argument6 { get; }
-    }
-
-    public interface IGatehouseTimingCapability
-    {
-        bool TryApply(GatehouseTimingSettings settings, out NativeCapabilityDiagnostic diagnostic);
-    }
-
-    public interface ISelectedUnitCommandRegistration : IDisposable
-    {
-        bool IsEnabled { get; }
-        void Enable();
-        void Disable();
-    }
-
-    public interface ISelectedUnitCommandCapability
-    {
-        bool TryRegisterBefore(
-            Action<SelectedUnitCommandContext> callback,
-            out ISelectedUnitCommandRegistration registration,
-            out NativeCapabilityDiagnostic diagnostic);
     }
 
     public interface ISerpNativeApi
