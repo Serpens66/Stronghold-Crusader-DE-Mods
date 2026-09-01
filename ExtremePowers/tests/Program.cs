@@ -56,6 +56,7 @@ internal static class Program
     }
     private static void TestCompatibility()
     {
+        Check(ExtremePowersBootstrap.Instance.ProtocolVersion == "2", "owner-aware API compatibility protocol");
         string token = ExtremePowersCompatibility.CreateToken("1", "HASH", true, 1113);
         Check(ExtremePowersCompatibility.EvaluateSession(false, token, null, null).Ready, "singleplayer readiness without report");
         string[] reports = new string[9]; reports[1] = token; reports[2] = token;
@@ -71,7 +72,10 @@ internal static class Program
         Check(ExtremePowerSafety.TryCompensateMana(100, 50, 636, out uint value) && value == 686, "mana compensation");
         Check(!ExtremePowerSafety.TryCompensateMana(uint.MaxValue, 0, 636, out _), "mana compensation overflow");
         Check(ExtremePowerSafety.SaturatingAdd(uint.MaxValue - 2, 10) == uint.MaxValue, "gold saturation");
-        Check(ExtremePowerSafety.IsSpawnableUnitType(1) && !ExtremePowerSafety.IsSpawnableUnitType(0) && !ExtremePowerSafety.IsSpawnableUnitType(90), "unit type range");
+        Check(ExtremePowerSafety.IsValidSpawnOwnerPlayerId(0) && ExtremePowerSafety.IsValidSpawnOwnerPlayerId(1) && ExtremePowerSafety.IsValidSpawnOwnerPlayerId(8) && !ExtremePowerSafety.IsValidSpawnOwnerPlayerId(-1) && !ExtremePowerSafety.IsValidSpawnOwnerPlayerId(9), "spawn owners include nature and player slots only");
+        bool allDefinedValuesAccepted = true; for (int unitType = 1; unitType < ExtremePowerSafety.UnitTypeEndSentinel; unitType++) allDefinedValuesAccepted &= ExtremePowerSafety.IsSpawnableUnitType(unitType);
+        Check(allDefinedValuesAccepted && !ExtremePowerSafety.IsSpawnableUnitType(0) && !ExtremePowerSafety.IsSpawnableUnitType(90) && !ExtremePowerSafety.IsSpawnableUnitType(91), "all non-sentinel eChimps values accepted");
+        var spawn = new ExtremePowerSpawnResult(0, 42, 10, 7); Check(spawn.CreatedGroup && spawn.OwnerPlayerId == 0 && spawn.GroupUnitId == 42 && spawn.RequestedCount == 10 && spawn.SpawnedUnitCount == 7, "spawn result exposes explicit nature owner");
     }
     private static void TestOperationDedupe()
     {
@@ -97,8 +101,16 @@ internal static class Program
         string adapterText = File.ReadAllText(integrationAdapter);
         string settingsText = File.ReadAllText(Path.Combine(modRoot, "src", "Settings", "ExtremePowersSettings.cs"));
         string settingsXaml = File.ReadAllText(Path.Combine(modRoot, "Override", "ScriptExtenderUI", "ExtremePowersSettings.xaml"));
+        string demoText = File.ReadAllText(Path.Combine(modRoot, "src", "Demo", "GoldSpawnDemo.cs"));
+        string buildText = File.ReadAllText(Path.Combine(modRoot, "build.bat"));
         Check(adapterText.Contains("api.Vanilla.Costs.Clone()") && !adapterText.Contains("s.ArrowCost"), "example adapter always keeps Vanilla costs");
         Check(!settingsText.Contains("ArrowCost") && !settingsXaml.Contains("extreme-powers.costs"), "example cost settings remain removed");
+        Check(settingsText.Contains("private int demoUnitType = 24") && settingsText.Contains("70, 75, 44") && settingsText.Contains("if (IndexOfUnit(DemoUnitType) < 0) DemoUnitType = 24"), "demo defaults and migrates to a selectable Spearman while retaining Deer");
+        Check(!demoText.Contains("CreateUnitLocal") && adapterText.Contains("api.SpawnUnitGroup"), "demo uses API native group spawn instead of overlapping local units");
+        Check(settingsText.Contains("demoOwner = -1") && settingsText.Contains("DemoUnitType == 44 ? 0") && adapterText.Contains("ResolveDemoOwner(context.PlayerId)"), "demo supports an explicit owner and forces Deer to nature");
+        Check(settingsXaml.Contains("SelectedIndex=\"{Binding DemoUnitTypeIndex") && settingsXaml.Contains("SelectedIndex=\"{Binding SpearmenTypeIndex") && !settingsXaml.Contains("Text=\"{Binding DemoUnitType,"), "unit IDs are not raw UI text fields");
+        Check(settingsXaml.Contains("BasedOn=\"{StaticResource {x:Type TextBox}}\"") && settingsXaml.Contains("SelectedIndex=\"{Binding DemoOwnerIndex"), "numeric fields inherit the normal game TextBox template and owner is selectable");
+        Check(buildText.Contains("not \"%%~nxD\"==\"LobbyModSettings\"") && buildText.Contains("SETTINGS_STATE_BEFORE") && buildText.Contains("fc /B \"%SETTINGS_STATE_BEFORE%\" \"%SETTINGS_STATE_AFTER%\""), "build preserves and verifies LobbyModSettings");
     }
     private static void TestBuildGuard(string path)
     {
@@ -115,6 +127,9 @@ internal static class Program
         CheckTamperedNativeSignature(bytes, new byte[] { 0x89,0x1D,0xA7,0x7F,0xFA,0x05,0xFF,0xCB,0xC7,0x05,0x93,0x7F,0xFA,0x05,0x05,0x00,0x00,0x00 }, "pending target writer");
         CheckTamperedNativeSignature(bytes, new byte[] { 0x8B,0x3D,0x7C,0x0A,0x02,0x06,0x4C,0x8D,0x15,0xB1,0x22,0xFD,0x03 }, "pending target reader");
         CheckTamperedNativeSignature(bytes, new byte[] { 0xB2,0x77,0x89,0x3D,0x1A,0x45,0x63,0x08,0x48,0x8D,0x0D,0x07,0x75,0x4E,0x08,0x44,0x89,0x25,0x10,0x45,0x63,0x08,0x44,0x89,0x3D,0x0D,0x45,0x63,0x08 }, "pending target chore transfer");
+        CheckTamperedNativeSignature(bytes, new byte[] { 0x48,0x89,0x5C,0x24,0x08,0x48,0x89,0x74,0x24,0x10,0x48,0x89,0x7C,0x24,0x18,0x4C,0x89,0x74,0x24,0x20,0x41,0x57,0x48,0x83,0xEC,0x40 }, "native group spawn prolog");
+        CheckTamperedNativeSignature(bytes, new byte[] { 0x48,0x8B,0x5C,0x24,0x50,0x48,0x8B,0x74,0x24,0x58,0x48,0x8B,0x7C,0x24,0x60,0x4C,0x8B,0x74,0x24,0x68,0x48,0x83,0xC4,0x40,0x41,0x5F,0xC3 }, "native group spawn tail");
+        CheckTamperedNativeSignature(bytes, new byte[] { 0x4E,0x0F,0xBF,0x8C,0x5D,0xA4,0xE2,0xAA,0x03,0x4C,0x8D,0x35,0x41,0x90,0xBF,0x07,0x89,0x54,0x24,0x30,0xBA,0x01,0x00,0x00,0x00,0x44,0x89,0x54,0x24,0x28,0x89,0x5C,0x24,0x20,0x4B,0x8D,0x0C,0x49,0x44,0x2B,0x9C,0x8D,0x2C,0xFF,0x02,0x04,0x49,0x8B,0xCE,0x45,0x8B,0xC3,0xE8,0xC8,0x8D,0x05,0x00 }, "native group spawn dispatcher arguments");
         bytes[0] ^= 1; Check(!ExtremePowersBuildCompatibility.IsSupportedImage(bytes), "tampered DLL rejection");
     }
     private static void CheckTamperedNativeSignature(byte[] source, byte[] signature, string name)

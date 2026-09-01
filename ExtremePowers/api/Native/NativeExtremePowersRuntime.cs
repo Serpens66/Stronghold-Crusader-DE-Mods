@@ -5,6 +5,7 @@ using SHCDESE.API;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.MapLoader;
 using SHCDESE.Interop;
+using SHCDESE.Interop.Enums;
 using R3;
 using System;
 using System.Runtime.InteropServices;
@@ -28,6 +29,14 @@ namespace ExtremePowers.API
         private const int PendingTargetWriterRva = 0x1055C7;
         private const int PendingTargetReaderRva = 0x8CAF2;
         private const int PendingTargetChoreWriteRva = 0x8CE0A;
+        private const int SpawnGroupRva = 0x1264D0;
+        private const int SpawnGroupTailRva = 0x12658E;
+        private const int SpawnDispatcherCallRva = 0xCD6CF;
+        private const int UnitManagerRva = 0x7CC6720;
+        private const int TileHeightRva = 0x3AAE2A4;
+        private const int TileRowOffsetRva = 0x402FF2C;
+        private const int UnitStride = 0x688;
+        private const int ExtremeSpawnStateOffset = 0x634;
         private const int ManaRva = 0x379E7A4;
         private const int GoldRva = 0x379E7A8;
         private const int GoldCycleRva = 0x856A6D2;
@@ -45,6 +54,9 @@ namespace ExtremePowers.API
         private static readonly byte[] PendingTargetWriterSignature = { 0x89,0x1D,0xA7,0x7F,0xFA,0x05,0xFF,0xCB,0xC7,0x05,0x93,0x7F,0xFA,0x05,0x05,0x00,0x00,0x00 };
         private static readonly byte[] PendingTargetReaderSignature = { 0x8B,0x3D,0x7C,0x0A,0x02,0x06,0x4C,0x8D,0x15,0xB1,0x22,0xFD,0x03 };
         private static readonly byte[] PendingTargetChoreWriteSignature = { 0xB2,0x77,0x89,0x3D,0x1A,0x45,0x63,0x08,0x48,0x8D,0x0D,0x07,0x75,0x4E,0x08,0x44,0x89,0x25,0x10,0x45,0x63,0x08,0x44,0x89,0x3D,0x0D,0x45,0x63,0x08 };
+        private static readonly byte[] SpawnGroupSignature = { 0x48,0x89,0x5C,0x24,0x08,0x48,0x89,0x74,0x24,0x10,0x48,0x89,0x7C,0x24,0x18,0x4C,0x89,0x74,0x24,0x20,0x41,0x57,0x48,0x83,0xEC,0x40 };
+        private static readonly byte[] SpawnGroupTailSignature = { 0x48,0x8B,0x5C,0x24,0x50,0x48,0x8B,0x74,0x24,0x58,0x48,0x8B,0x7C,0x24,0x60,0x4C,0x8B,0x74,0x24,0x68,0x48,0x83,0xC4,0x40,0x41,0x5F,0xC3 };
+        private static readonly byte[] SpawnDispatcherCallSignature = { 0x4E,0x0F,0xBF,0x8C,0x5D,0xA4,0xE2,0xAA,0x03,0x4C,0x8D,0x35,0x41,0x90,0xBF,0x07,0x89,0x54,0x24,0x30,0xBA,0x01,0x00,0x00,0x00,0x44,0x89,0x54,0x24,0x28,0x89,0x5C,0x24,0x20,0x4B,0x8D,0x0C,0x49,0x44,0x2B,0x9C,0x8D,0x2C,0xFF,0x02,0x04,0x49,0x8B,0xCE,0x45,0x8B,0xC3,0xE8,0xC8,0x8D,0x05,0x00 };
 
         [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate void DispatcherDelegate(IntPtr self, int playerId, int powerId, int targetTileId);
         [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate void SelectionDelegate(int powerId);
@@ -52,6 +64,7 @@ namespace ExtremePowers.API
         [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate void VolleyDelegate(IntPtr manager, int targetTileId, int radiusOrMode, int playerId, int strength, bool arrowMode);
         [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate void GoldAdvanceDelegate(IntPtr cycleState);
         [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate void ResourceUpdateDelegate(IntPtr self);
+        [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate int SpawnGroupDelegate(IntPtr manager, int mode, int adjustedTileId, int elevation, int playerId, int unitType, int count);
         private delegate void SetGameStateDelegate(GameData self, EngineInterface.PlayState state);
         private delegate void ExtremeHoverDelegate(MainViewModel self, object parameter);
         private delegate void ExtremeHudConstructorDelegate(HUD_ExtremePowers self);
@@ -70,6 +83,7 @@ namespace ExtremePowers.API
         private readonly HealDelegate heal;
         private readonly VolleyDelegate volley;
         private readonly GoldAdvanceDelegate advanceGoldCycle;
+        private readonly SpawnGroupDelegate spawnGroup;
         private readonly IDisposable mapUnloadSubscription;
         private Hook hudHook;
         private SetGameStateDelegate originalSetGameState;
@@ -101,10 +115,14 @@ namespace ExtremePowers.API
             RequireSignature(memory, PendingTargetWriterRva, PendingTargetWriterSignature, "pending target power writer and target mode");
             RequireSignature(memory, PendingTargetReaderRva, PendingTargetReaderSignature, "pending target power reader");
             RequireSignature(memory, PendingTargetChoreWriteRva, PendingTargetChoreWriteSignature, "pending target chore transfer");
+            RequireSignature(memory, SpawnGroupRva, SpawnGroupSignature, "unit group spawn");
+            RequireSignature(memory, SpawnGroupTailRva, SpawnGroupTailSignature, "unit group spawn function tail");
+            RequireSignature(memory, SpawnDispatcherCallRva, SpawnDispatcherCallSignature, "dispatcher unit group spawn arguments");
             moduleBase = unchecked((ulong)libraryHandle.ToInt64());
             heal = InteropMarshal.GetDelegateForFunctionPointer<HealDelegate>((IntPtr)(moduleBase + HealRva));
             volley = InteropMarshal.GetDelegateForFunctionPointer<VolleyDelegate>((IntPtr)(moduleBase + VolleyRva));
             advanceGoldCycle = InteropMarshal.GetDelegateForFunctionPointer<GoldAdvanceDelegate>((IntPtr)(moduleBase + GoldAdvanceRva));
+            spawnGroup = InteropMarshal.GetDelegateForFunctionPointer<SpawnGroupDelegate>((IntPtr)(moduleBase + SpawnGroupRva));
             rootedDispatcher = Dispatch;
             rootedSelection = Select;
             rootedResourceUpdate = UpdateResources;
@@ -150,6 +168,12 @@ namespace ExtremePowers.API
         {
             originalExtremeHudConstructor(self);
             for (int powerId = 0; powerId < powerButtons.Length; powerId++) powerButtons[powerId] = self.FindName("ExtremePowersButton" + powerId) as Button;
+            UpdateHudReplacementState();
+        }
+
+        internal void RefreshHudReplacementState()
+        {
+            Array.Clear(appliedSpriteKeys, 0, appliedSpriteKeys.Length);
             UpdateHudReplacementState();
         }
 
@@ -293,7 +317,7 @@ namespace ExtremePowers.API
             unexpectedResourceDeltaLogged = false;
             nativeOperationSequence = 0;
             unchecked { mapEpoch++; if (mapEpoch == 0) mapEpoch = 1; }
-            Array.Clear(powerButtons, 0, powerButtons.Length);
+            // HUD_ExtremePowers survives normal map transitions; retain its live button references.
             Array.Clear(appliedSpriteKeys, 0, appliedSpriteKeys.Length);
         }
 
@@ -328,17 +352,38 @@ namespace ExtremePowers.API
         private bool SpawnIfChanged(SpawnConfiguration value, SpawnConfiguration vanilla, int playerId, int tile)
         {
             if (value.UnitType == vanilla.UnitType && value.Count == vanilla.Count) return false;
-            if (!GameTileManagerAPI.Instance.IsValidTileId(tile)) return true;
-            UnmanagedVector2<ushort> point = GameTileManagerAPI.Instance.GetTileVectorFromId(tile);
-            if (!ExtremePowerSafety.IsSpawnableUnitType(value.UnitType) || !Enum.IsDefined(typeof(eChimps), (ushort)value.UnitType) || value.UnitType == (int)eChimps.CHIMP_NUM_TYPES) return true;
-            int spawned = 0;
-            for (int index = 0; index < value.Count; index++)
-            {
-                if (GameUnitManagerAPI.Instance.CreateUnitLocal(playerId, playerId, point.X, point.Y, 0, (eChimps)value.UnitType) <= 0) break;
-                spawned++;
-            }
-            owner.Log("Spawn power player=" + playerId + " unitType=" + value.UnitType + " requested=" + value.Count + " spawned=" + spawned + ".");
+            ExtremePowerSpawnResult result = SpawnUnitGroup(playerId, tile, value.UnitType, value.Count);
+            owner.Log("Spawn power player=" + playerId + " unitType=" + value.UnitType + " requested=" + value.Count + " spawned=" + result.SpawnedUnitCount + " groupId=" + result.GroupUnitId + ".");
             return true;
+        }
+
+        internal ExtremePowerSpawnResult SpawnUnitGroup(int ownerPlayerId, int tile, int unitType, int count)
+        {
+            if (!ExtremePowerSafety.IsValidSpawnOwnerPlayerId(ownerPlayerId) ||
+                (ownerPlayerId != 0 && !GamePlayerManagerAPI.Instance.IsPlayerIdValid(ownerPlayerId)))
+                throw new ArgumentOutOfRangeException(nameof(ownerPlayerId));
+            if (!GameTileManagerAPI.Instance.IsValidTileId(tile)) throw new ArgumentOutOfRangeException(nameof(tile));
+            if (count < 0) throw new ArgumentOutOfRangeException(nameof(count));
+            if (!ExtremePowerSafety.IsSpawnableUnitType(unitType) || !Enum.IsDefined(typeof(eChimps), (ushort)unitType)) throw new ArgumentOutOfRangeException(nameof(unitType));
+            if (count == 0) return new ExtremePowerSpawnResult(ownerPlayerId, 0, 0, 0);
+
+            int before = CountLivingUnitsOfType((eChimps)unitType);
+            short elevation = *(short*)(moduleBase + TileHeightRva + (ulong)(tile * sizeof(short)));
+            int rowOffset = *(int*)(moduleBase + TileRowOffsetRva + (ulong)(elevation * 3 * sizeof(int)));
+            int adjustedTile = tile - rowOffset;
+            int groupId = spawnGroup((IntPtr)(moduleBase + UnitManagerRva), 1, adjustedTile, elevation, ownerPlayerId, unitType, count);
+            if (groupId > 0) *(ushort*)(moduleBase + UnitManagerRva + (ulong)(groupId * UnitStride + ExtremeSpawnStateOffset)) = 2;
+            int after = CountLivingUnitsOfType((eChimps)unitType);
+            return new ExtremePowerSpawnResult(ownerPlayerId, groupId, count, Math.Max(0, after - before));
+        }
+
+        private static int CountLivingUnitsOfType(eChimps unitType)
+        {
+            Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
+            int count = 0;
+            for (int index = 0; index < units.Length; index++)
+                if (units[index].r_AliveState == AliveState.IsAlive && units[index].r_UnitChimp == unitType) count++;
+            return count;
         }
 
         private uint* PlayerMana(int playerId) => (uint*)(moduleBase + ManaRva + (ulong)(playerId * PlayerStride));

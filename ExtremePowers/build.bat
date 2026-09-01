@@ -31,6 +31,14 @@ if not "%BUILD_EXIT_CODE%"=="0" goto done
 set "LOCAL_BUILD_DIR=%PROJECT_DIR%bin\Debug"
 set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\ExtremePowers_Serp"
 set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\ExtremePowers_Serp"
+set "SETTINGS_STATE_BEFORE=%TEMP%\ExtremePowersSettingsBefore-%RANDOM%-%RANDOM%.txt"
+set "SETTINGS_STATE_AFTER=%TEMP%\ExtremePowersSettingsAfter-%RANDOM%-%RANDOM%.txt"
+set "SETTINGS_DIR=%GAME_PLUGIN_DIR%\LobbyModSettings"
+powershell.exe -NoProfile -Command "$ErrorActionPreference='Stop'; function Get-Sha256([string]$path) { $algorithm=[Security.Cryptography.SHA256]::Create(); $stream=[IO.File]::OpenRead($path); try { [BitConverter]::ToString($algorithm.ComputeHash($stream)).Replace('-','') } finally { $stream.Dispose(); $algorithm.Dispose() } }; $settingsRoot='%SETTINGS_DIR%'; $rows=@(); if (Test-Path -LiteralPath $settingsRoot) { $rows=@(Get-ChildItem -LiteralPath $settingsRoot -Recurse | Where-Object { -not $_.PSIsContainer } | Sort-Object FullName | ForEach-Object { $relative=$_.FullName.Substring($settingsRoot.Length); $hash=Get-Sha256 $_.FullName; $relative + '|' + $_.Length + '|' + $hash }) } else { $rows=@('<missing>') }; [System.IO.File]::WriteAllLines('%SETTINGS_STATE_BEFORE%', $rows, (New-Object System.Text.UTF8Encoding($false)))"
+if errorlevel 1 set "BUILD_EXIT_CODE=1"
+if not "%BUILD_EXIT_CODE%"=="0" goto done
+if exist "%LOCAL_PLUGIN_DIR%" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"
+if errorlevel 1 set "BUILD_EXIT_CODE=1"
 if not exist "%LOCAL_PLUGIN_DIR%" mkdir "%LOCAL_PLUGIN_DIR%"
 copy /Y "%LOCAL_BUILD_DIR%\ExtremePowers.API.dll" "%LOCAL_PLUGIN_DIR%\ExtremePowers.API.dll" >nul
 if errorlevel 1 set "BUILD_EXIT_CODE=1"
@@ -48,26 +56,43 @@ xcopy "%LOCAL_BUILD_DIR%\Override" "%LOCAL_PLUGIN_DIR%\Override\" /E /I /Y >nul
 if errorlevel 1 set "BUILD_EXIT_CODE=1"
 xcopy "%LOCAL_BUILD_DIR%\Patches" "%LOCAL_PLUGIN_DIR%\Patches\" /E /I /Y >nul
 if errorlevel 1 set "BUILD_EXIT_CODE=1"
-if not exist "%GAME_PLUGIN_DIR%" mkdir "%GAME_PLUGIN_DIR%"
-copy /Y "%LOCAL_PLUGIN_DIR%\ExtremePowers.API.dll" "%GAME_PLUGIN_DIR%\ExtremePowers.API.dll" >nul
-if errorlevel 1 set "BUILD_EXIT_CODE=1"
-copy /Y "%LOCAL_PLUGIN_DIR%\ExtremePowers.API.pdb" "%GAME_PLUGIN_DIR%\ExtremePowers.API.pdb" >nul
-if errorlevel 1 set "BUILD_EXIT_CODE=1"
-copy /Y "%LOCAL_PLUGIN_DIR%\ExtremePowers.dll" "%GAME_PLUGIN_DIR%\ExtremePowers.dll" >nul
-if errorlevel 1 set "BUILD_EXIT_CODE=1"
-copy /Y "%LOCAL_PLUGIN_DIR%\ExtremePowers.pdb" "%GAME_PLUGIN_DIR%\ExtremePowers.pdb" >nul
-if errorlevel 1 set "BUILD_EXIT_CODE=1"
-copy /Y "%LOCAL_PLUGIN_DIR%\info.json" "%GAME_PLUGIN_DIR%\info.json" >nul
-if errorlevel 1 set "BUILD_EXIT_CODE=1"
-xcopy "%LOCAL_PLUGIN_DIR%\Locales" "%GAME_PLUGIN_DIR%\Locales\" /E /I /Y >nul
-if errorlevel 1 set "BUILD_EXIT_CODE=1"
-xcopy "%LOCAL_PLUGIN_DIR%\Override" "%GAME_PLUGIN_DIR%\Override\" /E /I /Y >nul
-if errorlevel 1 set "BUILD_EXIT_CODE=1"
-xcopy "%LOCAL_PLUGIN_DIR%\Patches" "%GAME_PLUGIN_DIR%\Patches\" /E /I /Y >nul
+if exist "%LOCAL_PLUGIN_DIR%\LobbyModSettings" set "BUILD_EXIT_CODE=1"
+if not "%BUILD_EXIT_CODE%"=="0" goto done
+if exist "%GAME_PLUGIN_DIR%" (
+    rem Replace packaged content while preserving player-created lobby settings.
+    for /D %%D in ("%GAME_PLUGIN_DIR%\*") do (
+        if /I not "%%~nxD"=="LobbyModSettings" (
+            rmdir /S /Q "%%~fD"
+            if errorlevel 1 set "BUILD_EXIT_CODE=1"
+        )
+    )
+    for %%F in ("%GAME_PLUGIN_DIR%\*") do (
+        if exist "%%~fF" if not exist "%%~fF\" (
+            del /F /Q "%%~fF"
+            if errorlevel 1 set "BUILD_EXIT_CODE=1"
+        )
+    )
+)
+if not "%BUILD_EXIT_CODE%"=="0" goto done
+xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Y >nul
 if errorlevel 1 set "BUILD_EXIT_CODE=1"
 if not exist "%GAME_PLUGIN_DIR%\ExtremePowers.API.dll" set "BUILD_EXIT_CODE=1"
 if not exist "%GAME_PLUGIN_DIR%\ExtremePowers.dll" set "BUILD_EXIT_CODE=1"
+if not exist "%GAME_PLUGIN_DIR%\Override\ScriptExtenderUI\ExtremePowersSettings.xaml" set "BUILD_EXIT_CODE=1"
+fc /B "%LOCAL_PLUGIN_DIR%\ExtremePowers.API.dll" "%GAME_PLUGIN_DIR%\ExtremePowers.API.dll" >nul
+if errorlevel 1 set "BUILD_EXIT_CODE=1"
+fc /B "%LOCAL_PLUGIN_DIR%\ExtremePowers.dll" "%GAME_PLUGIN_DIR%\ExtremePowers.dll" >nul
+if errorlevel 1 set "BUILD_EXIT_CODE=1"
+powershell.exe -NoProfile -Command "$ErrorActionPreference='Stop'; function Get-Sha256([string]$path) { $algorithm=[Security.Cryptography.SHA256]::Create(); $stream=[IO.File]::OpenRead($path); try { [BitConverter]::ToString($algorithm.ComputeHash($stream)).Replace('-','') } finally { $stream.Dispose(); $algorithm.Dispose() } }; $settingsRoot='%SETTINGS_DIR%'; $rows=@(); if (Test-Path -LiteralPath $settingsRoot) { $rows=@(Get-ChildItem -LiteralPath $settingsRoot -Recurse | Where-Object { -not $_.PSIsContainer } | Sort-Object FullName | ForEach-Object { $relative=$_.FullName.Substring($settingsRoot.Length); $hash=Get-Sha256 $_.FullName; $relative + '|' + $_.Length + '|' + $hash }) } else { $rows=@('<missing>') }; [System.IO.File]::WriteAllLines('%SETTINGS_STATE_AFTER%', $rows, (New-Object System.Text.UTF8Encoding($false)))"
+if errorlevel 1 set "BUILD_EXIT_CODE=1"
+fc /B "%SETTINGS_STATE_BEFORE%" "%SETTINGS_STATE_AFTER%" >nul
+if errorlevel 1 (
+    echo Build abgebrochen: LobbyModSettings wurden waehrend der Installation veraendert.
+    set "BUILD_EXIT_CODE=1"
+)
 :done
+if exist "%SETTINGS_STATE_BEFORE%" del /F /Q "%SETTINGS_STATE_BEFORE%" >nul 2>&1
+if exist "%SETTINGS_STATE_AFTER%" del /F /Q "%SETTINGS_STATE_AFTER%" >nul 2>&1
 if "%BUILD_EXIT_CODE%"=="0" echo Build und Installation erfolgreich.
 if "%NO_PAUSE%"=="0" pause
 exit /b %BUILD_EXIT_CODE%

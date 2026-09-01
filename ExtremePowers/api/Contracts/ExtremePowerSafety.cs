@@ -7,8 +7,10 @@ namespace ExtremePowers.API
         public const uint VanillaManaCap = 7000;
         public const int FirstSpawnableUnitType = 1;
         public const int UnitTypeEndSentinel = 90;
+        public const int MaximumPlayerId = 8;
 
         public static bool IsSpawnableUnitType(int unitType) => unitType >= FirstSpawnableUnitType && unitType < UnitTypeEndSentinel;
+        public static bool IsValidSpawnOwnerPlayerId(int ownerPlayerId) => ownerPlayerId >= 0 && ownerPlayerId <= MaximumPlayerId;
 
         public static bool TryCompensateMana(uint mana, int desiredCost, int vanillaCost, out uint compensated)
         {

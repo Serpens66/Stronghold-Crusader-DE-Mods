@@ -1,0 +1,8 @@
+2026-09-01 13:35:42 INFO  ExportCrusaderBaseline.java> EXPORT_FUNCTIONS count=4478  
+2026-09-01 13:35:42 INFO  ExportCrusaderBaseline.java> EXPORT_XREFS count=236382  
+2026-09-01 13:35:42 INFO  ExportCrusaderBaseline.java> EXPORT_STRINGS count=4248  
+2026-09-01 13:35:42 INFO  ExportCrusaderBaseline.java> EXPORT_IMPORTS count=106  
+2026-09-01 13:35:42 INFO  ExportCrusaderBaseline.java> EXPORT_EXPORTS count=78  
+2026-09-01 13:35:42 INFO  ExportCrusaderBaseline.java> EXPORT_SECTIONS count=9  
+2026-09-01 13:37:46 INFO  ExportCrusaderBaseline.java> EXPORT_DECOMPILATION attempted=4478 completed=4475 failed=3  
+2026-09-01 13:37:46 INFO  ExportCrusaderBaseline.java> EXPORT_COMPLETE directory=D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\exports  

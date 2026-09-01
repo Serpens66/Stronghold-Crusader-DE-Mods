@@ -44,8 +44,9 @@ namespace ExtremePowers.Integration
                 (in ExtremePowerExecutionContext context, out string reason) => Demo.GoldSpawnDemo.CanExecute(s, context.PlayerId, context.Target.TileIndex, out reason),
                 (in ExtremePowerExecutionContext context) =>
                 {
-                    int spawned = Demo.GoldSpawnDemo.Execute(s, context.PlayerId, context.Target.TileIndex);
-                    diagnostic?.Invoke("Gold replacement spawn player=" + context.PlayerId + " unitType=" + s.DemoUnitType + " requested=" + s.DemoSpawnCount + " spawned=" + spawned + ".");
+                    int ownerPlayerId = s.ResolveDemoOwner(context.PlayerId);
+                    ExtremePowerSpawnResult result = api.SpawnUnitGroup(ownerPlayerId, context.Target.TileIndex, s.DemoUnitType, s.DemoSpawnCount);
+                    diagnostic?.Invoke("Gold replacement spawn activatingPlayer=" + context.PlayerId + " owner=" + result.OwnerPlayerId + " unitType=" + s.DemoUnitType + " requested=" + result.RequestedCount + " spawned=" + result.SpawnedUnitCount + " groupId=" + result.GroupUnitId + ".");
                 }));
         private static void Fill(SpawnConfiguration c, int type, int count) { c.UnitType = type; c.Count = count; }
     }

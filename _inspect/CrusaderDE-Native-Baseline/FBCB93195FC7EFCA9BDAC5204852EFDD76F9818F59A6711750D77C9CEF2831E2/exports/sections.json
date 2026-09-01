@@ -1,0 +1,11 @@
+[
+  {"name":"Headers","startAddress":"0x180000000","startRva":"0x0","endAddress":"0x1800003FF","size":1024,"read":true,"write":false,"execute":false,"initialized":true},
+  {"name":".text","startAddress":"0x180001000","startRva":"0x1000","endAddress":"0x18020A1FF","size":2134528,"read":true,"write":false,"execute":true,"initialized":true},
+  {"name":".rdata","startAddress":"0x18020B000","startRva":"0x20B000","endAddress":"0x18023FFFF","size":217088,"read":true,"write":false,"execute":false,"initialized":true},
+  {"name":".data","startAddress":"0x180240000","startRva":"0x240000","endAddress":"0x1888ED623","size":141219364,"read":true,"write":true,"execute":false,"initialized":true},
+  {"name":".pdata","startAddress":"0x1888EE000","startRva":"0x88EE000","endAddress":"0x1888FDBFF","size":64512,"read":true,"write":false,"execute":false,"initialized":true},
+  {"name":"_RDATA","startAddress":"0x1888FE000","startRva":"0x88FE000","endAddress":"0x1888FE1FF","size":512,"read":true,"write":false,"execute":false,"initialized":true},
+  {"name":".rsrc","startAddress":"0x1888FF000","startRva":"0x88FF000","endAddress":"0x1888FF1FF","size":512,"read":true,"write":false,"execute":false,"initialized":true},
+  {"name":".reloc","startAddress":"0x188900000","startRva":"0x8900000","endAddress":"0x188902FFF","size":12288,"read":true,"write":false,"execute":false,"initialized":true},
+  {"name":"tdb","startAddress":"0xFF00000000","startRva":"0xFD80000000","endAddress":"0xFF0000184F","size":6224,"read":true,"write":true,"execute":false,"initialized":true}
+]

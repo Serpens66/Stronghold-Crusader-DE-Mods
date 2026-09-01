@@ -1,11 +1,6 @@
-using BepInEx.Logging;
 using BepInEx.Bootstrap;
-using SHCDESE.API;
-using SHCDESE.Interop;
-using SHCDESE.Interop.Enums;
-using SHCDESE.EventAPI.Units;
+using BepInEx.Logging;
 using System;
-using System.Runtime.InteropServices;
 using System.Threading;
 using Zhuqiaomon.Assembly;
 using Zhuqiaomon.Hooks;
@@ -16,16 +11,6 @@ namespace EnemyGatePathfindingTest
 {
     internal sealed unsafe class EnemyGatePathfindingRuntime
     {
-        // UPDATE REVIEW (CrusaderDE.dll): verify calling convention, parameter order and
-        // Int64 return type against the native function after every game-DLL update.
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        private delegate long GetNextReachablePclDelegate(
-            IntPtr pathfindingContext,
-            int playerId,
-            int targetPcl,
-            int sourcePcl,
-            int mode);
-
         private const ulong ZeroFlagMask = 1UL << 6;
         private const int MaximumCallbackWarningsPerMap = 8;
 
@@ -33,37 +18,15 @@ namespace EnemyGatePathfindingTest
         private SamePclBridgeDiagnostics samePclDiagnostics;
         private TileRouteDiagnostics tileRouteDiagnostics;
         private HookTransaction transaction;
-        private HookRef<X64ManagedFunctionDetourAOB<GetNextReachablePclDelegate>> reachabilityHook =
-            new HookRef<X64ManagedFunctionDetourAOB<GetNextReachablePclDelegate>>();
         private HookRef<X64InlineHook> capturedByFilterHook = new HookRef<X64InlineHook>();
+        private volatile NativeGateAccessSnapshot gateAccess = NativeGateAccessSnapshot.Empty;
         private ulong libraryBase;
         private int mapActive;
         private int callbackWarnings;
-
-        private long totalQueries;
-        private long localHumanQueries;
-        private long aiQueries;
-        private long unknownRoleQueries;
-        private long enemyRecordQueries;
-        private long enemyQueriesReturningZero;
-        private long enemyQueriesReturningPositive;
         private long uncapturedEnemyRecordsExcludedByVanilla;
         private long alliedCapturedEnemyRecordsAllowed;
         private long foreignCapturedEnemyRecordsRejected;
         private long filterFailOpenRecords;
-
-        [ThreadStatic]
-        private static int traceDepth;
-        [ThreadStatic]
-        private static int traceUncaptured;
-        [ThreadStatic]
-        private static int traceAlliedCaptured;
-        [ThreadStatic]
-        private static int traceForeignRejected;
-        [ThreadStatic]
-        private static int traceFailOpen;
-        [ThreadStatic]
-        private static GateRecordTrace traceFirstRecord;
 
         internal EnemyGatePathfindingRuntime(ManualLogSource log)
         {
@@ -80,13 +43,6 @@ namespace EnemyGatePathfindingTest
             if (libraryHandle == IntPtr.Zero)
                 throw new InvalidOperationException("native library handle is null");
 
-            Shared.NativeResolution functionResolution = Shared.NativePatternResolver.ResolveUnique(
-                memory,
-                EnemyGatePathfindingNativeDefinition.GetNextReachablePclPattern,
-                EnemyGatePathfindingNativeDefinition.GetNextReachablePclRva,
-                referenceHashMatches: true,
-                "player-aware PCL reachability",
-                log);
             Shared.NativeResolution compareSequenceResolution = Shared.NativePatternResolver.ResolveUnique(
                 memory,
                 EnemyGatePathfindingNativeDefinition.CapturedByComparePattern,
@@ -94,13 +50,6 @@ namespace EnemyGatePathfindingTest
                     EnemyGatePathfindingNativeDefinition.CapturedByCompareOffsetInPattern,
                 referenceHashMatches: true,
                 "hostile-gate captured-player comparison",
-                log);
-            Shared.NativeResolution moveHereResolution = Shared.NativePatternResolver.ResolveUnique(
-                memory,
-                EnemyGatePathfindingNativeDefinition.MoveHerePattern,
-                EnemyGatePathfindingNativeDefinition.MoveHereRva,
-                referenceHashMatches: true,
-                "Script-Extender-owned common MoveHere entry",
                 log);
             Shared.NativeResolution cursorResolution = Shared.NativePatternResolver.ResolveUnique(
                 memory,
@@ -117,6 +66,7 @@ namespace EnemyGatePathfindingTest
                 referenceHashMatches: true,
                 "shared command PCL decision (audit only)",
                 log);
+
             int compareRva = compareSequenceResolution.Rva +
                 EnemyGatePathfindingNativeDefinition.CapturedByCompareOffsetInPattern;
             int cursorXRva = Shared.NativePatternResolver.ResolveRelativeTarget(
@@ -129,24 +79,22 @@ namespace EnemyGatePathfindingTest
                 cursorResolution.Rva + EnemyGatePathfindingNativeDefinition.CursorTargetYNextInstructionOffset);
             int commandDecisionRva = commandDecisionResolution.Rva +
                 EnemyGatePathfindingNativeDefinition.CommandPclDecisionOffsetInPattern;
-            if (functionResolution.Rva != EnemyGatePathfindingNativeDefinition.GetNextReachablePclRva ||
-                compareRva != EnemyGatePathfindingNativeDefinition.CapturedByCompareRva ||
-                moveHereResolution.Rva != EnemyGatePathfindingNativeDefinition.MoveHereRva ||
+            if (compareRva != EnemyGatePathfindingNativeDefinition.CapturedByCompareRva ||
                 cursorResolution.Rva != EnemyGatePathfindingNativeDefinition.CursorTargetSignatureRva ||
                 commandDecisionRva != EnemyGatePathfindingNativeDefinition.CommandPclDecisionRva ||
                 cursorXRva != EnemyGatePathfindingNativeDefinition.CursorTargetXRva ||
                 cursorYRva != EnemyGatePathfindingNativeDefinition.CursorTargetYRva)
-            {
-                throw new InvalidOperationException("native PCL signatures resolved outside their audited RVAs");
-            }
+                throw new InvalidOperationException("native gate/cursor signatures resolved outside their audited RVAs");
 
             libraryBase = unchecked((ulong)libraryHandle.ToInt64());
             samePclDiagnostics = new SamePclBridgeDiagnostics(
                 log,
                 (int*)(libraryBase + unchecked((ulong)cursorXRva)),
                 (int*)(libraryBase + unchecked((ulong)cursorYRva)));
-            // UPDATE REVIEW (Script Extender): revalidate HookTransaction context-save
-            // semantics and that BeforeCallback executes relocated instructions first.
+            samePclDiagnostics.SetGateAccessConsumer(UpdateGateAccess);
+
+            // UPDATE REVIEW (Script Extender 1.42.0): only primitive snapshot reads and
+            // RFLAGS changes are allowed in this callback. No API access is permitted.
             transaction = new HookTransaction(
                 memory,
                 libraryBase,
@@ -160,17 +108,10 @@ namespace EnemyGatePathfindingTest
                 hookSize: EnemyGatePathfindingNativeDefinition.CapturedByCompareHookLength,
                 errorMode: CallbackErrorMode.LogAndContinue,
                 placement: OverwrittenInstructionPlacement.BeforeCallback);
-            transaction.AddDetour(
-                ref reachabilityHook,
-                libraryBase + unchecked((ulong)functionResolution.Rva),
-                ObserveGetNextReachablePclForPlayer);
             transaction.Commit();
-            if (!capturedByFilterHook.Success || !reachabilityHook.Success)
-                throw new InvalidOperationException("PCL filter and diagnostic detour were not installed atomically");
+            if (!capturedByFilterHook.Success)
+                throw new InvalidOperationException("snapshot-based captured-player filter was not installed");
 
-            // UPDATE REVIEW (CrusaderDE.dll + Script Extender 1.42.0): these native
-            // diagnostics are independent from the PCL fix. A failure leaves the
-            // already validated PCL hook active and all route behavior Vanilla.
             bool moveMoatLoaded = Chainloader.PluginInfos.ContainsKey("MoveMoatTest_Serp");
             try
             {
@@ -182,50 +123,28 @@ namespace EnemyGatePathfindingTest
                     (int*)(libraryBase + unchecked((ulong)cursorYRva)),
                     installNativeHooks: !moveMoatLoaded);
                 samePclDiagnostics.SetRoutePolicyConsumer(tileRouteDiagnostics.UpdatePolicy);
-                tileRouteDiagnostics.SetPclCorrelation(
-                    samePclDiagnostics.FindRecentRoutePclCorrelation);
                 tileRouteDiagnostics.SetTopologyEpochStarter(
-                    () => samePclDiagnostics.BeginExplicitEpoch("first native route or cursor query"));
+                    () => samePclDiagnostics.BeginExplicitEpoch("first cursor query"));
             }
             catch (Exception ex)
             {
                 tileRouteDiagnostics = null;
                 Shared.DebugLogHelper.LogWarning(log,
-                    "Functional tile-route correction could not be installed; PCL diagnostics remain active and " +
-                    $"Vanilla route behavior is unchanged: {ex.GetType().Name}: {ex.Message}");
+                    "Crash-safe cursor correction could not be installed; the snapshot-based " +
+                    $"Different-PCL filter remains active: {ex.GetType().Name}: {ex.Message}");
             }
 
-            ulong functionAddress = libraryBase + unchecked((ulong)functionResolution.Rva);
-            ulong filterAddress = libraryBase + unchecked((ulong)compareRva);
-            Shared.DebugLogHelper.LogInfo(
-                log,
-                "Enemy-gate PCL hooks installed: " +
-                $"functionMethod={functionResolution.Method}, functionRva=0x{functionResolution.Rva:X}, " +
-                $"functionAddress=0x{functionAddress:X}, filterMethod={compareSequenceResolution.Method}+" +
-                $"0x{EnemyGatePathfindingNativeDefinition.CapturedByCompareOffsetInPattern:X}, " +
-                $"filterRva=0x{compareRva:X}, filterAddress=0x{filterAddress:X}, " +
-                $"dllSha256={EnemyGatePathfindingNativeDefinition.ReferenceSha256}.");
-            Shared.DebugLogHelper.LogInfo(
-                log,
-                "Diagnostic native contract validated: " +
-                $"MoveHereRva=0x{moveHereResolution.Rva:X} (observed through Script Extender 1.42.0 Pre/Post event; no overlapping hook), " +
-                $"cursorSignatureRva=0x{cursorResolution.Rva:X}, cursorX=0x{cursorXRva:X}, cursorY=0x{cursorYRva:X}. " +
-                "Diagnostics are active immediately, auto-start an epoch on the first valid query, " +
-                "and correlate prior cursor/PCL checks with MoveHere over a deferred 1500-ms window. " +
-                $"The shared command PCL decision at 0x{commandDecisionRva:X} is signature-validated but intentionally not hooked.");
-            Shared.DebugLogHelper.LogInfo(
-                log,
-                "Native audit contract: " +
-                $"directCallers={EnemyGatePathfindingNativeDefinition.AuditedDirectCallerCount}, " +
-                $"humanCursorCommandRange=[0x{EnemyGatePathfindingNativeDefinition.HumanCursorCommandStartRva:X}," +
-                $"0x{EnemyGatePathfindingNativeDefinition.HumanCursorCommandEndRva:X}), " +
-                $"commonPathBuilderRange=[0x{EnemyGatePathfindingNativeDefinition.CommonPathBuilderStartRva:X}," +
-                $"0x{EnemyGatePathfindingNativeDefinition.CommonPathBuilderEndRva:X}), " +
-                $"recordStride=0x{EnemyGatePathfindingNativeDefinition.NativeRecordStride:X}, " +
-                $"pclOffsets=[{EnemyGatePathfindingNativeDefinition.RecordFirstPclOffset:+#;-#;0}," +
-                $"{EnemyGatePathfindingNativeDefinition.RecordSecondPclOffset:+#;-#;0}," +
-                $"{EnemyGatePathfindingNativeDefinition.RecordThirdPclOffset:+#;-#;0}]. " +
-                "The third native PCL remains in Vanilla's graph and covers gate-associated drawbridge routing.");
+            Shared.DebugLogHelper.LogInfo(log,
+                "Crash-safe enemy-gate hooks installed: " +
+                $"capturerFilter=0x{compareRva:X} ({compareSequenceResolution.Method}+0x" +
+                $"{EnemyGatePathfindingNativeDefinition.CapturedByCompareOffsetInPattern:X}), " +
+                $"cursorTarget=0x{cursorResolution.Rva:X}, commandAudit=0x{commandDecisionRva:X}, " +
+                $"dllSha256={EnemyGatePathfindingNativeDefinition.ReferenceSha256}. " +
+                "The whole PCL detour and every global Direction-Grid write were removed.");
+            Shared.DebugLogHelper.LogWarning(log,
+                "Same-PCL AI tile rerouting is disabled fail-open: F4930 dispatches to six " +
+                "native search variants and no common local edge-acceptance hook is fully validated. " +
+                "Cursor reachability remains read-only; no builder/planner hook is installed.");
         }
 
         internal void BeginMap()
@@ -235,10 +154,9 @@ namespace EnemyGatePathfindingTest
             ResetMapCounters();
             samePclDiagnostics?.BeginExplicitEpoch("OnStartMap(Post)");
             tileRouteDiagnostics?.BeginEpoch("OnStartMap(Post)");
-            Shared.DebugLogHelper.LogInfo(
-                log,
-                "Enemy-gate PCL test map started. The native hostile-owner filter is active for AI, " +
-                "human cursor validation and command validation; bounded query diagnostics are enabled.");
+            Shared.DebugLogHelper.LogInfo(log,
+                "Enemy-gate map started: snapshot Different-PCL filter and read-only cursor policy active; " +
+                "Same-PCL native builder correction disabled pending a complete local-edge proof.");
         }
 
         internal void EndMap()
@@ -246,36 +164,16 @@ namespace EnemyGatePathfindingTest
             bool hadActiveEpoch = Interlocked.CompareExchange(ref mapActive, 0, 1) == 1;
             samePclDiagnostics?.EndEpoch("OnUnloadMap(Post)");
             tileRouteDiagnostics?.EndEpoch("OnUnloadMap(Post)");
+            gateAccess = NativeGateAccessSnapshot.Empty;
             if (!hadActiveEpoch)
                 return;
-            Shared.DebugLogHelper.LogInfo(
-                log,
-                "Enemy-gate PCL map summary: " +
-                $"queries={Read(ref totalQueries)}, human={Read(ref localHumanQueries)}, " +
-                $"ai={Read(ref aiQueries)}, unknownRole={Read(ref unknownRoleQueries)}, " +
-                $"enemyRecordQueries={Read(ref enemyRecordQueries)}, " +
-                $"enemyQueryResultZero={Read(ref enemyQueriesReturningZero)}, " +
-                $"enemyQueryResultPositive={Read(ref enemyQueriesReturningPositive)}, " +
+            Shared.DebugLogHelper.LogInfo(log,
+                "Enemy-gate map summary: " +
                 $"uncapturedExcludedByVanilla={Read(ref uncapturedEnemyRecordsExcludedByVanilla)}, " +
                 $"alliedCapturedAllowed={Read(ref alliedCapturedEnemyRecordsAllowed)}, " +
                 $"foreignCapturedRejected={Read(ref foreignCapturedEnemyRecordsRejected)}, " +
-                $"filterFailOpen={Read(ref filterFailOpenRecords)}. " +
-                "See the Same-PCL final summary for cursor, MoveHere and topology diagnostics.");
-        }
-
-        internal void ObserveMoveHere(UnitMoveHereEventArgs args)
-        {
-            if (args == null)
-                return;
-            try
-            {
-                samePclDiagnostics?.OnMoveHere(args);
-                tileRouteDiagnostics?.OnMoveHere(args);
-            }
-            catch
-            {
-                samePclDiagnostics?.RecordHotPathFailure();
-            }
+                $"filterFailOpen={Read(ref filterFailOpenRecords)}, " +
+                $"callbackWarnings={Volatile.Read(ref callbackWarnings)}.");
         }
 
         internal void ProcessDeferredDiagnostics()
@@ -293,15 +191,12 @@ namespace EnemyGatePathfindingTest
 
         internal void OnGameTick()
         {
-            try
-            {
-                samePclDiagnostics?.OnGameTick();
-            }
-            catch
-            {
-                samePclDiagnostics?.RecordHotPathFailure();
-            }
+            try { samePclDiagnostics?.OnGameTick(); }
+            catch { samePclDiagnostics?.RecordHotPathFailure(); }
         }
+
+        private void UpdateGateAccess(NativeGateAccessSnapshot updated) =>
+            gateAccess = updated ?? NativeGateAccessSnapshot.Empty;
 
         private void FilterUnrelatedCapturedEnemyGate(NativePointer<X64SmartCPUContext> context)
         {
@@ -310,17 +205,16 @@ namespace EnemyGatePathfindingTest
                 X64SmartCPUContext* registers = context.Pointer;
                 if (registers == null)
                 {
-                    RecordFilterDecision(FilterTraceKind.FailOpen, default);
+                    RecordFilterDecision(CapturedGateFilterDecision.FailOpen, false);
                     return;
                 }
-                // The relocated CMP already ran. This callback is reached only after
-                // Vanilla established that the record owner is hostile to queryPlayer.
+
                 int queryPlayerId = unchecked((int)(uint)registers->R14);
-                int buildingIdFromRegister = unchecked((int)(uint)registers->RCX);
+                int buildingId = unchecked((int)(uint)registers->RCX);
                 byte* record = (byte*)registers->R9;
                 if (record == null)
                 {
-                    RecordFilterDecision(FilterTraceKind.FailOpen, default);
+                    RecordFilterDecision(CapturedGateFilterDecision.FailOpen, false);
                     return;
                 }
 
@@ -328,264 +222,51 @@ namespace EnemyGatePathfindingTest
                     EnemyGatePathfindingNativeDefinition.RecordBuildingIdOffset);
                 int ownerPlayerId = *(int*)(record +
                     EnemyGatePathfindingNativeDefinition.RecordOwnerPlayerIdOffset);
-                int firstPcl = *(int*)(record + EnemyGatePathfindingNativeDefinition.RecordFirstPclOffset);
-                int secondPcl = *(int*)(record + EnemyGatePathfindingNativeDefinition.RecordSecondPclOffset);
-                int thirdPcl = *(int*)(record + EnemyGatePathfindingNativeDefinition.RecordThirdPclOffset);
-
-                // UPDATE REVIEW (Script Extender): re-audit GameBuilding size/packing,
-                // captured/owner/alive fields and 1-based building-ID lookup semantics.
-                GameBuildingManagerAPI buildings = GameBuildingManagerAPI.Instance;
-                GameBuilding* building = null;
-                if (buildingIdFromRegister <= 0 || buildingIdFromRegister != recordBuildingId ||
-                    !buildings.IsValidId(buildingIdFromRegister) ||
-                    !buildings.TryGetBuildingById(buildingIdFromRegister, out building) ||
-                    building == null || building->r_AliveState != AliveState.IsAlive ||
-                    building->r_GlobalId == 0 || building->r_PlayerIdOwner != ownerPlayerId)
-                {
-                    RecordFilterDecision(
-                        FilterTraceKind.FailOpen,
-                        new GateRecordTrace(
-                            "fail-open-inconsistent-record",
-                            3,
-                            recordBuildingId,
-                            building == null ? 0u : building->r_GlobalId,
-                            ownerPlayerId,
-                            building == null ? -1 : building->r_CapturedByPlayerId,
-                            firstPcl,
-                            secondPcl,
-                            thirdPcl));
-                    return;
-                }
-
-                int capturedByPlayerId = building->r_CapturedByPlayerId;
                 bool vanillaSawUncaptured = (registers->Rflags & ZeroFlagMask) != 0;
-                if ((capturedByPlayerId == 0) != vanillaSawUncaptured)
+                if (buildingId != recordBuildingId)
                 {
-                    RecordFilterDecision(
-                        FilterTraceKind.FailOpen,
-                        new GateRecordTrace(
-                            "fail-open-capture-race",
-                            3,
-                            buildingIdFromRegister,
-                            building->r_GlobalId,
-                            ownerPlayerId,
-                            capturedByPlayerId,
-                            firstPcl,
-                            secondPcl,
-                            thirdPcl));
+                    RecordFilterDecision(CapturedGateFilterDecision.FailOpen, vanillaSawUncaptured);
                     return;
                 }
-                var recordTrace = new GateRecordTrace(
-                    capturedByPlayerId == 0 ? "uncaptured-hostile" : "captured-hostile",
-                    1,
-                    buildingIdFromRegister,
-                    building->r_GlobalId,
-                    ownerPlayerId,
-                    capturedByPlayerId,
-                    firstPcl,
-                    secondPcl,
-                    thirdPcl);
-                CapturedGateFilterDecision decision = EnemyGatePathfindingPolicy.EvaluateGateAccess(
-                    queryPlayerId,
-                    ownerPlayerId,
-                    capturedByPlayerId,
-                    IsValidPlayer,
-                    AreAllied);
-                switch (decision)
-                {
-                    case CapturedGateFilterDecision.PreserveVanilla:
-                        if (capturedByPlayerId == 0)
-                        {
-                            RecordFilterDecision(FilterTraceKind.Uncaptured, recordTrace);
-                        }
-                        else
-                        {
-                            recordTrace = recordTrace.With("allied-capture-allowed", 2);
-                            RecordFilterDecision(FilterTraceKind.AlliedCaptured, recordTrace);
-                        }
-                        return;
 
-                    case CapturedGateFilterDecision.ExcludeForeignCapture:
-                        // The untouched JE now takes the same exclusion branch as for
-                        // r_CapturedByPlayerId == 0. No PCL or path result is synthesized.
-                        registers->Rflags |= ZeroFlagMask;
-                        recordTrace = recordTrace.With("foreign-capture-rejected", 4);
-                        RecordFilterDecision(FilterTraceKind.ForeignRejected, recordTrace);
-                        return;
-
-                    default:
-                        recordTrace = recordTrace.With("fail-open-player-or-alliance", 3);
-                        RecordFilterDecision(FilterTraceKind.FailOpen, recordTrace);
-                        return;
-                }
+                NativeGateAccessSnapshot current = gateAccess;
+                CapturedGateFilterDecision decision = current.Evaluate(
+                    queryPlayerId, buildingId, ownerPlayerId, vanillaSawUncaptured);
+                if (decision == CapturedGateFilterDecision.ExcludeForeignCapture)
+                    registers->Rflags |= ZeroFlagMask;
+                RecordFilterDecision(decision, vanillaSawUncaptured);
             }
             catch
             {
-                // Preserve the relocated CMP flags. Diagnostics are never allowed to
-                // turn a fail-open record into either an accepted or rejected record.
-                RecordFilterDecision(FilterTraceKind.FailOpen, default);
+                RecordFilterDecision(CapturedGateFilterDecision.FailOpen, false);
                 Interlocked.Increment(ref callbackWarnings);
             }
         }
 
-        private long ObserveGetNextReachablePclForPlayer(
-            IntPtr pathfindingContext,
-            int playerId,
-            int targetPcl,
-            int sourcePcl,
-            int mode)
+        private void RecordFilterDecision(CapturedGateFilterDecision decision, bool vanillaUncaptured)
         {
-            // Hot-path safety: no game API, stack walk, string, logging or topology
-            // access is permitted before calling Vanilla.
-
-            bool outerTrace = traceDepth++ == 0;
-            if (outerTrace)
-                ResetThreadTrace();
-
-            long result;
-            try
-            {
-                result = reachabilityHook.Value.Hook.Trampoline(
-                    pathfindingContext, playerId, targetPcl, sourcePcl, mode);
-            }
-            finally
-            {
-                traceDepth--;
-            }
-
-            if (!outerTrace)
-                return result;
-
-            QueryTrace trace = CaptureThreadTrace();
-            // Everything below is observational and isolated from the native result.
-            try
-            {
-                ObserveCompletedQuery(playerId, sourcePcl, targetPcl, mode, result, trace);
-            }
-            catch
-            {
-                samePclDiagnostics?.RecordHotPathFailure();
-            }
-            return result;
+            if (Volatile.Read(ref mapActive) == 0)
+                return;
+            if (decision == CapturedGateFilterDecision.ExcludeForeignCapture)
+                Interlocked.Increment(ref foreignCapturedEnemyRecordsRejected);
+            else if (decision == CapturedGateFilterDecision.FailOpen)
+                Interlocked.Increment(ref filterFailOpenRecords);
+            else if (vanillaUncaptured)
+                Interlocked.Increment(ref uncapturedEnemyRecordsExcludedByVanilla);
+            else
+                Interlocked.Increment(ref alliedCapturedEnemyRecordsAllowed);
         }
-
-        private void ObserveCompletedQuery(
-            int playerId,
-            int sourcePcl,
-            int targetPcl,
-            int mode,
-            long result,
-            QueryTrace trace)
-        {
-            Interlocked.Increment(ref totalQueries);
-            bool hasEnemyRecord = trace.Total != 0;
-            if (hasEnemyRecord)
-            {
-                Interlocked.Increment(ref enemyRecordQueries);
-                if (result == 0)
-                    Interlocked.Increment(ref enemyQueriesReturningZero);
-                else
-                    Interlocked.Increment(ref enemyQueriesReturningPositive);
-            }
-
-            samePclDiagnostics?.ObserveQuery(
-                playerId,
-                sourcePcl,
-                targetPcl,
-                mode,
-                result,
-                trace.Total);
-            tileRouteDiagnostics?.RequestEpoch();
-
-        }
-
-        private void RecordFilterDecision(FilterTraceKind kind, GateRecordTrace record)
-        {
-            bool active = Volatile.Read(ref mapActive) != 0;
-            switch (kind)
-            {
-                case FilterTraceKind.Uncaptured:
-                    if (active)
-                        Interlocked.Increment(ref uncapturedEnemyRecordsExcludedByVanilla);
-                    if (traceDepth > 0)
-                        traceUncaptured++;
-                    break;
-                case FilterTraceKind.AlliedCaptured:
-                    if (active)
-                        Interlocked.Increment(ref alliedCapturedEnemyRecordsAllowed);
-                    if (traceDepth > 0)
-                        traceAlliedCaptured++;
-                    break;
-                case FilterTraceKind.ForeignRejected:
-                    if (active)
-                        Interlocked.Increment(ref foreignCapturedEnemyRecordsRejected);
-                    if (traceDepth > 0)
-                        traceForeignRejected++;
-                    break;
-                default:
-                    if (active)
-                        Interlocked.Increment(ref filterFailOpenRecords);
-                    if (traceDepth > 0)
-                        traceFailOpen++;
-                    break;
-            }
-
-            if (traceDepth > 0 && record.Priority > traceFirstRecord.Priority)
-                traceFirstRecord = record;
-        }
-
-        // UPDATE REVIEW (Script Extender): verify player validity, local-player, AI and
-        // alliance semantics, particularly neutral and multiplayer slots.
-        private static bool IsValidPlayer(int playerId) =>
-            GamePlayerManagerAPI.Instance.IsPlayerIdValid(playerId);
-
-        private static bool AreAllied(int firstPlayerId, int secondPlayerId) =>
-            firstPlayerId == secondPlayerId ||
-            GamePlayerManagerAPI.Instance.IsPlayerAlliedTo(firstPlayerId, secondPlayerId);
 
         private void TryLogDiagnosticFailure(Exception ex)
         {
-            try
-            {
-                if (Interlocked.Increment(ref callbackWarnings) <= MaximumCallbackWarningsPerMap)
-                {
-                    Shared.DebugLogHelper.LogWarning(
-                        log,
-                        "Enemy-gate query diagnostics failed without changing the native result: " +
-                        $"{ex.GetType().Name}: {ex.Message}");
-                }
-            }
-            catch
-            {
-                // Logging must never change native policy.
-            }
+            if (Interlocked.Increment(ref callbackWarnings) <= MaximumCallbackWarningsPerMap)
+                Shared.DebugLogHelper.LogWarning(log,
+                    "Enemy-gate deferred diagnostics failed without changing native behavior: " +
+                    $"{ex.GetType().Name}: {ex.Message}");
         }
-
-        private static void ResetThreadTrace()
-        {
-            traceUncaptured = 0;
-            traceAlliedCaptured = 0;
-            traceForeignRejected = 0;
-            traceFailOpen = 0;
-            traceFirstRecord = default;
-        }
-
-        private static QueryTrace CaptureThreadTrace() => new QueryTrace(
-            traceUncaptured,
-            traceAlliedCaptured,
-            traceForeignRejected,
-            traceFailOpen,
-            traceFirstRecord);
 
         private void ResetMapCounters()
         {
-            Interlocked.Exchange(ref totalQueries, 0);
-            Interlocked.Exchange(ref localHumanQueries, 0);
-            Interlocked.Exchange(ref aiQueries, 0);
-            Interlocked.Exchange(ref unknownRoleQueries, 0);
-            Interlocked.Exchange(ref enemyRecordQueries, 0);
-            Interlocked.Exchange(ref enemyQueriesReturningZero, 0);
-            Interlocked.Exchange(ref enemyQueriesReturningPositive, 0);
             Interlocked.Exchange(ref uncapturedEnemyRecordsExcludedByVanilla, 0);
             Interlocked.Exchange(ref alliedCapturedEnemyRecordsAllowed, 0);
             Interlocked.Exchange(ref foreignCapturedEnemyRecordsRejected, 0);
@@ -594,106 +275,5 @@ namespace EnemyGatePathfindingTest
         }
 
         private static long Read(ref long value) => Interlocked.Read(ref value);
-
-        private static string FormatRole(QueryPlayerRole role)
-        {
-            switch (role)
-            {
-                case QueryPlayerRole.LocalHuman:
-                    return "local-human";
-                case QueryPlayerRole.OtherHuman:
-                    return "other-human";
-                case QueryPlayerRole.Ai:
-                    return "ai";
-                default:
-                    return "unknown";
-            }
-        }
-
-        private enum FilterTraceKind
-        {
-            Uncaptured,
-            AlliedCaptured,
-            ForeignRejected,
-            FailOpen
-        }
-
-        private enum QueryPlayerRole
-        {
-            Unknown,
-            LocalHuman,
-            OtherHuman,
-            Ai
-        }
-
-        private readonly struct QueryTrace
-        {
-            internal QueryTrace(
-                int uncaptured,
-                int alliedCaptured,
-                int foreignRejected,
-                int failOpen,
-                GateRecordTrace firstRecord)
-            {
-                Uncaptured = uncaptured;
-                AlliedCaptured = alliedCaptured;
-                ForeignRejected = foreignRejected;
-                FailOpen = failOpen;
-                FirstRecord = firstRecord;
-            }
-
-            internal int Uncaptured { get; }
-            internal int AlliedCaptured { get; }
-            internal int ForeignRejected { get; }
-            internal int FailOpen { get; }
-            internal GateRecordTrace FirstRecord { get; }
-            internal int Total => Uncaptured + AlliedCaptured + ForeignRejected + FailOpen;
-        }
-
-        private readonly struct GateRecordTrace
-        {
-            internal GateRecordTrace(
-                string kind,
-                int priority,
-                int buildingId,
-                uint globalId,
-                int ownerPlayerId,
-                int capturedByPlayerId,
-                int firstPcl,
-                int secondPcl,
-                int thirdPcl)
-            {
-                Kind = kind;
-                Priority = priority;
-                BuildingId = buildingId;
-                GlobalId = globalId;
-                OwnerPlayerId = ownerPlayerId;
-                CapturedByPlayerId = capturedByPlayerId;
-                FirstPcl = firstPcl;
-                SecondPcl = secondPcl;
-                ThirdPcl = thirdPcl;
-            }
-
-            internal string Kind { get; }
-            internal int Priority { get; }
-            internal int BuildingId { get; }
-            internal uint GlobalId { get; }
-            internal int OwnerPlayerId { get; }
-            internal int CapturedByPlayerId { get; }
-            internal int FirstPcl { get; }
-            internal int SecondPcl { get; }
-            internal int ThirdPcl { get; }
-
-            internal GateRecordTrace With(string kind, int priority) => new GateRecordTrace(
-                kind,
-                priority,
-                BuildingId,
-                GlobalId,
-                OwnerPlayerId,
-                CapturedByPlayerId,
-                FirstPcl,
-                SecondPcl,
-                ThirdPcl);
-        }
     }
 }

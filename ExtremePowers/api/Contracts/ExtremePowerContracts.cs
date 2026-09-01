@@ -30,6 +30,24 @@ namespace ExtremePowers.API
         public int SimulationTick { get; }
     }
 
+    /// <summary>Result of one native unit-group spawn performed inside an already synchronized callback.</summary>
+    public readonly struct ExtremePowerSpawnResult
+    {
+        public ExtremePowerSpawnResult(int ownerPlayerId, int groupUnitId, int requestedCount, int spawnedUnitCount)
+        {
+            OwnerPlayerId = ownerPlayerId;
+            GroupUnitId = groupUnitId;
+            RequestedCount = requestedCount;
+            SpawnedUnitCount = spawnedUnitCount;
+        }
+
+        public int OwnerPlayerId { get; }
+        public int GroupUnitId { get; }
+        public int RequestedCount { get; }
+        public int SpawnedUnitCount { get; }
+        public bool CreatedGroup => GroupUnitId > 0;
+    }
+
     public delegate bool ExtremePowerCanExecute(in ExtremePowerExecutionContext context, out string rejectionReason);
     public delegate void ExtremePowerExecute(in ExtremePowerExecutionContext context);
 
@@ -85,5 +103,11 @@ namespace ExtremePowers.API
         bool TryGetReplacement(ExtremePowerId power, out ExtremePowerReplacement replacement);
         bool TryExecuteReplacement(ExtremePowerExecutionContext context, out string rejectionReason);
         bool QueueReplacement(ExtremePowerId power, int playerId, ExtremePowerTarget target, out string rejectionReason);
+        /// <summary>
+        /// Spawns one native unit group for the explicit owner. Owner 0 is the neutral nature player; owners 1-8
+        /// are normal player slots. This method does not send a network message; callers must invoke it only from
+        /// a callback that is already executed deterministically on every peer.
+        /// </summary>
+        ExtremePowerSpawnResult SpawnUnitGroup(int ownerPlayerId, int targetTileId, int unitType, int count);
     }
 }

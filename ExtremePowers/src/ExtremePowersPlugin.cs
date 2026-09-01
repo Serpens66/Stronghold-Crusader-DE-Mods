@@ -34,17 +34,19 @@ namespace ExtremePowers
             Settings = rootedSettings = new Settings.ExtremePowersSettings();
             client = LocalExtremePowersApiClient.Create(dll, handle, memory, GetProtocolReadiness, message => Shared.DebugLogHelper.LogDebug(rootedLogger, message));
             Settings.ApiProtocolReport = client.CompatibilityToken;
-            mapStartSubscription = MapLoaderR3EventHooks.OnStartMap.Observable.Where(args => args.Phase == EventHookPhase.Pre).Subscribe(OnStartMap);
+            mapStartSubscription = MapLoaderR3EventHooks.OnStartMap.Observable.Where(args => args.Phase == EventHookPhase.Pre).Subscribe(args => OnStartMap(args));
             mapUnloadSubscription = MapLoaderR3EventHooks.OnUnloadMap.Observable.Where(args => args.Phase == EventHookPhase.Post).Subscribe(_ => ResetMapSession());
             Shared.LobbyModSettingsPresetRegistration.Register(this, Logger, PluginGuid, Settings, "ScriptExtenderUI/ExtremePowersSettings.xaml");
             Settings.PropertyChanged += (_, __) => ApplySettings(); ApplySettings(); Shared.DebugLogHelper.LogDebug(Logger, client.Status);
         }
-        private static void OnStartMap(MapStartEventArgs args)
+        private void OnStartMap(MapStartEventArgs args)
         {
             Shared.GameModeSnapshot mode = Shared.GameModeHelper.Capture(args.bMultiplayerSave != 0);
             capturedRealMultiplayer = mode.IsRealMultiplayer;
             capturedPlayers = Shared.ActivePlayerHelper.GetActivePlayerIds();
             Shared.DebugLogHelper.LogDebug(rootedLogger, "Extreme Powers map session captured: " + mode.ToDiagnosticString() + ", players=[" + string.Join(",", capturedPlayers) + "].");
+            // Re-registering after the final mode capture also refreshes HUD metadata on persistent HUD instances.
+            ApplySettings();
         }
         private static void ResetMapSession()
         {

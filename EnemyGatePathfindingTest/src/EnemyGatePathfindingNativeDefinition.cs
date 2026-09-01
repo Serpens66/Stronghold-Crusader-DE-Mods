@@ -31,9 +31,9 @@ namespace EnemyGatePathfindingTest
         public const int CursorTargetXRva = 0x3A11E2C;
         public const int CursorTargetYRva = 0x3A11E30;
 
-        // UPDATE REVIEW (CrusaderDE.dll): these functional boundaries and their Win64
-        // ABIs were audited only for the reference DLL. MoveMoatTest_Serp owns overlapping
-        // planner/builder/cursor code, so this mod must never install them then.
+        // UPDATE REVIEW (CrusaderDE.dll): these former functional boundaries and their
+        // Win64 ABIs were audited only for the reference DLL. They remain documentation;
+        // the crash-safe build installs neither planner nor builder detours.
         public const int CentralMovementPlanRva = 0x18E1E0;
         public const string CentralMovementPlanPattern =
             "40 53 55 56 57 41 54 41 55 41 56 41 57 48 81 EC 38 04 00 00 " +
@@ -43,6 +43,15 @@ namespace EnemyGatePathfindingTest
         public const string MainPathBuilderPattern =
             "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 48 83 EC 40 " +
             "48 63 41 0C 48 8B D9 41 8B F0 44 8B D2";
+        // UPDATE REVIEW (CrusaderDE.dll): F4930 dispatches among all six searches.
+        // No common local neighbor/edge acceptance boundary has yet been proven across
+        // them, therefore none is hooked and no global grid overlay is permitted.
+        public const int BuilderSearchVariantF3060Rva = 0xF3060;
+        public const int BuilderSearchVariant79C0Rva = 0x79C0;
+        public const int BuilderSearchVariantDA590Rva = 0xDA590;
+        public const int BuilderSearchVariantDAAC0Rva = 0xDAAC0;
+        public const int BuilderSearchVariantD9C40Rva = 0xD9C40;
+        public const int BuilderSearchVariantDAFD0Rva = 0xDAFD0;
         // E32B0 is reconstruction-only. It remains documented for update audits but is
         // deliberately not hooked by the functional fix.
         public const int AlternatePathBuilderRva = 0xE32B0;

@@ -45,7 +45,7 @@ namespace ExtremePowers.API
                 NativeBackendStatus = "Native hook validation failed; Vanilla fallback is active: " + ex.Message;
             }
         }
-        public string ProtocolVersion => "1";
+        public string ProtocolVersion => "2";
         public string CompatibilityToken => ExtremePowersCompatibility.CreateToken(ProtocolVersion, NativeBuildGuard.SupportedSha256, NativeBackendAvailable, networkRuntime?.PacketId ?? -1);
         // Recognition alone is intentionally insufficient: every mutation signature must validate first.
         public bool NativeBackendAvailable => nativeRuntime != null;
@@ -60,7 +60,10 @@ namespace ExtremePowers.API
         {
             ValidatePower(power); if (replacement == null) throw new ArgumentNullException(nameof(replacement));
             if (replacement.TargetKind == ExtremePowerTargetKind.Unit && !SupportsUnitTargeting) throw new NotSupportedException("Unit targeting is unavailable because no canonical native unit-pick hook has been validated.");
-            lock (gate) { if (replacements.ContainsKey(power)) throw new InvalidOperationException("A replacement is already registered for " + power + "."); var r = new Registration(this, power, replacement); replacements.Add(power, r); return r; }
+            Registration registration;
+            lock (gate) { if (replacements.ContainsKey(power)) throw new InvalidOperationException("A replacement is already registered for " + power + "."); registration = new Registration(this, power, replacement); replacements.Add(power, registration); }
+            nativeRuntime?.RefreshHudReplacementState();
+            return registration;
         }
         public bool TryGetReplacement(ExtremePowerId power, out ExtremePowerReplacement replacement) { lock (gate) { if (replacements.TryGetValue(power, out Registration r)) { replacement = r.Value; return true; } replacement = null; return false; } }
         public bool TryExecuteReplacement(ExtremePowerExecutionContext context, out string rejectionReason)
@@ -108,7 +111,17 @@ namespace ExtremePowers.API
             if (networkRuntime == null) { rejectionReason = "Native/network backend is unavailable."; Log(rejectionReason); return false; }
             return networkRuntime.Queue(power, playerId, target, out rejectionReason);
         }
-        private void Remove(Registration registration) { lock (gate) if (replacements.TryGetValue(registration.Power, out Registration existing) && ReferenceEquals(existing, registration)) replacements.Remove(registration.Power); }
+        public ExtremePowerSpawnResult SpawnUnitGroup(int ownerPlayerId, int targetTileId, int unitType, int count)
+        {
+            if (nativeRuntime == null) throw new InvalidOperationException("Native Extreme Powers backend is unavailable.");
+            return nativeRuntime.SpawnUnitGroup(ownerPlayerId, targetTileId, unitType, count);
+        }
+        private void Remove(Registration registration)
+        {
+            bool removed = false;
+            lock (gate) if (replacements.TryGetValue(registration.Power, out Registration existing) && ReferenceEquals(existing, registration)) { replacements.Remove(registration.Power); removed = true; }
+            if (removed) nativeRuntime?.RefreshHudReplacementState();
+        }
         private static void ValidatePower(ExtremePowerId power) { if ((int)power < 0 || (int)power > 7) throw new ArgumentOutOfRangeException(nameof(power)); }
         private static VanillaExtremePowersConfiguration CreateVanillaPlaceholder() => new VanillaExtremePowersConfiguration
         {

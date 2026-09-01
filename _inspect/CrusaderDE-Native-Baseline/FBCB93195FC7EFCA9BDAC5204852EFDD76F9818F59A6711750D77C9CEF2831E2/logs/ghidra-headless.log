@@ -1,0 +1,169 @@
+2026-09-01 13:33:30 INFO  (LoggingInitialization) Using log config file: jar:file:/D:/CDesktopLink/Unterlagen/Mods/Stronghold%20Crusader%20DE/Meine%20Mods/.tools/ghidra-12.1.3/ghidra_12.1.3_PUBLIC/Ghidra/Framework/Generic/lib/Generic.jar!/generic.log4j.xml  
+2026-09-01 13:33:30 INFO  (LoggingInitialization) Using log file: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\logs\ghidra-headless.log  
+2026-09-01 13:33:30 DEBUG (GhidraObjectInputFilter) Including serial input filter: FileSystem/data/client.rmi.serial.filter  
+2026-09-01 13:33:30 INFO  (Preferences) Loading user preferences: C:\Users\Serpens66\AppData\Roaming\ghidra\ghidra_12.1.3_PUBLIC\preferences  
+2026-09-01 13:33:30 INFO  (ClassSearcher) Searching for classes...  
+2026-09-01 13:33:31 INFO  (ClassSearcher) Class search complete (679 ms)  
+2026-09-01 13:33:31 INFO  (DefaultSSLContextInitializer) Initializing SSL Context  
+2026-09-01 13:33:31 INFO  (SecureRandomFactory) Initializing Random Number Generator...  
+2026-09-01 13:33:31 INFO  (SecureRandomFactory) Random Number Generator initialization complete: SHA1PRNG  
+2026-09-01 13:33:31 INFO  (DefaultTrustManagerFactory) Trust manager disabled, cacerts have not been set  
+2026-09-01 13:33:31 INFO  (AnalyzeHeadless) Headless startup complete (1729 ms)  
+2026-09-01 13:33:31 INFO  (ClassSearcher) Class searcher loaded 59 extension points (20 false positives)  
+2026-09-01 13:33:31 INFO  (HeadlessAnalyzer) HEADLESS Script Paths:
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Processors\PIC\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\GnuDemangler\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Processors\Atmel\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Processors\DATA\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\BytePatterns\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\Decompiler\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Debug\Debugger-rmi-trace\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.native-analysis\CrusaderDE-Baseline\tools
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\Base\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\PDB\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\WildcardAssembler\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\BSim\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\FunctionID\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\VersionTracking\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\FileFormats\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\DecompilerDependent\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\SwiftDemangler\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Debug\Debugger\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\SystemEmulation\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Processors\8051\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\PyGhidra\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Processors\JVM\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\MicrosoftCodeAnalyzer\ghidra_scripts  
+2026-09-01 13:33:31 INFO  (HeadlessAnalyzer) HEADLESS: execution starts  
+2026-09-01 13:33:31 INFO  (HeadlessAnalyzer) Creating project: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\ghidra\CrusaderDE-Ghidra-12.1.3  
+2026-09-01 13:33:31 DEBUG (DefaultProjectManager) No tools found; Installing default tools  
+2026-09-01 13:33:31 DEBUG (DefaultProjectManager) 	no recent project directories found  
+2026-09-01 13:33:31 INFO  (DefaultProject) Creating project: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\ghidra\CrusaderDE-Ghidra-12.1.3  
+2026-09-01 13:33:31 INFO  (HeadlessAnalyzer) REPORT: Processing input files:   
+2026-09-01 13:33:31 INFO  (HeadlessAnalyzer)      project: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\ghidra\CrusaderDE-Ghidra-12.1.3  
+2026-09-01 13:33:31 INFO  (HeadlessAnalyzer) IMPORTING: file:///E:/ProgrammeE/Steam/steamapps/common/Stronghold Crusader Definitive Edition/Stronghold Crusader Definitive Edition_Data/Plugins/x86_64/CrusaderDE.dll  
+2026-09-01 13:33:33 INFO  (ProgramLoader) Using Loader: Portable Executable (PE)  
+2026-09-01 13:33:33 INFO  (ProgramLoader) Using Language/Compiler: x86:LE:64:default:windows  
+2026-09-01 13:33:33 INFO  (ProgramLoader) Using Library Search Path: [., C:\WINDOWS\SysWOW64, D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\temurin-jdk-21.0.12.1+1\jdk-21.0.12.1+1\bin, C:\WINDOWS\Sun\Java\bin, C:\WINDOWS\system32, C:\WINDOWS, C:\Program Files\WindowsApps\Microsoft.PowerShell_7.6.5.0_x64__8wekyb3d8bbwe, C:\Users\Serpens66\.codex\tmp\arg0\codex-arg0dRi02o, C:\WINDOWS\System32\Wbem, C:\WINDOWS\System32\WindowsPowerShell\v1.0\, C:\WINDOWS\System32\OpenSSH\, C:\Program Files (x86)\NVIDIA Corporation\PhysX\Common, C:\Program Files\dotnet\, C:\Program Files\NVIDIA Corporation\NVIDIA App\NvDLISR, C:\Program Files\Git\cmd, C:\Program Files\GitHub CLI\, C:\Users\Serpens66\AppData\Local\Microsoft\WindowsApps, C:\Users\Serpens66\AppData\Local\GitHubDesktop\bin, D:\CDesktopLink\Portable\ffmpeg, C:\Users\Serpens66\AppData\Local\PowerToys\DSCModules\, C:\Users\Serpens66\.dotnet\tools, C:\Users\Serpens66\.dotnet-cli-home10\.dotnet\tools, c:\Users\Serpens66\.vscode\extensions\openai.chatgpt-26.825.51511-win32-x64\bin\windows-x86_64]  
+2026-09-01 13:33:33 INFO  (TLSDirectory) TLS callbacks at 18020b510  
+2026-09-01 13:33:36 DEBUG (WEVTResourceDataType) Error processing Provider Element.  
+2026-09-01 13:33:36 INFO  (ProgramLoader) Additional info:
+Loading file:///E:/ProgrammeE/Steam/steamapps/common/Stronghold Crusader Definitive Edition/Stronghold Crusader Definitive Edition_Data/Plugins/x86_64/CrusaderDE.dll?MD5=c720717d140e1919230420a903a09362...
+------------------------------------------------
+
+Searching 21 paths for library KERNEL32.DLL...
+Skipping library which is the wrong architecture: file:///C:/Windows/SysWOW64/kernel32.dll
+Loading file:///C:/Windows/System32/kernel32.dll?MD5=191cf42b2e24eec284b10aca60d0a961...
+Created exports file: C:\Users\Serpens66\AppData\Roaming\ghidra\ghidra_12.1.3_PUBLIC\symbols\win64\kernel32.exports
+Library not saved to project.
+------------------------------------------------
+
+Searching 21 paths for library WINMM.DLL...
+Skipping library which is the wrong architecture: file:///C:/Windows/SysWOW64/winmm.dll
+Loading file:///C:/Windows/System32/winmm.dll?MD5=392199155b577269f38eef774b632314...
+[winmm.dll]: failed to create WEVTResource at 180030310: Failed to resolve data length for WEVTResource
+Created exports file: C:\Users\Serpens66\AppData\Roaming\ghidra\ghidra_12.1.3_PUBLIC\symbols\win64\winmm.exports
+Library not saved to project.
+------------------------------------------------
+
+Applying cached symbols from WINMM.DLL
+Applying cached symbols from KERNEL32.DLL
+Linking the External Programs of 'CrusaderDE.dll' to imported libraries...
+  [WINMM.DLL] -> not found in project
+  [KERNEL32.DLL] -> not found in project
+------------------------------------------------
+
+  
+2026-09-01 13:33:36 INFO  (HeadlessAnalyzer) IMPORTING: Loaded 0 additional files  
+2026-09-01 13:33:36 INFO  (HeadlessAnalyzer) ANALYZING all memory and code: file:///E:/ProgrammeE/Steam/steamapps/common/Stronghold Crusader Definitive Edition/Stronghold Crusader Definitive Edition_Data/Plugins/x86_64/CrusaderDE.dll  
+2026-09-01 13:33:36 WARN  (NoReturnFunctionAnalyzer) Ignoring leading '_' chars on no-return name '___raise_securityfailure' specified in file: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\Base\data\PEFunctionsThatDoNotReturn  
+2026-09-01 13:33:36 WARN  (NoReturnFunctionAnalyzer) Ignoring leading '_' chars on no-return name '___report_rangecheckfailure' specified in file: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\Base\data\PEFunctionsThatDoNotReturn  
+2026-09-01 13:33:36 DEBUG (SymbolServerService) SymbolServerService: querying Program's Import Location - E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Plugins\x86_64 for Crusader.pdb, 3c04fe43-919a-4de7-8b2e-8981a9b79f59, 2, 0, ???  
+2026-09-01 13:33:36 DEBUG (SymbolServerService) SymbolServerService: got 0 results from Program's Import Location - E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Plugins\x86_64  
+2026-09-01 13:33:36 DEBUG (SymbolServerService) SymbolServerService: found 0 matches  
+2026-09-01 13:33:36 INFO  (PdbUniversalAnalyzer) Skipping PDB processing: failed to locate PDB file in configured locations  
+2026-09-01 13:33:36 INFO  (PdbUniversalAnalyzer) Use a script to set the PDB file location. I.e.,
+    PdbAnalyzer.setPdbFileOption(currentProgram, new File("/path/to/pdb/file.pdb")); or
+    PdbUniversalAnalyzer.setPdbFileOption(currentProgram, new File("/path/to/pdb/file.pdb"));
+Or set the symbol server search configuration using:    PdbPlugin.saveSymbolServerServiceConfig(...);
+ This must be done using a pre-script (prior to analysis).  
+2026-09-01 13:33:36 INFO  (PackedDatabaseCache) Packed database cache: C:\Users\Serpens66\AppData\Local\ghidra\packed-db-cache  
+2026-09-01 13:33:36 DEBUG (PackedDatabaseCache) Caching packed database: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\Base\data\typeinfo\win32\windows_vs12_64.gdt  
+2026-09-01 13:33:36 DEBUG (PackedDatabase) Unpacking database D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\Base\data\typeinfo\win32\windows_vs12_64.gdt -> C:\Users\Serpens66\AppData\Local\ghidra\packed-db-cache\pdb3C5C6810\db.1.gbf  
+2026-09-01 13:33:36 DEBUG (PackedDatabaseCache) Cache update completed: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\Base\data\typeinfo\win32\windows_vs12_64.gdt  
+2026-09-01 13:33:47 WARN  (DecompileCallback) Decompiling 18006a190: Unable to read bytes at ram:18e0e0000  
+2026-09-01 13:33:48 WARN  (DecompileCallback) Decompiling 1800898b0: Unable to read bytes at ram:18e0e0000  
+2026-09-01 13:33:48 WARN  (DecompileCallback) Decompiling 1800c77c0: Unable to read bytes at ram:1dd5d5d00  
+2026-09-01 13:33:49 WARN  (DecompileCallback) Decompiling 18009b2b0: Unable to read bytes at ram:24ccc0000  
+2026-09-01 13:33:49 WARN  (DecompileCallback) Decompiling 18009b2b0, pcode error at 180000158: Unable to resolve constructor at 180000158  
+2026-09-01 13:33:52 WARN  (DecompileCallback) Decompiling 180190010: Unable to read bytes at ram:1b3455340  
+2026-09-01 13:33:52 WARN  (DecompileCallback) Decompiling 180190010: Unable to read bytes at ram:1b3455340  
+2026-09-01 13:33:53 WARN  (DecompileCallback) Decompiling 180077e60: Unable to read bytes at ram:24ccccc02  
+2026-09-01 13:33:53 WARN  (DecompileCallback) Decompiling 1800abb90: Unable to read bytes at ram:24c000404  
+2026-09-01 13:34:22 INFO  (ApplyDataArchiveAnalyzer) Applied data type archive: windows_vs12_64  
+2026-09-01 13:34:22 INFO  (ApplyDataArchiveAnalyzer) Applied data type archive: windows_vs12_64  
+2026-09-01 13:34:43 INFO  (AutoAnalysisManager) -----------------------------------------------------
+    ASCII Strings                              3.224 secs
+    Apply Data Archives                        0.181 secs
+    Call Convention ID                         0.298 secs
+    Call-Fixup Installer                       0.026 secs
+    Create Address Tables                      0.262 secs
+    Create Address Tables - One Time           3.235 secs
+    Create Function                            0.096 secs
+    Data Reference                             0.553 secs
+    Decompiler Switch Analysis                23.852 secs
+    Demangler Microsoft                        0.080 secs
+    Disassemble Entry Points                   4.713 secs
+    Disassemble Entry Points - One Time        0.003 secs
+    Embedded Media                             0.281 secs
+    External Entry References                  0.001 secs
+    Function ID                                1.768 secs
+    Function Start Search                      0.039 secs
+    Non-Returning Functions - Discovered       0.653 secs
+    Non-Returning Functions - Known            0.017 secs
+    PDB Universal                              0.011 secs
+    Reference                                  0.443 secs
+    Scalar Operand References                  2.013 secs
+    Shared Return Calls                        0.445 secs
+    Stack                                      7.833 secs
+    Subroutine References                      0.205 secs
+    Subroutine References - One Time           0.006 secs
+    Windows x86 PE Exception Handling          0.921 secs
+    Windows x86 PE RTTI Analyzer               2.044 secs
+    Windows x86 Thread Environment Block (TEB) Analyzer     0.008 secs
+    WindowsResourceReference                   5.813 secs
+    x86 Constant Reference Analyzer            8.028 secs
+-----------------------------------------------------
+     Total Time   67 secs
+-----------------------------------------------------
+  
+2026-09-01 13:34:43 INFO  (HeadlessAnalyzer) REPORT: Analysis succeeded for file: file:///E:/ProgrammeE/Steam/steamapps/common/Stronghold Crusader Definitive Edition/Stronghold Crusader Definitive Edition_Data/Plugins/x86_64/CrusaderDE.dll  
+2026-09-01 13:34:43 INFO  (HeadlessAnalyzer) REPORT: Execute script: ExportCrusaderBaseline.java 'D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\exports'   
+2026-09-01 13:34:44 ERROR (HeadlessAnalyzer) REPORT SCRIPT ERROR: ExportCrusaderBaseline.java : The class could not be found. It must be the public class of the .java file: ExportCrusaderBaseline not found by 7036eff1 [2] ghidra.app.script.GhidraScriptLoadException: The class could not be found. It must be the public class of the .java file: ExportCrusaderBaseline not found by 7036eff1 [2]
+	at ghidra.app.script.JavaScriptProvider.getScriptInstance(JavaScriptProvider.java:114)
+	at ghidra.app.util.headless.HeadlessAnalyzer.runScriptsList(HeadlessAnalyzer.java:915)
+	at ghidra.app.util.headless.HeadlessAnalyzer.analyzeProgram(HeadlessAnalyzer.java:1085)
+	at ghidra.app.util.headless.HeadlessAnalyzer.processFileWithImport(HeadlessAnalyzer.java:1583)
+	at ghidra.app.util.headless.HeadlessAnalyzer.processWithLoader(HeadlessAnalyzer.java:1743)
+	at ghidra.app.util.headless.HeadlessAnalyzer.processWithImport(HeadlessAnalyzer.java:1684)
+	at ghidra.app.util.headless.HeadlessAnalyzer.processWithImport(HeadlessAnalyzer.java:1768)
+	at ghidra.app.util.headless.HeadlessAnalyzer.processLocal(HeadlessAnalyzer.java:452)
+	at ghidra.app.util.headless.AnalyzeHeadless.launch(AnalyzeHeadless.java:199)
+	at ghidra.GhidraLauncher.launch(GhidraLauncher.java:81)
+	at ghidra.Ghidra.main(Ghidra.java:54)
+Caused by: java.lang.ClassNotFoundException: ExportCrusaderBaseline not found by 7036eff1 [2]
+	at org.apache.felix.framework.BundleWiringImpl.findClassOrResourceByDelegation(BundleWiringImpl.java:1591)
+	at org.apache.felix.framework.BundleWiringImpl.access$300(BundleWiringImpl.java:79)
+	at org.apache.felix.framework.BundleWiringImpl$BundleClassLoader.loadClass(BundleWiringImpl.java:1976)
+	at java.base/java.lang.ClassLoader.loadClass(ClassLoader.java:526)
+	at org.apache.felix.framework.Felix.loadBundleClass(Felix.java:2116)
+	at org.apache.felix.framework.BundleImpl.loadClass(BundleImpl.java:986)
+	at ghidra.app.script.JavaScriptProvider.loadClass(JavaScriptProvider.java:166)
+	at ghidra.app.script.JavaScriptProvider.getScriptInstance(JavaScriptProvider.java:97)
+	... 10 more
+ 
+2026-09-01 13:34:44 INFO  (HeadlessAnalyzer) ANALYZING changes made by post scripts: file:///E:/ProgrammeE/Steam/steamapps/common/Stronghold Crusader Definitive Edition/Stronghold Crusader Definitive Edition_Data/Plugins/x86_64/CrusaderDE.dll  
+2026-09-01 13:34:44 INFO  (HeadlessAnalyzer) REPORT: Post-analysis succeeded for file: file:///E:/ProgrammeE/Steam/steamapps/common/Stronghold Crusader Definitive Edition/Stronghold Crusader Definitive Edition_Data/Plugins/x86_64/CrusaderDE.dll  
+2026-09-01 13:34:44 INFO  (LocalFileSystem) /CrusaderDE.dll: file created (Serpens66)  
+2026-09-01 13:34:44 INFO  (HeadlessAnalyzer) REPORT: Save succeeded for: /CrusaderDE.dll (CrusaderDE-Ghidra-12.1.3:/CrusaderDE.dll)  
+2026-09-01 13:34:44 INFO  (HeadlessAnalyzer) REPORT: Import succeeded  

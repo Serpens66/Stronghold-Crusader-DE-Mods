@@ -14,17 +14,5 @@ namespace ExtremePowers.Demo
             return valid;
         }
 
-        internal static int Execute(Settings.ExtremePowersSettings settings, int playerId, int targetTileId)
-        {
-            // The adapter invokes this only after the API validates and synchronizes the operation.
-            SHCDESE.Interop.UnmanagedVector2<ushort> point = SHCDESE.API.GameTileManagerAPI.Instance.GetTileVectorFromId(targetTileId);
-            int spawned = 0;
-            for (int i = 0; i < settings.DemoSpawnCount; i++)
-            {
-                if (SHCDESE.API.GameUnitManagerAPI.Instance.CreateUnitLocal(playerId, playerId, point.X, point.Y, 0, (SHCDESE.Interop.eChimps)settings.DemoUnitType) <= 0) break;
-                spawned++;
-            }
-            return spawned;
-        }
     }
 }

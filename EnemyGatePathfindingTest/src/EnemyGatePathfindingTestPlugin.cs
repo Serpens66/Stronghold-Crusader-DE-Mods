@@ -4,7 +4,6 @@ using R3;
 using SHCDESE.API;
 using SHCDESE.API.LowLevel;
 using SHCDESE.EventAPI;
-using SHCDESE.EventAPI.Units;
 using System;
 using System.Diagnostics;
 using System.Reflection;
@@ -30,7 +29,6 @@ namespace EnemyGatePathfindingTest
         private static EnemyGatePathfindingRuntime runtime;
         private static IDisposable mapStartSubscription;
         private static IDisposable mapUnloadSubscription;
-        private static IDisposable moveHereSubscription;
         private static bool librarySubscriptionInstalled;
         private static bool beforeRenderInstalled;
         private static bool gameTickInstalled;
@@ -57,15 +55,6 @@ namespace EnemyGatePathfindingTest
                 mapUnloadSubscription = MapLoaderR3EventHooks.OnUnloadMap.Observable
                     .Where(args => args.Phase == EventHookPhase.Post)
                     .Subscribe(_ => runtime?.EndMap());
-            }
-            // UPDATE REVIEW (Script Extender): 1.42.0 owns the native detour at
-            // CrusaderDE.dll RVA 0x196280. Its synchronous Pre/Post event deliberately
-            // observes the issued command without installing a competing native hook;
-            // cursor/PCL validation happens earlier and is correlated by timestamp.
-            if (moveHereSubscription == null)
-            {
-                moveHereSubscription = UnitR3EventHooks.OnUnitMoveHere.Observable
-                    .Subscribe(args => runtime?.ObserveMoveHere(args));
             }
             if (!beforeRenderInstalled)
             {

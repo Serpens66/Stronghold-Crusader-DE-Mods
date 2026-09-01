@@ -53,6 +53,7 @@ namespace EnemyGatePathfindingTest
 
         private volatile TopologySnapshot snapshot = TopologySnapshot.Empty;
         private Action<RouteTilePolicySnapshot> routePolicyConsumer;
+        private Action<NativeGateAccessSnapshot> gateAccessConsumer;
         private int epochActive;
         private int epochNumber;
         private int initializedDeferredEpoch;
@@ -123,6 +124,12 @@ namespace EnemyGatePathfindingTest
         {
             routePolicyConsumer = consumer;
             consumer?.Invoke(snapshot.RoutePolicy);
+        }
+
+        internal void SetGateAccessConsumer(Action<NativeGateAccessSnapshot> consumer)
+        {
+            gateAccessConsumer = consumer;
+            consumer?.Invoke(snapshot.GateAccessPolicy);
         }
 
         internal RoutePclCorrelation FindRecentRoutePclCorrelation(
@@ -355,6 +362,10 @@ namespace EnemyGatePathfindingTest
                             info.Owner, 0, info.BridgeAliveState, checkCaptured: false)))
                     {
                         Volatile.Write(ref nextSnapshotAt, 0);
+                        // A capture/owner change invalidates both policies immediately.
+                        // The next deferred scan rebuilds them outside native callbacks.
+                        routePolicyConsumer?.Invoke(RouteTilePolicySnapshot.Empty);
+                        gateAccessConsumer?.Invoke(NativeGateAccessSnapshot.Empty);
                         return;
                     }
                 }
@@ -484,6 +495,8 @@ namespace EnemyGatePathfindingTest
             Volatile.Write(ref nextSnapshotAt, now + SnapshotInterval);
             Volatile.Write(ref nextSummaryAt, now + SummaryInterval);
             snapshot = TopologySnapshot.Empty;
+            routePolicyConsumer?.Invoke(RouteTilePolicySnapshot.Empty);
+            gateAccessConsumer?.Invoke(NativeGateAccessSnapshot.Empty);
             lastTopologyFingerprint = 0;
             lock (sampleLock)
             {
@@ -511,6 +524,7 @@ namespace EnemyGatePathfindingTest
                 TopologySnapshot rebuilt = BuildTopologySnapshot();
                 snapshot = rebuilt;
                 routePolicyConsumer?.Invoke(rebuilt.RoutePolicy);
+                gateAccessConsumer?.Invoke(rebuilt.GateAccessPolicy);
                 Interlocked.Increment(ref topologyBuilds);
                 if (rebuilt.Fingerprint != lastTopologyFingerprint)
                 {
@@ -737,8 +751,46 @@ namespace EnemyGatePathfindingTest
             RouteTilePolicySnapshot routePolicy = previous.Fingerprint == fingerprint
                 ? previous.RoutePolicy
                 : BuildRoutePolicySnapshot(tileApi, fingerprint, combinationArray);
+            NativeGateAccessSnapshot gateAccessPolicy = previous.Fingerprint == fingerprint
+                ? previous.GateAccessPolicy
+                : BuildGateAccessSnapshot(fingerprint, combinationArray);
             return new TopologySnapshot(
-                fingerprint, combinationArray, detail.ToString(), rejections, routePolicy);
+                fingerprint, combinationArray, detail.ToString(), rejections,
+                routePolicy, gateAccessPolicy);
+        }
+
+        private static NativeGateAccessSnapshot BuildGateAccessSnapshot(
+            ulong fingerprint,
+            GateBridgeInfo[] combinations)
+        {
+            int maximumGateId = 0;
+            for (int index = 0; index < combinations.Length; index++)
+                if (combinations[index].GateId > maximumGateId)
+                    maximumGateId = combinations[index].GateId;
+            if (maximumGateId <= 0)
+                return NativeGateAccessSnapshot.Empty;
+
+            var records = new NativeGateAccessRecord[maximumGateId + 1];
+            for (int index = 0; index < combinations.Length; index++)
+            {
+                GateBridgeInfo info = combinations[index];
+                if (info.GateId <= 0 || info.GateId >= records.Length ||
+                    records[info.GateId].Valid)
+                    continue;
+
+                ushort unrelatedPlayers = 0;
+                bool[] unrelated = info.UnrelatedByPlayer;
+                if (unrelated != null)
+                {
+                    int count = Math.Min(8, unrelated.Length - 1);
+                    for (int player = 1; player <= count; player++)
+                        if (unrelated[player])
+                            unrelatedPlayers |= unchecked((ushort)(1 << player));
+                }
+                records[info.GateId] = new NativeGateAccessRecord(
+                    true, info.Owner, info.CapturedBy, unrelatedPlayers);
+            }
+            return new NativeGateAccessSnapshot(records, fingerprint);
         }
 
         private static bool TryFindUniqueAdjacentGate(
@@ -1622,16 +1674,20 @@ namespace EnemyGatePathfindingTest
         {
             internal static readonly TopologySnapshot Empty = new TopologySnapshot(
                 0, Array.Empty<GateBridgeInfo>(), "not captured", default,
-                RouteTilePolicySnapshot.Empty);
+                RouteTilePolicySnapshot.Empty, NativeGateAccessSnapshot.Empty);
             internal TopologySnapshot(ulong fingerprint, GateBridgeInfo[] combinations,
-                string detail, TopologyRejections rejections, RouteTilePolicySnapshot routePolicy)
+                string detail, TopologyRejections rejections,
+                RouteTilePolicySnapshot routePolicy,
+                NativeGateAccessSnapshot gateAccessPolicy)
             { Fingerprint = fingerprint; Combinations = combinations; Detail = detail;
-                Rejections = rejections; RoutePolicy = routePolicy ?? RouteTilePolicySnapshot.Empty; }
+                Rejections = rejections; RoutePolicy = routePolicy ?? RouteTilePolicySnapshot.Empty;
+                GateAccessPolicy = gateAccessPolicy ?? NativeGateAccessSnapshot.Empty; }
             internal ulong Fingerprint { get; }
             internal GateBridgeInfo[] Combinations { get; }
             internal string Detail { get; }
             internal TopologyRejections Rejections { get; }
             internal RouteTilePolicySnapshot RoutePolicy { get; }
+            internal NativeGateAccessSnapshot GateAccessPolicy { get; }
         }
 
         private readonly struct GateBridgeInfo

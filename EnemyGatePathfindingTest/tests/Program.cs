@@ -17,6 +17,7 @@ namespace EnemyGatePathfindingTest
                 UnrelatedThirdPlayerCaptureIsExcluded();
                 CaptureAndRecaptureApplyImmediately();
                 InvalidStateFailsOpen();
+                ImmutableGateSnapshotIsAllianceAwareAndFailOpen();
                 CallerRangesCoverHumanCursorAndCommonPathBuilder();
                 NativeContractIncludesDrawbridgePclAndExactFilterSite();
                 SamePclCandidatePolicyIsFailOpenAndAllianceAware();
@@ -35,6 +36,7 @@ namespace EnemyGatePathfindingTest
                 DirectionEdgesRequireBothNativeDirections();
                 TileRouteNativeContractIsPinned();
                 NativeRouteHotPathsRemainPrimitiveOnly();
+                UnsafeGlobalMutationAndWholePclDetourAreAbsent();
                 Console.WriteLine("EnemyGatePathfindingPolicy: {0} assertions passed.", assertions);
                 return 0;
             }
@@ -88,6 +90,35 @@ namespace EnemyGatePathfindingTest
                 EnemyGatePathfindingPolicy.EvaluateGateAccess(1, 3, 3, ValidPlayer, null) ==
                     CapturedGateFilterDecision.FailOpen,
                 "missing alliance callback fails open");
+        }
+
+        private static void ImmutableGateSnapshotIsAllianceAwareAndFailOpen()
+        {
+            ushort unrelated = unchecked((ushort)((1 << 3) | (1 << 4)));
+            var records = new NativeGateAccessRecord[8];
+            records[5] = new NativeGateAccessRecord(true, 7, 2, unrelated);
+            var snapshot = new NativeGateAccessSnapshot(records, 0x1234);
+            Assert(snapshot.Evaluate(3, 5, 7, false) ==
+                    CapturedGateFilterDecision.ExcludeForeignCapture,
+                "snapshot excludes an unrelated foreign capturer");
+            Assert(snapshot.Evaluate(1, 5, 7, false) ==
+                    CapturedGateFilterDecision.PreserveVanilla,
+                "snapshot allows a player allied to the capturer");
+            Assert(snapshot.Evaluate(3, 5, 7, true) ==
+                    CapturedGateFilterDecision.FailOpen,
+                "capture-state mismatch invalidates a stale snapshot");
+            Assert(snapshot.Evaluate(3, 5, 6, false) ==
+                    CapturedGateFilterDecision.FailOpen,
+                "owner mismatch fails open");
+            Assert(NativeGateAccessSnapshot.Empty.Evaluate(3, 5, 7, false) ==
+                    CapturedGateFilterDecision.FailOpen,
+                "empty snapshot fails open");
+
+            records[5] = new NativeGateAccessRecord(true, 7, 0, unrelated);
+            var recaptured = new NativeGateAccessSnapshot(records, 0x1235);
+            Assert(recaptured.Evaluate(3, 5, 7, true) ==
+                    CapturedGateFilterDecision.PreserveVanilla,
+                "next snapshot preserves Vanilla for an uncaptured enemy gate");
         }
 
         private static void CallerRangesCoverHumanCursorAndCommonPathBuilder()
@@ -340,10 +371,6 @@ namespace EnemyGatePathfindingTest
                 "invalid negative direction fails closed inside the managed search");
             Assert(!EnemyGatePathfindingPolicy.IsBidirectionalEdgeOpen(0xFF, 0xFF, 8),
                 "direction above native range fails closed inside the managed search");
-            Assert(EnemyGatePathfindingPolicy.CloseNeighborEdge(0xFF, 2) == 0xBF,
-                "blocking east clears only the western neighbor edge");
-            Assert(EnemyGatePathfindingPolicy.CloseNeighborEdge(0x55, -1) == 0x55,
-                "invalid edge closure leaves the native byte unchanged");
         }
 
         private static void TileRouteNativeContractIsPinned()
@@ -372,40 +399,65 @@ namespace EnemyGatePathfindingTest
                 "path length offset");
             Assert(EnemyGatePathfindingNativeDefinition.MaximumDecodedPathLength == 2000,
                 "native path length limit");
+            Assert(EnemyGatePathfindingNativeDefinition.BuilderSearchVariantF3060Rva == 0xF3060,
+                "builder search F3060");
+            Assert(EnemyGatePathfindingNativeDefinition.BuilderSearchVariant79C0Rva == 0x79C0,
+                "builder search 79C0");
+            Assert(EnemyGatePathfindingNativeDefinition.BuilderSearchVariantDA590Rva == 0xDA590,
+                "builder search DA590");
+            Assert(EnemyGatePathfindingNativeDefinition.BuilderSearchVariantDAAC0Rva == 0xDAAC0,
+                "builder search DAAC0");
+            Assert(EnemyGatePathfindingNativeDefinition.BuilderSearchVariantD9C40Rva == 0xD9C40,
+                "builder search D9C40");
+            Assert(EnemyGatePathfindingNativeDefinition.BuilderSearchVariantDAFD0Rva == 0xDAFD0,
+                "builder search DAFD0");
         }
 
         private static void NativeRouteHotPathsRemainPrimitiveOnly()
         {
-            string source = File.ReadAllText(Path.Combine("src", "TileRouteDiagnostics.cs"));
-            string[] methods =
-            {
-                "OnMoveHere", "ObservePlan", "BuildPlayerAwareRoute",
-                "FilterPositiveCursorPcl", "SearchWithoutBlocked", "ApplyOverlay",
-                "RestoreOverlay", "QueueSample"
-            };
+            string tileSource = File.ReadAllText(Path.Combine("src", "TileRouteDiagnostics.cs"));
+            string runtimeSource = File.ReadAllText(Path.Combine("src", "EnemyGatePathfindingRuntime.cs"));
             string[] forbidden =
             {
                 "GamePlayerManagerAPI", "GameUnitManagerAPI", "DebugLogHelper",
                 "Monitor.", "lock (", "StringBuilder", "Console.",
                 "new List", "new Dictionary", "new int[", "new byte[", "new string"
             };
-            foreach (string method in methods)
+            foreach (string method in new[] { "FilterPositiveCursorPcl", "SearchWithoutBlocked" })
             {
-                string body = ExtractMethodBody(source, method);
+                string body = ExtractMethodBody(tileSource, method);
                 foreach (string token in forbidden)
                     Assert(body.IndexOf(token, StringComparison.Ordinal) < 0,
                         method + " hot path excludes " + token);
             }
+            string capturedBody = ExtractMethodBody(runtimeSource, "FilterUnrelatedCapturedEnemyGate");
+            foreach (string token in forbidden)
+                Assert(capturedBody.IndexOf(token, StringComparison.Ordinal) < 0,
+                    "Capturer hot path excludes " + token);
+        }
+
+        private static void UnsafeGlobalMutationAndWholePclDetourAreAbsent()
+        {
+            string tileSource = File.ReadAllText(Path.Combine("src", "TileRouteDiagnostics.cs"));
+            string runtimeSource = File.ReadAllText(Path.Combine("src", "EnemyGatePathfindingRuntime.cs"));
+            Assert(tileSource.IndexOf("ApplyOverlay", StringComparison.Ordinal) < 0,
+                "global Direction-Grid overlay is absent");
+            Assert(tileSource.IndexOf("RestoreOverlay", StringComparison.Ordinal) < 0,
+                "global Direction-Grid restoration path is absent");
+            Assert(tileSource.IndexOf("NativeDetour", StringComparison.Ordinal) < 0,
+                "builder and planner detours are absent");
+            Assert(tileSource.IndexOf("originalBuilder", StringComparison.Ordinal) < 0,
+                "second builder run is absent without a local edge filter");
+            Assert(runtimeSource.IndexOf("GetNextReachablePclDelegate", StringComparison.Ordinal) < 0,
+                "whole PCL function detour delegate is absent");
+            Assert(runtimeSource.IndexOf("AddDetour", StringComparison.Ordinal) < 0,
+                "whole PCL function detour installation is absent");
         }
 
         private static string ExtractMethodBody(string source, string methodName)
         {
-            bool returnsInt = methodName == "ObservePlan" ||
-                methodName == "BuildPlayerAwareRoute" || methodName == "SearchWithoutBlocked";
-            string signature = methodName == "OnMoveHere"
-                ? "internal void " + methodName + "("
-                : (returnsInt ? "private int " : "private void ") + methodName + "(";
-            int name = source.IndexOf(signature, StringComparison.Ordinal);
+            string returnType = methodName == "SearchWithoutBlocked" ? "private int " : "private void ";
+            int name = source.IndexOf(returnType + methodName + "(", StringComparison.Ordinal);
             if (name < 0)
                 throw new InvalidOperationException("Method not found for hot-path audit: " + methodName);
             int open = source.IndexOf('{', name);

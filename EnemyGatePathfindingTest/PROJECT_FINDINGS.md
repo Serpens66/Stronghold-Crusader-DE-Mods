@@ -374,3 +374,61 @@ Für den nächsten Test sind `Functional route sample` und `Functional tile-rout
 maßgeblich. Erwartet werden `action=rerouted` beim Tor mit langem Umweg und `action=blocked` bei der
 Zugbrücke als einziger Verbindung. `overlay.restoreMismatch`, Fehler und verworfene Proben müssen
 jeweils 0 bleiben.
+
+## Skirmish-Absturz und crashsicherer Fallback vom 1. September 2026
+
+Der funktionale Overlay-Build war im Karteneditor erfolgreich, stürzte im Skirmish aber beim ersten
+relevanten KI-Torpfad nativ und ohne Managed Exception, Crashdump oder Abschlusslog ab. Der letzte
+vollständige Zwischenstand enthielt etwa 9.791 Builderaufrufe, davon 8.595 KI-Aufrufe, sowie rund
+198.607 PCL-Abfragen. Zwei modinterne Verfahren lagen genau im erstmals aktiven Risikopfad:
+
+- Der Capturer-Callback rief während der nativen PCL-Schleife `GameBuildingManagerAPI` und
+  `GamePlayerManagerAPI` einschließlich Allianzlogik auf.
+- Der zweite Builderlauf schloss Kanten durch Schreibzugriffe auf Vanillas globales Richtungsgrid.
+  Dieses Grid wird im Skirmish gleichzeitig von den nativen Such- und Aktualisierungspfaden verwaltet.
+
+Beide Verfahren sind verworfen und vollständig aus dem Runtimepfad entfernt. Das frühere
+Editorergebnis beweist die fachliche Tile-Policy, nicht die Threadsicherheit des globalen Overlays.
+
+### Aktueller sicherer Stand
+
+- Die vollständige PCL-Funktionsdetour bei `0xE2610` ist entfernt. Damit entfallen auch die zuvor
+  ungefähr 71.381 verworfenen PCL-Diagnosedatensätze.
+- Der Capturer-Hook bei `0xE2710` liest nur noch einen außerhalb nativer Callbacks aufgebauten,
+  unveränderlichen Snapshot. Im Callback gibt es keine Game-API, Allianzabfrage, Allokation,
+  Sperre, Zeichenkette oder Logausgabe.
+- Besitzer, Eroberer, Lebenszustand und Allianzmasken entstehen im verzögerten Topologiescan.
+  Erkennt der günstige Tick-Check eine Änderung, werden die alten Policies sofort durch leere
+  fail-open Snapshots ersetzt und anschließend verzögert neu aufgebaut.
+- Das globale Direction-Grid-Overlay, dessen Sicherung, Wiederherstellung, Overlay-Sperre und der
+  zweite Builderlauf sind entfernt. Der Build schreibt niemals in das Richtungsgrid.
+- Der menschliche Cursorfix bei `0x8F1C4` bleibt aktiv. Seine vorallokierte Suche liest das native
+  Richtungsgrid und denselben Spieler-Snapshot ausschließlich read-only. Ein langer Umweg bleibt
+  erlaubt; ohne Umweg wird nur ein positives Cursorergebnis auf 0 begrenzt.
+- Es werden weder `0xF4930` noch der zentrale Planer `0x18E1E0` detourt. Deshalb ist die
+  Same-PCL-Tilekorrektur für KI und cursorlose Befehle in diesem Crashschutz-Build ausdrücklich
+  deaktiviert. Der sichere Different-PCL-Capturer-Filter bleibt aktiv.
+
+### Warum der lokale KI-Kantenfilter noch nicht installiert wird
+
+Die fortgesetzte blockweise Analyse der gespeicherten Referenz-DLL zeigt, dass `0xF4930` je nach
+Modus an sechs unterschiedliche Suchroutinen delegiert:
+
+- `0xF3060`
+- `0x79C0`
+- `0xDA590`
+- `0xDAAC0`
+- `0xD9C40`
+- `0xDAFD0`
+
+Für diese sechs Varianten ist noch keine gemeinsame lokale Nachbar- oder Kantenannahme vollständig
+belegt. Die bekannten direkten Zugriffe auf das Richtungsgrid umfassen außerdem Vanilla-Schreiber
+und sind daher keine sichere Filtergrenze. Ein nur teilweise abdeckender Hook würde abhängig vom
+Suchmodus falsche Sicherheit erzeugen. Gemäß der festgelegten Fail-open-Regel bleibt der Tile-Fix
+deshalb deaktiviert, bis Registerbelegung, Hookspanne, interne Sprünge und sämtliche sechs Varianten
+gegen den festgelegten DLL-Hash eindeutig validiert sind. Das globale Overlay wird nicht als
+Fallback zurückgebracht.
+
+Die maßgebliche Laufzeitmeldung lautet nun `builderFix=disabled-unvalidated-local-edge-coverage`
+und bestätigt zugleich `directionGridWrites=0`. Cursorzahlen erscheinen weiterhin höchstens alle
+zehn Sekunden; Builder- und PCL-Hot-Path-Ringpuffer existieren in diesem Build nicht mehr.
