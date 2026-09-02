@@ -50,7 +50,7 @@ namespace UnitCosts
         private static readonly PropertyInfo LastTroopBuildChimpProperty = typeof(MainViewModel).GetProperty("lastTroopBuildChimp", MainViewModelFlags);
         private static readonly FieldInfo LastTroopsAmountToMakeField = typeof(MainViewModel).GetField("lastTroopsAmountToMake", MainViewModelFlags);
         private static readonly PropertyInfo LastTroopsAmountToMakeProperty = typeof(MainViewModel).GetProperty("lastTroopsAmountToMake", MainViewModelFlags);
-        private static readonly Dictionary<eChimps, int> VanillaGoldCosts = new Dictionary<eChimps, int>();
+        private static readonly UnitGoldCostSnapshot<eChimps> VanillaGoldCosts = new UnitGoldCostSnapshot<eChimps>();
 
         public UnitCostsNotificationViewModel Notification { get; } = new UnitCostsNotificationViewModel();
         public UnitRecruitmentCostTooltipViewModel RecruitmentCostTooltip { get; } = new UnitRecruitmentCostTooltipViewModel();
@@ -64,6 +64,7 @@ namespace UnitCosts
         public void InitializeAfterLibraryLoaded()
         {
             SubscribeSettingsChanges();
+            TryInitializeFeature("Vanilla gold-cost capture", CaptureVanillaGoldCosts);
             if (!settings.EnableMod)
             {
                 Shared.DebugLogHelper.LogDebug(log, "UnitCosts disabled; runtime hooks not subscribed");
@@ -71,7 +72,6 @@ namespace UnitCosts
             }
 
             SubscribeHooks();
-            TryInitializeFeature("Vanilla gold-cost capture", CaptureVanillaGoldCosts);
             TryInitializeFeature("native gold costs", ApplyUnitCosts);
             TryInitializeFeature("extra-cost normalization", settings.NormalizeExtraCostsAfterNativeGoldChange);
             TryInitializeFeature("human extra costs", ApplyHumanExtraUnitCosts);
@@ -268,7 +268,7 @@ namespace UnitCosts
         private void RestoreVanillaUnitCosts()
         {
             int restoredValues = 0;
-            foreach (KeyValuePair<eChimps, int> entry in VanillaGoldCosts)
+            foreach (KeyValuePair<eChimps, int> entry in VanillaGoldCosts.Entries)
             {
                 try
                 {
@@ -1131,10 +1131,18 @@ namespace UnitCosts
             return MainViewModel.Instance.getSmallGoodsIcon((int)good);
         }
 
-        private static void CaptureVanillaGoldCosts()
+        private void CaptureVanillaGoldCosts()
         {
             foreach (eChimps unitType in GetRecruitTypes())
-                VanillaGoldCosts[unitType] = GetCurrentUnitGoldCost(unitType);
+            {
+                if (!VanillaGoldCosts.CaptureIfMissing(unitType, () => ReadVanillaUnitGoldCost(unitType), out Exception error))
+                {
+                    Shared.DebugLogHelper.LogError(
+                        log,
+                        $"UnitCosts could not capture the Vanilla gold cost for {unitType}; " +
+                        $"-1 and immediate restoration remain disabled for this unit: {error}");
+                }
+            }
         }
 
         internal static bool IsEuropeanRecruit(eChimps unitType)
@@ -1179,19 +1187,16 @@ namespace UnitCosts
             yield return eChimps.CHIMP_TYPE_BEDOUIN_DEMOLISHER;
         }
 
-        internal static int GetCurrentUnitGoldCost(eChimps unitType)
+        private static int ReadVanillaUnitGoldCost(eChimps unitType)
         {
-            try
+            if (TryGetSiegeTentStructure(unitType, out eStructs siegeTentStructure))
             {
-                if (TryGetSiegeTentStructure(unitType, out eStructs siegeTentStructure))
-                    return Math.Max(0, GameBuildingManagerAPI.Instance.GetGoldCost(siegeTentStructure));
+                int defaultSiegeTentCost = GameBuildingManagerAPI.Instance.GetDefaultCost(siegeTentStructure).Gold;
+                return UnitGoldCostSnapshotPolicy.SelectVanillaCost(true, 0, defaultSiegeTentCost);
+            }
 
-                return Math.Max(0, GameUnitManagerAPI.Instance.GetUnitGoldCost(unitType));
-            }
-            catch
-            {
-                return 0;
-            }
+            int currentUnitCost = GameUnitManagerAPI.Instance.GetUnitGoldCost(unitType);
+            return UnitGoldCostSnapshotPolicy.SelectVanillaCost(false, currentUnitCost, 0);
         }
 
         private static bool TryGetSiegeTentStructure(eChimps unitType, out eStructs siegeTentStructure)
@@ -1291,9 +1296,14 @@ namespace UnitCosts
             if (VanillaGoldCosts.TryGetValue(unitType, out int goldCost))
                 return goldCost;
 
-            goldCost = GetCurrentUnitGoldCost(unitType);
-            VanillaGoldCosts[unitType] = goldCost;
-            return goldCost;
+            try
+            {
+                return ReadVanillaUnitGoldCost(unitType);
+            }
+            catch
+            {
+                return 0;
+            }
         }
 
         internal static string GetLocalizedUnitName(eChimps unitType)

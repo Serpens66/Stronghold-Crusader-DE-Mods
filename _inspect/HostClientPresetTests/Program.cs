@@ -75,6 +75,7 @@ internal static class Program
             TestSnapshotCompletionHook();
             TestFreeCastleProtocol();
             TestModSettingsSearchPolicy();
+            TestUnitGoldCostSnapshot();
             TestSharedModSettingsSearchMatcher();
 
             string pluginPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "TestPlugin.dll");
@@ -336,6 +337,32 @@ internal static class Program
             Console.Error.WriteLine("FAIL: " + exception);
             return 1;
         }
+    }
+
+    private static void TestUnitGoldCostSnapshot()
+    {
+        Check(UnitCosts.UnitGoldCostSnapshotPolicy.SelectVanillaCost(true, 0, 75) == 75,
+            "UnitCosts captured the current zero siege-tent cost instead of its Vanilla default");
+        Check(UnitCosts.UnitGoldCostSnapshotPolicy.SelectVanillaCost(false, 40, 75) == 40,
+            "UnitCosts replaced a regular unit cost with an unrelated siege-tent default");
+        Check(UnitCosts.UnitGoldCostSnapshotPolicy.SelectVanillaCost(false, 0, 75) == 0,
+            "UnitCosts did not preserve an explicit zero regular-unit cost");
+
+        var snapshot = new UnitCosts.UnitGoldCostSnapshot<int>();
+        Check(snapshot.CaptureIfMissing(1, () => 75, out Exception firstError) && firstError == null,
+            "UnitCosts failed to capture an available Vanilla cost");
+        Check(snapshot.CaptureIfMissing(1, () => 0, out Exception repeatError) && repeatError == null,
+            "UnitCosts rejected an already captured Vanilla cost");
+        Check(snapshot.TryGetValue(1, out int restoredCost) && restoredCost == 75,
+            "UnitCosts overwrote the Vanilla snapshot while re-enabling the mod");
+
+        Check(!snapshot.CaptureIfMissing(2, () => throw new InvalidOperationException("unavailable"), out Exception captureError) &&
+              captureError is InvalidOperationException &&
+              !snapshot.TryGetValue(2, out _),
+            "UnitCosts stored a fabricated value after a failed Vanilla-cost read");
+        Check(snapshot.CaptureIfMissing(2, () => 30, out Exception retryError) && retryError == null &&
+              snapshot.TryGetValue(2, out int retriedCost) && retriedCost == 30,
+            "UnitCosts did not retry a previously failed Vanilla-cost capture");
     }
 
     private static void TestModSettingsSearchPolicy()

@@ -122,6 +122,7 @@
     <Compile Include="src\SiegeBuildHoverHook.cs" />
     <Compile Include="src\UnitCostValues.cs" />
     <Compile Include="src\UnitExtraCostValues.cs" />
+    <Compile Include="src\UnitGoldCostSnapshot.cs" />
     <Compile Include="src\UnitCostsLobbyViewModel.cs" />
     <Compile Include="src\UnitCostsNotificationViewModel.cs" />
     <Compile Include="src\UnitCostsPlugin.cs" />

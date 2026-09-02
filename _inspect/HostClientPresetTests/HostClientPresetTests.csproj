@@ -26,6 +26,9 @@
     <Compile Include="..\..\CastlePlanner\src\BlueprintHudPolicy.cs">
       <Link>BlueprintHudPolicy.cs</Link>
     </Compile>
+    <Compile Include="..\..\UnitCosts\src\UnitGoldCostSnapshot.cs">
+      <Link>UnitGoldCostSnapshot.cs</Link>
+    </Compile>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="MessagePack">
