@@ -25,7 +25,7 @@ namespace SerpsModsHost
         private const string InfoFileName = "info.json";
         public const string PluginGuid = "SerpsMods_Serp";
         public const string PluginName = "Serps Mods";
-        public const string PluginVersion = "1.0.6";
+        public const string PluginVersion = "1.0.7";
         public const bool CustomCustomTrailModSettingsOptOut = true;
         private const string ManifestFileName = "serps-modpack.json";
 
