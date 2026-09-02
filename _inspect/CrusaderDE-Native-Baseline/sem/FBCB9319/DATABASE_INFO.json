@@ -1,10 +1,10 @@
 {
-  "manifestSchemaVersion": 1,
+  "manifestSchemaVersion": 2,
   "database": {
     "path": "sem/FBCB9319/CrusaderDE-semantic.sqlite",
-    "schemaVersion": 1,
-    "referenceSize": 147181568,
-    "referenceSha256": "288FEACB7EF209E259D41ABA20D107C442CAD2859F0A495C890640173AA54594",
+    "schemaVersion": 2,
+    "referenceSize": 154624000,
+    "referenceSha256": "E314E3BB77BA65A87B87DBFBF6309E95DD5F339BB05109288D780B37D81DB0F5",
     "referenceSqliteVersion": "3.45.3"
   },
   "identities": {
@@ -43,7 +43,12 @@
     "counts": {
       "binaries": 3,
       "functions": 8954,
+      "function_claims": 14,
+      "claim_evidence": 31,
+      "hook_spans": 3,
+      "api_contracts": 0,
       "call_edges": 23692,
+      "function_data_references": 79264,
       "xrefs": 236382,
       "strings": 4248,
       "globals": 82610,
@@ -60,7 +65,7 @@
       "rtti_vtables": 142,
       "xaml_resources": 105,
       "xaml_links": 7860,
-      "classifications": 601,
+      "classifications": 617,
       "version_matches": 3818
     }
   },
@@ -77,13 +82,13 @@
     },
     {
       "path": "sem/FBCB9319/exports/semantic-functions.jsonl",
-      "sha256": "722BFB54DC73A9E8562326BABE05857B2B042875932DA3D2668F4F2166C6241C",
-      "bytes": 3051408
+      "sha256": "58418AE6217520197158E41BC46E37ED16CAD230639393C684D099380696B447",
+      "bytes": 3574616
     },
     {
       "path": "sem/FBCB9319/exports/semantic-decompiled-functions.c",
-      "sha256": "7E81BA2CAE728AC6D5F027098FEF1E813F136BB883E8AF958E0FE37D4BAB42BE",
-      "bytes": 10854236
+      "sha256": "012C77F892EB927144AC857EE1C2AF690D61E371066BAF307EBAB3108F92B291",
+      "bytes": 10856822
     },
     {
       "path": "sem/FBCB9319/exports/globals.jsonl",
@@ -101,14 +106,29 @@
       "bytes": 24642
     },
     {
+      "path": "sem/FBCB9319/knowledge/function-claims.jsonl",
+      "sha256": "6BD348D343620B50D0679EC9E6262E9D99707AE1A7626FAFB10CBFE61A3E87E1",
+      "bytes": 25860
+    },
+    {
+      "path": "sem/FBCB9319/knowledge/hook-spans.jsonl",
+      "sha256": "42A48B7E2B05BDC0BE09715D4A379C6229D6B5A6F6A5D0816802269E8663BCF6",
+      "bytes": 2923
+    },
+    {
+      "path": "sem/FBCB9319/knowledge/api-contracts.jsonl",
+      "sha256": "7EB70257593DA06F682A3DDDA54A9D260D4FC514F645237F5CA74B08F8DA61A6",
+      "bytes": 2
+    },
+    {
       "path": "diff/17F8DD4A-FBCB9319/exports/semantic-functions.jsonl",
-      "sha256": "5F85A4EADC59DEEB51311CE113401B22DFACD20E77697D97B90363DDDDDF495C",
-      "bytes": 3032392
+      "sha256": "9541067177CDAD5EAC47572CA32B23774526A156961F42FFBDC05908BD3355D7",
+      "bytes": 3553531
     },
     {
       "path": "diff/17F8DD4A-FBCB9319/version-matches.jsonl",
-      "sha256": "53F0E3D2D64C4734340B9DEF8AD3C6D668029A7F9BE33CE1FDB5876064087F11",
-      "bytes": 1548366
+      "sha256": "374F27D70790F22739FD77DC11F588F66717ED4F1F7B2593180AFAF365C23E83",
+      "bytes": 1548396
     },
     {
       "path": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2/exports/xrefs.jsonl",

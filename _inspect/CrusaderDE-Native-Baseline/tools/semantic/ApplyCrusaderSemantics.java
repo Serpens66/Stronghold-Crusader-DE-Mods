@@ -153,7 +153,7 @@ public class ApplyCrusaderSemantics extends GhidraScript {
                     function.setName(finalName, SourceType.USER_DEFINED);
                 }
                 String confidence = exact ? "confirmed" : "probable";
-                appendComment(function, "[semantic:" + confidence + "] AOB " + fields[4] +
+                appendComment(function, "[semantic:" + confidence + "] Evidence " + fields[4] +
                     " from " + fields[2] + ":" + fields[3] + "; matched " + match);
                 if (!first) writer.write(",\r\n");
                 first = false;

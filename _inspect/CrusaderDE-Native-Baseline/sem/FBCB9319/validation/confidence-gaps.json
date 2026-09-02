@@ -1,0 +1,72 @@
+[
+  {
+    "claimId": "fn-building-sync-sleep-state",
+    "functionRva": "0xC7D50",
+    "canonicalName": "c_game_building_sync_sleep_state",
+    "versionMatchConfidence": "confirmed",
+    "semanticConfidence": "probable"
+  },
+  {
+    "claimId": "fn-ai-strategy-update",
+    "functionRva": "0x2F080",
+    "canonicalName": "c_game_ai_strategy_update",
+    "versionMatchConfidence": "confirmed",
+    "semanticConfidence": "probable"
+  },
+  {
+    "claimId": "fn-ai-check-inaccessible-building",
+    "functionRva": "0x3B270",
+    "canonicalName": "c_game_ai_check_inaccessible_building",
+    "versionMatchConfidence": "confirmed",
+    "semanticConfidence": "probable"
+  },
+  {
+    "claimId": "fn-ai-place-aiv-building",
+    "functionRva": "0x5CD90",
+    "canonicalName": "c_game_ai_place_aiv_building",
+    "versionMatchConfidence": "confirmed",
+    "semanticConfidence": "probable"
+  },
+  {
+    "claimId": "fn-ai-create-flag-disease",
+    "functionRva": "0x504F0",
+    "canonicalName": "c_game_ai_create_flag_disease",
+    "versionMatchConfidence": "confirmed",
+    "semanticConfidence": "probable"
+  },
+  {
+    "claimId": "fn-projectile-disease-update",
+    "functionRva": "0x9A080",
+    "canonicalName": "c_game_projectile_disease_update",
+    "versionMatchConfidence": "confirmed",
+    "semanticConfidence": "probable"
+  },
+  {
+    "claimId": "fn-disease-find-nearest-for-healer",
+    "functionRva": "0x9F700",
+    "canonicalName": "c_game_projectile_disease_find_nearest_for_healer",
+    "versionMatchConfidence": "confirmed",
+    "semanticConfidence": "probable"
+  },
+  {
+    "claimId": "fn-unit-update-monk",
+    "functionRva": "0x151090",
+    "canonicalName": "c_game_unit_update_monk",
+    "versionMatchConfidence": "confirmed",
+    "semanticConfidence": "probable"
+  },
+  {
+    "claimId": "fn-building-entrance-candidates",
+    "functionRva": "0xC0270",
+    "canonicalName": "c_game_building_setup_entrance_candidates",
+    "versionMatchConfidence": "confirmed",
+    "semanticConfidence": "probable"
+  },
+  {
+    "claimId": "fn-gatehouse-automation-update",
+    "functionRva": "0xB73D0",
+    "canonicalName": "c_game_gatehouse_automation_update",
+    "versionMatchConfidence": "confirmed",
+    "semanticConfidence": "probable"
+  }
+]

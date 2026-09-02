@@ -1,0 +1,108 @@
+[
+  {
+    "claimId": "fn-building-sync-sleep-state",
+    "abiConfidence": "candidate",
+    "callerObservations": 0,
+    "observedSignatures": [],
+    "compatible": true
+  },
+  {
+    "claimId": "fn-ai-strategy-update",
+    "abiConfidence": "candidate",
+    "callerObservations": 0,
+    "observedSignatures": [],
+    "compatible": true
+  },
+  {
+    "claimId": "fn-ai-delete-hovel",
+    "abiConfidence": "confirmed",
+    "callerObservations": 1,
+    "observedSignatures": [
+      "int (void* aiManager, int playerId)"
+    ],
+    "compatible": true
+  },
+  {
+    "claimId": "fn-ai-check-inaccessible-building",
+    "abiConfidence": "candidate",
+    "callerObservations": 0,
+    "observedSignatures": [],
+    "compatible": true
+  },
+  {
+    "claimId": "fn-ai-execute-aiv-build-step",
+    "abiConfidence": "candidate",
+    "callerObservations": 0,
+    "observedSignatures": [],
+    "compatible": true
+  },
+  {
+    "claimId": "fn-ai-place-aiv-building",
+    "abiConfidence": "probable",
+    "callerObservations": 1,
+    "observedSignatures": [
+      "native placement helper with six arguments"
+    ],
+    "compatible": true
+  },
+  {
+    "claimId": "fn-ai-get-buy-price",
+    "abiConfidence": "confirmed",
+    "callerObservations": 2,
+    "observedSignatures": [
+      "int (void* playerManager, int playerId, int good, int amount)"
+    ],
+    "compatible": true
+  },
+  {
+    "claimId": "fn-ai-get-sell-price",
+    "abiConfidence": "confirmed",
+    "callerObservations": 1,
+    "observedSignatures": [
+      "int (void* playerManager, int playerId, int good, int amount)"
+    ],
+    "compatible": true
+  },
+  {
+    "claimId": "fn-ai-create-flag-disease",
+    "abiConfidence": "candidate",
+    "callerObservations": 0,
+    "observedSignatures": [],
+    "compatible": true
+  },
+  {
+    "claimId": "fn-projectile-disease-update",
+    "abiConfidence": "candidate",
+    "callerObservations": 0,
+    "observedSignatures": [],
+    "compatible": true
+  },
+  {
+    "claimId": "fn-disease-find-nearest-for-healer",
+    "abiConfidence": "candidate",
+    "callerObservations": 0,
+    "observedSignatures": [],
+    "compatible": true
+  },
+  {
+    "claimId": "fn-unit-update-monk",
+    "abiConfidence": "candidate",
+    "callerObservations": 0,
+    "observedSignatures": [],
+    "compatible": true
+  },
+  {
+    "claimId": "fn-building-entrance-candidates",
+    "abiConfidence": "candidate",
+    "callerObservations": 0,
+    "observedSignatures": [],
+    "compatible": true
+  },
+  {
+    "claimId": "fn-gatehouse-automation-update",
+    "abiConfidence": "candidate",
+    "callerObservations": 0,
+    "observedSignatures": [],
+    "compatible": true
+  }
+]

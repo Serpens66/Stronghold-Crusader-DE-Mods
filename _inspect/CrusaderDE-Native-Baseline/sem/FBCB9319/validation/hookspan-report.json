@@ -1,0 +1,20 @@
+[
+  {
+    "spanId": "hook-ai-buy-price-entry",
+    "status": "validated",
+    "startRva": "0xCEB10",
+    "endRva": "0xCEB1A"
+  },
+  {
+    "spanId": "hook-ai-sell-price-entry",
+    "status": "validated",
+    "startRva": "0xCEB90",
+    "endRva": "0xCEB9A"
+  },
+  {
+    "spanId": "hook-monk-movement-decision",
+    "status": "validated",
+    "startRva": "0x151436",
+    "endRva": "0x15144A"
+  }
+]

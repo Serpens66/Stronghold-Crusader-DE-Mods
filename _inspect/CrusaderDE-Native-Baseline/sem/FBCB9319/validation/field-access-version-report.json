@@ -1,0 +1,113 @@
+[
+  {
+    "claimId": "fn-building-sync-sleep-state",
+    "currentRva": "0xC7D50",
+    "historicalRva": "0xC6F60",
+    "versionMatchConfidence": "confirmed",
+    "functionChanged": true,
+    "fieldAccesses": [
+      {
+        "type": "GameBuilding",
+        "offset": "r_IsSleeping",
+        "access": "read-write",
+        "confidence": "probable"
+      }
+    ]
+  },
+  {
+    "claimId": "fn-ai-check-inaccessible-building",
+    "currentRva": "0x3B270",
+    "historicalRva": "0x3A660",
+    "versionMatchConfidence": "confirmed",
+    "functionChanged": true,
+    "fieldAccesses": [
+      {
+        "type": "AI state",
+        "offset": "R8+0x338",
+        "access": "read",
+        "confidence": "probable"
+      }
+    ]
+  },
+  {
+    "claimId": "fn-ai-get-buy-price",
+    "currentRva": "0xCEB10",
+    "historicalRva": "0xCDD20",
+    "versionMatchConfidence": "confirmed",
+    "functionChanged": false,
+    "fieldAccesses": [
+      {
+        "type": "player manager",
+        "offset": "0x1817B8",
+        "access": "read indexed by good",
+        "confidence": "confirmed"
+      }
+    ]
+  },
+  {
+    "claimId": "fn-ai-get-sell-price",
+    "currentRva": "0xCEB90",
+    "historicalRva": "0xCDDA0",
+    "versionMatchConfidence": "confirmed",
+    "functionChanged": false,
+    "fieldAccesses": [
+      {
+        "type": "player manager",
+        "offset": "0x1817BC",
+        "access": "read indexed by good",
+        "confidence": "confirmed"
+      }
+    ]
+  },
+  {
+    "claimId": "fn-projectile-disease-update",
+    "currentRva": "0x9A080",
+    "historicalRva": "0x992B0",
+    "versionMatchConfidence": "confirmed",
+    "functionChanged": true,
+    "fieldAccesses": [
+      {
+        "type": "GameProjectile",
+        "offset": "+0x14/+0x18/+0x28/+0x34/+0xD0",
+        "access": "read-write",
+        "confidence": "probable"
+      }
+    ]
+  },
+  {
+    "claimId": "fn-unit-update-monk",
+    "currentRva": "0x151090",
+    "historicalRva": "0x1500D0",
+    "versionMatchConfidence": "confirmed",
+    "functionChanged": true,
+    "fieldAccesses": [
+      {
+        "type": "GameUnit",
+        "offset": "+0x914/+0x99E/+0xA64",
+        "access": "read",
+        "confidence": "probable"
+      },
+      {
+        "type": "GameUnit",
+        "offset": "+0x660/+0x916",
+        "access": "write movement state",
+        "confidence": "probable"
+      }
+    ]
+  },
+  {
+    "claimId": "fn-building-entrance-candidates",
+    "currentRva": "0xC0270",
+    "historicalRva": "0xBF480",
+    "versionMatchConfidence": "confirmed",
+    "functionChanged": true,
+    "fieldAccesses": [
+      {
+        "type": "building manager",
+        "offset": "+0x31B7D0/+0x31B7D4",
+        "access": "write candidate coordinates",
+        "confidence": "probable"
+      }
+    ]
+  }
+]

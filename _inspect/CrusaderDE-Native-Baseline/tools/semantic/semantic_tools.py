@@ -492,6 +492,25 @@ def command_compare(args):
     write_jsonl(Path(args.output) / "added-functions.jsonl", unmatched_new)
     changed = [row for row in matches if row["changed"]]
     write_jsonl(Path(args.output) / "changed-functions.jsonl", changed)
+    reference_diffs = []
+    for match in matches:
+        old = old_by_rva[match["oldRva"]]
+        new = new_by_rva[match["newRva"]]
+        old_data = sorted(set(old.get("dataRvas") or []))
+        new_data = sorted(set(new.get("dataRvas") or []))
+        old_strings = sorted(set(old.get("strings") or []))
+        new_strings = sorted(set(new.get("strings") or []))
+        if old_data != new_data or old_strings != new_strings:
+            reference_diffs.append({
+                "oldBinaryHash": match["oldBinaryHash"], "newBinaryHash": match["newBinaryHash"],
+                "oldRva": match["oldRva"], "newRva": match["newRva"],
+                "matchConfidence": match["confidence"],
+                "addedDataRvas": sorted(set(new_data) - set(old_data)),
+                "removedDataRvas": sorted(set(old_data) - set(new_data)),
+                "addedStrings": sorted(set(new_strings) - set(old_strings)),
+                "removedStrings": sorted(set(old_strings) - set(new_strings)),
+            })
+    write_jsonl(Path(args.output) / "semantic-reference-diff.jsonl", reference_diffs)
     summary = {
         "confirmed": sum(row["confidence"] == "confirmed" for row in matches),
         "probable": sum(row["confidence"] == "probable" for row in matches),
@@ -518,6 +537,7 @@ def command_compare(args):
 - `changed-functions.jsonl`: safely mapped functions whose raw hashes differ
 - `removed-functions.jsonl`: historical functions without a safe mapping
 - `added-functions.jsonl`: current functions without a safe mapping
+- `semantic-reference-diff.jsonl`: changed global/data references and strings for safely mapped functions
 """
     write_text(Path(args.output) / "VERSION_DIFF.md", report)
     print(json.dumps(summary))
@@ -570,7 +590,23 @@ def command_build_index(args):
         CREATE TABLE functions(binary_hash TEXT, address TEXT, rva TEXT, name TEXT, confidence TEXT, size INTEGER,
             signature TEXT, comment TEXT, raw_hash TEXT, normalized_hash TEXT, block_count INTEGER,
             pseudocode TEXT, PRIMARY KEY(binary_hash,rva));
+        CREATE TABLE function_claims(claim_id TEXT PRIMARY KEY, binary_hash TEXT, function_rva TEXT,
+            canonical_name TEXT, name_origin TEXT, identity_confidence TEXT, semantic_confidence TEXT,
+            abi_confidence TEXT, signature TEXT, return_contract TEXT, flow_review TEXT,
+            parameters TEXT, field_accesses TEXT, side_effects TEXT, caller_observations TEXT,
+            counter_evidence TEXT, verified_by TEXT, payload TEXT);
+        CREATE TABLE claim_evidence(claim_id TEXT, evidence_id TEXT, chain_id TEXT, kind TEXT,
+            strength TEXT, source_path TEXT, source_file_hash TEXT, rva TEXT, address TEXT,
+            summary TEXT, counter INTEGER, PRIMARY KEY(claim_id,evidence_id,counter));
+        CREATE TABLE hook_spans(span_id TEXT PRIMARY KEY, claim_id TEXT, binary_hash TEXT,
+            span_kind TEXT, start_rva TEXT, end_rva TEXT, original_bytes TEXT, instructions TEXT,
+            external_entries TEXT, live_in TEXT, live_out TEXT, clobbers TEXT, stack_delta INTEGER,
+            flags_contract TEXT, continuation TEXT, evidence TEXT, payload TEXT);
+        CREATE TABLE api_contracts(contract_id TEXT PRIMARY KEY, binary_hash TEXT, status TEXT,
+            producer TEXT, field_name TEXT, representation TEXT, consumer TEXT, conversion TEXT,
+            script_extender_commit TEXT, evidence TEXT, payload TEXT);
         CREATE TABLE call_edges(binary_hash TEXT, caller_rva TEXT, callee_rva TEXT, callee_name TEXT);
+        CREATE TABLE function_data_references(binary_hash TEXT, function_rva TEXT, target_rva TEXT);
         CREATE TABLE function_strings(binary_hash TEXT, function_rva TEXT, value TEXT);
         CREATE TABLE xrefs(binary_hash TEXT, from_rva TEXT, to_rva TEXT, type TEXT, source_function TEXT);
         CREATE TABLE strings(binary_hash TEXT, address TEXT, rva TEXT, value TEXT, encoding TEXT, xref_count INTEGER);
@@ -601,7 +637,7 @@ def command_build_index(args):
         (old_hash, "historical-native", args.old_native, int(args.old_native_size)),
         (args.managed_hash.upper(), "current-managed", args.managed_assembly, int(args.managed_size)),
     ])
-    connection.executemany("INSERT INTO metadata VALUES(?,?)", [("schema_version", "1"), ("current_native_hash", current_hash), ("managed_hash", args.managed_hash.upper())])
+    connection.executemany("INSERT INTO metadata VALUES(?,?)", [("schema_version", "2"), ("current_native_hash", current_hash), ("managed_hash", args.managed_hash.upper())])
 
     decomp_map = {}
     decomp_path = semantic_dir / "exports" / "semantic-decompiled-functions.c"
@@ -635,11 +671,62 @@ def command_build_index(args):
                 connection.execute("INSERT INTO call_edges VALUES(?,?,?,?)", (binary_hash, row["rva"], callee_rva, callee))
             for value in row.get("strings") or []:
                 connection.execute("INSERT INTO function_strings VALUES(?,?,?)", (binary_hash, row["rva"], value))
+            for target_rva in row.get("dataRvas") or []:
+                connection.execute("INSERT INTO function_data_references VALUES(?,?,?)", (binary_hash, row["rva"], target_rva))
             connection.execute("INSERT INTO function_search VALUES(?,?,?,?,?,?,?,?)", (
                 binary_hash, row["rva"], row["name"], row.get("signature"), row.get("comment"),
                 decomp_map.get(row["rva"].upper(), ""), "\n".join(row.get("strings") or []),
                 " ".join(item["category"] for item in classifications),
             ))
+
+    for claim in read_jsonl(Path(args.function_claims)):
+        connection.execute("INSERT INTO function_claims VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", (
+            claim.get("claimId"), claim.get("binaryHash"), claim.get("functionRva"),
+            claim.get("canonicalName"), claim.get("nameOrigin"), claim.get("identityConfidence"),
+            claim.get("semanticConfidence"), claim.get("abiConfidence"), claim.get("signature"),
+            json.dumps(claim.get("return"), ensure_ascii=False), claim.get("flowReview"),
+            json.dumps(claim.get("parameters") or [], ensure_ascii=False),
+            json.dumps(claim.get("fieldAccesses") or [], ensure_ascii=False),
+            json.dumps(claim.get("sideEffects") or [], ensure_ascii=False),
+            json.dumps(claim.get("callerObservations") or [], ensure_ascii=False),
+            json.dumps(claim.get("counterEvidence") or [], ensure_ascii=False),
+            json.dumps(claim.get("verifiedBy") or [], ensure_ascii=False),
+            json.dumps(claim, ensure_ascii=False),
+        ))
+        for evidence in claim.get("evidence") or []:
+            connection.execute("INSERT INTO claim_evidence VALUES(?,?,?,?,?,?,?,?,?,?,?)", (
+                claim.get("claimId"), evidence.get("id"), evidence.get("chain"), evidence.get("kind"),
+                evidence.get("strength"), evidence.get("source"), evidence.get("sourceFileHash"),
+                evidence.get("rva"), evidence.get("address"), evidence.get("summary"), 0,
+            ))
+        for index, evidence in enumerate(claim.get("counterEvidence") or []):
+            connection.execute("INSERT INTO claim_evidence VALUES(?,?,?,?,?,?,?,?,?,?,?)", (
+                claim.get("claimId"), evidence.get("id") or f"counter-{index + 1}",
+                evidence.get("chain"), evidence.get("kind"), evidence.get("strength"),
+                evidence.get("source"), evidence.get("sourceFileHash"), evidence.get("rva"),
+                evidence.get("address"), evidence.get("summary"), 1,
+            ))
+    for span in read_jsonl(Path(args.hook_spans)):
+        connection.execute("INSERT INTO hook_spans VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", (
+            span.get("spanId"), span.get("claimId"), span.get("binaryHash"), span.get("spanKind"),
+            span.get("startRva"), span.get("endRva"), span.get("originalBytes"),
+            json.dumps(span.get("instructions") or [], ensure_ascii=False),
+            json.dumps(span.get("externalEntries") or [], ensure_ascii=False),
+            json.dumps(span.get("liveIn") or [], ensure_ascii=False),
+            json.dumps(span.get("liveOut") or [], ensure_ascii=False),
+            json.dumps(span.get("clobbers") or [], ensure_ascii=False), span.get("stackDelta"),
+            span.get("flags"), span.get("continuation"),
+            json.dumps(span.get("evidence") or [], ensure_ascii=False),
+            json.dumps(span, ensure_ascii=False),
+        ))
+    for contract in read_jsonl(Path(args.api_contracts)):
+        connection.execute("INSERT INTO api_contracts VALUES(?,?,?,?,?,?,?,?,?,?,?)", (
+            contract.get("contractId"), contract.get("binaryHash"), contract.get("status"),
+            contract.get("producer"), contract.get("field"), contract.get("representation"),
+            contract.get("consumer"), contract.get("conversion"), contract.get("scriptExtenderCommit"),
+            json.dumps(contract.get("evidence") or [], ensure_ascii=False),
+            json.dumps(contract, ensure_ascii=False),
+        ))
 
     raw = Path(args.raw_exports)
     for row in read_jsonl(raw / "xrefs.jsonl"):
@@ -696,7 +783,7 @@ def command_build_index(args):
                 connection.execute("INSERT INTO classifications VALUES(?,?,?,?)", (current_hash, native_rva, item["category"], json.dumps(evidence)))
     connection.commit()
     integrity = connection.execute("PRAGMA integrity_check").fetchone()[0]
-    counts = {table: connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] for table in ["functions", "xrefs", "strings", "managed_methods", "pinvokes", "managed_native_links", "patterns", "source_types", "type_fields", "vtable_members", "xaml_resources", "version_matches"]}
+    counts = {table: connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] for table in ["functions", "function_claims", "claim_evidence", "hook_spans", "api_contracts", "function_data_references", "xrefs", "strings", "managed_methods", "pinvokes", "managed_native_links", "patterns", "source_types", "type_fields", "vtable_members", "xaml_resources", "version_matches"]}
     connection.close()
     os.replace(working_database, database)
     print(json.dumps({"integrity": integrity, "counts": counts}))
@@ -728,7 +815,7 @@ def build_parser():
     compare.add_argument("--old", required=True); compare.add_argument("--new", required=True); compare.add_argument("--output", required=True)
     compare.set_defaults(func=command_compare)
     index = sub.add_parser("build-index")
-    for name in ["semantic-dir", "database", "current-hash", "old-hash", "managed-hash", "current-native", "old-native", "managed-assembly", "current-native-size", "old-native-size", "managed-size", "old-exports", "raw-exports", "managed-dir", "patterns", "source-types", "type-fields", "vtable-members", "delegates", "rtti-vtables", "xaml", "xaml-links", "version-matches"]:
+    for name in ["semantic-dir", "database", "current-hash", "old-hash", "managed-hash", "current-native", "old-native", "managed-assembly", "current-native-size", "old-native-size", "managed-size", "old-exports", "raw-exports", "managed-dir", "patterns", "source-types", "type-fields", "vtable-members", "delegates", "rtti-vtables", "xaml", "xaml-links", "version-matches", "function-claims", "hook-spans", "api-contracts"]:
         index.add_argument(f"--{name}", required=True)
     index.set_defaults(func=command_build_index)
     return parser

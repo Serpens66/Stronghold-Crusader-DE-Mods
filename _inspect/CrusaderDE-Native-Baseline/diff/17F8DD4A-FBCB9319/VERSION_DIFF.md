@@ -23,3 +23,4 @@
 - `changed-functions.jsonl`: safely mapped functions whose raw hashes differ
 - `removed-functions.jsonl`: historical functions without a safe mapping
 - `added-functions.jsonl`: current functions without a safe mapping
+- `semantic-reference-diff.jsonl`: changed global/data references and strings for safely mapped functions

@@ -26,9 +26,38 @@ def resolve_function(connection, value):
     ).fetchall()
     if not result:
         result = connection.execute(
+            "SELECT f.* FROM functions f JOIN function_claims c "
+            "ON c.binary_hash=f.binary_hash AND c.function_rva=f.rva "
+            "WHERE upper(c.claim_id)=? OR upper(c.canonical_name)=? OR upper(c.function_rva)=? "
+            "ORDER BY f.binary_hash",
+            (normalized, normalized, normalized),
+        ).fetchall()
+    if not result:
+        result = connection.execute(
             "SELECT * FROM functions WHERE name LIKE ? ORDER BY binary_hash,rva LIMIT 50", (f"%{value}%",)
         ).fetchall()
     return result
+
+
+def decode_json_fields(item, fields):
+    for field in fields:
+        if item.get(field) is not None:
+            item[field] = json.loads(item[field])
+    return item
+
+
+def claim_packet(connection, row):
+    item = decode_json_fields(dict(row), [
+        "return_contract", "parameters", "field_accesses", "side_effects",
+        "caller_observations", "counter_evidence", "verified_by", "payload",
+    ])
+    item["evidence"] = rows(connection.execute(
+        "SELECT evidence_id,chain_id,kind,strength,source_path,source_file_hash,rva,address,summary,counter "
+        "FROM claim_evidence WHERE claim_id=? ORDER BY counter,evidence_id", (item["claim_id"],)))
+    item["hookSpans"] = [decode_json_fields(dict(span), [
+        "instructions", "external_entries", "live_in", "live_out", "clobbers", "evidence", "payload",
+    ]) for span in connection.execute("SELECT * FROM hook_spans WHERE claim_id=? ORDER BY start_rva", (item["claim_id"],)).fetchall()]
+    return item
 
 
 def main():
@@ -41,6 +70,10 @@ def main():
     callees = sub.add_parser("callees"); callees.add_argument("value")
     managed = sub.add_parser("managed"); managed.add_argument("value")
     diff = sub.add_parser("diff"); diff.add_argument("old_hash"); diff.add_argument("new_hash")
+    claim = sub.add_parser("claim"); claim.add_argument("value")
+    hook = sub.add_parser("hook"); hook.add_argument("value")
+    contract = sub.add_parser("contract"); contract.add_argument("value")
+    sub.add_parser("gaps")
     sub.add_parser("stats")
     args = parser.parse_args()
 
@@ -62,8 +95,11 @@ def main():
                 item["pseudocode"] = item["pseudocode"][:40000] + "\n/* query output truncated; full text remains in SQLite/export */\n"
                 item["pseudocodeTruncated"] = True
             key = (item["binary_hash"], item["rva"])
+            item["semanticClaims"] = [claim_packet(connection, row) for row in connection.execute(
+                "SELECT * FROM function_claims WHERE binary_hash=? AND function_rva=?", key).fetchall()]
             item["classifications"] = rows(connection.execute("SELECT category,evidence FROM classifications WHERE binary_hash=? AND function_rva=?", key))
             item["strings"] = rows(connection.execute("SELECT value FROM function_strings WHERE binary_hash=? AND function_rva=?", key))
+            item["dataReferences"] = rows(connection.execute("SELECT target_rva FROM function_data_references WHERE binary_hash=? AND function_rva=? ORDER BY target_rva", key))
             item["callees"] = rows(connection.execute("SELECT callee_rva,callee_name FROM call_edges WHERE binary_hash=? AND caller_rva=?", key))
             item["callers"] = rows(connection.execute("SELECT caller_rva FROM call_edges WHERE binary_hash=? AND callee_rva=?", key))
             item["managedCallers"] = rows(connection.execute("SELECT managed_method,distance,path FROM managed_native_links WHERE native_rva=? ORDER BY distance,managed_method LIMIT 25", (item["rva"],)))
@@ -102,8 +138,41 @@ def main():
         })
     elif args.command == "diff":
         print_json(rows(connection.execute("SELECT * FROM version_matches WHERE old_hash=? AND new_hash=? ORDER BY confidence,score DESC", (args.old_hash.upper(), args.new_hash.upper()))))
+    elif args.command == "claim":
+        value = f"%{args.value}%"
+        found = connection.execute(
+            "SELECT * FROM function_claims WHERE claim_id LIKE ? OR canonical_name LIKE ? OR function_rva LIKE ? "
+            "ORDER BY function_rva", (value, value, value)).fetchall()
+        print_json([claim_packet(connection, row) for row in found])
+    elif args.command == "hook":
+        value = args.value.upper()
+        found = connection.execute("SELECT * FROM hook_spans WHERE upper(span_id)=? OR upper(start_rva)=?", (value, value)).fetchall()
+        if not found:
+            try:
+                target = int(args.value, 0)
+                found = [row for row in connection.execute("SELECT * FROM hook_spans").fetchall()
+                    if int(row["start_rva"], 0) <= target < int(row["end_rva"], 0)]
+            except ValueError:
+                found = connection.execute("SELECT * FROM hook_spans WHERE span_id LIKE ?", (f"%{args.value}%",)).fetchall()
+        print_json([decode_json_fields(dict(row), [
+            "instructions", "external_entries", "live_in", "live_out", "clobbers", "evidence", "payload",
+        ]) for row in found])
+    elif args.command == "contract":
+        value = f"%{args.value}%"
+        found = connection.execute(
+            "SELECT * FROM api_contracts WHERE contract_id LIKE ? OR producer LIKE ? OR field_name LIKE ? OR consumer LIKE ? OR payload LIKE ? "
+            "ORDER BY contract_id", (value, value, value, value, value)).fetchall()
+        print_json([decode_json_fields(dict(row), ["evidence", "payload"]) for row in found])
+    elif args.command == "gaps":
+        print_json(rows(connection.execute(
+            "SELECT c.claim_id,c.function_rva,c.canonical_name,c.semantic_confidence,"
+            "v.confidence AS version_match_confidence,v.old_rva,v.reason,v.score "
+            "FROM function_claims c JOIN version_matches v ON v.new_hash=c.binary_hash AND v.new_rva=c.function_rva "
+            "WHERE CASE v.confidence WHEN 'confirmed' THEN 2 WHEN 'probable' THEN 1 ELSE 0 END > "
+            "CASE c.semantic_confidence WHEN 'confirmed' THEN 2 WHEN 'probable' THEN 1 ELSE 0 END "
+            "ORDER BY c.function_rva")))
     else:
-        table_names = ["binaries", "functions", "call_edges", "xrefs", "strings", "globals", "managed_methods", "pinvokes", "managed_native_links", "patterns", "data_types", "source_types", "type_fields", "vtable_members", "delegates", "rtti_vtables", "xaml_resources", "classifications", "version_matches"]
+        table_names = ["binaries", "functions", "function_claims", "claim_evidence", "hook_spans", "api_contracts", "function_data_references", "call_edges", "xrefs", "strings", "globals", "managed_methods", "pinvokes", "managed_native_links", "patterns", "data_types", "source_types", "type_fields", "vtable_members", "delegates", "rtti_vtables", "xaml_resources", "classifications", "version_matches"]
         print_json({table: connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] for table in table_names})
     connection.close()
 

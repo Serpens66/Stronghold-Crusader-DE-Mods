@@ -1,0 +1,4 @@
+rva	symbol	claimId	confidence	source
+0x3B1D0	c_game_ai_delete_hovel	fn-ai-delete-hovel	0	curated:confirmed:semantic-reconstruction
+0xCEB10	c_game_ai_get_buy_price	fn-ai-get-buy-price	0	curated:confirmed:semantic-reconstruction
+0xCEB90	c_game_ai_get_sell_price	fn-ai-get-sell-price	0	curated:confirmed:semantic-reconstruction

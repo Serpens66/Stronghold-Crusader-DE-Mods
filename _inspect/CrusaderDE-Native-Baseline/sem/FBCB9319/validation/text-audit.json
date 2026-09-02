@@ -1,8 +1,8 @@
 {
-  "files": 358,
+  "files": 397,
   "nakedLfFiles": 0,
-  "literalEscapeFiles": 12,
-  "literalEscapeOccurrences": 13786,
+  "literalEscapeFiles": 17,
+  "literalEscapeOccurrences": 13837,
   "details": [
     {
       "path": "_inspect\\CrusaderDE-Native-Baseline\\CURRENT.json",
@@ -13,21 +13,21 @@
     },
     {
       "path": "_inspect\\CrusaderDE-Native-Baseline\\CURRENT.md",
-      "bytes": 2343,
-      "crlf": 38,
+      "bytes": 2806,
+      "crlf": 42,
       "nakedLf": 0,
       "literalBackslashRBackslashN": 0
     },
     {
       "path": "_inspect\\CrusaderDE-Native-Baseline\\diff\\17F8DD4A-FBCB9319\\added-functions.jsonl",
-      "bytes": 429925,
+      "bytes": 490428,
       "crlf": 660,
       "nakedLf": 0,
       "literalBackslashRBackslashN": 0
     },
     {
       "path": "_inspect\\CrusaderDE-Native-Baseline\\diff\\17F8DD4A-FBCB9319\\changed-functions.jsonl",
-      "bytes": 1034834,
+      "bytes": 1034843,
       "crlf": 2529,
       "nakedLf": 0,
       "literalBackslashRBackslashN": 0
@@ -62,14 +62,14 @@
     },
     {
       "path": "_inspect\\CrusaderDE-Native-Baseline\\diff\\17F8DD4A-FBCB9319\\exports\\semantic-decompiled-functions.c",
-      "bytes": 10811995,
-      "crlf": 332043,
+      "bytes": 10812662,
+      "crlf": 332050,
       "nakedLf": 0,
       "literalBackslashRBackslashN": 0
     },
     {
       "path": "_inspect\\CrusaderDE-Native-Baseline\\diff\\17F8DD4A-FBCB9319\\exports\\semantic-functions.jsonl",
-      "bytes": 3032392,
+      "bytes": 3553531,
       "crlf": 4476,
       "nakedLf": 0,
       "literalBackslashRBackslashN": 0
@@ -97,43 +97,218 @@
     },
     {
       "path": "_inspect\\CrusaderDE-Native-Baseline\\diff\\17F8DD4A-FBCB9319\\logs\\ghidra-readonly-validation.log",
-      "bytes": 31919,
-      "crlf": 215,
+      "bytes": 37926,
+      "crlf": 258,
       "nakedLf": 0,
       "literalBackslashRBackslashN": 0
     },
     {
       "path": "_inspect\\CrusaderDE-Native-Baseline\\diff\\17F8DD4A-FBCB9319\\removed-functions.jsonl",
-      "bytes": 428077,
+      "bytes": 488397,
       "crlf": 658,
       "nakedLf": 0,
       "literalBackslashRBackslashN": 0
     },
     {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\diff\\17F8DD4A-FBCB9319\\semantic-reference-diff.jsonl",
+      "bytes": 1585645,
+      "crlf": 2476,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
       "path": "_inspect\\CrusaderDE-Native-Baseline\\diff\\17F8DD4A-FBCB9319\\version-matches.jsonl",
-      "bytes": 1548366,
+      "bytes": 1548396,
       "crlf": 3818,
       "nakedLf": 0,
       "literalBackslashRBackslashN": 0
     },
     {
       "path": "_inspect\\CrusaderDE-Native-Baseline\\diff\\17F8DD4A-FBCB9319\\VERSION_DIFF.md",
-      "bytes": 1019,
-      "crlf": 25,
+      "bytes": 1126,
+      "crlf": 26,
       "nakedLf": 0,
       "literalBackslashRBackslashN": 0
     },
     {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\\exports\\decompile-status.jsonl",
+      "bytes": 437554,
+      "crlf": 4478,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\\exports\\decompiled-functions.c",
+      "bytes": 10825998,
+      "crlf": 332418,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\\exports\\exports.jsonl",
+      "bytes": 5663,
+      "crlf": 78,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\\exports\\functions.jsonl",
+      "bytes": 933360,
+      "crlf": 4478,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\\exports\\imports.jsonl",
+      "bytes": 8767,
+      "crlf": 106,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\\exports\\rizin-functions.json",
+      "bytes": 7036496,
+      "crlf": 1,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\\exports\\rizin-imports.json",
+      "bytes": 11639,
+      "crlf": 1,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\\exports\\rizin-sections.json",
+      "bytes": 897,
+      "crlf": 1,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\\exports\\rizin-strings.json",
+      "bytes": 5074232,
+      "crlf": 1,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 32
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\\exports\\rizin-xrefs.json",
+      "bytes": 3636003,
+      "crlf": 1,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\\exports\\sections.json",
+      "bytes": 1567,
+      "crlf": 11,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\\exports\\strings.jsonl",
+      "bytes": 503758,
+      "crlf": 4248,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 15
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\\exports\\xrefs.jsonl",
+      "bytes": 34691937,
+      "crlf": 236382,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\\logs\\ghidra-export-script.log",
+      "bytes": 878,
+      "crlf": 8,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\\logs\\ghidra-export.log",
+      "bytes": 8437,
+      "crlf": 60,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\\logs\\ghidra-headless.log",
+      "bytes": 19208,
+      "crlf": 169,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\\logs\\ghidra-path-rejection-script.log",
+      "bytes": 0,
+      "crlf": 0,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\\logs\\ghidra-path-rejection.log",
+      "bytes": 6317,
+      "crlf": 50,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\\logs\\ghidra-script.log",
+      "bytes": 0,
+      "crlf": 0,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\\logs\\ghidra-validation-script.log",
+      "bytes": 224,
+      "crlf": 1,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\\logs\\ghidra-validation.log",
+      "bytes": 6378,
+      "crlf": 43,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\\logs\\rizin-aaa.stderr.log",
+      "bytes": 6,
+      "crlf": 1,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\\logs\\rizin-aaa.stdout.log",
+      "bytes": 6,
+      "crlf": 1,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\\SCAN_INFO.md",
+      "bytes": 6968,
+      "crlf": 117,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 1
+    },
+    {
       "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\DATABASE_INFO.json",
-      "bytes": 7027,
-      "crlf": 189,
+      "bytes": 7722,
+      "crlf": 209,
       "nakedLf": 0,
       "literalBackslashRBackslashN": 0
     },
     {
       "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\exports\\applied-labels.json",
-      "bytes": 2319,
-      "crlf": 11,
+      "bytes": 2883,
+      "crlf": 14,
       "nakedLf": 0,
       "literalBackslashRBackslashN": 0
     },
@@ -160,21 +335,21 @@
     },
     {
       "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\exports\\semantic-decompile-status.jsonl",
-      "bytes": 796010,
+      "bytes": 796040,
       "crlf": 4478,
       "nakedLf": 0,
       "literalBackslashRBackslashN": 0
     },
     {
       "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\exports\\semantic-decompiled-functions.c",
-      "bytes": 10854236,
-      "crlf": 332839,
+      "bytes": 10856822,
+      "crlf": 332870,
       "nakedLf": 0,
       "literalBackslashRBackslashN": 0
     },
     {
       "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\exports\\semantic-functions.jsonl",
-      "bytes": 3051408,
+      "bytes": 3574616,
       "crlf": 4478,
       "nakedLf": 0,
       "literalBackslashRBackslashN": 0
@@ -183,6 +358,41 @@
       "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\IDENTITY.json",
       "bytes": 336,
       "crlf": 8,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\knowledge\\api-contracts.jsonl",
+      "bytes": 2,
+      "crlf": 1,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\knowledge\\combined-labels.tsv",
+      "bytes": 1663,
+      "crlf": 13,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\knowledge\\confirmed-labels.tsv",
+      "bytes": 329,
+      "crlf": 4,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\knowledge\\function-claims.jsonl",
+      "bytes": 25860,
+      "crlf": 14,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\knowledge\\hook-spans.jsonl",
+      "bytes": 2923,
+      "crlf": 3,
       "nakedLf": 0,
       "literalBackslashRBackslashN": 0
     },
@@ -209,8 +419,8 @@
     },
     {
       "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\logs\\ghidra-readonly-validation.log",
-      "bytes": 31395,
-      "crlf": 215,
+      "bytes": 37368,
+      "crlf": 258,
       "nakedLf": 0,
       "literalBackslashRBackslashN": 0
     },
@@ -2183,8 +2393,8 @@
     },
     {
       "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\SEMANTIC_INFO.md",
-      "bytes": 12965,
-      "crlf": 212,
+      "bytes": 15927,
+      "crlf": 238,
       "nakedLf": 0,
       "literalBackslashRBackslashN": 0
     },
@@ -2406,6 +2616,41 @@
       "literalBackslashRBackslashN": 0
     },
     {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\validation\\api-contract-report.json",
+      "bytes": 4,
+      "crlf": 1,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\validation\\caller-abi-report.json",
+      "bytes": 2739,
+      "crlf": 108,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\validation\\confidence-gaps.json",
+      "bytes": 2309,
+      "crlf": 72,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\validation\\field-access-version-report.json",
+      "bytes": 2861,
+      "crlf": 113,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\validation\\hookspan-report.json",
+      "bytes": 414,
+      "crlf": 20,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
       "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\validation\\raw-baseline-before.jsonl",
       "bytes": 4584,
       "crlf": 34,
@@ -2421,64 +2666,78 @@
     },
     {
       "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\validation\\text-audit.json",
-      "bytes": 87034,
-      "crlf": 2514,
+      "bytes": 96729,
+      "crlf": 2787,
       "nakedLf": 0,
       "literalBackslashRBackslashN": 0
     },
     {
       "path": "_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\validation\\validation-report.json",
-      "bytes": 1670,
-      "crlf": 36,
+      "bytes": 1899,
+      "crlf": 44,
       "nakedLf": 0,
       "literalBackslashRBackslashN": 0
     },
     {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\tools\\ExportCrusaderBaseline.java",
+      "bytes": 13718,
+      "crlf": 294,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 2
+    },
+    {
       "path": "_inspect\\CrusaderDE-Native-Baseline\\tools\\semantic\\ApplyCrusaderSemantics.java",
-      "bytes": 11022,
+      "bytes": 11027,
       "crlf": 223,
       "nakedLf": 0,
       "literalBackslashRBackslashN": 4
     },
     {
       "path": "_inspect\\CrusaderDE-Native-Baseline\\tools\\semantic\\Build-SemanticBaseline.ps1",
-      "bytes": 15704,
-      "crlf": 207,
+      "bytes": 17509,
+      "crlf": 237,
       "nakedLf": 0,
       "literalBackslashRBackslashN": 0
     },
     {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\tools\\semantic\\curated_knowledge.py",
+      "bytes": 14750,
+      "crlf": 298,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 1
+    },
+    {
       "path": "_inspect\\CrusaderDE-Native-Baseline\\tools\\semantic\\database_manifest.py",
-      "bytes": 10117,
-      "crlf": 233,
+      "bytes": 10388,
+      "crlf": 237,
       "nakedLf": 0,
       "literalBackslashRBackslashN": 1
     },
     {
       "path": "_inspect\\CrusaderDE-Native-Baseline\\tools\\semantic\\ExportCrusaderSemantics.java",
-      "bytes": 14631,
-      "crlf": 228,
+      "bytes": 15096,
+      "crlf": 234,
       "nakedLf": 0,
       "literalBackslashRBackslashN": 2
     },
     {
       "path": "_inspect\\CrusaderDE-Native-Baseline\\tools\\semantic\\query.ps1",
-      "bytes": 2383,
+      "bytes": 2420,
       "crlf": 46,
       "nakedLf": 0,
       "literalBackslashRBackslashN": 0
     },
     {
       "path": "_inspect\\CrusaderDE-Native-Baseline\\tools\\semantic\\query.py",
-      "bytes": 6547,
-      "crlf": 112,
+      "bytes": 10904,
+      "crlf": 181,
       "nakedLf": 0,
       "literalBackslashRBackslashN": 0
     },
     {
       "path": "_inspect\\CrusaderDE-Native-Baseline\\tools\\semantic\\semantic_tools.py",
-      "bytes": 41770,
-      "crlf": 743,
+      "bytes": 48376,
+      "crlf": 830,
       "nakedLf": 0,
       "literalBackslashRBackslashN": 3
     },
@@ -2497,6 +2756,13 @@
       "literalBackslashRBackslashN": 0
     },
     {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\tools\\semantic\\test_curated_knowledge.py",
+      "bytes": 3249,
+      "crlf": 67,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
+    },
+    {
       "path": "_inspect\\CrusaderDE-Native-Baseline\\tools\\semantic\\text_audit.py",
       "bytes": 2649,
       "crlf": 67,
@@ -2505,10 +2771,17 @@
     },
     {
       "path": "_inspect\\CrusaderDE-Native-Baseline\\tools\\semantic\\validate.py",
-      "bytes": 7938,
-      "crlf": 158,
+      "bytes": 9039,
+      "crlf": 172,
       "nakedLf": 0,
       "literalBackslashRBackslashN": 2
+    },
+    {
+      "path": "_inspect\\CrusaderDE-Native-Baseline\\tools\\ValidateCrusaderBaseline.java",
+      "bytes": 1601,
+      "crlf": 36,
+      "nakedLf": 0,
+      "literalBackslashRBackslashN": 0
     }
   ]
 }

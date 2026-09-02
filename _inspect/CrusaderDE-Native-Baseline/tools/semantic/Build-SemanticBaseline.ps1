@@ -1,5 +1,5 @@
 param(
-    [ValidateSet('Validate', 'Knowledge', 'Resources', 'GhidraExports', 'Index', 'RestoreDatabase', 'All')]
+    [ValidateSet('Validate', 'Knowledge', 'Curated', 'Resources', 'GhidraExports', 'Index', 'RestoreDatabase', 'All')]
     [string]$Stage = 'Validate'
 )
 
@@ -31,6 +31,7 @@ $databaseManifest = Join-Path $semantic 'DATABASE_INFO.json'
 $currentIndex = Join-Path $baselineRoot 'CURRENT.json'
 $python = 'D:\CDesktopLink\Portable\Python\WinPy64\python\python.exe'
 $semanticTools = Join-Path $toolDirectory 'semantic_tools.py'
+$curatedKnowledgeTool = Join-Path $toolDirectory 'curated_knowledge.py'
 $databaseManifestTool = Join-Path $toolDirectory 'database_manifest.py'
 $extractorProject = Join-Path $toolDirectory 'SemanticExtract\SemanticExtract.csproj'
 $extractor = Join-Path $toolDirectory 'SemanticExtract\bin\Release\net10.0\SemanticExtract.exe'
@@ -73,10 +74,34 @@ function Invoke-DatabaseBuild([long]$CurrentSize, [long]$OldSize, [long]$Managed
         '--source-types', (Join-Path $semantic 'sources\source-types.jsonl'), '--type-fields', (Join-Path $semantic 'sources\type-fields.jsonl'),
         '--vtable-members', (Join-Path $semantic 'sources\vtable-members.jsonl'), '--delegates', (Join-Path $semantic 'sources\delegates.jsonl'),
         '--rtti-vtables', (Join-Path $semantic 'exports\rtti-vtables.jsonl'), '--xaml', (Join-Path $semantic 'resources\xaml-index.jsonl'),
-        '--xaml-links', (Join-Path $semantic 'resources\xaml-managed-links.jsonl'), '--version-matches', (Join-Path $comparison 'version-matches.jsonl')
+        '--xaml-links', (Join-Path $semantic 'resources\xaml-managed-links.jsonl'), '--version-matches', (Join-Path $comparison 'version-matches.jsonl'),
+        '--function-claims', (Join-Path $semantic 'knowledge\function-claims.jsonl'),
+        '--hook-spans', (Join-Path $semantic 'knowledge\hook-spans.jsonl'),
+        '--api-contracts', (Join-Path $semantic 'knowledge\api-contracts.jsonl')
     )
     & $python $semanticTools @indexArguments
     Assert-LastExitCode 'SQLite index build'
+}
+
+function Invoke-CuratedKnowledgeValidation {
+    $knowledge = Join-Path $semantic 'knowledge'
+    & $python $curatedKnowledgeTool `
+        --function-claims (Join-Path $knowledge 'function-claims.jsonl') `
+        --hook-spans (Join-Path $knowledge 'hook-spans.jsonl') `
+        --api-contracts (Join-Path $knowledge 'api-contracts.jsonl') `
+        --functions (Join-Path $semantic 'exports\semantic-functions.jsonl') `
+        --version-matches (Join-Path $comparison 'version-matches.jsonl') `
+        --current-hash $currentHash --native $native --source-root $workspace `
+        --labels (Join-Path $knowledge 'confirmed-labels.tsv') `
+        --report-dir (Join-Path $semantic 'validation')
+    Assert-LastExitCode 'Curated semantic knowledge validation'
+
+    $aobLabels = Get-Content -LiteralPath (Join-Path $semantic 'sources\aob-labels.tsv')
+    $curatedLabels = Get-Content -LiteralPath (Join-Path $knowledge 'confirmed-labels.tsv')
+    $combined = @($aobLabels)
+    if ($curatedLabels.Count -gt 1) { $combined += @($curatedLabels[1..($curatedLabels.Count - 1)]) }
+    $combinedText = [string]::Join([Environment]::NewLine, $combined) + [Environment]::NewLine
+    [IO.File]::WriteAllText((Join-Path $knowledge 'combined-labels.tsv'), $combinedText, [Text.UTF8Encoding]::new($false))
 }
 
 function Invoke-DatabaseManifest([string]$Command) {
@@ -102,6 +127,7 @@ if ($Stage -ne 'RestoreDatabase') {
 }
 
 $runKnowledge = $Stage -in @('Knowledge', 'All')
+$runCurated = $Stage -in @('Curated', 'GhidraExports', 'Index', 'Validate', 'All')
 $runResources = $Stage -in @('Resources', 'All')
 $runGhidra = $Stage -in @('GhidraExports', 'All')
 $runIndex = $Stage -in @('Index', 'All')
@@ -125,6 +151,10 @@ if ($runKnowledge) {
     Assert-LastExitCode 'Script Extender header copy'
     & $python $semanticTools sanitize-headers --source (Join-Path $semantic 'sources\headers') --output (Join-Path $semantic 'sources\script-extender-types-ghidra.h') --manifest (Join-Path $semantic 'sources\ghidra-header-manifest.jsonl')
     Assert-LastExitCode 'Ghidra header sanitization'
+}
+
+if ($runCurated) {
+    Invoke-CuratedKnowledgeValidation
 }
 
 if ($runResources) {
@@ -165,7 +195,7 @@ if ($runGhidra) {
     $env:JAVA_HOME = $jdk
     $currentProject = Join-Path $semantic 'ghidra'
     $currentExports = Join-Path $semantic 'exports'
-    & $ghidra $currentProject 'CrusaderDE-Semantic' -process 'CrusaderDE.dll' -noanalysis -scriptPath $toolDirectory -postScript ApplyCrusaderSemantics.java (Join-Path $semantic 'sources\aob-labels.tsv') (Join-Path $semantic 'sources\pinvoke-prototypes.tsv') (Join-Path $semantic 'sources\script-extender-types-ghidra.h') (Join-Path $semantic 'sources\CrusaderDE-ScriptExtender.gdt') (Join-Path $currentExports 'applied-labels.json')
+    & $ghidra $currentProject 'CrusaderDE-Semantic' -process 'CrusaderDE.dll' -noanalysis -scriptPath $toolDirectory -postScript ApplyCrusaderSemantics.java (Join-Path $semantic 'knowledge\combined-labels.tsv') (Join-Path $semantic 'sources\pinvoke-prototypes.tsv') (Join-Path $semantic 'sources\script-extender-types-ghidra.h') (Join-Path $semantic 'sources\CrusaderDE-ScriptExtender.gdt') (Join-Path $currentExports 'applied-labels.json')
     Assert-LastExitCode 'Current semantic Ghidra apply'
     & $ghidra $currentProject 'CrusaderDE-Semantic' -process 'CrusaderDE.dll' -noanalysis -scriptPath $toolDirectory -postScript ExportCrusaderSemantics.java $currentExports $currentHash
     Assert-LastExitCode 'Current semantic Ghidra export'

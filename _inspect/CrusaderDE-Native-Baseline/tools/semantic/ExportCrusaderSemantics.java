@@ -70,6 +70,7 @@ public class ExportCrusaderSemantics extends GhidraScript {
                 MessageDigest normalized = MessageDigest.getInstance("SHA-256");
                 TreeSet<String> strings = new TreeSet<>();
                 TreeSet<String> imports = new TreeSet<>();
+                TreeSet<String> dataRvas = new TreeSet<>();
                 InstructionIterator instructions = currentProgram.getListing().getInstructions(function.getBody(), true);
                 while (instructions.hasNext()) {
                     Instruction instruction = instructions.next();
@@ -83,6 +84,11 @@ public class ExportCrusaderSemantics extends GhidraScript {
                     Reference[] references = instruction.getReferencesFrom();
                     for (Reference reference : references) {
                         Address target = reference.getToAddress();
+                        if (target != null && target.isMemoryAddress() &&
+                            target.getAddressSpace().equals(imageBase.getAddressSpace()) &&
+                            reference.getReferenceType().isData() && !function.getBody().contains(target)) {
+                            dataRvas.add(rva(target));
+                        }
                         Data data = currentProgram.getListing().getDefinedDataAt(target);
                         if (data != null && data.hasStringValue()) {
                             StringDataInstance instance = StringDataInstance.getStringDataInstance(data);
@@ -119,7 +125,7 @@ public class ExportCrusaderSemantics extends GhidraScript {
                     ",\"comment\":" + quote(comment) + ",\"blockCount\":" + blockCount + ",\"edgeCount\":" + edgeCount +
                     ",\"rawHash\":" + quote(toHex(raw.digest())) + ",\"mnemonicHash\":" + quote(toHex(mnemonic.digest())) +
                     ",\"normalizedHash\":" + quote(toHex(normalized.digest())) + ",\"strings\":" + stringArray(strings) +
-                    ",\"imports\":" + stringArray(imports) + ",\"callees\":" + stringArray(callees) +
+                    ",\"imports\":" + stringArray(imports) + ",\"dataRvas\":" + stringArray(dataRvas) + ",\"callees\":" + stringArray(callees) +
                     ",\"calleeRvas\":" + nullableStringArray(calleeRvas) + "}");
                 count++;
             }

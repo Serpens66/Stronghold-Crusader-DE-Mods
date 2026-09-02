@@ -32,7 +32,7 @@ Verified AssetStudio archive:
 
 `ghidra/CrusaderDE-Semantic.gpr` and its matching `.rep` directory are a copy of the raw current Ghidra baseline. Only this copy was enriched.
 
-- 9 unique direct-function AOBs received confirmed Script Extender names and provenance comments.
+- 9 unique direct-function AOBs and 3 confirmed curated claims received names and provenance comments.
 - All 77 `CrusaderDE` exports received managed P/Invoke prototypes.
 - 119 Script Extender header types were imported into the project archive.
 - Ghidra exposes 259 data types after enrichment, including built-in/demangled types.
@@ -46,7 +46,21 @@ Naming rules:
 - `probable`: reserved for a well-supported, non-unique semantic inference and visibly prefixed `prob_` if applied.
 - `candidate`: discovery or topic evidence that is retained in exports/database but does not rename Ghidra symbols.
 
-No probable name was applied in this run. Topic classifications never rename functions.
+Curated semantic claims now separate function identity, semantic name and ABI confidence from version-match confidence. Only a curated semantic name whose own confidence is `confirmed` is eligible for a Ghidra rename. Probable and candidate claims remain queryable without changing symbols. Topic classifications never rename functions.
+
+## Curated semantic knowledge
+
+The tracked `knowledge` directory is the human-audited layer between raw/semantic Ghidra exports and SQLite. Its JSONL records are hash-bound, retain independent evidence chains and counter-evidence, and are validated before Ghidra or index generation.
+
+- Function claims: 14
+- Evidence records: 31
+- Fully specified hook spans: 3
+- Active API boundary contracts: 0
+- Confirmed curated labels: 3
+
+The function claims cover AI sleep synchronization, emergency and targeted demolition, AIV build/placement, AI market prices, plague creation/update/healer selection, Monk movement, quarry placement candidates and gatehouse automation. The market buy/sell helpers and targeted AI hovel deletion currently meet the stricter `confirmed` semantic threshold; the remaining reconstructed names stay `probable`.
+
+The previously observed `GatehouseQueryEventArgs.UnitId` index mismatch is deliberately not published as an active API contract because the Script Extender author has confirmed that it will be corrected upstream. Any temporary mod compatibility handling must therefore be reassessed against the installed Script Extender version rather than treated as a lasting baseline contract.
 
 ## Script Extender knowledge
 
@@ -104,6 +118,9 @@ The external Dat2XAML copy has two documented container fixes: it stops before a
 | Table/domain | Records |
 |---|---:|
 | Native functions, current plus historical | 8,954 |
+| Curated function claims / evidence | 14 / 31 |
+| Validated hook spans / active API contracts | 3 / 0 |
+| Function-to-global/data references, current plus historical | 79,264 |
 | Native call edges | 23,692 |
 | Raw current Xrefs | 236,382 |
 | Defined strings | 4,248 |
@@ -119,12 +136,12 @@ Primary artifact integrity:
 
 | Artifact | Bytes | SHA-256 |
 |---|---:|---|
-| Local `CrusaderDE-semantic.sqlite` (reference recorded in `DATABASE_INFO.json`) | 147,181,568 | `288FEACB7EF209E259D41ABA20D107C442CAD2859F0A495C890640173AA54594` |
-| `exports/semantic-decompiled-functions.c` | 10,854,236 | `7E81BA2CAE728AC6D5F027098FEF1E813F136BB883E8AF958E0FE37D4BAB42BE` |
-| Current `semantic-functions.jsonl` | 3,051,408 | `722BFB54DC73A9E8562326BABE05857B2B042875932DA3D2668F4F2166C6241C` |
-| Historical `semantic-functions.jsonl` | 3,032,392 | `5F85A4EADC59DEEB51311CE113401B22DFACD20E77697D97B90363DDDDDF495C` |
+| Local `CrusaderDE-semantic.sqlite` (reference recorded in `DATABASE_INFO.json`) | 154,624,000 | `E314E3BB77BA65A87B87DBFBF6309E95DD5F339BB05109288D780B37D81DB0F5` |
+| `exports/semantic-decompiled-functions.c` | 10,856,822 | `012C77F892EB927144AC857EE1C2AF690D61E371066BAF307EBAB3108F92B291` |
+| Current `semantic-functions.jsonl` | 3,574,616 | `58418AE6217520197158E41BC46E37ED16CAD230639393C684D099380696B447` |
+| Historical `semantic-functions.jsonl` | 3,553,531 | `9541067177CDAD5EAC47572CA32B23774526A156961F42FFBDC05908BD3355D7` |
 
-The semantic Ghidra project contains 10 files totaling 101,680,186 bytes. The historical Ghidra project contains 9 files totaling 48,677,949 bytes. Their internal project databases are validated by fresh read-only opens rather than treated as single-file archives.
+The semantic Ghidra project contains 10 files totaling 101,811,258 bytes. The historical Ghidra project contains 10 files totaling 97,354,813 bytes. Their internal project databases are validated by fresh read-only opens rather than treated as single-file archives.
 
 Deterministic subsystem classifications currently cover:
 
@@ -149,13 +166,17 @@ Run these commands from the workspace root:
     & '_inspect\CrusaderDE-Native-Baseline\tools\semantic\query.ps1' callers DLL_PreInitMap_Editor
     & '_inspect\CrusaderDE-Native-Baseline\tools\semantic\query.ps1' callees 0x85E90
     & '_inspect\CrusaderDE-Native-Baseline\tools\semantic\query.ps1' managed PreInitMap
+    & '_inspect\CrusaderDE-Native-Baseline\tools\semantic\query.ps1' claim fn-ai-get-buy-price
+    & '_inspect\CrusaderDE-Native-Baseline\tools\semantic\query.ps1' hook 0x151436
+    & '_inspect\CrusaderDE-Native-Baseline\tools\semantic\query.ps1' contract UnitId
+    & '_inspect\CrusaderDE-Native-Baseline\tools\semantic\query.ps1' gaps
     & '_inspect\CrusaderDE-Native-Baseline\tools\semantic\query.ps1' diff 17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2
 
 After a fresh clone, recreate a missing local database from the tracked exports. This validates all input hashes and logical database contents without rewriting the reference manifest:
 
     & '_inspect\CrusaderDE-Native-Baseline\tools\semantic\Build-SemanticBaseline.ps1' RestoreDatabase
 
-`function` returns the name/confidence, signature, provenance comment, pseudocode, strings, globals, callers, callees, managed callers, referenced types and version match.
+`function` returns exported symbol confidence and all matching curated claim dimensions, evidence, ABI, fields, hook spans, pseudocode, strings, data/global references, callers, callees, managed callers, referenced types and version match. `gaps` reports functions whose version identity is stronger than their semantic name.
 
 ## Historical comparison
 
@@ -169,13 +190,15 @@ The historical DLL was independently imported with the same stable Ghidra defaul
 - Removed/unmatched historical functions: 658
 - Added/unmatched current functions: 660
 
+The generated `semantic-reference-diff.jsonl` records 2,476 safely matched functions whose global/data references or referenced strings differ between the two versions.
+
 Confirmed matches require the same export name, a unique raw-byte hash, or a unique normalized-instruction hash with the same CFG. Probable matches must be mutual best matches with score at least 0.92, at least 0.10 separation from the runner-up and at least two corroborators from strings, imports, CFG or a maximum 5 percent size difference. All other pairs remain unmatched/candidate.
 
 See the machine-readable records and `VERSION_DIFF.md` under `../../diff/17F8DD4A-FBCB9319/`.
 
 ## Reproduction and validation
 
-The reusable pipeline is `tools/semantic/Build-SemanticBaseline.ps1`. Derived directories use collision-checked eight-character hash keys (`sem/FBCB9319`, `managed/BC8B6A39` and `diff/17F8DD4A-FBCB9319`) to keep Windows and GitHub paths short. `IDENTITY.json` stores the complete hashes; validation fails if a short key belongs to another full hash or if a generated file path exceeds 240 characters. The stages are `Knowledge`, `Resources`, `GhidraExports`, `Index`, `RestoreDatabase`, `Validate` and `All`. A canonical `Index` run atomically builds the database and refreshes `DATABASE_INFO.json` plus the root `CURRENT.json`; `RestoreDatabase` only consumes and validates the tracked manifest/exports. Source-analysis stages check all three binary hashes and the Script Extender commit. `Validate` is safe and read-only apart from refreshing its JSON report:
+The reusable pipeline is `tools/semantic/Build-SemanticBaseline.ps1`. Derived directories use collision-checked eight-character hash keys (`sem/FBCB9319`, `managed/BC8B6A39` and `diff/17F8DD4A-FBCB9319`) to keep Windows and GitHub paths short. `IDENTITY.json` stores the complete hashes; validation fails if a short key belongs to another full hash or if a generated file path exceeds 240 characters. The stages are `Knowledge`, `Curated`, `Resources`, `GhidraExports`, `Index`, `RestoreDatabase`, `Validate` and `All`. `Curated` checks claim thresholds, source hashes, function fingerprints, hook bytes/instruction coverage and machine contracts, then produces the confirmed-only label input and validation reports. A canonical `Index` run atomically builds schema-v2 SQLite and refreshes `DATABASE_INFO.json` plus the root `CURRENT.json`; `RestoreDatabase` only consumes and validates the tracked manifest/exports and curated inputs. Source-analysis stages check all three binary hashes and the Script Extender commit. `Validate` refreshes its reports and performs fail-closed checks:
 
     & '_inspect\CrusaderDE-Native-Baseline\tools\semantic\Build-SemanticBaseline.ps1' Validate
 
@@ -193,14 +216,16 @@ The final fail-closed validation confirms:
 - 77 of 77 `CrusaderDE` P/Invokes resolved;
 - all 105 XAML files parse as XML;
 - 3,818 version matches are one-to-one and satisfy their confidence thresholds;
+- all 14 curated claims, 31 evidence records and three machine hookspan contracts are hash-consistent;
+- caller ABI observations are mutually compatible and confirmed names alone enter the Ghidra label stream;
 - JSON/JSONL parsing, VA/RVA relations and PE image ranges;
 - SQLite `integrity_check`, foreign-key check and FTS5 search.
-- CRLF audit of 358 generated text files with zero naked-LF files.
+- CRLF audit of 397 text files with zero naked-LF files.
 - Baseline-wide path audit with a 240-character fail-closed limit: zero violations and a maximum absolute path length of 233 characters in this workspace (reduced from 308 before path compaction).
 
 The machine-readable result is `validation/validation-report.json`. Individual Ghidra logs and process timings remain under `logs/` and the comparison `logs/` directory.
 
-The text audit found 13,786 literal backslash-r/backslash-n escape sequences in 12 files. They are intentional: 13,768 encode preserved Roslyn source declarations/contexts inside JSON strings, while the remaining 18 are newline-handling literals in the reusable C#, Java and Python tools. They are not file line endings. Details are retained in `validation/text-audit.json`.
+The text audit found 13,837 literal backslash-r/backslash-n escape sequences in 17 files. They are intentional: 13,768 encode preserved Roslyn source declarations/contexts inside JSON strings, while the remaining 69 occur in raw extracted strings, documentation and newline-handling literals in the reusable C#, Java and Python tools. They are not file line endings. Details are retained in `validation/text-audit.json`.
 
 ## Known limits
 
@@ -210,3 +235,4 @@ The text audit found 13,786 literal backslash-r/backslash-n escape sequences in 
 - Managed transitive callchains show reachability, not that every path executes in a particular game mode.
 - XAML bindings are data-context-sensitive; unresolved and ambiguous records are retained rather than guessed.
 - No runtime behavior, timing, heap state or dynamic dispatch target was observed because runtime scans were excluded.
+- Curated runtime evidence refers to focused, separately documented ExtraFeatures audits; the baseline pipeline itself still performs no live game hooks.

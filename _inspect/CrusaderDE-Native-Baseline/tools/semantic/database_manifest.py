@@ -13,7 +13,8 @@ from pathlib import Path
 
 CRLF = "\r\n"
 COUNT_TABLES = [
-    "binaries", "functions", "call_edges", "xrefs", "strings", "globals",
+    "binaries", "functions", "function_claims", "claim_evidence", "hook_spans", "api_contracts",
+    "call_edges", "function_data_references", "xrefs", "strings", "globals",
     "managed_methods", "pinvokes", "managed_calls", "managed_native_links",
     "patterns", "data_types", "source_types", "type_fields", "vtable_members",
     "delegates", "rtti_vtables", "xaml_resources", "xaml_links",
@@ -75,6 +76,9 @@ def input_paths(args):
         semantic / "exports" / "globals.jsonl",
         semantic / "exports" / "data-types.jsonl",
         semantic / "exports" / "rtti-vtables.jsonl",
+        semantic / "knowledge" / "function-claims.jsonl",
+        semantic / "knowledge" / "hook-spans.jsonl",
+        semantic / "knowledge" / "api-contracts.jsonl",
         comparison / "exports" / "semantic-functions.jsonl",
         comparison / "version-matches.jsonl",
         raw / "exports" / "xrefs.jsonl",
@@ -132,7 +136,7 @@ def create(args):
         "scriptExtenderCommit": args.se_commit,
     }
     manifest = {
-        "manifestSchemaVersion": 1,
+        "manifestSchemaVersion": 2,
         "database": {
             "path": relative(database, baseline),
             "schemaVersion": int(facts["metadata"]["schema_version"]),

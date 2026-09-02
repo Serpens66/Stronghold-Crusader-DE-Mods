@@ -26,10 +26,14 @@ Semantic reverse-engineering baseline:
 - [XAML index](./sem/FBCB9319/resources/xaml-index.jsonl)
 - [Historical version report](./diff/17F8DD4A-FBCB9319/VERSION_DIFF.md)
 - [Read-only query entry point](./tools/semantic/query.ps1)
+- [Curated function claims](./sem/FBCB9319/knowledge/function-claims.jsonl), [machine hook spans](./sem/FBCB9319/knowledge/hook-spans.jsonl) and [API contracts](./sem/FBCB9319/knowledge/api-contracts.jsonl)
 
 Typical query from the workspace root:
 
     & '_inspect\CrusaderDE-Native-Baseline\tools\semantic\query.ps1' stats
+    & '_inspect\CrusaderDE-Native-Baseline\tools\semantic\query.ps1' claim fn-ai-get-buy-price
+    & '_inspect\CrusaderDE-Native-Baseline\tools\semantic\query.ps1' hook 0x151436
+    & '_inspect\CrusaderDE-Native-Baseline\tools\semantic\query.ps1' gaps
 
 If the local database is absent after a fresh clone, rebuild it from the tracked exports without changing the reference manifest:
 

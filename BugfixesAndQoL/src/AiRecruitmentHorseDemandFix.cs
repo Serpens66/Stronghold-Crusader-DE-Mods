@@ -34,6 +34,15 @@ namespace BugfixesAndQoL
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
 
+            // The entry signature proves the result-code field at +0x650, but the
+            // companion missing-good field at +0x654 is written only in later branches.
+            // Do not write that fixed manager layout on an unknown native build.
+            if (!referenceHashMatches)
+            {
+                throw new InvalidOperationException(
+                    "The AI recruitment horse-demand fix remains inactive because its fixed recruitment-result layout is not validated for this CrusaderDE.dll.");
+            }
+
             Shared.NativeResolution resolution = Shared.NativePatternResolver.ResolveUnique(
                 memory,
                 AiRecruitmentHorseDemandNativeDefinition.RecruitEuropeanUnitPattern,
@@ -63,12 +72,6 @@ namespace BugfixesAndQoL
                     $"Bugfixes and QoL AI recruitment horse-demand hook installed: " +
                     $"method={resolution.Method}, rva=0x{resolution.Rva:X}, enabled={IsEnabled}.");
 
-                if (!referenceHashMatches)
-                {
-                    Shared.DebugLogHelper.LogWarning(
-                        log,
-                        "Bugfixes and QoL AI recruitment horse-demand fix is running on an unknown CrusaderDE.dll because the European troop recruitment signature was uniquely validated.");
-                }
             }
             catch
             {

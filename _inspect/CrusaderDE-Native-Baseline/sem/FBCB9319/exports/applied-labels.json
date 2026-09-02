@@ -7,5 +7,8 @@
   {"address":"1800d90d0","rva":"0xD90D0","oldName":"c_game_update_pathfinding_for_tile_and_neighbors3x3","name":"c_game_update_pathfinding_for_tile_and_neighbors3x3","confidence":"confirmed","matchAddress":"1800d90d0","source":"src/SHCDESE.BepInEx/Detours/BulkTileDetours.cs:26"},
   {"address":"1800e0850","rva":"0xE0850","oldName":"c_game_update_pathfinding_pot","name":"c_game_update_pathfinding_pot","confidence":"confirmed","matchAddress":"1800e0850","source":"src/SHCDESE.BepInEx/Detours/BulkTileDetours.cs:31"},
   {"address":"180059520","rva":"0x59520","oldName":"c_game_create_tree_proximity_area","name":"c_game_create_tree_proximity_area","confidence":"confirmed","matchAddress":"180059520","source":"src/SHCDESE.BepInEx/Detours/BulkVegetationDetours.cs:84"},
-  {"address":"180108280","rva":"0x108280","oldName":"c_game_get_tree_proximity_area_level_from_type","name":"c_game_get_tree_proximity_area_level_from_type","confidence":"confirmed","matchAddress":"180108280","source":"src/SHCDESE.BepInEx/Detours/BulkVegetationDetours.cs:87"}
+  {"address":"180108280","rva":"0x108280","oldName":"c_game_get_tree_proximity_area_level_from_type","name":"c_game_get_tree_proximity_area_level_from_type","confidence":"confirmed","matchAddress":"180108280","source":"src/SHCDESE.BepInEx/Detours/BulkVegetationDetours.cs:87"},
+  {"address":"18003b1d0","rva":"0x3B1D0","oldName":"FUN_18003b1d0","name":"c_game_ai_delete_hovel","confidence":"confirmed","matchAddress":"18003b1d0","source":"fn-ai-delete-hovel:0"},
+  {"address":"1800ceb10","rva":"0xCEB10","oldName":"FUN_1800ceb10","name":"c_game_ai_get_buy_price","confidence":"confirmed","matchAddress":"1800ceb10","source":"fn-ai-get-buy-price:0"},
+  {"address":"1800ceb90","rva":"0xCEB90","oldName":"FUN_1800ceb90","name":"c_game_ai_get_sell_price","confidence":"confirmed","matchAddress":"1800ceb90","source":"fn-ai-get-sell-price:0"}
 ]}
