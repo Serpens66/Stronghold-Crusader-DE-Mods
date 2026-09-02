@@ -1892,3 +1892,139 @@ Die historische Zuordnung `0x190BC0 -> 0x191C00` ist für den Auswahlhelper durc
 `unique-raw-hash` bestätigt. Sie ist ein Suchanker, keine Erlaubnis, die aktuelle RVA ohne
 erneute Hash- und Byteprüfung zu verwenden.
 
+### 15.6 Mischgruppen: Cursorentscheidung nach Gruppenerreichbarkeit
+
+Der Test vom 3. September 2026 bestätigte einen Randfall der ersten Capability-Fassung. Eine
+grabfähige Unit stand bereits hinter dem eigenen Moat direkt beim Ziel, während ungeeignete
+Mitglieder derselben Auswahl noch auf der anderen Seite standen. Der Cursor blieb rot und es
+entstand kein Command. Die Logs zeigten gleichzeitig:
+
+- `vanillaDiggerSelection=True` für die gemischte Auswahl;
+- die ausgewählte grabfähige Unit 3 bei `start=(419,376)/142148`;
+- für nahe Ziele `fallbackArmed=False` mit `no-required-friendly-moat-route`, weil diese Unit
+  das Ziel auf ihrer Seite bereits ohne Moat erreichte;
+- bei weiter entfernten Zielen verwendete `0xE2CA0` eine andere repräsentative Gruppenunit auf
+  Tile `156048` statt des gespeicherten Starttiles `142148`.
+
+Die Ursache lag damit im Cursor-Aggregat, nicht im späteren Bewegungsfallback. Eine notwendige
+freundliche Moat-Route der gewählten Gräber-Referenz allein bildet gemischte Auswahlen nicht
+vollständig ab.
+
+Der Cursorpfad bewertet freie Ziele und `AttackUnit`-Annäherungsfelder deshalb nun über alle
+lebenden ausgewählten Units desselben Spielers:
+
+- eine Unit ist legal erreichbar, wenn sie das Ziel ohne Moat erreicht oder als
+  `CanDigMoat`-Unit einen notwendigen eigenen beziehungsweise verbündeten Moat verwenden kann;
+- eine freundliche Moat-Trennung liegt vor, wenn eine ausgewählte Unit das Ziel mit erlaubten
+  freundlichen Moat-Tiles, aber nicht ohne Moat erreicht;
+- Vanillas negatives Auswahlresultat wird nur angehoben, wenn mindestens eine Unit legal
+  erreichbar ist und mindestens eine Unit durch einen freundlichen Moat getrennt ist;
+- reine ungeeignete Auswahlen, feindliche Moats, Wasser und Mauern erhalten dadurch keine neue
+  Freigabe.
+
+Die Entscheidung ist an Kartenepoch, Spieler, Zielart, Zieltile sowie eine sortierte Signatur aus
+Unit-ID, Typ, aktuellem Tile und Grabfähigkeit aller gültigen ausgewählten Units gebunden. Eine
+unmittelbar folgende `0xE2CA0`-Prüfung darf eine andere repräsentative Gruppenunit verwenden,
+solange diese Signatur und das Ziel unverändert sind. Planer, Modus, Regionsprüfung und Builder
+bleiben anschließend strikt pro Unit durch `CanDigMoat` begrenzt. Die Diagnose
+`stage=cursor-group-route` fasst Auswahlgröße, Gräber, legal erreichbare Units, durch freundlichen
+Moat getrennte Units und das effektive Ergebnis zusammen.
+
+Die Gruppenprobe führt nicht pro Unit eine Vollkarten-BFS aus. Units mit derselben positiven
+Vanilla-Startregion teilen sich eine Probe, weil die Region bereits eine zusammenhängende
+Bodenkomponente bezeichnet. Nur regionslose Starttiles werden getrennt behandelt. Zusätzlich
+wird das Ergebnis für die vollständige Auswahl-/Positions-/Zielsignatur zwischengespeichert.
+Damit wachsen die teuren Prüfungen mit der Zahl verschiedener Startregionen statt mit der Zahl
+ausgewählter Units; jede Auswahl-, Tile-, Ziel- oder Kartenänderung verwirft den Cache semantisch.
+
+### 15.7 Separater Vanilla-Randfall: Assassin in gemischter Kletterauswahl
+
+Vanilla blockiert auch ohne diesen Mod einen Mauer-Kletterbefehl, wenn ein Assassin gemeinsam
+mit einer gewöhnlichen, nicht kletterfähigen Unit ausgewählt ist. Die aktuelle Baseline zeigt in
+`0x11B520`, dass `0x117820` einmal für die gesamte Auswahl prüft, ob alle aktiven ausgewählten
+Units Assassinen sind. Nur dann wird der gemeinsame Assassin-/Kletterbuilder gewählt; erst später
+iteriert die Funktion wieder über einzelne Units.
+
+Dieser Befund gehört nicht zur Moat-Capability: Assassinen sind keine Vanilla-Gräber und erhalten
+in `MoveMoatTest` keinen Moat-Fallback. Eine Änderung müsste den gemeinsamen Builderentscheid in
+`0x11B520` und die spätere per-Unit-Ausgabe des Kletterbefehls zusammen behandeln. Sie bleibt ein
+separater QoL-Kandidat und darf nicht durch eine pauschale Mauer-Cursorfreigabe in diesem Mod
+vorweggenommen werden.
+
+### 15.8 Vanilla-Gruppenfehler bei Units auf und außerhalb eines fertigen Moats
+
+Der Editor-Test vom 3. September 2026 zeigte einen zweiten, vom Cursorfall aus Abschnitt 15.6
+getrennten Gruppenfehler: Stehen beim Erteilen eines `MoveHere`-Befehls einige grabfähige Units
+bereits im fertigen Moat und andere außerhalb, bleiben je nach interner Gruppenreihenfolge
+entweder die Units im Moat oder die außerhalb stehenden Units ohne verwertbaren Pfad stehen.
+Vanilla zeigt denselben Grundfehler: Eine einzelne Unit im Moat und eine Gruppe, deren Mitglieder
+alle im Moat stehen, lassen sich bewegen; in einer gemischten Innen-/Außengruppe reagieren die
+Units im Moat dagegen nicht zuverlässig.
+
+Die hashgleiche Native-Baseline lokalisiert die gemeinsame Entscheidung in `MoveHere` bei RVA
+`0x11B520` (historisch bestätigt `0x11A640 -> 0x11B520`). Die Funktion liest bei
+`tribe + tribeId * 0x688` die Leitunit aus Offset `0x5A` und ruft bei RVA `0x11B666` den Helper
+`0x117BC0` auf. Die entscheidende Sequenz lautet:
+
+    48 8B CF E8 55 C5 FF FF 44 3B F8 75 72
+
+Das entspricht `mov rcx,rdi; call 0x117BC0; cmp r15d,eax; jne ...`. `0x117BC0` iteriert die
+Gruppe über `0x119F90` und berücksichtigt eine Unit nur bei `AliveState == 2` und einem unteren
+16-Bit-Wert von `0` bei `unit+0x29C`. Anschließend liefert es die erste solche Unit zurück, deren
+aktuelles Tile Bit 30 (`0x40000000`) besitzt. Nur wenn diese erste Moat-Unit zugleich die zuvor
+gewählte Leitunit ist, aktiviert `0x11B520` seinen gemeinsamen Moatpfad. Deshalb ist das Ergebnis
+von Auswahlreihenfolge und Leitunit abhängig. Der Gruppeniterator ist dabei die maßgebliche
+Mitgliedschaftsquelle; ein zusätzlicher Vergleich mit dem kurzzeitig veränderlichen
+`unit.r_TribeId` gehört nicht zum Vanilla-Helper.
+
+Die anschließende Builderauswahl in `0x11B520` ist ebenfalls gruppenweit:
+
+- gewöhnliche Gruppen verwenden `0xDA590`;
+- bei gesetztem gemeinsamen Moatmodus wird `0xDAFD0` verwendet;
+- reine Assassin-Gruppen verwenden den separaten Builder `0xD9C40`.
+
+Eine pauschale Auswahl von `0xDAFD0` wäre für `MoveMoatTest` falsch, weil dadurch auch
+nicht grabfähige Gruppenmitglieder den gemeinsamen Moatpfad erhalten könnten. Der aktuelle
+Kandidat detourt daher `0x117BC0`, ruft immer zuerst Vanilla auf und normalisiert ausschließlich
+eine validierte gemischte Gruppe mit einer grabfähigen Unit auf eigenem oder verbündetem Moat
+auf Ergebnis `0`. Die teurere Gruppen- und Routenprüfung beginnt erst, wenn Vanillas Rückgabewert
+tatsächlich der Leitunit entspricht und `0x11B520` andernfalls den gemeinsamen Moatbuilder wählen
+würde. Nach der ersten positiven owner-sicheren Routenprobe werden für weitere Gruppenmitglieder
+keine vollständigen Karten-BFS mehr ausgeführt. Damit verwendet die Gruppe den gewöhnlichen gemeinsamen Floodbuilder; die
+bereits vorhandenen owner- und `CanDigMoat`-geprüften Hooks entscheiden anschließend pro Unit,
+wer tatsächlich einen Moatpfad erhalten darf. Gruppen, deren aktive Mitglieder sämtlich im
+Moat stehen, bleiben vollständig Vanilla.
+
+Ein zweiter belegter Fehler lag im eigenen Builder-Gate: `0x196840` liefert für eine bereits im
+fertigen Moat stehende Unit korrekt `1`, aber `VanillaModeDetected == true` schloss sie bislang
+vom Retry aus. Die protokollierten Aufrufe zeigten dabei `path80=1`, einen ersten Builderwert `0`
+und später einen separaten Bodenbuilderwert `4`. Der Retry akzeptiert deshalb nun auch diesen
+Vanilla-Modus, weiterhin erst nach echtem Vanilla-Nuller, `CanDigMoat`, `path80=1` und einer
+notwendigen owner-sicheren Route. Die Diagnose bezeichnet diesen Fall als
+`standing-on-moat-route80`.
+
+Regions- und Builderfallback verlangen zusätzlich ausdrücklich einen bereits owner-qualifizierten
+Plan (`FriendlyRouteQualified`), einen beobachteten Moatmodus und den aktiven globalen Moatmodus.
+Damit kann ein bloßes positives Vanilla-Ergebnis von `0x196840`, etwa weil eine Unit bereits auf
+einem fertigen Moat steht, keine spätere Regions- oder Builderfreigabe ohne vorherige Ownerprüfung
+auslösen.
+
+Update-Suchanker für die kanonische DLL
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`:
+
+- `0x117BC0`, Größe 173, Raw-Hash
+  `22F2A1110140E18C7337E6098937E483A98C3BF0D1DCC36BF6B33DD2EFA7FDC8`, historisch
+  `0x116CE0 -> 0x117BC0` über `unique-normalized-hash-and-cfg` bestätigt;
+- `0x119F90`, Größe 140, Raw-Hash
+  `CD5DAE0B455BA6CBFC20D0193849591A8250C710C8B77BBDCFFF6908FBD1544F`, historisch
+  `0x1190B0 -> 0x119F90` über `unique-raw-hash` bestätigt;
+- `0x117BC0` besitzt in dieser Baseline nur `0x11B520` als Caller und verwendet `0x119F90` als
+  einzigen Callee;
+- bei Updates zuerst `0x11B520` semantisch wiederfinden, den Vergleich zwischen Leitunit und
+  erster Moat-Unit sowie die drei Builderzweige bestätigen und erst dann Helper, Iterator,
+  Callbytes und vollständige Detour-Entrybytes übernehmen.
+
+Schlägt eine dieser Validierungen fehl, wird der neue funktionale Hook gemeinsam mit den
+zentralen Bewegungshooks zurückgerollt. Es gibt keinen gruppenweiten Fallback und keine
+Aufteilung oder erneute Ausgabe des Befehls.
+

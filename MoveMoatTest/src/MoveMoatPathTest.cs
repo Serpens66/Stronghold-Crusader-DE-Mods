@@ -9,6 +9,7 @@ using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.Text;
 using Zhuqiaomon.Assembly;
 
 namespace MoveMoatTest
@@ -25,6 +26,14 @@ namespace MoveMoatTest
         [UnmanagedFunctionPointer(CallingConvention.Winapi)]
         private delegate int TribeFloodFillMembershipDelegate(
             IntPtr tribeManager, int tribeId, int floodFillStamp);
+
+        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+        private delegate int FirstGroupUnitOnCompletedMoatDelegate(
+            IntPtr tribeManager, int tribeId);
+
+        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+        private delegate int GetGroupUnitIdDelegate(
+            IntPtr tribeManager, int tribeId, int ordinal);
 
         [UnmanagedFunctionPointer(CallingConvention.Winapi)]
         private delegate int CursorReachabilityDelegate(
@@ -103,6 +112,9 @@ namespace MoveMoatTest
 
         private const int CentralMovementPlanRva = 0x18E1E0;
         private const int TribeFloodFillMembershipRva = 0x124740;
+        private const int FirstGroupUnitOnCompletedMoatRva = 0x117BC0;
+        private const int GetGroupUnitIdRva = 0x119F90;
+        private const int GroupMoatModeCallRva = 0x11B666;
         private const int UnitStandingOnCompletedMoatRva = 0x196840;
         private const int RegionReachabilityRva = 0xE7C40;
         private const int CursorReachabilityRva = 0xE9FF0;
@@ -162,6 +174,13 @@ namespace MoveMoatTest
         private const int NativeUnitManagerRva = 0x67E8400;
         private const int NativeTribeManagerRva = 0x7CC6720;
 
+        private const int TribeRecordSize = 0x688;
+        private const int TribeLeadUnitIdOffset = 0x5A;
+        private const int TribeUnitCountOffset = 0x5C;
+        private const int UnitGroupInactiveStateOffset = 0x29C;
+        private const int MaximumTribeCount = 4500;
+        private const int MaximumUnitCount = 10000;
+
         private const int MoatRecordArrayOffset = 0x1F3EE30;
         private const int MoatRecordCountOffset = 0x2038E30;
         private const int MoatRecordSize = 0x10;
@@ -189,6 +208,16 @@ namespace MoveMoatTest
         private const string TribeFloodFillMembershipPattern =
             "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 56 41 57 " +
             "48 83 EC 20 48 63 F2 33 DB 4C 69 CE 88 06 00 00 45 8B F0 48 8B E9";
+
+        private const string FirstGroupUnitOnCompletedMoatPattern =
+            "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 48 89 7C 24 20 " +
+            "41 56 48 83 EC 20 48 63 F2 33 DB 4C 69 C6 88 06 00 00 48 8B E9 " +
+            "41 0F BF 7C 08 5C 85 FF 7E 58 4C 8D 35 ?? ?? ?? ??";
+
+        private const string GetGroupUnitIdPattern =
+            "48 89 5C 24 08 48 63 C2 45 33 C9 48 69 D0 88 06 00 00 4C 8B D9 " +
+            "66 83 7C 0A 40 02 75 5A 0F BF 44 0A 5C 44 3B C0 7D 50 45 85 C0 " +
+            "78 4B 48 83 C1 60";
 
         private const string CentralMovementPlanPattern =
             "40 53 55 56 57 41 54 41 55 41 56 41 57 48 81 EC 38 04 00 00 " +
@@ -336,6 +365,9 @@ namespace MoveMoatTest
         private RegionReachabilityDelegate rootedRegionReachability;
         private TribeFloodFillMembershipDelegate originalTribeFloodFillMembership;
         private TribeFloodFillMembershipDelegate rootedTribeFloodFillMembership;
+        private FirstGroupUnitOnCompletedMoatDelegate originalFirstGroupUnitOnCompletedMoat;
+        private FirstGroupUnitOnCompletedMoatDelegate rootedFirstGroupUnitOnCompletedMoat;
+        private GetGroupUnitIdDelegate getGroupUnitId;
         private CursorReachabilityDelegate originalCursorReachability;
         private CursorReachabilityDelegate rootedCursorReachability;
         private CursorTilePairFallbackSelectionDelegate originalCursorTilePairFallbackSelection;
@@ -364,6 +396,7 @@ namespace MoveMoatTest
         private NativeDetour unitStandingOnCompletedMoatDetour;
         private NativeDetour regionReachabilityDetour;
         private NativeDetour tribeFloodFillMembershipDetour;
+        private NativeDetour firstGroupUnitOnCompletedMoatDetour;
         private NativeDetour cursorReachabilityDetour;
         private NativeDetour cursorTilePairFallbackSelectionDetour;
         private NativeDetour cursorTilePairReachabilityDetour;
@@ -400,7 +433,10 @@ namespace MoveMoatTest
         private string lastAttackCursorDecision;
         private string lastCursorSelectionDiagnostic;
         private string lastCursorTilePairDiagnostic;
+        private string lastCursorGroupRouteDiagnostic;
         private string lastEntityCursorPrecheckDecision;
+        private string cursorGroupRouteCacheKey;
+        private CursorGroupRouteSummary cachedCursorGroupRoute;
         private readonly Dictionary<int, string> lastUnscopedAttackModes = new Dictionary<int, string>();
         private readonly Dictionary<int, string> lastAttackCommandCandidates = new Dictionary<int, string>();
         private readonly Dictionary<int, AttackUnitTracker> trackedAttackUnits =
@@ -431,6 +467,12 @@ namespace MoveMoatTest
             Shared.NativeResolution floodResolution = Resolve(
                 memory, TribeFloodFillMembershipPattern, TribeFloodFillMembershipRva,
                 "Tribe flood-fill membership helper");
+            Shared.NativeResolution groupMoatResolution = Resolve(
+                memory, FirstGroupUnitOnCompletedMoatPattern, FirstGroupUnitOnCompletedMoatRva,
+                "first active group unit standing on completed moat helper");
+            Shared.NativeResolution groupUnitResolution = Resolve(
+                memory, GetGroupUnitIdPattern, GetGroupUnitIdRva,
+                "group unit iterator");
             Shared.NativeResolution planResolution = Resolve(
                 memory, CentralMovementPlanPattern, CentralMovementPlanRva,
                 "central ordinary-movement planner");
@@ -531,6 +573,40 @@ namespace MoveMoatTest
             ValidateCallTarget(memory, SelectionCanDigMoatCallRva, SelectionCanDigMoatRva,
                 new byte[] { 0xE8, 0x2D, 0x48, 0x10, 0x00 },
                 "DigMoat cursor selection-helper call");
+            ValidateExactBytes(
+                memory,
+                FirstGroupUnitOnCompletedMoatRva,
+                new byte[]
+                {
+                    0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x6C,
+                    0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18, 0x48,
+                    0x89, 0x7C, 0x24, 0x20, 0x41, 0x56, 0x48, 0x83,
+                    0xEC, 0x20
+                },
+                "first group unit on completed moat detour span");
+            ValidateExactBytes(
+                memory,
+                GetGroupUnitIdRva,
+                new byte[]
+                {
+                    0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x63, 0xC2,
+                    0x45, 0x33, 0xC9, 0x48, 0x69, 0xD0, 0x88, 0x06,
+                    0x00, 0x00
+                },
+                "group unit iterator entry");
+            ValidateCallTarget(
+                memory, GroupMoatModeCallRva, FirstGroupUnitOnCompletedMoatRva,
+                new byte[] { 0xE8, 0x55, 0xC5, 0xFF, 0xFF },
+                "MoveHere group moat-mode helper call");
+            ValidateExactBytes(
+                memory, GroupMoatModeCallRva - 3,
+                new byte[]
+                {
+                    0x48, 0x8B, 0xCF,
+                    0xE8, 0x55, 0xC5, 0xFF, 0xFF,
+                    0x44, 0x3B, 0xF8, 0x75, 0x72
+                },
+                "MoveHere group moat-mode decision sequence");
 
             moatPathMode = (int*)(libraryBase + MoatPathModeRva);
             cursorTargetX = (int*)(libraryBase + CursorTargetXRva);
@@ -547,9 +623,12 @@ namespace MoveMoatTest
                 (IntPtr)(libraryBase + unchecked((ulong)representativeUnitResolution.Rva)));
             selectionCanDigMoat = Marshal.GetDelegateForFunctionPointer<SelectionCanDigMoatDelegate>(
                 (IntPtr)(libraryBase + unchecked((ulong)selectionCanDigResolution.Rva)));
+            getGroupUnitId = Marshal.GetDelegateForFunctionPointer<GetGroupUnitIdDelegate>(
+                (IntPtr)(libraryBase + unchecked((ulong)groupUnitResolution.Rva)));
             rootedCentralMovementPlan = RunCentralMovementPlanWithContext;
             rootedPathBuilder = BuildPathWithCompletedMoatRouteVariant;
             rootedTribeFloodFillMembership = AllowTribeFloodFillForMoveOrder;
+            rootedFirstGroupUnitOnCompletedMoat = NormalizeMixedGroupMoatMode;
             rootedUnitStandingOnCompletedMoat = EnableCompletedMoatModeForScopedMovement;
             rootedRegionReachability = AllowBuilderAfterFailedRegionSearch;
             rootedCursorReachability = AllowCursorReachabilityThroughCompletedMoat;
@@ -560,6 +639,7 @@ namespace MoveMoatTest
             NativeDetour pendingPlanDetour = null;
             NativeDetour pendingBuilder = null;
             NativeDetour pendingFlood = null;
+            NativeDetour pendingGroupMoat = null;
             NativeDetour pendingMode = null;
             NativeDetour pendingRegion = null;
             NativeDetour pendingCursor = null;
@@ -569,6 +649,7 @@ namespace MoveMoatTest
             bool planApplied = false;
             bool builderApplied = false;
             bool floodApplied = false;
+            bool groupMoatApplied = false;
             bool modeApplied = false;
             bool regionApplied = false;
             bool cursorApplied = false;
@@ -588,6 +669,11 @@ namespace MoveMoatTest
                 originalPathBuilder = pendingBuilder.GenerateTrampoline<PathBuilderDelegate>();
                 pendingFlood = CreateDetour(libraryBase + unchecked((ulong)floodResolution.Rva), rootedTribeFloodFillMembership);
                 originalTribeFloodFillMembership = pendingFlood.GenerateTrampoline<TribeFloodFillMembershipDelegate>();
+                pendingGroupMoat = CreateDetour(
+                    libraryBase + unchecked((ulong)groupMoatResolution.Rva),
+                    rootedFirstGroupUnitOnCompletedMoat);
+                originalFirstGroupUnitOnCompletedMoat =
+                    pendingGroupMoat.GenerateTrampoline<FirstGroupUnitOnCompletedMoatDelegate>();
                 pendingMode = CreateDetour(libraryBase + unchecked((ulong)modeResolution.Rva), rootedUnitStandingOnCompletedMoat);
                 originalUnitStandingOnCompletedMoat = pendingMode.GenerateTrampoline<UnitStandingOnCompletedMoatDelegate>();
                 pendingRegion = CreateDetour(libraryBase + unchecked((ulong)regionResolution.Rva), rootedRegionReachability);
@@ -610,6 +696,8 @@ namespace MoveMoatTest
                 builderApplied = true;
                 pendingFlood.Apply();
                 floodApplied = true;
+                pendingGroupMoat.Apply();
+                groupMoatApplied = true;
                 pendingMode.Apply();
                 modeApplied = true;
                 pendingRegion.Apply();
@@ -626,6 +714,7 @@ namespace MoveMoatTest
                 centralMovementPlanDetour = pendingPlanDetour;
                 pathBuilderDetour = pendingBuilder;
                 tribeFloodFillMembershipDetour = pendingFlood;
+                firstGroupUnitOnCompletedMoatDetour = pendingGroupMoat;
                 unitStandingOnCompletedMoatDetour = pendingMode;
                 regionReachabilityDetour = pendingRegion;
                 cursorReachabilityDetour = pendingCursor;
@@ -653,6 +742,8 @@ namespace MoveMoatTest
                     $"region=0x{regionResolution.Rva:X}, builder=0x{builderResolution.Rva:X}, " +
                     $"selectionCanDigMoat=0x{selectionCanDigResolution.Rva:X}/call=0x{SelectionCanDigMoatCallRva:X}, " +
                     $"tribeFloodFill=0x{floodResolution.Rva:X}, moatLookup=0x{moatLookupResolution.Rva:X}; " +
+                    $"groupMoatMode=0x{groupMoatResolution.Rva:X}/iterator=0x{groupUnitResolution.Rva:X}/" +
+                    $"call=0x{GroupMoatModeCallRva:X}; " +
                     "friendlyAndAlliedCompletedMoats=true, enemyMoats=fail-closed-experimental.");
 
                 // This separately validated hook group only observes the earlier unit/building
@@ -678,6 +769,7 @@ namespace MoveMoatTest
                 UndoAndDispose(pendingCursor, cursorApplied);
                 UndoAndDispose(pendingRegion, regionApplied);
                 UndoAndDispose(pendingMode, modeApplied);
+                UndoAndDispose(pendingGroupMoat, groupMoatApplied);
                 UndoAndDispose(pendingFlood, floodApplied);
                 UndoAndDispose(pendingBuilder, builderApplied);
                 UndoAndDispose(pendingPlanDetour, planApplied);
@@ -712,6 +804,7 @@ namespace MoveMoatTest
             cursorReachabilityDetour?.Dispose();
             regionReachabilityDetour?.Dispose();
             unitStandingOnCompletedMoatDetour?.Dispose();
+            firstGroupUnitOnCompletedMoatDetour?.Dispose();
             tribeFloodFillMembershipDetour?.Dispose();
             pathBuilderDetour?.Dispose();
             centralMovementPlanDetour?.Dispose();
@@ -2140,7 +2233,8 @@ namespace MoveMoatTest
 
             try
             {
-                bool bypass = vanillaResult == 0 && *moatPathMode == 1 &&
+                bool bypass = vanillaResult == 0 && plan.FriendlyRouteQualified &&
+                    plan.ModeObserved && *moatPathMode == 1 &&
                     targetRegion > 0 && targetRegion <= MaximumRegionId;
                 if (!bypass)
                     return vanillaResult;
@@ -2210,6 +2304,119 @@ namespace MoveMoatTest
             }
         }
 
+        private int NormalizeMixedGroupMoatMode(IntPtr tribeManager, int tribeId)
+        {
+            int vanillaResult = originalFirstGroupUnitOnCompletedMoat(tribeManager, tribeId);
+            if (disposed || vanillaResult <= 0)
+                return vanillaResult;
+
+            MoveCommandScope command = activeMoveCommand;
+            if (command == null || command.TribeId != tribeId ||
+                tribeManager == IntPtr.Zero || tribeManager != nativeTribeManager ||
+                tribeId < 0 || tribeId >= MaximumTribeCount || getGroupUnitId == null)
+            {
+                return vanillaResult;
+            }
+
+            try
+            {
+                byte* tribeRecord = (byte*)tribeManager.ToPointer() +
+                    (tribeId * TribeRecordSize);
+                int leadUnitId = *(short*)(tribeRecord + TribeLeadUnitIdOffset);
+                int unitCount = *(short*)(tribeRecord + TribeUnitCountOffset);
+                if (unitCount <= 1 || unitCount > MaximumUnitCount)
+                    return vanillaResult;
+
+                // 0x11B520 only selects the shared moat builder when the first active
+                // moat unit returned by 0x117BC0 is also the tribe's lead unit.
+                if (vanillaResult != leadUnitId)
+                    return vanillaResult;
+
+                int activeUnitsOnMoat = 0;
+                int activeUnitsOffMoat = 0;
+                int diggerUnits = 0;
+                int qualifyingDiggerUnitsOnMoat = 0;
+                int qualifyingUnitId = 0;
+                RouteProbeSummary qualifyingRoute = default;
+                for (int ordinal = 0; ordinal < unitCount; ordinal++)
+                {
+                    int unitId = getGroupUnitId(tribeManager, tribeId, ordinal);
+                    if (unitId <= 0 ||
+                        !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+                        unit == null || unit->r_AliveState != AliveState.IsAlive ||
+                        *(ushort*)((byte*)unit + UnitGroupInactiveStateOffset) != 0)
+                    {
+                        continue;
+                    }
+
+                    int startX = unit->r_CurrentTilePositionX;
+                    int startY = unit->r_CurrentTilePositionY;
+                    if (startX < 0 || startX >= MapWidth || startY < 0 || startY >= MapWidth)
+                        continue;
+                    int startTileId = GameTileManagerAPI.Instance.GetTileId(startX, startY);
+                    if (!IsValidTileId(startTileId))
+                        continue;
+
+                    bool onCompletedMoat =
+                        (tileFlags[startTileId] & CompletedMoatTileFlag) != 0;
+                    if (onCompletedMoat)
+                        activeUnitsOnMoat++;
+                    else
+                        activeUnitsOffMoat++;
+
+                    if (!CanDigMoat(unit))
+                        continue;
+                    diggerUnits++;
+                    if (!onCompletedMoat || qualifyingUnitId != 0)
+                        continue;
+
+                    PlanScope probe = new PlanScope(unitId, command.TargetX, command.TargetY)
+                    {
+                        PlayerId = unit->r_ControllableForPlayerId
+                    };
+                    if (!TryFindRequiredFriendlyCompletedMoatRouteForPlan(
+                            probe, out RouteProbeSummary route))
+                    {
+                        continue;
+                    }
+
+                    qualifyingDiggerUnitsOnMoat++;
+                    qualifyingUnitId = unitId;
+                    qualifyingRoute = route;
+                }
+
+                bool mixedPositions = activeUnitsOnMoat > 0 && activeUnitsOffMoat > 0;
+                bool normalize = mixedPositions && qualifyingUnitId > 0;
+                // The original positive result proves that this command is moat-relevant,
+                // even when no owner-qualified route was found and the decision stays Vanilla.
+                command.MoatRelevant = true;
+                MarkCommandMoatRelevant(command, qualifyingRoute);
+                string diagnostic =
+                    $"stage=group-moat-mode tribe={tribeId} target=({command.TargetX},{command.TargetY}) " +
+                    $"lead={leadUnitId} vanillaFirstMoat={vanillaResult} onMoat={activeUnitsOnMoat} " +
+                    $"offMoat={activeUnitsOffMoat} diggers={diggerUnits} " +
+                    $"qualifyingDiggersOnMoat={qualifyingDiggerUnitsOnMoat} " +
+                    $"qualifyingUnit={qualifyingUnitId} " +
+                    $"effective={(normalize ? 0 : vanillaResult)} " +
+                    $"decision={(normalize ? "normalized=ground-per-unit" : "vanilla")}";
+                if (!string.Equals(
+                        command.LastGroupMoatModeDiagnostic, diagnostic, StringComparison.Ordinal))
+                {
+                    command.LastGroupMoatModeDiagnostic = diagnostic;
+                    LogCommandDiagnostic(diagnostic);
+                }
+
+                // The shared moat flood would apply to every group member. Use the ordinary
+                // group flood and let the later owner/capability-qualified per-unit retry decide.
+                return normalize ? 0 : vanillaResult;
+            }
+            catch (Exception ex)
+            {
+                LogFailure("group-moat-mode", ex);
+                return vanillaResult;
+            }
+        }
+
         private int BuildPathWithCompletedMoatRouteVariant(
             IntPtr pathManager, int movementClass, int movementProfile)
         {
@@ -2244,8 +2451,8 @@ namespace MoveMoatTest
             int floodFillBypasses = command?.FloodFillBypasses ?? 0;
             // Flood membership is not a reliable reachability verdict. The unchanged builder
             // gets the first decision; owner-aware moat fallback is considered only after 0.
-            bool builderEligible = plan.ModeObserved && !plan.VanillaModeDetected &&
-                currentMoatMode == 1;
+            bool builderEligible = plan.FriendlyRouteQualified &&
+                plan.ModeObserved && currentMoatMode == 1;
             if (!builderEligible)
             {
                 int vanillaBuilderResult = originalPathBuilder(pathManager, movementClass, movementProfile);
@@ -2298,7 +2505,9 @@ namespace MoveMoatTest
                 "after-vanilla-first", pathManager, plan,
                 movementClass, movementProfile, vanillaResult);
             bool route80FallbackCandidate = vanillaResult == 0 && originalRouteVariant == 1;
-            string fallbackCandidate = route80FallbackCandidate ? "route80" : "none";
+            string fallbackCandidate = route80FallbackCandidate
+                ? (plan.VanillaModeDetected ? "standing-on-moat-route80" : "route80")
+                : "none";
             try
             {
                 LogPipelineDiagnostic(
@@ -2320,7 +2529,7 @@ namespace MoveMoatTest
             RouteProbeSummary routeSummary;
             try
             {
-                bool friendlyRoute = TryFindFriendlyCompletedMoatRouteForPlan(
+                bool friendlyRoute = TryFindRequiredFriendlyCompletedMoatRouteForPlan(
                     plan, out routeSummary);
                 MarkCommandMoatRelevant(command, routeSummary);
                 if (!friendlyRoute)
@@ -2377,6 +2586,7 @@ namespace MoveMoatTest
                 {
                     LogBuilderDecision(
                         $"stage=builder-route80 unit={plan.UnitId} movementClass={movementClass} " +
+                        $"variant={(plan.VanillaModeDetected ? "standing-on-moat-route80" : "route80")} " +
                         $"movementProfile={movementProfile} original=1 " +
                         $"effective={(retained ? 0 : originalRouteVariant)} " +
                         $"vanillaResult={vanillaResult} result={result} retained={retained}");
@@ -2987,6 +3197,8 @@ namespace MoveMoatTest
                     IsValidTileId(startTileId) && IsValidTileId(targetTileId);
                 CursorPairFallbackKind fallbackKind = CursorPairFallbackKind.DirectTile;
                 bool hostileUnitTarget = false;
+                int hostileUnitId = -1;
+                uint hostileUnitGlobalId = 0;
                 bool occupiedByLivingUnit = false;
                 bool freeOrdinaryTarget = false;
                 if (validPair)
@@ -2997,8 +3209,14 @@ namespace MoveMoatTest
                         targetY,
                         -1,
                         -1,
-                        out _,
+                        out hostileUnitId,
                         out occupiedByLivingUnit);
+                    if (hostileUnitTarget &&
+                        GameUnitManagerAPI.Instance.TryGetUnitById(
+                            hostileUnitId, out GameUnit* hostileUnit) && hostileUnit != null)
+                    {
+                        hostileUnitGlobalId = hostileUnit->r_GlobalId;
+                    }
                     if (!hostileBuildingTarget)
                     {
                         hostileBuildingTarget = TryGetHostileLivingBuildingForCursor(
@@ -3027,8 +3245,30 @@ namespace MoveMoatTest
                         buildingTarget.OwnerId, buildingTarget.BuildingType,
                         buildingTarget.HoverTileId)
                     : null;
-                bool ownerRoute = candidateScope != null &&
-                    TryQualifyCursorScope(candidateScope, out _, out _, out _);
+                if (candidateScope != null && hostileUnitTarget)
+                {
+                    candidateScope.TargetUnitId = hostileUnitId;
+                    candidateScope.TargetUnitGlobalId = hostileUnitGlobalId;
+                }
+                CursorGroupRouteSummary groupRoute = default;
+                bool groupRouteEvaluated = false;
+                bool ownerRoute;
+                if (vanillaResult == 0 && candidateScope != null &&
+                    hasVanillaDiggerSelection &&
+                    fallbackKind != CursorPairFallbackKind.BuildingApproach)
+                {
+                    groupRouteEvaluated = TryQualifySelectedGroupCursorRoute(
+                        candidateScope, out AttackCursorPairScope groupScope, out groupRoute);
+                    ownerRoute = groupRouteEvaluated && groupRoute.AllowFallback;
+                    if (ownerRoute)
+                        candidateScope = groupScope;
+                    LogCursorGroupRoute(candidateScope, groupRouteEvaluated, groupRoute, ownerRoute);
+                }
+                else
+                {
+                    ownerRoute = candidateScope != null &&
+                        TryQualifyCursorScope(candidateScope, out _, out _, out _);
+                }
                 bool functionalArmed = candidateScope != null && ownerRoute &&
                     hasVanillaDiggerSelection;
                 if (!validUnit)
@@ -3045,7 +3285,9 @@ namespace MoveMoatTest
                     !wallTarget)
                     rejectionReason = "target-not-free-or-hostile-entity";
                 else if (!ownerRoute)
-                    rejectionReason = "no-required-friendly-moat-route";
+                    rejectionReason = groupRouteEvaluated
+                        ? "no-legal-moat-relevant-group-route"
+                        : "no-required-friendly-moat-route";
                 else if (vanillaResult != 0)
                     rejectionReason = "vanilla-selection-positive-route-context-only";
                 else
@@ -3152,7 +3394,10 @@ namespace MoveMoatTest
             int vanillaTilePairResult)
         {
             bool mapMatches = diagnostic.MapEpoch == mapEpoch;
-            bool pairMatches = diagnostic.StartTileId == actualSelectedUnitTileId &&
+            bool startMatches = functionalScope != null
+                ? CursorStartMatchesBoundSelection(functionalScope, actualSelectedUnitTileId)
+                : diagnostic.StartTileId == actualSelectedUnitTileId;
+            bool pairMatches = startMatches &&
                 (diagnostic.TargetTileId == actualTargetTileId ||
                  (diagnostic.FallbackKind == CursorPairFallbackKind.BuildingApproach &&
                   functionalScope != null &&
@@ -3249,7 +3494,7 @@ namespace MoveMoatTest
             bool cacheModeAccepted = useCache == 1 ||
                 (buildingApproachPair && useCache == 0);
             if (scope == null || scope.MapEpoch != mapEpoch || !cacheModeAccepted ||
-                !CursorStartMatchesSelectedDigger(scope, selectedUnitTileId) ||
+                !CursorStartMatchesBoundSelection(scope, selectedUnitTileId) ||
                 !CursorScopeMatchesTargetTile(scope, targetTileId))
             {
                 return vanillaResult;
@@ -3261,7 +3506,15 @@ namespace MoveMoatTest
                 int approachX;
                 int approachY;
                 RouteProbeSummary summary;
-                if (buildingApproachPair)
+                if (scope.GroupCursorAuthorized)
+                {
+                    approachX = scope.TargetX;
+                    approachY = scope.TargetY;
+                    summary = default;
+                    summary.RouteFound = true;
+                    friendlyRoute = true;
+                }
+                else if (buildingApproachPair)
                 {
                     approachX = actualApproachX;
                     approachY = actualApproachY;
@@ -3309,6 +3562,11 @@ namespace MoveMoatTest
             {
                 int targetX = *cursorTargetX;
                 int targetY = *cursorTargetY;
+                if (TryAllowScopedGroupCursorPrecheck(
+                    targetX, targetY, vanillaResult, out int groupedResult))
+                {
+                    return groupedResult;
+                }
                 if (TryAllowScopedEntityCursorPrecheck(
                     nativeUnitIndex, targetX, targetY, vanillaResult, "cursor-region",
                     out int scopedEntityResult))
@@ -3402,6 +3660,30 @@ namespace MoveMoatTest
             return true;
         }
 
+        private bool TryAllowScopedGroupCursorPrecheck(
+            int targetX,
+            int targetY,
+            int vanillaResult,
+            out int effectiveResult)
+        {
+            effectiveResult = vanillaResult;
+            AttackCursorPairScope scope = pendingAttackCursorPair;
+            if (vanillaResult != 0 || scope == null || !scope.GroupCursorAuthorized ||
+                scope.MapEpoch != mapEpoch || scope.TargetX != targetX || scope.TargetY != targetY ||
+                string.IsNullOrEmpty(scope.GroupSelectionSignature) ||
+                !TryCaptureSelectedGroup(
+                    scope.PlayerId, out _, out string currentSelectionSignature) ||
+                !string.Equals(
+                    scope.GroupSelectionSignature, currentSelectionSignature,
+                    StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            effectiveResult = 1;
+            return true;
+        }
+
         private int AllowCursorReachabilityThroughCompletedMoat(
             IntPtr pathManager, int nativeUnitIndex, int targetX, int targetY)
         {
@@ -3411,6 +3693,11 @@ namespace MoveMoatTest
 
             try
             {
+                if (TryAllowScopedGroupCursorPrecheck(
+                    targetX, targetY, vanillaResult, out int groupedResult))
+                {
+                    return groupedResult;
+                }
                 if (TryAllowScopedEntityCursorPrecheck(
                     nativeUnitIndex, targetX, targetY, vanillaResult, "cursor-direct",
                     out int scopedEntityResult))
@@ -3691,6 +3978,382 @@ namespace MoveMoatTest
             return summary.RouteFound;
         }
 
+        private bool TryQualifySelectedGroupCursorRoute(
+            AttackCursorPairScope template,
+            out AttackCursorPairScope boundScope,
+            out CursorGroupRouteSummary group)
+        {
+            boundScope = null;
+            group = default;
+            if (template == null ||
+                (template.FallbackKind != CursorPairFallbackKind.DirectTile &&
+                 template.FallbackKind != CursorPairFallbackKind.UnitApproach) ||
+                !TryCaptureSelectedGroup(
+                    template.PlayerId, out int[] selectedUnitIds, out string selectionSignature))
+            {
+                return false;
+            }
+
+            group.SelectionSignature = selectionSignature;
+            string groupCacheKey = $"{mapEpoch}:{template.PlayerId}:{template.FallbackKind}:" +
+                $"{template.TargetTileId}:{template.TargetUnitId}:" +
+                $"{template.TargetUnitGlobalId}:{selectionSignature}";
+            if (string.Equals(cursorGroupRouteCacheKey, groupCacheKey, StringComparison.Ordinal))
+            {
+                group = cachedCursorGroupRoute;
+                if (group.AllowFallback && group.RepresentativeUnitId > 0 &&
+                    IsValidTileId(group.RepresentativeStartTileId))
+                {
+                    boundScope = CreateCursorScopeForSnapshot(
+                        template,
+                        new SelectedCursorUnitSnapshot(
+                            group.RepresentativeUnitId,
+                            group.RepresentativeStartX,
+                            group.RepresentativeStartY,
+                            group.RepresentativeStartTileId,
+                            group.RepresentativeCanDig));
+                    boundScope.GroupCursorAuthorized = true;
+                    boundScope.GroupSelectionSignature = group.SelectionSignature;
+                }
+                return group.SelectedUnits > 0;
+            }
+
+            Dictionary<int, List<SelectedCursorUnitSnapshot>> unitsByStartRegion =
+                new Dictionary<int, List<SelectedCursorUnitSnapshot>>();
+            for (int index = 0; index < selectedUnitIds.Length; index++)
+            {
+                int selectedUnitId = selectedUnitIds[index];
+                if (!GameUnitManagerAPI.Instance.TryGetUnitById(
+                        selectedUnitId, out GameUnit* selectedUnit) ||
+                    selectedUnit == null || selectedUnit->r_AliveState != AliveState.IsAlive ||
+                    selectedUnit->r_ControllableForPlayerId != template.PlayerId)
+                {
+                    continue;
+                }
+
+                int startX = selectedUnit->r_CurrentTilePositionX;
+                int startY = selectedUnit->r_CurrentTilePositionY;
+                if (startX < 0 || startX >= MapWidth || startY < 0 || startY >= MapWidth)
+                    continue;
+                int startTileId = GameTileManagerAPI.Instance.GetTileId(startX, startY);
+                if (!IsValidTileId(startTileId))
+                    continue;
+
+                bool canDig = CanDigMoat(selectedUnit);
+                group.SelectedUnits++;
+                if (canDig)
+                    group.DiggerUnits++;
+
+                int startRegion = pathRegionGrid[startTileId];
+                int regionKey = startRegion > 0 ? startRegion : -startTileId - 1;
+                if (!unitsByStartRegion.TryGetValue(
+                    regionKey, out List<SelectedCursorUnitSnapshot> regionUnits))
+                {
+                    regionUnits = new List<SelectedCursorUnitSnapshot>();
+                    unitsByStartRegion.Add(regionKey, regionUnits);
+                }
+                regionUnits.Add(new SelectedCursorUnitSnapshot(
+                    selectedUnitId, startX, startY, startTileId, canDig));
+            }
+
+            foreach (KeyValuePair<int, List<SelectedCursorUnitSnapshot>> pair in unitsByStartRegion)
+            {
+                List<SelectedCursorUnitSnapshot> regionUnits = pair.Value;
+                if (regionUnits.Count == 0)
+                    continue;
+                SelectedCursorUnitSnapshot probeUnit = regionUnits[0];
+                AttackCursorPairScope unitScope = CreateCursorScopeForSnapshot(
+                    template, probeUnit);
+                bool normalReachable;
+                bool friendlyMoatSeparated;
+                RouteProbeSummary routeSummary;
+                bool probed;
+                if (template.FallbackKind == CursorPairFallbackKind.DirectTile)
+                {
+                    probed = TryProbeDirectCursorRoute(
+                        unitScope, out normalReachable, out friendlyMoatSeparated,
+                        out routeSummary);
+                }
+                else
+                {
+                    probed = TryProbeUnitApproachCursorRoute(
+                        unitScope, out normalReachable, out friendlyMoatSeparated,
+                        out routeSummary);
+                }
+                if (!probed)
+                    continue;
+
+                group.ObservedRoute.MergeObservations(routeSummary);
+                if (friendlyMoatSeparated)
+                    group.FriendlyMoatSeparatedUnits += regionUnits.Count;
+                for (int unitIndex = 0; unitIndex < regionUnits.Count; unitIndex++)
+                {
+                    SelectedCursorUnitSnapshot member = regionUnits[unitIndex];
+                    bool legallyReachable = normalReachable ||
+                        (member.CanDig && friendlyMoatSeparated);
+                    if (!legallyReachable)
+                        continue;
+
+                    group.LegallyReachableUnits++;
+                    if (boundScope == null || (member.CanDig && !group.RepresentativeCanDig))
+                    {
+                        boundScope = CreateCursorScopeForSnapshot(template, member);
+                        group.RepresentativeUnitId = member.UnitId;
+                        group.RepresentativeStartX = member.StartX;
+                        group.RepresentativeStartY = member.StartY;
+                        group.RepresentativeStartTileId = member.StartTileId;
+                        group.RepresentativeCanDig = member.CanDig;
+                    }
+                }
+            }
+
+            group.AllowFallback = boundScope != null && group.LegallyReachableUnits > 0 &&
+                group.FriendlyMoatSeparatedUnits > 0;
+            if (group.AllowFallback)
+            {
+                boundScope.GroupCursorAuthorized = true;
+                boundScope.GroupSelectionSignature = group.SelectionSignature;
+            }
+            cursorGroupRouteCacheKey = groupCacheKey;
+            cachedCursorGroupRoute = group;
+            return group.SelectedUnits > 0;
+        }
+
+        private static AttackCursorPairScope CreateCursorScopeForSnapshot(
+            AttackCursorPairScope template, SelectedCursorUnitSnapshot unit)
+        {
+            AttackCursorPairScope scope = new AttackCursorPairScope(
+                template.MapEpoch,
+                unit.UnitId,
+                template.PlayerId,
+                unit.StartX,
+                unit.StartY,
+                unit.StartTileId,
+                template.TargetX,
+                template.TargetY,
+                template.TargetTileId,
+                template.FallbackKind,
+                template.BuildingId,
+                template.BuildingGlobalId,
+                template.BuildingOwnerId,
+                template.BuildingType,
+                template.HoverBuildingTileId);
+            scope.TargetUnitId = template.TargetUnitId;
+            scope.TargetUnitGlobalId = template.TargetUnitGlobalId;
+            return scope;
+        }
+
+        private bool TryCaptureSelectedGroup(
+            int playerId, out int[] selectedUnitIds, out string signature)
+        {
+            selectedUnitIds = GamePlayerManagerAPI.Instance.GetSelectedChimps();
+            if (selectedUnitIds == null || selectedUnitIds.Length == 0)
+            {
+                signature = string.Empty;
+                return false;
+            }
+            Array.Sort(selectedUnitIds);
+            StringBuilder builder = new StringBuilder(selectedUnitIds.Length * 24);
+            int validCount = 0;
+            for (int index = 0; index < selectedUnitIds.Length; index++)
+            {
+                int unitId = selectedUnitIds[index];
+                if (unitId <= 0 ||
+                    !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+                    unit == null || unit->r_AliveState != AliveState.IsAlive ||
+                    unit->r_ControllableForPlayerId != playerId)
+                {
+                    continue;
+                }
+
+                int currentX = unit->r_CurrentTilePositionX;
+                int currentY = unit->r_CurrentTilePositionY;
+                if (currentX < 0 || currentX >= MapWidth ||
+                    currentY < 0 || currentY >= MapWidth)
+                {
+                    continue;
+                }
+
+                int tileId = GameTileManagerAPI.Instance.GetTileId(currentX, currentY);
+                if (!IsValidTileId(tileId))
+                    continue;
+                builder.Append(unitId).Append(':')
+                    .Append((int)unit->r_UnitChimp).Append(':')
+                    .Append(tileId).Append(':')
+                    .Append(CanDigMoat(unit) ? '1' : '0').Append(';');
+                validCount++;
+            }
+
+            signature = builder.ToString();
+            return validCount > 0;
+        }
+
+        private bool TryProbeDirectCursorRoute(
+            AttackCursorPairScope scope,
+            out bool normalReachable,
+            out bool friendlyMoatSeparated,
+            out RouteProbeSummary summary)
+        {
+            normalReachable = false;
+            friendlyMoatSeparated = false;
+            summary = default;
+            if (scope == null || !IsValidTileId(scope.StartTileId) ||
+                !IsValidTileId(scope.TargetTileId) ||
+                !GamePlayerManagerAPI.Instance.IsPlayerIdValid(scope.PlayerId) ||
+                pathRegionGrid[scope.TargetTileId] <= 0 ||
+                pathRegionGrid[scope.TargetTileId] > MaximumRegionId ||
+                GameTileManagerAPI.Instance.GetTileManager() == IntPtr.Zero)
+            {
+                return false;
+            }
+
+            int targetCell = scope.TargetY * MapWidth + scope.TargetX;
+            if (movementTargetAvailability[targetCell] == 0 ||
+                (tileFlags[scope.TargetTileId] & OrdinaryWalkableTileFlag) == 0 ||
+                (tileFlags[scope.TargetTileId] & CursorSpecialStructureTileFlagMask) != 0)
+            {
+                return false;
+            }
+
+            int startRegion = pathRegionGrid[scope.StartTileId];
+            int targetRegion = pathRegionGrid[scope.TargetTileId];
+            if (startRegion > 0 && startRegion == targetRegion)
+            {
+                summary = new RouteProbeSummary(scope.PlayerId)
+                {
+                    StartRegion = startRegion,
+                    TargetRegion = targetRegion,
+                    ReachedWithoutMoat = true,
+                    RouteFound = true
+                };
+                normalReachable = true;
+                return true;
+            }
+
+            TryFindFriendlyCompletedMoatRoute(
+                scope.UnitId, scope.PlayerId, scope.StartX, scope.StartY,
+                scope.TargetX, scope.TargetY, out summary);
+            normalReachable = gridGeneration > 0 &&
+                visitedWithoutMoat[targetCell] == gridGeneration;
+            bool reachableWithMoat = gridGeneration > 0 &&
+                visitedWithMoat[targetCell] == gridGeneration;
+            friendlyMoatSeparated = reachableWithMoat && !normalReachable &&
+                summary.FriendlyMoatTiles > 0;
+            summary.ReachedWithoutMoat = normalReachable;
+            summary.ReachedWithMoat = reachableWithMoat;
+            summary.RouteFound = normalReachable || reachableWithMoat;
+            return true;
+        }
+
+        private bool TryProbeUnitApproachCursorRoute(
+            AttackCursorPairScope scope,
+            out bool normalReachable,
+            out bool friendlyMoatSeparated,
+            out RouteProbeSummary summary)
+        {
+            normalReachable = false;
+            friendlyMoatSeparated = false;
+            summary = new RouteProbeSummary(scope != null ? scope.PlayerId : -1);
+            if (scope == null || scope.FallbackKind != CursorPairFallbackKind.UnitApproach)
+                return false;
+
+            bool reachableWithMoat = false;
+            bool candidateObserved = false;
+            int startRegion = IsValidTileId(scope.StartTileId)
+                ? pathRegionGrid[scope.StartTileId]
+                : 0;
+            GamePlayerManagerAPI playerApi = GamePlayerManagerAPI.Instance;
+            IntPtr tileManager = GameTileManagerAPI.Instance.GetTileManager();
+            if (tileManager == IntPtr.Zero || !playerApi.IsPlayerIdValid(scope.PlayerId))
+                return false;
+
+            for (int yOffset = -1; yOffset <= 1; yOffset++)
+            {
+                for (int xOffset = -1; xOffset <= 1; xOffset++)
+                {
+                    if (xOffset == 0 && yOffset == 0)
+                        continue;
+                    int candidateX = scope.TargetX + xOffset;
+                    int candidateY = scope.TargetY + yOffset;
+                    if (candidateX < 0 || candidateX >= MapWidth ||
+                        candidateY < 0 || candidateY >= MapWidth)
+                    {
+                        continue;
+                    }
+
+                    int candidateCell = candidateY * MapWidth + candidateX;
+                    int candidateTileId = GameTileManagerAPI.Instance.GetTileId(candidateX, candidateY);
+                    if (!IsValidTileId(candidateTileId) ||
+                        movementTargetAvailability[candidateCell] == 0 ||
+                        (tileFlags[candidateTileId] & OrdinaryWalkableTileFlag) == 0 ||
+                        (tileFlags[candidateTileId] & CursorSpecialStructureTileFlagMask) != 0)
+                    {
+                        continue;
+                    }
+
+                    int candidateRegion = pathRegionGrid[candidateTileId];
+                    if (candidateRegion <= 0 || candidateRegion > MaximumRegionId)
+                        continue;
+
+                    candidateObserved = true;
+                    if (startRegion > 0 && startRegion == candidateRegion)
+                    {
+                        summary.StartRegion = startRegion;
+                        summary.TargetRegion = candidateRegion;
+                        summary.ReachedWithoutMoat = true;
+                        summary.RouteFound = true;
+                        normalReachable = true;
+                        return true;
+                    }
+
+                    EnsureReachabilityMap(
+                        scope.UnitId, scope.PlayerId, tileManager, playerApi,
+                        scope.StartX, scope.StartY, candidateRegion);
+                    RouteProbeSummary candidateSummary = cachedRouteSummary;
+                    bool candidateWithoutMoat =
+                        visitedWithoutMoat[candidateCell] == gridGeneration;
+                    bool candidateWithMoat = visitedWithMoat[candidateCell] == gridGeneration;
+                    candidateSummary.ReachedWithoutMoat = candidateWithoutMoat;
+                    candidateSummary.ReachedWithMoat = candidateWithMoat;
+                    candidateSummary.RouteFound = candidateWithoutMoat || candidateWithMoat;
+                    summary.MergeObservations(candidateSummary);
+                    normalReachable |= candidateWithoutMoat;
+                    reachableWithMoat |= candidateWithMoat;
+                }
+            }
+
+            friendlyMoatSeparated = reachableWithMoat && !normalReachable &&
+                summary.FriendlyMoatTiles > 0;
+            summary.ReachedWithoutMoat = normalReachable;
+            summary.ReachedWithMoat = reachableWithMoat;
+            summary.RouteFound = normalReachable || reachableWithMoat;
+            return candidateObserved;
+        }
+
+        private void LogCursorGroupRoute(
+            AttackCursorPairScope scope,
+            bool evaluated,
+            CursorGroupRouteSummary group,
+            bool effective)
+        {
+            string key = $"{mapEpoch}:{scope?.PlayerId}:{scope?.TargetTileId}:" +
+                $"{scope?.FallbackKind}:{group.SelectionSignature}:{evaluated}:" +
+                $"{group.SelectedUnits}:{group.DiggerUnits}:{group.LegallyReachableUnits}:" +
+                $"{group.FriendlyMoatSeparatedUnits}:{effective}";
+            if (string.Equals(lastCursorGroupRouteDiagnostic, key, StringComparison.Ordinal))
+                return;
+            lastCursorGroupRouteDiagnostic = key;
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"MoveMoat stage=cursor-group-route player={scope?.PlayerId} " +
+                $"target=({scope?.TargetX},{scope?.TargetY})/{scope?.TargetTileId} " +
+                $"kind={scope?.FallbackKind} evaluated={evaluated} " +
+                $"selected={group.SelectedUnits} diggers={group.DiggerUnits} " +
+                $"legal={group.LegallyReachableUnits} " +
+                $"friendlyMoatSeparated={group.FriendlyMoatSeparatedUnits} " +
+                $"representative={group.RepresentativeUnitId} effective={effective}.");
+        }
+
         private bool TryQualifyCursorScope(
             AttackCursorPairScope scope,
             out int approachX,
@@ -3722,6 +4385,21 @@ namespace MoveMoatTest
 
         private bool CursorScopeMatchesTargetTile(AttackCursorPairScope scope, int targetTileId)
         {
+            if (scope.FallbackKind == CursorPairFallbackKind.UnitApproach)
+            {
+                return scope.TargetTileId == targetTileId && scope.TargetUnitId > 0 &&
+                    TryGetHostileLivingUnitAtTile(
+                        scope.PlayerId,
+                        scope.TargetX,
+                        scope.TargetY,
+                        scope.TargetUnitId,
+                        -1,
+                        out _,
+                        out _) &&
+                    GameUnitManagerAPI.Instance.TryGetUnitById(
+                        scope.TargetUnitId, out GameUnit* targetUnit) &&
+                    targetUnit != null && targetUnit->r_GlobalId == scope.TargetUnitGlobalId;
+            }
             if (scope.FallbackKind != CursorPairFallbackKind.BuildingApproach)
                 return scope.TargetTileId == targetTileId;
             return IsValidTileId(targetTileId) && scope.BuildingId > 0 &&
@@ -3730,9 +4408,20 @@ namespace MoveMoatTest
                      scope, targetTileId, out _, out _));
         }
 
-        private bool CursorStartMatchesSelectedDigger(
+        private bool CursorStartMatchesBoundSelection(
             AttackCursorPairScope scope, int actualSelectedUnitTileId)
         {
+            if (scope.GroupCursorAuthorized)
+            {
+                return !string.IsNullOrEmpty(scope.GroupSelectionSignature) &&
+                    TryCaptureSelectedGroup(
+                        scope.PlayerId, out _, out string currentSelectionSignature) &&
+                    string.Equals(
+                        scope.GroupSelectionSignature,
+                        currentSelectionSignature,
+                        StringComparison.Ordinal);
+            }
+
             if (scope.StartTileId == actualSelectedUnitTileId)
                 return true;
 
@@ -4453,7 +5142,10 @@ namespace MoveMoatTest
             lastAttackCursorDecision = null;
             lastCursorSelectionDiagnostic = null;
             lastCursorTilePairDiagnostic = null;
+            lastCursorGroupRouteDiagnostic = null;
             lastEntityCursorPrecheckDecision = null;
+            cursorGroupRouteCacheKey = null;
+            cachedCursorGroupRoute = default;
             lastUnscopedAttackModes.Clear();
             lastAttackCommandCandidates.Clear();
             trackedAttackUnits.Clear();
@@ -5194,6 +5886,7 @@ namespace MoveMoatTest
             public int LastVanillaBuilderResult { get; set; } = int.MinValue;
             public bool MoatRelevant { get; set; }
             public bool BuilderReached { get; set; }
+            public string LastGroupMoatModeDiagnostic { get; set; }
             public List<string> Diagnostics { get; } = new List<string>();
         }
 
@@ -5267,6 +5960,10 @@ namespace MoveMoatTest
             public int BuildingOwnerId { get; }
             public eStructs BuildingType { get; }
             public int HoverBuildingTileId { get; }
+            public bool GroupCursorAuthorized { get; set; }
+            public string GroupSelectionSignature { get; set; }
+            public int TargetUnitId { get; set; } = -1;
+            public uint TargetUnitGlobalId { get; set; }
         }
 
         private struct BuildingCursorTarget
@@ -5424,6 +6121,41 @@ namespace MoveMoatTest
                     $"ownerMask=0x{ObservedOwnerMask:X} regions={StartRegion}->{TargetRegion}" +
                     attackFields;
             }
+        }
+
+        private struct CursorGroupRouteSummary
+        {
+            public string SelectionSignature;
+            public int SelectedUnits;
+            public int DiggerUnits;
+            public int LegallyReachableUnits;
+            public int FriendlyMoatSeparatedUnits;
+            public int RepresentativeUnitId;
+            public int RepresentativeStartX;
+            public int RepresentativeStartY;
+            public int RepresentativeStartTileId;
+            public bool RepresentativeCanDig;
+            public bool AllowFallback;
+            public RouteProbeSummary ObservedRoute;
+        }
+
+        private readonly struct SelectedCursorUnitSnapshot
+        {
+            public SelectedCursorUnitSnapshot(
+                int unitId, int startX, int startY, int startTileId, bool canDig)
+            {
+                UnitId = unitId;
+                StartX = startX;
+                StartY = startY;
+                StartTileId = startTileId;
+                CanDig = canDig;
+            }
+
+            public int UnitId { get; }
+            public int StartX { get; }
+            public int StartY { get; }
+            public int StartTileId { get; }
+            public bool CanDig { get; }
         }
 
     }

@@ -65,9 +65,6 @@ namespace BugfixesAndQoL
                 throw;
             }
 
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                "Bugfixes and QoL event-driven startup and focus display-resolution guard installed.");
         }
 
         public void Dispose()
@@ -83,9 +80,6 @@ namespace BugfixesAndQoL
             UndoAndDispose(ref saveSettingsHook);
             UndoAndDispose(ref loadSettingsHook);
             state.Cancel();
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                "Bugfixes and QoL display-resolution guard disposed.");
         }
 
         private void LoadSettingsHook()
@@ -96,7 +90,7 @@ namespace BugfixesAndQoL
             try
             {
                 // A deliberate reload supersedes any snapshot from an earlier load in the same process.
-                CancelProtection("settings reloaded");
+                CancelProtection();
                 settingsLoaded = true;
                 if (!Application.isFocused)
                 {
@@ -105,10 +99,7 @@ namespace BugfixesAndQoL
                 }
 
                 // The loaded values are authoritative before Unity finalizes its borderless window.
-                TryArmProtection(
-                    Application.isFocused
-                        ? "settings loaded for startup protection"
-                        : "settings loaded while application was unfocused");
+                TryArmProtection();
             }
             catch (Exception ex)
             {
@@ -136,7 +127,7 @@ namespace BugfixesAndQoL
                             log,
                             "Bugfixes and QoL left an automatic display change untouched because this PC no longer " +
                             $"reports the protected target: observed={current}, protected={protectedSettings}.");
-                        CancelProtection("protected target resolution unsupported before save");
+                        CancelProtection();
                     }
                     else
                     {
@@ -161,7 +152,7 @@ namespace BugfixesAndQoL
                 }
                 else if (!IsEnabled && state.IsArmed)
                 {
-                    CancelProtection("feature disabled");
+                    CancelProtection();
                 }
             }
             catch (Exception ex)
@@ -185,12 +176,7 @@ namespace BugfixesAndQoL
             try
             {
                 if (state.IsArmed)
-                {
-                    CancelProtection("manual display Apply selected");
-                    Shared.DebugLogHelper.LogInfo(
-                        log,
-                        "Bugfixes and QoL accepted the manually applied display settings as the new target.");
-                }
+                    CancelProtection();
 
                 // The user's Apply action remains entirely authoritative.
                 optionsButtonOriginal(self, parameter);
@@ -211,17 +197,17 @@ namespace BugfixesAndQoL
             {
                 if (!IsEnabled)
                 {
-                    CancelProtection("feature disabled");
+                    CancelProtection();
                     return;
                 }
 
                 if (settingsLoaded)
-                    TryArmProtection("feature enabled after settings load");
+                    TryArmProtection();
             }
             catch (Exception ex)
             {
                 LogFailureOnce("while applying the feature setting", ex);
-                CancelProtection("feature setting handling failed");
+                CancelProtection();
             }
         }
 
@@ -234,7 +220,7 @@ namespace BugfixesAndQoL
                     StopRecoveryObservation();
                     focusRecoveryPending = true;
                     state.OnFocusLost();
-                    TryArmProtection("application lost focus");
+                    TryArmProtection();
                     return;
                 }
 
@@ -248,11 +234,11 @@ namespace BugfixesAndQoL
             catch (Exception ex)
             {
                 LogFailureOnce($"on focus changed to {focused}", ex);
-                CancelProtection("focus handling failed");
+                CancelProtection();
             }
         }
 
-        private void TryArmProtection(string reason)
+        private void TryArmProtection()
         {
             if (!settingsLoaded || !IsEnabled)
                 return;
@@ -262,9 +248,6 @@ namespace BugfixesAndQoL
                 return;
 
             interceptedSaveLogged = false;
-            Shared.DebugLogHelper.LogInfo(
-                log,
-                $"Bugfixes and QoL armed borderless resolution protection ({reason}): target={snapshot}, actual={DescribeActual()}.");
         }
 
         private void RecoverAfterFocusGain()
@@ -279,7 +262,7 @@ namespace BugfixesAndQoL
 
             if (!IsEnabled)
             {
-                CancelProtection("feature disabled before focus recovery");
+                CancelProtection();
                 return;
             }
 
@@ -288,13 +271,7 @@ namespace BugfixesAndQoL
             bool matches = ResolutionMatches(target);
             DisplayRecoveryAction action = state.OnFocusGained(enabled: true, matches);
             if (action == DisplayRecoveryAction.Completed)
-            {
-                Shared.DebugLogHelper.LogInfo(
-                    log,
-                    $"Bugfixes and QoL completed borderless resolution protection without a correction " +
-                    $"({reason}): actual={DescribeActual()}.");
                 return;
-            }
 
             if (action != DisplayRecoveryAction.ApplyTarget)
                 return;
@@ -304,7 +281,7 @@ namespace BugfixesAndQoL
                 Shared.DebugLogHelper.LogWarning(
                     log,
                     $"Bugfixes and QoL cannot restore the protected borderless target because this PC does not report it: target={target}.");
-                CancelProtection("target resolution unsupported");
+                CancelProtection();
                 return;
             }
 
@@ -364,18 +341,11 @@ namespace BugfixesAndQoL
             }
         }
 
-        private void CancelProtection(string reason)
+        private void CancelProtection()
         {
-            bool wasActive = state.IsArmed || state.IsRecoveryActive;
             StopRecoveryObservation();
             focusRecoveryPending = false;
             state.Cancel();
-            if (wasActive)
-            {
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    $"Bugfixes and QoL ended borderless resolution protection ({reason}).");
-            }
         }
 
         private void StopRecoveryObservation()

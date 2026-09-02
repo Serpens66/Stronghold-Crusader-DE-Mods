@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.116",
+  "Version": "1.0.117",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.117",
+      "Changes": [
+        "Removed the temporary display-resolution diagnostic after successful validation and reduced routine logging while retaining the event-driven resolution protection."
+      ]
+    },
     {
       "Version": "1.0.116",
       "Changes": [
