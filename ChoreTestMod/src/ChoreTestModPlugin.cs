@@ -4,11 +4,11 @@ using CrusaderDE;
 using HarmonyLib;
 using R3;
 using SHCDESE.API;
-using SHCDESE.API.Components.Network;
 using SHCDESE.API.LowLevel;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.Buildings;
 using SHCDESE.EventAPI.Network;
+using SHCDESE.GameGlobals;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
@@ -27,6 +27,7 @@ namespace ChoreTestMod
         private const int MethodProbeCount = 3;
         private const int ProbesPerRepair = MethodProbeCount * 2;
         private const int FirstControlTick = 100;
+        private const int MaxChorePayloadBytes = 1200;
         // Multiplayer host actions use player slot 1 on every peer.
         private const int HostPlayerId = 1;
 
@@ -82,12 +83,12 @@ namespace ChoreTestMod
                     .Subscribe(OnBuildingRepair));
                 GameTimeManagerAPI.Instance.OnTick += OnTick;
 
-                string bodyHex = ToHex(SerializePacket());
+                string bodyHex = ToHex(GameNetworkAPI.Serialize(CreatePacket()));
                 serializerReady = bodyHex == ExpectedBodyHex;
                 LogInfo(
                     $"SERIALIZER_SELF_TEST_{(serializerReady ? "PASSED" : "FAILED")}: " +
                     $"packetId={packetHook.GetPacketId()}, bodyHex={bodyHex}, expected={ExpectedBodyHex}, " +
-                    $"transportAvailable={ChoreNetworkTransport.IsAvailable}.");
+                    $"choreManagerAvailable={GameGlobalsManager.Instance.ChoreManagerVA != 0}.");
             }
             catch (Exception exception)
             {
@@ -263,12 +264,24 @@ namespace ChoreTestMod
 
         private static bool SendProbe(string stage, int sequence, int count, int cycle)
         {
-            Func<byte[], bool> send = ChoreNetworkTransport.SendRawBlob;
-            byte[] body = SerializePacket();
-            if (send == null || ToHex(body) != ExpectedBodyHex)
+            if (packetHook == null)
             {
                 serializerReady = false;
-                LogError($"{stage}_SEND_FAILED: transport or serializer validation failed.");
+                LogError($"{stage}_SEND_FAILED: packet hook is unavailable.");
+                return false;
+            }
+
+            ChoreTestPacket packet = CreatePacket();
+            byte[] body = GameNetworkAPI.Serialize(packet);
+            int blobLength = sizeof(short) + body.Length;
+            if (ToHex(body) != ExpectedBodyHex || blobLength > MaxChorePayloadBytes ||
+                GameGlobalsManager.Instance.ChoreManagerVA == 0)
+            {
+                serializerReady = false;
+                LogError(
+                    $"{stage}_SEND_FAILED: serializer or chore precondition failed; " +
+                    $"body={ToHex(body)}, blobLength={blobLength}, " +
+                    $"choreManagerAvailable={GameGlobalsManager.Instance.ChoreManagerVA != 0}.");
                 return false;
             }
 
@@ -276,11 +289,23 @@ namespace ChoreTestMod
             byte[] blob = new byte[sizeof(short) + body.Length];
             BitConverter.GetBytes(packetId).CopyTo(blob, 0);
             Buffer.BlockCopy(body, 0, blob, sizeof(short), body.Length);
-            bool queued = send(blob);
-            LogInfo(
-                $"{stage}_SEND: cycle={cycle}, sequence={sequence}/{count}, queued={queued}, packetId={packetId}, " +
-                $"body={ToHex(body)}, blob={ToHex(blob)}, nativeBytes=13.");
-            return queued;
+
+            try
+            {
+                // The public 1.44 API serializes this same immutable packet again internally.
+                GameNetworkAPI.SendPacketToAllEx2(packet, packetId, viaChore: true);
+                LogInfo(
+                    $"{stage}_SEND: cycle={cycle}, sequence={sequence}/{count}, submitted=true, packetId={packetId}, " +
+                    $"body={ToHex(body)}, blob={ToHex(blob)}, nativeBytes=13.");
+                return true;
+            }
+            catch (Exception exception)
+            {
+                LogError(
+                    $"{stage}_SEND_FAILED: cycle={cycle}, sequence={sequence}/{count}, " +
+                    $"packetId={packetId}, error={exception}");
+                return false;
+            }
         }
 
         private static void OnPacketReceived(ReceiveCustomPacketEventArgs<ChoreTestPacket> args)
@@ -379,15 +404,15 @@ namespace ChoreTestMod
                 $"corruptions={eventCorruptions + postfixCorruptions}, decodeFailures={cycleDecodeFailures}.");
         }
 
-        private static byte[] SerializePacket()
+        private static ChoreTestPacket CreatePacket()
         {
-            return GameNetworkAPI.Serialize(new ChoreTestPacket
+            return new ChoreTestPacket
             {
                 ProtocolVersion = 1,
                 PlayerId = 1,
                 OperationId = 1,
                 LordGlobalId = 4254
-            });
+            };
         }
 
         private static string ToHex(byte[] bytes) =>
