@@ -1602,7 +1602,10 @@ denselben owner-qualifizierten Plan, blieb aber am oben beschriebenen `+0x80=0/+
 hängen. Damit ist dieser Builderzweig der einzige im Lauf beobachtete verbleibende
 Assassin-Abbruch.
 
-### 12.1.5 Zentrale Assassin-Moat-Kanten im gewichteten Builder
+### 12.1.5 Historischer Versuch: zentrale Assassin-Moat-Kanten im gewichteten Builder
+
+> Status: nicht als funktionale Lösung bestätigt und wieder entfernt. Die folgenden Absätze
+> dokumentieren den Versuch, nicht den aktuellen Code. Maßgeblich ist Abschnitt 15.
 
 Für die kanonische DLL mit SHA-256
 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
@@ -1684,6 +1687,10 @@ Diese Liste belegt die breite Verwendung des Helpers, ersetzt aber bei einer neu
 
 ### 14.2 `MoveMoatTest`
 
+Die ältere Assassin- und Kletterbeschreibung weiter unten in diesem Abschnitt ist historisch.
+Der aktuelle, absichtlich kleinere Funktionsumfang und seine Vanilla-Capability-Grenze stehen in
+Abschnitt 15 und ersetzen widersprechende Aussagen dieser Kurzfassung.
+
 - Allgemeine wiederholte Bewegung durch fertige Moats funktioniert im Editor und Skirmish.
 - Der frühere globale Fallthrough bei `0x8F393` sowie die drei Entity-Sprungpatches sind entfernt.
   Alle vier Stellen bleiben Vanilla und werden nur als bytevalidierte Update-Suchanker geführt.
@@ -1751,4 +1758,137 @@ Diese Liste belegt die breite Verwendung des Helpers, ersetzt aber bei einer neu
   und Wasser-Kontrollen im Editor testen; danach Skirmish und Gruppenbewegung.
 - Nach einem DLL-Update die semantische Wiederauffindungsanleitung in Abschnitt 12.1.1 nutzen;
   alte RVAs niemals allein aufgrund eines ähnlichen Hash-/Versionsumfelds übernehmen.
+
+## 15. Aktueller Kandidat: Überquerung nur für Vanilla-grabfähige Units
+
+### 15.1 Entscheidung und Ergebnis des Assassin-Versuchs
+
+Die universelle Erweiterung des gewichteten Assassin-Builders `0xD9C40` wurde im gemeinsamen
+Test mit `BugfixesAndQoL` zwar erreicht, aber nicht erfolgreich von Vanillas späterem
+Pfadverbrauch übernommen. Die Brückenprobe fand nachweislich kombinierte Routen mit freundlichen
+Moat- und Kletterkanten. Beim wirklichen Auftrag veröffentlichte Vanilla jedoch keinen nutzbaren
+Pfad; der Assassin blieb stehen und wechselte anschließend wieder durch die bereits bekannte
+Abbruchfolge der AI-States. Eine gefundene Probe ist daher kein Beleg für einen konsumierbaren
+nativen Pfad.
+
+Dieser Ansatz ist ausdrücklich **nicht** als Lösung bestätigt. Die Reflection-Brücke, ihre
+Assassin-Routenprobe, der spezielle Assassin-Bodenretry und alle Moat-spezifischen
+Wall-/Kletterfreigaben wurden wieder entfernt. `MoveMoatTest` und `BugfixesAndQoL` sind erneut
+voneinander unabhängig. `BugfixesAndQoL` besitzt wieder ausschließlich seine normale gewichtete
+Assassin-Pfadfindung; ohne Moat bleibt das gewöhnliche Klettern unverändert.
+
+Die fachliche Grenze lautet nun: Nur eine Unit, die Vanillas Befehl `DigMoatTileId = 6`
+tatsächlich pro Unit akzeptiert, darf den owner-geprüften Moat-Fallback erhalten. Dadurch fallen
+Assassinen, Armbrustschützen, Schwertkämpfer, Ritter und Belagerungsgeräte ohne zusätzliche
+Whitelist- oder Sonderpfade heraus.
+
+### 15.2 Maßgebliche per-Unit-Quelle: `0x11E960`, Command 6
+
+Für die kanonische DLL mit SHA-256
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
+liegt der gemeinsame Tribe-Command-Dispatcher bei RVA `0x11E960` (VA `0x18011E960`). Seine
+aktuelle semantische Baseline weist Größe `13291`, Raw-Hash
+`8F682F4F350FBC384475C747C1EB17C7181BA64BABF1A8155BFEA411988658A1` und
+Normalized-Hash `3B70D8BB37D897E161746F7289B0B645AD3EAEB37D2A281003176B5866D1CA01`
+aus. Die bestätigte historische Zuordnung lautet `0x11DA80 -> 0x11E960`
+(`unique-normalized-hash-and-cfg`).
+
+Im Switchfall `param_3 == 6` iteriert Vanilla die Units des Befehls und führt einen inline
+Unit-Type-Switch aus. Nur diese zehn `eChimps`-Werte gelangen in den Zweig, der Command, Ziel und
+Moat-Arbeitsfelder der jeweiligen Unit setzt:
+
+- `CHIMP_TYPE_ARCHER` (`0x16`)
+- `CHIMP_TYPE_SPEARMAN` (`0x18`)
+- `CHIMP_TYPE_PIKEMAN` (`0x19`)
+- `CHIMP_TYPE_MACEMAN` (`0x1A`)
+- `CHIMP_TYPE_ENGINEER` (`0x1E`)
+- `CHIMP_TYPE_ARAB_SLAVE` (`0x47`)
+- `CHIMP_TYPE_BEDOUIN_EUNUCH` (`0x50`)
+- `CHIMP_TYPE_BEDOUIN_SKIRMISHER` (`0x52`)
+- `CHIMP_TYPE_BEDOUIN_SAPPER` (`0x54`)
+- `CHIMP_TYPE_BEDOUIN_DEMOLISHER` (`0x55`)
+
+Das ist die maßgebliche per-Unit-Definition von Grabfähigkeit. Der aktuelle Command-6-Pfad liest
+kein allgemeines Capability-Feld. Insbesondere wird das historisch diskutierte Feld
+`unit+0x170` hier nicht gelesen und darf nicht als bestätigte Grabfähigkeit behandelt werden.
+`MoveMoatTest.CanDigMoat(GameUnit*)` spiegelt deshalb exakt diesen Switch mit Enumkonstanten.
+
+### 15.3 Unveränderter Auswahlhelper: `0x191C00`
+
+RVA `0x191C00` (VA `0x180191C00`, Größe 99) ist der bestätigte
+`selectionCanDigMoat`-Helper. Er prüft die zehn Auswahlzähler bei Offsets `0x580`, `0x5B4`,
+`0x568`, `0x564`, `0x56C`, `0x5E8`, `0x5EC`, `0x5E0`, `0x5D8` und `0x574` und liefert `1`,
+sobald mindestens einer davon ungleich null ist. Die Zähler werden von `0x198260` aus denselben
+Unit-Typen aufgebaut. Der Helper sagt daher nur „mindestens eine grabfähige Kategorie ist
+ausgewählt“; er ersetzt nicht die spätere per-Unit-Filterung.
+
+Vollständiges Funktionspattern der aktuellen DLL:
+
+    83 B9 80 05 00 00 00 75 54 83 B9 B4 05 00 00 00 75 4B
+    83 B9 68 05 00 00 00 75 42 83 B9 64 05 00 00 00 75 39
+    83 B9 6C 05 00 00 00 75 30 83 B9 E8 05 00 00 00 75 27
+    83 B9 EC 05 00 00 00 75 1E 83 B9 E0 05 00 00 00 75 15
+    83 B9 D8 05 00 00 00 75 0C 83 B9 74 05 00 00 00 75 03
+    33 C0 C3 B8 01 00 00 00 C3
+
+Die Cursor-Callsite liegt bei RVA `0x8D3CE`; ihre exakten Callbytes sind
+`E8 2D 48 10 00` und ihr Ziel muss erneut `0x191C00` ergeben. Der umgebende Suchanker beginnt
+bei `0x8D3C2`:
+
+    44 39 25 ?? ?? ?? ?? 74 3C 48 8B CE E8 ?? ?? ?? ??
+    85 C0 74 30 B8 01 00 00 00
+
+Der aktuelle Mod ruft diesen Helper unverändert auf; er detourt ihn nicht. Bei einer gemischten
+Auswahl genügt sein positives Ergebnis für den grünen Gruppenbefehl. Alle Plan-, Modus-,
+Regions-, Attack-Approach- und Builderentscheidungen werden danach erneut pro konkreter Unit mit
+`CanDigMoat` abgesichert. Nur passende Units erhalten den Fallback. Da nachfolgende
+Cursorprüfungen eine beliebige repräsentative ausgewählte Unit liefern können, bindet der Mod
+seine owner-sichere Cursorprobe bei einer gemischten Auswahl an eine tatsächlich ausgewählte,
+lebende grabfähige Unit desselben Spielers. Die unmittelbar folgende Tilepaarprüfung darf dabei
+eine andere repräsentative Gruppenunit melden; die Freigabe bleibt an den weiterhin ausgewählten
+Gräber und das unveränderte Ziel gebunden. Dadurch hängt der Gruppencursor nicht von der
+Auswahlreihenfolge ab, während der spätere Bewegungsfallback weiterhin strikt pro Unit arbeitet.
+
+### 15.4 Laufzeitvertrag und Fail-closed-Verhalten
+
+Die Owner-BFS bleibt unverändert streng: Das Ziel muss mit eigenem oder verbündetem fertigem Moat
+erreichbar und ohne Moat unerreichbar sein; feindlicher Moat, Wasser und Mauern werden nicht als
+Bodenkanten freigegeben. Eine Unit außerhalb der zehn Typen darf weder `PlanScope` noch
+erzwungenen Moat-Modus, Regionsfallback, Attack-Approach-Fallback oder Builderretry erhalten.
+Dies gilt unabhängig davon, ob Spieler, Editor, Script Extender oder KI-Tribe den Befehl auslöst.
+
+Cursorentscheidungen verwenden für die Auswahl Vanillas `0x191C00`. Reine ungeeignete Auswahlen
+erhalten keinen positiven Moat-Fallback. Bei gemischten Gruppen darf der Cursor positiv sein,
+aber die tatsächliche Bewegung wird weiterhin pro Unit gefiltert. Positive Editor-/Regionswerte
+werden zusätzlich owner-sicher geprüft: Hinter einem notwendigen feindlichen Moat bleibt der
+Cursor rot; für eine ungeeignete Unit zählt auch ein freundlicher Moat nicht als owner-sichere
+Route.
+
+Capability-Diagnosen werden semantisch nach Kartenepoch, Quelle, Unit-Typ, Command und Ziel
+dedupliziert und als `stage=vanilla-digger ... accepted=True/False` ausgegeben. Es gibt weiterhin
+keine abschaltende globale Loggrenze.
+
+### 15.5 Wiederauffinden und Validieren nach Updates
+
+Nach einem Spielupdate in dieser Reihenfolge vorgehen:
+
+1. Hash der installierten `CrusaderDE.dll` mit `CURRENT.json` und dem `binaryHash` der Baseline
+   vergleichen. Alte RVAs bei Abweichung niemals patchen oder als aktuellen Vertrag behandeln.
+2. Den 99-Byte-Helper über das vollständige Pattern, Funktionsgrenzen, Raw-/Normalized-Hash und
+   seinen Caller im Cursor-Dispatcher wiederfinden.
+3. Die Callsite semantisch als DigMoat-Cursorfall identifizieren und Callziel sowie vollständige
+   Callbytes erneut validieren; nicht nur nach einer relativen Adresse suchen.
+4. Den großen Command-Dispatcher über normalisierten Hash, CFG, bestätigtes historisches Match
+   und seinen äußeren Command-Switch wiederfinden. Im Fall Command 6 den inline Unit-Type-Switch
+   erneut vollständig auslesen.
+5. Über `0x198260` kontrollieren, welche Unit-Typen die zehn vom Auswahlhelper gelesenen Zähler
+   befüllen. Auswahlhelper und per-Unit-Switch müssen weiterhin dieselbe Menge ausdrücken.
+6. Weichen die Mengen ab oder ist eine Zuordnung nur `candidate`, bleibt das gesamte
+   Capability-Feature fail-closed, bis Auswahl- und Commandpfad erneut bestätigt sind.
+7. Nach einem Script-Extender-Update zusätzlich die Namen und Zahlenwerte aller verwendeten
+   `eChimps`-Konstanten prüfen; keine historischen numerischen Werte stillschweigend übernehmen.
+
+Die historische Zuordnung `0x190BC0 -> 0x191C00` ist für den Auswahlhelper durch
+`unique-raw-hash` bestätigt. Sie ist ein Suchanker, keine Erlaubnis, die aktuelle RVA ohne
+erneute Hash- und Byteprüfung zu verwenden.
 

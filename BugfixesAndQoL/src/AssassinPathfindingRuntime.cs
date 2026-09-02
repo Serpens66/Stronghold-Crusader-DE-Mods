@@ -46,10 +46,8 @@ namespace BugfixesAndQoL
         private const uint IsWallFlag = 1u << 8;
         private const uint IsStairsFlag = 1u << 11;
         private const uint IsLowWallFlag = 1u << 16;
-        private const uint CompletedMoatFlag = 1u << 30;
         private const byte GroundEdgeKind = 1;
-        private const byte MoatEdgeKind = 2;
-        private const byte ClimbEdgeKind = 3;
+        private const byte ClimbEdgeKind = 2;
         private const string AssassinBuilderPattern =
             "48 89 5C 24 08 48 89 6C 24 18 48 89 74 24 20 57 41 54 41 55 41 56 41 57 48 83 EC 30 48 63 EA 48 8B D9 49 63 F9";
 
@@ -89,9 +87,6 @@ namespace BugfixesAndQoL
         private bool fallbackLogged;
         private bool coordinateMapValidated;
         private bool coordinateValidationFailureLogged;
-        private bool moatProviderFailureLogged;
-        private bool routeSearchActive;
-        private string lastMoatRouteLog;
 
         public AssassinPathfindingRuntime(ManualLogSource log, BugfixesAndQoLViewModel settings, AssassinClimbRuntime climbRuntime)
         {
@@ -157,7 +152,6 @@ namespace BugfixesAndQoL
                 installed.Apply();
                 detour = installed;
                 reconstructionPatch = pendingReconstructionPatch;
-                AssassinMoatPathBridge.AttachRuntime(this);
                 ApplySetting();
                 LogDebug($"weighted Assassin pathfinding installed at RVA 0x{AssassinBuilderRva:X}; climb costs={AssassinClimbCostPolicy.MinimumClimbTicks}/{AssassinClimbCostPolicy.LowWallClimbTicks}/{AssassinClimbCostPolicy.NormalWallClimbTicks} ticks.");
             }
@@ -183,17 +177,7 @@ namespace BugfixesAndQoL
             patch.SetEnabled(AssassinClimbTransitionPolicy.ShouldRelaxPathReconstruction(
                 settings.EnableMod,
                 settings.EnableImprovedAssassinPathfinding,
-                IsInstalled) || (IsInstalled && AssassinMoatPathBridge.IsProviderActive));
-        }
-
-        internal void OnMoatPathProviderChanged()
-        {
-            moatProviderFailureLogged = false;
-            lastMoatRouteLog = null;
-            ApplySetting();
-            LogDebug($"MoveMoatTest Assassin route provider " +
-                $"{(AssassinMoatPathBridge.IsProviderActive ? "registered" : "removed")}; " +
-                "the weighted builder remains the sole RVA 0xD9C40 hook owner.");
+                IsInstalled));
         }
 
         public void BeginMap()
@@ -214,9 +198,7 @@ namespace BugfixesAndQoL
 
             // Vanilla initializes internal queue state even when our compact route field replaces it.
             int vanillaResult = vanilla(context, startX, startY, targetX, targetY, maximumNodes, continuation);
-            bool improvedPathfindingEnabled = settings.EnableMod && settings.EnableImprovedAssassinPathfinding;
-            bool moatProviderActive = AssassinMoatPathBridge.IsProviderActive;
-            if ((!improvedPathfindingEnabled && !moatProviderActive) || continuation != 0)
+            if (!settings.EnableMod || !settings.EnableImprovedAssassinPathfinding || continuation != 0)
                 return vanillaResult;
             if (targetX < 0 || targetY < 0)
                 return vanillaResult;
@@ -231,46 +213,21 @@ namespace BugfixesAndQoL
                 bool allowClimbing = climbRuntime.IsClimbingAllowed(playerId);
                 // Never publish a relaxed route unless Vanilla can reconstruct the same
                 // validated reserved climb endpoints. This keeps patch failures fail-closed.
-                bool allowWalkableReservedClimbEndpoints =
-                    (improvedPathfindingEnabled || moatProviderActive) &&
-                    reconstructionPatch?.IsApplied == true;
-                if (routeSearchActive)
-                    return vanillaResult;
-
-                routeSearchActive = true;
-                bool found;
-                RouteSearchSummary routeSummary;
-                try
+                bool allowWalkableReservedClimbEndpoints = reconstructionPatch?.IsApplied == true;
+                if (!TryBuildWeightedRoute(
+                    startX,
+                    startY,
+                    targetX,
+                    targetY,
+                    maximumNodes,
+                    speedDelay,
+                    allowClimbing,
+                    allowWalkableReservedClimbEndpoints,
+                    out RouteSearchSummary routeSummary) ||
+                    !CommitPreparedRoute(context, routeSummary.RouteLength))
                 {
-                    found = TryBuildWeightedRoute(
-                        context,
-                        playerId,
-                        startX,
-                        startY,
-                        targetX,
-                        targetY,
-                        maximumNodes,
-                        speedDelay,
-                        allowClimbing,
-                        allowWalkableReservedClimbEndpoints,
-                        allowFriendlyMoatEdges: moatProviderActive,
-                        commitRoute: false,
-                        out routeSummary);
-                }
-                finally
-                {
-                    routeSearchActive = false;
-                }
-
-                bool publishMoatRoute = found && routeSummary.UsedFriendlyMoat &&
-                    moatProviderActive && vanillaResult == 0;
-                if (!improvedPathfindingEnabled && !publishMoatRoute)
-                    return vanillaResult;
-                if (!found || !CommitPreparedRoute(context, routeSummary.RouteLength))
                     return 0;
-
-                if (routeSummary.UsedFriendlyMoat)
-                    LogMoatRoute("builder", playerId, startX, startY, targetX, targetY, routeSummary);
+                }
                 return 1;
             }
             catch (Exception ex)
@@ -285,8 +242,6 @@ namespace BugfixesAndQoL
         }
 
         private bool TryBuildWeightedRoute(
-            IntPtr context,
-            int playerId,
             int startX,
             int startY,
             int targetX,
@@ -295,8 +250,6 @@ namespace BugfixesAndQoL
             int speedDelay,
             bool allowClimbing,
             bool allowWalkableReservedClimbEndpoints,
-            bool allowFriendlyMoatEdges,
-            bool commitRoute,
             out RouteSearchSummary routeSummary)
         {
             routeSummary = default;
@@ -324,9 +277,9 @@ namespace BugfixesAndQoL
                 expanded++;
                 if (currentNode == targetNode)
                 {
-                    if (!PrepareRoute(startNode, targetNode, playerId, out routeSummary))
+                    if (!PrepareRoute(startNode, targetNode, out routeSummary))
                         return false;
-                    return !commitRoute || CommitPreparedRoute(context, routeSummary.RouteLength);
+                    return true;
                 }
 
                 int currentX = currentNode % MapWidth;
@@ -349,35 +302,10 @@ namespace BugfixesAndQoL
 
                     int nextNode = GetCoordinateIndex(nextX, nextY);
                     uint nextFlags = tileFlags[nextTile];
-                    // Keep the pre-bridge weighted graph byte-for-byte equivalent at the
-                    // decision level when no provider is registered.
-                    bool currentIsCompletedMoat = allowFriendlyMoatEdges &&
-                        (currentFlags & CompletedMoatFlag) != 0;
-                    bool nextIsCompletedMoat = allowFriendlyMoatEdges &&
-                        (nextFlags & CompletedMoatFlag) != 0;
-                    bool currentIsFriendlyMoat = currentIsCompletedMoat &&
-                        IsFriendlyCompletedMoat(playerId, currentTile);
-                    bool nextIsFriendlyMoat = nextIsCompletedMoat &&
-                        IsFriendlyCompletedMoat(playerId, nextTile);
-                    if ((currentIsCompletedMoat && !currentIsFriendlyMoat) ||
-                        (nextIsCompletedMoat && !nextIsFriendlyMoat))
-                    {
-                        continue;
-                    }
-
                     bool cardinal = (direction & 1) == 0;
-                    bool includesFriendlyMoat = currentIsFriendlyMoat || nextIsFriendlyMoat;
-                    bool hasWall = ((currentFlags | nextFlags) & IsWallFlag) != 0;
-                    bool ordinaryEdge = !currentIsCompletedMoat && !nextIsCompletedMoat &&
-                        (directionMasks[direction] & occupancyLayer[currentTile]) != 0;
-                    bool moatEdge = cardinal && includesFriendlyMoat && !hasWall &&
-                        IsAcceptedMoatGroundTarget(
-                            nextTile,
-                            nextFlags,
-                            nextIsFriendlyMoat,
-                            allowWalkableReservedClimbEndpoints);
+                    bool ordinaryEdge = (directionMasks[direction] & occupancyLayer[currentTile]) != 0;
                     bool climbEdge = false;
-                    if (!ordinaryEdge && !moatEdge)
+                    if (!ordinaryEdge)
                     {
                         if (!cardinal)
                             continue;
@@ -385,8 +313,6 @@ namespace BugfixesAndQoL
                             currentTile,
                             nextTile,
                             currentFlags,
-                            currentIsFriendlyMoat,
-                            nextIsFriendlyMoat,
                             allowWalkableReservedClimbEndpoints);
                         if (!fallbackAccepted)
                             continue;
@@ -406,13 +332,13 @@ namespace BugfixesAndQoL
 
                     if (costs[nextNode] == int.MaxValue)
                         Touch(nextNode, newCost, currentNode,
-                            climbEdge ? ClimbEdgeKind : moatEdge ? MoatEdgeKind : GroundEdgeKind);
+                            climbEdge ? ClimbEdgeKind : GroundEdgeKind);
                     else
                     {
                         costs[nextNode] = newCost;
                         parents[nextNode] = currentNode;
                         incomingEdgeKinds[nextNode] =
-                            climbEdge ? ClimbEdgeKind : moatEdge ? MoatEdgeKind : GroundEdgeKind;
+                            climbEdge ? ClimbEdgeKind : GroundEdgeKind;
                     }
                     PushOrDecrease(nextNode);
                 }
@@ -425,13 +351,10 @@ namespace BugfixesAndQoL
             int current,
             int target,
             uint currentFlags,
-            bool currentIsFriendlyMoat,
-            bool targetIsFriendlyMoat,
             bool allowWalkableReservedClimbEndpoints)
         {
             uint targetFlags = tileFlags[target];
-            bool targetAccepted = targetIsFriendlyMoat ||
-                (targetFlags & AssassinFallbackBlockingMask) == 0;
+            bool targetAccepted = (targetFlags & AssassinFallbackBlockingMask) == 0;
             if (!targetAccepted && (targetFlags & NativeSpecialTileFlag) != 0)
             {
                 targetAccepted = specialTilePredicate(
@@ -439,37 +362,16 @@ namespace BugfixesAndQoL
                     target) != 0;
             }
 
-            bool startAccepted = currentIsFriendlyMoat || AssassinClimbTransitionPolicy.CanUseStartTile(
+            bool startAccepted = AssassinClimbTransitionPolicy.CanUseStartTile(
                 allowWalkableReservedClimbEndpoints,
                 buildingLayer[current],
                 occupancyLayer[current]);
-            bool targetBuildingAccepted = targetIsFriendlyMoat || AssassinClimbTransitionPolicy.CanUseTargetTile(
+            bool targetBuildingAccepted = AssassinClimbTransitionPolicy.CanUseTargetTile(
                 allowWalkableReservedClimbEndpoints,
                 buildingLayer[target],
                 occupancyLayer[target]);
             bool hasWall = ((currentFlags | targetFlags) & IsWallFlag) != 0;
             return targetAccepted && startAccepted && targetBuildingAccepted && hasWall;
-        }
-
-        private bool IsAcceptedMoatGroundTarget(
-            int target,
-            uint targetFlags,
-            bool targetIsFriendlyMoat,
-            bool allowWalkableReservedClimbEndpoints)
-        {
-            if (targetIsFriendlyMoat)
-                return buildingLayer[target] == 0;
-
-            bool targetAccepted = (targetFlags & AssassinFallbackBlockingMask) == 0;
-            if (!targetAccepted && (targetFlags & NativeSpecialTileFlag) != 0)
-            {
-                targetAccepted = specialTilePredicate(
-                    IntPtr.Add(libraryHandle, SpecialTilePredicateContextRva), target) != 0;
-            }
-            return targetAccepted && AssassinClimbTransitionPolicy.CanUseTargetTile(
-                allowWalkableReservedClimbEndpoints,
-                buildingLayer[target],
-                occupancyLayer[target]);
         }
 
         private int GetClimbTicks(int current, int target)
@@ -487,36 +389,20 @@ namespace BugfixesAndQoL
         private bool PrepareRoute(
             int startNode,
             int targetNode,
-            int playerId,
             out RouteSearchSummary summary)
         {
             summary = default;
             int routeLength = 0;
             int node = targetNode;
             int groundEdges = 0;
-            int moatEdges = 0;
             int climbEdges = 0;
-            bool usedFriendlyMoat = false;
             while (node >= 0 && routeLength < route.Length)
             {
                 route[routeLength++] = node;
-                int routeX = node % MapWidth;
-                int routeY = node / MapWidth;
-                int routeTile = GetTileId(routeX, routeY);
-                if (!IsNativeTile(routeTile))
-                    return false;
-                if ((tileFlags[routeTile] & CompletedMoatFlag) != 0 &&
-                    IsFriendlyCompletedMoat(playerId, routeTile))
-                {
-                    usedFriendlyMoat = true;
-                }
                 switch (incomingEdgeKinds[node])
                 {
                     case GroundEdgeKind:
                         groundEdges++;
-                        break;
-                    case MoatEdgeKind:
-                        moatEdges++;
                         break;
                     case ClimbEdgeKind:
                         climbEdges++;
@@ -532,9 +418,7 @@ namespace BugfixesAndQoL
 
             summary = new RouteSearchSummary(
                 routeLength,
-                usedFriendlyMoat,
                 groundEdges,
-                moatEdges,
                 climbEdges);
             return true;
         }
@@ -569,63 +453,6 @@ namespace BugfixesAndQoL
             return true;
         }
 
-        internal int ProbeMoatRoute(
-            int playerId,
-            int startX,
-            int startY,
-            int targetX,
-            int targetY)
-        {
-            if (!AssassinMoatPathBridge.IsProviderActive || routeSearchActive ||
-                !IsValidCoordinate(startX, startY) || !IsValidCoordinate(targetX, targetY))
-            {
-                return 0;
-            }
-
-            try
-            {
-                if (!TryResolveAssassinRequest(startX, startY, out int resolvedPlayerId, out int speedDelay) ||
-                    resolvedPlayerId != playerId || !EnsureCoordinateTileMappingValidated())
-                {
-                    return 0;
-                }
-
-                routeSearchActive = true;
-                bool found = TryBuildWeightedRoute(
-                    IntPtr.Zero,
-                    playerId,
-                    startX,
-                    startY,
-                    targetX,
-                    targetY,
-                    TileCount,
-                    speedDelay,
-                    climbRuntime.IsClimbingAllowed(playerId),
-                    reconstructionPatch?.IsApplied == true,
-                    allowFriendlyMoatEdges: true,
-                    commitRoute: false,
-                    out RouteSearchSummary summary);
-                if (!found || !summary.UsedFriendlyMoat)
-                    return 0;
-
-                LogMoatRoute("cursor-probe", playerId, startX, startY, targetX, targetY, summary);
-                return 1 | 2 | (summary.ClimbEdges > 0 ? 4 : 0);
-            }
-            catch (Exception ex)
-            {
-                if (!moatProviderFailureLogged)
-                {
-                    moatProviderFailureLogged = true;
-                    LogWarning($"MoveMoatTest Assassin route probe failed closed: {ex.Message}");
-                }
-                return 0;
-            }
-            finally
-            {
-                routeSearchActive = false;
-            }
-        }
-
         private bool TryResolveAssassinRequest(int startX, int startY, out int playerId, out int speedDelay)
         {
             playerId = -1;
@@ -657,26 +484,6 @@ namespace BugfixesAndQoL
         private bool IsValidCoordinate(int x, int y)
         {
             return (uint)x < MapWidth && (uint)y < MapWidth && validCoordinates[y * MapWidth + x] != 0;
-        }
-
-        private bool IsFriendlyCompletedMoat(int playerId, int tileId)
-        {
-            if (!IsNativeTile(tileId) || (tileFlags[tileId] & CompletedMoatFlag) == 0)
-                return false;
-
-            try
-            {
-                return AssassinMoatPathBridge.IsFriendlyCompletedMoat(playerId, tileId);
-            }
-            catch (Exception ex)
-            {
-                if (!moatProviderFailureLogged)
-                {
-                    moatProviderFailureLogged = true;
-                    LogWarning($"MoveMoatTest moat classifier failed closed: {ex.Message}");
-                }
-                return false;
-            }
         }
 
         private int GetTileId(int x, int y) => rowLookup[y * 3] + x;
@@ -741,8 +548,6 @@ namespace BugfixesAndQoL
             coordinateMapValidated = false;
             coordinateValidationFailureLogged = false;
             fallbackLogged = false;
-            moatProviderFailureLogged = false;
-            lastMoatRouteLog = null;
         }
 
         private void Touch(int node, int cost, int parent, byte incomingEdgeKind)
@@ -842,48 +647,20 @@ namespace BugfixesAndQoL
                 (costs[left] == costs[right] && insertionOrder[left] < insertionOrder[right]);
         }
 
-        private void LogMoatRoute(
-            string source,
-            int playerId,
-            int startX,
-            int startY,
-            int targetX,
-            int targetY,
-            RouteSearchSummary summary)
-        {
-            string signature = $"{source}:{playerId}:{startX}:{startY}:{targetX}:{targetY}:" +
-                $"{summary.RouteLength}:{summary.GroundEdges}:{summary.MoatEdges}:" +
-                $"{summary.ClimbEdges}";
-            if (string.Equals(lastMoatRouteLog, signature, StringComparison.Ordinal))
-                return;
-
-            lastMoatRouteLog = signature;
-            LogDebug($"MoveMoatTest Assassin route source={source}, player={playerId}, " +
-                $"start=({startX},{startY}), target=({targetX},{targetY}), " +
-                $"length={summary.RouteLength}, groundEdges={summary.GroundEdges}, " +
-                $"moatEdges={summary.MoatEdges}, climbEdges={summary.ClimbEdges}.");
-        }
-
         private readonly struct RouteSearchSummary
         {
             public RouteSearchSummary(
                 int routeLength,
-                bool usedFriendlyMoat,
                 int groundEdges,
-                int moatEdges,
                 int climbEdges)
             {
                 RouteLength = routeLength;
-                UsedFriendlyMoat = usedFriendlyMoat;
                 GroundEdges = groundEdges;
-                MoatEdges = moatEdges;
                 ClimbEdges = climbEdges;
             }
 
             public int RouteLength { get; }
-            public bool UsedFriendlyMoat { get; }
             public int GroundEdges { get; }
-            public int MoatEdges { get; }
             public int ClimbEdges { get; }
         }
 

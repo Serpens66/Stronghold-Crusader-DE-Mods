@@ -8,7 +8,6 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
-using System.Reflection;
 using System.Runtime.InteropServices;
 using Zhuqiaomon.Assembly;
 
@@ -33,6 +32,9 @@ namespace MoveMoatTest
 
         [UnmanagedFunctionPointer(CallingConvention.Winapi)]
         private delegate int CursorTilePairFallbackSelectionDelegate(IntPtr selectionState);
+
+        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+        private delegate int SelectionCanDigMoatDelegate(IntPtr selectionState);
 
         [UnmanagedFunctionPointer(CallingConvention.Winapi)]
         private delegate int CursorTilePairReachabilityDelegate(
@@ -105,15 +107,17 @@ namespace MoveMoatTest
         private const int RegionReachabilityRva = 0xE7C40;
         private const int CursorReachabilityRva = 0xE9FF0;
         private const int CursorTilePairFallbackSelectionRva = 0x196870;
+        private const int SelectionCanDigMoatRva = 0x191C00;
+        private const int SelectionCanDigMoatCallRva = 0x8D3CE;
         private const int CursorTilePairReachabilityRva = 0xE2CA0;
         private const int GetRepresentativeSelectedUnitRva = 0x18D460;
         private const int CursorRegionPrecheckRva = 0xE9D90;
         private const int PathBuilderRva = 0xF4930;
-        private const int AssassinPathBuilderRva = 0xD9C40;
         private const int GroundPathBuilderRva = 0xDA590;
+        // Read-only call-target validation for the existing Vanilla building consumer.
+        // MoveMoatTest neither detours nor otherwise changes this Assassin builder.
+        private const int AssassinPathBuilderRva = 0xD9C40;
         private const int AlternativePathBuilderRva = 0xDB650;
-        private const int PathBuilderAssassinBranchRva = 0xF4B0C;
-        private const int PathBuilderAssassinCallOffset = 0x1B;
         private const int GetMoatIdAtTileRva = 0x69560;
         private const int AttackApproachFloodBuilderRva = 0xDBC60;
         private const int BuildingApproachBuilderRva = 0xDA020;
@@ -203,10 +207,6 @@ namespace MoveMoatTest
             "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 48 83 EC 40 " +
             "48 63 41 0C 48 8B D9 41 8B F0 44 8B D2";
 
-        private const string PathBuilderAssassinBranchPattern =
-            "39 AB 88 00 00 00 74 1D 89 6C 24 30 48 8B CB C7 44 24 28 80 1A 06 00 " +
-            "89 44 24 20 E8 14 51 FE FF";
-
         private const string GetMoatIdAtTilePattern =
             "48 63 C2 0F B7 84 41 ?? ?? ?? ?? C3 CC CC CC";
 
@@ -246,6 +246,17 @@ namespace MoveMoatTest
         private const string CursorTilePairFallbackSelectionPattern =
             "83 B9 BC 05 00 00 00 74 27 33 C0 48 81 C1 64 05 00 00 48 83 F8 16 " +
             "74 05 83 39 00 75 13 48 FF C0 48 83 C1 04 48 83 F8 23 7C E8 B8 01 00 00 00 C3";
+
+        private const string SelectionCanDigMoatPattern =
+            "83 B9 80 05 00 00 00 75 54 83 B9 B4 05 00 00 00 75 4B " +
+            "83 B9 68 05 00 00 00 75 42 83 B9 64 05 00 00 00 75 39 " +
+            "83 B9 6C 05 00 00 00 75 30 83 B9 E8 05 00 00 00 75 27 " +
+            "83 B9 EC 05 00 00 00 75 1E 83 B9 E0 05 00 00 00 75 15 " +
+            "83 B9 D8 05 00 00 00 75 0C 83 B9 74 05 00 00 00 75 03 " +
+            "33 C0 C3 B8 01 00 00 00 C3";
+
+        private const string SelectionCanDigMoatCallPattern =
+            "44 39 25 ?? ?? ?? ?? 74 3C 48 8B CE E8 ?? ?? ?? ?? 85 C0 74 30 B8 01 00 00 00";
 
         private const string CursorMoveCommandStagerPattern =
             "48 89 5C 24 10 48 89 6C 24 18 48 89 74 24 20 48 89 4C 24 08 " +
@@ -329,6 +340,7 @@ namespace MoveMoatTest
         private CursorReachabilityDelegate rootedCursorReachability;
         private CursorTilePairFallbackSelectionDelegate originalCursorTilePairFallbackSelection;
         private CursorTilePairFallbackSelectionDelegate rootedCursorTilePairFallbackSelection;
+        private SelectionCanDigMoatDelegate selectionCanDigMoat;
         private CursorTilePairReachabilityDelegate originalCursorTilePairReachability;
         private CursorTilePairReachabilityDelegate rootedCursorTilePairReachability;
         private GetRepresentativeSelectedUnitDelegate getRepresentativeSelectedUnit;
@@ -395,14 +407,10 @@ namespace MoveMoatTest
             new Dictionary<int, AttackUnitTracker>();
         private readonly Dictionary<int, MoatMoveTracker> trackedMoatMoves =
             new Dictionary<int, MoatMoveTracker>();
-        private readonly Dictionary<int, WallClimbTracker> trackedWallClimbs =
-            new Dictionary<int, WallClimbTracker>();
         private readonly HashSet<string> reportedDiagnosticFailureStages =
             new HashSet<string>(StringComparer.Ordinal);
-        private Func<int, int, bool> rootedAssassinMoatClassifier;
-        private Func<int, int, int, int, int, int> assassinRouteProbe;
-        private MethodInfo unregisterAssassinMoatProvider;
-        private bool assassinMoatBridgeActive;
+        private readonly HashSet<string> loggedDiggerDecisions =
+            new HashSet<string>(StringComparer.Ordinal);
         private int attackCommandSequence;
         private bool callbackFailureReported;
         private bool disposed;
@@ -435,9 +443,6 @@ namespace MoveMoatTest
             Shared.NativeResolution builderResolution = Resolve(
                 memory, PathBuilderPattern, PathBuilderRva,
                 "central tile path builder");
-            Shared.NativeResolution assassinBranchResolution = Resolve(
-                memory, PathBuilderAssassinBranchPattern, PathBuilderAssassinBranchRva,
-                "Assassin path-builder dispatcher branch");
             Shared.NativeResolution moatLookupResolution = Resolve(
                 memory, GetMoatIdAtTilePattern, GetMoatIdAtTileRva,
                 "moat ID lookup by tile");
@@ -447,6 +452,12 @@ namespace MoveMoatTest
             Shared.NativeResolution cursorModeResolution = Resolve(
                 memory, CursorTilePairFallbackSelectionPattern, CursorTilePairFallbackSelectionRva,
                 "cursor tile-pair fallback selection gate");
+            Shared.NativeResolution selectionCanDigResolution = Resolve(
+                memory, SelectionCanDigMoatPattern, SelectionCanDigMoatRva,
+                "Vanilla selection-can-dig-moat helper");
+            Resolve(
+                memory, SelectionCanDigMoatCallPattern, SelectionCanDigMoatCallRva - 0x0C,
+                "DigMoat cursor selection call context");
             Shared.NativeResolution cursorTilePairResolution = Resolve(
                 memory, CursorTilePairReachabilityPattern, CursorTilePairReachabilityRva,
                 "cursor tile-pair reachability helper");
@@ -502,26 +513,24 @@ namespace MoveMoatTest
                     0x00, 0x00
                 },
                 "representative selected-unit helper entry");
-            ValidateExactBytes(
-                memory,
-                PathBuilderAssassinBranchRva,
+            ValidateExactBytes(memory, SelectionCanDigMoatRva,
                 new byte[]
                 {
-                    0x39, 0xAB, 0x88, 0x00, 0x00, 0x00, 0x74, 0x1D,
-                    0x89, 0x6C, 0x24, 0x30, 0x48, 0x8B, 0xCB, 0xC7,
-                    0x44, 0x24, 0x28, 0x80, 0x1A, 0x06, 0x00, 0x89,
-                    0x44, 0x24, 0x20, 0xE8, 0x14, 0x51, 0xFE, 0xFF
-                },
-                "Assassin path-builder dispatcher branch and call");
-            int assassinBuilderTarget = Shared.NativePatternResolver.ResolveRelativeTarget(
-                memory,
-                assassinBranchResolution.Rva + PathBuilderAssassinCallOffset + 1,
-                assassinBranchResolution.Rva + PathBuilderAssassinCallOffset + 5);
-            if (assassinBuilderTarget != AssassinPathBuilderRva)
-            {
-                throw new InvalidOperationException(
-                    "The central builder no longer selects the audited Assassin path builder.");
-            }
+                    0x83, 0xB9, 0x80, 0x05, 0x00, 0x00, 0x00, 0x75, 0x54,
+                    0x83, 0xB9, 0xB4, 0x05, 0x00, 0x00, 0x00, 0x75, 0x4B,
+                    0x83, 0xB9, 0x68, 0x05, 0x00, 0x00, 0x00, 0x75, 0x42,
+                    0x83, 0xB9, 0x64, 0x05, 0x00, 0x00, 0x00, 0x75, 0x39,
+                    0x83, 0xB9, 0x6C, 0x05, 0x00, 0x00, 0x00, 0x75, 0x30,
+                    0x83, 0xB9, 0xE8, 0x05, 0x00, 0x00, 0x00, 0x75, 0x27,
+                    0x83, 0xB9, 0xEC, 0x05, 0x00, 0x00, 0x00, 0x75, 0x1E,
+                    0x83, 0xB9, 0xE0, 0x05, 0x00, 0x00, 0x00, 0x75, 0x15,
+                    0x83, 0xB9, 0xD8, 0x05, 0x00, 0x00, 0x00, 0x75, 0x0C,
+                    0x83, 0xB9, 0x74, 0x05, 0x00, 0x00, 0x00, 0x75, 0x03,
+                    0x33, 0xC0, 0xC3, 0xB8, 0x01, 0x00, 0x00, 0x00, 0xC3
+                }, "Vanilla selection-can-dig-moat helper body");
+            ValidateCallTarget(memory, SelectionCanDigMoatCallRva, SelectionCanDigMoatRva,
+                new byte[] { 0xE8, 0x2D, 0x48, 0x10, 0x00 },
+                "DigMoat cursor selection-helper call");
 
             moatPathMode = (int*)(libraryBase + MoatPathModeRva);
             cursorTargetX = (int*)(libraryBase + CursorTargetXRva);
@@ -536,6 +545,8 @@ namespace MoveMoatTest
                 (IntPtr)(libraryBase + unchecked((ulong)moatLookupResolution.Rva)));
             getRepresentativeSelectedUnit = Marshal.GetDelegateForFunctionPointer<GetRepresentativeSelectedUnitDelegate>(
                 (IntPtr)(libraryBase + unchecked((ulong)representativeUnitResolution.Rva)));
+            selectionCanDigMoat = Marshal.GetDelegateForFunctionPointer<SelectionCanDigMoatDelegate>(
+                (IntPtr)(libraryBase + unchecked((ulong)selectionCanDigResolution.Rva)));
             rootedCentralMovementPlan = RunCentralMovementPlanWithContext;
             rootedPathBuilder = BuildPathWithCompletedMoatRouteVariant;
             rootedTribeFloodFillMembership = AllowTribeFloodFillForMoveOrder;
@@ -640,7 +651,7 @@ namespace MoveMoatTest
                     $"0x{AttackAlternativePairGateJumpRva:X}(all-vanilla), semanticSelectionGate=true, " +
                     $"plan=0x{planResolution.Rva:X}, mode=0x{modeResolution.Rva:X}, " +
                     $"region=0x{regionResolution.Rva:X}, builder=0x{builderResolution.Rva:X}, " +
-                    $"assassinBuilderBranch=0x{assassinBranchResolution.Rva:X}->0x{assassinBuilderTarget:X}, " +
+                    $"selectionCanDigMoat=0x{selectionCanDigResolution.Rva:X}/call=0x{SelectionCanDigMoatCallRva:X}, " +
                     $"tribeFloodFill=0x{floodResolution.Rva:X}, moatLookup=0x{moatLookupResolution.Rva:X}; " +
                     "friendlyAndAlliedCompletedMoats=true, enemyMoats=fail-closed-experimental.");
 
@@ -648,7 +659,6 @@ namespace MoveMoatTest
                 // approach pipelines and cannot roll back the proven movement feature.
                 TryInstallAttackApproachDiagnostics(memory, libraryBase);
                 TryInstallCursorMoveCommandDiagnostics(memory, libraryBase);
-                TryRegisterAssassinMoatPathBridge();
             }
             catch
             {
@@ -681,7 +691,6 @@ namespace MoveMoatTest
                 return;
 
             disposed = true;
-            TryUnregisterAssassinMoatPathBridge();
             tribeMoveSubscription?.Dispose();
             tribeTargetSubscription?.Dispose();
             mapLoadSubscription?.Dispose();
@@ -716,129 +725,7 @@ namespace MoveMoatTest
             activeAttackApproachDiagnostic = null;
             trackedAttackUnits.Clear();
             trackedMoatMoves.Clear();
-            trackedWallClimbs.Clear();
             lastAttackCommandCandidates.Clear();
-        }
-
-        private void TryRegisterAssassinMoatPathBridge()
-        {
-            try
-            {
-                Type bridgeType = Type.GetType(
-                    "BugfixesAndQoL.AssassinMoatPathBridge, BugfixesAndQoL",
-                    throwOnError: false);
-                if (bridgeType == null)
-                {
-                    Shared.DebugLogHelper.LogWarning(
-                        log,
-                        "MoveMoat Assassin bridge is unavailable; the existing pure-moat ground retry remains active, but combined moat/climb routes stay Vanilla.");
-                    return;
-                }
-
-                const BindingFlags flags = BindingFlags.Static |
-                    BindingFlags.Public | BindingFlags.NonPublic;
-                MethodInfo register = bridgeType.GetMethod(
-                    "RegisterProvider",
-                    flags,
-                    binder: null,
-                    types: new[] { typeof(string), typeof(Func<int, int, bool>) },
-                    modifiers: null);
-                MethodInfo probe = bridgeType.GetMethod(
-                    "ProbeRoute",
-                    flags,
-                    binder: null,
-                    types: new[]
-                    {
-                        typeof(int), typeof(int), typeof(int), typeof(int), typeof(int)
-                    },
-                    modifiers: null);
-                MethodInfo unregister = bridgeType.GetMethod(
-                    "UnregisterProvider",
-                    flags,
-                    binder: null,
-                    types: new[] { typeof(string) },
-                    modifiers: null);
-                if (register == null || probe == null || unregister == null)
-                    throw new MissingMethodException(bridgeType.FullName, "MoveMoat bridge contract");
-
-                rootedAssassinMoatClassifier = ClassifyFriendlyCompletedMoatForBridge;
-                unregisterAssassinMoatProvider = unregister;
-                object registered = register.Invoke(
-                    null,
-                    new object[] { "MoveMoatTest_Serp", rootedAssassinMoatClassifier });
-                if (!(registered is bool accepted) || !accepted)
-                    throw new InvalidOperationException("BugfixesAndQoL rejected the MoveMoat provider");
-
-                assassinRouteProbe =
-                    (Func<int, int, int, int, int, int>)Delegate.CreateDelegate(
-                        typeof(Func<int, int, int, int, int, int>), probe);
-                assassinMoatBridgeActive = true;
-                Shared.DebugLogHelper.LogInfo(
-                    log,
-                    "MoveMoat Assassin bridge registered; BugfixesAndQoL exclusively owns RVA 0xD9C40 and combined owner-safe moat/climb routes are active.");
-            }
-            catch (Exception ex)
-            {
-                try
-                {
-                    unregisterAssassinMoatProvider?.Invoke(
-                        null, new object[] { "MoveMoatTest_Serp" });
-                }
-                catch
-                {
-                    // Registration is optional. If rollback itself fails, keeping the
-                    // classifier rooted is safer than exposing a collected callback.
-                }
-                assassinRouteProbe = null;
-                unregisterAssassinMoatProvider = null;
-                assassinMoatBridgeActive = false;
-                Shared.DebugLogHelper.LogWarning(
-                    log,
-                    $"MoveMoat Assassin bridge registration failed closed; the existing pure-moat fallback remains active: {ex.GetBaseException().Message}");
-            }
-        }
-
-        private void TryUnregisterAssassinMoatPathBridge()
-        {
-            try
-            {
-                if (assassinMoatBridgeActive && unregisterAssassinMoatProvider != null)
-                {
-                    unregisterAssassinMoatProvider.Invoke(
-                        null, new object[] { "MoveMoatTest_Serp" });
-                }
-            }
-            catch (Exception ex)
-            {
-                Shared.DebugLogHelper.LogWarning(
-                    log,
-                    $"MoveMoat Assassin bridge removal failed closed: {ex.GetBaseException().Message}");
-            }
-            finally
-            {
-                assassinMoatBridgeActive = false;
-                assassinRouteProbe = null;
-                unregisterAssassinMoatProvider = null;
-                rootedAssassinMoatClassifier = null;
-            }
-        }
-
-        private bool ClassifyFriendlyCompletedMoatForBridge(int playerId, int tileId)
-        {
-            if (disposed || !IsValidTileId(tileId) ||
-                (tileFlags[tileId] & CompletedMoatTileFlag) == 0)
-            {
-                return false;
-            }
-
-            IntPtr tileManager = GameTileManagerAPI.Instance.GetTileManager();
-            GamePlayerManagerAPI playerApi = GamePlayerManagerAPI.Instance;
-            if (tileManager == IntPtr.Zero || !playerApi.IsPlayerIdValid(playerId))
-                return false;
-
-            RouteProbeSummary ignored = new RouteProbeSummary(playerId);
-            return TryClassifyFriendlyMoat(
-                tileManager, playerApi, tileId, playerId, ref ignored);
         }
 
         private void TryInstallCursorMoveCommandDiagnostics(ReadOnlySpan<byte> memory, ulong libraryBase)
@@ -1534,7 +1421,6 @@ namespace MoveMoatTest
             }
 
             ObserveTrackedMoatMoveStates(tick);
-            ObserveTrackedWallClimbStates(tick);
         }
 
         private void MarkTrackedAttackPipeline(
@@ -1824,6 +1710,90 @@ namespace MoveMoatTest
             command == TribeAICommand.AttackBuilding ||
             command == TribeAICommand.ForceAttackBuilding;
 
+        // Mirrors the per-unit switch in Vanilla's DigMoatTileId (command 6) handler.
+        // There is no generic capability field in that command path.
+        private static bool CanDigMoat(GameUnit* unit) =>
+            unit != null && CanDigMoat(unit->r_UnitChimp);
+
+        private static bool CanDigMoat(eChimps type)
+        {
+            switch (type)
+            {
+                case eChimps.CHIMP_TYPE_ARCHER:
+                case eChimps.CHIMP_TYPE_SPEARMAN:
+                case eChimps.CHIMP_TYPE_PIKEMAN:
+                case eChimps.CHIMP_TYPE_MACEMAN:
+                case eChimps.CHIMP_TYPE_ENGINEER:
+                case eChimps.CHIMP_TYPE_ARAB_SLAVE:
+                case eChimps.CHIMP_TYPE_BEDOUIN_EUNUCH:
+                case eChimps.CHIMP_TYPE_BEDOUIN_SKIRMISHER:
+                case eChimps.CHIMP_TYPE_BEDOUIN_SAPPER:
+                case eChimps.CHIMP_TYPE_BEDOUIN_DEMOLISHER:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        private bool TryGetSelectedVanillaDigger(
+            int preferredUnitId,
+            int expectedPlayerId,
+            out int unitId,
+            out GameUnit* unit)
+        {
+            unitId = 0;
+            unit = null;
+            if (preferredUnitId > 0 &&
+                GameUnitManagerAPI.Instance.TryGetUnitById(preferredUnitId, out GameUnit* preferred) &&
+                preferred != null && preferred->r_AliveState == AliveState.IsAlive &&
+                (expectedPlayerId < 0 || preferred->r_ControllableForPlayerId == expectedPlayerId) &&
+                (preferred->r_UnitSelected != 0 || preferred->r_UnitSelected2 != 0) &&
+                CanDigMoat(preferred))
+            {
+                unitId = preferredUnitId;
+                unit = preferred;
+                return true;
+            }
+
+            int[] selectedUnitIds = GamePlayerManagerAPI.Instance.GetSelectedChimps();
+            for (int index = 0; index < selectedUnitIds.Length; index++)
+            {
+                int selectedUnitId = selectedUnitIds[index];
+                if (selectedUnitId <= 0 ||
+                    !GameUnitManagerAPI.Instance.TryGetUnitById(selectedUnitId, out GameUnit* selected) ||
+                    selected == null || selected->r_AliveState != AliveState.IsAlive ||
+                    (expectedPlayerId >= 0 && selected->r_ControllableForPlayerId != expectedPlayerId) ||
+                    !CanDigMoat(selected))
+                {
+                    continue;
+                }
+
+                unitId = selectedUnitId;
+                unit = selected;
+                return true;
+            }
+
+            return false;
+        }
+
+        private void LogDiggerDecision(
+            string source, int unitId, GameUnit* unit, int targetX, int targetY,
+            bool accepted, bool friendlyMoatRequired = false)
+        {
+            if (unit == null)
+                return;
+            string key = $"{mapEpoch}:{source}:{unit->r_UnitChimp}:{unit->r_AI_LastIssuedTribeCommand}:" +
+                $"{targetX}:{targetY}:{accepted}:{friendlyMoatRequired}";
+            if (!loggedDiggerDecisions.Add(key))
+                return;
+            Shared.DebugLogHelper.LogInfo(log,
+                $"MoveMoat stage=vanilla-digger source={source} unit={unitId} " +
+                $"type={unit->r_UnitChimp} command=" +
+                $"{(TribeAICommand)unit->r_AI_LastIssuedTribeCommand} " +
+                $"target=({targetX},{targetY}) accepted={accepted} " +
+                $"friendlyMoatRequired={friendlyMoatRequired}.");
+        }
+
         private int RunCentralMovementPlanWithContext(
             IntPtr unitManager, int unitId, int targetX, int targetY)
         {
@@ -1831,7 +1801,11 @@ namespace MoveMoatTest
                 return originalCentralMovementPlan(unitManager, unitId, targetX, targetY);
 
             MarkTrackedAttackPipeline(unitId, AttackPipelineStage.Planner, targetX, targetY, false);
-            MarkTrackedWallPipeline(unitId, "planner", targetX, targetY, IntPtr.Zero, null);
+            if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* plannerUnit) ||
+                plannerUnit == null || !CanDigMoat(plannerUnit))
+            {
+                return originalCentralMovementPlan(unitManager, unitId, targetX, targetY);
+            }
 
             PlanScope previous = activePlan;
             PlanScope plan = new PlanScope(unitId, targetX, targetY);
@@ -1890,7 +1864,6 @@ namespace MoveMoatTest
         private int EnableCompletedMoatModeForScopedMovement(IntPtr unitManager, int unitId)
         {
             int vanillaResult = originalUnitStandingOnCompletedMoat(unitManager, unitId);
-            MarkTrackedWallPipeline(unitId, "mode", -1, -1, IntPtr.Zero, vanillaResult);
             PlanScope plan = activePlan;
             bool plannerQualified = plan != null && plan.FriendlyRouteQualified;
             if (disposed || unitManager == IntPtr.Zero || unitId <= 0)
@@ -1900,6 +1873,10 @@ namespace MoveMoatTest
             {
                 if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) || unit == null)
                     return vanillaResult;
+                if (!CanDigMoat(unit))
+                {
+                    return vanillaResult;
+                }
 
                 if (!plannerQualified && activeMoveCommand != null)
                 {
@@ -2030,6 +2007,11 @@ namespace MoveMoatTest
             AttackCommandScope scope = activeAttackCommand;
             if (scope == null || scope.MapEpoch != mapEpoch || !IsAttackCommand(scope.Command))
                 return false;
+            if (!CanDigMoat(unit))
+            {
+                rejectionReason = "unit-cannot-dig-moat";
+                return false;
+            }
             if (!scope.CandidateUnitIds.Contains(unitId))
             {
                 rejectionReason = "unit-not-command-candidate";
@@ -2146,6 +2128,13 @@ namespace MoveMoatTest
             if (disposed || !scoped)
                 return vanillaResult;
 
+            if (plan == null ||
+                !GameUnitManagerAPI.Instance.TryGetUnitById(plan.UnitId, out GameUnit* unit) ||
+                unit == null || !CanDigMoat(unit))
+            {
+                return vanillaResult;
+            }
+
             if (activeMoveCommand != null)
                 activeMoveCommand.RegionCalls++;
 
@@ -2230,40 +2219,13 @@ namespace MoveMoatTest
             if (disposed || pathManager == IntPtr.Zero || plan == null ||
                 (command == null && !plannerQualified))
             {
-                WallClimbTracker wallTracker = null;
-                try
-                {
-                    if (pathManager != IntPtr.Zero)
-                    {
-                        wallTracker = TryGetWallTrackerForUnscopedBuilder();
-                        if (wallTracker != null)
-                        {
-                            LogWallBuilderState("entry", wallTracker, pathManager,
-                                movementClass, movementProfile, null);
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    TryLogDiagnosticFailure("wall-builder-entry", ex);
-                    wallTracker = null;
-                }
-                int wallVanillaResult = originalPathBuilder(
-                    pathManager, movementClass, movementProfile);
-                if (wallTracker != null)
-                {
-                    try
-                    {
-                        LogWallBuilderState("return", wallTracker, pathManager,
-                            movementClass, movementProfile, wallVanillaResult);
-                        wallTracker.BuilderObserved = true;
-                    }
-                    catch (Exception ex)
-                    {
-                        TryLogDiagnosticFailure("wall-builder-return", ex);
-                    }
-                }
-                return wallVanillaResult;
+                return originalPathBuilder(pathManager, movementClass, movementProfile);
+            }
+
+            if (!GameUnitManagerAPI.Instance.TryGetUnitById(plan.UnitId, out GameUnit* builderUnit) ||
+                builderUnit == null || !CanDigMoat(builderUnit))
+            {
+                return originalPathBuilder(pathManager, movementClass, movementProfile);
             }
 
             LogBuilderNativeState(
@@ -2313,14 +2275,8 @@ namespace MoveMoatTest
 
             int* routeVariant = (int*)((byte*)pathManager.ToPointer() + PathManagerRouteVariantOffset);
             int originalRouteVariant = *routeVariant;
-            int* assassinMode =
-                (int*)((byte*)pathManager.ToPointer() + PathManagerAssassinModeOffset);
-            int originalAssassinMode = *assassinMode;
-            bool isAssassin =
-                GameUnitManagerAPI.Instance.TryGetUnitById(plan.UnitId, out GameUnit* builderUnit) &&
-                builderUnit != null &&
-                builderUnit->r_AliveState == AliveState.IsAlive &&
-                builderUnit->r_UnitChimp == eChimps.CHIMP_TYPE_ARAB_ASSASIN;
+            int originalAssassinMode =
+                *(int*)((byte*)pathManager.ToPointer() + PathManagerAssassinModeOffset);
             int vanillaMoatMode = plan.VanillaModeDetected ? 1 : 0;
             bool vanillaModeAdjusted = currentMoatMode != vanillaMoatMode;
             int vanillaResult;
@@ -2341,14 +2297,8 @@ namespace MoveMoatTest
             LogBuilderNativeState(
                 "after-vanilla-first", pathManager, plan,
                 movementClass, movementProfile, vanillaResult);
-            bool route80FallbackCandidate = vanillaResult == 0 && originalRouteVariant == 1 &&
-                (!isAssassin || !assassinMoatBridgeActive);
-            bool assassinGroundFallbackCandidate = vanillaResult == 0 &&
-                originalRouteVariant == 0 && originalAssassinMode != 0 && isAssassin &&
-                !assassinMoatBridgeActive;
-            string fallbackCandidate = route80FallbackCandidate
-                ? "route80"
-                : assassinGroundFallbackCandidate ? "assassin-ground" : "none";
+            bool route80FallbackCandidate = vanillaResult == 0 && originalRouteVariant == 1;
+            string fallbackCandidate = route80FallbackCandidate ? "route80" : "none";
             try
             {
                 LogPipelineDiagnostic(
@@ -2361,7 +2311,7 @@ namespace MoveMoatTest
             {
                 // Diagnostics must not change the Vanilla-first builder result.
             }
-            if (!route80FallbackCandidate && !assassinGroundFallbackCandidate)
+            if (!route80FallbackCandidate)
             {
                 RecordBuilderResult(command, vanillaResult);
                 return vanillaResult;
@@ -2400,29 +2350,17 @@ namespace MoveMoatTest
             LogBuilderNativeState(
                 "before-fallback", pathManager, plan,
                 movementClass, movementProfile, vanillaResult);
-            // The first unchanged run keeps Assassin wall weighting. A qualified pure-moat
-            // retry needs the ordinary ground builder because D9C40 still rejects moat tiles.
-            bool useAssassinGroundFallback = originalAssassinMode != 0 && isAssassin &&
-                !assassinMoatBridgeActive;
-
             int result;
             try
             {
                 if (command != null)
                     command.FallbackBuilderCalls++;
-                if (useAssassinGroundFallback)
-                    *assassinMode = 0;
                 result = originalPathBuilder(pathManager, movementClass, movementProfile);
             }
             catch
             {
                 *routeVariant = originalRouteVariant;
                 throw;
-            }
-            finally
-            {
-                if (useAssassinGroundFallback)
-                    *assassinMode = originalAssassinMode;
             }
 
             bool retained = result > 0;
@@ -2435,16 +2373,6 @@ namespace MoveMoatTest
 
             try
             {
-                if (useAssassinGroundFallback)
-                {
-                    LogBuilderDecision(
-                        $"stage=builder-assassin-ground-fallback unit={plan.UnitId} " +
-                        $"target=({plan.TargetX},{plan.TargetY}) " +
-                        $"path80={originalRouteVariant}->{*routeVariant} " +
-                        $"path88={originalAssassinMode}->0->" +
-                        $"{*assassinMode} vanillaResult={vanillaResult} result={result} " +
-                        $"retained={retained} {routeSummary.ToLogFields()}");
-                }
                 if (route80FallbackCandidate)
                 {
                     LogBuilderDecision(
@@ -2770,9 +2698,9 @@ namespace MoveMoatTest
             if (!GameUnitManagerAPI.Instance.TryGetUnitById(scope.UnitId, out GameUnit* unit) ||
                 unit == null || unit->r_AliveState != AliveState.IsAlive ||
                 unit->r_TribeId != scope.TribeId ||
-                unit->r_ControllableForPlayerId != scope.PlayerId)
+                unit->r_ControllableForPlayerId != scope.PlayerId || !CanDigMoat(unit))
             {
-                return AttackRegionFallbackDecision.Reject("representative-unit-mismatch");
+                return AttackRegionFallbackDecision.Reject("representative-unit-not-vanilla-digger");
             }
             if (scope.TargetContext != scope.OwnerCommand.TargetValue1 ||
                 !TryGetHostileLivingUnitAtTile(
@@ -2833,7 +2761,7 @@ namespace MoveMoatTest
             {
                 if (!GameUnitManagerAPI.Instance.TryGetUnitById(candidateId, out GameUnit* unit) ||
                     unit == null || unit->r_AliveState != AliveState.IsAlive ||
-                    unit->r_TribeId != command.TribeId)
+                    unit->r_TribeId != command.TribeId || !CanDigMoat(unit))
                 {
                     continue;
                 }
@@ -2973,18 +2901,14 @@ namespace MoveMoatTest
                 byte* state = (byte*)selectionState.ToPointer();
                 int* slots = (int*)(state + 0x564);
                 ulong occupiedSlots = 0;
-                bool hasEligibleSlot = false;
                 for (int index = 0; index < 35; index++)
                 {
                     if (slots[index] == 0)
                         continue;
 
                     occupiedSlots |= 1UL << index;
-                    if (index != 22)
-                    {
-                        hasEligibleSlot = true;
-                    }
                 }
+                bool hasVanillaDiggerSelection = selectionCanDigMoat(selectionState) != 0;
 
                 int unitId = getRepresentativeSelectedUnit(selectionState, 1);
                 int nextUnitId = *(int*)nativeUnitManager;
@@ -3019,6 +2943,15 @@ namespace MoveMoatTest
                 GameUnit* unit = null;
                 bool validUnit = unitId > 0 && unitId < nextUnitId &&
                     GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out unit) && unit != null;
+                int representativePlayerId = validUnit ? unit->r_ControllableForPlayerId : -1;
+                if (hasVanillaDiggerSelection && (!validUnit || !CanDigMoat(unit)) &&
+                    TryGetSelectedVanillaDigger(
+                        unitId, representativePlayerId, out int diggerUnitId, out GameUnit* diggerUnit))
+                {
+                    unitId = diggerUnitId;
+                    unit = diggerUnit;
+                    validUnit = true;
+                }
                 if (validUnit)
                 {
                     playerId = unit->r_ControllableForPlayerId;
@@ -3083,18 +3016,10 @@ namespace MoveMoatTest
                         fallbackKind = CursorPairFallbackKind.BuildingApproach;
                     else if (hostileUnitTarget)
                         fallbackKind = CursorPairFallbackKind.UnitApproach;
-                    else if (wallTarget &&
-                        unit->r_UnitChimp == eChimps.CHIMP_TYPE_ARAB_ASSASIN)
-                    {
-                        fallbackKind = CursorPairFallbackKind.WallApproach;
-                    }
                 }
 
-                bool assassinWallTarget = validPair && wallTarget &&
-                    unit->r_UnitChimp == eChimps.CHIMP_TYPE_ARAB_ASSASIN;
                 AttackCursorPairScope candidateScope = validPair &&
-                    (freeOrdinaryTarget || hostileUnitTarget || hostileBuildingTarget ||
-                     assassinWallTarget)
+                    (freeOrdinaryTarget || hostileUnitTarget || hostileBuildingTarget)
                     ? new AttackCursorPairScope(
                         mapEpoch, unitId, playerId, startX, startY, startTileId,
                         targetX, targetY, targetTileId, fallbackKind,
@@ -3104,17 +3029,20 @@ namespace MoveMoatTest
                     : null;
                 bool ownerRoute = candidateScope != null &&
                     TryQualifyCursorScope(candidateScope, out _, out _, out _);
-                bool functionalArmed = candidateScope != null && ownerRoute;
+                bool functionalArmed = candidateScope != null && ownerRoute &&
+                    hasVanillaDiggerSelection;
                 if (!validUnit)
                     rejectionReason = "invalid-representative-unit";
                 else if (!validTarget)
                     rejectionReason = "invalid-cursor-target";
                 else if (!validPair)
                     rejectionReason = "invalid-tile-pair";
-                else if (wallTarget && !assassinWallTarget)
+                else if (!hasVanillaDiggerSelection)
+                    rejectionReason = "selection-cannot-dig-moat";
+                else if (wallTarget)
                     rejectionReason = "wall-or-stair-kept-vanilla";
                 else if (!freeOrdinaryTarget && !hostileUnitTarget && !hostileBuildingTarget &&
-                    !assassinWallTarget)
+                    !wallTarget)
                     rejectionReason = "target-not-free-or-hostile-entity";
                 else if (!ownerRoute)
                     rejectionReason = "no-required-friendly-moat-route";
@@ -3135,7 +3063,7 @@ namespace MoveMoatTest
                     targetY,
                     targetTileId,
                     occupiedSlots,
-                    hasEligibleSlot,
+                    hasVanillaDiggerSelection,
                     functionalArmed,
                     fallbackKind,
                     rejectionReason,
@@ -3159,21 +3087,9 @@ namespace MoveMoatTest
                 }
                 if (candidateScope != null &&
                     ((functionalArmed &&
-                      (fallbackKind == CursorPairFallbackKind.BuildingApproach ||
-                       fallbackKind == CursorPairFallbackKind.WallApproach)) ||
-                     (assassinWallTarget && vanillaResult != 0)))
+                      fallbackKind == CursorPairFallbackKind.BuildingApproach)))
                 {
                     pendingEntityCursorCommand = candidateScope;
-                }
-
-                if (wallTarget && validUnit &&
-                    unit->r_UnitChimp == eChimps.CHIMP_TYPE_ARAB_ASSASIN)
-                {
-                    TrackWallClimbCandidate(unitId, playerId, startX, startY,
-                        targetX, targetY, targetTileId, buildingTarget,
-                        rawHoveringOverWall, rawHoverBuildingId,
-                        rawHoverBuildingTileId, rawMouseTileId2, rawMouseTileId,
-                        false, 0, 0);
                 }
 
                 // A positive Vanilla answer is authoritative. Only a Vanilla rejection may be
@@ -3197,7 +3113,7 @@ namespace MoveMoatTest
             string signature =
                 $"{diagnostic.MapEpoch}:{diagnostic.VanillaSelectionResult}:{diagnostic.UnitId}:" +
                 $"{diagnostic.PlayerId}:{diagnostic.StartTileId}:{diagnostic.TargetTileId}:" +
-                $"{diagnostic.OccupiedSlots:X}:{diagnostic.HasEligibleSlot}:" +
+                $"{diagnostic.OccupiedSlots:X}:{diagnostic.HasVanillaDiggerSelection}:" +
                 $"{diagnostic.FunctionalFallbackArmed}:{diagnostic.FallbackKind}:" +
                 $"{diagnostic.BuildingId}:{diagnostic.BuildingGlobalId}:" +
                 $"{diagnostic.RawHoverBuildingId}:{diagnostic.RawHoverUnitId}:" +
@@ -3214,7 +3130,8 @@ namespace MoveMoatTest
                 $"unit={diagnostic.UnitId} player={diagnostic.PlayerId} " +
                 $"start=({diagnostic.StartX},{diagnostic.StartY})/{diagnostic.StartTileId} " +
                 $"target=({diagnostic.TargetX},{diagnostic.TargetY})/{diagnostic.TargetTileId} " +
-                $"slots=0x{diagnostic.OccupiedSlots:X9} eligibleSlot={diagnostic.HasEligibleSlot} " +
+                $"slots=0x{diagnostic.OccupiedSlots:X9} " +
+                $"vanillaDiggerSelection={diagnostic.HasVanillaDiggerSelection} " +
                 $"fallbackArmed={diagnostic.FunctionalFallbackArmed} " +
                 $"fallbackKind={diagnostic.FallbackKind} " +
                 $"building={diagnostic.BuildingId}/{diagnostic.BuildingGlobalId}/" +
@@ -3332,7 +3249,7 @@ namespace MoveMoatTest
             bool cacheModeAccepted = useCache == 1 ||
                 (buildingApproachPair && useCache == 0);
             if (scope == null || scope.MapEpoch != mapEpoch || !cacheModeAccepted ||
-                scope.StartTileId != selectedUnitTileId ||
+                !CursorStartMatchesSelectedDigger(scope, selectedUnitTileId) ||
                 !CursorScopeMatchesTargetTile(scope, targetTileId))
             {
                 return vanillaResult;
@@ -3446,8 +3363,7 @@ namespace MoveMoatTest
             AttackCursorPairScope scope = pendingEntityCursorCommand;
             if (vanillaResult != 0 || scope == null || scope.MapEpoch != mapEpoch ||
                 scope.UnitId != nativeUnitIndex ||
-                (scope.FallbackKind != CursorPairFallbackKind.BuildingApproach &&
-                 scope.FallbackKind != CursorPairFallbackKind.WallApproach))
+                scope.FallbackKind != CursorPairFallbackKind.BuildingApproach)
             {
                 return false;
             }
@@ -3539,7 +3455,8 @@ namespace MoveMoatTest
 
         private static bool ShouldBlockPositiveCursorResult(
             bool ownerSafeRoute, RouteProbeSummary summary) =>
-            !ownerSafeRoute && summary.EnemyMoatTiles > 0;
+            !ownerSafeRoute &&
+            (summary.FriendlyMoatTiles > 0 || summary.EnemyMoatTiles > 0);
 
         private bool TryProbeConservativeCursorRoute(
             int nativeUnitIndex,
@@ -3563,53 +3480,33 @@ namespace MoveMoatTest
             if (nativeUnitIndex <= 0 || nativeUnitIndex >= nextUnitId)
                 return false;
 
-            byte* nativeUnit = nativeUnitManager + (nativeUnitIndex * 0x490);
-            int startX = *(ushort*)(nativeUnit + 0x71C);
-            int startY = *(ushort*)(nativeUnit + 0x71E);
-            if (startX < 0 || startX >= MapWidth || startY < 0 || startY >= MapWidth)
-                return false;
-
             if (!GameUnitManagerAPI.Instance.TryGetUnitById(nativeUnitIndex, out GameUnit* unit) ||
                 unit == null)
             {
                 return false;
             }
 
-            int targetTileId = GameTileManagerAPI.Instance.GetTileId(targetX, targetY);
+            int routeUnitId = nativeUnitIndex;
+            GameUnit* routeUnit = unit;
             int playerId = unit->r_ControllableForPlayerId;
+            if (!CanDigMoat(routeUnit) &&
+                TryGetSelectedVanillaDigger(
+                    nativeUnitIndex, playerId, out int selectedDiggerId, out GameUnit* selectedDigger))
+            {
+                routeUnitId = selectedDiggerId;
+                routeUnit = selectedDigger;
+            }
+
+            int startX = routeUnit->r_CurrentTilePositionX;
+            int startY = routeUnit->r_CurrentTilePositionY;
+            if (startX < 0 || startX >= MapWidth || startY < 0 || startY >= MapWidth)
+                return false;
+
+            int targetTileId = GameTileManagerAPI.Instance.GetTileId(targetX, targetY);
             if (!IsValidTileId(targetTileId) ||
                 !GamePlayerManagerAPI.Instance.IsPlayerIdValid(playerId))
             {
                 return false;
-            }
-
-            if (unit->r_UnitChimp == eChimps.CHIMP_TYPE_ARAB_ASSASIN &&
-                assassinMoatBridgeActive && assassinRouteProbe != null)
-            {
-                AttackCursorPairScope directScope = new AttackCursorPairScope(
-                    mapEpoch,
-                    nativeUnitIndex,
-                    playerId,
-                    startX,
-                    startY,
-                    GameTileManagerAPI.Instance.GetTileId(startX, startY),
-                    targetX,
-                    targetY,
-                    targetTileId,
-                    CursorPairFallbackKind.DirectTile);
-                bool assassinRoute = TryProbeCombinedAssassinRoute(
-                    directScope, targetX, targetY, out summary);
-                if (assassinRoute)
-                {
-                    ownerSafeRoute = true;
-                    requiredFriendlyMoatRoute = true;
-                    return true;
-                }
-
-                // A negative combined probe does not explain why the route failed. Let the
-                // owner-aware ground probe below retain its enemy-moat evidence so a positive
-                // Vanilla cursor cannot accidentally stay green at a hostile moat boundary.
-                summary = default;
             }
 
             if (pathRegionGrid[targetTileId] <= 0 ||
@@ -3619,7 +3516,7 @@ namespace MoveMoatTest
             }
 
             TryFindFriendlyCompletedMoatRoute(
-                nativeUnitIndex,
+                routeUnitId,
                 playerId,
                 startX,
                 startY,
@@ -3631,9 +3528,16 @@ namespace MoveMoatTest
                 visitedWithoutMoat[targetCell] == gridGeneration;
             bool reachedWithMoat = gridGeneration > 0 && visitedWithMoat != null &&
                 visitedWithMoat[targetCell] == gridGeneration;
-            ownerSafeRoute = reachedWithoutMoat || reachedWithMoat;
-            requiredFriendlyMoatRoute = reachedWithMoat && !reachedWithoutMoat &&
+            bool canDigMoat = CanDigMoat(routeUnit);
+            ownerSafeRoute = reachedWithoutMoat || (canDigMoat && reachedWithMoat);
+            requiredFriendlyMoatRoute = canDigMoat && reachedWithMoat && !reachedWithoutMoat &&
                 summary.FriendlyMoatTiles > 0;
+            if ((summary.FriendlyMoatTiles > 0 || summary.EnemyMoatTiles > 0) &&
+                !reachedWithoutMoat)
+            {
+                LogDiggerDecision("cursor", routeUnitId, routeUnit,
+                    targetX, targetY, canDigMoat);
+            }
             summary.AttackProbeEvaluated = true;
             summary.ReachedWithMoat = reachedWithMoat;
             summary.ReachedWithoutMoat = reachedWithoutMoat;
@@ -3647,7 +3551,7 @@ namespace MoveMoatTest
             summary = default;
             if (plan == null || plan.TargetX < 0 || plan.TargetY < 0 ||
                 !GameUnitManagerAPI.Instance.TryGetUnitById(plan.UnitId, out GameUnit* unit) ||
-                unit == null)
+                unit == null || !CanDigMoat(unit))
             {
                 return false;
             }
@@ -3676,33 +3580,6 @@ namespace MoveMoatTest
                 return false;
             }
 
-            if (unit->r_UnitChimp == eChimps.CHIMP_TYPE_ARAB_ASSASIN &&
-                assassinMoatBridgeActive && assassinRouteProbe != null)
-            {
-                int startX = unit->r_CurrentTilePositionX;
-                int startY = unit->r_CurrentTilePositionY;
-                int startTileId = GameTileManagerAPI.Instance.GetTileId(startX, startY);
-                int targetTileId = GameTileManagerAPI.Instance.GetTileId(
-                    plan.TargetX, plan.TargetY);
-                if (!IsValidTileId(startTileId) || !IsValidTileId(targetTileId))
-                    return false;
-
-                plan.PlayerId = unit->r_ControllableForPlayerId;
-                AttackCursorPairScope probeScope = new AttackCursorPairScope(
-                    mapEpoch,
-                    plan.UnitId,
-                    plan.PlayerId,
-                    startX,
-                    startY,
-                    startTileId,
-                    plan.TargetX,
-                    plan.TargetY,
-                    targetTileId,
-                    CursorPairFallbackKind.DirectTile);
-                return TryProbeCombinedAssassinRoute(
-                    probeScope, plan.TargetX, plan.TargetY, out summary);
-            }
-
             bool reachedTargetWithMoat = TryFindFriendlyCompletedMoatRouteForPlan(plan, out summary);
             if (!reachedTargetWithMoat)
                 return false;
@@ -3725,6 +3602,11 @@ namespace MoveMoatTest
             summary.RegionTopologyQualified = regionTopologyQualified;
             summary.RouteFound = reachedWithMoat && !reachedWithoutMoat &&
                 summary.FriendlyMoatTiles > 0;
+            if (summary.RouteFound)
+            {
+                LogDiggerDecision("route", plan.UnitId, unit,
+                    plan.TargetX, plan.TargetY, true, friendlyMoatRequired: true);
+            }
             return summary.RouteFound;
         }
 
@@ -3821,17 +3703,10 @@ namespace MoveMoatTest
             if (scope == null)
                 return false;
 
-            bool assassinScope = IsAssassinScope(scope);
-
             if (scope.FallbackKind == CursorPairFallbackKind.DirectTile)
             {
                 approachX = scope.TargetX;
                 approachY = scope.TargetY;
-                if (assassinScope && TryProbeCombinedAssassinRoute(
-                    scope, approachX, approachY, out summary))
-                {
-                    return true;
-                }
                 return TryFindRequiredFriendlyCompletedMoatRouteToDirectTile(scope, out summary);
             }
 
@@ -3841,79 +3716,8 @@ namespace MoveMoatTest
                     scope, out approachX, out approachY, out summary);
             }
 
-            if (scope.FallbackKind == CursorPairFallbackKind.WallApproach)
-            {
-                if (assassinScope && TryProbeCombinedAssassinRoute(
-                    scope, scope.TargetX, scope.TargetY, out summary))
-                {
-                    approachX = scope.TargetX;
-                    approachY = scope.TargetY;
-                    return true;
-                }
-                return TryFindFriendlyCompletedMoatRouteToAttackApproach(
-                    scope, out approachX, out approachY, out summary);
-            }
-
             return TryFindFriendlyCompletedMoatRouteToAttackApproach(
                 scope, out approachX, out approachY, out summary);
-        }
-
-        private bool IsAssassinScope(AttackCursorPairScope scope)
-        {
-            return scope != null && assassinMoatBridgeActive && assassinRouteProbe != null &&
-                GameUnitManagerAPI.Instance.TryGetUnitById(scope.UnitId, out GameUnit* unit) &&
-                unit != null && unit->r_AliveState == AliveState.IsAlive &&
-                unit->r_UnitChimp == eChimps.CHIMP_TYPE_ARAB_ASSASIN;
-        }
-
-        private bool TryProbeCombinedAssassinRoute(
-            AttackCursorPairScope scope,
-            int targetX,
-            int targetY,
-            out RouteProbeSummary summary)
-        {
-            summary = default;
-            if (!IsAssassinScope(scope) || targetX < 0 || targetX >= MapWidth ||
-                targetY < 0 || targetY >= MapWidth)
-            {
-                return false;
-            }
-
-            try
-            {
-                int targetTileId = GameTileManagerAPI.Instance.GetTileId(targetX, targetY);
-                if (!IsValidTileId(targetTileId))
-                    return false;
-                int result = assassinRouteProbe(
-                    scope.PlayerId,
-                    scope.StartX,
-                    scope.StartY,
-                    targetX,
-                    targetY);
-                bool reachable = (result & 1) != 0;
-                bool usedFriendlyMoat = (result & 2) != 0;
-                summary = new RouteProbeSummary(scope.PlayerId)
-                {
-                    FriendlyMoatTiles = usedFriendlyMoat ? 1 : 0,
-                    StartRegion = IsValidTileId(scope.StartTileId)
-                        ? pathRegionGrid[scope.StartTileId]
-                        : 0,
-                    TargetRegion = pathRegionGrid[targetTileId],
-                    RouteFound = reachable && usedFriendlyMoat,
-                    AttackProbeEvaluated = true,
-                    ReachedWithMoat = reachable && usedFriendlyMoat,
-                    ReachedWithoutMoat = false,
-                    RegionTopologyQualified = true,
-                    AssassinCombinedProbe = true,
-                    AssassinUsedClimb = (result & 4) != 0
-                };
-                return summary.RouteFound;
-            }
-            catch (Exception ex)
-            {
-                TryLogDiagnosticFailure("assassin-combined-route-probe", ex);
-                return false;
-            }
         }
 
         private bool CursorScopeMatchesTargetTile(AttackCursorPairScope scope, int targetTileId)
@@ -3926,6 +3730,22 @@ namespace MoveMoatTest
                      scope, targetTileId, out _, out _));
         }
 
+        private bool CursorStartMatchesSelectedDigger(
+            AttackCursorPairScope scope, int actualSelectedUnitTileId)
+        {
+            if (scope.StartTileId == actualSelectedUnitTileId)
+                return true;
+
+            // E2CA0 can receive another representative member of a mixed selection.
+            // The cursor is group-wide, while the later movement hooks filter every unit.
+            return TryGetSelectedVanillaDigger(
+                       scope.UnitId, scope.PlayerId, out int selectedDiggerId, out GameUnit* selectedDigger) &&
+                   selectedDiggerId == scope.UnitId && selectedDigger != null &&
+                   GameTileManagerAPI.Instance.GetTileId(
+                       selectedDigger->r_CurrentTilePositionX,
+                       selectedDigger->r_CurrentTilePositionY) == scope.StartTileId;
+        }
+
         private bool TryQualifyExactBuildingApproach(
             AttackCursorPairScope scope,
             int approachX,
@@ -3934,12 +3754,6 @@ namespace MoveMoatTest
             out RouteProbeSummary summary)
         {
             summary = default;
-            if (IsAssassinScope(scope) && TryProbeCombinedAssassinRoute(
-                scope, approachX, approachY, out summary))
-            {
-                return true;
-            }
-
             AttackCursorPairScope directScope = new AttackCursorPairScope(
                 scope.MapEpoch,
                 scope.UnitId,
@@ -4255,15 +4069,6 @@ namespace MoveMoatTest
                     if (region <= 0 || region > MaximumRegionId)
                         continue;
 
-                    if (IsAssassinScope(scope) && TryProbeCombinedAssassinRoute(
-                        scope, x, y, out RouteProbeSummary assassinCandidate))
-                    {
-                        approachX = x;
-                        approachY = y;
-                        summary = assassinCandidate;
-                        return true;
-                    }
-
                     EnsureReachabilityMap(scope.UnitId, scope.PlayerId, tileManager, playerApi,
                         scope.StartX, scope.StartY, region);
                     RouteProbeSummary candidate = cachedRouteSummary;
@@ -4394,16 +4199,6 @@ namespace MoveMoatTest
                     int candidateRegion = pathRegionGrid[candidateTileId];
                     if (candidateRegion <= 0 || candidateRegion > MaximumRegionId)
                         continue;
-
-                    if (IsAssassinScope(scope) && TryProbeCombinedAssassinRoute(
-                        scope, candidateX, candidateY,
-                        out RouteProbeSummary assassinCandidate))
-                    {
-                        approachX = candidateX;
-                        approachY = candidateY;
-                        summary = assassinCandidate;
-                        return true;
-                    }
 
                     EnsureReachabilityMap(
                         scope.UnitId,
@@ -4671,7 +4466,7 @@ namespace MoveMoatTest
             activeAttackCommand = null;
             activeAttackApproachDiagnostic = null;
             trackedMoatMoves.Clear();
-            trackedWallClimbs.Clear();
+            loggedDiggerDecisions.Clear();
         }
 
         private void ObserveCursorMoveCommandStager(
@@ -4712,20 +4507,6 @@ namespace MoveMoatTest
                     }
                 }
 
-                if (scopeMatches && scope.FallbackKind == CursorPairFallbackKind.WallApproach &&
-                    unitId > 0 && playerId >= 0)
-                {
-                    TrackWallClimbCandidate(
-                        unitId, playerId, startX, startY, scope.TargetX, scope.TargetY,
-                        scope.TargetTileId, default,
-                        cursorManager != null ? cursorManager->r_HoveringOverWall : 0,
-                        cursorManager != null ? cursorManager->r_HoverOverBuildingId : 0,
-                        cursorManager != null ? cursorManager->r_HoverOverBuildingTileId : 0,
-                        cursorManager != null ? cursorManager->r_MouseTileId2 : 0,
-                        cursorManager != null ? cursorManager->r_MouseTileId : 0,
-                        true, -1, commandContext);
-                }
-
                 if (scopeMatches)
                 {
                     Shared.DebugLogHelper.LogInfo(
@@ -4762,198 +4543,6 @@ namespace MoveMoatTest
             {
                 TryLogDiagnosticFailure("entity-move-stager-post", ex);
             }
-        }
-
-        private void TrackWallClimbCandidate(
-            int unitId,
-            int playerId,
-            int startX,
-            int startY,
-            int targetX,
-            int targetY,
-            int targetTileId,
-            BuildingCursorTarget wall,
-            uint rawHoveringOverWall,
-            uint rawHoverBuildingId,
-            uint rawHoverBuildingTileId,
-            uint rawMouseTileId2,
-            uint rawMouseTileId,
-            bool commandStaged,
-            int stagedCommand,
-            int commandContext)
-        {
-            if (trackedWallClimbs.TryGetValue(unitId, out WallClimbTracker existing) &&
-                existing.MapEpoch == mapEpoch && existing.TargetTileId == targetTileId &&
-                existing.WallBuildingId == wall.BuildingId)
-            {
-                existing.CommandStaged |= commandStaged;
-                existing.Activated |= commandStaged;
-                if (commandStaged)
-                {
-                    existing.StagedCommand = stagedCommand;
-                    existing.CommandContext = commandContext;
-                }
-                return;
-            }
-            if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
-                unit == null || unit->r_AliveState != AliveState.IsAlive)
-                return;
-
-            WallClimbTracker tracker = new WallClimbTracker
-            {
-                MapEpoch = mapEpoch,
-                UnitId = unitId,
-                PlayerId = playerId,
-                StartX = startX,
-                StartY = startY,
-                TargetX = targetX,
-                TargetY = targetY,
-                TargetTileId = targetTileId,
-                WallBuildingId = wall.BuildingId,
-                WallGlobalId = wall.GlobalId,
-                WallType = wall.BuildingType,
-                RawHoveringOverWall = rawHoveringOverWall,
-                RawHoverBuildingId = rawHoverBuildingId,
-                RawHoverBuildingTileId = rawHoverBuildingTileId,
-                RawMouseTileId2 = rawMouseTileId2,
-                RawMouseTileId = rawMouseTileId,
-                CommandStaged = commandStaged,
-                StagedCommand = stagedCommand,
-                CommandContext = commandContext,
-                Activated = commandStaged,
-                InitialSignature = GetWallUnitSignature(unit)
-            };
-            trackedWallClimbs[unitId] = tracker;
-            Shared.DebugLogHelper.LogInfo(log,
-                $"MoveMoat stage=wall-track-start unit={unitId} type={unit->r_UnitChimp} " +
-                $"player={playerId} start=({startX},{startY}) target=({targetX},{targetY})/" +
-                $"{targetTileId} wall={wall.BuildingId}/{wall.GlobalId}/{wall.BuildingType} " +
-                $"rawCursor=building:{rawHoverBuildingId}/buildingTile:{rawHoverBuildingTileId}/" +
-                $"mouse2:{rawMouseTileId2}/wall:{rawHoveringOverWall}/mouse:{rawMouseTileId} " +
-                $"commandStaged={commandStaged} command={(TribeAICommand)stagedCommand}/" +
-                $"{stagedCommand:X} context={commandContext}.");
-        }
-
-        private void ObserveTrackedWallClimbStates(int tick)
-        {
-            if (trackedWallClimbs.Count == 0)
-                return;
-            try
-            {
-                foreach (int unitId in new List<int>(trackedWallClimbs.Keys))
-                {
-                    if (!trackedWallClimbs.TryGetValue(unitId, out WallClimbTracker tracker))
-                        continue;
-                    if (tracker.MapEpoch != mapEpoch ||
-                        !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
-                        unit == null || unit->r_AliveState != AliveState.IsAlive)
-                    {
-                        trackedWallClimbs.Remove(unitId);
-                        continue;
-                    }
-
-                    string signature = GetWallUnitSignature(unit);
-                    if (string.Equals(signature, tracker.LastSignature, StringComparison.Ordinal))
-                        continue;
-                    tracker.LastSignature = signature;
-                    tracker.Activated |= !string.Equals(
-                        signature, tracker.InitialSignature, StringComparison.Ordinal);
-                    Shared.DebugLogHelper.LogInfo(log,
-                        $"MoveMoat stage=wall-state tick={tick} unit={unitId} " +
-                        $"aiState={unit->r_AIState} command=" +
-                        $"{(TribeAICommand)unit->r_AI_LastIssuedTribeCommand} " +
-                        $"current=({unit->r_CurrentTilePositionX},{unit->r_CurrentTilePositionY}) " +
-                        $"target=({unit->r_TargetTilePositionX},{unit->r_TargetTilePositionY}) " +
-                        $"target2=({unit->r_TargetTilePositionX2},{unit->r_TargetTilePositionY2}) " +
-                        $"next=({unit->r_NextTilePositionX2},{unit->r_NextTilePositionY2}) " +
-                        $"context=({unit->r_ContextTargetTileX},{unit->r_ContextTargetTileY}) " +
-                        $"speed={unit->r_CurrentSpeed}/{unit->r_CurrentSpeed2} path=" +
-                        $"{unit->r_PathPlanRelated1}/{unit->r_PathPlanStateBitFlags}/" +
-                        $"{unit->r_MovingRelevant}/{unit->p_CurrentPathPlanPosition}/" +
-                        $"{unit->p_PathPlanSize} mode={tracker.ModeObserved} " +
-                        $"planner={tracker.PlannerObserved} builder={tracker.BuilderObserved}.");
-                }
-            }
-            catch (Exception ex)
-            {
-                TryLogDiagnosticFailure("wall-state-tick", ex);
-            }
-        }
-
-        private static string GetWallUnitSignature(GameUnit* unit) =>
-            $"{unit->r_AIState}:{unit->r_AI_LastIssuedTribeCommand}:" +
-            $"{unit->r_CurrentTilePositionX}:{unit->r_CurrentTilePositionY}:" +
-            $"{unit->r_TargetTilePositionX}:{unit->r_TargetTilePositionY}:" +
-            $"{unit->r_TargetTilePositionX2}:{unit->r_TargetTilePositionY2}:" +
-            $"{unit->r_NextTilePositionX2}:{unit->r_NextTilePositionY2}:" +
-            $"{unit->r_ContextTargetTileX}:{unit->r_ContextTargetTileY}:" +
-            $"{unit->r_PathPlanRelated1}:{unit->r_PathPlanStateBitFlags}:" +
-            $"{unit->p_PathPlanSize}:{unit->r_CurrentSpeed}";
-
-        private void MarkTrackedWallPipeline(
-            int unitId, string stage, int targetX, int targetY,
-            IntPtr pathManager, int? result)
-        {
-            try
-            {
-                if (!trackedWallClimbs.TryGetValue(unitId, out WallClimbTracker tracker))
-                    return;
-                if (stage == "planner")
-                    tracker.PlannerObserved = true;
-                else if (stage == "mode")
-                    tracker.ModeObserved = true;
-                Shared.DebugLogHelper.LogInfo(log,
-                    $"MoveMoat stage=wall-{stage} unit={unitId} requested=({targetX},{targetY}) " +
-                    $"wallTarget=({tracker.TargetX},{tracker.TargetY}) result=" +
-                    $"{(result.HasValue ? result.Value.ToString() : "n/a")}.");
-            }
-            catch (Exception ex)
-            {
-                TryLogDiagnosticFailure("wall-pipeline-marker", ex);
-            }
-        }
-
-        private WallClimbTracker TryGetWallTrackerForUnscopedBuilder()
-        {
-            WallClimbTracker match = null;
-            foreach (WallClimbTracker tracker in trackedWallClimbs.Values)
-            {
-                if (!tracker.Activated || tracker.MapEpoch != mapEpoch ||
-                    !GameUnitManagerAPI.Instance.TryGetUnitById(
-                        tracker.UnitId, out GameUnit* unit) || unit == null ||
-                    unit->r_AliveState != AliveState.IsAlive)
-                    continue;
-                bool targetMatches =
-                    (unit->r_TargetTilePositionX == tracker.TargetX &&
-                     unit->r_TargetTilePositionY == tracker.TargetY) ||
-                    (unit->r_TargetTilePositionX2 == tracker.TargetX &&
-                     unit->r_TargetTilePositionY2 == tracker.TargetY) ||
-                    (unit->r_ContextTargetTileX == tracker.TargetX &&
-                     unit->r_ContextTargetTileY == tracker.TargetY);
-                // The native wall stager proves the command/unit/tile relation before the
-                // later AI state necessarily copies that tile into ordinary move fields.
-                if (!targetMatches && !tracker.CommandStaged)
-                    continue;
-                if (match != null)
-                    return null;
-                match = tracker;
-            }
-            return match;
-        }
-
-        private void LogWallBuilderState(
-            string stage, WallClimbTracker tracker, IntPtr pathManager,
-            int movementClass, int movementProfile, int? result)
-        {
-            byte* manager = (byte*)pathManager.ToPointer();
-            Shared.DebugLogHelper.LogInfo(log,
-                $"MoveMoat stage=wall-builder-{stage} unit={tracker.UnitId} " +
-                $"wallTarget=({tracker.TargetX},{tracker.TargetY})/{tracker.TargetTileId} " +
-                $"path80={*(int*)(manager + PathManagerRouteVariantOffset)} " +
-                $"path84={*(int*)(manager + PathManagerMovementVariantOffset)} " +
-                $"path88={*(int*)(manager + PathManagerAssassinModeOffset)} " +
-                $"movementClass={movementClass} movementProfile={movementProfile} " +
-                $"result={(result.HasValue ? result.Value.ToString() : "n/a")}.");
         }
 
         private void LogCursorDecision(string message)
@@ -5247,7 +4836,6 @@ namespace MoveMoatTest
         {
             UnitApproach,
             BuildingApproach,
-            WallApproach,
             DirectTile
         }
 
@@ -5704,7 +5292,7 @@ namespace MoveMoatTest
                 int targetY,
                 int targetTileId,
                 ulong occupiedSlots,
-                bool hasEligibleSlot,
+                bool hasVanillaDiggerSelection,
                 bool functionalFallbackArmed,
                 CursorPairFallbackKind fallbackKind,
                 string rejectionReason,
@@ -5729,7 +5317,7 @@ namespace MoveMoatTest
                 TargetY = targetY;
                 TargetTileId = targetTileId;
                 OccupiedSlots = occupiedSlots;
-                HasEligibleSlot = hasEligibleSlot;
+                HasVanillaDiggerSelection = hasVanillaDiggerSelection;
                 FunctionalFallbackArmed = functionalFallbackArmed;
                 FallbackKind = fallbackKind;
                 RejectionReason = rejectionReason;
@@ -5755,7 +5343,7 @@ namespace MoveMoatTest
             public int TargetY { get; }
             public int TargetTileId { get; }
             public ulong OccupiedSlots { get; }
-            public bool HasEligibleSlot { get; }
+            public bool HasVanillaDiggerSelection { get; }
             public bool FunctionalFallbackArmed { get; }
             public CursorPairFallbackKind FallbackKind { get; }
             public string RejectionReason { get; }
@@ -5768,35 +5356,6 @@ namespace MoveMoatTest
             public uint RawMouseTileId2 { get; }
             public uint RawHoveringOverWall { get; }
             public uint RawMouseTileId { get; }
-        }
-
-        private sealed class WallClimbTracker
-        {
-            public int MapEpoch;
-            public int UnitId;
-            public int PlayerId;
-            public int StartX;
-            public int StartY;
-            public int TargetX;
-            public int TargetY;
-            public int TargetTileId;
-            public int WallBuildingId;
-            public uint WallGlobalId;
-            public eStructs WallType;
-            public uint RawHoveringOverWall;
-            public uint RawHoverBuildingId;
-            public uint RawHoverBuildingTileId;
-            public uint RawMouseTileId2;
-            public uint RawMouseTileId;
-            public bool CommandStaged;
-            public int StagedCommand;
-            public int CommandContext;
-            public string InitialSignature;
-            public string LastSignature;
-            public bool Activated;
-            public bool ModeObserved;
-            public bool PlannerObserved;
-            public bool BuilderObserved;
         }
 
         private struct RouteProbeSummary
@@ -5815,8 +5374,6 @@ namespace MoveMoatTest
                 ReachedWithMoat = false;
                 ReachedWithoutMoat = false;
                 RegionTopologyQualified = false;
-                AssassinCombinedProbe = false;
-                AssassinUsedClimb = false;
             }
 
             public int PlayerId;
@@ -5831,8 +5388,6 @@ namespace MoveMoatTest
             public bool ReachedWithMoat;
             public bool ReachedWithoutMoat;
             public bool RegionTopologyQualified;
-            public bool AssassinCombinedProbe;
-            public bool AssassinUsedClimb;
 
             public void MergeObservations(RouteProbeSummary other)
             {
@@ -5850,8 +5405,6 @@ namespace MoveMoatTest
                 ReachedWithMoat |= other.ReachedWithMoat;
                 ReachedWithoutMoat |= other.ReachedWithoutMoat;
                 RegionTopologyQualified |= other.RegionTopologyQualified;
-                AssassinCombinedProbe |= other.AssassinCombinedProbe;
-                AssassinUsedClimb |= other.AssassinUsedClimb;
             }
 
             public void ObserveOwner(int ownerId)
@@ -5869,10 +5422,7 @@ namespace MoveMoatTest
                 return $"route={RouteFound} friendlyTiles={FriendlyMoatTiles} " +
                     $"enemyTiles={EnemyMoatTiles} invalidTiles={InvalidMoatTiles} " +
                     $"ownerMask=0x{ObservedOwnerMask:X} regions={StartRegion}->{TargetRegion}" +
-                    attackFields +
-                    (AssassinCombinedProbe
-                        ? $" assassinCombined=true assassinClimb={AssassinUsedClimb}"
-                        : string.Empty);
+                    attackFields;
             }
         }
 

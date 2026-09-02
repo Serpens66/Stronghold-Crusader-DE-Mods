@@ -6,12 +6,10 @@ using System;
 namespace MoveMoatTest
 {
     [BepInDependency(ScriptExtenderGuid, BepInDependency.DependencyFlags.HardDependency)]
-    [BepInDependency(BugfixesAndQoLGuid, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class MoveMoatTestPlugin : BaseUnityPlugin
     {
         private const string ScriptExtenderGuid = "000shcdese";
-        private const string BugfixesAndQoLGuid = "BugfixesAndQoL_Serp";
         private const string PluginGuid = "MoveMoatTest_Serp";
         private const string PluginName = "Move Moat Test";
         private const string PluginVersion = "1.0.0";
@@ -27,7 +25,7 @@ namespace MoveMoatTest
             persistentLog = Logger;
             Shared.DebugLogHelper.LogInfo(
                 persistentLog,
-                $"{PluginName} {PluginVersion} loaded; friendly/allied completed-moat movement and enemy-owner diagnostics are enabled.");
+                $"{PluginName} {PluginVersion} loaded; friendly/allied completed-moat movement is enabled only for Vanilla moat-digging unit types.");
 
             if (librarySubscriptionInstalled)
                 return;

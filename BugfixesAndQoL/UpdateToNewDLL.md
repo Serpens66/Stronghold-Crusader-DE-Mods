@@ -10,7 +10,8 @@ For this exact hash the mod validates each pattern only at its audited RVA and
 then registers or patches the direct address. A full scan must never run on this
 path. On another hash, independently validated features search executable PE
 sections for exactly one semantic pattern match. Fixed tribe/unit layouts remain
-inactive until a new DLL has been audited.
+inactive until a new DLL has been audited. The same rule now explicitly covers
+the plague player/projectile layouts and the AI recruitment result structure.
 
 ## Complete feature audit for Steam build 24816905
 
@@ -33,10 +34,10 @@ network, or filesystem contract. The result is:
 | Market-hotkey main-menu return | Script Extender key event, selected-market validation, and managed market-panel state | Valid |
 | Display-resolution persistence | Managed `FatControler`, Unity display/focus state, and explicit apply guards | Valid |
 | Synchronized mixed-group movement | Three unique native signatures at `0x143BD9`, `0x19B506`, `0x18410C`/`0x184203`; unit stride `0x490`, manager header `0x65C`, tribe fields and cadence states | Valid; fixed layouts remain hash-gated |
-| Plague and apothecary fixes | Seven unique creation, popularity, search, treatment, healer-exit, and state-transition signatures plus projectile/unit identities | Valid; detours and context hooks remain isolated and reversible |
+| Plague and apothecary fixes | Seven unique creation, popularity, search, treatment, healer-exit, and state-transition signatures plus projectile/unit identities | Valid for the audited hash; fixed player/unit/projectile layouts are now fail-closed on unknown hashes |
 | Unrestricted rally points | Seven unique rejection sites inside `0x90CD0-0x92F31`, with original conditional-jump bytes verified before every write | Valid |
 | Custom Trail extreme-gold fix | Managed Trail Maker/customize load and save flow | Valid; no native address dependency |
-| AI knight horse-demand fix | Unique recruitment entry `0x190CA0`, result fields `+0x650/+0x654`, ordered equipment/horse checks, and AI demand consumers | Valid |
+| AI knight horse-demand fix | Unique recruitment entry `0x190CA0`, result fields `+0x650/+0x654`, ordered equipment/horse checks, and AI demand consumers | Valid for the audited hash; `+0x654` is now fail-closed on unknown hashes |
 | AI tower rebuilding | Unique broad/narrow classifiers `0x5D025/0x5D055`, complete instruction spans, stack inputs, runtime building identity, and Vanilla cleanup flow | Valid |
 | Better AI overbuild rules | Unique mapper/blocker sites `0x5CEAB/0x5D016/0x5D045`, complete spans, stack inputs, protected-yard policy, and conflict guard | Valid |
 | AI stone reserve | Unique seller hook and six AIV layout/lifecycle signatures; slot/step strides, player mapping, and first-build states | Valid |
@@ -58,7 +59,11 @@ network, or filesystem contract. The result is:
 | Assassin climbing/control | Unique builder/reconstruction signatures, coordinate/global layers, states `126-129`, unit fields `+0x40F/+0x414/+0x416`, per-player Chore, and Script Extender selected-unit Pre event | Valid; the redundant mod-owned selected-unit detour was removed |
 | Lord troop-HUD controls | Managed lord identity, troop-HUD methods, command routing, and synchronized surrender replacement | Valid |
 
-All 38 production AOBs matched exactly once at their declared reference RVAs.
+The focused native regression test now checks 46 production and supporting
+semantic signatures. Every signature matched exactly once in an executable PE
+section at its declared reference RVA. It also verifies 23 contiguous function
+hashes and the complete critical overwrite spans; the current run completed
+with 320 assertions.
 The PE runtime-function table placed each match in the expected containing
 function. Baseline Xrefs show no incoming branch into the interior of the eight
 fixed-length inline overwrite spans used by movement, AI stone reserve, tower
@@ -120,7 +125,7 @@ patterns. Every reference above was checked as one match in the baseline DLL.
 
 ## AI recruitment horse-demand audit
 
-The European recruitment function at RVA `0x190C50` clears its result code at
+The European recruitment function starts at RVA `0x190CA0` and clears its result code at
 manager `+0x650`, then checks gold, three market-good requirements and finally
 the special horse requirement (`-1`). A missing market good writes result code
 `2` and the good id to `+0x654`. The missing-horse branch at RVA `0x190DA6`
@@ -134,8 +139,83 @@ demand, while the independent seller at RVA `0x3EE10` applies the common
 The detour restores the missing-output invariant by setting `+0x654` to
 `STORED_NULL` before Vanilla runs when AI Fixes are enabled. A real resource
 failure overwrites it again; a horse-only failure cannot create a market-good
-demand. For a new DLL, validate the complete ABI, the two result fields, the
+demand. The entry signature itself proves `+0x650`, but not the later `+0x654`
+writes. Consequently a unique entry match is no longer sufficient on an
+unknown hash. For a new DLL, validate the complete ABI, the two result fields, the
 ordered horse check and both AI consumers before accepting the signature.
+
+## Deep detour, hook, and RVA audit (2026-09-02)
+
+The deeper pass treated `candidate` and `probable` semantic baseline entries as
+deviation-reporting evidence while still requiring bytes, control flow, and
+data flow before changing behavior. The native hash and every audited dataset
+match `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+
+### Function detours and ABI
+
+| Detour | Native contract on the canonical DLL | Result |
+| --- | --- | --- |
+| AI European recruitment `0x190CA0` | `int(manager, unitType, spawnContext, playerId, validationOnly)`; RCX/RDX/R8/R9 plus stack argument 5 | Correct; function start in the earlier text was corrected from `0x190C50` to `0x190CA0` |
+| Plague herd creation `0xD17D0` | `void(diseaseManager, buildingId)` in RCX/EDX | Correct |
+| Plague area treatment `0xA0470` | `void(projectileManager, unitId)` in RCX/EDX | Correct |
+| Disease selection `0x9F700` | `int(projectileManager, unitId)` in RCX/EDX | Correct |
+| Market validator `0xD7080` | `void(selling, tradeMode, good)` in ECX/EDX/R8D; storage helper receives manager/player/good in RCX/EDX/R8D | Correct |
+| Assassin cost builder `0xD9C40` | seven arguments: context, start X/Y, target X/Y, node limit, continuation; arguments 5-7 retain the Windows x64 stack contract | Correct |
+| Assassin special-tile predicate `0x107160` | predicate context and tile ID in RCX/EDX, low-byte result | Correct |
+
+### Inline/context hooks and overwrite contracts
+
+- The popularity callback at `0xCB57C` runs before the displaced report-field
+  write. `R14D` is the one-based player loop value, `RBP = player * 0x583C`,
+  `R12` is the player-manager base, `EDX` is the current accumulated popularity,
+  and `AX` is the signed Vanilla modifier. The callback updates all three
+  mutually dependent outputs before Vanilla stores `AX`.
+- The healer-exit callback at `0x1501A7` runs before the first epilogue restore;
+  therefore `EBP` still contains the healer game ID. The branch at `0x14F8CC`
+  likewise follows the successful `0x9F700` call while `EBP` remains the ID.
+- The movement span at `0x19B506` is exactly 14 bytes (`7,3,2,2`) and ends before
+  late terrain/status modifiers. The cadence hook at `0x184203` observes the
+  unit-relative cadence fields only after its displaced loads. The Spearman
+  replacement at `0x143BD9` consumes exactly three complete instructions and
+  branches only to the audited walking/running blocks.
+- AI stone reserve starts at `0x3F156` and overwrites exactly 20 bytes. Its
+  callback executes before the displaced threshold calculation, preserves all
+  registers, and changes only `R9D`, which is the later reserve surcharge.
+- Tower and overbuild hooks remain inside `0x5CD90-0x5D1C5`. Their 10/15/16/20
+  byte spans end on instruction boundaries. Stack arguments `+0x98..+0xB8`
+  follow directly from the eight nonvolatile pushes and `sub rsp,0x48`; these
+  paths remain exact-hash-only.
+- The Assassin combat-resume hook at `0x197716` covers exactly 14 bytes and runs
+  before the saved state write at `0x197724`. `RDI` remains the unit ID, and the
+  caller return address is at `RSP+0x38` after the helper prologue. Both success
+  and failure exits of `0x196280` clear the same context global.
+- Assembly-point and Assassin reconstruction patches still validate every
+  original branch byte before writes, reject foreign mutations, verify writes,
+  and roll back already attempted sites on a partial transition.
+
+### Corrected compatibility policy
+
+The deeper pass found one real policy defect rather than a wrong canonical RVA
+or argument order. The plague hooks and AI horse-demand detour previously
+accepted an unknown DLL after a unique code-pattern match. Their callbacks also
+depend on fixed fields that those patterns do not completely prove:
+
+- plague: unit `+0x2BE/+0x39A/+0x39C`, projectile phase/layout, player stride
+  `0x583C`, popularity accumulator `+0x12EC20`, and related identity fields;
+- recruitment: the entry pattern proves result code `+0x650`, but the
+  missing-good output `+0x654` occurs only in later branches.
+
+Both groups now abort before hook construction unless the audited fixed-layout
+hash matches. Vanilla remains active. Assembly-point placement, Ctrl market,
+and AI stone reserve retain their unknown-hash paths because they validate all
+used native instructions/targets as a complete feature set and do not assume an
+unvalidated fixed callback layout. Movement, tower/overbuild, Assassin, enemy
+proximity, and the selected-health table were already hash-gated where needed.
+
+The focused test lives in `_inspect/BugfixesAndQoLNativeTests`. Besides the DLL
+hash, function hashes, signatures, executable-section membership and full
+overwrite bytes, it enforces both new unknown-hash gates so this distinction
+cannot silently regress.
 
 Runtime diagnostics log the resolution method and active setting state. For
 knights they report the first horse-only result per player, every occurrence
