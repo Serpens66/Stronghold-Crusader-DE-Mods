@@ -11,7 +11,7 @@ using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
 
-namespace ExtraFeatures
+namespace BugfixesAndQoL
 {
     /// <summary>
     /// Keeps recruits associated with their rally flag until the player gives

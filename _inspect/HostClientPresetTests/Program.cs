@@ -1603,7 +1603,6 @@ internal static class Program
             { GameplayFeatureId.UnitCostEnforcement, "UnitCosts_Serp" },
             { GameplayFeatureId.UnitLimitEnforcement, "UnitLimit_Serp" },
             { GameplayFeatureId.LordHealthMultipliers, "ExtraFeatures_Serp" },
-            { GameplayFeatureId.AIQuarryPileTowardsKeep, "ExtraFeatures_Serp" },
             { GameplayFeatureId.EndlessExtremePowersRecharge, "CheatMod_Serp" },
             { GameplayFeatureId.RandomEventsRuntime, "RandomEvents_Serp" },
             { GameplayFeatureId.ImprovedHunterTargetSelection, "ImprovedHunters_Serp" },
@@ -1781,7 +1780,6 @@ internal static class Program
             { "UnitCosts", "UnitCostsRuntime.cs", "UnitCostEnforcement" },
             { "UnitLimit", "UnitLimitRuntime.Helpers.cs", "UnitLimitEnforcement" },
             { "ExtraFeatures", "LordHealthRuntime.cs", "LordHealthMultipliers" },
-            { "ExtraFeatures", "QuarryPileRelocationRuntime.cs", "AIQuarryPileTowardsKeep" },
             { "CheatMod", "CheatModRuntime.cs", "EndlessExtremePowersRecharge" },
             { "RandomEvents", "RandomEventsRuntime.cs", "RandomEventsRuntime" },
             { "ImprovedHunters", "ImprovedHuntersRuntime.cs", "ImprovedHunterTargetSelection" },
@@ -2092,6 +2090,64 @@ internal static class Program
         Check(combatResumeRuntimeSource.Contains("settings.EnableAssassinCombatResumeFix") &&
               !combatResumeRuntimeSource.Contains("EnableImprovedAssassinPathfinding"),
             "Assassin combat resume is not initialized independently from improved pathfinding");
+
+        string[] movedBooleanSettings =
+        {
+            "EnableSingleBuildingPause",
+            "EnableFastRecruitRallyMovement",
+            "RequireReachableEnemyForAutomaticGateClosing",
+            "EnableQuarryPileRelocation",
+            "EnableAIQuarryPileTowardsKeep",
+            "PreventAIPause",
+            "PreventEmergencyDemolition",
+            "PreventHovelDeletion"
+        };
+        foreach (string propertyName in movedBooleanSettings)
+        {
+            Check(normalizedBugfixesViewModelSource.Contains(
+                    "[SyncHostOnly]\n        public bool " + propertyName),
+                propertyName + " is not classified as a synchronized host setting");
+            Check(bugfixesViewModelSource.Contains(propertyName + " = true;"),
+                propertyName + " does not reset to its migrated default true value");
+        }
+        Check(normalizedBugfixesViewModelSource.Contains(
+                "[SyncHostOnly]\n        public int InaccessibleAIBuildingDemolitionProtection"),
+            "inaccessible AI building protection is not classified as a synchronized host setting");
+        Check(bugfixesViewModelSource.Contains(
+                "TemporaryGateBlockagePolicy.ImprovedReachabilityMode;"),
+            "inaccessible AI building protection does not default to improved reachability");
+
+        string extraFeaturesViewModelSource = File.ReadAllText(
+            Path.Combine(workspaceRoot, "ExtraFeatures", "src", "ExtraFeaturesViewModel.cs"));
+        foreach (string propertyName in movedBooleanSettings)
+        {
+            Check(!extraFeaturesViewModelSource.Contains("public bool " + propertyName),
+                propertyName + " still has an active ExtraFeatures setting");
+        }
+        Check(!extraFeaturesViewModelSource.Contains(
+                "public int InaccessibleAIBuildingDemolitionProtection"),
+            "inaccessible AI building protection still has an active ExtraFeatures setting");
+
+        string[] unrestrictedMovedRuntimeFiles =
+        {
+            "AIEconomyProtectionHook.cs",
+            "BugfixesAndQoLRuntime.MovedFeatures.cs",
+            "QuarryPileRelocationRuntime.cs",
+            "ReachableEnemyGatehouseRuntime.cs",
+            "SingleBuildingPauseHook.cs"
+        };
+        foreach (string fileName in unrestrictedMovedRuntimeFiles)
+        {
+            string source = File.ReadAllText(
+                Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", fileName));
+            Check(!source.Contains("GameplayModActivationGate") &&
+                  !source.Contains("GameplayFeatureModePolicy"),
+                fileName + " still restricts a transferred BugfixesAndQoL feature by game mode");
+        }
+        string gameplayFeaturePolicySource = File.ReadAllText(
+            Path.Combine(workspaceRoot, "Shared", "GameplayFeatureModePolicy.cs"));
+        Check(!gameplayFeaturePolicySource.Contains("AIQuarryPileTowardsKeep"),
+            "AI quarry-pile placement still has a restrictive per-feature game-mode policy");
 
         GameNetworkAPI.LocalHost = false;
         setting.System_RefreshSettingsAccess();

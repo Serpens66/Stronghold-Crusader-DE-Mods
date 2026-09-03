@@ -9,7 +9,6 @@ namespace ExtraFeatures
         private readonly ManualLogSource log;
         private bool hasMapSnapshot;
         private bool blocksLocalStateChanges;
-        private bool detectionFailureLogged;
 
         public MultiplayerFeatureGate(ManualLogSource log)
         {
@@ -34,7 +33,6 @@ namespace ExtraFeatures
                 Shared.GameModeSnapshot snapshot = Shared.GameplayModActivationGate.Snapshot;
                 blocksLocalStateChanges = snapshot.Kind == Shared.GameModeKind.Unknown || snapshot.IsRealMultiplayer;
                 hasMapSnapshot = snapshot.Kind != Shared.GameModeKind.Unknown;
-                detectionFailureLogged = false;
                 Shared.DebugLogHelper.LogDebug(
                     log,
                     $"Extra Features multiplayer feature gate captured map mode: {snapshot.ToDiagnosticString()}.");
@@ -43,7 +41,6 @@ namespace ExtraFeatures
             {
                 blocksLocalStateChanges = true;
                 hasMapSnapshot = true;
-                detectionFailureLogged = true;
                 Shared.DebugLogHelper.LogError(
                     log,
                     $"Extra Features could not capture the map mode; desync-prone local state changes remain blocked as a precaution: {ex}");
@@ -54,7 +51,6 @@ namespace ExtraFeatures
         {
             hasMapSnapshot = false;
             blocksLocalStateChanges = false;
-            detectionFailureLogged = false;
         }
     }
 }

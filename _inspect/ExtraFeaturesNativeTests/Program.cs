@@ -28,7 +28,6 @@ namespace ExtraFeatures
                 Check(Hash(file) == GatehouseTimingPatch.SupportedBuildHash, "canonical DLL hash");
                 byte[] image = MapPeImage(file);
                 TestNativeTargetMap(image);
-                TestGatehouseQueryUnitIdContract();
                 TestCatalogAndApply(image);
                 TestValidation(image);
                 TestRollbackAndCleanup(image);
@@ -42,49 +41,17 @@ namespace ExtraFeatures
             }
         }
 
-        private static void TestGatehouseQueryUnitIdContract()
-        {
-            // SE-GATEHOUSE-UNIT-ID-COMPAT: If upstream fixes the event contract,
-            // replace these compatibility tests with direct one-based-ID tests.
-            Check(GatehouseQueryUnitIdPolicy.TryConvertSpanIndexToGameId(0, 10000, out int first) && first == 1,
-                "gatehouse first unit span index converts to game ID 1");
-            Check(GatehouseQueryUnitIdPolicy.TryConvertSpanIndexToGameId(9999, 10000, out int last) && last == 10000,
-                "gatehouse last unit span index converts once");
-            Check(!GatehouseQueryUnitIdPolicy.TryConvertSpanIndexToGameId(-1, 10000, out _),
-                "negative gatehouse unit span index rejected");
-            Check(!GatehouseQueryUnitIdPolicy.TryConvertSpanIndexToGameId(10000, 10000, out _),
-                "out-of-range gatehouse unit span index rejected");
-            Check(GatehouseQueryUnitIdPolicy.ResolveCandidateDecision(null, true),
-                "corrected Vanilla true decision supplies missing event default");
-            Check(!GatehouseQueryUnitIdPolicy.ResolveCandidateDecision(null, false),
-                "corrected Vanilla false decision supplies missing event default");
-            Check(GatehouseQueryUnitIdPolicy.ResolveCandidateDecision(true, false),
-                "earlier subscriber true decision is preserved");
-            Check(!GatehouseQueryUnitIdPolicy.ResolveCandidateDecision(false, true),
-                "earlier subscriber false decision is preserved");
-        }
-
         private static void TestNativeTargetMap(byte[] image)
         {
-            CheckFunction(image, 0xC7D50, 315, "07807D9F9E8BE5ABE37CD522213B0C1A59E2BC84D1FD682E9236DB0250F38A37", "sleep-state synchronization handler");
-            CheckFunction(image, 0x2F080, 1520, "C06FA5ABB5B3BEF713391158BF7ED326245526F16BF7C74D5DB059231874F38E", "AI strategy update handler");
-            CheckFunction(image, 0x3B1D0, 160, "AC37E9A8205EDA52D0591BAB84A4DC0FD4BF389B3DB2A768786FC42A7FD6E3AC", "AI hovel demolition handler");
-            CheckFunction(image, 0x3B270, 229, "EFF1F3C1FB0BB922746F17F266D62EAA252E6FF7C64610EF50856EA2833AAD9D", "inaccessible-building handler");
             CheckFunction(image, 0x504F0, 304, "2D6CB2745E0E6619C9D40DDD4F07C70CFF494FE8DECCC6175658C395EBD00393", "AI flag disease handler");
             CheckFunction(image, 0x51790, 2774, "69731F77776995C9FC452A7A9A41408385B757B461F0E7FAB76E291BE64C3ECF", "AIV build-step handler");
             CheckFunction(image, 0x5CD90, 1077, "099D5E8B4AB0B93EB2BE39501D06AE0FC38F481035AF50650654F6F233B23A17", "AIV placement handler");
             CheckFunction(image, 0x9A080, 410, "902372F40007B9FBE5F14FB7C48366F4090A261E2DE21463698B15FFDC7F704B", "Disease update handler");
             CheckFunction(image, 0x9F700, 525, "D4C059E5AED1B7FFCFA334E0A361EDA4DC7B49EF1FBAE9F8972E231FC4A0BC6A", "apothecary Disease search handler");
-            CheckFunction(image, 0xC0270, 590, "8C851D48BC5579727AD53C1C1CC3A835E95C57CE8E68DBFD8B23C43BDBFEF97F", "perimeter candidate helper");
             CheckFunction(image, 0xCEB10, 31, "5B45784D8B227D4BEB1AA822E6B12523BD9A0825EFA17764909A037E613C6C6A", "AI buy-price helper");
             CheckFunction(image, 0xCEB90, 31, "D428FAE5C2A3BED0B48195B2661F56550E5B53F6E8EE9A603FADA56DAEE8F670", "AI sell-price helper");
             CheckFunction(image, 0x151090, 3969, "785E5FB37D378726A55C84609FFD307CDC81865B964BB631EB98A3EBE5B1CB58", "Monk handler");
 
-            CheckPattern(image, 0xC7D50, "40 53 41 BA 01 00 00 00 48 8B D9 44 39 51 50 0F 8E ?? ?? ?? ?? 48 89 74 24 10 4C 8D 81 1E 06 00 00", "sleep-state ABI/prologue");
-            CheckPattern(image, 0xC7DCB, "41 38 08 0F 84 ?? ?? ?? ?? 41 88 08 66 41 89 B8 ?? ?? ?? ??", "sleep-state hook span");
-            CheckPattern(image, 0x2F454, "80 BC 24 80 00 00 00 00 0F 84 ?? ?? ?? ?? 4C 8D BD ?? ?? ?? ?? 8B D6 4D 03 FE", "emergency-demolition hook span");
-            CheckPattern(image, 0x3B1D0, "48 89 5C 24 08 57 48 83 EC 20 48 63 FA 48 8D 15 ?? ?? ?? ?? 48 69 CF 3C 58 00 00 83 BC 11 C0 0E 13 00 00 74 ??", "hovel-demolition ABI/prologue");
-            CheckPattern(image, 0x3B2FF, "66 83 F9 14 7C ?? 45 0F BF 84 31 4C 01 00 00 48 8D 0D ?? ?? ?? ?? 41 0F BF 94 31 4A 01 00 00", "inaccessible-building hook span");
             CheckPattern(image, 0x51790, "40 53 55 56 57 41 54 41 55 41 56 41 57 48 83 EC 78 4C 63 F2", "AIV build-step ABI/prologue");
             CheckPattern(image, 0x5CD90, "44 89 4C 24 20 44 89 44 24 18 89 54 24 10 53 55 56 57 41 54 41 55 41 56 41 57 48 83 EC 48", "AIV placement stack arguments/prologue");
             CheckPattern(image, 0xCEB10, "49 63 C0 8B 8C C1 B8 17 18 00 B8 67 66 66 66 F7 E9 D1 FA 8B C2 C1 E8 1F 03 C2 41 0F AF C1 C3", "AI buy-price complete function");
@@ -93,7 +60,6 @@ namespace ExtraFeatures
             CheckPattern(image, 0x9A164, "41 0F BF 44 18 18 03 D0 B8 ?? ?? ?? ?? 41 89 54 18 14 66 41 39 84 18 D0 00 00 00 7C 06", "plague lifetime and comparison span");
             CheckPattern(image, 0x9F86B, "83 3D ?? ?? ?? ?? 1E 7F ?? 0F BF 4B 1C 48 8D 15 ?? ?? ?? ?? 44 0F BF 4B 1A", "apothecary distance hook span");
             CheckPattern(image, 0x151436, "66 46 39 B4 2B 14 09 00 00 75 22 66 46 39 B4 2B 9E 09 00 00 74 17", "Monk movement hook and following branch");
-            CheckPattern(image, 0xC0270, "48 89 5C 24 08 8D 42 FF 41 8B D8 44 8B DA 4C 8B D1 83 F8 0C 0F 87 ?? ?? ?? ?? 48 98", "perimeter helper five-argument prologue");
 
             Check(ReadInt32(image, 0x9A16D) == 800, "plague lifetime immediate");
             Check(image[0x9F871] == 30, "apothecary Vanilla distance immediate");

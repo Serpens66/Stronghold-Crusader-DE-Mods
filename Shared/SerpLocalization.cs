@@ -114,8 +114,8 @@ public static class SerpLocalization
     public const string EnableClientFeaturesHelp = "SomeSettings.EnableClientFeaturesHelp";
     public const string EnableAllyGoodsAmountModifiers = "SomeSettings.EnableAllyGoodsAmountModifiers";
     public const string EnableAllyGoodsAmountModifiersHelp = "SomeSettings.EnableAllyGoodsAmountModifiersHelp";
-    public const string EnableSingleBuildingPause = "SomeSettings.EnableSingleBuildingPause";
-    public const string EnableSingleBuildingPauseHelp = "SomeSettings.EnableSingleBuildingPauseHelp";
+    public const string EnableSingleBuildingPause = "BugfixesAndQoL.EnableSingleBuildingPause";
+    public const string EnableSingleBuildingPauseHelp = "BugfixesAndQoL.EnableSingleBuildingPauseHelp";
     public const string EnableMultiplayerGameSpeedChanges = "SomeSettings.EnableMultiplayerGameSpeedChanges";
     public const string EnableMultiplayerGameSpeedChangesHelp = "SomeSettings.EnableMultiplayerGameSpeedChangesHelp";
     public const string MultiplayerTimeControlDisabled = "SomeSettings.MultiplayerTimeControlDisabled";
@@ -135,8 +135,8 @@ public static class SerpLocalization
     public const string EnableStuckApothecaryFixHelp = "SomeSettings.EnableStuckApothecaryFixHelp";
     public const string EnablePlagueTargetReservationFix = "SomeSettings.EnablePlagueTargetReservationFix";
     public const string EnablePlagueTargetReservationFixHelp = "SomeSettings.EnablePlagueTargetReservationFixHelp";
-    public const string EnableFastRecruitRallyMovement = "SomeSettings.EnableFastRecruitRallyMovement";
-    public const string EnableFastRecruitRallyMovementHelp = "SomeSettings.EnableFastRecruitRallyMovementHelp";
+    public const string EnableFastRecruitRallyMovement = "BugfixesAndQoL.EnableFastRecruitRallyMovement";
+    public const string EnableFastRecruitRallyMovementHelp = "BugfixesAndQoL.EnableFastRecruitRallyMovementHelp";
     public const string EnableMonksAlwaysRun = "SomeSettings.EnableMonksAlwaysRun";
     public const string EnableMonksAlwaysRunHelp = "SomeSettings.EnableMonksAlwaysRunHelp";
     public const string EnableKnightDismount = "SomeSettings.EnableKnightDismount";
@@ -155,29 +155,29 @@ public static class SerpLocalization
     public const string KnightDismountTooltipBody = "SomeSettings.KnightDismountTooltipBody";
     public const string KnightMountTooltip = "SomeSettings.KnightMountTooltip";
     public const string KnightMountTooltipBody = "SomeSettings.KnightMountTooltipBody";
-    public const string EnableQuarryPileRelocation = "SomeSettings.EnableQuarryPileRelocation";
-    public const string EnableQuarryPileRelocationHelp = "SomeSettings.EnableQuarryPileRelocationHelp";
-    public const string EnableAIQuarryPileTowardsKeep = "SomeSettings.EnableAIQuarryPileTowardsKeep";
-    public const string EnableAIQuarryPileTowardsKeepHelp = "SomeSettings.EnableAIQuarryPileTowardsKeepHelp";
+    public const string EnableQuarryPileRelocation = "BugfixesAndQoL.EnableQuarryPileRelocation";
+    public const string EnableQuarryPileRelocationHelp = "BugfixesAndQoL.EnableQuarryPileRelocationHelp";
+    public const string EnableAIQuarryPileTowardsKeep = "BugfixesAndQoL.EnableAIQuarryPileTowardsKeep";
+    public const string EnableAIQuarryPileTowardsKeepHelp = "BugfixesAndQoL.EnableAIQuarryPileTowardsKeepHelp";
     public const string EnableExtraChurchPriests = "SomeSettings.EnableExtraChurchPriests";
     public const string EnableExtraChurchPriestsHelp = "SomeSettings.EnableExtraChurchPriestsHelp";
     public const string PlagueDurationMultiplier = "SomeSettings.PlagueDurationMultiplier";
     public const string PlagueDurationMultiplierHelp = "SomeSettings.PlagueDurationMultiplierHelp";
     public const string ApothecaryPlagueSearchDistance = "SomeSettings.ApothecaryPlagueSearchDistance";
     public const string ApothecaryPlagueSearchDistanceHelp = "SomeSettings.ApothecaryPlagueSearchDistanceHelp";
-    public const string QuarryPileRelocationTooltip = "SomeSettings.QuarryPileRelocationTooltip";
-    public const string QuarryPileRelocationTooltipBody = "SomeSettings.QuarryPileRelocationTooltipBody";
-    public const string AiEconomyProtectionTitle = "SomeSettings.AIEconomyProtectionTitle";
-    public const string PreventAIPause = "SomeSettings.PreventAIPause";
-    public const string PreventAIPauseHelp = "SomeSettings.PreventAIPauseHelp";
-    public const string PreventEmergencyDemolition = "SomeSettings.PreventEmergencyDemolition";
-    public const string PreventEmergencyDemolitionHelp = "SomeSettings.PreventEmergencyDemolitionHelp";
-    public const string PreventHovelDeletion = "SomeSettings.PreventHovelDeletion";
-    public const string InaccessibleAIBuildingDemolitionProtection = "SomeSettings.InaccessibleAIBuildingDemolitionProtection";
-    public const string InaccessibleAIBuildingDemolitionProtectionHelp = "SomeSettings.InaccessibleAIBuildingDemolitionProtectionHelp";
-    public const string InaccessibleAIBuildingDemolitionModeVanilla = "SomeSettings.InaccessibleAIBuildingDemolitionModeVanilla";
-    public const string InaccessibleAIBuildingDemolitionModeTemporary = "SomeSettings.InaccessibleAIBuildingDemolitionModeTemporary";
-    public const string InaccessibleAIBuildingDemolitionModeAlways = "SomeSettings.InaccessibleAIBuildingDemolitionModeAlways";
+    public const string QuarryPileRelocationTooltip = "BugfixesAndQoL.QuarryPileRelocationTooltip";
+    public const string QuarryPileRelocationTooltipBody = "BugfixesAndQoL.QuarryPileRelocationTooltipBody";
+    public const string AiEconomyProtectionTitle = "BugfixesAndQoL.AIEconomyProtectionTitle";
+    public const string PreventAIPause = "BugfixesAndQoL.PreventAIPause";
+    public const string PreventAIPauseHelp = "BugfixesAndQoL.PreventAIPauseHelp";
+    public const string PreventEmergencyDemolition = "BugfixesAndQoL.PreventEmergencyDemolition";
+    public const string PreventEmergencyDemolitionHelp = "BugfixesAndQoL.PreventEmergencyDemolitionHelp";
+    public const string PreventHovelDeletion = "BugfixesAndQoL.PreventHovelDeletion";
+    public const string InaccessibleAIBuildingDemolitionProtection = "BugfixesAndQoL.InaccessibleAIBuildingDemolitionProtection";
+    public const string InaccessibleAIBuildingDemolitionProtectionHelp = "BugfixesAndQoL.InaccessibleAIBuildingDemolitionProtectionHelp";
+    public const string InaccessibleAIBuildingDemolitionModeVanilla = "BugfixesAndQoL.InaccessibleAIBuildingDemolitionModeVanilla";
+    public const string InaccessibleAIBuildingDemolitionModeTemporary = "BugfixesAndQoL.InaccessibleAIBuildingDemolitionModeTemporary";
+    public const string InaccessibleAIBuildingDemolitionModeAlways = "BugfixesAndQoL.InaccessibleAIBuildingDemolitionModeAlways";
     public const string SerpsModsStatusTitle = "SerpsModsHost.StatusTitle";
     public const string SerpsModsSummaryTitle = "SerpsModsHost.SummaryTitle";
     public const string SerpsModsErrorsTitle = "SerpsModsHost.ErrorsTitle";
@@ -202,7 +202,7 @@ public static class SerpLocalization
     public const string SerpsModsSearchResultCount = "SerpsModsHost.SearchResultCount";
     public const string SerpsModsSearchAllMods = "SerpsModsHost.SearchAllMods";
     public const string SerpsModsSearchOpenResultHelp = "SerpsModsHost.SearchOpenResultHelp";
-    public const string PreventHovelDeletionHelp = "SomeSettings.PreventHovelDeletionHelp";
+    public const string PreventHovelDeletionHelp = "BugfixesAndQoL.PreventHovelDeletionHelp";
     public const string AivPlacementComplete = "CastlePlanner.AIVPlacement.Complete";
     public const string AivPlacementPartial = "CastlePlanner.AIVPlacement.Partial";
     public const string AivPlacementImpossible = "CastlePlanner.AIVPlacement.Impossible";
@@ -409,7 +409,6 @@ public static class SerpLocalization
         { "BugfixesAndQoL.EnableClientFeaturesHelp", "Enables or disables this mod's local interface and control features for you." },
         { "BugfixesAndQoL.EnableHostFeatures", "Enable host features" },
         { "BugfixesAndQoL.EnableHostFeaturesHelp", "Enables or disables the host-controlled fixes for the match." },
-        { "SomeSettings.ComfortTitle", "Convenience Features" },
         { "SomeSettings.NewFeaturesTitle", "New Gameplay Features" },
         { "SomeSettings.TilesValueFormat", "{0} tiles" },
         { "SomeSettings.PlagueTitle", "Plague" },

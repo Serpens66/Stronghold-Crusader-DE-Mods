@@ -38,23 +38,14 @@ namespace ExtraFeatures
         private int humanLordHealthPercent = LordHealthMultiplierPolicy.DefaultPercent;
         private int aiLordHealthPercent = LordHealthMultiplierPolicy.DefaultPercent;
         private bool keepStorageContent = true;
-        private bool enableSingleBuildingPause = true;
-        private bool enableFastRecruitRallyMovement = true;
         private bool enableMonksAlwaysRun;
         private bool enableKnightDismount = true;
         private bool instantHorse;
-        private bool enableQuarryPileRelocation = true;
-        private bool enableAIQuarryPileTowardsKeep = true;
         private bool enableExtraChurchPriests = true;
-        private bool preventAIPause = true;
-        private bool preventEmergencyDemolition = true;
-        private bool preventHovelDeletion = true;
-        private int inaccessibleAIBuildingDemolitionProtection = TemporaryGateBlockagePolicy.ImprovedReachabilityMode;
         private double humanGateReopenDelaySeconds = GatehouseTimingPatch.VanillaHumanDelaySeconds;
         private double aiGateReopenDelaySeconds = GatehouseTimingPatch.VanillaAiDelaySeconds;
         private double humanGateClosingDistanceTiles = GatehouseTimingPatch.VanillaHumanDistanceTiles;
         private double aiGateClosingDistanceTiles = GatehouseTimingPatch.VanillaAiDistanceTiles;
-        private bool requireReachableEnemyForAutomaticGateClosing = true;
         private int humanEnemyProximitySingleplayer = EnemyProximityPolicy.VanillaMode;
         private int humanEnemyProximityMultiplayer = EnemyProximityPolicy.VanillaMode;
         private int aiEnemyProximitySingleplayer = EnemyProximityPolicy.VanillaMode;
@@ -86,20 +77,12 @@ namespace ExtraFeatures
         public ImageSource KeepStorageFruitIcon => GetGoodIconImage(eGoods.STORED_FOOD_FRUIT);
         public ImageSource KeepStorageWoodIcon => GetGoodIconImage(eGoods.STORED_WOOD_PLANKS);
         public ImageSource KeepStorageBowsIcon => GetGoodIconImage(eGoods.STORED_BOWS);
-        public string EnableSingleBuildingPauseText => SerpLocalization.Get(SerpLocalization.EnableSingleBuildingPause);
-        public string EnableSingleBuildingPauseHelpText => SerpLocalization.Get(SerpLocalization.EnableSingleBuildingPauseHelp);
-        public string EnableFastRecruitRallyMovementText => SerpLocalization.Get(SerpLocalization.EnableFastRecruitRallyMovement);
-        public string EnableFastRecruitRallyMovementHelpText => SerpLocalization.Get(SerpLocalization.EnableFastRecruitRallyMovementHelp);
         public string EnableMonksAlwaysRunText => SerpLocalization.Get(SerpLocalization.EnableMonksAlwaysRun);
         public string EnableMonksAlwaysRunHelpText => SerpLocalization.Get(SerpLocalization.EnableMonksAlwaysRunHelp);
         public string EnableKnightDismountText => SerpLocalization.Get(SerpLocalization.EnableKnightDismount);
         public string EnableKnightDismountHelpText => SerpLocalization.Get(SerpLocalization.EnableKnightDismountHelp);
         public string InstantHorseText => SerpLocalization.Get(SerpLocalization.InstantHorse);
         public string InstantHorseHelpText => SerpLocalization.Get(SerpLocalization.InstantHorseHelp);
-        public string EnableQuarryPileRelocationText => SerpLocalization.Get(SerpLocalization.EnableQuarryPileRelocation);
-        public string EnableQuarryPileRelocationHelpText => SerpLocalization.Get(SerpLocalization.EnableQuarryPileRelocationHelp);
-        public string EnableAIQuarryPileTowardsKeepText => SerpLocalization.Get(SerpLocalization.EnableAIQuarryPileTowardsKeep);
-        public string EnableAIQuarryPileTowardsKeepHelpText => SerpLocalization.Get(SerpLocalization.EnableAIQuarryPileTowardsKeepHelp);
         public string EnableExtraChurchPriestsText => SerpLocalization.Get(SerpLocalization.EnableExtraChurchPriests);
         public string EnableExtraChurchPriestsHelpText => SerpLocalization.Get(SerpLocalization.EnableExtraChurchPriestsHelp);
         public string CampfirePeasantsText => SerpLocalization.Get(SerpLocalization.CampfirePeasants);
@@ -109,7 +92,6 @@ namespace ExtraFeatures
         public string ApothecaryPlagueSearchDistanceText => SerpLocalization.Get(SerpLocalization.ApothecaryPlagueSearchDistance);
         public string ApothecaryPlagueSearchDistanceHelpText => SerpLocalization.Get(SerpLocalization.ApothecaryPlagueSearchDistanceHelp);
         public string BulldozeTitleText => SerpLocalization.Get(SerpLocalization.BulldozeTitle);
-        public string ComfortTitleText => SerpLocalization.Get("SomeSettings.ComfortTitle");
         public string NewFeaturesTitleText => SerpLocalization.Get("SomeSettings.NewFeaturesTitle");
         public string LordHealthTitleText => SerpLocalization.Get(SerpLocalization.LordHealthTitle);
         public string LordHealthHelpText => SerpLocalization.Get(SerpLocalization.LordHealthHelp);
@@ -139,30 +121,6 @@ namespace ExtraFeatures
         public string MarketPricesAlsoForAIText => SerpLocalization.Get(SerpLocalization.MarketPricesAlsoForAI);
         public string MarketPricesAlsoForAIHelpText => SerpLocalization.Get(SerpLocalization.MarketPricesAlsoForAIHelp);
         public string MarketGoodPriceMultipliersHelpText => SerpLocalization.Get(SerpLocalization.MarketGoodPriceMultipliersHelp);
-        public string AiEconomyProtectionTitleText => SerpLocalization.Get(SerpLocalization.AiEconomyProtectionTitle);
-        public string PreventAIPauseText => SerpLocalization.Get(SerpLocalization.PreventAIPause);
-        public string PreventAIPauseHelpText => SerpLocalization.Get(SerpLocalization.PreventAIPauseHelp);
-        public string PreventEmergencyDemolitionText => SerpLocalization.Get(SerpLocalization.PreventEmergencyDemolition);
-        public string PreventEmergencyDemolitionHelpText => SerpLocalization.Get(SerpLocalization.PreventEmergencyDemolitionHelp);
-        public string PreventHovelDeletionText => SerpLocalization.Get(SerpLocalization.PreventHovelDeletion);
-        public string PreventHovelDeletionHelpText => SerpLocalization.Get(SerpLocalization.PreventHovelDeletionHelp);
-        public string InaccessibleAIBuildingDemolitionProtectionText => SerpLocalization.Get(SerpLocalization.InaccessibleAIBuildingDemolitionProtection);
-        public string InaccessibleAIBuildingDemolitionProtectionHelpText => SerpLocalization.Get(SerpLocalization.InaccessibleAIBuildingDemolitionProtectionHelp);
-        public string InaccessibleAIBuildingDemolitionProtectionValueText
-        {
-            get
-            {
-                switch (InaccessibleAIBuildingDemolitionProtection)
-                {
-                    case TemporaryGateBlockagePolicy.VanillaMode:
-                        return SerpLocalization.Get(SerpLocalization.InaccessibleAIBuildingDemolitionModeVanilla);
-                    case TemporaryGateBlockagePolicy.AlwaysPreventMode:
-                        return SerpLocalization.Get(SerpLocalization.InaccessibleAIBuildingDemolitionModeAlways);
-                    default:
-                        return SerpLocalization.Get(SerpLocalization.InaccessibleAIBuildingDemolitionModeTemporary);
-                }
-            }
-        }
         public string GatehousesTitleText => SerpLocalization.Get("SomeSettings.GatehousesTitle");
         public string HumanGateReopenDelayText => SerpLocalization.Get("SomeSettings.HumanGateReopenDelay");
         public string AIGateReopenDelayText => SerpLocalization.Get("SomeSettings.AIGateReopenDelay");
@@ -170,8 +128,6 @@ namespace ExtraFeatures
         public string HumanGateClosingDistanceText => SerpLocalization.Get("SomeSettings.HumanGateClosingDistance");
         public string AIGateClosingDistanceText => SerpLocalization.Get("SomeSettings.AIGateClosingDistance");
         public string GateClosingDistanceHelpText => SerpLocalization.Get("SomeSettings.GateClosingDistanceHelp");
-        public string RequireReachableEnemyForAutomaticGateClosingText => SerpLocalization.Get("SomeSettings.RequireReachableEnemyForAutomaticGateClosing");
-        public string RequireReachableEnemyForAutomaticGateClosingHelpText => SerpLocalization.Get("SomeSettings.RequireReachableEnemyForAutomaticGateClosingHelp");
         public string EnemyProximityTitleText => SerpLocalization.Get("SomeSettings.EnemyProximityTitle");
         public string HumanEnemyProximitySingleplayerText => SerpLocalization.Get("SomeSettings.HumanEnemyProximitySingleplayer");
         public string HumanEnemyProximityMultiplayerText => SerpLocalization.Get("SomeSettings.HumanEnemyProximityMultiplayer");
@@ -226,23 +182,14 @@ namespace ExtraFeatures
         [SyncHostOnly] public int CampfirePeasantsLimit { get => campfirePeasantsLimit; set => SetIntSetting(ref campfirePeasantsLimit, value, -1, 200, nameof(CampfirePeasantsLimit), nameof(CampfirePeasantsLimitText)); }
         [SyncHostOnly] public int HumanLordHealthPercent { get => humanLordHealthPercent; set => SetIntSetting(ref humanLordHealthPercent, value, LordHealthMultiplierPolicy.MinimumPercent, LordHealthMultiplierPolicy.MaximumPercent, nameof(HumanLordHealthPercent), nameof(HumanLordHealthPercentText)); }
         [SyncHostOnly] public int AILordHealthPercent { get => aiLordHealthPercent; set => SetIntSetting(ref aiLordHealthPercent, value, LordHealthMultiplierPolicy.MinimumPercent, LordHealthMultiplierPolicy.MaximumPercent, nameof(AILordHealthPercent), nameof(AILordHealthPercentText)); }
-        [SyncHostOnly] public bool EnableSingleBuildingPause { get => enableSingleBuildingPause; set => SetSetting(ref enableSingleBuildingPause, value, nameof(EnableSingleBuildingPause)); }
-        [SyncHostOnly] public bool EnableFastRecruitRallyMovement { get => enableFastRecruitRallyMovement; set => SetSetting(ref enableFastRecruitRallyMovement, value, nameof(EnableFastRecruitRallyMovement)); }
         [SyncHostOnly] public bool EnableMonksAlwaysRun { get => enableMonksAlwaysRun; set => SetSetting(ref enableMonksAlwaysRun, value, nameof(EnableMonksAlwaysRun)); }
         [SyncHostOnly] public bool EnableKnightDismount { get => enableKnightDismount; set => SetSetting(ref enableKnightDismount, value, nameof(EnableKnightDismount)); }
         [SyncHostOnly] public bool InstantHorse { get => instantHorse; set => SetSetting(ref instantHorse, value, nameof(InstantHorse)); }
-        [SyncHostOnly] public bool EnableQuarryPileRelocation { get => enableQuarryPileRelocation; set => SetSetting(ref enableQuarryPileRelocation, value, nameof(EnableQuarryPileRelocation)); }
-        [SyncHostOnly] public bool EnableAIQuarryPileTowardsKeep { get => enableAIQuarryPileTowardsKeep; set => SetSetting(ref enableAIQuarryPileTowardsKeep, value, nameof(EnableAIQuarryPileTowardsKeep)); }
         [SyncHostOnly] public bool EnableExtraChurchPriests { get => enableExtraChurchPriests; set => SetSetting(ref enableExtraChurchPriests, value, nameof(EnableExtraChurchPriests)); }
-        [SyncHostOnly] public bool PreventAIPause { get => preventAIPause; set => SetSetting(ref preventAIPause, value, nameof(PreventAIPause)); }
-        [SyncHostOnly] public bool PreventEmergencyDemolition { get => preventEmergencyDemolition; set => SetSetting(ref preventEmergencyDemolition, value, nameof(PreventEmergencyDemolition)); }
-        [SyncHostOnly] public bool PreventHovelDeletion { get => preventHovelDeletion; set => SetSetting(ref preventHovelDeletion, value, nameof(PreventHovelDeletion)); }
-        [SyncHostOnly] public int InaccessibleAIBuildingDemolitionProtection { get => inaccessibleAIBuildingDemolitionProtection; set => SetIntSetting(ref inaccessibleAIBuildingDemolitionProtection, value, TemporaryGateBlockagePolicy.VanillaMode, TemporaryGateBlockagePolicy.AlwaysPreventMode, nameof(InaccessibleAIBuildingDemolitionProtection), nameof(InaccessibleAIBuildingDemolitionProtectionValueText)); }
         [SyncHostOnly] public double HumanGateReopenDelaySeconds { get => humanGateReopenDelaySeconds; set => SetDoubleSetting(ref humanGateReopenDelaySeconds, RoundToStep(value, 0.5), GatehouseTimingPatch.MinimumHumanDelaySeconds, GatehouseTimingPatch.MaximumHumanDelaySeconds, nameof(HumanGateReopenDelaySeconds), nameof(HumanGateReopenDelayValueText)); }
         [SyncHostOnly] public double AIGateReopenDelaySeconds { get => aiGateReopenDelaySeconds; set => SetDoubleSetting(ref aiGateReopenDelaySeconds, RoundToStep(value, 2.5), GatehouseTimingPatch.MinimumAiDelaySeconds, GatehouseTimingPatch.MaximumAiDelaySeconds, nameof(AIGateReopenDelaySeconds), nameof(AIGateReopenDelayValueText)); }
         [SyncHostOnly] public double HumanGateClosingDistanceTiles { get => humanGateClosingDistanceTiles; set => SetDoubleSetting(ref humanGateClosingDistanceTiles, RoundToStep(value, 0.5), GatehouseTimingPatch.MinimumDistanceTiles, GatehouseTimingPatch.MaximumDistanceTiles, nameof(HumanGateClosingDistanceTiles), nameof(HumanGateClosingDistanceValueText)); }
         [SyncHostOnly] public double AIGateClosingDistanceTiles { get => aiGateClosingDistanceTiles; set => SetDoubleSetting(ref aiGateClosingDistanceTiles, RoundToStep(value, 0.5), GatehouseTimingPatch.MinimumDistanceTiles, GatehouseTimingPatch.MaximumDistanceTiles, nameof(AIGateClosingDistanceTiles), nameof(AIGateClosingDistanceValueText)); }
-        [SyncHostOnly] public bool RequireReachableEnemyForAutomaticGateClosing { get => requireReachableEnemyForAutomaticGateClosing; set => SetSetting(ref requireReachableEnemyForAutomaticGateClosing, value, nameof(RequireReachableEnemyForAutomaticGateClosing)); }
         [SyncHostOnly] public int HumanEnemyProximitySingleplayer { get => humanEnemyProximitySingleplayer; set => SetIntSetting(ref humanEnemyProximitySingleplayer, value, EnemyProximityPolicy.MinimumRadius, EnemyProximityPolicy.MaximumRadius, nameof(HumanEnemyProximitySingleplayer), nameof(HumanEnemyProximitySingleplayerValueText)); }
         [SyncHostOnly] public int HumanEnemyProximityMultiplayer { get => humanEnemyProximityMultiplayer; set => SetIntSetting(ref humanEnemyProximityMultiplayer, value, EnemyProximityPolicy.MinimumRadius, EnemyProximityPolicy.MaximumRadius, nameof(HumanEnemyProximityMultiplayer), nameof(HumanEnemyProximityMultiplayerValueText)); }
         [SyncHostOnly] public int AIEnemyProximitySingleplayer { get => aiEnemyProximitySingleplayer; set => SetIntSetting(ref aiEnemyProximitySingleplayer, value, EnemyProximityPolicy.MinimumRadius, EnemyProximityPolicy.MaximumRadius, nameof(AIEnemyProximitySingleplayer), nameof(AIEnemyProximitySingleplayerValueText)); }
@@ -308,23 +255,14 @@ namespace ExtraFeatures
                 CampfirePeasantsLimit = -1;
                 HumanLordHealthPercent = LordHealthMultiplierPolicy.DefaultPercent;
                 AILordHealthPercent = LordHealthMultiplierPolicy.DefaultPercent;
-                EnableSingleBuildingPause = true;
-                EnableFastRecruitRallyMovement = true;
                 EnableMonksAlwaysRun = false;
                 EnableKnightDismount = true;
                 InstantHorse = false;
-                EnableQuarryPileRelocation = true;
-                EnableAIQuarryPileTowardsKeep = true;
                 EnableExtraChurchPriests = true;
-                PreventAIPause = true;
-                PreventEmergencyDemolition = true;
-                PreventHovelDeletion = true;
-                InaccessibleAIBuildingDemolitionProtection = TemporaryGateBlockagePolicy.ImprovedReachabilityMode;
                 HumanGateReopenDelaySeconds = GatehouseTimingPatch.VanillaHumanDelaySeconds;
                 AIGateReopenDelaySeconds = GatehouseTimingPatch.VanillaAiDelaySeconds;
                 HumanGateClosingDistanceTiles = GatehouseTimingPatch.VanillaHumanDistanceTiles;
                 AIGateClosingDistanceTiles = GatehouseTimingPatch.VanillaAiDistanceTiles;
-                RequireReachableEnemyForAutomaticGateClosing = true;
                 HumanEnemyProximitySingleplayer = EnemyProximityPolicy.VanillaMode;
                 HumanEnemyProximityMultiplayer = EnemyProximityPolicy.VanillaMode;
                 AIEnemyProximitySingleplayer = EnemyProximityPolicy.VanillaMode;

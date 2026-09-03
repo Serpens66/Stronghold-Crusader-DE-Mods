@@ -91,11 +91,11 @@ foreach ($file in Get-ChildItem -LiteralPath (Join-Path $workspace 'BugfixesAndQ
     Set-LocaleKey $file.FullName 'BugfixesAndQoL.AiAivTitle' $(if ($german) { 'KI und AIV' } else { 'AI and AIV' })
     Set-LocaleKey $file.FullName 'BugfixesAndQoL.TroopMovementTitle' $(if ($german) { 'Truppenbewegung' } else { 'Troop Movement' })
     Set-LocaleKey $file.FullName 'BugfixesAndQoL.PlagueTitle' $(if ($german) { 'Pest' } else { 'Plague' })
+    Set-LocaleKey $file.FullName 'BugfixesAndQoL.AIEconomyProtectionTitle' $(if ($german) { 'KI-Wirtschaftsschutz' } else { 'AI Economy Protection' })
 }
 
 foreach ($file in Get-ChildItem -LiteralPath (Join-Path $workspace 'ExtraFeatures\Locales') -Filter '*.txt') {
     $german = $file.Name -eq 'de-DE.txt'
-    Set-LocaleKey $file.FullName 'SomeSettings.ComfortTitle' $(if ($german) { 'Komfortfunktionen' } else { 'Convenience Features' })
     Set-LocaleKey $file.FullName 'SomeSettings.NewFeaturesTitle' $(if ($german) { 'Neue Spielfunktionen' } else { 'New Gameplay Features' })
     Set-LocaleKey $file.FullName 'SomeSettings.TilesValueFormat' $(if ($german) { '{0} Felder' } else { '{0} tiles' })
     Set-LocaleKey $file.FullName 'SomeSettings.BuildingsProductionTitle' $(if ($german) { 'Gebäude und Produktion' } else { 'Buildings and Production' })
@@ -106,7 +106,6 @@ foreach ($file in Get-ChildItem -LiteralPath (Join-Path $workspace 'ExtraFeature
     Set-LocaleKey $file.FullName 'SomeSettings.EconomyBuffsTitle' $(if ($german) { 'Wirtschaftsboni' } else { 'Economy Bonuses' })
     Set-LocaleKey $file.FullName 'SomeSettings.MarketPriceMultipliersTitle' $(if ($german) { 'Marktpreise' } else { 'Market Prices' })
     Set-LocaleKey $file.FullName 'SomeSettings.PlagueTitle' $(if ($german) { 'Pest' } else { 'Plague' })
-    Set-LocaleKey $file.FullName 'SomeSettings.AIEconomyProtectionTitle' $(if ($german) { 'KI-Wirtschaftsschutz' } else { 'AI Economy Protection' })
 }
 
 foreach ($file in Get-ChildItem -LiteralPath (Join-Path $workspace 'UnitLimit\Locales') -Filter '*.txt') {

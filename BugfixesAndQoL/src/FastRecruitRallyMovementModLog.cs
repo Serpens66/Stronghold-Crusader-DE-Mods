@@ -2,7 +2,7 @@
 using BepInEx.Logging;
 using System;
 
-namespace ExtraFeatures
+namespace BugfixesAndQoL
 {
     internal static class FastRecruitRallyMovementModLog
     {
@@ -13,7 +13,7 @@ namespace ExtraFeatures
 
         public static void Error(ManualLogSource log, string message)
         {
-            log.LogError($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] Extra Features {message}");
+            log.LogError($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] Bugfixes and QoL {message}");
         }
     }
 }

@@ -1,14 +1,7 @@
 # ExtraFeatures
-
 ExtraFeatures adds configurable gameplay, economy, building, and AI options to Stronghold Crusader Definitive Edition. The host controls the settings used for the match.
 
 ## Convenience and unit features
-
-### Pause a single production building
-Hold Ctrl while clicking a production building's pause button to pause or resume only that building. Clicking without Ctrl keeps the normal behavior of changing every building of that type.
-
-### Make new recruits run to rally points
-Newly recruited human and AI units move to their rally points at their own normal fastest pace, with the matching animation. Terrain and other movement modifiers still apply.
 
 ### Let monks run
 Fighting Monks and Temple Guards can use the normal troop running behavior and animation instead of always being restricted to walking.
@@ -24,19 +17,10 @@ New troop commands turn selected swordsmen into mounted knights or mounted knigh
 ### Customize automatic gate timing and distance
 Set separate enemy-detection distances and reopening delays for human and AI gatehouses. Delays are measured in simulation time, so higher game speeds make the same delay pass faster in real time.
 
-### Close gates only for reachable enemies
-Gatehouses can ignore enemies that cannot reach either entrance instead of closing for every nearby enemy. If reachability cannot be checked safely, the normal game behavior is retained.
-
 ### Control gatehouse automation individually
 Every owned gatehouse receives a button that switches it between normal automatic control and manual-only control. A manual-only gate no longer opens or closes automatically, remains controllable with the normal gate commands, and keeps this setting in saved games and maps.
 
 ## Buildings and production
-
-### Move a quarry's stone pile
-Selected quarries receive a button that moves their linked stone pile clockwise to the next valid position. If no replacement can be placed safely, the existing pile remains untouched.
-
-### Point AI quarry piles towards their Keep
-New AI quarries automatically move their linked stone pile to the valid Vanilla position nearest to that AI player's Keep. The host can disable this behavior independently from the player-controlled quarry button.
 
 ### Add more priests to religious buildings
 Churches employ two priests and cathedrals employ three instead of one. The change applies to both newly built and existing buildings.
@@ -73,17 +57,3 @@ Set how long plague clouds remain active from 0.5 to 20 times the Vanilla durati
 
 ### Customize apothecary search range
 Set how far an apothecary searches from its assigned building for plague clouds. The range can be adjusted from 20 to 200 tiles; Vanilla uses 30.
-
-## AI behavior
-
-### Prevent AI production pauses
-Stop AI players from putting their own production buildings to sleep, keeping those buildings active.
-
-### Prevent AI panic demolition
-Disable the AI's emergency resource-recovery demolition routine so it cannot remove otherwise useful buildings while under economic pressure.
-
-### Prevent AI hovel deletion
-Stop the AI from directly deleting its own living hovels for economic reasons. Hovels can still be destroyed normally by damage.
-
-### Protect AI buildings classified as unreachable
-Choose between unchanged Vanilla behavior, an improved reachability check, or blocking every demolition caused solely by unreachability. The improved check treats living friendly and allied gatehouses and their drawbridges as passable regardless of their current state, while all unrelated demolition reasons remain unchanged.

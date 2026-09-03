@@ -252,6 +252,42 @@ For a new DLL, recheck both command dispatch and the complete save/set/call/
 restore sequence as a compatibility audit. Runtime mode, local-human identity,
 lord transition, and post-transition identity checks remain fail-closed.
 
+## Features transferred from Extra Features in 1.0.118
+
+BugfixesAndQoL now owns single-building pause, fast recruit rally movement,
+reachability-aware gate closing, both quarry-pile features, and all four AI
+economy-protection settings. There is no runtime or settings fallback to
+ExtraFeatures.
+
+Like the other BugfixesAndQoL features, these transferred features are not
+restricted by `GameplayModActivationGate` or `GameplayFeatureModePolicy` and
+may run in every game mode when the mod and their individual settings are enabled.
+
+| Feature | Native or managed contract |
+| --- | --- |
+| Single-building pause | One-based building IDs, `r_IsSleeping`, managed pause UI hooks, synchronized Chore transport, and sleep-state resynchronization |
+| Fast recruit rally movement | Script Extender unit events plus the mod-internal synchronized movement-cadence callbacks; no reflective cross-mod bridge |
+| Reachability-aware gate closing | `GatehouseQueryEventArgs`, the Script Extender 1.42.0 zero-based UnitId exception, gate entries and PCL reachability; exact-hash-only and fail-open |
+| Quarry-pile relocation | Helper `0xC0270..0xC04BE`, manager globals, `GameBuilding` size `0x32C`, pile link `0x192`, structure group `0x2A8`, and one-based building IDs; exact-hash-only |
+| AI economy protection | Handlers containing `0xC7DCB`, `0x2F454`, `0x3B1D0`, and `0x3B2FF`; owner/sleep fields, demolition callers, and the single-building manual override |
+
+The moved native address map is:
+
+| Source pattern | Reference RVA | Unknown-hash behavior |
+| --- | ---: | --- |
+| `SleepStateComparisonPattern` | `0xC7DCB` | Bounded scan; AI-owner suppression still requires the audited fixed layout |
+| `SleepStateSynchronizationFunctionPattern` | `0xC7D50` | Bounded scan and validated delegate |
+| `EmergencyDemolitionComparisonPattern` | `0x2F454` | Bounded context-hook scan |
+| `AIHovelDemolitionFunctionPattern` | `0x3B1D0` | Bounded detour scan at the AI-only decision point |
+| `InaccessibleBuildingComparisonPattern` | `0x3B2FF` | Audited-hash-only context hook |
+| `SetupBuildingEntrancesOffsetPattern` | `0xC0270` | Audited-hash-only fixed manager/candidate layout |
+
+Before accepting a new DLL, revalidate the complete hook spans, ABI/register
+contracts, building layouts, quarry manager fields `+0x31B7D0/+0x31B7D4`,
+candidate semantics, AI-only hovel caller, PCL query context, and the UnitId
+contract of the installed Script Extender. Unknown or ambiguous evidence must
+leave the affected behavior inactive and preserve Vanilla.
+
 ## Required update audit
 
 ### Selected-unit HP display audit

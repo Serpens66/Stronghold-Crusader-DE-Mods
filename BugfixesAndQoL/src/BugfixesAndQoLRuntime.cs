@@ -87,6 +87,7 @@ namespace BugfixesAndQoL
             multiplayerGameSpeedRuntime = new MultiplayerGameSpeedRuntime(log, settings, multiplayerFeatureGate);
             multiplayerAivSyncRuntime = new MultiplayerAivSyncRuntime(log, settings);
             siegeAmmoRestockFeature = new SiegeAmmoRestockFeature(log, settings, multiplayerFeatureGate);
+            InitializeMovedFeatures();
             settings.SettingChanged += OnSettingChanged;
             settingsSubscribed = true;
         }
@@ -99,6 +100,9 @@ namespace BugfixesAndQoL
 
         public void InitializeNetwork()
         {
+            TryInitializePersistentFeature(
+                "moved synchronized feature group",
+                InitializeMovedFeatureNetwork);
             TryInitializePersistentFeature(
                 "Assassin climb-state synchronization",
                 assassinClimbRuntime.InitializeNetwork);
@@ -175,6 +179,7 @@ namespace BugfixesAndQoL
                         .Where(args => args.Phase == EventHookPhase.Post)
                         .Subscribe(_ =>
                         {
+                            ResetMovedFeatureMapState();
                             multiplayerGameSpeedRuntime.ResetMapState();
                             assassinClimbRuntime.EndMap();
                             assassinPathfindingRuntime.EndMap();
@@ -304,6 +309,10 @@ namespace BugfixesAndQoL
                     log,
                     $"Bugfixes and QoL feature 'troop movement fix' could not be initialized and remains inactive: {ex}");
             }
+            InitializeMovedFeatureNative(
+                newLibraryHandle,
+                memory,
+                isFixedLayoutHashValidated);
             TryInitializeFeature("plague popularity fix", EnsurePlaguePopularityFix);
             TryInitializeFeature("plague cloud removal fix", EnsurePlagueTreatmentFadeFix);
             TryInitializeFeature("plague target-reservation fix", EnsurePlagueTargetReservationFix);
@@ -319,6 +328,7 @@ namespace BugfixesAndQoL
 
         public void ApplySettings()
         {
+            TryApplyFeature("moved feature settings", ApplyMovedFeatureSettings);
             TryInitializeFeature("AI tower-ruin repair fix", EnsureAiTowerRuinRepairFix);
             TryInitializeFeature("better AI overbuild rules", EnsureBetterAIOverbuildRulesFix);
             TryInitializeFeature("surrender", InitializeSurrenderFeature);
@@ -353,6 +363,7 @@ namespace BugfixesAndQoL
         public void Dispose()
         {
             UnsubscribeHooks();
+            DisposeMovedFeatures();
             skirmishAiSelectionMemoryHook?.Dispose();
             skirmishAiSelectionMemoryHook = null;
             customLordListEnhancementHook?.Dispose();

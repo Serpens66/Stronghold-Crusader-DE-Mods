@@ -93,21 +93,6 @@
       <TextBlock Text="{Binding HostOptionsText}" Style="{StaticResource HostRoleHeader}" Margin="0,2,0,6"/>
       <StackPanel IsEnabled="{Binding CanEditHostSettings}">
 
-      <StackPanel shared:ModSettingsSearch.SectionKey="extra.section.comfort" shared:ModSettingsSearch.SectionTitle="{Binding ComfortTitleText}">
-      <Grid Style="{StaticResource ModSettingsSearchSectionGrid}" shared:ModSettingsSearch.IsSection="True"><TextBlock Text="{Binding ComfortTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,8"/></Grid>
-      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.single-building-pause" shared:ModSettingsSearch.Title="{Binding EnableSingleBuildingPauseText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableSingleBuildingPauseHelpText}">
-        <CheckBox IsChecked="{Binding EnableSingleBuildingPause, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableSingleBuildingPauseHelpText}" Margin="0,0,14,8">
-          <TextBlock Text="{Binding EnableSingleBuildingPauseText}" Foreground="White" TextWrapping="Wrap"/>
-        </CheckBox>
-      </Grid>
-      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.fast-recruit-rally" shared:ModSettingsSearch.Title="{Binding EnableFastRecruitRallyMovementText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableFastRecruitRallyMovementHelpText}">
-        <CheckBox IsChecked="{Binding EnableFastRecruitRallyMovement, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableFastRecruitRallyMovementHelpText}" Margin="0,0,14,8">
-          <TextBlock Text="{Binding EnableFastRecruitRallyMovementText}" Foreground="White" TextWrapping="Wrap"/>
-        </CheckBox>
-      </Grid>
-
-      </StackPanel>
-      <Separator Background="#444466" Visibility="{Binding System_ModSettingsSearchInactiveVisibility}" Margin="0,10"/>
       <StackPanel shared:ModSettingsSearch.SectionKey="extra.section.new-features" shared:ModSettingsSearch.SectionTitle="{Binding NewFeaturesTitleText}">
       <Grid Style="{StaticResource ModSettingsSearchSectionGrid}" shared:ModSettingsSearch.IsSection="True"><TextBlock Text="{Binding NewFeaturesTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,8"/></Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.lord-health" shared:ModSettingsSearch.Title="{Binding LordHealthTitleText}" shared:ModSettingsSearch.ToolTipText="{Binding LordHealthHelpText}">
@@ -146,11 +131,6 @@
       <Separator Background="#444466" Visibility="{Binding System_ModSettingsSearchInactiveVisibility}" Margin="0,10"/>
       <StackPanel shared:ModSettingsSearch.SectionKey="extra.section.gatehouses" shared:ModSettingsSearch.SectionTitle="{Binding GatehousesTitleText}">
       <Grid Style="{StaticResource ModSettingsSearchSectionGrid}" shared:ModSettingsSearch.IsSection="True"><TextBlock Text="{Binding GatehousesTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,8"/></Grid>
-      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.gate-reachable-enemy" shared:ModSettingsSearch.Title="{Binding RequireReachableEnemyForAutomaticGateClosingText}" shared:ModSettingsSearch.ToolTipText="{Binding RequireReachableEnemyForAutomaticGateClosingHelpText}">
-        <CheckBox IsChecked="{Binding RequireReachableEnemyForAutomaticGateClosing, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding RequireReachableEnemyForAutomaticGateClosingHelpText}" Margin="0,0,14,8">
-          <TextBlock Text="{Binding RequireReachableEnemyForAutomaticGateClosingText}" Foreground="White" TextWrapping="Wrap"/>
-        </CheckBox>
-      </Grid>
       <StackPanel>
         <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.human-gate-reopen-delay" shared:ModSettingsSearch.Title="{Binding HumanGateReopenDelayText}" shared:ModSettingsSearch.ToolTipText="{Binding GateReopenDelayHelpText}" Margin="0,0,0,8" ToolTipService.ShowDuration="60000" ToolTip="{Binding GateReopenDelayHelpText}"><Grid.ColumnDefinitions><ColumnDefinition Width="260"/><ColumnDefinition Width="220"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions><TextBlock Grid.Column="0" Text="{Binding HumanGateReopenDelayText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/><Slider Grid.Column="1" Minimum="0" Maximum="30" Value="{Binding HumanGateReopenDelaySeconds, Mode=TwoWay}" TickFrequency="0.5" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding GateReopenDelayHelpText}"/><TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Column="2" Text="{Binding HumanGateReopenDelayValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding GateReopenDelayHelpText}" MinWidth="86" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/></Grid>
         <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.ai-gate-reopen-delay" shared:ModSettingsSearch.Title="{Binding AIGateReopenDelayText}" shared:ModSettingsSearch.ToolTipText="{Binding GateReopenDelayHelpText}" Margin="0,0,0,8" ToolTipService.ShowDuration="60000" ToolTip="{Binding GateReopenDelayHelpText}"><Grid.ColumnDefinitions><ColumnDefinition Width="260"/><ColumnDefinition Width="220"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions><TextBlock Grid.Column="0" Text="{Binding AIGateReopenDelayText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/><Slider Grid.Column="1" Minimum="0" Maximum="120" Value="{Binding AIGateReopenDelaySeconds, Mode=TwoWay}" TickFrequency="2.5" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding GateReopenDelayHelpText}"/><TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Column="2" Text="{Binding AIGateReopenDelayValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding GateReopenDelayHelpText}" MinWidth="86" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/></Grid>
@@ -195,16 +175,6 @@
       </StackPanel>
       <StackPanel shared:ModSettingsSearch.SectionKey="extra.section.buildings-production" shared:ModSettingsSearch.SectionTitle="{Binding BuildingsProductionTitleText}">
       <Grid Style="{StaticResource ModSettingsSearchSectionGrid}" shared:ModSettingsSearch.IsSection="True"><TextBlock Text="{Binding BuildingsProductionTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,8"/></Grid>
-      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.quarry-pile-relocation" shared:ModSettingsSearch.Title="{Binding EnableQuarryPileRelocationText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableQuarryPileRelocationHelpText}">
-        <CheckBox IsChecked="{Binding EnableQuarryPileRelocation, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableQuarryPileRelocationHelpText}" Margin="0,0,14,8">
-          <TextBlock Text="{Binding EnableQuarryPileRelocationText}" Foreground="White" TextWrapping="Wrap"/>
-        </CheckBox>
-      </Grid>
-      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.ai-quarry-pile-towards-keep" shared:ModSettingsSearch.Title="{Binding EnableAIQuarryPileTowardsKeepText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableAIQuarryPileTowardsKeepHelpText}">
-        <CheckBox IsChecked="{Binding EnableAIQuarryPileTowardsKeep, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableAIQuarryPileTowardsKeepHelpText}" Margin="0,0,14,8">
-          <TextBlock Text="{Binding EnableAIQuarryPileTowardsKeepText}" Foreground="White" TextWrapping="Wrap"/>
-        </CheckBox>
-      </Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.extra-church-priests" shared:ModSettingsSearch.Title="{Binding EnableExtraChurchPriestsText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableExtraChurchPriestsHelpText}">
         <CheckBox IsChecked="{Binding EnableExtraChurchPriests, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableExtraChurchPriestsHelpText}" Margin="0,0,14,8">
           <TextBlock Text="{Binding EnableExtraChurchPriestsText}" Foreground="White" TextWrapping="Wrap"/>
@@ -258,32 +228,6 @@
         <TextBlock Grid.Column="0" Text="{Binding ApothecaryPlagueSearchDistanceText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>
         <Slider Grid.Column="1" Minimum="20" Maximum="200" Value="{Binding ApothecaryPlagueSearchDistance, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding ApothecaryPlagueSearchDistanceHelpText}"/>
         <TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Column="2" Text="{Binding ApothecaryPlagueSearchDistanceValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding ApothecaryPlagueSearchDistanceHelpText}" MinWidth="56" MaxWidth="120" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/>
-      </Grid>
-
-      <Separator Background="#444466" Visibility="{Binding System_ModSettingsSearchInactiveVisibility}" Margin="0,10"/>
-      </StackPanel>
-      <StackPanel shared:ModSettingsSearch.SectionKey="extra.section.ai-economy-protection" shared:ModSettingsSearch.SectionTitle="{Binding AiEconomyProtectionTitleText}">
-      <Grid Style="{StaticResource ModSettingsSearchSectionGrid}" shared:ModSettingsSearch.IsSection="True"><TextBlock Text="{Binding AiEconomyProtectionTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,8"/></Grid>
-      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.prevent-ai-pause" shared:ModSettingsSearch.Title="{Binding PreventAIPauseText}" shared:ModSettingsSearch.ToolTipText="{Binding PreventAIPauseHelpText}">
-        <CheckBox IsChecked="{Binding PreventAIPause, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding PreventAIPauseHelpText}" Margin="0,0,14,8">
-          <TextBlock Text="{Binding PreventAIPauseText}" Foreground="White" TextWrapping="Wrap"/>
-        </CheckBox>
-      </Grid>
-      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.prevent-emergency-demolition" shared:ModSettingsSearch.Title="{Binding PreventEmergencyDemolitionText}" shared:ModSettingsSearch.ToolTipText="{Binding PreventEmergencyDemolitionHelpText}">
-        <CheckBox IsChecked="{Binding PreventEmergencyDemolition, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding PreventEmergencyDemolitionHelpText}" Margin="0,0,14,8">
-          <TextBlock Text="{Binding PreventEmergencyDemolitionText}" Foreground="White" TextWrapping="Wrap"/>
-        </CheckBox>
-      </Grid>
-      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.prevent-hovel-deletion" shared:ModSettingsSearch.Title="{Binding PreventHovelDeletionText}" shared:ModSettingsSearch.ToolTipText="{Binding PreventHovelDeletionHelpText}">
-        <CheckBox IsChecked="{Binding PreventHovelDeletion, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding PreventHovelDeletionHelpText}" Margin="0,0,14,8">
-          <TextBlock Text="{Binding PreventHovelDeletionText}" Foreground="White" TextWrapping="Wrap"/>
-        </CheckBox>
-      </Grid>
-      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.inaccessible-ai-building-protection" shared:ModSettingsSearch.Title="{Binding InaccessibleAIBuildingDemolitionProtectionText}" shared:ModSettingsSearch.ToolTipText="{Binding InaccessibleAIBuildingDemolitionProtectionHelpText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding InaccessibleAIBuildingDemolitionProtectionHelpText}" Margin="0,0,0,8">
-        <Grid.ColumnDefinitions><ColumnDefinition Width="170"/><ColumnDefinition Width="220"/><ColumnDefinition Width="190"/></Grid.ColumnDefinitions>
-        <TextBlock Grid.Column="0" Text="{Binding InaccessibleAIBuildingDemolitionProtectionText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>
-        <Slider Grid.Column="1" Minimum="0" Maximum="2" Value="{Binding InaccessibleAIBuildingDemolitionProtection, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding InaccessibleAIBuildingDemolitionProtectionHelpText}"/>
-        <TextBlock Grid.Column="2" Text="{Binding InaccessibleAIBuildingDemolitionProtectionValueText}" Foreground="White" TextWrapping="Wrap" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="8,0,0,0"/>
       </Grid>
 
       <Separator Background="#444466" Visibility="{Binding System_ModSettingsSearchInactiveVisibility}" Margin="0,10"/>

@@ -48,6 +48,8 @@
     <Compile Include="..\Shared\NativePatternResolver.cs"><Link>Shared\NativePatternResolver.cs</Link></Compile>
     <Compile Include="..\Shared\SerpLocalization.cs"><Link>Shared\SerpLocalization.cs</Link></Compile>
     <Compile Include="src\AiAivSelectionCodec.cs" />
+    <Compile Include="src\AIBuildingTemporaryAccessClassifier.cs" />
+    <Compile Include="src\AIEconomyProtectionHook.cs" />
     <Compile Include="src\AbruptHostMigrationFix.cs" />
     <Compile Include="src\AbruptHostMigrationPolicy.cs" />
     <Compile Include="src\AivCandidateStatusApi.cs" />
@@ -78,8 +80,12 @@
     <Compile Include="src\AssassinPathReconstructionPatch.cs" />
     <Compile Include="src\AssassinPathfindingRuntime.cs" />
     <Compile Include="src\BugfixesAndQoLRuntime.CtrlMarketTrade.cs" />
+    <Compile Include="src\BugfixesAndQoLRuntime.MovedFeatures.cs" />
     <Compile Include="src\CtrlMarketTradeHook.cs" />
     <Compile Include="src\GameSpeedRepeatScheduler.cs" />
+    <Compile Include="src\FastRecruitMovementBridge.cs" />
+    <Compile Include="src\FastRecruitRallyMovementModLog.cs" />
+    <Compile Include="src\FastRecruitRallyMovementRuntime.cs" />
     <Compile Include="src\MarketTradeIntegration.cs" />
     <Compile Include="src\MultiplayerFeatureGate.cs" />
     <Compile Include="src\MultiplayerAivSyncPacket.cs" />
@@ -125,6 +131,11 @@
     <Compile Include="src\PlagueNativePatternValidator.cs" />
     <Compile Include="src\PlaguePopularitySaveState.cs" />
     <Compile Include="src\RandomOpponentLobbyPolicy.cs" />
+    <Compile Include="src\QuarryPileVanillaGroupPolicy.cs" />
+    <Compile Include="src\QuarryPileRelocationPacket.cs" />
+    <Compile Include="src\QuarryPileRelocationRuntime.cs" />
+    <Compile Include="src\QuarryPileTargetSelectionPolicy.cs" />
+    <Compile Include="src\ReachableEnemyGatehouseRuntime.cs" />
     <Compile Include="src\ResyncHostKickFeature.cs" />
     <Compile Include="src\ResyncHostKickPolicy.cs" />
     <Compile Include="src\SelectedUnitHealthFeature.cs" />
@@ -137,6 +148,8 @@
     <Compile Include="src\SteamLobbyInvitePolicy.cs" />
     <Compile Include="src\SteamInviteBlacklistStore.cs" />
     <Compile Include="src\StartupDiagnosticPolicy.cs" />
+    <Compile Include="src\SingleBuildingPauseHook.cs" />
+    <Compile Include="src\SingleBuildingPausePacket.cs" />
     <Compile Include="src\SurrenderFeature.cs" />
     <Compile Include="src\SurrenderPackets.cs" />
     <Compile Include="src\SurrenderPolicy.cs" />
@@ -144,12 +157,17 @@
     <Compile Include="src\TroopMovementFix3Runtime.cs" />
     <Compile Include="src\TroopMovementFix3SpearmanMovementPatch.cs" />
     <Compile Include="src\TroopMovementFix3SynchronizedMovementCadencePatch.cs" />
+    <Compile Include="src\TemporaryGateBlockagePolicy.cs" />
   </ItemGroup>
-  <ItemGroup><Content Include="Locales\*.txt"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content></ItemGroup>
+  <ItemGroup>
+    <Content Include="Locales\*.txt"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="Patches\Assets\GUI\XAMLResources\HUD_Buildings.xaml"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+  </ItemGroup>
   <ItemGroup>
     <Reference Include="MessagePack"><HintPath>$(ExtenderDir)\MessagePack.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="MessagePack.Annotations"><HintPath>$(ExtenderDir)\MessagePack.Annotations.dll</HintPath><Private>false</Private></Reference>
     <Compile Include="..\Shared\GameModeHelper.cs"><Link>Shared\GameModeHelper.cs</Link></Compile>
+    <Compile Include="..\Shared\GatehouseQueryUnitIdPolicy.cs"><Link>Shared\GatehouseQueryUnitIdPolicy.cs</Link></Compile>
     <Compile Include="..\Shared\PresetLobbyModSettingsViewModel.cs"><Link>Shared\PresetLobbyModSettingsViewModel.cs</Link></Compile>
     <Compile Include="..\Shared\ModSettingsSearch.cs"><Link>Shared\ModSettingsSearch.cs</Link></Compile>
     <Compile Include="..\Shared\ToolTipPresentation.cs"><Link>Shared\ToolTipPresentation.cs</Link></Compile>

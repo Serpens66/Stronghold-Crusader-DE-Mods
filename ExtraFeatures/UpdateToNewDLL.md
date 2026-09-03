@@ -7,9 +7,7 @@
 - SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
 
 The audited hash uses locally validated direct RVAs. On another hash, only the
-signature- and semantics-validated features use bounded unique scans. Quarry
-relocation remains inactive because its fixed native layout is not proven by
-the function signature alone. Knight mount/dismount uses only public Script
+signature- and semantics-validated features use bounded unique scans. Knight mount/dismount uses only public Script
 Extender fields and the bidirectional stable-link API, so it has no private RVA.
 
 ## Semantic-baseline audit (2026-09-02)
@@ -29,15 +27,11 @@ managed/native links as applicable.
 | Plague duration and AI flag disease | Handler `0x9A080..0x9A21A`, lifetime block at `0x9A164`, AI flag routine `0x504F0..0x50620`, projectile spawn provenance and save identity | Confirmed contracts remain valid. Corrected fail-closed behavior: on unknown DLL hashes only the self-validating global lifetime block is used; the separate layout-/provenance-dependent AI-flag/Cesspit exception detour is not installed. |
 | Apothecary plague range | Handler `0x9F700..0x9F90D`, comparison at `0x9F86B`, Vanilla distance 30 and projectile/building context | Existing bounded comparison hook remains valid. |
 | Campfire peasants and Lord health | Public Script Extender player/unit APIs, Lord IDs and `GameUnit` health fields | No private native target; current 1-based ID use is correct. |
-| Single-building pause | Building IDs, `r_IsSleeping`, managed UI hooks, synchronized Chore path and sleep-state resynchronization | Current IDs are 1-based and all span conversions use `spanIndex + 1`; no correction required. |
-| Fast recruit rally movement | Script Extender unit events plus the optional single-owner movement bridge | No new private native target; existing optional integration remains isolated. |
 | Monks always run | Monk handler `0x151090..0x152011`, decision at `0x151436`, complete overwrite instructions, branch targets and state/speed writes | Existing semantics-validated unknown-hash path remains valid. |
 | Knight mount/dismount | Public `GameUnit`/stable fields, 1-based alive-unit IDs, stable links, horse slots and Chore synchronization | Current public-API implementation and ID basis remain correct. |
-| Quarry pile relocation | Helper `0xC0270..0xC04BE`, manager globals, `GameBuilding` size `0x32C`, pile link `0x192`, structure group `0x2A8` and 1-based span boundaries | Existing exact-hash restriction remains required and correct. |
 | Extra church priests | Complete worker table beginning at `0x2E5DE0`, unique pattern at `0x2E5E58` and church/cathedral worker lifecycle | Existing table-start calculation and reversible writes remain valid. |
-| AI economy protection | Handlers containing `0xC7DCB`, `0x2F454`, `0x3B1D0` and `0x3B2FF`; hook registers, building-owner/sleep fields and demolition callers | Confirmed targets remain valid. Corrected fail-closed behavior: owner-offset-based AI pause suppression is inactive and the layout-dependent inaccessible-building target at `0x3B2FF` is neither resolved nor hooked on an unknown DLL hash. The signaturally validated sleep hook remains available for the independent single-building pause bookkeeping. |
 | AI proximity and defense repair | Functions `0x51790..0x52266` and `0x5CD90..0x5D1C5`, placement pairing, origin globals and damage/spawn observations | Existing exact-hash restriction remains required and correct. |
-| Gatehouse automation and reachability | Handler `0xB73D0..0xB7CE5`, gate-query hook `0xB7B4B`, native unit offset at `0xB7B34`, gate entries, building IDs and PCL reachability context | Corrected: the locally built and installed Script Extender 1.42.0 exposes `GatehouseQueryEventArgs.UnitId` as a 0-based span index. ExtraFeatures now converts it exactly once and evaluates the replaced Vanilla candidate checks against the intended unit. Reachability remains exact-hash-only. |
+| Gatehouse automation | Handler `0xB73D0..0xB7CE5`, gate-query hook `0xB7B4B`, native unit offset at `0xB7B34`, gate entries and building IDs | Corrected: the locally built and installed Script Extender 1.42.0 exposes `GatehouseQueryEventArgs.UnitId` as a 0-based span index. ExtraFeatures converts it exactly once and evaluates the replaced Vanilla candidate checks against the intended unit. |
 | Gatehouse timing values | Full handler raw SHA-256 `F73E9FF6...FA57C8`, executable section, decision blocks and four immediates | Hardened locally: full catalog validation, instruction invariants, finite/UInt16 conversion and page-based transactional writes. Unknown hashes now fail closed. |
 
 The ID/index audit found one missing boundary conversion in the Script Extender
@@ -57,21 +51,18 @@ tags and the upstream `BulkBuildingDetours` implementation before rebuilding.
 If upstream adds the missing `+1`, remove the local conversion and adjust its
 regression test together; retaining both would introduce a new off-by-one.
 
-Automated gatehouse coverage is in `_inspect/ExtraFeaturesNativeTests`. It maps
-the canonical PE into its virtual image, validates the DLL and handler hashes,
-and exercises idempotence, Vanilla restoration, invalid numeric input, external
-mutation, partial writes, rollback and protection/cache-cleanup failures with a
-fake native-memory adapter.
+Automated gatehouse timing coverage remains in `_inspect/ExtraFeaturesNativeTests`.
+The shared gatehouse-query UnitId contract is covered by
+`_inspect/BugfixesAndQoLNativeTests` because the reachable-enemy filter now owns
+that compatibility boundary. The timing tests map the canonical PE into its
+virtual image, validate the DLL and handler hashes, and exercise idempotence,
+Vanilla restoration, invalid numeric input, external mutation, partial writes,
+rollback and protection/cache-cleanup failures with a fake native-memory adapter.
 
 ## Native address map
 
 | Source pattern | Reference RVA | Unknown-hash behavior / use |
 | --- | ---: | --- |
-| `SleepStateComparisonPattern` | `0xC7DCB` | scan; context hook; unknown hashes allow only single-building pause bookkeeping, not owner-offset-based AI suppression |
-| `SleepStateSynchronizationFunctionPattern` | `0xC7D50` | scan; delegate |
-| `EmergencyDemolitionComparisonPattern` | `0x2F454` | scan; context hook |
-| `AIHovelDemolitionFunctionPattern` | `0x3B1D0` | scan; detour at the AI decision point |
-| `InaccessibleBuildingComparisonPattern` | `0x3B2FF` | audited-hash-only inaccessible-building context hook; not resolved on unknown hashes |
 | `ExecuteBuildStepPattern` | `0x51790` | audited-hash-only defense rebuild detour |
 | `PlacementPattern` | `0x5CD90` | audited-hash-only paired AIV placement detour |
 | AI buy-price helper (`49 63 C0 8B 8C C1 B8 17 18 00 B8 67 66 66 66 F7 E9 D1 FA 8B C2 C1 E8 1F 03 C2 41 0F AF C1 C3`) | `0xCEB10` | executable-section unique scan; managed function detour |
@@ -81,7 +72,6 @@ fake native-memory adapter.
 | `BuildingDistanceComparisonPattern` | `0x9F86B` | scan; distance context hook |
 | `MovementDecisionPattern` (Monk handler) | `0x151436` | executable-section unique scan; 20-byte inline decision hook |
 | worker-table byte pattern | `0x2E5E58` | full-image data scan; table begins `0x2E5DE0` |
-| `SetupBuildingEntrancesOffsetPattern` | `0xC0270` | fixed manager/candidate layout |
 | `DistanceBlockPattern` | `0xB7BBB` | executable-section unique scan; derives the three related gatehouse immediates below |
 | Gatehouse AI closing-distance immediate | `0xB7BC3` | `DistanceBlockPattern`; Vanilla `200` native units = `25` fields |
 | Gatehouse AI reopening-delay immediate | `0xB7BCA` | `DistanceBlockPattern`; Vanilla `1200` ticks = `30` seconds at gamespeed 40 |
@@ -99,8 +89,7 @@ must resolve uniquely, remain within `0x100` bytes, and all four Vanilla values
 must match before any write occurs. The four values are written as one guarded
 transaction and restored together when the feature is disabled. Revalidate the
 fixed 50-tick gatehouse scan cadence separately; the mod deliberately leaves it
-unchanged. The reachability filter also remains reference-hash-only because it
-depends on the audited gatehouse query context and native gate entry layout.
+unchanged.
 
 ## Required update audit
 
@@ -111,13 +100,9 @@ depends on the audited gatehouse query context and native gate entry layout.
    projectile pointer, and Vanilla distance comparison `30`. Confirm that the
    AI flag routine still calls the generic projectile spawn synchronously and
    does not call `c_game_disease_create_one_herd`.
-4. Revalidate that the AI hovel-demolition function still selects structure
-   type `1`, applies the demolition refund, and is called only by the AI update.
-5. Before enabling quarry relocation, revalidate the quarry manager fields
-   `+0x31B7D0/+0x31B7D4`, helper ABI and all candidate semantics.
-6. Test every setting enabled/disabled, restore paths, map reloads, church
-   workers, plague behavior, AI protection, knights and quarry.
-7. Revalidate both AI market-price helpers as one atomic hook set:
+4. Test every setting enabled/disabled, restore paths, map reloads, church
+   workers, plague behavior and knights.
+5. Revalidate both AI market-price helpers as one atomic hook set:
    - ABI `int (playerManager, playerId, good, amount)` in `RCX/EDX/R8D/R9D`;
    - signed `unchecked((basePrice / 5) * amount)` arithmetic;
    - the first two instructions remain 3+7 bytes, cover PolyHook2.NET 1.1.3's
@@ -127,8 +112,8 @@ depends on the audited gatehouse query context and native gate entry layout.
      the two spans do not overlap;
    - buy callers still include the AI gold decision and the actual purchase,
      while the sell helper still supplies the transaction proceeds.
-8. Update every RVA and only then approve the shared hash.
-9. Revalidate the Monk handler at `0x151090` and its movement decision:
+6. Update every RVA and only then approve the shared hash.
+7. Revalidate the Monk handler at `0x151090` and its movement decision:
     - the hook at `0x151436` remains three complete instructions of `9+2+9`
       bytes and the following `je` remains at `0x15144A`;
     - no direct control transfer enters the open interval
@@ -189,12 +174,6 @@ same type-37 handler selects either `GM_BODY_FIGHTING_MONK` or
 `GM_BODY_TEMPLE_GUARD` as its material before reaching this shared movement
 state machine; both skins therefore consume the same running state `0x81`.
 
-The hovel protection now detours the AI-only function at `0x3B1D0`. Its single
-direct caller is the AI update at call-site RVA `0x53C33`; the routine requests
-`STRUCT_HOVEL` (`1`) before refunding and deleting the selected building. The
-owner-wide game cleanup path remains separate: `0xCD190` calls `0xC3F10`, which
-reaches `0xC4290`; none of these cleanup stages is intercepted.
-
 The AI market-price override detours two complete native helpers. The buy
 helper at `0xCEB10` is called at `0x3ED72` for the AI gold/price decision and at
 `0x29684` by the purchase transaction; the latter is invoked by the AI at
@@ -223,18 +202,6 @@ the global/per-good market factors and every other Extra Features feature stay
 active. There is deliberately no fallback that temporarily changes global
 prices or infers trades from resource/gold differences.
 
-Fast Recruit Rally Movement obtains its speed/cadence hooks from
-BugfixesAndQoL. For the audited DLL, the speed reset occurs at BugfixesAndQoL
-RVA `0x19B4B6`, after Vanilla's base/group calculation and before its late
-terrain/status modifiers. The reflection callback contract uses `GameUnit*`
-as `IntPtr`; both mods must be rebuilt and installed together when this
-contract changes. Do not use `UnitMoveHere` as a cancellation signal: the game
-emits that event for the automatic barracks/outpost rally route as well, so it
-would disable running cadence before it is applied. Explicit tribe orders still
-cancel tracking. Movement restarted after the rally flag is rejected when its
-target differs from the captured rally target; same-target restarts remain
-valid rally movement.
-
 ## Audit for Steam build 24816905
 
 Every mod-owned signature matches the new DLL. Most code RVAs are unchanged.
@@ -246,9 +213,7 @@ wildcarded and the four Vanilla distance/delay values are still checked.
 
 The latest old-build log independently demonstrated these two failures and the
 worker-table fallback, while plague, AI defense and market signatures installed
-successfully. Fixed quarry and inaccessible-building layouts retain their prior
-field semantics and are enabled again only by the newly audited shared hash.
-Live Monk, gatehouse and quarry tests remain post-build smoke tests.
+successfully. Live Monk and gatehouse tests remain post-build smoke tests.
 
 ## AI defense live audit for Steam build 24816905
 

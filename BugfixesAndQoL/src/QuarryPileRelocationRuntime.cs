@@ -22,7 +22,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using Zhuqiaomon.Memory;
 
-namespace ExtraFeatures
+namespace BugfixesAndQoL
 {
     internal sealed class QuarryPileRelocationOperation
     {
@@ -106,7 +106,7 @@ namespace ExtraFeatures
             int placementTry);
 
         private readonly ManualLogSource log;
-        private readonly ExtraFeaturesViewModel settings;
+        private readonly BugfixesAndQoLViewModel settings;
         private readonly MultiplayerFeatureGate multiplayerFeatureGate;
         private readonly QuarryPileRelocationButtonViewModel buttonViewModel;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
@@ -130,7 +130,7 @@ namespace ExtraFeatures
 
         public QuarryPileRelocationRuntime(
             ManualLogSource log,
-            ExtraFeaturesViewModel settings,
+            BugfixesAndQoLViewModel settings,
             MultiplayerFeatureGate multiplayerFeatureGate)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
@@ -179,7 +179,7 @@ namespace ExtraFeatures
                 setupBuildingEntrancesOffset = null;
                 Shared.DebugLogHelper.LogError(
                     log,
-                    $"Extra Features quarry-pile Vanilla candidate helper was not resolved; relocation remains disabled: {ex}");
+                    $"Bugfixes and QoL quarry-pile Vanilla candidate helper was not resolved; relocation remains disabled: {ex}");
             }
         }
 
@@ -199,7 +199,7 @@ namespace ExtraFeatures
             {
                 Shared.DebugLogHelper.LogError(
                     log,
-                    $"Extra Features quarry-pile relocation was disabled because the GameBuilding layout is incompatible with Vanilla's structure-group deletion: size=0x{buildingSize:X}, pileIdOffset=0x{pileIdOffset:X}, structureGroupOffset=0x{structureGroupOffset:X}.");
+                    $"Bugfixes and QoL quarry-pile relocation was disabled because the GameBuilding layout is incompatible with Vanilla's structure-group deletion: size=0x{buildingSize:X}, pileIdOffset=0x{pileIdOffset:X}, structureGroupOffset=0x{structureGroupOffset:X}.");
                 return false;
             }
 
@@ -267,7 +267,7 @@ namespace ExtraFeatures
 
         public void ApplySetting()
         {
-            LogInfo($"setting applied: EnableMod={Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod)}, EnableQuarryPileRelocation={settings.EnableQuarryPileRelocation}, EnableAIQuarryPileTowardsKeep={settings.EnableAIQuarryPileTowardsKeep}.");
+            LogInfo($"setting applied: EnableMod={settings.EnableMod}, EnableQuarryPileRelocation={settings.EnableQuarryPileRelocation}, EnableAIQuarryPileTowardsKeep={settings.EnableAIQuarryPileTowardsKeep}.");
             if (!IsAIAutomationActive())
                 pendingAIQuarriesByGlobalId.Clear();
 
@@ -321,7 +321,7 @@ namespace ExtraFeatures
             {
                 buttonViewModel.Hide();
                 HideRelocationTooltip();
-                Shared.DebugLogHelper.LogError(log, $"Extra Features quarry-pile button visibility refresh failed: {ex}");
+                Shared.DebugLogHelper.LogError(log, $"Bugfixes and QoL quarry-pile button visibility refresh failed: {ex}");
             }
         }
 
@@ -349,8 +349,8 @@ namespace ExtraFeatures
 
         private void HookRelocationButton(MainViewModel mainViewModel)
         {
-            Button button = mainViewModel?.HUDBuildingPanel?.FindName("ExtraFeaturesQuarryPileRelocationButton") as Button;
-            TextBlock tooltip = mainViewModel?.HUDBuildingPanel?.FindName("ExtraFeaturesQuarryPileRelocationTooltipHost") as TextBlock;
+            Button button = mainViewModel?.HUDBuildingPanel?.FindName("BugfixesAndQoLQuarryPileRelocationButton") as Button;
+            TextBlock tooltip = mainViewModel?.HUDBuildingPanel?.FindName("BugfixesAndQoLQuarryPileRelocationTooltipHost") as TextBlock;
 
             if (tooltip != null)
                 tooltip.Text = SerpLocalization.Get(SerpLocalization.QuarryPileRelocationTooltip);
@@ -428,7 +428,7 @@ namespace ExtraFeatures
                 {
                     Shared.DebugLogHelper.LogWarning(
                         log,
-                        $"Extra Features quarry-pile rotation found no valid clockwise position: playerId={localPlayerId}, operationId={operationId}, quarryId={selectedBuildingId}, quarryGlobalId={quarry->r_GlobalId}, oldPileGlobalId={oldPile->r_GlobalId}.");
+                        $"Bugfixes and QoL quarry-pile rotation found no valid clockwise position: playerId={localPlayerId}, operationId={operationId}, quarryId={selectedBuildingId}, quarryGlobalId={quarry->r_GlobalId}, oldPileGlobalId={oldPile->r_GlobalId}.");
                     return;
                 }
 
@@ -467,7 +467,7 @@ namespace ExtraFeatures
 
                 Shared.DebugLogHelper.LogError(
                     log,
-                    $"Extra Features quarry-pile rotation click failed: selectedBuildingId={selectedBuildingId}, playerId={localPlayerId}: {ex}");
+                    $"Bugfixes and QoL quarry-pile rotation click failed: selectedBuildingId={selectedBuildingId}, playerId={localPlayerId}: {ex}");
                 RefreshButtonVisibility();
             }
         }
@@ -502,7 +502,7 @@ namespace ExtraFeatures
             {
                 Shared.DebugLogHelper.LogError(
                     log,
-                    $"Extra Features quarry-pile building-spawn handling failed: exception={ex}");
+                    $"Bugfixes and QoL quarry-pile building-spawn handling failed: exception={ex}");
             }
         }
 
@@ -511,10 +511,6 @@ namespace ExtraFeatures
             if (!IsAIAutomationActive() ||
                 !mapActive ||
                 !aiSpawnObservationArmed ||
-                !Shared.GameplayFeatureModePolicy.IsAllowed(
-                    ExtraFeaturesPlugin.PluginGuid,
-                    Shared.GameplayFeatureId.AIQuarryPileTowardsKeep,
-                    Shared.GameplayModActivationGate.Snapshot) ||
                 args.Phase != EventHookPhase.Post ||
                 args.Building != eStructs.STRUCT_QUARRY ||
                 args.ReturnValue <= 0 ||
@@ -588,7 +584,7 @@ namespace ExtraFeatures
                         pendingAIQuarriesByGlobalId.Remove(quarryGlobalId);
                         Shared.DebugLogHelper.LogError(
                             log,
-                            $"Extra Features AI quarry-pile queue entry failed and was discarded: tick={tick}, quarryGlobalId={quarryGlobalId}, exception={ex}");
+                            $"Bugfixes and QoL AI quarry-pile queue entry failed and was discarded: tick={tick}, quarryGlobalId={quarryGlobalId}, exception={ex}");
                     }
                 }
             }
@@ -596,7 +592,7 @@ namespace ExtraFeatures
             {
                 Shared.DebugLogHelper.LogError(
                     log,
-                    $"Extra Features AI quarry-pile tick processing failed: tick={tick}, exception={ex}");
+                    $"Bugfixes and QoL AI quarry-pile tick processing failed: tick={tick}, exception={ex}");
             }
         }
 
@@ -610,7 +606,7 @@ namespace ExtraFeatures
                 pendingAIQuarriesByGlobalId.Remove(quarryGlobalId);
                 Shared.DebugLogHelper.LogWarning(
                     log,
-                    $"Extra Features AI quarry-pile placement timed out; the Vanilla pile remains unchanged: playerId={pending.PlayerId}, quarryId={pending.QuarryId}, quarryGlobalId={quarryGlobalId}, tick={tick}.");
+                    $"Bugfixes and QoL AI quarry-pile placement timed out; the Vanilla pile remains unchanged: playerId={pending.PlayerId}, quarryId={pending.QuarryId}, quarryGlobalId={quarryGlobalId}, tick={tick}.");
                 return;
             }
 
@@ -654,7 +650,7 @@ namespace ExtraFeatures
                 pendingAIQuarriesByGlobalId.Remove(quarryGlobalId);
                 Shared.DebugLogHelper.LogWarning(
                     log,
-                    $"Extra Features found no safe Keep-facing pile position for a new AI quarry; the Vanilla pile remains unchanged: playerId={pending.PlayerId}, quarryGlobalId={quarryGlobalId}, operationId={operationId}.");
+                    $"Bugfixes and QoL found no safe Keep-facing pile position for a new AI quarry; the Vanilla pile remains unchanged: playerId={pending.PlayerId}, quarryGlobalId={quarryGlobalId}, operationId={operationId}.");
                 return;
             }
 
@@ -683,24 +679,24 @@ namespace ExtraFeatures
                 RememberFailedRotationTarget(operation);
                 Shared.DebugLogHelper.LogWarning(
                     log,
-                    $"Extra Features could not move a new AI quarry pile towards its Keep; the existing pile was retained: playerId={pending.PlayerId}, quarryGlobalId={quarryGlobalId}, operationId={operationId}.");
+                    $"Bugfixes and QoL could not move a new AI quarry pile towards its Keep; the existing pile was retained: playerId={pending.PlayerId}, quarryGlobalId={quarryGlobalId}, operationId={operationId}.");
             }
         }
 
         private bool IsRuntimeActive()
         {
-            return Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) &&
+            return settings.EnableMod &&
                 (settings.EnableQuarryPileRelocation || settings.EnableAIQuarryPileTowardsKeep);
         }
 
         private bool IsManualFeatureActive()
         {
-            return Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) && settings.EnableQuarryPileRelocation;
+            return settings.EnableMod && settings.EnableQuarryPileRelocation;
         }
 
         private bool IsAIAutomationActive()
         {
-            return Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) && settings.EnableAIQuarryPileTowardsKeep;
+            return settings.EnableMod && settings.EnableAIQuarryPileTowardsKeep;
         }
 
         private bool RequiresChoreTransport()
@@ -722,7 +718,7 @@ namespace ExtraFeatures
             {
                 Shared.DebugLogHelper.LogError(
                     log,
-                    $"Extra Features quarry-pile rotation refused in multiplayer because the Chore transport is unavailable: operationId={operation.OperationId}.");
+                    $"Bugfixes and QoL quarry-pile rotation refused in multiplayer because the Chore transport is unavailable: operationId={operation.OperationId}.");
                 return false;
             }
 
@@ -750,7 +746,7 @@ namespace ExtraFeatures
             {
                 Shared.DebugLogHelper.LogError(
                     log,
-                    $"Extra Features quarry-pile Chore was not queued; no local action was applied: operationId={operation.OperationId}, payloadBytes={blob.Length}.");
+                    $"Bugfixes and QoL quarry-pile Chore was not queued; no local action was applied: operationId={operation.OperationId}, payloadBytes={blob.Length}.");
                 return false;
             }
 
@@ -760,15 +756,12 @@ namespace ExtraFeatures
 
         private void OnRelocationPacketReceived(ReceiveCustomPacketEventArgs<QuarryPileRelocationPacket> args)
         {
-            if (!Shared.GameplayModActivationGate.IsAllowed)
-                return;
-
             QuarryPileRelocationPacket packet = args?.Packet;
             if (packet == null || packet.ProtocolVersion != ChoreProtocolVersion)
             {
                 Shared.DebugLogHelper.LogError(
                     log,
-                    $"Extra Features rejected a quarry-pile Chore with an unsupported payload: protocolVersion={packet?.ProtocolVersion.ToString() ?? "null"}.");
+                    $"Bugfixes and QoL rejected a quarry-pile Chore with an unsupported payload: protocolVersion={packet?.ProtocolVersion.ToString() ?? "null"}.");
                 return;
             }
 
@@ -788,7 +781,7 @@ namespace ExtraFeatures
                 {
                     Shared.DebugLogHelper.LogError(
                         log,
-                        $"Extra Features cannot execute quarry-pile Chore because the relocation runtime is unavailable: operationId={operation.OperationId}, initialized={initialized}, nativeCandidateHelperAvailable={setupBuildingEntrancesOffset != null}.");
+                        $"Bugfixes and QoL cannot execute quarry-pile Chore because the relocation runtime is unavailable: operationId={operation.OperationId}, initialized={initialized}, nativeCandidateHelperAvailable={setupBuildingEntrancesOffset != null}.");
                     return;
                 }
 
@@ -797,7 +790,7 @@ namespace ExtraFeatures
                     RememberFailedRotationTarget(operation);
                     Shared.DebugLogHelper.LogWarning(
                         log,
-                        $"Extra Features quarry-pile Chore completed without relocation: operationId={operation.OperationId}, target={operation.TargetTileX},{operation.TargetTileY}.");
+                        $"Bugfixes and QoL quarry-pile Chore completed without relocation: operationId={operation.OperationId}, target={operation.TargetTileX},{operation.TargetTileY}.");
                     return;
                 }
 
@@ -808,7 +801,7 @@ namespace ExtraFeatures
                 RememberFailedRotationTarget(operation);
                 Shared.DebugLogHelper.LogError(
                     log,
-                    $"Extra Features quarry-pile Chore execution failed: operationId={operation.OperationId}, exception={ex}");
+                    $"Bugfixes and QoL quarry-pile Chore execution failed: operationId={operation.OperationId}, exception={ex}");
             }
             finally
             {
@@ -859,7 +852,7 @@ namespace ExtraFeatures
             {
                 Shared.DebugLogHelper.LogError(
                     log,
-                    $"Extra Features rejected quarry-pile relocation because Vanilla structure groups are inconsistent: operationId={operation.OperationId}, quarryId={quarryId}, oldPileId={oldPileId}, quarryGroupId={quarry->r_UsedInSiegeAttemptId}, oldPileGroupId={oldPile->r_UsedInSiegeAttemptId}, status={groupResolution.Status}.");
+                    $"Bugfixes and QoL rejected quarry-pile relocation because Vanilla structure groups are inconsistent: operationId={operation.OperationId}, quarryId={quarryId}, oldPileId={oldPileId}, quarryGroupId={quarry->r_UsedInSiegeAttemptId}, oldPileGroupId={oldPile->r_UsedInSiegeAttemptId}, status={groupResolution.Status}.");
                 return false;
             }
 
@@ -1226,7 +1219,7 @@ namespace ExtraFeatures
             {
                 Shared.DebugLogHelper.LogError(
                     log,
-                    $"Extra Features quarry-pile Vanilla candidate generation failed: candidateIndex={candidateIndex}, " +
+                    $"Bugfixes and QoL quarry-pile Vanilla candidate generation failed: candidateIndex={candidateIndex}, " +
                     $"placementTry={placementTry}: {ex}");
                 return false;
             }
@@ -1268,7 +1261,7 @@ namespace ExtraFeatures
             {
                 Shared.DebugLogHelper.LogError(
                     log,
-                    $"Extra Features quarry-pile native placement validation failed: operationId={operationId}, vanillaTry={placementTry}, candidateIndex={candidateIndex}, target={candidate.X},{candidate.Y}: {ex}");
+                    $"Bugfixes and QoL quarry-pile native placement validation failed: operationId={operationId}, vanillaTry={placementTry}, candidateIndex={candidateIndex}, target={candidate.X},{candidate.Y}: {ex}");
                 return false;
             }
             finally
@@ -1329,7 +1322,7 @@ namespace ExtraFeatures
                 CleanupFailedPrefabSpawns(capture, oldPileId, operationId, "prefab-exception", fallbackPileId);
                 Shared.DebugLogHelper.LogError(
                     log,
-                    $"Extra Features quarry-pile prefab replacement spawn failed: operationId={operationId}, fallbackPileId={fallbackPileId}, exception={prefabException}");
+                    $"Bugfixes and QoL quarry-pile prefab replacement spawn failed: operationId={operationId}, fallbackPileId={fallbackPileId}, exception={prefabException}");
                 return false;
             }
 
@@ -1352,7 +1345,7 @@ namespace ExtraFeatures
             {
                 Shared.DebugLogHelper.LogWarning(
                     log,
-                    $"Extra Features quarry-pile replacement verification failed; spawned candidates are being cleaned up: operationId={operationId}, playerId={playerId}, target={target.X},{target.Y}.");
+                    $"Bugfixes and QoL quarry-pile replacement verification failed; spawned candidates are being cleaned up: operationId={operationId}, playerId={playerId}, target={target.X},{target.Y}.");
                 CleanupFailedPrefabSpawns(capture, oldPileId, operationId, "verification-failed", newPileId);
                 newPile = null;
                 newPileId = 0;
@@ -1458,7 +1451,7 @@ namespace ExtraFeatures
                 {
                     Shared.DebugLogHelper.LogWarning(
                         log,
-                        $"Extra Features could not clean up an invalid quarry-pile prefab: operationId={operationId}, reason={reason}, buildingId={buildingId}.");
+                        $"Bugfixes and QoL could not clean up an invalid quarry-pile prefab: operationId={operationId}, reason={reason}, buildingId={buildingId}.");
                 }
             }
         }
@@ -1683,7 +1676,7 @@ namespace ExtraFeatures
                     {
                         Shared.DebugLogHelper.LogWarning(
                             log,
-                            $"Extra Features did not alter an inconsistent loaded quarry-pile Vanilla group: quarryId={quarryId}, pileId={pileId}, quarryGroupId={quarry.r_UsedInSiegeAttemptId}, pileGroupId={pileGroupId}, status={resolution.Status}.");
+                            $"Bugfixes and QoL did not alter an inconsistent loaded quarry-pile Vanilla group: quarryId={quarryId}, pileId={pileId}, quarryGroupId={quarry.r_UsedInSiegeAttemptId}, pileGroupId={pileGroupId}, status={resolution.Status}.");
                     }
                 }
             }
@@ -1699,7 +1692,7 @@ namespace ExtraFeatures
             {
                 Shared.DebugLogHelper.LogWarning(
                     log,
-                    $"Extra Features did not repair an ambiguous loaded quarry-pile group claimed by multiple quarries: pileId={ambiguousPileIds[index]}.");
+                    $"Bugfixes and QoL did not repair an ambiguous loaded quarry-pile group claimed by multiple quarries: pileId={ambiguousPileIds[index]}.");
             }
 
             int groupIdsCorrected = 0;
@@ -1754,7 +1747,7 @@ namespace ExtraFeatures
 
         private void LogInfo(string message)
         {
-            Shared.DebugLogHelper.LogDebug(log, $"Extra Features quarry-pile runtime: {message}");
+            Shared.DebugLogHelper.LogDebug(log, $"Bugfixes and QoL quarry-pile runtime: {message}");
         }
 
         private void DisposeSubscriptions()

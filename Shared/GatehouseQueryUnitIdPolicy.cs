@@ -2,7 +2,7 @@
 // index emitted by Script Extender 1.42.0. Re-audit after every Script
 // Extender update and remove this policy when GatehouseQueryEventArgs.UnitId is
 // fixed upstream to honor the normal one-based public ID contract.
-namespace ExtraFeatures
+namespace Shared
 {
     internal static class GatehouseQueryUnitIdPolicy
     {

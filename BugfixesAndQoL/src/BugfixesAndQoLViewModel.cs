@@ -23,6 +23,7 @@ namespace BugfixesAndQoL
         private bool fixAITowerRepair = true;
         private bool betterAIOverbuildRules = true;
         private bool enableTroopMovementFix = true;
+        private bool enableFastRecruitRallyMovement = true;
         private bool enableImprovedAssassinPathfinding = true;
         private bool enableAssassinCombatResumeFix = true;
         private bool enablePlaguePopularityFix = true;
@@ -38,6 +39,15 @@ namespace BugfixesAndQoL
         private bool enableResyncHostKick = true;
         private bool enableReturnToMultiplayerLobby = true;
         private bool enableCtrlSingleMarketTrade = true;
+        private bool enableSingleBuildingPause = true;
+        private bool enableQuarryPileRelocation = true;
+        private bool enableAIQuarryPileTowardsKeep = true;
+        private bool requireReachableEnemyForAutomaticGateClosing = true;
+        private bool preventAIPause = true;
+        private bool preventEmergencyDemolition = true;
+        private bool preventHovelDeletion = true;
+        private int inaccessibleAIBuildingDemolitionProtection =
+            TemporaryGateBlockagePolicy.ImprovedReachabilityMode;
         private MultiplayerTimeControlPermission enableMultiplayerGameSpeedChanges =
             MultiplayerTimeControlPermission.OnlyHost;
         private bool enableShiftGameSpeedSteps = true;
@@ -129,6 +139,30 @@ namespace BugfixesAndQoL
         public string ClientInterfaceTitleText => SerpLocalization.Get("BugfixesAndQoL.ClientInterfaceTitle");
         public string DisplayTitleText => SerpLocalization.Get("BugfixesAndQoL.DisplayTitle");
         public string AiAivTitleText => SerpLocalization.Get("BugfixesAndQoL.AiAivTitle");
+        public string AiEconomyProtectionTitleText => SerpLocalization.Get(SerpLocalization.AiEconomyProtectionTitle);
+        public string PreventAIPauseText => SerpLocalization.Get(SerpLocalization.PreventAIPause);
+        public string PreventAIPauseHelpText => SerpLocalization.Get(SerpLocalization.PreventAIPauseHelp);
+        public string PreventEmergencyDemolitionText => SerpLocalization.Get(SerpLocalization.PreventEmergencyDemolition);
+        public string PreventEmergencyDemolitionHelpText => SerpLocalization.Get(SerpLocalization.PreventEmergencyDemolitionHelp);
+        public string PreventHovelDeletionText => SerpLocalization.Get(SerpLocalization.PreventHovelDeletion);
+        public string PreventHovelDeletionHelpText => SerpLocalization.Get(SerpLocalization.PreventHovelDeletionHelp);
+        public string InaccessibleAIBuildingDemolitionProtectionText => SerpLocalization.Get(SerpLocalization.InaccessibleAIBuildingDemolitionProtection);
+        public string InaccessibleAIBuildingDemolitionProtectionHelpText => SerpLocalization.Get(SerpLocalization.InaccessibleAIBuildingDemolitionProtectionHelp);
+        public string InaccessibleAIBuildingDemolitionProtectionValueText
+        {
+            get
+            {
+                switch (InaccessibleAIBuildingDemolitionProtection)
+                {
+                    case TemporaryGateBlockagePolicy.VanillaMode:
+                        return SerpLocalization.Get(SerpLocalization.InaccessibleAIBuildingDemolitionModeVanilla);
+                    case TemporaryGateBlockagePolicy.AlwaysPreventMode:
+                        return SerpLocalization.Get(SerpLocalization.InaccessibleAIBuildingDemolitionModeAlways);
+                    default:
+                        return SerpLocalization.Get(SerpLocalization.InaccessibleAIBuildingDemolitionModeTemporary);
+                }
+            }
+        }
         public string EnableAiFixesText => SerpLocalization.Get(SerpLocalization.EnableAiFixes);
         public string EnableAiFixesHelpText => SerpLocalization.Get(SerpLocalization.EnableAiFixesHelp);
         public string FixAITowerRepairText => SerpLocalization.Get("BugfixesAndQoL.FixAITowerRepair");
@@ -138,6 +172,12 @@ namespace BugfixesAndQoL
         public string TroopMovementTitleText => SerpLocalization.Get("BugfixesAndQoL.TroopMovementTitle");
         public string PlagueTitleText => SerpLocalization.Get("BugfixesAndQoL.PlagueTitle");
         public string GameplayTitleText => SerpLocalization.Get("BugfixesAndQoL.GameplayTitle");
+        public string EnableSingleBuildingPauseText => SerpLocalization.Get(SerpLocalization.EnableSingleBuildingPause);
+        public string EnableSingleBuildingPauseHelpText => SerpLocalization.Get(SerpLocalization.EnableSingleBuildingPauseHelp);
+        public string EnableQuarryPileRelocationText => SerpLocalization.Get(SerpLocalization.EnableQuarryPileRelocation);
+        public string EnableQuarryPileRelocationHelpText => SerpLocalization.Get(SerpLocalization.EnableQuarryPileRelocationHelp);
+        public string RequireReachableEnemyForAutomaticGateClosingText => SerpLocalization.Get("BugfixesAndQoL.RequireReachableEnemyForAutomaticGateClosing");
+        public string RequireReachableEnemyForAutomaticGateClosingHelpText => SerpLocalization.Get("BugfixesAndQoL.RequireReachableEnemyForAutomaticGateClosingHelp");
         public string MultiplayerTitleText => SerpLocalization.Get("BugfixesAndQoL.MultiplayerTitle");
         public string AllowFullAiMultiplayerLobbyText => SerpLocalization.Get("BugfixesAndQoL.AllowFullAiMultiplayerLobby");
         public string AllowFullAiMultiplayerLobbyHelpText => SerpLocalization.Get("BugfixesAndQoL.AllowFullAiMultiplayerLobbyHelp");
@@ -200,6 +240,10 @@ namespace BugfixesAndQoL
         public string EnableCustomLordListEnhancementsHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableCustomLordListEnhancementsHelp");
         public string EnableTroopMovementFixText => SerpLocalization.Get(SerpLocalization.EnableTroopMovementFix);
         public string EnableTroopMovementFixHelpText => SerpLocalization.Get(SerpLocalization.EnableTroopMovementFixHelp);
+        public string EnableFastRecruitRallyMovementText => SerpLocalization.Get(SerpLocalization.EnableFastRecruitRallyMovement);
+        public string EnableFastRecruitRallyMovementHelpText => SerpLocalization.Get(SerpLocalization.EnableFastRecruitRallyMovementHelp);
+        public string EnableAIQuarryPileTowardsKeepText => SerpLocalization.Get(SerpLocalization.EnableAIQuarryPileTowardsKeep);
+        public string EnableAIQuarryPileTowardsKeepHelpText => SerpLocalization.Get(SerpLocalization.EnableAIQuarryPileTowardsKeepHelp);
         public string EnableImprovedAssassinPathfindingText => SerpLocalization.Get(SerpLocalization.EnableImprovedAssassinPathfinding);
         public string EnableImprovedAssassinPathfindingHelpText => SerpLocalization.Get(SerpLocalization.EnableImprovedAssassinPathfindingHelp);
         public string EnableAssassinCombatResumeFixText => SerpLocalization.Get(SerpLocalization.EnableAssassinCombatResumeFix);
@@ -447,6 +491,75 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool EnableFastRecruitRallyMovement
+        {
+            get => enableFastRecruitRallyMovement;
+            set => SetSetting(ref enableFastRecruitRallyMovement, value, nameof(EnableFastRecruitRallyMovement));
+        }
+
+        [SyncHostOnly]
+        public bool EnableSingleBuildingPause
+        {
+            get => enableSingleBuildingPause;
+            set => SetSetting(ref enableSingleBuildingPause, value, nameof(EnableSingleBuildingPause));
+        }
+
+        [SyncHostOnly]
+        public bool EnableQuarryPileRelocation
+        {
+            get => enableQuarryPileRelocation;
+            set => SetSetting(ref enableQuarryPileRelocation, value, nameof(EnableQuarryPileRelocation));
+        }
+
+        [SyncHostOnly]
+        public bool EnableAIQuarryPileTowardsKeep
+        {
+            get => enableAIQuarryPileTowardsKeep;
+            set => SetSetting(ref enableAIQuarryPileTowardsKeep, value, nameof(EnableAIQuarryPileTowardsKeep));
+        }
+
+        [SyncHostOnly]
+        public bool RequireReachableEnemyForAutomaticGateClosing
+        {
+            get => requireReachableEnemyForAutomaticGateClosing;
+            set => SetSetting(ref requireReachableEnemyForAutomaticGateClosing, value, nameof(RequireReachableEnemyForAutomaticGateClosing));
+        }
+
+        [SyncHostOnly]
+        public bool PreventAIPause
+        {
+            get => preventAIPause;
+            set => SetSetting(ref preventAIPause, value, nameof(PreventAIPause));
+        }
+
+        [SyncHostOnly]
+        public bool PreventEmergencyDemolition
+        {
+            get => preventEmergencyDemolition;
+            set => SetSetting(ref preventEmergencyDemolition, value, nameof(PreventEmergencyDemolition));
+        }
+
+        [SyncHostOnly]
+        public bool PreventHovelDeletion
+        {
+            get => preventHovelDeletion;
+            set => SetSetting(ref preventHovelDeletion, value, nameof(PreventHovelDeletion));
+        }
+
+        [SyncHostOnly]
+        public int InaccessibleAIBuildingDemolitionProtection
+        {
+            get => inaccessibleAIBuildingDemolitionProtection;
+            set => SetBoundedIntSetting(
+                ref inaccessibleAIBuildingDemolitionProtection,
+                value,
+                TemporaryGateBlockagePolicy.VanillaMode,
+                TemporaryGateBlockagePolicy.AlwaysPreventMode,
+                nameof(InaccessibleAIBuildingDemolitionProtection),
+                nameof(InaccessibleAIBuildingDemolitionProtectionValueText));
+        }
+
+        [SyncHostOnly]
         public bool EnableImprovedAssassinPathfinding
         {
             get => enableImprovedAssassinPathfinding;
@@ -595,6 +708,16 @@ namespace BugfixesAndQoL
                 RememberAiAivSettings = true;
                 EnableCustomLordListEnhancements = true;
                 EnableTroopMovementFix = true;
+                EnableFastRecruitRallyMovement = true;
+                EnableSingleBuildingPause = true;
+                EnableQuarryPileRelocation = true;
+                EnableAIQuarryPileTowardsKeep = true;
+                RequireReachableEnemyForAutomaticGateClosing = true;
+                PreventAIPause = true;
+                PreventEmergencyDemolition = true;
+                PreventHovelDeletion = true;
+                InaccessibleAIBuildingDemolitionProtection =
+                    TemporaryGateBlockagePolicy.ImprovedReachabilityMode;
                 EnableImprovedAssassinPathfinding = true;
                 EnableAssassinCombatResumeFix = true;
                 EnablePlaguePopularityFix = true;
@@ -643,6 +766,27 @@ namespace BugfixesAndQoL
             field = value;
             SettingChanged?.Invoke(propertyName);
             OnPropertyChanged(propertyName);
+        }
+
+        private void SetBoundedIntSetting(
+            ref int field,
+            int value,
+            int minimum,
+            int maximum,
+            string propertyName,
+            string textPropertyName)
+        {
+            if (!CanMutateSettingWithDependents(propertyName, textPropertyName))
+                return;
+
+            int clamped = Math.Max(minimum, Math.Min(maximum, value));
+            if (field == clamped)
+                return;
+
+            field = clamped;
+            SettingChanged?.Invoke(propertyName);
+            OnPropertyChanged(propertyName);
+            OnPropertyChanged(textPropertyName);
         }
 
         internal bool TrySetLocalPlayerId(int playerId)

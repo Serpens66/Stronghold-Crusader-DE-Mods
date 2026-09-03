@@ -17,7 +17,7 @@ using System.Globalization;
 using System.Reflection;
 using UnityEngine;
 
-namespace ExtraFeatures
+namespace BugfixesAndQoL
 {
     internal sealed class SingleBuildingPauseHook : IDisposable
     {
@@ -34,7 +34,7 @@ namespace ExtraFeatures
         private static readonly Dictionary<IntPtr, int> ManualSleepOverrideIdsBySleepingAddress = new Dictionary<IntPtr, int>();
 
         private readonly ManualLogSource log;
-        private readonly ExtraFeaturesViewModel settings;
+        private readonly BugfixesAndQoLViewModel settings;
         private readonly MultiplayerFeatureGate multiplayerFeatureGate;
         private Hook buttonHook;
         private Hook guiUpdateHook;
@@ -51,7 +51,7 @@ namespace ExtraFeatures
 
         public SingleBuildingPauseHook(
             ManualLogSource log,
-            ExtraFeaturesViewModel settings,
+            BugfixesAndQoLViewModel settings,
             MultiplayerFeatureGate multiplayerFeatureGate)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
@@ -124,7 +124,7 @@ namespace ExtraFeatures
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(log, $"Extra Features single-building pause {hookName} hook undo failed: {ex}");
+                Shared.DebugLogHelper.LogError(log, $"Bugfixes and QoL single-building pause {hookName} hook undo failed: {ex}");
             }
 
             try
@@ -133,7 +133,7 @@ namespace ExtraFeatures
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(log, $"Extra Features single-building pause {hookName} hook disposal failed: {ex}");
+                Shared.DebugLogHelper.LogError(log, $"Bugfixes and QoL single-building pause {hookName} hook disposal failed: {ex}");
             }
         }
 
@@ -308,7 +308,7 @@ namespace ExtraFeatures
 
         private bool IsFeatureActive()
         {
-            return Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) &&
+            return settings.EnableMod &&
                 settings.EnableSingleBuildingPause &&
                 (!RequiresChoreTransport() || IsChoreTransportReady());
         }
@@ -447,9 +447,6 @@ namespace ExtraFeatures
 
         private unsafe void OnPausePacketReceived(ReceiveCustomPacketEventArgs<SingleBuildingPausePacket> args)
         {
-            if (!Shared.GameplayModActivationGate.IsAllowed)
-                return;
-
             SingleBuildingPausePacket packet = args?.Packet;
             if (packet == null || packet.ProtocolVersion != ChoreProtocolVersion ||
                 (packet.Action != SetSingleBuildingAction && packet.Action != ResetBuildingTypeAction) ||
@@ -827,12 +824,12 @@ namespace ExtraFeatures
 
         private void LogError(string message)
         {
-            log.LogError($"[{TimestampNow()}] Extra Features {message}");
+            log.LogError($"[{TimestampNow()}] Bugfixes and QoL {message}");
         }
 
         private void LogInfo(string message)
         {
-            log.LogInfo($"[{TimestampNow()}] Extra Features {message}");
+            log.LogInfo($"[{TimestampNow()}] Bugfixes and QoL {message}");
         }
 
         private static string TimestampNow()

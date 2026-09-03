@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
+using Shared;
 
 internal static class Program
 {
@@ -46,6 +47,12 @@ internal static class Program
             ["AivResourceShortageReturnPattern"] = 0x51842,
             ["AivFirstBuildSuccessPattern"] = 0x5216D,
             ["AivPlacementRetryPattern"] = 0x5217A,
+            ["SleepStateComparisonPattern"] = 0xC7DCB,
+            ["SleepStateSynchronizationFunctionPattern"] = 0xC7D50,
+            ["EmergencyDemolitionComparisonPattern"] = 0x2F454,
+            ["AIHovelDemolitionFunctionPattern"] = 0x3B1D0,
+            ["InaccessibleBuildingComparisonPattern"] = 0x3B2FF,
+            ["SetupBuildingEntrancesOffsetPattern"] = 0xC0270,
             ["NarrowRuinClassifierPattern"] = 0x5D055,
             ["BroadRuinClassifierPattern"] = 0x5D025,
             ["MapperSelectionPattern"] = 0x5CEAB,
@@ -65,6 +72,11 @@ internal static class Program
 
     private static readonly FunctionContract[] Functions =
     {
+        new FunctionContract(0xC7D50, 315, "07807D9F9E8BE5ABE37CD522213B0C1A59E2BC84D1FD682E9236DB0250F38A37"),
+        new FunctionContract(0x2F080, 1520, "C06FA5ABB5B3BEF713391158BF7ED326245526F16BF7C74D5DB059231874F38E"),
+        new FunctionContract(0x3B1D0, 160, "AC37E9A8205EDA52D0591BAB84A4DC0FD4BF389B3DB2A768786FC42A7FD6E3AC"),
+        new FunctionContract(0x3B270, 229, "EFF1F3C1FB0BB922746F17F266D62EAA252E6FF7C64610EF50856EA2833AAD9D"),
+        new FunctionContract(0xC0270, 590, "8C851D48BC5579727AD53C1C1CC3A835E95C57CE8E68DBFD8B23C43BDBFEF97F"),
         new FunctionContract(0x3EE10, 1105, "B1F7DF14291D0D4C0AE544204E279BC57BBC8E617C29E3A269EBB405FF114765"),
         new FunctionContract(0x50680, 159, "B6DAA534A93D19F9EFC032A8CA604E12C3E6087A61D3615EC4E1476D0708283E"),
         new FunctionContract(0x51790, 2774, "69731F77776995C9FC452A7A9A41408385B757B461F0E7FAB76E291BE64C3ECF"),
@@ -100,6 +112,7 @@ internal static class Program
             byte[] file = File.ReadAllBytes(DllPath);
             Check(Hash(file) == ExpectedDllHash, "canonical DLL hash");
             PeImage pe = PeImage.Load(file);
+            CheckGatehouseQueryUnitIdContract();
             CheckFunctions(pe.Image);
             CheckProductionPatterns(workspace, pe);
             CheckCriticalSpans(pe.Image);
@@ -112,6 +125,26 @@ internal static class Program
             Console.Error.WriteLine("FAIL: " + ex);
             return 1;
         }
+    }
+
+    private static void CheckGatehouseQueryUnitIdContract()
+    {
+        Check(GatehouseQueryUnitIdPolicy.TryConvertSpanIndexToGameId(0, 10000, out int first) && first == 1,
+            "gatehouse first unit span index converts to game ID 1");
+        Check(GatehouseQueryUnitIdPolicy.TryConvertSpanIndexToGameId(9999, 10000, out int last) && last == 10000,
+            "gatehouse last unit span index converts once");
+        Check(!GatehouseQueryUnitIdPolicy.TryConvertSpanIndexToGameId(-1, 10000, out _),
+            "negative gatehouse unit span index rejected");
+        Check(!GatehouseQueryUnitIdPolicy.TryConvertSpanIndexToGameId(10000, 10000, out _),
+            "out-of-range gatehouse unit span index rejected");
+        Check(GatehouseQueryUnitIdPolicy.ResolveCandidateDecision(null, true),
+            "corrected Vanilla true decision supplies missing event default");
+        Check(!GatehouseQueryUnitIdPolicy.ResolveCandidateDecision(null, false),
+            "corrected Vanilla false decision supplies missing event default");
+        Check(GatehouseQueryUnitIdPolicy.ResolveCandidateDecision(true, false),
+            "earlier subscriber true decision is preserved");
+        Check(!GatehouseQueryUnitIdPolicy.ResolveCandidateDecision(false, true),
+            "earlier subscriber false decision is preserved");
     }
 
     private static void CheckFunctions(byte[] image)

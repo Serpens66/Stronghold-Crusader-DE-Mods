@@ -348,13 +348,20 @@ foreach ($entry in $settings.GetEnumerator()) {
             }
         }
     }
+    if ($entry.Key -eq 'BugfixesAndQoL') {
+        foreach ($requiredValueBinding in @(
+            'InaccessibleAIBuildingDemolitionProtectionValueText',
+            'InaccessibleAIBuildingDemolitionProtectionHelpText')) {
+            if (-not $text.Contains($requiredValueBinding)) {
+                throw "BugfixesAndQoL: Slider unit binding is missing: $requiredValueBinding"
+            }
+        }
+    }
     if ($entry.Key -eq 'ExtraFeatures') {
         foreach ($requiredValueBinding in @(
             'MarketBuyPriceMultiplierValueText', 'MarketSellPriceMultiplierValueText',
             'MarketPricesAlsoForAI', 'MarketPricesAlsoForAIHelpText',
             'PlagueDurationMultiplierValueText', 'ApothecaryPlagueSearchDistanceValueText',
-            'InaccessibleAIBuildingDemolitionProtectionValueText',
-            'InaccessibleAIBuildingDemolitionProtectionHelpText',
             'HumanEnemyProximitySingleplayerValueText',
             'HumanEnemyProximityMultiplayerValueText',
             'AIEnemyProximitySingleplayerValueText',
@@ -1140,8 +1147,8 @@ $duplicateSectionKeys = @($sectionKeys | Group-Object | Where-Object Count -gt 1
 if ($duplicateSectionKeys.Count -gt 0) {
     throw "ExtraFeatures contains duplicate section keys: $($duplicateSectionKeys.Name -join ', ')"
 }
-if ($sectionKeys.Count -ne 10) {
-    throw "ExtraFeatures must declare all 10 thematic sections; found $($sectionKeys.Count)."
+if ($sectionKeys.Count -ne 8) {
+    throw "ExtraFeatures must declare all 8 remaining thematic sections; found $($sectionKeys.Count)."
 }
 foreach ($target in $extraSearchDocument.SelectNodes('//*[@*[local-name()="ModSettingsSearch.Key"]]')) {
     $sectionOwnerCount = 0
@@ -1189,7 +1196,7 @@ foreach ($required in @(
     'if (!MainViewModel.viewModelLoaded)',
     'if (member.SkirmishMember)',
     'member != null && !member.skirmishAI',
-    'bool mapEditor = IsMapEditor();',
+    'bool mapEditor =',
     'skirmishLobbyMembers == lobbyMembers',
     '(skirmishGameType >= 0 || localSkirmishTransition)')) {
     if (-not $sharedGameModeSource.Contains($required)) {

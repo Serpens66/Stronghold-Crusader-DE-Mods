@@ -8,19 +8,17 @@ using System;
 namespace ExtraFeatures
 {
     [BepInDependency(ScriptExtenderGuid, BepInDependency.DependencyFlags.HardDependency)]
-    [BepInDependency(BugfixesAndQoLGuid, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(LegacySomeSettingsGuid, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class ExtraFeaturesPlugin : BaseUnityPlugin
     {
         private const string ScriptExtenderGuid = "000shcdese";
-        private const string BugfixesAndQoLGuid = "BugfixesAndQoL_Serp";
         private const string LegacySomeSettingsGuid = "SomeSettings_Serp";
 
         public const string PluginGuid = "ExtraFeatures_Serp";
         public const string PluginName = "Extra Features";
-        public const string PluginVersion = "1.0.87";
+        public const string PluginVersion = "1.0.88";
 
         private ExtraFeaturesRuntime runtime;
         private bool marketGoodPriceVisualRefreshFailureLogged;
@@ -102,17 +100,6 @@ namespace ExtraFeatures
             try
             {
                 GameXAMLManagerAPI.Instance.RegisterBinding(
-                    "ExtraFeaturesQuarryPileRelocationButtonHost",
-                    runtime.QuarryPileRelocationButton);
-            }
-            catch (Exception ex)
-            {
-                Shared.DebugLogHelper.LogError(Logger, $"Extra Features quarry button binding failed: {ex}");
-            }
-
-            try
-            {
-                GameXAMLManagerAPI.Instance.RegisterBinding(
                     "ExtraFeaturesGatehouseAutomationButtonHost",
                     runtime.GatehouseAutomationButton);
             }
@@ -140,15 +127,6 @@ namespace ExtraFeatures
             catch (Exception ex)
             {
                 Shared.DebugLogHelper.LogError(Logger, $"Extra Features settings reconciliation failed; already initialized features remain active: {ex}");
-            }
-
-            try
-            {
-                runtime.InstallAIEconomyProtectionHook(libraryHandle, memory);
-            }
-            catch (Exception ex)
-            {
-                Shared.DebugLogHelper.LogError(Logger, $"Extra Features AI economy protection initialization failed: {ex}");
             }
 
             try

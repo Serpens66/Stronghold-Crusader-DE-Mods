@@ -55,6 +55,24 @@ The Origin column in singleplayer and multiplayer map selection now sorts maps i
 
 ## Quality-of-life features
 
+### Pause a single production building
+Hold Ctrl while clicking a production building's pause button to pause or resume only that building. Clicking without Ctrl keeps the normal behavior of changing every building of that type.
+
+### Make new recruits run to rally points
+Newly recruited human and AI units move to their rally points at their own normal fastest pace, with the matching animation. Terrain and other movement modifiers still apply.
+
+### Close gates only for reachable enemies
+Gatehouses can ignore enemies that cannot reach either entrance instead of closing for every nearby enemy. If reachability cannot be checked safely, the normal game behavior is retained.
+
+### Move a quarry's stone pile
+Selected quarries receive a button that moves their linked stone pile clockwise to the next valid position. If no replacement can be placed safely, the existing pile remains untouched.
+
+### Point AI quarry piles towards their Keep
+New AI quarries automatically move their linked stone pile to the valid Vanilla position nearest to that AI player's Keep. The host can disable this behavior independently from the player-controlled quarry button.
+
+### Protect the AI economy
+Four independent settings prevent AI production pauses, panic demolitions, direct deletion of living hovels, and demolitions caused solely by an inaccurate unreachable-building classification. The last setting can retain Vanilla behavior, use an improved reachability check that treats living friendly and allied gates and drawbridges as passable, or block every unreachability demolition. Other demolition causes and normal damage remain unchanged.
+
 ### Open and safely manage Vanilla maps in the map editor
 The map editor's Load Map dialog includes a **Show Vanilla maps** checkbox. When enabled, it adds the editable built-in Skirmish, Free Build, and multiplayer maps to the normal list. Campaign and tutorial maps remain hidden. Saving a loaded Vanilla map always creates or overwrites a separate copy in your user `Maps` folder; the original game files are never changed.
 

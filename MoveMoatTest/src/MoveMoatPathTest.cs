@@ -3418,7 +3418,7 @@ namespace MoveMoatTest
                 return AttackRegionFallbackDecision.Reject("invalid-building-scope");
             }
             if (movementClass != scope.MovementClass || sourceRegion != scope.SourceRegion ||
-                sourceRegion <= 0 || sourceRegion > MaximumRegionId ||
+                sourceRegion < 0 || sourceRegion > MaximumRegionId ||
                 targetRegion <= 0 || targetRegion > MaximumRegionId || routeKind != 0)
             {
                 return AttackRegionFallbackDecision.Reject(
@@ -3428,6 +3428,11 @@ namespace MoveMoatTest
             AttackCommandScope command = scope.OwnerCommand;
             int playerId = -1;
             List<int> diggerUnitIds = new List<int>();
+            bool sourceOnFriendlyCompletedMoat = false;
+            GamePlayerManagerAPI playerApi = GamePlayerManagerAPI.Instance;
+            IntPtr tileManager = GameTileManagerAPI.Instance.GetTileManager();
+            if (tileManager == IntPtr.Zero)
+                return AttackRegionFallbackDecision.Reject("missing-tile-manager");
             if (!TryCaptureOrderedActiveGroupUnits(
                     nativeTribeManager, scope.TribeId, out int[] groupUnitIds))
             {
@@ -3449,10 +3454,26 @@ namespace MoveMoatTest
                     continue;
                 int startTileId = GameTileManagerAPI.Instance.GetTileId(
                     startX, startY);
-                if (!GamePlayerManagerAPI.Instance.IsPlayerIdValid(candidatePlayerId) ||
+                if (!playerApi.IsPlayerIdValid(candidatePlayerId) ||
                     !IsValidTileId(startTileId) || pathRegionGrid[startTileId] != sourceRegion)
                 {
                     continue;
+                }
+                if (sourceRegion == 0)
+                {
+                    RouteProbeSummary sourceSummary =
+                        new RouteProbeSummary(candidatePlayerId);
+                    if (!IsCompletedMoatTile(startTileId) ||
+                        !TryClassifyFriendlyMoat(
+                            tileManager,
+                            playerApi,
+                            startTileId,
+                            candidatePlayerId,
+                            ref sourceSummary))
+                    {
+                        continue;
+                    }
+                    sourceOnFriendlyCompletedMoat = true;
                 }
                 if (playerId < 0)
                     playerId = candidatePlayerId;
@@ -3460,7 +3481,12 @@ namespace MoveMoatTest
                     diggerUnitIds.Add(unitId);
             }
             if (diggerUnitIds.Count == 0 || playerId < 0)
-                return AttackRegionFallbackDecision.Reject("no-source-region-digger");
+            {
+                return AttackRegionFallbackDecision.Reject(
+                    sourceRegion == 0
+                        ? "no-friendly-moat-source-digger"
+                        : "no-source-region-digger");
+            }
 
             if (!TryValidateHostileBuildingTarget(
                     command.TargetValue1,
@@ -3494,7 +3520,13 @@ namespace MoveMoatTest
                     }
 
                     observed.MergeObservations(summary);
-                    return AttackRegionFallbackDecision.Allow(summary, position.X, position.Y);
+                    return AttackRegionFallbackDecision.Allow(
+                        summary,
+                        position.X,
+                        position.Y,
+                        sourceOnFriendlyCompletedMoat
+                            ? "required-friendly-moat-route-from-moat"
+                            : "required-friendly-moat-route");
                 }
             }
 
@@ -6932,9 +6964,12 @@ namespace MoveMoatTest
             public int ApproachY { get; }
 
             public static AttackRegionFallbackDecision Allow(
-                RouteProbeSummary summary, int approachX, int approachY) =>
+                RouteProbeSummary summary,
+                int approachX,
+                int approachY,
+                string reason = "required-friendly-moat-route") =>
                 new AttackRegionFallbackDecision(
-                    true, "required-friendly-moat-route", summary, approachX, approachY);
+                    true, reason, summary, approachX, approachY);
 
             public static AttackRegionFallbackDecision Reject(
                 string reason,

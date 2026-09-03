@@ -2320,3 +2320,32 @@ und die synchron darin aufgerufenen Observer nicht anderweitig trennen. Alle App
 Consumer-Performancezustände sind threadlokal und werden nach dem jeweiligen nativen Aufruf
 verworfen.
 
+### 15.15 Gebäudeangriff bei einem Start auf fertigem Moat
+
+Der erste Test nach der Performancekorrektur bestätigte einen letzten getrennten Gebäude-Approach-
+Fall. Zwei Gebäudeangriffe vom normalen Boden erzeugten vollständige Kandidaten, qualifizierten den
+owner-sicheren Builder und bewegten die Unit. Ein unmittelbar danach erteilter dritter Befehl traf
+die Unit dagegen auf dem fertigen Moat-Tile `(386,381)`. `0xDA020` erhielt dabei
+`sourceRegion=0`, erzeugte nur 50 Einträge ohne Gebäudekontext und aktualisierte keine Unit.
+
+`sourceRegion=0` ist für diesen Zustand kein ungültiger Parameter: Die Baseline zeigt, dass
+`0xDA020` die übergebene Ausgangsregion direkt mit der Kandidatenregion vergleicht beziehungsweise
+an `0xE2610` weiterreicht. Fertige Moat-Tiles besitzen im bestätigten Aufbau keine normale
+PathRegion. Die Modprüfung hatte Null jedoch pauschal durch
+`sourceRegion <= 0` ausgeschlossen.
+
+Der Building-Approach-Fallback akzeptiert Null deshalb nur unter den folgenden gemeinsam
+erforderlichen Bedingungen:
+
+- Die konkrete Command-Unit lebt, gehört zum passenden Tribe und besteht `CanDigMoat`.
+- Ihr aktuelles Tile besitzt das fertige Moat-Bit.
+- `GetMoatIdAtTile` liefert einen gültigen Record, dessen Besitzer die Unit kontrolliert oder mit
+  ihrem Spieler verbündet ist.
+- Die bereits bestehende Zielprüfung findet anschließend weiterhin eine notwendige Route durch
+  ausschließlich freundlichen fertigen Moat zu einem echten Gebäudeannäherungstile.
+
+Ein regionsloser Start auf normalem Gelände, feindlichem Moat oder mit unvollständigen Daten bleibt
+Vanilla. Der positive Diagnosegrund lautet `required-friendly-moat-route-from-moat`; die Ablehnung
+ohne passende Unit lautet `no-friendly-moat-source-digger`. Es wird weder ein neuer Hook noch ein
+besonderer Gebäude-Builder benötigt.
+

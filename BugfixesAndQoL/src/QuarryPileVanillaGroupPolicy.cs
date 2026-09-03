@@ -1,7 +1,7 @@
 // Resolves and plans repairs for Vanilla's shared multi-building structure group.
 using System.Collections.Generic;
 
-namespace ExtraFeatures
+namespace BugfixesAndQoL
 {
     internal enum QuarryPileVanillaGroupStatus
     {

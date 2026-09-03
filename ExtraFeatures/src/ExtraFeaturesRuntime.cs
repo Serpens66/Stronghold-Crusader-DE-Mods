@@ -32,7 +32,6 @@ namespace ExtraFeatures
         private readonly MultiplayerFeatureGate multiplayerFeatureGate;
         private readonly Shared.TroopActionHudCoordinator troopActionHudCoordinator;
         private readonly KnightDismountRuntime knightDismountRuntime;
-        private readonly QuarryPileRelocationRuntime quarryPileRelocationRuntime;
         private readonly ChurchPriestCountRuntime churchPriestCountRuntime;
         private readonly GatehouseAutomationRuntime gatehouseAutomationRuntime;
         private readonly AIDefenseRepairRuntime aiDefenseRepairRuntime;
@@ -40,10 +39,7 @@ namespace ExtraFeatures
         private readonly MarketTradeGuardBridge marketTradeGuardBridge;
 
         private PendingStockpileRefund pendingStockpileRefund;
-        private SingleBuildingPauseHook singleBuildingPauseHook;
-        private AIEconomyProtectionHook aiEconomyProtectionHook;
         private AIMarketVanillaPriceHook aiMarketVanillaPriceHook;
-        private FastRecruitMovementBridge fastRecruitMovementBridge;
         private MonkAlwaysRunPatch monkAlwaysRunPatch;
         private PlagueDurationPatch plagueDurationPatch;
         private PlagueApothecarySearchRangePatch plagueApothecarySearchRangePatch;
@@ -51,8 +47,6 @@ namespace ExtraFeatures
         private int libraryLength;
         private bool nativeLibraryAvailable;
         private bool fixedLayoutHashValidated;
-        private bool quarryFixedLayoutErrorLogged;
-        private bool fastRecruitInitializationAttempted;
         private bool monkAlwaysRunPatchUnavailable;
         private bool hooksSubscribed;
         private bool settingsSubscribed;
@@ -71,7 +65,6 @@ namespace ExtraFeatures
             troopActionHudCoordinator = new Shared.TroopActionHudCoordinator(log);
             knightDismountRuntime = new KnightDismountRuntime(log, settings, multiplayerFeatureGate);
             troopActionHudCoordinator.Register(knightDismountRuntime.RefreshButtonVisibility);
-            quarryPileRelocationRuntime = new QuarryPileRelocationRuntime(log, settings, multiplayerFeatureGate);
             churchPriestCountRuntime = new ChurchPriestCountRuntime(log, settings);
             gatehouseAutomationRuntime = new GatehouseAutomationRuntime(log, settings, multiplayerFeatureGate);
             aiDefenseRepairRuntime = new AIDefenseRepairRuntime(log, settings);
@@ -82,20 +75,16 @@ namespace ExtraFeatures
         }
 
         public object KnightDismountButton => knightDismountRuntime.ButtonViewModel;
-        public object QuarryPileRelocationButton => quarryPileRelocationRuntime.ButtonViewModel;
         public object GatehouseAutomationButton => gatehouseAutomationRuntime.ButtonViewModel;
         public void InitializeNetwork()
         {
-            InstallSingleBuildingPauseHook();
             TryRunFeature("troop action HUD coordinator", troopActionHudCoordinator.Initialize);
             try
             {
                 // Registration order is a shared protocol boundary. Keep the group fail-closed
                 // and identical on every peer instead of skipping individual packet IDs.
                 knightDismountRuntime.InitializeNetwork();
-                quarryPileRelocationRuntime.InitializeNetwork();
                 gatehouseAutomationRuntime.InitializeNetwork();
-                singleBuildingPauseHook.InitializeNetwork();
             }
             catch (Exception ex)
             {
@@ -118,19 +107,6 @@ namespace ExtraFeatures
             libraryLength = memory.Length;
             fixedLayoutHashValidated = isFixedLayoutHashValidated;
             nativeLibraryAvailable = true;
-
-            if (fixedLayoutHashValidated)
-            {
-                try
-                {
-                    quarryPileRelocationRuntime.InstallNativeFunctions(newLibraryHandle, memory, referenceHashMatches: true);
-                }
-                catch (Exception ex)
-                {
-                    LogFeatureFailure("quarry-pile relocation native functions", ex);
-                }
-
-            }
 
             try
             {
@@ -162,8 +138,6 @@ namespace ExtraFeatures
                 LogFeatureFailure("AI defense rebuild native hook", ex);
             }
 
-            TryRunFeature("fast recruit rally movement", ApplyFastRecruitRallyMovementSetting);
-
             // Settings may be restored before LibraryLoaded. Retry activation now that the native
             // library is available instead of waiting for a later setting change.
             ReconcileFixedLayoutFeatures();
@@ -176,7 +150,6 @@ namespace ExtraFeatures
             {
                 TryRunFeature("gatehouse automation", gatehouseAutomationRuntime.ApplySettings);
                 TryRunFeature("Vanilla value restoration", RestoreDefaultSettings);
-                TryRunFeature("fast recruit rally movement", ApplyFastRecruitRallyMovementSetting);
                 TryRunFeature("Monks Always Run", ApplyMonkAlwaysRunSetting);
                 TryRunFeature("optional local hooks", UnsubscribeHooks);
                 return;
@@ -189,26 +162,8 @@ namespace ExtraFeatures
             TryRunFeature("campfire peasants", ApplyCampfirePeasantsLimit);
             TryRunFeature("Lord health", ReconcileLordHealthRuntime);
             ApplyPlagueDurationSetting();
-            TryRunFeature("fast recruit rally movement", ApplyFastRecruitRallyMovementSetting);
             ApplyMonkAlwaysRunSetting();
             TryRunFeature("gatehouse automation", gatehouseAutomationRuntime.ApplySettings);
-        }
-
-        public void InstallAIEconomyProtectionHook(IntPtr nativeLibraryHandle, ReadOnlySpan<byte> memory)
-        {
-            if (aiEconomyProtectionHook != null)
-                return;
-
-            try
-            {
-                aiEconomyProtectionHook = new AIEconomyProtectionHook(
-                    log, settings, nativeLibraryHandle, memory, fixedLayoutHashValidated);
-                singleBuildingPauseHook?.SetSleepStateSynchronizer(aiEconomyProtectionHook.SynchronizeSleepStatesNow);
-            }
-            catch (Exception ex)
-            {
-                Shared.DebugLogHelper.LogError(log, $"Extra Features AI economy protection hook could not be installed: {ex}");
-            }
         }
 
         public void InstallAIMarketVanillaPriceHook(IntPtr nativeLibraryHandle, ReadOnlySpan<byte> memory)
@@ -244,12 +199,8 @@ namespace ExtraFeatures
             Shared.GameplayModActivationGate.StateChanged -= OnModeStateChanged;
             RestoreCampfirePeasantsCap();
             UnsubscribeHooks();
-            aiEconomyProtectionHook?.Dispose();
-            aiEconomyProtectionHook = null;
             aiMarketVanillaPriceHook?.Dispose();
             aiMarketVanillaPriceHook = null;
-            fastRecruitMovementBridge?.Dispose();
-            fastRecruitMovementBridge = null;
             monkAlwaysRunPatch?.Dispose();
             monkAlwaysRunPatch = null;
             plagueDurationPatch?.Dispose();
@@ -304,9 +255,6 @@ namespace ExtraFeatures
                 MapLoaderR3EventHooks.OnUnloadMap.Observable
                     .Where(args => args.Phase == EventHookPhase.Post)
                     .Subscribe(OnUnloadMap));
-            InstallSingleBuildingPauseHook();
-            if (settings.EnableSingleBuildingPause && singleBuildingPauseHook != null)
-                TryRunFeature("single-building pause local hooks", singleBuildingPauseHook.InstallLocalHooks);
             TryRunFeature("Lord health tick", ReconcileLordHealthRuntime);
             hooksSubscribed = true;
             ReconcileFixedLayoutFeatures();
@@ -319,35 +267,10 @@ namespace ExtraFeatures
                 TryRunFeature("event subscription cleanup", subscription.Dispose);
             subscriptions.Clear();
             TryRunFeature("knight mount/dismount cleanup", knightDismountRuntime.Dispose);
-            TryRunFeature("quarry-pile relocation cleanup", quarryPileRelocationRuntime.Dispose);
-            // The packet receiver remains alive for registration-order stability, while the
-            // reversible local detours are removed when the feature or mod is disabled.
-            TryRunFeature("single-building pause cleanup", () =>
-            {
-                singleBuildingPauseHook?.ClearOverrides("mod disabled");
-                singleBuildingPauseHook?.UninstallLocalHooks();
-            });
             TryRunFeature("Lord health cleanup", lordHealthRuntime.Dispose);
             ClearResourceEventGuards();
             pendingStockpileRefund = null;
             hooksSubscribed = false;
-        }
-
-        private void InstallSingleBuildingPauseHook()
-        {
-            if (singleBuildingPauseHook != null)
-                return;
-
-            try
-            {
-                singleBuildingPauseHook = new SingleBuildingPauseHook(log, settings, multiplayerFeatureGate);
-                if (aiEconomyProtectionHook != null)
-                    singleBuildingPauseHook.SetSleepStateSynchronizer(aiEconomyProtectionHook.SynchronizeSleepStatesNow);
-            }
-            catch (Exception ex)
-            {
-                Shared.DebugLogHelper.LogError(log, $"Extra Features single-building pause hook could not be installed: {ex}");
-            }
         }
 
         private void TryRunFeature(string featureName, Action action)
@@ -388,7 +311,6 @@ namespace ExtraFeatures
             if (!nativeLibraryAvailable || !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
             {
                 TryRunFeature("knight mount/dismount cleanup", knightDismountRuntime.Dispose);
-                TryRunFeature("quarry-pile relocation cleanup", quarryPileRelocationRuntime.Dispose);
                 return;
             }
 
@@ -399,21 +321,6 @@ namespace ExtraFeatures
             else
                 TryRunFeature("knight mount/dismount cleanup", knightDismountRuntime.Dispose);
 
-            if (!fixedLayoutHashValidated)
-            {
-                if ((settings.EnableQuarryPileRelocation || settings.EnableAIQuarryPileTowardsKeep) &&
-                    !quarryFixedLayoutErrorLogged)
-                {
-                    quarryFixedLayoutErrorLogged = true;
-                    Shared.DebugLogHelper.LogError(log, "Extra Features quarry-pile relocation remains inactive because its fixed native layout is not validated for this CrusaderDE.dll.");
-                }
-                return;
-            }
-
-            if (settings.EnableQuarryPileRelocation || settings.EnableAIQuarryPileTowardsKeep)
-                TryRunFeature("quarry-pile relocation", quarryPileRelocationRuntime.Initialize);
-            else
-                TryRunFeature("quarry-pile relocation cleanup", quarryPileRelocationRuntime.Dispose);
         }
 
         private void ReconcileAIDefenseRepairRuntime()
@@ -442,7 +349,6 @@ namespace ExtraFeatures
                     TryRunFeature("enemy proximity restoration", ReconcileAIDefenseRepairRuntime);
                     TryRunFeature("gatehouse automation", gatehouseAutomationRuntime.ApplySettings);
                     TryRunFeature("Vanilla value restoration", RestoreDefaultSettings);
-                    TryRunFeature("fast recruit rally movement", ApplyFastRecruitRallyMovementSetting);
                     TryRunFeature("Monks Always Run", ApplyMonkAlwaysRunSetting);
                     TryRunFeature("optional local hooks", UnsubscribeHooks);
                 }
@@ -458,32 +364,10 @@ namespace ExtraFeatures
                 TryRunFeature("knight mount/dismount visibility", knightDismountRuntime.RefreshButtonVisibility);
                 return;
             }
-            if (propertyName == nameof(ExtraFeaturesViewModel.EnableQuarryPileRelocation) ||
-                propertyName == nameof(ExtraFeaturesViewModel.EnableAIQuarryPileTowardsKeep))
-            {
-                ReconcileFixedLayoutFeatures();
-                TryRunFeature("quarry-pile relocation", quarryPileRelocationRuntime.ApplySetting);
-                return;
-            }
-            if (propertyName == nameof(ExtraFeaturesViewModel.EnableSingleBuildingPause))
-            {
-                if (settings.EnableSingleBuildingPause && singleBuildingPauseHook != null)
-                    TryRunFeature("single-building pause local hooks", singleBuildingPauseHook.InstallLocalHooks);
-                else
-                {
-                    TryRunFeature("single-building pause cleanup", () =>
-                    {
-                        singleBuildingPauseHook?.ClearOverrides("setting disabled");
-                        singleBuildingPauseHook?.UninstallLocalHooks();
-                    });
-                }
-                return;
-            }
             if (propertyName == nameof(ExtraFeaturesViewModel.HumanGateReopenDelaySeconds) ||
                 propertyName == nameof(ExtraFeaturesViewModel.AIGateReopenDelaySeconds) ||
                 propertyName == nameof(ExtraFeaturesViewModel.HumanGateClosingDistanceTiles) ||
-                propertyName == nameof(ExtraFeaturesViewModel.AIGateClosingDistanceTiles) ||
-                propertyName == nameof(ExtraFeaturesViewModel.RequireReachableEnemyForAutomaticGateClosing))
+                propertyName == nameof(ExtraFeaturesViewModel.AIGateClosingDistanceTiles))
             {
                 TryRunFeature("gatehouse automation", gatehouseAutomationRuntime.ApplySettings);
                 return;
@@ -496,11 +380,6 @@ namespace ExtraFeatures
             if (propertyName == nameof(ExtraFeaturesViewModel.CampfirePeasantsLimit))
             {
                 TryRunFeature("campfire peasants", ApplyCampfirePeasantsLimit);
-                return;
-            }
-            if (propertyName == nameof(ExtraFeaturesViewModel.EnableFastRecruitRallyMovement))
-            {
-                TryRunFeature("fast recruit rally movement", ApplyFastRecruitRallyMovementSetting);
                 return;
             }
             if (propertyName == nameof(ExtraFeaturesViewModel.EnableMonksAlwaysRun))
@@ -606,7 +485,6 @@ namespace ExtraFeatures
             TryRunFeature("Lord health map initialization", ReconcileLordHealthRuntime);
 
             TryRunFeature("knight mount/dismount visibility", knightDismountRuntime.RefreshButtonVisibility);
-            TryRunFeature("quarry-pile relocation visibility", quarryPileRelocationRuntime.RefreshButtonVisibility);
             TryRunFeature("gatehouse map initialization", gatehouseAutomationRuntime.BeginMap);
         }
 
@@ -751,30 +629,6 @@ namespace ExtraFeatures
                 lordHealthRuntime.BeginMap();
         }
 
-        private void ApplyFastRecruitRallyMovementSetting()
-        {
-            if (!nativeLibraryAvailable)
-                return;
-
-            if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || !settings.EnableFastRecruitRallyMovement)
-            {
-                fastRecruitMovementBridge?.Dispose();
-                fastRecruitMovementBridge = null;
-                fastRecruitInitializationAttempted = false;
-                return;
-            }
-
-            if (fastRecruitMovementBridge != null || fastRecruitInitializationAttempted)
-                return;
-
-            fastRecruitInitializationAttempted = true;
-            FastRecruitMovementBridge bridge = new FastRecruitMovementBridge(log);
-            if (bridge.IsActive)
-                fastRecruitMovementBridge = bridge;
-            else
-                bridge.Dispose();
-        }
-
         private unsafe ReadOnlySpan<byte> GetNativeLibraryMemory()
         {
             // The game DLL stays loaded for the process lifetime.
@@ -787,7 +641,6 @@ namespace ExtraFeatures
             lordHealthRuntime.ResetMapState();
             mapActive = false;
             ClearResourceEventGuards();
-            singleBuildingPauseHook?.ClearOverrides("map unload");
             multiplayerFeatureGate.Reset();
             gatehouseAutomationRuntime.EndMap();
         }

@@ -161,13 +161,13 @@
     <Compile Include="..\..\ExtraFeatures\src\LordHealthMultiplierPolicy.cs">
       <Link>LordHealthMultiplierPolicy.cs</Link>
     </Compile>
-    <Compile Include="..\..\ExtraFeatures\src\QuarryPileTargetSelectionPolicy.cs">
+    <Compile Include="..\..\BugfixesAndQoL\src\QuarryPileTargetSelectionPolicy.cs">
       <Link>QuarryPileTargetSelectionPolicy.cs</Link>
     </Compile>
-    <Compile Include="..\..\ExtraFeatures\src\QuarryPileVanillaGroupPolicy.cs">
+    <Compile Include="..\..\BugfixesAndQoL\src\QuarryPileVanillaGroupPolicy.cs">
       <Link>QuarryPileVanillaGroupPolicy.cs</Link>
     </Compile>
-    <Compile Include="..\..\ExtraFeatures\src\TemporaryGateBlockagePolicy.cs">
+    <Compile Include="..\..\BugfixesAndQoL\src\TemporaryGateBlockagePolicy.cs">
       <Link>TemporaryGateBlockagePolicy.cs</Link>
     </Compile>
     <Compile Include="..\..\ExtraFeatures\src\GatehouseAutomationSaveState.cs">

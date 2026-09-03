@@ -1,11 +1,11 @@
-// Feature: Optional shared movement-hook integration used by Extra Features.
+// Feature: Internal coordination between troop cadence and fast-recruit movement.
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 
 namespace BugfixesAndQoL
 {
-    public static class MovementCadenceIntegration
+    internal static class MovementCadenceIntegration
     {
         private static Action<IntPtr> applyFastRecruitMaximumSpeed;
         private static Func<IntPtr, bool> tryApplyFastRecruitCadence;
@@ -13,12 +13,12 @@ namespace BugfixesAndQoL
 
         internal static event Action RegistrationChanged;
 
-        public static bool HasFastRecruitCallbacks =>
+        internal static bool HasFastRecruitCallbacks =>
             applyFastRecruitMaximumSpeed != null && tryApplyFastRecruitCadence != null;
 
-        public static bool IsReady => cadencePatch != null;
+        internal static bool IsReady => cadencePatch != null;
 
-        public static bool RegisterFastRecruitCallbacks(
+        internal static bool RegisterFastRecruitCallbacks(
             Action<IntPtr> applyMaximumSpeed,
             Func<IntPtr, bool> tryApplyCadence)
         {
@@ -37,7 +37,7 @@ namespace BugfixesAndQoL
             return IsReady;
         }
 
-        public static void UnregisterFastRecruitCallbacks(Action<IntPtr> applyMaximumSpeed)
+        internal static void UnregisterFastRecruitCallbacks(Action<IntPtr> applyMaximumSpeed)
         {
             // Only the current owner may remove the process-wide callbacks.
             if (applyFastRecruitMaximumSpeed != applyMaximumSpeed)
@@ -48,17 +48,17 @@ namespace BugfixesAndQoL
             RegistrationChanged?.Invoke();
         }
 
-        public static bool SupportsSynchronizedRunning(int unitType)
+        internal static bool SupportsSynchronizedRunning(int unitType)
         {
             return cadencePatch != null && cadencePatch.SupportsSynchronizedRunning((eChimps)unitType);
         }
 
-        public static ushort GetNativeRunningSpeedBonus(int unitType, bool improvedSpearmen)
+        internal static ushort GetNativeRunningSpeedBonus(int unitType, bool improvedSpearmen)
         {
             return cadencePatch?.GetNativeRunningSpeedBonus((eChimps)unitType, improvedSpearmen) ?? 0;
         }
 
-        public static bool TryGetNativeRunningSpeedBonus(
+        internal static bool TryGetNativeRunningSpeedBonus(
             int unitType,
             bool improvedSpearmen,
             out ushort runningSpeedBonus)
@@ -71,7 +71,7 @@ namespace BugfixesAndQoL
                     out runningSpeedBonus);
         }
 
-        public static bool TryGetNativeRunningState(int unitType, uint currentState, out uint runningState)
+        internal static bool TryGetNativeRunningState(int unitType, uint currentState, out uint runningState)
         {
             runningState = currentState;
             return cadencePatch != null &&

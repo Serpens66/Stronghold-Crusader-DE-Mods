@@ -13,7 +13,7 @@ using Zhuqiaomon.Hooks;
 using Zhuqiaomon.Hooks.Transaction;
 using Zhuqiaomon.Memory;
 
-namespace ExtraFeatures
+namespace BugfixesAndQoL
 {
     internal sealed unsafe class AIEconomyProtectionHook : IDisposable
     {
@@ -67,7 +67,7 @@ namespace ExtraFeatures
         private delegate void SynchronizeSleepStatesDelegate(NativePointer<GameBuildingManager> buildingManager);
 
         private readonly ManualLogSource log;
-        private readonly ExtraFeaturesViewModel settings;
+        private readonly BugfixesAndQoLViewModel settings;
         private readonly bool aiPauseProtectionSupported;
         private readonly bool inaccessibleBuildingProtectionSupported;
         private readonly HookTransaction transaction;
@@ -92,7 +92,7 @@ namespace ExtraFeatures
 
         public AIEconomyProtectionHook(
             ManualLogSource log,
-            ExtraFeaturesViewModel settings,
+            BugfixesAndQoLViewModel settings,
             IntPtr libraryHandle,
             ReadOnlySpan<byte> memory,
             bool referenceHashMatches)
@@ -125,7 +125,7 @@ namespace ExtraFeatures
             if (!referenceHashMatches)
             {
                 log.LogWarning(
-                    $"[{TimestampNow()}] Extra Features layout-dependent AI pause and inaccessible " +
+                    $"[{TimestampNow()}] Bugfixes and QoL layout-dependent AI pause and inaccessible " +
                     "building-demolition protection are disabled for this unknown CrusaderDE.dll; " +
                     "Vanilla behavior is retained for those settings.");
             }
@@ -217,7 +217,7 @@ namespace ExtraFeatures
                 if (ApplySingleBuildingSleepOverride(registers))
                     return;
 
-                if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || !settings.PreventAIPause || !aiPauseProtectionSupported)
+                if (!settings.EnableMod || !settings.PreventAIPause || !aiPauseProtectionSupported)
                     return;
 
                 byte requestedState = (byte)registers->RCX;
@@ -248,7 +248,7 @@ namespace ExtraFeatures
         {
             try
             {
-                if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
+                if (!settings.EnableMod)
                     return false;
 
                 IntPtr sleepingAddress = unchecked((IntPtr)(long)registers->R8);
@@ -284,7 +284,7 @@ namespace ExtraFeatures
         {
             try
             {
-                if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || !settings.PreventEmergencyDemolition)
+                if (!settings.EnableMod || !settings.PreventEmergencyDemolition)
                     return;
 
                 X64SmartCPUContext* registers = context.Pointer;
@@ -308,7 +308,7 @@ namespace ExtraFeatures
         {
             try
             {
-                if (Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) &&
+                if (settings.EnableMod &&
                     settings.PreventHovelDeletion &&
                     GamePlayerManagerAPI.Instance.IsAIPlayer(playerId))
                 {
@@ -335,7 +335,7 @@ namespace ExtraFeatures
             try
             {
                 int mode = settings.InaccessibleAIBuildingDemolitionProtection;
-                if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || !inaccessibleBuildingProtectionSupported ||
+                if (!settings.EnableMod || !inaccessibleBuildingProtectionSupported ||
                     mode == TemporaryGateBlockagePolicy.VanillaMode)
                     return;
 
@@ -455,7 +455,7 @@ namespace ExtraFeatures
                     inaccessibleDiagnosticSamplingCompleteLogged = true;
                     Shared.DebugLogHelper.LogDebug(
                         log,
-                        $"Extra Features AI inaccessible-building diagnostics sampled " +
+                        $"Bugfixes and QoL AI inaccessible-building diagnostics sampled " +
                         $"{MaximumInaccessibleDiagnosticSamplesPerMap} distinct outcomes; further samples on this map are omitted.");
                 }
                 return;
@@ -464,7 +464,7 @@ namespace ExtraFeatures
 
             Shared.DebugLogHelper.LogDebug(
                 log,
-                $"Extra Features AI inaccessible-building sample: " +
+                $"Bugfixes and QoL AI inaccessible-building sample: " +
                 $"tick={tick}, buildingId={buildingId}, buildingGlobalId={building->r_GlobalId}, " +
                 $"buildingType={building->r_BuildingType}, owner={building->r_PlayerIdOwner}, " +
                 $"vanillaCounter={vanillaCounter}, " +
@@ -495,7 +495,7 @@ namespace ExtraFeatures
 
         private void LogError(string message)
         {
-            log.LogError($"[{TimestampNow()}] Extra Features {message}");
+            log.LogError($"[{TimestampNow()}] Bugfixes and QoL {message}");
         }
 
         private static string TimestampNow()

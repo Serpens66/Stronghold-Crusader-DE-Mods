@@ -9,7 +9,7 @@ using System.Globalization;
 using System.Text;
 using Zhuqiaomon.Memory;
 
-namespace ExtraFeatures
+namespace BugfixesAndQoL
 {
     internal readonly struct AIBuildingAccessDiagnostic
     {
@@ -142,7 +142,7 @@ namespace ExtraFeatures
                 {
                     failureLogged = true;
                     log.LogError(
-                        $"[{TimestampNow()}] Extra Features improved AI building-access classification failed; " +
+                        $"[{TimestampNow()}] Bugfixes and QoL improved AI building-access classification failed; " +
                         $"this demolition uses vanilla behavior: {ex}");
                 }
                 return false;

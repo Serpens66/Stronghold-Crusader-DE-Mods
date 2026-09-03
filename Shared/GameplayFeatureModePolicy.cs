@@ -11,7 +11,6 @@ namespace Shared
         UnitCostEnforcement,
         UnitLimitEnforcement,
         LordHealthMultipliers,
-        AIQuarryPileTowardsKeep,
         EndlessExtremePowersRecharge,
         RandomEventsRuntime,
         ImprovedHunterTargetSelection,
@@ -95,7 +94,6 @@ namespace Shared
                     contexts = NonEditorGameplayContexts;
                     break;
                 case GameplayFeatureId.LordHealthMultipliers:
-                case GameplayFeatureId.AIQuarryPileTowardsKeep:
                     expectedGuid = "ExtraFeatures_Serp";
                     contexts = NonEditorGameplayContexts;
                     break;
@@ -257,7 +255,6 @@ namespace Shared
                     break;
                 case "ExtraFeatures_Serp":
                     yield return GetProfile(modGuid, GameplayFeatureId.LordHealthMultipliers);
-                    yield return GetProfile(modGuid, GameplayFeatureId.AIQuarryPileTowardsKeep);
                     break;
                 case "CheatMod_Serp":
                     yield return GetProfile(modGuid, GameplayFeatureId.EndlessExtremePowersRecharge);
