@@ -30,6 +30,7 @@ namespace OxTetherIdleFixTest
 
         internal const int FaultInjectionIntervalSeconds = 30;
         internal const int FleetSnapshotIntervalSeconds = 10;
+        internal const int FaultInjectionTerminalizationTimeoutTicks = 250;
         private static readonly long FaultInjectionIntervalStopwatchTicks =
             SecondsToStopwatchTicks(FaultInjectionIntervalSeconds);
         private static readonly long FleetSnapshotIntervalStopwatchTicks =
@@ -177,8 +178,8 @@ namespace OxTetherIdleFixTest
                     oxCount++;
                     observedUnitIds.Add(unitId);
                     OxObservation observation = Capture(unitId, unit);
+                    observation = MaintainInjectedFault(tick, unit, observation);
                     RecordUnitTransition(tick, unit, observation);
-                    CheckInjectedFaultOutcome(tick, unit, observation);
                     if (writeFleetSnapshot)
                     {
                         stateCounts.TryGetValue(observation.State, out int count);
@@ -315,7 +316,11 @@ namespace OxTetherIdleFixTest
             selectedUnit->r_PathPlanRelated3 = injectedMarker;
 
             OxObservation injectedObservation = Capture(selectedUnitId, selectedUnit);
-            injectedFaults[selectedUnitId] = new InjectedFault(injectedObservation.GlobalId, tick);
+            injectedFaults[selectedUnitId] = new InjectedFault(
+                injectedObservation.GlobalId,
+                tick,
+                injectedMarker,
+                injectedObservation.State);
             injectedCount++;
             lastInjectedUnitId = selectedUnitId;
             nextInjectionTimestamp = AddStopwatchTicks(now, FaultInjectionIntervalStopwatchTicks);
@@ -386,34 +391,80 @@ namespace OxTetherIdleFixTest
                 Describe(unit, observation));
             candidateTraces[observation.UnitId] = trace;
             candidateStartedCount++;
-            if (source == "faultInjection" &&
-                injectedFaults.TryGetValue(observation.UnitId, out InjectedFault fault))
-            {
-                LogInfo(
-                    $"OX_IDLE_FAULT_INJECTION_TERMINALIZED: tick={tick}, injectionTick={fault.InjectionTick}, " +
-                    $"ticksUntilTerminal={tick - fault.InjectionTick}, {Describe(unit, observation)}.");
-            }
             LogInfo(
                 $"OX_IDLE_CANDIDATE_STARTED: tick={tick}, source={source}, {trace.StartDescription}, " +
                 $"requiredConsecutiveTicks={OxIdleEpisodePolicy.RequiredConsecutiveTicks}.");
         }
 
-        private void CheckInjectedFaultOutcome(int tick, GameUnit* unit, in OxObservation observation)
+        private OxObservation MaintainInjectedFault(
+            int tick,
+            GameUnit* unit,
+            in OxObservation rawObservation)
         {
-            if (!injectedFaults.TryGetValue(observation.UnitId, out InjectedFault fault) ||
-                fault.GlobalId != observation.GlobalId ||
-                observation.HasIdleBugSignature ||
-                tick - fault.InjectionTick < 5)
+            if (!injectedFaults.TryGetValue(rawObservation.UnitId, out InjectedFault fault) ||
+                fault.GlobalId != rawObservation.GlobalId)
             {
-                return;
+                return rawObservation;
             }
 
-            Shared.DebugLogHelper.LogWarning(
-                log,
-                $"OX_IDLE_FAULT_INJECTION_FAILED: tick={tick}, injectionTick={fault.InjectionTick}, " +
-                $"reason=Vanilla did not produce the terminal alternate-target signature within five ticks, " +
-                $"{Describe(unit, observation)}.");
-            injectedFaults.Remove(observation.UnitId);
+            if (!fault.Terminalized)
+            {
+                if (rawObservation.HasIdleBugSignature)
+                {
+                    fault.Terminalized = true;
+                    fault.TerminalTick = tick;
+                    LogInfo(
+                        $"OX_IDLE_FAULT_INJECTION_TERMINALIZED: tick={tick}, " +
+                        $"injectionTick={fault.InjectionTick}, ticksUntilTerminal={tick - fault.InjectionTick}, " +
+                        $"{Describe(unit, rawObservation)}.");
+                    return rawObservation;
+                }
+
+                if (tick - fault.InjectionTick < FaultInjectionTerminalizationTimeoutTicks)
+                    return rawObservation;
+
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    $"OX_IDLE_FAULT_INJECTION_FAILED: tick={tick}, injectionTick={fault.InjectionTick}, " +
+                    $"reason=Vanilla did not produce the terminal alternate-target signature within " +
+                    $"{FaultInjectionTerminalizationTimeoutTicks} ticks, {Describe(unit, rawObservation)}.");
+                injectedFaults.Remove(rawObservation.UnitId);
+                return rawObservation;
+            }
+
+            if (fault.RepairApplied && rawObservation.State == fault.ExpectedState)
+                return rawObservation;
+            if (rawObservation.State != fault.OriginalState)
+                return rawObservation;
+
+            ushort markerToHold = fault.RepairApplied ? (ushort)0 : fault.Marker;
+            bool replanObserved = rawObservation.PathFlags != 0 ||
+                rawObservation.AlternateTargetMarker != markerToHold ||
+                rawObservation.MovingRelevant != 8;
+
+            // Keep only the synthetic episode isolated from Vanilla's generic route
+            // retry. Before repair the marker stays nonzero; afterwards it stays zero,
+            // so the marker remains the sole arrival-decision difference.
+            unit->r_PathPlanStateBitFlags = 0;
+            unit->r_MovingRelevant = 8;
+            unit->r_PathPlanRelated3 = markerToHold;
+            if (unit->p_PathPlanSize <= ushort.MaxValue)
+                unit->p_CurrentPathPlanPosition = checked((ushort)unit->p_PathPlanSize);
+
+            OxObservation heldObservation = Capture(rawObservation.UnitId, unit);
+            if (replanObserved)
+            {
+                fault.SuppressedReplans++;
+                LogInfo(
+                    $"OX_IDLE_FAULT_INJECTION_REPLAN_SUPPRESSED: tick={tick}, " +
+                    $"injectionTick={fault.InjectionTick}, repairApplied={fault.RepairApplied}, " +
+                    $"suppressionCount={fault.SuppressedReplans}, " +
+                    $"rawPathFlags={rawObservation.PathFlags}, heldPathFlags={heldObservation.PathFlags}, " +
+                    $"rawMarker={rawObservation.AlternateTargetMarker}, heldMarker={heldObservation.AlternateTargetMarker}, " +
+                    $"rawMovingRelevant={rawObservation.MovingRelevant}, " +
+                    $"heldMovingRelevant={heldObservation.MovingRelevant}.");
+            }
+            return heldObservation;
         }
 
         private void EndCandidateTraceIfPresent(
@@ -486,6 +537,18 @@ namespace OxTetherIdleFixTest
 
             ushort markerBefore = unit->r_PathPlanRelated3;
             unit->r_PathPlanRelated3 = 0;
+            if (injectedFaults.TryGetValue(observation.UnitId, out InjectedFault fault) &&
+                fault.GlobalId == observation.GlobalId)
+            {
+                fault.RepairApplied = true;
+                fault.RepairTick = tick;
+                fault.ExpectedState = observation.ExpectedStateAfterRepair;
+                LogInfo(
+                    $"OX_IDLE_FAULT_INJECTION_HOLD_REPAIR_PHASE: tick={tick}, " +
+                    $"injectionTick={fault.InjectionTick}, terminalTick={fault.TerminalTick}, " +
+                    $"expectedState={fault.ExpectedState}, suppressedReplans={fault.SuppressedReplans}, " +
+                    "heldMarkerBefore=nonzero, heldMarkerAfter=0.");
+            }
             LogInfo(
                 $"OX_IDLE_FIX_APPLIED: tick={tick}, unitId={observation.UnitId}, globalId={observation.GlobalId}, " +
                 $"state={observation.State}, markerBefore={markerBefore}, markerAfter={unit->r_PathPlanRelated3}, " +
@@ -502,7 +565,14 @@ namespace OxTetherIdleFixTest
                 $"actualState={observation.State}, position={observation.CurrentX}/{observation.CurrentY}, " +
                 $"requested={observation.RequestedX}/{observation.RequestedY}, source={source}.");
             if (source == "faultInjection")
+            {
+                InjectedFault fault = injectedFaults[observation.UnitId];
+                LogInfo(
+                    $"OX_IDLE_FAULT_INJECTION_HOLD_RELEASED: tick={tick}, outcome=verified, " +
+                    $"injectionTick={fault.InjectionTick}, terminalTick={fault.TerminalTick}, " +
+                    $"repairTick={fault.RepairTick}, suppressedReplans={fault.SuppressedReplans}.");
                 injectedFaults.Remove(observation.UnitId);
+            }
         }
 
         private void RecordUnverified(int tick, in OxObservation observation)
@@ -516,7 +586,14 @@ namespace OxTetherIdleFixTest
                 $"marker={observation.AlternateTargetMarker}, position={observation.CurrentX}/{observation.CurrentY}, " +
                 $"requested={observation.RequestedX}/{observation.RequestedY}, source={source}.");
             if (source == "faultInjection")
+            {
+                InjectedFault fault = injectedFaults[observation.UnitId];
+                LogInfo(
+                    $"OX_IDLE_FAULT_INJECTION_HOLD_RELEASED: tick={tick}, outcome=unverified, " +
+                    $"injectionTick={fault.InjectionTick}, terminalTick={fault.TerminalTick}, " +
+                    $"repairTick={fault.RepairTick}, suppressedReplans={fault.SuppressedReplans}.");
                 injectedFaults.Remove(observation.UnitId);
+            }
         }
 
         private static OxObservation Capture(int unitId, GameUnit* unit) =>
@@ -621,16 +698,30 @@ namespace OxTetherIdleFixTest
             internal string StartDescription;
         }
 
-        private readonly struct InjectedFault
+        private sealed class InjectedFault
         {
-            internal InjectedFault(uint globalId, int injectionTick)
+            internal InjectedFault(
+                uint globalId,
+                int injectionTick,
+                ushort marker,
+                ushort originalState)
             {
                 GlobalId = globalId;
                 InjectionTick = injectionTick;
+                Marker = marker;
+                OriginalState = originalState;
             }
 
             internal uint GlobalId { get; }
             internal int InjectionTick { get; }
+            internal ushort Marker { get; }
+            internal ushort OriginalState { get; }
+            internal bool Terminalized { get; set; }
+            internal int TerminalTick { get; set; }
+            internal bool RepairApplied { get; set; }
+            internal int RepairTick { get; set; }
+            internal ushort ExpectedState { get; set; }
+            internal int SuppressedReplans { get; set; }
         }
     }
 }

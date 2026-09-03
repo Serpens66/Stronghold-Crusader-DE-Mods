@@ -97,6 +97,12 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding ShowSelectedUnitHealthText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.troop-hud-middle-click-camera-jump" shared:ModSettingsSearch.Title="{Binding EnableTroopHudMiddleClickCameraJumpText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableTroopHudMiddleClickCameraJumpHelpText}"><CheckBox IsChecked="{Binding EnableTroopHudMiddleClickCameraJump, Mode=TwoWay}"
+                Foreground="White"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableTroopHudMiddleClickCameraJumpHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding EnableTroopHudMiddleClickCameraJumpText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox></Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-market-key-main-menu-fix" shared:ModSettingsSearch.Title="{Binding EnableMarketKeyMainMenuFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableMarketKeyMainMenuFixHelpText}"><CheckBox IsChecked="{Binding EnableMarketKeyMainMenuFix, Mode=TwoWay}"
                 Foreground="White"
                 ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableMarketKeyMainMenuFixHelpText}"

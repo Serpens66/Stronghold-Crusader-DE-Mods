@@ -39,6 +39,8 @@ internal static class Program
             "fault injection repeats every thirty real-time seconds");
         Check(OxTetherIdleFixTestRuntime.FleetSnapshotIntervalSeconds == 10,
             "full fleet snapshots repeat every ten real-time seconds");
+        Check(OxTetherIdleFixTestRuntime.FaultInjectionTerminalizationTimeoutTicks == 250,
+            "terminalization timeout covers slow sub-tile movement completion");
 
         Check(OxTetherIdleFixTestRuntime.IsFaultInjectionEligible(
             Observation(1, 100, 1, 2, 0, 10, 10, 20, 20, 3, 12), false),
@@ -200,6 +202,17 @@ internal static class Program
         Check(runtime.Contains("OX_IDLE_FAULT_INJECTION_TERMINALIZED") &&
             runtime.Contains("OX_IDLE_FAULT_INJECTION_FAILED"),
             "Vanilla terminalization is explicitly verified or rejected");
+        Check(runtime.Contains("OX_IDLE_FAULT_INJECTION_REPLAN_SUPPRESSED") &&
+            runtime.Contains("OX_IDLE_FAULT_INJECTION_HOLD_REPAIR_PHASE") &&
+            runtime.Contains("OX_IDLE_FAULT_INJECTION_HOLD_RELEASED"),
+            "synthetic hold lifecycle is fully logged");
+        string maintenance = ExtractMethodBodyBySignature(
+            runtime,
+            "private OxObservation MaintainInjectedFault(");
+        Check(maintenance.Contains("unit->r_PathPlanStateBitFlags = 0;") &&
+            maintenance.Contains("unit->r_MovingRelevant = 8;") &&
+            maintenance.Contains("unit->r_PathPlanRelated3 = markerToHold;"),
+            "synthetic hold neutralizes only the marked episode's route retry fields");
         Check(runtime.Contains("OX_IDLE_BUG_CONFIRMED"), "confirmation marker is logged");
         Check(runtime.Contains("OX_IDLE_FIX_APPLIED"), "repair marker is logged");
         Check(runtime.Contains("OX_IDLE_FIX_VERIFIED"), "verification marker is logged");
@@ -231,13 +244,18 @@ internal static class Program
     private static string ExtractMethodBody(string source, string methodName)
     {
         string signature = "void " + methodName + "(";
+        return ExtractMethodBodyBySignature(source, signature);
+    }
+
+    private static string ExtractMethodBodyBySignature(string source, string signature)
+    {
         int signatureIndex = source.IndexOf(signature, StringComparison.Ordinal);
         if (signatureIndex < 0)
-            throw new InvalidOperationException("Method not found: " + methodName);
+            throw new InvalidOperationException("Method not found: " + signature);
 
         int bodyStart = source.IndexOf('{', signatureIndex);
         if (bodyStart < 0)
-            throw new InvalidOperationException("Method body not found: " + methodName);
+            throw new InvalidOperationException("Method body not found: " + signature);
 
         int depth = 0;
         for (int index = bodyStart; index < source.Length; index++)
@@ -248,7 +266,7 @@ internal static class Program
                 return source.Substring(bodyStart + 1, index - bodyStart - 1);
         }
 
-        throw new InvalidOperationException("Unterminated method body: " + methodName);
+        throw new InvalidOperationException("Unterminated method body: " + signature);
     }
 
     private static void Check(bool condition, string name)

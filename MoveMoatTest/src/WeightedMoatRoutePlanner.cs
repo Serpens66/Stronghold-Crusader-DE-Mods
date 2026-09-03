@@ -212,6 +212,11 @@ namespace MoveMoatTest
             NormalizedDelay == other.NormalizedDelay &&
             CadenceProgress == other.CadenceProgress;
 
+        public bool HasSameBaseCadenceExceptSpeedBonus(WeightedMovementCostProfile other) =>
+            AdditionalSubsteps == other.AdditionalSubsteps &&
+            ExtraDelay == other.ExtraDelay &&
+            NormalizedDelay == other.NormalizedDelay;
+
         public bool Equals(WeightedMovementCostProfile other) =>
             CurrentSpeed == other.CurrentSpeed &&
             CurrentSpeed2 == other.CurrentSpeed2 &&

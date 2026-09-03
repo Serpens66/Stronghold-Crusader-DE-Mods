@@ -2674,3 +2674,60 @@ für die Wegentscheidung verfügbar gemacht oder konservativ behandelt wird. Die
 reichen für diese Analyse aus; eine identische Wiederholung des aufwendigen Kalibrierungslaufs ist
 nicht erforderlich.
 
+### 15.20 Zweiter Kalibrierungslauf und konservative funktionale Veröffentlichung
+
+Der Folgelauf vom 3. September 2026 enthielt 16 synchrone Shadow-Entscheidungen, 20
+Runtimeauswertungen, vier frühe Profil-Rebases, fünf spätere Profiländerungen und fünf korrekt an
+Formationsoffsets angepasste Builderziele. Neun Tracker endeten regulär mit `path-completed`, sechs
+durch einen neuen Zielbefehl und einer durch einen Tribe-Wechsel. Es gab erneut keine Warning,
+Error oder Exception aus `MoveMoatTest`.
+
+Die fünf abweichenden Gruppenziele wurden ausschließlich beim exakt registrierten Unit-Pfadpuffer
+akzeptiert und erfolgreich neu geplant, beispielsweise `(405,355) -> (404,354)` und
+`(410,350) -> (409,349)`. Damit ist die Bindung an das tatsächliche Ziel von `0x11B520` bestätigt.
+Beim Pikenträger entstanden keine falschen Moat-Phasenänderungen mehr; zwei vollständige Läufe lagen
+mit `360 -> 343` beziehungsweise `216 -> 203` Ticks 17 und 13 Ticks auseinander. Beim arabischen
+Sklaven lag ein unbehinderter Lauf mit dem tatsächlich gesetzten `r_SpeedBonus=1` bei
+`180 -> 179` Ticks. Weitere Gruppenläufe zeigen, dass dieses Bonusfeld erst nach dem ersten
+Tilewechsel von `0` auf `1` wechseln kann. Das nachfolgende Profil erklärt die vollständige Route
+trotzdem innerhalb der festgelegten 40-Tick-Grenze, beispielsweise `168` geschätzte gegenüber
+`183` gemessenen Ticks.
+
+Die Baseline von `0x19B260` erklärt außerdem einen zweiten Diagnosefall: Beim Verlassen eines Moats
+wird die Phase um acht reduziert und kann dabei bereits `0` werden, während `r_CurrentSpeed2` in
+demselben Update noch den Nachlaufaufschlag `+3` erhält. Ein Snapshot mit `phase=0` und einer
+Differenz von genau drei zur Basis ist daher nicht eindeutig normalisierbar. Die funktionale
+Wegoptimierung bleibt für diesen einzelnen Snapshot fail-closed; ein späterer stabiler Befehl kann
+wieder normal bewertet werden.
+
+Für die funktionale Veröffentlichung wird keine typbezogene Geschwindigkeitstabelle übernommen.
+Ein eigener read-only Resolver folgt stattdessen dem bei Hash
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2` bestätigten Dispatch bei
+`0x18410C`, bestimmt den Handler der konkreten `eChimps`-Unit und analysiert ausschließlich den
+erreichbaren AI-State-101-Zweig. Er sammelt alle statisch ableitbaren Schreibwerte für das
+managerrelative SpeedBonus-Feld `+0x916` und ergänzt den konkreten Runtimewert als möglichen
+Nicht-Schreibpfad. Anders als der Produktionscode in `BugfixesAndQoL` verwendet dieser Testmod
+keine auditierte Unittyp-Tabelle. Nicht auflösbare Handler oder mehr als vier plausible Profile
+deaktivieren nur die Optimierung für den betreffenden Pfad.
+
+Der gewichtete A*-Planer kann seine vollständig validierte Route nun direkt in Vanillas
+Start-zu-Ziel-Nibbleformat kodieren. Nach einem unveränderten erfolgreichen Lauf von `0xF4930`
+wird ein solcher Kandidat nur dann veröffentlicht, wenn er eigenen oder verbündeten Moat benutzt
+und unter jedem aus dem Handler ableitbaren Kadenzprofil mindestens 40 Ticks schneller als der
+bereits dekodierte Vanilla-Pfad ist. Unter mehreren sicheren Kandidaten gewinnt die kleinste
+maximale Reisezeit; danach entscheiden weniger Moat-Kanten, kürzere Länge und Vanillas
+Richtungsreihenfolge.
+
+Geschrieben wird ausschließlich in den durch `0xE62D0` registrierten exakten Unit-Pfadpuffer bei
+`unitManager+0xB4FE78+unitId*1000`. Pufferinhalt und Länge bei
+`pathManager+0x155F60/+0x155F68` werden vorher gesichert. Der neue Puffer muss sich vollständig bis
+zum exakten Builderziel zurückdekodieren lassen und denselben Fingerabdruck wie der A*-Kandidat
+besitzen; andernfalls werden Bytes, Länge und Builderergebnis wiederhergestellt. Temporäre Puffer
+bleiben unverändert. Die bestehenden Fallbacks für Vanilla-Nuller werden nicht ersetzt.
+
+Für ein Spielupdate müssen deshalb zusätzlich zum Hash folgende Verträge gemeinsam wiedergefunden
+werden: der Dispatch-Call bei `0x18410C` samt Tabelle und per-Type-Handlern, AI-State-Feld
+managerrelativ `+0x918`, SpeedBonus-Feld managerrelativ `+0x916`, die Vorwärtsreihenfolge nach
+`0xE1640 -> 0xE4E90` und der reine Pufferregistrierer `0xE62D0`. Schon eine unvollständige
+Handleranalyse oder eine abweichende Pufferbindung führt fail-closed zu Vanilla.
+

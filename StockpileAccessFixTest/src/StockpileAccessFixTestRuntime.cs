@@ -197,6 +197,9 @@ namespace StockpileAccessFixTest
             try
             {
                 latestSimulationTick = tick;
+                // A route armed while scanning tick N is mutated before scanning tick N+1.
+                // The Script Extender documents this pre-tick callback as its synchronized game-loop context.
+                ProcessAutomaticTestTrigger();
                 ScanWorkers(tick);
                 ObserveAutomaticTestTimeout(tick);
             }
@@ -238,9 +241,7 @@ namespace StockpileAccessFixTest
                 int unitId = spanIndex + 1;
                 observedUnitIds.Add(unitId);
                 StockpileObservation observation = Capture(unitId, unit);
-                bool isLocalPlayerWorker =
-                    unit->r_SpawnedForPlayerIndex == GamePlayerManagerAPI.Instance.GetLocalPlayerId();
-                TrackFetchRoute(tick, observation, isLocalPlayerWorker);
+                TrackFetchRoute(tick, observation);
 
                 if (!episodes.TryGetValue(unitId, out StockpileAccessEpisodePolicy episode))
                 {
@@ -292,8 +293,7 @@ namespace StockpileAccessFixTest
 
         private void TrackFetchRoute(
             int tick,
-            in StockpileObservation observation,
-            bool isLocalPlayerWorker)
+            in StockpileObservation observation)
         {
             if (!observation.IsValidFetchRoute)
             {
@@ -305,7 +305,7 @@ namespace StockpileAccessFixTest
                 return;
 
             if (!automaticTestCompleted && testBlockerBuildingId <= 0 &&
-                isLocalPlayerWorker && observation.PathMarker != 0)
+                observation.PathMarker != 0)
             {
                 TriggerRoute nextTrigger = new TriggerRoute(observation);
                 bool rejectionExpired = latestSimulationTick >= rejectedTriggerUntilTick;
@@ -314,9 +314,9 @@ namespace StockpileAccessFixTest
                 {
                     triggerRoute = nextTrigger;
                     hasTriggerRoute = true;
-                    LogInfo(
-                        $"STOCKPILE_TEST_BLOCKER_READY: tick={tick}, {Describe(observation)}, " +
-                        "action=automatic wall placement queued for next Unity frame.");
+                        LogInfo(
+                            $"STOCKPILE_TEST_BLOCKER_READY: tick={tick}, {Describe(observation)}, " +
+                            "action=automatic wall placement queued for next simulation tick.");
                 }
             }
 
@@ -435,7 +435,7 @@ namespace StockpileAccessFixTest
             pendingMoveResultSeen = true;
         }
 
-        internal void ProcessAutomaticTestTrigger()
+        private void ProcessAutomaticTestTrigger()
         {
             if (!string.IsNullOrEmpty(pendingTestBlockerCleanupReason))
             {
@@ -484,22 +484,24 @@ namespace StockpileAccessFixTest
             }
 
             GameTileManagerAPI tileApi = GameTileManagerAPI.Instance;
-            int x = current.TargetX;
-            int y = current.TargetY;
-            if (!tileApi.IsTileInsideMapBounds(x, y))
-            {
-                RejectTriggerRoute($"target {x}/{y} is outside playable bounds");
-                return;
-            }
-
-            int tileId = tileApi.GetTileId(x, y);
-            ushort priorBuildingId = tileApi.GetTileBuildingId(tileId);
-            TilePropertyFlag priorFlags = tileApi.GetTilePropertyFlag(tileId);
-            if (!IsSafeExternalBlockerTile(priorFlags, priorBuildingId))
+            int accessX = current.TargetX;
+            int accessY = current.TargetY;
+            int x = accessX;
+            int y = accessY;
+            bool isFreeExternalAccess = TryInspectSafeExternalBlockerTile(
+                tileApi,
+                x,
+                y,
+                out int tileId,
+                out TilePropertyFlag priorFlags,
+                out ushort priorBuildingId,
+                out ushort priorUnitId);
+            if (!isFreeExternalAccess)
             {
                 RejectTriggerRoute(
-                    $"target {x}/{y} is not a free external land tile: tileId={tileId}, " +
-                    $"buildingId={priorBuildingId}, flags=0x{unchecked((uint)priorFlags):X8}");
+                    $"cached access is not a free external tile; exact reproduction skipped: " +
+                    $"access={accessX}/{accessY}, tileId={tileId}, buildingId={priorBuildingId}, " +
+                    $"unitId={priorUnitId}, flags=0x{unchecked((uint)priorFlags):X8}");
                 return;
             }
 
@@ -567,7 +569,9 @@ namespace StockpileAccessFixTest
             LogInfo(
                 $"STOCKPILE_TEST_BLOCKER_SPAWNED: unitId={current.UnitId}, globalId={current.UnitGlobalId}, " +
                 $"worker={current.UnitType}, blockerBuildingId={buildingId}, blockerGlobalId={testBlockerGlobalId}, " +
-                $"target={x}/{y}, tileId={tileId}, priorFlags=0x{unchecked((uint)priorFlags):X8}, " +
+                $"cachedAccess={accessX}/{accessY}, blockerTile={x}/{y}, tileId={tileId}, " +
+                $"blocksCachedAccessDirectly=true, priorBuildingId={priorBuildingId}, " +
+                $"priorUnitId={priorUnitId}, priorFlags=0x{unchecked((uint)priorFlags):X8}, " +
                 "mapper=MAPPER_WOODWALL, bypassedPlacementRules=true, directTileMutation=false, " +
                 "cleanup=automaticAfterResultOrTimeout.");
         }
@@ -608,8 +612,35 @@ namespace StockpileAccessFixTest
             ClearTestBlockerIdentity();
         }
 
-        internal static bool IsSafeExternalBlockerTile(TilePropertyFlag flags, ushort buildingId) =>
-            buildingId == 0 && (flags == TilePropertyFlag.Free || flags == TilePropertyFlag.None);
+        internal static bool IsSafeExternalBlockerTile(
+            TilePropertyFlag flags,
+            ushort buildingId,
+            ushort unitId) =>
+            buildingId == 0 && unitId == 0 &&
+            (flags == TilePropertyFlag.Free || flags == TilePropertyFlag.None);
+
+        private static bool TryInspectSafeExternalBlockerTile(
+            GameTileManagerAPI tileApi,
+            int x,
+            int y,
+            out int tileId,
+            out TilePropertyFlag flags,
+            out ushort buildingId,
+            out ushort unitId)
+        {
+            tileId = -1;
+            flags = TilePropertyFlag.None;
+            buildingId = 0;
+            unitId = 0;
+            if (!tileApi.IsTileInsideMapBounds(x, y))
+                return false;
+
+            tileId = tileApi.GetTileId(x, y);
+            buildingId = tileApi.GetTileBuildingId(tileId);
+            unitId = tileApi.GetTileUnitId(tileId);
+            flags = tileApi.GetTilePropertyFlag(tileId);
+            return IsSafeExternalBlockerTile(flags, buildingId, unitId);
+        }
 
         private void CaptureBlockerSpawn(BuildingSpawnEventArgs args)
         {

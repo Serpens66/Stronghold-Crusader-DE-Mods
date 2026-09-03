@@ -68,6 +68,7 @@
   <ItemGroup>
     <Compile Include="src\EngineerCrewHandoffPolicy.cs" />
     <Compile Include="src\EngineerHandoffDiagnosticPolicy.cs" />
+    <Compile Include="src\EngineerHandoffRepairPolicy.cs" />
     <Compile Include="src\EngineerSiegeFixNativeDefinition.cs" />
     <Compile Include="src\EngineerSiegeFixRuntime.cs" />
     <Compile Include="src\EngineerSiegeFixPlugin.cs" />

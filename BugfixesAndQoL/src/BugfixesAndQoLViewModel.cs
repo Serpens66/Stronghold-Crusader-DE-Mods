@@ -65,6 +65,8 @@ namespace BugfixesAndQoL
         private readonly LocalPerPlayerSetting<bool> enableEnemyProximityBulldozeCursorFix = new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> enableIngameSteamInvitePrompt = new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> showSelectedUnitHealth = new LocalPerPlayerSetting<bool>(true);
+        private readonly LocalPerPlayerSetting<bool> enableTroopHudMiddleClickCameraJump =
+            new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> allowMinimapWhilePlacingBuilding = new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> allowCameraMovementWithModifiers = new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> hdMarketView = new LocalPerPlayerSetting<bool>(true);
@@ -95,6 +97,7 @@ namespace BugfixesAndQoL
                 nameof(EnableEnemyProximityBulldozeCursorFix),
                 nameof(EnableIngameSteamInvitePrompt),
                 nameof(ShowSelectedUnitHealth),
+                nameof(EnableTroopHudMiddleClickCameraJump),
                 nameof(EnableClientFeatures),
                 nameof(AllowMinimapWhilePlacingBuilding),
                 nameof(AllowCameraMovementWithModifiers),
@@ -221,6 +224,10 @@ namespace BugfixesAndQoL
         public string ClearSteamInviteBlacklistHelpText => SerpLocalization.Get("BugfixesAndQoL.ClearSteamInviteBlacklistHelp");
         public string ShowSelectedUnitHealthText => SerpLocalization.Get("BugfixesAndQoL.ShowSelectedUnitHealth");
         public string ShowSelectedUnitHealthHelpText => SerpLocalization.Get("BugfixesAndQoL.ShowSelectedUnitHealthHelp");
+        public string EnableTroopHudMiddleClickCameraJumpText =>
+            SerpLocalization.Get("BugfixesAndQoL.EnableTroopHudMiddleClickCameraJump");
+        public string EnableTroopHudMiddleClickCameraJumpHelpText =>
+            SerpLocalization.Get("BugfixesAndQoL.EnableTroopHudMiddleClickCameraJumpHelp");
         public string EnableAssemblyPointPlacementFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAssemblyPointPlacementFix");
         public string EnableAssemblyPointPlacementFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAssemblyPointPlacementFixHelp");
         public string EnableFairSiegeAmmoRestockText => SerpLocalization.Get("BugfixesAndQoL.EnableFairSiegeAmmoRestock");
@@ -280,6 +287,7 @@ namespace BugfixesAndQoL
         public bool[] EnableEnemyProximityBulldozeCursorFixData => enableEnemyProximityBulldozeCursorFix.Data;
         public bool[] EnableIngameSteamInvitePromptData => enableIngameSteamInvitePrompt.Data;
         public bool[] ShowSelectedUnitHealthData => showSelectedUnitHealth.Data;
+        public bool[] EnableTroopHudMiddleClickCameraJumpData => enableTroopHudMiddleClickCameraJump.Data;
         public bool[] EnableClientFeaturesData => enableClientFeatures.Data;
         public bool[] AllowMinimapWhilePlacingBuildingData => allowMinimapWhilePlacingBuilding.Data;
         public bool[] AllowCameraMovementWithModifiersData => allowCameraMovementWithModifiers.Data;
@@ -354,6 +362,16 @@ namespace BugfixesAndQoL
         {
             get => showSelectedUnitHealth.Value;
             set => SetPlayerSetting(showSelectedUnitHealth, value, nameof(ShowSelectedUnitHealth));
+        }
+
+        [SyncPerPlayer]
+        public bool EnableTroopHudMiddleClickCameraJump
+        {
+            get => enableTroopHudMiddleClickCameraJump.Value;
+            set => SetPlayerSetting(
+                enableTroopHudMiddleClickCameraJump,
+                value,
+                nameof(EnableTroopHudMiddleClickCameraJump));
         }
 
         [SyncPerPlayer]
@@ -782,6 +800,7 @@ namespace BugfixesAndQoL
             EnableEnemyProximityBulldozeCursorFix = true;
             EnableIngameSteamInvitePrompt = true;
             ShowSelectedUnitHealth = true;
+            EnableTroopHudMiddleClickCameraJump = true;
             EnableCustomTrailExtremeGoldFix = true;
             ShowVanillaMapsInEditor = true;
             PreserveDisplayResolution = true;

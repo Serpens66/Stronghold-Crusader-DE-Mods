@@ -4,6 +4,7 @@ namespace EngineerSiegeFix
     {
         public const int CatapultHandlerRva = 0x1520D0;
         public const int TrebuchetHandlerRva = 0x1535F0;
+        public const int ArabBallistaHandlerRva = 0x171C50;
         public const int CatapultStateSixRva = 0x1524FA;
         public const int TrebuchetStateSixRva = 0x153A78;
         public const int SiegeTentTickRva = 0x158690;
@@ -23,6 +24,10 @@ namespace EngineerSiegeFix
         public const string TrebuchetHandlerPattern =
             "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 " +
             "41 54 41 55 41 56 41 57 48 81 EC F0 00 00 00";
+
+        public const string ArabBallistaHandlerPattern =
+            "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 " +
+            "41 54 41 55 41 56 41 57 48 81 EC E0 00 00 00";
 
         public const string CatapultStateSixPattern =
             "8B 84 2B DC 09 00 00 33 05 ?? ?? ?? ?? 83 F0 F8 A8 0F " +

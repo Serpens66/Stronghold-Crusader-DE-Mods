@@ -21,6 +21,13 @@ namespace StockpileAccessFixTest
         internal const int BuildingEntryXOffset = 0xFE;
         internal const int BuildingEntryYOffset = 0x100;
 
+        // 0xC90E0 addresses buildings from the manager base; the publicized span begins 0x388 bytes in.
+        // Accounting for the one-based ID leaves this 0x5C bias between native working and struct offsets.
+        internal const int BuildingManagerArrayBias = 0x5C;
+        internal const int NativeAccessXWorkingOffset = 0x15A;
+        internal const int NativeAccessYWorkingOffset = 0x15C;
+        internal const uint AccessCandidateRejectedTileMask = 0x50501481;
+
         internal const int FletcherHandlerRva = 0x12D230;
         internal const int MillerHandlerRva = 0x1377C0;
         internal const int BakerHandlerRva = 0x138850;

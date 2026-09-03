@@ -24,6 +24,9 @@
     <Compile Include="..\..\EngineerSiegeFix\src\EngineerHandoffDiagnosticPolicy.cs">
       <Link>EngineerHandoffDiagnosticPolicy.cs</Link>
     </Compile>
+    <Compile Include="..\..\EngineerSiegeFix\src\EngineerHandoffRepairPolicy.cs">
+      <Link>EngineerHandoffRepairPolicy.cs</Link>
+    </Compile>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

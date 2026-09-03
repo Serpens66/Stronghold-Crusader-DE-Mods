@@ -22,6 +22,7 @@ namespace BugfixesAndQoL
         private readonly MultiplayerGameSpeedRuntime multiplayerGameSpeedRuntime;
         private readonly MultiplayerAivSyncRuntime multiplayerAivSyncRuntime;
         private readonly SiegeAmmoRestockFeature siegeAmmoRestockFeature;
+        private readonly TroopHudMiddleClickCameraFeature troopHudMiddleClickCameraFeature;
         private IDisposable playerMarketSubscription;
         private IDisposable mapStartSubscription;
         private IDisposable mapLoadSubscription;
@@ -92,6 +93,7 @@ namespace BugfixesAndQoL
             multiplayerGameSpeedRuntime = new MultiplayerGameSpeedRuntime(log, settings, multiplayerFeatureGate);
             multiplayerAivSyncRuntime = new MultiplayerAivSyncRuntime(log, settings);
             siegeAmmoRestockFeature = new SiegeAmmoRestockFeature(log, settings, multiplayerFeatureGate);
+            troopHudMiddleClickCameraFeature = new TroopHudMiddleClickCameraFeature(log, settings);
             InitializeMovedFeatures();
             settings.SettingChanged += OnSettingChanged;
             settingsSubscribed = true;

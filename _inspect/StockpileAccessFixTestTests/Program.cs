@@ -61,6 +61,28 @@ internal static class Program
 
         Check(StockpileAccessFixNativeDefinition.MoveHereRva == 0x196280, "audited MoveHere RVA");
         Check(StockpileAccessFixNativeDefinition.RevalidateBuildingAccessRva == 0xC90E0, "audited access helper RVA");
+        Check(
+            StockpileAccessFixNativeDefinition.NativeAccessXWorkingOffset -
+            StockpileAccessFixNativeDefinition.BuildingManagerArrayBias ==
+            StockpileAccessFixNativeDefinition.BuildingEntryXOffset,
+            "native working X offset maps to publicized building entry X");
+        Check(
+            StockpileAccessFixNativeDefinition.NativeAccessYWorkingOffset -
+            StockpileAccessFixNativeDefinition.BuildingManagerArrayBias ==
+            StockpileAccessFixNativeDefinition.BuildingEntryYOffset,
+            "native working Y offset maps to publicized building entry Y");
+        Check(
+            (StockpileAccessFixNativeDefinition.AccessCandidateRejectedTileMask &
+                unchecked((uint)TilePropertyFlag.IsBuilding)) != 0,
+            "native access selection rejects building-occupied tiles");
+        Check(
+            (unchecked((uint)TilePropertyFlag.Goodsyard) &
+                StockpileAccessFixNativeDefinition.AccessCandidateRejectedTileMask) != 0,
+            "occupied stockpile tile cannot be a normal access candidate");
+        Check(
+            (unchecked((uint)TilePropertyFlag.GoodsyardConnection) &
+                StockpileAccessFixNativeDefinition.AccessCandidateRejectedTileMask) == 0,
+            "passable stockpile connection can remain a native access candidate");
     }
 
     private static void CheckManagedLayouts()
@@ -193,14 +215,23 @@ internal static class Program
         string info = File.ReadAllText(Path.Combine(mod, "info.json"));
 
         Check(plugin.Contains("requireCurrentVersion: true"), "native hash mismatch fails closed");
-        Check(plugin.Contains("runtime.ProcessAutomaticTestTrigger()"), "test trigger runs automatically");
+        Check(runtime.Contains("latestSimulationTick = tick;") &&
+            runtime.IndexOf("ProcessAutomaticTestTrigger();", StringComparison.Ordinal) <
+            runtime.IndexOf("ScanWorkers(tick);", StringComparison.Ordinal),
+            "test trigger runs automatically before the next simulation scan");
+        Check(!plugin.Contains("private void Update()"),
+            "automatic trigger does not depend on an unobserved Unity Update callback");
         Check(!plugin.Contains("Input.GetKey") && !plugin.Contains("KeyCode."), "test trigger requires no hotkey");
         Check(runtime.Contains("RevalidateBuildingAccessDelegate"), "vanilla access helper is used");
         Check(runtime.Contains("GameUnitManagerAPI.Instance.MoveToTile"), "movement uses Script Extender API");
         Check(runtime.Contains("GameBuildingManagerAPI.Instance.CreatePrefab") &&
             runtime.Contains("eMappers.MAPPER_WOODWALL"), "test trigger uses a real Vanilla wood-wall prefab");
-        Check(runtime.Contains("GamePlayerManagerAPI.Instance.GetLocalPlayerId"),
-            "test trigger arms only for the local player's worker");
+        Check(!runtime.Contains("GamePlayerManagerAPI.Instance.GetLocalPlayerId"),
+            "automatic trigger can use naturally suitable non-local workers");
+        Check(!runtime.Contains("r_NextTilePositionX2") && !runtime.Contains("r_NextTilePositionY2"),
+            "automatic trigger never substitutes a route tile for the cached access");
+        Check(runtime.Contains("cached access is not a free external tile; exact reproduction skipped"),
+            "automatic trigger fails closed when the cached access is not external free land");
         Check(runtime.Contains("GameBuildingManagerAPI.Instance.DeleteBuildingSafe"), "test blocker has safe cleanup");
         Check(!runtime.Contains("SetTilePropertyFlag") && !runtime.Contains("SetTileBuildingId"),
             "test trigger does not mutate tile grids directly");
@@ -238,14 +269,16 @@ internal static class Program
             Check(runtime.Contains(marker), marker + " test-trigger logging contract");
         }
 
-        Check(StockpileAccessFixTestRuntime.IsSafeExternalBlockerTile(TilePropertyFlag.Free, 0),
+        Check(StockpileAccessFixTestRuntime.IsSafeExternalBlockerTile(TilePropertyFlag.Free, 0, 0),
             "free external land accepts a test blocker");
-        Check(StockpileAccessFixTestRuntime.IsSafeExternalBlockerTile(TilePropertyFlag.None, 0),
+        Check(StockpileAccessFixTestRuntime.IsSafeExternalBlockerTile(TilePropertyFlag.None, 0, 0),
             "plain zero-property terrain accepts a test blocker");
-        Check(!StockpileAccessFixTestRuntime.IsSafeExternalBlockerTile(TilePropertyFlag.GoodsyardConnection, 0),
+        Check(!StockpileAccessFixTestRuntime.IsSafeExternalBlockerTile(TilePropertyFlag.GoodsyardConnection, 0, 0),
             "stockpile connection tile is protected from test blocker");
-        Check(!StockpileAccessFixTestRuntime.IsSafeExternalBlockerTile(TilePropertyFlag.Free, 7),
+        Check(!StockpileAccessFixTestRuntime.IsSafeExternalBlockerTile(TilePropertyFlag.Free, 7, 0),
             "occupied tile is protected from test blocker");
+        Check(!StockpileAccessFixTestRuntime.IsSafeExternalBlockerTile(TilePropertyFlag.Free, 0, 7),
+            "unit-occupied tile is protected from test blocker");
     }
 
     private static void AssertFreshFiftyAfterInterruption(

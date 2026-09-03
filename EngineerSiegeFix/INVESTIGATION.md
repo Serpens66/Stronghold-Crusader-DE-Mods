@@ -2,7 +2,7 @@
 
 ## Scope and symptom
 
-The reported Vanilla defect occurs rarely after engineers finish constructing a siege engine in a siege tent. The resulting catapult or trebuchet is fully crewed and usable, but two of the original engineers can remain as idle free units.
+The reported Vanilla defect occurs rarely after engineers finish constructing a siege engine in a siege tent. The resulting device is fully crewed and usable, but the original engineers can remain as idle free units. Besides catapult and trebuchet reports, the user reports video evidence of the same duplication on an Arab ballista, which uses two engineers.
 
 This standalone test mod exists to identify and validate the native handoff before any fix is integrated into `BugfixesAndQoL`.
 
@@ -14,12 +14,15 @@ This standalone test mod exists to identify and validate the native handoff befo
 
 ## Confirmed native semantics
 
-The baseline contains two large state functions with explicit siege-engine crew logic:
+The baseline contains three state functions with explicit siege-engine crew logic:
 
 - `FUN_1801520D0`, RVA `0x1520D0`: catapult state function.
 - `FUN_1801535F0`, RVA `0x1535F0`: trebuchet state function.
+- `FUN_180171C50`, RVA `0x171C50`: Arab-ballista state function, selected by unit-handler table entry `0x4D`.
 
-Their state-6 branches validate an existing crew, apply a 16-phase tick throttle, search engineers and then write the crew IDs/global IDs. The catapult branch requires two engineers and the trebuchet branch requires three. Both write engineer consume state `0x0005006D`, fade value `0x0200`, command `3`, clear selection/group membership and finally set the device state to ready.
+The catapult and trebuchet state-6 branches validate an existing crew, apply a 16-phase tick throttle, search engineers and then write the crew IDs/global IDs. Catapult and Arab ballista require two engineers; the trebuchet requires three. All three handlers contain an existing-crew recovery block that clears the work field, writes packed engineer state `0x0005006D`, writes visual transition value `0x0200`, and clears the transition counter in that exact order.
+
+The exact canonical recovery blocks begin at RVA `0x15249A` (catapult), `0x1539DB` (trebuchet), and `0x172156` (Arab ballista). These byte sequences and the type-to-handler table entries are covered by static tests. An earlier tentative association of RVA `0x1547F0` with the Arab ballista was wrong; that address belongs to another two-engineer handler and must not be used to identify type `0x4D`.
 
 This proves what these functions do. It does not by itself prove that normal human siege-tent completion executes these branches.
 
@@ -208,19 +211,31 @@ The device-side crew ID/global-ID pairs are now the strongest observed identity 
 
 ## Automatic verdict and safe fault-model validation
 
-The next diagnostic build converts the confirmed trace into an automatic, bounded verdict for catapults and trebuchets. It remains observation-only and installs no native hook:
+The next diagnostic build converts the confirmed trace into an automatic, bounded verdict for catapults, trebuchets and Arab ballistas. It installs no native hook:
 
-1. A tracker starts when a catapult or trebuchet first appears with its device-side crew ID/global-ID fields.
+1. A tracker starts when a catapult, trebuchet or Arab ballista first appears with its device-side crew ID/global-ID fields.
 2. Device unit ID, device global ID, required crew count and every ordered crew ID/global-ID pair are frozen as the expected handoff identity.
 3. On every `GameTimeManagerAPI.OnTick`, the tracker rejects a missing/reused device slot, changed or duplicate crew identity, missing/reused engineer slot, wrong owner/type/alive state, or a referenced engineer whose packed main state is not the observed bound state 5.
 4. A ready device with any such violation emits `SIEGE_HANDOFF_FAILED` immediately. A stable ready device emits `SIEGE_HANDOFF_PASSED` after 256 ticks. A removed or reused device identity emits `SIEGE_HANDOFF_INCONCLUSIVE` rather than a false failure.
 5. Each real tracker also runs the same pure verdict policy against two shadow inputs: the valid bound-crew model must pass at the timeout, while a copy with one referenced engineer modeled as idle must fail. The result is logged as `SIEGE_HANDOFF_DETECTOR_SELF_TEST` with `faultInjection=shadow-only,no-game-state-write`.
 
-The shadow injection deliberately does not modify the game. It proves that the detector used to judge a future corrective build can distinguish the confirmed normal invariant from the reported duplicate/idle failure model. It does not by itself prove that a correction is active; the runtime continues to report `correctionActive=false` until a separately audited corrective transition is implemented.
+The original shadow injection deliberately did not modify the game. It proved that the verdict policy distinguishes the confirmed normal invariant from the reported duplicate/idle failure model, but it could not prove the memory-write recovery path.
+
+## Active fail-closed recovery and controlled live proof
+
+The current build adds a bounded correction and a controlled live postcondition test for all three confirmed types. It still uses only the lifecycle-safe `GameTimeManagerAPI.OnTick` observer and installs zero native hooks.
+
+For a naturally occurring defect, recovery is considered only after the full 256-tick observation window. The device must still have the same unit/global identity, live state, type and owner, and exactly the frozen unique crew ID/global-ID pairs. Every repair target must be the exact live engineer identity referenced by the device, owned by the same player, in main state 0, and within 32 world-coordinate units on both axes. All device and engineer reads are repeated before the first write. Any mismatch causes no write.
+
+The recovery reproduces only the four writes in Vanilla's existing-crew block, in native order: work `0`, packed state `0x0005006D`, visual `0x0200`, counter `0`. It does not call a native helper and does not synthesize crew IDs. Afterward the exact device and crew identities must progress through recovery main state `0x6D` to the observed bound main state `5` and remain stable for a further 256 ticks. Failures are explicit and bounded.
+
+Because the natural bug is rare, the first normally passed device of each supported type receives one controlled live proof. One already bound referenced engineer is changed only to the reported idle postcondition, the normal detector must classify that condition as failure, and the same recovery path repairs it within the same tick callback before Vanilla can process an idle frame. The original four fields are restored if any precondition or write verification fails. Successful evidence is the ordered marker chain `SIEGE_HANDOFF_PASSED`, `SIEGE_CONTROLLED_FAULT_INJECTED`, `SIEGE_REPAIR_APPLIED`, `SIEGE_REPAIR_REBOUND`, and `SIEGE_REPAIR_VERIFICATION_PASSED` for type `0x27`, `0x28`, and `0x4D`.
+
+This proves that the detector and actual game-memory correction work against the documented failed postcondition without waiting for the rare timing defect. It does not reproduce or prove the exact original timing race. Other siege types remain read-only snapshot observations because their construction and crew contracts have not been established as equivalent.
 
 ## Acceptance criteria for a future fix
 
-A fix is not considered validated until logs from normal catapult and trebuchet construction show:
+A fix is not considered validated until logs from normal catapult, trebuchet and Arab-ballista construction show:
 
 1. The relevant callback is reached for both device types.
 2. The device ID/global ID remains stable across the handoff.
@@ -229,3 +244,4 @@ A fix is not considered validated until logs from normal catapult and trebuchet 
 5. Every referenced engineer reaches the confirmed bound state without becoming a visible, controllable or idle free engineer; remaining `alive=2` in the native slot is normal and must not be treated as duplication by itself.
 6. Device crew IDs and global IDs continue to match the same engineer identities, with no reused or stale slot accepted.
 7. No failure, inconclusive result or correction-disabled marker occurs.
+8. For each of types `0x27`, `0x28`, and `0x4D`, the controlled live-proof marker chain completes through `SIEGE_REPAIR_VERIFICATION_PASSED` without exposing an idle engineer to a Vanilla tick.

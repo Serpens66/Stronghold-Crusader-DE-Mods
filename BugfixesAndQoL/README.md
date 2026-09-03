@@ -102,6 +102,9 @@ Incoming invitations can appear as a Yes/No prompt only after Steam confirms tha
 ### Move the camera while holding Ctrl or Alt
 Keyboard scrolling and edge scrolling continue to move the camera while Ctrl or Alt is held. This prevents modifier keys used for other controls from unnecessarily locking camera movement.
 
+### Jump to selected troops from the troop HUD
+Middle-clicking a selected troop-type icon centers the camera on one selected unit of that type. Normal left-click selection filtering and right-click removal remain unchanged.
+
 ### Improve custom-lord and random-opponent selection
 The custom-lord picker gains name search, sortable Name, Lord Power, and Steam Workshop origin columns, and a button that adds a random lord from the currently visible list. Random-opponent dialogs can independently use Vanilla, local, or Steam Workshop lords. Random-AI count buttons are also available in editable multiplayer skirmish lobbies and respect the lobby, map, and human-player limits. A host setting enabled by default can fill every available normal multiplayer slot with AI.
 

@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.121",
+  "Version": "1.0.122",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.122",
+      "Changes": [
+        "Added a default-enabled per-player option that centers the camera on a selected unit when its troop-type icon is middle-clicked in the troop HUD."
+      ]
+    },
     {
       "Version": "1.0.121",
       "Changes": [

@@ -223,6 +223,7 @@ namespace MoveMoatTest
         private const int NativeUnitPathBufferStride = 1000;
         private const int VanillaAttackFloodResultCapacity = 500;
         private const int DiagnosticStallTickThreshold = 100;
+        private const int WeightedPublicationSafetyMarginTicks = 40;
         private const int BuildingCandidateApproachTileOffset = 0x00;
         private const int BuildingCandidateFootprintTileOffset = 0x04;
         private const int BuildingCandidateScoreOffset = 0x08;
@@ -367,6 +368,7 @@ namespace MoveMoatTest
         private readonly IntPtr nativePathManager;
         private readonly IntPtr nativeTribeManager;
         private readonly WeightedMoatRoutePlanner weightedMoatRoutePlanner;
+        private readonly NativeMovementCadenceResolver nativeMovementCadenceResolver;
 
         [ThreadStatic]
         private static MoveCommandScope activeMoveCommand;
@@ -485,6 +487,8 @@ namespace MoveMoatTest
         private readonly HashSet<string> loggedDiggerDecisions =
             new HashSet<string>(StringComparer.Ordinal);
         private readonly Dictionary<int, string> lastWeightedShadowDecisionByUnit =
+            new Dictionary<int, string>();
+        private readonly Dictionary<int, string> lastWeightedPublicationDecisionByUnit =
             new Dictionary<int, string>();
         private int attackCommandSequence;
         private bool callbackFailureReported;
@@ -731,6 +735,11 @@ namespace MoveMoatTest
                 nativeMovementMasks,
                 nativeDirectionMasks,
                 IsFriendlyCompletedMoatForWeightedShadow);
+            nativeMovementCadenceResolver = new NativeMovementCadenceResolver(
+                memory,
+                libraryBase,
+                unchecked((ulong)nativeUnitManager),
+                log);
             rootedCentralMovementPlan = RunCentralMovementPlanWithContext;
             rootedPathBuilder = BuildPathWithCompletedMoatRouteVariant;
             rootedTribeFloodFillMembership = AllowTribeFloodFillForMoveOrder;
@@ -1778,6 +1787,11 @@ namespace MoveMoatTest
             tracker.NativeEstimatedTicks = nativeSummary.EstimatedTicks;
             tracker.ShadowEstimatedTicks = shadow.Candidate.EstimatedTicks;
             tracker.ShadowDecision = decision;
+            tracker.WeightedPathPublished = string.Equals(
+                decision, "weighted-path-published", StringComparison.Ordinal);
+            tracker.PublishedRouteSummary = tracker.WeightedPathPublished
+                ? shadow.Candidate
+                : nativeSummary;
             tracker.RuntimeCadenceCaptured = false;
             tracker.RuntimeCadenceChanged = false;
             tracker.RuntimeCadenceRebased = false;
@@ -1788,10 +1802,11 @@ namespace MoveMoatTest
             tracker.RuntimeShadowDecision = null;
             tracker.LastRuntimeCadenceRejection = null;
             tracker.Calibratable = shadow.Calibratable && nativeValid && shadow.CandidateFound;
-            tracker.ShadowMatchesPublishedCostProfile = nativeValid && shadow.CandidateFound &&
-                nativeSummary.RouteLength == shadow.Candidate.RouteLength &&
-                nativeSummary.GroundEdges == shadow.Candidate.GroundEdges &&
-                nativeSummary.MoatEdges == shadow.Candidate.MoatEdges;
+            tracker.ShadowMatchesPublishedCostProfile = shadow.CandidateFound &&
+                (tracker.WeightedPathPublished ||
+                 nativeValid && nativeSummary.RouteLength == shadow.Candidate.RouteLength &&
+                 nativeSummary.GroundEdges == shadow.Candidate.GroundEdges &&
+                 nativeSummary.MoatEdges == shadow.Candidate.MoatEdges);
             tracker.CalibrationReason = tracker.Calibratable
                 ? "isolated-unretargeted"
                 : "group-or-route-unvalidated";
@@ -2056,6 +2071,25 @@ namespace MoveMoatTest
                     return;
                 }
 
+                if (tracker.TileTransitionCount <= 1 && !tracker.RuntimeCadenceChanged &&
+                    tracker.RuntimeCostProfile.SpeedBonus == 0 &&
+                    runtimeProfile.SpeedBonus > 0 &&
+                    tracker.RuntimeCostProfile.HasSameBaseCadenceExceptSpeedBonus(runtimeProfile))
+                {
+                    WeightedMovementCostProfile previousProfile = tracker.RuntimeCostProfile;
+                    tracker.RuntimeCostProfile = runtimeProfile;
+                    tracker.RuntimeCadenceRebased = true;
+                    Shared.DebugLogHelper.LogInfo(
+                        log,
+                        $"MoveMoat stage=weighted-shadow-runtime-rebase unit={tracker.UnitId} " +
+                        $"tick={tick} kind=late-handler-speed-bonus " +
+                        $"previous={FormatCostProfile(previousProfile)} " +
+                        $"current={FormatCostProfile(runtimeProfile)}.");
+                    CalculateAndLogRuntimeCadenceShadow(
+                        tick, tracker, runtimeProfile, "late-handler-speed-bonus");
+                    return;
+                }
+
                 if (!tracker.RuntimeCadenceChanged)
                 {
                     tracker.RuntimeCadenceChanged = true;
@@ -2142,15 +2176,18 @@ namespace MoveMoatTest
             }
 
             tracker.RuntimeNativeEstimatedTicks = runtimeNativeTicks;
-            tracker.RuntimeShadowEstimatedTicks = found
-                ? runtimeCandidate.EstimatedTicks
-                : long.MaxValue;
+            tracker.RuntimeShadowEstimatedTicks = tracker.WeightedPathPublished
+                ? runtimeProfile.EstimateRouteTicks(
+                    tracker.PublishedRouteSummary.GroundEdges,
+                    tracker.PublishedRouteSummary.MoatEdges)
+                : found ? runtimeCandidate.EstimatedTicks : long.MaxValue;
             tracker.RuntimeShadowDecision = decision;
             tracker.RuntimeShadowMatchesPublishedCostProfile =
-                found && tracker.NativeRouteValid &&
-                tracker.NativeRouteSummary.RouteLength == runtimeCandidate.RouteLength &&
-                tracker.NativeRouteSummary.GroundEdges == runtimeCandidate.GroundEdges &&
-                tracker.NativeRouteSummary.MoatEdges == runtimeCandidate.MoatEdges;
+                (tracker.WeightedPathPublished && tracker.PublishedRouteSummary.Found) ||
+                (found && tracker.NativeRouteValid &&
+                 tracker.NativeRouteSummary.RouteLength == runtimeCandidate.RouteLength &&
+                 tracker.NativeRouteSummary.GroundEdges == runtimeCandidate.GroundEdges &&
+                 tracker.NativeRouteSummary.MoatEdges == runtimeCandidate.MoatEdges);
 
             long saving = found && runtimeNativeTicks != long.MaxValue
                 ? runtimeNativeTicks - runtimeCandidate.EstimatedTicks
@@ -2180,6 +2217,8 @@ namespace MoveMoatTest
                 $"shadowDirectionChanges={runtimeCandidate.DirectionChanges} " +
                 $"shadowFingerprint=0x{runtimeCandidate.RouteFingerprint:X16} " +
                 $"shadowTicks={(found ? runtimeCandidate.EstimatedTicks.ToString() : "n/a")} " +
+                $"publishedWeighted={tracker.WeightedPathPublished} " +
+                $"publishedTicks={(tracker.RuntimeShadowEstimatedTicks == long.MaxValue ? "n/a" : tracker.RuntimeShadowEstimatedTicks.ToString())} " +
                 $"savingTicks={saving} searchMs={runtimeCandidate.SearchMilliseconds:F3} " +
                 $"expanded={runtimeCandidate.ExpandedNodes}.");
         }
@@ -2289,7 +2328,12 @@ namespace MoveMoatTest
             bool actualMatchesNativeFingerprint = tracker.NativeRouteValid &&
                 tracker.TileTransitionCount == tracker.NativeRouteSummary.RouteLength &&
                 tracker.ActualRouteFingerprint == tracker.NativeRouteSummary.RouteFingerprint;
-            long nativeCalibrationDelta = tracker.Calibratable && actualTicks >= 0 &&
+            bool actualMatchesPublishedFingerprint =
+                tracker.PublishedRouteSummary.Found &&
+                tracker.TileTransitionCount == tracker.PublishedRouteSummary.RouteLength &&
+                tracker.ActualRouteFingerprint == tracker.PublishedRouteSummary.RouteFingerprint;
+            long nativeCalibrationDelta = tracker.Calibratable &&
+                !tracker.WeightedPathPublished && actualTicks >= 0 &&
                 tracker.NativeEstimatedTicks > 0
                     ? actualTicks - tracker.NativeEstimatedTicks
                     : long.MinValue;
@@ -2347,6 +2391,8 @@ namespace MoveMoatTest
                 $"actualFingerprint=0x{tracker.ActualRouteFingerprint:X16} " +
                 $"nativeFingerprint=0x{tracker.NativeRouteSummary.RouteFingerprint:X16} " +
                 $"actualMatchesNativeFingerprint={actualMatchesNativeFingerprint} " +
+                $"publishedFingerprint=0x{tracker.PublishedRouteSummary.RouteFingerprint:X16} " +
+                $"actualMatchesPublishedFingerprint={actualMatchesPublishedFingerprint} " +
                 $"firstTransitionWaitTicks={firstTransitionWaitTicks} " +
                 $"firstTransitionTimingUnavailable={tracker.FirstTransitionTimingUnavailable} " +
                 $"finalSettleTicks={finalSettleTicks} " +
@@ -2868,6 +2914,15 @@ namespace MoveMoatTest
                 completedMoat,
                 out profile,
                 out rejectionReason);
+            if (valid && !completedMoat && moatPhase == 0 &&
+                currentSpeed2 - currentSpeed == 3)
+            {
+                // 0x19B260 keeps the +3 moat-exit delay for the update in which the
+                // phase has already decayed to zero. A single snapshot cannot safely
+                // distinguish that residual from another transient +3 adjustment.
+                rejectionReason = "ambiguous-moat-exit-residual";
+                return false;
+            }
             if (valid && !completedMoat && moatPhase != 0 &&
                 (tileFlags[tileId] & AlternativeTerrainDelayTileFlag) != 0)
             {
@@ -3079,13 +3134,41 @@ namespace MoveMoatTest
                         : "native-not-slower";
                 }
 
+                int effectiveBuilderResult = builderResult;
+                if (builderResult > 0 && nativeValid && publishedToUnit &&
+                    TryPublishConservativelyFasterWeightedRoute(
+                        pathManager,
+                        nativePath,
+                        nativeLength,
+                        shadow,
+                        out WeightedMoatRouteSummary publishedSummary,
+                        out long guaranteedSaving,
+                        out string cadenceProfiles,
+                        out string publicationDetails))
+                {
+                    effectiveBuilderResult = shadow.PublishedBuilderResult;
+                    shadow = shadow.WithCandidate(true, publishedSummary);
+                    decision = "weighted-path-published";
+                    reason = "faster-by-conservative-margin";
+                    LogWeightedPublicationDecision(
+                        shadow.UnitId,
+                        $"MoveMoat stage=weighted-path-published unit={shadow.UnitId} " +
+                        $"type={shadow.UnitType} handlerProfiles={cadenceProfiles} " +
+                        $"length={publishedSummary.RouteLength} ground={publishedSummary.GroundEdges} " +
+                        $"moat={publishedSummary.MoatEdges} diagonal={publishedSummary.DiagonalEdges} " +
+                        $"fingerprint=0x{publishedSummary.RouteFingerprint:X16} " +
+                        $"guaranteedSavingTicks={guaranteedSaving} " +
+                        $"profileCosts={publicationDetails} " +
+                        $"roundtrip=True pathBuffer=unit.");
+                }
+
                 LogWeightedShadowDecision(
-                    shadow, builderResult, nativeSummary, nativeValid,
+                    shadow, effectiveBuilderResult, nativeSummary, nativeValid,
                     publishedToUnit, decision, reason);
-                if (builderResult > 0 && publishedToUnit)
+                if (effectiveBuilderResult > 0 && publishedToUnit)
                 {
                     StartOrRefreshWeightedShadowTracker(
-                        shadow, builderResult, nativeValid ? nativeSummary : default,
+                        shadow, effectiveBuilderResult, nativeValid ? nativeSummary : default,
                         nativeValid, decision);
                 }
                 return true;
@@ -3095,6 +3178,279 @@ namespace MoveMoatTest
                 TryLogDiagnosticFailure("weighted-shadow-result", ex);
                 return true;
             }
+        }
+
+        private bool TryPublishConservativelyFasterWeightedRoute(
+            IntPtr pathManager,
+            byte* nativePath,
+            int nativeLength,
+            WeightedShadowScope shadow,
+            out WeightedMoatRouteSummary publishedSummary,
+            out long guaranteedSaving,
+            out string cadenceProfiles,
+            out string rejectionReason)
+        {
+            publishedSummary = default;
+            guaranteedSaving = long.MinValue;
+            cadenceProfiles = "none";
+            rejectionReason = "publication-not-evaluated";
+            if (weightedShadowBusy || pathManager == IntPtr.Zero || nativePath == null ||
+                nativeLength <= 0 || nativeLength > WeightedMoatRoutePlanner.MaximumRouteEdges)
+            {
+                rejectionReason = "invalid-publication-buffer";
+                return false;
+            }
+
+            if (!nativeMovementCadenceResolver.TryGetPlausibleSpeedBonuses(
+                    (int)shadow.UnitType,
+                    shadow.CostProfile.SpeedBonus,
+                    out int[] speedBonuses,
+                    out ulong handlerRva,
+                    out rejectionReason))
+            {
+                LogWeightedPublicationDecision(
+                    shadow.UnitId,
+                    $"MoveMoat stage=weighted-path-not-published unit={shadow.UnitId} " +
+                    $"type={shadow.UnitType} reason={rejectionReason}.");
+                return false;
+            }
+
+            cadenceProfiles = $"rva-0x{handlerRva:X}:bonus-[{string.Join(",", speedBonuses)}]";
+            var profiles = new List<WeightedMovementCostProfile>(speedBonuses.Length);
+            foreach (int speedBonus in speedBonuses)
+            {
+                if (!shadow.CostProfile.TryWithSpeedBonus(
+                        speedBonus, out WeightedMovementCostProfile profile,
+                        out rejectionReason))
+                {
+                    return false;
+                }
+                profiles.Add(profile);
+            }
+
+            var candidates = new List<WeightedPublicationCandidate>(profiles.Count);
+            weightedShadowBusy = true;
+            try
+            {
+                foreach (WeightedMovementCostProfile profile in profiles)
+                {
+                    if (!weightedMoatRoutePlanner.TryBuildEncoded(
+                            shadow.PlayerId,
+                            shadow.StartX,
+                            shadow.StartY,
+                            shadow.TargetX,
+                            shadow.TargetY,
+                            profile,
+                            shadow.AllowReservedTarget,
+                            out WeightedMoatRouteSummary candidateSummary,
+                            out WeightedMoatEncodedRoute encodedRoute) ||
+                        !encodedRoute.IsValid || candidateSummary.MoatEdges <= 0)
+                    {
+                        continue;
+                    }
+
+                    bool duplicate = false;
+                    foreach (WeightedPublicationCandidate existing in candidates)
+                    {
+                        if (existing.Summary.RouteLength == candidateSummary.RouteLength &&
+                            existing.Summary.RouteFingerprint == candidateSummary.RouteFingerprint &&
+                            RoutesEqual(existing.Route, encodedRoute))
+                        {
+                            duplicate = true;
+                            break;
+                        }
+                    }
+                    if (!duplicate)
+                        candidates.Add(new WeightedPublicationCandidate(encodedRoute, candidateSummary));
+                }
+
+                WeightedPublicationCandidate winner = null;
+                foreach (WeightedPublicationCandidate candidate in candidates)
+                {
+                    long minimumSaving = long.MaxValue;
+                    long maximumCandidateTicks = 0;
+                    bool validForEveryProfile = true;
+                    fixed (byte* candidatePath = candidate.Route.Bytes)
+                    {
+                        foreach (WeightedMovementCostProfile profile in profiles)
+                        {
+                            if (!weightedMoatRoutePlanner.TryDescribeEncodedPath(
+                                    shadow.PlayerId,
+                                    shadow.StartX,
+                                    shadow.StartY,
+                                    shadow.TargetX,
+                                    shadow.TargetY,
+                                    profile,
+                                    nativePath,
+                                    nativeLength,
+                                    shadow.AllowReservedTarget,
+                                    out WeightedMoatRouteSummary nativeProfileSummary) ||
+                                !weightedMoatRoutePlanner.TryDescribeEncodedPath(
+                                    shadow.PlayerId,
+                                    shadow.StartX,
+                                    shadow.StartY,
+                                    shadow.TargetX,
+                                    shadow.TargetY,
+                                    profile,
+                                    candidatePath,
+                                    candidate.Route.DirectionCount,
+                                    shadow.AllowReservedTarget,
+                                    out WeightedMoatRouteSummary candidateProfileSummary))
+                            {
+                                validForEveryProfile = false;
+                                break;
+                            }
+
+                            long saving = nativeProfileSummary.EstimatedTicks -
+                                candidateProfileSummary.EstimatedTicks;
+                            candidate.ProfileCosts.Add(
+                                $"b{profile.SpeedBonus}:n{nativeProfileSummary.EstimatedTicks}:" +
+                                $"c{candidateProfileSummary.EstimatedTicks}:s{saving}");
+                            if (saving < WeightedPublicationSafetyMarginTicks)
+                            {
+                                validForEveryProfile = false;
+                                break;
+                            }
+                            minimumSaving = Math.Min(minimumSaving, saving);
+                            maximumCandidateTicks = Math.Max(
+                                maximumCandidateTicks, candidateProfileSummary.EstimatedTicks);
+                        }
+                    }
+
+                    if (!validForEveryProfile)
+                        continue;
+                    candidate.MinimumSaving = minimumSaving;
+                    candidate.MaximumEstimatedTicks = maximumCandidateTicks;
+                    if (winner == null || IsBetterPublicationCandidate(candidate, winner))
+                        winner = candidate;
+                }
+
+                if (winner == null)
+                {
+                    rejectionReason = candidates.Count == 0
+                        ? "no-friendly-moat-candidate"
+                        : "not-faster-under-all-cadence-profiles";
+                    LogWeightedPublicationDecision(
+                        shadow.UnitId,
+                        $"MoveMoat stage=weighted-path-not-published unit={shadow.UnitId} " +
+                        $"type={shadow.UnitType} handlerProfiles={cadenceProfiles} " +
+                        $"candidates={candidates.Count} reason={rejectionReason}.");
+                    return false;
+                }
+
+                byte* manager = (byte*)pathManager.ToPointer();
+                int newByteCount = winner.Route.Bytes.Length;
+                int oldByteCount = (nativeLength + 1) >> 1;
+                int affectedByteCount = Math.Max(newByteCount, oldByteCount);
+                if (affectedByteCount > NativeUnitPathBufferStride)
+                {
+                    rejectionReason = "publication-buffer-overflow";
+                    return false;
+                }
+
+                byte[] backup = new byte[affectedByteCount];
+                Marshal.Copy((IntPtr)nativePath, backup, 0, affectedByteCount);
+                int originalLength = *(int*)(manager + PathManagerOutputLengthOffset);
+                try
+                {
+                    for (int index = 0; index < affectedByteCount; index++)
+                        nativePath[index] = index < newByteCount ? winner.Route.Bytes[index] : (byte)0;
+                    *(int*)(manager + PathManagerOutputLengthOffset) = winner.Route.DirectionCount;
+
+                    if (!weightedMoatRoutePlanner.TryDescribeEncodedPath(
+                            shadow.PlayerId,
+                            shadow.StartX,
+                            shadow.StartY,
+                            shadow.TargetX,
+                            shadow.TargetY,
+                            profiles[0],
+                            nativePath,
+                            winner.Route.DirectionCount,
+                            shadow.AllowReservedTarget,
+                            out WeightedMoatRouteSummary roundtrip) ||
+                        roundtrip.RouteFingerprint != winner.Summary.RouteFingerprint)
+                    {
+                        throw new InvalidOperationException(
+                            "The published weighted path failed its final roundtrip validation.");
+                    }
+                    for (int index = 0; index < newByteCount; index++)
+                    {
+                        if (nativePath[index] != winner.Route.Bytes[index])
+                        {
+                            throw new InvalidOperationException(
+                                "The published weighted path differs from its encoded source.");
+                        }
+                    }
+                }
+                catch
+                {
+                    Marshal.Copy(backup, 0, (IntPtr)nativePath, affectedByteCount);
+                    *(int*)(manager + PathManagerOutputLengthOffset) = originalLength;
+                    throw;
+                }
+
+                shadow.PublishedBuilderResult = winner.Route.DirectionCount;
+                publishedSummary = winner.Summary;
+                guaranteedSaving = winner.MinimumSaving;
+                rejectionReason = string.Join("|", winner.ProfileCosts);
+                return true;
+            }
+            finally
+            {
+                weightedShadowBusy = false;
+            }
+        }
+
+        private static bool IsBetterPublicationCandidate(
+            WeightedPublicationCandidate candidate,
+            WeightedPublicationCandidate current)
+        {
+            if (candidate.MaximumEstimatedTicks != current.MaximumEstimatedTicks)
+                return candidate.MaximumEstimatedTicks < current.MaximumEstimatedTicks;
+            if (candidate.Summary.MoatEdges != current.Summary.MoatEdges)
+                return candidate.Summary.MoatEdges < current.Summary.MoatEdges;
+            if (candidate.Summary.RouteLength != current.Summary.RouteLength)
+                return candidate.Summary.RouteLength < current.Summary.RouteLength;
+            for (int index = 0; index < candidate.Route.DirectionCount; index++)
+            {
+                int candidateDirection =
+                    (candidate.Route.Bytes[index >> 1] >> ((index & 1) * 4)) & 0x0F;
+                int currentDirection =
+                    (current.Route.Bytes[index >> 1] >> ((index & 1) * 4)) & 0x0F;
+                if (candidateDirection != currentDirection)
+                    return candidateDirection < currentDirection;
+            }
+            return false;
+        }
+
+        private static bool RoutesEqual(
+            WeightedMoatEncodedRoute left,
+            WeightedMoatEncodedRoute right)
+        {
+            if (left.DirectionCount != right.DirectionCount ||
+                left.Bytes == null || right.Bytes == null ||
+                left.Bytes.Length != right.Bytes.Length)
+            {
+                return false;
+            }
+            for (int index = 0; index < left.Bytes.Length; index++)
+            {
+                if (left.Bytes[index] != right.Bytes[index])
+                    return false;
+            }
+            return true;
+        }
+
+        private void LogWeightedPublicationDecision(int unitId, string message)
+        {
+            if (lastWeightedPublicationDecisionByUnit.TryGetValue(
+                    unitId, out string previous) &&
+                string.Equals(previous, message, StringComparison.Ordinal))
+            {
+                return;
+            }
+            lastWeightedPublicationDecisionByUnit[unitId] = message;
+            Shared.DebugLogHelper.LogInfo(log, message);
         }
 
         private void LogWeightedShadowDecision(
@@ -3549,7 +3905,9 @@ namespace MoveMoatTest
             {
                 pendingWeightedShadow = null;
             }
-            return result;
+            return shadow != null && shadow.PublishedBuilderResult >= 0
+                ? shadow.PublishedBuilderResult
+                : result;
         }
 
         private int BuildPathWithCompletedMoatRouteVariantCore(
@@ -7519,6 +7877,7 @@ namespace MoveMoatTest
             trackedMoatMoves.Clear();
             loggedDiggerDecisions.Clear();
             lastWeightedShadowDecisionByUnit.Clear();
+            lastWeightedPublicationDecisionByUnit.Clear();
         }
 
         private void LogCursorDecision(string message)
@@ -8030,6 +8389,8 @@ namespace MoveMoatTest
             public long NativeEstimatedTicks { get; set; }
             public long ShadowEstimatedTicks { get; set; }
             public string ShadowDecision { get; set; }
+            public bool WeightedPathPublished { get; set; }
+            public WeightedMoatRouteSummary PublishedRouteSummary { get; set; }
             public string CalibrationReason { get; set; }
         }
 
@@ -8084,6 +8445,7 @@ namespace MoveMoatTest
             public bool CandidateFound { get; }
             public WeightedMoatRouteSummary Candidate { get; }
             public bool Calibratable { get; }
+            public int PublishedBuilderResult { get; set; } = -1;
 
             public WeightedShadowScope WithBuilderTarget(
                 int targetX,
@@ -8107,6 +8469,47 @@ namespace MoveMoatTest
                     candidateFound,
                     candidate,
                     Calibratable);
+
+            public WeightedShadowScope WithCandidate(
+                bool candidateFound,
+                WeightedMoatRouteSummary candidate)
+            {
+                var replacement = new WeightedShadowScope(
+                    MapEpoch,
+                    UnitId,
+                    UnitType,
+                    PlayerId,
+                    TribeId,
+                    Command,
+                    StartX,
+                    StartY,
+                    TargetX,
+                    TargetY,
+                    CostProfile,
+                    AllowReservedTarget,
+                    candidateFound,
+                    candidate,
+                    Calibratable);
+                replacement.PublishedBuilderResult = PublishedBuilderResult;
+                return replacement;
+            }
+        }
+
+        private sealed class WeightedPublicationCandidate
+        {
+            public WeightedPublicationCandidate(
+                WeightedMoatEncodedRoute route,
+                WeightedMoatRouteSummary summary)
+            {
+                Route = route;
+                Summary = summary;
+            }
+
+            public WeightedMoatEncodedRoute Route { get; }
+            public WeightedMoatRouteSummary Summary { get; }
+            public long MinimumSaving { get; set; }
+            public long MaximumEstimatedTicks { get; set; }
+            public List<string> ProfileCosts { get; } = new List<string>();
         }
 
         private readonly struct AttackRegionFallbackDecision

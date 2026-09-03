@@ -17,6 +17,7 @@ internal static class Program
     {
         ["CatapultHandlerPattern"] = 0x1520D0,
         ["TrebuchetHandlerPattern"] = 0x1535F0,
+        ["ArabBallistaHandlerPattern"] = 0x171C50,
         ["CatapultStateSixPattern"] = 0x1524FA,
         ["TrebuchetStateSixPattern"] = 0x153A78,
         ["SiegeTentTickPattern"] = 0x158690,
@@ -80,6 +81,9 @@ internal static class Program
         CheckBytes(image, 0x1535F5,
             "48 89 6C 24 10 48 89 74 24 18 57 41 54 41 55 41 56 41 57 48 81 EC F0 00 00 00",
             "trebuchet resumes with the remaining saved registers and stack allocation");
+        CheckBytes(image, 0x171C50,
+            "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 54 41 55 41 56 41 57 48 81 EC E0 00 00 00",
+            "Arab ballista handler has the canonical saved-register and stack contract");
         CheckBytes(image, 0x184103,
             "48 0F BF 84 19 E6 06 00 00",
             "central dispatcher loads the signed unit type into RAX");
@@ -90,6 +94,8 @@ internal static class Program
             "handler table entry 0x27 points to the catapult handler");
         Check(BitConverter.ToUInt64(image, 0x321CB0 + 0x28 * 8) == 0x1801535F0UL,
             "handler table entry 0x28 points to the trebuchet handler");
+        Check(BitConverter.ToUInt64(image, 0x321CB0 + 0x4D * 8) == 0x180171C50UL,
+            "handler table entry 0x4D points to the Arab ballista handler");
         CheckBytes(image, 0x1524FA,
             "8B 84 2B DC 09 00 00",
             "catapult state-six hook spans exactly the phase-seed read");
@@ -126,6 +132,15 @@ internal static class Program
         CheckBytes(image, 0x153D18,
             "42 C7 84 03 18 09 00 00 6D 00 05 00",
             "Vanilla trebuchet handoff writes engineer consume state");
+        CheckBytes(image, 0x15249A,
+            "44 89 9C 29 08 09 00 00 C7 84 29 18 09 00 00 6D 00 05 00 66 C7 84 29 86 09 00 00 00 02 66 44 89 9C 29 20 09 00 00",
+            "Vanilla catapult existing-crew path writes the four recovery fields in order");
+        CheckBytes(image, 0x1539DB,
+            "42 89 AC 19 08 09 00 00 42 C7 84 19 18 09 00 00 6D 00 05 00 66 42 C7 84 19 86 09 00 00 00 02 66 42 89 AC 19 20 09 00 00",
+            "Vanilla trebuchet existing-crew path writes the four recovery fields in order");
+        CheckBytes(image, 0x172156,
+            "44 89 9C 31 08 09 00 00 C7 84 31 18 09 00 00 6D 00 05 00 66 C7 84 31 86 09 00 00 00 02 66 44 89 9C 31 20 09 00 00",
+            "Vanilla Arab ballista existing-crew path writes the four recovery fields in order");
     }
 
     private static void CheckSourceContracts(string workspace)
@@ -153,14 +168,29 @@ internal static class Program
             "installation marker confirms the crash-prone hook set is absent");
         Check(runtime.Contains("unsafeNativeHookSetDisabled=true"),
             "installation marker identifies the deliberate safety fallback");
-        Check(runtime.Contains("observationMode=read-only-GameTimeManagerAPI.OnTick-snapshots"),
-            "runtime declares the safe observation mechanism");
+        Check(runtime.Contains("observationMode=GameTimeManagerAPI.OnTick-snapshots-and-fail-closed-recovery"),
+            "runtime declares the tick-based observation and recovery mechanism");
         Check(runtime.Contains("using SHCDESE.Interop;"),
             "eChimps uses the namespace exported by the targeted Script Extender");
         Check(project.Contains("<Reference Include=\"Zhuqiaomon\">"),
             "project references the assembly that owns GameUnitManagerAPI's NativePointer return type");
-        Check(!runtime.Contains("WriteUInt16"), "diagnostic runtime contains no 16-bit native write helper");
-        Check(!runtime.Contains("WriteUInt32"), "diagnostic runtime contains no 32-bit native write helper");
+        Check(runtime.Contains("WriteUInt16"), "recovery has an explicit 16-bit field writer");
+        Check(runtime.Contains("WriteUInt32"), "recovery has an explicit packed-state writer");
+        Check(runtime.Contains("Validate every identity and every read before the first write"),
+            "recovery documents and enforces reads-before-writes atomicity");
+        Check(runtime.Contains("The full observation period avoids repairing a normal one-tick handoff"),
+            "runtime waits through the complete observation window before a real repair");
+        Check(runtime.Contains("if (repairableIdlePostcondition)") &&
+              runtime.Contains("bool repairableIdlePostcondition = deviceReady && crewMatches"),
+            "validated idle postcondition remains observable until the repair window opens");
+        Check(runtime.Contains("SIEGE_REPAIR_REJECTED"),
+            "failed prewrite revalidation terminates with an explicit marker");
+        Check(runtime.Contains("var uniqueTargets = new HashSet<int>()"),
+            "recovery rejects duplicate write targets");
+        Check(runtime.Contains("device.Type != tracker.DeviceType || device.Owner != tracker.Owner"),
+            "device identity and ownership are revalidated immediately before writes");
+        Check(runtime.Contains("device.WorldX") && runtime.Contains("engineer.WorldX"),
+            "repair eligibility includes the baseline-derived proximity guard");
         Check(!runtime.Contains("Marshal.GetDelegateForFunctionPointer"),
             "diagnostic runtime calls no mutating native cleanup helper");
         Check(!runtime.Contains("Hook.Trampoline"), "runtime does not replace a native function");
@@ -169,6 +199,8 @@ internal static class Program
             "polling follows every engineer without trusting the unconfirmed command offset");
         Check(runtime.Contains("CHIMP_TYPE_CATAPULT"), "polling includes catapults through the extender enum");
         Check(runtime.Contains("CHIMP_TYPE_TREBUCHET"), "polling includes trebuchets through the extender enum");
+        Check(runtime.Contains("CHIMP_TYPE_ARAB_BALLISTA"),
+            "polling and automatic handoff verification include the Arab ballista");
         Check(runtime.Contains("CHIMP_TYPE_PORTABLE_SHIELD"),
             "polling includes the siege type built immediately before the crash");
         Check(runtime.Contains("SIEGE_HANDOFF_STARTED"), "automatic verifier announces every tracked handoff");
@@ -178,8 +210,13 @@ internal static class Program
             "automatic verifier distinguishes an interrupted identity from failure");
         Check(runtime.Contains("SIEGE_HANDOFF_DETECTOR_SELF_TEST"),
             "each real handoff executes the shadow fault detector test");
-        Check(runtime.Contains("faultInjection=shadow-only,no-game-state-write"),
-            "fault injection cannot alter the live game state");
+        Check(runtime.Contains("SIEGE_CONTROLLED_FAULT_INJECTED"),
+            "one postcondition fault per supported type is injected into live memory");
+        Check(runtime.Contains("exposure=same-tick-only"),
+            "controlled fault is repaired before Vanilla can process an idle frame");
+        Check(runtime.Contains("SIEGE_REPAIR_APPLIED"), "every applied recovery is logged");
+        Check(runtime.Contains("SIEGE_REPAIR_VERIFICATION_PASSED"),
+            "live recovery requires a second bounded stability verdict");
         Check(runtime.Contains("EngineerHandoffDiagnosticPolicy.IsReferencedEngineerBound("),
             "runtime delegates the bound-state invariant to the tested policy");
         Check(runtime.Contains("EngineerHandoffDiagnosticPolicy.AreCrewIdentitiesValidAndStable("),
@@ -208,7 +245,7 @@ internal static class Program
         Check(runtime.Contains("SIEGE_ROUTE_DIAGNOSTIC_INSTALLED"), "dispatcher evidence is logged at installation");
         Check(runtime.Contains("SIEGE_SLOT_TRANSITION"), "siege slot transitions are logged");
         Check(runtime.Contains("SIEGE_ENGINEER_TRANSITION"), "associated engineer transitions are logged");
-        Check(runtime.Contains("correctionActive=false"), "log explicitly identifies observation-only mode");
+        Check(runtime.Contains("correctionActive=true"), "log explicitly identifies active correction mode");
         Check(runtime.Contains("private void OnGameTick(int tick)"), "each poll is driven exactly by a game-tick callback");
         Check(runtime.Contains("TickHeartbeatLimit = 3"), "lifecycle heartbeat logging is bounded");
         Check(runtime.Contains("SlotTransitionLimit = 320"), "siege slot logging is bounded");
@@ -334,6 +371,46 @@ internal static class Program
             2, 2, catIds, catGlobals,
             new ushort[] { 95, 104, 0 }, new uint[] { 7331480, 7331541, 0 }),
             "changed crew global identity is rejected");
+
+        Check(EngineerHandoffRepairPolicy.RequiredCrew(EngineerHandoffRepairPolicy.CatapultType) == 2,
+            "catapult repair contract requires two engineers");
+        Check(EngineerHandoffRepairPolicy.RequiredCrew(EngineerHandoffRepairPolicy.TrebuchetType) == 3,
+            "trebuchet repair contract requires three engineers");
+        Check(EngineerHandoffRepairPolicy.RequiredCrew(EngineerHandoffRepairPolicy.ArabBallistaType) == 2,
+            "Arab ballista repair contract requires two engineers");
+        Check(EngineerHandoffRepairPolicy.RequiredCrew(0x29) == 0,
+            "unconfirmed siege type has no repair contract");
+        Check(EngineerHandoffRepairPolicy.IsRepairableIdleEngineer(
+            EngineerHandoffRepairPolicy.ArabBallistaType,
+            136, 7331841, 1,
+            136, 7331841, 2, 0x1E, 1, 0,
+            4324, 2436, 4324, 2452),
+            "observed Arab ballista geometry accepts its exact idle crew identity");
+        Check(!EngineerHandoffRepairPolicy.IsRepairableIdleEngineer(
+            EngineerHandoffRepairPolicy.ArabBallistaType,
+            136, 7331841, 1,
+            136, 7331842, 2, 0x1E, 1, 0,
+            4324, 2436, 4324, 2452),
+            "reused Arab ballista crew slot is never repaired");
+        Check(!EngineerHandoffRepairPolicy.IsRepairableIdleEngineer(
+            EngineerHandoffRepairPolicy.CatapultType,
+            106, 7331589, 1,
+            106, 7331589, 2, 0x1E, 1, 0,
+            4212, 2380, 4212, 2413),
+            "idle engineer outside the confirmed coordinate window is not repaired");
+        Check(!EngineerHandoffRepairPolicy.IsRepairableIdleEngineer(
+            EngineerHandoffRepairPolicy.CatapultType,
+            106, 7331589, 1,
+            106, 7331589, 2, 0x1E, 1, 5,
+            4212, 2380, 4212, 2396),
+            "already bound engineer is not a repair target");
+        Check(EngineerHandoffRepairPolicy.IsAllowedRecoveryState(
+            EngineerHandoffRepairPolicy.VanillaRecoveryPackedState),
+            "Vanilla transition state is allowed during recovery");
+        Check(EngineerHandoffRepairPolicy.IsAllowedRecoveryState(0x00050005),
+            "bound state is allowed during recovery");
+        Check(!EngineerHandoffRepairPolicy.IsAllowedRecoveryState(0),
+            "idle state is rejected after recovery was applied");
     }
 
     private static void CheckDiagnostic(
