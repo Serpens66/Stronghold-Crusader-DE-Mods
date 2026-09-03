@@ -11,6 +11,7 @@
     <ProjectReference Include="..\CustomCustomTrail.Core\CustomCustomTrail.Core.csproj" />
     <Compile Include="..\..\Shared\WorkshopUploadStaging.cs" Link="WorkshopUploadStaging.cs" />
     <Compile Include="..\src\CustomCustomTrailLaunchOriginApi.cs" Link="CustomCustomTrailLaunchOriginApi.cs" />
+    <Compile Include="..\src\BuiltInCustomizeOriginPacket.cs" Link="BuiltInCustomizeOriginPacket.cs" />
     <Reference Include="MessagePack">
       <HintPath>..\..\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481\MessagePack.dll</HintPath>
     </Reference>

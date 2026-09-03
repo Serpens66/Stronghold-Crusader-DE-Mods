@@ -438,7 +438,7 @@ namespace CastlePlanner
 
         private void OnBuildStructurePre(BuildStructureEventArgs args)
         {
-            if (!Shared.GameplayModActivationGate.IsAllowed)
+            if (!IsCastleSpawningModeAllowed())
                 return;
 
             if (TryCorrectNativeHovelVisualStyle(args))
@@ -517,7 +517,7 @@ namespace CastlePlanner
 
         private void OnBuildStructurePost(BuildStructureEventArgs args)
         {
-            if (!Shared.GameplayModActivationGate.IsAllowed)
+            if (!IsCastleSpawningModeAllowed())
                 return;
 
             if (!preparedAivCastles.TryGetValue(args.PlayerId, out PreparedAivCastle castle) ||
@@ -551,7 +551,7 @@ namespace CastlePlanner
 
         private void OnUnitCreateDiagnostic(UnitCreateEventArgs args)
         {
-            if (!Shared.GameplayModActivationGate.IsAllowed)
+            if (!IsCastleSpawningModeAllowed())
                 return;
 
             int playerId = args.PlayerOwnerId;
@@ -808,7 +808,7 @@ namespace CastlePlanner
 
         private void OnBuildingSpawnPost(BuildingSpawnEventArgs args)
         {
-            if (!Shared.GameplayModActivationGate.IsAllowed)
+            if (!IsCastleSpawningModeAllowed())
                 return;
 
             if (!captureSupplementalBuilding ||
@@ -1259,7 +1259,7 @@ namespace CastlePlanner
 
         private void OnGameTick(int tick)
         {
-            if (!Shared.GameplayModActivationGate.IsAllowed)
+            if (!IsCastleSpawningModeAllowed())
                 return;
 
             if (deferredCompoundBuildings.Count == 0)
@@ -1634,7 +1634,7 @@ namespace CastlePlanner
         private void PrepareVanillaHumanStart(
             NativePointer<X64SmartCPUContext> context)
         {
-            if (!Shared.GameplayModActivationGate.IsAllowed)
+            if (!IsCastleSpawningModeAllowed())
                 return;
 
             X64SmartCPUContext* registers = context.Pointer;
@@ -2014,10 +2014,10 @@ namespace CastlePlanner
 
         private static void EnsureSupportedGameMode(GameModeSnapshot mode)
         {
-            if (!Shared.GameplayModActivationGate.IsAllowed)
+            if (!IsCastleSpawningModeAllowed())
             {
                 throw new NotSupportedException(
-                    "Native CastlePlanner is disabled by the gameplay-mode gate.");
+                    "Native CastlePlanner spawning is disabled by the gameplay-feature mode gate.");
             }
 
             if (!mode.DirectorAvailable)
@@ -2035,6 +2035,12 @@ namespace CastlePlanner
                     $"{mode.SharedModeDetails}.");
             }
         }
+
+        private static bool IsCastleSpawningModeAllowed() =>
+            Shared.GameplayFeatureModePolicy.IsAllowed(
+                CastlePlannerPlugin.PluginGuid,
+                Shared.GameplayFeatureId.CastleSpawning,
+                Shared.GameplayModActivationGate.Snapshot);
 
         private static int CountOwnedBuildings(int playerId)
         {

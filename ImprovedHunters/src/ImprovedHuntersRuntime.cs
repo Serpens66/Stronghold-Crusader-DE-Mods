@@ -141,7 +141,8 @@ namespace ImprovedHunters
         private HunterVanillaPathContinuationDiagnostic hunterVanillaPathContinuationDiagnostic;
         private HunterVisibilityDiagnostic hunterVisibilityDiagnostic;
         private bool referenceHashMatches;
-        private bool targetSearchFallbackSingleplayerAllowed;
+        private bool targetSelectionModeAllowed;
+        private bool pathfindingModeAllowed;
         private bool loadedChickenReconstructionPending;
         private long nextGranaryChickenCleanupTimestamp;
         private bool applied;
@@ -675,12 +676,20 @@ namespace ImprovedHunters
             hunterVanillaPathContinuationDiagnostic?.ResetForMap();
             hunterVisibilityDiagnostic?.ResetForMap();
             Shared.GameModeSnapshot gameMode = Shared.GameplayModActivationGate.Snapshot;
-            targetSearchFallbackSingleplayerAllowed = !gameMode.IsRealMultiplayer && !gameMode.IsMapEditor;
+            targetSelectionModeAllowed = Shared.GameplayFeatureModePolicy.IsAllowed(
+                ImprovedHuntersPlugin.PluginGuid,
+                Shared.GameplayFeatureId.ImprovedHunterTargetSelection,
+                gameMode);
+            pathfindingModeAllowed = Shared.GameplayFeatureModePolicy.IsAllowed(
+                ImprovedHuntersPlugin.PluginGuid,
+                Shared.GameplayFeatureId.ImprovedHunterPathfinding,
+                gameMode);
             ApplyHunterHutVisibilityPatch();
             Shared.DebugLogHelper.LogInfo(
                 log,
-                "Improved Hunters target-search fallback mode gate: " +
-                $"allowed={targetSearchFallbackSingleplayerAllowed}, {gameMode.ToDiagnosticString()}.");
+                "Improved Hunters feature mode gates: " +
+                $"targetSelectionAllowed={targetSelectionModeAllowed}, " +
+                $"pathfindingAllowed={pathfindingModeAllowed}, {gameMode.ToDiagnosticString()}.");
             nativeScanFailureLogged = false;
             RunNativeScan(force: true);
         }
@@ -1467,14 +1476,14 @@ namespace ImprovedHunters
         {
             return Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) &&
                 settings.ImprovedTargetSelection &&
-                targetSearchFallbackSingleplayerAllowed;
+                targetSelectionModeAllowed;
         }
 
         private bool CanRunHunterPathfinding()
         {
             return Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) &&
                 settings.ImprovedPathfinding &&
-                targetSearchFallbackSingleplayerAllowed;
+                pathfindingModeAllowed;
         }
 
         private bool CanRunHunterReachability()

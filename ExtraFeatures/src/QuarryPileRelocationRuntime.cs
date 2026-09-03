@@ -511,7 +511,10 @@ namespace ExtraFeatures
             if (!IsAIAutomationActive() ||
                 !mapActive ||
                 !aiSpawnObservationArmed ||
-                Shared.GameModeHelper.IsMapEditor() ||
+                !Shared.GameplayFeatureModePolicy.IsAllowed(
+                    ExtraFeaturesPlugin.PluginGuid,
+                    Shared.GameplayFeatureId.AIQuarryPileTowardsKeep,
+                    Shared.GameplayModActivationGate.Snapshot) ||
                 args.Phase != EventHookPhase.Post ||
                 args.Building != eStructs.STRUCT_QUARRY ||
                 args.ReturnValue <= 0 ||

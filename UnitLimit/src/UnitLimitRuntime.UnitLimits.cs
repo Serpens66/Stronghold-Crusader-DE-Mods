@@ -107,7 +107,7 @@ namespace UnitLimit
                 return MakeTroopGameActionDecision.AllowOriginal();
             }
 
-            if (IsMapEditor())
+            if (!IsUnitLimitModeAllowed())
                 return MakeTroopGameActionDecision.AllowOriginal();
 
             if (amount <= 0)
@@ -315,7 +315,7 @@ namespace UnitLimit
 
         private void ValidateSiegeTentPlacement(BuildingPlacementValidationEventArgs args)
         {
-            if (IsMapEditor())
+            if (!IsUnitLimitModeAllowed())
                 return;
 
             if (GamePlayerManagerAPI.Instance.IsAIPlayer(args.PlayerId))

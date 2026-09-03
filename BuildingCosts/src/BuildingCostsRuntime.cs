@@ -473,7 +473,10 @@ namespace BuildingCosts
         {
             try
             {
-                if (IsMapEditor())
+                if (!Shared.GameplayFeatureModePolicy.IsAllowed(
+                    BuildingCostsPlugin.PluginGuid,
+                    Shared.GameplayFeatureId.BuildingCostTooltip,
+                    Shared.GameplayModActivationGate.Snapshot))
                 {
                     BuildingCostsPlugin.BuildingCostTooltipViewModel.SetPlacement(false, false);
                     ClearBuildingCostTooltip();
@@ -549,8 +552,6 @@ namespace BuildingCosts
             BuildingCostsPlugin.BuildingCostTooltipViewModel.Clear();
             tooltipIsClear = true;
         }
-
-        private static bool IsMapEditor() => Shared.GameModeHelper.IsMapEditor();
 
         private void ResetTooltipCache()
         {
@@ -712,15 +713,21 @@ namespace BuildingCosts
             switch (good)
             {
                 case eGoods.STORED_WOOD_PLANKS:
-                    return state.game_type == 6 ? state.keep_storage[2] : state.resources[2];
+                    return state.game_type == (int)Enums.eGameTypeModes.GAMETYPE_SIEGE_THAT_BUILDER
+                        ? state.keep_storage[2]
+                        : state.resources[2];
                 case eGoods.STORED_STONE_BLOCKS:
-                    return state.game_type == 6 ? state.keep_storage[4] : state.resources[4];
+                    return state.game_type == (int)Enums.eGameTypeModes.GAMETYPE_SIEGE_THAT_BUILDER
+                        ? state.keep_storage[4]
+                        : state.resources[4];
                 case eGoods.STORED_IRON_INGOTS:
                     return state.resources[6];
                 case eGoods.STORED_PITCH_RAW:
                     return state.resources[7];
                 case eGoods.STORED_GOLD:
-                    return state.game_type == 6 ? state.keep_storage[15] : state.resources[15];
+                    return state.game_type == (int)Enums.eGameTypeModes.GAMETYPE_SIEGE_THAT_BUILDER
+                        ? state.keep_storage[15]
+                        : state.resources[15];
                 default:
                     return GamePlayerManagerAPI.Instance.GetGoodAmount(playerId, good);
             }

@@ -19,7 +19,7 @@ namespace BuildingLimit
     {
         private void OnBuildingPlacementValidation(BuildingPlacementValidationEventArgs args)
         {
-            if (IsMapEditor())
+            if (!IsBuildingLimitModeAllowed())
                 return;
 
             if (GamePlayerManagerAPI.Instance.IsAIPlayer(args.PlayerId))
@@ -112,7 +112,7 @@ namespace BuildingLimit
         {
             try
             {
-                if (IsMapEditor())
+                if (!IsBuildingLimitModeAllowed())
                 {
                     ClearBuildingLimitTooltip();
                     return;

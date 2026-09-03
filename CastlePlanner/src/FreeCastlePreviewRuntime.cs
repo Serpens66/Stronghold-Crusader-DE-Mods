@@ -246,7 +246,7 @@ namespace CastlePlanner
         public bool TryGetCommittedSelections(out List<FreeCastleSelection> selections)
         {
             selections = null;
-            if (!Shared.GameplayModActivationGate.IsAllowed || state != PreviewState.SpawnMap)
+            if (!IsFeatureModeAllowed() || state != PreviewState.SpawnMap)
                 return false;
             selections = committedSelections.Select(item => item.Clone()).ToList();
             return selections.Count > 0;
@@ -255,7 +255,7 @@ namespace CastlePlanner
         public bool TryGetCommittedRotation(int playerId, out int rotation)
         {
             rotation = 0;
-            if (!Shared.GameplayModActivationGate.IsAllowed || state != PreviewState.SpawnMap)
+            if (!IsFeatureModeAllowed() || state != PreviewState.SpawnMap)
                 return false;
             return FreeCastleSelectionLookup.TryGetRotation(
                 committedSelections,
@@ -286,7 +286,7 @@ namespace CastlePlanner
             int actionState,
             int value2)
         {
-            if (Shared.GameplayModActivationGate.IsAllowed &&
+            if (IsFeatureModeAllowed() &&
                 !bypassPauseHook && IsPreviewPendingOrActive &&
                 command == Enums.GameActionCommand.Game_Paused && actionState == 0)
             {
@@ -298,7 +298,7 @@ namespace CastlePlanner
 
         private void LeaveLobbyHook(Platform_Multiplayer self, bool preserveGameMembers)
         {
-            if (Shared.GameplayModActivationGate.IsAllowed &&
+            if (IsFeatureModeAllowed() &&
                 !bypassLeaveLobbyHook && IsPreviewPendingOrActive && realMultiplayer)
             {
                 Shared.DebugLogHelper.LogInfo(log, "Vanilla lobby departure deferred during castle selection.");
@@ -313,7 +313,7 @@ namespace CastlePlanner
             {
                 if (state == PreviewState.RestartCommitted)
                 {
-                    if (!Shared.GameplayModActivationGate.IsAllowed)
+                    if (!IsFeatureModeAllowed())
                     {
                         ResetPreview();
                         return;
@@ -354,9 +354,8 @@ namespace CastlePlanner
 
         private bool ShouldStartPreview(MapStartEventArgs args)
         {
-            if (!Shared.GameplayModActivationGate.IsAllowed || !settings.IsSpawnMode ||
-                args.bMultiplayerSave != 0 || args.CampaignMapId != 0 ||
-                Shared.GameModeHelper.IsMapEditor())
+            if (!IsFeatureModeAllowed() ||
+                !settings.IsSpawnMode || args.bMultiplayerSave != 0 || args.CampaignMapId != 0)
                 return false;
             Shared.GameModeSnapshot mode = Shared.GameplayModActivationGate.Snapshot;
             return mode.IsRealMultiplayer || mode.IsSingleplayerSkirmishMode;
@@ -545,7 +544,7 @@ namespace CastlePlanner
 
         private void OnPacket(ReceiveCustomPacketEventArgs<FreeCastlePacket> args)
         {
-            if (!Shared.GameplayModActivationGate.IsAllowed)
+            if (!IsFeatureModeAllowed())
                 return;
 
             FreeCastlePacket packet = args?.Packet;
@@ -1163,6 +1162,12 @@ namespace CastlePlanner
                 handle.Free();
             }
         }
+
+        private static bool IsFeatureModeAllowed() =>
+            Shared.GameplayFeatureModePolicy.IsAllowed(
+                CastlePlannerPlugin.PluginGuid,
+                Shared.GameplayFeatureId.FreeCastlePreview,
+                Shared.GameplayModActivationGate.Snapshot);
 
         private void ResetPreview()
         {

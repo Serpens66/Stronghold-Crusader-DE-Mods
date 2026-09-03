@@ -18,7 +18,8 @@ namespace StartConditions
         private readonly IStartConditionsSettings settings;
         private IStartConditionsSettings activeSettings;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
-        private bool handledCurrentMap;
+        private readonly StartConditionsMapSessionState mapSessionState =
+            new StartConditionsMapSessionState();
         private bool settingsChangedSubscribed;
         private bool hooksSubscribed;
         private bool libraryInitialized;
@@ -172,8 +173,16 @@ namespace StartConditions
 
             subscriptions.Clear();
             hooksSubscribed = false;
+            ResetMapSession();
+        }
+
+        private void ResetMapSession()
+        {
             CancelPendingKeepReadiness();
             CancelPendingStartTroopProcessing();
+            mapSessionState.Reset();
+            activeSettings = settings;
+            activePlayerIds = Array.Empty<int>();
         }
 
         private void LogDebug(params object[] parts)

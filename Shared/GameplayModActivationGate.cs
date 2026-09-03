@@ -184,6 +184,7 @@ namespace Shared
                 $"customized={snapshot.IsCustomized}, customizedOrigin={snapshot.CustomizedOriginKind}, " +
                 $"modeAllowed={IsAllowed}, configuredEnabled={configuredEnabled}, " +
                 $"effectiveEnabled={effectiveEnabled}, action={action}, reason={reason}.");
+            GameplayFeatureModePolicy.LogDecisions(log, profile.ModGuid, snapshot, source);
         }
 
         private static bool ReadConfiguredEnabled()

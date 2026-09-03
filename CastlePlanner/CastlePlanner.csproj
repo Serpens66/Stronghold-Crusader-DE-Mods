@@ -181,6 +181,9 @@
     <Compile Include="..\Shared\GameplayModModePolicy.cs">
       <Link>Shared\GameplayModModePolicy.cs</Link>
     </Compile>
+    <Compile Include="..\Shared\GameplayFeatureModePolicy.cs">
+      <Link>Shared\GameplayFeatureModePolicy.cs</Link>
+    </Compile>
     <Compile Include="..\Shared\PresetLobbyModSettingsViewModel.cs">
       <Link>Shared\PresetLobbyModSettingsViewModel.cs</Link>
     </Compile>

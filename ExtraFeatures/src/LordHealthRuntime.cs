@@ -42,7 +42,7 @@ namespace ExtraFeatures
 
         public void BeginMap()
         {
-            if (IsMapEditor())
+            if (!IsFeatureModeAllowed())
             {
                 ResetMapState();
                 Shared.DebugLogHelper.LogDebug(
@@ -131,7 +131,7 @@ namespace ExtraFeatures
 
         private void OnGameTick(int tick)
         {
-            if (IsMapEditor())
+            if (!IsFeatureModeAllowed())
             {
                 if (mapActive)
                 {
@@ -156,7 +156,11 @@ namespace ExtraFeatures
             }
         }
 
-        private static bool IsMapEditor() => Shared.GameModeHelper.IsMapEditor();
+        private static bool IsFeatureModeAllowed() =>
+            Shared.GameplayFeatureModePolicy.IsAllowed(
+                ExtraFeaturesPlugin.PluginGuid,
+                Shared.GameplayFeatureId.LordHealthMultipliers,
+                Shared.GameplayModActivationGate.Snapshot);
 
         private void ApplyAvailableLords()
         {

@@ -91,7 +91,7 @@ namespace Shared
         private static GameplayModActivationProfile Create(string modGuid, string displayName) =>
             new GameplayModActivationProfile(modGuid, displayName, RegularContexts);
 
-        private static GameplayModAllowedContext ResolveContext(GameModeSnapshot snapshot)
+        internal static GameplayModAllowedContext ResolveContext(GameModeSnapshot snapshot)
         {
             if (snapshot.Kind == GameModeKind.MapEditor)
                 return GameplayModAllowedContext.MapEditor;

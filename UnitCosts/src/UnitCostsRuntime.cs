@@ -359,7 +359,7 @@ namespace UnitCosts
             int rawUnitType,
             bool interpretCtrlSentinel)
         {
-            if (IsMapEditor())
+            if (!IsUnitCostModeAllowed())
                 return MakeTroopGameActionDecision.AllowOriginal();
 
             if (amount <= 0)
@@ -481,7 +481,7 @@ namespace UnitCosts
             if (!hasCurrentTooltipUnitType)
                 return;
 
-            if (IsMapEditor())
+            if (!IsUnitCostModeAllowed())
             {
                 ClearRecruitmentCostEntries();
                 return;
@@ -585,7 +585,7 @@ namespace UnitCosts
 
         internal void RefreshRecruitmentButtonAvailability()
         {
-            if (IsMapEditor() || !EffectsEnabled || humanExtraCosts.Count == 0)
+            if (!IsUnitCostModeAllowed() || !EffectsEnabled || humanExtraCosts.Count == 0)
                 return;
 
             int playerId = GetLocalHumanPlayerId();
@@ -738,7 +738,7 @@ namespace UnitCosts
         {
             try
             {
-                if (IsMapEditor())
+                if (!IsUnitCostModeAllowed())
                     return;
 
                 if (args.Phase != EventHookPhase.Pre)
@@ -780,7 +780,7 @@ namespace UnitCosts
         {
             try
             {
-                if (IsMapEditor())
+                if (!IsUnitCostModeAllowed())
                     return;
 
                 if (!IsHumanPlayer(args.PlayerId) || !IsLocalPlayer(args.PlayerId))
@@ -817,7 +817,7 @@ namespace UnitCosts
         {
             try
             {
-                if (IsMapEditor())
+                if (!IsUnitCostModeAllowed())
                     return;
 
                 if (!IsHumanPlayer(args.PlayerId))
@@ -957,7 +957,11 @@ namespace UnitCosts
             return IsHumanPlayer(playerId) ? playerId : -1;
         }
 
-        private static bool IsMapEditor() => Shared.GameModeHelper.IsMapEditor();
+        private static bool IsUnitCostModeAllowed() =>
+            Shared.GameplayFeatureModePolicy.IsAllowed(
+                UnitCostsPlugin.PluginGuid,
+                Shared.GameplayFeatureId.UnitCostEnforcement,
+                Shared.GameplayModActivationGate.Snapshot);
 
         private static bool IsHumanPlayer(int playerId)
         {

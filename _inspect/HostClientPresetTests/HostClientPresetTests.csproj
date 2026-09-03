@@ -80,6 +80,12 @@
     <Compile Include="..\..\Shared\GameplayModModePolicy.cs">
       <Link>GameplayModModePolicy.cs</Link>
     </Compile>
+    <Compile Include="..\..\Shared\GameplayFeatureModePolicy.cs">
+      <Link>GameplayFeatureModePolicy.cs</Link>
+    </Compile>
+    <Compile Include="..\..\StartConditions\src\StartConditionsMapSessionState.cs">
+      <Link>StartConditionsMapSessionState.cs</Link>
+    </Compile>
     <Compile Include="..\..\Shared\LobbyLifecycle.cs">
       <Link>LobbyLifecycle.cs</Link>
     </Compile>

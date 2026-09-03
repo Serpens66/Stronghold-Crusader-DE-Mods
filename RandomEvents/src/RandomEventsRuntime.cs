@@ -354,7 +354,10 @@ namespace RandomEvents
                 return;
             }
 
-            if (gameMode.IsMapEditor)
+            if (!Shared.GameplayFeatureModePolicy.IsAllowed(
+                RandomEventsPlugin.PluginGuid,
+                Shared.GameplayFeatureId.RandomEventsRuntime,
+                gameMode))
             {
                 LogDebug("Random Events disabled for map editor session.");
                 state = null;

@@ -20,10 +20,8 @@ namespace StartConditions
             try
             {
                 LogDebug("OnStartMap");
-                if (handledCurrentMap)
+                if (!mapSessionState.TryBeginNewMap())
                     return;
-
-                handledCurrentMap = true;
                 CodeOnNewGame();
             }
             catch (Exception ex)
@@ -37,18 +35,14 @@ namespace StartConditions
             LogDebug("OnLoadSave");
             CancelPendingKeepReadiness();
             CancelPendingStartTroopProcessing();
-            handledCurrentMap = true;
+            mapSessionState.MarkSaveLoaded();
             CodeOnLoadGame();
         }
 
         private void OnUnloadMap(MapUnloadEventArgs args)
         {
             LogDebug("OnUnloadMap");
-            CancelPendingKeepReadiness();
-            CancelPendingStartTroopProcessing();
-            handledCurrentMap = false;
-            activeSettings = settings;
-            activePlayerIds = Array.Empty<int>();
+            ResetMapSession();
         }
 
         private void CodeOnNewGame()

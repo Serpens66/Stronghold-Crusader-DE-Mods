@@ -123,6 +123,7 @@
     <Compile Include="src\StartConditionsRuntime.MapLifecycle.cs" />
     <Compile Include="src\StartConditionsRuntime.Helpers.cs" />
     <Compile Include="src\StartConditionsRuntime.Localization.cs" />
+    <Compile Include="src\StartConditionsMapSessionState.cs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -137,6 +138,7 @@
     <Compile Include="..\Shared\GameModeHelper.cs"><Link>Shared\GameModeHelper.cs</Link></Compile>
     <Compile Include="..\Shared\GameplayModActivationGate.cs"><Link>Shared\GameplayModActivationGate.cs</Link></Compile>
     <Compile Include="..\Shared\GameplayModModePolicy.cs"><Link>Shared\GameplayModModePolicy.cs</Link></Compile>
+    <Compile Include="..\Shared\GameplayFeatureModePolicy.cs"><Link>Shared\GameplayFeatureModePolicy.cs</Link></Compile>
     <Compile Include="..\Shared\PresetLobbyModSettingsViewModel.cs"><Link>Shared\PresetLobbyModSettingsViewModel.cs</Link></Compile>
     <Compile Include="..\Shared\ModSettingsSearch.cs"><Link>Shared\ModSettingsSearch.cs</Link></Compile>
     <Compile Include="..\Shared\ToolTipPresentation.cs"><Link>Shared\ToolTipPresentation.cs</Link></Compile>

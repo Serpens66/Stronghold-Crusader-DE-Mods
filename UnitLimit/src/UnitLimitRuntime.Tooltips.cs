@@ -49,7 +49,7 @@ namespace UnitLimit
             if (!hasCurrentTooltipUnitType)
                 return;
 
-            if (IsMapEditor())
+            if (!IsUnitLimitModeAllowed())
             {
                 UnitLimitTooltip.Clear();
                 return;

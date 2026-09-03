@@ -35,6 +35,7 @@ var tests = new (string Name, Action Run)[]
     ("Trail coordinator ownership is centralized", TestCoordinatorOwnership),
     ("customized launch origin is persisted and fail-closed", TestCustomizedLaunchOriginIntegration),
     ("customized launch origin save roundtrip", TestCustomizedLaunchOriginRoundtrip),
+    ("Built-in Customize origin packet roundtrip", TestBuiltInCustomizeOriginPacketRoundtrip),
     ("Steam Workshop discovery waits for Steamworks", TestSteamWorkshopReadinessGate),
     ("local activation setting gates the complete runtime", TestLocalActivationSetting),
     ("Trail Maker Coop export is integrated", TestCoopExporterIntegration),
@@ -435,10 +436,12 @@ static void TestCustomizedLaunchOriginIntegration()
     string api = File.ReadAllText(Path.Combine(projectRoot, "src", "CustomCustomTrailLaunchOriginApi.cs"));
     string coordinator = File.ReadAllText(Path.Combine(projectRoot, "src", "TrailMissionSettingsCoordinator.cs"));
     string runtime = File.ReadAllText(Path.Combine(projectRoot, "src", "CustomCustomTrailRuntime.cs"));
+    string originPacket = File.ReadAllText(Path.Combine(projectRoot, "src", "BuiltInCustomizeOriginPacket.cs"));
     string sharedGameMode = File.ReadAllText(Path.Combine(workspaceRoot, "Shared", "GameModeHelper.cs"));
     string project = File.ReadAllText(Path.Combine(projectRoot, "CustomCustomTrail.csproj"));
 
-    Assert(project.Contains("CustomCustomTrailLaunchOriginApi.cs"),
+    Assert(project.Contains("CustomCustomTrailLaunchOriginApi.cs") &&
+        project.Contains("BuiltInCustomizeOriginPacket.cs"),
         "the runtime project does not compile the public origin API");
     Assert(api.Contains("public static class CustomCustomTrailLaunchOriginApi") &&
         api.Contains("public static CustomCustomTrailLaunchOriginKind Origin") &&
@@ -474,11 +477,28 @@ static void TestCustomizedLaunchOriginIntegration()
     string multiplayerOpenHook = coordinator.Substring(
         multiplayerOpenHookIndex,
         startSkirmishHookIndex - multiplayerOpenHookIndex);
-    Assert(multiplayerOpenHook.Contains("fromNew && skirmishSetup && restartInfo == null && !coopSetup && !trailMaker") &&
+    Assert(coordinator.Contains("fromNew && skirmishSetup && restartInfo == null && !coopSetup && !trailMaker") &&
         multiplayerOpenHook.IndexOf("multiplayerOpenOriginal(", StringComparison.Ordinal) <
             multiplayerOpenHook.IndexOf("CaptureBuiltInCustomizeOrigin(customiseTrailType, customiseTrailId)", StringComparison.Ordinal) &&
-        coordinator.Split(new[] { "CaptureBuiltInCustomizeOrigin(" }, StringSplitOptions.None).Length == 3,
-        "built-in Customize origin is not captured exclusively after the actual doOpen transition");
+        multiplayerOpenHook.IndexOf("CaptureBuiltInCustomizeOrigin(customiseTrailType, customiseTrailId)", StringComparison.Ordinal) <
+            multiplayerOpenHook.IndexOf("if (!enabled)", StringComparison.Ordinal) &&
+        coordinator.Contains("FRONT_Multiplayer.customizedTrail") &&
+        coordinator.Contains("FRONT_Multiplayer.customizedTrailType == trailType") &&
+        coordinator.Contains("FRONT_Multiplayer.customizedTrailID == missionId") &&
+        coordinator.Contains("ReferenceEquals(Platform_Multiplayer.Instance?.activeLobby, self.currentLobby)") &&
+        coordinator.Contains("MainViewModel.Instance?.Show_MultiplayerSetup == true") &&
+        coordinator.Split(new[] { "CaptureBuiltInCustomizeOrigin(" }, StringSplitOptions.None).Length == 4,
+        "built-in Customize origin is not captured independently after a confirmed doOpen transition");
+    Assert(coordinator.Contains("IsBuiltInTrailOpenCommand(command)") &&
+        coordinator.Contains("string.Equals(command, \"Trail\"") &&
+        coordinator.Contains("string.Equals(command, \"Sands8\"") &&
+        coordinator.Contains("BroadcastBuiltInCustomizeOrigin(self)") &&
+        coordinator.Contains("GetPacketEventFor<BuiltInCustomizeOriginPacket>") &&
+        coordinator.Contains("OnBuiltInCustomizeOriginPacket") &&
+        coordinator.Contains("args.SenderSteamId.Value != host.Value") &&
+        coordinator.Contains("GameNetworkAPI.SendPacketToAllLobby") &&
+        originPacket.Contains("IMessagePackFormatter<BuiltInCustomizeOriginPacket>"),
+        "Built-in Customize back-navigation cleanup or authenticated host/client origin synchronization is missing");
     Assert(coordinator.Contains("if (!preserveContextForLaunch)") &&
         coordinator.Contains("restartInfo.customTrailLevel == missionId") &&
         coordinator.Contains("CustomCustomTrailLaunchOriginApi.MarkRestartPending()") &&
@@ -488,6 +508,42 @@ static void TestCustomizedLaunchOriginIntegration()
         sharedGameMode.Contains("ExternalOriginMatchesKind") &&
         sharedGameMode.Contains("RestoredCustomizedSave"),
         "GameModeHelper does not validate the optional saved origin against Vanilla mode state");
+}
+
+static void TestBuiltInCustomizeOriginPacketRoundtrip()
+{
+    var expected = new CustomCustomTrail.BuiltInCustomizeOriginPacket
+    {
+        ProtocolVersion = CustomCustomTrail.BuiltInCustomizeOriginPacket.CurrentProtocolVersion,
+        TrailType = CustomCustomTrail.CustomCustomTrailLaunchOriginApi.LastSandsOfTimeTrailType,
+        MissionId = 4,
+    };
+    byte[] bytes = MessagePack.MessagePackSerializer.Serialize(expected);
+    CustomCustomTrail.BuiltInCustomizeOriginPacket actual =
+        MessagePack.MessagePackSerializer.Deserialize<CustomCustomTrail.BuiltInCustomizeOriginPacket>(bytes);
+    Assert(actual != null && actual.ProtocolVersion == expected.ProtocolVersion &&
+        actual.TrailType == expected.TrailType && actual.MissionId == expected.MissionId,
+        "Built-in Customize origin packet changed during MessagePack roundtrip");
+    Assert(CustomCustomTrail.BuiltInCustomizeOriginPacket.IsValid(actual),
+        "valid Built-in Customize origin packet was rejected");
+    actual.ProtocolVersion++;
+    Assert(!CustomCustomTrail.BuiltInCustomizeOriginPacket.IsValid(actual),
+        "mismatched Built-in Customize protocol was accepted");
+    actual.ProtocolVersion = expected.ProtocolVersion;
+    actual.TrailType = 10;
+    Assert(!CustomCustomTrail.BuiltInCustomizeOriginPacket.IsValid(actual),
+        "invalid Built-in Customize Trail type was accepted");
+    actual.TrailType = expected.TrailType;
+    actual.MissionId = -1;
+    Assert(!CustomCustomTrail.BuiltInCustomizeOriginPacket.IsValid(actual),
+        "invalid Built-in Customize mission index was accepted");
+    byte[] truncatedBytes = MessagePack.MessagePackSerializer.Serialize(new[]
+    {
+        CustomCustomTrail.BuiltInCustomizeOriginPacket.CurrentProtocolVersion,
+    });
+    CustomCustomTrail.BuiltInCustomizeOriginPacket truncated =
+        MessagePack.MessagePackSerializer.Deserialize<CustomCustomTrail.BuiltInCustomizeOriginPacket>(truncatedBytes);
+    Assert(truncated == null, "truncated Built-in Customize origin packet was accepted");
 }
 
 static void TestCustomizedLaunchOriginRoundtrip()

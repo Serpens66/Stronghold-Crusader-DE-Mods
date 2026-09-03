@@ -13,7 +13,11 @@ namespace UnitLimit
 {
     public sealed partial class UnitLimitRuntime
     {
-        private static bool IsMapEditor() => Shared.GameModeHelper.IsMapEditor();
+        private static bool IsUnitLimitModeAllowed() =>
+            Shared.GameplayFeatureModePolicy.IsAllowed(
+                UnitLimitPlugin.PluginGuid,
+                Shared.GameplayFeatureId.UnitLimitEnforcement,
+                Shared.GameplayModActivationGate.Snapshot);
 
         private static bool IsLocalPlayer(int playerId)
         {

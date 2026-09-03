@@ -33,6 +33,8 @@ internal static class Program
             TestThrowingRegistrationStopsPerPlayerCoordinator();
             TestModSettingsHorizontalFocusScrollGuardRegistration();
             TestGameModeHelper();
+            TestGameplayFeatureModePolicy();
+            TestStartConditionsMapSessionState();
             TestGameplayGateSourceIntegration();
             TestLocalPerPlayerSetting();
             TestMarketGoodsOrderDefinition();
@@ -1535,6 +1537,149 @@ internal static class Program
         GameNetworkAPI.Networked = true;
     }
 
+    private static void TestGameplayFeatureModePolicy()
+    {
+        CrusaderDE.MainViewModel.Reset();
+        GamePlayerManagerAPI.Instance.MapEditor = false;
+        Platform_Multiplayer.Instance.activeLobby = null;
+        Platform_Multiplayer.Instance.gameMembers = null;
+        Director.instance = null;
+        GameNetworkAPI.Networked = true;
+        GameNetworkAPI.MultiplayerGame = false;
+        GameData.Instance = new GameData
+        {
+            game_type = (int)Enums.eGameTypeModes.GAMETYPE_MULTIPLAYER,
+            SkirmishGameType = (int)Enums.eSkirmishGameMode.SKIRMISH_GAME_CUSTOM,
+            coopTrailID = 0
+        };
+
+        GameModeSnapshot customGame = GameModeHelper.Capture();
+        GameModeSnapshot[] customizedModes =
+        {
+            customGame.WithModeEvidenceForTests(GameModeKind.VanillaTrail, GameModeLaunchVariant.Customized, (int)GameTrailType.FirstEdition),
+            customGame.WithModeEvidenceForTests(GameModeKind.CustomTrail, GameModeLaunchVariant.Customized, -1),
+            customGame.WithModeEvidenceForTests(GameModeKind.CoopTrail, GameModeLaunchVariant.Customized, -1),
+            customGame.WithModeEvidenceForTests(GameModeKind.SandsOfTime, GameModeLaunchVariant.Customized, (int)GameTrailType.SandsOne)
+        };
+        GameModeSnapshot[] blockedDirectModes =
+        {
+            customGame.WithModeEvidenceForTests(GameModeKind.Campaign, GameModeLaunchVariant.Standard, -1),
+            customGame.WithModeEvidenceForTests(GameModeKind.StandaloneMission, GameModeLaunchVariant.Standard, -1),
+            customGame.WithModeEvidenceForTests(GameModeKind.VanillaTrail, GameModeLaunchVariant.Standard, (int)GameTrailType.FirstEdition),
+            customGame.WithModeEvidenceForTests(GameModeKind.CustomTrail, GameModeLaunchVariant.Standard, -1),
+            customGame.WithModeEvidenceForTests(GameModeKind.CoopTrail, GameModeLaunchVariant.Standard, -1),
+            customGame.WithModeEvidenceForTests(GameModeKind.SandsOfTime, GameModeLaunchVariant.Standard, (int)GameTrailType.SandsOne)
+        };
+        GameModeSnapshot conflicting =
+            customGame.WithModeEvidenceForTests(GameModeKind.CustomGame, GameModeLaunchVariant.Standard, -1, true);
+
+        GameNetworkAPI.MultiplayerGame = true;
+        GameModeSnapshot realMultiplayerCustomGame = GameModeHelper.Capture();
+        GameModeSnapshot[] realMultiplayerCustomizedModes =
+        {
+            realMultiplayerCustomGame.WithModeEvidenceForTests(GameModeKind.VanillaTrail, GameModeLaunchVariant.Customized, (int)GameTrailType.FirstEdition),
+            realMultiplayerCustomGame.WithModeEvidenceForTests(GameModeKind.CustomTrail, GameModeLaunchVariant.Customized, -1),
+            realMultiplayerCustomGame.WithModeEvidenceForTests(GameModeKind.CoopTrail, GameModeLaunchVariant.Customized, -1),
+            realMultiplayerCustomGame.WithModeEvidenceForTests(GameModeKind.SandsOfTime, GameModeLaunchVariant.Customized, (int)GameTrailType.SandsOne)
+        };
+        GameNetworkAPI.MultiplayerGame = false;
+        GamePlayerManagerAPI.Instance.MapEditor = true;
+        GameModeSnapshot editor = GameModeHelper.Capture();
+        GamePlayerManagerAPI.Instance.MapEditor = false;
+
+        var owners = new Dictionary<GameplayFeatureId, string>
+        {
+            { GameplayFeatureId.BuildingCostTooltip, "BuildingCosts_Serp" },
+            { GameplayFeatureId.BuildingLimitEnforcement, "BuildingLimit_Serp" },
+            { GameplayFeatureId.UnitCostEnforcement, "UnitCosts_Serp" },
+            { GameplayFeatureId.UnitLimitEnforcement, "UnitLimit_Serp" },
+            { GameplayFeatureId.LordHealthMultipliers, "ExtraFeatures_Serp" },
+            { GameplayFeatureId.AIQuarryPileTowardsKeep, "ExtraFeatures_Serp" },
+            { GameplayFeatureId.EndlessExtremePowersRecharge, "CheatMod_Serp" },
+            { GameplayFeatureId.RandomEventsRuntime, "RandomEvents_Serp" },
+            { GameplayFeatureId.ImprovedHunterTargetSelection, "ImprovedHunters_Serp" },
+            { GameplayFeatureId.ImprovedHunterPathfinding, "ImprovedHunters_Serp" },
+            { GameplayFeatureId.CastleSpawning, "CastlePlanner_Serp" },
+            { GameplayFeatureId.FreeCastlePreview, "CastlePlanner_Serp" },
+            { GameplayFeatureId.CastleBlueprints, "CastlePlanner_Serp" }
+        };
+        var editorAllowed = new HashSet<GameplayFeatureId>
+        {
+            GameplayFeatureId.CastleBlueprints
+        };
+        var multiplayerBlocked = new HashSet<GameplayFeatureId>
+        {
+            GameplayFeatureId.ImprovedHunterTargetSelection,
+            GameplayFeatureId.ImprovedHunterPathfinding
+        };
+
+        foreach (KeyValuePair<GameplayFeatureId, string> entry in owners)
+        {
+            GameplayFeatureActivationProfile profile =
+                GameplayFeatureModePolicy.GetProfile(entry.Value, entry.Key);
+            Check(GameplayFeatureModePolicy.IsAllowed(profile, customGame, out _) &&
+                  customizedModes.All(mode => GameplayFeatureModePolicy.IsAllowed(profile, mode, out _)),
+                $"feature policy rejected a regular gameplay context for {entry.Key}");
+            Check(blockedDirectModes.All(mode => !GameplayFeatureModePolicy.IsAllowed(profile, mode, out _)) &&
+                  !GameplayFeatureModePolicy.IsAllowed(profile, default, out _) &&
+                  !GameplayFeatureModePolicy.IsAllowed(profile, conflicting, out _),
+                $"feature policy accepted blocked or contradictory context for {entry.Key}");
+            Check(GameplayFeatureModePolicy.IsAllowed(profile, editor, out _) == editorAllowed.Contains(entry.Key),
+                $"feature editor policy is incorrect for {entry.Key}");
+            Check(GameplayFeatureModePolicy.IsAllowed(profile, realMultiplayerCustomGame, out _) == !multiplayerBlocked.Contains(entry.Key),
+                $"feature multiplayer policy is incorrect for {entry.Key}");
+            Check(realMultiplayerCustomizedModes.All(mode =>
+                      GameplayFeatureModePolicy.IsAllowed(profile, mode, out _) == !multiplayerBlocked.Contains(entry.Key)),
+                $"feature customize multiplayer policy is incorrect for {entry.Key}");
+        }
+
+        bool wrongOwnerRejected = false;
+        try
+        {
+            GameplayFeatureModePolicy.GetProfile(
+                "ExtraFeatures_Serp",
+                GameplayFeatureId.BuildingCostTooltip);
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            wrongOwnerRejected = true;
+        }
+        Check(wrongOwnerRejected, "feature policy accepted a mismatched mod GUID");
+        Check(!GameplayFeatureModePolicy.IsAllowed(
+                  "ExtraFeatures_Serp",
+                  GameplayFeatureId.BuildingCostTooltip,
+                  customGame) &&
+              !GameplayFeatureModePolicy.IsAllowed(
+                  "BuildingCosts_Serp",
+                  (GameplayFeatureId)int.MaxValue,
+                  customGame),
+            "feature policy evaluation did not fail closed for an unknown GUID/feature pair");
+
+        GameplayFeatureModePolicy.ResetLoggedDecisionsForTests();
+        Check(GameplayFeatureModePolicy.RecordDecisionForTests(GameplayFeatureId.RandomEventsRuntime, false) &&
+              !GameplayFeatureModePolicy.RecordDecisionForTests(GameplayFeatureId.RandomEventsRuntime, false) &&
+              GameplayFeatureModePolicy.RecordDecisionForTests(GameplayFeatureId.RandomEventsRuntime, true) &&
+              !GameplayFeatureModePolicy.RecordDecisionForTests(GameplayFeatureId.RandomEventsRuntime, true),
+            "feature decision logging was not deduplicated by effective mode decision");
+    }
+
+    private static void TestStartConditionsMapSessionState()
+    {
+        var state = new StartConditions.StartConditionsMapSessionState();
+        Check(state.TryBeginNewMap() && state.IsHandled && !state.TryBeginNewMap(),
+            "StartConditions allowed duplicate handling within one map");
+        state.Reset();
+        Check(state.TryBeginNewMap(),
+            "StartConditions did not handle the next allowed map after an unload or gate reset");
+        state.Reset();
+        state.MarkSaveLoaded();
+        Check(state.IsHandled && !state.TryBeginNewMap(),
+            "StartConditions treated a loaded save as a fresh map");
+        state.Reset();
+        Check(!state.IsHandled && state.TryBeginNewMap(),
+            "StartConditions did not recover after an allowed-blocked-allowed sequence");
+    }
+
     private static void TestGameplayGateSourceIntegration()
     {
         string workspaceRoot = Path.GetFullPath(
@@ -1564,6 +1709,7 @@ internal static class Program
                 Path.Combine(workspaceRoot, mod, "src", gameplayMods[index, 1]));
             Check(project.Contains("GameplayModActivationGate.cs") &&
                   project.Contains("GameplayModModePolicy.cs") &&
+                  project.Contains("GameplayFeatureModePolicy.cs") &&
                   runtime.Contains("GameplayModActivationGate.Initialize") &&
                   runtime.Contains("PluginGuid") &&
                   policySource.Contains(gameplayMods[index, 2]),
@@ -1596,8 +1742,53 @@ internal static class Program
         Check(gateSource.Contains("configuredEnabled=") &&
               gateSource.Contains("effectiveEnabled=") &&
               gateSource.Contains("disabled-by-mode") &&
+              gateSource.Contains("GameplayFeatureModePolicy.LogDecisions") &&
               !gateSource.Contains("EnableMod ="),
             "gameplay gate logging or non-mutating settings contract regressed");
+
+        string featurePolicySource = File.ReadAllText(
+            Path.Combine(workspaceRoot, "Shared", "GameplayFeatureModePolicy.cs"));
+        foreach (string expectedFeature in Enum.GetNames(typeof(GameplayFeatureId)))
+        {
+            Check(featurePolicySource.Contains(expectedFeature),
+                $"central gameplay-feature policy is missing {expectedFeature}");
+        }
+
+        string[,] featureBindings =
+        {
+            { "BuildingCosts", "BuildingCostsRuntime.cs", "BuildingCostTooltip" },
+            { "BuildingLimit", "BuildingLimitRuntime.Helpers.cs", "BuildingLimitEnforcement" },
+            { "UnitCosts", "UnitCostsRuntime.cs", "UnitCostEnforcement" },
+            { "UnitLimit", "UnitLimitRuntime.Helpers.cs", "UnitLimitEnforcement" },
+            { "ExtraFeatures", "LordHealthRuntime.cs", "LordHealthMultipliers" },
+            { "ExtraFeatures", "QuarryPileRelocationRuntime.cs", "AIQuarryPileTowardsKeep" },
+            { "CheatMod", "CheatModRuntime.cs", "EndlessExtremePowersRecharge" },
+            { "RandomEvents", "RandomEventsRuntime.cs", "RandomEventsRuntime" },
+            { "ImprovedHunters", "ImprovedHuntersRuntime.cs", "ImprovedHunterTargetSelection" },
+            { "ImprovedHunters", "ImprovedHuntersRuntime.cs", "ImprovedHunterPathfinding" },
+            { "CastlePlanner", "CastlePlannerRuntime.cs", "CastleSpawning" },
+            { "CastlePlanner", "FreeCastlePreviewRuntime.cs", "FreeCastlePreview" },
+            { "CastlePlanner", "BlueprintRuntimeController.cs", "CastleBlueprints" }
+        };
+        for (int index = 0; index < featureBindings.GetLength(0); index++)
+        {
+            string runtimeSource = File.ReadAllText(Path.Combine(
+                workspaceRoot,
+                featureBindings[index, 0],
+                "src",
+                featureBindings[index, 1]));
+            Check(runtimeSource.Contains("GameplayFeatureModePolicy.IsAllowed") &&
+                  runtimeSource.Contains("GameplayFeatureId." + featureBindings[index, 2]) &&
+                  runtimeSource.Contains("GameplayModActivationGate.Snapshot"),
+                $"{featureBindings[index, 0]} feature {featureBindings[index, 2]} is not bound to the cached feature-mode policy");
+        }
+
+        string startConditionsRuntime = File.ReadAllText(
+            Path.Combine(workspaceRoot, "StartConditions", "src", "StartConditionsRuntime.cs"));
+        Check(startConditionsRuntime.Contains("GameplayModActivationGate.IsAllowed &&") &&
+              startConditionsRuntime.Contains("ResetMapSession();") &&
+              !startConditionsRuntime.Contains("handledCurrentMap"),
+            "StartConditions mode precedence or map-session reset regressed");
 
         string hudCoordinatorSource = File.ReadAllText(
             Path.Combine(workspaceRoot, "Shared", "TroopActionButtonLayout.cs"));

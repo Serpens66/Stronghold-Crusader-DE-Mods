@@ -13,7 +13,11 @@ namespace BuildingLimit
 {
     public sealed partial class BuildingLimitRuntime
     {
-        private static bool IsMapEditor() => Shared.GameModeHelper.IsMapEditor();
+        private static bool IsBuildingLimitModeAllowed() =>
+            Shared.GameplayFeatureModePolicy.IsAllowed(
+                BuildingLimitPlugin.PluginGuid,
+                Shared.GameplayFeatureId.BuildingLimitEnforcement,
+                Shared.GameplayModActivationGate.Snapshot);
 
         private static bool IsLocalPlayer(int playerId)
         {

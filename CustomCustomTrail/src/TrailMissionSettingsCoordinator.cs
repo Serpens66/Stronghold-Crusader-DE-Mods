@@ -152,6 +152,7 @@ namespace CustomCustomTrail
             private string coopPackageDisplayName = string.Empty;
             private int coopPackageMissionCount;
             private short coopCustomizePacketId;
+            private short builtInCustomizeOriginPacketId;
 
             public event Action CoopPackagesChanged;
             public event Action CoopSetupOpened;
@@ -278,6 +279,10 @@ namespace CustomCustomTrail
                     GameNetworkAPI.Instance.GetPacketEventFor<CoopCustomizePacket>();
                 coopCustomizePacketId = packetHook.GetPacketId();
                 hooks.Add(packetHook.GetBaseHook().Observable.Subscribe(OnCoopCustomizePacket));
+                R3PacketEventHook<BuiltInCustomizeOriginPacket> builtInOriginPacketHook =
+                    GameNetworkAPI.Instance.GetPacketEventFor<BuiltInCustomizeOriginPacket>();
+                builtInCustomizeOriginPacketId = builtInOriginPacketHook.GetPacketId();
+                hooks.Add(builtInOriginPacketHook.GetBaseHook().Observable.Subscribe(OnBuiltInCustomizeOriginPacket));
                 saveCustomTrailMapOriginal = InstallHook(
                     typeof(EditorDirector).GetMethod(nameof(EditorDirector.SaveCustomTrailMap)),
                     (SaveCustomTrailMapDelegate)SaveCustomTrailMapHook);
@@ -1306,16 +1311,14 @@ namespace CustomCustomTrail
                 int customiseTrailType,
                 int customiseTrailId)
             {
-                if (!enabled)
-                {
-                    multiplayerOpenOriginal(self, skirmishSetup, fromNew, restartInfo, coopSetup, trailMaker, customiseTrailType, customiseTrailId);
-                    return;
-                }
-                bool preserve = preserveContextForLaunch;
+                // Origin tracking is shared infrastructure for the other gameplay mods and must
+                // remain active even when CustomCustomTrail's own visible features are disabled.
+                bool preserve = enabled && preserveContextForLaunch;
                 if (!trailMaker && !preserve)
                 {
                     CustomCustomTrailLaunchOriginApi.Clear();
-                    ExitContext(force: true);
+                    if (enabled)
+                        ExitContext(force: true);
                 }
                 multiplayerOpenOriginal(
                     self,
@@ -1326,13 +1329,22 @@ namespace CustomCustomTrail
                     trailMaker,
                     customiseTrailType,
                     customiseTrailId);
-                // FrontendMenus may defer Customize behind a confirmation dialog. doOpen is the
-                // first synchronous boundary that proves the requested setup transition happened.
-                if (fromNew && skirmishSetup && restartInfo == null && !coopSetup && !trailMaker &&
-                    customiseTrailId >= 0)
+                // FrontendMenus may defer Customize behind a confirmation dialog. Confirm the
+                // state written by Vanilla so an internally caught doOpen failure stays closed.
+                if (IsConfirmedBuiltInCustomizeTransition(
+                    self,
+                    fromNew,
+                    skirmishSetup,
+                    restartInfo,
+                    coopSetup,
+                    trailMaker,
+                    customiseTrailType,
+                    customiseTrailId))
                 {
                     CaptureBuiltInCustomizeOrigin(customiseTrailType, customiseTrailId);
                 }
+                if (!enabled)
+                    return;
                 if (preserve)
                     preserveContextForLaunch = false;
             }
@@ -1346,6 +1358,7 @@ namespace CustomCustomTrail
                 {
                     CustomCustomTrailLaunchOriginApi.MarkRestartPending();
                 }
+                BroadcastBuiltInCustomizeOrigin(self);
                 if (!enabled)
                 {
                     startSkirmishGameOriginal(self, customTrailRestartInfo);
@@ -1403,6 +1416,7 @@ namespace CustomCustomTrail
                         (string.Equals(command, "MapEditor", StringComparison.Ordinal) && !preserveTrailMakerMapEditor) ||
                         string.Equals(command, "BackMain", StringComparison.Ordinal) ||
                         string.Equals(command, "Coops", StringComparison.Ordinal) ||
+                        IsBuiltInTrailOpenCommand(command) ||
                         IsCoopTrailOpenCommand(command);
                     if (disabledContextChange)
                         CustomCustomTrailLaunchOriginApi.Clear();
@@ -1436,7 +1450,8 @@ namespace CustomCustomTrail
                 if (string.Equals(command, "Skirmish", StringComparison.Ordinal) ||
                     leavesTrailMaker ||
                     string.Equals(command, "BackMain", StringComparison.Ordinal) ||
-                    string.Equals(command, "Coops", StringComparison.Ordinal))
+                    string.Equals(command, "Coops", StringComparison.Ordinal) ||
+                    IsBuiltInTrailOpenCommand(command))
                 {
                     CustomCustomTrailLaunchOriginApi.Clear();
                     ExitContext(force: true);
@@ -1453,6 +1468,45 @@ namespace CustomCustomTrail
                 string.Equals(command, "Coop2", StringComparison.Ordinal) ||
                 string.Equals(command, "Coop3", StringComparison.Ordinal) ||
                 string.Equals(command, "Coop4", StringComparison.Ordinal);
+
+            private static bool IsBuiltInTrailOpenCommand(string command) =>
+                string.Equals(command, "Trail", StringComparison.Ordinal) ||
+                string.Equals(command, "Trail2", StringComparison.Ordinal) ||
+                string.Equals(command, "Trail3", StringComparison.Ordinal) ||
+                string.Equals(command, "Sands1", StringComparison.Ordinal) ||
+                string.Equals(command, "Sands2", StringComparison.Ordinal) ||
+                string.Equals(command, "Sands3", StringComparison.Ordinal) ||
+                string.Equals(command, "Sands4", StringComparison.Ordinal) ||
+                string.Equals(command, "Sands5", StringComparison.Ordinal) ||
+                string.Equals(command, "Sands6", StringComparison.Ordinal) ||
+                string.Equals(command, "Sands7", StringComparison.Ordinal) ||
+                string.Equals(command, "Sands8", StringComparison.Ordinal);
+
+            private static bool IsConfirmedBuiltInCustomizeTransition(
+                FRONT_Multiplayer self,
+                bool fromNew,
+                bool skirmishSetup,
+                HUD_IngameMenu.RestartSkirmishMapInfo restartInfo,
+                bool coopSetup,
+                bool trailMaker,
+                int trailType,
+                int missionId)
+            {
+                return self?.currentLobby != null &&
+                    ReferenceEquals(Platform_Multiplayer.Instance?.activeLobby, self.currentLobby) &&
+                    MainViewModel.Instance?.Show_MultiplayerSetup == true &&
+                    fromNew && skirmishSetup && restartInfo == null && !coopSetup && !trailMaker &&
+                    missionId >= 0 && IsBuiltInTrailType(trailType) &&
+                    FRONT_Multiplayer.customizedTrail &&
+                    FRONT_Multiplayer.customizedTrailType == trailType &&
+                    FRONT_Multiplayer.customizedTrailID == missionId;
+            }
+
+            private static bool IsBuiltInTrailType(int trailType) =>
+                (trailType >= CustomCustomTrailLaunchOriginApi.FirstVanillaTrailType &&
+                 trailType <= CustomCustomTrailLaunchOriginApi.LastVanillaTrailType) ||
+                (trailType >= CustomCustomTrailLaunchOriginApi.FirstSandsOfTimeTrailType &&
+                 trailType <= CustomCustomTrailLaunchOriginApi.LastSandsOfTimeTrailType);
 
             private static void CaptureBuiltInCustomizeOrigin(int trailType, int missionId)
             {
@@ -1900,6 +1954,44 @@ namespace CustomCustomTrail
                 BroadcastCoopTransition(trailId, missionId, launch: false);
             }
 
+            private void BroadcastBuiltInCustomizeOrigin(FRONT_Multiplayer self)
+            {
+                CustomCustomTrailLaunchOriginKind origin = CustomCustomTrailLaunchOriginApi.Origin;
+                if ((origin != CustomCustomTrailLaunchOriginKind.CustomizedVanillaTrail &&
+                     origin != CustomCustomTrailLaunchOriginKind.CustomizedSandsOfTime) ||
+                    self?.currentLobby == null || !self.currentLobby.isHost ||
+                    self.currentLobby.members == null || self.currentLobby.members.Count <= 1)
+                {
+                    return;
+                }
+
+                var packet = new BuiltInCustomizeOriginPacket
+                {
+                    ProtocolVersion = BuiltInCustomizeOriginPacket.CurrentProtocolVersion,
+                    TrailType = CustomCustomTrailLaunchOriginApi.TrailType,
+                    MissionId = CustomCustomTrailLaunchOriginApi.MissionId,
+                };
+                if (!BuiltInCustomizeOriginPacket.IsValid(packet))
+                {
+                    CustomCustomTrailLaunchOriginApi.Clear();
+                    DebugLogHelper.LogError(log, "Refused to broadcast an invalid Built-in Customize origin.");
+                    return;
+                }
+
+                byte[] bytes = MessagePackSerializer.Serialize(packet);
+                GameNetworkAPI.SendPacketToAllLobby(new Platform_Multiplayer.MPData
+                {
+                    packetType = builtInCustomizeOriginPacketId,
+                    data = bytes,
+                    dataLength = bytes.Length,
+                    dataOffset = 0,
+                });
+                DebugLogHelper.LogInfo(
+                    log,
+                    $"Broadcast Built-in Customize launch origin: trailType={packet.TrailType}, " +
+                    $"missionIndex={packet.MissionId}, packetId={builtInCustomizeOriginPacketId}.");
+            }
+
             internal void BroadcastCoopLaunch(int trailId, int missionId)
             {
                 BroadcastCoopTransition(trailId, missionId, launch: true);
@@ -1973,6 +2065,51 @@ namespace CustomCustomTrail
                 catch (Exception exception)
                 {
                     DebugLogHelper.LogError(log, "Could not apply Coop Trail transition from host: " + exception);
+                }
+            }
+
+            private void OnBuiltInCustomizeOriginPacket(
+                ReceiveCustomPacketEventArgs<BuiltInCustomizeOriginPacket> args)
+            {
+                try
+                {
+                    CSteamID? host = GameNetworkAPI.GetHostSteamId();
+                    if (!args.SenderSteamId.HasValue || !host.HasValue || args.SenderSteamId.Value != host.Value)
+                    {
+                        DebugLogHelper.LogError(
+                            log,
+                            "Rejected Built-in Customize origin from a sender that is not the lobby host.");
+                        return;
+                    }
+
+                    BuiltInCustomizeOriginPacket packet = args.Packet;
+                    if (!BuiltInCustomizeOriginPacket.IsValid(packet))
+                    {
+                        CustomCustomTrailLaunchOriginApi.Clear();
+                        DebugLogHelper.LogError(log, "Rejected invalid Built-in Customize origin packet.");
+                        return;
+                    }
+
+                    FRONT_Multiplayer self = MainViewModel.Instance?.FRONTMultiplayer;
+                    if (self?.currentLobby == null || self.currentLobby.isHost ||
+                        !FRONT_Multiplayer.skirmishGame || FRONT_Multiplayer.coopGame)
+                    {
+                        DebugLogHelper.LogWarning(
+                            log,
+                            "Ignored Built-in Customize origin outside an active client Skirmish lobby.");
+                        return;
+                    }
+
+                    CaptureBuiltInCustomizeOrigin(packet.TrailType, packet.MissionId);
+                    DebugLogHelper.LogInfo(
+                        log,
+                        $"Accepted Built-in Customize launch origin from host: trailType={packet.TrailType}, " +
+                        $"missionIndex={packet.MissionId}.");
+                }
+                catch (Exception exception)
+                {
+                    CustomCustomTrailLaunchOriginApi.Clear();
+                    DebugLogHelper.LogError(log, "Could not apply Built-in Customize origin from host: " + exception);
                 }
             }
 

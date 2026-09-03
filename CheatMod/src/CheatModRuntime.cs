@@ -66,7 +66,10 @@ namespace CheatMod
 
         private void BeginMap()
         {
-            mapActive = !Shared.GameModeHelper.IsMapEditor();
+            mapActive = Shared.GameplayFeatureModePolicy.IsAllowed(
+                CheatModPlugin.PluginGuid,
+                Shared.GameplayFeatureId.EndlessExtremePowersRecharge,
+                Shared.GameplayModActivationGate.Snapshot);
             RefreshTickSubscription("map start");
             Shared.DebugLogHelper.LogDebug(
                 log,
