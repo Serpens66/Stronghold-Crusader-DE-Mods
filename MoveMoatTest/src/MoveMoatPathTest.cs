@@ -3587,7 +3587,9 @@ namespace MoveMoatTest
                 $"beforeMalformed={beforeMalformed} vanillaRaw={vanillaAfter.ResultCount} " +
                 $"vanillaUsable={vanillaAfter.UsableResultCount} " +
                 $"vanillaMalformed={vanillaAfter.MalformedResultCount} " +
-                $"finalUsable={scope.After.UsableResultCount}.");
+                $"finalUsable={scope.After.UsableResultCount} " +
+                $"finalFirst={scope.After.FirstResultTile}/" +
+                $"{scope.After.FirstCompanionTile}/{scope.After.FirstScore}.");
             LogCommandDiagnostic(
                 $"stage=building-consumer-fallback commandSeq={scope.CommandSequence} " +
                 $"building={scope.OwnerCommand.TargetValue1}/{scope.OwnerCommand.TargetValue2} " +
@@ -3759,6 +3761,9 @@ namespace MoveMoatTest
                 BuildingCursorTarget target = default;
                 CursorGroupRouteSummary group = default;
                 bool groupEvaluated = false;
+                uint rawHoverBuildingTileId = 0;
+                uint rawMouseTileId2 = 0;
+                uint rawMouseTileId = 0;
 
                 if (vanillaResult == 0)
                 {
@@ -3776,16 +3781,25 @@ namespace MoveMoatTest
                             GamePlayerManagerAPI.Instance.GetCursorManager().Pointer;
                         uint rawBuildingId = cursorManager != null
                             ? cursorManager->r_HoverOverBuildingId : 0;
-                        uint rawMouseTileId = cursorManager != null
-                            ? cursorManager->r_MouseTileId : 0;
-                        uint rawMouseTileId2 = cursorManager != null
+                        rawHoverBuildingTileId = cursorManager != null
+                            ? cursorManager->r_HoverOverBuildingTileId : 0;
+                        rawMouseTileId2 = cursorManager != null
                             ? cursorManager->r_MouseTileId2 : 0;
+                        rawMouseTileId = cursorManager != null
+                            ? cursorManager->r_MouseTileId : 0;
+                        int rawMouseX = cursorManager != null
+                            ? unchecked((int)cursorManager->r_MouseTileX) : -1;
+                        int rawMouseY = cursorManager != null
+                            ? unchecked((int)cursorManager->r_MouseTileY) : -1;
                         if (rawBuildingId != unchecked((uint)buildingId) ||
                             !TryResolveHostileLivingBuildingFromRawCursor(
                                 playerId,
                                 rawBuildingId,
-                                rawMouseTileId,
+                                rawHoverBuildingTileId,
                                 rawMouseTileId2,
+                                rawMouseTileId,
+                                rawMouseX,
+                                rawMouseY,
                                 out targetX,
                                 out targetY,
                                 out targetTileId,
@@ -3839,7 +3853,9 @@ namespace MoveMoatTest
                 }
 
                 string key = $"{mapEpoch}:{buildingId}:{unitId}:{playerId}:" +
-                    $"{target.GlobalId}:{targetTileId}:{group.SelectionSignature}:" +
+                    $"{target.GlobalId}:{rawHoverBuildingTileId}:{rawMouseTileId2}:" +
+                    $"{rawMouseTileId}:{targetTileId}:{target.HoverTileSource}:" +
+                    $"{group.SelectionSignature}:" +
                     $"{group.SelectedUnits}:{group.DiggerUnits}:" +
                     $"{group.LegallyReachableUnits}:{group.FriendlyMoatSeparatedUnits}:" +
                     $"{vanillaResult}:{effectiveResult}:{reason}";
@@ -3850,7 +3866,10 @@ namespace MoveMoatTest
                         $"MoveMoat stage=building-cursor-reachability " +
                         $"building={buildingId}/{target.GlobalId} type={target.BuildingType} " +
                         $"owner={target.OwnerId} unit={unitId} player={playerId} " +
-                        $"hover=({targetX},{targetY})/{targetTileId} " +
+                        $"hoverRaw=buildingTile:{rawHoverBuildingTileId}/" +
+                        $"mouse2:{rawMouseTileId2}/mouse:{rawMouseTileId} " +
+                        $"hoverResolved=({targetX},{targetY})/{targetTileId} " +
+                        $"hoverTileSource={FormatBuildingHoverTileSource(target.HoverTileSource)} " +
                         $"groupEvaluated={groupEvaluated} selected={group.SelectedUnits} " +
                         $"diggers={group.DiggerUnits} legal={group.LegallyReachableUnits} " +
                         $"friendlyMoatSeparated={group.FriendlyMoatSeparatedUnits} " +
@@ -3912,6 +3931,10 @@ namespace MoveMoatTest
                     ? cursorManager->r_HoveringOverWall : 0;
                 uint rawMouseTileId = cursorManager != null
                     ? cursorManager->r_MouseTileId : 0;
+                int rawMouseX = cursorManager != null
+                    ? unchecked((int)cursorManager->r_MouseTileX) : -1;
+                int rawMouseY = cursorManager != null
+                    ? unchecked((int)cursorManager->r_MouseTileY) : -1;
 
                 BuildingCursorTarget buildingTarget = default;
                 bool hostileBuildingTarget = false;
@@ -3940,14 +3963,18 @@ namespace MoveMoatTest
                 if (validTarget)
                     targetTileId = GameTileManagerAPI.Instance.GetTileId(targetX, targetY);
 
-                // Building hovers can leave the dispatcher's global target at (0,0). Recover
-                // only a tile that is proven to belong to the raw 1-based building ID.
+                // Sprite overhangs can leave the dispatcher's global target at (0,0), although
+                // Vanilla still reports the exact building ID. Bind such hovers to a verified
+                // StructureGrid tile; the building approach probe still enumerates the footprint.
                 if (validUnit && (!validTarget || !IsValidTileId(targetTileId)) &&
                     TryResolveHostileLivingBuildingFromRawCursor(
                         playerId,
                         rawHoverBuildingId,
-                        rawMouseTileId,
+                        rawHoverBuildingTileId,
                         rawMouseTileId2,
+                        rawMouseTileId,
+                        rawMouseX,
+                        rawMouseY,
                         out int recoveredTargetX,
                         out int recoveredTargetY,
                         out int recoveredTargetTileId,
@@ -4090,6 +4117,7 @@ namespace MoveMoatTest
                     buildingTarget.BuildingId,
                     buildingTarget.GlobalId,
                     buildingTarget.BuildingType,
+                    buildingTarget.HoverTileSource,
                     rawHoverBuildingId,
                     rawHoverUnitId,
                     rawHoverBuildingTileId,
@@ -4129,6 +4157,7 @@ namespace MoveMoatTest
                 $"{diagnostic.OccupiedSlots:X}:{diagnostic.HasVanillaDiggerSelection}:" +
                 $"{diagnostic.FunctionalFallbackArmed}:{diagnostic.FallbackKind}:" +
                 $"{diagnostic.BuildingId}:{diagnostic.BuildingGlobalId}:" +
+                $"{diagnostic.BuildingHoverTileSource}:" +
                 $"{diagnostic.RawHoverBuildingId}:{diagnostic.RawHoverUnitId}:" +
                 $"{diagnostic.RawHoverBuildingTileId}:{diagnostic.RawMouseTileId2}:" +
                 $"{diagnostic.RawHoveringOverWall}:{diagnostic.RawMouseTileId}:" +
@@ -4148,7 +4177,8 @@ namespace MoveMoatTest
                 $"fallbackArmed={diagnostic.FunctionalFallbackArmed} " +
                 $"fallbackKind={diagnostic.FallbackKind} " +
                 $"building={diagnostic.BuildingId}/{diagnostic.BuildingGlobalId}/" +
-                $"{diagnostic.BuildingType} " +
+                $"{diagnostic.BuildingType} hoverTileSource=" +
+                $"{FormatBuildingHoverTileSource(diagnostic.BuildingHoverTileSource)} " +
                 $"rawCursor=building:{diagnostic.RawHoverBuildingId}/" +
                 $"unit:{diagnostic.RawHoverUnitId}/buildingTile:" +
                 $"{diagnostic.RawHoverBuildingTileId}/mouse2:{diagnostic.RawMouseTileId2}/" +
@@ -5201,8 +5231,11 @@ namespace MoveMoatTest
         private bool TryResolveHostileLivingBuildingFromRawCursor(
             int playerId,
             uint rawBuildingId,
-            uint rawMouseTileId,
+            uint rawHoverBuildingTileId,
             uint rawMouseTileId2,
+            uint rawMouseTileId,
+            int rawMouseX,
+            int rawMouseY,
             out int targetX,
             out int targetY,
             out int targetTileId,
@@ -5235,12 +5268,32 @@ namespace MoveMoatTest
                 return false;
             }
 
-            if (!TryResolveRawBuildingFootprintTile(
-                buildingId, building, rawMouseTileId,
-                out targetX, out targetY, out targetTileId) &&
-                !TryResolveRawBuildingFootprintTile(
-                    buildingId, building, rawMouseTileId2,
+            BuildingHoverTileSource hoverTileSource;
+            if (TryResolveRawBuildingFootprintTile(
+                    buildingId, building, rawHoverBuildingTileId,
                     out targetX, out targetY, out targetTileId))
+            {
+                hoverTileSource = BuildingHoverTileSource.BuildingTile;
+            }
+            else if (TryResolveRawBuildingFootprintTile(
+                         buildingId, building, rawMouseTileId2,
+                         out targetX, out targetY, out targetTileId))
+            {
+                hoverTileSource = BuildingHoverTileSource.MouseTile2;
+            }
+            else if (TryResolveRawBuildingFootprintTile(
+                         buildingId, building, rawMouseTileId,
+                         out targetX, out targetY, out targetTileId))
+            {
+                hoverTileSource = BuildingHoverTileSource.MouseTile;
+            }
+            else if (TryResolveNearestBuildingFootprintTile(
+                         buildingId, building, rawMouseTileId, rawMouseX, rawMouseY,
+                         out targetX, out targetY, out targetTileId))
+            {
+                hoverTileSource = BuildingHoverTileSource.NearestFootprint;
+            }
+            else
             {
                 return false;
             }
@@ -5251,9 +5304,88 @@ namespace MoveMoatTest
                 GlobalId = building->r_GlobalId,
                 OwnerId = ownerId,
                 BuildingType = building->r_BuildingType,
-                HoverTileId = targetTileId
+                HoverTileId = targetTileId,
+                HoverTileSource = hoverTileSource
             };
             return true;
+        }
+
+        private bool TryResolveNearestBuildingFootprintTile(
+            int buildingId,
+            GameBuilding* building,
+            uint rawMouseTileId,
+            int rawMouseX,
+            int rawMouseY,
+            out int targetX,
+            out int targetY,
+            out int targetTileId)
+        {
+            targetX = -1;
+            targetY = -1;
+            targetTileId = -1;
+            if (building == null || rawMouseX < 0 || rawMouseX >= MapWidth ||
+                rawMouseY < 0 || rawMouseY >= MapWidth ||
+                rawMouseTileId > int.MaxValue || !IsValidTileId((int)rawMouseTileId) ||
+                GameTileManagerAPI.Instance.GetTileId(rawMouseX, rawMouseY) != (int)rawMouseTileId)
+            {
+                return false;
+            }
+
+            int minX = Math.Max(0, Math.Min(
+                (int)building->r_TilePositionXBegin, (int)building->r_TilePositionXEnd));
+            int maxX = Math.Min(MapWidth - 1, Math.Max(
+                (int)building->r_TilePositionXBegin, (int)building->r_TilePositionXEnd));
+            int minY = Math.Max(0, Math.Min(
+                (int)building->r_TilePositionYBegin, (int)building->r_TilePositionYEnd));
+            int maxY = Math.Min(MapWidth - 1, Math.Max(
+                (int)building->r_TilePositionYBegin, (int)building->r_TilePositionYEnd));
+            long bestDistanceSquared = long.MaxValue;
+            for (int y = minY; y <= maxY; y++)
+            {
+                for (int x = minX; x <= maxX; x++)
+                {
+                    int candidateTileId = GameTileManagerAPI.Instance.GetTileId(x, y);
+                    if (!IsValidTileId(candidateTileId) ||
+                        GameTileManagerAPI.Instance.GetTileBuildingId(candidateTileId) != buildingId)
+                    {
+                        continue;
+                    }
+
+                    long deltaX = x - rawMouseX;
+                    long deltaY = y - rawMouseY;
+                    long distanceSquared = deltaX * deltaX + deltaY * deltaY;
+                    if (distanceSquared > bestDistanceSquared ||
+                        (distanceSquared == bestDistanceSquared &&
+                         targetTileId >= 0 && candidateTileId >= targetTileId))
+                    {
+                        continue;
+                    }
+
+                    bestDistanceSquared = distanceSquared;
+                    targetX = x;
+                    targetY = y;
+                    targetTileId = candidateTileId;
+                }
+            }
+
+            return targetTileId >= 0;
+        }
+
+        private static string FormatBuildingHoverTileSource(BuildingHoverTileSource source)
+        {
+            switch (source)
+            {
+                case BuildingHoverTileSource.BuildingTile:
+                    return "buildingTile";
+                case BuildingHoverTileSource.MouseTile2:
+                    return "mouse2";
+                case BuildingHoverTileSource.MouseTile:
+                    return "mouse";
+                case BuildingHoverTileSource.NearestFootprint:
+                    return "nearest-footprint";
+                default:
+                    return "none";
+            }
         }
 
         private bool TryResolveRawBuildingFootprintTile(
@@ -6317,6 +6449,15 @@ namespace MoveMoatTest
             BuildingCandidateConsumer
         }
 
+        private enum BuildingHoverTileSource
+        {
+            None,
+            BuildingTile,
+            MouseTile2,
+            MouseTile,
+            NearestFootprint
+        }
+
         private enum CursorPairFallbackKind
         {
             UnitApproach,
@@ -6899,6 +7040,7 @@ namespace MoveMoatTest
             public int OwnerId;
             public eStructs BuildingType;
             public int HoverTileId;
+            public BuildingHoverTileSource HoverTileSource;
         }
 
         private sealed class CursorSelectionDiagnosticScope
@@ -6922,6 +7064,7 @@ namespace MoveMoatTest
                 int buildingId = 0,
                 uint buildingGlobalId = 0,
                 eStructs buildingType = eStructs.STRUCT_NULL,
+                BuildingHoverTileSource buildingHoverTileSource = BuildingHoverTileSource.None,
                 uint rawHoverBuildingId = 0,
                 uint rawHoverUnitId = 0,
                 uint rawHoverBuildingTileId = 0,
@@ -6947,6 +7090,7 @@ namespace MoveMoatTest
                 BuildingId = buildingId;
                 BuildingGlobalId = buildingGlobalId;
                 BuildingType = buildingType;
+                BuildingHoverTileSource = buildingHoverTileSource;
                 RawHoverBuildingId = rawHoverBuildingId;
                 RawHoverUnitId = rawHoverUnitId;
                 RawHoverBuildingTileId = rawHoverBuildingTileId;
@@ -6973,6 +7117,7 @@ namespace MoveMoatTest
             public int BuildingId { get; }
             public uint BuildingGlobalId { get; }
             public eStructs BuildingType { get; }
+            public BuildingHoverTileSource BuildingHoverTileSource { get; }
             public uint RawHoverBuildingId { get; }
             public uint RawHoverUnitId { get; }
             public uint RawHoverBuildingTileId { get; }

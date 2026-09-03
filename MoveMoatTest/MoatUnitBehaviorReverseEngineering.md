@@ -2059,8 +2059,9 @@ erfüllt sind:
 - Building- und Unit-ID sind gültige 1-basierte Game-IDs;
 - die Unit lebt und liefert einen gültigen kontrollierenden Spieler;
 - die rohe Hover-Building-ID stimmt exakt mit dem Funktionsargument überein;
-- `r_MouseTileId` oder ersatzweise `r_MouseTileId2` lässt sich durch `GetTileId(x,y)` und
-  StructureGrid-ID eindeutig einem Tile des echten Footprints zuordnen;
+- Vanillas rohe Hover-Building-ID bindet das sichtbare Ziel exakt an das Funktionsargument; ein
+  echtes StructureGrid-Kontexttile desselben Gebäudes wird nach der in Abschnitt 15.12
+  dokumentierten Priorität aufgelöst;
 - das Gebäude lebt, besitzt eine gültige Global-ID, ist feindlich und ist keine Mauer, Treppe
   oder Rampe;
 - die gruppenweite Probe findet mindestens eine regelkonform erreichbare Unit und eine relevante
@@ -2201,4 +2202,49 @@ ein weiterer Schritt. Die Kandidaten werden stabil nach Distanz und bei Gleichst
 ursprünglichen Vanilla-Reihenfolge sortiert. Erreichbarkeit, Ownerfilter und die Menge zulässiger
 Tiles ändern sich dadurch nicht; ausschließlich die zuvor künstliche Kandidatenpriorität wird an
 Vanillas Semantik angenähert.
+
+### 15.12 Gebäude-Spriteüberhang und stabiles Hover-Kontexttile
+
+Der anschließende Vergleich des Angriffscursors über die gesamte sichtbare Gebäudegrafik zeigte
+einen weiteren, vom Pfadbau unabhängigen Randfall. Auf den unteren beziehungsweise tatsächlich vom
+StructureGrid belegten Bildbereichen war der Cursor freigegeben; auf Teilen des Dachs und des
+rechten oder oberen Spriteüberhangs blieb er dagegen verboten. Die Grenze war nicht horizontal
+verschoben und entsprach nicht der sichtbaren Sprite-Hitbox.
+
+Die Logs vom 3. September 2026 bestätigen die Trennung der beiden Ebenen. Auch über den roten
+Bildbereichen lieferte Vanillas Sprite-Hit-Test weiterhin exakt dieselbe 1-basierte
+`r_HoverOverBuildingId`. Dagegen waren `r_HoverOverBuildingTileId` und `r_MouseTileId2` null, das
+globale Cursorziel blieb `(0,0)`, und `r_MouseTileId` bezeichnete das unter dem überhängenden
+Sprite liegende Geländetile. Der Cursor-Dispatcher `0x8C5F0` erreichte den einzigen Call
+`0x8DFF6 -> 0xB70C0` dennoch; nur der Mod verwarf anschließend den Fallback, weil er bislang
+verlangte, dass das rohe Maus-Tile selbst zum StructureGrid-Footprint des Gebäudes gehört.
+
+Für die visuelle Zielidentität ist deshalb `r_HoverOverBuildingId` maßgeblich. Nach erneuter
+Validierung von Game-ID, Alive-State, Global-ID, Besitzer, Feindschaft und Gebäudetyp wird ein
+stabiles echtes Gebäudekontexttile gesucht. Die Priorität lautet:
+
+1. gültiges `r_HoverOverBuildingTileId` desselben Gebäudes;
+2. gültiges `r_MouseTileId2` desselben Gebäudes;
+3. gültiges `r_MouseTileId` desselben Gebäudes;
+4. das dem validierten Maus-Tile nächstgelegene StructureGrid-Tile mit exakt derselben Building-ID
+   innerhalb der Building-Bounds, bei Distanzgleichstand die kleinere Tile-ID.
+
+Der vierte Fall erweitert die Hitbox nicht selbst: Er ist nur zulässig, solange Vanilla über dem
+aktuellen Bildschirmpixel die konkrete rohe Building-ID meldet. Das gefundene Tile dient außerdem
+nur als stabiler Identitäts- und Diagnosekontext. Die echten Annäherungsfelder werden weiterhin
+vollständig aus dem verifizierten Gebäude-Footprint enumeriert und anschließend owner-sicher
+bewertet. Die Auswahl des kürzesten Angriffsziels aus Abschnitt 15.11 bleibt dadurch unverändert.
+
+Die Diagnose `building-cursor-reachability` protokolliert die drei rohen Tilefelder, das
+aufgelöste Kontexttile und `hoverTileSource=buildingTile|mouse2|mouse|nearest-footprint`. Der
+Auswahlhelper verwendet denselben Resolver, schreibt jedoch weder die globalen Cursorzielwerte
+noch öffnet er einen zusätzlichen Dispatcherzweig. Positive Vanilla-Ergebnisse bleiben
+unangetastet; eigene und verbündete Gebäude sowie Mauern, Treppen und Rampen werden weiterhin
+nicht durch diesen Gebäudefallback freigegeben.
+
+Für Spielupdates sind neben dem Hash
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2` erneut die Strukturfelder
+des `GameCursorManager`, die 1-basierte Building-ID-Semantik, der Dispatcher-Call
+`0x8DFF6 -> 0xB70C0` und die StructureGrid-Zuordnung zu prüfen. Stimmen Sprite-Hover-ID und
+StructureGrid-Vertrag nicht mehr überein, bleibt dieser Fallback fail-closed.
 
