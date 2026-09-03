@@ -10,5 +10,12 @@
   <ItemGroup>
     <ProjectReference Include="..\CustomCustomTrail.Core\CustomCustomTrail.Core.csproj" />
     <Compile Include="..\..\Shared\WorkshopUploadStaging.cs" Link="WorkshopUploadStaging.cs" />
+    <Compile Include="..\src\CustomCustomTrailLaunchOriginApi.cs" Link="CustomCustomTrailLaunchOriginApi.cs" />
+    <Reference Include="MessagePack">
+      <HintPath>..\..\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481\MessagePack.dll</HintPath>
+    </Reference>
+    <Reference Include="MessagePack.Annotations">
+      <HintPath>..\..\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481\MessagePack.Annotations.dll</HintPath>
+    </Reference>
   </ItemGroup>
 </Project>

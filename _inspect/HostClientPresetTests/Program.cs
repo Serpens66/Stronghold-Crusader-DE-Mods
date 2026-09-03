@@ -1109,17 +1109,133 @@ internal static class Program
         Director.instance = null;
         GameNetworkAPI.Networked = true;
         GameNetworkAPI.MultiplayerGame = false;
-        GameData.Instance = new GameData { game_type = 3, SkirmishGameType = 0 };
+        GameData.Instance = new GameData
+        {
+            game_type = (int)Enums.eGameTypeModes.GAMETYPE_MULTIPLAYER,
+            SkirmishGameType = (int)Enums.eSkirmishGameMode.SKIRMISH_GAME_CUSTOM,
+            coopTrailID = 0
+        };
 
         GameModeSnapshot skirmish = GameModeHelper.Capture();
         Check(skirmish.LowLevelNetworked && !skirmish.IsRealMultiplayer &&
-              skirmish.IsSingleplayerSkirmish,
+              skirmish.IsSingleplayerSkirmish &&
+              skirmish.Kind == GameModeKind.CustomGame &&
+              skirmish.AllowsCustomGameMods,
             "local skirmish was misclassified as multiplayer");
 
-        GameData.Instance.SkirmishGameType = 1;
+        GameData.Instance.SkirmishGameType = (int)Enums.eSkirmishGameMode.SKIRMISH_GAME_TRAIL;
+        GameData.Instance.SkirmishTrailType = (int)GameTrailType.FirstEdition;
         GameModeSnapshot trail = GameModeHelper.Capture();
-        Check(!trail.IsRealMultiplayer && trail.IsSingleplayerTrail,
+        Check(!trail.IsRealMultiplayer && trail.IsSingleplayerTrail &&
+              trail.Kind == GameModeKind.VanillaTrail && !trail.AllowsCustomGameMods,
             "singleplayer Trail was not recognized");
+
+        Check(GameModeHelper.ResolveKind(false,
+                  (int)Enums.eGameTypeModes.GAMETYPE_CAMPAIGN,
+                  (int)Enums.eSkirmishGameMode.SKIRMISH_GAME_NOT_SKIRMISH,
+                  -1, 0) == GameModeKind.Campaign,
+            "campaign was not classified from Vanilla's game-type enum");
+        Check(GameModeHelper.ResolveKind(false,
+                  (int)Enums.eGameTypeModes.GAMETYPE_MAP,
+                  (int)Enums.eSkirmishGameMode.SKIRMISH_GAME_NOT_SKIRMISH,
+                  -1, 0) == GameModeKind.StandaloneMission,
+            "standalone mission was not classified separately");
+        Check(GameModeHelper.ResolveKind(false, -1, -1, -1, 0,
+                  campaignMapId: 7) == GameModeKind.Campaign,
+            "campaign event data was not classified");
+        Check(GameModeHelper.ResolveKind(false,
+                  (int)Enums.eGameTypeModes.GAMETYPE_MULTIPLAYER,
+                  (int)Enums.eSkirmishGameMode.SKIRMISH_GAME_TRAIL,
+                  (int)GameTrailType.SandsEight, 0) == GameModeKind.SandsOfTime,
+            "Sands of Time was not classified from its named Trail type");
+        Check(GameModeHelper.ResolveKind(false,
+                  (int)Enums.eGameTypeModes.GAMETYPE_MULTIPLAYER,
+                  (int)Enums.eSkirmishGameMode.SKIRMISH_GAME_CUSTOM_TRAIL,
+                  -1, 0) == GameModeKind.CustomTrail,
+            "Custom Trail was not classified");
+        Check(GameModeHelper.ResolveKind(false,
+                  (int)Enums.eGameTypeModes.GAMETYPE_MULTIPLAYER,
+                  (int)Enums.eSkirmishGameMode.SKIRMISH_GAME_CUSTOM,
+                  -1, 2) == GameModeKind.CoopTrail,
+            "Coop Trail was not classified before multiplayer state");
+        Check(GameModeHelper.ResolveKind(true,
+                  (int)Enums.eGameTypeModes.GAMETYPE_MULTIPLAYER,
+                  (int)Enums.eSkirmishGameMode.SKIRMISH_GAME_CUSTOM,
+                  -1, 0) == GameModeKind.MapEditor,
+            "Map Editor did not take precedence");
+        GameData.Instance = new GameData { mapType = Enums.GameModes.MAP_EDITOR };
+        Check(GameModeHelper.Capture().Kind == GameModeKind.MapEditor,
+            "Vanilla's named map-type enum did not identify Map Editor");
+        Check(GameModeHelper.ResolveKind(false, -1, -1, -1, -1) == GameModeKind.Unknown,
+            "incomplete mode evidence did not fail closed");
+
+        var restoredCustomTrail = new ExternalCustomizedOrigin(
+            ExternalCustomizedOrigin.CustomTrail, -1, 90, 1, restoredFromSave: true);
+        Check(GameModeHelper.ResolveLaunchVariant(
+                  GameModeKind.CustomTrail, false, -1, -1, false, restoredCustomTrail) ==
+              GameModeLaunchVariant.RestoredCustomizedSave,
+            "restored customized Custom Trail was not recognized");
+        Check(GameModeHelper.ResolveLaunchVariant(
+                  GameModeKind.Campaign, false, -1, -1, false, restoredCustomTrail) ==
+              GameModeLaunchVariant.Standard,
+            "stale customized origin overrode an incompatible mode");
+        Check(GameModeHelper.ResolveLaunchVariant(
+                  GameModeKind.VanillaTrail, true, (int)GameTrailType.Warchest, 12, true, default) ==
+              GameModeLaunchVariant.Customized,
+            "Vanilla Trail Customize was not recognized");
+        Check(GameModeHelper.ResolveLaunchVariant(
+                  GameModeKind.SandsOfTime, true, (int)GameTrailType.SandsOne, 4, true, default) ==
+              GameModeLaunchVariant.Customized,
+            "Sands of Time Customize was not recognized");
+        Check(GameModeHelper.ResolveLaunchVariant(
+                  GameModeKind.SandsOfTime, false, (int)GameTrailType.SandsOne, 4, false, default) ==
+              GameModeLaunchVariant.Standard,
+            "direct Sands of Time was treated as customized");
+        Check(GameModeHelper.ResolveLaunchVariant(
+                  GameModeKind.CustomTrail, false, -1, -1, false,
+                  new ExternalCustomizedOrigin(ExternalCustomizedOrigin.CoopTrail, -1, 0, 1, false)) ==
+              GameModeLaunchVariant.Standard,
+            "mismatched Coop origin enabled a Custom Trail");
+        Check(GameModeHelper.ResolveLaunchVariant(
+                  GameModeKind.VanillaTrail, true, (int)GameTrailType.FirstEdition, 1, false, default) ==
+              GameModeLaunchVariant.Standard,
+            "stale Vanilla Customize fields enabled a directly started Trail");
+
+        Check(GameModeHelper.ResolveKind(false, -1, -1, -1, 0,
+                  eventTrailType: (int)GameTrailType.Extreme) == GameModeKind.VanillaTrail,
+            "OnLoadMap Trail event data was not classified");
+        Check(GameModeHelper.ResolveKind(false, -1, -1, -1, 0,
+                  eventTrailType: (int)GameTrailType.SandsTwo) == GameModeKind.SandsOfTime,
+            "OnLoadMap Sands event data was not classified");
+
+        GameData.Instance = new GameData();
+        CrusaderDE.MainViewModel.Reset();
+        GamePlayerManagerAPI.Instance.MapEditor = false;
+        GameModeSnapshot editorLoad = GameModeHelper.Capture(
+            new SHCDESE.EventAPI.MapLoader.LoadSaveGameEventArgs(true));
+        Check(editorLoad.Kind == GameModeKind.MapEditor && !editorLoad.AllowsCustomGameMods,
+            "editor save load required an OnStartMap event");
+
+        GamePlayerManagerAPI.Instance.MapEditor = true;
+        GameModeSnapshot editorMapLoad = GameModeHelper.Capture(
+            new SHCDESE.EventAPI.MapLoader.MapLoadEventArgs
+            {
+                CampaignMapID = uint.MaxValue,
+                TrailType = -1
+            });
+        Check(editorMapLoad.Kind == GameModeKind.MapEditor && !editorMapLoad.AllowsCustomGameMods,
+            "OnLoadMap without OnStartMap did not detect Map Editor");
+        GamePlayerManagerAPI.Instance.MapEditor = false;
+
+        GameData.Instance = new GameData();
+        GameModeSnapshot emptyLoad = GameModeHelper.Capture(
+            new SHCDESE.EventAPI.MapLoader.MapLoadEventArgs
+            {
+                CampaignMapID = uint.MaxValue,
+                TrailType = -1
+            });
+        Check(emptyLoad.Kind == GameModeKind.Unknown && !emptyLoad.AllowsCustomGameMods,
+            "an empty OnLoadMap event was heuristically treated as Map Editor");
 
         GameData.Instance = new GameData { game_type = 3, SkirmishGameType = -1 };
         platform.activeLobby = new Platform_Multiplayer.MPLobby
@@ -5499,7 +5615,44 @@ internal sealed class GameData
     public static GameData Instance;
     public int game_type = -1;
     public int SkirmishGameType = -1;
+    public int SkirmishTrailType = -1;
     public int coopTrailID = -1;
+    public Enums.GameModes mapType = Enums.GameModes.BUILD;
+    public bool IsSandsOfTime() =>
+        game_type == (int)Enums.eGameTypeModes.GAMETYPE_MULTIPLAYER &&
+        SkirmishGameType == (int)Enums.eSkirmishGameMode.SKIRMISH_GAME_TRAIL &&
+        SkirmishTrailType >= (int)Shared.GameTrailType.SandsOne &&
+        SkirmishTrailType <= (int)Shared.GameTrailType.SandsEight;
+}
+
+internal static class Enums
+{
+    internal enum eGameTypeModes
+    {
+        GAMETYPE_CAMPAIGN = 0,
+        GAMETYPE_BUILDER = 1,
+        GAMETYPE_MAP = 2,
+        GAMETYPE_MULTIPLAYER = 3,
+        GAMETYPE_TUTORIAL = 4,
+    }
+
+    internal enum eSkirmishGameMode
+    {
+        SKIRMISH_GAME_NOT_SKIRMISH = -1,
+        SKIRMISH_GAME_CUSTOM = 0,
+        SKIRMISH_GAME_TRAIL = 1,
+        SKIRMISH_GAME_CUSTOM_TRAIL = 2,
+        SKIRMISH_GAME_TEST_MISSION = 3,
+    }
+
+    internal enum GameModes
+    {
+        BUILD = 0,
+        ECO = 1,
+        SIEGE = 2,
+        INVASION = 3,
+        MAP_EDITOR = 10,
+    }
 }
 
 public sealed class Platform_Multiplayer
@@ -5543,6 +5696,28 @@ namespace SHCDESE.API
         public static GamePlayerManagerAPI Instance { get; } = new GamePlayerManagerAPI();
         public bool MapEditor { get; set; }
         public bool IsInMapEditor() => MapEditor;
+    }
+}
+
+namespace SHCDESE.EventAPI.MapLoader
+{
+    internal sealed class MapStartEventArgs
+    {
+        public byte bMultiplayerSave { get; set; }
+        public int CampaignMapId { get; set; }
+    }
+
+    internal sealed class MapLoadEventArgs
+    {
+        public uint CampaignMapID { get; set; }
+        public byte bMultiplayerSave { get; set; }
+        public int TrailType { get; set; }
+    }
+
+    internal sealed class LoadSaveGameEventArgs
+    {
+        public LoadSaveGameEventArgs(bool loadingEditorMap) => LoadingEditorMap = loadingEditorMap;
+        public bool LoadingEditorMap { get; }
     }
 }
 

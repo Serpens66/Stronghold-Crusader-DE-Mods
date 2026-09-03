@@ -2028,3 +2028,177 @@ Schlägt eine dieser Validierungen fehl, wird der neue funktionale Hook gemeinsa
 zentralen Bewegungshooks zurückgerollt. Es gibt keinen gruppenweiten Fallback und keine
 Aufteilung oder erneute Ausgabe des Befehls.
 
+### 15.9 Gebäude-Cursor: zentraler Erreichbarkeitshelper `0xB70C0`
+
+Die bisherigen Gebäudetests trennten zwei Fälle eindeutig. Ein `AttackBuilding`-Befehl wurde
+nur erzeugt, wenn wenigstens ein ausgewähltes Gruppenmitglied bereits auf der Gebäudeseite des
+Moats stand. Standen alle Units auf der anderen Seite, blieb der Cursor rot und es entstand kein
+Target-Command. Die funktionale Vorbereitung über den Auswahlhelper `0x196870` und die
+Tilepaarprüfung `0xE2CA0` war für gewöhnliche Gebäude am falschen Unterpfad: Der eigentliche
+Gebäudehelper ruft diese Funktionen während seiner eigenen Annäherungsfeldsuche erneut auf und
+überschrieb beziehungsweise verbrauchte den kurzlebigen äußeren Scope. Ein beobachteter
+`0x195E30`-Aufruf mit globalem Ziel `(0,0)` war ebenfalls kein belastbarer Gebäude-Stager und wird
+für Gebäude nicht mehr funktional vorbereitet.
+
+Die hashgleiche Baseline identifiziert stattdessen RVA `0xB70C0` als zentralen
+Gebäude-Erreichbarkeitshelper. Seine Signatur ist
+
+    int BuildingCursorReachability(buildingManager, buildingGameId, unitGameId)
+
+Die Funktion enumeriert die möglichen Annäherungsfelder des Gebäude-Footprints und entscheidet,
+ob der Cursor-Dispatcher das Gebäude als angreifbar behandeln darf. In der kanonischen DLL
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2` besitzt sie genau einen
+bestätigten Caller: den Near-Call bei RVA `0x8DFF6` im Cursor-Dispatcher `0x8C5F0`. Dessen Bytes
+sind `E8 C5 90 02 00`. Das historische Gegenstück ist RVA `0xB62D0`; die Baseline bestätigt die
+Zuordnung über normalisierten Funktionshash und Kontrollfluss.
+
+`MoveMoatTest` detourt deshalb `0xB70C0` Vanilla-first. Ein positives Vanilla-Ergebnis bleibt
+unverändert. Nach Vanilla `0` wird nur dann effektiv `1` geliefert, wenn alle folgenden Verträge
+erfüllt sind:
+
+- Building- und Unit-ID sind gültige 1-basierte Game-IDs;
+- die Unit lebt und liefert einen gültigen kontrollierenden Spieler;
+- die rohe Hover-Building-ID stimmt exakt mit dem Funktionsargument überein;
+- `r_MouseTileId` oder ersatzweise `r_MouseTileId2` lässt sich durch `GetTileId(x,y)` und
+  StructureGrid-ID eindeutig einem Tile des echten Footprints zuordnen;
+- das Gebäude lebt, besitzt eine gültige Global-ID, ist feindlich und ist keine Mauer, Treppe
+  oder Rampe;
+- die gruppenweite Probe findet mindestens eine regelkonform erreichbare Unit und eine relevante
+  Trennung durch eigenen oder verbündeten fertigen Moat.
+
+Für die Routenprobe werden ausschließlich freie, gewöhnlich begehbare Außenfelder verwendet, die
+unmittelbar an den verifizierten Footprint grenzen. Nicht grabfähige Units dürfen nur normale
+Wege benutzen; die Moat-Variante zählt ausschließlich für `CanDigMoat`-Units. Die bestehende BFS
+öffnet weder feindlichen Moat noch Wasser oder Mauern. Die Cursorentscheidung ist gruppenweit,
+der spätere Planer-, Regions- und Builderfallback bleibt dagegen strikt pro konkreter Unit
+gefiltert.
+
+Die Diagnose `stage=building-cursor-reachability` bindet das Ergebnis an Kartenepoch,
+Building-/Global-ID, Unit, Hover-Tile und vollständige Auswahl-/Positionssignatur. Sie protokolliert
+Vanilla- und Effektivergebnis sowie Auswahlgröße, Grabfähigkeit, legal erreichbare und durch
+freundlichen Moat getrennte Units. `0xDA020` und `0x123090` bleiben read-only instrumentiert; erst
+ein tatsächlich erzeugter Moat-`AttackBuilding`-Befehl kann belegen, ob in der späteren
+Building-Approach-Pipeline noch ein eigener Abbruch existiert.
+
+Nach einem Spielupdate zuerst `0xB70C0` über Semantik und historischen Match wiederfinden, dann
+Funktionsgrenzen, vollständige Entrybytes, den einzigen Dispatcher-Caller und dessen Callziel
+erneut bestätigen. Die aktuellen Entrybytes beginnen mit:
+
+    48 89 5C 24 08 55 56 57 41 54 41 55 41 56 41 57
+    48 83 EC 40 4C 8B E1 85 D2
+
+Ein Patterntreffer allein genügt nicht. Stimmen Hash, Signatur, 1-basierter ID-Vertrag,
+Footprint-Enumeration oder Caller nicht mehr überein, bleibt die Gebäudefreigabe fail-closed auf
+Vanilla.
+
+### 15.10 Gebäude-Command: Kandidatenverbrauch in `0x123090`
+
+Der erste Lauf mit dem funktionalen `0xB70C0`-Cursorhook belegt den anschließenden gemeinsamen
+Commandpfad. `AttackBuilding` wurde ausgegeben und `0xDA020` erzeugte 30 Einträge, aber die Unit
+blieb unverändert (`changedUnits=0`); weder `MoveHere` noch der zentrale Planer oder Builder wurden
+erreicht. Der Abbruch liegt damit zwischen der Erzeugung der Gebäude-Annäherungsfelder und ihrer
+Zuweisung an die Units.
+
+Die hashgleiche Baseline bestätigt die Folge
+
+    0x11E960 -> 0xDA020 -> 0x123090 -> 0x196280 (MoveHere)
+
+`0xDA020` schreibt ab `pathManager + 0x1B344` höchstens 500 Einträge mit einer Schrittweite von
+12 Bytes:
+
+- `+0`: freies Annäherungstile;
+- `+4`: unmittelbar angrenzendes Tile des Zielgebäude-Footprints;
+- `+8`: Pfaddistanz beziehungsweise `10.000.000` für nicht erreichbar.
+
+`0x123090` ruft abhängig von Auswahl und Variante `0xDA590`, `0xD9C40` oder `0xDB650` auf, bewertet
+die Annäherungstiles über die globale Stamp-/Distanzkarte, sortiert die Tripel und entfernt Einträge
+mit der Distanz `10.000.000`. Der normale Pfad `0xDA590` kann einen fertigen Moat nicht überqueren.
+Danach prüft `0x11E960` insbesondere das Feld `+4`; nur aus einem vollständigen Tripel setzt es das
+Attack-Move-Ziel, ruft `0x196280` auf und speichert anschließend `+4` als
+`r_AI_ContextTargetBuildingTileId`.
+
+Die ältere Diagnose zählte einen Eintrag bereits dann, wenn nicht sowohl `+0` als auch `+4` null
+waren. Ein protokolliertes `results=30` bewies daher nicht, dass `0x11E960` auch nur einen
+verwertbaren Kandidaten erhalten hatte. Die neue Diagnose trennt rohe, vollständig verwertbare und
+unvollständige Tripel und gibt das erste Tripel einschließlich Distanz aus.
+
+Der Lauf vom 3. September 2026 nach der ersten Reservierungslockerung präzisierte den Abbruch. Bei
+einem Woodcutter hinter eigenem Moat erzeugte `0xDA020` 50 rohe Einträge, aber alle besaßen
+`+4 == 0`. `0x123090` konnte daher kein ausführbares Tripel veröffentlichen; `0x11E960` lieferte
+zwar Command-Ergebnis `1`, änderte jedoch keine Unit. Die Owner-BFS und die Reservierungsprüfung
+wurden dabei überhaupt nicht erreicht. Eine nachträgliche Rekonstruktion von `+4` ist an dieser
+Stelle konzeptionell falsch und wurde entfernt.
+
+Die Baseline erklärt die Nullwerte: `0xDA020` prüft bereits während der Erzeugung jedes echten
+Annäherungstiles über `0xE2610`, ob dessen Region von der Ausgangsregion erreicht werden kann. Erst
+nach positiver Regionsprüfung schreibt der erste Enumerationspfad `+0` und sucht über vier
+kardinale Nachbarn ein StructureGrid-Tile des Zielgebäudes für `+4`. Da `0xE2610` fertige Moats
+blockiert, verwirft Vanilla genau diese vollständigen Kandidaten vorzeitig. Die später erzeugten
+Ersatzkandidaten dürfen dagegen absichtlich `+4 == 0` besitzen und werden von `0x11E960` nicht als
+normale Gebäudeannäherung ausgeführt.
+
+Der funktionale Eingriff beginnt deshalb nun Vanilla-first im bereits detourten `0xE2610`, aber
+ausschließlich innerhalb des synchronen, exakt an Command, Tribe, Gebäude und Kartenepoch
+gebundenen `BuildingApproach`-Scopes von `0xDA020`. Ein negatives Regionspaar wird nur geöffnet,
+wenn mindestens eine lebende grabfähige Command-Unit ein zum Zielgebäude gehörendes
+Annäherungstile dieser Zielregion ausschließlich über eigenen oder verbündeten fertigen Moat
+erreicht. Danach erzeugt Vanilla selbst vollständige `+0/+4`-Paare. `0x123090` bleibt Vanilla-first;
+sein nachgelagerter Fallback darf lediglich solche vollständigen Vanilla-Paare nach dem erwarteten
+Nuller des Bodenbuilders owner-geprüft wieder veröffentlichen. `0xDA590` und `0xD9C40` werden nicht
+zusätzlich detourt.
+
+Für `+4` ist die StructureGrid-ID des exakt validierten Zielgebäudes zusammen mit Vanillas Maske
+`tileFlags & 0x0F000000 == 0` maßgeblich. Die Building-Record-Boundingbox ist hierfür nicht
+maßgeblich, da Gebäude auch außerhalb dieser kleineren Rechtecke gültige Kontext- und
+Reservierungstiles besitzen können. Ein Annäherungstile mit StructureGrid-ID ungleich null bleibt
+nur dann als begehbares reserviertes Endtile zulässig, wenn das native
+Occupancy-/Bewegungsmaskenbyte bei RVA `0x51890D0` ungleich null ist. Falls die vereinfachte
+Owner-BFS dieses reservierte Endtile nicht selbst betritt, darf ausschließlich der letzte Übergang
+von einem bereits owner-qualifiziert erreichten Nachbartile anhand der von `0xDA590` verwendeten
+gerichteten Bewegungsmaske bestätigt werden. Reservierte Tiles werden dadurch nicht allgemein als
+Zwischenfelder geöffnet.
+
+Die Diagnose `building-approach-region-fallback` hält das tatsächlich geöffnete Regionspaar und
+den Ownerbefund fest. `building-consumer-fallback` trennt fehlende Kontexttiles, ungültige
+Kontextpaare, blockierte beziehungsweise begehbare Reservierungen und erst in der Owner-Routenprobe
+verworfene Kandidaten. Dadurch ist bei einem Update sofort erkennbar, ob sich die
+`0xDA020`-Erzeugung, der 12-Byte-Vertrag oder die native Reservierungssemantik geändert hat.
+
+Eine zweite bestätigte Besonderheit betrifft den Unitzustand: `0x11E960` setzt bei diesem
+Gebäudepfad `r_AI_LastIssuedTribeCommand` nicht auf `AttackBuilding`; in den Logs erscheint dort
+korrekt `Unknown0`. Zudem wird `r_AI_ContextTargetBuildingTileId` erst nach dem synchronen
+`MoveHere`-Aufruf geschrieben. Der Movement-Scope muss während `MoveHere` deshalb das bereits
+gesetzte Attack-Move-Tile gegen die von `0x123090` veröffentlichte Zuordnung
+`Annäherungstile -> Footprint-Tile` prüfen. Erst nach der Rückkehr darf der gespeicherte
+Building-Kontext als zusätzliche Bestätigung verwendet werden. `AttackUnit` behält dagegen seine
+bisherige Prüfung von LastIssued-Command sowie Unit-ID und Global-ID.
+
+Bei einem Spielupdate sind neben den Entrybytes und Callsites besonders die Pufferbasis
+`pathManager + 0x1B344`, die Schrittweite `0x0C`, die drei Feldbedeutungen, der Unerreichbarwert
+`0x989680` und die Reihenfolge der Feldzuweisungen um den `MoveHere`-Call erneut zu bestätigen.
+Weicht einer dieser Verträge ab, bleibt der Gebäude-Consumerfallback deaktiviert.
+
+### 15.11 Gebäude-Annäherung nach dem ersten funktionalen Lauf
+
+Der erste Lauf mit der `BuildingApproach`-Regionsfreigabe bestätigte den vollständigen Ablauf:
+`0xDA020` erzeugte zwölf vollständige Paare, der Consumerfallback veröffentlichte alle zwölf,
+`0x11E960` rief `MoveHere` auf und der zentrale Builder erzeugte einen realen Pfad. Die Unit lief
+zum Gebäude und griff es an.
+
+Dabei wurde ein reiner Sortierfehler des Testmods sichtbar. Nach dem Nuller des Vanilla-Builders
+überschrieb der Fallback die Distanzfelder mit `1, 2, 3, ...` in der ursprünglichen
+Enumerationsreihenfolge von `0xDA020`. Diese Reihenfolge beschreibt die Gebäudegeometrie, nicht die
+Entfernung von der angreifenden Unit. Deshalb wählte `0x11E960` beispielsweise das erste Paar mit
+Annäherungsziel `(405,356)`, obwohl ein kürzerer Zugang auf der Vorderseite des Gebäudes existierte.
+Vanilla ohne Moat zeigt den Fehler nicht, weil `0x123090` die echte Flood-Distanz in `+8` schreibt
+und danach aufsteigend sortiert.
+
+Die owner-sichere BFS führt deshalb zusätzlich getrennte Distanzen für Zustände ohne und nach
+Benutzung eines freundlichen Moats. Für jedes vollständige Vanilla-Paar wird die kürzeste legale
+Distanz aller beteiligten grabfähigen Units als `+8` veröffentlicht. Bei begehbaren reservierten
+Endtiles zählt der abschließende, über Vanillas gerichtete Bewegungsmaske bestätigte Übergang als
+ein weiterer Schritt. Die Kandidaten werden stabil nach Distanz und bei Gleichstand nach ihrer
+ursprünglichen Vanilla-Reihenfolge sortiert. Erreichbarkeit, Ownerfilter und die Menge zulässiger
+Tiles ändern sich dadurch nicht; ausschließlich die zuvor künstliche Kandidatenpriorität wird an
+Vanillas Semantik angenähert.
+

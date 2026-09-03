@@ -1255,6 +1255,21 @@ namespace CustomCustomTrail
 
             private void StartCustomTrailHook(MainViewModel self, string trailName, int missionId, int difficulty)
             {
+                if (!preserveContextForLaunch)
+                {
+                    HUD_IngameMenu.RestartSkirmishMapInfo restartInfo =
+                        MainViewModel.Instance?.HUDIngameMenu?.restartSkirmishMapInfo;
+                    bool customizedRestart =
+                        CustomCustomTrailLaunchOriginApi.Origin ==
+                            CustomCustomTrailLaunchOriginKind.CustomizedCustomTrail &&
+                        restartInfo?.customTrail == true &&
+                        restartInfo.customTrailLevel == missionId &&
+                        string.Equals(restartInfo.customTrailName, trailName, StringComparison.Ordinal);
+                    if (customizedRestart)
+                        CustomCustomTrailLaunchOriginApi.MarkRestartPending();
+                    else
+                        CustomCustomTrailLaunchOriginApi.Clear();
+                }
                 if (!enabled)
                 {
                     startCustomTrailOriginal(self, trailName, missionId, difficulty);
@@ -1316,6 +1331,11 @@ namespace CustomCustomTrail
                 FRONT_Multiplayer self,
                 HUD_IngameMenu.RestartSkirmishMapInfo customTrailRestartInfo)
             {
+                if (customTrailRestartInfo != null &&
+                    CustomCustomTrailLaunchOriginApi.Origin != CustomCustomTrailLaunchOriginKind.None)
+                {
+                    CustomCustomTrailLaunchOriginApi.MarkRestartPending();
+                }
                 if (!enabled)
                 {
                     startSkirmishGameOriginal(self, customTrailRestartInfo);
@@ -1363,9 +1383,19 @@ namespace CustomCustomTrail
 
             private void FrontendButtonHook(FrontendMenus self, string command)
             {
+                bool preserveTrailMakerMapEditor = string.Equals(command, "MapEditor", StringComparison.Ordinal) &&
+                    MainViewModel.Instance.FRONTMultiplayer.trailMakerMode;
                 if (!enabled)
                 {
                     frontendButtonOriginal(self, command);
+                    bool disabledContextChange =
+                        string.Equals(command, "Skirmish", StringComparison.Ordinal) ||
+                        (string.Equals(command, "MapEditor", StringComparison.Ordinal) && !preserveTrailMakerMapEditor) ||
+                        string.Equals(command, "BackMain", StringComparison.Ordinal) ||
+                        string.Equals(command, "Coops", StringComparison.Ordinal) ||
+                        IsCoopTrailOpenCommand(command);
+                    if (disabledContextChange)
+                        CustomCustomTrailLaunchOriginApi.Clear();
                     return;
                 }
                 if (string.Equals(command, "Customize", StringComparison.Ordinal) &&
@@ -1378,12 +1408,11 @@ namespace CustomCustomTrail
                     catch (Exception exception)
                     {
                         preserveContextForLaunch = false;
+                        CustomCustomTrailLaunchOriginApi.Clear();
                         DebugLogHelper.LogError(log, $"Could not open Custom Trail setup: {exception}");
                     }
                     return;
                 }
-                bool preserveTrailMakerMapEditor = string.Equals(command, "MapEditor", StringComparison.Ordinal) &&
-                    MainViewModel.Instance.FRONTMultiplayer.trailMakerMode;
                 frontendButtonOriginal(self, command);
                 if (string.Equals(command, "Coops", StringComparison.Ordinal))
                 {
@@ -1399,7 +1428,13 @@ namespace CustomCustomTrail
                     string.Equals(command, "BackMain", StringComparison.Ordinal) ||
                     string.Equals(command, "Coops", StringComparison.Ordinal))
                 {
+                    CustomCustomTrailLaunchOriginApi.Clear();
                     ExitContext(force: true);
+                }
+                else if (IsCoopTrailOpenCommand(command))
+                {
+                    // Entering a Coop Trail page is a direct selection until Customize is pressed.
+                    CustomCustomTrailLaunchOriginApi.Clear();
                 }
             }
 
@@ -1528,6 +1563,7 @@ namespace CustomCustomTrail
                 cleanupDeferralLogged = false;
                 customTrailSetupRestartInfo = restartInfo;
                 customTrailSetupHeader = header;
+                CustomCustomTrailLaunchOriginApi.SetCustomizedCustomTrail(trailId, missionId);
 
                 openingCustomTrailSetup = true;
                 try
@@ -1764,38 +1800,46 @@ namespace CustomCustomTrail
                     throw new InvalidDataException("The Coop Trail setup transition is invalid.");
 
                 SetSelectedCoopMission(trailId, mission);
-
-                self.CoopMissionChanged(trailId, mission);
-                if (notifyClients)
-                    BroadcastCoopCustomize(trailId, mission);
-                MethodInfo showSetup = typeof(FRONT_Multiplayer).GetMethod("ShowSetupScreen", BindingFlags.Instance | BindingFlags.NonPublic);
-                if (self.singlePlayerCoop)
+                CustomCustomTrailLaunchOriginApi.SetCustomizedCoopTrail(trailId, mission);
+                try
                 {
-                    FRONT_Multiplayer.skirmishGame = true;
-                    FRONT_Multiplayer.coopGame = true;
-                    FRONT_Multiplayer.coopGame_IsHost = true;
-                    FRONT_Multiplayer.customCoopGame = false;
-                    // The Coop Trail page starts with the local player ready. Vanilla's normal
-                    // skirmish setup starts unready; restore that state so its Play button is not
-                    // covered by the obsolete ReadyLock control after choosing Customize.
-                    (MpLocalReadyField ?? throw new MissingFieldException(typeof(FRONT_Multiplayer).FullName, "MPLocalReady"))
-                        .SetValue(self, false);
-                    (MpLocalReadyLockedField ?? throw new MissingFieldException(typeof(FRONT_Multiplayer).FullName, "MPLocalReadyLocked"))
-                        .SetValue(self, false);
-                    MainViewModel.Instance.SkirmishSetupMode = true;
-                    MainViewModel.Instance.MultiplayerSetupMode = false;
-                    MainViewModel.Instance.Show_SkirmishRandomAI = true;
-                    MainViewModel.Instance.Show_SkirmishTeams = true;
-                    MainViewModel.Instance.Show_MPIsHost = true;
-                    MainViewModel.Instance.Show_MPSteamIdentity = false;
-                    showSetup.Invoke(self, null);
-                    typeof(FRONT_Multiplayer).GetMethod("SetupSkirmishModeSettings", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(self, null);
-                    typeof(FRONT_Multiplayer).GetMethod("updateSteamIDMappings", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(self, null);
-                    typeof(FRONT_Multiplayer).GetMethod("UpdateRadarShieldPositions", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(self, null);
+                    self.CoopMissionChanged(trailId, mission);
+                    if (notifyClients)
+                        BroadcastCoopCustomize(trailId, mission);
+                    MethodInfo showSetup = typeof(FRONT_Multiplayer).GetMethod("ShowSetupScreen", BindingFlags.Instance | BindingFlags.NonPublic);
+                    if (self.singlePlayerCoop)
+                    {
+                        FRONT_Multiplayer.skirmishGame = true;
+                        FRONT_Multiplayer.coopGame = true;
+                        FRONT_Multiplayer.coopGame_IsHost = true;
+                        FRONT_Multiplayer.customCoopGame = false;
+                        // The Coop Trail page starts with the local player ready. Vanilla's normal
+                        // skirmish setup starts unready; restore that state so its Play button is not
+                        // covered by the obsolete ReadyLock control after choosing Customize.
+                        (MpLocalReadyField ?? throw new MissingFieldException(typeof(FRONT_Multiplayer).FullName, "MPLocalReady"))
+                            .SetValue(self, false);
+                        (MpLocalReadyLockedField ?? throw new MissingFieldException(typeof(FRONT_Multiplayer).FullName, "MPLocalReadyLocked"))
+                            .SetValue(self, false);
+                        MainViewModel.Instance.SkirmishSetupMode = true;
+                        MainViewModel.Instance.MultiplayerSetupMode = false;
+                        MainViewModel.Instance.Show_SkirmishRandomAI = true;
+                        MainViewModel.Instance.Show_SkirmishTeams = true;
+                        MainViewModel.Instance.Show_MPIsHost = true;
+                        MainViewModel.Instance.Show_MPSteamIdentity = false;
+                        showSetup.Invoke(self, null);
+                        typeof(FRONT_Multiplayer).GetMethod("SetupSkirmishModeSettings", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(self, null);
+                        typeof(FRONT_Multiplayer).GetMethod("updateSteamIDMappings", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(self, null);
+                        typeof(FRONT_Multiplayer).GetMethod("UpdateRadarShieldPositions", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(self, null);
+                    }
+                    else
+                    {
+                        showSetup.Invoke(self, null);
+                    }
                 }
-                else
+                catch
                 {
-                    showSetup.Invoke(self, null);
+                    CustomCustomTrailLaunchOriginApi.Clear();
+                    throw;
                 }
 
                 MainViewModel.Instance.Show_CoopHostInvitePane = false;

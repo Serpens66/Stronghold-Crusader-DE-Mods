@@ -97,6 +97,7 @@ namespace CustomCustomTrail
 
         public void Initialize()
         {
+            CustomCustomTrailLaunchOriginApi.Initialize(log);
             missionSettingsCoordinator = new TrailMissionSettingsCoordinator(log, enabled, settings.IsTrailModEnabled);
             missionSettingsCoordinator.CoopPackagesChanged += OnActiveCoopPackageChanged;
             missionSettingsCoordinator.CoopSetupOpened += OnCoopSetupOpened;
@@ -772,6 +773,7 @@ namespace CustomCustomTrail
 
         private void OnMapStarted()
         {
+            CustomCustomTrailLaunchOriginApi.MarkMapStarted();
             if (!coopLaunchPending || selected == null)
                 return;
             coopLaunchPending = false;
@@ -791,6 +793,10 @@ namespace CustomCustomTrail
                 LogError($"Ignored authenticated Coop Trail launch for Trail{trailId + 1}/{missionId:00} because the local package is not ready.");
                 return;
             }
+
+            // This authenticated launch boundary also covers clients which never execute
+            // the host's setup-screen button handler.
+            CustomCustomTrailLaunchOriginApi.SetCustomizedCoopTrail(trailId, missionId);
 
             // Clients do not execute the host's COOP_START button handler. The authenticated
             // transition supplies the missing launch boundary before OnUnloadMap clears presets.

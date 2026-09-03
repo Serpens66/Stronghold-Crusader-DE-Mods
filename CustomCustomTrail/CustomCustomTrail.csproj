@@ -62,6 +62,7 @@
     <Compile Include="src\CustomCustomTrailPlugin.cs" />
     <Compile Include="src\CustomCustomTrailSettingsViewModel.cs" />
     <Compile Include="src\CustomCustomTrailRuntime.cs" />
+    <Compile Include="src\CustomCustomTrailLaunchOriginApi.cs" />
     <Compile Include="src\CoopCustomizePacket.cs" />
     <Compile Include="src\TrailMissionSettingsCoordinator.cs" />
     <Compile Include="src\TrailWorkshopPatchVerifier.cs" />

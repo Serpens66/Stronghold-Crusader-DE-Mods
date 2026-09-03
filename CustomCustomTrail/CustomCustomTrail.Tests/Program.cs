@@ -33,6 +33,8 @@ var tests = new (string Name, Action Run)[]
     ("invalid mod-settings documents are rejected", TestInvalidModSettingsDocuments),
     ("atomic sidecar write replaces existing file", TestAtomicSidecarWrite),
     ("Trail coordinator ownership is centralized", TestCoordinatorOwnership),
+    ("customized launch origin is persisted and fail-closed", TestCustomizedLaunchOriginIntegration),
+    ("customized launch origin save roundtrip", TestCustomizedLaunchOriginRoundtrip),
     ("Steam Workshop discovery waits for Steamworks", TestSteamWorkshopReadinessGate),
     ("local activation setting gates the complete runtime", TestLocalActivationSetting),
     ("Trail Maker Coop export is integrated", TestCoopExporterIntegration),
@@ -423,6 +425,130 @@ static void TestCoordinatorOwnership()
         "Custom Trail setup does not suppress transient selection-sidecar loads");
     Assert(!coordinator.Contains("all Trail mods will be disabled"),
         "capture failures can still overwrite a sidecar with an all-disabled fallback");
+}
+
+static void TestCustomizedLaunchOriginIntegration()
+{
+    string projectRoot = FindProjectRoot();
+    string workspaceRoot = Directory.GetParent(projectRoot)?.FullName ??
+        throw new InvalidOperationException("workspace root missing");
+    string api = File.ReadAllText(Path.Combine(projectRoot, "src", "CustomCustomTrailLaunchOriginApi.cs"));
+    string coordinator = File.ReadAllText(Path.Combine(projectRoot, "src", "TrailMissionSettingsCoordinator.cs"));
+    string runtime = File.ReadAllText(Path.Combine(projectRoot, "src", "CustomCustomTrailRuntime.cs"));
+    string sharedGameMode = File.ReadAllText(Path.Combine(workspaceRoot, "Shared", "GameModeHelper.cs"));
+    string project = File.ReadAllText(Path.Combine(projectRoot, "CustomCustomTrail.csproj"));
+
+    Assert(project.Contains("CustomCustomTrailLaunchOriginApi.cs"),
+        "the runtime project does not compile the public origin API");
+    Assert(api.Contains("public static class CustomCustomTrailLaunchOriginApi") &&
+        api.Contains("public static CustomCustomTrailLaunchOriginKind Origin") &&
+        api.Contains("public static int TrailId") &&
+        api.Contains("public static int MissionId") &&
+        api.Contains("public static bool RestoredFromSave"),
+        "the optional read-only origin surface is incomplete");
+    Assert(api.Contains("RegisterModDataHandler") &&
+        api.Contains("MessagePackSerializer.Serialize") &&
+        api.Contains("MessagePackSerializer.Deserialize") &&
+        api.Contains("!context.IsSaveFile || context.IsMapEditorSave"),
+        "customized launch origin is not restricted to versioned save-file data");
+    Assert(api.Contains("data.Version != CurrentApiVersion") &&
+        api.Contains("Ignored invalid Custom Trail launch-origin save data") &&
+        api.Contains("Ignored unreadable Custom Trail launch-origin save data"),
+        "missing or corrupt saved origin does not fail closed");
+    Assert(api.Contains("if (launchPending)") &&
+        api.Contains("MarkMapStarted") &&
+        api.Contains("MarkRestartPending") &&
+        runtime.Contains("CustomCustomTrailLaunchOriginApi.MarkMapStarted()"),
+        "launch or restart unload can clear the origin before map start");
+    Assert(coordinator.Contains("SetCustomizedCustomTrail(trailId, missionId)") &&
+        coordinator.Contains("SetCustomizedCoopTrail(trailId, mission)") &&
+        runtime.Contains("SetCustomizedCoopTrail(trailId, missionId)"),
+        "host/client Customize transitions do not establish the origin");
+    Assert(coordinator.Contains("if (!preserveContextForLaunch)") &&
+        coordinator.Contains("restartInfo.customTrailLevel == missionId") &&
+        coordinator.Contains("CustomCustomTrailLaunchOriginApi.MarkRestartPending()") &&
+        coordinator.Contains("CustomCustomTrailLaunchOriginApi.Clear()"),
+        "direct follow-up and restarted Custom Trails do not separate stale from active origin");
+    Assert(sharedGameMode.Contains("CustomCustomTrail.CustomCustomTrailLaunchOriginApi, CustomCustomTrail") &&
+        sharedGameMode.Contains("if (!vanillaMatches && !externalMatches)") &&
+        sharedGameMode.Contains("RestoredCustomizedSave"),
+        "GameModeHelper does not validate the optional saved origin against Vanilla mode state");
+}
+
+static void TestCustomizedLaunchOriginRoundtrip()
+{
+    SHCDESE.API.ModSaveDataAPI saveApi = SHCDESE.API.ModSaveDataAPI.Instance;
+    CustomCustomTrail.CustomCustomTrailLaunchOriginApi.Initialize(null);
+    Assert(saveApi.SaveCallback != null && saveApi.LoadCallback != null && saveApi.OnUnloadCallback != null,
+        "origin save-data callbacks were not registered");
+
+    CustomCustomTrail.CustomCustomTrailLaunchOriginApi.SetCustomizedCustomTrail(90, 3);
+    byte[] saved = saveApi.SaveCallback(new SHCDESE.API.Components.SaveData.SaveContext(
+        isSaveFile: true,
+        isMapEditorSave: false));
+    Assert(saved != null && saved.Length > 0, "customized Custom Trail origin was not serialized");
+    Assert(saveApi.SaveCallback(new SHCDESE.API.Components.SaveData.SaveContext(
+        isSaveFile: true,
+        isMapEditorSave: true)) == null,
+        "origin data was written into a Map Editor file");
+
+    CustomCustomTrail.CustomCustomTrailLaunchOriginApi.Clear();
+    saveApi.LoadCallback(saved, new SHCDESE.API.Components.SaveData.LoadContext(isSaveFile: true));
+    Assert(CustomCustomTrail.CustomCustomTrailLaunchOriginApi.Origin ==
+            CustomCustomTrail.CustomCustomTrailLaunchOriginKind.CustomizedCustomTrail &&
+        CustomCustomTrail.CustomCustomTrailLaunchOriginApi.TrailId == 90 &&
+        CustomCustomTrail.CustomCustomTrailLaunchOriginApi.MissionId == 3 &&
+        CustomCustomTrail.CustomCustomTrailLaunchOriginApi.RestoredFromSave,
+        "process-restart-style Custom Trail roundtrip lost its restored origin");
+
+    // Both Script Extender unload phases occur before OnStartMap during a launch.
+    saveApi.OnUnloadCallback();
+    saveApi.OnUnloadCallback();
+    Assert(CustomCustomTrail.CustomCustomTrailLaunchOriginApi.Origin !=
+        CustomCustomTrail.CustomCustomTrailLaunchOriginKind.None,
+        "launch origin was cleared between unload and map-start events");
+    CustomCustomTrail.CustomCustomTrailLaunchOriginApi.MarkMapStarted();
+    saveApi.OnUnloadCallback();
+    Assert(CustomCustomTrail.CustomCustomTrailLaunchOriginApi.Origin ==
+        CustomCustomTrail.CustomCustomTrailLaunchOriginKind.None,
+        "origin survived a real context unload");
+
+    CustomCustomTrail.CustomCustomTrailLaunchOriginApi.SetCustomizedCoopTrail(3, 10);
+    saved = saveApi.SaveCallback(new SHCDESE.API.Components.SaveData.SaveContext(true, false));
+    CustomCustomTrail.CustomCustomTrailLaunchOriginApi.Clear();
+    saveApi.LoadCallback(saved, new SHCDESE.API.Components.SaveData.LoadContext(true));
+    Assert(CustomCustomTrail.CustomCustomTrailLaunchOriginApi.Origin ==
+            CustomCustomTrail.CustomCustomTrailLaunchOriginKind.CustomizedCoopTrail &&
+        CustomCustomTrail.CustomCustomTrailLaunchOriginApi.TrailId == 3 &&
+        CustomCustomTrail.CustomCustomTrailLaunchOriginApi.MissionId == 10,
+        "Coop Trail origin did not survive a save roundtrip");
+
+    saveApi.LoadCallback(new byte[] { 0xc1 }, new SHCDESE.API.Components.SaveData.LoadContext(true));
+    Assert(CustomCustomTrail.CustomCustomTrailLaunchOriginApi.Origin ==
+        CustomCustomTrail.CustomCustomTrailLaunchOriginKind.None,
+        "corrupt MessagePack origin did not fail closed");
+
+    byte[] mismatched = MessagePack.MessagePackSerializer.Serialize(
+        new CustomCustomTrail.CustomCustomTrailLaunchOriginApi.LaunchOriginSaveData
+        {
+            Version = 999,
+            Origin = (int)CustomCustomTrail.CustomCustomTrailLaunchOriginKind.CustomizedCustomTrail,
+            TrailId = 90,
+            MissionId = 1,
+        });
+    saveApi.LoadCallback(mismatched, new SHCDESE.API.Components.SaveData.LoadContext(true));
+    Assert(CustomCustomTrail.CustomCustomTrailLaunchOriginApi.Origin ==
+        CustomCustomTrail.CustomCustomTrailLaunchOriginKind.None,
+        "unknown saved-origin schema did not fail closed");
+
+    CustomCustomTrail.CustomCustomTrailLaunchOriginApi.SetCustomizedCustomTrail(89, 1);
+    Assert(CustomCustomTrail.CustomCustomTrailLaunchOriginApi.Origin ==
+        CustomCustomTrail.CustomCustomTrailLaunchOriginKind.None,
+        "invalid Custom Trail identity became active");
+    CustomCustomTrail.CustomCustomTrailLaunchOriginApi.SetCustomizedCoopTrail(0, 11);
+    Assert(CustomCustomTrail.CustomCustomTrailLaunchOriginApi.Origin ==
+        CustomCustomTrail.CustomCustomTrailLaunchOriginKind.None,
+        "invalid Coop mission identity became active");
 }
 
 static void TestSteamWorkshopReadinessGate()
@@ -1142,4 +1268,73 @@ sealed class NotOptedOutPlugin
 sealed class RuntimeOptOutFieldPlugin
 {
     public static bool CustomCustomTrailModSettingsOptOut = true;
+}
+
+namespace BepInEx.Logging
+{
+    public sealed class ManualLogSource
+    {
+    }
+}
+
+namespace Shared
+{
+    internal static class DebugLogHelper
+    {
+        internal static void LogError(BepInEx.Logging.ManualLogSource log, string message)
+        {
+        }
+
+        internal static void LogWarning(BepInEx.Logging.ManualLogSource log, string message)
+        {
+        }
+
+        internal static void LogInfo(BepInEx.Logging.ManualLogSource log, string message)
+        {
+        }
+    }
+}
+
+namespace SHCDESE.API.Components.SaveData
+{
+    public sealed class SaveContext
+    {
+        public SaveContext(bool isSaveFile, bool isMapEditorSave)
+        {
+            IsSaveFile = isSaveFile;
+            IsMapEditorSave = isMapEditorSave;
+        }
+
+        public bool IsSaveFile { get; }
+        public bool IsMapEditorSave { get; }
+    }
+
+    public sealed class LoadContext
+    {
+        public LoadContext(bool isSaveFile) => IsSaveFile = isSaveFile;
+        public bool IsSaveFile { get; }
+    }
+}
+
+namespace SHCDESE.API
+{
+    public sealed class ModSaveDataAPI
+    {
+        public static ModSaveDataAPI Instance { get; } = new ModSaveDataAPI();
+        public Func<Components.SaveData.SaveContext, byte[]> SaveCallback { get; private set; }
+        public Action<byte[], Components.SaveData.LoadContext> LoadCallback { get; private set; }
+        public Action OnUnloadCallback { get; private set; }
+
+        public bool RegisterModDataHandler(
+            string modIdentifier,
+            Func<Components.SaveData.SaveContext, byte[]> saveCallback,
+            Action<byte[], Components.SaveData.LoadContext> loadCallback,
+            Action onUnloadCallback)
+        {
+            SaveCallback = saveCallback;
+            LoadCallback = loadCallback;
+            OnUnloadCallback = onUnloadCallback;
+            return true;
+        }
+    }
 }
