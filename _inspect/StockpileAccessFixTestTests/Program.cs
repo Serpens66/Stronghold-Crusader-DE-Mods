@@ -193,13 +193,23 @@ internal static class Program
         string info = File.ReadAllText(Path.Combine(mod, "info.json"));
 
         Check(plugin.Contains("requireCurrentVersion: true"), "native hash mismatch fails closed");
+        Check(plugin.Contains("runtime.ProcessAutomaticTestTrigger()"), "test trigger runs automatically");
+        Check(!plugin.Contains("Input.GetKey") && !plugin.Contains("KeyCode."), "test trigger requires no hotkey");
         Check(runtime.Contains("RevalidateBuildingAccessDelegate"), "vanilla access helper is used");
         Check(runtime.Contains("GameUnitManagerAPI.Instance.MoveToTile"), "movement uses Script Extender API");
+        Check(runtime.Contains("GameBuildingManagerAPI.Instance.CreatePrefab") &&
+            runtime.Contains("eMappers.MAPPER_WOODWALL"), "test trigger uses a real Vanilla wood-wall prefab");
+        Check(runtime.Contains("GamePlayerManagerAPI.Instance.GetLocalPlayerId"),
+            "test trigger arms only for the local player's worker");
+        Check(runtime.Contains("GameBuildingManagerAPI.Instance.DeleteBuildingSafe"), "test blocker has safe cleanup");
+        Check(!runtime.Contains("SetTilePropertyFlag") && !runtime.Contains("SetTileBuildingId"),
+            "test trigger does not mutate tile grids directly");
         Check(!runtime.Contains("HookTransaction") && !runtime.Contains("AddDetour"), "runtime installs no native inline hook");
         Check(!runtime.Contains("r_AIState ="), "runtime does not mutate AI state");
         Check(!runtime.Contains("r_PathPlanRelated3 ="), "runtime does not mutate path marker");
         Check(!runtime.Contains("r_CurrentTilePositionX =") && !runtime.Contains("r_CurrentTilePositionY ="), "runtime does not teleport");
         Check(project.Contains(@"Shared\DebugLogHelper.cs") && project.Contains(@"Shared\NativePatternResolver.cs"), "required shared helpers are linked");
+        Check(!project.Contains("UnityEngine.InputLegacyModule"), "automatic test has no input-module dependency");
         Check(info.Contains("\"Version\": \"0.1.0\"") && info.Contains("\"NetworkMode\": 1"), "test version and network mode");
 
         string[] markers =
@@ -216,6 +226,26 @@ internal static class Program
         };
         foreach (string marker in markers)
             Check(runtime.Contains(marker), marker + " logging contract");
+        foreach (string marker in new[]
+        {
+            "STOCKPILE_TEST_BLOCKER_READY",
+            "STOCKPILE_TEST_BLOCKER_SPAWNED",
+            "STOCKPILE_TEST_BLOCKER_FAILED",
+            "STOCKPILE_TEST_BLOCKER_REMOVED",
+            "STOCKPILE_TEST_AUTOMATION_RESULT"
+        })
+        {
+            Check(runtime.Contains(marker), marker + " test-trigger logging contract");
+        }
+
+        Check(StockpileAccessFixTestRuntime.IsSafeExternalBlockerTile(TilePropertyFlag.Free, 0),
+            "free external land accepts a test blocker");
+        Check(StockpileAccessFixTestRuntime.IsSafeExternalBlockerTile(TilePropertyFlag.None, 0),
+            "plain zero-property terrain accepts a test blocker");
+        Check(!StockpileAccessFixTestRuntime.IsSafeExternalBlockerTile(TilePropertyFlag.GoodsyardConnection, 0),
+            "stockpile connection tile is protected from test blocker");
+        Check(!StockpileAccessFixTestRuntime.IsSafeExternalBlockerTile(TilePropertyFlag.Free, 7),
+            "occupied tile is protected from test blocker");
     }
 
     private static void AssertFreshFiftyAfterInterruption(

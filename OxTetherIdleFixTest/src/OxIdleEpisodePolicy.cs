@@ -19,7 +19,10 @@ namespace OxTetherIdleFixTest
             ushort currentX,
             ushort currentY,
             ushort requestedX,
-            ushort requestedY)
+            ushort requestedY,
+            ushort pathCursor = 0,
+            uint pathSize = 0,
+            ushort movingRelevant = 0)
         {
             UnitId = unitId;
             GlobalId = globalId;
@@ -30,6 +33,9 @@ namespace OxTetherIdleFixTest
             CurrentY = currentY;
             RequestedX = requestedX;
             RequestedY = requestedY;
+            PathCursor = pathCursor;
+            PathSize = pathSize;
+            MovingRelevant = movingRelevant;
         }
 
         public int UnitId { get; }
@@ -41,6 +47,9 @@ namespace OxTetherIdleFixTest
         public ushort CurrentY { get; }
         public ushort RequestedX { get; }
         public ushort RequestedY { get; }
+        public ushort PathCursor { get; }
+        public uint PathSize { get; }
+        public ushort MovingRelevant { get; }
 
         public bool HasIdleBugSignature =>
             (State == 1 || State == 3) &&

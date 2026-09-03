@@ -21,6 +21,7 @@ internal static class Program
             CheckNativeHash();
             CheckLayout();
             CheckPolicy();
+            CheckFaultInjectionPolicy();
             CheckSourceContracts();
             Console.WriteLine($"PASS: OxTetherIdleFixTest tests ({assertions} assertions).");
             return 0;
@@ -30,6 +31,42 @@ internal static class Program
             Console.Error.WriteLine("FAIL: " + exception);
             return 1;
         }
+    }
+
+    private static void CheckFaultInjectionPolicy()
+    {
+        Check(OxTetherIdleFixTestRuntime.FaultInjectionIntervalSeconds == 30,
+            "fault injection repeats every thirty real-time seconds");
+        Check(OxTetherIdleFixTestRuntime.FleetSnapshotIntervalSeconds == 10,
+            "full fleet snapshots repeat every ten real-time seconds");
+
+        Check(OxTetherIdleFixTestRuntime.IsFaultInjectionEligible(
+            Observation(1, 100, 1, 2, 0, 10, 10, 20, 20, 3, 12), false),
+            "moving state-one ox is injectable");
+        Check(OxTetherIdleFixTestRuntime.IsFaultInjectionEligible(
+            Observation(2, 101, 3, 2, 8, 10, 10, 20, 20, 3, 12), false),
+            "moving state-three ox with a Vanilla marker is injectable");
+        Check(!OxTetherIdleFixTestRuntime.IsFaultInjectionEligible(
+            Observation(1, 100, 1, 2, 0, 10, 10, 20, 20, 3, 12), true),
+            "active diagnostic episode is not overwritten");
+        Check(!OxTetherIdleFixTestRuntime.IsFaultInjectionEligible(
+            Observation(1, 100, 2, 2, 0, 10, 10, 20, 20, 3, 12), false),
+            "unrelated AI state is not injectable");
+        Check(!OxTetherIdleFixTestRuntime.IsFaultInjectionEligible(
+            Observation(1, 100, 1, 0, 0, 10, 10, 20, 20, 3, 12), false),
+            "already inactive route is not synthesized");
+        Check(!OxTetherIdleFixTestRuntime.IsFaultInjectionEligible(
+            Observation(1, 100, 1, 2, 0, 10, 10, 10, 10, 3, 12), false),
+            "exactly arrived ox is not injectable");
+        Check(!OxTetherIdleFixTestRuntime.IsFaultInjectionEligible(
+            Observation(1, 100, 1, 2, 0, 10, 10, 20, 20, 0, 0), false),
+            "route without a Vanilla path is not injectable");
+        Check(!OxTetherIdleFixTestRuntime.IsFaultInjectionEligible(
+            Observation(1, 100, 1, 2, 0, 10, 10, 20, 20, 12, 12), false),
+            "already terminal path cursor is not injected again");
+        Check(!OxTetherIdleFixTestRuntime.IsFaultInjectionEligible(
+            Observation(1, 100, 1, 4, 0, 10, 10, 20, 20, 3, 12), false),
+            "unexpected non-Vanilla moving flag is rejected");
     }
 
     private static void CheckNativeHash()
@@ -52,6 +89,9 @@ internal static class Program
         CheckOffset(nameof(GameUnit.r_TargetTilePositionX2), 0xE8);
         CheckOffset(nameof(GameUnit.r_TargetTilePositionY2), 0xEA);
         CheckOffset(nameof(GameUnit.r_PathPlanStateBitFlags), 0xF2);
+        CheckOffset(nameof(GameUnit.r_MovingRelevant), 0xF4);
+        CheckOffset(nameof(GameUnit.p_CurrentPathPlanPosition), 0xF6);
+        CheckOffset(nameof(GameUnit.p_PathPlanSize), 0xF8);
         CheckOffset(nameof(GameUnit.r_PathPlanRelated3), 0x290);
         CheckOffset(nameof(GameUnit.r_AIState), 0x2BC);
         CheckOffset(nameof(GameUnit.r_LinkedProductionBuildingId), 0x334);
@@ -133,8 +173,33 @@ internal static class Program
         Check(!onDestroy.Contains("Dispose("), "OnDestroy does not dispose the process runtime");
         Check(!onDestroy.Contains("LibraryLoaded -="), "OnDestroy does not remove Script Extender registration");
         Check(!onDestroy.Contains("persistentRuntime = null"), "OnDestroy does not release the runtime root");
-        Check(runtime.Contains("unit->r_PathPlanRelated3 = 0;"), "repair clears only the alternate-target marker");
+        string repair = ExtractMethodBody(runtime, "ConfirmAndRepair");
+        Check(repair.Contains("unit->r_PathPlanRelated3 = 0;"), "repair clears the alternate-target marker");
+        Check(!repair.Contains("r_PathPlanStateBitFlags ="), "repair does not alter path flags");
         Check(!runtime.Contains("r_AIState ="), "repair does not force AI state");
+        Check(!runtime.Contains("r_CurrentTilePositionX =") && !runtime.Contains("r_CurrentTilePositionY ="),
+            "fault injection does not teleport the ox");
+        Check(!runtime.Contains("r_TargetTilePositionX2 =") && !runtime.Contains("r_TargetTilePositionY2 ="),
+            "fault injection preserves the Vanilla requested target");
+        Check(runtime.Contains("selectedUnit->p_CurrentPathPlanPosition = checked((ushort)pathSize);") &&
+            runtime.Contains("selectedUnit->r_PathPlanRelated3 = injectedMarker;"),
+            "fault injection lets Vanilla finish at the injected terminal cursor");
+        string injection = ExtractMethodBody(runtime, "TryInjectFault");
+        Check(!injection.Contains("r_PathPlanStateBitFlags ="),
+            "fault injection does not fake Vanilla's path-state transition");
+        Check(!injection.Contains("r_MovingRelevant ="),
+            "fault injection does not fake Vanilla's terminal movement marker");
+        Check(runtime.Contains("faultInjectionLimit=none"), "fault injection has no episode-count limit");
+        Check(runtime.Contains("OX_IDLE_CANDIDATE_STARTED"), "candidate start is logged");
+        Check(runtime.Contains("OX_IDLE_CANDIDATE_RECOVERED"), "candidate recovery is logged");
+        Check(runtime.Contains("OX_IDLE_FLEET_UNIT") && runtime.Contains("OX_IDLE_FLEET_SUMMARY"),
+            "complete periodic ox telemetry is logged");
+        Check(runtime.Contains("OX_IDLE_FAULT_INJECTION_APPLIED") &&
+            runtime.Contains("OX_IDLE_FAULT_INJECTION_DEFERRED"),
+            "fault injection outcomes are logged");
+        Check(runtime.Contains("OX_IDLE_FAULT_INJECTION_TERMINALIZED") &&
+            runtime.Contains("OX_IDLE_FAULT_INJECTION_FAILED"),
+            "Vanilla terminalization is explicitly verified or rejected");
         Check(runtime.Contains("OX_IDLE_BUG_CONFIRMED"), "confirmation marker is logged");
         Check(runtime.Contains("OX_IDLE_FIX_APPLIED"), "repair marker is logged");
         Check(runtime.Contains("OX_IDLE_FIX_VERIFIED"), "verification marker is logged");
@@ -142,8 +207,11 @@ internal static class Program
 
     private static OxObservation Observation(
         int id, uint global, ushort state, ushort flags, ushort marker,
-        ushort x, ushort y, ushort requestedX, ushort requestedY) =>
-        new OxObservation(id, global, state, flags, marker, x, y, requestedX, requestedY);
+        ushort x, ushort y, ushort requestedX, ushort requestedY,
+        ushort pathCursor = 0, uint pathSize = 0, ushort movingRelevant = 0) =>
+        new OxObservation(
+            id, global, state, flags, marker, x, y, requestedX, requestedY,
+            pathCursor, pathSize, movingRelevant);
 
     private static void CheckOffset(string field, int expected) =>
         Check(Marshal.OffsetOf(typeof(GameUnit), field).ToInt32() == expected, field + " offset");

@@ -24,6 +24,7 @@ namespace BugfixesAndQoL
         private bool betterAIOverbuildRules = true;
         private bool enableTroopMovementFix = true;
         private bool enableMountedStockpileMovementFix = true;
+        private bool enableHealerAttackCommandFix = true;
         private bool enableFastRecruitRallyMovement = true;
         private bool enableImprovedAssassinPathfinding = true;
         private bool enableAssassinCombatResumeFix = true;
@@ -246,6 +247,8 @@ namespace BugfixesAndQoL
         public string EnableTroopMovementFixHelpText => SerpLocalization.Get(SerpLocalization.EnableTroopMovementFixHelp);
         public string EnableMountedStockpileMovementFixText => SerpLocalization.Get("BugfixesAndQoL.EnableMountedStockpileMovementFix");
         public string EnableMountedStockpileMovementFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableMountedStockpileMovementFixHelp");
+        public string EnableHealerAttackCommandFixText => SerpLocalization.Get("BugfixesAndQoL.EnableHealerAttackCommandFix");
+        public string EnableHealerAttackCommandFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableHealerAttackCommandFixHelp");
         public string EnableFastRecruitRallyMovementText => SerpLocalization.Get(SerpLocalization.EnableFastRecruitRallyMovement);
         public string EnableFastRecruitRallyMovementHelpText => SerpLocalization.Get(SerpLocalization.EnableFastRecruitRallyMovementHelp);
         public string EnableAIQuarryPileTowardsKeepText => SerpLocalization.Get(SerpLocalization.EnableAIQuarryPileTowardsKeep);
@@ -504,6 +507,13 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool EnableHealerAttackCommandFix
+        {
+            get => enableHealerAttackCommandFix;
+            set => SetSetting(ref enableHealerAttackCommandFix, value, nameof(EnableHealerAttackCommandFix));
+        }
+
+        [SyncHostOnly]
         public bool EnableFastRecruitRallyMovement
         {
             get => enableFastRecruitRallyMovement;
@@ -729,6 +739,7 @@ namespace BugfixesAndQoL
                 EnableCustomLordListEnhancements = true;
                 EnableTroopMovementFix = true;
                 EnableMountedStockpileMovementFix = true;
+                EnableHealerAttackCommandFix = true;
                 EnableFastRecruitRallyMovement = true;
                 EnableSingleBuildingPause = true;
                 EnableShiftRepairAllBuildings = true;

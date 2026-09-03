@@ -3,10 +3,6 @@ using SHCDESE.API;
 using SHCDESE.Interop;
 using System;
 using System.Collections.Generic;
-using Zhuqiaomon.Assembly;
-using Zhuqiaomon.Hooks;
-using Zhuqiaomon.Hooks.Transaction;
-using Zhuqiaomon.Memory;
 
 namespace EngineerSiegeFix
 {
@@ -30,48 +26,36 @@ namespace EngineerSiegeFix
         private const int TargetUnitIdOffset = 0x39A;
         private const int CrewCountOffset = 0x3B0;
 
-        private const ushort EngineerType = 0x1E;
-        private const ushort CatapultType = 0x27;
-        private const ushort TrebuchetType = 0x28;
-        private const ushort SiegeTentUnitType = 0x32;
-        private const ushort BuildSiegeEngineCommand = 0x10;
-        private const int HandlerTransitionLimit = 160;
+        private const ushort EngineerType = (ushort)eChimps.CHIMP_TYPE_ENGINEER;
+        private const ushort CatapultType = (ushort)eChimps.CHIMP_TYPE_CATAPULT;
+        private const ushort TrebuchetType = (ushort)eChimps.CHIMP_TYPE_TREBUCHET;
+        private const ushort MangonelType = (ushort)eChimps.CHIMP_TYPE_MANGONEL;
+        private const ushort SiegeTentUnitType = (ushort)eChimps.CHIMP_SIEGE_TENT;
+        private const ushort SiegeTowerType = (ushort)eChimps.CHIMP_TYPE_SIEGE_TOWER;
+        private const ushort BatteringRamType = (ushort)eChimps.CHIMP_TYPE_BATTERING_RAM;
+        private const ushort PortableShieldType = (ushort)eChimps.CHIMP_TYPE_PORTABLE_SHIELD;
+        private const ushort BallistaType = (ushort)eChimps.CHIMP_TYPE_BALLISTA;
+        private const ushort ArabBallistaType = (ushort)eChimps.CHIMP_TYPE_ARAB_BALLISTA;
         private const int SlotTransitionLimit = 320;
         private const int EngineerTransitionLimit = 480;
-        private const int CandidateTransitionLimit = 240;
-        private const int CandidateErrorLimit = 20;
+        private const int HandoffVerdictLimit = 80;
         private const int TickHeartbeatLimit = 3;
 
         private readonly ManualLogSource log;
-        private readonly ulong libraryBase;
-        private readonly HookTransaction transaction;
-        private readonly Dictionary<int, UnitObservation> handlerObservations =
-            new Dictionary<int, UnitObservation>();
         private readonly Dictionary<int, UnitObservation> siegeSlotObservations =
             new Dictionary<int, UnitObservation>();
         private readonly Dictionary<int, UnitObservation> engineerObservations =
             new Dictionary<int, UnitObservation>();
-        private readonly Dictionary<string, UnitObservation> candidateObservations =
-            new Dictionary<string, UnitObservation>(StringComparer.Ordinal);
-        private HookRef<X64InlineHook> catapultHandlerHook = new HookRef<X64InlineHook>();
-        private HookRef<X64InlineHook> trebuchetHandlerHook = new HookRef<X64InlineHook>();
-        private HookRef<X64InlineHook> catapultStateSixHook = new HookRef<X64InlineHook>();
-        private HookRef<X64InlineHook> trebuchetStateSixHook = new HookRef<X64InlineHook>();
-        private HookRef<X64InlineHook> siegeTentTickHook = new HookRef<X64InlineHook>();
-        private HookRef<X64InlineHook> siegeTentCompletionHook = new HookRef<X64InlineHook>();
-        private HookRef<X64InlineHook> unitConversionHook = new HookRef<X64InlineHook>();
+        private readonly Dictionary<int, HandoffTracker> handoffTrackers =
+            new Dictionary<int, HandoffTracker>();
         private IntPtr observedManager;
         private uint lastObservedTick = uint.MaxValue;
         private int tickCallbackCount;
-        private int handlerTransitionCount;
         private int slotTransitionCount;
         private int engineerTransitionCount;
-        private int candidateTransitionCount;
-        private int candidateErrorCount;
-        private bool handlerLimitReported;
+        private int handoffVerdictCount;
         private bool slotLimitReported;
         private bool engineerLimitReported;
-        private bool candidateLimitReported;
         private bool tickSubscribed;
         private bool diagnosticsDisabled;
         private bool disposed;
@@ -82,128 +66,11 @@ namespace EngineerSiegeFix
             ulong libraryBase)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
-            this.libraryBase = libraryBase;
             if (memory.IsEmpty || libraryBase == 0)
                 throw new ArgumentException("The Crusader library is unavailable.");
 
-            Shared.NativeResolution catapultHandler = Resolve(
-                memory,
-                EngineerSiegeFixNativeDefinition.CatapultHandlerPattern,
-                EngineerSiegeFixNativeDefinition.CatapultHandlerRva,
-                "catapult unit handler entry");
-            Shared.NativeResolution trebuchetHandler = Resolve(
-                memory,
-                EngineerSiegeFixNativeDefinition.TrebuchetHandlerPattern,
-                EngineerSiegeFixNativeDefinition.TrebuchetHandlerRva,
-                "trebuchet unit handler entry");
-            Shared.NativeResolution catapultStateSix = Resolve(
-                memory,
-                EngineerSiegeFixNativeDefinition.CatapultStateSixPattern,
-                EngineerSiegeFixNativeDefinition.CatapultStateSixRva,
-                "catapult state-six crew search");
-            Shared.NativeResolution trebuchetStateSix = Resolve(
-                memory,
-                EngineerSiegeFixNativeDefinition.TrebuchetStateSixPattern,
-                EngineerSiegeFixNativeDefinition.TrebuchetStateSixRva,
-                "trebuchet state-six crew search");
-            Shared.NativeResolution siegeTentTick = Resolve(
-                memory,
-                EngineerSiegeFixNativeDefinition.SiegeTentTickPattern,
-                EngineerSiegeFixNativeDefinition.SiegeTentTickRva,
-                "siege-tent unit tick entry");
-            Shared.NativeResolution siegeTentCompletion = Resolve(
-                memory,
-                EngineerSiegeFixNativeDefinition.SiegeTentCompletionTailPattern,
-                EngineerSiegeFixNativeDefinition.SiegeTentCompletionTailRva,
-                "siege-tent unit completion tail");
-            Shared.NativeResolution unitConversion = Resolve(
-                memory,
-                EngineerSiegeFixNativeDefinition.UnitConversionPattern,
-                EngineerSiegeFixNativeDefinition.UnitConversionRva,
-                "pending unit converter entry");
-
-            // The baseline proves that the central dispatcher indexes this table by
-            // unit type. Validate the relocated entries before installing hooks.
-            ulong catapultTableTarget = ReadHandlerTableTarget(CatapultType);
-            ulong trebuchetTableTarget = ReadHandlerTableTarget(TrebuchetType);
-            ValidateHandlerTableTarget(CatapultType, catapultTableTarget, catapultHandler.Rva);
-            ValidateHandlerTableTarget(TrebuchetType, trebuchetTableTarget, trebuchetHandler.Rva);
-
             try
             {
-                transaction = new HookTransaction(
-                    memory,
-                    libraryBase,
-                    loggerFactory: null,
-                    failureMode: TransactionFailureMode.RollbackAndThrow);
-                transaction.AddContextHook(
-                    ref catapultHandlerHook,
-                    libraryBase + unchecked((ulong)catapultHandler.Rva),
-                    ObserveCatapultHandler,
-                    regs: X64SmartCPUContextRegs.All,
-                    hookSize: 5,
-                    errorMode: CallbackErrorMode.LogAndContinue,
-                    placement: OverwrittenInstructionPlacement.BeforeCallback);
-                transaction.AddContextHook(
-                    ref trebuchetHandlerHook,
-                    libraryBase + unchecked((ulong)trebuchetHandler.Rva),
-                    ObserveTrebuchetHandler,
-                    regs: X64SmartCPUContextRegs.All,
-                    hookSize: 5,
-                    errorMode: CallbackErrorMode.LogAndContinue,
-                    placement: OverwrittenInstructionPlacement.BeforeCallback);
-                transaction.AddContextHook(
-                    ref catapultStateSixHook,
-                    libraryBase + unchecked((ulong)catapultStateSix.Rva),
-                    ObserveCatapultStateSix,
-                    regs: X64SmartCPUContextRegs.All,
-                    hookSize: 7,
-                    errorMode: CallbackErrorMode.LogAndContinue,
-                    placement: OverwrittenInstructionPlacement.BeforeCallback);
-                transaction.AddContextHook(
-                    ref trebuchetStateSixHook,
-                    libraryBase + unchecked((ulong)trebuchetStateSix.Rva),
-                    ObserveTrebuchetStateSix,
-                    regs: X64SmartCPUContextRegs.All,
-                    hookSize: 8,
-                    errorMode: CallbackErrorMode.LogAndContinue,
-                    placement: OverwrittenInstructionPlacement.BeforeCallback);
-                transaction.AddContextHook(
-                    ref siegeTentTickHook,
-                    libraryBase + unchecked((ulong)siegeTentTick.Rva),
-                    ObserveSiegeTentTick,
-                    regs: X64SmartCPUContextRegs.All,
-                    hookSize: 6,
-                    errorMode: CallbackErrorMode.LogAndContinue,
-                    placement: OverwrittenInstructionPlacement.BeforeCallback);
-                transaction.AddContextHook(
-                    ref siegeTentCompletionHook,
-                    libraryBase + unchecked((ulong)siegeTentCompletion.Rva),
-                    ObserveSiegeTentCompletion,
-                    regs: X64SmartCPUContextRegs.All,
-                    hookSize: 11,
-                    errorMode: CallbackErrorMode.LogAndContinue,
-                    placement: OverwrittenInstructionPlacement.BeforeCallback);
-                transaction.AddContextHook(
-                    ref unitConversionHook,
-                    libraryBase + unchecked((ulong)unitConversion.Rva),
-                    ObserveUnitConversion,
-                    regs: X64SmartCPUContextRegs.All,
-                    hookSize: 5,
-                    errorMode: CallbackErrorMode.LogAndContinue,
-                    placement: OverwrittenInstructionPlacement.BeforeCallback);
-                transaction.Commit();
-                if (!catapultHandlerHook.Success || !catapultHandlerHook.Value.IsActive ||
-                    !trebuchetHandlerHook.Success || !trebuchetHandlerHook.Value.IsActive ||
-                    !catapultStateSixHook.Success || !catapultStateSixHook.Value.IsActive ||
-                    !trebuchetStateSixHook.Success || !trebuchetStateSixHook.Value.IsActive ||
-                    !siegeTentTickHook.Success || !siegeTentTickHook.Value.IsActive ||
-                    !siegeTentCompletionHook.Success || !siegeTentCompletionHook.Value.IsActive ||
-                    !unitConversionHook.Success || !unitConversionHook.Value.IsActive)
-                {
-                    throw new InvalidOperationException("Not all siege-route observation hooks were activated.");
-                }
-
                 // Unlike the early BepInEx component, this Script Extender publisher
                 // survives SHCDE's normal startup cleanup and roots the runtime.
                 GameTimeManagerAPI.Instance.OnTick += OnGameTick;
@@ -213,19 +80,10 @@ namespace EngineerSiegeFix
                     log,
                     "SIEGE_ROUTE_DIAGNOSTIC_INSTALLED: diagnosticMode=true, correctionActive=false, " +
                     "lifecycleRoot=static-runtime-and-GameTimeManagerAPI.OnTick, " +
-                    $"dispatcherRva=0x{EngineerSiegeFixNativeDefinition.UnitDispatcherRva:X}, " +
-                    $"dispatchTypeLoadRva=0x{EngineerSiegeFixNativeDefinition.UnitDispatchTypeLoadRva:X}, " +
-                    $"dispatchCallRva=0x{EngineerSiegeFixNativeDefinition.UnitDispatchCallRva:X}, " +
-                    $"handlerTableRva=0x{EngineerSiegeFixNativeDefinition.UnitHandlerTableRva:X}, " +
-                    $"catapultHandlerRva=0x{catapultHandler.Rva:X}, " +
-                    $"catapultTableTargetRva=0x{catapultTableTarget - libraryBase:X}, " +
-                    $"trebuchetHandlerRva=0x{trebuchetHandler.Rva:X}, " +
-                    $"trebuchetTableTargetRva=0x{trebuchetTableTarget - libraryBase:X}, " +
-                    $"catapultStateSixRva=0x{catapultStateSix.Rva:X}, " +
-                    $"trebuchetStateSixRva=0x{trebuchetStateSix.Rva:X}, " +
-                    $"siegeTentTickRva=0x{siegeTentTick.Rva:X}, " +
-                    $"siegeTentCompletionRva=0x{siegeTentCompletion.Rva:X}, " +
-                    $"unitConversionRva=0x{unitConversion.Rva:X}, activeObservationHooks=7.");
+                    "observationMode=read-only-GameTimeManagerAPI.OnTick-snapshots, " +
+                    "activeObservationHooks=0, unsafeNativeHookSetDisabled=true, " +
+                    $"automaticHandoffVerificationTicks={EngineerHandoffDiagnosticPolicy.VerificationTimeoutTicks}, " +
+                    "shadowIdleFaultInjection=true, gameStateFaultInjection=false.");
             }
             catch
             {
@@ -245,8 +103,6 @@ namespace EngineerSiegeFix
                 GameTimeManagerAPI.Instance.OnTick -= OnGameTick;
                 tickSubscribed = false;
             }
-            transaction?.Unload();
-            transaction?.Dispose();
         }
 
         private void OnGameTick(int tick)
@@ -279,10 +135,9 @@ namespace EngineerSiegeFix
                 if (observedManager != manager)
                 {
                     observedManager = manager;
-                    handlerObservations.Clear();
                     siegeSlotObservations.Clear();
                     engineerObservations.Clear();
-                    candidateObservations.Clear();
+                    handoffTrackers.Clear();
                     Shared.DebugLogHelper.LogInfo(
                         log,
                         $"SIEGE_DIAGNOSTIC_SESSION: tick={currentTick}, unitManager=0x{manager.ToInt64():X}.");
@@ -330,10 +185,9 @@ namespace EngineerSiegeFix
                         continue;
 
                     UnitObservation observation = Capture(unit, unitId, currentTick);
-                    bool relevant = observation.Type == EngineerType &&
-                        (observation.Command == BuildSiegeEngineCommand ||
-                         currentSiegeIds.Contains(observation.TargetUnitId) ||
-                         wasTracked);
+                    // Command/target offsets are part of the hypothesis under test.
+                    // Track every engineer so a wrong hypothesis cannot hide the handoff.
+                    bool relevant = observation.Type == EngineerType || wasTracked;
                     if (!relevant)
                         continue;
 
@@ -356,6 +210,8 @@ namespace EngineerSiegeFix
                     ref engineerTransitionCount,
                     EngineerTransitionLimit,
                     ref engineerLimitReported);
+
+                DiscoverAndEvaluateHandoffs(manager, nextUnitId, currentTick);
             }
             catch (Exception exception)
             {
@@ -366,170 +222,201 @@ namespace EngineerSiegeFix
             }
         }
 
-        private void ObserveCatapultHandler(NativePointer<X64SmartCPUContext> context) =>
-            ObserveHandlerEntry(CatapultType, "catapult", EngineerSiegeFixNativeDefinition.CatapultHandlerRva);
-
-        private void ObserveTrebuchetHandler(NativePointer<X64SmartCPUContext> context) =>
-            ObserveHandlerEntry(TrebuchetType, "trebuchet", EngineerSiegeFixNativeDefinition.TrebuchetHandlerRva);
-
-        private void ObserveCatapultStateSix(NativePointer<X64SmartCPUContext> context) =>
-            ObserveCurrentContextCandidate(
-                "SIEGE_CANDIDATE_CATAPULT_STATE6",
-                EngineerSiegeFixNativeDefinition.CatapultStateSixRva,
-                $"phaseSeed={unchecked((uint)context.Pointer->RAX)}");
-
-        private void ObserveTrebuchetStateSix(NativePointer<X64SmartCPUContext> context) =>
-            ObserveCurrentContextCandidate(
-                "SIEGE_CANDIDATE_TREBUCHET_STATE6",
-                EngineerSiegeFixNativeDefinition.TrebuchetStateSixRva,
-                $"phaseSeed={unchecked((uint)context.Pointer->RAX)}");
-
-        private void ObserveSiegeTentTick(NativePointer<X64SmartCPUContext> context) =>
-            ObserveCurrentContextCandidate(
-                "SIEGE_CANDIDATE_TENT_ENTRY",
-                EngineerSiegeFixNativeDefinition.SiegeTentTickRva,
-                "stage=entry");
-
-        private void ObserveSiegeTentCompletion(NativePointer<X64SmartCPUContext> context) =>
-            ObserveCurrentContextCandidate(
-                "SIEGE_CANDIDATE_TENT_COMPLETION",
-                EngineerSiegeFixNativeDefinition.SiegeTentCompletionTailRva,
-                "stage=after-pending-conversion-fields-written");
-
-        private void ObserveUnitConversion(NativePointer<X64SmartCPUContext> context)
+        private void DiscoverAndEvaluateHandoffs(IntPtr manager, int nextUnitId, uint currentTick)
         {
-            IntPtr manager = new IntPtr(unchecked((long)context.Pointer->RCX));
-            int unitId = unchecked((int)context.Pointer->RDX);
-            ObserveCandidate(
-                "SIEGE_CANDIDATE_CONVERTER_ENTRY",
-                EngineerSiegeFixNativeDefinition.UnitConversionRva,
-                manager,
-                unitId,
-                "identitySource=fastcall-rcx-rdx");
-        }
-
-        private void ObserveCurrentContextCandidate(string marker, int rva, string extra)
-        {
-            IntPtr manager = (IntPtr)GameUnitManagerAPI.Instance.GetUnitManager().Pointer;
-            int unitId = GameUnitManagerAPI.Instance.GetCurrentContextUnitId();
-            ObserveCandidate(marker, rva, manager, unitId, "identitySource=current-context," + extra);
-        }
-
-        private void ObserveCandidate(
-            string marker,
-            int rva,
-            IntPtr manager,
-            int unitId,
-            string extra)
-        {
-            if (disposed || diagnosticsDisabled)
-                return;
-
-            try
+            foreach (UnitObservation device in siegeSlotObservations.Values)
             {
-                int nextUnitId = manager == IntPtr.Zero ? 0 : *(int*)manager.ToPointer();
-                if (unitId <= 0 || unitId >= nextUnitId)
-                {
-                    throw new InvalidOperationException(
-                        $"Invalid unit context: unitId={unitId}, nextUnitId={nextUnitId}, " +
-                        $"manager=0x{manager.ToInt64():X}.");
-                }
+                int requiredCrew = RequiredVerifiedCrew(device.Type);
+                if (requiredCrew == 0)
+                    continue;
 
-                uint currentTick = lastObservedTick == uint.MaxValue ? 0U : lastObservedTick;
-                UnitObservation observation = Capture(Unit(manager, unitId), unitId, currentTick);
-                string key = marker + ":" + unitId;
-                if (candidateObservations.TryGetValue(key, out UnitObservation previous) &&
-                    previous.HasSameIdentityAndState(observation))
+                if (!handoffTrackers.TryGetValue(device.UnitId, out HandoffTracker existing) ||
+                    existing.DeviceGlobalId != device.GlobalId)
                 {
-                    return;
-                }
-                candidateObservations[key] = observation;
-
-                if (candidateTransitionCount < CandidateTransitionLimit)
-                {
-                    candidateTransitionCount++;
-                    Shared.DebugLogHelper.LogInfo(
-                        log,
-                        $"{marker}: rva=0x{rva:X}, {extra}, observation={observation.Describe()}, " +
-                        $"transition={candidateTransitionCount}.");
-                }
-                else if (!candidateLimitReported)
-                {
-                    candidateLimitReported = true;
-                    Shared.DebugLogHelper.LogWarning(
-                        log,
-                        $"SIEGE_CANDIDATE_LOG_LIMIT: limit={CandidateTransitionLimit}; diagnostics remain active.");
+                    StartHandoffTracker(device, requiredCrew, currentTick);
                 }
             }
-            catch (Exception exception)
+
+            foreach (HandoffTracker tracker in handoffTrackers.Values)
             {
-                if (candidateErrorCount >= CandidateErrorLimit)
-                    return;
-                candidateErrorCount++;
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"SIEGE_CANDIDATE_OBSERVATION_ERROR: marker={marker}, rva=0x{rva:X}, " +
-                    $"unitId={unitId}, error={exception}, errorCount={candidateErrorCount}.");
+                if (tracker.Finalized)
+                    continue;
+
+                bool deviceIdentityPresent = TryCaptureIdentity(
+                    manager,
+                    nextUnitId,
+                    tracker.DeviceUnitId,
+                    tracker.DeviceGlobalId,
+                    currentTick,
+                    out UnitObservation device);
+                bool deviceReady = deviceIdentityPresent &&
+                    device.AliveState == EngineerHandoffDiagnosticPolicy.LiveUnitState;
+                bool crewMatches = deviceIdentityPresent && tracker.CrewMatches(device);
+                string crewStatus = "not-evaluated";
+                bool crewBound = crewMatches && AreAllReferencedEngineersBound(
+                    manager,
+                    nextUnitId,
+                    tracker,
+                    currentTick,
+                    out crewStatus);
+                if (!crewMatches)
+                    crewStatus = "device-crew-identities-changed";
+
+                uint elapsedTicks = currentTick - tracker.StartTick;
+                HandoffDiagnosticOutcome outcome = EngineerHandoffDiagnosticPolicy.Evaluate(
+                    sessionContinues: true,
+                    deviceIdentityPresent,
+                    deviceReady,
+                    crewMatches,
+                    crewBound,
+                    elapsedTicks);
+                if (outcome == HandoffDiagnosticOutcome.Pending)
+                    continue;
+
+                tracker.Finalized = true;
+                string marker = outcome == HandoffDiagnosticOutcome.Passed
+                    ? "SIEGE_HANDOFF_PASSED"
+                    : outcome == HandoffDiagnosticOutcome.Failed
+                        ? "SIEGE_HANDOFF_FAILED"
+                        : "SIEGE_HANDOFF_INCONCLUSIVE";
+                LogHandoffVerdict(
+                    marker,
+                    tracker,
+                    currentTick,
+                    elapsedTicks,
+                    deviceIdentityPresent,
+                    deviceReady,
+                    crewMatches,
+                    crewBound,
+                    crewStatus);
             }
         }
 
-        private void ObserveHandlerEntry(ushort expectedType, string deviceName, int handlerRva)
+        private void StartHandoffTracker(UnitObservation device, int requiredCrew, uint currentTick)
         {
-            if (disposed || diagnosticsDisabled)
-                return;
+            var tracker = new HandoffTracker(device, requiredCrew, currentTick);
+            handoffTrackers[device.UnitId] = tracker;
 
-            try
-            {
-                IntPtr manager = (IntPtr)GameUnitManagerAPI.Instance.GetUnitManager().Pointer;
-                int unitId = GameUnitManagerAPI.Instance.GetCurrentContextUnitId();
-                int nextUnitId = manager == IntPtr.Zero ? 0 : *(int*)manager.ToPointer();
-                if (unitId <= 0 || unitId >= nextUnitId)
-                {
-                    throw new InvalidOperationException(
-                        $"Handler context unit ID is invalid: unitId={unitId}, nextUnitId={nextUnitId}.");
-                }
+            HandoffDiagnosticOutcome normalOutcome = EngineerHandoffDiagnosticPolicy.Evaluate(
+                true, true, true, true, true,
+                EngineerHandoffDiagnosticPolicy.VerificationTimeoutTicks);
+            HandoffDiagnosticOutcome injectedOutcome = EngineerHandoffDiagnosticPolicy.Evaluate(
+                true, true, true, true, false,
+                EngineerHandoffDiagnosticPolicy.VerificationTimeoutTicks);
+            bool detectorWorks = normalOutcome == HandoffDiagnosticOutcome.Passed &&
+                injectedOutcome == HandoffDiagnosticOutcome.Failed;
 
-                uint currentTick = lastObservedTick == uint.MaxValue ? 0U : lastObservedTick;
-                UnitObservation observation = Capture(Unit(manager, unitId), unitId, currentTick);
-                if (observation.Type != expectedType)
-                {
-                    throw new InvalidOperationException(
-                        $"Handler/type mismatch: handlerRva=0x{handlerRva:X}, expectedType=0x{expectedType:X}, " +
-                        $"unitId={unitId}, actualType=0x{observation.Type:X}.");
-                }
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"SIEGE_HANDOFF_STARTED: tick={currentTick}, deviceId={tracker.DeviceUnitId}, " +
+                $"deviceGlobal={tracker.DeviceGlobalId}, type=0x{tracker.DeviceType:X}, " +
+                $"owner={tracker.Owner}, requiredCrew={requiredCrew}, crew={tracker.CrewSummary()}, " +
+                $"initialAlive={device.AliveState}.");
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"SIEGE_HANDOFF_DETECTOR_SELF_TEST: deviceId={tracker.DeviceUnitId}, " +
+                $"deviceGlobal={tracker.DeviceGlobalId}, normalShadow={normalOutcome}, " +
+                $"simulatedIdleCrewShadow={injectedOutcome}, detectorWorks={detectorWorks}, " +
+                "faultInjection=shadow-only,no-game-state-write.");
 
-                if (handlerObservations.TryGetValue(unitId, out UnitObservation previous) &&
-                    previous.HasSameIdentityAndState(observation))
-                {
-                    return;
-                }
-                handlerObservations[unitId] = observation;
-
-                if (handlerTransitionCount < HandlerTransitionLimit)
-                {
-                    handlerTransitionCount++;
-                    Shared.DebugLogHelper.LogInfo(
-                        log,
-                        $"SIEGE_HANDLER_ENTRY: device={deviceName}, handlerRva=0x{handlerRva:X}, " +
-                        $"dispatchTargetRva=0x{ReadHandlerTableTarget(expectedType) - libraryBase:X}, " +
-                        $"observation={observation.Describe()}, transition={handlerTransitionCount}.");
-                }
-                else if (!handlerLimitReported)
-                {
-                    handlerLimitReported = true;
-                    Shared.DebugLogHelper.LogWarning(
-                        log,
-                        $"SIEGE_HANDLER_LOG_LIMIT: limit={HandlerTransitionLimit}; diagnostics remain active.");
-                }
-            }
-            catch (Exception exception)
+            if (!detectorWorks)
             {
                 diagnosticsDisabled = true;
                 Shared.DebugLogHelper.LogError(
                     log,
-                    $"SIEGE_ROUTE_DIAGNOSTIC_DISABLED: handlerRva=0x{handlerRva:X}, " +
-                    $"no game state was changed; error={exception}");
+                    "SIEGE_ROUTE_DIAGNOSTIC_DISABLED: the handoff detector failed its shadow fault test; " +
+                    "no game state was changed.");
             }
+        }
+
+        private bool AreAllReferencedEngineersBound(
+            IntPtr manager,
+            int nextUnitId,
+            HandoffTracker tracker,
+            uint currentTick,
+            out string status)
+        {
+            var parts = new List<string>(tracker.RequiredCrew);
+            bool allBound = true;
+            for (int index = 0; index < tracker.RequiredCrew; index++)
+            {
+                int unitId = tracker.CrewIds[index];
+                uint globalId = tracker.CrewGlobals[index];
+                bool present = TryCaptureIdentity(
+                    manager,
+                    nextUnitId,
+                    unitId,
+                    globalId,
+                    currentTick,
+                    out UnitObservation engineer);
+                bool bound = present && EngineerHandoffDiagnosticPolicy.IsReferencedEngineerBound(
+                    unitId,
+                    globalId,
+                    tracker.Owner,
+                    engineer.UnitId,
+                    engineer.GlobalId,
+                    engineer.AliveState,
+                    engineer.Type,
+                    engineer.Owner,
+                    engineer.State);
+                allBound &= bound;
+                parts.Add(present
+                    ? $"{unitId}/{globalId}:alive={engineer.AliveState},type=0x{engineer.Type:X}," +
+                      $"owner={engineer.Owner},mainState=0x{engineer.MainState:X},bound={bound}"
+                    : $"{unitId}/{globalId}:identity-missing-or-reused,bound=false");
+            }
+            status = "[" + string.Join(";", parts) + "]";
+            return allBound;
+        }
+
+        private static bool TryCaptureIdentity(
+            IntPtr manager,
+            int nextUnitId,
+            int unitId,
+            uint globalId,
+            uint currentTick,
+            out UnitObservation observation)
+        {
+            observation = null;
+            if (manager == IntPtr.Zero || unitId <= 0 || unitId >= nextUnitId || globalId == 0)
+                return false;
+
+            observation = Capture(Unit(manager, unitId), unitId, currentTick);
+            return observation.GlobalId == globalId;
+        }
+
+        private void LogHandoffVerdict(
+            string marker,
+            HandoffTracker tracker,
+            uint currentTick,
+            uint elapsedTicks,
+            bool deviceIdentityPresent,
+            bool deviceReady,
+            bool crewMatches,
+            bool crewBound,
+            string crewStatus)
+        {
+            if (handoffVerdictCount >= HandoffVerdictLimit)
+                return;
+
+            handoffVerdictCount++;
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"{marker}: tick={currentTick}, elapsedTicks={elapsedTicks}, " +
+                $"deviceId={tracker.DeviceUnitId}, deviceGlobal={tracker.DeviceGlobalId}, " +
+                $"type=0x{tracker.DeviceType:X}, owner={tracker.Owner}, " +
+                $"deviceIdentityPresent={deviceIdentityPresent}, deviceReady={deviceReady}, " +
+                $"crewMatches={crewMatches}, allReferencedEngineersBound={crewBound}, " +
+                $"crew={tracker.CrewSummary()}, crewStatus={crewStatus}.");
+        }
+
+        private static int RequiredVerifiedCrew(ushort type)
+        {
+            if (type == CatapultType)
+                return 2;
+            if (type == TrebuchetType)
+                return 3;
+            return 0;
         }
 
         private void ObserveTransition(
@@ -629,35 +516,9 @@ namespace EngineerSiegeFix
         }
 
         private static bool IsSiegeType(ushort type) =>
-            type == CatapultType || type == TrebuchetType || type == SiegeTentUnitType;
-
-        private ulong ReadHandlerTableTarget(ushort unitType) =>
-            *(ulong*)(libraryBase + EngineerSiegeFixNativeDefinition.UnitHandlerTableRva +
-                unchecked((ulong)unitType * sizeof(ulong)));
-
-        private void ValidateHandlerTableTarget(ushort unitType, ulong actual, int expectedRva)
-        {
-            ulong expected = libraryBase + unchecked((ulong)expectedRva);
-            if (actual != expected)
-            {
-                throw new InvalidOperationException(
-                    $"Unit handler table mismatch for type 0x{unitType:X}: " +
-                    $"expected=0x{expected:X}, actual=0x{actual:X}.");
-            }
-        }
-
-        private Shared.NativeResolution Resolve(
-            ReadOnlySpan<byte> memory,
-            string pattern,
-            int rva,
-            string name) =>
-            Shared.NativePatternResolver.ResolveUnique(
-                memory,
-                pattern,
-                rva,
-                referenceHashMatches: true,
-                name,
-                log);
+            type == CatapultType || type == TrebuchetType || type == MangonelType ||
+            type == SiegeTentUnitType || type == SiegeTowerType || type == BatteringRamType ||
+            type == PortableShieldType || type == BallistaType || type == ArabBallistaType;
 
         private static byte* Unit(IntPtr manager, int unitId) =>
             (byte*)manager.ToPointer() + UnitArrayBias + unitId * UnitSlotSize;
@@ -707,6 +568,7 @@ namespace EngineerSiegeFix
             public ushort Type { get; }
             public byte Owner { get; }
             public uint State { get; }
+            public ushort MainState => unchecked((ushort)State);
             public int Assignment { get; }
             public ushort Command { get; }
             public ushort TargetUnitId { get; }
@@ -743,6 +605,52 @@ namespace EngineerSiegeFix
             public static UnitObservation OutOfRange(int unitId, uint tick) =>
                 new UnitObservation(tick, unitId, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                     0, 0, 0, 0, 0, 0, 0, 0);
+        }
+
+        private sealed class HandoffTracker
+        {
+            public HandoffTracker(UnitObservation device, int requiredCrew, uint startTick)
+            {
+                DeviceUnitId = device.UnitId;
+                DeviceGlobalId = device.GlobalId;
+                DeviceType = device.Type;
+                Owner = device.Owner;
+                RequiredCrew = requiredCrew;
+                StartTick = startTick;
+                CrewIds = new[] { device.CrewId0, device.CrewId1, device.CrewId2 };
+                CrewGlobals = new[] { device.CrewGlobal0, device.CrewGlobal1, device.CrewGlobal2 };
+            }
+
+            public int DeviceUnitId { get; }
+            public uint DeviceGlobalId { get; }
+            public ushort DeviceType { get; }
+            public byte Owner { get; }
+            public int RequiredCrew { get; }
+            public uint StartTick { get; }
+            public ushort[] CrewIds { get; }
+            public uint[] CrewGlobals { get; }
+            public bool Finalized { get; set; }
+
+            public bool CrewMatches(UnitObservation device)
+            {
+                ushort[] ids = { device.CrewId0, device.CrewId1, device.CrewId2 };
+                uint[] globals = { device.CrewGlobal0, device.CrewGlobal1, device.CrewGlobal2 };
+                return EngineerHandoffDiagnosticPolicy.AreCrewIdentitiesValidAndStable(
+                    RequiredCrew,
+                    device.CrewCount,
+                    CrewIds,
+                    CrewGlobals,
+                    ids,
+                    globals);
+            }
+
+            public string CrewSummary()
+            {
+                var parts = new string[RequiredCrew];
+                for (int index = 0; index < RequiredCrew; index++)
+                    parts[index] = $"{CrewIds[index]}/{CrewGlobals[index]}";
+                return "[" + string.Join(",", parts) + "]";
+            }
         }
     }
 }

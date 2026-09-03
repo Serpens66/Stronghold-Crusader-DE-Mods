@@ -404,6 +404,8 @@ public static class SerpLocalization
         { "BugfixesAndQoL.ClientInterfaceTitle", "Interface and Controls" },
         { "BugfixesAndQoL.AiAivTitle", "AI and AIV" },
         { "BugfixesAndQoL.TroopMovementTitle", "Troop Movement" },
+        { "BugfixesAndQoL.EnableHealerAttackCommandFix", "Keep Healers out of melee attack groups" },
+        { "BugfixesAndQoL.EnableHealerAttackCommandFixHelp", "Prevents Bedouin Healers from following melee units into combat when a mixed selection is ordered to attack an enemy unit." },
         { "BugfixesAndQoL.PlagueTitle", "Plague" },
         { "BugfixesAndQoL.EnableClientFeatures", "Enable local client features" },
         { "BugfixesAndQoL.EnableClientFeaturesHelp", "Enables or disables this mod's local interface and control features for you." },

@@ -338,6 +338,12 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableMountedStockpileMovementFixText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-healer-attack-command-fix" shared:ModSettingsSearch.Title="{Binding EnableHealerAttackCommandFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableHealerAttackCommandFixHelpText}"><CheckBox IsChecked="{Binding EnableHealerAttackCommandFix, Mode=TwoWay}"
+                Foreground="White"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableHealerAttackCommandFixHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding EnableHealerAttackCommandFixText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox></Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.fast-recruit-rally" shared:ModSettingsSearch.Title="{Binding EnableFastRecruitRallyMovementText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableFastRecruitRallyMovementHelpText}"><CheckBox IsChecked="{Binding EnableFastRecruitRallyMovement, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableFastRecruitRallyMovementHelpText}" Margin="0,0,14,8"><TextBlock Text="{Binding EnableFastRecruitRallyMovementText}" Foreground="White" TextWrapping="Wrap"/></CheckBox></Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-improved-assassin-pathfinding" shared:ModSettingsSearch.Title="{Binding EnableImprovedAssassinPathfindingText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableImprovedAssassinPathfindingHelpText}"><CheckBox IsChecked="{Binding EnableImprovedAssassinPathfinding, Mode=TwoWay}"
                 Foreground="White"

@@ -1,4 +1,5 @@
-namespace HealerAttackCommandFixTest
+// Feature: Audited native contracts for excluding Bedouin Healers from AttackUnit movement.
+namespace BugfixesAndQoL
 {
     internal static class HealerAttackCommandFixNativeDefinition
     {
@@ -24,7 +25,6 @@ namespace HealerAttackCommandFixTest
         public const byte FirstNoOpClass = 4;
         public const byte SecondVanillaHealerClass = 0;
         public const byte SecondNoOpClass = 1;
-
         public const int FirstMeleeTargetRva = 0x11ECF8;
         public const int FirstNoOpTargetRva = 0x11ED82;
         public const int SecondMeleeTargetRva = 0x11EF6E;

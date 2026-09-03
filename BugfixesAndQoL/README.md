@@ -22,6 +22,9 @@ With a normal synchronized movement order, every unit in a mixed group now uses 
 ### Allow cavalry movement onto stockpiles
 Knights, Horse Archers, Bedouin Camel Lancers, and Heavy Camels can be ordered onto passable stockpile tiles, matching their existing ability to cross them. The fix does not change stockpile tile definitions or relax movement rules for walls, stairs, keeps, other buildings, occupied tiles, or unreachable destinations.
 
+### Keep Healers out of melee attack groups
+When a mixed selection is ordered to attack an enemy unit, Bedouin Healers now remain in place like Engineers instead of following the combat units into melee. Normal movement orders and healing behavior remain unchanged.
+
 ### Resume Assassin movement after combat
 Assassins resume their original movement order after automatically fighting an enemy encountered along the way, including routes that climb onto or down from walls. This host setting works independently with Vanilla Assassin pathfinding; when improved Assassin pathfinding is also enabled, resumed orders use its weighted routes and support for walkable reserved building areas.
 

@@ -140,49 +140,52 @@ internal static class Program
             "EngineerSiegeFix",
             "src",
             "EngineerSiegeFixPlugin.cs"));
-        Check(runtime.Contains("ref catapultHandlerHook"), "catapult handler-entry hook registered");
-        Check(runtime.Contains("ref trebuchetHandlerHook"), "trebuchet handler-entry hook registered");
-        Check(runtime.Contains("ref catapultStateSixHook"), "catapult state-six hook registered");
-        Check(runtime.Contains("ref trebuchetStateSixHook"), "trebuchet state-six hook registered");
-        Check(runtime.Contains("ref siegeTentTickHook"), "siege-tent entry hook registered");
-        Check(runtime.Contains("ref siegeTentCompletionHook"), "siege-tent completion hook registered");
-        Check(runtime.Contains("ref unitConversionHook"), "unit converter hook registered");
-        Check(Regex.Matches(runtime, "hookSize: 5").Count == 3,
-            "handler entries and converter use exact five-byte hook spans");
-        Check(runtime.Contains("hookSize: 6"), "siege-tent entry uses exact six-byte hook span");
-        Check(runtime.Contains("hookSize: 7"), "catapult state-six uses exact seven-byte hook span");
-        Check(runtime.Contains("hookSize: 8"), "trebuchet state-six uses exact eight-byte hook span");
-        Check(runtime.Contains("hookSize: 11"), "siege-tent completion uses exact eleven-byte hook span");
-        Check(runtime.Contains("placement: OverwrittenInstructionPlacement.BeforeCallback"),
-            "displaced RBX save executes before each observation callback");
-        Check(runtime.Contains("regs: X64SmartCPUContextRegs.All"),
-            "callbacks preserve every live handler-entry register");
-        Check(runtime.Contains("GetCurrentContextUnitId"), "one-based device ID uses the state dispatcher context");
-        Check(runtime.Contains("ValidateHandlerTableTarget(CatapultType"),
-            "runtime validates the relocated catapult table entry");
-        Check(runtime.Contains("ValidateHandlerTableTarget(TrebuchetType"),
-            "runtime validates the relocated trebuchet table entry");
+        string project = File.ReadAllText(Path.Combine(
+            workspace,
+            "EngineerSiegeFix",
+            "EngineerSiegeFix.csproj"));
+        Check(!runtime.Contains("AddContextHook"),
+            "runtime installs no native observation hook after the completion crash");
+        Check(!runtime.Contains("HookRef<"), "runtime retains no native hook handle");
+        Check(!runtime.Contains("HookTransaction"), "runtime creates no native hook transaction");
+        Check(!runtime.Contains("X64SmartCPUContext"), "runtime has no native callback context");
+        Check(runtime.Contains("activeObservationHooks=0"),
+            "installation marker confirms the crash-prone hook set is absent");
+        Check(runtime.Contains("unsafeNativeHookSetDisabled=true"),
+            "installation marker identifies the deliberate safety fallback");
+        Check(runtime.Contains("observationMode=read-only-GameTimeManagerAPI.OnTick-snapshots"),
+            "runtime declares the safe observation mechanism");
+        Check(runtime.Contains("using SHCDESE.Interop;"),
+            "eChimps uses the namespace exported by the targeted Script Extender");
+        Check(project.Contains("<Reference Include=\"Zhuqiaomon\">"),
+            "project references the assembly that owns GameUnitManagerAPI's NativePointer return type");
         Check(!runtime.Contains("WriteUInt16"), "diagnostic runtime contains no 16-bit native write helper");
         Check(!runtime.Contains("WriteUInt32"), "diagnostic runtime contains no 32-bit native write helper");
         Check(!runtime.Contains("Marshal.GetDelegateForFunctionPointer"),
             "diagnostic runtime calls no mutating native cleanup helper");
-        Check(!runtime.Contains("Hook.Trampoline"), "handler hooks do not replace either function");
-        Check(!runtime.Contains("AddDetour"), "handler hooks avoid function detours");
-        Check(runtime.Contains("SIEGE_CANDIDATE_TENT_ENTRY"), "siege-tent entry has a distinct marker");
-        Check(runtime.Contains("SIEGE_CANDIDATE_TENT_COMPLETION"),
-            "siege-tent completion has a distinct marker");
-        Check(runtime.Contains("SIEGE_CANDIDATE_CONVERTER_ENTRY"),
-            "unit converter has a distinct marker");
-        Check(runtime.Contains("SIEGE_CANDIDATE_CATAPULT_STATE6"),
-            "catapult state-six has a distinct marker");
-        Check(runtime.Contains("SIEGE_CANDIDATE_TREBUCHET_STATE6"),
-            "trebuchet state-six has a distinct marker");
-        Check(runtime.Contains("identitySource=fastcall-rcx-rdx"),
-            "converter identity follows its native RCX/RDX ABI");
-        Check(runtime.Contains("context.Pointer->RAX"),
-            "state-six observers record the displaced phase-seed result");
-        Check(runtime.Contains("activeObservationHooks=7"),
-            "installation marker confirms every simultaneous observation hook");
+        Check(!runtime.Contains("Hook.Trampoline"), "runtime does not replace a native function");
+        Check(!runtime.Contains("AddDetour"), "runtime installs no native detour");
+        Check(runtime.Contains("observation.Type == EngineerType || wasTracked"),
+            "polling follows every engineer without trusting the unconfirmed command offset");
+        Check(runtime.Contains("CHIMP_TYPE_CATAPULT"), "polling includes catapults through the extender enum");
+        Check(runtime.Contains("CHIMP_TYPE_TREBUCHET"), "polling includes trebuchets through the extender enum");
+        Check(runtime.Contains("CHIMP_TYPE_PORTABLE_SHIELD"),
+            "polling includes the siege type built immediately before the crash");
+        Check(runtime.Contains("SIEGE_HANDOFF_STARTED"), "automatic verifier announces every tracked handoff");
+        Check(runtime.Contains("SIEGE_HANDOFF_PASSED"), "automatic verifier has a conclusive success marker");
+        Check(runtime.Contains("SIEGE_HANDOFF_FAILED"), "automatic verifier has a conclusive failure marker");
+        Check(runtime.Contains("SIEGE_HANDOFF_INCONCLUSIVE"),
+            "automatic verifier distinguishes an interrupted identity from failure");
+        Check(runtime.Contains("SIEGE_HANDOFF_DETECTOR_SELF_TEST"),
+            "each real handoff executes the shadow fault detector test");
+        Check(runtime.Contains("faultInjection=shadow-only,no-game-state-write"),
+            "fault injection cannot alter the live game state");
+        Check(runtime.Contains("EngineerHandoffDiagnosticPolicy.IsReferencedEngineerBound("),
+            "runtime delegates the bound-state invariant to the tested policy");
+        Check(runtime.Contains("EngineerHandoffDiagnosticPolicy.AreCrewIdentitiesValidAndStable("),
+            "runtime delegates stable crew identity checks to the tested policy");
+        Check(runtime.Contains("automaticHandoffVerificationTicks="),
+            "installation marker reports the bounded verification window");
         Check(plugin.Contains("requireCurrentVersion: true"), "unknown native hashes fail closed");
         Check(plugin.Contains("private static EngineerSiegeFixRuntime runtime"),
             "runtime remains rooted after SHCDE destroys the startup plugin component");
@@ -203,13 +206,11 @@ internal static class Program
         Check(!runtime.Contains("GameTickRva"), "runtime no longer trusts the unvalidated raw tick RVA");
         Check(!runtime.Contains("lastPollTick"), "runtime no longer suppresses polling through the raw tick guard");
         Check(runtime.Contains("SIEGE_ROUTE_DIAGNOSTIC_INSTALLED"), "dispatcher evidence is logged at installation");
-        Check(runtime.Contains("SIEGE_HANDLER_ENTRY"), "handler-entry transitions are logged");
         Check(runtime.Contains("SIEGE_SLOT_TRANSITION"), "siege slot transitions are logged");
         Check(runtime.Contains("SIEGE_ENGINEER_TRANSITION"), "associated engineer transitions are logged");
         Check(runtime.Contains("correctionActive=false"), "log explicitly identifies observation-only mode");
         Check(runtime.Contains("private void OnGameTick(int tick)"), "each poll is driven exactly by a game-tick callback");
         Check(runtime.Contains("TickHeartbeatLimit = 3"), "lifecycle heartbeat logging is bounded");
-        Check(runtime.Contains("HandlerTransitionLimit = 160"), "handler transition logging is bounded");
         Check(runtime.Contains("SlotTransitionLimit = 320"), "siege slot logging is bounded");
         Check(runtime.Contains("EngineerTransitionLimit = 480"), "engineer logging is bounded");
         Check(runtime.Contains("ReadUInt32(unit, GlobalIdOffset)"), "diagnostics capture global identities");
@@ -280,20 +281,59 @@ internal static class Program
 
         CheckDiagnostic(HandoffDiagnosticOutcome.Pending, true, true, false, true, false, 0,
             "pending before conversion");
-        CheckDiagnostic(HandoffDiagnosticOutcome.Pending, true, true, true, true, false, 255,
-            "live engineers allowed before timeout");
-        CheckDiagnostic(HandoffDiagnosticOutcome.Passed, true, true, true, true, true, 1,
-            "ready device and consumed engineers pass");
+        CheckDiagnostic(HandoffDiagnosticOutcome.Pending, true, true, true, true, true, 255,
+            "bound crew remains pending before observation window");
+        CheckDiagnostic(HandoffDiagnosticOutcome.Passed, true, true, true, true, true, 256,
+            "ready device and stable bound engineers pass at timeout");
         CheckDiagnostic(HandoffDiagnosticOutcome.Failed, true, true, true, false, true, 1,
             "ready device crew mismatch fails immediately");
+        CheckDiagnostic(HandoffDiagnosticOutcome.Failed, true, true, true, true, false, 1,
+            "referenced engineer returning idle fails immediately");
         CheckDiagnostic(HandoffDiagnosticOutcome.Failed, true, true, false, true, false, 256,
-            "conversion timeout fails");
-        CheckDiagnostic(HandoffDiagnosticOutcome.Failed, true, true, true, true, false, 256,
-            "surviving engineer timeout fails");
+            "unfinished device fails after the bounded observation window");
         CheckDiagnostic(HandoffDiagnosticOutcome.Inconclusive, false, true, false, false, false, uint.MaxValue,
             "session change is inconclusive");
         CheckDiagnostic(HandoffDiagnosticOutcome.Inconclusive, true, false, false, false, false, 10,
             "destroyed device is inconclusive");
+
+        Check(EngineerHandoffDiagnosticPolicy.IsReferencedEngineerBound(
+            95, 7331480, 1, 95, 7331480, 2, 0x1E, 1, 0x00070005),
+            "observed packed state 0x00070005 is recognized as bound crew");
+        Check(!EngineerHandoffDiagnosticPolicy.IsReferencedEngineerBound(
+            95, 7331480, 1, 95, 7331480, 2, 0x1E, 1, 0x00000000),
+            "shadow idle engineer is rejected");
+        Check(!EngineerHandoffDiagnosticPolicy.IsReferencedEngineerBound(
+            95, 7331480, 1, 95, 7331481, 2, 0x1E, 1, 0x00070005),
+            "reused global identity is rejected");
+        Check(!EngineerHandoffDiagnosticPolicy.IsReferencedEngineerBound(
+            95, 7331480, 1, 95, 7331480, 2, 0x1D, 1, 0x00070005),
+            "non-engineer crew slot is rejected");
+        Check(!EngineerHandoffDiagnosticPolicy.IsReferencedEngineerBound(
+            95, 7331480, 1, 95, 7331480, 2, 0x1E, 2, 0x00070005),
+            "foreign-owner crew slot is rejected");
+
+        ushort[] catIds = { 95, 104, 0 };
+        uint[] catGlobals = { 7331480, 7331540, 0 };
+        Check(EngineerHandoffDiagnosticPolicy.AreCrewIdentitiesValidAndStable(
+            2, 2, catIds, catGlobals,
+            new ushort[] { 95, 104, 0 }, new uint[] { 7331480, 7331540, 0 }),
+            "observed catapult crew identities are stable");
+        Check(!EngineerHandoffDiagnosticPolicy.AreCrewIdentitiesValidAndStable(
+            2, 2, catIds, catGlobals,
+            new ushort[] { 95, 95, 0 }, new uint[] { 7331480, 7331540, 0 }),
+            "duplicate crew unit ID is rejected");
+        Check(!EngineerHandoffDiagnosticPolicy.AreCrewIdentitiesValidAndStable(
+            2, 2, catIds, catGlobals,
+            new ushort[] { 95, 104, 0 }, new uint[] { 7331480, 7331480, 0 }),
+            "duplicate crew global ID is rejected");
+        Check(!EngineerHandoffDiagnosticPolicy.AreCrewIdentitiesValidAndStable(
+            2, 1, catIds, catGlobals,
+            new ushort[] { 95, 104, 0 }, new uint[] { 7331480, 7331540, 0 }),
+            "incomplete crew count is rejected");
+        Check(!EngineerHandoffDiagnosticPolicy.AreCrewIdentitiesValidAndStable(
+            2, 2, catIds, catGlobals,
+            new ushort[] { 95, 104, 0 }, new uint[] { 7331480, 7331541, 0 }),
+            "changed crew global identity is rejected");
     }
 
     private static void CheckDiagnostic(
@@ -302,7 +342,7 @@ internal static class Program
         bool deviceIdentityPresent,
         bool deviceReady,
         bool crewMatches,
-        bool engineersGone,
+        bool engineersBound,
         uint elapsedTicks,
         string name)
     {
@@ -311,7 +351,7 @@ internal static class Program
             deviceIdentityPresent,
             deviceReady,
             crewMatches,
-            engineersGone,
+            engineersBound,
             elapsedTicks);
         Check(actual == expected, name);
     }

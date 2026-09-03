@@ -99,6 +99,8 @@
     <Compile Include="src\MultiplayerLobbyReturnFeature.cs" />
     <Compile Include="src\MultiplayerLobbyReturnPolicy.cs" />
     <Compile Include="src\AssemblyPointPlacementPatch.cs" />
+    <Compile Include="src\HealerAttackCommandFixNativeDefinition.cs" />
+    <Compile Include="src\HealerAttackCommandPatch.cs" />
     <Compile Include="src\MountedStockpileMovementPatch.cs" />
     <Compile Include="src\MountedStockpileMovementPolicy.cs" />
     <Compile Include="src\AutoTradeSellZeroHook.cs" />

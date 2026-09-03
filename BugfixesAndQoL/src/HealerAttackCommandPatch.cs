@@ -1,46 +1,37 @@
+// Feature: Keep Bedouin Healers stationary when a mixed group attacks a unit.
 using BepInEx.Logging;
-using R3;
-using SHCDESE.API;
-using SHCDESE.EventAPI;
-using SHCDESE.EventAPI.MapLoader;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using Zhuqiaomon.Windows;
 
-namespace HealerAttackCommandFixTest
+namespace BugfixesAndQoL
 {
-    internal sealed unsafe class HealerAttackCommandFixTestRuntime : IDisposable
+    internal sealed unsafe class HealerAttackCommandPatch : IDisposable
     {
-        private readonly ManualLogSource log;
-        private readonly ulong libraryBase;
-        private IDisposable mapStartSubscription;
-        private IDisposable loadSaveSubscription;
         private byte* firstHealerEntry;
         private byte* secondHealerEntry;
         private bool firstPatched;
         private bool secondPatched;
-        private bool tickSubscribed;
-        private bool verificationPending;
-        private bool applied;
+        private bool disposed;
 
-        public HealerAttackCommandFixTestRuntime(
+        public HealerAttackCommandPatch(
             ManualLogSource log,
-            ulong libraryBase)
+            ReadOnlySpan<byte> memory,
+            ulong libraryBase,
+            bool referenceHashMatches)
         {
-            this.log = log ?? throw new ArgumentNullException(nameof(log));
-            if (libraryBase == 0)
-                throw new ArgumentOutOfRangeException(nameof(libraryBase));
-
-            this.libraryBase = libraryBase;
-        }
-
-        public void Apply(ReadOnlySpan<byte> memory)
-        {
-            if (applied)
-                return;
+            if (log == null)
+                throw new ArgumentNullException(nameof(log));
             if (memory.IsEmpty)
                 throw new ArgumentException("The loaded CrusaderDE image is empty.", nameof(memory));
+            if (libraryBase == 0)
+                throw new ArgumentOutOfRangeException(nameof(libraryBase));
+            if (!referenceHashMatches)
+            {
+                throw new InvalidOperationException(
+                    "The loaded CrusaderDE.dll does not match the audited native baseline.");
+            }
 
             ValidateUnitTypeContracts();
             int firstClassifierRva = ResolveUniqueClassifier(
@@ -101,7 +92,6 @@ namespace HealerAttackCommandFixTest
 
             firstHealerEntry = (byte*)(libraryBase + unchecked((ulong)(firstTableRva + healerIndex)));
             secondHealerEntry = (byte*)(libraryBase + unchecked((ulong)(secondTableRva + healerIndex)));
-
             try
             {
                 WriteValidatedByte(
@@ -116,30 +106,10 @@ namespace HealerAttackCommandFixTest
                     HealerAttackCommandFixNativeDefinition.SecondNoOpClass,
                     "second Bedouin Healer AttackUnit classifier");
                 secondPatched = true;
-
-                mapStartSubscription = MapLoaderR3EventHooks.OnStartMap.Observable
-                    .Where(args => args.Phase == EventHookPhase.Post)
-                    .Subscribe(args => ArmRuntimeVerification($"new map campaignMapId={args.CampaignMapId}"));
-                loadSaveSubscription = MapLoaderR3EventHooks.OnLoadSave.Observable
-                    .Where(args => args.Phase == EventHookPhase.Post)
-                    .Subscribe(args => ArmRuntimeVerification($"loaded save file={args.FileName ?? "<null>"}"));
-                GameTimeManagerAPI.Instance.OnTick += OnGameTick;
-                tickSubscribed = true;
             }
             catch
             {
-                if (tickSubscribed)
-                {
-                    GameTimeManagerAPI.Instance.OnTick -= OnGameTick;
-                    tickSubscribed = false;
-                }
-                mapStartSubscription?.Dispose();
-                loadSaveSubscription?.Dispose();
-                mapStartSubscription = null;
-                loadSaveSubscription = null;
-
-                // A protection-restore failure can occur after the byte was written
-                // but before WriteValidatedByte returns and updates its tracking flag.
+                // Account for a write succeeding immediately before protection restoration fails.
                 firstPatched = firstHealerEntry != null &&
                     *firstHealerEntry == HealerAttackCommandFixNativeDefinition.FirstNoOpClass;
                 secondPatched = secondHealerEntry != null &&
@@ -147,39 +117,21 @@ namespace HealerAttackCommandFixTest
                 RestorePatchedBytes();
                 throw;
             }
-            applied = true;
 
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
-                "HEALER_ATTACK_GROUP_FIX_READY: correctionActive=true, command=AttackUnit/4, " +
-                $"unitType=BedouinHealer/{HealerAttackCommandFixNativeDefinition.BedouinHealerType}, " +
-                $"firstEntryRva=0x{firstTableRva + healerIndex:X}, firstClass=" +
-                $"{HealerAttackCommandFixNativeDefinition.FirstVanillaHealerClass}->" +
-                $"{HealerAttackCommandFixNativeDefinition.FirstNoOpClass}, secondEntryRva=" +
-                $"0x{secondTableRva + healerIndex:X}, secondClass=" +
-                $"{HealerAttackCommandFixNativeDefinition.SecondVanillaHealerClass}->" +
-                $"{HealerAttackCommandFixNativeDefinition.SecondNoOpClass}, nativeHooks=0.");
+                "Bugfixes and QoL Healer attack-command fix installed; native table entries=2.");
         }
 
         public void Dispose()
         {
-            if (!applied)
+            if (disposed)
                 return;
-
-            if (tickSubscribed)
-            {
-                GameTimeManagerAPI.Instance.OnTick -= OnGameTick;
-                tickSubscribed = false;
-            }
-            mapStartSubscription?.Dispose();
-            loadSaveSubscription?.Dispose();
-            mapStartSubscription = null;
-            loadSaveSubscription = null;
             RestorePatchedBytes();
-            applied = false;
+            disposed = true;
         }
 
-        private int ResolveUniqueClassifier(
+        private static int ResolveUniqueClassifier(
             ReadOnlySpan<byte> memory,
             string pattern,
             int expectedRva,
@@ -191,19 +143,13 @@ namespace HealerAttackCommandFixTest
                 throw new InvalidOperationException(
                     $"The {label} resolved to RVA 0x{resolvedRva:X}, not audited RVA 0x{expectedRva:X}.");
             }
-
-            Shared.DebugLogHelper.LogInfo(
-                log,
-                $"Native address resolved: name={label}, method=unique-signature, rva=0x{resolvedRva:X}.");
             return resolvedRva;
         }
 
         private static void ValidateUnitTypeContracts()
         {
-            if ((int)eChimps.CHIMP_TYPE_ENGINEER !=
-                    HealerAttackCommandFixNativeDefinition.EngineerType ||
-                (int)eChimps.CHIMP_TYPE_BEDOUIN_HEALER !=
-                    HealerAttackCommandFixNativeDefinition.BedouinHealerType)
+            if ((int)eChimps.CHIMP_TYPE_ENGINEER != HealerAttackCommandFixNativeDefinition.EngineerType ||
+                (int)eChimps.CHIMP_TYPE_BEDOUIN_HEALER != HealerAttackCommandFixNativeDefinition.BedouinHealerType)
             {
                 throw new InvalidOperationException(
                     "The Script Extender unit-type enum differs from the audited native classifier indexes.");
@@ -216,8 +162,9 @@ namespace HealerAttackCommandFixTest
             int displacementOffset,
             string label)
         {
-            int displacementRva = checked(instructionRva + displacementOffset);
-            int tableRva = Shared.NativePatternResolver.ReadInt32(memory, displacementRva);
+            int tableRva = Shared.NativePatternResolver.ReadInt32(
+                memory,
+                checked(instructionRva + displacementOffset));
             if (tableRva <= 0 || tableRva >= memory.Length)
                 throw new InvalidOperationException($"The {label} lies outside the loaded game image.");
             return tableRva;
@@ -287,40 +234,6 @@ namespace HealerAttackCommandFixTest
                 throw new InvalidOperationException(
                     $"The {label} is {memory[rva]}, expected {expected} at RVA 0x{rva:X}.");
             }
-        }
-
-        private void ArmRuntimeVerification(string reason)
-        {
-            verificationPending = true;
-            Shared.DebugLogHelper.LogInfo(
-                log,
-                $"HEALER_ATTACK_GROUP_FIX_MAP_ACTIVE: reason={reason}; awaitingSimulationTick=true.");
-        }
-
-        private void OnGameTick(int tick)
-        {
-            if (!verificationPending)
-                return;
-
-            verificationPending = false;
-            byte first = *firstHealerEntry;
-            byte second = *secondHealerEntry;
-            if (first == HealerAttackCommandFixNativeDefinition.FirstNoOpClass &&
-                second == HealerAttackCommandFixNativeDefinition.SecondNoOpClass)
-            {
-                Shared.DebugLogHelper.LogInfo(
-                    log,
-                    $"HEALER_ATTACK_GROUP_FIX_RUNTIME_CONFIRMED: tick={tick}, " +
-                    $"firstClass={first}, secondClass={second}, patchStillActive=true.");
-                return;
-            }
-
-            Shared.DebugLogHelper.LogError(
-                log,
-                $"HEALER_ATTACK_GROUP_FIX_RUNTIME_INVALID: tick={tick}, firstClass={first}, " +
-                $"secondClass={second}, expected=" +
-                $"{HealerAttackCommandFixNativeDefinition.FirstNoOpClass}/" +
-                $"{HealerAttackCommandFixNativeDefinition.SecondNoOpClass}.");
         }
 
         private void RestorePatchedBytes()

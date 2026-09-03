@@ -19,6 +19,7 @@
   <ItemGroup>
     <Compile Include="..\..\Shared\GatehouseQueryUnitIdPolicy.cs"><Link>GatehouseQueryUnitIdPolicy.cs</Link></Compile>
     <Compile Include="..\..\BugfixesAndQoL\src\MountedStockpileMovementPolicy.cs"><Link>MountedStockpileMovementPolicy.cs</Link></Compile>
+    <Compile Include="..\..\BugfixesAndQoL\src\HealerAttackCommandFixNativeDefinition.cs"><Link>HealerAttackCommandFixNativeDefinition.cs</Link></Compile>
     <Compile Include="Program.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

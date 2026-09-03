@@ -167,6 +167,44 @@ namespace MoveMoatTest
             return ConvertFixedCostToTicks(fixedCost + moatFixedCost);
         }
 
+        public bool TryWithSpeedBonus(
+            int speedBonus,
+            out WeightedMovementCostProfile profile,
+            out string rejectionReason)
+        {
+            profile = default;
+            rejectionReason = null;
+            if (speedBonus < 0 || speedBonus > short.MaxValue ||
+                speedBonus > int.MaxValue - AdditionalSubsteps - 1)
+            {
+                rejectionReason = "invalid-resolved-speed-bonus";
+                return false;
+            }
+
+            int cadenceProgress = speedBonus + AdditionalSubsteps + 1;
+            long groundInterval = (long)NormalizedDelay + speedBonus + ExtraDelay + 1L;
+            long moatInterval = groundInterval + MoatDelayPenalty;
+            if (cadenceProgress <= 0 || groundInterval <= 0 || moatInterval <= 0 ||
+                moatInterval > long.MaxValue / 8L)
+            {
+                rejectionReason = "resolved-speed-profile-overflow";
+                return false;
+            }
+
+            profile = new WeightedMovementCostProfile(
+                CurrentSpeed,
+                CurrentSpeed2,
+                speedBonus,
+                AdditionalSubsteps,
+                ExtraDelay,
+                MoatPhase,
+                CurrentTerrainPenalty,
+                NormalizedDelay,
+                cadenceProgress,
+                StartedOnCompletedMoat);
+            return true;
+        }
+
         public bool HasSameNormalizedCadence(WeightedMovementCostProfile other) =>
             SpeedBonus == other.SpeedBonus &&
             AdditionalSubsteps == other.AdditionalSubsteps &&
@@ -293,8 +331,44 @@ namespace MoveMoatTest
             bool allowReservedTarget,
             out WeightedMoatRouteSummary summary)
         {
+            return TryBuildCore(
+                playerId, startX, startY, requestedTargetX, requestedTargetY,
+                costProfile, allowReservedTarget, captureEncodedRoute: false,
+                out summary, out _);
+        }
+
+        public bool TryBuildEncoded(
+            int playerId,
+            int startX,
+            int startY,
+            int requestedTargetX,
+            int requestedTargetY,
+            WeightedMovementCostProfile costProfile,
+            bool allowReservedTarget,
+            out WeightedMoatRouteSummary summary,
+            out WeightedMoatEncodedRoute encodedRoute)
+        {
+            return TryBuildCore(
+                playerId, startX, startY, requestedTargetX, requestedTargetY,
+                costProfile, allowReservedTarget, captureEncodedRoute: true,
+                out summary, out encodedRoute);
+        }
+
+        private bool TryBuildCore(
+            int playerId,
+            int startX,
+            int startY,
+            int requestedTargetX,
+            int requestedTargetY,
+            WeightedMovementCostProfile costProfile,
+            bool allowReservedTarget,
+            bool captureEncodedRoute,
+            out WeightedMoatRouteSummary summary,
+            out WeightedMoatEncodedRoute encodedRoute)
+        {
             Stopwatch stopwatch = Stopwatch.StartNew();
             summary = default;
+            encodedRoute = default;
             ResetSearch();
             try
             {
@@ -340,7 +414,8 @@ namespace MoveMoatTest
                     {
                         if (!TrySummarizeRoute(
                             playerId, startNode, targetNode, allowReservedTarget,
-                            costProfile, expanded, stopwatch, out summary))
+                            costProfile, expanded, stopwatch, captureEncodedRoute,
+                            out summary, out encodedRoute))
                         {
                             return false;
                         }
@@ -528,8 +603,11 @@ namespace MoveMoatTest
             WeightedMovementCostProfile costProfile,
             int expanded,
             Stopwatch stopwatch,
-            out WeightedMoatRouteSummary summary)
+            bool captureEncodedRoute,
+            out WeightedMoatRouteSummary summary,
+            out WeightedMoatEncodedRoute encodedRoute)
         {
+            encodedRoute = default;
             int routeNodes = 0;
             int node = targetNode;
             while (node >= 0 && routeNodes < route.Length)
@@ -553,6 +631,11 @@ namespace MoveMoatTest
             int directionChanges = 0;
             int previousDirection = -1;
             ulong fingerprint = RouteFingerprintOffsetBasis;
+            int directionCount = routeNodes - 1;
+            byte[] encodedDirections = captureEncodedRoute
+                ? new byte[(directionCount + 1) >> 1]
+                : null;
+            int encodedIndex = 0;
             for (int index = routeNodes - 1; index > 0; index--)
             {
                 int currentNode = route[index];
@@ -583,13 +666,21 @@ namespace MoveMoatTest
                     directionChanges++;
                 previousDirection = direction;
                 fingerprint = UpdateRouteFingerprint(fingerprint, direction);
+                if (encodedDirections != null)
+                {
+                    encodedDirections[encodedIndex >> 1] |=
+                        (byte)(direction << ((encodedIndex & 1) * 4));
+                    encodedIndex++;
+                }
             }
 
             summary = WeightedMoatRouteSummary.Succeeded(
-                routeNodes - 1, ground, moat, diagonal,
+                directionCount, ground, moat, diagonal,
                 directionChanges, fingerprint,
                 costProfile.ConvertFixedCostToTicks(costs[targetNode]),
                 stopwatch.Elapsed.TotalMilliseconds, expanded);
+            if (encodedDirections != null)
+                encodedRoute = new WeightedMoatEncodedRoute(encodedDirections, directionCount);
             return true;
         }
 
@@ -861,6 +952,21 @@ namespace MoveMoatTest
             }
             return -1;
         }
+    }
+
+    internal readonly struct WeightedMoatEncodedRoute
+    {
+        public WeightedMoatEncodedRoute(byte[] bytes, int directionCount)
+        {
+            Bytes = bytes;
+            DirectionCount = directionCount;
+        }
+
+        public byte[] Bytes { get; }
+        public int DirectionCount { get; }
+        public bool IsValid => Bytes != null && DirectionCount >= 0 &&
+            DirectionCount <= WeightedMoatRoutePlanner.MaximumRouteEdges &&
+            Bytes.Length == (DirectionCount + 1) / 2;
     }
 
     internal readonly struct WeightedMoatRouteSummary

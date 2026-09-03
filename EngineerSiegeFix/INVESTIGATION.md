@@ -166,6 +166,58 @@ Every hook executes its complete displaced Vanilla instruction before the callba
 
 One normal test run with at least one completed catapult and one completed trebuchet can therefore retest every previous candidate. A valid run must first contain `SIEGE_TICK_HEARTBEAT`, proving survival beyond startup cleanup, followed by whichever of the seven candidate markers actually participate in the construction route.
 
+## Crash in the combined-hook diagnostic and safe replacement
+
+The combined lifecycle-safe run on 2026-09-03 conclusively proved that the lifecycle correction works, but it also exposed that the seven-hook diagnostic itself is unsafe:
+
+- `SIEGE_ROUTE_DIAGNOSTIC_INSTALLED` reported all seven hooks active.
+- `SIEGE_TICK_HEARTBEAT` appeared from tick 1 and `SIEGE_DIAGNOSTIC_SESSION` followed, proving that the runtime survived SHCDE's startup cleanup.
+- The converter-entry hook at RVA `0x195D10` executed 72 times. Every recorded call was an ordinary global pending-unit conversion; this confirms that the function is not siege-specific.
+- None of the six siege-path markers appeared: no handler entry, state-6 search, siege-tent entry or siege-tent completion marker was written.
+- After catapult, trebuchet, siege-tower, Arab-ballista and portable-shield tents had been created, the process terminated abruptly at approximately 23:23:29. The BepInEx start line of the subsequent process was appended to the unfinished final log line, providing direct evidence of an abnormal termination and restart.
+- No managed exception, Engineer Siege Fix error, Windows Application Error event or crash dump was available.
+- The test mod was absent from the subsequent process and that process continued running, which is consistent with the user's isolation of this mod after the crash.
+
+The native baseline still confirms the semantic targets: RVA `0x1520D0` is the catapult handler containing the two-engineer state-6 search, RVA `0x1535F0` is its trebuchet counterpart, and RVA `0x195D10` is the general pending-type converter. Thus the function identification was not disproved. The failure occurs before the first siege-specific managed marker and is therefore compatible with a native context-hook stub or its managed transition failing on first execution. The exact one of the six unobserved hooks cannot be identified from this run alone. The catapult/trebuchet entry hooks are the leading suspects because they first become reachable when the resulting device begins dispatch and their callbacks run at a native function entry, but this remains a bounded inference rather than a confirmed crash address.
+
+The next build removes all native observation hooks, hook transactions and native callback contexts. It uses only the already runtime-proven `GameTimeManagerAPI.OnTick` subscription and direct read-only unit snapshots. It tracks every engineer instead of filtering on the still-unconfirmed command and target offsets, and tracks all engineer-built siege unit types rather than only catapult, trebuchet and the tentative siege-tent unit type. This preserves one-run coverage of resulting device state, crew slots, original engineer identity and survival while no longer altering any instruction in the construction, conversion or handler paths.
+
+The former seven-hook run must not be repeated. A crash-free completion with the safe build will isolate the crash to the removed instrumentation set; it will not by itself distinguish which former hook was responsible. Any future instruction-level diagnosis must use either a native crash address or a separately audited mechanism that does not call managed code from these sensitive transitions.
+
+## First successful hook-free runtime trace
+
+The run beginning on 2026-09-03 at 23:40 used the safe build with `activeObservationHooks=0` and completed without a crash. It provides the first valid runtime trace of normal siege-engine handoff:
+
+- The first three `SIEGE_TICK_HEARTBEAT` markers and `SIEGE_DIAGNOSTIC_SESSION` prove that the lifecycle-safe runtime and tick polling remained active on the map.
+- No `SIEGE_ROUTE_DIAGNOSTIC_DISABLED`, managed exception or log-limit marker occurred.
+- A catapult tent was created and deleted. At tick 1505, catapult unit 192/global 7332401 appeared with `crewCount=2`, crew IDs `[95,104]` and matching crew globals `[7331480,7331540]`. The same two engineer identities changed from state `0x00070007` to `0x00070005` in that tick. The device changed from alive state 1 to 2 at tick 1506 without changing its identity or crew references.
+- An Arab ballista appeared at tick 1564 as unit 194/global 7332441 with two matching crew identities, `[106/7331586,110/7331636]`, and became alive state 2 at tick 1565.
+- A portable shield appeared at tick 1687 as unit 198/global 7332560 with one matching crew identity, `126/7331685`, and became alive state 2 at tick 1688.
+- A trebuchet tent was deleted at tick 1879. In the same tick, trebuchet unit 205/global 7332618 appeared with `crewCount=3`, crew IDs `[128,130,134]` and matching globals `[7331729,7331740,7331744]`. All three engineer identities simultaneously changed from state `0x00070007` to `0x00070005`. The device became alive state 2 at tick 1880 with unchanged identity and crew data.
+
+This confirms that the hook-free snapshots are useful and that removing the native diagnostic hooks eliminated the completion crash. It does not prove which individual hook caused the crash, only that the failure was inside the removed instrumentation set rather than required for normal Vanilla completion.
+
+### Corrected native invariants
+
+The trace disproves two earlier assumptions that must not be used by the eventual fix:
+
+1. Successfully assigned engineers do not immediately disappear from the native live-unit array. During the observed successful handoffs they remain `alive=2` and type `0x1E`, while their packed state changes from `0x00070007` to `0x00070005`. A later lack of further transition does not make them idle; the visible and controllable/free status must be derived from the correct state semantics rather than `alive` alone.
+2. The fields currently logged as `command` and `target` were zero for every engineer participating in these successful human-player handoffs. A human association rule requiring command `0x10` plus the resulting device ID would therefore reject proven valid Vanilla crew. Those offsets may represent a different phase, may be cleared before the first post-tick snapshot, or may not be the correct fields for this route.
+
+The device-side crew ID/global-ID pairs are now the strongest observed identity relation. The type-specific data at the same offsets inside engineer records is a union and must not be interpreted as engineer crew arrays; its short `1 -> 2 -> 0` sequence after handoff is only raw transition evidence until its semantics are confirmed from the engineer state machine.
+
+## Automatic verdict and safe fault-model validation
+
+The next diagnostic build converts the confirmed trace into an automatic, bounded verdict for catapults and trebuchets. It remains observation-only and installs no native hook:
+
+1. A tracker starts when a catapult or trebuchet first appears with its device-side crew ID/global-ID fields.
+2. Device unit ID, device global ID, required crew count and every ordered crew ID/global-ID pair are frozen as the expected handoff identity.
+3. On every `GameTimeManagerAPI.OnTick`, the tracker rejects a missing/reused device slot, changed or duplicate crew identity, missing/reused engineer slot, wrong owner/type/alive state, or a referenced engineer whose packed main state is not the observed bound state 5.
+4. A ready device with any such violation emits `SIEGE_HANDOFF_FAILED` immediately. A stable ready device emits `SIEGE_HANDOFF_PASSED` after 256 ticks. A removed or reused device identity emits `SIEGE_HANDOFF_INCONCLUSIVE` rather than a false failure.
+5. Each real tracker also runs the same pure verdict policy against two shadow inputs: the valid bound-crew model must pass at the timeout, while a copy with one referenced engineer modeled as idle must fail. The result is logged as `SIEGE_HANDOFF_DETECTOR_SELF_TEST` with `faultInjection=shadow-only,no-game-state-write`.
+
+The shadow injection deliberately does not modify the game. It proves that the detector used to judge a future corrective build can distinguish the confirmed normal invariant from the reported duplicate/idle failure model. It does not by itself prove that a correction is active; the runtime continues to report `correctionActive=false` until a separately audited corrective transition is implemented.
+
 ## Acceptance criteria for a future fix
 
 A fix is not considered validated until logs from normal catapult and trebuchet construction show:
@@ -174,5 +226,6 @@ A fix is not considered validated until logs from normal catapult and trebuchet 
 2. The device ID/global ID remains stable across the handoff.
 3. Exactly two or three unique engineer ID/global-ID pairs are committed.
 4. The device becomes ready with matching crew slots.
-5. All original engineers leave the live unit population within the bounded validation interval.
-6. No failure, inconclusive result or correction-disabled marker occurs.
+5. Every referenced engineer reaches the confirmed bound state without becoming a visible, controllable or idle free engineer; remaining `alive=2` in the native slot is normal and must not be treated as duplication by itself.
+6. Device crew IDs and global IDs continue to match the same engineer identities, with no reused or stale slot accepted.
+7. No failure, inconclusive result or correction-disabled marker occurs.

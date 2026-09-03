@@ -223,3 +223,5 @@ BugfixesAndQoL.EnableShiftRepairAllBuildings=Repair all buildings with Shift
 BugfixesAndQoL.EnableShiftRepairAllBuildingsHelp=Hold Shift while clicking a building's Repair button to repair the selected building first and then attempt every other damaged repairable building you own. Vanilla checks and deducts wood and stone for every repair.
 BugfixesAndQoL.RequireReachableEnemyForAutomaticGateClosing=Close only for reachable enemies
 BugfixesAndQoL.RequireReachableEnemyForAutomaticGateClosingHelp=When enabled, an enemy closes a gatehouse only if that enemy can pathfind to at least one of its two entrances. If reachability cannot be determined safely, Vanilla behavior is retained.
+BugfixesAndQoL.EnableHealerAttackCommandFix=Keep Healers out of melee attack groups
+BugfixesAndQoL.EnableHealerAttackCommandFixHelp=Prevents Bedouin Healers from following melee units into combat when a mixed selection is ordered to attack an enemy unit.

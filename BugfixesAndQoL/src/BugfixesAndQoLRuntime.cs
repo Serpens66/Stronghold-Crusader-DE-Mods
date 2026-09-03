@@ -45,6 +45,7 @@ namespace BugfixesAndQoL
         private LordUnitControlsFeature lordUnitControlsFeature;
         private SelectedUnitHealthFeature selectedUnitHealthFeature;
         private AssemblyPointPlacementPatch assemblyPointPlacementPatch;
+        private HealerAttackCommandPatch healerAttackCommandPatch;
         private MountedStockpileMovementPatch mountedStockpileMovementPatch;
         private ShiftRepairAllBuildingsHook shiftRepairAllBuildingsHook;
         private AiRecruitmentHorseDemandFix aiRecruitmentHorseDemandFix;
@@ -64,6 +65,7 @@ namespace BugfixesAndQoL
         private bool settingsSubscribed;
         private bool enemyProximityFixedLayoutErrorLogged;
         private bool assemblyPointPlacementPatchUnavailable;
+        private bool healerAttackCommandPatchUnavailable;
         private bool mountedStockpileMovementPatchUnavailable;
         private bool aiRecruitmentHorseDemandFixUnavailable;
         private bool aiStoneReserveFixUnavailable;
@@ -324,6 +326,7 @@ namespace BugfixesAndQoL
             TryInitializeFeature("plague target-reservation fix", EnsurePlagueTargetReservationFix);
             TryInitializeFeature("stuck-apothecary fix", EnsurePlagueApothecaryStateTransitionFix);
             TryInitializeFeature("assembly-point placement fix", ApplyAssemblyPointPlacementPatchSetting);
+            TryInitializeFeature("Healer attack-command fix", ApplyHealerAttackCommandPatchSetting);
             TryInitializeFeature("mounted-stockpile movement fix", ApplyMountedStockpileMovementPatchSetting);
             TryInitializeFeature("AI recruitment horse-demand fix", EnsureAiRecruitmentHorseDemandFix);
             TryInitializeFeature("AI stone-reserve fix", EnsureAiStoneReserveFix);
@@ -354,6 +357,7 @@ namespace BugfixesAndQoL
             TryApplyFeature("troop movement fix", troopMovementFixRuntime.ApplySetting);
             TryApplyFeature("multiplayer game speed", multiplayerGameSpeedRuntime.ApplySetting);
             TryApplyFeature("assembly-point placement fix", ApplyAssemblyPointPlacementPatchSetting);
+            TryApplyFeature("Healer attack-command fix", ApplyHealerAttackCommandPatchSetting);
             TryApplyFeature("mounted-stockpile movement fix", ApplyMountedStockpileMovementPatchSetting);
             TryApplyFeature("AI stone-reserve fix", () => aiStoneReserveFix?.ApplySetting());
             TryApplyFeature("Assassin path reconstruction", assassinPathfindingRuntime.ApplySetting);
@@ -401,6 +405,7 @@ namespace BugfixesAndQoL
             selectedUnitHealthFeature?.Dispose();
             selectedUnitHealthFeature = null;
             DisableAssemblyPointPlacementPatch();
+            DisableHealerAttackCommandPatch();
             DisableMountedStockpileMovementPatch();
             aiRecruitmentHorseDemandFix?.Dispose();
             aiRecruitmentHorseDemandFix = null;
@@ -737,6 +742,17 @@ namespace BugfixesAndQoL
                 DisableMountedStockpileMovementPatch();
         }
 
+        private void ApplyHealerAttackCommandPatchSetting()
+        {
+            if (!nativeLibraryAvailable)
+                return;
+
+            if (settings.EnableMod && settings.EnableHealerAttackCommandFix)
+                InstallHealerAttackCommandPatch();
+            else
+                DisableHealerAttackCommandPatch();
+        }
+
         private unsafe ReadOnlySpan<byte> GetNativeLibraryMemory()
         {
             // The game DLL stays loaded for the process lifetime.
@@ -1033,6 +1049,34 @@ namespace BugfixesAndQoL
                     log,
                     $"Bugfixes and QoL mounted-stockpile movement patch could not be installed; Vanilla behavior remains active: {ex}");
             }
+        }
+
+        private void InstallHealerAttackCommandPatch()
+        {
+            if (healerAttackCommandPatch != null || healerAttackCommandPatchUnavailable)
+                return;
+
+            try
+            {
+                healerAttackCommandPatch = new HealerAttackCommandPatch(
+                    log,
+                    GetNativeLibraryMemory(),
+                    unchecked((ulong)libraryHandle.ToInt64()),
+                    fixedLayoutHashValidated);
+            }
+            catch (Exception ex)
+            {
+                healerAttackCommandPatchUnavailable = true;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Bugfixes and QoL Healer attack-command patch could not be installed; Vanilla behavior remains active: {ex}");
+            }
+        }
+
+        private void DisableHealerAttackCommandPatch()
+        {
+            healerAttackCommandPatch?.Dispose();
+            healerAttackCommandPatch = null;
         }
 
         private void DisableMountedStockpileMovementPatch()

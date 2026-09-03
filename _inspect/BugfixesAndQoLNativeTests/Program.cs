@@ -71,7 +71,9 @@ internal static class Program
             ["PostCombatPathRequestSequence"] = 0x197702,
             ["CommonPathContextReadSequence"] = 0x1964EE,
             ["CommonPathSuccessClearSequence"] = 0x196734,
-            ["CommonPathFailureClearSequence"] = 0x19676C
+            ["CommonPathFailureClearSequence"] = 0x19676C,
+            ["FirstClassifierPattern"] = 0x11EBF5,
+            ["SecondClassifierPattern"] = 0x11EF39
         };
 
     private static readonly FunctionContract[] Functions =
@@ -122,6 +124,7 @@ internal static class Program
             CheckFunctions(pe.Image);
             CheckProductionPatterns(workspace, pe);
             CheckCriticalSpans(pe.Image);
+            CheckHealerAttackCommandContracts(pe.Image);
             CheckUnknownHashPolicy(workspace);
             Console.WriteLine($"PASS: BugfixesAndQoL native tests ({assertions} assertions, {PatternRvas.Count} signatures).");
             return 0;
@@ -293,14 +296,101 @@ internal static class Program
         CheckBytes(image, 0x195ED1, "41 81 E5 00 01 00 10", "command IsWall-or-IsElevated mask");
     }
 
+    private static void CheckHealerAttackCommandContracts(byte[] image)
+    {
+        int firstTable = ReadInt32(
+            image,
+            HealerAttackCommandFixNativeDefinition.FirstClassifierRva +
+                HealerAttackCommandFixNativeDefinition.FirstTableInstructionOffset +
+                HealerAttackCommandFixNativeDefinition.TableDisplacementOffset);
+        int secondTable = ReadInt32(
+            image,
+            HealerAttackCommandFixNativeDefinition.SecondClassifierRva +
+                HealerAttackCommandFixNativeDefinition.SecondTableInstructionOffset +
+                HealerAttackCommandFixNativeDefinition.TableDisplacementOffset);
+        int firstDispatch = ReadInt32(
+            image,
+            HealerAttackCommandFixNativeDefinition.FirstClassifierRva +
+                HealerAttackCommandFixNativeDefinition.FirstDispatchInstructionOffset +
+                HealerAttackCommandFixNativeDefinition.DispatchDisplacementOffset);
+        int secondDispatch = ReadInt32(
+            image,
+            HealerAttackCommandFixNativeDefinition.SecondClassifierRva +
+                HealerAttackCommandFixNativeDefinition.SecondDispatchInstructionOffset +
+                HealerAttackCommandFixNativeDefinition.DispatchDisplacementOffset);
+
+        Check(firstTable == HealerAttackCommandFixNativeDefinition.FirstTableRva,
+            "first AttackUnit classifier resolves its audited table");
+        Check(secondTable == HealerAttackCommandFixNativeDefinition.SecondTableRva,
+            "second AttackUnit classifier resolves its audited table");
+        Check(firstDispatch == HealerAttackCommandFixNativeDefinition.FirstDispatchTableRva,
+            "first AttackUnit classifier resolves its audited dispatch table");
+        Check(secondDispatch == HealerAttackCommandFixNativeDefinition.SecondDispatchTableRva,
+            "second AttackUnit classifier resolves its audited dispatch table");
+
+        int engineerIndex = HealerAttackCommandFixNativeDefinition.EngineerType -
+            HealerAttackCommandFixNativeDefinition.UnitTypeTableMinimum;
+        int healerIndex = HealerAttackCommandFixNativeDefinition.BedouinHealerType -
+            HealerAttackCommandFixNativeDefinition.UnitTypeTableMinimum;
+        Check(HealerAttackCommandFixNativeDefinition.AttackUnitCommand == 4,
+            "TribeAICommand.AttackUnit remains command 4");
+        Check(image[firstTable + engineerIndex] == HealerAttackCommandFixNativeDefinition.FirstNoOpClass,
+            "Engineer already uses the first no-op class");
+        Check(image[secondTable + engineerIndex] == HealerAttackCommandFixNativeDefinition.SecondNoOpClass,
+            "Engineer already uses the second no-op class");
+        Check(image[firstTable + healerIndex] == HealerAttackCommandFixNativeDefinition.FirstVanillaHealerClass,
+            "Bedouin Healer starts in the first melee class");
+        Check(image[secondTable + healerIndex] == HealerAttackCommandFixNativeDefinition.SecondVanillaHealerClass,
+            "Bedouin Healer starts in the second melee class");
+        Check(firstTable + healerIndex == HealerAttackCommandFixNativeDefinition.FirstHealerEntryRva,
+            "first Bedouin Healer entry RVA");
+        Check(secondTable + healerIndex == HealerAttackCommandFixNativeDefinition.SecondHealerEntryRva,
+            "second Bedouin Healer entry RVA");
+
+        Check(ReadInt32(image, firstDispatch) == HealerAttackCommandFixNativeDefinition.FirstMeleeTargetRva,
+            "first class zero enters melee-group counting");
+        Check(ReadInt32(image, firstDispatch +
+                HealerAttackCommandFixNativeDefinition.FirstNoOpClass * sizeof(int)) ==
+            HealerAttackCommandFixNativeDefinition.FirstNoOpTargetRva,
+            "first replacement class enters its no-op branch");
+        Check(ReadInt32(image, secondDispatch) == HealerAttackCommandFixNativeDefinition.SecondMeleeTargetRva,
+            "second class zero assigns a melee-group position");
+        Check(ReadInt32(image, secondDispatch +
+                HealerAttackCommandFixNativeDefinition.SecondNoOpClass * sizeof(int)) ==
+            HealerAttackCommandFixNativeDefinition.SecondNoOpTargetRva,
+            "second replacement class enters its no-op branch");
+
+        Check(HashSlice(image, firstTable, 81) ==
+            "0C7BFCEC367534FD52395382F291EDBE8F444FB9B906205C7823DD3FC32FAE9F",
+            "complete first classifier table remains canonical before patching");
+        Check(HashSlice(image, secondTable, 81) ==
+            "5B7439039A0725E57D8840DDF234CD59B48C2FC6CE2F35C079446CB8144D8C3E",
+            "complete second classifier table remains canonical before patching");
+    }
+
     private static void CheckUnknownHashPolicy(string workspace)
     {
         string plague = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "PlagueNativePatternValidator.cs"));
         string recruitment = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "AiRecruitmentHorseDemandFix.cs"));
         string mountedStockpile = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "MountedStockpileMovementPatch.cs"));
+        string healerAttackCommand = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "HealerAttackCommandPatch.cs"));
         Check(plague.Contains("if (!referenceHashMatches)"), "plague fixed-layout unknown-hash gate");
         Check(recruitment.Contains("if (!referenceHashMatches)"), "AI recruitment result-layout unknown-hash gate");
         Check(mountedStockpile.Contains("if (!referenceHashMatches)"), "mounted-stockpile unknown-hash gate");
+        Check(healerAttackCommand.Contains("if (!referenceHashMatches)"),
+            "Healer attack-command unknown-hash gate");
+        Check(healerAttackCommand.Contains("FindUniquePattern") &&
+              healerAttackCommand.Contains("ReadAbsoluteTableRva") &&
+              healerAttackCommand.Contains("ValidateDispatchTargets"),
+            "Healer attack-command derives and validates both tables from unique code signatures");
+        Check(healerAttackCommand.Contains("firstHealerEntry") &&
+              healerAttackCommand.Contains("secondHealerEntry"),
+            "Healer attack-command changes both audited table entries");
+        Check(!healerAttackCommand.Contains("X64InlineHook") &&
+              !healerAttackCommand.Contains("AddDetour") &&
+              !healerAttackCommand.Contains("OnTick") &&
+              !healerAttackCommand.Contains("OnStartMap"),
+            "Healer attack-command uses no hook or recurring diagnostics");
         Check(mountedStockpile.Contains("ClassificationHookSize = 18"),
             "mounted-stockpile complete classification hook size");
         Check(mountedStockpile.Contains("MountedEndpointWallGateHookSize = 17"),
@@ -451,6 +541,12 @@ internal static class Program
     {
         using (SHA256 sha = SHA256.Create())
             return BitConverter.ToString(sha.ComputeHash(bytes)).Replace("-", string.Empty);
+    }
+
+    private static string HashSlice(byte[] bytes, int offset, int length)
+    {
+        using (SHA256 sha = SHA256.Create())
+            return BitConverter.ToString(sha.ComputeHash(bytes, offset, length)).Replace("-", string.Empty);
     }
 
     private static int ReadInt32(byte[] value, int offset) =>

@@ -36,6 +36,23 @@ namespace StockpileAccessFixTest
             librarySubscriptionInstalled = true;
         }
 
+        private void Update()
+        {
+            if (runtime == null)
+                return;
+
+            try
+            {
+                runtime.ProcessAutomaticTestTrigger();
+            }
+            catch (Exception exception)
+            {
+                Shared.DebugLogHelper.LogError(
+                    persistentLog,
+                    $"STOCKPILE_TEST_BLOCKER_FAILED: reason=automatic operation threw, exception={exception}");
+            }
+        }
+
         private static void OnCrusaderLibraryLoaded(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
         {
             if (runtime != null)
