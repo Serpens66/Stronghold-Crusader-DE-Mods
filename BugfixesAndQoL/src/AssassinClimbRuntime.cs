@@ -13,6 +13,7 @@ using SHCDESE.NoesisUtil;
 using SHCDESE.ViewModels;
 using System;
 using System.Globalization;
+using UnityEngine;
 
 namespace BugfixesAndQoL
 {
@@ -102,6 +103,16 @@ namespace BugfixesAndQoL
         private IDisposable packetSubscription;
         private bool initialized;
         private bool networkInitialized;
+        private bool renderStateKnown;
+        private bool renderRefreshSubscribed;
+        private HUD_Troops lastRenderPanel;
+        private bool lastRenderFeatureActive;
+        private int lastRenderPlayerId = -1;
+        private int lastRenderSelectionSignature;
+        private bool lastRenderSelectedOwnAssassin;
+        private bool lastRenderClimbingAllowed;
+        private bool renderFailureLogged;
+        private int lastRenderFrame = -1;
         private int nextOperationId;
 
         public AssassinClimbRuntime(ManualLogSource log, BugfixesAndQoLViewModel settings, MultiplayerFeatureGate multiplayerFeatureGate)
@@ -136,24 +147,38 @@ namespace BugfixesAndQoL
             if (initialized)
                 return;
             initialized = true;
-            buttonViewModel.Hide();
+            if (!renderRefreshSubscribed)
+            {
+                Application.onBeforeRender += OnBeforeRender;
+                renderRefreshSubscribed = true;
+            }
+            InvalidateRenderState();
+            RefreshButtonVisibility();
         }
 
         public void Dispose()
         {
             initialized = false;
+            if (renderRefreshSubscribed)
+            {
+                Application.onBeforeRender -= OnBeforeRender;
+                renderRefreshSubscribed = false;
+            }
+            InvalidateRenderState();
             buttonViewModel.Hide();
         }
 
         public void BeginMap()
         {
             ResetPlayerStates();
+            InvalidateRenderState();
             RefreshButtonVisibility();
         }
 
         public void EndMap()
         {
             ResetPlayerStates();
+            InvalidateRenderState();
             buttonViewModel.Hide();
         }
 
@@ -161,34 +186,82 @@ namespace BugfixesAndQoL
         {
             HUD_Troops troopPanel = null;
             TryGetHudTroopPanel(out troopPanel);
-            RefreshButtonVisibility(troopPanel);
+            RefreshButtonVisibilityCore(troopPanel, force: true);
             Shared.TroopActionButtonLayout.Reflow(troopPanel, log);
         }
 
         internal void RefreshButtonVisibility(HUD_Troops troopPanel)
         {
+            RefreshButtonVisibilityCore(troopPanel, force: true);
+        }
+
+        private bool RefreshButtonVisibilityCore(HUD_Troops troopPanel, bool force)
+        {
             try
             {
-                if (!IsFeatureActive() || (troopPanel == null && !TryGetHudTroopPanel(out troopPanel)))
+                if (troopPanel == null)
+                    TryGetHudTroopPanel(out troopPanel);
+
+                MainViewModel viewModel = MainViewModel.viewModelLoaded ? MainViewModel.Instance : null;
+                bool featureActive = initialized && troopPanel != null &&
+                    viewModel?.Show_HUD_Troops == true && IsFeatureActive();
+                int playerId = featureActive ? GetControlledPlayerId() : -1;
+                int selectionSignature = 0;
+                bool selectedOwnAssassin = false;
+                if (featureActive)
+                    selectionSignature = CaptureSelectionState(playerId, out selectedOwnAssassin);
+                bool climbingIsAllowed = selectedOwnAssassin && IsClimbingAllowed(playerId);
+                bool changed = !renderStateKnown ||
+                    !ReferenceEquals(lastRenderPanel, troopPanel) ||
+                    lastRenderFeatureActive != featureActive ||
+                    lastRenderPlayerId != playerId ||
+                    lastRenderSelectionSignature != selectionSignature ||
+                    lastRenderSelectedOwnAssassin != selectedOwnAssassin ||
+                    lastRenderClimbingAllowed != climbingIsAllowed;
+                renderFailureLogged = false;
+                if (!force && !changed)
+                    return false;
+
+                renderStateKnown = true;
+                lastRenderPanel = troopPanel;
+                lastRenderFeatureActive = featureActive;
+                lastRenderPlayerId = playerId;
+                lastRenderSelectionSignature = selectionSignature;
+                lastRenderSelectedOwnAssassin = selectedOwnAssassin;
+                lastRenderClimbingAllowed = climbingIsAllowed;
+
+                if (!featureActive || !selectedOwnAssassin)
                 {
                     buttonViewModel.Hide();
-                    return;
+                    return changed;
                 }
 
-                int playerId = GetControlledPlayerId();
-                if (!HasSelectedOwnAssassin(playerId))
-                {
-                    buttonViewModel.Hide();
-                    return;
-                }
-
-                buttonViewModel.Show(IsClimbingAllowed(playerId));
+                buttonViewModel.Show(climbingIsAllowed);
+                return changed;
             }
             catch (Exception ex)
             {
+                InvalidateRenderState();
                 buttonViewModel.Hide();
-                LogError($"Assassin climb button visibility refresh failed: {ex}");
+                if (!renderFailureLogged)
+                {
+                    renderFailureLogged = true;
+                    LogError($"Assassin climb button visibility refresh failed; repeated errors are suppressed until a successful refresh: {ex}");
+                }
+                return false;
             }
+        }
+
+        private void OnBeforeRender()
+        {
+            if (!initialized || lastRenderFrame == Time.frameCount)
+                return;
+            lastRenderFrame = Time.frameCount;
+
+            HUD_Troops troopPanel = null;
+            TryGetHudTroopPanel(out troopPanel);
+            if (RefreshButtonVisibilityCore(troopPanel, force: false))
+                Shared.TroopActionButtonLayout.Reflow(troopPanel, log);
         }
 
         private void OnToggleCommand()
@@ -289,25 +362,46 @@ namespace BugfixesAndQoL
 
         private bool HasSelectedOwnAssassin(int playerId)
         {
-            int[] selected = GamePlayerManagerAPI.Instance.GetSelectedChimps();
+            CaptureSelectionState(playerId, out bool selectedOwnAssassin);
+            return selectedOwnAssassin;
+        }
+
+        private int CaptureSelectionState(int playerId, out bool selectedOwnAssassin)
+        {
+            selectedOwnAssassin = false;
+            int[] selected = GamePlayerManagerAPI.Instance.GetSelectedChimps() ?? Array.Empty<int>();
             GameUnitManagerAPI api = GameUnitManagerAPI.Instance;
+            int signature = 17;
             for (int index = 0; index < selected.Length; index++)
             {
-                if (selected[index] > 0 && api.TryGetUnitById(selected[index], out GameUnit* unit) && IsOwnAssassin(unit, playerId))
-                    return true;
+                int unitId = selected[index];
+                signature = unchecked((signature * 31) + unitId);
+                if (unitId > 0 && api.TryGetUnitById(unitId, out GameUnit* unit) && IsOwnAssassin(unit, playerId))
+                    selectedOwnAssassin = true;
             }
 
-            Span<GameUnit> units = api.GetUnitsAsSpan();
-            for (int spanIndex = 0; spanIndex < units.Length; spanIndex++)
+            int expectedSelectedCount = GameData.Instance?.lastGameState.numSelectedChimps ?? selected.Length;
+            signature = unchecked((signature * 31) + expectedSelectedCount);
+            // During the first editor click the managed ID list can trail the native selection
+            // flags for one frame. Scan only while the game reports a non-empty selection.
+            if (!selectedOwnAssassin && expectedSelectedCount > 0)
             {
-                ref GameUnit unit = ref units[spanIndex];
-                if ((unit.r_UnitSelected != 0 || unit.r_UnitSelected2 != 0) &&
-                    unit.r_AliveState == AliveState.IsAlive &&
-                    unit.r_UnitChimp == eChimps.CHIMP_TYPE_ARAB_ASSASIN &&
-                    unit.r_ControllableForPlayerId == playerId)
-                    return true;
+                Span<GameUnit> units = api.GetUnitsAsSpan();
+                for (int spanIndex = 0; spanIndex < units.Length; spanIndex++)
+                {
+                    ref GameUnit unit = ref units[spanIndex];
+                    if ((unit.r_UnitSelected != 0 || unit.r_UnitSelected2 != 0) &&
+                        unit.r_AliveState == AliveState.IsAlive &&
+                        unit.r_UnitChimp == eChimps.CHIMP_TYPE_ARAB_ASSASIN &&
+                        unit.r_ControllableForPlayerId == playerId)
+                    {
+                        selectedOwnAssassin = true;
+                        signature = unchecked((signature * 31) + spanIndex + 1);
+                        break;
+                    }
+                }
             }
-            return false;
+            return signature;
         }
 
         private static bool IsOwnAssassin(GameUnit* unit, int playerId)
@@ -388,6 +482,18 @@ namespace BugfixesAndQoL
                 lastOperationIds[playerId] = 0;
             }
             nextOperationId = 0;
+        }
+
+        private void InvalidateRenderState()
+        {
+            renderStateKnown = false;
+            lastRenderPanel = null;
+            lastRenderFeatureActive = false;
+            lastRenderPlayerId = -1;
+            lastRenderSelectionSignature = 0;
+            lastRenderSelectedOwnAssassin = false;
+            lastRenderClimbingAllowed = false;
+            lastRenderFrame = -1;
         }
 
         private void LogDebug(string message) => log.LogDebug($"[{TimestampNow()}] Bugfixes and QoL {message}");

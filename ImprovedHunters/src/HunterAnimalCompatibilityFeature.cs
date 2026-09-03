@@ -94,7 +94,7 @@ namespace ImprovedHunters
             {
                 if (rabbitDespawnTickTime != null)
                 {
-                    short desired = settings.EnableMod && settings.HuntRabbit
+                    short desired = Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) && settings.HuntRabbit
                         ? RabbitCorpseDespawnTicks
                         : originalRabbitDespawnTicks;
 
@@ -104,8 +104,8 @@ namespace ImprovedHunters
                     rabbitDespawnTicksPatched = desired != originalRabbitDespawnTicks;
                 }
 
-                ApplyExtraDespawnPatch(camelDespawnTickTime, originalCamelDespawnTicks, settings.EnableMod && settings.HuntCamel, ref camelDespawnTicksPatched);
-                ApplyExtraDespawnPatch(chickenDespawnTickTime, originalChickenDespawnTicks, settings.EnableMod && settings.HuntChicken, ref chickenDespawnTicksPatched);
+                ApplyExtraDespawnPatch(camelDespawnTickTime, originalCamelDespawnTicks, Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) && settings.HuntCamel, ref camelDespawnTicksPatched);
+                ApplyExtraDespawnPatch(chickenDespawnTickTime, originalChickenDespawnTicks, Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) && settings.HuntChicken, ref chickenDespawnTicksPatched);
                 LogDespawnPatchState();
             }
             catch (Exception exception)
@@ -125,9 +125,9 @@ namespace ImprovedHunters
             Shared.DebugLogHelper.LogInfo(
                 log,
                 $"Improved Hunters despawn patch state: " +
-                $"rabbit={FormatDespawnPatchState(rabbitDespawnTickTime, originalRabbitDespawnTicks, settings.EnableMod && settings.HuntRabbit ? RabbitCorpseDespawnTicks : originalRabbitDespawnTicks, rabbitDespawnTicksPatched)}, " +
-                $"camel={FormatDespawnPatchState(camelDespawnTickTime, originalCamelDespawnTicks, settings.EnableMod && settings.HuntCamel ? ExtraCorpseDespawnTicks : originalCamelDespawnTicks, camelDespawnTicksPatched)}, " +
-                $"chicken={FormatDespawnPatchState(chickenDespawnTickTime, originalChickenDespawnTicks, settings.EnableMod && settings.HuntChicken ? ExtraCorpseDespawnTicks : originalChickenDespawnTicks, chickenDespawnTicksPatched)}.");
+                $"rabbit={FormatDespawnPatchState(rabbitDespawnTickTime, originalRabbitDespawnTicks, Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) && settings.HuntRabbit ? RabbitCorpseDespawnTicks : originalRabbitDespawnTicks, rabbitDespawnTicksPatched)}, " +
+                $"camel={FormatDespawnPatchState(camelDespawnTickTime, originalCamelDespawnTicks, Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) && settings.HuntCamel ? ExtraCorpseDespawnTicks : originalCamelDespawnTicks, camelDespawnTicksPatched)}, " +
+                $"chicken={FormatDespawnPatchState(chickenDespawnTickTime, originalChickenDespawnTicks, Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) && settings.HuntChicken ? ExtraCorpseDespawnTicks : originalChickenDespawnTicks, chickenDespawnTicksPatched)}.");
         }
 
         private static string FormatDespawnPatchState(
@@ -171,7 +171,7 @@ namespace ImprovedHunters
                 }
 
                 uint desired = originalCamelHealth;
-                if (settings.EnableMod && settings.HuntCamel)
+                if (Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) && settings.HuntCamel)
                 {
                     uint oneShotHealth = (uint)Math.Max(1, originalCamelArrowDamage - 1);
                     desired = Math.Min(originalCamelHealth, oneShotHealth);
@@ -194,7 +194,7 @@ namespace ImprovedHunters
 
         private unsafe bool TryClampLiveCamelHealth(int unitId, GameUnit* unit)
         {
-            if (!settings.EnableMod ||
+            if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) ||
                 !settings.HuntCamel ||
                 !camelHealthInitialized ||
                 desiredCamelHealth == 0 ||
@@ -236,7 +236,7 @@ namespace ImprovedHunters
             Shared.DebugLogHelper.LogInfo(
                 log,
                 $"Improved Hunters camel health patch: originalHealth={originalCamelHealth}, desiredHealth={desiredCamelHealth}, " +
-                $"originalArrowDamage={originalCamelArrowDamage}, enabled={settings.EnableMod && settings.HuntCamel}, " +
+                $"originalArrowDamage={originalCamelArrowDamage}, enabled={Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) && settings.HuntCamel}, " +
                 $"adjustedLiveCamels={adjustedLiveCamels}.");
         }
 

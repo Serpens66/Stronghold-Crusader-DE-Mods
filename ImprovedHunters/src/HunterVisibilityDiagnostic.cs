@@ -123,7 +123,7 @@ namespace ImprovedHunters
             int queryUnitId,
             bool captureMatched)
         {
-            if (disposed || !settings.EnableMod)
+            if (disposed || !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
                 return;
 
             if (captureMatched)
@@ -167,7 +167,7 @@ namespace ImprovedHunters
             long projectileReturnValue,
             string hunterSource)
         {
-            if (disposed || !settings.EnableMod || !settings.HuntChicken)
+            if (disposed || !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || !settings.HuntChicken)
                 return;
 
             lock (diagnosticStateLock)
@@ -215,7 +215,7 @@ namespace ImprovedHunters
         public void ProcessNativeScan(SimpleNativeArray<GameUnit> units, long timestamp)
         {
             if (disposed ||
-                !settings.EnableMod ||
+                !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) ||
                 !settings.HuntChicken ||
                 waitingLogs >= MaxWaitingLogs ||
                 units._array == null ||
@@ -343,7 +343,7 @@ namespace ImprovedHunters
             string source)
         {
             if (disposed ||
-                !settings.EnableMod ||
+                !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) ||
                 !settings.HuntChicken ||
                 hunterUnitId <= 0 ||
                 chickenUnitId <= 0 ||

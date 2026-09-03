@@ -176,7 +176,7 @@ namespace ImprovedHunters
         {
             result = 0;
             if (!IsAvailable ||
-                !settings.EnableMod ||
+                !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) ||
                 !settings.ImprovedPathfinding ||
                 !settings.IsHuntingEnabled(preyType) ||
                 hunterUnitId <= 0 ||
@@ -221,7 +221,7 @@ namespace ImprovedHunters
             preyToHunterResult = -1;
             geometry = default;
             if (!IsAvailable ||
-                !settings.EnableMod ||
+                !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) ||
                 !settings.ImprovedPathfinding ||
                 !settings.IsHuntingEnabled(preyType) ||
                 hunterUnitId <= 0 ||
@@ -264,7 +264,7 @@ namespace ImprovedHunters
             long timestamp)
         {
             if (!IsAvailable ||
-                !settings.EnableMod ||
+                !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) ||
                 !settings.ImprovedPathfinding ||
                 !settings.IsHuntingEnabled(preyType) ||
                 hunterUnitId <= 0 ||
@@ -331,7 +331,7 @@ namespace ImprovedHunters
         public void ProcessNativeScan(SimpleNativeArray<GameUnit> units, long timestamp)
         {
             if (!IsAvailable ||
-                !settings.EnableMod ||
+                !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) ||
                 !settings.ImprovedPathfinding ||
                 units._array == null ||
                 units.Length == 0 ||

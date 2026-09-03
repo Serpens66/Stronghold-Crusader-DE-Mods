@@ -438,6 +438,9 @@ namespace CastlePlanner
 
         private void OnBuildStructurePre(BuildStructureEventArgs args)
         {
+            if (!Shared.GameplayModActivationGate.IsAllowed)
+                return;
+
             if (TryCorrectNativeHovelVisualStyle(args))
                 return;
 
@@ -514,6 +517,9 @@ namespace CastlePlanner
 
         private void OnBuildStructurePost(BuildStructureEventArgs args)
         {
+            if (!Shared.GameplayModActivationGate.IsAllowed)
+                return;
+
             if (!preparedAivCastles.TryGetValue(args.PlayerId, out PreparedAivCastle castle) ||
                 !IsKeepMapper(args.Mappers))
             {
@@ -545,6 +551,9 @@ namespace CastlePlanner
 
         private void OnUnitCreateDiagnostic(UnitCreateEventArgs args)
         {
+            if (!Shared.GameplayModActivationGate.IsAllowed)
+                return;
+
             int playerId = args.PlayerOwnerId;
             if (!expectedAivCastlePlayers.Contains(playerId))
                 return;
@@ -799,6 +808,9 @@ namespace CastlePlanner
 
         private void OnBuildingSpawnPost(BuildingSpawnEventArgs args)
         {
+            if (!Shared.GameplayModActivationGate.IsAllowed)
+                return;
+
             if (!captureSupplementalBuilding ||
                 args.PlayerId != captureSupplementalPlayerId ||
                 args.TileX != captureSupplementalX ||
@@ -1247,6 +1259,9 @@ namespace CastlePlanner
 
         private void OnGameTick(int tick)
         {
+            if (!Shared.GameplayModActivationGate.IsAllowed)
+                return;
+
             if (deferredCompoundBuildings.Count == 0)
                 return;
 
@@ -1619,6 +1634,9 @@ namespace CastlePlanner
         private void PrepareVanillaHumanStart(
             NativePointer<X64SmartCPUContext> context)
         {
+            if (!Shared.GameplayModActivationGate.IsAllowed)
+                return;
+
             X64SmartCPUContext* registers = context.Pointer;
             int playerId = unchecked((int)registers->RSI);
             if (!pendingAivImports.TryGetValue(playerId, out PendingAivImport imported) ||
@@ -1868,7 +1886,7 @@ namespace CastlePlanner
         private static GameModeSnapshot CaptureGameMode(MapStartEventArgs args)
         {
             Shared.GameModeSnapshot sharedMode =
-                Shared.GameModeHelper.Capture(args.bMultiplayerSave != 0);
+                Shared.GameplayModActivationGate.Snapshot;
             Director director = Director.instance;
             GameData gameData = GameData.Instance;
             Platform_Multiplayer platform = Platform_Multiplayer.Instance;
@@ -1996,6 +2014,12 @@ namespace CastlePlanner
 
         private static void EnsureSupportedGameMode(GameModeSnapshot mode)
         {
+            if (!Shared.GameplayModActivationGate.IsAllowed)
+            {
+                throw new NotSupportedException(
+                    "Native CastlePlanner is disabled by the gameplay-mode gate.");
+            }
+
             if (!mode.DirectorAvailable)
             {
                 throw new InvalidOperationException(

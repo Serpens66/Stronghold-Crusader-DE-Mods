@@ -142,7 +142,7 @@ namespace ImprovedHunters
         }
 
         private bool IsChickenManagementActive =>
-            settings.EnableMod &&
+            Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) &&
             settings.HuntChicken &&
             automaticChickenTargetPatch?.IsApplied == true &&
             granaryChickenLimitPatch?.IsAvailable == true;

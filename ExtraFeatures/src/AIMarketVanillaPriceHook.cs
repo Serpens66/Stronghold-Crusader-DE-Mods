@@ -174,7 +174,7 @@ namespace ExtraFeatures
         {
             bool validPlayer = playerManager != IntPtr.Zero && playerId >= 1 && playerId <= 8;
             bool validGood = good >= 0 && good < (int)eGoods.Count;
-            bool modEnabled = settings.EnableMod;
+            bool modEnabled = Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod);
             bool marketPricesAlsoForAI = settings.MarketPricesAlsoForAI;
             if (!modEnabled || !validPlayer || !validGood)
                 return false;

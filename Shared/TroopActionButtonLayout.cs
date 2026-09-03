@@ -411,6 +411,8 @@ namespace Shared
                 pending?.Undo();
                 pending?.Dispose();
             }
+            // A direct editor launch can build the HUD before BepInEx installs this hook.
+            Refresh();
         }
 
         public void Refresh()

@@ -94,6 +94,7 @@ namespace ExtraFeatures
         private bool reachabilityAvailable;
         private bool mapActive;
         private bool editorSessionActive;
+        private bool loadedMapStatePending;
         private bool disposed;
         private bool firstQueryLogged;
         private bool iconLoadAttempted;
@@ -196,10 +197,14 @@ namespace ExtraFeatures
                 settings.AIGateReopenDelaySeconds,
                 settings.HumanGateClosingDistanceTiles,
                 settings.AIGateClosingDistanceTiles,
-                settings.EnableMod);
+                Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod));
 
-            if (settings.EnableMod)
+            if (Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
+            {
+                if (loadedMapStatePending)
+                    BeginMap();
                 ReconcileManualGateTimers(removeMissing: false);
+            }
             else
                 ReleaseManualGateTimers();
 
@@ -209,6 +214,7 @@ namespace ExtraFeatures
         public void BeginMap()
         {
             bool wasActive = mapActive;
+            loadedMapStatePending = false;
             mapActive = true;
             editorSessionActive = false;
             ClearReachabilityCache();
@@ -226,7 +232,7 @@ namespace ExtraFeatures
         public void RefreshButtonVisibility()
         {
             EnsureEditorMapState();
-            if (!settings.EnableMod)
+            if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
             {
                 buttonViewModel.Hide();
                 LogVisibilityState("hidden: mod-disabled");
@@ -293,7 +299,7 @@ namespace ExtraFeatures
 
         private void OnBeforeRender()
         {
-            if (!settings.EnableMod)
+            if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
                 return;
 
             if (lastUiFrame == Time.frameCount)
@@ -341,7 +347,7 @@ namespace ExtraFeatures
             try
             {
                 EnsureEditorMapState();
-                if (!settings.EnableMod || !mapActive)
+                if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || !mapActive)
                     return;
 
                 int playerId = GetControlledPlayerId();
@@ -404,6 +410,9 @@ namespace ExtraFeatures
 
         private void OnPacketReceived(ReceiveCustomPacketEventArgs<GatehouseAutomationPacket> args)
         {
+            if (!Shared.GameplayModActivationGate.IsAllowed)
+                return;
+
             GatehouseAutomationPacket packet = args?.Packet;
             if (packet == null || packet.ProtocolVersion != ChoreProtocolVersion ||
                 packet.PlayerId <= 0 || packet.BuildingGlobalId <= 0)
@@ -450,7 +459,7 @@ namespace ExtraFeatures
 
         private void OnGatehouseQuery(GatehouseQueryEventArgs args)
         {
-            if (!settings.EnableMod || args == null)
+            if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || args == null)
                 return;
 
             try
@@ -580,6 +589,9 @@ namespace ExtraFeatures
 
         private byte[] SaveState(SaveContext context)
         {
+            if (!Shared.GameplayModActivationGate.IsAllowed)
+                return null;
+
             bool editorMapSave = context.IsMapEditorSave;
             if ((!context.IsSaveFile && !editorMapSave) || (!mapActive && !editorMapSave))
                 return null;
@@ -623,17 +635,18 @@ namespace ExtraFeatures
 
             manualOnlyGateGlobalIds.Clear();
             pendingMapLocators.Clear();
+            loadedMapStatePending = true;
             if (context.IsSaveFile)
             {
                 manualOnlyGateGlobalIds.UnionWith(loadedIds);
-                mapActive = true;
-                ReconcileManualGateTimers(removeMissing: false);
             }
             else
             {
                 pendingMapLocators.AddRange(savedLocators);
-                ResolvePendingMapLocators(removeUnresolved: false);
             }
+
+            if (Shared.GameplayModActivationGate.IsAllowed)
+                BeginMap();
             LogInfo($"gatehouse state loaded: context={(context.IsSaveFile ? "save-file" : "map")}, version={state.Version}, manualOnly={manualOnlyGateGlobalIds.Count}, pendingLocators={pendingMapLocators.Count}, payloadBytes={bytes.Length}.");
         }
 
@@ -813,7 +826,7 @@ namespace ExtraFeatures
 
         private void ReconcileManualGateTimers(bool removeMissing)
         {
-            if (!settings.EnableMod || manualOnlyGateGlobalIds.Count == 0)
+            if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || manualOnlyGateGlobalIds.Count == 0)
                 return;
 
             List<int> missing = removeMissing ? new List<int>() : null;
@@ -845,12 +858,16 @@ namespace ExtraFeatures
 
         private void ResetMapState()
         {
+            // The mode gate can close while the current native map is still alive.
+            // Release our permanent-manual sentinel before discarding its identities.
+            ReleaseManualGateTimers();
             if (mapActive)
             {
                 LogInfo($"gatehouse map state cleared: manualOnly={manualOnlyGateGlobalIds.Count}, nativeQueries={nativeQueries}, cacheHits={cacheHits}, reachable={reachableResults}, unreachable={unreachableResults}.");
             }
             mapActive = false;
             editorSessionActive = false;
+            loadedMapStatePending = false;
             manualOnlyGateGlobalIds.Clear();
             pendingMapLocators.Clear();
             ClearReachabilityCache();

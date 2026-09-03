@@ -93,7 +93,7 @@ namespace ExtraFeatures
         private bool disposed;
 
         private bool IsConfigured =>
-            settings.EnableMod &&
+            Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) &&
             (settings.HumanEnemyProximitySingleplayer >= 0 ||
              settings.HumanEnemyProximityMultiplayer >= 0 ||
              settings.AIEnemyProximitySingleplayer >= 0 ||
@@ -101,7 +101,7 @@ namespace ExtraFeatures
              settings.AITowerGateRebuildDelaySeconds >= 0);
 
         private bool NeedsNativeRebuildHooks =>
-            settings.EnableMod &&
+            Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) &&
             (settings.AIEnemyProximitySingleplayer >= 0 ||
              settings.AIEnemyProximityMultiplayer >= 0 ||
              settings.AITowerGateRebuildDelaySeconds >= 0);
@@ -241,9 +241,9 @@ namespace ExtraFeatures
         {
             try
             {
-                Shared.GameModeSnapshot snapshot = Shared.GameModeHelper.Capture(multiplayerSave);
+                Shared.GameModeSnapshot snapshot = Shared.GameplayModActivationGate.Snapshot;
                 realMultiplayer = snapshot.IsRealMultiplayer;
-                gameModeKnown = true;
+                gameModeKnown = snapshot.Kind != Shared.GameModeKind.Unknown;
                 gameModeFailureLogged = false;
                 Shared.DebugLogHelper.LogDebug(
                     log,
@@ -274,7 +274,7 @@ namespace ExtraFeatures
 
         private void OnRepairProximity(BuildingAllowRepairInProximityEventArgs args)
         {
-            if (!settings.EnableMod || !mapActive || args.Phase != EventHookPhase.Pre)
+            if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || !mapActive || args.Phase != EventHookPhase.Pre)
                 return;
 
             try
@@ -337,7 +337,7 @@ namespace ExtraFeatures
         private void OnAIBuildWall(AIBuildWallEventArgs args)
         {
             pendingWallRepair = default;
-            if (!settings.EnableMod || !mapActive || !TryGetConfiguredAIRadius(out _) ||
+            if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || !mapActive || !TryGetConfiguredAIRadius(out _) ||
                 !IsAI(args.PlayerId))
             {
                 return;
@@ -395,10 +395,10 @@ namespace ExtraFeatures
 
         private void ApplyHumanImmediateRanges()
         {
-            int singleplayerConfigured = settings.EnableMod
+            int singleplayerConfigured = Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod)
                 ? settings.HumanEnemyProximitySingleplayer
                 : EnemyProximityPolicy.VanillaMode;
-            int multiplayerConfigured = settings.EnableMod
+            int multiplayerConfigured = Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod)
                 ? settings.HumanEnemyProximityMultiplayer
                 : EnemyProximityPolicy.VanillaMode;
             SetHumanImmediateRanges(
@@ -758,7 +758,7 @@ namespace ExtraFeatures
             if (!context.History.EverSpawnedDefense)
                 return; // The first placement of this AIV frame remains entirely Vanilla.
 
-            if (!settings.EnableMod || settings.AITowerGateRebuildDelaySeconds < 0)
+            if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || settings.AITowerGateRebuildDelaySeconds < 0)
                 return;
 
             int delaySeconds = settings.AITowerGateRebuildDelaySeconds;

@@ -22,23 +22,8 @@ namespace ExtraFeatures
             {
                 if (hasMapSnapshot)
                     return blocksLocalStateChanges;
-
-                try
-                {
-                    return Shared.GameModeHelper.IsRealMultiplayer();
-                }
-                catch (Exception ex)
-                {
-                    if (!detectionFailureLogged)
-                    {
-                        detectionFailureLogged = true;
-                        Shared.DebugLogHelper.LogError(
-                            log,
-                            $"Extra Features could not determine the game mode; desync-prone local state changes remain blocked as a precaution: {ex}");
-                    }
-
-                    return true;
-                }
+                Shared.GameModeSnapshot snapshot = Shared.GameplayModActivationGate.Snapshot;
+                return snapshot.Kind == Shared.GameModeKind.Unknown || snapshot.IsRealMultiplayer;
             }
         }
 
@@ -46,9 +31,9 @@ namespace ExtraFeatures
         {
             try
             {
-                Shared.GameModeSnapshot snapshot = Shared.GameModeHelper.Capture(multiplayerSave);
-                blocksLocalStateChanges = snapshot.IsRealMultiplayer;
-                hasMapSnapshot = true;
+                Shared.GameModeSnapshot snapshot = Shared.GameplayModActivationGate.Snapshot;
+                blocksLocalStateChanges = snapshot.Kind == Shared.GameModeKind.Unknown || snapshot.IsRealMultiplayer;
+                hasMapSnapshot = snapshot.Kind != Shared.GameModeKind.Unknown;
                 detectionFailureLogged = false;
                 Shared.DebugLogHelper.LogDebug(
                     log,

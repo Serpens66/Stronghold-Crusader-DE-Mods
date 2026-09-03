@@ -27,7 +27,7 @@ namespace UnitLimit
 
             if (propertyName == nameof(UnitLimitLobbyViewModel.EnableMod))
             {
-                if (settings.EnableMod)
+                if (EffectsEnabled)
                 {
                     SubscribeHooks();
                     ApplyUnitLimits();
@@ -40,7 +40,7 @@ namespace UnitLimit
                 return;
             }
 
-            if (!settings.EnableMod)
+            if (!EffectsEnabled)
                 return;
 
             if (propertyName == nameof(UnitLimitLobbyViewModel.UnitLimits))

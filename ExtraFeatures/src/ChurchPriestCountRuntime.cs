@@ -57,7 +57,7 @@ namespace ExtraFeatures
             if (!initialized)
                 return;
 
-            bool enabled = settings.EnableMod && settings.EnableExtraChurchPriests;
+            bool enabled = Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) && settings.EnableExtraChurchPriests;
             SetDefaultWorkerCount(eStructs.STRUCT_CHURCH2, enabled ? Church2ModdedWorkerCount : Church2VanillaWorkerCount);
             SetDefaultWorkerCount(eStructs.STRUCT_CHURCH3, enabled ? Church3ModdedWorkerCount : Church3VanillaWorkerCount);
             ApplyExistingChurches(enabled);
@@ -69,7 +69,7 @@ namespace ExtraFeatures
             if (!initialized || args == null || args.Phase != EventHookPhase.Post || args.ReturnValue <= 0)
                 return;
 
-            bool enabled = settings.EnableMod && settings.EnableExtraChurchPriests;
+            bool enabled = Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) && settings.EnableExtraChurchPriests;
             if (!TryGetRequiredWorkerCount(args.Building, enabled, out ushort requiredWorkers))
                 return;
 

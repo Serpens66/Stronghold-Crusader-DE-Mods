@@ -66,13 +66,18 @@ namespace StartConditions
             this.log = log;
             this.settings = settings;
             activeSettings = settings;
+            Shared.GameplayModActivationGate.Initialize(log, StartConditionsPlugin.PluginGuid, StartConditionsPlugin.PluginName, () => settings.EnableMod);
+            Shared.GameplayModActivationGate.StateChanged += OnModeAllowedChanged;
         }
 
         private IStartConditionsSettings EffectiveSettings => activeSettings ?? settings;
+        private bool EffectsEnabled =>
+            Shared.GameplayModActivationGate.IsAllowed &&
+            (settings.EnableMod || StartConditionsIntegration.HasMissionOverride);
 
         public void SubscribeHooks()
         {
-            if (!settings.EnableMod && !StartConditionsIntegration.HasMissionOverride)
+            if (!EffectsEnabled)
                 return;
 
             if (hooksSubscribed)
@@ -109,6 +114,7 @@ namespace StartConditions
 
         public void Dispose()
         {
+            Shared.GameplayModActivationGate.StateChanged -= OnModeAllowedChanged;
             UnsubscribeHooks();
             if (settingsChangedSubscribed)
             {
@@ -133,7 +139,7 @@ namespace StartConditions
             if (propertyName != nameof(IStartConditionsSettings.EnableMod))
                 return;
 
-            if (settings.EnableMod || StartConditionsIntegration.HasMissionOverride)
+            if (EffectsEnabled)
                 SubscribeHooks();
             else
                 UnsubscribeHooks();
@@ -142,7 +148,18 @@ namespace StartConditions
         private void OnMissionOverrideChanged()
         {
             // A mission must work even when the user's persistent StartConditions toggle is off.
-            if (StartConditionsIntegration.HasMissionOverride || settings.EnableMod)
+            if (EffectsEnabled)
+                SubscribeHooks();
+            else
+                UnsubscribeHooks();
+        }
+
+        private void OnModeAllowedChanged(bool allowed)
+        {
+            if (!libraryInitialized)
+                return;
+
+            if (EffectsEnabled)
                 SubscribeHooks();
             else
                 UnsubscribeHooks();

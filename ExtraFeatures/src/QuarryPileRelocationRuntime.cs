@@ -267,7 +267,7 @@ namespace ExtraFeatures
 
         public void ApplySetting()
         {
-            LogInfo($"setting applied: EnableMod={settings.EnableMod}, EnableQuarryPileRelocation={settings.EnableQuarryPileRelocation}, EnableAIQuarryPileTowardsKeep={settings.EnableAIQuarryPileTowardsKeep}.");
+            LogInfo($"setting applied: EnableMod={Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod)}, EnableQuarryPileRelocation={settings.EnableQuarryPileRelocation}, EnableAIQuarryPileTowardsKeep={settings.EnableAIQuarryPileTowardsKeep}.");
             if (!IsAIAutomationActive())
                 pendingAIQuarriesByGlobalId.Clear();
 
@@ -686,18 +686,18 @@ namespace ExtraFeatures
 
         private bool IsRuntimeActive()
         {
-            return settings.EnableMod &&
+            return Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) &&
                 (settings.EnableQuarryPileRelocation || settings.EnableAIQuarryPileTowardsKeep);
         }
 
         private bool IsManualFeatureActive()
         {
-            return settings.EnableMod && settings.EnableQuarryPileRelocation;
+            return Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) && settings.EnableQuarryPileRelocation;
         }
 
         private bool IsAIAutomationActive()
         {
-            return settings.EnableMod && settings.EnableAIQuarryPileTowardsKeep;
+            return Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) && settings.EnableAIQuarryPileTowardsKeep;
         }
 
         private bool RequiresChoreTransport()
@@ -757,6 +757,9 @@ namespace ExtraFeatures
 
         private void OnRelocationPacketReceived(ReceiveCustomPacketEventArgs<QuarryPileRelocationPacket> args)
         {
+            if (!Shared.GameplayModActivationGate.IsAllowed)
+                return;
+
             QuarryPileRelocationPacket packet = args?.Packet;
             if (packet == null || packet.ProtocolVersion != ChoreProtocolVersion)
             {

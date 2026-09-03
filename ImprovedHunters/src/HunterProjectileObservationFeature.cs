@@ -166,7 +166,7 @@ namespace ImprovedHunters
             out PreyEligibility eligibility)
         {
             eligibility = default;
-            if (!settings.EnableMod ||
+            if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) ||
                 args.ProjectileType != ProjectileType.ArcherArrow ||
                 !IsValidUnitId(args.AttackedUnitId) ||
                 !GameUnitManagerAPI.Instance.TryGetUnitById(args.AttackedUnitId, out GameUnit* target) ||

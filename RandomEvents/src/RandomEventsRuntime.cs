@@ -93,6 +93,8 @@ namespace RandomEvents
         {
             this.log = log;
             this.settings = settings;
+            Shared.GameplayModActivationGate.Initialize(log, RandomEventsPlugin.PluginGuid, RandomEventsPlugin.PluginName, () => settings.EnableMod);
+            Shared.GameplayModActivationGate.StateChanged += OnModeAllowedChanged;
             signpostRegistry = new ScenarioSignpostRegistry(log);
             signpostPlacement = new SignpostPlacementService(log, signpostRegistry);
             nativeEventDispatcher = new NativeVanillaEventDispatcher(log);
@@ -183,6 +185,7 @@ namespace RandomEvents
         public void Dispose()
         {
             if (disposed) return;
+            Shared.GameplayModActivationGate.StateChanged -= OnModeAllowedChanged;
             if (tickSubscribed)
             {
                 GameTimeManagerAPI.Instance.OnTick -= OnGameTick;
@@ -207,6 +210,11 @@ namespace RandomEvents
 
         private void OnStartMap(MapStartEventArgs args)
         {
+            if (!Shared.GameplayModActivationGate.IsAllowed)
+            {
+                ResetMapState();
+                return;
+            }
             mapStartPending = true;
             mapActive = false;
             mapStartedFromMultiplayerSave = args.bMultiplayerSave != 0;
@@ -218,6 +226,12 @@ namespace RandomEvents
         private void OnUnloadMap(MapUnloadEventArgs args)
         {
             ResetMapState();
+        }
+
+        private void OnModeAllowedChanged(bool allowed)
+        {
+            if (!allowed)
+                ResetMapState();
         }
 
         private void ResetMapState()
@@ -258,6 +272,9 @@ namespace RandomEvents
         {
             try
             {
+                if (!Shared.GameplayModActivationGate.IsAllowed)
+                    return;
+
                 if (mapStartPending)
                 {
                     // OnStartMap(Post) can precede the running simulation. The first positive map tick is late
@@ -323,8 +340,14 @@ namespace RandomEvents
         {
             mapStartPending = false;
 
-            Shared.GameModeSnapshot gameMode = Shared.GameModeHelper.Capture(mapStartedFromMultiplayerSave);
+            Shared.GameModeSnapshot gameMode = Shared.GameplayModActivationGate.Snapshot;
             string gameModeDetails = gameMode.ToDiagnosticString();
+            if (!Shared.GameplayModActivationGate.IsAllowed)
+            {
+                LogDebug("Random Events disabled by the gameplay-mode gate: " + gameModeDetails);
+                ResetMapState();
+                return;
+            }
             if (gameMode.IsRealMultiplayer)
             {
                 InitializeMultiplayerMap(gameModeDetails);
@@ -334,13 +357,6 @@ namespace RandomEvents
             if (gameMode.IsMapEditor)
             {
                 LogDebug("Random Events disabled for map editor session.");
-                state = null;
-                return;
-            }
-
-            if (!gameMode.IsSingleplayerSkirmishMode)
-            {
-                LogDebug("Random Events disabled because the map is neither a singleplayer skirmish nor a singleplayer Trail mission.");
                 state = null;
                 return;
             }
@@ -356,7 +372,7 @@ namespace RandomEvents
             }
 
             loadedStateAvailable = false;
-            if (!settings.EnableMod)
+            if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
             {
                 LogDebug("Random Events disabled by the effective map setting.");
                 state = null;
@@ -380,7 +396,7 @@ namespace RandomEvents
                 return;
             }
 
-            if (!settings.EnableMod)
+            if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
             {
                 DisableForNetwork("disabled by the effective host setting", gameModeDetails);
                 return;
@@ -475,7 +491,7 @@ namespace RandomEvents
                 chances[index] = Math.Max(0, Math.Min(100, chances[index]));
             return new RandomEventsConfigurationSnapshot
             {
-                Enabled = settings.EnableMod,
+                Enabled = Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod),
                 IntervalMonths = Math.Max(1, Math.Min(90, settings.IntervalMonths)),
                 CooldownMonths = Math.Max(0, Math.Min(90, settings.CooldownMonths)),
                 MultiplayerMode = Math.Max(0, Math.Min(1, settings.MultiplayerEventModeIndex)),
@@ -756,6 +772,8 @@ namespace RandomEvents
 
         private void OnInitializationChorePacketReceived(ReceiveCustomPacketEventArgs<RandomEventsInitializationChorePacket> args)
         {
+            if (!Shared.GameplayModActivationGate.IsAllowed)
+                return;
             RandomEventsInitializationChorePacket packet = args?.Packet;
             if (packet == null || packet.ProtocolVersion != ChoreProtocolVersion)
             {
@@ -776,12 +794,16 @@ namespace RandomEvents
 
         private void OnBatchChorePacketReceived(ReceiveCustomPacketEventArgs<RandomEventsBatchChorePacket> args)
         {
+            if (!Shared.GameplayModActivationGate.IsAllowed)
+                return;
             try { ApplyBatchChore(args?.Packet); }
             catch (Exception ex) { mapActive = false; LogError($"Random Events batch Chore execution failed: {ex}"); }
         }
 
         private void OnSignpostChorePacketReceived(ReceiveCustomPacketEventArgs<RandomEventsSignpostChorePacket> args)
         {
+            if (!Shared.GameplayModActivationGate.IsAllowed)
+                return;
             try { ApplySignpostInitializationChore(args?.Packet); }
             catch (Exception ex) { mapActive = false; LogError($"Random Events signpost Chore execution failed: {ex}"); }
         }
@@ -789,6 +811,8 @@ namespace RandomEvents
         private void OnInitializationAckPacketReceived(
             ReceiveCustomPacketEventArgs<RandomEventsInitializationAckPacket> args)
         {
+            if (!Shared.GameplayModActivationGate.IsAllowed)
+                return;
             if (!isRealMultiplayer || !isLocalHost || multiplayerInitializationConfirmed)
                 return;
 
@@ -1206,7 +1230,7 @@ namespace RandomEvents
 
         private byte[] SaveState(SaveContext context)
         {
-            if (!context.IsSaveFile || !mapActive || state == null)
+            if (!context.IsSaveFile || !Shared.GameplayModActivationGate.IsAllowed || !mapActive || state == null)
                 return null;
             RandomEventsSaveState saved = CreateSaveState(state);
             if (deferredPreparedState != null)
@@ -1221,6 +1245,8 @@ namespace RandomEvents
 
         private void LoadState(byte[] bytes, LoadContext context)
         {
+            // Save data may be delivered before the map event resolves the mode.
+            // Keep it pending; InitializeCurrentMap validates the fail-closed gate.
             if (!context.IsSaveFile)
                 return;
             try

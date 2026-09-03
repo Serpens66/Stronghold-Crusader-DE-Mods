@@ -1313,7 +1313,10 @@ namespace CustomCustomTrail
                 }
                 bool preserve = preserveContextForLaunch;
                 if (!trailMaker && !preserve)
+                {
+                    CustomCustomTrailLaunchOriginApi.Clear();
                     ExitContext(force: true);
+                }
                 multiplayerOpenOriginal(
                     self,
                     skirmishSetup,
@@ -1323,6 +1326,13 @@ namespace CustomCustomTrail
                     trailMaker,
                     customiseTrailType,
                     customiseTrailId);
+                // FrontendMenus may defer Customize behind a confirmation dialog. doOpen is the
+                // first synchronous boundary that proves the requested setup transition happened.
+                if (fromNew && skirmishSetup && restartInfo == null && !coopSetup && !trailMaker &&
+                    customiseTrailId >= 0)
+                {
+                    CaptureBuiltInCustomizeOrigin(customiseTrailType, customiseTrailId);
+                }
                 if (preserve)
                     preserveContextForLaunch = false;
             }
@@ -1443,6 +1453,30 @@ namespace CustomCustomTrail
                 string.Equals(command, "Coop2", StringComparison.Ordinal) ||
                 string.Equals(command, "Coop3", StringComparison.Ordinal) ||
                 string.Equals(command, "Coop4", StringComparison.Ordinal);
+
+            private static void CaptureBuiltInCustomizeOrigin(int trailType, int missionId)
+            {
+                if (trailType >= CustomCustomTrailLaunchOriginApi.FirstVanillaTrailType &&
+                    trailType <= CustomCustomTrailLaunchOriginApi.LastVanillaTrailType)
+                {
+                    CustomCustomTrailLaunchOriginApi.SetCustomizedVanillaTrail(
+                        trailType,
+                        trailType,
+                        missionId);
+                }
+                else if (trailType >= CustomCustomTrailLaunchOriginApi.FirstSandsOfTimeTrailType &&
+                    trailType <= CustomCustomTrailLaunchOriginApi.LastSandsOfTimeTrailType)
+                {
+                    CustomCustomTrailLaunchOriginApi.SetCustomizedSandsOfTime(
+                        trailType,
+                        trailType,
+                        missionId);
+                }
+                else
+                {
+                    CustomCustomTrailLaunchOriginApi.Clear();
+                }
+            }
 
             private void CoopTrail1ConstructorHook(FRONT_CoopTrail1 self)
             {

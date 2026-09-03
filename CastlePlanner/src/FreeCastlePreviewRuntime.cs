@@ -246,7 +246,7 @@ namespace CastlePlanner
         public bool TryGetCommittedSelections(out List<FreeCastleSelection> selections)
         {
             selections = null;
-            if (state != PreviewState.SpawnMap)
+            if (!Shared.GameplayModActivationGate.IsAllowed || state != PreviewState.SpawnMap)
                 return false;
             selections = committedSelections.Select(item => item.Clone()).ToList();
             return selections.Count > 0;
@@ -255,7 +255,7 @@ namespace CastlePlanner
         public bool TryGetCommittedRotation(int playerId, out int rotation)
         {
             rotation = 0;
-            if (state != PreviewState.SpawnMap)
+            if (!Shared.GameplayModActivationGate.IsAllowed || state != PreviewState.SpawnMap)
                 return false;
             return FreeCastleSelectionLookup.TryGetRotation(
                 committedSelections,
@@ -286,7 +286,8 @@ namespace CastlePlanner
             int actionState,
             int value2)
         {
-            if (!bypassPauseHook && IsPreviewPendingOrActive &&
+            if (Shared.GameplayModActivationGate.IsAllowed &&
+                !bypassPauseHook && IsPreviewPendingOrActive &&
                 command == Enums.GameActionCommand.Game_Paused && actionState == 0)
             {
                 Shared.DebugLogHelper.LogInfo(log, "Unpause command suppressed during castle selection.");
@@ -297,7 +298,8 @@ namespace CastlePlanner
 
         private void LeaveLobbyHook(Platform_Multiplayer self, bool preserveGameMembers)
         {
-            if (!bypassLeaveLobbyHook && IsPreviewPendingOrActive && realMultiplayer)
+            if (Shared.GameplayModActivationGate.IsAllowed &&
+                !bypassLeaveLobbyHook && IsPreviewPendingOrActive && realMultiplayer)
             {
                 Shared.DebugLogHelper.LogInfo(log, "Vanilla lobby departure deferred during castle selection.");
                 return;
@@ -311,6 +313,11 @@ namespace CastlePlanner
             {
                 if (state == PreviewState.RestartCommitted)
                 {
+                    if (!Shared.GameplayModActivationGate.IsAllowed)
+                    {
+                        ResetPreview();
+                        return;
+                    }
                     state = PreviewState.SpawnMap;
                     NotifyAll();
                     return;
@@ -321,7 +328,7 @@ namespace CastlePlanner
                 ResetPreview();
                 state = PreviewState.AwaitingGameplay;
                 operationId = unchecked((int)DateTime.UtcNow.Ticks) & int.MaxValue;
-                realMultiplayer = Shared.GameModeHelper.IsRealMultiplayer(false);
+                realMultiplayer = Shared.GameplayModActivationGate.Snapshot.IsRealMultiplayer;
                 localPlayerId = ResolveLocalPlayerId(out string identityError);
                 BuildRoster(out string rosterError);
                 ApplyPause(true);
@@ -347,10 +354,11 @@ namespace CastlePlanner
 
         private bool ShouldStartPreview(MapStartEventArgs args)
         {
-            if (!settings.IsSpawnMode || args.bMultiplayerSave != 0 || args.CampaignMapId != 0 ||
+            if (!Shared.GameplayModActivationGate.IsAllowed || !settings.IsSpawnMode ||
+                args.bMultiplayerSave != 0 || args.CampaignMapId != 0 ||
                 Shared.GameModeHelper.IsMapEditor())
                 return false;
-            Shared.GameModeSnapshot mode = Shared.GameModeHelper.Capture(false);
+            Shared.GameModeSnapshot mode = Shared.GameplayModActivationGate.Snapshot;
             return mode.IsRealMultiplayer || mode.IsSingleplayerSkirmishMode;
         }
 
@@ -537,6 +545,9 @@ namespace CastlePlanner
 
         private void OnPacket(ReceiveCustomPacketEventArgs<FreeCastlePacket> args)
         {
+            if (!Shared.GameplayModActivationGate.IsAllowed)
+                return;
+
             FreeCastlePacket packet = args?.Packet;
             if (packet == null || !args.SenderSteamId.HasValue || !IsPreviewPendingOrActive)
                 return;

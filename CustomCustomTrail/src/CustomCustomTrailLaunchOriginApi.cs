@@ -14,18 +14,27 @@ namespace CustomCustomTrail
         None,
         CustomizedCustomTrail,
         CustomizedCoopTrail,
+        CustomizedVanillaTrail,
+        CustomizedSandsOfTime,
     }
 
     /// <summary>Optional, dependency-free reflection surface for shared game-mode classification.</summary>
     public static class CustomCustomTrailLaunchOriginApi
     {
-        private const int CurrentApiVersion = 1;
+        private const int CurrentApiVersion = 2;
+        private const int LegacyApiVersion = 1;
         private const int FirstCustomTrailId = 90;
         private const int LastCustomTrailId = 92;
         private const int FirstCoopTrailId = 0;
         private const int LastCoopTrailId = 3;
         private const int FirstMissionId = 1;
         private const int LastCoopMissionId = 10;
+        // This optional API is compiled independently by its save-data tests, so it keeps
+        // named protocol boundaries instead of depending on GameModeHelper's internal enum.
+        internal const int FirstVanillaTrailType = 0;
+        internal const int LastVanillaTrailType = 2;
+        internal const int FirstSandsOfTimeTrailType = 11;
+        internal const int LastSandsOfTimeTrailType = 18;
         private const string SaveDataIdentifier = "CustomCustomTrail-LaunchOrigin";
         private static readonly object Sync = new object();
 
@@ -44,6 +53,7 @@ namespace CustomCustomTrail
         public static int TrailId { get { lock (Sync) return trailId; } }
         public static int MissionId { get { lock (Sync) return missionId; } }
         public static bool RestoredFromSave { get { lock (Sync) return restoredFromSave; } }
+        public static bool LaunchPending { get { lock (Sync) return launchPending; } }
 
         internal static void Initialize(ManualLogSource logger)
         {
@@ -94,10 +104,51 @@ namespace CustomCustomTrail
                 restored: false);
         }
 
+        internal static void SetCustomizedVanillaTrail(int trailTypeValue, int selectedTrailId, int selectedMissionId)
+        {
+            SetCustomizedBuiltInTrail(
+                CustomCustomTrailLaunchOriginKind.CustomizedVanillaTrail,
+                trailTypeValue,
+                selectedTrailId,
+                selectedMissionId,
+                minimumTrailType: FirstVanillaTrailType,
+                maximumTrailType: LastVanillaTrailType);
+        }
+
+        internal static void SetCustomizedSandsOfTime(int trailTypeValue, int selectedTrailId, int selectedMissionId)
+        {
+            SetCustomizedBuiltInTrail(
+                CustomCustomTrailLaunchOriginKind.CustomizedSandsOfTime,
+                trailTypeValue,
+                selectedTrailId,
+                selectedMissionId,
+                minimumTrailType: FirstSandsOfTimeTrailType,
+                maximumTrailType: LastSandsOfTimeTrailType);
+        }
+
+        private static void SetCustomizedBuiltInTrail(
+            CustomCustomTrailLaunchOriginKind originValue,
+            int trailTypeValue,
+            int selectedTrailId,
+            int selectedMissionId,
+            int minimumTrailType,
+            int maximumTrailType)
+        {
+            if (trailTypeValue < minimumTrailType || trailTypeValue > maximumTrailType ||
+                selectedTrailId < 0 || selectedMissionId < 0)
+            {
+                Clear();
+                return;
+            }
+            Set(originValue, trailTypeValue, selectedTrailId, selectedMissionId, restored: false);
+        }
+
         internal static void Clear()
         {
+            CustomCustomTrailLaunchOriginKind previous;
             lock (Sync)
             {
+                previous = origin;
                 origin = CustomCustomTrailLaunchOriginKind.None;
                 trailType = -1;
                 trailId = -1;
@@ -105,6 +156,8 @@ namespace CustomCustomTrail
                 restoredFromSave = false;
                 launchPending = false;
             }
+            if (previous != CustomCustomTrailLaunchOriginKind.None)
+                DebugLogHelper.LogInfo(log, $"Cleared customized launch origin: previous={previous}.");
         }
 
         internal static void MarkMapStarted()
@@ -184,13 +237,26 @@ namespace CustomCustomTrail
 
         private static bool IsValid(LaunchOriginSaveData data)
         {
-            if (data == null || data.Version != CurrentApiVersion || data.MissionId < FirstMissionId)
+            if (data == null ||
+                (data.Version != LegacyApiVersion && data.Version != CurrentApiVersion))
                 return false;
             if (data.Origin == (int)CustomCustomTrailLaunchOriginKind.CustomizedCustomTrail)
-                return data.TrailId >= FirstCustomTrailId && data.TrailId <= LastCustomTrailId;
-            return data.Origin == (int)CustomCustomTrailLaunchOriginKind.CustomizedCoopTrail &&
-                data.TrailId >= FirstCoopTrailId && data.TrailId <= LastCoopTrailId &&
-                data.MissionId <= LastCoopMissionId;
+                return data.MissionId >= FirstMissionId &&
+                    data.TrailId >= FirstCustomTrailId && data.TrailId <= LastCustomTrailId;
+            if (data.Origin == (int)CustomCustomTrailLaunchOriginKind.CustomizedCoopTrail)
+            {
+                return data.MissionId >= FirstMissionId &&
+                    data.TrailId >= FirstCoopTrailId && data.TrailId <= LastCoopTrailId &&
+                    data.MissionId <= LastCoopMissionId;
+            }
+            if (data.Version < CurrentApiVersion || data.TrailId < 0 || data.MissionId < 0)
+                return false;
+            if (data.Origin == (int)CustomCustomTrailLaunchOriginKind.CustomizedVanillaTrail)
+                return data.TrailType >= FirstVanillaTrailType &&
+                    data.TrailType <= LastVanillaTrailType;
+            return data.Origin == (int)CustomCustomTrailLaunchOriginKind.CustomizedSandsOfTime &&
+                data.TrailType >= FirstSandsOfTimeTrailType &&
+                data.TrailType <= LastSandsOfTimeTrailType;
         }
 
         private static void Set(
@@ -209,6 +275,10 @@ namespace CustomCustomTrail
                 restoredFromSave = restored;
                 launchPending = true;
             }
+            DebugLogHelper.LogInfo(
+                log,
+                $"Set customized launch origin: origin={originValue}, trailType={trailTypeValue}, " +
+                $"trailId={trailIdValue}, missionId={missionIdValue}, restored={restored}.");
         }
 
         [MessagePackObject]

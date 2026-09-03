@@ -125,21 +125,41 @@ namespace BugfixesAndQoL
                     target.aivs.Add(resolved);
             }
 
+            // Vanilla disables the skirmish Play button for a non-built-in AI without
+            // any resolved AIV. Preserve a usable opponent if an old entry is empty or
+            // all referenced files disappeared.
+            bool usedBuiltInFallback = target.aivs.Count == 0 && !target.builtIn;
+            if (usedBuiltInFallback)
+            {
+                target.builtIn = true;
+                target.community = false;
+                target.historical = false;
+            }
+
             bool missingAic = false;
-            if (snapshot.BuiltInLord || snapshot.Aic == null)
+            CustomisationFileManager.CustomLordConfig resolvedAic = null;
+            if (!snapshot.BuiltInLord && snapshot.Aic != null)
+            {
+                resolvedAic = AivAicPresetStore.ResolveAic(snapshot.Aic, availableAics);
+                missingAic = resolvedAic == null;
+            }
+            if (usedBuiltInFallback || snapshot.BuiltInLord || snapshot.Aic == null)
             {
                 target.builtInLord = true;
                 target.lordConfig = null;
             }
             else
             {
-                target.lordConfig = AivAicPresetStore.ResolveAic(snapshot.Aic, availableAics);
-                missingAic = target.lordConfig == null;
+                target.lordConfig = resolvedAic;
                 target.builtInLord = missingAic;
             }
 
             // The current custom-lord image belongs to the package, not this remembered selection.
-            return new AiAivSelectionApplyResult(target.aivs.Count, missingAivs, missingAic);
+            return new AiAivSelectionApplyResult(
+                target.aivs.Count,
+                missingAivs,
+                missingAic,
+                usedBuiltInFallback);
         }
 
         public static string BuildLordKey(AiAivSelectionSnapshot snapshot)
@@ -412,15 +432,21 @@ namespace BugfixesAndQoL
 
     internal readonly struct AiAivSelectionApplyResult
     {
-        public AiAivSelectionApplyResult(int loadedAivs, int missingAivs, bool missingAic)
+        public AiAivSelectionApplyResult(
+            int loadedAivs,
+            int missingAivs,
+            bool missingAic,
+            bool usedBuiltInFallback)
         {
             LoadedAivs = loadedAivs;
             MissingAivs = missingAivs;
             MissingAic = missingAic;
+            UsedBuiltInFallback = usedBuiltInFallback;
         }
 
         public int LoadedAivs { get; }
         public int MissingAivs { get; }
         public bool MissingAic { get; }
+        public bool UsedBuiltInFallback { get; }
     }
 }

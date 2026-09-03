@@ -112,7 +112,7 @@ namespace ExtraFeatures
 
         private void ApplyConfiguredDistanceComparison(NativePointer<X64SmartCPUContext> _)
         {
-            if (!featureAvailable || !settings.EnableMod)
+            if (!featureAvailable || !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
                 return;
 
             int configuredMaximum = settings.ApothecaryPlagueSearchDistance;

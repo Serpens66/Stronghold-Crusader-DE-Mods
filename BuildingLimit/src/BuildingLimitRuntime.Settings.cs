@@ -27,7 +27,7 @@ namespace BuildingLimit
 
             if (propertyName == nameof(BuildingLimitLobbyViewModel.EnableMod))
             {
-                if (settings.EnableMod)
+                if (EffectsEnabled)
                 {
                     SubscribeHooks();
                     ApplyBuildingLimits();
@@ -40,7 +40,7 @@ namespace BuildingLimit
                 return;
             }
 
-            if (!settings.EnableMod)
+            if (!EffectsEnabled)
                 return;
 
             if (propertyName == nameof(BuildingLimitLobbyViewModel.BuildingLimits))

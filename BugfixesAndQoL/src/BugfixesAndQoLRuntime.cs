@@ -24,6 +24,8 @@ namespace BugfixesAndQoL
         private readonly SiegeAmmoRestockFeature siegeAmmoRestockFeature;
         private IDisposable playerMarketSubscription;
         private IDisposable mapStartSubscription;
+        private IDisposable mapLoadSubscription;
+        private IDisposable loadSaveSubscription;
         private IDisposable mapUnloadSubscription;
         private MinimapPlacementClickHook minimapPlacementClickHook;
         private SkirmishAiSelectionMemoryHook skirmishAiSelectionMemoryHook;
@@ -147,6 +149,24 @@ namespace BugfixesAndQoL
                         }));
             }
 
+            if (mapLoadSubscription == null)
+            {
+                TryInitializePersistentFeature(
+                    "map-editor load subscription",
+                    () => mapLoadSubscription = MapLoaderR3EventHooks.OnLoadMap.Observable
+                        .Where(args => args.Phase == EventHookPhase.Post)
+                        .Subscribe(args => BeginEditorMapIfApplicable(Shared.GameModeHelper.Capture(args))));
+            }
+
+            if (loadSaveSubscription == null)
+            {
+                TryInitializePersistentFeature(
+                    "map-editor save-load subscription",
+                    () => loadSaveSubscription = MapLoaderR3EventHooks.OnLoadSave.Observable
+                        .Where(args => args.Phase == EventHookPhase.Post)
+                        .Subscribe(args => BeginEditorMapIfApplicable(Shared.GameModeHelper.Capture(args))));
+            }
+
             if (mapUnloadSubscription == null)
             {
                 TryInitializePersistentFeature(
@@ -161,6 +181,19 @@ namespace BugfixesAndQoL
                             multiplayerFeatureGate.Reset();
                         }));
             }
+
+            if (Shared.GameModeHelper.IsMapEditor())
+                BeginEditorMapIfApplicable(Shared.GameModeHelper.Capture());
+        }
+
+        private void BeginEditorMapIfApplicable(Shared.GameModeSnapshot mode)
+        {
+            if (mode.Kind != Shared.GameModeKind.MapEditor)
+                return;
+            multiplayerFeatureGate.CaptureMapMode(multiplayerSave: false);
+            assassinPathfindingRuntime.BeginMap();
+            assassinClimbRuntime.BeginMap();
+            troopActionHudCoordinator.Refresh();
         }
 
         public void InitializeSelectedUnitHealthFeature()
@@ -373,6 +406,10 @@ namespace BugfixesAndQoL
             playerMarketSubscription = null;
             mapStartSubscription?.Dispose();
             mapStartSubscription = null;
+            mapLoadSubscription?.Dispose();
+            mapLoadSubscription = null;
+            loadSaveSubscription?.Dispose();
+            loadSaveSubscription = null;
             mapUnloadSubscription?.Dispose();
             mapUnloadSubscription = null;
             nativeLibraryAvailable = false;

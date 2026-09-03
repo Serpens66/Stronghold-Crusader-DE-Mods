@@ -82,13 +82,17 @@ namespace UnitLimit
         {
             this.log = log;
             this.settings = settings;
+            Shared.GameplayModActivationGate.Initialize(log, UnitLimitPlugin.PluginGuid, UnitLimitPlugin.PluginName, () => settings.EnableMod);
+            Shared.GameplayModActivationGate.StateChanged += OnModeAllowedChanged;
             activeUnitCache = new ActiveUnitCache(log, verboseUnitEventLogging);
             activeSiegeTentCache = new ActiveSiegeTentCache(log);
         }
 
+        private bool EffectsEnabled => Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod);
+
         public void SubscribeHooks()
         {
-            if (!settings.EnableMod)
+            if (!EffectsEnabled)
                 return;
 
             if (hooksSubscribed)
@@ -158,7 +162,7 @@ namespace UnitLimit
                 return;
 
             SubscribeSettingsChanges();
-            if (!settings.EnableMod)
+            if (!EffectsEnabled)
             {
                 LogDebug("Unit limit disabled; runtime hooks not subscribed");
                 libraryInitialized = true;
@@ -173,6 +177,7 @@ namespace UnitLimit
 
         public void Dispose()
         {
+            Shared.GameplayModActivationGate.StateChanged -= OnModeAllowedChanged;
             UnsubscribeHooks();
             if (settingsPropertyChangedSubscribed)
             {
@@ -232,6 +237,22 @@ namespace UnitLimit
             ClearPendingRecruitments("OnUnloadMap");
             HideLimitMessage();
             ClearUnitLimitTooltip();
+        }
+
+        private void OnModeAllowedChanged(bool allowed)
+        {
+            if (!libraryInitialized)
+                return;
+
+            if (EffectsEnabled)
+            {
+                SubscribeHooks();
+                ApplyUnitLimits();
+            }
+            else
+            {
+                UnsubscribeHooks();
+            }
         }
 
         private void LogDebug(params object[] parts)

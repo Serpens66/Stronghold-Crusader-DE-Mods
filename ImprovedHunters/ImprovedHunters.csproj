@@ -157,6 +157,8 @@
     <Reference Include="MessagePack"><HintPath>$(ExtenderDir)\MessagePack.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="MessagePack.Annotations"><HintPath>$(ExtenderDir)\MessagePack.Annotations.dll</HintPath><Private>false</Private></Reference>
     <Compile Include="..\Shared\GameModeHelper.cs"><Link>Shared\GameModeHelper.cs</Link></Compile>
+    <Compile Include="..\Shared\GameplayModActivationGate.cs"><Link>Shared\GameplayModActivationGate.cs</Link></Compile>
+    <Compile Include="..\Shared\GameplayModModePolicy.cs"><Link>Shared\GameplayModModePolicy.cs</Link></Compile>
     <Compile Include="..\Shared\PresetLobbyModSettingsViewModel.cs"><Link>Shared\PresetLobbyModSettingsViewModel.cs</Link></Compile>
     <Compile Include="..\Shared\ModSettingsSearch.cs"><Link>Shared\ModSettingsSearch.cs</Link></Compile>
     <Compile Include="..\Shared\ToolTipPresentation.cs"><Link>Shared\ToolTipPresentation.cs</Link></Compile>

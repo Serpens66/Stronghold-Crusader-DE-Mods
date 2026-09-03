@@ -15,6 +15,7 @@ namespace BugfixesAndQoL
             Run("current format resolves changed AIV and AIC files", ResolvesChangedFiles);
             Run("legacy snapshot migrates to references", MigratesLegacySnapshot);
             Run("missing files fail safely", MissingFilesFailSafely);
+            Run("empty custom selection falls back to built-in", EmptyCustomSelectionFallsBack);
             Run("file-backed selections are detected", DetectsFileBackedSelections);
             Console.WriteLine(failures == 0
                 ? "BugfixesAndQoL AIV memory tests passed."
@@ -82,7 +83,43 @@ namespace BugfixesAndQoL
                 new List<CustomisationFileManager.CustomLordConfig>());
             Assert(target.aivs.Count == 0 && target.builtInLord && target.lordConfig == null,
                 "missing files did not fall back safely");
+            Assert(target.builtIn && !target.community && !target.historical &&
+                result.UsedBuiltInFallback,
+                "missing AIV files left an unstartable custom AI slot");
             Assert(result.MissingAivs == 1 && result.MissingAic, "missing files were not reported");
+
+            CustomisationFileManager.CustomLordConfig availableAic = BuildAic(23, 12);
+            target = new FRONT_Multiplayer.MPAIVInfo();
+            result = AiAivSelectionCodec.Apply(
+                snapshot,
+                target,
+                new List<CustomisationFileManager.CustomAIV>(),
+                new List<CustomisationFileManager.CustomLordConfig> { availableAic });
+            Assert(result.UsedBuiltInFallback && !result.MissingAic &&
+                  target.builtInLord && target.lordConfig == null,
+                "built-in AIV fallback retained an incompatible custom AIC");
+        }
+
+        private static void EmptyCustomSelectionFallsBack()
+        {
+            var snapshot = new AiAivSelectionSnapshot
+            {
+                LordType = 0,
+                LordName = string.Empty,
+                BuiltIn = false,
+                Community = false,
+                Historical = false,
+                BuiltInLord = true
+            };
+            var target = new FRONT_Multiplayer.MPAIVInfo();
+            AiAivSelectionApplyResult result = AiAivSelectionCodec.Apply(
+                snapshot,
+                target,
+                new List<CustomisationFileManager.CustomAIV>(),
+                new List<CustomisationFileManager.CustomLordConfig>());
+
+            Assert(target.builtIn && target.aivs.Count == 0 && result.UsedBuiltInFallback,
+                "empty legacy selection was restored as an unstartable custom AI");
         }
 
         private static void DetectsFileBackedSelections()

@@ -535,7 +535,7 @@ namespace ExtraFeatures
 
         private bool IsFeatureActive()
         {
-            return settings.EnableMod &&
+            return Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) &&
                 settings.EnableKnightDismount &&
                 (!RequiresChoreTransport() || IsChoreTransportReady());
         }
@@ -617,6 +617,9 @@ namespace ExtraFeatures
 
         private void OnTransformationPacketReceived(ReceiveCustomPacketEventArgs<KnightTransformationPacket> args)
         {
+            if (!Shared.GameplayModActivationGate.IsAllowed)
+                return;
+
             KnightTransformationPacket packet = args?.Packet;
             if (packet == null || packet.ProtocolVersion != ChoreProtocolVersion ||
                 (packet.Action != MountAction && packet.Action != DismountAction) ||

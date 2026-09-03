@@ -217,7 +217,7 @@ namespace ExtraFeatures
                 if (ApplySingleBuildingSleepOverride(registers))
                     return;
 
-                if (!settings.EnableMod || !settings.PreventAIPause || !aiPauseProtectionSupported)
+                if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || !settings.PreventAIPause || !aiPauseProtectionSupported)
                     return;
 
                 byte requestedState = (byte)registers->RCX;
@@ -248,7 +248,7 @@ namespace ExtraFeatures
         {
             try
             {
-                if (!settings.EnableMod)
+                if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
                     return false;
 
                 IntPtr sleepingAddress = unchecked((IntPtr)(long)registers->R8);
@@ -284,7 +284,7 @@ namespace ExtraFeatures
         {
             try
             {
-                if (!settings.EnableMod || !settings.PreventEmergencyDemolition)
+                if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || !settings.PreventEmergencyDemolition)
                     return;
 
                 X64SmartCPUContext* registers = context.Pointer;
@@ -308,7 +308,7 @@ namespace ExtraFeatures
         {
             try
             {
-                if (settings.EnableMod &&
+                if (Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) &&
                     settings.PreventHovelDeletion &&
                     GamePlayerManagerAPI.Instance.IsAIPlayer(playerId))
                 {
@@ -335,7 +335,7 @@ namespace ExtraFeatures
             try
             {
                 int mode = settings.InaccessibleAIBuildingDemolitionProtection;
-                if (!settings.EnableMod || !inaccessibleBuildingProtectionSupported ||
+                if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || !inaccessibleBuildingProtectionSupported ||
                     mode == TemporaryGateBlockagePolicy.VanillaMode)
                     return;
 

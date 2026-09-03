@@ -21,7 +21,7 @@ namespace ImprovedHunters
         // Candidate discovery, cost ranking, initial reachability and State-0 selection handoff.
         private void OnHunterQueryTarget(UnitHunterQueryTargetEventArgs args)
         {
-            if (!settings.EnableMod)
+            if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
                 return;
 
             long timestamp = Stopwatch.GetTimestamp();
@@ -529,7 +529,7 @@ namespace ImprovedHunters
             preyCache.Clear();
             bestTargetCache.Clear();
 
-            if (!settings.EnableMod)
+            if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
                 return;
 
             SimpleNativeArray<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitArray();

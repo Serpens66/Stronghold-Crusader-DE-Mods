@@ -47,12 +47,16 @@ namespace BuildingLimit
         {
             this.log = log;
             this.settings = settings;
+            Shared.GameplayModActivationGate.Initialize(log, BuildingLimitPlugin.PluginGuid, BuildingLimitPlugin.PluginName, () => settings.EnableMod);
+            Shared.GameplayModActivationGate.StateChanged += OnModeAllowedChanged;
             activeBuildingCache = new ActiveBuildingCache(log);
         }
 
+        private bool EffectsEnabled => Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod);
+
         public void SubscribeHooks()
         {
-            if (!settings.EnableMod)
+            if (!EffectsEnabled)
                 return;
 
             if (hooksSubscribed)
@@ -100,7 +104,7 @@ namespace BuildingLimit
                 return;
 
             SubscribeSettingsChanges();
-            if (!settings.EnableMod)
+            if (!EffectsEnabled)
             {
                 LogDebug("Building limit disabled; runtime hooks not subscribed");
                 libraryInitialized = true;
@@ -115,6 +119,7 @@ namespace BuildingLimit
 
         public void Dispose()
         {
+            Shared.GameplayModActivationGate.StateChanged -= OnModeAllowedChanged;
             UnsubscribeHooks();
             if (settingsPropertyChangedSubscribed)
             {
@@ -173,6 +178,22 @@ namespace BuildingLimit
             HideBuildingLimitMessage();
             ClearBuildingLimitTooltip();
             ResetBuildingLimitTooltipCache();
+        }
+
+        private void OnModeAllowedChanged(bool allowed)
+        {
+            if (!libraryInitialized)
+                return;
+
+            if (EffectsEnabled)
+            {
+                SubscribeHooks();
+                ApplyBuildingLimits();
+            }
+            else
+            {
+                UnsubscribeHooks();
+            }
         }
 
         private void InstallUpdateRolloverHook()

@@ -53,11 +53,15 @@ namespace BuildingCosts
         {
             this.log = log;
             this.settings = settings;
+            Shared.GameplayModActivationGate.Initialize(log, BuildingCostsPlugin.PluginGuid, BuildingCostsPlugin.PluginName, () => settings.EnableMod);
+            Shared.GameplayModActivationGate.StateChanged += OnModeAllowedChanged;
         }
+
+        private bool EffectsEnabled => Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod);
 
         public void SubscribeHooks()
         {
-            if (!settings.EnableMod)
+            if (!EffectsEnabled)
                 return;
 
             if (hooksSubscribed)
@@ -93,7 +97,7 @@ namespace BuildingCosts
                 return;
 
             SubscribeSettingsChanges();
-            if (!settings.EnableMod)
+            if (!EffectsEnabled)
             {
                 libraryInitialized = true;
                 LogDebug("Building costs disabled; runtime hooks not subscribed");
@@ -109,6 +113,7 @@ namespace BuildingCosts
 
         public void Dispose()
         {
+            Shared.GameplayModActivationGate.StateChanged -= OnModeAllowedChanged;
             UnsubscribeHooks();
             if (settingsChangedSubscribed)
             {
@@ -169,7 +174,7 @@ namespace BuildingCosts
 
             if (propertyName == nameof(BuildingCostsLobbyViewModel.EnableMod))
             {
-                if (settings.EnableMod)
+                if (EffectsEnabled)
                 {
                     SubscribeHooks();
                     TryRunFeature("Vanilla tooltip costs", InitializeVanillaCostTooltips);
@@ -190,7 +195,7 @@ namespace BuildingCosts
                 return;
             }
 
-            if (!settings.EnableMod)
+            if (!EffectsEnabled)
                 return;
 
             if (propertyName == nameof(BuildingCostsLobbyViewModel.BuildingCosts))
@@ -208,6 +213,24 @@ namespace BuildingCosts
             catch (Exception ex)
             {
                 LogDebug("OnStartMap failed:", ex);
+            }
+        }
+
+        private void OnModeAllowedChanged(bool allowed)
+        {
+            if (!libraryInitialized)
+                return;
+
+            if (EffectsEnabled)
+            {
+                SubscribeHooks();
+                TryRunFeature("Vanilla tooltip costs", InitializeVanillaCostTooltips);
+                TryRunFeature("building costs", ApplyBuildingCosts);
+            }
+            else
+            {
+                try { RestoreDefaultBuildingCosts(); }
+                finally { UnsubscribeHooks(); }
             }
         }
 

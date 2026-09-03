@@ -151,6 +151,8 @@ namespace ImprovedHunters
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
+            Shared.GameplayModActivationGate.Initialize(log, ImprovedHuntersPlugin.PluginGuid, ImprovedHuntersPlugin.PluginName, () => settings.EnableMod);
+            Shared.GameplayModActivationGate.StateChanged += OnModeStateChanged;
         }
 
         public void Apply(
@@ -178,7 +180,7 @@ namespace ImprovedHunters
             TryInitializeFeature("line-of-sight recovery", InitializeHunterLineOfSightRecovery);
             TryInitializeFeature("visibility diagnostics", InitializeHunterVisibilityDiagnostic);
 
-            if (settings.EnableMod)
+            if (Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
                 SubscribeRuntimeEvents();
 
             try
@@ -221,7 +223,7 @@ namespace ImprovedHunters
         public unsafe void RunNativeScan(bool force = false)
         {
             long timestamp = Stopwatch.GetTimestamp();
-            if (!applied || !settings.EnableMod || (!force && timestamp < nextNativeScanTimestamp))
+            if (!applied || !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || (!force && timestamp < nextNativeScanTimestamp))
                 return;
 
             nextNativeScanTimestamp = timestamp + NativeScanInterval;
@@ -260,7 +262,7 @@ namespace ImprovedHunters
                     if (TryClampLiveCamelHealth(unitId, unit))
                         adjustedLiveCamels++;
 
-                    if (settings.EnableMod &&
+                    if (Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) &&
                         IsRuntimeHuntingEnabled(unit->r_UnitChimp) &&
                         IsOwnerAllowedForAnyHunter(unitId, unit))
                     {
@@ -426,7 +428,7 @@ namespace ImprovedHunters
             List<IntPtr> eligiblePrey,
             long timestamp)
         {
-            if (!settings.EnableMod || eligiblePrey.Count == 0)
+            if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || eligiblePrey.Count == 0)
                 return;
 
             foreach (IntPtr hunterAddress in hunters)
@@ -627,7 +629,7 @@ namespace ImprovedHunters
             eligibility.GlobalId = prey->r_GlobalId;
             eligibility.TileX = prey->r_CurrentTilePositionX;
             eligibility.TileY = prey->r_CurrentTilePositionY;
-            eligibility.RuntimeHuntingEnabled = settings.EnableMod && IsRuntimeHuntingEnabled(eligibility.Type);
+            eligibility.RuntimeHuntingEnabled = Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) && IsRuntimeHuntingEnabled(eligibility.Type);
             eligibility.OwnerAllowed = IsOwnerAllowedForAnyHunter(unitId, prey);
             eligibility.AliveState = *(short*)(preyBytes + 0x88);
             eligibility.FlagsAt92 = *(ushort*)(preyBytes + 0x92);
@@ -672,7 +674,7 @@ namespace ImprovedHunters
             hunterRemainingPathSpeedRecovery?.ResetForMap();
             hunterVanillaPathContinuationDiagnostic?.ResetForMap();
             hunterVisibilityDiagnostic?.ResetForMap();
-            Shared.GameModeSnapshot gameMode = Shared.GameModeHelper.Capture();
+            Shared.GameModeSnapshot gameMode = Shared.GameplayModActivationGate.Snapshot;
             targetSearchFallbackSingleplayerAllowed = !gameMode.IsRealMultiplayer && !gameMode.IsMapEditor;
             ApplyHunterHutVisibilityPatch();
             Shared.DebugLogHelper.LogInfo(
@@ -790,7 +792,7 @@ namespace ImprovedHunters
             uint targetGlobalId,
             long timestamp)
         {
-            if (!settings.EnableMod || !settings.ImprovedPathfinding)
+            if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || !settings.ImprovedPathfinding)
                 return;
 
             bool hasCurrentTarget = targetUnitId != 0 && targetGlobalId != 0;
@@ -1046,7 +1048,7 @@ namespace ImprovedHunters
 
         private void OnCalculateBonusYield(UnitCalculateBonusYieldEventArgs args)
         {
-            if (!settings.EnableMod ||
+            if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) ||
                 !IsValidUnitId(args.UnitId) ||
                 GameUnitManagerAPI.Instance.GetType(args.UnitId) != eChimps.CHIMP_TYPE_HUNTER ||
                 !hunterPreyTypes.TryGetValue(args.UnitId, out eChimps preyType) ||
@@ -1068,7 +1070,7 @@ namespace ImprovedHunters
         {
             if (propertyName == nameof(ImprovedHuntersViewModel.EnableMod))
             {
-                if (settings.EnableMod)
+                if (Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
                     SubscribeRuntimeEvents();
                 else
                     UnsubscribeRuntimeEvents();
@@ -1085,7 +1087,7 @@ namespace ImprovedHunters
                 propertyName == nameof(ImprovedHuntersViewModel.HuntChicken))
             {
                 ApplyAutomaticChickenTargetPatch();
-                if (settings.EnableMod && settings.HuntChicken)
+                if (Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) && settings.HuntChicken)
                 {
                     // Recover chickens Vanilla may have created while management was disabled.
                     loadedChickenReconstructionPending = true;
@@ -1131,6 +1133,14 @@ namespace ImprovedHunters
             }
         }
 
+        private void OnModeStateChanged(bool allowed)
+        {
+            if (!applied)
+                return;
+
+            OnSettingChanged(nameof(ImprovedHuntersViewModel.EnableMod));
+        }
+
         private void InitializeAutomaticChickenTargetPatch(
             ReadOnlySpan<byte> memory,
             ulong imageBase,
@@ -1171,7 +1181,7 @@ namespace ImprovedHunters
                     referenceHashMatches,
                     getLiveChickenCount: GetLiveTrackedGranaryChickenCount,
                     canManageChickens: () =>
-                        settings.EnableMod &&
+                        Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) &&
                         settings.HuntChicken &&
                         automaticChickenTargetPatch?.IsApplied == true);
             }
@@ -1199,7 +1209,7 @@ namespace ImprovedHunters
                     imageBase,
                     referenceHashMatches,
                     canAllowManualChickenAttack: () =>
-                        settings.EnableMod &&
+                        Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) &&
                         settings.HuntChicken &&
                         automaticChickenTargetPatch?.IsApplied == true);
             }
@@ -1455,14 +1465,14 @@ namespace ImprovedHunters
 
         private bool CanRunHunterTargetSelection()
         {
-            return settings.EnableMod &&
+            return Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) &&
                 settings.ImprovedTargetSelection &&
                 targetSearchFallbackSingleplayerAllowed;
         }
 
         private bool CanRunHunterPathfinding()
         {
-            return settings.EnableMod &&
+            return Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) &&
                 settings.ImprovedPathfinding &&
                 targetSearchFallbackSingleplayerAllowed;
         }
@@ -1688,7 +1698,7 @@ namespace ImprovedHunters
 
         private void ApplyAutomaticChickenTargetPatch()
         {
-            bool requestedEnabled = settings.EnableMod && settings.HuntChicken;
+            bool requestedEnabled = Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) && settings.HuntChicken;
             if (automaticChickenTargetPatch == null)
             {
                 Shared.DebugLogHelper.LogWarning(
@@ -2076,7 +2086,7 @@ namespace ImprovedHunters
 
         private void SubscribeRuntimeEvents()
         {
-            if (runtimeEventsSubscribed || !settings.EnableMod)
+            if (runtimeEventsSubscribed || !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
                 return;
 
             TrySubscribeFeature("hunter target queries", () => UnitR3EventHooks.OnUnitHunterQueryTarget.Observable
@@ -2140,6 +2150,7 @@ namespace ImprovedHunters
 
         public void Dispose()
         {
+            Shared.GameplayModActivationGate.StateChanged -= OnModeStateChanged;
             settings.SettingChanged -= OnSettingChanged;
 
             UnsubscribeRuntimeEvents();

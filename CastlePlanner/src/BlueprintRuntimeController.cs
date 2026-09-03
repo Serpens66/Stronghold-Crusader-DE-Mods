@@ -95,6 +95,7 @@ namespace CastlePlanner
                 OnBlueprintContentSettingsChanged;
             settings.HotkeyCaptureRequested += OnHotkeyCaptureRequested;
             preview.SelectionVisualChanged += OnPreviewSelectionChanged;
+            Shared.GameplayModActivationGate.StateChanged += OnModeStateChanged;
             subscriptions.Add(
                 MapLoaderR3EventHooks.OnStartMap.Observable
                     .Where(args => args.Phase == EventHookPhase.Post)
@@ -305,7 +306,8 @@ namespace CastlePlanner
 
         private void CameraUpdateHook(CameraControls2D camera)
         {
-            if (Hud?.ShouldSuppressMapZoom() == true)
+            if (Shared.GameplayModActivationGate.IsAllowed &&
+                Hud?.ShouldSuppressMapZoom() == true)
                 camera.AllowZoom = false;
             cameraUpdateTrampoline(camera);
         }
@@ -383,7 +385,15 @@ namespace CastlePlanner
         }
 
         private bool EffectiveBlueprintMode =>
-            settings?.IsBlueprintMode == true || preview?.IsPreviewActive == true;
+            Shared.GameplayModActivationGate.IsAllowed &&
+            (settings?.IsBlueprintMode == true || preview?.IsPreviewActive == true);
+
+        private void OnModeStateChanged(bool allowed)
+        {
+            if (!allowed)
+                ResetMapState();
+            RefreshHud();
+        }
 
         private void OnPreviewSelectionChanged()
         {

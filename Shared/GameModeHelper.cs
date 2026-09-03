@@ -51,7 +51,8 @@ namespace Shared
         private const int NoGameValue = -1;
         private const int NoCoopTrail = 0;
         private const uint NonCampaignMapId = uint.MaxValue;
-        private const int SupportedOriginApiVersion = 1;
+        private const int MinimumOriginApiVersion = 1;
+        private const int SupportedOriginApiVersion = 2;
         private const int FirstCustomTrailId = 90;
         private const int LastCustomTrailId = 92;
         private const int FirstCoopTrailId = 0;
@@ -90,6 +91,26 @@ namespace Shared
                 campaignMapId: 0,
                 eventTrailType: NoGameValue,
                 editorLoad: args != null && args.LoadingEditorMap);
+
+        internal static bool AllowsCustomGameMods(
+            GameModeKind kind,
+            GameModeLaunchVariant launchVariant)
+        {
+            if (kind == GameModeKind.CustomGame)
+                return true;
+            if (launchVariant == GameModeLaunchVariant.Standard)
+                return false;
+
+            return kind == GameModeKind.VanillaTrail ||
+                kind == GameModeKind.CustomTrail ||
+                kind == GameModeKind.CoopTrail ||
+                kind == GameModeKind.SandsOfTime;
+        }
+
+        internal static bool AllowsRegularGameplayMods(
+            GameModeKind kind,
+            GameModeLaunchVariant launchVariant) =>
+            kind == GameModeKind.MapEditor || AllowsCustomGameMods(kind, launchVariant);
 
         private static GameModeSnapshot CaptureCore(
             bool multiplayerSave,
@@ -180,15 +201,24 @@ namespace Shared
                 campaignMapId,
                 eventTrailType);
             GameModeKind kind = observedKind;
+            if (observedKind == GameModeKind.CustomGame && externalOrigin.LaunchPending)
+            {
+                GameModeKind originKind = ResolveExternalOriginKind(externalOrigin.Origin);
+                if (originKind != GameModeKind.Unknown)
+                    kind = originKind;
+            }
             if (sandsOfTime && kind != GameModeKind.MapEditor && kind != GameModeKind.CoopTrail)
                 kind = GameModeKind.SandsOfTime;
             else if (customTrailRestart && (kind == GameModeKind.Unknown || kind == GameModeKind.CustomGame))
                 kind = GameModeKind.CustomTrail;
             if (vanillaCustomized && customizedTrailId >= 0 && kind == GameModeKind.CustomGame)
             {
-                if (IsVanillaTrailType(customizedTrailType))
+                bool builtInOriginRequired = externalOrigin.SupportsBuiltInOrigins;
+                if (IsVanillaTrailType(customizedTrailType) &&
+                    (!builtInOriginRequired || externalOrigin.Origin == ExternalCustomizedOrigin.VanillaTrail))
                     kind = GameModeKind.VanillaTrail;
-                else if (IsSandsTrailType(customizedTrailType))
+                else if (IsSandsTrailType(customizedTrailType) &&
+                    (!builtInOriginRequired || externalOrigin.Origin == ExternalCustomizedOrigin.SandsOfTime))
                     kind = GameModeKind.SandsOfTime;
             }
             GameModeLaunchVariant launchVariant = ResolveLaunchVariant(
@@ -198,6 +228,18 @@ namespace Shared
                 customizedTrailId,
                 observedKind == GameModeKind.CustomGame,
                 externalOrigin);
+            bool conflictingOrigin = externalOrigin.IsInvalid ||
+                (externalOrigin.Origin != ExternalCustomizedOrigin.None &&
+                 (!ExternalOriginMatchesKind(externalOrigin, kind) ||
+                  !ExternalOriginMatchesEvidence(
+                      externalOrigin,
+                      kind,
+                      skirmishTrailType,
+                      coopTrailId,
+                      eventTrailType,
+                      vanillaCustomized,
+                      customizedTrailType,
+                      customizedTrailId)));
 
             return new GameModeSnapshot(
                 realMultiplayer,
@@ -231,7 +273,9 @@ namespace Shared
                     : customizedTrailId,
                 externalOrigin.Origin != ExternalCustomizedOrigin.None
                     ? externalOrigin.MissionId
-                    : customizedTrailId);
+                    : customizedTrailId,
+                externalOrigin.Origin,
+                conflictingOrigin);
         }
 
         internal static GameModeKind ResolveKind(
@@ -284,11 +328,13 @@ namespace Shared
             bool vanillaMatches = vanillaCustomized &&
                 vanillaCustomGameContext &&
                 customizedTrailId >= 0 &&
+                (!externalOrigin.SupportsBuiltInOrigins ||
+                 ExternalOriginMatchesKind(externalOrigin, kind)) &&
                 ((kind == GameModeKind.VanillaTrail && IsVanillaTrailType(customizedTrailType)) ||
                  (kind == GameModeKind.SandsOfTime && IsSandsTrailType(customizedTrailType)));
             bool externalMatches =
-                (externalOrigin.Origin == ExternalCustomizedOrigin.CustomTrail && kind == GameModeKind.CustomTrail) ||
-                (externalOrigin.Origin == ExternalCustomizedOrigin.CoopTrail && kind == GameModeKind.CoopTrail);
+                ExternalOriginMatchesKind(externalOrigin, kind) &&
+                (kind != GameModeKind.CustomGame || externalOrigin.LaunchPending);
             if (!vanillaMatches && !externalMatches)
                 return GameModeLaunchVariant.Standard;
             return externalMatches && externalOrigin.RestoredFromSave
@@ -301,6 +347,48 @@ namespace Shared
 
         private static bool IsSandsTrailType(int value) =>
             value >= (int)GameTrailType.SandsOne && value <= (int)GameTrailType.SandsEight;
+
+        private static GameModeKind ResolveExternalOriginKind(int origin)
+        {
+            switch (origin)
+            {
+                case ExternalCustomizedOrigin.CustomTrail: return GameModeKind.CustomTrail;
+                case ExternalCustomizedOrigin.CoopTrail: return GameModeKind.CoopTrail;
+                case ExternalCustomizedOrigin.VanillaTrail: return GameModeKind.VanillaTrail;
+                case ExternalCustomizedOrigin.SandsOfTime: return GameModeKind.SandsOfTime;
+                default: return GameModeKind.Unknown;
+            }
+        }
+
+        private static bool ExternalOriginMatchesKind(ExternalCustomizedOrigin origin, GameModeKind kind) =>
+            (origin.Origin == ExternalCustomizedOrigin.CustomTrail && kind == GameModeKind.CustomTrail) ||
+            (origin.Origin == ExternalCustomizedOrigin.CoopTrail && kind == GameModeKind.CoopTrail) ||
+            (origin.Origin == ExternalCustomizedOrigin.VanillaTrail && kind == GameModeKind.VanillaTrail) ||
+            (origin.Origin == ExternalCustomizedOrigin.SandsOfTime && kind == GameModeKind.SandsOfTime);
+
+        internal static bool ExternalOriginMatchesEvidence(
+            ExternalCustomizedOrigin origin,
+            GameModeKind kind,
+            int skirmishTrailType,
+            int coopTrailId,
+            int eventTrailType,
+            bool vanillaCustomized,
+            int customizedTrailType,
+            int customizedTrailId)
+        {
+            if (kind == GameModeKind.CoopTrail && coopTrailId > NoCoopTrail)
+                return origin.TrailId + 1 == coopTrailId;
+            if (kind != GameModeKind.VanillaTrail && kind != GameModeKind.SandsOfTime)
+                return true;
+
+            int observedTrailType = eventTrailType >= 0 ? eventTrailType : skirmishTrailType;
+            if (observedTrailType >= 0 && origin.TrailType != observedTrailType)
+                return false;
+            if (!vanillaCustomized)
+                return true;
+            return origin.TrailType == customizedTrailType &&
+                origin.MissionId == customizedTrailId;
+        }
 
         private static bool TryCaptureVanillaCustomizedTrail(out int trailType, out int trailId)
         {
@@ -355,44 +443,89 @@ namespace Shared
                 Type api = Type.GetType(
                     "CustomCustomTrail.CustomCustomTrailLaunchOriginApi, CustomCustomTrail",
                     throwOnError: false);
-                if (api == null || ReadStaticInt(api, "ApiVersion") != SupportedOriginApiVersion)
+                if (api == null)
                     return default;
-                int origin = ReadStaticInt(api, "Origin");
-                if (origin != ExternalCustomizedOrigin.CustomTrail && origin != ExternalCustomizedOrigin.CoopTrail)
-                    return default;
+                if (!TryReadStaticInt(api, "ApiVersion", out int apiVersion) ||
+                    !TryReadStaticInt(api, "Origin", out int origin))
+                {
+                    return ExternalCustomizedOrigin.InvalidProvider;
+                }
+                if (apiVersion < MinimumOriginApiVersion || apiVersion > SupportedOriginApiVersion)
+                    return ExternalCustomizedOrigin.InvalidProvider;
+                if (origin == ExternalCustomizedOrigin.None)
+                    return ExternalCustomizedOrigin.AvailableProvider(apiVersion >= 2);
+                bool knownOrigin = origin == ExternalCustomizedOrigin.CustomTrail ||
+                    origin == ExternalCustomizedOrigin.CoopTrail ||
+                    (apiVersion >= 2 && (origin == ExternalCustomizedOrigin.VanillaTrail ||
+                                         origin == ExternalCustomizedOrigin.SandsOfTime));
+                if (!knownOrigin)
+                    return ExternalCustomizedOrigin.InvalidProvider;
+                bool launchPending = false;
+                if (!TryReadStaticInt(api, "TrailType", out int trailType) ||
+                    !TryReadStaticInt(api, "TrailId", out int trailId) ||
+                    !TryReadStaticInt(api, "MissionId", out int missionId) ||
+                    !TryReadStaticBool(api, "RestoredFromSave", out bool restoredFromSave) ||
+                    (apiVersion >= 2 && !TryReadStaticBool(api, "LaunchPending", out launchPending)))
+                {
+                    return ExternalCustomizedOrigin.InvalidProvider;
+                }
                 var result = new ExternalCustomizedOrigin(
                     origin,
-                    ReadStaticInt(api, "TrailType"),
-                    ReadStaticInt(api, "TrailId"),
-                    ReadStaticInt(api, "MissionId"),
-                    ReadStaticBool(api, "RestoredFromSave"));
-                if (result.MissionId < FirstMissionId ||
-                    (result.Origin == ExternalCustomizedOrigin.CustomTrail &&
-                        (result.TrailId < FirstCustomTrailId || result.TrailId > LastCustomTrailId)) ||
+                    trailType,
+                    trailId,
+                    missionId,
+                    restoredFromSave,
+                    launchPending,
+                    supportsBuiltInOrigins: apiVersion >= 2);
+                if ((result.Origin == ExternalCustomizedOrigin.CustomTrail &&
+                        (result.MissionId < FirstMissionId ||
+                         result.TrailId < FirstCustomTrailId || result.TrailId > LastCustomTrailId)) ||
                     (result.Origin == ExternalCustomizedOrigin.CoopTrail &&
-                        (result.TrailId < FirstCoopTrailId || result.TrailId > LastCoopTrailId ||
-                         result.MissionId > LastCoopMissionId)))
+                        (result.MissionId < FirstMissionId ||
+                         result.TrailId < FirstCoopTrailId || result.TrailId > LastCoopTrailId ||
+                         result.MissionId > LastCoopMissionId)) ||
+                    (result.Origin == ExternalCustomizedOrigin.VanillaTrail &&
+                        (!IsVanillaTrailType(result.TrailType) || result.TrailId < 0 || result.MissionId < 0)) ||
+                    (result.Origin == ExternalCustomizedOrigin.SandsOfTime &&
+                        (!IsSandsTrailType(result.TrailType) || result.TrailId < 0 || result.MissionId < 0)))
                 {
-                    return default;
+                    return ExternalCustomizedOrigin.InvalidProvider;
                 }
                 return result;
             }
             catch
             {
                 // CustomCustomTrail is optional; invalid providers must never enable gameplay mods.
-                return default;
+                return ExternalCustomizedOrigin.InvalidProvider;
             }
 #endif
         }
 
-        private static int ReadStaticInt(Type type, string name)
+        private static bool TryReadStaticInt(Type type, string name, out int result)
         {
-            object value = type.GetProperty(name, BindingFlags.Public | BindingFlags.Static)?.GetValue(null);
-            return value == null ? NoGameValue : Convert.ToInt32(value);
+            result = NoGameValue;
+            PropertyInfo property = type.GetProperty(name, BindingFlags.Public | BindingFlags.Static);
+            if (property == null || property.GetIndexParameters().Length != 0)
+                return false;
+            object value = property.GetValue(null);
+            if (value == null)
+                return false;
+            result = Convert.ToInt32(value);
+            return true;
         }
 
-        private static bool ReadStaticBool(Type type, string name) =>
-            (bool)(type.GetProperty(name, BindingFlags.Public | BindingFlags.Static)?.GetValue(null) ?? false);
+        private static bool TryReadStaticBool(Type type, string name, out bool result)
+        {
+            result = false;
+            PropertyInfo property = type.GetProperty(name, BindingFlags.Public | BindingFlags.Static);
+            if (property == null || property.PropertyType != typeof(bool) ||
+                property.GetIndexParameters().Length != 0)
+            {
+                return false;
+            }
+            result = (bool)property.GetValue(null);
+            return true;
+        }
 
         public static bool IsRealMultiplayer(bool multiplayerSave = false) =>
             Capture(multiplayerSave).IsRealMultiplayer;
@@ -441,19 +574,35 @@ namespace Shared
         internal const int None = 0;
         internal const int CustomTrail = 1;
         internal const int CoopTrail = 2;
+        internal const int VanillaTrail = 3;
+        internal const int SandsOfTime = 4;
+
+        internal static ExternalCustomizedOrigin InvalidProvider =>
+            new ExternalCustomizedOrigin(-1, -1, -1, -1, false, false, isInvalid: true);
+
+        internal static ExternalCustomizedOrigin AvailableProvider(bool supportsBuiltInOrigins) =>
+            new ExternalCustomizedOrigin(
+                None, -1, -1, -1, false, false,
+                supportsBuiltInOrigins: supportsBuiltInOrigins);
 
         internal ExternalCustomizedOrigin(
             int origin,
             int trailType,
             int trailId,
             int missionId,
-            bool restoredFromSave)
+            bool restoredFromSave,
+            bool launchPending = false,
+            bool isInvalid = false,
+            bool supportsBuiltInOrigins = false)
         {
             Origin = origin;
             TrailType = trailType;
             TrailId = trailId;
             MissionId = missionId;
             RestoredFromSave = restoredFromSave;
+            LaunchPending = launchPending;
+            IsInvalid = isInvalid;
+            SupportsBuiltInOrigins = supportsBuiltInOrigins;
         }
 
         internal int Origin { get; }
@@ -461,6 +610,9 @@ namespace Shared
         internal int TrailId { get; }
         internal int MissionId { get; }
         internal bool RestoredFromSave { get; }
+        internal bool LaunchPending { get; }
+        internal bool IsInvalid { get; }
+        internal bool SupportsBuiltInOrigins { get; }
     }
 
     internal readonly struct PlayerIdentityResolution
@@ -939,7 +1091,9 @@ namespace Shared
             int campaignMapId,
             int eventTrailType,
             int customizedTrailId,
-            int customizedMissionId)
+            int customizedMissionId,
+            int customizedOriginKind,
+            bool hasConflictingCustomizedOrigin)
         {
             IsRealMultiplayer = isRealMultiplayer;
             IsSingleplayerSkirmishMode = isSingleplayerSkirmishMode;
@@ -967,6 +1121,8 @@ namespace Shared
             EventTrailType = eventTrailType;
             CustomizedTrailId = customizedTrailId;
             CustomizedMissionId = customizedMissionId;
+            CustomizedOriginKind = customizedOriginKind;
+            HasConflictingCustomizedOrigin = hasConflictingCustomizedOrigin;
         }
 
         public bool IsRealMultiplayer { get; }
@@ -999,11 +1155,54 @@ namespace Shared
             Kind == GameModeKind.CustomTrail ||
             Kind == GameModeKind.CoopTrail ||
             Kind == GameModeKind.SandsOfTime;
-        public bool AllowsCustomGameMods => Kind == GameModeKind.CustomGame || IsCustomized;
+        public bool AllowsCustomGameMods =>
+            !HasConflictingCustomizedOrigin && GameModeHelper.AllowsCustomGameMods(Kind, LaunchVariant);
+        public bool AllowsRegularGameplayMods =>
+            !HasConflictingCustomizedOrigin &&
+            GameModeHelper.AllowsRegularGameplayMods(Kind, LaunchVariant);
         public int CampaignMapId { get; }
         public int EventTrailType { get; }
         public int CustomizedTrailId { get; }
         public int CustomizedMissionId { get; }
+        public int CustomizedOriginKind { get; }
+        public bool HasConflictingCustomizedOrigin { get; }
+
+#if SHARED_PRESET_TESTS
+        internal GameModeSnapshot WithModeEvidenceForTests(
+            GameModeKind kind,
+            GameModeLaunchVariant launchVariant,
+            int eventTrailType,
+            bool hasConflictingCustomizedOrigin = false) =>
+            new GameModeSnapshot(
+                IsRealMultiplayer,
+                IsSingleplayerSkirmishMode,
+                IsSingleplayerSkirmish,
+                IsSingleplayerTrail,
+                IsMapEditor,
+                MultiplayerSave,
+                DirectorAvailable,
+                DirectorMultiplayer,
+                DirectorSkirmish,
+                LowLevelNetworked,
+                PlatformMultiplayer,
+                LobbyMembers,
+                RealLobbyMembers,
+                SkirmishLobbyMembers,
+                GameMembers,
+                RealNetworkGameMembers,
+                GameType,
+                SkirmishGameType,
+                SkirmishTrailType,
+                CoopTrailId,
+                kind,
+                launchVariant,
+                CampaignMapId,
+                eventTrailType,
+                CustomizedTrailId,
+                CustomizedMissionId,
+                CustomizedOriginKind,
+                hasConflictingCustomizedOrigin);
+#endif
 
         public string ToDiagnosticString()
         {
@@ -1018,9 +1217,11 @@ namespace Shared
                 $"gameMembers={GameMembers}, realNetworkGameMembers={RealNetworkGameMembers}, " +
                 $"gameType={GameType}, skirmishGameType={SkirmishGameType}, skirmishTrailType={SkirmishTrailType}, " +
                 $"coopTrailId={CoopTrailId}, kind={Kind}, launchVariant={LaunchVariant}, " +
-                $"allowsCustomGameMods={AllowsCustomGameMods}, campaignMapId={CampaignMapId}, " +
+                $"allowsCustomGameMods={AllowsCustomGameMods}, " +
+                $"allowsRegularGameplayMods={AllowsRegularGameplayMods}, campaignMapId={CampaignMapId}, " +
                 $"eventTrailType={EventTrailType}, customizedTrailId={CustomizedTrailId}, " +
-                $"customizedMissionId={CustomizedMissionId}";
+                $"customizedMissionId={CustomizedMissionId}, customizedOriginKind={CustomizedOriginKind}, " +
+                $"conflictingCustomizedOrigin={HasConflictingCustomizedOrigin}";
         }
     }
 }

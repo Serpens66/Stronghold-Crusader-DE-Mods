@@ -33,6 +33,7 @@ namespace CastlePlanner
                 return;
 
             Settings = new CastlePlannerSettingsViewModel(Logger, Info.Location);
+            Shared.GameplayModActivationGate.Initialize(Logger, PluginGuid, PluginName, () => Settings.EnableMod);
             previewRuntime = new FreeCastlePreviewRuntime(Logger, Settings);
             runtime = new CastlePlannerRuntime(Logger, Settings, previewRuntime);
             CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;

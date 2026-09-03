@@ -25,7 +25,13 @@ namespace ExtremePowers
         private static int[] capturedPlayers = Array.Empty<int>();
         private static IDisposable mapStartSubscription, mapUnloadSubscription;
         public Settings.ExtremePowersSettings Settings { get; private set; }
-        private void Awake() { Shared.DebugLogHelper.LogDebug(Logger, $"{PluginName} {PluginVersion} loaded."); CrusaderLibrary.Instance.LibraryLoaded += OnLibraryLoaded; }
+        private void Awake()
+        {
+            Shared.GameplayModActivationGate.Initialize(Logger, PluginGuid, PluginName, () => Settings?.EnableMod == true);
+            Shared.GameplayModActivationGate.StateChanged += OnModeStateChanged;
+            Shared.DebugLogHelper.LogDebug(Logger, $"{PluginName} {PluginVersion} loaded.");
+            CrusaderLibrary.Instance.LibraryLoaded += OnLibraryLoaded;
+        }
         private void OnLibraryLoaded(IntPtr handle, ReadOnlySpan<byte> memory)
         {
             if (Interlocked.Exchange(ref initialized, 1) != 0) return; CrusaderLibrary.Instance.LibraryLoaded -= OnLibraryLoaded;
@@ -41,7 +47,7 @@ namespace ExtremePowers
         }
         private void OnStartMap(MapStartEventArgs args)
         {
-            Shared.GameModeSnapshot mode = Shared.GameModeHelper.Capture(args.bMultiplayerSave != 0);
+            Shared.GameModeSnapshot mode = Shared.GameplayModActivationGate.Snapshot;
             capturedRealMultiplayer = mode.IsRealMultiplayer;
             capturedPlayers = Shared.ActivePlayerHelper.GetActivePlayerIds();
             Shared.DebugLogHelper.LogDebug(rootedLogger, "Extreme Powers map session captured: " + mode.ToDiagnosticString() + ", players=[" + string.Join(",", capturedPlayers) + "].");
@@ -55,8 +61,10 @@ namespace ExtremePowers
         }
         private static ApiReadiness GetProtocolReadiness(string expectedToken)
         {
-            Shared.GameModeSnapshot live = Shared.GameModeHelper.Capture();
-            bool realMultiplayer = capturedRealMultiplayer ?? live.IsRealMultiplayer;
+            if (!Shared.GameplayModActivationGate.IsAllowed)
+                return ApiReadiness.Unavailable("current game mode does not allow regular gameplay mods");
+            bool realMultiplayer = capturedRealMultiplayer ??
+                Shared.GameplayModActivationGate.Snapshot.IsRealMultiplayer;
             if (!realMultiplayer) return ApiReadiness.Available;
             int[] players = capturedPlayers.Length == 0 ? Shared.ActivePlayerHelper.GetActivePlayerIds() : capturedPlayers;
             if (players.Length == 0) return ApiReadiness.Unavailable("real multiplayer participant roster is unresolved");
@@ -71,7 +79,7 @@ namespace ExtremePowers
             try
             {
                 demoHandle?.Dispose(); demoHandle = null;
-                if (!Settings.EnableMod) { client.RestoreVanilla(); return; }
+                if (!Shared.GameplayModActivationGate.IsEnabled(Settings.EnableMod)) { client.RestoreVanilla(); return; }
                 client.Apply(Settings); if (Settings.EnableGoldReplacement) demoHandle = client.InstallGoldDemo(Settings);
             }
             catch (Exception ex)
@@ -81,6 +89,14 @@ namespace ExtremePowers
                 client.RestoreVanilla();
                 Shared.DebugLogHelper.LogError(Logger, "Extreme Powers settings were rejected; Vanilla tuning restored: " + ex);
             }
+        }
+
+        private void OnModeStateChanged(bool allowed)
+        {
+            if (client != null && Settings != null)
+                ApplySettings();
+            if (!allowed)
+                ResetMapSession();
         }
     }
 }

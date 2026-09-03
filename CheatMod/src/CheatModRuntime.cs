@@ -33,6 +33,8 @@ namespace CheatMod
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
+            Shared.GameplayModActivationGate.Initialize(log, CheatModPlugin.PluginGuid, CheatModPlugin.PluginName, () => settings.EnableMod);
+            Shared.GameplayModActivationGate.StateChanged += OnModeAllowedChanged;
         }
 
         public void InitializeAfterLibraryLoaded()
@@ -77,6 +79,13 @@ namespace CheatMod
         {
             mapActive = false;
             RefreshTickSubscription("map unload");
+        }
+
+        private void OnModeAllowedChanged(bool allowed)
+        {
+            if (!allowed)
+                mapActive = false;
+            RefreshTickSubscription("game-mode gate changed");
         }
 
         private void OnGameTick(int tick)
@@ -145,7 +154,7 @@ namespace CheatMod
         private void RefreshTickSubscription(string reason)
         {
             bool shouldSubscribe = mapActive &&
-                settings.EnableMod &&
+                Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) &&
                 settings.EndlessExtremePowers &&
                 GamePlayerManagerAPI.Instance.IsLocalPlayerExtremePowersEnabled();
             if (tickSubscribed == shouldSubscribe)

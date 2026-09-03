@@ -74,6 +74,12 @@
     <Compile Include="..\..\Shared\GameModeHelper.cs">
       <Link>GameModeHelper.cs</Link>
     </Compile>
+    <Compile Include="..\..\Shared\GameplayModActivationGate.cs">
+      <Link>GameplayModActivationGate.cs</Link>
+    </Compile>
+    <Compile Include="..\..\Shared\GameplayModModePolicy.cs">
+      <Link>GameplayModModePolicy.cs</Link>
+    </Compile>
     <Compile Include="..\..\Shared\LobbyLifecycle.cs">
       <Link>LobbyLifecycle.cs</Link>
     </Compile>

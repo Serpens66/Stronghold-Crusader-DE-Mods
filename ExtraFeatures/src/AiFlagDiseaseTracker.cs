@@ -50,6 +50,7 @@ namespace ExtraFeatures
             bool referenceHashMatches)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
+            Shared.GameplayModActivationGate.StateChanged += OnModeStateChanged;
             int routineRva = Shared.NativePatternResolver.ResolveUnique(
                 memory,
                 AiFlagRoutinePattern,
@@ -106,14 +107,14 @@ namespace ExtraFeatures
         }
 
         public bool IsTracked(GameProjectile* projectile) =>
-            trackingAvailable &&
+            Shared.GameplayModActivationGate.IsAllowed && trackingAvailable &&
             projectile != null &&
             projectile->r_ProjectileType == ProjectileType.Disease &&
             registry.ContainsGlobalId(projectile->r_GlobalId);
 
         public bool TryTrackExternalDiseaseFlag(int slotId)
         {
-            if (!trackingAvailable || slotId <= 0)
+            if (!Shared.GameplayModActivationGate.IsAllowed || !trackingAvailable || slotId <= 0)
                 return false;
 
             try
@@ -152,6 +153,7 @@ namespace ExtraFeatures
                 return;
 
             disposed = true;
+            Shared.GameplayModActivationGate.StateChanged -= OnModeStateChanged;
             foreach (IDisposable subscription in subscriptions)
                 subscription.Dispose();
             subscriptions.Clear();
@@ -168,7 +170,7 @@ namespace ExtraFeatures
 
         private void RunAiFlagRoutine(IntPtr aiManager, int playerId)
         {
-            if (!trackingAvailable)
+            if (!Shared.GameplayModActivationGate.IsAllowed || !trackingAvailable)
             {
                 aiFlagRoutineHook.Value.Hook.Trampoline(aiManager, playerId);
                 return;
@@ -189,6 +191,9 @@ namespace ExtraFeatures
 
         private void OnProjectileSpawn(ProjectileSpawnEventArgs args)
         {
+            if (!Shared.GameplayModActivationGate.IsAllowed)
+                return;
+
             int playerId = activeFlagPlayerId;
             if (!trackingAvailable || args.ProjectileType != ProjectileType.Disease)
             {
@@ -263,7 +268,7 @@ namespace ExtraFeatures
 
         private byte[] SaveState(SaveContext context)
         {
-            if (!context.IsSaveFile)
+            if (!context.IsSaveFile || !Shared.GameplayModActivationGate.IsAllowed)
                 return null;
 
             PruneInvalidProjectiles();
@@ -321,6 +326,12 @@ namespace ExtraFeatures
         {
             activeFlagPlayerId = 0;
             registry.Clear();
+        }
+
+        private void OnModeStateChanged(bool allowed)
+        {
+            if (!allowed)
+                ResetMapState();
         }
 
         private void DisableTracking(Exception failure)

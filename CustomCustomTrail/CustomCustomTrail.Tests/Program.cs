@@ -444,14 +444,15 @@ static void TestCustomizedLaunchOriginIntegration()
         api.Contains("public static CustomCustomTrailLaunchOriginKind Origin") &&
         api.Contains("public static int TrailId") &&
         api.Contains("public static int MissionId") &&
-        api.Contains("public static bool RestoredFromSave"),
+        api.Contains("public static bool RestoredFromSave") &&
+        api.Contains("public static bool LaunchPending"),
         "the optional read-only origin surface is incomplete");
     Assert(api.Contains("RegisterModDataHandler") &&
         api.Contains("MessagePackSerializer.Serialize") &&
         api.Contains("MessagePackSerializer.Deserialize") &&
         api.Contains("!context.IsSaveFile || context.IsMapEditorSave"),
         "customized launch origin is not restricted to versioned save-file data");
-    Assert(api.Contains("data.Version != CurrentApiVersion") &&
+    Assert(api.Contains("LegacyApiVersion") &&
         api.Contains("Ignored invalid Custom Trail launch-origin save data") &&
         api.Contains("Ignored unreadable Custom Trail launch-origin save data"),
         "missing or corrupt saved origin does not fail closed");
@@ -462,15 +463,29 @@ static void TestCustomizedLaunchOriginIntegration()
         "launch or restart unload can clear the origin before map start");
     Assert(coordinator.Contains("SetCustomizedCustomTrail(trailId, missionId)") &&
         coordinator.Contains("SetCustomizedCoopTrail(trailId, mission)") &&
+        coordinator.Contains("SetCustomizedVanillaTrail") &&
+        coordinator.Contains("SetCustomizedSandsOfTime") &&
         runtime.Contains("SetCustomizedCoopTrail(trailId, missionId)"),
         "host/client Customize transitions do not establish the origin");
+    int multiplayerOpenHookIndex = coordinator.IndexOf("private void MultiplayerOpenHook", StringComparison.Ordinal);
+    int startSkirmishHookIndex = coordinator.IndexOf("private void StartSkirmishGameHook", StringComparison.Ordinal);
+    Assert(multiplayerOpenHookIndex >= 0 && startSkirmishHookIndex > multiplayerOpenHookIndex,
+        "the multiplayer-open hook could not be isolated");
+    string multiplayerOpenHook = coordinator.Substring(
+        multiplayerOpenHookIndex,
+        startSkirmishHookIndex - multiplayerOpenHookIndex);
+    Assert(multiplayerOpenHook.Contains("fromNew && skirmishSetup && restartInfo == null && !coopSetup && !trailMaker") &&
+        multiplayerOpenHook.IndexOf("multiplayerOpenOriginal(", StringComparison.Ordinal) <
+            multiplayerOpenHook.IndexOf("CaptureBuiltInCustomizeOrigin(customiseTrailType, customiseTrailId)", StringComparison.Ordinal) &&
+        coordinator.Split(new[] { "CaptureBuiltInCustomizeOrigin(" }, StringSplitOptions.None).Length == 3,
+        "built-in Customize origin is not captured exclusively after the actual doOpen transition");
     Assert(coordinator.Contains("if (!preserveContextForLaunch)") &&
         coordinator.Contains("restartInfo.customTrailLevel == missionId") &&
         coordinator.Contains("CustomCustomTrailLaunchOriginApi.MarkRestartPending()") &&
         coordinator.Contains("CustomCustomTrailLaunchOriginApi.Clear()"),
         "direct follow-up and restarted Custom Trails do not separate stale from active origin");
     Assert(sharedGameMode.Contains("CustomCustomTrail.CustomCustomTrailLaunchOriginApi, CustomCustomTrail") &&
-        sharedGameMode.Contains("if (!vanillaMatches && !externalMatches)") &&
+        sharedGameMode.Contains("ExternalOriginMatchesKind") &&
         sharedGameMode.Contains("RestoredCustomizedSave"),
         "GameModeHelper does not validate the optional saved origin against Vanilla mode state");
 }
@@ -523,6 +538,37 @@ static void TestCustomizedLaunchOriginRoundtrip()
         CustomCustomTrail.CustomCustomTrailLaunchOriginApi.MissionId == 10,
         "Coop Trail origin did not survive a save roundtrip");
 
+    CustomCustomTrail.CustomCustomTrailLaunchOriginApi.SetCustomizedVanillaTrail(1, 1, 0);
+    saved = saveApi.SaveCallback(new SHCDESE.API.Components.SaveData.SaveContext(true, false));
+    CustomCustomTrail.CustomCustomTrailLaunchOriginApi.Clear();
+    saveApi.LoadCallback(saved, new SHCDESE.API.Components.SaveData.LoadContext(true));
+    Assert(CustomCustomTrail.CustomCustomTrailLaunchOriginApi.Origin ==
+            CustomCustomTrail.CustomCustomTrailLaunchOriginKind.CustomizedVanillaTrail &&
+        CustomCustomTrail.CustomCustomTrailLaunchOriginApi.TrailType == 1 &&
+        CustomCustomTrail.CustomCustomTrailLaunchOriginApi.MissionId == 0,
+        "Vanilla Trail Customize origin did not survive a save roundtrip");
+
+    CustomCustomTrail.CustomCustomTrailLaunchOriginApi.SetCustomizedSandsOfTime(11, 11, 4);
+    Assert(CustomCustomTrail.CustomCustomTrailLaunchOriginApi.Origin ==
+            CustomCustomTrail.CustomCustomTrailLaunchOriginKind.CustomizedSandsOfTime &&
+        CustomCustomTrail.CustomCustomTrailLaunchOriginApi.LaunchPending,
+        "Sands of Time Customize origin was not exposed as pending");
+
+    byte[] legacy = MessagePack.MessagePackSerializer.Serialize(
+        new CustomCustomTrail.CustomCustomTrailLaunchOriginApi.LaunchOriginSaveData
+        {
+            Version = 1,
+            Origin = (int)CustomCustomTrail.CustomCustomTrailLaunchOriginKind.CustomizedCustomTrail,
+            TrailType = -1,
+            TrailId = 90,
+            MissionId = 2,
+        });
+    saveApi.LoadCallback(legacy, new SHCDESE.API.Components.SaveData.LoadContext(true));
+    Assert(CustomCustomTrail.CustomCustomTrailLaunchOriginApi.Origin ==
+            CustomCustomTrail.CustomCustomTrailLaunchOriginKind.CustomizedCustomTrail &&
+        CustomCustomTrail.CustomCustomTrailLaunchOriginApi.MissionId == 2,
+        "version-1 launch origin was not read compatibly");
+
     saveApi.LoadCallback(new byte[] { 0xc1 }, new SHCDESE.API.Components.SaveData.LoadContext(true));
     Assert(CustomCustomTrail.CustomCustomTrailLaunchOriginApi.Origin ==
         CustomCustomTrail.CustomCustomTrailLaunchOriginKind.None,
@@ -549,6 +595,14 @@ static void TestCustomizedLaunchOriginRoundtrip()
     Assert(CustomCustomTrail.CustomCustomTrailLaunchOriginApi.Origin ==
         CustomCustomTrail.CustomCustomTrailLaunchOriginKind.None,
         "invalid Coop mission identity became active");
+    CustomCustomTrail.CustomCustomTrailLaunchOriginApi.SetCustomizedVanillaTrail(0, 0, -1);
+    Assert(CustomCustomTrail.CustomCustomTrailLaunchOriginApi.Origin ==
+        CustomCustomTrail.CustomCustomTrailLaunchOriginKind.None,
+        "invalid Vanilla Customize mission identity became active");
+    CustomCustomTrail.CustomCustomTrailLaunchOriginApi.SetCustomizedSandsOfTime(10, 10, 0);
+    Assert(CustomCustomTrail.CustomCustomTrailLaunchOriginApi.Origin ==
+        CustomCustomTrail.CustomCustomTrailLaunchOriginKind.None,
+        "invalid Sands Customize Trail type became active");
 }
 
 static void TestSteamWorkshopReadinessGate()

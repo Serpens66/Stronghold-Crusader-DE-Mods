@@ -10,7 +10,7 @@ namespace ExtraFeatures
     {
         private void ApplyMarketPriceMultipliers()
         {
-            if (!settings.EnableMod)
+            if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
                 return;
 
             GamePlayerManagerAPI playerApi = GamePlayerManagerAPI.Instance;

@@ -1171,6 +1171,13 @@ namespace BugfixesAndQoL
                         $"Bugfixes and QoL restored AI selection for {key} with missing current files: " +
                         $"missingAivs={result.MissingAivs}, missingAic={result.MissingAic}.");
                 }
+                if (result.UsedBuiltInFallback)
+                {
+                    Shared.DebugLogHelper.LogWarning(
+                        log,
+                        $"Bugfixes and QoL normalized unusable stored AI selection for {key} " +
+                        "to Vanilla's built-in AIV so the skirmish remains startable.");
+                }
                 applied = true;
                 Shared.DebugLogHelper.LogDebug(
                     log,

@@ -37,6 +37,7 @@ namespace UnitCosts
         private int recruitmentCostSnapshotMultiplier;
         private bool recruitmentCostSnapshotValid;
         private bool settingsChangedSubscribed;
+        private bool libraryInitialized;
         private const string GoodsTextSection = "TEXT_GOODS";
         private bool hooksSubscribed;
         private const int MaterialMessageDurationMilliseconds = 3000;
@@ -59,13 +60,18 @@ namespace UnitCosts
         {
             this.log = log;
             this.settings = settings;
+            Shared.GameplayModActivationGate.Initialize(log, UnitCostsPlugin.PluginGuid, UnitCostsPlugin.PluginName, () => settings.EnableMod);
+            Shared.GameplayModActivationGate.StateChanged += OnModeAllowedChanged;
         }
+
+        private bool EffectsEnabled => Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod);
 
         public void InitializeAfterLibraryLoaded()
         {
             SubscribeSettingsChanges();
             TryInitializeFeature("Vanilla gold-cost capture", CaptureVanillaGoldCosts);
-            if (!settings.EnableMod)
+            libraryInitialized = true;
+            if (!EffectsEnabled)
             {
                 Shared.DebugLogHelper.LogDebug(log, "UnitCosts disabled; runtime hooks not subscribed");
                 return;
@@ -111,6 +117,7 @@ namespace UnitCosts
 
         public void Dispose()
         {
+            Shared.GameplayModActivationGate.StateChanged -= OnModeAllowedChanged;
             UnsubscribeHooks();
             if (settingsChangedSubscribed)
             {
@@ -189,7 +196,7 @@ namespace UnitCosts
 
             if (propertyName == nameof(UnitCostsLobbyViewModel.EnableMod))
             {
-                if (settings.EnableMod)
+                if (EffectsEnabled)
                 {
                     SubscribeHooks();
                     TryInitializeFeature("Vanilla gold-cost capture", CaptureVanillaGoldCosts);
@@ -206,7 +213,7 @@ namespace UnitCosts
                 return;
             }
 
-            if (!settings.EnableMod)
+            if (!EffectsEnabled)
                 return;
 
             if (propertyName == nameof(UnitCostsLobbyViewModel.UnitCosts))
@@ -237,6 +244,26 @@ namespace UnitCosts
         private void OnUnloadMap(MapUnloadEventArgs args)
         {
             HideMaterialMessage();
+        }
+
+        private void OnModeAllowedChanged(bool allowed)
+        {
+            if (!libraryInitialized)
+                return;
+
+            if (EffectsEnabled)
+            {
+                SubscribeHooks();
+                TryInitializeFeature("Vanilla gold-cost capture", CaptureVanillaGoldCosts);
+                TryInitializeFeature("native gold costs", ApplyUnitCosts);
+                TryInitializeFeature("extra-cost normalization", settings.NormalizeExtraCostsAfterNativeGoldChange);
+                TryInitializeFeature("human extra costs", ApplyHumanExtraUnitCosts);
+            }
+            else
+            {
+                try { RestoreVanillaUnitCosts(); }
+                finally { UnsubscribeHooks(); }
+            }
         }
 
         private void ApplyUnitCosts()
@@ -558,7 +585,7 @@ namespace UnitCosts
 
         internal void RefreshRecruitmentButtonAvailability()
         {
-            if (IsMapEditor() || !settings.EnableMod || humanExtraCosts.Count == 0)
+            if (IsMapEditor() || !EffectsEnabled || humanExtraCosts.Count == 0)
                 return;
 
             int playerId = GetLocalHumanPlayerId();

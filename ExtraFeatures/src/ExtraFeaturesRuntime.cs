@@ -65,6 +65,8 @@ namespace ExtraFeatures
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
+            Shared.GameplayModActivationGate.Initialize(log, ExtraFeaturesPlugin.PluginGuid, ExtraFeaturesPlugin.PluginName, () => settings.EnableMod);
+            Shared.GameplayModActivationGate.StateChanged += OnModeStateChanged;
             multiplayerFeatureGate = new MultiplayerFeatureGate(log);
             troopActionHudCoordinator = new Shared.TroopActionHudCoordinator(log);
             knightDismountRuntime = new KnightDismountRuntime(log, settings, multiplayerFeatureGate);
@@ -170,7 +172,7 @@ namespace ExtraFeatures
         public void ApplySettings()
         {
             TryRunFeature("AI defense repair configuration", ReconcileAIDefenseRepairRuntime);
-            if (!settings.EnableMod)
+            if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
             {
                 TryRunFeature("gatehouse automation", gatehouseAutomationRuntime.ApplySettings);
                 TryRunFeature("Vanilla value restoration", RestoreDefaultSettings);
@@ -239,6 +241,7 @@ namespace ExtraFeatures
 
         public void Dispose()
         {
+            Shared.GameplayModActivationGate.StateChanged -= OnModeStateChanged;
             RestoreCampfirePeasantsCap();
             UnsubscribeHooks();
             aiEconomyProtectionHook?.Dispose();
@@ -272,7 +275,7 @@ namespace ExtraFeatures
 
         private void SubscribeHooks()
         {
-            if (!settings.EnableMod || hooksSubscribed)
+            if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || hooksSubscribed)
                 return;
 
             TrySubscribeFeature("bulldoze tracking", () =>
@@ -382,7 +385,7 @@ namespace ExtraFeatures
 
         private void ReconcileFixedLayoutFeatures()
         {
-            if (!nativeLibraryAvailable || !settings.EnableMod)
+            if (!nativeLibraryAvailable || !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
             {
                 TryRunFeature("knight mount/dismount cleanup", knightDismountRuntime.Dispose);
                 TryRunFeature("quarry-pile relocation cleanup", quarryPileRelocationRuntime.Dispose);
@@ -429,7 +432,7 @@ namespace ExtraFeatures
         {
             if (propertyName == nameof(ExtraFeaturesViewModel.EnableMod))
             {
-                if (settings.EnableMod)
+                if (Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
                 {
                     SubscribeHooks();
                     ApplySettings();
@@ -446,7 +449,7 @@ namespace ExtraFeatures
                 return;
             }
 
-            if (!settings.EnableMod)
+            if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
                 return;
 
             if (propertyName == nameof(ExtraFeaturesViewModel.EnableKnightDismount))
@@ -529,9 +532,24 @@ namespace ExtraFeatures
             ApplySettings();
         }
 
+        private void OnModeStateChanged(bool allowed)
+        {
+            if (!allowed)
+            {
+                mapActive = false;
+                ClearResourceEventGuards();
+                pendingStockpileRefund = null;
+                multiplayerFeatureGate.Reset();
+                gatehouseAutomationRuntime.EndMap();
+            }
+
+            ApplySettings();
+        }
+
         private void ApplyMapLoadedSettings()
         {
             mapActive = true;
+            TryRunFeature("gatehouse map initialization", gatehouseAutomationRuntime.BeginMap);
             TryRunFeature("market price multipliers", ApplyMarketPriceMultipliers);
             TryRunFeature("church priest counts", churchPriestCountRuntime.ApplySetting);
             TryRunFeature("campfire peasants", ApplyCampfirePeasantsLimit);
@@ -578,7 +596,7 @@ namespace ExtraFeatures
         private void ApplyMonkAlwaysRunSetting()
         {
             monkAlwaysRunPatch?.SetEnabled(
-                settings.EnableMod && settings.EnableMonksAlwaysRun);
+                Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) && settings.EnableMonksAlwaysRun);
         }
 
         private void OnStartMap(MapStartEventArgs args)
@@ -662,7 +680,7 @@ namespace ExtraFeatures
             {
                 plagueDurationPatch.Apply(
                     settings.PlagueDurationMultiplier,
-                    settings.EnableMod);
+                    Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod));
             }
             catch (Exception ex)
             {
@@ -719,7 +737,7 @@ namespace ExtraFeatures
 
         private void ReconcileLordHealthRuntime()
         {
-            bool enabled = settings.EnableMod &&
+            bool enabled = Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) &&
                 (settings.HumanLordHealthPercent != LordHealthMultiplierPolicy.DefaultPercent ||
                  settings.AILordHealthPercent != LordHealthMultiplierPolicy.DefaultPercent);
             if (!enabled)
@@ -738,7 +756,7 @@ namespace ExtraFeatures
             if (!nativeLibraryAvailable)
                 return;
 
-            if (!settings.EnableMod || !settings.EnableFastRecruitRallyMovement)
+            if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || !settings.EnableFastRecruitRallyMovement)
             {
                 fastRecruitMovementBridge?.Dispose();
                 fastRecruitMovementBridge = null;

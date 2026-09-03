@@ -308,7 +308,7 @@ namespace ExtraFeatures
 
         private bool IsFeatureActive()
         {
-            return settings.EnableMod &&
+            return Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) &&
                 settings.EnableSingleBuildingPause &&
                 (!RequiresChoreTransport() || IsChoreTransportReady());
         }
@@ -447,6 +447,9 @@ namespace ExtraFeatures
 
         private unsafe void OnPausePacketReceived(ReceiveCustomPacketEventArgs<SingleBuildingPausePacket> args)
         {
+            if (!Shared.GameplayModActivationGate.IsAllowed)
+                return;
+
             SingleBuildingPausePacket packet = args?.Packet;
             if (packet == null || packet.ProtocolVersion != ChoreProtocolVersion ||
                 (packet.Action != SetSingleBuildingAction && packet.Action != ResetBuildingTypeAction) ||
