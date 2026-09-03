@@ -105,6 +105,12 @@ internal static class Program
             "verification times out");
         Check(policy.Observe(stuck, 71) == OxEpisodeAction.None, "failed episode is not repaired twice");
 
+        OxObservation changedTarget = Observation(10, 100, 1, 0, 8, 20, 20, 22, 20);
+        for (int tick = 72; tick < 121; tick++)
+            Check(policy.Observe(changedTarget, tick) == OxEpisodeAction.None, "new episode remains pending " + tick);
+        Check(policy.Observe(changedTarget, 121) == OxEpisodeAction.ConfirmAndRepair,
+            "changed target starts a new repair episode");
+
         Check(!Observation(1, 1, 1, 2, 7, 1, 1, 2, 1).HasIdleBugSignature, "active path is not a candidate");
         Check(!Observation(1, 1, 2, 0, 7, 1, 1, 2, 1).HasIdleBugSignature, "unrelated state is not a candidate");
         Check(!Observation(1, 1, 1, 0, 0, 1, 1, 2, 1).HasIdleBugSignature, "zero marker is not a candidate");
@@ -119,6 +125,14 @@ internal static class Program
         string helper = File.ReadAllText(Path.Combine(workspace, "Shared", "DebugLogHelper.cs"));
         Check(plugin.Contains("requireCurrentVersion: true"), "native hash mismatch fails closed");
         Check(helper.Contains(ExpectedHash), "shared hash matches test contract");
+        Check(plugin.Contains("private static OxTetherIdleFixTestRuntime persistentRuntime;"),
+            "runtime is rooted independently of the destroyed plugin component");
+        Check(plugin.Contains("OX_IDLE_PLUGIN_COMPONENT_DESTROYED"),
+            "startup component destruction is logged");
+        string onDestroy = ExtractMethodBody(plugin, "OnDestroy");
+        Check(!onDestroy.Contains("Dispose("), "OnDestroy does not dispose the process runtime");
+        Check(!onDestroy.Contains("LibraryLoaded -="), "OnDestroy does not remove Script Extender registration");
+        Check(!onDestroy.Contains("persistentRuntime = null"), "OnDestroy does not release the runtime root");
         Check(runtime.Contains("unit->r_PathPlanRelated3 = 0;"), "repair clears only the alternate-target marker");
         Check(!runtime.Contains("r_AIState ="), "repair does not force AI state");
         Check(runtime.Contains("OX_IDLE_BUG_CONFIRMED"), "confirmation marker is logged");
@@ -144,6 +158,29 @@ internal static class Program
             current = current.Parent;
         }
         throw new DirectoryNotFoundException("Workspace root not found.");
+    }
+
+    private static string ExtractMethodBody(string source, string methodName)
+    {
+        string signature = "void " + methodName + "(";
+        int signatureIndex = source.IndexOf(signature, StringComparison.Ordinal);
+        if (signatureIndex < 0)
+            throw new InvalidOperationException("Method not found: " + methodName);
+
+        int bodyStart = source.IndexOf('{', signatureIndex);
+        if (bodyStart < 0)
+            throw new InvalidOperationException("Method body not found: " + methodName);
+
+        int depth = 0;
+        for (int index = bodyStart; index < source.Length; index++)
+        {
+            if (source[index] == '{')
+                depth++;
+            else if (source[index] == '}' && --depth == 0)
+                return source.Substring(bodyStart + 1, index - bodyStart - 1);
+        }
+
+        throw new InvalidOperationException("Unterminated method body: " + methodName);
     }
 
     private static void Check(bool condition, string name)

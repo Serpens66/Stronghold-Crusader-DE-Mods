@@ -61,6 +61,9 @@ The Origin column in singleplayer and multiplayer map selection now sorts maps i
 ### Pause a single production building
 Hold Ctrl while clicking a production building's pause button to pause or resume only that building. Clicking without Ctrl keeps the normal behavior of changing every building of that type.
 
+### Repair all buildings with Shift
+Hold Shift while clicking a building's Repair button to repair the selected building first and then attempt every other damaged repairable building you own. Vanilla checks and deducts wood and stone separately for every repair, so the sequence stops having an effect when the available resources are no longer sufficient.
+
 ### Make new recruits run to rally points
 Newly recruited human and AI units move to their rally points at their own normal fastest pace, with the matching animation. Terrain and other movement modifiers still apply.
 

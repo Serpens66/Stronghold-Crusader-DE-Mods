@@ -219,5 +219,7 @@ BugfixesAndQoL.QuarryPileRelocationTooltip=Перемістити купу ка�
 BugfixesAndQoL.QuarryPileRelocationTooltipBody=Moves the linked stone pile clockwise to the next valid position around this quarry.
 BugfixesAndQoL.EnableSingleBuildingPause=Enable single-building pause
 BugfixesAndQoL.EnableSingleBuildingPauseHelp=Hold Ctrl while toggling a production building's pause state to affect only the selected building. Multiplayer actions use Script Extender's tick-aligned Chore transport.
+BugfixesAndQoL.EnableShiftRepairAllBuildings=Repair all buildings with Shift
+BugfixesAndQoL.EnableShiftRepairAllBuildingsHelp=Hold Shift while clicking a building's Repair button to repair the selected building first and then attempt every other damaged repairable building you own. Vanilla checks and deducts wood and stone for every repair.
 BugfixesAndQoL.RequireReachableEnemyForAutomaticGateClosing=Close only for reachable enemies
 BugfixesAndQoL.RequireReachableEnemyForAutomaticGateClosingHelp=When enabled, an enemy closes a gatehouse only if that enemy can pathfind to at least one of its two entrances. If reachability cannot be determined safely, Vanilla behavior is retained.

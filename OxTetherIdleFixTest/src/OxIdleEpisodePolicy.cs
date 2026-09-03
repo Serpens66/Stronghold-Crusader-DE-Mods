@@ -83,7 +83,9 @@ namespace OxTetherIdleFixTest
 
             if (phase == Phase.Suppressed)
             {
-                if (observation.GlobalId == episodeGlobalId && observation.HasIdleBugSignature)
+                // A failed repair is attempted only once while the exact same stuck
+                // snapshot persists. Movement or a new target starts a new episode.
+                if (candidate.IsSameCandidateAs(observation) && observation.HasIdleBugSignature)
                     return OxEpisodeAction.None;
 
                 Reset();

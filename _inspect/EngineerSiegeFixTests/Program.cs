@@ -16,7 +16,12 @@ internal static class Program
     private static readonly Dictionary<string, int> Patterns = new Dictionary<string, int>
     {
         ["CatapultHandlerPattern"] = 0x1520D0,
-        ["TrebuchetHandlerPattern"] = 0x1535F0
+        ["TrebuchetHandlerPattern"] = 0x1535F0,
+        ["CatapultStateSixPattern"] = 0x1524FA,
+        ["TrebuchetStateSixPattern"] = 0x153A78,
+        ["SiegeTentTickPattern"] = 0x158690,
+        ["SiegeTentCompletionTailPattern"] = 0x158762,
+        ["UnitConversionPattern"] = 0x195D10
     };
 
     private static int assertions;
@@ -85,6 +90,36 @@ internal static class Program
             "handler table entry 0x27 points to the catapult handler");
         Check(BitConverter.ToUInt64(image, 0x321CB0 + 0x28 * 8) == 0x1801535F0UL,
             "handler table entry 0x28 points to the trebuchet handler");
+        CheckBytes(image, 0x1524FA,
+            "8B 84 2B DC 09 00 00",
+            "catapult state-six hook spans exactly the phase-seed read");
+        CheckBytes(image, 0x152501,
+            "33 05 C9 AF 69 03",
+            "catapult state-six hook resumes before the phase xor");
+        CheckBytes(image, 0x153A78,
+            "42 8B 84 1B DC 09 00 00",
+            "trebuchet state-six hook spans exactly the phase-seed read");
+        CheckBytes(image, 0x153A80,
+            "33 05 4A 9A 69 03",
+            "trebuchet state-six hook resumes before the phase xor");
+        CheckBytes(image, 0x158690,
+            "40 53 48 83 EC 30",
+            "siege-tent entry hook spans push RBX and stack allocation");
+        CheckBytes(image, 0x158696,
+            "48 63 05 27 7C 7D 00",
+            "siege-tent entry resumes with current-context ID read");
+        CheckBytes(image, 0x158762,
+            "C7 84 19 14 0A 00 00 00 00 00 00",
+            "siege-tent completion hook spans exactly the pending-field clear");
+        CheckBytes(image, 0x15876D,
+            "48 83 C4 30 5B C3",
+            "siege-tent completion resumes at the complete epilogue");
+        CheckBytes(image, 0x195D10,
+            "48 89 5C 24 08",
+            "unit converter hook spans exactly the RBX save");
+        CheckBytes(image, 0x195D15,
+            "48 89 74 24 10 57 48 83 EC 20",
+            "unit converter resumes with remaining prologue");
         CheckBytes(image, 0x1527B3,
             "42 C7 84 03 18 09 00 00 6D 00 05 00",
             "Vanilla catapult handoff writes engineer consume state");
@@ -107,7 +142,17 @@ internal static class Program
             "EngineerSiegeFixPlugin.cs"));
         Check(runtime.Contains("ref catapultHandlerHook"), "catapult handler-entry hook registered");
         Check(runtime.Contains("ref trebuchetHandlerHook"), "trebuchet handler-entry hook registered");
-        Check(runtime.Contains("hookSize: 5"), "both hooks use the exact prologue instruction length");
+        Check(runtime.Contains("ref catapultStateSixHook"), "catapult state-six hook registered");
+        Check(runtime.Contains("ref trebuchetStateSixHook"), "trebuchet state-six hook registered");
+        Check(runtime.Contains("ref siegeTentTickHook"), "siege-tent entry hook registered");
+        Check(runtime.Contains("ref siegeTentCompletionHook"), "siege-tent completion hook registered");
+        Check(runtime.Contains("ref unitConversionHook"), "unit converter hook registered");
+        Check(Regex.Matches(runtime, "hookSize: 5").Count == 3,
+            "handler entries and converter use exact five-byte hook spans");
+        Check(runtime.Contains("hookSize: 6"), "siege-tent entry uses exact six-byte hook span");
+        Check(runtime.Contains("hookSize: 7"), "catapult state-six uses exact seven-byte hook span");
+        Check(runtime.Contains("hookSize: 8"), "trebuchet state-six uses exact eight-byte hook span");
+        Check(runtime.Contains("hookSize: 11"), "siege-tent completion uses exact eleven-byte hook span");
         Check(runtime.Contains("placement: OverwrittenInstructionPlacement.BeforeCallback"),
             "displaced RBX save executes before each observation callback");
         Check(runtime.Contains("regs: X64SmartCPUContextRegs.All"),
@@ -123,18 +168,47 @@ internal static class Program
             "diagnostic runtime calls no mutating native cleanup helper");
         Check(!runtime.Contains("Hook.Trampoline"), "handler hooks do not replace either function");
         Check(!runtime.Contains("AddDetour"), "handler hooks avoid function detours");
-        Check(!runtime.Contains("SiegeTentTickRva"), "disproved tent hook is removed");
-        Check(!runtime.Contains("SiegeTentCompletionTailRva"), "disproved tent tail hook is removed");
-        Check(!runtime.Contains("UnitConversionRva"), "disproved conversion hook is removed");
-        Check(!runtime.Contains("CrewSearchRva"), "disproved state-six interior hooks are removed");
+        Check(runtime.Contains("SIEGE_CANDIDATE_TENT_ENTRY"), "siege-tent entry has a distinct marker");
+        Check(runtime.Contains("SIEGE_CANDIDATE_TENT_COMPLETION"),
+            "siege-tent completion has a distinct marker");
+        Check(runtime.Contains("SIEGE_CANDIDATE_CONVERTER_ENTRY"),
+            "unit converter has a distinct marker");
+        Check(runtime.Contains("SIEGE_CANDIDATE_CATAPULT_STATE6"),
+            "catapult state-six has a distinct marker");
+        Check(runtime.Contains("SIEGE_CANDIDATE_TREBUCHET_STATE6"),
+            "trebuchet state-six has a distinct marker");
+        Check(runtime.Contains("identitySource=fastcall-rcx-rdx"),
+            "converter identity follows its native RCX/RDX ABI");
+        Check(runtime.Contains("context.Pointer->RAX"),
+            "state-six observers record the displaced phase-seed result");
+        Check(runtime.Contains("activeObservationHooks=7"),
+            "installation marker confirms every simultaneous observation hook");
         Check(plugin.Contains("requireCurrentVersion: true"), "unknown native hashes fail closed");
-        Check(plugin.Contains("runtime?.PollRuntimeDiagnostics();"), "Unity update polls runtime diagnostics");
+        Check(plugin.Contains("private static EngineerSiegeFixRuntime runtime"),
+            "runtime remains rooted after SHCDE destroys the startup plugin component");
+        Check(plugin.Contains("private static void OnCrusaderLibraryLoaded"),
+            "library initialization does not depend on the destroyed component instance");
+        Check(!plugin.Contains("void Update("), "plugin does not rely on its short-lived Unity Update callback");
+        Check(!plugin.Contains("void OnDestroy("), "plugin has no startup OnDestroy teardown");
+        Check(!plugin.Contains("runtime?.Dispose"), "plugin never disposes process-wide hooks during startup cleanup");
+        Check(!plugin.Contains("LibraryLoaded -= OnCrusaderLibraryLoaded"),
+            "plugin never removes its process-wide library subscription during startup cleanup");
+        Check(runtime.Contains("GameTimeManagerAPI.Instance.OnTick += OnGameTick"),
+            "simulation diagnostics use the long-lived Script Extender tick publisher");
+        Check(runtime.Contains("SIEGE_TICK_HEARTBEAT"),
+            "the first verified tick callbacks emit bounded lifecycle evidence");
+        Check(runtime.IndexOf("SIEGE_TICK_HEARTBEAT", StringComparison.Ordinal) <
+              runtime.IndexOf("GetUnitManager().Pointer", StringComparison.Ordinal),
+            "tick heartbeat precedes the first unit-manager guard");
+        Check(!runtime.Contains("GameTickRva"), "runtime no longer trusts the unvalidated raw tick RVA");
+        Check(!runtime.Contains("lastPollTick"), "runtime no longer suppresses polling through the raw tick guard");
         Check(runtime.Contains("SIEGE_ROUTE_DIAGNOSTIC_INSTALLED"), "dispatcher evidence is logged at installation");
         Check(runtime.Contains("SIEGE_HANDLER_ENTRY"), "handler-entry transitions are logged");
         Check(runtime.Contains("SIEGE_SLOT_TRANSITION"), "siege slot transitions are logged");
         Check(runtime.Contains("SIEGE_ENGINEER_TRANSITION"), "associated engineer transitions are logged");
         Check(runtime.Contains("correctionActive=false"), "log explicitly identifies observation-only mode");
-        Check(runtime.Contains("currentTick == lastPollTick"), "polling occurs at most once per game tick");
+        Check(runtime.Contains("private void OnGameTick(int tick)"), "each poll is driven exactly by a game-tick callback");
+        Check(runtime.Contains("TickHeartbeatLimit = 3"), "lifecycle heartbeat logging is bounded");
         Check(runtime.Contains("HandlerTransitionLimit = 160"), "handler transition logging is bounded");
         Check(runtime.Contains("SlotTransitionLimit = 320"), "siege slot logging is bounded");
         Check(runtime.Contains("EngineerTransitionLimit = 480"), "engineer logging is bounded");

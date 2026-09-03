@@ -37,6 +37,7 @@ internal static class Program
             TestStartConditionsMapSessionState();
             TestGameplayGateSourceIntegration();
             TestLocalPerPlayerSetting();
+            TestShiftRepairAllBuildingsPolicy();
             TestMarketGoodsOrderDefinition();
             TestResyncHostKickPolicy();
             TestAbruptHostMigrationPolicy();
@@ -2089,6 +2090,10 @@ internal static class Program
               normalizedBugfixesViewModelSource.Contains("[SyncHostOnly]\n        public bool EnableMountedStockpileMovementFix") &&
               bugfixesViewModelSource.Contains("EnableMountedStockpileMovementFix = true;"),
             "mounted stockpile movement is not a default-enabled, resettable host setting");
+        Check(normalizedBugfixesViewModelSource.Contains("private bool enableShiftRepairAllBuildings = true;") &&
+              normalizedBugfixesViewModelSource.Contains("[SyncHostOnly]\n        public bool EnableShiftRepairAllBuildings") &&
+              bugfixesViewModelSource.Contains("EnableShiftRepairAllBuildings = true;"),
+            "Shift-repair all buildings is not a default-enabled, resettable host setting");
         string bugfixesRuntimeSource = File.ReadAllText(
             Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", "BugfixesAndQoLRuntime.cs"));
         Check(bugfixesRuntimeSource.Contains(
@@ -2096,6 +2101,16 @@ internal static class Program
               bugfixesRuntimeSource.Contains("InstallMountedStockpileMovementPatch") &&
               bugfixesRuntimeSource.Contains("DisableMountedStockpileMovementPatch"),
             "mounted stockpile movement is not reconciled with its host setting and EnableMod");
+        string shiftRepairHookSource = File.ReadAllText(
+            Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", "ShiftRepairAllBuildingsHook.cs"));
+        Check(shiftRepairHookSource.Contains("original(self, parameter);") &&
+              shiftRepairHookSource.IndexOf("original(self, parameter);", StringComparison.Ordinal) <
+              shiftRepairHookSource.IndexOf("QueueAdditionalRepairs(self);", StringComparison.Ordinal),
+            "Shift-repair does not execute the selected building's Vanilla action first");
+        Check(shiftRepairHookSource.Contains("GetBuildingShowRepair") &&
+              shiftRepairHookSource.Contains("Enums.GameActionCommand.RepairBuilding") &&
+              shiftRepairHookSource.Contains("PlayerRelationship.Self"),
+            "Shift-repair does not reuse Vanilla repair classification/action for owned buildings");
         string combatResumeRuntimeSource = File.ReadAllText(
             Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", "AssassinCombatResumeRuntime.cs"));
         Check(combatResumeRuntimeSource.Contains("settings.EnableAssassinCombatResumeFix") &&
@@ -2295,6 +2310,34 @@ internal static class Program
                   start + MultiplayerLobbyReturnPolicy.ExitWaitTimeoutSeconds * frequency,
                   frequency),
             "post-game lobby wait timeout boundary was incorrect");
+    }
+
+    private static void TestShiftRepairAllBuildingsPolicy()
+    {
+        Check(ShiftRepairAllBuildingsPolicy.ShouldQueueAdditionalRepair(
+                2, 1, 3, 3, true, 50, 100, 10, true),
+            "eligible owned damaged repairable building was rejected");
+        Check(!ShiftRepairAllBuildingsPolicy.ShouldQueueAdditionalRepair(
+                1, 1, 3, 3, true, 50, 100, 10, true),
+            "selected building was queued a second time");
+        Check(!ShiftRepairAllBuildingsPolicy.ShouldQueueAdditionalRepair(
+                2, 1, 4, 3, true, 50, 100, 10, true),
+            "foreign building was accepted");
+        Check(!ShiftRepairAllBuildingsPolicy.ShouldQueueAdditionalRepair(
+                2, 1, 3, 3, false, 50, 100, 10, true),
+            "dead building was accepted");
+        Check(!ShiftRepairAllBuildingsPolicy.ShouldQueueAdditionalRepair(
+                2, 1, 3, 3, true, 100, 100, 10, true),
+            "undamaged building was accepted");
+        Check(!ShiftRepairAllBuildingsPolicy.ShouldQueueAdditionalRepair(
+                2, 1, 3, 3, true, 50, 100, 10, false),
+            "building without Vanilla repair support was accepted");
+        Check(!ShiftRepairAllBuildingsPolicy.ShouldQueueAdditionalRepair(
+                2, 1, 3, 0, true, 50, 100, 10, true),
+            "building was accepted without a controlled player");
+        Check(!ShiftRepairAllBuildingsPolicy.ShouldQueueAdditionalRepair(
+                2, 1, 3, 3, true, 50, 100, 0, true),
+            "building without a live global identity was accepted");
     }
 
     private static void TestLocalPerPlayerSetting()

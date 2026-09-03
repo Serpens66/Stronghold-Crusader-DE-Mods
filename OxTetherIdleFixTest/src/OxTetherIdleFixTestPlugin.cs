@@ -13,7 +13,11 @@ namespace OxTetherIdleFixTest
         private const string PluginName = "Ox Tether Idle Fix Test";
         private const string PluginVersion = "0.1.0";
 
-        private OxTetherIdleFixTestRuntime runtime;
+        // SHCDE destroys the early BepInEx manager component during normal startup.
+        // Keep the non-Unity runtime alive independently for the process lifetime.
+        private static OxTetherIdleFixTestRuntime persistentRuntime;
+        private static bool libraryLoadedSubscriptionInstalled;
+        private static bool libraryLoadedHandled;
 
         private void Awake()
         {
@@ -21,12 +25,16 @@ namespace OxTetherIdleFixTest
                 Logger,
                 $"{PluginName} {PluginVersion} loaded; standaloneTestMod=true, gameplaySynchronized=true, " +
                 "auditedScriptExtender=1.42.0, auditedCommit=171d68e155a8f98c5f8c4ee154d9af154c9a2443.");
-            CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
+            if (!libraryLoadedHandled && !libraryLoadedSubscriptionInstalled)
+            {
+                CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
+                libraryLoadedSubscriptionInstalled = true;
+            }
         }
 
         private void OnCrusaderLibraryLoaded(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
         {
-            if (runtime != null)
+            if (libraryLoadedHandled)
                 return;
 
             try
@@ -39,8 +47,14 @@ namespace OxTetherIdleFixTest
                     return;
                 }
 
-                runtime = new OxTetherIdleFixTestRuntime(Logger);
-                runtime.Apply();
+                OxTetherIdleFixTestRuntime initializedRuntime =
+                    new OxTetherIdleFixTestRuntime(Logger);
+                initializedRuntime.Apply();
+                persistentRuntime = initializedRuntime;
+                libraryLoadedHandled = true;
+
+                CrusaderLibrary.Instance.LibraryLoaded -= OnCrusaderLibraryLoaded;
+                libraryLoadedSubscriptionInstalled = false;
             }
             catch (Exception exception)
             {
@@ -52,9 +66,10 @@ namespace OxTetherIdleFixTest
 
         private void OnDestroy()
         {
-            CrusaderLibrary.Instance.LibraryLoaded -= OnCrusaderLibraryLoaded;
-            runtime?.Dispose();
-            runtime = null;
+            Shared.DebugLogHelper.LogInfo(
+                Logger,
+                $"OX_IDLE_PLUGIN_COMPONENT_DESTROYED: preserving process-lifetime runtime and subscriptions; " +
+                $"libraryLoadedHandled={libraryLoadedHandled}, runtimeActive={persistentRuntime != null}.");
         }
     }
 }

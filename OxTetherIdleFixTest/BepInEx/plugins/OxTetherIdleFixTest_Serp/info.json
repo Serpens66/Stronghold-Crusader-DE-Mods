@@ -1,0 +1,12 @@
+{
+  "GUID": "OxTetherIdleFixTest_Serp",
+  "Author": "Serpens66",
+  "Name": "Ox Tether Idle Fix Test",
+  "Description": "Diagnoses and repairs the vanilla quarry-ox alternate-destination idle state.",
+  "Version": "0.1.0",
+  "Manifest": 1,
+  "NetworkMode": 1,
+  "SupportedGameVersions": [
+    "2.8.0.1"
+  ]
+}

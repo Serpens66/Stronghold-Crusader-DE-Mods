@@ -227,6 +227,8 @@ namespace MoveMoatTest
         private const int BuildingCandidateFootprintTileOffset = 0x04;
         private const int BuildingCandidateScoreOffset = 0x08;
         private const int VanillaUnreachableCandidateScore = 10000000;
+        private const ulong RouteFingerprintOffsetBasis = 14695981039346656037UL;
+        private const ulong RouteFingerprintPrime = 1099511628211UL;
 
         private const string TribeFloodFillMembershipPattern =
             "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 56 41 57 " +
@@ -1723,7 +1725,8 @@ namespace MoveMoatTest
                     unit->r_CurrentTilePositionX,
                     unit->r_CurrentTilePositionY,
                     unit->p_CurrentPathPlanPosition,
-                    IsCompletedMoatTile(unchecked((int)unit->r_CurrentPositionTileId)));
+                    IsCompletedMoatTile(unchecked((int)unit->r_CurrentPositionTileId)),
+                    CaptureCurrentGameTick());
                 Shared.DebugLogHelper.LogInfo(
                     log,
                     $"MoveMoat stage=move-track-start unit={plan.UnitId} type={unit->r_UnitChimp} " +
@@ -1759,7 +1762,8 @@ namespace MoveMoatTest
                     mapEpoch, shadow.UnitId, shadow.TribeId, shadow.TargetX, shadow.TargetY,
                     builderResult, shadow.StartX, shadow.StartY,
                     unit->p_CurrentPathPlanPosition,
-                    IsCompletedMoatTile(unchecked((int)unit->r_CurrentPositionTileId)));
+                    IsCompletedMoatTile(unchecked((int)unit->r_CurrentPositionTileId)),
+                    CaptureCurrentGameTick());
                 trackedMoatMoves[shadow.UnitId] = tracker;
             }
 
@@ -1776,6 +1780,7 @@ namespace MoveMoatTest
             tracker.ShadowDecision = decision;
             tracker.RuntimeCadenceCaptured = false;
             tracker.RuntimeCadenceChanged = false;
+            tracker.RuntimeCadenceRebased = false;
             tracker.RuntimeCostProfile = default;
             tracker.RuntimeShadowMatchesPublishedCostProfile = false;
             tracker.RuntimeNativeEstimatedTicks = long.MaxValue;
@@ -1837,10 +1842,13 @@ namespace MoveMoatTest
                         unit->r_CurrentTilePositionY != tracker.LastY;
                     bool progressed = tileChanged ||
                         unit->p_CurrentPathPlanPosition != tracker.LastPathPosition;
-                    if (tracker.FirstObservedTick < 0)
+                    int transitionTicks = -1;
+                    bool firstObservation = tracker.FirstObservedTick < 0;
+                    if (firstObservation)
                     {
                         tracker.FirstObservedTick = tick;
-                        tracker.LastTileTransitionTick = tick;
+                        if (tracker.LastTileTransitionTick < 0)
+                            tracker.LastTileTransitionTick = tick;
                     }
                     tracker.LastObservedTick = tick;
                     if (tileChanged)
@@ -1852,15 +1860,88 @@ namespace MoveMoatTest
                             tracker.Calibratable = false;
                             tracker.CalibrationReason = "non-adjacent-tile-change";
                         }
-                        if (tracker.LastTileTransitionTick >= 0)
+                        if (tracker.TileTransitionCount == 0)
                         {
-                            int transitionTicks = tick - tracker.LastTileTransitionTick;
+                            tracker.FirstTileTransitionTick = tick;
+                            tracker.FirstTransitionTimingUnavailable =
+                                firstObservation && tracker.TrackingStartTick < 0;
+                        }
+                        tracker.TileTransitionCount++;
+                        if ((!firstObservation || tracker.TrackingStartTick >= 0) &&
+                            tracker.LastTileTransitionTick >= 0)
+                        {
+                            transitionTicks = tick - tracker.LastTileTransitionTick;
                             if (transitionTicks >= 0)
                             {
-                                tracker.TileTransitionCount++;
+                                tracker.TimedTileTransitionCount++;
                                 tracker.TileTransitionTicks += transitionTicks;
                                 tracker.MaximumTileTransitionTicks = Math.Max(
                                     tracker.MaximumTileTransitionTicks, transitionTicks);
+                            }
+                        }
+
+                        if (dx <= 1 && dy <= 1 && dx + dy > 0)
+                        {
+                            bool moatTransition = tracker.WasOnMoat || currentMoat;
+                            if (moatTransition)
+                            {
+                                tracker.ActualMoatTransitions++;
+                                if (transitionTicks >= 0)
+                                {
+                                    tracker.TimedMoatTransitions++;
+                                    tracker.ActualMoatTransitionTicks += transitionTicks;
+                                    tracker.MinimumMoatTransitionTicks = Math.Min(
+                                        tracker.MinimumMoatTransitionTicks, transitionTicks);
+                                    tracker.MaximumMoatTransitionTicks = Math.Max(
+                                        tracker.MaximumMoatTransitionTicks, transitionTicks);
+                                }
+                            }
+                            else
+                            {
+                                tracker.ActualGroundTransitions++;
+                                if (transitionTicks >= 0)
+                                {
+                                    tracker.TimedGroundTransitions++;
+                                    tracker.ActualGroundTransitionTicks += transitionTicks;
+                                    tracker.MinimumGroundTransitionTicks = Math.Min(
+                                        tracker.MinimumGroundTransitionTicks, transitionTicks);
+                                    tracker.MaximumGroundTransitionTicks = Math.Max(
+                                        tracker.MaximumGroundTransitionTicks, transitionTicks);
+                                }
+                            }
+                            if (dx == 1 && dy == 1)
+                            {
+                                tracker.ActualDiagonalTransitions++;
+                                if (transitionTicks >= 0)
+                                {
+                                    tracker.TimedDiagonalTransitions++;
+                                    tracker.ActualDiagonalTransitionTicks += transitionTicks;
+                                }
+                            }
+                            else
+                            {
+                                tracker.ActualCardinalTransitions++;
+                                if (transitionTicks >= 0)
+                                {
+                                    tracker.TimedCardinalTransitions++;
+                                    tracker.ActualCardinalTransitionTicks += transitionTicks;
+                                }
+                            }
+
+                            int direction = EncodeDirectionDelta(
+                                unit->r_CurrentTilePositionX - tracker.LastX,
+                                unit->r_CurrentTilePositionY - tracker.LastY);
+                            if (direction >= 0)
+                            {
+                                if (tracker.LastActualDirection >= 0 &&
+                                    tracker.LastActualDirection != direction)
+                                {
+                                    tracker.ActualDirectionChanges++;
+                                }
+                                tracker.LastActualDirection = direction;
+                                tracker.ActualRouteFingerprint = unchecked(
+                                    (tracker.ActualRouteFingerprint ^ (byte)direction) *
+                                    RouteFingerprintPrime);
                             }
                         }
                         tracker.LastTileTransitionTick = tick;
@@ -1955,12 +2036,31 @@ namespace MoveMoatTest
 
             if (tracker.RuntimeCadenceCaptured)
             {
-                if (!tracker.RuntimeCostProfile.HasSameNormalizedCadence(runtimeProfile) &&
-                    !tracker.RuntimeCadenceChanged)
+                if (tracker.RuntimeCostProfile.HasSameNormalizedCadence(runtimeProfile))
+                    return;
+
+                // Some handlers initialize SpeedBonus only after path publication. If this
+                // happens before the first tile transition, the new profile describes the
+                // entire measurable route more accurately and can safely replace the first one.
+                if (tracker.TileTransitionCount == 0 && !tracker.RuntimeCadenceChanged)
+                {
+                    WeightedMovementCostProfile previousProfile = tracker.RuntimeCostProfile;
+                    tracker.RuntimeCostProfile = runtimeProfile;
+                    tracker.RuntimeCadenceRebased = true;
+                    Shared.DebugLogHelper.LogInfo(
+                        log,
+                        $"MoveMoat stage=weighted-shadow-runtime-rebase unit={tracker.UnitId} " +
+                        $"tick={tick} previous={FormatCostProfile(previousProfile)} " +
+                        $"current={FormatCostProfile(runtimeProfile)}.");
+                    CalculateAndLogRuntimeCadenceShadow(tick, tracker, runtimeProfile, "rebase");
+                    return;
+                }
+
+                if (!tracker.RuntimeCadenceChanged)
                 {
                     tracker.RuntimeCadenceChanged = true;
                     tracker.Calibratable = false;
-                    tracker.CalibrationReason = "runtime-cadence-changed";
+                    tracker.CalibrationReason = "runtime-cadence-changed-after-first-transition";
                     Shared.DebugLogHelper.LogInfo(
                         log,
                         $"MoveMoat stage=weighted-shadow-runtime-change unit={tracker.UnitId} " +
@@ -1972,6 +2072,17 @@ namespace MoveMoatTest
 
             tracker.RuntimeCadenceCaptured = true;
             tracker.RuntimeCostProfile = runtimeProfile;
+            tracker.LastRuntimeCadenceRejection = null;
+
+            CalculateAndLogRuntimeCadenceShadow(tick, tracker, runtimeProfile, "initial");
+        }
+
+        private void CalculateAndLogRuntimeCadenceShadow(
+            int tick,
+            MoatMoveTracker tracker,
+            WeightedMovementCostProfile runtimeProfile,
+            string captureKind)
+        {
             tracker.LastRuntimeCadenceRejection = null;
 
             bool found = false;
@@ -2051,17 +2162,23 @@ namespace MoveMoatTest
                 $"command={tracker.WeightedCommand}({(uint)tracker.WeightedCommand}) tick={tick} " +
                 $"start=({tracker.InitialX},{tracker.InitialY}) " +
                 $"target=({tracker.TargetX},{tracker.TargetY}) " +
+                $"capture={captureKind} " +
                 $"planning={FormatCostProfile(tracker.PlanningCostProfile)} " +
                 $"runtime={FormatCostProfile(runtimeProfile)} " +
                 $"decision={decision} reason={reason} " +
                 $"nativeLength={tracker.NativeRouteSummary.RouteLength} " +
                 $"nativeGround={tracker.NativeRouteSummary.GroundEdges} " +
                 $"nativeMoat={tracker.NativeRouteSummary.MoatEdges} " +
+                $"nativeDiagonal={tracker.NativeRouteSummary.DiagonalEdges} " +
+                $"nativeDirectionChanges={tracker.NativeRouteSummary.DirectionChanges} " +
+                $"nativeFingerprint=0x{tracker.NativeRouteSummary.RouteFingerprint:X16} " +
                 $"nativeTicks={(runtimeNativeTicks == long.MaxValue ? "n/a" : runtimeNativeTicks.ToString())} " +
                 $"shadowFound={found} shadowLength={runtimeCandidate.RouteLength} " +
                 $"shadowGround={runtimeCandidate.GroundEdges} " +
                 $"shadowMoat={runtimeCandidate.MoatEdges} " +
                 $"shadowDiagonal={runtimeCandidate.DiagonalEdges} " +
+                $"shadowDirectionChanges={runtimeCandidate.DirectionChanges} " +
+                $"shadowFingerprint=0x{runtimeCandidate.RouteFingerprint:X16} " +
                 $"shadowTicks={(found ? runtimeCandidate.EstimatedTicks.ToString() : "n/a")} " +
                 $"savingTicks={saving} searchMs={runtimeCandidate.SearchMilliseconds:F3} " +
                 $"expanded={runtimeCandidate.ExpandedNodes}.");
@@ -2074,6 +2191,31 @@ namespace MoveMoatTest
             $"terrainPenalty={profile.CurrentTerrainPenalty}/" +
             $"normalized={profile.NormalizedDelay}/progress={profile.CadenceProgress}";
 
+        private static int EncodeDirectionDelta(int dx, int dy)
+        {
+            if (dx == 0 && dy == -1) return 0;
+            if (dx == 1 && dy == -1) return 1;
+            if (dx == 1 && dy == 0) return 2;
+            if (dx == 1 && dy == 1) return 3;
+            if (dx == 0 && dy == 1) return 4;
+            if (dx == -1 && dy == 1) return 5;
+            if (dx == -1 && dy == 0) return 6;
+            if (dx == -1 && dy == -1) return 7;
+            return -1;
+        }
+
+        private static int CaptureCurrentGameTick()
+        {
+            try
+            {
+                return GameTimeManagerAPI.Instance.CaptureTimeStamp().CapturedGameTick;
+            }
+            catch
+            {
+                return -1;
+            }
+        }
+
         private bool IsCompletedMoatTile(int tileId) =>
             IsValidTileId(tileId) && (tileFlags[tileId] & CompletedMoatTileFlag) != 0;
 
@@ -2085,6 +2227,10 @@ namespace MoveMoatTest
             TribeAICommand command,
             string milestone)
         {
+            string cadenceSnapshot = TryCaptureWeightedMovementCostProfile(
+                unit, out WeightedMovementCostProfile profile, out string rejectionReason)
+                    ? FormatCostProfile(profile)
+                    : $"unavailable/{rejectionReason ?? "unknown"}";
             Shared.DebugLogHelper.LogInfo(
                 log,
                 $"MoveMoat stage=move-milestone event={milestone} tick={tick} " +
@@ -2094,6 +2240,7 @@ namespace MoveMoatTest
                 $"current=({unit->r_CurrentTilePositionX},{unit->r_CurrentTilePositionY}) " +
                 $"requestedTarget=({tracker.TargetX},{tracker.TargetY}) " +
                 $"path={unit->p_CurrentPathPlanPosition}/{unit->p_PathPlanSize} " +
+                $"cadence={cadenceSnapshot} " +
                 $"builderResult={tracker.BuilderResult}.");
         }
 
@@ -2123,10 +2270,25 @@ namespace MoveMoatTest
                 tracker.Calibratable = false;
                 tracker.CalibrationReason = $"incomplete-{reason}";
             }
-            int actualTicks = tracker.FirstObservedTick >= 0 &&
-                tracker.LastObservedTick >= tracker.FirstObservedTick
-                    ? tracker.LastObservedTick - tracker.FirstObservedTick
+            int measurementStartTick = tracker.TrackingStartTick >= 0
+                ? tracker.TrackingStartTick
+                : tracker.FirstObservedTick;
+            int actualTicks = measurementStartTick >= 0 &&
+                tracker.LastObservedTick >= measurementStartTick
+                    ? tracker.LastObservedTick - measurementStartTick
                     : -1;
+            int firstTransitionWaitTicks = measurementStartTick >= 0 &&
+                !tracker.FirstTransitionTimingUnavailable &&
+                tracker.FirstTileTransitionTick >= measurementStartTick
+                    ? tracker.FirstTileTransitionTick - measurementStartTick
+                    : -1;
+            int finalSettleTicks = tracker.LastTileTransitionTick >= 0 &&
+                tracker.LastObservedTick >= tracker.LastTileTransitionTick
+                    ? tracker.LastObservedTick - tracker.LastTileTransitionTick
+                    : -1;
+            bool actualMatchesNativeFingerprint = tracker.NativeRouteValid &&
+                tracker.TileTransitionCount == tracker.NativeRouteSummary.RouteLength &&
+                tracker.ActualRouteFingerprint == tracker.NativeRouteSummary.RouteFingerprint;
             long nativeCalibrationDelta = tracker.Calibratable && actualTicks >= 0 &&
                 tracker.NativeEstimatedTicks > 0
                     ? actualTicks - tracker.NativeEstimatedTicks
@@ -2166,13 +2328,30 @@ namespace MoveMoatTest
                 $"shadowCalibrationDeltaTicks={(shadowCalibrationDelta == long.MinValue ? "n/a" : shadowCalibrationDelta.ToString())} " +
                 $"runtimeCadenceCaptured={tracker.RuntimeCadenceCaptured} " +
                 $"runtimeCadenceChanged={tracker.RuntimeCadenceChanged} " +
+                $"runtimeCadenceRebased={tracker.RuntimeCadenceRebased} " +
                 $"runtimeDecision={tracker.RuntimeShadowDecision ?? "none"} " +
                 $"runtimeNativeEstimatedTicks={(tracker.RuntimeNativeEstimatedTicks == long.MaxValue ? "n/a" : tracker.RuntimeNativeEstimatedTicks.ToString())} " +
                 $"runtimeShadowEstimatedTicks={(tracker.RuntimeShadowEstimatedTicks == long.MaxValue ? "n/a" : tracker.RuntimeShadowEstimatedTicks.ToString())} " +
                 $"runtimeNativeCalibrationDeltaTicks={(runtimeNativeCalibrationDelta == long.MinValue ? "n/a" : runtimeNativeCalibrationDelta.ToString())} " +
                 $"runtimeShadowCalibrationDeltaTicks={(runtimeShadowCalibrationDelta == long.MinValue ? "n/a" : runtimeShadowCalibrationDelta.ToString())} " +
                 $"tileTransitions={tracker.TileTransitionCount} " +
-                $"averageTransitionTicks={(tracker.TileTransitionCount > 0 ? tracker.TileTransitionTicks / tracker.TileTransitionCount : -1)} " +
+                $"actualGround={tracker.ActualGroundTransitions}/timed={tracker.TimedGroundTransitions}/ticks={tracker.ActualGroundTransitionTicks}/" +
+                $"min={(tracker.TimedGroundTransitions > 0 ? tracker.MinimumGroundTransitionTicks : -1)}/" +
+                $"max={(tracker.TimedGroundTransitions > 0 ? tracker.MaximumGroundTransitionTicks : -1)} " +
+                $"actualMoat={tracker.ActualMoatTransitions}/timed={tracker.TimedMoatTransitions}/ticks={tracker.ActualMoatTransitionTicks}/" +
+                $"min={(tracker.TimedMoatTransitions > 0 ? tracker.MinimumMoatTransitionTicks : -1)}/" +
+                $"max={(tracker.TimedMoatTransitions > 0 ? tracker.MaximumMoatTransitionTicks : -1)} " +
+                $"actualCardinal={tracker.ActualCardinalTransitions}/timed={tracker.TimedCardinalTransitions}/ticks={tracker.ActualCardinalTransitionTicks} " +
+                $"actualDiagonal={tracker.ActualDiagonalTransitions}/timed={tracker.TimedDiagonalTransitions}/ticks={tracker.ActualDiagonalTransitionTicks} " +
+                $"actualDirectionChanges={tracker.ActualDirectionChanges} " +
+                $"actualFingerprint=0x{tracker.ActualRouteFingerprint:X16} " +
+                $"nativeFingerprint=0x{tracker.NativeRouteSummary.RouteFingerprint:X16} " +
+                $"actualMatchesNativeFingerprint={actualMatchesNativeFingerprint} " +
+                $"firstTransitionWaitTicks={firstTransitionWaitTicks} " +
+                $"firstTransitionTimingUnavailable={tracker.FirstTransitionTimingUnavailable} " +
+                $"finalSettleTicks={finalSettleTicks} " +
+                $"timedTransitions={tracker.TimedTileTransitionCount} " +
+                $"averageTransitionTicks={(tracker.TimedTileTransitionCount > 0 ? tracker.TileTransitionTicks / tracker.TimedTileTransitionCount : -1)} " +
                 $"maximumTransitionTicks={tracker.MaximumTileTransitionTicks} " +
                 $"calibratable={tracker.Calibratable} " +
                 $"shadowMatchesPublishedCostProfile={tracker.ShadowMatchesPublishedCostProfile} " +
@@ -2778,22 +2957,69 @@ namespace MoveMoatTest
                 int builderStartY = *(int*)(manager + 0x0C);
                 int builderTargetX = *(int*)(manager + 0x10);
                 int builderTargetY = *(int*)(manager + 0x14);
-                if (builderStartX != shadow.StartX || builderStartY != shadow.StartY ||
-                    builderTargetX != shadow.TargetX || builderTargetY != shadow.TargetY)
-                {
-                    LogWeightedShadowDecision(
-                        shadow, builderResult, default, false, false,
-                        "no-valid-shadow-route",
-                        $"builder-coordinate-mismatch-actual-start-{builderStartX}-{builderStartY}-" +
-                        $"target-{builderTargetX}-{builderTargetY}");
-                    return false;
-                }
-
                 int nativeLength = *(int*)(manager + PathManagerOutputLengthOffset);
                 byte* nativePath = *(byte**)(manager + PathManagerOutputBufferOffset);
                 byte* expectedPath = nativeUnitManager + NativeUnitPathBufferOffset +
                     shadow.UnitId * NativeUnitPathBufferStride;
                 bool publishedToUnit = nativePath == expectedPath;
+                if (builderStartX != shadow.StartX || builderStartY != shadow.StartY ||
+                    builderTargetX != shadow.TargetX || builderTargetY != shadow.TargetY)
+                {
+                    // 0x11B520 applies formation offsets per unit. Only the registered unit
+                    // buffer proves that this mismatching builder belongs to this exact unit;
+                    // temporary probes remain untouched and leave the pending scope alive.
+                    if (builderStartX != shadow.StartX || builderStartY != shadow.StartY ||
+                        !publishedToUnit || builderTargetX < 0 || builderTargetX >= MapWidth ||
+                        builderTargetY < 0 || builderTargetY >= MapWidth)
+                    {
+                        LogWeightedShadowDecision(
+                            shadow, builderResult, default, false, publishedToUnit,
+                            "no-valid-shadow-route",
+                            $"builder-coordinate-mismatch-actual-start-{builderStartX}-{builderStartY}-" +
+                            $"target-{builderTargetX}-{builderTargetY}");
+                        return false;
+                    }
+
+                    int builderTargetTileId = GameTileManagerAPI.Instance.GetTileId(
+                        builderTargetX, builderTargetY);
+                    bool allowReservedBuilderTarget = IsPublishedWalkableBuildingApproach(
+                        shadow.UnitId, builderTargetTileId);
+                    bool adjustedFound = false;
+                    WeightedMoatRouteSummary adjustedCandidate = default;
+                    if (!weightedShadowBusy)
+                    {
+                        weightedShadowBusy = true;
+                        try
+                        {
+                            adjustedFound = weightedMoatRoutePlanner.TryBuild(
+                                shadow.PlayerId,
+                                builderStartX,
+                                builderStartY,
+                                builderTargetX,
+                                builderTargetY,
+                                shadow.CostProfile,
+                                allowReservedBuilderTarget,
+                                out adjustedCandidate);
+                        }
+                        finally
+                        {
+                            weightedShadowBusy = false;
+                        }
+                    }
+                    Shared.DebugLogHelper.LogInfo(
+                        log,
+                        $"MoveMoat stage=weighted-shadow-builder-target unit={shadow.UnitId} " +
+                        $"commandTarget=({shadow.TargetX},{shadow.TargetY}) " +
+                        $"builderTarget=({builderTargetX},{builderTargetY}) " +
+                        $"shadowFound={adjustedFound} reason={adjustedCandidate.Reason}.");
+                    shadow = shadow.WithBuilderTarget(
+                        builderTargetX,
+                        builderTargetY,
+                        allowReservedBuilderTarget,
+                        adjustedFound,
+                        adjustedCandidate);
+                }
+
                 WeightedMoatRouteSummary nativeSummary = default;
                 bool nativeValid = false;
                 if (!weightedShadowBusy && builderResult > 0 && nativeLength == builderResult &&
@@ -2920,11 +3146,15 @@ namespace MoveMoatTest
                 $"shadowLength={shadow.Candidate.RouteLength} " +
                 $"shadowGround={shadow.Candidate.GroundEdges} shadowMoat={shadow.Candidate.MoatEdges} " +
                 $"shadowDiagonal={shadow.Candidate.DiagonalEdges} " +
+                $"shadowDirectionChanges={shadow.Candidate.DirectionChanges} " +
+                $"shadowFingerprint=0x{shadow.Candidate.RouteFingerprint:X16} " +
                 $"shadowTicks={shadow.Candidate.EstimatedTicks} savingTicks={saving} " +
                 $"nativeValid={nativeValid} nativeLength={native.RouteLength} " +
                 $"pathBuffer={(publishedToUnit ? "unit" : "temporary")} " +
                 $"nativeGround={native.GroundEdges} nativeMoat={native.MoatEdges} " +
                 $"nativeDiagonal={native.DiagonalEdges} nativeTicks={native.EstimatedTicks} " +
+                $"nativeDirectionChanges={native.DirectionChanges} " +
+                $"nativeFingerprint=0x{native.RouteFingerprint:X16} " +
                 $"searchMs={shadow.Candidate.SearchMilliseconds:F3} " +
                 $"expanded={shadow.Candidate.ExpandedNodes} abort={shadow.Candidate.Reason}.");
         }
@@ -7706,7 +7936,8 @@ namespace MoveMoatTest
                 int initialX,
                 int initialY,
                 int initialPathPosition,
-                bool startedOnMoat)
+                bool startedOnMoat,
+                int trackingStartTick)
             {
                 MapEpoch = mapEpoch;
                 UnitId = unitId;
@@ -7720,9 +7951,14 @@ namespace MoveMoatTest
                 LastY = initialY;
                 LastPathPosition = initialPathPosition;
                 StartedOnMoat = startedOnMoat;
+                TrackingStartTick = trackingStartTick;
                 WasOnMoat = startedOnMoat;
+                ActualRouteFingerprint = RouteFingerprintOffsetBasis;
+                MinimumGroundTransitionTicks = int.MaxValue;
+                MinimumMoatTransitionTicks = int.MaxValue;
                 RuntimeNativeEstimatedTicks = long.MaxValue;
                 RuntimeShadowEstimatedTicks = long.MaxValue;
+                LastTileTransitionTick = trackingStartTick;
             }
 
             public int MapEpoch { get; }
@@ -7734,6 +7970,7 @@ namespace MoveMoatTest
             public int InitialX { get; }
             public int InitialY { get; }
             public bool StartedOnMoat { get; }
+            public int TrackingStartTick { get; }
             public int LastX { get; set; }
             public int LastY { get; set; }
             public int LastPathPosition { get; set; }
@@ -7755,6 +7992,7 @@ namespace MoveMoatTest
             public bool ShadowMatchesPublishedCostProfile { get; set; }
             public bool RuntimeCadenceCaptured { get; set; }
             public bool RuntimeCadenceChanged { get; set; }
+            public bool RuntimeCadenceRebased { get; set; }
             public WeightedMovementCostProfile RuntimeCostProfile { get; set; }
             public bool RuntimeShadowMatchesPublishedCostProfile { get; set; }
             public long RuntimeNativeEstimatedTicks { get; set; }
@@ -7764,9 +8002,31 @@ namespace MoveMoatTest
             public int FirstObservedTick { get; set; } = -1;
             public int LastObservedTick { get; set; } = -1;
             public int LastTileTransitionTick { get; set; } = -1;
+            public int FirstTileTransitionTick { get; set; } = -1;
+            public bool FirstTransitionTimingUnavailable { get; set; }
             public int TileTransitionCount { get; set; }
+            public int TimedTileTransitionCount { get; set; }
             public long TileTransitionTicks { get; set; }
             public int MaximumTileTransitionTicks { get; set; }
+            public int ActualGroundTransitions { get; set; }
+            public int TimedGroundTransitions { get; set; }
+            public long ActualGroundTransitionTicks { get; set; }
+            public int MinimumGroundTransitionTicks { get; set; }
+            public int MaximumGroundTransitionTicks { get; set; }
+            public int ActualMoatTransitions { get; set; }
+            public int TimedMoatTransitions { get; set; }
+            public long ActualMoatTransitionTicks { get; set; }
+            public int MinimumMoatTransitionTicks { get; set; }
+            public int MaximumMoatTransitionTicks { get; set; }
+            public int ActualCardinalTransitions { get; set; }
+            public int TimedCardinalTransitions { get; set; }
+            public long ActualCardinalTransitionTicks { get; set; }
+            public int ActualDiagonalTransitions { get; set; }
+            public int TimedDiagonalTransitions { get; set; }
+            public long ActualDiagonalTransitionTicks { get; set; }
+            public int ActualDirectionChanges { get; set; }
+            public int LastActualDirection { get; set; } = -1;
+            public ulong ActualRouteFingerprint { get; set; }
             public long NativeEstimatedTicks { get; set; }
             public long ShadowEstimatedTicks { get; set; }
             public string ShadowDecision { get; set; }
@@ -7824,6 +8084,29 @@ namespace MoveMoatTest
             public bool CandidateFound { get; }
             public WeightedMoatRouteSummary Candidate { get; }
             public bool Calibratable { get; }
+
+            public WeightedShadowScope WithBuilderTarget(
+                int targetX,
+                int targetY,
+                bool allowReservedTarget,
+                bool candidateFound,
+                WeightedMoatRouteSummary candidate) =>
+                new WeightedShadowScope(
+                    MapEpoch,
+                    UnitId,
+                    UnitType,
+                    PlayerId,
+                    TribeId,
+                    Command,
+                    StartX,
+                    StartY,
+                    targetX,
+                    targetY,
+                    CostProfile,
+                    allowReservedTarget,
+                    candidateFound,
+                    candidate,
+                    Calibratable);
         }
 
         private readonly struct AttackRegionFallbackDecision

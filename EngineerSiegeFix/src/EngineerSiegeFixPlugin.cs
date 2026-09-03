@@ -1,4 +1,6 @@
 using BepInEx;
+using BepInEx.Logging;
+using SHCDESE.API;
 using SHCDESE.API.LowLevel;
 using System;
 
@@ -13,17 +15,26 @@ namespace EngineerSiegeFix
         private const string PluginName = "Engineer Siege Fix";
         private const string PluginVersion = "0.1.0";
 
-        private EngineerSiegeFixRuntime runtime;
+        // SHCDE destroys the early BepInEx component during normal startup. Keep all
+        // process-wide state independent of that Unity object's lifetime.
+        private static ManualLogSource processLog;
+        private static EngineerSiegeFixRuntime runtime;
+        private static bool libraryEventSubscribed;
 
         private void Awake()
         {
+            processLog = processLog ?? Logger;
             Shared.DebugLogHelper.LogInfo(
-                Logger,
+                processLog,
                 $"{PluginName} {PluginVersion} loaded; standaloneTestMod=true, gameplaySynchronized=true.");
-            CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
+            if (!libraryEventSubscribed)
+            {
+                CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
+                libraryEventSubscribed = true;
+            }
         }
 
-        private void OnCrusaderLibraryLoaded(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
+        private static void OnCrusaderLibraryLoaded(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
         {
             if (runtime != null)
                 return;
@@ -31,35 +42,23 @@ namespace EngineerSiegeFix
             try
             {
                 bool currentNative = Shared.DebugLogHelper.ReportNativeLibraryVersion(
-                    Logger,
+                    processLog,
                     PluginName,
                     requireCurrentVersion: true);
                 if (!currentNative)
                     return;
 
                 runtime = new EngineerSiegeFixRuntime(
-                    Logger,
+                    processLog,
                     memory,
                     unchecked((ulong)libraryHandle.ToInt64()));
             }
             catch (Exception exception)
             {
                 Shared.DebugLogHelper.LogError(
-                    Logger,
+                    processLog,
                     $"{PluginName} remains inactive because native initialization failed: {exception}");
             }
-        }
-
-        private void Update()
-        {
-            runtime?.PollRuntimeDiagnostics();
-        }
-
-        private void OnDestroy()
-        {
-            CrusaderLibrary.Instance.LibraryLoaded -= OnCrusaderLibraryLoaded;
-            runtime?.Dispose();
-            runtime = null;
         }
     }
 }

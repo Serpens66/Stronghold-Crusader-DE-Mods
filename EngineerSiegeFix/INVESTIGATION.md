@@ -23,19 +23,21 @@ Their state-6 branches validate an existing crew, apply a 16-phase tick throttle
 
 This proves what these functions do. It does not by itself prove that normal human siege-tent completion executes these branches.
 
-## Disproved runtime paths
+## Previously negative runtime paths invalidated by lifecycle teardown
+
+All negative runtime conclusions in this section must be retested. Their static semantics and hook byte contracts remain useful, but their zero-callback results are invalid because normal SHCDE startup disposed the runtime and uninstalled the hooks before the tested map activity.
 
 ### Siege-tent unit function at RVA `0x158690`
 
 The first implementation hooked `FUN_180158690`, whose decompiled behavior marks a siege-tent unit for conversion and stores a pending catapult/trebuchet type and state 6.
 
-Runtime result: normal player construction of both siege-engine types completed, but the hook was never called. The active construction path observed in the game uses building-side siege tents, so this unit routine is not a valid interception point for that flow.
+The first attempted function detour at RVA `0x158690` failed activation and produced no runtime evidence. Later builds successfully installed a six-byte observation hook at the function entry and an observation hook at the completion tail at RVA `0x158762`, but no callbacks appeared during normal construction. Those later zero-callback results are invalid because the hooks were removed during startup cleanup. The function must be observed again with lifecycle-safe hooks.
 
 ### Pending unit converter at RVA `0x195D10`
 
 The second implementation hooked `FUN_180195D10`. Its baseline semantics clearly convert a pending unit slot by copying pending type/state into active fields.
 
-Runtime result on 2026-09-03: a catapult tent and trebuchet tent were created and removed normally, while the log contained zero `SIEGE_CONVERSION_CALLBACK`, commit, rejection or validation markers. Therefore normal player siege construction does not pass through this converter either.
+Runtime result on 2026-09-03: a catapult tent and trebuchet tent were created and removed normally, while the log contained zero `SIEGE_CONVERSION_CALLBACK`, commit, rejection or validation markers. This does not prove that normal construction bypasses the converter because the five-byte entry hook had already been uninstalled by startup `OnDestroy()`.
 
 ### Catapult and trebuchet state-6 interiors
 
@@ -46,7 +48,7 @@ The third implementation hooked the exact pre-throttle reads inside the proven c
 
 Both hooks were installed successfully and included a fail-closed check that the displaced phase-seed read in `RAX` matched the device field. Every execution would necessarily have emitted either `SIEGE_STATE6_CALLBACK` or a correction-disabled error.
 
-Runtime result on 2026-09-03 at 21:36: catapult tent building 146 and trebuchet tent building 147 completed and were removed. The newest log contained zero state-6 callbacks and zero correction-disabled messages. Consequently these state-6 branches are not reached during the observed normal completion flow, despite their confirmed siege-engine semantics.
+Runtime result on 2026-09-03 at 21:36: catapult tent building 146 and trebuchet tent building 147 completed and were removed. The log contained zero state-6 callbacks and zero correction-disabled messages. This result is also invalid as route evidence because both hooks had already been uninstalled by startup `OnDestroy()`.
 
 ## What has not been proven
 
@@ -103,17 +105,21 @@ Despite those completed tent lifecycles, the following marker counts were all ze
 
 There were no Engineer Siege Fix exceptions or explicit diagnostic failures. The game continued normally until the session ended at approximately 22:06:49.
 
-### Interpretation of the missing markers
+### Confirmed lifecycle cause of the missing markers
 
 The fourth run does not disprove the central dispatcher or either handler. The independent Unity polling path also failed to emit even its first session marker, so two intended observation mechanisms remained silent at once. Without a functioning control observation, zero handler callbacks are not sufficient evidence that the handler functions were not executed.
 
-The polling implementation reads the raw global at RVA `0x37ED4D0`, compares it with `lastPollTick` and returns before re-reading the unit manager if the value is unchanged. That RVA had semantic references consistent with timing, but this particular use was never independently validated as a changing game-tick source. A plausible failure mode is:
+The new workspace lifecycle contract and its referenced Script Extender investigation establish the primary cause: SHCDE destroys Unity components created during early `BaseUnityPlugin.Awake()` as part of normal startup. It calls the plugin's `OnDestroy()` at that time even though the process and modded game are continuing.
 
-1. The first Unity update observes the menu-time value while the unit manager is unavailable.
-2. The code stores that value in `lastPollTick` and returns.
-3. If the raw value remains unchanged or is not the expected tick source, every subsequent update returns before the unit-manager/session marker.
+The fourth diagnostic plugin performed all three invalid lifecycle operations:
 
-This is a diagnosis hypothesis, not yet a confirmed cause. A general `BaseUnityPlugin.Update` lifecycle failure is also possible, although other local mods use Unity update methods successfully. The next build needs an unconditional lifecycle heartbeat before any guard to distinguish these cases.
+1. It stored the runtime only in an instance field of the short-lived plugin component.
+2. It depended on that component's `Update()` method for polling.
+3. Its startup `OnDestroy()` unsubscribed `CrusaderLibrary.LibraryLoaded`, called `runtime.Dispose()`, unloaded both native hooks and cleared the runtime reference.
+
+This exactly explains the observed sequence: the handler signatures and hooks were installed early enough to emit `SIEGE_ROUTE_DIAGNOSTIC_INSTALLED`, then normal SHCDE startup cleanup removed them before the map and siege-tent tests. It also explains why neither native callbacks nor the Unity polling marker appeared and why no diagnostic exception was logged.
+
+The raw global at RVA `0x37ED4D0` was also an unvalidated tick source in this runtime. Although it is no longer needed to explain the complete failure, relying on it and returning before re-reading the unit manager was an additional avoidable weakness.
 
 The handler-entry hooks were installed before the later-loaded official `Fixes` mod. Inspection of `Fixes` 1.9.1 found no hook at RVA `0x1520D0` or `0x1535F0`, so no direct overlap with these two hooks is currently known. Nevertheless, the next diagnostic should observe the proven indirect call itself at RVA `0x18410C`; this avoids relying solely on entry-hook execution and records the actual target selected for every relevant dispatch.
 
@@ -130,16 +136,35 @@ Consequences:
 - Because the option is enabled by default in the installed Fixes mod, it may mask or reduce reproduction of the AI-specific variant during tests.
 - It does not explain why all fourth-build observation markers were absent and it does not conflict directly with the two handler-entry hooks.
 
-## Next diagnostic step
+## Lifecycle-safe fifth diagnostic build
 
-The next build should remain observation-only and make the observation path independently verifiable:
+The corrected build remains observation-only and changes the runtime lifetime as follows:
 
-1. Replace the unvalidated raw tick-RVA polling guard with the Script Extender's established `GameTimeManagerAPI.Instance.OnTick` event.
-2. Emit a bounded lifecycle heartbeat before reading the native unit manager.
-3. Hook the proven indirect dispatcher call at RVA `0x18410C` with a fully documented register, stack, flags and displaced-instruction contract.
-4. At that boundary, record the current one-based context unit ID, unit type loaded into `RAX`, resolved handler target, alive state, global ID, state and crew fields.
-5. Retain slot and associated-engineer snapshots through the verified tick event.
-6. Do not restore any corrective writes until both catapult and trebuchet construction have produced a complete runtime-confirmed handoff sequence.
+1. The runtime and logger are held through static process-wide references independent of the destroyed Unity component.
+2. `CrusaderLibrary.LibraryLoaded` uses a static handler and is not removed by startup `OnDestroy()`.
+3. The plugin has no `Update()` and no `OnDestroy()` teardown.
+4. Simulation polling is driven by the established `GameTimeManagerAPI.Instance.OnTick` publisher.
+5. The first three tick callbacks emit `SIEGE_TICK_HEARTBEAT` before any unit-manager guard, proving that the runtime survived startup cleanup.
+6. The raw `GameTickRva` and `lastPollTick` guard are removed.
+7. The existing handler-entry hooks and slot/engineer observation remain read-only.
+
+If this lifecycle-safe run still produces tick heartbeats but no handler entries, the next native step is to hook the proven indirect dispatcher call at RVA `0x18410C` with a fully documented register, stack, flags and displaced-instruction contract. No corrective writes may be restored until both catapult and trebuchet construction produce a complete runtime-confirmed handoff sequence.
+
+## Combined lifecycle-safe retest
+
+Because every earlier zero-callback result was affected by the same lifecycle teardown, all previous candidates are enabled simultaneously in the next build. The seven observation points are non-overlapping and remain read-only:
+
+1. Siege-tent unit tick entry at RVA `0x158690`, six-byte span covering `push rbx` and `sub rsp,0x30`.
+2. Siege-tent unit completion tail at RVA `0x158762`, eleven-byte pending-field clear before the epilogue.
+3. Pending unit converter entry at RVA `0x195D10`, five-byte RBX save.
+4. Catapult state-6 phase-seed read at RVA `0x1524FA`, seven-byte instruction.
+5. Trebuchet state-6 phase-seed read at RVA `0x153A78`, eight-byte instruction.
+6. Catapult handler entry at RVA `0x1520D0`, five-byte RBX save.
+7. Trebuchet handler entry at RVA `0x1535F0`, five-byte RBX save.
+
+Every hook executes its complete displaced Vanilla instruction before the callback, preserves all registers through `X64SmartCPUContextRegs.All` and only reads state for logging. The converter obtains its manager and one-based unit ID from its native `RCX`/`RDX` arguments; the other candidates use the central current-context unit ID. Each path has a distinct marker, and unchanged repeated snapshots are suppressed to keep one test run readable.
+
+One normal test run with at least one completed catapult and one completed trebuchet can therefore retest every previous candidate. A valid run must first contain `SIEGE_TICK_HEARTBEAT`, proving survival beyond startup cleanup, followed by whichever of the seven candidate markers actually participate in the construction route.
 
 ## Acceptance criteria for a future fix
 

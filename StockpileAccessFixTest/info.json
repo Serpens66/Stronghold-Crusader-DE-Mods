@@ -1,0 +1,12 @@
+{
+  "GUID": "StockpileAccessFixTest_Serp",
+  "Author": "Serpens66",
+  "Name": "Stockpile Access Fix Test",
+  "Description": "Diagnoses and repairs workers stranded by a stale stockpile access point.",
+  "Version": "0.1.0",
+  "Manifest": 1,
+  "NetworkMode": 1,
+  "SupportedGameVersions": [
+    "2.8.0.1"
+  ]
+}

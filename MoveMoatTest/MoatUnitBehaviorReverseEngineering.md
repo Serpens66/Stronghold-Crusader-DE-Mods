@@ -2497,8 +2497,11 @@ ist bei `0x184203` innerhalb des Callers `0x182B00` folgende Reihenfolge bestät
 
 Der Shadow-Planer liest diese Felder von jeder konkreten Unit zum Zeitpunkt der synchronen
 Planung. Es gibt weder eine Geschwindigkeits-Whitelist noch fest hinterlegte Werte pro `eChimps`.
-`r_CurrentSpeed` wird nur zur Diagnose mitgeführt. Maßgeblich ist `r_CurrentSpeed2`, sodass auch
-Vanillas Gruppensynchronisierung oder kompatible Änderungen anderer Mods automatisch einfließen.
+Außerhalb einer aktiven Moat-Phase ist `r_CurrentSpeed2` maßgeblich, sodass auch Vanillas
+Gruppensynchronisierung oder kompatible Änderungen anderer Mods automatisch einfließen. Während
+einer aktiven Moat-Phase kann `r_CurrentSpeed2` dagegen nicht allein durch Abziehen von `+3/+4/+6`
+auf eine Grundverzögerung zurückgeführt werden. In diesem eng begrenzten Zustand ist
+`r_CurrentSpeed` der stabile, vom aktuellen Lauf bestätigte Rückfallwert.
 Die Messungen vom 3. September 2026 zeigen allerdings, dass dies allein noch nicht der endgültige
 Laufzustand ist: Beim arabischen Sklaven stand `r_SpeedBonus` während `MoveHere` und Builder noch
 auf `0`, obwohl die Laufzeit aller vier geprüften Routen exakt zum späteren Wert `1` passte. Der
@@ -2512,17 +2515,22 @@ Der generische Handlerdecoder kann bei verzweigten Handlern mehrere mögliche We
 und der auf den Referenzhash zugeschnittene Produktionscode löst solche Fälle bewusst über auditierte
 Typwerte. `MoveMoatTest` verwendet diese Tabelle nicht. Stattdessen erfasst der read-only Tracker
 beim ersten echten Pfadfortschritt erneut alle Felder der konkreten Unit und berechnet Shadow- und
-dekodierte Native-Route mit diesem post-handler Runtimeprofil neu. Ändert sich die normalisierte
-Kadenz während derselben Messung, wird die Kalibrierung fail-closed verworfen.
+dekodierte Native-Route mit diesem post-handler Runtimeprofil neu. Wird ein Laufzeitfeld wie
+`r_SpeedBonus` noch vor dem ersten Tilewechsel initialisiert, darf dieses Profil das erste
+Runtimeprofil einmal ersetzen. Eine spätere echte Änderung der normalisierten Kadenz verwirft die
+Kalibrierung weiterhin fail-closed.
 
 Der Zustand des Moat-Delays liegt bei GameUnit-Offset `0x6C`, entsprechend managerrelativ
 `+0x6C8`. Der Abschnitt ab `0x19B506` bestätigt die Phasen 0 bis 24 in Viererschritten. Auf dem
 fertigen Moat werden abhängig von der aktualisierten Phase `+3`, `+4` oder `+6` in
 `r_CurrentSpeed2` eingerechnet; nach dem Verlassen wird die Phase in Achterschritten abgebaut und
-für diesen Nachlauftick `+3` addiert. Der Snapshot entfernt einen solchen eindeutig erkennbaren
-bereits enthaltenen Aufschlag, bevor er neue Kanten bewertet. Negative Felder, ungültige Phasen,
-Überläufe oder ein zwischen Shadow-Suche und Builderausgang veränderter Snapshot führen
-fail-closed zu `no-valid-shadow-route`.
+für diesen Nachlauftick `+3` addiert. Die vollständige Funktion `0x19B260` zeigt jedoch, dass
+`r_CurrentSpeed2` schon vorher aus Basisgeschwindigkeit, Animations-/Bewegungsphase und weiteren
+Runtimezuständen neu aufgebaut wird. Der Snapshot darf daher bei aktiver Moat-Phase nicht nur den
+Terrainaufschlag subtrahieren. Er verwendet dann `r_CurrentSpeed` als stabile Grundverzögerung und
+protokolliert die gesamte Differenz zu `r_CurrentSpeed2` als entfernten dynamischen Anteil.
+Negative Felder, ungültige Phasen, Überläufe oder eine spätere echte Kadenzänderung führen
+fail-closed zu `no-valid-shadow-route` beziehungsweise zu einer nicht kalibrierbaren Messung.
 
 Die Kosten bleiben bis zum Routenende additive Fixpunktwerte:
 
@@ -2562,4 +2570,107 @@ Die geprüften Bytefolgen lauten beim genannten Hash:
 Auch dieser Stand bleibt read-only: Der Planer schreibt weder Pfadpuffer noch Builder-, Manager-
 oder Unitfelder. Ein funktionaler Pfadersatz ist erst nach erneuter Kalibrierung des dynamischen
 Modells vorgesehen.
+
+### 15.18 Vollständiger Diagnosevertrag vor dem abschließenden Shadow-Test
+
+Damit die aufwendigen Gegenproben nicht wegen fehlender Messdaten wiederholt werden müssen, erfasst
+der nächste read-only Build neben der post-handler Prognose auch die tatsächlich gelaufene
+Routenstruktur. Native- und Shadow-Route erhalten einen deterministischen 64-Bit-FNV-1a-
+Fingerabdruck über die Richtungscodes 0 bis 7, ihre Zahl der Richtungswechsel sowie weiterhin Länge,
+Boden-, Moat- und Diagonalkanten. Der Fingerabdruck dient nur dem Vergleich und wird nicht als
+Sicherheits- oder Cachewert verwendet. Endpunkt und jede Kante bleiben unabhängig davon vollständig
+validiert.
+
+Der Move-Tracker klassifiziert jeden beobachteten benachbarten Tilewechsel anhand von Ausgangs- und
+Zieltile als Boden- oder Moat-Kante sowie als kardinal oder diagonal. Für jede Klasse werden Anzahl
+und tatsächliche Ticks summiert; für Boden und Moat werden zusätzlich Minimum und Maximum erfasst.
+Nicht mehr vollständig messbare erste Übergänge bleiben in der Topologie enthalten, werden aber
+aus den Zeitaggregaten ausgeschlossen und ausdrücklich markiert. Zusätzlich protokolliert er:
+
+- Wartezeit vom Builderzeitpunkt bis zum ersten Tilewechsel;
+- Abschlusszeit vom letzten Tilewechsel bis zum beendeten Command;
+- mittlere und maximale Tilewechselzeit;
+- tatsächliche Richtungswechsel und den Fingerabdruck der gelaufenen Route;
+- ob Länge und Fingerabdruck exakt der zuvor dekodierten veröffentlichten Native-Route entsprechen;
+- vollständige Runtimeprofile bei Bewegungsbeginn, Moat-Eintritt, Moat-Austritt, Stillstand und
+  Wiederaufnahme.
+
+Der Zeitursprung wird bereits beim veröffentlichten Builderpfad über
+`GameTimeManagerAPI.CaptureTimeStamp().CapturedGameTick` erfasst, nicht erst beim nächsten
+`OnTick`. Damit enthält `actualTicks` auch die erste Laufkante. Falls der öffentliche Tickwert
+ausnahmsweise nicht verfügbar ist, fällt die Diagnose auf den ersten beobachteten Tick zurück und
+markiert die Zeit der ersten Kante ausdrücklich als unbekannt.
+
+Damit lassen sich aus einem einzigen isolierten Lauf getrennt bewerten: Grundkadenz, Moat-Aufschlag,
+kardinal/diagonal-Semantik, Start-/Endanteil der Gesamtdifferenz, tatsächlich gelaufene Native-
+Route und die alternative Shadow-Entscheidung. Nicht benachbarte Sprünge, Retargeting,
+Gruppengedränge oder ein während des Laufs verändertes normalisiertes Kadenzprofil bleiben
+ausdrücklich nicht kalibrierbar. Der neue Detailumfang erzeugt keine Tickflut: vollständige Profile
+werden nur an semantischen Meilensteinen ausgegeben, die Kantendaten ausschließlich als Summen beim
+Command-Ende.
+
+### 15.19 Auswertung des vollständigen Shadow-Laufs vom 3. September 2026
+
+Der Lauf mit dem kanonischen Hash
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
+enthielt 20 synchrone Shadow-Planungen, 16 post-handler Runtimeplanungen und 18 beendete Tracker.
+Vierzehn Tracker erreichten ihr Ziel regulär, zwei endeten durch einen neuen Befehl und zwei durch
+einen Tribe-Wechsel. Es gab keine Error-/Fatal-Zeile und keine Exception aus `MoveMoatTest`.
+Die 36 gewichteten Suchen benötigten im Mittel `0,166 ms`, maximal `1,391 ms`.
+
+Für vollständig beendete isolierte Läufe ergab das post-handler Profil folgende Abweichungen der
+tatsächlich veröffentlichten Native-Route:
+
+| Unit | Route | geschätzt | gemessen | Differenz |
+|---|---:|---:|---:|---:|
+| arabischer Sklave | Boden, 17 Kanten | 204 | 201 | -3 |
+| arabischer Sklave | Boden, 21 Kanten | 252 | 249 | -3 |
+| arabischer Sklave | kurzer Moat | 168 | 183 | +15 |
+| arabischer Sklave | langer Moat | 408 | 406 | -2 |
+| arabischer Sklave | langer Bodenumweg | 468 | 466 | -2 |
+| Pikenträger | Boden, 12 Kanten | 288 | 280 | -8 |
+| Pikenträger | Boden, 21 Kanten | 504 | 497 | -7 |
+| Pikenträger | kurzer Moat | 264 | 249 | -15 |
+| Pikenträger | langer Moat | 840 | 823 | -17 |
+| Pikenträger | langer Bodenumweg | 912 | 900 | -12 |
+
+Damit liegen alle zehn isolierten Vergleichsläufe innerhalb der festgelegten Grenze von 40 Ticks.
+Die tatsächlich gelaufenen Routen stimmten bei jedem regulären Abschluss in Länge und
+FNV-1a-Fingerabdruck exakt mit dem dekodierten Native-Pfad überein. Decoder, Startzeitpunkt und
+Tileklassifikation sind damit gemeinsam bestätigt.
+
+Auch die beiden Wegwahl-Gegenproben waren eindeutig. Gegen einen langen Bodenumweg wählte der
+Shadow-Planer beim Sklaven eine Moat-Route mit `156` statt `468` geschätzten Ticks und beim
+Pikenträger `264` statt `912`. Beim breiten Moat mit kurzem Bodenumweg gewann für beide Units die
+reine Bodenroute. Auf langen direkten Moat-Routen fand A* außerdem Varianten mit weniger
+Moat-Kanten und Einsparungen von `48` beziehungsweise `96` Ticks.
+
+Die zunächst als `runtime-cadence-changed` markierten Moat-Läufe waren diagnostische Fehlalarme:
+Beim Sklaven wechselte `r_CurrentSpeed2` beim Moat-Eintritt beispielsweise von `1` auf `11`, beim
+Pikenträger von `2` auf `24`. Zugleich blieben die Gesamtschätzungen mit höchstens 17 Ticks
+Abweichung korrekt. Diese Werte sind phasenabhängiger Zustand aus der vollständigen Vorverarbeitung
+in `0x19B260`, keine neue Grundkadenz. Der Code vergleicht deshalb künftig die normalisierte stabile
+Kadenz und lässt reine `CurrentSpeed2`-/Moat-Phasenwechsel die Kalibrierung nicht mehr verwerfen.
+Ein erst vor dem ersten Tilewechsel gesetzter `r_SpeedBonus` darf das Runtimeprofil einmal neu
+basieren; spätere Änderungen bleiben ein echter Abbruchgrund.
+
+Starts auf einem fertigen Moat bestätigen denselben Vertrag. Gemessen wurden unter anderem
+`67` statt zunächst `96` Ticks beim Sklaven, `279` statt `276` bei einer längeren Sklavenroute und
+`244` statt `264` beim Pikenträger. Beim ersten Fall wurde `r_SpeedBonus=1` erst vor dem ersten
+Tilewechsel sichtbar; mit diesem Runtimeprofil beträgt die Schätzung ungefähr `60` Ticks. Der
+einmalige Rebase macht diese Initialisierungsreihenfolge künftig ausdrücklich sichtbar.
+
+Vier zusätzliche Gruppenmitglieder lieferten `builder-coordinate-mismatch`, weil `0x11B520` das
+gemeinsame Befehlsziel formationsabhängig um ein bis zwei Tiles verschiebt. Ein funktionaler
+Shadow-Pfad darf deshalb nicht pauschal an das Gruppenkommando gebunden werden. Der Builder-Detour
+akzeptiert das konkrete Ziel künftig nur, wenn `0xE62D0` nachweislich den echten, für genau diese
+Unit bestimmten 1000-Byte-Pfadpuffer registriert hat. Dann wird der Shadow-Kandidat einmal für das
+tatsächliche Builderziel neu berechnet. Bei temporären Puffern, abweichendem Start oder ungültigem
+Ziel bleibt der ursprüngliche Scope erhalten und Vanilla unverändert.
+
+Der Stand bleibt weiterhin read-only. Vor der funktionalen Veröffentlichung ist noch zu klären,
+wie ein erst nach der synchronen Planung initialisierter Geschwindigkeitsbonus ohne Unittyp-Tabelle
+für die Wegentscheidung verfügbar gemacht oder konservativ behandelt wird. Die vorhandenen Daten
+reichen für diese Analyse aus; eine identische Wiederholung des aufwendigen Kalibrierungslaufs ist
+nicht erforderlich.
 

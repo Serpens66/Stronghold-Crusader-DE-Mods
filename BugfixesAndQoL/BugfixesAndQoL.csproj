@@ -152,6 +152,8 @@
     <Compile Include="src\StartupDiagnosticPolicy.cs" />
     <Compile Include="src\SingleBuildingPauseHook.cs" />
     <Compile Include="src\SingleBuildingPausePacket.cs" />
+    <Compile Include="src\ShiftRepairAllBuildingsHook.cs" />
+    <Compile Include="src\ShiftRepairAllBuildingsPolicy.cs" />
     <Compile Include="src\SurrenderFeature.cs" />
     <Compile Include="src\SurrenderPackets.cs" />
     <Compile Include="src\SurrenderPolicy.cs" />

@@ -219,5 +219,7 @@ BugfixesAndQoL.QuarryPileRelocationTooltip=Steinhaufen verschieben
 BugfixesAndQoL.QuarryPileRelocationTooltipBody=Verschiebt den verknuepften Steinhaufen zur naechsten gueltigen Position im Uhrzeigersinn um diesen Steinbruch.
 BugfixesAndQoL.EnableSingleBuildingPause=Pausieren einzelner Gebaeude aktivieren
 BugfixesAndQoL.EnableSingleBuildingPauseHelp=Halte beim Umschalten des Pausenzustands eines Produktionsgebaeudes Strg gedrueckt, um nur das ausgewaehlte Gebaeude zu beeinflussen. Mehrspieleraktionen verwenden den tick-synchronen Chore-Transport des Script Extenders.
+BugfixesAndQoL.EnableShiftRepairAllBuildings=Alle Gebaeude mit Shift reparieren
+BugfixesAndQoL.EnableShiftRepairAllBuildingsHelp=Halte beim Klicken auf den Reparieren-Button eines Gebaeudes Shift gedrueckt, um zuerst das ausgewaehlte Gebaeude und danach alle weiteren eigenen, beschaedigten und reparierbaren Gebaeude zu reparieren. Vanilla prueft und verbraucht Holz und Stein fuer jede Reparatur.
 BugfixesAndQoL.RequireReachableEnemyForAutomaticGateClosing=Nur bei erreichbaren Feinden schließen
 BugfixesAndQoL.RequireReachableEnemyForAutomaticGateClosingHelp=Wenn aktiviert, schließt ein Feind das Torhaus nur, wenn er per Wegfindung mindestens einen der beiden Toreingänge erreichen kann. Lässt sich die Erreichbarkeit nicht sicher bestimmen, bleibt das Vanilla-Verhalten erhalten.

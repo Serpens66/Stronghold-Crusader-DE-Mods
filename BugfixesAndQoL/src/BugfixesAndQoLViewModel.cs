@@ -41,6 +41,7 @@ namespace BugfixesAndQoL
         private bool enableReturnToMultiplayerLobby = true;
         private bool enableCtrlSingleMarketTrade = true;
         private bool enableSingleBuildingPause = true;
+        private bool enableShiftRepairAllBuildings = true;
         private bool enableQuarryPileRelocation = true;
         private bool enableAIQuarryPileTowardsKeep = true;
         private bool requireReachableEnemyForAutomaticGateClosing = true;
@@ -175,6 +176,8 @@ namespace BugfixesAndQoL
         public string GameplayTitleText => SerpLocalization.Get("BugfixesAndQoL.GameplayTitle");
         public string EnableSingleBuildingPauseText => SerpLocalization.Get(SerpLocalization.EnableSingleBuildingPause);
         public string EnableSingleBuildingPauseHelpText => SerpLocalization.Get(SerpLocalization.EnableSingleBuildingPauseHelp);
+        public string EnableShiftRepairAllBuildingsText => SerpLocalization.Get("BugfixesAndQoL.EnableShiftRepairAllBuildings");
+        public string EnableShiftRepairAllBuildingsHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableShiftRepairAllBuildingsHelp");
         public string EnableQuarryPileRelocationText => SerpLocalization.Get(SerpLocalization.EnableQuarryPileRelocation);
         public string EnableQuarryPileRelocationHelpText => SerpLocalization.Get(SerpLocalization.EnableQuarryPileRelocationHelp);
         public string RequireReachableEnemyForAutomaticGateClosingText => SerpLocalization.Get("BugfixesAndQoL.RequireReachableEnemyForAutomaticGateClosing");
@@ -515,6 +518,13 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool EnableShiftRepairAllBuildings
+        {
+            get => enableShiftRepairAllBuildings;
+            set => SetSetting(ref enableShiftRepairAllBuildings, value, nameof(EnableShiftRepairAllBuildings));
+        }
+
+        [SyncHostOnly]
         public bool EnableQuarryPileRelocation
         {
             get => enableQuarryPileRelocation;
@@ -721,6 +731,7 @@ namespace BugfixesAndQoL
                 EnableMountedStockpileMovementFix = true;
                 EnableFastRecruitRallyMovement = true;
                 EnableSingleBuildingPause = true;
+                EnableShiftRepairAllBuildings = true;
                 EnableQuarryPileRelocation = true;
                 EnableAIQuarryPileTowardsKeep = true;
                 RequireReachableEnemyForAutomaticGateClosing = true;

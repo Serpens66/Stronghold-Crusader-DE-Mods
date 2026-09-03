@@ -46,6 +46,7 @@ namespace BugfixesAndQoL
         private SelectedUnitHealthFeature selectedUnitHealthFeature;
         private AssemblyPointPlacementPatch assemblyPointPlacementPatch;
         private MountedStockpileMovementPatch mountedStockpileMovementPatch;
+        private ShiftRepairAllBuildingsHook shiftRepairAllBuildingsHook;
         private AiRecruitmentHorseDemandFix aiRecruitmentHorseDemandFix;
         private AiStoneReserveFix aiStoneReserveFix;
         private AITowerRuinRepairFix aiTowerRuinRepairFix;
@@ -102,6 +103,9 @@ namespace BugfixesAndQoL
 
         public void InitializeNetwork()
         {
+            TryInitializePersistentFeature(
+                "Shift-repair all buildings",
+                EnsureShiftRepairAllBuildingsHook);
             TryInitializePersistentFeature(
                 "moved synchronized feature group",
                 InitializeMovedFeatureNetwork);
@@ -364,10 +368,18 @@ namespace BugfixesAndQoL
                 UnsubscribeHooks();
         }
 
+        private void EnsureShiftRepairAllBuildingsHook()
+        {
+            if (shiftRepairAllBuildingsHook == null)
+                shiftRepairAllBuildingsHook = new ShiftRepairAllBuildingsHook(log, settings);
+        }
+
         public void Dispose()
         {
             UnsubscribeHooks();
             DisposeMovedFeatures();
+            shiftRepairAllBuildingsHook?.Dispose();
+            shiftRepairAllBuildingsHook = null;
             skirmishAiSelectionMemoryHook?.Dispose();
             skirmishAiSelectionMemoryHook = null;
             customLordListEnhancementHook?.Dispose();

@@ -81,16 +81,22 @@ namespace MoveMoatTest
                 return false;
             }
 
-            // 0x19B260 stores the terrain-adjusted delay in CurrentSpeed2. Its phase
-            // lets us remove only an unambiguous active +3/+4/+6 terrain component.
+            // 0x19B260 rebuilds CurrentSpeed2 from several transient movement fields before
+            // adding the moat phase. Runtime measurements show that subtracting only +3/+4/+6
+            // therefore does not recover the stable cadence while that phase is active.
             int terrainPenalty = 0;
             if (moatPhase != 0)
             {
-                terrainPenalty = currentTileIsCompletedMoat
-                    ? moatPhase < 5 ? 3 : moatPhase < 10 ? 4 : 6
-                    : 3;
+                // CurrentSpeed remains the stable per-unit base in the confirmed movement
+                // contract. This is also the only safe snapshot for a route starting on a moat.
+                terrainPenalty = currentSpeed2 - currentSpeed;
+                if (terrainPenalty < 0)
+                {
+                    rejectionReason = "inconsistent-runtime-speed-fields";
+                    return false;
+                }
             }
-            int normalizedDelay = currentSpeed2 - terrainPenalty;
+            int normalizedDelay = moatPhase != 0 ? currentSpeed : currentSpeed2;
             if (normalizedDelay < 0 || speedBonus == int.MaxValue)
             {
                 rejectionReason = "inconsistent-runtime-speed-fields";
@@ -204,6 +210,8 @@ namespace MoveMoatTest
     internal sealed unsafe class WeightedMoatRoutePlanner
     {
         internal const int MaximumRouteEdges = 2000;
+        private const ulong RouteFingerprintOffsetBasis = 14695981039346656037UL;
+        private const ulong RouteFingerprintPrime = 1099511628211UL;
 
         private const int MapWidth = 800;
         private const int CoordinateCount = MapWidth * MapWidth;
@@ -440,6 +448,9 @@ namespace MoveMoatTest
                 int ground = 0;
                 int moat = 0;
                 int diagonal = 0;
+                int directionChanges = 0;
+                int previousDirection = -1;
+                ulong fingerprint = RouteFingerprintOffsetBasis;
                 long fixedCost = 0;
                 for (int index = 0; index < directionCount; index++)
                 {
@@ -481,6 +492,10 @@ namespace MoveMoatTest
                         ground++;
                     if ((direction & 1) != 0)
                         diagonal++;
+                    if (previousDirection >= 0 && previousDirection != direction)
+                        directionChanges++;
+                    previousDirection = direction;
+                    fingerprint = UpdateRouteFingerprint(fingerprint, direction);
                     x = nextX;
                     y = nextY;
                 }
@@ -495,6 +510,7 @@ namespace MoveMoatTest
 
                 summary = WeightedMoatRouteSummary.Succeeded(
                     directionCount, ground, moat, diagonal,
+                    directionChanges, fingerprint,
                     costProfile.ConvertFixedCostToTicks(fixedCost), 0, 0);
                 return true;
             }
@@ -534,6 +550,9 @@ namespace MoveMoatTest
             int ground = 0;
             int moat = 0;
             int diagonal = 0;
+            int directionChanges = 0;
+            int previousDirection = -1;
+            ulong fingerprint = RouteFingerprintOffsetBasis;
             for (int index = routeNodes - 1; index > 0; index--)
             {
                 int currentNode = route[index];
@@ -560,10 +579,15 @@ namespace MoveMoatTest
                     ground++;
                 if ((direction & 1) != 0)
                     diagonal++;
+                if (previousDirection >= 0 && previousDirection != direction)
+                    directionChanges++;
+                previousDirection = direction;
+                fingerprint = UpdateRouteFingerprint(fingerprint, direction);
             }
 
             summary = WeightedMoatRouteSummary.Succeeded(
                 routeNodes - 1, ground, moat, diagonal,
+                directionChanges, fingerprint,
                 costProfile.ConvertFixedCostToTicks(costs[targetNode]),
                 stopwatch.Elapsed.TotalMilliseconds, expanded);
             return true;
@@ -684,6 +708,9 @@ namespace MoveMoatTest
         private int GetTileId(int x, int y) => rowLookup[y * 3] + x;
 
         private static int GetNode(int x, int y) => y * MapWidth + x;
+
+        private static ulong UpdateRouteFingerprint(ulong fingerprint, int direction) =>
+            unchecked((fingerprint ^ (byte)direction) * RouteFingerprintPrime);
 
         private bool IsValidCoordinate(int x, int y) =>
             x >= 0 && x < MapWidth && y >= 0 && y < MapWidth &&
@@ -845,6 +872,8 @@ namespace MoveMoatTest
             int groundEdges,
             int moatEdges,
             int diagonalEdges,
+            int directionChanges,
+            ulong routeFingerprint,
             long estimatedTicks,
             double searchMilliseconds,
             int expandedNodes)
@@ -855,6 +884,8 @@ namespace MoveMoatTest
             GroundEdges = groundEdges;
             MoatEdges = moatEdges;
             DiagonalEdges = diagonalEdges;
+            DirectionChanges = directionChanges;
+            RouteFingerprint = routeFingerprint;
             EstimatedTicks = estimatedTicks;
             SearchMilliseconds = searchMilliseconds;
             ExpandedNodes = expandedNodes;
@@ -866,6 +897,8 @@ namespace MoveMoatTest
         public int GroundEdges { get; }
         public int MoatEdges { get; }
         public int DiagonalEdges { get; }
+        public int DirectionChanges { get; }
+        public ulong RouteFingerprint { get; }
         public long EstimatedTicks { get; }
         public double SearchMilliseconds { get; }
         public int ExpandedNodes { get; }
@@ -875,11 +908,14 @@ namespace MoveMoatTest
             int groundEdges,
             int moatEdges,
             int diagonalEdges,
+            int directionChanges,
+            ulong routeFingerprint,
             long estimatedTicks,
             double searchMilliseconds,
             int expandedNodes) =>
             new WeightedMoatRouteSummary(
                 true, "none", routeLength, groundEdges, moatEdges, diagonalEdges,
+                directionChanges, routeFingerprint,
                 estimatedTicks, searchMilliseconds, expandedNodes);
 
         public static WeightedMoatRouteSummary Failed(
@@ -888,7 +924,7 @@ namespace MoveMoatTest
             int expandedNodes = 0,
             int routeLength = 0) =>
             new WeightedMoatRouteSummary(
-                false, reason, routeLength, 0, 0, 0, 0,
+                false, reason, routeLength, 0, 0, 0, 0, 0, 0,
                 searchMilliseconds, expandedNodes);
     }
 }
