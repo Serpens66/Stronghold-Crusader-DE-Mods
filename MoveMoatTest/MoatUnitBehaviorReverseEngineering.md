@@ -1471,7 +1471,7 @@ aktiv.
 
 Das BepInEx-Log wird angehängt. Jeder neue Spielstart beginnt mit:
 
-`[Message:   BepInEx] BepInEx 5.4.23.2 - Stronghold Crusader Definitive Edition`
+`[Message:   BepInEx] BepInEx ... - Stronghold Crusader Definitive Edition`
 
 Die Uhrzeit dieser BepInEx-Zeile ist nicht zuverlässig. Für die zeitliche Zuordnung die
 eigenen Modlogs mit Millisekunden verwenden. `MoatCommandTest` verwendet die Präfixfolge
@@ -1496,7 +1496,6 @@ beziehungsweise die konkreten Stages filtern:
 - `cursor-tile-pair-observed`
 - `attack-cursor-pair`
 - `attack-track-start`
-- `attack-state`
 - `attack-state-end`
 - `attack-mode-unscoped`
 - `attack-command-candidate`
@@ -1520,8 +1519,9 @@ beziehungsweise die konkreten Stages filtern:
 - `builder-native-before-fallback`
 - `builder-native-after-fallback`
 - `move-track-start`
-- `move-state`
+- `move-milestone`
 - `move-state-end`
+- `building-consumer-performance`
 - `attack-approach` mit `UnitFlood`, `BuildingApproach` oder `BuildingCandidateConsumer`
 - `wall-command-staged`, `wall-track-start`, `wall-state`, `wall-mode`, `wall-planner` und
   `wall-builder-entry/return`
@@ -1537,17 +1537,15 @@ weiterhin anhand der bereits vorhandenen BFS-Generation beziehungsweise des unve
 Auswahl-, Unit- und Tilepaarzustands dedupliziert; sie besitzen ebenfalls kein abschaltendes
 Lebenszeitlimit.
 
-Die Attack-State-Diagnose wird nicht über eine Mengen- oder Zeitgrenze abgeschnitten. Sie schreibt
-einen Eintrag nur dann, wenn sich mindestens eines der gelesenen Zustands-, Positions-, Ziel-,
-Geschwindigkeits-, Pfad- oder Pipelinefelder ändert. So bleiben auch lange festhängende Angriffe
-vollständig klassifizierbar, ohne pro unverändertem Tick Logspam zu erzeugen.
-
-Dasselbe Verfahren verwendet der allgemeine Moat-Move-Tracker nach einem positiven,
-owner-qualifizierten Builderfallback. Er schreibt nur bei einer Änderung von AI-State, Command,
-Position, Ziel, nächstem Tile, Geschwindigkeit oder Pfadfortschritt. Zusätzlich kennzeichnet er,
-ob aktuelles, Ziel- oder nächstes Tile das fertige-Moat-Bit tragen. Damit lässt sich unterscheiden,
-ob ein Assassin den erzeugten Pfad sofort verwirft, bis zum ersten Moat-Tile läuft oder erst dort
-stoppt. Ein neuer Tribe-Befehl, Tod oder Kartenwechsel beendet die jeweilige Verfolgung.
+Die frühere Attack-/Move-Tickdiagnose schrieb zwar nur bei Zustandsänderungen, erzeugte im
+KI-Schnellvorlauf aber dennoch mehr als 107.000 Zeilen in knapp fünf Minuten. Der Tracker meldet
+deshalb ohne Mengenbudget nur noch semantische Meilensteine: Bewegungsbeginn, Betreten und
+Verlassen des Moats, Zielerreichung, einmaliges Feststecken oder Commandende. Ein erfolgreicher
+Moataustritt beendet weitere Moat-Übergangsmeldungen; der schlanke Tracker bleibt nur bis zum
+Annäherungsziel, einem einmaligen Stillstandsbefund oder Commandende erhalten. Die synchronen
+Attack-Pipelineflags werden bereits nach der Command-Postphase zusammengefasst und danach
+verworfen. Damit bleiben relevante Fehlerzustände sichtbar, ohne jeden Animations- oder
+Pfadschritt zu protokollieren.
 
 Falls ein Befehl wie ein zuckender Patrol-Teilweg bereits nach der Moduswahl und vor dem Builder
 endet, führt seine Post-Phase genau eine zusätzliche read-only Owner-Routenprüfung für den letzten
@@ -2247,4 +2245,78 @@ Für Spielupdates sind neben dem Hash
 des `GameCursorManager`, die 1-basierte Building-ID-Semantik, der Dispatcher-Call
 `0x8DFF6 -> 0xB70C0` und die StructureGrid-Zuordnung zu prüfen. Stimmen Sprite-Hover-ID und
 StructureGrid-Vertrag nicht mehr überein, bleibt dieser Fallback fail-closed.
+
+Der erste Test dieses Resolvers zeigte eine weitere Inkonsistenz der Cursorfelder. Beim Übergang
+vom gültigen zum roten Spritebereich blieb `r_HoverOverBuildingId=1` und
+`r_MouseTileId=125319`, während die separaten `r_MouseTileX/Y` beziehungsweise das globale
+Cursorziel `(0,0)` enthielten. Die erste Umsetzung verlangte irrtümlich, dass diese X/Y-Werte
+wieder genau `r_MouseTileId` ergeben, und verwarf deshalb gerade den vorgesehenen
+`nearest-footprint`-Fall. Maßgeblich ist nun das validierte Tile: Seine Koordinaten werden über
+`GetTileVectorFromId(r_MouseTileId)` rekonstruiert. Rohe X/Y-Werte dienen nur als Fallback, wenn
+sie selbst wieder ein gültiges Tile ergeben. Die Diagnose protokolliert beide Quellen, damit diese
+Priorität nach einem Spielupdate erneut geprüft werden kann.
+
+### 15.13 Performance des Gebäude-Consumers bei großen KI-Gruppen
+
+Ein KI-Schnellvorlauf vom 3. September 2026 zeigte reproduzierbare synchrone Pausen im
+`0x123090`-Detour. Zwischen der abgeschlossenen `BuildingApproach`-Diagnose und dem Ergebnis des
+Consumers lagen bei 5, 11, 20 und 27 grabfähigen Units ungefähr 409, 903, 1.631 und 2.191 ms.
+Die nahezu linearen rund 80 ms pro Unit entsprechen der bisherigen verschachtelten Auswertung:
+16 vollständige Gebäude-Kandidaten wurden außen und alle Units innen durchlaufen. Da
+`EnsureReachabilityMap` absichtlich nur eine Karte hält und sein Schlüssel die Unit enthält,
+verdrängte jede innere Unit die vorherige Karte. Beim nächsten Kandidaten begann dieselbe Folge
+erneut; 27 Units mal 16 Kandidaten ergaben bis zu 432 BFS-Aufbauten.
+
+Die Auswertung läuft deshalb nun unitweise. Für eine Unit werden die Kandidaten nur zur
+Berechnung nach Zielregion gruppiert und gegen dieselbe Reachability-Generation geprüft; die
+veröffentlichte Reihenfolge wird weiterhin ausschließlich aus echter Distanz und ursprünglicher
+Vanilla-Reihenfolge bestimmt. Semantik, Ownerfilter und Kandidatenmenge bleiben unverändert. Der
+Moat-Owner eines Tiles wird zusätzlich nur für die Dauer dieses synchronen Consumer-Aufrufs
+memoisiert. Der Cache wird weder zwischen Commands noch über einen Kartenwechsel hinweg benutzt.
+
+`building-consumer-performance` misst Vanilla und den Modfallback getrennt und nennt rohe sowie
+gültige Kandidaten, Gräber, Kandidatenprüfungen, tatsächlich aufgebaute Reachability-Karten,
+Cachetreffer und Moat-Owner-Cachetreffer. Bei einer gemeinsamen Zielregion werden damit ungefähr
+eine Karte pro Unit statt eine Karte pro Unit und Kandidat erwartet. Bleibt danach eine Pause in
+der separat ausgewiesenen Vanilla-Zeit, muss `0x123090` selbst erneut untersucht werden; sie darf
+nicht durch einen ungeprüften globalen Bypass verdeckt werden.
+
+### 15.14 Native Tile-Anzahl und Performance der Gebäude-Approach-Suche
+
+Eine anschließende Codekontrolle deckte in der funktionalen `BuildingApproach`-Freigabe einen
+gefährlichen Größenfehler auf. Der rechteckige Koordinatenraum ist `800 * 800 = 640.000` Zellen
+groß; die nativen tile-indizierten Arrays wie PathRegionGrid, StructureGrid und TileFlags besitzen
+dagegen nur `0x4E520 = 320.800` Einträge. Die hashgleiche Baseline verwendet `0x4E520` an den
+Initialisierungs-, Serialisierungs- und Tilezugriffsstellen durchgängig. Die alte Schleife lief bis
+640.000 und las `pathRegionGrid[tileId]` sogar vor der Gültigkeitsprüfung. Damit waren ungefähr
+319.200 native Reads außerhalb des bestätigten Arrays möglich. Neben unnötiger Arbeit konnte dies
+falsche Regionsübereinstimmungen oder einen Crash verursachen.
+
+Der Code trennt deshalb nun ausdrücklich:
+
+- `MapCellCount = 640.000` ausschließlich für die verwalteten BFS-Zustände, die per `(y * 800) + x`
+  adressiert werden;
+- `NativeTileCount = 0x4E520` für jede Iteration oder Gültigkeitsprüfung einer nativen Tile-ID.
+
+Die Approach-Freigabe durchsucht außerdem nicht mehr für jedes von `0xDA020` angefragte
+Regionspaar erneut alle Tiles. Innerhalb genau eines synchronen `0xDA020`-Aufrufs wird einmal ein
+Index des Zielgebäudes erzeugt: StructureGrid-Tiles mit passender 1-basierter Building-ID und
+Vanillas Kontextflagprüfung werden erfasst, anschließend werden ihre vier kardinalen Nachbarn mit
+der bestehenden Endpoint- und Reservierungsprüfung nach PathRegion gruppiert. Diese Konstruktion
+entspricht dem in der Baseline sichtbaren Vier-Nachbarn-Vertrag von `0xDA020`. Sie verwendet
+bewusst nicht nur die kleinere Boundingbox des Building-Records, weil gültige begehbare
+Reservierungen außerhalb dieser Bounds bereits praktisch bestätigt wurden.
+
+Auch diese Regionsprobe läuft unitweise: Alle Annäherungstiles derselben Zielregion werden für
+eine Unit geprüft, bevor zur nächsten Unit gewechselt wird. Damit bleibt der Eintrag in
+`EnsureReachabilityMap` erhalten und die frühere Kandidat-mal-Unit-Verdrängung entsteht nicht noch
+einmal im vorgelagerten `0xDA020`-Fallback.
+
+`building-approach-performance` misst nun den gesamten beobachteten `0xDA020`-Aufruf, die darin
+verbrauchte Zeit der owner-geprüften Regionsfallbacks, Aufbauzeit und Größe des einmaligen Indexes
+sowie Reachability- und Moat-Owner-Cachetreffer. `vanillaEstimatedMs` ist lediglich `totalMs` minus
+der gemessenen Fallbackzeit und deshalb als Schätzung gekennzeichnet; der Detour kann Vanillas Zeit
+und die synchron darin aufgerufenen Observer nicht anderweitig trennen. Alle Approach- und
+Consumer-Performancezustände sind threadlokal und werden nach dem jeweiligen nativen Aufruf
+verworfen.
 

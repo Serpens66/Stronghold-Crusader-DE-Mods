@@ -54,9 +54,15 @@ namespace Shared
             GameplayModAllowedContext.CustomizedCoopTrail |
             GameplayModAllowedContext.CustomizedSandsOfTime;
 
-        private const GameplayModAllowedContext AllRegularContexts =
+        private const GameplayModAllowedContext AllRecognizedContexts =
             NonEditorGameplayContexts |
-            GameplayModAllowedContext.MapEditor;
+            GameplayModAllowedContext.MapEditor |
+            GameplayModAllowedContext.Campaign |
+            GameplayModAllowedContext.StandaloneMission |
+            GameplayModAllowedContext.VanillaTrail |
+            GameplayModAllowedContext.CustomTrail |
+            GameplayModAllowedContext.CoopTrail |
+            GameplayModAllowedContext.SandsOfTime;
 
         private static readonly object LogSync = new object();
         private static readonly Dictionary<GameplayFeatureId, bool> LoggedDecisions =
@@ -114,7 +120,7 @@ namespace Shared
                     break;
                 case GameplayFeatureId.CastleBlueprints:
                     expectedGuid = "CastlePlanner_Serp";
-                    contexts = AllRegularContexts;
+                    contexts = AllRecognizedContexts;
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(featureId), featureId, "Unknown gameplay feature ID.");

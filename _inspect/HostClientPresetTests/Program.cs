@@ -1561,7 +1561,7 @@ internal static class Program
             customGame.WithModeEvidenceForTests(GameModeKind.CoopTrail, GameModeLaunchVariant.Customized, -1),
             customGame.WithModeEvidenceForTests(GameModeKind.SandsOfTime, GameModeLaunchVariant.Customized, (int)GameTrailType.SandsOne)
         };
-        GameModeSnapshot[] blockedDirectModes =
+        GameModeSnapshot[] recognizedDirectModes =
         {
             customGame.WithModeEvidenceForTests(GameModeKind.Campaign, GameModeLaunchVariant.Standard, -1),
             customGame.WithModeEvidenceForTests(GameModeKind.StandaloneMission, GameModeLaunchVariant.Standard, -1),
@@ -1581,6 +1581,15 @@ internal static class Program
             realMultiplayerCustomGame.WithModeEvidenceForTests(GameModeKind.CustomTrail, GameModeLaunchVariant.Customized, -1),
             realMultiplayerCustomGame.WithModeEvidenceForTests(GameModeKind.CoopTrail, GameModeLaunchVariant.Customized, -1),
             realMultiplayerCustomGame.WithModeEvidenceForTests(GameModeKind.SandsOfTime, GameModeLaunchVariant.Customized, (int)GameTrailType.SandsOne)
+        };
+        GameModeSnapshot[] realMultiplayerDirectModes =
+        {
+            realMultiplayerCustomGame.WithModeEvidenceForTests(GameModeKind.Campaign, GameModeLaunchVariant.Standard, -1),
+            realMultiplayerCustomGame.WithModeEvidenceForTests(GameModeKind.StandaloneMission, GameModeLaunchVariant.Standard, -1),
+            realMultiplayerCustomGame.WithModeEvidenceForTests(GameModeKind.VanillaTrail, GameModeLaunchVariant.Standard, (int)GameTrailType.FirstEdition),
+            realMultiplayerCustomGame.WithModeEvidenceForTests(GameModeKind.CustomTrail, GameModeLaunchVariant.Standard, -1),
+            realMultiplayerCustomGame.WithModeEvidenceForTests(GameModeKind.CoopTrail, GameModeLaunchVariant.Standard, -1),
+            realMultiplayerCustomGame.WithModeEvidenceForTests(GameModeKind.SandsOfTime, GameModeLaunchVariant.Standard, (int)GameTrailType.SandsOne)
         };
         GameNetworkAPI.MultiplayerGame = false;
         GamePlayerManagerAPI.Instance.MapEditor = true;
@@ -1613,6 +1622,12 @@ internal static class Program
             GameplayFeatureId.ImprovedHunterPathfinding
         };
 
+        GameplayModActivationProfile castlePlannerProfile =
+            GameplayModModePolicy.GetProfile("CastlePlanner_Serp", "Castle Planner");
+        Check(recognizedDirectModes.All(mode =>
+                  !GameplayModModePolicy.IsAllowed(castlePlannerProfile, mode, out _)),
+            "CastlePlanner's general gameplay functions were enabled by the Blueprint-only direct-mode exception");
+
         foreach (KeyValuePair<GameplayFeatureId, string> entry in owners)
         {
             GameplayFeatureActivationProfile profile =
@@ -1620,10 +1635,12 @@ internal static class Program
             Check(GameplayFeatureModePolicy.IsAllowed(profile, customGame, out _) &&
                   customizedModes.All(mode => GameplayFeatureModePolicy.IsAllowed(profile, mode, out _)),
                 $"feature policy rejected a regular gameplay context for {entry.Key}");
-            Check(blockedDirectModes.All(mode => !GameplayFeatureModePolicy.IsAllowed(profile, mode, out _)) &&
+            bool allRecognizedModesAllowed = entry.Key == GameplayFeatureId.CastleBlueprints;
+            Check(recognizedDirectModes.All(mode =>
+                      GameplayFeatureModePolicy.IsAllowed(profile, mode, out _) == allRecognizedModesAllowed) &&
                   !GameplayFeatureModePolicy.IsAllowed(profile, default, out _) &&
                   !GameplayFeatureModePolicy.IsAllowed(profile, conflicting, out _),
-                $"feature policy accepted blocked or contradictory context for {entry.Key}");
+                $"feature direct-mode or fail-closed policy is incorrect for {entry.Key}");
             Check(GameplayFeatureModePolicy.IsAllowed(profile, editor, out _) == editorAllowed.Contains(entry.Key),
                 $"feature editor policy is incorrect for {entry.Key}");
             Check(GameplayFeatureModePolicy.IsAllowed(profile, realMultiplayerCustomGame, out _) == !multiplayerBlocked.Contains(entry.Key),
@@ -1631,6 +1648,9 @@ internal static class Program
             Check(realMultiplayerCustomizedModes.All(mode =>
                       GameplayFeatureModePolicy.IsAllowed(profile, mode, out _) == !multiplayerBlocked.Contains(entry.Key)),
                 $"feature customize multiplayer policy is incorrect for {entry.Key}");
+            Check(realMultiplayerDirectModes.All(mode =>
+                      GameplayFeatureModePolicy.IsAllowed(profile, mode, out _) == allRecognizedModesAllowed),
+                $"feature direct-mode multiplayer policy is incorrect for {entry.Key}");
         }
 
         bool wrongOwnerRejected = false;

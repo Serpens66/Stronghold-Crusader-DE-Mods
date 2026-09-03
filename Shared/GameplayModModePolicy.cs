@@ -12,6 +12,12 @@ namespace Shared
         CustomizedCoopTrail = 1 << 3,
         CustomizedSandsOfTime = 1 << 4,
         MapEditor = 1 << 5,
+        Campaign = 1 << 6,
+        StandaloneMission = 1 << 7,
+        VanillaTrail = 1 << 8,
+        CustomTrail = 1 << 9,
+        CoopTrail = 1 << 10,
+        SandsOfTime = 1 << 11,
     }
 
     internal readonly struct GameplayModActivationProfile
@@ -98,7 +104,18 @@ namespace Shared
             if (snapshot.Kind == GameModeKind.CustomGame && !snapshot.IsCustomized)
                 return GameplayModAllowedContext.CustomGame;
             if (!snapshot.IsCustomized)
-                return GameplayModAllowedContext.None;
+            {
+                switch (snapshot.Kind)
+                {
+                    case GameModeKind.Campaign: return GameplayModAllowedContext.Campaign;
+                    case GameModeKind.StandaloneMission: return GameplayModAllowedContext.StandaloneMission;
+                    case GameModeKind.VanillaTrail: return GameplayModAllowedContext.VanillaTrail;
+                    case GameModeKind.CustomTrail: return GameplayModAllowedContext.CustomTrail;
+                    case GameModeKind.CoopTrail: return GameplayModAllowedContext.CoopTrail;
+                    case GameModeKind.SandsOfTime: return GameplayModAllowedContext.SandsOfTime;
+                    default: return GameplayModAllowedContext.None;
+                }
+            }
 
             switch (snapshot.Kind)
             {
