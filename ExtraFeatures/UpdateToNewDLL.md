@@ -78,6 +78,13 @@ rollback and protection/cache-cleanup failures with a fake native-memory adapter
 | Gatehouse human closing-distance immediate | `0xB7BD3` | `DistanceBlockPattern`; Vanilla `140` native units = `17.5` fields |
 | Gatehouse human reopening-delay immediate | `0xB7C35` | `HumanDelayPattern`; Vanilla `100` ticks = `2.5` seconds at gamespeed 40 |
 
+The gatehouse timing patch owns live memory only through the exclusive end of
+the final immediate at `0xB7C39`. The independent Fixes farmer-stuck hook starts
+exactly at `0xB7C39`; its bytes must neither be treated as timing invariants nor
+be written or restored by ExtraFeatures. The immutable source image still uses
+the complete function hash and original instruction blocks for version checks.
+Native tests cover both plugin load orders and preservation of the adjacent hook.
+
 The named source constants and `WorkerTablePattern` contain the complete
 authoritative patterns. RIP-relative targets are additionally checked against
 the loaded image and their surrounding native contract.

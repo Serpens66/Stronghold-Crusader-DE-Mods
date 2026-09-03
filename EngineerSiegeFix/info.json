@@ -2,7 +2,7 @@
   "GUID": "EngineerSiegeFix_Serp",
   "Author": "Serpens66",
   "Name": "Engineer Siege Fix",
-  "Description": "Standalone test fix for the rare vanilla siege-engine handoff that can leave the original engineers idle after construction.",
+  "Description": "NOT DONE YET. Standalone test fix for the rare vanilla siege-engine handoff that can leave the original engineers idle after construction.",
   "Version": "0.1.0",
   "Manifest": 1,
   "NetworkMode": 1,

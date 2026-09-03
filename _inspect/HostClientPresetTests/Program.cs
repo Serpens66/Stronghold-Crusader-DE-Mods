@@ -2085,6 +2085,17 @@ internal static class Program
               normalizedBugfixesViewModelSource.Contains("[SyncHostOnly]\n        public bool EnableAssassinCombatResumeFix") &&
               bugfixesViewModelSource.Contains("EnableAssassinCombatResumeFix = true;"),
             "Assassin combat resume is not a default-enabled, resettable host setting");
+        Check(normalizedBugfixesViewModelSource.Contains("private bool enableMountedStockpileMovementFix = true;") &&
+              normalizedBugfixesViewModelSource.Contains("[SyncHostOnly]\n        public bool EnableMountedStockpileMovementFix") &&
+              bugfixesViewModelSource.Contains("EnableMountedStockpileMovementFix = true;"),
+            "mounted stockpile movement is not a default-enabled, resettable host setting");
+        string bugfixesRuntimeSource = File.ReadAllText(
+            Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", "BugfixesAndQoLRuntime.cs"));
+        Check(bugfixesRuntimeSource.Contains(
+                  "settings.EnableMod && settings.EnableMountedStockpileMovementFix") &&
+              bugfixesRuntimeSource.Contains("InstallMountedStockpileMovementPatch") &&
+              bugfixesRuntimeSource.Contains("DisableMountedStockpileMovementPatch"),
+            "mounted stockpile movement is not reconciled with its host setting and EnableMod");
         string combatResumeRuntimeSource = File.ReadAllText(
             Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", "AssassinCombatResumeRuntime.cs"));
         Check(combatResumeRuntimeSource.Contains("settings.EnableAssassinCombatResumeFix") &&

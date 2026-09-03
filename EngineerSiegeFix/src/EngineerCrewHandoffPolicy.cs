@@ -56,6 +56,9 @@ namespace EngineerSiegeFix
             return 0;
         }
 
+        public static bool IsScheduledCrewSearch(uint phaseSeed, uint gameTick) =>
+            ((phaseSeed ^ gameTick ^ 0xFFFFFFF8U) & 0xFU) == 0;
+
         private static bool IsCandidate(DeviceSnapshot device, EngineerSnapshot candidate)
         {
             if (!candidate.IsAlive || candidate.UnitType != EngineerType ||
@@ -70,6 +73,7 @@ namespace EngineerSiegeFix
                 candidate.TargetUnitId == device.UnitId;
             bool aiAssigned =
                 device.IsAiControlled &&
+                device.TargetType == CatapultType &&
                 candidate.AiRole == AiSiegeEngineerRole;
             if (!explicitlyAssigned && !aiAssigned)
                 return false;

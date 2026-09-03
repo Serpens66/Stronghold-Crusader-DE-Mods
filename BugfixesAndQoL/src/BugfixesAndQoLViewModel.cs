@@ -23,6 +23,7 @@ namespace BugfixesAndQoL
         private bool fixAITowerRepair = true;
         private bool betterAIOverbuildRules = true;
         private bool enableTroopMovementFix = true;
+        private bool enableMountedStockpileMovementFix = true;
         private bool enableFastRecruitRallyMovement = true;
         private bool enableImprovedAssassinPathfinding = true;
         private bool enableAssassinCombatResumeFix = true;
@@ -240,6 +241,8 @@ namespace BugfixesAndQoL
         public string EnableCustomLordListEnhancementsHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableCustomLordListEnhancementsHelp");
         public string EnableTroopMovementFixText => SerpLocalization.Get(SerpLocalization.EnableTroopMovementFix);
         public string EnableTroopMovementFixHelpText => SerpLocalization.Get(SerpLocalization.EnableTroopMovementFixHelp);
+        public string EnableMountedStockpileMovementFixText => SerpLocalization.Get("BugfixesAndQoL.EnableMountedStockpileMovementFix");
+        public string EnableMountedStockpileMovementFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableMountedStockpileMovementFixHelp");
         public string EnableFastRecruitRallyMovementText => SerpLocalization.Get(SerpLocalization.EnableFastRecruitRallyMovement);
         public string EnableFastRecruitRallyMovementHelpText => SerpLocalization.Get(SerpLocalization.EnableFastRecruitRallyMovementHelp);
         public string EnableAIQuarryPileTowardsKeepText => SerpLocalization.Get(SerpLocalization.EnableAIQuarryPileTowardsKeep);
@@ -491,6 +494,13 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool EnableMountedStockpileMovementFix
+        {
+            get => enableMountedStockpileMovementFix;
+            set => SetSetting(ref enableMountedStockpileMovementFix, value, nameof(EnableMountedStockpileMovementFix));
+        }
+
+        [SyncHostOnly]
         public bool EnableFastRecruitRallyMovement
         {
             get => enableFastRecruitRallyMovement;
@@ -708,6 +718,7 @@ namespace BugfixesAndQoL
                 RememberAiAivSettings = true;
                 EnableCustomLordListEnhancements = true;
                 EnableTroopMovementFix = true;
+                EnableMountedStockpileMovementFix = true;
                 EnableFastRecruitRallyMovement = true;
                 EnableSingleBuildingPause = true;
                 EnableQuarryPileRelocation = true;

@@ -15,10 +15,8 @@ internal static class Program
 
     private static readonly Dictionary<string, int> Patterns = new Dictionary<string, int>
     {
-        ["SiegeTentTickPattern"] = 0x158690,
-        ["AiCrewBookkeepingPattern"] = 0x123EA0,
-        ["ClearSelectedUnitPattern"] = 0x186C20,
-        ["RemoveUnitFromGroupsPattern"] = 0x19A5D0
+        ["CatapultHandlerPattern"] = 0x1520D0,
+        ["TrebuchetHandlerPattern"] = 0x1535F0
     };
 
     private static int assertions;
@@ -65,25 +63,34 @@ internal static class Program
 
     private static void CheckNativeContracts(byte[] image)
     {
-        CheckBytes(image, 0x158690, "40 53 48 83 EC 30", "whole-function detour prologue");
-        CheckBytes(image, 0x1586E1,
-            "B8 04 00 00 00 66 89 84 19 E4 06 00 00",
-            "tent marks pending conversion");
-        CheckBytes(image, 0x1586FE,
-            "66 83 C0 27 66 89 84 19 22 09 00 00",
-            "tent stores catapult/trebuchet pending type");
-        CheckBytes(image, 0x15870A,
-            "B8 06 00 00 00 66 89 84 19 24 09 00 00",
-            "tent stores pending state six");
-        CheckBytes(image, 0x195D36,
-            "0F B7 8B 22 09 00 00 66 89 83 E4 06 00 00 0F B7 83 24 09 00 00 66 89 83 18 09 00 00",
-            "conversion reads type and state before overwriting destination fields");
-        CheckBytes(image, 0x186C20,
-            "48 63 C2 48 69 D0 90 04 00 00",
-            "selection cleanup ABI uses manager RCX and unit ID EDX");
-        CheckBytes(image, 0x19A5DF,
-            "4D 63 D0 48 8B D9 48 63 FA",
-            "group cleanup ABI uses unit ID R8 and player ID EDX");
+        CheckBytes(image, 0x1520D0,
+            "48 89 5C 24 08",
+            "catapult hook spans exactly one complete prologue instruction");
+        CheckBytes(image, 0x1520D5,
+            "48 89 6C 24 10 48 89 74 24 18 57 41 54 41 55 41 56 41 57 48 81 EC D0 00 00 00",
+            "catapult resumes with the remaining saved registers and stack allocation");
+        CheckBytes(image, 0x1535F0,
+            "48 89 5C 24 08",
+            "trebuchet hook spans exactly one complete prologue instruction");
+        CheckBytes(image, 0x1535F5,
+            "48 89 6C 24 10 48 89 74 24 18 57 41 54 41 55 41 56 41 57 48 81 EC F0 00 00 00",
+            "trebuchet resumes with the remaining saved registers and stack allocation");
+        CheckBytes(image, 0x184103,
+            "48 0F BF 84 19 E6 06 00 00",
+            "central dispatcher loads the signed unit type into RAX");
+        CheckBytes(image, 0x18410C,
+            "41 FF 94 C6 B0 1C 32 00",
+            "central dispatcher calls the handler table indexed by RAX");
+        Check(BitConverter.ToUInt64(image, 0x321CB0 + 0x27 * 8) == 0x1801520D0UL,
+            "handler table entry 0x27 points to the catapult handler");
+        Check(BitConverter.ToUInt64(image, 0x321CB0 + 0x28 * 8) == 0x1801535F0UL,
+            "handler table entry 0x28 points to the trebuchet handler");
+        CheckBytes(image, 0x1527B3,
+            "42 C7 84 03 18 09 00 00 6D 00 05 00",
+            "Vanilla catapult handoff writes engineer consume state");
+        CheckBytes(image, 0x153D18,
+            "42 C7 84 03 18 09 00 00 6D 00 05 00",
+            "Vanilla trebuchet handoff writes engineer consume state");
     }
 
     private static void CheckSourceContracts(string workspace)
@@ -98,28 +105,41 @@ internal static class Program
             "EngineerSiegeFix",
             "src",
             "EngineerSiegeFixPlugin.cs"));
-        int capture = runtime.IndexOf("var units = new List<EngineerSnapshot>()", StringComparison.Ordinal);
-        int selection = runtime.IndexOf("EngineerCrewHandoffPolicy.TrySelect", capture, StringComparison.Ordinal);
-        int firstWrite = runtime.IndexOf("WriteUInt16(device, AssignedEngineerIdsOffset", selection, StringComparison.Ordinal);
-        int engineerWrite = runtime.IndexOf("WriteUInt32(engineer, AnimationTimerOffset", firstWrite, StringComparison.Ordinal);
-        int helperCall = runtime.IndexOf("clearSelectedUnit(currentManager", engineerWrite, StringComparison.Ordinal);
-        Check(capture >= 0 && selection > capture && firstWrite > selection,
-            "all candidate reads and validation precede writes");
-        Check(engineerWrite > firstWrite && helperCall > engineerWrite,
-            "device commit precedes engineer transition and bookkeeping");
-        Check(runtime.Contains("tentTickHook.Value.Hook.Trampoline();"), "Vanilla tent routine always called");
+        Check(runtime.Contains("ref catapultHandlerHook"), "catapult handler-entry hook registered");
+        Check(runtime.Contains("ref trebuchetHandlerHook"), "trebuchet handler-entry hook registered");
+        Check(runtime.Contains("hookSize: 5"), "both hooks use the exact prologue instruction length");
+        Check(runtime.Contains("placement: OverwrittenInstructionPlacement.BeforeCallback"),
+            "displaced RBX save executes before each observation callback");
+        Check(runtime.Contains("regs: X64SmartCPUContextRegs.All"),
+            "callbacks preserve every live handler-entry register");
+        Check(runtime.Contains("GetCurrentContextUnitId"), "one-based device ID uses the state dispatcher context");
+        Check(runtime.Contains("ValidateHandlerTableTarget(CatapultType"),
+            "runtime validates the relocated catapult table entry");
+        Check(runtime.Contains("ValidateHandlerTableTarget(TrebuchetType"),
+            "runtime validates the relocated trebuchet table entry");
+        Check(!runtime.Contains("WriteUInt16"), "diagnostic runtime contains no 16-bit native write helper");
+        Check(!runtime.Contains("WriteUInt32"), "diagnostic runtime contains no 32-bit native write helper");
+        Check(!runtime.Contains("Marshal.GetDelegateForFunctionPointer"),
+            "diagnostic runtime calls no mutating native cleanup helper");
+        Check(!runtime.Contains("Hook.Trampoline"), "handler hooks do not replace either function");
+        Check(!runtime.Contains("AddDetour"), "handler hooks avoid function detours");
+        Check(!runtime.Contains("SiegeTentTickRva"), "disproved tent hook is removed");
+        Check(!runtime.Contains("SiegeTentCompletionTailRva"), "disproved tent tail hook is removed");
+        Check(!runtime.Contains("UnitConversionRva"), "disproved conversion hook is removed");
+        Check(!runtime.Contains("CrewSearchRva"), "disproved state-six interior hooks are removed");
         Check(plugin.Contains("requireCurrentVersion: true"), "unknown native hashes fail closed");
-        Check(runtime.Contains("WriteUInt16(device, PendingAiStateOffset, 0)"), "converted device becomes ready");
         Check(plugin.Contains("runtime?.PollRuntimeDiagnostics();"), "Unity update polls runtime diagnostics");
-        Check(runtime.Contains("RUNTIME_VALIDATION_IMMEDIATE_PASS"), "immediate validation success marker");
-        Check(runtime.Contains("RUNTIME_VALIDATION_PASS"), "eventual validation success marker");
-        Check(runtime.Contains("RUNTIME_VALIDATION_FAILED"), "validation failure marker");
-        Check(runtime.Contains("RUNTIME_VALIDATION_INCONCLUSIVE"), "inconclusive validation marker");
-        Check(runtime.Contains("currentTick == lastDiagnosticTick"), "diagnostics poll at most once per game tick");
-        Check(runtime.Contains("unchecked(currentTick - diagnostic.CommitTick)"), "tick timeout is wrap safe");
-        Check(runtime.Contains("ReadUInt32(unit, GlobalIdOffset)"), "diagnostics validate global identities");
-        Check(runtime.Contains("AllOriginalEngineersGone"), "diagnostics verify original engineers disappear");
-        Check(runtime.Contains("CrewSlotsMatch"), "diagnostics verify device crew identities");
+        Check(runtime.Contains("SIEGE_ROUTE_DIAGNOSTIC_INSTALLED"), "dispatcher evidence is logged at installation");
+        Check(runtime.Contains("SIEGE_HANDLER_ENTRY"), "handler-entry transitions are logged");
+        Check(runtime.Contains("SIEGE_SLOT_TRANSITION"), "siege slot transitions are logged");
+        Check(runtime.Contains("SIEGE_ENGINEER_TRANSITION"), "associated engineer transitions are logged");
+        Check(runtime.Contains("correctionActive=false"), "log explicitly identifies observation-only mode");
+        Check(runtime.Contains("currentTick == lastPollTick"), "polling occurs at most once per game tick");
+        Check(runtime.Contains("HandlerTransitionLimit = 160"), "handler transition logging is bounded");
+        Check(runtime.Contains("SlotTransitionLimit = 320"), "siege slot logging is bounded");
+        Check(runtime.Contains("EngineerTransitionLimit = 480"), "engineer logging is bounded");
+        Check(runtime.Contains("ReadUInt32(unit, GlobalIdOffset)"), "diagnostics capture global identities");
+        Check(runtime.Contains("AssignedEngineerGlobalsOffset + 8"), "diagnostics capture all three crew identities");
         Check(runtime.Contains("diagnosticsDisabled = true"), "diagnostic faults cannot escape every Unity frame");
     }
 
@@ -136,6 +156,20 @@ internal static class Program
         for (int phase = 0; phase < 16; phase++)
             CheckSelected(cat, new[] { Engineer(2, 12, 100), Engineer(3, 13, 100) }, 2,
                 "tick phase " + phase);
+
+        for (uint phaseSeed = 0; phaseSeed < 16; phaseSeed++)
+        {
+            int scheduled = 0;
+            for (uint tick = 0; tick < 16; tick++)
+            {
+                bool actual = EngineerCrewHandoffPolicy.IsScheduledCrewSearch(phaseSeed, tick);
+                bool expected = ((phaseSeed ^ tick ^ 0xFFFFFFF8U) & 0xFU) == 0;
+                Check(actual == expected, $"Vanilla cadence seed {phaseSeed} tick {tick}");
+                if (actual)
+                    scheduled++;
+            }
+            Check(scheduled == 1, $"exactly one search in 16 ticks for seed {phaseSeed}");
+        }
 
         CheckRejected(cat, new[] { Engineer(2, 12, 100) }, "incomplete crew");
         CheckRejected(cat, new[] { Engineer(2, 12, 100), Engineer(3, 13, 100), Engineer(4, 14, 100) },
@@ -159,6 +193,14 @@ internal static class Program
         CheckRejected(cat,
             new[] { Engineer(2, 12, 0, command: 0, role: 0x16), Engineer(3, 13, 0, command: 0, role: 0x16) },
             "human player cannot use AI role fallback");
+        CheckRejected(Device(100, EngineerCrewHandoffPolicy.TrebuchetType, true),
+            new[]
+            {
+                Engineer(2, 12, 0, command: 0, role: 0x16),
+                Engineer(3, 13, 0, command: 0, role: 0x16),
+                Engineer(4, 14, 0, command: 0, role: 0x16)
+            },
+            "Vanilla trebuchet path has no AI-role-only fallback");
         CheckRejected(Device(100, 0x29, false),
             new[] { Engineer(2, 12, 100), Engineer(3, 13, 100) }, "unsupported device");
 

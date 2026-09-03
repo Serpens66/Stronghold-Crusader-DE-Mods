@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
+using BugfixesAndQoL;
 using Shared;
 
 internal static class Program
@@ -23,6 +24,9 @@ internal static class Program
             ["TunnelerPlacementRejectPattern"] = 0x912E0,
             ["KnightPlacementRejectPattern"] = 0x913CF,
             ["BedouinPlacementRejectPattern"] = 0x927ED,
+            ["CursorMountedClassificationPattern"] = 0x8F209,
+            ["FeedbackMountedClassificationPattern"] = 0x195F5E,
+            ["MountedEndpointWallGatePattern"] = 0x196483,
             ["CreateHerdPattern"] = 0xD17D0,
             ["PopularityExitPattern"] = 0xCB55C,
             ["AreaTreatmentPattern"] = 0xA0470,
@@ -88,6 +92,7 @@ internal static class Program
         new FunctionContract(0xCB090, 1891, "A131D1CA8B25B95C2AF694CD94D3A4CBFA92DEBE1F12990647146D44E4FEAE05"),
         new FunctionContract(0xD0380, 555, "F61D65B94E3089FA60BE490EF828FA48375B2A226C9FFEB4CA54B01864BC7CC0"),
         new FunctionContract(0xD17D0, 494, "9ED8D8B10616413BC5FC3F2CEB060E56964CA0147FD6146992D2B300289C55F6"),
+        new FunctionContract(0xDB650, 1537, "890403C9C8A9114EEAA2CA33A681BCDEC3BD3C2503E0C4110A3EC0A33C801B68"),
         new FunctionContract(0xD7080, 734, "3A931C5FEB5FB9D324C12CE53ADE9648D2E26FFB9EF62B75D0C3BD8AAAA3C924"),
         new FunctionContract(0xD9C40, 990, "5596B8DBF622F8C44085BAE06C5E318A61B84BE6F4D9A0F2A73113C616B3A65E"),
         new FunctionContract(0x107160, 50, "4A83B91AC728B7DB6E746997635D2B96B8895D81B67B2D8DC32598B4C5D4FF44"),
@@ -113,6 +118,7 @@ internal static class Program
             Check(Hash(file) == ExpectedDllHash, "canonical DLL hash");
             PeImage pe = PeImage.Load(file);
             CheckGatehouseQueryUnitIdContract();
+            CheckMountedStockpilePolicy();
             CheckFunctions(pe.Image);
             CheckProductionPatterns(workspace, pe);
             CheckCriticalSpans(pe.Image);
@@ -145,6 +151,64 @@ internal static class Program
             "earlier subscriber true decision is preserved");
         Check(!GatehouseQueryUnitIdPolicy.ResolveCandidateDecision(false, true),
             "earlier subscriber false decision is preserved");
+    }
+
+    private static void CheckMountedStockpilePolicy()
+    {
+        const uint goodsyard = MountedStockpileMovementPolicy.GoodsyardRelated;
+        Check(MountedStockpileMovementPolicy.IsWallOrElevated == 0x10000100,
+            "Vanilla endpoint IsWall-or-IsElevated mask retained");
+        Check(MountedStockpileMovementPolicy.ShouldUseNormalMovementClassification(
+                1, true, true, goodsyard, 1, 1, true),
+            "single mounted stockpile selection corrected");
+        Check(MountedStockpileMovementPolicy.ShouldUseNormalMovementClassification(
+                1, true, true, goodsyard | 0x400, 4, 4, true),
+            "mixed mounted stockpile selection corrected");
+        Check(!MountedStockpileMovementPolicy.ShouldUseNormalMovementClassification(
+                1, true, true, goodsyard, 2, 1, true),
+            "selection containing infantry retained");
+        Check(!MountedStockpileMovementPolicy.ShouldUseNormalMovementClassification(
+                1, true, true, goodsyard, 1, 1, false),
+            "partially unresolved selection retained");
+        Check(!MountedStockpileMovementPolicy.ShouldUseNormalMovementClassification(
+                1, true, true, goodsyard, 0, 0, true),
+            "empty selection retained");
+        Check(!MountedStockpileMovementPolicy.ShouldUseNormalMovementClassification(
+                1, false, true, goodsyard, 1, 1, true),
+            "invalid target coordinate retained");
+        Check(!MountedStockpileMovementPolicy.ShouldUseNormalMovementClassification(
+                1, true, false, goodsyard, 1, 1, true),
+            "unavailable stockpile target retained");
+        Check(!MountedStockpileMovementPolicy.ShouldUseNormalMovementClassification(
+                1, true, true, 0, 1, 1, true),
+            "non-stockpile target retained");
+        Check(!MountedStockpileMovementPolicy.ShouldUseNormalMovementClassification(
+                0, true, true, goodsyard, 1, 1, true),
+            "ordinary Vanilla classification retained");
+        Check(!MountedStockpileMovementPolicy.ShouldUseNormalMovementClassification(
+                -1, true, true, goodsyard, 1, 1, true),
+            "negative Vanilla classification retained");
+        Check(MountedStockpileMovementPolicy.ShouldBypassMountedEndpointWallGate(
+                true, true, true, goodsyard | 0x100, true),
+            "mounted Goodsyard endpoint wall rejection bypassed");
+        Check(!MountedStockpileMovementPolicy.ShouldBypassMountedEndpointWallGate(
+                false, true, true, goodsyard, true),
+            "non-rejected endpoint was not modified");
+        Check(MountedStockpileMovementPolicy.ShouldBypassMountedEndpointWallGate(
+                true, true, true, goodsyard | 0x100, true),
+            "mounted member of a mixed selection uses the same Goodsyard endpoint rule");
+        Check(!MountedStockpileMovementPolicy.ShouldBypassMountedEndpointWallGate(
+                true, true, true, goodsyard, false),
+            "non-mounted current unit endpoint retained");
+        Check(!MountedStockpileMovementPolicy.ShouldBypassMountedEndpointWallGate(
+                true, true, false, goodsyard, true),
+            "unavailable mounted endpoint retained");
+        Check(!MountedStockpileMovementPolicy.ShouldBypassMountedEndpointWallGate(
+                true, true, true, 0x100, true),
+            "non-Goodsyard wall endpoint retained");
+        Check(!MountedStockpileMovementPolicy.ShouldBypassMountedEndpointWallGate(
+                true, false, true, goodsyard, true),
+            "invalid mounted endpoint coordinate retained");
     }
 
     private static void CheckFunctions(byte[] image)
@@ -193,14 +257,123 @@ internal static class Program
             "Assassin combat-context full 14-byte hook span");
         CheckBytes(image, 0xE19D8, "0F 85 B1 00 00 00", "Assassin current-tile rejection jump");
         CheckBytes(image, 0xE19F9, "0F 85 88 00 00 00", "Assassin neighbor-tile rejection jump");
+        CheckBytes(image, 0x8E6E4,
+            "F6 84 87 00 84 89 00 02 0F 85 96 08 00 00",
+            "primary Goodsyard flag test and Vanilla movement jump");
+        CheckBytes(image, 0x8EB47,
+            "42 F6 84 8F 00 84 89 00 02 0F 85 F4 01 00 00",
+            "alternate Goodsyard flag test and Vanilla movement jump");
+        CheckBytes(image, 0x8F209,
+            "E8 12 79 10 00 85 C0 74 66 4C 63 0D 1F 2C 98 03 48 8D 15 A0 2B 98 03",
+            "cursor classifier call and full 18-byte hook span");
+        CheckBytes(image, 0x195F5E,
+            "E8 FD AB FE FF 85 C0 74 6A 4C 63 0D BA BE 87 03 48 8D 15 8B A0 E6 FF",
+            "order-feedback classifier call and full 18-byte hook span");
+        CheckCallTarget(image, 0x8F209, 0x196B20, "cursor mounted-classifier call target");
+        CheckCallTarget(image, 0x195F5E, 0x180B60, "order-feedback mounted-classifier call target");
+        CheckBytes(image, 0x196483,
+            "44 39 94 24 80 00 00 00 75 11 F7 84 8A B0 71 8F 04 00 01 00 10 " +
+            "0F 85 CE 02 00 00 44 8B AC 24 90 00 00 00 44 3B E3 0F 84 D6 00 00 00",
+            "per-unit endpoint wall gate and full hook context");
+        CheckBytes(image, 0x19648D,
+            "F7 84 8A B0 71 8F 04 00 01 00 10 0F 85 CE 02 00 00",
+            "complete per-unit endpoint test and rejection hook span");
+        CheckRelativeJump(image, 0x196498, 0x19676C, "per-unit endpoint rejection target");
+        CheckBytes(image, 0x196294,
+            "48 63 F2 45 33 D2 48 69 FE 90 04 00 00 4D 63 F0 48 8D 15 55 9D E6 FF 48 03 F9 " +
+            "49 63 E9 4C 8B F9 48 0F BF 87 E6 06 00 00",
+            "path builder 1-based unit ID and manager-relative unit view setup");
+        foreach (int mountedType in new[] { 28, 74, 78, 83 })
+            Check(ReadInt32(image, 0x322540 + mountedType * 4) == 0,
+                $"mounted type {mountedType} uses Vanilla endpoint-restricted movement class zero");
+        foreach (int ordinaryType in new[] { 22, 23, 24, 25, 26, 27 })
+            Check(ReadInt32(image, 0x322540 + ordinaryType * 4) == 1,
+                $"ordinary troop type {ordinaryType} uses Vanilla movement class one");
+        CheckBytes(image, 0x8F121, "81 E5 00 01 00 10", "cursor IsWall-or-IsElevated mask");
+        CheckBytes(image, 0x195ED1, "41 81 E5 00 01 00 10", "command IsWall-or-IsElevated mask");
     }
 
     private static void CheckUnknownHashPolicy(string workspace)
     {
         string plague = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "PlagueNativePatternValidator.cs"));
         string recruitment = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "AiRecruitmentHorseDemandFix.cs"));
+        string mountedStockpile = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "MountedStockpileMovementPatch.cs"));
         Check(plague.Contains("if (!referenceHashMatches)"), "plague fixed-layout unknown-hash gate");
         Check(recruitment.Contains("if (!referenceHashMatches)"), "AI recruitment result-layout unknown-hash gate");
+        Check(mountedStockpile.Contains("if (!referenceHashMatches)"), "mounted-stockpile unknown-hash gate");
+        Check(mountedStockpile.Contains("ClassificationHookSize = 18"),
+            "mounted-stockpile complete classification hook size");
+        Check(mountedStockpile.Contains("MountedEndpointWallGateHookSize = 17"),
+            "mounted-stockpile complete endpoint hook size");
+        Check(mountedStockpile.Contains("MountedEndpointWallGateHookOffset = 0xA") &&
+              mountedStockpile.Contains("MountedEndpointWallGateJumpOffset = 11"),
+            "mounted-stockpile endpoint hook starts on the complete test/jne pair");
+        Check(mountedStockpile.Contains("TransactionFailureMode.RollbackAndThrow"),
+            "mounted-stockpile atomic hook transaction");
+        Check(mountedStockpile.Contains("transaction?.Unload()") &&
+              mountedStockpile.Contains("transaction?.Dispose()") &&
+              mountedStockpile.Contains("FreeEndpointZeroFlags()"),
+            "mounted-stockpile reversible hook disposal");
+        Check(mountedStockpile.Contains("!cursorClassificationHook.Success") &&
+              mountedStockpile.Contains("!feedbackClassificationHook.Success") &&
+              mountedStockpile.Contains("!mountedEndpointWallGateHook.Success"),
+            "mounted-stockpile all three hooks must install atomically");
+        Check(mountedStockpile.Contains("UnitFromManagerRelativeBaseOffset = 0x65C") &&
+              mountedStockpile.Contains("NativeUnitCount = 10000") &&
+              mountedStockpile.Contains("(uint)unitId - 1u < NativeUnitCount") &&
+              mountedStockpile.Contains("int unitId = unchecked((int)context.Pointer->RSI);") &&
+              mountedStockpile.Contains("TryGetUnitById(unitId") &&
+              mountedStockpile.Contains("context.Pointer->RDI + UnitFromManagerRelativeBaseOffset") &&
+              !mountedStockpile.Contains("unitSpanIndex + 1"),
+            "mounted-stockpile endpoint maps Vanilla's 1-based ID and manager-relative unit view correctly");
+        Check(mountedStockpile.Contains("OverwrittenInstructionPlacement.AfterCallback"),
+            "mounted-stockpile callback runs before displaced test and branch");
+        Check(mountedStockpile.Contains("X64SmartCPUContextRegs.Volatile") &&
+              mountedStockpile.Contains("context.Pointer->RCX = 0") &&
+              mountedStockpile.Contains("context.Pointer->RDX = unchecked"),
+            "mounted-stockpile endpoint hook preserves live volatile registers and redirects only the audited read");
+        Check(!mountedStockpile.Contains("context.Pointer->Rflags") &&
+              !mountedStockpile.Contains("private const ulong ZeroFlag"),
+            "mounted-stockpile endpoint hook does not depend on pre-hook flags");
+        Check(!mountedStockpile.Contains("loggedCorrections") &&
+              !mountedStockpile.Contains("mounted classification corrected") &&
+              !mountedStockpile.Contains("per-unit endpoint wall gate bypassed"),
+            "mounted-stockpile per-event diagnostic logging removed");
+        Check(mountedStockpile.Contains("classificationCallbackFailureLogged") &&
+              mountedStockpile.Contains("endpointCallbackFailureLogged") &&
+              !mountedStockpile.Contains("private bool callbackFailureLogged;"),
+            "mounted-stockpile callback failures remain independently visible");
+        Check(mountedStockpile.Contains("!targetAvailable || !vanillaWallGateRejected"),
+            "mounted-stockpile endpoint rejects irrelevant tiles before unit lookup");
+        foreach (string mountedType in new[]
+        {
+            "eChimps.CHIMP_TYPE_KNIGHT",
+            "eChimps.CHIMP_TYPE_ARAB_HORSEMAN",
+            "eChimps.CHIMP_TYPE_BEDOUIN_CAMEL_LANCER",
+            "eChimps.CHIMP_TYPE_BEDOUIN_HEAVY_CAMEL"
+        })
+        {
+            Check(mountedStockpile.Contains(mountedType),
+                "mounted-stockpile playable type policy includes " + mountedType);
+        }
+        Check(!mountedStockpile.Contains("SixNops") && !mountedStockpile.Contains("NativeCodePatch"),
+            "obsolete Goodsyard NOP patch removed");
+    }
+
+    private static void CheckCallTarget(byte[] image, int callRva, int expectedTargetRva, string label)
+    {
+        Check(callRva >= 0 && callRva <= image.Length - 5, label + " bounds");
+        Check(image[callRva] == 0xE8, label + " opcode");
+        int displacement = ReadInt32(image, callRva + 1);
+        Check(callRva + 5 + displacement == expectedTargetRva, label);
+    }
+
+    private static void CheckRelativeJump(byte[] image, int jumpRva, int expectedTargetRva, string label)
+    {
+        Check(jumpRva >= 0 && jumpRva <= image.Length - 6, label + " bounds");
+        Check(image[jumpRva] == 0x0F && image[jumpRva + 1] == 0x85, label + " opcode");
+        int displacement = ReadInt32(image, jumpRva + 2);
+        Check(jumpRva + 6 + displacement == expectedTargetRva, label);
     }
 
     private static Dictionary<string, string> ReadConstStrings(string sourceDirectory)

@@ -45,6 +45,7 @@ namespace BugfixesAndQoL
         private LordUnitControlsFeature lordUnitControlsFeature;
         private SelectedUnitHealthFeature selectedUnitHealthFeature;
         private AssemblyPointPlacementPatch assemblyPointPlacementPatch;
+        private MountedStockpileMovementPatch mountedStockpileMovementPatch;
         private AiRecruitmentHorseDemandFix aiRecruitmentHorseDemandFix;
         private AiStoneReserveFix aiStoneReserveFix;
         private AITowerRuinRepairFix aiTowerRuinRepairFix;
@@ -62,6 +63,7 @@ namespace BugfixesAndQoL
         private bool settingsSubscribed;
         private bool enemyProximityFixedLayoutErrorLogged;
         private bool assemblyPointPlacementPatchUnavailable;
+        private bool mountedStockpileMovementPatchUnavailable;
         private bool aiRecruitmentHorseDemandFixUnavailable;
         private bool aiStoneReserveFixUnavailable;
         private bool aiTowerRuinRepairFixUnavailable;
@@ -318,6 +320,7 @@ namespace BugfixesAndQoL
             TryInitializeFeature("plague target-reservation fix", EnsurePlagueTargetReservationFix);
             TryInitializeFeature("stuck-apothecary fix", EnsurePlagueApothecaryStateTransitionFix);
             TryInitializeFeature("assembly-point placement fix", ApplyAssemblyPointPlacementPatchSetting);
+            TryInitializeFeature("mounted-stockpile movement fix", ApplyMountedStockpileMovementPatchSetting);
             TryInitializeFeature("AI recruitment horse-demand fix", EnsureAiRecruitmentHorseDemandFix);
             TryInitializeFeature("AI stone-reserve fix", EnsureAiStoneReserveFix);
             TryInitializeFeature("AI tower-ruin repair fix", EnsureAiTowerRuinRepairFix);
@@ -347,6 +350,7 @@ namespace BugfixesAndQoL
             TryApplyFeature("troop movement fix", troopMovementFixRuntime.ApplySetting);
             TryApplyFeature("multiplayer game speed", multiplayerGameSpeedRuntime.ApplySetting);
             TryApplyFeature("assembly-point placement fix", ApplyAssemblyPointPlacementPatchSetting);
+            TryApplyFeature("mounted-stockpile movement fix", ApplyMountedStockpileMovementPatchSetting);
             TryApplyFeature("AI stone-reserve fix", () => aiStoneReserveFix?.ApplySetting());
             TryApplyFeature("Assassin path reconstruction", assassinPathfindingRuntime.ApplySetting);
             if (settings.EnableMod && settings.EnableImprovedAssassinPathfinding && assassinPathfindingRuntime.IsInstalled)
@@ -385,6 +389,7 @@ namespace BugfixesAndQoL
             selectedUnitHealthFeature?.Dispose();
             selectedUnitHealthFeature = null;
             DisableAssemblyPointPlacementPatch();
+            DisableMountedStockpileMovementPatch();
             aiRecruitmentHorseDemandFix?.Dispose();
             aiRecruitmentHorseDemandFix = null;
             aiStoneReserveFix?.Dispose();
@@ -709,6 +714,17 @@ namespace BugfixesAndQoL
                 DisableAssemblyPointPlacementPatch();
         }
 
+        private void ApplyMountedStockpileMovementPatchSetting()
+        {
+            if (!nativeLibraryAvailable)
+                return;
+
+            if (settings.EnableMod && settings.EnableMountedStockpileMovementFix)
+                InstallMountedStockpileMovementPatch();
+            else
+                DisableMountedStockpileMovementPatch();
+        }
+
         private unsafe ReadOnlySpan<byte> GetNativeLibraryMemory()
         {
             // The game DLL stays loaded for the process lifetime.
@@ -983,6 +999,34 @@ namespace BugfixesAndQoL
         {
             assemblyPointPlacementPatch?.Dispose();
             assemblyPointPlacementPatch = null;
+        }
+
+        private void InstallMountedStockpileMovementPatch()
+        {
+            if (mountedStockpileMovementPatch != null || mountedStockpileMovementPatchUnavailable)
+                return;
+
+            try
+            {
+                mountedStockpileMovementPatch = new MountedStockpileMovementPatch(
+                    log,
+                    GetNativeLibraryMemory(),
+                    unchecked((ulong)libraryHandle.ToInt64()),
+                    fixedLayoutHashValidated);
+            }
+            catch (Exception ex)
+            {
+                mountedStockpileMovementPatchUnavailable = true;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Bugfixes and QoL mounted-stockpile movement patch could not be installed; Vanilla behavior remains active: {ex}");
+            }
+        }
+
+        private void DisableMountedStockpileMovementPatch()
+        {
+            mountedStockpileMovementPatch?.Dispose();
+            mountedStockpileMovementPatch = null;
         }
 
     }

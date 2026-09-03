@@ -80,6 +80,7 @@
   <ItemGroup>
     <Compile Include="src\MoveMoatTestPlugin.cs" />
     <Compile Include="src\MoveMoatPathTest.cs" />
+    <Compile Include="src\WeightedMoatRoutePlanner.cs" />
     <Compile Include="..\Shared\DebugLogHelper.cs">
       <Link>Shared\DebugLogHelper.cs</Link>
     </Compile>

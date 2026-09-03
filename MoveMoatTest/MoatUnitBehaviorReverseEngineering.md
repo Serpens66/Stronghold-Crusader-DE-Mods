@@ -2349,3 +2349,217 @@ Vanilla. Der positive Diagnosegrund lautet `required-friendly-moat-route-from-mo
 ohne passende Unit lautet `no-friendly-moat-source-digger`. Es wird weder ein neuer Hook noch ein
 besonderer Gebäude-Builder benötigt.
 
+### 15.16 Gewichtete Moat-Wegfindung als read-only Shadow-Test
+
+Der bisherige funktionale Fallback wird nur nach einem echten Fehlschlag des ersten Vanilla-
+Builders ausgeführt. Findet Vanilla einen beliebig langen normalen Bodenumweg, kann er diesen daher
+nicht gegen eine kürzere, aber langsamere Route durch einen eigenen oder verbündeten Moat abwägen.
+Für eine spätere zentrale Lösung wird zunächst ein vollständig read-only arbeitender
+`WeightedMoatRoutePlanner` parallel ausgeführt. Er verändert weder Modus- oder Unitfelder noch
+Vanillas Distanzkarten oder den ausgegebenen Pfad.
+
+Die Kostenabbildung beruht für den kanonischen Hash
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
+auf `0x19B260` (historisches bestätigtes Match `0x19A210`). Die Funktion liest den Basis-Delay aus
+dem managerrelativen Feld `+0x9A4`, das dem verwalteten `GameUnit.r_CurrentSpeed` bei Structoffset
+`0x348` entspricht, und schreibt den effektiven Delay nach `+0x9A2` beziehungsweise
+`r_CurrentSpeed2` bei Offset `0x346`. Auf einem fertigen Moat erhöht sie einen internen Zustand bei
+managerrelativ `+0x6C8` in Viererschritten und addiert abhängig von dessen Phase `+3`, `+4` oder
+schließlich `+6`. Beim Verlassen fällt der Zustand in Achterschritten und kann noch eine kurze
+Nachwirkung von `+3` erzeugen.
+
+Der erste Shadow-Test verwendete bewusst das stabile Endniveau `delay + 6` für jede Kante, deren Start-
+oder Zieltile ein erlaubter fertiger Moat ist. Normale kardinale Kanten kosten
+`8 * (delay + 1)` Ticks. Die erste echte Laufzeitmessung eines vollständig beendeten Bodenpfads
+zeigte 59 Tilewechsel, davon 35 diagonal, in 935 Ticks. Das entspricht bis auf neun Ticks
+`59 * 16 = 944` bei Basis-Delay 1. Eine Bewertung der Diagonalen mit `181/128` hätte dagegen
+1189 Ticks vorhergesagt. Der aus der Assassin-Suche übernommene Faktor ist damit als geometrische
+Wegpräferenz brauchbar, bildet aber die tatsächliche Zeit normaler Unitbewegung nicht ab. Für die
+Zeitprognose kosten diagonale und kardinale Tilewechsel deshalb gleich viel. Als vorläufige
+Abnahmegrenze gelten weiterhin 40 Ticks. Gruppengedränge,
+Retargeting, Tribe-Wechsel oder ein protokollierter Stillstand machen eine Messung ausdrücklich
+nicht kalibrierbar. Dieses reine `r_CurrentSpeed`-Kostenmodell wurde anschließend durch das in
+Abschnitt 15.17 beschriebene dynamische Kadenzmodell ersetzt.
+
+Der Planer verwendet A* mit einer für das jeweilige Kostenmodell zulässigen Gitterheuristik,
+deterministischer Einfügereihenfolge und
+wiederverwendeten Kosten-, Vorgänger-, Heap- und Touched-Arrays. Gleich teure Kandidaten bevorzugen
+weniger Moat-Kanten und damit zuerst eine Route ganz ohne Moat. Es gibt keinen commandübergreifenden
+Routencache; auch die Klassifikation von Moat-Besitzern gilt nur für einen Suchlauf. Nur Units aus
+dem bestätigten Command-6-Switch dürfen Moat-Kanten erhalten. Eigene und verbündete fertige Moats
+sind zulässig, feindliche oder ungültige Records bleiben gesperrt. Normale Kanten müssen Vanillas
+gerichtete Bewegungsmaske erfüllen. Wasser, Wall-/Stair-Tiles und blockierte Gebäudeflächen werden
+nicht geöffnet; begehbare Gebäudereservierungen sind ausschließlich als bereits durch den
+Gebäude-Command validierter Endpunkt zulässig.
+
+Der Rekonstruktionsvertrag stammt aus `0xE1640` (historisch bestätigt `0xE07F0`). `0xF4930` ruft
+diese Funktion nach einem erfolgreichen Builder mit Modus 1, 2 oder 3 auf. Für den hier relevanten
+Moat-Modus 2 werden zuerst gewöhnliche gerichtete Kanten akzeptiert; fehlende Kanten dürfen nur
+unter den besonderen Moat-, Höhen- und Diagonal-Nachbarbedingungen rekonstruiert werden. Der
+Shadow-Planer prüft deshalb jede fertige Route nochmals konservativ gegen diese Semantik und
+verwirft sie mit `e1640-edge-validation-failed`, sobald eine Kante nicht sicher abbildbar ist.
+`0xE1640` schreibt höchstens 2000 Richtungen nibble-codiert, zwei Richtungen pro Byte, in den von
+`0xE62D0` bei `pathManager+0x155F60` registrierten 1000-Byte-Puffer; die Anzahl steht bei
+`+0x155F68`. Die Rekonstruktion beginnt zwar am Ziel und schreibt zunächst die letzte Laufkante
+zuerst. Vor der Rückgabe ruft `0xE1640` jedoch `0xE4E90` auf; dieser Helper kehrt die vollständige
+Nibblefolge um. Der veröffentlichte Puffer liegt deshalb bereits in Laufreihenfolge vom Start zum
+Ziel vor und der read-only Decoder muss ihn vorwärts lesen. `0x196280` bindet dafür nachweislich
+`unitManager+0xB4FE78+(unitId*1000)` ein. `0x18E1E0` registriert dagegen seinen noch während des
+synchronen Calls lebenden 1008-Byte-Stackpuffer. Der Shadow-Test dekodiert den unmittelbar durch
+`0xE62D0` registrierten Puffer nur innerhalb des laufenden `0xF4930`-Detours, verlangt die
+Builderlänge als Richtungszahl und prüft die exakte Endkoordinate. Er kennzeichnet ihn als
+`pathBuffer=unit|temporary`; nur der exakt erwartete Unitpuffer startet eine Laufzeitmessung.
+
+Relevante Wiederauffindungsanker für ein Spielupdate sind:
+
+- `0x19B260`: dynamische Unit-Geschwindigkeit; Caller `0x182B00`, Felder `+0x9A4/+0x9A2/+0x6C8`;
+- `0xDA590`: normaler Boden-Floodbuilder mit gerichteter Bewegungsmaske;
+- `0xF4930`: zentraler Builder, Caller `0x18E1E0` und `0x196280`, Auswahl von `0xDA590`,
+  `0xDAAC0`, `0xDAFD0`, `0xD9C40` und Rekonstruktion über `0xE1640`;
+- `0xE1640`: maximal 2000 nibble-codierte Richtungen, der Modus-2-Moatvertrag und abschließender
+  Aufruf von `0xE4E90` zur Umkehr der zunächst rückwärts aufgebauten Folge;
+- `0xE4E90`: kehrt die bei `pathManager+0x155F60` liegende Nibblefolge in die endgültige
+  Start-zu-Ziel-Reihenfolge um;
+- `0xE62D0`: schreibt ausschließlich Ausgabepointer und Null-Länge nach
+  `pathManager+0x155F60/+0x155F68`.
+
+Die für denselben Hash mit Rizin am geladenen Image bestätigten Entry-Präfixe, die sich als
+Patterns für die Wiederauffindung eignen, lauten:
+
+- `0x19B260`: `48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 56 41 57 48 83 EC 20`;
+- `0xDA590`: `48 89 5C 24 20 56 57 41 54 41 55 41 56 48 83 EC 30`;
+- `0xF4930`: der bereits vom Detour vollständig geprüfte Präfix
+  `48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 48 83 EC 40`;
+- `0xE1640`: `48 89 4C 24 08 53 48 81 EC 80 00 00 00 4C 63 D2 48 8B D9`;
+- `0xE62D0`: vollständige 18 Bytes
+  `48 89 91 60 5F 15 00 C7 81 68 5F 15 00 00 00 00 00 C3`.
+
+Die relevanten bestätigten Calls sind insbesondere `0xF4A78/0xF4ACF/0xF4C03 -> 0xDA590`,
+`0xF4B8F/0xF4C25 -> 0xE1640`, der interne Call `0xE1640 -> 0xE4E90`,
+`0x18E415/0x1965DC -> 0xE62D0` und die drei Calls aus
+`0x182B00` bei `0x184405`, `0x18452A` und `0x18497A` nach `0x19B260`.
+
+Vor einer Übertragung müssen Hash, bestätigte Versionsmatches, Caller/Callees, Unitfeld-Offsets,
+Pfadmanager-Offsets, Richtungstabelle und maximale Pufferlänge gemeinsam erneut bestätigt werden.
+Der Shadow-Code ist zusätzlich fail-closed: Eine unklare Owner-, Kanten-, Pointer-, Längen- oder
+Endpunktprüfung führt nur zu `no-valid-shadow-route` und verändert Vanillas Ergebnis nicht.
+
+Die Diagnose `weighted-shadow` nennt Unit, Typ, Spieler, Command, Start/Ziel, Laufzeitfelder,
+Länge, Boden-, Moat- und Diagonalkanten, geschätzte Ticks beider Routen, Ersparnis, Suchdauer,
+expandierte Nodes und Abbruchgrund. Die Entscheidung lautet `native-ground`,
+`native-friendly-moat`, `shadow-friendly-moat` oder `no-valid-shadow-route`.
+`move-state-end` ergänzt bei isolierten Läufen die beobachteten Gesamtticks.
+Es weist die Abweichung getrennt gegenüber der dekodierten tatsächlich veröffentlichten Route und
+gegenüber dem gewichteten Shadow-Kandidaten aus. Die Shadow-Abweichung wird nur gebildet, wenn
+Länge sowie Boden- und Moatkantenzahl beider Routen übereinstimmen. Die Diagonalkantenzahl ist
+dafür bewusst unerheblich, weil `0x1855A0` kardinale und diagonale Tilewechsel mit derselben
+Teilschrittkadenz abarbeitet. Ein ersetzter oder
+anderweitig nicht am Ziel abgeschlossener Command ist unabhängig von den zuvor erfassten Daten
+nicht kalibrierbar. Eine fehlende oder nicht sicher dekodierbare Route ergibt ebenfalls keine
+scheinbare Kalibrierung.
+Ein Schnellvorlauf-`stalled` beendet den Tracker nicht mehr: Spätere Bewegung wird als
+`resumed-after-stall` erkannt und die Messung lediglich als nicht kalibrierbar markiert.
+
+Ein read-only Shadow-Scope wird außerdem nicht mehr vom ersten beliebigen `0xF4930`-Aufruf
+verbraucht. Stimmen Start und Ziel des Builders nicht exakt mit dem gespeicherten Unitkontext
+überein, bleibt der Scope bis zum passenden synchronen Builder oder bis zum Command-Ende erhalten.
+Die Diagnose nennt bei einer Abweichung nun auch die tatsächlichen Start- und Zielkoordinaten des
+Builders. Das ist insbesondere für die von `0x18E1E0` verwendeten temporären Puffer erforderlich.
+
+### 15.17 Dynamisches Kadenzmodell ohne Unittyp-Tabelle
+
+Die erste Kalibrierung mit `r_CurrentSpeed` allein war nur bei langsam gehenden Units ausreichend.
+Beim Pikenträger lagen Boden-, kurze Moat- und lange Moatmessung 11 bis 33 Ticks neben der
+Prognose. Beim arabischen Sklaven überschätzte dasselbe Modell dagegen die Laufzeit um 83 bis 279
+Ticks. Seine drei beobachteten Vanilla-Laufzeiten betrugen ungefähr 248, 157 und 409 Ticks,
+während das alte Modell 336, 240 und 688 Ticks berechnete. Dies ist keine unittypspezifische
+Ausnahme, sondern die Folge von Vanillas allgemeiner Bewegungskadenz.
+
+Für den kanonischen Hash
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
+ist bei `0x184203` innerhalb des Callers `0x182B00` folgende Reihenfolge bestätigt:
+
+- `movsx eax, word [unitManagerRecord+0x916]` liest `GameUnit.r_SpeedBonus` bei Structoffset
+  `0x2BA`. Der ältere Kommentar `//0x02B8` in `GameUnit.cs` ist um zwei Bytes versetzt; die
+  tatsächliche sequenzielle Structbelegung und der native Zugriff bestätigen `0x2BA`;
+- `movsx ecx, word [unitManagerRecord+0x9A2]` liest `r_CurrentSpeed2` bei `0x346`;
+- `movsx eax, word [unitManagerRecord+0x74C]` liest `r_PathPlanRelated1` bei `0xF0`;
+- die drei Werte werden addiert und mit der seit dem letzten Kadenzschritt verstrichenen Zeit
+  verglichen. Weil der Sprung die Bewegung noch bei `elapsed <= sum` auslässt, beträgt das
+  tatsächliche Intervall `CurrentSpeed2 + SpeedBonus + PathPlanRelated1 + 1` Ticks;
+- anschließend reicht derselbe Caller `r_SpeedBonus` als viertes Argument an `0x1855A0` weiter;
+- `0x1855A0+0x20A` beziehungsweise RVA `0x1857AA` liest zusätzlich vorzeichenbehaftet das noch
+  unbenannte `short` bei managerrelativ `+0xA2A`. Mit dem bestätigten Unit-Record-Bias `0x65C`
+  entspricht dies `GameUnit+0x3CE`. Der Helper addiert es zu `r_SpeedBonus` und führt somit
+  `SpeedBonus + AdditionalSubsteps + 1` Schleifendurchläufe pro Intervall aus. Ein von null
+  verschiedener Wert besitzt im selben Helper weitere Sondersemantik und wird deshalb nicht als
+  Typgeschwindigkeit interpretiert, sondern nur als konkreter Runtimewert dieses Aufrufs.
+
+Der Shadow-Planer liest diese Felder von jeder konkreten Unit zum Zeitpunkt der synchronen
+Planung. Es gibt weder eine Geschwindigkeits-Whitelist noch fest hinterlegte Werte pro `eChimps`.
+`r_CurrentSpeed` wird nur zur Diagnose mitgeführt. Maßgeblich ist `r_CurrentSpeed2`, sodass auch
+Vanillas Gruppensynchronisierung oder kompatible Änderungen anderer Mods automatisch einfließen.
+Die Messungen vom 3. September 2026 zeigen allerdings, dass dies allein noch nicht der endgültige
+Laufzustand ist: Beim arabischen Sklaven stand `r_SpeedBonus` während `MoveHere` und Builder noch
+auf `0`, obwohl die Laufzeit aller vier geprüften Routen exakt zum späteren Wert `1` passte. Der
+typabhängige Unit-Handler im vierten Update-Pass setzt Animation und `r_SpeedBonus` erst nach der
+synchronen Pfadplanung. Dieselbe Reihenfolge ist unabhängig im vorhandenen
+`BugfixesAndQoL/_inspect/SpeedTestResults.md` und in der dortigen Analyse des Dispatchs bei
+`0x18410C` dokumentiert.
+
+Eine statische Übernahme der dortigen typspezifischen Werte wäre für dieses Feature ungeeignet:
+Der generische Handlerdecoder kann bei verzweigten Handlern mehrere mögliche Werte zusammenführen,
+und der auf den Referenzhash zugeschnittene Produktionscode löst solche Fälle bewusst über auditierte
+Typwerte. `MoveMoatTest` verwendet diese Tabelle nicht. Stattdessen erfasst der read-only Tracker
+beim ersten echten Pfadfortschritt erneut alle Felder der konkreten Unit und berechnet Shadow- und
+dekodierte Native-Route mit diesem post-handler Runtimeprofil neu. Ändert sich die normalisierte
+Kadenz während derselben Messung, wird die Kalibrierung fail-closed verworfen.
+
+Der Zustand des Moat-Delays liegt bei GameUnit-Offset `0x6C`, entsprechend managerrelativ
+`+0x6C8`. Der Abschnitt ab `0x19B506` bestätigt die Phasen 0 bis 24 in Viererschritten. Auf dem
+fertigen Moat werden abhängig von der aktualisierten Phase `+3`, `+4` oder `+6` in
+`r_CurrentSpeed2` eingerechnet; nach dem Verlassen wird die Phase in Achterschritten abgebaut und
+für diesen Nachlauftick `+3` addiert. Der Snapshot entfernt einen solchen eindeutig erkennbaren
+bereits enthaltenen Aufschlag, bevor er neue Kanten bewertet. Negative Felder, ungültige Phasen,
+Überläufe oder ein zwischen Shadow-Suche und Builderausgang veränderter Snapshot führen
+fail-closed zu `no-valid-shadow-route`.
+
+Die Kosten bleiben bis zum Routenende additive Fixpunktwerte:
+
+`edgeFixed = 8 * (normalizedDelay + terrainPenalty + SpeedBonus + PathPlanRelated1 + 1)`
+
+Für Boden ist `terrainPenalty=0`, für jede Kante mit fertigem erlaubtem Moat weiterhin der
+bestätigte stabile Wert `6`. Erst die Gesamtsumme einer Route wird aufgerundet durch
+`SpeedBonus + AdditionalSubsteps + 1` geteilt. Kardinale und diagonale Tilewechsel verändern die
+zeitliche Kadenz nicht;
+die zulässige Heuristik verwendet deshalb die Chebyshev-Distanz mit den günstigsten Bodenkosten.
+Im letzten Lauf betrugen die Planungsprognosen des Sklaven wegen des noch nicht gesetzten Bonus
+400/256/864/896 Ticks gegenüber 294/169/505/668 beobachteten Ticks. Retrospektiv mit Bonus `1`
+ergeben dieselben tatsächlichen Kanten 300/156/492/672 Ticks, also Abweichungen von nur
+-6/+13/+13/-4 Ticks. Diese Rechnung ist stark, aber erst die neue post-handler Diagnose bestätigt,
+dass der Wert im jeweiligen Lauf wirklich aus der Unit stammt und nicht angenommen wurde.
+
+Zusätzlich zu den bestehenden Native-Verträgen validiert der Testmod nun vollständige relevante
+Bytefolgen bei `0x19B506`, `0x184203`, am Entry von `0x1855A0` und am internen Lesezugriff
+`0x1857AA`. Für ein Spielupdate sind zuerst
+Hash und das bestätigte Versionsmatch `0x19A210 -> 0x19B260` zu prüfen. Danach müssen die
+Vorzeichen-erweiternden Feldzugriffe, die Vergleichssemantik der Kadenz, die Übergabe von
+`r_SpeedBonus` an `0x1855A0`, dessen zusätzlichen Zugriff `+0xA2A`, die Unit-Structoffsets und die
+Moat-Phasenlogik gemeinsam wieder
+bestätigt werden. Ein bloßer RVA- oder Pattern-Treffer genügt nicht.
+
+Die geprüften Bytefolgen lauten beim genannten Hash:
+
+- `0x19B506` (32 Bytes):
+  `0F B6 83 C8 06 00 00 45 85 C9 74 42 3C 18 7D 08 04 04 88 83 C8 06 00 00 0F B7 8B A2 09 00 00 3C`;
+- `0x184203` (47 Bytes innerhalb von `0x182B00`):
+  `41 0F BF 80 16 09 00 00 41 0F BF 88 A2 09 00 00 45 8B 90 A8 09 00 00 03 C8 41 0F BF 80 4C 07 00 00 41 2B D2 03 C1 41 8B 88 AC 09 00 00 3B D0`;
+- `0x1855A0` (45-Byte-Entrypräfix bis einschließlich `mov r13d,r8d`):
+  `48 89 5C 24 10 48 89 6C 24 18 48 89 74 24 20 57 41 54 41 55 41 56 41 57 48 83 EC 40 48 63 DA 41 0F B6 E9 4C 69 E3 90 04 00 00 45 8B E8`.
+- `0x1857AA` (18 Bytes; zusätzlicher Teilschrittwert und negativer Abbruch):
+  `41 0F BF 84 3C 2A 0A 00 00 44 03 E8 0F 88 D3 04 00 00`.
+
+Auch dieser Stand bleibt read-only: Der Planer schreibt weder Pfadpuffer noch Builder-, Manager-
+oder Unitfelder. Ein funktionaler Pfadersatz ist erst nach erneuter Kalibrierung des dynamischen
+Modells vorgesehen.
+

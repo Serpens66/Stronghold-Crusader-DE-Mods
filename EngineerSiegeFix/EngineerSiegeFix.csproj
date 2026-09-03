@@ -71,10 +71,6 @@
       <HintPath>$(ExtenderDir)\Microsoft.Extensions.Logging.Abstractions.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <Reference Include="PolyHook2.NET">
-      <HintPath>$(ExtenderDir)\PolyHook2.NET.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
   </ItemGroup>
 
   <ItemGroup>
@@ -99,7 +95,6 @@
     <Error Condition="!Exists('$(ExtenderDir)\Zhuqiaomon.dll')" Text="Zhuqiaomon.dll was not found: $(ExtenderDir)" />
     <Error Condition="!Exists('$(ExtenderDir)\Iced.dll')" Text="Iced.dll was not found: $(ExtenderDir)" />
     <Error Condition="!Exists('$(ExtenderDir)\Microsoft.Extensions.Logging.Abstractions.dll')" Text="Microsoft.Extensions.Logging.Abstractions.dll was not found: $(ExtenderDir)" />
-    <Error Condition="!Exists('$(ExtenderDir)\PolyHook2.NET.dll')" Text="PolyHook2.NET.dll was not found: $(ExtenderDir)" />
     <Error Condition="!Exists('$(GameDir)\BepInEx\core\BepInEx.dll')" Text="BepInEx.dll was not found below GameDir: $(GameDir)" />
   </Target>
 </Project>

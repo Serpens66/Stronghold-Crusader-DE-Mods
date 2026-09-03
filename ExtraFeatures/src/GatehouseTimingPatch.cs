@@ -22,6 +22,9 @@ namespace ExtraFeatures
         internal const int DecisionBlockRva = 0xB7BBB, HumanDelayBlockRva = 0xB7C32;
         internal const int AiDistanceRva = 0xB7BC3, AiDelayRva = 0xB7BCA;
         internal const int HumanDistanceRva = 0xB7BD3, HumanDelayRva = 0xB7C35;
+        // Extra Features owns the final immediate through 0xB7C38. Fixes may install
+        // its independent farmer-stuck hook at the immediately following byte.
+        internal const int OwnedTimingRegionEndRva = HumanDelayRva + sizeof(int);
         internal const int VanillaAiDistance = 200, VanillaAiDelay = 1200;
         internal const int VanillaHumanDistance = 140, VanillaHumanDelay = 100;
 
@@ -191,17 +194,31 @@ namespace ExtraFeatures
             RequireInt32(image, HumanDelayRva, VanillaHumanDelay, "human reopen delay");
 
             var invariants = new List<GatehouseInstructionInvariant>();
-            AddInvariants(invariants, moduleBase, DecisionBlockRva, DecisionBlockBytes, AiDistanceRva, AiDelayRva, HumanDistanceRva);
-            AddInvariants(invariants, moduleBase, HumanDelayBlockRva, HumanDelayBlockBytes, HumanDelayRva);
+            AddInvariants(invariants, moduleBase, DecisionBlockRva, DecisionBlockBytes,
+                DecisionBlockRva + DecisionBlockBytes.Length, AiDistanceRva, AiDelayRva, HumanDistanceRva);
+            // Keep the immutable-image checks above strict, but do not claim live bytes
+            // beyond our last immediate. This preserves either plugin load order.
+            AddInvariants(invariants, moduleBase, HumanDelayBlockRva, HumanDelayBlockBytes,
+                OwnedTimingRegionEndRva, HumanDelayRva);
             return new GatehouseTimingTarget(moduleBase + AiDistanceRva, moduleBase + AiDelayRva,
                 moduleBase + HumanDistanceRva, moduleBase + HumanDelayRva, invariants);
         }
 
-        private static void AddInvariants(List<GatehouseInstructionInvariant> result, long moduleBase, int blockRva, byte[] bytes, params int[] mutableRvas)
+        private static void AddInvariants(
+            List<GatehouseInstructionInvariant> result,
+            long moduleBase,
+            int blockRva,
+            byte[] bytes,
+            int ownedEndRva,
+            params int[] mutableRvas)
         {
             for (int i = 0; i < bytes.Length; i++)
             {
-                int rva = checked(blockRva + i); bool mutable = false;
+                int rva = checked(blockRva + i);
+                if (rva >= ownedEndRva)
+                    break;
+
+                bool mutable = false;
                 foreach (int start in mutableRvas)
                     if (rva >= start && rva < start + sizeof(int)) mutable = true;
                 if (!mutable) result.Add(new GatehouseInstructionInvariant(moduleBase + rva, bytes[i]));

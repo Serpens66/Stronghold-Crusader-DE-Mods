@@ -30,6 +30,7 @@ namespace ExtraFeatures
                 TestNativeTargetMap(image);
                 TestCatalogAndApply(image);
                 TestValidation(image);
+                TestAdjacentHookCompatibility(image);
                 TestRollbackAndCleanup(image);
                 Console.WriteLine($"PASS: ExtraFeatures native tests ({assertions} assertions).");
                 return 0;
@@ -162,6 +163,36 @@ namespace ExtraFeatures
             Check(memory.Int32(GatehouseTimingPatch.AiDistanceRva) == GatehouseTimingPatch.VanillaAiDistance, "flush failure remains recoverable");
         }
 
+        private static void TestAdjacentHookCompatibility(byte[] image)
+        {
+            Check(GatehouseTimingPatch.OwnedTimingRegionEndRva == 0xB7C39,
+                "gatehouse timing ownership ends before the adjacent Fixes hook");
+
+            // Simulate Fixes loading first: the immutable source image remains Vanilla,
+            // while the live process byte at its independent hook start is already patched.
+            var memory = new FakeMemory(Base, image);
+            memory.SetByte(GatehouseTimingPatch.OwnedTimingRegionEndRva, 0xE9);
+            var patch = new GatehouseTimingPatch(Base, image, true, memory);
+            patch.Apply(1.0, 5.0, 10.0, 15.0, true);
+            Check(memory.Byte(GatehouseTimingPatch.OwnedTimingRegionEndRva) == 0xE9,
+                "preinstalled adjacent hook is preserved while applying timing values");
+            patch.Dispose();
+            Check(memory.Byte(GatehouseTimingPatch.OwnedTimingRegionEndRva) == 0xE9,
+                "preinstalled adjacent hook is preserved while restoring Vanilla values");
+
+            // Simulate Extra Features loading first and Fixes installing afterwards.
+            memory = new FakeMemory(Base, image);
+            patch = new GatehouseTimingPatch(Base, image, true, memory);
+            memory.SetByte(GatehouseTimingPatch.OwnedTimingRegionEndRva, 0xE9);
+            patch.Apply(1.0, 5.0, 10.0, 15.0, true);
+            Check(memory.Byte(GatehouseTimingPatch.OwnedTimingRegionEndRva) == 0xE9,
+                "later adjacent hook is accepted and preserved");
+
+            memory.SetByte(GatehouseTimingPatch.HumanDelayRva - 1, 0x90);
+            Expect<InvalidOperationException>(() => patch.Apply(2.0, 6.0, 11.0, 16.0, true),
+                "mutation of the owned human-delay opcode remains fail-closed");
+        }
+
         private static byte[] MapPeImage(byte[] file)
         {
             int pe = ReadInt32(file, 0x3C), count = ReadUInt16(file, pe + 6), optionalSize = ReadUInt16(file, pe + 20), optional = pe + 24;
@@ -216,6 +247,7 @@ namespace ExtraFeatures
             public void RestoreProtection(long address, int length, uint protection) { restoreAttempts++; if (FailRestoreNumber == restoreAttempts) throw new InvalidOperationException("injected restore failure"); RestoreCount++; }
             public void Flush(long address, int length) { flushAttempts++; if (FailFlushNumber == flushAttempts) throw new InvalidOperationException("injected flush failure"); FlushCount++; }
             public int Int32(int rva) => Program.ReadInt32(bytes, rva);
+            public byte Byte(int rva) => bytes[rva];
             public void SetByte(int rva, byte value) => bytes[rva] = value;
             private int Index(long address) => checked((int)(address - baseAddress));
         }
