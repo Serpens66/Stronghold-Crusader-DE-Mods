@@ -58,6 +58,7 @@ namespace BugfixesAndQoL
         private bool enableCustomTrailExtremeGoldFix = true;
         private bool showVanillaMapsInEditor = true;
         private bool preserveDisplayResolution = true;
+        private bool enableDisbandedUnitControlGroupCleanup = true;
         private readonly LocalPerPlayerSetting<bool> enableClientFeatures = new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> enableMinimapCursorFollowFix = new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> enableMarketKeyMainMenuFix = new LocalPerPlayerSetting<bool>(true);
@@ -228,6 +229,10 @@ namespace BugfixesAndQoL
             SerpLocalization.Get("BugfixesAndQoL.EnableTroopHudMiddleClickCameraJump");
         public string EnableTroopHudMiddleClickCameraJumpHelpText =>
             SerpLocalization.Get("BugfixesAndQoL.EnableTroopHudMiddleClickCameraJumpHelp");
+        public string EnableDisbandedUnitControlGroupCleanupText =>
+            SerpLocalization.Get("BugfixesAndQoL.EnableDisbandedUnitControlGroupCleanup");
+        public string EnableDisbandedUnitControlGroupCleanupHelpText =>
+            SerpLocalization.Get("BugfixesAndQoL.EnableDisbandedUnitControlGroupCleanupHelp");
         public string EnableAssemblyPointPlacementFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAssemblyPointPlacementFix");
         public string EnableAssemblyPointPlacementFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAssemblyPointPlacementFixHelp");
         public string EnableFairSiegeAmmoRestockText => SerpLocalization.Get("BugfixesAndQoL.EnableFairSiegeAmmoRestock");
@@ -372,6 +377,16 @@ namespace BugfixesAndQoL
                 enableTroopHudMiddleClickCameraJump,
                 value,
                 nameof(EnableTroopHudMiddleClickCameraJump));
+        }
+
+        [Shared.PresetLocal]
+        public bool EnableDisbandedUnitControlGroupCleanup
+        {
+            get => enableDisbandedUnitControlGroupCleanup;
+            set => SetSetting(
+                ref enableDisbandedUnitControlGroupCleanup,
+                value,
+                nameof(EnableDisbandedUnitControlGroupCleanup));
         }
 
         [SyncPerPlayer]
@@ -801,6 +816,7 @@ namespace BugfixesAndQoL
             EnableIngameSteamInvitePrompt = true;
             ShowSelectedUnitHealth = true;
             EnableTroopHudMiddleClickCameraJump = true;
+            EnableDisbandedUnitControlGroupCleanup = true;
             EnableCustomTrailExtremeGoldFix = true;
             ShowVanillaMapsInEditor = true;
             PreserveDisplayResolution = true;

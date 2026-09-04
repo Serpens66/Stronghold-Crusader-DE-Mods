@@ -128,6 +128,8 @@ internal static class Program
             Check(Hash(file) == ExpectedDllHash, "canonical DLL hash");
             Check(ExpectedDllHash == LordControlGroupNativeDefinition.ReferenceSha256,
                 "Lord native contracts use the canonical DLL hash");
+            Check(ExpectedDllHash == ControlGroupNativeDefinition.ReferenceSha256,
+                "shared control-group contracts use the canonical DLL hash");
             PeImage pe = PeImage.Load(file);
             CheckGatehouseQueryUnitIdContract();
             CheckMountedStockpilePolicy();
@@ -137,6 +139,7 @@ internal static class Program
             CheckHealerAttackCommandContracts(pe.Image);
             CheckLordControlGroupContracts(pe.Image);
             CheckMixedLordDisbandContract(pe.Image);
+            CheckDisbandCleanupPolicyAndWiring(workspace);
             CheckLordControlGroupTransactionModel(pe.Image);
             CheckLordControlGroupIconPolicy();
             CheckLordControlGroupUiContracts(workspace);
@@ -499,6 +502,56 @@ internal static class Program
             "full mixed Archer/Lord summary keeps the dedicated Lord icon and moves Archers into +N");
     }
 
+    private static void CheckDisbandCleanupPolicyAndWiring(string workspace)
+    {
+        Check(ControlGroupDisbandCleanupPolicy.ShouldClean(true, true),
+            "disband cleanup is active when both local switches are enabled");
+        Check(!ControlGroupDisbandCleanupPolicy.ShouldClean(false, true) &&
+              !ControlGroupDisbandCleanupPolicy.ShouldClean(true, false),
+            "disband cleanup respects both local switches");
+
+        int[] records =
+        {
+            7, 100,
+            -1, 0,
+            7, 200,
+            8, 300,
+            7, 100
+        };
+        Check(ControlGroupDisbandCleanupPolicy.RemoveUnit(records, 7) == 3,
+            "disband cleanup removes every membership for one unit ID");
+        Check(records[0] == -1 && records[4] == -1 && records[8] == -1 &&
+              records[1] == 100 && records[5] == 200 && records[6] == 8,
+            "disband cleanup invalidates only unit-ID fields and preserves other records");
+        Check(ControlGroupDisbandCleanupPolicy.RemoveUnit(records, 7) == 0 &&
+              ControlGroupDisbandCleanupPolicy.RemoveUnit(null, 7) == 0,
+            "disband cleanup is idempotent and rejects missing storage");
+
+        string runtime = File.ReadAllText(Path.Combine(
+            workspace, "BugfixesAndQoL", "src", "ControlGroupDisbandCleanupRuntime.cs"));
+        Check(runtime.IndexOf("original(unitManager, unitId, playSound)", StringComparison.Ordinal) <
+                  runtime.IndexOf("RemoveUnitFromAllGroups(unitId)", StringComparison.Ordinal) &&
+              runtime.Contains("settings.EnableClientFeatures") &&
+              runtime.Contains("settings.EnableDisbandedUnitControlGroupCleanup") &&
+              runtime.Contains("record[0] = -1;") &&
+              runtime.Contains("NativeDetourConfig { ManualApply = true }") &&
+              runtime.Contains("DisbandCallRva") &&
+              runtime.Contains("DisbandFunctionRva"),
+            "native cleanup calls Vanilla first, is locally gated, validates its target, and invalidates memberships");
+
+        string viewModel = File.ReadAllText(Path.Combine(
+            workspace, "BugfixesAndQoL", "src", "BugfixesAndQoLViewModel.cs"));
+        Check(viewModel.Contains("[Shared.PresetLocal]\r\n        public bool EnableDisbandedUnitControlGroupCleanup") &&
+              viewModel.Contains("EnableDisbandedUnitControlGroupCleanup = true;"),
+            "disband cleanup setting is preset-local and enabled by default");
+
+        string lordFeature = File.ReadAllText(Path.Combine(
+            workspace, "BugfixesAndQoL", "src", "LordUnitControlsFeature.cs"));
+        Check(!lordFeature.Contains("RemoveUnitFromAllGroups") &&
+              lordFeature.Contains("disbandOriginal(self, parameter);"),
+            "Lord HUD disband routing remains separate from control-group cleanup");
+    }
+
     private static void CheckMixedLordDisbandContract(byte[] image)
     {
         CheckBytes(
@@ -602,6 +655,8 @@ internal static class Program
               troopPatch.Contains("bugfixes:TroopHudMiddleClickBehavior.IsEnabled=\"True\"") &&
               troopPatch.Contains("<Trigger Property=\"IsMouseOver\" Value=\"True\">") &&
               troopPatch.Contains("<Setter Property=\"Opacity\" Value=\"0.72\" />") &&
+              !troopPatch.Contains("ButtonTroopPanelMouseEnterCommand") &&
+              !troopPatch.Contains("ButtonTroopPanelMouseLeaveCommand") &&
               troopPatch.Contains("local:PropEx.Sprite1=\"{StaticResource BugfixesAndQoL-LordIcon}\"") &&
               !troopPatch.Contains("BugfixesAndQoLLordSelectionHost") &&
               !troopPatch.Contains("BugfixesAndQoLLordHealthHost") &&
@@ -616,6 +671,10 @@ internal static class Program
               lordHudFeature.Contains("panel.ShowSelectedTroopsNumber(slot, selectedTypeCounts[type]);") &&
               lordHudFeature.Contains("selectedTypeCounts[(int)eChimps.CHIMP_TYPE_LORD] = 1;") &&
               lordHudFeature.Contains("Enums.eTextValues.BHELP_TEXT_SELECT_LORD") &&
+              lordHudFeature.Contains("lordSelectionButton.MouseEnter += OnLordSelectionMouseEnter;") &&
+              lordHudFeature.Contains("lordSelectionButton.MouseLeave += OnLordSelectionMouseLeave;") &&
+              lordHudFeature.Contains("ButtonTroopPanelMouseEnterHook(main, \"BugfixesAndQoLLordSelected\");") &&
+              lordHudFeature.Contains("troopPanelMouseLeaveMethod.Invoke(main, new object[] { null });") &&
               lordHudFeature.IndexOf("if (!activeGameUi)", StringComparison.Ordinal) <
                   lordHudFeature.IndexOf("MainViewModel main = MainViewModel.Instance;", StringComparison.Ordinal) &&
               lordHudFeature.Contains("LordDisbandAction.RejectUnsafeMixedSelection") &&

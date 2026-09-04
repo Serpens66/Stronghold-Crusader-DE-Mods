@@ -132,4 +132,7 @@ Assassins choose routes by expected travel time instead of treating every traver
 When an owned Assassin is selected, a troop-action button allows or forbids climbing globally for that player's Assassins. The setting affects new path requests only; ordinary stairs and already accessible wall surfaces remain usable. AI Assassins always retain climbing. Pressing the normal Stop button or Stop hotkey while an Assassin is climbing cancels the climb, clears the current movement order, and makes the unit immediately controllable again.
 
 ### Control the Lord through the troop HUD
-Selecting your own Lord opens a compact version of the normal troop HUD with stance and unit commands as well as optional health values. The disband command is replaced by the same confirmed surrender action, preventing an accidental or unsynchronized Lord removal.
+Selecting your own Lord opens the complete troop HUD with normal commands, health display, troop-type controls, and control-group support. Disband surrenders only when the Lord is selected alone; in mixed selections it affects only normal units.
+
+### Remove disbanded units from control groups
+An enabled-by-default local client fix immediately removes disbanded units from every control group. This prevents the resulting peasants, or soldiers later recruited from them, from inheriting stale group membership. The option is stored locally and is not synchronized in multiplayer.

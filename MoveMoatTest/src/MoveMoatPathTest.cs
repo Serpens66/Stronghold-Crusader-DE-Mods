@@ -156,6 +156,8 @@ namespace MoveMoatTest
         private const int MovementCadenceRva = 0x184203;
         private const int MovementSubstepRva = 0x1855A0;
         private const int MovementAdditionalSubstepsRva = 0x1857AA;
+        private const int MoatPathConsumptionReadRva = 0x185934;
+        private const int MoatPathConsumptionPersistRva = 0x19670C;
         private const int CursorCurrentTileFlagGateRva = 0x8F388;
         private const int CursorCurrentTileFlagGateJumpRva = 0x8F393;
         private const int AttackUnitPairGateJumpRva = 0x8D72B;
@@ -221,6 +223,11 @@ namespace MoveMoatTest
         private const int PathManagerOutputLengthOffset = 0x155F68;
         private const int NativeUnitPathBufferOffset = 0xB4FE78;
         private const int NativeUnitPathBufferStride = 1000;
+        private const int NativeUnitStride = 0x490;
+        private const int NativeUnitSlotDataOffset = 0x65C;
+        private const int NativeMoatPathConsumptionModeOffset = 0x9C8;
+        private const int UnitMoatPathConsumptionModeOffset =
+            NativeMoatPathConsumptionModeOffset - NativeUnitSlotDataOffset;
         private const int VanillaAttackFloodResultCapacity = 500;
         private const int DiagnosticStallTickThreshold = 100;
         private const int WeightedPublicationSafetyMarginTicks = 40;
@@ -490,6 +497,7 @@ namespace MoveMoatTest
             new Dictionary<int, string>();
         private readonly Dictionary<int, string> lastWeightedPublicationDecisionByUnit =
             new Dictionary<int, string>();
+        private int moveCommandSequence;
         private int attackCommandSequence;
         private bool callbackFailureReported;
         private bool weightedShadowBusy;
@@ -694,10 +702,50 @@ namespace MoveMoatTest
                     0x00, 0x00
                 },
                 "movement additional-substeps contract");
+            ValidateExactBytes(
+                memory, MoatPathConsumptionReadRva,
+                new byte[]
+                {
+                    0x66, 0x45, 0x85, 0xC9, 0x0F, 0x85, 0xC2, 0x04,
+                    0x00, 0x00, 0x41, 0x0F, 0xBF, 0x84, 0x3C, 0xC8,
+                    0x09, 0x00, 0x00, 0x48, 0x8D, 0x0D, 0x12, 0x7D,
+                    0xF2, 0x05, 0x45, 0x0F, 0xBF, 0x8C, 0x3C, 0x1E,
+                    0x07, 0x00, 0x00, 0x45, 0x8B, 0x84, 0x3C, 0x2C,
+                    0x07, 0x00, 0x00, 0x89, 0x44, 0x24, 0x30, 0x89,
+                    0x54, 0x24, 0x28, 0x8B, 0xD3, 0x44, 0x89, 0x74,
+                    0x24, 0x20, 0xE8, 0xED, 0x74, 0xF5, 0xFF, 0x85,
+                    0xC0
+                },
+                "movement moat-path consumption contract");
+            ValidateExactBytes(
+                memory, MoatPathConsumptionPersistRva,
+                new byte[]
+                {
+                    0x41, 0x0F, 0xB7, 0xC0, 0x44, 0x39, 0x05, 0xCD,
+                    0x6F, 0xF1, 0x05, 0x66, 0x0F, 0x45, 0xC3, 0x66,
+                    0x89, 0x87, 0xC8, 0x09, 0x00, 0x00, 0x8B, 0xC3,
+                    0x4C, 0x89, 0x05, 0xB9, 0x6F, 0xF1, 0x05, 0x4C,
+                    0x89, 0x87, 0xD0, 0x0A, 0x00, 0x00
+                },
+                "MoveHere moat-path mode persistence contract");
             ValidateGameUnitFieldOffset(nameof(GameUnit.r_PathPlanRelated1), 0xF0);
             ValidateGameUnitFieldOffset(nameof(GameUnit.r_SpeedBonus), 0x2BA);
             ValidateGameUnitFieldOffset(nameof(GameUnit.r_CurrentSpeed2), 0x346);
             ValidateGameUnitFieldOffset(nameof(GameUnit.r_CurrentSpeed), 0x348);
+            ValidateGameUnitFieldOffset(nameof(GameUnit.N000001CE), UnitMoatPathConsumptionModeOffset);
+            ValidateGameUnitFieldOffset(
+                nameof(GameUnit.UnknownRelevant1), UnitMoatPathConsumptionModeOffset + 1);
+            ValidateStructFieldOffset(
+                typeof(GameUnitManager), nameof(GameUnitManager.LastOrderedUnit), NativeUnitSlotDataOffset);
+            if (Marshal.SizeOf(typeof(GameUnit)) != NativeUnitStride)
+            {
+                throw new InvalidOperationException(
+                    $"Unexpected GameUnit size 0x{Marshal.SizeOf(typeof(GameUnit)):X}; " +
+                    $"expected native stride 0x{NativeUnitStride:X}.");
+            }
+            ValidateStructFieldOffset(
+                typeof(GameUnitManager), nameof(GameUnitManager.GameUnitArray),
+                NativeUnitSlotDataOffset + NativeUnitStride);
             if (Marshal.SizeOf(typeof(GameUnit)) <= UnitAdditionalMovementSubstepsOffset + 1)
             {
                 throw new InvalidOperationException(
@@ -860,9 +908,10 @@ namespace MoveMoatTest
                     $"groupMoatMode=0x{groupMoatResolution.Rva:X}/iterator=0x{groupUnitResolution.Rva:X}/" +
                     $"call=0x{GroupMoatModeCallRva:X}; " +
                     "friendlyAndAlliedCompletedMoats=true, enemyMoats=fail-closed-experimental, " +
-                    $"weightedMoatShadow=read-only/speedContracts=0x{MovementTerrainPhaseRva:X}/" +
+                    $"weightedMoatRouting=functional/speedContracts=0x{MovementTerrainPhaseRva:X}/" +
                     $"0x{MovementCadenceRva:X}/0x{MovementSubstepRva:X}/" +
-                    $"0x{MovementAdditionalSubstepsRva:X}.");
+                    $"0x{MovementAdditionalSubstepsRva:X}/consumerContracts=" +
+                    $"0x{MoatPathConsumptionPersistRva:X}/0x{MoatPathConsumptionReadRva:X}.");
 
                 // Optional cursor/diagnostic groups fail closed without rolling back the proven
                 // ordinary movement hooks above.
@@ -1237,15 +1286,28 @@ namespace MoveMoatTest
                 RemoveTrackedAttacksForTribe(args.TribeId, "move-command");
                 RemoveTrackedMoatMovesForTribe(args.TribeId, "new-move-command");
                 activeMoveCommand = new MoveCommandScope(
+                    ++moveCommandSequence,
                     args.TribeId,
                     args.TileX,
-                    args.TileY);
+                    args.TileY,
+                    args.IsPatrolPath != 0,
+                    args.IsNewOrder,
+                    args.MoveType,
+                    activeAttackCommand?.Sequence ?? 0,
+                    activeAttackCommand?.Command ?? TribeAICommand.Unknown0);
+                CaptureMoveCommandGroupSummary(activeMoveCommand);
                 try
                 {
                     LogCommandDiagnostic(
-                        $"stage=move-command tribe={args.TribeId} target=({args.TileX},{args.TileY}) " +
+                        $"stage=move-command commandSeq={activeMoveCommand.Sequence} " +
+                        $"tribe={args.TribeId} target=({args.TileX},{args.TileY}) " +
                         $"phase=pre patrol={args.IsPatrolPath} newOrder={args.IsNewOrder} " +
-                        $"moveType={args.MoveType}");
+                        $"moveType={args.MoveType} activeUnits={activeMoveCommand.ActiveUnitsAtDispatch} " +
+                        $"diggers={activeMoveCommand.DiggersAtDispatch} " +
+                        $"onMoat={activeMoveCommand.UnitsOnMoatAtDispatch} " +
+                        $"playerMask=0x{activeMoveCommand.PlayerMaskAtDispatch:X} " +
+                        $"parentAttack={activeMoveCommand.ParentAttackCommandSequence}/" +
+                        $"{activeMoveCommand.ParentAttackCommand}");
                 }
                 catch
                 {
@@ -1266,9 +1328,16 @@ namespace MoveMoatTest
                             ? command.LastVanillaBuilderResult.ToString()
                             : "none";
                     LogCommandDiagnostic(
-                        $"stage=move-command-result tribe={args.TribeId} " +
+                        $"stage=move-command-result commandSeq={command?.Sequence ?? 0} " +
+                        $"tribe={args.TribeId} " +
                         $"target=({args.TileX},{args.TileY}) patrol={args.IsPatrolPath} " +
                         $"newOrder={args.IsNewOrder} moveType={args.MoveType} return={args.ReturnValue} " +
+                        $"activeUnits={command?.ActiveUnitsAtDispatch ?? 0} " +
+                        $"diggers={command?.DiggersAtDispatch ?? 0} " +
+                        $"onMoat={command?.UnitsOnMoatAtDispatch ?? 0} " +
+                        $"playerMask=0x{(command?.PlayerMaskAtDispatch ?? 0):X} " +
+                        $"parentAttack={command?.ParentAttackCommandSequence ?? 0}/" +
+                        $"{command?.ParentAttackCommand ?? TribeAICommand.Unknown0} " +
                         $"plannerCalls={command?.CentralPlannerCalls ?? 0} " +
                         $"floodCalls={command?.FloodCalls ?? 0} " +
                         $"floodVanillaPositive={command?.FloodVanillaPositive ?? 0} " +
@@ -1278,6 +1347,11 @@ namespace MoveMoatTest
                         $"vanillaBuilderCalls={command?.VanillaBuilderCalls ?? 0} " +
                         $"fallbackBuilderCalls={command?.FallbackBuilderCalls ?? 0} " +
                         $"positiveBuilders={command?.PositiveBuilderCalls ?? 0} " +
+                        $"weightedUnits={command?.WeightedUnitIds.Count ?? 0} " +
+                        $"weightedDecisions={command?.WeightedDecisions ?? 0} " +
+                        $"weightedPublished={command?.WeightedPublished ?? 0} " +
+                        $"weightedSearchMs={(command?.WeightedSearchMilliseconds ?? 0):F3} " +
+                        $"weightedMaxSearchMs={(command?.WeightedMaximumSearchMilliseconds ?? 0):F3} " +
                         $"lastVanillaBuilderResult={lastVanillaBuilderResult} " +
                         $"lastBuilderResult={lastBuilderResult}");
                     FlushCommandDiagnostics(command);
@@ -1339,6 +1413,15 @@ namespace MoveMoatTest
                         }
                         else
                             RemoveSynchronousAttackTrackers(scope, "command-rejected");
+                        LogCommandDiagnostic(
+                            $"stage=attack-command-summary commandSeq={scope.Sequence} " +
+                            $"tribe={scope.TribeId} command={scope.Command} " +
+                            $"target={scope.TargetValue1}/{scope.TargetValue2} " +
+                            $"return={args.ReturnValue} weightedUnits={scope.WeightedUnitIds.Count} " +
+                            $"weightedDecisions={scope.WeightedDecisions} " +
+                            $"weightedPublished={scope.WeightedPublished} " +
+                            $"weightedSearchMs={scope.WeightedSearchMilliseconds:F3} " +
+                            $"weightedMaxSearchMs={scope.WeightedMaximumSearchMilliseconds:F3}");
                     }
                 }
             }
@@ -1724,10 +1807,12 @@ namespace MoveMoatTest
                     return;
                 }
 
-                trackedMoatMoves[plan.UnitId] = new MoatMoveTracker(
+                var tracker = new MoatMoveTracker(
                     mapEpoch,
                     plan.UnitId,
                     unit->r_TribeId,
+                    unit->r_UnitChimp,
+                    unit->r_ControllableForPlayerId,
                     plan.TargetX,
                     plan.TargetY,
                     builderResult,
@@ -1735,12 +1820,22 @@ namespace MoveMoatTest
                     unit->r_CurrentTilePositionY,
                     unit->p_CurrentPathPlanPosition,
                     IsCompletedMoatTile(unchecked((int)unit->r_CurrentPositionTileId)),
+                    ReadUnitMoatPathConsumptionMode(unit),
                     CaptureCurrentGameTick());
+                ResolveCommandDiagnosticContext(
+                    plan.UnitId, unit, out TribeAICommand command, out string commandContext,
+                    out int commandSequence);
+                tracker.WeightedCommand = command;
+                tracker.WeightedCommandContext = commandContext;
+                tracker.WeightedCommandSequence = commandSequence;
+                trackedMoatMoves[plan.UnitId] = tracker;
                 Shared.DebugLogHelper.LogInfo(
                     log,
                     $"MoveMoat stage=move-track-start unit={plan.UnitId} type={unit->r_UnitChimp} " +
                     $"player={unit->r_ControllableForPlayerId} tribe={unit->r_TribeId} " +
-                    $"target=({plan.TargetX},{plan.TargetY}) builderResult={builderResult} " +
+                    $"target=({plan.TargetX},{plan.TargetY}) command={command} " +
+                    $"commandContext={commandContext} canDig={CanDigMoat(unit)} " +
+                    $"builderResult={builderResult} " +
                     $"{summary.ToLogFields()}.");
             }
             catch (Exception ex)
@@ -1768,10 +1863,12 @@ namespace MoveMoatTest
                 tracker.InitialX != shadow.StartX || tracker.InitialY != shadow.StartY)
             {
                 tracker = new MoatMoveTracker(
-                    mapEpoch, shadow.UnitId, shadow.TribeId, shadow.TargetX, shadow.TargetY,
+                    mapEpoch, shadow.UnitId, shadow.TribeId, shadow.UnitType, shadow.PlayerId,
+                    shadow.TargetX, shadow.TargetY,
                     builderResult, shadow.StartX, shadow.StartY,
                     unit->p_CurrentPathPlanPosition,
                     IsCompletedMoatTile(unchecked((int)unit->r_CurrentPositionTileId)),
+                    ReadUnitMoatPathConsumptionMode(unit),
                     CaptureCurrentGameTick());
                 trackedMoatMoves[shadow.UnitId] = tracker;
             }
@@ -1780,6 +1877,8 @@ namespace MoveMoatTest
             tracker.WeightedPlayerId = shadow.PlayerId;
             tracker.WeightedUnitType = shadow.UnitType;
             tracker.WeightedCommand = shadow.Command;
+            tracker.WeightedCommandContext = shadow.CommandContext;
+            tracker.WeightedCommandSequence = shadow.CommandSequence;
             tracker.AllowReservedTarget = shadow.AllowReservedTarget;
             tracker.PlanningCostProfile = shadow.CostProfile;
             tracker.NativeRouteSummary = nativeSummary;
@@ -1852,6 +1951,16 @@ namespace MoveMoatTest
                         unit->r_NextTilePositionX2 == unit->r_CurrentTilePositionX &&
                         unit->r_NextTilePositionY2 == unit->r_CurrentTilePositionY;
                     bool currentMoat = IsCompletedMoatTile(unchecked((int)unit->r_CurrentPositionTileId));
+                    int currentTileId = unchecked((int)unit->r_CurrentPositionTileId);
+                    ushort currentConsumerMode = ReadUnitMoatPathConsumptionMode(unit);
+                    tracker.LastConsumerMode = currentConsumerMode;
+                    if (currentConsumerMode < tracker.MinimumConsumerMode)
+                        tracker.MinimumConsumerMode = currentConsumerMode;
+                    if (currentConsumerMode > tracker.MaximumConsumerMode)
+                        tracker.MaximumConsumerMode = currentConsumerMode;
+                    tracker.ConsumerModeObservedNonZero |= currentConsumerMode != 0;
+                    if (currentMoat)
+                        ObserveActualMoatOwnership(tracker, currentTileId);
                     TribeAICommand command = (TribeAICommand)unit->r_AI_LastIssuedTribeCommand;
                     bool tileChanged = unit->r_CurrentTilePositionX != tracker.LastX ||
                         unit->r_CurrentTilePositionY != tracker.LastY;
@@ -2258,6 +2367,47 @@ namespace MoveMoatTest
         private bool IsCompletedMoatTile(int tileId) =>
             IsValidTileId(tileId) && (tileFlags[tileId] & CompletedMoatTileFlag) != 0;
 
+        private void ObserveActualMoatOwnership(MoatMoveTracker tracker, int tileId)
+        {
+            if (!IsCompletedMoatTile(tileId) || !tracker.ActualMoatTileIds.Add(tileId))
+                return;
+
+            IntPtr tileManager = GameTileManagerAPI.Instance.GetTileManager();
+            if (tileManager == IntPtr.Zero || getMoatIdAtTile == null)
+            {
+                tracker.ActualInvalidMoatOwnerTiles++;
+                return;
+            }
+
+            int moatId = getMoatIdAtTile(tileManager, tileId);
+            int moatCount = *(int*)((byte*)tileManager.ToPointer() + MoatRecordCountOffset);
+            if (moatId <= 0 || moatId >= moatCount)
+            {
+                tracker.ActualInvalidMoatOwnerTiles++;
+                return;
+            }
+
+            byte* moatRecord = (byte*)tileManager.ToPointer() +
+                MoatRecordArrayOffset + moatId * MoatRecordSize;
+            int ownerId = moatRecord[MoatOwnerOffset];
+            GamePlayerManagerAPI playerApi = GamePlayerManagerAPI.Instance;
+            if (!playerApi.IsPlayerIdValid(ownerId) ||
+                !playerApi.IsPlayerIdValid(tracker.PlayerId))
+            {
+                tracker.ActualInvalidMoatOwnerTiles++;
+                return;
+            }
+
+            if ((uint)ownerId < 32)
+                tracker.ActualMoatOwnerMask |= 1u << ownerId;
+            if (ownerId == tracker.PlayerId)
+                tracker.ActualOwnMoatTiles++;
+            else if (playerApi.IsPlayerAlliedTo(tracker.PlayerId, ownerId))
+                tracker.ActualAlliedMoatTiles++;
+            else
+                tracker.ActualEnemyMoatTiles++;
+        }
+
         private void LogMoveMilestone(
             int tick,
             int unitId,
@@ -2275,12 +2425,26 @@ namespace MoveMoatTest
                 $"MoveMoat stage=move-milestone event={milestone} tick={tick} " +
                 $"unit={unitId} type={unit->r_UnitChimp} " +
                 $"player={unit->r_ControllableForPlayerId} tribe={unit->r_TribeId} " +
-                $"command={command}({(uint)command}) " +
+                $"runtimeCommand={command}({(uint)command}) " +
+                $"commandSeq={tracker.WeightedCommandSequence} " +
+                $"plannedCommand={tracker.WeightedCommand}({(uint)tracker.WeightedCommand}) " +
+                $"commandContext={tracker.WeightedCommandContext ?? "unresolved"} " +
                 $"current=({unit->r_CurrentTilePositionX},{unit->r_CurrentTilePositionY}) " +
                 $"requestedTarget=({tracker.TargetX},{tracker.TargetY}) " +
                 $"path={unit->p_CurrentPathPlanPosition}/{unit->p_PathPlanSize} " +
+                $"moatConsumerMode={ReadUnitMoatPathConsumptionMode(unit)} " +
                 $"cadence={cadenceSnapshot} " +
                 $"builderResult={tracker.BuilderResult}.");
+        }
+
+        private static ushort ReadUnitMoatPathConsumptionMode(GameUnit* unit)
+        {
+            if (unit == null)
+                return 0;
+
+            // Native indexes from the unit-manager base and stores this ushort at +0x9C8.
+            // The Script Extender pointer begins at manager + unitId*0x490 + 0x65C.
+            return *(ushort*)((byte*)unit + UnitMoatPathConsumptionModeOffset);
         }
 
         private void RemoveTrackedMoatMovesForTribe(int tribeId, string reason)
@@ -2332,6 +2496,20 @@ namespace MoveMoatTest
                 tracker.PublishedRouteSummary.Found &&
                 tracker.TileTransitionCount == tracker.PublishedRouteSummary.RouteLength &&
                 tracker.ActualRouteFingerprint == tracker.PublishedRouteSummary.RouteFingerprint;
+            if (tracker.WeightedPathPublished && !actualMatchesPublishedFingerprint)
+            {
+                tracker.Calibratable = false;
+                tracker.CalibrationReason =
+                    tracker.PublishedRouteSummary.MoatEdges > 0 &&
+                    tracker.ActualMoatTransitions == 0
+                        ? "published-path-rejected-before-moat"
+                        : "published-path-not-consumed";
+            }
+            bool ownerSafeActualRoute = tracker.ActualEnemyMoatTiles == 0 &&
+                tracker.ActualInvalidMoatOwnerTiles == 0;
+            bool weightedPublicationVerified = tracker.WeightedPathPublished &&
+                completedAtTarget && actualMatchesPublishedFingerprint &&
+                tracker.ConsumerModeObservedNonZero && ownerSafeActualRoute;
             long nativeCalibrationDelta = tracker.Calibratable &&
                 !tracker.WeightedPathPublished && actualTicks >= 0 &&
                 tracker.NativeEstimatedTicks > 0
@@ -2362,7 +2540,12 @@ namespace MoveMoatTest
                     : "published-cost-profile-differs";
             Shared.DebugLogHelper.LogInfo(
                 log,
-                $"MoveMoat stage=move-state-end unit={unitId} target=({tracker.TargetX},{tracker.TargetY}) " +
+                $"MoveMoat stage=move-state-end unit={unitId} type={tracker.UnitType} " +
+                $"player={tracker.PlayerId} tribe={tracker.TribeId} " +
+                $"commandSeq={tracker.WeightedCommandSequence} " +
+                $"plannedCommand={tracker.WeightedCommand}({(uint)tracker.WeightedCommand}) " +
+                $"commandContext={tracker.WeightedCommandContext ?? "unresolved"} " +
+                $"target=({tracker.TargetX},{tracker.TargetY}) " +
                 $"reason={reason} weightedShadow={tracker.HasWeightedShadow} " +
                 $"decision={tracker.ShadowDecision ?? "none"} " +
                 $"actualTicks={actualTicks} " +
@@ -2385,6 +2568,14 @@ namespace MoveMoatTest
                 $"actualMoat={tracker.ActualMoatTransitions}/timed={tracker.TimedMoatTransitions}/ticks={tracker.ActualMoatTransitionTicks}/" +
                 $"min={(tracker.TimedMoatTransitions > 0 ? tracker.MinimumMoatTransitionTicks : -1)}/" +
                 $"max={(tracker.TimedMoatTransitions > 0 ? tracker.MaximumMoatTransitionTicks : -1)} " +
+                $"actualMoatTiles={tracker.ActualMoatTileIds.Count} " +
+                $"actualMoatOwners=own:{tracker.ActualOwnMoatTiles}/allied:{tracker.ActualAlliedMoatTiles}/" +
+                $"enemy:{tracker.ActualEnemyMoatTiles}/invalid:{tracker.ActualInvalidMoatOwnerTiles}/" +
+                $"mask:0x{tracker.ActualMoatOwnerMask:X} " +
+                $"ownerSafetyViolation={tracker.ActualEnemyMoatTiles > 0} " +
+                $"consumerMode=last:{tracker.LastConsumerMode}/min:{tracker.MinimumConsumerMode}/" +
+                $"max:{tracker.MaximumConsumerMode}/nonZero:{tracker.ConsumerModeObservedNonZero} " +
+                $"weightedPublicationVerified={weightedPublicationVerified} " +
                 $"actualCardinal={tracker.ActualCardinalTransitions}/timed={tracker.TimedCardinalTransitions}/ticks={tracker.ActualCardinalTransitionTicks} " +
                 $"actualDiagonal={tracker.ActualDiagonalTransitions}/timed={tracker.TimedDiagonalTransitions}/ticks={tracker.ActualDiagonalTransitionTicks} " +
                 $"actualDirectionChanges={tracker.ActualDirectionChanges} " +
@@ -2853,8 +3044,9 @@ namespace MoveMoatTest
                     }
                 }
                 bool calibratable = IsIsolatedActiveGroupUnit(unitId, unit->r_TribeId);
-                TribeAICommand command = activeAttackCommand?.Command ??
-                    (TribeAICommand)unit->r_AI_LastIssuedTribeCommand;
+                ResolveCommandDiagnosticContext(
+                    unitId, unit, out TribeAICommand command, out string commandContext,
+                    out int commandSequence);
                 pendingWeightedShadow = new WeightedShadowScope(
                     mapEpoch,
                     unitId,
@@ -2862,6 +3054,8 @@ namespace MoveMoatTest
                     playerId,
                     unit->r_TribeId,
                     command,
+                    commandContext,
+                    commandSequence,
                     unit->r_CurrentTilePositionX,
                     unit->r_CurrentTilePositionY,
                     targetX,
@@ -2870,12 +3064,74 @@ namespace MoveMoatTest
                     allowReservedTarget,
                     found,
                     candidate,
-                    calibratable);
+                    calibratable,
+                    validCostProfile ? candidate.SearchMilliseconds : 0,
+                    validCostProfile ? 1 : 0);
             }
             catch (Exception ex)
             {
                 pendingWeightedShadow = null;
                 TryLogDiagnosticFailure("weighted-shadow-capture", ex);
+            }
+        }
+
+        private void ResolveCommandDiagnosticContext(
+            int unitId,
+            GameUnit* unit,
+            out TribeAICommand command,
+            out string commandContext,
+            out int commandSequence)
+        {
+            if (activeAttackCommand != null &&
+                activeAttackCommand.TribeId == unit->r_TribeId &&
+                activeAttackCommand.CandidateUnitIds.Contains(unitId))
+            {
+                command = activeAttackCommand.Command;
+                commandContext = $"target-order-{activeAttackCommand.Command}";
+                commandSequence = activeAttackCommand.Sequence;
+                return;
+            }
+
+            if (activeMoveCommand != null && activeMoveCommand.TribeId == unit->r_TribeId)
+            {
+                command = TribeAICommand.MoveHerePosition;
+                string orderKind = activeMoveCommand.IsPatrolPath ? "patrol-leg" : "move-order";
+                string orderPhase = activeMoveCommand.IsNewOrder ? "new" : "continuation";
+                commandContext = $"{orderKind}-{orderPhase}-{activeMoveCommand.MoveType}";
+                commandSequence = activeMoveCommand.Sequence;
+                return;
+            }
+
+            command = (TribeAICommand)unit->r_AI_LastIssuedTribeCommand;
+            commandContext = $"unit-state-{command}";
+            commandSequence = 0;
+        }
+
+        private void CaptureMoveCommandGroupSummary(MoveCommandScope command)
+        {
+            if (command == null ||
+                !TryCaptureOrderedActiveGroupUnits(
+                    nativeTribeManager, command.TribeId, out int[] unitIds))
+            {
+                return;
+            }
+
+            foreach (int unitId in unitIds)
+            {
+                if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+                    unit == null || unit->r_AliveState != AliveState.IsAlive)
+                {
+                    continue;
+                }
+
+                command.ActiveUnitsAtDispatch++;
+                if (CanDigMoat(unit))
+                    command.DiggersAtDispatch++;
+                if (IsCompletedMoatTile(unchecked((int)unit->r_CurrentPositionTileId)))
+                    command.UnitsOnMoatAtDispatch++;
+                int playerId = unit->r_ControllableForPlayerId;
+                if ((uint)playerId < 32)
+                    command.PlayerMaskAtDispatch |= 1u << playerId;
             }
         }
 
@@ -3150,16 +3406,27 @@ namespace MoveMoatTest
                     shadow = shadow.WithCandidate(true, publishedSummary);
                     decision = "weighted-path-published";
                     reason = "faster-by-conservative-margin";
+                    int consumerModeBefore = *moatPathMode;
+                    // 0x196280 persists this global into unit+0x9C8 immediately after
+                    // 0xF4930 returns, then clears it. Without that marker 0x1855A0/
+                    // 0xDCE60 reject the first moat edge and rebuild the ground detour.
+                    *moatPathMode = 1;
                     LogWeightedPublicationDecision(
                         shadow.UnitId,
                         $"MoveMoat stage=weighted-path-published unit={shadow.UnitId} " +
-                        $"type={shadow.UnitType} handlerProfiles={cadenceProfiles} " +
+                        $"type={shadow.UnitType} commandSeq={shadow.CommandSequence} " +
+                        $"command={shadow.Command} " +
+                        $"commandContext={shadow.CommandContext} handlerProfiles={cadenceProfiles} " +
                         $"length={publishedSummary.RouteLength} ground={publishedSummary.GroundEdges} " +
                         $"moat={publishedSummary.MoatEdges} diagonal={publishedSummary.DiagonalEdges} " +
                         $"fingerprint=0x{publishedSummary.RouteFingerprint:X16} " +
                         $"guaranteedSavingTicks={guaranteedSaving} " +
                         $"profileCosts={publicationDetails} " +
-                        $"roundtrip=True pathBuffer=unit.");
+                        $"searchMsTotal={shadow.AccumulatedSearchMilliseconds:F3} " +
+                        $"searchPasses={shadow.SearchPasses} " +
+                        $"roundtrip=True pathBuffer=unit " +
+                        $"consumerMode={consumerModeBefore}->1 " +
+                        "persistentUnitMode=deferred-to-0x196280.");
                 }
 
                 LogWeightedShadowDecision(
@@ -3466,6 +3733,7 @@ namespace MoveMoatTest
                 ? native.EstimatedTicks - shadow.Candidate.EstimatedTicks
                 : 0;
             string signature = $"{mapEpoch}:{shadow.UnitId}:{(uint)shadow.Command}:" +
+                $"{shadow.CommandContext}:{shadow.CommandSequence}:" +
                 $"{shadow.StartX}:{shadow.StartY}:{shadow.TargetX}:{shadow.TargetY}:" +
                 $"{shadow.CostProfile.CurrentSpeed}:{shadow.CostProfile.CurrentSpeed2}:" +
                 $"{shadow.CostProfile.SpeedBonus}:{shadow.CostProfile.AdditionalSubsteps}:" +
@@ -3473,6 +3741,7 @@ namespace MoveMoatTest
                 $"{shadow.CostProfile.MoatPhase}:{shadow.CostProfile.StartedOnCompletedMoat}:" +
                 $"{builderResult}:{decision}:{reason}:" +
                 $"{shadow.Candidate.RouteLength}:{shadow.Candidate.EstimatedTicks}:" +
+                $"{shadow.AccumulatedSearchMilliseconds}:{shadow.SearchPasses}:" +
                 $"{native.RouteLength}:{native.EstimatedTicks}:{publishedToUnit}";
             if (lastWeightedShadowDecisionByUnit.TryGetValue(
                     shadow.UnitId, out string previous) &&
@@ -3481,11 +3750,14 @@ namespace MoveMoatTest
                 return;
             }
             lastWeightedShadowDecisionByUnit[shadow.UnitId] = signature;
+            RecordWeightedCommandDecision(shadow, decision);
 
             Shared.DebugLogHelper.LogInfo(
                 log,
                 $"MoveMoat stage=weighted-shadow unit={shadow.UnitId} type={shadow.UnitType} " +
-                $"player={shadow.PlayerId} command={shadow.Command}({(uint)shadow.Command}) " +
+                $"player={shadow.PlayerId} commandSeq={shadow.CommandSequence} " +
+                $"command={shadow.Command}({(uint)shadow.Command}) " +
+                $"commandContext={shadow.CommandContext} " +
                 $"start=({shadow.StartX},{shadow.StartY}) target=({shadow.TargetX},{shadow.TargetY}) " +
                 $"currentSpeed={shadow.CostProfile.CurrentSpeed} " +
                 $"currentSpeed2={shadow.CostProfile.CurrentSpeed2} " +
@@ -3512,7 +3784,40 @@ namespace MoveMoatTest
                 $"nativeDirectionChanges={native.DirectionChanges} " +
                 $"nativeFingerprint=0x{native.RouteFingerprint:X16} " +
                 $"searchMs={shadow.Candidate.SearchMilliseconds:F3} " +
+                $"searchMsTotal={shadow.AccumulatedSearchMilliseconds:F3} " +
+                $"searchPasses={shadow.SearchPasses} " +
                 $"expanded={shadow.Candidate.ExpandedNodes} abort={shadow.Candidate.Reason}.");
+        }
+
+        private void RecordWeightedCommandDecision(WeightedShadowScope shadow, string decision)
+        {
+            double searchMilliseconds = shadow.AccumulatedSearchMilliseconds;
+            bool published = string.Equals(
+                decision, "weighted-path-published", StringComparison.Ordinal);
+            if (activeAttackCommand != null &&
+                activeAttackCommand.TribeId == shadow.TribeId &&
+                activeAttackCommand.CandidateUnitIds.Contains(shadow.UnitId))
+            {
+                activeAttackCommand.WeightedUnitIds.Add(shadow.UnitId);
+                activeAttackCommand.WeightedDecisions++;
+                if (published)
+                    activeAttackCommand.WeightedPublished++;
+                activeAttackCommand.WeightedSearchMilliseconds += searchMilliseconds;
+                activeAttackCommand.WeightedMaximumSearchMilliseconds = Math.Max(
+                    activeAttackCommand.WeightedMaximumSearchMilliseconds, searchMilliseconds);
+                return;
+            }
+
+            if (activeMoveCommand != null && activeMoveCommand.TribeId == shadow.TribeId)
+            {
+                activeMoveCommand.WeightedUnitIds.Add(shadow.UnitId);
+                activeMoveCommand.WeightedDecisions++;
+                if (published)
+                    activeMoveCommand.WeightedPublished++;
+                activeMoveCommand.WeightedSearchMilliseconds += searchMilliseconds;
+                activeMoveCommand.WeightedMaximumSearchMilliseconds = Math.Max(
+                    activeMoveCommand.WeightedMaximumSearchMilliseconds, searchMilliseconds);
+            }
         }
 
         private bool TryQualifyAttackMovementPlan(
@@ -8119,11 +8424,16 @@ namespace MoveMoatTest
 
         private static void ValidateGameUnitFieldOffset(string fieldName, int expectedOffset)
         {
-            int actualOffset = Marshal.OffsetOf(typeof(GameUnit), fieldName).ToInt32();
+            ValidateStructFieldOffset(typeof(GameUnit), fieldName, expectedOffset);
+        }
+
+        private static void ValidateStructFieldOffset(Type structType, string fieldName, int expectedOffset)
+        {
+            int actualOffset = Marshal.OffsetOf(structType, fieldName).ToInt32();
             if (actualOffset != expectedOffset)
             {
                 throw new InvalidOperationException(
-                    $"Unexpected GameUnit.{fieldName} offset 0x{actualOffset:X}; " +
+                    $"Unexpected {structType.Name}.{fieldName} offset 0x{actualOffset:X}; " +
                     $"expected 0x{expectedOffset:X}.");
             }
         }
@@ -8232,6 +8542,11 @@ namespace MoveMoatTest
                 new HashSet<string>(StringComparer.Ordinal);
             public Dictionary<int, HashSet<int>> PublishedBuildingApproaches { get; } =
                 new Dictionary<int, HashSet<int>>();
+            public int WeightedDecisions { get; set; }
+            public int WeightedPublished { get; set; }
+            public double WeightedSearchMilliseconds { get; set; }
+            public double WeightedMaximumSearchMilliseconds { get; set; }
+            public HashSet<int> WeightedUnitIds { get; } = new HashSet<int>();
 
             public bool Matches(TribeIssueOrderWithTargetEventArgs args, int currentMapEpoch) =>
                 MapEpoch == currentMapEpoch && TribeId == args.TribeId &&
@@ -8289,6 +8604,8 @@ namespace MoveMoatTest
                 int mapEpoch,
                 int unitId,
                 int tribeId,
+                eChimps unitType,
+                int playerId,
                 int targetX,
                 int targetY,
                 int builderResult,
@@ -8296,11 +8613,14 @@ namespace MoveMoatTest
                 int initialY,
                 int initialPathPosition,
                 bool startedOnMoat,
+                ushort initialConsumerMode,
                 int trackingStartTick)
             {
                 MapEpoch = mapEpoch;
                 UnitId = unitId;
                 TribeId = tribeId;
+                UnitType = unitType;
+                PlayerId = playerId;
                 TargetX = targetX;
                 TargetY = targetY;
                 BuilderResult = builderResult;
@@ -8310,6 +8630,10 @@ namespace MoveMoatTest
                 LastY = initialY;
                 LastPathPosition = initialPathPosition;
                 StartedOnMoat = startedOnMoat;
+                LastConsumerMode = initialConsumerMode;
+                MinimumConsumerMode = initialConsumerMode;
+                MaximumConsumerMode = initialConsumerMode;
+                ConsumerModeObservedNonZero = initialConsumerMode != 0;
                 TrackingStartTick = trackingStartTick;
                 WasOnMoat = startedOnMoat;
                 ActualRouteFingerprint = RouteFingerprintOffsetBasis;
@@ -8323,6 +8647,8 @@ namespace MoveMoatTest
             public int MapEpoch { get; }
             public int UnitId { get; }
             public int TribeId { get; }
+            public eChimps UnitType { get; }
+            public int PlayerId { get; }
             public int TargetX { get; }
             public int TargetY { get; }
             public int BuilderResult { get; }
@@ -8343,6 +8669,8 @@ namespace MoveMoatTest
             public int WeightedPlayerId { get; set; }
             public eChimps WeightedUnitType { get; set; }
             public TribeAICommand WeightedCommand { get; set; }
+            public string WeightedCommandContext { get; set; }
+            public int WeightedCommandSequence { get; set; }
             public bool AllowReservedTarget { get; set; }
             public WeightedMovementCostProfile PlanningCostProfile { get; set; }
             public WeightedMoatRouteSummary NativeRouteSummary { get; set; }
@@ -8392,6 +8720,16 @@ namespace MoveMoatTest
             public bool WeightedPathPublished { get; set; }
             public WeightedMoatRouteSummary PublishedRouteSummary { get; set; }
             public string CalibrationReason { get; set; }
+            public ushort LastConsumerMode { get; set; }
+            public ushort MinimumConsumerMode { get; set; }
+            public ushort MaximumConsumerMode { get; set; }
+            public bool ConsumerModeObservedNonZero { get; set; }
+            public uint ActualMoatOwnerMask { get; set; }
+            public int ActualOwnMoatTiles { get; set; }
+            public int ActualAlliedMoatTiles { get; set; }
+            public int ActualEnemyMoatTiles { get; set; }
+            public int ActualInvalidMoatOwnerTiles { get; set; }
+            public HashSet<int> ActualMoatTileIds { get; } = new HashSet<int>();
         }
 
         private sealed class WeightedShadowScope
@@ -8403,6 +8741,8 @@ namespace MoveMoatTest
                 int playerId,
                 int tribeId,
                 TribeAICommand command,
+                string commandContext,
+                int commandSequence,
                 int startX,
                 int startY,
                 int targetX,
@@ -8411,7 +8751,9 @@ namespace MoveMoatTest
                 bool allowReservedTarget,
                 bool candidateFound,
                 WeightedMoatRouteSummary candidate,
-                bool calibratable)
+                bool calibratable,
+                double accumulatedSearchMilliseconds,
+                int searchPasses)
             {
                 MapEpoch = mapEpoch;
                 UnitId = unitId;
@@ -8419,6 +8761,8 @@ namespace MoveMoatTest
                 PlayerId = playerId;
                 TribeId = tribeId;
                 Command = command;
+                CommandContext = commandContext;
+                CommandSequence = commandSequence;
                 StartX = startX;
                 StartY = startY;
                 TargetX = targetX;
@@ -8428,6 +8772,8 @@ namespace MoveMoatTest
                 CandidateFound = candidateFound;
                 Candidate = candidate;
                 Calibratable = calibratable;
+                AccumulatedSearchMilliseconds = accumulatedSearchMilliseconds;
+                SearchPasses = searchPasses;
             }
 
             public int MapEpoch { get; }
@@ -8436,6 +8782,8 @@ namespace MoveMoatTest
             public int PlayerId { get; }
             public int TribeId { get; }
             public TribeAICommand Command { get; }
+            public string CommandContext { get; }
+            public int CommandSequence { get; }
             public int StartX { get; }
             public int StartY { get; }
             public int TargetX { get; }
@@ -8445,6 +8793,8 @@ namespace MoveMoatTest
             public bool CandidateFound { get; }
             public WeightedMoatRouteSummary Candidate { get; }
             public bool Calibratable { get; }
+            public double AccumulatedSearchMilliseconds { get; }
+            public int SearchPasses { get; }
             public int PublishedBuilderResult { get; set; } = -1;
 
             public WeightedShadowScope WithBuilderTarget(
@@ -8460,6 +8810,8 @@ namespace MoveMoatTest
                     PlayerId,
                     TribeId,
                     Command,
+                    CommandContext,
+                    CommandSequence,
                     StartX,
                     StartY,
                     targetX,
@@ -8468,7 +8820,9 @@ namespace MoveMoatTest
                     allowReservedTarget,
                     candidateFound,
                     candidate,
-                    Calibratable);
+                    Calibratable,
+                    AccumulatedSearchMilliseconds + candidate.SearchMilliseconds,
+                    SearchPasses + 1);
 
             public WeightedShadowScope WithCandidate(
                 bool candidateFound,
@@ -8481,6 +8835,8 @@ namespace MoveMoatTest
                     PlayerId,
                     TribeId,
                     Command,
+                    CommandContext,
+                    CommandSequence,
                     StartX,
                     StartY,
                     TargetX,
@@ -8489,7 +8845,9 @@ namespace MoveMoatTest
                     AllowReservedTarget,
                     candidateFound,
                     candidate,
-                    Calibratable);
+                    Calibratable,
+                    AccumulatedSearchMilliseconds,
+                    SearchPasses);
                 replacement.PublishedBuilderResult = PublishedBuilderResult;
                 return replacement;
             }
@@ -8929,18 +9287,40 @@ namespace MoveMoatTest
         private sealed class MoveCommandScope
         {
             public MoveCommandScope(
+                int sequence,
                 int tribeId,
                 int targetX,
-                int targetY)
+                int targetY,
+                bool isPatrolPath,
+                bool isNewOrder,
+                TribeMoveType moveType,
+                int parentAttackCommandSequence,
+                TribeAICommand parentAttackCommand)
             {
+                Sequence = sequence;
                 TribeId = tribeId;
                 TargetX = targetX;
                 TargetY = targetY;
+                IsPatrolPath = isPatrolPath;
+                IsNewOrder = isNewOrder;
+                MoveType = moveType;
+                ParentAttackCommandSequence = parentAttackCommandSequence;
+                ParentAttackCommand = parentAttackCommand;
             }
 
+            public int Sequence { get; }
             public int TribeId { get; }
             public int TargetX { get; }
             public int TargetY { get; }
+            public bool IsPatrolPath { get; }
+            public bool IsNewOrder { get; }
+            public TribeMoveType MoveType { get; }
+            public int ParentAttackCommandSequence { get; }
+            public TribeAICommand ParentAttackCommand { get; }
+            public int ActiveUnitsAtDispatch { get; set; }
+            public int DiggersAtDispatch { get; set; }
+            public int UnitsOnMoatAtDispatch { get; set; }
+            public uint PlayerMaskAtDispatch { get; set; }
             public int CentralPlannerCalls { get; set; }
             public int FloodCalls { get; set; }
             public int FloodVanillaPositive { get; set; }
@@ -8955,6 +9335,11 @@ namespace MoveMoatTest
             public int LastVanillaBuilderResult { get; set; } = int.MinValue;
             public bool MoatRelevant { get; set; }
             public bool BuilderReached { get; set; }
+            public int WeightedDecisions { get; set; }
+            public int WeightedPublished { get; set; }
+            public double WeightedSearchMilliseconds { get; set; }
+            public double WeightedMaximumSearchMilliseconds { get; set; }
+            public HashSet<int> WeightedUnitIds { get; } = new HashSet<int>();
             public string LastGroupMoatModeDiagnostic { get; set; }
             public List<string> Diagnostics { get; } = new List<string>();
         }

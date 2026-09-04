@@ -1,5 +1,4 @@
 // Feature: Let Vanilla store and display the selected controlled Lord in control groups.
-using BepInEx.Logging;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
@@ -18,7 +17,6 @@ namespace BugfixesAndQoL
         private static readonly byte[] BypassBranch = ParseBytes(
             LordControlGroupNativeDefinition.BypassLordBranch);
 
-        private readonly ManualLogSource log;
         private readonly NativePatchSite addBranch;
         private readonly NativePatchSite replaceBranch;
         private readonly NativePatchSite lordSummaryEntry;
@@ -27,12 +25,10 @@ namespace BugfixesAndQoL
         internal ulong ControlGroupRecordsAddress { get; }
 
         public LordControlGroupNativePatch(
-            ManualLogSource log,
             ReadOnlySpan<byte> memory,
             ulong libraryBase,
             bool referenceHashMatches)
         {
-            this.log = log ?? throw new ArgumentNullException(nameof(log));
             if (memory.IsEmpty)
                 throw new ArgumentException("The loaded CrusaderDE image is empty.", nameof(memory));
             if (libraryBase == 0)
@@ -62,8 +58,8 @@ namespace BugfixesAndQoL
                 "control-group summary classifier");
             int controlGroupStoragePatternRva = ResolveUniquePattern(
                 memory,
-                LordControlGroupNativeDefinition.ControlGroupStoragePattern,
-                LordControlGroupNativeDefinition.ControlGroupStoragePatternRva,
+                ControlGroupNativeDefinition.ControlGroupStoragePattern,
+                ControlGroupNativeDefinition.ControlGroupStoragePatternRva,
                 "control-group storage reference");
 
             int summaryTypeTableRva = Shared.NativePatternResolver.ReadInt32(
@@ -77,11 +73,11 @@ namespace BugfixesAndQoL
             ValidateSummaryTables(memory, summaryTypeTableRva, summaryDispatchTableRva);
             int controlGroupStorageRva = checked(
                 controlGroupStoragePatternRva +
-                LordControlGroupNativeDefinition.ControlGroupStorageNextInstructionOffset +
+                ControlGroupNativeDefinition.ControlGroupStorageNextInstructionOffset +
                 Shared.NativePatternResolver.ReadInt32(
                     memory,
                     controlGroupStoragePatternRva +
-                    LordControlGroupNativeDefinition.ControlGroupStorageDisplacementOffset));
+                    ControlGroupNativeDefinition.ControlGroupStorageDisplacementOffset));
             ValidateControlGroupStorage(memory.Length, controlGroupStorageRva);
             ControlGroupRecordsAddress = libraryBase + unchecked((ulong)controlGroupStorageRva);
 
@@ -128,10 +124,6 @@ namespace BugfixesAndQoL
                 }
                 throw;
             }
-
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                "Bugfixes and QoL Lord control-group patch installed; native sites=3, summary bridge=European Archer.");
         }
 
         public void Dispose()
@@ -141,7 +133,6 @@ namespace BugfixesAndQoL
 
             RestoreAppliedSites();
             disposed = true;
-            Shared.DebugLogHelper.LogDebug(log, "Bugfixes and QoL Lord control-group patch removed.");
         }
 
         internal static void ValidateMixedDisbandContract(
@@ -157,13 +148,13 @@ namespace BugfixesAndQoL
             ValidateUnitTypeContracts();
             ResolveUniquePattern(
                 memory,
-                LordControlGroupNativeDefinition.DisbandDispatcherInstructions,
-                LordControlGroupNativeDefinition.DisbandDispatcherRva,
+                ControlGroupNativeDefinition.DisbandDispatcherInstructions,
+                ControlGroupNativeDefinition.DisbandDispatcherRva,
                 "UIT_DISBAND unit-type dispatcher");
             ValidateBytes(
                 memory,
-                LordControlGroupNativeDefinition.DisbandBranchRva,
-                ParseBytes(LordControlGroupNativeDefinition.DisbandBranchInstructions),
+                ControlGroupNativeDefinition.DisbandBranchRva,
+                ParseBytes(ControlGroupNativeDefinition.DisbandBranchInstructions),
                 "UIT_DISBAND normal-unit block");
             ValidateByte(
                 memory,
@@ -177,31 +168,31 @@ namespace BugfixesAndQoL
                 "European Archer disband class");
             ValidateInt32(
                 memory,
-                LordControlGroupNativeDefinition.DisbandTargetTableRva +
+                ControlGroupNativeDefinition.DisbandTargetTableRva +
                     LordControlGroupNativeDefinition.EuropeanArcherDisbandClass * sizeof(int),
-                LordControlGroupNativeDefinition.DisbandBranchRva,
+                ControlGroupNativeDefinition.DisbandBranchRva,
                 "normal-unit disband target");
             ValidateInt32(
                 memory,
-                LordControlGroupNativeDefinition.DisbandTargetTableRva +
+                ControlGroupNativeDefinition.DisbandTargetTableRva +
                     LordControlGroupNativeDefinition.LordDisbandClass * sizeof(int),
-                LordControlGroupNativeDefinition.DisbandDefaultTargetRva,
+                ControlGroupNativeDefinition.DisbandDefaultTargetRva,
                 "Lord no-op disband target");
 
-            byte[] block = ParseBytes(LordControlGroupNativeDefinition.DisbandBranchInstructions);
-            int callOffset = LordControlGroupNativeDefinition.DisbandCallRva -
-                LordControlGroupNativeDefinition.DisbandBranchRva;
+            byte[] block = ParseBytes(ControlGroupNativeDefinition.DisbandBranchInstructions);
+            int callOffset = ControlGroupNativeDefinition.DisbandCallRva -
+                ControlGroupNativeDefinition.DisbandBranchRva;
             if (block[callOffset] != 0xE8)
                 throw new InvalidOperationException("The audited UIT_DISBAND call opcode is missing.");
             int callDisplacement = Shared.NativePatternResolver.ReadInt32(
                 memory,
-                LordControlGroupNativeDefinition.DisbandCallRva + 1);
+                ControlGroupNativeDefinition.DisbandCallRva + 1);
             int callTarget = checked(
-                LordControlGroupNativeDefinition.DisbandCallRva + 5 + callDisplacement);
-            if (callTarget != LordControlGroupNativeDefinition.DisbandFunctionRva)
+                ControlGroupNativeDefinition.DisbandCallRva + 5 + callDisplacement);
+            if (callTarget != ControlGroupNativeDefinition.DisbandFunctionRva)
             {
                 throw new InvalidOperationException(
-                    $"The UIT_DISBAND call targets RVA 0x{callTarget:X}, expected RVA 0x{LordControlGroupNativeDefinition.DisbandFunctionRva:X}.");
+                    $"The UIT_DISBAND call targets RVA 0x{callTarget:X}, expected RVA 0x{ControlGroupNativeDefinition.DisbandFunctionRva:X}.");
             }
         }
 
@@ -297,10 +288,10 @@ namespace BugfixesAndQoL
         private static void ValidateControlGroupStorage(int imageLength, int storageRva)
         {
             long byteLength = checked(
-                (long)LordControlGroupNativeDefinition.ControlGroupCount *
-                LordControlGroupNativeDefinition.ControlGroupCapacity *
-                LordControlGroupNativeDefinition.ControlGroupRecordIntCount * sizeof(int));
-            if (storageRva != LordControlGroupNativeDefinition.ControlGroupStorageRva ||
+                (long)ControlGroupNativeDefinition.ControlGroupCount *
+                ControlGroupNativeDefinition.ControlGroupCapacity *
+                ControlGroupNativeDefinition.ControlGroupRecordIntCount * sizeof(int));
+            if (storageRva != ControlGroupNativeDefinition.ControlGroupStorageRva ||
                 storageRva < 0 || (long)storageRva + byteLength > imageLength)
             {
                 throw new InvalidOperationException(

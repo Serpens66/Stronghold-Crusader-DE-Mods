@@ -3,10 +3,22 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.122",
+  "Version": "1.0.124",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.124",
+      "Changes": [
+        "Added an enabled-by-default local fix that immediately removes disbanded units from control groups, preventing their peasants or later recruits from inheriting stale group membership."
+      ]
+    },
+    {
+      "Version": "1.0.123",
+      "Changes": [
+        "Integrated the controlled Lord into the full troop HUD and Vanilla control groups, including its icon, health, selection controls, and safe mixed-unit disband behavior."
+      ]
+    },
     {
       "Version": "1.0.122",
       "Changes": [

@@ -38,14 +38,6 @@
             <b:InvokeCommandAction Command="{Binding RightClickSelectedTroopCommand}"
                                    CommandParameter="CHIMP_TYPE_LORD" />
           </b:EventTrigger>
-          <b:EventTrigger EventName="MouseEnter">
-            <b:InvokeCommandAction Command="{Binding ButtonTroopPanelMouseEnterCommand}"
-                                   CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
-          </b:EventTrigger>
-          <b:EventTrigger EventName="MouseLeave">
-            <b:InvokeCommandAction Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
-                                   CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
-          </b:EventTrigger>
         </b:Interaction.Triggers>
       </Button>
     </Content>

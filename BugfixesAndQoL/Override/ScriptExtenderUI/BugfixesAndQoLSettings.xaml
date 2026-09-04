@@ -103,6 +103,12 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableTroopHudMiddleClickCameraJumpText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.disbanded-unit-control-group-cleanup" shared:ModSettingsSearch.Title="{Binding EnableDisbandedUnitControlGroupCleanupText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableDisbandedUnitControlGroupCleanupHelpText}"><CheckBox IsChecked="{Binding EnableDisbandedUnitControlGroupCleanup, Mode=TwoWay}"
+                Foreground="White"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableDisbandedUnitControlGroupCleanupHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding EnableDisbandedUnitControlGroupCleanupText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox></Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-market-key-main-menu-fix" shared:ModSettingsSearch.Title="{Binding EnableMarketKeyMainMenuFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableMarketKeyMainMenuFixHelpText}"><CheckBox IsChecked="{Binding EnableMarketKeyMainMenuFix, Mode=TwoWay}"
                 Foreground="White"
                 ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableMarketKeyMainMenuFixHelpText}"

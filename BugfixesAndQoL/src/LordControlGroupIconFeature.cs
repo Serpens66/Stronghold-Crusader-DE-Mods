@@ -26,7 +26,6 @@ namespace BugfixesAndQoL
         private readonly MethodInfo getTroopSpriteMethod;
         private Hook populateHook;
         private PopulateDelegate populateOriginal;
-        private bool firstIconLogged;
         private bool callbackErrorLogged;
         private bool active;
         private bool disposed;
@@ -74,8 +73,6 @@ namespace BugfixesAndQoL
                 Dispose();
                 throw;
             }
-
-            Shared.DebugLogHelper.LogDebug(log, "Bugfixes and QoL Lord control-group icon hook installed.");
         }
 
         public void Dispose()
@@ -91,7 +88,6 @@ namespace BugfixesAndQoL
             populateHook = null;
             populateOriginal = null;
             disposed = true;
-            Shared.DebugLogHelper.LogDebug(log, "Bugfixes and QoL Lord control-group icon hook removed.");
         }
 
         private void PopulateHook(HUD_ControlGroups self)
@@ -134,19 +130,18 @@ namespace BugfixesAndQoL
             var troopValues = troopValuesField.GetValue(panel) as TextBlock[,];
             var troopExtraValues = troopExtraValuesField.GetValue(panel) as TextBlock[];
             if (troopImages == null || troopValues == null || troopExtraValues == null ||
-                troopImages.GetLength(0) < LordControlGroupNativeDefinition.ControlGroupCount ||
+                troopImages.GetLength(0) < ControlGroupNativeDefinition.ControlGroupCount ||
                 troopImages.GetLength(1) < LordControlGroupIconPolicy.VisibleSlotCount ||
-                troopValues.GetLength(0) < LordControlGroupNativeDefinition.ControlGroupCount ||
+                troopValues.GetLength(0) < ControlGroupNativeDefinition.ControlGroupCount ||
                 troopValues.GetLength(1) < LordControlGroupIconPolicy.VisibleSlotCount ||
-                troopExtraValues.Length < LordControlGroupNativeDefinition.ControlGroupCount)
+                troopExtraValues.Length < ControlGroupNativeDefinition.ControlGroupCount)
             {
                 throw new InvalidOperationException("The control-group HUD references differ from Vanilla's ten-by-four layout.");
             }
 
-            int renderedGroups = 0;
             var types = new int[LordControlGroupIconPolicy.VisibleSlotCount];
             var counts = new int[LordControlGroupIconPolicy.VisibleSlotCount];
-            for (int group = 0; group < LordControlGroupNativeDefinition.ControlGroupCount; group++)
+            for (int group = 0; group < ControlGroupNativeDefinition.ControlGroupCount; group++)
             {
                 if (group >= state.control_groups_total.Length ||
                     state.control_groups_total[group] <= 0 ||
@@ -179,27 +174,18 @@ namespace BugfixesAndQoL
                     troopImages,
                     troopValues,
                     troopExtraValues);
-                renderedGroups++;
-            }
-
-            if (renderedGroups > 0 && !firstIconLogged)
-            {
-                firstIconLogged = true;
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    $"Dedicated Lord icon rendered in {renderedGroups} control-group row(s).");
             }
         }
 
         private bool ContainsLord(int group, int lordUnitId, int lordGlobalId)
         {
             int recordOffset = checked(
-                group * LordControlGroupNativeDefinition.ControlGroupCapacity *
-                LordControlGroupNativeDefinition.ControlGroupRecordIntCount);
+                group * ControlGroupNativeDefinition.ControlGroupCapacity *
+                ControlGroupNativeDefinition.ControlGroupRecordIntCount);
             int* records = controlGroupRecords + recordOffset;
-            for (int index = 0; index < LordControlGroupNativeDefinition.ControlGroupCapacity; index++)
+            for (int index = 0; index < ControlGroupNativeDefinition.ControlGroupCapacity; index++)
             {
-                int* record = records + index * LordControlGroupNativeDefinition.ControlGroupRecordIntCount;
+                int* record = records + index * ControlGroupNativeDefinition.ControlGroupRecordIntCount;
                 if (record[0] == lordUnitId && record[1] == lordGlobalId)
                     return true;
             }

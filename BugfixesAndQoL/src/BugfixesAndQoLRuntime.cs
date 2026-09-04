@@ -46,6 +46,7 @@ namespace BugfixesAndQoL
         private LordUnitControlsFeature lordUnitControlsFeature;
         private LordControlGroupNativePatch lordControlGroupNativePatch;
         private LordControlGroupIconFeature lordControlGroupIconFeature;
+        private ControlGroupDisbandCleanupRuntime controlGroupDisbandCleanupRuntime;
         private SelectedUnitHealthFeature selectedUnitHealthFeature;
         private AssemblyPointPlacementPatch assemblyPointPlacementPatch;
         private HealerAttackCommandPatch healerAttackCommandPatch;
@@ -71,6 +72,7 @@ namespace BugfixesAndQoL
         private bool healerAttackCommandPatchUnavailable;
         private bool mountedStockpileMovementPatchUnavailable;
         private bool lordControlGroupNativePatchUnavailable;
+        private bool controlGroupDisbandCleanupUnavailable;
         private bool lordMixedDisbandContractValidated;
         private bool aiRecruitmentHorseDemandFixUnavailable;
         private bool aiStoneReserveFixUnavailable;
@@ -261,9 +263,6 @@ namespace BugfixesAndQoL
                     memory,
                     isFixedLayoutHashValidated);
                 lordMixedDisbandContractValidated = true;
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    "Bugfixes and QoL mixed Lord disband contract validated; Vanilla will ignore the Lord and disband normal selected units.");
             }
             catch (Exception ex)
             {
@@ -354,6 +353,7 @@ namespace BugfixesAndQoL
             TryInitializeFeature("assembly-point placement fix", ApplyAssemblyPointPlacementPatchSetting);
             TryInitializeFeature("Healer attack-command fix", ApplyHealerAttackCommandPatchSetting);
             TryInitializeFeature("mounted-stockpile movement fix", ApplyMountedStockpileMovementPatchSetting);
+            TryInitializeFeature("disbanded-unit control-group cleanup", EnsureControlGroupDisbandCleanup);
             TryInitializeFeature("Lord control groups", ApplyLordControlGroupPatchSetting);
             TryInitializeFeature("AI recruitment horse-demand fix", EnsureAiRecruitmentHorseDemandFix);
             TryInitializeFeature("AI stone-reserve fix", EnsureAiStoneReserveFix);
@@ -437,6 +437,8 @@ namespace BugfixesAndQoL
             DisableHealerAttackCommandPatch();
             DisableMountedStockpileMovementPatch();
             DisableLordControlGroupNativePatch();
+            controlGroupDisbandCleanupRuntime?.Dispose();
+            controlGroupDisbandCleanupRuntime = null;
             aiRecruitmentHorseDemandFix?.Dispose();
             aiRecruitmentHorseDemandFix = null;
             aiStoneReserveFix?.Dispose();
@@ -1129,7 +1131,6 @@ namespace BugfixesAndQoL
             try
             {
                 var nativePatch = new LordControlGroupNativePatch(
-                    log,
                     GetNativeLibraryMemory(),
                     unchecked((ulong)libraryHandle.ToInt64()),
                     fixedLayoutHashValidated);
@@ -1163,6 +1164,33 @@ namespace BugfixesAndQoL
                 Shared.DebugLogHelper.LogError(
                     log,
                     $"Bugfixes and QoL Lord control-group patch could not be installed; Vanilla behavior remains active: {ex}");
+            }
+        }
+
+        private void EnsureControlGroupDisbandCleanup()
+        {
+            if (!nativeLibraryAvailable || controlGroupDisbandCleanupRuntime != null ||
+                controlGroupDisbandCleanupUnavailable)
+            {
+                return;
+            }
+
+            try
+            {
+                // Keep the detour installed; the local setting is checked inside the callback.
+                controlGroupDisbandCleanupRuntime = new ControlGroupDisbandCleanupRuntime(
+                    log,
+                    settings,
+                    GetNativeLibraryMemory(),
+                    unchecked((ulong)libraryHandle.ToInt64()),
+                    fixedLayoutHashValidated);
+            }
+            catch (Exception ex)
+            {
+                controlGroupDisbandCleanupUnavailable = true;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Bugfixes and QoL disbanded-unit control-group cleanup could not be installed; Vanilla behavior remains active: {ex}");
             }
         }
 

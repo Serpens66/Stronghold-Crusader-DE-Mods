@@ -28,6 +28,7 @@ namespace BugfixesAndQoL
         private readonly BugfixesAndQoLViewModel settings;
         private readonly SurrenderFeature surrenderFeature;
         private readonly Func<bool> isMixedDisbandContractValidated;
+        private readonly MethodInfo troopPanelMouseLeaveMethod;
         private Hook setupSelectedTroopsHook;
         private SetupSelectedTroopsDelegate setupSelectedTroopsOriginal;
         private Hook disbandHook;
@@ -39,8 +40,6 @@ namespace BugfixesAndQoL
         private UIElement disbandElement;
         private UIElement attackHereElement;
         private int lastFrame = -1;
-        private int activeLordUnitId = -1;
-        private int activeLordPlayerId = -1;
         private bool lordModeActive;
         private bool callbackErrorLogged;
         private bool layoutErrorLogged;
@@ -76,9 +75,17 @@ namespace BugfixesAndQoL
                 null,
                 new[] { typeof(object) },
                 null);
+            MethodInfo tooltipLeaveMethod = typeof(MainViewModel).GetMethod(
+                "ButtonTroopPanelMouseLeave",
+                BindingFlags.Instance | BindingFlags.NonPublic,
+                null,
+                new[] { typeof(object) },
+                null);
             ValidateHookTarget(setupMethod, typeof(HUD_Troops), "SetupSelectedTroops");
             ValidateHookTarget(disbandMethod, typeof(MainViewModel), "ButtonUnitDisband");
             ValidateHookTarget(tooltipMethod, typeof(MainViewModel), "ButtonTroopPanelMouseEnter");
+            ValidateHookTarget(tooltipLeaveMethod, typeof(MainViewModel), "ButtonTroopPanelMouseLeave");
+            troopPanelMouseLeaveMethod = tooltipLeaveMethod;
 
             try
             {
@@ -113,10 +120,9 @@ namespace BugfixesAndQoL
             disposed = true;
             Application.onBeforeRender -= OnBeforeRender;
             HideLordButton();
+            UnhookLordButtonEvents();
             DisposeHooks();
             lordModeActive = false;
-            activeLordUnitId = -1;
-            activeLordPlayerId = -1;
         }
 
         internal void RefreshSetting()
@@ -247,7 +253,7 @@ namespace BugfixesAndQoL
         private void RefreshLordOnlyHud()
         {
             MainViewModel main = MainViewModel.Instance;
-            bool active = TryGetSoleControlledLord(out SurrenderLordSnapshot lord);
+            bool active = TryGetSoleControlledLord(out _);
             if (!active || main == null)
             {
                 bool returnToDefaultHud = lordModeActive &&
@@ -281,17 +287,7 @@ namespace BugfixesAndQoL
                 ? Visibility.Visible
                 : Visibility.Collapsed;
 
-            if (!lordModeActive ||
-                activeLordUnitId != lord.UnitId ||
-                activeLordPlayerId != lord.PlayerId)
-            {
-                lordModeActive = true;
-                activeLordUnitId = lord.UnitId;
-                activeLordPlayerId = lord.PlayerId;
-                Shared.DebugLogHelper.LogInfo(
-                    log,
-                    $"Full Lord troop HUD activated: playerId={lord.PlayerId}, unitId={lord.UnitId}, globalId={lord.GlobalId}.");
-            }
+            lordModeActive = true;
         }
 
         private void ButtonUnitDisbandHook(MainViewModel self, object parameter)
@@ -454,10 +450,45 @@ namespace BugfixesAndQoL
             if (ReferenceEquals(activePanel, panel) && lordSelectionButton != null)
                 return;
             HideLordButton();
+            UnhookLordButtonEvents();
             activePanel = panel ?? throw new ArgumentNullException(nameof(panel));
             lordSelectionButton = RequireElement<Button>(panel, "BugfixesAndQoLLordSelected");
+            lordSelectionButton.MouseEnter += OnLordSelectionMouseEnter;
+            lordSelectionButton.MouseLeave += OnLordSelectionMouseLeave;
             attackHereElement = RequireElement<UIElement>(panel, "UnitAttackHere");
             disbandElement = RequireElement<UIElement>(panel, "UnitDisband");
+        }
+
+        private void OnLordSelectionMouseEnter(object sender, MouseEventArgs args)
+        {
+            if (!ReferenceEquals(sender, lordSelectionButton) || !ShouldIncludeControlledLord(out _))
+                return;
+
+            // Run the same visibility/reset path as a Vanilla troop icon. The detour only
+            // substitutes Vanilla's already-localized Lord label afterwards.
+            MainViewModel main = MainViewModel.Instance;
+            if (main != null)
+                ButtonTroopPanelMouseEnterHook(main, "BugfixesAndQoLLordSelected");
+        }
+
+        private void OnLordSelectionMouseLeave(object sender, MouseEventArgs args)
+        {
+            if (!ReferenceEquals(sender, lordSelectionButton))
+                return;
+
+            MainViewModel main = MainViewModel.Instance;
+            if (main != null)
+                troopPanelMouseLeaveMethod.Invoke(main, new object[] { null });
+        }
+
+        private void UnhookLordButtonEvents()
+        {
+            if (lordSelectionButton == null)
+                return;
+
+            lordSelectionButton.MouseEnter -= OnLordSelectionMouseEnter;
+            lordSelectionButton.MouseLeave -= OnLordSelectionMouseLeave;
+            lordSelectionButton = null;
         }
 
         private void DeactivateLordOnlyMode(bool refreshVanillaPanel)
@@ -466,11 +497,8 @@ namespace BugfixesAndQoL
                 return;
             HUD_Troops panel = activePanel;
             lordModeActive = false;
-            activeLordUnitId = -1;
-            activeLordPlayerId = -1;
             if (refreshVanillaPanel && MainViewModel.Instance?.Show_HUD_Troops == true)
                 panel?.SelectedTroops();
-            Shared.DebugLogHelper.LogDebug(log, "Full Lord troop HUD deactivated.");
         }
 
         private void HideLordButton(HUD_Troops panel = null)

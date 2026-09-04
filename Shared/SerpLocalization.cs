@@ -409,6 +409,8 @@ public static class SerpLocalization
         { "BugfixesAndQoL.PlagueTitle", "Plague" },
         { "BugfixesAndQoL.EnableClientFeatures", "Enable local client features" },
         { "BugfixesAndQoL.EnableClientFeaturesHelp", "Enables or disables this mod's local interface and control features for you." },
+        { "BugfixesAndQoL.EnableDisbandedUnitControlGroupCleanup", "Remove disbanded units from control groups" },
+        { "BugfixesAndQoL.EnableDisbandedUnitControlGroupCleanupHelp", "Immediately removes disbanded units from your local control groups so their peasants or later recruits cannot inherit the old group membership. This setting is local and is not synchronized in multiplayer." },
         { "BugfixesAndQoL.EnableHostFeatures", "Enable host features" },
         { "BugfixesAndQoL.EnableHostFeaturesHelp", "Enables or disables the host-controlled fixes for the match." },
         { "SomeSettings.NewFeaturesTitle", "New Gameplay Features" },

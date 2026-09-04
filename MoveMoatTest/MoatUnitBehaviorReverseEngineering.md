@@ -2731,3 +2731,146 @@ managerrelativ `+0x918`, SpeedBonus-Feld managerrelativ `+0x916`, die Vorwärtsr
 `0xE1640 -> 0xE4E90` und der reine Pufferregistrierer `0xE62D0`. Schon eine unvollständige
 Handleranalyse oder eine abweichende Pufferbindung führt fail-closed zu Vanilla.
 
+### 15.21 Pfadverbrauchsmodus gewichteter Moat-Pfade
+
+Der erste funktionale Lauf vom 4. September 2026 zeigte bei zwei veröffentlichten gewichteten
+Pfaden denselben reproduzierbaren Abbruch. Für einen arabischen Sklaven wurde beispielsweise ein
+vollständig validierter Pfad mit sechs Kanten, darunter drei Moatkanten, anstelle von Vanillas
+86-Kanten-Bodenumweg in den echten Unit-Puffer geschrieben. Der Tracker begann mit `path=1/6`.
+Vor dem ersten Moat-Tile wurde der Pfad jedoch verworfen; die Unit lief anschließend 90 reine
+Bodenkanten zum Ziel. Es gab keinen zweiten gewichteten Builderlauf und keine Exception. Der
+tatsächliche Fingerabdruck entsprach weder dem veröffentlichten Pfad noch exakt dem ursprünglichen
+Puffer. Der zweite Unittyp zeigte dasselbe Ergebnis mit 88 Boden- und null Moatkanten.
+
+Die hashgleiche Baseline erklärt die fehlende Zustandsübergabe. `0x196280` ruft zunächst
+`0x196840` auf und setzt damit den globalen Moat-Pfadmodus bei `0x60AD6E4`. Nach der Rückkehr aus
+`0xF4930` schreibt die Funktion `DAT_1860AD6E4 != 0` als `ushort` nach managerrelativ
+`unit+0x9C8` und löscht den globalen Wert unmittelbar danach. Diese Angabe ist relativ zu
+Vanillas Einheitenslot-Basis `unitManager + unitId*0x490`. Der von `TryGetUnitById` gelieferte
+`GameUnit*` beginnt dagegen bei `unitManager + unitId*0x490 + 0x65C`. Das persistente `ushort`
+liegt in dieser API-Sicht daher bei `0x9C8 - 0x65C = 0x36C` und umfasst die beiden bislang
+unbenannten Bytefelder `GameUnit.N000001CE` und `GameUnit.UnknownRelevant1`. Der zunächst
+verwendete Offset `0x370` zeigte auf `GameUnit.Unknown2` und lieferte deshalb irreführend immer
+`moatConsumerMode=0`; dies war ausschließlich ein Diagnosefehler.
+
+Der laufende Bewegungsconsumer `0x1855A0` liest dieses persistente Feld und reicht es als siebten
+Parameter an `0xDCE60` weiter. Bei Wert null behandelt `0xDCE60` eine fertige Moatkante für eine
+gewöhnliche Unit als unzulässig; bei aktivem Pfadmodus wird das fertige Moat-Bit 30 ausdrücklich
+akzeptiert. Dadurch reicht ein syntaktisch korrekter Nibble-Pfad allein nicht aus. Pfadpuffer und
+Verbrauchsmodus bilden gemeinsam den nativen Vertrag.
+
+Ein erfolgreich veröffentlichter gewichteter Pfad setzt deshalb nun nach sämtlichen Owner-,
+Capability-, Kadenz-, Puffer- und Roundtrip-Prüfungen den globalen Modus auf eins. Das geschieht
+erst im `0xF4930`-Detour und nur beim exakt registrierten echten Unit-Pfadpuffer. Von den beiden
+direkten `0xF4930`-Callern bindet `0x18E1E0` einen lokalen 1000-Byte-Probepuffer, während
+`0x196280` den Unit-Puffer bindet. Die bereits vorhandene exakte Pufferprüfung grenzt den
+schreibenden Fall daher auf `0x196280` ein. Dieser Caller persistiert den Wert regulär nach
+`unit+0x9C8` und setzt den globalen Modus selbst wieder auf null. Abgelehnte Kandidaten und
+Probe-/Stackpuffer verändern den Modus nicht.
+
+Die Bewegungsdiagnose protokolliert beim semantischen Meilenstein nun zusätzlich
+`moatConsumerMode`. Ein veröffentlichter Pfad, dessen Länge und Fingerabdruck nicht tatsächlich
+gelaufen werden, gilt unabhängig vom Erreichen des Ziels nicht mehr als kalibrierbar. Wurde dabei
+keine Moatkante betreten, lautet der Ablehnungsgrund
+`published-path-rejected-before-moat`; andernfalls `published-path-not-consumed`.
+
+Der erfolgreiche Folgelauf vom 4. September 2026 bestätigt den funktionalen Vertrag unabhängig
+von diesem damaligen Diagnosefehler: Alle drei veröffentlichten Pfade wurden mit exakt dem
+veröffentlichten Fingerabdruck ausgeführt, betraten und verließen den Moat und erreichten ihr Ziel.
+Die Abweichungen zwischen geschätzter und gemessener Laufzeit betrugen `-1`, `+14` und `+11`
+Ticks und blieben damit innerhalb der Sicherheitsmarge von 40 Ticks. Es gab weder einen
+Pfadabbruch vor dem Moat noch Exceptions, Stalls, Koordinatenfehler oder Kadenzwechsel. Gleich
+schnelle beziehungsweise bereits optimale Vanilla-Pfade wurden nicht ersetzt. Die korrigierte
+Diagnose liest künftig das tatsächlich von `0x196280` persistierte `ushort` bei API-relativ
+`GameUnit+0x36C`.
+
+Bei einem Spielupdate müssen neben den bisherigen Pufferverträgen erneut gemeinsam bestätigt
+werden: der Schreibzugriff in `0x196280` auf managerrelativ `+0x9C8`, dessen unmittelbare Quelle
+`DAT_1860AD6E4`, das anschließende Zurücksetzen des Globals, der Lesezugriff in `0x1855A0` und die
+Semantik des siebten Parameters von `0xDCE60`. Zusätzlich muss die Offsetübersetzung zur jeweils
+verwendeten Script-Extender-Struktur neu bestimmt werden; `+0x36C` gilt nur für die hier geprüfte
+Struktur mit Einheitenbeginn bei managerrelativ `unitId*0x490 + 0x65C`. Ein bloßer Treffer des
+Offsets oder einer einzelnen Funktion reicht nicht; bei Abweichung bleibt die gewichtete
+Veröffentlichung fail-closed.
+
+### 15.22 Diagnosevertrag für die funktionale Gesamtabnahme
+
+Der bestätigte Pfadverbrauchstest beseitigte die letzte technische Unklarheit der gewichteten
+Veröffentlichung. Für die breitere Abnahme muss die Diagnose jedoch auch asynchrone Folgezustände
+eindeutig dem auslösenden Befehl zuordnen können. Das Unit-Feld
+`r_AI_LastIssuedTribeCommand` reicht dafür am synchronen Builderzeitpunkt nicht aus: Im bestätigten
+Move-Test enthielt es beim ersten Auftrag noch `Unknown0`, obwohl der Builder innerhalb eines
+`TribeIssueOrderMoveHere`-Events lief. Der Testmod bindet gewichtete Planungen deshalb nun primär an
+den aktiven Eventscope:
+
+- normale Bewegung: `commandContext=move-order-<new|continuation>-<MoveType>`;
+- Patrol-Teilweg: `commandContext=patrol-leg-<new|continuation>-<MoveType>`;
+- Unit- und Gebäudeangriff: `commandContext=target-order-<AttackCommand>`;
+- nur ohne passenden synchronen Scope: `commandContext=unit-state-<Command>`.
+
+`stage=move-command-result` und `stage=attack-command-summary` fassen pro synchronem Auftrag die
+Anzahl unterschiedlicher gewichteter Units, Entscheidungen und Veröffentlichungen sowie gesamte
+und maximale Suchzeit zusammen. `searchMsTotal` und `searchPasses` einer Unit schließen auch eine
+wegen eines Vanilla-Formationsoffsets notwendige zweite Planung ein. Move-Aufträge erfassen am
+Beginn außerdem aktive Gruppenmitglieder, grabfähige Mitglieder, Mitglieder auf einem fertigen
+Moat und die kontrollierenden Spieler als Bitmaske. Dadurch lässt sich bei großen Gruppen
+unterscheiden, ob eine Pause aus einem einzelnen Ausreißer oder aus zu vielen kleinen Suchen
+entsteht. Die detaillierten
+`weighted-shadow`-Zeilen bleiben pro Unit erhalten und nennen weiterhin Pfadlänge, Kosten,
+Fingerprint, Suchdauer und Abbruchgrund.
+
+Ein während `AttackUnit`, `AttackBuilding` oder `ForceAttackBuilding` intern ausgelöster
+`MoveHere`-Auftrag nennt außerdem `parentAttack=<Sequenz>/<Command>`. Seine gewichteten
+Entscheidungen werden der übergeordneten Attack-Zusammenfassung zugerechnet, nicht irreführend als
+eigenständige Spielerbewegung gezählt.
+
+Der asynchrone Tracker hält den geplanten Commandkontext über das Ende des Events hinaus. Seine
+Meilensteine nennen sowohl `runtimeCommand` als auch `plannedCommand` und `commandContext`. Der
+Abschluss `stage=move-state-end` enthält zusätzlich:
+
+- Unittyp, Spieler und Tribe;
+- Minimum, Maximum, letzten Wert und Auftreten eines von null verschiedenen persistenten
+  Moat-Consumermodus;
+- alle tatsächlich betretenen fertigen Moat-Tiles, dedupliziert nach Tile-ID;
+- deren Besitzer als `own`, `allied`, `enemy`, `invalid` und als Owner-Bitmaske;
+- `ownerSafetyViolation=True`, sobald die tatsächlich gelaufene Route einen feindlichen Moat
+  betreten hat;
+- tatsächlichen, nativen und veröffentlichten Fingerprint samt Abschlussgrund.
+
+`weightedPublicationVerified=True` ist die kompakte positive Gesamtaussage für einen
+veröffentlichten Pfad. Sie verlangt gleichzeitig Zielabschluss, exakten veröffentlichten
+Fingerprint, einen beobachteten positiven Consumermodus sowie ausschließlich gültige eigene oder
+verbündete Moatbesitzer. Die Einzelwerte bleiben im selben Datensatz erhalten, damit ein negatives
+Ergebnis ohne weiteren Diagnosebuild zerlegt werden kann.
+
+Die Besitzerdiagnose liest nur bei einem tatsächlich betretenen fertigen Moat-Tile den bereits
+validierten Moatdatensatz. Sie verändert weder Route noch Besitzerzustand und verursacht daher auf
+normalen Bodenkanten keine zusätzliche Moatsuche. Ein erlaubter eigener Test muss
+`actualMoatOwners=own:<positiv>/allied:0/enemy:0` ergeben, ein erlaubter verbündeter Test
+entsprechend `allied:<positiv>`. Ein feindlicher Moat darf keinen Bewegungstracker mit
+Moatübergängen erzeugen; falls er dennoch betreten würde, macht die Abschlusszeile dies unabhängig
+von Cursorbeobachtungen ausdrücklich sichtbar.
+
+Für die Gesamtabnahme sind damit folgende Nachweise ohne zusätzliche Diagnosebuilds möglich:
+
+1. `Move`, Patrol, `AttackUnit` und `AttackBuilding`: korrekter `commandContext`, positiver Builder,
+   passende Meilensteine und sauberer Abschluss;
+2. gewichteter Gewinner: `weighted-path-published`, Consumermodus ungleich null,
+   `actualMatchesPublishedFingerprint=True` und Zielabschluss;
+3. Vanilla-Gewinner: keine Veröffentlichung und
+   `actualMatchesNativeFingerprint=True`;
+4. eigene und verbündete Moats: tatsächliche Ownerklassifikation ohne Safety-Verletzung;
+5. feindlicher Moat, Wasser und Mauer: Cursor-/Owner-Ablehnung und kein unzulässiger
+   Moatabschluss;
+6. gemischte Gruppen: Commandzusammenfassung plus getrennte Unitabschlüsse; ungeeignete Typen
+   dürfen keinen Moatübergang erhalten;
+7. KI-Großgruppe: Unitanzahl, Gesamt-/Maximalsuchzeit, einzelne Pfadentscheidungen und mögliche
+   Stalls oder Exceptions;
+8. Gebäudeangriff: Cursor-Hoverquelle, Approach-/Consumer-Performance, Target-Command,
+   veröffentlichte Annäherungstiles und anschließender allgemeiner Bewegungstracker.
+
+Diese Erweiterung ist rein diagnostisch. Sie führt keine neue native Freigabe, keinen dauerhaften
+Routencache und kein Logmengenbudget ein. Unveränderte Tickzustände bleiben weiterhin still; nur
+Commandzusammenfassungen, Pfadentscheidungen, semantische Bewegungsmeilensteine und Abschlüsse
+werden ausgegeben.
+
