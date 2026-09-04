@@ -2,6 +2,83 @@
 
 Stand: 5. September 2026
 
+## Aktueller Reparaturstand nach erneuter Codeprüfung
+
+Die letzte Optimierung (`5f4e696b`, Vergleichsbasis `ce67cd30`) verursachte zwei
+Regressionen. Der Lauf vom 5. September, 01:07–01:08 Uhr, belegt beide:
+
+- Bei einem Move mit 20 grabfähigen Units wurden 20 Builder aufgerufen, aber nur ein
+  Fallback ausgeführt. Nach `mode unit=2` wurde weiter `builder unit=1` protokolliert.
+  Ein bereits qualifizierter `pendingPlan` der ersten Unit wurde für weitere Units
+  wiederverwendet. Der neue Puffervergleich lehnte deren abweichenden Unitpuffer korrekt ab.
+- Beim Fill wurden innerhalb einer Arbeitszielauswahl wiederholt zielgerichtete Suchen
+  gestartet. Deren Cache existierte nur im Move-Command, nicht bei automatischen
+  Arbeitsfolgezielen. Das Log zeigt ungefähr 480.000 besuchte Knoten und 285–317 ms
+  Suchzeit je Unit-Auswahl. Die reine gewichtete Pfadoptimierung war dort deutlich kürzer.
+
+Der reparierte Quellstand enthält folgende Änderungen:
+
+- Mode-Freigaben gehören immer zur konkreten Unit. Ein passender aktiver Plan hat Vorrang;
+  andernfalls wird der passende ausstehende Plan verwendet. Ein fremder äußerer Plan darf
+  einen passenden Arbeitsplan nicht verdecken. Zentral übergebene Formationstargets bleiben
+  erhalten, verschachtelte Planneraufrufe stellen ihren vorherigen Kontext wieder her.
+- Der Builder wählt seinen Plan anhand des tatsächlichen Unitpuffers und Zielpaars.
+  Vor dem Retry wird zusätzlich der native Startvertrag geprüft: aktuelles Tile bei
+  `r_PathPlanStateBitFlags == 0 && r_MovingRelevant == 8`, sonst `r_NextTilePositionX2/Y2`.
+  Ein Cachemiss im Modepfad wird berechnet; die reine Diagnose darf weiterhin nur nachsehen.
+  Beide Zugriffe verwenden dieselbe Implementierung und denselben Cache-Schlüssel.
+- Dig-/Fill-Auswahlen verwenden eine lazily aufgebaute Boden-/Friendly-Erreichbarkeitskarte
+  für ihren exakten Spieler und Start. Positive und negative Endpunktentscheidungen werden
+  innerhalb der Auswahl geteilt. Die unmittelbar zugehörige Resolver-/Builderübergabe
+  erhält denselben Suchkontext. Neue Auswahlen bauen frisch auf, auch bei unverändertem
+  Start. Tickwechsel, andere Units/Starts und ersetzte Suchkarten dürfen keine alten
+  Endpunktentscheidungen einschleusen. Belegung und Arbeitsobjekt werden live nachgeprüft.
+- Eine Suchkarte wird erst nach vollständig erfolgreicher Traversierung als Cache freigegeben.
+  Ein abgebrochener Aufbau bleibt ungültig. Feindliche Wege werden nur bei ausdrücklich
+  angeforderter konservativer Cursorunterscheidung zusätzlich berechnet.
+- Negative oder fehlerhafte Retries stellen die 1000 Pufferbytes, den Ausgabepointer,
+  die Länge, Route-Variante und den Moatmodus wieder her. Das gilt auch bei einer
+  Audit-Exception. Positive Vanilla-Builderpfade werden weiterhin genau einmal ausgeführt.
+  Owner-Audit und eng begrenzter terminaler Fill-Kontakt bleiben erhalten.
+- Routine-Mode-/Pipeline-Details werden bei Gruppen- und Arbeitsauswahlen nicht mehr
+  vorab formatiert. Aggregierte Such-/Pfadzähler und relevante Ergebnisse bleiben sichtbar.
+
+Neue beziehungsweise ergänzte Logfelder:
+
+- Move: `targetedSearches` zählt Qualifikationen, `targetedSearchPasses` die tatsächlichen
+  Boden-/Friendly-Suchdurchläufe; außerdem `contractRejections` und `fallbackRollbacks`.
+- Arbeitsauswahl: `searchBuilds`, `endpointQueries`, `endpointCacheHits`, `expanded`,
+  `searchMs`, `elapsedMs`. Erwartet wird normalerweise ein Kartenaufbau je Auswahl,
+  unabhängig von der Zahl ihrer Kandidaten. Eine verschachtelte fremde Suche kann einen
+  erneuten Aufbau notwendig machen.
+- Die ersten drei Puffer-/Kontextabweichungen erscheinen zusätzlich als
+  `stage=fallback-contract-rejected`; weitere Fälle werden im Command gezählt.
+
+Die erneute Codeprüfung und die automatisierten Regressionstests sind abgeschlossen:
+**309 Assertions erfolgreich**, Syntaxprüfung aller sechs Runtime-Quelldateien.
+Der eigenständige Runner unter `_inspect/MoveMoatRegressionTests` extrahiert mit Roslyn
+48 tatsächliche Runtime-Member und kompiliert sie zusammen mit dem unveränderten
+`WeightedMoatRoutePlanner` gegen simulierte native Grids und API-Adapter. Er prüft
+27 Gruppenmitglieder, getrennte Puffer, Formationstargets, verschachtelte Arbeitskontexte,
+positive/negative Caches, Belegungswechsel, Terrainänderungen, Tickablauf, feindliche Moats,
+Start auf Moat, Audit-/Retry-Exceptions und Wiederanlauf nach einem Suchfehler.
+
+Aufruf aus dem Workspace-Root:
+
+    dotnet run --project _inspect/MoveMoatRegressionTests/MoveMoatRegressionTests.csproj -- .
+
+Build und Installation wurden am 5. September 2026 um 01:32 Uhr einmal über
+`MoveMoatTest/build.bat /nopause` abgeschlossen: **0 Warnungen, 0 Fehler**.
+Die installierten Dateien `MoveMoatTest.dll`, `MoveMoatTest.pdb` und `info.json`
+stimmen per SHA-256 mit dem lokalen Buildpaket überein. DLL-Hash dieses Reparaturbuilds:
+
+`7B03FB1789C84BBCC43EDDAB8EB8ACF7ACD194CBA6A63E8280DE92A7F8607122`
+
+Diese Tests führen das Spiel nicht aus und belegen keine Ingame-Latenz oder vollständige
+native Hookintegration. Die Gruppen-/Fill-Wiederholung im Spiel und der Multiplayer-Test
+stehen weiterhin aus. Die historischen erfolgreichen Spieltests weiter unten sind keine
+Abnahme dieses neuen Reparaturstands. Modversion bleibt während der Testphase `1.0.0`.
+
 ## Ziel und aktueller Vertrag
 
 `MoveMoatTest` erlaubt ausgewählten Bodeneinheiten, fertige eigene oder verbündete Burggräben
@@ -139,12 +216,14 @@ geprüfte Strukturkanten je Aufbau und ungefähr 1,3 Sekunden synchrone Modarbei
 grabfähigen Units. In den auswertbaren Move-Befehlen summierte sich die Modzeit auf rund 32
 Sekunden. Logging verstärkte die Pausen, Hauptursache war aber die Vollkartensuche pro Unit.
 
-Der aktuelle, noch praktisch abzunehmende Stand ersetzt diese Vollkartensuchen im normalen
+Die vorangegangene Optimierung ersetzte diese Vollkartensuchen im normalen
 Commandpfad durch die oben beschriebene zielgerichtete, regionsweise geteilte Qualifikation.
 `0x196840` liefert nur Vanillas Aussage, ob die konkrete Unit gerade auf einem fertigen Moat
 steht, und startet keine eigene Suche mehr. Normale AI-/Bodenbefehle, leere Queue-Snapshots,
 unveränderte Flood-Aufrufe und wiederholte Tick-/Stallzustände werden nicht mehr einzeln geloggt.
-Ein Performanceeintrag entsteht nur bei Moat-Eingriff oder einem messbar langsamen Command.
+Ein Performanceeintrag entsteht bei Moat-Eingriff oder einem messbar langsamen Command.
+Die dabei eingeführten Gruppen-/Fill-Regressionen und ihre Reparatur stehen im neuen
+Abschnitt am Anfang dieses Dokuments.
 
 Der letzte Strukturtest endete für 65 beobachtete Pfade am Ziel; 35 Moat-Eintritte und 35
 Moat-Austritte wurden protokolliert. Es gab keine MoveMoat-Exception.
@@ -219,7 +298,8 @@ als Modverletzung klassifiziert.
 
 ## Noch offen beziehungsweise erneut zu bestätigen
 
-- Der neue zielgerichtete Command-Cache und der abschließende Retry-Pfadaudit benötigen einen
+- Der reparierte Unit-Kontext, der zielgerichtete Command-Cache, die gebündelte Arbeitszielsuche
+  und der abschließende Retry-Pfadaudit benötigen einen
   gezielten Performance- und Fill-Wiederholungstest. Erwartet wird höchstens eine Qualifikation je
   Start-/Zielregion statt einer Suche je Formationsoffset oder Unit.
 - Der früher als `ownerSafetyViolation=True` gemeldete Fill-Fall ist mit dem alten Log allein nicht

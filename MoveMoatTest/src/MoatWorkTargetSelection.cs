@@ -4,6 +4,7 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 
 namespace MoveMoatTest
@@ -307,7 +308,7 @@ namespace MoveMoatTest
                     pendingFillMoatApproach = new PendingFillMoatApproach(
                         mapEpoch, tileManager, unitId, playerId, result,
                         scope.StartX, scope.StartY, approach,
-                        scope.ImprovedFillSelection);
+                        scope.ImprovedFillSelection) { SearchScope = scope };
                 }
                 else if (relationshipMode == 1 && result > 0 &&
                     TryCreatePendingDigMoatTarget(scope, result, out PendingDigMoatTarget digTarget))
@@ -339,6 +340,9 @@ namespace MoveMoatTest
             int result = -1;
             bool currentReservationRetained = false;
             activeMoatWorkSelection = scope;
+            // A completed fill changes terrain. Never reuse a previous selection's map,
+            // even when the unit is still standing on the same source tile.
+            cacheMapEpoch = -1;
             try
             {
                 int moatCount = *(int*)((byte*)tileManager.ToPointer() + MoatRecordCountOffset);
@@ -462,12 +466,7 @@ namespace MoveMoatTest
                 return false;
             }
 
-            var plan = new PlanScope(scope.UnitId, x, y)
-            {
-                PlayerId = scope.PlayerId
-            };
-            if (!TryFindRequiredFriendlyCompletedMoatRouteForPlan(
-                    plan, out RouteProbeSummary summary))
+            if (!TryGetMoatWorkRoute(scope, x, y, out RouteProbeSummary summary))
             {
                 return false;
             }
@@ -484,7 +483,7 @@ namespace MoveMoatTest
                 x,
                 y,
                 targetRegion,
-                summary);
+                summary) { SearchScope = scope };
             return true;
         }
 
@@ -743,6 +742,7 @@ namespace MoveMoatTest
                                 FriendlyRouteQualified = true,
                                 OwnerRouteProbeCompleted = true,
                                 MoatWorkMovement = true,
+                                MoatWorkSearch = pendingDig.SearchScope,
                                 MoatWorkTargetTileId = pendingDig.TileId
                             };
                             pendingPlan = plan;
@@ -794,6 +794,7 @@ namespace MoveMoatTest
                     FriendlyRouteQualified = true,
                     OwnerRouteProbeCompleted = true,
                     MoatWorkMovement = true,
+                    MoatWorkSearch = pending.SearchScope,
                     MoatWorkTargetTileId = pending.Approach.MoatTileId
                 };
                 if (pending.Approach.Summary.RouteFound)
@@ -831,15 +832,14 @@ namespace MoveMoatTest
                 return false;
             }
 
-            var plan = new PlanScope(pending.UnitId, pending.X, pending.Y)
-            {
-                PlayerId = pending.PlayerId
-            };
-            return TryFindRequiredFriendlyCompletedMoatRouteForPlan(plan, out _);
+            return TryGetMoatWorkRoute(pending.SearchScope, pending.X, pending.Y, out _);
         }
 
         private bool ValidatePendingFillApproach(PendingFillMoatApproach pending)
         {
+            if (pending == null || pending.SearchScope == null ||
+                pending.SearchScope.CapturedTick != CaptureCurrentGameTick())
+                return false;
             MoatWorkApproach approach = pending.Approach;
             int sourceTileId = GameTileManagerAPI.Instance.GetTileId(
                 pending.StartX, pending.StartY);
@@ -899,7 +899,7 @@ namespace MoveMoatTest
                 approach.X,
                 approach.Y,
                 approach.TileId,
-                out _);
+                out _, pending.SearchScope);
         }
 
         private bool TryFindRequiredFriendlyCompletedMoatRouteToFillEndpoint(
@@ -910,35 +910,71 @@ namespace MoveMoatTest
             int targetX,
             int targetY,
             int targetTileId,
-            out RouteProbeSummary summary)
+            out RouteProbeSummary summary,
+            MoatWorkSelectionScope scope = null)
         {
             summary = new RouteProbeSummary(playerId);
-            if (!IsCompletedMoatTile(targetTileId))
+            scope = scope ?? activeMoatWorkSelection;
+            if (scope == null || scope.UnitId != unitId || scope.PlayerId != playerId ||
+                scope.StartX != startX || scope.StartY != startY ||
+                !IsValidTileId(targetTileId) ||
+                (IsCompletedMoatTile(targetTileId) &&
+                 !IsFriendlyCompletedMoatForWeightedShadow(playerId, targetTileId)))
+                return false;
+            return TryGetMoatWorkRoute(scope, targetX, targetY, out summary);
+        }
+
+        private void EnsureMoatWorkReachability(MoatWorkSelectionScope scope)
+        {
+            bool reusable = scope.ReachabilityGeneration > 0 &&
+                scope.ReachabilityGeneration == gridGeneration && cacheMapEpoch == mapEpoch &&
+                cachePlayerId == scope.PlayerId && cacheStartX == scope.StartX &&
+                cacheStartY == scope.StartY && !cacheIncludesEnemyRoutes;
+            if (reusable)
+                return;
+
+            // Only this synchronous selection and its exact resolver hand-off share results.
+            // Nested searches may replace the single map; their data must not leak back.
+            scope.EndpointRoutes.Clear();
+            cacheMapEpoch = -1;
+            long started = Stopwatch.GetTimestamp();
+            EnsureReachabilityMap(scope.PlayerId, scope.StartX, scope.StartY);
+            scope.ReachabilityGeneration = gridGeneration;
+            scope.SearchBuilds++;
+            scope.SearchExpandedNodes += cachedReachabilityExpandedNodes;
+            scope.SearchMilliseconds += (Stopwatch.GetTimestamp() - started) * 1000.0 /
+                Stopwatch.Frequency;
+        }
+
+        private bool TryGetMoatWorkRoute(
+            MoatWorkSelectionScope scope, int targetX, int targetY,
+            out RouteProbeSummary summary)
+        {
+            summary = default;
+            if (scope == null || !scope.Matches(mapEpoch, GameTileManagerAPI.Instance.GetTileManager()) ||
+                scope.CapturedTick != CaptureCurrentGameTick() ||
+                (uint)targetX >= MapWidth || (uint)targetY >= MapWidth ||
+                !GameUnitManagerAPI.Instance.TryGetUnitById(scope.UnitId, out GameUnit* unit) ||
+                unit == null || unit->r_AliveState != AliveState.IsAlive || !CanDigMoat(unit) ||
+                unit->r_ControllableForPlayerId != scope.PlayerId ||
+                unit->r_CurrentTilePositionX != scope.StartX ||
+                unit->r_CurrentTilePositionY != scope.StartY)
+                return false;
+
+            EnsureMoatWorkReachability(scope);
+            int cell = targetY * MapWidth + targetX;
+            if (scope.EndpointRoutes.TryGetValue(cell, out summary))
             {
-                var plan = new PlanScope(unitId, targetX, targetY)
-                {
-                    PlayerId = playerId
-                };
-                return TryFindRequiredFriendlyCompletedMoatRouteForPlan(plan, out summary);
+                scope.EndpointCacheHits++;
+                return summary.RouteFound;
             }
-            if (!IsFriendlyCompletedMoatForWeightedShadow(playerId, targetTileId))
-                return false;
-
-            if (GameTileManagerAPI.Instance.GetTileManager() == IntPtr.Zero ||
-                !GamePlayerManagerAPI.Instance.IsPlayerIdValid(playerId))
-                return false;
-
-            // A completed moat endpoint is regionless. The shared tile graph is now
-            // region-independent, so the exact endpoint can be inspected directly.
-            int targetCell = targetY * MapWidth + targetX;
-            EnsureReachabilityMap(playerId, startX, startY);
             summary = GetCachedRouteSummaryForTarget(targetX, targetY);
-            bool reached = gridGeneration > 0 && visitedWithMoat != null &&
-                visitedWithMoat[targetCell] == gridGeneration;
             summary.AttackProbeEvaluated = true;
-            summary.ReachedWithMoat = reached;
-            summary.ReachedWithoutMoat = false;
-            summary.RouteFound = reached && summary.FriendlyMoatTiles > 0;
+            summary.RouteFound = summary.ReachedWithMoat && !summary.ReachedWithoutMoat &&
+                summary.FriendlyMoatTiles > 0;
+            summary.RouteDistance = summary.ReachedWithMoat
+                ? distanceWithMoat[cell] : int.MaxValue;
+            scope.EndpointRoutes.Add(cell, summary);
             return summary.RouteFound;
         }
 
@@ -1024,7 +1060,7 @@ namespace MoveMoatTest
                 return cached;
 
             scope.DigFallbackEvaluations++;
-            EnsureReachabilityMap(scope.PlayerId, scope.StartX, scope.StartY);
+            EnsureMoatWorkReachability(scope);
             RouteProbeSummary summary = GetCachedRouteSummaryForRegion(targetRegion);
             bool allowed = summary.ReachedWithMoat && !summary.ReachedWithoutMoat &&
                 summary.FriendlyMoatTiles > 0;
@@ -1042,7 +1078,10 @@ namespace MoveMoatTest
 
         private void LogMoatWorkSelection(MoatWorkSelectionScope scope)
         {
-            if (scope.DigFallbackEvaluations == 0 && scope.FillFallbackEvaluations == 0)
+            double elapsedMilliseconds = (Stopwatch.GetTimestamp() - scope.StartTimestamp) *
+                1000.0 / Stopwatch.Frequency;
+            if (scope.DigFallbackEvaluations == 0 && scope.FillFallbackEvaluations == 0 &&
+                elapsedMilliseconds < 50.0)
                 return;
             bool selectedByFallback = false;
             int selectedRegion = 0;
@@ -1098,6 +1137,9 @@ namespace MoveMoatTest
                 $"rejectedGroundBlocked={scope.FillGroundBlockedRejected} " +
                 $"rejectedOccupied={scope.FillOccupiedRejected} " +
                 $"rejectedOwnerRoute={scope.FillOwnerRouteRejected} " +
+                $"searchBuilds={scope.SearchBuilds} endpointQueries={scope.EndpointRoutes.Count} " +
+                $"endpointCacheHits={scope.EndpointCacheHits} expanded={scope.SearchExpandedNodes} " +
+                $"searchMs={scope.SearchMilliseconds:F3} elapsedMs={elapsedMilliseconds:F3} " +
                 $"selectedRoute=[{selectedRoute.ToLogFields()}] " +
                 $"observedRoutes=[{scope.Route.ToLogFields()}].");
         }
@@ -1264,6 +1306,8 @@ namespace MoveMoatTest
                 StartTileId = startTileId;
                 StartRegion = startRegion;
                 Route = new RouteProbeSummary(playerId);
+                CapturedTick = CaptureCurrentGameTick();
+                StartTimestamp = Stopwatch.GetTimestamp();
             }
 
             public int MapEpoch { get; }
@@ -1276,6 +1320,15 @@ namespace MoveMoatTest
             public int StartTileId { get; }
             public int StartRegion { get; }
             public int SelectedMoatId { get; set; }
+            public int CapturedTick { get; }
+            public long StartTimestamp { get; }
+            public int ReachabilityGeneration { get; set; }
+            public int SearchBuilds { get; set; }
+            public int SearchExpandedNodes { get; set; }
+            public double SearchMilliseconds { get; set; }
+            public int EndpointCacheHits { get; set; }
+            public Dictionary<int, RouteProbeSummary> EndpointRoutes { get; } =
+                new Dictionary<int, RouteProbeSummary>();
             public int DigFallbackEvaluations { get; set; }
             public int DigFallbackAllowed { get; set; }
             public int FillFallbackEvaluations { get; set; }
@@ -1349,6 +1402,7 @@ namespace MoveMoatTest
 
         private sealed class PendingFillMoatApproach
         {
+            public MoatWorkSelectionScope SearchScope { get; set; }
             public PendingFillMoatApproach(
                 int mapEpoch,
                 IntPtr tileManager,
@@ -1393,6 +1447,7 @@ namespace MoveMoatTest
 
         private sealed class PendingDigMoatTarget
         {
+            public MoatWorkSelectionScope SearchScope { get; set; }
             public PendingDigMoatTarget(
                 int mapEpoch,
                 IntPtr tileManager,

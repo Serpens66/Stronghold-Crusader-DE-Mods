@@ -519,6 +519,9 @@ namespace MoveMoatTest
         private int gridGeneration;
         private int mapEpoch;
         private int cacheMapEpoch = -1;
+        private bool cacheIncludesEnemyRoutes;
+        private int cachedReachabilityExpandedNodes;
+        private int fallbackContractRejections;
         private int cacheStartX = -1;
         private int cacheStartY = -1;
         private int cachePlayerId = -1;
@@ -1540,6 +1543,8 @@ namespace MoveMoatTest
                         $"builderCalls={command?.BuilderCalls ?? 0} " +
                         $"vanillaBuilderCalls={command?.VanillaBuilderCalls ?? 0} " +
                         $"fallbackBuilderCalls={command?.FallbackBuilderCalls ?? 0} " +
+                        $"contractRejections={command?.FallbackContractRejections ?? 0} " +
+                        $"fallbackRollbacks={command?.FallbackRollbacks ?? 0} " +
                         $"positiveBuilders={command?.PositiveBuilderCalls ?? 0} " +
                         $"weightedUnits={command?.WeightedUnitIds.Count ?? 0} " +
                         $"weightedDecisions={command?.WeightedDecisions ?? 0} " +
@@ -1547,6 +1552,7 @@ namespace MoveMoatTest
                         $"weightedSearchMs={(command?.WeightedSearchMilliseconds ?? 0):F3} " +
                         $"weightedMaxSearchMs={(command?.WeightedMaximumSearchMilliseconds ?? 0):F3} " +
                         $"targetedSearches={command?.TargetedRouteSearches ?? 0} " +
+                        $"targetedSearchPasses={command?.TargetedRouteSearchPasses ?? 0} " +
                         $"targetedCacheHits={command?.TargetedRouteCacheHits ?? 0} " +
                         $"targetedExpanded={command?.TargetedRouteExpandedNodes ?? 0} " +
                         $"targetedSearchMs={(command?.TargetedRouteSearchMilliseconds ?? 0):F3} " +
@@ -3256,6 +3262,7 @@ namespace MoveMoatTest
             }
 
             PlanScope previous = activePlan;
+            PlanScope previousPending = pendingPlan;
             PlanScope inherited = previous ?? pendingPlan;
             PlanScope plan = inherited != null &&
                 (inherited.PostCombatRepath || inherited.MoatWorkMovement) &&
@@ -3280,9 +3287,10 @@ namespace MoveMoatTest
                     plan.FriendlyRouteQualified = true;
                     try
                     {
-                        LogPipelineDiagnostic(
-                            $"stage=planner-owner-qualified unit={unitId} player={plan.PlayerId} " +
-                            $"target=({targetX},{targetY}) {summary.ToLogFields()}");
+                        if (ShouldLogUnitPipeline)
+                            LogPipelineDiagnostic(
+                                $"stage=planner-owner-qualified unit={unitId} player={plan.PlayerId} " +
+                                $"target=({targetX},{targetY}) {summary.ToLogFields()}");
                     }
                     catch
                     {
@@ -3311,8 +3319,7 @@ namespace MoveMoatTest
             finally
             {
                 activePlan = previous;
-                if (ReferenceEquals(pendingPlan, plan))
-                    pendingPlan = null;
+                pendingPlan = previous != null ? previousPending : null;
             }
         }
 
@@ -3431,12 +3438,18 @@ namespace MoveMoatTest
         private int EnableCompletedMoatModeForScopedMovement(IntPtr unitManager, int unitId)
         {
             int vanillaResult = originalUnitStandingOnCompletedMoat(unitManager, unitId);
-            PlanScope plan = activePlan ?? pendingPlan;
-            if (plan != null && plan.MoatWorkMovement && plan.UnitId != unitId)
+            PlanScope plan = activePlan != null && activePlan.UnitId == unitId
+                ? activePlan : pendingPlan;
+            // A qualification belongs to one unit. A shared command cache must never
+            // turn the preceding unit's plan into the next unit's buffer owner.
+            if (plan != null && (plan.UnitId != unitId ||
+                (!ReferenceEquals(plan, activePlan) && !plan.MoatWorkMovement && activeMoveCommand != null &&
+                 (plan.TargetX != activeMoveCommand.TargetX ||
+                  plan.TargetY != activeMoveCommand.TargetY))))
             {
                 if (ReferenceEquals(pendingPlan, plan))
                     pendingPlan = null;
-                plan = activePlan;
+                plan = null;
             }
             bool plannerQualified = plan != null && plan.FriendlyRouteQualified;
             if (disposed || unitManager == IntPtr.Zero || unitId <= 0)
@@ -3453,18 +3466,20 @@ namespace MoveMoatTest
 
                 if (!plannerQualified && activeMoveCommand != null)
                 {
+                    // A scoped central planner already supplies this unit's exact target,
+                    // including formation offsets. Only direct group calls use the order target.
+                    int targetX = ReferenceEquals(plan, activePlan) && plan != null
+                        ? plan.TargetX : activeMoveCommand.TargetX;
+                    int targetY = ReferenceEquals(plan, activePlan) && plan != null
+                        ? plan.TargetY : activeMoveCommand.TargetY;
                     PlanScope movePlan = plan;
                     if (movePlan == null || movePlan.UnitId != unitId ||
-                        movePlan.TargetX != activeMoveCommand.TargetX ||
-                        movePlan.TargetY != activeMoveCommand.TargetY)
+                        movePlan.TargetX != targetX || movePlan.TargetY != targetY)
                     {
-                        movePlan = new PlanScope(
-                            unitId,
-                            activeMoveCommand.TargetX,
-                            activeMoveCommand.TargetY);
+                        movePlan = new PlanScope(unitId, targetX, targetY);
                     }
 
-                    if (!TryGetCachedRequiredFriendlyRouteForPlan(
+                    if (!TryFindRequiredFriendlyCompletedMoatRouteForPlan(
                         movePlan, out RouteProbeSummary moveSummary))
                     {
                         return vanillaResult;
@@ -3474,12 +3489,15 @@ namespace MoveMoatTest
                     plan = movePlan;
                     plannerQualified = true;
                     pendingPlan = movePlan;
+                    if (activePlan != null && activePlan.UnitId == unitId)
+                        activePlan = movePlan;
                     try
                     {
-                        LogPipelineDiagnostic(
-                            $"stage=mode-move-owner-qualified unit={unitId} player={movePlan.PlayerId} " +
-                            $"target=({movePlan.TargetX},{movePlan.TargetY}) " +
-                            moveSummary.ToLogFields());
+                        if (ShouldLogUnitPipeline)
+                            LogPipelineDiagnostic(
+                                $"stage=mode-move-owner-qualified unit={unitId} player={movePlan.PlayerId} " +
+                                $"target=({movePlan.TargetX},{movePlan.TargetY}) " +
+                                moveSummary.ToLogFields());
                     }
                     catch
                     {
@@ -3543,7 +3561,7 @@ namespace MoveMoatTest
                 {
                     // Context logging must not change the native mode decision.
                 }
-                if (vanillaResult == 0)
+                if (vanillaResult == 0 && ShouldLogUnitPipeline)
                     LogMovementContext($"stage=mode unit={unitId} vanilla=0 effective=1");
                 return 1;
             }
@@ -4643,9 +4661,10 @@ namespace MoveMoatTest
                 if (!bypass)
                     return vanillaResult;
 
-                LogMovementContext(
-                    $"stage=region movementClass={movementClass} start=({startX},{startY}) " +
-                    $"targetRegion={targetRegion} vanilla=0 effective={targetRegion}");
+                if (ShouldLogUnitPipeline)
+                    LogMovementContext(
+                        $"stage=region movementClass={movementClass} start=({startX},{startY}) " +
+                        $"targetRegion={targetRegion} vanilla=0 effective={targetRegion}");
                 return targetRegion;
             }
             catch (Exception ex)
@@ -4852,8 +4871,9 @@ namespace MoveMoatTest
                 command.FloodFillBypasses++;
                 try
                 {
-                    LogMovementContext(
-                        $"stage=tribe-flood-fill tribe={tribeId} stamp={floodFillStamp} vanilla=0 effective=1");
+                    if (ShouldLogUnitPipeline)
+                        LogMovementContext(
+                            $"stage=tribe-flood-fill tribe={tribeId} stamp={floodFillStamp} vanilla=0 effective=1");
                 }
                 catch
                 {
@@ -5027,7 +5047,7 @@ namespace MoveMoatTest
         private int BuildPathWithCompletedMoatRouteVariant(
             IntPtr pathManager, int movementClass, int movementProfile)
         {
-            PlanScope scopedPlan = activePlan ?? pendingPlan;
+            PlanScope scopedPlan = GetBuilderPlan(pathManager);
             BuilderWeightedScope shadow = TryCaptureBuilderWeightedScope(pathManager);
             try
             {
@@ -5053,7 +5073,7 @@ namespace MoveMoatTest
             IntPtr pathManager, int movementClass, int movementProfile)
         {
             MoveCommandScope command = activeMoveCommand;
-            PlanScope plan = activePlan ?? pendingPlan;
+            PlanScope plan = GetBuilderPlan(pathManager, reportMismatch: true);
             bool plannerQualified = plan != null && plan.FriendlyRouteQualified;
             if (disposed || pathManager == IntPtr.Zero || plan == null ||
                 (command == null && !plannerQualified))
@@ -5089,15 +5109,16 @@ namespace MoveMoatTest
                 RecordBuilderResult(command, vanillaBuilderResult);
                 try
                 {
-                    LogPipelineDiagnostic(
-                        $"stage=builder-gate unit={plan.UnitId} player={plan.PlayerId} " +
-                        $"target=({plan.TargetX},{plan.TargetY}) eligible=False " +
-                        $"modeObserved={plan.ModeObserved} " +
-                        $"vanillaModeDetected={plan.VanillaModeDetected} " +
-                        $"plannerQualified={plannerQualified} floodBypasses={floodFillBypasses} " +
-                        $"moatMode={currentMoatMode} " +
-                        $"movementClass={movementClass} movementProfile={movementProfile} " +
-                        $"vanillaBuilderResult={vanillaBuilderResult}");
+                    if (ShouldLogUnitPipeline)
+                        LogPipelineDiagnostic(
+                            $"stage=builder-gate unit={plan.UnitId} player={plan.PlayerId} " +
+                            $"target=({plan.TargetX},{plan.TargetY}) eligible=False " +
+                            $"modeObserved={plan.ModeObserved} " +
+                            $"vanillaModeDetected={plan.VanillaModeDetected} " +
+                            $"plannerQualified={plannerQualified} floodBypasses={floodFillBypasses} " +
+                            $"moatMode={currentMoatMode} " +
+                            $"movementClass={movementClass} movementProfile={movementProfile} " +
+                            $"vanillaBuilderResult={vanillaBuilderResult}");
                 }
                 catch
                 {
@@ -5135,11 +5156,12 @@ namespace MoveMoatTest
                 : "none";
             try
             {
-                LogPipelineDiagnostic(
-                    $"stage=builder-vanilla-first unit={plan.UnitId} player={plan.PlayerId} " +
-                    $"target=({plan.TargetX},{plan.TargetY}) route80={originalRouteVariant} " +
-                    $"moatMode={vanillaMoatMode} " +
-                    $"result={vanillaResult} fallbackCandidate={fallbackCandidate}");
+                if (ShouldLogUnitPipeline)
+                    LogPipelineDiagnostic(
+                        $"stage=builder-vanilla-first unit={plan.UnitId} player={plan.PlayerId} " +
+                        $"target=({plan.TargetX},{plan.TargetY}) route80={originalRouteVariant} " +
+                        $"moatMode={vanillaMoatMode} " +
+                        $"result={vanillaResult} fallbackCandidate={fallbackCandidate}");
             }
             catch
             {
@@ -5179,71 +5201,61 @@ namespace MoveMoatTest
                 $"target=({plan.TargetX},{plan.TargetY}) effective=allow " +
                 routeSummary.ToLogFields());
 
-            if (switchRouteVariantToGround)
-                *routeVariant = 0;
-            byte* fallbackPath = null;
-            int fallbackLengthBefore = 0;
-            byte[] fallbackPathBackup = null;
+            byte* fallbackPath;
+            int fallbackLengthBefore;
+            byte[] fallbackPathBackup;
             if (!TryCaptureUnitFallbackPathBuffer(
-                    pathManager, plan.UnitId, out fallbackPath,
+                    pathManager, plan, builderUnit, out fallbackPath,
                     out fallbackLengthBefore, out fallbackPathBackup))
             {
-                if (switchRouteVariantToGround)
-                    *routeVariant = originalRouteVariant;
+                RecordFallbackContractRejection(plan);
                 RecordBuilderResult(command, vanillaResult);
                 return vanillaResult;
             }
-            int result;
+            int result = vanillaResult;
+            bool retained = false;
+            int retryMoatModeBefore = *moatPathMode;
+            string pathAudit = "native-retry-no-path";
             try
             {
+                if (switchRouteVariantToGround)
+                    *routeVariant = 0;
                 if (command != null)
                     command.FallbackBuilderCalls++;
                 result = originalPathBuilder(pathManager, movementClass, movementProfile);
-            }
-            catch
-            {
-                RestoreFallbackPathBuffer(
-                    pathManager, fallbackPath, fallbackPathBackup,
-                    fallbackLengthBefore);
-                if (switchRouteVariantToGround)
-                    *routeVariant = originalRouteVariant;
-                throw;
-            }
-
-            bool retained = result > 0;
-            string pathAudit = "native-retry-no-path";
-            if (!retained)
-            {
-                RestoreFallbackPathBuffer(
-                    pathManager, fallbackPath, fallbackPathBackup,
-                    fallbackLengthBefore);
-            }
-            if (retained && !TryAuditFallbackPath(
-                    pathManager, fallbackPath, result, plan, builderUnit,
-                    out pathAudit))
-            {
-                bool replaced = TryReplaceUnsafeFallbackPath(
-                    pathManager, fallbackPath, fallbackPathBackup,
-                    fallbackLengthBefore, plan, builderUnit,
-                    out int replacementResult, out string replacementDetails);
-                if (replaced)
+                retained = result > 0;
+                if (retained && !TryAuditFallbackPath(
+                        pathManager, fallbackPath, result, plan, builderUnit, out pathAudit))
                 {
-                    result = replacementResult;
-                    retained = true;
-                    pathAudit = $"owner-safe-managed-replacement:{replacementDetails}";
+                    retained = TryReplaceUnsafeFallbackPath(
+                        pathManager, fallbackPath, fallbackPathBackup,
+                        fallbackLengthBefore, plan, builderUnit,
+                        out int replacementResult, out string replacementDetails);
+                    result = retained ? replacementResult : vanillaResult;
+                    pathAudit = retained
+                        ? $"owner-safe-managed-replacement:{replacementDetails}"
+                        : $"unsafe-native-retry-rolled-back:{replacementDetails}";
                 }
-                else
+            }
+            catch (Exception ex)
+            {
+                retained = false;
+                pathAudit = $"retry-exception-rolled-back:{ex.GetType().Name}";
+                TryLogDiagnosticFailure("fallback-transaction", ex);
+            }
+            finally
+            {
+                if (!retained)
                 {
                     RestoreFallbackPathBuffer(
-                        pathManager, fallbackPath, fallbackPathBackup,
-                        fallbackLengthBefore);
+                        pathManager, fallbackPath, fallbackPathBackup, fallbackLengthBefore);
+                    *routeVariant = originalRouteVariant;
+                    *moatPathMode = retryMoatModeBefore;
                     result = vanillaResult;
-                    retained = false;
-                    pathAudit = $"unsafe-native-retry-rolled-back:{replacementDetails}";
+                    if (command != null)
+                        command.FallbackRollbacks++;
                 }
             }
-            if (switchRouteVariantToGround && !retained)
-                *routeVariant = originalRouteVariant;
 
             try
             {
@@ -5273,7 +5285,8 @@ namespace MoveMoatTest
 
         private bool TryCaptureUnitFallbackPathBuffer(
             IntPtr pathManager,
-            int unitId,
+            PlanScope plan,
+            GameUnit* unit,
             out byte* path,
             out int length,
             out byte[] backup)
@@ -5281,8 +5294,9 @@ namespace MoveMoatTest
             path = null;
             length = 0;
             backup = null;
+            int unitId = plan?.UnitId ?? 0;
             if (pathManager == IntPtr.Zero || pathManager != nativePathManager ||
-                nativeUnitManager == null || unitId <= 0 || unitId > MaximumUnitCount)
+                nativeUnitManager == null || unit == null || unitId <= 0 || unitId > MaximumUnitCount)
             {
                 return false;
             }
@@ -5292,8 +5306,15 @@ namespace MoveMoatTest
             byte* expected = nativeUnitManager + NativeUnitPathBufferOffset +
                 unitId * NativeUnitPathBufferStride;
             length = *(int*)(manager + PathManagerOutputLengthOffset);
+            bool currentTileStart = unit->r_PathPlanStateBitFlags == 0 &&
+                unit->r_MovingRelevant == 8;
+            int startX = currentTileStart ? unit->r_CurrentTilePositionX : unit->r_NextTilePositionX2;
+            int startY = currentTileStart ? unit->r_CurrentTilePositionY : unit->r_NextTilePositionY2;
             if (path == null || path != expected || length < 0 ||
-                length > WeightedMoatRoutePlanner.MaximumRouteEdges)
+                length > WeightedMoatRoutePlanner.MaximumRouteEdges ||
+                *(int*)(manager + 0x08) != startX || *(int*)(manager + 0x0C) != startY ||
+                *(int*)(manager + 0x10) != plan.TargetX ||
+                *(int*)(manager + 0x14) != plan.TargetY)
             {
                 path = null;
                 return false;
@@ -5302,6 +5323,44 @@ namespace MoveMoatTest
             backup = new byte[NativeUnitPathBufferStride];
             Marshal.Copy((IntPtr)path, backup, 0, backup.Length);
             return true;
+        }
+
+        private PlanScope GetBuilderPlan(IntPtr pathManager, bool reportMismatch = false)
+        {
+            if (pathManager == IntPtr.Zero || pathManager != nativePathManager ||
+                nativeUnitManager == null)
+                return null;
+            byte* manager = (byte*)pathManager.ToPointer();
+            byte* path = *(byte**)(manager + PathManagerOutputBufferOffset);
+            int targetX = *(int*)(manager + 0x10);
+            int targetY = *(int*)(manager + 0x14);
+            if (MatchesBuilderPlan(activePlan, path, targetX, targetY))
+                return activePlan;
+            if (MatchesBuilderPlan(pendingPlan, path, targetX, targetY))
+                return pendingPlan;
+            long pathOffset = path - (nativeUnitManager + NativeUnitPathBufferOffset);
+            if (reportMismatch && (activePlan != null || pendingPlan != null) &&
+                pathOffset > 0 && pathOffset <= (long)MaximumUnitCount * NativeUnitPathBufferStride &&
+                pathOffset % NativeUnitPathBufferStride == 0)
+                RecordFallbackContractRejection(activePlan ?? pendingPlan);
+            return null;
+        }
+
+        private bool MatchesBuilderPlan(PlanScope plan, byte* path, int targetX, int targetY) =>
+            plan != null && plan.UnitId > 0 && plan.UnitId <= MaximumUnitCount &&
+            plan.TargetX == targetX && plan.TargetY == targetY &&
+            path == nativeUnitManager + NativeUnitPathBufferOffset +
+                plan.UnitId * NativeUnitPathBufferStride;
+
+        private void RecordFallbackContractRejection(PlanScope plan)
+        {
+            fallbackContractRejections++;
+            if (activeMoveCommand != null)
+                activeMoveCommand.FallbackContractRejections++;
+            if (fallbackContractRejections <= 3)
+                Shared.DebugLogHelper.LogWarning(log,
+                    $"MoveMoat stage=fallback-contract-rejected unit={plan?.UnitId ?? 0} " +
+                    $"count={fallbackContractRejections} reason=unit-start-target-buffer-mismatch.");
         }
 
         private bool TryAuditFallbackPath(
@@ -5321,7 +5380,8 @@ namespace MoveMoatTest
             }
 
             byte* manager = (byte*)pathManager.ToPointer();
-            if (*(int*)(manager + PathManagerOutputLengthOffset) != result)
+            if (*(byte**)(manager + PathManagerOutputBufferOffset) != path ||
+                *(int*)(manager + PathManagerOutputLengthOffset) != result)
                 return false;
             int x = *(int*)(manager + 0x08);
             int y = *(int*)(manager + 0x0C);
@@ -5508,6 +5568,7 @@ namespace MoveMoatTest
             if (pathManager == IntPtr.Zero || path == null || backup == null)
                 return;
             Marshal.Copy(backup, 0, (IntPtr)path, backup.Length);
+            *(byte**)((byte*)pathManager.ToPointer() + PathManagerOutputBufferOffset) = path;
             *(int*)((byte*)pathManager.ToPointer() + PathManagerOutputLengthOffset) =
                 originalLength;
         }
@@ -7510,6 +7571,11 @@ namespace MoveMoatTest
             ownerSafeRoute = reachedWithoutMoat || (canDigMoat && reachedWithMoat);
             requiredFriendlyMoatRoute = canDigMoat && reachedWithMoat && !reachedWithoutMoat &&
                 summary.FriendlyMoatTiles > 0;
+            if (!ownerSafeRoute)
+            {
+                EnsureReachabilityMap(playerId, startX, startY, includeEnemyRoutes: true);
+                summary = GetCachedRouteSummaryForTarget(targetX, targetY);
+            }
             if ((summary.FriendlyMoatTiles > 0 || summary.EnemyMoatTiles > 0) &&
                 !reachedWithoutMoat)
             {
@@ -7535,7 +7601,8 @@ namespace MoveMoatTest
             PlanScope plan,
             bool exactTarget,
             bool allowReservedTarget,
-            out RouteProbeSummary summary)
+            out RouteProbeSummary summary,
+            bool evaluateMissing = true)
         {
             summary = default;
             if (plan == null || plan.TargetX < 0 || plan.TargetX >= MapWidth ||
@@ -7562,6 +7629,9 @@ namespace MoveMoatTest
             }
             plan.PlayerId = playerId;
 
+            if (plan.MoatWorkMovement && evaluateMissing)
+                return TryGetMoatWorkRoute(plan.MoatWorkSearch, plan.TargetX, plan.TargetY, out summary);
+
             int startRegion = pathRegionGrid[startTileId];
             bool exactStartRequired = startRegion <= 0 ||
                 IsCompletedMoatTile(startTileId) ||
@@ -7582,6 +7652,9 @@ namespace MoveMoatTest
                 summary = cached.Summary;
                 return cached.RequiredFriendlyMoat;
             }
+
+            if (!evaluateMissing)
+                return false;
 
             Stopwatch stopwatch = Stopwatch.StartNew();
             WeightedMoatRouteSummary ground = default;
@@ -7629,6 +7702,7 @@ namespace MoveMoatTest
             if (command != null)
             {
                 command.TargetedRouteSearches++;
+                command.TargetedRouteSearchPasses += groundReachable ? 1 : 2;
                 command.TargetedRouteExpandedNodes += summary.TargetedExpandedNodes;
                 command.TargetedRouteSearchMilliseconds += summary.TargetedSearchMilliseconds;
                 command.TargetedRouteMaximumSearchMilliseconds = Math.Max(
@@ -7647,46 +7721,10 @@ namespace MoveMoatTest
         }
 
         private bool TryGetCachedRequiredFriendlyRouteForPlan(
-            PlanScope plan, out RouteProbeSummary summary)
-        {
-            summary = default;
-            MoveCommandScope command = activeMoveCommand;
-            if (command == null || plan == null ||
-                !GameUnitManagerAPI.Instance.TryGetUnitById(plan.UnitId, out GameUnit* unit) ||
-                unit == null || !CanDigMoat(unit))
-            {
-                return false;
-            }
-
-            int playerId = unit->r_ControllableForPlayerId;
-            int startX = unit->r_CurrentTilePositionX;
-            int startY = unit->r_CurrentTilePositionY;
-            int startTileId = GameTileManagerAPI.Instance.GetTileId(startX, startY);
-            int targetTileId = GameTileManagerAPI.Instance.GetTileId(plan.TargetX, plan.TargetY);
-            if (!IsValidTileId(startTileId) || !IsValidTileId(targetTileId))
-                return false;
-            int startRegion = pathRegionGrid[startTileId];
-            bool exactStartRequired = startRegion <= 0 || IsCompletedMoatTile(startTileId) ||
-                (tileFlags[startTileId] & CursorSpecialStructureTileFlagMask) != 0;
-            int sourceKey = exactStartRequired ? -startTileId - 1 : startRegion;
-            int targetRegion = pathRegionGrid[targetTileId];
-            bool exactTargetRequired = targetRegion <= 0 || IsCompletedMoatTile(targetTileId) ||
-                (tileFlags[targetTileId] & CursorSpecialStructureTileFlagMask) != 0;
-            int targetKey = exactTargetRequired ? -targetTileId - 1 : targetRegion;
-            string cacheKey = $"{mapEpoch}:{playerId}:{sourceKey}:{targetKey}:" +
-                "reserved:False:required";
-            if (!command.TargetedRouteDecisions.TryGetValue(
-                    cacheKey, out TargetedRouteDecision decision) ||
-                !decision.RequiredFriendlyMoat)
-            {
-                return false;
-            }
-
-            command.TargetedRouteCacheHits++;
-            plan.PlayerId = playerId;
-            summary = decision.Summary;
-            return true;
-        }
+            PlanScope plan, out RouteProbeSummary summary) =>
+            TryFindRequiredFriendlyCompletedMoatRouteForPlan(
+                plan, exactTarget: false, allowReservedTarget: false,
+                out summary, evaluateMissing: false);
 
         private bool TryQualifyMoveCommandFloodBypass(MoveCommandScope command)
         {
@@ -8955,7 +8993,8 @@ namespace MoveMoatTest
         private void EnsureReachabilityMap(
             int playerId,
             int startX,
-            int startY)
+            int startY,
+            bool includeEnemyRoutes = false)
         {
             EnsureReachabilityStorage();
             if (!GamePlayerManagerAPI.Instance.IsPlayerIdValid(playerId) ||
@@ -8969,7 +9008,7 @@ namespace MoveMoatTest
 
             if (visitedWithoutMoat != null && cacheMapEpoch == mapEpoch &&
                 cachePlayerId == playerId && cacheStartX == startX &&
-                cacheStartY == startY)
+                cacheStartY == startY && cacheIncludesEnemyRoutes == includeEnemyRoutes)
             {
                 cachedReachabilityMapHits++;
                 if (activeBuildingConsumerPerformance != null)
@@ -9000,7 +9039,11 @@ namespace MoveMoatTest
                 gridGeneration++;
             }
 
-            cacheMapEpoch = mapEpoch;
+            // Publish the cache only after a complete traversal. An exception or an
+            // invalid source must not make a partially built graph reusable.
+            cacheMapEpoch = -1;
+            cacheIncludesEnemyRoutes = includeEnemyRoutes;
+            cachedReachabilityExpandedNodes = 0;
             cachePlayerId = playerId;
             cacheStartX = startX;
             cacheStartY = startY;
@@ -9033,7 +9076,7 @@ namespace MoveMoatTest
                 distanceWithMoat[startCell] = 0;
                 cachedRouteSummary.FriendlyMoatTiles = 1;
             }
-            else if (startRelationship == CompletedMoatRelationship.Enemy)
+            else if (startRelationship == CompletedMoatRelationship.Enemy && includeEnemyRoutes)
             {
                 startState = EnemyMoatRouteState;
                 visitedWithEnemyMoat[startCell] = gridGeneration;
@@ -9082,7 +9125,9 @@ namespace MoveMoatTest
             {
                 weightedMoatRoutePlanner.EndReachabilityProbe();
             }
+            cachedReachabilityExpandedNodes = head;
             cachedRouteSummary.TraversedRegionCount = cachedTraversedRegionCount;
+            cacheMapEpoch = mapEpoch;
         }
 
         private void EnsureReachabilityStorage()
@@ -9134,7 +9179,9 @@ namespace MoveMoatTest
                     direction,
                     false,
                     false,
-                    MoatTraversalPolicy.AllowEnemyForDiagnostic,
+                    cacheIncludesEnemyRoutes
+                        ? MoatTraversalPolicy.AllowEnemyForDiagnostic
+                        : MoatTraversalPolicy.FriendlyOnly,
                     out MoatTraversalEdgeKind edgeKind,
                     out bool structuralEdge))
             {
@@ -9401,6 +9448,12 @@ namespace MoveMoatTest
             LogCursorDecision(message);
         }
 
+        // Commands and work selections have aggregate counters; avoid formatting a
+        // full per-unit trace in those hot paths. Standalone diagnostics remain available.
+        private bool ShouldLogUnitPipeline => activeMoveCommand == null &&
+            activeMoatWorkSelection == null &&
+            !((activePlan ?? pendingPlan)?.MoatWorkMovement ?? false);
+
         private void LogMovementContext(string message)
         {
             BufferOrLogCommandDiagnostic(message);
@@ -9568,6 +9621,8 @@ namespace MoveMoatTest
 
         private void LogModeContext(PlanScope plan, GameUnit* unit, int vanillaResult)
         {
+            if (!ShouldLogUnitPipeline)
+                return;
             int startX = unit->r_CurrentTilePositionX;
             int startY = unit->r_CurrentTilePositionY;
             int startTileId = GameTileManagerAPI.Instance.GetTileId(startX, startY);
@@ -10596,6 +10651,8 @@ namespace MoveMoatTest
             public int BuilderCalls { get; set; }
             public int VanillaBuilderCalls { get; set; }
             public int FallbackBuilderCalls { get; set; }
+            public int FallbackContractRejections { get; set; }
+            public int FallbackRollbacks { get; set; }
             public int PositiveBuilderCalls { get; set; }
             public int LastBuilderResult { get; set; } = int.MinValue;
             public int LastVanillaBuilderResult { get; set; } = int.MinValue;
@@ -10607,6 +10664,7 @@ namespace MoveMoatTest
             public double WeightedMaximumSearchMilliseconds { get; set; }
             public HashSet<int> WeightedUnitIds { get; } = new HashSet<int>();
             public int TargetedRouteSearches { get; set; }
+            public int TargetedRouteSearchPasses { get; set; }
             public int TargetedRouteCacheHits { get; set; }
             public int TargetedRouteExpandedNodes { get; set; }
             public double TargetedRouteSearchMilliseconds { get; set; }
@@ -10677,6 +10735,7 @@ namespace MoveMoatTest
             public bool AttackMovementQualified { get; set; }
             public bool PostCombatRepath { get; set; }
             public bool MoatWorkMovement { get; set; }
+            public MoatWorkSelectionScope MoatWorkSearch { get; set; }
             public int MoatWorkTargetTileId { get; set; }
         }
 

@@ -12,8 +12,15 @@ Fail-closed-Anforderungen werden hier auf den öffentlichen 2.0.2-Vertrag übert
 
 Nicht Bestandteil dieser Migration sind Änderungen am kanonischen
 `shcde-script-extender`-Quellbaum, sachfremde Modfeatures oder README-Änderungen.
-Vorhandene Benutzeränderungen, insbesondere in `MoveMoatTest`, `QueueTest`,
-`MoatFillTargetTest`, `RandomEvents` und `_inspect`, müssen erhalten bleiben.
+Vorhandene Benutzeränderungen, insbesondere in `MoveMoatTest`, `QueueTest`, der nach
+`BugfixesAndQoL` übernommenen Moat-Fill-Funktion, `RandomEvents` und `_inspect`, müssen
+erhalten bleiben. Die gelöschten Diagnosemods `ChoreTestMod`, `MoatFillTargetTest` und
+`MPTest` werden nicht wiederhergestellt.
+
+`MoveMoatTest` ist ausdrücklich zurückgestellt. Dieser Plan dokumentiert seine spätere
+Migration vollständig, autorisiert sie aber nicht. Kein Ausführungs-Chat darf Dateien
+unter `MoveMoatTest/`, seine gebauten Artefakte oder seine Version ändern, bevor der
+Benutzer die Migration dieses Mods separat und ausdrücklich beauftragt.
 
 ### Geprüfte Versionen
 
@@ -33,20 +40,35 @@ denselben Hash ausweisen.
 
 ### Ausgangslage und korrigiertes Inventar
 
+- Das nach den Moat-/Queue-/Move-Änderungen erneut geprüfte Workspace-Inventar basiert
+  auf Commit `5f4e696bcfd1eacccae05cd7525d5a6eb54bf66f` sowie den dabei vorhandenen,
+  uncommitteten Benutzeränderungen in `MoveMoatTest/MoatUnitBehaviorReverseEngineering.md`,
+  `MoveMoatTest/src/MoveMoatPathTest.cs`, `MoveMoatTest/src/MoatWorkTargetSelection.cs`
+  und den gebauten MoveMoat-Artefakten. Spätere Chats müssen Abweichungen erneut
+  inventarisieren, diese Dateien unangetastet lassen und dürfen die Zahlen nicht als
+  unveränderliche Vorgabe behandeln.
 - Im ursprünglich geprüften Workspace wurden 55 Projektdateien inventarisiert. 37 davon
   referenzierten SHCDESE direkt oder kompilierten dagegen; 18 weitere waren indirekte
-  Regressionstests, Hilfsprojekte oder die zu entfernende Linux-Bridge. Nach dem
-  ausdrücklichen Ausschluss ist `ChoreTestMod/` im aktuellen Arbeitsbaum bereits als
-  Benutzeränderung gelöscht. Damit verbleiben 54 Projektdateien und 36 direkte
-  SHCDESE-Projekte; die Matrix behält die entfernte Zeile als Stilllegungsnachweis.
-- Das Ausgangsinventar besaß 29 Runtime-Plugins mit altem `LibraryLoaded`-Handler. Der
-  Handler des gelöschten ChoreTestMod entfällt; 28 verbleibende Handler werden
-  migriert.
-- 25 Projekte referenzieren Zhuqiaomon; zwölf davon verwenden Zhuqiaomon tatsächlich
-  in insgesamt 60 C#-Quelldateien.
+  Regressionstests, Hilfsprojekte oder die zu entfernende Linux-Bridge. Inzwischen sind
+  `ChoreTestMod`, `MoatFillTargetTest` und `MPTest` gelöscht; die Moat-Fill-Funktion und
+  ihr umbenanntes Testprojekt liegen jetzt in `BugfixesAndQoL`. Aktuell verbleiben 52
+  Projektdateien, davon 34 mit direktem SHCDESE-Bezug und 18 indirekte Projekte. Die
+  Matrix behält die drei entfernten Runtime-Projektzeilen als Stilllegungsnachweis und
+  verwendet für den übernommenen Test den aktuellen Pfad.
+- Das Ausgangsinventar besaß 29 Runtime-Plugins mit altem `LibraryLoaded`-Handler. Die
+  drei gelöschten Diagnosemods entfallen; 26 verbleibende Handler werden migriert.
+- Ursprünglich referenzierten 25 Projekte Zhuqiaomon. Nach Wegfall von
+  MoatFillTargetTest sind es 24: zwölf mit echter Zhuqiaomon-Nutzung in weiterhin 60
+  C#-Quelldateien und zwölf mit reiner Referenzbereinigung.
+- Unabhängig davon verwenden zehn Quelldateien in sechs Projektwurzeln direkt
+  PolyHook2-`NativeDetour`. Dazu gehören die neu hinzugekommenen Moat-Work-Detours in
+  `BugfixesAndQoL/ImprovedMoatFillingFix` und
+  `MoveMoatTest/MoatWorkTargetSelection`; auch diese Aufrufer müssen auf RedBird
+  migriert werden. Projektdateireferenzen allein bilden dieses Inventar nicht korrekt
+  ab.
 - Im aktuellen Workspace stehen 36 Aufrufe von `HookTransaction.Unload()`. Die frühere
   Zahl 28 ist durch neu hinzugekommene Workspace-Arbeit überholt.
-- `GetSelectedChimps()` wird neunmal direkt in sieben Quelldateien aufgerufen.
+- `GetSelectedChimps()` wird achtmal direkt in sieben Quelldateien aufgerufen.
 - 14 Runtime-Projekte kompilieren die gemeinsame
   `PresetLobbyModSettingsViewModel.cs`; die frühere Zahl 13 war unvollständig.
 
@@ -64,6 +86,12 @@ Workspace-Code abonniert diese Events. Die RedBird-Testbasis bestand aus 234 Tes
 228 erfolgreich, sechs absichtlich übersprungen und keine fehlgeschlagen. Der
 2.0.2-Extender ließ sich als Managed-Projekt kompilieren; ein beobachteter
 Solution-Postbuild-Fehler beruhte nur auf einem dort nicht gesetzten `SolutionDir`.
+
+Davon getrennt ist `GameTribeManagerAPI.UnassignUnit` in 2.0.2 weiterhin fehlerhaft:
+Der öffentliche Wrapper reicht `tribeId, unitId` an eine interne/native Signatur weiter,
+die `unitId, tribeId` erwartet. Diese Regression ist nicht durch die vorgenannten
+Tribe-Eventkorrekturen behoben und benötigt für das exakte Ziel 2.0.2 einen modseitigen
+Workaround.
 
 Für Linux liefert 2.0.2 den neuen Updater und seit 2.0.1 auch
 `libredbird_thread_patch.so` im vorgesehenen Pluginverzeichnis. Der alte private
@@ -130,7 +158,7 @@ führen. So wird weder ein zweites RedBird-Backend noch eine abweichende Logging
 Assembly in ein Modpaket eingeschleust.
 
 Zhuqiaomon-Referenzen und -Existenzprüfungen sowie PolyHook2-Referenzen ohne verbleibende
-direkte Nutzung werden entfernt. Die 13 als `bereinigen` klassifizierten Projekte
+direkte Nutzung werden entfernt. Die zwölf als `bereinigen` klassifizierten Projekte
 verwenden keine Zhuqiaomon-Typen im eigenen Quelltext; trotzdem ist vor dem Entfernen zu
 prüfen, ob eine verwendete öffentliche SHCDESE-Signatur jetzt einen RedBird-Typ
 exponiert und dadurch eine Compile-time-Referenz erfordert. Iced bleibt nur in
@@ -142,9 +170,10 @@ Der alte Callback
 
     OnCrusaderLibraryLoaded(IntPtr moduleHandle, ReadOnlySpan<byte> memory)
 
-wird in den 28 verbleibenden Runtime-Plugins durch einen Callback mit
-`CrusaderLibraryLoadContext` ersetzt. Der 29. Handler gehört zum bestätigt obsoleten
-ChoreTestMod und wird zusammen mit diesem Mod entfernt, nicht portiert.
+wird in den 26 verbleibenden Runtime-Plugins durch einen Callback mit
+`CrusaderLibraryLoadContext` ersetzt. Die drei übrigen Handler gehörten zu
+ChoreTestMod, MoatFillTargetTest und MPTest; sie sind mit den obsoleten Diagnosemods
+entfallen und werden nicht portiert.
 
 - `context.ModuleHandle` ersetzt den alten Modulhandle.
 - `context.Memory` ist die schreibgeschützte Speicheransicht für vorhandene reine
@@ -189,6 +218,15 @@ eindeutig aufgelöst hat. Nach `Commit()` sind sowohl das `CommitResult` als auc
 benötigte Handle (`Success`, `Failure`, `ResolvedAddress`) zu prüfen. Ein Detour darf
 `Original` erst nach erfolgreichem Commit aufrufen; in fail-open Callbackpfaden ist
 gegebenenfalls `TryGetOriginal` zu verwenden.
+
+Direkte PolyHook2-`NativeDetour`-Aufrufer sind derselbe Migrationsfall und dürfen nicht
+stehenbleiben, nur weil sie kein `using Zhuqiaomon` besitzen. Jeder manuell mit
+`ManualApply`, `Apply`, `Undo` und `Dispose` verwaltete Detour wird in einen
+`DetourHandle<T>` innerhalb einer RedBird-Transaktion überführt. Die bisherige
+Alles-oder-nichts-Installation, Aufrufreihenfolge der Originalfunktion und der
+Rollbackpfad bei einem teilweise fehlgeschlagenen Hooksatz bleiben erhalten.
+Insbesondere gilt das für die zwei Standalone-Moat-Fill-Detours in BugfixesAndQoL und
+die drei gemeinsamen Moat-Work- sowie die weiteren zentralen Detours in MoveMoatTest.
 
 `X64ManagedFunctionAOB<T>` existiert nicht mehr. Solche Aufrufer verwenden einen
 `DataScanner` mit kompiliertem Pattern und anschließend `TryGetFunction`, oder nach
@@ -291,6 +329,14 @@ Nur `SelectedUnitInfo.UnitId` wird als 1-basierte Game-ID weitergegeben. `UnitTy
 einen späteren Pointer-Lookup nur ersetzen, wenn Filterung und Verhalten identisch
 bleiben. Arraypositionen sind niemals Unit-IDs.
 
+Die neuen MoveMoat-/Queue-Pfade benötigen dabei eine gezielte Umsetzung statt einer
+Typumbenennung: QueueTest iteriert `SelectedUnitInfo[]` und liest je Element `UnitId`.
+MoveMoatTest besitzt zwei Aufrufe; `TryCaptureSelectedGroup` sortiert heute bewusst ein
+`int[]` für eine deterministische Gruppensignatur. Dort zuerst die `UnitId`-Werte in ein
+eigenes `int[]` projizieren und anschließend wie bisher numerisch sortieren; weder
+`SelectedUnitInfo[]` direkt sortieren noch die bestehende deterministische Reihenfolge
+unbeabsichtigt ändern.
+
 Direkte Zugriffe auf Unity-/Spielzustände namens `state.selectedChimps`, etwa in
 `LordUnitControlsFeature`, `TroopHudMiddleClickCameraFeature` und
 `SelectedUnitHealthFeature`, gehören nicht zu dieser API-Änderung: Dort liegt weiterhin
@@ -328,6 +374,51 @@ Subscriber für die in 2.0.0 kurzzeitig fehlerhaften Tribe- und Vegetation-Event
 
 Der allgemeine Vertrag bleibt unverändert: Game-IDs sind 1-basiert, Span- und
 Arrayindizes 0-basiert. Jede Grenze rechnet genau einmal `+1` beziehungsweise `-1`.
+
+#### `GameTribeManagerAPI.UnassignUnit`
+
+Der Fehler besteht im offiziellen Tag v2.0.2 fort. Geprüft wurden
+`GameTribeManagerAPI.UnassignUnit(tribeId, unitId)` und
+`BulkTribeDetours.c_game_tribe_remove_unit_hook_impl(manager, unitId, tribeId)` am
+Commit `6dc82d1d92b0935abc93cd43ac16cd8ddccc5f79`: Der Wrapper ruft die zweite Methode mit
+`tribeId, unitId` auf und vertauscht damit die beiden Integerargumente.
+
+- QueueTest verwendet bereits einen direkt und eindeutig aufgelösten nativen Delegate
+  mit Vertrag `(manager, unitId, tribeId)`. Dieser Pfad bleibt für das Ziel 2.0.2
+  erhalten, wird aber auf `CrusaderLibraryLoadContext.ModuleHandle`/`Memory` umgestellt
+  und weiterhin gegen Pattern, RVA, Funktionsgrenze und Native-Hash abgesichert.
+- AIDefense besitzt fünf direkte `UnassignUnit`-Aufrufe. Sie dürfen unter 2.0.2 nicht
+  unverändert bleiben. AIDefense erhält einen eigenen, standalone-fähigen und
+  fail-closed validierten nativen Adapter mit korrekter Argumentreihenfolge; QueueTest
+  darf keine harte oder versteckte Laufzeitabhängigkeit werden.
+- `UnassignUnitEx` ist eine andere, verwaltete Ersatzimplementierung und darf nicht ohne
+  Nachweis identischer nativer Nebenwirkungen als mechanischer Ersatz eingesetzt
+  werden.
+- Der englische Upstream-Bugreport ist bereits erstellt und ist kein offener
+  Migrationsschritt mehr. Es wird erwartet, dass 2.0.3 den Fehler behebt; das gilt aber
+  erst nach Prüfung des tatsächlich veröffentlichten Tags als bestätigt. Dieser Plan
+  bleibt bis zu einer ausdrücklichen Zieländerung bei exakt 2.0.2 und behält deshalb die
+  nativen Adapter. Wird später 2.0.3 beauftragt und der Fix im Quellcode bestätigt,
+  müssen Referenzbasis, Matrix und Tests gemeinsam neu bewertet und die Adapter auf den
+  korrigierten öffentlichen Wrapper zurückgeführt werden.
+
+### 4.7 Verbindliche Aktualisierungen an `AGENTS.md`
+
+Die Migration muss die dauerhaften Arbeitsregeln an die nun bestätigten Verträge
+anpassen; temporäre Inventarzahlen gehören dagegen nur in diesen Plan.
+
+- Den bestehenden `UnassignUnit`-TODO ergänzen: Der Fehler ist nicht nur für 1.42.0,
+  sondern nachweislich auch für exakt 2.0.2 vorhanden. QueueTest verwendet deshalb den
+  direkten nativen Vertrag; AIDefense benötigt denselben semantischen Workaround.
+- Den gemeinsamen Moat-Hookbesitz dokumentieren: Wenn MoveMoatTest installiert und
+  seine Bridge bereit ist, besitzt MoveMoatTest die gemeinsamen Moat-Work-Hooks und
+  BugfixesAndQoL liefert nur den Aktivierungsprovider. Ohne MoveMoatTest darf
+  BugfixesAndQoL die zwei Standalone-Hooks installieren. Fehlende, inkompatible oder
+  unbekannte Bridgezustände brechen fail-closed ab; niemals beide Hooksätze parallel.
+- Festhalten, dass MoatFillTargetTest in BugfixesAndQoL aufgegangen ist und nicht mehr
+  als eigenständige Mod, Abhängigkeit oder Lifecycle-Vorlage verwendet wird.
+- Die Regeln erst nach dem jeweiligen Code-/Testpaket finalisieren, damit AGENTS.md den
+  tatsächlich abgenommenen Endvertrag beschreibt. README-Dateien bleiben unverändert.
 
 ## 5. Settings, Chore-Transport und Modverwaltung
 
@@ -429,10 +520,10 @@ verändernde Werkzeuge:
 - VanillaAICExporter
 
 `NetworkMode: 1` erhalten alle übrigen aktiven Runtime-, Gameplay-, Patch-, Netzwerk-
-und Testmods, insbesondere APITest, MPTest, SerpNativeAPI und TestMod LUA. Bereits
+und Testmods, insbesondere APITest, SerpNativeAPI und TestMod LUA. Bereits
 korrekt auf 1 gesetzte Testmods bleiben auf 1. Der stillgelegte ChoreTestMod erhält
-keine neue Metadatenmigration. SerpsModsHost und seine gameplayrelevanten Childmods
-müssen gemeinsam konsistent sein.
+keine neue Metadatenmigration; dasselbe gilt für MoatFillTargetTest und MPTest.
+SerpsModsHost und seine gameplayrelevanten Childmods müssen gemeinsam konsistent sein.
 
 Custom-Lord-Vorlagen wie `your-unique-lord-guid` sind keine veröffentlichte Workspace-
 Runtime-Mod und werden nicht pauschal umgeschrieben. Ein daraus erstelltes Paket ist
@@ -487,8 +578,8 @@ gelöscht.
 
 ## 7. Betroffenheitsmatrix
 
-Legende: `direkt` bedeutet echte Zhuqiaomon-Quellmigration; `bereinigen` bedeutet nur
-eine veraltete Projekt-/Existenzreferenz. `LL` steht für den neuen
+Legende: `direkt` bedeutet echte Zhuqiaomon- oder PolyHook-Quellmigration;
+`bereinigen` bedeutet nur eine veraltete Projekt-/Existenzreferenz. `LL` steht für den neuen
 `CrusaderLibraryLoadContext`. `Preset` bezeichnet den zentralen Settings-Workaround.
 
 ### 7.1 Projekte mit direktem SHCDESE-Bezug
@@ -496,10 +587,10 @@ eine veraltete Projekt-/Existenzreferenz. `LL` steht für den neuen
 | Projektdatei | Zielversion | LibraryLoaded | direkte RedBird-Migration | nur Referenzbereinigung | SelectedUnitInfo | Gold/Zeit/ID | Chore | Settings-Workaround | NetworkMode | Test-/Buildbedarf |
 |---|---:|---:|---:|---:|---:|---|---|---:|---:|---|
 | ActiveAIVDetector/ActiveAIVDetector.csproj | 2.0.2 | ja | ja | nein | nein | nein | nein | nein | 0 | Runtime, Pattern, Hook |
-| AIDefense/AIDefense.csproj | 2.0.2 | ja | nein | nein | nein | nein | nein | nein | 1 | Runtime, Gameplay |
+| AIDefense/AIDefense.csproj | 2.0.2 | ja | nein | nein | nein | UnassignUnit-Workaround | nein | nein | 1 | Runtime, Native, Gameplay |
 | AIVParser/AIVParser.Tests/AIVParser.Tests.csproj | 2.0.2 | nein | nein | nein | nein | nein | nein | nein | n/a | Tests |
 | APITest/APITest.csproj | 2.0.2 | nein | nein | nein | nein | nein | nein | nein | 1 | API-Runtime |
-| BugfixesAndQoL/BugfixesAndQoL.csproj | 2.0.2 | ja | ja | nein | ja | Gold + Gatehouse-ID | ja | ja | 1 | vollständige Regression |
+| BugfixesAndQoL/BugfixesAndQoL.csproj | 2.0.2 | ja | ja | nein | ja | Gold + Gatehouse-/Moat-IDs | ja | ja | 1 | vollständige Regression, Moat-Ownership |
 | BuildingCosts/BuildingCosts.csproj | 2.0.2 | ja | nein | ja | nein | nein | nein | ja | 1 | Runtime, Presets |
 | BuildingLimit/BuildingLimit.csproj | 2.0.2 | ja | nein | ja | nein | nein | nein | ja | 1 | Runtime, Presets |
 | CastlePlanner/AIVPlacement.Tests/CastlePlanner.AIVPlacement.Tests.csproj | 2.0.2 | nein | nein | nein | nein | nein | nein | nein | n/a | Tests |
@@ -518,11 +609,11 @@ eine veraltete Projekt-/Existenzreferenz. `LL` steht für den neuen
 | HunterQueryTargetDiagnostic/HunterQueryTargetDiagnostic.csproj | 2.0.2 | ja | ja | nein | nein | nein | nein | nein | 0 | passive Runtime |
 | ImprovedHunters/ImprovedHunters.csproj | 2.0.2 | ja | ja | nein | nein | nein | nein | ja | 1 | Native/Gameplay |
 | MoatCommandTest/MoatCommandTest.csproj | 2.0.2 | ja | ja | nein | nein | nein | nein | nein | 1 | Native/Gameplay |
-| MoatFillTargetTest/MoatFillTargetTest.csproj | 2.0.2 | ja | nein | ja | nein | Unit-ID-Regression | nein | nein | 1 | Gameplay-Test |
-| MoveMoatTest/MoveMoatTest.csproj | 2.0.2 | ja | ja | nein | ja | Unit-ID-Regression | nein | nein | 1 | Native/Gameplay |
-| MPTest/MPTest.csproj | 2.0.2 | ja | nein | nein | nein | nein | Diagnose | nein | 1 | Multiplayer-/Chore-Test |
+| MoatFillTargetTest/MoatFillTargetTest.csproj | entfällt | nein (entfernt) | nein | nein | nein | nach BugfixesAndQoL übernommen | nein | nein | entfällt | Stilllegung verifizieren |
+| MoveMoatTest/MoveMoatTest.csproj | 2.0.2 | ja | ja | nein | ja | Unit-/Moat-ID-Regression | nein | nein | 1 | Native/Gameplay, gemeinsamer Hookbesitz |
+| MPTest/MPTest.csproj | entfällt | nein (entfernt) | nein | nein | nein | nein | nein | nein | entfällt | Stilllegung verifizieren |
 | OxTetherIdleFixTest/OxTetherIdleFixTest.csproj | 2.0.2 | ja | ja | nein | nein | nein | nein | nein | 1 | Native/Gameplay |
-| QueueTest/QueueTest.csproj | 2.0.2 | ja | ja | nein | ja | Unit-ID-Regression | nein | nein | 1 | Queue-/ID-Test |
+| QueueTest/QueueTest.csproj | 2.0.2 | ja | ja | nein | ja | Unit-/Tribe-ID + Unassign | nein | nein | 1 | Queue-/Native-Vertragstest |
 | RandomEvents/RandomEvents.csproj | 2.0.2 | ja | nein | ja | nein | UInt32-Zeit | ja | ja | 1 | Events/Chore/Presets |
 | SerpNativeAPI/SerpNativeAPI.csproj | 2.0.2 | ja | nein | nein | nein | nein | nein | nein | 1 | API-/Konflikttests |
 | SerpsModsHost/SerpsModsHost.csproj | 2.0.2 | ja | nein | ja | nein | Asset-GUID/Pfad | nein | ja | 1 | Pack-/Duplikattests |
@@ -542,8 +633,9 @@ nicht stillschweigend ausgelassen.
 Diese 18 Projektdateien besitzen keinen direkten SHCDESE-Verweis im Projekttext, sind
 aber entweder Teil einer betroffenen Testkette, ein zu entfernender Linux-Bestand oder
 ein abschließend mitzuprüfendes abhängiges Werkzeug. Zusammen mit den 37 Zeilen aus
-7.1 sind damit alle 55 beim Ausgangsaudit gefundenen Projektdateien einer Prüfung oder
-Stilllegung zugeordnet; im aktuellen Arbeitsbaum verbleiben nach ChoreTestMod 54.
+7.1 bilden die Tabellen 55 Verantwortungszeilen: 52 aktuelle Projektdateien und drei
+stillgelegte Runtime-Projekte. Der umbenannte Moat-Test ersetzt dabei den historischen
+Testpfad; er ist keine zusätzliche stillgelegte Projektzeile.
 
 | Projektdatei | Zielversion | LibraryLoaded | direkte RedBird-Migration | nur Referenzbereinigung | SelectedUnitInfo | Gold/Zeit/ID | Chore | Settings-Workaround | NetworkMode | Test-/Buildbedarf |
 |---|---:|---:|---:|---:|---:|---|---|---:|---:|---|
@@ -560,7 +652,7 @@ Stilllegung zugeordnet; im aktuellen Arbeitsbaum verbleiben nach ChoreTestMod 54
 | MapParser/MapParser.Cli/MapParser.Cli.csproj | indirekt 2.0.2 | nein | nein | nein | nein | Parser-ID-Regression | nein | nein | n/a | Regression bauen/testen |
 | MapParser/MapParser.Core/MapParser.Core.csproj | indirekt 2.0.2 | nein | nein | nein | nein | Parser-ID-Regression | nein | nein | n/a | Regression bauen/testen |
 | MapParser/MapParser.Tests/MapParser.Tests.csproj | indirekt 2.0.2 | nein | nein | nein | nein | Parser-ID-Regression | nein | nein | n/a | Tests ausführen |
-| MoatFillTargetTest/tests/MoatFillTargetTest.Tests.csproj | indirekt 2.0.2 | nein | nein | nein | nein | Unit-ID-Regression | nein | nein | n/a | Tests ausführen |
+| BugfixesAndQoL/tests/ImprovedMoatFilling.Tests.csproj | indirekt 2.0.2 | nein | nein | nein | nein | Unit-/Moat-ID-Regression | nein | nein | n/a | Standalone-/MoveMoat-Ownership testen |
 | OxTetherIdleFixTest/tests/OxTetherIdleFixTest.Tests.csproj | indirekt 2.0.2 | nein | nein | nein | nein | nein | nein | nein | n/a | RedBird-Modtests ausführen |
 | QueueTest/tests/QueueTest.StaticTests.csproj | indirekt 2.0.2 | nein | nein | nein | ja | Unit-ID-Regression | nein | nein | n/a | statische Tests ausführen |
 | TrailEditor/TrailEditor.Cli/TrailEditor.Cli.csproj | indirekt 2.0.2 | nein | nein | nein | nein | Trail-/ID-Regression | nein | nein | n/a | Regression bauen/testen |
@@ -602,7 +694,7 @@ Erlaubte Statuswerte: `offen`, `in Arbeit`, `blockiert`, `abgeschlossen`.
 | P3 | kleinere direkte RedBird-Mods und Tests | P0 | offen | noch keine |
 | P4 | CastlePlanner und Parser-/Placement-Kette | P0, P1 | offen | noch keine |
 | P5 | ImprovedHunters | P0, P1 | offen | noch keine |
-| P6 | BugfixesAndQoL und Gatehouse-Shared-Policy | P0, P1 | offen | noch keine |
+| P6 | BugfixesAndQoL, Moat-Fill und Gatehouse-Shared-Policy | P0, P1, P3b | offen | noch keine |
 | P7 | ExtraFeatures | P0, P1, P6 | offen | noch keine |
 | P8 | LinuxModding-Entkopplung | P0 | offen | noch keine |
 | P9 | workspaceweite Endabnahme | P1–P8 | offen | noch keine |
@@ -642,10 +734,17 @@ P5/P6/P7 beziehungsweise P4 zugeordnet und in P1 nicht gebaut.
 Zulässiger Umfang:
 
 - AIDefense, APITest, BuildingCosts, BuildingLimit, CheatMod, CustomLordUpload,
-  EngineerSiegeFix, MoatFillTargetTest samt Tests, MPTest, SerpNativeAPI, UnitCosts,
-  UnitLimit und VanillaAICExporter.
+  EngineerSiegeFix, SerpNativeAPI, UnitCosts, UnitLimit und VanillaAICExporter.
 - Pro Projekt LibraryLoaded, SHCDESE-Mindestversion, stale Zhuq-/PolyHook-Referenzen,
   öffentliche RedBird-Typabhängigkeiten, NetworkMode und Fachtests abschließen.
+- In AIDefense die fünf fehlerhaft gewordenen `UnassignUnit`-Aufrufe über den
+  validierten lokalen 2.0.2-Adapter führen und Erfolgs-, Fehler- sowie Rollbackpfade
+  testen.
+- Nach bestandener AIDefense-Abnahme den `UnassignUnit`-Vertrag in `AGENTS.md` wie in
+  Abschnitt 4.7 beschrieben aktualisieren. Der bereits vorhandene Upstream-Bugreport
+  wird nicht dupliziert; den Extender selbst nicht ändern.
+- Die bereits gelöschten MoatFillTargetTest- und MPTest-Bestände nur als Stilllegung
+  verifizieren; nichts daraus wiederherstellen oder gegen 2.0.2 bauen.
 - TrailEditor.Core/-CLI/-Tests gehören eindeutig zu P2 und werden als indirekte
   Regressionskette gebaut beziehungsweise getestet. Ihr Quellcode wird ohne konkreten
   2.0.2-Befund nicht verändert. AIVParser gehört ausschließlich zu P4.
@@ -666,8 +765,18 @@ Zulässiger Umfang:
   StockpileAccessFixTest.
 - Je Mod die vollständige Zhuq-/RedBird-, LoadContext-, Handle-, HookTarget-,
   SelectedUnitInfo-, Dependency- und NetworkMode-Migration durchführen.
-- Vorhandene Benutzerarbeit in MoveMoatTest, QueueTest und MoatFillTargetTest nicht
-  zurücksetzen oder durch ältere Analysefassungen ersetzen.
+- In MoveMoatTest sämtliche direkten PolyHook-Detours einschließlich der drei
+  gemeinsamen Moat-Work-Hooks atomar auf RedBird migrieren. Die öffentliche
+  `RegisterImprovedMoatFillingProvider`-Bridge und ihr Ergebnisvertrag `1/0` bleiben
+  erhalten, weil P6 davon abhängt. Der statische Featurezustand darf erst nach
+  vollständig erfolgreichem Commit als Besitzer sichtbar werden.
+- In QueueTest den direkten nativen Remove-Vertrag `(manager, unitId, tribeId)` samt
+  Hash-, Pattern-, RVA-, Grenz- und Rollbacktests beibehalten; nicht auf den fehlerhaften
+  2.0.2-Wrapper zurückwechseln. `QueueTest/NATIVE_CONTRACT.md` muss den bisher nur für
+  1.42.0 genannten Wrapperbefund auf den bestätigten 2.0.2-Stand erweitern.
+- Vorhandene Benutzerarbeit in MoveMoatTest und QueueTest sowie die nach
+  BugfixesAndQoL übernommene Moat-Fill-Implementierung nicht zurücksetzen oder durch
+  ältere Analysefassungen ersetzen.
 
 Übergabe: pro Hook Commit-/Handle-Prüfung, Besitzklassifikation, Patternnachweis,
 Testresultat und Build-/Installationsresultat.
@@ -697,9 +806,16 @@ Feature, Patternnachweise, Tests, Build und Runtime-Marker.
 
 ### 8.8 Paket P6: BugfixesAndQoL
 
-- Alle 20 Zhuqiaomon-Dateien und aktuell 18 Unload-Stellen migrieren.
+- Alle 20 Zhuqiaomon-Dateien, die zusätzlichen PolyHook-Detours der übernommenen
+  `ImprovedMoatFillingFix` und aktuell 18 Unload-Stellen migrieren.
 - SelectedUnitInfo, Gold, sechs Chore-Funktionen, fünf Memory-Schreibpfade,
-  Multiplayer-Spieltempo und Gatehouse-ID gemeinsam abschließen.
+  Multiplayer-Spieltempo, Gatehouse-ID und Moat-Fill gemeinsam abschließen.
+- Den kombinierten Hookbesitz in beiden Konfigurationen testen: BugfixesAndQoL allein
+  installiert genau seinen Standalone-Satz; mit MoveMoatTest besitzt ausschließlich
+  MoveMoatTest die gemeinsamen Hooks und erhält den Aktivierungsprovider. Fehlende oder
+  inkompatible Bridge bleibt ohne Doppelhook fail-closed.
+- Erst nach bestandener kombinierter Abnahme die Moat-Ownership- und
+  MoatFillTargetTest-Ablösungsregeln aus Abschnitt 4.7 in `AGENTS.md` festschreiben.
 - `Shared/GatehouseQueryUnitIdPolicy.cs` auf den 2.0.2-ID-Vertrag bringen; dies ist die
   Voraussetzung für P7.
 - Den effektiven Extender-MaxGameSpeed verwenden und mit 1500 sowie einem bewusst
@@ -734,9 +850,10 @@ offiziellen Update-/Restartpfads.
 
 - Die Inventare aus Abschnitt 1 neu zählen; neue Funde einem abgeschlossenen Paket
   nachziehen, statt nur die alten Sollzahlen zu bestätigen.
-- Alle 55 inventarisierten Projektdateien entweder erfolgreich bauen/testen oder
-  nachvollziehbar als stillgelegt begründen. ChoreTestMod und die alte Linux-Bridge
-  werden dabei nicht gegen 2.0.2 gebaut.
+- Alle 52 aktuellen Projektdateien entweder erfolgreich bauen/testen oder als
+  nachweislich nicht ausführbares Hilfsprojekt begründen. Die drei historischen
+  Runtime-Zeilen ChoreTestMod, MoatFillTargetTest und MPTest sowie die alte Linux-Bridge
+  werden nicht gegen 2.0.2 gebaut.
 - Sämtliche Negativsuchen, CRLF-Prüfungen, Paket-/Manifestprüfungen und die echte
   Host-/Client-Abnahme durchführen.
 - Bereits erfolgreich über `build.bat` installierte Mods nicht grundlos erneut bauen.
@@ -763,15 +880,16 @@ vollständiger Abnahme auf `abgeschlossen`.
 | P1b | ChoreTestMod-Stilllegung verifizieren; ExtremePowers und RandomEvents samt Chore-/Zeittests | P1a |
 | P1c | SerpsModsHost, StartConditions und paketweite Preset-/Host-Abnahme | P1b |
 | P2a | BuildingCosts, BuildingLimit, CheatMod, UnitCosts und UnitLimit | P1 |
-| P2b | AIDefense, APITest, CustomLordUpload, EngineerSiegeFix und VanillaAICExporter | P2a |
-| P2c | MoatFillTargetTest, MPTest, SerpNativeAPI, TrailEditor-Kette und TestMod-LUA-Manifest | P2b |
+| P2b | AIDefense samt UnassignUnit-Adapter, APITest, CustomLordUpload, EngineerSiegeFix und VanillaAICExporter | P2a |
+| P2c | SerpNativeAPI, TrailEditor-Kette, TestMod-LUA-Manifest und Stilllegungsnachweis für MoatFillTargetTest/MPTest | P2b |
 | P3a | ActiveAIVDetector, EnemyGatePathfindingTest und HunterQueryTargetDiagnostic | P0 |
-| P3b | MoatCommandTest, MoveMoatTest, OxTetherIdleFixTest, QueueTest und StockpileAccessFixTest | P3a |
+| P3b | MoveMoatTest samt Moat-Ownership-Bridge und allen PolyHook-Detours | P3a |
+| P3c | MoatCommandTest, OxTetherIdleFixTest, QueueTest samt nativem Remove-Vertrag und StockpileAccessFixTest | P3b |
 | P5a | gemeinsame RedBird-/Scanner-/Handle-Infrastruktur und Hookinventar | P1 |
 | P5b | Stateful-Immediates, Memorypfade und Besitz-/Teardownmigration | P5a |
 | P5c | statische Tests, Build, Installation und später Runtime-Marker | P5b |
-| P6a | SelectedUnitInfo, Gold, Gatehouse-Shared-Policy und Speedvertrag | P1 |
-| P6b | RedBird-Hooks, 18 Unload-Stellen und fünf Memory-Schreibpfade | P6a |
+| P6a | SelectedUnitInfo, Gold, Gatehouse-Shared-Policy, Speedvertrag und Moat-Ownership | P1, P3b |
+| P6b | RedBird-Hooks, 18 Unload-Stellen, fünf Memory-Schreibpfade und Standalone-Moat-Detours | P6a |
 | P6c | sechs Chore-Funktionen, vollständige Tests, Build und Host/Client-Abnahme | P6b |
 | P7a | RedBird-Hooks, zehn Unload-Stellen und Plague-Memorypatch | P6 |
 | P7b | SelectedUnitInfo, Gatehouse-ID, beide Chore-Funktionen, Tests und Build | P7a |
@@ -785,8 +903,10 @@ neu erfundenen Slices in der Evidenzspalte dokumentiert.
 ### Schritt 1: Referenzen und Mindestversion
 
 - Bestätigte 2.0.2-Ausgabe bereitstellen.
-- Alle 37 Projektdateien prüfen; Zhuqiaomon entfernen, RedBird nur bei direkter Nutzung
-  ergänzen und sonstige Low-Level-Abhängigkeiten auf echte Nutzung reduzieren.
+- Alle 34 aktuellen direkten SHCDESE-Projektdateien prüfen; Zhuqiaomon entfernen,
+  RedBird nur bei direkter Nutzung ergänzen und sonstige Low-Level-Abhängigkeiten auf
+  echte Nutzung reduzieren. Die drei stillgelegten historischen Runtime-Projekte nur
+  auf vollständige Entfernung prüfen.
 - Alle Runtime-Plugins auf die Mindestversion 2.0.2 festlegen.
 - Noch nicht bauen; zunächst sämtliche Quellmigrationen und statischen Prüfungen
   abschließen.
@@ -796,8 +916,8 @@ alle Pluginabhängigkeiten sind eindeutig.
 
 ### Schritt 2: LoadContext und RedBird-Grundmigration
 
-- Alle 29 LibraryLoaded-Handler und weitergereichten Initialisierungssignaturen
-  umstellen.
+- Alle 26 verbleibenden LibraryLoaded-Handler und weitergereichten
+  Initialisierungssignaturen umstellen.
 - Die zwölf direkt betroffenen Projekte typweise auf RedBird migrieren.
 - Scannerergebnisse, Hookoptionen, Handleverwurzelung und Fehlerpfade je Feature
   prüfen.
@@ -824,6 +944,9 @@ korrekt.
 
 - SelectedUnitInfo, signiertes Gold, UInt32-Spielzeit und Gatehouse-IDs wie in Abschnitt
   4.6 umstellen.
+- QueueTest behält seinen validierten direkten Remove-Delegate; AIDefense ersetzt alle
+  fünf Aufrufe des fehlerhaften 2.0.2-`UnassignUnit`-Wrappers durch seinen eigenen
+  validierten Adapter. Beide bleiben voneinander unabhängig.
 - Versionsgebundene 1.42-Sonderkorrekturen entfernen, aber den allgemeinen
   ID-/Indexvertrag erhalten.
 - Custom-Lord-/Kulturpfade als Regression prüfen. Da der im alten Plan genannte
@@ -875,6 +998,8 @@ Ausgaben enthalten keine Zhuqiaomon-DLL oder veraltete Extenderreferenz.
 Vor dem ersten Mod-Build müssen Negativsuchen mindestens Folgendes bestätigen:
 
 - kein `Zhuqiaomon` in Quellcode, Projektdateien, Buildlogik oder aktiven Paketen;
+- kein direkter PolyHook2-`NativeDetour` und keine aktive PolyHook2-Referenz; alle
+  tatsächlich benötigten Detours laufen über RedBird;
 - kein LibraryLoaded-Handler mit `(IntPtr, ReadOnlySpan<byte>)`;
 - kein `ChoreNetworkTransport`;
 - keine `ScriptExtenderMultiplayerSyncWorkaround`-Klasse und kein `EnsureInstalled`;
@@ -892,6 +1017,9 @@ Erforderliche Testgruppen:
    nur das byteidentische `AddUnrestrictedJmp` übrig bleiben.
 2. Native Patternprüfung: genau ein Treffer im vorgesehenen PE-Bereich, gültige
    Zieladressen, unveränderte Strides/Offsets und fail-closed Verhalten.
+   Für QueueTest und AIDefense zusätzlich den nativen Remove-Vertrag
+   `(manager, unitId, tribeId)`, erste/letzte gültige IDs, vertauschte IDs,
+   Teilfehler und Rollback prüfen.
 3. SelectedUnitInfo: leere Auswahl, mehrere Einheiten, gemischte Typen, ungültige IDs
    und unveränderte Auswahlreihenfolge.
 4. Gold: null, positive Grenzwerte, unzureichendes Gold, negative/überlaufende
@@ -901,6 +1029,9 @@ Erforderliche Testgruppen:
    und getrennten Besitz der Rabbit-/Camel-/Chicken-Sites prüfen.
 6. Gatehouse: erste und letzte gültige Unit-ID, verbündete/feindliche Gatehouses und
    kein benachbarter Slot durch Off-by-one.
+   Moat-Fill zusätzlich allein mit BugfixesAndQoL, gemeinsam mit MoveMoatTest, mit
+   fehlender/inkompatibler Bridge sowie mit einem von MoveMoat gemeldeten
+   Installationsfehler prüfen; pro Zieladresse darf genau ein Hookbesitzer aktiv sein.
 7. Chore: fehlender Manager, fehlender Packet-Hook, Serialisierungsfehler, Gesamtgröße
    1199, exakt 1200 und 1201 Bytes, pausierte Simulation und keine lokale Mutation bei
    Ablehnung. Im Test dasselbe unveränderte Packetobjekt zweimal mit
@@ -925,14 +1056,20 @@ Client.
 
 Die Migration ist erst abgeschlossen, wenn:
 
-- alle 37 direkt SHCDESE-bezogenen und alle 18 weiteren erfassten Projektdateien gegen
-  den bestätigten 2.0.2-Vertrag geprüft, gebaut/getestet oder nachvollziehbar als
-  stillgelegter ChoreTest-/Linux-Bestand klassifiziert sind;
+- alle 34 aktuellen direkt SHCDESE-bezogenen und alle 18 weiteren Projektdateien gegen
+  den bestätigten 2.0.2-Vertrag geprüft und gebaut/getestet sind; die drei historischen
+  Runtime-Projekte ChoreTestMod, MoatFillTargetTest und MPTest sowie der Linux-Bestand
+  sind nachvollziehbar stillgelegt;
 - jedes verbleibende Runtime-Plugin eine Mindestabhängigkeit auf 2.0.2 besitzt;
-- keine Zhuqiaomon-Abhängigkeit oder -API mehr vorhanden ist;
+- keine Zhuqiaomon-Abhängigkeit oder -API und kein direkter PolyHook2-Detour mehr
+  vorhanden ist;
 - alle RedBird-Hooks einen expliziten Besitz-, Fehler- und Lebenszyklusvertrag haben;
 - Context und Region des Extenders nirgends von einer Mod disposed werden;
 - SelectedUnitInfo, Gold, Zeit und alle ID-Grenzen fachlich korrekt migriert sind;
+- QueueTest und AIDefense den bestätigt fehlerhaften 2.0.2-`UnassignUnit`-Wrapper nicht
+  verwenden und `AGENTS.md` diesen versionsgebundenen Vertrag korrekt wiedergibt;
+- MoveMoatTest und BugfixesAndQoL die gemeinsamen Moat-Work-Hookziele niemals parallel
+  besitzen und `AGENTS.md` den abgenommenen Ownership-Vertrag dokumentiert;
 - Chore-Aktionen bei jeder fehlenden Vorbedingung ohne Mutation abbrechen und keinen
   unbemerkten Steam-Fallback auslösen;
 - der obsolete Settings-Workaround entfernt ist und alle 14 Presetmods die gemeinsamen
