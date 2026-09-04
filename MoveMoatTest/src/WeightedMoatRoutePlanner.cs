@@ -3,7 +3,28 @@ using System.Diagnostics;
 
 namespace MoveMoatTest
 {
-    internal delegate bool FriendlyCompletedMoatPredicate(int playerId, int tileId);
+    internal enum CompletedMoatRelationship : byte
+    {
+        Invalid = 0,
+        Friendly = 1,
+        Enemy = 2
+    }
+
+    internal enum MoatTraversalPolicy : byte
+    {
+        FriendlyOnly = 0,
+        AllowEnemyForDiagnostic = 1
+    }
+
+    internal enum MoatTraversalEdgeKind : byte
+    {
+        Ground = 0,
+        FriendlyMoat = 1,
+        EnemyMoat = 2
+    }
+
+    internal delegate CompletedMoatRelationship CompletedMoatRelationshipResolver(
+        int playerId, int tileId);
 
     internal readonly struct WeightedMovementCostProfile : IEquatable<WeightedMovementCostProfile>
     {
@@ -264,8 +285,8 @@ namespace MoveMoatTest
         private const uint WallOrStairMask = 0x00010900;
         private const uint MoatReconstructionBlockingMask = 0x0A5014B1;
 
-        private static readonly int[] DirectionX = { 0, 1, 1, 1, 0, -1, -1, -1 };
-        private static readonly int[] DirectionY = { -1, -1, 0, 1, 1, 1, 0, -1 };
+        internal static readonly int[] DirectionX = { 0, 1, 1, 1, 0, -1, -1, -1 };
+        internal static readonly int[] DirectionY = { -1, -1, 0, 1, 1, 1, 0, -1 };
 
         private readonly byte* validCoordinates;
         private readonly int* rowLookup;
@@ -274,7 +295,7 @@ namespace MoveMoatTest
         private readonly byte* heightLayer;
         private readonly byte* occupancyLayer;
         private readonly byte* directionMasks;
-        private readonly FriendlyCompletedMoatPredicate isFriendlyCompletedMoat;
+        private readonly CompletedMoatRelationshipResolver resolveCompletedMoatRelationship;
 
         private readonly long[] costs = new long[CoordinateCount];
         private readonly int[] parents = new int[CoordinateCount];
@@ -304,7 +325,7 @@ namespace MoveMoatTest
             byte* heightLayer,
             byte* occupancyLayer,
             byte* directionMasks,
-            FriendlyCompletedMoatPredicate isFriendlyCompletedMoat)
+            CompletedMoatRelationshipResolver resolveCompletedMoatRelationship)
         {
             this.validCoordinates = validCoordinates;
             this.rowLookup = rowLookup;
@@ -313,8 +334,8 @@ namespace MoveMoatTest
             this.heightLayer = heightLayer;
             this.occupancyLayer = occupancyLayer;
             this.directionMasks = directionMasks;
-            this.isFriendlyCompletedMoat = isFriendlyCompletedMoat ??
-                throw new ArgumentNullException(nameof(isFriendlyCompletedMoat));
+            this.resolveCompletedMoatRelationship = resolveCompletedMoatRelationship ??
+                throw new ArgumentNullException(nameof(resolveCompletedMoatRelationship));
 
             for (int node = 0; node < CoordinateCount; node++)
             {
@@ -393,9 +414,11 @@ namespace MoveMoatTest
                         "invalid-tile", stopwatch.Elapsed.TotalMilliseconds);
                     return false;
                 }
-                if (IsCompletedMoat(startTile) && !IsFriendlyMoat(playerId, startTile) ||
+                if (IsCompletedMoat(startTile) &&
+                    GetMoatRelationship(playerId, startTile) != CompletedMoatRelationship.Friendly ||
                     IsCompletedMoat(requestedTargetTile) &&
-                    !IsFriendlyMoat(playerId, requestedTargetTile))
+                    GetMoatRelationship(playerId, requestedTargetTile) !=
+                        CompletedMoatRelationship.Friendly)
                 {
                     summary = WeightedMoatRouteSummary.Failed(
                         "enemy-or-invalid-moat-endpoint", stopwatch.Elapsed.TotalMilliseconds);
@@ -702,17 +725,64 @@ namespace MoveMoatTest
             bool allowReservedTarget,
             out bool moatEdge)
         {
-            moatEdge = false;
-            if (!IsNativeTile(currentTile) || !IsNativeTile(nextTile))
+            bool traversable = TryGetTraversalEdge(
+                playerId,
+                currentX,
+                currentY,
+                currentTile,
+                nextX,
+                nextY,
+                nextTile,
+                direction,
+                targetEndpoint,
+                allowReservedTarget,
+                MoatTraversalPolicy.FriendlyOnly,
+                out MoatTraversalEdgeKind edgeKind);
+            moatEdge = edgeKind != MoatTraversalEdgeKind.Ground;
+            return traversable;
+        }
+
+        internal bool TryGetTraversalEdge(
+            int playerId,
+            int currentX,
+            int currentY,
+            int currentTile,
+            int nextX,
+            int nextY,
+            int nextTile,
+            int direction,
+            bool targetEndpoint,
+            bool allowReservedTarget,
+            MoatTraversalPolicy policy,
+            out MoatTraversalEdgeKind edgeKind)
+        {
+            edgeKind = MoatTraversalEdgeKind.Ground;
+            if (direction < 0 || direction >= DirectionX.Length ||
+                currentX < 0 || currentX >= MapWidth ||
+                currentY < 0 || currentY >= MapWidth ||
+                nextX < 0 || nextX >= MapWidth ||
+                nextY < 0 || nextY >= MapWidth ||
+                !IsNativeTile(currentTile) || !IsNativeTile(nextTile))
                 return false;
 
             bool currentMoat = IsCompletedMoat(currentTile);
             bool nextMoat = IsCompletedMoat(nextTile);
-            if (currentMoat && !IsFriendlyMoat(playerId, currentTile) ||
-                nextMoat && !IsFriendlyMoat(playerId, nextTile))
+            CompletedMoatRelationship currentRelationship = currentMoat
+                ? GetMoatRelationship(playerId, currentTile)
+                : CompletedMoatRelationship.Friendly;
+            CompletedMoatRelationship nextRelationship = nextMoat
+                ? GetMoatRelationship(playerId, nextTile)
+                : CompletedMoatRelationship.Friendly;
+            if (currentRelationship == CompletedMoatRelationship.Invalid ||
+                nextRelationship == CompletedMoatRelationship.Invalid)
             {
                 return false;
             }
+            bool enemyMoat =
+                currentRelationship == CompletedMoatRelationship.Enemy ||
+                nextRelationship == CompletedMoatRelationship.Enemy;
+            if (enemyMoat && policy == MoatTraversalPolicy.FriendlyOnly)
+                return false;
 
             bool ordinaryEdge = (directionMasks[direction] & occupancyLayer[currentTile]) != 0;
             if (!currentMoat && !nextMoat)
@@ -726,7 +796,9 @@ namespace MoveMoatTest
                 return true;
             }
 
-            moatEdge = true;
+            edgeKind = enemyMoat
+                ? MoatTraversalEdgeKind.EnemyMoat
+                : MoatTraversalEdgeKind.FriendlyMoat;
             if (ordinaryEdge)
             {
                 if (((tileFlags[currentTile] | tileFlags[nextTile]) & WallOrStairMask) != 0)
@@ -747,7 +819,8 @@ namespace MoveMoatTest
                 return false;
             }
             if ((direction & 1) != 0 &&
-                !IsValidMoatDiagonal(playerId, currentX, currentY, nextX, nextY))
+                !IsValidMoatDiagonal(
+                    playerId, currentX, currentY, nextX, nextY, policy))
             {
                 return false;
             }
@@ -755,22 +828,34 @@ namespace MoveMoatTest
         }
 
         private bool IsValidMoatDiagonal(
-            int playerId, int currentX, int currentY, int nextX, int nextY)
+            int playerId,
+            int currentX,
+            int currentY,
+            int nextX,
+            int nextY,
+            MoatTraversalPolicy policy)
         {
             int firstTile = GetTileId(nextX, currentY);
             int secondTile = GetTileId(currentX, nextY);
             return IsValidCoordinate(nextX, currentY) &&
                 IsValidCoordinate(currentX, nextY) &&
-                IsDiagonalCornerUsable(playerId, firstTile) &&
-                IsDiagonalCornerUsable(playerId, secondTile);
+                IsDiagonalCornerUsable(playerId, firstTile, policy) &&
+                IsDiagonalCornerUsable(playerId, secondTile, policy);
         }
 
-        private bool IsDiagonalCornerUsable(int playerId, int tileId)
+        private bool IsDiagonalCornerUsable(
+            int playerId, int tileId, MoatTraversalPolicy policy)
         {
             if (!IsNativeTile(tileId))
                 return false;
             if (IsCompletedMoat(tileId))
-                return IsFriendlyMoat(playerId, tileId);
+            {
+                CompletedMoatRelationship relationship =
+                    GetMoatRelationship(playerId, tileId);
+                return relationship == CompletedMoatRelationship.Friendly ||
+                    relationship == CompletedMoatRelationship.Enemy &&
+                    policy == MoatTraversalPolicy.AllowEnemyForDiagnostic;
+            }
             return IsUsableMoatAdjacentTile(tileId, false);
         }
 
@@ -786,17 +871,29 @@ namespace MoveMoatTest
             return buildingLayer[tileId] == 0 || allowReservedEndpoint;
         }
 
-        private bool IsFriendlyMoat(int playerId, int tileId)
+        private CompletedMoatRelationship GetMoatRelationship(int playerId, int tileId)
         {
             byte state = moatClassification[tileId];
             if (state == 0)
             {
-                state = isFriendlyCompletedMoat(playerId, tileId) ? (byte)1 : (byte)2;
+                CompletedMoatRelationship relationship =
+                    resolveCompletedMoatRelationship(playerId, tileId);
+                state = relationship == CompletedMoatRelationship.Friendly
+                    ? (byte)1
+                    : relationship == CompletedMoatRelationship.Enemy ? (byte)2 : (byte)3;
                 moatClassification[tileId] = state;
                 classifiedTiles[classifiedCount++] = tileId;
             }
-            return state == 1;
+            return state == 1
+                ? CompletedMoatRelationship.Friendly
+                : state == 2
+                    ? CompletedMoatRelationship.Enemy
+                    : CompletedMoatRelationship.Invalid;
         }
+
+        internal void BeginReachabilityProbe() => ResetClassifications();
+
+        internal void EndReachabilityProbe() => ResetClassifications();
 
         private bool IsCompletedMoat(int tileId) =>
             (tileFlags[tileId] & CompletedMoatTileFlag) != 0;

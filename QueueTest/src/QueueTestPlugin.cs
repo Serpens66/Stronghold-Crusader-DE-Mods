@@ -1,0 +1,64 @@
+using BepInEx;
+using SHCDESE.API.LowLevel;
+using System;
+
+namespace QueueTest
+{
+    [BepInDependency(ScriptExtenderGuid, BepInDependency.DependencyFlags.HardDependency)]
+    [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
+    public sealed class QueueTestPlugin : BaseUnityPlugin
+    {
+        private const string ScriptExtenderGuid = "000shcdese";
+        public const string PluginGuid = "QueueTest_Serp";
+        public const string PluginName = "Queue Test";
+        public const string PluginVersion = "1.0.0";
+
+        // SHCDE destroys the original plugin component during startup. The runtime therefore
+        // remains rooted statically and owns process-lifetime hooks and subscriptions.
+        private static QueueRuntime runtime;
+        private static bool libraryLoadedHandled;
+
+        private void Awake()
+        {
+            if (runtime != null)
+                return;
+
+            runtime = new QueueRuntime(Logger);
+            CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
+            Shared.DebugLogHelper.LogInfo(Logger, $"{PluginName} {PluginVersion} loaded; waiting for CrusaderDE.dll.");
+        }
+
+        private void OnDestroy()
+        {
+            Shared.DebugLogHelper.LogInfo(
+                Logger,
+                "Plugin component destroyed during startup; keeping QueueTest runtime and native hook rooted.");
+        }
+
+        private void OnCrusaderLibraryLoaded(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
+        {
+            if (libraryLoadedHandled)
+                return;
+
+            try
+            {
+                if (!Shared.DebugLogHelper.ReportNativeLibraryVersion(
+                        Logger,
+                        PluginName,
+                        requireCurrentVersion: true))
+                {
+                    return;
+                }
+
+                runtime.Install(libraryHandle, memory);
+                libraryLoadedHandled = true;
+            }
+            catch (Exception exception)
+            {
+                Shared.DebugLogHelper.LogError(
+                    Logger,
+                    $"QueueTest initialization failed; Vanilla behavior remains active: {exception}");
+            }
+        }
+    }
+}

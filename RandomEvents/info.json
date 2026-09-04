@@ -3,10 +3,16 @@
   "Author": "Serpens66",
   "Name": "Random Events",
   "Description": "Runs configurable Vanilla scenario events in skirmishes, Trail missions, and multiplayer games.",
-  "Version": "1.0.34",
+  "Version": "1.0.35",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.35",
+      "Changes": [
+        "Exclude indestructible stockpiles from bandit raid destinations and log each activated group's selected building type."
+      ]
+    },
     {
       "Version": "1.0.34",
       "Changes": [

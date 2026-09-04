@@ -1919,7 +1919,7 @@ namespace RandomEvents
                 building->r_GlobalId != target.BuildingGlobalId ||
                 building->r_AliveState != AliveState.IsAlive ||
                 building->r_PlayerIdOwner != pending.TargetPlayerId ||
-                IsKeepType(building->r_BuildingType))
+                !BanditTargetEligibility.IsEligibleStructureType(building->r_BuildingType))
             {
                 LogWarning(
                     $"Bandit group activation skipped: ownerPlayerId={pending.OwnerPlayerId}, " +
@@ -2002,6 +2002,10 @@ namespace RandomEvents
                     $"Vanilla rejected MoveHere for bandit tribe {tribeId}.");
             }
 
+            LogDebug(
+                $"Bandit group activated: ownerPlayerId={pending.OwnerPlayerId}, targetPlayerId={pending.TargetPlayerId}, " +
+                $"tribeId={tribeId}, targetBuildingId={target.BuildingId}, targetBuildingType={building->r_BuildingType}, " +
+                $"targetTile=({target.TileX},{target.TileY}), command=MoveHerePosition.");
         }
 
         private static unsafe List<BanditMoveTarget> FindBanditMoveTargets(
@@ -2016,7 +2020,7 @@ namespace RandomEvents
                 if (building.r_PlayerIdOwner != targetPlayerId ||
                     building.r_AliveState != AliveState.IsAlive ||
                     building.r_GlobalId == 0 ||
-                    IsKeepType(building.r_BuildingType) ||
+                    !BanditTargetEligibility.IsEligibleStructureType(building.r_BuildingType) ||
                     !TryFindBanditApproachTile(in building, sourcePathComponent, out int tileX, out int tileY))
                 {
                     continue;
@@ -2031,13 +2035,6 @@ namespace RandomEvents
             }
             return targets;
         }
-
-        private static bool IsKeepType(eStructs buildingType) =>
-            buildingType == eStructs.STRUCT_KEEP_ONE ||
-            buildingType == eStructs.STRUCT_KEEP_TWO ||
-            buildingType == eStructs.STRUCT_KEEP_THREE ||
-            buildingType == eStructs.STRUCT_KEEP_FOUR ||
-            buildingType == eStructs.STRUCT_KEEP_FIVE;
 
         private static bool TryFindBanditApproachTile(
             in GameBuilding building,
@@ -2217,7 +2214,7 @@ namespace RandomEvents
                 if (building.r_PlayerIdOwner == targetPlayerId &&
                     building.r_AliveState == AliveState.IsAlive &&
                     building.r_GlobalId != 0 &&
-                    !IsKeepType(building.r_BuildingType) &&
+                    BanditTargetEligibility.IsEligibleStructureType(building.r_BuildingType) &&
                     HasReachableBanditApproach(in building, sourcePathComponent))
                 {
                     return true;

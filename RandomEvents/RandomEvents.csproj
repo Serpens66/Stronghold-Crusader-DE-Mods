@@ -40,6 +40,7 @@
     <Compile Include="..\Shared\SerpLocalization.cs"><Link>Shared\SerpLocalization.cs</Link></Compile>
     <Compile Include="src\RandomEventDefinitions.cs" />
     <Compile Include="src\ArcherSourceNativeLayout.cs" />
+    <Compile Include="src\BanditTargetEligibility.cs" />
     <Compile Include="src\NativeBanditEventSupport.cs" />
     <Compile Include="src\NativeVanillaEventDispatcher.cs" />
     <Compile Include="src\NativeWildlifeEventDispatcher.cs" />

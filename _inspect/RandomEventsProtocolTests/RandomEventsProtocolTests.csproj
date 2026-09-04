@@ -13,7 +13,7 @@
   <ItemGroup>
     <Reference Include="System" /><Reference Include="System.Core" /><Reference Include="System.Security" />
     <Reference Include="BepInEx"><HintPath>$(GameDir)\BepInEx\core\BepInEx.dll</HintPath><Private>false</Private></Reference>
-    <Reference Include="SHCDESE"><HintPath>$(ExtenderDir)\SHCDESE.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="SHCDESE"><HintPath>$(ExtenderDir)\SHCDESE.dll</HintPath><Private>true</Private></Reference>
     <Reference Include="MessagePack"><HintPath>$(ExtenderDir)\MessagePack.dll</HintPath><Private>true</Private></Reference>
     <Reference Include="MessagePack.Annotations"><HintPath>$(ExtenderDir)\MessagePack.Annotations.dll</HintPath><Private>true</Private></Reference>
     <Reference Include="System.Buffers"><HintPath>$(ExtenderDir)\System.Buffers.dll</HintPath><Private>true</Private></Reference>
@@ -26,6 +26,7 @@
     <Compile Include="..\..\Shared\DebugLogHelper.cs"><Link>DebugLogHelper.cs</Link></Compile>
     <Compile Include="..\..\Shared\NativePatternResolver.cs"><Link>NativePatternResolver.cs</Link></Compile>
     <Compile Include="..\..\RandomEvents\src\ArcherSourceNativeLayout.cs"><Link>ArcherSourceNativeLayout.cs</Link></Compile>
+    <Compile Include="..\..\RandomEvents\src\BanditTargetEligibility.cs"><Link>BanditTargetEligibility.cs</Link></Compile>
     <Compile Include="..\..\RandomEvents\src\RandomEventDefinitions.cs"><Link>RandomEventDefinitions.cs</Link></Compile>
     <Compile Include="..\..\RandomEvents\src\RandomEventsBatchValidator.cs"><Link>RandomEventsBatchValidator.cs</Link></Compile>
     <Compile Include="..\..\RandomEvents\src\RandomEventsChorePacket.cs"><Link>RandomEventsChorePacket.cs</Link></Compile>

@@ -8,7 +8,7 @@ set "LOCAL_SCRIPT_EXTENDER_ROOT=%PROJECT_DIR%..\shcde-script-extender"
 set "LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT=%LOCAL_SCRIPT_EXTENDER_ROOT%\src\SHCDESE.BepInEx\bin\net481"
 set "LOCAL_SCRIPT_EXTENDER_MOD_OUTPUT=%LOCAL_SCRIPT_EXTENDER_ROOT%\mod_output\000shcdese"
 set "GAME_SCRIPT_EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
-set "PLUGIN_NAME=ChoreTestMod_Serp"
+set "PLUGIN_NAME=MoatFillTargetTest_Serp"
 set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\%PLUGIN_NAME%"
 set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\%PLUGIN_NAME%"
 set "EXTENDER_DIR="
@@ -33,23 +33,27 @@ if exist "%LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT%\SHCDESE.dll" (
   set "EXTENDER_DIR=%GAME_SCRIPT_EXTENDER_DIR%"
 ) else goto build_failed
 
+pushd "%PROJECT_DIR%"
+"%MSBUILD%" tests\MoatFillTargetTest.Tests.csproj /p:Configuration=Debug
+if errorlevel 1 goto build_failed_popd
+"%PROJECT_DIR%tests\bin\MoatFillTargetTest.Tests.exe"
+if errorlevel 1 goto build_failed_popd
+popd
+
 if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"
 pushd "%PROJECT_DIR%"
-"%MSBUILD%" ChoreTestMod.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+"%MSBUILD%" MoatFillTargetTest.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
 if errorlevel 1 goto build_failed_popd
 popd
 
 copy /Y "%PROJECT_DIR%info.json" "%LOCAL_PLUGIN_DIR%\info.json" >nul
-if not exist "%LOCAL_PLUGIN_DIR%\ChoreTestMod.dll" goto package_failed
+if not exist "%LOCAL_PLUGIN_DIR%\MoatFillTargetTest.dll" goto package_failed
 if not exist "%LOCAL_PLUGIN_DIR%\info.json" goto package_failed
 
 if exist "%GAME_PLUGIN_DIR%\" (
-  rem Keep player-created lobby settings while replacing all packaged files.
   for /D %%D in ("%GAME_PLUGIN_DIR%\*") do (
-    if /I not "%%~nxD"=="LobbyModSettings" (
-      rmdir /S /Q "%%~fD"
-      if errorlevel 1 goto copy_failed
-    )
+    rmdir /S /Q "%%~fD"
+    if errorlevel 1 goto copy_failed
   )
   for %%F in ("%GAME_PLUGIN_DIR%\*") do (
     if exist "%%~fF" if not exist "%%~fF\" (
@@ -61,7 +65,7 @@ if exist "%GAME_PLUGIN_DIR%\" (
 xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Q /Y >nul
 if errorlevel 1 goto copy_failed
 
-echo Chore Test Mod built and installed successfully.
+echo Moat Fill Target Test built and installed successfully.
 if "%NO_PAUSE%"=="0" pause
 exit /b 0
 

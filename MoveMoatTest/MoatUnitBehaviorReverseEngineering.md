@@ -2929,8 +2929,9 @@ zentralen State-Dispatcher `0x13F540` (historisch bestätigt `0x13E580`) gilt:
 
 - Command `6` ruft `0x69D60(..., 1)` und `0x6AF60(..., 1, ...)` auf, wählt damit das nächste von
   Vanilla akzeptierte Aushebeziel und setzt den Arbeitszustand `0x7C`;
-- Command `7` ruft `0x69D60(..., 2)` und `0x6AF60(..., 2, ...)` auf, wählt das nächste von
-  Vanilla akzeptierte Zuschüttziel und setzt den Arbeitszustand `0x7D`;
+- Command `7` ruft `0x69D60(..., 2)`, danach zunächst `0x6AF60(..., 1, ...)` für das
+  Ziel-Moat und schließlich `0x6AF60(..., 2, ...)` für das Annäherungstile auf. So wählt er das
+  nächste von Vanilla akzeptierte Zuschüttziel und setzt den Arbeitszustand `0x7D`;
 - beide Fälle reichen das von Vanilla bestimmte freie Arbeits-/Annäherungstile anschließend an
   `0x196280` weiter;
 - Modus `1` in `0x69D60` vergleicht die Allianzzuordnung des Moat-Besitzers und umfasst deshalb
@@ -3204,4 +3205,356 @@ Für Spielupdates müssen `0x11B520`, sein per-Unit-Aufruf von `0x196280`, der n
 `0x123460` und die Schreibstellen von `p_PathPlanSize` erneut gemeinsam geprüft werden. Die
 Erkenntnisse gelten für SHA-256
 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+
+### 15.28 Automatische Arbeitsziele hinter einem freundlichen fertigen Moat
+
+Der kombinierte Editor-/Skirmish-Lauf vom 4. September 2026 bestätigt, dass die zentrale
+Builderveröffentlichung für bereits ausgewählte Arbeitsziele funktioniert. Im letzten
+Spielabschnitt erschienen 289 `dig-moat-work`- und 23 `fill-moat-work`-Einträge, darunter 304
+`automatic-follow-up`-Einträge. Mehrere Dig- und Fill-Folgewege wurden mit
+`captureSource=unit-builder` gewichtet durch einen freundlichen fertigen Moat veröffentlicht;
+MoveMoat-Exceptions traten nicht auf. Ein ausschließlich hinter einem eigenen fertigen Moat
+liegendes nächstes Arbeitstile erzeugte dagegen weder `MoveHere` noch einen Buildereintrag. Der
+Abbruch liegt damit sicher vor `0x196280 -> 0xF4930`.
+
+Die hashgleiche Baseline zeigt zwei unterschiedliche Vanilla-Vorprüfungen innerhalb derselben
+zentralen Moat-Zielsuche `0x69D60`:
+
+- Bei Beziehungstyp 1 (eigenen oder verbündeten geplanten Moat ausheben) vergleicht Vanilla die
+  Start- und Zielregion. Bei einer Trennung ruft es `0x196840`, danach je nach Modus `0xE7C40`
+  und `0xE2610` auf. Ein hinter einem bereits fertigen Moat liegender geplanter Tile wird hier
+  verworfen, bevor Vanilla ihn bewerten und reservieren kann.
+- Bei Beziehungstyp 2 (feindlichen Moat zuschütten) ruft `0x69D60` den nur von dieser Funktion
+  verwendeten Helper `0x6C490` auf. Er akzeptiert einen Ziel-Moat nur, wenn mindestens eines der
+  acht benachbarten Arbeitstiles höchstens Zielhöhe plus `0x10` besitzt und in der
+  Ausgangsregion liegt.
+  `0x6AF60(..., mode=2)` wiederholt diese Regionsbedingung bei der Wahl des konkreten
+  Annäherungstiles. Deshalb genügt eine spätere Builderfreigabe auch für Fill-Folgeziele nicht.
+
+Die implementierte Erweiterung umschließt `0x69D60` Vanilla-first mit einem kurzlebigen Scope aus
+Unit, Spieler, Beziehungstyp, Starttile und Kartenepoch. Für Dig dürfen `0xE2610` und `0xE7C40`
+nur nach ihrem negativen Ergebnis und nur bei einer notwendigen owner-sicheren Route durch einen
+eigenen oder verbündeten fertigen Moat positiv werden. Vanilla enumeriert, bewertet und reserviert
+den geplanten Moat weiterhin selbst. Der jeweils zweite native Helperparameter ist dabei der
+Spielerfilter; ältere interne Diagnosenamen wie `movementClass` ändern diesen bestätigten ABI- und
+Datenflussvertrag nicht.
+
+Für Fill bleibt auch die native Acht-Nachbar-Reihenfolge unverändert: Nord, Nordost, Ost, Südost,
+Süd, Südwest, West, Nordwest. `0x6C490` läuft zuerst vollständig Vanilla. Nach dessen Ergebnis 0
+wird ausschließlich die Regionsbedingung erweitert; Höhen-, Bewegungs-, Owner- und
+Hindernisprüfung bleiben zwingend. Zulässige Annäherungstiles werden nur für den aktuellen
+`0x69D60`-Aufruf gehalten. Der Command-7-Pfad ruft danach zunächst
+`0x6AF60(..., mode=1)` für das Ziel-Moat und anschließend `0x6AF60(..., mode=2)` für das
+Annäherungstile auf. Nur der exakt passende positive Mode-1-Aufruf darf die Zuordnung bis zu
+diesem Mode-2-Aufruf erhalten. Nach dessen eigenem Ergebnis 0 darf das bereits validierte Tile
+verwendet und Vanillas bestätigte Ausgabefelder geschrieben werden:
+
+- `tileManager + 0x2038E40`: Tile-ID des ausgewählten Ziel-Moats;
+- `tileManager + 0x2038E38`: X des Annäherungstiles;
+- `tileManager + 0x2038E3C`: Y des Annäherungstiles.
+
+Der feindliche Moat darf dabei Ziel eines Fill-Auftrags, aber nie Traversierungskante der Route
+sein. Wasser, Mauern und feindliche fertige Moats bleiben gesperrt. Die kurzlebige Zuordnung wird
+nach dem passenden Resolver-Aufruf, bei Abweichung, Fehler oder Kartenwechsel verworfen. Es gibt
+keinen commandübergreifenden Cache und keinen Hook auf Command 6, Command 7 oder einen einzelnen
+AI-State.
+
+Für den kanonischen Hash sind zusätzlich folgende Verträge statisch gebunden:
+
+- `0x69D60`, historischer bestätigter Match `0x68FD0`, ist der gemeinsame Ziel-Enumerator;
+- `0x6AF60`, historischer bestätigter Match `0x6A1D0`, löst Ziel- beziehungsweise Arbeitstile auf;
+- `0x6C490`, historischer bestätigter Match `0x6B700`, prüft die Fill-Nachbarschaft;
+- `0x69EE6 -> 0x6C490`, `0x69F91 -> 0x196840`, `0x69FE3 -> 0xE7C40` sowie
+  `0x6A014/0x6A0C2 -> 0xE2610` bilden den kontrollierten inneren Callgraph.
+
+Bei einem Spielupdate müssen alle drei Funktionen, die fünf inneren Calls, Moat-Recordlayout,
+Nachbarreihenfolge und die drei Ausgabefelder gemeinsam wiedergefunden werden. Ein Treffer nur auf
+den großen Dispatcher `0x13F540` oder auf den späteren Builder reicht ausdrücklich nicht aus.
+
+### 15.29 Arbeitsziel-Handoff und native Shift-Wegpunktqueue
+
+Der erste funktionale Arbeitszielbuild konnte in `0x69D60` einen Dig-Kandidaten hinter einem
+freundlichen fertigen Moat auswählen, führte ihn aber nicht zuverlässig aus. Die Logs belegen
+beispielsweise einen per Fallback gewählten Moat mit gültiger Zielregion, ohne dass für dieselbe
+Unit danach ein Builderlauf erschien. Ursache ist die Lebensdauer des Scopes: Die
+Regionsfreigabe gilt nur während `0x69D60`; nach dessen Rückkehr ruft der State-Dispatcher erst
+`0x6AF60` und anschließend `0x196280` auf. Ein zentraler Builder kann einen Pfad nicht retten,
+wenn `0x196280` bereits bei seiner Regionsvorprüfung abbricht.
+
+Der korrigierte Vertrag verwendet deshalb einen einmaligen Handoff, ohne den Dispatcher oder
+einen Arbeits-AI-State zu hooken:
+
+1. Nur wenn der schließlich von Vanilla gewählte Moat zu genau einer zuvor owner-sicher
+   freigegebenen Zielregion gehört, wird sein Record mit Moat-ID, Tile-ID, X/Y und Startposition
+   gebunden.
+2. `0x6AF60` läuft unverändert zuerst. Nur wenn dessen Rückgabe und die von Vanilla geschriebenen
+   Zielglobals exakt demselben Record entsprechen, wird die Route erneut owner-sicher geprüft.
+3. Der unmittelbar folgende `0x196280` erhält einen `PlanScope` für genau diese Unit und dieses
+   Zieltile. Dig und Fill verwenden denselben Handoff; bei Fill ist das Ziel das bereits von
+   Vanillas Nachbarlogik bestimmte Annäherungstile.
+4. Der Scope wird beim passenden zentralen Planer-/Builderlauf konsumiert. Wird dieser synchrone
+   Übergang nicht erreicht, löscht ihn spätestens der nächste Simulationstick. Abweichende Unit,
+   Moat-ID, Startposition, Tilekoordinate, Kartenepoch oder Ownerprüfung bleiben Vanilla.
+
+Dies entspricht dem hashgleichen Kontrollfluss `0x13F540`: Command 6 setzt nach
+`0x6AF60(..., mode=1)` zwar den globalen Moatmodus und ruft dann `0x196280`, doch dessen spätere
+Regions- und Builderphasen benötigen weiterhin den konkreten owner-qualifizierten Plan. Command 7
+ruft zusätzlich `0x6AF60(..., mode=2)` auf; daher muss der Fill-Handoff an dessen tatsächliches
+Annäherungstile gebunden sein.
+
+Für die Shift-Wegpunktqueue zeigt die Baseline einen anderen zentralen Vertrag:
+
+- `0x11C3A0` ist ein 71 Byte großer Append-Helper. Er schreibt X/Y an
+  `tribe+0x5B4+index*4`, `index+1` nach `tribe+0x5DE` und den Bewegungsmodus nach
+  `tribe+0x582`. Sein einziger Caller ist die Chore-8-Unpackseite `0x176C0`.
+- `0x11A980` ist der allgemeine Vanilla-Fortschrittspfad. Nach der Gruppenbereitschaftsprüfung
+  `0x1178D0` erhöht er den Index bei `tribe+0x5DC`, liest das nächste Koordinatenpaar und ruft
+  `0x11B520` mit `isNewOrder=0` auf.
+- Mehrere spezialisierte Gruppenstates bei `0x124890`, `0x124E80`, `0x125290`, `0x1256A0`,
+  `0x1259D0` und `0x125D00` lesen dieselben Queuefelder und enden ebenfalls in `0x11B520`.
+  Es gibt daher keinen einzelnen gemeinsamen Queue-Consumer vor `0x11B520`, den man sicher
+  funktional öffnen könnte.
+
+`QueueTest` besitzt bereits den Whole-Function-Detour auf `0x11C3A0`. `MoveMoatTest` installiert
+dort absichtlich keinen zweiten Hook. Stattdessen beobachtet es den nativen Queuezustand bei jedem
+bereits durch den Script Extender detourten `0x11B520`-Pre/Post sowie auf Simulationsticks nur bei
+tatsächlicher Zustandsänderung. Der Diagnoseeintrag `native-waypoint-queue` enthält Index, Count,
+Modus, aktuelles und letztes Ziel. Damit unterscheidet ein weiterer Test eindeutig:
+
+- kein Count-Anstieg: der Muss-Moat-Klick wurde vor dem nativen Append blockiert;
+- Count steigt, aber kein `move-command` für das Ziel: ein spezialisierter Consumer verwirft es
+  vor `0x11B520`;
+- `move-command newOrder=False`, Rückgabe 0 und anschließender Indexsprung: `0x11B520` selbst hat
+  den Wegpunkt abgelehnt;
+- positiver Builder mit anschließendem Indexsprung: der Fehler liegt im Pfadverbrauch.
+
+Die Queue-Diagnose verändert weder Queuefelder noch Koordinaten, greift nicht in `QueueTest` ein
+und wird nach zwei unveränderten leeren Ticks entfernt. Erkenntnisse und RVAs gelten für
+SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+
+### 15.33 Direkte Moat-Endziele und initialer Fill-Auftrag
+
+Der nächste Editorlauf bestätigt zwei Abbrüche, die nicht im eigentlichen Tile-Builder liegen.
+Ein direkter Move-Klick auf einen eigenen fertigen Moat zeigte bereits den grünen Cursor, erzeugte
+aber kein `OnTribeIssueOrderMoveHere`-Ereignis. Ein direkter Zuschüttauftrag für einen feindlichen
+Moat hinter einem eigenen fertigen Moat erzeugte zwar den Target-Command `7`, aber ebenfalls
+keinen anschließenden `MoveHere`-/Builderlauf. Automatisch ausgewählte Fill-Folgeziele
+funktionierten dagegen über den in Abschnitt 15.29 beschriebenen Arbeitsziel-Handoff. In beiden
+Fällen traten keine MoveMoat-Exceptions auf.
+
+Die hashgleiche Baseline lokalisiert den direkten Move-Abbruch im Cursor-Dispatcher `0x8C5F0`.
+Seine vier Calls bei `0x8F7BA`, `0x8FD3C`, `0x8FDC6` und `0x8FE54` führen in den gemeinsamen
+Command-Stager `0x195E30` (historisch bestätigt `0x194DF0`). Dieser schreibt zunächst die
+Cursorzielglobals, ermittelt Ziel- und Startregion und ruft bei `0x195F46` den Regionshelper
+`0xE2610` auf. Ein Ziel auf einem fertigen Moat besitzt Region 0 und scheitert dort trotz des zuvor
+korrekt freigegebenen Cursors. Steht die repräsentative ausgewählte Unit selbst auf einem fertigen
+Moat, kehrt `0x195E30` sogar bereits vor dieser Regionsprüfung zurück, sobald Bit 30 des aktuellen
+Tiles gesetzt ist. Erst ein positives Staging-Ergebnis gibt über `0x3BC0` Vanillas eigentlichen
+Move-Command aus.
+
+Der neue Adapter umschließt ausschließlich `0x195E30` und führt Vanilla zuerst mit einem
+kurzlebigen, exakt an Kartenepoch, Tribe, Spieler, Auswahl und Zieltile gebundenen Scope aus. Er
+wird nur bewaffnet, wenn mindestens eine lebende, nach Command 6 grabfähige Unit das Ziel über
+eine owner-sichere Route erreicht. Ein fertiges Moat-Endziel muss selbst eigen oder verbündet
+sein. Der innere `0xE2610`-Aufruf darf nur in diesem Scope nach Vanilla 0 als boolesche
+Staging-Prüfung positiv werden; sein Ergebnis wird hier nicht an `0xDF720` weitergereicht. Beginnt
+die repräsentative Unit auf einem freundlichen fertigen Moat, wird Bit 30 ausschließlich für die
+Dauer dieses synchronen `0x195E30`-Aufrufs verborgen und in `finally` wiederhergestellt. Die
+echten Tileflags sind damit vor Command-, Planer- und Pfadverbrauch wieder vorhanden. Capability,
+Owner und reale Kanten werden in den späteren per-Unit-Phasen erneut geprüft. Für das tatsächliche
+Region-0-Endziel darf `0x117BC0` anschließend Vanillas echten gemeinsamen Moat-Builderpfad
+auswählen; ein synthetischer PCL-Connector wird weiterhin nicht erzeugt.
+
+Der direkte Fill-Abbruch liegt in einer anderen gemeinsamen Kette. Command 7 in `0x11E960` ruft
+bei `0x120E9D` den Helper `0xE7F60` (historisch bestätigt `0xE70D0`) auf. Dieser enumeriert
+mögliche Annäherungsfelder, prüft deren Region bei `0xE81EB` mit `0xE2610`, wählt das dem
+angeforderten Moat nächstgelegene erreichbare Feld und schreibt dessen X/Y nach
+`pathManager+0x18/+0x1C`. Liefert er 0, gibt Command 7 absichtlich 1 zurück, ohne in Command 6
+fallthrough zu gehen und ohne Units zu aktualisieren. Das erklärt den scheinbar erfolgreichen
+Target-Command ohne Bewegung.
+
+Während eines synchronen `Unknown7`-Events darf deshalb nur der innere Regionsvergleich von
+`0xE7F60` nach Vanilla 0 positiv werden. Der Scope bindet den feindlichen Ziel-Moat, den Tribe,
+den Spieler und die lebenden grabfähigen Command-Units. Ein Kandidat wird nur akzeptiert, wenn
+seine Region ausschließlich über einen eigenen oder verbündeten fertigen Moat erreichbar ist;
+Wasser, Mauern und feindliche Moats bleiben Traversierungssperren. Vanilla bestimmt weiterhin
+selbst das konkrete Annäherungstile und führt danach seinen unveränderten Command-6-/`MoveHere`-
+Pfad aus. Gleiche positive Startregionen werden pro synchronem Aufruf nur einmal geprüft, und der
+direkte Move-Stager beendet seine Suche nach der ersten legalen Unit, damit große Gruppen keine
+Vielfachen vollständiger Reachability-Aufbauten verursachen.
+
+Für Updates sind zusätzlich die Entrybytes von `0x195E30` und `0xE7F60`, alle vier
+Dispatcher-Calls, `0x195F46 -> 0xE2610`, `0x120E9D -> 0xE7F60` und
+`0xE81EB -> 0xE2610` gemeinsam zu validieren. Die funktionalen Scopes bleiben fail-closed, wenn
+eine dieser Bindungen nicht mehr zum kanonischen Hash passt.
+
+Diese Auswertung gilt unmittelbar für einen Lauf nur mit `MoveMoatTest`. Wenn `QueueTest`
+gleichzeitig aktiv ist, kann dessen eigener Whole-Function-Detour den nativen Append absichtlich
+abfangen und den Wegpunkt ausschließlich in seiner verwalteten Queue speichern. Dann beweist ein
+ausbleibender nativer Count-Anstieg keine Cursorblockade; maßgeblich sind zusätzlich
+`QueueTest`'s `ENQUEUE_MOVE_CHORE`-/`ENQUEUE_MOVE_EVENT`- und Dispatch-Einträge. Diese Trennung
+verhindert, dass das erwartete Zusammenspiel beider Testmods als Vanilla-Fehler fehlinterpretiert
+wird.
+
+Der Script Extender erzeugt bei `SkipOriginalFunction` außerdem kein Post-Event. Deshalb verwirft
+`MoveMoatTest` einen am nächsten Simulationstick noch aktiven Move- oder Target-Command-Scope
+fail-closed und protokolliert `move-command-incomplete` beziehungsweise
+`target-command-incomplete`. Ohne diese Bereinigung könnte ein von `QueueTest` bewusst behandelter
+Shift-Befehl einen rein synchron vorgesehenen Moat-Kontext in einen späteren, fremden Aufruf
+verschleppen.
+
+### 15.30 Region-0-Fill-Endpunkte und früher Queue-Abbruch
+
+Der nachfolgende Fill-Test präzisierte die Endpoint-Semantik. In 26 beobachteten
+`0x69D60(..., relationshipMode=2)`-Auswahlen fand die erste Implementierung kein einziges
+Fallback-Annäherungstile (`checkedApproachTiles=0`, `work-approach-tile=0`). Ursache war nicht
+Vanillas Höhenprüfung, sondern unsere zusätzliche pauschale Ablehnung jedes fertigen Moat-Tiles.
+Ein fertiger eigener oder verbündeter Moat ist für eine grabfähige Unit jedoch ein gültiger
+Standpunkt. Die korrigierte Prüfung unterscheidet deshalb:
+
+- Normales Gelände muss die bestätigten Boden- und Zielverfügbarkeitsbedingungen erfüllen.
+- Ein fertiger Moat-Endpunkt muss über seinen Moat-Record eindeutig dem Spieler oder einem
+  Verbündeten gehören.
+- Ein feindlicher beziehungsweise ungültiger Moat bleibt sowohl als Standpunkt als auch als
+  Traversierungskante gesperrt. Nur der separat gebundene feindliche Ziel-Moat darf Arbeitsobjekt
+  des Zuschüttbefehls sein.
+
+Da ein fertiger Moat im Regionengrid üblicherweise Region 0 besitzt, kann dieser Endpoint nicht
+durch den gewöhnlichen, eine positive Zielregion verlangenden Plan-Helper geprüft werden. Für
+genau diesen Fill-Endpunkt wird daher die owner-sichere Reachability-Karte mit der Startregion und
+den positiven Bodenregionen neben dem Endpoint aufgebaut und anschließend das exakte Moat-Feld im
+`visitedWithMoat`-Zustand geprüft. Der Endpoint muss dabei tatsächlich eine freundliche
+Moat-Kante benutzen. Die Diagnose trennt nun ungültige Tiles, Höhe, feindlichen/ungültigen Moat,
+blockiertes Bodentile und negativen Owner-Routenbefund. Bei Updates müssen diese Ausnahme und die
+Region-0-Semantik gemeinsam mit `0x6C490` und `0x6AF60` erneut bestätigt werden.
+
+Der Queue-Lauf bestätigte außerdem den Abbruch in `0x11B520`: Zwei native Queues wuchsen jeweils
+bis auf fünf Einträge; `QueueTest` übernahm diese Befehle nicht, sondern ließ Vanilla laufen. Die
+Wegpunkte wurden mit `isNewOrder=0` nacheinander an `0x11B520` übergeben. Einige Folgeaufrufe
+erreichten den vorhandenen per-Unit-Planer und Builder, andere endeten vorher. Entscheidend ist,
+dass `0x11A980` den Index in `tribe+0x5DC` bereits vor dem Call erhöht und den Rückgabewert von
+`0x11B520` nicht auswertet. Ein negatives frühes Regionenergebnis überspringt den Wegpunkt daher
+endgültig; es gibt keinen Retry durch den Queue-Consumer.
+
+Die hashgleiche Baseline zeigt, warum das Verhalten von Leitunit und aktueller Gruppenregion
+abhing. `0x11B520` führt seine Gruppen-Reachability vor jeder per-Unit-Planung aus. Beim
+Moat-Gruppenpfad verwendet es `0xE7C40`; beim gewöhnlichen Leitunitpfad mit getrennten Regionen
+kann es stattdessen `0xE2610` verwenden. Ein ausschließlich in `PlanScope` erlaubter Fallback ist
+an beiden Stellen zu spät. Der erste Korrekturversuch verwendete deshalb die bereits vorhandenen
+Vanilla-first-Detours beider Helper während des exakt gebundenen synchronen
+`0x11B520`-Aufrufs. Die spätere Baseline-/Logauswertung in Abschnitt 15.31 zeigt jedoch, dass nur
+`0xE7C40` auf diese Weise als Regionsauswahl erweitert werden darf. Ein künstlich positives
+`0xE2610`-Ergebnis ist kein vollständiger Reachability-Zustand und wurde wieder entfernt. Der
+spätere Modus und Builder bleiben weiterhin pro Unit gefiltert; nicht grabfähige Mitglieder
+erhalten dadurch keine Moat-Traversierung.
+
+Die Queue-Diagnose wird für jeden `isNewOrder=0`-Aufruf ausgegeben, auch wenn später kein
+Moat-Builder erreicht wird. Sie bindet Queueindex und -anzahl vor und nach `0x11B520`, dessen
+Rückgabewert sowie Region-, Flood-, Modus- und Builderaufrufe. `queue-waypoint-skipped` bezeichnet
+den bestätigten Fall eines Rückgabewerts 0 nach bereits fortgeschaltetem Consumerindex;
+`queue-waypoint-accepted` einen positiven Folgeaufruf. Es wird weiterhin weder `0x11C3A0` noch
+einer der spezialisierten Queue-States gehookt. Für Spielupdates müssen die Reihenfolge
+`0x11A980: index++ -> 0x11B520`, der ignorierte Return und beide frühen Regionencalls gemeinsam
+neu geprüft werden. Alle Aussagen gelten für SHA-256
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+
+### 15.31 `0xE2610` ist kein boolesches Gate und Start auf Region 0
+
+Der Lauf nach dem ersten Queue-Fix bestätigt, dass der native Append- und Consumerpfad weiterhin
+korrekt arbeitet, der künstliche Regionswert aber semantisch unvollständig war. Bei den
+Muss-Moat-Wegpunkten `(403,351)` meldete der Detour beispielsweise für das Paar `1 -> 2`
+`vanilla=0 effective=2`. `0x11B520` kehrte trotzdem mit 0 zurück; Planer, Flood, Moatmodus und
+Builder wurden kein einziges Mal erreicht. Der bereits vor dem Aufruf erhöhte Queueindex führte
+danach erwartungsgemäß zu `queue-waypoint-skipped`. Dasselbe geschah ohne `QueueTest`, womit eine
+Übernahme durch dessen verwaltete Queue ausgeschlossen ist.
+
+Die hashgleiche Baseline erklärt diesen scheinbaren Widerspruch. `0xE2610`
+(`c_game_get_next_reachable_pcl_to_destination_for_player`) ist keine reine Ja/Nein-Prüfung. Die
+Funktion durchsucht Vanillas PCL-/Regionsgraph, setzt dabei Zustandsfelder im PathManager und
+liefert die nächste tatsächlich belegte Region. Nach einem positiven Ergebnis ruft `0x11B520`
+unmittelbar `0xDF720` auf. Dieser Helper konsumiert genau den von der Regionssuche beschriebenen
+Graphen und bestimmt die zugehörige Verbindung. Ein nachträglich ersetzter Rückgabewert erzeugt
+keinen solchen Connector; `0xDF720` liefert deshalb 0 und `0x11B520` bricht vor dem Gruppenbuilder
+ab. Die ältere Formulierung „frühes Regionsgate freigeben“ ist für `0xE2610` daher ausdrücklich
+falsch.
+
+Die korrigierte Lösung verwendet den bereits detourten Gruppenmodushelper `0x117BC0`. Wenn
+Vanilla keine auf einem fertigen Moat stehende Gruppenunit findet, aber mindestens eine lebende
+grabfähige Unit das konkrete Ziel nach der owner-sicheren Tileprobe ausschließlich über eigenen
+oder verbündeten fertigen Moat erreicht, liefert der Helper eng gebunden die Leitunit. Damit nimmt
+`0x11B520` seinen vorhandenen echten Moat-Gruppenpfad: `0xE7C40`, `0xDAFD0` und anschließend die
+gewöhnliche per-Unit-Schleife. Es wird kein synthetischer PCL-Connector erfunden. Capability und
+Owner werden beim späteren `0x196840`-/Builderpfad weiterhin für jede konkrete Unit geprüft. Der
+bestehende Sonderfall gemischter Startpositionen auf und außerhalb eines Moats wird weiterhin auf
+den Boden-Gruppenpfad normalisiert. Gleiche positive Startregionen werden bei der Vorprobe einmal
+pro Gruppe ausgewertet, um große KI-Gruppen nicht mit identischen Reachability-Aufbauten zu
+belasten.
+
+Der zweite Befund betrifft eine grabfähige Unit, deren aktuelles Tile auf einem fertigen Moat
+liegt. Der Cursorpfad meldete `startRegion=0`; je nach Ziel wurde die Gruppenprobe vorzeitig als
+nicht auswertbar verworfen. Ein fertiger Moat besitzt jedoch regulär keine positive Bodenregion.
+Die owner-sichere Tileprobe akzeptiert deshalb nun auch ein Ziel mit `targetRegion=0`, sofern das
+konkrete Ziel weiterhin ein gültiges gewöhnlich begehbares Tile ist. Die BFS startet bei einem
+eigenen oder verbündeten Moat ausschließlich im `visitedWithMoat`-Zustand und prüft das exakte
+Zieltile. Feindliche Moats, Wasser, Mauern und nicht begehbare Ziele werden dadurch nicht geöffnet.
+Cursorlogs enthalten zusätzlich Start-/Zielregion und beide Tileflagwerte, sodass ein verbleibender
+negativer Bereich ohne einen weiteren umfangreichen Test eindeutig klassifiziert werden kann.
+
+Für Updates müssen `0x11B520 -> 0x117BC0`, der Moat-Zweig über `0xE7C40`/`0xDAFD0`, der
+Boden-Zweig `0xE2610 -> 0xDF720` und die Region-0-Semantik gemeinsam erneut bestätigt werden. Ein
+passender Rückgabewert allein ist kein Beleg dafür, dass der von der Folgefunktion benötigte
+native Zustand existiert. Diese Erkenntnisse gelten für SHA-256
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+
+### 15.32 Regionsunabhängige owner-sichere Tileprobe
+
+Der anschließende Editorlauf zeigte eine weitere, ausschließlich durch die verwaltete Vorprobe
+verursachte Einschränkung. Vom Start `(391,363)` in Region 3 wurden Ziele in Region 1 korrekt als
+notwendige freundliche Moat-Route erkannt. Das Ziel `(400,357)` in Region 2 meldete dagegen
+`legal=0`, obwohl der sichtbare Aufbau über eine zusätzliche Bodenregion und eigene fertige
+Moats begehbar war. Da der Cursor bereits vor einem Command rot blieb, erreichten weder normaler
+Move noch ein entsprechender Shift-Wegpunkt `0x11B520`.
+
+Ursache war die alte Implementierung von `EnsureReachabilityMap`: Vor dem ersten Moat durfte sie
+nur Bodenfelder der Startregion besuchen; danach ausschließlich Bodenfelder der Start- oder
+Zielregion. Eine Folge wie `Region 3 -> freundlicher Moat -> Region 1 -> freundlicher Moat ->
+Region 2` wurde dadurch künstlich abgeschnitten. Diese Zielregions-Whitelist besitzt kein
+Gegenstück in Vanillas Moat-Builder `0xDAFD0`. Die hashgleiche Baseline zeigt dort eine
+achtgerichtete Tile-Suche, welche Richtungs-/Belegungsmasken, Höhen, Diagonalecken und die
+Moatflags jeder konkreten Kante prüft, aber keine Beschränkung auf genau zwei PCL-Regionen
+anwendet.
+
+Die owner-sichere Probe verwendet deshalb nun denselben zentralen Kantenvertrag wie der
+gewichtete `WeightedMoatRoutePlanner` und führt drei getrennte Zustände:
+
+- ohne durchquerten Moat;
+- mit mindestens einem eigenen oder verbündeten fertigen Moat, aber keinem feindlichen;
+- rein diagnostisch mit mindestens einem feindlichen fertigen Moat.
+
+Nur der zweite Zustand darf einen Moat-Fallback freigeben. Der dritte Zustand dient dazu, ein
+positives Vanilla-Cursorergebnis ausschließlich dann zurückzunehmen, wenn exakt das angefragte
+Ziel nur durch einen feindlichen Moat erreichbar wäre. Ein irgendwo am Rand der durchsuchten
+Fläche beobachteter feindlicher Moat genügt nicht mehr. Ungültige Moat-Records bleiben auch in
+der Diagnose unpassierbar. Starts auf einem freundlichen fertigen Moat werden direkt im zweiten
+Zustand initialisiert; ihre Region 0 ist kein Ablehnungsgrund.
+
+Die Reachability-Map ist an Kartenepoch, Spieler und exaktes Starttile gebunden, nicht mehr an die
+Zielregion. Ziel- und Regionsresultate werden erst beim Lookup aus den drei Visit-Maps gebildet.
+Dadurch können Cursor-Hover, Gebäudeannäherungsfelder und Gruppenprüfungen dieselbe vollständige
+Map wiederverwenden. Moat-Beziehungen werden nur während eines einzelnen Mapaufbaus memoisiert.
+Auch gleiche positive PCL-Regionen werden nicht mehr pauschal als exakte Tile-Erreichbarkeit
+behandelt; sie bleiben Diagnosewerte, während die gemeinsame Kantenprobe das konkrete Ziel
+entscheidet. Ebenso ersetzt der exakte Region-0-Lookup die in Abschnitt 15.30 beschriebene
+vorläufige Suche über positive Nachbarregionen eines Moat-Endpunkts.
+Die Diagnosefelder `groundReachable`, `friendlyReachable`, `enemyOnlyReachable`,
+`traversedRegions` und `reachabilityCacheHits` machen mehrstufige Regionsfolgen und die
+Wiederverwendung sichtbar.
+
+Der funktionale native Ablauf bleibt unverändert: Eine notwendige freundliche Route wählt über
+`0x117BC0` den vorhandenen Gruppen-Moatpfad; `0xE7C40` liefert die Zielregion und `0xDAFD0`
+erzeugt den tatsächlichen Tilepfad. Queue- und normale Move-Befehle benötigen dafür keinen
+getrennten Patch. Bei einem Spielupdate müssen die acht Kantenrichtungen, Masken- und
+Höhenprüfungen von `0xDAFD0`, die Rekonstruktionsbedingungen von `0xE1640` sowie die gemeinsam
+verwendete Managed-Kantenregel erneut gegeneinander geprüft werden. Diese Aussagen gelten für
+SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
 

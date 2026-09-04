@@ -1,0 +1,12 @@
+{
+  "GUID": "QueueTest_Serp",
+  "Author": "Serpens66",
+  "Name": "Queue Test",
+  "Description": "Prototype for mixed Shift queues containing movement and unit/building attack orders in every game mode, including the map editor.",
+  "Version": "1.0.0",
+  "Manifest": 1,
+  "NetworkMode": 1,
+  "SupportedGameVersions": [
+    "2.8.0.1"
+  ]
+}

@@ -1,4 +1,5 @@
 using MessagePack;
+using SHCDESE.Interop;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -18,6 +19,7 @@ namespace RandomEvents
             TestSaveState();
             TestPresentationTargeting();
             TestSignpostSelection();
+            TestBanditTargetEligibility();
             TestArcherSourceTargetingScope();
             TestArcherSourceNativeLayout();
             Console.WriteLine($"PASS: RandomEvents protocol tests ({assertions} assertions).");
@@ -137,6 +139,32 @@ namespace RandomEvents
             var lordFallback = new[] { new SignpostTarget(11, 50, 60, 10.0, "living-lord") };
             Assert(SignpostTargetSelection.TrySelectClosest(lordFallback, out SignpostTarget lordSelected) &&
                 lordSelected.DistanceReference == "living-lord", "the living-Lord anchor is preserved for diagnostics");
+        }
+
+        private static void TestBanditTargetEligibility()
+        {
+            eStructs[] excluded =
+            {
+                eStructs.STRUCT_GOODS_YARD,
+                eStructs.STRUCT_KEEP_ONE,
+                eStructs.STRUCT_KEEP_TWO,
+                eStructs.STRUCT_KEEP_THREE,
+                eStructs.STRUCT_KEEP_FOUR,
+                eStructs.STRUCT_KEEP_FIVE
+            };
+            foreach (eStructs buildingType in excluded)
+            {
+                Assert(
+                    !BanditTargetEligibility.IsEligibleStructureType(buildingType),
+                    $"{buildingType} must not be eligible as a bandit move target");
+            }
+
+            Assert(
+                BanditTargetEligibility.IsEligibleStructureType(eStructs.STRUCT_WOODCUTTERS_HUT),
+                "an ordinary economic building must remain eligible as a bandit move target");
+            Assert(
+                BanditTargetEligibility.IsEligibleStructureType(eStructs.STRUCT_BARRACKS_STONE),
+                "an ordinary military building must remain eligible as a bandit move target");
         }
 
         private static void TestArcherSourceTargetingScope()

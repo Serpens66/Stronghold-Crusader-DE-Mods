@@ -1,10 +1,1 @@
 rva	symbol	sourcePath	sourceLine	pattern
-0x1E5F54	c_game_malloc	src/SHCDESE.BepInEx/Detours/BulkAIDetours.cs	71	40 53 48 83 EC ? 48 8B D9 48 83 F9
-0xC05B0	c_game_update_visual_goodsyard_goods	src/SHCDESE.BepInEx/Detours/BulkBuildingDetours.cs	125	48 63 C2 45 33 DB
-0xE2610	c_game_get_next_reachable_pcl_to_destination_for_player	src/SHCDESE.BepInEx/Detours/BulkPlayerDetours.cs	152	40 55 41 54 41 55 41 56 48 8D AC 24
-0xEDF0	c_game_soundmanager_play_mono_sound	src/SHCDESE.BepInEx/Detours/BulkSoundDetours.cs	23	48 89 5C 24 ?? 57 48 83 EC ?? 83 79
-0x6E620	c_game_update_visual_resourcetile	src/SHCDESE.BepInEx/Detours/BulkTileDetours.cs	21	48 89 5C 24 ?? 55 56 57 41 54 41 55 41 56 41 57 48 83 EC ?? 4C 8D 05
-0xD90D0	c_game_update_pathfinding_for_tile_and_neighbors3x3	src/SHCDESE.BepInEx/Detours/BulkTileDetours.cs	26	48 89 5C 24 ?? 48 89 6C 24 ?? 48 89 74 24 ?? 57 41 54 41 55 41 56 41 57 48 83 EC ?? 4C 63 F2 45 8B F8
-0xE0850	c_game_update_pathfinding_pot	src/SHCDESE.BepInEx/Detours/BulkTileDetours.cs	31	40 53 48 83 EC ? 48 8B D9 E8 ? ? ? ? 83 BB
-0x59520	c_game_create_tree_proximity_area	src/SHCDESE.BepInEx/Detours/BulkVegetationDetours.cs	84	48 89 5C 24 ?? 55 56 57 41 54 41 55 41 56 41 57 48 83 EC ?? 48 63 C2 4C 8D 35
-0x108280	c_game_get_tree_proximity_area_level_from_type	src/SHCDESE.BepInEx/Detours/BulkVegetationDetours.cs	87	41 83 F8 ? 7E ? 8D 42

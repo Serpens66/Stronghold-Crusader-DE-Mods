@@ -1,0 +1,248 @@
+_inspect\shcde-script-extender-v1.45.0-audit\src\Zhuqiaomon\Memory\Managed\ManagedNativeArray.cs:193:    public Span<T> AsSpan() => new Span<T>(_baseAddress, Length);
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.WorkshopPackager\src\SHCDESE.WorkshopPackager\ZipUtil.cs:44:            ReadOnlySpan<byte> span = new ReadOnlySpan<byte>(buffer, 0, bytesRead);
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.WorkshopPackager\src\SHCDESE.WorkshopPackager\ZipUtil.cs:45:            int indexInChunk = span.LastIndexOf(EocdHeaderSignature);
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.WorkshopPackager\src\SHCDESE.WorkshopPackager\ZipUtil.cs:54:            // that span across chunk boundaries.
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.WorkshopPackager\src\SHCDESE.WorkshopPackager\ZipUtil.cs:72:    /// for very large files. It handles cases where the signature might span across two chunks.
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.WorkshopPackager\src\SHCDESE.WorkshopPackager\ZipUtil.cs:94:            ReadOnlySpan<byte> span = new ReadOnlySpan<byte>(buffer, 0, bytesRead);
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.WorkshopPackager\src\SHCDESE.WorkshopPackager\ZipUtil.cs:95:            int indexInChunk = span.IndexOf(ZipHeaderSignature);
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Bootstrap\Plugin.cs:322:    /// <param name="memory">A span representing the memory of the loaded `CrusaderDE.dll`.</param>
+_inspect\shcde-script-extender-v1.45.0-audit\src\Zhuqiaomon\Memory\SimpleNativeArray.cs:166:    public readonly Span<T> AsSpan() => new Span<T>(_array, _elements);
+_inspect\shcde-script-extender-v1.45.0-audit\src\Zhuqiaomon\Memory\Scanners\PatternScanBMH.cs:35:        Span<byte> pattern = patternArray ?? stackalloc byte[parts.Length];
+_inspect\shcde-script-extender-v1.45.0-audit\src\Zhuqiaomon\Memory\Scanners\PatternScanBMH.cs:38:        Span<char> mask = maskArray ?? stackalloc char[parts.Length];
+_inspect\shcde-script-extender-v1.45.0-audit\src\Zhuqiaomon\Memory\Scanners\PatternScanBMH.cs:65:    /// This version is optimized for modern .NET with Span(T)
+_inspect\shcde-script-extender-v1.45.0-audit\src\Zhuqiaomon\Memory\Scanners\PatternScan.cs:17:    /// <param name="span">The memory region to scan.</param>
+_inspect\shcde-script-extender-v1.45.0-audit\src\Zhuqiaomon\Memory\Scanners\PatternScan.cs:21:    public static long FindPattern(ReadOnlySpan<byte> span, ReadOnlySpan<byte> pattern, string mask)
+_inspect\shcde-script-extender-v1.45.0-audit\src\Zhuqiaomon\Memory\Scanners\PatternScan.cs:23:        long spanLength = span.Length;
+_inspect\shcde-script-extender-v1.45.0-audit\src\Zhuqiaomon\Memory\Scanners\PatternScan.cs:26:        // Basic validation: ensure the memory span is large enough and the mask matches the pattern length.
+_inspect\shcde-script-extender-v1.45.0-audit\src\Zhuqiaomon\Memory\Scanners\PatternScan.cs:33:        for (long spanIndex = 0; spanIndex < spanLength; spanIndex++)
+_inspect\shcde-script-extender-v1.45.0-audit\src\Zhuqiaomon\Memory\Scanners\PatternScan.cs:35:            // Check if the current byte in the span matches the pattern byte, or if the mask is a wildcard.
+_inspect\shcde-script-extender-v1.45.0-audit\src\Zhuqiaomon\Memory\Scanners\PatternScan.cs:36:            if (mask[patternPosition] == '?' || span[(int)spanIndex] == pattern[patternPosition])
+_inspect\shcde-script-extender-v1.45.0-audit\src\Zhuqiaomon\Memory\Scanners\PatternScan.cs:42:                    return spanIndex - patternLength + 1;
+_inspect\shcde-script-extender-v1.45.0-audit\src\Zhuqiaomon\Memory\Scanners\PatternScan.cs:47:                // On mismatch, rewind the span index to the byte after the start of the last partial match,
+_inspect\shcde-script-extender-v1.45.0-audit\src\Zhuqiaomon\Memory\Scanners\PatternScan.cs:49:                spanIndex -= patternPosition;
+_inspect\shcde-script-extender-v1.45.0-audit\src\Zhuqiaomon\Memory\Scanners\PatternScan.cs:62:    /// <param name="span">The memory region to scan.</param>
+_inspect\shcde-script-extender-v1.45.0-audit\src\Zhuqiaomon\Memory\Scanners\PatternScan.cs:65:    public static long FindPattern(ReadOnlySpan<byte> span, string patternString)
+_inspect\shcde-script-extender-v1.45.0-audit\src\Zhuqiaomon\Memory\Scanners\PatternScan.cs:75:        return FindPattern(span, pattern, mask);
+_inspect\shcde-script-extender-v1.45.0-audit\src\Zhuqiaomon\Memory\Scanners\DataScanner.cs:43:        ReadOnlySpan<byte> span = new ReadOnlySpan<byte>(_memoryPtr, _memoryLength);
+_inspect\shcde-script-extender-v1.45.0-audit\src\Zhuqiaomon\Memory\Scanners\DataScanner.cs:44:        long found = PatternScanner.FindPattern(span, pattern);
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.AIVDecoder\src\SHCDESE.AIVDecoder\Models\FileFormat.cs:43:        ReadOnlySpan<byte> span = data.AsSpan()
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.AIVDecoder\src\SHCDESE.AIVDecoder\Models\FileFormat.cs:47:        if (span.Length > 0 && span[0] == (byte)'{')
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.AICDecoder\src\SHCDESE.AICDecoder\Models\FileFormat.cs:49:        ReadOnlySpan<byte> span = data.AsSpan()
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.AICDecoder\src\SHCDESE.AICDecoder\Models\FileFormat.cs:53:        if (span.Length > 0 && span[0] == (byte)'{')
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Detours\BulkAIDetours.cs:153:        //System.IO.File.WriteAllBytes("aiv.bin", new Span<byte>((void*)aivData, length * 2).ToArray());
+_inspect\shcde-script-extender-v1.45.0-audit\src\Zhuqiaomon\Memory\VirtualAllocManager.cs:243:        Span<byte> span = new Span<byte>(ptr.ToPointer(), length);
+_inspect\shcde-script-extender-v1.45.0-audit\src\Zhuqiaomon\Memory\VirtualAllocManager.cs:244:        span.Fill(value);
+_inspect\shcde-script-extender-v1.45.0-audit\src\Zhuqiaomon\Hooks\HookBuilder.cs:42:        ReadOnlySpan<byte> span = new ReadOnlySpan<byte>(_memoryPtr, _memoryLength);
+_inspect\shcde-script-extender-v1.45.0-audit\src\Zhuqiaomon\Hooks\HookBuilder.cs:43:        long found = PatternScanner.FindPattern(span, aobPattern);
+_inspect\shcde-script-extender-v1.45.0-audit\src\Zhuqiaomon\Hooks\HookBuilder.cs:53:        // Found is relative to the start of the span
+_inspect\shcde-script-extender-v1.45.0-audit\src\Zhuqiaomon\Hooks\InlineHookGenerator.cs:11:/// <param name="instructions">Read-only span of the original instructions that will be overwritten by the hook.</param>
+_inspect\shcde-script-extender-v1.45.0-audit\src\Zhuqiaomon\Hooks\Transaction\HookTransaction.cs:95:    /// Initializes a new instance of the <see cref="HookTransaction"/> class using a span.
+_inspect\shcde-script-extender-v1.45.0-audit\src\Zhuqiaomon\Hooks\Transaction\HookTransaction.cs:96:    /// Copies the span into a <see cref="Memory{T}"/> once.
+_inspect\shcde-script-extender-v1.45.0-audit\src\Zhuqiaomon\Hooks\Transaction\HookTransaction.cs:98:    /// <param name="memory">The memory span to scan.</param>
+_inspect\shcde-script-extender-v1.45.0-audit\src\Zhuqiaomon\Hooks\Transaction\HookTransaction.cs:376:                    long found = PatternScanner.FindPattern(_memory.Span, descriptor.AobPattern);
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\IO\ZipUtil.cs:45:            ReadOnlySpan<byte> span = new ReadOnlySpan<byte>(buffer, 0, bytesRead);
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\IO\ZipUtil.cs:46:            int indexInChunk = span.LastIndexOf(EocdHeaderSignature);
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\IO\ZipUtil.cs:55:            // that span across chunk boundaries.
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\IO\ZipUtil.cs:73:    /// for very large files. It handles cases where the signature might span across two chunks.
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\IO\ZipUtil.cs:95:            ReadOnlySpan<byte> span = new ReadOnlySpan<byte>(buffer, 0, bytesRead);
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\IO\ZipUtil.cs:96:            int indexInChunk = span.IndexOf(ZipHeaderSignature);
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\ChoreManagerOptionsInternal.cs:76:    private Span<int> Int32SpanAt(int offset, int length) => new Span<int>(_base + offset, length);
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\ChoreManagerOptionsInternal.cs:79:    private Span<byte> ByteSpanAt(int offset, int length) => new Span<byte>(_base + offset, length);
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\ChoreManagerOptionsInternal.cs:128:    public Span<int> MP_BuildingsAvailable => Int32SpanAt(2596872, 13);
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\ChoreManagerOptionsInternal.cs:130:    public Span<int> MP_GoodsAvailable => Int32SpanAt(2596924, 25);
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\ChoreManagerOptionsInternal.cs:132:    public Span<int> MP_TroopsAvailable => Int32SpanAt(2597024, 32);
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\ChoreManagerOptionsInternal.cs:138:    public Span<byte> StartKeepLocationOrder => ByteSpanAt(2602972, 8);
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\ChoreManagerOptionsInternal.cs:140:    public Span<int> PreferredAIVs => Int32SpanAt(2602980, 8);
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\Components\MapEditor\SEMAData.cs:92:        Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\Components\MapEditor\SEMAData.cs:93:        Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Detours\BulkTimeDetours.cs:27:    /// <param name="memory">A span representing the game's process memory to be scanned.</param>
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\ImMenu\Visualizers\DebugGridVisualizer.cs:220:    // Here we just use a helper that switches on the Span type for the specific loop
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\ImMenu\Visualizers\DebugGridVisualizer.cs:226:            Span<int> span = view.PillarGFXGrid;
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\ImMenu\Visualizers\DebugGridVisualizer.cs:227:            for (int i = 0; i < limit; i++) { float v = span[i]; if (v < min) min = v; if (v > max) max = v; }
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\ImMenu\Visualizers\DebugGridVisualizer.cs:231:            Span<byte> span = view.UnknownGrid2;
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\ImMenu\Visualizers\DebugGridVisualizer.cs:232:            for (int i = 0; i < limit; i++) { float v = span[i]; if (v < min) min = v; if (v > max) max = v; }
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\ImMenu\Visualizers\DebugGridVisualizer.cs:236:            Span<byte> span = view.HeightGrid;
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\ImMenu\Visualizers\DebugGridVisualizer.cs:237:            for (int i = 0; i < limit; i++) { float v = span[i]; if (v < min) min = v; if (v > max) max = v; }
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\ImMenu\Visualizers\DebugGridVisualizer.cs:278:                // Int32 spans
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\ImMenu\Visualizers\DebugGridVisualizer.cs:294:                // Byte spans
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\ImMenu\Visualizers\DebugGridVisualizer.cs:326:                // UInt16 / Int16 spans
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameBuildingManagerAPI.cs:288:    /// Returns a span representing the current collection of buildings managed by the instance.
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameBuildingManagerAPI.cs:291:    /// The returned span provides direct access to the underlying building data without allocating
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameBuildingManagerAPI.cs:292:    /// additional memory. Modifications to the span affect the original collection.
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameBuildingManagerAPI.cs:294:    /// <returns>A <see cref="Span{GameBuilding}"/> containing the buildings.</returns>
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameBuildingManagerAPI.cs:296:    public Span<GameBuilding> GetBuildingsAsSpan()
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameBuildingManagerAPI.cs:563:        QueryBuildings().Where(BuildingPredicates.IsAlive).ToIdList(results);
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameBuildingManagerAPI.cs:1780:        query.ToIdList(results);
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GamePlayerManagerAPI.cs:764:            Span<SelectedUnitInfo> all = new(pSelectedUnits, count);
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GamePlayerManagerAPI.cs:2680:        query.ToIdList(results);
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GamePitchManagerAPI.cs:91:    /// Returns a <see cref="Span{T}"/> over the entire pitch array.
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GamePitchManagerAPI.cs:92:    /// Modifications to the span write directly to game memory.
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GamePitchManagerAPI.cs:95:    public Span<GamePitchDescriptor> GetPitchArrayAsSpan() => _pitchArray.AsSpan();
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GamePitchManagerAPI.cs:262:        query.ToIdList(results);
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameProjectileManagerAPI.cs:69:    /// Returns a span representing the current collection of projectile managed by the instance.
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameProjectileManagerAPI.cs:71:    /// <returns>A <see cref="Span{GameProjectile}"/> containing the projectile.</returns>
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameProjectileManagerAPI.cs:73:    public Span<GameProjectile> GetProjectilesAsSpan()
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameProjectileManagerAPI.cs:306:        query.ToIdList(results);
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:11:/// type-safe <see cref="Span{T}"/> properties. Each property corresponds to a specific grid
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:166:    public Span<int> PillarGFXGrid
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:170:            return new Span<int>((void*)((UInt64)_ptr + PillarGFXGridOffset), MapSize);
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:175:    /// Gets a span representing an unknown grid of 16-bit integer data.
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:177:    public Span<byte> UnknownGrid2
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:181:            return new Span<byte>((void*)((UInt64)_ptr + UnknownGridReal2Offset), MapSize);
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:188:    public Span<byte> ShowHiGrid
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:192:            return new Span<byte>((void*)((UInt64)_ptr + ShowHiGridOffset), MapSize);
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:199:    public Span<UInt16> MiscDisplayGrid
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:203:            return new Span<UInt16>((void*)((UInt64)_ptr + MiscDisplayGridOffset), MapSize);
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:212:    public Span<UInt16> PathConnectionGrid
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:216:            return new Span<UInt16>((void*)((UInt64)_ptr + PathConnectionGridOffset), MapSize);
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:224:    public Span<byte> AIZoneGrid
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:228:            return new Span<byte>((void*)((UInt64)_ptr + AIZoneGridOffset), MapSize);
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:237:    public Span<CompactPlayerBitMask> OccupancyGrid
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:241:            return new Span<CompactPlayerBitMask>((void*)((UInt64)_ptr + OccupancyGridOffset), MapSize);
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:248:    public Span<byte> DelayGrid
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:252:            return new Span<byte>((void*)((UInt64)_ptr + DelayGridOffset), MapSize);
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:257:    /// Gets a span representing the grid of tile property flags.
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:265:    public Span<Int32> LogicGrid
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:269:            return new Span<Int32>((void*)((UInt64)_ptr + LogicGridOffset), MapSize);
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:274:    /// Gets a span representing the grid of vegetation types.
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:282:    public Span<UInt16> OrganismGrid
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:286:            return new Span<UInt16>((void*)((UInt64)_ptr + OrganismGridOffset), MapSize);
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:291:    /// Gets a span representing the grid of visual tile types.
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:298:    public Span<byte> Logic2Grid
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:302:            return new Span<byte>((void*)((UInt64)_ptr + Logic2GridOffset), MapSize);
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:307:    /// Gets a span representing the grid of wall tile ownership.
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:313:    public Span<byte> WallOwnerGrid
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:317:            return new Span<byte>((void*)((UInt64)_ptr + WallOwnerGridOffset), MapSize);
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:322:    /// Gets a span representing the grid of building IDs.
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:328:    public Span<UInt16> StructureGrid
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:332:            return new Span<UInt16>((void*)((UInt64)_ptr + StructureGridOffset), MapSize);
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:337:    /// Gets a span representing the grid of unit IDs.
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:342:    public Span<UInt16> TileUnitIdGrid
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:346:            return new Span<UInt16>((void*)((UInt64)_ptr + TileUnitIdGridOffset), MapSize);
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:351:    /// Gets a span representing the grid of secondary tile states.
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:358:    public Span<byte> DamageGrid
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:362:            return new Span<byte>((void*)((UInt64)_ptr + DamageGridOffset), MapSize);
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:367:    /// Gets a span representing the grid of tile height levels.
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:373:    public Span<byte> HeightGrid
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:377:            return new Span<byte>((void*)((UInt64)_ptr + HeightGridOffset), MapSize);
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:382:    /// Gets a span representing an the default height of some tiles (Re-used for Default health for Wall-tiles)
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:385:    public Span<byte> DefaultHeightGrid
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:389:            return new Span<byte>((void*)((UInt64)_ptr + DefaultHeightGridOffset), MapSize);
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:396:    public Span<Int32> GFXGrid
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:398:        get { return new Span<Int32>((void*)((UInt64)_ptr + GFXGridOffset), MapSize); }
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:407:    public Span<Int32> AlphaGFXGrid
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:409:        get { return new Span<Int32>((void*)((UInt64)_ptr + AlphaGFXGridOffset), MapSize); }
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:415:    public Span<Int32> ConstructionGrid
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:417:        get { return new Span<Int32>((void*)((UInt64)_ptr + ConstructionGridOffset), MapSize); }
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:423:    public Span<Int32> WallGFXGrid
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:425:        get { return new Span<Int32>((void*)((UInt64)_ptr + WallGFXGridOffset), MapSize); }
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:431:    public Span<Int16> UnknownGrid_0x75EF80
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:433:        get { return new Span<Int16>((void*)((UInt64)_ptr + UnknownGrid_0x75EF80_Offset), MapSize); }
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:439:    public Span<UInt16> TileRandomNoiseGrid
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:441:        get { return new Span<UInt16>((void*)((UInt64)_ptr + TileRandomNoiseGridOffset), MapSize); }
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:448:    public Span<byte> StructureWasGrid
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:450:        get { return new Span<byte>((void*)((UInt64)_ptr + StructureWasGridOffset), MapSize); }
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:458:    public Span<Int16> FlyGrid
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:460:        get { return new Span<Int16>((void*)((UInt64)_ptr + FlyGridOffset), MapSize); }
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:466:    public Span<byte> UnknownGrid_0xD30080
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:468:        get { return new Span<byte>((void*)((UInt64)_ptr + UnknownGrid_0xD30080_Offset), MapSize); }
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:475:    public Span<byte> LuminesenceGrid
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:477:        get { return new Span<byte>((void*)((UInt64)_ptr + LuminesenceGridOffset), MapSize); }
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:483:    public Span<Int16> MacroGrid
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:485:        get { return new Span<Int16>((void*)((UInt64)_ptr + MacroGridOffset), MapSize); }
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:491:    public Span<byte> UnknownGrid_0x134E700
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:493:        get { return new Span<byte>((void*)((UInt64)_ptr + UnknownGrid_0x134E700_Offset), MapSize); }
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:499:    public Span<byte> AIDangerGrid
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:501:        get { return new Span<byte>((void*)((UInt64)_ptr + AIDangerGridOffset), MapSize); }
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:507:    public Span<byte> UnknownGrid_0x13EB140
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:509:        get { return new Span<byte>((void*)((UInt64)_ptr + UnknownGrid_0x13EB140_Offset), MapSize); }
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:516:    public Span<CompactPlayerBitMask> AIVBlockGrid
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:518:        get { return new Span<CompactPlayerBitMask>((void*)((UInt64)_ptr + AIVBlockGridOffset), MapSize); }
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:524:    public Span<byte> GatePathGrid
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:526:        get { return new Span<byte>((void*)((UInt64)_ptr + GatePathGridOffset), MapSize); }
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:532:    public Span<Int32> UnknownGrid_0x1D68F70
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:534:        get { return new Span<Int32>((void*)((UInt64)_ptr + UnknownGrid_0x1D68F70_Offset), MapSize); }
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:540:    public Span<UInt16> UnknownGrid_0x1EA23F0
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\GameTileManagerView.cs:542:        get { return new Span<UInt16>((void*)((UInt64)_ptr + UnknownGrid_0x1EA23F0_Offset), MapSize); }
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameTileManagerAPI.cs:1116:            Span<int> logic = TileManager.LogicGrid;
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameTileManagerAPI.cs:1117:            Span<ushort> organism = TileManager.OrganismGrid;
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameTileManagerAPI.cs:1118:            Span<byte> logic2 = TileManager.Logic2Grid;
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameTileManagerAPI.cs:1119:            Span<byte> heights = TileManager.HeightGrid;
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameTileManagerAPI.cs:1120:            Span<byte> defaultHeights = TileManager.DefaultHeightGrid;
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameTileManagerAPI.cs:1121:            Span<byte> damage = TileManager.DamageGrid;
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameTileManagerAPI.cs:1122:            Span<byte> wallOwners = TileManager.WallOwnerGrid;
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameTileManagerAPI.cs:1123:            Span<ushort> randomNoise = TileManager.TileRandomNoiseGrid;
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameTileManagerAPI.cs:1124:            Span<ushort> structure = TileManager.StructureGrid;
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameTileManagerAPI.cs:1125:            Span<byte> structureWas = TileManager.StructureWasGrid;
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameTileManagerAPI.cs:1126:            Span<ushort> tileUnitId = TileManager.TileUnitIdGrid;
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameTileManagerAPI.cs:1127:            Span<short> fly = TileManager.FlyGrid;
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameTileManagerAPI.cs:1128:            Span<short> macro = TileManager.MacroGrid;
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameTileManagerAPI.cs:1129:            Span<ushort> pathConnection = TileManager.PathConnectionGrid;
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameTileManagerAPI.cs:1130:            Span<byte> delay = TileManager.DelayGrid;
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameTileManagerAPI.cs:1131:            Span<byte> gatePath = TileManager.GatePathGrid;
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameTileManagerAPI.cs:1176:            Span<GameTribe> tribes = tribeAPI.GetTribeAsSpan();
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameTileManagerAPI.cs:1180:            Span<GameUnit> units = unitAPI.GetUnitsAsSpan();
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameTileManagerAPI.cs:1235:            Span<GameBuilding> buildings = buildingAPI.GetBuildingsAsSpan();
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameTileManagerAPI.cs:1266:            Span<GameVegetation> vegetations = vegetationAPI.GetVegetationAsSpan();
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameTileManagerAPI.cs:1297:            Span<GamePitchDescriptor> pitches = pitchAPI.GetPitchArrayAsSpan();
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameTileManagerAPI.cs:1329:            Span<GameProjectile> projectiles = projectileAPI.GetProjectilesAsSpan();
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameTileManagerAPI.cs:1411:            Span<int> logic = TileManager.LogicGrid;
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameTileManagerAPI.cs:1412:            Span<ushort> organism = TileManager.OrganismGrid;
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameTileManagerAPI.cs:1413:            Span<byte> logic2 = TileManager.Logic2Grid;
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameTileManagerAPI.cs:1414:            Span<byte> heights = TileManager.HeightGrid;
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameTileManagerAPI.cs:1415:            Span<byte> defaultHeights = TileManager.DefaultHeightGrid;
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameTileManagerAPI.cs:1416:            Span<byte> damage = TileManager.DamageGrid;
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameTileManagerAPI.cs:1417:            Span<byte> wallOwners = TileManager.WallOwnerGrid;
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameTileManagerAPI.cs:1418:            Span<ushort> randomNoise = TileManager.TileRandomNoiseGrid;
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameTileManagerAPI.cs:1419:            Span<ushort> structure = TileManager.StructureGrid;
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameTileManagerAPI.cs:1420:            Span<byte> structureWas = TileManager.StructureWasGrid;
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameTileManagerAPI.cs:1421:            Span<ushort> tileUnitId = TileManager.TileUnitIdGrid;
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameTileManagerAPI.cs:1422:            Span<short> fly = TileManager.FlyGrid;
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameTileManagerAPI.cs:1423:            Span<short> macro = TileManager.MacroGrid;
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameTileManagerAPI.cs:1424:            Span<ushort> pathConnection = TileManager.PathConnectionGrid;
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameTileManagerAPI.cs:1425:            Span<byte> delay = TileManager.DelayGrid;
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameTileManagerAPI.cs:1426:            Span<byte> gatePath = TileManager.GatePathGrid;
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\ImMenu\MapEditor\MassTileHeightEditor.cs:272:        Span<byte> tileHeightGrid = GameTileManagerAPI.Instance.TileManager.HeightGrid;
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\ImMenu\MapEditor\MassTileHeightEditor.cs:294:        Span<byte> tileHeightGrid = GameTileManagerAPI.Instance.TileManager.HeightGrid;
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameTribeManagerAPI.cs:76:    /// Returns a span representing the current collection of tribes managed by the instance.
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameTribeManagerAPI.cs:78:    /// <returns>A <see cref="Span{GameTribe}"/> containing the tribes.</returns>
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameTribeManagerAPI.cs:80:    public Span<GameTribe> GetTribeAsSpan()
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameTribeManagerAPI.cs:388:        GameUnitManagerAPI.Instance.QueryUnits().Where((in GameUnit x) => x.r_GlobalId != excludeUnitGlobalId && x.r_TribeId == tribeId).ToIdList(unitsIdsOfTribe);
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameTribeManagerAPI.cs:703:        QueryTribes().Where(TribePredicates.HasGlobalId(globalId)).ToIdList(results);
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameTribeManagerAPI.cs:1041:        query.ToIdList(results);
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameTriggerManager.cs:305:        // Iterate through the entire units array directly via Span.
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameTriggerManager.cs:307:        Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\Query\GameStructQuery.cs:18:/// slot index when invoked via <c>GameStructQuery{T}.ForEachIndex</c>. Which one you get is
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\Query\GameStructQuery.cs:19:/// determined by the method you call, so prefer <c>ForEach</c> unless you are indexing a span
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\Query\GameStructQuery.cs:37:/// named explicitly (<see cref="ToIndexList"/>, <see cref="ForEachIndex(Action{int})"/>,
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\Query\GameStructQuery.cs:43:/// for direct span/array indexing.
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\Query\GameStructQuery.cs:48:    private readonly Span<T> _data;
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\Query\GameStructQuery.cs:51:    internal GameStructQuery(Span<T> data)
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\Query\GameStructQuery.cs:59:        _data = new Span<T>(start, length);
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\Query\GameStructQuery.cs:65:        _data = new Span<T>(start, length);
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\Query\GameStructQuery.cs:69:    internal GameStructQuery(Span<T> data, RefPredicate<T> predicate)
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\Query\GameStructQuery.cs:85:    public void ToIdList(List<int> results)
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\Query\GameStructQuery.cs:103:    /// Only use this when indexing directly into a span or native array obtained from
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\Query\GameStructQuery.cs:106:    /// Use <see cref="ToIdList"/> for that.
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\Query\GameStructQuery.cs:108:    public void ToIndexList(List<int> results)
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\Query\GameStructQuery.cs:140:    /// Avoids allocating an intermediate List compared to <see cref="ToIdList"/> + foreach.
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\Query\GameStructQuery.cs:167:    /// <b>zero-based slot index</b>. Only valid for direct span/array indexing.
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\Query\GameStructQuery.cs:169:    public void ForEachIndex(Action<int> action)
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\Query\GameStructQuery.cs:180:    /// raw <b>zero-based slot index</b>. Only valid for direct span/array indexing.
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\Query\GameStructQuery.cs:182:    public void ForEachIndex(RefAction<T> action)
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\Query\GameStructQuery.cs:193:        private readonly Span<T> _data;
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\Query\GameStructQuery.cs:210:        public readonly int CurrentId => _currentIndex + 1;
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\Interop\Query\GameStructQuery.cs:214:        /// Only valid for direct span/array indexing; not a game ID.
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameUnitManagerAPI.cs:307:    /// Returns a span representing the current collection of units managed by the instance.
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameUnitManagerAPI.cs:309:    /// <returns>A <see cref="Span{GameUnit}"/> containing the units.</returns>
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameUnitManagerAPI.cs:311:    public Span<GameUnit> GetUnitsAsSpan()
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameUnitManagerAPI.cs:499:        QueryUnits().Where(UnitPredicates.IsAlive).ToIdList(results);
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameUnitManagerAPI.cs:562:        QueryUnits().Where(UnitPredicates.HasGlobalId(globalId)).ToIdList(results);
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameUnitManagerAPI.cs:1533:        Span<uint> chimpsSpan = new Span<uint>((void*)pChimps, (int)count);
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameUnitManagerAPI.cs:1702:        query.ToIdList(results);
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameVegetationManagerAPI.cs:88:    /// Returns a span representing the current collection of vegetation managed by the instance.
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameVegetationManagerAPI.cs:90:    /// <returns>A <see cref="Span{GameVegetation}"/> containing the vegetation.</returns>
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameVegetationManagerAPI.cs:92:    public Span<GameVegetation> GetVegetationAsSpan()
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\GameVegetationManagerAPI.cs:523:        query.ToIdList(results);
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\LowLevel\CrusaderLibrary.cs:90:        // Copy the span: it's only valid during the hook callback.
+_inspect\shcde-script-extender-v1.45.0-audit\src\SHCDESE.BepInEx\API\LowLevel\CrusaderLibrary.cs:100:    /// <param name="memory">A span representing the memory of the loaded "CrusaderDE.dll".</param>

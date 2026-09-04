@@ -5,14 +5,14 @@
   <PropertyGroup>
     <Configuration Condition="'$(Configuration)' == ''">Debug</Configuration>
     <Platform Condition="'$(Platform)' == ''">AnyCPU</Platform>
-    <ProjectGuid>{78BA943A-A3AC-4E37-BBD7-A0920950D1F6}</ProjectGuid>
+    <ProjectGuid>{B7B79D36-6EBF-43DA-AFEC-103F0472595D}</ProjectGuid>
     <OutputType>Library</OutputType>
-    <RootNamespace>ChoreTestMod</RootNamespace>
-    <AssemblyName>ChoreTestMod</AssemblyName>
+    <RootNamespace>QueueTest</RootNamespace>
+    <AssemblyName>QueueTest</AssemblyName>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <OutputPath>BepInEx\plugins\ChoreTestMod_Serp\</OutputPath>
+    <OutputPath>BepInEx\plugins\QueueTest_Serp\</OutputPath>
     <DebugSymbols>true</DebugSymbols>
     <DebugType>portable</DebugType>
     <WarningLevel>4</WarningLevel>
@@ -43,10 +43,6 @@
       <HintPath>$(GameDir)\BepInEx\core\BepInEx.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <Reference Include="0Harmony">
-      <HintPath>$(GameDir)\BepInEx\core\0Harmony.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
     <Reference Include="Assembly-CSharp">
       <HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll</HintPath>
       <Private>false</Private>
@@ -57,10 +53,6 @@
     </Reference>
     <Reference Include="UnityEngine.CoreModule">
       <HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="com.rlabrecque.steamworks.net">
-      <HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\com.rlabrecque.steamworks.net.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="SHCDESE">
@@ -75,33 +67,42 @@
       <HintPath>$(ExtenderDir)\System.Memory.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <Reference Include="MessagePack">
-      <HintPath>$(ExtenderDir)\MessagePack.dll</HintPath>
+    <Reference Include="Zhuqiaomon">
+      <HintPath>$(ExtenderDir)\Zhuqiaomon.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <Reference Include="MessagePack.Annotations">
-      <HintPath>$(ExtenderDir)\MessagePack.Annotations.dll</HintPath>
+    <Reference Include="PolyHook2.NET">
+      <HintPath>$(ExtenderDir)\PolyHook2.NET.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Iced">
+      <HintPath>$(ExtenderDir)\Iced.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Microsoft.Extensions.Logging.Abstractions">
+      <HintPath>$(ExtenderDir)\Microsoft.Extensions.Logging.Abstractions.dll</HintPath>
       <Private>false</Private>
     </Reference>
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="src\ChoreTestModPlugin.cs" />
-    <Compile Include="src\ChoreTestPacket.cs" />
+    <Compile Include="..\Shared\DebugLogHelper.cs">
+      <Link>Shared\DebugLogHelper.cs</Link>
+    </Compile>
+    <Compile Include="..\Shared\NativePatternResolver.cs">
+      <Link>Shared\NativePatternResolver.cs</Link>
+    </Compile>
+    <Compile Include="src\QueueModel.cs" />
+    <Compile Include="src\QueueRuntime.cs" />
+    <Compile Include="src\QueueTestPlugin.cs" />
   </ItemGroup>
 
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 
   <Target Name="ValidateScriptExtenderReference" BeforeTargets="BeforeBuild">
     <Error Condition="!Exists('$(ExtenderDir)\SHCDESE.dll')" Text="SHCDESE.dll was not found: $(ExtenderDir)" />
-    <Error Condition="!Exists('$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.dll')" Text="UnityEngine.dll was not found below GameDir: $(GameDir)" />
-    <Error Condition="!Exists('$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.CoreModule.dll')" Text="UnityEngine.CoreModule.dll was not found below GameDir: $(GameDir)" />
-    <Error Condition="!Exists('$(GameDir)\BepInEx\core\0Harmony.dll')" Text="0Harmony.dll was not found below GameDir: $(GameDir)" />
+    <Error Condition="!Exists('$(ExtenderDir)\Zhuqiaomon.dll')" Text="Zhuqiaomon.dll was not found: $(ExtenderDir)" />
     <Error Condition="!Exists('$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll')" Text="Assembly-CSharp.dll was not found below GameDir: $(GameDir)" />
-    <Error Condition="!Exists('$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\com.rlabrecque.steamworks.net.dll')" Text="Steamworks.NET was not found below GameDir: $(GameDir)" />
-    <Error Condition="!Exists('$(ExtenderDir)\R3.dll')" Text="R3.dll was not found: $(ExtenderDir)" />
-    <Error Condition="!Exists('$(ExtenderDir)\System.Memory.dll')" Text="System.Memory.dll was not found: $(ExtenderDir)" />
-    <Error Condition="!Exists('$(ExtenderDir)\MessagePack.dll')" Text="MessagePack.dll was not found: $(ExtenderDir)" />
-    <Error Condition="!Exists('$(ExtenderDir)\MessagePack.Annotations.dll')" Text="MessagePack.Annotations.dll was not found: $(ExtenderDir)" />
+    <Error Condition="!Exists('$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.dll')" Text="UnityEngine.dll was not found below GameDir: $(GameDir)" />
   </Target>
 </Project>

@@ -80,6 +80,8 @@
   <ItemGroup>
     <Compile Include="src\MoveMoatTestPlugin.cs" />
     <Compile Include="src\MoveMoatPathTest.cs" />
+    <Compile Include="src\DirectMoatCommandScopes.cs" />
+    <Compile Include="src\MoatWorkTargetSelection.cs" />
     <Compile Include="src\NativeMovementCadenceResolver.cs" />
     <Compile Include="src\WeightedMoatRoutePlanner.cs" />
     <Compile Include="..\Shared\DebugLogHelper.cs">
