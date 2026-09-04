@@ -156,6 +156,10 @@ internal static class Program
         AssertFreshFiftyAfterInterruption(stuck, Change(stuck, targetX: 21, entryX: 21), "target change");
         AssertFreshFiftyAfterInterruption(stuck, Change(stuck, supported: false, state: 99), "state change");
         AssertFreshFiftyAfterInterruption(stuck, Change(stuck, globalId: 999), "unit slot reuse");
+        AssertFreshFiftyAfterInterruption(
+            stuck,
+            Change(stuck, alternatePathConnectionId: 8),
+            "alternate path-connection change");
 
         StockpileAccessEpisodePolicy gapPolicy = new StockpileAccessEpisodePolicy();
         for (int tick = 1; tick <= 20; tick++)
@@ -170,7 +174,8 @@ internal static class Program
         Check(!Change(stuck, ownedStockpile: false).HasIdleBugSignature, "wrong or foreign building excluded");
         Check(!Change(stuck, storageGenerationMatches: false).HasIdleBugSignature, "stale building global-id excluded");
         Check(!Change(stuck, pathFlags: 2).HasIdleBugSignature, "active path excluded");
-        Check(!Change(stuck, pathMarker: 0).HasIdleBugSignature, "zero path marker excluded");
+        Check(Change(stuck, alternatePathConnectionId: 0).HasIdleBugSignature,
+            "zero alternate path-connection ID remains a valid idle signature");
         Check(!Change(stuck, currentX: stuck.TargetX, currentY: stuck.TargetY).HasIdleBugSignature, "already reached target excluded");
         Check(!Change(stuck, targetX: 44).HasIdleBugSignature, "secondary target not equal to stockpile access excluded");
     }
@@ -224,21 +229,39 @@ internal static class Program
         Check(!plugin.Contains("Input.GetKey") && !plugin.Contains("KeyCode."), "test trigger requires no hotkey");
         Check(runtime.Contains("RevalidateBuildingAccessDelegate"), "vanilla access helper is used");
         Check(runtime.Contains("GameUnitManagerAPI.Instance.MoveToTile"), "movement uses Script Extender API");
-        Check(runtime.Contains("GameBuildingManagerAPI.Instance.CreatePrefab") &&
-            runtime.Contains("eMappers.MAPPER_WOODWALL"), "test trigger uses a real Vanilla wood-wall prefab");
+        Check(runtime.Contains("GameUnitManagerAPI.Instance.SetCurrentLocalTilePosition") &&
+            runtime.Contains("TryFindFetchingFletcherBlocker"),
+            "test trigger uses a second fetching Fletcher as a dynamic blocker");
+        Check(runtime.Contains("SetCurrentLocalTilePositionAdjacent+VanillaMoveToTile") &&
+            runtime.Contains("TryFindFreeBlockerApproach"),
+            "Fletcher is teleported only to a free neighbor and walks natively onto the access");
         Check(!runtime.Contains("GamePlayerManagerAPI.Instance.GetLocalPlayerId"),
             "automatic trigger can use naturally suitable non-local workers");
         Check(!runtime.Contains("r_NextTilePositionX2") && !runtime.Contains("r_NextTilePositionY2"),
             "automatic trigger never substitutes a route tile for the cached access");
-        Check(runtime.Contains("cached access is not a free external tile; exact reproduction skipped"),
-            "automatic trigger fails closed when the cached access is not external free land");
-        Check(runtime.Contains("GameBuildingManagerAPI.Instance.DeleteBuildingSafe"), "test blocker has safe cleanup");
+        Check(runtime.Contains("cached access is not a free internal GoodsyardConnection tile"),
+            "automatic trigger fails closed unless the cached access is a free internal stockpile connection");
+        Check(runtime.Contains("trackedRoutes.TryGetValue(unitId, out RouteSignature activeRoute)"),
+            "idle diagnosis requires a transition from a previously observed active fetch route");
+        Check(!runtime.Contains("observation.PathMarker") &&
+            !runtime.Contains("candidate.PathMarker"),
+            "automatic trigger does not require a nonzero alternate path-connection ID");
+        Check(runtime.Contains("TileUnitIdGrid never reported") &&
+            runtime.Contains("STOCKPILE_TEST_OCCUPANCY_CONFIRMED"),
+            "forced retry waits for a real dynamic tile occupancy observation");
+        Check(runtime.Contains("VanillaFetchContinuesFromNativelyOccupiedAccess"),
+            "natively registered blocker continues its Vanilla fetch cycle without a removal teleport");
         Check(!runtime.Contains("SetTilePropertyFlag") && !runtime.Contains("SetTileBuildingId"),
             "test trigger does not mutate tile grids directly");
         Check(!runtime.Contains("HookTransaction") && !runtime.Contains("AddDetour"), "runtime installs no native inline hook");
         Check(!runtime.Contains("r_AIState ="), "runtime does not mutate AI state");
-        Check(!runtime.Contains("r_PathPlanRelated3 ="), "runtime does not mutate path marker");
-        Check(!runtime.Contains("r_CurrentTilePositionX =") && !runtime.Contains("r_CurrentTilePositionY ="), "runtime does not teleport");
+        Check(!runtime.Contains("r_PathPlanRelated3 ="),
+            "runtime does not mutate the alternate path-connection ID");
+        Check(!runtime.Contains("r_CurrentTilePositionX =") && !runtime.Contains("r_CurrentTilePositionY ="),
+            "runtime does not write unit position fields directly");
+        Check(!runtime.Contains("CreatePrefab") && !runtime.Contains("MAPPER_WOODWALL") &&
+            !runtime.Contains("DeleteBuildingSafe"),
+            "automatic test no longer creates or deletes a wall/building");
         Check(project.Contains(@"Shared\DebugLogHelper.cs") && project.Contains(@"Shared\NativePatternResolver.cs"), "required shared helpers are linked");
         Check(!project.Contains("UnityEngine.InputLegacyModule"), "automatic test has no input-module dependency");
         Check(info.Contains("\"Version\": \"0.1.0\"") && info.Contains("\"NetworkMode\": 1"), "test version and network mode");
@@ -263,22 +286,56 @@ internal static class Program
             "STOCKPILE_TEST_BLOCKER_SPAWNED",
             "STOCKPILE_TEST_BLOCKER_FAILED",
             "STOCKPILE_TEST_BLOCKER_REMOVED",
+            "STOCKPILE_TEST_OCCUPANCY_CONFIRMED",
+            "STOCKPILE_TEST_FAULT_INJECTED",
             "STOCKPILE_TEST_AUTOMATION_RESULT"
         })
         {
             Check(runtime.Contains(marker), marker + " test-trigger logging contract");
         }
 
-        Check(StockpileAccessFixTestRuntime.IsSafeExternalBlockerTile(TilePropertyFlag.Free, 0, 0),
-            "free external land accepts a test blocker");
-        Check(StockpileAccessFixTestRuntime.IsSafeExternalBlockerTile(TilePropertyFlag.None, 0, 0),
-            "plain zero-property terrain accepts a test blocker");
-        Check(!StockpileAccessFixTestRuntime.IsSafeExternalBlockerTile(TilePropertyFlag.GoodsyardConnection, 0, 0),
-            "stockpile connection tile is protected from test blocker");
-        Check(!StockpileAccessFixTestRuntime.IsSafeExternalBlockerTile(TilePropertyFlag.Free, 7, 0),
-            "occupied tile is protected from test blocker");
-        Check(!StockpileAccessFixTestRuntime.IsSafeExternalBlockerTile(TilePropertyFlag.Free, 0, 7),
-            "unit-occupied tile is protected from test blocker");
+        Check(StockpileAccessFixTestRuntime.IsFreeStockpileConnectionTile(
+                TilePropertyFlag.GoodsyardConnection, 0, 0),
+            "free internal stockpile connection accepts a civilian test blocker");
+        Check(!StockpileAccessFixTestRuntime.IsFreeStockpileConnectionTile(TilePropertyFlag.Free, 0, 0),
+            "ordinary external land is rejected");
+        Check(!StockpileAccessFixTestRuntime.IsFreeStockpileConnectionTile(
+                TilePropertyFlag.GoodsyardConnection, 7, 0),
+            "building-occupied stockpile connection is rejected");
+        Check(!StockpileAccessFixTestRuntime.IsFreeStockpileConnectionTile(
+                TilePropertyFlag.GoodsyardConnection, 0, 7),
+            "unit-occupied stockpile connection is rejected before injection");
+        Check(StockpileAccessFixTestRuntime.IsSafeBlockerApproachTile(
+                TilePropertyFlag.GoodsyardConnection, 0, 0, vanillaWalkable: false),
+            "internal stockpile connection is accepted as an adjacent approach despite the wall bit");
+        Check(StockpileAccessFixTestRuntime.IsSafeBlockerApproachTile(
+                TilePropertyFlag.Free, 0, 0, vanillaWalkable: true),
+            "Vanilla-walkable ordinary neighbor is accepted as an approach");
+        Check(!StockpileAccessFixTestRuntime.IsSafeBlockerApproachTile(
+                TilePropertyFlag.Free, 4, 0, vanillaWalkable: true),
+            "building-occupied approach is rejected");
+        Check(!StockpileAccessFixTestRuntime.IsSafeBlockerApproachTile(
+                TilePropertyFlag.Free, 0, 4, vanillaWalkable: true),
+            "unit-occupied approach is rejected");
+
+        StockpileWorkerContract fletcher = Array.Find(
+            StockpileWorkerContracts.All,
+            contract => contract.UnitType == eChimps.CHIMP_TYPE_FLETCHER);
+        StockpileObservation victim = Change(Observation(fletcher, unitId: 20, globalId: 200), pathFlags: 2);
+        StockpileObservation blocker = Change(Observation(fletcher, unitId: 21, globalId: 201), pathFlags: 2);
+        Check(StockpileAccessFixTestRuntime.IsEligibleFletcherBlocker(victim, blocker),
+            "second fetching Fletcher on the same stockpile is eligible");
+        Check(!StockpileAccessFixTestRuntime.IsEligibleFletcherBlocker(victim, Change(blocker, pathFlags: 0)),
+            "idle Fletcher without an active route is rejected as blocker");
+        Check(!StockpileAccessFixTestRuntime.IsEligibleFletcherBlocker(
+                victim, Change(blocker, storageBuildingId: 6)),
+            "Fletcher fetching from another stockpile is rejected as blocker");
+        StockpileWorkerContract poleturner = Array.Find(
+            StockpileWorkerContracts.All,
+            contract => contract.UnitType == eChimps.CHIMP_TYPE_POLETURNER);
+        StockpileObservation wrongType = Change(Observation(poleturner, unitId: 21, globalId: 201), pathFlags: 2);
+        Check(!StockpileAccessFixTestRuntime.IsEligibleFletcherBlocker(victim, wrongType),
+            "non-Fletcher worker is rejected as blocker");
     }
 
     private static void AssertFreshFiftyAfterInterruption(
@@ -308,7 +365,7 @@ internal static class Program
         new StockpileObservation(
             unitId, globalId, contract.UnitType, contract.FetchState,
             alive: true, supportedFetchState: true, ownedStockpile: true, storageGenerationMatches: true,
-            pathFlags: 0, pathMarker: 7,
+            pathFlags: 0, alternatePathConnectionId: 7,
             currentX: 10, currentY: 10, targetX: 20, targetY: 20, entryX: 20, entryY: 20,
             storageBuildingId: 5, productionBuildingId: 8);
 
@@ -322,7 +379,7 @@ internal static class Program
         bool? ownedStockpile = null,
         bool? storageGenerationMatches = null,
         ushort? pathFlags = null,
-        ushort? pathMarker = null,
+        ushort? alternatePathConnectionId = null,
         ushort? currentX = null,
         ushort? currentY = null,
         ushort? targetX = null,
@@ -340,7 +397,7 @@ internal static class Program
             ownedStockpile ?? source.OwnedStockpile,
             storageGenerationMatches ?? source.StorageGenerationMatches,
             pathFlags ?? source.PathFlags,
-            pathMarker ?? source.PathMarker,
+            alternatePathConnectionId ?? source.AlternatePathConnectionId,
             currentX ?? source.CurrentX,
             currentY ?? source.CurrentY,
             targetX ?? source.TargetX,

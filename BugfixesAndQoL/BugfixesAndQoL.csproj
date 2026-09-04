@@ -126,6 +126,10 @@
     <Compile Include="src\MinimapPlacementClickHook.cs" />
     <Compile Include="src\LocalPerPlayerSetting.cs" />
     <Compile Include="src\LordUnitControlsFeature.cs" />
+    <Compile Include="src\LordControlGroupIconFeature.cs" />
+    <Compile Include="src\LordControlGroupIconPolicy.cs" />
+    <Compile Include="src\LordControlGroupNativeDefinition.cs" />
+    <Compile Include="src\LordControlGroupNativePatch.cs" />
     <Compile Include="src\LordUnitControlsPolicy.cs" />
     <Compile Include="src\MovementCadenceIntegration.cs" />
     <Compile Include="src\PlaguePopularityFix.cs" />

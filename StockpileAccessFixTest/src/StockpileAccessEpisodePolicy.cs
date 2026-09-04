@@ -69,7 +69,7 @@ namespace StockpileAccessFixTest
             bool ownedStockpile,
             bool storageGenerationMatches,
             ushort pathFlags,
-            ushort pathMarker,
+            ushort alternatePathConnectionId,
             ushort currentX,
             ushort currentY,
             ushort targetX,
@@ -88,7 +88,7 @@ namespace StockpileAccessFixTest
             OwnedStockpile = ownedStockpile;
             StorageGenerationMatches = storageGenerationMatches;
             PathFlags = pathFlags;
-            PathMarker = pathMarker;
+            AlternatePathConnectionId = alternatePathConnectionId;
             CurrentX = currentX;
             CurrentY = currentY;
             TargetX = targetX;
@@ -108,7 +108,7 @@ namespace StockpileAccessFixTest
         internal bool OwnedStockpile { get; }
         internal bool StorageGenerationMatches { get; }
         internal ushort PathFlags { get; }
-        internal ushort PathMarker { get; }
+        internal ushort AlternatePathConnectionId { get; }
         internal ushort CurrentX { get; }
         internal ushort CurrentY { get; }
         internal ushort TargetX { get; }
@@ -124,7 +124,7 @@ namespace StockpileAccessFixTest
             TargetX == EntryX && TargetY == EntryY;
 
         internal bool HasIdleBugSignature =>
-            IsValidFetchRoute && PathFlags == 0 && PathMarker != 0 &&
+            IsValidFetchRoute && PathFlags == 0 &&
             (CurrentX != TargetX || CurrentY != TargetY);
 
         internal bool IsSameStuckSnapshotAs(in StockpileObservation other) =>
@@ -135,7 +135,8 @@ namespace StockpileAccessFixTest
             CurrentX == other.CurrentX && CurrentY == other.CurrentY &&
             TargetX == other.TargetX && TargetY == other.TargetY &&
             EntryX == other.EntryX && EntryY == other.EntryY &&
-            PathFlags == other.PathFlags && PathMarker == other.PathMarker;
+            PathFlags == other.PathFlags &&
+            AlternatePathConnectionId == other.AlternatePathConnectionId;
 
         internal bool IsSameUnitSlotAs(in StockpileObservation other) =>
             UnitId == other.UnitId && UnitGlobalId == other.UnitGlobalId &&

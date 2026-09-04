@@ -33,6 +33,13 @@ if exist "%LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT%\SHCDESE.dll" (
   set "EXTENDER_DIR=%GAME_SCRIPT_EXTENDER_DIR%"
 ) else goto build_failed
 
+pushd "%PROJECT_DIR%"
+"%MSBUILD%" tests\OxTetherIdleFixTest.Tests.csproj /p:Configuration=Debug
+if errorlevel 1 goto build_failed_popd
+"%PROJECT_DIR%tests\bin\OxTetherIdleFixTest.Tests.exe"
+if errorlevel 1 goto build_failed_popd
+popd
+
 if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"
 pushd "%PROJECT_DIR%"
 "%MSBUILD%" OxTetherIdleFixTest.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"

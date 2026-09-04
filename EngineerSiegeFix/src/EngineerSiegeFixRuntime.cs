@@ -94,8 +94,10 @@ namespace EngineerSiegeFix
                     "activeObservationHooks=0, unsafeNativeHookSetDisabled=true, " +
                     $"automaticHandoffVerificationTicks={EngineerHandoffDiagnosticPolicy.VerificationTimeoutTicks}, " +
                     "verifiedTypes=catapult,trebuchet,arab-ballista, " +
-                    "shadowIdleFaultInjection=true, gameStateFaultInjection=one-per-type-after-normal-pass, " +
-                    "injectionExposure=same-tick-repair.");
+                    "shadowIdleFaultInjection=true, " +
+                    "gameStateFaultInjection=complete-crew-once-per-type-after-normal-pass, " +
+                    "arabBallistaTestMode=leave-complete-crew-idle-without-mod-recovery, " +
+                    "injectionExposure=same-tick-repair-except-arab-visible-test.");
             }
             catch
             {
@@ -389,40 +391,62 @@ namespace EngineerSiegeFix
                 return false;
             }
 
-            int unitId = tracker.CrewIds[0];
-            uint globalId = tracker.CrewGlobals[0];
-            if (!TryCaptureIdentity(manager, nextUnitId, unitId, globalId, currentTick, out UnitObservation before) ||
-                !EngineerHandoffDiagnosticPolicy.IsReferencedEngineerBound(
-                    unitId, globalId, tracker.Owner,
-                    before.UnitId, before.GlobalId, before.AliveState, before.Type, before.Owner, before.State))
-            {
-                return false;
-            }
+            var unitIds = new List<int>(tracker.RequiredCrew);
+            var targets = new List<IntPtr>(tracker.RequiredCrew);
+            var snapshots = new List<EngineerRecoverySnapshot>(tracker.RequiredCrew);
+            var beforeStates = new List<string>(tracker.RequiredCrew);
 
-            byte* unit = Unit(manager, unitId);
-            EngineerRecoverySnapshot snapshot = EngineerRecoverySnapshot.Capture(unit);
-            bool repaired = false;
-            try
+            // Capture and validate the complete referenced crew before creating the
+            // reported all-engineers-idle postcondition in live memory.
+            for (int crewIndex = 0; crewIndex < tracker.RequiredCrew; crewIndex++)
             {
-                // The injected postcondition models the reported free engineer. It is
-                // repaired in this callback, before Vanilla can process an idle frame.
-                WriteUInt32(unit, AiStateOffset, EngineerHandoffRepairPolicy.IdleMainState);
-                UnitObservation injected = Capture(unit, unitId, currentTick);
-                bool repairable = EngineerHandoffRepairPolicy.IsRepairableIdleEngineer(
-                    tracker.DeviceType,
+                int unitId = tracker.CrewIds[crewIndex];
+                uint globalId = tracker.CrewGlobals[crewIndex];
+                if (!TryCaptureIdentity(
+                    manager,
+                    nextUnitId,
                     unitId,
                     globalId,
-                    tracker.Owner,
-                    injected.UnitId,
-                    injected.GlobalId,
-                    injected.AliveState,
-                    injected.Type,
-                    injected.Owner,
-                    injected.State,
-                    device.WorldX,
-                    device.WorldY,
-                    injected.WorldX,
-                    injected.WorldY);
+                    currentTick,
+                    out UnitObservation before) ||
+                    !EngineerHandoffDiagnosticPolicy.IsReferencedEngineerBound(
+                        unitId, globalId, tracker.Owner,
+                        before.UnitId, before.GlobalId, before.AliveState,
+                        before.Type, before.Owner, before.State))
+                {
+                    return false;
+                }
+
+                byte* crewUnit = Unit(manager, unitId);
+                unitIds.Add(unitId);
+                targets.Add((IntPtr)crewUnit);
+                snapshots.Add(EngineerRecoverySnapshot.Capture(crewUnit));
+                beforeStates.Add($"{unitId}/{globalId}:0x{before.State:X8}");
+            }
+
+            bool repaired = false;
+            bool intentionallyLeftIdle = false;
+            try
+            {
+                // Every referenced engineer is injected and repaired in this callback,
+                // before Vanilla can process even one idle frame.
+                for (int targetIndex = 0; targetIndex < targets.Count; targetIndex++)
+                {
+                    WriteUInt32(
+                        (byte*)targets[targetIndex].ToPointer(),
+                        AiStateOffset,
+                        EngineerHandoffRepairPolicy.IdleMainState);
+                }
+
+                EngineerCrewInspection injected = InspectReferencedEngineers(
+                    manager,
+                    nextUnitId,
+                    tracker,
+                    device,
+                    currentTick);
+                bool repairable = injected.AllIdentitiesValid &&
+                    injected.AllNonBoundEngineersRepairable && !injected.AllBound &&
+                    injected.RepairableUnitIds.Count == tracker.RequiredCrew;
                 HandoffDiagnosticOutcome injectedOutcome = EngineerHandoffDiagnosticPolicy.Evaluate(
                     true, true, true, true, false,
                     EngineerHandoffDiagnosticPolicy.VerificationTimeoutTicks);
@@ -432,36 +456,62 @@ namespace EngineerSiegeFix
                         log,
                         $"SIEGE_CONTROLLED_FAULT_TEST_FAILED: tick={currentTick}, " +
                         $"deviceId={tracker.DeviceUnitId}, type=0x{tracker.DeviceType:X}, " +
-                        $"engineer={unitId}/{globalId}, repairable={repairable}, " +
+                        $"engineers=[{string.Join(",", unitIds)}], expectedCrew={tracker.RequiredCrew}, " +
+                        $"repairableCount={injected.RepairableUnitIds.Count}, repairable={repairable}, " +
                         $"detectorOutcome={injectedOutcome}; original fields will be restored.");
                     return false;
                 }
 
+                string exposure = tracker.DeviceType == ArabBallistaType
+                    ? "subsequent-vanilla-ticks"
+                    : "same-tick-only";
                 Shared.DebugLogHelper.LogWarning(
                     log,
                     $"SIEGE_CONTROLLED_FAULT_INJECTED: tick={currentTick}, " +
                     $"deviceId={tracker.DeviceUnitId}, deviceGlobal={tracker.DeviceGlobalId}, " +
-                    $"type=0x{tracker.DeviceType:X}, engineer={unitId}/{globalId}, " +
-                    $"beforeState=0x{before.State:X8}, injectedState=0x{injected.State:X8}, " +
-                    "exposure=same-tick-only.");
+                    $"type=0x{tracker.DeviceType:X}, engineers=[{string.Join(",", beforeStates)}], " +
+                    $"injectedCount={injected.RepairableUnitIds.Count}, injectedState=0x00000000, " +
+                    $"exposure={exposure}.");
+
+                if (tracker.DeviceType == ArabBallistaType)
+                {
+                    // Temporary reproduction mode requested by the user: leave the
+                    // complete fire-ballista crew idle and observe Vanilla in-game.
+                    intentionallyLeftIdle = true;
+                    liveProofCompletedTypes.Add(tracker.DeviceType);
+                    tracker.Finalized = true;
+                    Shared.DebugLogHelper.LogWarning(
+                        log,
+                        $"SIEGE_ARAB_BALLISTA_FAULT_LEFT_IDLE: tick={currentTick}, " +
+                        $"deviceId={tracker.DeviceUnitId}, deviceGlobal={tracker.DeviceGlobalId}, " +
+                        $"engineers=[{string.Join(",", unitIds)}], idleCount={unitIds.Count}, " +
+                        "modRecoverySkipped=true, purpose=visible-duplication-reproduction.");
+                    return true;
+                }
 
                 repaired = ApplyVanillaExistingCrewRecovery(
                     manager,
                     tracker,
-                    new List<int> { unitId },
+                    unitIds,
                     currentTick,
                     "controlled-live-proof");
                 if (!repaired)
                     return false;
 
                 liveProofCompletedTypes.Add(tracker.DeviceType);
-                tracker.BeginRecovery(currentTick, "controlled-live-proof", new List<int> { unitId });
+                tracker.BeginRecovery(currentTick, "controlled-live-proof", unitIds);
                 return true;
             }
             finally
             {
-                if (!repaired)
-                    snapshot.Restore(unit);
+                if (!repaired && !intentionallyLeftIdle)
+                {
+                    for (int targetIndex = 0; targetIndex < targets.Count; targetIndex++)
+                    {
+                        snapshots[targetIndex].Restore(
+                            (byte*)targets[targetIndex].ToPointer());
+                    }
+                }
             }
         }
 
@@ -985,8 +1035,6 @@ namespace EngineerSiegeFix
                 other != null &&
                 GlobalId == other.GlobalId && AliveState == other.AliveState && Type == other.Type &&
                 Owner == other.Owner && State == other.State && Assignment == other.Assignment &&
-                RecoveryWork == other.RecoveryWork && RecoveryCounter == other.RecoveryCounter &&
-                RecoveryVisual == other.RecoveryVisual &&
                 Command == other.Command && TargetUnitId == other.TargetUnitId &&
                 PendingType == other.PendingType && PendingState == other.PendingState &&
                 CrewCount == other.CrewCount &&

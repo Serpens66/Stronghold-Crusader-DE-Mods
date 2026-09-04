@@ -89,6 +89,48 @@
       </Border>
     </Content>
   </Operation>
+  <Operation Type="Add" XPath="//n:Grid[@x:Name='LayoutRoot']">
+    <Content>
+      <Grid x:Name="BugfixesAndQoLLordSelectionHost"
+            Width="45"
+            Height="120"
+            Margin="142,0,0,2"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Bottom"
+            Panel.ZIndex="20"
+            Visibility="Collapsed">
+        <!-- One shared Vanilla Lord image is used for every selectable Lord variant. -->
+        <Button x:Name="BugfixesAndQoLLordSelected"
+                Width="45"
+                Height="86"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource BugfixesAndQoL-LordIcon}"
+                local:PropEx.Sprite2="{StaticResource BugfixesAndQoL-LordIcon}"
+                local:PropEx.Sprite3="{StaticResource BugfixesAndQoL-LordIcon}"
+                Content=""
+                IsHitTestVisible="False"
+                Style="{StaticResource BTN_Image}" />
+        <TextBlock x:Name="BugfixesAndQoLLordSelectedCount"
+                   Width="64"
+                   Height="30"
+                   Margin="-10,0,0,8"
+                   HorizontalAlignment="Left"
+                   VerticalAlignment="Bottom"
+                   IsHitTestVisible="False"
+                   FontSize="22"
+                   Text="1"
+                   TextAlignment="Center">
+          <TextBlock.Effect>
+            <DropShadowEffect ShadowDepth="2"
+                              Direction="315"
+                              Color="#CC000000"
+                              BlurRadius="0" />
+          </TextBlock.Effect>
+        </TextBlock>
+      </Grid>
+    </Content>
+  </Operation>
   <Operation Type="Add" XPath="//n:Grid[@Name='UnitControls']">
     <Content>
       <Grid x:Name="SerpTroopAction_0200_BugfixesAndQoLAssassinClimb"

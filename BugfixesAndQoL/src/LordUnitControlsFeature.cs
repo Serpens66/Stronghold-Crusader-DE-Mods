@@ -15,7 +15,7 @@ namespace BugfixesAndQoL
 {
     internal sealed unsafe class LordUnitControlsFeature : IDisposable
     {
-        private const float CompactFrameWidth = 140.0f;
+        private const float CompactFrameWidth = 240.0f;
         private const float MinimapFrameStart = 560.0f;
         private const float FullFrameWidth = 800.0f;
         private const float FrameHeight = 155.0f;
@@ -37,10 +37,11 @@ namespace BugfixesAndQoL
         private FrameworkElement frame;
         private UIElement disbandElement;
         private UIElement attackHereElement;
+        private FrameworkElement controlGroupsElement;
+        private UIElement lordSelectionElement;
+        private Thickness savedControlGroupsMargin;
         private Geometry savedFrameClip;
         private Geometry compactFrameClip;
-        private bool savedShowControlGroups;
-        private bool hasSavedShowControlGroups;
         private int lastFrame = -1;
         private int activeLordUnitId = -1;
         private int activeLordPlayerId = -1;
@@ -206,13 +207,15 @@ namespace BugfixesAndQoL
             frame = RequireElement<FrameworkElement>(panel, "MainFrameTroops");
             savedFrameClip = frame.Clip;
             compactFrameClip = CreateCompactFrameClip();
-            savedShowControlGroups = MainViewModel.Instance?.Show_HUD_ControlGroups == true;
-            hasSavedShowControlGroups = true;
             SaveVisibility(RequireElement<UIElement>(panel, "TroopSelectionControls"));
             SaveVisibility(RequireElement<UIElement>(panel, "TroopSelectionNumbers"));
             SaveVisibility(RequireElement<UIElement>(panel, "ButtonTroopPanelPage1"));
             SaveVisibility(RequireElement<UIElement>(panel, "ButtonTroopPanelPage2"));
-            SaveVisibility(RequireElement<UIElement>(panel, "ToggleControlGroups"));
+            controlGroupsElement = RequireElement<FrameworkElement>(panel, "ToggleControlGroups");
+            savedControlGroupsMargin = controlGroupsElement.Margin;
+            SaveVisibility(controlGroupsElement);
+            lordSelectionElement = RequireElement<UIElement>(panel, "BugfixesAndQoLLordSelectionHost");
+            SaveVisibility(lordSelectionElement);
 
             // These are the two lower action slots reserved for the compact Lord HP display.
             SaveVisibility(RequireElement<UIElement>(panel, "UnitBuild"));
@@ -241,8 +244,10 @@ namespace BugfixesAndQoL
                 mapEditor)
                 ? Visibility.Visible
                 : Visibility.Collapsed;
-
-            MainViewModel.Instance.Show_HUD_ControlGroups = false;
+            // Keep Vanilla's button and command, but move them beside the compact Lord panel.
+            controlGroupsElement.Margin = new Thickness(195f, 11f, 0f, 0f);
+            controlGroupsElement.Visibility = Visibility.Visible;
+            lordSelectionElement.Visibility = Visibility.Visible;
         }
 
         private void RestoreVanillaHud(bool refreshPanel)
@@ -259,8 +264,8 @@ namespace BugfixesAndQoL
                 frame.Clip = savedFrameClip;
             foreach (KeyValuePair<UIElement, Visibility> entry in savedVisibility)
                 entry.Key.Visibility = entry.Value;
-            if (hasSavedShowControlGroups && MainViewModel.Instance != null)
-                MainViewModel.Instance.Show_HUD_ControlGroups = savedShowControlGroups;
+            if (controlGroupsElement != null)
+                controlGroupsElement.Margin = savedControlGroupsMargin;
 
             HUD_Troops panel = activePanel;
             bool wasActive = lordModeActive;
@@ -268,9 +273,10 @@ namespace BugfixesAndQoL
             frame = null;
             disbandElement = null;
             attackHereElement = null;
+            controlGroupsElement = null;
+            lordSelectionElement = null;
             savedFrameClip = null;
             compactFrameClip = null;
-            hasSavedShowControlGroups = false;
             savedVisibility.Clear();
             lordModeActive = false;
             activeLordUnitId = -1;

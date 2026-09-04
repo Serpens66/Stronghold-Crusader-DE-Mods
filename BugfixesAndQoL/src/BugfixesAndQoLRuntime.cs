@@ -44,6 +44,8 @@ namespace BugfixesAndQoL
         private ResyncHostKickFeature resyncHostKickFeature;
         private SurrenderFeature surrenderFeature;
         private LordUnitControlsFeature lordUnitControlsFeature;
+        private LordControlGroupNativePatch lordControlGroupNativePatch;
+        private LordControlGroupIconFeature lordControlGroupIconFeature;
         private SelectedUnitHealthFeature selectedUnitHealthFeature;
         private AssemblyPointPlacementPatch assemblyPointPlacementPatch;
         private HealerAttackCommandPatch healerAttackCommandPatch;
@@ -68,6 +70,7 @@ namespace BugfixesAndQoL
         private bool assemblyPointPlacementPatchUnavailable;
         private bool healerAttackCommandPatchUnavailable;
         private bool mountedStockpileMovementPatchUnavailable;
+        private bool lordControlGroupNativePatchUnavailable;
         private bool aiRecruitmentHorseDemandFixUnavailable;
         private bool aiStoneReserveFixUnavailable;
         private bool aiTowerRuinRepairFixUnavailable;
@@ -330,6 +333,7 @@ namespace BugfixesAndQoL
             TryInitializeFeature("assembly-point placement fix", ApplyAssemblyPointPlacementPatchSetting);
             TryInitializeFeature("Healer attack-command fix", ApplyHealerAttackCommandPatchSetting);
             TryInitializeFeature("mounted-stockpile movement fix", ApplyMountedStockpileMovementPatchSetting);
+            TryInitializeFeature("Lord control groups", ApplyLordControlGroupPatchSetting);
             TryInitializeFeature("AI recruitment horse-demand fix", EnsureAiRecruitmentHorseDemandFix);
             TryInitializeFeature("AI stone-reserve fix", EnsureAiStoneReserveFix);
             TryInitializeFeature("AI tower-ruin repair fix", EnsureAiTowerRuinRepairFix);
@@ -361,6 +365,7 @@ namespace BugfixesAndQoL
             TryApplyFeature("assembly-point placement fix", ApplyAssemblyPointPlacementPatchSetting);
             TryApplyFeature("Healer attack-command fix", ApplyHealerAttackCommandPatchSetting);
             TryApplyFeature("mounted-stockpile movement fix", ApplyMountedStockpileMovementPatchSetting);
+            TryApplyFeature("Lord control groups", ApplyLordControlGroupPatchSetting);
             TryApplyFeature("AI stone-reserve fix", () => aiStoneReserveFix?.ApplySetting());
             TryApplyFeature("Assassin path reconstruction", assassinPathfindingRuntime.ApplySetting);
             if (settings.EnableMod && settings.EnableImprovedAssassinPathfinding && assassinPathfindingRuntime.IsInstalled)
@@ -409,6 +414,7 @@ namespace BugfixesAndQoL
             DisableAssemblyPointPlacementPatch();
             DisableHealerAttackCommandPatch();
             DisableMountedStockpileMovementPatch();
+            DisableLordControlGroupNativePatch();
             aiRecruitmentHorseDemandFix?.Dispose();
             aiRecruitmentHorseDemandFix = null;
             aiStoneReserveFix?.Dispose();
@@ -755,6 +761,17 @@ namespace BugfixesAndQoL
                 DisableHealerAttackCommandPatch();
         }
 
+        private void ApplyLordControlGroupPatchSetting()
+        {
+            if (!nativeLibraryAvailable)
+                return;
+
+            if (settings.EnableMod && settings.EnableLordUnitControls)
+                InstallLordControlGroupNativePatch();
+            else
+                DisableLordControlGroupNativePatch();
+        }
+
         private unsafe ReadOnlySpan<byte> GetNativeLibraryMemory()
         {
             // The game DLL stays loaded for the process lifetime.
@@ -1079,6 +1096,92 @@ namespace BugfixesAndQoL
         {
             healerAttackCommandPatch?.Dispose();
             healerAttackCommandPatch = null;
+        }
+
+        private void InstallLordControlGroupNativePatch()
+        {
+            if (lordControlGroupNativePatch != null || lordControlGroupIconFeature != null ||
+                lordControlGroupNativePatchUnavailable)
+                return;
+
+            try
+            {
+                var nativePatch = new LordControlGroupNativePatch(
+                    log,
+                    GetNativeLibraryMemory(),
+                    unchecked((ulong)libraryHandle.ToInt64()),
+                    fixedLayoutHashValidated);
+                try
+                {
+                    lordControlGroupIconFeature = new LordControlGroupIconFeature(
+                        log,
+                        settings,
+                        nativePatch.ControlGroupRecordsAddress);
+                    lordControlGroupNativePatch = nativePatch;
+                }
+                catch (Exception installError)
+                {
+                    try
+                    {
+                        nativePatch.Dispose();
+                    }
+                    catch (Exception rollbackError)
+                    {
+                        throw new AggregateException(
+                            "Installing the Lord control-group icon failed and native rollback also failed.",
+                            installError,
+                            rollbackError);
+                    }
+                    throw;
+                }
+            }
+            catch (Exception ex)
+            {
+                lordControlGroupNativePatchUnavailable = true;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Bugfixes and QoL Lord control-group patch could not be installed; Vanilla behavior remains active: {ex}");
+            }
+        }
+
+        private void DisableLordControlGroupNativePatch()
+        {
+            bool wasInstalled = lordControlGroupIconFeature != null || lordControlGroupNativePatch != null;
+            Exception firstFailure = null;
+            bool iconRemoved = false;
+            try
+            {
+                lordControlGroupIconFeature?.Dispose();
+                iconRemoved = true;
+            }
+            catch (Exception ex)
+            {
+                firstFailure = ex;
+            }
+            if (iconRemoved)
+                lordControlGroupIconFeature = null;
+            bool nativeRemoved = false;
+            try
+            {
+                lordControlGroupNativePatch?.Dispose();
+                nativeRemoved = true;
+            }
+            catch (Exception ex)
+            {
+                if (firstFailure == null)
+                    firstFailure = ex;
+            }
+            if (nativeRemoved)
+                lordControlGroupNativePatch = null;
+            CrusaderDE.MainViewModel main = CrusaderDE.MainViewModel.Instance;
+            if (wasInstalled && firstFailure == null && main?.Show_HUD_ControlGroups == true)
+                main.HUDControlGroups?.Update();
+            if (firstFailure != null)
+            {
+                throw new InvalidOperationException(
+                    "The Lord control-group native/UI patch could not be removed completely.",
+                    firstFailure);
+            }
         }
 
         private void DisableMountedStockpileMovementPatch()

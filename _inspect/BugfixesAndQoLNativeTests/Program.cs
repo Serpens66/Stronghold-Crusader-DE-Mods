@@ -73,7 +73,11 @@ internal static class Program
             ["CommonPathSuccessClearSequence"] = 0x196734,
             ["CommonPathFailureClearSequence"] = 0x19676C,
             ["FirstClassifierPattern"] = 0x11EBF5,
-            ["SecondClassifierPattern"] = 0x11EF39
+            ["SecondClassifierPattern"] = 0x11EF39,
+            ["AddClassifierPattern"] = 0xCAEF2,
+            ["ReplaceClassifierPattern"] = 0xD0FF7,
+            ["SummaryClassifierPattern"] = 0x18645E,
+            ["ControlGroupStoragePattern"] = 0x186338
         };
 
     private static readonly FunctionContract[] Functions =
@@ -106,7 +110,11 @@ internal static class Program
         new FunctionContract(0x196280, 1293, "D81EEBC55A1FB0CFEEB25D0B0D1CCEDE5C9F545E3CCCCAC5119A556C7B43E9E1"),
         new FunctionContract(0x196810, 33, "FA0090EB160121E461BDBD72FAF66A24F519A7049BE8BA5C2FC7DEBAE554FA8A"),
         new FunctionContract(0x1976C0, 211, "39E4EE6EF688BA664742C592585D2EFF99FF0CBDA16E60B6093DF9BBA64A0469"),
-        new FunctionContract(0x19B260, 966, "15CEB13D6FF56A004CF35CB77A868035410076F63742231CAD5C999AB9B45A9C")
+        new FunctionContract(0x19B260, 966, "15CEB13D6FF56A004CF35CB77A868035410076F63742231CAD5C999AB9B45A9C"),
+        new FunctionContract(0xCAE40, 520, "8BF1FFB2D60B5E9DF7A13D9DB78C0CB131F858307338B4F8B189B4DF0DEF33A3"),
+        new FunctionContract(0xD0F80, 432, "DE52839A245D148BD248EAC134F94987587D399124A65798D9C19624CD2079A5"),
+        new FunctionContract(0x186300, 940, "F37C29D155B60C761054DED08860805ED6F414B1C716036CD9A7B0819EB10167"),
+        new FunctionContract(0x1915C0, 642, "A1866D7DC80173A61656918F519B4DFAAD4F7FEAFF4BA828EE06DD0DC15A4405")
     };
 
     private static int assertions;
@@ -125,6 +133,10 @@ internal static class Program
             CheckProductionPatterns(workspace, pe);
             CheckCriticalSpans(pe.Image);
             CheckHealerAttackCommandContracts(pe.Image);
+            CheckLordControlGroupContracts(pe.Image);
+            CheckLordControlGroupTransactionModel(pe.Image);
+            CheckLordControlGroupIconPolicy();
+            CheckLordControlGroupUiContracts(workspace);
             CheckUnknownHashPolicy(workspace);
             Console.WriteLine($"PASS: BugfixesAndQoL native tests ({assertions} assertions, {PatternRvas.Count} signatures).");
             return 0;
@@ -368,17 +380,289 @@ internal static class Program
             "complete second classifier table remains canonical before patching");
     }
 
+    private static void CheckLordControlGroupContracts(byte[] image)
+    {
+        Check(LordControlGroupNativeDefinition.LordUnitType == 0x37,
+            "Lord unit type remains the audited value");
+        Check(LordControlGroupNativeDefinition.EuropeanArcherUnitType == 0x16,
+            "European Archer placeholder type remains the audited value");
+        CheckBytes(
+            image,
+            LordControlGroupNativeDefinition.AddLordBranchRva,
+            LordControlGroupNativeDefinition.VanillaAddLordBranch,
+            "complete Add-to-control-group Lord exclusion instruction");
+        CheckBytes(
+            image,
+            LordControlGroupNativeDefinition.ReplaceLordBranchRva,
+            LordControlGroupNativeDefinition.VanillaReplaceLordBranch,
+            "complete Replace-control-group Lord exclusion instruction");
+        CheckRelativeConditionalJump(
+            image,
+            LordControlGroupNativeDefinition.AddLordBranchRva,
+            0x84,
+            0xCB01A,
+            "Add-to-control-group Lord exclusion target");
+        CheckRelativeConditionalJump(
+            image,
+            LordControlGroupNativeDefinition.ReplaceLordBranchRva,
+            0x84,
+            0xD1100,
+            "Replace-control-group Lord exclusion target");
+
+        int typeTable = ReadInt32(
+            image,
+            LordControlGroupNativeDefinition.SummaryClassifierPatternRva +
+                LordControlGroupNativeDefinition.SummaryTypeTableDisplacementOffset);
+        int dispatchTable = ReadInt32(
+            image,
+            LordControlGroupNativeDefinition.SummaryClassifierPatternRva +
+                LordControlGroupNativeDefinition.SummaryDispatchTableDisplacementOffset);
+        Check(typeTable == LordControlGroupNativeDefinition.SummaryTypeTableRva,
+            "control-group summary resolves its audited unit-type table");
+        Check(dispatchTable == LordControlGroupNativeDefinition.SummaryDispatchTableRva,
+            "control-group summary resolves its audited dispatch table");
+        Check(typeTable + LordControlGroupNativeDefinition.LordUnitType -
+                LordControlGroupNativeDefinition.UnitTypeTableMinimum ==
+              LordControlGroupNativeDefinition.LordSummaryEntryRva,
+            "Lord summary entry RVA");
+        Check(typeTable + LordControlGroupNativeDefinition.EuropeanArcherUnitType -
+                LordControlGroupNativeDefinition.UnitTypeTableMinimum ==
+              LordControlGroupNativeDefinition.EuropeanArcherSummaryEntryRva,
+            "European Archer summary entry RVA");
+        Check(image[LordControlGroupNativeDefinition.LordSummaryEntryRva] ==
+              LordControlGroupNativeDefinition.VanillaUnmappedSummaryClass,
+            "Vanilla Lord uses the unmapped summary class");
+        Check(image[LordControlGroupNativeDefinition.EuropeanArcherSummaryEntryRva] ==
+              LordControlGroupNativeDefinition.EuropeanArcherSummaryClass,
+            "European Archer uses the placeholder summary class");
+        Check(ReadInt32(
+                image,
+                dispatchTable + LordControlGroupNativeDefinition.EuropeanArcherSummaryClass * sizeof(int)) ==
+              LordControlGroupNativeDefinition.EuropeanArcherSummaryTargetRva,
+            "European Archer summary class dispatch target");
+        Check(ReadInt32(
+                image,
+                dispatchTable + LordControlGroupNativeDefinition.VanillaUnmappedSummaryClass * sizeof(int)) ==
+              LordControlGroupNativeDefinition.UnmappedSummaryTargetRva,
+            "Vanilla unmapped summary class dispatch target");
+
+        int storageRva = checked(
+            LordControlGroupNativeDefinition.ControlGroupStoragePatternRva +
+            LordControlGroupNativeDefinition.ControlGroupStorageNextInstructionOffset +
+            ReadInt32(
+                image,
+                LordControlGroupNativeDefinition.ControlGroupStoragePatternRva +
+                LordControlGroupNativeDefinition.ControlGroupStorageDisplacementOffset));
+        Check(storageRva == LordControlGroupNativeDefinition.ControlGroupStorageRva,
+            "control-group storage reference resolves its audited global array");
+        Check(LordControlGroupNativeDefinition.ControlGroupCount == 10 &&
+              LordControlGroupNativeDefinition.ControlGroupCapacity == 10000 &&
+              LordControlGroupNativeDefinition.ControlGroupRecordIntCount == 2,
+            "control-group storage dimensions match the audited ten-by-10000 ID/global-ID layout");
+    }
+
+    private static void CheckLordControlGroupIconPolicy()
+    {
+        int[] lordOnlyTypes = { 0, 0, 0, 0 };
+        int[] lordOnlyCounts = { 1, 0, 0, 0 };
+        LordControlGroupIconPolicy.InsertLord(lordOnlyTypes, lordOnlyCounts);
+        Check(lordOnlyTypes[0] == LordControlGroupIconPolicy.LordVisualType &&
+              lordOnlyCounts.SequenceEqual(new[] { 1, 0, 0, 0 }) &&
+              LordControlGroupIconPolicy.CalculateExtraCount(1, lordOnlyCounts) == 0,
+            "Lord-only group replaces the internal Archer bridge without changing its count");
+
+        int[] mixedTypes = { 0, 4, 0, 0 };
+        int[] mixedCounts = { 6, 4, 0, 0 };
+        LordControlGroupIconPolicy.InsertLord(mixedTypes, mixedCounts);
+        Check(mixedTypes[0] == 0 && mixedCounts[0] == 5 &&
+              mixedTypes[2] == LordControlGroupIconPolicy.LordVisualType && mixedCounts[2] == 1 &&
+              LordControlGroupIconPolicy.CalculateExtraCount(10, mixedCounts) == 0,
+            "mixed Archer/Lord summary splits the Lord into a free visual slot");
+
+        int[] hiddenLordTypes = { 1, 2, 3, 4 };
+        int[] hiddenLordCounts = { 10, 9, 8, 7 };
+        LordControlGroupIconPolicy.InsertLord(hiddenLordTypes, hiddenLordCounts);
+        Check(hiddenLordTypes[3] == LordControlGroupIconPolicy.LordVisualType &&
+              hiddenLordCounts.SequenceEqual(new[] { 10, 9, 8, 1 }) &&
+              LordControlGroupIconPolicy.CalculateExtraCount(35, hiddenLordCounts) == 7,
+            "Lord hidden behind four larger classes takes the last slot and preserves displaced units in +N");
+
+        int[] fullMixedTypes = { 1, 2, 3, 0 };
+        int[] fullMixedCounts = { 10, 9, 8, 3 };
+        LordControlGroupIconPolicy.InsertLord(fullMixedTypes, fullMixedCounts);
+        Check(fullMixedTypes[3] == LordControlGroupIconPolicy.LordVisualType &&
+              fullMixedCounts.SequenceEqual(new[] { 10, 9, 8, 1 }) &&
+              LordControlGroupIconPolicy.CalculateExtraCount(30, fullMixedCounts) == 2,
+            "full mixed Archer/Lord summary keeps the dedicated Lord icon and moves Archers into +N");
+    }
+
+    private static void CheckLordControlGroupUiContracts(string workspace)
+    {
+        string modRoot = Path.Combine(workspace, "BugfixesAndQoL");
+        string iconPath = Path.Combine(
+            modRoot,
+            "Override",
+            "Assets",
+            "GUI",
+            "Sprites",
+            "BugfixesAndQoL-Lord.png");
+        Check(File.Exists(iconPath) && Hash(File.ReadAllBytes(iconPath)) ==
+              "AE353606A5F6C0F21BAD85F02BB2B2D2793ACB969572B755C11BF861484FF80E",
+            "packaged Lord icon is the unchanged Vanilla chimp55_lord v3.png asset");
+
+        string atlasPatch = File.ReadAllText(Path.Combine(
+            modRoot, "Patches", "Assets", "GUI", "Sprites", "UI-MasterAtlas.xaml"));
+        Check(atlasPatch.Contains("BugfixesAndQoL-Lord.png") &&
+              atlasPatch.Contains("x:Key=\"BugfixesAndQoL-LordIcon\"") &&
+              atlasPatch.Contains("SourceRect=\"67,42,105,179\""),
+            "Lord sprite patch registers and crops the dedicated Vanilla asset");
+
+        string troopPatch = File.ReadAllText(Path.Combine(
+            modRoot, "Patches", "Assets", "GUI", "XAMLResources", "HUD_Troops.xaml"));
+        Check(troopPatch.Contains("x:Name=\"BugfixesAndQoLLordSelected\"") &&
+              troopPatch.Contains("XPath=\"//n:Grid[@x:Name='LayoutRoot']\"") &&
+              troopPatch.Contains("local:PropEx.Sprite1=\"{StaticResource BugfixesAndQoL-LordIcon}\""),
+            "compact troop HUD uses the dedicated Lord resource");
+
+        string groupPatch = File.ReadAllText(Path.Combine(
+            modRoot, "Patches", "Assets", "GUI", "XAMLResources", "HUD_ControlGroups.xaml"));
+        Check(groupPatch.Contains("x:Name=\"BugfixesAndQoLLordControlGroupIconSource\"") &&
+              groupPatch.Contains("Source=\"{StaticResource BugfixesAndQoL-LordIcon}\""),
+            "control-group HUD exposes the resolved Lord ImageSource to the managed hook");
+
+        string iconFeature = File.ReadAllText(Path.Combine(
+            modRoot, "src", "LordControlGroupIconFeature.cs"));
+        Check(iconFeature.Contains("BindingFlags.Instance | BindingFlags.NonPublic") &&
+              iconFeature.Contains("RequirePrivateField(\"RefTroopImages\"") &&
+              iconFeature.Contains("RequirePrivateField(\"RefTroopValues\"") &&
+              iconFeature.Contains("RequirePrivateField(\"RefTroopExtraValues\"") &&
+              !iconFeature.Contains("panel.RefTroop"),
+            "control-group UI hook validates and reflects Vanilla's private HUD members");
+        Check(iconFeature.IndexOf("populateOriginal(self);", StringComparison.Ordinal) <
+                  iconFeature.IndexOf("ApplyLordIcons(self);", StringComparison.Ordinal) &&
+              iconFeature.Contains("record[0] == lordUnitId && record[1] == lordGlobalId") &&
+              iconFeature.Contains("active = false;") && iconFeature.Contains("!active"),
+            "control-group UI hook preserves Vanilla first, identifies the Lord exactly, and gates partial teardown");
+    }
+
+    private static void CheckLordControlGroupTransactionModel(byte[] canonicalImage)
+    {
+        byte[] addOriginal = ParseExactBytes(LordControlGroupNativeDefinition.VanillaAddLordBranch);
+        byte[] replaceOriginal = ParseExactBytes(LordControlGroupNativeDefinition.VanillaReplaceLordBranch);
+        byte[] bypass = ParseExactBytes(LordControlGroupNativeDefinition.BypassLordBranch);
+        var sites = new[]
+        {
+            new BytePatch(
+                LordControlGroupNativeDefinition.AddLordBranchRva,
+                addOriginal,
+                bypass),
+            new BytePatch(
+                LordControlGroupNativeDefinition.ReplaceLordBranchRva,
+                replaceOriginal,
+                bypass),
+            new BytePatch(
+                LordControlGroupNativeDefinition.LordSummaryEntryRva,
+                new[] { LordControlGroupNativeDefinition.VanillaUnmappedSummaryClass },
+                new[] { LordControlGroupNativeDefinition.EuropeanArcherSummaryClass })
+        };
+
+        byte[] applied = (byte[])canonicalImage.Clone();
+        Check(TryApplyTransaction(applied, sites),
+            "canonical Lord control-group layout applies transactionally");
+        foreach (BytePatch site in sites)
+            Check(BytesMatch(applied, site.Rva, site.Replacement), $"Lord patch site 0x{site.Rva:X} applied");
+        RollbackTransaction(applied, sites);
+        foreach (BytePatch site in sites)
+            Check(BytesMatch(applied, site.Rva, site.Original), $"Lord patch site 0x{site.Rva:X} rolled back");
+
+        byte[] unknownLayout = (byte[])canonicalImage.Clone();
+        unknownLayout[LordControlGroupNativeDefinition.ReplaceLordBranchRva + 1] ^= 0x01;
+        byte[] unknownBefore = (byte[])unknownLayout.Clone();
+        Check(!TryApplyTransaction(unknownLayout, sites),
+            "unknown Lord control-group binary layout is rejected");
+        Check(unknownLayout.SequenceEqual(unknownBefore),
+            "unknown layout rejection makes no partial changes");
+
+        byte[] partiallyPatched = (byte[])canonicalImage.Clone();
+        Buffer.BlockCopy(
+            bypass,
+            0,
+            partiallyPatched,
+            LordControlGroupNativeDefinition.AddLordBranchRva,
+            bypass.Length);
+        byte[] partialBefore = (byte[])partiallyPatched.Clone();
+        Check(!TryApplyTransaction(partiallyPatched, sites),
+            "partially changed Lord control-group layout is rejected");
+        Check(partiallyPatched.SequenceEqual(partialBefore),
+            "partial-layout rejection does not change remaining sites");
+    }
+
+    private static bool TryApplyTransaction(byte[] image, BytePatch[] sites)
+    {
+        if (sites.Any(site => !BytesMatch(image, site.Rva, site.Original)))
+            return false;
+        foreach (BytePatch site in sites)
+            Buffer.BlockCopy(site.Replacement, 0, image, site.Rva, site.Replacement.Length);
+        return true;
+    }
+
+    private static void RollbackTransaction(byte[] image, BytePatch[] sites)
+    {
+        for (int i = sites.Length - 1; i >= 0; i--)
+        {
+            BytePatch site = sites[i];
+            Check(BytesMatch(image, site.Rva, site.Replacement),
+                $"Lord rollback owns patch site 0x{site.Rva:X}");
+            Buffer.BlockCopy(site.Original, 0, image, site.Rva, site.Original.Length);
+        }
+    }
+
+    private static bool BytesMatch(byte[] image, int rva, byte[] expected)
+    {
+        if (rva < 0 || rva > image.Length - expected.Length)
+            return false;
+        for (int i = 0; i < expected.Length; i++)
+        {
+            if (image[rva + i] != expected[i])
+                return false;
+        }
+        return true;
+    }
+
+    private static byte[] ParseExactBytes(string value) =>
+        value.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(token => Convert.ToByte(token, 16))
+            .ToArray();
+
     private static void CheckUnknownHashPolicy(string workspace)
     {
         string plague = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "PlagueNativePatternValidator.cs"));
         string recruitment = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "AiRecruitmentHorseDemandFix.cs"));
         string mountedStockpile = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "MountedStockpileMovementPatch.cs"));
         string healerAttackCommand = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "HealerAttackCommandPatch.cs"));
+        string lordControlGroups = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "LordControlGroupNativePatch.cs"));
+        string runtime = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "BugfixesAndQoLRuntime.cs"));
         Check(plague.Contains("if (!referenceHashMatches)"), "plague fixed-layout unknown-hash gate");
         Check(recruitment.Contains("if (!referenceHashMatches)"), "AI recruitment result-layout unknown-hash gate");
         Check(mountedStockpile.Contains("if (!referenceHashMatches)"), "mounted-stockpile unknown-hash gate");
         Check(healerAttackCommand.Contains("if (!referenceHashMatches)"),
             "Healer attack-command unknown-hash gate");
+        Check(lordControlGroups.Contains("if (!referenceHashMatches)"),
+            "Lord control-group unknown-hash gate");
+        Check(lordControlGroups.Contains("addBranch.ValidateOriginal()") &&
+              lordControlGroups.Contains("replaceBranch.ValidateOriginal()") &&
+              lordControlGroups.Contains("lordSummaryEntry.ValidateOriginal()") &&
+              lordControlGroups.IndexOf("lordSummaryEntry.ValidateOriginal()", StringComparison.Ordinal) <
+                  lordControlGroups.IndexOf("addBranch.Apply()", StringComparison.Ordinal),
+            "Lord control-group transaction validates all three sites before applying any site");
+        Check(lordControlGroups.Contains("RestoreSite(lordSummaryEntry") &&
+              lordControlGroups.Contains("RestoreSite(replaceBranch") &&
+              lordControlGroups.Contains("RestoreSite(addBranch") &&
+              lordControlGroups.Contains("applied = CurrentBytesMatch(replacement)"),
+            "Lord control-group transaction rolls back all sites in reverse order, including late write failures");
+        Check(runtime.Contains("settings.EnableMod && settings.EnableLordUnitControls") &&
+              runtime.Contains("DisableLordControlGroupNativePatch()"),
+            "Lord control-group patch follows the existing synchronized Lord-control setting reversibly");
         Check(healerAttackCommand.Contains("FindUniquePattern") &&
               healerAttackCommand.Contains("ReadAbsoluteTableRva") &&
               healerAttackCommand.Contains("ValidateDispatchTargets"),
@@ -462,6 +746,20 @@ internal static class Program
     {
         Check(jumpRva >= 0 && jumpRva <= image.Length - 6, label + " bounds");
         Check(image[jumpRva] == 0x0F && image[jumpRva + 1] == 0x85, label + " opcode");
+        int displacement = ReadInt32(image, jumpRva + 2);
+        Check(jumpRva + 6 + displacement == expectedTargetRva, label);
+    }
+
+    private static void CheckRelativeConditionalJump(
+        byte[] image,
+        int jumpRva,
+        byte conditionOpcode,
+        int expectedTargetRva,
+        string label)
+    {
+        Check(jumpRva >= 0 && jumpRva <= image.Length - 6, label + " bounds");
+        Check(image[jumpRva] == 0x0F && image[jumpRva + 1] == conditionOpcode,
+            label + " opcode");
         int displacement = ReadInt32(image, jumpRva + 2);
         Check(jumpRva + 6 + displacement == expectedTargetRva, label);
     }
@@ -565,6 +863,20 @@ internal static class Program
         public int Rva { get; }
         public int Size { get; }
         public string Hash { get; }
+    }
+
+    private readonly struct BytePatch
+    {
+        public BytePatch(int rva, byte[] original, byte[] replacement)
+        {
+            Rva = rva;
+            Original = original;
+            Replacement = replacement;
+        }
+
+        public int Rva { get; }
+        public byte[] Original { get; }
+        public byte[] Replacement { get; }
     }
 
     private readonly struct PatternToken

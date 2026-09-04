@@ -212,8 +212,35 @@ internal static class Program
             "each real handoff executes the shadow fault detector test");
         Check(runtime.Contains("SIEGE_CONTROLLED_FAULT_INJECTED"),
             "one postcondition fault per supported type is injected into live memory");
-        Check(runtime.Contains("exposure=same-tick-only"),
-            "controlled fault is repaired before Vanilla can process an idle frame");
+        Check(runtime.Contains("injected.RepairableUnitIds.Count == tracker.RequiredCrew"),
+            "controlled live proof requires every referenced engineer to become a repair target");
+        Check(runtime.Contains("gameStateFaultInjection=complete-crew-once-per-type-after-normal-pass"),
+            "installation marker declares the complete-crew live fault model");
+        Check(runtime.Contains("arabBallistaTestMode=leave-complete-crew-idle-without-mod-recovery"),
+            "installation marker declares the temporary Arab ballista reproduction mode");
+        Check(runtime.Contains("if (tracker.DeviceType == ArabBallistaType)"),
+            "only the Arab ballista bypasses controlled recovery");
+        Check(runtime.Contains("SIEGE_ARAB_BALLISTA_FAULT_LEFT_IDLE"),
+            "intentional unrecovered Arab ballista fault has an explicit marker");
+        Check(runtime.Contains("if (!repaired && !intentionallyLeftIdle)"),
+            "snapshot rollback is bypassed only for the intentional visible reproduction");
+        Check(runtime.Contains("tracker.BeginRecovery(currentTick, \"controlled-live-proof\", unitIds)"),
+            "controlled live proof verifies the complete device crew after recovery");
+        Check(!runtime.Contains("new List<int> { unitId }"),
+            "controlled live proof no longer injects only one crew member");
+        Check(runtime.IndexOf("snapshots.Add(EngineerRecoverySnapshot.Capture(crewUnit))",
+                  StringComparison.Ordinal) <
+              runtime.IndexOf("// Every referenced engineer is injected",
+                  StringComparison.Ordinal),
+            "complete crew snapshots are captured before the first injected write");
+        Check(runtime.IndexOf("// Every referenced engineer is injected",
+                  StringComparison.Ordinal) <
+              runtime.IndexOf("repaired = ApplyVanillaExistingCrewRecovery(",
+                  StringComparison.Ordinal),
+            "complete crew injection precedes the atomic recovery call");
+        Check(runtime.Contains("? \"subsequent-vanilla-ticks\"") &&
+              runtime.Contains(": \"same-tick-only\""),
+            "fault exposure distinguishes the visible Arab test from same-tick recovery");
         Check(runtime.Contains("SIEGE_REPAIR_APPLIED"), "every applied recovery is logged");
         Check(runtime.Contains("SIEGE_REPAIR_VERIFICATION_PASSED"),
             "live recovery requires a second bounded stability verdict");
@@ -250,6 +277,9 @@ internal static class Program
         Check(runtime.Contains("TickHeartbeatLimit = 3"), "lifecycle heartbeat logging is bounded");
         Check(runtime.Contains("SlotTransitionLimit = 320"), "siege slot logging is bounded");
         Check(runtime.Contains("EngineerTransitionLimit = 480"), "engineer logging is bounded");
+        Check(!runtime.Contains("RecoveryWork == other.RecoveryWork") &&
+              !runtime.Contains("RecoveryVisual == other.RecoveryVisual"),
+            "per-tick work and visual counters do not flood general transition logs");
         Check(runtime.Contains("ReadUInt32(unit, GlobalIdOffset)"), "diagnostics capture global identities");
         Check(runtime.Contains("AssignedEngineerGlobalsOffset + 8"), "diagnostics capture all three crew identities");
         Check(runtime.Contains("diagnosticsDisabled = true"), "diagnostic faults cannot escape every Unity frame");
