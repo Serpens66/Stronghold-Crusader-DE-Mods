@@ -41,12 +41,14 @@ denselben Hash ausweisen.
 ### Ausgangslage und korrigiertes Inventar
 
 - Das nach den Moat-/Queue-/Move-Änderungen erneut geprüfte Workspace-Inventar basiert
-  auf Commit `5f4e696bcfd1eacccae05cd7525d5a6eb54bf66f` sowie den dabei vorhandenen,
-  uncommitteten Benutzeränderungen in `MoveMoatTest/MoatUnitBehaviorReverseEngineering.md`,
+  auf Commit `6d71e174a8d74457f8e12887d725601e1c91a3c3` (`586`). Gegenüber dem vorherigen
+  Prüfstand änderte dieser Commit insbesondere
+  `MoveMoatTest/MoatUnitBehaviorReverseEngineering.md`,
   `MoveMoatTest/src/MoveMoatPathTest.cs`, `MoveMoatTest/src/MoatWorkTargetSelection.cs`
-  und den gebauten MoveMoat-Artefakten. Spätere Chats müssen Abweichungen erneut
-  inventarisieren, diese Dateien unangetastet lassen und dürfen die Zahlen nicht als
-  unveränderliche Vorgabe behandeln.
+  und die gebauten MoveMoat-Artefakte. Zum Prüfzeitpunkt existierten keine
+  uncommitteten MoveMoat-Quelldateien. Spätere Chats müssen den dann aktuellen Stand
+  dennoch erneut inventarisieren, diese Dateien ohne P3M-Freigabe unangetastet lassen
+  und dürfen die Zahlen nicht als unveränderliche Vorgabe behandeln.
 - Im ursprünglich geprüften Workspace wurden 55 Projektdateien inventarisiert. 37 davon
   referenzierten SHCDESE direkt oder kompilierten dagegen; 18 weitere waren indirekte
   Regressionstests, Hilfsprojekte oder die zu entfernende Linux-Bridge. Inzwischen sind
@@ -315,7 +317,7 @@ statisch zu prüfen.
 #### Ausgewählte Einheiten
 
 `GamePlayerManagerAPI.GetSelectedChimps()` liefert ab 1.45.0
-`SelectedUnitInfo[]` statt `int[]`. Neun direkte Aufrufe in sieben Dateien sind
+`SelectedUnitInfo[]` statt `int[]`. Acht direkte Aufrufe in sieben Dateien sind
 anzupassen:
 
 - BugfixesAndQoL: `AssassinClimbRuntime`, `MountedStockpileMovementPatch`,
@@ -610,7 +612,7 @@ Legende: `direkt` bedeutet echte Zhuqiaomon- oder PolyHook-Quellmigration;
 | ImprovedHunters/ImprovedHunters.csproj | 2.0.2 | ja | ja | nein | nein | nein | nein | ja | 1 | Native/Gameplay |
 | MoatCommandTest/MoatCommandTest.csproj | 2.0.2 | ja | ja | nein | nein | nein | nein | nein | 1 | Native/Gameplay |
 | MoatFillTargetTest/MoatFillTargetTest.csproj | entfällt | nein (entfernt) | nein | nein | nein | nach BugfixesAndQoL übernommen | nein | nein | entfällt | Stilllegung verifizieren |
-| MoveMoatTest/MoveMoatTest.csproj | 2.0.2 | ja | ja | nein | ja | Unit-/Moat-ID-Regression | nein | nein | 1 | Native/Gameplay, gemeinsamer Hookbesitz |
+| MoveMoatTest/MoveMoatTest.csproj | 2.0.2 (zurückgestellt) | ja | ja | nein | ja | Unit-/Moat-ID-, Cache-/Rollback-Regression | nein | nein | 1 | erst nach explizitem Auftrag; Native/Gameplay, gemeinsamer Hookbesitz |
 | MPTest/MPTest.csproj | entfällt | nein (entfernt) | nein | nein | nein | nein | nein | nein | entfällt | Stilllegung verifizieren |
 | OxTetherIdleFixTest/OxTetherIdleFixTest.csproj | 2.0.2 | ja | ja | nein | nein | nein | nein | nein | 1 | Native/Gameplay |
 | QueueTest/QueueTest.csproj | 2.0.2 | ja | ja | nein | ja | Unit-/Tribe-ID + Unassign | nein | nein | 1 | Queue-/Native-Vertragstest |
@@ -684,20 +686,23 @@ offene Restpunkte ein. `abgeschlossen` ist nur erlaubt, wenn alle Abnahmepunkte 
 Pakets erfüllt sind. Bei einer fachlichen Blockade wird `blockiert` mit der exakten
 Entscheidungsfrage eingetragen; der nächste Chat darf nicht darüber hinweggehen.
 
-Erlaubte Statuswerte: `offen`, `in Arbeit`, `blockiert`, `abgeschlossen`.
+Erlaubte Statuswerte: `offen`, `in Arbeit`, `blockiert`, `zurückgestellt`,
+`abgeschlossen`. `zurückgestellt` ist kein impliziter Arbeitsauftrag und darf bei
+P3M nur nach einer neuen ausdrücklichen Benutzerfreigabe verlassen werden.
 
 | Paket | Inhalt | Voraussetzung | Status | Evidenz/Übergabe |
 |---|---|---|---|---|
 | P0 | Extender- und Native-Basis | keine | offen | noch keine |
 | P1 | Shared Settings sowie Trail/Chore/Host-Gruppe | P0 | offen | noch keine |
 | P2 | übrige Projekte ohne direkte Zhuq-Quellnutzung | P0, P1 | offen | noch keine |
-| P3 | kleinere direkte RedBird-Mods und Tests | P0 | offen | noch keine |
+| P3 | kleinere direkte RedBird-Mods und Tests, ohne MoveMoatTest | P0 | offen | noch keine |
+| P3M | MoveMoatTest (ausdrücklich zurückgestellt) | P0, neuer expliziter Benutzerauftrag | zurückgestellt | Mod, Artefakte und Version nicht bearbeiten |
 | P4 | CastlePlanner und Parser-/Placement-Kette | P0, P1 | offen | noch keine |
 | P5 | ImprovedHunters | P0, P1 | offen | noch keine |
-| P6 | BugfixesAndQoL, Moat-Fill und Gatehouse-Shared-Policy | P0, P1, P3b | offen | noch keine |
+| P6 | BugfixesAndQoL, Moat-Fill und Gatehouse-Shared-Policy | P0, P1 | offen | noch keine |
 | P7 | ExtraFeatures | P0, P1, P6 | offen | noch keine |
 | P8 | LinuxModding-Entkopplung | P0 | offen | noch keine |
-| P9 | workspaceweite Endabnahme | P1–P8 | offen | noch keine |
+| P9 | workspaceweite Endabnahme | P1–P8, P3M | offen | noch keine |
 
 ### 8.2 Paket P0: Referenzbasis
 
@@ -760,26 +765,78 @@ Build-/Installationsresultat.
 Zulässiger Umfang:
 
 - ActiveAIVDetector, EnemyGatePathfindingTest samt PolicyTests,
-  HunterQueryTargetDiagnostic, MoatCommandTest, MoveMoatTest,
-  OxTetherIdleFixTest samt Tests, QueueTest samt StaticTests und
+  HunterQueryTargetDiagnostic, MoatCommandTest, OxTetherIdleFixTest samt Tests,
+  QueueTest samt StaticTests und
   StockpileAccessFixTest.
 - Je Mod die vollständige Zhuq-/RedBird-, LoadContext-, Handle-, HookTarget-,
   SelectedUnitInfo-, Dependency- und NetworkMode-Migration durchführen.
-- In MoveMoatTest sämtliche direkten PolyHook-Detours einschließlich der drei
-  gemeinsamen Moat-Work-Hooks atomar auf RedBird migrieren. Die öffentliche
-  `RegisterImprovedMoatFillingProvider`-Bridge und ihr Ergebnisvertrag `1/0` bleiben
-  erhalten, weil P6 davon abhängt. Der statische Featurezustand darf erst nach
-  vollständig erfolgreichem Commit als Besitzer sichtbar werden.
 - In QueueTest den direkten nativen Remove-Vertrag `(manager, unitId, tribeId)` samt
   Hash-, Pattern-, RVA-, Grenz- und Rollbacktests beibehalten; nicht auf den fehlerhaften
   2.0.2-Wrapper zurückwechseln. `QueueTest/NATIVE_CONTRACT.md` muss den bisher nur für
   1.42.0 genannten Wrapperbefund auf den bestätigten 2.0.2-Stand erweitern.
-- Vorhandene Benutzerarbeit in MoveMoatTest und QueueTest sowie die nach
-  BugfixesAndQoL übernommene Moat-Fill-Implementierung nicht zurücksetzen oder durch
-  ältere Analysefassungen ersetzen.
+- Vorhandene Benutzerarbeit in QueueTest sowie die nach BugfixesAndQoL übernommene
+  Moat-Fill-Implementierung nicht zurücksetzen oder durch ältere Analysefassungen
+  ersetzen. MoveMoatTest gehört ausschließlich zu P3M und ist in P3 nicht anzufassen.
 
 Übergabe: pro Hook Commit-/Handle-Prüfung, Besitzklassifikation, Patternnachweis,
 Testresultat und Build-/Installationsresultat.
+
+### 8.5a Paket P3M: MoveMoatTest (zurückgestellt)
+
+Dieses Paket ist nur Dokumentation für einen späteren Auftrag. Kein Chat darf es durch
+das Bearbeiten eines anderen Pakets beiläufig beginnen. Insbesondere dürfen Quellcode,
+Projektdatei, Dokumentation, gebaute DLL/PDB, installierte Ausgabe und Versionsangaben
+von MoveMoatTest bis zu einer neuen ausdrücklichen Benutzeranweisung nicht verändert
+oder gebaut werden. Bei Freigabe ist zuerst der dann aktuelle Arbeitsbaum neu zu lesen;
+später hinzugekommene Benutzeränderungen sind dann Teil der neuen Ausgangslage und
+dürfen nicht durch den heute geprüften Commitstand ersetzt werden.
+
+Nach einer solchen Freigabe gilt für die Migration:
+
+- Sämtliche direkten PolyHook-Detours einschließlich der drei gemeinsamen Moat-Work-
+  Hooks in einer atomaren RedBird-Migration erfassen. Die öffentliche
+  `RegisterImprovedMoatFillingProvider`-Bridge und ihr Ergebnisvertrag `1/0` bleiben
+  erhalten. Der statische Featurezustand darf MoveMoatTest erst nach vollständig
+  erfolgreichem Commit als Hookbesitzer ausweisen; bei Teilfehlern bleiben weder Hooks
+  noch ein scheinbar bereiter Bridgezustand zurück.
+- Beide `GetSelectedChimps()`-Aufrufe auf `SelectedUnitInfo[]` umstellen. Für
+  `TryCaptureSelectedGroup` zuerst ausschließlich die 1-basierten `UnitId`-Werte in
+  ein eigenes `int[]` projizieren und dieses wie bisher numerisch sortieren. Dadurch
+  bleiben Gruppensignatur und Auswahlreihenfolge deterministisch.
+- Die neu hinzugekommenen Policies `GroundOnly`, `FriendlyOnly` und
+  `AllowEnemyForDiagnostic` samt Besitzerprüfung unverändert trennen. Die RedBird-
+  Migration darf weder feindliche Moat-Tiles in produktive Routen aufnehmen noch
+  Diagnose- und Ground-only-Ergebnisse als Friendly-Routen wiederverwenden.
+- Den synchronen, auswahlgebundenen Reachability-Cache um
+  `EnsureMoatWorkReachability`/`TryGetMoatWorkRoute` erhalten: Map-Epoch, Tick,
+  Tile-Manager, Spieler, Einheit, Startposition, Grid-Generation und Enemy-Route-Modus
+  bleiben Bestandteil der Gültigkeit. Terrainänderungen sowie verschachtelte oder neue
+  Selektionen invalidieren die Ergebnisse; Endpoint-Caches dürfen nicht zwischen
+  Selektionen leaken.
+- Den transaktionalen Vanilla-Fallback vollständig erhalten. Vor dem Retry werden der
+  native Unit-Pfadpuffer einschließlich Originallänge sowie `routeVariant` und
+  `moatPathMode` gesichert. Vertragsablehnung oder Exception stellt Puffer, Länge und
+  beide Moduswerte wieder her und fällt ohne partiellen nativen Zustand auf Vanilla
+  zurück. Beim Wechsel vom PolyHook-Trampolin zu RedBird `Original` muss dessen exakte
+  Aufrufreihenfolge relativ zu Sicherung, temporären Writes, Validierung und Rollback
+  unverändert bleiben.
+- Die aktuellen Performance-/Diagnosezähler sind Beobachtungscode und dürfen den
+  produktiven Kontrollfluss nicht übernehmen. Die jüngsten Änderungen fügen keine
+  weiteren nativen Hookziele hinzu; Hook- und Projektinventare deshalb nicht allein
+  wegen neuer Helper oder Caches erhöhen.
+
+Abnahme nach Freigabe: RedBird-Commit und vollständiger Teilfehler-Rollback; erste und
+letzte gültige IDs; leere, mehrfache und gemischte Selektion; Ground-only, freundliche,
+feindliche und ungültige Besitzer; Cache-Wiederverwendung nur innerhalb derselben
+gültigen Selektion; Invalidierung nach Tick/Terrain/Mapwechsel; Vertragsablehnung und
+Exception mit bytegleichem Pfadpuffer, Originallänge, `routeVariant` und `moatPathMode`;
+anschließend gemeinsamer Runtime-Test mit dem bereits migrierten BugfixesAndQoL, bei dem
+pro Moat-Work-Zieladresse genau ein Besitzer aktiv ist.
+
+Übergabe: neu erhobener Arbeitsbaumstand, vollständige Detour-/Original-Aufrufmatrix,
+Rollback- und Cachetests, kombinierter Ownership-Test, eigener Build/Installation und
+später Runtime-Marker. Ohne diese Übergabe bleibt P3M `zurückgestellt` und die gesamte
+Workspace-Migration kann nicht als abgeschlossen gelten.
 
 ### 8.6 Paket P4: CastlePlanner
 
@@ -810,12 +867,14 @@ Feature, Patternnachweise, Tests, Build und Runtime-Marker.
   `ImprovedMoatFillingFix` und aktuell 18 Unload-Stellen migrieren.
 - SelectedUnitInfo, Gold, sechs Chore-Funktionen, fünf Memory-Schreibpfade,
   Multiplayer-Spieltempo, Gatehouse-ID und Moat-Fill gemeinsam abschließen.
-- Den kombinierten Hookbesitz in beiden Konfigurationen testen: BugfixesAndQoL allein
-  installiert genau seinen Standalone-Satz; mit MoveMoatTest besitzt ausschließlich
-  MoveMoatTest die gemeinsamen Hooks und erhält den Aktivierungsprovider. Fehlende oder
-  inkompatible Bridge bleibt ohne Doppelhook fail-closed.
-- Erst nach bestandener kombinierter Abnahme die Moat-Ownership- und
-  MoatFillTargetTest-Ablösungsregeln aus Abschnitt 4.7 in `AGENTS.md` festschreiben.
+- In P6 nur den aktuell zulässigen Stand abschließen: BugfixesAndQoL allein installiert
+  genau seinen Standalone-Satz; eine fehlende oder inkompatible MoveMoat-Bridge bleibt
+  ohne Doppelhook fail-closed. Bridge und Providervertrag bleiben für die spätere
+  Kombination erhalten, ohne MoveMoatTest hierfür zu bearbeiten oder zu bauen.
+- Der kombinierte Hookbesitz mit MoveMoatTest wird erst nach ausdrücklicher Freigabe in
+  P3M getestet. Erst danach die kombinierte Moat-Ownership-Regel in `AGENTS.md` als
+  abgenommen markieren. Die bereits belegte MoatFillTargetTest-Ablösung und der
+  Standalone-Vertrag können in P6 dokumentiert werden.
 - `Shared/GatehouseQueryUnitIdPolicy.cs` auf den 2.0.2-ID-Vertrag bringen; dies ist die
   Voraussetzung für P7.
 - Den effektiven Extender-MaxGameSpeed verwenden und mit 1500 sowie einem bewusst
@@ -856,6 +915,11 @@ offiziellen Update-/Restartpfads.
   werden nicht gegen 2.0.2 gebaut.
 - Sämtliche Negativsuchen, CRLF-Prüfungen, Paket-/Manifestprüfungen und die echte
   Host-/Client-Abnahme durchführen.
+- P9 darf nicht beginnen beziehungsweise nicht `abgeschlossen` werden, solange P3M
+  `zurückgestellt` ist. Soll MoveMoatTest dauerhaft aus dem Migrationsziel fallen,
+  braucht dies ebenfalls eine ausdrückliche Benutzerentscheidung und eine gemeinsame
+  Anpassung von Umfang, Inventaren, Matrix und Definition of Done; bloßes Überspringen
+  genügt nicht.
 - Bereits erfolgreich über `build.bat` installierte Mods nicht grundlos erneut bauen.
   Nur nach weiteren Codeänderungen ist ein erneuter Build erforderlich.
 - Versionsnummern bleiben unverändert. Eine spätere finale Versionsanhebung ist ein
@@ -883,12 +947,14 @@ vollständiger Abnahme auf `abgeschlossen`.
 | P2b | AIDefense samt UnassignUnit-Adapter, APITest, CustomLordUpload, EngineerSiegeFix und VanillaAICExporter | P2a |
 | P2c | SerpNativeAPI, TrailEditor-Kette, TestMod-LUA-Manifest und Stilllegungsnachweis für MoatFillTargetTest/MPTest | P2b |
 | P3a | ActiveAIVDetector, EnemyGatePathfindingTest und HunterQueryTargetDiagnostic | P0 |
-| P3b | MoveMoatTest samt Moat-Ownership-Bridge und allen PolyHook-Detours | P3a |
-| P3c | MoatCommandTest, OxTetherIdleFixTest, QueueTest samt nativem Remove-Vertrag und StockpileAccessFixTest | P3b |
+| P3b | MoatCommandTest, OxTetherIdleFixTest, QueueTest samt nativem Remove-Vertrag und StockpileAccessFixTest | P3a |
+| P3M-a | nach explizitem Auftrag: aktuellen MoveMoat-Arbeitsbaum neu inventarisieren, SelectedUnitInfo und RedBird-/Ownership-Entwurf | P0, ausdrückliche Benutzerfreigabe |
+| P3M-b | zentrale Detours, Original-Aufrufreihenfolge und transaktionalen Fallback migrieren/testen | P3M-a |
+| P3M-c | drei Moat-Work-Hooks, Cache-/Policytests, BugfixesAndQoL-Integration, Build und Runtime-Abnahme | P3M-b, P6 |
 | P5a | gemeinsame RedBird-/Scanner-/Handle-Infrastruktur und Hookinventar | P1 |
 | P5b | Stateful-Immediates, Memorypfade und Besitz-/Teardownmigration | P5a |
 | P5c | statische Tests, Build, Installation und später Runtime-Marker | P5b |
-| P6a | SelectedUnitInfo, Gold, Gatehouse-Shared-Policy, Speedvertrag und Moat-Ownership | P1, P3b |
+| P6a | SelectedUnitInfo, Gold, Gatehouse-Shared-Policy, Speedvertrag und Standalone-Moat-Ownership | P1 |
 | P6b | RedBird-Hooks, 18 Unload-Stellen, fünf Memory-Schreibpfade und Standalone-Moat-Detours | P6a |
 | P6c | sechs Chore-Funktionen, vollständige Tests, Build und Host/Client-Abnahme | P6b |
 | P7a | RedBird-Hooks, zehn Unload-Stellen und Plague-Memorypatch | P6 |
@@ -1032,6 +1098,11 @@ Erforderliche Testgruppen:
    Moat-Fill zusätzlich allein mit BugfixesAndQoL, gemeinsam mit MoveMoatTest, mit
    fehlender/inkompatibler Bridge sowie mit einem von MoveMoat gemeldeten
    Installationsfehler prüfen; pro Zieladresse darf genau ein Hookbesitzer aktiv sein.
+   Der Standalone-Teil gehört zu P6; alle Prüfungen, die MoveMoatTest ausführen oder
+   verändern, bleiben bis zur ausdrücklichen Freigabe P3M vorbehalten. Für MoveMoat
+   zusätzlich die drei Traversal-Policies, Besitzergrenzen, Cache-Gültigkeit und den
+   vollständigen Fallback-Rollback von Pfadpuffer/-länge, `routeVariant` und
+   `moatPathMode` prüfen.
 7. Chore: fehlender Manager, fehlender Packet-Hook, Serialisierungsfehler, Gesamtgröße
    1199, exakt 1200 und 1201 Bytes, pausierte Simulation und keine lokale Mutation bei
    Ablehnung. Im Test dasselbe unveränderte Packetobjekt zweimal mit
@@ -1056,6 +1127,9 @@ Client.
 
 Die Migration ist erst abgeschlossen, wenn:
 
+- P3M nicht mehr `zurückgestellt`, sondern nach ausdrücklichem Auftrag vollständig
+  migriert und abgenommen ist, oder der Benutzer MoveMoatTest ausdrücklich und
+  dokumentiert aus dem Zielumfang entfernt hat;
 - alle 34 aktuellen direkt SHCDESE-bezogenen und alle 18 weiteren Projektdateien gegen
   den bestätigten 2.0.2-Vertrag geprüft und gebaut/getestet sind; die drei historischen
   Runtime-Projekte ChoreTestMod, MoatFillTargetTest und MPTest sowie der Linux-Bestand
