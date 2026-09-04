@@ -118,6 +118,11 @@ namespace MoveMoatTest
             int targetContext,
             int actionFlags);
 
+        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+        [return: MarshalAs(UnmanagedType.I1)]
+        private delegate bool NativeSpecialStructurePredicateDelegate(
+            IntPtr structureContext, int tileId);
+
         private const int CentralMovementPlanRva = 0x18E1E0;
         private const int TribeFloodFillMembershipRva = 0x124740;
         private const int FirstGroupUnitOnCompletedMoatRva = 0x117BC0;
@@ -169,6 +174,9 @@ namespace MoveMoatTest
         private const int PostCombatRepathRva = 0x1976C0;
         private const int PostCombatMoveHereCallRva = 0x19772B;
         private const int CursorMoveStagerRva = 0x195E30;
+        private const int NativeSpecialStructurePredicateRva = 0x107160;
+        private const int NativeSpecialStructureContextRva = 0x32DE440;
+        private const int NativeBuildingTypeBiasRva = 0x64CCCDE;
         private const int CursorMoveStagerRegionPairCallRva = 0x195F46;
         private static readonly int[] CursorMoveStagerCallRvas =
             { 0x8F7BA, 0x8FD3C, 0x8FDC6, 0x8FE54 };
@@ -200,6 +208,11 @@ namespace MoveMoatTest
         private const int NativePathManagerRva = 0x60AD660;
         private const int NativeUnitManagerRva = 0x67E8400;
         private const int NativeTribeManagerRva = 0x7CC6720;
+
+        private static readonly int[] MoatBuilderSpecialStructureCallRvas =
+            { 0xDB29A, 0xDB2EC, 0xDB37A };
+        private static readonly int[] MoatReconstructionSpecialStructureCallRvas =
+            { 0xE1856, 0xE18DF, 0xE195B };
 
         private const int TribeRecordSize = 0x688;
         private const int TribeLeadUnitIdOffset = 0x5A;
@@ -406,6 +419,11 @@ namespace MoveMoatTest
             "85 C0 75 48 49 8B CC E8 ?? ?? ?? ?? 85 C0 74 23 45 8B 84 2C 2C 07 00 00 " +
             "48 8D 0D ?? ?? ?? ?? 43 8B 94 26 2C 07 00 00 41 B1 01";
 
+        private const string NativeSpecialStructurePredicatePattern =
+            "48 63 C2 48 8D 15 ?? ?? ?? ?? 48 0F BF 14 42 66 85 D2 74 1B " +
+            "48 69 D2 9C 00 00 00 0F B7 44 0A 6A 66 83 F8 05 7C 09 " +
+            "66 83 F8 0F 74 03 B0 01 C3 32 C0 C3";
+
         private static readonly byte[] CursorGateJumpOriginal = { 0x74, 0x45 };
         private static readonly byte[] AttackUnitPairGateOriginal = { 0x74, 0x23 };
         private static readonly byte[] AttackBuildingPairGateOriginal = { 0x74, 0x63 };
@@ -426,6 +444,7 @@ namespace MoveMoatTest
         private readonly short* pathRegionGrid;
         private readonly IntPtr nativePathManager;
         private readonly IntPtr nativeTribeManager;
+        private readonly IntPtr nativeSpecialStructureContext;
         private readonly WeightedMoatRoutePlanner weightedMoatRoutePlanner;
         private readonly NativeMovementCadenceResolver nativeMovementCadenceResolver;
 
@@ -471,6 +490,7 @@ namespace MoveMoatTest
         private CursorRegionPrecheckDelegate originalCursorRegionPrecheck;
         private CursorRegionPrecheckDelegate rootedCursorRegionPrecheck;
         private GetMoatIdAtTileDelegate getMoatIdAtTile;
+        private NativeSpecialStructurePredicateDelegate nativeSpecialStructurePredicate;
         private AttackApproachFloodBuilderDelegate originalAttackApproachFloodBuilder;
         private AttackApproachFloodBuilderDelegate rootedAttackApproachFloodBuilder;
         private BuildingApproachBuilderDelegate originalBuildingApproachBuilder;
@@ -599,6 +619,10 @@ namespace MoveMoatTest
             Shared.NativeResolution cursorMoveStagerResolution = Resolve(
                 memory, CursorMoveStagerPattern, CursorMoveStagerRva,
                 "direct cursor move-command stager");
+            Shared.NativeResolution nativeSpecialStructureResolution = Resolve(
+                memory, NativeSpecialStructurePredicatePattern,
+                NativeSpecialStructurePredicateRva,
+                "DAFD0/E1640 special-structure predicate");
             Shared.NativeResolution modeResolution = Resolve(
                 memory, UnitStandingOnCompletedMoatPattern, UnitStandingOnCompletedMoatRva,
                 "unit-standing-on-completed-moat helper");
@@ -709,6 +733,36 @@ namespace MoveMoatTest
                 memory, CursorMoveStagerRegionPairCallRva, RegionPairReachabilityRva,
                 new byte[] { 0xE8, 0xC5, 0xC6, 0xF4, 0xFF },
                 "direct cursor move-command region-pair call");
+            ValidateCallTarget(
+                memory, MoatBuilderSpecialStructureCallRvas[0],
+                NativeSpecialStructurePredicateRva,
+                new byte[] { 0xE8, 0xC1, 0xBE, 0x02, 0x00 },
+                "DAFD0 first special-structure predicate call");
+            ValidateCallTarget(
+                memory, MoatBuilderSpecialStructureCallRvas[1],
+                NativeSpecialStructurePredicateRva,
+                new byte[] { 0xE8, 0x6F, 0xBE, 0x02, 0x00 },
+                "DAFD0 second special-structure predicate call");
+            ValidateCallTarget(
+                memory, MoatBuilderSpecialStructureCallRvas[2],
+                NativeSpecialStructurePredicateRva,
+                new byte[] { 0xE8, 0xE1, 0xBD, 0x02, 0x00 },
+                "DAFD0 third special-structure predicate call");
+            ValidateCallTarget(
+                memory, MoatReconstructionSpecialStructureCallRvas[0],
+                NativeSpecialStructurePredicateRva,
+                new byte[] { 0xE8, 0x05, 0x59, 0x02, 0x00 },
+                "E1640 first special-structure predicate call");
+            ValidateCallTarget(
+                memory, MoatReconstructionSpecialStructureCallRvas[1],
+                NativeSpecialStructurePredicateRva,
+                new byte[] { 0xE8, 0x7C, 0x58, 0x02, 0x00 },
+                "E1640 second special-structure predicate call");
+            ValidateCallTarget(
+                memory, MoatReconstructionSpecialStructureCallRvas[2],
+                NativeSpecialStructurePredicateRva,
+                new byte[] { 0xE8, 0x00, 0x58, 0x02, 0x00 },
+                "E1640 third special-structure predicate call");
             ValidateExactBytes(
                 memory,
                 CursorCurrentTileFlagGateJumpRva,
@@ -904,6 +958,8 @@ namespace MoveMoatTest
             pathRegionGrid = (short*)(libraryBase + PathRegionGridRva);
             nativePathManager = (IntPtr)(libraryBase + NativePathManagerRva);
             nativeTribeManager = (IntPtr)(libraryBase + NativeTribeManagerRva);
+            nativeSpecialStructureContext =
+                (IntPtr)(libraryBase + NativeSpecialStructureContextRva);
             getMoatIdAtTile = Marshal.GetDelegateForFunctionPointer<GetMoatIdAtTileDelegate>(
                 (IntPtr)(libraryBase + unchecked((ulong)moatLookupResolution.Rva)));
             getRepresentativeSelectedUnit = Marshal.GetDelegateForFunctionPointer<GetRepresentativeSelectedUnitDelegate>(
@@ -912,15 +968,20 @@ namespace MoveMoatTest
                 (IntPtr)(libraryBase + unchecked((ulong)selectionCanDigResolution.Rva)));
             getGroupUnitId = Marshal.GetDelegateForFunctionPointer<GetGroupUnitIdDelegate>(
                 (IntPtr)(libraryBase + unchecked((ulong)groupUnitResolution.Rva)));
+            nativeSpecialStructurePredicate =
+                Marshal.GetDelegateForFunctionPointer<NativeSpecialStructurePredicateDelegate>(
+                    (IntPtr)(libraryBase +
+                        unchecked((ulong)nativeSpecialStructureResolution.Rva)));
             weightedMoatRoutePlanner = new WeightedMoatRoutePlanner(
-                movementTargetAvailability,
                 nativeRowLookup,
                 tileFlags,
                 nativeBuildingLayer,
                 nativeHeightLayer,
                 nativeMovementMasks,
                 nativeDirectionMasks,
-                ResolveCompletedMoatRelationship);
+                (byte*)(libraryBase + NativeBuildingTypeBiasRva),
+                ResolveCompletedMoatRelationship,
+                ResolveNativeSpecialStructure);
             nativeMovementCadenceResolver = new NativeMovementCadenceResolver(
                 memory,
                 libraryBase,
@@ -4088,7 +4149,9 @@ namespace MoveMoatTest
                         $"target=({shadow.TargetX},{shadow.TargetY}) " +
                         $"commandContext={shadow.CommandContext} handlerProfiles={cadenceProfiles} " +
                         $"length={publishedSummary.RouteLength} ground={publishedSummary.GroundEdges} " +
-                        $"moat={publishedSummary.MoatEdges} diagonal={publishedSummary.DiagonalEdges} " +
+                        $"moat={publishedSummary.MoatEdges} " +
+                        $"structure={publishedSummary.StructuralEdges} " +
+                        $"diagonal={publishedSummary.DiagonalEdges} " +
                         $"fingerprint=0x{publishedSummary.RouteFingerprint:X16} " +
                         $"guaranteedSavingTicks={guaranteedSaving} " +
                         $"profileCosts={publicationDetails} " +
@@ -4181,6 +4244,7 @@ namespace MoveMoatTest
             }
 
             var candidates = new List<WeightedPublicationCandidate>(profiles.Count);
+            bool structuralRouteObserved = false;
             weightedShadowBusy = true;
             try
             {
@@ -4213,6 +4277,11 @@ namespace MoveMoatTest
                     if (!candidateFound ||
                         !encodedRoute.IsValid || candidateSummary.MoatEdges <= 0)
                     {
+                        continue;
+                    }
+                    if (candidateSummary.StructuralEdges > 0)
+                    {
+                        structuralRouteObserved = true;
                         continue;
                     }
 
@@ -4267,6 +4336,13 @@ namespace MoveMoatTest
                                 validForEveryProfile = false;
                                 break;
                             }
+                            if (nativeProfileSummary.StructuralEdges > 0 ||
+                                candidateProfileSummary.StructuralEdges > 0)
+                            {
+                                structuralRouteObserved = true;
+                                validForEveryProfile = false;
+                                break;
+                            }
 
                             long saving = nativeProfileSummary.EstimatedTicks -
                                 candidateProfileSummary.EstimatedTicks;
@@ -4294,9 +4370,11 @@ namespace MoveMoatTest
 
                 if (winner == null)
                 {
-                    rejectionReason = candidates.Count == 0
-                        ? "no-friendly-moat-candidate"
-                        : "not-faster-under-all-cadence-profiles";
+                    rejectionReason = structuralRouteObserved
+                        ? "structural-edge-cost-uncalibrated"
+                        : candidates.Count == 0
+                            ? "no-friendly-moat-candidate"
+                            : "not-faster-under-all-cadence-profiles";
                     if (shadow.WorkKind != "not-moat-work" || candidates.Count > 0)
                     {
                         LogWeightedPublicationDecision(
@@ -4485,6 +4563,7 @@ namespace MoveMoatTest
                 $"shadowFound={shadow.CandidateFound} " +
                 $"shadowLength={shadow.Candidate.RouteLength} " +
                 $"shadowGround={shadow.Candidate.GroundEdges} shadowMoat={shadow.Candidate.MoatEdges} " +
+                $"shadowStructure={shadow.Candidate.StructuralEdges} " +
                 $"shadowDiagonal={shadow.Candidate.DiagonalEdges} " +
                 $"shadowDirectionChanges={shadow.Candidate.DirectionChanges} " +
                 $"shadowFingerprint=0x{shadow.Candidate.RouteFingerprint:X16} " +
@@ -4492,6 +4571,7 @@ namespace MoveMoatTest
                 $"nativeValid={nativeValid} nativeLength={native.RouteLength} " +
                 $"pathBuffer={(publishedToUnit ? "unit" : "temporary")} " +
                 $"nativeGround={native.GroundEdges} nativeMoat={native.MoatEdges} " +
+                $"nativeStructure={native.StructuralEdges} " +
                 $"nativeDiagonal={native.DiagonalEdges} nativeTicks={native.EstimatedTicks} " +
                 $"optimisticTicks={shadow.OptimisticLowerBoundTicks} " +
                 $"nativeDirectionChanges={native.DirectionChanges} " +
@@ -6997,6 +7077,7 @@ namespace MoveMoatTest
                 uint hostileUnitGlobalId = 0;
                 bool occupiedByLivingUnit = false;
                 bool freeOrdinaryTarget = false;
+                bool structuralPositionTarget = false;
                 if (validPair)
                 {
                     // Vanilla's sprite hit-test owns entity identity. The tile below a unit
@@ -7046,6 +7127,11 @@ namespace MoveMoatTest
                         movementTargetAvailability[targetCell] != 0 &&
                         (tileFlags[targetTileId] & OrdinaryWalkableTileFlag) != 0 &&
                         (tileFlags[targetTileId] & CursorSpecialStructureTileFlagMask) == 0;
+                    // The raw wall/structure hover is only an identity binding. Whether the
+                    // exact tile is a stair, ramp, walkable wall top or an impassable wall is
+                    // decided by the shared DAFD0-compatible edge graph below.
+                    structuralPositionTarget = wallTarget && !occupiedByLivingUnit &&
+                        !hostileBuildingTarget;
                     if (hostileBuildingTarget)
                         fallbackKind = CursorPairFallbackKind.BuildingApproach;
                     else if (hostileUnitTarget)
@@ -7053,7 +7139,8 @@ namespace MoveMoatTest
                 }
 
                 AttackCursorPairScope candidateScope = validPair &&
-                    (freeOrdinaryTarget || hostileUnitTarget || hostileBuildingTarget)
+                    (freeOrdinaryTarget || structuralPositionTarget ||
+                     hostileUnitTarget || hostileBuildingTarget)
                     ? new AttackCursorPairScope(
                         mapEpoch, unitId, playerId, startX, startY, startTileId,
                         targetX, targetY, targetTileId, fallbackKind,
@@ -7104,17 +7191,17 @@ namespace MoveMoatTest
                     rejectionReason = "invalid-tile-pair";
                 else if (!hasVanillaDiggerSelection)
                     rejectionReason = "selection-cannot-dig-moat";
-                else if (wallTarget)
-                    rejectionReason = "wall-or-stair-kept-vanilla";
                 else if (dedicatedBuildingReachability)
                     rejectionReason = "building-routed-through-B70C0";
                 else if (!freeOrdinaryTarget && !hostileUnitTarget && !hostileBuildingTarget &&
-                    !wallTarget)
+                    !structuralPositionTarget)
                     rejectionReason = "target-not-free-or-hostile-entity";
                 else if (!ownerRoute)
                     rejectionReason = groupRouteEvaluated
                         ? "no-legal-moat-relevant-group-route"
-                        : "no-required-friendly-moat-route";
+                        : structuralPositionTarget
+                            ? "structural-route-unreachable"
+                            : "no-required-friendly-moat-route";
                 else if (vanillaResult != 0)
                     rejectionReason = "vanilla-selection-positive-route-context-only";
                 else
@@ -7188,6 +7275,14 @@ namespace MoveMoatTest
                 return;
 
             lastCursorSelectionDiagnostic = signature;
+            ushort targetStructureId = IsValidTileId(diagnostic.TargetTileId)
+                ? nativeBuildingLayer[diagnostic.TargetTileId]
+                : (ushort)0;
+            string targetKind = diagnostic.RawHoveringOverWall != 0
+                ? "structure-position"
+                : diagnostic.BuildingId > 0
+                    ? "building"
+                    : diagnostic.RawHoverUnitId != 0 ? "unit" : "ground";
             Shared.DebugLogHelper.LogInfo(
                 log,
                 $"MoveMoat stage=cursor-selection-gate vanilla={diagnostic.VanillaSelectionResult} " +
@@ -7198,6 +7293,7 @@ namespace MoveMoatTest
                 $"vanillaDiggerSelection={diagnostic.HasVanillaDiggerSelection} " +
                 $"fallbackArmed={diagnostic.FunctionalFallbackArmed} " +
                 $"fallbackKind={diagnostic.FallbackKind} " +
+                $"targetKind={targetKind} structureId={targetStructureId} " +
                 $"building={diagnostic.BuildingId}/{diagnostic.BuildingGlobalId}/" +
                 $"{diagnostic.BuildingType} hoverTileSource=" +
                 $"{FormatBuildingHoverTileSource(diagnostic.BuildingHoverTileSource)} " +
@@ -7514,8 +7610,7 @@ namespace MoveMoatTest
             requiredFriendlyMoatRoute = false;
             summary = default;
             if (targetX < 0 || targetX >= MapWidth ||
-                targetY < 0 || targetY >= MapWidth ||
-                movementTargetAvailability[(targetY * MapWidth) + targetX] == 0)
+                targetY < 0 || targetY >= MapWidth)
             {
                 return false;
             }
@@ -7549,12 +7644,6 @@ namespace MoveMoatTest
             int targetTileId = GameTileManagerAPI.Instance.GetTileId(targetX, targetY);
             if (!IsValidTileId(targetTileId) ||
                 !GamePlayerManagerAPI.Instance.IsPlayerIdValid(playerId))
-            {
-                return false;
-            }
-
-            if (pathRegionGrid[targetTileId] < 0 ||
-                pathRegionGrid[targetTileId] > MaximumRegionId)
             {
                 return false;
             }
@@ -7732,8 +7821,7 @@ namespace MoveMoatTest
             IntPtr tileManager = GameTileManagerAPI.Instance.GetTileManager();
             if (tileManager == IntPtr.Zero || !playerApi.IsPlayerIdValid(playerId) ||
                 targetX < 0 || targetX >= MapWidth || targetY < 0 || targetY >= MapWidth ||
-                startX < 0 || startX >= MapWidth || startY < 0 || startY >= MapWidth ||
-                movementTargetAvailability[(targetY * MapWidth) + targetX] == 0)
+                startX < 0 || startX >= MapWidth || startY < 0 || startY >= MapWidth)
             {
                 return false;
             }
@@ -7761,12 +7849,6 @@ namespace MoveMoatTest
             }
 
             int targetCell = (scope.TargetY * MapWidth) + scope.TargetX;
-            if (movementTargetAvailability[targetCell] == 0 ||
-                (tileFlags[scope.TargetTileId] & OrdinaryWalkableTileFlag) == 0 ||
-                (tileFlags[scope.TargetTileId] & CursorSpecialStructureTileFlagMask) != 0)
-            {
-                return false;
-            }
 
             bool found = TryFindFriendlyCompletedMoatRoute(
                 scope.PlayerId,
@@ -8027,12 +8109,6 @@ namespace MoveMoatTest
             }
 
             int targetCell = scope.TargetY * MapWidth + scope.TargetX;
-            if (movementTargetAvailability[targetCell] == 0 ||
-                (tileFlags[scope.TargetTileId] & OrdinaryWalkableTileFlag) == 0 ||
-                (tileFlags[scope.TargetTileId] & CursorSpecialStructureTileFlagMask) != 0)
-            {
-                return false;
-            }
 
             TryFindFriendlyCompletedMoatRoute(
                 scope.PlayerId, scope.StartX, scope.StartY,
@@ -9116,8 +9192,6 @@ namespace MoveMoatTest
                 return;
 
             int nextCell = (nextY * MapWidth) + nextX;
-            if (movementTargetAvailability[nextCell] == 0)
-                return;
             int currentTileId = GameTileManagerAPI.Instance.GetTileId(currentX, currentY);
             int nextTileId = GameTileManagerAPI.Instance.GetTileId(nextX, nextY);
             if (!IsValidTileId(currentTileId) || !IsValidTileId(nextTileId))
@@ -9135,10 +9209,14 @@ namespace MoveMoatTest
                     false,
                     false,
                     MoatTraversalPolicy.AllowEnemyForDiagnostic,
-                    out MoatTraversalEdgeKind edgeKind))
+                    out MoatTraversalEdgeKind edgeKind,
+                    out bool structuralEdge))
             {
                 return;
             }
+
+            if (structuralEdge)
+                cachedRouteSummary.StructuralEdgesObserved++;
 
             int nextState = currentState == EnemyMoatRouteState ||
                 edgeKind == MoatTraversalEdgeKind.EnemyMoat
@@ -9686,6 +9764,10 @@ namespace MoveMoatTest
 
         private static bool IsValidTileId(int tileId) =>
             tileId >= 0 && tileId < NativeTileCount;
+
+        private bool ResolveNativeSpecialStructure(int tileId) =>
+            IsValidTileId(tileId) && nativeSpecialStructurePredicate != null &&
+            nativeSpecialStructurePredicate(nativeSpecialStructureContext, tileId);
 
         private static NativeDetour CreateDetour<TDelegate>(ulong targetAddress, TDelegate callback)
             where TDelegate : Delegate =>
@@ -10800,6 +10882,7 @@ namespace MoveMoatTest
                 EnemyOnlyReachable = false;
                 TraversedRegionCount = 0;
                 ReachabilityCacheHits = 0;
+                StructuralEdgesObserved = 0;
             }
 
             public int PlayerId;
@@ -10816,6 +10899,7 @@ namespace MoveMoatTest
             public bool EnemyOnlyReachable;
             public int TraversedRegionCount;
             public int ReachabilityCacheHits;
+            public int StructuralEdgesObserved;
 
             public void MergeObservations(RouteProbeSummary other)
             {
@@ -10837,6 +10921,8 @@ namespace MoveMoatTest
                     TraversedRegionCount, other.TraversedRegionCount);
                 ReachabilityCacheHits = Math.Max(
                     ReachabilityCacheHits, other.ReachabilityCacheHits);
+                StructuralEdgesObserved = Math.Max(
+                    StructuralEdgesObserved, other.StructuralEdgesObserved);
             }
 
             public void ObserveOwner(int ownerId)
@@ -10859,6 +10945,7 @@ namespace MoveMoatTest
                     $"enemyOnlyReachable={EnemyOnlyReachable} " +
                     $"traversedRegions={TraversedRegionCount} " +
                     $"reachabilityCacheHits={ReachabilityCacheHits}" +
+                    $" structuralEdges={StructuralEdgesObserved}" +
                     attackFields;
             }
         }

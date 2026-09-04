@@ -66,11 +66,7 @@ internal static class Program
         Check(state.TryEnqueue(new QueueCommand(QueueCommandKind.Move, 1, 2)), "transition enqueue");
         Check(state.TryActivateNext(out _), "transition activate");
         Check(!state.IsEmpty, "active makes state nonempty");
-        Check(state.ShouldLogWaitDiagnostic(10, 100), "first wait diagnostic");
-        Check(!state.ShouldLogWaitDiagnostic(50, 100), "wait diagnostic throttle");
-        Check(state.ShouldLogWaitDiagnostic(110, 100), "wait diagnostic interval");
         state.CompleteActive();
-        Check(state.ShouldLogWaitDiagnostic(111, 100), "completion resets wait diagnostic");
         Check(state.IsEmpty, "completion makes state empty");
     }
 
@@ -167,6 +163,8 @@ internal static class Program
             "Vanilla progress does not advance a page with managed successors");
         Check(vanillaCompleted.Completed && vanillaCurrent.Completed && attackSlot.Ordinal == 3,
             "completed Vanilla slots remain reserved ahead of managed commands");
+        Check(stable.OutstandingVisualCount == 2,
+            "repeated completion updates maintain the outstanding-target count");
         Check(stable.TryActivateNext(out QueueCommand active) && ReferenceEquals(active, attack),
             "stable visual attack activates");
         Check(!attackSlot.Completed && attackSlot.Ordinal == 3,
@@ -209,9 +207,21 @@ internal static class Program
         Check(paged.CompleteActive(), "completed first page advances visual page");
         Check(paged.CurrentVisualPageNumber == 2 && paged.CurrentVisualSlots.Count == 1,
             "second visual page becomes active");
-        Check(paged.CurrentVisualPageIndex == 1 &&
+        Check(paged.CurrentVisualPageIndex == 0 &&
             paged.VisualPages.Skip(paged.CurrentVisualPageIndex).Count() == 1,
-            "completed pages are excluded from subsequent projection");
+            "completed pages are pruned from subsequent projection");
+        Check(paged.VisualPages[0].PageNumber == 2,
+            "pruning retains the stable page identity");
+        for (int index = 0; index < 8; index++)
+        {
+            Check(paged.TryEnqueue(new QueueCommand(QueueCommandKind.Move, 20 + index, 20 + index)),
+                $"refill retained second page slot {index + 2}");
+        }
+        Check(paged.TryEnqueue(
+                new QueueCommand(QueueCommandKind.Move, 30, 30),
+                out QueueVisualSlot pageThreeFirst) &&
+            pageThreeFirst.PageNumber == 3 && pageThreeFirst.Ordinal == 1,
+            "new pages remain monotonic after completed-page pruning");
 
         TribeQueueState mixedPages = new TribeQueueState(56, 16);
         QueueCommandKind[] mixedKinds =

@@ -25,14 +25,6 @@ namespace QueueTest
 
             runtime = new QueueRuntime(Logger);
             CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
-            Shared.DebugLogHelper.LogInfo(Logger, $"{PluginName} {PluginVersion} loaded; waiting for CrusaderDE.dll.");
-        }
-
-        private void OnDestroy()
-        {
-            Shared.DebugLogHelper.LogInfo(
-                Logger,
-                "Plugin component destroyed during startup; keeping QueueTest runtime and native hook rooted.");
         }
 
         private void OnCrusaderLibraryLoaded(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
@@ -45,7 +37,8 @@ namespace QueueTest
                 if (!Shared.DebugLogHelper.ReportNativeLibraryVersion(
                         Logger,
                         PluginName,
-                        requireCurrentVersion: true))
+                        requireCurrentVersion: true,
+                        logSuccess: false))
                 {
                     return;
                 }

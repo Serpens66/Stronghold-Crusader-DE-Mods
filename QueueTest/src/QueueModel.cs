@@ -167,10 +167,14 @@ namespace QueueTest
         public int NativeWaypointIndex { get; }
         public bool Completed { get; private set; }
 
-        public void Complete() => Completed = true;
+        public bool Complete()
+        {
+            if (Completed)
+                return false;
+            Completed = true;
+            return true;
+        }
 
-        public override string ToString() =>
-            $"{Ordinal}:{Command.Kind}:{(Completed ? "hidden" : "visible")}";
     }
 
     internal sealed class QueueVisualPage
@@ -218,6 +222,8 @@ namespace QueueTest
         private readonly Dictionary<QueueCommand, QueueVisualSlot> visualSlots =
             new Dictionary<QueueCommand, QueueVisualSlot>();
         private int currentVisualPageIndex;
+        private int nextVisualPageNumber = 1;
+        private int outstandingVisualCount;
 
         public TribeQueueState(
             uint tribeGlobalId,
@@ -238,29 +244,13 @@ namespace QueueTest
         public IReadOnlyList<QueueUnitIdentity> Members => members;
         public int MaximumPendingCommands { get; }
         public int PendingCount => pending.Count;
-        public int OutstandingVisualCount
-        {
-            get
-            {
-                int count = 0;
-                foreach (QueueVisualPage page in visualPages)
-                {
-                    foreach (QueueVisualSlot slot in page.Slots)
-                    {
-                        if (!slot.Completed)
-                            count++;
-                    }
-                }
-                return count;
-            }
-        }
+        public int OutstandingVisualCount => outstandingVisualCount;
         public int ExpectedMoveChoreCount => expectedMoveChores.Count;
         public int ExpectedMoveEventCount => expectedMoveEvents.Count;
         public QueueCommand Active { get; private set; }
         public QueueCommand ExternalAttack { get; set; }
         public bool WaitForVanillaMovement { get; set; }
         public bool ActiveNeedsRedispatch { get; private set; }
-        public int LastWaitDiagnosticTick { get; private set; } = -1;
         public int CurrentVisualPageNumber =>
             visualPages.Count == 0 ? 0 : visualPages[currentVisualPageIndex].PageNumber;
         public int CurrentVisualPageIndex => currentVisualPageIndex;
@@ -277,7 +267,6 @@ namespace QueueTest
         {
             TribeGlobalId = globalId;
             ActiveNeedsRedispatch = Active != null;
-            LastWaitDiagnosticTick = -1;
         }
 
         public void MarkActiveRedispatched() => ActiveNeedsRedispatch = false;
@@ -336,8 +325,11 @@ namespace QueueTest
             {
                 foreach (QueueVisualSlot slot in page.Slots)
                 {
-                    if (slot.IsVanillaWaypoint && slot.NativeWaypointIndex < currentWaypointIndex)
-                        slot.Complete();
+                    if (slot.IsVanillaWaypoint && slot.NativeWaypointIndex < currentWaypointIndex &&
+                        slot.Complete())
+                    {
+                        outstandingVisualCount--;
+                    }
                 }
             }
             return AdvanceVisualPageIfComplete();
@@ -349,21 +341,11 @@ namespace QueueTest
             {
                 foreach (QueueVisualSlot slot in page.Slots)
                 {
-                    if (slot.IsVanillaWaypoint)
-                        slot.Complete();
+                    if (slot.IsVanillaWaypoint && slot.Complete())
+                        outstandingVisualCount--;
                 }
             }
             return AdvanceVisualPageIfComplete();
-        }
-
-        public bool TryGetVisualSlot(QueueCommand command, out QueueVisualSlot slot)
-        {
-            if (command == null)
-            {
-                slot = null;
-                return false;
-            }
-            return visualSlots.TryGetValue(command, out slot);
         }
 
         public void ExpectMoveChore(QueueCommand command, int expiresAfterTick)
@@ -434,11 +416,13 @@ namespace QueueTest
 
         public bool CompleteActive()
         {
-            if (Active != null && visualSlots.TryGetValue(Active, out QueueVisualSlot slot))
-                slot.Complete();
+            if (Active != null && visualSlots.TryGetValue(Active, out QueueVisualSlot slot) &&
+                slot.Complete())
+            {
+                outstandingVisualCount--;
+            }
             Active = null;
             ActiveNeedsRedispatch = false;
-            LastWaitDiagnosticTick = -1;
             return AdvanceVisualPageIfComplete();
         }
 
@@ -451,7 +435,7 @@ namespace QueueTest
             QueueVisualPage page;
             if (visualPages.Count == 0 || visualPages[visualPages.Count - 1].IsFull)
             {
-                page = new QueueVisualPage(visualPages.Count + 1);
+                page = new QueueVisualPage(nextVisualPageNumber++);
                 visualPages.Add(page);
             }
             else
@@ -466,6 +450,8 @@ namespace QueueTest
                 completed);
             if (!isVanillaWaypoint)
                 visualSlots.Add(command, slot);
+            if (!completed)
+                outstandingVisualCount++;
             return slot;
         }
 
@@ -477,19 +463,24 @@ namespace QueueTest
             {
                 currentVisualPageIndex++;
             }
-            return currentVisualPageIndex != oldIndex;
-        }
-
-        public bool ShouldLogWaitDiagnostic(int tick, int interval)
-        {
-            if (LastWaitDiagnosticTick >= 0 && tick - LastWaitDiagnosticTick < interval)
+            bool changed = currentVisualPageIndex != oldIndex;
+            if (!changed)
                 return false;
 
-            LastWaitDiagnosticTick = tick;
+            // Completed history no longer affects rendering after a page transition. Remove
+            // it and its command lookup entries so long-running append/execute cycles stay bounded.
+            for (int pageIndex = 0; pageIndex < currentVisualPageIndex; pageIndex++)
+            {
+                foreach (QueueVisualSlot slot in visualPages[pageIndex].Slots)
+                {
+                    if (!slot.IsVanillaWaypoint)
+                        visualSlots.Remove(slot.Command);
+                }
+            }
+            visualPages.RemoveRange(0, currentVisualPageIndex);
+            currentVisualPageIndex = 0;
             return true;
         }
-
-        public void ResetWaitDiagnostic() => LastWaitDiagnosticTick = -1;
 
         public bool IsEmpty =>
             Active == null && pending.Count == 0 && ExternalAttack == null && !WaitForVanillaMovement;
@@ -526,6 +517,5 @@ namespace QueueTest
 
         public override int GetHashCode() => (UnitId * 397) ^ unchecked((int)GlobalId);
 
-        public override string ToString() => $"{UnitId}/{GlobalId}";
     }
 }

@@ -2915,7 +2915,61 @@ seine Konsumierung, `0x11B520 -> 0x196280`, die nachgelagerte Gruppenfinalisieru
 weiterhin maßgebliche Builder `0xF4930`. Alle Aussagen dieses Abschnitts gelten für SHA-256
 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
 
-### 15.23a Command-unabhängige gewichtete Veröffentlichung im Unit-Builder
+### 15.23a Strukturziele sind Teil des allgemeinen Moat-Tilegraphen
+
+Der Treppentest vom 4. September 2026 belegte keinen neuen Commandtyp. Beim Hover über die
+erreichbare Treppe hinter einem eigenen fertigen Moat blieb bereits das Auswahlarten-Gate
+`0x196870` negativ. Die Moddiagnose nannte als eigenen Ablehnungsgrund
+`wall-or-stair-kept-vanilla`; `MoveHere` und der Builder wurden deshalb nie erreicht. Die
+Sonderbehandlung war eine künstliche Einschränkung der verwalteten Vorprobe und kein fehlender
+Treppenbefehl.
+
+Die hashgleiche Baseline zeigt für `0xDAFD0` und die Rekonstruktion `0xE1640` denselben zentralen
+Strukturvertrag:
+
+- eine gewöhnliche Kante wird zunächst durch die native Richtungsmaske bei `0x51890D0` bestimmt;
+  eine gesetzte Wall-, Stair- oder Building-Markierung ist danach kein pauschaler Ausschluss;
+- Höhen stammen aus `0x4DDD350`; bei Flag `0x10000000` wird die von `0xC07C0` aus dem nativen
+  Gebäudetyp bestimmte Strukturhöhe addiert;
+- bei Strukturtypen `0x2D` und `0x2E` korrigiert der Builder einen sonst zu großen
+  Höhenunterschied um `0x5A`;
+- nur der besondere Moat-/Strukturzweig verwendet die Masken `0x40000800` und `0x0A5014B1`
+  sowie bei Bit 12 den read-only Helper `0x107160`;
+- `0x107160` liest die tilebezogene Strukturzuordnung bei `0x4ACE010` und den zugehörigen
+  Strukturzustand aus dem Kontext `0x32DE440`. Die Calls liegen in `0xDAFD0` bei
+  `0xDB29A/0xDB2EC/0xDB37A` und in `0xE1640` bei
+  `0xE1856/0xE18DF/0xE195B`.
+
+Die gemeinsame owner-sichere Probe übernimmt deshalb diese native Kantenentscheidung. Sie
+entfernt ihre früheren pauschalen Ausschlüsse für `WallOrStairMask`, eine belegte
+StructureGrid-Zelle und `movementTargetAvailability == 0` innerhalb der Suche. Darauf liegen nur
+noch die Modregeln: Die konkrete Unit muss Vanillas Grabfähigkeit besitzen, eigene und verbündete
+fertige Moats sind erlaubt, feindliche Moats bleiben gesperrt. Ein per Vanilla-Hover gebundenes
+Struktur-Tile wird als exaktes Positionsziel geprüft. Eine Treppe, Rampe oder ein erreichbares
+Wall-Top kann so denselben `0x195E30 -> 0x11B520 -> 0xDAFD0 -> 0xE1640`-Pfad wie ein normales
+Bodenziel verwenden; eine senkrechte Mauer ohne gültige native Kante bleibt unerreichbar.
+
+Strukturkanten werden in Route- und Cursorlogs separat gezählt. Der gewichtete Pfadpublisher
+ersetzt eine Route mit solchen Kanten vorerst nicht (`structural-edge-cost-uncalibrated`), weil
+Treppen- und Strukturkosten noch nicht kalibriert sind. Das betrifft nicht den funktionalen
+Vanilla-Moatpfad, den `0xDAFD0` selbst baut.
+
+Die gemeinsam mit `BugfixesAndQoL 1.0.126` verwendete Moat-Filling-Brücke besitzt weiterhin nur
+einen Hookowner. Ihre Standalone-Validierung verlangt keine unveränderten Live-Entrybytes mehr bei
+`0x196280`, weil dieser Mod dort einen kompatiblen Entry-Detour besitzen darf, ohne die internen
+Moat-Filling-Patches zu überlappen. Unveränderte Livebytes bleiben nur an den tatsächlich von der
+jeweiligen Hookgruppe besessenen Entries `0x69D60` und `0x6AF60` zwingend. Callziel und interne
+Kontrollstellen `0x196464/0x19648D` werden weiterhin gegen die kanonische DLL geprüft. Ein
+gemeinsamer Lauf muss `hookOwner=MoveMoatTest` und die Providerregistrierung melden; ein
+Standalone-Lauf muss `hookOwner=BugfixesAndQoL` melden.
+
+Für Updates sind neben dem kanonischen Hash die Entrybytes von `0x107160`, alle sechs genannten
+Calls, der Recordstride `0x32C`, die Typ-/Höhenlogik aus `0xC07C0` und die Kantenblöcke von
+`0xDAFD0`/`0xE1640` gemeinsam zu prüfen. Ein einzelnes Wall- oder Building-Flag darf nicht erneut
+als allgemeiner Beweis für Unbegehbarkeit verwendet werden. Diese Aussagen gelten für SHA-256
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+
+### 15.23b Command-unabhängige gewichtete Veröffentlichung im Unit-Builder
 
 Der Arbeitslauf vom 4. September 2026 zeigte eine verbleibende Architekturlücke. Beim ersten
 Zuschüttauftrag (Commandwert `7`) veröffentlichte der bisherige Command-Shadow für Unit 10 einen

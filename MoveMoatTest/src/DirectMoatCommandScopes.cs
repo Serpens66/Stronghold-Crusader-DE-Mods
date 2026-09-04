@@ -128,13 +128,6 @@ namespace MoveMoatTest
             if (!IsValidTileId(targetTileId))
                 return false;
             bool targetIsMoat = IsCompletedMoatTile(targetTileId);
-            if (!targetIsMoat &&
-                (movementTargetAvailability[targetY * MapWidth + targetX] == 0 ||
-                 (tileFlags[targetTileId] & OrdinaryWalkableTileFlag) == 0 ||
-                 (tileFlags[targetTileId] & CursorSpecialStructureTileFlagMask) != 0))
-            {
-                return false;
-            }
 
             int playerId = -1;
             var qualifyingUnits = new List<int>();
