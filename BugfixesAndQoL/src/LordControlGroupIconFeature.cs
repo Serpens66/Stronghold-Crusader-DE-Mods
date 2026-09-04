@@ -249,14 +249,8 @@ namespace BugfixesAndQoL
         private void ApplyLordIcons(HUD_ControlGroups panel)
         {
             EngineInterface.PlayState state = GameData.Instance?.lastGameState;
-            if (state?.control_groups_total == null || state.control_groups_type == null ||
-                state.control_groups_count == null ||
-                state.control_groups_total.Length < ControlGroupNativeDefinition.ControlGroupCount ||
-                state.control_groups_type.Length < ControlGroupNativeDefinition.ControlGroupCount * LordControlGroupIconPolicy.VisibleSlotCount ||
-                state.control_groups_count.Length < ControlGroupNativeDefinition.ControlGroupCount * LordControlGroupIconPolicy.VisibleSlotCount)
-            {
+            if (state == null)
                 return;
-            }
 
             Image iconHolder = ((FrameworkElement)panel).FindName(IconSourceName) as Image;
             ImageSource lordIcon = iconHolder?.Source;

@@ -10,7 +10,8 @@
     {
       "Version": "1.0.125",
       "Changes": [
-        "Added an enabled-by-default local fix that immediately removes disbanded units from control groups, preventing their peasants or later recruits from inheriting stale group membership."
+        "Added an enabled-by-default local fix that immediately removes disbanded units from control groups, preventing their peasants or later recruits from inheriting stale group membership.",
+        "Finalized immediate Vanilla-style control-group updates for sole-Lord selections."
       ]
     },
     {

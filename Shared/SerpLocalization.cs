@@ -145,10 +145,9 @@ public static class SerpLocalization
     public const string EnableImprovedAssassinPathfindingHelp = "SomeSettings.EnableImprovedAssassinPathfindingHelp";
     public const string EnableAssassinCombatResumeFix = "BugfixesAndQoL.EnableAssassinCombatResumeFix";
     public const string EnableAssassinCombatResumeFixHelp = "BugfixesAndQoL.EnableAssassinCombatResumeFixHelp";
-    public const string AssassinClimbingDisableTooltip = "SomeSettings.AssassinClimbingDisableTooltip";
-    public const string AssassinClimbingDisableTooltipBody = "SomeSettings.AssassinClimbingDisableTooltipBody";
-    public const string AssassinClimbingEnableTooltip = "SomeSettings.AssassinClimbingEnableTooltip";
-    public const string AssassinClimbingEnableTooltipBody = "SomeSettings.AssassinClimbingEnableTooltipBody";
+    public const string AssassinClimbingToggleTooltip = "BugfixesAndQoL.AssassinClimbingToggleTooltip";
+    public const string AssassinClimbingActiveTooltipBody = "BugfixesAndQoL.AssassinClimbingActiveTooltipBody";
+    public const string AssassinClimbingForbiddenTooltipBody = "BugfixesAndQoL.AssassinClimbingForbiddenTooltipBody";
     public const string InstantHorse = "SomeSettings.InstantHorse";
     public const string InstantHorseHelp = "SomeSettings.InstantHorseHelp";
     public const string KnightDismountTooltip = "SomeSettings.KnightDismountTooltip";
@@ -557,10 +556,9 @@ public static class SerpLocalization
         { EnableImprovedAssassinPathfindingHelp, "Chooses Assassin routes by expected travel time, including climbing animations, and enables the per-player climbing-mode button." },
         { EnableAssassinCombatResumeFix, "Resume Assassin movement after combat" },
         { EnableAssassinCombatResumeFixHelp, "Makes Assassins continue their original movement order after an automatically fought melee combat, including routes that require climbing." },
-        { AssassinClimbingDisableTooltip, "Forbid climbing" },
-        { AssassinClimbingDisableTooltipBody, "New orders for all of your Assassins avoid climbing edges. Normal stairs and already accessible wall surfaces remain usable." },
-        { AssassinClimbingEnableTooltip, "Allow climbing" },
-        { AssassinClimbingEnableTooltipBody, "New orders for all of your Assassins may use climbing edges again." },
+        { AssassinClimbingToggleTooltip, "Toggle global climbing mode" },
+        { AssassinClimbingActiveTooltipBody, "Is active" },
+        { AssassinClimbingForbiddenTooltipBody, "Is forbidden" },
         { InstantHorse, "Instant Horse" },
         { InstantHorseHelp, "Makes a horse immediately available again after a mounted knight dismounts, instead of requiring the stable to replenish it first." },
         { KnightDismountTooltip, "Dismount" },

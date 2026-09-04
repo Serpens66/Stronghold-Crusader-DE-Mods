@@ -114,6 +114,8 @@ namespace BugfixesAndQoL
         private bool renderFailureLogged;
         private int lastRenderFrame = -1;
         private int nextOperationId;
+        private Button hookedButton;
+        private bool tooltipVisible;
 
         public AssassinClimbRuntime(ManualLogSource log, BugfixesAndQoLViewModel settings, MultiplayerFeatureGate multiplayerFeatureGate)
         {
@@ -165,6 +167,8 @@ namespace BugfixesAndQoL
                 renderRefreshSubscribed = false;
             }
             InvalidateRenderState();
+            HideTooltip();
+            UnhookButtonEvents();
             buttonViewModel.Hide();
         }
 
@@ -179,6 +183,7 @@ namespace BugfixesAndQoL
         {
             ResetPlayerStates();
             InvalidateRenderState();
+            HideTooltip();
             buttonViewModel.Hide();
         }
 
@@ -201,6 +206,8 @@ namespace BugfixesAndQoL
             {
                 if (troopPanel == null)
                     TryGetHudTroopPanel(out troopPanel);
+
+                HookButtonEvents(troopPanel);
 
                 MainViewModel viewModel = MainViewModel.viewModelLoaded ? MainViewModel.Instance : null;
                 bool featureActive = initialized && troopPanel != null &&
@@ -232,16 +239,20 @@ namespace BugfixesAndQoL
 
                 if (!featureActive || !selectedOwnAssassin)
                 {
+                    HideTooltip();
                     buttonViewModel.Hide();
                     return changed;
                 }
 
                 buttonViewModel.Show(climbingIsAllowed);
+                if (tooltipVisible)
+                    ShowTooltip();
                 return changed;
             }
             catch (Exception ex)
             {
                 InvalidateRenderState();
+                HideTooltip();
                 buttonViewModel.Hide();
                 if (!renderFailureLogged)
                 {
@@ -410,6 +421,38 @@ namespace BugfixesAndQoL
                 unit->r_UnitChimp == eChimps.CHIMP_TYPE_ARAB_ASSASIN && unit->r_ControllableForPlayerId == playerId;
         }
 
+        private void HookButtonEvents(HUD_Troops troopPanel)
+        {
+            Button button = troopPanel?.FindName("BugfixesAndQoLAssassinClimbButton") as Button;
+            if (button == null || ReferenceEquals(button, hookedButton))
+                return;
+
+            UnhookButtonEvents();
+            hookedButton = button;
+            hookedButton.MouseEnter += OnButtonMouseEnter;
+            hookedButton.MouseLeave += OnButtonMouseLeave;
+        }
+
+        private void UnhookButtonEvents()
+        {
+            if (hookedButton == null)
+                return;
+
+            hookedButton.MouseEnter -= OnButtonMouseEnter;
+            hookedButton.MouseLeave -= OnButtonMouseLeave;
+            hookedButton = null;
+        }
+
+        private void OnButtonMouseEnter(object sender, Noesis.MouseEventArgs e)
+        {
+            ShowTooltip();
+        }
+
+        private void OnButtonMouseLeave(object sender, Noesis.MouseEventArgs e)
+        {
+            HideTooltip();
+        }
+
         private void ShowTooltip()
         {
             try
@@ -421,13 +464,13 @@ namespace BugfixesAndQoL
                     return;
 
                 bool allowed = IsClimbingAllowed(playerId);
-                viewModel.TroopsPanelRollover = SerpLocalization.Get(
-                    allowed ? SerpLocalization.AssassinClimbingDisableTooltip : SerpLocalization.AssassinClimbingEnableTooltip);
+                viewModel.TroopsPanelRollover = SerpLocalization.Get(SerpLocalization.AssassinClimbingToggleTooltip);
                 viewModel.TroopsPanelRollover_AmountReq1 = string.Empty;
                 viewModel.TroopsPanelRollover_AmountGot1 = SerpLocalization.Get(
-                    allowed ? SerpLocalization.AssassinClimbingDisableTooltipBody : SerpLocalization.AssassinClimbingEnableTooltipBody);
+                    allowed ? SerpLocalization.AssassinClimbingActiveTooltipBody : SerpLocalization.AssassinClimbingForbiddenTooltipBody);
                 viewModel.TroopsPanelRollover_GoodsImage1 = null;
                 SetTooltipVisibility(troopPanel, true);
+                tooltipVisible = true;
             }
             catch (Exception ex)
             {
@@ -437,6 +480,10 @@ namespace BugfixesAndQoL
 
         private void HideTooltip()
         {
+            if (!tooltipVisible)
+                return;
+
+            tooltipVisible = false;
             try
             {
                 HUD_Troops troopPanel = MainViewModel.viewModelLoaded ? MainViewModel.Instance?.HUDTroopPanel : null;

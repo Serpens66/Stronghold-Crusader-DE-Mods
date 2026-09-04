@@ -413,9 +413,6 @@ namespace MoveMoatTest
         private static BuildingApproachPerformanceScope activeBuildingApproachPerformance;
         [ThreadStatic]
         private static BuildingConsumerPerformanceScope activeBuildingConsumerPerformance;
-        [ThreadStatic]
-        private static WeightedShadowScope pendingWeightedShadow;
-
         private CentralMovementPlanDelegate originalCentralMovementPlan;
         private CentralMovementPlanDelegate rootedCentralMovementPlan;
         private PathBuilderDelegate originalPathBuilder;
@@ -1440,7 +1437,6 @@ namespace MoveMoatTest
                 activeMoveCommand = null;
                 activePlan = null;
                 pendingPlan = null;
-                pendingWeightedShadow = null;
             }
         }
 
@@ -1515,7 +1511,6 @@ namespace MoveMoatTest
                         activeAttackCommand = scope.Previous;
                     if (pendingPlan != null && pendingPlan.AttackMovementQualified)
                         pendingPlan = null;
-                    pendingWeightedShadow = null;
                 }
             }
         }
@@ -1922,7 +1917,7 @@ namespace MoveMoatTest
         }
 
         private void StartOrRefreshWeightedShadowTracker(
-            WeightedShadowScope shadow,
+            BuilderWeightedScope shadow,
             int builderResult,
             WeightedMoatRouteSummary nativeSummary,
             bool nativeValid,
@@ -3070,10 +3065,8 @@ namespace MoveMoatTest
 
             PlanScope previousActivePlan = activePlan;
             PlanScope previousPendingPlan = pendingPlan;
-            WeightedShadowScope previousWeightedShadow = pendingWeightedShadow;
             activePlan = plan;
             pendingPlan = plan;
-            pendingWeightedShadow = null;
             try
             {
                 MarkPostCombatRepathEntered(unitId, unit, plan, requiredFriendlyMoat);
@@ -3122,7 +3115,6 @@ namespace MoveMoatTest
             {
                 activePlan = previousActivePlan;
                 pendingPlan = previousPendingPlan;
-                pendingWeightedShadow = previousWeightedShadow;
             }
         }
 
@@ -3142,10 +3134,6 @@ namespace MoveMoatTest
                 {
                     return vanillaResult;
                 }
-
-                // Shadow planning is deliberately broader than the functional fallback:
-                // it also observes commands for which Vanilla already finds a long ground route.
-                CaptureWeightedMoatShadow(unitId, unit, plan);
 
                 if (!plannerQualified && activeMoveCommand != null)
                 {
@@ -3259,116 +3247,6 @@ namespace MoveMoatTest
             {
                 LogFailure("mode", ex);
                 return vanillaResult;
-            }
-        }
-
-        private void CaptureWeightedMoatShadow(int unitId, GameUnit* unit, PlanScope plan)
-        {
-            try
-            {
-                int targetX;
-                int targetY;
-                if (plan != null && plan.UnitId == unitId)
-                {
-                    targetX = plan.TargetX;
-                    targetY = plan.TargetY;
-                }
-                else if (activeMoveCommand != null)
-                {
-                    targetX = activeMoveCommand.TargetX;
-                    targetY = activeMoveCommand.TargetY;
-                }
-                else if (activeAttackCommand != null &&
-                    activeAttackCommand.CandidateUnitIds.Contains(unitId))
-                {
-                    targetX = unit->r_AttackMoveToTargetTileX;
-                    targetY = unit->r_AttackMoveToTargetTileY;
-                }
-                else
-                {
-                    return;
-                }
-
-                if (targetX < 0 || targetX >= MapWidth || targetY < 0 || targetY >= MapWidth)
-                    return;
-                if (pendingWeightedShadow != null &&
-                    pendingWeightedShadow.MapEpoch == mapEpoch &&
-                    pendingWeightedShadow.UnitId == unitId &&
-                    pendingWeightedShadow.TargetX == targetX &&
-                    pendingWeightedShadow.TargetY == targetY)
-                {
-                    return;
-                }
-
-                int targetTileId = GameTileManagerAPI.Instance.GetTileId(targetX, targetY);
-                bool allowReservedTarget = IsPublishedWalkableBuildingApproach(
-                    unitId, targetTileId);
-                int playerId = unit->r_ControllableForPlayerId;
-                if (weightedShadowBusy)
-                    return;
-                bool found;
-                WeightedMoatRouteSummary candidate;
-                bool validCostProfile = TryCaptureWeightedMovementCostProfile(
-                    unit, out WeightedMovementCostProfile costProfile,
-                    out string costProfileRejection);
-                if (!validCostProfile)
-                {
-                    found = false;
-                    candidate = WeightedMoatRouteSummary.Failed(costProfileRejection, 0);
-                }
-                else
-                {
-                    weightedShadowBusy = true;
-                    try
-                    {
-                        found = weightedMoatRoutePlanner.TryBuild(
-                            playerId,
-                            unit->r_CurrentTilePositionX,
-                            unit->r_CurrentTilePositionY,
-                            targetX,
-                            targetY,
-                            costProfile,
-                            allowReservedTarget,
-                            out candidate);
-                    }
-                    finally
-                    {
-                        weightedShadowBusy = false;
-                    }
-                }
-                // 0x1976C0 invokes the per-unit planner directly after combat, so no
-                // subsequent group finalizer can overwrite this unit's path buffer.
-                bool calibratable = (plan != null && plan.UnitId == unitId &&
-                    plan.PostCombatRepath) ||
-                    IsIsolatedActiveGroupUnit(unitId, unit->r_TribeId);
-                ResolveCommandDiagnosticContext(
-                    unitId, unit, out TribeAICommand command, out string commandContext,
-                    out int commandSequence);
-                pendingWeightedShadow = new WeightedShadowScope(
-                    mapEpoch,
-                    unitId,
-                    unit->r_UnitChimp,
-                    playerId,
-                    unit->r_TribeId,
-                    command,
-                    commandContext,
-                    commandSequence,
-                    unit->r_CurrentTilePositionX,
-                    unit->r_CurrentTilePositionY,
-                    targetX,
-                    targetY,
-                    costProfile,
-                    allowReservedTarget,
-                    found,
-                    candidate,
-                    calibratable,
-                    validCostProfile ? candidate.SearchMilliseconds : 0,
-                    validCostProfile ? 1 : 0);
-            }
-            catch (Exception ex)
-            {
-                pendingWeightedShadow = null;
-                TryLogDiagnosticFailure("weighted-shadow-capture", ex);
             }
         }
 
@@ -3548,10 +3426,127 @@ namespace MoveMoatTest
                 getGroupUnitId(nativeTribeManager, tribeId, 0) == unitId;
         }
 
-        private bool ObserveWeightedMoatShadowResult(
-            IntPtr pathManager, int builderResult, WeightedShadowScope shadow)
+        private BuilderWeightedScope TryCaptureBuilderWeightedScope(IntPtr pathManager)
         {
-            WeightedShadowScope requestedShadow = shadow;
+            try
+            {
+                if (disposed || weightedShadowBusy || pathManager == IntPtr.Zero ||
+                    pathManager != nativePathManager || nativeUnitManager == null)
+                    return null;
+
+                byte* manager = (byte*)pathManager.ToPointer();
+                byte* nativePath = *(byte**)(manager + PathManagerOutputBufferOffset);
+                byte* firstUnitPath = nativeUnitManager + NativeUnitPathBufferOffset;
+                if (nativePath == null || nativePath < firstUnitPath)
+                    return null;
+
+                long pathOffset = nativePath - firstUnitPath;
+                if (pathOffset <= 0 || pathOffset % NativeUnitPathBufferStride != 0)
+                    return null;
+                long unitId64 = pathOffset / NativeUnitPathBufferStride;
+                if (unitId64 <= 0 || unitId64 > MaximumUnitCount)
+                    return null;
+                int unitId = (int)unitId64;
+                if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+                    unit == null || unit->r_AliveState != AliveState.IsAlive || !CanDigMoat(unit))
+                    return null;
+
+                int startX = *(int*)(manager + 0x08);
+                int startY = *(int*)(manager + 0x0C);
+                int targetX = *(int*)(manager + 0x10);
+                int targetY = *(int*)(manager + 0x14);
+                if (startX < 0 || startX >= MapWidth || startY < 0 || startY >= MapWidth ||
+                    targetX < 0 || targetX >= MapWidth || targetY < 0 || targetY >= MapWidth ||
+                    (startX == targetX && startY == targetY))
+                    return null;
+
+                // Exact 0x196280 start selection: unrelated shared-builder calls fail closed.
+                bool vanillaUsesCurrentTile = unit->r_PathPlanStateBitFlags == 0 &&
+                    unit->r_MovingRelevant == 8;
+                int expectedStartX = vanillaUsesCurrentTile
+                    ? unit->r_CurrentTilePositionX
+                    : unit->r_NextTilePositionX2;
+                int expectedStartY = vanillaUsesCurrentTile
+                    ? unit->r_CurrentTilePositionY
+                    : unit->r_NextTilePositionY2;
+                if (startX != expectedStartX || startY != expectedStartY)
+                    return null;
+
+                int playerId = unit->r_ControllableForPlayerId;
+                string profileRejection = null;
+                WeightedMovementCostProfile costProfile = default;
+                bool validPlayer = GamePlayerManagerAPI.Instance.IsPlayerIdValid(playerId);
+                bool validProfile = validPlayer && TryCaptureWeightedMovementCostProfile(
+                    unit, out costProfile, out profileRejection);
+                if (!validProfile)
+                {
+                    uint rejectedCommand = unchecked((uint)unit->r_AI_LastIssuedTribeCommand);
+                    if (rejectedCommand == (uint)TribeAICommand.DigMoatTileId ||
+                        rejectedCommand == (uint)TribeAICommand.Unknown7)
+                    {
+                        LogWeightedPublicationDecision(
+                            unitId,
+                            $"MoveMoat stage=weighted-builder-capture-rejected " +
+                            $"captureSource=unit-builder unit={unitId} " +
+                            $"command={(TribeAICommand)unit->r_AI_LastIssuedTribeCommand} " +
+                            $"reason={profileRejection ?? "invalid-player"}.");
+                    }
+                    return null;
+                }
+
+                int targetTileId = GameTileManagerAPI.Instance.GetTileId(targetX, targetY);
+                bool allowReservedTarget = IsPublishedWalkableBuildingApproach(unitId, targetTileId);
+                ResolveCommandDiagnosticContext(
+                    unitId, unit, out TribeAICommand command, out string commandContext,
+                    out int commandSequence);
+                uint rawCommand = unchecked((uint)unit->r_AI_LastIssuedTribeCommand);
+                string workKind = rawCommand == (uint)TribeAICommand.DigMoatTileId
+                    ? "dig-moat-work"
+                    : rawCommand == (uint)TribeAICommand.Unknown7
+                        ? "fill-moat-work"
+                        : "not-moat-work";
+                string workPhase = rawCommand == (uint)TribeAICommand.DigMoatTileId ||
+                    rawCommand == (uint)TribeAICommand.Unknown7
+                    ? activeMoveCommand?.IsNewOrder == true
+                        ? "initial-command"
+                        : "automatic-follow-up"
+                    : "not-applicable";
+                bool calibratable = (activePlan != null && activePlan.UnitId == unitId &&
+                    activePlan.PostCombatRepath) ||
+                    IsIsolatedActiveGroupUnit(unitId, unit->r_TribeId);
+                return new BuilderWeightedScope(
+                    mapEpoch,
+                    unitId,
+                    unit->r_UnitChimp,
+                    playerId,
+                    unit->r_TribeId,
+                    command,
+                    commandContext,
+                    commandSequence,
+                    startX,
+                    startY,
+                    targetX,
+                    targetY,
+                    unit->r_CurrentTilePositionX,
+                    unit->r_CurrentTilePositionY,
+                    unchecked((uint)unit->r_AIState),
+                    rawCommand,
+                    workKind,
+                    workPhase,
+                    costProfile,
+                    allowReservedTarget,
+                    calibratable);
+            }
+            catch (Exception ex)
+            {
+                TryLogDiagnosticFailure("weighted-builder-capture", ex);
+                return null;
+            }
+        }
+
+        private bool ObserveWeightedMoatShadowResult(
+            IntPtr pathManager, int builderResult, BuilderWeightedScope shadow)
+        {
             try
             {
                 if (shadow.MapEpoch != mapEpoch || pathManager == IntPtr.Zero ||
@@ -3560,13 +3555,18 @@ namespace MoveMoatTest
                     return false;
                 }
 
+                bool snapshotAvailable = GameUnitManagerAPI.Instance.TryGetUnitById(
+                    shadow.UnitId, out GameUnit* snapshotUnit) && snapshotUnit != null &&
+                    snapshotUnit->r_AliveState == AliveState.IsAlive;
+                bool identityMatches = snapshotAvailable && CanDigMoat(snapshotUnit) &&
+                    snapshotUnit->r_UnitChimp == shadow.UnitType &&
+                    snapshotUnit->r_ControllableForPlayerId == shadow.PlayerId &&
+                    snapshotUnit->r_TribeId == shadow.TribeId;
+                bool snapshotPositionMatches = identityMatches &&
+                    snapshotUnit->r_CurrentTilePositionX == shadow.SnapshotCurrentX &&
+                    snapshotUnit->r_CurrentTilePositionY == shadow.SnapshotCurrentY;
                 string currentProfileRejection = null;
                 WeightedMovementCostProfile currentCostProfile = default;
-                bool snapshotAvailable = GameUnitManagerAPI.Instance.TryGetUnitById(
-                    shadow.UnitId, out GameUnit* snapshotUnit) && snapshotUnit != null;
-                bool snapshotPositionMatches = snapshotAvailable &&
-                    snapshotUnit->r_CurrentTilePositionX == shadow.StartX &&
-                    snapshotUnit->r_CurrentTilePositionY == shadow.StartY;
                 bool currentProfileValid = snapshotPositionMatches &&
                     TryCaptureWeightedMovementCostProfile(
                         snapshotUnit, out currentCostProfile, out currentProfileRejection);
@@ -3576,6 +3576,7 @@ namespace MoveMoatTest
                         shadow, builderResult, default, false, false,
                         "no-valid-shadow-route",
                         !snapshotAvailable ? "runtime-unit-unavailable" :
+                        !identityMatches ? "runtime-unit-identity-changed" :
                         !snapshotPositionMatches ? "runtime-position-changed" :
                         currentProfileRejection ?? "runtime-speed-snapshot-changed");
                     return true;
@@ -3591,81 +3592,24 @@ namespace MoveMoatTest
                 byte* expectedPath = nativeUnitManager + NativeUnitPathBufferOffset +
                     shadow.UnitId * NativeUnitPathBufferStride;
                 bool publishedToUnit = nativePath == expectedPath;
-                if (builderStartX != shadow.StartX || builderStartY != shadow.StartY ||
-                    builderTargetX != shadow.TargetX || builderTargetY != shadow.TargetY)
+                bool vanillaStillUsesCurrentTile =
+                    snapshotUnit->r_PathPlanStateBitFlags == 0 &&
+                    snapshotUnit->r_MovingRelevant == 8;
+                int revalidatedStartX = vanillaStillUsesCurrentTile
+                    ? snapshotUnit->r_CurrentTilePositionX
+                    : snapshotUnit->r_NextTilePositionX2;
+                int revalidatedStartY = vanillaStillUsesCurrentTile
+                    ? snapshotUnit->r_CurrentTilePositionY
+                    : snapshotUnit->r_NextTilePositionY2;
+                if (!publishedToUnit || builderStartX != shadow.StartX ||
+                    builderStartY != shadow.StartY || builderTargetX != shadow.TargetX ||
+                    builderTargetY != shadow.TargetY || revalidatedStartX != shadow.StartX ||
+                    revalidatedStartY != shadow.StartY)
                 {
-                    // 0x196280 plans from CurrentTile only for pathFlags==0/moving==8;
-                    // an already moving unit is otherwise planned from NextTilePosition2.
-                    // Require that exact Vanilla anchor as well as the registered unit buffer.
-                    bool vanillaUsesCurrentTile =
-                        snapshotUnit->r_PathPlanStateBitFlags == 0 &&
-                        snapshotUnit->r_MovingRelevant == 8;
-                    int expectedBuilderStartX = vanillaUsesCurrentTile
-                        ? snapshotUnit->r_CurrentTilePositionX
-                        : snapshotUnit->r_NextTilePositionX2;
-                    int expectedBuilderStartY = vanillaUsesCurrentTile
-                        ? snapshotUnit->r_CurrentTilePositionY
-                        : snapshotUnit->r_NextTilePositionY2;
-                    string builderStartSource = vanillaUsesCurrentTile ? "current" : "next2";
-                    if (builderStartX != expectedBuilderStartX ||
-                        builderStartY != expectedBuilderStartY ||
-                        !publishedToUnit || builderStartX < 0 || builderStartX >= MapWidth ||
-                        builderStartY < 0 || builderStartY >= MapWidth ||
-                        builderTargetX < 0 || builderTargetX >= MapWidth ||
-                        builderTargetY < 0 || builderTargetY >= MapWidth)
-                    {
-                        LogWeightedShadowDecision(
-                            shadow, builderResult, default, false, publishedToUnit,
-                            "no-valid-shadow-route",
-                            $"builder-coordinate-mismatch-actual-start-{builderStartX}-{builderStartY}-" +
-                            $"expected-start-{expectedBuilderStartX}-{expectedBuilderStartY}-" +
-                            $"source-{builderStartSource}-target-{builderTargetX}-{builderTargetY}");
-                        return false;
-                    }
-
-                    int builderTargetTileId = GameTileManagerAPI.Instance.GetTileId(
-                        builderTargetX, builderTargetY);
-                    bool allowReservedBuilderTarget = IsPublishedWalkableBuildingApproach(
-                        shadow.UnitId, builderTargetTileId);
-                    bool adjustedFound = false;
-                    WeightedMoatRouteSummary adjustedCandidate = default;
-                    if (!weightedShadowBusy)
-                    {
-                        weightedShadowBusy = true;
-                        try
-                        {
-                            adjustedFound = weightedMoatRoutePlanner.TryBuild(
-                                shadow.PlayerId,
-                                builderStartX,
-                                builderStartY,
-                                builderTargetX,
-                                builderTargetY,
-                                shadow.CostProfile,
-                                allowReservedBuilderTarget,
-                                out adjustedCandidate);
-                        }
-                        finally
-                        {
-                            weightedShadowBusy = false;
-                        }
-                    }
-                    Shared.DebugLogHelper.LogInfo(
-                        log,
-                        $"MoveMoat stage=weighted-shadow-builder-coordinates unit={shadow.UnitId} " +
-                        $"commandStart=({shadow.StartX},{shadow.StartY}) " +
-                        $"builderStart=({builderStartX},{builderStartY}) " +
-                        $"builderStartSource={builderStartSource} " +
-                        $"commandTarget=({shadow.TargetX},{shadow.TargetY}) " +
-                        $"builderTarget=({builderTargetX},{builderTargetY}) " +
-                        $"shadowFound={adjustedFound} reason={adjustedCandidate.Reason}.");
-                    shadow = shadow.WithBuilderCoordinates(
-                        builderStartX,
-                        builderStartY,
-                        builderTargetX,
-                        builderTargetY,
-                        allowReservedBuilderTarget,
-                        adjustedFound,
-                        adjustedCandidate);
+                    LogWeightedShadowDecision(
+                        shadow, builderResult, default, false, publishedToUnit,
+                        "no-valid-shadow-route", "builder-contract-changed-during-call");
+                    return false;
                 }
 
                 WeightedMoatRouteSummary nativeSummary = default;
@@ -3693,6 +3637,60 @@ namespace MoveMoatTest
                     {
                         weightedShadowBusy = false;
                     }
+                }
+
+                if (!nativeValid)
+                {
+                    if (shadow.WorkKind != "not-moat-work")
+                    {
+                        LogWeightedShadowDecision(
+                            shadow, builderResult, nativeSummary, false, publishedToUnit,
+                            "no-valid-shadow-route",
+                            builderResult <= 0 ? "builder-did-not-produce-positive-path" :
+                            "native-path-decode-failed");
+                    }
+                    return true;
+                }
+
+                int minimumEdges = Math.Max(
+                    Math.Abs(shadow.TargetX - shadow.StartX),
+                    Math.Abs(shadow.TargetY - shadow.StartY));
+                shadow.OptimisticLowerBoundTicks = shadow.CostProfile.EstimateRouteTicks(
+                    minimumEdges, 0);
+                bool couldMeetMargin = shadow.OptimisticLowerBoundTicks != long.MaxValue &&
+                    nativeSummary.EstimatedTicks >= shadow.OptimisticLowerBoundTicks &&
+                    nativeSummary.EstimatedTicks - shadow.OptimisticLowerBoundTicks >=
+                        WeightedPublicationSafetyMarginTicks;
+                if (couldMeetMargin)
+                {
+                    weightedShadowBusy = true;
+                    try
+                    {
+                        shadow.CandidateFound = weightedMoatRoutePlanner.TryBuildEncoded(
+                            shadow.PlayerId,
+                            shadow.StartX,
+                            shadow.StartY,
+                            shadow.TargetX,
+                            shadow.TargetY,
+                            shadow.CostProfile,
+                            shadow.AllowReservedTarget,
+                            out WeightedMoatRouteSummary candidate,
+                            out WeightedMoatEncodedRoute encodedCandidate);
+                        shadow.Candidate = candidate;
+                        shadow.CandidateRoute = encodedCandidate;
+                        shadow.AccumulatedSearchMilliseconds += candidate.SearchMilliseconds;
+                        shadow.SearchPasses++;
+                    }
+                    finally
+                    {
+                        weightedShadowBusy = false;
+                    }
+                }
+                else
+                {
+                    shadow.CandidateFound = false;
+                    shadow.Candidate = WeightedMoatRouteSummary.Failed(
+                        "optimistic-lower-bound-below-margin", 0);
                 }
 
                 string decision;
@@ -3728,7 +3726,7 @@ namespace MoveMoatTest
                 }
 
                 int effectiveBuilderResult = builderResult;
-                if (builderResult > 0 && nativeValid && publishedToUnit &&
+                if (couldMeetMargin && builderResult > 0 && nativeValid && publishedToUnit &&
                     TryPublishConservativelyFasterWeightedRoute(
                         pathManager,
                         nativePath,
@@ -3740,10 +3738,8 @@ namespace MoveMoatTest
                         out string publicationDetails))
                 {
                     effectiveBuilderResult = shadow.PublishedBuilderResult;
-                    // The caller owns the original scope instance. Propagate the replacement
-                    // scope's result so adjusted formation/next-tile paths return their length.
-                    requestedShadow.PublishedBuilderResult = effectiveBuilderResult;
-                    shadow = shadow.WithCandidate(true, publishedSummary);
+                    shadow.CandidateFound = true;
+                    shadow.Candidate = publishedSummary;
                     decision = "weighted-path-published";
                     reason = "faster-by-conservative-margin";
                     int consumerModeBefore = *moatPathMode;
@@ -3753,9 +3749,13 @@ namespace MoveMoatTest
                     *moatPathMode = 1;
                     LogWeightedPublicationDecision(
                         shadow.UnitId,
-                        $"MoveMoat stage=weighted-path-published unit={shadow.UnitId} " +
+                        $"MoveMoat stage=weighted-path-published captureSource={shadow.CaptureSource} " +
+                        $"work={shadow.WorkKind} workPhase={shadow.WorkPhase} " +
+                        $"unit={shadow.UnitId} aiState={shadow.AiState} " +
                         $"type={shadow.UnitType} commandSeq={shadow.CommandSequence} " +
                         $"command={shadow.Command} " +
+                        $"start=({shadow.StartX},{shadow.StartY}) " +
+                        $"target=({shadow.TargetX},{shadow.TargetY}) " +
                         $"commandContext={shadow.CommandContext} handlerProfiles={cadenceProfiles} " +
                         $"length={publishedSummary.RouteLength} ground={publishedSummary.GroundEdges} " +
                         $"moat={publishedSummary.MoatEdges} diagonal={publishedSummary.DiagonalEdges} " +
@@ -3769,10 +3769,16 @@ namespace MoveMoatTest
                         "persistentUnitMode=deferred-to-0x196280.");
                 }
 
-                LogWeightedShadowDecision(
-                    shadow, effectiveBuilderResult, nativeSummary, nativeValid,
-                    publishedToUnit, decision, reason);
-                if (effectiveBuilderResult > 0 && publishedToUnit)
+                bool moatRelevantDiagnostic = shadow.WorkKind != "not-moat-work" ||
+                    nativeSummary.MoatEdges > 0 ||
+                    (shadow.CandidateFound && shadow.Candidate.MoatEdges > 0);
+                if (moatRelevantDiagnostic)
+                {
+                    LogWeightedShadowDecision(
+                        shadow, effectiveBuilderResult, nativeSummary, nativeValid,
+                        publishedToUnit, decision, reason);
+                }
+                if (moatRelevantDiagnostic && effectiveBuilderResult > 0 && publishedToUnit)
                 {
                     StartOrRefreshWeightedShadowTracker(
                         shadow, effectiveBuilderResult, nativeValid ? nativeSummary : default,
@@ -3791,7 +3797,7 @@ namespace MoveMoatTest
             IntPtr pathManager,
             byte* nativePath,
             int nativeLength,
-            WeightedShadowScope shadow,
+            BuilderWeightedScope shadow,
             out WeightedMoatRouteSummary publishedSummary,
             out long guaranteedSaving,
             out string cadenceProfiles,
@@ -3801,9 +3807,9 @@ namespace MoveMoatTest
             guaranteedSaving = long.MinValue;
             cadenceProfiles = "none";
             rejectionReason = "publication-not-evaluated";
-            // 0x11B520 invokes MoveHere once per member and 0x123460 only sorts the
-            // resulting group order. Exact unit-buffer binding plus propagation of the
-            // replacement scope's path length therefore also covers formation followers.
+            // 0x196280 registers exactly one real unit buffer before each 0xF4930 call.
+            // The builder-local scope therefore covers formation followers and internal
+            // worker follow-up targets without depending on the command that led here.
             if (weightedShadowBusy || pathManager == IntPtr.Zero || nativePath == null ||
                 nativeLength <= 0 || nativeLength > WeightedMoatRoutePlanner.MaximumRouteEdges)
             {
@@ -3818,10 +3824,16 @@ namespace MoveMoatTest
                     out ulong handlerRva,
                     out rejectionReason))
             {
-                LogWeightedPublicationDecision(
-                    shadow.UnitId,
-                    $"MoveMoat stage=weighted-path-not-published unit={shadow.UnitId} " +
-                    $"type={shadow.UnitType} reason={rejectionReason}.");
+                if (shadow.WorkKind != "not-moat-work")
+                {
+                    LogWeightedPublicationDecision(
+                        shadow.UnitId,
+                        $"MoveMoat stage=weighted-path-not-published unit={shadow.UnitId} " +
+                        $"captureSource={shadow.CaptureSource} work={shadow.WorkKind} " +
+                        $"workPhase={shadow.WorkPhase} type={shadow.UnitType} " +
+                        $"start=({shadow.StartX},{shadow.StartY}) " +
+                        $"target=({shadow.TargetX},{shadow.TargetY}) reason={rejectionReason}.");
+                }
                 return false;
             }
 
@@ -3844,7 +3856,18 @@ namespace MoveMoatTest
             {
                 foreach (WeightedMovementCostProfile profile in profiles)
                 {
-                    if (!weightedMoatRoutePlanner.TryBuildEncoded(
+                    WeightedMoatRouteSummary candidateSummary;
+                    WeightedMoatEncodedRoute encodedRoute;
+                    bool candidateFound;
+                    if (profile.Equals(shadow.CostProfile) && shadow.CandidateRoute.IsValid)
+                    {
+                        candidateSummary = shadow.Candidate;
+                        encodedRoute = shadow.CandidateRoute;
+                        candidateFound = shadow.CandidateFound;
+                    }
+                    else
+                    {
+                        candidateFound = weightedMoatRoutePlanner.TryBuildEncoded(
                             shadow.PlayerId,
                             shadow.StartX,
                             shadow.StartY,
@@ -3852,8 +3875,12 @@ namespace MoveMoatTest
                             shadow.TargetY,
                             profile,
                             shadow.AllowReservedTarget,
-                            out WeightedMoatRouteSummary candidateSummary,
-                            out WeightedMoatEncodedRoute encodedRoute) ||
+                            out candidateSummary,
+                            out encodedRoute);
+                        shadow.AccumulatedSearchMilliseconds += candidateSummary.SearchMilliseconds;
+                        shadow.SearchPasses++;
+                    }
+                    if (!candidateFound ||
                         !encodedRoute.IsValid || candidateSummary.MoatEdges <= 0)
                     {
                         continue;
@@ -3940,11 +3967,18 @@ namespace MoveMoatTest
                     rejectionReason = candidates.Count == 0
                         ? "no-friendly-moat-candidate"
                         : "not-faster-under-all-cadence-profiles";
-                    LogWeightedPublicationDecision(
-                        shadow.UnitId,
-                        $"MoveMoat stage=weighted-path-not-published unit={shadow.UnitId} " +
-                        $"type={shadow.UnitType} handlerProfiles={cadenceProfiles} " +
-                        $"candidates={candidates.Count} reason={rejectionReason}.");
+                    if (shadow.WorkKind != "not-moat-work" || candidates.Count > 0)
+                    {
+                        LogWeightedPublicationDecision(
+                            shadow.UnitId,
+                            $"MoveMoat stage=weighted-path-not-published unit={shadow.UnitId} " +
+                            $"captureSource={shadow.CaptureSource} work={shadow.WorkKind} " +
+                            $"workPhase={shadow.WorkPhase} type={shadow.UnitType} " +
+                            $"start=({shadow.StartX},{shadow.StartY}) " +
+                            $"target=({shadow.TargetX},{shadow.TargetY}) " +
+                            $"handlerProfiles={cadenceProfiles} " +
+                            $"candidates={candidates.Count} reason={rejectionReason}.");
+                    }
                     return false;
                 }
 
@@ -4064,7 +4098,7 @@ namespace MoveMoatTest
         }
 
         private void LogWeightedShadowDecision(
-            WeightedShadowScope shadow,
+            BuilderWeightedScope shadow,
             int builderResult,
             WeightedMoatRouteSummary native,
             bool nativeValid,
@@ -4077,6 +4111,7 @@ namespace MoveMoatTest
                 : 0;
             string signature = $"{mapEpoch}:{shadow.UnitId}:{(uint)shadow.Command}:" +
                 $"{shadow.CommandContext}:{shadow.CommandSequence}:" +
+                $"{shadow.RawCommand}:{shadow.WorkKind}:{shadow.WorkPhase}:{shadow.AiState}:" +
                 $"{shadow.StartX}:{shadow.StartY}:{shadow.TargetX}:{shadow.TargetY}:" +
                 $"{shadow.CostProfile.CurrentSpeed}:{shadow.CostProfile.CurrentSpeed2}:" +
                 $"{shadow.CostProfile.SpeedBonus}:{shadow.CostProfile.AdditionalSubsteps}:" +
@@ -4085,7 +4120,8 @@ namespace MoveMoatTest
                 $"{builderResult}:{decision}:{reason}:" +
                 $"{shadow.Candidate.RouteLength}:{shadow.Candidate.EstimatedTicks}:" +
                 $"{shadow.AccumulatedSearchMilliseconds}:{shadow.SearchPasses}:" +
-                $"{native.RouteLength}:{native.EstimatedTicks}:{publishedToUnit}";
+                $"{native.RouteLength}:{native.EstimatedTicks}:{publishedToUnit}:" +
+                $"{shadow.OptimisticLowerBoundTicks}";
             if (lastWeightedShadowDecisionByUnit.TryGetValue(
                     shadow.UnitId, out string previous) &&
                 string.Equals(previous, signature, StringComparison.Ordinal))
@@ -4097,9 +4133,12 @@ namespace MoveMoatTest
 
             Shared.DebugLogHelper.LogInfo(
                 log,
-                $"MoveMoat stage=weighted-shadow unit={shadow.UnitId} type={shadow.UnitType} " +
+                $"MoveMoat stage=weighted-shadow captureSource={shadow.CaptureSource} " +
+                $"work={shadow.WorkKind} workPhase={shadow.WorkPhase} " +
+                $"unit={shadow.UnitId} type={shadow.UnitType} aiState={shadow.AiState} " +
                 $"player={shadow.PlayerId} commandSeq={shadow.CommandSequence} " +
                 $"command={shadow.Command}({(uint)shadow.Command}) " +
+                $"runtimeCommandRaw={shadow.RawCommand} " +
                 $"commandContext={shadow.CommandContext} " +
                 $"start=({shadow.StartX},{shadow.StartY}) target=({shadow.TargetX},{shadow.TargetY}) " +
                 $"currentSpeed={shadow.CostProfile.CurrentSpeed} " +
@@ -4124,6 +4163,7 @@ namespace MoveMoatTest
                 $"pathBuffer={(publishedToUnit ? "unit" : "temporary")} " +
                 $"nativeGround={native.GroundEdges} nativeMoat={native.MoatEdges} " +
                 $"nativeDiagonal={native.DiagonalEdges} nativeTicks={native.EstimatedTicks} " +
+                $"optimisticTicks={shadow.OptimisticLowerBoundTicks} " +
                 $"nativeDirectionChanges={native.DirectionChanges} " +
                 $"nativeFingerprint=0x{native.RouteFingerprint:X16} " +
                 $"searchMs={shadow.Candidate.SearchMilliseconds:F3} " +
@@ -4132,7 +4172,7 @@ namespace MoveMoatTest
                 $"expanded={shadow.Candidate.ExpandedNodes} abort={shadow.Candidate.Reason}.");
         }
 
-        private void RecordWeightedCommandDecision(WeightedShadowScope shadow, string decision)
+        private void RecordWeightedCommandDecision(BuilderWeightedScope shadow, string decision)
         {
             double searchMilliseconds = shadow.AccumulatedSearchMilliseconds;
             bool published = string.Equals(
@@ -4560,15 +4600,11 @@ namespace MoveMoatTest
         private int BuildPathWithCompletedMoatRouteVariant(
             IntPtr pathManager, int movementClass, int movementProfile)
         {
-            WeightedShadowScope shadow = pendingWeightedShadow;
+            BuilderWeightedScope shadow = TryCaptureBuilderWeightedScope(pathManager);
             int result = BuildPathWithCompletedMoatRouteVariantCore(
                 pathManager, movementClass, movementProfile);
-            if (shadow != null &&
-                ObserveWeightedMoatShadowResult(pathManager, result, shadow) &&
-                ReferenceEquals(pendingWeightedShadow, shadow))
-            {
-                pendingWeightedShadow = null;
-            }
+            if (shadow != null)
+                ObserveWeightedMoatShadowResult(pathManager, result, shadow);
             return shadow != null && shadow.PublishedBuilderResult >= 0
                 ? shadow.PublishedBuilderResult
                 : result;
@@ -8667,7 +8703,6 @@ namespace MoveMoatTest
             activeAttackApproachDiagnostic = null;
             activeBuildingApproachPerformance = null;
             activeBuildingConsumerPerformance = null;
-            pendingWeightedShadow = null;
             trackedMoatMoves.Clear();
             loggedDiggerDecisions.Clear();
             lastWeightedShadowDecisionByUnit.Clear();
@@ -9229,9 +9264,9 @@ namespace MoveMoatTest
             public HashSet<int> ActualMoatTileIds { get; } = new HashSet<int>();
         }
 
-        private sealed class WeightedShadowScope
+        private sealed class BuilderWeightedScope
         {
-            public WeightedShadowScope(
+            public BuilderWeightedScope(
                 int mapEpoch,
                 int unitId,
                 eChimps unitType,
@@ -9244,13 +9279,15 @@ namespace MoveMoatTest
                 int startY,
                 int targetX,
                 int targetY,
+                int snapshotCurrentX,
+                int snapshotCurrentY,
+                uint aiState,
+                uint rawCommand,
+                string workKind,
+                string workPhase,
                 WeightedMovementCostProfile costProfile,
                 bool allowReservedTarget,
-                bool candidateFound,
-                WeightedMoatRouteSummary candidate,
-                bool calibratable,
-                double accumulatedSearchMilliseconds,
-                int searchPasses)
+                bool calibratable)
             {
                 MapEpoch = mapEpoch;
                 UnitId = unitId;
@@ -9264,13 +9301,16 @@ namespace MoveMoatTest
                 StartY = startY;
                 TargetX = targetX;
                 TargetY = targetY;
+                SnapshotCurrentX = snapshotCurrentX;
+                SnapshotCurrentY = snapshotCurrentY;
+                AiState = aiState;
+                RawCommand = rawCommand;
+                WorkKind = workKind;
+                WorkPhase = workPhase;
                 CostProfile = costProfile;
                 AllowReservedTarget = allowReservedTarget;
-                CandidateFound = candidateFound;
-                Candidate = candidate;
                 Calibratable = calibratable;
-                AccumulatedSearchMilliseconds = accumulatedSearchMilliseconds;
-                SearchPasses = searchPasses;
+                Candidate = WeightedMoatRouteSummary.Failed("not-evaluated", 0);
             }
 
             public int MapEpoch { get; }
@@ -9285,71 +9325,23 @@ namespace MoveMoatTest
             public int StartY { get; }
             public int TargetX { get; }
             public int TargetY { get; }
+            public int SnapshotCurrentX { get; }
+            public int SnapshotCurrentY { get; }
+            public uint AiState { get; }
+            public uint RawCommand { get; }
+            public string WorkKind { get; }
+            public string WorkPhase { get; }
+            public string CaptureSource => "unit-builder";
             public WeightedMovementCostProfile CostProfile { get; }
             public bool AllowReservedTarget { get; }
-            public bool CandidateFound { get; }
-            public WeightedMoatRouteSummary Candidate { get; }
+            public bool CandidateFound { get; set; }
+            public WeightedMoatRouteSummary Candidate { get; set; }
+            public WeightedMoatEncodedRoute CandidateRoute { get; set; }
             public bool Calibratable { get; }
-            public double AccumulatedSearchMilliseconds { get; }
-            public int SearchPasses { get; }
+            public double AccumulatedSearchMilliseconds { get; set; }
+            public int SearchPasses { get; set; }
+            public long OptimisticLowerBoundTicks { get; set; } = long.MaxValue;
             public int PublishedBuilderResult { get; set; } = -1;
-
-            public WeightedShadowScope WithBuilderCoordinates(
-                int startX,
-                int startY,
-                int targetX,
-                int targetY,
-                bool allowReservedTarget,
-                bool candidateFound,
-                WeightedMoatRouteSummary candidate) =>
-                new WeightedShadowScope(
-                    MapEpoch,
-                    UnitId,
-                    UnitType,
-                    PlayerId,
-                    TribeId,
-                    Command,
-                    CommandContext,
-                    CommandSequence,
-                    startX,
-                    startY,
-                    targetX,
-                    targetY,
-                    CostProfile,
-                    allowReservedTarget,
-                    candidateFound,
-                    candidate,
-                    Calibratable,
-                    AccumulatedSearchMilliseconds + candidate.SearchMilliseconds,
-                    SearchPasses + 1);
-
-            public WeightedShadowScope WithCandidate(
-                bool candidateFound,
-                WeightedMoatRouteSummary candidate)
-            {
-                var replacement = new WeightedShadowScope(
-                    MapEpoch,
-                    UnitId,
-                    UnitType,
-                    PlayerId,
-                    TribeId,
-                    Command,
-                    CommandContext,
-                    CommandSequence,
-                    StartX,
-                    StartY,
-                    TargetX,
-                    TargetY,
-                    CostProfile,
-                    AllowReservedTarget,
-                    candidateFound,
-                    candidate,
-                    Calibratable,
-                    AccumulatedSearchMilliseconds,
-                    SearchPasses);
-                replacement.PublishedBuilderResult = PublishedBuilderResult;
-                return replacement;
-            }
         }
 
         private sealed class WeightedPublicationCandidate

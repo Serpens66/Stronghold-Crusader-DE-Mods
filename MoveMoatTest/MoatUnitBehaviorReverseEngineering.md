@@ -2915,6 +2915,75 @@ seine Konsumierung, `0x11B520 -> 0x196280`, die nachgelagerte Gruppenfinalisieru
 weiterhin maßgebliche Builder `0xF4930`. Alle Aussagen dieses Abschnitts gelten für SHA-256
 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
 
+### 15.23a Command-unabhängige gewichtete Veröffentlichung im Unit-Builder
+
+Der Arbeitslauf vom 4. September 2026 zeigte eine verbleibende Architekturlücke. Beim ersten
+Zuschüttauftrag (Commandwert `7`) veröffentlichte der bisherige Command-Shadow für Unit 10 einen
+15 Kanten langen Pfad statt Vanillas 27 Kanten und sparte geschätzt 144 Ticks. Nach Erreichen des
+ersten Arbeitstiles wählte Vanilla weitere Arbeitstiles automatisch aus; für diese Folgewege
+erschien jedoch kein Shadow-Eintrag. Die gewichtete Vorbereitung hing noch an einem äußeren
+Command-/Movement-Scope, den die internen Arbeitsfolgen nicht erneut erzeugen.
+
+Die hashgleiche Baseline bestätigt, dass dafür keine Hooks pro Arbeitsbefehl nötig sind. Im
+zentralen State-Dispatcher `0x13F540` (historisch bestätigt `0x13E580`) gilt:
+
+- Command `6` ruft `0x69D60(..., 1)` und `0x6AF60(..., 1, ...)` auf, wählt damit das nächste von
+  Vanilla akzeptierte Aushebeziel und setzt den Arbeitszustand `0x7C`;
+- Command `7` ruft `0x69D60(..., 2)` und `0x6AF60(..., 2, ...)` auf, wählt das nächste von
+  Vanilla akzeptierte Zuschüttziel und setzt den Arbeitszustand `0x7D`;
+- beide Fälle reichen das von Vanilla bestimmte freie Arbeits-/Annäherungstile anschließend an
+  `0x196280` weiter;
+- Modus `1` in `0x69D60` vergleicht die Allianzzuordnung des Moat-Besitzers und umfasst deshalb
+  eigene sowie verbündete auszuhebende Moats. Ob ein konkreter Moat ausgehoben oder zugeschüttet
+  werden darf, bleibt vollständig Vanillas Entscheidung.
+
+`0x196280` registriert unmittelbar vor `0xF4930` den echten Unit-Pfadpuffer
+`nativeUnitManager + 0xB4FE78 + unitId * 1000`. Der andere direkte Builderpfad über `0x18E1E0`
+verwendet dagegen einen temporären 1000-Byte-Probepuffer. Diese Pufferidentität ist damit die
+universelle und command-unabhängige Bindung: Der Publisher erfasst seinen Kontext erst direkt am
+Eintritt von `0xF4930` und nur dann, wenn der Ausgabepointer exakt auf einen ausgerichteten,
+1-basiert gültigen Unitpuffer zeigt. Die Unit muss leben und dem bestätigten Command-6-Switch
+zufolge grabfähig sein.
+
+Zusätzlich muss der Builderstart exakt Vanillas Regel aus `0x196280` entsprechen: Nur bei
+`r_PathPlanStateBitFlags == 0` und `r_MovingRelevant == 8` wird `CurrentTile` benutzt, andernfalls
+`NextTilePosition2`. Unitidentität, Spieler, Tribe, aktuelle Position, Geschwindigkeitsprofil,
+Start, Ziel und Pufferbindung werden nach dem unveränderten Builderlauf erneut geprüft. Erst nach
+einem positiven, vollständig dekodierbaren Vanilla-/Fallbackpfad darf die gewichtete Suche einen
+Pfad veröffentlichen. Der frühere `pendingWeightedShadow` und die nachträgliche Korrektur von
+Command- zu Builderkoordinaten entfallen vollständig; es existiert kein paralleler alter
+Fallback.
+
+Vor A* wird aus der Chebyshev-Distanz die optimistische hindernisfreie Untergrenze berechnet.
+Kann selbst diese unter dem aktuellen plausiblen Kadenzprofil Vanillas dekodierten Pfad nicht um
+mindestens 40 Ticks schlagen, wird die Suche übersprungen. Andernfalls bleiben alle bisherigen
+Sicherheitsverträge bestehen: sämtliche vom nativen Handler ableitbaren Kadenzprofile,
+mindestens eine eigene oder verbündete fertige Moat-Kante, blockierte feindliche Moats, exaktes
+Ziel, maximal 2000 Nibbles, Encode-/Decode-Roundtrip, atomare Sicherung und Rollback. Beim Gewinner
+setzt der Publisher den globalen Moatmodus auf `1`; `0x196280` übernimmt ihn nach Rückkehr aus
+`0xF4930` regulär in den Unit-Consumermodus.
+
+Die Diagnose nennt `captureSource=unit-builder`, tatsächlichen Runtime-Command und AI-State sowie
+für Command 6/7 `dig-moat-work` oder `fill-moat-work` und best-effort `initial-command` oder
+`automatic-follow-up`. Diese Angaben sind reine Klassifikation und keine funktionale
+Berechtigung. Dadurch gelten dieselben gewichteten Regeln ohne neue Hooks automatisch für Move,
+Patrol, Unit-/Gebäudeangriffe, Formationen, KI, Post-Combat sowie alle initialen und automatischen
+Arbeitswege. Die frühen Cursor-/Annäherungsadapter und der owner-geprüfte Retry nach einem echten
+Vanilla-Nuller bleiben getrennt erforderlich; der neue universelle Publisher arbeitet nur auf
+einem bereits positiven finalen Builderpfad.
+
+Damit die zentrale Erfassung bei langem KI-Schnellvorlauf keine gewöhnlichen Bodenwege ins Log
+schreibt, werden Detail- und Meilensteinlogs nur für tatsächliche native/gewichtete Moat-Routen
+oder Command 6/7 erzeugt. Die Optimierungsprüfung selbst bleibt für jeden korrekt gebundenen
+grabfähigen Unitpfad aktiv; die Logfilterung ist keine funktionale Sperre und verwendet kein
+Mengenbudget.
+
+Für Updates müssen der vollständige Hash, `0x13F540`, die Commandfälle 6/7, `0x69D60`, `0x6AF60`,
+die Arbeitszustände `0x7C/0x7D`, die Startauswahl und Unitpufferregistrierung in `0x196280` sowie
+der Call nach `0xF4930` gemeinsam wiedergefunden werden. Eine ähnliche RVA oder ein einzelnes
+Pattern genügt nicht. Diese Aussagen gelten für SHA-256
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+
 ### 15.24 Unit-Sprite-Hover und wiederholte Angriffsbefehle
 
 Der Lauf vom 4. September 2026 nach Einführung der UnitFlood-Endpunktbindung trennte einen
