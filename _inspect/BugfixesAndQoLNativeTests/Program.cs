@@ -497,15 +497,13 @@ internal static class Program
               LordControlGroupIconPolicy.CalculateExtraCount(10, mixedCounts) == 0,
             "mixed Archer/Lord summary splits the Lord into a free visual slot");
 
-        int[] staleArcherTypes = { 0, 4, 0, 0 };
-        int[] staleArcherCounts = { 5, 4, 0, 0 };
-        LordControlGroupIconPolicy.InsertLord(
-            staleArcherTypes,
-            staleArcherCounts,
-            summaryAlreadyIncludesLord: false);
-        Check(staleArcherTypes[0] == 0 && staleArcherCounts[0] == 5 &&
-              staleArcherTypes[2] == LordControlGroupIconPolicy.LordVisualType && staleArcherCounts[2] == 1,
-            "native Lord insertion does not subtract a real Archer from a stale Vanilla summary");
+        int[] macemenTypes = { 4, 0, 0, 0 };
+        int[] macemenCounts = { 10, 1, 0, 0 };
+        LordControlGroupIconPolicy.InsertLord(macemenTypes, macemenCounts);
+        Check(macemenTypes[0] == 4 && macemenCounts[0] == 10 &&
+              macemenTypes[1] == LordControlGroupIconPolicy.LordVisualType && macemenCounts[1] == 1 &&
+              LordControlGroupIconPolicy.CalculateExtraCount(11, macemenCounts) == 0,
+            "fresh Lord and ten Macemen summary keeps both Vanilla counts visible");
 
         int[] hiddenLordTypes = { 1, 2, 3, 4 };
         int[] hiddenLordCounts = { 10, 9, 8, 7 };
@@ -716,29 +714,35 @@ internal static class Program
               iconFeature.Contains("RequirePrivateField(\"RefTroopImages\"") &&
               iconFeature.Contains("RequirePrivateField(\"RefTroopValues\"") &&
               iconFeature.Contains("RequirePrivateField(\"RefTroopExtraValues\"") &&
+              iconFeature.Contains("typeof(GameData)") &&
+              iconFeature.Contains("\"setGameState\"") &&
               !iconFeature.Contains("panel.RefTroop"),
-            "control-group UI hook validates and reflects Vanilla's private HUD members");
+            "control-group UI hook validates Vanilla's HUD members and PlayState boundary");
         Check(iconFeature.IndexOf("populateOriginal(self);", StringComparison.Ordinal) <
                    iconFeature.IndexOf("ApplyLordIcons(self);", StringComparison.Ordinal) &&
-              iconFeature.Contains("unitId == lordUnitId && record[1] == lordGlobalId") &&
+              iconFeature.Contains("record[0] == lordUnitId && record[1] == lordGlobalId") &&
               iconFeature.Contains("active = false;") && iconFeature.Contains("!active"),
             "control-group UI hook preserves Vanilla first, identifies the Lord exactly, and gates partial teardown");
-        Check(iconFeature.IndexOf("buttonClickedOriginal(self, command);", StringComparison.Ordinal) <
-                  iconFeature.IndexOf("RefreshPanel(self);", StringComparison.Ordinal) &&
+        Check(iconFeature.Contains("buttonClickedOriginal(self, command);") &&
               iconFeature.Contains("IsGroupMutationCommand(command)") &&
-              iconFeature.Contains("pendingRefreshFrame = Time.frameCount + 1;") &&
-              iconFeature.Contains("Application.onBeforeRender += OnBeforeRender;") &&
-              iconFeature.Contains("Application.onBeforeRender -= OnBeforeRender;") &&
+              iconFeature.Contains("pendingRefreshPanel = self;") &&
+              iconFeature.Contains("hasObservedPatchedGameState = true;") &&
+              iconFeature.Contains("if (!hasObservedPatchedGameState ||") &&
+              !iconFeature.Contains("RefreshPanel(self);") &&
+              !iconFeature.Contains("Application.onBeforeRender") &&
+              iconFeature.IndexOf("setGameStateOriginal(self, gameState);", StringComparison.Ordinal) <
+                  iconFeature.IndexOf("RefreshPanel(panel);", StringComparison.Ordinal) &&
               iconFeature.Contains("ClearPendingRefresh();") &&
-              !iconFeature.Contains("DeferredRefreshFrameCount"),
-            "control-group mutations preserve Vanilla first and coalesce exactly one next-render refresh with teardown");
-        Check(iconFeature.Contains("ReadNativeGroup(group, lordUnitId, lordGlobalId)") &&
-              iconFeature.Contains("if (native.Total == 0)") &&
-              iconFeature.Contains("HideGroup(") &&
-              iconFeature.Contains("summaryAlreadyIncludesLord") &&
-              iconFeature.Contains("PropEx.SetButtonVisibility(deleteButtons[group], Visibility.Visible)") &&
-              iconFeature.Contains("PropEx.SetButtonVisibility(deleteButtons[group], Visibility.Hidden)"),
-            "control-group UI reconciles stale Vanilla rows from native membership and mirrors Vanilla row visibility");
+              iconFeature.Contains("TryDisposeHook(ref setGameStateHook"),
+            "control-group mutations wait for a fresh Vanilla PlayState and coalesce one refresh with teardown");
+        Check(iconFeature.Contains("NativeGroupContainsLord(group, lordUnitId, lordGlobalId)") &&
+              iconFeature.Contains("types[slot] = state.control_groups_type[summaryOffset + slot]") &&
+              iconFeature.Contains("counts[slot] = state.control_groups_count[summaryOffset + slot]") &&
+              !iconFeature.Contains("NativeGroupSnapshot") &&
+              !iconFeature.Contains("summaryAlreadyIncludesLord") &&
+              !iconFeature.Contains("HideGroup(") &&
+              !iconFeature.Contains("PropEx.SetButtonVisibility"),
+            "control-group UI keeps Vanilla summaries authoritative and only adds the exact Lord icon");
     }
 
     private static void CheckLordControlGroupTransactionModel(byte[] canonicalImage)

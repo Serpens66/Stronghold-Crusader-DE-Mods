@@ -2972,3 +2972,75 @@ einen Tileübergang konsumiert. Nur bei unverändertem Tribe-, Command-, Start-,
 Pfadkontext darf dann ein per-Unit-Pfad atomar veröffentlicht werden; der innere
 `0xF4930`-Zeitpunkt bleibt für Gruppen ungeeignet.
 
+### 15.25 Post-Combat-Fortsetzung eines Moat-Wegs
+
+Der Lauf vom 4. September 2026 belegt einen von der ursprünglichen Wegplanung getrennten
+Vanilla-Abbruch. Ein Pikenträger erhielt einen gültigen acht Kanten langen Pfad vom Start
+`(406,349)` zum Ziel `(399,341)`. `0xF4930` lieferte nach dem owner-geprüften `route80`-Retry den
+Pfad, die Unit konsumierte aber nur die erste Kante und wurde anschließend durch einen automatisch
+begonnenen Kampf in einen anderen Tribe-/AI-Kontext übernommen. Nach 279 Ticks beendete die alte
+Diagnose die Verfolgung mit `reason=tribe-changed`. Das Sekundärziel blieb sichtbar gespeichert,
+aber für dieses Ziel erschien anschließend kein neuer `MoveHere`-, Modus- oder Builderaufruf. Im
+gesamten Lauf trat keine MoveMoat-Exception auf.
+
+Die hashgleiche Native-Baseline erklärt den vorgesehenen Wiederaufnahmeweg:
+
+- Der Kampfabschluss im AI-State 106 erreicht `0x1853F0`.
+- `0x1853F0` ruft bei RVA `0x18540D` den Helper `0x1976C0` auf.
+- `0x1976C0` stellt den gespeicherten AI-State wieder her, verwendet das Sekundärziel aus den
+  nativen Unitfeldern `+0x744/+0x746` und ruft bei RVA `0x19772B` `MoveHere` (`0x196280`) auf.
+- Wegen des Unit-Manager-Bias `0x65C` entsprechen `+0x744/+0x746` in der Script-Extender-Sicht
+  `GameUnit.r_TargetTilePositionX2/Y2` bei `+0xE8/+0xEA`. Der wiederhergestellte AI-State liegt in
+  dieser Sicht bei `+0x2BC`.
+
+Für SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
+sind folgende Maschinenverträge validiert:
+
+- Entry `0x1853F0` beginnt mit
+  `40 53 48 83 EC 20 48 63 C2 48 69 D8 90 04 00 00 48 03 D9`;
+- der Call `0x18540D -> 0x1976C0` lautet `E8 AE 22 01 00`;
+- `0x1976C0` beginnt mit
+  `48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 30 48 63 FA 48 8B F1`;
+- der Call `0x19772B -> 0x196280` lautet `E8 50 EB FF FF`.
+
+Vor einer eigenen Routenprobe spiegelt der Detour zusätzlich exakt Vanillas drei vorgelagerte
+Gates: der Short bei nativ `+0x996` beziehungsweise managed `+0x33A` muss null sein; in
+`0x1976C0` müssen nativ `+0x8F8` beziehungsweise managed `+0x29C` null und nativ `+0x6E4`
+beziehungsweise managed `+0x88` ungleich drei sein. Das verhindert teure Proben bei den vielen
+anderen Aufrufern von `0x1853F0`, ohne einen von Vanilla tatsächlich ausgeführten Repath
+einzuschränken.
+
+Als historische Update-Suchanker entsprechen sich nach dem Versionsvergleich ungefähr
+`0x184430 -> 0x1853F0` und `0x196670 -> 0x1976C0`. Bei einem Spielupdate müssen Funktion,
+Caller, gespeicherte Zielfelder und der innere `MoveHere`-Call gemeinsam wiedergefunden werden;
+eine bloße Patternähnlichkeit genügt nicht.
+
+`MoveMoatTest` detourt den äußeren Helper `0x1853F0` Vanilla-first und hält nur während dessen
+unverändertem Aufruf einen kurzlebigen, unit- und zielgebundenen `PlanScope`. Dadurch erhält der
+von `0x1976C0` selbst ausgelöste `MoveHere`-Aufruf wieder dieselbe Owner-, Modus-, Regions- und
+Builderlogik wie ein frischer Spielerbefehl. Der Mod schreibt weder Sekundärziel noch AI-State
+direkt. Der bestehende Assassin-Combat-Fix in `BugfixesAndQoL` arbeitet dagegen innerhalb von
+`0x1976C0` bei `0x197716` und setzt nur seinen Assassin-Kontext. Beide Hooks überlappen nicht.
+
+Wichtig ist, dass der Post-Combat-Scope **nicht** auf Ziele beschränkt wird, die ausschließlich
+über einen Moat erreichbar sind. Ist ein normaler Bodenweg vorhanden, bleibt Vanillas Ergebnis
+vollständig zulässig. Der Scope ermöglicht aber zugleich die vorhandene konservative gewichtete
+Bewertung: Ist ein eigener oder verbündeter Moat unter allen plausiblen Laufprofilen mindestens
+40 Ticks schneller, darf der validierte Moat-Pfad veröffentlicht werden. Nur wenn ohne freundlichen
+Moat überhaupt kein Weg existiert, wird zusätzlich der bewährte owner-geprüfte Builderfallback
+aktiv. Unklare Daten, feindliche Moats, Wasser und Mauern erzeugen keine künstliche Freigabe.
+
+Die Diagnose beendet einen Tracker nicht mehr allein wegen einer temporären Tribe-Änderung,
+solange `r_TargetTilePositionX2/Y2` weiterhin dem ursprünglichen Ziel entspricht. Sie protokolliert
+stattdessen einmalig `combat-interrupted`, `post-combat-repath-entered`, den Ownerbefund, das
+Builderergebnis, `movement-resumed` und den normalen Zielabschluss. Ein neuer Befehl, ein
+verändertes Sekundärziel, Tod oder Kartenwechsel beendet die Korrelation weiterhin.
+
+Diese Stelle verdeutlicht zugleich die Gesamtarchitektur: Vanilla besitzt keinen einzelnen
+universellen Schalter „Moat erlaubt“. Cursor, Annäherungssuche, Command-Zuweisung, `MoveHere` und
+der finale Builder können unabhängig abbrechen. Ein frühes positives Ergebnis erzeugt noch keinen
+konsumierbaren Pfad. Hover- und Zielkontexte dienen deshalb nur zur sicheren Bindung; Vanilla
+bestimmt weiterhin Entity, Angriffskandidaten, Zielposition und AI-Ablauf. Die eigentliche Regel
+bleibt zentral – nur grabfähige Units dürfen eigene oder verbündete fertige Moats benutzen – und
+wird durch dünne Vanilla-first-Adapter an den nachweislich notwendigen Phasen bereitgestellt.
+

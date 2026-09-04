@@ -106,6 +106,9 @@ namespace MoveMoatTest
         private delegate int BuildingCursorReachabilityDelegate(
             IntPtr buildingManager, int buildingId, int unitId);
 
+        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+        private delegate void CombatFinishResumeDelegate(IntPtr unitManager, int unitId);
+
         private const int CentralMovementPlanRva = 0x18E1E0;
         private const int TribeFloodFillMembershipRva = 0x124740;
         private const int FirstGroupUnitOnCompletedMoatRva = 0x117BC0;
@@ -152,6 +155,10 @@ namespace MoveMoatTest
         private const int BuildingConsumerGroundBuilderCallRva = 0x12312C;
         private const int BuildingCursorReachabilityRva = 0xB70C0;
         private const int BuildingCursorReachabilityCallRva = 0x8DFF6;
+        private const int CombatFinishResumeRva = 0x1853F0;
+        private const int CombatFinishPostCombatCallRva = 0x18540D;
+        private const int PostCombatRepathRva = 0x1976C0;
+        private const int PostCombatMoveHereCallRva = 0x19772B;
         private const int MovementTerrainPhaseRva = 0x19B506;
         private const int MovementCadenceRva = 0x184203;
         private const int MovementSubstepRva = 0x1855A0;
@@ -183,6 +190,8 @@ namespace MoveMoatTest
         private const int TribeUnitCountOffset = 0x5C;
         private const int UnitGroupInactiveStateOffset = 0x29C;
         private const int UnitMoatSlowdownPhaseOffset = 0x6C;
+        private const int UnitPostCombatMovementStateOffset = 0x88;
+        private const int UnitCombatFinishGateOffset = 0x33A;
         // 0x1855A0 reads this currently unnamed short in addition to r_SpeedBonus.
         private const int UnitAdditionalMovementSubstepsOffset = 0x3CE;
         private const int MaximumTribeCount = 4500;
@@ -325,6 +334,15 @@ namespace MoveMoatTest
             "4C 8B E1 85 D2 0F 84 ?? ?? ?? ?? 81 FA A0 0F 00 00 0F 8D ?? ?? ?? ?? " +
             "48 63 C2 48 69 D0 2C 03 00 00";
 
+        private const string CombatFinishResumePattern =
+            "40 53 48 83 EC 20 48 63 C2 48 69 D8 90 04 00 00 48 03 D9 " +
+            "66 83 BB 96 09 00 00 00 75 14 E8 ?? ?? ?? ?? 33 C0 " +
+            "66 89 83 96 09 00 00 89 83 98 09 00 00";
+
+        private const string PostCombatRepathPattern =
+            "48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 30 48 63 FA 48 8B F1 " +
+            "48 69 DF 90 04 00 00 48 03 D9 66 83 BB F8 08 00 00 00";
+
         private const string CursorRegionPrecheckPattern =
             "40 53 55 57 41 54 41 56 48 83 EC 20 FF 41 04 48 8B D9 81 79 04 00 7D 00 00 " +
             "41 BC 01 00 00 00 48 63 FA 7E 1F 44 89 61 04";
@@ -433,6 +451,8 @@ namespace MoveMoatTest
         private RegionPairReachabilityDelegate rootedRegionPairReachability;
         private BuildingCursorReachabilityDelegate originalBuildingCursorReachability;
         private BuildingCursorReachabilityDelegate rootedBuildingCursorReachability;
+        private CombatFinishResumeDelegate originalCombatFinishResume;
+        private CombatFinishResumeDelegate rootedCombatFinishResume;
 
         private NativeDetour centralMovementPlanDetour;
         private NativeDetour pathBuilderDetour;
@@ -449,6 +469,7 @@ namespace MoveMoatTest
         private NativeDetour buildingCandidateConsumerDetour;
         private NativeDetour regionPairReachabilityDetour;
         private NativeDetour buildingCursorReachabilityDetour;
+        private NativeDetour combatFinishResumeDetour;
         private IDisposable tribeMoveSubscription;
         private IDisposable tribeTargetSubscription;
         private IDisposable mapLoadSubscription;
@@ -528,6 +549,12 @@ namespace MoveMoatTest
             Shared.NativeResolution planResolution = Resolve(
                 memory, CentralMovementPlanPattern, CentralMovementPlanRva,
                 "central ordinary-movement planner");
+            Shared.NativeResolution combatFinishResumeResolution = Resolve(
+                memory, CombatFinishResumePattern, CombatFinishResumeRva,
+                "combat-finish movement-resume helper");
+            Shared.NativeResolution postCombatRepathResolution = Resolve(
+                memory, PostCombatRepathPattern, PostCombatRepathRva,
+                "post-combat saved-target repath helper");
             Shared.NativeResolution modeResolution = Resolve(
                 memory, UnitStandingOnCompletedMoatPattern, UnitStandingOnCompletedMoatRva,
                 "unit-standing-on-completed-moat helper");
@@ -576,6 +603,36 @@ namespace MoveMoatTest
                 CursorCurrentTileFlagGateRva,
                 new byte[] { 0xF7, 0x84, 0x97, 0x00, 0x84, 0x89, 0x00, 0x00, 0x01, 0x00, 0x10 },
                 "ordinary-movement current-tile cursor gate");
+            ValidateExactBytes(
+                memory,
+                CombatFinishResumeRva,
+                new byte[]
+                {
+                    0x40, 0x53, 0x48, 0x83, 0xEC, 0x20, 0x48, 0x63,
+                    0xC2, 0x48, 0x69, 0xD8, 0x90, 0x04, 0x00, 0x00,
+                    0x48, 0x03, 0xD9, 0x66, 0x83, 0xBB, 0x96, 0x09,
+                    0x00, 0x00, 0x00, 0x75, 0x14
+                },
+                "combat-finish movement-resume detour entry");
+            ValidateCallTarget(
+                memory, CombatFinishPostCombatCallRva, PostCombatRepathRva,
+                new byte[] { 0xE8, 0xAE, 0x22, 0x01, 0x00 },
+                "combat-finish post-combat repath call");
+            ValidateExactBytes(
+                memory,
+                PostCombatRepathRva,
+                new byte[]
+                {
+                    0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x74,
+                    0x24, 0x10, 0x57, 0x48, 0x83, 0xEC, 0x30, 0x48,
+                    0x63, 0xFA, 0x48, 0x8B, 0xF1, 0x48, 0x69, 0xDF,
+                    0x90, 0x04, 0x00, 0x00, 0x48, 0x03, 0xD9
+                },
+                "post-combat saved-target repath entry");
+            ValidateCallTarget(
+                memory, PostCombatMoveHereCallRva, 0x196280,
+                new byte[] { 0xE8, 0x50, 0xEB, 0xFF, 0xFF },
+                "post-combat saved-target MoveHere call");
             ValidateExactBytes(
                 memory,
                 CursorCurrentTileFlagGateJumpRva,
@@ -729,6 +786,9 @@ namespace MoveMoatTest
                 },
                 "MoveHere moat-path mode persistence contract");
             ValidateGameUnitFieldOffset(nameof(GameUnit.r_PathPlanRelated1), 0xF0);
+            ValidateGameUnitFieldOffset(nameof(GameUnit.r_TargetTilePositionX2), 0xE8);
+            ValidateGameUnitFieldOffset(nameof(GameUnit.r_TargetTilePositionY2), 0xEA);
+            ValidateGameUnitFieldOffset(nameof(GameUnit.r_AIState), 0x2BC);
             ValidateGameUnitFieldOffset(nameof(GameUnit.r_SpeedBonus), 0x2BA);
             ValidateGameUnitFieldOffset(nameof(GameUnit.r_CurrentSpeed2), 0x346);
             ValidateGameUnitFieldOffset(nameof(GameUnit.r_CurrentSpeed), 0x348);
@@ -800,8 +860,10 @@ namespace MoveMoatTest
             rootedCursorTilePairFallbackSelection = ObserveCursorTilePairFallbackSelection;
             rootedCursorTilePairReachability = AllowAttackCursorTilePairThroughCompletedMoat;
             rootedCursorRegionPrecheck = AllowCursorRegionThroughCompletedMoat;
+            rootedCombatFinishResume = ResumeMovementAfterCombatWithMoatContext;
 
             NativeDetour pendingPlanDetour = null;
+            NativeDetour pendingCombatFinishResume = null;
             NativeDetour pendingBuilder = null;
             NativeDetour pendingFlood = null;
             NativeDetour pendingGroupMoat = null;
@@ -812,6 +874,7 @@ namespace MoveMoatTest
             NativeDetour pendingCursorTilePair = null;
             NativeDetour pendingCursorRegion = null;
             bool planApplied = false;
+            bool combatFinishResumeApplied = false;
             bool builderApplied = false;
             bool floodApplied = false;
             bool groupMoatApplied = false;
@@ -828,6 +891,11 @@ namespace MoveMoatTest
                     rootedCentralMovementPlan);
                 originalCentralMovementPlan =
                     pendingPlanDetour.GenerateTrampoline<CentralMovementPlanDelegate>();
+                pendingCombatFinishResume = CreateDetour(
+                    libraryBase + unchecked((ulong)combatFinishResumeResolution.Rva),
+                    rootedCombatFinishResume);
+                originalCombatFinishResume =
+                    pendingCombatFinishResume.GenerateTrampoline<CombatFinishResumeDelegate>();
                 pendingBuilder = CreateDetour(
                     libraryBase + unchecked((ulong)builderResolution.Rva),
                     rootedPathBuilder);
@@ -857,6 +925,8 @@ namespace MoveMoatTest
 
                 pendingPlanDetour.Apply();
                 planApplied = true;
+                pendingCombatFinishResume.Apply();
+                combatFinishResumeApplied = true;
                 pendingBuilder.Apply();
                 builderApplied = true;
                 pendingFlood.Apply();
@@ -877,6 +947,7 @@ namespace MoveMoatTest
                 cursorRegionApplied = true;
 
                 centralMovementPlanDetour = pendingPlanDetour;
+                combatFinishResumeDetour = pendingCombatFinishResume;
                 pathBuilderDetour = pendingBuilder;
                 tribeFloodFillMembershipDetour = pendingFlood;
                 firstGroupUnitOnCompletedMoatDetour = pendingGroupMoat;
@@ -905,6 +976,8 @@ namespace MoveMoatTest
                     $"0x{AttackAlternativePairGateJumpRva:X}(all-vanilla), semanticSelectionGate=true, " +
                     $"plan=0x{planResolution.Rva:X}, mode=0x{modeResolution.Rva:X}, " +
                     $"region=0x{regionResolution.Rva:X}, builder=0x{builderResolution.Rva:X}, " +
+                    $"postCombatResume=0x{combatFinishResumeResolution.Rva:X}->" +
+                    $"0x{postCombatRepathResolution.Rva:X}->0x196280, " +
                     $"selectionCanDigMoat=0x{selectionCanDigResolution.Rva:X}/call=0x{SelectionCanDigMoatCallRva:X}, " +
                     $"tribeFloodFill=0x{floodResolution.Rva:X}, moatLookup=0x{moatLookupResolution.Rva:X}; " +
                     $"groupMoatMode=0x{groupMoatResolution.Rva:X}/iterator=0x{groupUnitResolution.Rva:X}/" +
@@ -941,6 +1014,7 @@ namespace MoveMoatTest
                 UndoAndDispose(pendingGroupMoat, groupMoatApplied);
                 UndoAndDispose(pendingFlood, floodApplied);
                 UndoAndDispose(pendingBuilder, builderApplied);
+                UndoAndDispose(pendingCombatFinishResume, combatFinishResumeApplied);
                 UndoAndDispose(pendingPlanDetour, planApplied);
                 throw;
             }
@@ -976,6 +1050,7 @@ namespace MoveMoatTest
             firstGroupUnitOnCompletedMoatDetour?.Dispose();
             tribeFloodFillMembershipDetour?.Dispose();
             pathBuilderDetour?.Dispose();
+            combatFinishResumeDetour?.Dispose();
             centralMovementPlanDetour?.Dispose();
             activeMoveCommand = null;
             activePlan = null;
@@ -1802,10 +1877,10 @@ namespace MoveMoatTest
                 if (trackedMoatMoves.TryGetValue(
                         plan.UnitId, out MoatMoveTracker existing) &&
                     existing.MapEpoch == mapEpoch &&
-                    existing.TribeId == unit->r_TribeId &&
                     existing.TargetX == plan.TargetX &&
                     existing.TargetY == plan.TargetY)
                 {
+                    existing.TribeId = unit->r_TribeId;
                     return;
                 }
 
@@ -1902,7 +1977,8 @@ namespace MoveMoatTest
             tracker.RuntimeShadowEstimatedTicks = long.MaxValue;
             tracker.RuntimeShadowDecision = null;
             tracker.LastRuntimeCadenceRejection = null;
-            tracker.Calibratable = shadow.Calibratable && nativeValid && shadow.CandidateFound;
+            tracker.Calibratable = !tracker.CombatInterrupted &&
+                shadow.Calibratable && nativeValid && shadow.CandidateFound;
             tracker.ShadowMatchesPublishedCostProfile = shadow.CandidateFound &&
                 (tracker.WeightedPathPublished ||
                  nativeValid && nativeSummary.RouteLength == shadow.Candidate.RouteLength &&
@@ -1910,7 +1986,9 @@ namespace MoveMoatTest
                  nativeSummary.MoatEdges == shadow.Candidate.MoatEdges);
             tracker.CalibrationReason = tracker.Calibratable
                 ? "isolated-unretargeted"
-                : "group-or-route-unvalidated";
+                : tracker.CombatInterrupted
+                    ? "combat-interrupted"
+                    : "group-or-route-unvalidated";
         }
 
         private void ObserveTrackedMoatMoveStates(int tick)
@@ -1936,10 +2014,36 @@ namespace MoveMoatTest
                         EndTrackedMoatMove(unitId, tracker, "unit-dead-or-invalid");
                         continue;
                     }
+                    if (tracker.CombatInterrupted &&
+                        (unit->r_TargetTilePositionX2 != tracker.TargetX ||
+                         unit->r_TargetTilePositionY2 != tracker.TargetY))
+                    {
+                        EndTrackedMoatMove(unitId, tracker, "saved-target-changed");
+                        continue;
+                    }
                     if (unit->r_TribeId != tracker.TribeId)
                     {
-                        EndTrackedMoatMove(unitId, tracker, "tribe-changed");
-                        continue;
+                        bool savedTargetStillMatches =
+                            unit->r_TargetTilePositionX2 == tracker.TargetX &&
+                            unit->r_TargetTilePositionY2 == tracker.TargetY;
+                        if (!savedTargetStillMatches)
+                        {
+                            EndTrackedMoatMove(
+                                unitId, tracker, "tribe-changed-and-saved-target-changed");
+                            continue;
+                        }
+
+                        tracker.TribeId = unit->r_TribeId;
+                        tracker.Calibratable = false;
+                        tracker.CalibrationReason = "combat-interrupted";
+                        if (!tracker.CombatInterrupted)
+                        {
+                            tracker.CombatInterrupted = true;
+                            LogMoveMilestone(
+                                tick, unitId, unit, tracker,
+                                (TribeAICommand)unit->r_AI_LastIssuedTribeCommand,
+                                "combat-interrupted");
+                        }
                     }
 
                     bool reachedRequestedTarget =
@@ -2085,6 +2189,14 @@ namespace MoveMoatTest
 
                     if (progressed && tracker.HasWeightedShadow)
                         ObserveRuntimeCadenceShadow(tick, unit, tracker);
+
+                    if (progressed && tracker.PostCombatRepathEntered &&
+                        !tracker.MovementResumedAfterCombat)
+                    {
+                        tracker.MovementResumedAfterCombat = true;
+                        LogMoveMilestone(
+                            tick, unitId, unit, tracker, command, "movement-resumed");
+                    }
 
                     if (!tracker.MovementStarted &&
                         (unit->r_CurrentTilePositionX != tracker.InitialX ||
@@ -2439,6 +2551,33 @@ namespace MoveMoatTest
                 $"builderResult={tracker.BuilderResult}.");
         }
 
+        private void MarkPostCombatRepathEntered(
+            int unitId,
+            GameUnit* unit,
+            PlanScope plan,
+            bool requiredFriendlyMoat)
+        {
+            if (!trackedMoatMoves.TryGetValue(unitId, out MoatMoveTracker tracker) ||
+                tracker.MapEpoch != mapEpoch ||
+                tracker.TargetX != plan.TargetX || tracker.TargetY != plan.TargetY)
+            {
+                return;
+            }
+
+            tracker.TribeId = unit->r_TribeId;
+            if (tracker.PostCombatRepathEntered)
+                return;
+
+            tracker.PostCombatRepathEntered = true;
+            tracker.PostCombatRequiredFriendlyMoat = requiredFriendlyMoat;
+            LogMoveMilestone(
+                CaptureCurrentGameTick(), unitId, unit, tracker,
+                (TribeAICommand)unit->r_AI_LastIssuedTribeCommand,
+                requiredFriendlyMoat
+                    ? "post-combat-repath-entered-required-moat"
+                    : "post-combat-repath-entered-ground-or-faster-moat");
+        }
+
         private static ushort ReadUnitMoatPathConsumptionMode(GameUnit* unit)
         {
             if (unit == null)
@@ -2549,6 +2688,10 @@ namespace MoveMoatTest
                 $"commandContext={tracker.WeightedCommandContext ?? "unresolved"} " +
                 $"target=({tracker.TargetX},{tracker.TargetY}) " +
                 $"reason={reason} weightedShadow={tracker.HasWeightedShadow} " +
+                $"combatInterrupted={tracker.CombatInterrupted} " +
+                $"postCombatRepath={tracker.PostCombatRepathEntered} " +
+                $"postCombatRequiredFriendlyMoat={tracker.PostCombatRequiredFriendlyMoat} " +
+                $"movementResumedAfterCombat={tracker.MovementResumedAfterCombat} " +
                 $"decision={tracker.ShadowDecision ?? "none"} " +
                 $"actualTicks={actualTicks} " +
                 $"nativeEstimatedTicks={tracker.NativeEstimatedTicks} " +
@@ -2782,10 +2925,15 @@ namespace MoveMoatTest
             }
 
             PlanScope previous = activePlan;
-            PlanScope plan = new PlanScope(unitId, targetX, targetY);
+            PlanScope plan = previous != null && previous.PostCombatRepath &&
+                previous.UnitId == unitId && previous.TargetX == targetX &&
+                previous.TargetY == targetY
+                    ? previous
+                    : new PlanScope(unitId, targetX, targetY);
             if (activeMoveCommand != null)
                 activeMoveCommand.CentralPlannerCalls++;
-            if (activeMoveCommand == null)
+            if (activeMoveCommand == null && !plan.FriendlyRouteQualified &&
+                !plan.OwnerRouteProbeCompleted)
             {
                 try
                 {
@@ -2832,6 +2980,121 @@ namespace MoveMoatTest
                 activePlan = previous;
                 if (ReferenceEquals(pendingPlan, plan))
                     pendingPlan = null;
+            }
+        }
+
+        private void ResumeMovementAfterCombatWithMoatContext(
+            IntPtr unitManager, int unitId)
+        {
+            GameUnit* unit = null;
+            try
+            {
+                if (disposed || unitManager == IntPtr.Zero || unitId <= 0 ||
+                    unitManager != (IntPtr)nativeUnitManager ||
+                    !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out unit) ||
+                    unit == null || unit->r_AliveState != AliveState.IsAlive ||
+                    !CanDigMoat(unit) ||
+                    *(short*)((byte*)unit + UnitCombatFinishGateOffset) != 0 ||
+                    *(short*)((byte*)unit + UnitGroupInactiveStateOffset) != 0 ||
+                    *(short*)((byte*)unit + UnitPostCombatMovementStateOffset) == 3)
+                {
+                    originalCombatFinishResume(unitManager, unitId);
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                TryLogDiagnosticFailure("post-combat-context", ex);
+                originalCombatFinishResume(unitManager, unitId);
+                return;
+            }
+
+            int targetX = unit->r_TargetTilePositionX2;
+            int targetY = unit->r_TargetTilePositionY2;
+            if ((uint)targetX >= MapWidth || (uint)targetY >= MapWidth ||
+                (targetX == unit->r_CurrentTilePositionX &&
+                 targetY == unit->r_CurrentTilePositionY))
+            {
+                originalCombatFinishResume(unitManager, unitId);
+                return;
+            }
+
+            var plan = new PlanScope(unitId, targetX, targetY)
+            {
+                PlayerId = unit->r_ControllableForPlayerId,
+                PostCombatRepath = true
+            };
+            RouteProbeSummary requiredRouteSummary = default;
+            bool requiredFriendlyMoat = false;
+            try
+            {
+                requiredFriendlyMoat =
+                    TryFindRequiredFriendlyCompletedMoatRouteForPlan(
+                        plan, out requiredRouteSummary);
+                plan.OwnerRouteProbeCompleted = true;
+                plan.FriendlyRouteQualified = requiredFriendlyMoat;
+            }
+            catch (Exception ex)
+            {
+                // A failed owner probe must never suppress Vanilla's post-combat resume.
+                TryLogDiagnosticFailure("post-combat-owner-probe", ex);
+            }
+
+            PlanScope previousActivePlan = activePlan;
+            PlanScope previousPendingPlan = pendingPlan;
+            WeightedShadowScope previousWeightedShadow = pendingWeightedShadow;
+            activePlan = plan;
+            pendingPlan = plan;
+            pendingWeightedShadow = null;
+            try
+            {
+                MarkPostCombatRepathEntered(unitId, unit, plan, requiredFriendlyMoat);
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"MoveMoat stage=post-combat-repath-entered unit={unitId} " +
+                    $"type={unit->r_UnitChimp} player={unit->r_ControllableForPlayerId} " +
+                    $"tribe={unit->r_TribeId} aiState={unit->r_AIState} " +
+                    $"current=({unit->r_CurrentTilePositionX},{unit->r_CurrentTilePositionY}) " +
+                    $"savedTarget=({targetX},{targetY}) " +
+                    $"requiredFriendlyMoat={requiredFriendlyMoat} " +
+                    $"routeProbe={requiredRouteSummary.ToLogFields()}.");
+            }
+            catch (Exception ex)
+            {
+                TryLogDiagnosticFailure("post-combat-enter-diagnostic", ex);
+            }
+
+            try
+            {
+                // Vanilla restores the saved state and calls MoveHere itself. Keeping this
+                // scope alive around that call supports both required and merely faster
+                // friendly-moat routes without blocking an otherwise valid ground route.
+                originalCombatFinishResume(unitManager, unitId);
+
+                try
+                {
+                    // If the original tracker no longer existed, the synchronous builder may
+                    // have created it during the repath. Attach the same continuation marker.
+                    MarkPostCombatRepathEntered(
+                        unitId, unit, plan, requiredFriendlyMoat);
+                    Shared.DebugLogHelper.LogInfo(
+                        log,
+                        $"MoveMoat stage=post-combat-repath-result unit={unitId} " +
+                        $"target=({targetX},{targetY}) modeObserved={plan.ModeObserved} " +
+                        $"friendlyRouteQualified={plan.FriendlyRouteQualified} " +
+                        $"path={unit->p_CurrentPathPlanPosition}/{unit->p_PathPlanSize} " +
+                        $"currentTarget=({unit->r_TargetTilePositionX},{unit->r_TargetTilePositionY}).");
+                }
+                catch (Exception ex)
+                {
+                    TryLogDiagnosticFailure("post-combat-result-diagnostic", ex);
+                }
+            }
+            finally
+            {
+                activePlan = previousActivePlan;
+                pendingPlan = previousPendingPlan;
+                pendingWeightedShadow = previousWeightedShadow;
             }
         }
 
@@ -3045,7 +3308,11 @@ namespace MoveMoatTest
                         weightedShadowBusy = false;
                     }
                 }
-                bool calibratable = IsIsolatedActiveGroupUnit(unitId, unit->r_TribeId);
+                // 0x1976C0 invokes the per-unit planner directly after combat, so no
+                // subsequent group finalizer can overwrite this unit's path buffer.
+                bool calibratable = (plan != null && plan.UnitId == unitId &&
+                    plan.PostCombatRepath) ||
+                    IsIsolatedActiveGroupUnit(unitId, unit->r_TribeId);
                 ResolveCommandDiagnosticContext(
                     unitId, unit, out TribeAICommand command, out string commandContext,
                     out int commandSequence);
@@ -3084,6 +3351,26 @@ namespace MoveMoatTest
             out string commandContext,
             out int commandSequence)
         {
+            if (activePlan != null && activePlan.PostCombatRepath &&
+                activePlan.UnitId == unitId)
+            {
+                if (trackedMoatMoves.TryGetValue(unitId, out MoatMoveTracker tracker) &&
+                    tracker.MapEpoch == mapEpoch &&
+                    tracker.TargetX == activePlan.TargetX &&
+                    tracker.TargetY == activePlan.TargetY)
+                {
+                    command = tracker.WeightedCommand;
+                    commandSequence = tracker.WeightedCommandSequence;
+                }
+                else
+                {
+                    command = (TribeAICommand)unit->r_AI_LastIssuedTribeCommand;
+                    commandSequence = 0;
+                }
+                commandContext = "post-combat-resume";
+                return;
+            }
+
             if (activeAttackCommand != null &&
                 activeAttackCommand.TribeId == unit->r_TribeId &&
                 activeAttackCommand.CandidateUnitIds.Contains(unitId))
@@ -8803,7 +9090,7 @@ namespace MoveMoatTest
 
             public int MapEpoch { get; }
             public int UnitId { get; }
-            public int TribeId { get; }
+            public int TribeId { get; set; }
             public eChimps UnitType { get; }
             public int PlayerId { get; }
             public int TargetX { get; }
@@ -8822,6 +9109,10 @@ namespace MoveMoatTest
             public bool MoatExited { get; set; }
             public bool WasOnMoat { get; set; }
             public bool StallReported { get; set; }
+            public bool CombatInterrupted { get; set; }
+            public bool PostCombatRepathEntered { get; set; }
+            public bool PostCombatRequiredFriendlyMoat { get; set; }
+            public bool MovementResumedAfterCombat { get; set; }
             public bool HasWeightedShadow { get; set; }
             public int WeightedPlayerId { get; set; }
             public eChimps WeightedUnitType { get; set; }
@@ -9517,7 +9808,9 @@ namespace MoveMoatTest
             public bool ModeObserved { get; set; }
             public bool VanillaModeDetected { get; set; }
             public bool FriendlyRouteQualified { get; set; }
+            public bool OwnerRouteProbeCompleted { get; set; }
             public bool AttackMovementQualified { get; set; }
+            public bool PostCombatRepath { get; set; }
         }
 
         private sealed class AttackCursorPairScope

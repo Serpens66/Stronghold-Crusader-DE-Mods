@@ -19,10 +19,7 @@ namespace BugfixesAndQoL
                 HasGroupSuffix(command, "Delete_");
         }
 
-        internal static void InsertLord(
-            int[] types,
-            int[] counts,
-            bool summaryAlreadyIncludesLord = true)
+        internal static void InsertLord(int[] types, int[] counts)
         {
             if (types == null)
                 throw new ArgumentNullException(nameof(types));
@@ -43,12 +40,12 @@ namespace BugfixesAndQoL
 
             // Native temporarily counts the Lord as an Archer. Split that shared count
             // without changing the underlying group or Vanilla's ordering of other types.
-            if (summaryAlreadyIncludesLord && archerSlot >= 0 && counts[archerSlot] == 1)
+            if (archerSlot >= 0 && counts[archerSlot] == 1)
             {
                 types[archerSlot] = LordVisualType;
                 return;
             }
-            if (summaryAlreadyIncludesLord && archerSlot >= 0)
+            if (archerSlot >= 0)
                 counts[archerSlot]--;
 
             int lordSlot = -1;
