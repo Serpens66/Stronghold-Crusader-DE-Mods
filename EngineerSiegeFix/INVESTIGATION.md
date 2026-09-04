@@ -239,13 +239,31 @@ The next test build intentionally withholds the mod recovery only for the first 
 
 Catapult and trebuchet retain the same-tick complete-crew recovery proof. This Arab-ballista mode is destructive diagnostic instrumentation, not a release fix, and must be removed immediately after the visual reproduction result has been recorded. If Vanilla changes the two engineers back without mod intervention, that is equally important negative evidence against packed state zero alone being sufficient.
 
-This proves that the detector and actual game-memory correction work against the documented failed postcondition without waiting for the rare timing defect. It does not reproduce or prove the exact original timing race. Other siege types remain read-only snapshot observations because their construction and crew contracts have not been established as equivalent.
+### Visible reproduction result on two maps
+
+The test run on 2026-09-04 confirmed the visible symptom but disproved literal unit creation. Across the two tested maps the runtime completed 17 normal handoff verdicts: 14 Arab ballistas, two catapults, and one trebuchet. All 17 emitted `SIEGE_HANDOFF_PASSED`; there were no failed, inconclusive, rejected, disabled, or controlled-fault-test markers.
+
+Only Arab ballista unit `203`, global ID `7332496`, received the intentional visible fault. Its frozen device crew was engineer unit `127`, global ID `7331560`, and engineer unit `130`, global ID `7331602`. At tick 1816 both exact identities were changed from bound state `0x00070005` to `0x00000000`, and `SIEGE_ARAB_BALLISTA_FAULT_LEFT_IDLE` confirmed that mod recovery was skipped. At tick 1817 both same identities entered state `0x00000001` and became visible beside the still-crewed ballista. Engineer 130 also briefly traversed state `0x00000065`, then `0`, then `1`; no new unit ID or global ID appeared.
+
+When the user manually removed the crew at tick 2657, the same ballista changed from `crewCount=2`, crew IDs `[127,130]`, to `crewCount=0`, crew IDs `[0,0]`. In that exact tick the same engineers `127/7331560` and `130/7331602` changed from state `1` to state `0x6D` with the removal visual transition. This matches the user's observation that both apparent idle duplicates disappeared as soon as the ballista crew was removed. The identities later continued through normal engineer states and were reused as crew identities for later ballistas.
+
+Therefore this injected condition is not a native unit-slot duplication. It is a visual and logical double use of the same two engineer identities: the ballista still references them as crew while their own state machine also treats them as free/idle figures. It can still be a real gameplay bug if those figures are selectable or commandable, but it does not create two additional independent unit/global identities. The uninstrumented video cases may use the same mechanism, but that cannot be proven without identity logs from a naturally occurring case.
+
+The fact that only one of 14 Arab ballistas displayed the artificial symptom was expected and does not indicate nondeterministic injection. `liveProofCompletedTypes` permits only one controlled fault per device type for the process lifetime. The second map reused the same native unit-manager address, so the per-type guard was not cleared at the map transition. Every other Arab ballista remained unmodified and passed the normal bound-crew invariant.
+
+### Consequence for the current detector and fix
+
+The visible test exposes an important gap in the current natural-repair detector. `IsRepairableIdleEngineer` accepts only main state `0`, while the injected engineers advanced to visible state `1` after a single Vanilla tick and one engineer also visited state `0x65`. The natural repair intentionally waits for a 256-tick confirmation window; it would therefore no longer recognize this confirmed visible fault sequence and could finalize the tracker as failed before applying recovery.
+
+The earlier same-tick controlled tests remain valid evidence that writing Vanilla's existing-crew recovery fields returns one or a complete crew to bound state and keeps their identities stable. They are not sufficient evidence that the current runtime detector catches a naturally progressed visible case. Before release, the destructive Arab-ballista mode must be removed, states `1` and `0x65` must be audited in the engineer state machine at RVA `0x14AED0`, and the fail-closed candidate rule must be extended only for states proven compatible with a device that still retains the exact same crew IDs/global IDs. The progressed fault model must then be injected and recovered after exposure to Vanilla ticks.
+
+The tests prove that the actual game-memory correction works against the injected postcondition without waiting for the rare timing defect. They do not yet prove that the current detector recognizes every progressed form of the natural defect, nor do they reproduce or prove its exact original timing race. Other siege types remain read-only snapshot observations because their construction and crew contracts have not been established as equivalent.
 
 ## Acceptance criteria for a future fix
 
 A fix is not considered validated until logs from normal catapult, trebuchet and Arab-ballista construction show:
 
-1. The relevant callback is reached for both device types.
+1. The lifecycle-safe tracker is reached for all three confirmed device types.
 2. The device ID/global ID remains stable across the handoff.
 3. Exactly two or three unique engineer ID/global-ID pairs are committed.
 4. The device becomes ready with matching crew slots.
@@ -253,3 +271,4 @@ A fix is not considered validated until logs from normal catapult, trebuchet and
 6. Device crew IDs and global IDs continue to match the same engineer identities, with no reused or stale slot accepted.
 7. No failure, inconclusive result or correction-disabled marker occurs.
 8. For each of types `0x27`, `0x28`, and `0x4D`, the controlled live-proof marker chain completes through `SIEGE_REPAIR_VERIFICATION_PASSED` without exposing an idle engineer to a Vanilla tick.
+9. A deliberately exposed complete crew that progresses through the confirmed visible idle sequence is detected and recovered without accepting unrelated free engineers or a changed device crew.

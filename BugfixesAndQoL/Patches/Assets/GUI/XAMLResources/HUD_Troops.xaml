@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
        xmlns:b="http://schemas.microsoft.com/xaml/behaviors"
-       xmlns:local="clr-namespace:CrusaderDE">
+       xmlns:local="clr-namespace:CrusaderDE"
+       xmlns:bugfixes="clr-namespace:BugfixesAndQoL;assembly=BugfixesAndQoL">
   <Operation Type="AddNamespace"
              AttributeName="bugfixes"
              Value="clr-namespace:BugfixesAndQoL;assembly=BugfixesAndQoL" />
@@ -9,6 +10,46 @@
              XPath="//n:Grid[@Name='TroopSelectionControls']//n:Button[@Command='{Binding LeftClickSelectedTroopCommand}']"
              AttributeName="{clr-namespace:BugfixesAndQoL;assembly=BugfixesAndQoL}TroopHudMiddleClickBehavior.IsEnabled"
              Value="True" />
+  <Operation Type="Add" XPath="//n:Grid[@Name='TroopSelectionControls']">
+    <Content>
+      <!-- One shared Lord portrait is used for every selectable Lord variant. -->
+      <Button x:Name="BugfixesAndQoLLordSelected"
+              Width="45"
+              Height="86"
+              local:PropEx.Sprite1="{StaticResource BugfixesAndQoL-LordIcon}"
+              local:PropEx.Sprite2="{StaticResource BugfixesAndQoL-LordIcon}"
+              local:PropEx.Sprite3="{StaticResource BugfixesAndQoL-LordIcon}"
+              Command="{Binding LeftClickSelectedTroopCommand}"
+              CommandParameter="CHIMP_TYPE_LORD"
+              Visibility="Collapsed"
+              bugfixes:TroopHudMiddleClickBehavior.IsEnabled="True">
+        <Button.Style>
+          <Style TargetType="{x:Type Button}" BasedOn="{StaticResource BTN_Image}">
+            <!-- The shared Lord sprite has no separate hover frame. -->
+            <Style.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Opacity" Value="0.72" />
+              </Trigger>
+            </Style.Triggers>
+          </Style>
+        </Button.Style>
+        <b:Interaction.Triggers>
+          <b:EventTrigger EventName="MouseRightButtonDown">
+            <b:InvokeCommandAction Command="{Binding RightClickSelectedTroopCommand}"
+                                   CommandParameter="CHIMP_TYPE_LORD" />
+          </b:EventTrigger>
+          <b:EventTrigger EventName="MouseEnter">
+            <b:InvokeCommandAction Command="{Binding ButtonTroopPanelMouseEnterCommand}"
+                                   CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+          </b:EventTrigger>
+          <b:EventTrigger EventName="MouseLeave">
+            <b:InvokeCommandAction Command="{Binding ButtonTroopPanelMouseLeaveCommand}"
+                                   CommandParameter="{Binding Path=Name, RelativeSource={RelativeSource FindAncestor, AncestorLevel=1, AncestorType={x:Type Button}}}" />
+          </b:EventTrigger>
+        </b:Interaction.Triggers>
+      </Button>
+    </Content>
+  </Operation>
   <Operation Type="InsertAfter" XPath="//n:TextBlock[@x:Name='TroopsPanelRollover']">
     <Content>
       <Grid x:Name="BugfixesAndQoLSelectedUnitHealthHost"
@@ -51,83 +92,6 @@
           <Viewbox Width="52" Height="18" Stretch="Uniform" StretchDirection="DownOnly"><TextBlock Text="{Binding Slot7.MaximumText}" FontSize="15" Foreground="#FF66CC66" TextAlignment="Center" Tag="Ignore"><TextBlock.Effect><DropShadowEffect ShadowDepth="1" Direction="315" Color="#CC000000" BlurRadius="0"/></TextBlock.Effect></TextBlock></Viewbox>
           <Viewbox Width="52" Height="18" Stretch="Uniform" StretchDirection="DownOnly"><TextBlock Text="{Binding Slot8.MaximumText}" FontSize="15" Foreground="#FF66CC66" TextAlignment="Center" Tag="Ignore"><TextBlock.Effect><DropShadowEffect ShadowDepth="1" Direction="315" Color="#CC000000" BlurRadius="0"/></TextBlock.Effect></TextBlock></Viewbox>
         </StackPanel>
-      </Grid>
-    </Content>
-  </Operation>
-  <Operation Type="Add" XPath="//n:Grid[@Name='UnitControls']">
-    <Content>
-      <Border x:Name="BugfixesAndQoLLordHealthHost"
-              Width="78"
-              Height="37"
-              Margin="40,40,0,3"
-              Panel.ZIndex="20"
-              Background="#55000000"
-              IsHitTestVisible="False"
-              Visibility="{Binding LordHealthVisibility}"
-              Tag="Ignore">
-        <Viewbox Width="72"
-                 Height="31"
-                 Margin="3"
-                 Stretch="Uniform"
-                 StretchDirection="DownOnly"
-                 Tag="Ignore">
-          <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Tag="Ignore">
-            <TextBlock Text="{Binding LordCurrentText}"
-                       FontSize="16"
-                       Foreground="{Binding LordCurrentForeground}"
-                       Tag="Ignore">
-              <TextBlock.Effect><DropShadowEffect ShadowDepth="1" Direction="315" Color="#CC000000" BlurRadius="0"/></TextBlock.Effect>
-            </TextBlock>
-            <TextBlock Text=" / " FontSize="16" Foreground="#FFDDDDDD" Tag="Ignore">
-              <TextBlock.Effect><DropShadowEffect ShadowDepth="1" Direction="315" Color="#CC000000" BlurRadius="0"/></TextBlock.Effect>
-            </TextBlock>
-            <TextBlock Text="{Binding LordMaximumText}" FontSize="16" Foreground="#FF66CC66" Tag="Ignore">
-              <TextBlock.Effect><DropShadowEffect ShadowDepth="1" Direction="315" Color="#CC000000" BlurRadius="0"/></TextBlock.Effect>
-            </TextBlock>
-          </StackPanel>
-        </Viewbox>
-      </Border>
-    </Content>
-  </Operation>
-  <Operation Type="Add" XPath="//n:Grid[@x:Name='LayoutRoot']">
-    <Content>
-      <Grid x:Name="BugfixesAndQoLLordSelectionHost"
-            Width="45"
-            Height="120"
-            Margin="142,0,0,2"
-            HorizontalAlignment="Left"
-            VerticalAlignment="Bottom"
-            Panel.ZIndex="20"
-            Visibility="Collapsed">
-        <!-- One shared Vanilla Lord image is used for every selectable Lord variant. -->
-        <Button x:Name="BugfixesAndQoLLordSelected"
-                Width="45"
-                Height="86"
-                HorizontalAlignment="Left"
-                VerticalAlignment="Top"
-                local:PropEx.Sprite1="{StaticResource BugfixesAndQoL-LordIcon}"
-                local:PropEx.Sprite2="{StaticResource BugfixesAndQoL-LordIcon}"
-                local:PropEx.Sprite3="{StaticResource BugfixesAndQoL-LordIcon}"
-                Content=""
-                IsHitTestVisible="False"
-                Style="{StaticResource BTN_Image}" />
-        <TextBlock x:Name="BugfixesAndQoLLordSelectedCount"
-                   Width="64"
-                   Height="30"
-                   Margin="-10,0,0,8"
-                   HorizontalAlignment="Left"
-                   VerticalAlignment="Bottom"
-                   IsHitTestVisible="False"
-                   FontSize="22"
-                   Text="1"
-                   TextAlignment="Center">
-          <TextBlock.Effect>
-            <DropShadowEffect ShadowDepth="2"
-                              Direction="315"
-                              Color="#CC000000"
-                              BlurRadius="0" />
-          </TextBlock.Effect>
-        </TextBlock>
       </Grid>
     </Content>
   </Operation>

@@ -44,6 +44,7 @@ namespace BugfixesAndQoL
             }
 
             ValidateUnitTypeContracts();
+            ValidateMixedDisbandContract(memory, referenceHashMatches);
             int addPatternRva = ResolveUniquePattern(
                 memory,
                 LordControlGroupNativeDefinition.AddClassifierPattern,
@@ -141,6 +142,67 @@ namespace BugfixesAndQoL
             RestoreAppliedSites();
             disposed = true;
             Shared.DebugLogHelper.LogDebug(log, "Bugfixes and QoL Lord control-group patch removed.");
+        }
+
+        internal static void ValidateMixedDisbandContract(
+            ReadOnlySpan<byte> memory,
+            bool referenceHashMatches)
+        {
+            if (memory.IsEmpty)
+                throw new ArgumentException("The loaded CrusaderDE image is empty.", nameof(memory));
+            if (!referenceHashMatches)
+                throw new InvalidOperationException(
+                    "The loaded CrusaderDE.dll does not match the audited native baseline.");
+
+            ValidateUnitTypeContracts();
+            ResolveUniquePattern(
+                memory,
+                LordControlGroupNativeDefinition.DisbandDispatcherInstructions,
+                LordControlGroupNativeDefinition.DisbandDispatcherRva,
+                "UIT_DISBAND unit-type dispatcher");
+            ValidateBytes(
+                memory,
+                LordControlGroupNativeDefinition.DisbandBranchRva,
+                ParseBytes(LordControlGroupNativeDefinition.DisbandBranchInstructions),
+                "UIT_DISBAND normal-unit block");
+            ValidateByte(
+                memory,
+                LordControlGroupNativeDefinition.LordDisbandClassEntryRva,
+                LordControlGroupNativeDefinition.LordDisbandClass,
+                "Lord disband class");
+            ValidateByte(
+                memory,
+                LordControlGroupNativeDefinition.EuropeanArcherDisbandClassEntryRva,
+                LordControlGroupNativeDefinition.EuropeanArcherDisbandClass,
+                "European Archer disband class");
+            ValidateInt32(
+                memory,
+                LordControlGroupNativeDefinition.DisbandTargetTableRva +
+                    LordControlGroupNativeDefinition.EuropeanArcherDisbandClass * sizeof(int),
+                LordControlGroupNativeDefinition.DisbandBranchRva,
+                "normal-unit disband target");
+            ValidateInt32(
+                memory,
+                LordControlGroupNativeDefinition.DisbandTargetTableRva +
+                    LordControlGroupNativeDefinition.LordDisbandClass * sizeof(int),
+                LordControlGroupNativeDefinition.DisbandDefaultTargetRva,
+                "Lord no-op disband target");
+
+            byte[] block = ParseBytes(LordControlGroupNativeDefinition.DisbandBranchInstructions);
+            int callOffset = LordControlGroupNativeDefinition.DisbandCallRva -
+                LordControlGroupNativeDefinition.DisbandBranchRva;
+            if (block[callOffset] != 0xE8)
+                throw new InvalidOperationException("The audited UIT_DISBAND call opcode is missing.");
+            int callDisplacement = Shared.NativePatternResolver.ReadInt32(
+                memory,
+                LordControlGroupNativeDefinition.DisbandCallRva + 1);
+            int callTarget = checked(
+                LordControlGroupNativeDefinition.DisbandCallRva + 5 + callDisplacement);
+            if (callTarget != LordControlGroupNativeDefinition.DisbandFunctionRva)
+            {
+                throw new InvalidOperationException(
+                    $"The UIT_DISBAND call targets RVA 0x{callTarget:X}, expected RVA 0x{LordControlGroupNativeDefinition.DisbandFunctionRva:X}.");
+            }
         }
 
         private void RestoreAppliedSites()
@@ -271,6 +333,25 @@ namespace BugfixesAndQoL
             {
                 throw new InvalidOperationException(
                     $"The {label} is RVA 0x{actual:X}, expected RVA 0x{expected:X}.");
+            }
+        }
+
+        private static void ValidateBytes(
+            ReadOnlySpan<byte> memory,
+            int rva,
+            byte[] expected,
+            string label)
+        {
+            if (rva < 0 || expected == null || rva > memory.Length - expected.Length)
+                throw new InvalidOperationException($"The {label} lies outside the loaded image.");
+            for (int i = 0; i < expected.Length; i++)
+            {
+                if (memory[rva + i] != expected[i])
+                {
+                    throw new InvalidOperationException(
+                        $"The {label} differs at RVA 0x{rva + i:X}: " +
+                        $"0x{memory[rva + i]:X2}, expected 0x{expected[i]:X2}.");
+                }
             }
         }
 

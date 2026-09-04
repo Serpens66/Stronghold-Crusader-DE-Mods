@@ -71,6 +71,7 @@ namespace BugfixesAndQoL
         private bool healerAttackCommandPatchUnavailable;
         private bool mountedStockpileMovementPatchUnavailable;
         private bool lordControlGroupNativePatchUnavailable;
+        private bool lordMixedDisbandContractValidated;
         private bool aiRecruitmentHorseDemandFixUnavailable;
         private bool aiStoneReserveFixUnavailable;
         private bool aiTowerRuinRepairFixUnavailable;
@@ -219,11 +220,7 @@ namespace BugfixesAndQoL
             if (selectedUnitHealthFeature != null)
                 return;
 
-            selectedUnitHealthFeature = new SelectedUnitHealthFeature(
-                log,
-                settings,
-                () => lordUnitControlsFeature?.IsLordModeActive == true,
-                () => lordUnitControlsFeature?.ActiveLordPlayerId ?? -1);
+            selectedUnitHealthFeature = new SelectedUnitHealthFeature(log, settings);
             selectedUnitHealthFeature.RefreshSetting();
         }
 
@@ -236,7 +233,14 @@ namespace BugfixesAndQoL
             }
 
             if (lordUnitControlsFeature == null)
-                lordUnitControlsFeature = new LordUnitControlsFeature(log, settings, surrenderFeature);
+            {
+                lordUnitControlsFeature = new LordUnitControlsFeature(
+                    log,
+                    settings,
+                    surrenderFeature,
+                    () => lordMixedDisbandContractValidated);
+                lordUnitControlsFeature.RefreshSetting();
+            }
         }
 
         public void InitializeNative(IntPtr newLibraryHandle, ReadOnlySpan<byte> memory, bool isFixedLayoutHashValidated)
@@ -251,6 +255,23 @@ namespace BugfixesAndQoL
             libraryLength = memory.Length;
             fixedLayoutHashValidated = isFixedLayoutHashValidated;
             nativeLibraryAvailable = true;
+            try
+            {
+                LordControlGroupNativePatch.ValidateMixedDisbandContract(
+                    memory,
+                    isFixedLayoutHashValidated);
+                lordMixedDisbandContractValidated = true;
+                Shared.DebugLogHelper.LogDebug(
+                    log,
+                    "Bugfixes and QoL mixed Lord disband contract validated; Vanilla will ignore the Lord and disband normal selected units.");
+            }
+            catch (Exception ex)
+            {
+                lordMixedDisbandContractValidated = false;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Bugfixes and QoL mixed Lord disband is fail-closed because its native contract could not be validated: {ex}");
+            }
             assassinClimbCancellationRuntime.SetFixedUnitLayoutValidated(
                 isFixedLayoutHashValidated);
             if (!isFixedLayoutHashValidated &&
@@ -348,6 +369,7 @@ namespace BugfixesAndQoL
             TryInitializeFeature("AI tower-ruin repair fix", EnsureAiTowerRuinRepairFix);
             TryInitializeFeature("better AI overbuild rules", EnsureBetterAIOverbuildRulesFix);
             TryInitializeFeature("surrender", InitializeSurrenderFeature);
+            TryApplyFeature("Lord troop HUD", () => lordUnitControlsFeature?.RefreshSetting());
             TryInitializeFeature("selected-unit health display", InitializeSelectedUnitHealthFeature);
             TryApplyFeature("selected-unit health display", () => selectedUnitHealthFeature?.RefreshSetting());
             TryApplyFeature("surrender", () => surrenderFeature?.RefreshButtonState());

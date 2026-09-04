@@ -46,6 +46,14 @@ namespace OxTetherIdleFixTest
                 "blocker with a different route can vacate the synthetic target");
             Assert(!OxTargetBlockadePolicy.HasIndependentTarget(moving, moving.RequestedX, moving.RequestedY),
                 "blocker already routed to the synthetic target is excluded");
+            Assert(OxTargetBlockadePolicy.DidBlockerAdvance(10, 10, 3, 11, 10, 3),
+                "blocker tile movement resets no-progress watchdog");
+            Assert(OxTargetBlockadePolicy.DidBlockerAdvance(10, 10, 3, 10, 10, 4),
+                "forward path cursor resets no-progress watchdog");
+            Assert(!OxTargetBlockadePolicy.DidBlockerAdvance(10, 10, 3, 10, 10, 3),
+                "unchanged blocker snapshot does not reset watchdog");
+            Assert(!OxTargetBlockadePolicy.DidBlockerAdvance(10, 10, 3, 10, 10, 1),
+                "path cursor reset alone does not fake progress");
         }
 
         private static void TestExactIdleEpisodeAndRepairVerification()

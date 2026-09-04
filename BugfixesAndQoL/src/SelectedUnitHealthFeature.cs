@@ -25,8 +25,6 @@ namespace BugfixesAndQoL
         private string maximumText = string.Empty;
         private Brush currentForeground = GreenBrush;
 
-        internal static Brush GreenBrushValue => GreenBrush;
-
         internal static Brush GetBandBrush(SelectedUnitHealthBand band) =>
             band == SelectedUnitHealthBand.Green
                 ? GreenBrush
@@ -87,11 +85,6 @@ namespace BugfixesAndQoL
     internal sealed class SelectedUnitHealthViewModel : LobbyModSettingsBaseViewModel
     {
         private Visibility healthVisibility = Visibility.Collapsed;
-        private Visibility lordHealthVisibility = Visibility.Collapsed;
-        private string lordCurrentText = string.Empty;
-        private string lordMaximumText = string.Empty;
-        private Brush lordCurrentForeground = SelectedUnitHealthSlotViewModel.GreenBrushValue;
-
         public SelectedUnitHealthViewModel()
         {
             Slots = new SelectedUnitHealthSlotViewModel[SelectedUnitHealthPageLayout.SlotCount];
@@ -121,57 +114,8 @@ namespace BugfixesAndQoL
             }
         }
 
-        public Visibility LordHealthVisibility
-        {
-            get => lordHealthVisibility;
-            private set
-            {
-                if (lordHealthVisibility == value)
-                    return;
-                lordHealthVisibility = value;
-                OnPropertyChanged(nameof(LordHealthVisibility));
-            }
-        }
-
-        public string LordCurrentText
-        {
-            get => lordCurrentText;
-            private set
-            {
-                if (lordCurrentText == value)
-                    return;
-                lordCurrentText = value;
-                OnPropertyChanged(nameof(LordCurrentText));
-            }
-        }
-
-        public string LordMaximumText
-        {
-            get => lordMaximumText;
-            private set
-            {
-                if (lordMaximumText == value)
-                    return;
-                lordMaximumText = value;
-                OnPropertyChanged(nameof(LordMaximumText));
-            }
-        }
-
-        public Brush LordCurrentForeground
-        {
-            get => lordCurrentForeground;
-            private set
-            {
-                if (ReferenceEquals(lordCurrentForeground, value))
-                    return;
-                lordCurrentForeground = value;
-                OnPropertyChanged(nameof(LordCurrentForeground));
-            }
-        }
-
         public void Show(SelectedUnitHealthSummary[] summaries, int[] visibleTypes)
         {
-            HideLord();
             bool anyVisible = false;
             for (int slot = 0; slot < Slots.Length; slot++)
             {
@@ -190,37 +134,11 @@ namespace BugfixesAndQoL
             HealthVisibility = anyVisible ? Visibility.Visible : Visibility.Collapsed;
         }
 
-        public void ShowLord(SelectedUnitHealthSummary summary)
-        {
-            HealthVisibility = Visibility.Collapsed;
-            for (int i = 0; i < Slots.Length; i++)
-                Slots[i].Clear();
-
-            if (!summary.HasUnits)
-            {
-                HideLord();
-                return;
-            }
-
-            LordCurrentText = summary.FormatCurrent();
-            LordMaximumText = summary.FormatMaximum();
-            LordCurrentForeground = SelectedUnitHealthSlotViewModel.GetBandBrush(summary.Band);
-            LordHealthVisibility = Visibility.Visible;
-        }
-
         public void Hide()
         {
             HealthVisibility = Visibility.Collapsed;
             for (int i = 0; i < Slots.Length; i++)
                 Slots[i].Clear();
-            HideLord();
-        }
-
-        private void HideLord()
-        {
-            LordHealthVisibility = Visibility.Collapsed;
-            LordCurrentText = string.Empty;
-            LordMaximumText = string.Empty;
         }
     }
 
@@ -232,11 +150,12 @@ namespace BugfixesAndQoL
         private static readonly FieldInfo CurrentPageField = typeof(HUD_Troops).GetField(
             "currentPage",
             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        private static readonly FieldInfo NoSelectedChimpTypesField = typeof(HUD_Troops).GetField(
+            "NoSelectedChimpTypes",
+            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
-        private readonly Func<bool> isLordModeActive;
-        private readonly Func<int> getActiveLordPlayerId;
         private int lastFrame = -1;
         private bool callbackErrorLogged;
         private bool disposed;
@@ -244,15 +163,10 @@ namespace BugfixesAndQoL
 
         public SelectedUnitHealthFeature(
             ManualLogSource log,
-            BugfixesAndQoLViewModel settings,
-            Func<bool> isLordModeActive,
-            Func<int> getActiveLordPlayerId)
+            BugfixesAndQoLViewModel settings)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
-            this.isLordModeActive = isLordModeActive ?? throw new ArgumentNullException(nameof(isLordModeActive));
-            this.getActiveLordPlayerId = getActiveLordPlayerId ??
-                throw new ArgumentNullException(nameof(getActiveLordPlayerId));
             ViewModel = new SelectedUnitHealthViewModel();
 
             // The BepInEx component is short-lived, but this static Unity event remains available in game.
@@ -335,21 +249,6 @@ namespace BugfixesAndQoL
                 return;
             }
 
-            if (isLordModeActive() &&
-                selectedCount == 1 &&
-                state.selectedChimps.Length > 0 &&
-                TryGetSelectedControlledLord(
-                    state.selectedChimps[0],
-                    getActiveLordPlayerId(),
-                    out GameUnit* selectedLord))
-            {
-                var lordSummary = new SelectedUnitHealthSummary();
-                lordSummary.Add(selectedLord->r_CurrentHealth, selectedLord->r_MaxHealth);
-                ViewModel.ShowLord(lordSummary);
-                LogEditorVisibilityState(mapEditor, $"visible: lord, playerId={controlledPlayerId}, unitId={state.selectedChimps[0]}");
-                return;
-            }
-
             var summaries = new SelectedUnitHealthSummary[(int)eChimps.CHIMP_NUM_TYPES];
             int count = Math.Min(selectedCount, state.selectedChimps.Length);
             int eligibleCount = 0;
@@ -374,10 +273,22 @@ namespace BugfixesAndQoL
                 eligibleCount++;
             }
 
-            if (SelectedChimpArrayField == null || CurrentPageField == null)
+            if (SelectedChimpArrayField == null || CurrentPageField == null ||
+                NoSelectedChimpTypesField == null)
                 throw new MissingFieldException("HUD_Troops selected-type paging fields were not found.");
 
             var selectedTypeCounts = SelectedChimpArrayField.GetValue(troopPanel) as int[];
+            int displayedTypeCount = (int)NoSelectedChimpTypesField.GetValue(troopPanel);
+            if (selectedTypeCounts != null &&
+                selectedTypeCounts.Length > (int)eChimps.CHIMP_TYPE_LORD &&
+                selectedTypeCounts[(int)eChimps.CHIMP_TYPE_LORD] > 0 &&
+                displayedTypeCount != SelectedUnitHealthPageLayout.CountVisibleTypes(selectedTypeCounts))
+            {
+                // Vanilla excludes type 55. Only mirror it when the Lord-aware HUD hook
+                // has explicitly included it in the same authoritative type count.
+                selectedTypeCounts = (int[])selectedTypeCounts.Clone();
+                selectedTypeCounts[(int)eChimps.CHIMP_TYPE_LORD] = 0;
+            }
             int currentPage = (int)CurrentPageField.GetValue(troopPanel);
             int[] visibleTypes = SelectedUnitHealthPageLayout.GetVisibleTypes(
                 selectedTypeCounts,
@@ -394,32 +305,5 @@ namespace BugfixesAndQoL
             Shared.DebugLogHelper.LogDebug(log, $"Bugfixes and QoL selected-unit health editor state: {state}.");
         }
 
-        private static bool TryGetSelectedControlledLord(
-            int selectedUnitId,
-            int controlledPlayerId,
-            out GameUnit* lord)
-        {
-            lord = null;
-            GamePlayerManagerAPI players = GamePlayerManagerAPI.Instance;
-            if (selectedUnitId <= 0 ||
-                controlledPlayerId < 1 ||
-                controlledPlayerId > 8 ||
-                players == null ||
-                GameUnitManagerAPI.Instance == null)
-                return false;
-
-            if (players.GetLordUnitId(controlledPlayerId) != selectedUnitId ||
-                !GameUnitManagerAPI.Instance.TryGetUnitById(selectedUnitId, out lord) ||
-                lord == null)
-            {
-                lord = null;
-                return false;
-            }
-
-            return lord->r_AliveState == AliveState.IsAlive &&
-                lord->r_UnitChimp == eChimps.CHIMP_TYPE_LORD &&
-                lord->r_ControllableForPlayerId == controlledPlayerId &&
-                lord->r_CurrentHealth > 0;
-        }
     }
 }

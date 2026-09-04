@@ -212,9 +212,6 @@ namespace BugfixesAndQoL
                 GameXAMLManagerAPI.Instance.RegisterBinding(
                     "BugfixesAndQoLSelectedUnitHealthHost",
                     runtime.SelectedUnitHealthUi);
-                GameXAMLManagerAPI.Instance.RegisterBinding(
-                    "BugfixesAndQoLLordHealthHost",
-                    runtime.SelectedUnitHealthUi);
             }
             catch (Exception ex)
             {

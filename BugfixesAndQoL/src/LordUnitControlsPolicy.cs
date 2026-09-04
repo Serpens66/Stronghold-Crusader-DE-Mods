@@ -1,6 +1,13 @@
-// Feature: Decide when the compact Lord troop HUD may replace Vanilla's default HUD.
+// Feature: Decide how the selected controlled Lord participates in Vanilla's troop HUD.
 namespace BugfixesAndQoL
 {
+    internal enum LordDisbandAction
+    {
+        UseVanilla,
+        RequestSurrender,
+        RejectUnsafeMixedSelection
+    }
+
     internal enum LordStanceTooltipAction
     {
         UseVanilla,
@@ -37,6 +44,22 @@ namespace BugfixesAndQoL
             bool surrenderEnabled,
             bool mapEditor) =>
             lordControlsActive && surrenderEnabled && !mapEditor;
+
+        internal static LordDisbandAction GetDisbandAction(
+            bool lordControlsEnabled,
+            bool soleControlledLord,
+            bool selectionContainsControlledLord,
+            bool selectionContainsOtherUnits,
+            bool mixedDisbandContractValidated)
+        {
+            if (!lordControlsEnabled || !selectionContainsControlledLord)
+                return LordDisbandAction.UseVanilla;
+            if (soleControlledLord)
+                return LordDisbandAction.RequestSurrender;
+            if (selectionContainsOtherUnits && !mixedDisbandContractValidated)
+                return LordDisbandAction.RejectUnsafeMixedSelection;
+            return LordDisbandAction.UseVanilla;
+        }
 
         internal static bool ShouldReturnToDefaultHud(
             bool lordModeWasActive,

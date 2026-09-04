@@ -126,6 +126,8 @@ internal static class Program
             string workspace = FindWorkspace();
             byte[] file = File.ReadAllBytes(DllPath);
             Check(Hash(file) == ExpectedDllHash, "canonical DLL hash");
+            Check(ExpectedDllHash == LordControlGroupNativeDefinition.ReferenceSha256,
+                "Lord native contracts use the canonical DLL hash");
             PeImage pe = PeImage.Load(file);
             CheckGatehouseQueryUnitIdContract();
             CheckMountedStockpilePolicy();
@@ -134,6 +136,7 @@ internal static class Program
             CheckCriticalSpans(pe.Image);
             CheckHealerAttackCommandContracts(pe.Image);
             CheckLordControlGroupContracts(pe.Image);
+            CheckMixedLordDisbandContract(pe.Image);
             CheckLordControlGroupTransactionModel(pe.Image);
             CheckLordControlGroupIconPolicy();
             CheckLordControlGroupUiContracts(workspace);
@@ -496,6 +499,78 @@ internal static class Program
             "full mixed Archer/Lord summary keeps the dedicated Lord icon and moves Archers into +N");
     }
 
+    private static void CheckMixedLordDisbandContract(byte[] image)
+    {
+        CheckBytes(
+            image,
+            LordControlGroupNativeDefinition.DisbandDispatcherRva,
+            LordControlGroupNativeDefinition.DisbandDispatcherInstructions,
+            "complete UIT_DISBAND unit-type dispatcher");
+        CheckBytes(
+            image,
+            LordControlGroupNativeDefinition.DisbandBranchRva,
+            LordControlGroupNativeDefinition.DisbandBranchInstructions,
+            "complete normal-unit UIT_DISBAND block");
+        Check(image[LordControlGroupNativeDefinition.LordDisbandClassEntryRva] ==
+              LordControlGroupNativeDefinition.LordDisbandClass,
+            "Lord maps to audited UIT_DISBAND class 2");
+        Check(image[LordControlGroupNativeDefinition.EuropeanArcherDisbandClassEntryRva] ==
+              LordControlGroupNativeDefinition.EuropeanArcherDisbandClass,
+            "European Archer maps to audited UIT_DISBAND class 0");
+        Check(ReadInt32(
+                image,
+                LordControlGroupNativeDefinition.DisbandTargetTableRva +
+                    LordControlGroupNativeDefinition.LordDisbandClass * sizeof(int)) ==
+              LordControlGroupNativeDefinition.DisbandDefaultTargetRva,
+            "Lord UIT_DISBAND class targets the no-op/default loop path");
+        Check(ReadInt32(
+                image,
+                LordControlGroupNativeDefinition.DisbandTargetTableRva +
+                    LordControlGroupNativeDefinition.EuropeanArcherDisbandClass * sizeof(int)) ==
+              LordControlGroupNativeDefinition.DisbandBranchRva,
+            "European Archer UIT_DISBAND class targets the normal disband block");
+        CheckCallTarget(
+            image,
+            LordControlGroupNativeDefinition.DisbandCallRva,
+            LordControlGroupNativeDefinition.DisbandFunctionRva,
+            "normal UIT_DISBAND helper call");
+        Check(MatchesMixedLordDisbandContract(image),
+            "canonical mixed Lord disband layout is accepted");
+
+        byte[] changedDispatcher = (byte[])image.Clone();
+        changedDispatcher[LordControlGroupNativeDefinition.DisbandDispatcherRva + 4] ^= 0x01;
+        Check(!MatchesMixedLordDisbandContract(changedDispatcher),
+            "changed UIT_DISBAND dispatcher is rejected");
+        byte[] changedTable = (byte[])image.Clone();
+        changedTable[LordControlGroupNativeDefinition.LordDisbandClassEntryRva] ^= 0x01;
+        Check(!MatchesMixedLordDisbandContract(changedTable),
+            "changed Lord UIT_DISBAND class is rejected");
+    }
+
+    private static bool MatchesMixedLordDisbandContract(byte[] image) =>
+        BytesMatch(
+            image,
+            LordControlGroupNativeDefinition.DisbandDispatcherRva,
+            ParseExactBytes(LordControlGroupNativeDefinition.DisbandDispatcherInstructions)) &&
+        BytesMatch(
+            image,
+            LordControlGroupNativeDefinition.DisbandBranchRva,
+            ParseExactBytes(LordControlGroupNativeDefinition.DisbandBranchInstructions)) &&
+        image[LordControlGroupNativeDefinition.LordDisbandClassEntryRva] ==
+            LordControlGroupNativeDefinition.LordDisbandClass &&
+        image[LordControlGroupNativeDefinition.EuropeanArcherDisbandClassEntryRva] ==
+            LordControlGroupNativeDefinition.EuropeanArcherDisbandClass &&
+        ReadInt32(
+            image,
+            LordControlGroupNativeDefinition.DisbandTargetTableRva +
+                LordControlGroupNativeDefinition.LordDisbandClass * sizeof(int)) ==
+            LordControlGroupNativeDefinition.DisbandDefaultTargetRva &&
+        ReadInt32(
+            image,
+            LordControlGroupNativeDefinition.DisbandTargetTableRva +
+                LordControlGroupNativeDefinition.EuropeanArcherDisbandClass * sizeof(int)) ==
+            LordControlGroupNativeDefinition.DisbandBranchRva;
+
     private static void CheckLordControlGroupUiContracts(string workspace)
     {
         string modRoot = Path.Combine(workspace, "BugfixesAndQoL");
@@ -519,10 +594,34 @@ internal static class Program
 
         string troopPatch = File.ReadAllText(Path.Combine(
             modRoot, "Patches", "Assets", "GUI", "XAMLResources", "HUD_Troops.xaml"));
-        Check(troopPatch.Contains("x:Name=\"BugfixesAndQoLLordSelected\"") &&
-              troopPatch.Contains("XPath=\"//n:Grid[@x:Name='LayoutRoot']\"") &&
-              troopPatch.Contains("local:PropEx.Sprite1=\"{StaticResource BugfixesAndQoL-LordIcon}\""),
-            "compact troop HUD uses the dedicated Lord resource");
+        Check(troopPatch.Contains("XPath=\"//n:Grid[@Name='TroopSelectionControls']\"") &&
+              troopPatch.Contains("x:Name=\"BugfixesAndQoLLordSelected\"") &&
+              troopPatch.Contains("Command=\"{Binding LeftClickSelectedTroopCommand}\"") &&
+              troopPatch.Contains("Command=\"{Binding RightClickSelectedTroopCommand}\"") &&
+              troopPatch.Contains("CommandParameter=\"CHIMP_TYPE_LORD\"") &&
+              troopPatch.Contains("bugfixes:TroopHudMiddleClickBehavior.IsEnabled=\"True\"") &&
+              troopPatch.Contains("<Trigger Property=\"IsMouseOver\" Value=\"True\">") &&
+              troopPatch.Contains("<Setter Property=\"Opacity\" Value=\"0.72\" />") &&
+              troopPatch.Contains("local:PropEx.Sprite1=\"{StaticResource BugfixesAndQoL-LordIcon}\"") &&
+              !troopPatch.Contains("BugfixesAndQoLLordSelectionHost") &&
+              !troopPatch.Contains("BugfixesAndQoLLordHealthHost") &&
+              !troopPatch.Contains("LordHealthVisibility"),
+            "full troop HUD exposes one interactive Lord slot without compact or separate-health remnants");
+
+        string lordHudFeature = File.ReadAllText(Path.Combine(
+            modRoot, "src", "LordUnitControlsFeature.cs"));
+        Check(lordHudFeature.IndexOf("setupSelectedTroopsOriginal(self);", StringComparison.Ordinal) <
+                  lordHudFeature.IndexOf("ApplyLordAwareLayout(self);", StringComparison.Ordinal) &&
+              lordHudFeature.Contains("panel.HideAllSelectedTroops();") &&
+              lordHudFeature.Contains("panel.ShowSelectedTroopsNumber(slot, selectedTypeCounts[type]);") &&
+              lordHudFeature.Contains("selectedTypeCounts[(int)eChimps.CHIMP_TYPE_LORD] = 1;") &&
+              lordHudFeature.Contains("Enums.eTextValues.BHELP_TEXT_SELECT_LORD") &&
+              lordHudFeature.IndexOf("if (!activeGameUi)", StringComparison.Ordinal) <
+                  lordHudFeature.IndexOf("MainViewModel main = MainViewModel.Instance;", StringComparison.Ordinal) &&
+              lordHudFeature.Contains("LordDisbandAction.RejectUnsafeMixedSelection") &&
+              !lordHudFeature.Contains("CompactFrame") &&
+              !lordHudFeature.Contains("ApplyCompactHud"),
+            "Lord HUD hook preserves Vanilla first, shares slot counts, routes disband, and contains no compact layout");
 
         string groupPatch = File.ReadAllText(Path.Combine(
             modRoot, "Patches", "Assets", "GUI", "XAMLResources", "HUD_ControlGroups.xaml"));

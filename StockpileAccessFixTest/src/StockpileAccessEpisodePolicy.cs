@@ -160,6 +160,11 @@ namespace StockpileAccessFixTest
 
         internal bool CanDiscard => phase == Phase.None && cooldownUntilTick == 0;
 
+        internal static bool CanStartCandidate(
+            in StockpileObservation observation,
+            bool hasMatchingRecentlyActiveRoute) =>
+            hasMatchingRecentlyActiveRoute && observation.HasIdleBugSignature;
+
         internal StockpileEpisodeAction Observe(in StockpileObservation observation, int tick)
         {
             if (phase == Phase.AwaitingRepairOutcome)

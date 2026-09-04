@@ -22,6 +22,17 @@ namespace OxTetherIdleFixTest
             observation.RequestedX != blockedTargetX ||
             observation.RequestedY != blockedTargetY;
 
+        internal static bool DidBlockerAdvance(
+            ushort previousX,
+            ushort previousY,
+            ushort previousPathCursor,
+            ushort currentX,
+            ushort currentY,
+            ushort currentPathCursor) =>
+            currentX != previousX ||
+            currentY != previousY ||
+            currentPathCursor > previousPathCursor;
+
         internal static bool ShouldReissueOriginalBlockerRoute(
             ushort originalState,
             ushort currentState,

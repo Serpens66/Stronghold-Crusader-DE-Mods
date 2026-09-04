@@ -1838,28 +1838,28 @@ internal static class Program
 
         Check(LordUnitControlsPolicy.CanActivate(
                 true, true, true, false, false, 1, testLordUnitId, 2, validLord),
-            "compact Lord HUD rejected the sole selected local Lord");
+            "full Lord troop HUD rejected the sole selected local Lord");
         Check(!LordUnitControlsPolicy.CanActivate(
                 true, true, true, false, false, 2, testLordUnitId, 2, validLord),
-            "compact Lord HUD accepted a mixed selection");
+            "Lord-only HUD mode accepted a mixed selection");
         Check(!LordUnitControlsPolicy.CanActivate(
                 true, true, true, false, false, 1, testLordUnitId + 1, 2, validLord),
-            "compact Lord HUD accepted a non-Lord selected unit");
+            "Lord-only HUD mode accepted a non-Lord selected unit");
         Check(!LordUnitControlsPolicy.CanActivate(
                 true, true, true, false, false, 1, testLordUnitId, 3, validLord),
-            "compact Lord HUD accepted another player's Lord");
+            "Lord-only HUD mode accepted another player's Lord");
         Check(!LordUnitControlsPolicy.CanActivate(
                 true, true, true, false, true, 1, testLordUnitId, 2, validLord),
-            "compact Lord HUD appeared for a spectator");
+            "Lord-only HUD mode appeared for a spectator");
         Check(LordUnitControlsPolicy.CanActivate(
                 true, true, false, true, false, 1, testLordUnitId, 2, validLord),
-            "compact Lord HUD rejected the controlled player's Lord in the map editor");
+            "full Lord troop HUD rejected the controlled player's Lord in the map editor");
         Check(!LordUnitControlsPolicy.CanActivate(
                 true, true, false, true, false, 1, testLordUnitId, 3, validLord),
-            "compact Lord HUD accepted another player's Lord in the map editor");
+            "Lord-only HUD mode accepted another player's Lord in the map editor");
         Check(!LordUnitControlsPolicy.CanActivate(
                 true, true, true, false, false, 1, testLordUnitId, 2, deadLord),
-            "compact Lord HUD accepted a dead Lord");
+            "Lord-only HUD mode accepted a dead Lord");
         Check(LordUnitControlsPolicy.CanShowDisband(true, true, false) &&
               !LordUnitControlsPolicy.CanShowDisband(true, false, false) &&
               !LordUnitControlsPolicy.CanShowDisband(true, true, true),
@@ -1868,7 +1868,21 @@ internal static class Program
               !LordUnitControlsPolicy.ShouldReturnToDefaultHud(false, true, 0) &&
               !LordUnitControlsPolicy.ShouldReturnToDefaultHud(true, false, 0) &&
               !LordUnitControlsPolicy.ShouldReturnToDefaultHud(true, true, 1),
-            "compact Lord HUD default-HUD transition policy was incorrect");
+            "Lord troop HUD default-HUD transition policy was incorrect");
+        Check(LordUnitControlsPolicy.GetDisbandAction(true, true, true, false, true) ==
+              LordDisbandAction.RequestSurrender,
+            "sole controlled Lord did not route Disband to synchronized surrender");
+        Check(LordUnitControlsPolicy.GetDisbandAction(true, false, true, true, true) ==
+              LordDisbandAction.UseVanilla,
+            "validated mixed Lord selection did not retain Vanilla disband");
+        Check(LordUnitControlsPolicy.GetDisbandAction(true, false, true, true, false) ==
+              LordDisbandAction.RejectUnsafeMixedSelection,
+            "unvalidated mixed Lord selection did not fail closed");
+        Check(LordUnitControlsPolicy.GetDisbandAction(false, true, true, false, false) ==
+              LordDisbandAction.UseVanilla &&
+              LordUnitControlsPolicy.GetDisbandAction(true, false, false, true, false) ==
+              LordDisbandAction.UseVanilla,
+            "disabled or Lord-free selections did not remain Vanilla");
         Check(LordUnitControlsPolicy.GetStanceTooltipAction(true, "GuardStanceButton") ==
               LordStanceTooltipAction.ShowVanillaBehavior,
             "Lord guard stance did not select the custom Vanilla-behavior rollover");
@@ -2444,11 +2458,29 @@ internal static class Program
         int[] page2 = SelectedUnitHealthPageLayout.GetVisibleTypes(selectedTypes, 1);
         int[] page3 = SelectedUnitHealthPageLayout.GetVisibleTypes(selectedTypes, 2);
         int[] page4 = SelectedUnitHealthPageLayout.GetVisibleTypes(selectedTypes, 3);
+        int[] page5 = SelectedUnitHealthPageLayout.GetVisibleTypes(selectedTypes, 4);
         Check(page1.SequenceEqual(new[] { 1, 2, 3, 4, 5, 6, 7, 8 }) &&
               page2.SequenceEqual(new[] { 9, 10, 11, 12, 13, 14, 15, 16 }) &&
-              page3.SequenceEqual(new[] { 18, 19, 20, 21, 22, 23, 24, 25 }) &&
-              page4.SequenceEqual(new[] { 27, 28, 29, 30, 31, 32, 33, 34 }),
-            "selected-unit health page slots did not mirror the vanilla HUD ordering");
+              page3.SequenceEqual(new[] { 17, 18, 19, 20, 21, 22, 23, 24 }) &&
+              page4.SequenceEqual(new[] { 25, 26, 27, 28, 29, 30, 31, 32 }) &&
+              page5.SequenceEqual(new[] { 33, 34, 35, 55, -1, -1, -1, -1 }) &&
+              SelectedUnitHealthPageLayout.GetPageCount(selectedTypes) == 5,
+            "shared troop/health page slots were not contiguous or omitted the Lord");
+
+        foreach (int typeCount in new[] { 7, 8, 9, 17 })
+        {
+            var boundary = new int[89];
+            for (int type = 0; type < typeCount - 1; type++)
+                boundary[type] = 1;
+            boundary[55] = 1;
+            int expectedPages = (typeCount + 7) / 8;
+            Check(SelectedUnitHealthPageLayout.CountVisibleTypes(boundary) == typeCount &&
+                  SelectedUnitHealthPageLayout.GetPageCount(boundary) == expectedPages &&
+                  SelectedUnitHealthPageLayout.GetVisibleTypes(
+                      boundary,
+                      expectedPages - 1).Contains(55),
+                $"Lord page boundary layout failed for {typeCount} selected types");
+        }
 
         int[] emptyPage = SelectedUnitHealthPageLayout.GetVisibleTypes(null, 0);
         Check(emptyPage.Length == SelectedUnitHealthPageLayout.SlotCount && emptyPage.All(type => type == -1),

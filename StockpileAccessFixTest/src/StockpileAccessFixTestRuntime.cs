@@ -17,6 +17,8 @@ namespace StockpileAccessFixTest
     {
         private const int AutomaticNoBugTimeoutTicks = 400;
         private const int BlockerOccupancyTimeoutTicks = 50;
+        internal const int BlockerApproachSearchRadius = 8;
+        internal const int AutomaticTriggerRetryTicks = 50;
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate long RevalidateBuildingAccessDelegate(
@@ -28,8 +30,8 @@ namespace StockpileAccessFixTest
         private readonly RevalidateBuildingAccessDelegate revalidateBuildingAccess;
         private readonly Dictionary<int, StockpileAccessEpisodePolicy> episodes =
             new Dictionary<int, StockpileAccessEpisodePolicy>();
-        private readonly Dictionary<int, RouteSignature> trackedRoutes =
-            new Dictionary<int, RouteSignature>();
+        private readonly Dictionary<int, TrackedRoute> trackedRoutes =
+            new Dictionary<int, TrackedRoute>();
         private readonly HashSet<int> observedUnitIds = new HashSet<int>();
         private readonly List<int> staleUnitIds = new List<int>();
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
@@ -45,11 +47,8 @@ namespace StockpileAccessFixTest
         private long pendingMoveResult;
         private bool hasTriggerRoute;
         private TriggerRoute triggerRoute;
-        private bool hasRejectedTriggerRoute;
-        private TriggerRoute rejectedTriggerRoute;
-        private int rejectedTriggerUntilTick;
+        private int nextAutomaticTriggerTick;
         private bool automaticTestCompleted;
-        private string pendingTestBlockerCleanupReason;
         private int latestSimulationTick;
         private TestInjectionPhase testInjectionPhase;
         private int testVictimUnitId;
@@ -139,7 +138,10 @@ namespace StockpileAccessFixTest
                 $"verificationTimeoutTicks={StockpileAccessEpisodePolicy.VerificationTimeoutTicks}, " +
                 "unitIdsAndBuildingIdsAreOneBased=true, moveHereUsesScriptExtenderApi=true, " +
                 $"testTrigger=automaticCivilianOccupancyOncePerMap, testNoBugTimeoutTicks={AutomaticNoBugTimeoutTicks}, " +
-                $"blockerOccupancyTimeoutTicks={BlockerOccupancyTimeoutTicks}, testCleanup=automatic.");
+                $"blockerOccupancyTimeoutTicks={BlockerOccupancyTimeoutTicks}, " +
+                $"blockerApproachSearchRadius={BlockerApproachSearchRadius}, " +
+                $"automaticTriggerRetryTicks={AutomaticTriggerRetryTicks}, naturalOccupancyPreferred=true, " +
+                "syntheticBlockerRequiresIndependentTargetAndUnregisteredOrigin=true, testCleanup=automatic.");
         }
 
         public void Dispose()
@@ -161,11 +163,8 @@ namespace StockpileAccessFixTest
         {
             ClearTracking();
             automaticTestCompleted = false;
-            pendingTestBlockerCleanupReason = null;
             latestSimulationTick = 0;
-            hasRejectedTriggerRoute = false;
-            rejectedTriggerRoute = default;
-            rejectedTriggerUntilTick = 0;
+            nextAutomaticTriggerTick = 0;
             mapActive = true;
             disabledForMap = false;
             trackedCount = 0;
@@ -209,7 +208,17 @@ namespace StockpileAccessFixTest
             catch (Exception exception)
             {
                 disabledForMap = true;
-                RequestTestBlockerCleanup("diagnostic disabled after runtime failure");
+                try
+                {
+                    TryRestoreTestBlocker("diagnostic disabled after runtime failure");
+                }
+                catch (Exception cleanupException)
+                {
+                    Shared.DebugLogHelper.LogError(
+                        log,
+                        $"STOCKPILE_TEST_BLOCKER_FAILED: tick={tick}, " +
+                        $"reason=emergency cleanup failed, exception={cleanupException}");
+                }
                 ClearTracking();
                 Shared.DebugLogHelper.LogError(
                     log,
@@ -248,9 +257,13 @@ namespace StockpileAccessFixTest
 
                 if (!episodes.TryGetValue(unitId, out StockpileAccessEpisodePolicy episode))
                 {
-                    if (!observation.HasIdleBugSignature ||
-                        !trackedRoutes.TryGetValue(unitId, out RouteSignature activeRoute) ||
-                        !activeRoute.Equals(new RouteSignature(observation)))
+                    bool hasMatchingRecentlyActiveRoute =
+                        trackedRoutes.TryGetValue(unitId, out TrackedRoute activeRoute) &&
+                        activeRoute.Signature.Equals(new RouteSignature(observation)) &&
+                        tick - activeRoute.LastActiveTick <= 2;
+                    if (!StockpileAccessEpisodePolicy.CanStartCandidate(
+                            observation,
+                            hasMatchingRecentlyActiveRoute))
                     {
                         continue;
                     }
@@ -312,26 +325,27 @@ namespace StockpileAccessFixTest
                 return;
 
             if (!automaticTestCompleted && testInjectionPhase == TestInjectionPhase.None &&
+                !hasTriggerRoute && tick >= nextAutomaticTriggerTick &&
                 observation.UnitType == eChimps.CHIMP_TYPE_FLETCHER)
             {
-                TriggerRoute nextTrigger = new TriggerRoute(observation);
-                bool rejectionExpired = latestSimulationTick >= rejectedTriggerUntilTick;
-                if ((!hasRejectedTriggerRoute || !rejectedTriggerRoute.Equals(nextTrigger) || rejectionExpired) &&
-                    (!hasTriggerRoute || !triggerRoute.Equals(nextTrigger)))
-                {
-                    triggerRoute = nextTrigger;
-                    hasTriggerRoute = true;
-                        LogInfo(
-                            $"STOCKPILE_TEST_BLOCKER_READY: tick={tick}, {Describe(observation)}, " +
-                            "action=second fetching Fletcher will occupy the internal stockpile access on the next simulation tick.");
-                }
+                triggerRoute = new TriggerRoute(observation);
+                hasTriggerRoute = true;
+                LogInfo(
+                    $"STOCKPILE_TEST_BLOCKER_READY: tick={tick}, ownerId={GetUnitOwner(observation.UnitId)}, " +
+                    $"{Describe(observation)}, action=native occupant or independent moving Fletcher will block " +
+                    "the internal stockpile access on the next simulation tick.");
             }
 
             RouteSignature route = new RouteSignature(observation);
-            if (trackedRoutes.TryGetValue(observation.UnitId, out RouteSignature previous) && previous.Equals(route))
+            bool routeChanged =
+                !trackedRoutes.TryGetValue(observation.UnitId, out TrackedRoute previous) ||
+                !previous.Signature.Equals(route);
+            // Refresh this on every active-path tick. A stale route observed much earlier must not
+            // authorize a later generic idle state as a stockpile-access failure.
+            trackedRoutes[observation.UnitId] = new TrackedRoute(route, tick);
+            if (!routeChanged)
                 return;
 
-            trackedRoutes[observation.UnitId] = route;
             trackedCount++;
             LogInfo(
                 $"STOCKPILE_FETCH_ROUTE_TRACKED: tick={tick}, {Describe(observation)}, " +
@@ -444,13 +458,6 @@ namespace StockpileAccessFixTest
 
         private void ProcessAutomaticTestTrigger()
         {
-            if (!string.IsNullOrEmpty(pendingTestBlockerCleanupReason))
-            {
-                string reason = pendingTestBlockerCleanupReason;
-                pendingTestBlockerCleanupReason = null;
-                TryRestoreTestBlocker(reason);
-            }
-
             if (!mapActive || disabledForMap || automaticTestCompleted)
                 return;
 
@@ -501,7 +508,7 @@ namespace StockpileAccessFixTest
             GameTileManagerAPI tileApi = GameTileManagerAPI.Instance;
             int accessX = current.TargetX;
             int accessY = current.TargetY;
-            bool isFreeConnection = TryInspectFreeStockpileConnectionTile(
+            bool isConnection = TryInspectStockpileConnectionTile(
                 tileApi,
                 accessX,
                 accessY,
@@ -509,19 +516,43 @@ namespace StockpileAccessFixTest
                 out TilePropertyFlag priorFlags,
                 out ushort priorBuildingId,
                 out ushort priorUnitId);
-            if (!isFreeConnection)
+            if (!isConnection)
             {
                 RejectTriggerRoute(
-                    $"cached access is not a free internal GoodsyardConnection tile: " +
+                    $"cached access is not an internal GoodsyardConnection tile: " +
                     $"access={accessX}/{accessY}, tileId={tileId}, buildingId={priorBuildingId}, " +
                     $"unitId={priorUnitId}, flags=0x{unchecked((uint)priorFlags):X8}");
+                return;
+            }
+
+            if (priorUnitId != 0)
+            {
+                if (!TryValidateLivingOccupant(priorUnitId, accessX, accessY, out uint occupantGlobalId))
+                {
+                    RejectTriggerRoute(
+                        $"TileUnitIdGrid reported stale occupant unitId={priorUnitId} at access={accessX}/{accessY}");
+                    return;
+                }
+
+                PrepareTestVictim(current, accessX, accessY);
+                LogInfo(
+                    $"STOCKPILE_TEST_NATURAL_OCCUPANCY_USED: tick={latestSimulationTick}, " +
+                    $"victimUnitId={current.UnitId}, victimOwnerId={GetUnitOwner(current.UnitId)}, " +
+                    $"occupantUnitId={priorUnitId}, occupantGlobalId={occupantGlobalId}, " +
+                    $"occupantOwnerId={GetUnitOwner(priorUnitId)}, target={accessX}/{accessY}, " +
+                    $"tileId={tileId}, flags=0x{unchecked((uint)priorFlags):X8}.");
+                if (!TryForceVictimRouteFailure(priorUnitId, "existingVanillaOccupancy"))
+                {
+                    ClearTestInjectionIdentity();
+                    RejectTriggerRoute("existing native occupant did not make the victim MoveToTile call fail");
+                }
                 return;
             }
 
             if (!TryFindFetchingFletcherBlocker(current, out int blockerUnitId, out StockpileObservation blocker))
             {
                 RejectTriggerRoute(
-                    $"no second alive Fletcher with an active route to stockpileBuildingId={current.StorageBuildingId} was available");
+                    $"no same-owner moving Fletcher with an independent target and unregistered origin was available");
                 return;
             }
 
@@ -533,12 +564,12 @@ namespace StockpileAccessFixTest
                     out int approachTileId))
             {
                 RejectTriggerRoute(
-                    $"no free walkable neighbor of cached access={accessX}/{accessY} was available");
+                    $"no free walkable approach within radius={BlockerApproachSearchRadius} of " +
+                    $"cached access={accessX}/{accessY} was available");
                 return;
             }
 
-            testVictimUnitId = current.UnitId;
-            testVictimUnitGlobalId = current.UnitGlobalId;
+            PrepareTestVictim(current, accessX, accessY);
             testBlockerUnitId = blockerUnitId;
             testBlockerUnitGlobalId = blocker.UnitGlobalId;
             testBlockerOriginalX = blocker.CurrentX;
@@ -549,11 +580,6 @@ namespace StockpileAccessFixTest
             testBlockerApproachX = approachX;
             testBlockerApproachY = approachY;
             testBlockerApproachTileId = approachTileId;
-            testBlockerX = accessX;
-            testBlockerY = accessY;
-            testBlockerSpawnTick = latestSimulationTick;
-            testBlockerRecoveryStarted = false;
-
             GameUnitManagerAPI.Instance.SetCurrentLocalTilePosition(
                 blockerUnitId,
                 new UnmanagedVector2<ushort>(approachX, approachY));
@@ -601,15 +627,31 @@ namespace StockpileAccessFixTest
             testInjectionPhase = TestInjectionPhase.AwaitingOccupancy;
             LogInfo(
                 $"STOCKPILE_TEST_BLOCKER_SPAWNED: victimUnitId={current.UnitId}, victimGlobalId={current.UnitGlobalId}, " +
+                $"victimOwnerId={GetUnitOwner(current.UnitId)}, " +
                 $"blockerUnitId={blockerUnitId}, blockerGlobalId={blocker.UnitGlobalId}, " +
+                $"blockerOwnerId={GetUnitOwner(blockerUnitId)}, " +
                 $"blockerWorker={blocker.UnitType}, blockerState={blocker.State}, " +
                 $"blockerOriginalPosition={blocker.CurrentX}/{blocker.CurrentY}, " +
                 $"blockerOriginalTarget={blocker.TargetX}/{blocker.TargetY}, " +
+                $"blockerOriginalStockpile={blocker.StorageBuildingId}, " +
                 $"blockerApproach={approachX}/{approachY}, blockerApproachTileId={approachTileId}, " +
                 $"cachedAccess={accessX}/{accessY}, tileId={tileId}, priorFlags=0x{unchecked((uint)priorFlags):X8}, " +
                 $"blockerMoveResult={(pendingMoveResultSeen ? pendingMoveResult.ToString() : "notCaptured")}, " +
                 "mechanism=SetCurrentLocalTilePositionAdjacent+VanillaMoveToTile, directTileMutation=false, " +
                 "nextStep=waitForTileUnitIdGridOccupancyThenRetryVictimMoveHere.");
+        }
+
+        private void PrepareTestVictim(
+            in StockpileObservation victim,
+            int accessX,
+            int accessY)
+        {
+            testVictimUnitId = victim.UnitId;
+            testVictimUnitGlobalId = victim.UnitGlobalId;
+            testBlockerX = accessX;
+            testBlockerY = accessY;
+            testBlockerSpawnTick = latestSimulationTick;
+            testBlockerRecoveryStarted = false;
         }
 
         private bool TryFindFetchingFletcherBlocker(
@@ -624,6 +666,11 @@ namespace StockpileAccessFixTest
             if (manager == null || units._array == null)
                 return false;
 
+            int victimOwner = GetUnitOwner(victim.UnitId);
+            if (victimOwner < 0)
+                return false;
+
+            GameTileManagerAPI tileApi = GameTileManagerAPI.Instance;
             int unitCount = checked((int)manager->r_NextUnitId) - 1;
             for (int spanIndex = 0; spanIndex < unitCount; spanIndex++)
             {
@@ -639,10 +686,16 @@ namespace StockpileAccessFixTest
 
                 StockpileObservation candidate = Capture(unitId, unit);
                 if (!IsEligibleFletcherBlocker(victim, candidate) ||
-                    unit->r_SpawnedForPlayerIndex != GetUnitOwner(victim.UnitId))
+                    unit->r_SpawnedForPlayerIndex != victimOwner)
                 {
                     continue;
                 }
+
+                // Direct teleport is safe only while the moving unit is absent from the
+                // native occupancy grid; otherwise its origin would retain a stale unit ID.
+                int originTileId = tileApi.GetTileId(candidate.CurrentX, candidate.CurrentY);
+                if (!tileApi.IsValidTileId(originTileId) || tileApi.GetTileUnitId(originTileId) != 0)
+                    continue;
 
                 blockerUnitId = unitId;
                 blocker = candidate;
@@ -660,7 +713,7 @@ namespace StockpileAccessFixTest
             candidate.Alive && candidate.UnitType == eChimps.CHIMP_TYPE_FLETCHER &&
             candidate.State == 1 && candidate.IsValidFetchRoute &&
             candidate.PathFlags != 0 &&
-            candidate.StorageBuildingId == victim.StorageBuildingId &&
+            (candidate.TargetX != victim.TargetX || candidate.TargetY != victim.TargetY) &&
             (candidate.CurrentX != candidate.TargetX || candidate.CurrentY != candidate.TargetY);
 
         private static bool TryFindFreeBlockerApproach(
@@ -673,46 +726,44 @@ namespace StockpileAccessFixTest
             approachX = 0;
             approachY = 0;
             approachTileId = -1;
-            for (int offsetY = -1; offsetY <= 1; offsetY++)
+            for (int radius = 1; radius <= BlockerApproachSearchRadius; radius++)
             {
-                for (int offsetX = -1; offsetX <= 1; offsetX++)
+                for (int offsetY = -radius; offsetY <= radius; offsetY++)
                 {
-                    if ((offsetX == 0 && offsetY == 0) ||
-                        (offsetX != 0 && offsetY != 0))
+                    for (int offsetX = -radius; offsetX <= radius; offsetX++)
                     {
-                        continue;
-                    }
+                        if (Math.Max(Math.Abs(offsetX), Math.Abs(offsetY)) != radius)
+                            continue;
 
-                    int x = victim.TargetX + offsetX;
-                    int y = victim.TargetY + offsetY;
-                    if (!tileApi.IsTileInsideMapBounds(x, y) ||
-                        (x == victim.CurrentX && y == victim.CurrentY))
-                    {
-                        continue;
-                    }
+                        int x = victim.TargetX + offsetX;
+                        int y = victim.TargetY + offsetY;
+                        if (!tileApi.IsTileInsideMapBounds(x, y) ||
+                            (x == victim.CurrentX && y == victim.CurrentY))
+                        {
+                            continue;
+                        }
 
-                    int tileId = tileApi.GetTileId(x, y);
-                    if (!tileApi.IsValidTileId(tileId) ||
-                        tileApi.GetTileBuildingId(tileId) != 0 ||
-                        tileApi.GetTileUnitId(tileId) != 0)
-                    {
-                        continue;
-                    }
+                        int tileId = tileApi.GetTileId(x, y);
+                        if (!tileApi.IsValidTileId(tileId))
+                            continue;
 
-                    TilePropertyFlag flags = tileApi.GetTilePropertyFlag(tileId);
-                    if (!IsSafeBlockerApproachTile(
-                            flags,
-                            0,
-                            0,
-                            tileApi.IsTileWalkableAndUnoccupied(tileId)))
-                    {
-                        continue;
-                    }
+                        TilePropertyFlag flags = tileApi.GetTilePropertyFlag(tileId);
+                        ushort buildingId = tileApi.GetTileBuildingId(tileId);
+                        ushort unitId = tileApi.GetTileUnitId(tileId);
+                        if (!IsSafeBlockerApproachTile(
+                                flags,
+                                buildingId,
+                                unitId,
+                                tileApi.IsTileWalkableAndUnoccupied(tileId)))
+                        {
+                            continue;
+                        }
 
-                    approachX = checked((ushort)x);
-                    approachY = checked((ushort)y);
-                    approachTileId = tileId;
-                    return true;
+                        approachX = checked((ushort)x);
+                        approachY = checked((ushort)y);
+                        approachTileId = tileId;
+                        return true;
+                    }
                 }
             }
 
@@ -769,12 +820,40 @@ namespace StockpileAccessFixTest
                 return;
             }
 
+            int formerBlockerUnitId = testBlockerUnitId;
+            bool routeFailed = TryForceVictimRouteFailure(
+                occupyingUnitId,
+                "syntheticFletcherOccupancy");
+            bool blockerResumed = ResumeRegisteredBlockerToOriginalTarget(
+                "occupancy confirmed and victim route retried");
+            if (!routeFailed)
+            {
+                RejectTriggerRoute("occupied access did not make the victim MoveToTile call fail");
+                return;
+            }
+            if (!blockerResumed)
+            {
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    $"STOCKPILE_TEST_BLOCKER_FAILED: blockerUnitId={formerBlockerUnitId}, " +
+                    "reason=Vanilla could not confirm the blocker route back to its original target.");
+            }
+        }
+
+        private bool TryForceVictimRouteFailure(ushort occupyingUnitId, string occupancySource)
+        {
+            GameTileManagerAPI tileApi = GameTileManagerAPI.Instance;
+            int targetTileId = tileApi.GetTileId(testBlockerX, testBlockerY);
+            if (!tileApi.IsValidTileId(targetTileId) ||
+                tileApi.GetTileUnitId(targetTileId) != occupyingUnitId)
+            {
+                return false;
+            }
+
             if (!GameUnitManagerAPI.Instance.TryGetUnitById(testVictimUnitId, out GameUnit* victimUnit) ||
                 victimUnit == null || victimUnit->r_GlobalId != testVictimUnitGlobalId)
             {
-                TryRestoreTestBlocker("victim identity changed before forced retry");
-                RejectTriggerRoute("victim identity changed before forced retry");
-                return;
+                return false;
             }
 
             StockpileObservation before = Capture(testVictimUnitId, victimUnit);
@@ -782,9 +861,7 @@ namespace StockpileAccessFixTest
                 before.TargetX != testBlockerX || before.TargetY != testBlockerY ||
                 (before.CurrentX == before.TargetX && before.CurrentY == before.TargetY))
             {
-                TryRestoreTestBlocker("victim route changed before forced retry");
-                RejectTriggerRoute("victim route changed before forced retry");
-                return;
+                return false;
             }
 
             pendingMoveCapture = true;
@@ -803,30 +880,29 @@ namespace StockpileAccessFixTest
             }
 
             StockpileObservation after = Capture(testVictimUnitId, victimUnit);
-            bool routeFailed = pendingMoveResultSeen ? pendingMoveResult == 0 : after.PathFlags == 0;
+            bool routeFailed = after.PathFlags == 0 &&
+                (!pendingMoveResultSeen || pendingMoveResult == 0);
             LogInfo(
                 $"STOCKPILE_TEST_OCCUPANCY_CONFIRMED: tick={latestSimulationTick}, " +
-                $"victimUnitId={testVictimUnitId}, blockerUnitId={testBlockerUnitId}, " +
+                $"victimUnitId={testVictimUnitId}, occupantUnitId={occupyingUnitId}, " +
                 $"target={testBlockerX}/{testBlockerY}, tileUnitId={occupyingUnitId}, " +
+                $"occupancySource={occupancySource}, " +
                 $"moveResult={(pendingMoveResultSeen ? pendingMoveResult.ToString() : "notCaptured")}, " +
                 $"pathFlagsAfter={after.PathFlags}, routeFailureCreated={routeFailed}.");
-
-            int formerBlockerUnitId = testBlockerUnitId;
-            ReleaseRegisteredBlockerToVanilla("occupancy confirmed and victim route retried");
             if (!routeFailed)
-            {
-                RejectTriggerRoute("occupied access did not make the victim MoveToTile call fail");
-                return;
-            }
+                return false;
 
             automaticTestCompleted = true;
             hasTriggerRoute = false;
             testBlockerSpawnTick = latestSimulationTick;
             testBlockerRecoveryStarted = false;
             LogInfo(
-                $"STOCKPILE_TEST_FAULT_INJECTED: tick={latestSimulationTick}, victimUnitId={testVictimUnitId}, " +
-                $"victimGlobalId={testVictimUnitGlobalId}, formerBlockerUnitId={formerBlockerUnitId}, " +
-                $"target={testBlockerX}/{testBlockerY}, reason=vanillaMoveHereRejectedDynamicallyOccupiedStockpileAccess.");
+                $"STOCKPILE_TEST_FAULT_INJECTED: tick={latestSimulationTick}, " +
+                $"victimUnitId={testVictimUnitId}, victimGlobalId={testVictimUnitGlobalId}, " +
+                $"occupantUnitId={occupyingUnitId}, target={testBlockerX}/{testBlockerY}, " +
+                $"occupancySource={occupancySource}, " +
+                "reason=vanillaMoveHereRejectedDynamicallyOccupiedStockpileAccess.");
+            return true;
         }
 
         internal static bool IsFreeStockpileConnectionTile(
@@ -836,7 +912,12 @@ namespace StockpileAccessFixTest
             buildingId == 0 && unitId == 0 &&
             flags == TilePropertyFlag.GoodsyardConnection;
 
-        private static bool TryInspectFreeStockpileConnectionTile(
+        internal static bool IsStockpileConnectionTile(
+            TilePropertyFlag flags,
+            ushort buildingId) =>
+            buildingId == 0 && flags == TilePropertyFlag.GoodsyardConnection;
+
+        private static bool TryInspectStockpileConnectionTile(
             GameTileManagerAPI tileApi,
             int x,
             int y,
@@ -853,10 +934,31 @@ namespace StockpileAccessFixTest
                 return false;
 
             tileId = tileApi.GetTileId(x, y);
+            if (!tileApi.IsValidTileId(tileId))
+                return false;
             buildingId = tileApi.GetTileBuildingId(tileId);
             unitId = tileApi.GetTileUnitId(tileId);
             flags = tileApi.GetTilePropertyFlag(tileId);
-            return IsFreeStockpileConnectionTile(flags, buildingId, unitId);
+            return IsStockpileConnectionTile(flags, buildingId);
+        }
+
+        private static bool TryValidateLivingOccupant(
+            int unitId,
+            int expectedX,
+            int expectedY,
+            out uint globalId)
+        {
+            globalId = 0;
+            if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+                unit == null || unit->r_AliveState != AliveState.IsAlive ||
+                unit->r_CurrentTilePositionX != expectedX ||
+                unit->r_CurrentTilePositionY != expectedY)
+            {
+                return false;
+            }
+
+            globalId = unit->r_GlobalId;
+            return globalId != 0;
         }
 
         internal void TryRestoreTestBlocker(string reason)
@@ -866,9 +968,9 @@ namespace StockpileAccessFixTest
 
             if (testInjectionPhase == TestInjectionPhase.AwaitingOccupancy)
             {
-                // MoveToTile has already handed the blocker back to Vanilla. A direct teleport now
-                // would leave its native occupancy stale; let its original fetch cycle finish instead.
-                ReleaseRegisteredBlockerToVanilla(reason);
+                // Once MoveToTile owns the blocker, only another native move may safely clear
+                // any occupancy it has already registered along the route.
+                ResumeRegisteredBlockerToOriginalTarget(reason);
                 return;
             }
 
@@ -906,33 +1008,79 @@ namespace StockpileAccessFixTest
                 blocker->r_CurrentTilePositionY == testBlockerOriginalY;
         }
 
-        private void ReleaseRegisteredBlockerToVanilla(string reason)
+        private bool ResumeRegisteredBlockerToOriginalTarget(string reason)
         {
+            bool routeAccepted = false;
+            string disposition;
+            if (!GameUnitManagerAPI.Instance.TryGetUnitById(testBlockerUnitId, out GameUnit* blocker) ||
+                blocker == null || blocker->r_AliveState != AliveState.IsAlive ||
+                blocker->r_GlobalId != testBlockerUnitGlobalId)
+            {
+                disposition = "blockerIdentityChanged";
+            }
+            else if (blocker->r_AIState != 1 ||
+                ReadUInt16(blocker, StockpileAccessFixNativeDefinition.UnitStorageBuildingIdOffset) !=
+                    testBlockerStorageBuildingId ||
+                testBlockerOriginalTargetX == 0 || testBlockerOriginalTargetY == 0)
+            {
+                disposition = $"blockerStateOrOriginalTargetChanged:state={blocker->r_AIState}";
+            }
+            else
+            {
+                pendingMoveCapture = true;
+                pendingMoveResultSeen = false;
+                pendingMoveUnitId = testBlockerUnitId;
+                pendingMoveX = testBlockerOriginalTargetX;
+                pendingMoveY = testBlockerOriginalTargetY;
+                pendingMoveResult = 0;
+                try
+                {
+                    GameUnitManagerAPI.Instance.MoveToTile(
+                        testBlockerUnitId,
+                        testBlockerOriginalTargetX,
+                        testBlockerOriginalTargetY,
+                        0);
+                }
+                finally
+                {
+                    pendingMoveCapture = false;
+                }
+
+                routeAccepted =
+                    (!pendingMoveResultSeen || pendingMoveResult != 0) &&
+                    ((blocker->r_CurrentTilePositionX == testBlockerOriginalTargetX &&
+                      blocker->r_CurrentTilePositionY == testBlockerOriginalTargetY) ||
+                     (blocker->r_TargetTilePositionX2 == testBlockerOriginalTargetX &&
+                      blocker->r_TargetTilePositionY2 == testBlockerOriginalTargetY &&
+                      blocker->r_PathPlanStateBitFlags != 0));
+                disposition = routeAccepted
+                    ? "VanillaMoveToOriginalTargetAccepted"
+                    : "VanillaMoveToOriginalTargetRejected";
+            }
+
             LogInfo(
                 $"STOCKPILE_TEST_BLOCKER_REMOVED: blockerUnitId={testBlockerUnitId}, " +
-                $"blockerGlobalId={testBlockerUnitGlobalId}, restored=false, " +
-                "disposition=VanillaFetchContinuesFromNativelyOccupiedAccess, " +
+                $"blockerGlobalId={testBlockerUnitGlobalId}, restored={routeAccepted}, " +
+                $"disposition={disposition}, originalTarget={testBlockerOriginalTargetX}/{testBlockerOriginalTargetY}, " +
                 $"approach={testBlockerApproachX}/{testBlockerApproachY}, " +
                 $"approachTileId={testBlockerApproachTileId}, requestedBy={reason}.");
             ClearBlockerIdentity();
+            return routeAccepted;
         }
 
         private void RejectTriggerRoute(string reason)
         {
-            if (hasTriggerRoute)
-            {
-                rejectedTriggerRoute = triggerRoute;
-                hasRejectedTriggerRoute = true;
-                rejectedTriggerUntilTick = checked(latestSimulationTick + 50);
-            }
+            nextAutomaticTriggerTick = checked(latestSimulationTick + AutomaticTriggerRetryTicks);
             hasTriggerRoute = false;
-            Shared.DebugLogHelper.LogWarning(log, $"STOCKPILE_TEST_BLOCKER_FAILED: reason={reason}.");
+            Shared.DebugLogHelper.LogWarning(
+                log,
+                $"STOCKPILE_TEST_BLOCKER_FAILED: tick={latestSimulationTick}, reason={reason}, " +
+                $"retryAtTick={nextAutomaticTriggerTick}.");
         }
 
         private void ObserveAutomaticTestTimeout(int tick)
         {
             if (!automaticTestCompleted || testVictimUnitId <= 0 || testBlockerRecoveryStarted ||
-                !string.IsNullOrEmpty(pendingTestBlockerCleanupReason) ||
                 tick - testBlockerSpawnTick < AutomaticNoBugTimeoutTicks)
             {
                 return;
@@ -965,12 +1113,6 @@ namespace StockpileAccessFixTest
             automaticTestCompleted && observation.UnitId == testVictimUnitId &&
             observation.UnitGlobalId == testVictimUnitGlobalId;
 
-        private void RequestTestBlockerCleanup(string reason)
-        {
-            if (testBlockerUnitId > 0 && string.IsNullOrEmpty(pendingTestBlockerCleanupReason))
-                pendingTestBlockerCleanupReason = reason;
-        }
-
         private void ClearBlockerIdentity()
         {
             testBlockerUnitId = 0;
@@ -984,7 +1126,6 @@ namespace StockpileAccessFixTest
             testBlockerApproachY = 0;
             testBlockerApproachTileId = 0;
             testInjectionPhase = TestInjectionPhase.None;
-            pendingTestBlockerCleanupReason = null;
         }
 
         private void ClearTestInjectionIdentity()
@@ -1111,9 +1252,7 @@ namespace StockpileAccessFixTest
             pendingMoveResultSeen = false;
             hasTriggerRoute = false;
             triggerRoute = default;
-            hasRejectedTriggerRoute = false;
-            rejectedTriggerRoute = default;
-            rejectedTriggerUntilTick = 0;
+            nextAutomaticTriggerTick = 0;
         }
 
         private static void ValidateManagedLayouts()
@@ -1173,6 +1312,18 @@ namespace StockpileAccessFixTest
                 GlobalId == other.GlobalId && State == other.State &&
                 StorageBuildingId == other.StorageBuildingId &&
                 TargetX == other.TargetX && TargetY == other.TargetY;
+        }
+
+        private readonly struct TrackedRoute
+        {
+            internal TrackedRoute(RouteSignature signature, int lastActiveTick)
+            {
+                Signature = signature;
+                LastActiveTick = lastActiveTick;
+            }
+
+            internal RouteSignature Signature { get; }
+            internal int LastActiveTick { get; }
         }
 
         private readonly struct TriggerRoute : IEquatable<TriggerRoute>

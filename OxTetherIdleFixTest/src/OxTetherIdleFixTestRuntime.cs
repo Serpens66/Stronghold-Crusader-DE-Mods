@@ -37,7 +37,7 @@ namespace OxTetherIdleFixTest
         internal const int FleetSnapshotIntervalSeconds = 10;
         internal const int GeneralStallTicks = 50;
         internal const int GeneralStallRepeatTicks = 250;
-        internal const int BlockerOccupancyTimeoutTicks = 50;
+        internal const int BlockerNoProgressTimeoutTicks = 250;
         internal const int BlockerApproachSearchRadius = 8;
         private static readonly long TargetBlockadeIntervalStopwatchTicks =
             SecondsToStopwatchTicks(TargetBlockadeIntervalSeconds);
@@ -94,7 +94,7 @@ namespace OxTetherIdleFixTest
                 $"requiredConsecutiveTicks={OxIdleEpisodePolicy.RequiredConsecutiveTicks}, " +
                 $"verificationTicks={OxIdleEpisodePolicy.VerificationTicks}, unitIdsAreOneBased=true, " +
                 $"targetBlockadeActive=true, targetBlockadeIntervalSeconds={TargetBlockadeIntervalSeconds}, " +
-                $"blockerOccupancyTimeoutTicks={BlockerOccupancyTimeoutTicks}, " +
+                $"blockerNoProgressTimeoutTicks={BlockerNoProgressTimeoutTicks}, " +
                 $"generalStallTicks={GeneralStallTicks}, fleetSnapshotIntervalSeconds={FleetSnapshotIntervalSeconds}, " +
                 $"physicalBlockerTeleportToApproach=true, blockerApproachSearchRadius={BlockerApproachSearchRadius}, " +
                 "blockerUsesVanillaMoveToTarget=true, registeredOriginFallback=VanillaMoveToTileFromCurrentPosition, " +
@@ -452,7 +452,7 @@ namespace OxTetherIdleFixTest
                       blockerUnit->r_TargetTilePositionY2 != selectedObservation.RequestedY ||
                       blockerUnit->r_PathPlanStateBitFlags == 0)))
                 {
-                    string blockerAfterCommand = blockerUnit == null
+                    string blockerAfterCommandDescription = blockerUnit == null
                         ? "unavailable"
                         : BlockerSnapshot.Capture(blockerUnit).ToString();
                     if (blockerTeleported)
@@ -474,7 +474,7 @@ namespace OxTetherIdleFixTest
                         $"OX_IDLE_TARGET_BLOCKADE_DEFERRED: tick={tick}, unitId={selectedUnitId}, " +
                         $"reason=Vanilla MoveToTile did not create a route to the blocked target, " +
                         $"blockerUnitId={blockerUnitId}, approach={blockerApproachX}/{blockerApproachY}, " +
-                        $"approachTileId={blockerApproachTileId}, blockerAfterCommand=({blockerAfterCommand}).");
+                        $"approachTileId={blockerApproachTileId}, blockerAfterCommand=({blockerAfterCommandDescription}).");
                     return;
                 }
             }
@@ -483,8 +483,7 @@ namespace OxTetherIdleFixTest
             int blockerTravelDistance = Math.Max(
                 Math.Abs(blockerApproachX - selectedObservation.RequestedX),
                 Math.Abs(blockerApproachY - selectedObservation.RequestedY));
-            int occupancyTimeoutTicks = checked(
-                BlockerOccupancyTimeoutTicks + (blockerTravelDistance * 4));
+            BlockerSnapshot blockerAfterCommand = BlockerSnapshot.Capture(blockerUnit);
             targetBlockades[selectedUnitId] = new TargetBlockade(
                 selectedObservation.GlobalId,
                 selectedObservation.State,
@@ -499,8 +498,8 @@ namespace OxTetherIdleFixTest
                 blockerApproachX,
                 blockerApproachY,
                 blockerApproachTileId,
-                occupancyTimeoutTicks,
                 blockerBefore,
+                blockerAfterCommand,
                 tick);
             targetBlockadeStartedCount++;
             lastBlockedUnitId = selectedUnitId;
@@ -519,9 +518,10 @@ namespace OxTetherIdleFixTest
                 $"occupancyConfirmed={occupancyConfirmed}, " +
                 $"blockerApproach={blockerApproachX}/{blockerApproachY}, " +
                 $"blockerApproachTileId={blockerApproachTileId}, " +
-                $"blockerTravelDistance={blockerTravelDistance}, occupancyTimeoutTicks={occupancyTimeoutTicks}, " +
+                $"blockerTravelDistance={blockerTravelDistance}, " +
+                $"blockerNoProgressTimeoutTicks={BlockerNoProgressTimeoutTicks}, " +
                 $"targetSnapshot=({Describe(selectedUnit, selectedObservation)}), " +
-                $"blockerBefore=({blockerBefore}), blockerAfterCommand=({BlockerSnapshot.Capture(blockerUnit)}), " +
+                $"blockerBefore=({blockerBefore}), blockerAfterCommand=({blockerAfterCommand}), " +
                 $"mechanism={(blockerTeleported ? "SetCurrentLocalTilePositionAdjacent+VanillaMoveToTile" : blockerCommanded ? "VanillaMoveToTileFromCurrentPosition" : "existingVanillaOccupancy")}, " +
                 "directTileMutation=false, directTargetOxMutation=false, replanSuppression=false, " +
                 $"releasePolicy=state-or-target-change/signature/general-stall, " +
@@ -724,7 +724,9 @@ namespace OxTetherIdleFixTest
             else if (rawObservation.RequestedX != blockade.TargetX ||
                      rawObservation.RequestedY != blockade.TargetY)
                 releaseReason = "requestedTargetChanged";
-            else if (generalStalls.TryGetValue(rawObservation.UnitId, out GeneralStallTrace stall) &&
+            else if (blockade.OccupancyConfirmed &&
+                     tick - blockade.OccupancyConfirmedTick >= GeneralStallTicks &&
+                     generalStalls.TryGetValue(rawObservation.UnitId, out GeneralStallTrace stall) &&
                      stall.ConsecutiveTicks >= GeneralStallTicks)
                 releaseReason = "generalTravelStallObserved";
 
@@ -763,12 +765,6 @@ namespace OxTetherIdleFixTest
                     ReleaseTargetBlockade(rawObservation.UnitId, tick, "realOccupantTookTarget", unit);
                     return rawObservation;
                 }
-                if (tick - blockade.StartTick >= blockade.OccupancyTimeoutTicks)
-                {
-                    ReleaseTargetBlockade(rawObservation.UnitId, tick, "vanillaOccupancyTimeout", unit);
-                    return rawObservation;
-                }
-
                 if ((blockerUnit->r_CurrentTilePositionX != blockade.TargetX ||
                      blockerUnit->r_CurrentTilePositionY != blockade.TargetY) &&
                     (blockerUnit->r_TargetTilePositionX2 != blockade.TargetX ||
@@ -776,6 +772,26 @@ namespace OxTetherIdleFixTest
                      blockerUnit->r_PathPlanStateBitFlags == 0))
                 {
                     ReleaseTargetBlockade(rawObservation.UnitId, tick, "blockerRouteLostBeforeOccupancy", unit);
+                    return rawObservation;
+                }
+
+                if (OxTargetBlockadePolicy.DidBlockerAdvance(
+                        blockade.LastBlockerX,
+                        blockade.LastBlockerY,
+                        blockade.LastBlockerPathCursor,
+                        blockerUnit->r_CurrentTilePositionX,
+                        blockerUnit->r_CurrentTilePositionY,
+                        blockerUnit->p_CurrentPathPlanPosition))
+                {
+                    blockade.LastBlockerX = blockerUnit->r_CurrentTilePositionX;
+                    blockade.LastBlockerY = blockerUnit->r_CurrentTilePositionY;
+                    blockade.LastBlockerPathCursor = blockerUnit->p_CurrentPathPlanPosition;
+                    blockade.LastProgressTick = tick;
+                }
+
+                if (tick - blockade.LastProgressTick >= BlockerNoProgressTimeoutTicks)
+                {
+                    ReleaseTargetBlockade(rawObservation.UnitId, tick, "blockerNoProgressTimeout", unit);
                 }
                 return rawObservation;
             }
@@ -879,7 +895,9 @@ namespace OxTetherIdleFixTest
                 $"blockerGlobalId={blockade.BlockerGlobalId}, blockedTarget={blockade.TargetX}/{blockade.TargetY}, " +
                 $"targetTileId={blockade.TargetTileId}, tileUnitIdBefore={tileUnitIdBefore}, " +
                 $"blockerPhysicallyAtTarget={blockerPhysicallyAtTarget}, blockerTeleported={blockade.BlockerTeleported}, " +
-                $"blockerCommanded={blockade.BlockerCommanded}, occupancyTimeoutTicks={blockade.OccupancyTimeoutTicks}, " +
+                $"blockerCommanded={blockade.BlockerCommanded}, " +
+                $"lastProgressTick={blockade.LastProgressTick}, noProgressTicks={tick - blockade.LastProgressTick}, " +
+                $"blockerNoProgressTimeoutTicks={BlockerNoProgressTimeoutTicks}, " +
                 $"occupancyConfirmed={blockade.OccupancyConfirmed}, occupancyConfirmedTick={blockade.OccupancyConfirmedTick}, " +
                 $"blockerRestored={blockerRestored}, blockerRestoreDisposition={blockerRestoreDisposition}, " +
                 $"blockerApproach={blockade.BlockerApproachX}/{blockade.BlockerApproachY}, " +
@@ -1312,8 +1330,8 @@ namespace OxTetherIdleFixTest
                 ushort blockerApproachX,
                 ushort blockerApproachY,
                 int blockerApproachTileId,
-                int occupancyTimeoutTicks,
                 BlockerSnapshot blockerBefore,
+                BlockerSnapshot blockerAfterCommand,
                 int startTick)
             {
                 TargetGlobalId = targetGlobalId;
@@ -1330,9 +1348,12 @@ namespace OxTetherIdleFixTest
                 BlockerApproachX = blockerApproachX;
                 BlockerApproachY = blockerApproachY;
                 BlockerApproachTileId = blockerApproachTileId;
-                OccupancyTimeoutTicks = occupancyTimeoutTicks;
                 BlockerBefore = blockerBefore;
                 StartTick = startTick;
+                LastProgressTick = startTick;
+                LastBlockerX = blockerAfterCommand.CurrentX;
+                LastBlockerY = blockerAfterCommand.CurrentY;
+                LastBlockerPathCursor = blockerAfterCommand.PathCursor;
             }
 
             internal uint TargetGlobalId { get; }
@@ -1349,9 +1370,12 @@ namespace OxTetherIdleFixTest
             internal ushort BlockerApproachX { get; }
             internal ushort BlockerApproachY { get; }
             internal int BlockerApproachTileId { get; }
-            internal int OccupancyTimeoutTicks { get; }
             internal BlockerSnapshot BlockerBefore { get; }
             internal int StartTick { get; }
+            internal int LastProgressTick { get; set; }
+            internal ushort LastBlockerX { get; set; }
+            internal ushort LastBlockerY { get; set; }
+            internal ushort LastBlockerPathCursor { get; set; }
         }
 
         private readonly struct BlockerSnapshot

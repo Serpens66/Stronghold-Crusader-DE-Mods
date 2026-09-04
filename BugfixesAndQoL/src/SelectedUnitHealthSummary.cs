@@ -56,6 +56,30 @@ namespace BugfixesAndQoL
     internal static class SelectedUnitHealthPageLayout
     {
         internal const int SlotCount = 8;
+
+        internal static int GetPageCount(int[] selectedTypeCounts)
+        {
+            int typeCount = CountVisibleTypes(selectedTypeCounts);
+            return Math.Max(1, (typeCount + SlotCount - 1) / SlotCount);
+        }
+
+        internal static int ClampPage(int currentPage, int[] selectedTypeCounts) =>
+            Math.Max(0, Math.Min(currentPage, GetPageCount(selectedTypeCounts) - 1));
+
+        internal static int CountVisibleTypes(int[] selectedTypeCounts)
+        {
+            if (selectedTypeCounts == null)
+                return 0;
+
+            int result = 0;
+            for (int type = 0; type < selectedTypeCounts.Length; type++)
+            {
+                if (selectedTypeCounts[type] > 0)
+                    result++;
+            }
+            return result;
+        }
+
         internal static int[] GetVisibleTypes(int[] selectedTypeCounts, int currentPage)
         {
             var result = new int[SlotCount];
@@ -65,13 +89,12 @@ namespace BugfixesAndQoL
             if (selectedTypeCounts == null)
                 return result;
 
-            // These page starts deliberately mirror HUD_Troops.SetupSelectedTroops exactly.
-            int firstOrdinal = currentPage <= 0 ? 0 : 8 + ((currentPage - 1) * 9);
+            int firstOrdinal = Math.Max(0, currentPage) * SlotCount;
             int selectedOrdinal = 0;
             int slot = 0;
             for (int type = 0; type < selectedTypeCounts.Length && slot < SlotCount; type++)
             {
-                if (type == (int)eChimps.CHIMP_TYPE_LORD || selectedTypeCounts[type] <= 0)
+                if (selectedTypeCounts[type] <= 0)
                     continue;
 
                 if (selectedOrdinal++ < firstOrdinal)
