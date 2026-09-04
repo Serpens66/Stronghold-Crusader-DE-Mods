@@ -737,6 +737,8 @@ namespace MoveMoatTest
                 nameof(GameUnit.UnknownRelevant1), UnitMoatPathConsumptionModeOffset + 1);
             ValidateStructFieldOffset(
                 typeof(GameUnitManager), nameof(GameUnitManager.LastOrderedUnit), NativeUnitSlotDataOffset);
+            ValidateStructFieldOffset(
+                typeof(GameCursorManager), nameof(GameCursorManager.r_HoverOverUnitId), 0x30);
             if (Marshal.SizeOf(typeof(GameUnit)) != NativeUnitStride)
             {
                 throw new InvalidOperationException(
@@ -2932,7 +2934,7 @@ namespace MoveMoatTest
                     {
                         LogAttackScopeDecision(
                             "attack-scope-qualified", unitId, unit, vanillaResult,
-                            "friendly-moat-required", attackSummary);
+                            rejectionReason, attackSummary);
                     }
                     catch
                     {
@@ -3461,6 +3463,19 @@ namespace MoveMoatTest
             guaranteedSaving = long.MinValue;
             cadenceProfiles = "none";
             rejectionReason = "publication-not-evaluated";
+            // 0x11B520 finalizes a group's paths after its per-unit MoveHere calls.
+            // That finalizer can restore the original long follower path after this buffer
+            // was changed. Until that later contract is understood, publishing is safe only
+            // for an isolated unit; group shadows remain read-only diagnostics.
+            if (!shadow.Calibratable)
+            {
+                rejectionReason = "group-path-finalization-unsafe";
+                LogWeightedPublicationDecision(
+                    shadow.UnitId,
+                    $"MoveMoat stage=weighted-path-not-published unit={shadow.UnitId} " +
+                    $"type={shadow.UnitType} reason={rejectionReason}.");
+                return false;
+            }
             if (weightedShadowBusy || pathManager == IntPtr.Zero || nativePath == null ||
                 nativeLength <= 0 || nativeLength > WeightedMoatRoutePlanner.MaximumRouteEdges)
             {
@@ -3876,14 +3891,30 @@ namespace MoveMoatTest
                 PlayerId = unit->r_ControllableForPlayerId,
                 AttackMovementQualified = true
             };
-            if (!TryFindRequiredFriendlyCompletedMoatRouteForPlan(plan, out summary))
+            int targetTileId = GameTileManagerAPI.Instance.GetTileId(targetX, targetY);
+            bool nativeUnitApproach = scope.Command == TribeAICommand.AttackUnit &&
+                scope.PublishedUnitAttackApproaches.Contains(targetTileId);
+            bool routeQualified = nativeUnitApproach
+                ? TryFindRequiredFriendlyCompletedMoatRouteToEndpoint(
+                    plan,
+                    targetTileId,
+                    false,
+                    out summary,
+                    out _)
+                : TryFindRequiredFriendlyCompletedMoatRouteForPlan(plan, out summary);
+            if (!routeQualified)
             {
                 plan = null;
-                rejectionReason = "no-required-friendly-moat-route";
+                rejectionReason = nativeUnitApproach
+                    ? "native-unit-approach-owner-route-rejected"
+                    : "no-required-friendly-moat-route";
                 return false;
             }
 
             plan.FriendlyRouteQualified = true;
+            rejectionReason = nativeUnitApproach
+                ? "native-unit-approach-endpoint"
+                : "friendly-moat-required";
             GetOrCreateAttackTracker(scope, unitId);
             return true;
         }
@@ -4473,6 +4504,7 @@ namespace MoveMoatTest
                     try
                     {
                         scope.After = CaptureAttackApproachState(pathManager);
+                        PublishUnitAttackApproachTiles(scope.OwnerCommand, pathManager);
                         LogAttackApproachDiagnostic(scope);
                     }
                     catch (Exception ex)
@@ -4820,6 +4852,7 @@ namespace MoveMoatTest
                         unitId, candidate.ApproachX, candidate.ApproachY);
                     if (!TryFindRequiredFriendlyCompletedMoatRouteToEndpoint(
                             route, candidate.ApproachTileId,
+                            true,
                             out RouteProbeSummary routeSummary,
                             out int routeDistance))
                     {
@@ -5194,7 +5227,8 @@ namespace MoveMoatTest
                         GameTileManagerAPI.Instance.GetTileVectorFromId(tileId);
                     PlanScope route = new PlanScope(unitId, position.X, position.Y);
                     if (!TryFindRequiredFriendlyCompletedMoatRouteToEndpoint(
-                            route, tileId, out RouteProbeSummary summary, out _))
+                            route, tileId, true,
+                            out RouteProbeSummary summary, out _))
                     {
                         observed.MergeObservations(summary);
                         continue;
@@ -5443,6 +5477,36 @@ namespace MoveMoatTest
                 }
                 footprintTiles.Add(candidate.FootprintTileId);
             }
+        }
+
+        private void PublishUnitAttackApproachTiles(
+            AttackCommandScope command,
+            IntPtr pathManager)
+        {
+            if (command == null || command.Command != TribeAICommand.AttackUnit ||
+                command.MapEpoch != mapEpoch || pathManager == IntPtr.Zero)
+            {
+                return;
+            }
+
+            command.PublishedUnitAttackApproaches.Clear();
+            byte* manager = (byte*)pathManager.ToPointer();
+            for (int index = 0; index < VanillaAttackFloodResultCapacity; index++)
+            {
+                byte* entry = manager + PathManagerFloodResultTileOffset +
+                    index * PathManagerFloodResultStride;
+                int tileId = *(int*)entry;
+                int usableForAttack = *(int*)(entry + 4);
+                if (tileId == 0 && usableForAttack == 0)
+                    break;
+                if (IsValidTileId(tileId) && usableForAttack != 0)
+                    command.PublishedUnitAttackApproaches.Add(tileId);
+            }
+
+            LogCommandDiagnostic(
+                $"stage=attack-unit-approaches commandSeq={command.Sequence} " +
+                $"target={command.TargetValue1}/{command.TargetValue2} " +
+                $"published={command.PublishedUnitAttackApproaches.Count}");
         }
 
         private static bool TryGetPublishedBuildingFootprint(
@@ -5950,6 +6014,7 @@ namespace MoveMoatTest
                     validTarget = true;
                 }
 
+                int cursorPairTargetTileId = targetTileId;
                 bool validPair = validUnit && validTarget &&
                     IsValidTileId(startTileId) && IsValidTileId(targetTileId);
                 CursorPairFallbackKind fallbackKind = CursorPairFallbackKind.DirectTile;
@@ -5960,19 +6025,39 @@ namespace MoveMoatTest
                 bool freeOrdinaryTarget = false;
                 if (validPair)
                 {
-                    hostileUnitTarget = TryGetHostileLivingUnitAtTile(
+                    // Vanilla's sprite hit-test owns entity identity. The tile below a unit
+                    // sprite may be adjacent to the unit and is only the cursor-call binding.
+                    hostileUnitTarget = TryResolveHostileLivingUnitFromRawCursor(
                         playerId,
-                        targetX,
-                        targetY,
-                        -1,
-                        -1,
+                        rawHoverUnitId,
                         out hostileUnitId,
-                        out occupiedByLivingUnit);
-                    if (hostileUnitTarget &&
-                        GameUnitManagerAPI.Instance.TryGetUnitById(
-                            hostileUnitId, out GameUnit* hostileUnit) && hostileUnit != null)
+                        out hostileUnitGlobalId,
+                        out int resolvedUnitX,
+                        out int resolvedUnitY,
+                        out int resolvedUnitTileId);
+                    if (hostileUnitTarget)
                     {
-                        hostileUnitGlobalId = hostileUnit->r_GlobalId;
+                        occupiedByLivingUnit = true;
+                        targetX = resolvedUnitX;
+                        targetY = resolvedUnitY;
+                        targetTileId = resolvedUnitTileId;
+                    }
+                    else
+                    {
+                        hostileUnitTarget = TryGetHostileLivingUnitAtTile(
+                            playerId,
+                            targetX,
+                            targetY,
+                            -1,
+                            -1,
+                            out hostileUnitId,
+                            out occupiedByLivingUnit);
+                        if (hostileUnitTarget &&
+                            GameUnitManagerAPI.Instance.TryGetUnitById(
+                                hostileUnitId, out GameUnit* hostileUnit) && hostileUnit != null)
+                        {
+                            hostileUnitGlobalId = hostileUnit->r_GlobalId;
+                        }
                     }
                     if (!hostileBuildingTarget)
                     {
@@ -6006,6 +6091,7 @@ namespace MoveMoatTest
                 {
                     candidateScope.TargetUnitId = hostileUnitId;
                     candidateScope.TargetUnitGlobalId = hostileUnitGlobalId;
+                    candidateScope.CursorPairTargetTileId = cursorPairTargetTileId;
                 }
                 CursorGroupRouteSummary groupRoute = default;
                 bool groupRouteEvaluated = false;
@@ -6162,8 +6248,7 @@ namespace MoveMoatTest
                 : diagnostic.StartTileId == actualSelectedUnitTileId;
             bool pairMatches = startMatches &&
                 (diagnostic.TargetTileId == actualTargetTileId ||
-                 (diagnostic.FallbackKind == CursorPairFallbackKind.BuildingApproach &&
-                  functionalScope != null &&
+                 (functionalScope != null &&
                   CursorScopeMatchesTargetTile(functionalScope, actualTargetTileId)));
             bool cacheAccepted = useCache == 1;
             bool effectiveFallbackScope = diagnostic.FunctionalFallbackArmed && mapMatches &&
@@ -6358,7 +6443,8 @@ namespace MoveMoatTest
             effectiveResult = vanillaResult;
             AttackCursorPairScope scope = pendingAttackCursorPair;
             if (vanillaResult != 0 || scope == null || !scope.GroupCursorAuthorized ||
-                scope.MapEpoch != mapEpoch || scope.TargetX != targetX || scope.TargetY != targetY ||
+                scope.MapEpoch != mapEpoch ||
+                !CursorScopeMatchesDispatcherTarget(scope, targetX, targetY) ||
                 string.IsNullOrEmpty(scope.GroupSelectionSignature) ||
                 !TryCaptureSelectedGroup(
                     scope.PlayerId, out _, out string currentSelectionSignature) ||
@@ -6371,6 +6457,22 @@ namespace MoveMoatTest
 
             effectiveResult = 1;
             return true;
+        }
+
+        private bool CursorScopeMatchesDispatcherTarget(
+            AttackCursorPairScope scope, int targetX, int targetY)
+        {
+            if (scope == null || targetX < 0 || targetX >= MapWidth ||
+                targetY < 0 || targetY >= MapWidth)
+            {
+                return false;
+            }
+
+            int targetTileId = GameTileManagerAPI.Instance.GetTileId(targetX, targetY);
+            return scope.FallbackKind == CursorPairFallbackKind.UnitApproach
+                ? (scope.CursorPairTargetTileId == targetTileId ||
+                   scope.TargetTileId == targetTileId)
+                : scope.TargetTileId == targetTileId;
         }
 
         private int AllowCursorReachabilityThroughCompletedMoat(
@@ -6582,6 +6684,7 @@ namespace MoveMoatTest
         private bool TryFindRequiredFriendlyCompletedMoatRouteToEndpoint(
             PlanScope plan,
             int endpointTileId,
+            bool requireBuildingReservation,
             out RouteProbeSummary summary,
             out int distance)
         {
@@ -6593,14 +6696,15 @@ namespace MoveMoatTest
                 return true;
             }
             if (plan == null || !IsValidTileId(endpointTileId) ||
-                GameTileManagerAPI.Instance.GetTileBuildingId(endpointTileId) == 0 ||
-                nativeMovementMasks[endpointTileId] == 0)
+                (requireBuildingReservation &&
+                 GameTileManagerAPI.Instance.GetTileBuildingId(endpointTileId) == 0))
             {
                 return false;
             }
 
-            // DA590 expands edges from the source tile. A reserved endpoint is therefore
-            // reachable when an owner-qualified neighbour can use its native outgoing edge.
+            // DA590 expands edges from the source tile. A Vanilla-published endpoint can have
+            // no outgoing mask of its own (notably an occupied UnitFlood attack position); only
+            // an owner-qualified neighbour's outgoing edge is required for the final step.
             RouteProbeSummary observed = summary;
             bool found = false;
             int bestDistance = int.MaxValue;
@@ -6906,6 +7010,7 @@ namespace MoveMoatTest
                 template.HoverBuildingTileId);
             scope.TargetUnitId = template.TargetUnitId;
             scope.TargetUnitGlobalId = template.TargetUnitGlobalId;
+            scope.CursorPairTargetTileId = template.CursorPairTargetTileId;
             return scope;
         }
 
@@ -7147,7 +7252,9 @@ namespace MoveMoatTest
         {
             if (scope.FallbackKind == CursorPairFallbackKind.UnitApproach)
             {
-                return scope.TargetTileId == targetTileId && scope.TargetUnitId > 0 &&
+                return (scope.CursorPairTargetTileId == targetTileId ||
+                        scope.TargetTileId == targetTileId) &&
+                    scope.TargetUnitId > 0 &&
                     TryGetHostileLivingUnitAtTile(
                         scope.PlayerId,
                         scope.TargetX,
@@ -7188,6 +7295,55 @@ namespace MoveMoatTest
                    GameTileManagerAPI.Instance.GetTileId(
                        selectedDigger->r_CurrentTilePositionX,
                        selectedDigger->r_CurrentTilePositionY) == scope.StartTileId;
+        }
+
+        private bool TryResolveHostileLivingUnitFromRawCursor(
+            int playerId,
+            uint rawUnitId,
+            out int targetUnitId,
+            out uint targetUnitGlobalId,
+            out int targetX,
+            out int targetY,
+            out int targetTileId)
+        {
+            targetUnitId = -1;
+            targetUnitGlobalId = 0;
+            targetX = -1;
+            targetY = -1;
+            targetTileId = -1;
+            GamePlayerManagerAPI playerApi = GamePlayerManagerAPI.Instance;
+            if (!playerApi.IsPlayerIdValid(playerId) || rawUnitId == 0 || rawUnitId > int.MaxValue)
+                return false;
+
+            int unitId = (int)rawUnitId;
+            if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* target) ||
+                target == null || target->r_AliveState != AliveState.IsAlive ||
+                target->r_GlobalId == 0)
+            {
+                return false;
+            }
+
+            int ownerId = target->r_ControllableForPlayerId;
+            if (!playerApi.IsPlayerIdValid(ownerId) || ownerId == playerId ||
+                playerApi.IsPlayerAlliedTo(playerId, ownerId))
+            {
+                return false;
+            }
+
+            int x = target->r_CurrentTilePositionX;
+            int y = target->r_CurrentTilePositionY;
+            if (x < 0 || x >= MapWidth || y < 0 || y >= MapWidth)
+                return false;
+            int tileId = GameTileManagerAPI.Instance.GetTileId(x, y);
+            if (!IsValidTileId(tileId))
+                return false;
+
+            targetUnitId = unitId;
+            targetUnitGlobalId = target->r_GlobalId;
+            targetX = x;
+            targetY = y;
+            targetTileId = tileId;
+            return true;
         }
 
         private bool TryResolveHostileLivingBuildingFromRawCursor(
@@ -8542,6 +8698,7 @@ namespace MoveMoatTest
                 new HashSet<string>(StringComparer.Ordinal);
             public Dictionary<int, HashSet<int>> PublishedBuildingApproaches { get; } =
                 new Dictionary<int, HashSet<int>>();
+            public HashSet<int> PublishedUnitAttackApproaches { get; } = new HashSet<int>();
             public int WeightedDecisions { get; set; }
             public int WeightedPublished { get; set; }
             public double WeightedSearchMilliseconds { get; set; }
@@ -9397,6 +9554,7 @@ namespace MoveMoatTest
                 BuildingOwnerId = buildingOwnerId;
                 BuildingType = buildingType;
                 HoverBuildingTileId = hoverBuildingTileId;
+                CursorPairTargetTileId = targetTileId;
             }
 
             public int MapEpoch { get; }
@@ -9414,6 +9572,7 @@ namespace MoveMoatTest
             public int BuildingOwnerId { get; }
             public eStructs BuildingType { get; }
             public int HoverBuildingTileId { get; }
+            public int CursorPairTargetTileId { get; set; }
             public bool GroupCursorAuthorized { get; set; }
             public string GroupSelectionSignature { get; set; }
             public int TargetUnitId { get; set; } = -1;

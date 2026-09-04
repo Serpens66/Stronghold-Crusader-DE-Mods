@@ -9,7 +9,20 @@ namespace BugfixesAndQoL
         internal const int LordVisualType = -1;
         internal const int VisibleSlotCount = 4;
 
-        internal static void InsertLord(int[] types, int[] counts)
+        internal static bool IsGroupMutationCommand(string command)
+        {
+            if (string.IsNullOrEmpty(command))
+                return false;
+
+            return HasGroupSuffix(command, "Add_") ||
+                HasGroupSuffix(command, "Create_") ||
+                HasGroupSuffix(command, "Delete_");
+        }
+
+        internal static void InsertLord(
+            int[] types,
+            int[] counts,
+            bool summaryAlreadyIncludesLord = true)
         {
             if (types == null)
                 throw new ArgumentNullException(nameof(types));
@@ -30,12 +43,12 @@ namespace BugfixesAndQoL
 
             // Native temporarily counts the Lord as an Archer. Split that shared count
             // without changing the underlying group or Vanilla's ordering of other types.
-            if (archerSlot >= 0 && counts[archerSlot] == 1)
+            if (summaryAlreadyIncludesLord && archerSlot >= 0 && counts[archerSlot] == 1)
             {
                 types[archerSlot] = LordVisualType;
                 return;
             }
-            if (archerSlot >= 0)
+            if (summaryAlreadyIncludesLord && archerSlot >= 0)
                 counts[archerSlot]--;
 
             int lordSlot = -1;
@@ -69,5 +82,11 @@ namespace BugfixesAndQoL
                 visible = checked(visible + Math.Max(visibleCounts[slot], 0));
             return Math.Max(total - visible, 0);
         }
+
+        private static bool HasGroupSuffix(string command, string prefix) =>
+            command.Length == prefix.Length + 1 &&
+            command.StartsWith(prefix, StringComparison.Ordinal) &&
+            command[command.Length - 1] >= '0' &&
+            command[command.Length - 1] <= '9';
     }
 }

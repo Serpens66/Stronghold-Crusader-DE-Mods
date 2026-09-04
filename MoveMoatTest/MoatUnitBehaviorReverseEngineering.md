@@ -2874,3 +2874,101 @@ Routencache und kein Logmengenbudget ein. Unveränderte Tickzustände bleiben we
 Commandzusammenfassungen, Pfadentscheidungen, semantische Bewegungsmeilensteine und Abschlüsse
 werden ausgegeben.
 
+### 15.23 Gruppenfinalisierung und native Unit-Angriffsziele
+
+Der breite Gruppenlauf vom 4. September 2026 belegt eine wichtige Grenze der ersten gewichteten
+Veröffentlichung. Bei `commandSeq=33` wurden für sechs Units formal gültige kurze Pfade mit 14 bis
+16 Richtungen in den jeweils registrierten Unit-Puffer geschrieben und vom Detour als
+Builderergebnis zurückgegeben. Nur die erste Unit konsumierte ihren 15-Schritt-Pfad tatsächlich.
+Fünf weitere Units starteten anschließend mit Vanillas ursprünglichen Pfadlängen 75 bis 79 und
+liefen insgesamt 98 bis 122 Tileübergänge. Ihre Abschlussfingerprints entsprachen weder dem
+veröffentlichten noch dem ursprünglichen Pfad. Damit ist die exakte Pufferbindung innerhalb
+`0xF4930` zwar notwendig, aber für Gruppen nicht hinreichend.
+
+Die hashgleiche Baseline zeigt den Grundrahmen: `0x11B520` ruft `0x196280` pro Gruppenmitglied auf,
+führt danach aber weitere gemeinsame Gruppen-/Formationfinalisierung aus, unter anderem über
+`0x123460`. Diese nachgelagerte Stufe kann Followerzustände wieder aus dem gemeinsamen Gruppenpfad
+ableiten. Ein Eingriff nur im inneren `0xF4930`-Rückgabefenster besitzt deshalb für Follower noch
+keinen bestätigten finalen Veröffentlichungsvertrag. Bis dieser spätere Vertrag vollständig
+analysiert und validiert ist, werden gewichtete Pfade ausschließlich für eine nach
+`0x119F90`/Tribe-Mitgliederzahl bestätigte isolierte Unit funktional veröffentlicht. Für Gruppen
+bleibt A* read-only und meldet `group-path-finalization-unsafe`; die bestehende funktionale
+Moat-Erreichbarkeit bleibt davon unberührt. Diese Einschränkung verhindert insbesondere die
+beobachteten langen Zusatzwege nach scheinbarem Erreichen des Gruppenziels.
+
+Der gleiche Lauf reproduzierte außerdem einen getrennten `AttackUnit`-Abbruch. `0xDBC60` erzeugte
+nach dem owner-geprüften `0xE2610`-Fallback 50 nutzbare Annäherungskandidaten. `0x11E960` wählte
+daraufhin beispielsweise `(420,360)`, während die bisherige Vorprüfung nur einen anderen
+erreichbaren Nachbartile `(419,361)` als Beleg gespeichert hatte. Die direkte Planprobe lehnte das
+tatsächlich gewählte Tile bereits vor Moat-Modus und Builder ab. Das ist kein Nachweis eines
+feindlichen oder unmöglichen Pfads: Die Baseline zeigt für den `0xDBC60`-Ergebnispuffer den von
+`0x11E960` konsumierten 12-Byte-Eintrag, dessen erstes Feld das Annäherungstile und dessen zweites
+Feld die Verwendbarkeit für den Angriff trägt.
+
+Der korrigierte Vertrag bindet deshalb alle positiven UnitFlood-Tiles kurzlebig an den aktiven
+`AttackUnit`-Command. Nur wenn `r_AttackMoveToTargetTileX/Y` exakt wieder auf eines dieser nativen
+Tiles zeigt, darf eine ansonsten durch Belegung oder Reservierung abgewiesene Endpoint-Probe die
+letzte Kante separat prüfen. Der Nachbartile muss selbst ausschließlich über eigenen oder
+verbündeten fertigen Moat erreichbar sein, und seine native Ausgangsmaske muss die letzte Kante
+zum von Vanilla gewählten Angriffstile erlauben. Das Angriffstile wird nicht als allgemeines
+Zwischenfeld geöffnet. Fremde Moats, Wasser, Mauern, nicht von `0xDBC60` veröffentlichte Ziele und
+abweichende Commands bleiben damit fail-closed Vanilla.
+
+Für Updates sind gemeinsam wiederzufinden: `0x11E960 -> 0xDBC60`, der 12-Byte-Ergebnispuffer und
+seine Konsumierung, `0x11B520 -> 0x196280`, die nachgelagerte Gruppenfinalisierung sowie der
+weiterhin maßgebliche Builder `0xF4930`. Alle Aussagen dieses Abschnitts gelten für SHA-256
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+
+### 15.24 Unit-Sprite-Hover und wiederholte Angriffsbefehle
+
+Der Lauf vom 4. September 2026 nach Einführung der UnitFlood-Endpunktbindung trennte einen
+erfolgreichen ersten Angriff eindeutig von sechs späteren Fehlversuchen. `commandSeq=1`
+veröffentlichte 16 native UnitFlood-Kandidaten, qualifizierte das tatsächliche Angriffsziel mit
+`native-unit-approach-endpoint`, veröffentlichte einen sieben Kanten langen gewichteten Pfad und
+erreichte das Ziel. `commandSeq=3` bis `8` veröffentlichten erneut jeweils 16 Kandidaten und der
+Target-Command gab jeweils `1` zurück. Der folgende Movement-Scope wurde jedoch stets mit
+`native-unit-approach-owner-route-rejected` verworfen; Moat-Modus, Planer und Builder wurden daher
+nicht erreicht. Es handelt sich nicht um einen verbrauchten Einmal-Scope.
+
+Die Ursache lag im gemeinsamen Endpoint-Helper. Er verlangte zusätzlich
+`nativeMovementMasks[endpointTileId] != 0`. Das ist für einen von `0xDBC60` ausdrücklich als
+verwendbar veröffentlichten Angriffsendpunkt kein gültiger Vertrag: Ein belegtes oder besonders
+klassifiziertes Endtile kann keine eigene ausgehende Maske besitzen. `0xDA590` expandiert die
+letzte Kante vom Nachbartile aus. Maßgeblich sind deshalb die native Ausgangsmaske dieses
+owner-sicher erreichbaren Nachbarn und die kurzlebige Veröffentlichung des Endtiles durch den
+aktuellen UnitFlood- beziehungsweise Gebäude-Approach-Aufruf. Das Endtile wird weiterhin niemals
+als allgemeines Zwischenfeld geöffnet.
+
+Der gleiche Lauf bestätigte für den Unit-Cursor dieselbe Trennung zwischen Sprite-Hit-Test und
+Kartentile, die zuvor bei Gebäuden beobachtet wurde. `r_HoverOverUnitId` blieb über sichtbaren
+Spritebereichen korrekt auf der feindlichen Unit, während `r_MouseTileId` über mehrere benachbarte
+Tiles wanderte. Nur auf dem tatsächlichen Unit-Tile klassifizierte der alte Code das Ziel als
+`UnitApproach`; auf den übrigen Spritebereichen fiel er trotz unveränderter Hover-Unit-ID auf
+`DirectTile` zurück. Der korrigierte Vertrag verwendet daher:
+
+- die gültige 1-basierte `r_HoverOverUnitId` als maßgebliche Vanilla-Hoveridentität;
+- Alive-State, Global-ID, Besitzer und Feindschaft zur erneuten Bindung;
+- das aktuelle Tile der Zielunit ausschließlich für die fachliche Annäherungsgeometrie;
+- das darunterliegende Maus-/Dispatcher-Tile ausschließlich zur Bindung des unmittelbar folgenden
+  `0xE2CA0`-Aufrufs.
+
+Es werden keine Cursor-Globals geschrieben. Bewegt sich die Zielunit, ändert sich ihre Global-/
+Tilebindung oder verschwindet die rohe Hover-ID, verfällt der Kontext. Der aktuelle Hash und der
+Dispatcher `0x8C5F0` bleiben die Update-Suchanker; das Script-Extender-Feld
+`GameCursorManager.r_HoverOverUnitId` liegt im aktuellen Layout bei `+0x30`.
+
+Der Gruppenlauf desselben Starts bestätigte zugleich die konservative Sperre: Für alle zehn
+Mitglieder von `commandSeq=10` erschien `group-path-finalization-unsafe`, kein gewichteter Pfad
+wurde veröffentlicht und jeder tatsächliche Fingerprint entsprach dem nativen Pfad. Alle Units
+erreichten ihr Formationsziel. Drei kurze Stopps am Ziel führten nur zu lokalen Vanilla-Neuplänen
+von ein bis drei Kanten und nicht zum früheren langen Hin-und-zurück-Lauf. Die Sperre behebt somit
+die Regression, ist aber noch keine gewichtete Gruppenoptimierung. Für diese muss der Kandidat bis
+nach den äußeren Move-Command gehalten und erst gegen die nach `0x11B520` endgültigen Unitpuffer,
+Formationstile und Pfadlängen geprüft werden. Der ausgewertete Gruppenlauf enthielt keine
+zuverlässig nutzbare `move-command-result`-Zeile für diesen Scope; ein Post-Event allein ist daher
+keine ausreichende Veröffentlichungsgrenze. Der robuste Kandidat ist der erste Simulationstick
+nach der synchronen Planung: Dort ist die Gruppenfinalisierung beendet, aber noch keine Unit hat
+einen Tileübergang konsumiert. Nur bei unverändertem Tribe-, Command-, Start-, Ziel- und
+Pfadkontext darf dann ein per-Unit-Pfad atomar veröffentlicht werden; der innere
+`0xF4930`-Zeitpunkt bleibt für Gruppen ungeeignet.
+
