@@ -73,6 +73,7 @@ def main():
     claim = sub.add_parser("claim"); claim.add_argument("value")
     hook = sub.add_parser("hook"); hook.add_argument("value")
     contract = sub.add_parser("contract"); contract.add_argument("value")
+    chore = sub.add_parser("chore"); chore.add_argument("kind", choices=["list", "opcode", "function", "contract", "evidence", "gaps"]); chore.add_argument("value", nargs="?")
     sub.add_parser("gaps")
     sub.add_parser("stats")
     args = parser.parse_args()
@@ -83,9 +84,14 @@ def main():
 
     if args.command == "search":
         query = " AND ".join(f'"{part.replace(chr(34), chr(34) * 2)}"' for part in args.text.split())
-        print_json(rows(connection.execute(
-            "SELECT binary_hash,rva,name,signature,comment,snippet(function_search,5,'[',']',' … ',20) AS excerpt "
-            "FROM function_search WHERE function_search MATCH ? LIMIT 100", (query,))))
+        print_json({
+            "functions": rows(connection.execute(
+                "SELECT binary_hash,rva,name,signature,comment,snippet(function_search,5,'[',']',' … ',20) AS excerpt "
+                "FROM function_search WHERE function_search MATCH ? LIMIT 100", (query,))),
+            "chores": rows(connection.execute(
+                "SELECT domain,record_id,binary_hashes,status,snippet(chore_search,4,'[',']',' … ',20) AS excerpt "
+                "FROM chore_search WHERE chore_search MATCH ? LIMIT 100", (query,))),
+        })
     elif args.command == "function":
         found = resolve_function(connection, args.value)
         packets = []
@@ -163,6 +169,41 @@ def main():
             "SELECT * FROM api_contracts WHERE contract_id LIKE ? OR producer LIKE ? OR field_name LIKE ? OR consumer LIKE ? OR payload LIKE ? "
             "ORDER BY contract_id", (value, value, value, value, value)).fetchall()
         print_json([decode_json_fields(dict(row), ["evidence", "payload"]) for row in found])
+    elif args.command == "chore":
+        if args.kind in {"opcode", "function", "contract", "evidence"} and not args.value:
+            parser.error(f"chore {args.kind} requires a value")
+        if args.kind == "list":
+            found = connection.execute("SELECT payload FROM chore_opcodes ORDER BY opcode").fetchall()
+            print_json([json.loads(row["payload"]) for row in found])
+        elif args.kind == "opcode":
+            try:
+                opcode = int(args.value, 0)
+            except ValueError:
+                print_json([])
+            else:
+                found = connection.execute("SELECT payload FROM chore_opcodes WHERE opcode=?", (opcode,)).fetchall()
+                print_json([json.loads(row["payload"]) for row in found])
+        elif args.kind == "function":
+            found = resolve_function(connection, args.value)
+            print_json([claim_packet(connection, claim) for function in found for claim in connection.execute(
+                "SELECT * FROM function_claims WHERE binary_hash=? AND function_rva=? AND claim_id LIKE 'fn-chore-%'",
+                (function["binary_hash"], function["rva"])).fetchall()])
+        elif args.kind == "contract":
+            value = f"%{args.value}%"
+            found = connection.execute("SELECT payload FROM chore_contracts WHERE contract_id LIKE ? OR title LIKE ? ORDER BY contract_id", (value, value)).fetchall()
+            print_json([json.loads(row["payload"]) for row in found])
+        elif args.kind == "evidence":
+            value = f"%{args.value}%"
+            found = connection.execute("SELECT payload FROM chore_evidence WHERE evidence_id LIKE ? OR title LIKE ? ORDER BY evidence_id", (value, value)).fetchall()
+            print_json([json.loads(row["payload"]) for row in found])
+        else:
+            output = []
+            for table, identifier in [("chore_opcodes", "opcode_id"), ("chore_contracts", "contract_id")]:
+                for row in connection.execute(f"SELECT {identifier},payload FROM {table}").fetchall():
+                    payload = json.loads(row["payload"])
+                    if payload.get("openQuestions") or payload.get("counterEvidence"):
+                        output.append({"domain": table, "id": row[identifier], "binaryHashes": payload.get("binaryHashes") or payload.get("applicability"), "status": payload.get("status"), "confidence": payload.get("confidence"), "evidenceIds": payload.get("evidenceIds"), "counterEvidence": payload.get("counterEvidence"), "openQuestions": payload.get("openQuestions")})
+            print_json(output)
     elif args.command == "gaps":
         print_json(rows(connection.execute(
             "SELECT c.claim_id,c.function_rva,c.canonical_name,c.semantic_confidence,"
@@ -172,7 +213,7 @@ def main():
             "CASE c.semantic_confidence WHEN 'confirmed' THEN 2 WHEN 'probable' THEN 1 ELSE 0 END "
             "ORDER BY c.function_rva")))
     else:
-        table_names = ["binaries", "functions", "function_claims", "claim_evidence", "hook_spans", "api_contracts", "function_data_references", "call_edges", "xrefs", "strings", "globals", "managed_methods", "pinvokes", "managed_native_links", "patterns", "data_types", "source_types", "type_fields", "vtable_members", "delegates", "rtti_vtables", "xaml_resources", "classifications", "version_matches"]
+        table_names = ["binaries", "functions", "function_claims", "claim_evidence", "hook_spans", "api_contracts", "chore_opcodes", "chore_contracts", "chore_observations", "chore_evidence", "function_data_references", "call_edges", "xrefs", "strings", "globals", "managed_methods", "pinvokes", "managed_native_links", "patterns", "data_types", "source_types", "type_fields", "vtable_members", "delegates", "rtti_vtables", "xaml_resources", "classifications", "version_matches"]
         print_json({table: connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] for table in table_names})
     connection.close()
 

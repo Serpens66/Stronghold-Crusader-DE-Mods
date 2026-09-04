@@ -605,6 +605,16 @@ def command_build_index(args):
         CREATE TABLE api_contracts(contract_id TEXT PRIMARY KEY, binary_hash TEXT, status TEXT,
             producer TEXT, field_name TEXT, representation TEXT, consumer TEXT, conversion TEXT,
             script_extender_commit TEXT, evidence TEXT, payload TEXT);
+        CREATE TABLE chore_opcodes(opcode_id TEXT PRIMARY KEY, opcode INTEGER, canonical_name TEXT,
+            classification TEXT, status TEXT, binary_hashes TEXT, confidence TEXT, evidence_ids TEXT,
+            counter_evidence TEXT, open_questions TEXT, payload TEXT);
+        CREATE TABLE chore_contracts(contract_id TEXT PRIMARY KEY, title TEXT, status TEXT,
+            binary_hashes TEXT, evidence_ids TEXT, counter_evidence TEXT, open_questions TEXT, payload TEXT);
+        CREATE TABLE chore_observations(observation_id TEXT PRIMARY KEY, title TEXT, binary_hash TEXT,
+            status TEXT, evidence_ids TEXT, limitations TEXT, payload TEXT);
+        CREATE TABLE chore_evidence(evidence_id TEXT PRIMARY KEY, kind TEXT, title TEXT, status TEXT,
+            binary_hashes TEXT, source_path TEXT, source_sha256 TEXT, original_source_sha256 TEXT,
+            summary TEXT, payload TEXT);
         CREATE TABLE call_edges(binary_hash TEXT, caller_rva TEXT, callee_rva TEXT, callee_name TEXT);
         CREATE TABLE function_data_references(binary_hash TEXT, function_rva TEXT, target_rva TEXT);
         CREATE TABLE function_strings(binary_hash TEXT, function_rva TEXT, value TEXT);
@@ -629,6 +639,7 @@ def command_build_index(args):
         CREATE TABLE classifications(binary_hash TEXT, function_rva TEXT, category TEXT, evidence TEXT);
         CREATE TABLE version_matches(old_hash TEXT, new_hash TEXT, old_rva TEXT, new_rva TEXT, confidence TEXT, reason TEXT, score REAL, changed INTEGER);
         CREATE VIRTUAL TABLE function_search USING fts5(binary_hash, rva, name, signature, comment, pseudocode, strings, categories);
+        CREATE VIRTUAL TABLE chore_search USING fts5(domain, record_id, binary_hashes, status, content);
     """)
     current_hash = args.current_hash.upper()
     old_hash = args.old_hash.upper()
@@ -637,7 +648,7 @@ def command_build_index(args):
         (old_hash, "historical-native", args.old_native, int(args.old_native_size)),
         (args.managed_hash.upper(), "current-managed", args.managed_assembly, int(args.managed_size)),
     ])
-    connection.executemany("INSERT INTO metadata VALUES(?,?)", [("schema_version", "2"), ("current_native_hash", current_hash), ("managed_hash", args.managed_hash.upper())])
+    connection.executemany("INSERT INTO metadata VALUES(?,?)", [("schema_version", "3"), ("current_native_hash", current_hash), ("managed_hash", args.managed_hash.upper())])
 
     decomp_map = {}
     decomp_path = semantic_dir / "exports" / "semantic-decompiled-functions.c"
@@ -727,6 +738,34 @@ def command_build_index(args):
             json.dumps(contract.get("evidence") or [], ensure_ascii=False),
             json.dumps(contract, ensure_ascii=False),
         ))
+    for item in read_jsonl(Path(args.chore_opcodes)):
+        payload = json.dumps(item, ensure_ascii=False)
+        hashes = json.dumps(item.get("applicability") or [], ensure_ascii=False)
+        connection.execute("INSERT INTO chore_opcodes VALUES(?,?,?,?,?,?,?,?,?,?,?)", (
+            item.get("opcodeId"), item.get("opcode"), item.get("canonicalName"), item.get("classification"),
+            item.get("status"), hashes, json.dumps(item.get("confidence") or {}, ensure_ascii=False),
+            json.dumps(item.get("evidenceIds") or [], ensure_ascii=False), json.dumps(item.get("counterEvidence") or [], ensure_ascii=False),
+            json.dumps(item.get("openQuestions") or [], ensure_ascii=False), payload))
+        connection.execute("INSERT INTO chore_search VALUES(?,?,?,?,?)", ("opcode", item.get("opcodeId"), hashes, item.get("status"), payload))
+    for item in read_jsonl(Path(args.chore_contracts)):
+        payload = json.dumps(item, ensure_ascii=False); hashes = json.dumps(item.get("binaryHashes") or [], ensure_ascii=False)
+        connection.execute("INSERT INTO chore_contracts VALUES(?,?,?,?,?,?,?,?)", (
+            item.get("contractId"), item.get("title"), item.get("status"), hashes,
+            json.dumps(item.get("evidenceIds") or [], ensure_ascii=False), json.dumps(item.get("counterEvidence") or [], ensure_ascii=False),
+            json.dumps(item.get("openQuestions") or [], ensure_ascii=False), payload))
+        connection.execute("INSERT INTO chore_search VALUES(?,?,?,?,?)", ("contract", item.get("contractId"), hashes, item.get("status"), payload))
+    for item in read_jsonl(Path(args.chore_observations)):
+        payload = json.dumps(item, ensure_ascii=False)
+        connection.execute("INSERT INTO chore_observations VALUES(?,?,?,?,?,?,?)", (
+            item.get("observationId"), item.get("title"), item.get("binaryHash"), item.get("status"),
+            json.dumps(item.get("evidenceIds") or [], ensure_ascii=False), json.dumps(item.get("limitations") or [], ensure_ascii=False), payload))
+        connection.execute("INSERT INTO chore_search VALUES(?,?,?,?,?)", ("observation", item.get("observationId"), item.get("binaryHash"), item.get("status"), payload))
+    for item in read_jsonl(Path(args.chore_evidence)):
+        payload = json.dumps(item, ensure_ascii=False); hashes = json.dumps(item.get("binaryHashes") or [], ensure_ascii=False)
+        connection.execute("INSERT INTO chore_evidence VALUES(?,?,?,?,?,?,?,?,?,?)", (
+            item.get("evidenceId"), item.get("kind"), item.get("title"), item.get("status"), hashes,
+            item.get("sourcePath"), item.get("sourceSha256"), item.get("originalSourceSha256"), item.get("summary"), payload))
+        connection.execute("INSERT INTO chore_search VALUES(?,?,?,?,?)", ("evidence", item.get("evidenceId"), hashes, item.get("status"), payload))
 
     raw = Path(args.raw_exports)
     for row in read_jsonl(raw / "xrefs.jsonl"):
@@ -783,7 +822,7 @@ def command_build_index(args):
                 connection.execute("INSERT INTO classifications VALUES(?,?,?,?)", (current_hash, native_rva, item["category"], json.dumps(evidence)))
     connection.commit()
     integrity = connection.execute("PRAGMA integrity_check").fetchone()[0]
-    counts = {table: connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] for table in ["functions", "function_claims", "claim_evidence", "hook_spans", "api_contracts", "function_data_references", "xrefs", "strings", "managed_methods", "pinvokes", "managed_native_links", "patterns", "source_types", "type_fields", "vtable_members", "xaml_resources", "version_matches"]}
+    counts = {table: connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] for table in ["functions", "function_claims", "claim_evidence", "hook_spans", "api_contracts", "chore_opcodes", "chore_contracts", "chore_observations", "chore_evidence", "function_data_references", "xrefs", "strings", "managed_methods", "pinvokes", "managed_native_links", "patterns", "source_types", "type_fields", "vtable_members", "xaml_resources", "version_matches"]}
     connection.close()
     os.replace(working_database, database)
     print(json.dumps({"integrity": integrity, "counts": counts}))
@@ -815,7 +854,7 @@ def build_parser():
     compare.add_argument("--old", required=True); compare.add_argument("--new", required=True); compare.add_argument("--output", required=True)
     compare.set_defaults(func=command_compare)
     index = sub.add_parser("build-index")
-    for name in ["semantic-dir", "database", "current-hash", "old-hash", "managed-hash", "current-native", "old-native", "managed-assembly", "current-native-size", "old-native-size", "managed-size", "old-exports", "raw-exports", "managed-dir", "patterns", "source-types", "type-fields", "vtable-members", "delegates", "rtti-vtables", "xaml", "xaml-links", "version-matches", "function-claims", "hook-spans", "api-contracts"]:
+    for name in ["semantic-dir", "database", "current-hash", "old-hash", "managed-hash", "current-native", "old-native", "managed-assembly", "current-native-size", "old-native-size", "managed-size", "old-exports", "raw-exports", "managed-dir", "patterns", "source-types", "type-fields", "vtable-members", "delegates", "rtti-vtables", "xaml", "xaml-links", "version-matches", "function-claims", "hook-spans", "api-contracts", "chore-opcodes", "chore-contracts", "chore-observations", "chore-evidence"]:
         index.add_argument(f"--{name}", required=True)
     index.set_defaults(func=command_build_index)
     return parser

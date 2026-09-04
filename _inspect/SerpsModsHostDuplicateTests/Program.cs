@@ -10,6 +10,7 @@ namespace SerpsModsHostDuplicateTests
         private static int Main()
         {
             TestScriptExtenderCompatibility();
+            TestModInventoryCompatibility();
             string root = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "runs", Guid.NewGuid().ToString("N"));
             string pluginRoot = Path.Combine(root, "BepInEx", "plugins");
             string expected = Path.Combine(pluginRoot, "SerpsMods_Serp", "Mods", "Test_GUID");
@@ -155,6 +156,49 @@ namespace SerpsModsHostDuplicateTests
             Console.WriteLine("PASS: host diagnostics, mod-hash comparison, and deterministic serialization.");
             Console.WriteLine("Duplicate: " + duplicates[0]);
             return 0;
+        }
+
+        private static void TestModInventoryCompatibility()
+        {
+            var host = new List<ModInventoryEntry>
+            {
+                new ModInventoryEntry("plugin", "BugfixesAndQoL_Serp", "1.0.126"),
+                new ModInventoryEntry("asset", "BugfixesAndQoL_Serp", "1.0.126"),
+                new ModInventoryEntry("asset", "serpens66.testlord-serp.extended-package-test", "1.0.0-test"),
+                new ModInventoryEntry("plugin", "Versioned", "2.0.0"),
+            };
+            var client = new List<ModInventoryEntry>
+            {
+                new ModInventoryEntry("plugin", "BugfixesAndQoL_Serp", "1.0.126"),
+                new ModInventoryEntry("asset", "BugfixesAndQoL_Serp", "1.0.126"),
+                new ModInventoryEntry("plugin", "ClientOnly", "1.0.0"),
+                new ModInventoryEntry("plugin", "Versioned", "1.0.0"),
+            };
+
+            string encoded = ModInventoryCompatibility.Encode(host);
+            if (!ModInventoryCompatibility.TryDecode(encoded, out List<ModInventoryEntry> decoded) ||
+                !string.Equals(encoded, ModInventoryCompatibility.Encode(decoded), StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException("Mod inventory encoding is not deterministic.");
+            }
+
+            ModInventoryDifference difference = ModInventoryCompatibility.Compare(decoded, client);
+            if (difference.HostOnly.Count != 1 ||
+                !difference.HostOnly[0].Contains("serpens66.testlord-serp.extended-package-test") ||
+                difference.ClientOnly.Count != 1 || !difference.ClientOnly[0].Contains("ClientOnly") ||
+                difference.VersionMismatches.Count != 1 || !difference.VersionMismatches[0].Contains("Versioned"))
+            {
+                throw new InvalidOperationException("Mod inventory differences were not classified correctly.");
+            }
+
+            if (ModInventoryCompatibility.TryDecode("v2", out _) ||
+                ModInventoryCompatibility.TryDecode("v1\ninvalid", out _) ||
+                ModInventoryCompatibility.TryDecode("v1\ncGx1Z2lu|/w==|MS4w", out _) ||
+                ModInventoryCompatibility.TryDecode(new string('a', 8192), out _) ||
+                ModInventoryCompatibility.TryDecode(string.Empty, out _))
+            {
+                throw new InvalidOperationException("Malformed mod inventory metadata was accepted.");
+            }
         }
 
         private static void TestScriptExtenderCompatibility()

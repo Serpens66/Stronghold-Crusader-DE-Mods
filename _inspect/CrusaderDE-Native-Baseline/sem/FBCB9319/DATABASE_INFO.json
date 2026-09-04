@@ -2,9 +2,9 @@
   "manifestSchemaVersion": 2,
   "database": {
     "path": "sem/FBCB9319/CrusaderDE-semantic.sqlite",
-    "schemaVersion": 2,
-    "referenceSize": 154624000,
-    "referenceSha256": "E314E3BB77BA65A87B87DBFBF6309E95DD5F339BB05109288D780B37D81DB0F5",
+    "schemaVersion": 3,
+    "referenceSize": 154857472,
+    "referenceSha256": "21384620E1F9A084A3177BF308FD98EB08308942C17E8891B7224045864724B3",
     "referenceSqliteVersion": "3.45.3"
   },
   "identities": {
@@ -29,7 +29,7 @@
     {
       "hash": "17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4",
       "role": "historical-native",
-      "sourcePath": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\x86_64\\CrusaderDE.dll",
+      "sourcePath": "x86_64\\CrusaderDE.dll",
       "size": 3446784
     }
   ],
@@ -43,10 +43,14 @@
     "counts": {
       "binaries": 3,
       "functions": 8954,
-      "function_claims": 14,
-      "claim_evidence": 31,
+      "function_claims": 26,
+      "claim_evidence": 55,
       "hook_spans": 3,
       "api_contracts": 0,
+      "chore_opcodes": 43,
+      "chore_contracts": 8,
+      "chore_observations": 2,
+      "chore_evidence": 6,
       "call_edges": 23692,
       "function_data_references": 79264,
       "xrefs": 236382,
@@ -107,8 +111,8 @@
     },
     {
       "path": "sem/FBCB9319/knowledge/function-claims.jsonl",
-      "sha256": "6BD348D343620B50D0679EC9E6262E9D99707AE1A7626FAFB10CBFE61A3E87E1",
-      "bytes": 25860
+      "sha256": "2BF9F11532A0FBB53DA8DCCFEBEFDA41CCE6A9CFB15A424E380D36A21956C12A",
+      "bytes": 42794
     },
     {
       "path": "sem/FBCB9319/knowledge/hook-spans.jsonl",
@@ -119,6 +123,46 @@
       "path": "sem/FBCB9319/knowledge/api-contracts.jsonl",
       "sha256": "7EB70257593DA06F682A3DDDA54A9D260D4FC514F645237F5CA74B08F8DA61A6",
       "bytes": 2
+    },
+    {
+      "path": "sem/FBCB9319/knowledge/chore-opcodes.jsonl",
+      "sha256": "48122029ADF4BC8504F9FF194047989478F481D3FCD02D8CE4BA80411CDAAB9F",
+      "bytes": 28387
+    },
+    {
+      "path": "sem/FBCB9319/knowledge/chore-contracts.jsonl",
+      "sha256": "8EAF1F869AB20AB50F948A2C8B63C0918F9E283D9AD593BD7DA3EF1E795941C3",
+      "bytes": 7585
+    },
+    {
+      "path": "sem/FBCB9319/knowledge/chore-observations.jsonl",
+      "sha256": "C8442A30383F4DB9E29AF01D0186F8862F06FB298BD5E35F7ACF51CC045126F8",
+      "bytes": 2538
+    },
+    {
+      "path": "sem/FBCB9319/knowledge/chore-evidence.jsonl",
+      "sha256": "17380C6B83BDE98A227A594FEFE6FA5176F8549543440EA0A95A85B2D4476030",
+      "bytes": 3841
+    },
+    {
+      "path": "sem/FBCB9319/knowledge/CHORE_SYSTEM.md",
+      "sha256": "11ACB9F7D9CA2A13F8C5C7D34E417F51FE11849DD3A0A82A653988B1481B648A",
+      "bytes": 12340
+    },
+    {
+      "path": "sem/FBCB9319/knowledge/evidence/issue-110.json",
+      "sha256": "E44B2D45458070FB71C4DB60E0D8354FB8B524845A96BF2DAD7A0EE4FAED845B",
+      "bytes": 16810
+    },
+    {
+      "path": "sem/FBCB9319/knowledge/evidence/runtime-chore-probe-peer-a.log",
+      "sha256": "890A0E8905560601FC34669D934851EB3FD7D750DD837E32F4B5213BCFD8026C",
+      "bytes": 7013
+    },
+    {
+      "path": "sem/FBCB9319/knowledge/evidence/runtime-chore-probe-peer-b.log",
+      "sha256": "4F4C04C3B513DD7DFAF38F02D0DD31329B6F5FE1D7519C67314FB6224CEFFA7F",
+      "bytes": 10797
     },
     {
       "path": "diff/17F8DD4A-FBCB9319/exports/semantic-functions.jsonl",

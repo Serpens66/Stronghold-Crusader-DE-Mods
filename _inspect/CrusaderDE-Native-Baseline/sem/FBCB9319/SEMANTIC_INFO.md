@@ -52,13 +52,15 @@ Curated semantic claims now separate function identity, semantic name and ABI co
 
 The tracked `knowledge` directory is the human-audited layer between raw/semantic Ghidra exports and SQLite. Its JSONL records are hash-bound, retain independent evidence chains and counter-evidence, and are validated before Ghidra or index generation.
 
-- Function claims: 14
-- Evidence records: 31
+- Function claims: 26
+- Evidence records: 55
 - Fully specified hook spans: 3
 - Active API boundary contracts: 0
 - Confirmed curated labels: 3
 
 The function claims cover AI sleep synchronization, emergency and targeted demolition, AIV build/placement, AI market prices, plague creation/update/healer selection, Monk movement, quarry placement candidates and gatehouse automation. The market buy/sell helpers and targeted AI hovel deletion currently meet the stricter `confirmed` semantic threshold; the remaining reconstructed names stay `probable`.
+
+The additional Chore layer is self-contained under `knowledge`: 43 opcode records, 8 packet/scheduling/safety contracts, 2 normalized runtime observations and 6 hashed evidence records. Its compact peer traces retain 77 non-redundant original log lines plus full-source hashes and line numbers; repeated equivalent Opcode-111 probe lines are intentionally omitted. Current-build semantics are promoted only where the `FBCB...1E2` handler, producer, payload or version evidence supports them.
 
 The previously observed `GatehouseQueryEventArgs.UnitId` index mismatch is deliberately not published as an active API contract because the Script Extender author has confirmed that it will be corrected upstream. Any temporary mod compatibility handling must therefore be reassessed against the installed Script Extender version rather than treated as a lasting baseline contract.
 
@@ -118,8 +120,9 @@ The external Dat2XAML copy has two documented container fixes: it stops before a
 | Table/domain | Records |
 |---|---:|
 | Native functions, current plus historical | 8,954 |
-| Curated function claims / evidence | 14 / 31 |
+| Curated function claims / evidence | 26 / 55 |
 | Validated hook spans / active API contracts | 3 / 0 |
+| Chore opcodes / contracts / observations / evidence | 43 / 8 / 2 / 6 |
 | Function-to-global/data references, current plus historical | 79,264 |
 | Native call edges | 23,692 |
 | Raw current Xrefs | 236,382 |
@@ -136,7 +139,7 @@ Primary artifact integrity:
 
 | Artifact | Bytes | SHA-256 |
 |---|---:|---|
-| Local `CrusaderDE-semantic.sqlite` (reference recorded in `DATABASE_INFO.json`) | 154,624,000 | `E314E3BB77BA65A87B87DBFBF6309E95DD5F339BB05109288D780B37D81DB0F5` |
+| Local `CrusaderDE-semantic.sqlite` (reference recorded in `DATABASE_INFO.json`) | 154,857,472 | `21384620E1F9A084A3177BF308FD98EB08308942C17E8891B7224045864724B3` |
 | `exports/semantic-decompiled-functions.c` | 10,856,822 | `012C77F892EB927144AC857EE1C2AF690D61E371066BAF307EBAB3108F92B291` |
 | Current `semantic-functions.jsonl` | 3,574,616 | `58418AE6217520197158E41BC46E37ED16CAD230639393C684D099380696B447` |
 | Historical `semantic-functions.jsonl` | 3,553,531 | `9541067177CDAD5EAC47572CA32B23774526A156961F42FFBDC05908BD3355D7` |
@@ -170,6 +173,12 @@ Run these commands from the workspace root:
     & '_inspect\CrusaderDE-Native-Baseline\tools\semantic\query.ps1' hook 0x151436
     & '_inspect\CrusaderDE-Native-Baseline\tools\semantic\query.ps1' contract UnitId
     & '_inspect\CrusaderDE-Native-Baseline\tools\semantic\query.ps1' gaps
+    & '_inspect\CrusaderDE-Native-Baseline\tools\semantic\query.ps1' chore list
+    & '_inspect\CrusaderDE-Native-Baseline\tools\semantic\query.ps1' chore opcode 120
+    & '_inspect\CrusaderDE-Native-Baseline\tools\semantic\query.ps1' chore function 0x23990
+    & '_inspect\CrusaderDE-Native-Baseline\tools\semantic\query.ps1' chore contract chore-sync-barrier
+    & '_inspect\CrusaderDE-Native-Baseline\tools\semantic\query.ps1' chore evidence runtime-peer-b
+    & '_inspect\CrusaderDE-Native-Baseline\tools\semantic\query.ps1' chore gaps
     & '_inspect\CrusaderDE-Native-Baseline\tools\semantic\query.ps1' diff 17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2
 
 After a fresh clone, recreate a missing local database from the tracked exports. This validates all input hashes and logical database contents without rewriting the reference manifest:

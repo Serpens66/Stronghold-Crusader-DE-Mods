@@ -4,6 +4,7 @@ using SHCDESE.API;
 using SHCDESE.BepInEx.Bootstrap;
 using System;
 using System.IO;
+using UnityEngine;
 
 namespace CustomCustomTrail
 {
@@ -18,6 +19,7 @@ namespace CustomCustomTrail
         public const bool CustomCustomTrailModSettingsOptOut = true;
 
         private static CustomCustomTrailRuntime runtime;
+        private static bool deferredCompatibilityRefreshPending;
 
         public CustomCustomTrailSettingsViewModel Settings { get; private set; }
 
@@ -43,6 +45,7 @@ namespace CustomCustomTrail
                 string customTrailsRoot = ConfigSettings.GetUserCustomTrailsPath();
                 runtime = new CustomCustomTrailRuntime(Logger, customTrailsRoot, Settings);
                 runtime.Initialize();
+                ScheduleDeferredCompatibilityRefresh();
                 Settings.RuntimeActivationChanged += runtime.SetEnabled;
                 Plugin.ModSettingsHubViewModel.PropertyChanged += (_, __) =>
                 {
@@ -71,8 +74,26 @@ namespace CustomCustomTrail
             Shared.DebugLogHelper.LogDebug(Logger, "CustomCustomTrail OnDestroy called; keeping process-lifetime runtime active.");
         }
 
+        private static void ScheduleDeferredCompatibilityRefresh()
+        {
+            if (deferredCompatibilityRefreshPending)
+                return;
+
+            deferredCompatibilityRefreshPending = true;
+            Application.onBeforeRender += RefreshCompatibilityAfterRegistrations;
+        }
+
+        private static void RefreshCompatibilityAfterRegistrations()
+        {
+            Application.onBeforeRender -= RefreshCompatibilityAfterRegistrations;
+            deferredCompatibilityRefreshPending = false;
+            runtime?.RefreshModCompatibility();
+        }
+
         private void OnApplicationQuit()
         {
+            Application.onBeforeRender -= RefreshCompatibilityAfterRegistrations;
+            deferredCompatibilityRefreshPending = false;
             runtime?.Dispose();
             runtime = null;
         }

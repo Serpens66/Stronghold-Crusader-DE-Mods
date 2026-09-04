@@ -32,6 +32,7 @@ $currentIndex = Join-Path $baselineRoot 'CURRENT.json'
 $python = 'D:\CDesktopLink\Portable\Python\WinPy64\python\python.exe'
 $semanticTools = Join-Path $toolDirectory 'semantic_tools.py'
 $curatedKnowledgeTool = Join-Path $toolDirectory 'curated_knowledge.py'
+$choreKnowledgeTool = Join-Path $toolDirectory 'chore_knowledge.py'
 $databaseManifestTool = Join-Path $toolDirectory 'database_manifest.py'
 $extractorProject = Join-Path $toolDirectory 'SemanticExtract\SemanticExtract.csproj'
 $extractor = Join-Path $toolDirectory 'SemanticExtract\bin\Release\net10.0\SemanticExtract.exe'
@@ -77,7 +78,11 @@ function Invoke-DatabaseBuild([long]$CurrentSize, [long]$OldSize, [long]$Managed
         '--xaml-links', (Join-Path $semantic 'resources\xaml-managed-links.jsonl'), '--version-matches', (Join-Path $comparison 'version-matches.jsonl'),
         '--function-claims', (Join-Path $semantic 'knowledge\function-claims.jsonl'),
         '--hook-spans', (Join-Path $semantic 'knowledge\hook-spans.jsonl'),
-        '--api-contracts', (Join-Path $semantic 'knowledge\api-contracts.jsonl')
+        '--api-contracts', (Join-Path $semantic 'knowledge\api-contracts.jsonl'),
+        '--chore-opcodes', (Join-Path $semantic 'knowledge\chore-opcodes.jsonl'),
+        '--chore-contracts', (Join-Path $semantic 'knowledge\chore-contracts.jsonl'),
+        '--chore-observations', (Join-Path $semantic 'knowledge\chore-observations.jsonl'),
+        '--chore-evidence', (Join-Path $semantic 'knowledge\chore-evidence.jsonl')
     )
     & $python $semanticTools @indexArguments
     Assert-LastExitCode 'SQLite index build'
@@ -95,6 +100,8 @@ function Invoke-CuratedKnowledgeValidation {
         --labels (Join-Path $knowledge 'confirmed-labels.tsv') `
         --report-dir (Join-Path $semantic 'validation')
     Assert-LastExitCode 'Curated semantic knowledge validation'
+    & $python $choreKnowledgeTool --semantic $semantic --source-root $workspace --current-hash $currentHash
+    Assert-LastExitCode 'Chore knowledge validation'
 
     $aobLabels = Get-Content -LiteralPath (Join-Path $semantic 'sources\aob-labels.tsv')
     $curatedLabels = Get-Content -LiteralPath (Join-Path $knowledge 'confirmed-labels.tsv')

@@ -21,6 +21,7 @@ namespace QueueTest
         private const int ReferenceMovementCompleteRva = 0x1178D0;
         private const int ReferenceTribeOverlayRenderRva = 0x1222A0;
         private const int ReferenceDrawSubmissionRva = 0x417A0;
+        private const int ReferenceRemoveUnitFromTribeRva = QueueNativeContract.RemoveUnitFromTribeRva;
         private const int GameTribeSize = 0x688;
         private const int MaximumNativeMovementWaypoints = 10;
         // Native movement code addresses these as manager + tribeId * 0x688 +
@@ -30,6 +31,16 @@ namespace QueueTest
         private const int MovementModeOffset = QueueNativeContract.GameTribeMovementModeOffset;
         private const int MaximumPendingCommands = 128;
         private const int ExpectedMoveChoreLifetimeTicks = 30;
+
+        private const string MoveChoreHandlerPattern =
+            "40 53 48 83 EC 30 8B 05 00 85 5E 08 C7 05 FE 84 5E 08 08 00 00 00 83 F8 01 " +
+            "0F 85 A4 00 00 00 33 DB 44 8D 40 01 44 8B C8 89 5C 24 20 48 8D 15 19 08 6B 08 " +
+            "48 8D 0D 06 38 56 08 E8 D1 EA 00 00";
+
+        private const string TargetOrderChoreHandlerPattern =
+            "40 53 48 83 EC 30 8B 05 F0 63 5E 08 C7 05 EE 63 5E 08 0F 00 00 00 83 F8 01 " +
+            "0F 85 A3 00 00 00 33 DB 44 8D 40 01 44 8B C8 89 5C 24 20 48 8D 15 09 E7 6A 08 " +
+            "48 8D 0D F6 16 56 08 E8 C1 C9 00 00";
 
         // Complete 71-byte body of FUN_18011C3A0 for FBCB...31E2. Unlike a loose prologue
         // signature this also proves all writes and the exact RET boundary used by the detour.
@@ -49,6 +60,9 @@ namespace QueueTest
         private const string DrawSubmissionPattern =
             "48 89 5C 24 08 48 89 74 24 10 48 89 7C 24 18 48 63 5C 24 30 41 8B F1 48 63 B9 " +
             "48 22 62 00 44 8B DA 4C 8B D1 85 DB 0F 88 AC 00 00 00 81 FF FA 00";
+
+        private const string RemoveUnitFromTribePattern =
+            "48 89 5C 24 ? 48 89 74 24 ? 48 89 7C 24 ? 41 56 48 83 EC ? 4C 63 CA";
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate void AppendMovementWaypointDelegate(
@@ -75,16 +89,32 @@ namespace QueueTest
             int tileId,
             int flags);
 
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate void ChoreHandlerDelegate();
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate void RemoveUnitFromTribeDelegate(IntPtr tribeManager, int unitId, int tribeId);
+
         private readonly ManualLogSource log;
-        private readonly Dictionary<int, TribeQueueState> queues = new Dictionary<int, TribeQueueState>();
+        // A cohort is the smallest set of units that currently shares mutable queue progress.
+        // Unit identities remain authoritative; BoundTribeId is only the current dispatch vessel.
+        private readonly Dictionary<long, TribeQueueState> cohorts = new Dictionary<long, TribeQueueState>();
+        private readonly Dictionary<QueueUnitIdentity, long> unitToCohort =
+            new Dictionary<QueueUnitIdentity, long>();
         private readonly Dictionary<int, ObservedAttack> observedAttacks = new Dictionary<int, ObservedAttack>();
         private readonly HashSet<int> loggedUnsupportedCommands = new HashSet<int>();
+        private readonly HashSet<long> loggedPredecessorRedispatchFailures = new HashSet<long>();
+        private readonly HashSet<long> loggedIsolationFailures = new HashSet<long>();
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
-        private readonly List<int> queueIdBuffer = new List<int>();
+        private readonly List<long> cohortIdBuffer = new List<long>();
+        private readonly List<TribeQueueState> overlayCohortBuffer = new List<TribeQueueState>();
+        private readonly List<RuntimeExpectedMove> expectedMoveChores = new List<RuntimeExpectedMove>();
+        private readonly List<RuntimeExpectedMove> expectedMoveEvents = new List<RuntimeExpectedMove>();
         private readonly List<VisualQueueEntry> visualEntryBuffer = new List<VisualQueueEntry>(9);
         private readonly List<QueueVisualMarkerMode> projectedModeBuffer =
             new List<QueueVisualMarkerMode>(9);
         private HookTransaction nativeTransaction;
+        private HookTransaction multiplayerTransaction;
         private HookTransaction drawFilterTransaction;
         private HookRef<X64ManagedFunctionDetourAOB<AppendMovementWaypointDelegate>> waypointAppendHook =
             new HookRef<X64ManagedFunctionDetourAOB<AppendMovementWaypointDelegate>>();
@@ -92,12 +122,25 @@ namespace QueueTest
             new HookRef<X64ManagedFunctionDetourAOB<RenderTribeOverlayDelegate>>();
         private HookRef<X64ManagedFunctionDetourAOB<DrawSubmissionDelegate>> drawSubmissionHook =
             new HookRef<X64ManagedFunctionDetourAOB<DrawSubmissionDelegate>>();
+        private HookRef<X64ManagedFunctionDetourAOB<ChoreHandlerDelegate>> moveChoreHandlerHook =
+            new HookRef<X64ManagedFunctionDetourAOB<ChoreHandlerDelegate>>();
+        private HookRef<X64ManagedFunctionDetourAOB<ChoreHandlerDelegate>> targetOrderChoreHandlerHook =
+            new HookRef<X64ManagedFunctionDetourAOB<ChoreHandlerDelegate>>();
         private IsTribeMovementCompleteDelegate isTribeMovementComplete;
+        private RemoveUnitFromTribeDelegate removeUnitFromTribe;
         private IntPtr tribeManagerPointer;
+        private IntPtr choreModePointer;
+        private IntPtr choreTribeIdPointer;
+        private IntPtr choreCommandOrTileXPointer;
+        private IntPtr choreMoveTypePointer;
         private bool installed;
+        private bool multiplayerSynchronizationReady;
+        private bool multiplayerMarkerFailureLogged;
+        private bool? lastRealMultiplayerMode;
         private bool internalDispatch;
         private bool runtimeTickLogged;
         private int currentTick;
+        private long nextCohortId = 1;
         private bool drawFilterInstalled;
         private bool drawFilterFailureLogged;
         private bool targetMarkerProjectionAvailable;
@@ -211,9 +254,23 @@ namespace QueueTest
                     $"Tribe overlay renderer resolved at unexpected RVA 0x{overlayRenderResolution.Rva:X}.");
             }
 
+            Shared.NativeResolution removeUnitResolution = Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                RemoveUnitFromTribePattern,
+                ReferenceRemoveUnitFromTribeRva,
+                referenceHashMatches: true,
+                name: "Vanilla remove-unit-from-tribe helper",
+                log: null);
+            if (removeUnitResolution.Rva != ReferenceRemoveUnitFromTribeRva)
+                throw new InvalidOperationException(
+                    $"Remove-unit helper resolved at unexpected RVA 0x{removeUnitResolution.Rva:X}.");
+
             isTribeMovementComplete = (IsTribeMovementCompleteDelegate)Marshal.GetDelegateForFunctionPointer(
                 libraryHandle + ReferenceMovementCompleteRva,
                 typeof(IsTribeMovementCompleteDelegate));
+            removeUnitFromTribe = (RemoveUnitFromTribeDelegate)Marshal.GetDelegateForFunctionPointer(
+                libraryHandle + ReferenceRemoveUnitFromTribeRva,
+                typeof(RemoveUnitFromTribeDelegate));
             tribeManagerPointer = new IntPtr(GameTribeManagerAPI.Instance.GetTribeManager().Pointer);
 
             nativeTransaction = new HookTransaction(
@@ -233,6 +290,7 @@ namespace QueueTest
             if (!waypointAppendHook.Success || !tribeOverlayRenderHook.Success)
                 throw new InvalidOperationException("One or more QueueTest native hooks were not installed.");
 
+            InstallMultiplayerSynchronization(libraryHandle, memory);
             InstallOptionalDrawFilter(libraryHandle, memory);
 
             subscriptions.Add(TribeR3EventHooks.OnTribeIssueOrderWithTarget.Observable
@@ -258,11 +316,223 @@ namespace QueueTest
                 $"INITIALIZED: waypointRva=0x{resolution.Rva:X}, functionSize=71, " +
                 $"movementCompleteRva=0x{movementCompleteResolution.Rva:X}, " +
                 $"overlayRenderRva=0x{overlayRenderResolution.Rva:X}, " +
+                $"removeUnitRva=0x{removeUnitResolution.Rva:X}, " +
                 $"drawFilterInstalled={drawFilterInstalled}, " +
                 $"targetMarkerProjectionAvailable={targetMarkerProjectionAvailable}, " +
+                $"multiplayerSynchronizationReady={multiplayerSynchronizationReady}, " +
                 $"GameTribeSize=0x{actualTribeSize:X}, " +
                 $"queueLimit={MaximumPendingCommands}, " +
                 "allModesEnabled=true. Command capture no longer depends on an OnStartMap event.");
+        }
+
+        private void InstallMultiplayerSynchronization(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
+        {
+            try
+            {
+                Shared.NativeResolution moveResolution = Shared.NativePatternResolver.ResolveUnique(
+                    memory,
+                    MoveChoreHandlerPattern,
+                    QueueNativeContract.MoveChoreHandlerRva,
+                    referenceHashMatches: true,
+                    name: "Vanilla Chore 17 handler",
+                    log: null);
+                Shared.NativeResolution targetResolution = Shared.NativePatternResolver.ResolveUnique(
+                    memory,
+                    TargetOrderChoreHandlerPattern,
+                    QueueNativeContract.TargetOrderChoreHandlerRva,
+                    referenceHashMatches: true,
+                    name: "Vanilla Chore 36 handler",
+                    log: null);
+                if (moveResolution.Rva != QueueNativeContract.MoveChoreHandlerRva ||
+                    targetResolution.Rva != QueueNativeContract.TargetOrderChoreHandlerRva)
+                {
+                    throw new InvalidOperationException("One or more Chore handlers resolved at an unexpected RVA.");
+                }
+
+                // The table is populated at runtime. Checking it proves that opcodes 17, 36 and
+                // 71 still select the exact handlers whose payload layouts QueueTest extends.
+                ValidateChoreHandlerTableEntry(libraryHandle, QueueNativeContract.MoveChoreOpcode,
+                    QueueNativeContract.MoveChoreHandlerRva);
+                ValidateChoreHandlerTableEntry(libraryHandle, QueueNativeContract.TargetOrderChoreOpcode,
+                    QueueNativeContract.TargetOrderChoreHandlerRva);
+                ValidateChoreHandlerTableEntry(libraryHandle, QueueNativeContract.WaypointAppendChoreOpcode,
+                    QueueNativeContract.WaypointAppendChoreHandlerRva);
+
+                choreModePointer = libraryHandle + QueueNativeContract.ChoreModeRva;
+                choreTribeIdPointer = libraryHandle + QueueNativeContract.ChoreTribeIdRva;
+                choreCommandOrTileXPointer = libraryHandle + QueueNativeContract.ChoreCommandOrTileXRva;
+                choreMoveTypePointer = libraryHandle + QueueNativeContract.ChoreMoveTypeRva;
+
+                multiplayerTransaction = new HookTransaction(
+                    memory,
+                    unchecked((ulong)libraryHandle.ToInt64()),
+                    loggerFactory: null,
+                    failureMode: TransactionFailureMode.RollbackAndThrow);
+                multiplayerTransaction.AddDetour(
+                    ref moveChoreHandlerHook,
+                    unchecked((ulong)libraryHandle.ToInt64()) + QueueNativeContract.MoveChoreHandlerRva,
+                    HandleMoveChore);
+                multiplayerTransaction.AddDetour(
+                    ref targetOrderChoreHandlerHook,
+                    unchecked((ulong)libraryHandle.ToInt64()) + QueueNativeContract.TargetOrderChoreHandlerRva,
+                    HandleTargetOrderChore);
+                multiplayerTransaction.Commit();
+                multiplayerSynchronizationReady =
+                    moveChoreHandlerHook.Success && targetOrderChoreHandlerHook.Success;
+                if (!multiplayerSynchronizationReady)
+                    throw new InvalidOperationException("A multiplayer Chore marker hook reported no success.");
+            }
+            catch (Exception exception)
+            {
+                multiplayerSynchronizationReady = false;
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    $"MULTIPLAYER_QUEUE_DISABLED: Vanilla multiplayer orders remain unchanged; {exception.Message}");
+            }
+        }
+
+        private static void ValidateChoreHandlerTableEntry(
+            IntPtr libraryHandle,
+            int opcode,
+            int expectedHandlerRva)
+        {
+            IntPtr tableEntry = libraryHandle + QueueNativeContract.ChoreHandlerTableRva + opcode * sizeof(long);
+            long actual = Marshal.ReadInt64(tableEntry);
+            long expected = (libraryHandle + expectedHandlerRva).ToInt64();
+            if (actual != expected)
+            {
+                throw new InvalidOperationException(
+                    $"Chore handler table mismatch for opcode {opcode}: " +
+                    $"expected=0x{expected:X}, actual=0x{actual:X}.");
+            }
+        }
+
+        private void HandleMoveChore()
+        {
+            bool trampolineEntered = false;
+            bool markerWritten = false;
+            int originalMoveType = 0;
+            try
+            {
+                if (ShouldMarkOutgoingMultiplayerOrder())
+                {
+                    int tribeId = Marshal.ReadInt32(choreTribeIdPointer);
+                    if (IsLocalSelectedTribe(tribeId, out _) &&
+                        QueueNativeContract.TryMarkMoveTypeForQueue(
+                            Marshal.ReadInt32(choreMoveTypePointer),
+                            out int markedMoveType))
+                    {
+                        originalMoveType = Marshal.ReadInt32(choreMoveTypePointer);
+                        Marshal.WriteInt32(choreMoveTypePointer, markedMoveType);
+                        markerWritten = true;
+                    }
+                }
+
+                trampolineEntered = true;
+                moveChoreHandlerHook.Value.Hook.Trampoline();
+            }
+            catch (Exception exception)
+            {
+                LogMultiplayerMarkerFailure("Chore 17", exception);
+                if (!trampolineEntered)
+                {
+                    try
+                    {
+                        moveChoreHandlerHook.Value.Hook.Trampoline();
+                    }
+                    catch (Exception trampolineException)
+                    {
+                        LogMultiplayerMarkerFailure("Chore 17 trampoline", trampolineException);
+                    }
+                }
+            }
+            finally
+            {
+                if (markerWritten)
+                {
+                    try
+                    {
+                        Marshal.WriteInt32(choreMoveTypePointer, originalMoveType);
+                    }
+                    catch (Exception restoreException)
+                    {
+                        LogMultiplayerMarkerFailure("Chore 17 restore", restoreException);
+                    }
+                }
+            }
+        }
+
+        private void HandleTargetOrderChore()
+        {
+            bool trampolineEntered = false;
+            bool markerWritten = false;
+            int originalCommand = 0;
+            try
+            {
+                if (ShouldMarkOutgoingMultiplayerOrder())
+                {
+                    int tribeId = Marshal.ReadInt32(choreTribeIdPointer);
+                    originalCommand = Marshal.ReadInt32(choreCommandOrTileXPointer);
+                    if (IsLocalSelectedTribe(tribeId, out _) &&
+                        QueueNativeContract.TryMarkTargetCommandForQueue(
+                            originalCommand,
+                            out int markedCommand))
+                    {
+                        Marshal.WriteInt32(choreCommandOrTileXPointer, markedCommand);
+                        markerWritten = true;
+                    }
+                }
+
+                trampolineEntered = true;
+                targetOrderChoreHandlerHook.Value.Hook.Trampoline();
+            }
+            catch (Exception exception)
+            {
+                LogMultiplayerMarkerFailure("Chore 36", exception);
+                if (!trampolineEntered)
+                {
+                    try
+                    {
+                        targetOrderChoreHandlerHook.Value.Hook.Trampoline();
+                    }
+                    catch (Exception trampolineException)
+                    {
+                        LogMultiplayerMarkerFailure("Chore 36 trampoline", trampolineException);
+                    }
+                }
+            }
+            finally
+            {
+                if (markerWritten)
+                {
+                    try
+                    {
+                        Marshal.WriteInt32(choreCommandOrTileXPointer, originalCommand);
+                    }
+                    catch (Exception restoreException)
+                    {
+                        LogMultiplayerMarkerFailure("Chore 36 restore", restoreException);
+                    }
+                }
+            }
+        }
+
+        private bool ShouldMarkOutgoingMultiplayerOrder() =>
+            installed &&
+            multiplayerSynchronizationReady &&
+            !internalDispatch &&
+            Marshal.ReadInt32(choreModePointer) == QueueNativeContract.ChorePackMode &&
+            IsRealMultiplayer() &&
+            IsShiftPressed();
+
+        private void LogMultiplayerMarkerFailure(string chore, Exception exception)
+        {
+            if (multiplayerMarkerFailureLogged)
+                return;
+            multiplayerMarkerFailureLogged = true;
+            Shared.DebugLogHelper.LogError(
+                log,
+                $"MULTIPLAYER_MARKER_FAIL_OPEN: {chore}; Vanilla order retained; {exception.Message}");
         }
 
         private void InstallOptionalDrawFilter(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
@@ -305,30 +575,92 @@ namespace QueueTest
 
         private void OnMapStart()
         {
-            queues.Clear();
+            cohorts.Clear();
+            unitToCohort.Clear();
+            nextCohortId = 1;
+            expectedMoveChores.Clear();
+            expectedMoveEvents.Clear();
             observedAttacks.Clear();
             loggedUnsupportedCommands.Clear();
+            loggedPredecessorRedispatchFailures.Clear();
+            loggedIsolationFailures.Clear();
         }
 
         private void ResetMapState()
         {
-            queues.Clear();
+            cohorts.Clear();
+            unitToCohort.Clear();
+            nextCohortId = 1;
+            expectedMoveChores.Clear();
+            expectedMoveEvents.Clear();
             observedAttacks.Clear();
             loggedUnsupportedCommands.Clear();
+            loggedPredecessorRedispatchFailures.Clear();
+            loggedIsolationFailures.Clear();
         }
 
         private void OnTargetOrder(TribeIssueOrderWithTargetEventArgs args)
         {
-            if (!installed || internalDispatch || !IsLocalSelectedTribe(args.TribeId, out GameTribe* tribe))
+            if (!installed || internalDispatch)
                 return;
 
             int commandValue = (int)args.AICommand;
+            if (IsRealMultiplayer())
+            {
+                if (!multiplayerSynchronizationReady)
+                    return;
+
+                if (QueueNativeContract.TryDecodeQueuedTargetCommand(
+                        commandValue,
+                        out int decodedCommand))
+                {
+                    args.AICommand = (TribeAICommand)decodedCommand;
+                    if (TryGetAliveTribe(args.TribeId, out GameTribe* synchronizedTribe) &&
+                        QueueCommandClassifier.TryClassifyTarget(
+                            decodedCommand,
+                            out QueueCommandKind synchronizedKind))
+                    {
+                        QueueCommand synchronizedCommand = new QueueCommand(
+                            synchronizedKind,
+                            args.TargetValue1,
+                            args.TargetValue2,
+                            args.a6);
+                        TryEnqueueSynchronizedCommand(args.TribeId, synchronizedTribe, synchronizedCommand);
+                    }
+
+                    // A queued Chore is consumed even if its tribe disappeared before this tick.
+                    // Letting the marked command reach Vanilla would turn bit 0x80 into an invalid AI command.
+                    args.SkipOriginalFunction = true;
+                    args.ReturnValue = 1;
+                    return;
+                }
+
+                // Every unmarked synchronized target order retains Vanilla behavior and
+                // deterministically replaces any QueueTest work on all peers.
+                CancelQueuesForTribeUnits(args.TribeId);
+                if (TryGetAliveTribe(args.TribeId, out GameTribe* vanillaTribe) &&
+                    QueueCommandClassifier.TryClassifyTarget(commandValue, out QueueCommandKind vanillaKind))
+                {
+                    observedAttacks[args.TribeId] = new ObservedAttack(
+                        vanillaTribe->r_GlobalId,
+                        new QueueCommand(vanillaKind, args.TargetValue1, args.TargetValue2, args.a6));
+                }
+                else
+                {
+                    observedAttacks.Remove(args.TribeId);
+                }
+                return;
+            }
+
+            if (!IsLocalSelectedTribe(args.TribeId, out GameTribe* tribe))
+                return;
+
             bool supported = QueueCommandClassifier.TryClassifyTarget(commandValue, out QueueCommandKind kind);
             bool shiftPressed = IsShiftPressed();
 
             if (!shiftPressed)
             {
-                CancelQueue(args.TribeId);
+                CancelQueuesForTribeUnits(args.TribeId);
                 if (supported)
                 {
                     observedAttacks[args.TribeId] = new ObservedAttack(
@@ -344,7 +676,7 @@ namespace QueueTest
 
             if (!supported)
             {
-                CancelQueue(args.TribeId);
+                CancelQueuesForTribeUnits(args.TribeId);
                 observedAttacks.Remove(args.TribeId);
                 if (loggedUnsupportedCommands.Add(commandValue))
                 {
@@ -356,9 +688,8 @@ namespace QueueTest
                 return;
             }
 
-            TribeQueueState state = GetOrCreateState(args.TribeId, tribe);
             QueueCommand command = new QueueCommand(kind, args.TargetValue1, args.TargetValue2, args.a6);
-            if (!state.TryEnqueue(command))
+            if (!TryApplyQueuedCommand(args.TribeId, tribe, command))
             {
                 args.SkipOriginalFunction = true;
                 args.ReturnValue = 1;
@@ -374,27 +705,61 @@ namespace QueueTest
 
         private void OnMoveOrder(TribeIssueOrderMoveHereEventArgs args)
         {
-            if (!installed || internalDispatch || !IsLocalSelectedTribe(args.TribeId, out GameTribe* tribe))
+            if (!installed || internalDispatch)
+                return;
+
+            if (IsRealMultiplayer())
+            {
+                if (!multiplayerSynchronizationReady)
+                    return;
+
+                int serializedMoveType = (int)args.MoveType;
+                if (QueueNativeContract.TryDecodeQueuedMoveType(
+                        serializedMoveType,
+                        out int decodedMoveType))
+                {
+                    args.MoveType = (TribeMoveType)decodedMoveType;
+                    if (TryGetAliveTribe(args.TribeId, out GameTribe* synchronizedTribe))
+                    {
+                        QueueCommand synchronizedCommand = new QueueCommand(
+                            QueueCommandKind.Move,
+                            args.TileX,
+                            args.TileY,
+                            decodedMoveType);
+                        TryEnqueueSynchronizedCommand(args.TribeId, synchronizedTribe, synchronizedCommand);
+                    }
+
+                    // Always consume QueueTest's marker; 0x40/0x41 are not Vanilla move types.
+                    args.SkipOriginalFunction = true;
+                    args.ReturnValue = 1;
+                    return;
+                }
+
+                observedAttacks.Remove(args.TribeId);
+                CancelQueuesForTribeUnits(args.TribeId);
+                return;
+            }
+
+            if (!IsLocalSelectedTribe(args.TribeId, out GameTribe* tribe))
                 return;
 
             if (!IsShiftPressed())
             {
                 observedAttacks.Remove(args.TribeId);
-                CancelQueue(args.TribeId);
+                CancelQueuesForTribeUnits(args.TribeId);
                 return;
             }
-
-            TribeQueueState state = GetOrCreateState(args.TribeId, tribe);
 
             QueueCommand command = new QueueCommand(
                 QueueCommandKind.Move,
                 args.TileX,
                 args.TileY,
                 (int)args.MoveType);
-            bool duplicateEvent = state.TryConsumeExpectedMoveEvent(command, currentTick);
+            bool duplicateEvent = TryConsumeExpectedMoveSignal(
+                expectedMoveEvents, args.TribeId, command);
             if (!duplicateEvent)
             {
-                if (!state.TryEnqueue(command))
+                if (!TryApplyQueuedCommand(args.TribeId, tribe, command))
                 {
                     Shared.DebugLogHelper.LogWarning(
                         log,
@@ -404,12 +769,26 @@ namespace QueueTest
                 {
                     // The already-created input chore can still reach the native append helper
                     // even though this order callback is skipped. Match it there and suppress it.
-                    state.ExpectMoveChore(command, currentTick + ExpectedMoveChoreLifetimeTicks);
+                    expectedMoveChores.Add(new RuntimeExpectedMove(
+                        args.TribeId, command, currentTick + ExpectedMoveChoreLifetimeTicks));
                 }
             }
 
             args.SkipOriginalFunction = true;
             args.ReturnValue = 1;
+        }
+
+        private void TryEnqueueSynchronizedCommand(
+            int tribeId,
+            GameTribe* tribe,
+            QueueCommand command)
+        {
+            if (!TryApplyQueuedCommand(tribeId, tribe, command))
+            {
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    $"QUEUE_FULL: tribeId={tribeId}, limit={MaximumPendingCommands}, rejected={command}.");
+            }
         }
 
         private void AppendMovementWaypoint(
@@ -423,38 +802,42 @@ namespace QueueTest
             try
             {
                 int tribeId = QueueNativeContract.WaypointChoreValueToTribeId(serializedTribeId);
-                // Chore 8 serializes the same one-based game ID used by the manager APIs.
+                // Chore 71 serializes the same one-based game ID used by the manager APIs.
                 // Treating it as a span index misses the real queue and lets Vanilla append
                 // the Move a second time, which breaks mixed-command ordering.
                 if (installed && !internalDispatch)
                 {
-                    TribeQueueState state = null;
-                    if (queues.TryGetValue(tribeId, out TribeQueueState existing) &&
-                        TryGetMatchingAliveTribe(tribeId, existing.TribeGlobalId, out _))
+                    if (IsRealMultiplayer())
                     {
-                        state = existing;
-                    }
-                    else if (IsShiftPressed() &&
-                        IsLocalSelectedTribe(tribeId, out GameTribe* selectedTribe))
-                    {
-                        // The native Chore can be observed before the managed move event.
-                        // Create the queue before Vanilla writes its capacity-limited waypoint.
-                        state = GetOrCreateState(tribeId, selectedTribe);
-                    }
-
-                    if (state != null)
-                    {
-                        QueueCommand command = new QueueCommand(QueueCommandKind.Move, tileX, tileY, moveMode);
-                        if (state.TryConsumeExpectedMoveChore(command, currentTick))
+                        if (multiplayerSynchronizationReady &&
+                            TryGetAliveTribe(tribeId, out GameTribe* synchronizedTribe))
                         {
+                            TryEnqueueSynchronizedCommand(
+                                tribeId,
+                                synchronizedTribe,
+                                new QueueCommand(QueueCommandKind.Move, tileX, tileY, moveMode));
                             return;
                         }
 
-                        if (state.TryEnqueue(command))
+                        // Without the complete marker-hook set, every multiplayer command
+                        // remains on its untouched Vanilla path.
+                        goto Vanilla;
+                    }
+
+                    QueueCommand command = new QueueCommand(
+                        QueueCommandKind.Move, tileX, tileY, moveMode);
+                    if (TryConsumeExpectedMoveSignal(expectedMoveChores, tribeId, command))
+                        return;
+
+                    if ((HasQueuedUnitInTribe(tribeId) || IsShiftPressed()) &&
+                        IsLocalSelectedTribe(tribeId, out GameTribe* selectedTribe))
+                    {
+                        if (TryApplyQueuedCommand(tribeId, selectedTribe, command))
                         {
                             // Some native input paths may reach the Chore hook first. In that
                             // case this is the authoritative insertion and the later event is deduplicated.
-                            state.ExpectMoveEvent(command, currentTick + ExpectedMoveChoreLifetimeTicks);
+                            expectedMoveEvents.Add(new RuntimeExpectedMove(
+                                tribeId, command, currentTick + ExpectedMoveChoreLifetimeTicks));
                         }
                         else
                         {
@@ -473,6 +856,7 @@ namespace QueueTest
                     $"WAYPOINT_HOOK_FAIL_OPEN: {exception}");
             }
 
+        Vanilla:
             waypointAppendHook.Value.Hook.Trampoline(
                 tribeManager,
                 serializedTribeId,
@@ -499,24 +883,53 @@ namespace QueueTest
 
         private void RenderTribeOverlayCore(IntPtr tribeManager, int tribeId, ref bool trampolineEntered)
         {
-            if (!installed || !queues.TryGetValue(tribeId, out TribeQueueState state) ||
-                !TryGetMatchingAliveTribe(tribeId, state.TribeGlobalId, out GameTribe* tribe))
+            overlayCohortBuffer.Clear();
+            if (installed)
+            {
+                foreach (TribeQueueState candidate in cohorts.Values)
+                {
+                    if (candidate.BoundTribeId == tribeId)
+                        overlayCohortBuffer.Add(candidate);
+                }
+                overlayCohortBuffer.Sort(CompareCohorts);
+            }
+
+            if (overlayCohortBuffer.Count == 0 || !TryGetAliveTribe(tribeId, out GameTribe* tribe))
             {
                 trampolineEntered = true;
                 tribeOverlayRenderHook.Value.Hook.Trampoline(tribeManager, tribeId);
                 return;
             }
 
-            if (state.WaitForVanillaMovement)
-                state.UpdateVanillaVisualProgress(ReadMovementWaypointIndex(tribe));
-
-            if (state.CurrentVisualSlots.Count == 0)
+            uint tribeGlobalId = tribe->r_GlobalId;
+            int tribeOwner = tribe->r_PlayerIdOwner;
+            for (int index = overlayCohortBuffer.Count - 1; index >= 0; index--)
+            {
+                TribeQueueState state = overlayCohortBuffer[index];
+                if (!state.MatchesTribe(tribeGlobalId, tribeOwner) ||
+                    state.CurrentVisualSlots.Count == 0)
+                    overlayCohortBuffer.RemoveAt(index);
+            }
+            if (overlayCohortBuffer.Count == 0)
             {
                 trampolineEntered = true;
                 tribeOverlayRenderHook.Value.Hook.Trampoline(tribeManager, tribeId);
                 return;
             }
 
+            for (int index = 0; index < overlayCohortBuffer.Count; index++)
+                RenderCohortOverlay(
+                    tribeManager, tribeId, tribe, overlayCohortBuffer[index], ref trampolineEntered);
+            overlayCohortBuffer.Clear();
+        }
+
+        private void RenderCohortOverlay(
+            IntPtr tribeManager,
+            int tribeId,
+            GameTribe* tribe,
+            TribeQueueState state,
+            ref bool trampolineEntered)
+        {
             ushort savedCount = ReadMovementWaypointCount(tribe);
             ushort originX = 0;
             ushort originY = 0;
@@ -793,35 +1206,58 @@ namespace QueueTest
                 runtimeTickLogged = true;
                 Shared.DebugLogHelper.LogInfo(log, $"RUNTIME_ACTIVE: firstTick={tick}.");
             }
-            queueIdBuffer.Clear();
-            foreach (int tribeId in queues.Keys)
-                queueIdBuffer.Add(tribeId);
-            for (int index = 0; index < queueIdBuffer.Count; index++)
-                ProcessQueue(queueIdBuffer[index]);
+            PruneExpectedMoveSignals(expectedMoveChores);
+            PruneExpectedMoveSignals(expectedMoveEvents);
+            ReconcileCohorts();
+            CoalesceEquivalentCohorts();
+
+            cohortIdBuffer.Clear();
+            foreach (long cohortId in cohorts.Keys)
+                cohortIdBuffer.Add(cohortId);
+            cohortIdBuffer.Sort((left, right) => CompareCohorts(cohorts[left], cohorts[right]));
+            for (int index = 0; index < cohortIdBuffer.Count; index++)
+                ProcessCohort(cohortIdBuffer[index]);
         }
 
-        private void ProcessQueue(int tribeId)
+        private void ProcessCohort(long cohortId)
         {
-            if (!queues.TryGetValue(tribeId, out TribeQueueState state))
+            if (!cohorts.TryGetValue(cohortId, out TribeQueueState state) ||
+                state.BoundTribeId <= 0 ||
+                !TryGetMatchingAliveTribe(
+                    state.BoundTribeId,
+                    state.TribeGlobalId,
+                    state.OwnerPlayerId,
+                    out GameTribe* tribe))
                 return;
-            int originalTribeId = tribeId;
-            if (!TryGetMatchingAliveTribe(tribeId, state.TribeGlobalId, out GameTribe* tribe))
-            {
-                if (!TryMigrateQueue(tribeId, state, out tribeId, out tribe))
-                {
-                    queues.Remove(originalTribeId);
-                    observedAttacks.Remove(originalTribeId);
-                    return;
-                }
-            }
+            int tribeId = state.BoundTribeId;
 
             if (state.ExternalAttack != null)
             {
-                if (IsTargetAlive(state.ExternalAttack))
+                if (!IsTargetAlive(state.ExternalAttack))
+                {
+                    state.CompleteExternalAttack();
+                }
+                else if (state.ExternalAttackNeedsRedispatch)
+                {
+                    if (!EnsureDedicatedTribe(state, ref tribeId, ref tribe))
+                        return;
+                    if (!Dispatch(tribeId, state.ExternalAttack))
+                    {
+                        if (loggedPredecessorRedispatchFailures.Add(cohortId))
+                            Shared.DebugLogHelper.LogWarning(
+                                log,
+                                $"PREDECESSOR_REDISPATCH_FAILED: tribeId={tribeId}, " +
+                                $"command={state.ExternalAttack}; retrying.");
+                        return;
+                    }
+                    loggedPredecessorRedispatchFailures.Remove(cohortId);
+                    state.MarkExternalAttackRedispatched();
                     return;
-
-                state.ExternalAttack = null;
-                observedAttacks.Remove(tribeId);
+                }
+                else
+                {
+                    return;
+                }
             }
 
             if (state.WaitForVanillaMovement)
@@ -836,6 +1272,14 @@ namespace QueueTest
 
             if (state.Active != null)
             {
+                if (state.Active.IsAttack && !IsTargetAlive(state.Active))
+                    state.CompleteActive();
+            }
+
+            if (state.Active != null)
+            {
+                if (!EnsureDedicatedTribe(state, ref tribeId, ref tribe))
+                    return;
                 if (state.ActiveNeedsRedispatch)
                 {
                     if (state.Active.IsAttack && !IsTargetAlive(state.Active))
@@ -867,6 +1311,9 @@ namespace QueueTest
                 }
             }
 
+            if (state.PendingCount != 0 && !EnsureDedicatedTribe(state, ref tribeId, ref tribe))
+                return;
+
             while (state.TryActivateNext(out QueueCommand command))
             {
                 if (command.IsAttack && !IsTargetAlive(command))
@@ -886,7 +1333,7 @@ namespace QueueTest
             }
 
             if (state.IsEmpty)
-                queues.Remove(tribeId);
+                RemoveCohort(cohortId);
         }
 
         private bool HasCompletedMovementSequence(int tribeId, GameTribe* tribe)
@@ -943,53 +1390,77 @@ namespace QueueTest
             return issued;
         }
 
-        private TribeQueueState GetOrCreateState(int tribeId, GameTribe* tribe)
+        private bool TryApplyQueuedCommand(int tribeId, GameTribe* tribe, QueueCommand command)
         {
-            if (queues.TryGetValue(tribeId, out TribeQueueState existing) &&
-                existing.MatchesTribe(tribe->r_GlobalId))
+            // Mode-0 is authoritative. Reconcile immediately so a Chore affects exactly
+            // the units Vanilla currently placed in its serialized tribe, never stale siblings.
+            ReconcileCohorts();
+            List<QueueUnitIdentity> tribeMembers = CaptureTribeMembers(tribeId);
+            if (tribeMembers.Count == 0)
+                return false;
+
+            List<TribeQueueState> affected = new List<TribeQueueState>();
+            List<QueueUnitIdentity> unqueued = new List<QueueUnitIdentity>();
+            HashSet<long> seen = new HashSet<long>();
+            foreach (QueueUnitIdentity member in tribeMembers)
             {
-                return existing;
+                if (unitToCohort.TryGetValue(member, out long cohortId) &&
+                    cohorts.TryGetValue(cohortId, out TribeQueueState state))
+                {
+                    if (seen.Add(cohortId))
+                        affected.Add(state);
+                }
+                else
+                {
+                    unqueued.Add(member);
+                }
             }
 
-            List<QueueUnitIdentity> selectedMembers = CaptureSelectedMembers(tribeId);
-            int relatedTribeId = 0;
-            TribeQueueState relatedState = null;
-            foreach (KeyValuePair<int, TribeQueueState> pair in queues)
+            affected.Sort(CompareCohorts);
+            if (affected.Any(state => !state.CanEnqueue))
+                return false;
+
+            TribeQueueState created = null;
+            if (unqueued.Count != 0)
             {
-                if (!pair.Value.SharesMemberWith(selectedMembers))
-                    continue;
-                relatedTribeId = pair.Key;
-                relatedState = pair.Value;
-                break;
-            }
-            if (relatedState != null)
-            {
-                int oldTribeId = relatedTribeId;
-                TribeQueueState migrated = relatedState;
-                queues.Remove(oldTribeId);
-                observedAttacks.Remove(oldTribeId);
-                migrated.RebindTribe(tribe->r_GlobalId);
-                queues[tribeId] = migrated;
-                return migrated;
+                created = CreateCohort(tribeId, tribe, unqueued);
+                if (!created.CanEnqueue)
+                {
+                    RemoveCohort(created.CohortId);
+                    return false;
+                }
             }
 
+            if (created != null)
+                affected.Add(created);
+            return QueueCohortOperations.TryEnqueueAtomically(affected, command);
+        }
+
+        private TribeQueueState CreateCohort(
+            int tribeId,
+            GameTribe* tribe,
+            List<QueueUnitIdentity> members)
+        {
+            long cohortId = nextCohortId++;
             TribeQueueState state = new TribeQueueState(
                 tribe->r_GlobalId,
                 MaximumPendingCommands,
-                selectedMembers);
+                members,
+                tribe->r_PlayerIdOwner,
+                cohortId,
+                tribeId);
             ushort nativeWaypointCount = ReadMovementWaypointCount(tribe);
             bool hasExternalAttack = observedAttacks.TryGetValue(tribeId, out ObservedAttack observed) &&
-                observed.TribeGlobalId == tribe->r_GlobalId &&
-                IsTargetAlive(observed.Command);
-            state.WaitForVanillaMovement = !hasExternalAttack &&
-                nativeWaypointCount != 0 &&
+                observed.TribeGlobalId == tribe->r_GlobalId && IsTargetAlive(observed.Command);
+            state.WaitForVanillaMovement = !hasExternalAttack && nativeWaypointCount != 0 &&
                 !HasCompletedMovementSequence(tribeId, tribe);
             if (state.WaitForVanillaMovement)
                 CaptureVanillaVisualSlots(state, tribe, nativeWaypointCount);
             if (hasExternalAttack)
                 state.ExternalAttack = observed.Command;
-
-            queues[tribeId] = state;
+            cohorts.Add(cohortId, state);
+            foreach (QueueUnitIdentity member in members)
+                unitToCohort[member] = cohortId;
             return state;
         }
 
@@ -1016,94 +1487,373 @@ namespace QueueTest
             }
         }
 
-        private void CancelQueue(int tribeId)
+        private void CancelQueuesForTribeUnits(int tribeId)
         {
-            queues.Remove(tribeId);
-
-            List<QueueUnitIdentity> selectedMembers = CaptureSelectedMembers(tribeId);
-            List<int> relatedTribeIds = null;
-            foreach (KeyValuePair<int, TribeQueueState> pair in queues)
+            List<QueueUnitIdentity> affected = CaptureTribeMembers(tribeId);
+            foreach (QueueUnitIdentity member in affected)
             {
-                if (!pair.Value.SharesMemberWith(selectedMembers))
+                if (!unitToCohort.TryGetValue(member, out long cohortId) ||
+                    !cohorts.TryGetValue(cohortId, out TribeQueueState state))
                     continue;
-                if (relatedTribeIds == null)
-                    relatedTribeIds = new List<int>();
-                relatedTribeIds.Add(pair.Key);
-            }
-            if (relatedTribeIds == null)
-                return;
-
-            foreach (int relatedTribeId in relatedTribeIds)
-            {
-                queues.Remove(relatedTribeId);
-                observedAttacks.Remove(relatedTribeId);
+                unitToCohort.Remove(member);
+                state.RemoveMember(member);
+                if (state.Members.Count == 0)
+                {
+                    cohorts.Remove(cohortId);
+                    loggedPredecessorRedispatchFailures.Remove(cohortId);
+                    loggedIsolationFailures.Remove(cohortId);
+                }
             }
         }
 
-        private bool TryMigrateQueue(
-            int oldTribeId,
-            TribeQueueState state,
-            out int newTribeId,
-            out GameTribe* newTribe)
+        private void ReconcileCohorts()
         {
-            newTribeId = 0;
-            newTribe = null;
+            cohortIdBuffer.Clear();
+            cohortIdBuffer.AddRange(cohorts.Keys);
+            cohortIdBuffer.Sort();
+            foreach (long cohortId in cohortIdBuffer)
+            {
+                if (!cohorts.TryGetValue(cohortId, out TribeQueueState state))
+                    continue;
+                SortedDictionary<int, List<QueueUnitIdentity>> branches =
+                    new SortedDictionary<int, List<QueueUnitIdentity>>();
+                foreach (QueueUnitIdentity member in state.Members.ToArray())
+                {
+                    if (!TryGetLivingUnit(member, out GameUnit* unit))
+                    {
+                        unitToCohort.Remove(member);
+                        continue;
+                    }
+                    int memberTribeId = unit->r_TribeId;
+                    if (!branches.TryGetValue(memberTribeId, out List<QueueUnitIdentity> branch))
+                    {
+                        branch = new List<QueueUnitIdentity>();
+                        branches.Add(memberTribeId, branch);
+                    }
+                    branch.Add(member);
+                }
 
+                if (branches.Count == 0)
+                {
+                    RemoveCohort(cohortId);
+                    continue;
+                }
+
+                bool first = true;
+                foreach (KeyValuePair<int, List<QueueUnitIdentity>> branch in branches)
+                {
+                    branch.Value.Sort(QueueUnitIdentity.Compare);
+                    uint tribeGlobalId = 0;
+                    if (branch.Key > 0 && TryGetAliveTribe(branch.Key, out GameTribe* branchTribe) &&
+                        branchTribe->r_PlayerIdOwner == state.OwnerPlayerId)
+                        tribeGlobalId = branchTribe->r_GlobalId;
+
+                    if (first)
+                    {
+                        first = false;
+                        state.ReplaceMembers(branch.Value);
+                        state.RebindTribe(branch.Key, tribeGlobalId);
+                        foreach (QueueUnitIdentity member in branch.Value)
+                            unitToCohort[member] = state.CohortId;
+                    }
+                    else
+                    {
+                        long branchId = nextCohortId++;
+                        TribeQueueState clone = state.CloneForBranch(
+                            branchId, branch.Key, tribeGlobalId, branch.Value);
+                        cohorts.Add(branchId, clone);
+                        foreach (QueueUnitIdentity member in branch.Value)
+                            unitToCohort[member] = branchId;
+                    }
+                }
+
+                if (branches.Count > 1)
+                    LogTopology("SPLIT", state);
+            }
+        }
+
+        private bool EnsureDedicatedTribe(
+            TribeQueueState state,
+            ref int tribeId,
+            ref GameTribe* tribe)
+        {
             foreach (QueueUnitIdentity member in state.Members)
             {
-                if (!GameUnitManagerAPI.Instance.IsValidId(member.UnitId) ||
-                    !GameUnitManagerAPI.Instance.TryGetUnitById(member.UnitId, out GameUnit* unit) ||
-                    unit == null || unit->r_AliveState != AliveState.IsAlive ||
-                    unit->r_GlobalId != member.GlobalId)
-                {
-                    continue;
-                }
-
-                int memberTribeId = unit->r_TribeId;
-                if (memberTribeId <= 0)
-                    continue;
-                if (newTribeId != 0 && newTribeId != memberTribeId)
-                {
-                    Shared.DebugLogHelper.LogWarning(
-                        log,
-                        $"QUEUE_MIGRATION_AMBIGUOUS: oldTribeId={oldTribeId}, " +
-                        $"candidates={newTribeId}/{memberTribeId}; queue discarded.");
+                if (!TryGetLivingUnit(member, out GameUnit* unit) || unit->r_TribeId != tribeId)
                     return false;
-                }
-                newTribeId = memberTribeId;
             }
 
-            if (newTribeId <= 0 || queues.ContainsKey(newTribeId) ||
-                !GameTribeManagerAPI.Instance.IsValidId(newTribeId) ||
-                !GameTribeManagerAPI.Instance.TryGetTribeById(newTribeId, out newTribe) ||
-                newTribe == null || newTribe->r_AliveState != AliveState.IsAlive ||
-                newTribe->r_PlayerIdOwner != GameNetworkAPI.GetLocalPlayerId())
+            if (tribe->r_UnitsInGroup == state.Members.Count)
+                return true;
+
+            int originalTribeId = tribeId;
+            TribeStance stance = tribe->r_TribeStance;
+            long createdValue = GameTribeManagerAPI.Instance.Create(state.OwnerPlayerId, false);
+            if (createdValue <= 0 || createdValue > int.MaxValue)
             {
-                newTribe = null;
+                LogIsolationFailure(state, $"create returned {createdValue}");
                 return false;
             }
+            int newTribeId = unchecked((int)createdValue);
+            if (!TryGetAliveTribe(newTribeId, out GameTribe* newTribe))
+            {
+                LogIsolationFailure(state, $"created tribe {newTribeId} is unavailable");
+                return false;
+            }
+            newTribe->r_TribeStance = stance;
 
-            queues.Remove(oldTribeId);
-            observedAttacks.Remove(oldTribeId);
-            state.RebindTribe(newTribe->r_GlobalId);
-            queues[newTribeId] = state;
+            List<QueueUnitIdentity> moved = new List<QueueUnitIdentity>();
+            foreach (QueueUnitIdentity member in state.Members.OrderBy(value => value.UnitId))
+            {
+                removeUnitFromTribe(tribeManagerPointer, member.UnitId, originalTribeId);
+                if (!GameTribeManagerAPI.Instance.AssignUnit(newTribeId, member.UnitId) ||
+                    !TryGetLivingUnit(member, out GameUnit* unit) || unit->r_TribeId != newTribeId)
+                {
+                    RollBackTribeSplit(moved, member, originalTribeId, newTribeId);
+                    GameTribeManagerAPI.Instance.DeleteTribeSafe(newTribeId);
+                    LogIsolationFailure(state, $"assignment failed for unit {member.UnitId}");
+                    return false;
+                }
+                moved.Add(member);
+            }
+
+            tribeId = newTribeId;
+            tribe = newTribe;
+            state.RebindTribe(newTribeId, newTribe->r_GlobalId);
+            loggedIsolationFailures.Remove(state.CohortId);
+            LogTopology("ISOLATE", state);
             return true;
         }
 
-        private static List<QueueUnitIdentity> CaptureSelectedMembers(int tribeId)
+        private void LogIsolationFailure(TribeQueueState state, string reason)
+        {
+            if (loggedIsolationFailures.Add(state.CohortId))
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    $"COHORT_ISOLATION_RETRY: cohort={state.CohortId}, " +
+                    $"tribeId={state.BoundTribeId}, reason={reason}.");
+        }
+
+        private void RollBackTribeSplit(
+            List<QueueUnitIdentity> moved,
+            QueueUnitIdentity failed,
+            int originalTribeId,
+            int newTribeId)
+        {
+            if (TryGetLivingUnit(failed, out GameUnit* failedUnit) && failedUnit->r_TribeId == 0)
+                GameTribeManagerAPI.Instance.AssignUnit(originalTribeId, failed.UnitId);
+            for (int index = moved.Count - 1; index >= 0; index--)
+            {
+                QueueUnitIdentity member = moved[index];
+                if (TryGetLivingUnit(member, out GameUnit* unit) && unit->r_TribeId == newTribeId)
+                    removeUnitFromTribe(tribeManagerPointer, member.UnitId, newTribeId);
+                GameTribeManagerAPI.Instance.AssignUnit(originalTribeId, member.UnitId);
+            }
+        }
+
+        private void CoalesceEquivalentCohorts()
+        {
+            Dictionary<int, List<TribeQueueState>> byTribe =
+                new Dictionary<int, List<TribeQueueState>>();
+            foreach (TribeQueueState state in cohorts.Values)
+            {
+                if (!byTribe.TryGetValue(state.BoundTribeId, out List<TribeQueueState> states))
+                {
+                    states = new List<TribeQueueState>();
+                    byTribe.Add(state.BoundTribeId, states);
+                }
+                states.Add(state);
+            }
+
+            List<int> tribeIds = byTribe.Keys.ToList();
+            tribeIds.Sort();
+            foreach (int groupedTribeId in tribeIds)
+            {
+                List<TribeQueueState> ordered = byTribe[groupedTribeId];
+                if (ordered.Count < 2)
+                    continue;
+                ordered.Sort(CompareCohorts);
+                for (int leftIndex = 0; leftIndex < ordered.Count; leftIndex++)
+                {
+                    TribeQueueState left = ordered[leftIndex];
+                    if (!cohorts.ContainsKey(left.CohortId))
+                        continue;
+                    for (int rightIndex = leftIndex + 1; rightIndex < ordered.Count; rightIndex++)
+                    {
+                        TribeQueueState right = ordered[rightIndex];
+                        if (!cohorts.ContainsKey(right.CohortId) ||
+                            !HaveEquivalentExecutionState(left, right))
+                            continue;
+                        List<QueueUnitIdentity> merged = left.Members.Concat(right.Members)
+                            .Distinct().OrderBy(member => member.UnitId).ThenBy(member => member.GlobalId).ToList();
+                        left.ReplaceMembers(merged);
+                        foreach (QueueUnitIdentity member in right.Members)
+                            unitToCohort[member] = left.CohortId;
+                        cohorts.Remove(right.CohortId);
+                        loggedPredecessorRedispatchFailures.Remove(right.CohortId);
+                        loggedIsolationFailures.Remove(right.CohortId);
+                        LogTopology("COALESCE", left);
+                    }
+                }
+            }
+        }
+
+        private static bool HaveEquivalentExecutionState(TribeQueueState left, TribeQueueState right)
+        {
+            if (left.OwnerPlayerId != right.OwnerPlayerId ||
+                left.WaitForVanillaMovement != right.WaitForVanillaMovement ||
+                left.ActiveNeedsRedispatch != right.ActiveNeedsRedispatch ||
+                left.ExternalAttackNeedsRedispatch != right.ExternalAttackNeedsRedispatch ||
+                !SameCommand(left.Active, right.Active) ||
+                !SameCommand(left.ExternalAttack, right.ExternalAttack))
+                return false;
+            QueueCommand[] leftPending = left.PendingCommands.ToArray();
+            QueueCommand[] rightPending = right.PendingCommands.ToArray();
+            if (leftPending.Length != rightPending.Length)
+                return false;
+            for (int index = 0; index < leftPending.Length; index++)
+            {
+                if (!SameCommand(leftPending[index], rightPending[index]))
+                    return false;
+            }
+            return left.CurrentVisualPageNumber == right.CurrentVisualPageNumber &&
+                left.OutstandingVisualCount == right.OutstandingVisualCount &&
+                HaveEquivalentVisualState(left, right);
+        }
+
+        private static bool HaveEquivalentVisualState(TribeQueueState left, TribeQueueState right)
+        {
+            if (left.VisualPages.Count != right.VisualPages.Count)
+                return false;
+            for (int pageIndex = 0; pageIndex < left.VisualPages.Count; pageIndex++)
+            {
+                QueueVisualPage leftPage = left.VisualPages[pageIndex];
+                QueueVisualPage rightPage = right.VisualPages[pageIndex];
+                if (leftPage.PageNumber != rightPage.PageNumber || leftPage.Slots.Count != rightPage.Slots.Count)
+                    return false;
+                for (int slotIndex = 0; slotIndex < leftPage.Slots.Count; slotIndex++)
+                {
+                    QueueVisualSlot leftSlot = leftPage.Slots[slotIndex];
+                    QueueVisualSlot rightSlot = rightPage.Slots[slotIndex];
+                    if (leftSlot.Ordinal != rightSlot.Ordinal || leftSlot.Completed != rightSlot.Completed ||
+                        !SameCommand(leftSlot.Command, rightSlot.Command))
+                        return false;
+                }
+            }
+            return true;
+        }
+
+        private static bool SameCommand(QueueCommand left, QueueCommand right) =>
+            ReferenceEquals(left, right) || (left != null && left.HasSamePayload(right));
+
+        private void RemoveCohort(long cohortId)
+        {
+            if (!cohorts.TryGetValue(cohortId, out TribeQueueState state))
+                return;
+            foreach (QueueUnitIdentity member in state.Members)
+            {
+                if (unitToCohort.TryGetValue(member, out long mapped) && mapped == cohortId)
+                    unitToCohort.Remove(member);
+            }
+            cohorts.Remove(cohortId);
+            loggedPredecessorRedispatchFailures.Remove(cohortId);
+            loggedIsolationFailures.Remove(cohortId);
+        }
+
+        private bool HasQueuedUnitInTribe(int tribeId)
+        {
+            foreach (TribeQueueState state in cohorts.Values)
+            {
+                if (state.BoundTribeId == tribeId)
+                    return true;
+            }
+            return false;
+        }
+
+        private static bool TryGetLivingUnit(QueueUnitIdentity identity, out GameUnit* unit)
+        {
+            unit = null;
+            return GameUnitManagerAPI.Instance.IsValidId(identity.UnitId) &&
+                GameUnitManagerAPI.Instance.TryGetUnitById(identity.UnitId, out unit) && unit != null &&
+                unit->r_AliveState == AliveState.IsAlive && unit->r_GlobalId == identity.GlobalId;
+        }
+
+        private bool TryConsumeExpectedMoveSignal(
+            List<RuntimeExpectedMove> signals,
+            int tribeId,
+            QueueCommand command)
+        {
+            PruneExpectedMoveSignals(signals);
+            for (int index = 0; index < signals.Count; index++)
+            {
+                if (signals[index].TribeId == tribeId && signals[index].Command.HasSamePayload(command))
+                {
+                    signals.RemoveAt(index);
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private void PruneExpectedMoveSignals(List<RuntimeExpectedMove> signals)
+        {
+            for (int index = signals.Count - 1; index >= 0; index--)
+            {
+                if (signals[index].ExpiresAfterTick < currentTick)
+                    signals.RemoveAt(index);
+            }
+        }
+
+        private void LogTopology(string action, TribeQueueState state)
+        {
+            ulong hash = 1469598103934665603UL;
+            foreach (QueueUnitIdentity member in state.Members)
+            {
+                hash = (hash ^ unchecked((uint)member.UnitId)) * 1099511628211UL;
+                hash = (hash ^ member.GlobalId) * 1099511628211UL;
+            }
+            hash = (hash ^ unchecked((uint)state.BoundTribeId)) * 1099511628211UL;
+            hash = MixCommandHash(hash, state.Active);
+            foreach (QueueCommand command in state.PendingCommands)
+                hash = MixCommandHash(hash, command);
+            hash = (hash ^ unchecked((uint)state.CurrentVisualPageNumber)) * 1099511628211UL;
+            hash = (hash ^ unchecked((uint)state.OutstandingVisualCount)) * 1099511628211UL;
+            Shared.DebugLogHelper.LogInfo(log,
+                $"TOPOLOGY_{action}: cohort={state.CohortId}, tribeId={state.BoundTribeId}, " +
+                $"members={state.Members.Count}, hash={hash:X16}.");
+        }
+
+        private static ulong MixCommandHash(ulong hash, QueueCommand command)
+        {
+            if (command == null)
+                return (hash ^ uint.MaxValue) * 1099511628211UL;
+            hash = (hash ^ unchecked((uint)command.Kind)) * 1099511628211UL;
+            hash = (hash ^ unchecked((uint)command.Argument1)) * 1099511628211UL;
+            hash = (hash ^ unchecked((uint)command.Argument2)) * 1099511628211UL;
+            return (hash ^ unchecked((uint)command.Argument3)) * 1099511628211UL;
+        }
+
+        private static int CompareCohorts(TribeQueueState left, TribeQueueState right)
+        {
+            int owner = left.OwnerPlayerId.CompareTo(right.OwnerPlayerId);
+            if (owner != 0) return owner;
+            int unit = left.SmallestUnitId.CompareTo(right.SmallestUnitId);
+            if (unit != 0) return unit;
+            int global = left.SmallestGlobalId.CompareTo(right.SmallestGlobalId);
+            return global != 0 ? global : left.CohortId.CompareTo(right.CohortId);
+        }
+
+        private static List<QueueUnitIdentity> CaptureTribeMembers(int tribeId)
         {
             List<QueueUnitIdentity> members = new List<QueueUnitIdentity>();
-            int[] selectedUnitIds = GamePlayerManagerAPI.Instance.GetSelectedChimps();
-            for (int index = 0; index < selectedUnitIds.Length; index++)
+            Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
+            for (int spanIndex = 0; spanIndex < units.Length; spanIndex++)
             {
-                int unitId = selectedUnitIds[index];
-                if (!GameUnitManagerAPI.Instance.IsValidId(unitId) ||
-                    !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
-                    unit == null || unit->r_AliveState != AliveState.IsAlive || unit->r_TribeId != tribeId)
-                {
+                ref GameUnit unit = ref units[spanIndex];
+                if (unit.r_AliveState != AliveState.IsAlive || unit.r_TribeId != tribeId)
                     continue;
-                }
-                members.Add(new QueueUnitIdentity(unitId, unit->r_GlobalId));
+                int unitId = spanIndex + 1;
+                members.Add(new QueueUnitIdentity(unitId, unit.r_GlobalId));
             }
             return members;
         }
@@ -1136,14 +1886,28 @@ namespace QueueTest
             return false;
         }
 
-        private static bool TryGetMatchingAliveTribe(int tribeId, uint expectedGlobalId, out GameTribe* tribe)
+        private static bool TryGetAliveTribe(int tribeId, out GameTribe* tribe)
+        {
+            tribe = null;
+            return GameTribeManagerAPI.Instance.IsValidId(tribeId) &&
+                GameTribeManagerAPI.Instance.TryGetTribeById(tribeId, out tribe) &&
+                tribe != null &&
+                tribe->r_AliveState == AliveState.IsAlive;
+        }
+
+        private static bool TryGetMatchingAliveTribe(
+            int tribeId,
+            uint expectedGlobalId,
+            int expectedOwnerPlayerId,
+            out GameTribe* tribe)
         {
             tribe = null;
             return GameTribeManagerAPI.Instance.IsValidId(tribeId) &&
                 GameTribeManagerAPI.Instance.TryGetTribeById(tribeId, out tribe) &&
                 tribe != null &&
                 tribe->r_AliveState == AliveState.IsAlive &&
-                tribe->r_GlobalId == expectedGlobalId;
+                tribe->r_GlobalId == expectedGlobalId &&
+                tribe->r_PlayerIdOwner == expectedOwnerPlayerId;
         }
 
         private static bool IsTargetAlive(QueueCommand command)
@@ -1190,6 +1954,20 @@ namespace QueueTest
         private static bool IsShiftPressed() =>
             EditorDirector.instance != null && EditorDirector.instance.shiftPressed;
 
+        private bool IsRealMultiplayer()
+        {
+            bool realMultiplayer = Shared.GameModeHelper.Capture().IsRealMultiplayer;
+            if (lastRealMultiplayerMode != realMultiplayer)
+            {
+                lastRealMultiplayerMode = realMultiplayer;
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"MODE: realMultiplayer={realMultiplayer}, " +
+                    $"synchronizedQueueing={(realMultiplayer && multiplayerSynchronizationReady)}.");
+            }
+            return realMultiplayer;
+        }
+
         private readonly struct VisualQueueEntry
         {
             public VisualQueueEntry(
@@ -1225,6 +2003,20 @@ namespace QueueTest
 
             public uint TribeGlobalId { get; }
             public QueueCommand Command { get; }
+        }
+
+        private sealed class RuntimeExpectedMove
+        {
+            public RuntimeExpectedMove(int tribeId, QueueCommand command, int expiresAfterTick)
+            {
+                TribeId = tribeId;
+                Command = command;
+                ExpiresAfterTick = expiresAfterTick;
+            }
+
+            public int TribeId { get; }
+            public QueueCommand Command { get; }
+            public int ExpiresAfterTick { get; }
         }
     }
 }

@@ -55,6 +55,8 @@
     <Compile Include="src\PackManifestJson.cs" />
     <Compile Include="src\DuplicateInstallationDetector.cs" />
     <Compile Include="src\LobbyModHashWarning.cs" />
+    <Compile Include="src\LobbyModInventoryPublisher.cs" />
+    <Compile Include="src\ModInventoryCompatibility.cs" />
     <Compile Include="src\ModHashCompatibility.cs" />
     <Compile Include="src\ModSettingsSearchPolicy.cs" />
     <Compile Include="src\ModSettingsSearchViewModel.cs" />

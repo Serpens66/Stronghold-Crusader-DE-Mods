@@ -742,7 +742,8 @@ namespace MoveMoatTest
                                 PlayerId = pendingDig.PlayerId,
                                 FriendlyRouteQualified = true,
                                 OwnerRouteProbeCompleted = true,
-                                MoatWorkMovement = true
+                                MoatWorkMovement = true,
+                                MoatWorkTargetTileId = pendingDig.TileId
                             };
                             pendingPlan = plan;
                             LogResolvedDigMoatTarget(pendingDig);
@@ -792,7 +793,8 @@ namespace MoveMoatTest
                     PlayerId = pending.PlayerId,
                     FriendlyRouteQualified = true,
                     OwnerRouteProbeCompleted = true,
-                    MoatWorkMovement = true
+                    MoatWorkMovement = true,
+                    MoatWorkTargetTileId = pending.Approach.MoatTileId
                 };
                 if (pending.Approach.Summary.RouteFound)
                     LogResolvedFillMoatApproach(pending);

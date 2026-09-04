@@ -33,6 +33,7 @@ namespace SerpsModsHost
         private static PackLogListener packLogListener;
         private static IDisposable lobbyJoinSubscription;
         private static LobbyModHashWarning lobbyModHashWarning;
+        private static LobbyModInventoryPublisher lobbyModInventoryPublisher;
         private readonly List<PackModRecord> activeMods = new List<PackModRecord>();
         private readonly HashSet<string> expectedLogSources = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private SerpsModsDiagnosticsViewModel diagnostics;
@@ -65,6 +66,8 @@ namespace SerpsModsHost
             try
             {
                 lobbyModHashWarning = new LobbyModHashWarning(Logger);
+                lobbyModInventoryPublisher = new LobbyModInventoryPublisher(Logger);
+                lobbyModInventoryPublisher.Start();
                 lobbyJoinSubscription = Shared.LobbyLifecycle.SubscribeJoined(
                     Logger,
                     lobbyModHashWarning.CheckAfterJoin);
@@ -350,6 +353,12 @@ namespace SerpsModsHost
             {
                 ReportError("H005", $"Diagnostics UI registration failed: {ex}");
             }
+        }
+
+        private void OnApplicationQuit()
+        {
+            lobbyModInventoryPublisher?.Stop();
+            lobbyModInventoryPublisher = null;
         }
 
         private static void OnSearchTextBoxPreviewKeyDown(object sender, NoesisKeyEventArgs args)

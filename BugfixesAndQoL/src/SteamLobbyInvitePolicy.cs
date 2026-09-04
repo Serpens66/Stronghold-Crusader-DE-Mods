@@ -40,6 +40,7 @@ namespace BugfixesAndQoL
         internal bool PromptEnabled { get; set; }
         internal bool InviterIdValid { get; set; }
         internal bool LobbyIdValid { get; set; }
+        internal bool GameIdPresent { get; set; }
         internal bool GameIdValid { get; set; }
         internal uint InviteAppId { get; set; }
         internal uint CurrentAppId { get; set; }
@@ -64,10 +65,15 @@ namespace BugfixesAndQoL
                 return SteamInviteRejectionReason.InvalidInviterId;
             if (!input.LobbyIdValid)
                 return SteamInviteRejectionReason.InvalidLobbyId;
-            if (!input.GameIdValid)
-                return SteamInviteRejectionReason.InvalidGameId;
-            if (input.InviteAppId != input.CurrentAppId)
-                return SteamInviteRejectionReason.WrongApp;
+            // Steam can deliver LobbyInvite_t with m_ulGameID == 0. Treat that as
+            // missing evidence and validate the requested lobby metadata instead.
+            if (input.GameIdPresent)
+            {
+                if (!input.GameIdValid)
+                    return SteamInviteRejectionReason.InvalidGameId;
+                if (input.InviteAppId != input.CurrentAppId)
+                    return SteamInviteRejectionReason.WrongApp;
+            }
             if (input.IsSelfInvite)
                 return SteamInviteRejectionReason.SelfInvite;
             if (input.Relationship == SteamInviteRelationshipKind.BlockedOrIgnored)
@@ -80,6 +86,9 @@ namespace BugfixesAndQoL
                 return SteamInviteRejectionReason.LocallyBlacklisted;
             return SteamInviteRejectionReason.None;
         }
+
+        internal static bool HasRequiredFallbackLobbyMarker(bool gameIdPresent, string marker) =>
+            gameIdPresent || string.Equals(marker, "true", System.StringComparison.OrdinalIgnoreCase);
 
         internal static string Describe(SteamInviteRejectionReason reason)
         {

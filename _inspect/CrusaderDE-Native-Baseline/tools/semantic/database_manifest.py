@@ -14,6 +14,7 @@ from pathlib import Path
 CRLF = "\r\n"
 COUNT_TABLES = [
     "binaries", "functions", "function_claims", "claim_evidence", "hook_spans", "api_contracts",
+    "chore_opcodes", "chore_contracts", "chore_observations", "chore_evidence",
     "call_edges", "function_data_references", "xrefs", "strings", "globals",
     "managed_methods", "pinvokes", "managed_calls", "managed_native_links",
     "patterns", "data_types", "source_types", "type_fields", "vtable_members",
@@ -79,6 +80,14 @@ def input_paths(args):
         semantic / "knowledge" / "function-claims.jsonl",
         semantic / "knowledge" / "hook-spans.jsonl",
         semantic / "knowledge" / "api-contracts.jsonl",
+        semantic / "knowledge" / "chore-opcodes.jsonl",
+        semantic / "knowledge" / "chore-contracts.jsonl",
+        semantic / "knowledge" / "chore-observations.jsonl",
+        semantic / "knowledge" / "chore-evidence.jsonl",
+        semantic / "knowledge" / "CHORE_SYSTEM.md",
+        semantic / "knowledge" / "evidence" / "issue-110.json",
+        semantic / "knowledge" / "evidence" / "runtime-chore-probe-peer-a.log",
+        semantic / "knowledge" / "evidence" / "runtime-chore-probe-peer-b.log",
         comparison / "exports" / "semantic-functions.jsonl",
         comparison / "version-matches.jsonl",
         raw / "exports" / "xrefs.jsonl",

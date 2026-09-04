@@ -20,13 +20,14 @@ Semantic reverse-engineering baseline:
 
 - [Semantic overview and validation](./sem/FBCB9319/SEMANTIC_INFO.md)
 - [Semantic Ghidra project](./sem/FBCB9319/ghidra/CrusaderDE-Semantic.gpr)
-- [SQLite database manifest](./sem/FBCB9319/DATABASE_INFO.json); the 147 MB SQLite/FTS5 file is reproducible, retained locally and intentionally excluded from Git
+- [SQLite database manifest](./sem/FBCB9319/DATABASE_INFO.json); the 148 MB SQLite/FTS5 file is reproducible, retained locally and intentionally excluded from Git
 - [Semantic decompiler export](./sem/FBCB9319/exports/semantic-decompiled-functions.c)
 - [Managed-to-native records](./sem/FBCB9319/managed/BC8B6A39/managed-native-links.jsonl)
 - [XAML index](./sem/FBCB9319/resources/xaml-index.jsonl)
 - [Historical version report](./diff/17F8DD4A-FBCB9319/VERSION_DIFF.md)
 - [Read-only query entry point](./tools/semantic/query.ps1)
 - [Curated function claims](./sem/FBCB9319/knowledge/function-claims.jsonl), [machine hook spans](./sem/FBCB9319/knowledge/hook-spans.jsonl) and [API contracts](./sem/FBCB9319/knowledge/api-contracts.jsonl)
+- [Standalone Chore reconstruction](./sem/FBCB9319/knowledge/CHORE_SYSTEM.md) with structured [opcodes](./sem/FBCB9319/knowledge/chore-opcodes.jsonl), [contracts](./sem/FBCB9319/knowledge/chore-contracts.jsonl), [observations](./sem/FBCB9319/knowledge/chore-observations.jsonl) and [evidence](./sem/FBCB9319/knowledge/chore-evidence.jsonl)
 
 Typical query from the workspace root:
 
@@ -34,6 +35,8 @@ Typical query from the workspace root:
     & '_inspect\CrusaderDE-Native-Baseline\tools\semantic\query.ps1' claim fn-ai-get-buy-price
     & '_inspect\CrusaderDE-Native-Baseline\tools\semantic\query.ps1' hook 0x151436
     & '_inspect\CrusaderDE-Native-Baseline\tools\semantic\query.ps1' gaps
+    & '_inspect\CrusaderDE-Native-Baseline\tools\semantic\query.ps1' chore opcode 120
+    & '_inspect\CrusaderDE-Native-Baseline\tools\semantic\query.ps1' chore gaps
 
 If the local database is absent after a fresh clone, rebuild it from the tracked exports without changing the reference manifest:
 

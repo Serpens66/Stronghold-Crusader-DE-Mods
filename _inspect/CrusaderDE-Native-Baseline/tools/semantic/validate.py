@@ -114,7 +114,11 @@ def main():
     function_claims = jsonl(semantic / "knowledge" / "function-claims.jsonl")
     hook_spans = jsonl(semantic / "knowledge" / "hook-spans.jsonl")
     api_contracts = jsonl(semantic / "knowledge" / "api-contracts.jsonl")
-    if len(function_claims) != 14 or len(hook_spans) != 3:
+    chore_opcodes = jsonl(semantic / "knowledge" / "chore-opcodes.jsonl")
+    chore_contracts = jsonl(semantic / "knowledge" / "chore-contracts.jsonl")
+    chore_observations = jsonl(semantic / "knowledge" / "chore-observations.jsonl")
+    chore_evidence = jsonl(semantic / "knowledge" / "chore-evidence.jsonl")
+    if len(function_claims) != 26 or len(hook_spans) != 3:
         raise ValueError(f"Unexpected curated knowledge counts: claims={len(function_claims)} hookSpans={len(hook_spans)}")
     if any(row.get("contractId") == "gatehouse-query-unit-id" and row.get("status") == "active" for row in api_contracts):
         raise ValueError("The upstream-planned Gatehouse UnitId correction must not be published as an active baseline contract")
@@ -141,14 +145,18 @@ def main():
     foreign_keys = connection.execute("PRAGMA foreign_key_check").fetchall()
     fts_hits = connection.execute("SELECT COUNT(*) FROM function_search WHERE function_search MATCH 'operator'").fetchone()[0]
     counts = {name: connection.execute(f"SELECT COUNT(*) FROM {name}").fetchone()[0] for name in [
-        "functions", "function_claims", "claim_evidence", "hook_spans", "api_contracts", "function_data_references",
+        "functions", "function_claims", "claim_evidence", "hook_spans", "api_contracts", "chore_opcodes", "chore_contracts", "chore_observations", "chore_evidence", "function_data_references",
         "xrefs", "managed_methods", "pinvokes", "managed_native_links", "patterns",
         "source_types", "type_fields", "vtable_members", "xaml_resources", "version_matches"]}
     connection.close()
     if (integrity != "ok" or foreign_keys or fts_hits == 0 or counts["functions"] != 8954
             or counts["function_claims"] != len(function_claims)
             or counts["hook_spans"] != len(hook_spans)
-            or counts["api_contracts"] != len(api_contracts)):
+            or counts["api_contracts"] != len(api_contracts)
+            or counts["chore_opcodes"] != len(chore_opcodes)
+            or counts["chore_contracts"] != len(chore_contracts)
+            or counts["chore_observations"] != len(chore_observations)
+            or counts["chore_evidence"] != len(chore_evidence)):
         raise ValueError(f"SQLite validation failed: integrity={integrity}, foreignKeys={foreign_keys}, ftsHits={fts_hits}, counts={counts}")
 
     report = {
@@ -158,6 +166,8 @@ def main():
         "resolvedCrusaderPInvokes": len(crusader_pinvokes), "validXamlFiles": len(xaml_rows),
         "versionMatches": len(matches), "curatedFunctionClaims": len(function_claims),
         "curatedHookSpans": len(hook_spans), "curatedApiContracts": len(api_contracts),
+        "choreOpcodes": len(chore_opcodes), "choreContracts": len(chore_contracts),
+        "choreObservations": len(chore_observations), "choreEvidence": len(chore_evidence),
         "sqliteIntegrity": integrity, "foreignKeyErrors": len(foreign_keys),
         "ftsOperatorHits": fts_hits, "pathLimit": path_limit, "maxPathLength": len(str(longest_path)),
         "longestPath": str(longest_path), "filesOverPathLimit": len(over_limit), "counts": counts,

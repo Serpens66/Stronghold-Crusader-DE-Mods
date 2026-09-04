@@ -12,6 +12,7 @@ namespace BugfixesAndQoL
 {
     internal sealed class SteamLobbyInvitePrompt
     {
+        private const string ScriptExtenderLobbyMarker = "_SE_";
         private const int MaximumPendingInvites = 32;
         private static readonly long ValidationTimeoutTicks = Stopwatch.Frequency * 20L;
         private static readonly long DuplicateWindowTicks = Stopwatch.Frequency * 60L;
@@ -159,6 +160,25 @@ namespace BugfixesAndQoL
                         LogBlocked(context, "PrePromptValidation", reason, detail);
                         continue;
                     }
+                    if (!SteamLobbyInvitePolicy.HasRequiredFallbackLobbyMarker(
+                            context.GameIdPresent,
+                            SteamMatchmaking.GetLobbyData(new CSteamID(context.LobbyId), ScriptExtenderLobbyMarker)))
+                    {
+                        RemoveRecent(context.Key);
+                        LogBlocked(
+                            context,
+                            "LobbyResponse",
+                            SteamInviteRejectionReason.LobbyDataMismatch,
+                            "missing SHCDE-SE lobby marker for zero game ID fallback");
+                        continue;
+                    }
+                    if (!context.GameIdPresent)
+                    {
+                        Shared.DebugLogHelper.LogInfo(
+                            log,
+                            $"Validated Steam lobby invitation from {context.InviterId} for lobby {context.LobbyId} " +
+                            "through the SHCDE-SE lobby marker because Steam supplied gameId=0.");
+                    }
                     if (!IsSafeToShowPrompt(out string promptState))
                     {
                         RemoveRecent(context.Key);
@@ -198,6 +218,7 @@ namespace BugfixesAndQoL
                 PromptEnabled = settings.EnableIngameSteamInvitePrompt,
                 InviterIdValid = inviter.IsValid() && inviter.BIndividualAccount(),
                 LobbyIdValid = lobby.IsValid() && lobby.IsLobby(),
+                GameIdPresent = context.GameIdPresent,
                 GameIdValid = game.IsValid() && game.IsSteamApp(),
                 InviteAppId = context.InviteAppId,
                 CurrentAppId = context.CurrentAppId,
@@ -471,6 +492,7 @@ namespace BugfixesAndQoL
             internal ulong GameId { get; private set; }
             internal uint InviteAppId { get; set; }
             internal uint CurrentAppId { get; set; }
+            internal bool GameIdPresent => GameId != 0;
             internal string Key => InviterId.ToString(CultureInfo.InvariantCulture) + ":" +
                                    LobbyId.ToString(CultureInfo.InvariantCulture);
 

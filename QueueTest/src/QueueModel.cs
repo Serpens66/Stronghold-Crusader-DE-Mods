@@ -5,6 +5,26 @@ namespace QueueTest
 {
     internal static class QueueNativeContract
     {
+        public const int MoveChoreOpcode = 17;
+        public const int TargetOrderChoreOpcode = 36;
+        public const int WaypointAppendChoreOpcode = 71;
+        public const int MoveChoreHandlerRva = 0x10AE0;
+        public const int TargetOrderChoreHandlerRva = 0x12BF0;
+        public const int WaypointAppendChoreHandlerRva = 0x176C0;
+        public const int ChoreHandlerTableRva = 0x2C7A30;
+        public const int MoveChoreHandlerSize = 470;
+        public const int TargetOrderChoreHandlerSize = 450;
+        public const int WaypointAppendChoreHandlerSize = 487;
+        public const int RemoveUnitFromTribeRva = 0x123EA0;
+        public const int RemoveUnitFromTribeSize = 312;
+        public const int ChoreModeRva = 0x85F8FEC;
+        public const int ChoreTribeIdRva = 0x86C132C;
+        public const int ChoreCommandOrTileXRva = 0x86C1330;
+        public const int ChoreMoveTypeRva = 0x86C133C;
+        public const int MoveQueueMarker = 0x40;
+        public const int TargetQueueMarker = 0x80;
+        public const int ChorePackMode = 1;
+
         public const int GameTribePointerAdjustment = 0x2A;
         public const int ManagerRelativeWaypointIndexOffset = 0x5DC;
         public const int ManagerRelativeWaypointCountOffset = 0x5DE;
@@ -23,8 +43,56 @@ namespace QueueTest
         public const int GameBuildingGlobalIdOffset = 0xD8;
         public const int GameBuildingAttackMarkerOffset = 0xC2;
 
-        // Chore 8 stores the public, one-based game tribe ID. It is not a span index.
+        // Chore 71 stores the public, one-based game tribe ID. It is not a span index.
         public static int WaypointChoreValueToTribeId(int serializedTribeId) => serializedTribeId;
+
+        public static bool TryMarkMoveTypeForQueue(int serializedMoveType, out int markedMoveType)
+        {
+            int payloadByte = serializedMoveType & 0xFF;
+            // The sole Vanilla producer emits 0, 1 or 0x81. Bit 7 has its own meaning and
+            // is stripped by the unpack thunk; bit 6 reaches the move-order event unchanged.
+            if (serializedMoveType != payloadByte ||
+                (payloadByte != 0 && payloadByte != 1 && payloadByte != 0x81))
+            {
+                markedMoveType = serializedMoveType;
+                return false;
+            }
+
+            markedMoveType = payloadByte | MoveQueueMarker;
+            return true;
+        }
+
+        public static bool TryDecodeQueuedMoveType(int moveType, out int decodedMoveType)
+        {
+            // After Vanilla removes bit 7, marked player moves can only be 0x40 or 0x41.
+            if (moveType != MoveQueueMarker && moveType != (MoveQueueMarker | 1))
+            {
+                decodedMoveType = moveType;
+                return false;
+            }
+
+            decodedMoveType = moveType & ~MoveQueueMarker;
+            return true;
+        }
+
+        public static bool TryMarkTargetCommandForQueue(int command, out int markedCommand)
+        {
+            if (!QueueCommandClassifier.TryClassifyTarget(command, out _))
+            {
+                markedCommand = command;
+                return false;
+            }
+
+            markedCommand = command | TargetQueueMarker;
+            return true;
+        }
+
+        public static bool TryDecodeQueuedTargetCommand(int command, out int decodedCommand)
+        {
+            decodedCommand = command & ~TargetQueueMarker;
+            return (command & TargetQueueMarker) != 0 &&
+                QueueCommandClassifier.TryClassifyTarget(decodedCommand, out _);
+        }
     }
 
     internal enum QueueCommandKind
@@ -228,19 +296,29 @@ namespace QueueTest
         public TribeQueueState(
             uint tribeGlobalId,
             int maximumPendingCommands,
-            IEnumerable<QueueUnitIdentity> members = null)
+            IEnumerable<QueueUnitIdentity> members = null,
+            int ownerPlayerId = 0,
+            long cohortId = 0,
+            int boundTribeId = 0)
         {
             if (maximumPendingCommands <= 0)
                 throw new ArgumentOutOfRangeException(nameof(maximumPendingCommands));
 
             TribeGlobalId = tribeGlobalId;
+            OwnerPlayerId = ownerPlayerId;
+            CohortId = cohortId;
+            BoundTribeId = boundTribeId;
             MaximumPendingCommands = maximumPendingCommands;
             this.members = members == null
                 ? new List<QueueUnitIdentity>()
                 : new List<QueueUnitIdentity>(members);
+            this.members.Sort(QueueUnitIdentity.Compare);
         }
 
         public uint TribeGlobalId { get; private set; }
+        public long CohortId { get; }
+        public int BoundTribeId { get; private set; }
+        public int OwnerPlayerId { get; }
         public IReadOnlyList<QueueUnitIdentity> Members => members;
         public int MaximumPendingCommands { get; }
         public int PendingCount => pending.Count;
@@ -249,6 +327,7 @@ namespace QueueTest
         public int ExpectedMoveEventCount => expectedMoveEvents.Count;
         public QueueCommand Active { get; private set; }
         public QueueCommand ExternalAttack { get; set; }
+        public bool ExternalAttackNeedsRedispatch { get; private set; }
         public bool WaitForVanillaMovement { get; set; }
         public bool ActiveNeedsRedispatch { get; private set; }
         public int CurrentVisualPageNumber =>
@@ -261,15 +340,98 @@ namespace QueueTest
                 ? Array.Empty<QueueVisualSlot>()
                 : visualPages[currentVisualPageIndex].Slots;
 
-        public bool MatchesTribe(uint globalId) => TribeGlobalId == globalId;
+        public bool MatchesTribe(uint globalId, int ownerPlayerId) =>
+            TribeGlobalId == globalId && OwnerPlayerId == ownerPlayerId;
 
-        public void RebindTribe(uint globalId)
+        public void RebindTribe(int tribeId, uint globalId)
         {
+            bool changed = BoundTribeId != tribeId || TribeGlobalId != globalId;
+            BoundTribeId = tribeId;
             TribeGlobalId = globalId;
-            ActiveNeedsRedispatch = Active != null;
+            if (changed && Active != null)
+                ActiveNeedsRedispatch = true;
+            if (changed && ExternalAttack != null)
+                ExternalAttackNeedsRedispatch = true;
+        }
+
+        public void ReplaceMembers(IEnumerable<QueueUnitIdentity> replacements)
+        {
+            members.Clear();
+            if (replacements != null)
+                members.AddRange(replacements);
+            members.Sort(QueueUnitIdentity.Compare);
+        }
+
+        public bool RemoveMember(QueueUnitIdentity member) => members.Remove(member);
+
+        public bool ContainsMember(QueueUnitIdentity member) => members.Contains(member);
+
+        public int SmallestUnitId => members.Count == 0 ? int.MaxValue : members[0].UnitId;
+
+        public uint SmallestGlobalId => members.Count == 0 ? uint.MaxValue : members[0].GlobalId;
+
+        public bool CanEnqueue => OutstandingVisualCount < MaximumPendingCommands;
+
+        // Branches own their mutable progress containers, while immutable QueueCommand
+        // instances are deliberately shared. This keeps splits cheap and independent.
+        public TribeQueueState CloneForBranch(
+            long cohortId,
+            int tribeId,
+            uint tribeGlobalId,
+            IEnumerable<QueueUnitIdentity> branchMembers)
+        {
+            TribeQueueState clone = new TribeQueueState(
+                tribeGlobalId,
+                MaximumPendingCommands,
+                branchMembers,
+                OwnerPlayerId,
+                cohortId,
+                tribeId)
+            {
+                Active = Active,
+                ExternalAttack = ExternalAttack,
+                WaitForVanillaMovement = WaitForVanillaMovement,
+                ActiveNeedsRedispatch = Active != null || ActiveNeedsRedispatch,
+                ExternalAttackNeedsRedispatch = ExternalAttack != null || ExternalAttackNeedsRedispatch,
+                currentVisualPageIndex = currentVisualPageIndex,
+                nextVisualPageNumber = nextVisualPageNumber,
+                outstandingVisualCount = outstandingVisualCount
+            };
+
+            foreach (QueueCommand command in pending)
+                clone.pending.Enqueue(command);
+            foreach (ExpectedMoveSignal signal in expectedMoveChores)
+                clone.expectedMoveChores.Add(signal);
+            foreach (ExpectedMoveSignal signal in expectedMoveEvents)
+                clone.expectedMoveEvents.Add(signal);
+
+            foreach (QueueVisualPage sourcePage in visualPages)
+            {
+                QueueVisualPage targetPage = new QueueVisualPage(sourcePage.PageNumber);
+                clone.visualPages.Add(targetPage);
+                foreach (QueueVisualSlot sourceSlot in sourcePage.Slots)
+                {
+                    QueueVisualSlot targetSlot = targetPage.Add(
+                        sourceSlot.Command,
+                        sourceSlot.IsVanillaWaypoint,
+                        sourceSlot.NativeWaypointIndex,
+                        sourceSlot.Completed);
+                    if (!targetSlot.IsVanillaWaypoint)
+                        clone.visualSlots.Add(targetSlot.Command, targetSlot);
+                }
+            }
+            return clone;
         }
 
         public void MarkActiveRedispatched() => ActiveNeedsRedispatch = false;
+
+        public void MarkExternalAttackRedispatched() => ExternalAttackNeedsRedispatch = false;
+
+        public void CompleteExternalAttack()
+        {
+            ExternalAttack = null;
+            ExternalAttackNeedsRedispatch = false;
+        }
 
         public bool SharesMemberWith(IEnumerable<QueueUnitIdentity> candidates)
         {
@@ -286,6 +448,8 @@ namespace QueueTest
             }
             return false;
         }
+
+        public IEnumerable<QueueCommand> PendingCommands => pending;
 
         public bool TryEnqueue(QueueCommand command)
         {
@@ -498,6 +662,30 @@ namespace QueueTest
         public int ExpiresAfterTick { get; }
     }
 
+    internal static class QueueCohortOperations
+    {
+        public static bool TryEnqueueAtomically(
+            IReadOnlyList<TribeQueueState> cohorts,
+            QueueCommand command)
+        {
+            if (cohorts == null)
+                throw new ArgumentNullException(nameof(cohorts));
+            if (command == null)
+                throw new ArgumentNullException(nameof(command));
+            for (int index = 0; index < cohorts.Count; index++)
+            {
+                if (cohorts[index] == null || !cohorts[index].CanEnqueue)
+                    return false;
+            }
+            for (int index = 0; index < cohorts.Count; index++)
+            {
+                if (!cohorts[index].TryEnqueue(command))
+                    throw new InvalidOperationException("Atomic queue capacity changed during enqueue.");
+            }
+            return true;
+        }
+    }
+
     internal readonly struct QueueUnitIdentity : IEquatable<QueueUnitIdentity>
     {
         public QueueUnitIdentity(int unitId, uint globalId)
@@ -516,6 +704,12 @@ namespace QueueTest
             obj is QueueUnitIdentity other && Equals(other);
 
         public override int GetHashCode() => (UnitId * 397) ^ unchecked((int)GlobalId);
+
+        public static int Compare(QueueUnitIdentity left, QueueUnitIdentity right)
+        {
+            int byId = left.UnitId.CompareTo(right.UnitId);
+            return byId != 0 ? byId : left.GlobalId.CompareTo(right.GlobalId);
+        }
 
     }
 }

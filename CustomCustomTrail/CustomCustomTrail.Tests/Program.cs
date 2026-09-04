@@ -747,6 +747,14 @@ static void TestLocalActivationSetting()
         "dynamic Trail compatibility does not enforce the safe mission-preset contract");
     Assert(coordinator.Contains("GetRegistrationGroups()") && coordinator.Contains("group.Skip(1).Any()"),
         "duplicate mod-settings registrations are not rejected per plugin GUID");
+    Assert(coordinator.Contains("DebugLogHelper.LogInfo(") &&
+        coordinator.Contains("are not included in Trail mission presets") &&
+        !coordinator.Contains("Trail mod-settings compatibility rejected"),
+        "unsupported Trail settings are not reported as informational exclusions");
+    Assert(plugin.Contains("ScheduleDeferredCompatibilityRefresh()") &&
+        plugin.Contains("Application.onBeforeRender += RefreshCompatibilityAfterRegistrations") &&
+        plugin.Contains("Application.onBeforeRender -= RefreshCompatibilityAfterRegistrations"),
+        "Trail compatibility is not refreshed once after all LibraryLoaded registrations");
     Assert(coordinator.Contains("IsRegistrationGroupOptedOut(group)") &&
         plugin.Contains("public const bool CustomCustomTrailModSettingsOptOut = true;") &&
         hostPlugin.Contains("public const bool CustomCustomTrailModSettingsOptOut = true;"),

@@ -192,6 +192,12 @@ public static class SerpLocalization
     public const string SerpsModsScriptExtenderMinimumWarning = "SerpsModsHost.ScriptExtenderMinimumWarning";
     public const string SerpsModsScriptExtenderCheckFailed = "SerpsModsHost.ScriptExtenderCheckFailed";
     public const string SerpsModsLobbyHashMismatch = "SerpsModsHost.LobbyHashMismatch";
+    public const string SerpsModsLobbyHostOnly = "SerpsModsHost.LobbyHostOnly";
+    public const string SerpsModsLobbyClientOnly = "SerpsModsHost.LobbyClientOnly";
+    public const string SerpsModsLobbyVersions = "SerpsModsHost.LobbyVersions";
+    public const string SerpsModsLobbyMoreDifferences = "SerpsModsHost.LobbyMoreDifferences";
+    public const string SerpsModsLobbyInventoryUnavailable = "SerpsModsHost.LobbyInventoryUnavailable";
+    public const string SerpsModsLobbyHashFolders = "SerpsModsHost.LobbyHashFolders";
     public const string SerpsModsSearchLabel = "SerpsModsHost.SearchLabel";
     public const string SerpsModsSearchHelp = "SerpsModsHost.SearchHelp";
     public const string SerpsModsSearchClearHelp = "SerpsModsHost.SearchClearHelp";
@@ -263,6 +269,12 @@ public static class SerpLocalization
         { SerpsModsScriptExtenderMinimumWarning, "WARNING: Script Extender {Installed} is not supported by this Serps Mods version. Install Script Extender {Minimum} or newer to make sure all mods work correctly." },
         { SerpsModsScriptExtenderCheckFailed, "WARNING: Script Extender compatibility could not be verified. Make sure a supported Script Extender version is installed. Reason: {Reason}" },
         { SerpsModsLobbyHashMismatch, "ERROR: The installed mods of {Player} differ from lobby host {Host} ({Player}: {PlayerHash}, {Host}: {HostHash})." },
+        { SerpsModsLobbyHostOnly, "Host only" },
+        { SerpsModsLobbyClientOnly, "Only {Player}" },
+        { SerpsModsLobbyVersions, "Different versions" },
+        { SerpsModsLobbyMoreDifferences, "{Count} more differences are listed in the BepInEx log." },
+        { SerpsModsLobbyInventoryUnavailable, "The exact inventory is unavailable." },
+        { SerpsModsLobbyHashFolders, "Check BepInEx\\plugins, the local AppData\\LocalLow\\Firefly Studios\\Stronghold Crusader Definitive Edition\\CustomLords folder, and custom-lord content under Steam\\steamapps\\workshop\\content\\3024040." },
         { SerpsModsSearchLabel, "Search settings" },
         { SerpsModsSearchHelp, "Searches the localized setting titles of all registered mods." },
         { SerpsModsSearchClearHelp, "Clears the mod-settings search." },

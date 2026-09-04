@@ -20,7 +20,10 @@ internal static class Program
         CheckVisualFlagFiltering();
         CheckTribeReuseGuard();
         CheckUnitIdentityBinding();
+        CheckUnitStableBranching();
+        CheckAtomicCohortEnqueue();
         CheckNativeLayoutTranslation();
+        CheckMultiplayerChoreMarkers();
         CheckMoveChoreDeduplication();
         CheckFirstShiftMoveTakeover();
         CheckNativeReference();
@@ -91,9 +94,10 @@ internal static class Program
 
     private static void CheckTribeReuseGuard()
     {
-        TribeQueueState state = new TribeQueueState(0xAABBCCDD, 1);
-        Check(state.MatchesTribe(0xAABBCCDD), "same tribe global ID");
-        Check(!state.MatchesTribe(0xAABBCCDE), "reused tribe slot rejected");
+        TribeQueueState state = new TribeQueueState(0xAABBCCDD, 1, ownerPlayerId: 3);
+        Check(state.MatchesTribe(0xAABBCCDD, 3), "same tribe global ID and owner");
+        Check(!state.MatchesTribe(0xAABBCCDE, 3), "reused tribe slot rejected");
+        Check(!state.MatchesTribe(0xAABBCCDD, 4), "changed tribe owner rejected");
     }
 
     private static void CheckVisualQueueProjection()
@@ -276,20 +280,74 @@ internal static class Program
     {
         QueueUnitIdentity first = new QueueUnitIdentity(7, 101);
         QueueUnitIdentity reused = new QueueUnitIdentity(7, 102);
-        TribeQueueState state = new TribeQueueState(3, 1, new[] { first });
+        TribeQueueState state = new TribeQueueState(3, 1, new[] { first }, ownerPlayerId: 6);
         Check(state.Members.Count == 1 && state.Members[0].Equals(first), "unit identity captured");
         Check(state.SharesMemberWith(new[] { first }), "same unit identity matches queue");
         Check(!state.SharesMemberWith(new[] { reused }), "reused unit slot rejected");
-        state.RebindTribe(4);
-        Check(state.MatchesTribe(4), "queue tribe binding migrated");
-        Check(!state.MatchesTribe(3), "old tribe binding rejected after migration");
+        state.RebindTribe(14, 4);
+        Check(state.MatchesTribe(4, 6), "queue tribe binding migrated without changing owner");
+        Check(!state.MatchesTribe(3, 6), "old tribe binding rejected after migration");
+        Check(!state.MatchesTribe(4, 5), "migration cannot cross owner boundary");
         Check(!state.ActiveNeedsRedispatch, "idle migration needs no redispatch");
         Check(state.TryEnqueue(new QueueCommand(QueueCommandKind.AttackUnit, 2, 20)), "migration enqueue");
         Check(state.TryActivateNext(out _), "migration activate");
-        state.RebindTribe(5);
+        state.RebindTribe(15, 5);
         Check(state.ActiveNeedsRedispatch, "active command marked for redispatch");
         state.MarkActiveRedispatched();
         Check(!state.ActiveNeedsRedispatch, "active redispatch acknowledged");
+    }
+
+    private static void CheckUnitStableBranching()
+    {
+        QueueUnitIdentity first = new QueueUnitIdentity(3, 30);
+        QueueUnitIdentity second = new QueueUnitIdentity(4, 40);
+        QueueCommand move = new QueueCommand(QueueCommandKind.Move, 100, 101, 1);
+        QueueCommand attack = new QueueCommand(QueueCommandKind.AttackBuilding, 8, 80);
+        TribeQueueState source = new TribeQueueState(
+            70, 128, new[] { second, first }, ownerPlayerId: 2, cohortId: 9, boundTribeId: 7);
+        Check(source.Members[0].Equals(first), "cohort members are deterministically sorted");
+        Check(source.TryEnqueue(move) && source.TryEnqueue(attack), "cohort queue initialized");
+        Check(source.TryActivateNext(out QueueCommand active) && ReferenceEquals(active, move),
+            "cohort active command initialized");
+
+        TribeQueueState branch = source.CloneForBranch(10, 8, 71, new[] { second });
+        source.ReplaceMembers(new[] { first });
+        source.RebindTribe(7, 70);
+        Check(branch.CohortId == 10 && branch.BoundTribeId == 8 && branch.Members.Single().Equals(second),
+            "split branch receives its own deterministic identity and members");
+        Check(ReferenceEquals(source.Active, branch.Active) &&
+            ReferenceEquals(source.PendingCommands.Single(), branch.PendingCommands.Single()),
+            "split branches share immutable command objects");
+        branch.CompleteActive();
+        Check(source.Active != null && branch.Active == null,
+            "split branches advance independently");
+        Check(!source.CurrentVisualSlots[0].Completed && branch.CurrentVisualSlots[0].Completed,
+            "split branches own independent visual progress");
+        Check(!first.Equals(new QueueUnitIdentity(3, 31)),
+            "unit global ID prevents slot reuse from inheriting a queue");
+    }
+
+    private static void CheckAtomicCohortEnqueue()
+    {
+        TribeQueueState available = new TribeQueueState(1, 2, cohortId: 1);
+        TribeQueueState full = new TribeQueueState(2, 1, cohortId: 2);
+        Check(full.TryEnqueue(new QueueCommand(QueueCommandKind.Move, 1, 1)),
+            "atomic test fills one cohort");
+        QueueCommand rejected = new QueueCommand(QueueCommandKind.AttackUnit, 4, 40);
+        Check(!QueueCohortOperations.TryEnqueueAtomically(
+                new[] { available, full }, rejected),
+            "group enqueue rejects atomically when one cohort is full");
+        Check(available.PendingCount == 0 && full.PendingCount == 1,
+            "atomic rejection does not mutate any cohort");
+
+        TribeQueueState second = new TribeQueueState(3, 2, cohortId: 3);
+        QueueCommand shared = new QueueCommand(QueueCommandKind.Move, 10, 11);
+        Check(QueueCohortOperations.TryEnqueueAtomically(
+                new[] { available, second }, shared),
+            "group enqueue succeeds for all available cohorts");
+        Check(ReferenceEquals(available.PendingCommands.Single(), shared) &&
+            ReferenceEquals(second.PendingCommands.Single(), shared),
+            "atomic group enqueue shares the immutable command object");
     }
 
     private static void CheckNativeLayoutTranslation()
@@ -322,6 +380,70 @@ internal static class Program
             QueueNativeContract.GameBuildingGlobalIdOffset -
                 QueueNativeContract.GameBuildingAttackMarkerOffset == 0x16,
             "GameBuilding marker/global native displacement");
+        Check(QueueNativeContract.MoveChoreOpcode == 17, "first Move uses Chore 17");
+        Check(QueueNativeContract.TargetOrderChoreOpcode == 36, "target order uses Chore 36");
+        Check(QueueNativeContract.WaypointAppendChoreOpcode == 71, "Shift waypoint uses Chore 71");
+        Check(QueueNativeContract.MoveChoreHandlerRva == 0x10AE0, "Chore 17 handler RVA");
+        Check(QueueNativeContract.TargetOrderChoreHandlerRva == 0x12BF0, "Chore 36 handler RVA");
+        Check(QueueNativeContract.WaypointAppendChoreHandlerRva == 0x176C0, "Chore 71 handler RVA");
+        Check(QueueNativeContract.ChoreHandlerTableRva == 0x2C7A30, "Chore handler table RVA");
+        Check(QueueNativeContract.MoveChoreHandlerSize == 470, "Chore 17 handler size");
+        Check(QueueNativeContract.TargetOrderChoreHandlerSize == 450, "Chore 36 handler size");
+        Check(QueueNativeContract.WaypointAppendChoreHandlerSize == 487, "Chore 71 handler size");
+        Check(QueueNativeContract.RemoveUnitFromTribeRva == 0x123EA0,
+            "native remove-unit-from-tribe RVA");
+        Check(QueueNativeContract.RemoveUnitFromTribeSize == 312,
+            "native remove-unit-from-tribe size");
+        Check(QueueNativeContract.ChoreModeRva == 0x85F8FEC, "Chore mode global RVA");
+        Check(QueueNativeContract.ChoreTribeIdRva == 0x86C132C, "Chore tribe global RVA");
+        Check(QueueNativeContract.ChoreCommandOrTileXRva == 0x86C1330,
+            "Chore command/tile-X global RVA");
+        Check(QueueNativeContract.ChoreMoveTypeRva == 0x86C133C, "Chore Move type global RVA");
+    }
+
+    private static void CheckMultiplayerChoreMarkers()
+    {
+        int[] producerMoveTypes = { 0, 1, 0x81 };
+        foreach (int moveType in producerMoveTypes)
+        {
+            Check(QueueNativeContract.TryMarkMoveTypeForQueue(moveType, out int marked),
+                $"Chore 17 producer value 0x{moveType:X} accepts queue marker");
+            Check((marked & QueueNativeContract.MoveQueueMarker) != 0,
+                $"Chore 17 producer value 0x{moveType:X} carries bit 0x40");
+            int unpackedMoveType = marked & ~0x80;
+            Check(QueueNativeContract.TryDecodeQueuedMoveType(unpackedMoveType, out int decoded) &&
+                decoded == (moveType & ~0x80),
+                $"Chore 17 producer value 0x{moveType:X} survives Vanilla bit-7 unpacking");
+        }
+        Check(!QueueNativeContract.TryMarkMoveTypeForQueue(2, out _),
+            "unknown Chore 17 producer value rejected");
+        Check(!QueueNativeContract.TryMarkMoveTypeForQueue(0x100, out _),
+            "non-byte Chore 17 value rejected");
+        Check(!QueueNativeContract.TryMarkMoveTypeForQueue(0x40, out _),
+            "already marked Chore 17 value rejected");
+        Check(QueueNativeContract.TryDecodeQueuedMoveType(0x40, out int normalMove) && normalMove == 0,
+            "marked normal Move roundtrip");
+        Check(QueueNativeContract.TryDecodeQueuedMoveType(0x41, out int alternateMove) && alternateMove == 1,
+            "marked alternate Move roundtrip");
+        Check(!QueueNativeContract.TryDecodeQueuedMoveType(0xC1, out _),
+            "Vanilla high bit cannot masquerade as a queued Move");
+        Check(!QueueNativeContract.TryDecodeQueuedMoveType(1, out _),
+            "unmarked Move remains Vanilla");
+
+        int[] targetCommands = { 4, 9, 36 };
+        foreach (int command in targetCommands)
+        {
+            Check(QueueNativeContract.TryMarkTargetCommandForQueue(command, out int marked),
+                $"supported Chore 36 command {command} accepts queue marker");
+            Check(QueueNativeContract.TryDecodeQueuedTargetCommand(marked, out int decoded) && decoded == command,
+                $"supported Chore 36 command {command} roundtrip");
+        }
+        Check(!QueueNativeContract.TryMarkTargetCommandForQueue(5, out _),
+            "unsupported Chore 36 command is not marked");
+        Check(!QueueNativeContract.TryDecodeQueuedTargetCommand(0x80 | 5, out _),
+            "marked unsupported Chore 36 command is rejected");
+        Check(!QueueNativeContract.TryDecodeQueuedTargetCommand(36, out _),
+            "unmarked target command remains Vanilla");
     }
 
     private static void CheckMoveChoreDeduplication()
@@ -415,6 +537,31 @@ internal static class Program
         string actualSha = Convert.ToHexString(SHA256.HashData(image));
         Check(string.Equals(actualSha, expectedSha, StringComparison.Ordinal), "canonical native SHA-256");
 
+        CheckNativeHandler(
+            image,
+            QueueNativeContract.MoveChoreHandlerRva,
+            QueueNativeContract.MoveChoreHandlerSize,
+            Convert.FromHexString(
+                "40534883EC308B0500855E08C705FE845E080800000083F8010F85A400000033DB448D4001448BC8895C2420488D1519086B08488D0D06385608E8D1EA0000"),
+            Convert.FromHexString("0889442420E8505418004883C4305BC3"),
+            "Chore 17 handler");
+        CheckNativeHandler(
+            image,
+            QueueNativeContract.TargetOrderChoreHandlerRva,
+            QueueNativeContract.TargetOrderChoreHandlerSize,
+            Convert.FromHexString(
+                "40534883EC308B05F0635E08C705EE635E080F00000083F8010F85A300000033DB448D4001448BC8895C2420488D1509E76A08488D0DF6165608E8C1C90000"),
+            Convert.FromHexString("0595E56A0889442420E8C46E18004883C4305BC3"),
+            "Chore 36 handler");
+        CheckNativeHandler(
+            image,
+            QueueNativeContract.WaypointAppendChoreHandlerRva,
+            QueueNativeContract.WaypointAppendChoreHandlerSize,
+            Convert.FromHexString(
+                "4883EC388B0522195E08C70520195E080800000083F8010F85AD00000048895C2430448D400133DB488D153D9C6A0844"),
+            Convert.FromHexString("0889442420E8FE4A10004883C438C3"),
+            "Chore 71 handler");
+
         int rawOffset = RvaToRawOffset(image, functionRva);
         Check(expectedBody.Length == 71, "waypoint helper function length");
         Check(image.AsSpan(rawOffset, expectedBody.Length).SequenceEqual(expectedBody), "waypoint helper exact body");
@@ -473,6 +620,33 @@ internal static class Program
             "overlay draw submission unique 48-byte signature");
         Check(image[drawSubmissionRawOffset + expectedDrawSubmissionBody.Length] == 0xCC,
             "overlay draw submission RET boundary");
+
+        CheckNativeHandler(
+            image,
+            QueueNativeContract.RemoveUnitFromTribeRva,
+            QueueNativeContract.RemoveUnitFromTribeSize,
+            Convert.FromHexString(
+                "48895C2408488974241048897C241841564883EC204C63CA4C8D3541C1EDFF4963F8418BC14969F19004000099488BD9"),
+            Convert.FromHexString(
+                "FF8BD7488BCB488B5C2430488B742438488B7C24404883C420415EE948A8FFFF"),
+            "remove-unit-from-tribe helper");
+    }
+
+    private static void CheckNativeHandler(
+        byte[] image,
+        int rva,
+        int functionSize,
+        byte[] signature,
+        byte[] tail,
+        string name)
+    {
+        int rawOffset = RvaToRawOffset(image, rva);
+        Check(image.AsSpan(rawOffset, signature.Length).SequenceEqual(signature), $"{name} exact signature");
+        Check(CountOccurrences(image, signature) == 1, $"{name} unique signature");
+        Check(
+            image.AsSpan(rawOffset + functionSize - tail.Length, tail.Length).SequenceEqual(tail),
+            $"{name} exact tail and RET");
+        Check(image[rawOffset + functionSize] == 0xCC, $"{name} exact end boundary");
     }
 
     private static int CountOccurrences(byte[] image, byte[] pattern)

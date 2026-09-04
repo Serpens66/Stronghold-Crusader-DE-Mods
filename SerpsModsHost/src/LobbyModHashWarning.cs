@@ -2,6 +2,8 @@ using BepInEx.Logging;
 using SHCDESE.API;
 using Steamworks;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 
 namespace SerpsModsHost
@@ -60,6 +62,9 @@ namespace SerpsModsHost
                     return;
                 }
 
+                string messageDetails = BuildInventoryDetails(lobby.id, localName);
+                message += messageDetails + " " + SerpLocalization.Get(SerpLocalization.SerpsModsLobbyHashFolders);
+
                 Platform_Multiplayer.Instance.SendLobbyChatMessage(message);
                 Shared.DebugLogHelper.LogError(
                     log,
@@ -76,6 +81,80 @@ namespace SerpsModsHost
 
         private static string FormatHash(string value) =>
             string.IsNullOrWhiteSpace(value) ? "missing" : value;
+
+        private string BuildInventoryDetails(CSteamID lobbyId, string localName)
+        {
+            string encoded = SteamMatchmaking.GetLobbyData(
+                lobbyId,
+                LobbyModInventoryPublisher.LobbyInventoryToken);
+            if (!ModInventoryCompatibility.TryDecode(encoded, out List<ModInventoryEntry> hostEntries))
+            {
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    "Exact lobby mod inventory is unavailable or invalid; using the folder guidance fallback.");
+                return " " + SerpLocalization.Get(SerpLocalization.SerpsModsLobbyInventoryUnavailable);
+            }
+
+            List<ModInventoryEntry> localEntries = LobbyModInventoryPublisher.Capture();
+            ModInventoryDifference difference = ModInventoryCompatibility.Compare(hostEntries, localEntries);
+            if (difference.Count == 0)
+            {
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    "Lobby mod hashes differ although the published GUID/version inventories match.");
+                return " " + SerpLocalization.Get(SerpLocalization.SerpsModsLobbyInventoryUnavailable);
+            }
+
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                "Full lobby mod inventory difference: hostOnly=[" + string.Join("; ", difference.HostOnly) +
+                "], clientOnly=[" + string.Join("; ", difference.ClientOnly) +
+                "], versions=[" + string.Join("; ", difference.VersionMismatches) + "].");
+
+            int remaining = 4;
+            var sections = new List<string>();
+            AddSection(
+                sections,
+                SerpLocalization.Get(SerpLocalization.SerpsModsLobbyHostOnly),
+                difference.HostOnly,
+                ref remaining);
+            AddSection(
+                sections,
+                SerpLocalization.Get(
+                    SerpLocalization.SerpsModsLobbyClientOnly,
+                    "Player", localName),
+                difference.ClientOnly,
+                ref remaining);
+            AddSection(
+                sections,
+                SerpLocalization.Get(SerpLocalization.SerpsModsLobbyVersions),
+                difference.VersionMismatches,
+                ref remaining);
+
+            int shown = 4 - remaining;
+            int omitted = difference.Count - shown;
+            string result = " " + string.Join(" ", sections);
+            if (omitted > 0)
+            {
+                result += " " + SerpLocalization.Get(
+                    SerpLocalization.SerpsModsLobbyMoreDifferences,
+                    "Count", omitted.ToString());
+            }
+            return result;
+        }
+
+        private static void AddSection(
+            ICollection<string> sections,
+            string label,
+            IReadOnlyCollection<string> values,
+            ref int remaining)
+        {
+            if (remaining <= 0 || values.Count == 0)
+                return;
+            string[] shown = values.Take(remaining).ToArray();
+            remaining -= shown.Length;
+            sections.Add(label + ": " + string.Join(", ", shown) + ".");
+        }
 
         private static Exception Unwrap(Exception ex) =>
             ex is TargetInvocationException invocation && invocation.InnerException != null

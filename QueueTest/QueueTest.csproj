@@ -47,6 +47,10 @@
       <HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="com.rlabrecque.steamworks.net">
+      <HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\com.rlabrecque.steamworks.net.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="UnityEngine">
       <HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.dll</HintPath>
       <Private>false</Private>
@@ -88,6 +92,9 @@
   <ItemGroup>
     <Compile Include="..\Shared\DebugLogHelper.cs">
       <Link>Shared\DebugLogHelper.cs</Link>
+    </Compile>
+    <Compile Include="..\Shared\GameModeHelper.cs">
+      <Link>Shared\GameModeHelper.cs</Link>
     </Compile>
     <Compile Include="..\Shared\NativePatternResolver.cs">
       <Link>Shared\NativePatternResolver.cs</Link>

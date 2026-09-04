@@ -194,9 +194,9 @@ namespace CustomCustomTrail
                     if (!lastCompatibilityFailures.TryGetValue(item.ModId, out string previous) ||
                         !string.Equals(previous, item.IncompatibilityReason, StringComparison.Ordinal))
                     {
-                        DebugLogHelper.LogWarning(
+                        DebugLogHelper.LogInfo(
                             log,
-                            $"Trail mod-settings compatibility rejected [{item.DisplayName}] ({item.ModId}): " +
+                            $"Trail mod settings [{item.DisplayName}] ({item.ModId}) are not included in Trail mission presets: " +
                             item.IncompatibilityReason + ".");
                     }
                 }

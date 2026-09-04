@@ -5169,6 +5169,19 @@ internal static class Program
         AssertSteamInviteReason(input, SteamInviteRejectionReason.LocallyBlacklisted,
             value => { value.LocallyBlacklisted = true; return value; });
 
+        SteamInviteValidationInput missingGameId = input;
+        missingGameId.GameIdPresent = false;
+        missingGameId.GameIdValid = false;
+        missingGameId.InviteAppId = 0;
+        Check(SteamLobbyInvitePolicy.Validate(missingGameId) == SteamInviteRejectionReason.None,
+            "missing Steam invite game ID was not deferred to lobby metadata validation");
+        Check(SteamLobbyInvitePolicy.HasRequiredFallbackLobbyMarker(false, "true"),
+            "zero game ID fallback rejected the SHCDE-SE lobby marker");
+        Check(!SteamLobbyInvitePolicy.HasRequiredFallbackLobbyMarker(false, string.Empty),
+            "zero game ID fallback accepted a lobby without the SHCDE-SE marker");
+        Check(SteamLobbyInvitePolicy.HasRequiredFallbackLobbyMarker(true, string.Empty),
+            "validated nonzero game ID incorrectly required the SHCDE-SE fallback marker");
+
         foreach (SteamInviteRejectionReason reason in Enum.GetValues(typeof(SteamInviteRejectionReason)))
         {
             if (reason != SteamInviteRejectionReason.None)
@@ -5205,6 +5218,7 @@ internal static class Program
             PromptEnabled = true,
             InviterIdValid = true,
             LobbyIdValid = true,
+            GameIdPresent = true,
             GameIdValid = true,
             InviteAppId = 3024040,
             CurrentAppId = 3024040,
