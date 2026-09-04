@@ -228,3 +228,5 @@ BugfixesAndQoL.EnableShiftRepairAllBuildings=Repair all buildings with Shift
 BugfixesAndQoL.EnableShiftRepairAllBuildingsHelp=Hold Shift while clicking a building's Repair button to repair the selected building first and then attempt every other damaged repairable building you own. Vanilla checks and deducts wood and stone for every repair.
 BugfixesAndQoL.RequireReachableEnemyForAutomaticGateClosing=Close only for reachable enemies
 BugfixesAndQoL.RequireReachableEnemyForAutomaticGateClosingHelp=When enabled, an enemy closes a gatehouse only if that enemy can pathfind to at least one of its two entrances. If reachability cannot be determined safely, Vanilla behavior is retained.
+BugfixesAndQoL.EnableImprovedMoatFilling=Improved moat filling
+BugfixesAndQoL.EnableImprovedMoatFillingHelp=When filling hostile moats, units choose another free valid edge tile instead of becoming idle when the first position is occupied.

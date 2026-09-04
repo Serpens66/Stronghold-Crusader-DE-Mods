@@ -228,3 +228,5 @@ BugfixesAndQoL.RequireReachableEnemyForAutomaticGateClosing=Close only for reach
 BugfixesAndQoL.RequireReachableEnemyForAutomaticGateClosingHelp=When enabled, an enemy closes a gatehouse only if that enemy can pathfind to at least one of its two entrances. If reachability cannot be determined safely, Vanilla behavior is retained.
 BugfixesAndQoL.EnableHealerAttackCommandFix=Keep Healers out of melee attack groups
 BugfixesAndQoL.EnableHealerAttackCommandFixHelp=Prevents Bedouin Healers from following melee units into combat when a mixed selection is ordered to attack an enemy unit.
+BugfixesAndQoL.EnableImprovedMoatFilling=改进护城河填埋
+BugfixesAndQoL.EnableImprovedMoatFillingHelp=填埋敌方护城河时，如果第一个位置已被占用，单位会选择另一个空闲且有效的边缘格，而不会闲置。

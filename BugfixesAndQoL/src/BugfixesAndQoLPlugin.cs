@@ -11,6 +11,7 @@ namespace BugfixesAndQoL
 {
     [BepInDependency(ScriptExtenderGuid, BepInDependency.DependencyFlags.HardDependency)]
     [BepInDependency("ActiveAIVDetector_Serp", BepInDependency.DependencyFlags.SoftDependency)]
+    [BepInDependency(MoveMoatCompatibility.PluginGuid, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(LegacySomeSettingsGuid, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInIncompatibility(LegacyTroopMovementFixGuid)]
     [BepInIncompatibility(TroopMovementFix2Guid)]
@@ -27,7 +28,7 @@ namespace BugfixesAndQoL
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.125";
+        public const string PluginVersion = "1.0.126";
 
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
         private static SteamLobbyInvitePrompt steamLobbyInvitePrompt;

@@ -23,6 +23,7 @@ namespace BugfixesAndQoL
         private bool fixAITowerRepair = true;
         private bool betterAIOverbuildRules = true;
         private bool enableTroopMovementFix = true;
+        private bool enableImprovedMoatFilling = true;
         private bool enableMountedStockpileMovementFix = true;
         private bool enableHealerAttackCommandFix = true;
         private bool enableFastRecruitRallyMovement = true;
@@ -257,6 +258,8 @@ namespace BugfixesAndQoL
         public string EnableCustomLordListEnhancementsHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableCustomLordListEnhancementsHelp");
         public string EnableTroopMovementFixText => SerpLocalization.Get(SerpLocalization.EnableTroopMovementFix);
         public string EnableTroopMovementFixHelpText => SerpLocalization.Get(SerpLocalization.EnableTroopMovementFixHelp);
+        public string EnableImprovedMoatFillingText => SerpLocalization.Get(SerpLocalization.EnableImprovedMoatFilling);
+        public string EnableImprovedMoatFillingHelpText => SerpLocalization.Get(SerpLocalization.EnableImprovedMoatFillingHelp);
         public string EnableMountedStockpileMovementFixText => SerpLocalization.Get("BugfixesAndQoL.EnableMountedStockpileMovementFix");
         public string EnableMountedStockpileMovementFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableMountedStockpileMovementFixHelp");
         public string EnableHealerAttackCommandFixText => SerpLocalization.Get("BugfixesAndQoL.EnableHealerAttackCommandFix");
@@ -533,6 +536,13 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool EnableImprovedMoatFilling
+        {
+            get => enableImprovedMoatFilling;
+            set => SetSetting(ref enableImprovedMoatFilling, value, nameof(EnableImprovedMoatFilling));
+        }
+
+        [SyncHostOnly]
         public bool EnableMountedStockpileMovementFix
         {
             get => enableMountedStockpileMovementFix;
@@ -771,6 +781,7 @@ namespace BugfixesAndQoL
                 RememberAiAivSettings = true;
                 EnableCustomLordListEnhancements = true;
                 EnableTroopMovementFix = true;
+                EnableImprovedMoatFilling = true;
                 EnableMountedStockpileMovementFix = true;
                 EnableHealerAttackCommandFix = true;
                 EnableFastRecruitRallyMovement = true;

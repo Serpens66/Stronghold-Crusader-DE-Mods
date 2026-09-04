@@ -30,6 +30,8 @@ namespace MoveMoatTest
         private const int DigRegionSearchCallRva = 0x69FE3;
         private const int DigRegionPairCallRva = 0x6A014;
         private const int DigAlternativeRegionPairCallRva = 0x6A0C2;
+        private const int MovementPlannerLowFlagGateRva = 0x196464;
+        private const int MovementPlannerStructureFlagGateRva = 0x19648D;
 
         private const int SelectedMoatTileIdOffset = 0x2038E40;
         private const int SelectedMoatApproachXOffset = 0x2038E38;
@@ -37,7 +39,12 @@ namespace MoveMoatTest
         private const int MoatRecordTileIdOffset = 0x00;
         private const int MoatRecordXOffset = 0x04;
         private const int MoatRecordYOffset = 0x06;
+        private const int MoatRecordReservationOffset = 0x0F;
         private const int MaximumMoatRecordId = 0x31F;
+        private const byte MoatReservationStep = 20;
+        private const byte TemporarilyExcludedMoatReservation = 100;
+        private const uint MovementBlockedLowTileFlagMask = 0x00000030;
+        private const uint MovementBlockedStructureTileFlagMask = 0x10000100;
 
         // Exact order used by 0x6C490/0x6AF60: N, NE, E, SE, S, SW, W, NW.
         private static readonly int[] MoatWorkNeighbourX = { 0, 1, 1, 1, 0, -1, -1, -1 };
@@ -78,6 +85,35 @@ namespace MoveMoatTest
             new Dictionary<int, string>();
         private readonly Dictionary<int, string> lastMoatWorkApproachByUnit =
             new Dictionary<int, string>();
+        private Func<bool> improvedMoatFillingEnabledProvider;
+        private string improvedMoatFillingProviderOwner;
+        private bool improvedMoatFillingProviderErrorLogged;
+        private bool improvedMoatFillingProviderFailed;
+        private bool improvedMoatFillingReservationWarningLogged;
+        private bool improvedMoatFillingSelectionErrorLogged;
+
+        internal int RegisterImprovedMoatFillingProvider(
+            string ownerGuid,
+            Func<bool> enabledProvider)
+        {
+            if (findMoatWorkTargetDetour == null || resolveMoatWorkTileDetour == null)
+                return 0;
+            if (string.IsNullOrWhiteSpace(ownerGuid))
+                throw new ArgumentException("An owner GUID is required.", nameof(ownerGuid));
+            if (enabledProvider == null)
+                throw new ArgumentNullException(nameof(enabledProvider));
+            if (improvedMoatFillingEnabledProvider != null &&
+                !string.Equals(improvedMoatFillingProviderOwner, ownerGuid, StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException(
+                    $"Improved moat filling is already controlled by {improvedMoatFillingProviderOwner}.");
+            }
+            improvedMoatFillingProviderOwner = ownerGuid;
+            improvedMoatFillingEnabledProvider = enabledProvider;
+            improvedMoatFillingProviderFailed = false;
+            improvedMoatFillingProviderErrorLogged = false;
+            return 1;
+        }
 
         private void TryInstallMoatWorkTargetSelection(
             ReadOnlySpan<byte> memory, ulong libraryBase)
@@ -220,6 +256,18 @@ namespace MoveMoatTest
                 memory, DigAlternativeRegionPairCallRva, RegionPairReachabilityRva,
                 new byte[] { 0xE8, 0x49, 0x85, 0x07, 0x00 },
                 "work-target alternative region-pair call");
+            ValidateExactBytes(
+                memory, MovementPlannerLowFlagGateRva,
+                new byte[] { 0xF6, 0x84, 0x8A, 0xB0, 0x71, 0x8F, 0x04, 0x30 },
+                "moat-work downstream movement low-flag gate");
+            ValidateExactBytes(
+                memory, MovementPlannerStructureFlagGateRva,
+                new byte[]
+                {
+                    0xF7, 0x84, 0x8A, 0xB0, 0x71, 0x8F, 0x04,
+                    0x00, 0x01, 0x00, 0x10
+                },
+                "moat-work downstream movement structure-flag gate");
         }
 
         private int FindMoatWorkTargetWithOwnerRoute(
@@ -248,18 +296,7 @@ namespace MoveMoatTest
                     tileManager, playerId, unitId, relationshipMode);
             }
 
-            MoatWorkSelectionScope previous = activeMoatWorkSelection;
-            int result;
-            activeMoatWorkSelection = scope;
-            try
-            {
-                result = originalFindMoatWorkTarget(
-                    tileManager, playerId, unitId, relationshipMode);
-            }
-            finally
-            {
-                activeMoatWorkSelection = previous;
-            }
+            int result = SelectMoatWorkTarget(scope, tileManager, playerId, unitId, relationshipMode);
 
             try
             {
@@ -269,7 +306,8 @@ namespace MoveMoatTest
                 {
                     pendingFillMoatApproach = new PendingFillMoatApproach(
                         mapEpoch, tileManager, unitId, playerId, result,
-                        scope.StartX, scope.StartY, approach);
+                        scope.StartX, scope.StartY, approach,
+                        scope.ImprovedFillSelection);
                 }
                 else if (relationshipMode == 1 && result > 0 &&
                     TryCreatePendingDigMoatTarget(scope, result, out PendingDigMoatTarget digTarget))
@@ -285,6 +323,121 @@ namespace MoveMoatTest
                 pendingDigMoatTarget = null;
             }
             return result;
+        }
+
+        private int SelectMoatWorkTarget(
+            MoatWorkSelectionScope scope,
+            IntPtr tileManager,
+            int playerId,
+            int unitId,
+            int relationshipMode)
+        {
+            bool improveFill = relationshipMode == 2 && IsImprovedMoatFillingEnabled();
+            scope.ImprovedFillSelection = improveFill;
+            List<ExcludedMoatReservation> exclusions = null;
+            MoatWorkSelectionScope previous = activeMoatWorkSelection;
+            int result = -1;
+            bool currentReservationRetained = false;
+            activeMoatWorkSelection = scope;
+            try
+            {
+                int moatCount = *(int*)((byte*)tileManager.ToPointer() + MoatRecordCountOffset);
+                int maximumAttempts = improveFill
+                    ? Math.Min(Math.Max(moatCount, 1), MaximumMoatRecordId + 1)
+                    : 1;
+                for (int attempt = 0; attempt < maximumAttempts; attempt++)
+                {
+                    currentReservationRetained = false;
+                    result = originalFindMoatWorkTarget(
+                        tileManager, playerId, unitId, relationshipMode);
+                    if (!improveFill || result <= 0)
+                        break;
+                    currentReservationRetained = true;
+
+                    if (!TryReadMoatRecord(
+                            tileManager, result, out byte* record,
+                            out int moatTileId, out int moatX, out int moatY))
+                    {
+                        break;
+                    }
+                    if (TryFindBestFillMoatApproach(
+                            scope, result, moatTileId, moatX, moatY,
+                            out MoatWorkApproach approach))
+                    {
+                        scope.FillApproaches[result] = approach;
+                        break;
+                    }
+
+                    byte afterSelection = record[MoatRecordReservationOffset];
+                    if (afterSelection < MoatReservationStep)
+                    {
+                        if (!improvedMoatFillingReservationWarningLogged)
+                        {
+                            improvedMoatFillingReservationWarningLogged = true;
+                            Shared.DebugLogHelper.LogWarning(
+                                log,
+                                "MoveMoat improved moat filling encountered an unsafe Vanilla reservation once; " +
+                                "the current Vanilla selection is retained.");
+                        }
+                        break;
+                    }
+                    byte beforeSelection = (byte)(afterSelection - MoatReservationStep);
+                    if (exclusions == null)
+                        exclusions = new List<ExcludedMoatReservation>();
+                    exclusions.Add(new ExcludedMoatReservation(record, beforeSelection));
+                    currentReservationRetained = false;
+                    record[MoatRecordReservationOffset] = TemporarilyExcludedMoatReservation;
+                }
+                return result;
+            }
+            catch (Exception ex)
+            {
+                RestoreExcludedMoatReservations(exclusions);
+                exclusions?.Clear();
+                if (!improvedMoatFillingSelectionErrorLogged)
+                {
+                    improvedMoatFillingSelectionErrorLogged = true;
+                    Shared.DebugLogHelper.LogError(
+                        log,
+                        "MoveMoat improved moat filling selection failed once; " +
+                        "Vanilla behavior is retained: " + ex);
+                }
+                if (result > 0 && currentReservationRetained)
+                    return result;
+                return originalFindMoatWorkTarget(
+                    tileManager, playerId, unitId, relationshipMode);
+            }
+            finally
+            {
+                RestoreExcludedMoatReservations(exclusions);
+                activeMoatWorkSelection = previous;
+            }
+        }
+
+        private bool IsImprovedMoatFillingEnabled()
+        {
+            if (improvedMoatFillingProviderFailed)
+                return false;
+            Func<bool> provider = improvedMoatFillingEnabledProvider;
+            if (provider == null)
+                return true;
+            try
+            {
+                return provider();
+            }
+            catch (Exception ex)
+            {
+                // A broken optional bridge must not keep throwing in every unit's search hotpath.
+                improvedMoatFillingProviderFailed = true;
+                if (!improvedMoatFillingProviderErrorLogged)
+                {
+                    improvedMoatFillingProviderErrorLogged = true;
+                    Shared.DebugLogHelper.LogError(
+                        log,
+                        "MoveMoat improved-moat-filling provider failed once; the optional fix is disabled: " + ex);
+                }
+                return false;
+            }
         }
 
         private bool TryCreatePendingDigMoatTarget(
@@ -447,7 +600,7 @@ namespace MoveMoatTest
             out MoatWorkApproach best)
         {
             best = default;
-            byte moatHeight = nativeHeightLayer[moatTileId];
+            byte sourceHeight = nativeHeightLayer[scope.StartTileId];
             bool found = false;
             long bestDistance = long.MaxValue;
             RouteProbeSummary observed = new RouteProbeSummary(scope.PlayerId);
@@ -467,7 +620,7 @@ namespace MoveMoatTest
                     scope.FillInvalidTileRejected++;
                     continue;
                 }
-                if ((int)nativeHeightLayer[tileId] > moatHeight + 0x10)
+                if ((int)nativeHeightLayer[tileId] > sourceHeight + 0x10)
                 {
                     scope.FillHeightRejected++;
                     continue;
@@ -481,21 +634,34 @@ namespace MoveMoatTest
                     scope.FillEnemyOrInvalidMoatRejected++;
                     continue;
                 }
+                uint flags = tileFlags[tileId];
                 if (!completedMoat &&
                     (movementTargetAvailability[y * MapWidth + x] == 0 ||
-                     (tileFlags[tileId] & OrdinaryWalkableTileFlag) == 0 ||
-                     (tileFlags[tileId] & CursorSpecialStructureTileFlagMask) != 0))
+                     (scope.ImprovedFillSelection
+                         ? HasDownstreamMovementBlockingFlags(flags)
+                         : (flags & OrdinaryWalkableTileFlag) == 0 ||
+                           (flags & CursorSpecialStructureTileFlagMask) != 0)))
                 {
                     scope.FillGroundBlockedRejected++;
+                    continue;
+                }
+                if (scope.ImprovedFillSelection &&
+                    IsOccupiedByOtherLivingUnit(tileId, scope.UnitId))
+                {
+                    scope.FillOccupiedRejected++;
                     continue;
                 }
 
                 checkedTiles++;
                 if (friendlyMoatEndpoint)
                     scope.FillFriendlyMoatEndpoints++;
-                if (!TryFindRequiredFriendlyCompletedMoatRouteToFillEndpoint(
+                RouteProbeSummary summary = new RouteProbeSummary(scope.PlayerId);
+                bool vanillaRegionApproach = scope.ImprovedFillSelection && !completedMoat &&
+                    pathRegionGrid[tileId] == scope.StartRegion;
+                if (!vanillaRegionApproach &&
+                    !TryFindRequiredFriendlyCompletedMoatRouteToFillEndpoint(
                         scope.UnitId, scope.PlayerId, scope.StartX, scope.StartY,
-                        x, y, tileId, out RouteProbeSummary summary))
+                        x, y, tileId, out summary))
                 {
                     observed.MergeObservations(summary);
                     scope.FillOwnerRouteRejected++;
@@ -596,7 +762,7 @@ namespace MoveMoatTest
                 return vanillaResult;
             }
             pendingFillMoatApproach = null;
-            if (mode != 2 || vanillaResult != 0)
+            if (mode != 2)
                 return vanillaResult;
 
             if (!pendingMatches)
@@ -628,7 +794,8 @@ namespace MoveMoatTest
                     OwnerRouteProbeCompleted = true,
                     MoatWorkMovement = true
                 };
-                LogResolvedFillMoatApproach(pending);
+                if (pending.Approach.Summary.RouteFound)
+                    LogResolvedFillMoatApproach(pending);
                 return pending.Approach.TileId;
             }
             catch (Exception ex)
@@ -672,14 +839,17 @@ namespace MoveMoatTest
         private bool ValidatePendingFillApproach(PendingFillMoatApproach pending)
         {
             MoatWorkApproach approach = pending.Approach;
+            int sourceTileId = GameTileManagerAPI.Instance.GetTileId(
+                pending.StartX, pending.StartY);
             if (approach.MoatId != pending.MoatId ||
                 approach.NativeOrder < 0 || approach.NativeOrder >= MoatWorkNeighbourX.Length ||
-                !IsValidTileId(approach.MoatTileId) || !IsValidTileId(approach.TileId) ||
+                !IsValidTileId(sourceTileId) || !IsValidTileId(approach.MoatTileId) ||
+                !IsValidTileId(approach.TileId) ||
                 approach.X < 0 || approach.X >= MapWidth ||
                 approach.Y < 0 || approach.Y >= MapWidth ||
                 GameTileManagerAPI.Instance.GetTileId(approach.X, approach.Y) != approach.TileId ||
                 (int)nativeHeightLayer[approach.TileId] >
-                    nativeHeightLayer[approach.MoatTileId] + 0x10)
+                    nativeHeightLayer[sourceTileId] + 0x10)
             {
                 return false;
             }
@@ -692,12 +862,21 @@ namespace MoveMoatTest
                     return false;
                 }
             }
-            else if (movementTargetAvailability[approach.Y * MapWidth + approach.X] == 0 ||
-                (tileFlags[approach.TileId] & OrdinaryWalkableTileFlag) == 0 ||
-                (tileFlags[approach.TileId] & CursorSpecialStructureTileFlagMask) != 0)
+            else
             {
-                return false;
+                uint flags = tileFlags[approach.TileId];
+                if (movementTargetAvailability[approach.Y * MapWidth + approach.X] == 0 ||
+                    (pending.ImprovedFillSelection
+                        ? HasDownstreamMovementBlockingFlags(flags)
+                        : (flags & OrdinaryWalkableTileFlag) == 0 ||
+                          (flags & CursorSpecialStructureTileFlagMask) != 0))
+                {
+                    return false;
+                }
             }
+            if (pending.ImprovedFillSelection &&
+                IsOccupiedByOtherLivingUnit(approach.TileId, pending.UnitId))
+                return false;
             if (!TryReadMoatRecordTile(
                     pending.TileManager, pending.MoatId,
                     out int moatTileId, out int moatX, out int moatY) ||
@@ -707,6 +886,9 @@ namespace MoveMoatTest
             {
                 return false;
             }
+            if (pending.ImprovedFillSelection && !completedMoat &&
+                pathRegionGrid[approach.TileId] == pathRegionGrid[sourceTileId])
+                return true;
             return TryFindRequiredFriendlyCompletedMoatRouteToFillEndpoint(
                 pending.UnitId,
                 pending.PlayerId,
@@ -887,7 +1069,8 @@ namespace MoveMoatTest
                 $"{scope.CheckedApproachTiles}:{scope.FillFriendlyMoatEndpoints}:" +
                 $"{scope.FillInvalidTileRejected}:{scope.FillHeightRejected}:" +
                 $"{scope.FillEnemyOrInvalidMoatRejected}:{scope.FillGroundBlockedRejected}:" +
-                $"{scope.FillOwnerRouteRejected}:{selectedByFallback}:{selectedRegion}:" +
+                $"{scope.FillOccupiedRejected}:{scope.FillOwnerRouteRejected}:" +
+                $"{selectedByFallback}:{selectedRegion}:" +
                 $"{scope.Route.FriendlyMoatTiles}:{scope.Route.EnemyMoatTiles}";
             if (lastMoatWorkSelectionByUnit.TryGetValue(scope.UnitId, out string previous) &&
                 string.Equals(previous, signature, StringComparison.Ordinal))
@@ -911,6 +1094,7 @@ namespace MoveMoatTest
                 $"rejectedHeight={scope.FillHeightRejected} " +
                 $"rejectedEnemyOrInvalidMoat={scope.FillEnemyOrInvalidMoatRejected} " +
                 $"rejectedGroundBlocked={scope.FillGroundBlockedRejected} " +
+                $"rejectedOccupied={scope.FillOccupiedRejected} " +
                 $"rejectedOwnerRoute={scope.FillOwnerRouteRejected} " +
                 $"selectedRoute=[{selectedRoute.ToLogFields()}] " +
                 $"observedRoutes=[{scope.Route.ToLogFields()}].");
@@ -979,6 +1163,54 @@ namespace MoveMoatTest
             return IsValidTileId(tileId) && x >= 0 && x < MapWidth &&
                 y >= 0 && y < MapWidth &&
                 GameTileManagerAPI.Instance.GetTileId(x, y) == tileId;
+        }
+
+        private static bool HasDownstreamMovementBlockingFlags(uint flags) =>
+            (flags & MovementBlockedLowTileFlagMask) != 0 ||
+            (flags & MovementBlockedStructureTileFlagMask) != 0;
+
+        private bool IsOccupiedByOtherLivingUnit(int tileId, int currentUnitId)
+        {
+            int occupantUnitId = GameTileManagerAPI.Instance.GetTileUnitId(tileId);
+            if (occupantUnitId == 0 || occupantUnitId == currentUnitId)
+                return false;
+            return GameUnitManagerAPI.Instance.TryGetUnitById(
+                    occupantUnitId, out GameUnit* occupant) &&
+                occupant != null && occupant->r_AliveState == AliveState.IsAlive;
+        }
+
+        private static bool TryReadMoatRecord(
+            IntPtr tileManager,
+            int moatId,
+            out byte* record,
+            out int tileId,
+            out int x,
+            out int y)
+        {
+            record = null;
+            tileId = -1;
+            x = -1;
+            y = -1;
+            if (tileManager == IntPtr.Zero)
+                return false;
+            byte* manager = (byte*)tileManager.ToPointer();
+            int count = *(int*)(manager + MoatRecordCountOffset);
+            if (moatId <= 0 || moatId > MaximumMoatRecordId || moatId >= count)
+                return false;
+            record = manager + MoatRecordArrayOffset + moatId * MoatRecordSize;
+            tileId = *(int*)(record + MoatRecordTileIdOffset);
+            x = *(short*)(record + MoatRecordXOffset);
+            y = *(short*)(record + MoatRecordYOffset);
+            return IsValidTileId(tileId) && x >= 0 && x < MapWidth && y >= 0 && y < MapWidth &&
+                GameTileManagerAPI.Instance.GetTileId(x, y) == tileId;
+        }
+
+        private static void RestoreExcludedMoatReservations(List<ExcludedMoatReservation> exclusions)
+        {
+            if (exclusions == null)
+                return;
+            for (int index = 0; index < exclusions.Count; index++)
+                exclusions[index].Restore();
         }
 
         private void DisposeMoatWorkTargetSelection()
@@ -1053,6 +1285,8 @@ namespace MoveMoatTest
             public int FillEnemyOrInvalidMoatRejected { get; set; }
             public int FillGroundBlockedRejected { get; set; }
             public int FillOwnerRouteRejected { get; set; }
+            public int FillOccupiedRejected { get; set; }
+            public bool ImprovedFillSelection { get; set; }
             public string LastRegionHelper { get; set; }
             public int LastMovementProfile { get; set; }
             public RouteProbeSummary Route;
@@ -1098,6 +1332,19 @@ namespace MoveMoatTest
             public RouteProbeSummary Summary { get; }
         }
 
+        private readonly struct ExcludedMoatReservation
+        {
+            public ExcludedMoatReservation(byte* record, byte originalReservation)
+            {
+                Record = record;
+                OriginalReservation = originalReservation;
+            }
+
+            private byte* Record { get; }
+            private byte OriginalReservation { get; }
+            public void Restore() => Record[MoatRecordReservationOffset] = OriginalReservation;
+        }
+
         private sealed class PendingFillMoatApproach
         {
             public PendingFillMoatApproach(
@@ -1108,7 +1355,8 @@ namespace MoveMoatTest
                 int moatId,
                 int startX,
                 int startY,
-                MoatWorkApproach approach)
+                MoatWorkApproach approach,
+                bool improvedFillSelection)
             {
                 MapEpoch = mapEpoch;
                 TileManager = tileManager;
@@ -1118,6 +1366,7 @@ namespace MoveMoatTest
                 StartX = startX;
                 StartY = startY;
                 Approach = approach;
+                ImprovedFillSelection = improvedFillSelection;
             }
 
             public int MapEpoch { get; }
@@ -1128,6 +1377,7 @@ namespace MoveMoatTest
             public int StartX { get; }
             public int StartY { get; }
             public MoatWorkApproach Approach { get; }
+            public bool ImprovedFillSelection { get; }
 
             public bool Matches(
                 int mapEpoch,

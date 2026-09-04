@@ -228,3 +228,5 @@ BugfixesAndQoL.RequireReachableEnemyForAutomaticGateClosing=Close only for reach
 BugfixesAndQoL.RequireReachableEnemyForAutomaticGateClosingHelp=When enabled, an enemy closes a gatehouse only if that enemy can pathfind to at least one of its two entrances. If reachability cannot be determined safely, Vanilla behavior is retained.
 BugfixesAndQoL.EnableHealerAttackCommandFix=Keep Healers out of melee attack groups
 BugfixesAndQoL.EnableHealerAttackCommandFixHelp=Prevents Bedouin Healers from following melee units into combat when a mixed selection is ordered to attack an enemy unit.
+BugfixesAndQoL.EnableImprovedMoatFilling=Meilleur comblement des douves
+BugfixesAndQoL.EnableImprovedMoatFillingHelp=Lors du comblement de douves ennemies, les unités choisissent une autre case de bord libre et valide au lieu de rester inactives si la première position est occupée.

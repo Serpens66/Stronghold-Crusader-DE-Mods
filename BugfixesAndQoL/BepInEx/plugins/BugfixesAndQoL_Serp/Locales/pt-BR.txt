@@ -228,3 +228,5 @@ BugfixesAndQoL.RequireReachableEnemyForAutomaticGateClosing=Close only for reach
 BugfixesAndQoL.RequireReachableEnemyForAutomaticGateClosingHelp=When enabled, an enemy closes a gatehouse only if that enemy can pathfind to at least one of its two entrances. If reachability cannot be determined safely, Vanilla behavior is retained.
 BugfixesAndQoL.EnableHealerAttackCommandFix=Keep Healers out of melee attack groups
 BugfixesAndQoL.EnableHealerAttackCommandFixHelp=Prevents Bedouin Healers from following melee units into combat when a mixed selection is ordered to attack an enemy unit.
+BugfixesAndQoL.EnableImprovedMoatFilling=Preenchimento de fossos aprimorado
+BugfixesAndQoL.EnableImprovedMoatFillingHelp=Ao preencher fossos inimigos, as unidades escolhem outro quadrado de borda livre e válido em vez de ficarem ociosas quando a primeira posição está ocupada.

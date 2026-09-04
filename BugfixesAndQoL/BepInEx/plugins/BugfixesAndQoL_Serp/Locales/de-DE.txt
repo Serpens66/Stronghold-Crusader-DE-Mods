@@ -228,3 +228,5 @@ BugfixesAndQoL.EnableShiftRepairAllBuildings=Alle Gebaeude mit Shift reparieren
 BugfixesAndQoL.EnableShiftRepairAllBuildingsHelp=Halte beim Klicken auf den Reparieren-Button eines Gebaeudes Shift gedrueckt, um zuerst das ausgewaehlte Gebaeude und danach alle weiteren eigenen, beschaedigten und reparierbaren Gebaeude zu reparieren. Vanilla prueft und verbraucht Holz und Stein fuer jede Reparatur.
 BugfixesAndQoL.RequireReachableEnemyForAutomaticGateClosing=Nur bei erreichbaren Feinden schließen
 BugfixesAndQoL.RequireReachableEnemyForAutomaticGateClosingHelp=Wenn aktiviert, schließt ein Feind das Torhaus nur, wenn er per Wegfindung mindestens einen der beiden Toreingänge erreichen kann. Lässt sich die Erreichbarkeit nicht sicher bestimmen, bleibt das Vanilla-Verhalten erhalten.
+BugfixesAndQoL.EnableImprovedMoatFilling=Verbessertes Zuschütten von Gräben
+BugfixesAndQoL.EnableImprovedMoatFillingHelp=Beim Zuschütten feindlicher Gräben wählen Einheiten ein anderes freies, gültiges Randfeld, statt untätig zu werden, wenn die erste Position belegt ist.

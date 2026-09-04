@@ -20,6 +20,12 @@ namespace MoveMoatTest
         private static MoveMoatPathTest feature;
         private static bool librarySubscriptionInstalled;
 
+        // 1 means MoveMoat owns the shared hooks, 0 lets the caller install its standalone hooks.
+        public static int RegisterImprovedMoatFillingProvider(
+            string ownerGuid,
+            Func<bool> enabledProvider) =>
+            feature?.RegisterImprovedMoatFillingProvider(ownerGuid, enabledProvider) ?? 0;
+
         private void Awake()
         {
             persistentLog = Logger;

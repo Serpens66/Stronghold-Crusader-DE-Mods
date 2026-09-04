@@ -3,10 +3,17 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.125",
+  "Version": "1.0.126",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.126",
+      "Changes": [
+        "Added an enabled-by-default host fix that makes units filling hostile moats choose another free valid edge tile or the next Vanilla moat instead of becoming idle when the first position is occupied.",
+        "Added optional hook-owner coordination with MoveMoatTest so both mods can be installed together without overlapping native detours."
+      ]
+    },
     {
       "Version": "1.0.125",
       "Changes": [

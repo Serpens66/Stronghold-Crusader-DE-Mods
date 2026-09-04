@@ -5,8 +5,8 @@
     <Configuration Condition="'$(Configuration)' == ''">Debug</Configuration>
     <Platform Condition="'$(Platform)' == ''">AnyCPU</Platform>
     <OutputType>Exe</OutputType>
-    <RootNamespace>MoatFillTargetTest</RootNamespace>
-    <AssemblyName>MoatFillTargetTest.Tests</AssemblyName>
+    <RootNamespace>BugfixesAndQoL</RootNamespace>
+    <AssemblyName>ImprovedMoatFilling.Tests</AssemblyName>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
     <OutputPath>bin\</OutputPath>
@@ -18,7 +18,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
-    <Compile Include="..\src\MoatFillApproachPolicy.cs"><Link>MoatFillApproachPolicy.cs</Link></Compile>
+    <Compile Include="..\src\ImprovedMoatFillingPolicy.cs"><Link>ImprovedMoatFillingPolicy.cs</Link></Compile>
+    <Compile Include="..\src\MoatFillHookOwnershipPolicy.cs"><Link>MoatFillHookOwnershipPolicy.cs</Link></Compile>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

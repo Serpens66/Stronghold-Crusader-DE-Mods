@@ -20,8 +20,8 @@ namespace QueueTest
         public const int GameUnitGlobalIdOffset = 0x94;
         public const int GameUnitAttackMarkerOffset = 0x68;
         public const int GameBuildingSize = 0x32C;
-        public const int GameBuildingGlobalIdOffset = 0xD6;
-        public const int GameBuildingAttackMarkerOffset = 0xC0;
+        public const int GameBuildingGlobalIdOffset = 0xD8;
+        public const int GameBuildingAttackMarkerOffset = 0xC2;
 
         // Chore 8 stores the public, one-based game tribe ID. It is not a span index.
         public static int WaypointChoreValueToTribeId(int serializedTribeId) => serializedTribeId;
@@ -35,6 +35,13 @@ namespace QueueTest
         ForceAttackBuilding
     }
 
+    internal enum QueueVisualMarkerMode
+    {
+        Hidden,
+        Move,
+        Attack
+    }
+
     internal static class QueueVisualContract
     {
         public const int MovementMarkerCategory = 0xAC;
@@ -43,6 +50,24 @@ namespace QueueTest
         public const int MovementMarkerFlags = 0xA0022;
         public const int PatrolOnceFlagSpriteFirst = 0x138;
         public const int PatrolOnceFlagSpriteLast = 0x141;
+        public const int PatrolOnceNumberSpriteFirst = 0x12E;
+        public const int PatrolOnceNumberSpriteLast = 0x136;
+
+        // Hiding an attack waypoint's flag is only safe when the native target marker can
+        // replace it with the attack icon. A visual-layout mismatch must not affect queuing.
+        public static bool CanSuppressAttackFlags(
+            bool drawFilterInstalled,
+            bool targetMarkerProjectionAvailable) =>
+            drawFilterInstalled && targetMarkerProjectionAvailable;
+
+        public static bool ShouldSuppressFlag(
+            QueueVisualMarkerMode mode,
+            bool attackFlagSuppressionAvailable) =>
+            mode == QueueVisualMarkerMode.Hidden ||
+            (mode == QueueVisualMarkerMode.Attack && attackFlagSuppressionAvailable);
+
+        public static bool ShouldSuppressNumber(QueueVisualMarkerMode mode) =>
+            mode == QueueVisualMarkerMode.Hidden;
 
         public static bool ShouldSuppressFlag(
             QueueCommandKind kind,
@@ -70,6 +95,19 @@ namespace QueueTest
             flags == MovementMarkerFlags &&
             spriteId >= PatrolOnceFlagSpriteFirst &&
             spriteId <= PatrolOnceFlagSpriteLast;
+
+        public static bool IsPatrolOnceNumberSubmission(
+            int category,
+            int spriteId,
+            int layer,
+            int verticalOffset,
+            int flags) =>
+            category == MovementMarkerCategory &&
+            layer == MovementMarkerLayer &&
+            verticalOffset == MovementMarkerVerticalOffset &&
+            flags == MovementMarkerFlags &&
+            spriteId >= PatrolOnceNumberSpriteFirst &&
+            spriteId <= PatrolOnceNumberSpriteLast;
     }
 
     internal sealed class QueueCommand
@@ -126,12 +164,82 @@ namespace QueueTest
         }
     }
 
+    internal sealed class QueueVisualSlot
+    {
+        public QueueVisualSlot(
+            int pageNumber,
+            int ordinal,
+            QueueCommand command,
+            bool isVanillaWaypoint,
+            int nativeWaypointIndex,
+            bool completed)
+        {
+            PageNumber = pageNumber;
+            Ordinal = ordinal;
+            Command = command ?? throw new ArgumentNullException(nameof(command));
+            IsVanillaWaypoint = isVanillaWaypoint;
+            NativeWaypointIndex = nativeWaypointIndex;
+            Completed = completed;
+        }
+
+        public int PageNumber { get; }
+        public int Ordinal { get; }
+        public QueueCommand Command { get; }
+        public bool IsVanillaWaypoint { get; }
+        public int NativeWaypointIndex { get; }
+        public bool Completed { get; private set; }
+
+        public void Complete() => Completed = true;
+
+        public override string ToString() =>
+            $"{Ordinal}:{Command.Kind}:{(Completed ? "hidden" : "visible")}";
+    }
+
+    internal sealed class QueueVisualPage
+    {
+        private readonly List<QueueVisualSlot> slots = new List<QueueVisualSlot>(9);
+
+        public QueueVisualPage(int pageNumber)
+        {
+            PageNumber = pageNumber;
+        }
+
+        public int PageNumber { get; }
+        public IReadOnlyList<QueueVisualSlot> Slots => slots;
+        public bool IsFull => slots.Count == 9;
+        public bool IsComplete => slots.Count != 0 && slots.TrueForAll(slot => slot.Completed);
+
+        public QueueVisualSlot Add(
+            QueueCommand command,
+            bool isVanillaWaypoint,
+            int nativeWaypointIndex,
+            bool completed)
+        {
+            if (IsFull)
+                throw new InvalidOperationException("A visual queue page cannot contain more than nine slots.");
+
+            QueueVisualSlot slot = new QueueVisualSlot(
+                PageNumber,
+                slots.Count + 1,
+                command,
+                isVanillaWaypoint,
+                nativeWaypointIndex,
+                completed);
+            slots.Add(slot);
+            return slot;
+        }
+    }
+
     internal sealed class TribeQueueState
     {
         private readonly Queue<QueueCommand> pending = new Queue<QueueCommand>();
         private readonly List<ExpectedMoveSignal> expectedMoveChores = new List<ExpectedMoveSignal>();
         private readonly List<ExpectedMoveSignal> expectedMoveEvents = new List<ExpectedMoveSignal>();
         private readonly List<QueueUnitIdentity> members;
+        private readonly List<QueueVisualPage> visualPages = new List<QueueVisualPage>();
+        private readonly Dictionary<QueueCommand, QueueVisualSlot> visualSlots =
+            new Dictionary<QueueCommand, QueueVisualSlot>();
+        private int currentVisualPageIndex;
 
         public TribeQueueState(
             uint tribeGlobalId,
@@ -159,6 +267,12 @@ namespace QueueTest
         public bool WaitForVanillaMovement { get; set; }
         public bool ActiveNeedsRedispatch { get; private set; }
         public int LastWaitDiagnosticTick { get; private set; } = -1;
+        public int CurrentVisualPageNumber =>
+            visualPages.Count == 0 ? 0 : visualPages[currentVisualPageIndex].PageNumber;
+        public IReadOnlyList<QueueVisualSlot> CurrentVisualSlots =>
+            visualPages.Count == 0
+                ? Array.Empty<QueueVisualSlot>()
+                : visualPages[currentVisualPageIndex].Slots;
 
         public bool MatchesTribe(uint globalId) => TribeGlobalId == globalId;
 
@@ -232,14 +346,62 @@ namespace QueueTest
 
         public bool TryEnqueue(QueueCommand command)
         {
+            return TryEnqueue(command, out _);
+        }
+
+        public bool TryEnqueue(QueueCommand command, out QueueVisualSlot visualSlot)
+        {
             if (command == null)
                 throw new ArgumentNullException(nameof(command));
             if (pending.Count >= MaximumPendingCommands)
+            {
+                visualSlot = null;
                 return false;
+            }
 
             pending.Enqueue(command);
+            visualSlot = AddVisualSlot(command, false, 0, false);
             return true;
         }
+
+        public QueueVisualSlot AddVanillaWaypoint(
+            QueueCommand command,
+            int nativeWaypointIndex,
+            bool completed)
+        {
+            if (nativeWaypointIndex <= 0)
+                throw new ArgumentOutOfRangeException(nameof(nativeWaypointIndex));
+            return AddVisualSlot(command, true, nativeWaypointIndex, completed);
+        }
+
+        public bool UpdateVanillaVisualProgress(int currentWaypointIndex)
+        {
+            foreach (QueueVisualPage page in visualPages)
+            {
+                foreach (QueueVisualSlot slot in page.Slots)
+                {
+                    if (slot.IsVanillaWaypoint && slot.NativeWaypointIndex < currentWaypointIndex)
+                        slot.Complete();
+                }
+            }
+            return AdvanceVisualPageIfComplete();
+        }
+
+        public bool CompleteVanillaVisuals()
+        {
+            foreach (QueueVisualPage page in visualPages)
+            {
+                foreach (QueueVisualSlot slot in page.Slots)
+                {
+                    if (slot.IsVanillaWaypoint)
+                        slot.Complete();
+                }
+            }
+            return AdvanceVisualPageIfComplete();
+        }
+
+        public bool TryGetVisualSlot(QueueCommand command, out QueueVisualSlot slot) =>
+            command != null && visualSlots.TryGetValue(command, out slot);
 
         public void ExpectMoveChore(QueueCommand command, int expiresAfterTick)
         {
@@ -307,11 +469,52 @@ namespace QueueTest
             return true;
         }
 
-        public void CompleteActive()
+        public bool CompleteActive()
         {
+            if (Active != null && visualSlots.TryGetValue(Active, out QueueVisualSlot slot))
+                slot.Complete();
             Active = null;
             ActiveNeedsRedispatch = false;
             LastWaitDiagnosticTick = -1;
+            return AdvanceVisualPageIfComplete();
+        }
+
+        private QueueVisualSlot AddVisualSlot(
+            QueueCommand command,
+            bool isVanillaWaypoint,
+            int nativeWaypointIndex,
+            bool completed)
+        {
+            QueueVisualPage page;
+            if (visualPages.Count == 0 || visualPages[visualPages.Count - 1].IsFull)
+            {
+                page = new QueueVisualPage(visualPages.Count + 1);
+                visualPages.Add(page);
+            }
+            else
+            {
+                page = visualPages[visualPages.Count - 1];
+            }
+
+            QueueVisualSlot slot = page.Add(
+                command,
+                isVanillaWaypoint,
+                nativeWaypointIndex,
+                completed);
+            if (!isVanillaWaypoint)
+                visualSlots.Add(command, slot);
+            return slot;
+        }
+
+        private bool AdvanceVisualPageIfComplete()
+        {
+            int oldIndex = currentVisualPageIndex;
+            while (currentVisualPageIndex + 1 < visualPages.Count &&
+                visualPages[currentVisualPageIndex].IsComplete)
+            {
+                currentVisualPageIndex++;
+            }
+            return currentVisualPageIndex != oldIndex;
         }
 
         public bool ShouldLogWaitDiagnostic(int tick, int interval)

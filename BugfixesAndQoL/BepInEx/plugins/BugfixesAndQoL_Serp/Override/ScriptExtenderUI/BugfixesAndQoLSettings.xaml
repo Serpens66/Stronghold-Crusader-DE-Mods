@@ -344,6 +344,12 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableTroopMovementFixText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-improved-moat-filling" shared:ModSettingsSearch.Title="{Binding EnableImprovedMoatFillingText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableImprovedMoatFillingHelpText}"><CheckBox IsChecked="{Binding EnableImprovedMoatFilling, Mode=TwoWay}"
+                Foreground="White"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableImprovedMoatFillingHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding EnableImprovedMoatFillingText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox></Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-mounted-stockpile-movement-fix" shared:ModSettingsSearch.Title="{Binding EnableMountedStockpileMovementFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableMountedStockpileMovementFixHelpText}"><CheckBox IsChecked="{Binding EnableMountedStockpileMovementFix, Mode=TwoWay}"
                 Foreground="White"
                 ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableMountedStockpileMovementFixHelpText}"

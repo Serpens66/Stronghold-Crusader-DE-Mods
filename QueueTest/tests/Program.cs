@@ -12,6 +12,7 @@ internal static class Program
     {
         CheckClassification();
         CheckQueueLimitAndOrder();
+        CheckBuildingQueueOrder();
         CheckStateTransitions();
         CheckVisualQueueProjection();
         CheckVisualFlagFiltering();
@@ -68,6 +69,25 @@ internal static class Program
         state.CompleteActive();
         Check(state.ShouldLogWaitDiagnostic(111, 100), "completion resets wait diagnostic");
         Check(state.IsEmpty, "completion makes state empty");
+    }
+
+    private static void CheckBuildingQueueOrder()
+    {
+        TribeQueueState state = new TribeQueueState(321, 4);
+        QueueCommand move = new QueueCommand(QueueCommandKind.Move, 10, 20, 1);
+        QueueCommand building = new QueueCommand(QueueCommandKind.AttackBuilding, 7, 70);
+        QueueCommand forceBuilding = new QueueCommand(QueueCommandKind.ForceAttackBuilding, 8, 80, -127);
+        Check(state.TryEnqueue(move), "building sequence Move enqueue");
+        Check(state.TryEnqueue(building), "building sequence AttackBuilding enqueue");
+        Check(state.TryEnqueue(forceBuilding), "building sequence ForceAttackBuilding enqueue");
+        Check(state.TryActivateNext(out QueueCommand active) && ReferenceEquals(active, move),
+            "building sequence starts with Move");
+        state.CompleteActive();
+        Check(state.TryActivateNext(out active) && ReferenceEquals(active, building),
+            "AttackBuilding retains FIFO position");
+        state.CompleteActive();
+        Check(state.TryActivateNext(out active) && ReferenceEquals(active, forceBuilding),
+            "ForceAttackBuilding retains FIFO position");
     }
 
     private static void CheckTribeReuseGuard()
@@ -139,6 +159,21 @@ internal static class Program
                 QueueCommandKind.AttackBuilding, 0xAC, 0x12E, 0x12, -1, 0xA0022),
             "attack number sprite retained");
         Check(
+            QueueVisualContract.IsPatrolOnceNumberSubmission(0xAC, 0x12E, 0x12, -1, 0xA0022),
+            "first patrol number submission recognized");
+        Check(
+            QueueVisualContract.IsPatrolOnceNumberSubmission(0xAC, 0x136, 0x12, -1, 0xA0022),
+            "ninth patrol number submission recognized");
+        Check(
+            !QueueVisualContract.IsPatrolOnceNumberSubmission(0xAC, 0x137, 0x12, -1, 0xA0022),
+            "out-of-range patrol number rejected");
+        Check(QueueVisualContract.CanSuppressAttackFlags(true, true),
+            "attack flag suppression requires both visual capabilities");
+        Check(!QueueVisualContract.CanSuppressAttackFlags(true, false),
+            "target marker mismatch preserves numbered Move flag");
+        Check(!QueueVisualContract.CanSuppressAttackFlags(false, true),
+            "missing draw filter cannot suppress attack flag");
+        Check(
             !QueueVisualContract.ShouldSuppressFlag(
                 QueueCommandKind.AttackBuilding, 0x6B, 0x138, 0x12, -1, 0xA0022),
             "unrelated draw submission retained");
@@ -188,8 +223,8 @@ internal static class Program
             QueueNativeContract.GameUnitGlobalIdOffset - QueueNativeContract.GameUnitAttackMarkerOffset == 0x2C,
             "GameUnit marker/global native displacement");
         Check(QueueNativeContract.GameBuildingSize == 0x32C, "native GameBuilding size");
-        Check(QueueNativeContract.GameBuildingGlobalIdOffset == 0xD6, "GameBuilding global ID offset");
-        Check(QueueNativeContract.GameBuildingAttackMarkerOffset == 0xC0, "GameBuilding attack marker offset");
+        Check(QueueNativeContract.GameBuildingGlobalIdOffset == 0xD8, "GameBuilding global ID offset");
+        Check(QueueNativeContract.GameBuildingAttackMarkerOffset == 0xC2, "GameBuilding attack marker offset");
         Check(
             QueueNativeContract.GameBuildingGlobalIdOffset -
                 QueueNativeContract.GameBuildingAttackMarkerOffset == 0x16,

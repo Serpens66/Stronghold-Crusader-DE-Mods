@@ -60,6 +60,7 @@ namespace BugfixesAndQoL
         private PlagueTreatmentFadeFix plagueTreatmentFadeFix;
         private PlagueTargetReservationFix plagueTargetReservationFix;
         private PlagueApothecaryStateTransitionFix plagueApothecaryStateTransitionFix;
+        private ImprovedMoatFillingFix improvedMoatFillingFix;
         private AllyGoodsAmountModifierHook allyGoodsAmountModifierHook;
         private CtrlMarketTradeHook ctrlMarketTradeHook;
         private IntPtr libraryHandle;
@@ -361,6 +362,7 @@ namespace BugfixesAndQoL
             TryInitializeFeature("better AI overbuild rules", EnsureBetterAIOverbuildRulesFix);
             TryInitializeFeature("ally goods amount modifiers", InstallAllyGoodsAmountModifierHook);
             TryInitializeFeature("Ctrl single-unit market trade", InstallCtrlMarketTradeHook);
+            TryInitializeFeature("improved moat filling", InitializeImprovedMoatFilling);
         }
 
         public void ApplySettings()
@@ -399,6 +401,50 @@ namespace BugfixesAndQoL
                 SubscribeHooks();
             else
                 UnsubscribeHooks();
+        }
+
+        private void InitializeImprovedMoatFilling()
+        {
+            if (!nativeLibraryAvailable || improvedMoatFillingFix != null)
+                return;
+            if (!fixedLayoutHashValidated)
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    "Bugfixes and QoL improved moat filling remains inactive because the exact native DLL hash is not validated; Vanilla behavior remains active.");
+                return;
+            }
+
+            MoatFillHookOwner owner = MoveMoatCompatibility.ResolveOwner(
+                () => settings.EnableMod && settings.EnableImprovedMoatFilling,
+                out string detail);
+            if (owner == MoatFillHookOwner.Conflict)
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    "Bugfixes and QoL improved moat filling remains inactive to avoid overlapping native hooks: " +
+                    detail + ".");
+                return;
+            }
+            if (owner == MoatFillHookOwner.MoveMoat)
+            {
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"Improved moat filling initialized: hookOwner=MoveMoatTest, enabled=" +
+                    $"{settings.EnableMod && settings.EnableImprovedMoatFilling}.");
+                return;
+            }
+
+            improvedMoatFillingFix = new ImprovedMoatFillingFix(
+                log,
+                settings,
+                GetNativeLibraryMemory(),
+                unchecked((ulong)libraryHandle.ToInt64()));
+            improvedMoatFillingFix.Apply();
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"Improved moat filling initialized: hookOwner=BugfixesAndQoL, enabled=" +
+                $"{settings.EnableMod && settings.EnableImprovedMoatFilling}, reason={detail}.");
         }
 
         private void EnsureShiftRepairAllBuildingsHook()

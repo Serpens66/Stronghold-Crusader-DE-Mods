@@ -125,6 +125,8 @@ public static class SerpLocalization
     public const string EnableShiftGameSpeedStepsHelp = "SomeSettings.EnableShiftGameSpeedStepsHelp";
     public const string EnableTroopMovementFix = "SomeSettings.EnableTroopMovementFix";
     public const string EnableTroopMovementFixHelp = "SomeSettings.EnableTroopMovementFixHelp";
+    public const string EnableImprovedMoatFilling = "BugfixesAndQoL.EnableImprovedMoatFilling";
+    public const string EnableImprovedMoatFillingHelp = "BugfixesAndQoL.EnableImprovedMoatFillingHelp";
     public const string EnableAiFixes = "BugfixesAndQoL.EnableAiFixes";
     public const string EnableAiFixesHelp = "BugfixesAndQoL.EnableAiFixesHelp";
     public const string EnablePlaguePopularityFix = "SomeSettings.EnablePlaguePopularityFix";
@@ -403,6 +405,8 @@ public static class SerpLocalization
         { "BugfixesAndQoL.ClientInterfaceTitle", "Interface and Controls" },
         { "BugfixesAndQoL.AiAivTitle", "AI and AIV" },
         { "BugfixesAndQoL.TroopMovementTitle", "Troop Movement" },
+        { EnableImprovedMoatFilling, "Improved moat filling" },
+        { EnableImprovedMoatFillingHelp, "When filling hostile moats, units choose another free valid edge tile instead of becoming idle when the first position is occupied." },
         { "BugfixesAndQoL.EnableHealerAttackCommandFix", "Keep Healers out of melee attack groups" },
         { "BugfixesAndQoL.EnableHealerAttackCommandFixHelp", "Prevents Bedouin Healers from following melee units into combat when a mixed selection is ordered to attack an enemy unit." },
         { "BugfixesAndQoL.PlagueTitle", "Plague" },
