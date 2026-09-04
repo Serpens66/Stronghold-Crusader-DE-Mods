@@ -13,7 +13,8 @@ namespace MoveMoatTest
     internal enum MoatTraversalPolicy : byte
     {
         FriendlyOnly = 0,
-        AllowEnemyForDiagnostic = 1
+        AllowEnemyForDiagnostic = 1,
+        GroundOnly = 2
     }
 
     internal enum MoatTraversalEdgeKind : byte
@@ -377,6 +378,7 @@ namespace MoveMoatTest
             return TryBuildCore(
                 playerId, startX, startY, requestedTargetX, requestedTargetY,
                 costProfile, allowReservedTarget, captureEncodedRoute: false,
+                MoatTraversalPolicy.FriendlyOnly,
                 out summary, out _);
         }
 
@@ -394,7 +396,57 @@ namespace MoveMoatTest
             return TryBuildCore(
                 playerId, startX, startY, requestedTargetX, requestedTargetY,
                 costProfile, allowReservedTarget, captureEncodedRoute: true,
+                MoatTraversalPolicy.FriendlyOnly,
                 out summary, out encodedRoute);
+        }
+
+        public bool TryProbeReachability(
+            int playerId,
+            int startX,
+            int startY,
+            int requestedTargetX,
+            int requestedTargetY,
+            bool allowReservedTarget,
+            MoatTraversalPolicy policy,
+            out WeightedMoatRouteSummary summary)
+        {
+            if (!WeightedMovementCostProfile.TryCreate(
+                    1, 1, 0, 0, 0, 0, false,
+                    out WeightedMovementCostProfile reachabilityProfile, out _))
+            {
+                summary = WeightedMoatRouteSummary.Failed("invalid-reachability-profile", 0);
+                return false;
+            }
+
+            return TryBuildCore(
+                playerId, startX, startY, requestedTargetX, requestedTargetY,
+                reachabilityProfile, allowReservedTarget, captureEncodedRoute: false,
+                policy, out summary, out _);
+        }
+
+        public bool TryBuildReachabilityEncoded(
+            int playerId,
+            int startX,
+            int startY,
+            int requestedTargetX,
+            int requestedTargetY,
+            bool allowReservedTarget,
+            out WeightedMoatRouteSummary summary,
+            out WeightedMoatEncodedRoute encodedRoute)
+        {
+            if (!WeightedMovementCostProfile.TryCreate(
+                    1, 1, 0, 0, 0, 0, false,
+                    out WeightedMovementCostProfile reachabilityProfile, out _))
+            {
+                summary = WeightedMoatRouteSummary.Failed("invalid-reachability-profile", 0);
+                encodedRoute = default;
+                return false;
+            }
+
+            return TryBuildCore(
+                playerId, startX, startY, requestedTargetX, requestedTargetY,
+                reachabilityProfile, allowReservedTarget, captureEncodedRoute: true,
+                MoatTraversalPolicy.FriendlyOnly, out summary, out encodedRoute);
         }
 
         private bool TryBuildCore(
@@ -406,6 +458,7 @@ namespace MoveMoatTest
             WeightedMovementCostProfile costProfile,
             bool allowReservedTarget,
             bool captureEncodedRoute,
+            MoatTraversalPolicy traversalPolicy,
             out WeightedMoatRouteSummary summary,
             out WeightedMoatEncodedRoute encodedRoute)
         {
@@ -431,11 +484,16 @@ namespace MoveMoatTest
                         "invalid-tile", stopwatch.Elapsed.TotalMilliseconds);
                     return false;
                 }
-                if (IsCompletedMoat(startTile) &&
-                    GetMoatRelationship(playerId, startTile) != CompletedMoatRelationship.Friendly ||
-                    IsCompletedMoat(requestedTargetTile) &&
-                    GetMoatRelationship(playerId, requestedTargetTile) !=
-                        CompletedMoatRelationship.Friendly)
+                CompletedMoatRelationship startRelationship = IsCompletedMoat(startTile)
+                    ? GetMoatRelationship(playerId, startTile)
+                    : CompletedMoatRelationship.Friendly;
+                CompletedMoatRelationship targetRelationship = IsCompletedMoat(requestedTargetTile)
+                    ? GetMoatRelationship(playerId, requestedTargetTile)
+                    : CompletedMoatRelationship.Friendly;
+                if ((traversalPolicy == MoatTraversalPolicy.GroundOnly &&
+                     (IsCompletedMoat(startTile) || IsCompletedMoat(requestedTargetTile))) ||
+                    !IsEndpointRelationshipAllowed(startRelationship, traversalPolicy) ||
+                    !IsEndpointRelationshipAllowed(targetRelationship, traversalPolicy))
                 {
                     summary = WeightedMoatRouteSummary.Failed(
                         "enemy-or-invalid-moat-endpoint", stopwatch.Elapsed.TotalMilliseconds);
@@ -460,6 +518,7 @@ namespace MoveMoatTest
                         if (!TrySummarizeRoute(
                             playerId, startNode, targetNode, allowReservedTarget,
                             costProfile, expanded, stopwatch, captureEncodedRoute,
+                            traversalPolicy,
                             out summary, out encodedRoute))
                         {
                             return false;
@@ -487,6 +546,7 @@ namespace MoveMoatTest
                         if (!TryGetEdge(
                             playerId, currentX, currentY, currentTile, nextX, nextY,
                             nextTile, direction, targetEndpoint, allowReservedTarget,
+                            traversalPolicy,
                             out bool moatEdge, out _))
                         {
                             continue;
@@ -504,7 +564,10 @@ namespace MoveMoatTest
                             ? int.MaxValue
                             : moatEdges[currentNode] + (moatEdge ? 1 : 0);
                         if (newCost > costs[nextNode] ||
-                            newCost == costs[nextNode] && newMoatEdges >= moatEdges[nextNode])
+                            newCost == costs[nextNode] &&
+                            (newMoatEdges > moatEdges[nextNode] ||
+                             newMoatEdges == moatEdges[nextNode] &&
+                             newEdgeCount >= edgeCounts[nextNode]))
                         {
                             continue;
                         }
@@ -598,6 +661,7 @@ namespace MoveMoatTest
                     if (!TryGetEdge(
                         playerId, x, y, currentTile, nextX, nextY, nextTile,
                         direction, targetEndpoint, allowReservedTarget,
+                        MoatTraversalPolicy.FriendlyOnly,
                         out bool moatEdge, out bool structuralEdge))
                     {
                         summary = WeightedMoatRouteSummary.Failed("native-edge-invalid", 0);
@@ -653,6 +717,7 @@ namespace MoveMoatTest
             int expanded,
             Stopwatch stopwatch,
             bool captureEncodedRoute,
+            MoatTraversalPolicy traversalPolicy,
             out WeightedMoatRouteSummary summary,
             out WeightedMoatEncodedRoute encodedRoute)
         {
@@ -700,6 +765,7 @@ namespace MoveMoatTest
                     playerId, currentX, currentY, GetTileId(currentX, currentY),
                     nextX, nextY, GetTileId(nextX, nextY), direction,
                     targetEndpoint, allowReservedTarget,
+                    traversalPolicy,
                     out bool moatEdge, out bool structuralEdge))
                 {
                     summary = WeightedMoatRouteSummary.Failed(
@@ -748,6 +814,7 @@ namespace MoveMoatTest
             int direction,
             bool targetEndpoint,
             bool allowReservedTarget,
+            MoatTraversalPolicy traversalPolicy,
             out bool moatEdge,
             out bool structuralEdge)
         {
@@ -762,7 +829,7 @@ namespace MoveMoatTest
                 direction,
                 targetEndpoint,
                 allowReservedTarget,
-                MoatTraversalPolicy.FriendlyOnly,
+                traversalPolicy,
                 out MoatTraversalEdgeKind edgeKind,
                 out structuralEdge);
             moatEdge = edgeKind != MoatTraversalEdgeKind.Ground;
@@ -810,6 +877,8 @@ namespace MoveMoatTest
             bool enemyMoat =
                 currentRelationship == CompletedMoatRelationship.Enemy ||
                 nextRelationship == CompletedMoatRelationship.Enemy;
+            if ((currentMoat || nextMoat) && policy == MoatTraversalPolicy.GroundOnly)
+                return false;
             if (enemyMoat && policy == MoatTraversalPolicy.FriendlyOnly)
                 return false;
 
@@ -930,6 +999,17 @@ namespace MoveMoatTest
             CompletedMoatRelationship relationship = GetMoatRelationship(playerId, tileId);
             return relationship == CompletedMoatRelationship.Friendly ||
                 relationship == CompletedMoatRelationship.Enemy &&
+                policy == MoatTraversalPolicy.AllowEnemyForDiagnostic;
+        }
+
+        private static bool IsEndpointRelationshipAllowed(
+            CompletedMoatRelationship relationship, MoatTraversalPolicy policy)
+        {
+            if (relationship == CompletedMoatRelationship.Invalid)
+                return false;
+            if (policy == MoatTraversalPolicy.GroundOnly)
+                return relationship == CompletedMoatRelationship.Friendly;
+            return relationship == CompletedMoatRelationship.Friendly ||
                 policy == MoatTraversalPolicy.AllowEnemyForDiagnostic;
         }
 

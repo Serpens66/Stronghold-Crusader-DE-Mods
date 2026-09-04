@@ -263,7 +263,6 @@ namespace MoveMoatTest
         private const int TribeMovementWaypointIndexOffset = 0x5DC;
         private const int TribeMovementWaypointCountOffset = 0x5DE;
         private const int MaximumNativeMovementWaypoints = 10;
-        private const int DiagnosticStallTickThreshold = 100;
         private const int WeightedPublicationSafetyMarginTicks = 40;
         private const int BuildingCandidateApproachTileOffset = 0x00;
         private const int BuildingCandidateFootprintTileOffset = 0x04;
@@ -546,14 +545,13 @@ namespace MoveMoatTest
             new HashSet<string>(StringComparer.Ordinal);
         private readonly HashSet<string> loggedDiggerDecisions =
             new HashSet<string>(StringComparer.Ordinal);
-        private readonly Dictionary<int, string> lastWeightedShadowDecisionByUnit =
-            new Dictionary<int, string>();
         private readonly Dictionary<int, string> lastWeightedPublicationDecisionByUnit =
             new Dictionary<int, string>();
         private int moveCommandSequence;
         private int attackCommandSequence;
         private bool callbackFailureReported;
         private bool weightedShadowBusy;
+        private bool targetedRouteProbeBusy;
         private bool disposed;
 
         public MoveMoatPathTest(
@@ -1517,6 +1515,12 @@ namespace MoveMoatTest
                         command.VanillaBuilderCalls > 0
                             ? command.LastVanillaBuilderResult.ToString()
                             : "none";
+                    if (command != null)
+                    {
+                        command.ElapsedMilliseconds =
+                            (Stopwatch.GetTimestamp() - command.StartTimestamp) * 1000.0 /
+                            Stopwatch.Frequency;
+                    }
                     LogCommandDiagnostic(
                         $"stage=move-command-result commandSeq={command?.Sequence ?? 0} " +
                         $"tribe={args.TribeId} " +
@@ -1542,6 +1546,12 @@ namespace MoveMoatTest
                         $"weightedPublished={command?.WeightedPublished ?? 0} " +
                         $"weightedSearchMs={(command?.WeightedSearchMilliseconds ?? 0):F3} " +
                         $"weightedMaxSearchMs={(command?.WeightedMaximumSearchMilliseconds ?? 0):F3} " +
+                        $"targetedSearches={command?.TargetedRouteSearches ?? 0} " +
+                        $"targetedCacheHits={command?.TargetedRouteCacheHits ?? 0} " +
+                        $"targetedExpanded={command?.TargetedRouteExpandedNodes ?? 0} " +
+                        $"targetedSearchMs={(command?.TargetedRouteSearchMilliseconds ?? 0):F3} " +
+                        $"targetedMaxSearchMs={(command?.TargetedRouteMaximumSearchMilliseconds ?? 0):F3} " +
+                        $"elapsedMs={(command?.ElapsedMilliseconds ?? 0):F3} " +
                         $"lastVanillaBuilderResult={lastVanillaBuilderResult} " +
                         $"lastBuilderResult={lastBuilderResult}");
                     LogQueuedMoveHereOutcome(command, args.ReturnValue);
@@ -1940,8 +1950,11 @@ namespace MoveMoatTest
                     command.HasQueuePostSnapshot = true;
                 }
 
-                if (!trackedNativeWaypointQueues.TryGetValue(
-                        command.TribeId, out NativeWaypointQueueTracker tracker))
+                bool alreadyTracked = trackedNativeWaypointQueues.TryGetValue(
+                    command.TribeId, out NativeWaypointQueueTracker tracker);
+                if (snapshot.Count == 0 && !alreadyTracked)
+                    return;
+                if (!alreadyTracked)
                 {
                     tracker = new NativeWaypointQueueTracker(command.TribeId);
                     trackedNativeWaypointQueues.Add(command.TribeId, tracker);
@@ -2196,6 +2209,12 @@ namespace MoveMoatTest
                 tracker.MapEpoch == mapEpoch && tracker.TribeId == shadow.TribeId &&
                 tracker.TargetX == shadow.TargetX && tracker.TargetY == shadow.TargetY &&
                 tracker.InitialX == shadow.StartX && tracker.InitialY == shadow.StartY;
+            bool weightedPathPublished = string.Equals(
+                decision, "weighted-path-published", StringComparison.Ordinal);
+            // Runtime tracking is retained only for paths changed by this mod. A native moat
+            // path that needed no fallback is Vanilla behavior and must not create per-tick work.
+            if (!weightedPathPublished && !sameTrackedRoute)
+                return;
             int workTargetMoatTileId = sameTrackedRoute
                 ? tracker.WorkTargetMoatTileId
                 : 0;
@@ -2229,8 +2248,7 @@ namespace MoveMoatTest
             tracker.ShadowEstimatedTicks = shadow.Candidate.EstimatedTicks;
             tracker.ShadowDecision = decision;
             tracker.BuilderResult = builderResult;
-            tracker.WeightedPathPublished = string.Equals(
-                decision, "weighted-path-published", StringComparison.Ordinal);
+            tracker.WeightedPathPublished = weightedPathPublished;
             tracker.PublishedLengthChecked = false;
             tracker.PublishedLengthVerified = false;
             tracker.ObservedPublishedPathSize = -1;
@@ -2465,19 +2483,8 @@ namespace MoveMoatTest
                         }
                         tracker.LastTileTransitionTick = tick;
                     }
-                    if (progressed && tracker.StallReported)
-                    {
-                        tracker.StallReported = false;
-                        tracker.Calibratable = false;
-                        tracker.CalibrationReason = "resumed-after-stall";
-                        LogMoveMilestone(
-                            tick, unitId, unit, tracker, command, "resumed-after-stall");
-                    }
                     if (tracker.LastProgressTick < 0 || progressed)
                         tracker.LastProgressTick = tick;
-
-                    if (progressed && tracker.HasWeightedShadow)
-                        ObserveRuntimeCadenceShadow(tick, unit, tracker);
 
                     if (progressed && tracker.PostCombatRepathEntered &&
                         !tracker.MovementResumedAfterCombat)
@@ -2492,40 +2499,22 @@ namespace MoveMoatTest
                          unit->r_CurrentTilePositionY != tracker.InitialY))
                     {
                         tracker.MovementStarted = true;
-                        LogMoveMilestone(
-                            tick, unitId, unit, tracker, command, "movement-started");
                     }
 
                     if (currentMoat && !tracker.MoatEntered)
                     {
                         tracker.MoatEntered = true;
-                        LogMoveMilestone(
-                            tick, unitId, unit, tracker, command,
-                            tracker.StartedOnMoat ? "started-on-moat" : "moat-entered");
                     }
                     if (tracker.MoatEntered && !tracker.MoatExited &&
                         tracker.WasOnMoat && !currentMoat)
                     {
                         tracker.MoatExited = true;
-                        LogMoveMilestone(
-                            tick, unitId, unit, tracker, command, "moat-exited");
                     }
 
                     if (reachedRequestedTarget && pathConsumed && settledOnCurrentTile)
                     {
                         EndTrackedMoatMove(unitId, tracker, "path-completed-at-target");
                         continue;
-                    }
-
-                    if (tracker.LastProgressTick >= 0 &&
-                        tick - tracker.LastProgressTick >= DiagnosticStallTickThreshold &&
-                        !tracker.StallReported)
-                    {
-                        tracker.StallReported = true;
-                        tracker.Calibratable = false;
-                        tracker.CalibrationReason = "stalled-or-congested";
-                        LogMoveMilestone(
-                            tick, unitId, unit, tracker, command, "stalled");
                     }
 
                     tracker.LastX = unit->r_CurrentTilePositionX;
@@ -2965,7 +2954,7 @@ namespace MoveMoatTest
                         ? "published-path-rejected-before-moat"
                         : "published-path-not-consumed";
             }
-            bool ownerSafeActualRoute = tracker.ActualEnemyMoatTiles == 0 &&
+            bool ownerSafeActualRoute = tracker.ActualEnemyMoatTilesOutsideWorkTarget == 0 &&
                 tracker.ActualInvalidMoatOwnerTiles == 0;
             int ownerChangedTiles = 0;
             int noLongerCompletedMoatTiles = 0;
@@ -3056,7 +3045,7 @@ namespace MoveMoatTest
                 $"traversed:{tracker.ActualEnemyMoatTilesOutsideWorkTarget} " +
                 $"workTargetMoatTile={tracker.WorkTargetMoatTileId} " +
                 $"ownerRecheck=changed:{ownerChangedTiles}/noLongerCompleted:{noLongerCompletedMoatTiles} " +
-                $"ownerSafetyViolation={tracker.ActualEnemyMoatTiles > 0} " +
+                $"ownerSafetyViolation={tracker.ActualEnemyMoatTilesOutsideWorkTarget > 0 || tracker.ActualInvalidMoatOwnerTiles > 0} " +
                 $"consumerMode=last:{tracker.LastConsumerMode}/min:{tracker.MinimumConsumerMode}/" +
                 $"max:{tracker.MaximumConsumerMode}/nonZero:{tracker.ConsumerModeObservedNonZero} " +
                 $"publishedLength=expected:{tracker.BuilderResult}/" +
@@ -3475,21 +3464,9 @@ namespace MoveMoatTest
                             activeMoveCommand.TargetY);
                     }
 
-                    if (!TryFindRequiredFriendlyCompletedMoatRouteForPlan(
+                    if (!TryGetCachedRequiredFriendlyRouteForPlan(
                         movePlan, out RouteProbeSummary moveSummary))
                     {
-                        try
-                        {
-                            LogPipelineDiagnostic(
-                                $"stage=mode-move-rejected unit={unitId} " +
-                                $"target=({movePlan.TargetX},{movePlan.TargetY}) " +
-                                $"vanilla={vanillaResult} reason=no-required-friendly-moat-route " +
-                                moveSummary.ToLogFields());
-                        }
-                        catch
-                        {
-                            // A failed qualification must remain Vanilla even if logging fails.
-                        }
                         return vanillaResult;
                     }
 
@@ -3810,24 +3787,12 @@ namespace MoveMoatTest
                     return null;
 
                 int playerId = unit->r_ControllableForPlayerId;
-                string profileRejection = null;
                 WeightedMovementCostProfile costProfile = default;
                 bool validPlayer = GamePlayerManagerAPI.Instance.IsPlayerIdValid(playerId);
                 bool validProfile = validPlayer && TryCaptureWeightedMovementCostProfile(
-                    unit, out costProfile, out profileRejection);
+                    unit, out costProfile, out _);
                 if (!validProfile)
                 {
-                    uint rejectedCommand = unchecked((uint)unit->r_AI_LastIssuedTribeCommand);
-                    if (rejectedCommand == (uint)TribeAICommand.DigMoatTileId ||
-                        rejectedCommand == (uint)TribeAICommand.Unknown7)
-                    {
-                        LogWeightedPublicationDecision(
-                            unitId,
-                            $"MoveMoat stage=weighted-builder-capture-rejected " +
-                            $"captureSource=unit-builder unit={unitId} " +
-                            $"command={(TribeAICommand)unit->r_AI_LastIssuedTribeCommand} " +
-                            $"reason={profileRejection ?? "invalid-player"}.");
-                    }
                     return null;
                 }
 
@@ -3902,20 +3867,13 @@ namespace MoveMoatTest
                 bool snapshotPositionMatches = identityMatches &&
                     snapshotUnit->r_CurrentTilePositionX == shadow.SnapshotCurrentX &&
                     snapshotUnit->r_CurrentTilePositionY == shadow.SnapshotCurrentY;
-                string currentProfileRejection = null;
                 WeightedMovementCostProfile currentCostProfile = default;
                 bool currentProfileValid = snapshotPositionMatches &&
                     TryCaptureWeightedMovementCostProfile(
-                        snapshotUnit, out currentCostProfile, out currentProfileRejection);
+                        snapshotUnit, out currentCostProfile, out _);
                 if (!currentProfileValid || !currentCostProfile.Equals(shadow.CostProfile))
                 {
-                    LogWeightedShadowDecision(
-                        shadow, builderResult, default, false, false,
-                        "no-valid-shadow-route",
-                        !snapshotAvailable ? "runtime-unit-unavailable" :
-                        !identityMatches ? "runtime-unit-identity-changed" :
-                        !snapshotPositionMatches ? "runtime-position-changed" :
-                        currentProfileRejection ?? "runtime-speed-snapshot-changed");
+                    LogWeightedShadowDecision(shadow, "no-valid-shadow-route");
                     return true;
                 }
 
@@ -3943,9 +3901,7 @@ namespace MoveMoatTest
                     builderTargetY != shadow.TargetY || revalidatedStartX != shadow.StartX ||
                     revalidatedStartY != shadow.StartY)
                 {
-                    LogWeightedShadowDecision(
-                        shadow, builderResult, default, false, publishedToUnit,
-                        "no-valid-shadow-route", "builder-contract-changed-during-call");
+                    LogWeightedShadowDecision(shadow, "no-valid-shadow-route");
                     return false;
                 }
 
@@ -3980,11 +3936,7 @@ namespace MoveMoatTest
                 {
                     if (shadow.WorkKind != "not-moat-work")
                     {
-                        LogWeightedShadowDecision(
-                            shadow, builderResult, nativeSummary, false, publishedToUnit,
-                            "no-valid-shadow-route",
-                            builderResult <= 0 ? "builder-did-not-produce-positive-path" :
-                            "native-path-decode-failed");
+                        LogWeightedShadowDecision(shadow, "no-valid-shadow-route");
                     }
                     return true;
                 }
@@ -4031,35 +3983,26 @@ namespace MoveMoatTest
                 }
 
                 string decision;
-                string reason;
                 if (!shadow.CandidateFound)
                 {
                     decision = "no-valid-shadow-route";
-                    reason = shadow.Candidate.Reason;
                 }
                 else if (!nativeValid)
                 {
                     decision = builderResult <= 0 && shadow.Candidate.MoatEdges > 0
                         ? "shadow-friendly-moat"
                         : "no-valid-shadow-route";
-                    reason = builderResult > 0
-                        ? "native-path-decode-failed"
-                        : "vanilla-no-path";
                 }
                 else if (shadow.Candidate.MoatEdges > 0 &&
                     shadow.Candidate.EstimatedTicks < nativeSummary.EstimatedTicks)
                 {
                     decision = "shadow-friendly-moat";
-                    reason = "weighted-shadow-faster";
                 }
                 else
                 {
                     decision = nativeSummary.MoatEdges > 0
                         ? "native-friendly-moat"
                         : "native-ground";
-                    reason = shadow.Candidate.MoatEdges == 0
-                        ? "weighted-ground-winner"
-                        : "native-not-slower";
                 }
 
                 int effectiveBuilderResult = builderResult;
@@ -4078,7 +4021,6 @@ namespace MoveMoatTest
                     shadow.CandidateFound = true;
                     shadow.Candidate = publishedSummary;
                     decision = "weighted-path-published";
-                    reason = "runtime-margin-and-all-profiles-faster";
                     int consumerModeBefore = *moatPathMode;
                     // 0x196280 persists this global into unit+0x9C8 immediately after
                     // 0xF4930 returns, then clears it. Without that marker 0x1855A0/
@@ -4113,9 +4055,7 @@ namespace MoveMoatTest
                     (shadow.CandidateFound && shadow.Candidate.MoatEdges > 0);
                 if (moatRelevantDiagnostic)
                 {
-                    LogWeightedShadowDecision(
-                        shadow, effectiveBuilderResult, nativeSummary, nativeValid,
-                        publishedToUnit, decision, reason);
+                    LogWeightedShadowDecision(shadow, decision);
                 }
                 if (moatRelevantDiagnostic && effectiveBuilderResult > 0 && publishedToUnit)
                 {
@@ -4163,16 +4103,6 @@ namespace MoveMoatTest
                     out ulong handlerRva,
                     out rejectionReason))
             {
-                if (shadow.WorkKind != "not-moat-work")
-                {
-                    LogWeightedPublicationDecision(
-                        shadow.UnitId,
-                        $"MoveMoat stage=weighted-path-not-published unit={shadow.UnitId} " +
-                        $"captureSource={shadow.CaptureSource} work={shadow.WorkKind} " +
-                        $"workPhase={shadow.WorkPhase} type={shadow.UnitType} " +
-                        $"start=({shadow.StartX},{shadow.StartY}) " +
-                        $"target=({shadow.TargetX},{shadow.TargetY}) reason={rejectionReason}.");
-                }
                 return false;
             }
 
@@ -4327,18 +4257,6 @@ namespace MoveMoatTest
                         : candidates.Count == 0
                             ? "no-friendly-moat-candidate"
                             : "runtime-margin-or-all-profile-improvement-not-met";
-                    if (shadow.WorkKind != "not-moat-work" || candidates.Count > 0)
-                    {
-                        LogWeightedPublicationDecision(
-                            shadow.UnitId,
-                            $"MoveMoat stage=weighted-path-not-published unit={shadow.UnitId} " +
-                            $"captureSource={shadow.CaptureSource} work={shadow.WorkKind} " +
-                            $"workPhase={shadow.WorkPhase} type={shadow.UnitType} " +
-                            $"start=({shadow.StartX},{shadow.StartY}) " +
-                            $"target=({shadow.TargetX},{shadow.TargetY}) " +
-                            $"handlerProfiles={cadenceProfiles} " +
-                            $"candidates={candidates.Count} reason={rejectionReason}.");
-                    }
                     return false;
                 }
 
@@ -4459,80 +4377,9 @@ namespace MoveMoatTest
         }
 
         private void LogWeightedShadowDecision(
-            BuilderWeightedScope shadow,
-            int builderResult,
-            WeightedMoatRouteSummary native,
-            bool nativeValid,
-            bool publishedToUnit,
-            string decision,
-            string reason)
+            BuilderWeightedScope shadow, string decision)
         {
-            long saving = nativeValid && shadow.CandidateFound
-                ? native.EstimatedTicks - shadow.Candidate.EstimatedTicks
-                : 0;
-            string signature = $"{mapEpoch}:{shadow.UnitId}:{(uint)shadow.Command}:" +
-                $"{shadow.CommandContext}:{shadow.CommandSequence}:" +
-                $"{shadow.RawCommand}:{shadow.WorkKind}:{shadow.WorkPhase}:{shadow.AiState}:" +
-                $"{shadow.StartX}:{shadow.StartY}:{shadow.TargetX}:{shadow.TargetY}:" +
-                $"{shadow.CostProfile.CurrentSpeed}:{shadow.CostProfile.CurrentSpeed2}:" +
-                $"{shadow.CostProfile.SpeedBonus}:{shadow.CostProfile.AdditionalSubsteps}:" +
-                $"{shadow.CostProfile.ExtraDelay}:" +
-                $"{shadow.CostProfile.MoatPhase}:{shadow.CostProfile.StartedOnCompletedMoat}:" +
-                $"{builderResult}:{decision}:{reason}:" +
-                $"{shadow.Candidate.RouteLength}:{shadow.Candidate.EstimatedTicks}:" +
-                $"{shadow.AccumulatedSearchMilliseconds}:{shadow.SearchPasses}:" +
-                $"{native.RouteLength}:{native.EstimatedTicks}:{publishedToUnit}:" +
-                $"{shadow.OptimisticLowerBoundTicks}";
-            if (lastWeightedShadowDecisionByUnit.TryGetValue(
-                    shadow.UnitId, out string previous) &&
-                string.Equals(previous, signature, StringComparison.Ordinal))
-            {
-                return;
-            }
-            lastWeightedShadowDecisionByUnit[shadow.UnitId] = signature;
             RecordWeightedCommandDecision(shadow, decision);
-
-            Shared.DebugLogHelper.LogInfo(
-                log,
-                $"MoveMoat stage=weighted-shadow captureSource={shadow.CaptureSource} " +
-                $"work={shadow.WorkKind} workPhase={shadow.WorkPhase} " +
-                $"unit={shadow.UnitId} type={shadow.UnitType} aiState={shadow.AiState} " +
-                $"player={shadow.PlayerId} commandSeq={shadow.CommandSequence} " +
-                $"command={shadow.Command}({(uint)shadow.Command}) " +
-                $"runtimeCommandRaw={shadow.RawCommand} " +
-                $"commandContext={shadow.CommandContext} " +
-                $"start=({shadow.StartX},{shadow.StartY}) target=({shadow.TargetX},{shadow.TargetY}) " +
-                $"currentSpeed={shadow.CostProfile.CurrentSpeed} " +
-                $"currentSpeed2={shadow.CostProfile.CurrentSpeed2} " +
-                $"speedBonus={shadow.CostProfile.SpeedBonus} " +
-                $"additionalSubsteps={shadow.CostProfile.AdditionalSubsteps} " +
-                $"extraDelay={shadow.CostProfile.ExtraDelay} " +
-                $"moatPhase={shadow.CostProfile.MoatPhase} " +
-                $"startOnMoat={shadow.CostProfile.StartedOnCompletedMoat} " +
-                $"terrainPenalty={shadow.CostProfile.CurrentTerrainPenalty} " +
-                $"normalizedDelay={shadow.CostProfile.NormalizedDelay} " +
-                $"cadenceProgress={shadow.CostProfile.CadenceProgress} " +
-                $"decision={decision} reason={reason} " +
-                $"shadowFound={shadow.CandidateFound} " +
-                $"shadowLength={shadow.Candidate.RouteLength} " +
-                $"shadowGround={shadow.Candidate.GroundEdges} shadowMoat={shadow.Candidate.MoatEdges} " +
-                $"shadowStructure={shadow.Candidate.StructuralEdges} " +
-                $"shadowDiagonal={shadow.Candidate.DiagonalEdges} " +
-                $"shadowDirectionChanges={shadow.Candidate.DirectionChanges} " +
-                $"shadowFingerprint=0x{shadow.Candidate.RouteFingerprint:X16} " +
-                $"shadowTicks={shadow.Candidate.EstimatedTicks} savingTicks={saving} " +
-                $"nativeValid={nativeValid} nativeLength={native.RouteLength} " +
-                $"pathBuffer={(publishedToUnit ? "unit" : "temporary")} " +
-                $"nativeGround={native.GroundEdges} nativeMoat={native.MoatEdges} " +
-                $"nativeStructure={native.StructuralEdges} " +
-                $"nativeDiagonal={native.DiagonalEdges} nativeTicks={native.EstimatedTicks} " +
-                $"optimisticTicks={shadow.OptimisticLowerBoundTicks} " +
-                $"nativeDirectionChanges={native.DirectionChanges} " +
-                $"nativeFingerprint=0x{native.RouteFingerprint:X16} " +
-                $"searchMs={shadow.Candidate.SearchMilliseconds:F3} " +
-                $"searchMsTotal={shadow.AccumulatedSearchMilliseconds:F3} " +
-                $"searchPasses={shadow.SearchPasses} " +
-                $"expanded={shadow.Candidate.ExpandedNodes} abort={shadow.Candidate.Reason}.");
         }
 
         private void RecordWeightedCommandDecision(BuilderWeightedScope shadow, string decision)
@@ -4990,24 +4837,14 @@ namespace MoveMoatTest
                 bool managerValid = tribeManager != IntPtr.Zero;
                 bool matchingTribe = command != null && tribeId == command.TribeId;
                 bool stampValid = floodFillStamp > 0 && floodFillStamp <= MaximumFloodFillStamp;
-                bool bypass = vanillaResult == 0 && managerValid && matchingTribe && stampValid;
+                bool bypass = vanillaResult == 0 && managerValid && matchingTribe && stampValid &&
+                    command.DiggersAtDispatch > 0 &&
+                    TryQualifyMoveCommandFloodBypass(command);
                 if (command != null)
                 {
                     command.FloodCalls++;
                     if (vanillaResult != 0)
                         command.FloodVanillaPositive++;
-                    try
-                    {
-                        LogPipelineDiagnostic(
-                            $"stage=tribe-flood-observed commandTribe={command.TribeId} callTribe={tribeId} " +
-                            $"matchingTribe={matchingTribe} stamp={floodFillStamp} stampValid={stampValid} " +
-                            $"managerValid={managerValid} vanilla={vanillaResult} " +
-                            $"effective={(bypass ? 1 : vanillaResult)} bypass={bypass}");
-                    }
-                    catch
-                    {
-                        // Diagnostics must not change the flood-fill decision.
-                    }
                 }
                 if (!bypass)
                     return vanillaResult;
@@ -5344,6 +5181,18 @@ namespace MoveMoatTest
 
             if (switchRouteVariantToGround)
                 *routeVariant = 0;
+            byte* fallbackPath = null;
+            int fallbackLengthBefore = 0;
+            byte[] fallbackPathBackup = null;
+            if (!TryCaptureUnitFallbackPathBuffer(
+                    pathManager, plan.UnitId, out fallbackPath,
+                    out fallbackLengthBefore, out fallbackPathBackup))
+            {
+                if (switchRouteVariantToGround)
+                    *routeVariant = originalRouteVariant;
+                RecordBuilderResult(command, vanillaResult);
+                return vanillaResult;
+            }
             int result;
             try
             {
@@ -5353,12 +5202,46 @@ namespace MoveMoatTest
             }
             catch
             {
+                RestoreFallbackPathBuffer(
+                    pathManager, fallbackPath, fallbackPathBackup,
+                    fallbackLengthBefore);
                 if (switchRouteVariantToGround)
                     *routeVariant = originalRouteVariant;
                 throw;
             }
 
             bool retained = result > 0;
+            string pathAudit = "native-retry-no-path";
+            if (!retained)
+            {
+                RestoreFallbackPathBuffer(
+                    pathManager, fallbackPath, fallbackPathBackup,
+                    fallbackLengthBefore);
+            }
+            if (retained && !TryAuditFallbackPath(
+                    pathManager, fallbackPath, result, plan, builderUnit,
+                    out pathAudit))
+            {
+                bool replaced = TryReplaceUnsafeFallbackPath(
+                    pathManager, fallbackPath, fallbackPathBackup,
+                    fallbackLengthBefore, plan, builderUnit,
+                    out int replacementResult, out string replacementDetails);
+                if (replaced)
+                {
+                    result = replacementResult;
+                    retained = true;
+                    pathAudit = $"owner-safe-managed-replacement:{replacementDetails}";
+                }
+                else
+                {
+                    RestoreFallbackPathBuffer(
+                        pathManager, fallbackPath, fallbackPathBackup,
+                        fallbackLengthBefore);
+                    result = vanillaResult;
+                    retained = false;
+                    pathAudit = $"unsafe-native-retry-rolled-back:{replacementDetails}";
+                }
+            }
             if (switchRouteVariantToGround && !retained)
                 *routeVariant = originalRouteVariant;
 
@@ -5371,7 +5254,8 @@ namespace MoveMoatTest
                         $"variant={fallbackCandidate} " +
                         $"movementProfile={movementProfile} original={originalRouteVariant} " +
                         $"effective={(retained ? 0 : originalRouteVariant)} " +
-                        $"vanillaResult={vanillaResult} result={result} retained={retained}");
+                        $"vanillaResult={vanillaResult} result={result} retained={retained} " +
+                        $"pathAudit={pathAudit}");
                 }
             }
             catch
@@ -5385,6 +5269,247 @@ namespace MoveMoatTest
                 StartOrRefreshMoatMoveTracker(plan, routeSummary, result);
 
             return result;
+        }
+
+        private bool TryCaptureUnitFallbackPathBuffer(
+            IntPtr pathManager,
+            int unitId,
+            out byte* path,
+            out int length,
+            out byte[] backup)
+        {
+            path = null;
+            length = 0;
+            backup = null;
+            if (pathManager == IntPtr.Zero || pathManager != nativePathManager ||
+                nativeUnitManager == null || unitId <= 0 || unitId > MaximumUnitCount)
+            {
+                return false;
+            }
+
+            byte* manager = (byte*)pathManager.ToPointer();
+            path = *(byte**)(manager + PathManagerOutputBufferOffset);
+            byte* expected = nativeUnitManager + NativeUnitPathBufferOffset +
+                unitId * NativeUnitPathBufferStride;
+            length = *(int*)(manager + PathManagerOutputLengthOffset);
+            if (path == null || path != expected || length < 0 ||
+                length > WeightedMoatRoutePlanner.MaximumRouteEdges)
+            {
+                path = null;
+                return false;
+            }
+
+            backup = new byte[NativeUnitPathBufferStride];
+            Marshal.Copy((IntPtr)path, backup, 0, backup.Length);
+            return true;
+        }
+
+        private bool TryAuditFallbackPath(
+            IntPtr pathManager,
+            byte* path,
+            int result,
+            PlanScope plan,
+            GameUnit* unit,
+            out string details)
+        {
+            details = "invalid-contract";
+            if (pathManager == IntPtr.Zero || path == null || result <= 0 ||
+                result > WeightedMoatRoutePlanner.MaximumRouteEdges ||
+                plan == null || unit == null)
+            {
+                return false;
+            }
+
+            byte* manager = (byte*)pathManager.ToPointer();
+            if (*(int*)(manager + PathManagerOutputLengthOffset) != result)
+                return false;
+            int x = *(int*)(manager + 0x08);
+            int y = *(int*)(manager + 0x0C);
+            int expectedTargetX = *(int*)(manager + 0x10);
+            int expectedTargetY = *(int*)(manager + 0x14);
+            int playerId = unit->r_ControllableForPlayerId;
+            if (!GamePlayerManagerAPI.Instance.IsPlayerIdValid(playerId))
+                return false;
+
+            var enemyNodes = new Dictionary<int, int>();
+            int enemyNodeOccurrences = 0;
+            int friendlyMoatNodes = 0;
+            for (int nodeIndex = 0; nodeIndex <= result; nodeIndex++)
+            {
+                int tileId = GameTileManagerAPI.Instance.GetTileId(x, y);
+                if (!IsValidTileId(tileId))
+                {
+                    details = "invalid-path-tile";
+                    return false;
+                }
+                if (IsCompletedMoatTile(tileId))
+                {
+                    CompletedMoatRelationship relationship =
+                        ResolveCompletedMoatRelationship(playerId, tileId);
+                    if (relationship == CompletedMoatRelationship.Enemy)
+                    {
+                        enemyNodes[tileId] = nodeIndex;
+                        enemyNodeOccurrences++;
+                    }
+                    else if (relationship == CompletedMoatRelationship.Friendly)
+                        friendlyMoatNodes++;
+                    else
+                    {
+                        details = "invalid-moat-owner";
+                        return false;
+                    }
+                }
+                if (nodeIndex == result)
+                    break;
+
+                int direction = (path[nodeIndex >> 1] >> ((nodeIndex & 1) * 4)) & 0x0F;
+                if (direction < 0 || direction >= WeightedMoatRoutePlanner.DirectionX.Length)
+                {
+                    details = "invalid-direction";
+                    return false;
+                }
+                int nextX = x + WeightedMoatRoutePlanner.DirectionX[direction];
+                int nextY = y + WeightedMoatRoutePlanner.DirectionY[direction];
+                int nextTileId = GameTileManagerAPI.Instance.GetTileId(nextX, nextY);
+                if (!IsValidTileId(nextTileId) ||
+                    !weightedMoatRoutePlanner.TryGetTraversalEdge(
+                        playerId, x, y, tileId, nextX, nextY, nextTileId,
+                        direction, nodeIndex == result - 1,
+                        IsPublishedWalkableBuildingApproach(plan.UnitId, nextTileId),
+                        MoatTraversalPolicy.AllowEnemyForDiagnostic,
+                        out MoatTraversalEdgeKind edgeKind, out _))
+                {
+                    details = "native-edge-invalid";
+                    return false;
+                }
+                if (edgeKind == MoatTraversalEdgeKind.EnemyMoat &&
+                    !IsCompletedEnemyMoatForPlayer(playerId, tileId) &&
+                    !IsCompletedEnemyMoatForPlayer(playerId, nextTileId))
+                {
+                    details = "enemy-moat-diagonal-corner";
+                    return false;
+                }
+                x = nextX;
+                y = nextY;
+            }
+
+            if (x != expectedTargetX || y != expectedTargetY ||
+                x != plan.TargetX || y != plan.TargetY)
+            {
+                details = "endpoint-mismatch";
+                return false;
+            }
+            if (enemyNodes.Count == 0)
+            {
+                details = $"owner-safe-native friendlyMoatNodes={friendlyMoatNodes}";
+                return true;
+            }
+
+            uint rawCommand = unchecked((uint)unit->r_AI_LastIssuedTribeCommand);
+            bool fillWork = plan.MoatWorkMovement &&
+                rawCommand == (uint)TribeAICommand.Unknown7 &&
+                IsValidTileId(plan.MoatWorkTargetTileId);
+            UnmanagedVector2<ushort> workPosition = fillWork
+                ? GameTileManagerAPI.Instance.GetTileVectorFromId(plan.MoatWorkTargetTileId)
+                : default;
+            bool terminalWorkContact = fillWork && enemyNodes.Count == 1 &&
+                enemyNodeOccurrences == 1 &&
+                enemyNodes.TryGetValue(plan.MoatWorkTargetTileId, out int workNodeIndex) &&
+                workNodeIndex == result - 1 &&
+                Math.Max(Math.Abs(expectedTargetX - workPosition.X),
+                    Math.Abs(expectedTargetY - workPosition.Y)) == 1;
+            details = terminalWorkContact
+                ? $"vanilla-fill-terminal-contact tile={plan.MoatWorkTargetTileId}"
+                : $"enemy-traversal unique={enemyNodes.Count} occurrences={enemyNodeOccurrences} " +
+                  $"tiles=[{string.Join(",", enemyNodes.Keys)}]";
+            return terminalWorkContact;
+        }
+
+        private bool IsCompletedEnemyMoatForPlayer(int playerId, int tileId) =>
+            IsValidTileId(tileId) && IsCompletedMoatTile(tileId) &&
+            ResolveCompletedMoatRelationship(playerId, tileId) ==
+                CompletedMoatRelationship.Enemy;
+
+        private bool TryReplaceUnsafeFallbackPath(
+            IntPtr pathManager,
+            byte* path,
+            byte[] backup,
+            int originalLength,
+            PlanScope plan,
+            GameUnit* unit,
+            out int result,
+            out string details)
+        {
+            result = 0;
+            details = "replacement-not-attempted";
+            if (targetedRouteProbeBusy || weightedShadowBusy || pathManager == IntPtr.Zero ||
+                path == null || backup == null || plan == null || unit == null)
+            {
+                return false;
+            }
+
+            byte* manager = (byte*)pathManager.ToPointer();
+            int startX = *(int*)(manager + 0x08);
+            int startY = *(int*)(manager + 0x0C);
+            int targetX = *(int*)(manager + 0x10);
+            int targetY = *(int*)(manager + 0x14);
+            int playerId = unit->r_ControllableForPlayerId;
+            bool allowReservedTarget = IsPublishedWalkableBuildingApproach(
+                plan.UnitId, GameTileManagerAPI.Instance.GetTileId(targetX, targetY));
+            WeightedMoatRouteSummary summary;
+            WeightedMoatEncodedRoute route;
+            targetedRouteProbeBusy = true;
+            try
+            {
+                if (!weightedMoatRoutePlanner.TryBuildReachabilityEncoded(
+                        playerId, startX, startY, targetX, targetY,
+                        allowReservedTarget, out summary, out route) ||
+                    !route.IsValid || summary.MoatEdges <= 0 ||
+                    route.Bytes.Length > NativeUnitPathBufferStride)
+                {
+                    details = $"no-owner-safe-replacement:{summary.Reason}";
+                    return false;
+                }
+            }
+            finally
+            {
+                targetedRouteProbeBusy = false;
+            }
+
+            try
+            {
+                for (int index = 0; index < NativeUnitPathBufferStride; index++)
+                    path[index] = index < route.Bytes.Length ? route.Bytes[index] : (byte)0;
+                *(int*)(manager + PathManagerOutputLengthOffset) = route.DirectionCount;
+                if (!TryAuditFallbackPath(
+                        pathManager, path, route.DirectionCount, plan, unit,
+                        out string audit) || audit.StartsWith(
+                            "vanilla-fill-terminal-contact", StringComparison.Ordinal))
+                {
+                    throw new InvalidOperationException(
+                        $"Owner-safe replacement failed roundtrip audit: {audit}");
+                }
+                result = route.DirectionCount;
+                details = $"length={result} moatEdges={summary.MoatEdges} " +
+                    $"expanded={summary.ExpandedNodes} searchMs={summary.SearchMilliseconds:F3}";
+                return true;
+            }
+            catch (Exception ex)
+            {
+                RestoreFallbackPathBuffer(pathManager, path, backup, originalLength);
+                details = $"replacement-rollback:{ex.GetType().Name}";
+                return false;
+            }
+        }
+
+        private static void RestoreFallbackPathBuffer(
+            IntPtr pathManager, byte* path, byte[] backup, int originalLength)
+        {
+            if (pathManager == IntPtr.Zero || path == null || backup == null)
+                return;
+            Marshal.Copy(backup, 0, (IntPtr)path, backup.Length);
+            *(int*)((byte*)pathManager.ToPointer() + PathManagerOutputLengthOffset) =
+                originalLength;
         }
 
         private void ObserveAttackApproachFloodBuilder(
@@ -7398,30 +7523,19 @@ namespace MoveMoatTest
             return true;
         }
 
-        private bool TryFindFriendlyCompletedMoatRouteForPlan(
+        private bool TryFindRequiredFriendlyCompletedMoatRouteForPlan(
             PlanScope plan, out RouteProbeSummary summary)
         {
             summary = default;
-            if (plan == null || plan.TargetX < 0 || plan.TargetY < 0 ||
-                !GameUnitManagerAPI.Instance.TryGetUnitById(plan.UnitId, out GameUnit* unit) ||
-                unit == null || !CanDigMoat(unit))
-            {
-                return false;
-            }
-
-            int playerId = unit->r_ControllableForPlayerId;
-            plan.PlayerId = playerId;
-            return TryFindFriendlyCompletedMoatRoute(
-                playerId,
-                unit->r_CurrentTilePositionX,
-                unit->r_CurrentTilePositionY,
-                plan.TargetX,
-                plan.TargetY,
-                out summary);
+            return TryFindRequiredFriendlyCompletedMoatRouteForPlan(
+                plan, exactTarget: false, allowReservedTarget: false, out summary);
         }
 
         private bool TryFindRequiredFriendlyCompletedMoatRouteForPlan(
-            PlanScope plan, out RouteProbeSummary summary)
+            PlanScope plan,
+            bool exactTarget,
+            bool allowReservedTarget,
+            out RouteProbeSummary summary)
         {
             summary = default;
             if (plan == null || plan.TargetX < 0 || plan.TargetX >= MapWidth ||
@@ -7432,25 +7546,199 @@ namespace MoveMoatTest
                 return false;
             }
 
-            bool reachedTargetWithMoat = TryFindFriendlyCompletedMoatRouteForPlan(plan, out summary);
-            if (!reachedTargetWithMoat)
+            if (!CanDigMoat(unit))
                 return false;
-            int targetCell = (plan.TargetY * MapWidth) + plan.TargetX;
-            bool reachedWithMoat = gridGeneration > 0 &&
-                visitedWithMoat != null && visitedWithMoat[targetCell] == gridGeneration;
-            bool reachedWithoutMoat = gridGeneration > 0 &&
-                visitedWithoutMoat != null && visitedWithoutMoat[targetCell] == gridGeneration;
+
+            int playerId = unit->r_ControllableForPlayerId;
+            int startX = unit->r_CurrentTilePositionX;
+            int startY = unit->r_CurrentTilePositionY;
+            int startTileId = GameTileManagerAPI.Instance.GetTileId(startX, startY);
+            int targetTileId = GameTileManagerAPI.Instance.GetTileId(plan.TargetX, plan.TargetY);
+            if (!GamePlayerManagerAPI.Instance.IsPlayerIdValid(playerId) ||
+                !IsValidTileId(startTileId) || !IsValidTileId(targetTileId) ||
+                targetedRouteProbeBusy || weightedShadowBusy)
+            {
+                return false;
+            }
+            plan.PlayerId = playerId;
+
+            int startRegion = pathRegionGrid[startTileId];
+            bool exactStartRequired = startRegion <= 0 ||
+                IsCompletedMoatTile(startTileId) ||
+                (tileFlags[startTileId] & CursorSpecialStructureTileFlagMask) != 0;
+            int sourceKey = exactStartRequired ? -startTileId - 1 : startRegion;
+            int targetRegion = pathRegionGrid[targetTileId];
+            bool exactTargetRequired = exactTarget || allowReservedTarget || targetRegion <= 0 ||
+                IsCompletedMoatTile(targetTileId) ||
+                (tileFlags[targetTileId] & CursorSpecialStructureTileFlagMask) != 0;
+            int targetKey = exactTargetRequired ? -targetTileId - 1 : targetRegion;
+            string cacheKey = $"{mapEpoch}:{playerId}:{sourceKey}:{targetKey}:" +
+                $"reserved:{allowReservedTarget}:required";
+            MoveCommandScope command = activeMoveCommand;
+            if (command != null && command.TargetedRouteDecisions.TryGetValue(
+                    cacheKey, out TargetedRouteDecision cached))
+            {
+                command.TargetedRouteCacheHits++;
+                summary = cached.Summary;
+                return cached.RequiredFriendlyMoat;
+            }
+
+            Stopwatch stopwatch = Stopwatch.StartNew();
+            WeightedMoatRouteSummary ground = default;
+            WeightedMoatRouteSummary friendly = default;
+            bool groundReachable;
+            bool friendlyReachable = false;
+            targetedRouteProbeBusy = true;
+            try
+            {
+                groundReachable = weightedMoatRoutePlanner.TryProbeReachability(
+                    playerId, startX, startY, plan.TargetX, plan.TargetY,
+                    allowReservedTarget, MoatTraversalPolicy.GroundOnly, out ground);
+                if (!groundReachable)
+                {
+                    friendlyReachable = weightedMoatRoutePlanner.TryProbeReachability(
+                        playerId, startX, startY, plan.TargetX, plan.TargetY,
+                        allowReservedTarget, MoatTraversalPolicy.FriendlyOnly,
+                        out friendly);
+                }
+            }
+            finally
+            {
+                targetedRouteProbeBusy = false;
+            }
+
+            bool requiredFriendly = !groundReachable && friendlyReachable &&
+                friendly.MoatEdges > 0;
+            summary = new RouteProbeSummary(playerId)
+            {
+                StartRegion = startRegion,
+                TargetRegion = targetRegion,
+                RouteFound = requiredFriendly,
+                AttackProbeEvaluated = true,
+                ReachedWithoutMoat = groundReachable,
+                ReachedWithMoat = friendlyReachable,
+                FriendlyMoatTiles = friendly.MoatEdges,
+                StructuralEdgesObserved = Math.Max(
+                    ground.StructuralEdges, friendly.StructuralEdges),
+                RouteDistance = friendlyReachable
+                    ? friendly.RouteLength
+                    : groundReachable ? ground.RouteLength : int.MaxValue,
+                TargetedExpandedNodes = ground.ExpandedNodes + friendly.ExpandedNodes,
+                TargetedSearchMilliseconds = stopwatch.Elapsed.TotalMilliseconds
+            };
+            if (command != null)
+            {
+                command.TargetedRouteSearches++;
+                command.TargetedRouteExpandedNodes += summary.TargetedExpandedNodes;
+                command.TargetedRouteSearchMilliseconds += summary.TargetedSearchMilliseconds;
+                command.TargetedRouteMaximumSearchMilliseconds = Math.Max(
+                    command.TargetedRouteMaximumSearchMilliseconds,
+                    summary.TargetedSearchMilliseconds);
+                command.TargetedRouteDecisions[cacheKey] =
+                    new TargetedRouteDecision(requiredFriendly, summary);
+            }
             summary.AttackProbeEvaluated = true;
-            summary.ReachedWithMoat = reachedWithMoat;
-            summary.ReachedWithoutMoat = reachedWithoutMoat;
-            summary.RouteFound = reachedWithMoat && !reachedWithoutMoat &&
-                summary.FriendlyMoatTiles > 0;
             if (summary.RouteFound)
             {
                 LogDiggerDecision("route", plan.UnitId, unit,
                     plan.TargetX, plan.TargetY, true, friendlyMoatRequired: true);
             }
             return summary.RouteFound;
+        }
+
+        private bool TryGetCachedRequiredFriendlyRouteForPlan(
+            PlanScope plan, out RouteProbeSummary summary)
+        {
+            summary = default;
+            MoveCommandScope command = activeMoveCommand;
+            if (command == null || plan == null ||
+                !GameUnitManagerAPI.Instance.TryGetUnitById(plan.UnitId, out GameUnit* unit) ||
+                unit == null || !CanDigMoat(unit))
+            {
+                return false;
+            }
+
+            int playerId = unit->r_ControllableForPlayerId;
+            int startX = unit->r_CurrentTilePositionX;
+            int startY = unit->r_CurrentTilePositionY;
+            int startTileId = GameTileManagerAPI.Instance.GetTileId(startX, startY);
+            int targetTileId = GameTileManagerAPI.Instance.GetTileId(plan.TargetX, plan.TargetY);
+            if (!IsValidTileId(startTileId) || !IsValidTileId(targetTileId))
+                return false;
+            int startRegion = pathRegionGrid[startTileId];
+            bool exactStartRequired = startRegion <= 0 || IsCompletedMoatTile(startTileId) ||
+                (tileFlags[startTileId] & CursorSpecialStructureTileFlagMask) != 0;
+            int sourceKey = exactStartRequired ? -startTileId - 1 : startRegion;
+            int targetRegion = pathRegionGrid[targetTileId];
+            bool exactTargetRequired = targetRegion <= 0 || IsCompletedMoatTile(targetTileId) ||
+                (tileFlags[targetTileId] & CursorSpecialStructureTileFlagMask) != 0;
+            int targetKey = exactTargetRequired ? -targetTileId - 1 : targetRegion;
+            string cacheKey = $"{mapEpoch}:{playerId}:{sourceKey}:{targetKey}:" +
+                "reserved:False:required";
+            if (!command.TargetedRouteDecisions.TryGetValue(
+                    cacheKey, out TargetedRouteDecision decision) ||
+                !decision.RequiredFriendlyMoat)
+            {
+                return false;
+            }
+
+            command.TargetedRouteCacheHits++;
+            plan.PlayerId = playerId;
+            summary = decision.Summary;
+            return true;
+        }
+
+        private bool TryQualifyMoveCommandFloodBypass(MoveCommandScope command)
+        {
+            if (command == null || command.DiggersAtDispatch == 0)
+                return false;
+            if (command.FloodOwnerRouteEvaluated)
+                return command.FloodOwnerRouteAllowed;
+
+            command.FloodOwnerRouteEvaluated = true;
+            DirectCursorMoveScope direct = activeDirectCursorMove;
+            if (direct != null && direct.MapEpoch == mapEpoch &&
+                direct.TribeId == command.TribeId && direct.TargetX == command.TargetX &&
+                direct.TargetY == command.TargetY)
+            {
+                command.FloodOwnerRouteAllowed = true;
+                command.MoatRelevant = true;
+                return true;
+            }
+
+            var probedSources = new HashSet<string>(StringComparer.Ordinal);
+            foreach (int unitId in command.ActiveUnitIdsAtDispatch)
+            {
+                if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+                    unit == null || unit->r_AliveState != AliveState.IsAlive ||
+                    unit->r_TribeId != command.TribeId || !CanDigMoat(unit))
+                {
+                    continue;
+                }
+                int startTileId = GameTileManagerAPI.Instance.GetTileId(
+                    unit->r_CurrentTilePositionX, unit->r_CurrentTilePositionY);
+                if (!IsValidTileId(startTileId))
+                    continue;
+                int startRegion = pathRegionGrid[startTileId];
+                string sourceKey = startRegion > 0 && !IsCompletedMoatTile(startTileId) &&
+                    (tileFlags[startTileId] & CursorSpecialStructureTileFlagMask) == 0
+                        ? $"r:{unit->r_ControllableForPlayerId}:{startRegion}"
+                        : $"t:{unit->r_ControllableForPlayerId}:{startTileId}";
+                if (!probedSources.Add(sourceKey))
+                    continue;
+
+                var plan = new PlanScope(unitId, command.TargetX, command.TargetY);
+                if (!TryFindRequiredFriendlyCompletedMoatRouteForPlan(
+                        plan, out RouteProbeSummary route))
+                {
+                    continue;
+                }
+                command.FloodOwnerRouteAllowed = true;
+                command.MoatRelevant = true;
+                MarkCommandMoatRelevant(command, route);
+                return true;
+            }
+            return false;
         }
 
         private bool TryFindRequiredFriendlyCompletedMoatRouteToEndpoint(
@@ -7461,10 +7749,11 @@ namespace MoveMoatTest
             out int distance)
         {
             distance = int.MaxValue;
-            if (TryFindRequiredFriendlyCompletedMoatRouteForPlan(plan, out summary))
+            if (TryFindRequiredFriendlyCompletedMoatRouteForPlan(
+                    plan, exactTarget: true,
+                    allowReservedTarget: requireBuildingReservation, out summary))
             {
-                int targetCell = plan.TargetY * MapWidth + plan.TargetX;
-                distance = distanceWithMoat[targetCell];
+                distance = summary.RouteDistance;
                 return true;
             }
             if (plan == null || !IsValidTileId(endpointTileId) ||
@@ -7500,7 +7789,9 @@ namespace MoveMoatTest
 
                 PlanScope neighbourPlan = new PlanScope(plan.UnitId, neighbourX, neighbourY);
                 if (!TryFindRequiredFriendlyCompletedMoatRouteForPlan(
-                        neighbourPlan, out RouteProbeSummary neighbourSummary))
+                        neighbourPlan, exactTarget: true,
+                        allowReservedTarget: false,
+                        out RouteProbeSummary neighbourSummary))
                 {
                     observed.MergeObservations(neighbourSummary);
                     continue;
@@ -7511,8 +7802,9 @@ namespace MoveMoatTest
                 neighbourSummary.ReachedWithMoat = true;
                 neighbourSummary.ReachedWithoutMoat = false;
                 observed.MergeObservations(neighbourSummary);
-                int neighbourCell = neighbourY * MapWidth + neighbourX;
-                int candidateDistance = distanceWithMoat[neighbourCell] + 1;
+                int candidateDistance = neighbourSummary.RouteDistance == int.MaxValue
+                    ? int.MaxValue
+                    : neighbourSummary.RouteDistance + 1;
                 if (candidateDistance < bestDistance)
                 {
                     found = true;
@@ -9083,7 +9375,6 @@ namespace MoveMoatTest
             trackedMoatMoves.Clear();
             trackedNativeWaypointQueues.Clear();
             loggedDiggerDecisions.Clear();
-            lastWeightedShadowDecisionByUnit.Clear();
             lastWeightedPublicationDecisionByUnit.Clear();
         }
 
@@ -9154,16 +9445,19 @@ namespace MoveMoatTest
 
         private void QualifyPendingCommandDiagnostics(MoveCommandScope command)
         {
-            if (command == null || command.BuilderReached || pendingPlan == null)
+            if (command == null || command.BuilderReached || pendingPlan == null ||
+                command.DiggersAtDispatch == 0)
                 return;
 
             // A Patrol leg can leave MoveHere after mode selection but before the builder.
             // Probe once in Post so precisely that early exit remains diagnosable.
             try
             {
-                TryFindFriendlyCompletedMoatRouteForPlan(
-                    pendingPlan, out RouteProbeSummary summary);
-                MarkCommandMoatRelevant(command, summary);
+                if (TryGetCachedRequiredFriendlyRouteForPlan(
+                        pendingPlan, out RouteProbeSummary summary))
+                {
+                    MarkCommandMoatRelevant(command, summary);
+                }
             }
             catch (Exception ex)
             {
@@ -9173,9 +9467,30 @@ namespace MoveMoatTest
 
         private void FlushCommandDiagnostics(MoveCommandScope command)
         {
-            if (command == null ||
-                (!command.MoatRelevant && command.IsNewOrder))
+            bool queueRelevant = command != null &&
+                ((command.HasQueuePreSnapshot && command.QueuePreSnapshot.Count > 0) ||
+                 (command.HasQueuePostSnapshot && command.QueuePostSnapshot.Count > 0));
+            bool slow = command != null && command.ElapsedMilliseconds >= 50.0;
+            if (command == null || (!command.MoatRelevant && !queueRelevant && !slow))
                 return;
+
+            if (slow && !command.MoatRelevant && !queueRelevant)
+            {
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"MoveMoat stage=move-command-performance commandSeq={command.Sequence} " +
+                    $"tribe={command.TribeId} units={command.ActiveUnitsAtDispatch} " +
+                    $"diggers={command.DiggersAtDispatch} elapsedMs={command.ElapsedMilliseconds:F3} " +
+                    $"targetedSearches={command.TargetedRouteSearches} " +
+                    $"targetedCacheHits={command.TargetedRouteCacheHits} " +
+                    $"targetedExpanded={command.TargetedRouteExpandedNodes} " +
+                    $"targetedSearchMs={command.TargetedRouteSearchMilliseconds:F3} " +
+                    $"targetedMaxSearchMs={command.TargetedRouteMaximumSearchMilliseconds:F3} " +
+                    $"weightedSearchMs={command.WeightedSearchMilliseconds:F3} " +
+                    $"weightedMaxSearchMs={command.WeightedMaximumSearchMilliseconds:F3} " +
+                    "moatIntervention=False.");
+                return;
+            }
 
             foreach (string message in command.Diagnostics)
                 Shared.DebugLogHelper.LogInfo(log, $"MoveMoat {message}.");
@@ -9220,10 +9535,7 @@ namespace MoveMoatTest
         {
             int alive = 0;
             int diggers = 0;
-            int groundReachable = 0;
-            int friendlyReachable = 0;
             int requiredFriendly = 0;
-            int enemyOnly = 0;
             RouteProbeSummary observed = default;
             foreach (int unitId in command.ActiveUnitIdsAtDispatch)
             {
@@ -9242,21 +9554,16 @@ namespace MoveMoatTest
                 {
                     PlayerId = unit->r_ControllableForPlayerId
                 };
-                TryFindFriendlyCompletedMoatRouteForPlan(plan, out RouteProbeSummary summary);
-                observed.MergeObservations(summary);
-                if (summary.ReachedWithoutMoat)
-                    groundReachable++;
-                if (summary.ReachedWithMoat)
-                    friendlyReachable++;
-                if (summary.ReachedWithMoat && !summary.ReachedWithoutMoat)
+                if (TryGetCachedRequiredFriendlyRouteForPlan(
+                        plan, out RouteProbeSummary summary))
+                {
                     requiredFriendly++;
-                if (summary.EnemyOnlyReachable)
-                    enemyOnly++;
+                    observed.MergeObservations(summary);
+                }
             }
 
-            return $"alive={alive} diggers={diggers} ground={groundReachable} " +
-                $"friendly={friendlyReachable} requiredFriendly={requiredFriendly} " +
-                $"enemyOnly={enemyOnly} {observed.ToLogFields()}";
+            return $"alive={alive} diggers={diggers} " +
+                $"cachedRequiredFriendly={requiredFriendly} {observed.ToLogFields()}";
         }
 
         private void LogModeContext(PlanScope plan, GameUnit* unit, int vanillaResult)
@@ -9532,7 +9839,6 @@ namespace MoveMoatTest
             public double WeightedSearchMilliseconds { get; set; }
             public double WeightedMaximumSearchMilliseconds { get; set; }
             public HashSet<int> WeightedUnitIds { get; } = new HashSet<int>();
-
             public bool Matches(TribeIssueOrderWithTargetEventArgs args, int currentMapEpoch) =>
                 MapEpoch == currentMapEpoch && TribeId == args.TribeId &&
                 Command == args.AICommand && TargetValue1 == args.TargetValue1 &&
@@ -10260,6 +10566,7 @@ namespace MoveMoatTest
                 MoveType = moveType;
                 ParentAttackCommandSequence = parentAttackCommandSequence;
                 ParentAttackCommand = parentAttackCommand;
+                StartTimestamp = Stopwatch.GetTimestamp();
             }
 
             public int Sequence { get; }
@@ -10271,6 +10578,8 @@ namespace MoveMoatTest
             public TribeMoveType MoveType { get; }
             public int ParentAttackCommandSequence { get; }
             public TribeAICommand ParentAttackCommand { get; }
+            public long StartTimestamp { get; }
+            public double ElapsedMilliseconds { get; set; }
             public int ActiveUnitsAtDispatch { get; set; }
             public int[] ActiveUnitIdsAtDispatch { get; set; } = Array.Empty<int>();
             public int DiggersAtDispatch { get; set; }
@@ -10280,6 +10589,8 @@ namespace MoveMoatTest
             public int FloodCalls { get; set; }
             public int FloodVanillaPositive { get; set; }
             public int FloodFillBypasses { get; set; }
+            public bool FloodOwnerRouteEvaluated { get; set; }
+            public bool FloodOwnerRouteAllowed { get; set; }
             public int ModeCalls { get; set; }
             public int RegionCalls { get; set; }
             public int BuilderCalls { get; set; }
@@ -10295,6 +10606,13 @@ namespace MoveMoatTest
             public double WeightedSearchMilliseconds { get; set; }
             public double WeightedMaximumSearchMilliseconds { get; set; }
             public HashSet<int> WeightedUnitIds { get; } = new HashSet<int>();
+            public int TargetedRouteSearches { get; set; }
+            public int TargetedRouteCacheHits { get; set; }
+            public int TargetedRouteExpandedNodes { get; set; }
+            public double TargetedRouteSearchMilliseconds { get; set; }
+            public double TargetedRouteMaximumSearchMilliseconds { get; set; }
+            public Dictionary<string, TargetedRouteDecision> TargetedRouteDecisions { get; } =
+                new Dictionary<string, TargetedRouteDecision>(StringComparer.Ordinal);
             public string LastGroupMoatModeDiagnostic { get; set; }
             public int EarlyRegionCalls { get; set; }
             public int EarlyRegionBypasses { get; set; }
@@ -10323,6 +10641,19 @@ namespace MoveMoatTest
             public bool Allowed { get; }
             public int UnitId { get; }
             public string Reason { get; }
+            public RouteProbeSummary Summary { get; }
+        }
+
+        private readonly struct TargetedRouteDecision
+        {
+            public TargetedRouteDecision(
+                bool requiredFriendlyMoat, RouteProbeSummary summary)
+            {
+                RequiredFriendlyMoat = requiredFriendlyMoat;
+                Summary = summary;
+            }
+
+            public bool RequiredFriendlyMoat { get; }
             public RouteProbeSummary Summary { get; }
         }
 
@@ -10480,6 +10811,9 @@ namespace MoveMoatTest
                 TraversedRegionCount = 0;
                 ReachabilityCacheHits = 0;
                 StructuralEdgesObserved = 0;
+                RouteDistance = int.MaxValue;
+                TargetedExpandedNodes = 0;
+                TargetedSearchMilliseconds = 0;
             }
 
             public int PlayerId;
@@ -10497,6 +10831,9 @@ namespace MoveMoatTest
             public int TraversedRegionCount;
             public int ReachabilityCacheHits;
             public int StructuralEdgesObserved;
+            public int RouteDistance;
+            public int TargetedExpandedNodes;
+            public double TargetedSearchMilliseconds;
 
             public void MergeObservations(RouteProbeSummary other)
             {
@@ -10520,6 +10857,13 @@ namespace MoveMoatTest
                     ReachabilityCacheHits, other.ReachabilityCacheHits);
                 StructuralEdgesObserved = Math.Max(
                     StructuralEdgesObserved, other.StructuralEdgesObserved);
+                if (other.RouteDistance != int.MaxValue &&
+                    (RouteDistance == int.MaxValue || other.RouteDistance < RouteDistance))
+                {
+                    RouteDistance = other.RouteDistance;
+                }
+                TargetedExpandedNodes += other.TargetedExpandedNodes;
+                TargetedSearchMilliseconds += other.TargetedSearchMilliseconds;
             }
 
             public void ObserveOwner(int ownerId)
@@ -10542,7 +10886,9 @@ namespace MoveMoatTest
                     $"enemyOnlyReachable={EnemyOnlyReachable} " +
                     $"traversedRegions={TraversedRegionCount} " +
                     $"reachabilityCacheHits={ReachabilityCacheHits}" +
-                    $" structuralEdges={StructuralEdgesObserved}" +
+                    $" structuralEdges={StructuralEdgesObserved} " +
+                    $"targetedExpanded={TargetedExpandedNodes} " +
+                    $"targetedSearchMs={TargetedSearchMilliseconds:F3}" +
                     attackFields;
             }
         }

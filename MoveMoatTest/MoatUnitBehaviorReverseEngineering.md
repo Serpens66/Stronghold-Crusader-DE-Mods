@@ -1,6 +1,6 @@
 # MoveMoatTest – Erkenntnisse und Übergabestand
 
-Stand: 4. September 2026
+Stand: 5. September 2026
 
 ## Ziel und aktueller Vertrag
 
@@ -92,15 +92,18 @@ Planer und ist an `0xDAFD0`/`0xE1640` angeglichen. Sie prüft Richtungs- und Bew
 Diagonalbedingungen, StructureGrid und die native Sonderstrukturprüfung. Path-Regionen werden
 nur noch für native Rückgabewerte und Diagnose verwendet, nicht als Traversierungs-Whitelist.
 
-Die Probe führt getrennte Zustände für:
+Die frühe Befehlsqualifikation flutet nicht mehr für jede Unit die vollständige Karte. Sie sucht
+zielgerichtet zuerst ohne Moat und nur nach einem Fehlschlag mit eigenen beziehungsweise
+verbündeten Moats. Eine feindliche Route wird ausschließlich dort berechnet, wo ein negativer
+Cursorbefund sie wirklich unterscheiden muss. Starts auf einem freundlichen fertigen Moat werden
+direkt als moatgebundener Start behandelt.
 
-- ohne Moat erreichbare Tiles;
-- über mindestens einen eigenen/verbündeten Moat erreichbare Tiles;
-- rein diagnostisch nur über feindlichen Moat erreichbare Tiles.
-
-Starts auf einem freundlichen fertigen Moat beginnen direkt im freundlichen Zustand. Der Cache
-ist nur an Kartenepoch, Spieler und Starttile gebunden und wird nicht commandübergreifend
-persistiert. Dadurch funktionieren auch mehrere Bodenregionen zwischen zwei Moatabschnitten.
+Innerhalb eines synchronen Gruppenbefehls werden boolesche Entscheidungen für gewöhnliche Ziele
+nach Spieler, Startregion und Zielregion geteilt. Region `0`, Moat-, Struktur-, reservierte und
+Arbeitsendpunkte bleiben an das exakte Tile gebunden. Formationsoffsets derselben Region lösen
+somit keine vollständige Suche je Unit aus. Rekonstruierte Pfade werden nie regionsweise geteilt;
+sie bleiben stets an das konkrete Start-/Zielpaar gebunden. Alle Command-Caches enden mit dem
+synchronen Command.
 
 ## Funktionierende Bereiche
 
@@ -125,10 +128,23 @@ Folgende Fälle wurden in Editor und teilweise in Skirmish praktisch bestätigt:
 - KI-gesteuerte grabfähige Units nutzen ihren eigenen Moat;
 - mehrere Befehle und mehrere Units pro Spielstart ohne den früheren Einmal-Effekt.
 
-Die Gebäudeoptimierung reduzierte den beobachteten großen KI-Fall von bis zu 16 vollständigen
+Die Gebäudeoptimierung reduzierte einen früheren großen KI-Fall von bis zu 16 vollständigen
 Reachability-Suchen pro Unit auf ungefähr eine Karte je Unit und Zielregion. Gemessene
 Gebäudephasen lagen anschließend ungefähr bei 10 ms (`0xDA020`) und höchstens 2,5 ms
 (`0x123090`) statt einer Pause von rund 2,2 Sekunden.
+
+Ein späterer siebenminütiger KI-Lauf zeigte dennoch, dass die allgemeine Qualifikation noch zu
+teuer war: 16.521 MoveMoat-Zeilen (rund 8,5 MB), 634 vollständige Kartenaufbauten, bis zu 66.265
+geprüfte Strukturkanten je Aufbau und ungefähr 1,3 Sekunden synchrone Modarbeit bei zehn
+grabfähigen Units. In den auswertbaren Move-Befehlen summierte sich die Modzeit auf rund 32
+Sekunden. Logging verstärkte die Pausen, Hauptursache war aber die Vollkartensuche pro Unit.
+
+Der aktuelle, noch praktisch abzunehmende Stand ersetzt diese Vollkartensuchen im normalen
+Commandpfad durch die oben beschriebene zielgerichtete, regionsweise geteilte Qualifikation.
+`0x196840` liefert nur Vanillas Aussage, ob die konkrete Unit gerade auf einem fertigen Moat
+steht, und startet keine eigene Suche mehr. Normale AI-/Bodenbefehle, leere Queue-Snapshots,
+unveränderte Flood-Aufrufe und wiederholte Tick-/Stallzustände werden nicht mehr einzeln geloggt.
+Ein Performanceeintrag entsteht nur bei Moat-Eingriff oder einem messbar langsamen Command.
 
 Der letzte Strukturtest endete für 65 beobachtete Pfade am Ziel; 35 Moat-Eintritte und 35
 Moat-Austritte wurden protokolliert. Es gab keine MoveMoat-Exception.
@@ -163,6 +179,25 @@ dürfen den Kandidaten weiterhin niemals langsamer machen, die volle Sicherheits
 für den konkreten Runtime-Snapshot. Damit soll die beobachtete unnötige lange Wegwahl beseitigt
 werden, ohne einen unter irgendeinem bekannten Profil schlechteren Pfad zu veröffentlichen.
 
+## Owner-Sicherheit veröffentlichter Fallbackpfade
+
+Positive Vanilla-Builderpfade bleiben unverändert. Nur ein durch den Mod nach einem echten
+Vanilla-Nuller erzeugter nativer Retry wird anschließend am tatsächlichen nibble-codierten
+Unit-Pfad vollständig auditiert. Eigene und verbündete Moat-Tiles sind zulässig; ein fremder
+Moat, eine fremde reine Diagonalecke oder ein ungültiger Owner macht den Retry unsicher.
+
+Beim Zuschütten darf ausschließlich das exakt gebundene feindliche Arbeits-Moat einmal als
+terminaler Arbeitskontakt vorkommen: Es muss der vorletzte Pfadknoten direkt vor Vanillas
+Annäherungstile sein und darf weder wiederholt noch als Durchgang verwendet werden. Findet der
+Audit einen anderen fremden Moat, berechnet der Mod nur dann einen exakten owner-sicheren
+Ersatzpfad zum unveränderten Vanilla-Ziel. Der Ersatz wird über denselben 1000-Byte-Unitpuffer,
+Längenvertrag und Decode-Roundtrip veröffentlicht. Scheitert irgendeine Prüfung, werden Puffer,
+Länge und Builderzustand auf den Stand vor dem Retry zurückgesetzt.
+
+`ownerSafetyViolation` bezeichnet damit nur noch einen vom Mod veröffentlichten Pfad mit fremdem
+Nicht-Ziel-Moat oder ungültigem Owner. Ein unveränderter positiver Vanilla-Pfad wird nicht mehr
+als Modverletzung klassifiziert.
+
 ## Verworfen oder ersetzt
 
 - Globale Bytepatches im Cursordispatcher verursachten falsche Mauer-/Klettercursor und wurden
@@ -178,17 +213,19 @@ werden, ohne einen unter irgendeinem bekannten Profil schlechteren Pfad zu verö
 - Gebäude-Hover darf nicht von gelegentlich auf `(0,0)` springenden Cursor-X/Y-Globals abhängen.
   Maßgeblich sind Vanillas Hover-Building-ID, ein gültiges Mouse-Tile und das nächstgelegene echte
   StructureGrid-Tile desselben Gebäudes.
-- Pro-Hover-Diagnosen und die alte Assassin-/Builderzustandsdiagnose wurden nach erfolgreicher
-  Abnahme entfernt. Funktionsrelevante Scopes und deduplizierte Pfad-/Owner-Meilensteine bleiben.
+- Hochfrequente Shadow-, Per-Tick-, Stall-, leere Queue- und gewöhnliche Bodenwegdiagnosen wurden
+  entfernt. Beibehalten sind verwendete Fallbacks/gewichtete Veröffentlichungen, Rollbacks,
+  Exceptions, Ownerverletzungen und aggregierte langsame Commands.
 
 ## Noch offen beziehungsweise erneut zu bestätigen
 
-- Die neue, weniger überkonservative gewichtete Fill-Gruppenregel benötigt einen gezielten
-  Wiederholungstest mit mehreren gleichzeitig zuschüttenden Units.
-- Ein früher Lauf meldete bei einem Fill-Folgeweg ein beobachtetes feindliches Moat-Tile. Die
-  aktuelle Diagnose unterscheidet nun Arbeitsziel von echter Traversierung und prüft den Owner am
-  Pfadende erneut. Bis ein entsprechender Lauf `workTarget` oder `traversed` eindeutig bestätigt,
-  ist dieser einzelne Owner-Befund nicht endgültig geklärt.
+- Der neue zielgerichtete Command-Cache und der abschließende Retry-Pfadaudit benötigen einen
+  gezielten Performance- und Fill-Wiederholungstest. Erwartet wird höchstens eine Qualifikation je
+  Start-/Zielregion statt einer Suche je Formationsoffset oder Unit.
+- Der früher als `ownerSafetyViolation=True` gemeldete Fill-Fall ist mit dem alten Log allein nicht
+  eindeutig: Vanilla darf beim Zuschütten das feindliche Arbeitsobjekt berühren. Der neue Audit
+  unterscheidet genau diesen einmaligen terminalen Kontakt von echter Durchquerung und rollt nur
+  letztere zurück beziehungsweise ersetzt sie owner-sicher.
 - Verbündete Moats verwenden denselben Allianzfilter wie eigene Moats, wurden aber nicht in allen
   Befehls- und Gruppenvarianten praktisch wiederholt.
 - Multiplayer wurde architektonisch vorbereitet (`NetworkMode: 1`, deterministische Daten,
@@ -199,14 +236,18 @@ werden, ohne einen unter irgendeinem bekannten Profil schlechteren Pfad zu verö
 
 ## Empfohlener kurzer Abschlusstest
 
-1. Mehrere grabfähige Units gleichzeitig mehrere feindliche Moats zuschütten lassen; prüfen,
-   dass alle den schnelleren eigenen/verbündeten Moatweg wählen.
-2. Dabei einen Fill-Folgeweg erzeugen, dessen Arbeitsobjekt ein feindlicher Moat ist; die
-   Ownerdiagnose muss `workTarget` statt `traversed` melden oder andernfalls den echten Fehler
-   eindeutig zeigen.
-3. Move, Shift-Queue, Patrol, `AttackUnit`, `AttackBuilding`, Dig und Treppe jeweils einmal kurz
-   regressionsprüfen.
-4. Danach Host und Client mit identischen Paketen starten, eigenen sowie feindlichen Moat testen
+1. Gruppen mit 1, 5, 10 und 27 grabfähigen Units zunächst über normalen Boden und danach über
+   einen zwingenden freundlichen Moat schicken. Normale Befehle dürfen keinen Fallback auslösen;
+   gleiche Startregionen sollen Cachetreffer statt proportionaler Suchen zeigen.
+2. Mehrere grabfähige Units gleichzeitig feindliche Moats zuschütten lassen. Ein terminaler
+   Zielkontakt muss als zulässig erscheinen; jeder fremde Durchgang muss ersetzt oder vollständig
+   zurückgerollt werden.
+3. Optionalen kurzen Moat, gemischte Gruppen, Shift-Queue, Patrol, `AttackUnit`,
+   `AttackBuilding`, Dig und Treppe regressionsprüfen.
+4. KI-Skirmish mindestens zehn Minuten schnell vorlaufen lassen. Ziel sind typische Commands
+   deutlich unter 50 ms, 27 gleiche Startregionen möglichst unter 100 ms, keine harten Pausen,
+   keine Exceptions und keine tausenden Diagnosezeilen.
+5. Danach Host und Client mit identischen Paketen starten, eigenen sowie feindlichen Moat testen
    und auf Desync/Exceptions achten.
 
 ## Update-Reihenfolge
