@@ -2885,16 +2885,12 @@ liefen insgesamt 98 bis 122 Tileübergänge. Ihre Abschlussfingerprints entsprac
 veröffentlichten noch dem ursprünglichen Pfad. Damit ist die exakte Pufferbindung innerhalb
 `0xF4930` zwar notwendig, aber für Gruppen nicht hinreichend.
 
-Die hashgleiche Baseline zeigt den Grundrahmen: `0x11B520` ruft `0x196280` pro Gruppenmitglied auf,
-führt danach aber weitere gemeinsame Gruppen-/Formationfinalisierung aus, unter anderem über
-`0x123460`. Diese nachgelagerte Stufe kann Followerzustände wieder aus dem gemeinsamen Gruppenpfad
-ableiten. Ein Eingriff nur im inneren `0xF4930`-Rückgabefenster besitzt deshalb für Follower noch
-keinen bestätigten finalen Veröffentlichungsvertrag. Bis dieser spätere Vertrag vollständig
-analysiert und validiert ist, werden gewichtete Pfade ausschließlich für eine nach
-`0x119F90`/Tribe-Mitgliederzahl bestätigte isolierte Unit funktional veröffentlicht. Für Gruppen
-bleibt A* read-only und meldet `group-path-finalization-unsafe`; die bestehende funktionale
-Moat-Erreichbarkeit bleibt davon unberührt. Diese Einschränkung verhindert insbesondere die
-beobachteten langen Zusatzwege nach scheinbarem Erreichen des Gruppenziels.
+Die damalige Arbeitshypothese war, dass eine nachgelagerte Gruppenfinalisierung – insbesondere
+`0x123460` – die Followerpfade erneut ableitet. Deshalb sperrte dieser Diagnosebuild gewichtete
+Gruppenveröffentlichungen mit `group-path-finalization-unsafe`. Die spätere vollständige Prüfung
+von `0x11B520` und `0x123460` hat diese Hypothese widerlegt. Der tatsächliche Längenfehler und der
+nun gültige Veröffentlichungsvertrag sind in Abschnitt 15.27 dokumentiert; dieser Absatz ist nur
+der historische Befund des früheren Builds.
 
 Der gleiche Lauf reproduzierte außerdem einen getrennten `AttackUnit`-Abbruch. `0xDBC60` erzeugte
 nach dem owner-geprüften `0xE2610`-Fallback 50 nutzbare Annäherungskandidaten. `0x11E960` wählte
@@ -2957,20 +2953,14 @@ Tilebindung oder verschwindet die rohe Hover-ID, verfällt der Kontext. Der aktu
 Dispatcher `0x8C5F0` bleiben die Update-Suchanker; das Script-Extender-Feld
 `GameCursorManager.r_HoverOverUnitId` liegt im aktuellen Layout bei `+0x30`.
 
-Der Gruppenlauf desselben Starts bestätigte zugleich die konservative Sperre: Für alle zehn
+Der Gruppenlauf desselben Starts bestätigte das Verhalten der damaligen konservativen Sperre: Für alle zehn
 Mitglieder von `commandSeq=10` erschien `group-path-finalization-unsafe`, kein gewichteter Pfad
 wurde veröffentlicht und jeder tatsächliche Fingerprint entsprach dem nativen Pfad. Alle Units
 erreichten ihr Formationsziel. Drei kurze Stopps am Ziel führten nur zu lokalen Vanilla-Neuplänen
-von ein bis drei Kanten und nicht zum früheren langen Hin-und-zurück-Lauf. Die Sperre behebt somit
-die Regression, ist aber noch keine gewichtete Gruppenoptimierung. Für diese muss der Kandidat bis
-nach den äußeren Move-Command gehalten und erst gegen die nach `0x11B520` endgültigen Unitpuffer,
-Formationstile und Pfadlängen geprüft werden. Der ausgewertete Gruppenlauf enthielt keine
-zuverlässig nutzbare `move-command-result`-Zeile für diesen Scope; ein Post-Event allein ist daher
-keine ausreichende Veröffentlichungsgrenze. Der robuste Kandidat ist der erste Simulationstick
-nach der synchronen Planung: Dort ist die Gruppenfinalisierung beendet, aber noch keine Unit hat
-einen Tileübergang konsumiert. Nur bei unverändertem Tribe-, Command-, Start-, Ziel- und
-Pfadkontext darf dann ein per-Unit-Pfad atomar veröffentlicht werden; der innere
-`0xF4930`-Zeitpunkt bleibt für Gruppen ungeeignet.
+von ein bis drei Kanten und nicht zum früheren langen Hin-und-zurück-Lauf. Die daraus abgeleitete
+Idee einer verzögerten Veröffentlichung im ersten Simulationstick wurde später verworfen:
+`0x123460` schreibt keine Pfade, und Abschnitt 15.27 belegt den verlorenen Rückgabewert des
+ersetzten Shadow-Scopes als eigentliche Ursache.
 
 ### 15.25 Post-Combat-Fortsetzung eines Moat-Wegs
 
@@ -3043,4 +3033,106 @@ konsumierbaren Pfad. Hover- und Zielkontexte dienen deshalb nur zur sicheren Bin
 bestimmt weiterhin Entity, Angriffskandidaten, Zielposition und AI-Ablauf. Die eigentliche Regel
 bleibt zentral – nur grabfähige Units dürfen eigene oder verbündete fertige Moats benutzen – und
 wird durch dünne Vanilla-first-Adapter an den nachweislich notwendigen Phasen bereitgestellt.
+
+### 15.26 Wiederholter Builderlauf und Starttile einer bereits laufenden Unit
+
+Der anschließende Testlauf vom 4. September 2026 trennte zwei weitere Abbrüche. Bei einer nach
+Kampf zwingend benötigten Moat-Route wurde der Post-Combat-Scope korrekt betreten und die
+owner-sichere Probe fand einen acht Kanten langen Pfad mit drei Moat-Kanten. Der erste
+Vanilla-Builderlauf lieferte dennoch `0`; `pathManager+0x80` stand zu diesem Zeitpunkt bereits auf
+`0`. Der bisherige Retry verlangte ausschließlich `+0x80 == 1` und meldete deshalb
+`fallbackCandidate=none`. Bei einer nur optionalen, aber schnelleren Moat-Route funktionierte
+dagegen derselbe Post-Combat-Ablauf einschließlich Veröffentlichung, Moat-Eintritt/-Austritt und
+Zielerreichung. Der äußere Combat-Hook ist damit bestätigt; die verbleibende Muss-Moat-Lücke lag
+allein in der zu engen Builderbedingung.
+
+Der owner-geprüfte zweite Builderlauf akzeptiert deshalb nach einem echten Vanilla-Nuller sowohl
+`pathManager+0x80 == 1` als auch einen bereits normalisierten Wert `0`. Im ersten Fall wird der
+Wert wie bisher nur für den Retry auf `0` gesetzt. Im zweiten Fall bleibt er unverändert; der
+entscheidende Unterschied zum vorherigen Vanilla-first-Lauf ist dann ausschließlich der wieder
+aktive, bereits owner-qualifizierte Moat-Modus. Andere Werte bleiben fail-closed. Capability-,
+Owner-, Hindernis- und Routenprüfung werden dadurch nicht gelockert.
+
+Der gleiche Lauf zeigte bei neuen Befehlen während einer laufenden Bewegung wiederholt
+`builder-coordinate-mismatch`: Der Builderstart lag jeweils genau ein Tile neben
+`r_CurrentTilePosition`. Die hashgleiche Baseline erklärt dies direkt in `0x196280`. Bezogen auf
+den Script-Extender-`GameUnit`-Pointer liest Vanilla:
+
+- `r_CurrentTilePositionX/Y` bei `+0xC0/+0xC2`;
+- `r_NextTilePositionX2/Y2` bei `+0xDC/+0xDE`;
+- `r_PathPlanStateBitFlags` bei `+0xF2` und `r_MovingRelevant` bei `+0xF4`.
+
+Nur wenn `r_PathPlanStateBitFlags == 0` und `r_MovingRelevant == 8` verwendet `0x196280` das
+aktuelle Tile als Start. Andernfalls schreibt es das nächste Tile in
+`pathManager+0x08/+0x0C`, bevor es `0xF4930` aufruft. Eine gewichtete Route darf diesen Versatz
+nicht als beliebiges Nachbartile akzeptieren. Der korrigierte Vertrag verlangt gleichzeitig den
+exakten, aus diesen Vanilla-Feldern abgeleiteten Start, den registrierten Pfadpuffer der konkreten
+Unit und gültige Builderkoordinaten. Erst dann wird der Kandidat vom tatsächlichen Builderstart
+und zum tatsächlichen Formationstarget neu berechnet. Temporäre Probe-/Stackpuffer bleiben
+unverändert.
+
+Bei einer solchen Neuberechnung entsteht intern ein ersetzter Shadow-Scope. Dessen veröffentlichte
+Richtungslänge muss zusätzlich zum ursprünglichen Scope des äußeren `0xF4930`-Wrappers
+zurückgespiegelt werden; andernfalls läge zwar der neue Pfad im Unit-Puffer, der Caller erhielte
+aber noch die alte Builderlänge. Diese Rückgabe ist nun Bestandteil des atomaren
+Veröffentlichungsvertrags. Alle Aussagen dieses Abschnitts gelten für SHA-256
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`; bei Updates müssen die
+Startauswahl in `0x196280`, die Unit-Feldoffsets, der Aufruf von `0xF4930` und dessen
+`pathManager`-Koordinaten gemeinsam neu bestätigt werden.
+
+### 15.27 Gewichtete Veröffentlichung für Formationsgruppen
+
+Der Gruppenlauf vom 4. September 2026 enthielt vier grabfähige Streitkolbenkämpfer. Vanilla wies
+ihnen die vier tatsächlichen Formationstargets `(382,376)`, `(381,375)`, `(383,375)` und
+`(381,377)` zu. Der gewichtete Planer fand dafür jeweils owner-sichere Pfade mit drei Moat-Kanten:
+
+| Unit | Vanilla-Länge | gewichtete Länge | geschätzte Ersparnis |
+|---:|---:|---:|---:|
+| 1 | 61 | 16 | 576 Ticks |
+| 2 | 60 | 18 | 528 Ticks |
+| 4 | 59 | 15 | 560 Ticks |
+| 5 | 63 | 17 | 592 Ticks |
+
+Alle vier Kandidaten wurden im damaligen Diagnosebuild allein durch
+`group-path-finalization-unsafe` zurückgehalten. Der tatsächlich konsumierte Pfad von Unit 5
+hatte 63 Kanten und exakt Vanillas Fingerprint; die gewichtete Suche und die Formationstargets
+waren somit nicht die Fehlerquelle.
+
+Eine erneute Prüfung der hashgleichen Baseline korrigiert die frühere Hypothese aus Abschnitt
+15.23: `0x11B520` ruft für jedes geeignete Gruppenmitglied `0x196280` mit dessen zuvor erzeugtem
+Formationstarget auf. Der danach folgende Call von `0x11B520` nach `0x123460` verändert keine
+Pfade. `0x123460` sammelt die aktiven Unit-IDs, sortiert sie anhand eines Unit-Shorts und schreibt
+nur den resultierenden Formationsrang zurück. Weder der 1000-Byte-Pfadpuffer noch
+`p_PathPlanSize` werden dort geschrieben.
+
+Das frühere Verhalten, bei dem nur die Leitunit den kurzen Pfad korrekt konsumierte und Follower
+lange Zusatzwege liefen, wird stattdessen vollständig durch den in Abschnitt 15.26 beschriebenen
+Rückgabefehler erklärt. Die Leitunit behielt den ursprünglichen Shadow-Scope. Follower mit
+abweichendem Formationstarget erhielten einen Ersatz-Scope; dessen kürzerer Pfad wurde zwar in den
+richtigen Unit-Puffer geschrieben, seine Länge aber nicht an den äußeren Wrapper zurückgegeben.
+Dadurch konnte `0x196280` die alte lange Builderlänge als `p_PathPlanSize` speichern und hinter dem
+Ende des neuen Pfads alte Nibbles konsumieren.
+
+Nach der korrigierten Längenweitergabe ist keine separate Gruppenpipeline und keine verzögerte
+Veröffentlichung im ersten Tick erforderlich. Die gewichtete Route darf unmittelbar im bereits
+vorhandenen per-Unit-`0xF4930`-Fenster veröffentlicht werden. Unverändert zwingend bleiben:
+
+- der vom nativen Manager registrierte Pfadpuffer exakt dieser Unit;
+- der nach Vanillas Regel bestimmte Current-/Next-Builderstart;
+- das tatsächliche per-Unit-Formationstarget;
+- Grabfähigkeit, Owner-/Allianzprüfung und mindestens eine freundliche Moat-Kante;
+- mindestens 40 Ticks garantierter Vorteil in jedem plausiblen Kadenzprofil;
+- maximale Pfadlänge, vollständiger Encode-/Decode-Roundtrip und atomarer Rollback.
+
+Die bisherige Gruppensperre war damit unnötig und wurde entfernt. Die Laufzeitdiagnose prüft pro
+veröffentlichtem Pfad einmalig, ob `p_PathPlanSize` im ersten Simulationstick exakt der vom Wrapper
+zurückgegebenen neuen Richtungslänge entspricht (`weighted-path-consumer-contract`). Der
+Abschluss gilt nur dann als vollständig bestätigt, wenn zusätzlich Zielfeld, Routenfingerprint,
+Moat-Consumermodus und Ownerprüfung übereinstimmen. Diese Prüfung verändert keine Unitfelder und
+erzeugt genau eine Zeile pro Veröffentlichung.
+
+Für Spielupdates müssen `0x11B520`, sein per-Unit-Aufruf von `0x196280`, der nachfolgende Call nach
+`0x123460` und die Schreibstellen von `p_PathPlanSize` erneut gemeinsam geprüft werden. Die
+Erkenntnisse gelten für SHA-256
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
 

@@ -8,15 +8,75 @@ namespace BugfixesAndQoL
         internal const int EuropeanArcherSummaryType = 0;
         internal const int LordVisualType = -1;
         internal const int VisibleSlotCount = 4;
+        internal const int SummaryTypeCount = 34;
+        internal const int EmptySummaryType = 99;
 
-        internal static bool IsGroupMutationCommand(string command)
+        internal static bool TryGetSummaryType(int unitType, out int summaryType)
         {
-            if (string.IsNullOrEmpty(command))
+            // This is the exact 34-class dispatch used by Vanilla's native group
+            // summary builder. The Lord shares class zero with European Archers.
+            if (unitType == 5)
+                summaryType = 33;
+            else if (unitType >= 0x16 && unitType <= 0x1E)
+                summaryType = unitType - 0x16;
+            else if (unitType == 0x25)
+                summaryType = 9;
+            else if (unitType >= 0x27 && unitType <= 0x29)
+                summaryType = unitType - 0x27 + 10;
+            else if (unitType == 0x37)
+                summaryType = EuropeanArcherSummaryType;
+            else if (unitType >= 0x3A && unitType <= 0x3D)
+                summaryType = unitType - 0x3A + 13;
+            else if (unitType >= 0x46 && unitType <= 0x55)
+                summaryType = unitType - 0x46 + 17;
+            else
+            {
+                summaryType = EmptySummaryType;
                 return false;
+            }
 
-            return HasGroupSuffix(command, "Add_") ||
-                HasGroupSuffix(command, "Create_") ||
-                HasGroupSuffix(command, "Delete_");
+            return true;
+        }
+
+        internal static void SelectVisibleSummary(
+            int[] categoryCounts,
+            int[] visibleTypes,
+            int[] visibleCounts)
+        {
+            if (categoryCounts == null)
+                throw new ArgumentNullException(nameof(categoryCounts));
+            if (visibleTypes == null)
+                throw new ArgumentNullException(nameof(visibleTypes));
+            if (visibleCounts == null)
+                throw new ArgumentNullException(nameof(visibleCounts));
+            if (categoryCounts.Length != SummaryTypeCount ||
+                visibleTypes.Length != VisibleSlotCount ||
+                visibleCounts.Length != VisibleSlotCount)
+            {
+                throw new ArgumentException("The control-group summary dimensions differ from Vanilla.");
+            }
+
+            var selected = new bool[SummaryTypeCount];
+            for (int slot = 0; slot < VisibleSlotCount; slot++)
+            {
+                int bestType = EmptySummaryType;
+                int bestCount = 0;
+                for (int type = 0; type < SummaryTypeCount; type++)
+                {
+                    // Strictly-greater replacement preserves Vanilla's lower-type
+                    // tie breaker because the classes are visited in ascending order.
+                    if (!selected[type] && categoryCounts[type] > bestCount)
+                    {
+                        bestType = type;
+                        bestCount = categoryCounts[type];
+                    }
+                }
+
+                visibleTypes[slot] = bestType;
+                visibleCounts[slot] = bestCount;
+                if (bestType != EmptySummaryType)
+                    selected[bestType] = true;
+            }
         }
 
         internal static void InsertLord(int[] types, int[] counts)
@@ -79,11 +139,5 @@ namespace BugfixesAndQoL
                 visible = checked(visible + Math.Max(visibleCounts[slot], 0));
             return Math.Max(total - visible, 0);
         }
-
-        private static bool HasGroupSuffix(string command, string prefix) =>
-            command.Length == prefix.Length + 1 &&
-            command.StartsWith(prefix, StringComparison.Ordinal) &&
-            command[command.Length - 1] >= '0' &&
-            command[command.Length - 1] <= '9';
     }
 }

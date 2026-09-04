@@ -1,4 +1,4 @@
-// Feature: Replace the Lord's internal Archer placeholder with a dedicated control-group icon.
+// Feature: Keep Vanilla's control-group summary current and give the Lord a dedicated icon.
 using BepInEx.Logging;
 using CrusaderDE;
 using MonoMod.RuntimeDetour;
@@ -14,25 +14,27 @@ namespace BugfixesAndQoL
     internal sealed unsafe class LordControlGroupIconFeature : IDisposable
     {
         private const string IconSourceName = "BugfixesAndQoLLordControlGroupIconSource";
+        private const int ManagedSummaryArrayLength = 40;
         private delegate void PopulateDelegate(HUD_ControlGroups self);
-        private delegate void ButtonClickedDelegate(HUD_ControlGroups self, string command);
-        private delegate void SetGameStateDelegate(GameData self, EngineInterface.PlayState gameState);
+        private delegate void KeyGameActionDelegate(
+            Enums.KeyFunctions command,
+            int value1,
+            int value2,
+            int value3);
 
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
         private readonly int* controlGroupRecords;
+        private readonly bool[] groupContainsControlledLord =
+            new bool[ControlGroupNativeDefinition.ControlGroupCount];
         private readonly FieldInfo troopImagesField;
         private readonly FieldInfo troopValuesField;
         private readonly FieldInfo troopExtraValuesField;
         private readonly MethodInfo getTroopSpriteMethod;
         private Hook populateHook;
         private PopulateDelegate populateOriginal;
-        private Hook buttonClickedHook;
-        private ButtonClickedDelegate buttonClickedOriginal;
-        private Hook setGameStateHook;
-        private SetGameStateDelegate setGameStateOriginal;
-        private HUD_ControlGroups pendingRefreshPanel;
-        private bool hasObservedPatchedGameState;
+        private Hook keyGameActionHook;
+        private KeyGameActionDelegate keyGameActionOriginal;
         private bool callbackErrorLogged;
         private bool active;
         private bool disposed;
@@ -53,16 +55,17 @@ namespace BugfixesAndQoL
                 "populate",
                 BindingFlags.Instance | BindingFlags.NonPublic,
                 Type.EmptyTypes);
-            MethodInfo buttonClickedMethod = RequireMethod(
-                typeof(HUD_ControlGroups),
-                "ButtonClicked",
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
-                new[] { typeof(string) });
-            MethodInfo setGameStateMethod = RequireMethod(
-                typeof(GameData),
-                "setGameState",
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
-                new[] { typeof(EngineInterface.PlayState) });
+            MethodInfo keyGameActionMethod = RequireMethod(
+                typeof(EngineInterface),
+                "GameAction",
+                BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic,
+                new[]
+                {
+                    typeof(Enums.KeyFunctions),
+                    typeof(int),
+                    typeof(int),
+                    typeof(int)
+                });
 
             troopImagesField = RequirePrivateField("RefTroopImages", typeof(Image[,]));
             troopValuesField = RequirePrivateField("RefTroopValues", typeof(TextBlock[,]));
@@ -78,10 +81,8 @@ namespace BugfixesAndQoL
             {
                 populateHook = new Hook(populateMethod, (PopulateDelegate)PopulateHook);
                 populateOriginal = populateHook.GenerateTrampoline<PopulateDelegate>();
-                buttonClickedHook = new Hook(buttonClickedMethod, (ButtonClickedDelegate)ButtonClickedHook);
-                buttonClickedOriginal = buttonClickedHook.GenerateTrampoline<ButtonClickedDelegate>();
-                setGameStateHook = new Hook(setGameStateMethod, (SetGameStateDelegate)SetGameStateHook);
-                setGameStateOriginal = setGameStateHook.GenerateTrampoline<SetGameStateDelegate>();
+                keyGameActionHook = new Hook(keyGameActionMethod, (KeyGameActionDelegate)KeyGameActionHook);
+                keyGameActionOriginal = keyGameActionHook.GenerateTrampoline<KeyGameActionDelegate>();
                 active = true;
             }
             catch
@@ -96,88 +97,63 @@ namespace BugfixesAndQoL
             if (disposed)
                 return;
 
-            // Stop callbacks before removing any detour so partial teardown cannot
-            // reactivate against an independently restored native patch.
             active = false;
-            ClearPendingRefresh();
+            Array.Clear(groupContainsControlledLord, 0, groupContainsControlledLord.Length);
             Exception firstFailure = null;
-            TryDisposeHook(ref setGameStateHook, ref firstFailure);
-            TryDisposeHook(ref buttonClickedHook, ref firstFailure);
+            TryDisposeHook(ref keyGameActionHook, ref firstFailure);
             TryDisposeHook(ref populateHook, ref firstFailure);
-            setGameStateOriginal = null;
-            buttonClickedOriginal = null;
+            keyGameActionOriginal = null;
             populateOriginal = null;
             disposed = true;
             if (firstFailure != null)
                 throw new InvalidOperationException("The Lord control-group UI hooks could not be removed completely.", firstFailure);
         }
 
-        private void ButtonClickedHook(HUD_ControlGroups self, string command)
+        private void KeyGameActionHook(Enums.KeyFunctions command, int value1, int value2, int value3)
         {
-            buttonClickedOriginal(self, command);
-            if (disposed || !active || !settings.EnableMod || !settings.EnableLordUnitControls ||
-                !LordControlGroupIconPolicy.IsGroupMutationCommand(command))
+            keyGameActionOriginal(command, value1, value2, value3);
+            if (!active || !settings.EnableMod || !settings.EnableLordUnitControls ||
+                !IsControlGroupMutation(command))
             {
                 return;
             }
 
-            // GameAction mutates native group storage but does not replace lastGameState.
-            // Coalesce mutations and redraw only after Vanilla installs its next snapshot.
-            pendingRefreshPanel = self;
-        }
-
-        private void SetGameStateHook(GameData self, EngineInterface.PlayState gameState)
-        {
-            setGameStateOriginal(self, gameState);
-
             try
             {
-                bool firstPatchedGameState = !hasObservedPatchedGameState;
-                hasObservedPatchedGameState = true;
-                HUD_ControlGroups panel = pendingRefreshPanel;
-                if (disposed || !active)
-                    return;
-
                 MainViewModel main = MainViewModel.Instance;
-                if (panel == null && firstPatchedGameState && main?.Show_HUD_ControlGroups == true)
-                    panel = main.HUDControlGroups;
-                if (panel == null)
-                    return;
-                if (!settings.EnableMod || !settings.EnableLordUnitControls ||
-                    main?.Show_HUD_ControlGroups != true || !ReferenceEquals(main.HUDControlGroups, panel))
-                {
-                    ClearPendingRefresh();
-                    return;
-                }
-
-                ClearPendingRefresh();
-                RefreshPanel(panel);
-            }
-            catch (Exception ex)
-            {
-                ClearPendingRefresh();
-                ReportCallbackError(ex);
-            }
-        }
-
-        private void ClearPendingRefresh() => pendingRefreshPanel = null;
-
-        private void RefreshPanel(HUD_ControlGroups panel)
-        {
-            try
-            {
-                panel.Update();
+                HUD_ControlGroups panel = main?.HUDControlGroups;
+                if (panel != null && main.Show_HUD_ControlGroups)
+                    panel.Update();
             }
             catch (Exception ex)
             {
                 ReportCallbackError(ex);
             }
         }
+
+        private static bool IsControlGroupMutation(Enums.KeyFunctions command) =>
+            command >= Enums.KeyFunctions.GroupTroops0 &&
+            command <= Enums.KeyFunctions.GroupTroops9;
 
         private void PopulateHook(HUD_ControlGroups self)
         {
+            bool rebuilt = false;
+            if (active && settings.EnableMod && settings.EnableLordUnitControls)
+            {
+                try
+                {
+                    rebuilt = RebuildVanillaSummary();
+                }
+                catch (Exception ex)
+                {
+                    ReportCallbackError(ex);
+                }
+            }
+
+            // Vanilla owns the complete window. Only its three summary arrays are
+            // refreshed beforehand from the same native records Vanilla maintains.
             populateOriginal(self);
-            if (disposed || !active || !settings.EnableMod || !settings.EnableLordUnitControls)
+            if (!rebuilt)
                 return;
 
             try
@@ -188,6 +164,75 @@ namespace BugfixesAndQoL
             {
                 ReportCallbackError(ex);
             }
+        }
+
+        private bool RebuildVanillaSummary()
+        {
+            EngineInterface.PlayState state = GameData.Instance?.lastGameState;
+            GameUnitManagerAPI unitManager = GameUnitManagerAPI.Instance;
+            int groupCount = ControlGroupNativeDefinition.ControlGroupCount;
+            int visibleSlotCount = LordControlGroupIconPolicy.VisibleSlotCount;
+            if (state == null)
+                return false;
+
+            bool hasControlledLord = TryGetControlledLord(out int lordUnitId, out int lordGlobalId);
+            // Vanilla's converter uses a one-element total array as a sentinel outside
+            // its native troop mode. Recreate the same 40-entry managed shape it emits
+            // in troop mode so the unmodified HUD can populate for a sole Lord too.
+            var totals = new short[ManagedSummaryArrayLength];
+            var types = new byte[ManagedSummaryArrayLength];
+            var counts = new short[ManagedSummaryArrayLength];
+            var containsControlledLord = new bool[groupCount];
+
+            for (int group = 0; group < groupCount; group++)
+            {
+                var categoryCounts = new int[LordControlGroupIconPolicy.SummaryTypeCount];
+                int total = 0;
+                int recordOffset = checked(
+                    group * ControlGroupNativeDefinition.ControlGroupCapacity *
+                    ControlGroupNativeDefinition.ControlGroupRecordIntCount);
+                int* records = controlGroupRecords + recordOffset;
+
+                for (int index = 0; index < ControlGroupNativeDefinition.ControlGroupCapacity; index++)
+                {
+                    int* record = records + index * ControlGroupNativeDefinition.ControlGroupRecordIntCount;
+                    int unitId = record[0];
+                    int globalId = record[1];
+                    if (unitId <= 0 || !unitManager.TryGetUnitById(unitId, out GameUnit* unit) ||
+                        unit == null || (int)unit->r_GlobalId != globalId)
+                    {
+                        continue;
+                    }
+
+                    total++;
+                    if (hasControlledLord && unitId == lordUnitId && globalId == lordGlobalId)
+                        containsControlledLord[group] = true;
+                    if (LordControlGroupIconPolicy.TryGetSummaryType((int)unit->r_UnitChimp, out int summaryType))
+                        categoryCounts[summaryType]++;
+                }
+
+                totals[group] = checked((short)total);
+                var visibleTypes = new int[visibleSlotCount];
+                var visibleCounts = new int[visibleSlotCount];
+                LordControlGroupIconPolicy.SelectVisibleSummary(
+                    categoryCounts,
+                    visibleTypes,
+                    visibleCounts);
+                int summaryOffset = checked(group * visibleSlotCount);
+                for (int slot = 0; slot < visibleSlotCount; slot++)
+                {
+                    types[summaryOffset + slot] = checked((byte)visibleTypes[slot]);
+                    counts[summaryOffset + slot] = checked((short)visibleCounts[slot]);
+                }
+            }
+
+            // These assignments cannot fail and happen only after every group was built,
+            // so Vanilla never observes partially reconstructed rows.
+            state.control_groups_total = totals;
+            state.control_groups_type = types;
+            state.control_groups_count = counts;
+            Array.Copy(containsControlledLord, groupContainsControlledLord, groupCount);
+            return true;
         }
 
         private void ReportCallbackError(Exception ex)
@@ -203,12 +248,6 @@ namespace BugfixesAndQoL
 
         private void ApplyLordIcons(HUD_ControlGroups panel)
         {
-            // A snapshot that predates the native summary patch may contain real Archers
-            // without the Lord contribution. Leave that initial state entirely to Vanilla.
-            if (!hasObservedPatchedGameState ||
-                !TryGetControlledLord(out int lordUnitId, out int lordGlobalId))
-                return;
-
             EngineInterface.PlayState state = GameData.Instance?.lastGameState;
             if (state?.control_groups_total == null || state.control_groups_type == null ||
                 state.control_groups_count == null ||
@@ -241,11 +280,8 @@ namespace BugfixesAndQoL
             var counts = new int[LordControlGroupIconPolicy.VisibleSlotCount];
             for (int group = 0; group < ControlGroupNativeDefinition.ControlGroupCount; group++)
             {
-                if (state.control_groups_total[group] <= 0 ||
-                    !NativeGroupContainsLord(group, lordUnitId, lordGlobalId))
-                {
+                if (state.control_groups_total[group] <= 0 || !groupContainsControlledLord[group])
                     continue;
-                }
 
                 int summaryOffset = checked(group * LordControlGroupIconPolicy.VisibleSlotCount);
                 for (int slot = 0; slot < LordControlGroupIconPolicy.VisibleSlotCount; slot++)
@@ -265,21 +301,6 @@ namespace BugfixesAndQoL
                     troopValues,
                     troopExtraValues);
             }
-        }
-
-        private bool NativeGroupContainsLord(int group, int lordUnitId, int lordGlobalId)
-        {
-            int recordOffset = checked(
-                group * ControlGroupNativeDefinition.ControlGroupCapacity *
-                ControlGroupNativeDefinition.ControlGroupRecordIntCount);
-            int* records = controlGroupRecords + recordOffset;
-            for (int index = 0; index < ControlGroupNativeDefinition.ControlGroupCapacity; index++)
-            {
-                int* record = records + index * ControlGroupNativeDefinition.ControlGroupRecordIntCount;
-                if (record[0] == lordUnitId && record[1] == lordGlobalId)
-                    return true;
-            }
-            return false;
         }
 
         private void RenderLordSummary(
@@ -382,18 +403,17 @@ namespace BugfixesAndQoL
         {
             unitId = -1;
             globalId = -1;
+            GamePlayerManagerAPI playerManager = GamePlayerManagerAPI.Instance;
+            GameUnitManagerAPI unitManager = GameUnitManagerAPI.Instance;
             int playerId = Shared.GameModeHelper.IsMapEditor()
                 ? (EditorDirector.instance?.ActivePlayerID ?? -1)
-                : (GamePlayerManagerAPI.Instance?.GetLocalPlayerId() ?? -1);
-            if (playerId < 1 || playerId > 8 ||
-                GamePlayerManagerAPI.Instance == null || GameUnitManagerAPI.Instance == null)
-            {
+                : playerManager.GetLocalPlayerId();
+            if (playerId < 1 || playerId > 8)
                 return false;
-            }
 
-            unitId = GamePlayerManagerAPI.Instance.GetLordUnitId(playerId);
+            unitId = playerManager.GetLordUnitId(playerId);
             if (unitId <= 0 ||
-                !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+                !unitManager.TryGetUnitById(unitId, out GameUnit* unit) ||
                 unit == null || unit->r_UnitChimp != eChimps.CHIMP_TYPE_LORD)
             {
                 return false;

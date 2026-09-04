@@ -469,17 +469,58 @@ internal static class Program
 
     private static void CheckLordControlGroupIconPolicy()
     {
-        Check(LordControlGroupIconPolicy.IsGroupMutationCommand("Add_1"),
-            "control-group Add command requests a UI refresh");
-        Check(LordControlGroupIconPolicy.IsGroupMutationCommand("Create_0"),
-            "control-group Create command requests a UI refresh");
-        Check(LordControlGroupIconPolicy.IsGroupMutationCommand("Delete_9"),
-            "control-group Delete command requests a UI refresh");
-        Check(!LordControlGroupIconPolicy.IsGroupMutationCommand("Select_1") &&
-              !LordControlGroupIconPolicy.IsGroupMutationCommand("Add_X") &&
-              !LordControlGroupIconPolicy.IsGroupMutationCommand("Add_10") &&
-              !LordControlGroupIconPolicy.IsGroupMutationCommand(null),
-            "non-mutating or malformed control-group commands do not request a UI refresh");
+        var expectedMappings = new Dictionary<int, int>
+        {
+            [5] = 33,
+            [0x25] = 9,
+            [0x37] = 0
+        };
+        for (int unitType = 0x16; unitType <= 0x1E; unitType++)
+            expectedMappings[unitType] = unitType - 0x16;
+        for (int unitType = 0x27; unitType <= 0x29; unitType++)
+            expectedMappings[unitType] = unitType - 0x27 + 10;
+        for (int unitType = 0x3A; unitType <= 0x3D; unitType++)
+            expectedMappings[unitType] = unitType - 0x3A + 13;
+        for (int unitType = 0x46; unitType <= 0x55; unitType++)
+            expectedMappings[unitType] = unitType - 0x46 + 17;
+        Check(expectedMappings.Count == LordControlGroupIconPolicy.SummaryTypeCount + 1,
+            "all 34 Vanilla summary classes plus the Lord alias are covered");
+        Check(expectedMappings.All(pair =>
+                LordControlGroupIconPolicy.TryGetSummaryType(pair.Key, out int summaryType) &&
+                summaryType == pair.Value),
+            "managed summary mapping mirrors every native dispatch range boundary including the Lord");
+        Check(Enumerable.Range(0, 256).All(unitType =>
+            {
+                bool mapped = LordControlGroupIconPolicy.TryGetSummaryType(unitType, out int summaryType);
+                return expectedMappings.TryGetValue(unitType, out int expectedType)
+                    ? mapped && summaryType == expectedType
+                    : !mapped && summaryType == LordControlGroupIconPolicy.EmptySummaryType;
+            }),
+            "managed summary mapping has no additional dispatch classes in the full byte range");
+        Check(new[] { 0, 6, 0x26, 0x36, 0x38, 0x56 }.All(unitType =>
+                !LordControlGroupIconPolicy.TryGetSummaryType(unitType, out int summaryType) &&
+                summaryType == LordControlGroupIconPolicy.EmptySummaryType),
+            "unsupported unit types remain part of the total but outside the visible class counts");
+
+        var categoryCounts = new int[LordControlGroupIconPolicy.SummaryTypeCount];
+        categoryCounts[8] = 5;
+        categoryCounts[2] = 7;
+        categoryCounts[4] = 7;
+        categoryCounts[1] = 3;
+        categoryCounts[20] = 1;
+        var visibleTypes = new int[LordControlGroupIconPolicy.VisibleSlotCount];
+        var visibleCounts = new int[LordControlGroupIconPolicy.VisibleSlotCount];
+        LordControlGroupIconPolicy.SelectVisibleSummary(categoryCounts, visibleTypes, visibleCounts);
+        Check(visibleTypes.SequenceEqual(new[] { 2, 4, 8, 1 }) &&
+              visibleCounts.SequenceEqual(new[] { 7, 7, 5, 3 }) &&
+              categoryCounts[2] == 7,
+            "Vanilla top-four ordering uses descending counts, lower-type ties, and no input mutation");
+
+        Array.Clear(categoryCounts, 0, categoryCounts.Length);
+        LordControlGroupIconPolicy.SelectVisibleSummary(categoryCounts, visibleTypes, visibleCounts);
+        Check(visibleTypes.All(type => type == LordControlGroupIconPolicy.EmptySummaryType) &&
+              visibleCounts.All(count => count == 0),
+            "empty summaries use Vanilla type 99 and zero counts in all four slots");
 
         int[] lordOnlyTypes = { 0, 0, 0, 0 };
         int[] lordOnlyCounts = { 1, 0, 0, 0 };
@@ -710,39 +751,65 @@ internal static class Program
 
         string iconFeature = File.ReadAllText(Path.Combine(
             modRoot, "src", "LordControlGroupIconFeature.cs"));
+        int rebuildStart = iconFeature.IndexOf("private bool RebuildVanillaSummary()", StringComparison.Ordinal);
+        int rebuildEnd = iconFeature.IndexOf("private void ReportCallbackError", rebuildStart, StringComparison.Ordinal);
+        string rebuildFeature = rebuildStart >= 0 && rebuildEnd > rebuildStart
+            ? iconFeature.Substring(rebuildStart, rebuildEnd - rebuildStart)
+            : string.Empty;
+        string vanillaEngineInterface = File.ReadAllText(Path.Combine(
+            workspace, "_inspect", "AssemblyCSharp", "EngineInterface.cs"));
+        Check(vanillaEngineInterface.Contains("if (source.control_groups_total[0] < 0)") &&
+              vanillaEngineInterface.Contains("playState.control_groups_total = new short[1];") &&
+              vanillaEngineInterface.Contains("playState.control_groups_total = new short[40];") &&
+              vanillaEngineInterface.Contains("playState.control_groups_type = new byte[40];") &&
+              vanillaEngineInterface.Contains("playState.control_groups_count = new short[40];"),
+            "Vanilla managed conversion uses a one-entry sentinel outside troop mode and 40-entry group arrays inside it");
         Check(iconFeature.Contains("BindingFlags.Instance | BindingFlags.NonPublic") &&
+              iconFeature.Contains("BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic") &&
               iconFeature.Contains("RequirePrivateField(\"RefTroopImages\"") &&
               iconFeature.Contains("RequirePrivateField(\"RefTroopValues\"") &&
               iconFeature.Contains("RequirePrivateField(\"RefTroopExtraValues\"") &&
-              iconFeature.Contains("typeof(GameData)") &&
-              iconFeature.Contains("\"setGameState\"") &&
+              iconFeature.Contains("typeof(EngineInterface)") &&
+              iconFeature.Contains("\"GameAction\"") &&
               !iconFeature.Contains("panel.RefTroop"),
-            "control-group UI hook validates Vanilla's HUD members and PlayState boundary");
-        Check(iconFeature.IndexOf("populateOriginal(self);", StringComparison.Ordinal) <
+            "control-group UI hook validates Vanilla's HUD members and central key GameAction boundary");
+        Check(iconFeature.IndexOf("RebuildVanillaSummary();", StringComparison.Ordinal) <
+                  iconFeature.IndexOf("populateOriginal(self);", StringComparison.Ordinal) &&
+              iconFeature.IndexOf("populateOriginal(self);", StringComparison.Ordinal) <
                    iconFeature.IndexOf("ApplyLordIcons(self);", StringComparison.Ordinal) &&
-              iconFeature.Contains("record[0] == lordUnitId && record[1] == lordGlobalId") &&
+              iconFeature.Split(new[] { "populateOriginal(self);" }, StringSplitOptions.None).Length == 2 &&
               iconFeature.Contains("active = false;") && iconFeature.Contains("!active"),
-            "control-group UI hook preserves Vanilla first, identifies the Lord exactly, and gates partial teardown");
-        Check(iconFeature.Contains("buttonClickedOriginal(self, command);") &&
-              iconFeature.Contains("IsGroupMutationCommand(command)") &&
-              iconFeature.Contains("pendingRefreshPanel = self;") &&
-              iconFeature.Contains("hasObservedPatchedGameState = true;") &&
-              iconFeature.Contains("if (!hasObservedPatchedGameState ||") &&
-              !iconFeature.Contains("RefreshPanel(self);") &&
-              !iconFeature.Contains("Application.onBeforeRender") &&
-              iconFeature.IndexOf("setGameStateOriginal(self, gameState);", StringComparison.Ordinal) <
-                  iconFeature.IndexOf("RefreshPanel(panel);", StringComparison.Ordinal) &&
-              iconFeature.Contains("ClearPendingRefresh();") &&
-              iconFeature.Contains("TryDisposeHook(ref setGameStateHook"),
-            "control-group mutations wait for a fresh Vanilla PlayState and coalesce one refresh with teardown");
-        Check(iconFeature.Contains("NativeGroupContainsLord(group, lordUnitId, lordGlobalId)") &&
+            "control-group UI hook rebuilds before Vanilla, decorates after Vanilla, and gates partial teardown");
+        Check(iconFeature.Contains("keyGameActionOriginal(command, value1, value2, value3);") &&
+              iconFeature.Split(
+                  new[] { "keyGameActionOriginal(command, value1, value2, value3);" },
+                  StringSplitOptions.None).Length == 2 &&
+              iconFeature.Contains("Enums.KeyFunctions.GroupTroops0") &&
+              iconFeature.Contains("Enums.KeyFunctions.GroupTroops9") &&
+              iconFeature.IndexOf("keyGameActionOriginal(command, value1, value2, value3);", StringComparison.Ordinal) <
+                  iconFeature.IndexOf("panel.Update();", StringComparison.Ordinal) &&
+              iconFeature.Contains("main.Show_HUD_ControlGroups") &&
+              iconFeature.Contains("TryDisposeHook(ref keyGameActionHook"),
+            "central Vanilla group commands run once before an immediate open-panel refresh and teardown cleanly");
+        Check(iconFeature.Contains("ControlGroupNativeDefinition.ControlGroupCapacity") &&
+              iconFeature.Contains("unitManager.TryGetUnitById(unitId, out GameUnit* unit)") &&
+              iconFeature.Contains("(int)unit->r_GlobalId != globalId") &&
+              iconFeature.Contains("TryGetSummaryType((int)unit->r_UnitChimp") &&
+              iconFeature.Contains("SelectVisibleSummary(") &&
+              iconFeature.Contains("private const int ManagedSummaryArrayLength = 40;") &&
+              iconFeature.Contains("var totals = new short[ManagedSummaryArrayLength]") &&
+              iconFeature.Contains("var types = new byte[ManagedSummaryArrayLength]") &&
+              iconFeature.Contains("var counts = new short[ManagedSummaryArrayLength]") &&
+              iconFeature.IndexOf("state.control_groups_total = totals;", StringComparison.Ordinal) >
+                  iconFeature.IndexOf("SelectVisibleSummary(", StringComparison.Ordinal) &&
+              iconFeature.Contains("state.control_groups_type = types;") &&
+              iconFeature.Contains("state.control_groups_count = counts;") &&
+              !rebuildFeature.Contains("state?.control_groups_total == null") &&
+              iconFeature.Contains("unitId == lordUnitId && globalId == lordGlobalId") &&
+              iconFeature.Contains("groupContainsControlledLord[group]") &&
               iconFeature.Contains("types[slot] = state.control_groups_type[summaryOffset + slot]") &&
-              iconFeature.Contains("counts[slot] = state.control_groups_count[summaryOffset + slot]") &&
-              !iconFeature.Contains("NativeGroupSnapshot") &&
-              !iconFeature.Contains("summaryAlreadyIncludesLord") &&
-              !iconFeature.Contains("HideGroup(") &&
-              !iconFeature.Contains("PropEx.SetButtonVisibility"),
-            "control-group UI keeps Vanilla summaries authoritative and only adds the exact Lord icon");
+              iconFeature.Contains("counts[slot] = state.control_groups_count[summaryOffset + slot]"),
+            "control-group UI replaces the sole-Lord sentinel transactionally from validated native records and only decorates the Lord");
     }
 
     private static void CheckLordControlGroupTransactionModel(byte[] canonicalImage)

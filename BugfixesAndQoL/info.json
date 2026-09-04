@@ -3,12 +3,12 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.124",
+  "Version": "1.0.125",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "SerpChangelog": [
     {
-      "Version": "1.0.124",
+      "Version": "1.0.125",
       "Changes": [
         "Added an enabled-by-default local fix that immediately removes disbanded units from control groups, preventing their peasants or later recruits from inheriting stale group membership."
       ]
