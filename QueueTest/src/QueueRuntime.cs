@@ -100,15 +100,15 @@ namespace QueueTest
         private bool drawFilterFailureLogged;
         private bool targetMarkerProjectionAvailable;
         private bool overlayDrawFilterActive;
-        private bool overlayFlagSuppressionEnabled;
+        private bool overlayShowPageNumbers;
         private int overlayRenderThreadId;
         private int overlayFlagCallIndex;
         private int overlayNumberCallIndex;
         private int overlayFlagSubmissions;
         private int overlayNumberSubmissions;
-        private int overlaySuppressedAttackFlags;
         private int overlaySuppressedHiddenFlags;
         private int overlaySuppressedHiddenNumbers;
+        private int overlaySuppressedFutureNumbers;
         private IReadOnlyList<QueueVisualMarkerMode> overlayProjectedModes =
             Array.Empty<QueueVisualMarkerMode>();
 
@@ -145,7 +145,7 @@ namespace QueueTest
                     $"VISUAL_TARGET_MARKER_FALLBACK: layout mismatch; " +
                     $"unit=0x{actualUnitSize:X}/0x{actualUnitGlobalIdOffset:X}, " +
                     $"building=0x{actualBuildingSize:X}/0x{actualBuildingGlobalIdOffset:X}. " +
-                    "Command queues remain enabled and attacks retain numbered Move flags.");
+                    "Command queues and destination flags remain enabled; attack icons are unavailable.");
             }
             int actualWaypointIndexOffset = Marshal.OffsetOf(
                 typeof(GameTribe),
@@ -300,7 +300,8 @@ namespace QueueTest
                 drawFilterInstalled = false;
                 Shared.DebugLogHelper.LogWarning(
                     log,
-                    $"VISUAL_FLAG_FILTER_FALLBACK: numbered attack targets retain a Move flag; {exception.Message}");
+                    $"VISUAL_FLAG_FILTER_FALLBACK: command queues and all destination flags remain enabled, " +
+                    $"but hidden markers and future-page numbers may remain visible; {exception.Message}");
             }
         }
 
@@ -374,7 +375,7 @@ namespace QueueTest
                 return;
             }
 
-            TribeQueueState state = GetOrCreateState(args.TribeId, tribe);
+            TribeQueueState state = GetOrCreateState(args.TribeId, tribe, "shift-target-event");
             QueueCommand command = new QueueCommand(kind, args.TargetValue1, args.TargetValue2, args.a6);
             if (!state.TryEnqueue(command, out QueueVisualSlot visualSlot))
             {
@@ -406,11 +407,7 @@ namespace QueueTest
                 return;
             }
 
-            if (!queues.TryGetValue(args.TribeId, out TribeQueueState state) ||
-                !state.MatchesTribe(tribe->r_GlobalId))
-            {
-                return;
-            }
+            TribeQueueState state = GetOrCreateState(args.TribeId, tribe, "shift-move-event");
 
             QueueCommand command = new QueueCommand(
                 QueueCommandKind.Move,
@@ -460,38 +457,54 @@ namespace QueueTest
                 // Chore 8 serializes the same one-based game ID used by the manager APIs.
                 // Treating it as a span index misses the real queue and lets Vanilla append
                 // the Move a second time, which breaks mixed-command ordering.
-                if (installed && !internalDispatch && queues.TryGetValue(tribeId, out TribeQueueState state) &&
-                    TryGetMatchingAliveTribe(tribeId, state.TribeGlobalId, out GameTribe* tribe))
+                if (installed && !internalDispatch)
                 {
-                    QueueCommand command = new QueueCommand(QueueCommandKind.Move, tileX, tileY, moveMode);
-                    if (state.TryConsumeExpectedMoveChore(command, currentTick))
+                    TribeQueueState state = null;
+                    if (queues.TryGetValue(tribeId, out TribeQueueState existing) &&
+                        TryGetMatchingAliveTribe(tribeId, existing.TribeGlobalId, out _))
                     {
-                        Shared.DebugLogHelper.LogInfo(
-                            log,
-                            $"SUPPRESS_MOVE_CHORE: tribeId={tribeId}, nativeIndex={waypointIndex}, " +
-                            $"command={command}, expectedChores={state.ExpectedMoveChoreCount}.");
-                        return;
+                        state = existing;
+                    }
+                    else if (IsShiftPressed() &&
+                        IsLocalSelectedTribe(tribeId, out GameTribe* selectedTribe))
+                    {
+                        // The native Chore can be observed before the managed move event.
+                        // Create the queue before Vanilla writes its capacity-limited waypoint.
+                        state = GetOrCreateState(tribeId, selectedTribe, "shift-move-chore");
                     }
 
-                    if (state.TryEnqueue(command, out QueueVisualSlot visualSlot))
+                    if (state != null)
                     {
-                        // Some native input paths may reach the Chore hook first. In that
-                        // case this is the authoritative insertion and the later event is deduplicated.
-                        state.ExpectMoveEvent(command, currentTick + ExpectedMoveChoreLifetimeTicks);
-                        Shared.DebugLogHelper.LogInfo(
-                            log,
-                            $"ENQUEUE_MOVE_CHORE_FALLBACK: tribeId={tribeId}, nativeIndex={waypointIndex}, " +
-                            $"command={command}, pending={state.PendingCount}, " +
-                            $"expectedEvents={state.ExpectedMoveEventCount}, " +
-                            $"visualPage={visualSlot.PageNumber}, visualNumber={visualSlot.Ordinal}.");
+                        QueueCommand command = new QueueCommand(QueueCommandKind.Move, tileX, tileY, moveMode);
+                        if (state.TryConsumeExpectedMoveChore(command, currentTick))
+                        {
+                            Shared.DebugLogHelper.LogInfo(
+                                log,
+                                $"SUPPRESS_MOVE_CHORE: tribeId={tribeId}, nativeIndex={waypointIndex}, " +
+                                $"command={command}, expectedChores={state.ExpectedMoveChoreCount}.");
+                            return;
+                        }
+
+                        if (state.TryEnqueue(command, out QueueVisualSlot visualSlot))
+                        {
+                            // Some native input paths may reach the Chore hook first. In that
+                            // case this is the authoritative insertion and the later event is deduplicated.
+                            state.ExpectMoveEvent(command, currentTick + ExpectedMoveChoreLifetimeTicks);
+                            Shared.DebugLogHelper.LogInfo(
+                                log,
+                                $"ENQUEUE_MOVE_CHORE_FALLBACK: tribeId={tribeId}, nativeIndex={waypointIndex}, " +
+                                $"command={command}, pending={state.PendingCount}, " +
+                                $"expectedEvents={state.ExpectedMoveEventCount}, " +
+                                $"visualPage={visualSlot.PageNumber}, visualNumber={visualSlot.Ordinal}.");
+                        }
+                        else
+                        {
+                            Shared.DebugLogHelper.LogWarning(
+                                log,
+                                $"QUEUE_FULL: tribeId={tribeId}, limit={MaximumPendingCommands}, rejected={command}.");
+                        }
+                        return;
                     }
-                    else
-                    {
-                        Shared.DebugLogHelper.LogWarning(
-                            log,
-                            $"QUEUE_FULL: tribeId={tribeId}, limit={MaximumPendingCommands}, rejected={command}.");
-                    }
-                    return;
                 }
             }
             catch (Exception exception)
@@ -535,19 +548,26 @@ namespace QueueTest
                 return;
             }
 
-            ushort savedCount = ReadMovementWaypointCount(tribe);
-            int firstManagedPoint = state.WaitForVanillaMovement && savedCount != 0
-                ? Math.Min((int)savedCount, MaximumNativeMovementWaypoints)
-                : 1;
-            int managedCapacity = MaximumNativeMovementWaypoints - firstManagedPoint;
-            List<VisualQueueEntry> visualEntries = BuildVisualQueueEntries(state, managedCapacity);
-            if (visualEntries.Count == 0)
+            if (state.WaitForVanillaMovement)
+                state.UpdateVanillaVisualProgress(ReadMovementWaypointIndex(tribe));
+
+            if (state.CurrentVisualSlots.Count == 0)
             {
                 trampolineEntered = true;
                 tribeOverlayRenderHook.Value.Hook.Trampoline(tribeManager, tribeId);
                 return;
             }
 
+            ushort savedCount = ReadMovementWaypointCount(tribe);
+            ushort originX = 0;
+            ushort originY = 0;
+            if (GameUnitManagerAPI.Instance.TryGetUnitById(
+                    tribe->r_LeaderUnitId,
+                    out GameUnit* leader) && leader != null)
+            {
+                originX = leader->r_CurrentTilePositionX;
+                originY = leader->r_CurrentTilePositionY;
+            }
             ushort* points = &tribe->r_PatrolPoint1TileX;
             ushort* savedPoints = stackalloc ushort[MaximumNativeMovementWaypoints * 2];
             for (int index = 0; index < MaximumNativeMovementWaypoints * 2; index++)
@@ -557,82 +577,108 @@ namespace QueueTest
             // The 1.42.0 interop declares this native ushort as UInt32. Read and write
             // the proven 16-bit field directly so the adjacent word cannot affect capacity.
             TribePatrolMode savedMode = tribe->r_PatrolMode;
-            string visualSequence = string.Join(
-                ">",
-                visualEntries.Select(entry => entry.Command.ToString()));
-            string projectionKey = $"{tribeId}/{state.TribeGlobalId}/{firstManagedPoint}/{visualSequence}";
-            if (loggedOverlayProjections.Add(projectionKey))
-            {
-                Shared.DebugLogHelper.LogInfo(
-                    log,
-                    $"OVERLAY_SEQUENCE_PROJECTED: tribeId={tribeId}, nativePoints={savedCount}, " +
-                    $"firstManagedNumber={firstManagedPoint}, entries={visualSequence}, " +
-                    $"drawFilter={drawFilterInstalled}, savedMode={savedMode}.");
-            }
             try
             {
-                if (!state.WaitForVanillaMovement || savedCount == 0)
+                int firstPageIndex = state.CurrentVisualPageIndex;
+                int visibleFlags = 0;
+                int projectedPages = 0;
+                List<VisualQueueEntry> allVisualEntries = new List<VisualQueueEntry>();
+
+                // Render the active page first so its numbered markers win if Vanilla's
+                // fixed draw-submission buffer is close to capacity. Later pages add flags only.
+                for (int pageIndex = firstPageIndex; pageIndex < state.VisualPages.Count; pageIndex++)
                 {
-                    // PatrolOnce omits point zero. It is only the visual origin here;
-                    // every pending Move or attack starts at point one.
-                    ushort originX = visualEntries[0].TileX;
-                    ushort originY = visualEntries[0].TileY;
-                    if (GameUnitManagerAPI.Instance.TryGetUnitById(
-                            tribe->r_LeaderUnitId,
-                            out GameUnit* leader) && leader != null)
+                    QueueVisualPage page = state.VisualPages[pageIndex];
+                    List<VisualQueueEntry> visualEntries =
+                        BuildVisualQueueEntries(page.Slots, originX, originY);
+                    allVisualEntries.AddRange(visualEntries);
+                    bool showPageNumbers = pageIndex == firstPageIndex;
+                    visibleFlags += visualEntries.Count(entry => entry.Mode != QueueVisualMarkerMode.Hidden);
+                    projectedPages++;
+
+                    string visualSequence = string.Join(
+                        ">",
+                        visualEntries.Select(entry => entry.ToString()));
+                    string projectionKey =
+                        $"{tribeId}/{state.TribeGlobalId}/page-{page.PageNumber}/" +
+                        $"numbers-{showPageNumbers}/{visualSequence}";
+                    if (loggedOverlayProjections.Add(projectionKey))
                     {
-                        originX = leader->r_CurrentTilePositionX;
-                        originY = leader->r_CurrentTilePositionY;
+                        Shared.DebugLogHelper.LogInfo(
+                            log,
+                            $"OVERLAY_SEQUENCE_PROJECTED: tribeId={tribeId}, page={page.PageNumber}, " +
+                            $"nativePoints={savedCount}, entries={visualSequence}, " +
+                            $"numbers={showPageNumbers}, drawFilter={drawFilterInstalled}, savedMode={savedMode}.");
                     }
 
+                    // Point zero is the PatrolOnce origin. Every fixed visual slot occupies
+                    // its permanent one-based position after it, including hidden history.
                     points[0] = originX;
                     points[1] = originY;
+                    for (int index = 0; index < visualEntries.Count; index++)
+                    {
+                        int pointIndex = index + 1;
+                        points[pointIndex * 2] = visualEntries[index].TileX;
+                        points[pointIndex * 2 + 1] = visualEntries[index].TileY;
+                    }
+                    tribe->r_PatrolCurrentTargetIndex = 0;
+                    WriteMovementWaypointCount(
+                        tribe,
+                        unchecked((ushort)(visualEntries.Count + 1)));
+
+                    // These values exist only while Vanilla emits overlay draw commands. They are
+                    // restored before simulation code can observe or execute the projected path.
+                    tribe->r_PatrolMode = TribePatrolMode.PatrolOnce;
+                    List<QueueVisualMarkerMode> projectedModes = visualEntries
+                        .Select(entry => entry.Mode)
+                        .ToList();
+                    overlayProjectedModes = projectedModes;
+                    overlayShowPageNumbers = showPageNumbers;
+                    overlayFlagCallIndex = 0;
+                    overlayNumberCallIndex = 0;
+                    overlayFlagSubmissions = 0;
+                    overlayNumberSubmissions = 0;
+                    overlaySuppressedHiddenFlags = 0;
+                    overlaySuppressedHiddenNumbers = 0;
+                    overlaySuppressedFutureNumbers = 0;
+                    overlayRenderThreadId = Thread.CurrentThread.ManagedThreadId;
+                    overlayDrawFilterActive = drawFilterInstalled;
+                    trampolineEntered = true;
+                    tribeOverlayRenderHook.Value.Hook.Trampoline(tribeManager, tribeId);
+                    LogOverlayDrawSubmissions(
+                        tribeId,
+                        page.PageNumber,
+                        projectionKey,
+                        projectedModes.Count,
+                        showPageNumbers);
                 }
 
-                for (int index = 0; index < visualEntries.Count; index++)
+                string aggregateKey =
+                    $"{tribeId}/{state.TribeGlobalId}/pages-{state.CurrentVisualPageNumber}-{state.VisualPageCount}/" +
+                    $"flags-{visibleFlags}";
+                if (loggedOverlayProjections.Add(aggregateKey))
                 {
-                    int pointIndex = firstManagedPoint + index;
-                    points[pointIndex * 2] = visualEntries[index].TileX;
-                    points[pointIndex * 2 + 1] = visualEntries[index].TileY;
+                    Shared.DebugLogHelper.LogInfo(
+                        log,
+                        $"OVERLAY_ALL_PAGES_PROJECTED: tribeId={tribeId}, " +
+                        $"currentPage={state.CurrentVisualPageNumber}, pages={projectedPages}, " +
+                        $"visibleFlags={visibleFlags}, numberedPage={state.CurrentVisualPageNumber}.");
                 }
-                tribe->r_PatrolCurrentTargetIndex = 0;
-                WriteMovementWaypointCount(
-                    tribe,
-                    unchecked((ushort)(firstManagedPoint + visualEntries.Count)));
-
-                // These values exist only while Vanilla emits overlay draw commands. They are
-                // restored before simulation code can observe or execute the projected path.
-                tribe->r_PatrolMode = TribePatrolMode.PatrolOnce;
-                List<QueueCommandKind> projectedKinds = new List<QueueCommandKind>(
-                    firstManagedPoint - 1 + visualEntries.Count);
-                for (int index = 1; index < firstManagedPoint; index++)
-                    projectedKinds.Add(QueueCommandKind.Move);
-                projectedKinds.AddRange(visualEntries.Select(entry => entry.Command.Kind));
-                overlayProjectedKinds = projectedKinds;
-                overlayMarkerCallIndex = 0;
-                overlayFlagSubmissions = 0;
-                overlayNumberSubmissions = 0;
-                overlaySuppressedAttackFlags = 0;
-                overlayRenderThreadId = Thread.CurrentThread.ManagedThreadId;
-                overlayDrawFilterActive = drawFilterInstalled;
-                overlayFlagSuppressionEnabled = QueueVisualContract.CanSuppressAttackFlags(
-                    drawFilterInstalled,
-                    targetMarkerProjectionAvailable);
-                trampolineEntered = true;
-                tribeOverlayRenderHook.Value.Hook.Trampoline(tribeManager, tribeId);
-                LogOverlayDrawSubmissions(tribeId, projectionKey, projectedKinds.Count);
-                ProjectAttackTargetMarkers(tribeId, visualEntries, projectionKey);
+                ProjectAttackTargetMarkers(tribeId, allVisualEntries, aggregateKey);
             }
             finally
             {
                 overlayDrawFilterActive = false;
-                overlayFlagSuppressionEnabled = false;
+                overlayShowPageNumbers = false;
                 overlayRenderThreadId = 0;
-                overlayMarkerCallIndex = 0;
+                overlayFlagCallIndex = 0;
+                overlayNumberCallIndex = 0;
                 overlayFlagSubmissions = 0;
                 overlayNumberSubmissions = 0;
-                overlaySuppressedAttackFlags = 0;
-                overlayProjectedKinds = Array.Empty<QueueCommandKind>();
+                overlaySuppressedHiddenFlags = 0;
+                overlaySuppressedHiddenNumbers = 0;
+                overlaySuppressedFutureNumbers = 0;
+                overlayProjectedModes = Array.Empty<QueueVisualMarkerMode>();
                 tribe->r_PatrolMode = savedMode;
                 tribe->r_PatrolCurrentTargetIndex = savedIndex;
                 WriteMovementWaypointCount(tribe, savedCount);
@@ -641,22 +687,29 @@ namespace QueueTest
             }
         }
 
-        private List<VisualQueueEntry> BuildVisualQueueEntries(TribeQueueState state, int maximum)
+        private static List<VisualQueueEntry> BuildVisualQueueEntries(
+            IReadOnlyList<QueueVisualSlot> slots,
+            ushort fallbackX,
+            ushort fallbackY)
         {
-            List<VisualQueueEntry> entries = new List<VisualQueueEntry>(Math.Max(0, maximum));
-            if (maximum <= 0)
-                return entries;
-
-            foreach (QueueCommand command in state.GetPendingCommands(
-                maximum,
-                command => TryResolveVisualTarget(command, out _, out _)))
+            List<VisualQueueEntry> entries = new List<VisualQueueEntry>(slots.Count);
+            foreach (QueueVisualSlot slot in slots)
             {
-                if (!TryResolveVisualTarget(command, out ushort tileX, out ushort tileY))
-                    continue;
-
-                entries.Add(new VisualQueueEntry(command, tileX, tileY));
-                if (entries.Count == maximum)
-                    break;
+                bool resolved = TryResolveVisualTarget(slot.Command, out ushort tileX, out ushort tileY);
+                QueueVisualMarkerMode mode;
+                if (slot.Completed || !resolved)
+                {
+                    mode = QueueVisualMarkerMode.Hidden;
+                    tileX = fallbackX;
+                    tileY = fallbackY;
+                }
+                else
+                {
+                    mode = slot.Command.IsAttack
+                        ? QueueVisualMarkerMode.Attack
+                        : QueueVisualMarkerMode.Move;
+                }
+                entries.Add(new VisualQueueEntry(slot, mode, tileX, tileY));
             }
             return entries;
         }
@@ -714,6 +767,9 @@ namespace QueueTest
             int projected = 0;
             foreach (VisualQueueEntry entry in entries)
             {
+                if (entry.Mode != QueueVisualMarkerMode.Attack)
+                    continue;
+
                 QueueCommand command = entry.Command;
                 if (command.Kind == QueueCommandKind.AttackUnit)
                 {
@@ -750,17 +806,25 @@ namespace QueueTest
             }
         }
 
-        private void LogOverlayDrawSubmissions(int tribeId, string projectionKey, int expectedSteps)
+        private void LogOverlayDrawSubmissions(
+            int tribeId,
+            int pageNumber,
+            string projectionKey,
+            int expectedSteps,
+            bool showPageNumbers)
         {
             if (!loggedOverlayProjections.Add(projectionKey + "/draw-submissions"))
                 return;
 
             Shared.DebugLogHelper.LogInfo(
                 log,
-                $"OVERLAY_DRAW_SUBMISSIONS: tribeId={tribeId}, expectedSteps={expectedSteps}, " +
+                $"OVERLAY_DRAW_SUBMISSIONS: tribeId={tribeId}, page={pageNumber}, " +
+                $"expectedSteps={expectedSteps}, " +
                 $"flagsSeen={overlayFlagSubmissions}, numbersSeen={overlayNumberSubmissions}, " +
-                $"attackFlagsSuppressed={overlaySuppressedAttackFlags}, " +
-                $"suppressionEnabled={overlayFlagSuppressionEnabled}.");
+                $"hiddenFlagsSuppressed={overlaySuppressedHiddenFlags}, " +
+                $"hiddenNumbersSuppressed={overlaySuppressedHiddenNumbers}, " +
+                $"futureNumbersSuppressed={overlaySuppressedFutureNumbers}, " +
+                $"numbersEnabled={showPageNumbers}, filterInstalled={drawFilterInstalled}.");
         }
 
         private void SubmitOverlayMarker(
@@ -785,6 +849,18 @@ namespace QueueTest
                             flags))
                     {
                         overlayNumberSubmissions++;
+                        int numberIndex = overlayNumberCallIndex++;
+                        if (numberIndex < overlayProjectedModes.Count &&
+                            QueueVisualContract.ShouldSuppressNumber(
+                                overlayProjectedModes[numberIndex],
+                                overlayShowPageNumbers))
+                        {
+                            if (overlayProjectedModes[numberIndex] == QueueVisualMarkerMode.Hidden)
+                                overlaySuppressedHiddenNumbers++;
+                            else
+                                overlaySuppressedFutureNumbers++;
+                            return;
+                        }
                     }
                     else if (QueueVisualContract.IsPatrolOnceFlagSubmission(
                             category,
@@ -794,18 +870,11 @@ namespace QueueTest
                             flags))
                     {
                         overlayFlagSubmissions++;
-                        int markerIndex = overlayMarkerCallIndex++;
-                        if (overlayFlagSuppressionEnabled &&
-                            markerIndex < overlayProjectedKinds.Count &&
-                            QueueVisualContract.ShouldSuppressFlag(
-                                overlayProjectedKinds[markerIndex],
-                                category,
-                                spriteId,
-                                layer,
-                                verticalOffset,
-                                flags))
+                        int flagIndex = overlayFlagCallIndex++;
+                        if (flagIndex < overlayProjectedModes.Count &&
+                            QueueVisualContract.ShouldSuppressFlag(overlayProjectedModes[flagIndex]))
                         {
-                            overlaySuppressedAttackFlags++;
+                            overlaySuppressedHiddenFlags++;
                             return;
                         }
                     }
@@ -912,7 +981,7 @@ namespace QueueTest
                             log,
                             $"COMPLETE_DURING_MIGRATION: tick={tick}, tribeId={tribeId}, " +
                             $"command={state.Active}.");
-                        state.CompleteActive();
+                        CompleteActive(state, tribeId, "completed-during-migration");
                     }
                     else if (Dispatch(tribeId, state.Active))
                     {
@@ -929,7 +998,7 @@ namespace QueueTest
                             log,
                             $"REDISPATCH_FAILED: tick={tick}, tribeId={tribeId}, " +
                             $"command={state.Active}; skipping.");
-                        state.CompleteActive();
+                        CompleteActive(state, tribeId, "redispatch-failed");
                     }
                 }
 
@@ -954,7 +1023,7 @@ namespace QueueTest
                     Shared.DebugLogHelper.LogInfo(
                         log,
                         $"COMPLETE: tick={tick}, tribeId={tribeId}, command={state.Active}.");
-                    state.CompleteActive();
+                    CompleteActive(state, tribeId, "completed");
                 }
             }
 
@@ -965,7 +1034,7 @@ namespace QueueTest
                     Shared.DebugLogHelper.LogInfo(
                         log,
                         $"SKIP_INVALID_TARGET: tick={tick}, tribeId={tribeId}, command={command}.");
-                    state.CompleteActive();
+                    CompleteActive(state, tribeId, "invalid-target");
                     continue;
                 }
 
@@ -981,7 +1050,7 @@ namespace QueueTest
                 Shared.DebugLogHelper.LogWarning(
                     log,
                     $"DISPATCH_FAILED: tick={tick}, tribeId={tribeId}, command={command}; skipping.");
-                state.CompleteActive();
+                CompleteActive(state, tribeId, "dispatch-failed");
             }
 
             if (state.IsEmpty)
@@ -995,6 +1064,31 @@ namespace QueueTest
         {
             reached = isTribeMovementComplete(tribeManagerPointer, tribeId) == 1;
             return ReadMovementMode(tribe) == 0 && reached;
+        }
+
+        private void CompleteActive(TribeQueueState state, int tribeId, string reason)
+        {
+            QueueCommand command = state.Active;
+            QueueVisualSlot slot = null;
+            state.TryGetVisualSlot(command, out slot);
+            bool pageChanged = state.CompleteActive();
+            if (slot != null)
+            {
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"VISUAL_SLOT_HIDDEN: tribeId={tribeId}, page={slot.PageNumber}, " +
+                    $"number={slot.Ordinal}, reason={reason}, command={command}.");
+            }
+            if (pageChanged)
+                LogVisualPageChanged(tribeId, state, reason);
+        }
+
+        private void LogVisualPageChanged(int tribeId, TribeQueueState state, string reason)
+        {
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"VISUAL_PAGE_CHANGED: tribeId={tribeId}, page={state.CurrentVisualPageNumber}, " +
+                $"reason={reason}, slots={string.Join(",", state.CurrentVisualSlots)}.");
         }
 
         private void LogQueueWait(
@@ -1105,7 +1199,7 @@ namespace QueueTest
                 $"targetMatches={targetMatches}, command={command}.");
         }
 
-        private TribeQueueState GetOrCreateState(int tribeId, GameTribe* tribe)
+        private TribeQueueState GetOrCreateState(int tribeId, GameTribe* tribe, string origin)
         {
             if (queues.TryGetValue(tribeId, out TribeQueueState existing) &&
                 existing.MatchesTribe(tribe->r_GlobalId))
@@ -1127,7 +1221,8 @@ namespace QueueTest
                 Shared.DebugLogHelper.LogInfo(
                     log,
                     $"QUEUE_MIGRATED_ON_INPUT: oldTribeId={oldTribeId}, newTribeId={tribeId}, " +
-                    $"newTribeGlobalId={tribe->r_GlobalId}, members={FormatMembers(migrated.Members)}.");
+                    $"newTribeGlobalId={tribe->r_GlobalId}, origin={origin}, " +
+                    $"members={FormatMembers(migrated.Members)}.");
                 return migrated;
             }
 
@@ -1136,24 +1231,49 @@ namespace QueueTest
                 MaximumPendingCommands,
                 selectedMembers);
             ushort nativeWaypointCount = ReadMovementWaypointCount(tribe);
-            state.WaitForVanillaMovement = nativeWaypointCount != 0 && ReadMovementMode(tribe) != 0;
+            bool hasExternalAttack = observedAttacks.TryGetValue(tribeId, out ObservedAttack observed) &&
+                observed.TribeGlobalId == tribe->r_GlobalId &&
+                IsTargetAlive(observed.Command);
+            state.WaitForVanillaMovement = !hasExternalAttack &&
+                nativeWaypointCount != 0 &&
+                !HasCompletedMovementSequence(tribeId, tribe, out _);
             if (state.WaitForVanillaMovement)
                 CaptureVanillaVisualSlots(state, tribe, nativeWaypointCount);
-            if (observedAttacks.TryGetValue(tribeId, out ObservedAttack observed) &&
-                observed.TribeGlobalId == tribe->r_GlobalId && IsTargetAlive(observed.Command))
-            {
+            if (hasExternalAttack)
                 state.ExternalAttack = observed.Command;
-            }
 
             queues[tribeId] = state;
             Shared.DebugLogHelper.LogInfo(
                 log,
                 $"QUEUE_CREATED: tribeId={tribeId}, tribeGlobalId={tribe->r_GlobalId}, " +
-                $"members={FormatMembers(state.Members)}, " +
+                $"origin={origin}, members={FormatMembers(state.Members)}, " +
                 $"nativeWaypointIndex={ReadMovementWaypointIndex(tribe)}, " +
                 $"nativeWaypointCount={nativeWaypointCount}, visualPage={state.CurrentVisualPageNumber}, " +
                 $"externalAttack={(state.ExternalAttack == null ? "none" : state.ExternalAttack.ToString())}.");
             return state;
+        }
+
+        private static void CaptureVanillaVisualSlots(
+            TribeQueueState state,
+            GameTribe* tribe,
+            ushort waypointCount)
+        {
+            int count = Math.Min((int)waypointCount, MaximumNativeMovementWaypoints);
+            int currentWaypointIndex = ReadMovementWaypointIndex(tribe);
+            short moveMode = ReadMovementMode(tribe);
+            ushort* points = &tribe->r_PatrolPoint1TileX;
+            for (int pointIndex = 1; pointIndex < count; pointIndex++)
+            {
+                QueueCommand command = new QueueCommand(
+                    QueueCommandKind.Move,
+                    points[pointIndex * 2],
+                    points[pointIndex * 2 + 1],
+                    moveMode);
+                state.AddVanillaWaypoint(
+                    command,
+                    pointIndex,
+                    completed: pointIndex < currentWaypointIndex);
+            }
         }
 
         private void CancelQueue(int tribeId, string reason)
@@ -1342,16 +1462,26 @@ namespace QueueTest
 
         private sealed class VisualQueueEntry
         {
-            public VisualQueueEntry(QueueCommand command, ushort tileX, ushort tileY)
+            public VisualQueueEntry(
+                QueueVisualSlot slot,
+                QueueVisualMarkerMode mode,
+                ushort tileX,
+                ushort tileY)
             {
-                Command = command;
+                Slot = slot;
+                Mode = mode;
                 TileX = tileX;
                 TileY = tileY;
             }
 
-            public QueueCommand Command { get; }
+            public QueueVisualSlot Slot { get; }
+            public QueueCommand Command => Slot.Command;
+            public QueueVisualMarkerMode Mode { get; }
             public ushort TileX { get; }
             public ushort TileY { get; }
+
+            public override string ToString() =>
+                $"{Slot.Ordinal}:{Command.Kind}:{Mode.ToString().ToLowerInvariant()}";
         }
 
         private sealed class ObservedAttack

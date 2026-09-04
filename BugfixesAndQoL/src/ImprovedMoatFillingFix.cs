@@ -19,13 +19,14 @@ namespace BugfixesAndQoL
         private delegate int ResolveMoatWorkTileDelegate(
             IntPtr tileManager, int moatId, int mode, uint sourceX, uint sourceY);
 
-        private const int FindMoatWorkTargetRva = 0x69D60;
-        private const int ResolveMoatWorkTileRva = 0x6AF60;
+        private const int FindMoatWorkTargetRva =
+            ImprovedMoatFillingNativeContractPolicy.FindMoatWorkTargetRva;
+        private const int ResolveMoatWorkTileRva =
+            ImprovedMoatFillingNativeContractPolicy.ResolveMoatWorkTileRva;
         private const int StateDispatcherRva = 0x13F540;
         private const int StateDispatcherSize = 10069;
-        private const int MovementPlannerRva = 0x196280;
-        private const int MovementPlannerLowFlagGateRva = 0x196464;
-        private const int MovementPlannerStructureFlagGateRva = 0x19648D;
+        private const int MovementPlannerRva =
+            ImprovedMoatFillingNativeContractPolicy.MovementPlannerRva;
         private const int TileFlagsRva = 0x48F71B0;
         private const int MovementTargetAvailabilityRva = 0x3A11EA4;
         private const int NativeHeightLayerRva = 0x4DDD350;
@@ -472,33 +473,23 @@ namespace BugfixesAndQoL
         {
             ResolveExact(memory, FindMoatWorkTargetPattern, FindMoatWorkTargetRva, "moat work-target selector");
             ResolveExact(memory, ResolveMoatWorkTilePattern, ResolveMoatWorkTileRva, "moat work-tile resolver");
-            ValidateExactBytes(memory, FindMoatWorkTargetRva, new byte[]
+            ValidateOwnedHookEntry(memory, FindMoatWorkTargetRva, new byte[]
             {
                 0x44, 0x89, 0x44, 0x24, 0x18, 0x89, 0x54, 0x24,
                 0x10, 0x55, 0x56, 0x57, 0x41, 0x54, 0x41, 0x55,
                 0x41, 0x56, 0x48, 0x83, 0xEC, 0x68, 0x48, 0x8B, 0xE9
             }, "moat work-target selector entry");
-            ValidateExactBytes(memory, ResolveMoatWorkTileRva, new byte[]
+            ValidateOwnedHookEntry(memory, ResolveMoatWorkTileRva, new byte[]
             {
                 0x44, 0x89, 0x4C, 0x24, 0x20, 0x53, 0x57, 0x41,
                 0x57, 0x48, 0x83, 0xEC, 0x20, 0x48, 0x63, 0x44,
                 0x24, 0x60, 0x45, 0x8B, 0xD0, 0x49, 0x63, 0xD9,
                 0x4C, 0x63, 0xDA
             }, "moat work-tile resolver entry");
-            ValidateExactBytes(memory, MovementPlannerRva, new byte[]
-            {
-                0x48, 0x89, 0x5C, 0x24, 0x20, 0x55, 0x56, 0x57,
-                0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x41, 0x57,
-                0x48, 0x83, 0xEC, 0x30, 0x48, 0x63, 0xF2
-            }, "downstream movement planner entry");
-            ValidateExactBytes(memory, MovementPlannerLowFlagGateRva,
-                new byte[] { 0xF6, 0x84, 0x8A, 0xB0, 0x71, 0x8F, 0x04, 0x30 },
-                "downstream movement low-flag gate");
-            ValidateExactBytes(memory, MovementPlannerStructureFlagGateRva, new byte[]
-            {
-                0xF7, 0x84, 0x8A, 0xB0, 0x71, 0x8F, 0x04,
-                0x00, 0x01, 0x00, 0x10
-            }, "downstream movement structure-flag gate");
+            // Do not require pristine live bytes inside the downstream planner. Script Extender
+            // owns its entry detour, and our mounted-stockpile fix legitimately hooks its
+            // structure-flag gate before this feature initializes. The canonical DLL tests
+            // still validate the original planner entry and both flag gates.
             if (Marshal.SizeOf(typeof(GameUnit)) != 0x490)
                 throw new InvalidOperationException("GameUnit no longer matches the audited 0x490-byte layout.");
             ValidateField(nameof(GameUnit.r_AliveState), 0x88);
@@ -535,6 +526,17 @@ namespace BugfixesAndQoL
             {
                 throw new InvalidOperationException($"Native bytes changed for {name}.");
             }
+        }
+
+        private static void ValidateOwnedHookEntry(
+            ReadOnlySpan<byte> memory,
+            int rva,
+            byte[] expected,
+            string name)
+        {
+            if (!ImprovedMoatFillingNativeContractPolicy.RequiresPristineLiveBytes(rva))
+                throw new InvalidOperationException($"{name} is not owned by the moat fix.");
+            ValidateExactBytes(memory, rva, expected, name);
         }
 
         private static void ValidateField(string fieldName, int expectedOffset)

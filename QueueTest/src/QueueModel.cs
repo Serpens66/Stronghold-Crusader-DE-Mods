@@ -53,35 +53,13 @@ namespace QueueTest
         public const int PatrolOnceNumberSpriteFirst = 0x12E;
         public const int PatrolOnceNumberSpriteLast = 0x136;
 
-        // Hiding an attack waypoint's flag is only safe when the native target marker can
-        // replace it with the attack icon. A visual-layout mismatch must not affect queuing.
-        public static bool CanSuppressAttackFlags(
-            bool drawFilterInstalled,
-            bool targetMarkerProjectionAvailable) =>
-            drawFilterInstalled && targetMarkerProjectionAvailable;
-
-        public static bool ShouldSuppressFlag(
-            QueueVisualMarkerMode mode,
-            bool attackFlagSuppressionAvailable) =>
-            mode == QueueVisualMarkerMode.Hidden ||
-            (mode == QueueVisualMarkerMode.Attack && attackFlagSuppressionAvailable);
-
-        public static bool ShouldSuppressNumber(QueueVisualMarkerMode mode) =>
+        public static bool ShouldSuppressFlag(QueueVisualMarkerMode mode) =>
             mode == QueueVisualMarkerMode.Hidden;
 
-        public static bool ShouldSuppressFlag(
-            QueueCommandKind kind,
-            int category,
-            int spriteId,
-            int layer,
-            int verticalOffset,
-            int flags) =>
-            kind != QueueCommandKind.Move && IsPatrolOnceFlagSubmission(
-                category,
-                spriteId,
-                layer,
-                verticalOffset,
-                flags);
+        public static bool ShouldSuppressNumber(
+            QueueVisualMarkerMode mode,
+            bool showPageNumbers) =>
+            mode == QueueVisualMarkerMode.Hidden || !showPageNumbers;
 
         public static bool IsPatrolOnceFlagSubmission(
             int category,
@@ -260,6 +238,22 @@ namespace QueueTest
         public IReadOnlyList<QueueUnitIdentity> Members => members;
         public int MaximumPendingCommands { get; }
         public int PendingCount => pending.Count;
+        public int OutstandingVisualCount
+        {
+            get
+            {
+                int count = 0;
+                foreach (QueueVisualPage page in visualPages)
+                {
+                    foreach (QueueVisualSlot slot in page.Slots)
+                    {
+                        if (!slot.Completed)
+                            count++;
+                    }
+                }
+                return count;
+            }
+        }
         public int ExpectedMoveChoreCount => expectedMoveChores.Count;
         public int ExpectedMoveEventCount => expectedMoveEvents.Count;
         public QueueCommand Active { get; private set; }
@@ -269,6 +263,9 @@ namespace QueueTest
         public int LastWaitDiagnosticTick { get; private set; } = -1;
         public int CurrentVisualPageNumber =>
             visualPages.Count == 0 ? 0 : visualPages[currentVisualPageIndex].PageNumber;
+        public int CurrentVisualPageIndex => currentVisualPageIndex;
+        public int VisualPageCount => visualPages.Count;
+        public IReadOnlyList<QueueVisualPage> VisualPages => visualPages;
         public IReadOnlyList<QueueVisualSlot> CurrentVisualSlots =>
             visualPages.Count == 0
                 ? Array.Empty<QueueVisualSlot>()
@@ -301,49 +298,6 @@ namespace QueueTest
             return false;
         }
 
-        public bool ContainsAttack
-        {
-            get
-            {
-                if ((Active != null && Active.IsAttack) || ExternalAttack != null)
-                    return true;
-                foreach (QueueCommand command in pending)
-                {
-                    if (command.IsAttack)
-                        return true;
-                }
-                return false;
-            }
-        }
-
-        public List<QueueCommand> GetPendingCommands(int maximum)
-        {
-            return GetPendingCommands(maximum, command => true);
-        }
-
-        public List<QueueCommand> GetPendingCommands(
-            int maximum,
-            Func<QueueCommand, bool> isVisible)
-        {
-            if (maximum < 0)
-                throw new ArgumentOutOfRangeException(nameof(maximum));
-            if (isVisible == null)
-                throw new ArgumentNullException(nameof(isVisible));
-
-            List<QueueCommand> commands = new List<QueueCommand>(maximum);
-            if (maximum == 0)
-                return commands;
-            foreach (QueueCommand command in pending)
-            {
-                if (!isVisible(command))
-                    continue;
-                commands.Add(command);
-                if (commands.Count == maximum)
-                    break;
-            }
-            return commands;
-        }
-
         public bool TryEnqueue(QueueCommand command)
         {
             return TryEnqueue(command, out _);
@@ -353,7 +307,9 @@ namespace QueueTest
         {
             if (command == null)
                 throw new ArgumentNullException(nameof(command));
-            if (pending.Count >= MaximumPendingCommands)
+            // Include active commands and an imported Vanilla predecessor so the overlay can
+            // always display every outstanding destination within the declared queue limit.
+            if (OutstandingVisualCount >= MaximumPendingCommands)
             {
                 visualSlot = null;
                 return false;
@@ -400,8 +356,15 @@ namespace QueueTest
             return AdvanceVisualPageIfComplete();
         }
 
-        public bool TryGetVisualSlot(QueueCommand command, out QueueVisualSlot slot) =>
-            command != null && visualSlots.TryGetValue(command, out slot);
+        public bool TryGetVisualSlot(QueueCommand command, out QueueVisualSlot slot)
+        {
+            if (command == null)
+            {
+                slot = null;
+                return false;
+            }
+            return visualSlots.TryGetValue(command, out slot);
+        }
 
         public void ExpectMoveChore(QueueCommand command, int expiresAfterTick)
         {

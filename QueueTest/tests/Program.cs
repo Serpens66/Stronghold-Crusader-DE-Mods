@@ -1,5 +1,6 @@
 using QueueTest;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
@@ -15,11 +16,13 @@ internal static class Program
         CheckBuildingQueueOrder();
         CheckStateTransitions();
         CheckVisualQueueProjection();
+        CheckStableVisualPages();
         CheckVisualFlagFiltering();
         CheckTribeReuseGuard();
         CheckUnitIdentityBinding();
         CheckNativeLayoutTranslation();
         CheckMoveChoreDeduplication();
+        CheckFirstShiftMoveTakeover();
         CheckNativeReference();
         Console.WriteLine($"QueueTest static tests passed: {checks} checks.");
     }
@@ -100,64 +103,22 @@ internal static class Program
     private static void CheckVisualQueueProjection()
     {
         TribeQueueState state = new TribeQueueState(8, 8);
-        Check(!state.ContainsAttack, "move visualization starts without attack");
         Check(state.TryEnqueue(new QueueCommand(QueueCommandKind.Move, 1, 2)), "visual first move enqueue");
         Check(state.TryEnqueue(new QueueCommand(QueueCommandKind.AttackUnit, 3, 4)), "visual attack enqueue");
         Check(state.TryEnqueue(new QueueCommand(QueueCommandKind.Move, 5, 6)), "visual second move enqueue");
-        Check(state.ContainsAttack, "mixed queue reports attack");
-        QueueCommand[] commands = state.GetPendingCommands(9).ToArray();
-        Check(commands.Length == 3, "visual projection contains mixed commands");
+        IReadOnlyList<QueueVisualSlot> slots = state.CurrentVisualSlots;
+        Check(slots.Count == 3, "visual projection contains mixed commands");
         Check(
-            commands[0].Kind == QueueCommandKind.Move &&
-            commands[1].Kind == QueueCommandKind.AttackUnit &&
-            commands[2].Kind == QueueCommandKind.Move,
+            slots[0].Command.Kind == QueueCommandKind.Move &&
+            slots[1].Command.Kind == QueueCommandKind.AttackUnit &&
+            slots[2].Command.Kind == QueueCommandKind.Move,
             "visual projection preserves mixed order");
-        Check(state.GetPendingCommands(1).Count == 1, "visual projection respects native limit");
-        Check(state.GetPendingCommands(0).Count == 0, "empty visual projection limit");
-
-        TribeQueueState compact = new TribeQueueState(9, 8);
-        QueueCommand invalid = new QueueCommand(QueueCommandKind.AttackUnit, 99, 100);
-        QueueCommand valid1 = new QueueCommand(QueueCommandKind.Move, 7, 8);
-        QueueCommand valid2 = new QueueCommand(QueueCommandKind.AttackBuilding, 4, 5);
-        QueueCommand valid3 = new QueueCommand(QueueCommandKind.Move, 9, 10);
-        compact.TryEnqueue(invalid);
-        compact.TryEnqueue(valid1);
-        compact.TryEnqueue(valid2);
-        compact.TryEnqueue(valid3);
-        QueueCommand[] visible = compact.GetPendingCommands(2, command => !ReferenceEquals(command, invalid)).ToArray();
-        Check(visible.Length == 2, "invalid visual target compacts sequence");
-        Check(ReferenceEquals(visible[0], valid1) && ReferenceEquals(visible[1], valid2),
-            "visual limit applies after invalid target filtering");
-        Check(compact.TryActivateNext(out QueueCommand active) && ReferenceEquals(active, invalid),
-            "active visual command selected");
-        Check(!compact.GetPendingCommands(3).Contains(active), "active command excluded from visual queue");
-
-        TribeQueueState limited = new TribeQueueState(10, 12);
-        for (int index = 0; index < 12; index++)
-            limited.TryEnqueue(new QueueCommand(QueueCommandKind.Move, index, index));
-        QueueCommand[] firstNine = limited.GetPendingCommands(9).ToArray();
-        Check(firstNine.Length == 9, "visual queue is limited to nine future commands");
-        Check(firstNine[8].Argument1 == 8, "visual queue limit retains FIFO prefix");
+        Check(slots.Select(slot => slot.Ordinal).SequenceEqual(new[] { 1, 2, 3 }),
+            "mixed visual commands receive consecutive fixed numbers");
     }
 
     private static void CheckVisualFlagFiltering()
     {
-        Check(
-            QueueVisualContract.ShouldSuppressFlag(
-                QueueCommandKind.AttackUnit, 0xAC, 0x138, 0x12, -1, 0xA0022),
-            "unit attack Move flag suppressed");
-        Check(
-            QueueVisualContract.ShouldSuppressFlag(
-                QueueCommandKind.ForceAttackBuilding, 0xAC, 0x141, 0x12, -1, 0xA0022),
-            "building force-attack Move flag suppressed");
-        Check(
-            !QueueVisualContract.ShouldSuppressFlag(
-                QueueCommandKind.Move, 0xAC, 0x138, 0x12, -1, 0xA0022),
-            "real Move flag retained");
-        Check(
-            !QueueVisualContract.ShouldSuppressFlag(
-                QueueCommandKind.AttackBuilding, 0xAC, 0x12E, 0x12, -1, 0xA0022),
-            "attack number sprite retained");
         Check(
             QueueVisualContract.IsPatrolOnceNumberSubmission(0xAC, 0x12E, 0x12, -1, 0xA0022),
             "first patrol number submission recognized");
@@ -167,16 +128,138 @@ internal static class Program
         Check(
             !QueueVisualContract.IsPatrolOnceNumberSubmission(0xAC, 0x137, 0x12, -1, 0xA0022),
             "out-of-range patrol number rejected");
-        Check(QueueVisualContract.CanSuppressAttackFlags(true, true),
-            "attack flag suppression requires both visual capabilities");
-        Check(!QueueVisualContract.CanSuppressAttackFlags(true, false),
-            "target marker mismatch preserves numbered Move flag");
-        Check(!QueueVisualContract.CanSuppressAttackFlags(false, true),
-            "missing draw filter cannot suppress attack flag");
+        Check(QueueVisualContract.ShouldSuppressFlag(QueueVisualMarkerMode.Hidden),
+            "hidden slot flag suppressed");
+        Check(!QueueVisualContract.ShouldSuppressFlag(QueueVisualMarkerMode.Move),
+            "Move flag retained");
+        Check(!QueueVisualContract.ShouldSuppressFlag(QueueVisualMarkerMode.Attack),
+            "attack flag retained beside attack icon");
+        Check(QueueVisualContract.ShouldSuppressNumber(QueueVisualMarkerMode.Hidden, true),
+            "hidden current-page number suppressed");
+        Check(!QueueVisualContract.ShouldSuppressNumber(QueueVisualMarkerMode.Attack, true),
+            "visible current-page attack number retained");
+        Check(!QueueVisualContract.ShouldSuppressNumber(QueueVisualMarkerMode.Move, true),
+            "visible current-page Move number retained");
+        Check(QueueVisualContract.ShouldSuppressNumber(QueueVisualMarkerMode.Attack, false),
+            "future-page attack number suppressed");
+        Check(QueueVisualContract.ShouldSuppressNumber(QueueVisualMarkerMode.Move, false),
+            "future-page Move number suppressed");
+    }
+
+    private static void CheckStableVisualPages()
+    {
+        TribeQueueState stable = new TribeQueueState(44, 12);
+        QueueVisualSlot vanillaCompleted = stable.AddVanillaWaypoint(
+            new QueueCommand(QueueCommandKind.Move, 1, 1),
+            nativeWaypointIndex: 1,
+            completed: true);
+        QueueVisualSlot vanillaCurrent = stable.AddVanillaWaypoint(
+            new QueueCommand(QueueCommandKind.Move, 2, 2),
+            nativeWaypointIndex: 2,
+            completed: false);
+        QueueCommand attack = new QueueCommand(QueueCommandKind.AttackUnit, 3, 30);
+        QueueCommand move = new QueueCommand(QueueCommandKind.Move, 4, 4);
+        Check(stable.TryEnqueue(attack, out QueueVisualSlot attackSlot) && attackSlot.Ordinal == 3,
+            "managed numbering follows Vanilla prefix");
+        Check(stable.TryEnqueue(move, out QueueVisualSlot moveSlot) && moveSlot.Ordinal == 4,
+            "mixed command receives stable next number");
+        Check(!stable.UpdateVanillaVisualProgress(3),
+            "Vanilla progress does not advance a page with managed successors");
+        Check(vanillaCompleted.Completed && vanillaCurrent.Completed && attackSlot.Ordinal == 3,
+            "completed Vanilla slots remain reserved ahead of managed commands");
+        Check(stable.TryActivateNext(out QueueCommand active) && ReferenceEquals(active, attack),
+            "stable visual attack activates");
+        Check(!attackSlot.Completed && attackSlot.Ordinal == 3,
+            "active visual slot remains visible and numbered");
+        stable.CompleteActive();
+        Check(attackSlot.Completed && moveSlot.Ordinal == 4,
+            "completion hides slot without renumbering successor");
+        QueueCommand appended = new QueueCommand(QueueCommandKind.AttackBuilding, 5, 50);
+        Check(stable.TryEnqueue(appended, out QueueVisualSlot appendedSlot) && appendedSlot.Ordinal == 5,
+            "later command uses highest assigned number plus one");
+
+        TribeQueueState paged = new TribeQueueState(55, 12);
+        QueueVisualSlot tenthSlot = null;
+        for (int index = 0; index < 10; index++)
+        {
+            QueueCommand command = new QueueCommand(QueueCommandKind.Move, index, index);
+            Check(paged.TryEnqueue(command, out QueueVisualSlot slot), $"paged command {index + 1} enqueue");
+            if (index == 9)
+                tenthSlot = slot;
+        }
+        Check(paged.CurrentVisualPageNumber == 1 && paged.CurrentVisualSlots.Count == 9,
+            "first visual page remains active at nine slots");
+        Check(paged.CurrentVisualPageIndex == 0 && paged.VisualPages.Count == 2,
+            "all visual pages are available from the current page onward");
         Check(
-            !QueueVisualContract.ShouldSuppressFlag(
-                QueueCommandKind.AttackBuilding, 0x6B, 0x138, 0x12, -1, 0xA0022),
-            "unrelated draw submission retained");
+            paged.VisualPages
+                .Skip(paged.CurrentVisualPageIndex)
+                .SelectMany(page => page.Slots)
+                .Select(slot => slot.Command)
+                .SequenceEqual(paged.VisualPages.SelectMany(page => page.Slots).Select(slot => slot.Command)),
+            "multi-page projection preserves complete FIFO order");
+        Check(tenthSlot != null && tenthSlot.PageNumber == 2 && tenthSlot.Ordinal == 1,
+            "tenth command starts second page at one");
+        for (int index = 0; index < 8; index++)
+        {
+            Check(paged.TryActivateNext(out _), $"page-one command {index + 1} activates");
+            Check(!paged.CompleteActive(), $"page remains stable before slot {index + 9} completes");
+        }
+        Check(paged.TryActivateNext(out _), "ninth page-one command activates");
+        Check(paged.CompleteActive(), "completed first page advances visual page");
+        Check(paged.CurrentVisualPageNumber == 2 && paged.CurrentVisualSlots.Count == 1,
+            "second visual page becomes active");
+        Check(paged.CurrentVisualPageIndex == 1 &&
+            paged.VisualPages.Skip(paged.CurrentVisualPageIndex).Count() == 1,
+            "completed pages are excluded from subsequent projection");
+
+        TribeQueueState mixedPages = new TribeQueueState(56, 16);
+        QueueCommandKind[] mixedKinds =
+        {
+            QueueCommandKind.Move,
+            QueueCommandKind.AttackUnit,
+            QueueCommandKind.AttackBuilding,
+            QueueCommandKind.ForceAttackBuilding
+        };
+        for (int index = 0; index < 12; index++)
+        {
+            Check(mixedPages.TryEnqueue(new QueueCommand(mixedKinds[index % mixedKinds.Length], index, index)),
+                $"mixed multi-page command {index + 1} enqueue");
+        }
+        Check(
+            mixedPages.VisualPages
+                .Skip(mixedPages.CurrentVisualPageIndex)
+                .SelectMany(page => page.Slots)
+                .Select(slot => slot.Command.Kind)
+                .SequenceEqual(Enumerable.Range(0, 12).Select(index => mixedKinds[index % mixedKinds.Length])),
+            "all Move and attack kinds remain visible in FIFO order across pages");
+        Check(mixedPages.VisualPages[1].Slots.All(slot => slot.PageNumber == 2),
+            "future mixed commands remain assigned to their second visual page");
+
+        TribeQueueState capacity = new TribeQueueState(66, 128);
+        for (int index = 0; index < 128; index++)
+            Check(capacity.TryEnqueue(new QueueCommand(QueueCommandKind.Move, index, index)),
+                $"managed queue capacity command {index + 1}");
+        Check(!capacity.TryEnqueue(new QueueCommand(QueueCommandKind.Move, 129, 129)),
+            "managed queue rejects command beyond 128 pending entries");
+        Check(capacity.VisualPageCount == 15,
+            "128 stored commands are partitioned into fifteen visual pages");
+        Check(capacity.VisualPages.SelectMany(page => page.Slots).Count(slot => !slot.Completed) == 128,
+            "full managed queue exposes at most 128 visible flags");
+
+        TribeQueueState boundedWithPredecessor = new TribeQueueState(67, 3);
+        boundedWithPredecessor.AddVanillaWaypoint(
+            new QueueCommand(QueueCommandKind.Move, 1, 1),
+            nativeWaypointIndex: 1,
+            completed: false);
+        Check(boundedWithPredecessor.TryEnqueue(new QueueCommand(QueueCommandKind.Move, 2, 2)),
+            "queue accepts first command behind Vanilla predecessor");
+        Check(boundedWithPredecessor.TryActivateNext(out _),
+            "active managed command remains an outstanding visual target");
+        Check(boundedWithPredecessor.TryEnqueue(new QueueCommand(QueueCommandKind.AttackUnit, 3, 30)),
+            "queue fills remaining outstanding visual slot");
+        Check(!boundedWithPredecessor.TryEnqueue(new QueueCommand(QueueCommandKind.Move, 4, 4)),
+            "active and Vanilla predecessor count toward 128-target display bound");
     }
 
     private static void CheckUnitIdentityBinding()
@@ -251,6 +334,56 @@ internal static class Program
         Check(state.ExpectedMoveEventCount == 1, "chore-first move expects matching event");
         Check(state.TryConsumeExpectedMoveEvent(second, 140), "matching event consumed");
         Check(state.ExpectedMoveEventCount == 0, "expected move events exhausted");
+    }
+
+    private static void CheckFirstShiftMoveTakeover()
+    {
+        QueueCommand firstMove = new QueueCommand(QueueCommandKind.Move, 100, 200, -1);
+
+        TribeQueueState eventFirst = new TribeQueueState(10, 128)
+        {
+            WaitForVanillaMovement = true
+        };
+        QueueVisualSlot predecessor = eventFirst.AddVanillaWaypoint(
+            new QueueCommand(QueueCommandKind.Move, 90, 190, -1),
+            nativeWaypointIndex: 1,
+            completed: false);
+        Check(eventFirst.TryEnqueue(firstMove, out QueueVisualSlot eventSlot),
+            "first Shift Move event creates a managed entry");
+        eventFirst.ExpectMoveChore(firstMove, 130);
+        Check(eventFirst.TryConsumeExpectedMoveChore(firstMove, 101),
+            "event-first Shift Move suppresses its native Chore");
+        Check(eventFirst.PendingCount == 1 && eventFirst.CurrentVisualSlots.Count == 2,
+            "event-first Shift Move exists exactly once behind Vanilla predecessor");
+        Check(predecessor.Ordinal == 1 && eventSlot.Ordinal == 2,
+            "first managed Shift Move continues Vanilla visual numbering");
+
+        TribeQueueState choreFirst = new TribeQueueState(11, 128);
+        Check(choreFirst.TryEnqueue(firstMove, out QueueVisualSlot choreSlot),
+            "first Shift Move Chore creates a managed entry");
+        choreFirst.ExpectMoveEvent(firstMove, 130);
+        Check(choreFirst.TryConsumeExpectedMoveEvent(firstMove, 101),
+            "chore-first Shift Move suppresses its managed event duplicate");
+        Check(choreFirst.PendingCount == 1 && choreFirst.CurrentVisualSlots.Count == 1,
+            "chore-first Shift Move exists exactly once");
+        Check(choreSlot.PageNumber == 1 && choreSlot.Ordinal == 1,
+            "Shift Move from idle starts visual page one");
+
+        TribeQueueState pureMoves = new TribeQueueState(12, 128);
+        QueueVisualSlot tenth = null;
+        for (int index = 0; index < 15; index++)
+        {
+            Check(pureMoves.TryEnqueue(
+                    new QueueCommand(QueueCommandKind.Move, index + 1, index + 2, -1),
+                    out QueueVisualSlot slot),
+                $"pure Move command {index + 1} enqueue");
+            if (index == 9)
+                tenth = slot;
+        }
+        Check(tenth != null && tenth.PageNumber == 2 && tenth.Ordinal == 1,
+            "tenth pure Move starts visual page two instead of replacing number nine");
+        Check(pureMoves.PendingCount == 15 && pureMoves.VisualPageCount == 2,
+            "pure Move queue retains commands beyond Vanilla capacity");
     }
 
     private static void CheckNativeReference()

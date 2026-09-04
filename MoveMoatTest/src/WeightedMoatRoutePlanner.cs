@@ -26,6 +26,8 @@ namespace MoveMoatTest
     internal delegate CompletedMoatRelationship CompletedMoatRelationshipResolver(
         int playerId, int tileId);
 
+    internal delegate bool NativeSpecialStructureResolver(int tileId);
+
     internal readonly struct WeightedMovementCostProfile : IEquatable<WeightedMovementCostProfile>
     {
         private const int MoatDelayPenalty = 6;
@@ -281,9 +283,17 @@ namespace MoveMoatTest
         private const int CoordinateCount = MapWidth * MapWidth;
         private const int NativeTileCount = 0x4E520;
         private const uint CompletedMoatTileFlag = 0x40000000;
-        private const uint OrdinaryWalkableTileFlag = 0x00008000;
         private const uint WallOrStairMask = 0x00010900;
+        private const uint NativeMoatAdjacentAlwaysAllowedMask = 0x40000800;
+        private const uint NativeMoatAdjacentImmediateBlockMask = 0x00000100;
+        private const uint NativeSpecialStructureTileFlag = 0x00001000;
         private const uint MoatReconstructionBlockingMask = 0x0A5014B1;
+        private const uint DynamicStructureHeightTileFlag = 0x10000000;
+        private const int NativeBuildingRecordStride = 0x32C;
+        private const int MaximumNativeBuildingId = 10000;
+        private const ushort NativeLowWallType = 0x2D;
+        private const ushort NativeHighWallType = 0x2E;
+        private const int NativeWallHeightCorrection = 0x5A;
 
         internal static readonly int[] DirectionX = { 0, 1, 1, 1, 0, -1, -1, -1 };
         internal static readonly int[] DirectionY = { -1, -1, 0, 1, 1, 1, 0, -1 };
@@ -295,7 +305,9 @@ namespace MoveMoatTest
         private readonly byte* heightLayer;
         private readonly byte* occupancyLayer;
         private readonly byte* directionMasks;
+        private readonly byte* nativeBuildingTypeBias;
         private readonly CompletedMoatRelationshipResolver resolveCompletedMoatRelationship;
+        private readonly NativeSpecialStructureResolver resolveSpecialStructure;
 
         private readonly long[] costs = new long[CoordinateCount];
         private readonly int[] parents = new int[CoordinateCount];
@@ -308,10 +320,13 @@ namespace MoveMoatTest
         private readonly int[] route = new int[MaximumRouteEdges + 1];
         private readonly byte[] moatClassification = new byte[NativeTileCount];
         private readonly int[] classifiedTiles = new int[NativeTileCount];
+        private readonly byte[] specialStructureClassification = new byte[NativeTileCount];
+        private readonly int[] classifiedSpecialStructureTiles = new int[NativeTileCount];
 
         private int heapCount;
         private int touchedCount;
         private int classifiedCount;
+        private int classifiedSpecialStructureCount;
         private int nextInsertionOrder;
         private int targetX;
         private int targetY;
@@ -325,7 +340,9 @@ namespace MoveMoatTest
             byte* heightLayer,
             byte* occupancyLayer,
             byte* directionMasks,
-            CompletedMoatRelationshipResolver resolveCompletedMoatRelationship)
+            byte* nativeBuildingTypeBias,
+            CompletedMoatRelationshipResolver resolveCompletedMoatRelationship,
+            NativeSpecialStructureResolver resolveSpecialStructure)
         {
             this.validCoordinates = validCoordinates;
             this.rowLookup = rowLookup;
@@ -334,8 +351,11 @@ namespace MoveMoatTest
             this.heightLayer = heightLayer;
             this.occupancyLayer = occupancyLayer;
             this.directionMasks = directionMasks;
+            this.nativeBuildingTypeBias = nativeBuildingTypeBias;
             this.resolveCompletedMoatRelationship = resolveCompletedMoatRelationship ??
                 throw new ArgumentNullException(nameof(resolveCompletedMoatRelationship));
+            this.resolveSpecialStructure = resolveSpecialStructure ??
+                throw new ArgumentNullException(nameof(resolveSpecialStructure));
 
             for (int node = 0; node < CoordinateCount; node++)
             {
@@ -470,7 +490,7 @@ namespace MoveMoatTest
                         if (!TryGetEdge(
                             playerId, currentX, currentY, currentTile, nextX, nextY,
                             nextTile, direction, targetEndpoint, allowReservedTarget,
-                            out bool moatEdge))
+                            out bool moatEdge, out _))
                         {
                             continue;
                         }
@@ -677,17 +697,20 @@ namespace MoveMoatTest
                 if (direction < 0 || !TryGetEdge(
                     playerId, currentX, currentY, GetTileId(currentX, currentY),
                     nextX, nextY, GetTileId(nextX, nextY), direction,
-                    targetEndpoint, allowReservedTarget, out bool moatEdge))
+                        targetEndpoint, allowReservedTarget,
+                        out bool moatEdge, out bool structuralEdge))
                 {
                     summary = WeightedMoatRouteSummary.Failed(
                         "e1640-edge-validation-failed", stopwatch.Elapsed.TotalMilliseconds,
                         expanded, routeNodes - 1);
                     return false;
                 }
-                if (moatEdge)
-                    moat++;
-                else
-                    ground++;
+                    if (moatEdge)
+                        moat++;
+                    else
+                        ground++;
+                    if (structuralEdge)
+                        structure++;
                 if ((direction & 1) != 0)
                     diagonal++;
                 if (previousDirection >= 0 && previousDirection != direction)
@@ -703,7 +726,7 @@ namespace MoveMoatTest
             }
 
             summary = WeightedMoatRouteSummary.Succeeded(
-                directionCount, ground, moat, diagonal,
+                    directionCount, ground, moat, structure, diagonal,
                 directionChanges, fingerprint,
                 costProfile.ConvertFixedCostToTicks(costs[targetNode]),
                 stopwatch.Elapsed.TotalMilliseconds, expanded);
@@ -723,7 +746,8 @@ namespace MoveMoatTest
             int direction,
             bool targetEndpoint,
             bool allowReservedTarget,
-            out bool moatEdge)
+            out bool moatEdge,
+            out bool structuralEdge)
         {
             bool traversable = TryGetTraversalEdge(
                 playerId,
@@ -737,7 +761,8 @@ namespace MoveMoatTest
                 targetEndpoint,
                 allowReservedTarget,
                 MoatTraversalPolicy.FriendlyOnly,
-                out MoatTraversalEdgeKind edgeKind);
+                out MoatTraversalEdgeKind edgeKind,
+                out structuralEdge);
             moatEdge = edgeKind != MoatTraversalEdgeKind.Ground;
             return traversable;
         }
@@ -754,9 +779,11 @@ namespace MoveMoatTest
             bool targetEndpoint,
             bool allowReservedTarget,
             MoatTraversalPolicy policy,
-            out MoatTraversalEdgeKind edgeKind)
+            out MoatTraversalEdgeKind edgeKind,
+            out bool structuralEdge)
         {
             edgeKind = MoatTraversalEdgeKind.Ground;
+            structuralEdge = false;
             if (direction < 0 || direction >= DirectionX.Length ||
                 currentX < 0 || currentX >= MapWidth ||
                 currentY < 0 || currentY >= MapWidth ||
@@ -785,15 +812,13 @@ namespace MoveMoatTest
                 return false;
 
             bool ordinaryEdge = (directionMasks[direction] & occupancyLayer[currentTile]) != 0;
+            structuralEdge = IsStructuralTile(currentTile) || IsStructuralTile(nextTile);
             if (!currentMoat && !nextMoat)
             {
-                if (!ordinaryEdge)
-                    return false;
-                if ((tileFlags[nextTile] & WallOrStairMask) != 0)
-                    return false;
-                if (buildingLayer[nextTile] != 0 && !(targetEndpoint && allowReservedTarget))
-                    return false;
-                return true;
+                // DAFD0 lets the native direction mask decide ordinary ground, stair,
+                // ramp, wall-top and walkable-reservation edges. Structure presence alone
+                // is not a blocker; the height correction below is part of that same edge.
+                return ordinaryEdge && HasCompatibleNativeHeight(currentTile, nextTile);
             }
 
             edgeKind = enemyMoat
@@ -801,20 +826,12 @@ namespace MoveMoatTest
                 : MoatTraversalEdgeKind.FriendlyMoat;
             if (ordinaryEdge)
             {
-                if (((tileFlags[currentTile] | tileFlags[nextTile]) & WallOrStairMask) != 0)
-                    return false;
-                return buildingLayer[nextTile] == 0 ||
-                    targetEndpoint && allowReservedTarget;
+                return HasCompatibleNativeHeight(currentTile, nextTile);
             }
-            if (Math.Abs(heightLayer[nextTile] - heightLayer[currentTile]) > 16)
+            if (!HasCompatibleNativeHeight(currentTile, nextTile))
                 return false;
-            if (buildingLayer[nextTile] != 0 &&
-                !(targetEndpoint && allowReservedTarget && ordinaryEdge))
-            {
-                return false;
-            }
-            if (!IsUsableMoatAdjacentTile(currentTile, false) ||
-                !IsUsableMoatAdjacentTile(nextTile, targetEndpoint && allowReservedTarget))
+            if (!IsNativeMoatAdjacentTile(currentTile) ||
+                !IsNativeMoatAdjacentTile(nextTile))
             {
                 return false;
             }
@@ -856,19 +873,75 @@ namespace MoveMoatTest
                     relationship == CompletedMoatRelationship.Enemy &&
                     policy == MoatTraversalPolicy.AllowEnemyForDiagnostic;
             }
-            return IsUsableMoatAdjacentTile(tileId, false);
+            return IsNativeMoatAdjacentTile(tileId);
         }
 
-        private bool IsUsableMoatAdjacentTile(int tileId, bool allowReservedEndpoint)
+        private bool IsNativeMoatAdjacentTile(int tileId)
         {
             if (IsCompletedMoat(tileId))
                 return true;
             uint flags = tileFlags[tileId];
-            if ((flags & OrdinaryWalkableTileFlag) == 0 ||
-                (flags & MoatReconstructionBlockingMask) != 0 ||
-                (flags & WallOrStairMask) != 0)
+            if ((flags & NativeMoatAdjacentAlwaysAllowedMask) != 0)
+                return true;
+            if ((flags & NativeMoatAdjacentImmediateBlockMask) != 0)
                 return false;
-            return buildingLayer[tileId] == 0 || allowReservedEndpoint;
+            if ((flags & MoatReconstructionBlockingMask) == 0)
+                return true;
+            return (flags & NativeSpecialStructureTileFlag) != 0 &&
+                IsNativeSpecialStructure(tileId);
+        }
+
+        private bool HasCompatibleNativeHeight(int currentTile, int nextTile)
+        {
+            // DAFD0 adds a dynamic global structure height for this rare flag. We cannot
+            // reproduce that mutable value safely here, so this edge remains fail-closed.
+            if ((tileFlags[nextTile] & DynamicStructureHeightTileFlag) != 0)
+                return false;
+
+            int currentHeight = heightLayer[currentTile];
+            int nextHeight = heightLayer[nextTile];
+            if (Math.Abs(nextHeight - currentHeight) <= 16)
+                return true;
+
+            ushort nextType = GetNativeBuildingType(nextTile);
+            if (nextType == NativeLowWallType || nextType == NativeHighWallType)
+                nextHeight -= NativeWallHeightCorrection;
+            else
+            {
+                ushort currentType = GetNativeBuildingType(currentTile);
+                if (currentType == NativeLowWallType || currentType == NativeHighWallType)
+                    currentHeight -= NativeWallHeightCorrection;
+            }
+            return Math.Abs(nextHeight - currentHeight) <= 16;
+        }
+
+        private ushort GetNativeBuildingType(int tileId)
+        {
+            int buildingId = (short)buildingLayer[tileId];
+            if (buildingId <= 0 || buildingId > MaximumNativeBuildingId ||
+                nativeBuildingTypeBias == null)
+            {
+                return 0;
+            }
+            return *(ushort*)(nativeBuildingTypeBias +
+                ((long)buildingId * NativeBuildingRecordStride));
+        }
+
+        private bool IsStructuralTile(int tileId) =>
+            (tileFlags[tileId] & WallOrStairMask) != 0 ||
+            buildingLayer[tileId] != 0 ||
+            IsNativeSpecialStructure(tileId);
+
+        private bool IsNativeSpecialStructure(int tileId)
+        {
+            byte state = specialStructureClassification[tileId];
+            if (state == 0)
+            {
+                state = resolveSpecialStructure(tileId) ? (byte)1 : (byte)2;
+                specialStructureClassification[tileId] = state;
+                classifiedSpecialStructureTiles[classifiedSpecialStructureCount++] = tileId;
+            }
+            return state == 1;
         }
 
         private CompletedMoatRelationship GetMoatRelationship(int playerId, int tileId)

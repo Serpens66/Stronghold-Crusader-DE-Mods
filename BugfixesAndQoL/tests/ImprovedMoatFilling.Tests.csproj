@@ -18,6 +18,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
+    <Compile Include="..\src\ImprovedMoatFillingNativeContractPolicy.cs"><Link>ImprovedMoatFillingNativeContractPolicy.cs</Link></Compile>
     <Compile Include="..\src\ImprovedMoatFillingPolicy.cs"><Link>ImprovedMoatFillingPolicy.cs</Link></Compile>
     <Compile Include="..\src\MoatFillHookOwnershipPolicy.cs"><Link>MoatFillHookOwnershipPolicy.cs</Link></Compile>
   </ItemGroup>

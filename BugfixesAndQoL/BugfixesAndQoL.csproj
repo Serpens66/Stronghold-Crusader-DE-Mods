@@ -118,6 +118,7 @@
     <Compile Include="src\EnemyProximityBulldozeCursorHook.cs" />
     <Compile Include="src\HdMarketViewHook.cs" />
     <Compile Include="src\ImprovedMoatFillingFix.cs" />
+    <Compile Include="src\ImprovedMoatFillingNativeContractPolicy.cs" />
     <Compile Include="src\ImprovedMoatFillingPolicy.cs" />
     <Compile Include="src\MoatFillHookOwnershipPolicy.cs" />
     <Compile Include="src\MarketKeyMainTradeMenuHook.cs" />

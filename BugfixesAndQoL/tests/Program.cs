@@ -9,11 +9,11 @@ namespace BugfixesAndQoL
     {
         private const string ExpectedHash =
             "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2";
-        private const int FindRva = 0x69D60;
-        private const int ResolveRva = 0x6AF60;
+        private const int FindRva = ImprovedMoatFillingNativeContractPolicy.FindMoatWorkTargetRva;
+        private const int ResolveRva = ImprovedMoatFillingNativeContractPolicy.ResolveMoatWorkTileRva;
         private const int DispatcherRva = 0x13F540;
         private const int DispatcherSize = 10069;
-        private const int PlannerRva = 0x196280;
+        private const int PlannerRva = ImprovedMoatFillingNativeContractPolicy.MovementPlannerRva;
 
         private static int failures;
 
@@ -23,6 +23,7 @@ namespace BugfixesAndQoL
             TestReservationAndRollback();
             TestContextIsolation();
             TestHookOwnership();
+            TestLiveEntryOwnership();
             TestNativeContracts();
             if (failures == 0)
             {
@@ -121,6 +122,19 @@ namespace BugfixesAndQoL
                 "missing or unknown MoveMoat bridge fails closed");
         }
 
+        private static void TestLiveEntryOwnership()
+        {
+            Check(ImprovedMoatFillingNativeContractPolicy.RequiresPristineLiveBytes(FindRva) &&
+                    ImprovedMoatFillingNativeContractPolicy.RequiresPristineLiveBytes(ResolveRva),
+                "owned selector and resolver hooks require pristine live entries");
+            Check(!ImprovedMoatFillingNativeContractPolicy.RequiresPristineLiveBytes(PlannerRva) &&
+                    !ImprovedMoatFillingNativeContractPolicy.RequiresPristineLiveBytes(
+                        ImprovedMoatFillingNativeContractPolicy.MovementPlannerLowFlagGateRva) &&
+                    !ImprovedMoatFillingNativeContractPolicy.RequiresPristineLiveBytes(
+                        ImprovedMoatFillingNativeContractPolicy.MovementPlannerStructureFlagGateRva),
+                "downstream planner and gates may already contain compatible live hooks");
+        }
+
         private static void TestNativeContracts()
         {
             string root = Environment.GetEnvironmentVariable("SHCDE_GAME_DIR") ??
@@ -147,9 +161,11 @@ namespace BugfixesAndQoL
             CheckBytes(image, PlannerRva, new byte[] { 0x48, 0x89, 0x5C, 0x24, 0x20, 0x55, 0x56, 0x57,
                 0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x41, 0x57, 0x48, 0x83, 0xEC, 0x30, 0x48, 0x63,
                 0xF2 }, "movement planner entry bytes");
-            CheckBytes(image, 0x196464, new byte[] { 0xF6, 0x84, 0x8A, 0xB0, 0x71, 0x8F, 0x04, 0x30 },
+            CheckBytes(image, ImprovedMoatFillingNativeContractPolicy.MovementPlannerLowFlagGateRva,
+                new byte[] { 0xF6, 0x84, 0x8A, 0xB0, 0x71, 0x8F, 0x04, 0x30 },
                 "movement low-flag gate bytes");
-            CheckBytes(image, 0x19648D, new byte[] { 0xF7, 0x84, 0x8A, 0xB0, 0x71, 0x8F, 0x04,
+            CheckBytes(image, ImprovedMoatFillingNativeContractPolicy.MovementPlannerStructureFlagGateRva,
+                new byte[] { 0xF7, 0x84, 0x8A, 0xB0, 0x71, 0x8F, 0x04,
                 0x00, 0x01, 0x00, 0x10 }, "movement structure-flag gate bytes");
             Check(image.CountNearCalls(DispatcherRva, DispatcherSize, FindRva) >= 2 &&
                     image.CountNearCalls(DispatcherRva, DispatcherSize, ResolveRva) >= 3 &&
