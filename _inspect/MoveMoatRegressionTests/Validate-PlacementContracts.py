@@ -19,6 +19,7 @@ pe = pefile.PE(data=raw, fast_load=True)
 decoder = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_64)
 image_base = pe.OPTIONAL_HEADER.ImageBase
 source = (root / 'MoveMoatTest/src/MoatPlacement.cs').read_text()
+source += (root / 'MoveMoatTest/src/NativeFormationSlots.cs').read_text()
 
 # Minimum whole-instruction prefixes covering a possible 14-byte entry detour.
 # MonoMod relocates the original instructions; there is no custom register clobber.
@@ -26,6 +27,7 @@ prefixes = {
     0x118E00: (15, ['mov', 'mov', 'mov']),
     0x181890: (15, ['mov', 'mov', 'push', 'sub']),
     0xF03C0: (17, ['mov', 'push', 'push', 'push', 'sub', 'inc']),
+    0xE1D30: (15, ['mov', 'mov', 'mov']),
 }
 for rva, (length, mnemonics) in prefixes.items():
     bound_hash, size, code = db.execute('select binary_hash,size,pseudocode from functions where rva=?', (f'0x{rva:X}',)).fetchone()
@@ -58,6 +60,23 @@ assert 'DAT_1851d75f0' in free and 'DAT_184c559b0' in free and 'DAT_1850ec690' i
 assert 0x65C + 0x2D8 == 0x934 and 0x65C + 0x2DA == 0x936
 group = pseudo(0x11B520)
 assert 'FUN_180117bc0' in group and 'FUN_180118e00' in group and 'if (0 < sVar5)' in group
+assert 'FUN_1800e1d30' in group and '3999 < *(int *)(param_1 + 0x14)' in group
+assert 'DAT_187cc6734' in pseudo(0xE1D30) and '0x155f6c' in pseudo(0xE1D30)
+decoder.detail = True
+slot_code = list(decoder.disasm(pe.get_data(0xE1D30, 0x13F), 0xE1D30))
+assert slot_code[-1].mnemonic == 'ret' and slot_code[-1].address == 0xE1E6E
+assert not any(i.mnemonic == 'call' for i in slot_code)
+rip_writes = []
+for i in slot_code:
+    if i.mnemonic == 'mov' and i.operands[0].type == capstone.x86.X86_OP_MEM:
+        dest = i.operands[0]
+        if dest.mem.base == capstone.x86.X86_REG_RIP:
+            rip_writes.append((i.address, i.address + i.size + dest.mem.disp, i.reg_name(i.operands[1].reg)))
+assert rip_writes == [(0xE1E46, 0x7CC6730, 'edx'), (0xE1E4C, 0x7CC6734, 'r15d'), (0xE1E5F, 0x7CC672C, 'ecx')]
+assert [(i.mnemonic, i.op_str) for i in slot_code if i.address in (0xE1E30, 0xE1E33, 0xE1E3C)] == [
+    ('movsxd', 'rcx, r15d'), ('movsx', 'rdx, word ptr [r14 + rcx*2 + 0x28f3ec]'),
+    ('mov', 'eax, dword ptr [r14 + rcx*4 + 0x155f6c]')]
+print('PASS formation ABI: void(RCX manager, EDX spacing, R8D x, R9D y); only X/Y/index outputs, full return and register reads verified.')
 click = pseudo(0x195E30)
 assert click.index('FUN_180023990') < click.index('0x40000000')
 assert 'FUN_180196100' in pseudo(0x10AE0)
@@ -65,3 +84,13 @@ assert 'FUN_18011b520' in pseudo(0x196100)
 table_pointer = int.from_bytes(pe.get_data(0x2C7A30 + 0x11 * 8, 8), 'little')
 assert table_pointer - image_base == 0x10AE0
 print('PASS canonical hash, native chore dispatch, Unit target fields, collision and free-place output contracts.')
+
+# Existing DBC60 ABI is unchanged: only its already bounded requested-result
+# argument is raised. Queue construction precedes all count-limited extraction.
+attack = pseudo(0xDBC60)
+assert 'param_6 = param_6 * 2;' in attack and 'local_54 = 500;' in attack
+assert 'param_6 < 0x32' in attack and 'if (10 < sVar4) break;' in attack
+assert attack.index('if (10 < sVar4) break;') < attack.index('puVar12 = (undefined4 *)(param_1 + 0x1b348)')
+assert 'puVar12 = puVar12 + 3;' in attack and '*puVar12 = 1;' in attack and '*puVar12 = 0;' in attack
+assert 'FUN_1800dbc60' in pseudo(0x11E960) and 'piVar33 = piVar33 + 3;' in pseudo(0x11E960)
+print('PASS attack native pool: one depth-limited flood, 50..500 result limit, unchanged three-int consumer records.')

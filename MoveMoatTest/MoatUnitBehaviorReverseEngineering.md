@@ -2,6 +2,173 @@
 
 Stand: 5. September 2026
 
+## Aktuelle Reparatur: Angriffskandidaten und native Vergleichswege
+
+Der Lauf ab 19:21 Uhr verwendet Mod-SHA-256
+`6A9F01CF77EA2F8FB68981EBF1890B68B77ED062207A6B7E436C0F423895220D`.
+Native DLL und semantische Datensätze stimmen mit
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2` überein.
+Lokaler Extender: Tag v1.42.0; Prüfung der installierten 1.42.0-API ebenfalls erfolgreich.
+
+### Befund und Änderungen
+
+- Das Log enthält 26 Fill-Veröffentlichungen und 38 `native-edge-invalid`-Ablehnungen.
+  Die vorherige Reparatur war nicht nur Logging. Die genaue Zuordnung des gemeldeten
+  optionalen Angriffs-Umwegs ist weiterhin offen: gewichtete Zähler wurden erst nach
+  erfolgreicher Pfadbeschreibung erhöht. Null Bewertungen beweisen keinen fehlenden Builder.
+- `TryDescribeEncodedPath` trennt nun den ausdrücklich angeforderten Vergleichsmodus
+  von der standardmäßig strikten Veröffentlichungskontrolle. Kodierung, Start/Endpunkt,
+  gültige Felder, bekannte Höhen/Kosten, Besitzer und exakt gebundene Fill-Kontakte bleiben
+  Voraussetzungen. Ein fehlendes modseitiges Richtungsmaskenbit des nativen Vergleichswegs
+  verhindert nicht mehr die Suche nach einer sicher geprüften Alternative.
+  Unbekannte Strukturkosten und ungebundene feindliche Pfadknoten werden nicht geschätzt.
+- Neue Pfade und übernommene Fill-Abschlusskanten bleiben strikt geprüft. Der Vergleichsmodus
+  ist keine Bewegungsfreigabe. Die 40-Tick-Marge im aktuellen Profil und strikte Verbesserung
+  in allen plausiblen Profilen bleiben bestehen. Beide Builder nutzen dieselbe Bewertung.
+- `0xDBC60` baut zuerst eine auf Tiefe 10 begrenzte native Queue und extrahiert danach
+  50 bis 500 Ergebnisse (`requestedResults * 2`, begrenzt). Bei feindlichem Moat im
+  Abstand bis 2 zum exakt gebundenen Unit-Ziel wird in demselben Aufruf der native Pool
+  bis 500 Ergebnisse angefordert. Keine erneute Flood-Suche pro Einheit.
+  Die Ergebnisdatensätze mit drei Integers werden stabil eigentümersicher kompaktiert;
+  native Angriffskennzeichen und dritte Felder bleiben erhalten. Filterausnahmen verändern
+  keine halbe Liste. Native Rückgabe, neue Suchgeneration und Zielidentität werden geprüft.
+- Gebäude-Konsument `0x123090`: auch teilweise unzulässige Moat-Plätze werden entfernt.
+  Gültige native Paare behalten Reihenfolge und Score. Der bestehende qualifizierende
+  Fallback ergänzt fehlende Paare aus dem vorliegenden nativen Kandidatenbestand.
+  Es gibt keine beliebige räumliche Ersatzsuche oder künstliche Angriffserlaubnis.
+- Bestehende Hooks und ABI bleiben unverändert, insbesondere kein zusätzlicher Hook auf
+  `0x196280`. Producer/Consumer `0xDBC60 -> 0x11E960` und Ergebnisgrenzen sind zusätzlich
+  in der hashgebundenen statischen Prüfung abgesichert. Pseudocode-Nachweise für diese
+  Erweiterung ersetzen keinen späteren Spieltest.
+
+### Diagnose und Nachweise
+
+`attack-slot-filter` nennt entfernte Plätze; `route-capture-rejected` erfasst unter anderem
+Puffer-, Start- und Profilprobleme. Die historischen `fill-route`-/`fillRoutes`-Marker enthalten
+jetzt auch andere Befehle (mit `command`), Builder-Eintritte und getrennte Entscheidungsgründe.
+`native-cost-only-traversal-differs` wird vor der Alternativsuche protokolliert. Begrenzte
+Kantendetails enthalten Index, native Tile-IDs, Richtung, Flags, Masken, Höhen, Spieler,
+Eigentümerbeziehungen und konkrete Traversierungsregel. Detailstrings entstehen erst bei Ausgabe.
+Die Zähler sind Ereigniszähler, keine Anzahl verschiedener Units: Suche und Endentscheidung
+können je einen Eintrag erzeugen.
+
+Standalone-Regression: 162.673 Runtime-Assertions, 6.792 unabhängige Suchprüfungen und
+1.469.340 gerichtete Cursorvergleiche erfolgreich. Neue Fälle prüfen Kostenvergleich trotz
+fehlender Bodenmaske, weiterhin strikte Veröffentlichung, fehlerhafte Nibbles/Endpunkte,
+feindliche Endpunkte, Strukturkosten sowie stabile Angriffspools von 1/20/120/500 Einträgen,
+Sentinel, Puffergrenzen und Ausnahmen ohne Teiländerungen. Bestehende Fill-Kette inklusive
+beider Builder, Arbeitsbindung und Präfixoptimierung bleibt grün. Die neuen nativen
+Angriffspool-Adapter sind semantisch/API-geprüft; ihr vollständiger nativer Spielablauf und
+die teilweise Gebäude-Ergänzung sind noch nicht durch eine native Laufzeitsimulation bewiesen.
+
+Bekannte Testwarnung CS1701 betrifft das Standalone-Referenzmodell. Es wird keine neue
+Spielbeschleunigung aus den schwankenden synthetischen Laufzeiten abgeleitet.
+Nächste Spielabnahme: langer Bodenweg vs. günstigere Moat-Route beim Unit-Angriff,
+Unit-/Gebäudeziel neben feindlichem Moat und mehrere automatische Fill-Zyklen;
+danach Queue, Patrol und Host/Client. Version 1.0.0, README und QoL-Bridge unverändert.
+
+Build am 05.09.2026 um 19:54:34 einmal über den erhöhten build.bat /nopause erfolgreich: 0 Warnungen, 0 Fehler.
+Lokales Paket und Installation SHA-256 identisch: A5BD484A157485E4985FE4474926EFFE88DA1190DEF0C8557ABB378EA18A4CC6.
+Laufzeiterfolg dieser Reparatur noch nicht getestet.
+
+## Aktueller Übergabestand: Fill-Abkürzungen und native Ausweichziele
+
+### Laufzeitbelege und verbleibende Unsicherheit
+
+Untersucht wurde der neueste Spielstart im Append-Log mit Mod-SHA-256
+`32F875CF79656F049BC025149871EDCB109656A55F38BFC452059F627B693787`.
+Die kanonische native DLL stimmt weiterhin mit CURRENT.json und den verwendeten Datensätzen
+überein: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+
+- Befehl 27 um 18:11:42: 128 Unit-Aufrufe, 103 positive Rückgaben, 25 ohne Builder.
+  Die begrenzten Einzelmeldungen zeigen unter anderem Units 13/22/23 mit Zielen
+  (391,373)/(392,373)/(392,374), Flags `0x40008000`, Abbruch vor der Regionsprüfung.
+  Befehl 28 um 18:12:14 (Mauervergleich des Nutzers): 156/156 positive Aufrufe, keiner ohne Builder.
+- Die normale Formation verwendet bei Moat-Freigabe die eigentümerneutrale Suche `0xDAFD0`.
+  `0xE1D30` übernimmt deren Kandidaten; die individuelle Modprüfung verhindert erst danach
+  das Betreten feindlicher Ziele. Zu diesem Zeitpunkt erfolgt keine allgemeine Neuvergabe mehr.
+- Fill ist nicht allgemein von Abkürzungen ausgeschlossen: 89 protokollierte Arbeitsbewegungs-
+  Abschlüsse/Unterbrechungen tragen `weighted-path-published`, 27 `native-friendly-moat`.
+  Einige Abschlüsse bestätigen tatsächliche Überquerungen, andere wurden durch neue Befehle beendet.
+  Die genaue Zuordnung sämtlicher vom Nutzer beobachteter Umwege bleibt offen.
+- Bestätigte Code-Lücke: Der bisherige Owner-Audit erlaubt den exakt gebundenen terminalen
+  Fill-Kontakt; `TryDescribeEncodedPath` verwarf denselben Pfad wegen `FriendlyOnly`.
+  Ohne gültige native Kostenbasis fand anschließend keine Abkürzungssuche statt. Ablehnungen
+  außerhalb von Gruppen wurden bisher nur in nicht vorhandene Befehlszähler geschrieben.
+
+### Umsetzung und native Verträge
+
+`FillWeightedRoutes` bindet die Kontaktbeschreibung an aktuelle Unit-ID/Global-ID, Spieler,
+Arbeitsdurchlauf, Arbeitsfeld und effektives Builder-Ziel. Der gemeinsame Knotentest erlaubt
+genau das Arbeitsfeld als vorletzten Knoten; andere feindliche Knoten und Diagonalecken bleiben
+gesperrt. Kosten und Länge beschreiben den gesamten Weg einschließlich beider Abschlusskanten.
+Die Suche selbst bleibt freundlich: Sie vergleicht die normale vollständig freundliche Alternative
+mit einem verbesserten Präfix vor den unveränderten beiden nativen Abschlusskanten. Deren Kosten
+werden vorab aus allen Profilgrenzen abgezogen; für das Präfix bleiben maximal 1.998 Schritte.
+Auch ein leerer oder reiner Bodenpräfix ist zulässig. Die bisherigen 40 Ticks im tatsächlichen
+Profil und strikt positive Ersparnis unter allen plausiblen Profilen bleiben erforderlich.
+Live-Audit und Rollback prüfen weiterhin eigenen Puffer, Start, Ziel und Identität.
+
+`NativeFormationSlots` ergänzt ausschließlich die passende synchrone Bewegungs-Platzvergabe.
+Feindliche oder ungültig besessene Moat-Kandidaten werden über den nächsten nativen Listenindex
+übersprungen; Abstandsraster und Reihenfolge bleiben nativ. Keine zusätzliche Karten-/Wegsuche,
+keine Änderung von Terrain, PCL, Visit-Stamps oder gemeinsamen Pfadfeldern. Ein Indexrücksprung
+auf null wird als Erschöpfung behandelt. Negative Erschöpfungsergebnisse sind an Befehl, Tick,
+Karte, Suchstempel, Spieler, Abstandsraster und Änderungsrevision gebunden.
+
+Der gemeinsame Index ist zugleich Vanillas Gruppenabbruchzähler: Bei 4.000 bricht der Aufrufer
+noch vor der Zielfeldzuweisung ab. Deshalb wird an dieser Grenze kontrolliert auf das weiterhin
+zulässige Klickziel zurückgefallen, mit Index null. Strukturziele bleiben der individuellen nativen
+Portalprüfung überlassen. Ein ungültiges Klickziel erhält den nativen Fehlerendpunkt (0,0).
+Bei einer Ausnahme wird die Ausgangstriple X/Y/Index vor dem unveränderten nativen Selektor
+wiederhergestellt. Die späteren Unit-/Puffer-/Owner-Verträge bleiben die Sicherheitsgrenze.
+
+Neuer Entry-Detour `0xE1D30`, Win64 `void(manager, spacing, x, y)` über RCX/EDX/R8D/R9D.
+Die ersten 15 Bytes bis exklusiv `0xE1D3F` sichern RBX, RBP und RSI auf den Stack:
+`48 89 5C 24 08 48 89 6C 24 18 48 89 74 24 20`.
+Das eindeutige 40-Byte-Pattern, die vollständige Funktion bis `ret` bei `0xE1E6E`, der fehlende
+Call-/Incoming-Flags-Vertrag und die Reads vor den Writes wurden gegen die installierte DLL geprüft.
+Die einzigen globalen Writes sind Y bei `0xE1E46`, Index bei `0xE1E4C` und X bei `0xE1E5F`,
+auf TribeManager `0x7CC6720` + `0x10/0x14/0x0C`. Vorher werden Listenindex und X/Y-Quellen
+aus `pathManager+0x155F6C` und `+0x28F3EC` gelesen. Das Trampolin erhält Originalprolog,
+Stack und nichtflüchtige Register; kein eigener Ersatzblock clobbert Register. Die Prüfung ist
+in `Validate-PlacementContracts.py` reproduzierbar. Die Workspace-Suche fand keine zweite
+C#-Hookstelle auf diesem RVA; auf `0x196280` wurde kein zusätzlicher Hook installiert.
+
+### Tatsächliche Tests und Abnahme
+
+- 162.225 Runtime-Assertionen, 6.792 unabhängige Suchassertionen und 1.469.340 gerichtete
+  Cursorgraph-Vergleiche bestanden; 18 Runtime-Dateien gegen lokale und installierte SE-1.42.0-APIs
+  semantisch geprüft. Der Standalone-Roslyn-Prüfer meldet nur die bekannte CS1701-Referenzwarnung.
+- Die Tests führen jetzt die Produktionsauswahl, Resolver-Modus 1 und 2, Unit-Pre, Modusprüfung,
+  beide Builder und die tatsächliche gewichtete Bewertung zusammen aus. Ein positiver nativer
+  Kontaktweg wird von 17 auf 7 Schritte verkürzt; eine günstigere vollständig freundliche Route
+  gewinnt mit 9 Schritten und weniger Moatkanten. Leerer Präfix, fehlende Ersparnis, ID-Wechsel,
+  falsches Arbeitsziel und Endpunkt sowie zusätzliche feindliche Kanten werden geprüft.
+- Die frühere Attrappe lieferte einen Moat-Datensatz aus einem unechten Pointer und ließ den
+  Spieler ungebunden. Sie verwendet jetzt echten Fixture-Speicher und den Produktionsleser.
+  Terrainänderungen im Test durchlaufen die tatsächliche Suchinvalidierung.
+- 1/20/120/128/156 Formationsmitglieder erreichen jeweils ihren individuellen Builder. 25
+  feindliche Kandidaten verursachen insgesamt 25 zusätzliche native Selektoraufrufe, keine Wege.
+  Für 156 Ziele: 181 simulierte native Aufrufe, rund 0,013 ms; die 40 gemessenen Bytes stammen
+  von der Test-Stopwatch. Dies ist keine Messung nativer Ingame-Laufzeiten.
+- Erschöpfung, Wiederverwendung, native Indexgrenze, Struktur-Rückfall, verschachtelte Arbeit,
+  Besitzerrevision und Ausnahme-Rücksetzung sind geprüft. Bestehende Platzierungs-, Cursor-,
+  Fill-, Struktur-, Profilkonflikt- und Fremdpufferregressionen bleiben grün.
+
+Neue Diagnosen: `stage=fill-route` (maximal drei Details pro 60 Simulationsticks), aggregierte
+`fillRoutes` sowie `formationRejected`, `formationReplaced`, `formationFallbacks` in den
+periodischen Runtime-Markern. Kosten- und Kontextablehnungen werden damit auch ohne Gruppe sichtbar.
+Die neue Spielabnahme bleibt offen: mehrere spätere Fill-Zyklen, Moat/Mauer-Vergleich, Queue,
+Patrol, Angriffe und Host/Client. Es wird weder vollständige Lagfreiheit noch die Behebung aller
+beobachteten Fill-Umwege allein aus den automatisierten Tests abgeleitet.
+
+Buildabschluss: `build.bat /nopause` am 05.09.2026 um 19:05:16 einmal direkt erhöht
+ausgeführt; **0 Warnungen, 0 Fehler**, Build und Installation erfolgreich. Lokale und installierte
+DLL sind identisch: SHA-256 `6A9F01CF77EA2F8FB68981EBF1890B68B77ED062207A6B7E436C0F423895220D`.
+Ziel und installierter Script Extender bleiben `1.42.0`, Modversion `1.0.0`. README,
+öffentliche QoL-Bridge und Extender-Fork wurden nicht verändert. CRLF und Diff-Prüfung bestanden.
+
 ## Aktueller Übergabestand: besetzte Treppen, gemischte Starts und Platzvergabe
 
 Diese Reparatur baut auf dem Cursor-Build `9AF6787D27D3137FD72DAF50E90A1BFAD59F3FE98CDED2C4FFCE9D6AEABE3FCF`

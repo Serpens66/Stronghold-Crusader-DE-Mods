@@ -229,7 +229,9 @@ namespace MoveMoatTest
                 $"queryMs={cursorQueryTicks * 1000.0 / Stopwatch.Frequency:F3} topologyMs={cursorTopologyTicks * 1000.0 / Stopwatch.Frequency:F3} " +
                 $"selectionSourceAvailable={cursorSelectionAvailable} decisions=[{decisions}] pathSearches=0 " +
                 $"placementBatches={placementCalls} placementSlots={placementSlots} placementRollbacks={placementRollbacks} " +
-                $"unstackCalls={unstackCalls} unstackMoves={unstackMoves}.");
+                $"unstackCalls={unstackCalls} unstackMoves={unstackMoves} " +
+                $"formationRejected={formationRejected} formationReplaced={formationReplaced} formationFallbacks={formationFallbacks} " +
+                $"fillRoutes=[{string.Join(";", fillRouteDecisions)}].");
         }
 
         private void RefreshCursorPortals(CursorTopology topology, int player)

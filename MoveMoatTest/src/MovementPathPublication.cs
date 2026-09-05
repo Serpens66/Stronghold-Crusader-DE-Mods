@@ -23,7 +23,7 @@ namespace MoveMoatTest
         {
             PlanScope scopedPlan = GetBuilderPlan(pathManager, reportMismatch: true);
             PlanScope workHandoff = GetCurrentUnitMoveFrame()?.InheritedPlan ?? scopedPlan;
-            BuilderWeightedScope shadow = TryCaptureBuilderWeightedScope(pathManager);
+            BuilderWeightedScope shadow = TryCaptureBuilderWeightedScope(pathManager, scopedPlan);
             try
             {
                 int result = BuildPathWithCompletedMoatRouteVariantCore(
@@ -464,18 +464,9 @@ namespace MoveMoatTest
                 return true;
             }
 
-            uint rawCommand = unchecked((uint)unit->r_AI_LastIssuedTribeCommand);
-            bool fillWork = plan.MoatWorkMovement &&
-                rawCommand == (uint)TribeAICommand.Unknown7 &&
-                IsValidTileId(plan.MoatWorkTargetTileId);
-            UnmanagedVector2<ushort> workPosition = fillWork
-                ? GameTileManagerAPI.Instance.GetTileVectorFromId(plan.MoatWorkTargetTileId)
-                : default;
-            bool terminalWorkContact = fillWork &&
-                enemyNodeOccurrences == 1 &&
-                enemyTile == plan.MoatWorkTargetTileId && enemyIndex == result - 1 &&
-                Math.Max(Math.Abs(expectedTargetX - workPosition.X),
-                    Math.Abs(expectedTargetY - workPosition.Y)) == 1;
+            bool terminalWorkContact = enemyNodeOccurrences == 1 &&
+                TryGetTerminalFillContact(plan, unit, expectedTargetX, expectedTargetY, out int contact) &&
+                WeightedMoatRoutePlanner.IsTerminalFillNode(enemyTile, enemyIndex, result, contact);
             details = terminalWorkContact
                 ? "vanilla-fill-terminal-contact"
                 : "enemy-traversal";

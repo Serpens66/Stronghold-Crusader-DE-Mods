@@ -18,7 +18,7 @@ namespace MoveMoatTest
 {
     internal sealed unsafe partial class MoveMoatPathTest
     {
-        private BuilderWeightedScope TryCaptureBuilderWeightedScope(IntPtr pathManager)
+        private BuilderWeightedScope TryCaptureBuilderWeightedScope(IntPtr pathManager, PlanScope builderPlan = null)
         {
             try
             {
@@ -27,20 +27,23 @@ namespace MoveMoatTest
                     return null;
 
                 byte* manager = (byte*)pathManager.ToPointer();
+                fillRouteDecisions.TryGetValue("builder-entry", out long builderEntries);
+                fillRouteDecisions["builder-entry"] = builderEntries + 1;
                 byte* nativePath = *(byte**)(manager + PathManagerOutputBufferOffset);
                 byte* firstUnitPath = nativeUnitManager + NativeUnitPathBufferOffset;
                 if (nativePath == null || nativePath < firstUnitPath)
-                    return null;
+                    return RejectWeightedCapture("output-buffer");
 
                 long pathOffset = nativePath - firstUnitPath;
                 if (pathOffset <= 0 || pathOffset % NativeUnitPathBufferStride != 0)
-                    return null;
+                    return RejectWeightedCapture("output-alignment");
                 long unitId64 = pathOffset / NativeUnitPathBufferStride;
                 if (unitId64 <= 0 || unitId64 > MaximumUnitCount)
-                    return null;
+                    return RejectWeightedCapture("unit-slot");
                 int unitId = (int)unitId64;
                 UnitMoveFrame ownerFrame = GetCurrentUnitMoveFrame();
-                if (ownerFrame != null && ownerFrame.Args.UnitId != unitId) return null;
+                PlanScope effectivePlan = builderPlan ?? ownerFrame?.Plan;
+                if (ownerFrame != null && ownerFrame.Args.UnitId != unitId) return RejectWeightedCapture("frame-owner");
                 if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
                     unit == null || unit->r_AliveState != AliveState.IsAlive || !CanDigMoat(unit))
                     return null;
@@ -66,7 +69,7 @@ namespace MoveMoatTest
                     ? unit->r_CurrentTilePositionY
                     : unit->r_NextTilePositionY2;
                 if (startX != expectedStartX || startY != expectedStartY)
-                    return null;
+                    return RejectWeightedCapture("native-start");
 
                 int playerId = unit->r_ControllableForPlayerId;
                 WeightedMovementCostProfile costProfile = default;
@@ -75,7 +78,7 @@ namespace MoveMoatTest
                     unit, out costProfile, out _);
                 if (!validProfile)
                 {
-                    return null;
+                    return RejectWeightedCapture("cost-profile");
                 }
 
                 int targetTileId = GameTileManagerAPI.Instance.GetTileId(targetX, targetY);
@@ -119,7 +122,9 @@ namespace MoveMoatTest
                     workPhase,
                     costProfile,
                     allowReservedTarget,
-                    calibratable) { UnitGlobalId = unit->r_GlobalId };
+                    calibratable) { UnitGlobalId = unit->r_GlobalId,
+                        FillPlan = TryGetTerminalFillContact(effectivePlan, unit, targetX, targetY, out _)
+                            ? CopyMovementPlan(effectivePlan, unitId, targetX, targetY) : null };
             }
             catch (Exception ex)
             {
@@ -196,17 +201,7 @@ namespace MoveMoatTest
                     weightedShadowBusy = true;
                     try
                     {
-                        nativeValid = weightedMoatRoutePlanner.TryDescribeEncodedPath(
-                            shadow.PlayerId,
-                            shadow.StartX,
-                            shadow.StartY,
-                            shadow.TargetX,
-                            shadow.TargetY,
-                            shadow.CostProfile,
-                            nativePath,
-                            nativeLength,
-                            shadow.AllowReservedTarget,
-                            out nativeSummary);
+                        nativeValid = DescribeWeightedRoute(shadow, nativePath, nativeLength, out nativeSummary, comparisonOnly: true);
                     }
                     finally
                     {
@@ -216,12 +211,19 @@ namespace MoveMoatTest
 
                 if (!nativeValid)
                 {
-                    if (shadow.WorkKind != "not-moat-work")
+                    if (shadow != null)
                     {
-                        LogWeightedShadowDecision(shadow, "no-valid-shadow-route");
+                        if (shadow.WorkKind == "fill-moat-work" && shadow.FillPlan == null)
+                            RecordFillRouteDecision(shadow, "fill-context-missing");
+                        string reason = nativeSummary.Reason ?? "native-builder-failed";
+                        LogWeightedShadowDecision(shadow, reason.StartsWith("native-endpoint-mismatch", StringComparison.Ordinal)
+                            ? "native-endpoint-mismatch" : reason);
                     }
                     return true;
                 }
+
+                if (weightedMoatRoutePlanner.LastRejectedEdge >= 0)
+                    RecordFillRouteDecision(shadow, "native-cost-only-traversal-differs");
 
                 int minimumEdges = Math.Max(
                     Math.Abs(shadow.TargetX - shadow.StartX),
@@ -234,6 +236,7 @@ namespace MoveMoatTest
                         WeightedPublicationSafetyMarginTicks;
                 string decision = nativeSummary.MoatEdges > 0 ? "native-friendly-moat" : "native-ground";
                 int effectiveBuilderResult = builderResult;
+                string publicationDetails = "cost-lower-bound";
                 if (couldMeetMargin && builderResult > 0 && nativeValid && publishedToUnit &&
                     TryPublishSafelyFasterWeightedRoute(
                         pathManager,
@@ -244,7 +247,7 @@ namespace MoveMoatTest
                         out WeightedMoatRouteSummary publishedSummary,
                         out long guaranteedSaving,
                         out string cadenceProfiles,
-                        out string publicationDetails))
+                        out publicationDetails))
                 {
                     effectiveBuilderResult = shadow.PublishedBuilderResult;
                     shadow.CandidateFound = true;
@@ -283,8 +286,10 @@ namespace MoveMoatTest
                 bool moatRelevantDiagnostic = shadow.WorkKind != "not-moat-work" ||
                     nativeSummary.MoatEdges > 0 ||
                     (shadow.CandidateFound && shadow.Candidate.MoatEdges > 0);
-                if (moatRelevantDiagnostic)
+                // Every priced request has an outcome, even if no moat candidate was found.
+                if (shadow != null)
                 {
+                    if (decision != "weighted-path-published") RecordFillRouteDecision(shadow, publicationDetails);
                     LogWeightedShadowDecision(shadow, decision);
                 }
                 if (moatRelevantDiagnostic && effectiveBuilderResult > 0 && publishedToUnit)
@@ -340,8 +345,12 @@ namespace MoveMoatTest
                 shadow.CandidateFound = weightedMoatRoutePlanner.TryBuildImprovement(shadow.PlayerId,
                     shadow.StartX, shadow.StartY, shadow.TargetX, shadow.TargetY, shadow.CostProfile,
                     shadow.AllowReservedTarget, limits, out WeightedMoatRouteSummary candidate, out WeightedMoatEncodedRoute route);
-                shadow.Candidate = candidate; shadow.CandidateRoute = route;
                 shadow.AccumulatedSearchMilliseconds += candidate.SearchMilliseconds;
+                if (TryImproveFillPrefix(shadow, nativePath, nativeLength, limits,
+                    out WeightedMoatRouteSummary terminal, out WeightedMoatEncodedRoute terminalRoute) &&
+                    (!shadow.CandidateFound || terminal.EstimatedTicks < candidate.EstimatedTicks))
+                { candidate = terminal; route = terminalRoute; shadow.CandidateFound = true; }
+                shadow.Candidate = candidate; shadow.CandidateRoute = route;
                 shadow.SearchPasses += (int)(weightedMoatRoutePlanner.SearchRuns - runsBefore);
                 if (!shadow.CandidateFound || !route.IsValid || candidate.MoatEdges == 0 || candidate.StructuralEdges != 0)
                 { rejectionReason = candidate.Reason; return false; }
@@ -373,9 +382,8 @@ namespace MoveMoatTest
                     for (int i = 0; i < count; i++) nativePath[i] = i < route.Bytes.Length ? route.Bytes[i] : (byte)0;
                     *(int*)(manager + PathManagerOutputLengthOffset) = route.DirectionCount;
                     // One live edge/owner audit after writing, independent of profile count.
-                    if (!weightedMoatRoutePlanner.TryDescribeEncodedPath(shadow.PlayerId, startX, startY,
-                        shadow.TargetX, shadow.TargetY, shadow.CostProfile, nativePath, route.DirectionCount,
-                        shadow.AllowReservedTarget, out WeightedMoatRouteSummary verified) ||
+                    if (!DescribeWeightedRoute(shadow, nativePath, route.DirectionCount,
+                        out WeightedMoatRouteSummary verified) ||
                         verified.RouteFingerprint != candidate.RouteFingerprint)
                         throw new InvalidOperationException("Published route failed live roundtrip");
                     for (int i = 0; i < route.Bytes.Length; i++)

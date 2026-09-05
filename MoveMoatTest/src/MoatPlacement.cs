@@ -91,6 +91,7 @@ namespace MoveMoatTest
 
         private void InstallPlacementAdapters(ReadOnlySpan<byte> memory, ulong libraryBase)
         {
+            InstallFormationSlotAdapter(memory, libraryBase);
             nativePlaceReservations = (byte*)(libraryBase + 0x51D75F0);
             nativeExecutingUnitId = (int*)(libraryBase + 0x9302C4);
             // Entry-only detours: Win64 argument registers/stack and nonvolatile
@@ -106,7 +107,7 @@ namespace MoveMoatTest
                 "89 54 24 10 53 56 57 48 83 EC 40 FF 81 A0 00 00 00 44 8B DA 33 D2 49 63 F0 49 63 F9 48 8B D9 48 89 51 48 89 51 44 81 FE",
                 (FreePlaceDelegate)FindUnstackPlace, out originalFreePlace);
             Shared.DebugLogHelper.LogInfo(log,
-                "MoveMoat placement hooks installed: commonGroup=0x118E00 unstack=0x181890 freePlace=0xF03C0; native Unit event retained, terrain unchanged.");
+                "MoveMoat placement hooks installed: commonGroup=0x118E00 formationSlot=0xE1D30 unstack=0x181890 freePlace=0xF03C0; native Unit event retained, terrain unchanged.");
         }
 
         private long ObserveCommonGroupMove(IntPtr manager, int tribe, short x, short y, short patrol, int newOrder)

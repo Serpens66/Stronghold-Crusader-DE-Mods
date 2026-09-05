@@ -276,6 +276,43 @@ namespace MoveMoatTest
 
     internal sealed unsafe class WeightedMoatRoutePlanner
     {
+        internal int LastRejectedEdge = -1;
+        private int rejectedFrom, rejectedTo, rejectedDirection, rejectedPlayer;
+        private string edgeRejectionRule, rejectedRule;
+        private bool RejectTraversal(string rule) { edgeRejectionRule = rule; return false; }
+        internal string DescribeLastRejectedEdge() => LastRejectedEdge < 0 ? "none" :
+            $"edge={LastRejectedEdge},tiles={rejectedFrom}->{rejectedTo},direction={rejectedDirection}," +
+            $"flags=0x{tileFlags[rejectedFrom]:X}/0x{tileFlags[rejectedTo]:X}," +
+            $"masks=0x{occupancyLayer[rejectedFrom]:X}/0x{occupancyLayer[rejectedTo]:X}," +
+            $"heights={heightLayer[rejectedFrom]}/{heightLayer[rejectedTo]},rule={rejectedRule},player={rejectedPlayer}," +
+            $"owners={(IsCompletedMoat(rejectedFrom) ? resolveCompletedMoatRelationship(rejectedPlayer,rejectedFrom).ToString() : "ground")}/" +
+            $"{(IsCompletedMoat(rejectedTo) ? resolveCompletedMoatRelationship(rejectedPlayer,rejectedTo).ToString() : "ground")}";
+
+        // DBC60 records are three ints; preserve the native attack flag and score.
+        // Validate every record before changing the shared output (including exceptions).
+        internal static int FilterNativeAttackCandidates(int* records, int capacity, Func<int, bool> forbidden)
+        {
+            if (records == null || capacity <= 0 || capacity > 500) return 0;
+            byte* rejected = stackalloc byte[500];
+            int count = 0, removed = 0;
+            for (; count < capacity; count++)
+            {
+                int tile = records[count * 3], flag = records[count * 3 + 1];
+                if (tile == 0 && flag == 0) break;
+                rejected[count] = forbidden(tile) ? (byte)1 : (byte)0;
+                removed += rejected[count];
+            }
+            if (removed == 0) return 0;
+            int write = 0;
+            for (int read = 0; read < count; read++)
+            {
+                if (rejected[read] != 0) continue;
+                for (int field = 0; field < 3; field++) records[write * 3 + field] = records[read * 3 + field];
+                write++;
+            }
+            for (int i = write * 3; i < capacity * 3; i++) records[i] = 0;
+            return removed;
+        }
         internal const int MaximumRouteEdges = 2000;
         private const ulong RouteFingerprintOffsetBasis = 14695981039346656037UL;
         private const ulong RouteFingerprintPrime = 1099511628211UL;
@@ -466,17 +503,20 @@ namespace MoveMoatTest
 
         internal bool TryBuildImprovement(int playerId, int startX, int startY, int endX, int endY,
             WeightedMovementCostProfile profile, bool reservedTarget, MoatSearchLimit[] limits,
-            out WeightedMoatRouteSummary summary, out WeightedMoatEncodedRoute route)
+            out WeightedMoatRouteSummary summary, out WeightedMoatEncodedRoute route,
+            bool requireMoat = true, int maximumEdges = MaximumRouteEdges)
         {
             return TryBuildCore(playerId, startX, startY, endX, endY, profile, reservedTarget, true,
-                MoatTraversalPolicy.FriendlyOnly, out summary, out route, limits, true);
+                MoatTraversalPolicy.FriendlyOnly, out summary, out route, limits, true,
+                requireMoat: requireMoat, maximumEdges: maximumEdges);
         }
 
         private bool TryBuildCore(
             int playerId, int startX, int startY, int requestedTargetX, int requestedTargetY,
             WeightedMovementCostProfile costProfile, bool allowReservedTarget, bool captureEncodedRoute,
             MoatTraversalPolicy traversalPolicy, out WeightedMoatRouteSummary summary,
-            out WeightedMoatEncodedRoute encodedRoute, MoatSearchLimit[] limits = null, bool improvement = false, bool reachability = false)
+            out WeightedMoatEncodedRoute encodedRoute, MoatSearchLimit[] limits = null, bool improvement = false, bool reachability = false,
+            bool requireMoat = true, int maximumEdges = MaximumRouteEdges)
         {
             Stopwatch stopwatch = Stopwatch.StartNew();
             summary = default; encodedRoute = default;
@@ -493,10 +533,10 @@ namespace MoveMoatTest
             MoatSearchKernel kernel = GetSearchKernel(traversalPolicy, reachability);
             long before = kernel.Expanded;
             // A topological answer is independent of the native 1000-byte output buffer.
-            int maxEdges = captureEncodedRoute ? MaximumRouteEdges : int.MaxValue;
+            int maxEdges = captureEncodedRoute ? Math.Min(MaximumRouteEdges, maximumEdges) : int.MaxValue;
             bool found = kernel.Search(GetNode(startX, startY), GetNode(requestedTargetX, requestedTargetY),
                 reachability ? 1 : costProfile.GetEdgeFixedCost(false), reachability ? 1 : costProfile.GetEdgeFixedCost(true), maxEdges,
-                improvement, improvement, limits, searchSession != null, out int[] nodes);
+                improvement && requireMoat, improvement, limits, searchSession != null, out int[] nodes);
             int expanded = (int)Math.Min(int.MaxValue, kernel.Expanded - before);
             if (!found)
             {
@@ -538,10 +578,12 @@ namespace MoveMoatTest
             byte* encodedDirections,
             int directionCount,
             bool allowReservedTarget,
-            out WeightedMoatRouteSummary summary)
+            out WeightedMoatRouteSummary summary,
+            int terminalFillTileId = -1, bool comparisonOnly = false)
         {
             summary = default;
             ResetClassifications();
+            LastRejectedEdge = -1;
             try
             {
                 if (encodedDirections == null || directionCount < 0 ||
@@ -582,12 +624,57 @@ namespace MoveMoatTest
                     }
                     int currentTile = GetTileId(x, y);
                     int nextTile = GetTileId(nextX, nextY);
+                    if (!IsNativeTile(currentTile) || !IsNativeTile(nextTile))
+                    { summary = WeightedMoatRouteSummary.Failed("invalid-native-tile", 0); return false; }
                     bool targetEndpoint = index == directionCount - 1;
-                    if (!TryGetEdge(
+                    bool contactEdge = false;
+                    if (terminalFillTileId >= 0)
+                    {
+                        bool currentEnemy = IsCompletedMoat(currentTile) &&
+                            GetMoatRelationship(playerId, currentTile) == CompletedMoatRelationship.Enemy;
+                        bool nextEnemy = IsCompletedMoat(nextTile) &&
+                            GetMoatRelationship(playerId, nextTile) == CompletedMoatRelationship.Enemy;
+                        if ((currentEnemy && !IsTerminalFillNode(currentTile, index, directionCount, terminalFillTileId)) ||
+                            (nextEnemy && !IsTerminalFillNode(nextTile, index + 1, directionCount, terminalFillTileId)))
+                        { summary = WeightedMoatRouteSummary.Failed("unbound-fill-contact", 0); return false; }
+                        contactEdge = currentEnemy || nextEnemy;
+                        // The terminal exception must not widen diagonal corner traversal.
+                        if (!comparisonOnly && contactEdge && (direction & 1) != 0)
+                        {
+                            int a = GetTileId(nextX, y), b = GetTileId(x, nextY);
+                            if (!IsNativeTile(a) || !IsNativeTile(b) ||
+                                (IsCompletedMoat(a) && GetMoatRelationship(playerId, a) != CompletedMoatRelationship.Friendly) ||
+                                (IsCompletedMoat(b) && GetMoatRelationship(playerId, b) != CompletedMoatRelationship.Friendly))
+                            { summary = WeightedMoatRouteSummary.Failed("fill-diagonal-corner", 0); return false; }
+                        }
+                    }
+                    bool edgeValid = TryGetEdge(
                         playerId, x, y, currentTile, nextX, nextY, nextTile,
                         direction, targetEndpoint, allowReservedTarget,
-                        MoatTraversalPolicy.FriendlyOnly,
-                        out bool moatEdge, out bool structuralEdge))
+                        contactEdge ? MoatTraversalPolicy.AllowEnemyForDiagnostic : MoatTraversalPolicy.FriendlyOnly,
+                        out bool moatEdge, out bool structuralEdge);
+                    if (!edgeValid && LastRejectedEdge < 0)
+                    { LastRejectedEdge = index; rejectedFrom = currentTile; rejectedTo = nextTile;
+                        rejectedDirection = direction; rejectedPlayer = playerId; rejectedRule = edgeRejectionRule; }
+                    if (comparisonOnly)
+                    {
+                        // Pricing an existing native buffer is not permission to publish it.
+                        // Only calibrated ground/friendly moat (or the bound work contact)
+                        // can supply a comparison bound. All replacements use the strict mode.
+                        structuralEdge = IsStructuralTile(currentTile) || IsStructuralTile(nextTile);
+                        moatEdge = IsCompletedMoat(currentTile) || IsCompletedMoat(nextTile);
+                        bool forbidden = (IsCompletedMoat(currentTile) &&
+                            GetMoatRelationship(playerId, currentTile) != CompletedMoatRelationship.Friendly &&
+                            !(GetMoatRelationship(playerId, currentTile) == CompletedMoatRelationship.Enemy &&
+                              IsTerminalFillNode(currentTile, index, directionCount, terminalFillTileId))) ||
+                            (IsCompletedMoat(nextTile) &&
+                            GetMoatRelationship(playerId, nextTile) != CompletedMoatRelationship.Friendly &&
+                            !(GetMoatRelationship(playerId, nextTile) == CompletedMoatRelationship.Enemy &&
+                              IsTerminalFillNode(nextTile, index + 1, directionCount, terminalFillTileId)));
+                        if (forbidden || structuralEdge || !HasCompatibleNativeHeight(currentTile, nextTile))
+                        { summary = WeightedMoatRouteSummary.Failed("native-cost-unclassified", 0); return false; }
+                    }
+                    else if (!edgeValid)
                     {
                         summary = WeightedMoatRouteSummary.Failed("native-edge-invalid", 0);
                         return false;
@@ -632,6 +719,9 @@ namespace MoveMoatTest
                 ResetClassifications();
             }
         }
+
+        internal static bool IsTerminalFillNode(int tile, int node, int length, int workTile) =>
+            workTile >= 0 && tile == workTile && length >= 2 && node == length - 1;
 
         private bool TryGetEdge(
             int playerId,
@@ -683,13 +773,14 @@ namespace MoveMoatTest
         {
             edgeKind = MoatTraversalEdgeKind.Ground;
             structuralEdge = false;
+            edgeRejectionRule = "none";
             if (direction < 0 || direction >= DirectionX.Length ||
                 currentX < 0 || currentX >= MapWidth ||
                 currentY < 0 || currentY >= MapWidth ||
                 nextX < 0 || nextX >= MapWidth ||
                 nextY < 0 || nextY >= MapWidth ||
                 !IsNativeTile(currentTile) || !IsNativeTile(nextTile))
-                return false;
+                return RejectTraversal("coordinate-or-tile");
 
             bool currentMoat = IsCompletedMoat(currentTile);
             bool nextMoat = IsCompletedMoat(nextTile);
@@ -702,15 +793,15 @@ namespace MoveMoatTest
             if (currentRelationship == CompletedMoatRelationship.Invalid ||
                 nextRelationship == CompletedMoatRelationship.Invalid)
             {
-                return false;
+                return RejectTraversal("invalid-owner");
             }
             bool enemyMoat =
                 currentRelationship == CompletedMoatRelationship.Enemy ||
                 nextRelationship == CompletedMoatRelationship.Enemy;
             if ((currentMoat || nextMoat) && policy == MoatTraversalPolicy.GroundOnly)
-                return false;
+                return RejectTraversal("ground-only");
             if (enemyMoat && policy == MoatTraversalPolicy.FriendlyOnly)
-                return false;
+                return RejectTraversal("enemy-node");
 
             bool ordinaryEdge = (directionMasks[direction] & occupancyLayer[currentTile]) != 0;
             if ((direction & 1) != 0 && policy == MoatTraversalPolicy.FriendlyOnly)
@@ -719,7 +810,7 @@ namespace MoveMoatTest
                 if (!IsNativeTile(first) || !IsNativeTile(second) ||
                     (IsCompletedMoat(first) && GetMoatRelationship(playerId, first) != CompletedMoatRelationship.Friendly) ||
                     (IsCompletedMoat(second) && GetMoatRelationship(playerId, second) != CompletedMoatRelationship.Friendly))
-                    return false;
+                    return RejectTraversal("diagonal-corner-owner");
             }
             structuralEdge = IsStructuralTile(currentTile) || IsStructuralTile(nextTile);
             if (!currentMoat && !nextMoat)
@@ -727,7 +818,8 @@ namespace MoveMoatTest
                 // DAFD0 lets the native direction mask decide ordinary ground, stair,
                 // ramp, wall-top and walkable-reservation edges. Structure presence alone
                 // is not a blocker; the height correction below is part of that same edge.
-                return ordinaryEdge && HasCompatibleNativeHeight(currentTile, nextTile);
+                return ordinaryEdge ? (HasCompatibleNativeHeight(currentTile, nextTile) || RejectTraversal("height"))
+                    : RejectTraversal("ground-direction-mask");
             }
 
             edgeKind = enemyMoat
@@ -735,14 +827,14 @@ namespace MoveMoatTest
                 : MoatTraversalEdgeKind.FriendlyMoat;
             if (ordinaryEdge)
             {
-                return HasCompatibleNativeHeight(currentTile, nextTile);
+                return HasCompatibleNativeHeight(currentTile, nextTile) || RejectTraversal("height");
             }
             if (!HasCompatibleNativeHeight(currentTile, nextTile))
-                return false;
+                return RejectTraversal("height");
             if (!IsNativeMoatAdjacentTile(currentTile) ||
                 !IsNativeMoatAdjacentTile(nextTile))
             {
-                return false;
+                return RejectTraversal("moat-adjacent-flags");
             }
             bool enemyOnlyCorner = false;
             if ((direction & 1) != 0 &&
@@ -750,7 +842,7 @@ namespace MoveMoatTest
                     playerId, currentX, currentY, currentTile,
                     nextX, nextY, nextTile, policy, out enemyOnlyCorner))
             {
-                return false;
+                return RejectTraversal("moat-diagonal-transition");
             }
             if ((direction & 1) != 0 && enemyOnlyCorner)
                 edgeKind = MoatTraversalEdgeKind.EnemyMoat;

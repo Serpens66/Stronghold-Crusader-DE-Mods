@@ -116,7 +116,7 @@ namespace MoveMoatTest
         private int BuildReconstructedUnitPath(IntPtr pathManager)
         {
             PlanScope plan = GetBuilderPlan(pathManager, reportMismatch: true);
-            BuilderWeightedScope shadow = TryCaptureBuilderWeightedScope(pathManager);
+            BuilderWeightedScope shadow = TryCaptureBuilderWeightedScope(pathManager, plan);
             try
             {
                 int result = BuildPathWithCompletedMoatRouteVariantCore(pathManager, 0, 0, plan, true, true);

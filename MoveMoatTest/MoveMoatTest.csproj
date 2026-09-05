@@ -95,6 +95,8 @@
     <Compile Include="src\UnitMovementContext.cs" />
     <Compile Include="src\MovementPathPublication.cs" />
     <Compile Include="src\WeightedMoatPublication.cs" />
+    <Compile Include="src\FillWeightedRoutes.cs" />
+    <Compile Include="src\NativeFormationSlots.cs" />
     <Compile Include="..\Shared\DebugLogHelper.cs">
       <Link>Shared\DebugLogHelper.cs</Link>
     </Compile>

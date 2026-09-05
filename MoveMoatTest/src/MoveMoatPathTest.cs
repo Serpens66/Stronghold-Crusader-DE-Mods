@@ -3677,6 +3677,7 @@ namespace MoveMoatTest
         private void LogWeightedShadowDecision(
             BuilderWeightedScope shadow, string decision)
         {
+            RecordFillRouteDecision(shadow, decision);
             RecordWeightedCommandDecision(shadow, decision);
         }
 
@@ -4335,6 +4336,7 @@ namespace MoveMoatTest
         {
             AttackApproachDiagnosticScope previous = activeAttackApproachDiagnostic;
             AttackApproachDiagnosticScope scope = null;
+            bool nativeFloodCompleted = false;
             try
             {
                 AttackCommandScope command = activeAttackCommand;
@@ -4372,15 +4374,31 @@ namespace MoveMoatTest
 
             try
             {
+                // DBC60 builds its depth-limited queue before extracting 50..500
+                // results. Request the full native pool only near forbidden moat;
+                // this does not repeat its flood for individual units.
+                bool expand = IsBoundUnitAttackFlood(scope, targetX, targetY);
+                if (expand)
+                {
+                    expand = false;
+                    for (int dy = -2; dy <= 2 && !expand; dy++)
+                    for (int dx = -2; dx <= 2 && !expand; dx++)
+                    {
+                        int x = (int)targetX + dx, y = (int)targetY + dy;
+                        if ((uint)x < MapWidth && (uint)y < MapWidth)
+                            expand = IsForbiddenFormationMoat(scope.PlayerId, x, y);
+                    }
+                }
                 originalAttackApproachFloodBuilder(
                     pathManager,
                     tribeId,
                     targetContext,
                     targetX,
                     targetY,
-                    requestedResults,
+                    expand ? Math.Max(requestedResults, VanillaAttackFloodResultCapacity / 2) : requestedResults,
                     sourceRegion,
                     movementClass);
+                nativeFloodCompleted = true;
             }
             finally
             {
@@ -4388,6 +4406,10 @@ namespace MoveMoatTest
                 {
                     try
                     {
+                        scope.After = CaptureAttackApproachState(pathManager);
+                        if (nativeFloodCompleted && scope.After.Generation != scope.Before.Generation &&
+                            IsBoundUnitAttackFlood(scope, targetX, targetY))
+                            FilterAttackOutput(pathManager, scope.PlayerId, scope.CommandSequence);
                         scope.After = CaptureAttackApproachState(pathManager);
                         PublishUnitAttackApproachTiles(scope.OwnerCommand, pathManager);
                         LogAttackApproachDiagnostic(scope);
@@ -4399,6 +4421,30 @@ namespace MoveMoatTest
                 }
                 activeAttackApproachDiagnostic = previous;
             }
+        }
+
+        private bool IsBoundUnitAttackFlood(AttackApproachDiagnosticScope scope, uint x, uint y)
+        {
+            if (scope == null || scope.OwnerCommand == null || scope.OwnerCommand.MapEpoch != mapEpoch ||
+                scope.Command != TribeAICommand.AttackUnit || scope.TargetContext != scope.OwnerCommand.TargetValue1 ||
+                (uint)scope.TargetX != x || (uint)scope.TargetY != y ||
+                !GameUnitManagerAPI.Instance.TryGetUnitById(scope.UnitId, out GameUnit* source) ||
+                source == null || !CanDigMoat(source) || source->r_TribeId != scope.TribeId ||
+                source->r_ControllableForPlayerId != scope.PlayerId) return false;
+            return TryGetHostileLivingUnitAtTile(scope.PlayerId, (int)x, (int)y,
+                scope.OwnerCommand.TargetValue1, scope.OwnerCommand.TargetValue2, out _, out _);
+        }
+
+        private void FilterAttackOutput(IntPtr manager, int player, int sequence)
+        {
+            if (manager != nativePathManager || manager == IntPtr.Zero ||
+                !GamePlayerManagerAPI.Instance.IsPlayerIdValid(player)) return;
+            int removed = WeightedMoatRoutePlanner.FilterNativeAttackCandidates(
+                (int*)((byte*)manager + PathManagerFloodResultTileOffset), VanillaAttackFloodResultCapacity,
+                tile => !IsValidTileId(tile) || (IsCompletedMoatTile(tile) &&
+                    ResolveCompletedMoatRelationship(player, tile) != CompletedMoatRelationship.Friendly));
+            if (removed > 0)
+                LogCommandDiagnostic($"stage=attack-slot-filter commandSeq={sequence} removed={removed} source=native-pool");
         }
 
         private void ObserveBuildingApproachBuilder(
@@ -4598,8 +4644,6 @@ namespace MoveMoatTest
             BuildingApproachCandidate[] vanillaCandidates,
             AttackApproachState vanillaAfter)
         {
-            if (vanillaAfter.UsableResultCount > 0)
-                return BuildingConsumerFallbackResult.NotAttempted("vanilla-usable");
             if (scope == null || scope.OwnerCommand == null ||
                 scope.OwnerCommand.MapEpoch != mapEpoch ||
                 scope.OwnerCommand.TribeId != scope.TribeId ||
@@ -4647,6 +4691,12 @@ namespace MoveMoatTest
                 return BuildingConsumerFallbackResult.Rejected("invalid-hostile-building");
             }
 
+            FilterAttackOutput(nativePathManager, playerId, command.Sequence);
+            AttackApproachState filtered = CaptureAttackApproachState(nativePathManager, requirePairedResult: true);
+            if (filtered.UsableResultCount > 0 && filtered.UsableResultCount == vanillaAfter.UsableResultCount)
+                return BuildingConsumerFallbackResult.NotAttempted("vanilla-usable");
+            BuildingApproachCandidate[] retainedPairs = CaptureBuildingApproachCandidates(nativePathManager);
+
             BuildingConsumerPerformanceScope performance = activeBuildingConsumerPerformance;
             if (performance != null)
                 performance.DiggerUnits = diggerUnitIds.Count;
@@ -4663,6 +4713,10 @@ namespace MoveMoatTest
             for (int index = 0; index < vanillaCandidates.Length; index++)
             {
                 BuildingApproachCandidate candidate = vanillaCandidates[index];
+                if (!IsValidTileId(candidate.ApproachTileId) ||
+                    (IsCompletedMoatTile(candidate.ApproachTileId) &&
+                     ResolveCompletedMoatRelationship(playerId, candidate.ApproachTileId) != CompletedMoatRelationship.Friendly))
+                { ownerRouteRejected++; continue; }
                 if (candidate.FootprintTileId <= 0)
                 {
                     missingContexts++;
@@ -4772,6 +4826,20 @@ namespace MoveMoatTest
                     ? scoreComparison
                     : left.OriginalOrder.CompareTo(right.OriginalOrder);
             });
+
+            // Native-valid results keep their order and scores. Append only independently
+            // qualified missing pairs; never displace them with required-moat-only results.
+            var mergedPairs = new List<BuildingApproachCandidate>();
+            var mergedKeys = new HashSet<long>();
+            foreach (BuildingApproachCandidate candidate in retainedPairs)
+                if (candidate.ApproachTileId > 0 && candidate.FootprintTileId > 0 &&
+                    IsValidBuildingApproachPair(command.TargetValue1, building, candidate.ApproachTileId, candidate.FootprintTileId) &&
+                    mergedKeys.Add(((long)candidate.ApproachTileId << 32) | (uint)candidate.FootprintTileId))
+                    mergedPairs.Add(candidate);
+            foreach (BuildingApproachCandidate candidate in accepted)
+                if (mergedKeys.Add(((long)candidate.ApproachTileId << 32) | (uint)candidate.FootprintTileId))
+                    mergedPairs.Add(candidate);
+            accepted = mergedPairs;
 
             if (accepted.Count == 0)
             {
@@ -7623,6 +7691,7 @@ namespace MoveMoatTest
             mapEpoch++;
             cursorTopologies.Clear(); noBuilderDetails = 0; preBuilderRejections.Clear();
             cursorDecisionCounts.Clear(); cursorDecisionDetails.Clear();
+            fillRouteDecisions.Clear(); fillRouteLogTick = -1; fillRouteLogCount = 0; formationOwner = null;
             ResetMoatWorkTargetSelection();
             ResetDirectMoatCommandScopes();
             cacheMapEpoch = -1;
@@ -8319,6 +8388,7 @@ namespace MoveMoatTest
 
         private sealed class BuilderWeightedScope
         {
+            public PlanScope FillPlan { get; set; }
             public uint UnitGlobalId { get; set; }
             public BuilderWeightedScope(
                 int mapEpoch,

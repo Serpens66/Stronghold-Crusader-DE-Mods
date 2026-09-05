@@ -6,6 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Remove="FillFormationTests.cs" />
     <Compile Remove="RuntimeHarness.cs" />
     <Compile Remove="CursorTests.cs" />
     <Compile Remove="PlacementTests.cs" />

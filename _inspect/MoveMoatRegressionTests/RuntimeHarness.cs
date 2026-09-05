@@ -7,7 +7,7 @@ namespace MoveMoatTest
 {
     internal enum AliveState { IsAlive, Dead }
     internal enum eStructs { STRUCT_NULL }
-    internal enum TribeAICommand { Move, Unknown7 = 7 }
+    internal enum TribeAICommand { Move, DigMoatTileId = 6, Unknown7 = 7 }
     internal enum EventHookPhase { Pre, Post }
     internal class UnitMoveHereEventArgs
     {
@@ -29,6 +29,7 @@ namespace MoveMoatTest
         public int r_ControllableForPlayerId, r_CurrentTilePositionX, r_CurrentTilePositionY;
         public int r_NextTilePositionX2, r_NextTilePositionY2, r_PathPlanStateBitFlags, r_MovingRelevant;
         public int r_AI_LastIssuedTribeCommand;
+        public int r_AIState;
         public AliveState r_AliveState;
         public int r_UnitSelected, r_UnitSelected2;
         public bool Digger;
@@ -125,6 +126,8 @@ namespace MoveMoatTest
         private class Performance { public int ReachabilityCacheHits, ReachabilityMapsBuilt; }
         private class MoveCommandScope
         {
+            public bool IsNewOrder;
+            public int WeightedPublished;
             public int TargetX, TargetY, ModeCalls, TargetedRouteCacheHits, TargetedRouteSearches, TargetedRouteExpandedNodes;
             public int TargetedRouteSearchPasses, BuilderCalls, FloodFillBypasses, FallbackBuilderCalls, FallbackRollbacks;
             public bool BuilderReached;
@@ -153,6 +156,21 @@ namespace MoveMoatTest
         private bool throwAudit;
         private class BuilderWeightedScope
         {
+            public PlanScope FillPlan;
+            public string WorkKind;
+            public BuilderWeightedScope() {}
+            public BuilderWeightedScope(int epoch,int id,int type,int player,int tribe,TribeAICommand command,string context,
+                int sequence,int sx,int sy,int tx,int ty,int currentX,int currentY,uint ai,uint raw,string work,string phase,
+                WeightedMovementCostProfile profile,bool reserved,bool calibratable)
+            { MapEpoch=epoch;UnitId=id;UnitType=type;PlayerId=player;TribeId=tribe;Command=command;CommandContext=context;
+                CommandSequence=sequence;StartX=sx;StartY=sy;TargetX=tx;TargetY=ty;SnapshotCurrentX=currentX;SnapshotCurrentY=currentY;
+                AiState=ai;RawCommand=raw;WorkKind=work;WorkPhase=phase;CostProfile=profile;AllowReservedTarget=reserved; }
+            public int MapEpoch,TribeId,CommandSequence,SnapshotCurrentX,SnapshotCurrentY;
+            public uint AiState,RawCommand;
+            public TribeAICommand Command;
+            public string CommandContext,WorkPhase;
+            public string CaptureSource => "unit-builder";
+            public long OptimisticLowerBoundTicks;
             public int PublishedBuilderResult = -1;
             public int UnitId, UnitType, PlayerId, StartX, StartY, TargetX, TargetY, SearchPasses;
             public uint UnitGlobalId;
@@ -168,8 +186,21 @@ namespace MoveMoatTest
             public bool TryGetPlausibleSpeedBonuses(int type, int current, out int[] bonuses, out ulong rva, out string reason)
             { bonuses = new[] {current,1}; rva=0;reason=null;return true; }
         }
-        private BuilderWeightedScope TryCaptureBuilderWeightedScope(IntPtr m) => null;
-        private void ObserveWeightedMoatShadowResult(IntPtr m, int result, BuilderWeightedScope scope) { }
+        private bool captureWeighted;
+        private bool TryCaptureWeightedMovementCostProfile(GameUnit* u,out WeightedMovementCostProfile p,out string why)
+        { bool valid=WeightedMovementCostProfile.TryCreate(1,1,0,0,0,0,false,out p,out why);return captureWeighted && valid; }
+        private void ResolveCommandDiagnosticContext(int id,GameUnit* u,out TribeAICommand command,out string context,out int sequence)
+        { command=(TribeAICommand)u->r_AI_LastIssuedTribeCommand;context="fixture";sequence=0; }
+        private bool IsIsolatedActiveGroupUnit(int id,int tribe)=>false;
+        private void LogWeightedShadowDecision(BuilderWeightedScope s,string d)=>RecordFillRouteDecision(s,d);
+        private void LogWeightedPublicationDecision(int id,string message) {}
+        private void StartOrRefreshWeightedShadowTracker(BuilderWeightedScope s,int length,WeightedMoatRouteSummary n,bool valid,string d) {}
+        private PendingFillMoatApproach pendingFillMoatApproach;
+        private PendingDigMoatTarget pendingDigMoatTarget;
+        private Func<IntPtr,int,int,uint,uint,int> originalResolveMoatWorkTile;
+        private void LogMoatWorkSelection(MoatWorkSelectionScope scope) {}
+        private void LogResolvedFillMoatApproach(PendingFillMoatApproach p) {}
+        private void LogResolvedDigMoatTarget(PendingDigMoatTarget p) {}
         private bool ShouldLogUnitPipeline => false;
         private static void RecordVanillaBuilderResult(MoveCommandScope c, int r) { }
         private static void RecordBuilderResult(MoveCommandScope c, int r) { }
@@ -182,8 +213,6 @@ namespace MoveMoatTest
         private static bool IsPublishedWalkableBuildingApproach(int unitId, int tileId) => false;
         private bool occupied { get => GameTileManagerAPI.Instance.ForceOccupied; set => GameTileManagerAPI.Instance.ForceOccupied=value; }
         private static bool HasDownstreamMovementBlockingFlags(uint flags) => (flags & 0x10000130) != 0;
-        private bool TryReadMoatRecordTile(IntPtr m, int moat, out int tile, out int x, out int y)
-        { tile = 2017; x = 17; y = 11; return moat == 1; }
         private static bool CanDigMoat(GameUnit* u) => u->Digger;
         private static bool IsValidTileId(int tile) => tile >= 0 && tile < NativeTileCount;
         private bool IsCompletedMoatTile(int tile) => (tileFlags[tile] & CompletedMoatTileFlag) != 0;
@@ -341,7 +370,13 @@ namespace MoveMoatTest
                 var handoff = NewScope();
                 Check(TryGetMoatWorkRoute(handoff,17,10,out _), "fresh handoff");
                 var approach = new MoatWorkApproach(1,2017,17,10,1017,0,default);
-                var pending = new PendingFillMoatApproach(mapEpoch,(IntPtr)1,1,1,1,10,10,approach,true)
+                rows[11 * 3] = 2000;
+                byte* handoffRecords = (byte*)Alloc(MoatRecordCountOffset + 16);
+                *(int*)(handoffRecords + MoatRecordCountOffset) = 2;
+                *(int*)(handoffRecords + MoatRecordArrayOffset + MoatRecordSize) = 2017;
+                *(short*)(handoffRecords + MoatRecordArrayOffset + MoatRecordSize + 4) = 17;
+                *(short*)(handoffRecords + MoatRecordArrayOffset + MoatRecordSize + 6) = 11;
+                var pending = new PendingFillMoatApproach(mapEpoch,(IntPtr)handoffRecords,1,1,1,10,10,approach,true)
                     { SearchScope = handoff };
                 Check(ValidatePendingFillApproach(pending), "selected approach valid");
                 occupied = true;
@@ -351,6 +386,7 @@ namespace MoveMoatTest
                 tick++;
                 Check(!TryGetMoatWorkRoute(handoff,17,10,out _), "expired handoff rejected");
                 Check(!ValidatePendingFillApproach(pending), "expired fill handoff rejected");
+                rows[11 * 3] = NativeTileCount;
                 Check(TryGetMoatWorkRoute(NewScope(),17,10,out _), "new tick selection recomputes");
                 units[1].r_CurrentTilePositionX = 13;
                 var moatStart = new MoatWorkSelectionScope(mapEpoch,(IntPtr)1,1,1,2,13,10,1013,2);
@@ -403,6 +439,7 @@ namespace MoveMoatTest
                 CursorAdapterTests();
                 FillSelectionTests();
                 PlacementTests();
+                FillFormationTests();
             }
             finally { foreach (var p in allocations) NativeMemory.Free((void*)p); }
         }
@@ -621,7 +658,7 @@ namespace MoveMoatTest
             *(int*)(manager + PathManagerOutputLengthOffset) = 7;
             enemyTiles.Clear();
             tileFlags[1016] = CompletedMoatTileFlag; enemyTiles.Add(1016);
-            var fillContact = new PlanScope(1, 17, 10) { MoatWorkMovement = true, MoatWorkTargetTileId = 1016 };
+            var fillContact = new PlanScope(1, 17, 10) { PlayerId = 1, MoatWorkMovement = true, MoatWorkTargetTileId = 1016 };
             units[1].r_AI_LastIssuedTribeCommand = (int)TribeAICommand.Unknown7;
             bool fillAllowed = TryAuditFallbackPath(nativePathManager, Buffer(1), 7, fillContact, units + 1, out string fillAudit);
             Check(fillAllowed, "native terminal Fill contact remains permitted: " + fillAudit);
