@@ -5,6 +5,7 @@ using System;
 using MonoMod.RuntimeDetour;
 using System.Runtime.InteropServices;
 using System.Collections.Generic;
+using System.Diagnostics;
 
 namespace MoveMoatTest
 {
@@ -120,7 +121,21 @@ namespace MoveMoatTest
             try
             {
                 int result = BuildPathWithCompletedMoatRouteVariantCore(pathManager, 0, 0, plan, true, true);
-                if (shadow != null) ObserveWeightedMoatShadowResult(pathManager, result, shadow);
+            if (shadow != null)
+            {
+                AttackCommandScope measuredCommand = activeAttackCommand;
+                long weightedStarted = Stopwatch.GetTimestamp();
+                bool previousWeightedTiming = weightedPhaseTimingActive;
+                weightedPhaseTimingActive = true;
+                try { ObserveWeightedMoatShadowResult(pathManager, result, shadow); }
+                finally
+                {
+                    weightedPhaseTimingActive = previousWeightedTiming;
+                    if (measuredCommand != null)
+                        measuredCommand.WeightedPhaseTicks +=
+                            Stopwatch.GetTimestamp() - weightedStarted;
+                }
+            }
                 return shadow != null && shadow.PublishedBuilderResult >= 0 ? shadow.PublishedBuilderResult : result;
             }
             finally

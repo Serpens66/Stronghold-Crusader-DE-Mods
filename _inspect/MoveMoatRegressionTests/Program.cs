@@ -26,11 +26,11 @@ var methods = new HashSet<string>(new[] {
     "ValidatePendingDigTarget", "TryReadMoatRecordTile",
     "TryAllowDirectCursorMoveRegionPair", "SelectOwnerSafeGroupMoatMode", "ObserveCursorTilePairFallbackSelection", "TryProbeUnitApproachCursorRoute", "TryResolveHostileLivingUnitFromRawCursor", "TryGetHostileLivingUnitAtTile", "TryGetSelectedVanillaDigger", "AllowAttackCursorTilePairThroughCompletedMoat", "TryQualifySelectedGroupCursorRoute", "CreateCursorScopeForSnapshot", "TryQualifyCursorScope", "TryProbeDirectCursorRoute", "TryCaptureSelectedGroup", "CursorStartMatchesBoundSelection", "CursorScopeMatchesTargetTile", "EmitRecoveryAdapter", "SelectMoatWorkTarget", "AllowFillMoatApproachThroughFriendlyMoat", "TryGetMoatRecord", "TryReadMoatRecord", "TryFindBestFillMoatApproach", "IsOccupiedByOtherLivingUnit", "RestoreFailedRecovery", "ObserveNativeModeEntry", "TryRecoverBeforeBuilder", "RejectPreBuilder", "ValidateRecoveryEdges", "IsValidMoatRecordId", "PrepareMovementSearch", "TryDeferToNativeGroundPlan", "TryBuildTerminalFillRoute", "IsTerminalFillEdgeValid", "TryAllowUnitMoveRegion", "AllowBuilderAfterFailedRegionSearch", "CallVanillaBuilder", "TryReplaceUnsafeFallbackPath", "BuildReconstructedUnitPath", "TryPublishSafelyFasterWeightedRoute",
     "ObserveUnitMoveOrder", "GetCurrentUnitMoveFrame", "AbandonUnitMoveFrame", "ClearUnitMoveFrames",
-    "GetUnitMovePlan", "CopyMovementPlan", "GetNativeMovementStart", "TryAuditFallbackPath", "IsCompletedEnemyMoatForPlayer",
+    "GetUnitMovePlan", "CopyMovementPlan", "GetNativeMovementStart", "TryAuditFallbackPath", "TryAuditFallbackPathCore", "IsCompletedEnemyMoatForPlayer",
     "DescribeFallbackContractFailure",
     "EnableCompletedMoatModeForScopedMovement", "GetBuilderPlan", "MatchesBuilderPlan",
     "TryCaptureUnitFallbackPathBuffer", "RestoreFallbackPathBuffer",
-    "BuildPathWithCompletedMoatRouteVariant", "BuildPathWithCompletedMoatRouteVariantCore", "ValidatePendingFillApproach",
+    "BuildPathWithCompletedMoatRouteVariant", "BuildPathWithCompletedMoatRouteVariantCore", "CaptureFastPathShadow", "RejectFastPathShadow", "ObserveFastPathShadow", "IsValidAttackSourceRegionContext", "ValidatePendingFillApproach",
     "TryFindRequiredFriendlyCompletedMoatRouteForPlan", "TryGetCachedRequiredFriendlyRouteForPlan",
     "EnsureMoatWorkReachability", "TryGetMoatWorkRoute",
     "TryFindRequiredFriendlyCompletedMoatRouteToFillEndpoint",
@@ -40,7 +40,7 @@ var methods = new HashSet<string>(new[] {
 });
 var types = new HashSet<string>(new[] {
     "BuildingApproachCandidate", "BuildingConsumerFallbackResult", "BuildingConsumerPerformanceScope", "AttackApproachState",
-    "QualifiedMovementRoute", "RouteDecisionKey",
+    "QualifiedMovementRoute", "RouteDecisionKey", "FastPathShadowScope",
     "PendingDigMoatTarget",
     "DirectCursorMoveScope", "BuildingCursorTarget", "BuildingHoverTileSource", "AttackCursorPairScope", "CursorPairFallbackKind", "CursorGroupRouteSummary", "SelectedCursorUnitSnapshot", "UnitMoveFrame", "PlanScope", "RouteProbeSummary", "TargetedRouteDecision", "MoatWorkSelectionScope", "MoatWorkApproach", "PendingFillMoatApproach"
 });
@@ -51,8 +51,8 @@ var constants = new HashSet<string>(new[] {
     "RouteStateShift", "RouteCellMask", "GroundRouteState", "FriendlyMoatRouteState", "EnemyMoatRouteState",
     "MovementBlockedLowTileFlagMask", "CompletedMoatTileFlag", "CursorSpecialStructureTileFlagMask", "PathManagerOutputBufferOffset",
     "PathManagerOutputLengthOffset", "NativeUnitPathBufferOffset", "NativeUnitPathBufferStride",
-    "PathManagerRouteVariantOffset", "OrdinaryWalkableTileFlag", "MoatWorkNeighbourX", "MoatWorkNeighbourY"
-    , "WeightedPublicationSafetyMarginTicks"
+    "PathManagerRouteReadyOffset", "PathManagerRouteVariantOffset", "PathManagerMode84Offset", "PathManagerMode88Offset", "PathManagerMode94Offset", "PathManagerSuccessCountOffset", "PathManagerFailureCountOffset", "OrdinaryWalkableTileFlag", "MoatWorkNeighbourX", "MoatWorkNeighbourY"
+    , "WeightedPublicationSafetyMarginTicks", "weightedPhaseTimingActive"
 });
 var selected = new List<MemberDeclarationSyntax>();
 foreach (var tree in trees)

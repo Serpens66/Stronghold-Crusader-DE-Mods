@@ -303,6 +303,10 @@ namespace MoveMoatTest
             internal System.Collections.Generic.HashSet<int> CandidateUnitIds = new System.Collections.Generic.HashSet<int>();
             public int MapEpoch, TribeId, TargetValue1, TargetValue2, Sequence;
             public TribeAICommand Command;
+            public long NativeBuilderTicks, AuditTicks, WeightedPhaseTicks, WeightedAuditTicks, FastShadowTicks;
+            public int NativeBuilderCalls, AuditCalls, FastShadowEligible, FastShadowValidated, FastShadowNativeEqual;
+            public System.Collections.Generic.Dictionary<string,int> FastShadowRejections = new System.Collections.Generic.Dictionary<string,int>();
+            public System.Collections.Generic.Dictionary<string,int> FastShadowStates = new System.Collections.Generic.Dictionary<string,int>();
             public System.Collections.Generic.Dictionary<int,System.Collections.Generic.HashSet<int>> PublishedBuildingApproaches = new System.Collections.Generic.Dictionary<int,System.Collections.Generic.HashSet<int>>();
         }
         private sealed class AttackApproachDiagnosticScope
@@ -313,6 +317,11 @@ namespace MoveMoatTest
 
         private void BuildingCandidateTests()
         {
+            Check(IsValidAttackSourceRegionContext(0,true,0,true),"friendly completed moat permits AttackUnit source region zero");
+            Check(!IsValidAttackSourceRegionContext(0,true,0,false),"ordinary or hostile source region zero fails closed");
+            Check(!IsValidAttackSourceRegionContext(0,false,0,true),"invalid source tile fails closed");
+            Check(IsValidAttackSourceRegionContext(7,true,7,false),"ordinary positive source region remains valid");
+            Check(!IsValidAttackSourceRegionContext(7,true,8,false),"positive source region must match concrete tile");
             var api=GameTileManagerAPI.Instance; var units=GameUnitManagerAPI.Instance.Units;
             var oldTribes=nativeTribeManager; var oldBuilding=GameBuildingManagerAPI.Instance.Building;
             byte* tribes=(byte*)NativeMemory.AllocZeroed(TribeRecordSize*2);

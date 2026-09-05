@@ -2,6 +2,71 @@
 
 Stand: 5. September 2026
 
+## Aktuelle Teststufe: AttackUnit-Moat-Start und Fast-Path-Shadow (05.09.2026)
+
+Die neuen Ingame-Messungen erklären, weshalb der Modus „Gemeinsame Gruppenwege“ den
+680er-Angriff noch nicht deutlich beschleunigt. Der Standardlauf benötigte für den
+synchronen `AttackUnit`-Befehl **594,776 ms**, davon **85,801 ms** gewichtete Suche bei
+432 beteiligten Units. Der gemeinsame Lauf benötigte **625,262 ms**: sieben
+Hauptsuchen (**14,203 ms**), **4,949 ms** Anschlussarbeit, 375 Wiederverwendungen und
+57 Rückfälle reduzierten die gewichtete Phase auf **59,114 ms**. Der zentrale native
+Builder `0xF4930` wurde aber weiterhin für jede tatsächliche Unit ausgeführt. Die
+gemeinsamen 1–10 Suchgeometrien ersetzen daher bislang nur die modseitige Suche, nicht
+die hunderten nativen Einzelbuilder. Zusätzlich erzeugten die synchronen Diagnosen im
+Standardlauf 1.287 Zeilen/480.910 Zeichen und im gemeinsamen Lauf 960 Zeilen/394.941
+Zeichen. Suchersparnis, unveränderte Einzelbuilder und Logkosten erklären zusammen das
+enttäuschende Gesamtergebnis; ein sicherer Builder-Bypass ist damit noch nicht belegt.
+
+Stufe 1 behebt jetzt den bestätigten Region-Fallback: `sourceRegion=0` ist bei
+`AttackUnit` ausschließlich zulässig, wenn der konkrete aktuelle Starttile gültig,
+ein fertig gebauter Moat und für den Spieler eigen oder verbündet ist. Der echte
+Startregionwert muss weiterhin exakt passen. Feindliche Moats, normale Tiles,
+ungültige Tiles und jede andere Region-0-Konstellation bleiben fail-closed. Die
+konkrete Zielidentität, der lebende feindliche Zielkontext, Spieler-/Unitidentität,
+die vollständige freundliche Moatroute und der bereits unterstützte
+`targetRegion=0`-Sentinel bleiben unverändert maßgeblich.
+
+Angriffsdetails werden nun pro `stage` auf drei repräsentative Einträge begrenzt und
+erst nach dem synchronen Dispatch geschrieben. Gesamtzahl, Zeichenmenge und
+unterdrückte Kategorien erscheinen in `attack-command-performance`. Exceptions,
+Owner-/Puffer-Vertragsverletzungen und Rollbacks bleiben sofortige Fehler- oder
+Warnmeldungen. `attack-command-summary` trennt Anzahl und Zeit von `0xDBC60`,
+Qualifikation (einschließlich des darin verschachtelten Anteils), `0xF4930`,
+Pfadaudit, gewichteter Veröffentlichung, gemeinsamem Haupt-/Anschlussweg,
+Fast-Path-Shadow und nicht zugeordnetem Rest.
+
+Der neue `fast-path-shadow` ist rein beobachtend. Er läuft nur für notwendige,
+`Shared`-qualifizierte freundliche Moatpfade ohne Strukturen und ohne Arbeits- oder
+Rekonstruktionsziel. Vor dem nativen Aufruf bindet er Unit-ID und Global-ID, Spieler,
+Start/Ziel, Profil, Tick, Epoche, Terrain-/Placementrevision und exakt den eigenen
+Unitpuffer; der gemeinsame kodierte Pfad erhält einen frischen Live-Kanten- und
+Owner-Audit. Nach `0xF4930` werden Bindungen und Pfad erneut geprüft, die nativen Bytes
+und Länge verglichen und Änderungen an Route-ready, Variante, den beobachteten
+PathManager-Modi, Erfolgs-/Fehlerzählern und globalem Moatmodus aggregiert. Es wird
+noch kein nativer Aufruf übersprungen und kein zusätzlicher öffentlicher Schalter
+eingeführt.
+
+Die Regressionfixture enthält eigene Prüfungen für eigenen/verbündeten Region-0-Moat,
+gewöhnliche/feindliche Region-0-Starts, ungültige Tiles, positive Regionen und
+Regionsabweichungen. Der aktuelle Lauf bestand mit **227.342 Assertions**, **8.999**
+gerichteten Shared-Anschlussvergleichen, **18.258** unabhängigen Suchassertions,
+**6.480** Gebäudefelddistanzen und **1.469.340** Cursorvergleichen; 21 Runtime-Dateien
+und 180 tatsächliche Runtime-Member wurden kompiliert beziehungsweise ausgeübt.
+
+Freigabe für Stufe 2 bleibt gesperrt, bis Ingame-Läufe mit 1/20/120/680 Units, beiden
+Routenmodi, eigenen und verbündeten Moat-Starts sowie gemischten Starts weder
+Identitäts-, Puffer-, Owner-, Kanten- noch Zustandsabweichungen zeigen und
+`nativeBuilderMs` den dominanten Rest bestätigt. Erst dann darf ein eng begrenzter
+Publisher `0xF4930` umgehen. Modversion bleibt **1.0.0**; README, öffentliche API und
+Script Extender bleiben unverändert.
+
+Nach allen Prüfungen wurde dieser Stufe-1-Stand am **05.09.2026 um 23:46:07** genau
+einmal über `MoveMoatTest/build.bat /nopause` gebaut und installiert: **0 Warnungen,
+0 Fehler**. Lokale und installierte DLL sind SHA-256-identisch:
+`EB31ABC2EF43EF671822AED94F4DF3322A477302595638C87A3DDD9C879081CE`.
+Die dabei verwendete kanonische `CrusaderDE.dll` stimmt mit der Native-Baseline
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2` überein.
+
 ## Aktueller Abschluss: Host-Modsetting und gemeinsame Gruppenwege (05.09.2026, 22:56)
 
 Die unterbrochene Umsetzung wurde anhand des sauberen, inzwischen eingecheckten Arbeitsstands fortgesetzt. Die vorherigen Gebäude-, Angriffs-, Fill-, Cursor- und Verteilungsreparaturen bleiben erhalten. Nach Abschluss nochmals Code, API, native Verträge, Tests, Textdateien und installiertes Paket geprüft.

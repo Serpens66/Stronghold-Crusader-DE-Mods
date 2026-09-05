@@ -895,7 +895,7 @@ namespace MoveMoatTest {
     }
 }
 
-namespace Shared { internal static class DebugLogHelper { public static void LogInfo(object log,string text) {} } }
+namespace Shared { internal static class DebugLogHelper { public static void LogInfo(object log,string text) {} public static void LogWarning(object log,string text) {} } }
 
 namespace MoveMoatTest {
  internal static class MoveMoatTestPlugin {

@@ -242,7 +242,13 @@ namespace MoveMoatTest
         private const uint OrdinaryWalkableTileFlag = 0x00008000;
         private const uint CursorSpecialStructureTileFlagMask = 0x10000300;
         private const uint BuildingContextBlockingTileFlagMask = 0x0F000000;
+        private const int PathManagerRouteReadyOffset = 0x7C;
         private const int PathManagerRouteVariantOffset = 0x80;
+        private const int PathManagerMode84Offset = 0x84;
+        private const int PathManagerMode88Offset = 0x88;
+        private const int PathManagerMode94Offset = 0x94;
+        private const int PathManagerSuccessCountOffset = 0xA8;
+        private const int PathManagerFailureCountOffset = 0xAC;
         private const int PathManagerFloodGenerationOffset = 0x04;
         private const int PathManagerFloodDepthOffset = 0x155F38;
         private const int PathManagerFloodQueueHeadOffset = 0x155F3C;
@@ -436,6 +442,7 @@ namespace MoveMoatTest
         private static AttackCursorPairScope pendingAttackCursorPair;
         [ThreadStatic]
         private static AttackCommandScope activeAttackCommand;
+        [ThreadStatic] private static bool weightedPhaseTimingActive;
         [ThreadStatic]
         private static AttackApproachDiagnosticScope activeAttackApproachDiagnostic;
         [ThreadStatic]
@@ -1658,8 +1665,20 @@ namespace MoveMoatTest
                         }
                         else
                             RemoveSynchronousAttackTrackers(scope, "command-rejected");
+                        long dispatchFinished = Stopwatch.GetTimestamp();
+                        scope.DispatchElapsedTicks = dispatchFinished - scope.StartedTimestamp;
+                        double exclusiveQualificationMilliseconds = Math.Max(
+                            0.0, scope.QualificationMilliseconds - scope.FloodQualificationMilliseconds);
+                        double exclusiveWeightedMilliseconds = Math.Max(
+                            0.0, scope.WeightedPhaseMilliseconds - scope.WeightedAuditMilliseconds);
+                        double accountedMilliseconds = scope.UnitFloodMilliseconds +
+                            exclusiveQualificationMilliseconds + scope.NativeBuilderMilliseconds +
+                            scope.AuditMilliseconds + exclusiveWeightedMilliseconds +
+                            scope.FastShadowMilliseconds;
+                        scope.ResidualMilliseconds = Math.Max(
+                            0.0, scope.DispatchMilliseconds - accountedMilliseconds);
                         LogCommandDiagnostic(
-                            $"stage=attack-command-summary commandSeq={scope.Sequence} elapsedMs={(Stopwatch.GetTimestamp()-scope.StartedTimestamp)*1000.0/Stopwatch.Frequency:F3} " +
+                            $"stage=attack-command-summary commandSeq={scope.Sequence} elapsedMs={scope.DispatchMilliseconds:F3} " +
                             $"tribe={scope.TribeId} command={scope.Command} " +
                             $"target={scope.TargetValue1}/{scope.TargetValue2} " +
                             $"return={args.ReturnValue} weightedUnits={scope.WeightedUnitIds.Count} " +
@@ -1667,7 +1686,14 @@ namespace MoveMoatTest
                             $"weightedPublished={scope.WeightedPublished} " +
                             $"weightedSearchMs={scope.WeightedSearchMilliseconds:F3} " +
                             $"weightedMaxSearchMs={scope.WeightedMaximumSearchMilliseconds:F3} " +
-                            $"routeMode={(scope.Routes.Shared ? 1 : 0)} sharedMain={scope.Routes.MainSearches} sharedMainMs={scope.Routes.MainMilliseconds:F3} sharedConnectorMs={scope.Routes.ConnectorMilliseconds:F3} sharedNodes={scope.Routes.ConnectorNodes} sharedReuse={scope.Routes.Reused} sharedFallback={scope.Routes.Fallbacks}");
+                            $"unitFloodCalls={scope.UnitFloodCalls} unitFloodMs={scope.UnitFloodMilliseconds:F3} " +
+                            $"qualificationCalls={scope.QualificationCalls} qualificationMs={scope.QualificationMilliseconds:F3} qualificationInsideFloodMs={scope.FloodQualificationMilliseconds:F3} " +
+                            $"nativeBuilderCalls={scope.NativeBuilderCalls} nativeBuilderMs={scope.NativeBuilderMilliseconds:F3} " +
+                            $"auditCalls={scope.AuditCalls} auditMs={scope.AuditMilliseconds:F3} " +
+                            $"weightedPhaseMs={scope.WeightedPhaseMilliseconds:F3} weightedAuditMs={scope.WeightedAuditMilliseconds:F3} fastShadowMs={scope.FastShadowMilliseconds:F3} residualMs={scope.ResidualMilliseconds:F3} " +
+                            $"routeMode={(scope.Routes.Shared ? 1 : 0)} sharedMain={scope.Routes.MainSearches} sharedMainMs={scope.Routes.MainMilliseconds:F3} sharedConnectorMs={scope.Routes.ConnectorMilliseconds:F3} sharedNodes={scope.Routes.ConnectorNodes} sharedReuse={scope.Routes.Reused} sharedFallback={scope.Routes.Fallbacks} " +
+                            $"fastShadowEligible={scope.FastShadowEligible} fastShadowValidated={scope.FastShadowValidated} fastShadowNativeEqual={scope.FastShadowNativeEqual} fastShadowRejected={FormatCounts(scope.FastShadowRejections)} fastShadowStates={FormatCounts(scope.FastShadowStates)}");
+                        FlushAttackDiagnostics(scope);
                     }
                 }
             }
@@ -1768,9 +1794,8 @@ namespace MoveMoatTest
 
                 lastAttackCommandCandidates[unitId] = signature;
                 logged++;
-                Shared.DebugLogHelper.LogInfo(
-                    log,
-                    $"MoveMoat stage=attack-command-candidate phase={phase} unit={unitId} " +
+                LogCommandDiagnostic(
+                    $"stage=attack-command-candidate phase={phase} unit={unitId} " +
                     $"type={unit->r_UnitChimp} global={unit->r_GlobalId} player={unit->r_ControllableForPlayerId} " +
                     $"tribe={unit->r_TribeId}/{scope.TribeId} aiState={unit->r_AIState} " +
                     $"command={(TribeAICommand)unit->r_AI_LastIssuedTribeCommand}/{scope.Command} " +
@@ -1778,7 +1803,7 @@ namespace MoveMoatTest
                     $"contextUnit={unit->r_AI_ContextTargetUnitId}/{unit->r_AI_ContextTargetUnitGlobalId} " +
                     $"contextBuildingTile={unit->r_AI_ContextTargetBuildingTileId} " +
                     $"current=({unit->r_CurrentTilePositionX},{unit->r_CurrentTilePositionY}) " +
-                    $"attackMove=({unit->r_AttackMoveToTargetTileX},{unit->r_AttackMoveToTargetTileY}).");
+                    $"attackMove=({unit->r_AttackMoveToTargetTileX},{unit->r_AttackMoveToTargetTileY})");
             }
 
             if (logged == 0 && phase == "post")
@@ -1795,9 +1820,8 @@ namespace MoveMoatTest
                         continue;
                     }
 
-                    Shared.DebugLogHelper.LogInfo(
-                        log,
-                        $"MoveMoat stage=attack-command-candidate phase=post-unchanged " +
+                    LogCommandDiagnostic(
+                        $"stage=attack-command-candidate phase=post-unchanged " +
                         $"commandSeq={scope.Sequence} unit={unitId} type={unit->r_UnitChimp} " +
                         $"alive={unit->r_AliveState} global={unit->r_GlobalId} " +
                         $"player={unit->r_ControllableForPlayerId} tribe={unit->r_TribeId}/{scope.TribeId} " +
@@ -1813,7 +1837,7 @@ namespace MoveMoatTest
                         $"contextBuildingTile={unit->r_AI_ContextTargetBuildingTileId} " +
                         $"path={unit->r_PathPlanRelated1}/{unit->r_PathPlanStateBitFlags}/" +
                         $"{unit->r_MovingRelevant}/{unit->p_CurrentPathPlanPosition}/" +
-                        $"{unit->p_PathPlanSize}.");
+                        $"{unit->p_PathPlanSize}");
                 }
             }
         }
@@ -2225,14 +2249,13 @@ namespace MoveMoatTest
                 tracker.WeightedCommandSequence = commandSequence;
                 tracker.WorkTargetMoatTileId = plan.MoatWorkTargetTileId;
                 trackedMoatMoves[plan.UnitId] = tracker;
-                Shared.DebugLogHelper.LogInfo(
-                    log,
-                    $"MoveMoat stage=move-track-start unit={plan.UnitId} type={unit->r_UnitChimp} " +
+                LogCommandDiagnostic(
+                    $"stage=move-track-start unit={plan.UnitId} type={unit->r_UnitChimp} " +
                     $"player={unit->r_ControllableForPlayerId} tribe={unit->r_TribeId} " +
                     $"target=({plan.TargetX},{plan.TargetY}) command={command} " +
                     $"commandContext={commandContext} canDig={CanDigMoat(unit)} " +
                     $"builderResult={builderResult} " +
-                    $"{summary.ToLogFields()}.");
+                    summary.ToLogFields());
             }
             catch (Exception ex)
             {
@@ -3283,12 +3306,12 @@ namespace MoveMoatTest
                 $"{targetX}:{targetY}:{accepted}:{friendlyMoatRequired}";
             if (!loggedDiggerDecisions.Add(key))
                 return;
-            Shared.DebugLogHelper.LogInfo(log,
-                $"MoveMoat stage=vanilla-digger source={source} unit={unitId} " +
+            LogCommandDiagnostic(
+                $"stage=vanilla-digger source={source} unit={unitId} " +
                 $"type={unit->r_UnitChimp} command=" +
                 $"{(TribeAICommand)unit->r_AI_LastIssuedTribeCommand} " +
                 $"target=({targetX},{targetY}) accepted={accepted} " +
-                $"friendlyMoatRequired={friendlyMoatRequired}.");
+                $"friendlyMoatRequired={friendlyMoatRequired}");
         }
 
         private int RunCentralMovementPlanWithContext(
@@ -3676,7 +3699,8 @@ namespace MoveMoatTest
                 return;
             }
             lastWeightedPublicationDecisionByUnit[unitId] = message;
-            Shared.DebugLogHelper.LogInfo(log, message);
+            BufferOrLogCommandDiagnostic(message.StartsWith("MoveMoat ", StringComparison.Ordinal)
+                ? message.Substring("MoveMoat ".Length) : message);
         }
 
         private void LogWeightedShadowDecision(
@@ -3718,6 +3742,34 @@ namespace MoveMoatTest
         }
 
         private bool TryQualifyAttackMovementPlan(
+            int unitId,
+            GameUnit* unit,
+            int vanillaResult,
+            out PlanScope plan,
+            out RouteProbeSummary summary,
+            out string rejectionReason)
+        {
+            AttackCommandScope command = activeAttackCommand;
+            long started = Stopwatch.GetTimestamp();
+            try
+            {
+                return TryQualifyAttackMovementPlanCore(
+                    unitId, unit, vanillaResult, out plan, out summary, out rejectionReason);
+            }
+            finally
+            {
+                if (command != null)
+                {
+                    long elapsed = Stopwatch.GetTimestamp() - started;
+                    command.QualificationCalls++;
+                    command.QualificationTicks += elapsed;
+                    if (activeAttackApproachDiagnostic?.Kind == AttackApproachKind.UnitFlood)
+                        command.FloodQualificationTicks += elapsed;
+                }
+            }
+        }
+
+        private bool TryQualifyAttackMovementPlanCore(
             int unitId,
             GameUnit* unit,
             int vanillaResult,
@@ -3854,16 +3906,15 @@ namespace MoveMoatTest
             }
 
             lastAttackCommandCandidates[unitId] = signature;
-            Shared.DebugLogHelper.LogInfo(
-                log,
-                $"MoveMoat stage=attack-command-candidate phase=sync unit={unitId} " +
+            LogCommandDiagnostic(
+                $"stage=attack-command-candidate phase=sync unit={unitId} " +
                 $"type={unit->r_UnitChimp} global={unit->r_GlobalId} player={unit->r_ControllableForPlayerId} " +
                 $"tribe={unit->r_TribeId}/{scope.TribeId} aiState={unit->r_AIState} " +
                 $"command={(TribeAICommand)unit->r_AI_LastIssuedTribeCommand}/{scope.Command} " +
                 $"target={scope.TargetValue1}/{scope.TargetValue2} " +
                 $"contextUnit={unit->r_AI_ContextTargetUnitId}/{unit->r_AI_ContextTargetUnitGlobalId} " +
                 $"contextBuildingTile={unit->r_AI_ContextTargetBuildingTileId} " +
-                $"attackMove=({unit->r_AttackMoveToTargetTileX},{unit->r_AttackMoveToTargetTileY}).");
+                $"attackMove=({unit->r_AttackMoveToTargetTileX},{unit->r_AttackMoveToTargetTileY})");
         }
 
         private void LogAttackScopeDecision(
@@ -3898,15 +3949,14 @@ namespace MoveMoatTest
                 buildingPair = $" buildingPair={approachTileId}->{footprintTileId}";
             }
 
-            Shared.DebugLogHelper.LogInfo(
-                log,
-                $"MoveMoat stage={stage} unit={unitId} type={unit->r_UnitChimp} " +
+            LogCommandDiagnostic(
+                $"stage={stage} unit={unitId} type={unit->r_UnitChimp} " +
                 $"player={unit->r_ControllableForPlayerId} tribe={unit->r_TribeId}/{scope?.TribeId} " +
                 $"command={(TribeAICommand)unit->r_AI_LastIssuedTribeCommand}/{scope?.Command} " +
                 $"target={scope?.TargetValue1}/{scope?.TargetValue2} " +
                 $"attackMove=({unit->r_AttackMoveToTargetTileX},{unit->r_AttackMoveToTargetTileY}) " +
                 $"vanillaMode={vanillaResult} reason={reason}{buildingPair} " +
-                $"{summary.ToLogFields()}.");
+                summary.ToLogFields());
         }
 
         private int AllowBuilderAfterFailedRegionSearch(
@@ -4398,15 +4448,28 @@ namespace MoveMoatTest
                             expand = IsForbiddenFormationMoat(scope.PlayerId, x, y);
                     }
                 }
-                originalAttackApproachFloodBuilder(
-                    pathManager,
-                    tribeId,
-                    targetContext,
-                    targetX,
-                    targetY,
-                    expand ? Math.Max(requestedResults, VanillaAttackFloodResultCapacity / 2) : requestedResults,
-                    sourceRegion,
-                    movementClass);
+                AttackCommandScope measuredCommand = scope?.OwnerCommand;
+                long floodStarted = Stopwatch.GetTimestamp();
+                try
+                {
+                    originalAttackApproachFloodBuilder(
+                        pathManager,
+                        tribeId,
+                        targetContext,
+                        targetX,
+                        targetY,
+                        expand ? Math.Max(requestedResults, VanillaAttackFloodResultCapacity / 2) : requestedResults,
+                        sourceRegion,
+                        movementClass);
+                }
+                finally
+                {
+                    if (measuredCommand != null)
+                    {
+                        measuredCommand.UnitFloodCalls++;
+                        measuredCommand.UnitFloodTicks += Stopwatch.GetTimestamp() - floodStarted;
+                    }
+                }
                 nativeFloodCompleted = true;
             }
             finally
@@ -4896,9 +4959,8 @@ namespace MoveMoatTest
                             $"{decision.Summary.EnemyMoatTiles}";
                         if (scope.OwnerCommand.AttackApproachDiagnosticSignatures.Add(logSignature))
                         {
-                            Shared.DebugLogHelper.LogInfo(
-                                log,
-                                $"MoveMoat stage=attack-unit-region-fallback " +
+                            LogCommandDiagnostic(
+                                $"stage=attack-unit-region-fallback " +
                                 $"commandSeq={scope.CommandSequence} unit={scope.UnitId} " +
                                 $"player={scope.PlayerId} targetContext={scope.TargetContext} " +
                                 $"target=({scope.TargetX},{scope.TargetY}) " +
@@ -4906,7 +4968,7 @@ namespace MoveMoatTest
                                 $"routeKind={routeKind} vanilla=0 " +
                                 $"effective={(decision.Allowed ? 1 : 0)} " +
                                 $"approach=({decision.ApproachX},{decision.ApproachY}) " +
-                                $"reason={decision.Reason} {decision.Summary.ToLogFields()}.");
+                                $"reason={decision.Reason} {decision.Summary.ToLogFields()}");
                         }
                     }
 
@@ -4949,9 +5011,8 @@ namespace MoveMoatTest
                             $"{decision.Summary.EnemyMoatTiles}";
                         if (scope.OwnerCommand.AttackApproachDiagnosticSignatures.Add(logSignature))
                         {
-                            Shared.DebugLogHelper.LogInfo(
-                                log,
-                                $"MoveMoat stage=building-approach-region-fallback " +
+                            LogCommandDiagnostic(
+                                $"stage=building-approach-region-fallback " +
                                 $"commandSeq={scope.CommandSequence} building=" +
                                 $"{scope.OwnerCommand.TargetValue1}/{scope.OwnerCommand.TargetValue2} " +
                                 $"unit={scope.UnitId} player={scope.PlayerId} " +
@@ -4959,7 +5020,7 @@ namespace MoveMoatTest
                                 $"routeKind={routeKind} vanilla=0 " +
                                 $"effective={(decision.Allowed ? 1 : 0)} " +
                                 $"approach=({decision.ApproachX},{decision.ApproachY}) " +
-                                $"reason={decision.Reason} {decision.Summary.ToLogFields()}.");
+                                $"reason={decision.Reason} {decision.Summary.ToLogFields()}");
                         }
                     }
 
@@ -4986,7 +5047,7 @@ namespace MoveMoatTest
                 return AttackRegionFallbackDecision.Reject("invalid-scope");
             if (scope.UnitId <= 0 || scope.PlayerId < 0 ||
                 movementClass != scope.MovementClass || sourceRegion != scope.SourceRegion ||
-                sourceRegion <= 0 || sourceRegion > MaximumRegionId ||
+                sourceRegion < 0 || sourceRegion > MaximumRegionId ||
                 targetRegion < 0 || targetRegion > MaximumRegionId || routeKind != 0)
             {
                 return AttackRegionFallbackDecision.Reject("movement-or-region-context-mismatch");
@@ -5013,7 +5074,16 @@ namespace MoveMoatTest
 
             int startTileId = GameTileManagerAPI.Instance.GetTileId(
                 unit->r_CurrentTilePositionX, unit->r_CurrentTilePositionY);
-            if (!IsValidTileId(startTileId) || pathRegionGrid[startTileId] != sourceRegion)
+            bool friendlyCompletedMoatStart = IsValidTileId(startTileId) &&
+                IsCompletedMoatTile(startTileId) &&
+                ResolveCompletedMoatRelationship(scope.PlayerId, startTileId) ==
+                    CompletedMoatRelationship.Friendly;
+            int actualSourceRegion = IsValidTileId(startTileId) ? pathRegionGrid[startTileId] : -1;
+            if (!IsValidAttackSourceRegionContext(
+                    sourceRegion,
+                    IsValidTileId(startTileId),
+                    actualSourceRegion,
+                    friendlyCompletedMoatStart))
                 return AttackRegionFallbackDecision.Reject("source-region-mismatch");
 
             AttackCursorPairScope routeScope = new AttackCursorPairScope(
@@ -5042,6 +5112,23 @@ namespace MoveMoatTest
             }
 
             return AttackRegionFallbackDecision.Allow(summary, approachX, approachY);
+        }
+
+        private static bool IsValidAttackSourceRegionContext(
+            int sourceRegion,
+            bool startTileValid,
+            int actualSourceRegion,
+            bool friendlyCompletedMoatStart)
+        {
+            if (sourceRegion < 0 || sourceRegion > MaximumRegionId ||
+                !startTileValid || actualSourceRegion != sourceRegion)
+            {
+                return false;
+            }
+
+            // Region zero is only a valid source sentinel on the concrete completed
+            // moat tile whose owner has already been resolved as friendly.
+            return sourceRegion != 0 || friendlyCompletedMoatStart;
         }
 
         private AttackRegionFallbackDecision EvaluateAttackBuildingRegionFallback(
@@ -5608,16 +5695,15 @@ namespace MoveMoatTest
                 return;
             }
 
-            Shared.DebugLogHelper.LogInfo(
-                log,
-                $"MoveMoat stage=attack-approach kind={scope.Kind} commandSeq={scope.CommandSequence} " +
+            LogCommandDiagnostic(
+                $"stage=attack-approach kind={scope.Kind} commandSeq={scope.CommandSequence} " +
                 $"command={scope.Command} tribe={scope.TribeId} unit={scope.UnitId} " +
                 $"type={scope.UnitType} player={scope.PlayerId} targetContext={scope.TargetContext} " +
                 $"target=({scope.TargetX},{scope.TargetY}) requestedResults={scope.RequestedResults} " +
                 $"sourceRegion={scope.SourceRegion} movementClass={scope.MovementClass} " +
                 $"consumerVariant={scope.ConsumerVariantText} " +
                 $"before=[{scope.Before.ToLogFields()}] after=[{scope.After.ToLogFields()}] " +
-                $"regionPairs={scope.FormatRegionPairs()} tilePairs={scope.FormatTilePairs()}.");
+                $"regionPairs={scope.FormatRegionPairs()} tilePairs={scope.FormatTilePairs()}");
         }
 
         private void DiagnoseAttackApproachTilePair(
@@ -7698,7 +7784,7 @@ namespace MoveMoatTest
 
         // Commands and work selections have aggregate counters; avoid formatting a
         // full per-unit trace in those hot paths. Standalone diagnostics remain available.
-        private bool ShouldLogUnitPipeline => activeMoveCommand == null &&
+        private bool ShouldLogUnitPipeline => activeMoveCommand == null && activeAttackCommand == null &&
             activeMoatWorkSelection == null &&
             !((activePlan ?? pendingPlan)?.MoatWorkMovement ?? false);
 
@@ -7731,7 +7817,43 @@ namespace MoveMoatTest
                 return;
             }
 
+            AttackCommandScope attack = activeAttackCommand;
+            if (attack != null)
+            {
+                attack.BufferDiagnostic(message);
+                return;
+            }
+
             Shared.DebugLogHelper.LogInfo(log, $"MoveMoat {message}.");
+        }
+
+        private void FlushAttackDiagnostics(AttackCommandScope command)
+        {
+            if (command == null)
+                return;
+            long started = Stopwatch.GetTimestamp();
+            foreach (string message in command.Diagnostics)
+                Shared.DebugLogHelper.LogInfo(log, $"MoveMoat {message}.");
+            command.LogFlushTicks = Stopwatch.GetTimestamp() - started;
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"MoveMoat stage=attack-command-performance commandSeq={command.Sequence} " +
+                $"dispatchMs={command.DispatchMilliseconds:F3} logFlushMs={command.LogFlushMilliseconds:F3} " +
+                $"observerTotalMs={(command.DispatchMilliseconds + command.LogFlushMilliseconds):F3} " +
+                $"diagnostics={command.DiagnosticMessages}/{command.Diagnostics.Count} " +
+                $"diagnosticChars={command.DiagnosticCharacters} suppressed={FormatCounts(command.SuppressedDiagnostics)}.");
+        }
+
+        private static string FormatCounts(Dictionary<string, int> counts)
+        {
+            if (counts == null || counts.Count == 0)
+                return "none";
+            var keys = new List<string>(counts.Keys);
+            keys.Sort(StringComparer.Ordinal);
+            var values = new List<string>(keys.Count);
+            foreach (string key in keys)
+                values.Add(key + ":" + counts[key]);
+            return string.Join(",", values);
         }
 
         private static void MarkCommandMoatRelevant(
@@ -8103,6 +8225,10 @@ namespace MoveMoatTest
 
         private sealed class AttackCommandScope
         {
+            private const int MaximumDiagnosticDetailsPerStage = 3;
+            private readonly Dictionary<string, int> retainedDiagnosticsByStage =
+                new Dictionary<string, int>(StringComparer.Ordinal);
+
             internal readonly GroupRouteSession Routes = new GroupRouteSession(MoveMoatTestPlugin.Settings.EnableMod, MoveMoatTestPlugin.Settings.RouteMode == 1);
             public AttackCommandScope(
                 AttackCommandScope previous,
@@ -8147,6 +8273,76 @@ namespace MoveMoatTest
             public double WeightedSearchMilliseconds { get; set; }
             public double WeightedMaximumSearchMilliseconds { get; set; }
             public HashSet<int> WeightedUnitIds { get; } = new HashSet<int>();
+            public long DispatchElapsedTicks { get; set; }
+            public long LogFlushTicks { get; set; }
+            public long UnitFloodTicks { get; set; }
+            public long QualificationTicks { get; set; }
+            public long FloodQualificationTicks { get; set; }
+            public long NativeBuilderTicks { get; set; }
+            public long AuditTicks { get; set; }
+            public long WeightedPhaseTicks { get; set; }
+            public long WeightedAuditTicks { get; set; }
+            public long FastShadowTicks { get; set; }
+            public int UnitFloodCalls { get; set; }
+            public int QualificationCalls { get; set; }
+            public int NativeBuilderCalls { get; set; }
+            public int AuditCalls { get; set; }
+            public double ResidualMilliseconds { get; set; }
+            public int DiagnosticMessages { get; private set; }
+            public int DiagnosticCharacters { get; private set; }
+            public int FastShadowEligible { get; set; }
+            public int FastShadowValidated { get; set; }
+            public int FastShadowNativeEqual { get; set; }
+            public List<string> Diagnostics { get; } = new List<string>();
+            public Dictionary<string, int> SuppressedDiagnostics { get; } =
+                new Dictionary<string, int>(StringComparer.Ordinal);
+            public Dictionary<string, int> FastShadowRejections { get; } =
+                new Dictionary<string, int>(StringComparer.Ordinal);
+            public Dictionary<string, int> FastShadowStates { get; } =
+                new Dictionary<string, int>(StringComparer.Ordinal);
+            public double DispatchMilliseconds => TicksToMilliseconds(DispatchElapsedTicks);
+            public double LogFlushMilliseconds => TicksToMilliseconds(LogFlushTicks);
+            public double UnitFloodMilliseconds => TicksToMilliseconds(UnitFloodTicks);
+            public double QualificationMilliseconds => TicksToMilliseconds(QualificationTicks);
+            public double FloodQualificationMilliseconds => TicksToMilliseconds(FloodQualificationTicks);
+            public double NativeBuilderMilliseconds => TicksToMilliseconds(NativeBuilderTicks);
+            public double AuditMilliseconds => TicksToMilliseconds(AuditTicks);
+            public double WeightedPhaseMilliseconds => TicksToMilliseconds(WeightedPhaseTicks);
+            public double WeightedAuditMilliseconds => TicksToMilliseconds(WeightedAuditTicks);
+            public double FastShadowMilliseconds => TicksToMilliseconds(FastShadowTicks);
+
+            public void BufferDiagnostic(string message)
+            {
+                message = message ?? string.Empty;
+                DiagnosticMessages++;
+                DiagnosticCharacters += message.Length;
+                string stage = GetDiagnosticStage(message);
+                retainedDiagnosticsByStage.TryGetValue(stage, out int retained);
+                if (retained < MaximumDiagnosticDetailsPerStage)
+                {
+                    retainedDiagnosticsByStage[stage] = retained + 1;
+                    Diagnostics.Add(message);
+                    return;
+                }
+
+                SuppressedDiagnostics.TryGetValue(stage, out int suppressed);
+                SuppressedDiagnostics[stage] = suppressed + 1;
+            }
+
+            private static string GetDiagnosticStage(string message)
+            {
+                const string marker = "stage=";
+                int start = message.IndexOf(marker, StringComparison.Ordinal);
+                if (start < 0)
+                    return "other";
+                start += marker.Length;
+                int end = message.IndexOf(' ', start);
+                return end < 0 ? message.Substring(start) : message.Substring(start, end - start);
+            }
+
+            private static double TicksToMilliseconds(long ticks) =>
+                ticks * 1000.0 / Stopwatch.Frequency;
+
             public bool Matches(TribeIssueOrderWithTargetEventArgs args, int currentMapEpoch) =>
                 MapEpoch == currentMapEpoch && TribeId == args.TribeId &&
                 Command == args.AICommand && TargetValue1 == args.TargetValue1 &&
@@ -8341,6 +8537,19 @@ namespace MoveMoatTest
             public HashSet<int> ActualMoatTileIds { get; } = new HashSet<int>();
             public Dictionary<int, int> ActualMoatOwnerAtFirstObservation { get; } =
                 new Dictionary<int, int>();
+        }
+
+        private sealed class FastPathShadowScope
+        {
+            public AttackCommandScope Command;
+            public QualifiedMovementRoute Qualified;
+            public int UnitId, PlayerId, StartX, StartY, TargetX, TargetY;
+            public int MovementClass, MovementProfile, Tick, Epoch;
+            public long Revision;
+            public uint UnitGlobalId;
+            public byte* UnitPath;
+            public int ReadyBefore, VariantBefore, Mode84Before, Mode88Before, Mode94Before;
+            public int SuccessBefore, FailureBefore, MoatModeBefore, MoatModeCall;
         }
 
         private sealed class BuilderWeightedScope
