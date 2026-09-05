@@ -135,8 +135,8 @@ namespace MoveMoatTest
             // Work callbacks may mutate terrain between two selections in the same tick.
             // Their exact synchronous scope takes precedence over a surrounding command.
             object session = explicitOwner ?? (object)activeMoatWorkSelection ?? plan?.MoatWorkSearch ??
-                (object)activeMoveCommand ?? GetCurrentUnitMoveFrame() ??
-                (object)activeAttackCommand ?? plan;
+                (object)activeMoveCommand ?? (object)activeAttackCommand ??
+                GetCurrentUnitMoveFrame() ?? (object)plan;
             int tick = CaptureCurrentGameTick();
             if (!ReferenceEquals(session, nativeGroundOwner) || nativeGroundEpoch != mapEpoch ||
                 nativeGroundTick != tick || nativeGroundPlayer != playerId)

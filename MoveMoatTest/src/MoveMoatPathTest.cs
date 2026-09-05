@@ -1658,7 +1658,7 @@ namespace MoveMoatTest
                         else
                             RemoveSynchronousAttackTrackers(scope, "command-rejected");
                         LogCommandDiagnostic(
-                            $"stage=attack-command-summary commandSeq={scope.Sequence} " +
+                            $"stage=attack-command-summary commandSeq={scope.Sequence} elapsedMs={(Stopwatch.GetTimestamp()-scope.StartedTimestamp)*1000.0/Stopwatch.Frequency:F3} " +
                             $"tribe={scope.TribeId} command={scope.Command} " +
                             $"target={scope.TargetValue1}/{scope.TargetValue2} " +
                             $"return={args.ReturnValue} weightedUnits={scope.WeightedUnitIds.Count} " +
@@ -1723,7 +1723,8 @@ namespace MoveMoatTest
                     unit->r_TribeId == scope.TribeId)
                 {
                     scope.CandidateUnitIds.Add(unitId);
-                    scope.PreCandidateSignatures[unitId] = GetAttackCandidateSignature(unit);
+                    if (scope.PreCandidateSignatures.Count < 24)
+                        scope.PreCandidateSignatures[unitId] = GetAttackCandidateSignature(unit);
                 }
             }
         }
@@ -1742,6 +1743,7 @@ namespace MoveMoatTest
             int logged = 0;
             foreach (int unitId in scope.CandidateUnitIds)
             {
+                if (logged >= 24) break;
                 if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) || unit == null)
                     continue;
 
@@ -3824,8 +3826,10 @@ namespace MoveMoatTest
                     scope.PublishedBuildingApproaches,
                     approachTileId,
                     out int footprintTileId) ||
-                !IsValidBuildingApproachPair(
-                    scope.TargetValue1, building, approachTileId, footprintTileId))
+                !(footprintTileId == 0
+                    ? IsLegalBuildingCandidate(scope, building, unit->r_ControllableForPlayerId,
+                        new BuildingApproachCandidate(approachTileId, 0, 0))
+                    : IsValidBuildingApproachPair(scope.TargetValue1, building, approachTileId, footprintTileId)))
             {
                 rejectionReason = "building-approach-context-mismatch";
                 return false;
@@ -3837,6 +3841,8 @@ namespace MoveMoatTest
         private void LogSynchronousAttackCandidate(
             AttackCommandScope scope, int unitId, GameUnit* unit)
         {
+            if (scope.DetailLogs >= 24) return;
+            scope.DetailLogs++;
             string signature = $"sync:{scope.MapEpoch}:{scope.TribeId}:{scope.Command}:" +
                 $"{scope.TargetValue1}:{scope.TargetValue2}:{GetAttackCandidateSignature(unit)}";
             if (lastAttackCommandCandidates.TryGetValue(unitId, out string previous) &&
@@ -4692,191 +4698,123 @@ namespace MoveMoatTest
                 return BuildingConsumerFallbackResult.Rejected("invalid-hostile-building");
             }
 
-            FilterAttackOutput(nativePathManager, playerId, command.Sequence);
-            AttackApproachState filtered = CaptureAttackApproachState(nativePathManager, requirePairedResult: true);
-            if (filtered.UsableResultCount > 0 && filtered.UsableResultCount == vanillaAfter.UsableResultCount)
-                return BuildingConsumerFallbackResult.NotAttempted("vanilla-usable");
-            BuildingApproachCandidate[] retainedPairs = CaptureBuildingApproachCandidates(nativePathManager);
-
             BuildingConsumerPerformanceScope performance = activeBuildingConsumerPerformance;
-            if (performance != null)
-                performance.DiggerUnits = diggerUnitIds.Count;
+            if (performance != null) performance.DiggerUnits = diggerUnitIds.Count;
+            var retained = new Dictionary<int, BuildingApproachCandidate>();
+            foreach (var candidate in CaptureBuildingApproachCandidates(nativePathManager))
+                if (IsLegalBuildingCandidate(command, building, playerId, candidate))
+                    retained[candidate.ApproachTileId] = candidate;
 
-            List<BuildingApproachCandidate> candidates =
-                new List<BuildingApproachCandidate>();
-            HashSet<long> uniquePairs = new HashSet<long>();
-            RouteProbeSummary observed = default;
-            int walkableReservations = 0;
-            int missingContexts = 0;
-            int invalidContexts = 0;
-            int reservedBlocked = 0;
-            int ownerRouteRejected = 0;
-            for (int index = 0; index < vanillaCandidates.Length; index++)
+            var candidates = new List<BuildingApproachCandidate>();
+            var targets = new List<int>();
+            var pending = new List<int>();
+            var reserved = new HashSet<int>();
+            int rejected = 0;
+            foreach (var original in vanillaCandidates)
             {
-                BuildingApproachCandidate candidate = vanillaCandidates[index];
-                if (!IsValidTileId(candidate.ApproachTileId) ||
-                    (IsCompletedMoatTile(candidate.ApproachTileId) &&
-                     ResolveCompletedMoatRelationship(playerId, candidate.ApproachTileId) != CompletedMoatRelationship.Friendly))
-                { ownerRouteRejected++; continue; }
-                if (candidate.FootprintTileId <= 0)
-                {
-                    missingContexts++;
-                    continue;
-                }
-                if (!IsValidBuildingApproachPair(
-                        command.TargetValue1, building,
-                        candidate.ApproachTileId, candidate.FootprintTileId))
-                {
-                    invalidContexts++;
-                    if (IsValidTileId(candidate.ApproachTileId) &&
-                        GameTileManagerAPI.Instance.GetTileBuildingId(
-                            candidate.ApproachTileId) != 0 &&
-                        nativeMovementMasks[candidate.ApproachTileId] == 0)
-                    {
-                        reservedBlocked++;
-                    }
-                    continue;
-                }
-
-                UnmanagedVector2<ushort> approachPosition =
-                    GameTileManagerAPI.Instance.GetTileVectorFromId(candidate.ApproachTileId);
-                candidate.ApproachX = approachPosition.X;
-                candidate.ApproachY = approachPosition.Y;
-                candidate.Score = int.MaxValue;
-                candidate.TargetRegion = IsValidTileId(candidate.ApproachTileId)
-                    ? pathRegionGrid[candidate.ApproachTileId]
-                    : 0;
-                long pairKey = ((long)candidate.ApproachTileId << 32) |
-                    unchecked((uint)candidate.FootprintTileId);
-                if (!uniquePairs.Add(pairKey))
-                    continue;
-                candidate.OriginalOrder = index;
+                if (!IsLegalBuildingCandidate(command, building, playerId, original)) { rejected++; continue; }
+                var candidate = original;
+                var pos = GameTileManagerAPI.Instance.GetTileVectorFromId(candidate.ApproachTileId);
+                int cell = pos.Y * MapWidth + pos.X;
+                if (candidate.FootprintTileId != 0) reserved.Add(cell);
+                if (retained.TryGetValue(candidate.ApproachTileId, out var native) &&
+                    native.FootprintTileId == candidate.FootprintTileId && native.Score > 0 && native.Score < VanillaUnreachableCandidateScore)
+                    candidate.Score = native.Score;
+                else
+                { candidate.Score = VanillaUnreachableCandidateScore; pending.Add(candidates.Count); targets.Add(cell); }
                 candidates.Add(candidate);
-                if (candidates.Count >= VanillaAttackFloodResultCapacity - 1)
-                    break;
             }
+            if (performance != null) performance.ValidCandidates = candidates.Count;
+            if (pending.Count == 0 && rejected == 0)
+                return BuildingConsumerFallbackResult.NotAttempted("vanilla-usable");
 
-            int[] evaluationOrder = new int[candidates.Count];
-            for (int index = 0; index < evaluationOrder.Length; index++)
-                evaluationOrder[index] = index;
-            Array.Sort(evaluationOrder, (leftIndex, rightIndex) =>
+            int leaderId = *(short*)((byte*)tribeManager + scope.TribeId * TribeRecordSize + TribeLeadUnitIdOffset);
+            var leaderStarts = new List<int>();
+            var otherStarts = new List<int>();
+            foreach (int id in diggerUnitIds)
             {
-                BuildingApproachCandidate left = candidates[leftIndex];
-                BuildingApproachCandidate right = candidates[rightIndex];
-                int regionComparison = left.TargetRegion.CompareTo(right.TargetRegion);
-                return regionComparison != 0
-                    ? regionComparison
-                    : left.OriginalOrder.CompareTo(right.OriginalOrder);
-            });
-
+                if (!GameUnitManagerAPI.Instance.TryGetUnitById(id, out GameUnit* unit) || unit == null) continue;
+                // The native candidate consumer uses current coordinates, not MoveHere's next-step start.
+                int x = unit->r_CurrentTilePositionX, y = unit->r_CurrentTilePositionY;
+                if ((uint)x >= MapWidth || (uint)y >= MapWidth) continue;
+                int tile = GameTileManagerAPI.Instance.GetTileId(x,y);
+                if (!IsValidTileId(tile) || (IsCompletedMoatTile(tile) &&
+                    ResolveCompletedMoatRelationship(playerId,tile) != CompletedMoatRelationship.Friendly)) continue;
+                if (id == leaderId) leaderStarts.Add(y * MapWidth + x);
+                else otherStarts.Add(y * MapWidth + x);
+            }
+            if (pending.Count != 0)
+            {
+                MoatCandidateField field = buildingCandidateFields.Count != 0
+                    ? buildingCandidateFields.Pop() : new MoatCandidateField(MapWidth, MapWidth);
+                MoatSearchEdge normal = (int from, int to, int d, out bool moat, out bool structure) =>
+                    BuildingCandidateEdge(playerId,from,to,d,false,false,out moat,out structure);
+                MoatSearchEdge terminal = (int from, int to, int d, out bool moat, out bool structure) =>
+                    BuildingCandidateEdge(playerId,from,to,d,true,reserved.Contains(to),out moat,out structure);
+                weightedMoatRoutePlanner.BeginReachabilityProbe();
+                try
+                {
+                    int[] distances = field.Resolve(leaderStarts,targets,normal,terminal);
+                    if (performance != null) { performance.ReachabilityMapsBuilt++; performance.SearchNodes += field.Expanded; }
+                    var remaining = new List<int>(); var remainingIndices = new List<int>();
+                    for (int i=0;i<distances.Length;i++)
+                    {
+                        if (distances[i] >= 0)
+                        { var c=candidates[pending[i]]; c.Score=distances[i]+1; candidates[pending[i]]=c; }
+                        else { remaining.Add(targets[i]); remainingIndices.Add(pending[i]); }
+                    }
+                    if (remaining.Count != 0 && otherStarts.Count != 0)
+                    {
+                        int supplementBase=0;
+                        foreach(var c in candidates) if(c.Score<VanillaUnreachableCandidateScore) supplementBase=Math.Max(supplementBase,c.Score);
+                        distances = field.Resolve(otherStarts,remaining,normal,terminal);
+                        if (performance != null) { performance.ReachabilityMapsBuilt++; performance.SearchNodes += field.Expanded; }
+                        for (int i=0;i<distances.Length;i++) if (distances[i]>=0)
+                        { var c=candidates[remainingIndices[i]]; c.Score=supplementBase+distances[i]+1; candidates[remainingIndices[i]]=c; }
+                    }
+                }
+                finally { weightedMoatRoutePlanner.EndReachabilityProbe(); buildingCandidateFields.Push(field); }
+            }
+            // 123090 only sorts the paired prefix; null-footprint staging entries keep producer order.
+            int prefix=0;
+            while (prefix<candidates.Count && candidates[prefix].FootprintTileId!=0) prefix++;
+            for(int i=1;i<prefix;i++)
+            {
+                var c=candidates[i]; int j=i;
+                while(j>0 && candidates[j-1].Score>c.Score) { candidates[j]=candidates[j-1]; j--; }
+                candidates[j]=c;
+            }
+            candidates.RemoveAll(c => c.Score >= VanillaUnreachableCandidateScore);
+            var snapshot = CaptureBuildingApproachBuffer(nativePathManager);
+            try { WriteBuildingApproachCandidates(nativePathManager,candidates); }
+            catch { RestoreBuildingApproachBuffer(nativePathManager,snapshot); throw; }
             if (performance != null)
-                performance.ValidCandidates = candidates.Count;
-            // Keep one unit active in EnsureReachabilityMap while all candidates of the
-            // same region are evaluated. The previous candidate-first order evicted the
-            // one-entry cache for every unit and caused candidates x units full BFS runs.
-            foreach (int unitId in diggerUnitIds)
-            {
-                for (int orderIndex = 0; orderIndex < evaluationOrder.Length; orderIndex++)
-                {
-                    int candidateIndex = evaluationOrder[orderIndex];
-                    BuildingApproachCandidate candidate = candidates[candidateIndex];
-                    if (performance != null)
-                        performance.RouteEvaluations++;
-                    PlanScope route = new PlanScope(
-                        unitId, candidate.ApproachX, candidate.ApproachY);
-                    if (!TryFindRequiredFriendlyCompletedMoatRouteToEndpoint(
-                            route, candidate.ApproachTileId,
-                            true,
-                            out RouteProbeSummary routeSummary,
-                            out int routeDistance))
-                    {
-                        observed.MergeObservations(routeSummary);
-                        continue;
-                    }
+                foreach(var c in candidates) { if(c.FootprintTileId==0) performance.ApproachOnly++; else performance.AttackPlaces++; }
+            return BuildingConsumerFallbackResult.Applied(diggerUnitIds.Count,candidates.Count,0,0,0,0,rejected,default);
+        }
 
-                    observed.MergeObservations(routeSummary);
-                    if (routeDistance < candidate.Score)
-                    {
-                        candidate.Score = routeDistance;
-                        candidates[candidateIndex] = candidate;
-                    }
-                }
-            }
+        private readonly Stack<MoatCandidateField> buildingCandidateFields = new Stack<MoatCandidateField>();
 
-            List<BuildingApproachCandidate> accepted = new List<BuildingApproachCandidate>();
-            for (int index = 0; index < candidates.Count; index++)
-            {
-                BuildingApproachCandidate candidate = candidates[index];
-                if (candidate.Score == int.MaxValue)
-                {
-                    ownerRouteRejected++;
-                    continue;
-                }
-                if (GameTileManagerAPI.Instance.GetTileBuildingId(
-                        candidate.ApproachTileId) != 0)
-                {
-                    walkableReservations++;
-                }
-                accepted.Add(candidate);
-            }
+        private bool IsLegalBuildingCandidate(AttackCommandScope command, GameBuilding* building,
+            int player, BuildingApproachCandidate candidate)
+        {
+            int tile=candidate.ApproachTileId;
+            if (tile <= 0 || !IsValidTileId(tile) || candidate.FootprintTileId<0 ||
+                (IsCompletedMoatTile(tile) && ResolveCompletedMoatRelationship(player,tile)!=CompletedMoatRelationship.Friendly)) return false;
+            if (candidate.FootprintTileId!=0)
+                return IsValidBuildingApproachPair(command.TargetValue1,building,tile,candidate.FootprintTileId);
+            var pos=GameTileManagerAPI.Instance.GetTileVectorFromId(tile);
+            return pos.X<MapWidth && pos.Y<MapWidth && movementTargetAvailability[pos.Y*MapWidth+pos.X]!=0;
+        }
 
-            accepted.Sort((left, right) =>
-            {
-                int scoreComparison = left.Score.CompareTo(right.Score);
-                return scoreComparison != 0
-                    ? scoreComparison
-                    : left.OriginalOrder.CompareTo(right.OriginalOrder);
-            });
-
-            // Native-valid results keep their order and scores. Append only independently
-            // qualified missing pairs; never displace them with required-moat-only results.
-            var mergedPairs = new List<BuildingApproachCandidate>();
-            var mergedKeys = new HashSet<long>();
-            foreach (BuildingApproachCandidate candidate in retainedPairs)
-                if (candidate.ApproachTileId > 0 && candidate.FootprintTileId > 0 &&
-                    IsValidBuildingApproachPair(command.TargetValue1, building, candidate.ApproachTileId, candidate.FootprintTileId) &&
-                    mergedKeys.Add(((long)candidate.ApproachTileId << 32) | (uint)candidate.FootprintTileId))
-                    mergedPairs.Add(candidate);
-            foreach (BuildingApproachCandidate candidate in accepted)
-                if (mergedKeys.Add(((long)candidate.ApproachTileId << 32) | (uint)candidate.FootprintTileId))
-                    mergedPairs.Add(candidate);
-            accepted = mergedPairs;
-
-            if (accepted.Count == 0)
-            {
-                return BuildingConsumerFallbackResult.Rejected(
-                    "no-owner-qualified-vanilla-candidate",
-                    diggerUnitIds.Count,
-                    0,
-                    walkableReservations,
-                    missingContexts,
-                    invalidContexts,
-                    reservedBlocked,
-                    ownerRouteRejected,
-                    observed);
-            }
-
-            BuildingApproachCandidate[] postVanillaBuffer =
-                CaptureBuildingApproachBuffer(nativePathManager);
-            try
-            {
-                WriteBuildingApproachCandidates(nativePathManager, accepted);
-            }
-            catch
-            {
-                RestoreBuildingApproachBuffer(nativePathManager, postVanillaBuffer);
-                throw;
-            }
-
-            return BuildingConsumerFallbackResult.Applied(
-                diggerUnitIds.Count,
-                accepted.Count,
-                walkableReservations,
-                missingContexts,
-                invalidContexts,
-                reservedBlocked,
-                ownerRouteRejected,
-                observed);
+        private bool BuildingCandidateEdge(int player,int from,int to,int d,bool endpoint,bool reserved,
+            out bool moat,out bool structure)
+        {
+            bool valid=weightedMoatRoutePlanner.TryGetTraversalEdge(player,from%MapWidth,from/MapWidth,
+                GameTileManagerAPI.Instance.GetTileId(from%MapWidth,from/MapWidth),to%MapWidth,to/MapWidth,
+                GameTileManagerAPI.Instance.GetTileId(to%MapWidth,to/MapWidth),d,endpoint,reserved,
+                MoatTraversalPolicy.FriendlyOnly,out MoatTraversalEdgeKind kind,out structure);
+            moat=kind!=MoatTraversalEdgeKind.Ground; return valid;
         }
 
         private int ObserveScopedRegionPairReachability(
@@ -5129,7 +5067,6 @@ namespace MoveMoatTest
             AttackCommandScope command = scope.OwnerCommand;
             int playerId = -1;
             List<int> diggerUnitIds = new List<int>();
-            bool sourceOnFriendlyCompletedMoat = false;
             GamePlayerManagerAPI playerApi = GamePlayerManagerAPI.Instance;
             IntPtr tileManager = GameTileManagerAPI.Instance.GetTileManager();
             if (tileManager == IntPtr.Zero)
@@ -5174,7 +5111,6 @@ namespace MoveMoatTest
                     {
                         continue;
                     }
-                    sourceOnFriendlyCompletedMoat = true;
                 }
                 if (playerId < 0)
                     playerId = candidatePlayerId;
@@ -5202,34 +5138,30 @@ namespace MoveMoatTest
             RouteProbeSummary observed = new RouteProbeSummary(playerId);
             IReadOnlyList<int> approachTiles = GetBuildingApproachTilesForRegion(
                 command.TargetValue1, building, targetRegion);
-            // Keep one unit active while all endpoints of this region are evaluated so
-            // EnsureReachabilityMap can reuse its single-entry map.
-            foreach (int unitId in diggerUnitIds)
+            var starts = new List<int>(); var targets = new List<int>();
+            foreach(int id in diggerUnitIds)
+                if(GameUnitManagerAPI.Instance.TryGetUnitById(id,out GameUnit* unit) && unit!=null)
+                    starts.Add(unit->r_CurrentTilePositionY*MapWidth+unit->r_CurrentTilePositionX);
+            foreach(int tile in approachTiles)
+            { var p=GameTileManagerAPI.Instance.GetTileVectorFromId(tile); targets.Add(p.Y*MapWidth+p.X); }
+            if(targets.Count!=0)
             {
-                foreach (int tileId in approachTiles)
+                var field=buildingCandidateFields.Count!=0?buildingCandidateFields.Pop():new MoatCandidateField(MapWidth,MapWidth);
+                weightedMoatRoutePlanner.BeginReachabilityProbe();
+                try
                 {
-                    if (activeBuildingApproachPerformance != null)
-                        activeBuildingApproachPerformance.RouteEvaluations++;
-                    UnmanagedVector2<ushort> position =
-                        GameTileManagerAPI.Instance.GetTileVectorFromId(tileId);
-                    PlanScope route = new PlanScope(unitId, position.X, position.Y);
-                    if (!TryFindRequiredFriendlyCompletedMoatRouteToEndpoint(
-                            route, tileId, true,
-                            out RouteProbeSummary summary, out _))
+                    int[] distances=field.Resolve(starts,targets,
+                        (int f,int t,int d,out bool m,out bool st)=>BuildingCandidateEdge(playerId,f,t,d,false,false,out m,out st),
+                        (int f,int t,int d,out bool m,out bool st)=>BuildingCandidateEdge(playerId,f,t,d,true,true,out m,out st));
+                    if(activeBuildingApproachPerformance!=null)
+                    { activeBuildingApproachPerformance.ReachabilityMapsBuilt++; activeBuildingApproachPerformance.SharedNodes+=field.Expanded; }
+                    for(int i=0;i<distances.Length;i++) if(distances[i]>=0)
                     {
-                        observed.MergeObservations(summary);
-                        continue;
+                        observed.RouteFound=true; observed.RouteDistance=distances[i];
+                        return AttackRegionFallbackDecision.Allow(observed,targets[i]%MapWidth,targets[i]/MapWidth,"shared-friendly-building-reachability");
                     }
-
-                    observed.MergeObservations(summary);
-                    return AttackRegionFallbackDecision.Allow(
-                        summary,
-                        position.X,
-                        position.Y,
-                        sourceOnFriendlyCompletedMoat
-                            ? "required-friendly-moat-route-from-moat"
-                            : "required-friendly-moat-route");
                 }
+                finally { weightedMoatRoutePlanner.EndReachabilityProbe(); buildingCandidateFields.Push(field); }
             }
 
             return AttackRegionFallbackDecision.Reject(
@@ -5390,7 +5322,7 @@ namespace MoveMoatTest
                     *(int*)(entry + BuildingCandidateApproachTileOffset),
                     *(int*)(entry + BuildingCandidateFootprintTileOffset),
                     *(int*)(entry + BuildingCandidateScoreOffset));
-                if (candidate.ApproachTileId == 0 && candidate.FootprintTileId == 0)
+                if (candidate.ApproachTileId == 0)
                     break;
                 candidates.Add(candidate);
             }
@@ -5454,8 +5386,7 @@ namespace MoveMoatTest
             foreach (BuildingApproachCandidate candidate in
                 CaptureBuildingApproachCandidates(pathManager))
             {
-                if (candidate.ApproachTileId <= 0 || candidate.FootprintTileId <= 0)
-                    break;
+                if (candidate.ApproachTileId <= 0) break;
                 if (!command.PublishedBuildingApproaches.TryGetValue(
                         candidate.ApproachTileId, out HashSet<int> footprintTiles))
                 {
@@ -5542,7 +5473,7 @@ namespace MoveMoatTest
                 $"stage=building-consumer-candidates commandSeq={scope.CommandSequence} " +
                 $"building={scope.OwnerCommand.TargetValue1}/{scope.OwnerCommand.TargetValue2} " +
                 $"beforeRaw={before.Length} beforeUsable={beforeUsable} " +
-                $"beforeMalformed={beforeMalformed} vanillaRaw={vanillaAfter.ResultCount} " +
+                $"beforeApproachOnly={beforeMalformed} vanillaRaw={vanillaAfter.ResultCount} " +
                 $"vanillaUsable={vanillaAfter.UsableResultCount} " +
                 $"vanillaMalformed={vanillaAfter.MalformedResultCount} " +
                 $"finalUsable={scope.After.UsableResultCount} " +
@@ -5576,7 +5507,8 @@ namespace MoveMoatTest
                 $"rawCandidates={performance.RawCandidates} " +
                 $"validCandidates={performance.ValidCandidates} " +
                 $"diggers={performance.DiggerUnits} " +
-                $"routeEvaluations={performance.RouteEvaluations} " +
+                $"routeEvaluations={performance.RouteEvaluations} sharedNodes={performance.SearchNodes} " +
+                $"attackPlaces={performance.AttackPlaces} approachOnly={performance.ApproachOnly} " +
                 $"reachabilityMaps={performance.ReachabilityMapsBuilt} " +
                 $"reachabilityCacheHits={performance.ReachabilityCacheHits} " +
                 $"moatOwnerCache={performance.MoatOwnerCacheHits}/" +
@@ -5600,7 +5532,7 @@ namespace MoveMoatTest
                 $"fallbackMs={performance.RegionFallbackMilliseconds:F3} " +
                 $"vanillaEstimatedMs={estimatedVanillaMilliseconds:F3} " +
                 $"fallbackEvaluations={performance.RegionFallbackEvaluations} " +
-                $"routeEvaluations={performance.RouteEvaluations} " +
+                $"routeEvaluations={performance.RouteEvaluations} sharedNodes={performance.SharedNodes} " +
                 $"indexMs={performance.IndexMilliseconds:F3} " +
                 $"indexScans={performance.IndexScans} " +
                 $"nativeTiles={performance.IndexedNativeTiles} " +
@@ -5634,7 +5566,7 @@ namespace MoveMoatTest
                 int tileId = *(int*)result;
                 int classification = *(int*)(result + 4);
                 int score = *(int*)(result + 8);
-                if (tileId == 0 && classification == 0)
+                if (tileId == 0 && (requirePairedResult || classification == 0))
                     break;
                 if (resultCount == 0)
                 {
@@ -5644,7 +5576,7 @@ namespace MoveMoatTest
                 }
                 resultCount++;
                 bool usable = tileId > 0 && (!requirePairedResult ||
-                    (classification > 0 && score != VanillaUnreachableCandidateScore));
+                    (classification >= 0 && score != VanillaUnreachableCandidateScore));
                 if (usablePrefix && usable)
                     usableResultCount++;
                 else
@@ -8192,6 +8124,8 @@ namespace MoveMoatTest
             public TribeAICommand Command { get; }
             public int TargetValue1 { get; }
             public int TargetValue2 { get; }
+            public int DetailLogs { get; set; }
+            public long StartedTimestamp { get; } = Stopwatch.GetTimestamp();
             public HashSet<int> CandidateUnitIds { get; } = new HashSet<int>();
             public Dictionary<int, string> PreCandidateSignatures { get; } =
                 new Dictionary<int, string>();
@@ -8601,6 +8535,7 @@ namespace MoveMoatTest
             public int BuildingId { get; }
             public int RegionFallbackEvaluations { get; set; }
             public int RouteEvaluations { get; set; }
+            public long SharedNodes { get; set; }
             public int IndexScans { get; set; }
             public int IndexedNativeTiles { get; set; }
             public int IndexedFootprintTiles { get; set; }
@@ -8640,6 +8575,9 @@ namespace MoveMoatTest
             public int ValidCandidates { get; set; }
             public int DiggerUnits { get; set; }
             public int RouteEvaluations { get; set; }
+            public long SearchNodes { get; set; }
+            public int ApproachOnly { get; set; }
+            public int AttackPlaces { get; set; }
             public int ReachabilityMapsBuilt { get; set; }
             public int ReachabilityCacheHits { get; set; }
             public int MoatOwnerCacheHits { get; set; }

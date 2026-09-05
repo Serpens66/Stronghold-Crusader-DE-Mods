@@ -7,7 +7,7 @@ namespace MoveMoatTest
 {
     internal enum AliveState { IsAlive, Dead }
     internal enum eStructs { STRUCT_NULL }
-    internal enum TribeAICommand { Move, DigMoatTileId = 6, Unknown7 = 7 }
+    internal enum TribeAICommand { Move, AttackUnit=4, AttackBuilding=5, DigMoatTileId = 6, Unknown7 = 7 }
     internal enum EventHookPhase { Pre, Post }
     internal class UnitMoveHereEventArgs
     {
@@ -58,6 +58,8 @@ namespace MoveMoatTest
     {
         public static GameTileManagerAPI Instance = new GameTileManagerAPI();
         public int* Rows;
+        public ushort* Buildings;
+        public ushort GetTileBuildingId(int tile) => Buildings[tile];
         public int GetTileId(int x, int y) => x >= 0 && x < 800 && y >= 0 && y < 800 ? Rows[y * 3] + x : -1;
         public IntPtr TileManager = (IntPtr)1;
         public IntPtr GetTileManager() => TileManager;
@@ -122,7 +124,8 @@ namespace MoveMoatTest
         private long nativeGroundQueries, nativeGroundCacheHits;
         private int cachedReachabilityExpandedNodes, cachedTraversedRegionCount, cachedReachabilityMapHits;
         private RouteProbeSummary cachedRouteSummary;
-        private Performance activeBuildingConsumerPerformance, activeBuildingApproachPerformance;
+        private BuildingConsumerPerformanceScope activeBuildingConsumerPerformance;
+        private Performance activeBuildingApproachPerformance;
         private class Performance { public int ReachabilityCacheHits, ReachabilityMapsBuilt; }
         private class MoveCommandScope
         {
@@ -440,6 +443,7 @@ namespace MoveMoatTest
                 FillSelectionTests();
                 PlacementTests();
                 FillFormationTests();
+                BuildingCandidateTests();
             }
             finally { foreach (var p in allocations) NativeMemory.Free((void*)p); }
         }
@@ -870,7 +874,7 @@ namespace MoveMoatTest
 
 public static class EngineInterface { private static int[] selectedChimps = Array.Empty<int>(); public static int[] Selection { get=>selectedChimps; set=>selectedChimps=value; } }
 namespace MoveMoatTest {
-    internal struct GameBuilding { public uint r_GlobalId; public int r_TilePositionXBegin, r_TilePositionXEnd, r_TilePositionYBegin, r_TilePositionYEnd; }
+    internal struct GameBuilding { public uint r_GlobalId; public AliveState r_AliveState; public int r_PlayerIdOwner, r_BuildingType; public int r_TilePositionXBegin, r_TilePositionXEnd, r_TilePositionYBegin, r_TilePositionYEnd; }
     internal unsafe class GameBuildingManagerAPI {
         public static GameBuildingManagerAPI Instance = new GameBuildingManagerAPI();
         public GameBuilding* Building;

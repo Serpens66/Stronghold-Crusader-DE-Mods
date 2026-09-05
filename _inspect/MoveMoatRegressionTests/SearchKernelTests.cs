@@ -10,8 +10,43 @@ namespace MoveMoatTest
         private static void Check(bool value, string message)
         { assertions++; if (!value) throw new Exception("Search kernel: " + message); }
 
+        private static void CandidateFieldTests()
+        {
+            const int width=9, size=81;
+            var random=new Random(77401);var field=new MoatCandidateField(width,width);
+            int comparisons=0;
+            for(int map=0;map<80;map++)
+            {
+                var edges=new bool[size,size];var terminal=new bool[size,size];
+                for(int from=0;from<size;from++)for(int to=0;to<size;to++)
+                    if(from!=to && Math.Abs(from%width-to%width)<=1 && Math.Abs(from/width-to/width)<=1)
+                    { edges[from,to]=random.Next(5)>1;terminal[from,to]=random.Next(5)==0; }
+                MoatSearchEdge normal=(int f,int t,int d,out bool m,out bool st)=>{m=st=false;return edges[f,t];};
+                MoatSearchEdge end=(int f,int t,int d,out bool m,out bool st)=>{m=st=false;return terminal[f,t];};
+                var starts=new[]{map%size,(map*7)%size};var targets=new int[size];for(int i=0;i<size;i++)targets[i]=i;
+                int[] actual=field.Resolve(starts,targets,normal,end);
+                // Independent adjacency-matrix BFS. Terminal-only nodes must not be expanded.
+                var ground=new int[size];for(int i=0;i<size;i++)ground[i]=-1;
+                var queue=new System.Collections.Generic.Queue<int>();foreach(int start in starts)if(ground[start]<0){ground[start]=0;queue.Enqueue(start);}
+                while(queue.Count!=0){int f=queue.Dequeue();for(int t=0;t<size;t++)if(edges[f,t]&&ground[t]<0){ground[t]=ground[f]+1;queue.Enqueue(t);}}
+                for(int t=0;t<size;t++)
+                {
+                    int expected=ground[t]<0?int.MaxValue:ground[t];
+                    for(int f=0;f<size;f++)if(ground[f]>=0&&terminal[f,t])expected=Math.Min(expected,ground[f]+1);
+                    Check(actual[t]==(expected==int.MaxValue?-1:expected),"shared directed field matches independent terminal-aware reference");comparisons++;
+                }
+                Check(field.Expanded<=size,"shared field visits each source cell once");
+                // Same reusable field with changed terrain has no stale positive/negative answers.
+                Array.Clear(edges,0,edges.Length);Array.Clear(terminal,0,terminal.Length);
+                var reset=field.Resolve(new[]{0},new[]{80},normal,end);
+                Check(reset[0]==-1,"new command terrain resets shared field");
+            }
+            Console.WriteLine($"PASS: {comparisons} independent building-field distances, directed terminal edges and fresh-state reuse.");
+        }
+
         public static void Run()
         {
+            CandidateFieldTests();
             var random = new Random(1420);
             const int width = 5, count = 25, maximum = 12;
             for (int map = 0; map < 40; map++)

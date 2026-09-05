@@ -2,6 +2,77 @@
 
 Stand: 5. September 2026
 
+## Aktuelle Reparatur: gemeinsame Gebäudeplatzprüfung
+
+Der Spiellauf mit Mod-DLL D463D13A8320F8ED46AB6CEFAD31ACB5559DD0E5CEA81F721227C5A2F83A0EF8
+zeigt am 05.09.2026 um 21:12:18 einen Gebäudeangriff von etwa 9513 ms (Pre/Post).
+Davon: 9468,617 ms Consumer-Fallback, 8160 Einzelprüfungen (680 Units x 12 Plätze),
+12.845.944 Suchknoten und anschließend zwölf bewertete Unit-Pfade. Beim Vergleich
+um 21:13:09: etwa 32 ms, 351 bewertete Unit-Pfade. Die 339 fehlenden Plätze waren
+native Annäherungsplätze mit Footprint null, keine fehlerhaften Datensätze.
+
+Native Basis unverändert: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
+1230BD/1230CA lesen den Gruppenführer aus Tribe+5A und seinen Unit-Slot;
+1230D1/1230D9 lesen dessen aktuelle Y/X-Koordinaten. Consumer 123090 führt je nach
+Variante genau einen DA590-/D9C40-/DB650-Flood aus, bewertet anschließend die Liste
+und sortiert nur den zusammenhängenden gepaarten Präfix. DA020 erzeugt bewusst
+weitere Einträge mit Footprint null. 11E960 verbraucht diese zur Bewegung; sie werden
+nicht zu unmittelbaren Angriffsplätzen. Die native Kompaktierung setzt nur das erste
+Wort des Endmarkers auf null; ein alter Companion dahinter ist kein weiterer Eintrag.
+Diese Verträge sind im erweiterten Validate-PlacementContracts.py hashgebunden geprüft.
+
+### Umsetzung
+
+- Consumer-Schleife Units x Kandidaten ersetzt durch ein gerichtetes gemeinsames
+  Distanzfeld ohne Pfadkodierung und gewichtete Optimierung. Native gültige Bewertungen
+  bleiben erhalten. Der Führer liefert die primäre Distanz (Schritte+1); für übrige Ziele
+  gibt es höchstens einen ergänzenden Mehrquellenlauf aus geeigneten Starts desselben
+  gebundenen Spielers. Fremde Spieler liefern keine Freigabe. Ergänzende gepaarte Plätze
+  werden hinter Führerplätzen bewertet; weitere Annäherungsplätze behalten native Reihenfolge.
+- Feldspeicher wird pro synchroner Verschachtelung ausgeliehen und zurückgegeben;
+  jeder Lauf beginnt mit frischen Generationen. Normale Kanten erweitern die Suche;
+  besondere Endpunktkanten erreichen nur das konkrete Ziel. Reservierungen werden
+  nicht zu allgemeinen Durchquerungen. Keine Suchdaten über Auftragsänderungen.
+- Auch die vorgelagerte Gebäude-Regionsprüfung verwendet einen gemeinsamen Mehrquellenlauf
+  statt Unit-x-Endpunkt-Suchen. Regionsentscheidungen bleiben pro Producer-Kontext gecacht.
+- Null-Footprint-Plätze bleiben in der nativen Liste und sind ausdrücklich veröffentlichte
+  Bewegungsziele. Echte Angriffspaare bleiben separat geprüft. Zielidentität, Unit-Identität,
+  eigene Puffer, Live-Kantenaudit und Rollback bleiben zwingend.
+- Der Angriffssuchkontext bleibt über Unit-Frames erhalten; Arbeitskontexte haben Vorrang.
+  Ein Kandidatenfeld ist kein individueller oder kostenoptimaler Unit-Pfad. Die vorhandenen
+  40-Tick-/Profilregeln sind unverändert. Keine neuen nativen Hooks.
+- Angriffszusammenfassungen enthalten elapsedMs, Consumer-/Producer-Diagnosen sharedNodes.
+  Consumer-Ausgaben unterscheiden attackPlaces und approachOnly. Synchrone und Post-Details
+  sind jeweils auf 24 begrenzt; aggregierte Erfassung bleibt unabhängig davon.
+
+### Prüfungen und Grenzen
+
+173.683 Runtime-Assertions, 18.258 unabhängige Suchprüfungen (darunter 6.480 neue
+Gebäude-Felddistanzen) und 1.469.340 gerichtete Cursorvergleiche bestanden.
+167 tatsächliche Runtime-Member plus vollständige Suchkerne werden verwendet.
+Der reale Consumer verarbeitet 351 Kandidaten (12 Paare + 339 weitere Plätze), publiziert
+sie; die Fixture bildet die native sequenzielle Zuweisung über Unit-Pre, Modus, beide
+Builder und Unit-Post nach. 1/120/680 Units, getrennte Komponenten, ungeeignete Units,
+Feindfelder, geänderte Gebäude-Global-ID, stale Endmarker und unveränderter kompletter
+Puffer bei Eigentümerfehler geprüft. Unabhängiger Matrix-BFS prüft gerichtete und
+terminale Kanten sowie frische Feldverwendung nach Terrainänderung. Sicherheitsregressionen bestehen.
+
+Im schmalen Produktionsmodell besuchen alle Gruppengrößen 404 Knoten für 351 Plätze;
+keine gewichtete oder kodierende Suche während der Kandidatenbewertung. Aufgewärmt
+etwa 0,084/0,089 ms für 120/680 Units mit Moat und 0,028/0,031 ms ohne Moat. Diese kleine
+Karte ist kein Nachbau des Spiellaufs und erlaubt keinen Beschleunigungsfaktor für dessen
+9513 ms. Feldspeicher einmalig rund 7,7 MB pro maximaler gleichzeitiger Verschachtelung;
+spätere Läufe verwenden ihn erneut. Native Kandidatenzahl bleibt maßgeblich: 351 Plätze
+bedeuten nicht, dass alle 680 Einheiten einen Platz erhalten müssen.
+
+Nächste Spielabnahme: gleicher Gebäudeangriff mit/ohne Moat, gesamte Befehlszeit,
+tatsächliche Bewegung und spätere Arbeit/Angriffe. Mehr bewegte Units verursachen mehr
+individuelle Wegarbeit als die zuvor zwölf. Queue, Patrol, Fill/Dig und Host/Client
+bleiben Teil der Spielabnahme. Keine vollständige Lagfreiheit behauptet.
+Script Extender 1.42.0, Modversion 1.0.0, README und öffentliche QoL-Bridge unverändert.
+
+Buildstatus Gebäudeplatzprüfung: erfolgreich gebaut und installiert am 05.09.2026 um 21:47:41; 0 Fehler, 0 Warnungen. Der erste Build um 21:46:58 zeigte eine ungenutzte Diagnosevariable; nach deren Entfernung und erneuter Prüfung wurde der bereinigte Stand nochmals gebaut. Lokale und installierte DLL SHA-256-identisch: 7BE8F4989DD4D069B4954422B5D9D53C85062B108BD8C62823275AECDD42A29A. Laufzeitabnahme offen.
+
 ## Aktuelle Reparatur: gemeinsame Gruppenoptimierung
 
 Ausgangslauf: Befehl 22 um 19:59:19, 680 Units, 1114,968 ms synchroner Befehl,

@@ -292,3 +292,131 @@ namespace MoveMoatTest
         }
     }
 }
+
+namespace MoveMoatTest
+{
+    internal sealed unsafe partial class MoveMoatPathTest
+    {
+        private sealed class AttackCommandScope
+        {
+            public int MapEpoch, TribeId, TargetValue1, TargetValue2, Sequence;
+            public TribeAICommand Command;
+            public System.Collections.Generic.Dictionary<int,System.Collections.Generic.HashSet<int>> PublishedBuildingApproaches = new System.Collections.Generic.Dictionary<int,System.Collections.Generic.HashSet<int>>();
+        }
+        private sealed class AttackApproachDiagnosticScope
+        { public AttackCommandScope OwnerCommand; public int TribeId; }
+        private static bool IsBuildingAttackCommand(TribeAICommand command) => command == TribeAICommand.AttackBuilding;
+        private static bool IsWallStairOrRampStructure(int type) => type==99;
+        private bool MatchesAttackTargetContext(GameUnit* unit,TribeAICommand command,int id,int global) => false;
+
+        private void BuildingCandidateTests()
+        {
+            var api=GameTileManagerAPI.Instance; var units=GameUnitManagerAPI.Instance.Units;
+            var oldTribes=nativeTribeManager; var oldBuilding=GameBuildingManagerAPI.Instance.Building;
+            byte* tribes=(byte*)NativeMemory.AllocZeroed(TribeRecordSize*2);
+            GameBuilding building=new GameBuilding { r_GlobalId=900,r_AliveState=AliveState.IsAlive,r_PlayerIdOwner=2 };
+            try
+            {
+                nativeTribeManager=(IntPtr)tribes; GameBuildingManagerAPI.Instance.Building=&building; api.Buildings=nativeBuildingLayer;
+                ClearUnitMoveFrames(); activePlan=pendingPlan=null;activeMoveCommand=null;activeMoatWorkSelection=null;
+                enemyTiles.Clear(); api.Occupants.Clear(); api.Rows[11*3]=2000;
+                for(int x=50;x<430;x++)
+                {
+                    tileFlags[1000+x]=0x8000;nativeMovementMasks[1000+x]=0x44;nativeHeightLayer[1000+x]=0;
+                    nativeBuildingLayer[1000+x]=0;pathRegionGrid[1000+x]=(short)(x<55?1:2);
+                    movementTargetAvailability[8000+x]=1;
+                    tileFlags[2000+x]=0;nativeMovementMasks[2000+x]=0;nativeBuildingLayer[2000+x]=1;
+                }
+                var pool=new System.Collections.Generic.List<BuildingApproachCandidate>();
+                for(int i=0;i<351;i++)pool.Add(new BuildingApproachCandidate(1060+i,i<12?2060+i:0,10000000));
+                var command=new AttackCommandScope { MapEpoch=mapEpoch,TribeId=1,TargetValue1=1,TargetValue2=900,Sequence=1,Command=TribeAICommand.AttackBuilding };
+                var scope=new AttackApproachDiagnosticScope{OwnerCommand=command,TribeId=1};
+                getGroupUnitId=(m,t,n)=>n+1;
+                *(short*)(tribes+TribeRecordSize+TribeLeadUnitIdOffset)=1;
+                foreach(int count in new[]{1,120,680})
+                {
+                    *(short*)(tribes+TribeRecordSize+TribeUnitCountOffset)=(short)count;
+                    for(int id=1;id<=count;id++)units[id]=new GameUnit{Digger=true,r_GlobalId=(uint)(9000+id),r_TribeId=1,r_ControllableForPlayerId=1,
+                        r_AliveState=AliveState.IsAlive,r_CurrentTilePositionX=50,r_CurrentTilePositionY=10,r_NextTilePositionX2=50,r_NextTilePositionY2=10,r_MovingRelevant=8};
+                    foreach(bool moat in new[]{false,true})
+                    {
+                        tileFlags[1055]=moat?CompletedMoatTileFlag:0x8000; tick++;InvalidateMovementSearchData();
+                        WriteBuildingApproachCandidates(nativePathManager,pool);
+                        var before=CaptureBuildingApproachCandidates(nativePathManager);
+                        if(moat)WriteBuildingApproachCandidates(nativePathManager,new System.Collections.Generic.List<BuildingApproachCandidate>());
+                        else { var native=new System.Collections.Generic.List<BuildingApproachCandidate>();foreach(var c0 in pool){var c=c0;c.Score=c.ApproachTileId-1050+1;native.Add(c);}WriteBuildingApproachCandidates(nativePathManager,native); }
+                        activeAttackCommand=command;activeBuildingConsumerPerformance=new BuildingConsumerPerformanceScope(1,1,351);
+                        long runs=weightedMoatRoutePlanner.SearchRuns,bytes=GC.GetAllocatedBytesForCurrentThread();var timer=Stopwatch.StartNew();
+                        var result=TryApplyBuildingConsumerFallback(scope,nativeTribeManager,before,default);
+                        timer.Stop();
+                        Check(weightedMoatRoutePlanner.SearchRuns==runs,"candidate evaluation never performs individual encoded/weighted searches");
+                        var after=CaptureBuildingApproachCandidates(nativePathManager);
+                        Check(after.Length==351,"351 native building places survive including staging");
+                        for(int i=0;i<351;i++)Check(after[i].ApproachTileId==1060+i && after[i].FootprintTileId==(i<12?2060+i:0),"native paired prefix and staging order retained");
+                        Check(activeBuildingConsumerPerformance.ReachabilityMapsBuilt==(moat?1:0),"one shared field or unchanged native list");
+                        PublishBuildingApproachPairs(command,nativePathManager);
+                        Console.WriteLine($"BUILDING PRODUCTION units={count} moat={moat} candidates={after.Length} ms={timer.Elapsed.TotalMilliseconds:F3} nodes={activeBuildingConsumerPerformance.SearchNodes} bytes={GC.GetAllocatedBytesForCurrentThread()-bytes}");
+                        if(moat)
+                        {
+                            captureWeighted=true; originalPathBuilder=(m,c,p)=>0;originalPathReconstruction=m=>0;
+                            int calls=Math.Min(count,after.Length);
+                            for(int id=1;id<=calls;id++)
+                            {
+                                int x=after[id-1].ApproachTileId-1000;
+                                units[id].r_AttackMoveToTargetTileX=(ushort)x;units[id].r_AttackMoveToTargetTileY=10;
+                                Check(MatchesSynchronousAttackMovementContext(units+id,command,out _),"published staging target is a bound movement context");
+                                ObserveUnitMoveOrder(new UnitMoveHereEventArgs(EventHookPhase.Pre,id,x,10,0));
+                                *moatPathMode=EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager,id);
+                                Check(ReferenceEquals(nativeGroundOwner,command),"attack search owner survives successive unit frames");
+                                byte* m=(byte*)nativePathManager;*(int*)(m+8)=50;*(int*)(m+12)=10;*(int*)(m+16)=x;*(int*)(m+20)=10;
+                                *(byte**)(m+PathManagerOutputBufferOffset)=nativeUnitManager+NativeUnitPathBufferOffset+id*NativeUnitPathBufferStride;
+                                *(int*)(m+PathManagerOutputLengthOffset)=0;
+                                int path=id%2==0?BuildReconstructedUnitPath(nativePathManager):BuildPathWithCompletedMoatRouteVariant(nativePathManager,1,0);
+                                Check(path==x-50,"native assigned building/staging place reaches own audited builder");
+                                ObserveUnitMoveOrder(new UnitMoveHereEventArgs(EventHookPhase.Post,id,x,10,0){ReturnValue=path});
+                            }
+                        }
+                    }
+                }
+                // The leader cannot cross this enemy barrier. Other suitable starts can
+                // still supply staging positions; their proof never becomes a unit path.
+                tileFlags[1055]=CompletedMoatTileFlag;enemyTiles.Add(1055);
+                units[2].r_CurrentTilePositionX=80;units[2].r_NextTilePositionX2=80;
+                *(short*)(tribes+TribeRecordSize+TribeUnitCountOffset)=2;
+                WriteBuildingApproachCandidates(nativePathManager,new System.Collections.Generic.List<BuildingApproachCandidate>());
+                activeBuildingConsumerPerformance=new BuildingConsumerPerformanceScope(1,1,351);
+                TryApplyBuildingConsumerFallback(scope,nativeTribeManager,pool.ToArray(),default);
+                Check(CaptureBuildingApproachCandidates(nativePathManager).Length==351 && activeBuildingConsumerPerformance.ReachabilityMapsBuilt==2,
+                    "supplemental multi-source field supplies disconnected group component");
+                units[2].Digger=false;
+                WriteBuildingApproachCandidates(nativePathManager,new System.Collections.Generic.List<BuildingApproachCandidate>());
+                TryApplyBuildingConsumerFallback(scope,nativeTribeManager,pool.ToArray(),default);
+                Check(CaptureBuildingApproachCandidates(nativePathManager).Length==0,"unsuitable member cannot provide friendly moat permission");
+                enemyTiles.Remove(1055);units[2].Digger=true;
+                WriteBuildingApproachCandidates(nativePathManager,pool);
+                var snapshot=CaptureBuildingApproachBuffer(nativePathManager);
+                injectOwnerFailure=true;bool threw=false;
+                try{TryApplyBuildingConsumerFallback(scope,nativeTribeManager,pool.ToArray(),default);}catch{threw=true;}finally{injectOwnerFailure=false;}
+                Check(threw,"injected ownership error reaches atomic publication boundary");
+                var unchanged=CaptureBuildingApproachBuffer(nativePathManager);
+                for(int i=0;i<snapshot.Length;i++)Check(unchanged[i].ApproachTileId==snapshot[i].ApproachTileId && unchanged[i].FootprintTileId==snapshot[i].FootprintTileId && unchanged[i].Score==snapshot[i].Score,"failed selection leaves entire native candidate buffer unchanged");
+                PublishBuildingApproachPairs(command,nativePathManager);
+                units[1].r_AttackMoveToTargetTileX=100;units[1].r_AttackMoveToTargetTileY=10;
+                building.r_GlobalId++;
+                Check(!MatchesSynchronousAttackMovementContext(units+1,command,out _),"building ID reuse invalidates staging context");building.r_GlobalId--;
+                tileFlags[1100]=CompletedMoatTileFlag;enemyTiles.Add(1100);
+                Check(!MatchesSynchronousAttackMovementContext(units+1,command,out _),"enemy staging target invalidates context");
+                // Native compaction writes only the first int of the terminator; stale companion is not a record.
+                byte* end=(byte*)nativePathManager+PathManagerFloodResultTileOffset;
+                *(int*)end=0;*(int*)(end+4)=999;
+                Check(CaptureBuildingApproachCandidates(nativePathManager).Length==0,"native first-word terminator ignores stale companion");
+            }
+            finally
+            {
+                nativeTribeManager=oldTribes;GameBuildingManagerAPI.Instance.Building=oldBuilding;NativeMemory.Free(tribes);
+                activeAttackCommand=null;activeBuildingConsumerPerformance=null;captureWeighted=false;
+                activePlan=pendingPlan=null;ClearUnitMoveFrames();enemyTiles.Clear();
+            }
+        }
+    }
+}

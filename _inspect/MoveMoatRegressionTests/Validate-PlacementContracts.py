@@ -94,3 +94,25 @@ assert attack.index('if (10 < sVar4) break;') < attack.index('puVar12 = (undefin
 assert 'puVar12 = puVar12 + 3;' in attack and '*puVar12 = 1;' in attack and '*puVar12 = 0;' in attack
 assert 'FUN_1800dbc60' in pseudo(0x11E960) and 'piVar33 = piVar33 + 3;' in pseudo(0x11E960)
 print('PASS attack native pool: one depth-limited flood, 50..500 result limit, unchanged three-int consumer records.')
+
+# Building placement uses current leader coordinates, one flood, and three-int
+# records. Zero footprint denotes staging; only a zero approach ends the list.
+consumer = pseudo(0x123090)
+producer = pseudo(0xDA020)
+caller = pseudo(0x11E960)
+assert 'puVar7 = puVar7 + 3;' in consumer
+assert '(&DAT_1860c89a4)[(longlong)iVar4 * 3] = 0;' in consumer
+assert '*(int *)((longlong)&DAT_1860c89ac + lVar8) != 10000000' in consumer
+assert '*(int *)((longlong)&DAT_1860c89b4 + lVar6) == 0' in consumer
+assert '*puVar16 = 0;' in producer and 'puVar16 = puVar16 + 3;' in producer
+assert 'iVar12 = piVar33[-1];' in caller and 'iVar12 = *piVar33;' in caller
+entry = list(decoder.disasm(pe.get_data(0x123090, 0xA1), 0x123090))
+by_address = {i.address:(i.mnemonic,i.op_str) for i in entry}
+assert by_address[0x1230BD] == ('movsx','rcx, word ptr [r9 + rdi + 0x5a]')
+assert by_address[0x1230CA] == ('imul','rdx, rcx, 0x490')
+assert by_address[0x1230D1] == ('movsx','ecx, word ptr [rdx + rdi + 0x67e8b1e]')
+assert by_address[0x1230D9] == ('movsx','r9d, word ptr [rdx + rdi + 0x67e8b1c]')
+assert by_address[0x123102] == ('call','0xdb650')
+assert by_address[0x123125] == ('call','0xd9c40')
+assert by_address[0x12312C] == ('call','0xda590')
+print('PASS building native ABI: leader/current start, all three consumer variants, paired-prefix sorting, staging records and first-word termination.')
