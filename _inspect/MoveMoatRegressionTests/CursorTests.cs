@@ -237,6 +237,22 @@ namespace MoveMoatTest
             Check(ProbeCursorConnectivity(1,1010,1017,out var route) && route.RouteFound && route.ReachedWithMoat,
                 "production cursor topology joins regions through friendly moat");
             long builds=cursorTopologyBuilds, pathRuns=weightedMoatRoutePlanner.SearchRuns;
+            Check(ProbeGroundConnection(1,1010,1017)==GroundConnectionDecision.Excluded,
+                "complete ground upper graph excludes a moat-only connection");
+            Check(ProbeGroundConnection(1,1010,1011)==GroundConnectionDecision.Unknown,
+                "merged region is not a concrete positive path proof");
+            cursorTopologies[1].Dirty.Add(1013);
+            Check(ProbeGroundConnection(1,1010,1017)==GroundConnectionDecision.Unknown,
+                "dirty graph never supplies a negative proof");
+            cursorTopologies[1].Dirty.Remove(1013);
+            for(int sx=10;sx<=18;sx++)for(int tx=10;tx<=18;tx++)
+            {
+                bool actual=weightedMoatRoutePlanner.TryProbeReachability(1,sx,10,tx,10,false,
+                    MoatTraversalPolicy.GroundOnly,out _);
+                Check(ProbeGroundConnection(1,1000+sx,1000+tx)!=GroundConnectionDecision.Excluded || !actual,
+                    "negative upper-graph proof agrees with actual directed ground search");
+            }
+            pathRuns=weightedMoatRoutePlanner.SearchRuns;
             Check(ProbeCursorConnectivity(1,1013,1017,out route) && route.RouteFound,"cursor start on moat has its own node");
             enemyTiles.Add(1013); DirtyCursorTile(1013);
             Check(ProbeCursorConnectivity(1,1010,1017,out route) && !route.RouteFound,"owner change removes cached positive connection");

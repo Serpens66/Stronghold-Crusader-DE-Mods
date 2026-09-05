@@ -480,6 +480,10 @@ namespace MoveMoatTest
         {
             get { long total = 0; foreach (MoatSearchKernel k in searchKernels) if (k != null) total += k.Expanded; return total; }
         }
+        internal int CachedSearchFields
+        {
+            get { int count=0; foreach (MoatSearchKernel kernel in searchKernels) if(kernel!=null)count+=kernel.CachedFields; return count; }
+        }
         internal long SearchRuns
         {
             get { long total = 0; foreach (MoatSearchKernel k in searchKernels) if (k != null) total += k.Searches; return total; }

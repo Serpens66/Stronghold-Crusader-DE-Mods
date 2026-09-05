@@ -1566,6 +1566,7 @@ namespace MoveMoatTest
                         $"unitMoveWithoutBuilder={command?.UnitMoveWithoutBuilder ?? 0} " +
                         $"unitMoveAlreadyArrived={command?.UnitMoveAlreadyArrived ?? 0} " +
                         $"searchRunsTotal={weightedMoatRoutePlanner.SearchRuns} searchNodesTotal={weightedMoatRoutePlanner.SearchNodes} " +
+                        $"cachedSearchFields={weightedMoatRoutePlanner.CachedSearchFields} " +
                         $"sharedFieldHitsTotal={weightedMoatRoutePlanner.SharedFieldHits} nativeRegionQueriesTotal={nativeGroundQueries} " +
                         $"nativeRegionCacheHitsTotal={nativeGroundCacheHits} " +
                         $"unitMoveAbandoned={command?.UnitMoveAbandoned ?? 0} " +
@@ -6209,18 +6210,24 @@ namespace MoveMoatTest
             int startRegion = pathRegionGrid[startTileId];
             int targetRegion = pathRegionGrid[targetTileId];
             // A concrete failed search is not a proof about every tile in two native PCLs.
-            string cacheKey = $"{mapEpoch}:{CaptureCurrentGameTick()}:{playerId}:{startTileId}:{targetTileId}:{allowReservedTarget}:work:{plan.MoatWorkTargetTileId}";
+            bool hasCost = TryCaptureWeightedMovementCostProfile(unit, out WeightedMovementCostProfile routeCost, out _);
+            if (!hasCost) routeCost = default;
+            var cacheKey = new RouteDecisionKey(mapEpoch, CaptureCurrentGameTick(), playerId, startTileId,
+                targetTileId, allowReservedTarget, plan.MoatWorkTargetTileId, placementRevision, routeCost);
             MoveCommandScope command = activeMoveCommand;
             if (command != null && command.TargetedRouteDecisions.TryGetValue(
                     cacheKey, out TargetedRouteDecision cached))
             {
                 command.TargetedRouteCacheHits++;
                 summary = cached.Summary;
+                plan.QualifiedRoute = cached.Route;
                 return cached.RequiredFriendlyMoat;
             }
 
             if (!evaluateMissing)
                 return false;
+
+            plan.QualifiedRoute = null;
 
             Stopwatch stopwatch = Stopwatch.StartNew();
             WeightedMoatRouteSummary ground = default;
@@ -6232,15 +6239,26 @@ namespace MoveMoatTest
             targetedRouteProbeBusy = true;
             try
             {
-                groundReachable = weightedMoatRoutePlanner.TryProbeReachability(
+                GroundConnectionDecision groundDecision = ProbeGroundConnection(playerId, startTileId, targetTileId);
+                groundReachable = groundDecision == GroundConnectionDecision.Reachable ||
+                    (groundDecision == GroundConnectionDecision.Unknown && weightedMoatRoutePlanner.TryProbeReachability(
                     playerId, startX, startY, plan.TargetX, plan.TargetY,
-                    allowReservedTarget, MoatTraversalPolicy.GroundOnly, out ground);
+                    allowReservedTarget, MoatTraversalPolicy.GroundOnly, out ground));
                 if (!groundReachable)
                 {
-                    friendlyReachable = weightedMoatRoutePlanner.TryProbeReachability(
-                        playerId, startX, startY, plan.TargetX, plan.TargetY,
-                        allowReservedTarget, MoatTraversalPolicy.FriendlyOnly,
-                        out friendly);
+                    WeightedMoatEncodedRoute encoded;
+                    friendlyReachable = hasCost
+                        ? weightedMoatRoutePlanner.TryBuildEncoded(playerId, startX, startY, plan.TargetX, plan.TargetY,
+                            routeCost, allowReservedTarget, out friendly, out encoded)
+                        : weightedMoatRoutePlanner.TryBuildReachabilityEncoded(playerId, startX, startY, plan.TargetX, plan.TargetY,
+                            allowReservedTarget, out friendly, out encoded);
+                    if (friendlyReachable)
+                        plan.QualifiedRoute = new QualifiedMovementRoute(startX, startY, plan.TargetX, plan.TargetY,
+                            playerId, mapEpoch, CaptureCurrentGameTick(), placementRevision, encoded, friendly, routeCost, hasCost);
+                    // Reachability is not limited by the native output buffer.
+                    if (!friendlyReachable)
+                        friendlyReachable = weightedMoatRoutePlanner.TryProbeReachability(playerId, startX, startY,
+                            plan.TargetX, plan.TargetY, allowReservedTarget, MoatTraversalPolicy.FriendlyOnly, out friendly);
                     if (!friendlyReachable && plan.MoatWorkMovement &&
                         TryBuildTerminalFillRoute(plan, unit, startX, startY, out friendly, out WeightedMoatEncodedRoute terminal))
                     {
@@ -6284,7 +6302,7 @@ namespace MoveMoatTest
                     command.TargetedRouteMaximumSearchMilliseconds,
                     summary.TargetedSearchMilliseconds);
                 command.TargetedRouteDecisions[cacheKey] =
-                    new TargetedRouteDecision(requiredFriendly, summary);
+                    new TargetedRouteDecision(requiredFriendly, summary, plan.QualifiedRoute);
             }
             summary.AttackProbeEvaluated = true;
             if (summary.RouteFound)
@@ -8957,8 +8975,8 @@ namespace MoveMoatTest
             public int TargetedRouteExpandedNodes { get; set; }
             public double TargetedRouteSearchMilliseconds { get; set; }
             public double TargetedRouteMaximumSearchMilliseconds { get; set; }
-            public Dictionary<string, TargetedRouteDecision> TargetedRouteDecisions { get; } =
-                new Dictionary<string, TargetedRouteDecision>(StringComparer.Ordinal);
+            public Dictionary<RouteDecisionKey, TargetedRouteDecision> TargetedRouteDecisions { get; } =
+                new Dictionary<RouteDecisionKey, TargetedRouteDecision>();
             public string LastGroupMoatModeDiagnostic { get; set; }
             public int EarlyRegionCalls { get; set; }
             public int EarlyRegionBypasses { get; set; }
@@ -8990,17 +9008,64 @@ namespace MoveMoatTest
             public RouteProbeSummary Summary { get; }
         }
 
+        private readonly struct RouteDecisionKey : IEquatable<RouteDecisionKey>
+        {
+            private readonly int epoch, tick, player, start, target, work;
+            private readonly bool reserved;
+            private readonly long revision;
+            private readonly WeightedMovementCostProfile profile;
+            public RouteDecisionKey(int epoch, int tick, int player, int start, int target, bool reserved,
+                int work, long revision, WeightedMovementCostProfile profile)
+            { this.epoch=epoch; this.tick=tick; this.player=player; this.start=start; this.target=target;
+                this.reserved=reserved; this.work=work; this.revision=revision; this.profile=profile; }
+            public bool Equals(RouteDecisionKey k) => epoch==k.epoch && tick==k.tick && player==k.player &&
+                start==k.start && target==k.target && reserved==k.reserved && work==k.work && revision==k.revision && profile.Equals(k.profile);
+            public override bool Equals(object other) => other is RouteDecisionKey k && Equals(k);
+            public override int GetHashCode() { unchecked { int h=epoch; h=h*397^tick; h=h*397^player;
+                h=h*397^start; h=h*397^target; h=h*397^work; h=h*397^revision.GetHashCode();
+                return (h*397^profile.GetHashCode())*397^(reserved?1:0); } }
+        }
+
+        private sealed class QualifiedMovementRoute
+        {
+            public readonly int StartX, StartY, TargetX, TargetY, Player, Epoch, Tick;
+            public readonly long Revision;
+            public readonly WeightedMoatEncodedRoute Route;
+            public readonly WeightedMoatRouteSummary Summary;
+            public readonly WeightedMovementCostProfile Profile;
+            public readonly bool Optimal;
+            public QualifiedMovementRoute(int sx,int sy,int tx,int ty,int player,int epoch,int tick,long revision,
+                WeightedMoatEncodedRoute route,WeightedMoatRouteSummary summary,WeightedMovementCostProfile profile,bool optimal)
+            { StartX=sx;StartY=sy;TargetX=tx;TargetY=ty;Player=player;Epoch=epoch;Tick=tick;Revision=revision;
+                Route=route;Summary=summary;Profile=profile;Optimal=optimal; }
+        }
+
+        private QualifiedMovementRoute GetReusableQualifiedRoute(PlanScope plan, GameUnit* unit)
+        {
+            QualifiedMovementRoute saved = plan?.QualifiedRoute;
+            if (saved == null || unit == null || !saved.Route.IsValid || saved.Epoch != mapEpoch ||
+                saved.Tick != CaptureCurrentGameTick() || saved.Revision != placementRevision ||
+                saved.Player != unit->r_ControllableForPlayerId || saved.TargetX != plan.TargetX || saved.TargetY != plan.TargetY ||
+                !GameUnitManagerAPI.Instance.TryGetUnitById(plan.UnitId, out GameUnit* bound) || bound != unit ||
+                (plan.IdentityBound && plan.UnitGlobalId != unit->r_GlobalId))
+                return null;
+            GetNativeMovementStart(unit,out int x,out int y);
+            return saved.StartX == x && saved.StartY == y ? saved : null;
+        }
+
         private readonly struct TargetedRouteDecision
         {
             public TargetedRouteDecision(
-                bool requiredFriendlyMoat, RouteProbeSummary summary)
+                bool requiredFriendlyMoat, RouteProbeSummary summary, QualifiedMovementRoute route = null)
             {
                 RequiredFriendlyMoat = requiredFriendlyMoat;
                 Summary = summary;
+                Route = route;
             }
 
             public bool RequiredFriendlyMoat { get; }
             public RouteProbeSummary Summary { get; }
+            public QualifiedMovementRoute Route { get; }
         }
 
         private sealed class UnitMoveFrame
@@ -9047,6 +9112,7 @@ namespace MoveMoatTest
             public bool NativeGroundPrecheck { get; set; }
             public bool PublishedUsesMoat { get; set; }
             public WeightedMoatEncodedRoute QualifiedTerminalRoute { get; set; }
+            public QualifiedMovementRoute QualifiedRoute { get; set; }
             public WeightedMoatRouteSummary QualifiedTerminalSummary { get; set; }
             public int PlayerId { get; set; } = -1;
             public uint UnitGlobalId { get; set; }

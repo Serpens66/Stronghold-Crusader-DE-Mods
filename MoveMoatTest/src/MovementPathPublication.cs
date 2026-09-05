@@ -512,6 +512,8 @@ namespace MoveMoatTest
                 plan.UnitId, GameTileManagerAPI.Instance.GetTileId(targetX, targetY));
             WeightedMoatRouteSummary summary = plan.QualifiedTerminalSummary;
             WeightedMoatEncodedRoute route = plan.QualifiedTerminalRoute;
+            QualifiedMovementRoute reusable = GetReusableQualifiedRoute(plan, unit);
+            if (reusable != null) { route = reusable.Route; summary = reusable.Summary; }
             targetedRouteProbeBusy = true;
             try
             {

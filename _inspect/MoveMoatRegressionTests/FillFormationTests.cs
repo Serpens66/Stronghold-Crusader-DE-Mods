@@ -163,6 +163,47 @@ namespace MoveMoatTest
                     ObserveUnitMoveOrder(new UnitMoveHereEventArgs(EventHookPhase.Post,1,17,10,0){ReturnValue=result});
                 }
                 Check(selections==2 && reservations==2 && mode1==2 && mode2==2,"one selection and reservation per complete later work cycle");
+                // Real UnitPre -> mode -> both builders -> publication -> UnitPost.
+                pendingPlan=activePlan=null;ClearUnitMoveFrames();enemyTiles.Clear();api.Occupants.Clear();
+                tileFlags[1016]=0x8000;tileFlags[1055]=CompletedMoatTileFlag;
+                for(int x=50;x<=130;x++)pathRegionGrid[1000+x]=(short)(x<55?1:2);
+                originalPathBuilder=(m,c,p)=>0;originalPathReconstruction=m=>0;
+                captureWeighted=true;
+                foreach(int count in new[]{1,120,680})
+                {
+                    tick++;InvalidateMovementSearchData();
+                    activeMoveCommand=new MoveCommandScope{TribeId=1,TargetX=90,TargetY=10};
+                    long beginNodes=weightedMoatRoutePlanner.SearchNodes,allocated=GC.GetAllocatedBytesForCurrentThread();
+                    var timer=Stopwatch.StartNew();
+                    for(int id=1;id<=count;id++)
+                    {
+                        int target=60+id%60;
+                        units[id]=new GameUnit{Digger=true,r_GlobalId=(uint)(8000+id),r_ControllableForPlayerId=1,r_TribeId=1,
+                            r_CurrentTilePositionX=50,r_CurrentTilePositionY=10,r_NextTilePositionX2=50,r_NextTilePositionY2=10,r_MovingRelevant=8};
+                        ObserveUnitMoveOrder(new UnitMoveHereEventArgs(EventHookPhase.Pre,id,target,10,0));
+                        *moatPathMode=EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager,id);
+                        var bound=GetCurrentUnitMoveFrame().Plan;
+                        Check(GetReusableQualifiedRoute(bound,units+id)!=null,"mode retains exact encoded qualification");
+                        long searches=weightedMoatRoutePlanner.SearchRuns;
+                        *(int*)(manager+8)=50;*(int*)(manager+12)=10;*(int*)(manager+16)=target;*(int*)(manager+20)=10;
+                        *(byte**)(manager+PathManagerOutputBufferOffset)=nativeUnitManager+NativeUnitPathBufferOffset+id*NativeUnitPathBufferStride;
+                        *(int*)(manager+PathManagerOutputLengthOffset)=0;*(int*)(manager+PathManagerRouteVariantOffset)=0;
+                        int result=id%2==0?BuildReconstructedUnitPath(nativePathManager):BuildPathWithCompletedMoatRouteVariant(nativePathManager,1,0);
+                        Check(result==target-50,"qualified path published to individual unit");
+                        Check(weightedMoatRoutePlanner.SearchRuns==searches,"builder and optimality check do not repeat qualification search");
+                        long savedRevision=placementRevision;placementRevision++;
+                        Check(GetReusableQualifiedRoute(bound,units+id)==null,"revision invalidates retained path");placementRevision=savedRevision;
+                        units[id].r_GlobalId++;
+                        Check(GetReusableQualifiedRoute(bound,units+id)==null,"reused game ID does not reuse a bound plan");units[id].r_GlobalId--;
+                        units[id].r_CurrentTilePositionX++;
+                        Check(GetReusableQualifiedRoute(bound,units+id)==null,"changed actual start rejects retained path");units[id].r_CurrentTilePositionX--;
+                        tick++;
+                        Check(GetReusableQualifiedRoute(bound,units+id)==null,"later tick rejects retained path");tick--;
+                        ObserveUnitMoveOrder(new UnitMoveHereEventArgs(EventHookPhase.Post,id,target,10,0){ReturnValue=result});
+                    }
+                    Console.WriteLine($"GROUP PRODUCTION units={count} ms={timer.Elapsed.TotalMilliseconds:F3} nodes={weightedMoatRoutePlanner.SearchNodes-beginNodes} bytes={GC.GetAllocatedBytesForCurrentThread()-allocated}");
+                }
+                tileFlags[1055]=0x8000;
                 captureWeighted=false; activePlan=pendingPlan=null; ClearUnitMoveFrames(); api.Occupants.Clear();
                 tileFlags[1016]=0x8000; enemyTiles.Clear(); nativeTribeManager=(IntPtr)tribes;
                 *(int*)(tribes+TribeRecordSize+0x2C)=1;

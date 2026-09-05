@@ -27,7 +27,9 @@ namespace MoveMoatTest
         private readonly List<Label> labels = new List<Label>();
         private readonly List<int> heap = new List<int>();
         private ReverseField field;
-        private bool fieldValid;
+        private readonly List<ReverseField> fields = new List<ReverseField>(8);
+        private long fieldScale = 1;
+        private long fieldGeneration;
         private int target;
         private long groundCost, moatCost;
         private bool useField;
@@ -43,7 +45,9 @@ namespace MoveMoatTest
         public long Searches { get; private set; }
         public long FieldHits { get; private set; }
         public long Refinements { get; private set; }
-        public void Invalidate() { fieldValid = false; }
+        public void Invalidate() { fieldGeneration++; useField = false; }
+        internal int CachedFields => fields.Count;
+        private static long Gcd(long a, long b) { while (b != 0) { long t = a % b; a = b; b = t; } return a; }
 
         public bool Search(int start, int destination, long ground, long moat,
             int maximumEdges, bool requireMoat, bool excludeStructures,
@@ -58,20 +62,43 @@ namespace MoveMoatTest
             if (!Fits(0, 0, start, requireMoat, limits)) return false;
             if (shareField)
             {
-                if (!fieldValid || field == null || field.Ground != ground || field.Moat != moat ||
-                    field.ExcludeStructures != excludeStructures)
+                fieldScale = Gcd(ground, moat);
+                if (fieldScale <= 0) fieldScale = 1;
+                long normalizedGround = ground / fieldScale, normalizedMoat = moat / fieldScale;
+                int match = -1;
+                for (int i=0;i<fields.Count;i++)
+                    if (fields[i].Ground == normalizedGround && fields[i].Moat == normalizedMoat && fields[i].ExcludeStructures == excludeStructures)
+                    { match=i;break; }
+                if (match >= 0)
                 {
-                    if (field == null) field = new ReverseField(this, destination, start, ground, moat, excludeStructures);
-                    else field.Reset(destination, start, ground, moat, excludeStructures);
-                    fieldValid = true;
+                    field = fields[match]; fields.RemoveAt(match);
+                    if (field.CacheGeneration != fieldGeneration)
+                        field.Reset(destination,start,normalizedGround,normalizedMoat,excludeStructures);
+                    else if (destination != field.Anchor)
+                    {
+                        // A settled optimal path's prefix is itself optimal. Reuse it
+                        // directly if it contains the new endpoint; otherwise reset the
+                        // same pages instead of expanding a remote heuristic anchor.
+                        int[] prefix = field.Prefix(start,destination);
+                        if (prefix != null && Accept(prefix,maximumEdges,requireMoat,excludeStructures,limits))
+                        { fields.Add(field); FieldHits++; path=prefix; return true; }
+                        field.Reset(destination,start,normalizedGround,normalizedMoat,excludeStructures);
+                    }
                 }
+                else if (fields.Count == 8)
+                { field = fields[0]; fields.RemoveAt(0); field.Reset(destination, start, normalizedGround, normalizedMoat, excludeStructures); }
+                else field = new ReverseField(this, destination, start, normalizedGround, normalizedMoat, excludeStructures);
+                field.CacheGeneration = fieldGeneration;
+                fields.Add(field);
                 long before = field.Expanded;
                 long ceiling = long.MaxValue;
                 if (limits != null)
                     foreach (MoatSearchLimit limit in limits)
                         if (limit.Ground == ground && limit.Moat == moat) ceiling = Math.Min(ceiling, limit.Maximum);
-                field.Settle(destination, ceiling);
-                field.Settle(start, ceiling);
+                field.Settle(destination, ceiling / fieldScale);
+                // For another formation endpoint the anchor is only a heuristic.
+                // Settling that unit's start as well duplicates its forward search.
+                if (destination == field.Anchor) field.Settle(start, ceiling / fieldScale);
                 Expanded += field.Expanded - before;
                 if (field.Expanded != before) Searches++;
                 useField = field.IsSettled(destination);
@@ -232,7 +259,10 @@ namespace MoveMoatTest
         private long Heuristic(int node)
         {
             long lower = Distance(node, target) * groundCost;
-            return useField ? Math.Max(lower, field.Lower(node) - field.Cost(target)) : lower;
+            if (!useField) return lower;
+            long difference = field.Lower(node) - field.Cost(target);
+            long scaled = difference <= 0 ? 0 : difference > long.MaxValue / fieldScale ? long.MaxValue : difference * fieldScale;
+            return Math.Max(lower, scaled);
         }
         private int Distance(int a, int b) => Math.Max(Math.Abs(a % width - b % width), Math.Abs(a / width - b / width));
         private int Neighbour(int node, int direction)
@@ -257,6 +287,7 @@ namespace MoveMoatTest
 
         private sealed class ReverseField
         {
+            public long CacheGeneration;
             private readonly MoatSearchKernel owner;
             private int first;
             // Sparse pages keep indexed reads cheap without allocating a full map's
@@ -291,6 +322,16 @@ namespace MoveMoatTest
             public long Expanded { get; private set; }
             public bool Exhausted => queue.Count == 0;
             public bool IsSettled(int node) => pages[node >> PageShift]?.Generation[node & PageMask] == -generation;
+            public int[] Prefix(int start,int destination)
+            {
+                if (!IsSettled(start) || !IsSettled(destination)) return null;
+                int node=start;
+                while (node != destination && node != Anchor) node=pages[node >> PageShift].Parent[node & PageMask];
+                if (node != destination) return null;
+                var result=new List<int>();node=start;
+                while(node != destination) {result.Add(node);node=pages[node >> PageShift].Parent[node & PageMask];}
+                result.Add(destination);return result.ToArray();
+            }
             public long Cost(int node) => pages[node >> PageShift].Distance[node & PageMask];
             private bool TryCost(int node, out long cost)
             {

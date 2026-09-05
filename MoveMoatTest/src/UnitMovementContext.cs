@@ -159,6 +159,8 @@ namespace MoveMoatTest
             result.MoatWorkMovement = source.MoatWorkMovement;
             result.MoatWorkSearch = source.MoatWorkSearch;
             result.MoatWorkTargetTileId = source.MoatWorkTargetTileId;
+            if (source.TargetX == targetX && source.TargetY == targetY)
+                result.QualifiedRoute = source.QualifiedRoute;
             return result;
         }
 

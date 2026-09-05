@@ -13,6 +13,10 @@ namespace MoveMoatTest
         private sealed class CursorTopology
         {
             public readonly CursorRegionGraph Ground = new CursorRegionGraph(NativeTileCount + MaximumRegionId + 1);
+            // Overapproximation of the actual GroundOnly kernel, independent of
+            // cursor portal/owner exclusions. Only negative answers are proofs.
+            public readonly CursorRegionGraph GroundUpper = new CursorRegionGraph(NativeTileCount + MaximumRegionId + 1);
+            public readonly Dictionary<int, long[]> GroundBoundaries = new Dictionary<int, long[]>();
             public readonly long[][] Portals = new long[200][];
             public readonly HashSet<int> BlockedBuildings = new HashSet<int>();
             public readonly HashSet<int> NextBlockedBuildings = new HashSet<int>();
@@ -107,6 +111,7 @@ namespace MoveMoatTest
 
         private void UpdateCursorBoundary(CursorTopology topology, int player, int tile)
         {
+            UpdateGroundBoundary(topology, player, tile);
             if (topology.Boundaries.TryGetValue(tile, out long[] old))
             {
                 foreach (long edge in old)
@@ -143,6 +148,55 @@ namespace MoveMoatTest
             var saved = new long[count];
             for (int i = 0; i < count; i++) saved[i] = edges[i];
             topology.Boundaries.Add(tile, saved);
+        }
+
+        private enum GroundConnectionDecision { Unknown, Reachable, Excluded }
+        private GroundConnectionDecision ProbeGroundConnection(int player, int start, int target)
+        {
+            if (!IsValidTileId(start) || !IsValidTileId(target)) return GroundConnectionDecision.Unknown;
+            if (IsCompletedMoatTile(start) || IsCompletedMoatTile(target)) return GroundConnectionDecision.Excluded;
+            if (start == target) return GroundConnectionDecision.Reachable;
+            if (nativePathManager == IntPtr.Zero || !cursorTopologies.TryGetValue(player, out CursorTopology topology) ||
+                !topology.Ready || topology.Epoch != mapEpoch || topology.Dirty.Count != 0 ||
+                topology.RegionGeneration != *(int*)((byte*)nativePathManager + 0x74)) return GroundConnectionDecision.Unknown;
+            return topology.GroundUpper.CanReach(GroundUpperNode(start), GroundUpperNode(target))
+                ? GroundConnectionDecision.Unknown : GroundConnectionDecision.Excluded;
+        }
+
+        private int GroundUpperNode(int tile)
+        {
+            if (!IsValidTileId(tile) || IsCompletedMoatTile(tile)) return -1;
+            int region = pathRegionGrid[tile];
+            return region > 0 && region <= MaximumRegionId &&
+                (tileFlags[tile] & CursorSpecialStructureTileFlagMask) == 0
+                ? region : MaximumRegionId + 1 + tile;
+        }
+
+        private void UpdateGroundBoundary(CursorTopology topology, int player, int tile)
+        {
+            if (topology.GroundBoundaries.TryGetValue(tile, out long[] old))
+            {
+                foreach (long pair in old) topology.GroundUpper.ChangeEdge((int)(pair >> 32), (int)pair, -1);
+                topology.GroundBoundaries.Remove(tile);
+            }
+            int from = GroundUpperNode(tile);
+            if (from < 0) return;
+            var pos = GameTileManagerAPI.Instance.GetTileVectorFromId(tile);
+            long* pairs = stackalloc long[8]; int count=0;
+            for (int d=0;d<8;d++)
+            {
+                int x=pos.X+WeightedMoatRoutePlanner.DirectionX[d],y=pos.Y+WeightedMoatRoutePlanner.DirectionY[d];
+                if ((uint)x>=MapWidth || (uint)y>=MapWidth) continue;
+                int next=GameTileManagerAPI.Instance.GetTileId(x,y),to=GroundUpperNode(next);
+                if (to<0 || from==to) continue;
+                if (!weightedMoatRoutePlanner.TryGetTraversalEdge(player,pos.X,pos.Y,tile,x,y,next,d,false,false,
+                    MoatTraversalPolicy.GroundOnly,out _,out _)) continue;
+                pairs[count++]=((long)from<<32)|(uint)to;
+                topology.GroundUpper.ChangeEdge(from,to,1);
+            }
+            if (count==0) return;
+            var saved=new long[count]; for(int i=0;i<count;i++)saved[i]=pairs[i];
+            topology.GroundBoundaries.Add(tile,saved);
         }
 
         private CursorTopology EnsureCursorTopology(int player, bool buildConnections = true)

@@ -17,6 +17,7 @@ ValidateSelectionMetadata();
 ValidateRuntimeSources();
 
 var methods = new HashSet<string>(new[] {
+    "GetReusableQualifiedRoute",
     "InvalidateMovementSearchData",
     "TryCaptureBuilderWeightedScope", "ObserveWeightedMoatShadowResult", "FindMoatWorkTargetWithOwnerRoute",
     "TryCreateMoatWorkSelectionScope", "TryCreatePendingDigMoatTarget", "ResolveMoatWorkTileWithOwnerRoute",
@@ -36,6 +37,7 @@ var methods = new HashSet<string>(new[] {
     "GetCachedRouteSummaryForTarget", "GetCachedRouteSummaryForRegion"
 });
 var types = new HashSet<string>(new[] {
+    "QualifiedMovementRoute", "RouteDecisionKey",
     "PendingDigMoatTarget",
     "DirectCursorMoveScope", "BuildingCursorTarget", "BuildingHoverTileSource", "AttackCursorPairScope", "CursorPairFallbackKind", "CursorGroupRouteSummary", "SelectedCursorUnitSnapshot", "UnitMoveFrame", "PlanScope", "RouteProbeSummary", "TargetedRouteDecision", "MoatWorkSelectionScope", "MoatWorkApproach", "PendingFillMoatApproach"
 });
@@ -70,7 +72,20 @@ var references = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES"))
     .Split(Path.PathSeparator).Select(p => MetadataReference.CreateFromFile(p)).Concat(new[] {
         MetadataReference.CreateFromFile(Path.Combine(root,"shcde-script-extender","src","SHCDESE.BepInEx","bin","net481","Iced.dll")) });
 Assembly.LoadFrom(Path.Combine(root,"shcde-script-extender","src","SHCDESE.BepInEx","bin","net481","Iced.dll"));
+// Pinned pre-optimization blob; read only, compiled exclusively into this test process.
+var referenceStart = new System.Diagnostics.ProcessStartInfo("git") {
+    WorkingDirectory=root, RedirectStandardOutput=true, RedirectStandardError=true, UseShellExecute=false, CreateNoWindow=true };
+referenceStart.ArgumentList.Add("show");
+referenceStart.ArgumentList.Add("5c772900aba0db1a742fe95786f4d468f8068772");
+using var referenceProcess=System.Diagnostics.Process.Start(referenceStart);
+string referenceSource=referenceProcess.StandardOutput.ReadToEnd();
+string referenceError=referenceProcess.StandardError.ReadToEnd();referenceProcess.WaitForExit();
+if(referenceProcess.ExitCode!=0)throw new Exception("Missing pinned benchmark reference: "+referenceError);
+var referenceClass=CSharpSyntaxTree.ParseText(referenceSource).GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>()
+    .Single(c=>c.Identifier.Text=="MoatSearchKernel").ToFullString().Replace("MoatSearchKernel","ReferenceMoatSearchKernel");
+var referenceTree=CSharpSyntaxTree.ParseText("using System; using System.Collections.Generic; namespace MoveMoatTest {"+referenceClass+"}");
 var compilation = CSharpCompilation.Create("Assembly-CSharp", new[] {
+    referenceTree,
     CSharpSyntaxTree.ParseText(extracted),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "WeightedMoatRoutePlanner.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "MoatSearchKernel.cs"))),

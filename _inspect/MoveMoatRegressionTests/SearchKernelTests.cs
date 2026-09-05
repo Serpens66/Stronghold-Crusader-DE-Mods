@@ -57,6 +57,8 @@ namespace MoveMoatTest
                 Check(!kernel.Search(0,24,1,5,maximum,false,false,null,true,out _),"new terrain invalidates positive field");
             }
             LongReachability();
+            ProfilePool();
+            GroupPipelinePerformance();
             Performance();
             Console.WriteLine("PASS: "+assertions+" independent search assertions (directed edges, profile conflicts, length limits, terrain changes).");
         }
@@ -100,6 +102,61 @@ namespace MoveMoatTest
                 "topological reachability beyond native 2000 directions");
             Check(!k.Search(0,2501,1,1,2000,false,false,null,true,out _),"native buffer capacity remains enforced");
             Check(k.Search(0,2000,1,1,2000,false,false,null,true,out _),"exact buffer boundary");
+        }
+
+        private static void ProfilePool()
+        {
+            bool Edge(int from,int to,int d,out bool wet,out bool structure)
+            {wet=from==9||to==9;structure=false;return d==2||d==6;}
+            var k=new MoatSearchKernel(20,1,Edge);
+            Check(k.Search(0,19,1,7,2000,false,false,null,true,out _),"profile seed");
+            long before=k.Expanded;
+            Check(k.Search(0,19,3,21,2000,false,false,new[]{new MoatSearchLimit(3,21,93)},true,out _),"scaled exact bound");
+            Check(k.Expanded==before && k.CachedFields==1,"proportional profile shares normalized field");
+            for(int i=0;i<12;i++)Check(k.Search(0,19,1,8+i,2000,false,false,null,true,out _),"LRU profile search");
+            Check(k.CachedFields==8,"bounded LRU");
+            k.Invalidate();
+            Check(k.Search(0,19,1,7,2000,false,false,null,true,out _),"invalidated field recomputes");
+            Check(!k.Search(0,19,3,21,2000,false,false,new[]{new MoatSearchLimit(3,21,92)},true,out _),"scaled below-bound remains excluded");
+        }
+
+        private static void GroupPipelinePerformance()
+        {
+            const int w=100,h=70;
+            bool Edge(int from,int to,int d,out bool wet,out bool structure)
+            {wet=from%w==50||to%w==50;structure=false;return true;}
+            bool Ground(int from,int to,int d,out bool wet,out bool structure)
+            {Edge(from,to,d,out wet,out structure);return !wet;}
+            foreach(int count in new[]{1,120,680})
+            {
+                var ground=new ReferenceMoatSearchKernel(w,h,Ground);var reach=new ReferenceMoatSearchKernel(w,h,Edge);
+                var weighted=new ReferenceMoatSearchKernel(w,h,Edge);var combined=new MoatSearchKernel(w,h,Edge);
+                var expected=new long[count];
+                long Cost(int[] p,int g,int m) {long c=0;for(int j=1;j<p.Length;j++)c+=(p[j]%w==50||p[j-1]%w==50)?m:g;return c;}
+                long allocation=GC.GetAllocatedBytesForCurrentThread();var watch=Stopwatch.StartNew();
+                for(int i=0;i<count;i++)
+                {
+                    int s=(5+i%55)*w+5+i%10,t=(5+i%55)*w+80+i%10;
+                    int g=1+i%2,m=7+i%2;
+                    Check(!ground.Search(s,t,1,1,int.MaxValue,false,false,null,true,out _),"reference excludes ground");
+                    Check(reach.Search(s,t,1,1,2000,false,false,null,true,out _),"reference qualification");
+                    Check(reach.Search(s,t,1,1,2000,false,false,null,true,out _),"reference reconstruction");
+                    Check(weighted.Search(s,t,g,m,2000,false,false,null,true,out var p),"reference weighted path");
+                    expected[i]=Cost(p,g,m);
+                }
+                double oldMs=watch.Elapsed.TotalMilliseconds;long oldBytes=GC.GetAllocatedBytesForCurrentThread()-allocation;
+                allocation=GC.GetAllocatedBytesForCurrentThread();watch.Restart();
+                for(int i=0;i<count;i++)
+                {
+                    int s=(5+i%55)*w+5+i%10,t=(5+i%55)*w+80+i%10;
+                    int g=1+i%2,m=7+i%2;
+                    Check(combined.Search(s,t,g,m,2000,false,false,null,true,out var p),"combined qualified path");
+                    Check(Cost(p,g,m)==expected[i],"combined route cost unchanged");
+                }
+                long oldNodes=ground.Expanded+reach.Expanded+weighted.Expanded;
+                if(count>=120)Check(combined.Expanded<oldNodes,"combined large group reduces total search nodes");
+                Console.WriteLine($"GROUP PIPELINE MODEL units={count} referenceMs={oldMs:F2} combinedMs={watch.Elapsed.TotalMilliseconds:F2} referenceNodes={oldNodes} combinedNodes={combined.Expanded} referenceBytes={oldBytes} combinedBytes={GC.GetAllocatedBytesForCurrentThread()-allocation}");
+            }
         }
 
         private static void Performance()

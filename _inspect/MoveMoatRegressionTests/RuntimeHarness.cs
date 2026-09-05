@@ -137,7 +137,7 @@ namespace MoveMoatTest
             public int UnitMoveCalls, UnitMoveCompleted, UnitMovePositive, UnitMoveWithoutBuilder, UnitMoveAlreadyArrived;
             public int UnitMoveAbandoned, BuilderIntermediateTargets, FallbackContractRejections;
             public double TargetedRouteSearchMilliseconds, TargetedRouteMaximumSearchMilliseconds;
-            public Dictionary<string, TargetedRouteDecision> TargetedRouteDecisions = new Dictionary<string, TargetedRouteDecision>();
+            public Dictionary<RouteDecisionKey, TargetedRouteDecision> TargetedRouteDecisions = new Dictionary<RouteDecisionKey, TargetedRouteDecision>();
         }
         private Func<IntPtr,int,int,int> originalBuildingCursorReachability = (m,b,u)=>0;
         private Func<IntPtr,int,int> getMoatIdAtTile;

@@ -234,10 +234,17 @@ namespace MoveMoatTest
                     nativeSummary.EstimatedTicks >= shadow.OptimisticLowerBoundTicks &&
                     nativeSummary.EstimatedTicks - shadow.OptimisticLowerBoundTicks >=
                         WeightedPublicationSafetyMarginTicks;
+                QualifiedMovementRoute qualified = GetReusableQualifiedRoute(
+                    GetCurrentUnitMoveFrame()?.Plan ?? activePlan ?? pendingPlan, snapshotUnit);
+                bool alreadyOptimal = qualified != null && qualified.Optimal && qualified.Profile.Equals(shadow.CostProfile) &&
+                    qualified.Route.DirectionCount == nativeLength;
+                if (alreadyOptimal)
+                    for (int i=0;i<qualified.Route.Bytes.Length;i++)
+                        if (qualified.Route.Bytes[i] != nativePath[i]) { alreadyOptimal=false; break; }
                 string decision = nativeSummary.MoatEdges > 0 ? "native-friendly-moat" : "native-ground";
                 int effectiveBuilderResult = builderResult;
-                string publicationDetails = "cost-lower-bound";
-                if (couldMeetMargin && builderResult > 0 && nativeValid && publishedToUnit &&
+                string publicationDetails = alreadyOptimal ? "qualified-optimal" : "cost-lower-bound";
+                if (!alreadyOptimal && couldMeetMargin && builderResult > 0 && nativeValid && publishedToUnit &&
                     TryPublishSafelyFasterWeightedRoute(
                         pathManager,
                         nativePath,
@@ -342,10 +349,20 @@ namespace MoveMoatTest
             try
             {
                 long runsBefore = weightedMoatRoutePlanner.SearchRuns;
-                shadow.CandidateFound = weightedMoatRoutePlanner.TryBuildImprovement(shadow.PlayerId,
+                GameUnitManagerAPI.Instance.TryGetUnitById(shadow.UnitId, out GameUnit* candidateUnit);
+                QualifiedMovementRoute qualified = GetReusableQualifiedRoute(
+                    GetCurrentUnitMoveFrame()?.Plan ?? activePlan ?? pendingPlan, candidateUnit);
+                bool reuse = qualified != null && qualified.Optimal && qualified.Profile.Equals(shadow.CostProfile) &&
+                    qualified.Summary.StructuralEdges == 0 && qualified.Summary.MoatEdges > 0;
+                if (reuse) foreach (MoatSearchLimit limit in limits)
+                    if (!limit.Allows(qualified.Summary.GroundEdges, qualified.Summary.MoatEdges, 0)) { reuse=false; break; }
+                WeightedMoatRouteSummary candidate = default;
+                WeightedMoatEncodedRoute route = default;
+                if (reuse) { candidate=qualified.Summary;route=qualified.Route;shadow.CandidateFound=true; }
+                else shadow.CandidateFound = weightedMoatRoutePlanner.TryBuildImprovement(shadow.PlayerId,
                     shadow.StartX, shadow.StartY, shadow.TargetX, shadow.TargetY, shadow.CostProfile,
-                    shadow.AllowReservedTarget, limits, out WeightedMoatRouteSummary candidate, out WeightedMoatEncodedRoute route);
-                shadow.AccumulatedSearchMilliseconds += candidate.SearchMilliseconds;
+                    shadow.AllowReservedTarget, limits, out candidate, out route);
+                if (!reuse) shadow.AccumulatedSearchMilliseconds += candidate.SearchMilliseconds;
                 if (TryImproveFillPrefix(shadow, nativePath, nativeLength, limits,
                     out WeightedMoatRouteSummary terminal, out WeightedMoatEncodedRoute terminalRoute) &&
                     (!shadow.CandidateFound || terminal.EstimatedTicks < candidate.EstimatedTicks))

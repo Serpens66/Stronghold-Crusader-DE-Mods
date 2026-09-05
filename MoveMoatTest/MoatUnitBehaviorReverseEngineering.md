@@ -2,6 +2,87 @@
 
 Stand: 5. September 2026
 
+## Aktuelle Reparatur: gemeinsame Gruppenoptimierung
+
+Ausgangslauf: Befehl 22 um 19:59:19, 680 Units, 1114,968 ms synchroner Befehl,
+470,232 ms Qualifikation und 573,294 ms gewichtete Suche. Alle 680 Units haben
+später `path-completed-at-target` erreicht. Keine Exceptions oder protokollierten
+Eigentümerverletzungen. Native Basis weiterhin
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+
+### Alle vier Optimierungen
+
+1. Die Qualifikation speichert einen gekapselten Suchdatensatz mit kodiertem Pfad,
+   Kantenkostenbeschreibung, Start/Endpunkt, Spieler, Tick/Epoch/Revision und Kostenprofil.
+   Cache-Schlüssel sind Werttypen einschließlich Profil und Arbeitsziel. Unit-Pläne
+   bleiben individuell. Der Builder prüft Identität, Endpunkte und Revision und kopiert
+   den gespeicherten Pfad in den eigenen nativen Puffer; der vollständige Audit bleibt.
+2. Bei gültigem Profil sucht die notwendige Qualifikation bereits kostenoptimal. Ein
+   bytegleich veröffentlichter, weiterhin passender optimaler Pfad braucht keine zweite
+   Optimierung (`qualified-optimal`). Auch gegen einen positiven Vanilla-Pfad wird ein
+   passender optimaler Kandidat zuerst an allen Profilschranken geprüft. Ungewichtete
+   Erreichbarkeit gilt ausdrücklich nicht als Optimalitätsnachweis. Nicht kodierbare
+   Wege behalten die getrennte topologische Prüfung; Fill-Abschluss und Strukturregeln
+   bleiben eigenständig. Die optionale 40-Tick-Marge ist unverändert.
+3. Pro Suchkern werden höchstens acht deterministisch per LRU verwaltete, nach exakt
+   normalisiertem Boden-/Moatkostenverhältnis und Strukturpolitik getrennte Felder
+   gehalten. Kostenschranken werden ganzzahlig konservativ umgerechnet. Invalidation
+   macht Feldgenerationen ungültig; die bedarfsgerecht belegten Seiten können erneut
+   benutzt werden. Spieler und synchroner Suchkontext bleiben im äußeren Vertrag.
+   Eine gemessene Präzisierung gegenüber dem Plan: Ein fremdes Formationsziel führt
+   nicht zum teuren Ausbau eines entfernten Ankers. Liegt es auf einem bereits
+   optimalen Pfad, wird dessen ebenfalls optimaler Präfix direkt verwendet; sonst
+   wird dasselbe Feld auf das tatsächliche Ziel zurückgesetzt. Das verwirft keine
+   Route und ist kein Zeit-/Suchbudget. Die Variante mit pauschalem Anker-Ausbau
+   war im großen Vergleichsmodell langsamer und wurde vor dem Build ersetzt.
+4. Die bisherige Cursor-Bodensicht lässt physische Übergänge zugunsten nativer
+   Portalverträge aus und ist deshalb kein allgemeiner negativer Bodennachweis.
+   `GroundUpper` bildet separat sämtliche GroundOnly-Kanten ab und fasst gewöhnliche
+   Regionen konservativ zusammen. Nur ein negatives Ergebnis der vollständigen,
+   aktuellen Sicht schließt eine konkrete Bodensuche aus. Positive zusammengefasste
+   Verbindungen bleiben unbekannt; ebenso fehlende/unfertige/verschmutzte Topologien.
+   Es wird allein dafür keine neue Vollkarte bei einem kleinen oder KI-Befehl gebaut.
+   Die normale native positive Vorprüfung bleibt bestehen. Moat-Verbindungen sind
+   in der neuen Sicht nicht enthalten. Bestehende Terrainhooks aktualisieren sie mit.
+
+### Tests, Gesamtmessung und Grenzen
+
+169.165 Runtime-Assertions, 11.618 unabhängige Suchprüfungen und 1.469.340 gerichtete
+Cursorvergleiche erfolgreich. Neue Tests umfassen 1/120/680 reale simulierte
+UnitPre-Modus-Builder-UnitPost-Ketten mit beiden Produktionsbuildern, direkte
+Pfadwiederverwendung ohne erneute Suchläufe, veränderte Identität/Start/Tick/Revision,
+proportionale Kostenprofile, exakte Kostengrenzen und LRU-Verdrängung. Negative
+Regionsantworten werden gegen den tatsächlichen gerichteten GroundOnly-Suchkern geprüft.
+
+Die Leistungsreferenz wird ausschließlich im Testprozess aus dem unveränderten
+Git-Blob `5c772900aba0db1a742fe95786f4d468f8068772` geladen. Keine alte Runtime oder
+Fallback-Implementierung wird mit dem Mod ausgeliefert. Ein vorheriger Modellvergleich
+mit bereits optimiertem Referenzkern war als Vorgängervergleich ungeeignet und wurde ersetzt.
+
+Drei Wiederholungen ohne wechselnde .NET-JIT-Tiers, Median des größeren Suchmodells:
+
+| Units | vorherige Suchfolge/Kern | kombinierte Suche | Suchknoten vorher / neu |
+| --- | ---: | ---: | ---: |
+| 1 | 6,59 ms | 0,27 ms | 4.607 / 1.101 |
+| 120 | 58,65 ms | 48,58 ms | 220.133 / 192.008 |
+| 680 | 303,67 ms | 298,79 ms | 1.213.351 / 1.100.866 |
+
+Beim 680er-Modell sanken die Allokationen von 2.387.568 auf 1.653.072 Bytes.
+Der Zeitgewinn ist in diesem Modell klein und streut (neu 280,30 bis 301,61 ms).
+Der Einzelfall enthält JIT-Anlaufkosten und eignet sich nicht als Beschleunigungsfaktor.
+Die separate schmale Produktionsfixture braucht für 680 Units etwa 2,2 bis 2,6 ms,
+bildet aber ausdrücklich nicht die Spielkarte ab. Diese Zahlen erlauben keine
+Umrechnung der bisherigen 1115 ms Spielzeit. Cursor- und Bodenregressionen bleiben grün;
+der neue Graph erhöht die einmalige Topologiearbeit und benötigt zusätzlichen Speicher.
+
+`cachedSearchFields` ergänzt die vorhandene aggregierte Befehlsdiagnose. Die nächste
+Spielabnahme muss dieselbe 680er-Situation mehrfach wiederholen, Gesamtzeit und
+Zielankünfte vergleichen und anschließend Angriffe, Fill/Dig, Queue/Patrol sowie
+Host/Client bestätigen. Script Extender 1.42.0, Version 1.0.0, README und QoL-Bridge
+unverändert. Keine neuen nativen Hooks.
+
+Buildstatus Gruppenoptimierung: am 05.09.2026 um 20:44:45 einmal über die erhöhte build.bat /nopause erfolgreich gebaut und installiert; 0 Fehler, 0 Warnungen. Lokale und installierte DLL sind SHA-256-identisch: D463D13A8320F8ED46AB6CEFAD31ACB5559DD0E5CEA81F721227C5A2F83A0EF8. Die Spielabnahme dieser Optimierung steht noch aus.
+
 ## Aktuelle Reparatur: Angriffskandidaten und native Vergleichswege
 
 Der Lauf ab 19:21 Uhr verwendet Mod-SHA-256
