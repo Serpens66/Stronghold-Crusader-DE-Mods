@@ -12,7 +12,7 @@ using System.Threading;
 
 namespace ExtremePowers
 {
-    [BepInDependency("000shcdese", "2.0.2")]
+    [BepInDependency("000shcdese", "2.2.0")]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class ExtremePowersPlugin : BaseUnityPlugin

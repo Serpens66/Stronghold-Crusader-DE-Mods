@@ -788,7 +788,7 @@ static void TestScriptExtender202MigrationContract()
     string sharedPreset = File.ReadAllText(
         Path.Combine(workspaceRoot, "Shared", "PresetLobbyModSettingsViewModel.cs"));
 
-    Assert(plugin.Contains("[BepInDependency(\"000shcdese\", \"2.0.2\")]"),
+    Assert(plugin.Contains("[BepInDependency(\"000shcdese\", \"2.2.0\")]"),
         "SHCDESE minimum dependency is not pinned to 2.0.2");
     Assert(plugin.Contains("OnLibraryLoaded(CrusaderLibraryLoadContext context)") &&
         !plugin.Contains("OnLibraryLoaded(IntPtr") &&

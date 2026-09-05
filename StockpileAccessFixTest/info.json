@@ -4,6 +4,8 @@
   "Name": "Stockpile Access Fix Test",
   "Description": "Diagnoses and repairs workers stranded by a stale stockpile access point.",
   "Version": "0.1.0",
+  "MinimumScriptExtenderVersion": "2.2.0",
+  "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SupportedGameVersions": [

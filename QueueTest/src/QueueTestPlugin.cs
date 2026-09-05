@@ -4,7 +4,7 @@ using System;
 
 namespace QueueTest
 {
-    [BepInDependency(ScriptExtenderGuid, "2.0.2")]
+    [BepInDependency(ScriptExtenderGuid, "2.2.0")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class QueueTestPlugin : BaseUnityPlugin
     {

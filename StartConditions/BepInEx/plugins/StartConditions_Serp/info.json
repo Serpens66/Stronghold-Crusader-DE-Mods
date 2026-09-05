@@ -5,6 +5,8 @@
   "Description": "Configures start resources and start troops in Stronghold Crusader Definitive Edition.",
   "Version": "1.0.21",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
+  "MinimumScriptExtenderVersion": "2.2.0",
+  "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [

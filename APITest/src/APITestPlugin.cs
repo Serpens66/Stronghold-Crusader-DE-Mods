@@ -6,7 +6,7 @@ using System;
 
 namespace APITest
 {
-    [BepInDependency(ScriptExtenderGuid, "2.0.2")]
+    [BepInDependency(ScriptExtenderGuid, "2.2.0")]
     [BepInDependency(ApiGuid, BepInDependency.DependencyFlags.HardDependency)]
     [BepInIncompatibility(BugfixesGuid)]
     [BepInIncompatibility(ExtraFeaturesGuid)]

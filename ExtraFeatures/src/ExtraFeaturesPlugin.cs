@@ -7,7 +7,7 @@ using System;
 
 namespace ExtraFeatures
 {
-    [BepInDependency(ScriptExtenderGuid, "2.0.2")]
+    [BepInDependency(ScriptExtenderGuid, "2.2.0")]
     [BepInDependency(LegacySomeSettingsGuid, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]

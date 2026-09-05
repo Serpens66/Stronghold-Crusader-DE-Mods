@@ -5,6 +5,8 @@
   "Description": "Adds configurable hunter prey and meat yield for deer, goats, rabbits, camels and chickens.",
   "Version": "1.1.78",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
+  "MinimumScriptExtenderVersion": "2.2.0",
+  "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [

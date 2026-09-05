@@ -11,7 +11,7 @@ using UnityEngine;
 
 namespace EnemyGatePathfindingTest
 {
-    [BepInDependency(ScriptExtenderGuid, "2.0.2")]
+    [BepInDependency(ScriptExtenderGuid, "2.2.0")]
     // Load after the optional test mod when it exists, so PluginInfos can suppress
     // our overlapping observational route hooks while keeping the PCL hook active.
     [BepInDependency("MoveMoatTest_Serp", BepInDependency.DependencyFlags.SoftDependency)]

@@ -657,7 +657,7 @@ internal static class Program
         string moatRuntime = Read(workspace, "MoatCommandTest", "src", "MoatDiggingReachabilityFix.cs");
         string moatProject = Read(workspace, "MoatCommandTest", "MoatCommandTest.csproj");
 
-        Check(queuePlugin.Contains("BepInDependency(ScriptExtenderGuid, \"2.0.2\")"),
+        Check(queuePlugin.Contains("BepInDependency(ScriptExtenderGuid, \"2.2.0\")"),
             "QueueTest pins Script Extender 2.0.2");
         Check(queuePlugin.Contains("OnCrusaderLibraryLoaded(CrusaderLibraryLoadContext context)"),
             "QueueTest consumes the 2.0.2 load context");
@@ -684,7 +684,7 @@ internal static class Program
             queueRuntime.Contains("removeUnitFromTribe(tribeManagerPointer, member.UnitId, originalTribeId)"),
             "QueueTest retains the audited native Remove adapter");
 
-        Check(moatPlugin.Contains("BepInDependency(ScriptExtenderGuid, \"2.0.2\")") &&
+        Check(moatPlugin.Contains("BepInDependency(ScriptExtenderGuid, \"2.2.0\")") &&
             moatPlugin.Contains("OnCrusaderLibraryLoaded(CrusaderLibraryLoadContext context)"),
             "MoatCommandTest pins and consumes Script Extender 2.0.2");
         Check(CountText(moatRuntime, "new HookHandle<X64InlineHook>") == 5 &&
@@ -713,7 +713,7 @@ internal static class Program
             string plugin = Read(workspace, mod, "src", mod + "Plugin.cs");
             string runtime = Read(workspace, mod, "src", mod + "Runtime.cs");
             string project = Read(workspace, mod, mod + ".csproj");
-            Check(plugin.Contains("BepInDependency(ScriptExtenderGuid, \"2.0.2\")") &&
+            Check(plugin.Contains("BepInDependency(ScriptExtenderGuid, \"2.2.0\")") &&
                 plugin.Contains("CrusaderLibraryLoadContext context"), mod + " consumes exact 2.0.2");
             Check(runtime.Contains("using RedBird.Core.Memory;") && !runtime.Contains("Zhuqiaomon"),
                 mod + " uses the RedBird memory contract");

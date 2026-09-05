@@ -7,7 +7,7 @@ using System.Reflection;
 
 namespace StockpileAccessFixTest
 {
-    [BepInDependency(ScriptExtenderGuid, "2.0.2")]
+    [BepInDependency(ScriptExtenderGuid, "2.2.0")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class StockpileAccessFixTestPlugin : BaseUnityPlugin
     {

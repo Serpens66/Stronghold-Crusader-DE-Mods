@@ -5,6 +5,8 @@
   "Description": "Isolated test mod for exact friendly planned-moat commands and moat-aware unit pathfinding diagnostics.",
   "Version": "1.0.0",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
+  "MinimumScriptExtenderVersion": "2.2.0",
+  "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SupportedGameVersions": [

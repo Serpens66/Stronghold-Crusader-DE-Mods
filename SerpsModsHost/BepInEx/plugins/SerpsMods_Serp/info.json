@@ -5,8 +5,8 @@
     "Description":  "All included mods can be freely configured in the in-game Mod Settings.\n\nIncluded mods:\n- Bugfixes and QoL\n- Building Costs\n- Building Limit\n- Extra Features\n- Random Events\n- CastlePlanner\n- Start Conditions\n- Unit Costs\n- Unit Limit",
     "Version":  "1.0.7",
     "Website":  "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods",
-    "MinimumScriptExtenderVersion":  "2.0.2",
-    "MaximumScriptExtenderVersion":  "2.0.2",
+    "MinimumScriptExtenderVersion":  "2.2.0",
+    "MaximumScriptExtenderVersion":  "",
     "Manifest":  1,
     "NetworkMode":  1,
     "SerpChangelog":  [

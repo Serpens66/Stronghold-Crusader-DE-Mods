@@ -447,7 +447,7 @@ internal static class Program
             root, "BepInEx", "plugins", "CastlePlanner_Serp", "Override",
             "ScriptExtenderUI", "CastlePlannerSettings.xaml"));
 
-        Assert(plugin.Contains("BepInDependency(ScriptExtenderGuid, \"2.0.2\")", StringComparison.Ordinal),
+        Assert(plugin.Contains("BepInDependency(ScriptExtenderGuid, \"2.2.0\")", StringComparison.Ordinal),
             "Script Extender dependency is not exact 2.0.2");
         Assert(plugin.Contains("OnCrusaderLibraryLoaded(CrusaderLibraryLoadContext context)", StringComparison.Ordinal) &&
             plugin.Contains("runtime.Install(context, currentNativeLayout)", StringComparison.Ordinal),

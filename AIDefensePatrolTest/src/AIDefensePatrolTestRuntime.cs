@@ -4,6 +4,7 @@ using SHCDESE.BepInEx.Bootstrap;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
+using System.Diagnostics;
 using Zhuqiaomon.Assembly;
 using Zhuqiaomon.Hooks;
 using Zhuqiaomon.Hooks.Transaction;
@@ -16,13 +17,23 @@ namespace AIDefensePatrolTest
         // Script Extender 1.42.0 does not name these two confirmed Vanilla roles.
         private const short CastleDefenseRole = 1;
         private const short OuterPatrolRole = 4;
+        private const int SummaryIntervalSeconds = 60;
+        private static readonly long SummaryIntervalStopwatchTicks =
+            Stopwatch.Frequency * SummaryIntervalSeconds;
 
         private readonly ManualLogSource log;
+        private readonly bool[] fixEffectLoggedByOwner = new bool[byte.MaxValue + 1];
         private HookRef<X64InlineHook> assignmentDecisionHook = new HookRef<X64InlineHook>();
         private HookTransaction hookTransaction;
         private bool applied;
         private bool firstDecisionLogged;
         private bool callbackFailureLogged;
+        private long nextSummaryTimestamp;
+        private long intervalDecisionCount;
+        private long intervalCastleDecisionCount;
+        private long intervalPatrolDecisionCount;
+        private long intervalFixEffectDecisionCount;
+        private int ownersWithObservedFixEffect;
 
         internal AIDefensePatrolTestRuntime(ManualLogSource log)
         {
@@ -96,21 +107,14 @@ namespace AIDefensePatrolTest
                     role1Count,
                     defensiveTriggerLevel);
                 registers->RAX = DefenseAssignmentPolicy.SelectComparisonValue(needsCastleDefender);
-
-                string decision = needsCastleDefender ? "castleDefenseRole1" : "outerPatrolRole4";
-                string diagnostic =
-                    $"unitId={unitId}, unitType={recruitedUnit->r_UnitChimp}, ownerId={ownerId}, " +
-                    $"role1Count={role1Count}, role4Count={role4Count}, " +
-                    $"defWalls={defensiveTriggerLevel}, decision={decision}.";
-                if (!firstDecisionLogged)
-                {
-                    firstDecisionLogged = true;
-                    Shared.DebugLogHelper.LogInfo(log, "AI_DEFENSE_PATROL_FIRST_DECISION: " + diagnostic);
-                }
-                else
-                {
-                    Shared.DebugLogHelper.LogDebug(log, () => "AI_DEFENSE_PATROL_DECISION: " + diagnostic);
-                }
+                RecordDecision(
+                    unitId,
+                    recruitedUnit->r_UnitChimp,
+                    ownerId,
+                    role1Count,
+                    role4Count,
+                    defensiveTriggerLevel,
+                    needsCastleDefender);
             }
             catch (Exception exception)
             {
@@ -125,6 +129,92 @@ namespace AIDefensePatrolTest
                     $"AI_DEFENSE_PATROL_CALLBACK_FALLBACK: Vanilla assignment retained; exception={exception}");
             }
         }
+
+        private void RecordDecision(
+            int unitId,
+            eChimps unitType,
+            byte ownerId,
+            int role1Count,
+            int role4Count,
+            int defensiveTriggerLevel,
+            bool needsCastleDefender)
+        {
+            intervalDecisionCount++;
+            if (needsCastleDefender)
+                intervalCastleDecisionCount++;
+            else
+                intervalPatrolDecisionCount++;
+
+            bool fixEffectObserved = needsCastleDefender && role4Count > 0;
+            if (fixEffectObserved)
+                intervalFixEffectDecisionCount++;
+
+            long now = Stopwatch.GetTimestamp();
+            if (nextSummaryTimestamp == 0)
+                nextSummaryTimestamp = now + SummaryIntervalStopwatchTicks;
+
+            string decision = needsCastleDefender ? "castleDefenseRole1" : "outerPatrolRole4";
+            if (!firstDecisionLogged)
+            {
+                firstDecisionLogged = true;
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    "AI_DEFENSE_PATROL_FIRST_DECISION: " +
+                    DescribeDecision(
+                        unitId,
+                        unitType,
+                        ownerId,
+                        role1Count,
+                        role4Count,
+                        defensiveTriggerLevel,
+                        decision));
+            }
+
+            if (fixEffectObserved && !fixEffectLoggedByOwner[ownerId])
+            {
+                fixEffectLoggedByOwner[ownerId] = true;
+                ownersWithObservedFixEffect++;
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    "AI_DEFENSE_PATROL_FIX_EFFECT_OBSERVED: patrolSurvivedWhileCastleDefenseWasBelowTarget=true, " +
+                    DescribeDecision(
+                        unitId,
+                        unitType,
+                        ownerId,
+                        role1Count,
+                        role4Count,
+                        defensiveTriggerLevel,
+                        decision));
+            }
+
+            if (now < nextSummaryTimestamp)
+                return;
+
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"AI_DEFENSE_PATROL_SUMMARY: intervalSeconds={SummaryIntervalSeconds}, " +
+                $"decisions={intervalDecisionCount}, castleDecisions={intervalCastleDecisionCount}, " +
+                $"patrolDecisions={intervalPatrolDecisionCount}, " +
+                $"fixEffectDecisions={intervalFixEffectDecisionCount}, " +
+                $"ownersWithObservedFixEffect={ownersWithObservedFixEffect}.");
+            intervalDecisionCount = 0;
+            intervalCastleDecisionCount = 0;
+            intervalPatrolDecisionCount = 0;
+            intervalFixEffectDecisionCount = 0;
+            nextSummaryTimestamp = now + SummaryIntervalStopwatchTicks;
+        }
+
+        private static string DescribeDecision(
+            int unitId,
+            eChimps unitType,
+            byte ownerId,
+            int role1Count,
+            int role4Count,
+            int defensiveTriggerLevel,
+            string decision) =>
+            $"unitId={unitId}, unitType={unitType}, ownerId={ownerId}, " +
+            $"role1Count={role1Count}, role4Count={role4Count}, " +
+            $"defWalls={defensiveTriggerLevel}, decision={decision}.";
 
         private static void CountDefenseRoles(byte ownerId, out int role1Count, out int role4Count)
         {
