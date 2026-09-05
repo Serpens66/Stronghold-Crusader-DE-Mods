@@ -21,6 +21,7 @@ namespace UnitCosts
         private string unitCosts = CreateDefaultUnitCosts();
         private string humanExtraUnitCosts = CreateDefaultHumanExtraUnitCosts();
         private bool updatingEntries;
+        private const string HorseSerializedKey = "HORSE";
 
         internal static readonly eGoods[] HumanExtraCostGoods =
         {
@@ -109,6 +110,8 @@ namespace UnitCosts
         public string UnitHeaderText => SerpLocalization.Get(SerpLocalization.UnitHeader);
         public string GoldHeaderText => UnitCostsRuntime.GetLocalizedGoodName(eGoods.STORED_GOLD, "Gold");
         public ImageSource GoldHeaderIcon => GetGoodIconImage(eGoods.STORED_GOLD);
+        public string HorseHeaderText => SerpLocalization.Get(SerpLocalization.Horse);
+        public ImageSource HorseHeaderIcon => GetResourceImage("UI-Buttons M025");
 
         [SyncHostOnly]
         public bool EnableMod
@@ -201,6 +204,7 @@ namespace UnitCosts
 
                 entry.DisplayName = UnitCostsRuntime.GetLocalizedUnitName(unitType);
                 entry.ToolTip = UnitCostsRuntime.GetUnitSettingsTooltip(unitType);
+                entry.RefreshHorseToolTip();
             }
 
             RefreshCostEntryToolTips();
@@ -242,6 +246,8 @@ namespace UnitCosts
             OnPropertyChanged(nameof(UnitHeaderText));
             OnPropertyChanged(nameof(GoldHeaderText));
             OnPropertyChanged(nameof(GoldHeaderIcon));
+            OnPropertyChanged(nameof(HorseHeaderText));
+            OnPropertyChanged(nameof(HorseHeaderIcon));
             RefreshCostEntryToolTips();
         }
 
@@ -299,6 +305,7 @@ namespace UnitCosts
                         builder.Append(',');
                     builder.Append('0');
                 }
+                builder.Append(",0");
             }
 
             return builder.ToString();
@@ -405,7 +412,8 @@ namespace UnitCosts
                     continue;
 
                 string[] costParts = keyValue[1].Split(',');
-                if (costParts.Length != HumanExtraCostGoods.Length)
+                if (costParts.Length != HumanExtraCostGoods.Length &&
+                    costParts.Length != HumanExtraCostGoods.Length + 1)
                     continue;
 
                 Dictionary<eGoods, int> costs = new Dictionary<eGoods, int>();
@@ -422,8 +430,20 @@ namespace UnitCosts
                     costs[good] = UnitExtraCostValues.ClampCost(good, amount);
                 }
 
+                string unitKey = keyValue[0].Trim();
+                bool requiresHorse = false;
+                if (valid && costParts.Length == HumanExtraCostGoods.Length + 1)
+                {
+                    if (!int.TryParse(costParts[HumanExtraCostGoods.Length].Trim(), out int horseValue))
+                        valid = false;
+                    else if (Enum.TryParse(unitKey, true, out eChimps unitType))
+                        requiresHorse = UnitExtraHorseCostPolicy.NormalizeHorseRequirement(
+                            horseValue,
+                            IsHorseCostSupported(unitType));
+                }
+
                 if (valid)
-                    result[keyValue[0].Trim()] = new UnitExtraCostValues(costs);
+                    result[unitKey] = new UnitExtraCostValues(costs, requiresHorse);
             }
 
             return result;
@@ -537,6 +557,8 @@ namespace UnitCosts
                         builder.Append(',');
                     builder.Append(entry.CostCells[i].Amount);
                 }
+                builder.Append(',');
+                builder.Append(entry.RequiresHorse ? '1' : '0');
             }
 
             return builder.ToString();
@@ -550,6 +572,8 @@ namespace UnitCosts
                     builder.Append(',');
                 builder.Append(HumanExtraCostGoods[i]);
             }
+            builder.Append(',');
+            builder.Append(HorseSerializedKey);
         }
 
         private static UnitExtraCostValues CreateEmptyExtraCosts()
@@ -558,7 +582,24 @@ namespace UnitCosts
             foreach (eGoods good in HumanExtraCostGoods)
                 costs[good] = 0;
 
-            return new UnitExtraCostValues(costs);
+            return new UnitExtraCostValues(costs, false);
+        }
+
+        internal static bool IsHorseCostSupported(eChimps unitType)
+        {
+            switch (unitType)
+            {
+                case eChimps.CHIMP_TYPE_KNIGHT:
+                case eChimps.CHIMP_TYPE_CATAPULT:
+                case eChimps.CHIMP_TYPE_TREBUCHET:
+                case eChimps.CHIMP_TYPE_BATTERING_RAM:
+                case eChimps.CHIMP_TYPE_SIEGE_TOWER:
+                case eChimps.CHIMP_TYPE_PORTABLE_SHIELD:
+                case eChimps.CHIMP_TYPE_ARAB_BALLISTA:
+                    return false;
+                default:
+                    return unitType != eChimps.CHIMP_TYPE_NULL;
+            }
         }
 
         private static string GetGoodOptionDisplayName(eGoods good)
@@ -828,6 +869,7 @@ namespace UnitCosts
             private readonly eChimps unitType;
             private string displayName;
             private string toolTip;
+            private bool requiresHorse;
 
             public event PropertyChangedEventHandler PropertyChanged;
 
@@ -846,6 +888,8 @@ namespace UnitCosts
                 toolTip = key;
                 this.canEdit = canEdit;
                 this.changed = changed;
+                HorseCostSupported = IsHorseCostSupported(unitType);
+                requiresHorse = HorseCostSupported && values.RequiresHorse;
                 CostCells = new ObservableCollection<ExtraCostCellViewModel>();
                 foreach (eGoods good in HumanExtraCostGoods)
                     CostCells.Add(new ExtraCostCellViewModel(
@@ -858,6 +902,24 @@ namespace UnitCosts
             public string Key { get; }
             public ImageSource IconImage => GetUnitIconImage(unitType);
             public ObservableCollection<ExtraCostCellViewModel> CostCells { get; }
+            public bool HorseCostSupported { get; }
+            public string HorseToolTip => FormatCellToolTip(DisplayName, SerpLocalization.Get(SerpLocalization.Horse));
+            public bool RequiresHorse
+            {
+                get => requiresHorse;
+                set
+                {
+                    if ((canEdit != null && !canEdit()) || !HorseCostSupported || requiresHorse == value)
+                    {
+                        OnPropertyChanged();
+                        return;
+                    }
+
+                    requiresHorse = value;
+                    OnPropertyChanged();
+                    changed?.Invoke();
+                }
+            }
 
             public string DisplayName
             {
@@ -869,7 +931,13 @@ namespace UnitCosts
 
                     displayName = value;
                     OnPropertyChanged();
+                    OnPropertyChanged(nameof(HorseToolTip));
                 }
+            }
+
+            public void RefreshHorseToolTip()
+            {
+                OnPropertyChanged(nameof(HorseToolTip));
             }
 
             public string ToolTip
@@ -889,6 +957,13 @@ namespace UnitCosts
             {
                 foreach (ExtraCostCellViewModel cell in CostCells)
                     cell.SetAmountFromOwner(values.GetCost(cell.Good));
+
+                bool normalizedHorse = HorseCostSupported && values.RequiresHorse;
+                if (requiresHorse != normalizedHorse)
+                {
+                    requiresHorse = normalizedHorse;
+                    OnPropertyChanged(nameof(RequiresHorse));
+                }
             }
 
             private void OnCellChanged()

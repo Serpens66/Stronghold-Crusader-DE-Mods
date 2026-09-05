@@ -27,71 +27,20 @@ namespace MoveMoatTest
         {
             DirectCursorMoveScope previous = activeDirectCursorMove;
             DirectCursorMoveScope scope = null;
-            uint* temporarilyChangedFlags = null;
-            uint savedFlags = 0;
+            activeDirectCursorMove = null;
             try
             {
                 try
                 {
-                    if (TryCreateDirectCursorMoveScope(
-                            unitManager, tribeId, targetX, targetY, out scope))
-                    {
+                    if (TryCreateDirectCursorMoveScope(unitManager, tribeId, targetX, targetY, out scope))
                         activeDirectCursorMove = scope;
-
-                        // 0x195E30 returns before its E2610 check when the representative
-                        // selection unit currently stands on a completed moat. The map flag is
-                        // hidden only for this synchronous command-staging call; traversal and
-                        // later per-unit capability checks still see the real completed moat.
-                        int representativeId = getRepresentativeSelectedUnit(unitManager, 1);
-                        if (representativeId > 0 &&
-                            GameUnitManagerAPI.Instance.TryGetUnitById(
-                                representativeId, out GameUnit* representative) &&
-                            representative != null &&
-                            representative->r_AliveState == AliveState.IsAlive &&
-                            representative->r_TribeId == tribeId)
-                        {
-                            int representativeX = representative->r_CurrentTilePositionX;
-                            int representativeY = representative->r_CurrentTilePositionY;
-                            if (representativeX >= 0 && representativeX < MapWidth &&
-                                representativeY >= 0 && representativeY < MapWidth)
-                            {
-                                int representativeTile = GameTileManagerAPI.Instance.GetTileId(
-                                    representativeX, representativeY);
-                                if (IsValidTileId(representativeTile) &&
-                                    IsCompletedMoatTile(representativeTile) &&
-                                    IsFriendlyCompletedMoatForWeightedShadow(
-                                        scope.PlayerId, representativeTile))
-                                {
-                                    temporarilyChangedFlags = tileFlags + representativeTile;
-                                    savedFlags = *temporarilyChangedFlags;
-                                    *temporarilyChangedFlags = savedFlags & ~CompletedMoatTileFlag;
-                                    scope.RepresentativeStartMoatGateBypassed = true;
-                                }
-                            }
-                        }
-                    }
                 }
-                catch (Exception ex)
-                {
-                    TryLogDiagnosticFailure("direct-cursor-move-stager-scope", ex);
-                    if (temporarilyChangedFlags != null)
-                    {
-                        *temporarilyChangedFlags = savedFlags;
-                        temporarilyChangedFlags = null;
-                    }
-                    activeDirectCursorMove = previous;
-                    scope = null;
-                }
-
-                originalCursorMoveStager(
-                    unitManager, tribeId, targetX, targetY, targetContext, actionFlags);
+                catch (Exception ex) { TryLogDiagnosticFailure("direct-cursor-move-stager-scope", ex); }
+                // 195E30 queues opcode 0x11 BEFORE its moat gate and voice feedback.
+                // Never disguise real terrain to change a feedback-only branch.
+                originalCursorMoveStager(unitManager, tribeId, targetX, targetY, targetContext, actionFlags);
             }
-            finally
-            {
-                if (temporarilyChangedFlags != null)
-                    *temporarilyChangedFlags = savedFlags;
-                activeDirectCursorMove = previous;
-            }
+            finally { activeDirectCursorMove = previous; }
 
             if (scope != null)
             {
@@ -169,8 +118,8 @@ namespace MoveMoatTest
                 if (!IsValidTileId(startTileId))
                     continue;
 
-                EnsureReachabilityMap(playerId, startX, startY);
-                RouteProbeSummary summary = GetCachedRouteSummaryForTarget(targetX, targetY);
+                if (!ProbeCursorConnectivity(playerId, startTileId, targetTileId, out RouteProbeSummary summary))
+                    continue;
                 observed.MergeObservations(summary);
                 if (!summary.ReachedWithMoat)
                     continue;
@@ -202,6 +151,8 @@ namespace MoveMoatTest
         {
             DirectCursorMoveScope scope = activeDirectCursorMove;
             if (vanillaResult != 0 || scope == null || scope.MapEpoch != mapEpoch ||
+                activeMoveCommand != null || unitMoveFrame != null || activePlan != null ||
+                activeMoatWorkSelection != null || activeAttackCommand != null || activeAttackApproachDiagnostic != null ||
                 pathManager != nativePathManager || playerId != scope.PlayerId ||
                 sourceRegion != scope.TargetRegion ||
                 targetRegion < 0 || targetRegion > MaximumRegionId)
@@ -378,8 +329,7 @@ namespace MoveMoatTest
         private void LogDirectCursorMove(DirectCursorMoveScope scope)
         {
             string signature = $"{scope.MapEpoch}:{scope.TribeId}:{scope.TargetTileId}:" +
-                $"{scope.QualifyingUnitIds.Length}:{scope.RegionFallbackCalls}:" +
-                $"{scope.RepresentativeStartMoatGateBypassed}";
+                $"{scope.QualifyingUnitIds.Length}:{scope.RegionFallbackCalls}";
             if (string.Equals(signature, lastDirectCursorMoveDecision, StringComparison.Ordinal))
                 return;
             lastDirectCursorMoveDecision = signature;
@@ -390,7 +340,7 @@ namespace MoveMoatTest
                 $"{scope.TargetTileId} targetRegion={scope.TargetRegion} " +
                 $"qualifyingDiggers={scope.QualifyingUnitIds.Length} " +
                 $"regionFallbackCalls={scope.RegionFallbackCalls} " +
-                $"startMoatGateBypassed={scope.RepresentativeStartMoatGateBypassed} " +
+                $"terrainUnchanged=True feedbackOnly=True " +
                 $"{scope.Route.ToLogFields()}.");
         }
 
@@ -436,7 +386,6 @@ namespace MoveMoatTest
             public int[] QualifyingUnitIds { get; }
             public RouteProbeSummary Route { get; }
             public int RegionFallbackCalls { get; set; }
-            public bool RepresentativeStartMoatGateBypassed { get; set; }
         }
 
         private readonly struct DirectFillUnitStart

@@ -86,6 +86,8 @@
     <Compile Include="src\NativeMovementCadenceResolver.cs" />
     <Compile Include="src\WeightedMoatRoutePlanner.cs" />
     <Compile Include="src\MoatSearchKernel.cs" />
+    <Compile Include="src\MoatPlacementSearch.cs" />
+    <Compile Include="src\MoatPlacement.cs" />
     <Compile Include="src\CursorRegionGraph.cs" />
     <Compile Include="src\CursorConnectivity.cs" />
     <Compile Include="src\NativeMovementRecovery.cs" />

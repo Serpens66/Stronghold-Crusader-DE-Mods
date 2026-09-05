@@ -41,7 +41,6 @@ public static class SerpLocalization
     public const string Slot1Header = "UnitCosts.Slot1Header";
     public const string Slot2Header = "UnitCosts.Slot2Header";
     public const string Slot3Header = "UnitCosts.Slot3Header";
-    public const string Slot4HorseHeader = "UnitCosts.Slot4HorseHeader";
     public const string None = "UnitCosts.None";
     public const string Horse = "UnitCosts.Horse";
     public const string ResourcesMissing = "UnitCosts.ResourcesMissing";
@@ -463,12 +462,11 @@ public static class SerpLocalization
         { UnitCostsTitle, "Base Costs (Human and AI)" },
         { UnitCostsHelp, "Good slots apply to European units. unchanged keeps the vanilla slot; gold -1 stays unchanged." },
         { UnitCostsExtraTitle, "Additional Costs (Human only)" },
-        { UnitCostsExtraHelp, "0 = no extra cost. Positive values are charged in addition; negative gold refunds up to the current gold cost. AI players ignore this table." },
+        { UnitCostsExtraHelp, "0 = no extra cost. Positive values are charged in addition; negative gold refunds up to the current gold cost. A checked horse reserves one available stable horse for the recruited unit. AI players ignore this table." },
         { UnitHeader, "Unit" },
         { Slot1Header, "Slot 1" },
         { Slot2Header, "Slot 2" },
         { Slot3Header, "Slot 3" },
-        { Slot4HorseHeader, "Slot 4 / Horse" },
         { None, "none" },
         { Horse, "Horse" },
         { ResourcesMissing, "Resources missing" },

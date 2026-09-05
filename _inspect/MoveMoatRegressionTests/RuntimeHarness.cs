@@ -24,6 +24,8 @@ namespace MoveMoatTest
     internal unsafe struct GameUnit
     {
         public uint r_GlobalId, r_CurrentPositionTileId;
+        public int r_TribeId;
+        public ushort r_AttackMoveToTargetTileX, r_AttackMoveToTargetTileY;
         public int r_ControllableForPlayerId, r_CurrentTilePositionX, r_CurrentTilePositionY;
         public int r_NextTilePositionX2, r_NextTilePositionY2, r_PathPlanStateBitFlags, r_MovingRelevant;
         public int r_AI_LastIssuedTribeCommand;
@@ -92,6 +94,12 @@ namespace MoveMoatTest
         private void LogUnitWithoutBuilder(UnitMoveFrame frame, long result) {}
         private MoatWorkSelectionScope activeMoatWorkSelection;
         private IntPtr nativePathManager;
+        private IntPtr nativeTribeManager;
+        private DirectCursorMoveScope activeDirectCursorMove;
+        private Func<IntPtr,int,int> originalFirstGroupUnitOnCompletedMoat;
+        private Func<IntPtr,int,int,int> getGroupUnitId;
+        private static void LogCommandDiagnostic(string message) {}
+        private void InstallConnectivityObserver<T>(ReadOnlySpan<byte> memory, ulong libraryBase, int rva, string bytes, T callback, out T original) where T : Delegate { original = callback; }
         private byte* nativeUnitManager;
         private byte* nativeHeightLayer, movementTargetAvailability, nativeMovementMasks;
         private ushort* nativeBuildingLayer;
@@ -120,7 +128,9 @@ namespace MoveMoatTest
             public int TargetX, TargetY, ModeCalls, TargetedRouteCacheHits, TargetedRouteSearches, TargetedRouteExpandedNodes;
             public int TargetedRouteSearchPasses, BuilderCalls, FloodFillBypasses, FallbackBuilderCalls, FallbackRollbacks;
             public bool BuilderReached;
-            public int RegionCalls;
+            public int RegionCalls, TribeId, UnitsOnMoatAtDispatch;
+            public bool MoatRelevant;
+            public string LastGroupMoatModeDiagnostic;
             public int UnitMoveCalls, UnitMoveCompleted, UnitMovePositive, UnitMoveWithoutBuilder, UnitMoveAlreadyArrived;
             public int UnitMoveAbandoned, BuilderIntermediateTargets, FallbackContractRejections;
             public double TargetedRouteSearchMilliseconds, TargetedRouteMaximumSearchMilliseconds;
@@ -229,6 +239,7 @@ namespace MoveMoatTest
                 byte* heights = (byte*)Alloc(NativeTileCount);
                 nativeHeightLayer = heights;
                 movementTargetAvailability = (byte*)Alloc(MapCellCount);
+                nativePlaceReservations = (byte*)Alloc(NativeTileCount);
                 movementTargetAvailability[10*800+17] = 1;
                 byte* masks = (byte*)Alloc(NativeTileCount); nativeMovementMasks = masks;
                 byte* directions = (byte*)Alloc(8);
@@ -391,6 +402,7 @@ namespace MoveMoatTest
                 Check(TryGetMoatWorkRoute(NewScope(),17,10,out _), "search recovers after lookup failure");
                 CursorAdapterTests();
                 FillSelectionTests();
+                PlacementTests();
             }
             finally { foreach (var p in allocations) NativeMemory.Free((void*)p); }
         }

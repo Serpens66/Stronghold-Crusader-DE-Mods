@@ -8,6 +8,7 @@
   <ItemGroup>
     <Compile Remove="RuntimeHarness.cs" />
     <Compile Remove="CursorTests.cs" />
+    <Compile Remove="PlacementTests.cs" />
     <Compile Remove="SearchKernelTests.cs" />
     <Reference Include="Microsoft.CodeAnalysis">
       <HintPath>$(MSBuildSDKsPath)\..\Roslyn\bincore\Microsoft.CodeAnalysis.dll</HintPath>

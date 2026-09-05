@@ -162,6 +162,12 @@ namespace MoveMoatTest
                 {
                     tileFlags[1017]=flags; nativeMovementMasks[1017]=0; DirtyCursorTile(1017);
                     Check(Hover()==1,"structure bits do not veto reachable directed endpoint");
+                    units[1001]=new GameUnit { r_GlobalId=9001,r_AliveState=AliveState.IsAlive,r_ControllableForPlayerId=1,r_CurrentTilePositionX=17,r_CurrentTilePositionY=10 };
+                    GameTileManagerAPI.Instance.Occupants[1017]=1001;
+                    Check(Hover()==1,"friendly occupied structure retains movement cursor across moat");
+                    cursor->r_HoverOverUnitId=1001;
+                    Check(Hover()==1,"friendly structure sprite hover does not become an attack or veto movement reachability");
+                    cursor->r_HoverOverUnitId=0; GameTileManagerAPI.Instance.Occupants.Clear();
                     Check(ProbeCursorConnectivity(1,1017,1010,out var reverse) && !reverse.RouteFound,"incoming structure endpoint invents no reverse edge");
                     nativeHeightLayer[1017]=100; DirtyCursorTile(1017);
                     Check(Hover()==0,"inaccessible structure height remains blocked");

@@ -7,6 +7,7 @@ using SHCDESE.EventAPI.Buildings;
 using SHCDESE.EventAPI.MapLoader;
 using SHCDESE.EventAPI.Units;
 using SHCDESE.Interop;
+using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -36,6 +37,8 @@ namespace UnitCosts
         private eChimps recruitmentCostSnapshotUnitType = eChimps.CHIMP_TYPE_NULL;
         private int recruitmentCostSnapshotMultiplier;
         private bool recruitmentCostSnapshotValid;
+        private bool recruitmentCostSnapshotRequiresHorse;
+        private int recruitmentCostSnapshotAvailableHorses;
         private bool settingsChangedSubscribed;
         private bool libraryInitialized;
         private const string GoodsTextSection = "TEXT_GOODS";
@@ -376,6 +379,7 @@ namespace UnitCosts
 
             int extraAffordableAmount = -1;
             eGoods extraLimitingGood = eGoods.STORED_NULL;
+            bool extraLimitingHorse = false;
             int extraLimitingRequiredPerUnit = 0;
             int extraLimitingAvailableAmount = 0;
             bool hasPositiveExtraCost = TryGetMaxAffordableExtraCostAmount(
@@ -383,6 +387,7 @@ namespace UnitCosts
                 costs,
                 out extraAffordableAmount,
                 out extraLimitingGood,
+                out extraLimitingHorse,
                 out extraLimitingRequiredPerUnit,
                 out extraLimitingAvailableAmount);
 
@@ -403,7 +408,7 @@ namespace UnitCosts
                 if (extraAffordableAmount > 0)
                     return MakeTroopGameActionDecision.ForwardAmount(extraAffordableAmount);
 
-                ShowMissingResourcesMessage(extraLimitingGood);
+                ShowMissingResourcesMessage(extraLimitingGood, extraLimitingHorse);
                 return MakeTroopGameActionDecision.BlockAction();
             }
 
@@ -425,6 +430,7 @@ namespace UnitCosts
                 "effectiveRequestedAmount", constraint.EffectiveRequestedAmount,
                 "extraAffordable", extraAffordableAmount,
                 "extraLimitingGood", extraLimitingGood,
+                "extraLimitingHorse", extraLimitingHorse,
                 "extraRequiredPerUnit", extraLimitingRequiredPerUnit,
                 "extraAvailable", extraLimitingAvailableAmount,
                 "constraintAction", constraint.Action,
@@ -438,7 +444,7 @@ namespace UnitCosts
                 case Shared.RecruitmentConstraintAction.ForwardAmount:
                     return MakeTroopGameActionDecision.ForwardAmount(constraint.AmountToForward);
                 default:
-                    ShowMissingResourcesMessage(extraLimitingGood);
+                    ShowMissingResourcesMessage(extraLimitingGood, extraLimitingHorse);
                     return MakeTroopGameActionDecision.BlockAction();
             }
         }
@@ -536,9 +542,23 @@ namespace UnitCosts
                 });
             }
 
+            int availableHorses = 0;
+            if (costs.RequiresHorse)
+            {
+                availableHorses = CountAvailableHorseSlots(playerId);
+                entries.Add(new UnitRecruitmentCostEntry
+                {
+                    Amount = "   " + multiplier + " ",
+                    AmountAvailable = $"({availableHorses})",
+                    Image = GetHorseImage()
+                });
+            }
+
             recruitmentCostSnapshotPlayerId = playerId;
             recruitmentCostSnapshotUnitType = currentTooltipUnitType;
             recruitmentCostSnapshotMultiplier = multiplier;
+            recruitmentCostSnapshotRequiresHorse = costs.RequiresHorse;
+            recruitmentCostSnapshotAvailableHorses = availableHorses;
             recruitmentCostSnapshotValid = true;
             return entries;
         }
@@ -549,6 +569,12 @@ namespace UnitCosts
                 recruitmentCostSnapshotPlayerId != playerId ||
                 recruitmentCostSnapshotUnitType != currentTooltipUnitType ||
                 recruitmentCostSnapshotMultiplier != multiplier)
+            {
+                return false;
+            }
+
+            if (recruitmentCostSnapshotRequiresHorse != costs.RequiresHorse ||
+                (costs.RequiresHorse && recruitmentCostSnapshotAvailableHorses != CountAvailableHorseSlots(playerId)))
             {
                 return false;
             }
@@ -643,7 +669,7 @@ namespace UnitCosts
             if (!TryGetHumanExtraCosts(unitType, out UnitExtraCostValues costs))
                 return;
 
-            if (!HasEnoughExtraCosts(playerId, costs, amount, out eGoods _, out int _, out int _))
+            if (!HasEnoughExtraCosts(playerId, costs, amount, out eGoods _, out bool _, out int _, out int _))
                 button.IsEnabled = false;
         }
 
@@ -755,19 +781,48 @@ namespace UnitCosts
                 if (!TryGetHumanExtraCosts(args.NextUnitType, out UnitExtraCostValues costs))
                     return;
 
-                if (!HasEnoughExtraCosts(playerId, costs, 1, out eGoods missingGood, out int requiredAmount, out int availableAmount))
+                if (!HasEnoughExtraCosts(playerId, costs, 1, out eGoods missingGood, out bool missingHorse, out int requiredAmount, out int availableAmount))
                 {
                     LogDebug(
                         "UnitCosts transition extra cost missing:",
                         "unit", args.NextUnitType,
                         "player", playerId,
-                        "missing", missingGood,
+                        "missing", missingHorse ? "HORSE" : missingGood.ToString(),
                         "required", requiredAmount,
                         "available", availableAmount);
                     return;
                 }
 
-                ApplyExtraCosts(playerId, costs, 1);
+                HorseAllocation horseAllocation = default;
+                bool horseLinked = false;
+                if (costs.RequiresHorse)
+                {
+                    // This hook is UnitCosts' existing successful recruitment commit point.
+                    // Reserve the horse before charging the remaining extra costs.
+                    if (!TryFindAvailableHorseAllocation(playerId, out horseAllocation) ||
+                        !TryLinkStableHorse(horseAllocation, args.UnitId, playerId))
+                    {
+                        LogDebug(
+                            "UnitCosts transition horse link failed:",
+                            "unit", args.NextUnitType,
+                            "unitId", args.UnitId,
+                            "player", playerId);
+                        return;
+                    }
+
+                    horseLinked = true;
+                }
+
+                try
+                {
+                    ApplyExtraCosts(playerId, costs, 1);
+                }
+                catch
+                {
+                    if (horseLinked)
+                        RollbackStableHorseLink(horseAllocation, args.UnitId);
+                    throw;
+                }
                 Shared.DebugLogHelper.LogDebug(log, "UnitCosts applied human extra costs:", args.NextUnitType, "player", playerId);
             }
             catch (Exception ex)
@@ -792,7 +847,7 @@ namespace UnitCosts
                 if (!TryGetHumanExtraCosts(unitType, out UnitExtraCostValues costs))
                     return;
 
-                if (HasEnoughExtraCosts(args.PlayerId, costs, 1, out eGoods missingGood, out int requiredAmount, out int availableAmount))
+                if (HasEnoughExtraCosts(args.PlayerId, costs, 1, out eGoods missingGood, out bool missingHorse, out int requiredAmount, out int availableAmount))
                     return;
 
                 args.CustomValidationRules = true;
@@ -801,7 +856,7 @@ namespace UnitCosts
                     "UnitCosts blocked siege placement:",
                     "unit", unitType,
                     "player", args.PlayerId,
-                    "missing", missingGood,
+                    "missing", missingHorse ? "HORSE" : missingGood.ToString(),
                     "required", requiredAmount,
                     "available", availableAmount,
                     "mapper", args.Mappers);
@@ -829,13 +884,13 @@ namespace UnitCosts
                 if (!TryGetHumanExtraCosts(unitType, out UnitExtraCostValues costs))
                     return;
 
-                if (!HasEnoughExtraCosts(args.PlayerId, costs, 1, out eGoods missingGood, out int requiredAmount, out int availableAmount))
+                if (!HasEnoughExtraCosts(args.PlayerId, costs, 1, out eGoods missingGood, out bool missingHorse, out int requiredAmount, out int availableAmount))
                 {
                     LogDebug(
                         "UnitCosts siege extra cost skipped after spawn because resources are missing:",
                         "unit", unitType,
                         "player", args.PlayerId,
-                        "missing", missingGood,
+                        "missing", missingHorse ? "HORSE" : missingGood.ToString(),
                         "required", requiredAmount,
                         "available", availableAmount,
                         "building", args.Building);
@@ -871,6 +926,7 @@ namespace UnitCosts
             UnitExtraCostValues costs,
             int multiplier,
             out eGoods missingGood,
+            out bool missingHorse,
             out int requiredAmount,
             out int availableAmount)
         {
@@ -884,13 +940,28 @@ namespace UnitCosts
                 if (available < required)
                 {
                     missingGood = entry.Key;
+                    missingHorse = false;
                     requiredAmount = required;
                     availableAmount = available;
                     return false;
                 }
             }
 
+            if (costs.RequiresHorse)
+            {
+                int availableHorses = CountAvailableHorseSlots(playerId);
+                if (availableHorses < multiplier)
+                {
+                    missingGood = eGoods.STORED_NULL;
+                    missingHorse = true;
+                    requiredAmount = multiplier;
+                    availableAmount = availableHorses;
+                    return false;
+                }
+            }
+
             missingGood = eGoods.STORED_NULL;
+            missingHorse = false;
             requiredAmount = 0;
             availableAmount = 0;
             return true;
@@ -901,12 +972,14 @@ namespace UnitCosts
             UnitExtraCostValues costs,
             out int affordableAmount,
             out eGoods limitingGood,
+            out bool limitingHorse,
             out int limitingRequiredPerUnit,
             out int limitingAvailableAmount)
         {
             bool hasPositiveCost = false;
             affordableAmount = int.MaxValue;
             limitingGood = eGoods.STORED_NULL;
+            limitingHorse = false;
             limitingRequiredPerUnit = 0;
             limitingAvailableAmount = 0;
 
@@ -924,8 +997,25 @@ namespace UnitCosts
 
                 affordableAmount = affordableForGood;
                 limitingGood = entry.Key;
+                limitingHorse = false;
                 limitingRequiredPerUnit = requiredPerUnit;
                 limitingAvailableAmount = available;
+            }
+
+            if (costs.RequiresHorse)
+            {
+                hasPositiveCost = true;
+                int availableHorses = CountAvailableHorseSlots(playerId);
+                if (availableHorses < affordableAmount)
+                {
+                    affordableAmount = UnitExtraHorseCostPolicy.ApplyHorseAffordabilityLimit(
+                        affordableAmount,
+                        availableHorses);
+                    limitingGood = eGoods.STORED_NULL;
+                    limitingHorse = true;
+                    limitingRequiredPerUnit = 1;
+                    limitingAvailableAmount = availableHorses;
+                }
             }
 
             if (hasPositiveCost)
@@ -949,6 +1039,233 @@ namespace UnitCosts
                     GamePlayerManagerAPI.Instance.TryAddGood(playerId, entry.Key, -amount);
                 }
             }
+        }
+
+        private static int CountAvailableHorseSlots(int playerId)
+        {
+            int count = 0;
+            List<int> stableIds = new List<int>();
+            GameBuildingManagerAPI.Instance.GetAllBuildings(
+                stableIds,
+                AliveState.IsAlive,
+                eStructs.STRUCT_STABLES,
+                PlayerRelationship.Self,
+                playerId);
+            stableIds.Sort();
+
+            foreach (int stableId in stableIds)
+            {
+                unsafe
+                {
+                    if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(stableId, out GameBuilding* stable) ||
+                        !IsUsableStable(stable, playerId))
+                    {
+                        continue;
+                    }
+
+                    count += GetAvailableStableHorseCount(stable);
+                }
+            }
+
+            return count;
+        }
+
+        private static bool TryFindAvailableHorseAllocation(int playerId, out HorseAllocation allocation)
+        {
+            List<int> stableIds = new List<int>();
+            GameBuildingManagerAPI.Instance.GetAllBuildings(
+                stableIds,
+                AliveState.IsAlive,
+                eStructs.STRUCT_STABLES,
+                PlayerRelationship.Self,
+                playerId);
+            stableIds.Sort();
+
+            foreach (int stableId in stableIds)
+            {
+                unsafe
+                {
+                    if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(stableId, out GameBuilding* stable) ||
+                        !IsUsableStable(stable, playerId) ||
+                        GetAvailableStableHorseCount(stable) <= 0)
+                    {
+                        continue;
+                    }
+
+                    for (int slot = 0; slot < StableHorseSlotCount; slot++)
+                    {
+                        if (!IsStableHorseSlotFree(stable, slot))
+                            continue;
+
+                        allocation = new HorseAllocation(stableId, (int)stable->r_GlobalId, playerId, slot);
+                        return true;
+                    }
+                }
+            }
+
+            allocation = default;
+            return false;
+        }
+
+        private unsafe bool TryLinkStableHorse(HorseAllocation allocation, int unitId, int playerId)
+        {
+            if (unitId <= 0 || unitId > ushort.MaxValue ||
+                allocation.StableId <= 0 || allocation.StableId > ushort.MaxValue ||
+                allocation.Slot < 0 || allocation.Slot >= StableHorseSlotCount ||
+                allocation.OwnerPlayerId != playerId)
+            {
+                return false;
+            }
+
+            if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+                GameUnitManagerAPI.Instance.GetOwner(unitId) != playerId ||
+                unit->r_GlobalId == 0 ||
+                unit->r_LinkedStableBuildingId != 0 ||
+                unit->r_LinkedStableGlobalId != 0)
+            {
+                return false;
+            }
+
+            if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(allocation.StableId, out GameBuilding* stable) ||
+                !IsUsableStable(stable, playerId) ||
+                (int)stable->r_GlobalId != allocation.StableGlobalId ||
+                GetAvailableStableHorseCount(stable) <= 0 ||
+                !IsStableHorseSlotFree(stable, allocation.Slot))
+            {
+                return false;
+            }
+
+            int unitGlobalId = (int)unit->r_GlobalId;
+            GameBuildingManagerAPI.Instance.SetStablesUnitIdLink(
+                allocation.StableId,
+                allocation.Slot,
+                unitId,
+                unitGlobalId,
+                bidirectional: true);
+
+            bool slotMatches = GetStableHorseSlotUnitId(stable, allocation.Slot) == unitId &&
+                GetStableHorseSlotGlobalId(stable, allocation.Slot) == unitGlobalId;
+            bool backlinkMatches = unit->r_LinkedStableBuildingId == allocation.StableId &&
+                unit->r_LinkedStableGlobalId == (uint)allocation.StableGlobalId;
+            if (slotMatches && backlinkMatches)
+                return true;
+
+            if (slotMatches)
+            {
+                GameBuildingManagerAPI.Instance.UnlinkStablesUnitIdLink(
+                    allocation.StableId,
+                    allocation.Slot,
+                    bidirectional: true);
+            }
+            if (unit->r_LinkedStableBuildingId == allocation.StableId &&
+                unit->r_LinkedStableGlobalId == (uint)allocation.StableGlobalId)
+            {
+                unit->r_LinkedStableBuildingId = 0;
+                unit->r_LinkedStableGlobalId = 0;
+            }
+
+            LogDebug(
+                "UnitCosts rolled back incomplete stable horse link:",
+                "stableId", allocation.StableId,
+                "slot", allocation.Slot,
+                "unitId", unitId,
+                "slotMatches", slotMatches,
+                "backlinkMatches", backlinkMatches);
+            return false;
+        }
+
+        private unsafe void RollbackStableHorseLink(HorseAllocation allocation, int unitId)
+        {
+            if (allocation.Slot < 0 || allocation.Slot >= StableHorseSlotCount ||
+                !GameBuildingManagerAPI.Instance.TryGetBuildingById(allocation.StableId, out GameBuilding* stable) ||
+                (int)stable->r_GlobalId != allocation.StableGlobalId ||
+                GetStableHorseSlotUnitId(stable, allocation.Slot) != unitId)
+            {
+                return;
+            }
+
+            GameBuildingManagerAPI.Instance.UnlinkStablesUnitIdLink(
+                allocation.StableId,
+                allocation.Slot,
+                bidirectional: true);
+        }
+
+        private const int StableHorseSlotCount = 4;
+
+        private static unsafe bool IsUsableStable(GameBuilding* stable, int playerId)
+        {
+            return stable != null &&
+                stable->r_AliveState == AliveState.IsAlive &&
+                stable->r_BuildingType == eStructs.STRUCT_STABLES &&
+                stable->r_PlayerIdOwner == playerId;
+        }
+
+        private static unsafe int GetAvailableStableHorseCount(GameBuilding* stable)
+        {
+            // Vanilla owns both counters. Free link pairs additionally cap availability while
+            // r_UsedHorses is waiting for the regular stable update to recount them.
+            return UnitExtraHorseCostPolicy.CalculateAvailableHorseSlots(
+                stable->r_TotalHorses,
+                stable->r_UsedHorses,
+                CountFreeStableHorseSlots(stable));
+        }
+
+        private static unsafe int CountFreeStableHorseSlots(GameBuilding* stable)
+        {
+            int count = 0;
+            for (int slot = 0; slot < StableHorseSlotCount; slot++)
+            {
+                if (IsStableHorseSlotFree(stable, slot))
+                    count++;
+            }
+
+            return count;
+        }
+
+        private static unsafe bool IsStableHorseSlotFree(GameBuilding* stable, int slot) =>
+            GetStableHorseSlotUnitId(stable, slot) == 0 &&
+            GetStableHorseSlotGlobalId(stable, slot) == 0;
+
+        private static unsafe int GetStableHorseSlotUnitId(GameBuilding* stable, int slot)
+        {
+            // Script Extender 2.0.2's getter reads these ushort fields through int*, so use
+            // explicit, range-checked field access until that API is corrected upstream.
+            switch (slot)
+            {
+                case 0: return stable->r_UsedHorse1UnitId;
+                case 1: return stable->r_UsedHorse2UnitId;
+                case 2: return stable->r_UsedHorse3UnitId;
+                case 3: return stable->r_UsedHorse4UnitId;
+                default: return -1;
+            }
+        }
+
+        private static unsafe int GetStableHorseSlotGlobalId(GameBuilding* stable, int slot)
+        {
+            switch (slot)
+            {
+                case 0: return (int)stable->r_UsedHorse1GlobalId;
+                case 1: return (int)stable->r_UsedHorse2GlobalId;
+                case 2: return (int)stable->r_UsedHorse3GlobalId;
+                case 3: return (int)stable->r_UsedHorse4GlobalId;
+                default: return -1;
+            }
+        }
+
+        private readonly struct HorseAllocation
+        {
+            public HorseAllocation(int stableId, int stableGlobalId, int ownerPlayerId, int slot)
+            {
+                StableId = stableId;
+                StableGlobalId = stableGlobalId;
+                OwnerPlayerId = ownerPlayerId;
+                Slot = slot;
+            }
+
+            public int StableId { get; }
+            public int StableGlobalId { get; }
+            public int OwnerPlayerId { get; }
+            public int Slot { get; }
         }
 
         private static int GetLocalHumanPlayerId()
@@ -986,9 +1303,9 @@ namespace UnitCosts
             Shared.DebugLogHelper.LogDebug(log, parts);
         }
 
-        private void ShowMissingResourcesMessage(eGoods missingGood)
+        private void ShowMissingResourcesMessage(eGoods missingGood, bool missingHorse = false)
         {
-            PlayMissingResourcesSpeech(missingGood);
+            PlayMissingResourcesSpeech(missingHorse ? eGoods.STORED_NULL : missingGood);
             DisplayMaterialNotification(SerpLocalization.Get(SerpLocalization.ResourcesMissing));
         }
 
@@ -1160,6 +1477,18 @@ namespace UnitCosts
         private static Noesis.ImageSource GetGoodImage(eGoods good)
         {
             return MainViewModel.Instance.getSmallGoodsIcon((int)good);
+        }
+
+        private static Noesis.ImageSource GetHorseImage()
+        {
+            try
+            {
+                return Noesis.GUI.GetApplicationResources()?["UI-Buttons M025"] as Noesis.ImageSource;
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         private void CaptureVanillaGoldCosts()

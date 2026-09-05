@@ -7,10 +7,13 @@ namespace UnitCosts
     {
         private readonly Dictionary<eGoods, int> costs;
 
-        public UnitExtraCostValues(Dictionary<eGoods, int> costs)
+        public UnitExtraCostValues(Dictionary<eGoods, int> costs, bool requiresHorse = false)
         {
             this.costs = costs ?? new Dictionary<eGoods, int>();
+            RequiresHorse = requiresHorse;
         }
+
+        public bool RequiresHorse { get; }
 
         public int GetCost(eGoods good)
         {
@@ -25,7 +28,7 @@ namespace UnitCosts
                     return true;
             }
 
-            return false;
+            return RequiresHorse;
         }
 
         public IReadOnlyDictionary<eGoods, int> Costs => costs;

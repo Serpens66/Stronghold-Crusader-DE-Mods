@@ -80,6 +80,7 @@ namespace MoveMoatTest
                 preBuilderRecoveryHook.Generate((asm, original, returnAddress) =>
                     EmitRecoveryAdapter(asm, original.ToArray(), address, libraryBase));
                 preBuilderRecoveryHook.Enable();
+                InstallPlacementAdapters(memory, libraryBase);
             }
             catch { DisposeConnectivityHooks(); throw; }
         }
@@ -124,6 +125,7 @@ namespace MoveMoatTest
 
         private void InvalidateMovementSearchData()
         {
+            placementRevision++;
             weightedMoatRoutePlanner.SetSearchSession(null, -1, mapEpoch, CaptureCurrentGameTick());
             nativeGroundDecisions.Clear(); activeMoveCommand?.TargetedRouteDecisions.Clear();
             cacheMapEpoch = -1;

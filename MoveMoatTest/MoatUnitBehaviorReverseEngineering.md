@@ -2,6 +2,152 @@
 
 Stand: 5. September 2026
 
+## Aktueller Übergabestand: besetzte Treppen, gemischte Starts und Platzvergabe
+
+Diese Reparatur baut auf dem Cursor-Build `9AF6787D27D3137FD72DAF50E90A1BFAD59F3FE98CDED2C4FFCE9D6AEABE3FCF`
+auf. Die unten folgenden älteren Übergaben bleiben historische Belege. Insbesondere die
+bisherige Erklärung des direkten Klickadapters wird durch die folgenden Nachweise ersetzt.
+Ziel bleibt Script Extender **1.42.0**, Modversion **1.0.0**; README und öffentliche QoL-Bridge
+werden nicht geändert. Die alternative Umsetzung wurde ausdrücklich mit dem Nutzer besprochen.
+
+### Befund des Tests vom 05.09.2026, 16:09 bis 16:12
+
+- Die Cursorbedingung `!occupiedByLivingUnit || hostileUnitTarget || hostileBuildingTarget`
+  ließ eine freundliche lebende Einheit auf einer Treppe die zusätzliche Bewegungsprüfung
+  verhindern. Begehbare Strukturziele nehmen jetzt auch bei freundlicher Belegung an der
+  gerichteten Regionsprüfung teil. Waffen-/Angriffsentscheidungen bleiben nativ.
+- `SelectOwnerSafeGroupMoatMode` kehrte zurück, sobald `vanillaFirstMoat != lead` war.
+  Damit wurde gerade die Kombination Boden-/Inselführer und späteres Moat-Mitglied nicht
+  qualifiziert. Diese Gruppe kann jetzt den notwendigen gemeinsamen Moat-Zweig erreichen;
+  bei einem Moat-Führer bleibt der geeignete native gemeinsame Unit-Zielzweig erhalten.
+- Die Klickzeilen um 16:11:29.602, 31.546, 33.092, 35.982 und 51.221 bestätigen eine
+  freundliche Verbindung zwischen Region 3 und 1. Fehlende `move-command`-Zeilen beweisen
+  jedoch NICHT, dass der Auftrag nicht eingereiht wurde: `FlushCommandDiagnostics` konnte
+  frühe schnelle Abbrüche ohne als moat-relevant markierten Plan vollständig verwerfen.
+  Gruppen mit grabfähigen Einheiten und null Unit-Aufrufen werden nun ebenfalls ausgegeben.
+  Die konkrete Abbruchstelle dieser historischen Klicks bleibt ohne damalige Marker offen;
+  der nachgebildete native Zweig bestätigt den oben genannten Codefehler.
+- Der Befehl `commandSeq=55` um 16:12:08.340 hat 62 Einheiten und ein Moat-Ziel in PCL 0;
+  `floodCalls=0` passt zum gemeinsamen Zielzweig. Dessen Code weist jedem Mitglied exakt
+  dieselben Koordinaten zu. Ein erfolgreicher Builder bestätigt keine räumliche Verteilung.
+
+### Hashgebundene native Verträge und Eingriffstiefe
+
+Die installierte DLL wurde erneut gegen CURRENT.json und die Datensätze geprüft:
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+Die reproduzierbare Prüfung liegt unter
+`_inspect/MoveMoatRegressionTests/Validate-PlacementContracts.py` (PE/Capstone, nur lesend).
+
+- `0x195E30` ruft `0x23990` mit Chore-Opcode `0x11` VOR dem Start-Moat-Test auf.
+  Der Dispatchtabelleneintrag führt nach `0x10AE0`, beim Ausführen weiter nach
+  `0x196100 -> 0x11B520`. Die nachfolgende Startprüfung gehört zur unmittelbaren
+  Klickrückmeldung, nicht zum Nachweis einer ausgeführten Bewegung. Das vorübergehende
+  Löschen des echten Moat-Terrainflags wurde entfernt. Der Rückmeldungsadapter nutzt
+  Regionsverbindungen und darf keine verschachtelte Befehls-/Arbeits-/Unit-Prüfung übernehmen.
+- `0x11B520` verlangt für die normale Formation eine positive Ziel-PCL. Der alternative
+  Zweig `0x118E00` schreibt je Unit `manager + id*0x490 + 0x934/0x936` und ruft bei
+  `0x118FB9` die echte Unit-Bewegung `0x196280` auf. Diese Felder entsprechen bei
+  `GameUnit`-Basisoffset `0x65C` genau `r_AttackMoveToTargetTileX/Y` (`0x2D8/0x2DA`).
+  Die verwalteten Offsets werden beim Start zusätzlich geprüft.
+- Die native spätere Entzerrung `0x181890` prüft die Belegung des aktuellen Feldes und
+  ruft auf Boden `0xF03C0` bei `0x18195E`, auf Strukturen separat `0xF0710` auf.
+  Bei einem gefundenen Feld folgt `0x196280` bei `0x18198E`. `0xF03C0` verlangt unter
+  anderem eine nichtnull Boden-PCL, die native Belegungs-/Sperrsicht `0x51D75F0` und ein
+  freies Unit-Feld. Sein verwendeter Ausgabevertrag ist X/Y/Tile bei `pathManager+0x44/0x48/0x4C`.
+  Der Aufrufer verwendet außerdem die laufende native Unit-ID `0x9302C4`; diese muss zur
+  gebundenen Unit passen. Struktur- und Teleport-Sonderzweige werden nicht ersetzt.
+
+Es kommen drei Funktionsanfang-Detours hinzu, kein Hook auf `0x196280`. Vollständige,
+mindestens 14 Bytes überdeckende Instruktionspräfixe sind:
+
+| Einstieg | Ende exklusiv | Präfixinstruktionen |
+| --- | --- | --- |
+| `0x118E00` | `0x118E0F` | drei `mov [rsp+8/10h/18h], rbx/rbp/rsi` |
+| `0x181890` | `0x18189F` | zwei Sicherungen von RBX/RSI, `push rdi`, `sub rsp,30h` |
+| `0xF03C0` | `0xF03D1` | Sicherung von EDX, `push rbx/rsi/rdi`, `sub rsp,40h`, `inc [rcx+A0h]` |
+
+Die Prüfung kontrolliert die vollständigen Präfixbytes, Endadressen, eindeutige Patterns,
+Funktionsdatensätze und Aufrufketten. MonoMod führt die Originalinstruktionen im Trampolin
+aus; kein eigener Ersatzblock verwendet Scratchregister. Win64: RCX/RDX/R8/R9 enthalten
+die ersten Argumente, die übrigen Gruppenargumente liegen im Stack; Return ist RAX bzw.
+void. Stack/Shadow-Space und nichtflüchtige GPR/XMM-Register werden über den Delegate-ABI
+erhalten. Es gibt keinen benötigten eingehenden Flagwert. Die beobachteten Rücksprünge
+verwenden eigene Tests/Loads, nicht vom ersetzten Suchaufruf erzeugte Flags. Die gespeicherten
+Register werden vor Clobbern im Originalpräfix gelesen. Die vollständigen Call-/Byteangaben
+gibt das Prüfscript aus; die kanonische Baseline bleibt unverändert.
+
+### Platzierung, Sucharbeit und Rücksetzung
+
+`MoatPlacementSearch` ergänzt nur fehlende individuelle Ziele im synchron gebundenen
+gemeinsamen Gruppenzweig. Native Unit-Reihenfolge und Gruppen-/Patrol-Wegpunkte bleiben
+erhalten. Die nächste freie Position wird deterministisch in Breitensuche gesucht;
+freundliche Moats UND benachbarter erreichbarer Boden sind erlaubt. Gerichtete Kanten,
+Höhen, Tore, fremde Moats, aktuelle Belegung und native Reservierungssicht werden geprüft.
+Fehlender freier Platz erzeugt keinen Ersatzauftrag: der ursprüngliche Zielpunkt durchläuft
+weiter die individuelle native Bewegung und den bestehenden vollständigen Pfadaudit.
+
+Unterschiedliche Ziele teilen einen fortsetzbaren gerichteten Regionsnachweis: Erreicht die
+Unit den Anker und der Anker den Kandidaten, ist die Verbindung bewiesen. Der Anker wird
+NICHT als Bewegungswegpunkt eingesetzt. Andere gerichtete Verbindungen bleiben durch eine
+eigene Regionsentscheidung möglich. Es werden keine Kosten, Pfadpuffer oder Unit-Pläne
+zwischen Einheiten geteilt. Cursor- und Platzierungs-Suchknoten haben getrennte Zähler.
+
+Reservierungen bleiben bei einem Suchdaten-Neuaufbau erhalten. Epoch/Tick, Global-ID,
+Spieler und Aufrufkontext verhindern eine Übernahme durch andere Units oder Arbeitszyklen.
+Bei Abbruch werden eigene Zielfeldänderungen zurückgesetzt, fremde spätere Schreibzugriffe
+bleiben erhalten. Veränderte Pre-Argumente werden bei der ersten nativen Verwendung nochmals
+gelesen: nachdem Vanilla sie bereits in Register kopiert hat, dürfen sie nicht nachträglich
+auf das Klickziel zurückgeschrieben werden. Die eigenen Zielfelder folgen dann dem tatsächlichen
+Argument; die alte Platzreservierung wird freigegeben. Bereits native Pfade behalten ihren
+separaten Puffer-, Kanten- und Eigentümeraudit samt Rollback.
+
+Automatische Entzerrung nutzt ausschließlich Vanillas bestehenden Aufruf für eine tatsächlich
+überlappende geeignete Unit auf freundlichem Moat. Kein neuer Tick-Scan und keine Arbeit durch
+Auswahländerung. Der Freifeldersatz gilt einmal pro gebundenem Aufruf; verschachtelte Aufrufe
+übernehmen keinen fremden Suchkontext. Daten werden höchstens innerhalb desselben Ticks und
+derselben Karten-/Topologierevision wiederverwendet; Belegung wird immer neu gelesen.
+
+**Alternative bei unzureichendem Spielergebnis:** statt der begrenzten eigenen Platzvergabe
+Vanillas Formations- und Freifeldsuche gezielt um Moat-PCL-Ausnahmen erweitern. Dieser Weg
+verlangt mehr Eingriffe in gemeinsame native Suchpuffer und Strukturzweige. Er ist ausdrücklich
+als nächste Alternative festgehalten, aber nicht als paralleler Runtime-Fallback eingebaut.
+
+### Tatsächliche Prüfungen und noch offene Spielabnahme
+
+- Gesamter Runtime-Code gegen lokalen SE-Tag `v1.42.0` und installierte Release-Assembly
+  `1.42.0` semantisch geprüft. Der Roslyn-Prüfer meldet die bereits bekannte CS1701-Zuordnung
+  zwischen BepInEx/mscorlib-Versionen, keine Quellfehler; er erzeugt keine Spiel-Modassembly.
+- 161.320 Runtime-/Platzierungsassertionen, zusätzlich 6.792 unabhängige Pfadsuchassertionen
+  und 1.469.340 gerichtete Cursorgraph-Vergleiche bestanden. Platzierung und Entzerrungsadapter
+  werden als tatsächliche Produktionskomponenten mit simulierter nativer Aufrufreihenfolge
+  geprüft. 100 kleine gerichtete Karten vergleichen Kandidaten und Ankerbeweise unabhängig.
+- Die Produktionssimulation liefert bei 1/5/20/27/29/120 Einheiten entsprechend viele
+  unterschiedliche freie Ziele. Im 120er-Korridorfall: 119 Kandidatenknoten, 117 zusätzliche
+  Verbindungsknoten, rund 24,6 ms und 406.168 Bytes für den gemessenen Simulationsabschnitt
+  einschließlich Unit-Plänen, Pfadveröffentlichungen und Testprüfungen. Das ist keine
+  Ingame-Laufzeit; der erste kalte Regionsnachweis verursacht zusätzliche Arbeit.
+- Belegte Strukturen, veränderte Argumente, Fehl-/Skip-Rückgaben, fehlendes Post, verschachtelte
+  Unit-Aufrufe, Global-ID-Wechsel, laufende Schritte und Reservierungen nach Revision geprüft.
+  Bestehende Fremdpuffer-, Eigentümer-, Fill-, Struktur- und Cursorregressionen bestehen weiter.
+- Cursor bleibt ohne Wegsuche. Die vollständige Auswahl-/Cursor-Simulation allokiert für
+  100 Abfragen 52.000 Bytes unabhängig von 1/120/1.000 ausgewählten Units; der isolierte
+  Regionsadapter bleibt bei wiederholten unveränderten Abfragen ohne neue Allokationen/Knoten.
+
+Neue Runtime-Marker: `placement hooks installed`, `stage=placement`, `placementBatches`,
+`placementSlots`, `placementRollbacks`, `unstackCalls` und `unstackMoves`. Eine positive native
+Entzerrungsrückgabe ist noch keine beobachtete Ankunft. Im Spiel stehen besetzte Treppen ohne
+Bodenalternative, beide gemischten Gruppenführer, Moat-Verteilung einschließlich Platzmangel,
+spätere Entzerrung, Queue/Patrol, KI, Dig/Fill, Angriffe und Host/Client noch zur Abnahme aus.
+Lagfreiheit und tatsächliche Bewegung dieser neuen Version sind daher noch nicht bestätigt.
+
+Abschluss dieser Reparatur: Nach der Modellunterbrechung wurde der gespeicherte Stand erneut geprüft
+und die vollständige Regression erfolgreich wiederholt. Native Vertragsprüfung und CRLF-Kontrolle
+sind bestanden. Am 05.09.2026 um 18:00:24 wurde `build.bat /nopause` einmal direkt erhöht
+ausgeführt: **0 Warnungen, 0 Fehler**, Build und Installation erfolgreich. Lokale und installierte
+Mod-DLL stimmen per SHA-256 überein: `32F875CF79656F049BC025149871EDCB109656A55F38BFC452059F627B693787`.
+Modversion bleibt `1.0.0`; README und Script Extender wurden nicht verändert. Die oben genannte
+Spielabnahme bleibt offen; diese Prüfungen ersetzen keinen Ingame-/Host-Client-Nachweis.
+
 ## Aktueller Übergabestand: Cursoranbindung korrigiert, 5. September 2026
 
 Dieser Abschnitt ersetzt insbesondere die vorherigen Aussagen zur funktionierenden

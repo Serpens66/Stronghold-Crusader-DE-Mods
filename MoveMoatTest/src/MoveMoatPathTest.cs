@@ -888,6 +888,8 @@ namespace MoveMoatTest
             ValidateGameUnitFieldOffset(nameof(GameUnit.r_TargetTilePositionX2), 0xE8);
             ValidateGameUnitFieldOffset(nameof(GameUnit.r_TargetTilePositionY2), 0xEA);
             ValidateGameUnitFieldOffset(nameof(GameUnit.r_AIState), 0x2BC);
+            ValidateGameUnitFieldOffset(nameof(GameUnit.r_AttackMoveToTargetTileX), 0x2D8);
+            ValidateGameUnitFieldOffset(nameof(GameUnit.r_AttackMoveToTargetTileY), 0x2DA);
             ValidateGameUnitFieldOffset(nameof(GameUnit.r_SpeedBonus), 0x2BA);
             ValidateGameUnitFieldOffset(nameof(GameUnit.r_CurrentSpeed2), 0x346);
             ValidateGameUnitFieldOffset(nameof(GameUnit.r_CurrentSpeed), 0x348);
@@ -4191,10 +4193,9 @@ namespace MoveMoatTest
                 if (leadUnitId <= 0 || unitCount <= 0 || unitCount > MaximumUnitCount)
                     return vanillaResult;
 
-                // 0x11B520 only selects the shared moat builder when the first active
-                // moat unit returned by 0x117BC0 is also the tribe's lead unit.
-                if (vanillaResult > 0 && vanillaResult != leadUnitId)
-                    return vanillaResult;
+                // A ground leader and a later moat member still need qualification.
+                // Returning here used to strand the whole tribe on an isolated PCL.
+                command.MoatRelevant |= vanillaResult > 0;
 
                 int activeUnitsOnMoat = 0;
                 int activeUnitsOffMoat = 0;
@@ -4235,11 +4236,9 @@ namespace MoveMoatTest
                     if (!CanDigMoat(unit))
                         continue;
                     diggerUnits++;
-                    // A positive Vanilla result is normalized only from an actual moat
-                    // starter. With Vanilla 0, a required owner-safe route may instead
-                    // select the shared moat group builder before E2610 is reached.
-                    if (qualifyingUnitId != 0 ||
-                        (vanillaResult > 0 && !onCompletedMoat))
+                    // Qualify a required crossing before choosing a native group branch;
+                    // both island starters and actual moat starters can supply evidence.
+                    if (qualifyingUnitId != 0)
                         continue;
                     int startRegion = pathRegionGrid[startTileId];
                     int startKey = startRegion > 0 ? startRegion : -startTileId - 1;
@@ -4279,7 +4278,7 @@ namespace MoveMoatTest
                     ResolveCompletedMoatRelationship(
                         qualifyingUnit->r_ControllableForPlayerId, targetTileId) ==
                         CompletedMoatRelationship.Friendly;
-                bool forceSharedMoatMode = vanillaResult == 0 && leadUnitObserved &&
+                bool forceSharedMoatMode = vanillaResult != leadUnitId && leadUnitObserved &&
                     ((targetRegion > 0 && targetRegion <= MaximumRegionId) ||
                      targetIsFriendlyCompletedMoat) &&
                     qualifyingUnitId > 0;
@@ -4311,9 +4310,9 @@ namespace MoveMoatTest
                     LogCommandDiagnostic(diagnostic);
                 }
 
-                // Mixed moat/ground starts use the ordinary group flood. A must-moat target
-                // with no unit currently on a moat must instead enter Vanilla's real shared
-                // moat builder; a synthetic E2610 result lacks the graph state DF720 consumes.
+                // A ground leader with a later moat member needs the shared moat branch.
+                // A moat leader in a mixed group uses Vanilla's per-unit common-target
+                // branch. Never synthesize E2610: DF720 consumes its real portal state.
                 // The later per-unit mode and builder hooks retain the capability/owner filter.
                 return effectiveResult;
             }
@@ -5971,7 +5970,8 @@ namespace MoveMoatTest
                 }
 
                 AttackCursorPairScope candidateScope = validPair &&
-                    (!occupiedByLivingUnit || hostileUnitTarget || hostileBuildingTarget)
+                    (!occupiedByLivingUnit || hostileUnitTarget || hostileBuildingTarget ||
+                     (tileFlags[targetTileId] & CursorSpecialStructureTileFlagMask) != 0)
                     ? new AttackCursorPairScope(
                         mapEpoch, unitId, playerId, startX, startY, startTileId,
                         targetX, targetY, targetTileId, fallbackKind,
@@ -7749,10 +7749,12 @@ namespace MoveMoatTest
                 ((command.HasQueuePreSnapshot && command.QueuePreSnapshot.Count > 0) ||
                  (command.HasQueuePostSnapshot && command.QueuePostSnapshot.Count > 0));
             bool slow = command != null && command.ElapsedMilliseconds >= 50.0;
-            if (command == null || (!command.MoatRelevant && !queueRelevant && !slow))
+            bool earlyFailure = command != null && command.DiggersAtDispatch > 0 &&
+                command.UnitMoveCalls == 0;
+            if (command == null || (!command.MoatRelevant && !queueRelevant && !slow && !earlyFailure))
                 return;
 
-            if (slow && !command.MoatRelevant && !queueRelevant)
+            if (slow && !command.MoatRelevant && !queueRelevant && !earlyFailure)
             {
                 Shared.DebugLogHelper.LogInfo(
                     log,
@@ -8954,6 +8956,7 @@ namespace MoveMoatTest
             public string RecoveryRejection;
             public short PrePortalRegion, FailedDestinationRegion, FailedPortalRegion;
             public bool RecoveryApplied;
+            public PlacementUnit Placement;
         }
 
         private sealed class PlanScope

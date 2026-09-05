@@ -33,6 +33,8 @@ namespace MoveMoatTest
                 }
                 unitMoveFrame = new UnitMoveFrame(args, parent, mapEpoch,
                     CaptureCurrentGameTick(), activeMoveCommand);
+                try { PreparePlacement(unitMoveFrame); }
+                catch (Exception ex) { TryLogDiagnosticFailure("placement-pre", ex); }
                 if (activeMoveCommand != null)
                     activeMoveCommand.UnitMoveCalls++;
                 return;
@@ -51,6 +53,8 @@ namespace MoveMoatTest
                 return;
             }
             RestoreFailedRecovery(frame, args.ReturnValue);
+            SynchronizePlacement(frame);
+            FinishPlacement(frame.Placement, args.ReturnValue > 0);
             if (frame.Command != null)
             {
                 frame.Command.UnitMoveCompleted++;
@@ -82,8 +86,9 @@ namespace MoveMoatTest
             return unitMoveFrame;
         }
 
-        private static void AbandonUnitMoveFrame(UnitMoveFrame frame)
+        private void AbandonUnitMoveFrame(UnitMoveFrame frame)
         {
+            FinishPlacement(frame.Placement, false);
             if (frame.Command != null)
                 frame.Command.UnitMoveAbandoned++;
         }
@@ -99,6 +104,7 @@ namespace MoveMoatTest
 
         private PlanScope GetUnitMovePlan(UnitMoveFrame frame, int unitId)
         {
+            SynchronizePlacement(frame);
             if (frame == null || frame.Args.UnitId != unitId || unitId <= 0 ||
                 unitId > MaximumUnitCount ||
                 !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) || unit == null ||

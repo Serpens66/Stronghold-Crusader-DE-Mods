@@ -131,6 +131,18 @@
             </DataTemplate>
           </ItemsControl.ItemTemplate>
         </ItemsControl>
+        <StackPanel Width="74" Margin="3,0">
+          <Image Source="{Binding HorseHeaderIcon}"
+                 Width="18"
+                 Height="18"
+                 Stretch="Uniform"
+                 HorizontalAlignment="Right"
+                 Margin="0,0,0,1"/>
+          <TextBlock Text="{Binding HorseHeaderText}"
+                     Foreground="#CCCCCC"
+                     FontWeight="Bold"
+                     TextAlignment="Right"/>
+        </StackPanel>
       </StackPanel>
       <ItemsControl ItemsSource="{Binding ExtraCostEntries}" Margin="0,3,0,8">
         <ItemsControl.ItemTemplate>
@@ -166,6 +178,13 @@
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
+              <StackPanel Width="74" Margin="3" VerticalAlignment="Center">
+                <CheckBox IsChecked="{Binding RequiresHorse, Mode=TwoWay}"
+                          IsEnabled="{Binding HorseCostSupported}"
+                          HorizontalAlignment="Center"
+                          ToolTipService.ShowDuration="60000"
+                          ToolTip="{Binding HorseToolTip}"/>
+              </StackPanel>
             </StackPanel>
             </Grid>
           </DataTemplate>

@@ -227,7 +227,9 @@ namespace MoveMoatTest
             Shared.DebugLogHelper.LogInfo(log, $"MoveMoat stage=cursor-performance selected={selectedCursorIds.Length} queries={cursorQueries} " +
                 $"regionCacheHits={hits} regionNodes={nodes} topologyBuilds={cursorTopologyBuilds} tileUpdates={cursorTopologyUpdates} " +
                 $"queryMs={cursorQueryTicks * 1000.0 / Stopwatch.Frequency:F3} topologyMs={cursorTopologyTicks * 1000.0 / Stopwatch.Frequency:F3} " +
-                $"selectionSourceAvailable={cursorSelectionAvailable} decisions=[{decisions}] pathSearches=0.");
+                $"selectionSourceAvailable={cursorSelectionAvailable} decisions=[{decisions}] pathSearches=0 " +
+                $"placementBatches={placementCalls} placementSlots={placementSlots} placementRollbacks={placementRollbacks} " +
+                $"unstackCalls={unstackCalls} unstackMoves={unstackMoves}.");
         }
 
         private void RefreshCursorPortals(CursorTopology topology, int player)
