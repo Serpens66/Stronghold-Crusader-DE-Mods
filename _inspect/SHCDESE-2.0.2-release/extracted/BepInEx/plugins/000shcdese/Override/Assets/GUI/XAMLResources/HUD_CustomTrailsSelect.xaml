@@ -1,0 +1,632 @@
+<UserControl
+    x:Class="CrusaderDE.HUD_CustomTrailsSelect"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:b="http://schemas.microsoft.com/xaml/behaviors"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:CrusaderDE"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    d:DesignHeight="650"
+    d:DesignWidth="1000"
+    mc:Ignorable="d">
+
+    <UserControl.Resources>
+        <Style TargetType="{x:Type TextBlock}">
+            <Setter Property="FontSize" Value="22" />
+            <Setter Property="Foreground" Value="#FFEFF3C6" /> 
+        </Style>
+        <BooleanToVisibilityConverter
+            x:Key="booleanToVisibilityConverter" />
+    </UserControl.Resources>
+
+    <Grid
+        x:Name="LayoutRoot"
+        Width="1000"
+        Height="650"
+        HorizontalAlignment="Center"
+        VerticalAlignment="Top"
+        Background="#00000000"
+        UseLayoutRounding="True">
+        <Grid.RenderTransform>
+            <TranslateTransform />
+        </Grid.RenderTransform>
+
+
+
+        <!-- main view -->
+        <Button
+            Width="1000"
+            Height="650"
+            Margin="0,0,0,0"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Top"
+            Style="{StaticResource BDR_Wood}" />
+       
+        <Grid
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch"
+            >
+
+            <TextBlock
+                Margin="0,27,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                FontSize="40"
+                Text="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_CUSTOMISATION_055]}"
+                >
+            </TextBlock>
+
+ <!--           <Button
+                Name="PlayButton"
+                Width="300"
+                Margin="40,0,0,30"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Bottom"
+                local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_NEW_CTEXT_237]}"
+                local:PropEx.GlowButtonTextHeight="28"
+                Command="{Binding CustomTrailsCommand}"
+                CommandParameter="Play"
+                Style="{StaticResource BTN_SH_GlowL}" />
+-->
+
+            <StackPanel
+                Margin="40,90,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top">
+                <Grid
+                    x:Name="Row1"
+                    Width="850"
+                    Height="50"
+                    Margin="0,0,0,0"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Background="#44000000">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="5"/>
+                        <ColumnDefinition Width="60"/>
+                        <ColumnDefinition Width="5"/>
+                        <ColumnDefinition Width="40"/>
+                        <ColumnDefinition Width="15"/>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="5"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock
+                        Grid.Column="3"
+                        Width="40"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center"
+                        Text="{Binding Leaderboard_Pos_1}"
+                        TextAlignment="Right"
+                        />
+                    <Image
+                        Grid.Column="1"
+                        Margin="5,0,0,0"
+                        Width="44"
+                        Height="44"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center"
+                        Source="{Binding Leaderboard_Image_1}"/>
+                    <TextBlock
+                        Grid.Column="5"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center"
+                        Text="{Binding Leaderboard_Name_1}"
+                        TextAlignment="Left" />
+                    <Button 
+                        Grid.ColumnSpan="6"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch"
+                        Command="{Binding CustomTrailsCommand}"
+                        CommandParameter="Row1"
+                        MouseEnter="MouseEnterMainButtonHandler"
+                        MouseLeave="MouseLeaveMainButtonHandler"
+                        Style="{StaticResource BTN_Image}" />
+                </Grid>
+                <Grid
+                    x:Name="Row2"
+                    Width="850"
+                    Height="50"
+                    Margin="0,0,0,0"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Background="#22000000">
+                    <Grid.ColumnDefinitions>
+                         <ColumnDefinition Width="5"/>
+                        <ColumnDefinition Width="60"/>
+                        <ColumnDefinition Width="5"/>
+                        <ColumnDefinition Width="40"/>
+                        <ColumnDefinition Width="15"/>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="5"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock
+                        Grid.Column="3"
+                        Width="40"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center"
+                        Text="{Binding Leaderboard_Pos_2}"
+                        TextAlignment="Right"
+                        />
+                    <Image
+                        Grid.Column="1"
+                        Margin="5,0,0,0"
+                        Width="44"
+                        Height="44"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center"
+                        Source="{Binding Leaderboard_Image_2}"/>
+                    <TextBlock
+                        Grid.Column="5"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center"
+                        Text="{Binding Leaderboard_Name_2}"
+                        TextAlignment="Left" />
+                    <Button
+                        Grid.ColumnSpan="6"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch"
+                        Command="{Binding CustomTrailsCommand}"
+                        CommandParameter="Row2"
+                        MouseEnter="MouseEnterMainButtonHandler"
+                        MouseLeave="MouseLeaveMainButtonHandler"
+                        Style="{StaticResource BTN_Image}" />
+                </Grid>
+                <Grid
+                    x:Name="Row3"
+                    Width="850"
+                    Height="50"
+                    Margin="0,0,0,0"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Background="#44000000">
+                    <Grid.ColumnDefinitions>
+                         <ColumnDefinition Width="5"/>
+                        <ColumnDefinition Width="60"/>
+                        <ColumnDefinition Width="5"/>
+                        <ColumnDefinition Width="40"/>
+                        <ColumnDefinition Width="15"/>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="5"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock
+                        Grid.Column="3"
+                        Width="40"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center"
+                        Text="{Binding Leaderboard_Pos_3}"
+                        TextAlignment="Right"
+                        />
+                    <Image
+                        Grid.Column="1"
+                        Margin="5,0,0,0"
+                        Width="44"
+                        Height="44"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center"
+                        Source="{Binding Leaderboard_Image_3}"/>
+                    <TextBlock
+                        Grid.Column="5"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center"
+                        Text="{Binding Leaderboard_Name_3}"
+                        TextAlignment="Left" />
+                    <Button
+                        Grid.ColumnSpan="6"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch"
+                        Command="{Binding CustomTrailsCommand}"
+                        CommandParameter="Row3"
+                        MouseEnter="MouseEnterMainButtonHandler"
+                        MouseLeave="MouseLeaveMainButtonHandler"
+                        Style="{StaticResource BTN_Image}" />
+                </Grid>
+                <Grid
+                    x:Name="Row4"
+                    Width="850"
+                    Height="50"
+                    Margin="0,0,0,0"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Background="#22000000">
+                    <Grid.ColumnDefinitions>
+                         <ColumnDefinition Width="5"/>
+                        <ColumnDefinition Width="60"/>
+                        <ColumnDefinition Width="5"/>
+                        <ColumnDefinition Width="40"/>
+                        <ColumnDefinition Width="15"/>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="5"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock
+                        Grid.Column="3"
+                        Width="40"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center"
+                        Text="{Binding Leaderboard_Pos_4}"
+                        TextAlignment="Right"
+                        />
+                    <Image
+                        Grid.Column="1"
+                        Margin="5,0,0,0"
+                        Width="44"
+                        Height="44"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center"
+                        Source="{Binding Leaderboard_Image_4}"/>
+                    <TextBlock
+                        Grid.Column="5"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center"
+                        Text="{Binding Leaderboard_Name_4}"
+                        TextAlignment="Left" />
+                    <Button
+                        Grid.ColumnSpan="6"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch"
+                        Command="{Binding CustomTrailsCommand}"
+                        CommandParameter="Row4"
+                        MouseEnter="MouseEnterMainButtonHandler"
+                        MouseLeave="MouseLeaveMainButtonHandler"
+                        Style="{StaticResource BTN_Image}" />
+                </Grid>
+                <Grid
+                    x:Name="Row5"
+                    Width="850"
+                    Height="50"
+                    Margin="0,0,0,0"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Background="#44000000">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="5"/>
+                        <ColumnDefinition Width="60"/>
+                        <ColumnDefinition Width="5"/>
+                        <ColumnDefinition Width="40"/>
+                        <ColumnDefinition Width="15"/>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="5"/>
+                        <ColumnDefinition Width="15"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock
+                        Grid.Column="3"
+                        Width="40"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center"
+                        Text="{Binding Leaderboard_Pos_5}"
+                        TextAlignment="Right"
+                        />
+                    <Image
+                        Grid.Column="1"
+                        Margin="5,0,0,0"
+                        Width="44"
+                        Height="44"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center"
+                        Source="{Binding Leaderboard_Image_5}"/>
+                    <TextBlock
+                        Grid.Column="5"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center"
+                        Text="{Binding Leaderboard_Name_5}"
+                        TextAlignment="Left" />
+                    <Button
+                        Grid.ColumnSpan="6"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch"
+                        Command="{Binding CustomTrailsCommand}"
+                        CommandParameter="Row5"
+                        MouseEnter="MouseEnterMainButtonHandler"
+                        MouseLeave="MouseLeaveMainButtonHandler"
+                        Style="{StaticResource BTN_Image}" />
+                </Grid>
+                <Grid
+                    x:Name="Row6"
+                    Width="850"
+                    Height="50"
+                    Margin="0,0,0,0"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Background="#22000000">
+                    <Grid.ColumnDefinitions>
+                         <ColumnDefinition Width="5"/>
+                        <ColumnDefinition Width="60"/>
+                        <ColumnDefinition Width="5"/>
+                        <ColumnDefinition Width="40"/>
+                        <ColumnDefinition Width="15"/>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="5"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock
+                        Grid.Column="3"
+                        Width="40"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center"
+                        Text="{Binding Leaderboard_Pos_6}"
+                        TextAlignment="Right"
+                        />
+                    <Image
+                        Grid.Column="1"
+                        Margin="5,0,0,0"
+                        Width="44"
+                        Height="44"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center"
+                        Source="{Binding Leaderboard_Image_6}"/>
+                    <TextBlock
+                        Grid.Column="5"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center"
+                        Text="{Binding Leaderboard_Name_6}"
+                        TextAlignment="Left" />
+                    <Button
+                        Grid.ColumnSpan="6"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch"
+                        Command="{Binding CustomTrailsCommand}"
+                        CommandParameter="Row6"
+                        MouseEnter="MouseEnterMainButtonHandler"
+                        MouseLeave="MouseLeaveMainButtonHandler"
+                        Style="{StaticResource BTN_Image}" />
+                </Grid>
+                <Grid
+                    x:Name="Row7"
+                    Width="850"
+                    Height="50"
+                    Margin="0,0,0,0"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Background="#44000000">
+                    <Grid.ColumnDefinitions>
+                         <ColumnDefinition Width="5"/>
+                        <ColumnDefinition Width="60"/>
+                        <ColumnDefinition Width="5"/>
+                        <ColumnDefinition Width="40"/>
+                        <ColumnDefinition Width="15"/>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="5"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock
+                        Grid.Column="3"
+                        Width="40"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center"
+                        Text="{Binding Leaderboard_Pos_7}"
+                        TextAlignment="Right"
+                        />
+                    <Image
+                        Grid.Column="1"
+                        Margin="5,0,0,0"
+                        Width="44"
+                        Height="44"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center"
+                        Source="{Binding Leaderboard_Image_7}"/>
+                    <TextBlock
+                        Grid.Column="5"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center"
+                        Text="{Binding Leaderboard_Name_7}"
+                        TextAlignment="Left" />
+                    <Button
+                        Grid.ColumnSpan="6"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch"
+                        Command="{Binding CustomTrailsCommand}"
+                        CommandParameter="Row7"
+                        MouseEnter="MouseEnterMainButtonHandler"
+                        MouseLeave="MouseLeaveMainButtonHandler"
+                        Style="{StaticResource BTN_Image}" />
+                </Grid>
+                <Grid
+                    x:Name="Row8"
+                    Width="850"
+                    Height="50"
+                    Margin="0,0,0,0"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Background="#22000000">
+                    <Grid.ColumnDefinitions>
+                         <ColumnDefinition Width="5"/>
+                        <ColumnDefinition Width="60"/>
+                        <ColumnDefinition Width="5"/>
+                        <ColumnDefinition Width="40"/>
+                        <ColumnDefinition Width="15"/>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="5"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock
+                        Grid.Column="3"
+                        Width="40"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center"
+                        Text="{Binding Leaderboard_Pos_8}"
+                        TextAlignment="Right"
+                        />
+                    <Image
+                        Grid.Column="1"
+                        Margin="5,0,0,0"
+                        Width="44"
+                        Height="44"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center"
+                        Source="{Binding Leaderboard_Image_8}"/>
+                    <TextBlock
+                        Grid.Column="5"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center"
+                        Text="{Binding Leaderboard_Name_8}"
+                        TextAlignment="Left" />
+                    <Button
+                        Grid.ColumnSpan="6"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch"
+                        Command="{Binding CustomTrailsCommand}"
+                        CommandParameter="Row8"
+                        MouseEnter="MouseEnterMainButtonHandler"
+                        MouseLeave="MouseLeaveMainButtonHandler"
+                        Style="{StaticResource BTN_Image}" />
+                </Grid>
+                <Grid
+                    x:Name="Row9"
+                    Width="850"
+                    Height="50"
+                    Margin="0,0,0,0"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Background="#44000000">
+                    <Grid.ColumnDefinitions>
+                         <ColumnDefinition Width="5"/>
+                        <ColumnDefinition Width="60"/>
+                        <ColumnDefinition Width="5"/>
+                        <ColumnDefinition Width="40"/>
+                        <ColumnDefinition Width="15"/>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="5"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock
+                        Grid.Column="3"
+                        Width="40"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center"
+                        Text="{Binding Leaderboard_Pos_9}"
+                        TextAlignment="Right"
+                        />
+                    <Image
+                        Grid.Column="1"
+                        Margin="5,0,0,0"
+                        Width="44"
+                        Height="44"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center"
+                        Source="{Binding Leaderboard_Image_9}"/>
+                    <TextBlock
+                        Grid.Column="5"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center"
+                        Text="{Binding Leaderboard_Name_9}"
+                        TextAlignment="Left" />
+                    <Button
+                        Grid.ColumnSpan="6"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch"
+                        Command="{Binding CustomTrailsCommand}"
+                        CommandParameter="Row9"
+                        MouseEnter="MouseEnterMainButtonHandler"
+                        MouseLeave="MouseLeaveMainButtonHandler"
+                        Style="{StaticResource BTN_Image}" />
+                </Grid>
+                <Grid
+                    x:Name="Row10"
+                    Width="850"
+                    Height="50"
+                    Margin="0,0,0,0"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Background="#22000000">
+                    <Grid.ColumnDefinitions>
+                         <ColumnDefinition Width="5"/>
+                        <ColumnDefinition Width="60"/>
+                        <ColumnDefinition Width="5"/>
+                        <ColumnDefinition Width="40"/>
+                        <ColumnDefinition Width="15"/>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="5"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock
+                        Grid.Column="3"
+                        Width="40"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center"
+                        Text="{Binding Leaderboard_Pos_10}"
+                        TextAlignment="Right"
+                        />
+                    <Image
+                        Grid.Column="1"
+                        Margin="5,0,0,0"
+                        Width="44"
+                        Height="44"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center"
+                        Source="{Binding Leaderboard_Image_10}"/>
+                    <TextBlock
+                        Grid.Column="5"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center"
+                        Text="{Binding Leaderboard_Name_10}"
+                        TextAlignment="Left" />
+                    <Button
+                        Grid.ColumnSpan="6"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch"
+                        Command="{Binding CustomTrailsCommand}"
+                        CommandParameter="Row10"
+                        MouseEnter="MouseEnterMainButtonHandler"
+                        MouseLeave="MouseLeaveMainButtonHandler"
+                        Style="{StaticResource BTN_Image}" />
+                </Grid>
+            </StackPanel>
+
+ <!--           <TextBlock
+                Margin="0,0,0,-20"
+                Background="#A8000000"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Bottom"
+                TextAlignment="Center"
+                Visibility="{Binding Show_Leaderboard_OptOut, Converter={StaticResource booleanToVisibilityConverter}}">
+                <Run Text="  "/><Run Text="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_NEW_CTEXT_311]}"/><Run Text="  "/>
+            </TextBlock> -->
+
+<!--           <Button
+                Width="60"
+                Height="60"
+                Margin="0,75,40,0"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource LeaderboardTop}"
+                local:PropEx.Sprite2="{StaticResource LeaderboardTopOver}"
+                local:PropEx.Sprite3="{StaticResource LeaderboardTopOver}"
+                local:PropEx.Sprite4="{StaticResource LeaderboardTop}"
+                Command="{Binding CustomTrailsCommand}"
+                CommandParameter="Top"
+                Style="{StaticResource BTN_Image}" />  -->
+            <Button
+                Width="60"
+                Height="60"
+                Margin="0,90,40,0"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource LeaderboardUp}"
+                local:PropEx.Sprite2="{StaticResource LeaderboardUpOver}"
+                local:PropEx.Sprite3="{StaticResource LeaderboardUpOver}"
+                local:PropEx.Sprite4="{StaticResource LeaderboardUp}"
+                Command="{Binding CustomTrailsCommand}"
+                CommandParameter="Up"
+                Style="{StaticResource BTN_Image}" />
+            <Button
+                Width="60"
+                Height="60"
+                Margin="0,533,40,0"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource LeaderboardDown}"
+                local:PropEx.Sprite2="{StaticResource LeaderboardDownOver}"
+                local:PropEx.Sprite3="{StaticResource LeaderboardDownOver}"
+                local:PropEx.Sprite4="{StaticResource LeaderboardDown}"
+                Command="{Binding CustomTrailsCommand}"
+                CommandParameter="Down"
+                Style="{StaticResource BTN_Image}" />
+
+<!--            <Button
+                Width="200"
+                Margin="0,0,40,30"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Bottom"
+                local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_NEW_TEXT_091]}"
+                local:PropEx.GlowButtonTextHeight="28"
+                Command="{Binding CustomTrailsCommand}"
+                CommandParameter="Exit"
+                Style="{StaticResource BTN_SH_GlowL}" /> -->
+        </Grid>
+    </Grid>
+
+</UserControl>

@@ -33,6 +33,21 @@ namespace SerpsModsHostDuplicateTests
                 throw new InvalidOperationException("Expected exactly the separate Test_GUID package.");
             if (!DuplicateInstallationDetector.PathsEqual(expected, Path.Combine(expected, ".")))
                 throw new InvalidOperationException("Equivalent paths were not recognized.");
+            if (!RegisteredAssetDirectoryPolicy.TryValidate(expected, true, expected, out _) ||
+                !RegisteredAssetDirectoryPolicy.TryValidate(expected, true, expected.ToUpperInvariant(), out _))
+            {
+                throw new InvalidOperationException("Same or case-varied registered paths were rejected.");
+            }
+            if (RegisteredAssetDirectoryPolicy.TryValidate(expected, false, null, out _) ||
+                RegisteredAssetDirectoryPolicy.TryValidate(expected, true, separate, out _))
+            {
+                throw new InvalidOperationException("Missing or conflicting GUID registration was accepted.");
+            }
+            // The extender keeps the first GUID registration. A later child must therefore be
+            // rejected against that authoritative path instead of incrementing registeredCount.
+            string firstRegisteredDirectory = expected;
+            if (RegisteredAssetDirectoryPolicy.TryValidate(separate, true, firstRegisteredDirectory, out _))
+                throw new InvalidOperationException("A later child was allowed to replace the first GUID directory.");
 
             PackManifest parsedManifest = PackManifestJson.Read(
                 "{\"schemaversion\":1,\"packguid\":\"SerpsMods_Serp\",\"mods\":[{" +

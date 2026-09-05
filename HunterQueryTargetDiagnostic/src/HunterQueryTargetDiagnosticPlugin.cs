@@ -1,6 +1,7 @@
 using BepInEx;
 using BepInEx.Logging;
 using R3;
+using RedBird.Core.Memory;
 using SHCDESE.API;
 using SHCDESE.API.LowLevel;
 using SHCDESE.EventAPI;
@@ -10,11 +11,10 @@ using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using Zhuqiaomon.Memory;
 
 namespace HunterQueryTargetDiagnostic
 {
-    [BepInDependency(ScriptExtenderGuid, BepInDependency.DependencyFlags.HardDependency)]
+    [BepInDependency(ScriptExtenderGuid, "2.0.2")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class HunterQueryTargetDiagnosticPlugin : BaseUnityPlugin
     {
@@ -66,7 +66,7 @@ namespace HunterQueryTargetDiagnostic
             libraryLoadedSubscriptionInstalled = true;
         }
 
-        private static void OnCrusaderLibraryLoaded(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
+        private static void OnCrusaderLibraryLoaded(CrusaderLibraryLoadContext context)
         {
             if (eventSubscription != null || state7CauseDiagnostic != null)
                 return;
@@ -92,11 +92,10 @@ namespace HunterQueryTargetDiagnostic
                 bool referenceHashMatches = Shared.DebugLogHelper.ReportNativeLibraryVersion(
                     diagnosticLog,
                     PluginName,
-                    requireCurrentVersion: false);
+                    requireCurrentVersion: true);
                 state7CauseDiagnostic = new HunterState7CauseDiagnostic(
                     diagnosticLog,
-                    memory,
-                    unchecked((ulong)libraryHandle.ToInt64()),
+                    context,
                     referenceHashMatches);
             }
             catch (Exception exception)

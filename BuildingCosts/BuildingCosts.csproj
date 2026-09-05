@@ -97,10 +97,6 @@
       <HintPath>$(ExtenderDir)\System.Memory.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <Reference Include="Zhuqiaomon">
-      <HintPath>$(ExtenderDir)\Zhuqiaomon.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
   </ItemGroup>
 
   <ItemGroup>

@@ -321,18 +321,22 @@ namespace BugfixesAndQoL
                 OperationId = operationId,
                 AllowClimbing = targetState
             };
-            byte[] body = GameNetworkAPI.Serialize(packet);
-            byte[] blob = new byte[sizeof(short) + body.Length];
-            BitConverter.GetBytes(packetHook.GetPacketId()).CopyTo(blob, 0);
-            Buffer.BlockCopy(body, 0, blob, sizeof(short), body.Length);
-            Func<byte[], bool> send = ChoreNetworkTransport.SendRawBlob;
-            bool queued = send != null && send(blob);
-            if (!queued)
+            short packetId = packetHook?.GetPacketId() ?? (short)0;
+            if (!BugfixesAndQoLChoreSender.TrySend(
+                    packet,
+                    packetId,
+                    networkInitialized && packetHook != null,
+                    value => GameNetworkAPI.Serialize(value),
+                    () => SHCDESE.GameGlobals.GameGlobalsManager.Instance.ChoreManagerVA,
+                    (value, id) => GameNetworkAPI.SendPacketToAllEx2(value, id, viaChore: true),
+                    out byte[] body,
+                    out string rejectionReason))
             {
-                LogError($"Assassin climb-state Chore was not queued; no local change was applied: operationId={operationId}.");
+                LogError($"Assassin climb-state Chore was not queued; no local change was applied: operationId={operationId}, reason={rejectionReason}.");
                 return false;
             }
 
+            LogDebug($"Assassin climb-state Chore queued: operationId={operationId}, payloadBytes={sizeof(short) + body.Length}.");
             return true;
         }
 
@@ -368,7 +372,9 @@ namespace BugfixesAndQoL
 
         private bool IsChoreTransportReady()
         {
-            return networkInitialized && packetHook != null && ChoreNetworkTransport.IsAvailable;
+            return BugfixesAndQoLChoreSender.IsAvailable(
+                networkInitialized && packetHook != null,
+                () => SHCDESE.GameGlobals.GameGlobalsManager.Instance.ChoreManagerVA);
         }
 
         private bool HasSelectedOwnAssassin(int playerId)
@@ -380,12 +386,12 @@ namespace BugfixesAndQoL
         private int CaptureSelectionState(int playerId, out bool selectedOwnAssassin)
         {
             selectedOwnAssassin = false;
-            int[] selected = GamePlayerManagerAPI.Instance.GetSelectedChimps() ?? Array.Empty<int>();
+            SelectedUnitInfo[] selected = GamePlayerManagerAPI.Instance.GetSelectedChimps() ?? Array.Empty<SelectedUnitInfo>();
             GameUnitManagerAPI api = GameUnitManagerAPI.Instance;
             int signature = 17;
             for (int index = 0; index < selected.Length; index++)
             {
-                int unitId = selected[index];
+                int unitId = selected[index].UnitId;
                 signature = unchecked((signature * 31) + unitId);
                 if (unitId > 0 && api.TryGetUnitById(unitId, out GameUnit* unit) && IsOwnAssassin(unit, playerId))
                     selectedOwnAssassin = true;

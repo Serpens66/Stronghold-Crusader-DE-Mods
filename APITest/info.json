@@ -5,5 +5,6 @@
   "Description": "Fixed-active runtime validation of the SerpNativeAPI gatehouse and selected-unit command capabilities.",
   "Version": "0.1.0",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
-  "Manifest": 1
+  "Manifest": 1,
+  "NetworkMode": 1
 }

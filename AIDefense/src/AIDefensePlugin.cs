@@ -4,7 +4,7 @@ using System;
 
 namespace AIDefense
 {
-    [BepInDependency(ScriptExtenderGuid, BepInDependency.DependencyFlags.HardDependency)]
+    [BepInDependency(ScriptExtenderGuid, "2.0.2")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class AIDefensePlugin : BaseUnityPlugin
     {
@@ -55,7 +55,7 @@ namespace AIDefense
             DisposeRuntime("OnApplicationQuit");
         }
 
-        private void OnCrusaderLibraryLoaded(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
+        private void OnCrusaderLibraryLoaded(CrusaderLibraryLoadContext context)
         {
             try
             {
@@ -67,6 +67,7 @@ namespace AIDefense
                     return;
                 }
 
+                persistentRuntime?.InstallNative(context);
                 persistentRuntime?.Apply();
                 Shared.DebugLogHelper.LogInfo(Logger, "Crusader library loaded; AI Defense runtime initialized.");
             }

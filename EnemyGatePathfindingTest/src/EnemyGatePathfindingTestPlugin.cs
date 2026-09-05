@@ -11,7 +11,7 @@ using UnityEngine;
 
 namespace EnemyGatePathfindingTest
 {
-    [BepInDependency(ScriptExtenderGuid, BepInDependency.DependencyFlags.HardDependency)]
+    [BepInDependency(ScriptExtenderGuid, "2.0.2")]
     // Load after the optional test mod when it exists, so PluginInfos can suppress
     // our overlapping observational route hooks while keeping the PCL hook active.
     [BepInDependency("MoveMoatTest_Serp", BepInDependency.DependencyFlags.SoftDependency)]
@@ -81,7 +81,7 @@ namespace EnemyGatePathfindingTest
 
         // UPDATE REVIEW (Script Extender): revalidate LibraryLoaded timing, mapped-memory
         // span semantics and the native module handle before installing either hook.
-        private static void OnCrusaderLibraryLoaded(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
+        private static void OnCrusaderLibraryLoaded(CrusaderLibraryLoadContext context)
         {
             if (runtime != null)
                 return;
@@ -96,11 +96,11 @@ namespace EnemyGatePathfindingTest
                     return;
 
                 var installed = new EnemyGatePathfindingRuntime(persistentLog);
-                installed.InitializeNative(libraryHandle, memory, referenceHashMatches);
+                installed.InitializeNative(context, referenceHashMatches);
                 runtime = installed;
                 if (!gameTickInstalled)
                 {
-                    // UPDATE REVIEW (Script Extender 1.42.0): OnTick is used only to
+                    // Script Extender 2.0.2 OnTick is used only to
                     // invalidate accepted gate state; rebuilding remains deferred.
                     GameTimeManagerAPI.Instance.OnTick += ProcessGameTick;
                     gameTickInstalled = true;
@@ -143,7 +143,7 @@ namespace EnemyGatePathfindingTest
                 {
                     Shared.DebugLogHelper.LogWarning(
                         persistentLog,
-                        "Script Extender differs from the audited 1.42.0 commit. Review every UPDATE REVIEW marker before accepting test results.");
+                        "Script Extender differs from the audited 2.0.2 commit. Review every UPDATE REVIEW marker before accepting test results.");
                 }
             }
             catch (Exception ex)

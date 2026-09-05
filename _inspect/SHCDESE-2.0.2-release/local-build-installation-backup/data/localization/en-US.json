@@ -1,0 +1,873 @@
+{
+  "version": "1.0",
+  "strings": [
+    {
+      "name": "SE_EDITOR_GEN_ENABLE_FREEBUILD",
+      "value": "Free Build mode"
+    },
+    {
+      "name": "IMGUI_API_WINDOW_TITLE",
+      "value": "ImGUI API Window"
+    },
+    {
+      "name": "REMIX_MENU_OPTIONS_TITLE",
+      "value": "Options"
+    },
+    {
+      "name": "REMIX_MENU_OPTIONS_SMALL_TEXT",
+      "value": "Some options here may require a restart to take effect."
+    },
+    {
+      "name": "REMIX_MENU_OPTIONS_MENUKEY",
+      "value": "Current menu key: {0}"
+    },
+    {
+      "name": "REMIX_MENU_ALWAYS_RENDERER_ENABLED",
+      "value": "Always-Renderer (AR) Enabled"
+    },
+    {
+      "name": "REMIX_MENU_MENU_RENDERER_ENABLED",
+      "value": "Menu-Renderer (MR) Enabled"
+    },
+    {
+      "name": "REMIX_MENU_MENU_DEMO_ENABLED",
+      "value": "Demo Windows Enabled"
+    },
+    {
+      "name": "REMIX_MENU_MENU_FORCEWMPASSTHROUGH_ENABLED",
+      "value": "Force WM Event pass-through"
+    },
+    {
+      "name": "REMIX_MENU_MENU_DX11TOGGLEKEY",
+      "value": "Current DX11 hook toggle key: {0}"
+    },
+    {
+      "name": "REMIX_MENU_MENU_CUSTOMFONTPATH",
+      "value": "Custom Font (absolute path to .ttf file)"
+    },
+    {
+      "name": "REMIX_MENU_MENU_FONTPIXELSIZE",
+      "value": "Font Pixel Size"
+    },
+    {
+      "name": "SE_EDITOR_TITLE",
+      "value": "SHCDE-SE-EDITOR"
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_TITLE",
+      "value": "Tools"
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_GENERAL",
+      "value": "General"
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_ENTITYLIST",
+      "value": "Entity List"
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_LUA",
+      "value": "LUA"
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_MANAGERS",
+      "value": "Managers"
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_MAP_ARCHIVE_TOOLS",
+      "value": "Map Archive Tools (MAS)"
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_MAS_SEPERATOR",
+      "value": "General Archive Section"
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_MAS_NOT_FOUND",
+      "value": "Map Archive: Not found."
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_MAS_ADD_HELP",
+      "value": "You can add a new archive to this map. This is only recommended to be used when in the map editor."
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_MAS_WARN",
+      "value": "IMPORTANT: After creating an archive, you MUST save and re-open the map before making other changes! You must also have saved the map at least once before pressing this button."
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_MAS_CREATE_NEW",
+      "value": "Create New Archive"
+    },
+    {
+      "name": "SE_EDITOR_COMMON_NA",
+      "value": "N/A"
+    },
+    {
+      "name": "SE_EDITOR_COMMON_EXISTS",
+      "value": "Exists"
+    },
+    {
+      "name": "SE_EDITOR_COMMON_NOT_FOUND",
+      "value": "Not found"
+    },
+    {
+      "name": "SE_EDITOR_ARCHIVE_INFO",
+      "value": "Archive Information"
+    },
+    {
+      "name": "SE_EDITOR_ARCHIVE_AUTHOR",
+      "value": "Author"
+    },
+    {
+      "name": "SE_EDITOR_ARCHIVE_MAPNAME",
+      "value": "Map Name"
+    },
+    {
+      "name": "SE_EDITOR_ARCHIVE_DESC",
+      "value": "Description"
+    },
+    {
+      "name": "SE_EDITOR_ARCHIVE_VER",
+      "value": "Version"
+    },
+    {
+      "name": "SE_EDITOR_ARCHIVE_WEB",
+      "value": "Website"
+    },
+    {
+      "name": "SE_EDITOR_ARCHIVE_REMOVE_WARN",
+      "value": "This will remove the archive from the map. You must save the map file to make the removal permanent."
+    },
+    {
+      "name": "SE_EDITOR_ARCHIVE_REMOVE_BTN",
+      "value": "Remove Archive"
+    },
+    {
+      "name": "SE_EDITOR_TRIG_TITLE",
+      "value": "Trigger Management"
+    },
+    {
+      "name": "SE_EDITOR_TRIG_ACTIVE",
+      "value": "Active Triggers: {0}"
+    },
+    {
+      "name": "SE_EDITOR_TRIG_REMOVE_WARN",
+      "value": "This will remove all active triggers from the map."
+    },
+    {
+      "name": "SE_EDITOR_TRIG_REMOVE_BTN",
+      "value": "Remove All Triggers"
+    },
+    {
+      "name": "SE_EDITOR_TIMER_TITLE",
+      "value": "Timer Management"
+    },
+    {
+      "name": "SE_EDITOR_TIMER_ACTIVE",
+      "value": "Active Timers: {0}"
+    },
+    {
+      "name": "SE_EDITOR_TIMER_REMOVE_WARN",
+      "value": "This will remove all active timers from the map."
+    },
+    {
+      "name": "SE_EDITOR_TIMER_REMOVE_BTN",
+      "value": "Remove All Timers"
+    },
+    {
+      "name": "SE_EDITOR_MANAGER_TITLE",
+      "value": "-- Manager VA's --"
+    },
+    {
+      "name": "SE_EDITOR_MANAGER_COL_NAME",
+      "value": "Name"
+    },
+    {
+      "name": "SE_EDITOR_MANAGER_COL_ADDR",
+      "value": "Address"
+    },
+    {
+      "name": "SE_EDITOR_MANAGER_COL_COPY",
+      "value": "Copy"
+    },
+    {
+      "name": "SE_EDITOR_MANAGER_BTN_COPY",
+      "value": "Copy"
+    },
+    {
+      "name": "SE_EDITOR_SETTINGS_TITLE",
+      "value": "-- Settings --"
+    },
+    {
+      "name": "SE_EDITOR_GEN_SHOW_TOOLS",
+      "value": "Show map editor Tools"
+    },
+    {
+      "name": "SE_EDITOR_GEN_CURSOR_TITLE",
+      "value": "-- Live Cursor View --"
+    },
+    {
+      "name": "SE_EDITOR_GEN_MOUSE_POS",
+      "value": "Mouse Position"
+    },
+    {
+      "name": "SE_EDITOR_GEN_MOUSE_TILE",
+      "value": "Mouse Tile"
+    },
+    {
+      "name": "SE_EDITOR_GEN_HOVER_BUILD_ID",
+      "value": "Hover Building ID"
+    },
+    {
+      "name": "SE_EDITOR_GEN_HOVER_UNIT_ID",
+      "value": "Hover Unit ID"
+    },
+    {
+      "name": "SE_EDITOR_GEN_HOVER_BUILD_TILE_ID",
+      "value": "Hover Building Tile ID"
+    },
+    {
+      "name": "SE_EDITOR_GEN_MOUSE_TILEX_WORLD",
+      "value": "Mouse Tile X (World)"
+    },
+    {
+      "name": "SE_EDITOR_GEN_MOUSE_TILEY_WORLD",
+      "value": "Mouse Tile Y (World)"
+    },
+    {
+      "name": "SE_EDITOR_GEN_MOUSE_TILE_ID",
+      "value": "Mouse Tile ID"
+    },
+    {
+      "name": "SE_EDITOR_GEN_LIVE_TILE_TITLE",
+      "value": "-- Live Tile View --"
+    },
+    {
+      "name": "SE_EDITOR_GEN_COL_PROP",
+      "value": "Property"
+    },
+    {
+      "name": "SE_EDITOR_GEN_COL_VAL",
+      "value": "Value"
+    },
+    {
+      "name": "SE_EDITOR_GEN_COL_MEM",
+      "value": "Memory Address"
+    },
+    {
+      "name": "SE_EDITOR_TILE_UNKNOWN",
+      "value": "Tile Unknown"
+    },
+    {
+      "name": "SE_EDITOR_TILE_HEIGHT",
+      "value": "Tile Height"
+    },
+    {
+      "name": "SE_EDITOR_TILE_STATE",
+      "value": "Tile State"
+    },
+    {
+      "name": "SE_EDITOR_TILE_PROP_FLAG",
+      "value": "Tile Property Flag"
+    },
+    {
+      "name": "SE_EDITOR_TILE_PROP_ENUM",
+      "value": "Tile Property Enum"
+    },
+    {
+      "name": "SE_EDITOR_TILE_VEG_ID",
+      "value": "Vegetation ID"
+    },
+    {
+      "name": "SE_EDITOR_TILE_TYPE",
+      "value": "Tile Type"
+    },
+    {
+      "name": "SE_EDITOR_TILE_DEF_HEIGHT",
+      "value": "DefaultHeight"
+    },
+    {
+      "name": "SE_EDITOR_TILE_BUILD_ID",
+      "value": "Building ID"
+    },
+    {
+      "name": "SE_EDITOR_TILE_UNIT_ID",
+      "value": "Unit ID"
+    },
+    {
+      "name": "SE_EDITOR_TILE_OWNER_ID",
+      "value": "Owner ID"
+    },
+    {
+      "name": "SE_EDITOR_GEN_CURSOR_OUT",
+      "value": "Cursor is outside of the valid tile area."
+    },
+    {
+      "name": "SE_EDITOR_EDIT_TILE_TITLE",
+      "value": "-- Edit Tile View --"
+    },
+    {
+      "name": "SE_EDITOR_EDIT_TILE_ID",
+      "value": "Tile ID"
+    },
+    {
+      "name": "SE_EDITOR_EDIT_TILE_UNK",
+      "value": "Tile Unknown"
+    },
+    {
+      "name": "SE_EDITOR_EDIT_TILE_HEIGHT",
+      "value": "Tile Height/Health"
+    },
+    {
+      "name": "SE_EDITOR_EDIT_TILE_STATE",
+      "value": "Tile State"
+    },
+    {
+      "name": "SE_EDITOR_EDIT_TILE_PROP",
+      "value": "Tile Property"
+    },
+    {
+      "name": "SE_EDITOR_EDIT_TILE_VEG",
+      "value": "Vegetation ID Lookup"
+    },
+    {
+      "name": "SE_EDITOR_EDIT_TILE_OWNER",
+      "value": "Player Owner ID"
+    },
+    {
+      "name": "SE_EDITOR_EDIT_TILE_APPLY",
+      "value": "Apply Tile Changes"
+    },
+    {
+      "name": "SE_EDITOR_LUA_MANAGE_TITLE",
+      "value": "LUA State Management"
+    },
+    {
+      "name": "SE_EDITOR_LUA_STATE_LABEL",
+      "value": "LUA State: {0}"
+    },
+    {
+      "name": "SE_EDITOR_LUA_CREATE",
+      "value": "Debug: Create lua state"
+    },
+    {
+      "name": "SE_EDITOR_LUA_CLOSE",
+      "value": "Debug: Close lua state"
+    },
+    {
+      "name": "SE_EDITOR_LUA_SCRIPT_TITLE",
+      "value": "LUA Script Control"
+    },
+    {
+      "name": "SE_EDITOR_LUA_CALL_INIT",
+      "value": "Call Init"
+    },
+    {
+      "name": "SE_EDITOR_LUA_RND_TITLE",
+      "value": "Random Engine"
+    },
+    {
+      "name": "SE_EDITOR_LUA_RND_SEED",
+      "value": "Random Engine Seed"
+    },
+    {
+      "name": "SE_EDITOR_LUA_RND_INIT",
+      "value": "Initialize Random Engine"
+    },
+    {
+      "name": "SE_EDITOR_LUA_EXEC_TITLE",
+      "value": "LUA Code Execution"
+    },
+    {
+      "name": "SE_EDITOR_LUA_RUN",
+      "value": "Run Lua"
+    },
+    {
+      "name": "SE_EDITOR_ENT_NO_UNITS",
+      "value": "No active units found."
+    },
+    {
+      "name": "SE_EDITOR_ENT_COL_ID",
+      "value": "ID"
+    },
+    {
+      "name": "SE_EDITOR_ENT_COL_TYPE",
+      "value": "Type"
+    },
+    {
+      "name": "SE_EDITOR_ENT_COL_POS_XY",
+      "value": "Position (XY)"
+    },
+    {
+      "name": "SE_EDITOR_ENT_COL_POS_Z",
+      "value": "Position (Z)"
+    },
+    {
+      "name": "SE_EDITOR_ENT_COL_PLAYER",
+      "value": "Player ID"
+    },
+    {
+      "name": "SE_EDITOR_ENT_COL_HEALTH",
+      "value": "Health"
+    },
+    {
+      "name": "SE_EDITOR_ENT_COL_ADDR",
+      "value": "ADDR"
+    },
+    {
+      "name": "SE_EDITOR_ENT_COL_ACTION",
+      "value": "Actions"
+    },
+    {
+      "name": "SE_EDITOR_ENT_BTN_COPY",
+      "value": "Copy Addr"
+    },
+    {
+      "name": "SE_EDITOR_ENT_BTN_DELETE",
+      "value": "Delete"
+    },
+    {
+      "name": "SE_EDITOR_ENT_CTX_DELETE",
+      "value": "Delete"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_TITLE",
+      "value": "Tile Inspector"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_HELP",
+      "value": "Hold Left-Alt and Right-Click on a tile to inspect it."
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_NO_SEL",
+      "value": "No tile selected."
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_SEL_ID",
+      "value": "Selected Tile ID: {0} (0x{0:X8})"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_HEIGHT",
+      "value": "Height"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_OWNER",
+      "value": "Owner ID (0-based)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_PLAYER_ARROW",
+      "value": "-> Player {0}"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_STATE",
+      "value": "Tile State"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_HEIGHTRELATED_BYTE",
+      "value": "HeightRelatedUnk (Byte)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK5_BYTE",
+      "value": "Unknown5 (Byte)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK6_BYTE",
+      "value": "Unknown6 (Byte)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_BLD_ID",
+      "value": "Building ID"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNIT_ID",
+      "value": "Unit ID"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_VEG",
+      "value": "Vegetation Lookup"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK1",
+      "value": "UnknownGrid1"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK2",
+      "value": "UnknownGrid2"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK3",
+      "value": "UnknownGrid3"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_DEF_HEIGHT",
+      "value": "Default Height?"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_FLAGS",
+      "value": "Property Flags"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_BTN_SAVE",
+      "value": "Save Changes"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_BTN_READ",
+      "value": "Re-read Values"
+    },
+    {
+      "name": "SE_EDITOR_REGION_TITLE",
+      "value": "Stronghold Map Assistant"
+    },
+    {
+      "name": "SE_EDITOR_REGION_NOT_SET",
+      "value": "Not Set"
+    },
+    {
+      "name": "SE_EDITOR_REGION_BEGIN",
+      "value": "Begin XY: {0}"
+    },
+    {
+      "name": "SE_EDITOR_REGION_END",
+      "value": "End XY: {0}"
+    },
+    {
+      "name": "SE_EDITOR_REGION_BTN_COPY",
+      "value": "Copy as new RectangularArea2D"
+    },
+    {
+      "name": "SE_EDITOR_REGION_HELP_TITLE",
+      "value": "How to use:"
+    },
+    {
+      "name": "SE_EDITOR_REGION_HELP_1",
+      "value": "1. Hold Left-Alt and Left-Click on the map to set the Begin point."
+    },
+    {
+      "name": "SE_EDITOR_REGION_HELP_2",
+      "value": "2. Hold Left-Alt and Left-Click again to set the End point."
+    },
+    {
+      "name": "SE_EDITOR_REGION_BTN_RESET",
+      "value": "Reset Selection"
+    },
+    {
+      "name": "SE_EDITOR_MUTATOR_TITLE",
+      "value": "Tile Property Mutator Tool"
+    },
+    {
+      "name": "SE_EDITOR_MUTATOR_OPTIONS",
+      "value": "Options"
+    },
+    {
+      "name": "SE_EDITOR_MUTATOR_ENABLED",
+      "value": "Enabled"
+    },
+    {
+      "name": "SE_EDITOR_MUTATOR_FORCE_SET",
+      "value": "Set to (not additive)"
+    },
+    {
+      "name": "SE_EDITOR_MUTATOR_AUGMENT",
+      "value": "Augment next tile with..."
+    },
+    {
+      "name": "SE_EDITOR_MUTATOR_TYPE",
+      "value": "Tile Type"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_TITLE",
+      "value": "Mirror Tool"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_OPTIONS",
+      "value": "Options"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_VERT",
+      "value": "Vertical"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_HORZ",
+      "value": "Horizontal"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_ENABLED_FOR",
+      "value": "Enabled for..."
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_TYPE",
+      "value": "Tile Type"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_HEIGHT",
+      "value": "Tile Height"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_WALLS",
+      "value": "Walls"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_BLD",
+      "value": "Buildings"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_UNITS",
+      "value": "Units"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_VEG",
+      "value": "Vegetation"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_ANIMALS",
+      "value": "Animals"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_DELETE",
+      "value": "Deletion"
+    },
+    {
+      "name": "SE_EDITOR_MASS_TITLE",
+      "value": "Mass Tile Editor"
+    },
+    {
+      "name": "SE_EDITOR_MASS_RND_HEIGHT",
+      "value": "Randomize Height"
+    },
+    {
+      "name": "SE_EDITOR_MASS_MIN_HEIGHT",
+      "value": "Min Height"
+    },
+    {
+      "name": "SE_EDITOR_MASS_MAX_HEIGHT",
+      "value": "Max Height"
+    },
+    {
+      "name": "SE_EDITOR_MASS_NEW_HEIGHT",
+      "value": "New Tile Height (0-255)"
+    },
+    {
+      "name": "SE_EDITOR_MASS_SHAPE",
+      "value": "Shape"
+    },
+    {
+      "name": "SE_EDITOR_MASS_SHAPE_RECT",
+      "value": "Rectangle"
+    },
+    {
+      "name": "SE_EDITOR_MASS_SHAPE_CIRCLE",
+      "value": "Circle"
+    },
+    {
+      "name": "SE_EDITOR_MASS_EDGES_ONLY",
+      "value": "Edges Only"
+    },
+    {
+      "name": "SE_EDITOR_MASS_EDGE_WIDTH",
+      "value": "Edge Width"
+    },
+    {
+      "name": "SE_EDITOR_MASS_SET_FLAGS",
+      "value": "Set Tile Property Flags"
+    },
+    {
+      "name": "SE_EDITOR_MASS_FLAGS_VAL",
+      "value": "Property Flags Value"
+    },
+    {
+      "name": "SE_EDITOR_MASS_INNER_ONLY",
+      "value": "Apply to Inner Tiles Only"
+    },
+    {
+      "name": "SE_EDITOR_MASS_PREVIEW",
+      "value": "Live Preview (sets to height 0)"
+    },
+    {
+      "name": "SE_EDITOR_MASS_BTN_APPLY",
+      "value": "Apply Changes"
+    },
+    {
+      "name": "SE_EDITOR_MASS_WARN_SELECT",
+      "value": "Please select a region using the Map Assistant."
+    },
+    {
+      "name": "SE_EDITOR_MASS_BTN_UNDO",
+      "value": "Undo Last Action"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_SEC_BYTE",
+      "value": "Byte Grids"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_SEC_UINT16",
+      "value": "UInt16 Grids"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_SEC_INT16",
+      "value": "Int16 Grids"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_SEC_INT32",
+      "value": "Int32 Grids"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_DAMAGE",
+      "value": "Damage / State (damage_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_WALL_OWNER",
+      "value": "Wall Owner ID (wall_owner_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_SHOW_HI",
+      "value": "Show-Hi Layer (show_hi_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_AI_ZONE",
+      "value": "AI Zone (ai_zone_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_OCCUPANCY",
+      "value": "Unit Occupancy Mask (occupancy_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_DELAY",
+      "value": "Delay Layer (delay_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_LUMINESCENCE",
+      "value": "Luminescence / Shadow (luminesence_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_STRUCTURE_WAS",
+      "value": "Previous Structure Type (structure_was_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_AI_DANGER",
+      "value": "AI Danger Heatmap (ai_danger_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_AIV_BLOCK",
+      "value": "AIV Block Mask (aiv_block_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_GATE_PATH",
+      "value": "Gate Path (gate_path_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK_0xA20D40",
+      "value": "Unknown Byte (0xA20D40)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK_0xD30080",
+      "value": "Unknown Byte (0xD30080)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK_0x134E700",
+      "value": "Unknown Byte (0x134E700)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK_0x13EB140",
+      "value": "Unknown Byte / Path Marker (0x13EB140)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_ORGANISM",
+      "value": "Organism / Vegetation ID (organism_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_STRUCTURE",
+      "value": "Structure / Building ID (structure_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_MISC_DISPLAY",
+      "value": "Misc Display Flags (misc_display_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_PATH_CONNECTION",
+      "value": "Path Connection / Region ID (path_connection_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_RANDOM_NOISE",
+      "value": "Tile Random Noise (random_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK_0x75EF80",
+      "value": "Unknown Int16 (0x75EF80)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK_0x1EA23F0",
+      "value": "Unknown UInt16 (0x1EA23F0)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_MACRO",
+      "value": "Macro Layer (macro_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_FLY",
+      "value": "Fly / Projectile Layer (fly_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_LOGIC_FLAGS",
+      "value": "Logic / Property Flags (logic_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_PILLAR_GFX",
+      "value": "Pillar GFX (pillar_gfx_layer, dynamic)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_GFX",
+      "value": "GFX Sprite (gfx_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_ALPHA_GFX",
+      "value": "Alpha GFX Sprite (alpha_gfx_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_CONSTRUCTION_GFX",
+      "value": "Construction GFX (construction_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_WALL_GFX",
+      "value": "Wall GFX (wall_gfx_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK_0x1D68F70",
+      "value": "Unknown Int32 (0x1D68F70)"
+    },
+    {
+      "name": "SE_EDITOR_TILE_PILLAR_GFX",
+      "value": "Pillar GFX (pillar_gfx_layer)"
+    },
+    {
+      "name": "SE_EDITOR_TILE_SHOW_HI",
+      "value": "Show-Hi Layer (show_hi_layer)"
+    },
+    {
+      "name": "SE_EDITOR_TILE_MISC_DISPLAY",
+      "value": "Misc Display (misc_display_layer)"
+    },
+    {
+      "name": "SE_EDITOR_TILE_PATH_CONNECTION",
+      "value": "Path Connection (path_connection_layer)"
+    },
+    {
+      "name": "SE_EDITOR_TILE_AI_ZONE",
+      "value": "AI Zone (ai_zone_layer)"
+    },
+    {
+      "name": "SE_EDITOR_TILE_OCCUPANCY",
+      "value": "Unit Occupancy (occupancy_layer)"
+    },
+    {
+      "name": "SE_EDITOR_TILE_DELAY",
+      "value": "Delay Layer (delay_layer)"
+    },
+    {
+      "name": "SE_EDITOR_TILE_UNK_0xA20D40",
+      "value": "Unknown Byte (0xA20D40)"
+    },
+    {
+      "name": "SE_EDITOR_EDIT_TILE_UNK_0xA20D40",
+      "value": "Unknown Byte (0xA20D40)"
+    }
+  ]
+}

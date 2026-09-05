@@ -1221,18 +1221,24 @@ namespace BugfixesAndQoL
             {
                 PlayerId = lord.PlayerId
             };
-            byte[] body = GameNetworkAPI.Serialize(packet);
-            byte[] blob = new byte[sizeof(short) + body.Length];
-            BitConverter.GetBytes(executionPacketHook.GetPacketId()).CopyTo(blob, 0);
-            Buffer.BlockCopy(body, 0, blob, sizeof(short), body.Length);
-
-            Func<byte[], bool> sendRawBlob = ChoreNetworkTransport.SendRawBlob;
-            bool queued = sendRawBlob != null && sendRawBlob(blob);
-            if (!queued)
+            short packetId = executionPacketHook?.GetPacketId() ?? (short)0;
+            if (!BugfixesAndQoLChoreSender.TrySend(
+                    packet,
+                    packetId,
+                    initialized && executionPacketHook != null,
+                    value => GameNetworkAPI.Serialize(value),
+                    () => SHCDESE.GameGlobals.GameGlobalsManager.Instance.ChoreManagerVA,
+                    (value, id) => GameNetworkAPI.SendPacketToAllEx2(value, id, viaChore: true),
+                    out byte[] body,
+                    out string rejectionReason))
             {
-                Shared.DebugLogHelper.LogError(log, $"Surrender Chore was not queued; no local kill was applied: playerId={lord.PlayerId}, payloadBytes={blob.Length}.");
+                Shared.DebugLogHelper.LogError(log, $"Surrender Chore was not queued; no local kill was applied: playerId={lord.PlayerId}, reason={rejectionReason}.");
                 return false;
             }
+
+            byte[] blob = new byte[sizeof(short) + body.Length];
+            BitConverter.GetBytes(packetId).CopyTo(blob, 0);
+            Buffer.BlockCopy(body, 0, blob, sizeof(short), body.Length);
 
             Shared.DebugLogHelper.LogInfo(
                 log,
@@ -1292,7 +1298,9 @@ namespace BugfixesAndQoL
             GameData.Instance?.lastGameState != null && GameData.Instance.lastGameState.spectatorMode != 0;
 
         private bool IsChoreTransportReady() =>
-            initialized && executionPacketHook != null && ChoreNetworkTransport.IsAvailable;
+            BugfixesAndQoLChoreSender.IsAvailable(
+                initialized && executionPacketHook != null,
+                () => SHCDESE.GameGlobals.GameGlobalsManager.Instance.ChoreManagerVA);
 
         private static bool IsHumanMember(Platform_Multiplayer.MPGameMember member) =>
             member != null &&

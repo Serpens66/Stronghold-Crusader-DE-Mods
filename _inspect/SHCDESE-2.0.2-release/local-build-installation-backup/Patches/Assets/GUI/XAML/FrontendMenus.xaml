@@ -1,0 +1,414 @@
+<Patch>
+	<Operation Type="InsertAfter" XPath="//n:TextBlock[@Text='{Binding VersionString}']">
+		<Content>
+			<Grid x:Name="SEMainMenuContainer"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Center"
+            Margin="90,0,0,0"
+			Visibility="{Binding IsSEMenuVisible}">
+				<Grid.Resources>
+					<!-- ANIMATION: Slides the gradient along the Border -->
+					<Storyboard x:Key="RGBBorderFlow" RepeatBehavior="Forever">
+						<DoubleAnimation Storyboard.TargetName="BorderBrushTrans"
+                             Storyboard.TargetProperty="X"
+                             From="0" To="1" Duration="0:0:6" />
+					</Storyboard>
+					<Storyboard x:Key="LogoFloat"
+					RepeatBehavior="Forever"
+					AutoReverse="True">
+						<DoubleAnimation
+						  Storyboard.TargetName="LogoFloatTransform"
+						  Storyboard.TargetProperty="Y"
+						  From="-10"
+						  To="10"
+						  Duration="0:0:3">
+							<DoubleAnimation.EasingFunction>
+								<SineEase EasingMode="EaseInOut"/>
+							</DoubleAnimation.EasingFunction>
+						</DoubleAnimation>
+					</Storyboard>
+					
+					<!-- ANIMATION: Cycle Logo Images (Opacity Toggle) -->
+					<!-- Total Loop: 0.90s (0.30s per frame) -->
+					<Storyboard x:Key="LogoSourceAnim" RepeatBehavior="Forever" Duration="0:0:0.90" AutoReverse="True">
+						
+						<!-- Frame 1: Visible 0.00 -> 0.30 -->
+						<DoubleAnimationUsingKeyFrames Storyboard.TargetName="LogoFrame1" Storyboard.TargetProperty="Opacity">
+							<DiscreteDoubleKeyFrame KeyTime="0:0:0.00" Value="1"/>
+							<DiscreteDoubleKeyFrame KeyTime="0:0:0.30" Value="0"/>
+							<DiscreteDoubleKeyFrame KeyTime="0:0:0.60" Value="0"/>
+						</DoubleAnimationUsingKeyFrames>
+						
+						<!-- Frame 2: Visible 0.30 -> 0.60 -->
+						<DoubleAnimationUsingKeyFrames Storyboard.TargetName="LogoFrame2" Storyboard.TargetProperty="Opacity">
+							<DiscreteDoubleKeyFrame KeyTime="0:0:0.00" Value="0"/>
+							<DiscreteDoubleKeyFrame KeyTime="0:0:0.30" Value="1"/>
+							<DiscreteDoubleKeyFrame KeyTime="0:0:0.60" Value="0"/>
+						</DoubleAnimationUsingKeyFrames>
+
+						<!-- Frame 3: Visible 0.60 -> 0.90 -->
+						<DoubleAnimationUsingKeyFrames Storyboard.TargetName="LogoFrame3" Storyboard.TargetProperty="Opacity">
+							<DiscreteDoubleKeyFrame KeyTime="0:0:0.00" Value="0"/>
+							<DiscreteDoubleKeyFrame KeyTime="0:0:0.30" Value="0"/>
+							<DiscreteDoubleKeyFrame KeyTime="0:0:0.60" Value="1"/>
+						</DoubleAnimationUsingKeyFrames>
+						
+					</Storyboard>
+					
+					<!-- ANIMATION: Pulse the update badge -->
+					<Storyboard x:Key="UpdateBadgePulse" RepeatBehavior="Forever" AutoReverse="True">
+						<DoubleAnimation Storyboard.TargetName="UpdateBadge"
+										 Storyboard.TargetProperty="Opacity"
+										 From="1.0" To="0.55"
+										 Duration="0:0:1.2">
+							<DoubleAnimation.EasingFunction>
+								<SineEase EasingMode="EaseInOut"/>
+							</DoubleAnimation.EasingFunction>
+						</DoubleAnimation>
+					</Storyboard>
+				</Grid.Resources>
+				<Grid.Triggers>
+					<EventTrigger RoutedEvent="FrameworkElement.Loaded">
+						<BeginStoryboard Storyboard="{StaticResource RGBBorderFlow}"/>
+						<BeginStoryboard Storyboard="{StaticResource LogoFloat}"/>
+						<BeginStoryboard Storyboard="{StaticResource LogoSourceAnim}"/>
+						<BeginStoryboard Storyboard="{StaticResource UpdateBadgePulse}"/>
+					</EventTrigger>
+				</Grid.Triggers>
+				<!-- BACKGROUND: Diamond Shape -->
+				<Border x:Name="DiamondShape"
+                Width="400" Height="400"
+                RenderTransformOrigin="0.5,0.5"
+                BorderThickness="3"
+				IsHitTestVisible="True">
+					<!-- Rotate to make it a Diamond -->
+					<Border.RenderTransform>
+						<RotateTransform Angle="45"/>
+					</Border.RenderTransform>
+					<!-- Dark Acrylic Fill (Static) -->
+					<Border.Background>
+						<SolidColorBrush Color="#60050505"/>
+					</Border.Background>
+					<!-- The Seamless RGB Border -->
+					<Border.BorderBrush>
+						<LinearGradientBrush StartPoint="0,0" EndPoint="1,0" SpreadMethod="Repeat">
+							<LinearGradientBrush.RelativeTransform>
+								<TranslateTransform x:Name="BorderBrushTrans" X="0"/>
+							</LinearGradientBrush.RelativeTransform>
+							<!-- Rainbow Spectrum -->
+							<GradientStop Color="#66FF0000" Offset="0.0"/>
+							<GradientStop Color="#66FFFF00" Offset="0.166"/>
+							<GradientStop Color="#6600FF00" Offset="0.333"/>
+							<GradientStop Color="#6600FFFF" Offset="0.5"/>
+							<GradientStop Color="#660000FF" Offset="0.666"/>
+							<GradientStop Color="#66FF00FF" Offset="0.833"/>
+							<!-- End Color must match Start Color exactly -->
+							<GradientStop Color="#66FF0000" Offset="1.0"/>
+						</LinearGradientBrush>
+					</Border.BorderBrush>
+					<!-- Shadow Effect -->
+					<Border.Effect>
+						<DropShadowEffect Color="#AA000000" BlurRadius="15" ShadowDepth="0"/>
+					</Border.Effect>
+					
+					<Border x:Name="DiamondContentHost" ClipToBounds="True">
+						<Grid>
+						<!--
+							Logo video surface. Its dedicated MediaPlayer renders through SHCDESE/LogoAnalogVideo before exposing the RenderTexture to Noesis.
+							The counter-rotation keeps the picture upright while the parent clips it to the diamond.
+						-->
+						<MediaElement x:Name="SELogoVideo"
+							Width="640"
+							Height="640"
+							HorizontalAlignment="Center"
+							VerticalAlignment="Center"
+							RenderTransformOrigin="0.5,0.5"
+							Visibility="{Binding LogoVideoVisibility}"
+							LoadedBehavior="Play"
+							UnloadedBehavior="Close"
+							IsMuted="{Binding LogoVideoMuted}"
+							Stretch="UniformToFill"
+							IsHitTestVisible="False">
+							<MediaElement.RenderTransform>
+								<RotateTransform Angle="-45"/>
+							</MediaElement.RenderTransform>
+						</MediaElement>
+						<ItemsControl ItemsSource="{Binding LoadedMods}">
+							<ItemsControl.ItemsPanel>
+								<ItemsPanelTemplate>
+									<Canvas Width="400" Height="400"/>
+	
+								</ItemsPanelTemplate>
+							</ItemsControl.ItemsPanel>
+							<ItemsControl.ItemContainerStyle>
+								<Style>
+									<Setter Property="Canvas.Left" Value="{Binding X}"/>
+									<Setter Property="Canvas.Top" Value="{Binding Y}"/>
+								</Style>
+							</ItemsControl.ItemContainerStyle>
+							<ItemsControl.ItemTemplate>
+								<DataTemplate>
+									<Button Background="Transparent"
+											BorderThickness="0"
+											Padding="0"
+											Cursor="Hand"
+											Command="{Binding OpenWebsiteCommand}"
+											ToolTipService.ShowDuration="60000"
+											ToolTipService.InitialShowDelay="300"
+											ToolTipService.BetweenShowDelay="100">
+										<Border Width="64"
+												Height="64"
+												Margin="1"
+												CornerRadius="1"
+												BorderThickness="2">
+
+											<Border.BorderBrush>
+												<LinearGradientBrush StartPoint="0,0"
+																	 EndPoint="1,0"
+																	 SpreadMethod="Repeat">
+													<LinearGradientBrush.RelativeTransform>
+														<TranslateTransform X="0"/>
+													</LinearGradientBrush.RelativeTransform>
+
+													<GradientStop Color="#66FF0000" Offset="0.0"/>
+													<GradientStop Color="#66FFFF00" Offset="0.166"/>
+													<GradientStop Color="#6600FF00" Offset="0.333"/>
+													<GradientStop Color="#6600FFFF" Offset="0.5"/>
+													<GradientStop Color="#660000FF" Offset="0.666"/>
+													<GradientStop Color="#66FF00FF" Offset="0.833"/>
+													<GradientStop Color="#66FF0000" Offset="1.0"/>
+												</LinearGradientBrush>
+											</Border.BorderBrush>
+
+											<Border.Triggers>
+												<EventTrigger RoutedEvent="FrameworkElement.Loaded">
+													<BeginStoryboard>
+														<Storyboard RepeatBehavior="Forever">
+															<DoubleAnimation
+																Storyboard.TargetProperty="BorderBrush.RelativeTransform.(TranslateTransform.X)"
+																From="0"
+																To="1"
+																Duration="0:0:4"/>
+														</Storyboard>
+													</BeginStoryboard>
+												</EventTrigger>
+											</Border.Triggers>
+
+
+											<Border.Effect>
+												<DropShadowEffect Color="#AA000000"
+																  BlurRadius="6"
+																  ShadowDepth="0"/>
+											</Border.Effect>
+
+											<Image Source="{Binding IconPath}"
+												   Stretch="UniformToFill"/>
+										</Border>
+										
+										<!-- Tooltip with Mod Information -->
+										<Button.ToolTip>
+											<ToolTip Style="{StaticResource SE_ToolTip_Scale}">
+												<ToolTip.RenderTransform>
+													<RotateTransform Angle="-45"/>
+												</ToolTip.RenderTransform>
+												<!-- The SE style owns the background, frame, padding and text scale. -->
+												<Grid>
+														<Grid.ColumnDefinitions>
+															<ColumnDefinition Width="Auto"/>
+															<ColumnDefinition Width="*"/>
+														</Grid.ColumnDefinitions>
+														
+														<!-- Mod Icon on the left -->
+														<Border Grid.Column="0"
+																Width="48"
+																Height="48"
+																CornerRadius="4"
+																BorderThickness="2"
+																Margin="0,0,12,0"
+																VerticalAlignment="Top">
+															<Border.BorderBrush>
+																<LinearGradientBrush StartPoint="0,0" EndPoint="1,0" SpreadMethod="Repeat">
+																	<LinearGradientBrush.RelativeTransform>
+																		<TranslateTransform x:Name="TooltipIconBorderTrans" X="0"/>
+																	</LinearGradientBrush.RelativeTransform>
+																	<GradientStop Color="#66FF0000" Offset="0.0"/>
+																	<GradientStop Color="#66FFFF00" Offset="0.166"/>
+																	<GradientStop Color="#6600FF00" Offset="0.333"/>
+																	<GradientStop Color="#6600FFFF" Offset="0.5"/>
+																	<GradientStop Color="#660000FF" Offset="0.666"/>
+																	<GradientStop Color="#66FF00FF" Offset="0.833"/>
+																	<GradientStop Color="#66FF0000" Offset="1.0"/>
+																</LinearGradientBrush>
+															</Border.BorderBrush>
+															
+															<Border.Triggers>
+																<EventTrigger RoutedEvent="FrameworkElement.Loaded">
+																	<BeginStoryboard>
+																		<Storyboard RepeatBehavior="Forever">
+																			<DoubleAnimation
+																				Storyboard.TargetName="TooltipIconBorderTrans"
+																				Storyboard.TargetProperty="X"
+																				From="0"
+																				To="1"
+																				Duration="0:0:4"/>
+																		</Storyboard>
+																	</BeginStoryboard>
+																</EventTrigger>
+															</Border.Triggers>
+															
+															<Image Source="{Binding IconPath}"
+																   Stretch="UniformToFill"/>
+														</Border>
+														
+														<!-- Text content -->
+														<StackPanel Grid.Column="1" Orientation="Vertical">
+															<!-- Mod Name -->
+															<TextBlock Text="{Binding ModName}"
+																	   Foreground="#FFFFFFFF"
+																	   FontWeight="Bold"
+																	   TextWrapping="Wrap"
+																	   Margin="0,0,0,4"/>
+															
+															<!-- Mod Author -->
+															<TextBlock Text="{Binding AuthorLabel}"
+																	   Foreground="#FFBBBBBB"
+																	   FontStyle="Italic"
+																	   TextWrapping="Wrap"
+																	   Margin="0,0,0,4"/>
+															
+															<!-- Mod Version -->
+															<TextBlock Text="{Binding Version}"
+																	   Foreground="#FFAAAAAA"
+																	   Margin="0,0,0,4"/>
+															
+															<!-- Per-mod release status -->
+															<TextBlock Text="{Binding UpdateAvailableText}"
+																	   Foreground="#FFFFD83D"
+																	   FontWeight="Bold"
+																	   TextWrapping="Wrap"
+																	   Margin="0,0,0,6"
+																	   Visibility="{Binding HasUpdateAvailable, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+															
+															<!-- Mod Description (optional) -->
+															<TextBlock Text="{Binding Description}"
+																	   Foreground="#FFCCCCCC"
+																	   TextWrapping="Wrap"
+																	   Margin="0,0,0,6"
+																	   Visibility="{Binding HasDescription, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+															
+															<!-- Click hint -->
+															<TextBlock Text="Click to open website"
+																	   Foreground="#FF77AAFF"
+																	   FontStyle="Italic"
+																	   Visibility="{Binding HasWebsite, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+														</StackPanel>
+												</Grid>
+											</ToolTip>
+										</Button.ToolTip>
+									</Button>
+								</DataTemplate>
+							</ItemsControl.ItemTemplate>
+						</ItemsControl>
+						</Grid>
+					</Border>
+				</Border>
+				<StackPanel Orientation="Vertical"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+					IsHitTestVisible="False">
+					<Grid Width="300" Height="200" Margin="0,0,0,5"
+					UseLayoutRounding="True"
+					SnapsToDevicePixels="True"
+					RenderOptions.BitmapScalingMode="NearestNeighbor">
+						<Grid.RenderTransform>
+							<TranslateTransform x:Name="LogoFloatTransform" Y="0"/>
+						</Grid.RenderTransform>
+						
+						<!-- Load all 3 images, set initial Opacity -->
+						<Image x:Name="LogoFrame1" Source="/Assets/GUI/Sprites/selogo_1.png" Stretch="None" Opacity="1"/>
+						<Image x:Name="LogoFrame2" Source="/Assets/GUI/Sprites/selogo_2.png" Stretch="None" Opacity="0"/>
+						<Image x:Name="LogoFrame3" Source="/Assets/GUI/Sprites/selogo_3.png" Stretch="None" Opacity="0"/>
+					</Grid>
+					<TextBlock Text="Not a pokemon!"
+						Visibility="{Binding PokemonCaptionVisibility}"
+						Foreground="#FFFFD83D"
+						FontSize="13"
+						FontWeight="SemiBold"
+						FontStyle="Italic"
+						Margin="0,-6,0,3"
+						HorizontalAlignment="Center"
+						TextAlignment="Center">
+						<TextBlock.Effect>
+							<DropShadowEffect ShadowDepth="1" Direction="315" Color="#EE000000" BlurRadius="2"/>
+						</TextBlock.Effect>
+					</TextBlock>
+					<TextBlock Text="Script Extender"
+                     Foreground="#FFFFFFFF"
+                     FontSize="28"
+                     FontWeight="Bold"
+                     HorizontalAlignment="Center"
+                     TextAlignment="Center"
+                     Typography.Capitals="SmallCaps">
+						<TextBlock.Effect>
+							<DropShadowEffect ShadowDepth="2" Direction="315" Color="#CC000000" BlurRadius="2"/>
+						</TextBlock.Effect>
+					</TextBlock>
+					
+					<!-- UPDATE AVAILABLE BADGE -->
+					<!-- Bound to UpdateBadgeVisibility (Visible only when UpdateCheckState == UpdateAvailable) -->
+					<Border x:Name="UpdateBadge"
+							Visibility="{Binding UpdateBadgeVisibility}"
+							BorderThickness="2"
+							CornerRadius="4"
+							Padding="8,3"
+							Margin="0,6,0,0"
+							HorizontalAlignment="Center">
+						<!-- Animated RGB border, matching the diamond style -->
+						<Border.BorderBrush>
+							<LinearGradientBrush StartPoint="0,0" EndPoint="1,0" SpreadMethod="Repeat">
+								<LinearGradientBrush.RelativeTransform>
+									<TranslateTransform x:Name="UpdateBadgeBorderTrans" X="0"/>
+								</LinearGradientBrush.RelativeTransform>
+								<GradientStop Color="#FFFF0000" Offset="0.0"/>
+								<GradientStop Color="#FFFFAA00" Offset="0.25"/>
+								<GradientStop Color="#FFFFFF44" Offset="0.5"/>
+								<GradientStop Color="#FFFFAA00" Offset="0.75"/>
+								<GradientStop Color="#FFFF0000" Offset="1.0"/>
+							</LinearGradientBrush>
+						</Border.BorderBrush>
+						<Border.Background>
+							<SolidColorBrush Color="#CC1A0A00"/>
+						</Border.Background>
+						<Border.Effect>
+							<DropShadowEffect Color="#FFFF6600" BlurRadius="8" ShadowDepth="0"/>
+						</Border.Effect>
+						<Border.Triggers>
+							<EventTrigger RoutedEvent="FrameworkElement.Loaded">
+								<BeginStoryboard>
+									<Storyboard RepeatBehavior="Forever">
+										<DoubleAnimation
+											Storyboard.TargetName="UpdateBadgeBorderTrans"
+											Storyboard.TargetProperty="X"
+											From="0" To="1"
+											Duration="0:0:3"/>
+									</Storyboard>
+								</BeginStoryboard>
+							</EventTrigger>
+						</Border.Triggers>
+						<TextBlock Text="{Binding UpdateBadgeText}"
+								   Foreground="#FFFFF0AA"
+								   FontSize="11"
+								   FontWeight="SemiBold"
+								   HorizontalAlignment="Center"
+								   TextAlignment="Center">
+							<TextBlock.Effect>
+								<DropShadowEffect ShadowDepth="1" Direction="315" Color="#CC000000" BlurRadius="2"/>
+							</TextBlock.Effect>
+						</TextBlock>
+					</Border>
+					<!-- END UPDATE AVAILABLE BADGE -->
+				</StackPanel>
+			</Grid>
+		</Content>
+	</Operation>
+</Patch>

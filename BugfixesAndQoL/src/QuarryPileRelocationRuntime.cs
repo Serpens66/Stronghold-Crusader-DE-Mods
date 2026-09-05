@@ -20,7 +20,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Reflection;
 using System.Runtime.InteropServices;
-using Zhuqiaomon.Memory;
+using RedBird.Core.Memory;
 
 namespace BugfixesAndQoL
 {
@@ -707,9 +707,9 @@ namespace BugfixesAndQoL
 
         private bool IsChoreTransportReady()
         {
-            return networkInitialized &&
-                relocationPacketHook != null &&
-                ChoreNetworkTransport.IsAvailable;
+            return BugfixesAndQoLChoreSender.IsAvailable(
+                networkInitialized && relocationPacketHook != null,
+                () => SHCDESE.GameGlobals.GameGlobalsManager.Instance.ChoreManagerVA);
         }
 
         private bool TrySendRotationChore(QuarryPileRelocationOperation operation)
@@ -733,24 +733,24 @@ namespace BugfixesAndQoL
                 TargetTileY = operation.TargetTileY
             };
 
-            byte[] body = GameNetworkAPI.Serialize(packet);
-            byte[] blob = new byte[sizeof(short) + body.Length];
-            BitConverter.GetBytes(relocationPacketHook.GetPacketId()).CopyTo(blob, 0);
-            Buffer.BlockCopy(body, 0, blob, sizeof(short), body.Length);
-
-            // Call the Chore transport directly so failure cannot silently fall back to the
-            // non-tick-aligned Steam transport used by SendPacketToAllEx2.
-            Func<byte[], bool> sendRawBlob = ChoreNetworkTransport.SendRawBlob;
-            bool queued = sendRawBlob != null && sendRawBlob(blob);
-            if (!queued)
+            short packetId = relocationPacketHook?.GetPacketId() ?? (short)0;
+            if (!BugfixesAndQoLChoreSender.TrySend(
+                    packet,
+                    packetId,
+                    networkInitialized && relocationPacketHook != null,
+                    value => GameNetworkAPI.Serialize(value),
+                    () => SHCDESE.GameGlobals.GameGlobalsManager.Instance.ChoreManagerVA,
+                    (value, id) => GameNetworkAPI.SendPacketToAllEx2(value, id, viaChore: true),
+                    out byte[] body,
+                    out string rejectionReason))
             {
                 Shared.DebugLogHelper.LogError(
                     log,
-                    $"Bugfixes and QoL quarry-pile Chore was not queued; no local action was applied: operationId={operation.OperationId}, payloadBytes={blob.Length}.");
+                    $"Bugfixes and QoL quarry-pile Chore was not queued; no local action was applied: operationId={operation.OperationId}, reason={rejectionReason}.");
                 return false;
             }
 
-            LogInfo($"rotation Chore queued: operationId={operation.OperationId}, packetId={relocationPacketHook.GetPacketId()}, payloadBytes={blob.Length}, quarryGlobalId={operation.QuarryGlobalId}, oldPileGlobalId={operation.OldPileGlobalId}, target={operation.TargetTileX},{operation.TargetTileY}.");
+            LogInfo($"rotation Chore queued: operationId={operation.OperationId}, packetId={packetId}, payloadBytes={sizeof(short) + body.Length}, quarryGlobalId={operation.QuarryGlobalId}, oldPileGlobalId={operation.OldPileGlobalId}, target={operation.TargetTileX},{operation.TargetTileY}.");
             return true;
         }
 

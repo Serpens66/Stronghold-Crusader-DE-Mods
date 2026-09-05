@@ -7,7 +7,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading;
-using Zhuqiaomon.Memory;
+using RedBird.Core.Memory;
 
 namespace ImprovedHunters
 {

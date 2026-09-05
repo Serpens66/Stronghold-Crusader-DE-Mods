@@ -1,0 +1,28 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="../Sprites/UI-MasterAtlas.xaml" />
+        <ResourceDictionary Source="../Sprites/UI-TrailAtlas.xaml" />
+        <ResourceDictionary Source="../Sprites/UI-Colour1Atlas.xaml" />
+        <ResourceDictionary Source="../Sprites/UI-Colour2Atlas.xaml" />
+        <ResourceDictionary Source="Theme.DarkRed.xaml" />
+        <ResourceDictionary Source="BTN_FrontMenu.xaml" />
+        <ResourceDictionary Source="BTN_Image.xaml" />
+        <ResourceDictionary Source="BDR_Stronghold.xaml" />
+        <ResourceDictionary Source="BTN_Building.xaml" />
+        <ResourceDictionary Source="BTN_RADIO_Image.xaml" />
+        <ResourceDictionary Source="BTN_StartingGood.xaml" />
+        <ResourceDictionary Source="BTN_SH_BuySell.xaml" />
+        <ResourceDictionary Source="BTN_SH_Plain.xaml" />
+        <ResourceDictionary Source="SDR_SH_Plain.xaml" />
+        <ResourceDictionary Source="BTN_SH_Glow.xaml" />
+        <ResourceDictionary Source="BTN_NewFrontend.xaml" />
+        <ResourceDictionary Source="LST_SH_BuildingAvailable.xaml" />
+        <ResourceDictionary Source="LST_SH_HotKeys.xaml" />
+        <ResourceDictionary Source="ListViewItem_Styles.xaml" />
+        <ResourceDictionary Source="CheckBox_Template.xaml" />
+        <ResourceDictionary Source="TOOLTIPS.xaml" />
+        <ResourceDictionary Source="SVG_Images.xaml" />
+        <ResourceDictionary Source="BackgroundScreens.xaml" />
+    </ResourceDictionary.MergedDictionaries>
+</ResourceDictionary>

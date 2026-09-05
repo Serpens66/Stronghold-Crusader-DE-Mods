@@ -5,7 +5,7 @@ using System;
 
 namespace MoatCommandTest
 {
-    [BepInDependency(ScriptExtenderGuid, BepInDependency.DependencyFlags.HardDependency)]
+    [BepInDependency(ScriptExtenderGuid, "2.0.2")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class MoatCommandTestPlugin : BaseUnityPlugin
     {
@@ -34,9 +34,7 @@ namespace MoatCommandTest
             librarySubscriptionInstalled = true;
         }
 
-        private static void OnCrusaderLibraryLoaded(
-            IntPtr libraryHandle,
-            ReadOnlySpan<byte> memory)
+        private static void OnCrusaderLibraryLoaded(CrusaderLibraryLoadContext context)
         {
             if (feature != null)
                 return;
@@ -52,8 +50,7 @@ namespace MoatCommandTest
 
                 feature = new MoatDiggingReachabilityFix(
                     persistentLog,
-                    memory,
-                    unchecked((ulong)libraryHandle.ToInt64()),
+                    context,
                     referenceHashMatches);
             }
             catch (Exception ex)

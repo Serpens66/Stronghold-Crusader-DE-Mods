@@ -1,11 +1,14 @@
 // Feature: Let monks use the ordinary troop walk/run decision when configured.
 using BepInEx.Logging;
 using Iced.Intel;
+using RedBird.Abstractions.Hooks;
+using RedBird.Abstractions.Hooks.Transaction;
+using RedBird.Core.Memory;
+using RedBird.X64.Extensions;
+using RedBird.X64.Hooks;
+using RedBird.X64.Hooks.Transaction;
 using System;
 using System.Runtime.InteropServices;
-using Zhuqiaomon.Extensions;
-using Zhuqiaomon.Hooks;
-using Zhuqiaomon.Hooks.Transaction;
 using static Iced.Intel.AssemblerRegisters;
 
 namespace ExtraFeatures
@@ -32,8 +35,8 @@ namespace ExtraFeatures
 
         private readonly ManualLogSource log;
         private HookTransaction transaction;
-        private HookRef<X64InlineHook> movementDecisionHook =
-            new HookRef<X64InlineHook>();
+        private readonly HookHandle<X64InlineHook> movementDecisionHook =
+            new HookHandle<X64InlineHook>();
         private IntPtr enabledFlag;
         private bool enabled;
         private bool disposed;
@@ -41,6 +44,7 @@ namespace ExtraFeatures
         public MonkAlwaysRunPatch(
             ManualLogSource log,
             IntPtr libraryHandle,
+            ScanRegion region,
             ReadOnlySpan<byte> memory,
             bool referenceHashMatches)
         {
@@ -64,14 +68,10 @@ namespace ExtraFeatures
                 enabledFlag = Marshal.AllocHGlobal(sizeof(int));
                 Marshal.WriteInt32(enabledFlag, 0);
 
-                pendingTransaction = new HookTransaction(
-                    memory,
-                    imageBase,
-                    loggerFactory: null,
-                    failureMode: TransactionFailureMode.RollbackAndThrow);
+                pendingTransaction = ExtraFeaturesHookInfrastructure.CreateOwnedTransaction(region);
                 pendingTransaction.AddInline(
-                    ref movementDecisionHook,
-                    imageBase + unchecked((ulong)decisionRva),
+                    movementDecisionHook,
+                    HookTarget.FromAddress(imageBase + unchecked((ulong)decisionRva)),
                     (assembler, instructions, returnAddress) =>
                         GenerateMovementDecision(
                             assembler,
@@ -79,9 +79,9 @@ namespace ExtraFeatures
                             returnAddress,
                             unchecked((ulong)enabledFlag.ToInt64())),
                     hookSize: HookSize);
-                pendingTransaction.Commit();
+                CommitResult commitResult = pendingTransaction.Commit();
 
-                if (!movementDecisionHook.Success)
+                if (!commitResult.IsCompleteSuccess || !movementDecisionHook.Success)
                     throw new InvalidOperationException("The Monk movement decision hook was not installed.");
 
                 transaction = pendingTransaction;
@@ -91,7 +91,6 @@ namespace ExtraFeatures
             {
                 if (pendingTransaction != null)
                 {
-                    try { pendingTransaction.Unload(); } catch { }
                     try { pendingTransaction.Dispose(); } catch { }
                 }
                 if (enabledFlag != IntPtr.Zero)
@@ -132,7 +131,6 @@ namespace ExtraFeatures
             if (enabledFlag != IntPtr.Zero)
                 Marshal.WriteInt32(enabledFlag, 0);
             enabled = false;
-            transaction?.Unload();
             transaction?.Dispose();
             transaction = null;
             if (enabledFlag != IntPtr.Zero)

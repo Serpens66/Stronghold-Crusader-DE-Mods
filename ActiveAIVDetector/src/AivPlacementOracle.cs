@@ -1,12 +1,13 @@
 using BepInEx.Logging;
+using RedBird.Abstractions.Hooks;
+using RedBird.Abstractions.Hooks.Transaction;
+using RedBird.X64.Hooks.Transaction;
 using SHCDESE.API;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
-using Zhuqiaomon.Hooks;
-using Zhuqiaomon.Hooks.Transaction;
 
 namespace ActiveAIVDetector
 {
@@ -138,21 +139,21 @@ namespace ActiveAIVDetector
         private readonly List<Action<ulong, int, int, int, int, int>>
             externalValidatorObservers =
                 new List<Action<ulong, int, int, int, int, int>>();
-        private HookRef<X64ManagedFunctionDetourAOB<SelectBestFitDelegate>> selectBestFitHook =
-            new HookRef<X64ManagedFunctionDetourAOB<SelectBestFitDelegate>>();
-        private HookRef<X64ManagedFunctionDetourAOB<TestSpecificCandidateDelegate>> testSpecificCandidateHook =
-            new HookRef<X64ManagedFunctionDetourAOB<TestSpecificCandidateDelegate>>();
-        private HookRef<X64ManagedFunctionDetourAOB<LoadCandidateDelegate>> loadCandidateHook =
-            new HookRef<X64ManagedFunctionDetourAOB<LoadCandidateDelegate>>();
-        private HookRef<X64ManagedFunctionDetourAOB<ApplyRotationDelegate>> applyRotationHook =
-            new HookRef<X64ManagedFunctionDetourAOB<ApplyRotationDelegate>>();
-        private HookRef<X64ManagedFunctionDetourAOB<EvaluateCandidateFitDelegate>> evaluateCandidateFitHook =
-            new HookRef<X64ManagedFunctionDetourAOB<EvaluateCandidateFitDelegate>>();
-        private HookRef<X64ManagedFunctionDetourAOB<BuildingPlacementValidatorDelegate>>
+        private readonly DetourHandle<SelectBestFitDelegate> selectBestFitHook =
+            new DetourHandle<SelectBestFitDelegate>();
+        private readonly DetourHandle<TestSpecificCandidateDelegate> testSpecificCandidateHook =
+            new DetourHandle<TestSpecificCandidateDelegate>();
+        private readonly DetourHandle<LoadCandidateDelegate> loadCandidateHook =
+            new DetourHandle<LoadCandidateDelegate>();
+        private readonly DetourHandle<ApplyRotationDelegate> applyRotationHook =
+            new DetourHandle<ApplyRotationDelegate>();
+        private readonly DetourHandle<EvaluateCandidateFitDelegate> evaluateCandidateFitHook =
+            new DetourHandle<EvaluateCandidateFitDelegate>();
+        private readonly DetourHandle<BuildingPlacementValidatorDelegate>
             buildingPlacementValidatorHook =
-                new HookRef<X64ManagedFunctionDetourAOB<BuildingPlacementValidatorDelegate>>();
-        private HookRef<X64ManagedFunctionDetourAOB<ExecuteBuildStepDelegate>> executeBuildStepHook =
-            new HookRef<X64ManagedFunctionDetourAOB<ExecuteBuildStepDelegate>>();
+                new DetourHandle<BuildingPlacementValidatorDelegate>();
+        private readonly DetourHandle<ExecuteBuildStepDelegate> executeBuildStepHook =
+            new DetourHandle<ExecuteBuildStepDelegate>();
 
         private OracleSelectionSession activeSession;
         private ValidatorTraceContext activeValidatorTrace;
@@ -242,27 +243,27 @@ namespace ActiveAIVDetector
             if (transaction == null)
                 throw new ArgumentNullException(nameof(transaction));
 
-            transaction.AddDetour(ref selectBestFitHook, nativeLibraryBase + unchecked((ulong)selectBestFitRva), SelectBestFit);
+            transaction.AddDetour(selectBestFitHook, HookTarget.FromAddress(nativeLibraryBase + unchecked((ulong)selectBestFitRva)), SelectBestFit);
             transaction.AddDetour(
-                ref testSpecificCandidateHook,
-                nativeLibraryBase + unchecked((ulong)testSpecificCandidateRva),
+                testSpecificCandidateHook,
+                HookTarget.FromAddress(nativeLibraryBase + unchecked((ulong)testSpecificCandidateRva)),
                 TestSpecificCandidate);
-            transaction.AddDetour(ref loadCandidateHook, nativeLibraryBase + unchecked((ulong)loadCandidateRva), LoadCandidate);
-            transaction.AddDetour(ref applyRotationHook, nativeLibraryBase + unchecked((ulong)applyRotationRva), ApplyRotation);
+            transaction.AddDetour(loadCandidateHook, HookTarget.FromAddress(nativeLibraryBase + unchecked((ulong)loadCandidateRva)), LoadCandidate);
+            transaction.AddDetour(applyRotationHook, HookTarget.FromAddress(nativeLibraryBase + unchecked((ulong)applyRotationRva)), ApplyRotation);
             transaction.AddDetour(
-                ref evaluateCandidateFitHook,
-                nativeLibraryBase + unchecked((ulong)evaluateCandidateFitRva),
+                evaluateCandidateFitHook,
+                HookTarget.FromAddress(nativeLibraryBase + unchecked((ulong)evaluateCandidateFitRva)),
                 EvaluateCandidateFit);
             transaction.AddDetour(
-                ref buildingPlacementValidatorHook,
-                nativeLibraryBase + unchecked((ulong)buildingPlacementValidatorRva),
+                buildingPlacementValidatorHook,
+                HookTarget.FromAddress(nativeLibraryBase + unchecked((ulong)buildingPlacementValidatorRva)),
                 BuildingPlacementValidator);
             if (prebuildTraceOptions.Enabled)
             {
                 // Keep the extra native detour absent unless this one-run diagnostic is explicit.
                 transaction.AddDetour(
-                    ref executeBuildStepHook,
-                    nativeLibraryBase + unchecked((ulong)executeBuildStepRva),
+                    executeBuildStepHook,
+                    HookTarget.FromAddress(nativeLibraryBase + unchecked((ulong)executeBuildStepRva)),
                     ExecuteBuildStep);
             }
         }
@@ -312,7 +313,7 @@ namespace ActiveAIVDetector
                 null);
             try
             {
-                selectBestFitHook.Value.Hook.Trampoline(
+                selectBestFitHook.Original(
                     aivStateAddress,
                     aivSpecIndex,
                     tryOtherRotations);
@@ -338,7 +339,7 @@ namespace ActiveAIVDetector
             bool returned = false;
             try
             {
-                result = testSpecificCandidateHook.Value.Hook.Trampoline(
+                result = testSpecificCandidateHook.Original(
                     aivStateAddress,
                     aivSpecIndex,
                     candidateId);
@@ -356,7 +357,7 @@ namespace ActiveAIVDetector
             int zeroBasedPlayerId,
             int candidateId)
         {
-            loadCandidateHook.Value.Hook.Trampoline(
+            loadCandidateHook.Original(
                 aivStateAddress,
                 zeroBasedPlayerId,
                 candidateId);
@@ -368,7 +369,7 @@ namespace ActiveAIVDetector
 
         private void ApplyRotation(ulong aivStateAddress, int orientation)
         {
-            applyRotationHook.Value.Hook.Trampoline(aivStateAddress, orientation);
+            applyRotationHook.Original(aivStateAddress, orientation);
 
             OracleSelectionSession session = activeSession;
             if (session != null && session.AivStateAddress == aivStateAddress)
@@ -395,7 +396,7 @@ namespace ActiveAIVDetector
             int rawFitScore;
             try
             {
-                rawFitScore = evaluateCandidateFitHook.Value.Hook.Trampoline(
+                rawFitScore = evaluateCandidateFitHook.Original(
                     aivStateAddress,
                     aivSpecIndex);
             }
@@ -498,7 +499,7 @@ namespace ActiveAIVDetector
                 }
             }
 
-            int result = buildingPlacementValidatorHook.Value.Hook.Trampoline(
+            int result = buildingPlacementValidatorHook.Original(
                 placementStateAddress,
                 tileId,
                 playerId,
@@ -570,7 +571,7 @@ namespace ActiveAIVDetector
                         "Oracle prebuild trace rejected a nested ExecuteBuildStep capture; " +
                         "the nested Vanilla call still runs unchanged.");
                 }
-                return executeBuildStepHook.Value.Hook.Trampoline(
+                return executeBuildStepHook.Original(
                     aivStateAddress,
                     playerId,
                     frameIndex,
@@ -580,7 +581,7 @@ namespace ActiveAIVDetector
 
             if (!TryBeginOrContinuePrebuildCapture(aivStateAddress, playerId))
             {
-                return executeBuildStepHook.Value.Hook.Trampoline(
+                return executeBuildStepHook.Original(
                     aivStateAddress,
                     playerId,
                     frameIndex,
@@ -641,7 +642,7 @@ namespace ActiveAIVDetector
             executeBuildStepDepth++;
             try
             {
-                result = executeBuildStepHook.Value.Hook.Trampoline(
+                result = executeBuildStepHook.Original(
                     aivStateAddress,
                     playerId,
                     frameIndex,

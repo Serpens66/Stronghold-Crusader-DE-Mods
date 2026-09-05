@@ -4,7 +4,7 @@ using System;
 
 namespace VanillaAICExporter
 {
-    [BepInDependency(ScriptExtenderGuid, BepInDependency.DependencyFlags.HardDependency)]
+    [BepInDependency(ScriptExtenderGuid, "2.0.2")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class VanillaAICExporterPlugin : BaseUnityPlugin
     {
@@ -33,7 +33,7 @@ namespace VanillaAICExporter
             Shared.DebugLogHelper.LogInfo(Logger, "Plugin component destroyed during startup; export state remains process-wide.");
         }
 
-        private void OnCrusaderLibraryLoaded(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
+        private void OnCrusaderLibraryLoaded(CrusaderLibraryLoadContext context)
         {
             if (libraryLoadedHandled)
                 return;

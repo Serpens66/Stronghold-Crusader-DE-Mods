@@ -1,12 +1,15 @@
 // Feature: Customize Vanilla's maximum plague-search distance from an apothecary building.
 using BepInEx.Logging;
+using RedBird.Abstractions.Hooks;
+using RedBird.Abstractions.Hooks.Transaction;
+using RedBird.Core.Memory;
+using RedBird.X64.Assembly;
+using RedBird.X64.Hooks;
+using RedBird.X64.Hooks.Context;
+using RedBird.X64.Hooks.Transaction;
 using SHCDESE.Interop;
 using System;
 using System.Runtime.InteropServices;
-using Zhuqiaomon.Assembly;
-using Zhuqiaomon.Hooks;
-using Zhuqiaomon.Hooks.Transaction;
-using Zhuqiaomon.Memory;
 
 namespace ExtraFeatures
 {
@@ -30,7 +33,7 @@ namespace ExtraFeatures
         private readonly ManualLogSource log;
         private readonly ExtraFeaturesViewModel settings;
         private HookTransaction transaction;
-        private HookRef<X64InlineHook> distanceComparisonHook = new HookRef<X64InlineHook>();
+        private readonly HookHandle<X64InlineHook> distanceComparisonHook = new HookHandle<X64InlineHook>();
         private IntPtr distanceResultAddress;
         private bool featureAvailable = true;
         private bool disposed;
@@ -39,6 +42,7 @@ namespace ExtraFeatures
             ManualLogSource log,
             ExtraFeaturesViewModel settings,
             IntPtr libraryHandle,
+            ScanRegion region,
             ReadOnlySpan<byte> memory,
             bool referenceHashMatches)
         {
@@ -67,21 +71,18 @@ namespace ExtraFeatures
             distanceResultAddress = new IntPtr(resolvedAddress);
             try
             {
-                transaction = new HookTransaction(
-                    memory,
-                    unchecked((ulong)moduleBase),
-                    loggerFactory: null,
-                    failureMode: TransactionFailureMode.RollbackAndThrow);
-                transaction.AddContextHook(
-                    ref distanceComparisonHook,
+                transaction = ExtraFeaturesHookInfrastructure.CreateOwnedTransaction(region);
+                ExtraFeaturesHookInfrastructure.AddContextHook(
+                    transaction,
+                    distanceComparisonHook,
                     unchecked((ulong)(moduleBase + matchOffset)),
                     ApplyConfiguredDistanceComparison,
-                    regs: X64SmartCPUContextRegs.Volatile,
+                    registers: X64SmartCPUContextRegs.Volatile,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
-                transaction.Commit();
+                CommitResult commitResult = transaction.Commit();
 
-                if (!distanceComparisonHook.Success)
+                if (!commitResult.IsCompleteSuccess || !distanceComparisonHook.Success)
                     throw new InvalidOperationException("The apothecary plague-search range hook was not installed.");
 
                 Shared.DebugLogHelper.LogDebug(
@@ -104,7 +105,6 @@ namespace ExtraFeatures
 
             disposed = true;
             featureAvailable = false;
-            transaction?.Unload();
             transaction?.Dispose();
             transaction = null;
             distanceResultAddress = IntPtr.Zero;

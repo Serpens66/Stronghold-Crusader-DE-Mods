@@ -2,7 +2,9 @@ using BepInEx.Logging;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
+using System.Text.RegularExpressions;
 
 namespace Shared
 {
@@ -27,6 +29,7 @@ namespace ExtraFeatures
                 byte[] file = File.ReadAllBytes(DllPath);
                 Check(Hash(file) == GatehouseTimingPatch.SupportedBuildHash, "canonical DLL hash");
                 byte[] image = MapPeImage(file);
+                TestP7aRedBirdMigration(FindWorkspace());
                 TestNativeTargetMap(image);
                 TestCatalogAndApply(image);
                 TestValidation(image);
@@ -40,6 +43,66 @@ namespace ExtraFeatures
                 Console.Error.WriteLine("FAIL: " + ex);
                 return 1;
             }
+        }
+
+        private static void TestP7aRedBirdMigration(string workspace)
+        {
+            string sourceDirectory = Path.Combine(workspace, "ExtraFeatures", "src");
+            string[] sourcePaths = Directory.GetFiles(sourceDirectory, "*.cs", SearchOption.TopDirectoryOnly);
+            string production = string.Join("\n", sourcePaths.Select(File.ReadAllText));
+            string project = File.ReadAllText(Path.Combine(workspace, "ExtraFeatures", "ExtraFeatures.csproj"));
+            string plugin = File.ReadAllText(Path.Combine(sourceDirectory, "ExtraFeaturesPlugin.cs"));
+            string runtime = File.ReadAllText(Path.Combine(sourceDirectory, "ExtraFeaturesRuntime.cs"));
+            string plague = File.ReadAllText(Path.Combine(sourceDirectory, "PlagueDurationPatch.cs"));
+            string monk = File.ReadAllText(Path.Combine(sourceDirectory, "MonkAlwaysRunPatch.cs"));
+            string gatehouseTiming = File.ReadAllText(Path.Combine(sourceDirectory, "GatehouseTimingPatch.cs"));
+
+            Check(!production.Contains("Zhuqiaomon") && !project.Contains("Zhuqiaomon"),
+                "P7a removed Zhuqiaomon source and project references");
+            Check(!production.Contains("HookRef<") && !production.Contains(".Unload()") &&
+                  !production.Contains("Value.Hook.Trampoline"),
+                "P7a removed obsolete handles, Unload calls, and trampolines");
+            Check(project.Contains("<Reference Include=\"RedBird.Abstractions\"") &&
+                  project.Contains("<Reference Include=\"RedBird.Core\"") &&
+                  project.Contains("<Reference Include=\"RedBird.X64\"") &&
+                  !project.Contains("PolyHook2.NET"),
+                "P7a project references the Script Extender RedBird assemblies without PolyHook2.NET");
+            Check(plugin.Contains("[BepInDependency(ScriptExtenderGuid, \"2.0.2\")]") &&
+                  plugin.Contains("OnCrusaderLibraryLoaded(CrusaderLibraryLoadContext context)"),
+                "P7a declares an exact 2.0.2 dependency and consumes the load context");
+            Check(runtime.Contains("context.ModuleHandle") && runtime.Contains("context.Memory") &&
+                  runtime.Contains("context.Region") && !production.Contains("nativeRegion.Dispose()") &&
+                  !production.Contains("context.Region.Dispose()"),
+                "P7a borrows all native load-context values without disposing the ScanRegion");
+            Check(Regex.Matches(production, @"new\s+(?:DetourHandle|HookHandle)<").Count == 8,
+                "P7a owns the audited eight RedBird hook handles");
+            Check(Regex.Matches(production, @"CommitResult\s+commitResult\s*=\s*[^;]+\.Commit\(\)").Count == 6 &&
+                  Regex.Matches(production, @"!commitResult\.IsCompleteSuccess").Count == 6,
+                "P7a checks all six aggregate transaction results");
+            Check(plague.Contains("CodePatch.Write(") && !plague.Contains("VirtualProtect") &&
+                  !plague.Contains("FlushInstructionCache") &&
+                  plague.IndexOf("expectedLifetime = desiredLifetime", StringComparison.Ordinal) >
+                  plague.IndexOf("verifiedLifetime != desiredLifetime", StringComparison.Ordinal),
+                "P7a plague immediate uses verified RedBird CodePatch ownership");
+            Check(monk.Contains("using RedBird.X64.Extensions;") &&
+                  monk.Contains("assembler.AddUnrestrictedJmp(") &&
+                  monk.Contains("hookSize: HookSize"),
+                "P7a Monk generator retains the audited unrestricted jumps and hook boundary");
+            Check(gatehouseTiming.Contains("VirtualProtect") && gatehouseTiming.Contains("FlushInstructionCache"),
+                "P7a leaves the separately owned Gatehouse timing writer unchanged");
+        }
+
+        private static string FindWorkspace()
+        {
+            DirectoryInfo directory = new DirectoryInfo(Environment.CurrentDirectory);
+            while (directory != null)
+            {
+                if (File.Exists(Path.Combine(directory.FullName, "UpdatePlan-SHCDESE-2.0.2.md")))
+                    return directory.FullName;
+                directory = directory.Parent;
+            }
+
+            throw new DirectoryNotFoundException("Workspace root was not found.");
         }
 
         private static void TestNativeTargetMap(byte[] image)

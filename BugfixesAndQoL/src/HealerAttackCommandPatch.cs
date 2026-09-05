@@ -3,7 +3,7 @@ using BepInEx.Logging;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
-using Zhuqiaomon.Windows;
+using RedBird.Core.Memory;
 
 namespace BugfixesAndQoL
 {
@@ -271,26 +271,7 @@ namespace BugfixesAndQoL
                     $"Cannot patch {label}: current value {actual}, expected {expected}.");
             }
 
-            IntPtr pointer = unchecked((IntPtr)address);
-            UIntPtr size = new UIntPtr(1);
-            if (!Kernel32.VirtualProtect(
-                    pointer,
-                    size,
-                    Kernel32.MemoryPermissions.PAGE_EXECUTE_READWRITE,
-                    out Kernel32.MemoryPermissions oldProtection))
-            {
-                throw new InvalidOperationException($"VirtualProtect failed for {label}.");
-            }
-
-            try
-            {
-                *address = replacement;
-            }
-            finally
-            {
-                if (!Kernel32.VirtualProtect(pointer, size, oldProtection, out _))
-                    throw new InvalidOperationException($"Restoring memory protection failed for {label}.");
-            }
+            CodePatch.Write(unchecked((ulong)address), new[] { replacement });
 
             if (*address != replacement)
                 throw new InvalidOperationException($"Post-write validation failed for {label}.");

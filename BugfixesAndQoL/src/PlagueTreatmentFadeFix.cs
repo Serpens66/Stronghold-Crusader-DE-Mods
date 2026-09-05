@@ -5,8 +5,10 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Runtime.InteropServices;
-using Zhuqiaomon.Hooks;
-using Zhuqiaomon.Hooks.Transaction;
+using RedBird.Abstractions.Hooks;
+using RedBird.Abstractions.Hooks.Transaction;
+using RedBird.Core.Memory;
+using RedBird.X64.Hooks.Transaction;
 
 
 namespace BugfixesAndQoL
@@ -35,14 +37,15 @@ namespace BugfixesAndQoL
         private readonly BugfixesAndQoLViewModel settings;
         private Action<int> treatmentCompletedObserver;
         private HookTransaction transaction;
-        private HookRef<X64ManagedFunctionDetourAOB<AreaTreatmentDelegate>> areaTreatmentHook =
-            new HookRef<X64ManagedFunctionDetourAOB<AreaTreatmentDelegate>>();
+        private readonly DetourHandle<AreaTreatmentDelegate> areaTreatmentHook =
+            new DetourHandle<AreaTreatmentDelegate>();
         private bool correctionAvailable = true;
         private bool disposed;
 
         public PlagueTreatmentFadeFix(
             ManualLogSource log,
             BugfixesAndQoLViewModel settings,
+            ScanRegion region,
             ReadOnlySpan<byte> memory,
             ulong libraryBase,
             bool referenceHashMatches)
@@ -59,18 +62,14 @@ namespace BugfixesAndQoL
 
             try
             {
-                transaction = new HookTransaction(
-                    memory,
-                    libraryBase,
-                    loggerFactory: null,
-                    failureMode: TransactionFailureMode.RollbackAndThrow);
+                transaction = BugfixesHookInfrastructure.CreateOwnedTransaction(region);
                 transaction.AddDetour(
-                    ref areaTreatmentHook,
-                    libraryBase + unchecked((ulong)areaTreatmentRva),
+                    areaTreatmentHook,
+                    HookTarget.FromAddress(libraryBase + unchecked((ulong)areaTreatmentRva)),
                     TreatNearHealer);
-                transaction.Commit();
+                CommitResult commitResult = transaction.Commit();
 
-                if (!areaTreatmentHook.Success)
+                if (!commitResult.IsCompleteSuccess || !areaTreatmentHook.Success)
                     throw new InvalidOperationException("The plague area-treatment hook was not installed.");
 
                 Shared.DebugLogHelper.LogDebug(
@@ -91,7 +90,6 @@ namespace BugfixesAndQoL
 
             disposed = true;
             correctionAvailable = false;
-            transaction?.Unload();
             transaction?.Dispose();
             transaction = null;
         }
@@ -104,7 +102,7 @@ namespace BugfixesAndQoL
         private void TreatNearHealer(IntPtr projectileManager, int nativeUnitId)
         {
             // Vanilla must always run exactly once, including when this fix is disabled.
-            areaTreatmentHook.Value.Hook.Trampoline(projectileManager, nativeUnitId);
+            areaTreatmentHook.Original(projectileManager, nativeUnitId);
 
             if (correctionAvailable && settings.EnableMod && settings.EnablePlagueCloudRemovalFix)
             {

@@ -12,7 +12,7 @@ using System.Threading;
 
 namespace ExtremePowers
 {
-    [BepInDependency("000shcdese", BepInDependency.DependencyFlags.HardDependency)]
+    [BepInDependency("000shcdese", "2.0.2")]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class ExtremePowersPlugin : BaseUnityPlugin
@@ -32,13 +32,13 @@ namespace ExtremePowers
             Shared.DebugLogHelper.LogDebug(Logger, $"{PluginName} {PluginVersion} loaded.");
             CrusaderLibrary.Instance.LibraryLoaded += OnLibraryLoaded;
         }
-        private void OnLibraryLoaded(IntPtr handle, ReadOnlySpan<byte> memory)
+        private void OnLibraryLoaded(CrusaderLibraryLoadContext context)
         {
             if (Interlocked.Exchange(ref initialized, 1) != 0) return; CrusaderLibrary.Instance.LibraryLoaded -= OnLibraryLoaded;
             string dll = Path.Combine(Paths.GameRootPath, "Stronghold Crusader Definitive Edition_Data", "Plugins", "x86_64", "CrusaderDE.dll");
             rootedLogger = Logger;
             Settings = rootedSettings = new Settings.ExtremePowersSettings();
-            client = LocalExtremePowersApiClient.Create(dll, handle, memory, GetProtocolReadiness, message => Shared.DebugLogHelper.LogDebug(rootedLogger, message));
+            client = LocalExtremePowersApiClient.Create(dll, context.ModuleHandle, context.Memory, GetProtocolReadiness, message => Shared.DebugLogHelper.LogDebug(rootedLogger, message));
             Settings.ApiProtocolReport = client.CompatibilityToken;
             mapStartSubscription = MapLoaderR3EventHooks.OnStartMap.Observable.Where(args => args.Phase == EventHookPhase.Pre).Subscribe(args => OnStartMap(args));
             mapUnloadSubscription = MapLoaderR3EventHooks.OnUnloadMap.Observable.Where(args => args.Phase == EventHookPhase.Post).Subscribe(_ => ResetMapSession());

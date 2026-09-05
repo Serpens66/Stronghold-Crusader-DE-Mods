@@ -29,8 +29,8 @@ namespace EnemyGatePathfindingTest
         private const int PendingMoveCapacity = 128;
         private static readonly long SnapshotInterval = Math.Max(1, Stopwatch.Frequency / 4);
         private static readonly long SummaryInterval = Stopwatch.Frequency * 10L;
-        // UPDATE REVIEW (CrusaderDE.dll + Script Extender 1.42.0): revalidate that
-        // cursor globals and MoveHere TileX/TileY use the same tile-coordinate space.
+        // Revalidated against CrusaderDE.dll and Script Extender 2.0.2: cursor globals
+        // and MoveHere TileX/TileY use the same tile-coordinate space.
         private static readonly long CorrelationWindow = Math.Max(1, Stopwatch.Frequency * 3L / 2L);
 
         private readonly ManualLogSource log;
@@ -340,7 +340,7 @@ namespace EnemyGatePathfindingTest
 
         internal void OnGameTick()
         {
-            // UPDATE REVIEW (Script Extender 1.42.0): this is a cheap accepted-record
+            // Script Extender 2.0.2: this is a cheap accepted-record
             // freshness probe only. Full topology/footprint rebuilding remains deferred
             // to onBeforeRender and is still capped at four times per second.
             if (Volatile.Read(ref epochActive) == 0)
@@ -560,7 +560,7 @@ namespace EnemyGatePathfindingTest
             TopologyRejections rejections = default;
             ulong fingerprint = 1469598103934665603UL;
 
-            // UPDATE REVIEW (Script Extender 1.42.0): the native gatehouse array is
+            // Script Extender 2.0.2: the native gatehouse array is
             // authoritative for standalone gates and supplies the public building ID.
             var gateEntries = buildingApi.GetGatehouseArray();
             for (int entryIndex = 0; entryIndex < gateEntries.Length; entryIndex++)
@@ -627,7 +627,7 @@ namespace EnemyGatePathfindingTest
                 AppendTopologyDetail(detail, gateInfo.Format());
             }
 
-            // UPDATE REVIEW (Script Extender 1.42.0): a newly placed editor gate may
+            // Script Extender 2.0.2: a newly placed editor gate may
             // still be NeedsInit and absent from GetGatehouseArray(). Retain a clearly
             // labelled footprint-only diagnostic record; it never changes game state.
             for (int buildingIndex = 0; buildingIndex < buildings.Length; buildingIndex++)
@@ -670,7 +670,7 @@ namespace EnemyGatePathfindingTest
                 AppendTopologyDetail(detail, fallbackInfo.Format());
             }
 
-            // UPDATE REVIEW (Script Extender 1.42.0): the Span is zero-based and its
+            // Script Extender 2.0.2: the Span is zero-based and its
             // public building ID is index + 1. r_GatehouseId is deliberately logged
             // as an opaque raw value until its editor/runtime ID space is confirmed.
             // NeedsInit is active in editor maps, as in ActiveBuildingCache.
@@ -905,7 +905,7 @@ namespace EnemyGatePathfindingTest
             uint gridSize = bridge.r_OccupyTileGridSize;
             if (gridSize == 0 || gridSize > 6)
                 return false;
-            // UPDATE REVIEW (Script Extender 1.42.0): this API reads gridSize squared
+            // Script Extender 2.0.2: this API reads gridSize squared
             // inline UInt32 entries. The size is bounded before calling it.
             int[] occupied = buildings.GetOccupiedTileIds(bridgeId);
             int cells = Math.Min(occupied.Length, checked((int)(gridSize * gridSize)));
@@ -1131,14 +1131,14 @@ namespace EnemyGatePathfindingTest
                 int tile = tiles.GetTileId(query.CursorX, query.CursorY);
                 if (!tiles.IsValidTileId(tile))
                     return default;
-                int[] selected = GamePlayerManagerAPI.Instance.GetSelectedChimps();
+                SelectedUnitInfo[] selected = GamePlayerManagerAPI.Instance.GetSelectedChimps();
                 int count = Math.Min(selected.Length, 16);
                 int[] captured = new int[count];
                 ulong signature = 1469598103934665603UL;
                 bool matches = false;
                 for (int index = 0; index < count; index++)
                 {
-                    int unitId = selected[index];
+                    int unitId = selected[index].UnitId;
                     captured[index] = unitId;
                     signature = unchecked((signature ^ (uint)unitId) * 1099511628211UL);
                     if (GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) &&

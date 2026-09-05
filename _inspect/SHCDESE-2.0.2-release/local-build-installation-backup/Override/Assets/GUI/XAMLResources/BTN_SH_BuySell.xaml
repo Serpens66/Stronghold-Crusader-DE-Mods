@@ -1,0 +1,138 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="clr-namespace:CrusaderDE"
+    xmlns:noesis="clr-namespace:NoesisGUIExtensions;assembly=Noesis.GUI.Extensions">
+
+
+    <Style x:Key="BTN_SH_BuySell" TargetType="{x:Type Button}">
+        <Setter Property="OverridesDefaultStyle" Value="True" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="ToolTipService.ShowDuration" Value="2500" />
+        <Setter Property="ToolTipService.InitialShowDelay" Value="1000" />
+        <Setter Property="FlowDirection" Value="{Binding GlobalTextFlowAL2R}" />
+
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type Button}">
+                    <Grid
+                        x:Name="BaseGrid"
+                        RenderTransformOrigin="0.5,0.5"
+                        UseLayoutRounding="False">
+
+                        <Rectangle x:Name="HitBox" Fill="#00ffff00" />
+
+
+                        <Image
+                            x:Name="SpriteInactive"
+                            IsHitTestVisible="False"
+                            RenderTransformOrigin="0.0,0.0"
+                            Stretch="Fill"
+                            Source="{TemplateBinding local:PropEx.Sprite1}"
+                            Visibility="Visible" />
+
+                        <Image
+                            x:Name="SpriteMouseOver"
+                            IsHitTestVisible="False"
+                            RenderTransformOrigin="0.0,0.0"
+                            Stretch="Fill"
+                            Source="{TemplateBinding local:PropEx.Sprite2}"
+                            Visibility="Hidden" />
+
+                        <Image
+                            x:Name="SpriteMousePressed"
+                            IsHitTestVisible="False"
+                            RenderTransformOrigin="0.0,0.0"
+                            Stretch="Fill"
+                            Source="{TemplateBinding local:PropEx.Sprite3}"
+                            Visibility="Hidden" />
+
+                        <Image
+                            x:Name="SpriteLocked"
+                            IsHitTestVisible="False"
+                            RenderTransformOrigin="0.0,0.0"
+                            Stretch="Fill"
+                            Source="{TemplateBinding local:PropEx.Sprite4}"
+                            Visibility="Hidden" />
+
+
+ <!--                       <TextBlock
+                            x:Name="TitleText1"
+                            Height="35"
+                            Margin="18,8,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Center"
+                            FontSize="{TemplateBinding local:PropEx.GlowButtonFontSize}"
+                            Text="{TemplateBinding local:PropEx.TextA}"
+                            TextAlignment="Center" />
+-->
+                        <TextBlock
+                            x:Name="TitleText2"
+                            Height="35"
+                            Margin="16,8,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Center"
+                            FontSize="{TemplateBinding local:PropEx.GlowButtonFontSize}"
+                            Foreground="AntiqueWhite"
+                            Text="{TemplateBinding local:PropEx.TextA}"
+                            TextAlignment="Center">
+                            <TextBlock.Effect>
+                                <DropShadowEffect
+                                    ShadowDepth="2"
+                                    Direction="315"
+                                    Color="#CC000000"
+                                    BlurRadius="0" />
+                            </TextBlock.Effect>
+                        </TextBlock>
+
+                        <TextBlock
+                            x:Name="AmountText"
+                            Height="35"
+                            Margin="0,10,54,0"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Center"
+                            FontSize="20"
+                            Text="{TemplateBinding local:PropEx.TextB}"
+                            TextAlignment="Center" />
+
+                        <Image
+                            Name="TradeGoodsGold"
+                            Width= "40"
+                            Margin="0,1,8,0"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Top"
+                            IsHitTestVisible="False"
+                            Source="{StaticResource UISprites I023}" />
+
+                    </Grid>
+
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="SpriteInactive" Property="Visibility" Value="Hidden" />
+                            <Setter TargetName="SpriteMouseOver" Property="Visibility" Value="Visible" />
+                            <Setter TargetName="SpriteMousePressed" Property="Visibility" Value="Hidden" />
+                            <Setter TargetName="SpriteLocked" Property="Visibility" Value="Hidden" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="SpriteInactive" Property="Visibility" Value="Hidden" />
+                            <Setter TargetName="SpriteMouseOver" Property="Visibility" Value="Hidden" />
+                            <Setter TargetName="SpriteMousePressed" Property="Visibility" Value="Visible" />
+                            <Setter TargetName="SpriteLocked" Property="Visibility" Value="Hidden" />
+                            <Setter TargetName="AmountText" Property="Margin" Value="0,14,54,0" />
+                            <Setter TargetName="TitleText2" Property="Margin" Value="16,12,0,0" />
+                            <Setter TargetName="TradeGoodsGold" Property="Margin" Value="0,14,8,0" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="SpriteInactive" Property="Visibility" Value="Hidden" />
+                            <Setter TargetName="SpriteMouseOver" Property="Visibility" Value="Hidden" />
+                            <Setter TargetName="SpriteMousePressed" Property="Visibility" Value="Hidden" />
+                            <Setter TargetName="SpriteLocked" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+</ResourceDictionary>

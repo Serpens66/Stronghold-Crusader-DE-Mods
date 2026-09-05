@@ -1,0 +1,906 @@
+<UserControl
+    x:Class="CrusaderDE.HUD_Goods"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:b="http://schemas.microsoft.com/xaml/behaviors"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:CrusaderDE"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    d:DesignHeight="120"
+    d:DesignWidth="400"
+    mc:Ignorable="d">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="booleanToVisibilityConverter" />
+
+    </UserControl.Resources>
+
+    <Grid
+        x:Name="LayoutRoot"
+        Width="400"
+        Height="120"
+        HorizontalAlignment="Center"
+        VerticalAlignment="Top"
+        Background="#00000000"
+        UseLayoutRounding="True">
+        <Grid.RenderTransform>
+            <TranslateTransform />
+        </Grid.RenderTransform>
+
+
+
+
+        <!--        <Button
+            Width="400"
+            Margin="0,0,0,0"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Stretch"
+            Style="{StaticResource BDR_SH1DEd}" />
+-->
+        <Border
+            BorderBrush="#00000000" BorderThickness="1" CornerRadius="12"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch"
+            Width="480"
+            Height="150"
+            Margin="-80,0,0,-30"
+            Background="#77000000"
+            >
+
+        </Border>
+
+        <Button
+            Width="36"
+            Height="34"
+            Margin="-36,0,0,80"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Bottom"
+            local:PropEx.Sprite1="{StaticResource UI-Buildings A019}"
+            local:PropEx.Sprite2="{StaticResource UI-Buildings A020}"
+            local:PropEx.ButtonVisibility="{Binding GotMarketVis, Converter={StaticResource booleanToVisibilityConverter}}"
+            Command="{Binding ButtonExtendedFeaturesCommand}"
+            CommandParameter="Trading"
+            Style="{StaticResource BTN_Building}" />
+
+        <Button
+            Width="36"
+            Height="34"
+            Margin="-36,0,0,80"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Bottom"
+            local:PropEx.Sprite1="{StaticResource UI-Buildings A020}"
+            local:PropEx.Sprite2="{StaticResource UI-Buildings A019}"
+            local:PropEx.ButtonVisibility="{Binding GotMarketVis_Selected, Converter={StaticResource booleanToVisibilityConverter}}"
+            Command="{Binding ButtonExtendedFeaturesCommand}"
+            CommandParameter="Trading"
+            Style="{StaticResource BTN_Building}" />
+
+        <!-- stockpile goods -->
+
+        <Grid
+            HorizontalAlignment="Left"
+            VerticalAlignment="Bottom"
+            Width="50"
+            Height="50"
+            Margin="10,0,0,55"
+            Visibility="{Binding DisplayHudGoodsBool[2], Converter={StaticResource booleanToVisibilityConverter}}"
+            >
+            <Button
+                Width="25"
+                Margin="0,-5,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource UISprites I001}"
+                local:PropEx.Sprite2="{StaticResource UISprites I001}"
+                local:PropEx.ButtonVisibility="{Binding DisplayHudGoodsNotTradeableBool[2], Converter={StaticResource booleanToVisibilityConverter}}"
+                IsHitTestVisible="False"
+                Visibility="{Binding DisplayHudGoodsNotTradeableBool[2], Converter={StaticResource booleanToVisibilityConverter}}"
+                Style="{StaticResource BTN_Building}" />
+            <Button
+                Width="25"
+                Margin="0,-5,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource UISprites I001}"
+                local:PropEx.Sprite2="{StaticResource UISprites I002}"
+                local:PropEx.ButtonVisibility="{Binding DisplayHudGoodsTradeableBool[2], Converter={StaticResource booleanToVisibilityConverter}}"
+                Command="{Binding ButtonExtendedFeaturesCommand}"
+                CommandParameter="2"
+                Style="{StaticResource BTN_Building}" />
+
+            <TextBlock
+                Height="28"
+                Margin="0,0,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Bottom"
+                Foreground="#FFEFF3C6"
+                FontSize="16"
+                Text="{Binding AllStoredGoods[2]}"  />
+        </Grid>
+
+        <Grid
+            HorizontalAlignment="Left"
+            VerticalAlignment="Bottom"
+            Width="50"
+            Height="50"
+            Margin="45,0,0,55"
+            Visibility="{Binding DisplayHudGoodsBool[3], Converter={StaticResource booleanToVisibilityConverter}}"
+            >
+            <Button
+                Width="25"
+                Margin="0,-5,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource UISprites I003}"
+                local:PropEx.Sprite2="{StaticResource UISprites I003}"
+                local:PropEx.ButtonVisibility="{Binding DisplayHudGoodsNotTradeableBool[3], Converter={StaticResource booleanToVisibilityConverter}}"
+                IsHitTestVisible="False"
+                Visibility="{Binding DisplayHudGoodsNotTradeableBool[3], Converter={StaticResource booleanToVisibilityConverter}}"
+                Style="{StaticResource BTN_Building}" />
+            <Button
+                Width="25"
+                Margin="0,-5,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource UISprites I003}"
+                local:PropEx.Sprite2="{StaticResource UISprites I004}"
+                local:PropEx.ButtonVisibility="{Binding DisplayHudGoodsTradeableBool[3], Converter={StaticResource booleanToVisibilityConverter}}"
+                Command="{Binding ButtonExtendedFeaturesCommand}"
+                CommandParameter="3"
+                Style="{StaticResource BTN_Building}" />
+            <TextBlock
+                Height="28"
+                Margin="0,0,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Bottom"
+                Foreground="#FFEFF3C6"
+                FontSize="16"
+                Text="{Binding AllStoredGoods[3]}"  />
+        </Grid>
+
+        <Grid
+            HorizontalAlignment="Left"
+            VerticalAlignment="Bottom"
+            Width="50"
+            Height="50"
+            Margin="80,0,0,55"
+            Visibility="{Binding DisplayHudGoodsBool[4], Converter={StaticResource booleanToVisibilityConverter}}"
+            >
+            <Button
+                Width="25"
+                Margin="0,-5,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource UISprites I005}"
+                local:PropEx.Sprite2="{StaticResource UISprites I005}"
+                local:PropEx.ButtonVisibility="{Binding DisplayHudGoodsNotTradeableBool[4], Converter={StaticResource booleanToVisibilityConverter}}"
+                IsHitTestVisible="False"
+                Visibility="{Binding DisplayHudGoodsNotTradeableBool[4], Converter={StaticResource booleanToVisibilityConverter}}"
+                Style="{StaticResource BTN_Building}" />
+            <Button
+                Width="25"
+                Margin="0,-5,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource UISprites I005}"
+                local:PropEx.Sprite2="{StaticResource UISprites I006}"
+                local:PropEx.ButtonVisibility="{Binding DisplayHudGoodsTradeableBool[4], Converter={StaticResource booleanToVisibilityConverter}}"
+                Command="{Binding ButtonExtendedFeaturesCommand}"
+                CommandParameter="4"
+                Style="{StaticResource BTN_Building}" />
+
+            <TextBlock
+                Height="28"
+                Margin="0,0,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Bottom"
+                Foreground="#FFEFF3C6"
+                FontSize="16"
+                Text="{Binding AllStoredGoods[4]}"  />
+        </Grid>
+
+        <Grid
+            HorizontalAlignment="Left"
+            VerticalAlignment="Bottom"
+            Width="50"
+            Height="50"
+            Margin="115,0,0,55"
+            Visibility="{Binding DisplayHudGoodsBool[6], Converter={StaticResource booleanToVisibilityConverter}}"
+            >
+            <Button
+                Width="25"
+                Margin="0,-5,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource UISprites I007}"
+                local:PropEx.Sprite2="{StaticResource UISprites I007}"
+                local:PropEx.ButtonVisibility="{Binding DisplayHudGoodsNotTradeableBool[6], Converter={StaticResource booleanToVisibilityConverter}}"
+                IsHitTestVisible="False"
+                Visibility="{Binding DisplayHudGoodsNotTradeableBool[6], Converter={StaticResource booleanToVisibilityConverter}}"
+                Style="{StaticResource BTN_Building}" />
+            <Button
+                Width="25"
+                Margin="0,-5,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource UISprites I007}"
+                local:PropEx.Sprite2="{StaticResource UISprites I008}"
+                local:PropEx.ButtonVisibility="{Binding DisplayHudGoodsTradeableBool[6], Converter={StaticResource booleanToVisibilityConverter}}"
+                Command="{Binding ButtonExtendedFeaturesCommand}"
+                CommandParameter="6"
+                Style="{StaticResource BTN_Building}" />
+
+            <TextBlock
+                Height="28"
+                Margin="0,0,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Bottom"
+                Foreground="#FFEFF3C6"
+                FontSize="16"
+                Text="{Binding AllStoredGoods[6]}"  />
+        </Grid>
+
+        <Grid
+            HorizontalAlignment="Left"
+            VerticalAlignment="Bottom"
+            Width="50"
+            Height="50"
+            Margin="150,0,0,55"
+            Visibility="{Binding DisplayHudGoodsBool[7], Converter={StaticResource booleanToVisibilityConverter}}"
+            >
+            <Button
+                Width="25"
+                Margin="0,-5,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource UISprites I009}"
+                local:PropEx.Sprite2="{StaticResource UISprites I009}"
+                local:PropEx.ButtonVisibility="{Binding DisplayHudGoodsNotTradeableBool[7], Converter={StaticResource booleanToVisibilityConverter}}"
+                IsHitTestVisible="False"
+                Visibility="{Binding DisplayHudGoodsNotTradeableBool[7], Converter={StaticResource booleanToVisibilityConverter}}"
+                Style="{StaticResource BTN_Building}" />
+            <Button
+                Width="25"
+                Margin="0,-5,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource UISprites I009}"
+                local:PropEx.Sprite2="{StaticResource UISprites I010}"
+                local:PropEx.ButtonVisibility="{Binding DisplayHudGoodsTradeableBool[7], Converter={StaticResource booleanToVisibilityConverter}}"
+                Command="{Binding ButtonExtendedFeaturesCommand}"
+                CommandParameter="7"
+                Style="{StaticResource BTN_Building}" />
+
+            <TextBlock
+                Height="28"
+                Margin="0,0,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Bottom"
+                Foreground="#FFEFF3C6"
+                FontSize="16"
+                Text="{Binding AllStoredGoods[7]}"  />
+        </Grid>
+
+        <Grid
+            HorizontalAlignment="Left"
+            VerticalAlignment="Bottom"
+            Width="50"
+            Height="50"
+            Margin="185,0,0,55"
+            Visibility="{Binding DisplayHudGoodsBool[9], Converter={StaticResource booleanToVisibilityConverter}}"
+            >
+            <Button
+                Width="25"
+                Margin="0,-5,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource UISprites I011}"
+                local:PropEx.Sprite2="{StaticResource UISprites I011}"
+                local:PropEx.ButtonVisibility="{Binding DisplayHudGoodsNotTradeableBool[9], Converter={StaticResource booleanToVisibilityConverter}}"
+                IsHitTestVisible="False"
+                Visibility="{Binding DisplayHudGoodsNotTradeableBool[9], Converter={StaticResource booleanToVisibilityConverter}}"
+                Style="{StaticResource BTN_Building}" />
+            <Button
+                Width="25"
+                Margin="0,-5,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource UISprites I011}"
+                local:PropEx.Sprite2="{StaticResource UISprites I012}"
+                local:PropEx.ButtonVisibility="{Binding DisplayHudGoodsTradeableBool[9], Converter={StaticResource booleanToVisibilityConverter}}"
+                Command="{Binding ButtonExtendedFeaturesCommand}"
+                CommandParameter="9"
+                Style="{StaticResource BTN_Building}" />
+
+            <TextBlock
+                Height="28"
+                Margin="0,0,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Bottom"
+                Foreground="#FFEFF3C6"
+                FontSize="16"
+                Text="{Binding AllStoredGoods[9]}"  />
+        </Grid>
+
+        <Grid
+            HorizontalAlignment="Left"
+            VerticalAlignment="Bottom"
+            Width="50"
+            Height="50"
+            Margin="220,0,0,55"
+            Visibility="{Binding DisplayHudGoodsBool[14], Converter={StaticResource booleanToVisibilityConverter}}"
+            >
+            <Button
+                Width="25"
+                Margin="0,-5,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource UISprites I021}"
+                local:PropEx.Sprite2="{StaticResource UISprites I021}"
+                local:PropEx.ButtonVisibility="{Binding DisplayHudGoodsNotTradeableBool[14], Converter={StaticResource booleanToVisibilityConverter}}"
+                IsHitTestVisible="False"
+                Visibility="{Binding DisplayHudGoodsNotTradeableBool[14], Converter={StaticResource booleanToVisibilityConverter}}"
+                Style="{StaticResource BTN_Building}" />
+            <Button
+                Width="25"
+                Margin="0,-5,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource UISprites I021}"
+                local:PropEx.Sprite2="{StaticResource UISprites I022}"
+                local:PropEx.ButtonVisibility="{Binding DisplayHudGoodsTradeableBool[14], Converter={StaticResource booleanToVisibilityConverter}}"
+                Command="{Binding ButtonExtendedFeaturesCommand}"
+                CommandParameter="14"
+                Style="{StaticResource BTN_Building}" />
+
+            <TextBlock
+                Height="28"
+                Margin="0,0,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Bottom"
+                Foreground="#FFEFF3C6"
+                FontSize="16"
+                Text="{Binding AllStoredGoods[14]}"  />
+        </Grid>
+
+        <Grid
+            HorizontalAlignment="Left"
+            VerticalAlignment="Bottom"
+            Width="50"
+            Height="50"
+            Margin="255,0,0,55"
+            Visibility="{Binding DisplayHudGoodsBool[16], Converter={StaticResource booleanToVisibilityConverter}}"
+            >
+            <Button
+                Width="25"
+                Margin="0,-5,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource UISprites I025}"
+                local:PropEx.Sprite2="{StaticResource UISprites I025}"
+                local:PropEx.ButtonVisibility="{Binding DisplayHudGoodsNotTradeableBool[16], Converter={StaticResource booleanToVisibilityConverter}}"
+                IsHitTestVisible="False"
+                Visibility="{Binding DisplayHudGoodsNotTradeableBool[16], Converter={StaticResource booleanToVisibilityConverter}}"
+                Style="{StaticResource BTN_Building}" />
+            <Button
+                Width="25"
+                Margin="0,-5,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource UISprites I025}"
+                local:PropEx.Sprite2="{StaticResource UISprites I026}"
+                local:PropEx.ButtonVisibility="{Binding DisplayHudGoodsTradeableBool[16], Converter={StaticResource booleanToVisibilityConverter}}"
+                Command="{Binding ButtonExtendedFeaturesCommand}"
+                CommandParameter="16"
+                Style="{StaticResource BTN_Building}" />
+
+            <TextBlock
+                Height="28"
+                Margin="0,0,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Bottom"
+                Foreground="#FFEFF3C6"
+                FontSize="16"
+                Text="{Binding AllStoredGoods[16]}"  />
+        </Grid>
+
+
+        <!-- granary goods -->
+        <Grid
+            HorizontalAlignment="Left"
+            VerticalAlignment="Bottom"
+            Width="50"
+            Height="50"
+            Margin="300,0,0,55"
+            Visibility="{Binding DisplayHudGoodsBool[12], Converter={StaticResource booleanToVisibilityConverter}}"
+            >
+            <Button
+                Width="25"
+                Margin="0,-5,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource UISprites I017}"
+                local:PropEx.Sprite2="{StaticResource UISprites I017}"
+                local:PropEx.ButtonVisibility="{Binding DisplayHudGoodsNotTradeableBool[12], Converter={StaticResource booleanToVisibilityConverter}}"
+                IsHitTestVisible="False"
+                Visibility="{Binding DisplayHudGoodsNotTradeableBool[12], Converter={StaticResource booleanToVisibilityConverter}}"
+                Style="{StaticResource BTN_Building}" />
+            <Button
+                Width="25"
+                Margin="0,-5,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource UISprites I017}"
+                local:PropEx.Sprite2="{StaticResource UISprites I018}"
+                local:PropEx.ButtonVisibility="{Binding DisplayHudGoodsTradeableBool[12], Converter={StaticResource booleanToVisibilityConverter}}"
+                Command="{Binding ButtonExtendedFeaturesCommand}"
+                CommandParameter="12"
+                Style="{StaticResource BTN_Building}" />
+
+            <TextBlock
+                Height="28"
+                Margin="0,0,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Bottom"
+                Foreground="#FFEFF3C6"
+                FontSize="16"
+                Text="{Binding AllStoredGoods[12]}" />
+        </Grid>
+
+        <Grid
+            HorizontalAlignment="Left"
+            VerticalAlignment="Bottom"
+            Width="50"
+            Height="50"
+            Margin="335,0,0,55"
+            Visibility="{Binding DisplayHudGoodsBool[11], Converter={StaticResource booleanToVisibilityConverter}}"
+            >
+            <Button
+                Width="25"
+                Margin="0,-5,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource UISprites I015}"
+                local:PropEx.Sprite2="{StaticResource UISprites I015}"
+                local:PropEx.ButtonVisibility="{Binding DisplayHudGoodsNotTradeableBool[11], Converter={StaticResource booleanToVisibilityConverter}}"
+                IsHitTestVisible="False"
+                Visibility="{Binding DisplayHudGoodsNotTradeableBool[11], Converter={StaticResource booleanToVisibilityConverter}}"
+                Style="{StaticResource BTN_Building}" />
+            <Button
+                Width="25"
+                Margin="0,-5,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource UISprites I015}"
+                local:PropEx.Sprite2="{StaticResource UISprites I016}"
+                local:PropEx.ButtonVisibility="{Binding DisplayHudGoodsTradeableBool[11], Converter={StaticResource booleanToVisibilityConverter}}"
+                Command="{Binding ButtonExtendedFeaturesCommand}"
+                CommandParameter="11"
+                Style="{StaticResource BTN_Building}" />
+
+            <TextBlock
+                Height="28"
+                Margin="0,0,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Bottom"
+                Foreground="#FFEFF3C6"
+                FontSize="16"
+                Text="{Binding AllStoredGoods[11]}" />
+        </Grid>
+
+        <Grid
+            HorizontalAlignment="Left"
+            VerticalAlignment="Bottom"
+            Width="50"
+            Height="50"
+            Margin="300,0,0,0"
+            Visibility="{Binding DisplayHudGoodsBool[10], Converter={StaticResource booleanToVisibilityConverter}}"
+            >
+            <Button
+                Width="25"
+                Margin="0,-5,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource UISprites I013}"
+                local:PropEx.Sprite2="{StaticResource UISprites I013}"
+                local:PropEx.ButtonVisibility="{Binding DisplayHudGoodsNotTradeableBool[10], Converter={StaticResource booleanToVisibilityConverter}}"
+                IsHitTestVisible="False"
+                Visibility="{Binding DisplayHudGoodsNotTradeableBool[10], Converter={StaticResource booleanToVisibilityConverter}}"
+                Style="{StaticResource BTN_Building}" />
+            <Button
+                Width="25"
+                Margin="0,-5,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource UISprites I013}"
+                local:PropEx.Sprite2="{StaticResource UISprites I014}"
+                local:PropEx.ButtonVisibility="{Binding DisplayHudGoodsTradeableBool[10], Converter={StaticResource booleanToVisibilityConverter}}"
+                Command="{Binding ButtonExtendedFeaturesCommand}"
+                CommandParameter="10"
+                Style="{StaticResource BTN_Building}" />
+
+            <TextBlock
+                Height="28"
+                Margin="0,0,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Bottom"
+                Foreground="#FFEFF3C6"
+                FontSize="16"
+                Text="{Binding AllStoredGoods[10]}" />
+        </Grid>
+
+        <Grid
+            HorizontalAlignment="Left"
+            VerticalAlignment="Bottom"
+            Width="50"
+            Height="50"
+            Margin="335,0,0,0"
+            Visibility="{Binding DisplayHudGoodsBool[13], Converter={StaticResource booleanToVisibilityConverter}}"
+            >
+            <Button
+                Width="25"
+                Margin="0,-5,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource UISprites I019}"
+                local:PropEx.Sprite2="{StaticResource UISprites I019}"
+                local:PropEx.ButtonVisibility="{Binding DisplayHudGoodsNotTradeableBool[13], Converter={StaticResource booleanToVisibilityConverter}}"
+                IsHitTestVisible="False"
+                Visibility="{Binding DisplayHudGoodsNotTradeableBool[13], Converter={StaticResource booleanToVisibilityConverter}}"
+                Style="{StaticResource BTN_Building}" />
+            <Button
+                Width="25"
+                Margin="0,-5,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource UISprites I019}"
+                local:PropEx.Sprite2="{StaticResource UISprites I020}"
+                local:PropEx.ButtonVisibility="{Binding DisplayHudGoodsTradeableBool[13], Converter={StaticResource booleanToVisibilityConverter}}"
+                Command="{Binding ButtonExtendedFeaturesCommand}"
+                CommandParameter="13"
+                Style="{StaticResource BTN_Building}" />
+
+            <TextBlock
+                Height="28"
+                Margin="0,0,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Bottom"
+                Foreground="#FFEFF3C6"
+                FontSize="16"
+                Text="{Binding AllStoredGoods[13]}" />
+        </Grid>
+
+
+        <!-- armoury goods -->
+
+        <Grid
+            HorizontalAlignment="Left"
+            VerticalAlignment="Bottom"
+            Width="50"
+            Height="50"
+            Margin="10,0,0,0"
+            Visibility="{Binding DisplayHudGoodsBool[17], Converter={StaticResource booleanToVisibilityConverter}}"
+            >
+            <Button
+                Width="25"
+                Margin="0,-5,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource UISprites I027}"
+                local:PropEx.Sprite2="{StaticResource UISprites I027}"
+                local:PropEx.ButtonVisibility="{Binding DisplayHudGoodsNotTradeableBool[17], Converter={StaticResource booleanToVisibilityConverter}}"
+                IsHitTestVisible="False"
+                Visibility="{Binding DisplayHudGoodsNotTradeableBool[17], Converter={StaticResource booleanToVisibilityConverter}}"
+                Style="{StaticResource BTN_Building}" />
+            <Button
+                Width="25"
+                Margin="0,-5,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource UISprites I027}"
+                local:PropEx.Sprite2="{StaticResource UISprites I028}"
+                local:PropEx.ButtonVisibility="{Binding DisplayHudGoodsTradeableBool[17], Converter={StaticResource booleanToVisibilityConverter}}"
+                Command="{Binding ButtonExtendedFeaturesCommand}"
+                CommandParameter="17"
+                Style="{StaticResource BTN_Building}" />
+
+            <TextBlock
+                Height="28"
+                Margin="0,0,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Bottom"
+                Foreground="#FFEFF3C6"
+                FontSize="16"
+                Text="{Binding AllStoredGoods[17]}" />
+        </Grid>
+
+        <Grid
+            HorizontalAlignment="Left"
+            VerticalAlignment="Bottom"
+            Width="50"
+            Height="50"
+            Margin="45,0,0,0"
+            Visibility="{Binding DisplayHudGoodsBool[19], Converter={StaticResource booleanToVisibilityConverter}}"
+            >
+            <Button
+                Width="25"
+                Margin="0,-5,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource UISprites I031}"
+                local:PropEx.Sprite2="{StaticResource UISprites I031}"
+                local:PropEx.ButtonVisibility="{Binding DisplayHudGoodsNotTradeableBool[19], Converter={StaticResource booleanToVisibilityConverter}}"
+                IsHitTestVisible="False"
+                Visibility="{Binding DisplayHudGoodsNotTradeableBool[19], Converter={StaticResource booleanToVisibilityConverter}}"
+                Style="{StaticResource BTN_Building}" />
+            <Button
+                Width="25"
+                Margin="0,-5,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource UISprites I031}"
+                local:PropEx.Sprite2="{StaticResource UISprites I032}"
+                local:PropEx.ButtonVisibility="{Binding DisplayHudGoodsTradeableBool[19], Converter={StaticResource booleanToVisibilityConverter}}"
+                Command="{Binding ButtonExtendedFeaturesCommand}"
+                CommandParameter="19"
+                Style="{StaticResource BTN_Building}" />
+
+            <TextBlock
+                Height="28"
+                Margin="0,0,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Bottom"
+                Foreground="#FFEFF3C6"
+                FontSize="16"
+                Text="{Binding AllStoredGoods[19]}" />
+        </Grid>
+
+        <Grid
+            HorizontalAlignment="Left"
+            VerticalAlignment="Bottom"
+            Width="50"
+            Height="50"
+            Margin="80,0,0,0"
+            Visibility="{Binding DisplayHudGoodsBool[21], Converter={StaticResource booleanToVisibilityConverter}}"
+            >
+            <Button
+                Width="25"
+                Margin="0,-5,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource UISprites I035}"
+                local:PropEx.Sprite2="{StaticResource UISprites I035}"
+                local:PropEx.ButtonVisibility="{Binding DisplayHudGoodsNotTradeableBool[21], Converter={StaticResource booleanToVisibilityConverter}}"
+                IsHitTestVisible="False"
+                Visibility="{Binding DisplayHudGoodsNotTradeableBool[21], Converter={StaticResource booleanToVisibilityConverter}}"
+                Style="{StaticResource BTN_Building}" />
+            <Button
+                Width="25"
+                Margin="0,-5,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource UISprites I035}"
+                local:PropEx.Sprite2="{StaticResource UISprites I036}"
+                local:PropEx.ButtonVisibility="{Binding DisplayHudGoodsTradeableBool[21], Converter={StaticResource booleanToVisibilityConverter}}"
+                Command="{Binding ButtonExtendedFeaturesCommand}"
+                CommandParameter="21"
+                Style="{StaticResource BTN_Building}" />
+
+            <TextBlock
+                Height="28"
+                Margin="0,0,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Bottom"
+                Foreground="#FFEFF3C6"
+                FontSize="16"
+                Text="{Binding AllStoredGoods[21]}" />
+        </Grid>
+
+        <Grid
+            HorizontalAlignment="Left"
+            VerticalAlignment="Bottom"
+            Width="50"
+            Height="50"
+            Margin="115,0,0,0"
+            Visibility="{Binding DisplayHudGoodsBool[18], Converter={StaticResource booleanToVisibilityConverter}}"
+            >
+            <Button
+                Width="25"
+                Margin="0,-5,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource UISprites I029}"
+                local:PropEx.Sprite2="{StaticResource UISprites I029}"
+                local:PropEx.ButtonVisibility="{Binding DisplayHudGoodsNotTradeableBool[18], Converter={StaticResource booleanToVisibilityConverter}}"
+                IsHitTestVisible="False"
+                Visibility="{Binding DisplayHudGoodsNotTradeableBool[18], Converter={StaticResource booleanToVisibilityConverter}}"
+                Style="{StaticResource BTN_Building}" />
+            <Button
+                Width="25"
+                Margin="0,-5,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource UISprites I029}"
+                local:PropEx.Sprite2="{StaticResource UISprites I030}"
+                local:PropEx.ButtonVisibility="{Binding DisplayHudGoodsTradeableBool[18], Converter={StaticResource booleanToVisibilityConverter}}"
+                Command="{Binding ButtonExtendedFeaturesCommand}"
+                CommandParameter="18"
+                Style="{StaticResource BTN_Building}" />
+
+            <TextBlock
+                Height="28"
+                Margin="0,0,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Bottom"
+                Foreground="#FFEFF3C6"
+                FontSize="16"
+                Text="{Binding AllStoredGoods[18]}" />
+        </Grid>
+
+        <Grid
+            HorizontalAlignment="Left"
+            VerticalAlignment="Bottom"
+            Width="50"
+            Height="50"
+            Margin="150,0,0,0"
+            Visibility="{Binding DisplayHudGoodsBool[20], Converter={StaticResource booleanToVisibilityConverter}}"
+            >
+            <Button
+                Width="25"
+                Margin="0,-5,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource UISprites I033}"
+                local:PropEx.Sprite2="{StaticResource UISprites I033}"
+                local:PropEx.ButtonVisibility="{Binding DisplayHudGoodsNotTradeableBool[20], Converter={StaticResource booleanToVisibilityConverter}}"
+                IsHitTestVisible="False"
+                Visibility="{Binding DisplayHudGoodsNotTradeableBool[20], Converter={StaticResource booleanToVisibilityConverter}}"
+                Style="{StaticResource BTN_Building}" />
+            <Button
+                Width="25"
+                Margin="0,-5,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource UISprites I033}"
+                local:PropEx.Sprite2="{StaticResource UISprites I034}"
+                local:PropEx.ButtonVisibility="{Binding DisplayHudGoodsTradeableBool[20], Converter={StaticResource booleanToVisibilityConverter}}"
+                Command="{Binding ButtonExtendedFeaturesCommand}"
+                CommandParameter="20"
+                Style="{StaticResource BTN_Building}" />
+
+            <TextBlock
+                Height="28"
+                Margin="0,0,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Bottom"
+                Foreground="#FFEFF3C6"
+                FontSize="16"
+                Text="{Binding AllStoredGoods[20]}" />
+        </Grid>
+
+        <Grid
+            HorizontalAlignment="Left"
+            VerticalAlignment="Bottom"
+            Width="50"
+            Height="50"
+            Margin="185,0,0,0"
+            Visibility="{Binding DisplayHudGoodsBool[22], Converter={StaticResource booleanToVisibilityConverter}}"
+            >
+            <Button
+                Width="25"
+                Margin="0,-5,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource UISprites I037}"
+                local:PropEx.Sprite2="{StaticResource UISprites I037}"
+                local:PropEx.ButtonVisibility="{Binding DisplayHudGoodsNotTradeableBool[22], Converter={StaticResource booleanToVisibilityConverter}}"
+                IsHitTestVisible="False"
+                Visibility="{Binding DisplayHudGoodsNotTradeableBool[22], Converter={StaticResource booleanToVisibilityConverter}}"
+                Style="{StaticResource BTN_Building}" />
+            <Button
+                Width="25"
+                Margin="0,-5,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource UISprites I037}"
+                local:PropEx.Sprite2="{StaticResource UISprites I038}"
+                local:PropEx.ButtonVisibility="{Binding DisplayHudGoodsTradeableBool[22], Converter={StaticResource booleanToVisibilityConverter}}"
+                Command="{Binding ButtonExtendedFeaturesCommand}"
+                CommandParameter="22"
+                Style="{StaticResource BTN_Building}" />
+
+            <TextBlock
+                Height="28"
+                Margin="0,0,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Bottom"
+                Foreground="#FFEFF3C6"
+                FontSize="16"
+                Text="{Binding AllStoredGoods[22]}" />
+        </Grid>
+
+        <Grid
+            HorizontalAlignment="Left"
+            VerticalAlignment="Bottom"
+            Width="50"
+            Height="50"
+            Margin="220,0,0,0"
+            Visibility="{Binding DisplayHudGoodsBool[23], Converter={StaticResource booleanToVisibilityConverter}}"
+            >
+            <Button
+                Width="25"
+                Margin="0,-5,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource UISprites I039}"
+                local:PropEx.Sprite2="{StaticResource UISprites I039}"
+                local:PropEx.ButtonVisibility="{Binding DisplayHudGoodsNotTradeableBool[23], Converter={StaticResource booleanToVisibilityConverter}}"
+                IsHitTestVisible="False"
+                Visibility="{Binding DisplayHudGoodsNotTradeableBool[23], Converter={StaticResource booleanToVisibilityConverter}}"
+                Style="{StaticResource BTN_Building}" />
+            <Button
+                Width="25"
+                Margin="0,-5,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource UISprites I039}"
+                local:PropEx.Sprite2="{StaticResource UISprites I040}"
+                local:PropEx.ButtonVisibility="{Binding DisplayHudGoodsTradeableBool[23], Converter={StaticResource booleanToVisibilityConverter}}"
+                Command="{Binding ButtonExtendedFeaturesCommand}"
+                CommandParameter="23"
+                Style="{StaticResource BTN_Building}" />
+
+            <TextBlock
+                Height="28"
+                Margin="0,0,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Bottom"
+                Foreground="#FFEFF3C6"
+                FontSize="16"
+                Text="{Binding AllStoredGoods[23]}" />
+        </Grid>
+
+        <Grid
+            HorizontalAlignment="Left"
+            VerticalAlignment="Bottom"
+            Width="50"
+            Height="50"
+            Margin="255,0,0,0"
+            Visibility="{Binding DisplayHudGoodsBool[24], Converter={StaticResource booleanToVisibilityConverter}}"
+            >
+            <Button
+                Width="25"
+                Margin="0,-5,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource UISprites I041}"
+                local:PropEx.Sprite2="{StaticResource UISprites I041}"
+                local:PropEx.ButtonVisibility="{Binding DisplayHudGoodsNotTradeableBool[24], Converter={StaticResource booleanToVisibilityConverter}}"
+                IsHitTestVisible="False"
+                Visibility="{Binding DisplayHudGoodsNotTradeableBool[24], Converter={StaticResource booleanToVisibilityConverter}}"
+                Style="{StaticResource BTN_Building}" />
+            <Button
+                Width="25"
+                Margin="0,-5,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                local:PropEx.Sprite1="{StaticResource UISprites I041}"
+                local:PropEx.Sprite2="{StaticResource UISprites I042}"
+                local:PropEx.ButtonVisibility="{Binding DisplayHudGoodsTradeableBool[24], Converter={StaticResource booleanToVisibilityConverter}}"
+                Command="{Binding ButtonExtendedFeaturesCommand}"
+                CommandParameter="24"
+                Style="{StaticResource BTN_Building}" />
+
+            <TextBlock
+                Height="28"
+                Margin="0,0,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Bottom"
+                Foreground="#FFEFF3C6"
+                FontSize="16"
+                Text="{Binding AllStoredGoods[24]}" />
+        </Grid>
+
+    </Grid>
+
+</UserControl>

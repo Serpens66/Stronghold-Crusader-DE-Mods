@@ -9,10 +9,13 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
-using Zhuqiaomon.Assembly;
-using Zhuqiaomon.Hooks;
-using Zhuqiaomon.Hooks.Transaction;
-using Zhuqiaomon.Memory;
+using RedBird.Abstractions.Hooks.Transaction;
+using RedBird.Abstractions.Hooks;
+using RedBird.Core.Memory;
+using RedBird.X64.Assembly;
+using RedBird.X64.Hooks;
+using RedBird.X64.Hooks.Transaction;
+using RedBird.X64.Hooks.Context;
 
 namespace BugfixesAndQoL
 {
@@ -49,15 +52,16 @@ namespace BugfixesAndQoL
             new BetterAIOverbuildConflictState();
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private HookTransaction transaction;
-        private HookRef<X64InlineHook> mapperSelectionHook = new HookRef<X64InlineHook>();
-        private HookRef<X64InlineHook> broadBlockerProtectionHook = new HookRef<X64InlineHook>();
-        private HookRef<X64InlineHook> narrowBlockerProtectionHook = new HookRef<X64InlineHook>();
+        private readonly HookHandle<X64InlineHook> mapperSelectionHook = new HookHandle<X64InlineHook>();
+        private readonly HookHandle<X64InlineHook> broadBlockerProtectionHook = new HookHandle<X64InlineHook>();
+        private readonly HookHandle<X64InlineHook> narrowBlockerProtectionHook = new HookHandle<X64InlineHook>();
         private bool callbackFailureLogged;
         private bool disposed;
 
         internal BetterAIOverbuildRulesFix(
             ManualLogSource log,
             BugfixesAndQoLViewModel settings,
+            ScanRegion region,
             ReadOnlySpan<byte> memory,
             ulong libraryBase,
             bool referenceHashMatches)
@@ -93,37 +97,30 @@ namespace BugfixesAndQoL
 
             try
             {
-                transaction = new HookTransaction(
-                    memory,
-                    libraryBase,
-                    loggerFactory: null,
-                    failureMode: TransactionFailureMode.RollbackAndThrow);
-                transaction.AddContextHook(
-                    ref mapperSelectionHook,
+                transaction = BugfixesHookInfrastructure.CreateOwnedTransaction(region);
+                BugfixesHookInfrastructure.AddContextHook(transaction, mapperSelectionHook,
                     libraryBase + unchecked((ulong)mapperResolution.Rva),
                     PromoteAddedMapper,
-                    regs: X64SmartCPUContextRegs.All,
+                    registers: X64SmartCPUContextRegs.All,
                     hookSize: MapperSelectionHookSize,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
-                transaction.AddContextHook(
-                    ref broadBlockerProtectionHook,
+                BugfixesHookInfrastructure.AddContextHook(transaction, broadBlockerProtectionHook,
                     libraryBase + unchecked((ulong)broadBlockerResolution.Rva),
                     ProtectBroadForeignBlocker,
-                    regs: X64SmartCPUContextRegs.All,
+                    registers: X64SmartCPUContextRegs.All,
                     hookSize: BroadBlockerLoadHookSize,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.BeforeCallback);
-                transaction.AddContextHook(
-                    ref narrowBlockerProtectionHook,
+                BugfixesHookInfrastructure.AddContextHook(transaction, narrowBlockerProtectionHook,
                     libraryBase + unchecked((ulong)narrowBlockerResolution.Rva),
                     ProtectNarrowForeignBlocker,
-                    regs: X64SmartCPUContextRegs.All,
+                    registers: X64SmartCPUContextRegs.All,
                     hookSize: NarrowBlockerLoadHookSize,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.BeforeCallback);
-                transaction.Commit();
-                if (!mapperSelectionHook.Success || !broadBlockerProtectionHook.Success ||
+                CommitResult commitResult = transaction.Commit();
+                if (!commitResult.IsCompleteSuccess || !mapperSelectionHook.Success || !broadBlockerProtectionHook.Success ||
                     !narrowBlockerProtectionHook.Success)
                 {
                     throw new InvalidOperationException(
@@ -137,7 +134,6 @@ namespace BugfixesAndQoL
             catch
             {
                 DisposeSubscriptions();
-                transaction?.Unload();
                 transaction?.Dispose();
                 transaction = null;
                 throw;
@@ -153,22 +149,16 @@ namespace BugfixesAndQoL
             bool enabled = IsEnabled;
             if (enabled)
             {
-                if (!mapperSelectionHook.Value.IsActive)
-                    mapperSelectionHook.Value.Enable();
-                if (!broadBlockerProtectionHook.Value.IsActive)
-                    broadBlockerProtectionHook.Value.Enable();
-                if (!narrowBlockerProtectionHook.Value.IsActive)
-                    narrowBlockerProtectionHook.Value.Enable();
+                if (!mapperSelectionHook.IsInstalled) mapperSelectionHook.Hook.Enable();
+                if (!broadBlockerProtectionHook.IsInstalled) broadBlockerProtectionHook.Hook.Enable();
+                if (!narrowBlockerProtectionHook.IsInstalled) narrowBlockerProtectionHook.Hook.Enable();
             }
             else
             {
                 ResetConflictState();
-                if (mapperSelectionHook.Value.IsActive)
-                    mapperSelectionHook.Value.Disable();
-                if (broadBlockerProtectionHook.Value.IsActive)
-                    broadBlockerProtectionHook.Value.Disable();
-                if (narrowBlockerProtectionHook.Value.IsActive)
-                    narrowBlockerProtectionHook.Value.Disable();
+                if (mapperSelectionHook.IsInstalled) mapperSelectionHook.Hook.Disable();
+                if (broadBlockerProtectionHook.IsInstalled) broadBlockerProtectionHook.Hook.Disable();
+                if (narrowBlockerProtectionHook.IsInstalled) narrowBlockerProtectionHook.Hook.Disable();
             }
 
         }
@@ -180,7 +170,6 @@ namespace BugfixesAndQoL
             disposed = true;
             DisposeSubscriptions();
             conflictState.Reset();
-            transaction?.Unload();
             transaction?.Dispose();
             transaction = null;
         }

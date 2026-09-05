@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace CustomCustomTrail
 {
-    [BepInDependency("000shcdese", BepInDependency.DependencyFlags.HardDependency)]
+    [BepInDependency("000shcdese", "2.0.2")]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class CustomCustomTrailPlugin : BaseUnityPlugin
@@ -29,7 +29,7 @@ namespace CustomCustomTrail
             CrusaderLibrary.Instance.LibraryLoaded += OnLibraryLoaded;
         }
 
-        private void OnLibraryLoaded(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
+        private void OnLibraryLoaded(CrusaderLibraryLoadContext context)
         {
             try
             {

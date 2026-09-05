@@ -834,11 +834,13 @@ foreach ($required in @(
     'ResetSlotsWith',
     'RequireReport',
     'must return one stable array instance',
-    'System_ArePerPlayerSettingsReady',
-    'ScriptExtenderMultiplayerSyncWorkaround.EnsureInstalled')) {
+    'System_ArePerPlayerSettingsReady')) {
     if (-not $sharedSettingsSource.Contains($required)) {
         throw "Shared multiplayer-settings contract marker is missing: $required"
     }
+}
+if ($sharedSettingsSource.Contains('ScriptExtenderMultiplayerSyncWorkaround')) {
+    throw 'Shared settings still contain the obsolete pre-2.0.2 multiplayer-sync workaround.'
 }
 $sharedSearchSource = [IO.File]::ReadAllText((Join-Path $workspace 'Shared/ModSettingsSearch.cs'))
 foreach ($required in @(
@@ -1172,17 +1174,15 @@ if ([Text.RegularExpressions.Regex]::Matches(
 foreach ($required in @(
     'OnUnloadMap.Observable.Subscribe',
     'args.Phase == EventHookPhase.Post',
-    'member.dummyToBeKicked',
-    'member.SkirmishMember && !member.SkirmishHumanMember',
+    'PlayerIdentityHelper.TryCaptureHumanRoster(',
+    'PlayerIdentityHelper.CaptureLocalPlayerId(',
+    'member != null && !member.skirmishAI && !member.kicked',
     'platform.gameMembers.Any(member =>',
     'never need to resolve or guess their own player ID',
     'Observe(null, null, false, 0, mapTransition)',
     'The lobby roster could not be observed; waiting for a successful retry.',
     'viewModel.DeactivatePerPlayerLobbySettings();',
-    'SendReliableLobbyPacket',
-    'SendMessageToUser returned',
-    'fromThread && data != null',
-    'Lobby mod settings registration aborted')) {
+    'GameXAMLManagerAPI.Instance.RegisterLobbyModSettings(')) {
     if (-not $sharedSettingsSource.Contains($required)) {
         throw "Shared per-player lifecycle/roster marker is missing: $required"
     }

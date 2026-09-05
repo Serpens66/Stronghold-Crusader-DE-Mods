@@ -26,6 +26,7 @@ internal static class Program
         CheckMultiplayerChoreMarkers();
         CheckMoveChoreDeduplication();
         CheckFirstShiftMoveTakeover();
+        CheckMigrationSourceContracts();
         CheckNativeReference();
         Console.WriteLine($"QueueTest static tests passed: {checks} checks.");
     }
@@ -537,6 +538,19 @@ internal static class Program
         string actualSha = Convert.ToHexString(SHA256.HashData(image));
         Check(string.Equals(actualSha, expectedSha, StringComparison.Ordinal), "canonical native SHA-256");
 
+        CheckWildcardPattern(image, 0x8D3C2,
+            "44 39 25 ?? ?? ?? ?? 74 3C 48 8B CE E8 ?? ?? ?? ?? 85 C0 74 30 B8 01 00 00 00 44 8B E8 89 44 24 54",
+            "MoatCommandTest DigMoat mode");
+        CheckWildcardPattern(image, 0x8F3A8,
+            "44 8B 0D ?? ?? ?? ?? 48 8D 0D ?? ?? ?? ?? 44 8B 05 ?? ?? ?? ?? 41 8B D6 E8 ?? ?? ?? ?? 85 C0 74 11 44 8B BC 24 C0 00 00 00",
+            "MoatCommandTest cursor reachability");
+        CheckWildcardPattern(image, 0x69560,
+            "48 63 C2 0F B7 84 41 ?? ?? ?? ?? C3 CC CC CC",
+            "MoatCommandTest moat lookup");
+        CheckWildcardPattern(image, 0x69D60,
+            "44 89 44 24 18 89 54 24 10 55 56 57 41 54 41 55 41 56 48 83 EC 68 48 8B E9 48 8D 3D ?? ?? ?? ?? 45 8B F1 48 8D 87 1C 07 00 00 4D 63 C8 45 33 E4",
+            "MoatCommandTest nearest-friendly-moat helper");
+
         CheckNativeHandler(
             image,
             QueueNativeContract.MoveChoreHandlerRva,
@@ -632,6 +646,110 @@ internal static class Program
             "remove-unit-from-tribe helper");
     }
 
+    private static void CheckMigrationSourceContracts()
+    {
+        string workspace = FindWorkspace();
+        string queuePlugin = Read(workspace, "QueueTest", "src", "QueueTestPlugin.cs");
+        string queueRuntime = Read(workspace, "QueueTest", "src", "QueueRuntime.cs");
+        string queueProject = Read(workspace, "QueueTest", "QueueTest.csproj");
+        string queueContract = Read(workspace, "QueueTest", "NATIVE_CONTRACT.md");
+        string moatPlugin = Read(workspace, "MoatCommandTest", "src", "MoatCommandTestPlugin.cs");
+        string moatRuntime = Read(workspace, "MoatCommandTest", "src", "MoatDiggingReachabilityFix.cs");
+        string moatProject = Read(workspace, "MoatCommandTest", "MoatCommandTest.csproj");
+
+        Check(queuePlugin.Contains("BepInDependency(ScriptExtenderGuid, \"2.0.2\")"),
+            "QueueTest pins Script Extender 2.0.2");
+        Check(queuePlugin.Contains("OnCrusaderLibraryLoaded(CrusaderLibraryLoadContext context)"),
+            "QueueTest consumes the 2.0.2 load context");
+        Check(queueRuntime.Contains("SelectedUnitInfo[] selectedUnits"),
+            "QueueTest projects the 2.0.2 selected-unit contract");
+        Check(CountText(queueRuntime, "new DetourHandle<") == 5,
+            "QueueTest owns five typed RedBird detour handles");
+        Check(CountText(queueRuntime, "HookTarget.FromAddress(") == 5,
+            "QueueTest registers five explicit native targets");
+        Check(CountText(queueRuntime, ".Original(") == 10,
+            "QueueTest preserves every original-call path through typed handles");
+        Check(CountText(queueRuntime, ".IsCompleteSuccess") == 3,
+            "QueueTest checks all three transaction commits");
+        Check(queueRuntime.Contains("OwnsHooks = false"),
+            "QueueTest declares process-lifetime hook ownership");
+        Check(!queueRuntime.Contains("Zhuqiaomon") && !queueRuntime.Contains("HookRef<") &&
+            !queueRuntime.Contains(".Hook.Trampoline"), "QueueTest has no legacy hook API");
+        Check(queueProject.Contains("RedBird.Abstractions.dll") &&
+            queueProject.Contains("RedBird.Core.dll") && queueProject.Contains("RedBird.X64.dll"),
+            "QueueTest references the RedBird 2.0.2 assemblies");
+        Check(!queueProject.Contains("Zhuqiaomon.dll") && !queueProject.Contains("PolyHook2.NET.dll") &&
+            !queueProject.Contains("Iced.dll"), "QueueTest project has no legacy hook dependency");
+        Check(queueContract.Contains("Script Extender 2.0.2 still exposes") &&
+            queueRuntime.Contains("removeUnitFromTribe(tribeManagerPointer, member.UnitId, originalTribeId)"),
+            "QueueTest retains the audited native Remove adapter");
+
+        Check(moatPlugin.Contains("BepInDependency(ScriptExtenderGuid, \"2.0.2\")") &&
+            moatPlugin.Contains("OnCrusaderLibraryLoaded(CrusaderLibraryLoadContext context)"),
+            "MoatCommandTest pins and consumes Script Extender 2.0.2");
+        Check(CountText(moatRuntime, "new HookHandle<X64InlineHook>") == 5 &&
+            CountText(moatRuntime, "new DetourHandle<") == 1,
+            "MoatCommandTest owns five inline hooks and one detour");
+        Check(CountText(moatRuntime, "HookTarget.FromAddress(") == 6 &&
+            moatRuntime.Contains("commitResult.IsCompleteSuccess"),
+            "MoatCommandTest registers explicit targets and checks the aggregate commit");
+        Check(moatRuntime.Contains("findNearestFriendlyMoatHook.Original("),
+            "MoatCommandTest uses the typed original delegate");
+        Check(!moatRuntime.Contains("Zhuqiaomon") && !moatRuntime.Contains("NativeDetour") &&
+            !moatRuntime.Contains(".Hook.Trampoline"), "MoatCommandTest has no legacy hook API");
+        Check(moatProject.Contains("RedBird.Abstractions.dll") && moatProject.Contains("RedBird.Core.dll") &&
+            moatProject.Contains("RedBird.X64.dll") && !moatProject.Contains("Zhuqiaomon.dll") &&
+            !moatProject.Contains("PolyHook2.NET.dll") && !moatProject.Contains("Iced.dll"),
+            "MoatCommandTest project uses only RedBird hook assemblies");
+
+        foreach (string mod in new[] { "MoatCommandTest", "OxTetherIdleFixTest", "QueueTest", "StockpileAccessFixTest" })
+        {
+            string manifest = Read(workspace, mod, "info.json");
+            Check(manifest.Contains("\"NetworkMode\": 1"), mod + " remains gameplay synchronized");
+        }
+
+        foreach (string mod in new[] { "OxTetherIdleFixTest", "StockpileAccessFixTest" })
+        {
+            string plugin = Read(workspace, mod, "src", mod + "Plugin.cs");
+            string runtime = Read(workspace, mod, "src", mod + "Runtime.cs");
+            string project = Read(workspace, mod, mod + ".csproj");
+            Check(plugin.Contains("BepInDependency(ScriptExtenderGuid, \"2.0.2\")") &&
+                plugin.Contains("CrusaderLibraryLoadContext context"), mod + " consumes exact 2.0.2");
+            Check(runtime.Contains("using RedBird.Core.Memory;") && !runtime.Contains("Zhuqiaomon"),
+                mod + " uses the RedBird memory contract");
+            Check(project.Contains("RedBird.Core.dll") && !project.Contains("Zhuqiaomon.dll"),
+                mod + " project references RedBird Core only");
+        }
+    }
+
+    private static string FindWorkspace()
+    {
+        DirectoryInfo current = new DirectoryInfo(AppContext.BaseDirectory);
+        while (current != null)
+        {
+            if (Directory.Exists(Path.Combine(current.FullName, "QueueTest")) &&
+                Directory.Exists(Path.Combine(current.FullName, "MoatCommandTest")))
+                return current.FullName;
+            current = current.Parent;
+        }
+        throw new DirectoryNotFoundException("Workspace root was not found.");
+    }
+
+    private static string Read(string root, params string[] parts) =>
+        File.ReadAllText(parts.Aggregate(root, Path.Combine));
+
+    private static int CountText(string value, string needle)
+    {
+        int count = 0;
+        int offset = 0;
+        while ((offset = value.IndexOf(needle, offset, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            offset += needle.Length;
+        }
+        return count;
+    }
+
     private static void CheckNativeHandler(
         byte[] image,
         int rva,
@@ -658,6 +776,32 @@ internal static class Program
                 count++;
         }
         return count;
+    }
+
+    private static void CheckWildcardPattern(byte[] image, int expectedRva, string text, string name)
+    {
+        string[] tokens = text.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+        byte?[] pattern = tokens.Select(token => token == "??" ? (byte?)null : Convert.ToByte(token, 16)).ToArray();
+        int count = 0;
+        int matchedRawOffset = -1;
+        for (int offset = 0; offset <= image.Length - pattern.Length; offset++)
+        {
+            bool match = true;
+            for (int index = 0; index < pattern.Length; index++)
+            {
+                if (pattern[index].HasValue && image[offset + index] != pattern[index].Value)
+                {
+                    match = false;
+                    break;
+                }
+            }
+            if (!match)
+                continue;
+            count++;
+            matchedRawOffset = offset;
+        }
+        Check(count == 1, name + " unique signature");
+        Check(matchedRawOffset == RvaToRawOffset(image, expectedRva), name + " audited RVA");
     }
 
     private static int RvaToRawOffset(byte[] image, int rva)

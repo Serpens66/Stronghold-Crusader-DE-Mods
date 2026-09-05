@@ -77,10 +77,10 @@ namespace BugfixesAndQoL
                 if (!TryGetLiveGatehouse(args.BuildingId, out GameBuilding* building, out GameGatehouseEntry* gatehouse))
                     return;
 
-                int unitSpanIndex = args.UnitId;
+                int candidateUnitId = args.UnitId;
                 Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
-                if (!Shared.GatehouseQueryUnitIdPolicy.TryConvertSpanIndexToGameId(
-                        unitSpanIndex,
+                if (!Shared.GatehouseQueryUnitIdPolicy.TryValidateGameId(
+                        candidateUnitId,
                         units.Length,
                         out int unitId) ||
                     !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
@@ -104,7 +104,7 @@ namespace BugfixesAndQoL
                     firstQueryLogged = true;
                     LogInfo(
                         $"gatehouse reachability query confirmed: buildingId={args.BuildingId}, " +
-                        $"rawUnitSpanIndex={unitSpanIndex}, unitId={unitId}, globalId={building->r_GlobalId}.");
+                        $"eventUnitId={candidateUnitId}, unitId={unitId}, globalId={building->r_GlobalId}.");
                 }
 
                 if (TryIsUnitReachableToGate(unitId, unit, gatehouse, out bool reachable) && !reachable)

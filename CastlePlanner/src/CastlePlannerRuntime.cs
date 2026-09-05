@@ -2,7 +2,15 @@ using BepInEx.Logging;
 using BepInEx.Bootstrap;
 using AIVParser.Core;
 using R3;
+using RedBird.Abstractions.Hooks;
+using RedBird.Abstractions.Hooks.Transaction;
+using RedBird.Core.Memory;
+using RedBird.X64.Assembly;
+using RedBird.X64.Hooks;
+using RedBird.X64.Hooks.Context;
+using RedBird.X64.Hooks.Transaction;
 using SHCDESE.API;
+using SHCDESE.API.LowLevel;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.Buildings;
 using SHCDESE.EventAPI.MapLoader;
@@ -18,10 +26,6 @@ using System.Runtime.InteropServices;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
-using Zhuqiaomon.Assembly;
-using Zhuqiaomon.Hooks;
-using Zhuqiaomon.Hooks.Transaction;
-using Zhuqiaomon.Memory;
 
 namespace CastlePlanner
 {
@@ -132,8 +136,8 @@ namespace CastlePlanner
         private IntPtr preparedKeepX;
         private IntPtr preparedKeepY;
         private HookTransaction nativeHookTransaction;
-        private HookRef<X64InlineHook> humanKeepCoordinateLoadHook =
-            new HookRef<X64InlineHook>();
+        private readonly HookHandle<X64InlineHook> humanKeepCoordinateLoadHook =
+            new HookHandle<X64InlineHook>();
         private bool installed;
         private bool referenceHashMatches;
         private bool handledCurrentMap;
@@ -171,17 +175,16 @@ namespace CastlePlanner
             this.preview = preview ?? throw new ArgumentNullException(nameof(preview));
         }
 
-        public void Install(
-            IntPtr libraryHandle,
-            ReadOnlySpan<byte> memory,
-            bool referenceHashMatches)
+        public void Install(CrusaderLibraryLoadContext context, bool referenceHashMatches)
         {
             if (installed)
                 return;
+            if (context == null)
+                throw new ArgumentNullException(nameof(context));
 
             this.referenceHashMatches = referenceHashMatches;
-            BindNativeFunctions(libraryHandle, memory);
-            InstallHumanStartPreparationHook(libraryHandle, memory);
+            BindNativeFunctions(context.ModuleHandle, context.Memory);
+            InstallHumanStartPreparationHook(context);
 
             subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
                 .Subscribe(OnStartMap));
@@ -1599,30 +1602,37 @@ namespace CastlePlanner
                 $"preparedKeepY=0x{preparedKeepY.ToInt64():X}.");
         }
 
-        private void InstallHumanStartPreparationHook(
-            IntPtr libraryHandle,
-            ReadOnlySpan<byte> memory)
+        private void InstallHumanStartPreparationHook(CrusaderLibraryLoadContext context)
         {
+            ReadOnlySpan<byte> memory = context.Memory;
+            ulong libraryBase = unchecked((ulong)context.ModuleHandle.ToInt64());
             int humanStartHookRva = ResolveReferenceRva(
                 memory,
                 "Vanilla human Keep coordinate load",
                 HumanKeepCoordinateLoadPattern,
                 HumanKeepCoordinateLoadRva);
             nativeHookTransaction = new HookTransaction(
-                memory,
-                unchecked((ulong)libraryHandle.ToInt64()),
-                loggerFactory: null,
-                failureMode: TransactionFailureMode.RollbackAndThrow);
+                context.Region,
+                SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory,
+                new HookTransactionOptions
+                {
+                    FailureMode = TransactionFailureMode.RollbackAndThrow,
+                    // CastlePlanner's static runtime keeps this hook for the process lifetime.
+                    OwnsHooks = false
+                });
             nativeHookTransaction.AddContextHook(
-                ref humanKeepCoordinateLoadHook,
-                unchecked((ulong)libraryHandle.ToInt64()) + unchecked((ulong)humanStartHookRva),
+                humanKeepCoordinateLoadHook,
+                HookTarget.FromAddress(libraryBase + unchecked((ulong)humanStartHookRva)),
                 PrepareVanillaHumanStart,
-                regs: X64SmartCPUContextRegs.All,
-                hookSize: 16,
-                errorMode: CallbackErrorMode.LogAndContinue,
-                placement: OverwrittenInstructionPlacement.AfterCallback);
-            nativeHookTransaction.Commit();
-            if (!humanKeepCoordinateLoadHook.Success)
+                new ContextHookOptions
+                {
+                    Registers = X64SmartCPUContextRegs.All,
+                    HookSize = 16,
+                    ErrorMode = CallbackErrorMode.LogAndContinue,
+                    Placement = OverwrittenInstructionPlacement.AfterCallback
+                });
+            CommitResult commitResult = nativeHookTransaction.Commit();
+            if (!commitResult.IsCompleteSuccess || !humanKeepCoordinateLoadHook.Success)
                 throw new InvalidOperationException("The Vanilla human Keep coordinate-load hook was not installed.");
 
             Shared.DebugLogHelper.LogInfo(

@@ -1,0 +1,252 @@
+<Patch xmlns:seui="clr-namespace:SHCDESE.UI;assembly=SHCDESE">
+    <Operation
+        Type="AddNamespace"
+        AttributeName="seui"
+        Value="clr-namespace:SHCDESE.UI;assembly=SHCDESE" />
+
+    <Operation
+        Type="SetAttribute"
+        XPath="//n:ListView[@Name='LobbyList']"
+        AttributeName="seui:LobbyModToolTip.Enabled"
+        Value="True" />
+
+    <!-- 1. ADD THE TOGGLE BUTTON (only target the first/main lobby Back button) -->
+    <Operation Type="InsertAfter" XPath="(//n:Button[@CommandParameter='Back'])[1]">
+        <Content>
+            <Button x:Name="SE_ModOptionsToggle"
+                local:PropEx.TextCentre="Mod Options"
+                local:PropEx.TextLeft=""
+                local:PropEx.TextRight=""
+                Command="{Binding ToggleWindowCommand}"
+                Width="180" Height="45"
+                Margin="220,0,0,20"
+                MouseEnter="CommonRedButtonEnter"
+                HorizontalAlignment="Left" 
+				VerticalAlignment="Bottom"
+                Style="{StaticResource BTN_SH_GlowS}"/>
+				
+        </Content>
+    </Operation>
+	
+	<Operation Type="Add" XPath="//n:Grid[@Name='mapgrid']">
+		<Content>		
+			<Grid x:Name="SE_ModOptionsModal" 
+                  Visibility="{Binding WindowVisibility}"
+                  HorizontalAlignment="Stretch" 
+				  VerticalAlignment="Stretch"
+				  Panel.ZIndex="9999">
+                
+                <!-- Dim Background -->
+                <Grid Background="#AA000000" IsHitTestVisible="True" />
+
+                <Grid Width="900" Height="600" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Grid.Resources>
+                        <!-- Re-use RGB Animation -->
+                        <Storyboard x:Key="RGBBorderFlow" RepeatBehavior="Forever">
+                            <DoubleAnimation Storyboard.TargetName="ModBorderTrans" Storyboard.TargetProperty="X" From="0" To="1" Duration="0:0:6" />
+                        </Storyboard>
+                    </Grid.Resources>
+                    
+                    <Grid.Triggers>
+                        <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                            <BeginStoryboard Storyboard="{StaticResource RGBBorderFlow}"/>
+                        </EventTrigger>
+                    </Grid.Triggers>
+
+                    <!-- The Main Window Frame -->
+                    <Border BorderThickness="3" CornerRadius="5">
+                        <Border.Background>
+                            <SolidColorBrush Color="#F0050505"/>
+                        </Border.Background>
+                        <Border.BorderBrush>
+                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,0" SpreadMethod="Repeat">
+                                <LinearGradientBrush.RelativeTransform>
+                                    <TranslateTransform x:Name="ModBorderTrans" X="0"/>
+                                </LinearGradientBrush.RelativeTransform>
+                                <GradientStop Color="#FF660000" Offset="0.0"/>
+                                <GradientStop Color="#FF666600" Offset="0.166"/>
+                                <GradientStop Color="#FF006600" Offset="0.333"/>
+                                <GradientStop Color="#FF006666" Offset="0.5"/>
+                                <GradientStop Color="#FF000066" Offset="0.666"/>
+                                <GradientStop Color="#FF660066" Offset="0.833"/>
+                                <GradientStop Color="#FF660000" Offset="1.0"/>
+                            </LinearGradientBrush>
+                        </Border.BorderBrush>
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="220"/> <!-- Sidebar -->
+                                <ColumnDefinition Width="*"/>   <!-- Content -->
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Sidebar (Tabs) -->
+                            <Border Grid.Column="0" BorderThickness="0,0,1,0" BorderBrush="#44FFFFFF" Background="#20FFFFFF">
+                                <Grid>
+									<Grid.Background>
+										<ImageBrush ImageSource="/Assets/GUI/Sprites/modsettingspanel.png"
+													Stretch="UniformToFill"
+													Opacity="0.13"
+													TileMode="None"/>
+									</Grid.Background>
+
+                                    <!-- Title, scrollable filtered tabs, and a search box pinned to the bottom. -->
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="*" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+
+                                        <TextBlock Grid.Row="0" Text="MOD SETTINGS" Margin="15" FontSize="18" FontWeight="Bold" Foreground="White" Opacity="0.7" />
+
+                                        <ListBox Grid.Row="1"
+                                                 ItemsSource="{Binding ModTabs}"
+                                                 SelectedItem="{Binding SelectedTab}"
+                                                 Background="Transparent"
+                                                 BorderThickness="0"
+                                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                                 ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                            <ListBox.ItemContainerStyle>
+                                                <Style TargetType="ListBoxItem">
+                                                    <Setter Property="Foreground" Value="White" />
+                                                    <Setter Property="Padding" Value="0" />
+                                                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                                    <Setter Property="Template">
+                                                        <Setter.Value>
+                                                            <ControlTemplate TargetType="ListBoxItem">
+                                                                <Border x:Name="SelectionFrame"
+                                                                        BorderThickness="0"
+                                                                        CornerRadius="3"
+                                                                        Margin="2,1">
+                                                                    <Border.BorderBrush>
+                                                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0" SpreadMethod="Repeat">
+                                                                            <LinearGradientBrush.RelativeTransform>
+                                                                                <TranslateTransform X="0" />
+                                                                            </LinearGradientBrush.RelativeTransform>
+                                                                            <GradientStop Color="#CCFF0000" Offset="0.000" />
+                                                                            <GradientStop Color="#CCFFFF00" Offset="0.166" />
+                                                                            <GradientStop Color="#CC00FF00" Offset="0.333" />
+                                                                            <GradientStop Color="#CC00FFFF" Offset="0.500" />
+                                                                            <GradientStop Color="#CC0000FF" Offset="0.666" />
+                                                                            <GradientStop Color="#CCFF00FF" Offset="0.833" />
+                                                                            <GradientStop Color="#CCFF0000" Offset="1.000" />
+                                                                        </LinearGradientBrush>
+                                                                    </Border.BorderBrush>
+                                                                    <Border.Triggers>
+                                                                        <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                                                                            <BeginStoryboard>
+                                                                                <Storyboard RepeatBehavior="Forever">
+                                                                                    <DoubleAnimation Storyboard.TargetProperty="BorderBrush.RelativeTransform.(TranslateTransform.X)"
+                                                                                                     From="0" To="1" Duration="0:0:4" />
+                                                                                </Storyboard>
+                                                                            </BeginStoryboard>
+                                                                        </EventTrigger>
+                                                                    </Border.Triggers>
+
+                                                                    <Grid MinHeight="40" ClipToBounds="True">
+                                                                        <!-- Optional 394x69-ish source, revealed only on the selected tab. -->
+                                                                        <Image x:Name="SelectionBanner"
+                                                                               Source="{Binding OptionBannerPath}"
+                                                                               Stretch="UniformToFill"
+                                                                               HorizontalAlignment="Stretch"
+                                                                               VerticalAlignment="Stretch"
+                                                                               Opacity="0"
+                                                                               IsHitTestVisible="False" />
+                                                                        <!-- Keeps the label readable while blending the banner in from the right. -->
+                                                                        <Border x:Name="SelectionBannerFade" Opacity="0" IsHitTestVisible="False">
+                                                                            <Border.Background>
+                                                                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                                                                    <GradientStop Color="#F0000000" Offset="0.00" />
+                                                                                    <GradientStop Color="#B8000000" Offset="0.38" />
+                                                                                    <GradientStop Color="#50000000" Offset="0.68" />
+                                                                                    <GradientStop Color="#00000000" Offset="1.00" />
+                                                                                </LinearGradientBrush>
+                                                                            </Border.Background>
+                                                                        </Border>
+
+                                                                        <Border x:Name="Bd" Background="Transparent" Padding="8,4">
+                                                                            <ContentPresenter VerticalAlignment="Center" />
+                                                                        </Border>
+                                                                    </Grid>
+                                                                </Border>
+                                                                <ControlTemplate.Triggers>
+                                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                                        <Setter TargetName="Bd" Property="Background" Value="#18FFFFFF" />
+                                                                    </Trigger>
+                                                                    <Trigger Property="IsSelected" Value="True">
+                                                                        <Setter TargetName="SelectionFrame" Property="BorderThickness" Value="2" />
+                                                                        <Setter TargetName="SelectionBanner" Property="Opacity" Value="0.76" />
+                                                                        <Setter TargetName="SelectionBannerFade" Property="Opacity" Value="1" />
+                                                                        <Setter TargetName="Bd" Property="Background" Value="#28000000" />
+                                                                    </Trigger>
+                                                                </ControlTemplate.Triggers>
+                                                            </ControlTemplate>
+                                                        </Setter.Value>
+                                                    </Setter>
+                                                </Style>
+                                            </ListBox.ItemContainerStyle>
+
+                                            <ListBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding Name}"
+                                                               FontSize="16"
+                                                               Margin="7,3"
+                                                               Foreground="White"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                </DataTemplate>
+                                            </ListBox.ItemTemplate>
+                                        </ListBox>
+
+                                        <Grid Grid.Row="2" Margin="10,8,10,12">
+                                            <TextBox x:Name="SE_ModOptionsSearch"
+                                                     seui:KeyboardCaptureBinding.Enabled="True"
+                                                     Height="32"
+                                                     MaxLength="64"
+                                                     Padding="8,3"
+                                                     TextAlignment="Left"
+                                                     VerticalContentAlignment="Center"
+                                                     Foreground="White"
+                                                     Background="#C0181818"
+                                                     BorderBrush="#66FFFFFF"
+                                                     BorderThickness="1"
+                                                     Text="{Binding SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                            <TextBlock Text="Search mods..."
+                                                       Margin="9,0,0,0"
+                                                       VerticalAlignment="Center"
+                                                       Foreground="#99FFFFFF"
+                                                       IsHitTestVisible="False"
+                                                       Visibility="{Binding SearchHintVisibility}" />
+                                        </Grid>
+                                    </Grid>
+                                </Grid>
+                            </Border>
+
+                            <!-- Content Area -->
+                            <Grid Grid.Column="1" Margin="20">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Text="{Binding SelectedTab.Name}" FontSize="24" FontWeight="Bold" Foreground="#77AAFF" Margin="0,0,0,15"/>
+                                
+                                <!-- THIS IS WHERE THE MOD VIEWMODEL IS RENDERED -->
+                                <ContentControl Grid.Row="1" Content="{Binding SelectedTab.View}" />
+
+                                <Button Grid.Row="2" 
+								local:PropEx.TextCentre="Close"
+								local:PropEx.TextLeft=""
+								local:PropEx.TextRight=""
+								HorizontalAlignment="Right" 
+                                Command="{Binding ToggleWindowCommand}" 
+								Width="100" 
+								Style="{StaticResource BTN_SH_GlowS}"/>
+                            </Grid>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Grid>
+        </Content>
+    </Operation>
+</Patch>

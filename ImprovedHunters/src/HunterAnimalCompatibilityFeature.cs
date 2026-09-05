@@ -11,8 +11,8 @@ using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using Zhuqiaomon.Assembly.Stateful;
-using Zhuqiaomon.Memory;
+using RedBird.Core.Memory;
+using RedBird.X64.Assembly.Stateful;
 
 namespace ImprovedHunters
 {
@@ -98,10 +98,18 @@ namespace ImprovedHunters
                         ? RabbitCorpseDespawnTicks
                         : originalRabbitDespawnTicks;
 
-                    if (rabbitDespawnTickTime.GetValue() != desired)
-                        rabbitDespawnTickTime.SetValue(desired);
-
-                    rabbitDespawnTicksPatched = desired != originalRabbitDespawnTicks;
+                    bool shouldPatch = desired != originalRabbitDespawnTicks;
+                    if (rabbitDespawnTicksPatched != shouldPatch)
+                    {
+                        rabbitDespawnOverride?.Dispose();
+                        rabbitDespawnOverride = shouldPatch
+                            ? rabbitDespawnTickTime.SetOverride(
+                                this,
+                                desired,
+                                reason: "Improved Hunters rabbit corpse lifetime")
+                            : null;
+                        rabbitDespawnTicksPatched = shouldPatch;
+                    }
                 }
 
                 ApplyExtraDespawnPatch(camelDespawnTickTime, originalCamelDespawnTicks, Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) && settings.HuntCamel, ref camelDespawnTicksPatched);

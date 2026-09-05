@@ -1,0 +1,865 @@
+{
+  "version": "1.0",
+  "strings": [
+    {
+      "name": "SE_EDITOR_GEN_ENABLE_FREEBUILD",
+      "value": "Free Build modus"
+    },
+    {
+      "name": "IMGUI_API_WINDOW_TITLE",
+      "value": "ImGUI API Fenster"
+    },
+    {
+      "name": "REMIX_MENU_OPTIONS_TITLE",
+      "value": "Optionen"
+    },
+    {
+      "name": "REMIX_MENU_OPTIONS_SMALL_TEXT",
+      "value": "Einige Optionen hier erfordern möglicherweise einen Neustart, um wirksam zu werden."
+    },
+    {
+      "name": "REMIX_MENU_OPTIONS_MENUKEY",
+      "value": "Aktuelle Menü-Taste: {0}"
+    },
+    {
+      "name": "REMIX_MENU_ALWAYS_RENDERER_ENABLED",
+      "value": "Always-Renderer (AR) aktiviert"
+    },
+    {
+      "name": "REMIX_MENU_MENU_RENDERER_ENABLED",
+      "value": "Menu-Renderer (MR) aktiviert"
+    },
+    {
+      "name": "REMIX_MENU_MENU_DEMO_ENABLED",
+      "value": "Demo-Fenster aktiviert"
+    },
+    {
+      "name": "REMIX_MENU_MENU_FORCEWMPASSTHROUGH_ENABLED",
+      "value": "WM-Event-Weiterleitung erzwingen"
+    },
+    {
+      "name": "REMIX_MENU_MENU_DX11TOGGLEKEY",
+      "value": "Aktuelle DX11-Hook-Umschalt-Taste: {0}"
+    },
+    {
+      "name": "REMIX_MENU_MENU_CUSTOMFONTPATH",
+      "value": "Benutzerdefinierte Schriftart (absoluter Pfad zur .ttf-Datei)"
+    },
+    {
+      "name": "REMIX_MENU_MENU_FONTPIXELSIZE",
+      "value": "Schriftgröße (Pixel)"
+    },
+    {
+      "name": "SE_EDITOR_TITLE",
+      "value": "SHCDE-SE-EDITOR"
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_TITLE",
+      "value": "Werkzeuge"
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_GENERAL",
+      "value": "Allgemein"
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_ENTITYLIST",
+      "value": "Entitäten-Liste"
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_LUA",
+      "value": "LUA"
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_MANAGERS",
+      "value": "Managers"
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_MAP_ARCHIVE_TOOLS",
+      "value": "Karten-Archiv-Werkzeuge (MAS)"
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_MAS_SEPERATOR",
+      "value": "Allgemeiner Archiv-Bereich"
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_MAS_NOT_FOUND",
+      "value": "Karten-Archiv: Nicht gefunden."
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_MAS_ADD_HELP",
+      "value": "Sie können dieser Karte ein neues Archiv hinzufügen. Dies wird nur empfohlen, wenn Sie sich im Karteneditor befinden."
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_MAS_WARN",
+      "value": "WICHTIG: Nach dem Erstellen eines Archivs MÜSSEN Sie die Karte speichern und neu öffnen, bevor Sie weitere Änderungen vornehmen! Sie müssen die Karte außerdem mindestens einmal gespeichert haben, bevor Sie diesen Button drücken."
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_MAS_CREATE_NEW",
+      "value": "Neues Archiv erstellen"
+    },
+    {
+      "name": "SE_EDITOR_COMMON_NA",
+      "value": "N/V"
+    },
+    {
+      "name": "SE_EDITOR_COMMON_EXISTS",
+      "value": "Vorhanden"
+    },
+    {
+      "name": "SE_EDITOR_COMMON_NOT_FOUND",
+      "value": "Nicht gefunden"
+    },
+    {
+      "name": "SE_EDITOR_ARCHIVE_INFO",
+      "value": "Archiv-Informationen"
+    },
+    {
+      "name": "SE_EDITOR_ARCHIVE_AUTHOR",
+      "value": "Autor"
+    },
+    {
+      "name": "SE_EDITOR_ARCHIVE_MAPNAME",
+      "value": "Kartenname"
+    },
+    {
+      "name": "SE_EDITOR_ARCHIVE_DESC",
+      "value": "Beschreibung"
+    },
+    {
+      "name": "SE_EDITOR_ARCHIVE_VER",
+      "value": "Version"
+    },
+    {
+      "name": "SE_EDITOR_ARCHIVE_WEB",
+      "value": "Webseite"
+    },
+    {
+      "name": "SE_EDITOR_ARCHIVE_REMOVE_WARN",
+      "value": "Dies entfernt das Archiv von der Karte. Sie müssen die Karte speichern, um das Entfernen dauerhaft zu machen."
+    },
+    {
+      "name": "SE_EDITOR_ARCHIVE_REMOVE_BTN",
+      "value": "Archiv entfernen"
+    },
+    {
+      "name": "SE_EDITOR_TRIG_TITLE",
+      "value": "Trigger-Verwaltung"
+    },
+    {
+      "name": "SE_EDITOR_TRIG_ACTIVE",
+      "value": "Aktive Trigger: {0}"
+    },
+    {
+      "name": "SE_EDITOR_TRIG_REMOVE_WARN",
+      "value": "Dies entfernt alle aktiven Trigger von der Karte."
+    },
+    {
+      "name": "SE_EDITOR_TRIG_REMOVE_BTN",
+      "value": "Alle Trigger entfernen"
+    },
+    {
+      "name": "SE_EDITOR_TIMER_TITLE",
+      "value": "Timer-Verwaltung"
+    },
+    {
+      "name": "SE_EDITOR_TIMER_ACTIVE",
+      "value": "Aktive Timer: {0}"
+    },
+    {
+      "name": "SE_EDITOR_TIMER_REMOVE_WARN",
+      "value": "Dies entfernt alle aktiven Timer von der Karte."
+    },
+    {
+      "name": "SE_EDITOR_TIMER_REMOVE_BTN",
+      "value": "Alle Timer entfernen"
+    },
+    {
+      "name": "SE_EDITOR_MANAGER_TITLE",
+      "value": "-- Manager VAs --"
+    },
+    {
+      "name": "SE_EDITOR_MANAGER_COL_NAME",
+      "value": "Name"
+    },
+    {
+      "name": "SE_EDITOR_MANAGER_COL_ADDR",
+      "value": "Adresse"
+    },
+    {
+      "name": "SE_EDITOR_MANAGER_COL_COPY",
+      "value": "Kopieren"
+    },
+    {
+      "name": "SE_EDITOR_MANAGER_BTN_COPY",
+      "value": "Kopieren"
+    },
+    {
+      "name": "SE_EDITOR_SETTINGS_TITLE",
+      "value": "-- Einstellungen --"
+    },
+    {
+      "name": "SE_EDITOR_GEN_SHOW_TOOLS",
+      "value": "Karteneditor-Werkzeuge anzeigen"
+    },
+    {
+      "name": "SE_EDITOR_GEN_CURSOR_TITLE",
+      "value": "-- Live-Cursor-Ansicht --"
+    },
+    {
+      "name": "SE_EDITOR_GEN_MOUSE_POS",
+      "value": "Mausposition"
+    },
+    {
+      "name": "SE_EDITOR_GEN_MOUSE_TILE",
+      "value": "Maus-Kachel"
+    },
+    {
+      "name": "SE_EDITOR_GEN_HOVER_BUILD_ID",
+      "value": "Hover Gebäude-ID"
+    },
+    {
+      "name": "SE_EDITOR_GEN_HOVER_UNIT_ID",
+      "value": "Hover Einheiten-ID"
+    },
+    {
+      "name": "SE_EDITOR_GEN_HOVER_BUILD_TILE_ID",
+      "value": "Hover Gebäude-Kachel-ID"
+    },
+    {
+      "name": "SE_EDITOR_GEN_MOUSE_TILEX_WORLD",
+      "value": "Maus-Kachel X (Welt)"
+    },
+    {
+      "name": "SE_EDITOR_GEN_MOUSE_TILEY_WORLD",
+      "value": "Maus-Kachel Y (Welt)"
+    },
+    {
+      "name": "SE_EDITOR_GEN_MOUSE_TILE_ID",
+      "value": "Maus-Kachel-ID"
+    },
+    {
+      "name": "SE_EDITOR_GEN_LIVE_TILE_TITLE",
+      "value": "-- Live-Kachel-Ansicht --"
+    },
+    {
+      "name": "SE_EDITOR_GEN_COL_PROP",
+      "value": "Eigenschaft"
+    },
+    {
+      "name": "SE_EDITOR_GEN_COL_VAL",
+      "value": "Wert"
+    },
+    {
+      "name": "SE_EDITOR_GEN_COL_MEM",
+      "value": "Speicheradresse"
+    },
+    {
+      "name": "SE_EDITOR_TILE_UNKNOWN",
+      "value": "Kachel Unbekannt"
+    },
+    {
+      "name": "SE_EDITOR_TILE_HEIGHT",
+      "value": "Kachel-Höhe"
+    },
+    {
+      "name": "SE_EDITOR_TILE_STATE",
+      "value": "Kachel-Status"
+    },
+    {
+      "name": "SE_EDITOR_TILE_PROP_FLAG",
+      "value": "Kachel-Eigenschafts-Flag"
+    },
+    {
+      "name": "SE_EDITOR_TILE_PROP_ENUM",
+      "value": "Kachel-Eigenschafts-Enum"
+    },
+    {
+      "name": "SE_EDITOR_TILE_VEG_ID",
+      "value": "Vegetations-ID"
+    },
+    {
+      "name": "SE_EDITOR_TILE_TYPE",
+      "value": "Kachel-Typ"
+    },
+    {
+      "name": "SE_EDITOR_TILE_DEF_HEIGHT",
+      "value": "Standardhöhe"
+    },
+    {
+      "name": "SE_EDITOR_TILE_BUILD_ID",
+      "value": "Gebäude-ID"
+    },
+    {
+      "name": "SE_EDITOR_TILE_UNIT_ID",
+      "value": "Einheiten-ID"
+    },
+    {
+      "name": "SE_EDITOR_TILE_OWNER_ID",
+      "value": "Besitzer-ID"
+    },
+    {
+      "name": "SE_EDITOR_GEN_CURSOR_OUT",
+      "value": "Cursor befindet sich außerhalb des gültigen Kchelbereichs."
+    },
+    {
+      "name": "SE_EDITOR_EDIT_TILE_TITLE",
+      "value": "-- Kachel-Ansicht bearbeiten --"
+    },
+    {
+      "name": "SE_EDITOR_EDIT_TILE_ID",
+      "value": "Kachel-ID"
+    },
+    {
+      "name": "SE_EDITOR_EDIT_TILE_UNK",
+      "value": "Kachel Unbekannt"
+    },
+    {
+      "name": "SE_EDITOR_EDIT_TILE_HEIGHT",
+      "value": "Kachel-Höhe/Gesundheit"
+    },
+    {
+      "name": "SE_EDITOR_EDIT_TILE_STATE",
+      "value": "Kachel-Status"
+    },
+    {
+      "name": "SE_EDITOR_EDIT_TILE_PROP",
+      "value": "Kachel-Eigenschaft"
+    },
+    {
+      "name": "SE_EDITOR_EDIT_TILE_VEG",
+      "value": "Vegetations-ID Lookup"
+    },
+    {
+      "name": "SE_EDITOR_EDIT_TILE_OWNER",
+      "value": "Spieler-Besitzer-ID"
+    },
+    {
+      "name": "SE_EDITOR_EDIT_TILE_APPLY",
+      "value": "Kachel-Änderungen anwenden"
+    },
+    {
+      "name": "SE_EDITOR_LUA_MANAGE_TITLE",
+      "value": "LUA-Status-Verwaltung"
+    },
+    {
+      "name": "SE_EDITOR_LUA_STATE_LABEL",
+      "value": "LUA-Status: {0}"
+    },
+    {
+      "name": "SE_EDITOR_LUA_CREATE",
+      "value": "Debug: LUA-Status erstellen"
+    },
+    {
+      "name": "SE_EDITOR_LUA_CLOSE",
+      "value": "Debug: LUA-Status schließen"
+    },
+    {
+      "name": "SE_EDITOR_LUA_SCRIPT_TITLE",
+      "value": "LUA-Skript-Steuerung"
+    },
+    {
+      "name": "SE_EDITOR_LUA_CALL_INIT",
+      "value": "Init aufrufen"
+    },
+    {
+      "name": "SE_EDITOR_LUA_RND_TITLE",
+      "value": "Zufallsgenerator"
+    },
+    {
+      "name": "SE_EDITOR_LUA_RND_SEED",
+      "value": "Zufallsgenerator-Seed"
+    },
+    {
+      "name": "SE_EDITOR_LUA_RND_INIT",
+      "value": "Zufallsgenerator initialisieren"
+    },
+    {
+      "name": "SE_EDITOR_LUA_EXEC_TITLE",
+      "value": "LUA-Code-Ausführung"
+    },
+    {
+      "name": "SE_EDITOR_LUA_RUN",
+      "value": "LUA ausführen"
+    },
+    {
+      "name": "SE_EDITOR_ENT_NO_UNITS",
+      "value": "Keine aktiven Einheiten gefunden."
+    },
+    {
+      "name": "SE_EDITOR_ENT_COL_ID",
+      "value": "ID"
+    },
+    {
+      "name": "SE_EDITOR_ENT_COL_TYPE",
+      "value": "Typ"
+    },
+    {
+      "name": "SE_EDITOR_ENT_COL_POS_XY",
+      "value": "Position (XY)"
+    },
+    {
+      "name": "SE_EDITOR_ENT_COL_POS_Z",
+      "value": "Position (Z)"
+    },
+    {
+      "name": "SE_EDITOR_ENT_COL_PLAYER",
+      "value": "Spieler-ID"
+    },
+    {
+      "name": "SE_EDITOR_ENT_COL_HEALTH",
+      "value": "Gesundheit"
+    },
+    {
+      "name": "SE_EDITOR_ENT_COL_ADDR",
+      "value": "ADR"
+    },
+    {
+      "name": "SE_EDITOR_ENT_COL_ACTION",
+      "value": "Aktionen"
+    },
+    {
+      "name": "SE_EDITOR_ENT_BTN_COPY",
+      "value": "Adr kopieren"
+    },
+    {
+      "name": "SE_EDITOR_ENT_BTN_DELETE",
+      "value": "Löschen"
+    },
+    {
+      "name": "SE_EDITOR_ENT_CTX_DELETE",
+      "value": "Löschen"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_TITLE",
+      "value": "Kachel-Inspektor"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_HELP",
+      "value": "Halten Sie Links-Alt und Rechtsklicken Sie auf eine Kachel, um sie zu inspizieren."
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_NO_SEL",
+      "value": "Keine Kachel ausgewählt."
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_SEL_ID",
+      "value": "Ausgewählte Kachel-ID: {0} (0x{0:X8})"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_HEIGHT",
+      "value": "Höhe"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_OWNER",
+      "value": "Besitzer-ID (0-basiert)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_PLAYER_ARROW",
+      "value": "-> Spieler {0}"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_STATE",
+      "value": "Kachel-Status"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK_BYTE",
+      "value": "Unbekannt (Byte)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_BLD_ID",
+      "value": "Gebäude-ID"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNIT_ID",
+      "value": "Einheiten-ID"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_VEG",
+      "value": "Vegetations-Lookup"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK1",
+      "value": "UnknownGrid1"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK2",
+      "value": "UnknownGrid2"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK3",
+      "value": "UnknownGrid3"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_DEF_HEIGHT",
+      "value": "Standardhöhe?"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_FLAGS",
+      "value": "Eigenschafts-Flags"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_BTN_SAVE",
+      "value": "Änderungen speichern"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_BTN_READ",
+      "value": "Werte neu einlesen"
+    },
+    {
+      "name": "SE_EDITOR_REGION_TITLE",
+      "value": "Stronghold-Karten-Assistent"
+    },
+    {
+      "name": "SE_EDITOR_REGION_NOT_SET",
+      "value": "Nicht festgelegt"
+    },
+    {
+      "name": "SE_EDITOR_REGION_BEGIN",
+      "value": "Start XY: {0}"
+    },
+    {
+      "name": "SE_EDITOR_REGION_END",
+      "value": "Ende XY: {0}"
+    },
+    {
+      "name": "SE_EDITOR_REGION_BTN_COPY",
+      "value": "Als neue RectangularArea2D kopieren"
+    },
+    {
+      "name": "SE_EDITOR_REGION_HELP_TITLE",
+      "value": "Verwendung:"
+    },
+    {
+      "name": "SE_EDITOR_REGION_HELP_1",
+      "value": "1. Halten Sie Links-Alt und Linksklicken Sie auf die Karte, um den Startpunkt zu setzen."
+    },
+    {
+      "name": "SE_EDITOR_REGION_HELP_2",
+      "value": "2. Halten Sie Links-Alt und Linksklicken Sie erneut, um den Endpunkt zu setzen."
+    },
+    {
+      "name": "SE_EDITOR_REGION_BTN_RESET",
+      "value": "Auswahl zurücksetzen"
+    },
+    {
+      "name": "SE_EDITOR_MUTATOR_TITLE",
+      "value": "Kachel-Eigenschafts-Mutator"
+    },
+    {
+      "name": "SE_EDITOR_MUTATOR_OPTIONS",
+      "value": "Optionen"
+    },
+    {
+      "name": "SE_EDITOR_MUTATOR_ENABLED",
+      "value": "Aktiviert"
+    },
+    {
+      "name": "SE_EDITOR_MUTATOR_FORCE_SET",
+      "value": "Setzen auf (nicht additiv)"
+    },
+    {
+      "name": "SE_EDITOR_MUTATOR_AUGMENT",
+      "value": "Nächste Kachel erweitern mit..."
+    },
+    {
+      "name": "SE_EDITOR_MUTATOR_TYPE",
+      "value": "Kachel-Typ"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_TITLE",
+      "value": "Spiegel-Werkzeug"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_OPTIONS",
+      "value": "Optionen"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_VERT",
+      "value": "Vertikal"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_HORZ",
+      "value": "Horizontal"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_ENABLED_FOR",
+      "value": "Aktiviert für..."
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_TYPE",
+      "value": "Kachel-Typ"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_HEIGHT",
+      "value": "Kachel-Höhe"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_WALLS",
+      "value": "Mauern"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_BLD",
+      "value": "Gebäude"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_UNITS",
+      "value": "Einheiten"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_VEG",
+      "value": "Vegetation"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_ANIMALS",
+      "value": "Tiere"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_DELETE",
+      "value": "Löschung"
+    },
+    {
+      "name": "SE_EDITOR_MASS_TITLE",
+      "value": "Massen-Kachel-Editor"
+    },
+    {
+      "name": "SE_EDITOR_MASS_RND_HEIGHT",
+      "value": "Höhe zufällig wählen"
+    },
+    {
+      "name": "SE_EDITOR_MASS_MIN_HEIGHT",
+      "value": "Min. Höhe"
+    },
+    {
+      "name": "SE_EDITOR_MASS_MAX_HEIGHT",
+      "value": "Max. Höhe"
+    },
+    {
+      "name": "SE_EDITOR_MASS_NEW_HEIGHT",
+      "value": "Neue Kachel-Höhe (0-255)"
+    },
+    {
+      "name": "SE_EDITOR_MASS_SHAPE",
+      "value": "Form"
+    },
+    {
+      "name": "SE_EDITOR_MASS_SHAPE_RECT",
+      "value": "Rechteck"
+    },
+    {
+      "name": "SE_EDITOR_MASS_SHAPE_CIRCLE",
+      "value": "Kreis"
+    },
+    {
+      "name": "SE_EDITOR_MASS_EDGES_ONLY",
+      "value": "Nur Ränder"
+    },
+    {
+      "name": "SE_EDITOR_MASS_EDGE_WIDTH",
+      "value": "Randbreite"
+    },
+    {
+      "name": "SE_EDITOR_MASS_SET_FLAGS",
+      "value": "Kachel-Eigenschafts-Flags setzen"
+    },
+    {
+      "name": "SE_EDITOR_MASS_FLAGS_VAL",
+      "value": "Eigenschafts-Flags Wert"
+    },
+    {
+      "name": "SE_EDITOR_MASS_INNER_ONLY",
+      "value": "Nur auf innere Kacheln anwenden"
+    },
+    {
+      "name": "SE_EDITOR_MASS_PREVIEW",
+      "value": "Live-Vorschau (setzt Höhe auf 0)"
+    },
+    {
+      "name": "SE_EDITOR_MASS_BTN_APPLY",
+      "value": "Änderungen anwenden"
+    },
+    {
+      "name": "SE_EDITOR_MASS_WARN_SELECT",
+      "value": "Bitte wählen Sie eine Region mit dem Karten-Assistenten aus."
+    },
+    {
+      "name": "SE_EDITOR_MASS_BTN_UNDO",
+      "value": "Letzte Aktion rückgängig machen"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_SEC_BYTE",
+      "value": "Byte-Gitter"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_SEC_UINT16",
+      "value": "UInt16-Gitter"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_SEC_INT16",
+      "value": "Int16-Gitter"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_SEC_INT32",
+      "value": "Int32-Gitter"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_DAMAGE",
+      "value": "Schaden / Zustand (damage_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_WALL_OWNER",
+      "value": "Mauerbesitzer-ID (wall_owner_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_SHOW_HI",
+      "value": "Show-Hi-Ebene (show_hi_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_AI_ZONE",
+      "value": "KI-Zone (ai_zone_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_OCCUPANCY",
+      "value": "Einheiten-Belegungsmaske (occupancy_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_DELAY",
+      "value": "Verzögerungsebene (delay_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_LUMINESCENCE",
+      "value": "Lumineszenz / Schatten (luminesence_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_STRUCTURE_WAS",
+      "value": "Vorheriger Gebäudetyp (structure_was_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_AI_DANGER",
+      "value": "KI-Gefahren-Heatmap (ai_danger_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_AIV_BLOCK",
+      "value": "AIV-Block-Maske (aiv_block_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_GATE_PATH",
+      "value": "Torpfad (gate_path_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK_0xA20D40",
+      "value": "Unbekanntes Byte (0xA20D40)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK_0xD30080",
+      "value": "Unbekanntes Byte (0xD30080)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK_0x134E700",
+      "value": "Unbekanntes Byte (0x134E700)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK_0x13EB140",
+      "value": "Unbekanntes Byte / Pfadmarkierung (0x13EB140)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_ORGANISM",
+      "value": "Organismus / Vegetation-ID (organism_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_STRUCTURE",
+      "value": "Gebäude / Struktur-ID (structure_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_MISC_DISPLAY",
+      "value": "Verschiedene Anzeige-Flags (misc_display_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_PATH_CONNECTION",
+      "value": "Pfadverbindung / Regions-ID (path_connection_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_RANDOM_NOISE",
+      "value": "Kachel-Zufallsrauschen (random_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK_0x75EF80",
+      "value": "Unbekanntes Int16 (0x75EF80)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK_0x1EA23F0",
+      "value": "Unbekanntes UInt16 (0x1EA23F0)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_MACRO",
+      "value": "Makro-Ebene (macro_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_FLY",
+      "value": "Flug-/Projektil-Ebene (fly_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_LOGIC_FLAGS",
+      "value": "Logik-/Eigenschaften-Flags (logic_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_PILLAR_GFX",
+      "value": "Pfeiler-GFX (pillar_gfx_layer, dynamisch)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_GFX",
+      "value": "GFX-Sprite (gfx_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_ALPHA_GFX",
+      "value": "Alpha-GFX-Sprite (alpha_gfx_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_CONSTRUCTION_GFX",
+      "value": "Bau-GFX (construction_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_WALL_GFX",
+      "value": "Mauer-GFX (wall_gfx_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK_0x1D68F70",
+      "value": "Unbekanntes Int32 (0x1D68F70)"
+    },
+    {
+      "name": "SE_EDITOR_TILE_PILLAR_GFX",
+      "value": "Pfeiler-GFX (pillar_gfx_layer)"
+    },
+    {
+      "name": "SE_EDITOR_TILE_SHOW_HI",
+      "value": "Show-Hi-Ebene (show_hi_layer)"
+    },
+    {
+      "name": "SE_EDITOR_TILE_MISC_DISPLAY",
+      "value": "Verschiedene Anzeige (misc_display_layer)"
+    },
+    {
+      "name": "SE_EDITOR_TILE_PATH_CONNECTION",
+      "value": "Pfadverbindung (path_connection_layer)"
+    },
+    {
+      "name": "SE_EDITOR_TILE_AI_ZONE",
+      "value": "KI-Zone (ai_zone_layer)"
+    },
+    {
+      "name": "SE_EDITOR_TILE_OCCUPANCY",
+      "value": "Einheiten-Belegung (occupancy_layer)"
+    },
+    {
+      "name": "SE_EDITOR_TILE_DELAY",
+      "value": "Verzögerungsebene (delay_layer)"
+    },
+    {
+      "name": "SE_EDITOR_TILE_UNK_0xA20D40",
+      "value": "Unbekanntes Byte (0xA20D40)"
+    },
+    {
+      "name": "SE_EDITOR_EDIT_TILE_UNK_0xA20D40",
+      "value": "Unbekanntes Byte (0xA20D40)"
+    }
+  ]
+}

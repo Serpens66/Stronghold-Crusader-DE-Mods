@@ -1,5 +1,6 @@
 using ExtremePowers.API;
 using MessagePack;
+using SHCDESE.API;
 using System;
 using System.IO;
 using System.Linq;
@@ -9,7 +10,7 @@ internal static class Program
     private static int failures;
     private static void Main(string[] args)
     {
-        TestValidation(); TestRegistrationAndRestore(); TestAccumulator(); TestTargeting(); TestPacket(); TestCompatibility(); TestSafety(); TestBaselineSemantics(); TestOperationDedupe(); TestArchitecture();
+        TestValidation(); TestRegistrationAndRestore(); TestAccumulator(); TestTargeting(); TestPacket(); TestChoreSender(); TestCompatibility(); TestSafety(); TestBaselineSemantics(); TestOperationDedupe(); TestArchitecture();
         if (args.Length == 1 && File.Exists(args[0])) TestBuildGuard(args[0]);
         if (failures != 0) throw new Exception(failures + " ExtremePowers API test(s) failed.");
         Console.WriteLine("ExtremePowers API tests passed.");
@@ -57,6 +58,28 @@ internal static class Program
         Check(unpacked.Power == source.Power && unpacked.PlayerId == 2 && unpacked.Target.UnitId == 42 && unpacked.OperationId == 123, "MessagePack formatter roundtrip");
         byte[] malformed = (byte[])messagePack.Clone(); malformed[0] = 0x96;
         ThrowsAny(() => MessagePackSerializer.Deserialize<ExtremePowerChore>(malformed), "MessagePack field-count rejection");
+    }
+    private static void TestChoreSender()
+    {
+        var packet = new ExtremePowerChore(1, ExtremePowerId.Gold, 1, ExtremePowerTarget.None, 77);
+        byte[] first = GameNetworkAPI.Serialize(packet), second = GameNetworkAPI.Serialize(packet);
+        Check(first.SequenceEqual(second), "unchanged packet serializes deterministically twice");
+
+        int serialized = 0, sent = 0, mutations = 0; object sentPacket = null;
+        Func<ExtremePowerChore, byte[]> body1199 = value => { serialized++; return new byte[1197]; };
+        Action<ExtremePowerChore, short> send = (value, id) => { sent++; mutations++; sentPacket = value; };
+        Check(!ExtremePowerChoreSender.TrySend(packet, 4, false, body1199, () => 1, send, out _, out _) && serialized == 0 && sent == 0 && mutations == 0, "missing hook fails before serialization and mutation");
+        Check(!ExtremePowerChoreSender.TrySend(packet, 4, true, value => { throw new InvalidOperationException("serializer"); }, () => 1, send, out _, out _) && sent == 0 && mutations == 0, "serializer failure has no send or mutation");
+        Check(!ExtremePowerChoreSender.TrySend(packet, 4, true, body1199, () => 0, send, out _, out _) && sent == 0 && mutations == 0, "missing manager has no send or mutation");
+        Check(ExtremePowerChoreSender.TrySend(packet, 4, true, body1199, () => 1, send, out byte[] accepted1199, out _) && accepted1199.Length + 2 == 1199, "1199-byte total accepted");
+        Check(ExtremePowerChoreSender.TrySend(packet, 4, true, value => new byte[1198], () => 1, send, out byte[] accepted1200, out _) && accepted1200.Length + 2 == 1200, "1200-byte total accepted");
+        bool simulationPaused = true;
+        Check(simulationPaused && ExtremePowerChoreSender.TrySend(packet, 4, true, body1199, () => 1, send, out _, out _), "paused simulation does not force a Steam fallback");
+        int acceptedMutations = mutations;
+        Check(!ExtremePowerChoreSender.TrySend(packet, 4, true, value => new byte[1199], () => 1, send, out _, out _) && mutations == acceptedMutations, "1201-byte total rejected without mutation");
+        Check(ReferenceEquals(packet, sentPacket), "the prechecked packet object is the sent packet object");
+        int beforeThrow = mutations;
+        Check(!ExtremePowerChoreSender.TrySend(packet, 4, true, body1199, () => 1, (value, id) => throw new InvalidOperationException("send"), out _, out _) && mutations == beforeThrow, "send exception fails closed");
     }
     private static void TestCompatibility()
     {

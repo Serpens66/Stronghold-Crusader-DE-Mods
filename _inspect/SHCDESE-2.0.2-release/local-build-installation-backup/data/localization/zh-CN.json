@@ -1,0 +1,865 @@
+{
+  "version": "1.0",
+  "strings": [
+    {
+      "name": "SE_EDITOR_GEN_ENABLE_FREEBUILD",
+      "value": "启用自由建造"
+    },
+    {
+      "name": "IMGUI_API_WINDOW_TITLE",
+      "value": "ImGUI API 窗口"
+    },
+    {
+      "name": "REMIX_MENU_OPTIONS_TITLE",
+      "value": "选项"
+    },
+    {
+      "name": "REMIX_MENU_OPTIONS_SMALL_TEXT",
+      "value": "此处的某些选项可能需要重启才能生效。"
+    },
+    {
+      "name": "REMIX_MENU_OPTIONS_MENUKEY",
+      "value": "当前菜单键：{0}"
+    },
+    {
+      "name": "REMIX_MENU_ALWAYS_RENDERER_ENABLED",
+      "value": "常驻渲染器 (AR) 已启用"
+    },
+    {
+      "name": "REMIX_MENU_MENU_RENDERER_ENABLED",
+      "value": "菜单渲染器 (MR) 已启用"
+    },
+    {
+      "name": "REMIX_MENU_MENU_DEMO_ENABLED",
+      "value": "演示窗口已启用"
+    },
+    {
+      "name": "REMIX_MENU_MENU_FORCEWMPASSTHROUGH_ENABLED",
+      "value": "强制 WM 事件穿透"
+    },
+    {
+      "name": "REMIX_MENU_MENU_DX11TOGGLEKEY",
+      "value": "当前 DX11 钩子切换键：{0}"
+    },
+    {
+      "name": "REMIX_MENU_MENU_CUSTOMFONTPATH",
+      "value": "自定义字体 (.ttf 文件绝对路径)"
+    },
+    {
+      "name": "REMIX_MENU_MENU_FONTPIXELSIZE",
+      "value": "字体像素大小"
+    },
+    {
+      "name": "SE_EDITOR_TITLE",
+      "value": "SHCDE-SE-EDITOR"
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_TITLE",
+      "value": "工具"
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_GENERAL",
+      "value": "常规"
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_ENTITYLIST",
+      "value": "实体列表"
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_LUA",
+      "value": "LUA 脚本"
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_MANAGERS",
+      "value": "内存管理器"
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_MAP_ARCHIVE_TOOLS",
+      "value": "地图归档工具 (MAS)"
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_MAS_SEPERATOR",
+      "value": "常规归档部分"
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_MAS_NOT_FOUND",
+      "value": "地图归档：未找到。"
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_MAS_ADD_HELP",
+      "value": "您可以为此地图添加一个新的归档。仅建议在地图编辑器中使用此功能。"
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_MAS_WARN",
+      "value": "重要提示：创建归档后，您必须在进行其他更改之前保存并重新打开地图！在点击此按钮之前，您也必须至少保存过一次地图。"
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_MAS_CREATE_NEW",
+      "value": "创建新归档"
+    },
+    {
+      "name": "SE_EDITOR_COMMON_NA",
+      "value": "不可用"
+    },
+    {
+      "name": "SE_EDITOR_COMMON_EXISTS",
+      "value": "存在"
+    },
+    {
+      "name": "SE_EDITOR_COMMON_NOT_FOUND",
+      "value": "未找到"
+    },
+    {
+      "name": "SE_EDITOR_ARCHIVE_INFO",
+      "value": "归档信息"
+    },
+    {
+      "name": "SE_EDITOR_ARCHIVE_AUTHOR",
+      "value": "作者"
+    },
+    {
+      "name": "SE_EDITOR_ARCHIVE_MAPNAME",
+      "value": "地图名称"
+    },
+    {
+      "name": "SE_EDITOR_ARCHIVE_DESC",
+      "value": "描述"
+    },
+    {
+      "name": "SE_EDITOR_ARCHIVE_VER",
+      "value": "版本"
+    },
+    {
+      "name": "SE_EDITOR_ARCHIVE_WEB",
+      "value": "网站"
+    },
+    {
+      "name": "SE_EDITOR_ARCHIVE_REMOVE_WARN",
+      "value": "这将从地图中移除归档。您必须保存地图文件以永久生效。"
+    },
+    {
+      "name": "SE_EDITOR_ARCHIVE_REMOVE_BTN",
+      "value": "移除归档"
+    },
+    {
+      "name": "SE_EDITOR_TRIG_TITLE",
+      "value": "触发器管理"
+    },
+    {
+      "name": "SE_EDITOR_TRIG_ACTIVE",
+      "value": "活动触发器：{0}"
+    },
+    {
+      "name": "SE_EDITOR_TRIG_REMOVE_WARN",
+      "value": "这将移除地图中所有活动的触发器。"
+    },
+    {
+      "name": "SE_EDITOR_TRIG_REMOVE_BTN",
+      "value": "移除所有触发器"
+    },
+    {
+      "name": "SE_EDITOR_TIMER_TITLE",
+      "value": "计时器管理"
+    },
+    {
+      "name": "SE_EDITOR_TIMER_ACTIVE",
+      "value": "活动计时器：{0}"
+    },
+    {
+      "name": "SE_EDITOR_TIMER_REMOVE_WARN",
+      "value": "这将移除地图中所有活动的计时器。"
+    },
+    {
+      "name": "SE_EDITOR_TIMER_REMOVE_BTN",
+      "value": "移除所有计时器"
+    },
+    {
+      "name": "SE_EDITOR_MANAGER_TITLE",
+      "value": "-- 管理器虚拟地址 (VA) --"
+    },
+    {
+      "name": "SE_EDITOR_MANAGER_COL_NAME",
+      "value": "名称"
+    },
+    {
+      "name": "SE_EDITOR_MANAGER_COL_ADDR",
+      "value": "地址"
+    },
+    {
+      "name": "SE_EDITOR_MANAGER_COL_COPY",
+      "value": "复制"
+    },
+    {
+      "name": "SE_EDITOR_MANAGER_BTN_COPY",
+      "value": "复制"
+    },
+    {
+      "name": "SE_EDITOR_SETTINGS_TITLE",
+      "value": "-- 设置 --"
+    },
+    {
+      "name": "SE_EDITOR_GEN_SHOW_TOOLS",
+      "value": "显示地图编辑器工具"
+    },
+    {
+      "name": "SE_EDITOR_GEN_CURSOR_TITLE",
+      "value": "-- 实时光标视图 --"
+    },
+    {
+      "name": "SE_EDITOR_GEN_MOUSE_POS",
+      "value": "鼠标位置"
+    },
+    {
+      "name": "SE_EDITOR_GEN_MOUSE_TILE",
+      "value": "鼠标图块"
+    },
+    {
+      "name": "SE_EDITOR_GEN_HOVER_BUILD_ID",
+      "value": "悬停建筑 ID"
+    },
+    {
+      "name": "SE_EDITOR_GEN_HOVER_UNIT_ID",
+      "value": "悬停单位 ID"
+    },
+    {
+      "name": "SE_EDITOR_GEN_HOVER_BUILD_TILE_ID",
+      "value": "悬停建筑图块 ID"
+    },
+    {
+      "name": "SE_EDITOR_GEN_MOUSE_TILEX_WORLD",
+      "value": "鼠标图块 X (世界)"
+    },
+    {
+      "name": "SE_EDITOR_GEN_MOUSE_TILEY_WORLD",
+      "value": "鼠标图块 Y (世界)"
+    },
+    {
+      "name": "SE_EDITOR_GEN_MOUSE_TILE_ID",
+      "value": "鼠标图块 ID"
+    },
+    {
+      "name": "SE_EDITOR_GEN_LIVE_TILE_TITLE",
+      "value": "-- 实时图块视图 --"
+    },
+    {
+      "name": "SE_EDITOR_GEN_COL_PROP",
+      "value": "属性"
+    },
+    {
+      "name": "SE_EDITOR_GEN_COL_VAL",
+      "value": "值"
+    },
+    {
+      "name": "SE_EDITOR_GEN_COL_MEM",
+      "value": "内存地址"
+    },
+    {
+      "name": "SE_EDITOR_TILE_UNKNOWN",
+      "value": "图块未知"
+    },
+    {
+      "name": "SE_EDITOR_TILE_HEIGHT",
+      "value": "图块高度"
+    },
+    {
+      "name": "SE_EDITOR_TILE_STATE",
+      "value": "图块状态"
+    },
+    {
+      "name": "SE_EDITOR_TILE_PROP_FLAG",
+      "value": "图块属性标志"
+    },
+    {
+      "name": "SE_EDITOR_TILE_PROP_ENUM",
+      "value": "图块属性枚举"
+    },
+    {
+      "name": "SE_EDITOR_TILE_VEG_ID",
+      "value": "植被 ID"
+    },
+    {
+      "name": "SE_EDITOR_TILE_TYPE",
+      "value": "图块类型"
+    },
+    {
+      "name": "SE_EDITOR_TILE_DEF_HEIGHT",
+      "value": "默认高度"
+    },
+    {
+      "name": "SE_EDITOR_TILE_BUILD_ID",
+      "value": "建筑 ID"
+    },
+    {
+      "name": "SE_EDITOR_TILE_UNIT_ID",
+      "value": "单位 ID"
+    },
+    {
+      "name": "SE_EDITOR_TILE_OWNER_ID",
+      "value": "所有者 ID"
+    },
+    {
+      "name": "SE_EDITOR_GEN_CURSOR_OUT",
+      "value": "光标位于有效图块区域之外。"
+    },
+    {
+      "name": "SE_EDITOR_EDIT_TILE_TITLE",
+      "value": "-- 编辑图块视图 --"
+    },
+    {
+      "name": "SE_EDITOR_EDIT_TILE_ID",
+      "value": "图块 ID"
+    },
+    {
+      "name": "SE_EDITOR_EDIT_TILE_UNK",
+      "value": "图块未知"
+    },
+    {
+      "name": "SE_EDITOR_EDIT_TILE_HEIGHT",
+      "value": "图块高度/生命值"
+    },
+    {
+      "name": "SE_EDITOR_EDIT_TILE_STATE",
+      "value": "图块状态"
+    },
+    {
+      "name": "SE_EDITOR_EDIT_TILE_PROP",
+      "value": "图块属性"
+    },
+    {
+      "name": "SE_EDITOR_EDIT_TILE_VEG",
+      "value": "植被 ID 查找"
+    },
+    {
+      "name": "SE_EDITOR_EDIT_TILE_OWNER",
+      "value": "玩家所有者 ID"
+    },
+    {
+      "name": "SE_EDITOR_EDIT_TILE_APPLY",
+      "value": "应用图块更改"
+    },
+    {
+      "name": "SE_EDITOR_LUA_MANAGE_TITLE",
+      "value": "LUA 状态管理"
+    },
+    {
+      "name": "SE_EDITOR_LUA_STATE_LABEL",
+      "value": "LUA 状态：{0}"
+    },
+    {
+      "name": "SE_EDITOR_LUA_CREATE",
+      "value": "调试：创建 lua 状态"
+    },
+    {
+      "name": "SE_EDITOR_LUA_CLOSE",
+      "value": "调试：关闭 lua 状态"
+    },
+    {
+      "name": "SE_EDITOR_LUA_SCRIPT_TITLE",
+      "value": "LUA 脚本控制"
+    },
+    {
+      "name": "SE_EDITOR_LUA_CALL_INIT",
+      "value": "调用 Init"
+    },
+    {
+      "name": "SE_EDITOR_LUA_RND_TITLE",
+      "value": "随机引擎"
+    },
+    {
+      "name": "SE_EDITOR_LUA_RND_SEED",
+      "value": "随机引擎种子"
+    },
+    {
+      "name": "SE_EDITOR_LUA_RND_INIT",
+      "value": "初始化随机引擎"
+    },
+    {
+      "name": "SE_EDITOR_LUA_EXEC_TITLE",
+      "value": "LUA 代码执行"
+    },
+    {
+      "name": "SE_EDITOR_LUA_RUN",
+      "value": "运行 LUA"
+    },
+    {
+      "name": "SE_EDITOR_ENT_NO_UNITS",
+      "value": "未找到活动单位。"
+    },
+    {
+      "name": "SE_EDITOR_ENT_COL_ID",
+      "value": "ID"
+    },
+    {
+      "name": "SE_EDITOR_ENT_COL_TYPE",
+      "value": "类型"
+    },
+    {
+      "name": "SE_EDITOR_ENT_COL_POS_XY",
+      "value": "位置 (XY)"
+    },
+    {
+      "name": "SE_EDITOR_ENT_COL_POS_Z",
+      "value": "位置 (Z)"
+    },
+    {
+      "name": "SE_EDITOR_ENT_COL_PLAYER",
+      "value": "玩家 ID"
+    },
+    {
+      "name": "SE_EDITOR_ENT_COL_HEALTH",
+      "value": "生命值"
+    },
+    {
+      "name": "SE_EDITOR_ENT_COL_ADDR",
+      "value": "地址"
+    },
+    {
+      "name": "SE_EDITOR_ENT_COL_ACTION",
+      "value": "操作"
+    },
+    {
+      "name": "SE_EDITOR_ENT_BTN_COPY",
+      "value": "复制地址"
+    },
+    {
+      "name": "SE_EDITOR_ENT_BTN_DELETE",
+      "value": "删除"
+    },
+    {
+      "name": "SE_EDITOR_ENT_CTX_DELETE",
+      "value": "删除"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_TITLE",
+      "value": "图块检查器"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_HELP",
+      "value": "按住左 Alt 并在图块上点击右键以检查它。"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_NO_SEL",
+      "value": "未选中图块。"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_SEL_ID",
+      "value": "选中图块 ID：{0} (0x{0:X8})"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_HEIGHT",
+      "value": "高度"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_OWNER",
+      "value": "所有者 ID (0 起始)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_PLAYER_ARROW",
+      "value": "-> 玩家 {0}"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_STATE",
+      "value": "图块状态"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK_BYTE",
+      "value": "未知 (字节)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_BLD_ID",
+      "value": "建筑 ID"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNIT_ID",
+      "value": "单位 ID"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_VEG",
+      "value": "植被查找"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK1",
+      "value": "未知网格 1"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK2",
+      "value": "未知网格 2"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK3",
+      "value": "未知网格 3"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_DEF_HEIGHT",
+      "value": "默认高度？"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_FLAGS",
+      "value": "属性标志"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_BTN_SAVE",
+      "value": "保存更改"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_BTN_READ",
+      "value": "重新读取值"
+    },
+    {
+      "name": "SE_EDITOR_REGION_TITLE",
+      "value": "要塞地图助手"
+    },
+    {
+      "name": "SE_EDITOR_REGION_NOT_SET",
+      "value": "未设置"
+    },
+    {
+      "name": "SE_EDITOR_REGION_BEGIN",
+      "value": "起点 XY：{0}"
+    },
+    {
+      "name": "SE_EDITOR_REGION_END",
+      "value": "终点 XY：{0}"
+    },
+    {
+      "name": "SE_EDITOR_REGION_BTN_COPY",
+      "value": "作为新矩形区域 2D (RectangularArea2D) 复制"
+    },
+    {
+      "name": "SE_EDITOR_REGION_HELP_TITLE",
+      "value": "使用方法："
+    },
+    {
+      "name": "SE_EDITOR_REGION_HELP_1",
+      "value": "1. 按住左 Alt 并在地图上左键点击以设置起点。"
+    },
+    {
+      "name": "SE_EDITOR_REGION_HELP_2",
+      "value": "2. 再次按住左 Alt 并左键点击以设置终点。"
+    },
+    {
+      "name": "SE_EDITOR_REGION_BTN_RESET",
+      "value": "重置选择"
+    },
+    {
+      "name": "SE_EDITOR_MUTATOR_TITLE",
+      "value": "图块属性突变工具"
+    },
+    {
+      "name": "SE_EDITOR_MUTATOR_OPTIONS",
+      "value": "选项"
+    },
+    {
+      "name": "SE_EDITOR_MUTATOR_ENABLED",
+      "value": "已启用"
+    },
+    {
+      "name": "SE_EDITOR_MUTATOR_FORCE_SET",
+      "value": "设置为 (非叠加)"
+    },
+    {
+      "name": "SE_EDITOR_MUTATOR_AUGMENT",
+      "value": "增强下一个图块..."
+    },
+    {
+      "name": "SE_EDITOR_MUTATOR_TYPE",
+      "value": "图块类型"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_TITLE",
+      "value": "镜像工具"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_OPTIONS",
+      "value": "选项"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_VERT",
+      "value": "垂直"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_HORZ",
+      "value": "水平"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_ENABLED_FOR",
+      "value": "启用对象..."
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_TYPE",
+      "value": "图块类型"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_HEIGHT",
+      "value": "图块高度"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_WALLS",
+      "value": "城墙"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_BLD",
+      "value": "建筑"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_UNITS",
+      "value": "单位"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_VEG",
+      "value": "植被"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_ANIMALS",
+      "value": "动物"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_DELETE",
+      "value": "删除操作"
+    },
+    {
+      "name": "SE_EDITOR_MASS_TITLE",
+      "value": "批量图块编辑器"
+    },
+    {
+      "name": "SE_EDITOR_MASS_RND_HEIGHT",
+      "value": "随机高度"
+    },
+    {
+      "name": "SE_EDITOR_MASS_MIN_HEIGHT",
+      "value": "最小高度"
+    },
+    {
+      "name": "SE_EDITOR_MASS_MAX_HEIGHT",
+      "value": "最大高度"
+    },
+    {
+      "name": "SE_EDITOR_MASS_NEW_HEIGHT",
+      "value": "新图块高度 (0-255)"
+    },
+    {
+      "name": "SE_EDITOR_MASS_SHAPE",
+      "value": "形状"
+    },
+    {
+      "name": "SE_EDITOR_MASS_SHAPE_RECT",
+      "value": "矩形"
+    },
+    {
+      "name": "SE_EDITOR_MASS_SHAPE_CIRCLE",
+      "value": "圆形"
+    },
+    {
+      "name": "SE_EDITOR_MASS_EDGES_ONLY",
+      "value": "仅边缘"
+    },
+    {
+      "name": "SE_EDITOR_MASS_EDGE_WIDTH",
+      "value": "边缘宽度"
+    },
+    {
+      "name": "SE_EDITOR_MASS_SET_FLAGS",
+      "value": "设置图块属性标志"
+    },
+    {
+      "name": "SE_EDITOR_MASS_FLAGS_VAL",
+      "value": "属性标志值"
+    },
+    {
+      "name": "SE_EDITOR_MASS_INNER_ONLY",
+      "value": "仅应用于内部图块"
+    },
+    {
+      "name": "SE_EDITOR_MASS_PREVIEW",
+      "value": "实时预览 (设为高度 0)"
+    },
+    {
+      "name": "SE_EDITOR_MASS_BTN_APPLY",
+      "value": "应用更改"
+    },
+    {
+      "name": "SE_EDITOR_MASS_WARN_SELECT",
+      "value": "请使用地图助手选择一个区域。"
+    },
+    {
+      "name": "SE_EDITOR_MASS_BTN_UNDO",
+      "value": "撤销上一步操作"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_SEC_BYTE",
+      "value": "字节网格"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_SEC_UINT16",
+      "value": "UInt16 网格"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_SEC_INT16",
+      "value": "Int16 网格"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_SEC_INT32",
+      "value": "Int32 网格"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_DAMAGE",
+      "value": "受损/状态 (damage_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_WALL_OWNER",
+      "value": "城墙所有者ID (wall_owner_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_SHOW_HI",
+      "value": "高亮显示层 (show_hi_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_AI_ZONE",
+      "value": "AI 区域 (ai_zone_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_OCCUPANCY",
+      "value": "单位占用掩码 (occupancy_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_DELAY",
+      "value": "延迟层 (delay_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_LUMINESCENCE",
+      "value": "发光/阴影 (luminesence_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_STRUCTURE_WAS",
+      "value": "原建筑类型 (structure_was_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_AI_DANGER",
+      "value": "AI 危险热图 (ai_danger_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_AIV_BLOCK",
+      "value": "AIV 区块掩码 (aiv_block_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_GATE_PATH",
+      "value": "城门路径 (gate_path_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK_0xA20D40",
+      "value": "未知字节 (0xA20D40)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK_0xD30080",
+      "value": "未知字节 (0xD30080)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK_0x134E700",
+      "value": "未知字节 (0x134E700)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK_0x13EB140",
+      "value": "未知字节/路径标记 (0x13EB140)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_ORGANISM",
+      "value": "生物/植被ID (organism_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_STRUCTURE",
+      "value": "建筑/结构ID (structure_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_MISC_DISPLAY",
+      "value": "杂项显示标志 (misc_display_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_PATH_CONNECTION",
+      "value": "路径连接/区域ID (path_connection_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_RANDOM_NOISE",
+      "value": "地块随机噪声 (random_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK_0x75EF80",
+      "value": "未知 Int16 (0x75EF80)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK_0x1EA23F0",
+      "value": "未知 UInt16 (0x1EA23F0)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_MACRO",
+      "value": "宏观层 (macro_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_FLY",
+      "value": "飞行/抛射物层 (fly_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_LOGIC_FLAGS",
+      "value": "逻辑/属性标志 (logic_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_PILLAR_GFX",
+      "value": "柱子图像 (pillar_gfx_layer, 动态)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_GFX",
+      "value": "图像精灵 (gfx_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_ALPHA_GFX",
+      "value": "透明图像精灵 (alpha_gfx_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_CONSTRUCTION_GFX",
+      "value": "建造图像 (construction_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_WALL_GFX",
+      "value": "城墙图像 (wall_gfx_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK_0x1D68F70",
+      "value": "未知 Int32 (0x1D68F70)"
+    },
+    {
+      "name": "SE_EDITOR_TILE_PILLAR_GFX",
+      "value": "柱子图像 (pillar_gfx_layer)"
+    },
+    {
+      "name": "SE_EDITOR_TILE_SHOW_HI",
+      "value": "高亮显示层 (show_hi_layer)"
+    },
+    {
+      "name": "SE_EDITOR_TILE_MISC_DISPLAY",
+      "value": "杂项显示 (misc_display_layer)"
+    },
+    {
+      "name": "SE_EDITOR_TILE_PATH_CONNECTION",
+      "value": "路径连接 (path_connection_layer)"
+    },
+    {
+      "name": "SE_EDITOR_TILE_AI_ZONE",
+      "value": "AI 区域 (ai_zone_layer)"
+    },
+    {
+      "name": "SE_EDITOR_TILE_OCCUPANCY",
+      "value": "单位占用 (occupancy_layer)"
+    },
+    {
+      "name": "SE_EDITOR_TILE_DELAY",
+      "value": "延迟层 (delay_layer)"
+    },
+    {
+      "name": "SE_EDITOR_TILE_UNK_0xA20D40",
+      "value": "未知字节 (0xA20D40)"
+    },
+    {
+      "name": "SE_EDITOR_EDIT_TILE_UNK_0xA20D40",
+      "value": "未知字节 (0xA20D40)"
+    }
+  ]
+}

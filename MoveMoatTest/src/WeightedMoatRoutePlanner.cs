@@ -309,29 +309,13 @@ namespace MoveMoatTest
         private readonly CompletedMoatRelationshipResolver resolveCompletedMoatRelationship;
         private readonly NativeSpecialStructureResolver resolveSpecialStructure;
 
-        private readonly long[] costs = new long[CoordinateCount];
-        private readonly int[] parents = new int[CoordinateCount];
-        private readonly int[] insertionOrder = new int[CoordinateCount];
-        private readonly int[] heap = new int[CoordinateCount];
-        private readonly int[] heapPositions = new int[CoordinateCount];
-        private readonly int[] moatEdges = new int[CoordinateCount];
-        private readonly int[] edgeCounts = new int[CoordinateCount];
-        private readonly int[] touched = new int[CoordinateCount];
-        private readonly int[] route = new int[MaximumRouteEdges + 1];
         private readonly byte[] moatClassification = new byte[NativeTileCount];
         private readonly int[] classifiedTiles = new int[NativeTileCount];
         private readonly byte[] specialStructureClassification = new byte[NativeTileCount];
         private readonly int[] classifiedSpecialStructureTiles = new int[NativeTileCount];
 
-        private int heapCount;
-        private int touchedCount;
         private int classifiedCount;
         private int classifiedSpecialStructureCount;
-        private int nextInsertionOrder;
-        private int targetX;
-        private int targetY;
-        private long groundEdgeFixedCost;
-
         public WeightedMoatRoutePlanner(
             int* rowLookup,
             uint* tileFlags,
@@ -355,14 +339,6 @@ namespace MoveMoatTest
             this.resolveSpecialStructure = resolveSpecialStructure ??
                 throw new ArgumentNullException(nameof(resolveSpecialStructure));
 
-            for (int node = 0; node < CoordinateCount; node++)
-            {
-                costs[node] = long.MaxValue;
-                parents[node] = -1;
-                heapPositions[node] = -1;
-                moatEdges[node] = int.MaxValue;
-                edgeCounts[node] = int.MaxValue;
-            }
         }
 
         public bool TryBuild(
@@ -421,7 +397,7 @@ namespace MoveMoatTest
             return TryBuildCore(
                 playerId, startX, startY, requestedTargetX, requestedTargetY,
                 reachabilityProfile, allowReservedTarget, captureEncodedRoute: false,
-                policy, out summary, out _);
+                policy, out summary, out _, reachability: true);
         }
 
         public bool TryBuildReachabilityEncoded(
@@ -446,163 +422,112 @@ namespace MoveMoatTest
             return TryBuildCore(
                 playerId, startX, startY, requestedTargetX, requestedTargetY,
                 reachabilityProfile, allowReservedTarget, captureEncodedRoute: true,
-                MoatTraversalPolicy.FriendlyOnly, out summary, out encodedRoute);
+                MoatTraversalPolicy.FriendlyOnly, out summary, out encodedRoute, reachability: true);
+        }
+
+        private readonly MoatSearchKernel[] searchKernels = new MoatSearchKernel[6];
+        private object searchSession;
+        private int searchPlayer = -1;
+        private int searchEpoch = -1;
+        private long searchTick = -1;
+        private int kernelPlayer;
+        internal void SetSearchSession(object session, int player, int epoch, long tick)
+        {
+            if (session != null && ReferenceEquals(session, searchSession) &&
+                player == searchPlayer && epoch == searchEpoch && tick == searchTick) return;
+            searchSession = session; searchPlayer = player; searchEpoch = epoch; searchTick = tick;
+            foreach (MoatSearchKernel kernel in searchKernels) kernel?.Invalidate();
+            ResetClassifications();
+        }
+        internal long SearchNodes
+        {
+            get { long total = 0; foreach (MoatSearchKernel k in searchKernels) if (k != null) total += k.Expanded; return total; }
+        }
+        internal long SearchRuns
+        {
+            get { long total = 0; foreach (MoatSearchKernel k in searchKernels) if (k != null) total += k.Searches; return total; }
+        }
+        internal long SharedFieldHits
+        {
+            get { long total = 0; foreach (MoatSearchKernel k in searchKernels) if (k != null) total += k.FieldHits; return total; }
+        }
+        private MoatSearchKernel GetSearchKernel(MoatTraversalPolicy policy, bool reachability)
+        {
+            int index = (int)policy + (reachability ? 3 : 0);
+            if (searchKernels[index] == null)
+                searchKernels[index] = new MoatSearchKernel(MapWidth, MapWidth,
+                    (int from, int to, int direction, out bool moat, out bool structure) =>
+                        TryGetEdge(kernelPlayer, from % MapWidth, from / MapWidth,
+                            GetTileId(from % MapWidth, from / MapWidth), to % MapWidth, to / MapWidth,
+                            GetTileId(to % MapWidth, to / MapWidth), direction, false, false, policy,
+                            out moat, out structure));
+            return searchKernels[index];
+        }
+
+        internal bool TryBuildImprovement(int playerId, int startX, int startY, int endX, int endY,
+            WeightedMovementCostProfile profile, bool reservedTarget, MoatSearchLimit[] limits,
+            out WeightedMoatRouteSummary summary, out WeightedMoatEncodedRoute route)
+        {
+            return TryBuildCore(playerId, startX, startY, endX, endY, profile, reservedTarget, true,
+                MoatTraversalPolicy.FriendlyOnly, out summary, out route, limits, true);
         }
 
         private bool TryBuildCore(
-            int playerId,
-            int startX,
-            int startY,
-            int requestedTargetX,
-            int requestedTargetY,
-            WeightedMovementCostProfile costProfile,
-            bool allowReservedTarget,
-            bool captureEncodedRoute,
-            MoatTraversalPolicy traversalPolicy,
-            out WeightedMoatRouteSummary summary,
-            out WeightedMoatEncodedRoute encodedRoute)
+            int playerId, int startX, int startY, int requestedTargetX, int requestedTargetY,
+            WeightedMovementCostProfile costProfile, bool allowReservedTarget, bool captureEncodedRoute,
+            MoatTraversalPolicy traversalPolicy, out WeightedMoatRouteSummary summary,
+            out WeightedMoatEncodedRoute encodedRoute, MoatSearchLimit[] limits = null, bool improvement = false, bool reachability = false)
         {
             Stopwatch stopwatch = Stopwatch.StartNew();
-            summary = default;
-            encodedRoute = default;
-            ResetSearch();
-            try
+            summary = default; encodedRoute = default;
+            if (searchSession == null || searchPlayer != playerId)
+                SetSearchSession(null, playerId, searchEpoch, searchTick);
+            kernelPlayer = playerId;
+            if (!IsValidCoordinate(startX, startY) || !IsValidCoordinate(requestedTargetX, requestedTargetY))
+            { summary = WeightedMoatRouteSummary.Failed("invalid-coordinate", 0); return false; }
+            int startTile = GetTileId(startX, startY), endTile = GetTileId(requestedTargetX, requestedTargetY);
+            if ((traversalPolicy == MoatTraversalPolicy.GroundOnly && (IsCompletedMoat(startTile) || IsCompletedMoat(endTile))) ||
+                (IsCompletedMoat(startTile) && !IsEndpointRelationshipAllowed(GetMoatRelationship(playerId, startTile), traversalPolicy)) ||
+                (IsCompletedMoat(endTile) && !IsEndpointRelationshipAllowed(GetMoatRelationship(playerId, endTile), traversalPolicy)))
+            { summary = WeightedMoatRouteSummary.Failed("enemy-or-invalid-moat-endpoint", 0); return false; }
+            MoatSearchKernel kernel = GetSearchKernel(traversalPolicy, reachability);
+            long before = kernel.Expanded;
+            // A topological answer is independent of the native 1000-byte output buffer.
+            int maxEdges = captureEncodedRoute ? MaximumRouteEdges : int.MaxValue;
+            bool found = kernel.Search(GetNode(startX, startY), GetNode(requestedTargetX, requestedTargetY),
+                reachability ? 1 : costProfile.GetEdgeFixedCost(false), reachability ? 1 : costProfile.GetEdgeFixedCost(true), maxEdges,
+                improvement, improvement, limits, searchSession != null, out int[] nodes);
+            int expanded = (int)Math.Min(int.MaxValue, kernel.Expanded - before);
+            if (!found)
             {
-                if (!IsValidCoordinate(startX, startY) ||
-                    !IsValidCoordinate(requestedTargetX, requestedTargetY))
-                {
-                    summary = WeightedMoatRouteSummary.Failed(
-                        "invalid-coordinate", stopwatch.Elapsed.TotalMilliseconds);
-                    return false;
-                }
-
-                int startTile = GetTileId(startX, startY);
-                int requestedTargetTile = GetTileId(requestedTargetX, requestedTargetY);
-                if (!IsNativeTile(startTile) || !IsNativeTile(requestedTargetTile))
-                {
-                    summary = WeightedMoatRouteSummary.Failed(
-                        "invalid-tile", stopwatch.Elapsed.TotalMilliseconds);
-                    return false;
-                }
-                CompletedMoatRelationship startRelationship = IsCompletedMoat(startTile)
-                    ? GetMoatRelationship(playerId, startTile)
-                    : CompletedMoatRelationship.Friendly;
-                CompletedMoatRelationship targetRelationship = IsCompletedMoat(requestedTargetTile)
-                    ? GetMoatRelationship(playerId, requestedTargetTile)
-                    : CompletedMoatRelationship.Friendly;
-                if ((traversalPolicy == MoatTraversalPolicy.GroundOnly &&
-                     (IsCompletedMoat(startTile) || IsCompletedMoat(requestedTargetTile))) ||
-                    !IsEndpointRelationshipAllowed(startRelationship, traversalPolicy) ||
-                    !IsEndpointRelationshipAllowed(targetRelationship, traversalPolicy))
-                {
-                    summary = WeightedMoatRouteSummary.Failed(
-                        "enemy-or-invalid-moat-endpoint", stopwatch.Elapsed.TotalMilliseconds);
-                    return false;
-                }
-
-                targetX = requestedTargetX;
-                targetY = requestedTargetY;
-                groundEdgeFixedCost = costProfile.GroundEdgeFixedCost;
-                int startNode = GetNode(startX, startY);
-                int targetNode = GetNode(targetX, targetY);
-                Touch(startNode, 0, -1, 0, 0);
-                Push(startNode);
-
-                int expanded = 0;
-                while (heapCount > 0 && expanded < CoordinateCount)
-                {
-                    int currentNode = Pop();
-                    expanded++;
-                    if (currentNode == targetNode)
-                    {
-                        if (!TrySummarizeRoute(
-                            playerId, startNode, targetNode, allowReservedTarget,
-                            costProfile, expanded, stopwatch, captureEncodedRoute,
-                            traversalPolicy,
-                            out summary, out encodedRoute))
-                        {
-                            return false;
-                        }
-                        return true;
-                    }
-
-                    int currentX = currentNode % MapWidth;
-                    int currentY = currentNode / MapWidth;
-                    int currentTile = GetTileId(currentX, currentY);
-                    if (!IsNativeTile(currentTile))
-                        continue;
-
-                    for (int direction = 0; direction < DirectionX.Length; direction++)
-                    {
-                        int nextX = currentX + DirectionX[direction];
-                        int nextY = currentY + DirectionY[direction];
-                        if (!IsValidCoordinate(nextX, nextY))
-                            continue;
-
-                        int nextTile = GetTileId(nextX, nextY);
-                        if (!IsNativeTile(nextTile))
-                            continue;
-                        bool targetEndpoint = nextX == targetX && nextY == targetY;
-                        if (!TryGetEdge(
-                            playerId, currentX, currentY, currentTile, nextX, nextY,
-                            nextTile, direction, targetEndpoint, allowReservedTarget,
-                            traversalPolicy,
-                            out bool moatEdge, out _))
-                        {
-                            continue;
-                        }
-
-                        int nextNode = GetNode(nextX, nextY);
-                        int newEdgeCount = edgeCounts[currentNode] + 1;
-                        if (newEdgeCount > MaximumRouteEdges)
-                            continue;
-                        long edgeFixedCost = costProfile.GetEdgeFixedCost(moatEdge);
-                        long newCost = costs[currentNode] > long.MaxValue - edgeFixedCost
-                            ? long.MaxValue
-                            : costs[currentNode] + edgeFixedCost;
-                        int newMoatEdges = moatEdges[currentNode] == int.MaxValue
-                            ? int.MaxValue
-                            : moatEdges[currentNode] + (moatEdge ? 1 : 0);
-                        if (newCost > costs[nextNode] ||
-                            newCost == costs[nextNode] &&
-                            (newMoatEdges > moatEdges[nextNode] ||
-                             newMoatEdges == moatEdges[nextNode] &&
-                             newEdgeCount >= edgeCounts[nextNode]))
-                        {
-                            continue;
-                        }
-
-                        if (costs[nextNode] == long.MaxValue)
-                            Touch(nextNode, newCost, currentNode, newMoatEdges, newEdgeCount);
-                        else
-                        {
-                            costs[nextNode] = newCost;
-                            parents[nextNode] = currentNode;
-                            moatEdges[nextNode] = newMoatEdges;
-                            edgeCounts[nextNode] = newEdgeCount;
-                        }
-                        PushOrDecrease(nextNode);
-                    }
-                }
-
                 summary = WeightedMoatRouteSummary.Failed(
-                    heapCount == 0 ? "unreachable" : "node-limit",
-                    stopwatch.Elapsed.TotalMilliseconds,
-                    expanded);
+                    improvement ? "no-publishable-improvement" : captureEncodedRoute ? "no-encodable-route" : "unreachable",
+                    stopwatch.Elapsed.TotalMilliseconds, expanded);
                 return false;
             }
-            catch
+            int ground = 0, moatEdges = 0, structures = 0, diagonal = 0, changes = 0, previous = -1;
+            ulong fingerprint = RouteFingerprintOffsetBasis;
+            byte[] bytes = captureEncodedRoute ? new byte[nodes.Length / 2] : null;
+            for (int i = 1; i < nodes.Length; i++)
             {
-                summary = WeightedMoatRouteSummary.Failed(
-                    "exception", stopwatch.Elapsed.TotalMilliseconds);
-                throw;
+                int from = nodes[i - 1], to = nodes[i];
+                int direction = kernel.Direction(from, to);
+                if (!TryGetEdge(playerId, from % MapWidth, from / MapWidth, GetTileId(from % MapWidth, from / MapWidth),
+                    to % MapWidth, to / MapWidth, GetTileId(to % MapWidth, to / MapWidth), direction,
+                    i == nodes.Length - 1, allowReservedTarget, traversalPolicy, out bool wet, out bool structure))
+                { summary = WeightedMoatRouteSummary.Failed("live-edge-changed", stopwatch.Elapsed.TotalMilliseconds, expanded); return false; }
+                if (wet) moatEdges++; else ground++;
+                if (structure) structures++;
+                if ((direction & 1) != 0) diagonal++;
+                if (previous >= 0 && previous != direction) changes++;
+                previous = direction; fingerprint = UpdateRouteFingerprint(fingerprint, direction);
+                if (bytes != null) bytes[(i - 1) >> 1] |= (byte)(direction << (((i - 1) & 1) * 4));
             }
-            finally
-            {
-                ResetClassifications();
-            }
+            summary = WeightedMoatRouteSummary.Succeeded(nodes.Length - 1, ground, moatEdges, structures, diagonal,
+                changes, fingerprint, costProfile.EstimateRouteTicks(ground, moatEdges), stopwatch.Elapsed.TotalMilliseconds, expanded);
+            if (bytes != null) encodedRoute = new WeightedMoatEncodedRoute(bytes, nodes.Length - 1);
+            return true;
         }
-
         public bool TryDescribeEncodedPath(
             int playerId,
             int startX,
@@ -708,101 +633,6 @@ namespace MoveMoatTest
             }
         }
 
-        private bool TrySummarizeRoute(
-            int playerId,
-            int startNode,
-            int targetNode,
-            bool allowReservedTarget,
-            WeightedMovementCostProfile costProfile,
-            int expanded,
-            Stopwatch stopwatch,
-            bool captureEncodedRoute,
-            MoatTraversalPolicy traversalPolicy,
-            out WeightedMoatRouteSummary summary,
-            out WeightedMoatEncodedRoute encodedRoute)
-        {
-            encodedRoute = default;
-            int routeNodes = 0;
-            int node = targetNode;
-            while (node >= 0 && routeNodes < route.Length)
-            {
-                route[routeNodes++] = node;
-                if (node == startNode)
-                    break;
-                node = parents[node];
-            }
-            if (routeNodes == 0 || routeNodes > MaximumRouteEdges + 1 ||
-                route[routeNodes - 1] != startNode)
-            {
-                summary = WeightedMoatRouteSummary.Failed(
-                    "route-over-2000-edges", stopwatch.Elapsed.TotalMilliseconds, expanded);
-                return false;
-            }
-
-            int ground = 0;
-            int moat = 0;
-            int structure = 0;
-            int diagonal = 0;
-            int directionChanges = 0;
-            int previousDirection = -1;
-            ulong fingerprint = RouteFingerprintOffsetBasis;
-            int directionCount = routeNodes - 1;
-            byte[] encodedDirections = captureEncodedRoute
-                ? new byte[(directionCount + 1) >> 1]
-                : null;
-            int encodedIndex = 0;
-            for (int index = routeNodes - 1; index > 0; index--)
-            {
-                int currentNode = route[index];
-                int nextNode = route[index - 1];
-                int currentX = currentNode % MapWidth;
-                int currentY = currentNode / MapWidth;
-                int nextX = nextNode % MapWidth;
-                int nextY = nextNode / MapWidth;
-                int direction = FindDirection(nextX - currentX, nextY - currentY);
-                bool targetEndpoint = index == 1;
-                if (direction < 0 || !TryGetEdge(
-                    playerId, currentX, currentY, GetTileId(currentX, currentY),
-                    nextX, nextY, GetTileId(nextX, nextY), direction,
-                    targetEndpoint, allowReservedTarget,
-                    traversalPolicy,
-                    out bool moatEdge, out bool structuralEdge))
-                {
-                    summary = WeightedMoatRouteSummary.Failed(
-                        "e1640-edge-validation-failed", stopwatch.Elapsed.TotalMilliseconds,
-                        expanded, routeNodes - 1);
-                    return false;
-                }
-                if (moatEdge)
-                    moat++;
-                else
-                    ground++;
-                if (structuralEdge)
-                    structure++;
-                if ((direction & 1) != 0)
-                    diagonal++;
-                if (previousDirection >= 0 && previousDirection != direction)
-                    directionChanges++;
-                previousDirection = direction;
-                fingerprint = UpdateRouteFingerprint(fingerprint, direction);
-                if (encodedDirections != null)
-                {
-                    encodedDirections[encodedIndex >> 1] |=
-                        (byte)(direction << ((encodedIndex & 1) * 4));
-                    encodedIndex++;
-                }
-            }
-
-            summary = WeightedMoatRouteSummary.Succeeded(
-                directionCount, ground, moat, structure, diagonal,
-                directionChanges, fingerprint,
-                costProfile.ConvertFixedCostToTicks(costs[targetNode]),
-                stopwatch.Elapsed.TotalMilliseconds, expanded);
-            if (encodedDirections != null)
-                encodedRoute = new WeightedMoatEncodedRoute(encodedDirections, directionCount);
-            return true;
-        }
-
         private bool TryGetEdge(
             int playerId,
             int currentX,
@@ -883,6 +713,14 @@ namespace MoveMoatTest
                 return false;
 
             bool ordinaryEdge = (directionMasks[direction] & occupancyLayer[currentTile]) != 0;
+            if ((direction & 1) != 0 && policy == MoatTraversalPolicy.FriendlyOnly)
+            {
+                int first = GetTileId(nextX, currentY), second = GetTileId(currentX, nextY);
+                if (!IsNativeTile(first) || !IsNativeTile(second) ||
+                    (IsCompletedMoat(first) && GetMoatRelationship(playerId, first) != CompletedMoatRelationship.Friendly) ||
+                    (IsCompletedMoat(second) && GetMoatRelationship(playerId, second) != CompletedMoatRelationship.Friendly))
+                    return false;
+            }
             structuralEdge = IsStructuralTile(currentTile) || IsStructuralTile(nextTile);
             if (!currentMoat && !nextMoat)
             {
@@ -1140,132 +978,6 @@ namespace MoveMoatTest
 
         private static bool IsNativeTile(int tileId) =>
             tileId >= 0 && tileId < NativeTileCount;
-
-        private long Heuristic(int node)
-        {
-            int x = node % MapWidth;
-            int y = node / MapWidth;
-            int dx = Math.Abs(targetX - x);
-            int dy = Math.Abs(targetY - y);
-            // Both cardinal and diagonal tile changes use the same native cadence.
-            return (long)Math.Max(dx, dy) * groundEdgeFixedCost;
-        }
-
-        private void Touch(
-            int node, long cost, int parent, int moatEdgeCount, int edgeCount)
-        {
-            touched[touchedCount++] = node;
-            costs[node] = cost;
-            parents[node] = parent;
-            moatEdges[node] = moatEdgeCount;
-            edgeCounts[node] = edgeCount;
-            insertionOrder[node] = nextInsertionOrder++;
-            heapPositions[node] = -1;
-        }
-
-        private void Push(int node)
-        {
-            int index = heapCount++;
-            heap[index] = node;
-            heapPositions[node] = index;
-            SiftUp(index);
-        }
-
-        private void PushOrDecrease(int node)
-        {
-            int position = heapPositions[node];
-            if (position < 0)
-                Push(node);
-            else
-                SiftUp(position);
-        }
-
-        private int Pop()
-        {
-            int result = heap[0];
-            heapPositions[result] = -1;
-            heapCount--;
-            if (heapCount > 0)
-            {
-                heap[0] = heap[heapCount];
-                heapPositions[heap[0]] = 0;
-                SiftDown(0);
-            }
-            return result;
-        }
-
-        private void SiftUp(int index)
-        {
-            while (index > 0)
-            {
-                int parent = (index - 1) >> 1;
-                if (!ComesBefore(heap[index], heap[parent]))
-                    break;
-                Swap(index, parent);
-                index = parent;
-            }
-        }
-
-        private void SiftDown(int index)
-        {
-            while (true)
-            {
-                int left = index * 2 + 1;
-                if (left >= heapCount)
-                    return;
-                int right = left + 1;
-                int best = right < heapCount && ComesBefore(heap[right], heap[left])
-                    ? right
-                    : left;
-                if (!ComesBefore(heap[best], heap[index]))
-                    return;
-                Swap(index, best);
-                index = best;
-            }
-        }
-
-        private bool ComesBefore(int left, int right)
-        {
-            long leftF = costs[left] > long.MaxValue - Heuristic(left)
-                ? long.MaxValue
-                : costs[left] + Heuristic(left);
-            long rightF = costs[right] > long.MaxValue - Heuristic(right)
-                ? long.MaxValue
-                : costs[right] + Heuristic(right);
-            if (leftF != rightF)
-                return leftF < rightF;
-            if (costs[left] != costs[right])
-                return costs[left] < costs[right];
-            if (moatEdges[left] != moatEdges[right])
-                return moatEdges[left] < moatEdges[right];
-            return insertionOrder[left] < insertionOrder[right];
-        }
-
-        private void Swap(int left, int right)
-        {
-            int node = heap[left];
-            heap[left] = heap[right];
-            heap[right] = node;
-            heapPositions[heap[left]] = left;
-            heapPositions[heap[right]] = right;
-        }
-
-        private void ResetSearch()
-        {
-            for (int index = 0; index < touchedCount; index++)
-            {
-                int node = touched[index];
-                costs[node] = long.MaxValue;
-                parents[node] = -1;
-                moatEdges[node] = int.MaxValue;
-                edgeCounts[node] = int.MaxValue;
-                heapPositions[node] = -1;
-            }
-            touchedCount = 0;
-            heapCount = 0;
-            nextInsertionOrder = 0;
-            ResetClassifications();
-        }
 
         private void ResetClassifications()
         {

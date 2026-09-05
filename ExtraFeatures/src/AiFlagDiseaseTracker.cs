@@ -1,6 +1,10 @@
 // Feature: Identify Disease projectiles that must retain their Vanilla lifetime.
 using BepInEx.Logging;
 using MessagePack;
+using RedBird.Abstractions.Hooks;
+using RedBird.Abstractions.Hooks.Transaction;
+using RedBird.Core.Memory;
+using RedBird.X64.Hooks.Transaction;
 using R3;
 using SHCDESE.API;
 using SHCDESE.API.Components.SaveData;
@@ -12,8 +16,6 @@ using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
-using Zhuqiaomon.Hooks;
-using Zhuqiaomon.Hooks.Transaction;
 
 namespace ExtraFeatures
 {
@@ -35,8 +37,8 @@ namespace ExtraFeatures
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private readonly PlagueFlagDiseaseRegistry registry = new PlagueFlagDiseaseRegistry();
         private HookTransaction transaction;
-        private HookRef<X64ManagedFunctionDetourAOB<AiFlagRoutineDelegate>> aiFlagRoutineHook =
-            new HookRef<X64ManagedFunctionDetourAOB<AiFlagRoutineDelegate>>();
+        private readonly DetourHandle<AiFlagRoutineDelegate> aiFlagRoutineHook =
+            new DetourHandle<AiFlagRoutineDelegate>();
         private int activeFlagPlayerId;
         private bool saveHandlerRegistered;
         private bool trackingAvailable = true;
@@ -46,6 +48,7 @@ namespace ExtraFeatures
         public AiFlagDiseaseTracker(
             ManualLogSource log,
             IntPtr libraryHandle,
+            ScanRegion region,
             ReadOnlySpan<byte> memory,
             bool referenceHashMatches)
         {
@@ -62,17 +65,13 @@ namespace ExtraFeatures
             try
             {
                 ulong libraryBase = unchecked((ulong)libraryHandle.ToInt64());
-                transaction = new HookTransaction(
-                    memory,
-                    libraryBase,
-                    loggerFactory: null,
-                    failureMode: TransactionFailureMode.RollbackAndThrow);
+                transaction = ExtraFeaturesHookInfrastructure.CreateOwnedTransaction(region);
                 transaction.AddDetour(
-                    ref aiFlagRoutineHook,
-                    libraryBase + unchecked((ulong)routineRva),
+                    aiFlagRoutineHook,
+                    HookTarget.FromAddress(libraryBase + unchecked((ulong)routineRva)),
                     RunAiFlagRoutine);
-                transaction.Commit();
-                if (!aiFlagRoutineHook.Success)
+                CommitResult commitResult = transaction.Commit();
+                if (!commitResult.IsCompleteSuccess || !aiFlagRoutineHook.Success)
                     throw new InvalidOperationException("The AI flag projectile hook was not installed.");
 
                 subscriptions.Add(ProjectileR3EventHooks.OnProjectileSpawn.Observable
@@ -162,7 +161,6 @@ namespace ExtraFeatures
                 ModSaveDataAPI.Instance.UnregisterModDataHandler(SaveDataIdentifier);
                 saveHandlerRegistered = false;
             }
-            transaction?.Unload();
             transaction?.Dispose();
             transaction = null;
             ResetMapState();
@@ -172,7 +170,7 @@ namespace ExtraFeatures
         {
             if (!Shared.GameplayModActivationGate.IsAllowed || !trackingAvailable)
             {
-                aiFlagRoutineHook.Value.Hook.Trampoline(aiManager, playerId);
+                aiFlagRoutineHook.Original(aiManager, playerId);
                 return;
             }
 
@@ -181,7 +179,7 @@ namespace ExtraFeatures
             try
             {
                 // The nested projectile-spawn event is the exact provenance boundary.
-                aiFlagRoutineHook.Value.Hook.Trampoline(aiManager, playerId);
+                aiFlagRoutineHook.Original(aiManager, playerId);
             }
             finally
             {

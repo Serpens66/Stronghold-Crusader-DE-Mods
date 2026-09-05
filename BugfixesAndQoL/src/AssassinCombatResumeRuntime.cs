@@ -4,10 +4,13 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Threading;
-using Zhuqiaomon.Assembly;
-using Zhuqiaomon.Hooks;
-using Zhuqiaomon.Hooks.Transaction;
-using Zhuqiaomon.Memory;
+using RedBird.Abstractions.Hooks.Transaction;
+using RedBird.Abstractions.Hooks;
+using RedBird.Core.Memory;
+using RedBird.X64.Assembly;
+using RedBird.X64.Hooks;
+using RedBird.X64.Hooks.Transaction;
+using RedBird.X64.Hooks.Context;
 
 namespace BugfixesAndQoL
 {
@@ -16,7 +19,7 @@ namespace BugfixesAndQoL
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
         private HookTransaction transaction;
-        private HookRef<X64InlineHook> postCombatPathContextHook = new HookRef<X64InlineHook>();
+        private readonly HookHandle<X64InlineHook> postCombatPathContextHook = new HookHandle<X64InlineHook>();
         private int* assassinPathContextFlag;
         private ulong libraryBase;
         private int callbackFailureLogged;
@@ -30,9 +33,9 @@ namespace BugfixesAndQoL
         public bool IsInstalled =>
             transaction != null &&
             postCombatPathContextHook.Success &&
-            postCombatPathContextHook.Value.IsActive;
+            postCombatPathContextHook.IsInstalled;
 
-        public void InitializeNative(IntPtr libraryHandle, ReadOnlySpan<byte> memory, bool fixedLayoutHashValidated)
+        public void InitializeNative(IntPtr libraryHandle, ScanRegion region, ReadOnlySpan<byte> memory, bool fixedLayoutHashValidated)
         {
             if (IsInstalled)
                 return;
@@ -53,22 +56,19 @@ namespace BugfixesAndQoL
             HookTransaction installedTransaction = null;
             try
             {
-                installedTransaction = new HookTransaction(
-                    memory,
-                    libraryBase,
-                    loggerFactory: null,
-                    failureMode: TransactionFailureMode.RollbackAndThrow);
-                installedTransaction.AddContextHook(
-                    ref postCombatPathContextHook,
+                installedTransaction = BugfixesHookInfrastructure.CreateOwnedTransaction(region);
+                BugfixesHookInfrastructure.AddContextHook(
+                    installedTransaction,
+                    postCombatPathContextHook,
                     libraryBase + unchecked((ulong)AssassinCombatResumeNativeDefinition.PostCombatPathContextHookRva),
                     PreparePostCombatPathContext,
-                    regs: X64SmartCPUContextRegs.All,
+                    registers: X64SmartCPUContextRegs.All,
                     hookSize: AssassinCombatResumeNativeDefinition.PostCombatPathContextHookLength,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.BeforeCallback);
-                installedTransaction.Commit();
+                CommitResult commitResult = installedTransaction.Commit();
 
-                if (!postCombatPathContextHook.Success || !postCombatPathContextHook.Value.IsActive)
+                if (!commitResult.IsCompleteSuccess || !postCombatPathContextHook.IsInstalled)
                     throw new InvalidOperationException("the Assassin post-combat path-context hook was not activated");
 
                 transaction = installedTransaction;
@@ -79,10 +79,8 @@ namespace BugfixesAndQoL
             }
             catch
             {
-                installedTransaction?.Unload();
                 installedTransaction?.Dispose();
                 transaction = null;
-                postCombatPathContextHook = new HookRef<X64InlineHook>();
                 assassinPathContextFlag = null;
                 libraryBase = 0;
                 throw;

@@ -1,0 +1,41 @@
+2026-09-05 15:52:34.584 +02:00
+PASS native SHA-256, runtime pattern, full 56-byte function, instruction boundaries, RCX/RBX dataflow, stack and E1640 call.
+000E32B0  push rbx
+000E32B2  sub rsp, 0x30
+000E32B6  mov r9d, dword ptr [rcx + 0x10]
+000E32BA  xor eax, eax
+000E32BC  mov r8d, dword ptr [rcx + 0xc]
+000E32C0  mov rbx, rcx
+000E32C3  mov edx, dword ptr [rcx + 8]
+000E32C6  mov dword ptr [rsp + 0x28], eax
+000E32CA  mov dword ptr [rcx + 0x155f68], eax
+000E32D0  mov eax, dword ptr [rcx + 0x14]
+000E32D3  mov dword ptr [rsp + 0x20], eax
+000E32D7  call 0xe1640
+000E32DC  mov eax, dword ptr [rbx + 0x155f68]
+000E32E2  add rsp, 0x30
+000E32E6  pop rbx
+000E32E7  ret 
+PASS observer D90D0 unique entry, ABI prefix, copied span 15, function end D9185
+PASS observer 59210 unique entry, ABI prefix, copied span 15, function end 59371
+PASS observer 61E70 unique entry, ABI prefix, copied span 16, function end 61ECC
+PASS observer DAA50 unique entry, ABI prefix, copied span 15, function end DAAB8
+PASS pre-builder 14-byte block, all branch entries, dead volatile registers/XMM, aligned shadow/stack args, replay and direct continuation; no hook at UnitMoveHere entry.
+PASS actual 73-byte production recovery emitter: full decoded instructions, start reads before argument writes, native continuation.
+0181000000  sub rsp, 0x30
+0181000004  mov rcx, r15
+0181000007  mov edx, esi
+0181000009  mov r8d, dword ptr [rsp + 0xa0]
+0181000011  mov r9d, dword ptr [rsp + 0xa8]
+0181000019  mov dword ptr [rsp + 0x20], r14d
+018100001E  mov dword ptr [rsp + 0x28], ebp
+0181000022  movabs rax, 0x123456789abcdef0
+018100002C  call rax
+018100002E  add rsp, 0x30
+0181000032  test eax, eax
+0181000034  je 0x18100003b
+0181000036  jmp 0x180196585
+018100003B  xor eax, eax
+018100003D  mov edx, esi
+018100003F  mov qword ptr [rip + 0x50ad69e], rax
+0181000046  mov rcx, r15

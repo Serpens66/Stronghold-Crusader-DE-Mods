@@ -1,0 +1,1821 @@
+<!-- NOTDEMOSTART -->
+<UserControl
+    x:Class="CrusaderDE.FRONT_ManageTrail"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:b="http://schemas.microsoft.com/xaml/behaviors"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:CrusaderDE"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:noesis="clr-namespace:NoesisGUIExtensions;assembly=Noesis.GUI.Extensions"
+    d:DesignHeight="768"
+    d:DesignWidth="1366"
+    mc:Ignorable="d">
+
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter
+            x:Key="booleanToVisibilityConverter" />
+        <Style TargetType="{x:Type TextBlock}">
+            <Setter Property="FlowDirection" Value="{Binding GlobalTextFlowAL2R}" />
+            <Setter Property="Foreground" Value="Black" />
+        </Style>        
+        <Style x:Key="HiddenStyle" TargetType="{x:Type GridViewColumnHeader}">
+            <Setter Property="Visibility" Value="Collapsed" />
+        </Style>
+    </UserControl.Resources>
+
+
+
+
+    <!-- Setup -->
+    <Grid
+        HorizontalAlignment="Stretch"
+        VerticalAlignment="Stretch"
+        Background="#88000000">
+        <Grid
+            Margin="20,0,0,0"
+            Width="980"
+            Height="590"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Center">
+<!--            <Grid.ColumnDefinitions>
+                <ColumnDefinition
+                    Width="800" />
+                <ColumnDefinition
+                    Width="*" />
+            </Grid.ColumnDefinitions> -->
+
+
+            <Grid
+                Margin="-3,70,-355,-3"
+                Width="330"
+                Height="300"
+                Grid.ColumnSpan="2"
+                IsHitTestVisible="False"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Top">
+                <Button
+                    Name="BorderXX3"
+                    IsHitTestVisible="False"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Stretch"
+                    Style="{StaticResource BDR_SH1DEb}">
+                </Button>
+
+                <TextBlock
+                    Margin="5,10,5,0"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Top"
+                    TextAlignment="Center"
+                    FontSize="22"
+                    Text="{Binding TM_SelectMissionText}" />
+
+                <Rectangle
+                    Opacity="1"
+                    Height="7"
+                    Width="330"
+                    Margin="2,42,2,0"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Top"
+                    SnapsToDevicePixels="True">
+                    <Rectangle.Fill>
+                        <ImageBrush
+                            ImageSource="{StaticResource Panel_Divider}"
+                            Viewport="0,0,250,7.5"
+                            ViewportUnits="Absolute"
+                            AlignmentX="Center"
+                            AlignmentY="Top"
+                            TileMode="Tile" />
+                    </Rectangle.Fill>
+                </Rectangle>
+
+                <StackPanel
+                    Margin="5,50,5,0"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Top">
+                    <TextBlock
+                        Margin="0,0,0,0"
+                        TextAlignment="Center"
+                        FontSize="20"
+                        Text="{Binding TM_SelectedMap}" />
+
+                    <Rectangle
+                        Opacity="1"
+                        Height="7"
+                        Width="330"
+                        Margin="-4,0,-4,0"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Top"
+                        SnapsToDevicePixels="True">
+                        <Rectangle.Fill>
+                            <ImageBrush
+                                ImageSource="{StaticResource Panel_Divider}"
+                                Viewport="0,0,250,7.5"
+                                ViewportUnits="Absolute"
+                                AlignmentX="Center"
+                                AlignmentY="Top"
+                                TileMode="Tile" />
+                        </Rectangle.Fill>
+                    </Rectangle>
+                    
+                    <TextBlock
+                        Margin="0,0,0,5"
+                        TextAlignment="Center"
+                        FontSize="20"
+                        Text="{Binding TM_SelectedOpponent1}" />
+                    <TextBlock
+                        Margin="0,0,0,5"
+                        TextAlignment="Center"
+                        FontSize="20"
+                        Text="{Binding TM_SelectedOpponent2}" />
+                    <TextBlock
+                        Margin="0,0,0,5"
+                        TextAlignment="Center"
+                        FontSize="20"
+                        Text="{Binding TM_SelectedOpponent3}" />
+                    <TextBlock
+                        Margin="0,0,0,5"
+                        TextAlignment="Center"
+                        FontSize="20"
+                        Text="{Binding TM_SelectedOpponent4}" />
+                    <TextBlock
+                        Margin="0,0,0,5"
+                        TextAlignment="Center"
+                        FontSize="20"
+                        Text="{Binding TM_SelectedOpponent5}" />
+                    <TextBlock
+                        Margin="0,0,0,5"
+                        TextAlignment="Center"
+                        FontSize="20"
+                        Text="{Binding TM_SelectedOpponent6}" />
+                    <TextBlock
+                        Margin="0,0,0,5"
+                        TextAlignment="Center"
+                        FontSize="20"
+                        Text="{Binding TM_SelectedOpponent7}" />
+                </StackPanel>
+            </Grid>
+            <Button
+                Name="BorderXX"
+                Margin="-3,-3,-3,-3"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch"
+                IsHitTestVisible="False"
+                Grid.ColumnSpan="2"
+                Style="{StaticResource BDR_SH1DEa}">
+            </Button>
+            <local:WGT_Heading
+                Margin="-2,0,-2,0"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Top"
+                Divider="{StaticResource Panel_Divider}"
+                Grid.ColumnSpan="2"
+                HeadingText="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_CUSTOMISATION_033]}" />
+
+ 
+            <Grid
+                Margin="0,5,0,0">
+
+                <WrapPanel
+                    VerticalAlignment="Top"
+                    HorizontalAlignment="Left"
+                    Margin="40,140,30,0"
+                    Height="480">
+                    
+                    <!-- Row 1 -->
+                    <Grid
+                        Width="90"
+                        Margin="0,15,0,5">
+                        <RadioButton
+                            Name="Trail_1"
+                            Width="80"
+                            Margin="5,0,5,0"
+                            GroupName="Missions"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1Margin="-15,-15,0,0"
+                            local:PropEx.Sprite1Width="55"
+                            local:PropEx.Sprite1Height="55"
+                            local:PropEx.Sprite1="{StaticResource skirmish_trail_icons-16}"
+                            local:PropEx.TextCentre=""
+                            local:PropEx.TextLeft=""
+                            local:PropEx.TextRight="1"
+                            IsChecked="True"
+                            Command="{Binding ManageTrailCommand}"
+                            CommandParameter="1"
+                            MouseEnter="CommonRedButtonEnter"
+                            Style="{StaticResource RBTN_SH_GlowSImage}" />
+                    </Grid>
+                    <Grid
+                        Width="90"
+                        Margin="0,15,0,5">
+                        <RadioButton
+                            Name="Trail_2"
+                            Width="80"
+                            Margin="5,0,5,0"
+                            GroupName="Missions"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1Margin="-15,-15,0,0"
+                            local:PropEx.Sprite1Width="55"
+                            local:PropEx.Sprite1Height="55"
+                            local:PropEx.Sprite1="{StaticResource skirmish_trail_icons-16}"
+                            local:PropEx.TextCentre=""
+                            local:PropEx.TextLeft=""
+                            local:PropEx.TextRight="2"
+                            Command="{Binding ManageTrailCommand}"
+                            CommandParameter="2"
+                            MouseEnter="CommonRedButtonEnter"
+                            Style="{StaticResource RBTN_SH_GlowSImage}" />
+                    </Grid>
+                    <Grid
+                        Width="90"
+                        Margin="0,15,0,5">
+                        <RadioButton
+                            Name="Trail_3"
+                            Width="80"
+                            Margin="5,0,5,0"
+                            GroupName="Missions"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1Margin="-15,-15,0,0"
+                            local:PropEx.Sprite1Width="55"
+                            local:PropEx.Sprite1Height="55"
+                            local:PropEx.Sprite1="{StaticResource skirmish_trail_icons-16}"
+                            local:PropEx.TextCentre=""
+                            local:PropEx.TextLeft=""
+                            local:PropEx.TextRight="3"
+                            Command="{Binding ManageTrailCommand}"
+                            CommandParameter="3"
+                            MouseEnter="CommonRedButtonEnter"
+                            Style="{StaticResource RBTN_SH_GlowSImage}" />
+                    </Grid>
+                    <Grid
+                        Width="90"
+                        Margin="0,15,0,5">
+                        <RadioButton
+                            Name="Trail_4"
+                            Width="80"
+                            Margin="5,0,5,0"
+                            GroupName="Missions"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1Margin="-15,-15,0,0"
+                            local:PropEx.Sprite1Width="55"
+                            local:PropEx.Sprite1Height="55"
+                            local:PropEx.Sprite1="{StaticResource skirmish_trail_icons-16}"
+                            local:PropEx.TextCentre=""
+                            local:PropEx.TextLeft=""
+                            local:PropEx.TextRight="4"
+                            Command="{Binding ManageTrailCommand}"
+                            CommandParameter="4"
+                            MouseEnter="CommonRedButtonEnter"
+                            Style="{StaticResource RBTN_SH_GlowSImage}" />
+                    </Grid>
+                    <Grid
+                        Width="90"
+                        Margin="0,15,0,5">
+                        <RadioButton
+                            Name="Trail_5"
+                            Width="80"
+                            Margin="5,0,5,0"
+                            GroupName="Missions"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1Margin="-15,-15,0,0"
+                            local:PropEx.Sprite1Width="55"
+                            local:PropEx.Sprite1Height="55"
+                            local:PropEx.Sprite1="{StaticResource skirmish_trail_icons-16}"
+                            local:PropEx.TextCentre=""
+                            local:PropEx.TextLeft=""
+                            local:PropEx.TextRight="5"
+                            Command="{Binding ManageTrailCommand}"
+                            CommandParameter="5"
+                            MouseEnter="CommonRedButtonEnter"
+                            Style="{StaticResource RBTN_SH_GlowSImage}" />
+                    </Grid>
+                    <Grid
+                        Width="90"
+                        Margin="0,15,0,5">
+                        <RadioButton
+                            Name="Trail_6"
+                            Width="80"
+                            Margin="5,0,5,0"
+                            GroupName="Missions"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1Margin="-15,-15,0,0"
+                            local:PropEx.Sprite1Width="55"
+                            local:PropEx.Sprite1Height="55"
+                            local:PropEx.Sprite1="{StaticResource skirmish_trail_icons-16}"
+                            local:PropEx.TextCentre=""
+                            local:PropEx.TextLeft=""
+                            local:PropEx.TextRight="6"
+                            Command="{Binding ManageTrailCommand}"
+                            CommandParameter="6"
+                            MouseEnter="CommonRedButtonEnter"
+                            Style="{StaticResource RBTN_SH_GlowSImage}" />
+                    </Grid>
+                    <Grid
+                        Width="90"
+                        Margin="0,15,0,5">
+                        <RadioButton
+                            Name="Trail_7"
+                            Width="80"
+                            Margin="5,0,5,0"
+                            GroupName="Missions"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1Margin="-15,-15,0,0"
+                            local:PropEx.Sprite1Width="55"
+                            local:PropEx.Sprite1Height="55"
+                            local:PropEx.Sprite1="{StaticResource skirmish_trail_icons-16}"
+                            local:PropEx.TextCentre=""
+                            local:PropEx.TextLeft=""
+                            local:PropEx.TextRight="7"
+                            Command="{Binding ManageTrailCommand}"
+                            CommandParameter="7"
+                            MouseEnter="CommonRedButtonEnter"
+                            Style="{StaticResource RBTN_SH_GlowSImage}" />
+                    </Grid>
+                    <Grid
+                        Width="90"
+                        Margin="0,15,0,5">
+                        <RadioButton
+                            Name="Trail_8"
+                            Width="80"
+                            Margin="5,0,5,0"
+                            GroupName="Missions"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1Margin="-15,-15,0,0"
+                            local:PropEx.Sprite1Width="55"
+                            local:PropEx.Sprite1Height="55"
+                            local:PropEx.Sprite1="{StaticResource skirmish_trail_icons-16}"
+                            local:PropEx.TextCentre=""
+                            local:PropEx.TextLeft=""
+                            local:PropEx.TextRight="8"
+                            Command="{Binding ManageTrailCommand}"
+                            CommandParameter="8"
+                            MouseEnter="CommonRedButtonEnter"
+                            Style="{StaticResource RBTN_SH_GlowSImage}" />
+                    </Grid>
+                    <Grid
+                        Width="90"
+                        Margin="0,15,0,5">
+                        <RadioButton
+                            Name="Trail_9"
+                            Width="80"
+                            Margin="5,0,5,0"
+                            GroupName="Missions"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1Margin="-15,-15,0,0"
+                            local:PropEx.Sprite1Width="55"
+                            local:PropEx.Sprite1Height="55"
+                            local:PropEx.Sprite1="{StaticResource skirmish_trail_icons-16}"
+                            local:PropEx.TextCentre=""
+                            local:PropEx.TextLeft=""
+                            local:PropEx.TextRight="9"
+                            Command="{Binding ManageTrailCommand}"
+                            CommandParameter="9"
+                            MouseEnter="CommonRedButtonEnter"
+                            Style="{StaticResource RBTN_SH_GlowSImage}" />
+                    </Grid>
+                    <Grid
+                        Width="90"
+                        Margin="0,15,0,5">
+                        <RadioButton
+                            Name="Trail_10"
+                            Width="80"
+                            Margin="5,0,5,0"
+                            GroupName="Missions"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1Margin="-15,-15,0,0"
+                            local:PropEx.Sprite1Width="55"
+                            local:PropEx.Sprite1Height="55"
+                            local:PropEx.Sprite1="{StaticResource skirmish_trail_icons-16}"
+                            local:PropEx.TextCentre=""
+                            local:PropEx.TextLeft=""
+                            local:PropEx.TextRight="10"
+                            Command="{Binding ManageTrailCommand}"
+                            CommandParameter="10"
+                            MouseEnter="CommonRedButtonEnter"
+                            Style="{StaticResource RBTN_SH_GlowSImage}" />
+                    </Grid>
+
+
+                    <!-- Row 2 -->
+                    <Grid
+                        Width="90"
+                        Margin="0,15,0,5">
+                        <RadioButton
+                            Name="Trail_11"
+                            Width="80"
+                            Margin="5,0,5,0"
+                            GroupName="Missions"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1Margin="-15,-15,0,0"
+                            local:PropEx.Sprite1Width="55"
+                            local:PropEx.Sprite1Height="55"
+                            local:PropEx.Sprite1="{StaticResource skirmish_trail_icons-16}"
+                            local:PropEx.TextCentre=""
+                            local:PropEx.TextLeft=""
+                            local:PropEx.TextRight="11"
+                            Command="{Binding ManageTrailCommand}"
+                            CommandParameter="11"
+                            MouseEnter="CommonRedButtonEnter"
+                            Style="{StaticResource RBTN_SH_GlowSImage}" />
+                    </Grid>
+                    <Grid
+                        Width="90"
+                        Margin="0,15,0,5">
+                        <RadioButton
+                            Name="Trail_12"
+                            Width="80"
+                            Margin="5,0,5,0"
+                            GroupName="Missions"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1Margin="-15,-15,0,0"
+                            local:PropEx.Sprite1Width="55"
+                            local:PropEx.Sprite1Height="55"
+                            local:PropEx.Sprite1="{StaticResource skirmish_trail_icons-16}"
+                            local:PropEx.TextCentre=""
+                            local:PropEx.TextLeft=""
+                            local:PropEx.TextRight="12"
+                            Command="{Binding ManageTrailCommand}"
+                            CommandParameter="12"
+                            MouseEnter="CommonRedButtonEnter"
+                            Style="{StaticResource RBTN_SH_GlowSImage}" />
+                    </Grid>
+                    <Grid
+                        Width="90"
+                        Margin="0,15,0,5">
+                        <RadioButton
+                            Name="Trail_13"
+                            Width="80"
+                            Margin="5,0,5,0"
+                            GroupName="Missions"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1Margin="-15,-15,0,0"
+                            local:PropEx.Sprite1Width="55"
+                            local:PropEx.Sprite1Height="55"
+                            local:PropEx.Sprite1="{StaticResource skirmish_trail_icons-16}"
+                            local:PropEx.TextCentre=""
+                            local:PropEx.TextLeft=""
+                            local:PropEx.TextRight="13"
+                            Command="{Binding ManageTrailCommand}"
+                            CommandParameter="13"
+                            MouseEnter="CommonRedButtonEnter"
+                            Style="{StaticResource RBTN_SH_GlowSImage}" />
+                    </Grid>
+                    <Grid
+                        Width="90"
+                        Margin="0,15,0,5">
+                        <RadioButton
+                            Name="Trail_14"
+                            Width="80"
+                            Margin="5,0,5,0"
+                            GroupName="Missions"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1Margin="-15,-15,0,0"
+                            local:PropEx.Sprite1Width="55"
+                            local:PropEx.Sprite1Height="55"
+                            local:PropEx.Sprite1="{StaticResource skirmish_trail_icons-16}"
+                            local:PropEx.TextCentre=""
+                            local:PropEx.TextLeft=""
+                            local:PropEx.TextRight="14"
+                            Command="{Binding ManageTrailCommand}"
+                            CommandParameter="14"
+                            MouseEnter="CommonRedButtonEnter"
+                            Style="{StaticResource RBTN_SH_GlowSImage}" />
+                    </Grid>
+                    <Grid
+                        Width="90"
+                        Margin="0,15,0,5">
+                        <RadioButton
+                            Name="Trail_15"
+                            Width="80"
+                            Margin="5,0,5,0"
+                            GroupName="Missions"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1Margin="-15,-15,0,0"
+                            local:PropEx.Sprite1Width="55"
+                            local:PropEx.Sprite1Height="55"
+                            local:PropEx.Sprite1="{StaticResource skirmish_trail_icons-16}"
+                            local:PropEx.TextCentre=""
+                            local:PropEx.TextLeft=""
+                            local:PropEx.TextRight="15"
+                            Command="{Binding ManageTrailCommand}"
+                            CommandParameter="15"
+                            MouseEnter="CommonRedButtonEnter"
+                            Style="{StaticResource RBTN_SH_GlowSImage}" />
+                    </Grid>
+                    <Grid
+                        Width="90"
+                        Margin="0,15,0,5">
+                        <RadioButton
+                            Name="Trail_16"
+                            Width="80"
+                            Margin="5,0,5,0"
+                            GroupName="Missions"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1Margin="-15,-15,0,0"
+                            local:PropEx.Sprite1Width="55"
+                            local:PropEx.Sprite1Height="55"
+                            local:PropEx.Sprite1="{StaticResource skirmish_trail_icons-16}"
+                            local:PropEx.TextCentre=""
+                            local:PropEx.TextLeft=""
+                            local:PropEx.TextRight="16"
+                            Command="{Binding ManageTrailCommand}"
+                            CommandParameter="16"
+                            MouseEnter="CommonRedButtonEnter"
+                            Style="{StaticResource RBTN_SH_GlowSImage}" />
+                    </Grid>
+                    <Grid
+                        Width="90"
+                        Margin="0,15,0,5">
+                        <RadioButton
+                            Name="Trail_17"
+                            Width="80"
+                            Margin="5,0,5,0"
+                            GroupName="Missions"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1Margin="-15,-15,0,0"
+                            local:PropEx.Sprite1Width="55"
+                            local:PropEx.Sprite1Height="55"
+                            local:PropEx.Sprite1="{StaticResource skirmish_trail_icons-16}"
+                            local:PropEx.TextCentre=""
+                            local:PropEx.TextLeft=""
+                            local:PropEx.TextRight="17"
+                            Command="{Binding ManageTrailCommand}"
+                            CommandParameter="17"
+                            MouseEnter="CommonRedButtonEnter"
+                            Style="{StaticResource RBTN_SH_GlowSImage}" />
+                    </Grid>
+                    <Grid
+                        Width="90"
+                        Margin="0,15,0,5">
+                        <RadioButton
+                            Name="Trail_18"
+                            Width="80"
+                            Margin="5,0,5,0"
+                            GroupName="Missions"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1Margin="-15,-15,0,0"
+                            local:PropEx.Sprite1Width="55"
+                            local:PropEx.Sprite1Height="55"
+                            local:PropEx.Sprite1="{StaticResource skirmish_trail_icons-16}"
+                            local:PropEx.TextCentre=""
+                            local:PropEx.TextLeft=""
+                            local:PropEx.TextRight="18"
+                            Command="{Binding ManageTrailCommand}"
+                            CommandParameter="18"
+                            MouseEnter="CommonRedButtonEnter"
+                            Style="{StaticResource RBTN_SH_GlowSImage}" />
+                    </Grid>
+                    <Grid
+                        Width="90"
+                        Margin="0,15,0,5">
+                        <RadioButton
+                            Name="Trail_19"
+                            Width="80"
+                            Margin="5,0,5,0"
+                            GroupName="Missions"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1Margin="-15,-15,0,0"
+                            local:PropEx.Sprite1Width="55"
+                            local:PropEx.Sprite1Height="55"
+                            local:PropEx.Sprite1="{StaticResource skirmish_trail_icons-16}"
+                            local:PropEx.TextCentre=""
+                            local:PropEx.TextLeft=""
+                            local:PropEx.TextRight="19"
+                            Command="{Binding ManageTrailCommand}"
+                            CommandParameter="19"
+                            MouseEnter="CommonRedButtonEnter"
+                            Style="{StaticResource RBTN_SH_GlowSImage}" />
+                    </Grid>
+                    <Grid
+                        Width="90"
+                        Margin="0,15,0,5">
+                        <RadioButton
+                            Name="Trail_20"
+                            Width="80"
+                            Margin="5,0,5,0"
+                            GroupName="Missions"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1Margin="-15,-15,0,0"
+                            local:PropEx.Sprite1Width="55"
+                            local:PropEx.Sprite1Height="55"
+                            local:PropEx.Sprite1="{StaticResource skirmish_trail_icons-16}"
+                            local:PropEx.TextCentre=""
+                            local:PropEx.TextLeft=""
+                            local:PropEx.TextRight="20"
+                            Command="{Binding ManageTrailCommand}"
+                            CommandParameter="20"
+                            MouseEnter="CommonRedButtonEnter"
+                            Style="{StaticResource RBTN_SH_GlowSImage}" />
+                    </Grid>
+
+
+                    <!-- Row 3 -->
+                    <Grid
+                        Width="90"
+                        Margin="0,15,0,5">
+                        <RadioButton
+                            Name="Trail_21"
+                            Width="80"
+                            Margin="5,0,5,0"
+                            GroupName="Missions"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1Margin="-15,-15,0,0"
+                            local:PropEx.Sprite1Width="55"
+                            local:PropEx.Sprite1Height="55"
+                            local:PropEx.Sprite1="{StaticResource skirmish_trail_icons-16}"
+                            local:PropEx.TextCentre=""
+                            local:PropEx.TextLeft=""
+                            local:PropEx.TextRight="21"
+                            Command="{Binding ManageTrailCommand}"
+                            CommandParameter="21"
+                            MouseEnter="CommonRedButtonEnter"
+                            Style="{StaticResource RBTN_SH_GlowSImage}" />
+                    </Grid>
+                    <Grid
+                        Width="90"
+                        Margin="0,15,0,5">
+                        <RadioButton
+                            Name="Trail_22"
+                            Width="80"
+                            Margin="5,0,5,0"
+                            GroupName="Missions"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1Margin="-15,-15,0,0"
+                            local:PropEx.Sprite1Width="55"
+                            local:PropEx.Sprite1Height="55"
+                            local:PropEx.Sprite1="{StaticResource skirmish_trail_icons-16}"
+                            local:PropEx.TextCentre=""
+                            local:PropEx.TextLeft=""
+                            local:PropEx.TextRight="22"
+                            Command="{Binding ManageTrailCommand}"
+                            CommandParameter="22"
+                            MouseEnter="CommonRedButtonEnter"
+                            Style="{StaticResource RBTN_SH_GlowSImage}" />
+                    </Grid>
+                    <Grid
+                        Width="90"
+                        Margin="0,15,0,5">
+                        <RadioButton
+                            Name="Trail_23"
+                            Width="80"
+                            Margin="5,0,5,0"
+                            GroupName="Missions"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1Margin="-15,-15,0,0"
+                            local:PropEx.Sprite1Width="55"
+                            local:PropEx.Sprite1Height="55"
+                            local:PropEx.Sprite1="{StaticResource skirmish_trail_icons-16}"
+                            local:PropEx.TextCentre=""
+                            local:PropEx.TextLeft=""
+                            local:PropEx.TextRight="23"
+                            Command="{Binding ManageTrailCommand}"
+                            CommandParameter="23"
+                            MouseEnter="CommonRedButtonEnter"
+                            Style="{StaticResource RBTN_SH_GlowSImage}" />
+                    </Grid>
+                    <Grid
+                        Width="90"
+                        Margin="0,15,0,5">
+                        <RadioButton
+                            Name="Trail_24"
+                            Width="80"
+                            Margin="5,0,5,0"
+                            GroupName="Missions"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1Margin="-15,-15,0,0"
+                            local:PropEx.Sprite1Width="55"
+                            local:PropEx.Sprite1Height="55"
+                            local:PropEx.Sprite1="{StaticResource skirmish_trail_icons-16}"
+                            local:PropEx.TextCentre=""
+                            local:PropEx.TextLeft=""
+                            local:PropEx.TextRight="24"
+                            Command="{Binding ManageTrailCommand}"
+                            CommandParameter="24"
+                            MouseEnter="CommonRedButtonEnter"
+                            Style="{StaticResource RBTN_SH_GlowSImage}" />
+                    </Grid>
+                    <Grid
+                        Width="90"
+                        Margin="0,15,0,5">
+                        <RadioButton
+                            Name="Trail_25"
+                            Width="80"
+                            Margin="5,0,5,0"
+                            GroupName="Missions"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1Margin="-15,-15,0,0"
+                            local:PropEx.Sprite1Width="55"
+                            local:PropEx.Sprite1Height="55"
+                            local:PropEx.Sprite1="{StaticResource skirmish_trail_icons-16}"
+                            local:PropEx.TextCentre=""
+                            local:PropEx.TextLeft=""
+                            local:PropEx.TextRight="25"
+                            Command="{Binding ManageTrailCommand}"
+                            CommandParameter="25"
+                            MouseEnter="CommonRedButtonEnter"
+                            Style="{StaticResource RBTN_SH_GlowSImage}" />
+                    </Grid>
+                    <Grid
+                        Width="90"
+                        Margin="0,15,0,5">
+                        <RadioButton
+                            Name="Trail_26"
+                            Width="80"
+                            Margin="5,0,5,0"
+                            GroupName="Missions"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1Margin="-15,-15,0,0"
+                            local:PropEx.Sprite1Width="55"
+                            local:PropEx.Sprite1Height="55"
+                            local:PropEx.Sprite1="{StaticResource skirmish_trail_icons-16}"
+                            local:PropEx.TextCentre=""
+                            local:PropEx.TextLeft=""
+                            local:PropEx.TextRight="26"
+                            Command="{Binding ManageTrailCommand}"
+                            CommandParameter="26"
+                            MouseEnter="CommonRedButtonEnter"
+                            Style="{StaticResource RBTN_SH_GlowSImage}" />
+                    </Grid>
+                    <Grid
+                        Width="90"
+                        Margin="0,15,0,5">
+                        <RadioButton
+                            Name="Trail_27"
+                            Width="80"
+                            Margin="5,0,5,0"
+                            GroupName="Missions"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1Margin="-15,-15,0,0"
+                            local:PropEx.Sprite1Width="55"
+                            local:PropEx.Sprite1Height="55"
+                            local:PropEx.Sprite1="{StaticResource skirmish_trail_icons-16}"
+                            local:PropEx.TextCentre=""
+                            local:PropEx.TextLeft=""
+                            local:PropEx.TextRight="27"
+                            Command="{Binding ManageTrailCommand}"
+                            CommandParameter="27"
+                            MouseEnter="CommonRedButtonEnter"
+                            Style="{StaticResource RBTN_SH_GlowSImage}" />
+                    </Grid>
+                    <Grid
+                        Width="90"
+                        Margin="0,15,0,5">
+                        <RadioButton
+                            Name="Trail_28"
+                            Width="80"
+                            Margin="5,0,5,0"
+                            GroupName="Missions"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1Margin="-15,-15,0,0"
+                            local:PropEx.Sprite1Width="55"
+                            local:PropEx.Sprite1Height="55"
+                            local:PropEx.Sprite1="{StaticResource skirmish_trail_icons-16}"
+                            local:PropEx.TextCentre=""
+                            local:PropEx.TextLeft=""
+                            local:PropEx.TextRight="28"
+                            Command="{Binding ManageTrailCommand}"
+                            CommandParameter="28"
+                            MouseEnter="CommonRedButtonEnter"
+                            Style="{StaticResource RBTN_SH_GlowSImage}" />
+                    </Grid>
+                    <Grid
+                        Width="90"
+                        Margin="0,15,0,5">
+                        <RadioButton
+                            Name="Trail_29"
+                            Width="80"
+                            Margin="5,0,5,0"
+                            GroupName="Missions"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1Margin="-15,-15,0,0"
+                            local:PropEx.Sprite1Width="55"
+                            local:PropEx.Sprite1Height="55"
+                            local:PropEx.Sprite1="{StaticResource skirmish_trail_icons-16}"
+                            local:PropEx.TextCentre=""
+                            local:PropEx.TextLeft=""
+                            local:PropEx.TextRight="29"
+                            Command="{Binding ManageTrailCommand}"
+                            CommandParameter="29"
+                            MouseEnter="CommonRedButtonEnter"
+                            Style="{StaticResource RBTN_SH_GlowSImage}" />
+                    </Grid>
+                    <Grid
+                        Width="90"
+                        Margin="0,15,0,5">
+                        <RadioButton
+                            Name="Trail_30"
+                            Width="80"
+                            Margin="5,0,5,0"
+                            GroupName="Missions"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1Margin="-15,-15,0,0"
+                            local:PropEx.Sprite1Width="55"
+                            local:PropEx.Sprite1Height="55"
+                            local:PropEx.Sprite1="{StaticResource skirmish_trail_icons-16}"
+                            local:PropEx.TextCentre=""
+                            local:PropEx.TextLeft=""
+                            local:PropEx.TextRight="30"
+                            Command="{Binding ManageTrailCommand}"
+                            CommandParameter="30"
+                            MouseEnter="CommonRedButtonEnter"
+                            Style="{StaticResource RBTN_SH_GlowSImage}" />
+                    </Grid>
+
+
+                    <!-- Row 4 -->
+                    <Grid
+                        Width="90"
+                        Margin="0,15,0,5">
+                        <RadioButton
+                            Name="Trail_31"
+                            Width="80"
+                            Margin="5,0,5,0"
+                            GroupName="Missions"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1Margin="-15,-15,0,0"
+                            local:PropEx.Sprite1Width="55"
+                            local:PropEx.Sprite1Height="55"
+                            local:PropEx.Sprite1="{StaticResource skirmish_trail_icons-16}"
+                            local:PropEx.TextCentre=""
+                            local:PropEx.TextLeft=""
+                            local:PropEx.TextRight="31"
+                            Command="{Binding ManageTrailCommand}"
+                            CommandParameter="31"
+                            MouseEnter="CommonRedButtonEnter"
+                            Style="{StaticResource RBTN_SH_GlowSImage}" />
+                    </Grid>
+                    <Grid
+                        Width="90"
+                        Margin="0,15,0,5">
+                        <RadioButton
+                            Name="Trail_32"
+                            Width="80"
+                            Margin="5,0,5,0"
+                            GroupName="Missions"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1Margin="-15,-15,0,0"
+                            local:PropEx.Sprite1Width="55"
+                            local:PropEx.Sprite1Height="55"
+                            local:PropEx.Sprite1="{StaticResource skirmish_trail_icons-16}"
+                            local:PropEx.TextCentre=""
+                            local:PropEx.TextLeft=""
+                            local:PropEx.TextRight="32"
+                            Command="{Binding ManageTrailCommand}"
+                            CommandParameter="32"
+                            MouseEnter="CommonRedButtonEnter"
+                            Style="{StaticResource RBTN_SH_GlowSImage}" />
+                    </Grid>
+                    <Grid
+                        Width="90"
+                        Margin="0,15,0,5">
+                        <RadioButton
+                            Name="Trail_33"
+                            Width="80"
+                            Margin="5,0,5,0"
+                            GroupName="Missions"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1Margin="-15,-15,0,0"
+                            local:PropEx.Sprite1Width="55"
+                            local:PropEx.Sprite1Height="55"
+                            local:PropEx.Sprite1="{StaticResource skirmish_trail_icons-16}"
+                            local:PropEx.TextCentre=""
+                            local:PropEx.TextLeft=""
+                            local:PropEx.TextRight="33"
+                            Command="{Binding ManageTrailCommand}"
+                            CommandParameter="33"
+                            MouseEnter="CommonRedButtonEnter"
+                            Style="{StaticResource RBTN_SH_GlowSImage}" />
+                    </Grid>
+                    <Grid
+                        Width="90"
+                        Margin="0,15,0,5">
+                        <RadioButton
+                            Name="Trail_34"
+                            Width="80"
+                            Margin="5,0,5,0"
+                            GroupName="Missions"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1Margin="-15,-15,0,0"
+                            local:PropEx.Sprite1Width="55"
+                            local:PropEx.Sprite1Height="55"
+                            local:PropEx.Sprite1="{StaticResource skirmish_trail_icons-16}"
+                            local:PropEx.TextCentre=""
+                            local:PropEx.TextLeft=""
+                            local:PropEx.TextRight="34"
+                            Command="{Binding ManageTrailCommand}"
+                            CommandParameter="34"
+                            MouseEnter="CommonRedButtonEnter"
+                            Style="{StaticResource RBTN_SH_GlowSImage}" />
+                    </Grid>
+                    <Grid
+                        Width="90"
+                        Margin="0,15,0,5">
+                        <RadioButton
+                            Name="Trail_35"
+                            Width="80"
+                            Margin="5,0,5,0"
+                            GroupName="Missions"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1Margin="-15,-15,0,0"
+                            local:PropEx.Sprite1Width="55"
+                            local:PropEx.Sprite1Height="55"
+                            local:PropEx.Sprite1="{StaticResource skirmish_trail_icons-16}"
+                            local:PropEx.TextCentre=""
+                            local:PropEx.TextLeft=""
+                            local:PropEx.TextRight="35"
+                            Command="{Binding ManageTrailCommand}"
+                            CommandParameter="35"
+                            MouseEnter="CommonRedButtonEnter"
+                            Style="{StaticResource RBTN_SH_GlowSImage}" />
+                    </Grid>
+                    <Grid
+                        Width="90"
+                        Margin="0,15,0,5">
+                        <RadioButton
+                            Name="Trail_36"
+                            Width="80"
+                            Margin="5,0,5,0"
+                            GroupName="Missions"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1Margin="-15,-15,0,0"
+                            local:PropEx.Sprite1Width="55"
+                            local:PropEx.Sprite1Height="55"
+                            local:PropEx.Sprite1="{StaticResource skirmish_trail_icons-16}"
+                            local:PropEx.TextCentre=""
+                            local:PropEx.TextLeft=""
+                            local:PropEx.TextRight="36"
+                            Command="{Binding ManageTrailCommand}"
+                            CommandParameter="36"
+                            MouseEnter="CommonRedButtonEnter"
+                            Style="{StaticResource RBTN_SH_GlowSImage}" />
+                    </Grid>
+                    <Grid
+                        Width="90"
+                        Margin="0,15,0,5">
+                        <RadioButton
+                            Name="Trail_37"
+                            Width="80"
+                            Margin="5,0,5,0"
+                            GroupName="Missions"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1Margin="-15,-15,0,0"
+                            local:PropEx.Sprite1Width="55"
+                            local:PropEx.Sprite1Height="55"
+                            local:PropEx.Sprite1="{StaticResource skirmish_trail_icons-16}"
+                            local:PropEx.TextCentre=""
+                            local:PropEx.TextLeft=""
+                            local:PropEx.TextRight="37"
+                            Command="{Binding ManageTrailCommand}"
+                            CommandParameter="37"
+                            MouseEnter="CommonRedButtonEnter"
+                            Style="{StaticResource RBTN_SH_GlowSImage}" />
+                    </Grid>
+                    <Grid
+                        Width="90"
+                        Margin="0,15,0,5">
+                        <RadioButton
+                            Name="Trail_38"
+                            Width="80"
+                            Margin="5,0,5,0"
+                            GroupName="Missions"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1Margin="-15,-15,0,0"
+                            local:PropEx.Sprite1Width="55"
+                            local:PropEx.Sprite1Height="55"
+                            local:PropEx.Sprite1="{StaticResource skirmish_trail_icons-16}"
+                            local:PropEx.TextCentre=""
+                            local:PropEx.TextLeft=""
+                            local:PropEx.TextRight="38"
+                            Command="{Binding ManageTrailCommand}"
+                            CommandParameter="38"
+                            MouseEnter="CommonRedButtonEnter"
+                            Style="{StaticResource RBTN_SH_GlowSImage}" />
+                    </Grid>
+                    <Grid
+                        Width="90"
+                        Margin="0,15,0,5">
+                        <RadioButton
+                            Name="Trail_39"
+                            Width="80"
+                            Margin="5,0,5,0"
+                            GroupName="Missions"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1Margin="-15,-15,0,0"
+                            local:PropEx.Sprite1Width="55"
+                            local:PropEx.Sprite1Height="55"
+                            local:PropEx.Sprite1="{StaticResource skirmish_trail_icons-16}"
+                            local:PropEx.TextCentre=""
+                            local:PropEx.TextLeft=""
+                            local:PropEx.TextRight="39"
+                            Command="{Binding ManageTrailCommand}"
+                            CommandParameter="39"
+                            MouseEnter="CommonRedButtonEnter"
+                            Style="{StaticResource RBTN_SH_GlowSImage}" />
+                    </Grid>
+                    <Grid
+                        Width="90"
+                        Margin="0,15,0,5">
+                        <RadioButton
+                            Name="Trail_40"
+                            Width="80"
+                            Margin="5,0,5,0"
+                            GroupName="Missions"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1Margin="-15,-15,0,0"
+                            local:PropEx.Sprite1Width="55"
+                            local:PropEx.Sprite1Height="55"
+                            local:PropEx.Sprite1="{StaticResource skirmish_trail_icons-16}"
+                            local:PropEx.TextCentre=""
+                            local:PropEx.TextLeft=""
+                            local:PropEx.TextRight="40"
+                            Command="{Binding ManageTrailCommand}"
+                            CommandParameter="40"
+                            MouseEnter="CommonRedButtonEnter"
+                            Style="{StaticResource RBTN_SH_GlowSImage}" />
+                    </Grid>
+
+
+                    <!-- Row 5 -->
+                    <Grid
+                        Width="90"
+                        Margin="0,15,0,5">
+                        <RadioButton
+                            Name="Trail_41"
+                            Width="80"
+                            Margin="5,0,5,0"
+                            GroupName="Missions"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1Margin="-15,-15,0,0"
+                            local:PropEx.Sprite1Width="55"
+                            local:PropEx.Sprite1Height="55"
+                            local:PropEx.Sprite1="{StaticResource skirmish_trail_icons-16}"
+                            local:PropEx.TextCentre=""
+                            local:PropEx.TextLeft=""
+                            local:PropEx.TextRight="41"
+                            Command="{Binding ManageTrailCommand}"
+                            CommandParameter="41"
+                            MouseEnter="CommonRedButtonEnter"
+                            Style="{StaticResource RBTN_SH_GlowSImage}" />
+                    </Grid>
+                    <Grid
+                        Width="90"
+                        Margin="0,15,0,5">
+                        <RadioButton
+                            Name="Trail_42"
+                            Width="80"
+                            Margin="5,0,5,0"
+                            GroupName="Missions"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1Margin="-15,-15,0,0"
+                            local:PropEx.Sprite1Width="55"
+                            local:PropEx.Sprite1Height="55"
+                            local:PropEx.Sprite1="{StaticResource skirmish_trail_icons-16}"
+                            local:PropEx.TextCentre=""
+                            local:PropEx.TextLeft=""
+                            local:PropEx.TextRight="42"
+                            Command="{Binding ManageTrailCommand}"
+                            CommandParameter="42"
+                            MouseEnter="CommonRedButtonEnter"
+                            Style="{StaticResource RBTN_SH_GlowSImage}" />
+                    </Grid>
+                    <Grid
+                        Width="90"
+                        Margin="0,15,0,5">
+                        <RadioButton
+                            Name="Trail_43"
+                            Width="80"
+                            Margin="5,0,5,0"
+                            GroupName="Missions"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1Margin="-15,-15,0,0"
+                            local:PropEx.Sprite1Width="55"
+                            local:PropEx.Sprite1Height="55"
+                            local:PropEx.Sprite1="{StaticResource skirmish_trail_icons-16}"
+                            local:PropEx.TextCentre=""
+                            local:PropEx.TextLeft=""
+                            local:PropEx.TextRight="43"
+                            Command="{Binding ManageTrailCommand}"
+                            CommandParameter="43"
+                            MouseEnter="CommonRedButtonEnter"
+                            Style="{StaticResource RBTN_SH_GlowSImage}" />
+                    </Grid>
+                    <Grid
+                        Width="90"
+                        Margin="0,15,0,5">
+                        <RadioButton
+                            Name="Trail_44"
+                            Width="80"
+                            Margin="5,0,5,0"
+                            GroupName="Missions"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1Margin="-15,-15,0,0"
+                            local:PropEx.Sprite1Width="55"
+                            local:PropEx.Sprite1Height="55"
+                            local:PropEx.Sprite1="{StaticResource skirmish_trail_icons-16}"
+                            local:PropEx.TextCentre=""
+                            local:PropEx.TextLeft=""
+                            local:PropEx.TextRight="44"
+                            Command="{Binding ManageTrailCommand}"
+                            CommandParameter="44"
+                            MouseEnter="CommonRedButtonEnter"
+                            Style="{StaticResource RBTN_SH_GlowSImage}" />
+                    </Grid>
+                    <Grid
+                        Width="90"
+                        Margin="0,15,0,5">
+                        <RadioButton
+                            Name="Trail_45"
+                            Width="80"
+                            Margin="5,0,5,0"
+                            GroupName="Missions"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1Margin="-15,-15,0,0"
+                            local:PropEx.Sprite1Width="55"
+                            local:PropEx.Sprite1Height="55"
+                            local:PropEx.Sprite1="{StaticResource skirmish_trail_icons-16}"
+                            local:PropEx.TextCentre=""
+                            local:PropEx.TextLeft=""
+                            local:PropEx.TextRight="45"
+                            Command="{Binding ManageTrailCommand}"
+                            CommandParameter="45"
+                            MouseEnter="CommonRedButtonEnter"
+                            Style="{StaticResource RBTN_SH_GlowSImage}" />
+                    </Grid>
+                    <Grid
+                        Width="90"
+                        Margin="0,15,0,5">
+                        <RadioButton
+                            Name="Trail_46"
+                            Width="80"
+                            Margin="5,0,5,0"
+                            GroupName="Missions"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1Margin="-15,-15,0,0"
+                            local:PropEx.Sprite1Width="55"
+                            local:PropEx.Sprite1Height="55"
+                            local:PropEx.Sprite1="{StaticResource skirmish_trail_icons-16}"
+                            local:PropEx.TextCentre=""
+                            local:PropEx.TextLeft=""
+                            local:PropEx.TextRight="46"
+                            Command="{Binding ManageTrailCommand}"
+                            CommandParameter="46"
+                            MouseEnter="CommonRedButtonEnter"
+                            Style="{StaticResource RBTN_SH_GlowSImage}" />
+                    </Grid>
+                    <Grid
+                        Width="90"
+                        Margin="0,15,0,5">
+                        <RadioButton
+                            Name="Trail_47"
+                            Width="80"
+                            Margin="5,0,5,0"
+                            GroupName="Missions"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1Margin="-15,-15,0,0"
+                            local:PropEx.Sprite1Width="55"
+                            local:PropEx.Sprite1Height="55"
+                            local:PropEx.Sprite1="{StaticResource skirmish_trail_icons-16}"
+                            local:PropEx.TextCentre=""
+                            local:PropEx.TextLeft=""
+                            local:PropEx.TextRight="47"
+                            Command="{Binding ManageTrailCommand}"
+                            CommandParameter="47"
+                            MouseEnter="CommonRedButtonEnter"
+                            Style="{StaticResource RBTN_SH_GlowSImage}" />
+                    </Grid>
+                    <Grid
+                        Width="90"
+                        Margin="0,15,0,5">
+                        <RadioButton
+                            Name="Trail_48"
+                            Width="80"
+                            Margin="5,0,5,0"
+                            GroupName="Missions"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1Margin="-15,-15,0,0"
+                            local:PropEx.Sprite1Width="55"
+                            local:PropEx.Sprite1Height="55"
+                            local:PropEx.Sprite1="{StaticResource skirmish_trail_icons-16}"
+                            local:PropEx.TextCentre=""
+                            local:PropEx.TextLeft=""
+                            local:PropEx.TextRight="48"
+                            Command="{Binding ManageTrailCommand}"
+                            CommandParameter="48"
+                            MouseEnter="CommonRedButtonEnter"
+                            Style="{StaticResource RBTN_SH_GlowSImage}" />
+                    </Grid>
+                    <Grid
+                        Width="90"
+                        Margin="0,15,0,5">
+                        <RadioButton
+                            Name="Trail_49"
+                            Width="80"
+                            Margin="5,0,5,0"
+                            GroupName="Missions"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1Margin="-15,-15,0,0"
+                            local:PropEx.Sprite1Width="55"
+                            local:PropEx.Sprite1Height="55"
+                            local:PropEx.Sprite1="{StaticResource skirmish_trail_icons-16}"
+                            local:PropEx.TextCentre=""
+                            local:PropEx.TextLeft=""
+                            local:PropEx.TextRight="49"
+                            Command="{Binding ManageTrailCommand}"
+                            CommandParameter="49"
+                            MouseEnter="CommonRedButtonEnter"
+                            Style="{StaticResource RBTN_SH_GlowSImage}" />
+                    </Grid>
+                    <Grid
+                        Width="90"
+                        Margin="0,15,0,5">
+                        <RadioButton
+                            Name="Trail_50"
+                            Width="80"
+                            Margin="5,0,5,0"
+                            GroupName="Missions"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            local:PropEx.Sprite1Margin="-15,-15,0,0"
+                            local:PropEx.Sprite1Width="55"
+                            local:PropEx.Sprite1Height="55"
+                            local:PropEx.Sprite1="{StaticResource skirmish_trail_icons-16}"
+                            local:PropEx.TextCentre=""
+                            local:PropEx.TextLeft=""
+                            local:PropEx.TextRight="50"
+                            Command="{Binding ManageTrailCommand}"
+                            CommandParameter="50"
+                            MouseEnter="CommonRedButtonEnter"
+                            Style="{StaticResource RBTN_SH_GlowSImage}" />
+                    </Grid>
+
+
+                </WrapPanel>
+            </Grid>
+
+
+            <TextBlock
+                Margin="20,70,20,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                TextAlignment="Center"
+                FontSize="22"
+                Text="{Binding TM_SelectMissionText}"
+                />
+            
+            <Button
+                Name="Load"
+                Width="300"
+                Margin="0,100,350,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_CUSTOMISATION_036]}"
+                local:PropEx.TextLeft=""
+                local:PropEx.TextRight=""
+                Command="{Binding ManageTrailCommand}"
+                CommandParameter="Load"
+                MouseEnter="CommonRedButtonEnter"
+                Style="{StaticResource BTN_SH_GlowS}" />
+
+            <Button
+                Name="Save"
+                Width="300"
+                Margin="350,100,0,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_CUSTOMISATION_037]}"
+                local:PropEx.TextLeft=""
+                local:PropEx.TextRight=""
+                Command="{Binding ManageTrailCommand}"
+                CommandParameter="Save"
+                MouseEnter="CommonRedButtonEnter"
+                Style="{StaticResource BTN_SH_GlowS}" />
+
+            <Viewbox
+                Width="220"
+                Margin="0,445,20,0"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Top">
+                <Button
+                    Name="ClearMission"
+                    Width="300"
+                    local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_CUSTOMISATION_073]}"
+                    local:PropEx.TextLeft=""
+                    local:PropEx.TextRight=""
+                    Command="{Binding ManageTrailCommand}"
+                    CommandParameter="ClearMission"
+                    MouseEnter="CommonRedButtonEnter"
+                    Style="{StaticResource BTN_SH_GlowS}" />
+            </Viewbox>
+            <Rectangle
+                Opacity="1"
+                Height="7"
+                Margin="1,0,1,112"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Bottom"
+                SnapsToDevicePixels="True">
+                <Rectangle.Fill>
+                    <ImageBrush
+                        ImageSource="{StaticResource Panel_Divider}"
+                        Viewport="0,0,250,7.5"
+                        ViewportUnits="Absolute"
+                        AlignmentX="Center"
+                        AlignmentY="Top"
+                        TileMode="Tile" />
+                </Rectangle.Fill>
+            </Rectangle>
+
+
+            <Button
+                Name="Import"
+                Width="250"
+                Margin="0,0,650,70"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Bottom"
+                local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_CUSTOMISATION_041]}"
+                local:PropEx.TextLeft=""
+                local:PropEx.TextRight=""
+                Command="{Binding ManageTrailCommand}"
+                CommandParameter="Import"
+                MouseEnter="CommonRedButtonEnter"
+                Style="{StaticResource BTN_SH_GlowS}" />
+
+            <Button
+                Name="Export"
+                Width="250"
+                Margin="0,0,0,70"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Bottom"
+                local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_CUSTOMISATION_042]}"
+                local:PropEx.TextLeft=""
+                local:PropEx.TextRight=""
+                Command="{Binding ManageTrailCommand}"
+                CommandParameter="Export"
+                MouseEnter="CommonRedButtonEnter"
+                Style="{StaticResource BTN_SH_GlowS}" />
+
+            <Button
+                Name="Clear"
+                Width="250"
+                Margin="650,0,0,70"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Bottom"
+                local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_CUSTOMISATION_043]}"
+                local:PropEx.TextLeft=""
+                local:PropEx.TextRight=""
+                Command="{Binding ManageTrailCommand}"
+                CommandParameter="Clear"
+                MouseEnter="CommonRedButtonEnter"
+                Style="{StaticResource BTN_SH_GlowS}" />
+
+
+            <Button
+                Name="OpenMaker"
+                Width="250"
+                Margin="0,0,650,20"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Bottom"
+                local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_CUSTOMISATION_048]}"
+                local:PropEx.TextLeft=""
+                local:PropEx.TextRight=""
+                Command="{Binding ManageTrailCommand}"
+                CommandParameter="OpenMaker"
+                MouseEnter="CommonRedButtonEnter"
+                Style="{StaticResource BTN_SH_GlowS}" />
+
+            <Button
+                Name="OpenCustom"
+                Width="250"
+                Margin="0,0,0,20"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Bottom"
+                local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_CUSTOMISATION_049]}"
+                local:PropEx.TextLeft=""
+                local:PropEx.TextRight=""
+                Command="{Binding ManageTrailCommand}"
+                CommandParameter="OpenCustom"
+                MouseEnter="CommonRedButtonEnter"
+                Style="{StaticResource BTN_SH_GlowS}" />
+
+
+
+            <Button
+                Width="200"
+                Margin="20,0,20,20"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Bottom"
+                local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_MAINOPTIONS_009]}"
+                local:PropEx.TextLeft=""
+                local:PropEx.TextRight=""
+                Command="{Binding MultiplayerMenuCommand}"
+                CommandParameter="CloseManageTrail"
+                MouseEnter="CommonRedButtonEnter"
+                Style="{StaticResource BTN_SH_GlowS}" />
+        </Grid>
+
+        
+        <!-- Import Panel -->
+        <Grid
+            Margin="-1000,-1000,-1000,-1000"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch"
+            Background="#AA000000"
+            Visibility="{Binding Show_TM_Import, Converter={StaticResource booleanToVisibilityConverter}}" />
+
+        <Grid
+            Margin="0,0,0,0"
+            Width="600"
+            Height="440"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Visibility="{Binding Show_TM_Import, Converter={StaticResource booleanToVisibilityConverter}}">
+
+            <Button
+                Margin="-3,-3,-3,-3"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch"
+                IsHitTestVisible="False"
+                Grid.ColumnSpan="2"
+                Style="{StaticResource BDR_SH1DEa}">
+            </Button>
+            <local:WGT_Heading
+                Margin="-2,0,-2,0"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Top"
+                Divider="{StaticResource Panel_Divider}"
+                Grid.ColumnSpan="2"
+                HeadingText="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_CUSTOMISATION_041]}" />
+
+            <Grid
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                Margin="0,80,0,0"
+                Width="400"
+                Height="260"
+                >
+                <Button
+                    Margin="-3,-3,-3,-3"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Stretch"
+                    IsHitTestVisible="False"
+                    Style="{StaticResource BDR_SH1DEb}">
+                </Button>
+                <ListView
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Stretch"
+                    Name="ImportList"
+                    ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                    ItemContainerStyle="{StaticResource Standalone_ListViewItem}">
+                    <ListView.View>
+                        <GridView>
+                            <GridViewColumn
+                                Width="40">
+                                <GridViewColumn.Header>
+                                    <GridViewColumnHeader
+                                        Template="{StaticResource MyGridViewColumnHeader}"
+                                        Tag="Type"></GridViewColumnHeader>
+                                </GridViewColumn.Header>
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Image
+                                            Width="30"
+                                            Margin="-2,0,0,0"
+                                            Source="{Binding TypeImage}" />
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+                            <GridViewColumn
+                                Width="40">
+                                <GridViewColumn.Header>
+                                    <GridViewColumnHeader
+                                        Template="{StaticResource MyGridViewColumnHeader}"
+                                        Tag="Count">#</GridViewColumnHeader>
+                                </GridViewColumn.Header>
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock
+                                            Margin="0,0,0,0"
+                                            Width="25"
+                                            HorizontalAlignment="Left"
+                                            VerticalAlignment="Center"
+                                            Foreground="Black"
+                                            TextAlignment="Right"
+                                            FlowDirection="{Binding GlobalTextFlowAL2R}"
+                                            FontSize="16"
+                                            Text="{Binding Text2}">
+                                        </TextBlock>
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+                            <GridViewColumn
+                                Width="320">
+                                <GridViewColumn.Header>
+                                    <GridViewColumnHeader
+                                        Template="{StaticResource MyGridViewColumnHeader}"
+                                        Tag="Name">Name</GridViewColumnHeader>
+                                </GridViewColumn.Header>
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Grid
+                                            Height="30">
+                                            <TextBlock
+                                                Margin="0,0,0,0"
+                                                HorizontalAlignment="Left"
+                                                VerticalAlignment="Center"
+                                                Foreground="Black"
+                                                FlowDirection="{Binding GlobalTextFlowAL2R}"
+                                                TextTrimming="CharacterEllipsis"
+                                                FontSize="16"
+                                                Text="{Binding Text1}">
+                                            </TextBlock>
+                                        </Grid>
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+                            
+                        </GridView>
+                    </ListView.View>
+                </ListView>
+            </Grid>
+            <CheckBox
+                x:Name="ImportBackup"
+                Margin="0,0,0,60"
+                Height="23"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Bottom"
+                IsChecked="True"
+                Style="{StaticResource CheckBox_Template}">
+                <TextBlock
+                    Text="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_CUSTOMISATION_050]}"
+                    Margin="0,2,0,-2"
+                    FontSize="20"
+                    VerticalAlignment="Center" />
+            </CheckBox>
+
+            <Button
+                Width="200"
+                Margin="20,0,20,20"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Bottom"
+                local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_MULTIPLAYER_CONNECTION_004]}"
+                local:PropEx.TextLeft=""
+                local:PropEx.TextRight=""
+                Command="{Binding ManageTrailCommand}"
+                CommandParameter="CloseImport"
+                MouseEnter="CommonRedButtonEnter"
+                Style="{StaticResource BTN_SH_GlowS}" />
+            <Button
+                Name="ImportImportButton"
+                Width="300"
+                Margin="20,0,20,20"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Bottom"
+                local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_CUSTOMISATION_041]}"
+                local:PropEx.TextLeft=""
+                local:PropEx.TextRight=""
+                Command="{Binding ManageTrailCommand}"
+                CommandParameter="DoImport"
+                MouseEnter="CommonRedButtonEnter"
+                Style="{StaticResource BTN_SH_GlowS}" />
+        </Grid>
+
+
+        <!-- Export Panel -->
+        <Grid
+            Margin="-1000,-1000,-1000,-1000"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch"
+            Background="#AA000000"
+            Visibility="{Binding Show_TM_Export, Converter={StaticResource booleanToVisibilityConverter}}" />
+
+        <Grid
+            Margin="0,0,0,0"
+            Width="600"
+            Height="480"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Visibility="{Binding Show_TM_Export, Converter={StaticResource booleanToVisibilityConverter}}">
+
+            <Button
+                Margin="-3,-3,-3,-3"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch"
+                IsHitTestVisible="False"
+                Grid.ColumnSpan="2"
+                Style="{StaticResource BDR_SH1DEa}">
+            </Button>
+            <local:WGT_Heading
+                Margin="-2,0,-2,0"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Top"
+                Divider="{StaticResource Panel_Divider}"
+                Grid.ColumnSpan="2"
+                HeadingText="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_CUSTOMISATION_042]}" />
+
+            <Grid
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                Margin="0,80,0,0"
+                Width="400"
+                Height="260">
+                <Button
+                    Margin="-3,-3,-3,-3"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Stretch"
+                    IsHitTestVisible="False"
+                    Style="{StaticResource BDR_SH1DEb}">
+                </Button>
+                <ListView
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Stretch"
+                    Name="ExportList"
+                    ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                    ItemContainerStyle="{StaticResource Standalone_ListViewItem}">
+                    <ListView.View>
+                        <GridView>
+                            <GridViewColumn
+                                Width="40">
+                                <GridViewColumn.Header>
+                                    <GridViewColumnHeader
+                                        Template="{StaticResource MyGridViewColumnHeader}"
+                                        Tag="Type"></GridViewColumnHeader>
+                                </GridViewColumn.Header>
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Image
+                                            Width="30"
+                                            Margin="-2,0,0,0"
+                                            Source="{Binding TypeImage}" />
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+                            <GridViewColumn
+                                Width="40">
+                                <GridViewColumn.Header>
+                                    <GridViewColumnHeader
+                                        Template="{StaticResource MyGridViewColumnHeader}"
+                                        Tag="Count">#</GridViewColumnHeader>
+                                </GridViewColumn.Header>
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock
+                                            Margin="0,0,0,0"
+                                            Width="25"
+                                            HorizontalAlignment="Left"
+                                            VerticalAlignment="Center"
+                                            Foreground="Black"
+                                            TextAlignment="Right"
+                                            FlowDirection="{Binding GlobalTextFlowAL2R}"
+                                            FontSize="16"
+                                            Text="{Binding Text2}">
+                                        </TextBlock>
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+                            <GridViewColumn
+                                Width="320">
+                                <GridViewColumn.Header>
+                                    <GridViewColumnHeader
+                                        Template="{StaticResource MyGridViewColumnHeader}"
+                                        Tag="Name">Name</GridViewColumnHeader>
+                                </GridViewColumn.Header>
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Grid
+                                            Height="30">
+                                            <TextBlock
+                                                Margin="0,0,0,0"
+                                                HorizontalAlignment="Left"
+                                                VerticalAlignment="Center"
+                                                Foreground="Black"
+                                                FlowDirection="{Binding GlobalTextFlowAL2R}"
+                                                TextTrimming="CharacterEllipsis"
+                                                FontSize="16"
+                                                Text="{Binding Text1}">
+                                            </TextBlock>
+                                        </Grid>
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+                        </GridView>
+                    </ListView.View>
+                </ListView>
+            </Grid>
+
+            <Grid
+                Margin="0,0,0,90"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Bottom">
+                <TextBlock
+                    Margin="0,0,310,4"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Bottom"
+                    TextAlignment="Right"
+                    FontSize="20"
+                    Text="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_CUSTOMISATION_051]}" />
+            
+                <TextBox
+                    Name="ExportTrailName"
+                    Width="300"
+                    Margin="0,0,0,0"
+                    MaxLength="39"
+                    TextAlignment="Center"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Bottom" />
+            </Grid>
+            <CheckBox
+                x:Name="ExportBackup"
+                Margin="0,0,0,60"
+                Height="23"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Bottom"
+                IsChecked="True"
+                Style="{StaticResource CheckBox_Template}">
+                <TextBlock
+                    Text="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_CUSTOMISATION_050]}"
+                    Margin="0,2,0,-2"
+                    FontSize="20"
+                    VerticalAlignment="Center" />
+            </CheckBox>
+
+            <Button
+                Width="200"
+                Margin="20,0,20,20"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Bottom"
+                local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_MULTIPLAYER_CONNECTION_004]}"
+                local:PropEx.TextLeft=""
+                local:PropEx.TextRight=""
+                Command="{Binding ManageTrailCommand}"
+                CommandParameter="CloseExport"
+                MouseEnter="CommonRedButtonEnter"
+                Style="{StaticResource BTN_SH_GlowS}" />
+            <Button
+                Name="ExportExportButton"
+                Width="300"
+                Margin="20,0,20,20"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Bottom"
+                local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_CUSTOMISATION_042]}"
+                local:PropEx.TextLeft=""
+                local:PropEx.TextRight=""
+                Command="{Binding ManageTrailCommand}"
+                CommandParameter="DoExport"
+                MouseEnter="CommonRedButtonEnter"
+                Style="{StaticResource BTN_SH_GlowS}" />
+        </Grid>
+
+    </Grid>
+
+</UserControl>
+
+<!-- NOTDEMOEND -->

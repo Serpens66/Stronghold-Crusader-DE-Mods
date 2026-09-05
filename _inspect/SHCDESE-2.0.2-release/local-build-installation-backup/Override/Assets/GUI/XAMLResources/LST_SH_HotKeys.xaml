@@ -1,0 +1,63 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="clr-namespace:CrusaderDE"
+    xmlns:noesis="clr-namespace:NoesisGUIExtensions;assembly=Noesis.GUI.Extensions">
+
+
+    <Style x:Key="LST_SH_HotKeys" TargetType="{x:Type Button}">
+        <Setter Property="OverridesDefaultStyle" Value="True" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="ToolTipService.ShowDuration" Value="2500" />
+        <Setter Property="ToolTipService.InitialShowDelay" Value="1000" />
+        <Setter Property="FontSize" Value="22" />
+
+
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type Button}">
+                    <Grid
+                        x:Name="BaseGrid"
+                        Width="380"
+                        RenderTransformOrigin="0.5,0.5"
+                        UseLayoutRounding="False"
+                        IsHitTestVisible="False">
+
+                        <TextBlock
+                            x:Name="LeftText"
+                            Width="{TemplateBinding local:PropEx.Sprite1Width}"
+                            Height="22"
+                            Margin="5,0,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Center"
+                            Foreground ="#FF000000"
+                            FontSize="14"
+                            Text="{TemplateBinding local:PropEx.TextLeft}"
+                            TextAlignment="Left" />
+                        <TextBlock
+                            x:Name="CentreText"
+                            Width="{TemplateBinding local:PropEx.Sprite1Height}"
+                            Height="22"
+                            Margin="0,0,0,0"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Center"
+                            Foreground ="#FF000000"
+                            FontSize="14"
+                            Text="{TemplateBinding local:PropEx.TextCentre}"
+                            TextAlignment="Left" />
+                    </Grid>
+
+                    <!--                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="LeftText" Property="Foreground" Value="{StaticResource Brush.Accent7}" />
+                            <Setter TargetName="CentreText" Property="Foreground" Value="{StaticResource Brush.Accent7}" /> 
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+-->
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+
+</ResourceDictionary>

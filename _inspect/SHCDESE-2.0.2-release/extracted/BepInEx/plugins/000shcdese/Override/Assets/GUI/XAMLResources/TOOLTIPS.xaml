@@ -1,0 +1,105 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="clr-namespace:CrusaderDE"
+    xmlns:noesis="clr-namespace:NoesisGUIExtensions;assembly=Noesis.GUI.Extensions">
+
+    <Style x:Key="{x:Type ToolTip}" TargetType="ToolTip">
+        <Setter Property="Background" Value="Fuchsia" />
+        <Setter Property="BorderBrush" Value="Black" />
+        <Setter Property="Foreground" Value="#FFF9DEAE" />
+        <Setter Property="FontSize" Value="20" />
+        <Setter Property="OverridesDefaultStyle" Value="true" />
+        <Setter Property="Placement" Value="Top" />
+        <Setter Property="VerticalOffset" Value="-40" />
+        <Setter Property="HorizontalOffset" Value="10" />
+        <Setter Property="BorderThickness" Value="10" />
+
+        <Setter Property="noesis:Text.Stroke" Value="Black" />
+        <Setter Property="noesis:Text.StrokeThickness" Value="1" />
+
+
+
+
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToolTip">
+
+                    <ControlTemplate.Resources>
+                        <Geometry x:Key="LionIcon">
+                            m 36.02 54.57 c 1.35 -0.11 4.06 -0.33 5.41 -0.45 1.69 3.17 3.65 6.18 5.63 9.17 -2.32 0.89 -5.33 0.89 -6.94 3.05 -0.23 1.77 0.52 3.49 1.55 4.89 2.14 2.89 4.59 5.54 6.62 8.53 -5.26 2.24 -11.27 1.6 -16.37 4.34 -0.63 -0.72 -1.27 -1.45 -1.9 -2.17 -3.64 1.49 -7.37 2.74 -11.09 4 0.29 -2.07 0.59 -4.13 0.91 -6.19 -0.73 1.06 -1.47 2.13 -2.19 3.2 -1.15 -0.65 -2.88 -0.68 -3.54 -1.94 0.96 -1.66 2.06 -3.24 3.13 -4.83 -1.1 0.66 -2.23 1.27 -3.37 1.87 -0.62 -1.27 -1.26 -2.51 -1.88 -3.78 1.74 -0.64 3.5 -1.24 5.23 -1.9 -0.48 -0.07 -1.44 -0.22 -1.91 -0.29 0.09 -1.17 0.14 -2.34 0.16 -3.52 3.87 1.3 7.14 3.82 10.71 5.72 2.71 0.94 5.71 0.59 8.53 0.92 -2.74 -4.83 -4.65 -10.21 -8.72 -14.15 3.31 -2.2 6.57 -4.51 10.03 -6.47 z M 11.44 17.98 c 0.66 -1.82 1.62 -3.51 2.45 -5.25 2.06 3.64 1.41 8.1 3.39 11.77 1.57 1.95 3.3 3.76 5 5.6 -1.7 1.7 -3.4 3.38 -5.11 5.06 C 15.06 33.53 13.31 31.33 10.9 30.14 8.34 31 5.75 32.3 3.03 31.28 3.71 29.29 4.41 27.31 5.11 25.32 2.47 23.74 -0.53 21.76 1.16 17.79 3.54 18.26 5.82 19.1 7.93 20.3 6.94 18.31 6.21 16.2 5.83 14.01 c 2.44 0.42 4.65 1.56 5.61 3.97 z m 8.12 -6.09 c 1.29 -1.81 2.95 -3.29 5.07 -4.04 0.46 1.81 0.93 3.62 1.44 5.42 5.06 -1.01 10.11 -2.09 15.17 -3.13 -3.98 2.15 -7.87 4.55 -12.16 6.07 -1.69 0.55 -3.61 1.11 -5.33 0.31 -2.08 -0.74 -2.92 -3.01 -4.19 -4.63 z M 42.37 0 h 11.98 c 6.09 2.5 7.72 9.56 9.01 15.39 -0.99 4.21 -0.97 8.57 -1.15 12.86 -0.5 0.07 -1.51 0.2 -2.02 0.27 -2.2 3.89 -4.44 7.78 -7 11.45 4.81 4.44 9.38 9.15 13.75 14.03 3.16 3.32 6.34 7.38 11.23 7.98 2.95 0.45 5.31 -2.39 5.68 -5.08 -0.5 -3.68 -3.11 -6.64 -4.95 -9.73 -3 -4.63 -7.57 -7.83 -11.41 -11.68 -4.84 -4.73 -3.94 -13.72 1.28 -17.81 4.23 -2.75 9.74 -2.98 13.34 -6.76 2.65 1.75 5.33 3.45 7.89 5.33 v 1.49 c -2.95 1.64 -5.86 3.34 -8.75 5.07 -1.56 -1.35 -2.76 -4 -5.15 -3.71 -4.86 1.05 -9.13 6.88 -6.17 11.67 4.86 5.92 11.59 10.24 15.34 17.08 3.21 4.26 3.86 10.58 0.97 15.18 -2.83 3.34 -7.98 5.2 -12.16 3.3 -2.89 -1.73 -5.57 -3.76 -8.32 -5.69 -1.66 1.84 -3.7 3.54 -4.49 5.97 -0.59 3.3 0.14 7.14 2.91 9.27 1.82 -0.22 3.58 -0.71 5.36 -1.13 -0.84 6.83 -4.89 12.44 -8.11 18.3 -4.4 0.3 -6.18 4.68 -9.08 7.33 -1.84 1.19 -3.99 1.73 -6.04 2.45 -0.4 -0.96 -0.81 -1.92 -1.21 -2.88 -1.38 0.65 -2.75 1.3 -4.12 1.96 -0.44 -1.17 -0.87 -2.34 -1.31 -3.51 -1.6 -0.01 -3.19 -0.01 -4.79 -0.03 1.27 -2.1 2.65 -4.13 4.05 -6.16 -1.76 -0.11 -3.52 -0.24 -5.27 -0.42 1.75 -0.97 3.42 -2.54 5.56 -2.35 3.56 -0.03 7.18 1.34 10.7 0.68 3.85 -2.15 6.08 -6.28 8.25 -9.99 -2.03 0.84 -4.04 1.75 -6.03 2.67 -1.29 -5.05 -3.56 -9.87 -3.79 -15.15 -0.31 -2.31 -0.92 -6.91 -1.23 -9.22 -2.71 -4.39 -7.7 -6.7 -12.36 -8.4 -2.91 -1.01 -6.01 0.03 -8.93 0.51 1.01 1.54 2.03 3.07 3.04 4.6 -2.92 0.21 -5.99 -0.12 -8.76 0.94 -2.16 2.09 -1.71 5.5 -2.33 8.23 -4.53 0.12 -8.73 2.07 -13.2 2.62 1 -2.43 2.04 -4.84 3.12 -7.23 -1.5 0.73 -3.01 1.45 -4.52 2.17 -0.6 -0.3 -1.81 -0.89 -2.41 -1.19 0.78 -1.54 1.54 -3.09 2.29 -4.65 1.35 0.33 2.7 0.66 4.05 0.99 -1.72 -1.37 -3.51 -2.69 -4.98 -4.34 0.11 -0.36 0.33 -1.09 0.44 -1.45 2.85 0.42 5.68 1.01 8.49 1.7 2.73 -2.22 5.33 -4.6 7.94 -6.98 -2.18 -2.01 -4.3 -4.09 -6.23 -6.35 5.3 -3.6 9.56 -8.41 14.49 -12.46 4.49 -4.35 11.17 -3.67 16.4 -6.5 0.72 -1.14 1.18 -2.4 1.75 -3.61 -1.99 0.95 -3.93 1.98 -5.86 3.05 -0.61 -2.1 -1.22 -4.2 -1.8 -6.3 2.11 -0.12 4.22 -0.23 6.33 -0.34 -0.59 -2.16 -1.24 -4.29 -1.94 -6.41 -1.63 0.64 -3.26 1.28 -4.95 1.76 -0.87 -1.44 -1.5 -3.01 -2.26 -4.51 1 -0.2 2 -0.41 3 -0.61 C 37.23 2.75 36.54 1.83 35.85 0.91 37.48 0.68 40.74 0.23 42.37 0 m 0.98 2.74 c 2.28 0.75 4.64 1.17 7.03 1.32 C 49.5 0.71 45.69 2.27 43.35 2.74 Z
+                        </Geometry>
+                    </ControlTemplate.Resources>
+
+                    <Border BorderBrush="#CFF9DEAE" BorderThickness="1">
+
+                        <Border.Background>
+                            <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
+                                <GradientStop Offset="0.649" Color="#4F000000" />
+                                <GradientStop Color="#2FF9DEAE" />
+                            </LinearGradientBrush>
+                        </Border.Background>
+
+
+                        <StackPanel Grid.Row="1" Orientation="Horizontal">
+                            <Path
+                                Width="26"
+                                Height="30"
+                                Margin="2,2,6,2"
+                                Data="{StaticResource LionIcon}"
+                                RenderTransformOrigin="0.5,0.5"
+                                Stretch="Fill"
+                                Stroke="#FFF9DEAE"
+                                StrokeThickness="0.0">
+                                <Path.RenderTransform>
+                                    <TransformGroup>
+                                        <TranslateTransform X="0" />
+                                        <ScaleTransform ScaleX="1.0" />
+                                        <ScaleTransform ScaleY="1.0" />
+                                    </TransformGroup>
+                                </Path.RenderTransform>
+                                <Path.Fill>
+                                    <SolidColorBrush Opacity="1" Color="#CC000000" />
+                                </Path.Fill>
+                            </Path>
+
+                            <ContentPresenter
+                                Margin="6"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center" />
+
+                            <Path
+                                Width="26"
+                                Height="30"
+                                Margin="6,2,2,2"
+                                Data="{StaticResource LionIcon}"
+                                RenderTransformOrigin="0.5,0.5"
+                                Stretch="Fill"
+                                Stroke="#FF000000"
+                                StrokeThickness="0.0">
+                                <Path.RenderTransform>
+                                    <TransformGroup>
+                                        <TranslateTransform X="0" />
+                                        <ScaleTransform ScaleX="-1.0" />
+                                        <ScaleTransform ScaleY="1.0" />
+                                    </TransformGroup>
+                                </Path.RenderTransform>
+                                <Path.Fill>
+                                    <SolidColorBrush Opacity="1" Color="#CC000000" />
+                                </Path.Fill>
+                            </Path>
+
+
+                        </StackPanel>
+
+                    </Border>
+
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+
+
+
+</ResourceDictionary>

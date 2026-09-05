@@ -1,5 +1,6 @@
 using BepInEx.Logging;
 using R3;
+using RedBird.Core.Memory;
 using SHCDESE.API;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.MapLoader;
@@ -10,7 +11,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
-using Zhuqiaomon.Memory;
 
 namespace OxTetherIdleFixTest
 {
@@ -1252,7 +1252,7 @@ namespace OxTetherIdleFixTest
                 Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_LinkedProductionBuildingId)).ToInt32() != 0x334)
             {
                 throw new InvalidOperationException(
-                    "GameUnit layout differs from the audited Script Extender 1.42.0 contract.");
+                    "GameUnit layout differs from the audited Script Extender 2.0.2 contract.");
             }
         }
 

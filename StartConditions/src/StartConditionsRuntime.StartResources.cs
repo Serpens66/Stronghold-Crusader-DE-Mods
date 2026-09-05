@@ -25,10 +25,13 @@ namespace StartConditions
             int setGold = isAI ? current.SetStartGoldAI : current.SetStartGoldHuman;
             int addGold = isAI ? current.AddStartGoldAI : current.AddStartGoldHuman;
 
+            if (!StartGoldPolicy.IsValidConfiguredValue(setGold))
+                throw new System.InvalidOperationException($"Configured start gold {setGold} is outside -1..{StartGoldPolicy.MaximumGold}.");
+
             if (setGold >= 0)
             {
                 GamePlayerManagerAPI.Instance.SubtractIncomingGood(playerId, eGoods.STORED_GOLD, 1000000);
-                GamePlayerManagerAPI.Instance.SetPlayerGold(playerId, (uint)setGold);
+                GamePlayerManagerAPI.Instance.SetPlayerGold(playerId, setGold);
                 LogDebug("Set gold of player", playerId, "to", setGold);
             }
 

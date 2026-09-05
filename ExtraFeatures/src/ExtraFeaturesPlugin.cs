@@ -7,7 +7,7 @@ using System;
 
 namespace ExtraFeatures
 {
-    [BepInDependency(ScriptExtenderGuid, BepInDependency.DependencyFlags.HardDependency)]
+    [BepInDependency(ScriptExtenderGuid, "2.0.2")]
     [BepInDependency(LegacySomeSettingsGuid, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
@@ -45,7 +45,7 @@ namespace ExtraFeatures
             CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
         }
 
-        private void OnCrusaderLibraryLoaded(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
+        private void OnCrusaderLibraryLoaded(CrusaderLibraryLoadContext context)
         {
             // The Script Extender registers its built-in packet types in its earlier LibraryLoaded
             // handler. Register ours immediately afterwards, unconditionally and before any settings.
@@ -111,8 +111,7 @@ namespace ExtraFeatures
             try
             {
                 runtime.InitializeNative(
-                    libraryHandle,
-                    memory,
+                    context,
                     Shared.DebugLogHelper.IsCurrentNativeLibraryVersion());
             }
             catch (Exception ex)
@@ -131,7 +130,7 @@ namespace ExtraFeatures
 
             try
             {
-                runtime.InstallAIMarketVanillaPriceHook(libraryHandle, memory);
+                runtime.InstallAIMarketVanillaPriceHook();
             }
             catch (Exception ex)
             {

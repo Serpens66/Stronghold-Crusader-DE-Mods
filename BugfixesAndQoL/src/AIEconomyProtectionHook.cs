@@ -7,11 +7,12 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Runtime.InteropServices;
-using Zhuqiaomon.Assembly;
-using Zhuqiaomon.Extensions;
-using Zhuqiaomon.Hooks;
-using Zhuqiaomon.Hooks.Transaction;
-using Zhuqiaomon.Memory;
+using RedBird.Abstractions.Hooks;
+using RedBird.Abstractions.Hooks.Transaction;
+using RedBird.Core.Memory;
+using RedBird.X64.Assembly;
+using RedBird.X64.Hooks;
+using RedBird.X64.Hooks.Transaction;
 
 namespace BugfixesAndQoL
 {
@@ -71,11 +72,10 @@ namespace BugfixesAndQoL
         private readonly bool aiPauseProtectionSupported;
         private readonly bool inaccessibleBuildingProtectionSupported;
         private readonly HookTransaction transaction;
-        private HookRef<X64InlineHook> sleepStateHook = new HookRef<X64InlineHook>();
-        private HookRef<X64InlineHook> emergencyDemolitionHook = new HookRef<X64InlineHook>();
-        private HookRef<X64InlineHook> inaccessibleBuildingDemolitionHook = new HookRef<X64InlineHook>();
-        private HookRef<X64ManagedFunctionDetourAOB<AIHovelDemolitionDelegate>> aiHovelDemolitionHook =
-            new HookRef<X64ManagedFunctionDetourAOB<AIHovelDemolitionDelegate>>();
+        private readonly HookHandle<X64InlineHook> sleepStateHook = new HookHandle<X64InlineHook>();
+        private readonly HookHandle<X64InlineHook> emergencyDemolitionHook = new HookHandle<X64InlineHook>();
+        private readonly HookHandle<X64InlineHook> inaccessibleBuildingDemolitionHook = new HookHandle<X64InlineHook>();
+        private readonly DetourHandle<AIHovelDemolitionDelegate> aiHovelDemolitionHook = new DetourHandle<AIHovelDemolitionDelegate>();
         private readonly SynchronizeSleepStatesDelegate synchronizeSleepStates;
         private readonly AIBuildingTemporaryAccessClassifier temporaryAccessClassifier;
         private bool pauseCallbackFailureLogged;
@@ -93,6 +93,7 @@ namespace BugfixesAndQoL
         public AIEconomyProtectionHook(
             ManualLogSource log,
             BugfixesAndQoLViewModel settings,
+            ScanRegion region,
             IntPtr libraryHandle,
             ReadOnlySpan<byte> memory,
             bool referenceHashMatches)
@@ -133,47 +134,40 @@ namespace BugfixesAndQoL
             synchronizeSleepStates = Marshal.GetDelegateForFunctionPointer<SynchronizeSleepStatesDelegate>(
                 unchecked((IntPtr)(long)(libraryBase + (ulong)synchronizationRva)));
 
-            transaction = new HookTransaction(
-                memory,
-                unchecked((ulong)libraryHandle.ToInt64()),
-                loggerFactory: null,
-                failureMode: TransactionFailureMode.RollbackAndThrow);
+            transaction = BugfixesHookInfrastructure.CreateOwnedTransaction(region);
 
-            transaction.AddContextHook(
-                ref sleepStateHook,
+            BugfixesHookInfrastructure.AddContextHook(transaction, sleepStateHook,
                 libraryBase + unchecked((ulong)sleepComparisonRva),
                 PreventAIPause,
-                regs: X64SmartCPUContextRegs.Volatile,
+                registers: X64SmartCPUContextRegs.Volatile,
                 errorMode: CallbackErrorMode.LogAndContinue,
                 placement: OverwrittenInstructionPlacement.AfterCallback);
 
-            transaction.AddContextHook(
-                ref emergencyDemolitionHook,
+            BugfixesHookInfrastructure.AddContextHook(transaction, emergencyDemolitionHook,
                 libraryBase + unchecked((ulong)emergencyRva),
                 PreventEmergencyDemolition,
-                regs: X64SmartCPUContextRegs.Volatile,
+                registers: X64SmartCPUContextRegs.Volatile,
                 errorMode: CallbackErrorMode.LogAndContinue,
                 placement: OverwrittenInstructionPlacement.AfterCallback);
 
             if (inaccessibleBuildingProtectionSupported)
             {
-                transaction.AddContextHook(
-                    ref inaccessibleBuildingDemolitionHook,
+                BugfixesHookInfrastructure.AddContextHook(transaction, inaccessibleBuildingDemolitionHook,
                     libraryBase + unchecked((ulong)inaccessibleBuildingComparisonRva),
                     PreventInaccessibleBuildingDemolition,
-                    regs: X64SmartCPUContextRegs.Volatile | X64SmartCPUContextRegs.RDI,
+                    registers: X64SmartCPUContextRegs.Volatile | X64SmartCPUContextRegs.RDI,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
             }
 
             transaction.AddDetour(
-                ref aiHovelDemolitionHook,
-                libraryBase + unchecked((ulong)aiHovelDemolitionRva),
+                aiHovelDemolitionHook,
+                HookTarget.FromAddress(libraryBase + unchecked((ulong)aiHovelDemolitionRva)),
                 PreventAIHovelDemolition);
 
-            transaction.Commit();
+            CommitResult commitResult = transaction.Commit();
 
-            if (!sleepStateHook.Success)
+            if (!commitResult.IsCompleteSuccess || !sleepStateHook.Success)
                 throw new InvalidOperationException("The AI building sleep-state AOB signature was not found.");
             if (!emergencyDemolitionHook.Success)
                 throw new InvalidOperationException("The AI emergency-demolition AOB signature was not found.");
@@ -205,7 +199,6 @@ namespace BugfixesAndQoL
                 return;
 
             disposed = true;
-            transaction.Unload();
             transaction.Dispose();
         }
 
@@ -327,7 +320,7 @@ namespace BugfixesAndQoL
                 }
             }
 
-            return aiHovelDemolitionHook.Value.Hook.Trampoline(aiManager, playerId);
+            return aiHovelDemolitionHook.Original(aiManager, playerId);
         }
 
         private void PreventInaccessibleBuildingDemolition(NativePointer<X64SmartCPUContext> context)

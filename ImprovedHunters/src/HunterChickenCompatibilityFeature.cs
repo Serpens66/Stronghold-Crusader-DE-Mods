@@ -11,8 +11,8 @@ using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using Zhuqiaomon.Assembly.Stateful;
-using Zhuqiaomon.Memory;
+using RedBird.Core.Memory;
+using RedBird.X64.Assembly.Stateful;
 
 namespace ImprovedHunters
 {

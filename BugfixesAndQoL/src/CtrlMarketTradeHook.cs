@@ -11,9 +11,10 @@ using System;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
-using Zhuqiaomon.Hooks;
-using Zhuqiaomon.Hooks.Transaction;
-using Zhuqiaomon.Memory;
+using RedBird.Abstractions.Hooks;
+using RedBird.Abstractions.Hooks.Transaction;
+using RedBird.Core.Memory;
+using RedBird.X64.Hooks.Transaction;
 
 namespace BugfixesAndQoL
 {
@@ -59,8 +60,8 @@ namespace BugfixesAndQoL
         private readonly ulong imageBase;
         private readonly bool referenceHashMatches;
         private HookTransaction nativeTransaction;
-        private HookRef<X64ManagedFunctionDetourAOB<MarketValidatorDelegate>> marketValidatorHook =
-            new HookRef<X64ManagedFunctionDetourAOB<MarketValidatorDelegate>>();
+        private readonly DetourHandle<MarketValidatorDelegate> marketValidatorHook = new DetourHandle<MarketValidatorDelegate>();
+        private readonly ScanRegion region;
         private GetAvailableGoodStorageDelegate getAvailableGoodStorage;
         private SendActionPacketDelegate sendActionPacket;
         private IntPtr marketActionPacketContext;
@@ -78,12 +79,14 @@ namespace BugfixesAndQoL
         public CtrlMarketTradeHook(
             ManualLogSource log,
             BugfixesAndQoLViewModel settings,
+            ScanRegion region,
             IntPtr libraryHandle,
             ReadOnlySpan<byte> memory,
             bool referenceHashMatches)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
+            this.region = region ?? throw new ArgumentNullException(nameof(region));
             if (libraryHandle == IntPtr.Zero || memory.Length == 0)
                 throw new ArgumentException("The Crusader native library is unavailable.");
 
@@ -120,7 +123,6 @@ namespace BugfixesAndQoL
             uiUpdateHook?.Dispose();
             gameActionHook?.Undo();
             gameActionHook?.Dispose();
-            nativeTransaction?.Unload();
             nativeTransaction?.Dispose();
             Shared.DebugLogHelper.LogInfo(log, "Bugfixes and QoL Ctrl single-unit market hooks disposed.");
         }
@@ -159,7 +161,7 @@ namespace BugfixesAndQoL
             if (args.Selling)
             {
                 int proceeds = price.SellPrice / 5;
-                resources->r_TotalGoodsGold += (uint)proceeds;
+                resources->r_TotalGoodsGold += proceeds;
                 // This is the same resources field updated by Vanilla AutoMarket.
                 resources->N00004513 += (uint)proceeds;
                 marketSellGoldStatistic[args.PlayerId] += proceeds;
@@ -181,7 +183,7 @@ namespace BugfixesAndQoL
                 return;
             }
 
-            resources->r_TotalGoodsGold -= (uint)cost;
+            resources->r_TotalGoodsGold -= cost;
             resources->N00004513 -= (uint)cost;
             Shared.DebugLogHelper.LogInfo(
                 log,
@@ -193,18 +195,14 @@ namespace BugfixesAndQoL
         {
             ulong validator = ResolveNativeDependencies(memory);
 
-            nativeTransaction = new HookTransaction(
-                memory,
-                imageBase,
-                loggerFactory: null,
-                failureMode: TransactionFailureMode.RollbackAndThrow);
+            nativeTransaction = BugfixesHookInfrastructure.CreateOwnedTransaction(region);
             nativeTransaction.AddDetour(
-                ref marketValidatorHook,
-                validator,
+                marketValidatorHook,
+                HookTarget.FromAddress(validator),
                 MarketValidatorHook);
-            nativeTransaction.Commit();
+            CommitResult commitResult = nativeTransaction.Commit();
 
-            if (!marketValidatorHook.Success)
+            if (!commitResult.IsCompleteSuccess || !marketValidatorHook.Success)
                 throw new InvalidOperationException("The Vanilla market validator signature was not found.");
         }
 
@@ -351,13 +349,13 @@ namespace BugfixesAndQoL
         {
             if (tradeMode != SingleTradeMode)
             {
-                marketValidatorHook.Value.Hook.Trampoline(selling, tradeMode, goodValue);
+                marketValidatorHook.Original(selling, tradeMode, goodValue);
                 return;
             }
 
             if (!IsFeatureUsable() || !IsSelectedTradepostControlled())
             {
-                marketValidatorHook.Value.Hook.Trampoline(selling, NormalTradeMode, goodValue);
+                marketValidatorHook.Original(selling, NormalTradeMode, goodValue);
                 return;
             }
 
@@ -367,7 +365,7 @@ namespace BugfixesAndQoL
             bool validPlayer = playerApi.IsPlayerIdValid(playerId);
             bool validGood = goodValue >= 0 && goodValue < (int)eGoods.Count;
             int stock = validPlayer && validGood ? playerApi.GetGoodAmount(playerId, good) : -1;
-            uint gold = validPlayer ? playerApi.GetPlayerGold(playerId) : 0;
+            int gold = validPlayer ? playerApi.GetPlayerGold(playerId) : 0;
             int storage = validPlayer && validGood ? GetAvailableGoodStorage(playerId, good) : -1;
             PackedGoodPrice price = validGood ? playerApi.GetTradeBasePrice(good) : default(PackedGoodPrice);
             Shared.DebugLogHelper.LogInfo(
@@ -383,7 +381,7 @@ namespace BugfixesAndQoL
                 Shared.DebugLogHelper.LogInfo(
                     log,
                     "Single market validator delegated the rejected action to Vanilla's normal-mode error path.");
-                marketValidatorHook.Value.Hook.Trampoline(selling, NormalTradeMode, goodValue);
+                marketValidatorHook.Original(selling, NormalTradeMode, goodValue);
                 return;
             }
 
@@ -445,7 +443,7 @@ namespace BugfixesAndQoL
             {
                 // A failed Ctrl click must reach Vanilla's validator so its normal warning can play.
                 MainViewModel.Instance.HUDBuildingPanel.RefTradeBuyButton.IsEnabled = amount == 1
-                    || (playerApi.GetPlayerGold(playerId) >= (uint)buyCost
+                    || (MarketGoldPolicy.CanAfford(playerApi.GetPlayerGold(playerId), buyCost)
                         && GetAvailableGoodStorage(playerId, good) >= amount);
             }
 
@@ -476,7 +474,7 @@ namespace BugfixesAndQoL
 
             PackedGoodPrice price = playerApi.GetTradeBasePrice(good);
             int cost = Math.Max(1, price.BuyPrice / 5);
-            return playerApi.GetPlayerGold(playerId) >= (uint)cost
+            return MarketGoldPolicy.CanAfford(playerApi.GetPlayerGold(playerId), cost)
                 && GetAvailableGoodStorage(playerId, good) >= 1;
         }
 

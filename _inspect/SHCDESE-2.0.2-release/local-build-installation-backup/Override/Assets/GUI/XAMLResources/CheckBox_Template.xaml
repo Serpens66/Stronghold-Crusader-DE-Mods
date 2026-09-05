@@ -1,0 +1,592 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="clr-namespace:CrusaderDE"
+    xmlns:noesis="clr-namespace:NoesisGUIExtensions;assembly=Noesis.GUI.Extensions">
+
+
+  <Style x:Key="CheckBox_Template" TargetType="CheckBox" BasedOn="{StaticResource {x:Type ContentControl}}">
+    <Setter Property="OverridesDefaultStyle" Value="True"/>
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderThickness" Value="{DynamicResource Border.Normal}"/>
+    <Setter Property="HorizontalContentAlignment" Value="Left"/>
+    <Setter Property="VerticalContentAlignment" Value="Center"/>
+    <Setter Property="Padding" Value="6,0,0,0"/>
+    <Setter Property="UseLayoutRounding" Value="True"/>
+    <Setter Property="Template" Value="{StaticResource Template.CheckBox}"/>
+    <Setter Property="FocusVisualStyle" Value="{StaticResource Style.Focus.Outer.Padded}"/>
+    <Setter Property="FlowDirection" Value="{Binding GlobalTextFlowAL2R}" />
+
+
+
+        <Setter Property="Template">
+            <Setter.Value>
+      <!-- CheckBox -->
+                <ControlTemplate
+                    TargetType="CheckBox">
+                    <ControlTemplate.Resources>
+                        <Storyboard
+                            x:Key="Anim.Loaded">
+                            <ObjectAnimationUsingKeyFrames
+                                Storyboard.TargetProperty="Tag"
+                                Storyboard.TargetName="Root">
+                                <DiscreteObjectKeyFrame
+                                    KeyTime="0"
+                                    Value="1" />
+                            </ObjectAnimationUsingKeyFrames>
+                        </Storyboard>
+                        <Storyboard
+                            x:Key="Anim.Check.Loaded">
+                            <DoubleAnimation
+                                Storyboard.TargetProperty="RenderTransform.ScaleX"
+                                Storyboard.TargetName="Check"
+                                To="1"
+                                Duration="0" />
+                            <DoubleAnimation
+                                Storyboard.TargetProperty="RenderTransform.ScaleY"
+                                Storyboard.TargetName="Check"
+                                To="1"
+                                Duration="0" />
+                        </Storyboard>
+                        <Storyboard
+                            x:Key="Anim.Check">
+                            <DoubleAnimation
+                                Storyboard.TargetProperty="RenderTransform.ScaleX"
+                                Storyboard.TargetName="Check"
+                                To="1"
+                                Duration="0:0:0.1"
+                                DecelerationRatio="1" />
+                            <DoubleAnimation
+                                Storyboard.TargetProperty="RenderTransform.ScaleY"
+                                Storyboard.TargetName="Check"
+                                To="1"
+                                Duration="0:0:0.1"
+                                DecelerationRatio="1" />
+                        </Storyboard>
+                        <Storyboard
+                            x:Key="Anim.Uncheck">
+                            <DoubleAnimation
+                                Storyboard.TargetProperty="RenderTransform.ScaleX"
+                                Storyboard.TargetName="Check"
+                                To="0"
+                                Duration="0:0:0.2"
+                                DecelerationRatio="1" />
+                            <DoubleAnimation
+                                Storyboard.TargetProperty="RenderTransform.ScaleY"
+                                Storyboard.TargetName="Check"
+                                To="0"
+                                Duration="0:0:0.2"
+                                DecelerationRatio="1" />
+                        </Storyboard>
+                    </ControlTemplate.Resources>
+                    <Grid
+                        x:Name="Root"
+                        Background="Transparent"
+                        Tag="0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition
+                                Width="Auto" />
+                            <ColumnDefinition
+                                Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Border
+                            Grid.ColumnSpan="2"
+                            Background="{TemplateBinding Background}" />
+                        <Border
+                            x:Name="Border"
+                            Grid.Column="0"
+                            Background="{DynamicResource Brush.Background.Normal}"
+                            BorderBrush="{DynamicResource Brush.Border.Normal}"
+                            BorderThickness="{DynamicResource Border.Normal}"
+                            CornerRadius="{DynamicResource Corner.Border0}"
+                            Width="20"
+                            Height="20"
+                            VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                        <Decorator
+                            Grid.Column="0"
+                            Margin="{TemplateBinding BorderThickness}"
+                            Width="20"
+                            Height="20"
+                            VerticalAlignment="{TemplateBinding VerticalContentAlignment}">
+                            <Grid
+                                FlowDirection="LeftToRight">
+                                <Path
+                                    x:Name="Check"
+                                    Data="{StaticResource Geometry.CheckBox.Check}"
+                                    Width="14"
+                                    Height="14"
+                                    Fill="{DynamicResource Brush.Glyph.Checked}"
+                                    RenderTransformOrigin="0.5,0.5">
+                                    <Path.RenderTransform>
+                                        <ScaleTransform
+                                            ScaleX="0"
+                                            ScaleY="0" />
+                                    </Path.RenderTransform>
+                                </Path>
+                                <Rectangle
+                                    x:Name="CheckIndeterminate"
+                                    Width="10"
+                                    Height="10"
+                                    Fill="{DynamicResource Brush.Glyph.Normal}"
+                                    Visibility="Collapsed" />
+                            </Grid>
+                        </Decorator>
+                        <ContentPresenter
+                            x:Name="PART_ContentPresenter"
+                            Grid.Column="1"
+                            HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                            VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                            Margin="{TemplateBinding Padding}" />
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <EventTrigger
+                            RoutedEvent="FrameworkElement.Loaded"
+                            SourceName="Root">
+                            <BeginStoryboard
+                                Storyboard="{StaticResource Anim.Loaded}" />
+                        </EventTrigger>
+                        <Trigger
+                            Property="IsMouseOver"
+                            Value="True">
+                            <Setter
+                                Property="BorderBrush"
+                                Value="{DynamicResource Brush.Border.Over}"
+                                TargetName="Border" />
+                            <Setter
+                                Property="BorderThickness"
+                                Value="{DynamicResource Border.Over}"
+                                TargetName="Border" />
+                            <Setter
+                                Property="CornerRadius"
+                                Value="{DynamicResource Corner.Border2}"
+                                TargetName="Border" />
+                        </Trigger>
+                        <Trigger
+                            Property="IsPressed"
+                            Value="True">
+                            <Setter
+                                Property="Background"
+                                Value="{DynamicResource Brush.Background.Pressed}"
+                                TargetName="Border" />
+                            <Setter
+                                Property="BorderBrush"
+                                Value="{DynamicResource Brush.Border.Pressed}"
+                                TargetName="Border" />
+                            <Setter
+                                Property="BorderThickness"
+                                Value="{DynamicResource Border.Normal}"
+                                TargetName="Border" />
+                            <Setter
+                                Property="CornerRadius"
+                                Value="{DynamicResource Corner.Border0}"
+                                TargetName="Border" />
+                        </Trigger>
+                        <Trigger
+                            Property="IsChecked"
+                            Value="True">
+                            <Setter
+                                Property="Background"
+                                Value="{DynamicResource Brush.Background.Checked}"
+                                TargetName="Border" />
+                            <Setter
+                                Property="BorderBrush"
+                                Value="{DynamicResource Brush.Border.Checked}"
+                                TargetName="Border" />
+                        </Trigger>
+                        <MultiDataTrigger>
+                            <MultiDataTrigger.Conditions>
+                                <Condition
+                                    Binding="{Binding Tag, ElementName=Root}"
+                                    Value="0" />
+                                <Condition
+                                    Binding="{Binding IsChecked, RelativeSource={RelativeSource Self}}"
+                                    Value="True" />
+                            </MultiDataTrigger.Conditions>
+                            <MultiDataTrigger.EnterActions>
+                                <BeginStoryboard
+                                    Storyboard="{StaticResource Anim.Check.Loaded}" />
+                            </MultiDataTrigger.EnterActions>
+                        </MultiDataTrigger>
+                        <MultiDataTrigger>
+                            <MultiDataTrigger.Conditions>
+                                <Condition
+                                    Binding="{Binding Tag, ElementName=Root}"
+                                    Value="1" />
+                                <Condition
+                                    Binding="{Binding IsChecked, RelativeSource={RelativeSource Self}}"
+                                    Value="True" />
+                            </MultiDataTrigger.Conditions>
+                            <MultiDataTrigger.EnterActions>
+                                <BeginStoryboard
+                                    Storyboard="{StaticResource Anim.Check}" />
+                            </MultiDataTrigger.EnterActions>
+                            <MultiDataTrigger.ExitActions>
+                                <BeginStoryboard
+                                    Storyboard="{StaticResource Anim.Uncheck}" />
+                            </MultiDataTrigger.ExitActions>
+                        </MultiDataTrigger>
+                        <MultiTrigger>
+                            <MultiTrigger.Conditions>
+                                <Condition
+                                    Property="IsThreeState"
+                                    Value="True" />
+                                <Condition
+                                    Property="IsChecked"
+                                    Value="{x:Null}" />
+                            </MultiTrigger.Conditions>
+                            <Setter
+                                Property="Visibility"
+                                Value="Collapsed"
+                                TargetName="Check" />
+                            <Setter
+                                Property="Visibility"
+                                Value="Visible"
+                                TargetName="CheckIndeterminate" />
+                        </MultiTrigger>
+                        <Trigger
+                            Property="IsEnabled"
+                            Value="False">
+                            <Setter
+                                Property="Foreground"
+                                Value="{DynamicResource Brush.Foreground.Disabled}" />
+                            <Setter
+                                Property="BorderBrush"
+                                Value="{DynamicResource Brush.Border.Disabled}"
+                                TargetName="Border" />
+                            <Setter
+                                Property="Fill"
+                                Value="{DynamicResource Brush.Glyph.Disabled}"
+                                TargetName="Check" />
+                            <Setter
+                                Property="Fill"
+                                Value="{DynamicResource Brush.Glyph.Disabled}"
+                                TargetName="CheckIndeterminate" />
+                        </Trigger>
+                        <MultiTrigger>
+                            <MultiTrigger.Conditions>
+                                <Condition
+                                    Property="IsEnabled"
+                                    Value="False" />
+                                <Condition
+                                    Property="IsChecked"
+                                    Value="True" />
+                            </MultiTrigger.Conditions>
+                            <Setter
+                                Property="BorderBrush"
+                                Value="{DynamicResource Brush.Border.DisabledChecked}"
+                                TargetName="Border" />
+                            <Setter
+                                Property="Fill"
+                                Value="{DynamicResource Brush.Glyph.DisabledChecked}"
+                                TargetName="Check" />
+                        </MultiTrigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>  
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- only used where arabic L2R doesn't require it to be flipped -->
+    <Style
+        x:Key="CheckBox_Template_Special"
+        TargetType="CheckBox"
+        BasedOn="{StaticResource {x:Type ContentControl}}">
+        <Setter
+            Property="OverridesDefaultStyle"
+            Value="True" />
+        <Setter
+            Property="Background"
+            Value="Transparent" />
+        <Setter
+            Property="BorderThickness"
+            Value="{DynamicResource Border.Normal}" />
+        <Setter
+            Property="HorizontalContentAlignment"
+            Value="Left" />
+        <Setter
+            Property="VerticalContentAlignment"
+            Value="Center" />
+        <Setter
+            Property="Padding"
+            Value="6,0,0,0" />
+        <Setter
+            Property="UseLayoutRounding"
+            Value="True" />
+        <Setter
+            Property="Template"
+            Value="{StaticResource Template.CheckBox}" />
+        <Setter
+            Property="FocusVisualStyle"
+            Value="{StaticResource Style.Focus.Outer.Padded}" />
+
+
+
+        <Setter
+            Property="Template">
+            <Setter.Value>
+                <!-- CheckBox -->
+                <ControlTemplate
+                    TargetType="CheckBox">
+                    <ControlTemplate.Resources>
+                        <Storyboard
+                            x:Key="Anim.Loaded">
+                            <ObjectAnimationUsingKeyFrames
+                                Storyboard.TargetProperty="Tag"
+                                Storyboard.TargetName="Root">
+                                <DiscreteObjectKeyFrame
+                                    KeyTime="0"
+                                    Value="1" />
+                            </ObjectAnimationUsingKeyFrames>
+                        </Storyboard>
+                        <Storyboard
+                            x:Key="Anim.Check.Loaded">
+                            <DoubleAnimation
+                                Storyboard.TargetProperty="RenderTransform.ScaleX"
+                                Storyboard.TargetName="Check"
+                                To="1"
+                                Duration="0" />
+                            <DoubleAnimation
+                                Storyboard.TargetProperty="RenderTransform.ScaleY"
+                                Storyboard.TargetName="Check"
+                                To="1"
+                                Duration="0" />
+                        </Storyboard>
+                        <Storyboard
+                            x:Key="Anim.Check">
+                            <DoubleAnimation
+                                Storyboard.TargetProperty="RenderTransform.ScaleX"
+                                Storyboard.TargetName="Check"
+                                To="1"
+                                Duration="0:0:0.1"
+                                DecelerationRatio="1" />
+                            <DoubleAnimation
+                                Storyboard.TargetProperty="RenderTransform.ScaleY"
+                                Storyboard.TargetName="Check"
+                                To="1"
+                                Duration="0:0:0.1"
+                                DecelerationRatio="1" />
+                        </Storyboard>
+                        <Storyboard
+                            x:Key="Anim.Uncheck">
+                            <DoubleAnimation
+                                Storyboard.TargetProperty="RenderTransform.ScaleX"
+                                Storyboard.TargetName="Check"
+                                To="0"
+                                Duration="0:0:0.2"
+                                DecelerationRatio="1" />
+                            <DoubleAnimation
+                                Storyboard.TargetProperty="RenderTransform.ScaleY"
+                                Storyboard.TargetName="Check"
+                                To="0"
+                                Duration="0:0:0.2"
+                                DecelerationRatio="1" />
+                        </Storyboard>
+                    </ControlTemplate.Resources>
+                    <Grid
+                        x:Name="Root"
+                        Background="Transparent"
+                        Tag="0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition
+                                Width="Auto" />
+                            <ColumnDefinition
+                                Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Border
+                            Grid.ColumnSpan="2"
+                            Background="{TemplateBinding Background}" />
+                        <Border
+                            x:Name="Border"
+                            Grid.Column="0"
+                            Background="{DynamicResource Brush.Background.Normal}"
+                            BorderBrush="{DynamicResource Brush.Border.Normal}"
+                            BorderThickness="{DynamicResource Border.Normal}"
+                            CornerRadius="{DynamicResource Corner.Border0}"
+                            Width="20"
+                            Height="20"
+                            VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                        <Decorator
+                            Grid.Column="0"
+                            Margin="{TemplateBinding BorderThickness}"
+                            Width="20"
+                            Height="20"
+                            VerticalAlignment="{TemplateBinding VerticalContentAlignment}">
+                            <Grid
+                                FlowDirection="LeftToRight">
+                                <Path
+                                    x:Name="Check"
+                                    Data="{StaticResource Geometry.CheckBox.Check}"
+                                    Width="14"
+                                    Height="14"
+                                    Fill="{DynamicResource Brush.Glyph.Checked}"
+                                    RenderTransformOrigin="0.5,0.5">
+                                    <Path.RenderTransform>
+                                        <ScaleTransform
+                                            ScaleX="0"
+                                            ScaleY="0" />
+                                    </Path.RenderTransform>
+                                </Path>
+                                <Rectangle
+                                    x:Name="CheckIndeterminate"
+                                    Width="10"
+                                    Height="10"
+                                    Fill="{DynamicResource Brush.Glyph.Normal}"
+                                    Visibility="Collapsed" />
+                            </Grid>
+                        </Decorator>
+                        <ContentPresenter
+                            x:Name="PART_ContentPresenter"
+                            Grid.Column="1"
+                            HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                            VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                            Margin="{TemplateBinding Padding}" />
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <EventTrigger
+                            RoutedEvent="FrameworkElement.Loaded"
+                            SourceName="Root">
+                            <BeginStoryboard
+                                Storyboard="{StaticResource Anim.Loaded}" />
+                        </EventTrigger>
+                        <Trigger
+                            Property="IsMouseOver"
+                            Value="True">
+                            <Setter
+                                Property="BorderBrush"
+                                Value="{DynamicResource Brush.Border.Over}"
+                                TargetName="Border" />
+                            <Setter
+                                Property="BorderThickness"
+                                Value="{DynamicResource Border.Over}"
+                                TargetName="Border" />
+                            <Setter
+                                Property="CornerRadius"
+                                Value="{DynamicResource Corner.Border2}"
+                                TargetName="Border" />
+                        </Trigger>
+                        <Trigger
+                            Property="IsPressed"
+                            Value="True">
+                            <Setter
+                                Property="Background"
+                                Value="{DynamicResource Brush.Background.Pressed}"
+                                TargetName="Border" />
+                            <Setter
+                                Property="BorderBrush"
+                                Value="{DynamicResource Brush.Border.Pressed}"
+                                TargetName="Border" />
+                            <Setter
+                                Property="BorderThickness"
+                                Value="{DynamicResource Border.Normal}"
+                                TargetName="Border" />
+                            <Setter
+                                Property="CornerRadius"
+                                Value="{DynamicResource Corner.Border0}"
+                                TargetName="Border" />
+                        </Trigger>
+                        <Trigger
+                            Property="IsChecked"
+                            Value="True">
+                            <Setter
+                                Property="Background"
+                                Value="{DynamicResource Brush.Background.Checked}"
+                                TargetName="Border" />
+                            <Setter
+                                Property="BorderBrush"
+                                Value="{DynamicResource Brush.Border.Checked}"
+                                TargetName="Border" />
+                        </Trigger>
+                        <MultiDataTrigger>
+                            <MultiDataTrigger.Conditions>
+                                <Condition
+                                    Binding="{Binding Tag, ElementName=Root}"
+                                    Value="0" />
+                                <Condition
+                                    Binding="{Binding IsChecked, RelativeSource={RelativeSource Self}}"
+                                    Value="True" />
+                            </MultiDataTrigger.Conditions>
+                            <MultiDataTrigger.EnterActions>
+                                <BeginStoryboard
+                                    Storyboard="{StaticResource Anim.Check.Loaded}" />
+                            </MultiDataTrigger.EnterActions>
+                        </MultiDataTrigger>
+                        <MultiDataTrigger>
+                            <MultiDataTrigger.Conditions>
+                                <Condition
+                                    Binding="{Binding Tag, ElementName=Root}"
+                                    Value="1" />
+                                <Condition
+                                    Binding="{Binding IsChecked, RelativeSource={RelativeSource Self}}"
+                                    Value="True" />
+                            </MultiDataTrigger.Conditions>
+                            <MultiDataTrigger.EnterActions>
+                                <BeginStoryboard
+                                    Storyboard="{StaticResource Anim.Check}" />
+                            </MultiDataTrigger.EnterActions>
+                            <MultiDataTrigger.ExitActions>
+                                <BeginStoryboard
+                                    Storyboard="{StaticResource Anim.Uncheck}" />
+                            </MultiDataTrigger.ExitActions>
+                        </MultiDataTrigger>
+                        <MultiTrigger>
+                            <MultiTrigger.Conditions>
+                                <Condition
+                                    Property="IsThreeState"
+                                    Value="True" />
+                                <Condition
+                                    Property="IsChecked"
+                                    Value="{x:Null}" />
+                            </MultiTrigger.Conditions>
+                            <Setter
+                                Property="Visibility"
+                                Value="Collapsed"
+                                TargetName="Check" />
+                            <Setter
+                                Property="Visibility"
+                                Value="Visible"
+                                TargetName="CheckIndeterminate" />
+                        </MultiTrigger>
+                        <Trigger
+                            Property="IsEnabled"
+                            Value="False">
+                            <Setter
+                                Property="Foreground"
+                                Value="{DynamicResource Brush.Foreground.Disabled}" />
+                            <Setter
+                                Property="BorderBrush"
+                                Value="{DynamicResource Brush.Border.Disabled}"
+                                TargetName="Border" />
+                            <Setter
+                                Property="Fill"
+                                Value="{DynamicResource Brush.Glyph.Disabled}"
+                                TargetName="Check" />
+                            <Setter
+                                Property="Fill"
+                                Value="{DynamicResource Brush.Glyph.Disabled}"
+                                TargetName="CheckIndeterminate" />
+                        </Trigger>
+                        <MultiTrigger>
+                            <MultiTrigger.Conditions>
+                                <Condition
+                                    Property="IsEnabled"
+                                    Value="False" />
+                                <Condition
+                                    Property="IsChecked"
+                                    Value="True" />
+                            </MultiTrigger.Conditions>
+                            <Setter
+                                Property="BorderBrush"
+                                Value="{DynamicResource Brush.Border.DisabledChecked}"
+                                TargetName="Border" />
+                            <Setter
+                                Property="Fill"
+                                Value="{DynamicResource Brush.Glyph.DisabledChecked}"
+                                TargetName="Check" />
+                        </MultiTrigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+</ResourceDictionary>

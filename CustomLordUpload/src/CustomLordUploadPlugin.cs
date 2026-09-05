@@ -3,7 +3,7 @@ using System;
 
 namespace CustomLordUpload
 {
-    [BepInDependency(ScriptExtenderGuid, BepInDependency.DependencyFlags.HardDependency)]
+    [BepInDependency(ScriptExtenderGuid, "2.0.2")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class CustomLordUploadPlugin : BaseUnityPlugin
     {

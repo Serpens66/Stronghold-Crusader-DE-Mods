@@ -7,10 +7,12 @@ using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
-using Zhuqiaomon.Assembly;
-using Zhuqiaomon.Hooks;
-using Zhuqiaomon.Hooks.Transaction;
-using Zhuqiaomon.Memory;
+using RedBird.Abstractions.Hooks;
+using RedBird.Abstractions.Hooks.Transaction;
+using RedBird.Core.Memory;
+using RedBird.X64.Assembly;
+using RedBird.X64.Hooks;
+using RedBird.X64.Hooks.Transaction;
 
 
 namespace BugfixesAndQoL
@@ -62,9 +64,8 @@ namespace BugfixesAndQoL
             new List<KeyValuePair<uint, string>>();
         private readonly List<uint> pendingOwnerSlots = new List<uint>();
         private HookTransaction transaction;
-        private HookRef<X64ManagedFunctionDetourAOB<DiseaseSearchDelegate>> diseaseSearchHook =
-            new HookRef<X64ManagedFunctionDetourAOB<DiseaseSearchDelegate>>();
-        private HookRef<X64InlineHook> healerExitHook = new HookRef<X64InlineHook>();
+        private readonly DetourHandle<DiseaseSearchDelegate> diseaseSearchHook = new DetourHandle<DiseaseSearchDelegate>();
+        private readonly HookHandle<X64InlineHook> healerExitHook = new HookHandle<X64InlineHook>();
         private bool correctionAvailable = true;
         private int detailedLogCount;
         private bool detailLimitLogged;
@@ -73,6 +74,7 @@ namespace BugfixesAndQoL
         public PlagueTargetReservationFix(
             ManualLogSource log,
             BugfixesAndQoLViewModel settings,
+            ScanRegion region,
             ReadOnlySpan<byte> memory,
             ulong libraryBase,
             bool referenceHashMatches)
@@ -96,25 +98,22 @@ namespace BugfixesAndQoL
 
             try
             {
-                transaction = new HookTransaction(
-                    memory,
-                    libraryBase,
-                    loggerFactory: null,
-                    failureMode: TransactionFailureMode.RollbackAndThrow);
+                transaction = BugfixesHookInfrastructure.CreateOwnedTransaction(region);
                 transaction.AddDetour(
-                    ref diseaseSearchHook,
-                    libraryBase + unchecked((ulong)diseaseSearchRva),
+                    diseaseSearchHook,
+                    HookTarget.FromAddress(libraryBase + unchecked((ulong)diseaseSearchRva)),
                     FindNearestUnreservedDisease);
-                transaction.AddContextHook(
-                    ref healerExitHook,
+                BugfixesHookInfrastructure.AddContextHook(
+                    transaction,
+                    healerExitHook,
                     libraryBase + unchecked((ulong)healerUpdateExitRva),
                     ObserveCompletedHealerUpdate,
-                    regs: X64SmartCPUContextRegs.Volatile | X64SmartCPUContextRegs.RBP,
+                    registers: X64SmartCPUContextRegs.Volatile | X64SmartCPUContextRegs.RBP,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
-                transaction.Commit();
+                CommitResult commitResult = transaction.Commit();
 
-                if (!diseaseSearchHook.Success || !healerExitHook.Success)
+                if (!commitResult.IsCompleteSuccess || !diseaseSearchHook.Success || !healerExitHook.Success)
                     throw new InvalidOperationException("The plague target-reservation hooks were not installed.");
 
                 Shared.DebugLogHelper.LogDebug(
@@ -170,7 +169,6 @@ namespace BugfixesAndQoL
             disposed = true;
             correctionAvailable = false;
             ClearReservations("feature disposed", logRelease: false);
-            transaction?.Unload();
             transaction?.Dispose();
             transaction = null;
         }
@@ -179,7 +177,7 @@ namespace BugfixesAndQoL
         {
             if (!correctionAvailable || !IsEnabled)
             {
-                return diseaseSearchHook.Value.Hook.Trampoline(projectileManager, nativeUnitId);
+                return diseaseSearchHook.Original(projectileManager, nativeUnitId);
             }
 
             List<MaskedDisease> masked = maskedDiseases;
@@ -199,14 +197,14 @@ namespace BugfixesAndQoL
                 RestoreMaskedDiseases(masked, disableOnFailure: false);
                 masked.Clear();
                 DisableCorrection("pre-search validation or masking failed", ex);
-                return diseaseSearchHook.Value.Hook.Trampoline(projectileManager, nativeUnitId);
+                return diseaseSearchHook.Original(projectileManager, nativeUnitId);
             }
 
             int selectedSlot;
             try
             {
                 // Reserved clouds are ineligible only during this exact Vanilla call.
-                selectedSlot = diseaseSearchHook.Value.Hook.Trampoline(projectileManager, nativeUnitId);
+                selectedSlot = diseaseSearchHook.Original(projectileManager, nativeUnitId);
             }
             finally
             {

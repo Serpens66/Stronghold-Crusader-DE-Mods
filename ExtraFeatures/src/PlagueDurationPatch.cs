@@ -1,14 +1,15 @@
 // Feature: Scale the native lifetime of all plague-cloud projectiles.
 using System;
-using System.Diagnostics;
 using BepInEx.Logging;
+using RedBird.Abstractions.Hooks;
+using RedBird.Abstractions.Hooks.Transaction;
+using RedBird.Core.Memory;
+using RedBird.X64.Assembly;
+using RedBird.X64.Hooks;
+using RedBird.X64.Hooks.Context;
+using RedBird.X64.Hooks.Transaction;
 using System.Runtime.InteropServices;
 using SHCDESE.Interop;
-using Zhuqiaomon.Assembly;
-using Zhuqiaomon.Hooks;
-using Zhuqiaomon.Hooks.Transaction;
-using Zhuqiaomon.Memory;
-using Zhuqiaomon.Windows;
 
 namespace ExtraFeatures
 {
@@ -35,7 +36,7 @@ namespace ExtraFeatures
         private readonly IntPtr lifetimeAddress;
         private readonly ManualLogSource log;
         private HookTransaction conditionalTransaction;
-        private HookRef<X64InlineHook> lifetimeComparisonHook = new HookRef<X64InlineHook>();
+        private readonly HookHandle<X64InlineHook> lifetimeComparisonHook = new HookHandle<X64InlineHook>();
         private AiFlagDiseaseTracker aiFlagDiseaseTracker;
         private int expectedLifetime = VanillaLifetime;
         private bool conditionalExceptionAvailable;
@@ -45,6 +46,7 @@ namespace ExtraFeatures
         public PlagueDurationPatch(
             ManualLogSource log,
             IntPtr libraryHandle,
+            ScanRegion region,
             ReadOnlySpan<byte> memory,
             bool referenceHashMatches)
         {
@@ -73,7 +75,7 @@ namespace ExtraFeatures
 
             if (referenceHashMatches)
             {
-                TryInitializeAiFlagException(libraryHandle, memory, referenceHashMatches, matchOffset);
+                TryInitializeAiFlagException(libraryHandle, region, memory, referenceHashMatches, matchOffset);
             }
             else
             {
@@ -108,7 +110,6 @@ namespace ExtraFeatures
             try
             {
                 conditionalExceptionAvailable = false;
-                conditionalTransaction?.Unload();
                 conditionalTransaction?.Dispose();
                 conditionalTransaction = null;
                 aiFlagDiseaseTracker?.Dispose();
@@ -123,6 +124,7 @@ namespace ExtraFeatures
 
         private void TryInitializeAiFlagException(
             IntPtr libraryHandle,
+            ScanRegion region,
             ReadOnlySpan<byte> memory,
             bool referenceHashMatches,
             int lifetimePatternRva)
@@ -132,24 +134,22 @@ namespace ExtraFeatures
                 aiFlagDiseaseTracker = new AiFlagDiseaseTracker(
                     log,
                     libraryHandle,
+                    region,
                     memory,
                     referenceHashMatches);
 
                 ulong libraryBase = unchecked((ulong)libraryHandle.ToInt64());
-                conditionalTransaction = new HookTransaction(
-                    memory,
-                    libraryBase,
-                    loggerFactory: null,
-                    failureMode: TransactionFailureMode.RollbackAndThrow);
-                conditionalTransaction.AddContextHook(
-                    ref lifetimeComparisonHook,
+                conditionalTransaction = ExtraFeaturesHookInfrastructure.CreateOwnedTransaction(region);
+                ExtraFeaturesHookInfrastructure.AddContextHook(
+                    conditionalTransaction,
+                    lifetimeComparisonHook,
                     libraryBase + unchecked((ulong)(lifetimePatternRva + LifetimeComparisonOffset)),
                     ApplyConditionalLifetime,
-                    regs: X64SmartCPUContextRegs.Volatile | X64SmartCPUContextRegs.RBX,
+                    registers: X64SmartCPUContextRegs.Volatile | X64SmartCPUContextRegs.RBX,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
-                conditionalTransaction.Commit();
-                if (!lifetimeComparisonHook.Success)
+                CommitResult commitResult = conditionalTransaction.Commit();
+                if (!commitResult.IsCompleteSuccess || !lifetimeComparisonHook.Success)
                     throw new InvalidOperationException("The conditional plague-lifetime hook was not installed.");
 
                 conditionalExceptionAvailable = true;
@@ -161,7 +161,6 @@ namespace ExtraFeatures
             catch (Exception ex)
             {
                 conditionalExceptionAvailable = false;
-                conditionalTransaction?.Unload();
                 conditionalTransaction?.Dispose();
                 conditionalTransaction = null;
                 aiFlagDiseaseTracker?.Dispose();
@@ -219,33 +218,9 @@ namespace ExtraFeatures
                     $"The plague lifetime bytes changed unexpectedly: expected={expectedLifetime}, actual={currentLifetime}.");
             }
 
-            UIntPtr size = (UIntPtr)sizeof(int);
-            if (!Kernel32.VirtualProtect(
-                    lifetimeAddress,
-                    size,
-                    Kernel32.MemoryPermissions.PAGE_EXECUTE_READWRITE,
-                    out Kernel32.MemoryPermissions oldProtection))
-            {
-                throw new InvalidOperationException("VirtualProtect failed for the plague lifetime patch.");
-            }
-
-            bool valueWritten = false;
-            try
-            {
-                Marshal.WriteInt32(lifetimeAddress, desiredLifetime);
-                valueWritten = true;
-            }
-            finally
-            {
-                if (valueWritten)
-                    expectedLifetime = desiredLifetime;
-
-                if (!Kernel32.VirtualProtect(lifetimeAddress, size, oldProtection, out _))
-                    throw new InvalidOperationException("Restoring memory protection failed for the plague lifetime patch.");
-            }
-
-            if (!MinWinAPI.FlushInstructionCache(Process.GetCurrentProcess().Handle, lifetimeAddress, size))
-                throw new InvalidOperationException("Flushing the instruction cache failed for the plague lifetime patch.");
+            CodePatch.Write(
+                unchecked((ulong)lifetimeAddress.ToInt64()),
+                BitConverter.GetBytes(desiredLifetime));
 
             int verifiedLifetime = Marshal.ReadInt32(lifetimeAddress);
             if (verifiedLifetime != desiredLifetime)
@@ -253,6 +228,8 @@ namespace ExtraFeatures
                 throw new InvalidOperationException(
                     $"The plague lifetime patch verification failed: expected={desiredLifetime}, actual={verifiedLifetime}.");
             }
+
+            expectedLifetime = desiredLifetime;
         }
 
         private static double ClampMultiplier(double value)

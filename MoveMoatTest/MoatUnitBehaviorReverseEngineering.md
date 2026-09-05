@@ -2,7 +2,618 @@
 
 Stand: 5. September 2026
 
-## Aktueller Reparaturstand nach erneuter Codeprüfung
+## Aktueller Übergabestand: Cursoranbindung korrigiert, 5. September 2026
+
+Dieser Abschnitt ersetzt insbesondere die vorherigen Aussagen zur funktionierenden
+Auswahlquelle. Die damalige Testattrappe hatte denselben falschen Namespace wie der Mod;
+die Modellmessungen bewiesen deshalb keine Anbindung an die echte Spielauswahl.
+
+### Ursachen und native Belege
+
+Die Logzeilen vom 05.09.2026 um 15:27:28.076 und 15:27:33.077 melden `selected=0`, obwohl
+Einheiten ausgewählt waren. Gesucht wurde `CrusaderDE.EngineInterface`; die Spielklasse
+heißt **EngineInterface im globalen Namespace**. In der installierten Assembly-CSharp liegt
+`selectedChimps` als **private static int[]** vor. Der SE-1.42.0-Wrapper liest daraus die
+Game-IDs bei `i * 2`. Sein `using CrusaderDE` benennt nicht den Namespace dieser Klasse.
+Der funktionierende Gebäudeadapter erhielt seine Unit-ID direkt.
+
+Die installierte verwaltete Spielassembly hat SHA-256
+`BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789`, die native DLL weiterhin
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`. Beide stimmen mit der
+zugehörigen Baseline überein. Im Standard-Unit-Angriffszweig von `0x8C5F0` prüft Vanilla die
+PCLs von Angreifer und tatsächlichem Unit-Ziel. Bei Bedarf folgen `0x196870` und `0xE2CA0`
+mit physischem Ziel-Tile und Start-Tile (`useCache=1`). Eine eigene Acht-Nachbar-Auswahl
+gehört dort nicht zum Cursorvertrag. Die Waffen-/Befehlsentscheidung bleibt in der nativen
+Fallunterscheidung. Gebäude `0xB70C0` und der spezielle `0xB72C0`-Zweig bleiben getrennt.
+
+Zweiter bestätigter Fehler: Die direkte Cursorprüfung sperrte mit `0x10000100` pauschal
+Strukturziele vor der gerichteten Erreichbarkeitsprüfung. Außerdem verwarf die Knotenbildung
+Strukturendpunkte ohne ausgehende Maske, obwohl eine gültige eingehende Kante sie erreichen kann.
+
+Die fünf Gruppenbefehle im letzten Lauf erreichten alle Builder: 1/1, 19/19, 1/1, 4/4 und
+20/20 Unit-Aufrufe/Builder, jeweils ohne Vertragsablehnung. 53 von 54 Bewegungsabschlüssen
+melden `path-completed-at-target`; keine Zeile meldet `ownerSafetyViolation=True`.
+Der Vor-Builder-Recovery-Zähler blieb null, diese besondere Recovery wurde damit nicht
+im Spiel nachgewiesen. Getesteter vorheriger Mod-Build:
+`5D60272E0B2F108E28CF13F0041026B272950790A64649EDE660B38A4BCDA465`.
+
+### Implementierte Reparatur
+
+- Auswahlfeld einmalig in Assembly **Assembly-CSharp**, globalem Typ **EngineInterface**
+  auflösen; statischen `int[]`-Vertrag und private/publicized Sicht berücksichtigen.
+  Fehlende Quelle und leere Auswahl sind getrennt. Ein Bindungsfehler erlaubt keine
+  Mod-Freigabe. Wiederholte Abfragen behalten ihre Arrays und Identitätstoken.
+- Pauschalen Cursor-Strukturblock entfernen; niedrige Sperrflags und Zielverfügbarkeit
+  bleiben. Gerichtete Strukturendpunkte dürfen ausschließlich eingehende Kanten besitzen;
+  das erzeugt keine ausgehenden Wege. Höhen, Portalzustände und Besitzer bleiben geprüft.
+- Unit-Angriffscursor an das tatsächliche Unit-Ziel binden. Dessen Belegung ist kein
+  Bewegungsziel-Verbot. ID, Global-ID, Standort, Leben und Feindbeziehung bleiben geprüft;
+  Sprite-Tile und physischer Tile bleiben getrennt. Tatsächliche Angriffs-/Arbeitsannäherungen
+  behalten ihre bisherigen Suchen.
+- E9D90/E9FF0, Gebäudevorschau, Sondertypen und Befehlsausführung behalten ihre Verträge.
+  Keine neuen Hooks, keine Änderung am Extender oder an der öffentlichen QoL-Bridge.
+- `cursor-decision` unterscheidet fehlende Auswahlquelle, ungültiges Bewegungs-/Angriffsziel,
+  fehlende Verbindung und native/ungebundene Konsumenten. Details erscheinen einmal je
+  Kategorie und Karte; `cursor-performance` enthält zusätzlich aggregierte Kategorien.
+
+### Tatsächliche Tests und Abschluss
+
+Die Standalone-Prüfung liest direkt die Metadaten der installierten Spielassembly:
+Assemblyname, globaler Typ, Feldname, Attribute und Signatur. Die simulierte Assembly hat
+denselben Namen und ein globales EngineInterface mit privatem Auswahlfeld. Der neue Test
+beginnt in der tatsächlichen Produktionsmethode `ObserveCursorTilePairFallbackSelection`
+und durchläuft Gruppenaufnahme und Scope-Erstellung bis zur E2CA0-Antwort und Auswahl der
+nativen positiven/negativen Cursorfortsetzung. Der Scope wird nicht manuell vorgegeben.
+
+Geprüft: Boden ohne Umweg, zwei freundliche Moats mit konsistent getrennten nativen PCLs,
+feindliche Sperren, gerichtete Strukturendpunkte, unzulässige Höhe, blockierte/fremde und
+wieder erlaubte Portale, belegtes Unit-Angriffsziel mit Sprite-Versatz, bewegte/tote/freundliche
+Ziele, ID-Wiederverwendung und gemischte/nativ spezielle Auswahlen. Die vollständigen bisherigen
+Bewegungs-/Fill-/Pufferregressionen bleiben Teil des Laufs.
+
+Vollständiger Cursorablauf mit 1/120/1.000 Einheiten: jeweils 100 Abfragen ohne Pfadsuche und
+mit konstant 52.000 temporären Bytes (520 je Aufruf, unabhängig von der Gruppengröße).
+Die isolierte wiederholte Auswahl-/Regionsabfrage bleibt bei 0 temporären Bytes. Das sind
+Desktop-Modellwerte, keine gemessenen Unity-/Mono-Framezeiten. Geprüft werden 14 Runtime-Dateien
+und 113 tatsächliche Member: 3.364 Runtime-Assertions, 6.792 unabhängige Suchprüfungen und
+1.469.340 unabhängige Graphvergleiche. Genaue Ergebnisse:
+`_inspect/MoveMoatRegressionTests/latest-regression-results.txt` und `latest-native-contract.txt`.
+
+Version **1.0.0**, Ziel/Referenzen **Script Extender 1.42.0**, README unverändert.
+Buildabschluss dieser Cursorreparatur: `build.bat /nopause` am 05.09.2026 um 15:53:22
+einmal direkt erhöht ausgeführt; Build und Installation erfolgreich, **0 Warnungen/0 Fehler**.
+DLL, PDB und info.json sind lokal/installiert bytegleich. Neue Mod-DLL SHA-256:
+`9AF6787D27D3137FD72DAF50E90A1BFAD59F3FE98CDED2C4FFCE9D6AEABE3FCF`. API-/Metadaten-/Native- und CRLF-Prüfungen bestanden.
+Die erneute Spielabnahme muss Bewegung, Unit-Angriff und Treppe/Torhaus jeweils über eigenen
+Moat ohne Bodenalternative bestätigen: passender Cursor, ausführbarer Befehl und spätere
+Bewegung beziehungsweise Angriff. Die bereits beobachteten Bewegungen stammen vom vorherigen Build.
+
+## Historischer Übergabestand: Cursorregionen, Vor-Builder-Abbruch und Fill, 5. September 2026
+
+Dieser Abschnitt ersetzt die entsprechenden Annahmen des folgenden historischen Stands.
+Insbesondere ist eine positive native Regionsantwort allein **kein** Beweis, dass Vanilla
+anschließend einen Builder erreicht. Die Reparatur ist im Code umgesetzt; ein neuer Spieltest
+mit diesem Build steht noch aus.
+
+### Ausgangslauf und zusätzliche native Befunde
+
+Der untersuchte letzte BepInEx-Abschnitt enthält unter anderem Gruppen mit 18 Buildern für
+20 Unit-Aufrufe und 74 Buildern für 80 Aufrufe. Erfolgreiche veröffentlichte Pfade erklären
+nicht die fehlenden Aufrufe. Der bisherige Zähler `modeCalls` zählt Modusfreigaben und durfte
+nicht als Anzahl aller nativen Modusaufrufe gelesen werden. Die neuen Zähler trennen dies.
+Im Fill-Abschnitt bis `2026-09-05 13:00:48.131` wurden 291 Fallback-Auswahlen ohne einen einzigen
+geprüften Annäherungskandidaten beobachtet (`checkedApproachTiles=0`, `searchBuilds=0`), bei
+Moat-Datensätzen im Bereich 950 und höher. Die Grenze 799 war fälschlich auf Datensatz-IDs
+angewendet worden; sie beschreibt ausschließlich Kartenkoordinaten.
+
+Alle folgenden Adressen beziehen sich auf die kanonische installierte `CrusaderDE.dll`,
+SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+`CURRENT.json`, das Datenbankmanifest, die semantische Baseline und die installierte Datei
+wurden abgeglichen. Rohbaseline und Script Extender wurden nicht verändert.
+
+- Cursor `0x8C5F0` verwendet `0x196870` und danach `0xE2CA0`. Letztere Funktion kann selbst
+  `0xD9C40` mit 400.000 Suchknoten anstoßen. Erst nach ihrem Originalaufruf schnell zu prüfen,
+  verhindert diesen Aufwand nicht. Die gebundene Cursorantwort muss vorher erfolgen.
+- `0x196870` prüft die Auswahltypen; seine native positive Spezialauswahl bleibt erhalten.
+  Insbesondere erhalten Assassinen durch den Mod keine Moat-Fähigkeit. Gemischte Gruppen
+  teilen Entscheidungen nach Bodenregion beziehungsweise Spezialknoten und Grabfähigkeit.
+- Gebäudevorschau `0xB70C0` hat den Cursor als belegten Caller. Ihre native Kandidaten- und
+  Höhenprüfung bleibt erhalten. Ihre `0xE2CA0`-Abfrage verwendet `(Start, Kandidat, useCache=0)`,
+  die direkte Cursorvorschau `(Ziel, Start, useCache=1)`. Beide Kontexte sind ausdrücklich getrennt.
+- `0xE9D90` ist eine Struktur-Austrittsprobe; `0xE9FF0` schreibt zusätzlich unter anderem
+  Austrittsdaten bei Pfadkontext `+0x34/+0x4C`. Beide liefern wieder unveränderte native
+  Rückgaben und Ausgaben. Die bisherigen pauschalen Bool-Freigaben sind entfernt.
+- `0xE2610` kann in seiner zweiten Phase einen blockierten Portalweg positiv melden.
+  Der Vorprüfadapter sichert/restauriert deshalb `+0xC0`, `+0xC4` und `+0x98`; nur positiv
+  **ohne** Blockierungskennzeichen gilt als normale Bodenfreigabe.
+- Die native Fill-Auswahl `0x69D60` ruft `0x6C490` vor Auswahl und Reservierung auf.
+  Dessen Höhenprüfung ist an die Höhe des Moat-Kontaktfelds gebunden, nicht an die Höhe
+  der entfernt stehenden Einheit. Reservierungsschritt bleibt nativ einmalig 20.
+
+### Umsetzung und Kostenverhalten
+
+`CursorRegionGraph.cs` speichert gerichtete Verbindungen mit Referenzzählern und eine
+wiederverwendete rückwärtige Erreichbarkeitsmenge je Ziel. Er enthält keine Pfadkosten,
+Vorgänger, Pfadkodierung oder Unit-Puffer. `CursorConnectivity.cs` bindet native Boden-PCLs,
+freundliche Moat-Felder und gerichtete Strukturübergänge an diesen Graphen. Die Moat- und
+Strukturkanten benutzen die bestehenden geprüften Traversierungsregeln einschließlich Höhe
+und Diagonalecken; fremder Moat verbindet keine Regionen. Normale unterschiedliche PCLs
+werden nicht allein wegen benachbarter Felder verbunden: Dafür gelten die nativen Portale.
+
+Ein Ziel in derselben normalen Bodenregion wird ohne Aufbau der zusätzlichen Moat-Topologie
+beantwortet. Sonst erfolgt ein vollständiger Aufbau bei Bedarf pro Spieler/Karten- bzw.
+Regionsgeneration. Lokale Änderungen aktualisieren die betroffenen Randkanten. Beobachtet
+werden die nativen Maskenänderungen, Moat-Schreiben/Löschen und vollständigen Maskenneubauten;
+Portalzustände und die Bündnismatrix werden aktuell gelesen. Grundlegende PCL- oder
+Diplomatieänderungen verwerfen den betroffenen Gesamtstand. Native Kartenlayer bleiben unverändert.
+
+Die Auswahl wird ohne `GetSelectedChimps()`-Kopie und ohne Sortierung aus derselben
+verwalteten Auswahlquelle gelesen, die der geprüfte 1.42.0-Wrapper benutzt. Wiederverwendete
+Arrays vergleichen Game-ID, Global-ID, Position, Spieler, Typ und Lebenszustand. Ein anderer
+Tribe allein löst weder einen Kartenaufbau noch eine Wegsuche aus. Bei unveränderter Auswahl
+bleiben Puffer und kompakter Revisionstoken bestehen. Gruppenquellen werden nach Region und
+Fähigkeit zusammengefasst; ein wiederverwendeter Prüfscope verhindert eine neue Scope-Allokation
+pro Quelle. Gebäudediagnosen verwenden begrenzte numerische Schlüssel, keine Vollsignaturen
+oder Detailstrings bei jeder Vorschau. Ziele und Angriffsidentitäten werden weiterhin aktuell
+geprüft; die native Cursorlogik entscheidet nach der Erreichbarkeitsantwort über die Befehlsart.
+
+Gebundene direkte und Gebäude-Cursorabfragen beantworten jetzt positive **und negative**
+Erreichbarkeit vor dem nativen Flächensuchaufruf. Tatsächliche Arbeits-/Angriffskonsumenten
+behalten ihren nativen Vertrag. Rein diagnostische Angriffsausgaben lösen keine zusätzlichen
+Wegsuchen aus; eine umgedrehte Suche gilt nicht mehr als Beleg der Vorwärtsrichtung.
+Die 2.000-Schritte-Grenze betrifft nur später veröffentlichte Wege, nicht die Cursorregionen.
+
+`NativeMovementRecovery.cs` erfasst den gemeinsamen Portalfehler vor dem Builder. Es führt
+höchstens einen Übergang je gebundenem Unit-Aufruf aus, nur mit aktuellem Start/Ziel,
+verfügbarer Zielfläche und vollständig auditiertem, kodierbarem freundlichen Moat-Pfad.
+Der Pfad wird für den Builder behalten. Es entstehen keine Ersatzbefehle oder Retry-Schleifen.
+Vanilla initialisiert selbst den individuellen Puffer und setzt den ursprünglichen Auftrag fort.
+Beide Builder bleiben an Unit/Global-ID, Besitzer, Start, Endpunkt und eigenen Puffer gebunden;
+bei gescheiterter Veröffentlichung greifen Kantenprüfung und Rollback. Die beiden vor dem
+Übergang veränderten Unit-Regionsfelder werden bei negativer nativer Rückgabe zurückgesetzt.
+Spezielle Arbeits-, Angriffs- und Probe-Kontexte werden nicht vom allgemeinen Regionshandler
+übernommen. Alte Builderkoordinaten sind vor dem Builder kein Zielkontext.
+
+Fill benutzt die zentrale Datensatzgrenze `1..63999`, zusätzlich `id < aktueller Bestand`,
+Kapazität höchstens 64000 und passende Datensatzkoordinaten. Die verbesserte Auswahl läuft
+in **einem** nativen Durchlauf: ungeeignete Annäherungen werden schon in `0x6C490` ausgeschlossen.
+Das wiederholte Ausschließen über vorübergehend veränderte Reservierungen ist entfernt.
+Auswahl und Resolver teilen ihre fortsetzbare Suche, spätere Arbeitszyklen erhalten frische
+Daten. Belegung, Besitzer und Arbeitsziel werden erneut gelesen. Die exakt gebundene terminale
+Fill-Kontaktregel bleibt die einzige feindliche Arbeitsausnahme. Ohne QoL-Provider ist die
+verbesserte Fill-Auswahl aktiv; der vorhandene Providervertrag bleibt kompatibel.
+
+### Neuer Maschinenvertrag
+
+Die Beobachter verwenden reguläre Win64-Funktionsdetours mit exakten eindeutigen 40-Byte-
+Eingangssignaturen und geprüften Unwind-Funktionsgrenzen:
+
+| RVA | Vertrag | Kopierter Mindestbereich | Funktionsende |
+| --- | --- | --- | --- |
+| `D90D0` | `void(manager, int y, int tile)` | 15 Bytes | `D9185` |
+| `59210` | `ulong(manager, byte owner, uint x, uint y, int mode, byte replace)` | 15 Bytes | `59371` |
+| `61E70` | `void(manager, uint moatId)` | 16 Bytes | `61ECC` |
+| `DAA50` | `void(manager)` | 15 Bytes | `DAAB8` |
+
+Der Inline-Übergang überschreibt exakt `0x19664B..0x196659`, 14 Bytes:
+`33 C0 8B D6 48 89 05 8E 70 F1 05 49 8B CF`.
+Original: `xor eax,eax; mov edx,esi; mov [rip+0x5F1708E],rax; mov rcx,r15`.
+Kein Sprung landet im Blockinneren. Ungültige Ziele verlassen den nativen Aufruf anders
+(`0x19676C`); ein bereits fehlgeschlagener Builder ebenfalls (`0x196734`).
+
+Am Hook ist RSP 16-Byte-ausgerichtet. RSI, RDI, RBP und R12-R15 sind lebender nichtflüchtiger
+Zustand; der verwaltete Win64-Aufruf erhält ihn. Flüchtige GPRs und Flags werden auf beiden
+Fortsetzungen nicht benötigt; die vollständige Funktion verwendet keine XMM/YMM-Werte.
+Der Adapter reserviert `0x30` Bytes einschließlich Shadow-Space. Er liest den nativen Start
+bei neuem `RSP+0xA0/+0xA8`, bevor er Zielargumente bei `+0x20/+0x28` schreibt. RCX=R15,
+EDX=ESI, R8D/R9D=Start, Argument 5/6=R14D/EBP. Nach Rückkehr wird RSP restauriert.
+Bei Ablehnung werden alle vier Originalinstruktionen einschließlich RIP-relativer Ausgabe
+verlegt ausgeführt; bei Freigabe geht es zu Vanillas Pufferinitialisierung `0x196585`.
+Die vollständigen 73 erzeugten Adapterbytes werden in den Tests mit Iced assembliert und
+zusätzlich mit Capstone geprüft. Es wird dabei kein nativer Code ausgeführt.
+Unit-Daten beginnen bei Slot `+0x65C`; die Regionsfelder liegen relativ dazu bei
+`0x900-0x65C` und `0x8EC-0x65C`. Kein weiterer Entry-Hook bei `0x196280` wird installiert.
+
+### Tatsächlich ausgeführte Prüfungen und verbleibende Abnahme
+
+Die Regression verwendet alle 14 Runtime-Quelldateien für die semantische Prüfung, den
+vollständigen Produktions-Suchkern und Cursorgraphen sowie den vollständigen Cursoradapter
+gegen simulierte native Daten. Zusätzlich werden 105 tatsächliche Runtime-Member in der
+Aufrufsimulation kompiliert. Die wichtigsten Ergebnisse:
+
+- 3.333 Assertions für Unit-Kontexte, beide Pufferzweige, Vor-Builder-Abbruch und Rollback,
+  Slotwiederverwendung, veränderte Events, fehlendes Post, Arbeitsauswahl und Cursoradapter.
+  Der Gruppenablauf wird auch für 120 verschiedene Unit-IDs simuliert.
+- 6.792 unabhängige Suchprüfungen einschließlich gerichteter Kanten, Profilkonflikte,
+  Längengrenzen und Terrainänderungen; 1.469.340 unabhängige Graph-Erreichbarkeitsvergleiche
+  nach Hinzufügen/Entfernen gerichteter Verbindungen.
+- Tatsächlicher E2CA0-Adapter: positive und negative Cursorantwort rufen die native Suche
+  nicht auf; ungebundene und echte verschachtelte Angriffskonsumenten behalten sie.
+  Die Gebäudeprüfung testet die umgekehrten Argumente und Wiederherstellung des Scopes.
+- Produktionsadapter mit 1/120/1.000 ausgewählten Einheiten: jeweils 1.000 unveränderte
+  Auswahl-/Cursorabfragen ohne neue Suchknoten, ohne Pfadsuche und mit **0 temporären Bytes**.
+  Rund 1/4/23 ms für alle 1.000 Abfragen im .NET-Testprozess, nicht pro Abfrage.
+  Die zusätzliche vollständige Gruppenqualifikation benötigt in allen drei Fällen konstant
+  20.800 Bytes für 100 Aufrufe (208 Bytes je Aufruf), nicht einen Scope je Einheit.
+- Tatsächliche Fill-Datensatzleser mit 799/800/32768/63999, ungültige Grenzen, Kontakt- statt
+  Arbeiterhöhe, belegte Annäherungen, genau ein Kandidatenscan/eine Reservierung sowie eine
+  erneute Auswahl nach Besitzeränderung. Ein Ziel hinter freundlichem Moat wird ausgewählt.
+- Native Hash-, Pattern-, Instruktions-, ABI- und Registerprüfung erfolgreich. Der separate
+  Roslyn-Referenztest meldet nur CS1701 zur alten BepInEx/MonoMod-mscorlib-Referenzfamilie;
+  keine mod-eigenen Compilerwarnungen oder Fehler.
+
+Die Rohresultate liegen unter `_inspect/MoveMoatRegressionTests/latest-regression-results.txt`
+und `latest-native-contract.txt`; `latest-recovery-stub.bin` enthält den geprüften Adapter.
+Die Suchleistungsmodelle zeigen weniger Knoten, aber keine garantierte Zeit- oder
+Allokationsverbesserung für jeden Lauf. Insbesondere bleibt die exakte Abkürzungssuche bei
+schwierigen Aufträgen potenziell teuer. Es wird weder Lagfreiheit noch eine Spielbeschleunigung
+allein aus diesen Desktop-Testwerten abgeleitet. Der initiale Topologieaufbau und reale
+Portal-/Terrainänderungen müssen ebenfalls im Spiel gemessen werden.
+
+Der lokale Extender-Checkout ist weiterhin sauber `v1.42.0`, Commit
+`171d68e155a8f98c5f8c4ee154d9af154c9a2443`, lokale Referenz-SHA-256
+`80465F8E3658484CE2E7DEAD5B5C2C1118D4BA154C89CFEC1B6B55B456B221A0`.
+Die inzwischen installierte Release-DLL ist ebenfalls **1.42.0**, aber nicht mehr bytegleich:
+SHA-256 `27DB3535D9747E3C0532EB5B09A2821AE6C4C29AC30733D01246FFFD2421BEB4`.
+Alle Runtime-Quellen wurden gegen beide API-Oberflächen geprüft. Der unveränderte Buildtreiber
+bevorzugt die lokale 1.42.0-Referenz. Modversion **1.0.0**, README, Extender und öffentliche
+QoL-Bridge bleiben unverändert.
+
+Die Runtime bleibt durch die statische Plugin-Referenz und langlebige Events verwurzelt.
+`Application.onBeforeRender` liefert auch bei pausierter Simulation begrenzte aggregierte
+Cursormarker. `nativeModeEntries`, `preBuilderFailures`, `preBuilderRecovered`, begrenzte
+`unit-no-builder`-Details und nach Ursache aggregierte Ablehnungen ergänzen die vorhandenen
+Builder-, Veröffentlichungs- und späteren Bewegungsmarker.
+
+**Spielabnahme offen:** 1/5/20/27/29/120 Einheiten, Starts auf Moat, gemischte Gruppen,
+Shift-Queue, Patrol, KI, Angriffe, Dig/Fill-Folgezyklen, Strukturen/Tore, pausierte Vorschau,
+Terrain-/Bündniswechsel und Host/Client. Die nativen Zwischenabbrüche und der Inline-Übergang
+wurden statisch und simuliert geprüft, noch nicht mit diesem Code im Spiel beobachtet.
+Erst tatsächliche spätere Bewegung und neue Arbeitszyklen bestätigen die Reparatur.
+
+Buildabschluss dieser Runde: Am 05.09.2026 um 15:04:38 wurde nach allen Prüfungen einmal
+die vorhandene `build.bat /nopause` direkt erhöht ausgeführt. Build und Installation
+erfolgreich, **0 Warnungen, 0 Fehler**. DLL, PDB und info.json sind lokal/installiert jeweils
+bytegleich. SHA-256 der Mod-DLL: `5D60272E0B2F108E28CF13F0041026B272950790A64649EDE660B38A4BCDA465`.
+Die installierte Extender-DLL blieb unverändert. Alle geprüften Textdateien verwenden CRLF;
+keine nackten LF oder versehentlichen wörtlichen Zeilenumbruchsequenzen. README unverändert.
+Es wurde noch kein neuer Spielprozess und damit kein Laufzeiterfolg dieses Builds bestätigt.
+
+## Historischer Übergabestand: gemeinsamer Suchkern, 5. September 2026
+
+
+Der lokale Script Extender wurde erneut geprüft: sauberer Checkout `v1.42.0`, Commit
+`171d68e155a8f98c5f8c4ee154d9af154c9a2443`. Die lokale Referenz-DLL und die installierte
+`000shcdese/SHCDESE.dll` sind bytegleich, SHA-256
+`80465F8E3658484CE2E7DEAD5B5C2C1118D4BA154C89CFEC1B6B55B456B221A0`.
+Die Informationsversion enthält genau diesen Commit; die Assembly-/Bootstrap-Version `1.0.0`
+ist kein Nachweis einer abweichenden Extender-Releaseversion. Die vollständige semantische
+Quellprüfung verwendet diese lokalen 1.42.0-Referenzen, ohne eine Mod-DLL zu erzeugen.
+Der Nutzer hat den früheren Buildstopp aufgehoben und nach Abschluss der Prüfungen den
+vorhandenen Buildtreiber einschließlich Installation autorisiert. Das konkrete Buildresultat
+wird unten im Abschnitt „Abschluss dieser Umsetzung“ festgehalten.
+
+### Ursachen und endgültige Architektur dieser Reparaturrunde
+
+Die unten belegten 29 Modusfreigaben bei nur einem zugeordneten Builder waren kein Problem
+fehlender Gruppenbefehle: Das gemeinsame Klickziel wurde mit den individuellen Formationszielen
+verwechselt. Zusätzlich war der Rekonstruktionszweig `0xE32B0` nicht vollständig erfasst.
+Vanilla behält deshalb Gruppenbildung, Formationen, Queue, Patrol und Arbeitsfortsetzung;
+der Mod erzeugt weiterhin keine Ersatzbefehle.
+
+- `UnitMovementContext.cs` bindet die veränderbaren `OnUnitMoveHere`-Pre-Argumente erst bei
+  Verwendung. Pro Aufruf bleiben Game-ID, Global-ID, Spieler, nativer aktueller/nächster Start
+  und Auftragsziel individuell. Ein fremder Arbeits-Handoff wird weder geerbt noch verbraucht.
+  Zwischenziele erhalten einen lokal qualifizierten Builderplan. Verschachtelte Aufrufe,
+  SkipOriginal ohne Post, Befehlsabschluss, Karten- und Tickwechsel bereinigen die Kontexte.
+- `MovementSearchContext.cs` verbindet diese Identität mit der Regionsprüfung und dem
+  zweiten Builder. Die zusätzliche native PCL-Vorprüfung benutzt das bestehende originale
+  Trampolin, schützt vor Rekursion und setzt alle belegten Seiteneffekte zurück. Eine positive
+  Regionsantwort verschiebt eine nötige exakte Suche bis zum tatsächlichen Builderfehlschlag;
+  ein negatives Ergebnis verbietet niemals eine freundliche Moat-Verbindung.
+- `MovementPathPublication.cs` führt den nativen Builder einmal aus. Ein gültiger Vanilla-Pfad
+  bleibt erhalten; notwendige Erweiterungen verwenden anschließend den vorhandenen Suchkern
+  direkt. Der zusätzliche native Moat-Retry wurde entfernt. Beide Ausgaben `0xF4930` und
+  `0xE32B0` verwenden denselben Vertrag für Start, Ziel, Unit-Puffer und Veröffentlichung.
+  Mod-beeinflusste native Pfade sowie alle E32B0-Ausgaben gebundener Digger werden auditiert.
+  Ablehnungen setzen Puffer, Länge und veränderte Steuerwerte zurück; auch ein nicht unterstützter
+  Rekonstruktionsmodus darf keinen positiven Rückgabewert für einen verworfenen Pfad behalten.
+- Der frische Pfadaudit prüft Global-ID, Spieler, exakten nativen Start, eigenen Puffer,
+  Endpunkt, Höhen, sämtliche Kanten und feindliche Diagonalecken. Bei geänderter Kante oder
+  Eigentümerbeziehung werden auch die Suchfelder vor einem Ersatz verworfen.
+  Die einzige feindliche Arbeitsausnahme bleibt exakt ein gebundenes Fill-Arbeitsfeld als
+  vorletzter Knoten. Der verwaltete Ersatz kann einen freundlichen Präfix mit genau diesen
+  beiden letzten Kontaktkanten bilden; der vollständige Pfad wird anschließend erneut auditiert.
+- `WeightedMoatPublication.cs` dekodiert den nativen Weg einmal. Boden-/Moatkanten liefern
+  anschließend alle Profilkosten. Eine Suche mit allen Kostenbedingungen ersetzt die früheren
+  wiederholten Profil-Suchen und -Audits. Veröffentlichung verlangt weiterhin mindestens
+  40 Ticks Gewinn im tatsächlichen Profil und strikt positive Ersparnis in allen belegten
+  plausiblen Profilen. Nicht kalibrierte Strukturwege werden nicht gewichtet ersetzt.
+
+### Suchverfahren und gemeinsame Arbeit
+
+`MoatSearchKernel.cs` enthält keine Unit-IDs, nativen Puffer oder Spiel-APIs. Der tatsächliche
+Produktionskern wird auch in den Tests kompiliert. Skalare A* verwendet deterministische
+Gleichstände mit größerem bereits zurückgelegtem Preis. Nur rechnerisch unmögliche
+Verbesserungen werden ausgeschlossen; es gibt kein Zeit- oder Suchknotenbudget.
+
+Verfehlt die skalare beste Route die Profil-, Moat- oder Längenbedingungen, erhält die
+Verfeinerung alle nicht dominierten Boden-/Moatkanten-Kombinationen pro Feld und Moat-Zustand.
+Eine fortsetzbare Rückwärtssuche testet bei gerichteten Kanten immer die ursprüngliche
+Vorwärtskante. Gleiches Ziel nutzt den Baum direkt; unterschiedliche Formationsziele erhalten
+zulässige Landmarkenschranken aus genau berechneten Entfernungen und der offenen Suchfront.
+Ein Kostenstopp ist niemals ein Unerreichbarkeitsbeweis.
+
+Terrain und Eigentümerklassifikation werden nur im exakten synchronen Suchkontext geteilt.
+Gewichtete und ungewichtete Erreichbarkeit haben getrennte Suchfelder, damit die spätere
+Abkürzungssuche die notwendige Qualifikation nicht verdrängt. Kostenäquivalente Anfragen nutzen
+bestehende Felder. Heap, Labels und paginierte Distanz-/Vorgängerarrays werden wiederverwendet;
+die Seiten werden erst bei Bedarf angelegt. Diese Array-Seiten ersetzen Dictionary-Zugriffe
+im heißen Rückwärtssuchpfad. Die Projektkonfiguration optimiert auch den Debug-Build, dessen
+Symbole für Diagnose weiterhin erhalten bleiben.
+
+Ein fehlender Cacheeintrag bedeutet „unbekannt“. Exakte positive und negative Endpunktentscheidungen
+werden wiederverwendet; pauschale negative PCL-Paar-Schlüssel sind entfernt. Topologische
+Erreichbarkeit ist von der nativen Grenze von 2.000 Wegschritten getrennt: Eine positive
+Erreichbarkeitsentscheidung bleibt auch dann positiv, wenn die Veröffentlichung später
+`no-encodable-route` meldet. Unit-Pläne und kodierte Ausgaben werden nicht gruppenweit geteilt.
+
+Dig-/Fill-Auswahl und Resolvervalidierung teilen die bestehende Vorwärts-Erreichbarkeitskarte
+vom exakten Start. Auch Gebäude-/Angriffskandidaten verwenden ihren eigenen synchronen Scope
+und setzen dieselbe Suche fort. Ein gefundener Bodenweg beantwortet „Moat notwendig?“ sofort
+negativ; andernfalls wird die offene Suche soweit nötig fortgeführt. Negative Arbeitsendpunkte
+werden mitgespeichert. Belegung und Arbeitsobjekt bleiben unmittelbare Prüfungen, native
+Reihenfolge und Distanzvergleich unverändert. Der nächste Arbeitszyklus erhält frische Daten.
+Feindliche Diagnosezustände werden ausschließlich bei ausdrücklicher Cursorunterscheidung
+berechnet, nicht bei normalen Arbeitsanfragen.
+
+Der Vergleich mit `ImprovedHunters` (`HunterPclReachability`/`HunterActiveTargetReachability`)
+und `BugfixesAndQoL` bestätigt den Nutzen grober nativer PCL-Antworten, liefert aber keine
+Aussage über die schnellste zusätzliche Moat-Route. Hunters dokumentiert in
+`UpdateToNewDLL.md` die Deaktivierung seiner früheren unbeschränkten verwalteten A*-Suche
+wegen möglicher Spielstillstände. Diese Suche wird nicht übernommen. Die nativen Floods
+`0xDA590`/`0xDAFD0` verändern gemeinsame Pfaddaten; sie sind keine reine Regionsvorprüfung.
+Die vorhandene öffentliche Fill-Bridge zu QoL, README und Modversion `1.0.0` bleiben unverändert.
+
+### Hashgebundener nativer Vertrag des ergänzten Hooks
+
+Die installierte kanonische Spiel-DLL und `CURRENT.json` stimmen mit SHA-256
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2` überein.
+Die semantische Baseline und die direkt disassemblierten installierten Bytes belegen:
+`0x11B520 -> 0x196280` mit Formationszielen, alternativ gemeinsame Ziele aus `0x118E00`.
+`0x18E1E0` ist eine Pfadprobe. Auf `0x196280` bleibt ausschließlich der bestehende
+Script-Extender-Hook; MoveMoatTest subscribiert `OnUnitMoveHere`.
+
+`0x196280` benutzt den aktuellen Start nur bei `PathPlanStateBitFlags == 0 && MovingRelevant == 8`,
+sonst den nächsten Schritt. Das Ziel wird vor dem Builder gegebenenfalls nativ ersetzt.
+Der eigene Ausgabepuffer liegt bei UnitManager + `0xB4FE78 + unitId * 1000`.
+Der alternative Zweig ruft `0xE32B0 -> 0xE1640` direkt auf und umgeht `0xF4930`.
+
+Der neue Funktionsdetour hat ABI `int (IntPtr pathManager)`, Windows x64. Die komplette
+56-Byte-Funktion `[0xE32B0,0xE32E8)` wird zur Laufzeit als eindeutiges Pattern und als exakte
+Bytefolge validiert. `NativeContracts.py` prüft dieselben Bytes unabhängig an der installierten
+DLL sowie Instruktionsgrenzen und den relativen Call nach `0xE1640`.
+
+Register-/Stackvertrag: `push rbx` (2 Byte), `sub rsp,0x30` (4),
+`mov r9d,[rcx+0x10]` (4), `xor eax,eax` (2), `mov r8d,[rcx+0x0C]` (4).
+RCX bleibt für alle folgenden Adressierungen erhalten; erst danach wird es nach RBX gesichert,
+EDX liest `[rcx+8]`. EAX nullt den sechsten Stackparameter und `[rcx+0x155F68]`, danach liest
+EAX `[rcx+0x14]` für den fünften Parameter. Der Call bei `0xE32D7` darf flüchtige Register
+verändern; die Rückgabe liest deshalb `[rbx+0x155F68]`. Epilog: `add rsp,0x30; pop rbx; ret`.
+Es existiert kein eigener Scratchregister-Ersatzblock. MonoMod versetzt den vollständigen
+instruktionsweisen Prolog ins Trampolin; ein 5-Byte-Sprung benötigt 6, ein 14-Byte-Sprung
+16 Originalbytes. Diese Bereiche enthalten keine RIP-relativen Operanden. RBX, Stackausgleich,
+Alignment und EAX-Rückgabe bleiben erhalten; Eingangsflags werden hier nicht benötigt.
+
+Die optionale Regionsvorprüfung `0xE2610` verwendet die durch `0x196280` belegte Reihenfolge
+Spieler, Quell-PCL, Ziel-PCL, Modus. Modus ist ein SHORT bei `GameUnit+0x35C`.
+Die Veränderungen an Pfadkontext `+0xC0`, `+0xC4` und `+0x98` werden im finally zurückgesetzt.
+Die unveränderten Extender-1.42.0-/QoL-Quellen enthalten keinen konkurrierenden E32B0-Hook.
+
+### Reproduzierbare Prüfungen dieser Umsetzung
+
+Aus dem Workspace-Root:
+
+    dotnet run --project _inspect/MoveMoatRegressionTests/MoveMoatRegressionTests.csproj --no-restore -- .
+    & 'D:\CDesktopLink\Portable\Python\WinPy64\python\python.exe' _inspect/MoveMoatRegressionTests/NativeContracts.py
+
+Die Suite prüft den gesamten Runtime-Quelltext semantisch gegen die lokalen 1.42.0-Referenzen.
+Zusätzlich führt sie 72 tatsächliche Runtime-Member sowie den vollständigen neuen Suchkern in
+simuliertem nativen Speicher aus. Die verbleibenden Spiel-APIs sind Fixtures; dies ist kein
+Ersatz für einen Spieltest. Ergebnis: **1.554 Assertions** für Unit-Kontexte, beide Builder,
+Regionen, Puffer und Arbeitsauswahl; **6.792 Assertions** gegen eine unabhängige Referenzsuche.
+11 Runtime-Quelldateien sind syntaktisch und semantisch geprüft.
+
+Abgedeckt sind tatsächliche Pre/Mode/Region/Builder/Post-Ketten, IDs und Formationsoffsets,
+native Zwischenziele, gemeinsame Ziele, Änderungen der Pre-Argumente, Verschachtelung,
+Skip/fehlendes Post, Rückgaben ohne Builder, Starts auf Moat und nächste Bewegungsschritte,
+fremde Puffer/Handoffs, Global-ID-Wiederverwendung, Besitzerwechsel, Rollback, terminaler Fill,
+verbündete/feindliche Felder und Diagonalecken. Arbeitsprüfungen wiederholen positive und
+negative Endpunkte einschließlich neuer Auswahl nach Terrainänderung. Die unabhängige
+Referenz erhält kleine gerichtete Karten, Profilkonflikte und Längenbeschränkungen;
+Erreichbarkeit über 2.000 Schritte und die exakte Puffergrenze werden getrennt geprüft.
+
+Modellkarte 220x150, frische Suchinstanzen je Gruppengröße, identische optimale Wegkosten:
+
+| Units | verbesserte Einzelsuche: Knoten | gemeinsames Feld: Knoten | einzeln ms | gemeinsam ms | Allokation einzeln / gemeinsam |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 8.111 | 7.516 | 10,28 | 7,86 | 3.409.336 / 1.218.872 B |
+| 5 | 40.242 | 38.374 | 77,83 | 35,75 | 3.412.088 / 4.630.232 B |
+| 20 | 164.492 | 143.786 | 102,13 | 58,91 | 3.422.408 / 4.657.048 B |
+| 27 | 224.280 | 196.442 | 67,59 | 65,25 | 3.427.224 / 4.661.864 B |
+| 29 | 241.778 | 211.241 | 72,42 | 67,67 | 3.428.600 / 4.663.240 B |
+
+Diese Einzelmessung enthält JIT-/Aufwärmeffekte; insbesondere kleine und große Gruppen sind
+zeitlich nicht direkt vergleichbar. Die Knotenwerte sind deterministisch. Bei 29 Zielen spart
+Sharing gegenüber der bereits verbesserten Einzelsuche 12,6 % Knoten. Gegenüber dem früheren
+Modellstand mit 318.665 Knoten ergeben Gleichstandsregel und Sharing zusammen rund 34 %.
+Die Array-Seiten senkten die gemeinsame Allokation des 29er-Falls von rund 6,37 auf 4,66 MB.
+Das gemeinsame Feld braucht trotzdem mehr Speicher als die Einzelsuche; es wird innerhalb
+der Runtime wiederverwendet. Keine dieser Zahlen ist eine gemessene Spielbeschleunigung.
+
+Suchläufe/-knoten und gemeinsame Feldtreffer werden tatsächlich gezählt. Commanddiagnosen
+trennen native Unit-Aufrufe, Rückgaben ohne Builder, bereits angekommene Units, Builder,
+veröffentlichte Pfade und Ablehnungsgründe. Die zusätzlich als `Total` gekennzeichneten
+Such-/Regionszähler sind kumulativ. Pro Gruppenbefehl entstehen höchstens drei ausführliche
+gewichtete Veröffentlichungstexte; der Pfadaudit erzeugt keine Knoten-Dictionaries mehr.
+Bestehende spätere Bewegungs- und Arbeitsmarker bleiben erhalten.
+
+### Abschluss dieser Umsetzung
+
+Am 5. September 2026 um 12:56:12 Uhr wurde nach den abschließenden Regressionen,
+Quellkontrollen, der nativen Vertragsprüfung und CRLF-/Diff-Kontrolle **einmal** die vorhandene
+`MoveMoatTest/build.bat /nopause` direkt erhöht ausgeführt. Ergebnis: Exitcode 0,
+**0 Fehler, 0 Warnungen**, Build und Installation erfolgreich. Die Compilerzeile bestätigt
+lokale Extender-1.42.0-Referenzen und `/optimize+` bei weiterhin vorhandenen Debugsymbolen.
+
+Lokales Paket und installierte Ausgabe wurden anschließend verglichen: DLL, PDB und
+`info.json` sind jeweils bytegleich. SHA-256 der neuen `MoveMoatTest.dll`:
+`A3E46F3B85130F92DC7EF69DFB918040DBF698B1B578586BCBF9B7C473DB92E6`.
+Version bleibt einheitlich `1.0.0`; README, Bridge und Extender-Fork wurden nicht geändert.
+Alle betroffenen Textdateien haben CRLF, keine nackten LF oder versehentlich eingefügten
+wörtlichen Backslash-r/Backslash-n-Zeichenfolgen; `git diff --check` ist sauber.
+Die abschließenden Testausgaben liegen in
+`_inspect/MoveMoatRegressionTests/latest-regression-results.txt` und
+`_inspect/MoveMoatRegressionTests/latest-native-contract.txt`.
+
+Noch offen ist die Spielabnahme mit 1, 5, 20, 27 und 29 Units, allen Formationstypen,
+gemischten Gruppen, Shift-Queue, Patrol, KI, Folgebewegung nach Kämpfen, Sprite-/Gebäudeangriffen,
+Treppen/Rampen/Wällen sowie wiederholten Dig-/Fill-Arbeitszyklen. Host und Client müssen mit
+identischen Paketen geprüft werden. Erst tatsächliche spätere Bewegungs-/Arbeitsmarker nach
+Startup-Cleanup bestätigen den Laufzeiterfolg. Die Runtime bleibt statisch im Plugin verwurzelt;
+es wurde kein OnDestroy-Teardown oder MonoBehaviour-Update-Laufzeitpfad eingeführt.
+
+Die folgenden Abschnitte dokumentieren ältere Messungen und Zwischenstände; deren Retry- und
+Cachebeschreibungen werden durch die oben beschriebene Umsetzung ersetzt.
+
+## Historischer Zwischenstand: Formationsziele und native Unit-Aufrufe
+
+**Historischer Buildstopp, inzwischen aufgehoben.** Der Nutzer hatte den Build dieser Reparatur
+ausdrücklich ausgesetzt, weil er vorübergehend die lokale Script-Extender-Version
+ändert. Version bleibt `1.0.0`; README und Script Extender wurden nicht bearbeitet.
+Der weiter unten dokumentierte Build um 01:32 Uhr gehört zum vorherigen Quellstand.
+
+### Restfehler im Spieltest des vorherigen Builds
+
+Der Logabschnitt vom 5. September 2026, 01:34:36–01:35:59 Uhr, zeigt weiterhin
+abgewiesene Gruppenpfade, jetzt mit korrekten Unit-IDs. Beispiele aus
+`BepInEx/LogOutput.log`:
+
+| commandSeq | aktive Units | modeCalls | builderCalls | contractRejections |
+| --- | ---: | ---: | ---: | ---: |
+| 1 | 20 | 20 | 1 | 19 |
+| 17 | 29 | 29 | 1 | 28 |
+| 25 | 27 | 27 | 27 | 0 |
+
+`builderCalls` zählt hier zugeordnete Mod-Builder, nicht sämtliche nativen Aufrufe.
+Bei Command 1 lautet das Klickziel `(391,357)`, während die gewichtete Diagnose für
+Folgeunits beispielsweise `(391,359)`, `(390,359)` und `(389,359)` erfasst.
+Die verbliebenen Pending-Pläne benutzten das Klickziel. Der exakte Zielvergleich
+lehnte deshalb richtige Unitpuffer mit richtigen Formationszielen ab.
+Die unabhängige gewichtete Veröffentlichung half einigen Units trotzdem; das
+erklärte die wechselnde Zahl tatsächlich bewegter Gruppenmitglieder.
+
+Die Fill-Bündelung zeigt im selben Lauf eine deutliche Verbesserung: untersuchte
+Arbeitsauswahlen verwenden `searchBuilds=1`, mit beispielsweise 3,710–7,839 ms
+Suchzeit statt der zuvor beobachteten 285–317 ms. Das ist ein Logbefund dieses
+Laufs, keine allgemeine Laufzeitgarantie. Diese Bündelung bleibt erhalten.
+
+### Hashgebundene native Evidenz und Extender-Vertrag
+
+Die installierte `CrusaderDE.dll`, `CURRENT.json` und die verwendete Baseline
+stimmten bei der Prüfung mit SHA-256
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
+überein. Einstieg: `tools/semantic/query.ps1 function <RVA>` unter
+`_inspect/CrusaderDE-Native-Baseline`; bei mehreren Ergebnissen ausschließlich
+den Datensatz dieses Hashes verwenden. Die Funktionsnamen sind teilweise
+automatisch zugeordnet; maßgeblich ist die nachfolgend beschriebene Aufruf-/Datenflussevidenz.
+
+- `0x11B520` verteilt Formationsziele und ruft für einzelne Units direkt `0x196280`
+  mit deren Zielpaar auf. Bereits passende native Zustände können einen Aufruf
+  überspringen; ausgewählte Unitanzahl ist daher kein Sollwert für Builderaufrufe.
+- `0x118E00` verwendet dagegen gemeinsame Zielkoordinaten. Das erklärt den
+  erfolgreichen Zweig mit vielen zugeordneten Buildern im selben Spieltest.
+- `0x18E1E0` ist eine Probe mit temporärem Pfadpuffer, kein universeller Einstieg
+  in die tatsächliche Bewegung. Die bisherige Bezeichnung `CentralMovementPlan`
+  und der Marker `plannerCalls` sind historisch; sie erfassen Gruppenaufrufe
+  nicht vollständig. Die vorhandene Probe bleibt für ihre bisherigen Aufrufer erhalten.
+- `0x196280` erhält fünf Argumente einschließlich Unit-ID, Unit-Ziel und
+  Buildervariante. Es kann ein natives Zwischenziel wählen und bindet den
+  Unitpuffer, bevor es `0xF4930` beziehungsweise den alternativen Builder aufruft.
+- Der Script Extender besitzt bereits den Hook auf `0x196280`. Verwendet wird
+  ausschließlich `UnitR3EventHooks.OnUnitMoveHere`, kein überlappender Detour.
+  Der Vertrag wurde auch im dekompilierten, damals installierten `SHCDESE.dll`
+  geprüft: Pre ist veränderbar; Post enthält die ursprünglichen Eingaben;
+  `SkipOriginalFunction` erzeugt kein Post. Lokale Referenz und installierte DLL
+  hatten dabei SHA-256 `6D4C919ECF6B4AE0EE329081CBBE66BD074202492D45B5AEE74B713B9AF1C57D`.
+  Das ist eine Analyseprovenienz, keine Vorgabe für die vorübergehende Extender-Version.
+
+### Reparatur im Quellcode
+
+- Jeder tatsächliche Unit-Aufruf bekommt einen eigenen Eventkontext. Pre-Argumente
+  werden erst bei der Modusprüfung als Unit-Ziel gebunden; Änderungen anderer
+  Subscriber werden berücksichtigt. Klickziel, Unit-Ziel und Builder-Endpunkt
+  bleiben getrennt. Nicht grabfähige Units benötigen keinen Suchplan.
+- Ein nativer Zwischenendpunkt erhält einen lokalen Plan mit exakt geprüftem
+  Start und Ziel sowie erneuter Erreichbarkeitsqualifikation. Er überschreibt
+  weder den Unit-Auftrag noch den äußeren Arbeits-/Angriffskontext. Ein nicht
+  qualifizierter Zwischenendpunkt benutzt beim nativen Builder dessen ursprünglichen
+  Modus, auch ohne aktiven Gruppenbefehl.
+- Puffereigentümer, tatsächlicher Unitpointer und nativer Startvertrag bleiben
+  strikt. Die Ausgabelänge wird vor dem Retry geprüft, nicht vor der nativen
+  Initialisierung des Builders. Abgewiesene Retries behalten den vollständigen Rollback.
+- Verschachtelte Unit-Aufrufe besitzen getrennte Frames. Übersprungene Frames
+  werden vor Verwendung entfernt; Post stellt den Elternframe wieder her.
+  Die synchrone LIFO-Reihenfolge dient als Zuordnung, da die unveränderten
+  Post-Argumente eines geänderten Kindaufrufs sogar dem Elternziel gleichen können.
+  Fehlendes Post wird spätestens bei Befehlsende,
+  Befehlswechsel, Tick- oder Kartenwechsel bereinigt. Neue Aufrufe erhalten eigene
+  Pläne. Der bestehende Arbeits-Handoff wird nach seinem Builder weiterhin verbraucht.
+- Der echte Owner-Audit setzt seine Kanten-/Besitzklassifikation je Pfad zurück.
+  Ein neuer Test deckte auf, dass sonst frühere Such- oder Playerklassifikationen
+  einen gültigen Weg als `enemy-moat-diagonal-corner` ablehnen konnten.
+  Feindliche Durchquerungen bleiben verboten; die enge terminale Fill-Kontaktregel
+  bleibt ausdrücklich getestet. Die gemeinsame Arbeits-Erreichbarkeitskarte wird
+  durch diesen Klassifikationsreset nicht neu aufgebaut.
+
+Neue aggregierte Move-Felder: `unitMoveCalls`, `unitMoveCompleted`, `unitMovePositive`,
+`unitMoveWithoutF4930`, `unitMoveAbandoned`, `builderIntermediateTargets` und
+`contractReasons`. Ohne beobachteten `F4930` kann ein nativer Frühabbruch, ein
+bereits erreichtes Ziel oder ein anderer Builder vorliegen. Eine positive
+Unit-Rückgabe ist noch kein Bewegungsnachweis. Ablehnungsdetails mit Klick-,
+Unit- und Builderziel sind auf die ersten zwölf Fälle begrenzt; Zähler laufen weiter.
+
+### Prüfstand und ausstehende Abnahme
+
+Der eigenständige Runner unter `_inspect/MoveMoatRegressionTests` kompiliert die
+ausgewählten tatsächlichen Runtime-Methoden gegen simulierte Spiel-APIs, einschließlich
+Builder-Wrapper, Retry und echtem Owner-Audit. Er baut oder installiert keine Mod-DLL.
+Der alte Test mit gleichen Gruppenzielen und manuell gesetztem `activePlan` hatte
+den nativen Formationsablauf nicht abgedeckt; diese Testlücke ist jetzt geschlossen.
+
+Abgedeckt sind gemeinsame und unterschiedliche Ziele für 1, 5, 20, 27 und 29 Units,
+echte Pfadbytes, Zwischenziele, ungültige/fremde Puffer und Unitpointer, native
+Next-Tile-Starts, Starts auf Moat, gemischte Fähigkeiten, wechselnde Spieler beim
+Audit, veränderbare Pre-Argumente, verschachtelte gleiche/verschiedene Units,
+Skip/fehlendes Post und Kontextwechsel. Arbeitsübergabe, terminaler Fill-Kontakt,
+feindliche/unerreichbare Endpunkte, Terrainänderungen und Rollbacks werden ebenfalls geprüft.
+
+Ergebnis dieser Reparaturrunde: **1.363 Assertions bestanden**, 60 tatsächlich
+extrahierte Runtime-Member kompiliert und geprüft; Syntaxprüfung aller sechs
+Runtime-Quelldateien erfolgreich. Aufruf:
+
+    dotnet run --project _inspect/MoveMoatRegressionTests/MoveMoatRegressionTests.csproj -- .
+
+Die vier bearbeiteten Textdateien wurden abschließend auf CRLF und verbliebene
+nackte LF geprüft; `git diff --check` ist Teil der statischen Abschlusskontrolle.
+
+**Offen:** vollständiger Mod-Build gegen die später festgelegte Extender-Version
+und Spieltest dieses neuen Quellstands. Erst danach Gruppenbewegung einschließlich
+wiederholter Befehle, Shift-Queue, Patrol sowie Angriffe, Dig, Fill und Strukturwege
+im Spiel bestätigen. Spätere Bewegungs-/Tickmarker und weitere Arbeitszyklen müssen
+den Laufzeiterfolg belegen; Event-Rückgaben oder bestandene Fixturetests genügen nicht.
+
+## Vorheriger Reparaturstand: Build vom 5. September, 01:32 Uhr
 
 Die letzte Optimierung (`5f4e696b`, Vergleichsbasis `ce67cd30`) verursachte zwei
 Regressionen. Der Lauf vom 5. September, 01:07–01:08 Uhr, belegt beide:

@@ -37,8 +37,9 @@
     <Reference Include="SHCDESE"><HintPath>$(ExtenderDir)\SHCDESE.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="R3"><HintPath>$(ExtenderDir)\R3.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="System.Memory"><HintPath>$(ExtenderDir)\System.Memory.dll</HintPath><Private>false</Private></Reference>
-    <Reference Include="Zhuqiaomon"><HintPath>$(ExtenderDir)\Zhuqiaomon.dll</HintPath><Private>false</Private></Reference>
-    <Reference Include="PolyHook2.NET"><HintPath>$(ExtenderDir)\PolyHook2.NET.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="RedBird.Abstractions"><HintPath>$(ExtenderDir)\RedBird.Abstractions.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="RedBird.Core"><HintPath>$(ExtenderDir)\RedBird.Core.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="RedBird.X64"><HintPath>$(ExtenderDir)\RedBird.X64.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Iced"><HintPath>$(ExtenderDir)\Iced.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Microsoft.Extensions.Logging.Abstractions"><HintPath>$(ExtenderDir)\Microsoft.Extensions.Logging.Abstractions.dll</HintPath><Private>false</Private></Reference>
   </ItemGroup>
@@ -81,12 +82,15 @@
     <Compile Include="src\AssassinPathfindingRuntime.cs" />
     <Compile Include="src\BugfixesAndQoLRuntime.CtrlMarketTrade.cs" />
     <Compile Include="src\BugfixesAndQoLRuntime.MovedFeatures.cs" />
+    <Compile Include="src\BugfixesAndQoLChoreSender.cs" />
+    <Compile Include="src\BugfixesHookInfrastructure.cs" />
     <Compile Include="src\CtrlMarketTradeHook.cs" />
     <Compile Include="src\GameSpeedRepeatScheduler.cs" />
     <Compile Include="src\FastRecruitMovementBridge.cs" />
     <Compile Include="src\FastRecruitRallyMovementModLog.cs" />
     <Compile Include="src\FastRecruitRallyMovementRuntime.cs" />
     <Compile Include="src\MarketTradeIntegration.cs" />
+    <Compile Include="src\MarketGoldPolicy.cs" />
     <Compile Include="src\MultiplayerFeatureGate.cs" />
     <Compile Include="src\MultiplayerAivSyncPacket.cs" />
     <Compile Include="src\MultiplayerAivSyncPolicy.cs" />
@@ -194,5 +198,10 @@
     <Compile Include="..\Shared\TroopActionButtonLayoutPolicy.cs"><Link>Shared\TroopActionButtonLayoutPolicy.cs</Link></Compile>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <Target Name="ValidateScriptExtenderReference" BeforeTargets="BeforeBuild"><Error Condition="!Exists('$(ExtenderDir)\SHCDESE.dll')" Text="SHCDESE.dll was not found: $(ExtenderDir)" /></Target>
+  <Target Name="ValidateScriptExtenderReference" BeforeTargets="BeforeBuild">
+    <Error Condition="!Exists('$(ExtenderDir)\SHCDESE.dll')" Text="SHCDESE.dll was not found: $(ExtenderDir)" />
+    <Error Condition="!Exists('$(ExtenderDir)\RedBird.Abstractions.dll')" Text="RedBird.Abstractions.dll was not found: $(ExtenderDir)" />
+    <Error Condition="!Exists('$(ExtenderDir)\RedBird.Core.dll')" Text="RedBird.Core.dll was not found: $(ExtenderDir)" />
+    <Error Condition="!Exists('$(ExtenderDir)\RedBird.X64.dll')" Text="RedBird.X64.dll was not found: $(ExtenderDir)" />
+  </Target>
 </Project>

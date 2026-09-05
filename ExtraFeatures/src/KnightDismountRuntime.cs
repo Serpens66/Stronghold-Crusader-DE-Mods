@@ -14,7 +14,6 @@ using SHCDESE.ViewModels;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using Zhuqiaomon.Memory;
 
 namespace ExtraFeatures
 {
@@ -547,7 +546,9 @@ namespace ExtraFeatures
 
         private bool IsChoreTransportReady()
         {
-            return networkInitialized && transformationPacketHook != null && ChoreNetworkTransport.IsAvailable;
+            return ExtraFeaturesChoreSender.IsAvailable(
+                networkInitialized && transformationPacketHook != null,
+                () => SHCDESE.GameGlobals.GameGlobalsManager.Instance.ChoreManagerVA);
         }
 
         private bool TrySendTransformationChore(int playerId, int action, List<UnitTransformSnapshot> snapshots)
@@ -594,21 +595,18 @@ namespace ExtraFeatures
                 return false;
             }
 
-            byte[] body = GameNetworkAPI.Serialize(packet);
-            if (!KnightTransformationPacketValidation.DoesSerializedBodyFitChore(body.Length))
+            short packetId = transformationPacketHook?.GetPacketId() ?? (short)0;
+            if (!ExtraFeaturesChoreSender.TrySend(
+                    packet,
+                    packetId,
+                    networkInitialized && transformationPacketHook != null,
+                    value => GameNetworkAPI.Serialize(value),
+                    () => SHCDESE.GameGlobals.GameGlobalsManager.Instance.ChoreManagerVA,
+                    (value, id) => GameNetworkAPI.SendPacketToAllEx2(value, id, viaChore: true),
+                    out byte[] body,
+                    out string rejectionReason))
             {
-                LogError($"Knight transformation refused because the serialized Chore body is too large: operationId={operationId}, bodyBytes={body.Length}, maximum={KnightTransformationPacket.MaximumPacketBodyBytes}.");
-                return false;
-            }
-
-            byte[] blob = new byte[sizeof(short) + body.Length];
-            BitConverter.GetBytes(transformationPacketHook.GetPacketId()).CopyTo(blob, 0);
-            Buffer.BlockCopy(body, 0, blob, sizeof(short), body.Length);
-            Func<byte[], bool> sendRawBlob = ChoreNetworkTransport.SendRawBlob;
-            bool queued = sendRawBlob != null && sendRawBlob(blob);
-            if (!queued)
-            {
-                LogError($"Knight transformation Chore was not queued; no local action was applied: operationId={operationId}, payloadBytes={blob.Length}.");
+                LogError($"Knight transformation Chore was not queued; no local action was applied: operationId={operationId}, reason={rejectionReason}.");
                 return false;
             }
 
@@ -1467,7 +1465,12 @@ namespace ExtraFeatures
         {
             try
             {
-                return GamePlayerManagerAPI.Instance.GetSelectedChimps();
+                SelectedUnitInfo[] selected =
+                    GamePlayerManagerAPI.Instance.GetSelectedChimps() ?? Array.Empty<SelectedUnitInfo>();
+                int[] unitIds = new int[selected.Length];
+                for (int index = 0; index < selected.Length; index++)
+                    unitIds[index] = selected[index].UnitId;
+                return unitIds;
             }
             catch (Exception ex)
             {

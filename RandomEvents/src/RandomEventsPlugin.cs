@@ -5,7 +5,7 @@ using System;
 
 namespace RandomEvents
 {
-    [BepInDependency(ScriptExtenderGuid, BepInDependency.DependencyFlags.HardDependency)]
+    [BepInDependency(ScriptExtenderGuid, "2.0.2")]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class RandomEventsPlugin : BaseUnityPlugin
@@ -26,7 +26,7 @@ namespace RandomEvents
             CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
         }
 
-        private void OnCrusaderLibraryLoaded(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
+        private void OnCrusaderLibraryLoaded(CrusaderLibraryLoadContext context)
         {
             try
             {
@@ -68,7 +68,7 @@ namespace RandomEvents
 
             try
             {
-                runtime.InitializeNative(libraryHandle, memory, referenceHashMatches);
+                runtime.InitializeNative(context.ModuleHandle, context.Memory, referenceHashMatches);
             }
             catch (Exception ex)
             {

@@ -1,11 +1,10 @@
 using BepInEx;
-using SHCDESE.API;
 using SHCDESE.API.LowLevel;
 using System;
 
 namespace ImprovedHunters
 {
-    [BepInDependency(ScriptExtenderGuid, BepInDependency.DependencyFlags.HardDependency)]
+    [BepInDependency(ScriptExtenderGuid, "2.0.2")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class ImprovedHuntersPlugin : BaseUnityPlugin
     {
@@ -58,7 +57,7 @@ namespace ImprovedHunters
             DisposeRuntime("OnApplicationQuit");
         }
 
-        private void OnCrusaderLibraryLoaded(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
+        private void OnCrusaderLibraryLoaded(CrusaderLibraryLoadContext context)
         {
             bool referenceHashMatches = false;
             try
@@ -90,10 +89,7 @@ namespace ImprovedHunters
 
             try
             {
-                persistentRuntime?.Apply(
-                    memory,
-                    (ulong)libraryHandle.ToInt64(),
-                    referenceHashMatches);
+                persistentRuntime?.Apply(context, referenceHashMatches);
                 Shared.DebugLogHelper.LogInfo(Logger, "Improved Hunters settings UI registered and runtime applied.");
             }
             catch (Exception exception)

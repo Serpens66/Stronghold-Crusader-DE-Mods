@@ -4,7 +4,7 @@ using System;
 
 namespace QueueTest
 {
-    [BepInDependency(ScriptExtenderGuid, BepInDependency.DependencyFlags.HardDependency)]
+    [BepInDependency(ScriptExtenderGuid, "2.0.2")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class QueueTestPlugin : BaseUnityPlugin
     {
@@ -27,7 +27,7 @@ namespace QueueTest
             CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
         }
 
-        private void OnCrusaderLibraryLoaded(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
+        private void OnCrusaderLibraryLoaded(CrusaderLibraryLoadContext context)
         {
             if (libraryLoadedHandled)
                 return;
@@ -43,7 +43,10 @@ namespace QueueTest
                     return;
                 }
 
-                runtime.Install(libraryHandle, memory);
+                if (context == null)
+                    throw new ArgumentNullException(nameof(context));
+
+                runtime.Install(context);
                 libraryLoadedHandled = true;
             }
             catch (Exception exception)

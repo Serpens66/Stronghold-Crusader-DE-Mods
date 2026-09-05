@@ -1,0 +1,14 @@
+{
+	"GUID": "000shcdese",
+    "Author": "Rawra",
+    "Name": "Script Extender",
+	"Description": "Core Library of the Script Extender",
+    "Version": "2.0.2",
+    "SupportedGameVersions": [
+        "2.8.0.2"
+    ],
+    "Website": "https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender",
+    "VersionCheckUrl": "https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender", 
+	"Manifest": 1,
+    "NetworkMode": 1
+}

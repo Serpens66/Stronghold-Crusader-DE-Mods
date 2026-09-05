@@ -2,7 +2,7 @@ using BepInEx.Logging;
 using SHCDESE.Interop;
 using System;
 using System.Runtime.InteropServices;
-using Zhuqiaomon.Windows;
+using RedBird.Core.Memory;
 
 namespace ImprovedHunters
 {
@@ -210,29 +210,9 @@ namespace ImprovedHunters
                     $"expected={expected}, actual={current}.");
             }
 
-            UIntPtr size = (UIntPtr)1;
-            if (!Kernel32.VirtualProtect(
-                    dispatchEntryAddress,
-                    size,
-                    Kernel32.MemoryPermissions.PAGE_EXECUTE_READWRITE,
-                    out Kernel32.MemoryPermissions oldProtection))
-            {
-                throw new InvalidOperationException(
-                    "VirtualProtect failed for the Hunter's Hut visibility dispatch entry.");
-            }
-
-            try
-            {
-                Marshal.WriteByte(dispatchEntryAddress, desired);
-            }
-            finally
-            {
-                if (!Kernel32.VirtualProtect(dispatchEntryAddress, size, oldProtection, out _))
-                {
-                    throw new InvalidOperationException(
-                        "Restoring memory protection failed for the Hunter's Hut visibility dispatch entry.");
-                }
-            }
+            // This one-byte jump-table entry is changed only from serialized lifecycle
+            // callbacks. CodePatch restores page protection and flushes the instruction cache.
+            CodePatch.Write(unchecked((ulong)dispatchEntryAddress.ToInt64()), new[] { desired });
 
             byte verified = Marshal.ReadByte(dispatchEntryAddress);
             if (verified != desired)

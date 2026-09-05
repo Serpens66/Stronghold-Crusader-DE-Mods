@@ -7,6 +7,7 @@ using SHCDESE.EventAPI.Network;
 using System;
 using System.Threading;
 using SHCDESE.EventAPI.MapLoader;
+using SHCDESE.GameGlobals;
 
 namespace ExtremePowers.API
 {
@@ -36,7 +37,6 @@ namespace ExtremePowers.API
             if (!owner.NativeBackendAvailable) return Reject("Native backend is unavailable.", out rejectionReason);
             ExtremePowersReadiness readiness = owner.GetSessionReadiness();
             if (!readiness.Ready) return Reject(readiness.Reason, out rejectionReason);
-            if (!ChoreNetworkTransport.IsAvailable) return Reject("Synchronized chore transport is unavailable.", out rejectionReason);
             if ((uint)power > 7 || playerId < 1 || playerId > 8) return Reject("Invalid power or player.", out rejectionReason);
             if (!IsTargetValid(target)) return Reject("Invalid or stale target.", out rejectionReason);
             if (!owner.TryGetReplacement(power, out ExtremePowerReplacement replacement)) return Reject("No replacement is registered.", out rejectionReason);
@@ -45,14 +45,16 @@ namespace ExtremePowers.API
             ulong operation = ((ulong)mapEpoch << 48) | ((ulong)(byte)playerId << 40) | sequence;
             if (operation == 0) return Reject("Operation id generation failed.", out rejectionReason);
             var packet = new ExtremePowerChore(ExtremePowerChoreCodec.CurrentProtocol, power, playerId, target, operation);
-            byte[] body;
-            try { body = MessagePackSerializer.Serialize(packet); }
-            catch (Exception ex) { return Reject("Packet serialization failed: " + ex.Message, out rejectionReason); }
-            byte[] blob = new byte[sizeof(short) + body.Length];
-            BitConverter.GetBytes(packetHook.GetPacketId()).CopyTo(blob, 0);
-            Buffer.BlockCopy(body, 0, blob, sizeof(short), body.Length);
-            Func<byte[], bool> send = ChoreNetworkTransport.SendRawBlob;
-            if (send == null || !send(blob)) return Reject("Synchronized chore send failed.", out rejectionReason);
+            if (!ExtremePowerChoreSender.TrySend(
+                packet,
+                packetHook.GetPacketId(),
+                packetHook != null,
+                value => GameNetworkAPI.Serialize(value),
+                () => GameGlobalsManager.Instance.ChoreManagerVA,
+                (value, id) => GameNetworkAPI.SendPacketToAllEx2(value, id, viaChore: true),
+                out byte[] body,
+                out string sendFailure))
+                return Reject(sendFailure, out rejectionReason);
             owner.Log("Queued replacement power=" + power + " player=" + playerId + " target=" + target.Kind + " operation=" + operation + ".");
             return true;
         }

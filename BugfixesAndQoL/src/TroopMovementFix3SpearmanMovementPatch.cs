@@ -3,9 +3,12 @@ using BepInEx.Logging;
 using Iced.Intel;
 using System;
 using System.Runtime.InteropServices;
-using Zhuqiaomon.Extensions;
-using Zhuqiaomon.Hooks;
-using Zhuqiaomon.Hooks.Transaction;
+using RedBird.Abstractions.Hooks;
+using RedBird.Abstractions.Hooks.Transaction;
+using RedBird.Core.Memory;
+using RedBird.X64.Hooks;
+using RedBird.X64.Hooks.Transaction;
+using RedBird.X64.Extensions;
 using static Iced.Intel.AssemblerRegisters;
 
 namespace BugfixesAndQoL
@@ -44,12 +47,12 @@ namespace BugfixesAndQoL
         private const ulong RunningTargetFromReturnAddress = 0x164;
 
         private readonly HookTransaction transaction;
-        private HookRef<X64InlineHook> movementDecisionHook =
-            new HookRef<X64InlineHook>();
+        private readonly HookHandle<X64InlineHook> movementDecisionHook = new HookHandle<X64InlineHook>();
         private bool disposed;
 
         public SpearmanMovementPatch(
             ManualLogSource log,
+            ScanRegion region,
             ReadOnlySpan<byte> memory,
             ulong libraryBase,
             bool referenceHashMatches)
@@ -70,15 +73,11 @@ namespace BugfixesAndQoL
                 libraryBase,
                 decisionAddress);
 
-            transaction = new HookTransaction(
-                memory,
-                libraryBase,
-                loggerFactory: null,
-                failureMode: TransactionFailureMode.RollbackAndThrow);
+            transaction = BugfixesHookInfrastructure.CreateOwnedTransaction(region);
 
             transaction.AddInline(
-                ref movementDecisionHook,
-                decisionAddress,
+                movementDecisionHook,
+                HookTarget.FromAddress(decisionAddress),
                 (assembler, instructions, returnAddress) =>
                     GenerateMovementDecision(
                         assembler,
@@ -87,9 +86,9 @@ namespace BugfixesAndQoL
                         improvedSpearmanFlagAddress),
                 hookSize: HookSize);
 
-            transaction.Commit();
+            CommitResult commitResult = transaction.Commit();
 
-            if (!movementDecisionHook.Success)
+            if (!commitResult.IsCompleteSuccess || !movementDecisionHook.Success)
             {
                 throw new InvalidOperationException(
                     "The native Spearman movement decision was not found.");
@@ -109,7 +108,6 @@ namespace BugfixesAndQoL
                 return;
 
             disposed = true;
-            transaction.Unload();
             transaction.Dispose();
         }
 

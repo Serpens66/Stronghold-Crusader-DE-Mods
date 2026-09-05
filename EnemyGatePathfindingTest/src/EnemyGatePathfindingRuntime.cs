@@ -1,11 +1,15 @@
 using BepInEx.Bootstrap;
 using BepInEx.Logging;
+using RedBird.Abstractions.Hooks;
+using RedBird.Abstractions.Hooks.Transaction;
+using RedBird.Core.Memory;
+using RedBird.X64.Assembly;
+using RedBird.X64.Hooks;
+using RedBird.X64.Hooks.Context;
+using RedBird.X64.Hooks.Transaction;
+using SHCDESE.API.LowLevel;
 using System;
 using System.Threading;
-using Zhuqiaomon.Assembly;
-using Zhuqiaomon.Hooks;
-using Zhuqiaomon.Hooks.Transaction;
-using Zhuqiaomon.Memory;
 
 namespace EnemyGatePathfindingTest
 {
@@ -18,8 +22,8 @@ namespace EnemyGatePathfindingTest
         private SamePclBridgeDiagnostics samePclDiagnostics;
         private TileRouteDiagnostics tileRouteDiagnostics;
         private HookTransaction transaction;
-        private HookRef<X64InlineHook> pclGraphCapturedByFilterHook = new HookRef<X64InlineHook>();
-        private HookRef<X64InlineHook> builderPrecheckCapturedByFilterHook = new HookRef<X64InlineHook>();
+        private readonly HookHandle<X64InlineHook> pclGraphCapturedByFilterHook = new HookHandle<X64InlineHook>();
+        private readonly HookHandle<X64InlineHook> builderPrecheckCapturedByFilterHook = new HookHandle<X64InlineHook>();
         private volatile NativeGateAccessSnapshot gateAccess = NativeGateAccessSnapshot.Empty;
         private ulong libraryBase;
         private int mapActive;
@@ -39,13 +43,15 @@ namespace EnemyGatePathfindingTest
         }
 
         internal void InitializeNative(
-            IntPtr libraryHandle,
-            ReadOnlySpan<byte> memory,
+            CrusaderLibraryLoadContext context,
             bool referenceHashMatches)
         {
+            if (context == null)
+                throw new ArgumentNullException(nameof(context));
+            ReadOnlySpan<byte> memory = context.Memory;
             if (!referenceHashMatches)
                 throw new InvalidOperationException("fixed native layout hash does not match the supported CrusaderDE.dll");
-            if (libraryHandle == IntPtr.Zero)
+            if (context.ModuleHandle == IntPtr.Zero)
                 throw new InvalidOperationException("native library handle is null");
 
             Shared.NativeResolution pclGraphCompareResolution = Shared.NativePatternResolver.ResolveUnique(
@@ -103,40 +109,51 @@ namespace EnemyGatePathfindingTest
                 cursorYRva != EnemyGatePathfindingNativeDefinition.CursorTargetYRva)
                 throw new InvalidOperationException("native gate/cursor signatures resolved outside their audited RVAs");
 
-            libraryBase = unchecked((ulong)libraryHandle.ToInt64());
+            libraryBase = unchecked((ulong)context.ModuleHandle.ToInt64());
             samePclDiagnostics = new SamePclBridgeDiagnostics(
                 log,
                 (int*)(libraryBase + unchecked((ulong)cursorXRva)),
                 (int*)(libraryBase + unchecked((ulong)cursorYRva)));
             samePclDiagnostics.SetGateAccessConsumer(UpdateGateAccess);
 
-            // UPDATE REVIEW (Script Extender 1.42.0): only primitive snapshot reads and
+            // Script Extender 2.0.2: only primitive snapshot reads and
             // RFLAGS changes are allowed in this callback. No API access is permitted.
             transaction = new HookTransaction(
-                memory,
-                libraryBase,
-                loggerFactory: null,
-                failureMode: TransactionFailureMode.RollbackAndThrow);
+                context.Region,
+                SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory,
+                new HookTransactionOptions
+                {
+                    FailureMode = TransactionFailureMode.RollbackAndThrow,
+                    OwnsHooks = false
+                });
             transaction.AddContextHook(
-                ref pclGraphCapturedByFilterHook,
-                libraryBase + unchecked((ulong)pclGraphCompareRva),
+                pclGraphCapturedByFilterHook,
+                HookTarget.FromAddress(libraryBase + unchecked((ulong)pclGraphCompareRva)),
                 FilterUnrelatedCapturedEnemyGatePclGraph,
-                regs: X64SmartCPUContextRegs.All,
-                hookSize: EnemyGatePathfindingNativeDefinition.PclGraphCapturedByCompareHookLength,
-                errorMode: CallbackErrorMode.LogAndContinue,
-                placement: OverwrittenInstructionPlacement.BeforeCallback);
+                new ContextHookOptions
+                {
+                    Registers = X64SmartCPUContextRegs.All,
+                    HookSize = EnemyGatePathfindingNativeDefinition.PclGraphCapturedByCompareHookLength,
+                    ErrorMode = CallbackErrorMode.LogAndContinue,
+                    Placement = OverwrittenInstructionPlacement.BeforeCallback
+                });
             transaction.AddContextHook(
-                ref builderPrecheckCapturedByFilterHook,
-                libraryBase + unchecked((ulong)builderPrecheckCompareRva),
+                builderPrecheckCapturedByFilterHook,
+                HookTarget.FromAddress(libraryBase + unchecked((ulong)builderPrecheckCompareRva)),
                 FilterUnrelatedCapturedEnemyGateBuilderPrecheck,
-                regs: X64SmartCPUContextRegs.All,
-                hookSize: EnemyGatePathfindingNativeDefinition.BuilderPrecheckCapturedByCompareHookLength,
-                errorMode: CallbackErrorMode.LogAndContinue,
-                placement: OverwrittenInstructionPlacement.BeforeCallback);
-            transaction.Commit();
-            if (!pclGraphCapturedByFilterHook.Success || !builderPrecheckCapturedByFilterHook.Success)
+                new ContextHookOptions
+                {
+                    Registers = X64SmartCPUContextRegs.All,
+                    HookSize = EnemyGatePathfindingNativeDefinition.BuilderPrecheckCapturedByCompareHookLength,
+                    ErrorMode = CallbackErrorMode.LogAndContinue,
+                    Placement = OverwrittenInstructionPlacement.BeforeCallback
+                });
+            CommitResult commitResult = transaction.Commit();
+            if (!commitResult.IsCompleteSuccess ||
+                !pclGraphCapturedByFilterHook.Success ||
+                !builderPrecheckCapturedByFilterHook.Success)
                 throw new InvalidOperationException(
-                    "both snapshot-based captured-player filters were not installed atomically");
+                    $"both snapshot-based captured-player filters were not installed atomically: {commitResult}");
 
             bool moveMoatLoaded = Chainloader.PluginInfos.ContainsKey("MoveMoatTest_Serp");
             try
@@ -144,6 +161,7 @@ namespace EnemyGatePathfindingTest
                 tileRouteDiagnostics = new TileRouteDiagnostics(
                     log,
                     memory,
+                    context.Region,
                     libraryBase,
                     (int*)(libraryBase + unchecked((ulong)cursorXRva)),
                     (int*)(libraryBase + unchecked((ulong)cursorYRva)),

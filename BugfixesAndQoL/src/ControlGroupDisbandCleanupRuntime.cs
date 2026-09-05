@@ -1,6 +1,9 @@
 // Remove a unit from local control groups immediately after Vanilla processes its disband.
 using BepInEx.Logging;
-using MonoMod.RuntimeDetour;
+using RedBird.Abstractions.Hooks;
+using RedBird.Abstractions.Hooks.Transaction;
+using RedBird.Core.Memory;
+using RedBird.X64.Hooks.Transaction;
 using System;
 using System.Runtime.InteropServices;
 
@@ -14,20 +17,23 @@ namespace BugfixesAndQoL
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
         private readonly int* controlGroupRecords;
-        private DisbandUnitDelegate original;
-        private DisbandUnitDelegate rootedDetour;
-        private NativeDetour detour;
+        private HookTransaction transaction;
+        private readonly DetourHandle<DisbandUnitDelegate> detour =
+            new DetourHandle<DisbandUnitDelegate>();
         private bool callbackErrorLogged;
 
         internal ControlGroupDisbandCleanupRuntime(
             ManualLogSource log,
             BugfixesAndQoLViewModel settings,
+            ScanRegion region,
             ReadOnlySpan<byte> memory,
             ulong libraryBase,
             bool referenceHashMatches)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
+            if (region == null)
+                throw new ArgumentNullException(nameof(region));
             if (memory.IsEmpty)
                 throw new ArgumentException("The loaded CrusaderDE image is empty.", nameof(memory));
             if (libraryBase == 0)
@@ -49,37 +55,34 @@ namespace BugfixesAndQoL
             int disbandFunctionRva = ValidateDisbandTarget(memory);
 
             controlGroupRecords = (int*)(libraryBase + unchecked((ulong)storageRva));
-            rootedDetour = DisbandUnit;
-            IntPtr target = new IntPtr(unchecked((long)(libraryBase + (ulong)disbandFunctionRva)));
-            IntPtr replacement = Marshal.GetFunctionPointerForDelegate(rootedDetour);
-            NativeDetour pending = null;
             try
             {
-                pending = new NativeDetour(target, replacement, new NativeDetourConfig { ManualApply = true });
-                original = pending.GenerateTrampoline<DisbandUnitDelegate>();
-                pending.Apply();
-                detour = pending;
+                transaction = BugfixesHookInfrastructure.CreateOwnedTransaction(region);
+                transaction.AddDetour(
+                    detour,
+                    HookTarget.FromAddress(libraryBase + unchecked((ulong)disbandFunctionRva)),
+                    DisbandUnit);
+                CommitResult commitResult = transaction.Commit();
+                if (!commitResult.IsCompleteSuccess || !detour.Success)
+                    throw new InvalidOperationException("The disband cleanup detour was not installed.");
             }
             catch
             {
-                pending?.Dispose();
-                original = null;
-                rootedDetour = null;
+                transaction?.Dispose();
+                transaction = null;
                 throw;
             }
         }
 
         public void Dispose()
         {
-            detour?.Dispose();
-            detour = null;
-            original = null;
-            rootedDetour = null;
+            transaction?.Dispose();
+            transaction = null;
         }
 
         private byte DisbandUnit(IntPtr unitManager, int unitId, byte playSound)
         {
-            byte result = original(unitManager, unitId, playSound);
+            byte result = detour.Original(unitManager, unitId, playSound);
             if (!ControlGroupDisbandCleanupPolicy.ShouldClean(
                     settings.EnableClientFeatures,
                     settings.EnableDisbandedUnitControlGroupCleanup))

@@ -4,7 +4,7 @@ using System;
 
 namespace OxTetherIdleFixTest
 {
-    [BepInDependency(ScriptExtenderGuid, BepInDependency.DependencyFlags.HardDependency)]
+    [BepInDependency(ScriptExtenderGuid, "2.0.2")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class OxTetherIdleFixTestPlugin : BaseUnityPlugin
     {
@@ -24,7 +24,7 @@ namespace OxTetherIdleFixTest
             Shared.DebugLogHelper.LogInfo(
                 Logger,
                 $"{PluginName} {PluginVersion} loaded; standaloneTestMod=true, gameplaySynchronized=true, " +
-                "auditedScriptExtender=1.42.0, auditedCommit=171d68e155a8f98c5f8c4ee154d9af154c9a2443.");
+                "auditedScriptExtender=2.0.2, auditedCommit=6dc82d1d92b0935abc93cd43ac16cd8ddccc5f79.");
             if (!libraryLoadedHandled && !libraryLoadedSubscriptionInstalled)
             {
                 CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
@@ -32,10 +32,12 @@ namespace OxTetherIdleFixTest
             }
         }
 
-        private void OnCrusaderLibraryLoaded(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
+        private void OnCrusaderLibraryLoaded(CrusaderLibraryLoadContext context)
         {
             if (libraryLoadedHandled)
                 return;
+            if (context == null)
+                throw new ArgumentNullException(nameof(context));
 
             try
             {

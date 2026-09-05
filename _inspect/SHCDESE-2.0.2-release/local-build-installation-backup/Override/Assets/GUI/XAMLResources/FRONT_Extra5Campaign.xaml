@@ -1,0 +1,200 @@
+<!-- NOTDEMOSTART -->
+<UserControl
+    x:Class="CrusaderDE.FRONT_Extra5Campaign"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:b="http://schemas.microsoft.com/xaml/behaviors"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:CrusaderDE"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:noesis="clr-namespace:NoesisGUIExtensions;assembly=Noesis.GUI.Extensions"
+    d:DesignHeight="1080"
+    d:DesignWidth="1920"
+    mc:Ignorable="d">
+
+
+    <UserControl.Resources>
+
+        <BooleanToVisibilityConverter
+            x:Key="booleanToVisibilityConverter" />
+
+    </UserControl.Resources>
+
+
+
+    <Grid
+        Name="mapgrid"
+        Background="Black"
+        Width="1920"
+        Height="1080"
+        IsHitTestVisible="True">
+
+        <Image
+            Name="Basemap"
+            Width="1920"
+            Height="1080"
+            Margin="0,0,0,0"
+            FlowDirection="{Binding GlobalTextFlow}"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Source="../Images/HistoricalCampaign-Campaign05.png"
+            Stretch="UniformToFill" />
+
+        <Grid
+            Margin="0,0,0,0"
+            Width="1920"
+            Height="1080"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Center">
+            <local:WGT_Heading2
+                Width="715"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                Margin="150,25,0,0"
+                HeadingFontSize="40"
+                HeadingText2="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_CAMPAIGN_INFO_026]}" />
+            <Button
+                Margin="227,250,0,0"
+                Width="560"
+                Height="340"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                Style="{StaticResource BDR_Wood}" />
+            <Viewbox
+                Margin="207,220,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                Width="600"
+                Height="400">
+                <Grid
+                    Margin="0,0,0,0"
+                    Width="440"
+                    Height="300">
+
+                    <StackPanel
+                        Grid.Column="0"
+                        VerticalAlignment="Top"
+                        Margin="20,10,10,10"
+                        Height="530">
+                        <Button
+                            Margin="0,50,0,10"
+                            Width="350"
+                            local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_MISSION21_STORY_002]}"
+                            local:PropEx.TextLeft="1"
+                            local:PropEx.TextRight=""
+                            Command="{Binding ExtraCampaignMenuCommand}"
+                            CommandParameter="51"
+                            local:PropEx.BorderVisibility="{Binding HistoricalCampaignMenuButtonBorders[1]}"
+                            MouseEnter="CampaignMenuCommandEnter"
+                            MouseLeave="CampaignMenuCommandLeave"
+                            Style="{StaticResource BTN_SH_Campaign}" />
+                        <Button
+                            Margin="0,0,0,10"
+                            Width="350"
+                            local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_MISSION22_STORY_002]}"
+                            local:PropEx.TextLeft="2"
+                            local:PropEx.TextRight=""
+                            local:PropEx.BorderVisibility="{Binding HistoricalCampaignMenuButtonBorders[2]}"
+                            Command="{Binding ExtraCampaignMenuCommand}"
+                            Visibility="{Binding CampaignMenuButtonsVisible[2]}"
+                            CommandParameter="52"
+                            MouseEnter="CampaignMenuCommandEnter"
+                            MouseLeave="CampaignMenuCommandLeave"
+                            Style="{StaticResource BTN_SH_Campaign}" />
+                        <Button
+                            Margin="0,0,0,10"
+                            Width="350"
+                            local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_MISSION23_STORY_002]}"
+                            local:PropEx.TextLeft="3"
+                            local:PropEx.TextRight=""
+                            local:PropEx.BorderVisibility="{Binding HistoricalCampaignMenuButtonBorders[3]}"
+                            Command="{Binding ExtraCampaignMenuCommand}"
+                            Visibility="{Binding CampaignMenuButtonsVisible[3]}"
+                            CommandParameter="53"
+                            MouseEnter="CampaignMenuCommandEnter"
+                            MouseLeave="CampaignMenuCommandLeave"
+                            Style="{StaticResource BTN_SH_Campaign}" />
+                        <Button
+                            Margin="0,0,0,10"
+                            Width="350"
+                            local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_MISSION24_STORY_002]}"
+                            local:PropEx.TextLeft="4"
+                            local:PropEx.TextRight=""
+                            local:PropEx.BorderVisibility="{Binding HistoricalCampaignMenuButtonBorders[4]}"
+                            Command="{Binding ExtraCampaignMenuCommand}"
+                            Visibility="{Binding CampaignMenuButtonsVisible[4]}"
+                            CommandParameter="54"
+                            MouseEnter="CampaignMenuCommandEnter"
+                            MouseLeave="CampaignMenuCommandLeave"
+                            Style="{StaticResource BTN_SH_Campaign}" />
+                        <Button
+                            Margin="0,0,0,10"
+                            Width="350"
+                            local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_MISSION25_STORY_002]}"
+                            local:PropEx.TextLeft="5"
+                            local:PropEx.TextRight=""
+                            local:PropEx.BorderVisibility="{Binding HistoricalCampaignMenuButtonBorders[5]}"
+                            Command="{Binding ExtraCampaignMenuCommand}"
+                            Visibility="{Binding CampaignMenuButtonsVisible[5]}"
+                            CommandParameter="55"
+                            MouseEnter="CampaignMenuCommandEnter"
+                            MouseLeave="CampaignMenuCommandLeave"
+                            Style="{StaticResource BTN_SH_Campaign}" />
+                    </StackPanel>
+                </Grid>
+            </Viewbox>
+
+            <Button
+                Name="Extra1QuitButtonX"
+                Width="151"
+                Height="66"
+                Margin="60,0,0,30"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Bottom"
+                local:PropEx.ImageFlow="{Binding GlobalTextFlow}"
+                local:PropEx.Sprite1="{StaticResource UI-Buttons B005}"
+                local:PropEx.Sprite2="{StaticResource UI-Buttons B006}"
+                local:PropEx.Sprite3="{StaticResource UI-Buttons B007}"
+                local:PropEx.Sprite4="{StaticResource UI-Buttons B008}"
+                Command="{Binding ExtraCampaignMenuCommand}"
+                CommandParameter="-1"
+                Style="{StaticResource BTN_Image}" />
+
+            <Button
+                Name="Extra1ResumeButtonX"
+                Width="151"
+                Height="66"
+                Grid.Column="0"
+                Grid.Row="0"
+                Grid.ColumnSpan="2"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Bottom"
+                Margin="0,0,60,30"
+                local:PropEx.ImageFlow="{Binding GlobalTextFlow}"
+                local:PropEx.Sprite1="{StaticResource UI-Buttons B001}"
+                local:PropEx.Sprite2="{StaticResource UI-Buttons B002}"
+                local:PropEx.Sprite3="{StaticResource UI-Buttons B003}"
+                local:PropEx.Sprite4="{StaticResource UI-Buttons B004}"
+                Command="{Binding ExtraCampaignMenuCommand}"
+                CommandParameter="-10"
+                Style="{StaticResource BTN_Image}" />
+            <Button
+                Height="103"
+                Margin="0,0,250,20"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Bottom"
+                local:PropEx.Sprite1="{StaticResource Load Shield Up}"
+                local:PropEx.Sprite2="{StaticResource Load Shield Over}"
+                local:PropEx.Sprite3="{StaticResource Load Shield Over}"
+                local:PropEx.Sprite4="{StaticResource Load Shield Up}"
+                Command="{Binding ButtonMainMenuCommand}"
+                CommandParameter="LoadTrail"
+                Style="{StaticResource BTN_Image}">
+            </Button>
+        </Grid>
+
+
+    </Grid>
+</UserControl>
+
+<!-- NOTDEMOEND -->

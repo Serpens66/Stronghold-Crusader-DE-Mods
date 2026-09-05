@@ -87,16 +87,16 @@
       <HintPath>$(ExtenderDir)\System.Memory.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <Reference Include="Zhuqiaomon">
-      <HintPath>$(ExtenderDir)\Zhuqiaomon.dll</HintPath>
+    <Reference Include="RedBird.Abstractions">
+      <HintPath>$(ExtenderDir)\RedBird.Abstractions.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <Reference Include="PolyHook2.NET">
-      <HintPath>$(ExtenderDir)\PolyHook2.NET.dll</HintPath>
+    <Reference Include="RedBird.Core">
+      <HintPath>$(ExtenderDir)\RedBird.Core.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <Reference Include="Iced">
-      <HintPath>$(ExtenderDir)\Iced.dll</HintPath>
+    <Reference Include="RedBird.X64">
+      <HintPath>$(ExtenderDir)\RedBird.X64.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="Microsoft.Extensions.Logging.Abstractions">
@@ -127,5 +127,9 @@
            Text="Der lokale Script Extender Nebenordner existiert, aber es wurde keine lokale SHCDESE.dll gefunden. Baue zuerst ..\shcde-script-extender\build.bat oder uebergib /p:ExtenderDir=... explizit." />
     <Error Condition="'$(ExtenderDir)' != '' and !Exists('$(ExtenderDir)\SHCDESE.dll')"
            Text="SHCDESE.dll wurde im ExtenderDir nicht gefunden: $(ExtenderDir)" />
+    <Error Condition="'$(ExtenderDir)' != '' and !Exists('$(ExtenderDir)\RedBird.Abstractions.dll')" Text="RedBird.Abstractions.dll wurde im ExtenderDir nicht gefunden: $(ExtenderDir)" />
+    <Error Condition="'$(ExtenderDir)' != '' and !Exists('$(ExtenderDir)\RedBird.Core.dll')" Text="RedBird.Core.dll wurde im ExtenderDir nicht gefunden: $(ExtenderDir)" />
+    <Error Condition="'$(ExtenderDir)' != '' and !Exists('$(ExtenderDir)\RedBird.X64.dll')" Text="RedBird.X64.dll wurde im ExtenderDir nicht gefunden: $(ExtenderDir)" />
+    <Error Condition="'$(ExtenderDir)' != '' and !Exists('$(ExtenderDir)\Microsoft.Extensions.Logging.Abstractions.dll')" Text="Microsoft.Extensions.Logging.Abstractions.dll wurde im ExtenderDir nicht gefunden: $(ExtenderDir)" />
   </Target>
 </Project>

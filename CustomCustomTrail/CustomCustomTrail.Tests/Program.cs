@@ -38,6 +38,7 @@ var tests = new (string Name, Action Run)[]
     ("Built-in Customize origin packet roundtrip", TestBuiltInCustomizeOriginPacketRoundtrip),
     ("Steam Workshop discovery waits for Steamworks", TestSteamWorkshopReadinessGate),
     ("local activation setting gates the complete runtime", TestLocalActivationSetting),
+    ("Script Extender 2.0.2 migration contract is explicit", TestScriptExtender202MigrationContract),
     ("Trail Maker Coop export is integrated", TestCoopExporterIntegration),
     ("Coop package JSON is Unity dependency-free", TestDependencyFreeCoopJson),
     ("mission and manifest JSON use CRLF", TestCoopJsonLineEndings),
@@ -407,14 +408,13 @@ static void TestCoordinatorOwnership()
     Assert(sharedPresetSystem.Contains("CopyProperties(defaults, hostProperties)") &&
         sharedPresetSystem.Contains("defaults.TryGetValue(property.Name, out bytes)"),
         "the shared mission preset no longer supplies defaults for missing current host settings");
-    Assert(sharedPresetSystem.Contains("PerPlayerIdentityHookAnchor") &&
-        sharedPresetSystem.Contains("ApplyPerPlayerUpdate") &&
-        sharedPresetSystem.Contains("ResolveAuthenticatedPerPlayerTarget") &&
-        sharedPresetSystem.Contains("CaptureProvisionalPlayerIdDiagnostic") &&
+    Assert(sharedPresetSystem.Contains("class PerPlayerLobbySettingsCoordinator") &&
+        sharedPresetSystem.Contains("FinalizeRosterForMapTransition") &&
         sharedPresetSystem.Contains("requireAuthoritativeLobbyRoster: true") &&
-        sharedPresetSystem.Contains("waiting for an authoritative player slot without a deadline") &&
-        sharedPresetSystem.Contains("The transport identity wins"),
-        "the shared per-player workaround no longer queues authenticated updates until Vanilla's final slot wins");
+        !sharedPresetSystem.Contains("PerPlayerIdentityHookAnchor") &&
+        !sharedPresetSystem.Contains("ScriptExtenderMultiplayerSyncWorkaround") &&
+        !sharedPresetSystem.Contains("EnsureInstalled"),
+        "shared per-player convergence still depends on the obsolete pre-2.0.2 transport workaround");
     Assert(sharedGameMode.Contains("SCRIPT EXTENDER BUG WORKAROUND") &&
         sharedGameMode.Contains("Revalidate all source semantics after every Extender update"),
         "the shared Script Extender identity workaround is not marked for removal and update review");
@@ -775,6 +775,32 @@ static void TestLocalActivationSetting()
     Assert(!viewModel.Contains("PackagesRefreshRequested?.Invoke()") &&
         viewModel.Contains("if (unchanged)"),
         "Coop package dropdown still replaces its ItemsSource reentrantly");
+}
+
+static void TestScriptExtender202MigrationContract()
+{
+    string root = FindProjectRoot();
+    string workspaceRoot = Directory.GetParent(root)?.FullName ??
+        throw new InvalidOperationException("workspace root missing");
+    string plugin = File.ReadAllText(Path.Combine(root, "src", "CustomCustomTrailPlugin.cs"));
+    string project = File.ReadAllText(Path.Combine(root, "CustomCustomTrail.csproj"));
+    string info = File.ReadAllText(Path.Combine(root, "info.json"));
+    string sharedPreset = File.ReadAllText(
+        Path.Combine(workspaceRoot, "Shared", "PresetLobbyModSettingsViewModel.cs"));
+
+    Assert(plugin.Contains("[BepInDependency(\"000shcdese\", \"2.0.2\")]"),
+        "SHCDESE minimum dependency is not pinned to 2.0.2");
+    Assert(plugin.Contains("OnLibraryLoaded(CrusaderLibraryLoadContext context)") &&
+        !plugin.Contains("OnLibraryLoaded(IntPtr") &&
+        !plugin.Contains("ReadOnlySpan<byte> memory"),
+        "LibraryLoaded handler does not use the 2.0.2 load context");
+    Assert(!project.Contains("Zhuqiaomon", StringComparison.OrdinalIgnoreCase),
+        "CustomCustomTrail retains a stale Zhuqiaomon project reference");
+    Assert(info.Contains("\"NetworkMode\": 1"),
+        "CustomCustomTrail does not explicitly declare gameplay NetworkMode 1");
+    Assert(!sharedPreset.Contains("ScriptExtenderMultiplayerSyncWorkaround") &&
+        !sharedPreset.Contains("EnsureInstalled"),
+        "obsolete shared Script Extender settings workaround remains active");
 }
 
 static void TestCoopExporterIntegration()

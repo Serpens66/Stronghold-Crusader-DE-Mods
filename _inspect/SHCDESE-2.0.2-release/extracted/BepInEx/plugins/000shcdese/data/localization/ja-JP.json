@@ -1,0 +1,865 @@
+{
+  "version": "1.0",
+  "strings": [
+    {
+      "name": "SE_EDITOR_GEN_ENABLE_FREEBUILD",
+      "value": "フリービルドを有効化"
+    },
+    {
+      "name": "IMGUI_API_WINDOW_TITLE",
+      "value": "ImGUI API ウィンドウ"
+    },
+    {
+      "name": "REMIX_MENU_OPTIONS_TITLE",
+      "value": "オプション"
+    },
+    {
+      "name": "REMIX_MENU_OPTIONS_SMALL_TEXT",
+      "value": "一部のオプションは、再起動後に有効になります。"
+    },
+    {
+      "name": "REMIX_MENU_OPTIONS_MENUKEY",
+      "value": "現在のメニューキー: {0}"
+    },
+    {
+      "name": "REMIX_MENU_ALWAYS_RENDERER_ENABLED",
+      "value": "常時レンダラー(AR)を有効化"
+    },
+    {
+      "name": "REMIX_MENU_MENU_RENDERER_ENABLED",
+      "value": "メニューレンダラー(MR)を有効化"
+    },
+    {
+      "name": "REMIX_MENU_MENU_DEMO_ENABLED",
+      "value": "デモウィンドウを有効化"
+    },
+    {
+      "name": "REMIX_MENU_MENU_FORCEWMPASSTHROUGH_ENABLED",
+      "value": "WMイベントの強制パススルー"
+    },
+    {
+      "name": "REMIX_MENU_MENU_DX11TOGGLEKEY",
+      "value": "現在のDX11フック切替キー: {0}"
+    },
+    {
+      "name": "REMIX_MENU_MENU_CUSTOMFONTPATH",
+      "value": "カスタムフォント (.ttfファイルの絶対パス)"
+    },
+    {
+      "name": "REMIX_MENU_MENU_FONTPIXELSIZE",
+      "value": "フォントサイズ (ピクセル)"
+    },
+    {
+      "name": "SE_EDITOR_TITLE",
+      "value": "SHCDE-SE-エディタ"
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_TITLE",
+      "value": "ツール"
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_GENERAL",
+      "value": "全般"
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_ENTITYLIST",
+      "value": "エンティティリスト"
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_LUA",
+      "value": "LUA"
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_MANAGERS",
+      "value": "マネージャー"
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_MAP_ARCHIVE_TOOLS",
+      "value": "マップアーカイブツール (MAS)"
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_MAS_SEPERATOR",
+      "value": "一般アーカイブセクション"
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_MAS_NOT_FOUND",
+      "value": "マップアーカイブ: 見つかりません。"
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_MAS_ADD_HELP",
+      "value": "このマップに新しいアーカイブを追加できます。マップエディタ内での使用のみ推奨されます。"
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_MAS_WARN",
+      "value": "重要：アーカイブ作成後、他の変更を行う前に必ずマップを保存して再度開いてください！また、このボタンを押す前に少なくとも一度はマップを保存している必要があります。"
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_MAS_CREATE_NEW",
+      "value": "新規アーカイブ作成"
+    },
+    {
+      "name": "SE_EDITOR_COMMON_NA",
+      "value": "N/A"
+    },
+    {
+      "name": "SE_EDITOR_COMMON_EXISTS",
+      "value": "存在します"
+    },
+    {
+      "name": "SE_EDITOR_COMMON_NOT_FOUND",
+      "value": "見つかりません"
+    },
+    {
+      "name": "SE_EDITOR_ARCHIVE_INFO",
+      "value": "アーカイブ情報"
+    },
+    {
+      "name": "SE_EDITOR_ARCHIVE_AUTHOR",
+      "value": "作者"
+    },
+    {
+      "name": "SE_EDITOR_ARCHIVE_MAPNAME",
+      "value": "マップ名"
+    },
+    {
+      "name": "SE_EDITOR_ARCHIVE_DESC",
+      "value": "説明"
+    },
+    {
+      "name": "SE_EDITOR_ARCHIVE_VER",
+      "value": "バージョン"
+    },
+    {
+      "name": "SE_EDITOR_ARCHIVE_WEB",
+      "value": "ウェブサイト"
+    },
+    {
+      "name": "SE_EDITOR_ARCHIVE_REMOVE_WARN",
+      "value": "アーカイブをマップから削除します。完全に削除するにはマップファイルを保存する必要があります。"
+    },
+    {
+      "name": "SE_EDITOR_ARCHIVE_REMOVE_BTN",
+      "value": "アーカイブ削除"
+    },
+    {
+      "name": "SE_EDITOR_TRIG_TITLE",
+      "value": "トリガー管理"
+    },
+    {
+      "name": "SE_EDITOR_TRIG_ACTIVE",
+      "value": "アクティブなトリガー: {0}"
+    },
+    {
+      "name": "SE_EDITOR_TRIG_REMOVE_WARN",
+      "value": "マップからすべてのアクティブなトリガーを削除します。"
+    },
+    {
+      "name": "SE_EDITOR_TRIG_REMOVE_BTN",
+      "value": "全トリガー削除"
+    },
+    {
+      "name": "SE_EDITOR_TIMER_TITLE",
+      "value": "タイマー管理"
+    },
+    {
+      "name": "SE_EDITOR_TIMER_ACTIVE",
+      "value": "アクティブなタイマー: {0}"
+    },
+    {
+      "name": "SE_EDITOR_TIMER_REMOVE_WARN",
+      "value": "マップからすべてのアクティブなタイマーを削除します。"
+    },
+    {
+      "name": "SE_EDITOR_TIMER_REMOVE_BTN",
+      "value": "全タイマー削除"
+    },
+    {
+      "name": "SE_EDITOR_MANAGER_TITLE",
+      "value": "-- マネージャー VA --"
+    },
+    {
+      "name": "SE_EDITOR_MANAGER_COL_NAME",
+      "value": "名前"
+    },
+    {
+      "name": "SE_EDITOR_MANAGER_COL_ADDR",
+      "value": "アドレス"
+    },
+    {
+      "name": "SE_EDITOR_MANAGER_COL_COPY",
+      "value": "コピー"
+    },
+    {
+      "name": "SE_EDITOR_MANAGER_BTN_COPY",
+      "value": "コピー"
+    },
+    {
+      "name": "SE_EDITOR_SETTINGS_TITLE",
+      "value": "-- 設定 --"
+    },
+    {
+      "name": "SE_EDITOR_GEN_SHOW_TOOLS",
+      "value": "マップエディタツールを表示"
+    },
+    {
+      "name": "SE_EDITOR_GEN_CURSOR_TITLE",
+      "value": "-- ライブカーソルビュー --"
+    },
+    {
+      "name": "SE_EDITOR_GEN_MOUSE_POS",
+      "value": "マウス座標"
+    },
+    {
+      "name": "SE_EDITOR_GEN_MOUSE_TILE",
+      "value": "マウスタイル"
+    },
+    {
+      "name": "SE_EDITOR_GEN_HOVER_BUILD_ID",
+      "value": "建物ID (ホバー)"
+    },
+    {
+      "name": "SE_EDITOR_GEN_HOVER_UNIT_ID",
+      "value": "ユニットID (ホバー)"
+    },
+    {
+      "name": "SE_EDITOR_GEN_HOVER_BUILD_TILE_ID",
+      "value": "建物タイルID (ホバー)"
+    },
+    {
+      "name": "SE_EDITOR_GEN_MOUSE_TILEX_WORLD",
+      "value": "マウスタイルX (ワールド)"
+    },
+    {
+      "name": "SE_EDITOR_GEN_MOUSE_TILEY_WORLD",
+      "value": "マウスタイルY (ワールド)"
+    },
+    {
+      "name": "SE_EDITOR_GEN_MOUSE_TILE_ID",
+      "value": "マウスタイルID"
+    },
+    {
+      "name": "SE_EDITOR_GEN_LIVE_TILE_TITLE",
+      "value": "-- ライブタイルビュー --"
+    },
+    {
+      "name": "SE_EDITOR_GEN_COL_PROP",
+      "value": "プロパティ"
+    },
+    {
+      "name": "SE_EDITOR_GEN_COL_VAL",
+      "value": "値"
+    },
+    {
+      "name": "SE_EDITOR_GEN_COL_MEM",
+      "value": "メモリアドレス"
+    },
+    {
+      "name": "SE_EDITOR_TILE_UNKNOWN",
+      "value": "タイル不明"
+    },
+    {
+      "name": "SE_EDITOR_TILE_HEIGHT",
+      "value": "タイルの高さ"
+    },
+    {
+      "name": "SE_EDITOR_TILE_STATE",
+      "value": "タイルの状態"
+    },
+    {
+      "name": "SE_EDITOR_TILE_PROP_FLAG",
+      "value": "タイルプロパティフラグ"
+    },
+    {
+      "name": "SE_EDITOR_TILE_PROP_ENUM",
+      "value": "タイルプロパティ列挙"
+    },
+    {
+      "name": "SE_EDITOR_TILE_VEG_ID",
+      "value": "植生ID"
+    },
+    {
+      "name": "SE_EDITOR_TILE_TYPE",
+      "value": "タイルタイプ"
+    },
+    {
+      "name": "SE_EDITOR_TILE_DEF_HEIGHT",
+      "value": "デフォルトの高さ"
+    },
+    {
+      "name": "SE_EDITOR_TILE_BUILD_ID",
+      "value": "建物ID"
+    },
+    {
+      "name": "SE_EDITOR_TILE_UNIT_ID",
+      "value": "ユニットID"
+    },
+    {
+      "name": "SE_EDITOR_TILE_OWNER_ID",
+      "value": "所有者ID"
+    },
+    {
+      "name": "SE_EDITOR_GEN_CURSOR_OUT",
+      "value": "カーソルが有効なタイル範囲外です。"
+    },
+    {
+      "name": "SE_EDITOR_EDIT_TILE_TITLE",
+      "value": "-- タイル編集ビュー --"
+    },
+    {
+      "name": "SE_EDITOR_EDIT_TILE_ID",
+      "value": "タイルID"
+    },
+    {
+      "name": "SE_EDITOR_EDIT_TILE_UNK",
+      "value": "タイル不明"
+    },
+    {
+      "name": "SE_EDITOR_EDIT_TILE_HEIGHT",
+      "value": "タイルの高さ/耐久値"
+    },
+    {
+      "name": "SE_EDITOR_EDIT_TILE_STATE",
+      "value": "タイルの状態"
+    },
+    {
+      "name": "SE_EDITOR_EDIT_TILE_PROP",
+      "value": "タイルプロパティ"
+    },
+    {
+      "name": "SE_EDITOR_EDIT_TILE_VEG",
+      "value": "植生ID参照"
+    },
+    {
+      "name": "SE_EDITOR_EDIT_TILE_OWNER",
+      "value": "プレイヤー所有者ID"
+    },
+    {
+      "name": "SE_EDITOR_EDIT_TILE_APPLY",
+      "value": "タイルの変更を適用"
+    },
+    {
+      "name": "SE_EDITOR_LUA_MANAGE_TITLE",
+      "value": "LUAステート管理"
+    },
+    {
+      "name": "SE_EDITOR_LUA_STATE_LABEL",
+      "value": "LUAステート: {0}"
+    },
+    {
+      "name": "SE_EDITOR_LUA_CREATE",
+      "value": "デバッグ: Luaステート作成"
+    },
+    {
+      "name": "SE_EDITOR_LUA_CLOSE",
+      "value": "デバッグ: Luaステート終了"
+    },
+    {
+      "name": "SE_EDITOR_LUA_SCRIPT_TITLE",
+      "value": "LUAスクリプト制御"
+    },
+    {
+      "name": "SE_EDITOR_LUA_CALL_INIT",
+      "value": "Init呼び出し"
+    },
+    {
+      "name": "SE_EDITOR_LUA_RND_TITLE",
+      "value": "ランダムエンジン"
+    },
+    {
+      "name": "SE_EDITOR_LUA_RND_SEED",
+      "value": "ランダムエンジンシード"
+    },
+    {
+      "name": "SE_EDITOR_LUA_RND_INIT",
+      "value": "ランダムエンジン初期化"
+    },
+    {
+      "name": "SE_EDITOR_LUA_EXEC_TITLE",
+      "value": "LUAコード実行"
+    },
+    {
+      "name": "SE_EDITOR_LUA_RUN",
+      "value": "Lua実行"
+    },
+    {
+      "name": "SE_EDITOR_ENT_NO_UNITS",
+      "value": "アクティブなユニットが見つかりません。"
+    },
+    {
+      "name": "SE_EDITOR_ENT_COL_ID",
+      "value": "ID"
+    },
+    {
+      "name": "SE_EDITOR_ENT_COL_TYPE",
+      "value": "タイプ"
+    },
+    {
+      "name": "SE_EDITOR_ENT_COL_POS_XY",
+      "value": "座標 (XY)"
+    },
+    {
+      "name": "SE_EDITOR_ENT_COL_POS_Z",
+      "value": "座標 (Z)"
+    },
+    {
+      "name": "SE_EDITOR_ENT_COL_PLAYER",
+      "value": "プレイヤーID"
+    },
+    {
+      "name": "SE_EDITOR_ENT_COL_HEALTH",
+      "value": "体力"
+    },
+    {
+      "name": "SE_EDITOR_ENT_COL_ADDR",
+      "value": "アドレス"
+    },
+    {
+      "name": "SE_EDITOR_ENT_COL_ACTION",
+      "value": "アクション"
+    },
+    {
+      "name": "SE_EDITOR_ENT_BTN_COPY",
+      "value": "アドレスコピー"
+    },
+    {
+      "name": "SE_EDITOR_ENT_BTN_DELETE",
+      "value": "削除"
+    },
+    {
+      "name": "SE_EDITOR_ENT_CTX_DELETE",
+      "value": "削除"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_TITLE",
+      "value": "タイルインスペクター"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_HELP",
+      "value": "左Altを押しながらタイルを右クリックして調査します。"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_NO_SEL",
+      "value": "タイルが選択されていません。"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_SEL_ID",
+      "value": "選択中のタイルID: {0} (0x{0:X8})"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_HEIGHT",
+      "value": "高さ"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_OWNER",
+      "value": "所有者ID (0から)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_PLAYER_ARROW",
+      "value": "-> プレイヤー {0}"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_STATE",
+      "value": "タイルの状態"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK_BYTE",
+      "value": "不明 (Byte)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_BLD_ID",
+      "value": "建物ID"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNIT_ID",
+      "value": "ユニットID"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_VEG",
+      "value": "植生参照"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK1",
+      "value": "不明グリッド1"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK2",
+      "value": "不明グリッド2"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK3",
+      "value": "不明グリッド3"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_DEF_HEIGHT",
+      "value": "デフォルトの高さ？"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_FLAGS",
+      "value": "プロパティフラグ"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_BTN_SAVE",
+      "value": "変更を保存"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_BTN_READ",
+      "value": "値を再読み込み"
+    },
+    {
+      "name": "SE_EDITOR_REGION_TITLE",
+      "value": "Stronghold マップアシスタント"
+    },
+    {
+      "name": "SE_EDITOR_REGION_NOT_SET",
+      "value": "未設定"
+    },
+    {
+      "name": "SE_EDITOR_REGION_BEGIN",
+      "value": "開始 XY: {0}"
+    },
+    {
+      "name": "SE_EDITOR_REGION_END",
+      "value": "終了 XY: {0}"
+    },
+    {
+      "name": "SE_EDITOR_REGION_BTN_COPY",
+      "value": "RectangularArea2Dとしてコピー"
+    },
+    {
+      "name": "SE_EDITOR_REGION_HELP_TITLE",
+      "value": "使い方:"
+    },
+    {
+      "name": "SE_EDITOR_REGION_HELP_1",
+      "value": "1. 左Altを押しながらマップを左クリックして開始地点を設定。"
+    },
+    {
+      "name": "SE_EDITOR_REGION_HELP_2",
+      "value": "2. 再度左Altを押しながら左クリックして終了地点を設定。"
+    },
+    {
+      "name": "SE_EDITOR_REGION_BTN_RESET",
+      "value": "選択をリセット"
+    },
+    {
+      "name": "SE_EDITOR_MUTATOR_TITLE",
+      "value": "タイルプロパティ変更ツール"
+    },
+    {
+      "name": "SE_EDITOR_MUTATOR_OPTIONS",
+      "value": "オプション"
+    },
+    {
+      "name": "SE_EDITOR_MUTATOR_ENABLED",
+      "value": "有効"
+    },
+    {
+      "name": "SE_EDITOR_MUTATOR_FORCE_SET",
+      "value": "設定 (加算しない)"
+    },
+    {
+      "name": "SE_EDITOR_MUTATOR_AUGMENT",
+      "value": "次のタイルを拡張..."
+    },
+    {
+      "name": "SE_EDITOR_MUTATOR_TYPE",
+      "value": "タイルタイプ"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_TITLE",
+      "value": "ミラーツール"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_OPTIONS",
+      "value": "オプション"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_VERT",
+      "value": "垂直"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_HORZ",
+      "value": "水平"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_ENABLED_FOR",
+      "value": "対象..."
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_TYPE",
+      "value": "タイルタイプ"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_HEIGHT",
+      "value": "タイルの高さ"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_WALLS",
+      "value": "壁"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_BLD",
+      "value": "建物"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_UNITS",
+      "value": "ユニット"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_VEG",
+      "value": "植生"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_ANIMALS",
+      "value": "動物"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_DELETE",
+      "value": "削除"
+    },
+    {
+      "name": "SE_EDITOR_MASS_TITLE",
+      "value": "一括タイルエディタ"
+    },
+    {
+      "name": "SE_EDITOR_MASS_RND_HEIGHT",
+      "value": "高さをランダム化"
+    },
+    {
+      "name": "SE_EDITOR_MASS_MIN_HEIGHT",
+      "value": "最小の高さ"
+    },
+    {
+      "name": "SE_EDITOR_MASS_MAX_HEIGHT",
+      "value": "最大の高さ"
+    },
+    {
+      "name": "SE_EDITOR_MASS_NEW_HEIGHT",
+      "value": "新しいタイルの高さ (0-255)"
+    },
+    {
+      "name": "SE_EDITOR_MASS_SHAPE",
+      "value": "形状"
+    },
+    {
+      "name": "SE_EDITOR_MASS_SHAPE_RECT",
+      "value": "長方形"
+    },
+    {
+      "name": "SE_EDITOR_MASS_SHAPE_CIRCLE",
+      "value": "円形"
+    },
+    {
+      "name": "SE_EDITOR_MASS_EDGES_ONLY",
+      "value": "縁のみ"
+    },
+    {
+      "name": "SE_EDITOR_MASS_EDGE_WIDTH",
+      "value": "縁の幅"
+    },
+    {
+      "name": "SE_EDITOR_MASS_SET_FLAGS",
+      "value": "タイルプロパティフラグを設定"
+    },
+    {
+      "name": "SE_EDITOR_MASS_FLAGS_VAL",
+      "value": "プロパティフラグの値"
+    },
+    {
+      "name": "SE_EDITOR_MASS_INNER_ONLY",
+      "value": "内側のタイルのみに適用"
+    },
+    {
+      "name": "SE_EDITOR_MASS_PREVIEW",
+      "value": "ライブプレビュー (高さを0に設定)"
+    },
+    {
+      "name": "SE_EDITOR_MASS_BTN_APPLY",
+      "value": "変更を適用"
+    },
+    {
+      "name": "SE_EDITOR_MASS_WARN_SELECT",
+      "value": "マップアシスタントを使用して領域を選択してください。"
+    },
+    {
+      "name": "SE_EDITOR_MASS_BTN_UNDO",
+      "value": "最後のアクションを元に戻す"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_SEC_BYTE",
+      "value": "バイトグリッド"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_SEC_UINT16",
+      "value": "UInt16 グリッド"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_SEC_INT16",
+      "value": "Int16 グリッド"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_SEC_INT32",
+      "value": "Int32 グリッド"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_DAMAGE",
+      "value": "ダメージ/状態 (damage_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_WALL_OWNER",
+      "value": "城壁所有者ID (wall_owner_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_SHOW_HI",
+      "value": "ハイレイヤー表示 (show_hi_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_AI_ZONE",
+      "value": "AIゾーン (ai_zone_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_OCCUPANCY",
+      "value": "ユニット占有マスク (occupancy_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_DELAY",
+      "value": "遅延レイヤー (delay_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_LUMINESCENCE",
+      "value": "発光/影 (luminesence_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_STRUCTURE_WAS",
+      "value": "以前の建物タイプ (structure_was_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_AI_DANGER",
+      "value": "AI危険ヒートマップ (ai_danger_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_AIV_BLOCK",
+      "value": "AIVブロックマスク (aiv_block_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_GATE_PATH",
+      "value": "ゲートパス (gate_path_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK_0xA20D40",
+      "value": "不明バイト (0xA20D40)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK_0xD30080",
+      "value": "不明バイト (0xD30080)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK_0x134E700",
+      "value": "不明バイト (0x134E700)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK_0x13EB140",
+      "value": "不明バイト/パスマーカー (0x13EB140)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_ORGANISM",
+      "value": "生物/植生ID (organism_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_STRUCTURE",
+      "value": "建物/構造物ID (structure_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_MISC_DISPLAY",
+      "value": "その他表示フラグ (misc_display_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_PATH_CONNECTION",
+      "value": "パス接続/地域ID (path_connection_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_RANDOM_NOISE",
+      "value": "タイルランダムノイズ (random_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK_0x75EF80",
+      "value": "不明 Int16 (0x75EF80)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK_0x1EA23F0",
+      "value": "不明 UInt16 (0x1EA23F0)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_MACRO",
+      "value": "マクロレイヤー (macro_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_FLY",
+      "value": "飛行物/投射物レイヤー (fly_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_LOGIC_FLAGS",
+      "value": "ロジック/プロパティフラグ (logic_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_PILLAR_GFX",
+      "value": "柱グラフィック (pillar_gfx_layer, 動的)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_GFX",
+      "value": "GFXスプライト (gfx_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_ALPHA_GFX",
+      "value": "アルファGFXスプライト (alpha_gfx_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_CONSTRUCTION_GFX",
+      "value": "建設GFX (construction_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_WALL_GFX",
+      "value": "城壁GFX (wall_gfx_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK_0x1D68F70",
+      "value": "不明 Int32 (0x1D68F70)"
+    },
+    {
+      "name": "SE_EDITOR_TILE_PILLAR_GFX",
+      "value": "柱グラフィック (pillar_gfx_layer)"
+    },
+    {
+      "name": "SE_EDITOR_TILE_SHOW_HI",
+      "value": "ハイレイヤー表示 (show_hi_layer)"
+    },
+    {
+      "name": "SE_EDITOR_TILE_MISC_DISPLAY",
+      "value": "その他表示 (misc_display_layer)"
+    },
+    {
+      "name": "SE_EDITOR_TILE_PATH_CONNECTION",
+      "value": "パス接続 (path_connection_layer)"
+    },
+    {
+      "name": "SE_EDITOR_TILE_AI_ZONE",
+      "value": "AIゾーン (ai_zone_layer)"
+    },
+    {
+      "name": "SE_EDITOR_TILE_OCCUPANCY",
+      "value": "ユニット占有 (occupancy_layer)"
+    },
+    {
+      "name": "SE_EDITOR_TILE_DELAY",
+      "value": "遅延レイヤー (delay_layer)"
+    },
+    {
+      "name": "SE_EDITOR_TILE_UNK_0xA20D40",
+      "value": "不明バイト (0xA20D40)"
+    },
+    {
+      "name": "SE_EDITOR_EDIT_TILE_UNK_0xA20D40",
+      "value": "不明バイト (0xA20D40)"
+    }
+  ]
+}

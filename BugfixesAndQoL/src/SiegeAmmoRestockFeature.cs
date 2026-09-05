@@ -24,7 +24,6 @@ namespace BugfixesAndQoL
         private delegate void TroopPanelMouseDelegate(MainViewModel self, object parameter);
 
         private const int ProtocolVersion = 1;
-        private const int MaximumBlobBytes = 1200;
         private const int MaximumRememberedOperations = 2048;
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
@@ -266,7 +265,9 @@ namespace BugfixesAndQoL
             int baseAmmunitionAmount,
             int[] globalUnitIds)
         {
-            if (packetHook == null || !ChoreNetworkTransport.IsAvailable)
+            if (!BugfixesAndQoLChoreSender.IsAvailable(
+                    packetHook != null,
+                    () => GameGlobalsManager.Instance.ChoreManagerVA))
             {
                 LogError("fair siege-ammunition restock was rejected in multiplayer because Chore transport is unavailable.");
                 return false;
@@ -282,25 +283,22 @@ namespace BugfixesAndQoL
                 BaseAmmunitionAmount = baseAmmunitionAmount,
                 GlobalUnitIds = globalUnitIds
             };
-            byte[] body = GameNetworkAPI.Serialize(packet);
-            byte[] blob = new byte[sizeof(short) + body.Length];
-            BitConverter.GetBytes(packetHook.GetPacketId()).CopyTo(blob, 0);
-            Buffer.BlockCopy(body, 0, blob, sizeof(short), body.Length);
-            if (blob.Length >= MaximumBlobBytes)
+            short packetId = packetHook?.GetPacketId() ?? (short)0;
+            if (!BugfixesAndQoLChoreSender.TrySend(
+                    packet,
+                    packetId,
+                    packetHook != null,
+                    value => GameNetworkAPI.Serialize(value),
+                    () => GameGlobalsManager.Instance.ChoreManagerVA,
+                    (value, id) => GameNetworkAPI.SendPacketToAllEx2(value, id, viaChore: true),
+                    out byte[] body,
+                    out string rejectionReason))
             {
-                LogError($"fair siege-ammunition restock exceeded the Chore payload limit: bytes={blob.Length}.");
+                LogError($"fair siege-ammunition Chore was not queued; no local mutation occurred: operationId={packet.OperationId}, reason={rejectionReason}.");
                 return false;
             }
 
-            Func<byte[], bool> send = ChoreNetworkTransport.SendRawBlob;
-            bool queued = send != null && send(blob);
-            if (!queued)
-            {
-                LogError($"fair siege-ammunition Chore was not queued; no local mutation occurred: operationId={packet.OperationId}.");
-                return false;
-            }
-
-            LogInfo($"fair siege-ammunition Chore queued: playerId={playerId}, operationId={packet.OperationId}, targets={globalUnitIds.Length}, modifier={modifier}, bytes={blob.Length}.");
+            LogInfo($"fair siege-ammunition Chore queued: playerId={playerId}, operationId={packet.OperationId}, targets={globalUnitIds.Length}, modifier={modifier}, bytes={sizeof(short) + body.Length}.");
             return true;
         }
 
@@ -408,12 +406,12 @@ namespace BugfixesAndQoL
         private bool TryCaptureSelectedGlobalIds(int playerId, out int[] globalIds)
         {
             globalIds = null;
-            int[] selected = GamePlayerManagerAPI.Instance.GetSelectedChimps() ?? Array.Empty<int>();
+            SelectedUnitInfo[] selected = GamePlayerManagerAPI.Instance.GetSelectedChimps() ?? Array.Empty<SelectedUnitInfo>();
             var ids = new List<int>();
             var unique = new HashSet<int>();
             for (int index = 0; index < selected.Length; index++)
             {
-                int unitId = selected[index];
+                int unitId = selected[index].UnitId;
                 if (unitId <= 0 ||
                     !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
                     !IsEligible(unit, playerId))

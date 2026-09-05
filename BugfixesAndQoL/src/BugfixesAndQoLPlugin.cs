@@ -9,7 +9,7 @@ using System;
 
 namespace BugfixesAndQoL
 {
-    [BepInDependency(ScriptExtenderGuid, BepInDependency.DependencyFlags.HardDependency)]
+    [BepInDependency(ScriptExtenderGuid, "2.0.2")]
     [BepInDependency("ActiveAIVDetector_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(MoveMoatCompatibility.PluginGuid, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(LegacySomeSettingsGuid, BepInDependency.DependencyFlags.SoftDependency)]
@@ -119,7 +119,7 @@ namespace BugfixesAndQoL
             }
         }
 
-        private void OnCrusaderLibraryLoaded(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
+        private void OnCrusaderLibraryLoaded(CrusaderLibraryLoadContext context)
         {
             // Register packet types immediately after Script Extender and before settings can vary.
             try
@@ -225,8 +225,7 @@ namespace BugfixesAndQoL
             try
             {
                 runtime.InitializeNative(
-                    libraryHandle,
-                    memory,
+                    context,
                     Shared.DebugLogHelper.IsCurrentNativeLibraryVersion());
             }
             catch (Exception ex)

@@ -6,10 +6,13 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
-using Zhuqiaomon.Assembly;
-using Zhuqiaomon.Hooks;
-using Zhuqiaomon.Hooks.Transaction;
-using Zhuqiaomon.Memory;
+using RedBird.Abstractions.Hooks.Transaction;
+using RedBird.Abstractions.Hooks;
+using RedBird.Core.Memory;
+using RedBird.X64.Assembly;
+using RedBird.X64.Hooks;
+using RedBird.X64.Hooks.Transaction;
+using RedBird.X64.Hooks.Context;
 
 namespace BugfixesAndQoL
 {
@@ -71,10 +74,8 @@ namespace BugfixesAndQoL
                 new Dictionary<eChimps, AnimationTransitions>(
                     (int)eChimps.CHIMP_NUM_TYPES);
         private readonly GameUnit* unitArray;
-        private HookRef<X64InlineHook> movementSpeedAdjustmentHook =
-            new HookRef<X64InlineHook>();
-        private HookRef<X64InlineHook> movementCadenceHook =
-            new HookRef<X64InlineHook>();
+        private readonly HookHandle<X64InlineHook> movementSpeedAdjustmentHook = new HookHandle<X64InlineHook>();
+        private readonly HookHandle<X64InlineHook> movementCadenceHook = new HookHandle<X64InlineHook>();
         private bool movementSpeedCallbackFailureLogged;
         private bool cadenceCallbackFailureLogged;
         private bool disposed;
@@ -89,6 +90,7 @@ namespace BugfixesAndQoL
 
         public SynchronizedMovementCadencePatch(
             ManualLogSource log,
+            ScanRegion region,
             ReadOnlySpan<byte> memory,
             ulong libraryBase,
             TryGetCadenceDelegate tryGetCadence,
@@ -149,36 +151,29 @@ namespace BugfixesAndQoL
                 libraryBase + unchecked((ulong)dispatchRva),
                 referenceHashMatches);
 
-            transaction = new HookTransaction(
-                memory,
-                libraryBase,
-                loggerFactory: null,
-                failureMode: TransactionFailureMode.RollbackAndThrow);
+            transaction = BugfixesHookInfrastructure.CreateOwnedTransaction(region);
 
-            transaction.AddContextHook(
-                ref movementSpeedAdjustmentHook,
+            BugfixesHookInfrastructure.AddContextHook(transaction, movementSpeedAdjustmentHook,
                 libraryBase + unchecked((ulong)movementSpeedAdjustmentRva),
                 ApplyFastRecruitBaseSpeedBeforeTerrain,
-                regs: X64SmartCPUContextRegs.Volatile |
+                registers: X64SmartCPUContextRegs.Volatile |
                     X64SmartCPUContextRegs.RBX,
                 hookSize: PreTerrainSpeedAdjustmentHookLength,
                 errorMode: CallbackErrorMode.LogAndContinue,
                 placement: OverwrittenInstructionPlacement.AfterCallback);
 
-            transaction.AddContextHook(
-                ref movementCadenceHook,
+            BugfixesHookInfrastructure.AddContextHook(transaction, movementCadenceHook,
                 libraryBase + unchecked((ulong)cadenceRva),
                 SynchronizeMovementCadence,
-                regs: X64SmartCPUContextRegs.Volatile,
+                registers: X64SmartCPUContextRegs.Volatile,
                 errorMode: CallbackErrorMode.LogAndContinue,
                 placement: OverwrittenInstructionPlacement.AfterCallback);
 
-            transaction.Commit();
+            CommitResult commitResult = transaction.Commit();
 
-            if (!movementSpeedAdjustmentHook.Success ||
+            if (!commitResult.IsCompleteSuccess || !movementSpeedAdjustmentHook.Success ||
                 !movementCadenceHook.Success)
             {
-                transaction.Unload();
                 transaction.Dispose();
                 throw new InvalidOperationException(
                     "The native movement-speed adjustment or movement " +
@@ -295,7 +290,6 @@ namespace BugfixesAndQoL
 
             disposed = true;
             animationTransitionsByType.Clear();
-            transaction.Unload();
             transaction.Dispose();
         }
 

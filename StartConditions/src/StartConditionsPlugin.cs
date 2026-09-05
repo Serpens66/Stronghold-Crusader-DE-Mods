@@ -6,7 +6,7 @@ using System.Threading;
 
 namespace StartConditions
 {
-    [BepInDependency(ScriptExtenderGuid, BepInDependency.DependencyFlags.HardDependency)]
+    [BepInDependency(ScriptExtenderGuid, "2.0.2")]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class StartConditionsPlugin : BaseUnityPlugin
@@ -31,7 +31,7 @@ namespace StartConditions
             CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
         }
 
-        private void OnCrusaderLibraryLoaded(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
+        private void OnCrusaderLibraryLoaded(CrusaderLibraryLoadContext context)
         {
             // A late subscription can race with the regular event raise; initialize only once.
             if (Interlocked.Exchange(ref libraryInitializationStarted, 1) != 0)

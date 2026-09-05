@@ -2,7 +2,11 @@ using BepInEx.Logging;
 using CrusaderDE;
 using MonoMod.RuntimeDetour;
 using R3;
+using RedBird.Abstractions.Hooks;
+using RedBird.Abstractions.Hooks.Transaction;
+using RedBird.X64.Hooks.Transaction;
 using SHCDESE.API;
+using SHCDESE.API.LowLevel;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.MapLoader;
 using SHCDESE.Interop;
@@ -15,8 +19,6 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
-using Zhuqiaomon.Hooks;
-using Zhuqiaomon.Hooks.Transaction;
 
 namespace ActiveAIVDetector
 {
@@ -58,8 +60,8 @@ namespace ActiveAIVDetector
         private readonly HashSet<int> reportedPlayers = new HashSet<int>();
         private readonly HashSet<long> reportedOracleSelections = new HashSet<long>();
         private readonly List<IDisposable> lifecycleSubscriptions = new List<IDisposable>();
-        private HookRef<X64ManagedFunctionDetourAOB<PrepareLayoutDelegate>> prepareLayoutHook =
-            new HookRef<X64ManagedFunctionDetourAOB<PrepareLayoutDelegate>>();
+        private readonly DetourHandle<PrepareLayoutDelegate> prepareLayoutHook =
+            new DetourHandle<PrepareLayoutDelegate>();
 
         // Retaining the transaction keeps the native detour alive for the full process lifetime.
         private HookTransaction transaction;
@@ -119,23 +121,28 @@ namespace ActiveAIVDetector
         }
 
         public void Install(
-            IntPtr libraryHandle,
-            ReadOnlySpan<byte> memory,
+            CrusaderLibraryLoadContext context,
             bool referenceHashMatches)
         {
             if (installed)
                 return;
+            if (context == null)
+                throw new ArgumentNullException(nameof(context));
 
             InstallLobbyCaptureHook();
 
             transaction = new HookTransaction(
-                memory,
-                unchecked((ulong)libraryHandle.ToInt64()),
-                loggerFactory: null,
-                failureMode: TransactionFailureMode.RollbackAndThrow);
+                context.Region,
+                SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory,
+                new HookTransactionOptions
+                {
+                    FailureMode = TransactionFailureMode.RollbackAndThrow,
+                    // These passive hooks remain installed for the process lifetime.
+                    OwnsHooks = false
+                });
 
             Shared.NativeResolution prepareLayoutResolution = Shared.NativePatternResolver.ResolveUnique(
-                memory,
+                context.Memory,
                 PrepareLayoutPattern,
                 PrepareLayoutRva,
                 referenceHashMatches,
@@ -143,8 +150,10 @@ namespace ActiveAIVDetector
                 log);
 
             transaction.AddDetour(
-                ref prepareLayoutHook,
-                unchecked((ulong)libraryHandle.ToInt64()) + unchecked((ulong)prepareLayoutResolution.Rva),
+                prepareLayoutHook,
+                HookTarget.FromAddress(
+                    unchecked((ulong)context.ModuleHandle.ToInt64()) +
+                    unchecked((ulong)prepareLayoutResolution.Rva)),
                 PrepareLayout);
 
             placementOracle = new AivPlacementOracle(
@@ -153,16 +162,16 @@ namespace ActiveAIVDetector
                 cellTraceOptions,
                 OnPrebuildFrameCaptured,
                 prebuildTraceOptions,
-                libraryHandle,
-                memory,
+                context.ModuleHandle,
+                context.Memory,
                 referenceHashMatches);
             placementOracle.RegisterHooks(transaction);
 
-            transaction.Commit();
+            CommitResult commitResult = transaction.Commit();
 
-            if (!prepareLayoutHook.Success)
+            if (!commitResult.IsCompleteSuccess || !prepareLayoutHook.Success)
                 throw new InvalidOperationException(
-                    "The c_game_aiv_prepare_layout signature was not found.");
+                    $"The active-AIV hook set was not installed atomically: {commitResult}.");
             placementOracle.ValidateHooks();
 
             // From this point the validator detour is process-global and must be shared even if
@@ -311,7 +320,7 @@ namespace ActiveAIVDetector
         private void PrepareLayout(ulong aivStateAddress, int aivSpecIndex, int playerId)
         {
             // Vanilla consumes this AIVSpec only after a successful placement result.
-            prepareLayoutHook.Value.Hook.Trampoline(
+            prepareLayoutHook.Original(
                 aivStateAddress,
                 aivSpecIndex,
                 playerId);

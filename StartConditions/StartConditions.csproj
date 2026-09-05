@@ -94,10 +94,6 @@
       <HintPath>$(ExtenderDir)\System.Memory.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <Reference Include="Zhuqiaomon">
-      <HintPath>$(ExtenderDir)\Zhuqiaomon.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
   </ItemGroup>
 
   <ItemGroup>
@@ -120,6 +116,7 @@
     <Compile Include="src\StartConditionsRuntime.cs" />
     <Compile Include="src\StartConditionsRuntime.StartTroops.cs" />
     <Compile Include="src\StartConditionsRuntime.StartResources.cs" />
+    <Compile Include="src\StartGoldPolicy.cs" />
     <Compile Include="src\StartConditionsRuntime.MapLifecycle.cs" />
     <Compile Include="src\StartConditionsRuntime.Helpers.cs" />
     <Compile Include="src\StartConditionsRuntime.Localization.cs" />

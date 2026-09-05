@@ -79,8 +79,8 @@
       <HintPath>$(ExtenderDir)\System.Memory.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <Reference Include="Zhuqiaomon">
-      <HintPath>$(ExtenderDir)\Zhuqiaomon.dll</HintPath>
+    <Reference Include="RedBird.Core">
+      <HintPath>$(ExtenderDir)\RedBird.Core.dll</HintPath>
       <Private>false</Private>
     </Reference>
   </ItemGroup>
@@ -110,5 +110,7 @@
            Text="Der lokale Script Extender Nebenordner existiert, aber es wurde keine lokale SHCDESE.dll gefunden." />
     <Error Condition="'$(ExtenderDir)' != '' and !Exists('$(ExtenderDir)\SHCDESE.dll')"
            Text="SHCDESE.dll wurde im ExtenderDir nicht gefunden: $(ExtenderDir)" />
+    <Error Condition="'$(ExtenderDir)' != '' and !Exists('$(ExtenderDir)\RedBird.Core.dll')"
+           Text="RedBird.Core.dll wurde im ExtenderDir nicht gefunden: $(ExtenderDir)" />
   </Target>
 </Project>

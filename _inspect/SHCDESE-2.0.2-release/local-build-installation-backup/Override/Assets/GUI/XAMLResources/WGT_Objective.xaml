@@ -1,0 +1,78 @@
+<UserControl
+    x:Class="CrusaderDE.WGT_Objective"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:b="http://schemas.microsoft.com/xaml/behaviors"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:CrusaderDE"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    d:DesignHeight="44"
+    d:DesignWidth="400"
+    Name="UC"
+    mc:Ignorable="d">
+
+    <UserControl.Resources>
+        <Style TargetType="{x:Type TextBlock}">
+            <Setter Property="FontSize" Value="18" />
+            <Setter Property="Foreground" Value="#FFEFF3C6" />
+            <Setter Property="FontWeight" Value="Medium" />
+            <Setter Property="TextAlignment" Value="Left" />
+            <Setter Property="TextWrapping" Value="NoWrap" />
+            <Setter Property="FlowDirection" Value="{Binding GlobalTextFlowAL2R}" />
+        </Style>
+    </UserControl.Resources>
+
+
+    <Grid
+        x:Name="LayoutRoot"
+        Width="380"
+        Height="48"
+        Tag="Ignore"
+        Background="#00888888">
+
+        <TextBlock
+            x:Name="ObjectiveTypeText"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Bottom"
+            Foreground="{Binding ElementName=UC, Path=Foreground}"
+            Margin="0,0,0,0"
+            IsHitTestVisible="False"
+            Text="{Binding TypeText}">
+        </TextBlock>
+
+        <TextBlock
+            x:Name="ObjectiveValueText"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Bottom"
+            Foreground="{Binding ElementName=UC, Path=Foreground}"
+            Margin="0,0,54,0"
+            IsHitTestVisible="False"
+            Text="{Binding AmountText}">
+        </TextBlock>
+
+        <Image
+            x:Name="CheckBoxOFF"
+            Width="17"
+            Height="17"
+            Margin="0,0,26,2"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Bottom"
+            RenderTransformOrigin="0.5,0.5"
+            IsHitTestVisible="False"
+            Source="{StaticResource UI-Buttons R001}" >
+        </Image>
+
+        <Image
+            x:Name="CheckBoxON"
+            Width="42"
+            Height="43"
+            Margin="0,0,2,2"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Bottom"
+            RenderTransformOrigin="0.5,0.5"
+            IsHitTestVisible="False"
+            Source="{StaticResource UI-Buttons R002}" >
+        </Image>
+
+    </Grid>
+</UserControl>

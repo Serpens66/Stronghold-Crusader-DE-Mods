@@ -15,6 +15,7 @@
     <DebugSymbols>true</DebugSymbols>
     <DebugType>portable</DebugType>
     <WarningLevel>4</WarningLevel>
+    <Optimize>true</Optimize>
   </PropertyGroup>
   <PropertyGroup Condition="'$(GameDir)' == ''">
     <GameDir>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir>
@@ -84,6 +85,14 @@
     <Compile Include="src\MoatWorkTargetSelection.cs" />
     <Compile Include="src\NativeMovementCadenceResolver.cs" />
     <Compile Include="src\WeightedMoatRoutePlanner.cs" />
+    <Compile Include="src\MoatSearchKernel.cs" />
+    <Compile Include="src\CursorRegionGraph.cs" />
+    <Compile Include="src\CursorConnectivity.cs" />
+    <Compile Include="src\NativeMovementRecovery.cs" />
+    <Compile Include="src\MovementSearchContext.cs" />
+    <Compile Include="src\UnitMovementContext.cs" />
+    <Compile Include="src\MovementPathPublication.cs" />
+    <Compile Include="src\WeightedMoatPublication.cs" />
     <Compile Include="..\Shared\DebugLogHelper.cs">
       <Link>Shared\DebugLogHelper.cs</Link>
     </Compile>

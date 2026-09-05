@@ -7,7 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
-using Zhuqiaomon.Memory;
+using RedBird.Core.Memory;
 
 namespace BugfixesAndQoL
 {

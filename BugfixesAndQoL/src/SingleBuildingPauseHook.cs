@@ -363,7 +363,9 @@ namespace BugfixesAndQoL
 
         private bool IsChoreTransportReady()
         {
-            return networkInitialized && pausePacketHook != null && ChoreNetworkTransport.IsAvailable;
+            return BugfixesAndQoLChoreSender.IsAvailable(
+                networkInitialized && pausePacketHook != null,
+                () => SHCDESE.GameGlobals.GameGlobalsManager.Instance.ChoreManagerVA);
         }
 
         private unsafe void ToggleSelectedBuildingTypeMultiplayer(MainViewModel self, object parameter)
@@ -429,19 +431,22 @@ namespace BugfixesAndQoL
                 Action = action,
                 SynchronizeAfterReset = synchronizeAfterReset
             };
-            byte[] body = GameNetworkAPI.Serialize(packet);
-            byte[] blob = new byte[sizeof(short) + body.Length];
-            BitConverter.GetBytes(pausePacketHook.GetPacketId()).CopyTo(blob, 0);
-            Buffer.BlockCopy(body, 0, blob, sizeof(short), body.Length);
-            Func<byte[], bool> sendRawBlob = ChoreNetworkTransport.SendRawBlob;
-            bool queued = sendRawBlob != null && sendRawBlob(blob);
-            if (!queued)
+            short packetId = pausePacketHook?.GetPacketId() ?? (short)0;
+            if (!BugfixesAndQoLChoreSender.TrySend(
+                    packet,
+                    packetId,
+                    networkInitialized && pausePacketHook != null,
+                    value => GameNetworkAPI.Serialize(value),
+                    () => SHCDESE.GameGlobals.GameGlobalsManager.Instance.ChoreManagerVA,
+                    (value, id) => GameNetworkAPI.SendPacketToAllEx2(value, id, viaChore: true),
+                    out byte[] body,
+                    out string rejectionReason))
             {
-                LogError($"single-building pause Chore was not queued; no local action was applied: operationId={operationId}, payloadBytes={blob.Length}.");
+                LogError($"single-building pause Chore was not queued; no local action was applied: operationId={operationId}, reason={rejectionReason}.");
                 return false;
             }
 
-            LogInfo($"single-building pause Chore queued: operationId={operationId}, action={action}, buildingGlobalId={buildingGlobalId}, targetSleeping={targetSleeping}, synchronizeAfterReset={synchronizeAfterReset}, payloadBytes={blob.Length}.");
+            LogInfo($"single-building pause Chore queued: operationId={operationId}, action={action}, buildingGlobalId={buildingGlobalId}, targetSleeping={targetSleeping}, synchronizeAfterReset={synchronizeAfterReset}, payloadBytes={sizeof(short) + body.Length}.");
             return true;
         }
 

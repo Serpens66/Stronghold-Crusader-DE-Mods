@@ -1,12 +1,16 @@
 using BepInEx.Logging;
+using RedBird.Abstractions.Hooks;
+using RedBird.Abstractions.Hooks.Transaction;
+using RedBird.Core.Memory;
+using RedBird.X64.Assembly;
+using RedBird.X64.Hooks;
+using RedBird.X64.Hooks.Context;
+using RedBird.X64.Hooks.Transaction;
 using SHCDESE.API;
+using SHCDESE.API.LowLevel;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
-using Zhuqiaomon.Assembly;
-using Zhuqiaomon.Hooks;
-using Zhuqiaomon.Hooks.Transaction;
-using Zhuqiaomon.Memory;
 
 namespace HunterQueryTargetDiagnostic
 {
@@ -30,7 +34,8 @@ namespace HunterQueryTargetDiagnostic
 
         private readonly ManualLogSource log;
         private readonly HookTransaction transaction;
-        private HookRef<X64InlineHook> noTargetThresholdState7WriterHook = new HookRef<X64InlineHook>();
+        private readonly HookHandle<X64InlineHook> noTargetThresholdState7WriterHook =
+            new HookHandle<X64InlineHook>();
         private long occurrenceCount;
         private long noTargetThresholdCount;
         private int detailLogCount;
@@ -39,16 +44,17 @@ namespace HunterQueryTargetDiagnostic
 
         public HunterState7CauseDiagnostic(
             ManualLogSource log,
-            ReadOnlySpan<byte> memory,
-            ulong libraryBase,
+            CrusaderLibraryLoadContext context,
             bool referenceHashMatches)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
-            if (memory.Length == 0 || libraryBase == 0)
+            if (context == null)
+                throw new ArgumentNullException(nameof(context));
+            if (context.Memory.Length == 0 || context.ModuleHandle == IntPtr.Zero)
                 throw new ArgumentException("The Crusader library is unavailable.");
 
             int thresholdWriterRva = Shared.NativePatternResolver.ResolveUnique(
-                memory,
+                context.Memory,
                 NoTargetThresholdState7WriterPattern,
                 NoTargetThresholdState7WriterRva,
                 referenceHashMatches,
@@ -56,22 +62,31 @@ namespace HunterQueryTargetDiagnostic
                 log).Rva;
 
             transaction = new HookTransaction(
-                memory,
-                libraryBase,
-                loggerFactory: null,
-                failureMode: TransactionFailureMode.RollbackAndThrow);
+                context.Region,
+                SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory,
+                new HookTransactionOptions
+                {
+                    FailureMode = TransactionFailureMode.RollbackAndThrow,
+                    OwnsHooks = false
+                });
             transaction.AddContextHook(
-                ref noTargetThresholdState7WriterHook,
-                libraryBase + unchecked((ulong)thresholdWriterRva),
+                noTargetThresholdState7WriterHook,
+                HookTarget.FromAddress(
+                    unchecked((ulong)context.ModuleHandle.ToInt64()) +
+                    unchecked((ulong)thresholdWriterRva)),
                 ObserveNoTargetThresholdState7Writer,
-                regs: X64SmartCPUContextRegs.Volatile | X64SmartCPUContextRegs.R13,
-                errorMode: CallbackErrorMode.LogAndContinue,
-                placement: OverwrittenInstructionPlacement.AfterCallback);
-            transaction.Commit();
+                new ContextHookOptions
+                {
+                    Registers = X64SmartCPUContextRegs.Volatile | X64SmartCPUContextRegs.R13,
+                    ErrorMode = CallbackErrorMode.LogAndContinue,
+                    Placement = OverwrittenInstructionPlacement.AfterCallback
+                });
+            CommitResult commitResult = transaction.Commit();
 
-            if (!noTargetThresholdState7WriterHook.Success)
+            if (!commitResult.IsCompleteSuccess || !noTargetThresholdState7WriterHook.Success)
             {
-                throw new InvalidOperationException("At least one Hunter state-7 cause hook was not installed.");
+                throw new InvalidOperationException(
+                    $"The Hunter state-7 cause hook was not installed: {commitResult}.");
             }
 
             LogInfo(

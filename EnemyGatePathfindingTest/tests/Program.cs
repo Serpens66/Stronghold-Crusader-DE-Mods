@@ -181,10 +181,16 @@ namespace EnemyGatePathfindingTest
                 "both filters read the gate record from R9");
             Assert(runtimeSource.IndexOf("RollbackAndThrow", StringComparison.Ordinal) >= 0,
                 "both filters use the atomic rollback transaction");
-            Assert(runtimeSource.IndexOf("ref pclGraphCapturedByFilterHook", StringComparison.Ordinal) >= 0,
+            Assert(runtimeSource.IndexOf("pclGraphCapturedByFilterHook,", StringComparison.Ordinal) >= 0,
                 "PCL-graph filter is registered");
-            Assert(runtimeSource.IndexOf("ref builderPrecheckCapturedByFilterHook", StringComparison.Ordinal) >= 0,
+            Assert(runtimeSource.IndexOf("builderPrecheckCapturedByFilterHook,", StringComparison.Ordinal) >= 0,
                 "builder-precheck filter is registered");
+            Assert(runtimeSource.IndexOf("OwnsHooks = false", StringComparison.Ordinal) >= 0,
+                "process-lifetime hook ownership is explicit");
+            Assert(runtimeSource.IndexOf("commitResult.IsCompleteSuccess", StringComparison.Ordinal) >= 0,
+                "transaction commit result is checked");
+            Assert(runtimeSource.IndexOf("new ContextHookOptions", StringComparison.Ordinal) >= 0,
+                "context hook options are explicit");
         }
 
         private static void SamePclCandidatePolicyIsFailOpenAndAllianceAware()

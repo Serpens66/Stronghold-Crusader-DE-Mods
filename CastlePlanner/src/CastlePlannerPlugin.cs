@@ -6,7 +6,7 @@ using System.Collections.Generic;
 
 namespace CastlePlanner
 {
-    [BepInDependency(ScriptExtenderGuid, BepInDependency.DependencyFlags.HardDependency)]
+    [BepInDependency(ScriptExtenderGuid, "2.0.2")]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("ExtraFeatures_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
@@ -49,10 +49,12 @@ namespace CastlePlanner
                 "Plugin component destroyed during startup; keeping CastlePlanner lifecycle subscriptions rooted.");
         }
 
-        private void OnCrusaderLibraryLoaded(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
+        private void OnCrusaderLibraryLoaded(CrusaderLibraryLoadContext context)
         {
             if (libraryLoadedHandled)
                 return;
+            if (context == null)
+                throw new ArgumentNullException(nameof(context));
             libraryLoadedHandled = true;
 
             var failedOptionalStages = new List<string>();
@@ -137,7 +139,7 @@ namespace CastlePlanner
             {
                 try
                 {
-                    runtime.Install(libraryHandle, memory, currentNativeLayout);
+                    runtime.Install(context, currentNativeLayout);
                 }
                 catch (Exception ex)
                 {

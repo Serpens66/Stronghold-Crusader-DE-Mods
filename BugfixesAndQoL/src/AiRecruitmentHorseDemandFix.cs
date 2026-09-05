@@ -2,8 +2,10 @@
 using BepInEx.Logging;
 using System;
 using System.Runtime.InteropServices;
-using Zhuqiaomon.Hooks;
-using Zhuqiaomon.Hooks.Transaction;
+using RedBird.Abstractions.Hooks;
+using RedBird.Abstractions.Hooks.Transaction;
+using RedBird.Core.Memory;
+using RedBird.X64.Hooks.Transaction;
 
 namespace BugfixesAndQoL
 {
@@ -12,8 +14,8 @@ namespace BugfixesAndQoL
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
         private HookTransaction transaction;
-        private HookRef<X64ManagedFunctionDetourAOB<RecruitEuropeanUnitDelegate>> recruitHook =
-            new HookRef<X64ManagedFunctionDetourAOB<RecruitEuropeanUnitDelegate>>();
+        private readonly DetourHandle<RecruitEuropeanUnitDelegate> recruitHook =
+            new DetourHandle<RecruitEuropeanUnitDelegate>();
         private bool disposed;
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
@@ -27,6 +29,7 @@ namespace BugfixesAndQoL
         public AiRecruitmentHorseDemandFix(
             ManualLogSource log,
             BugfixesAndQoLViewModel settings,
+            ScanRegion region,
             ReadOnlySpan<byte> memory,
             ulong libraryBase,
             bool referenceHashMatches)
@@ -53,18 +56,14 @@ namespace BugfixesAndQoL
 
             try
             {
-                transaction = new HookTransaction(
-                    memory,
-                    libraryBase,
-                    loggerFactory: null,
-                    failureMode: TransactionFailureMode.RollbackAndThrow);
+                transaction = BugfixesHookInfrastructure.CreateOwnedTransaction(region);
                 transaction.AddDetour(
-                    ref recruitHook,
-                    libraryBase + unchecked((ulong)resolution.Rva),
+                    recruitHook,
+                    HookTarget.FromAddress(libraryBase + unchecked((ulong)resolution.Rva)),
                     RecruitEuropeanUnit);
-                transaction.Commit();
+                CommitResult commitResult = transaction.Commit();
 
-                if (!recruitHook.Success)
+                if (!commitResult.IsCompleteSuccess || !recruitHook.Success)
                     throw new InvalidOperationException("The European troop recruitment hook was not installed.");
 
                 Shared.DebugLogHelper.LogInfo(
@@ -86,7 +85,6 @@ namespace BugfixesAndQoL
                 return;
 
             disposed = true;
-            transaction?.Unload();
             transaction?.Dispose();
             transaction = null;
         }
@@ -108,7 +106,7 @@ namespace BugfixesAndQoL
                     0);
             }
 
-            return recruitHook.Value.Hook.Trampoline(
+            return recruitHook.Original(
                 unitManager,
                 unitType,
                 spawnContext,

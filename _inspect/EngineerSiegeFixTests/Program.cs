@@ -172,8 +172,10 @@ internal static class Program
             "runtime declares the tick-based observation and recovery mechanism");
         Check(runtime.Contains("using SHCDESE.Interop;"),
             "eChimps uses the namespace exported by the targeted Script Extender");
-        Check(project.Contains("<Reference Include=\"Zhuqiaomon\">"),
-            "project references the assembly that owns GameUnitManagerAPI's NativePointer return type");
+        Check(project.Contains("<Reference Include=\"RedBird.Core\">"),
+            "project references the 2.0.2 assembly that owns GameUnitManagerAPI's NativePointer return type");
+        Check(!project.Contains("Zhuqiaomon"),
+            "project no longer references the pre-2.0.2 NativePointer assembly");
         Check(runtime.Contains("WriteUInt16"), "recovery has an explicit 16-bit field writer");
         Check(runtime.Contains("WriteUInt32"), "recovery has an explicit packed-state writer");
         Check(runtime.Contains("Validate every identity and every read before the first write"),

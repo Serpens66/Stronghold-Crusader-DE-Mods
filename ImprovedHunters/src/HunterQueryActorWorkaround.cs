@@ -1,11 +1,13 @@
 using BepInEx.Logging;
 using System;
 using System.Threading;
-using Zhuqiaomon.Assembly;
-using Zhuqiaomon.Assembly.Stateful;
-using Zhuqiaomon.Hooks;
-using Zhuqiaomon.Hooks.Transaction;
-using Zhuqiaomon.Memory;
+using RedBird.Abstractions.Hooks;
+using RedBird.Abstractions.Hooks.Transaction;
+using RedBird.Core.Memory;
+using RedBird.X64.Assembly;
+using RedBird.X64.Assembly.Stateful;
+using RedBird.X64.Hooks;
+using RedBird.X64.Hooks.Transaction;
 
 namespace ImprovedHunters
 {
@@ -36,13 +38,14 @@ namespace ImprovedHunters
         private readonly ManualLogSource log;
         private readonly long generation;
         private HookTransaction transaction;
-        private HookRef<X64InlineHook> candidateLoopHook = new HookRef<X64InlineHook>();
+        private readonly HookHandle<X64InlineHook> candidateLoopHook = new HookHandle<X64InlineHook>();
         private bool available = true;
         private int captureFailureLogs;
         private bool disposed;
 
         public HunterQueryActorWorkaround(
             ManualLogSource log,
+            ScanRegion region,
             ReadOnlySpan<byte> memory,
             ulong libraryBase,
             bool referenceHashMatches)
@@ -62,23 +65,20 @@ namespace ImprovedHunters
 
             try
             {
-                transaction = new HookTransaction(
-                    memory,
-                    libraryBase,
-                    loggerFactory: null,
-                    failureMode: TransactionFailureMode.RollbackAndThrow);
-                transaction.AddContextHook(
-                    ref candidateLoopHook,
+                transaction = HunterHookInfrastructure.CreateOwnedTransaction(region);
+                HunterHookInfrastructure.AddContextHook(
+                    transaction,
+                    candidateLoopHook,
                     libraryBase + unchecked((ulong)hookRva),
                     CaptureQueryActor,
-                    regs: X64SmartCPUContextRegs.RSI |
+                    registers: X64SmartCPUContextRegs.RSI |
                         X64SmartCPUContextRegs.R13 |
                         X64SmartCPUContextRegs.R14,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
-                transaction.Commit();
+                CommitResult commitResult = transaction.Commit();
 
-                if (!candidateLoopHook.Success)
+                if (!commitResult.IsCompleteSuccess || !candidateLoopHook.Success)
                     throw new InvalidOperationException("The Hunter query actor capture hook was not installed.");
 
                 Shared.DebugLogHelper.LogInfo(
@@ -175,7 +175,6 @@ namespace ImprovedHunters
 
             disposed = true;
             available = false;
-            transaction?.Unload();
             transaction?.Dispose();
             transaction = null;
             ClearThreadCapture();

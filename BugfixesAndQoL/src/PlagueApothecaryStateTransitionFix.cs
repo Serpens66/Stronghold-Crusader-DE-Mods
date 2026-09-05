@@ -4,10 +4,13 @@ using SHCDESE.API;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
-using Zhuqiaomon.Assembly;
-using Zhuqiaomon.Hooks;
-using Zhuqiaomon.Hooks.Transaction;
-using Zhuqiaomon.Memory;
+using RedBird.Abstractions.Hooks.Transaction;
+using RedBird.Abstractions.Hooks;
+using RedBird.Core.Memory;
+using RedBird.X64.Assembly;
+using RedBird.X64.Hooks;
+using RedBird.X64.Hooks.Transaction;
+using RedBird.X64.Hooks.Context;
 
 
 namespace BugfixesAndQoL
@@ -36,13 +39,14 @@ namespace BugfixesAndQoL
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
         private HookTransaction transaction;
-        private HookRef<X64InlineHook> transitionHook = new HookRef<X64InlineHook>();
+        private readonly HookHandle<X64InlineHook> transitionHook = new HookHandle<X64InlineHook>();
         private bool correctionAvailable = true;
         private bool disposed;
 
         public PlagueApothecaryStateTransitionFix(
             ManualLogSource log,
             BugfixesAndQoLViewModel settings,
+            ScanRegion region,
             ReadOnlySpan<byte> memory,
             ulong libraryBase,
             bool referenceHashMatches)
@@ -66,21 +70,18 @@ namespace BugfixesAndQoL
 
             try
             {
-                transaction = new HookTransaction(
-                    memory,
-                    libraryBase,
-                    loggerFactory: null,
-                    failureMode: TransactionFailureMode.RollbackAndThrow);
-                transaction.AddContextHook(
-                    ref transitionHook,
+                transaction = BugfixesHookInfrastructure.CreateOwnedTransaction(region);
+                BugfixesHookInfrastructure.AddContextHook(
+                    transaction,
+                    transitionHook,
                     libraryBase + unchecked((ulong)periodicDiseaseFoundRva),
                     CompleteVanillaStateTransition,
-                    regs: X64SmartCPUContextRegs.Volatile | X64SmartCPUContextRegs.RBP,
+                    registers: X64SmartCPUContextRegs.Volatile | X64SmartCPUContextRegs.RBP,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
-                transaction.Commit();
+                CommitResult commitResult = transaction.Commit();
 
-                if (!transitionHook.Success)
+                if (!commitResult.IsCompleteSuccess || !transitionHook.Success)
                     throw new InvalidOperationException("The apothecary state-2 transition hook was not installed.");
 
                 Shared.DebugLogHelper.LogDebug(
@@ -102,7 +103,6 @@ namespace BugfixesAndQoL
 
             disposed = true;
             correctionAvailable = false;
-            transaction?.Unload();
             transaction?.Dispose();
             transaction = null;
         }

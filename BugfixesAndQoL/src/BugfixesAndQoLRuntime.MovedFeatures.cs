@@ -132,6 +132,7 @@ namespace BugfixesAndQoL
                 aiEconomyProtectionHook = new AIEconomyProtectionHook(
                     log,
                     settings,
+                    nativeRegion,
                     nativeLibraryHandle,
                     memory,
                     fixedLayoutHashValidated);

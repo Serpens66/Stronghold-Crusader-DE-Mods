@@ -6,13 +6,14 @@ using SHCDESE.GameGlobals;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
-using System.Diagnostics;
 using System.Runtime.InteropServices;
-using Zhuqiaomon.Assembly;
-using Zhuqiaomon.Hooks;
-using Zhuqiaomon.Hooks.Transaction;
-using Zhuqiaomon.Memory;
-using Zhuqiaomon.Windows;
+using RedBird.Abstractions.Hooks.Transaction;
+using RedBird.Abstractions.Hooks;
+using RedBird.Core.Memory;
+using RedBird.X64.Assembly;
+using RedBird.X64.Hooks;
+using RedBird.X64.Hooks.Transaction;
+using RedBird.X64.Hooks.Context;
 
 namespace BugfixesAndQoL
 {
@@ -26,7 +27,7 @@ namespace BugfixesAndQoL
         private readonly ulong hookAddress;
         private readonly byte[] originalHookBytes;
         private HookTransaction transaction;
-        private HookRef<X64InlineHook> reserveHook = new HookRef<X64InlineHook>();
+        private readonly HookHandle<X64InlineHook> reserveHook = new HookHandle<X64InlineHook>();
         private bool correctionAvailable = true;
         private bool firstCalculationLogged;
         private bool firstPositiveReserveLogged;
@@ -35,6 +36,7 @@ namespace BugfixesAndQoL
         public AiStoneReserveFix(
             ManualLogSource log,
             BugfixesAndQoLViewModel settings,
+            ScanRegion region,
             ReadOnlySpan<byte> memory,
             ulong libraryBase,
             bool referenceHashMatches)
@@ -79,22 +81,17 @@ namespace BugfixesAndQoL
                 originalHookBytes = memory
                     .Slice(hookRva, AiStoneReserveNativeDefinition.SellerReserveOverwriteLength)
                     .ToArray();
-                transaction = new HookTransaction(
-                    memory,
-                    libraryBase,
-                    loggerFactory: null,
-                    failureMode: TransactionFailureMode.RollbackAndThrow);
-                transaction.AddContextHook(
-                    ref reserveHook,
+                transaction = BugfixesHookInfrastructure.CreateOwnedTransaction(region);
+                BugfixesHookInfrastructure.AddContextHook(transaction, reserveHook,
                     hookAddress,
                     RefreshStoneBuildingReserve,
-                    regs: X64SmartCPUContextRegs.All,
+                    registers: X64SmartCPUContextRegs.All,
                     hookSize: AiStoneReserveNativeDefinition.SellerReserveOverwriteLength,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
-                transaction.Commit();
+                CommitResult commitResult = transaction.Commit();
 
-                if (!reserveHook.Success)
+                if (!commitResult.IsCompleteSuccess || !reserveHook.Success)
                     throw new InvalidOperationException("The AI seller stone-reserve hook was not installed.");
 
                 ApplySetting();
@@ -103,7 +100,7 @@ namespace BugfixesAndQoL
                     log,
                     $"Bugfixes and QoL AI stone-reserve hook installed: method={resolution.Method}, " +
                     $"patternRva=0x{resolution.Rva:X}, hookRva=0x{hookRva:X}, " +
-                    $"nativeHookActive={reserveHook.Value.IsActive}, enabled={IsEnabled}.");
+                    $"nativeHookActive={reserveHook.IsInstalled}, enabled={IsEnabled}.");
                 if (!referenceHashMatches)
                 {
                     Shared.DebugLogHelper.LogWarning(
@@ -128,7 +125,6 @@ namespace BugfixesAndQoL
                 correctionAvailable = false;
                 DisableNativeHookAndVerify();
                 disposed = true;
-                transaction?.Unload();
                 transaction?.Dispose();
                 transaction = null;
             }
@@ -147,7 +143,7 @@ namespace BugfixesAndQoL
                     return;
                 }
 
-                if (reserveHook.Value.IsActive)
+                if (reserveHook.IsInstalled)
                     return;
 
                 if (!HookBytesMatchOriginal())
@@ -159,8 +155,8 @@ namespace BugfixesAndQoL
                     return;
                 }
 
-                reserveHook.Value.Enable();
-                if (!reserveHook.Value.IsActive)
+                reserveHook.Hook.Enable();
+                if (!reserveHook.IsInstalled)
                     throw new InvalidOperationException("The AI stone-reserve native hook did not become active.");
 
                 Shared.DebugLogHelper.LogDebug(
@@ -371,11 +367,11 @@ namespace BugfixesAndQoL
                 return true;
 
             bool disableCallSucceeded = true;
-            if (reserveHook.Value.IsActive)
+            if (reserveHook.IsInstalled)
             {
                 try
                 {
-                    reserveHook.Value.Disable();
+                    reserveHook.Hook.Disable();
                     Shared.DebugLogHelper.LogDebug(
                         log,
                         "Bugfixes and QoL AI stone-reserve native hook disabled; Vanilla code restoration requested.");
@@ -410,7 +406,7 @@ namespace BugfixesAndQoL
             }
 
             bool bytesRestored = restorationSucceeded && HookBytesMatchOriginal();
-            bool hookStateConsistent = disableCallSucceeded && !reserveHook.Value.IsActive;
+            bool hookStateConsistent = disableCallSucceeded && !reserveHook.IsInstalled;
             if (!bytesRestored || !hookStateConsistent)
             {
                 correctionAvailable = false;
@@ -441,38 +437,8 @@ namespace BugfixesAndQoL
             if (originalHookBytes == null || originalHookBytes.Length == 0 || hookAddress == 0)
                 return false;
 
-            IntPtr address = unchecked((IntPtr)(long)hookAddress);
-            UIntPtr size = unchecked((UIntPtr)(uint)originalHookBytes.Length);
-            if (!Kernel32.VirtualProtect(
-                    address,
-                    size,
-                    Kernel32.MemoryPermissions.PAGE_EXECUTE_READWRITE,
-                    out Kernel32.MemoryPermissions oldProtection))
-            {
-                return false;
-            }
-
-            bool protectionRestored = false;
-            try
-            {
-                Marshal.Copy(originalHookBytes, 0, address, originalHookBytes.Length);
-            }
-            finally
-            {
-                protectionRestored = Kernel32.VirtualProtect(
-                    address,
-                    size,
-                    oldProtection,
-                    out _);
-            }
-
-            if (!protectionRestored)
-                return false;
-
-            return MinWinAPI.FlushInstructionCache(
-                Process.GetCurrentProcess().Handle,
-                address,
-                size);
+            CodePatch.Write(hookAddress, originalHookBytes);
+            return HookBytesMatchOriginal();
         }
 
         private static int ReadInt32(ReadOnlySpan<byte> data, int offset) =>

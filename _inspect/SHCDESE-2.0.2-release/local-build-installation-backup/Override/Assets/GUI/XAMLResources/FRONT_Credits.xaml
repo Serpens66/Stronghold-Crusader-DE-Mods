@@ -1,0 +1,1745 @@
+<UserControl
+    x:Class="CrusaderDE.FRONT_Credits"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:b="http://schemas.microsoft.com/xaml/behaviors"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:CrusaderDE"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:noesis="clr-namespace:NoesisGUIExtensions;assembly=Noesis.GUI.Extensions"
+    d:DesignHeight="1080"
+    d:DesignWidth="1920"
+    mc:Ignorable="d">
+
+
+    <UserControl.Resources>
+
+        <BooleanToVisibilityConverter x:Key="booleanToVisibilityConverter" />
+        <Color x:Key="Color.TitleDE">#FFDDDDDD</Color>
+        <SolidColorBrush x:Key="Brush.TitleDE" Color="{StaticResource Color.TitleDE}" />
+
+        <Color x:Key="Color.BodyDE">#FFEFF3C6</Color>
+        <SolidColorBrush x:Key="Brush.BodyDE" Color="{StaticResource Color.BodyDE}" />
+
+        <Color x:Key="Color.TitleSH">#FFEF8252</Color>
+        <SolidColorBrush x:Key="Brush.TitleSH" Color="{StaticResource Color.TitleSH}" />
+
+        <Color x:Key="Color.BodySH">#FFD6D3A5</Color>
+        <SolidColorBrush x:Key="Brush.BodySH" Color="{StaticResource Color.BodySH}" />
+
+        <Style TargetType="{x:Type TextBlock}">
+            <Setter Property="FontSize" Value="24" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="TextAlignment" Value="Center" />
+            <Setter Property="FlowDirection" Value="{Binding GlobalTextFlowAL2R}" />
+        </Style>
+
+        <Storyboard x:Key="FadeInImage">
+            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="CreditsImage" Storyboard.TargetProperty="Opacity">
+                <LinearDoubleKeyFrame KeyTime="0" Value="0" />
+                <LinearDoubleKeyFrame KeyTime="0:0:1.0" Value="1" />
+            </DoubleAnimationUsingKeyFrames>
+        </Storyboard>
+        
+        <Storyboard x:Key="FadeOutImage">
+            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="CreditsImage" Storyboard.TargetProperty="Opacity">
+                <LinearDoubleKeyFrame KeyTime="0" Value="1" />
+                <LinearDoubleKeyFrame KeyTime="0:0:1.0" Value="0" />
+            </DoubleAnimationUsingKeyFrames>
+        </Storyboard>
+    </UserControl.Resources>
+
+
+
+    <Grid
+        Name="mapgrid"
+        Background="Black"
+            Width="1920"
+            Height="1080"
+        IsHitTestVisible="True">
+
+        <Image
+            Name="CreditsImage"
+            Width="1042"
+            Height="748"
+            Margin="30,0,0,0"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Center"
+            Stretch="UniformToFill" />
+
+        <Button
+                Name="CreditsQuitButton"
+                Width="151"
+                Height="66"
+                Margin="60,0,0,30"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Bottom"
+            local:PropEx.ImageFlow="{Binding GlobalTextFlow}"
+            local:PropEx.Sprite1="{StaticResource UI-Buttons B005}"
+                local:PropEx.Sprite2="{StaticResource UI-Buttons B006}"
+                local:PropEx.Sprite3="{StaticResource UI-Buttons B007}"
+                local:PropEx.Sprite4="{StaticResource UI-Buttons B008}"
+                Command="{Binding ButtonMainMenuCommand}"
+                CommandParameter="BackMain"
+                Style="{StaticResource BTN_Image}" />
+
+        <ScrollViewer
+            Name="CreditsViewer"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Top"
+            Width="800"
+            Height="1080"
+            Margin="0,0,30,0"
+            IsEnabled="False"
+            >
+            <StackPanel
+                Name="CreditsStack"
+                >
+                <Image
+                    Name="CreditsDELogo" Margin="0,1080,0,0"
+                    Width="604"
+                    Height="202"/>
+
+                <!--  ** -->
+                <TextBlock
+                    Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_068], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Paul Harris"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Nick Tannahill"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+
+                <TextBlock Margin="0,30,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_002], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Simon Bradbury"
+                    TextAlignment="Center"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+
+
+                <TextBlock Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_003], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Eric Ouellette"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+
+
+
+
+                <TextBlock Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_006], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Sophie James"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+
+                <!--  ** -->
+                <TextBlock
+                    Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_069], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="David Robertson"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+
+                <TextBlock Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_007], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Andrew Prime"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+
+                <TextBlock Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_009], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Niall Benzie"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+
+                <TextBlock Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_010], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Darrin Horbal"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Jorge Cameo"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+
+                <!--  ** -->
+                <TextBlock
+                    Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_070], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Tomas Ward"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+
+                <TextBlock Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_013], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Tomas Ward"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+                
+                
+                <!-- virtous -->
+                <TextBlock
+                    Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_105], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Virtous"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+
+                <TextBlock
+                    Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_106], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Frederik Plucinski"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Samuel Schembri Venturi"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <!-- virtous -->
+
+                <TextBlock Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_014], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Robert L. Euvino"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+
+                <TextBlock Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_016], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Simon Bradbury"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Eric Ouellette"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Stephen Cardno"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+
+                <TextBlock Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_071], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Simon Bradbury"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Stephen Cardno"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+
+                <!-- ** -->
+                <TextBlock
+                    Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_072], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Oliver Gisborne"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Oliver Jones"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Darren Thompson"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Emma Ouellette"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Daniel Olaleye"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+
+                <!-- ** -->
+                <TextBlock
+                    Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_073], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Stephen Cardno"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+
+                <!-- ** -->
+                <TextBlock
+                    Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_074], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Josh Munro"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+
+                <TextBlock Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_018], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Stephen Cardno"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Daniel Olaleye"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Darren Thompson"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Neal Bonner"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+
+                <TextBlock Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_019], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Mark Barney"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Oliver Gisborne"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Oliver Jones"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock Margin="0,0,0,0"
+                    Text="Caitlin McIntyre"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Ben Tidy"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Emma Ouellette"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+
+
+                <!-- ** -->
+                <TextBlock Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_075], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Sak Abdi"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+
+                <TextBlock Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_021], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Natasha Evette"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+
+                <!-- ** -->
+                <TextBlock Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_076], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Aaron Hayden"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+
+                <!-- ** -->
+                <TextBlock Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_077], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Jamie Wernham"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+
+
+                <!-- ** -->
+                <TextBlock
+                    Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_078], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Daniel Matas Caballero"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                
+                
+                <TextBlock Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_024], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Matt Smith"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+
+                <TextBlock Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_025], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Alessio Molinaro"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+
+                <TextBlock Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_026], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Daniel Olaleye"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+
+                <!-- ** -->
+                <TextBlock Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_079], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Laurie Goldstein"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+
+                <TextBlock Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_015], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Peter Beckmann"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+
+                <!-- english voice actors -->
+                <TextBlock Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_029], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Walles Hammond"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Christopher Kent"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Elsie Lovelock"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Lara Sawalha"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Nabil Elouahabi"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Joshua Manning"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Fayez Bakhsh"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+
+                <!-- french voice actors -->
+                <TextBlock Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_030], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Kaina Blada"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Daphnee Papinea"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Taric Mehani"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Emmanuel Bonami"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Olivier Peissel"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Marc Maurille"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Laurent Blanpain"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+
+                <!-- german voice actors -->
+                <TextBlock Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_031], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Muriel Leonie Graf"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Michaela Kametz"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Maximilian Sordon"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Andreas Laurenz Maier"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Norman Renk"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Sebastian Schlemmer"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Martin Bross"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+
+                <!-- italian voice actors -->
+                <TextBlock Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_032], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Pietro Ubaldi"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Giulia Bersani"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Alessandro Germano"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Valentina Pollani"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Mos?? Singh"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Andrea Failla"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Francesco Mei"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+
+                <!-- polish voice actors -->
+                <TextBlock Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_033], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Joanna Osyda"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Marcin Pryzbylski"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Kamil Pruban"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Kim Grygierzec"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Maciej Kosmala"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Szymon Ku??mider"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Tomasz Steciuk"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+
+                <!-- russian voice actors -->
+                <TextBlock Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_035], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Elena Sortova"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Andrei Sokolov"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Dmitri Tadtaev"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Anna Shamtsyan"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Gleb Glushenkov"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Daniil Tolstykh"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Danil Scheblanov"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+
+                <!-- spanish voice actors -->
+                <TextBlock Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_036], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Nurial Trifol"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Alfonso Valles"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="David Jener"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Isa Puchol"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Pep Sais"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Carles Llad??"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Rafael Parra"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+
+                <!-- hungarian voice actors -->
+                <TextBlock
+                    Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_080], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="L??szl?? Bart??k"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Zolt??n Ren??cz"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="T??mea S??gi"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Kitty Mezey"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="R??bert Harcsik"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="S??ndor Rosta"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Lehel Kisfalusi"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+
+                <!-- brazilian voice actors -->
+                <TextBlock
+                    Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_034], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Rog??rio Vigianni"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Luisa Horta"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Bruna Nogueira"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Renan Alonso"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Mckeidy Lisita"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Dalton Barone"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Charles Dalla"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Luiz Antonio Lobue"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Ricardo Bressan"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Andr?? Rinaldi"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Rodrigo Firmo"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+
+                <!-- ** -->
+                <TextBlock
+                    Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_103], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="23 Studios"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+
+                <TextBlock Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_028], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Localize Direct"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_067], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+
+                <TextBlock
+                    Margin="0,30,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_067], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Dmytro Holovchenko"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Anastasiia Rantiuk"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Alina Farafonova"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Vladyslav Kravchenko"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Yurii Myklashchuk"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Yehor Vlasov"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Sofia Shul"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Roman Strilets (LQA)"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+
+
+                <TextBlock Margin="0,30,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_066], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Arqwell"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+                
+                <TextBlock Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_065], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="DAQA"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+
+                <!-- ** -->
+                <TextBlock
+                    Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_082], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Ben Wibberley"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Devin Seto"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Tim Hudson"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Garry Barter"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+
+                <!-- ** -->
+                <TextBlock
+                    Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_083], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Selena Emrey"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+
+                <!-- ** -->
+                <TextBlock
+                    Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_084], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Andre Reis"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="James Lewis"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+
+                <!-- ** -->
+                <TextBlock
+                    Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_085], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Zoey Palmer"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Holly Galpin"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Kendra-Lee Williams"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Matt Pudlewski"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+
+                <!-- ** -->
+                <TextBlock
+                    Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_086], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Grant Efland"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+
+                <!-- ** -->
+                <TextBlock
+                    Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_087], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Jake Daynes"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Harold Perry"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+
+                <!-- ** -->
+                <TextBlock
+                    Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_088], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}" />
+                <TextBlock Margin="0,0,0,0"
+                    Text="Faye Hudson"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Ashley Howard"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Allison Fraser"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Brismal Cordero"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Hasan Demirel"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Iain Martin"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Jason Williamson"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Rometro Davis"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Joseph Nu??ez"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Robert Roulund"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Chelsea Thornsberry"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Olivia Columbia"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Kevin Matthews"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="James Hammond"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+
+                <!-- interns -->
+                <TextBlock Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_037], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Luca Cabrera"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Eden James"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Hugo Thornton"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Noah Allen"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Jake Hood"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+
+
+                <!-- virtous -->
+                <TextBlock
+                    Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_105], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Virtous"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+
+                <TextBlock
+                    Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_106], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Frederik Plucinski"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Samuel Schembri Venturi"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+
+                <TextBlock
+                    Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_107], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Bohdan Erlikh"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Mykhailo Turovets"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Nguyen Thuy Anh Thu"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Nguyen Ngoc Minh Thu"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Nguyen Thien Hong An"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Hong My Trinh"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+
+                <TextBlock
+                    Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_108], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Viktor Mukhin"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Pavlo Marchuk"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Maryna Marchuk"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+
+                <TextBlock
+                    Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_109], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Do Nhat Linh"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Ong Ngoc Lan"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Nguyen Hong Phuc"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Nguyen Phu Quoc"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Tran Thanh Huy"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+
+                <TextBlock
+                    Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_110], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Mauricio Revuelta Cuauhtli"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Nguyen Hoang Long"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+
+                <TextBlock
+                    Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_111], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Ahmad Turki"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Nguyen Trung Nghia"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+
+                <!-- virtous -->
+
+
+                <TextBlock Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_038], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Harry Miller"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Graeme Struthers"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Luke Vernon"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Nigel Lowrie"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Kate Ludlow"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Jonathan 'JR' Rosales"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="John 'JT' Tyrrell"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Hazel Yang"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Abby Kuo"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+
+
+                <TextBlock Margin="0,20,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_039], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_040], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_041], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_042], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.BodyDE}"/>
+
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Lutel"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Zade"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="DemonSun (our super helpful Enforcer @ Pax East)"
+                    Foreground="{StaticResource Brush.BodyDE}" />
+
+
+
+
+                <!-- SH1 credits -->
+
+                <Image
+                    Name="CreditsSHLogo" Margin="0,100,0,0"
+                    Width="604"
+                    Height="202"/>
+                <TextBlock Margin="0,30,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_045], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleSH}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Simon Bradbury"
+                    Foreground="{StaticResource Brush.BodySH}"/>
+
+                <TextBlock Margin="0,30,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_046], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleSH}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Eric Ouellette"
+                    Foreground="{StaticResource Brush.BodySH}"/>
+
+                <TextBlock Margin="0,30,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_047], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleSH}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Simon Bradbury"
+                    Foreground="{StaticResource Brush.BodySH}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Andrew Prime"
+                    Foreground="{StaticResource Brush.BodySH}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Andrew McNab"
+                    Foreground="{StaticResource Brush.BodySH}"/>
+
+                <TextBlock Margin="0,30,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_048], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleSH}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Eric Ouellette"
+                    Foreground="{StaticResource Brush.BodySH}"/>
+
+                <TextBlock Margin="0,30,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_049], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleSH}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Paul Harris (Stronghold Crusader HD)"
+                    Foreground="{StaticResource Brush.BodySH}"/>
+
+                <TextBlock Margin="0,30,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_050], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleSH}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Michael Best"
+                    Foreground="{StaticResource Brush.BodySH}"/>
+
+                <TextBlock Margin="0,30,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_051], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleSH}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Jorge Cameo"
+                    Foreground="{StaticResource Brush.BodySH}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Robert Thornely"
+                    Foreground="{StaticResource Brush.BodySH}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Darren White"
+                    Foreground="{StaticResource Brush.BodySH}"/>
+
+                <TextBlock
+                    Margin="0,30,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_051], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleSH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Darrin Horbal"
+                    Foreground="{StaticResource Brush.BodySH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Jason Juta (Stronghold Crusader HD)"
+                    Foreground="{StaticResource Brush.BodySH}" />
+                
+
+                <TextBlock Margin="0,30,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_052], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleSH}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Andrew Prime"
+                    Foreground="{StaticResource Brush.BodySH}"/>
+
+                <TextBlock Margin="0,30,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_053], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleSH}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Robert L. Euvino"
+                    Foreground="{StaticResource Brush.BodySH}"/>
+
+                <TextBlock Margin="0,30,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_054], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleSH}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Casimir C. Windsor"
+                    Foreground="{StaticResource Brush.BodySH}"/>
+
+                <TextBlock Margin="0,30,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_055], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleSH}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Darren Thompson"
+                    Foreground="{StaticResource Brush.BodySH}"/>
+
+                <TextBlock Margin="0,30,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_056], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleSH}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Phil Busuttil"
+                    Foreground="{StaticResource Brush.BodySH}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Casimir C. Windsor"
+                    Foreground="{StaticResource Brush.BodySH}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Niall Benzie (Stronghold Crusader HD)"
+                    Foreground="{StaticResource Brush.BodySH}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Stephen Pomphrey (Stronghold Crusader HD)"
+                    Foreground="{StaticResource Brush.BodySH}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="David Robertson (Stronghold Crusader HD)"
+                    Foreground="{StaticResource Brush.BodySH}"/>
+
+
+                <TextBlock
+                    Margin="0,30,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_060], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleSH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Casimir C. Windsor"
+                    Foreground="{StaticResource Brush.BodySH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Phil Busuttil"
+                    Foreground="{StaticResource Brush.BodySH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Eric Ouellette"
+                    Foreground="{StaticResource Brush.BodySH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Darren Thompson"
+                    Foreground="{StaticResource Brush.BodySH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Niall Benzie (Stronghold Crusader HD)"
+                    Foreground="{StaticResource Brush.BodySH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Stephen Pomphrey (Stronghold Crusader HD)"
+                    Foreground="{StaticResource Brush.BodySH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="David Robertson (Stronghold Crusader HD)"
+                    Foreground="{StaticResource Brush.BodySH}" />
+
+                <TextBlock Margin="0,30,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_064], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleSH}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Nick Tannahill (Stronghold Crusader HD)"
+                    Foreground="{StaticResource Brush.BodySH}"/>
+                
+
+                <!-- ** -->
+                <TextBlock Margin="0,30,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_089], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleSH}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Bill Vanaver"
+                    Foreground="{StaticResource Brush.BodySH}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Steve Gorn"
+                    Foreground="{StaticResource Brush.BodySH}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Nadege Foofat"
+                    Foreground="{StaticResource Brush.BodySH}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Thomas Workman"
+                    Foreground="{StaticResource Brush.BodySH}"/>
+
+                <!-- ** -->
+                <TextBlock
+                    Margin="0,30,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_090], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleSH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Lydia Pidlusky"
+                    Foreground="{StaticResource Brush.BodySH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Patricia Bresnahan"
+                    Foreground="{StaticResource Brush.BodySH}" />
+
+                <!-- ** -->
+                <TextBlock
+                    Margin="0,30,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_091], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleSH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Adam Chapman"
+                    Foreground="{StaticResource Brush.BodySH}" />
+
+                <!-- ** -->
+                <TextBlock
+                    Margin="0,30,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_092], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleSH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Helen Pix"
+                    Foreground="{StaticResource Brush.BodySH}" />
+
+                <TextBlock
+                    Margin="0,30,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_059], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleSH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Robert L. Euvino"
+                    Foreground="{StaticResource Brush.BodySH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Luis Soto"
+                    Foreground="{StaticResource Brush.BodySH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Christopher Kent"
+                    Foreground="{StaticResource Brush.BodySH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Jay Simons"
+                    Foreground="{StaticResource Brush.BodySH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Basel Abbas"
+                    Foreground="{StaticResource Brush.BodySH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Issam Ikimawi"
+                    Foreground="{StaticResource Brush.BodySH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Ray Greenoaken"
+                    Foreground="{StaticResource Brush.BodySH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Jerry Kersey"
+                    Foreground="{StaticResource Brush.BodySH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Anthony Mulligan"
+                    Foreground="{StaticResource Brush.BodySH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="John Tearney"
+                    Foreground="{StaticResource Brush.BodySH}" />
+
+
+                <TextBlock Margin="0,30,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_061], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleSH}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Jack Chen (Stronghold Crusader HD)"
+                    Foreground="{StaticResource Brush.BodySH}"/>
+
+                <TextBlock Margin="0,30,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_062], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleSH}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="David Lester"
+                    Foreground="{StaticResource Brush.BodySH}"/>
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Megan Ouellette"
+                    Foreground="{StaticResource Brush.BodySH}" />
+
+                <TextBlock Margin="0,30,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_063], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleSH}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Alex Klotz"
+                    Foreground="{StaticResource Brush.BodySH}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="David Thurston"
+                    Foreground="{StaticResource Brush.BodySH}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Denise Steele"
+                    Foreground="{StaticResource Brush.BodySH}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Francis Cermak"
+                    Foreground="{StaticResource Brush.BodySH}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Ga??l Viktor"
+                    Foreground="{StaticResource Brush.BodySH}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Gill Bilski"
+                    Foreground="{StaticResource Brush.BodySH}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Hans Egon Hansen"
+                    Foreground="{StaticResource Brush.BodySH}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="JanJaap van den Hurk"
+                    Foreground="{StaticResource Brush.BodySH}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Joel Pridgeon"
+                    Foreground="{StaticResource Brush.BodySH}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Jon Breckon"
+                    Foreground="{StaticResource Brush.BodySH}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Jonathan Herman"
+                    Foreground="{StaticResource Brush.BodySH}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Meredith Meadows"
+                    Foreground="{StaticResource Brush.BodySH}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Robert Philips"
+                    Foreground="{StaticResource Brush.BodySH}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Robert Taylor"
+                    Foreground="{StaticResource Brush.BodySH}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Rocklyn Lien"
+                    Foreground="{StaticResource Brush.BodySH}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Thomas Kamenick"
+                    Foreground="{StaticResource Brush.BodySH}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Tom Mescher"
+                    Foreground="{StaticResource Brush.BodySH}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Trevor Cape"
+                    Foreground="{StaticResource Brush.BodySH}"/>
+                <TextBlock Margin="0,0,0,0"
+                    Text="Trevor Winney"
+                    Foreground="{StaticResource Brush.BodySH}"/>
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Vernon Suddaby"
+                    Foreground="{StaticResource Brush.BodySH}" />
+
+
+                <TextBlock
+                    Margin="0,30,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_093], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleSH}" />
+                
+                <TextBlock
+                    Margin="0,30,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_094], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleSH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_095], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.BodySH}" />
+
+                <TextBlock
+                    Margin="0,30,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_096], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleSH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Sh0wdown"
+                    Foreground="{StaticResource Brush.BodySH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Gynt (UCP3)"
+                    Foreground="{StaticResource Brush.BodySH}" />
+
+                <TextBlock
+                    Margin="0,30,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_097], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleSH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Krarilotus"
+                    Foreground="{StaticResource Brush.BodySH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Kimberly Azula"
+                    Foreground="{StaticResource Brush.BodySH}" />
+
+                <TextBlock
+                    Margin="0,30,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_098], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleSH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Altaruss'28"
+                    Foreground="{StaticResource Brush.BodySH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Atlan"
+                    Foreground="{StaticResource Brush.BodySH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Chaf1812"
+                    Foreground="{StaticResource Brush.BodySH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="CIO"
+                    Foreground="{StaticResource Brush.BodySH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Corax"
+                    Foreground="{StaticResource Brush.BodySH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="J-T-de"
+                    Foreground="{StaticResource Brush.BodySH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="LeSpec"
+                    Foreground="{StaticResource Brush.BodySH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="LordHansCapon"
+                    Foreground="{StaticResource Brush.BodySH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Monsterfisch_"
+                    Foreground="{StaticResource Brush.BodySH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="np123"
+                    Foreground="{StaticResource Brush.BodySH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="TheRedDaemon"
+                    Foreground="{StaticResource Brush.BodySH}" />
+
+                <TextBlock
+                    Margin="0,30,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_099], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleSH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="CrusaderPilaw"
+                    Foreground="{StaticResource Brush.BodySH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Evrey"
+                    Foreground="{StaticResource Brush.BodySH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Hacks??lze"
+                    Foreground="{StaticResource Brush.BodySH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Nevikov"
+                    Foreground="{StaticResource Brush.BodySH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="PitchNeeded"
+                    Foreground="{StaticResource Brush.BodySH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Schlossgespenst"
+                    Foreground="{StaticResource Brush.BodySH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Tatha"
+                    Foreground="{StaticResource Brush.BodySH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Xander10alpha"
+                    Foreground="{StaticResource Brush.BodySH}" />
+
+                <TextBlock
+                    Margin="0,30,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_100], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleSH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="GRhin"
+                    Foreground="{StaticResource Brush.BodySH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Heroesflorian"
+                    Foreground="{StaticResource Brush.BodySH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="PodeCaradox"
+                    Foreground="{StaticResource Brush.BodySH}" />
+
+                <TextBlock
+                    Margin="0,30,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_101], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleSH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="CyberWizard"
+                    Foreground="{StaticResource Brush.BodySH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Udwin"
+                    Foreground="{StaticResource Brush.BodySH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="xCara"
+                    Foreground="{StaticResource Brush.BodySH}" />
+
+
+                <TextBlock
+                    Margin="0,30,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_102], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleSH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Skysouls (Chinese)"
+                    Foreground="{StaticResource Brush.BodySH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="AlixBarreaux (French)"
+                    Foreground="{StaticResource Brush.BodySH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Liegav, Tumblra (Hungarian)"
+                    Foreground="{StaticResource Brush.BodySH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="arabianknight2641 (Persian)"
+                    Foreground="{StaticResource Brush.BodySH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Lutel (Polish)"
+                    Foreground="{StaticResource Brush.BodySH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Lolasik011 (Russian)"
+                    Foreground="{StaticResource Brush.BodySH}" />
+
+                <TextBlock
+                    Margin="0,30,0,0"
+                    Text="{Binding GameTexts[TEXT_CREDITS_104], Source={x:Static local:Translate.Instance}}"
+                    Foreground="{StaticResource Brush.TitleSH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Evrey"
+                    Foreground="{StaticResource Brush.BodySH}" />
+                <TextBlock
+                    Margin="0,0,0,0"
+                    Text="Heroesflorian"
+                    Foreground="{StaticResource Brush.BodySH}" />
+                
+                <!-- End Spacer -->
+                <TextBlock Margin="0,10,0,1080"
+                    Text=""
+                    HorizontalAlignment="Center"
+                    TextAlignment="Center"/>
+
+            </StackPanel>
+        </ScrollViewer>
+
+        <Grid
+            HorizontalAlignment="Right"
+            VerticalAlignment="Top"
+            Width="800"
+            Height="100"
+            Margin="0,0,30,0"
+            >
+            <Grid.Background>
+                <LinearGradientBrush EndPoint="0.5,1" StartPoint="0.5,0">
+                    <GradientStop Offset="0" Color="Black" />
+                    <GradientStop Offset="1" Color="#00000000" />
+                </LinearGradientBrush>
+            </Grid.Background>
+        </Grid>
+        <Grid
+            HorizontalAlignment="Right"
+            VerticalAlignment="Bottom"
+            Width="800"
+            Height="100"
+            Margin="0,0,30,0"
+            >
+            <Grid.Background>
+                <LinearGradientBrush EndPoint="0.5,1" StartPoint="0.5,0">
+                    <GradientStop Offset="0" Color="#00000000" />
+                    <GradientStop Offset="1" Color="Black" />
+                </LinearGradientBrush>
+            </Grid.Background>
+        </Grid>
+        <Button
+            Margin="0"
+            Command="{Binding ButtonMainMenuCommand}"
+            CommandParameter="LeaveCredits"
+            Content="" Background="#FF000000" BorderBrush="#00000000" Foreground="#00000000" Opacity="0" />
+    </Grid>
+</UserControl>

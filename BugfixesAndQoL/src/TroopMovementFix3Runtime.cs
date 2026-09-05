@@ -10,6 +10,7 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
+using RedBird.Core.Memory;
 
 namespace BugfixesAndQoL
 {
@@ -42,6 +43,7 @@ namespace BugfixesAndQoL
         private SynchronizedMovementCadencePatch cadencePatch;
         private IntPtr libraryHandle;
         private int libraryLength;
+        private ScanRegion nativeRegion;
         private bool nativeLibraryAvailable;
         private bool fixedLayoutHashValidated;
         private bool fixedLayoutErrorLogged;
@@ -58,6 +60,7 @@ namespace BugfixesAndQoL
 
         public void InitializeNative(
             IntPtr newLibraryHandle,
+            ScanRegion region,
             ReadOnlySpan<byte> memory,
             bool isFixedLayoutHashValidated)
         {
@@ -69,6 +72,7 @@ namespace BugfixesAndQoL
 
             libraryHandle = newLibraryHandle;
             libraryLength = memory.Length;
+            nativeRegion = region ?? throw new ArgumentNullException(nameof(region));
             fixedLayoutHashValidated = isFixedLayoutHashValidated;
             nativeLibraryAvailable = true;
             MovementCadenceIntegration.RegistrationChanged += ApplySetting;
@@ -160,6 +164,7 @@ namespace BugfixesAndQoL
             fixedLayoutHashValidated = false;
             libraryHandle = IntPtr.Zero;
             libraryLength = 0;
+            nativeRegion = null;
         }
 
         private bool AreTroopMovementFixComponentsActive =>
@@ -176,9 +181,7 @@ namespace BugfixesAndQoL
         {
             // The module stays loaded for the process lifetime, so this span
             // remains valid when an option installs a native patch later.
-            return new ReadOnlySpan<byte>(
-                libraryHandle.ToPointer(),
-                libraryLength);
+            return nativeRegion == null ? ReadOnlySpan<byte>.Empty : nativeRegion.Span;
         }
 
         private void EnableCadencePatch()
@@ -190,6 +193,7 @@ namespace BugfixesAndQoL
                 newCadencePatch =
                 new SynchronizedMovementCadencePatch(
                         log,
+                        nativeRegion,
                         GetNativeLibraryMemory(),
                         unchecked((ulong)libraryHandle.ToInt64()),
                         TryGetCadence,
@@ -220,6 +224,7 @@ namespace BugfixesAndQoL
             {
                 newSpearmanMovementPatch = new SpearmanMovementPatch(
                     log,
+                    nativeRegion,
                     memory,
                     unchecked((ulong)libraryHandle.ToInt64()),
                     fixedLayoutHashValidated);

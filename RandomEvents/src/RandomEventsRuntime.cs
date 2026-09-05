@@ -22,7 +22,6 @@ namespace RandomEvents
     internal sealed class RandomEventsRuntime : IDisposable
     {
         private const string SaveDataIdentifier = "serp-randomevents-state";
-        private const int VanillaMonthsPerYear = 12;
         private const int RabbitSpawnRadius = 12;
         private const int LionSpawnRadius = 12;
         private const int BanditVisualPlayerId = 0;
@@ -34,7 +33,6 @@ namespace RandomEvents
         private const int ChoreProtocolVersion = 2;
         private const int MultiplayerStartupDelayMilliseconds = 5000;
         private const int MultiplayerStartupMinimumTicks = 30;
-        private const int MaximumChorePayloadBytes = 1200;
 
         private readonly ManualLogSource log;
         private readonly RandomEventsSettingsViewModel settings;
@@ -73,6 +71,7 @@ namespace RandomEvents
         private long lastInitializationSendTimestamp;
         private byte[] initializationStateDigest = Array.Empty<byte>();
         private byte[] cachedInitializationBody = Array.Empty<byte>();
+        private RandomEventsInitializationChorePacket cachedInitializationPacket;
         private string cachedInitializationBodyHash = string.Empty;
         private RandomEventsCooldownEncoding cachedInitializationCooldownEncoding;
         private int acceptedInitializationOperationId;
@@ -257,6 +256,7 @@ namespace RandomEvents
             lastInitializationSendTimestamp = 0;
             initializationStateDigest = Array.Empty<byte>();
             cachedInitializationBody = Array.Empty<byte>();
+            cachedInitializationPacket = null;
             cachedInitializationBodyHash = string.Empty;
             cachedInitializationCooldownEncoding = RandomEventsCooldownEncoding.None;
             acceptedInitializationBodyHash = string.Empty;
@@ -393,7 +393,7 @@ namespace RandomEvents
             isLocalHost = GameNetworkAPI.IsLocalHost();
             if (!networkInitialized || initializationChorePacketHook == null || batchChorePacketHook == null ||
                 signpostChorePacketHook == null || initializationAckPacketHook == null ||
-                !ChoreNetworkTransport.IsAvailable)
+                GameGlobalsManager.Instance.ChoreManagerVA == 0)
             {
                 DisableForNetwork("tick-aligned Chore transport is unavailable", gameModeDetails);
                 return;
@@ -627,11 +627,13 @@ namespace RandomEvents
                 return false;
             if (cachedInitializationBody.Length == 0 && !CreateInitializationAttempt())
                 return false;
-            if (!TrySendRawChore(initializationChorePacketHook.GetPacketId(), cachedInitializationBody, initializationOperationId, "initialization"))
+            if (!TrySendChore(initializationChorePacketHook, cachedInitializationPacket, initializationOperationId, "initialization", out byte[] body))
             {
                 initializationChoreQueued = false;
                 return false;
             }
+            cachedInitializationBody = body;
+            cachedInitializationBodyHash = RandomEventsDiagnostics.HashBytes(body);
             initializationAttemptCount++;
             initializationChoreQueued = true;
             lastInitializationSendTimestamp = Stopwatch.GetTimestamp();
@@ -653,6 +655,7 @@ namespace RandomEvents
             initializationStateDigest = RandomEventsDiagnostics.GetStateDigestBytes(state);
             RandomEventsCooldownPayload[] candidates = RandomEventsCooldownCodec.CreateCandidates(state);
             byte[] smallestBody = null;
+            RandomEventsInitializationChorePacket smallestPacket = null;
             foreach (RandomEventsCooldownPayload cooldown in candidates)
             {
                 var packet = new RandomEventsInitializationChorePacket
@@ -667,10 +670,12 @@ namespace RandomEvents
                 if (smallestBody == null || body.Length < smallestBody.Length)
                 {
                     smallestBody = body;
+                    smallestPacket = packet;
                     cachedInitializationCooldownEncoding = cooldown.Encoding;
                 }
             }
             cachedInitializationBody = smallestBody ?? Array.Empty<byte>();
+            cachedInitializationPacket = smallestPacket;
             cachedInitializationBodyHash = RandomEventsDiagnostics.HashBytes(cachedInitializationBody);
             initializationAcknowledgedPlayerIds.Clear();
             return cachedInitializationBody.Length > 0;
@@ -710,8 +715,7 @@ namespace RandomEvents
                 return false;
             }
 
-            byte[] body = RandomEventsDiagnostics.SerializeAndVerify(packet);
-            if (!TrySendRawChore(batchChorePacketHook.GetPacketId(), body, packet.OperationId, "event batch"))
+            if (!TrySendChore(batchChorePacketHook, packet, packet.OperationId, "event batch", out _))
                 return false;
 
             batchChoreQueued = true;
@@ -725,17 +729,18 @@ namespace RandomEvents
                 ProtocolVersion = ChoreProtocolVersion,
                 OperationId = NextOperationId()
             };
-            byte[] body = RandomEventsDiagnostics.SerializeAndVerify(packet);
-            if (!TrySendRawChore(signpostChorePacketHook.GetPacketId(), body, packet.OperationId, "signpost initialization"))
+            if (!TrySendChore(signpostChorePacketHook, packet, packet.OperationId, "signpost initialization", out _))
                 return false;
 
             signpostChoreQueued = true;
             return true;
         }
 
-        private bool TrySendRawChore(short packetId, byte[] body, int operationId, string label)
+        private bool TrySendChore<T>(R3PacketEventHook<T> packetHook, T packet, int operationId, string label, out byte[] body)
+            where T : class
         {
-            if (!networkInitialized || !ChoreNetworkTransport.IsAvailable)
+            body = Array.Empty<byte>();
+            if (!networkInitialized)
             {
                 LogError($"Random Events {label} refused because the Chore transport is unavailable.");
                 return false;
@@ -750,26 +755,23 @@ namespace RandomEvents
                 return false;
             }
 
-            byte[] blob = new byte[sizeof(short) + body.Length];
-            if (blob.Length > MaximumChorePayloadBytes)
+            short packetId = packetHook?.GetPacketId() ?? (short)0;
+            if (!RandomEventsChoreSender.TrySend(
+                packet,
+                packetId,
+                packetHook != null,
+                value => GameNetworkAPI.Serialize(value),
+                () => GameGlobalsManager.Instance.ChoreManagerVA,
+                (value, id) => GameNetworkAPI.SendPacketToAllEx2(value, id, viaChore: true),
+                out body,
+                out string rejectionReason))
             {
-                LogError(
-                    $"Random Events {label} refused because its serialized Chore exceeds the Script Extender limit: " +
-                    $"operationId={operationId}, payloadBytes={blob.Length}, limit={MaximumChorePayloadBytes}.");
-                return false;
-            }
-            BitConverter.GetBytes(packetId).CopyTo(blob, 0);
-            Buffer.BlockCopy(body, 0, blob, sizeof(short), body.Length);
-            Func<byte[], bool> sendRawBlob = ChoreNetworkTransport.SendRawBlob;
-            bool queued = sendRawBlob != null && sendRawBlob(blob);
-            if (!queued)
-            {
-                LogError($"Random Events {label} Chore was not queued; no local simulation action was applied: operationId={operationId}, payloadBytes={blob.Length}.");
+                LogError($"Random Events {label} Chore was not queued; no local simulation action was applied: operationId={operationId}, reason={rejectionReason}.");
                 return false;
             }
 
             lastRandomEventsChoreQueuedTick = queueTick;
-            LogDebug($"Random Events {label} Chore queued: packetId={packetId}, operationId={operationId}, bodyBytes={body.Length}, payloadBytes={blob.Length}, bodySha256={RandomEventsDiagnostics.HashBytes(body)}.");
+            LogDebug($"Random Events {label} Chore queued: packetId={packetId}, operationId={operationId}, bodyBytes={body.Length}, payloadBytes={sizeof(short) + body.Length}, bodySha256={RandomEventsDiagnostics.HashBytes(body)}.");
             return true;
         }
 
@@ -1294,7 +1296,7 @@ namespace RandomEvents
                     LogWarning(
                         $"Loaded Random Events state uses an implausible event date and will be initialized fresh: " +
                         $"currentAbsoluteMonth={currentAbsoluteMonth}, startAbsoluteMonth={loaded.StartAbsoluteMonth}, " +
-                        $"loadedNextDueAbsoluteMonth={loaded.NextDueAbsoluteMonth}, effectiveMonthsPerYear={VanillaMonthsPerYear}.");
+                        $"loadedNextDueAbsoluteMonth={loaded.NextDueAbsoluteMonth}, effectiveMonthsPerYear={RandomEventsCalendar.MonthsPerYear}.");
                 }
             }
             if (!valid)
@@ -2412,10 +2414,15 @@ namespace RandomEvents
 
         private int GetCurrentAbsoluteMonth()
         {
-            int currentYear = GameTimeManagerAPI.Instance.GetCurrentYear();
-            int currentMonth = GameTimeManagerAPI.Instance.GetCurrentMonth();
-            ValidateCalendarApi(currentYear, currentMonth);
-            return checked(currentYear * VanillaMonthsPerYear + currentMonth);
+            uint currentYear = GameTimeManagerAPI.Instance.GetCurrentYear();
+            uint currentMonth = GameTimeManagerAPI.Instance.GetCurrentMonth();
+            try { return RandomEventsCalendar.ToAbsoluteMonth(currentYear, currentMonth); }
+            catch
+            {
+                mapActive = false;
+                state = null;
+                throw;
+            }
         }
 
         private int GetElapsedMonthsSinceStart() =>
@@ -2426,19 +2433,6 @@ namespace RandomEvents
             // Fixed-point tenths keep rolls and save data deterministic; integer division intentionally floors.
             long numerator = checked((long)elapsedMonths * factorTenths);
             return checked((int)(numerator / (ScaledStrengthMonthsPerPeriod * ScaledStrengthTenthsPerUnit)));
-        }
-
-        private void ValidateCalendarApi(int currentYear, int currentMonth)
-        {
-            if (currentYear < 0 || currentMonth < 0 || currentMonth >= VanillaMonthsPerYear)
-            {
-                mapActive = false;
-                state = null;
-                throw new InvalidOperationException(
-                    $"Unsupported Vanilla calendar values year={currentYear}, month={currentMonth}; " +
-                    "Random Events was disabled for this map to prevent incorrectly dated events.");
-            }
-
         }
 
         private static bool HasElapsedMilliseconds(long startTimestamp, int milliseconds)

@@ -1,7 +1,9 @@
 // Feature: Lifecycle orchestration and shared event guards for Extra Features.
 using BepInEx.Logging;
+using RedBird.Core.Memory;
 using R3;
 using SHCDESE.API;
+using SHCDESE.API.LowLevel;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.Buildings;
 using SHCDESE.EventAPI.MapLoader;
@@ -45,6 +47,7 @@ namespace ExtraFeatures
         private PlagueApothecarySearchRangePatch plagueApothecarySearchRangePatch;
         private IntPtr libraryHandle;
         private int libraryLength;
+        private ScanRegion nativeRegion;
         private bool nativeLibraryAvailable;
         private bool fixedLayoutHashValidated;
         private bool monkAlwaysRunPatchUnavailable;
@@ -96,15 +99,20 @@ namespace ExtraFeatures
             TryRunFeature("AI defense repair lifecycle", aiDefenseRepairRuntime.Initialize);
         }
 
-        public void InitializeNative(IntPtr newLibraryHandle, ReadOnlySpan<byte> memory, bool isFixedLayoutHashValidated)
+        public void InitializeNative(CrusaderLibraryLoadContext context, bool isFixedLayoutHashValidated)
         {
             if (nativeLibraryAvailable)
                 return;
-            if (newLibraryHandle == IntPtr.Zero || memory.Length == 0)
+            if (context == null)
+                throw new ArgumentNullException(nameof(context));
+            IntPtr newLibraryHandle = context.ModuleHandle;
+            ReadOnlySpan<byte> memory = context.Memory;
+            if (newLibraryHandle == IntPtr.Zero || memory.Length == 0 || context.Region == null)
                 throw new ArgumentException("The Crusader library is unavailable.");
 
             libraryHandle = newLibraryHandle;
             libraryLength = memory.Length;
+            nativeRegion = context.Region;
             fixedLayoutHashValidated = isFixedLayoutHashValidated;
             nativeLibraryAvailable = true;
 
@@ -117,9 +125,9 @@ namespace ExtraFeatures
                 LogFeatureFailure("church priest counts", ex);
             }
 
-            InitializePlagueDurationPatch(newLibraryHandle, memory);
-            InitializePlagueApothecarySearchRangePatch(newLibraryHandle, memory);
-            InitializeMonkAlwaysRunPatch(newLibraryHandle, memory);
+            InitializePlagueDurationPatch(newLibraryHandle, nativeRegion, memory);
+            InitializePlagueApothecarySearchRangePatch(newLibraryHandle, nativeRegion, memory);
+            InitializeMonkAlwaysRunPatch(newLibraryHandle, nativeRegion, memory);
             try
             {
                 gatehouseAutomationRuntime.InitializeNative(newLibraryHandle, memory, fixedLayoutHashValidated);
@@ -131,7 +139,7 @@ namespace ExtraFeatures
 
             try
             {
-                aiDefenseRepairRuntime.InitializeNative(newLibraryHandle, memory, fixedLayoutHashValidated);
+                aiDefenseRepairRuntime.InitializeNative(newLibraryHandle, nativeRegion, memory, fixedLayoutHashValidated);
             }
             catch (Exception ex)
             {
@@ -166,7 +174,7 @@ namespace ExtraFeatures
             TryRunFeature("gatehouse automation", gatehouseAutomationRuntime.ApplySettings);
         }
 
-        public void InstallAIMarketVanillaPriceHook(IntPtr nativeLibraryHandle, ReadOnlySpan<byte> memory)
+        public void InstallAIMarketVanillaPriceHook()
         {
             if (aiMarketVanillaPriceHook != null)
                 return;
@@ -174,7 +182,7 @@ namespace ExtraFeatures
             try
             {
                 aiMarketVanillaPriceHook = new AIMarketVanillaPriceHook(
-                    log, settings, nativeLibraryHandle, memory, fixedLayoutHashValidated);
+                    log, settings, libraryHandle, nativeRegion, GetNativeLibraryMemory(), fixedLayoutHashValidated);
                 if (!fixedLayoutHashValidated)
                 {
                     Shared.DebugLogHelper.LogWarning(
@@ -216,6 +224,7 @@ namespace ExtraFeatures
             nativeLibraryAvailable = false;
             libraryHandle = IntPtr.Zero;
             libraryLength = 0;
+            nativeRegion = null;
 
             if (settingsSubscribed)
             {
@@ -330,6 +339,7 @@ namespace ExtraFeatures
             {
                 aiDefenseRepairRuntime.InitializeNative(
                     libraryHandle,
+                    nativeRegion,
                     GetNativeLibraryMemory(),
                     fixedLayoutHashValidated);
             }
@@ -439,6 +449,7 @@ namespace ExtraFeatures
 
         private void InitializeMonkAlwaysRunPatch(
             IntPtr nativeLibraryHandle,
+            ScanRegion region,
             ReadOnlySpan<byte> memory)
         {
             if (monkAlwaysRunPatch != null || monkAlwaysRunPatchUnavailable)
@@ -449,6 +460,7 @@ namespace ExtraFeatures
                 monkAlwaysRunPatch = new MonkAlwaysRunPatch(
                     log,
                     nativeLibraryHandle,
+                    region,
                     memory,
                     fixedLayoutHashValidated);
                 ApplyMonkAlwaysRunSetting();
@@ -488,7 +500,7 @@ namespace ExtraFeatures
             TryRunFeature("gatehouse map initialization", gatehouseAutomationRuntime.BeginMap);
         }
 
-        private void InitializePlagueDurationPatch(IntPtr nativeLibraryHandle, ReadOnlySpan<byte> memory)
+        private void InitializePlagueDurationPatch(IntPtr nativeLibraryHandle, ScanRegion region, ReadOnlySpan<byte> memory)
         {
             if (plagueDurationPatch != null || plagueDurationPatchUnavailable)
                 return;
@@ -496,7 +508,7 @@ namespace ExtraFeatures
             try
             {
                 plagueDurationPatch = new PlagueDurationPatch(
-                    log, nativeLibraryHandle, memory, fixedLayoutHashValidated);
+                    log, nativeLibraryHandle, region, memory, fixedLayoutHashValidated);
                 ApplyPlagueDurationSetting();
                 if (plagueDurationPatchUnavailable)
                     return;
@@ -516,6 +528,7 @@ namespace ExtraFeatures
 
         private void InitializePlagueApothecarySearchRangePatch(
             IntPtr nativeLibraryHandle,
+            ScanRegion region,
             ReadOnlySpan<byte> memory)
         {
             if (plagueApothecarySearchRangePatch != null || plagueApothecarySearchRangePatchUnavailable)
@@ -527,6 +540,7 @@ namespace ExtraFeatures
                     log,
                     settings,
                     nativeLibraryHandle,
+                    region,
                     memory,
                     fixedLayoutHashValidated);
                 if (!fixedLayoutHashValidated)
@@ -632,7 +646,7 @@ namespace ExtraFeatures
         private unsafe ReadOnlySpan<byte> GetNativeLibraryMemory()
         {
             // The game DLL stays loaded for the process lifetime.
-            return new ReadOnlySpan<byte>(libraryHandle.ToPointer(), libraryLength);
+            return nativeRegion == null ? ReadOnlySpan<byte>.Empty : nativeRegion.Span;
         }
 
         private void OnUnloadMap(MapUnloadEventArgs args)

@@ -5,10 +5,12 @@ using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using Zhuqiaomon.Assembly;
-using Zhuqiaomon.Hooks;
-using Zhuqiaomon.Hooks.Transaction;
-using Zhuqiaomon.Memory;
+using RedBird.Abstractions.Hooks;
+using RedBird.Abstractions.Hooks.Transaction;
+using RedBird.Core.Memory;
+using RedBird.X64.Assembly;
+using RedBird.X64.Hooks;
+using RedBird.X64.Hooks.Transaction;
 
 namespace ImprovedHunters
 {
@@ -64,7 +66,7 @@ namespace ImprovedHunters
             new Dictionary<int, ObservationState>();
         private readonly HashSet<string> loggedSkipReasons = new HashSet<string>();
         private HookTransaction transaction;
-        private HookRef<X64InlineHook> distanceCompareHook = new HookRef<X64InlineHook>();
+        private readonly HookHandle<X64InlineHook> distanceCompareHook = new HookHandle<X64InlineHook>();
         private bool featureAvailable;
         private bool hookConfirmed;
         private int diagnosticLogs;
@@ -74,6 +76,7 @@ namespace ImprovedHunters
             ManualLogSource log,
             ImprovedHuntersViewModel settings,
             HunterNativeVisibilityProbe visibilityProbe,
+            ScanRegion region,
             ReadOnlySpan<byte> memory,
             ulong libraryBase,
             bool referenceHashMatches,
@@ -129,22 +132,19 @@ namespace ImprovedHunters
 
             try
             {
-                transaction = new HookTransaction(
-                    memory,
-                    libraryBase,
-                    loggerFactory: null,
-                    failureMode: TransactionFailureMode.RollbackAndThrow);
-                transaction.AddContextHook(
-                    ref distanceCompareHook,
+                transaction = HunterHookInfrastructure.CreateOwnedTransaction(region);
+                HunterHookInfrastructure.AddContextHook(
+                    transaction,
+                    distanceCompareHook,
                     libraryBase + unchecked((ulong)compareRva),
                     TrySelectRemainingPathStage,
-                    regs: X64SmartCPUContextRegs.Volatile |
+                    registers: X64SmartCPUContextRegs.Volatile |
                         X64SmartCPUContextRegs.RBX |
                         X64SmartCPUContextRegs.RDI,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
-                transaction.Commit();
-                if (!distanceCompareHook.Success)
+                CommitResult commitResult = transaction.Commit();
+                if (!commitResult.IsCompleteSuccess || !distanceCompareHook.Success)
                     throw new InvalidOperationException("The Hunter initial distance-stage hook was not installed.");
 
                 featureAvailable = true;
@@ -713,7 +713,6 @@ namespace ImprovedHunters
 
             disposed = true;
             featureAvailable = false;
-            transaction?.Unload();
             transaction?.Dispose();
             transaction = null;
             lock (stateLock)

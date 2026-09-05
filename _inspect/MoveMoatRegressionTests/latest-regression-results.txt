@@ -1,0 +1,24 @@
+2026-09-05 15:52:34.584 +02:00
+PASS installed metadata: Assembly-CSharp / global EngineInterface / selectedChimps static int[] (Private, Static).
+SOURCE WARNING CS1701: 211 occurrences; warning CS1701: Es wird angenommen, dass der von "BepInEx" verwendete Assemblyverweis "mscorlib, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" mit "mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" von "mscorlib" übereinstimmt. Möglicherweise müssen Sie eine Laufzeitrichtlinie bereitstellen.
+PASS: installed 1.42.0 assembly API surface also matches all runtime sources.
+PASS: complete runtime semantic source check against verified local Script Extender 1.42.0; no mod assembly emitted.
+CURSOR FULL CHAIN units=1 queries=100 ms=0,491 allocatedBytes=52000 pathSearches=0
+CURSOR FULL CHAIN units=120 queries=100 ms=3,285 allocatedBytes=52000 pathSearches=0
+CURSOR FULL CHAIN units=1000 queries=100 ms=21,367 allocatedBytes=52000 pathSearches=0
+CURSOR PRODUCTION ADAPTER units=1 queries=1000 ms=0,801 allocatedBytes=0 newNodes=0 pathSearches=0
+CURSOR GROUP ADAPTER units=1 queries=100 allocatedBytes=20800
+CURSOR PRODUCTION ADAPTER units=120 queries=1000 ms=3,147 allocatedBytes=0 newNodes=0 pathSearches=0
+CURSOR GROUP ADAPTER units=120 queries=100 allocatedBytes=20800
+CURSOR PRODUCTION ADAPTER units=1000 queries=1000 ms=21,166 allocatedBytes=0 newNodes=0 pathSearches=0
+CURSOR GROUP ADAPTER units=1000 queries=100 allocatedBytes=20800
+PASS: 3364 assertions (unit plans, native buffers, real tile graph, work selection cache).
+SEARCH MODEL units=1 independentNodes=8111 sharedNodes=7516 sharedRuns=1 cacheHits=1 independentMs=9,73 sharedMs=8,10 independentAllocBytes=3409336 sharedAllocBytes=1218872
+SEARCH MODEL units=5 independentNodes=40242 sharedNodes=38374 sharedRuns=8 cacheHits=5 independentMs=49,42 sharedMs=36,75 independentAllocBytes=3412088 sharedAllocBytes=4630232
+SEARCH MODEL units=20 independentNodes=164492 sharedNodes=143786 sharedRuns=28 cacheHits=20 independentMs=156,44 sharedMs=50,49 independentAllocBytes=3422408 sharedAllocBytes=4657048
+SEARCH MODEL units=27 independentNodes=224280 sharedNodes=196442 sharedRuns=37 cacheHits=27 independentMs=75,40 sharedMs=66,33 independentAllocBytes=3427224 sharedAllocBytes=4661864
+SEARCH MODEL units=29 independentNodes=241778 sharedNodes=211241 sharedRuns=40 cacheHits=29 independentMs=72,61 sharedMs=67,46 independentAllocBytes=3428600 sharedAllocBytes=4663240
+PASS: 6792 independent search assertions (directed edges, profile conflicts, length limits, terrain changes).
+PASS: 1469340 independent cursor connectivity comparisons after edge additions/removals.
+PASS: actual recovery emitter assembled and decoded (73 bytes, no native code executed).
+PASS: syntax of 14 runtime files; 113 actual runtime members compiled and exercised.

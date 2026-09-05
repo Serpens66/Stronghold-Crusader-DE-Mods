@@ -379,18 +379,22 @@ namespace ExtraFeatures
                 BuildingGlobalId = globalId,
                 AutomaticEnabled = automaticEnabled
             };
-            byte[] body = GameNetworkAPI.Serialize(packet);
-            byte[] blob = new byte[sizeof(short) + body.Length];
-            BitConverter.GetBytes(packetHook.GetPacketId()).CopyTo(blob, 0);
-            Buffer.BlockCopy(body, 0, blob, sizeof(short), body.Length);
-            Func<byte[], bool> sendRawBlob = ChoreNetworkTransport.SendRawBlob;
-            if (sendRawBlob == null || !sendRawBlob(blob))
+            short packetId = packetHook?.GetPacketId() ?? (short)0;
+            if (!ExtraFeaturesChoreSender.TrySend(
+                    packet,
+                    packetId,
+                    networkInitialized && packetHook != null,
+                    value => GameNetworkAPI.Serialize(value),
+                    () => SHCDESE.GameGlobals.GameGlobalsManager.Instance.ChoreManagerVA,
+                    (value, id) => GameNetworkAPI.SendPacketToAllEx2(value, id, viaChore: true),
+                    out byte[] body,
+                    out string rejectionReason))
             {
-                LogError($"gatehouse Chore was not queued; no local change was applied: operationId={operationId}, globalId={globalId}.");
+                LogError($"gatehouse Chore was not queued; no local change was applied: operationId={operationId}, globalId={globalId}, reason={rejectionReason}.");
                 return false;
             }
 
-            LogInfo($"gatehouse Chore queued: operationId={operationId}, globalId={globalId}, automaticEnabled={automaticEnabled}, payloadBytes={blob.Length}.");
+            LogInfo($"gatehouse Chore queued: operationId={operationId}, globalId={globalId}, automaticEnabled={automaticEnabled}, payloadBytes={sizeof(short) + body.Length}.");
             return true;
         }
 
@@ -453,15 +457,13 @@ namespace ExtraFeatures
                 if (!TryGetLiveGatehouse(args.BuildingId, out GameBuilding* building, out _))
                     return;
 
-                // SE-GATEHOUSE-UNIT-ID-COMPAT: Script Extender 1.42.0
-                // creates this event field with GetIndexByOffset(...), so it is
-                // a zero-based span index despite being named UnitId. Re-audit
-                // after an SE update; remove this conversion once upstream emits
-                // the documented one-based ID, or it would become an off-by-one.
-                int unitSpanIndex = args.UnitId;
+                // Script Extender 2.0.2 supplies the normal one-based game ID.
+                // Validate that boundary directly; applying the old +1 correction
+                // would silently select the adjacent unit for most valid values.
+                int eventUnitId = args.UnitId;
                 Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
-                if (!Shared.GatehouseQueryUnitIdPolicy.TryConvertSpanIndexToGameId(
-                        unitSpanIndex,
+                if (!Shared.GatehouseQueryUnitIdPolicy.TryValidateGameId(
+                        eventUnitId,
                         units.Length,
                         out int unitId) ||
                     !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
@@ -488,7 +490,7 @@ namespace ExtraFeatures
                 if (!firstQueryLogged)
                 {
                     firstQueryLogged = true;
-                    LogInfo($"gatehouse query hook confirmed: buildingId={args.BuildingId}, rawUnitSpanIndex={unitSpanIndex}, unitId={unitId}, globalId={globalId}, owner={building->r_PlayerIdOwner}, tileX={building->r_TilePositionXBegin}, tileY={building->r_TilePositionYBegin}.");
+                    LogInfo($"gatehouse query hook confirmed: buildingId={args.BuildingId}, eventUnitId={eventUnitId}, validatedUnitId={unitId}, globalId={globalId}, owner={building->r_PlayerIdOwner}, tileX={building->r_TilePositionXBegin}, tileY={building->r_TilePositionYBegin}.");
                 }
 
                 if (manualOnlyGateGlobalIds.Contains(globalId))
@@ -856,7 +858,9 @@ namespace ExtraFeatures
         }
 
         private bool IsChoreTransportReady() =>
-            networkInitialized && packetHook != null && ChoreNetworkTransport.IsAvailable;
+            ExtraFeaturesChoreSender.IsAvailable(
+                networkInitialized && packetHook != null,
+                () => SHCDESE.GameGlobals.GameGlobalsManager.Instance.ChoreManagerVA);
 
         private int NextOperationId()
         {

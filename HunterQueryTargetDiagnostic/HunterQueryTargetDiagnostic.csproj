@@ -60,12 +60,16 @@
       <HintPath>$(ExtenderDir)\System.Memory.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <Reference Include="Zhuqiaomon">
-      <HintPath>$(ExtenderDir)\Zhuqiaomon.dll</HintPath>
+    <Reference Include="RedBird.Abstractions">
+      <HintPath>$(ExtenderDir)\RedBird.Abstractions.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <Reference Include="Iced">
-      <HintPath>$(ExtenderDir)\Iced.dll</HintPath>
+    <Reference Include="RedBird.Core">
+      <HintPath>$(ExtenderDir)\RedBird.Core.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="RedBird.X64">
+      <HintPath>$(ExtenderDir)\RedBird.X64.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="Microsoft.Extensions.Logging.Abstractions">
@@ -91,8 +95,9 @@
     <Error Condition="!Exists('$(ExtenderDir)\SHCDESE.dll')" Text="SHCDESE.dll was not found: $(ExtenderDir)" />
     <Error Condition="!Exists('$(ExtenderDir)\R3.dll')" Text="R3.dll was not found: $(ExtenderDir)" />
     <Error Condition="!Exists('$(ExtenderDir)\System.Memory.dll')" Text="System.Memory.dll was not found: $(ExtenderDir)" />
-    <Error Condition="!Exists('$(ExtenderDir)\Zhuqiaomon.dll')" Text="Zhuqiaomon.dll was not found: $(ExtenderDir)" />
-    <Error Condition="!Exists('$(ExtenderDir)\Iced.dll')" Text="Iced.dll was not found: $(ExtenderDir)" />
+    <Error Condition="!Exists('$(ExtenderDir)\RedBird.Abstractions.dll')" Text="RedBird.Abstractions.dll was not found: $(ExtenderDir)" />
+    <Error Condition="!Exists('$(ExtenderDir)\RedBird.Core.dll')" Text="RedBird.Core.dll was not found: $(ExtenderDir)" />
+    <Error Condition="!Exists('$(ExtenderDir)\RedBird.X64.dll')" Text="RedBird.X64.dll was not found: $(ExtenderDir)" />
     <Error Condition="!Exists('$(ExtenderDir)\Microsoft.Extensions.Logging.Abstractions.dll')" Text="Microsoft.Extensions.Logging.Abstractions.dll was not found: $(ExtenderDir)" />
   </Target>
 </Project>

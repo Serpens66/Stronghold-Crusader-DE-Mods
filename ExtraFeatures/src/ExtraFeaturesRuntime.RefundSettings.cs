@@ -20,7 +20,7 @@ namespace ExtraFeatures
             ApplyRefundPercent(buildingApi.GoldRefundMultiplier, settings.GoldRefundPercent);
         }
 
-        private static void ApplyRefundPercent(Zhuqiaomon.Memory.Managed.ManagedValue<float> refundMultiplier, int percent)
+        private static void ApplyRefundPercent(RedBird.Core.Memory.Managed.ManagedValue<float> refundMultiplier, int percent)
         {
             refundMultiplier.SetValue(percent < 0 ? VanillaRefundMultiplier : percent / 100f);
         }

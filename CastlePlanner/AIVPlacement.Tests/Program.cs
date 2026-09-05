@@ -72,7 +72,8 @@ internal static class Program
             ("converts decoration tiles to projectile coordinates", ConvertsDecorationTilesToProjectileCoordinates),
             ("aligns native rotation to the live Keep footprint", AlignsNativeRotationToLiveKeepFootprint),
             ("resolves rotated BuildStructure origins", ResolvesRotatedBuildStructureOrigins),
-            ("preserves compound storage placement order", PreservesCompoundStoragePlacementOrder)
+            ("preserves compound storage placement order", PreservesCompoundStoragePlacementOrder),
+            ("pins CastlePlanner to RedBird 2.0.2", PinsCastlePlannerToRedBird202)
         };
 
         int failures = 0;
@@ -432,6 +433,87 @@ internal static class Program
         Assert(bridge.Contains("GetAssemblies()", StringComparison.Ordinal) &&
             bridge.Contains("ReplaceStatuses", StringComparison.Ordinal),
             "optional reflection status bridge is missing");
+    }
+
+    private static void PinsCastlePlannerToRedBird202()
+    {
+        string root = FindCastlePlannerRoot();
+        string plugin = File.ReadAllText(Path.Combine(root, "src", "CastlePlannerPlugin.cs"));
+        string runtime = File.ReadAllText(Path.Combine(root, "src", "CastlePlannerRuntime.cs"));
+        string project = File.ReadAllText(Path.Combine(root, "CastlePlanner.csproj"));
+        string manifest = File.ReadAllText(Path.Combine(
+            root, "BepInEx", "plugins", "CastlePlanner_Serp", "info.json"));
+        string settingsXaml = File.ReadAllText(Path.Combine(
+            root, "BepInEx", "plugins", "CastlePlanner_Serp", "Override",
+            "ScriptExtenderUI", "CastlePlannerSettings.xaml"));
+
+        Assert(plugin.Contains("BepInDependency(ScriptExtenderGuid, \"2.0.2\")", StringComparison.Ordinal),
+            "Script Extender dependency is not exact 2.0.2");
+        Assert(plugin.Contains("OnCrusaderLibraryLoaded(CrusaderLibraryLoadContext context)", StringComparison.Ordinal) &&
+            plugin.Contains("runtime.Install(context, currentNativeLayout)", StringComparison.Ordinal),
+            "CastlePlanner does not propagate the 2.0.2 load context");
+        Assert(runtime.Contains("new HookHandle<X64InlineHook>()", StringComparison.Ordinal) &&
+            runtime.Contains("HookTarget.FromAddress(", StringComparison.Ordinal) &&
+            runtime.Contains("new ContextHookOptions", StringComparison.Ordinal),
+            "CastlePlanner hook is not registered through a typed explicit RedBird target");
+        Assert(runtime.Contains("commitResult.IsCompleteSuccess", StringComparison.Ordinal) &&
+            runtime.Contains("humanKeepCoordinateLoadHook.Success", StringComparison.Ordinal),
+            "CastlePlanner does not check transaction and handle success");
+        Assert(runtime.Contains("OwnsHooks = false", StringComparison.Ordinal),
+            "CastlePlanner process-lifetime hook ownership is not explicit");
+        Assert(!runtime.Contains("Zhuqiaomon", StringComparison.Ordinal) &&
+            !runtime.Contains("HookRef<", StringComparison.Ordinal),
+            "CastlePlanner runtime retains a legacy hook API");
+        Assert(project.Contains("RedBird.Abstractions.dll", StringComparison.Ordinal) &&
+            project.Contains("RedBird.Core.dll", StringComparison.Ordinal) &&
+            project.Contains("RedBird.X64.dll", StringComparison.Ordinal) &&
+            !project.Contains("Zhuqiaomon.dll", StringComparison.Ordinal) &&
+            !project.Contains("PolyHook2.NET.dll", StringComparison.Ordinal) &&
+            !project.Contains("Iced.dll", StringComparison.Ordinal),
+            "CastlePlanner project references do not match RedBird 2.0.2");
+        Assert(manifest.Contains("\"NetworkMode\": 1", StringComparison.Ordinal),
+            "CastlePlanner is not classified as gameplay-synchronized");
+        Assert(settingsXaml.Contains("HorizontalScrollBarVisibility=\"Auto\"", StringComparison.Ordinal) &&
+            settingsXaml.Contains("VerticalScrollBarVisibility=\"Auto\"", StringComparison.Ordinal),
+            "CastlePlanner settings are not reachable in both dimensions");
+
+        const int hookRva = 0x95B3C;
+        byte[] signature = Convert.FromHexString(
+            "4863BCCD540D0000448BA4CD500D0000448BCF458BC46689442420");
+        string gameRoot = Environment.GetEnvironmentVariable("CASTLE_PLANNER_GAME_DIR") ??
+            @"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition";
+        byte[] image = File.ReadAllBytes(Path.Combine(
+            gameRoot, "Stronghold Crusader Definitive Edition_Data", "Plugins", "x86_64", "CrusaderDE.dll"));
+        int rawOffset = RvaToRawOffset(image, hookRva);
+        Assert(image.AsSpan(rawOffset, signature.Length).SequenceEqual(signature),
+            "human Keep hook signature differs at audited RVA");
+        int matches = 0;
+        for (int offset = 0; offset <= image.Length - signature.Length; offset++)
+        {
+            if (image.AsSpan(offset, signature.Length).SequenceEqual(signature))
+                matches++;
+        }
+        Equal(1, matches);
+    }
+
+    private static int RvaToRawOffset(byte[] image, int rva)
+    {
+        int peOffset = BitConverter.ToInt32(image, 0x3C);
+        int sectionCount = BitConverter.ToUInt16(image, peOffset + 6);
+        int optionalHeaderSize = BitConverter.ToUInt16(image, peOffset + 20);
+        int sectionTable = peOffset + 24 + optionalHeaderSize;
+        for (int index = 0; index < sectionCount; index++)
+        {
+            int header = sectionTable + index * 40;
+            int virtualSize = BitConverter.ToInt32(image, header + 8);
+            int virtualAddress = BitConverter.ToInt32(image, header + 12);
+            int rawSize = BitConverter.ToInt32(image, header + 16);
+            int rawAddress = BitConverter.ToInt32(image, header + 20);
+            int length = Math.Max(virtualSize, rawSize);
+            if (rva >= virtualAddress && rva < virtualAddress + length)
+                return checked(rawAddress + rva - virtualAddress);
+        }
+        throw new InvalidOperationException($"RVA 0x{rva:X} is not in a PE section.");
     }
 
     private static string FindCastlePlannerRoot()

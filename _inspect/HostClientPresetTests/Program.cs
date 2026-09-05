@@ -35,6 +35,8 @@ internal static class Program
             TestGameModeHelper();
             TestGameplayFeatureModePolicy();
             TestStartConditionsMapSessionState();
+            TestStartGoldPolicy();
+            TestP2aMigrationContracts();
             TestGameplayGateSourceIntegration();
             TestLocalPerPlayerSetting();
             TestShiftRepairAllBuildingsPolicy();
@@ -67,6 +69,8 @@ internal static class Program
             TestAiStoneReserveNativeResolution();
             TestAiStoneReservePolicy();
             TestMultiplayerGameSpeedPolicyAndPacket();
+            TestBugfixesChoreSender();
+            TestExtraFeaturesChoreSenderAndApiWiring();
             TestSiegeAmmoRestockPolicyAndPacket();
             TestMarketTradeIntegration();
             TestGameSpeedRepeatScheduler();
@@ -333,7 +337,7 @@ internal static class Program
             conflicting.PreparePresets(null, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Conflicting.dll"), "ConflictingTest");
             Check(conflicting.HasHostSettings && !conflicting.HasClientSettings, "SyncHostOnly did not take precedence over a conflicting client attribute");
 
-            Console.WriteLine("PASS: 1.42 routing, authority, game modes, Trail/client locks, presets, and MessagePack sentinels");
+            Console.WriteLine("PASS: 2.0.2 routing, authority, game modes, Trail/client locks, presets, and MessagePack sentinels");
             return 0;
         }
         catch (Exception exception)
@@ -1700,6 +1704,75 @@ internal static class Program
             "StartConditions did not recover after an allowed-blocked-allowed sequence");
     }
 
+    private static void TestStartGoldPolicy()
+    {
+        Check(StartConditions.StartGoldPolicy.IsValidConfiguredValue(-1) &&
+              StartConditions.StartGoldPolicy.IsValidConfiguredValue(0) &&
+              StartConditions.StartGoldPolicy.IsValidConfiguredValue(StartConditions.StartGoldPolicy.MaximumGold),
+            "StartConditions rejected valid signed start-gold boundaries");
+        Check(!StartConditions.StartGoldPolicy.IsValidConfiguredValue(-2) &&
+              !StartConditions.StartGoldPolicy.IsValidConfiguredValue(StartConditions.StartGoldPolicy.MaximumGold + 1) &&
+              !StartConditions.StartGoldPolicy.IsValidConfiguredValue(int.MaxValue),
+            "StartConditions accepted invalid or overflowing start-gold values");
+    }
+
+    private static void TestP2aMigrationContracts()
+    {
+        string workspaceRoot = Path.GetFullPath(
+            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", ".."));
+        string[,] mods =
+        {
+            { "BuildingCosts", "BuildingCostsPlugin.cs", "BuildingCosts_Serp", "1.0.100" },
+            { "BuildingLimit", "BuildingLimitPlugin.cs", "BuildingLimit_Serp", "1.0.18" },
+            { "CheatMod", "CheatModPlugin.cs", "CheatMod_Serp", "1.0.5" },
+            { "UnitCosts", "UnitCostsPlugin.cs", "UnitCosts_Serp", "1.0.22" },
+            { "UnitLimit", "UnitLimitPlugin.cs", "UnitLimit_Serp", "1.0.92" },
+        };
+
+        for (int index = 0; index < mods.GetLength(0); index++)
+        {
+            string mod = mods[index, 0];
+            string pluginSource = File.ReadAllText(Path.Combine(
+                workspaceRoot,
+                mod,
+                "src",
+                mods[index, 1]));
+            string projectSource = File.ReadAllText(Path.Combine(
+                workspaceRoot,
+                mod,
+                mod + ".csproj"));
+            string manifestPath = Path.Combine(
+                workspaceRoot,
+                mod,
+                "BepInEx",
+                "plugins",
+                mods[index, 2],
+                "info.json");
+            var manifest = DependencyFreeJson.Parse(File.ReadAllText(manifestPath))
+                as Dictionary<string, object>;
+
+            Check(pluginSource.Contains("[BepInDependency(ScriptExtenderGuid, \"2.0.2\")]") &&
+                  pluginSource.Contains("OnCrusaderLibraryLoaded(CrusaderLibraryLoadContext context)") &&
+                  !pluginSource.Contains("OnCrusaderLibraryLoaded(IntPtr") &&
+                  !projectSource.Contains("Zhuqiaomon"),
+                mod + " does not use the clean Script Extender 2.0.2 load contract");
+            Check(manifest != null &&
+                  manifest.TryGetValue("NetworkMode", out object networkMode) &&
+                  Convert.ToInt64(networkMode) == 1 &&
+                  manifest.TryGetValue("Version", out object version) &&
+                  string.Equals(version as string, mods[index, 3], StringComparison.Ordinal),
+                mod + " manifest has inconsistent NetworkMode or version metadata");
+        }
+
+        string buildingLimitCache = File.ReadAllText(Path.Combine(
+            workspaceRoot,
+            "BuildingLimit",
+            "src",
+            "ActiveBuildingCache.cs"));
+        Check(!buildingLimitCache.Contains("args.BuildingId + 1"),
+            "BuildingLimit retains the obsolete pre-1.45 OnTogglePause index correction");
+    }
+
     private static void TestGameplayGateSourceIntegration()
     {
         string workspaceRoot = Path.GetFullPath(
@@ -2081,15 +2154,26 @@ internal static class Program
             MessagePackSerializer.Deserialize<Dictionary<string, byte[]>>(File.ReadAllBytes(settingsPath));
         Dictionary<string, byte[]> stalePreset =
             MessagePackSerializer.Deserialize<Dictionary<string, byte[]>>(stalePayload["__SerpPreset1"]);
+        // Keep this migration fixture independent from the preceding live preset-switch checks.
+        stalePreset[nameof(setting.EnableAiFixes)] = MessagePackSerializer.Serialize(false);
+        stalePreset[nameof(setting.EnableSurrenderAndStatistics)] = MessagePackSerializer.Serialize(false);
         stalePreset["EnableCustomLordExtendedPackages"] = MessagePackSerializer.Serialize(true);
         stalePayload["__SerpPreset1"] = MessagePackSerializer.Serialize(stalePreset);
         File.WriteAllBytes(settingsPath, MessagePackSerializer.Serialize(stalePayload));
+        bool storedAiFixes = MessagePackSerializer.Deserialize<bool>(stalePreset[nameof(setting.EnableAiFixes)]);
+        bool storedSurrender = MessagePackSerializer.Deserialize<bool>(stalePreset[nameof(setting.EnableSurrenderAndStatistics)]);
+        Check(!storedAiFixes && !storedSurrender,
+            $"the stale-key fixture lost the current preset values before reload " +
+            $"(EnableAiFixes={storedAiFixes}, EnableSurrenderAndStatistics={storedSurrender})");
 
         var migratedSetting = new SurrenderAndStatisticsSettingViewModel();
         migratedSetting.PreparePresets(null, pluginPath, "SurrenderAndStatisticsSettingTest");
         migratedSetting.ActivatePresets();
         Check(!migratedSetting.EnableAiFixes && !migratedSetting.EnableSurrenderAndStatistics,
-            "an obsolete Custom Lord preset key prevented current settings from loading");
+            $"an obsolete Custom Lord preset key prevented current settings from loading " +
+            $"(EnableAiFixes={migratedSetting.EnableAiFixes}, " +
+            $"EnableSurrenderAndStatistics={migratedSetting.EnableSurrenderAndStatistics}, " +
+            $"SelectedPreset={migratedSetting.SelectedPreset})");
         string workspaceRoot = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", ".."));
         string bugfixesViewModelSource = File.ReadAllText(
             Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", "BugfixesAndQoLViewModel.cs"));
@@ -3419,6 +3503,191 @@ internal static class Program
             "switching Shift during held repeats did not select 5/25/5 steps");
     }
 
+    private static void TestBugfixesChoreSender()
+    {
+        var packet = new SurrenderExecutionPacket { PlayerId = 3 };
+        byte[] first = GameNetworkAPI.Serialize(packet);
+        byte[] second = GameNetworkAPI.Serialize(packet);
+        Check(first.SequenceEqual(second),
+            "the same unchanged BugfixesAndQoL Chore packet did not serialize deterministically twice");
+
+        int serialized = 0;
+        int sent = 0;
+        int mutations = 0;
+        object sentPacket = null;
+        Func<SurrenderExecutionPacket, byte[]> body1199 = value =>
+        {
+            serialized++;
+            return new byte[1197];
+        };
+        Action<SurrenderExecutionPacket, short> send = (value, id) =>
+        {
+            sent++;
+            mutations++;
+            sentPacket = value;
+        };
+
+        Check(!BugfixesAndQoLChoreSender.TrySend(packet, 5, false, body1199, () => 1, send,
+                out _, out _) && serialized == 0 && sent == 0 && mutations == 0,
+            "missing BugfixesAndQoL packet hook did not fail before serialization and mutation");
+        Check(!BugfixesAndQoLChoreSender.TrySend(packet, 5, true,
+                value => throw new InvalidOperationException("serializer"), () => 1, send,
+                out _, out _) && sent == 0 && mutations == 0,
+            "BugfixesAndQoL serializer failure caused a send or mutation");
+        Check(!BugfixesAndQoLChoreSender.TrySend(packet, 5, true, body1199, () => 0, send,
+                out _, out _) && sent == 0 && mutations == 0,
+            "missing BugfixesAndQoL Chore manager caused a send or mutation");
+        Check(!BugfixesAndQoLChoreSender.IsAvailable(true, () => 0) &&
+              !BugfixesAndQoLChoreSender.IsAvailable(false, () => 1) &&
+              !BugfixesAndQoLChoreSender.IsAvailable(true, () => throw new InvalidOperationException("manager")),
+            "BugfixesAndQoL Chore availability did not fail closed");
+        Check(BugfixesAndQoLChoreSender.TrySend(packet, 5, true, body1199, () => 1, send,
+                out byte[] accepted1199, out _) && accepted1199.Length + sizeof(short) == 1199 &&
+              ReferenceEquals(sentPacket, packet),
+            "1199-byte BugfixesAndQoL Chore was rejected or did not send the original packet object");
+        Check(BugfixesAndQoLChoreSender.TrySend(packet, 5, true, value => new byte[1198], () => 1, send,
+                out byte[] accepted1200, out _) && accepted1200.Length + sizeof(short) == 1200,
+            "1200-byte BugfixesAndQoL Chore was rejected");
+        bool simulationPaused = true;
+        Check(simulationPaused && BugfixesAndQoLChoreSender.TrySend(packet, 5, true, body1199, () => 1, send,
+                out _, out _),
+            "paused simulation disabled the BugfixesAndQoL Chore-only path");
+        int acceptedMutations = mutations;
+        Check(!BugfixesAndQoLChoreSender.TrySend(packet, 5, true, value => new byte[1199], () => 1, send,
+                out _, out _) && mutations == acceptedMutations,
+            "1201-byte BugfixesAndQoL Chore was not rejected before mutation");
+        int beforeThrow = mutations;
+        Check(!BugfixesAndQoLChoreSender.TrySend(packet, 5, true, body1199, () => 1,
+                (value, id) => throw new InvalidOperationException("send"), out _, out _) &&
+              mutations == beforeThrow,
+            "BugfixesAndQoL send exception did not fail closed");
+
+        string workspaceRoot = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", ".."));
+        string[] senderFiles =
+        {
+            "AssassinClimbRuntime.cs",
+            "MultiplayerGameSpeedRuntime.cs",
+            "QuarryPileRelocationRuntime.cs",
+            "SiegeAmmoRestockFeature.cs",
+            "SingleBuildingPauseHook.cs",
+            "SurrenderFeature.cs"
+        };
+        foreach (string fileName in senderFiles)
+        {
+            string source = File.ReadAllText(Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", fileName));
+            Check(source.Contains("BugfixesAndQoLChoreSender.TrySend(") &&
+                  source.Contains("GameNetworkAPI.Serialize(value)") &&
+                  source.Contains("GameNetworkAPI.SendPacketToAllEx2(value, id, viaChore: true)"),
+                fileName + " does not use the fail-closed 2.0.2 Chore sender contract");
+            Check(!source.Contains("ChoreNetworkTransport") && !source.Contains("SendRawBlob"),
+                fileName + " retains the removed raw Chore transport");
+        }
+
+        string helper = File.ReadAllText(Path.Combine(
+            workspaceRoot, "BugfixesAndQoL", "src", "BugfixesAndQoLChoreSender.cs"));
+        string sendMethod = helper.Substring(helper.IndexOf("internal static bool TrySend", StringComparison.Ordinal));
+        Check(sendMethod.Contains("body.Length > MaximumPayloadBytes - sizeof(short)") &&
+              sendMethod.IndexOf("serialize(packet)", StringComparison.Ordinal) <
+                  sendMethod.IndexOf("getChoreManagerAddress()", StringComparison.Ordinal) &&
+              sendMethod.IndexOf("getChoreManagerAddress()", StringComparison.Ordinal) <
+                  sendMethod.IndexOf("sendViaChore(packet, packetId)", StringComparison.Ordinal),
+            "BugfixesAndQoL Chore helper does not enforce serialization, manager, size, and original-object send order");
+    }
+
+    private static void TestExtraFeaturesChoreSenderAndApiWiring()
+    {
+        var packet = new SurrenderExecutionPacket { PlayerId = 4 };
+        byte[] first = GameNetworkAPI.Serialize(packet);
+        byte[] second = GameNetworkAPI.Serialize(packet);
+        Check(first.SequenceEqual(second),
+            "the same unchanged ExtraFeatures Chore packet did not serialize deterministically twice");
+
+        int serialized = 0;
+        int sent = 0;
+        int mutations = 0;
+        object sentPacket = null;
+        Func<SurrenderExecutionPacket, byte[]> body1199 = value =>
+        {
+            serialized++;
+            return new byte[1197];
+        };
+        Action<SurrenderExecutionPacket, short> send = (value, id) =>
+        {
+            sent++;
+            mutations++;
+            sentPacket = value;
+        };
+
+        Check(!ExtraFeaturesChoreSender.TrySend(packet, 7, false, body1199, () => 1, send,
+                out _, out _) && serialized == 0 && sent == 0 && mutations == 0,
+            "missing ExtraFeatures packet hook did not fail before serialization and mutation");
+        Check(!ExtraFeaturesChoreSender.TrySend(packet, 7, true,
+                value => throw new InvalidOperationException("serializer"), () => 1, send,
+                out _, out _) && sent == 0 && mutations == 0,
+            "ExtraFeatures serializer failure caused a send or mutation");
+        Check(!ExtraFeaturesChoreSender.TrySend(packet, 7, true, body1199, () => 0, send,
+                out _, out _) && sent == 0 && mutations == 0,
+            "missing ExtraFeatures Chore manager caused a send or mutation");
+        Check(!ExtraFeaturesChoreSender.IsAvailable(true, () => 0) &&
+              !ExtraFeaturesChoreSender.IsAvailable(false, () => 1) &&
+              !ExtraFeaturesChoreSender.IsAvailable(true, () => throw new InvalidOperationException("manager")),
+            "ExtraFeatures Chore availability did not fail closed");
+        Check(ExtraFeaturesChoreSender.TrySend(packet, 7, true, body1199, () => 1, send,
+                out byte[] accepted1199, out _) && accepted1199.Length + sizeof(short) == 1199 &&
+              ReferenceEquals(sentPacket, packet),
+            "1199-byte ExtraFeatures Chore was rejected or did not send the original packet object");
+        Check(ExtraFeaturesChoreSender.TrySend(packet, 7, true, value => new byte[1198], () => 1, send,
+                out byte[] accepted1200, out _) && accepted1200.Length + sizeof(short) == 1200,
+            "1200-byte ExtraFeatures Chore was rejected");
+        bool simulationPaused = true;
+        Check(simulationPaused && ExtraFeaturesChoreSender.TrySend(packet, 7, true, body1199, () => 1, send,
+                out _, out _),
+            "paused simulation disabled the ExtraFeatures Chore-only path");
+        int acceptedMutations = mutations;
+        Check(!ExtraFeaturesChoreSender.TrySend(packet, 7, true, value => new byte[1199], () => 1, send,
+                out _, out _) && mutations == acceptedMutations,
+            "1201-byte ExtraFeatures Chore was not rejected before mutation");
+        int beforeThrow = mutations;
+        Check(!ExtraFeaturesChoreSender.TrySend(packet, 7, true, body1199, () => 1,
+                (value, id) => throw new InvalidOperationException("send"), out _, out _) &&
+              mutations == beforeThrow,
+            "ExtraFeatures send exception did not fail closed");
+
+        string workspaceRoot = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", ".."));
+        foreach (string fileName in new[] { "GatehouseAutomationRuntime.cs", "KnightDismountRuntime.cs" })
+        {
+            string source = File.ReadAllText(Path.Combine(workspaceRoot, "ExtraFeatures", "src", fileName));
+            Check(source.Contains("ExtraFeaturesChoreSender.TrySend(") &&
+                  source.Contains("GameNetworkAPI.Serialize(value)") &&
+                  source.Contains("GameNetworkAPI.SendPacketToAllEx2(value, id, viaChore: true)"),
+                fileName + " does not use the fail-closed 2.0.2 Chore sender contract");
+            Check(!source.Contains("ChoreNetworkTransport") && !source.Contains("SendRawBlob"),
+                fileName + " retains the removed raw Chore transport");
+        }
+
+        string helper = File.ReadAllText(Path.Combine(
+            workspaceRoot, "ExtraFeatures", "src", "ExtraFeaturesChoreSender.cs"));
+        string sendMethod = helper.Substring(helper.IndexOf("internal static bool TrySend", StringComparison.Ordinal));
+        Check(sendMethod.Contains("body.Length > MaximumPayloadBytes - sizeof(short)") &&
+              sendMethod.IndexOf("serialize(packet)", StringComparison.Ordinal) <
+                  sendMethod.IndexOf("getChoreManagerAddress()", StringComparison.Ordinal) &&
+              sendMethod.IndexOf("getChoreManagerAddress()", StringComparison.Ordinal) <
+                  sendMethod.IndexOf("sendViaChore(packet, packetId)", StringComparison.Ordinal),
+            "ExtraFeatures Chore helper does not enforce serialization, manager, size, and original-object send order");
+
+        string knight = File.ReadAllText(Path.Combine(workspaceRoot, "ExtraFeatures", "src", "KnightDismountRuntime.cs"));
+        Check(knight.Contains("SelectedUnitInfo[] selected") && knight.Contains("selected[index].UnitId") &&
+              !knight.Contains("return GamePlayerManagerAPI.Instance.GetSelectedChimps();"),
+            "ExtraFeatures selected-unit wrapper does not project 2.0.2 UnitId values in order");
+        string gatehouse = File.ReadAllText(Path.Combine(workspaceRoot, "ExtraFeatures", "src", "GatehouseAutomationRuntime.cs"));
+        Check(gatehouse.Contains("TryValidateGameId(") && gatehouse.Contains("int eventUnitId = args.UnitId;") &&
+              !gatehouse.Contains("TryConvertSpanIndexToGameId") && !gatehouse.Contains("unitSpanIndex"),
+            "ExtraFeatures Gatehouse query still applies the obsolete pre-1.45 index conversion");
+        string manifest = File.ReadAllText(Path.Combine(workspaceRoot, "ExtraFeatures", "info.json"));
+        Check(manifest.Contains("\"Version\": \"1.0.88\"") && manifest.Contains("\"NetworkMode\": 1"),
+            "ExtraFeatures manifest does not retain version 1.0.88 with gameplay NetworkMode 1");
+    }
+
     private static void TestSiegeAmmoRestockPolicyAndPacket()
     {
         AssertRestock(
@@ -3550,6 +3819,8 @@ internal static class Program
 
     private static void TestMultiplayerGameSpeedPolicyAndPacket()
     {
+        Check(MultiplayerGameSpeedPolicy.MaximumSpeed == 1500,
+            "Script Extender 2.0.2 default maximum game speed is not 1500");
         Check(MultiplayerGameSpeedPolicy.ProtocolVersion == 2,
             "multiplayer time-control protocol is not version 2");
 
@@ -3784,12 +4055,19 @@ internal static class Program
                 out int fastAboveVanillaMaximum) && fastAboveVanillaMaximum == 115,
             "fast game-speed increase was incorrectly clamped at Vanilla's upper bound");
         Check(MultiplayerGameSpeedPolicy.TryResolve(
-                4990,
+                1490,
                 MultiplayerGameSpeedPolicy.FastIncreaseAction,
                 0,
                 out int fastAtConfiguredMaximum) &&
               fastAtConfiguredMaximum == MultiplayerGameSpeedPolicy.MaximumSpeed,
             "fast game-speed increase did not clamp to Script Extender's default maximum");
+        Check(MultiplayerGameSpeedPolicy.TryResolve(
+                920,
+                MultiplayerGameSpeedPolicy.FastIncreaseAction,
+                0,
+                925,
+                out int fastAtDeliberateCustomMaximum) && fastAtDeliberateCustomMaximum == 925,
+            "fast game-speed increase ignored a deliberately different Script Extender maximum");
         Check(MultiplayerGameSpeedPolicy.TryResolve(
                 75,
                 MultiplayerGameSpeedPolicy.FastIncreaseAction,
@@ -5251,7 +5529,7 @@ internal static class Program
             Check(store.TryAdd(76561198000000001UL, out error) && store.Count == 1,
                 "duplicate Steam invite blacklist entry changed the set");
             Check(store.TryAdd(76561198000000002UL, out error) && store.Count == 2,
-                "could not add the second Steam invite blacklist entry");
+                "could not add the second Steam invite blacklist entry: " + error);
             Check(File.ReadAllText(path).Contains("\"76561198000000001\""),
                 "Steam ID was not serialized as a JSON string");
 
@@ -6141,6 +6419,7 @@ namespace SHCDESE.API
         }
         public static bool IsNetworkedEnvironment() => Networked;
         public static bool IsMultiplayerGame() => Platform_Multiplayer.MPGameActive;
+        public static byte[] Serialize<T>(T packet) => MessagePackSerializer.Serialize(packet);
         public static bool IsLocalHost()
         {
             if (ThrowOnRoleQuery)

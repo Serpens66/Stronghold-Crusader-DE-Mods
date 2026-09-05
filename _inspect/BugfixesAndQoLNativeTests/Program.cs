@@ -132,6 +132,9 @@ internal static class Program
                 "shared control-group contracts use the canonical DLL hash");
             PeImage pe = PeImage.Load(file);
             CheckGatehouseQueryUnitIdContract();
+            CheckMarketGoldContract();
+            CheckSelectedUnitInfoWiring(workspace);
+            CheckP6bRedBirdMigration(workspace);
             CheckMountedStockpilePolicy();
             CheckFunctions(pe.Image);
             CheckProductionPatterns(workspace, pe);
@@ -156,14 +159,16 @@ internal static class Program
 
     private static void CheckGatehouseQueryUnitIdContract()
     {
-        Check(GatehouseQueryUnitIdPolicy.TryConvertSpanIndexToGameId(0, 10000, out int first) && first == 1,
-            "gatehouse first unit span index converts to game ID 1");
-        Check(GatehouseQueryUnitIdPolicy.TryConvertSpanIndexToGameId(9999, 10000, out int last) && last == 10000,
-            "gatehouse last unit span index converts once");
-        Check(!GatehouseQueryUnitIdPolicy.TryConvertSpanIndexToGameId(-1, 10000, out _),
-            "negative gatehouse unit span index rejected");
-        Check(!GatehouseQueryUnitIdPolicy.TryConvertSpanIndexToGameId(10000, 10000, out _),
-            "out-of-range gatehouse unit span index rejected");
+        Check(GatehouseQueryUnitIdPolicy.TryValidateGameId(1, 10000, out int first) && first == 1,
+            "gatehouse first unit game ID remains unchanged");
+        Check(GatehouseQueryUnitIdPolicy.TryValidateGameId(10000, 10000, out int last) && last == 10000,
+            "gatehouse last unit game ID remains unchanged");
+        Check(!GatehouseQueryUnitIdPolicy.TryValidateGameId(0, 10000, out _),
+            "zero gatehouse unit game ID rejected");
+        Check(!GatehouseQueryUnitIdPolicy.TryValidateGameId(-1, 10000, out _),
+            "negative gatehouse unit game ID rejected");
+        Check(!GatehouseQueryUnitIdPolicy.TryValidateGameId(10001, 10000, out _),
+            "out-of-range gatehouse unit game ID rejected");
         Check(GatehouseQueryUnitIdPolicy.ResolveCandidateDecision(null, true),
             "corrected Vanilla true decision supplies missing event default");
         Check(!GatehouseQueryUnitIdPolicy.ResolveCandidateDecision(null, false),
@@ -172,6 +177,35 @@ internal static class Program
             "earlier subscriber true decision is preserved");
         Check(!GatehouseQueryUnitIdPolicy.ResolveCandidateDecision(false, true),
             "earlier subscriber false decision is preserved");
+    }
+
+    private static void CheckMarketGoldContract()
+    {
+        Check(MarketGoldPolicy.CanAfford(100, 100), "exact signed gold balance accepted");
+        Check(!MarketGoldPolicy.CanAfford(99, 100), "insufficient signed gold balance rejected");
+        Check(!MarketGoldPolicy.CanAfford(-1, 1), "negative signed gold balance rejected");
+        Check(!MarketGoldPolicy.CanAfford(100, -1), "negative market cost rejected");
+        Check(MarketGoldPolicy.CanAfford(int.MaxValue, int.MaxValue),
+            "maximum signed gold and cost compare without overflow");
+    }
+
+    private static void CheckSelectedUnitInfoWiring(string workspace)
+    {
+        foreach (string relativePath in new[]
+        {
+            @"BugfixesAndQoL\src\AssassinClimbRuntime.cs",
+            @"BugfixesAndQoL\src\MountedStockpileMovementPatch.cs",
+            @"BugfixesAndQoL\src\SiegeAmmoRestockFeature.cs"
+        })
+        {
+            string source = File.ReadAllText(Path.Combine(workspace, relativePath));
+            Check(source.Contains("SelectedUnitInfo[] selected"),
+                relativePath + " does not consume Script Extender 2.0.2 SelectedUnitInfo entries");
+            Check(source.Contains("selected[index].UnitId") || source.Contains("selectedInfo.UnitId"),
+                relativePath + " does not extract the one-based UnitId");
+            Check(!Regex.IsMatch(source, @"int\s*\[\]\s+selected\s*=\s*[^;]*GetSelectedChimps"),
+                relativePath + " retains the obsolete int[] selection contract");
+        }
     }
 
     private static void CheckMountedStockpilePolicy()
@@ -590,12 +624,13 @@ internal static class Program
 
         string runtime = File.ReadAllText(Path.Combine(
             workspace, "BugfixesAndQoL", "src", "ControlGroupDisbandCleanupRuntime.cs"));
-        Check(runtime.IndexOf("original(unitManager, unitId, playSound)", StringComparison.Ordinal) <
-                  runtime.IndexOf("RemoveUnitFromAllGroups(unitId)", StringComparison.Ordinal) &&
+        Check(runtime.IndexOf("detour.Original(unitManager, unitId, playSound)", StringComparison.Ordinal) <
+                   runtime.IndexOf("RemoveUnitFromAllGroups(unitId)", StringComparison.Ordinal) &&
               runtime.Contains("settings.EnableClientFeatures") &&
               runtime.Contains("settings.EnableDisbandedUnitControlGroupCleanup") &&
               runtime.Contains("record[0] = -1;") &&
-              runtime.Contains("NativeDetourConfig { ManualApply = true }") &&
+              runtime.Contains("DetourHandle<DisbandUnitDelegate>") &&
+              runtime.Contains("!commitResult.IsCompleteSuccess") &&
               runtime.Contains("DisbandCallRva") &&
               runtime.Contains("DisbandFunctionRva"),
             "native cleanup calls Vanilla first, is locally gated, validates its target, and invalidates memberships");
@@ -901,6 +936,74 @@ internal static class Program
             .Select(token => Convert.ToByte(token, 16))
             .ToArray();
 
+    private static void CheckP6bRedBirdMigration(string workspace)
+    {
+        string sourceDirectory = Path.Combine(workspace, "BugfixesAndQoL", "src");
+        string[] sourcePaths = Directory.GetFiles(sourceDirectory, "*.cs", SearchOption.TopDirectoryOnly);
+        string production = string.Join("\n", sourcePaths.Select(File.ReadAllText));
+        string project = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "BugfixesAndQoL.csproj"));
+        string plugin = File.ReadAllText(Path.Combine(sourceDirectory, "BugfixesAndQoLPlugin.cs"));
+        string runtime = File.ReadAllText(Path.Combine(sourceDirectory, "BugfixesAndQoLRuntime.cs"));
+        string manifest = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "info.json"));
+
+        Check(!production.Contains("Zhuqiaomon") && !project.Contains("Zhuqiaomon"),
+            "P6b removed Zhuqiaomon source and project references");
+        Check(!production.Contains("NativeDetour") && !production.Contains("ManualApply"),
+            "P6b removed every direct PolyHook NativeDetour path");
+        Check(!production.Contains("HookRef<") && !production.Contains(".Unload()") &&
+              !production.Contains("Value.Hook.Trampoline") && !production.Contains("VirtualProtect"),
+            "P6b removed obsolete handles, Unload calls, trampolines, and manual page protection");
+        Check(project.Contains("<Reference Include=\"RedBird.Abstractions\"") &&
+              project.Contains("<Reference Include=\"RedBird.Core\"") &&
+              project.Contains("<Reference Include=\"RedBird.X64\"") &&
+              !project.Contains("PolyHook2.NET"),
+            "P6b project references the Script Extender RedBird assemblies without PolyHook2.NET");
+        Check(plugin.Contains("[BepInDependency(ScriptExtenderGuid, \"2.0.2\")]") &&
+              plugin.Contains("OnCrusaderLibraryLoaded(CrusaderLibraryLoadContext context)"),
+            "P6b declares an exact 2.0.2 dependency and consumes the load context");
+        Check(runtime.Contains("context.ModuleHandle") && runtime.Contains("context.Memory") &&
+              runtime.Contains("context.Region") && !production.Contains("nativeRegion.Dispose()") &&
+              !production.Contains("context.Region.Dispose()"),
+            "P6b borrows all native load-context values without disposing the ScanRegion");
+        Check(Regex.Matches(production, @"new\s+(?:DetourHandle|HookHandle)<").Count == 29,
+            "P6b owns the audited 29 RedBird hook handles");
+        Check(Regex.Matches(production, @"CommitResult\s+commitResult\s*=\s*[^;]+\.Commit\(\)").Count == 17,
+            "P6b performs one checked transaction commit for each audited hook group");
+        Check(Regex.Matches(production, @"!commitResult\.IsCompleteSuccess").Count == 17,
+            "P6b checks every aggregate RedBird commit result");
+
+        foreach (string fileName in new[]
+        {
+            "AiStoneReserveFix.cs",
+            "AssassinPathReconstructionPatch.cs",
+            "AssemblyPointPlacementPatch.cs",
+            "HealerAttackCommandPatch.cs",
+            "LordControlGroupNativePatch.cs"
+        })
+        {
+            string source = File.ReadAllText(Path.Combine(sourceDirectory, fileName));
+            Check(source.Contains("CodePatch.Write("), fileName + " does not use RedBird CodePatch.Write");
+            Check(!source.Contains("VirtualProtect"), fileName + " retains manual page protection");
+        }
+
+        string infrastructure = File.ReadAllText(Path.Combine(sourceDirectory, "BugfixesHookInfrastructure.cs"));
+        Check(infrastructure.Contains("FailureMode = TransactionFailureMode.RollbackAndThrow") &&
+              infrastructure.Contains("OwnsHooks = true") &&
+              infrastructure.Contains("HookTarget.FromAddress(address)") &&
+              infrastructure.Contains("new ContextHookOptions"),
+            "P6b shared hook infrastructure preserves atomic ownership and explicit context options");
+
+        string moat = File.ReadAllText(Path.Combine(sourceDirectory, "ImprovedMoatFillingFix.cs"));
+        Check(Regex.Matches(moat, @"new\s+DetourHandle<").Count == 2 &&
+              Regex.Matches(moat, @"\.Original\(").Count >= 2 &&
+              moat.Contains("OwnsHooks = false") &&
+              moat.Contains("!findMoatWorkTargetDetour.Success") &&
+              moat.Contains("!resolveMoatWorkTileDetour.Success"),
+            "P6b standalone moat hooks use two durable RedBird detours with atomic handle checks");
+        Check(manifest.Contains("\"Version\": \"1.0.126\"") && manifest.Contains("\"NetworkMode\": 1"),
+            "P6b manifest retains its version and declares gameplay NetworkMode 1");
+    }
+
     private static void CheckUnknownHashPolicy(string workspace)
     {
         string plague = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "PlagueNativePatternValidator.cs"));
@@ -949,9 +1052,9 @@ internal static class Program
         Check(mountedStockpile.Contains("MountedEndpointWallGateHookOffset = 0xA") &&
               mountedStockpile.Contains("MountedEndpointWallGateJumpOffset = 11"),
             "mounted-stockpile endpoint hook starts on the complete test/jne pair");
-        Check(mountedStockpile.Contains("TransactionFailureMode.RollbackAndThrow"),
+        Check(mountedStockpile.Contains("BugfixesHookInfrastructure.CreateOwnedTransaction(region)"),
             "mounted-stockpile atomic hook transaction");
-        Check(mountedStockpile.Contains("transaction?.Unload()") &&
+        Check(!mountedStockpile.Contains("transaction?.Unload()") &&
               mountedStockpile.Contains("transaction?.Dispose()") &&
               mountedStockpile.Contains("FreeEndpointZeroFlags()"),
             "mounted-stockpile reversible hook disposal");

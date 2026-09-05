@@ -79,12 +79,20 @@
       <HintPath>$(ExtenderDir)\System.Memory.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="RedBird.Core">
+      <HintPath>$(ExtenderDir)\RedBird.Core.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
   </ItemGroup>
 
   <ItemGroup>
     <Compile Include="..\Shared\DebugLogHelper.cs">
       <Link>Shared\DebugLogHelper.cs</Link>
     </Compile>
+    <Compile Include="..\Shared\NativePatternResolver.cs">
+      <Link>Shared\NativePatternResolver.cs</Link>
+    </Compile>
+    <Compile Include="src\AIDefenseTribeUnassignAdapter.cs" />
     <Compile Include="src\AIDefensePlugin.cs" />
     <Compile Include="src\AIDefenseRuntime.cs" />
   </ItemGroup>
@@ -96,5 +104,7 @@
            Text="Der lokale Script Extender Nebenordner existiert, aber es wurde keine lokale SHCDESE.dll gefunden. Baue zuerst ..\shcde-script-extender\build.bat oder uebergib /p:ExtenderDir=... explizit." />
     <Error Condition="'$(ExtenderDir)' != '' and !Exists('$(ExtenderDir)\SHCDESE.dll')"
            Text="SHCDESE.dll wurde im ExtenderDir nicht gefunden: $(ExtenderDir)" />
+    <Error Condition="'$(ExtenderDir)' != '' and !Exists('$(ExtenderDir)\RedBird.Core.dll')"
+           Text="RedBird.Core.dll wurde im ExtenderDir nicht gefunden: $(ExtenderDir)" />
   </Target>
 </Project>

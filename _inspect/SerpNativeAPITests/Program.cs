@@ -3,6 +3,7 @@ using SHCDESE.EventAPI;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Reflection;
 
 namespace SerpNativeAPITests
@@ -39,6 +40,7 @@ namespace SerpNativeAPITests
             TestGatehouseRollbackAndPageCleanup();
             TestSelectedBroker();
             TestSelectedEventService();
+            TestMigrationContracts();
             if (failures == 0)
             {
                 Console.WriteLine("PASS: SerpNativeAPI baseline-hardened tests passed.");
@@ -46,6 +48,45 @@ namespace SerpNativeAPITests
             }
             Console.Error.WriteLine($"FAIL: SerpNativeAPI tests reported {failures} failure(s).");
             return 1;
+        }
+
+        private static void TestMigrationContracts()
+        {
+            string workspace = FindWorkspaceRoot();
+            string plugin = File.ReadAllText(Path.Combine(workspace, "SerpNativeAPI", "src", "SerpNativeAPIPlugin.cs"));
+            string project = File.ReadAllText(Path.Combine(workspace, "SerpNativeAPI", "SerpNativeAPI.csproj"));
+            string sourceManifest = File.ReadAllText(Path.Combine(workspace, "SerpNativeAPI", "info.json"));
+            string packageManifest = File.ReadAllText(Path.Combine(workspace, "SerpNativeAPI", "BepInEx", "plugins", "SerpNativeAPI_Serp", "info.json"));
+
+            Assert(plugin.Contains("[BepInDependency(ScriptExtenderGuid, \"2.0.2\")]"),
+                "plugin requires SHCDESE 2.0.2");
+            Assert(plugin.Contains("OnLibraryLoaded(CrusaderLibraryLoadContext context)"),
+                "plugin consumes CrusaderLibraryLoadContext");
+            Assert(plugin.Contains("context.ModuleHandle.ToInt64()") && plugin.Contains("context.Memory"),
+                "plugin passes the 2.0.2 module and memory view");
+            Assert(!plugin.Contains("IntPtr libraryHandle") && !plugin.Contains("ReadOnlySpan<byte> memory"),
+                "old LibraryLoaded callback is absent");
+            Assert(!project.Contains("Zhuqiaomon") && !project.Contains("PolyHook"),
+                "project has no obsolete native dependency");
+            Assert(sourceManifest.Contains("\"Version\": \"0.1.0\"") && sourceManifest.Contains("\"NetworkMode\": 1"),
+                "source manifest preserves version and declares gameplay mode");
+            Assert(packageManifest.Contains("\"Version\": \"0.1.0\"") && packageManifest.Contains("\"NetworkMode\": 1"),
+                "package manifest preserves version and declares gameplay mode");
+        }
+
+        private static string FindWorkspaceRoot()
+        {
+            DirectoryInfo directory = new DirectoryInfo(Directory.GetCurrentDirectory());
+            while (directory != null)
+            {
+                if (Directory.Exists(Path.Combine(directory.FullName, "SerpNativeAPI")) &&
+                    File.Exists(Path.Combine(directory.FullName, "UpdatePlan-SHCDESE-2.0.2.md")))
+                {
+                    return directory.FullName;
+                }
+                directory = directory.Parent;
+            }
+            throw new DirectoryNotFoundException("Workspace root was not found.");
         }
 
         private static void TestPublicSurface()

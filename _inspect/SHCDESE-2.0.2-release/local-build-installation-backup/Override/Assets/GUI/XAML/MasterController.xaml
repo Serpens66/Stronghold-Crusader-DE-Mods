@@ -1,0 +1,85 @@
+<UserControl
+    x:Class="CrusaderDE.MasterController"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:b="http://schemas.microsoft.com/xaml/behaviors"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:CrusaderDE"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:noesis="clr-namespace:NoesisGUIExtensions;assembly=Noesis.GUI.Extensions"
+    xmlns:sys="clr-namespace:System;assembly=mscorlib"
+    d:DataContext="{d:DesignInstance {x:Type local:MainViewModel},
+                                     IsDesignTimeCreatable=True}"
+    d:DesignHeight="1080"
+    d:DesignWidth="1920"
+    mc:Ignorable="d">
+
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="booleanToVisibilityConverter" />
+    </UserControl.Resources>
+
+    
+    <Grid
+        FlowDirection="{Binding GlobalTextFlow}"
+        >
+<!--
+        <Grid
+            x:Name="M_MainWindow"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch"
+            Visibility="{Binding Show_Frontend, Converter={StaticResource booleanToVisibilityConverter}}">
+            <local:MainWindow Margin="0" />
+        </Grid>
+-->
+        <Grid
+            x:Name="M_IntroSequence"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch"
+            Visibility="{Binding Show_IntroSequence, Converter={StaticResource booleanToVisibilityConverter}}">
+            <local:IntroSequence Margin="0" />
+        </Grid>
+        <Grid
+            x:Name="M_FrontendMenus"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch"
+            Visibility="{Binding Show_Frontend, Converter={StaticResource booleanToVisibilityConverter}}">
+            <local:FrontendMenus Margin="0" />
+        </Grid>
+        <Grid
+            x:Name="M_Story"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch"
+            Visibility="{Binding Show_Story, Converter={StaticResource booleanToVisibilityConverter}}">
+            <Viewbox>
+                <Grid
+                    Width="1920"
+                    Height="1080">
+                    <local:FRONT_Story
+                        Margin="0" />
+                </Grid>
+            </Viewbox>
+        </Grid>
+        <Grid 
+            x:Name="rootWindow" 
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch"
+             Visibility="{Binding Show_InGame, Converter={StaticResource booleanToVisibilityConverter}}">
+            <Viewbox
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center">
+                <local:IngameUIScreens Margin="0" />
+            </Viewbox>
+            
+        </Grid>
+
+        <Grid 
+            x:Name="BlackOutImage" 
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch"
+            Background="#ff000000"
+             Visibility="{Binding Show_BlackOut, Converter={StaticResource booleanToVisibilityConverter}}">
+        </Grid>
+    </Grid>
+
+</UserControl>

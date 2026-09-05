@@ -7,7 +7,7 @@ using System.Reflection;
 
 namespace StockpileAccessFixTest
 {
-    [BepInDependency(ScriptExtenderGuid, BepInDependency.DependencyFlags.HardDependency)]
+    [BepInDependency(ScriptExtenderGuid, "2.0.2")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class StockpileAccessFixTestPlugin : BaseUnityPlugin
     {
@@ -36,10 +36,12 @@ namespace StockpileAccessFixTest
             librarySubscriptionInstalled = true;
         }
 
-        private static void OnCrusaderLibraryLoaded(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
+        private static void OnCrusaderLibraryLoaded(CrusaderLibraryLoadContext context)
         {
             if (runtime != null)
                 return;
+            if (context == null)
+                throw new ArgumentNullException(nameof(context));
 
             try
             {
@@ -52,8 +54,8 @@ namespace StockpileAccessFixTest
 
                 runtime = new StockpileAccessFixTestRuntime(
                     persistentLog,
-                    memory,
-                    unchecked((ulong)libraryHandle.ToInt64()),
+                    context.Memory,
+                    unchecked((ulong)context.ModuleHandle.ToInt64()),
                     referenceHashMatches);
                 runtime.Apply();
             }
@@ -90,7 +92,7 @@ namespace StockpileAccessFixTest
                 {
                     Shared.DebugLogHelper.LogWarning(
                         persistentLog,
-                        "Script Extender differs from the audited 1.42.0 commit; native recovery remains hash-gated.");
+                        "Script Extender differs from the audited 2.0.2 commit; native recovery remains hash-gated.");
                 }
             }
             catch (Exception exception)

@@ -5,49 +5,96 @@ using System.Runtime.InteropServices;
 
 namespace MoveMoatTest
 {
-    internal enum AliveState { IsAlive }
-    internal enum TribeAICommand { Move }
+    internal enum AliveState { IsAlive, Dead }
+    internal enum eStructs { STRUCT_NULL }
+    internal enum TribeAICommand { Move, Unknown7 = 7 }
+    internal enum EventHookPhase { Pre, Post }
+    internal class UnitMoveHereEventArgs
+    {
+        public EventHookPhase Phase;
+        public int UnitId, TileX, TileY, Unknown;
+        public long ReturnValue;
+        public bool SkipOriginalFunction;
+        public UnitMoveHereEventArgs(EventHookPhase phase, int unitId, int tileX, int tileY, int unknown)
+        { Phase = phase; UnitId = unitId; TileX = tileX; TileY = tileY; Unknown = unknown; }
+    }
+    internal struct UnmanagedVector2<T> { public T X, Y; }
     internal enum AttackPipelineStage { Mode, Builder }
+    [StructLayout(LayoutKind.Sequential, Size = 0x490)]
     internal unsafe struct GameUnit
     {
+        public uint r_GlobalId, r_CurrentPositionTileId;
         public int r_ControllableForPlayerId, r_CurrentTilePositionX, r_CurrentTilePositionY;
         public int r_NextTilePositionX2, r_NextTilePositionY2, r_PathPlanStateBitFlags, r_MovingRelevant;
         public int r_AI_LastIssuedTribeCommand;
         public AliveState r_AliveState;
+        public int r_UnitSelected, r_UnitSelected2;
         public bool Digger;
+        public int r_UnitChimp;
     }
+    internal struct GameCursorManager { public uint r_HoverOverBuildingId,r_HoverOverUnitId,r_HoverOverBuildingTileId,r_MouseTileId2,r_HoveringOverWall,r_MouseTileId,r_MouseTileX,r_MouseTileY; }
+    internal unsafe struct CursorPointer { public GameCursorManager* Pointer; }
     internal unsafe class GameUnitManagerAPI
     {
         public static GameUnitManagerAPI Instance = new GameUnitManagerAPI();
         public GameUnit* Units;
+        public Span<GameUnit> GetUnitsAsSpan() => new Span<GameUnit>(Units+1,1024);
         public bool TryGetUnitById(int id, out GameUnit* unit)
-        { unit = id > 0 && id < 32 ? Units + id : null; return unit != null; }
+        { unit = id > 0 && id < 1025 ? Units + id : null; return unit != null; }
     }
-    internal class GamePlayerManagerAPI
+    internal unsafe class GamePlayerManagerAPI
     {
         public static GamePlayerManagerAPI Instance = new GamePlayerManagerAPI();
+        public GameCursorManager* Cursor;
+        public CursorPointer GetCursorManager() => new CursorPointer { Pointer=Cursor };
         public bool IsPlayerIdValid(int id) => id > 0 && id <= 8;
+        public bool IsPlayerAlliedTo(int a, int b) => a == b;
+        public int GetSelectedChimpsCount() => EngineInterface.Selection.Length / 2;
     }
     internal unsafe class GameTileManagerAPI
     {
         public static GameTileManagerAPI Instance = new GameTileManagerAPI();
         public int* Rows;
         public int GetTileId(int x, int y) => x >= 0 && x < 800 && y >= 0 && y < 800 ? Rows[y * 3] + x : -1;
-        public IntPtr GetTileManager() => (IntPtr)1;
+        public IntPtr TileManager = (IntPtr)1;
+        public IntPtr GetTileManager() => TileManager;
+        public readonly Dictionary<int,int> Occupants = new Dictionary<int,int>();
+        public bool ForceOccupied;
+        public int GetTileUnitId(int tile) => ForceOccupied ? 2 : Occupants.TryGetValue(tile,out int id) ? id : 0;
+        public UnmanagedVector2<ushort> GetTileVectorFromId(int tile) =>
+            new UnmanagedVector2<ushort> { X = (ushort)(tile % 1000), Y = (ushort)(tile >= 2000 ? 11 : 10) };
     }
     internal sealed unsafe partial class MoveMoatPathTest
     {
         private static int tick = 10;
+        private object log;
         private static int CaptureCurrentGameTick() => tick;
         private bool disposed, targetedRouteProbeBusy, weightedShadowBusy;
         private int mapEpoch = 1;
         private PlanScope activePlan, pendingPlan;
+        private UnitMoveFrame unitMoveFrame;
         private MoveCommandScope activeMoveCommand;
         private object activeAttackCommand;
+        private object activeAttackApproachDiagnostic;
+        private int* cursorTargetX, cursorTargetY;
+        private Func<IntPtr,int> originalCursorTilePairFallbackSelection, selectionCanDigMoat;
+        private Func<IntPtr,int,int> getRepresentativeSelectedUnit;
+        private bool TryResolveHostileLivingBuildingFromRawCursor(int p,uint b,uint h,uint m2,uint m,int x,int y,out int tx,out int ty,out int tile,out BuildingCursorTarget target)
+        { tx=ty=tile=-1;target=default;return false; }
+        private bool TryGetHostileLivingBuildingForCursor(int p,int tile,out BuildingCursorTarget target,out bool wall)
+        { target=default;wall=false;return false; }
+        private AttackCursorPairScope pendingAttackCursorPair;
+        private Func<IntPtr,int,int,byte,int> originalCursorTilePairReachability;
+        private void DiagnoseAttackApproachTilePair(object scope,int t,int s,byte cache,int result) {}
+        private bool TryProbeBuildingApproachCursorRoute(AttackCursorPairScope s,out bool n,out bool f,out int x,out int y,out RouteProbeSummary r) { n=f=false;x=y=-1;r=default;return false; }
+        private long nativeModeEntries, preBuilderFailures, preBuilderRecovered;
+        private readonly Dictionary<string,long> preBuilderRejections=new Dictionary<string,long>();
+        private void LogUnitWithoutBuilder(UnitMoveFrame frame, long result) {}
         private MoatWorkSelectionScope activeMoatWorkSelection;
         private IntPtr nativePathManager;
         private byte* nativeUnitManager;
-        private byte* nativeHeightLayer, movementTargetAvailability;
+        private byte* nativeHeightLayer, movementTargetAvailability, nativeMovementMasks;
+        private ushort* nativeBuildingLayer;
         private int* moatPathMode;
         private uint* tileFlags;
         private short* pathRegionGrid;
@@ -57,6 +104,13 @@ namespace MoveMoatTest
         private int[] observedRouteRegions, reachedGroundRegions, reachedFriendlyMoatRegions, reachedEnemyMoatRegions;
         private int gridGeneration, cacheMapEpoch = -1, cachePlayerId, cacheStartX, cacheStartY;
         private bool cacheIncludesEnemyRoutes;
+        private int reachabilityQueueHead, reachabilityQueueTail, reachabilityTick;
+        private object reachabilityOwner;
+        private readonly Dictionary<long, bool> nativeGroundDecisions = new Dictionary<long, bool>();
+        private object nativeGroundOwner;
+        private int nativeGroundEpoch, nativeGroundTick, nativeGroundPlayer;
+        private bool nativeGroundProbeBusy;
+        private long nativeGroundQueries, nativeGroundCacheHits;
         private int cachedReachabilityExpandedNodes, cachedTraversedRegionCount, cachedReachabilityMapHits;
         private RouteProbeSummary cachedRouteSummary;
         private Performance activeBuildingConsumerPerformance, activeBuildingApproachPerformance;
@@ -66,27 +120,57 @@ namespace MoveMoatTest
             public int TargetX, TargetY, ModeCalls, TargetedRouteCacheHits, TargetedRouteSearches, TargetedRouteExpandedNodes;
             public int TargetedRouteSearchPasses, BuilderCalls, FloodFillBypasses, FallbackBuilderCalls, FallbackRollbacks;
             public bool BuilderReached;
+            public int RegionCalls;
+            public int UnitMoveCalls, UnitMoveCompleted, UnitMovePositive, UnitMoveWithoutBuilder, UnitMoveAlreadyArrived;
+            public int UnitMoveAbandoned, BuilderIntermediateTargets, FallbackContractRejections;
             public double TargetedRouteSearchMilliseconds, TargetedRouteMaximumSearchMilliseconds;
             public Dictionary<string, TargetedRouteDecision> TargetedRouteDecisions = new Dictionary<string, TargetedRouteDecision>();
         }
+        private Func<IntPtr,int,int,int> originalBuildingCursorReachability = (m,b,u)=>0;
+        private Func<IntPtr,int,int> getMoatIdAtTile;
+        private Func<IntPtr,int,int,int,int> originalHasFillMoatApproach;
+        private Func<IntPtr,int,int,int,int> originalFindMoatWorkTarget;
+        private bool IsImprovedMoatFillingEnabled() => true;
         private Func<IntPtr, int, int> originalUnitStandingOnCompletedMoat = (p, id) => 0;
         private Func<IntPtr, int, int, int> originalPathBuilder;
+        private Func<IntPtr, int> originalPathReconstruction;
+        private Func<IntPtr, int, int, int, int, int> originalRegionPairReachability;
+        private Func<IntPtr, int, int, int, int, int> originalRegionReachability = (p, player, region, x, y) => 0;
+        private bool TryAllowDigWorkRegionSearch(IntPtr p, int player, int region, int x, int y, int vanilla, out int result)
+        { result = vanilla; return false; }
+        private bool TryAllowEarlyMoveHereGroupRegion(IntPtr p, int player, int region, int x, int y, int vanilla, out int result)
+        { result = vanilla; return false; }
         private bool throwAudit;
+        private class BuilderWeightedScope
+        {
+            public int PublishedBuilderResult = -1;
+            public int UnitId, UnitType, PlayerId, StartX, StartY, TargetX, TargetY, SearchPasses;
+            public uint UnitGlobalId;
+            public bool AllowReservedTarget, CandidateFound;
+            public WeightedMovementCostProfile CostProfile;
+            public WeightedMoatRouteSummary Candidate;
+            public WeightedMoatEncodedRoute CandidateRoute;
+            public double AccumulatedSearchMilliseconds;
+        }
+        private CadenceFixture nativeMovementCadenceResolver = new CadenceFixture();
+        private class CadenceFixture
+        {
+            public bool TryGetPlausibleSpeedBonuses(int type, int current, out int[] bonuses, out ulong rva, out string reason)
+            { bonuses = new[] {current,1}; rva=0;reason=null;return true; }
+        }
+        private BuilderWeightedScope TryCaptureBuilderWeightedScope(IntPtr m) => null;
+        private void ObserveWeightedMoatShadowResult(IntPtr m, int result, BuilderWeightedScope scope) { }
         private bool ShouldLogUnitPipeline => false;
         private static void RecordVanillaBuilderResult(MoveCommandScope c, int r) { }
         private static void RecordBuilderResult(MoveCommandScope c, int r) { }
         private static void MarkCommandMoatRelevant(MoveCommandScope c, RouteProbeSummary s) { }
-        private static void RecordFallbackContractRejection(PlanScope p) { }
+        private void RecordFallbackContractRejection(PlanScope p, string reason = "retry-contract", IntPtr m = default)
+        { if (activeMoveCommand != null) activeMoveCommand.FallbackContractRejections++; }
         private static void TryLogDiagnosticFailure(string s, Exception e) { }
         private static void LogBuilderDecision(string s) { }
         private static void StartOrRefreshMoatMoveTracker(PlanScope p, RouteProbeSummary s, int r) { }
-        private bool TryAuditFallbackPath(IntPtr m, byte* p, int r, PlanScope plan, GameUnit* u, out string audit)
-        { audit = "fixture-reject"; if (throwAudit) throw new Exception("injected audit failure"); return false; }
-        private bool TryReplaceUnsafeFallbackPath(IntPtr m, byte* p, byte[] b, int l, PlanScope plan,
-            GameUnit* u, out int r, out string details)
-        { r = 0; details = "fixture-no-replacement"; return false; }
-        private bool occupied;
-        private bool IsOccupiedByOtherLivingUnit(int tile, int id) => occupied;
+        private static bool IsPublishedWalkableBuildingApproach(int unitId, int tileId) => false;
+        private bool occupied { get => GameTileManagerAPI.Instance.ForceOccupied; set => GameTileManagerAPI.Instance.ForceOccupied=value; }
         private static bool HasDownstreamMovementBlockingFlags(uint flags) => (flags & 0x10000130) != 0;
         private bool TryReadMoatRecordTile(IntPtr m, int moat, out int tile, out int x, out int y)
         { tile = 2017; x = 17; y = 11; return moat == 1; }
@@ -94,11 +178,14 @@ namespace MoveMoatTest
         private static bool IsValidTileId(int tile) => tile >= 0 && tile < NativeTileCount;
         private bool IsCompletedMoatTile(int tile) => (tileFlags[tile] & CompletedMoatTileFlag) != 0;
         private HashSet<int> enemyTiles = new HashSet<int>();
+        private int enemyPlayerId;
         private bool injectOwnerFailure;
         private CompletedMoatRelationship ResolveCompletedMoatRelationship(int player, int tile)
         {
             if (injectOwnerFailure) throw new Exception("injected owner lookup failure");
-            return enemyTiles.Contains(tile) ? CompletedMoatRelationship.Enemy : CompletedMoatRelationship.Friendly;
+            if (throwAudit) throw new Exception("injected audit failure");
+            return enemyTiles.Contains(tile) && (enemyPlayerId == 0 || enemyPlayerId == player)
+                ? CompletedMoatRelationship.Enemy : CompletedMoatRelationship.Friendly;
         }
         private bool IsFriendlyCompletedMoatForWeightedShadow(int player, int tile) =>
             IsCompletedMoatTile(tile) && ResolveCompletedMoatRelationship(player, tile) == CompletedMoatRelationship.Friendly;
@@ -138,12 +225,12 @@ namespace MoveMoatTest
                 GameTileManagerAPI.Instance.Rows = rows;
                 tileFlags = (uint*)Alloc(NativeTileCount * sizeof(uint));
                 pathRegionGrid = (short*)Alloc(NativeTileCount * sizeof(short));
-                ushort* buildings = (ushort*)Alloc(NativeTileCount * 2);
+                ushort* buildings = (ushort*)Alloc(NativeTileCount * 2); nativeBuildingLayer = buildings;
                 byte* heights = (byte*)Alloc(NativeTileCount);
                 nativeHeightLayer = heights;
                 movementTargetAvailability = (byte*)Alloc(MapCellCount);
                 movementTargetAvailability[10*800+17] = 1;
-                byte* masks = (byte*)Alloc(NativeTileCount);
+                byte* masks = (byte*)Alloc(NativeTileCount); nativeMovementMasks = masks;
                 byte* directions = (byte*)Alloc(8);
                 byte* types = (byte*)Alloc(0x32C * 10001);
                 for (int i = 0; i < 8; i++) directions[i] = (byte)(1 << i);
@@ -155,13 +242,13 @@ namespace MoveMoatTest
                 tileFlags[1013] = CompletedMoatTileFlag;
                 weightedMoatRoutePlanner = new WeightedMoatRoutePlanner(rows, tileFlags, buildings,
                     heights, masks, directions, types, ResolveCompletedMoatRelationship, tile => false);
-                GameUnit* units = (GameUnit*)Alloc(32 * sizeof(GameUnit));
+                GameUnit* units = (GameUnit*)Alloc(1025 * sizeof(GameUnit));
                 GameUnitManagerAPI.Instance.Units = units;
-                for (int id = 1; id <= 27; id++)
+                for (int id = 1; id <= 1000; id++)
                     units[id] = new GameUnit { Digger = true, r_ControllableForPlayerId = 1,
                         r_CurrentTilePositionX = 10, r_CurrentTilePositionY = 10,
                         r_NextTilePositionX2 = 10, r_NextTilePositionY2 = 10, r_MovingRelevant = 8 };
-                nativeUnitManager = (byte*)Alloc(NativeUnitPathBufferOffset + 32 * NativeUnitPathBufferStride);
+                nativeUnitManager = (byte*)Alloc(NativeUnitPathBufferOffset + 1025 * NativeUnitPathBufferStride);
                 nativePathManager = Alloc(PathManagerOutputLengthOffset + 16);
                 moatPathMode = (int*)Alloc(sizeof(int));
                 byte* manager = (byte*)nativePathManager;
@@ -217,6 +304,8 @@ namespace MoveMoatTest
                 Check(activeMoveCommand.TargetedRouteSearches == searched, "negative cache avoids new search");
                 activeMoveCommand = null; pendingPlan = null;
 
+                TestUnitMovePipeline(manager, units);
+
                 MoatWorkSelectionScope NewScope() => new MoatWorkSelectionScope(mapEpoch, (IntPtr)1, 1, 1, 2, 10, 10, 1010, 1);
                 var work = NewScope();
                 for (int repeat = 0; repeat < 20; repeat++)
@@ -257,7 +346,7 @@ namespace MoveMoatTest
                 Check(TryGetMoatWorkRoute(moatStart,17,10,out _), "start on friendly moat");
                 units[1].r_CurrentTilePositionX = 10;
 
-                // Execute the actual builder transaction with controlled native failures.
+                // The new fallback never calls the native flood a second time.
                 activeMoveCommand = new MoveCommandScope { TargetX = 17, TargetY = 10 };
                 pendingPlan = new PlanScope(1,17,10) { FriendlyRouteQualified = true, ModeObserved = true };
                 byte* retryPath = nativeUnitManager + NativeUnitPathBufferOffset + 1000;
@@ -265,41 +354,479 @@ namespace MoveMoatTest
                 for (int scenario = 0; scenario < 3; scenario++)
                 {
                     int calls = 0;
-                    bool throwRetry = scenario == 2;
                     throwAudit = scenario == 1;
+                    injectOwnerFailure = scenario == 2;
                     retryPath[0] = 3;
                     *(int*)(manager+PathManagerOutputLengthOffset) = 0;
                     *(int*)(manager+PathManagerRouteVariantOffset) = 1;
                     *moatPathMode = 1;
                     originalPathBuilder = (m,c,p) => {
-                        if (++calls == 1) return 0;
-                        retryPath[0] = 77;
-                        *(int*)(manager+PathManagerOutputLengthOffset) = 7;
-                        *(int*)(manager+PathManagerRouteVariantOffset) = 999;
-                        *moatPathMode = 0;
-                        if (throwRetry) throw new Exception("injected retry failure");
-                        return 7;
+                        calls++;
+                        if (scenario == 0) enemyTiles.Add(1013);
+                        return 0;
                     };
-                    Check(BuildPathWithCompletedMoatRouteVariantCore(nativePathManager,1,1) == 0, "failed retry returns vanilla result");
-                    Check(calls == 2, "vanilla and one explicit retry only");
+                    weightedMoatRoutePlanner.SetSearchSession(new object(), 1, mapEpoch, tick);
+                    Check(BuildPathWithCompletedMoatRouteVariantCore(nativePathManager,1,1) == 0, "failed publication returns failure");
+                    Check(calls == 1, "one vanilla call and no duplicate native flood");
                     Check(retryPath[0] == 3 && *(int*)(manager+PathManagerOutputLengthOffset) == 0,
                         "transaction restores buffer and length");
                     Check(*(int*)(manager+PathManagerRouteVariantOffset) == 1 && *moatPathMode == 1,
                         "transaction restores route variant and moat mode");
+                    enemyTiles.Clear(); throwAudit = injectOwnerFailure = false;
                 }
                 int positiveCalls = 0;
-                originalPathBuilder = (m,c,p) => { positiveCalls++; return 5; };
-                Check(BuildPathWithCompletedMoatRouteVariantCore(nativePathManager,1,1) == 5 && positiveCalls == 1,
-                    "positive vanilla builder runs exactly once");
-                injectOwnerFailure = true;
+                originalPathBuilder = (m,c,p) => {
+                    positiveCalls++;
+                    for (int i=0;i<4;i++) retryPath[i]=0x22;
+                    *(int*)(manager+PathManagerOutputLengthOffset)=7;
+                    return 7;
+                };
+                Check(BuildPathWithCompletedMoatRouteVariantCore(nativePathManager,1,1) == 7 && positiveCalls == 1,
+                    "valid positive vanilla builder runs exactly once");                injectOwnerFailure = true;
                 bool searchThrew = false;
                 try { TryGetMoatWorkRoute(NewScope(),17,10,out _); }
                 catch { searchThrew = true; }
                 Check(searchThrew && cacheMapEpoch == -1, "incomplete graph is never published");
                 injectOwnerFailure = false;
                 Check(TryGetMoatWorkRoute(NewScope(),17,10,out _), "search recovers after lookup failure");
+                CursorAdapterTests();
+                FillSelectionTests();
             }
             finally { foreach (var p in allocations) NativeMemory.Free((void*)p); }
         }
+
+        private void TestUnitMovePipeline(byte* manager, GameUnit* units)
+        {
+            byte* Buffer(int id) => nativeUnitManager + NativeUnitPathBufferOffset + id * NativeUnitPathBufferStride;
+            void SetBuilder(int id, int x, int start = 10)
+            {
+                *(byte**)(manager + PathManagerOutputBufferOffset) = Buffer(id);
+                *(int*)(manager + PathManagerOutputLengthOffset) = 0;
+                *(int*)(manager + PathManagerRouteVariantOffset) = 1;
+                *(int*)(manager + 8) = start; *(int*)(manager + 12) = 10;
+                *(int*)(manager + 16) = x; *(int*)(manager + 20) = 10;
+            }
+            UnitMoveHereEventArgs Pre(int id, int x, int unknown = 0)
+            {
+                var args = new UnitMoveHereEventArgs(EventHookPhase.Pre, id, x, 10, unknown);
+                ObserveUnitMoveOrder(args);
+                return args;
+            }
+            void Post(int id, int x, long result = 1, int unknown = 0) =>
+                ObserveUnitMoveOrder(new UnitMoveHereEventArgs(EventHookPhase.Post, id, x, 10, unknown) { ReturnValue = result });
+            void NewCommand(int x = 17)
+            {
+                ClearUnitMoveFrames();
+                activePlan = pendingPlan = null;
+                activeMoveCommand = new MoveCommandScope { TargetX = x, TargetY = 10 };
+            }
+            int nativeCalls = 0;
+            originalPathBuilder = (m, c, p) =>
+            {
+                nativeCalls++;
+                if (*moatPathMode == 0) return 0;
+                int length = *(int*)(manager + 16) - *(int*)(manager + 8);
+                byte* output = *(byte**)(manager + PathManagerOutputBufferOffset);
+                for (int i = 0; i < (length + 1) / 2; i++) output[i] = 0x22;
+                *(int*)(manager + PathManagerOutputLengthOffset) = length;
+                return length;
+            };
+            // Actual sequence: group context -> per-unit Pre (formation target) ->
+            // native mode callback -> unit buffer/target binding -> builder -> Post.
+            foreach (int count in new[] { 1, 5, 20, 27, 29, 120 })
+            foreach (bool formation in new[] { false, true })
+            {
+                NewCommand();
+                for (int id = 1; id <= count; id++)
+                {
+                    int target = formation ? 14 + id % 5 : 17;
+                    Pre(id, target);
+                    *moatPathMode = EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager, id);
+                    Check(*moatPathMode == 1, "native event qualifies actual formation target");
+                    Check(AllowBuilderAfterFailedRegionSearch(nativePathManager, 1, 2, 10, 10) == 2,
+                        "real unit context authorizes native region gate");
+                    SetBuilder(id, target);
+                    PlanScope request = unitMoveFrame.Plan;
+                    Check(request.UnitId == id && request.TargetX == target && activeMoveCommand.TargetX == 17,
+                        "request identity is separate from click target");
+                    int before = nativeCalls;
+                    int result = BuildPathWithCompletedMoatRouteVariant(nativePathManager, 1, 1);
+                    Check(result == target - 10 && nativeCalls == before + 1,
+                        "every group unit gets vanilla-first and successful fallback");
+                    Check(TryAuditFallbackPath(nativePathManager, Buffer(id), result, request, units + id, out _),
+                        "published path bytes pass actual owner and endpoint audit");
+                    Post(id, target, 1);
+                    Check(unitMoveFrame == null && pendingPlan == null && activePlan == null,
+                        "unit Post leaves no plan for next group member");
+                }
+                Check(activeMoveCommand.UnitMoveCalls == count && activeMoveCommand.UnitMoveCompleted == count &&
+                    activeMoveCommand.UnitMovePositive == count && activeMoveCommand.BuilderCalls == count &&
+                    activeMoveCommand.FallbackContractRejections == 0, "all eligible formation members accounted for");
+                Check(activeMoveCommand.TargetedRouteSearches == (formation ? Math.Min(count, 5) : 1), "only exact endpoint decisions are shared");
+            }
+
+            NewCommand();
+            Pre(1, 17);
+            *moatPathMode = EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager, 1);
+            PlanScope outer = unitMoveFrame.Plan;
+            Pre(2, 18);
+            *moatPathMode = EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager, 2);
+            SetBuilder(2, 16);
+            PlanScope intermediate = GetBuilderPlan(nativePathManager);
+            Check(intermediate.UnitId == 2 && intermediate.TargetX == 16 && intermediate.ExactRouteEndpoints &&
+                intermediate.FriendlyRouteQualified && unitMoveFrame.Plan.TargetX == 18,
+                "native intermediate endpoint separately qualified without rewriting request");
+            int intermediateResult = BuildPathWithCompletedMoatRouteVariantCore(nativePathManager, 1, 1);
+            Check(intermediateResult == 6, "intermediate fallback published");
+            Post(2, 18);
+            Check(ReferenceEquals(unitMoveFrame.Plan, outer), "different-unit nested call restores parent plan");
+            Pre(1, 18);
+            EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager, 1);
+            Check(!ReferenceEquals(unitMoveFrame.Plan, outer), "same-unit nested invocation owns new plan");
+            Post(1, 18);
+            Check(ReferenceEquals(unitMoveFrame.Plan, outer), "same-unit nested call restores parent");
+            SetBuilder(2, 17);
+            activePlan = new PlanScope(2, 17, 10) { FriendlyRouteQualified = true };
+            Check(GetBuilderPlan(nativePathManager, true) == null, "foreign buffer rejected even if an older plan matches it");
+            activePlan = null;
+            SetBuilder(1, 17, 11);
+            Check(GetBuilderPlan(nativePathManager, true) == null, "incorrect actual start rejected");
+            SetBuilder(1, 800);
+            Check(GetBuilderPlan(nativePathManager, true) == null, "invalid builder target rejected");
+            SetBuilder(1, 17);
+            *(int*)(manager + PathManagerOutputLengthOffset) = 2001;
+            Check(!TryCaptureUnitFallbackPathBuffer(nativePathManager, outer, units + 1, out _, out _, out _),
+                "invalid output length rejected before retry, not before native initialization");
+            Check(DescribeFallbackContractFailure(nativePathManager, outer, units + 1) == "length",
+                "length rejection has specific diagnostic reason");
+            SetBuilder(1, 17);
+            Check(!TryCaptureUnitFallbackPathBuffer(nativePathManager, outer, units + 2, out _, out _, out _),
+                "foreign unit struct rejected even with matching coordinates");
+            Post(1, 17);
+
+            NewCommand();
+            var changed = Pre(1, 17);
+            changed.UnitId = 2; changed.TileX = 18; changed.Unknown = 1;
+            *moatPathMode = EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager, 2);
+            Check(unitMoveFrame.Plan.UnitId == 2 && unitMoveFrame.Plan.TargetX == 18,
+                "later subscriber changes read before native mode");
+            // Unknown=1 uses a different native builder; there need not be an F4930 callback.
+            Post(1, 17, 1);
+            Check(unitMoveFrame == null && activeMoveCommand.UnitMoveWithoutBuilder == 1,
+                "Post with original args closes changed request without observed F4930");
+            Pre(2, 18); // Simulate an earlier subscriber changing Pre before our observer.
+            Post(1, 17);
+            Check(unitMoveFrame == null, "earlier subscriber mutation still closes via synchronous LIFO");
+
+            Pre(1, 17);
+            var parentFrame = unitMoveFrame;
+            Pre(2, 18); // Child input was originally (1,17), changed before our observer.
+            Post(1, 17);
+            Check(ReferenceEquals(unitMoveFrame, parentFrame),
+                "mutated child's original Post args cannot accidentally close identical parent input");
+            Post(1, 17);
+
+            Pre(1, 17);
+            EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager, 1);
+            outer = unitMoveFrame.Plan;
+            var skipped = Pre(1, 18);
+            skipped.SkipOriginalFunction = true;
+            Check(ReferenceEquals(GetCurrentUnitMoveFrame().Plan, outer), "skipped nested original restores parent before reuse");
+            Post(1, 17);
+            skipped = Pre(2, 18);
+            skipped.SkipOriginalFunction = true;
+            Pre(3, 17);
+            Check(unitMoveFrame.Parent == null, "next Pre prunes skipped original with no Post");
+            Post(3, 17, 0);
+            Check(unitMoveFrame == null, "native early failure without builder closes scope");
+            Pre(1, 17);
+            tick++;
+            Check(GetCurrentUnitMoveFrame() == null, "missing Post cannot survive tick change");
+            Pre(1, 17);
+            mapEpoch++;
+            Check(GetCurrentUnitMoveFrame() == null, "missing Post cannot survive map change");
+            Pre(1, 17);
+            activeMoveCommand = new MoveCommandScope { TargetX = 18, TargetY = 10 };
+            Check(GetCurrentUnitMoveFrame() == null, "missing Post cannot survive command replacement");
+            Pre(1, 17);
+            ClearUnitMoveFrames();
+            Check(unitMoveFrame == null, "command end clears incomplete invocation");
+
+            NewCommand();
+            units[1].r_PathPlanStateBitFlags = 2;
+            units[1].r_NextTilePositionX2 = 11;
+            Pre(1, 17);
+            *moatPathMode = EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager, 1);
+            SetBuilder(1, 17, 11);
+            Check(unitMoveFrame.Plan.RouteStartX == 11 && BuildPathWithCompletedMoatRouteVariantCore(nativePathManager, 1, 1) == 6,
+                "moving unit qualifies and publishes from native next tile");
+            Post(1, 17);
+            units[1].r_PathPlanStateBitFlags = 0; units[1].r_NextTilePositionX2 = 10;
+            units[1].r_CurrentTilePositionX = 13;
+            originalUnitStandingOnCompletedMoat = (p, id) => id == 1 ? 1 : 0;
+            Pre(1, 17);
+            *moatPathMode = EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager, 1);
+            SetBuilder(1, 17, 13);
+            Check(unitMoveFrame.Plan.RouteStartX == 13 && BuildPathWithCompletedMoatRouteVariantCore(nativePathManager, 1, 1) == 4,
+                "start on friendly moat preserves native positive builder");
+            Post(1, 17);
+            units[1].r_CurrentTilePositionX = 10;
+            originalUnitStandingOnCompletedMoat = (p, id) => 0;
+
+            NewCommand();
+            Pre(1, 17);
+            *moatPathMode = EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager, 1);
+            SetBuilder(1, 12);
+            int callsBeforeGround = nativeCalls;
+            Check(BuildPathWithCompletedMoatRouteVariantCore(nativePathManager, 1, 1) == 0 && nativeCalls == callsBeforeGround + 1,
+                "ground intermediate uses vanilla mode with no moat retry");
+            SetBuilder(1, 19);
+            Check(!GetBuilderPlan(nativePathManager).FriendlyRouteQualified, "unreachable intermediate is not authorized");
+            tileFlags[1018] = CompletedMoatTileFlag; enemyTiles.Add(1018);
+            SetBuilder(1, 18);
+            Check(!GetBuilderPlan(nativePathManager).FriendlyRouteQualified &&
+                BuildPathWithCompletedMoatRouteVariantCore(nativePathManager, 1, 1) == 0,
+                "enemy intermediate cannot inherit friendly request authorization");
+            enemyTiles.Remove(1018); tileFlags[1018] = 0x8000;
+            Post(1, 17);
+
+            // Audit hostile path bytes even if a previous command cached a friendly decision.
+            SetBuilder(1, 17);
+            for (int i = 0; i < 4; i++) Buffer(1)[i] = 0x22;
+            *(int*)(manager + PathManagerOutputLengthOffset) = 7;
+            enemyTiles.Add(1013);
+            Check(!TryAuditFallbackPath(nativePathManager, Buffer(1), 7, new PlanScope(1, 17, 10), units + 1, out _),
+                "actual audit rejects enemy crossing despite valid direction bytes");
+            enemyPlayerId = 1;
+            SetBuilder(2, 17);
+            for (int i = 0; i < 4; i++) Buffer(2)[i] = 0x22;
+            *(int*)(manager + PathManagerOutputLengthOffset) = 7;
+            units[2].r_ControllableForPlayerId = 2;
+            Check(TryAuditFallbackPath(nativePathManager, Buffer(2), 7, new PlanScope(2, 17, 10), units + 2, out _),
+                "audit recomputes cached enemy classifications for another player");
+            units[2].r_ControllableForPlayerId = 1; enemyPlayerId = 0;
+            SetBuilder(1, 17);
+            *(int*)(manager + PathManagerOutputLengthOffset) = 7;
+            enemyTiles.Clear();
+            tileFlags[1016] = CompletedMoatTileFlag; enemyTiles.Add(1016);
+            var fillContact = new PlanScope(1, 17, 10) { MoatWorkMovement = true, MoatWorkTargetTileId = 1016 };
+            units[1].r_AI_LastIssuedTribeCommand = (int)TribeAICommand.Unknown7;
+            bool fillAllowed = TryAuditFallbackPath(nativePathManager, Buffer(1), 7, fillContact, units + 1, out string fillAudit);
+            Check(fillAllowed, "native terminal Fill contact remains permitted: " + fillAudit);
+            Check(!TryAuditFallbackPath(nativePathManager, Buffer(1), 7, new PlanScope(1, 17, 10), units + 1, out _),
+                "terminal enemy contact never authorizes ordinary movement");
+            enemyTiles.Clear(); tileFlags[1016] = 0x8000;
+            units[1].r_AI_LastIssuedTribeCommand = 0;
+
+            NewCommand();
+            var workSource = new PlanScope(1, 17, 10) {
+                MoatWorkMovement = true, MoatWorkTargetTileId = 2017, FriendlyRouteQualified = true,
+                MoatWorkSearch = new MoatWorkSelectionScope(mapEpoch, (IntPtr)1, 1, 1, 2, 10, 10, 1010, 1)
+            };
+            pendingPlan = workSource;
+            activePlan = new PlanScope(2, 18, 10) { FriendlyRouteQualified = true };
+            Pre(1, 17);
+            *moatPathMode = EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager, 1);
+            Check(unitMoveFrame.Plan.MoatWorkMovement && unitMoveFrame.Plan.MoatWorkTargetTileId == 2017 &&
+                ReferenceEquals(unitMoveFrame.Plan.MoatWorkSearch, workSource.MoatWorkSearch),
+                "matching work handoff retains work identity and shared selection graph");
+            SetBuilder(1, 17);
+            Check(BuildPathWithCompletedMoatRouteVariant(nativePathManager, 1, 1) == 7 && pendingPlan == null,
+                "actual wrapper consumes copied work handoff after builder");
+            Post(1, 17);
+            Check(activePlan.UnitId == 2 && workSource.TargetX == 17, "work call preserves unrelated outer context");
+            NewCommand(); pendingPlan=workSource; activePlan=null;
+            Pre(2,17);
+            *moatPathMode=EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager,2);
+            Check(unitMoveFrame.InheritedPlan==null && !unitMoveFrame.Plan.MoatWorkMovement,
+                "foreign pending work context is not bound as a handoff");
+            SetBuilder(2,17);
+            BuildPathWithCompletedMoatRouteVariant(nativePathManager,1,1);
+            Check(ReferenceEquals(pendingPlan,workSource),"foreign unit cannot consume another worker's pending handoff");
+            Post(2,17);
+            NewCommand();
+            activePlan = new PlanScope(1, 17, 10) { AttackMovementQualified = true, PostCombatRepath = true };
+            Pre(1, 17);
+            EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager, 1);
+            Check(unitMoveFrame.Plan.AttackMovementQualified && unitMoveFrame.Plan.PostCombatRepath,
+                "matching attack and post-combat context flags survive event binding");
+            Post(1, 17);
+            Pre(1, 18);
+            EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager, 1);
+            Check(!unitMoveFrame.Plan.AttackMovementQualified, "different request target cannot inherit old attack context");
+            Post(1, 18);
+
+            NewCommand(); activeMoveCommand = null;
+            Pre(1, 17);
+            *moatPathMode = EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager, 1);
+            SetBuilder(1, 12);
+            int beforeStandalone = nativeCalls;
+            Check(BuildPathWithCompletedMoatRouteVariant(nativePathManager, 1, 1) == 0 && nativeCalls == beforeStandalone + 1,
+                "standalone intermediate also restores vanilla mode without group context");
+            Post(1, 17);
+
+            // Cheap native PCL admission is a hint, never an endpoint reachability proof.
+            NewCommand();
+            int pclCalls = 0;
+            *(int*)(manager+0xC0)=41; *(int*)(manager+0xC4)=42; *(int*)(manager+0x98)=43;
+            originalRegionPairReachability = (p,player,source,target,mode) => {
+                pclCalls++; *(int*)(manager+0xC0)=91; *(int*)(manager+0xC4)=92; *(int*)(manager+0x98)=0;
+                return target;
+            };
+            for (int id=1;id<=2;id++)
+            {
+                Pre(id,17);
+                *moatPathMode=EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager,id);
+                Check(*moatPathMode==0 && unitMoveFrame.Plan.NativeGroundPrecheck,"PCL positive defers to vanilla");
+                Check(*(int*)(manager+0xC0)==41 && *(int*)(manager+0xC4)==42 && *(int*)(manager+0x98)==43,
+                    "native precheck restores every documented scratch value");
+                SetBuilder(id,17);
+                Check(BuildPathWithCompletedMoatRouteVariant(nativePathManager,1,1)==7,
+                    "failed vanilla path still receives exact late moat qualification");
+                Post(id,17);
+            }
+            Check(pclCalls==1,"group shares native PCL precheck");
+            // Positive second-phase E2610 answers only describe a blocked portal route.
+            NewCommand();
+            originalRegionPairReachability=(p,player,source,target,mode)=> { *(int*)(manager+0x98)=1; return target; };
+            Pre(1,17); *moatPathMode=EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager,1);
+            Check(!unitMoveFrame.Plan.NativeGroundPrecheck && *moatPathMode==1,"blocked portal hint cannot defer required moat admission");
+            Post(1,17,0);
+            originalRegionPairReachability=null;
+            // Model the actual native failure branch, before buffer initialization.
+            foreach(int id in new[]{1,2,5,20,27,29})
+            {
+                NewCommand(); Pre(id,17);
+                *moatPathMode=EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager,id);
+                long runs=weightedMoatRoutePlanner.SearchRuns;
+                Check(TryRecoverBeforeBuilder((IntPtr)nativeUnitManager,id,10,10,17,10)==1,"native portal failure enters own buffer initialization");
+                Check(TryRecoverBeforeBuilder((IntPtr)nativeUnitManager,id,10,10,17,10)==0,"one recovery per invocation");
+                SetBuilder(id,17);
+                Check(BuildPathWithCompletedMoatRouteVariant(nativePathManager,1,1)==7,"recovered native call publishes its retained owner-safe route");
+                Check(weightedMoatRoutePlanner.SearchRuns<=runs+1,"recovery route is not searched again at publication");
+                Post(id,17);
+            }
+            NewCommand(); Pre(1,17); *moatPathMode=EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager,1);
+            *(short*)((byte*)(units+1)+0x2A4)=44; *(short*)((byte*)(units+1)+0x290)=45;
+            Check(TryRecoverBeforeBuilder((IntPtr)nativeUnitManager,1,10,10,17,10)==1,"rollback fixture recovers");
+            enemyTiles.Add(1013); SetBuilder(1,17); Buffer(1)[0]=122;
+            Check(BuildPathWithCompletedMoatRouteVariant(nativePathManager,1,1)==0 && Buffer(1)[0]==122,"owner change rejects retained recovery and restores bytes");
+            Post(1,17,0);
+            Check(*(short*)((byte*)(units+1)+0x2A4)==44 && *(short*)((byte*)(units+1)+0x290)==45,"native failure restores recovery control fields");
+            enemyTiles.Clear();
+            NewCommand(); Pre(1,17); *moatPathMode=EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager,1);
+            Check(TryRecoverBeforeBuilder((IntPtr)nativeUnitManager,2,10,10,17,10)==0,"foreign recovery unit rejected");
+            movementTargetAvailability[10*800+17]=0;
+            Check(TryRecoverBeforeBuilder((IntPtr)nativeUnitManager,1,10,10,17,10)==0,"unavailable recovery target rejected");
+            movementTargetAvailability[10*800+17]=1; Post(1,17,0);
+            foreach(int id in new[]{799,800,32768,63999}) Check(IsValidMoatRecordId(id,64000),"full native moat capacity");
+            foreach(int id in new[]{-1,0,64000,65535}) Check(!IsValidMoatRecordId(id,64000),"invalid moat slot rejected");
+            Check(!IsValidMoatRecordId(950,950) && !IsValidMoatRecordId(950,64001),"moat high-water and capacity independently checked");
+
+            NewCommand(); Pre(1,17,1);
+            *moatPathMode=EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager,1);
+            SetBuilder(1,17);
+            int reconstructionCalls=0, oldNativeCalls=nativeCalls;
+            originalPathReconstruction=m=>{
+                reconstructionCalls++;
+                for(int i=0;i<4;i++)Buffer(1)[i]=0x22;
+                *(int*)(manager+PathManagerOutputLengthOffset)=7; return 7;
+            };
+            Check(BuildReconstructedUnitPath(nativePathManager)==7 && reconstructionCalls==1 && nativeCalls==oldNativeCalls,
+                "E32B0 positive path uses its own audited adapter without F4930");
+            Post(1,17,1,1);
+            NewCommand(); Pre(1,17,1);
+            *moatPathMode=EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager,1);
+            SetBuilder(1,17); originalPathReconstruction=m=>0;
+            Check(BuildReconstructedUnitPath(nativePathManager)==7,"E32B0 failure reuses managed qualified route");
+            Post(1,17,1,1);
+
+            NewCommand(); Pre(1,17,1);
+            *moatPathMode=EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager,1);
+            SetBuilder(1,17); Buffer(1)[0]=123;
+            originalPathReconstruction=m=>{
+                enemyTiles.Add(1013);
+                for(int i=0;i<4;i++)Buffer(1)[i]=0x22;
+                *(int*)(manager+PathManagerOutputLengthOffset)=7; return 7;
+            };
+            Check(BuildReconstructedUnitPath(nativePathManager)==0 && Buffer(1)[0]==123 &&
+                *(int*)(manager+PathManagerOutputLengthOffset)==0,"unsafe E32B0 output is fully rolled back");
+            enemyTiles.Clear(); Post(1,17,0,1);
+
+            // A nonstandard reconstruction variant cannot turn an audit rejection into success.
+            NewCommand(); Pre(1,17,1);
+            *moatPathMode=EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager,1);
+            SetBuilder(1,17); Buffer(1)[0]=124;
+            *(int*)(manager+PathManagerRouteVariantOffset)=2;
+            Check(BuildReconstructedUnitPath(nativePathManager)==0 && Buffer(1)[0]==124 &&
+                *(int*)(manager+PathManagerRouteVariantOffset)==2,
+                "unsupported reconstruction variant rejects and restores unsafe native result");
+            enemyTiles.Clear(); Post(1,17,0,1);
+
+            NewCommand(); Pre(1,17);
+            *moatPathMode=EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager,1);
+            SetBuilder(1,17);
+            units[1].r_GlobalId++;
+            Check(GetBuilderPlan(nativePathManager,true)==null,"recycled game ID cannot reuse old unit qualification");
+            units[1].r_GlobalId--; Post(1,17,0);
+
+            // Execute the actual weighted publisher against native encoded bytes.
+            NewCommand(); Pre(1,17);
+            *moatPathMode=EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager,1);
+            SetBuilder(1,17);
+            WeightedMovementCostProfile.TryCreate(1,1,0,0,0,0,false,out var profile,out _);
+            byte* weightedBuffer=Buffer(1);
+            for(int i=0;i<7;i++)weightedBuffer[i]=0;
+            for(int i=0;i<13;i++)weightedBuffer[i>>1]|=(byte)((i<7||i>=10?2:6)<<((i&1)*4));
+            *(int*)(manager+PathManagerOutputLengthOffset)=13;
+            Check(weightedMoatRoutePlanner.TryDescribeEncodedPath(1,10,10,17,10,profile,weightedBuffer,13,false,out var baseline),
+                "native incumbent fixture has valid real encoded edges");
+            var shadow=new BuilderWeightedScope {UnitId=1,PlayerId=1,UnitGlobalId=units[1].r_GlobalId,
+                StartX=10,StartY=10,TargetX=17,TargetY=10,CostProfile=profile};
+            Check(TryPublishSafelyFasterWeightedRoute(nativePathManager,weightedBuffer,13,shadow,baseline,
+                out var published,out long saving,out _,out _) && shadow.PublishedBuilderResult==7 && saving>0,
+                "actual publisher enforces all profiles, writes own buffer and validates roundtrip");
+            Check(profile.EstimateRouteTicks(baseline.GroundEdges,baseline.MoatEdges)-published.EstimatedTicks>=40,
+                "actual runtime profile retains the forty-tick margin");
+            Post(1,17);
+
+            // A native work consumer may require one enemy contact as the penultimate node.
+            NewCommand();
+            tileFlags[1016]=CompletedMoatTileFlag; enemyTiles.Add(1016);
+            units[1].r_AI_LastIssuedTribeCommand=(int)TribeAICommand.Unknown7;
+            pendingPlan=new PlanScope(1,17,10) {MoatWorkMovement=true,MoatWorkTargetTileId=1016,
+                MoatWorkSearch=new MoatWorkSelectionScope(mapEpoch,(IntPtr)1,1,1,2,10,10,1010,1)};
+            Pre(1,17);
+            *moatPathMode=EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager,1);
+            Check(*moatPathMode==1 && unitMoveFrame.Plan.QualifiedTerminalRoute.IsValid,
+                "actual work context qualifies exact terminal fill endpoint");
+            SetBuilder(1,17);
+            Check(BuildPathWithCompletedMoatRouteVariant(nativePathManager,1,1)==7,
+                "managed fallback preserves terminal fill contact without enemy transit");
+            Post(1,17);
+            enemyTiles.Clear(); tileFlags[1016]=0x8000; units[1].r_AI_LastIssuedTribeCommand=0;
+
+            units[2].Digger = false;
+            NewCommand(); Pre(2, 17);
+            Check(EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager, 2) == 0,
+                "mixed group member without moat capability receives no mode");
+            Post(2, 17, 0); units[2].Digger = true;
+            NewCommand();
+            activeMoveCommand = null;
+            SetBuilder(1, 17);
+            *moatPathMode = 0;
+        }
     }
 }
+
+public static class EngineInterface { private static int[] selectedChimps = Array.Empty<int>(); public static int[] Selection { get=>selectedChimps; set=>selectedChimps=value; } }
+namespace MoveMoatTest {
+    internal struct GameBuilding { public uint r_GlobalId; public int r_TilePositionXBegin, r_TilePositionXEnd, r_TilePositionYBegin, r_TilePositionYEnd; }
+    internal unsafe class GameBuildingManagerAPI {
+        public static GameBuildingManagerAPI Instance = new GameBuildingManagerAPI();
+        public GameBuilding* Building;
+        public bool TryGetBuildingById(int id,out GameBuilding* building) { building=id==1?Building:null;return building!=null; }
+    }
+}
+
+namespace Shared { internal static class DebugLogHelper { public static void LogInfo(object log,string text) {} } }

@@ -4,6 +4,8 @@ using R3;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.MapLoader;
 using SHCDESE.EventAPI.Player;
+using SHCDESE.API.LowLevel;
+using RedBird.Core.Memory;
 using System;
 
 namespace BugfixesAndQoL
@@ -65,6 +67,7 @@ namespace BugfixesAndQoL
         private CtrlMarketTradeHook ctrlMarketTradeHook;
         private IntPtr libraryHandle;
         private int libraryLength;
+        private ScanRegion nativeRegion;
         private bool nativeLibraryAvailable;
         private bool fixedLayoutHashValidated;
         private bool settingsSubscribed;
@@ -246,8 +249,13 @@ namespace BugfixesAndQoL
             }
         }
 
-        public void InitializeNative(IntPtr newLibraryHandle, ReadOnlySpan<byte> memory, bool isFixedLayoutHashValidated)
+        public void InitializeNative(CrusaderLibraryLoadContext context, bool isFixedLayoutHashValidated)
         {
+            if (context == null)
+                throw new ArgumentNullException(nameof(context));
+
+            IntPtr newLibraryHandle = context.ModuleHandle;
+            ReadOnlySpan<byte> memory = context.Memory;
             if (nativeLibraryAvailable)
                 return;
 
@@ -256,6 +264,7 @@ namespace BugfixesAndQoL
 
             libraryHandle = newLibraryHandle;
             libraryLength = memory.Length;
+            nativeRegion = context.Region;
             fixedLayoutHashValidated = isFixedLayoutHashValidated;
             nativeLibraryAvailable = true;
             try
@@ -289,6 +298,7 @@ namespace BugfixesAndQoL
                 {
                     assassinPathfindingRuntime.InitializeNative(
                         newLibraryHandle,
+                        nativeRegion,
                         memory,
                         fixedLayoutHashValidated: true);
                 }
@@ -305,6 +315,7 @@ namespace BugfixesAndQoL
                     // Vanilla's own Assassin builder receives the restored post-combat request.
                     assassinCombatResumeRuntime.InitializeNative(
                         newLibraryHandle,
+                        nativeRegion,
                         memory,
                         fixedLayoutHashValidated: true);
                 }
@@ -335,7 +346,7 @@ namespace BugfixesAndQoL
             // one feature must not prevent unrelated fixes from installing.
             try
             {
-                troopMovementFixRuntime.InitializeNative(newLibraryHandle, memory, isFixedLayoutHashValidated);
+                troopMovementFixRuntime.InitializeNative(newLibraryHandle, nativeRegion, memory, isFixedLayoutHashValidated);
             }
             catch (Exception ex)
             {
@@ -438,6 +449,7 @@ namespace BugfixesAndQoL
             improvedMoatFillingFix = new ImprovedMoatFillingFix(
                 log,
                 settings,
+                nativeRegion,
                 GetNativeLibraryMemory(),
                 unchecked((ulong)libraryHandle.ToInt64()));
             improvedMoatFillingFix.Apply();
@@ -526,6 +538,7 @@ namespace BugfixesAndQoL
             nativeLibraryAvailable = false;
             libraryHandle = IntPtr.Zero;
             libraryLength = 0;
+            nativeRegion = null;
 
             if (settingsSubscribed)
             {
@@ -721,6 +734,7 @@ namespace BugfixesAndQoL
                 ctrlMarketTradeHook = new CtrlMarketTradeHook(
                     log,
                     settings,
+                    nativeRegion,
                     libraryHandle,
                     GetNativeLibraryMemory(),
                     fixedLayoutHashValidated);
@@ -845,7 +859,7 @@ namespace BugfixesAndQoL
         private unsafe ReadOnlySpan<byte> GetNativeLibraryMemory()
         {
             // The game DLL stays loaded for the process lifetime.
-            return new ReadOnlySpan<byte>(libraryHandle.ToPointer(), libraryLength);
+            return nativeRegion == null ? ReadOnlySpan<byte>.Empty : nativeRegion.Span;
         }
 
         private void EnsurePlaguePopularityFix()
@@ -860,6 +874,7 @@ namespace BugfixesAndQoL
                 plaguePopularityFix = new PlaguePopularityFix(
                     log,
                     settings,
+                    nativeRegion,
                     GetNativeLibraryMemory(),
                     unchecked((ulong)libraryHandle.ToInt64()),
                     fixedLayoutHashValidated);
@@ -889,6 +904,7 @@ namespace BugfixesAndQoL
                 aiRecruitmentHorseDemandFix = new AiRecruitmentHorseDemandFix(
                     log,
                     settings,
+                    nativeRegion,
                     GetNativeLibraryMemory(),
                     unchecked((ulong)libraryHandle.ToInt64()),
                     fixedLayoutHashValidated);
@@ -915,6 +931,7 @@ namespace BugfixesAndQoL
                 aiStoneReserveFix = new AiStoneReserveFix(
                     log,
                     settings,
+                    nativeRegion,
                     GetNativeLibraryMemory(),
                     unchecked((ulong)libraryHandle.ToInt64()),
                     fixedLayoutHashValidated);
@@ -948,6 +965,7 @@ namespace BugfixesAndQoL
                 aiTowerRuinRepairFix = new AITowerRuinRepairFix(
                     log,
                     settings,
+                    nativeRegion,
                     GetNativeLibraryMemory(),
                     unchecked((ulong)libraryHandle.ToInt64()),
                     fixedLayoutHashValidated);
@@ -982,6 +1000,7 @@ namespace BugfixesAndQoL
                 betterAIOverbuildRulesFix = new BetterAIOverbuildRulesFix(
                     log,
                     settings,
+                    nativeRegion,
                     GetNativeLibraryMemory(),
                     unchecked((ulong)libraryHandle.ToInt64()),
                     fixedLayoutHashValidated);
@@ -1006,6 +1025,7 @@ namespace BugfixesAndQoL
                 plagueTreatmentFadeFix = new PlagueTreatmentFadeFix(
                     log,
                     settings,
+                    nativeRegion,
                     GetNativeLibraryMemory(),
                     unchecked((ulong)libraryHandle.ToInt64()),
                     fixedLayoutHashValidated);
@@ -1034,6 +1054,7 @@ namespace BugfixesAndQoL
                 plagueApothecaryStateTransitionFix = new PlagueApothecaryStateTransitionFix(
                     log,
                     settings,
+                    nativeRegion,
                     GetNativeLibraryMemory(),
                     unchecked((ulong)libraryHandle.ToInt64()),
                     fixedLayoutHashValidated);
@@ -1072,6 +1093,7 @@ namespace BugfixesAndQoL
                 plagueTargetReservationFix = new PlagueTargetReservationFix(
                     log,
                     settings,
+                    nativeRegion,
                     GetNativeLibraryMemory(),
                     unchecked((ulong)libraryHandle.ToInt64()),
                     fixedLayoutHashValidated);
@@ -1127,6 +1149,7 @@ namespace BugfixesAndQoL
             {
                 mountedStockpileMovementPatch = new MountedStockpileMovementPatch(
                     log,
+                    nativeRegion,
                     GetNativeLibraryMemory(),
                     unchecked((ulong)libraryHandle.ToInt64()),
                     fixedLayoutHashValidated);
@@ -1227,6 +1250,7 @@ namespace BugfixesAndQoL
                 controlGroupDisbandCleanupRuntime = new ControlGroupDisbandCleanupRuntime(
                     log,
                     settings,
+                    nativeRegion,
                     GetNativeLibraryMemory(),
                     unchecked((ulong)libraryHandle.ToInt64()),
                     fixedLayoutHashValidated);

@@ -1,0 +1,94 @@
+<UserControl
+    x:Class="CrusaderDE.HUD_MPChatMessages"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:b="http://schemas.microsoft.com/xaml/behaviors"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:CrusaderDE"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    d:DesignHeight="135"
+    d:DesignWidth="800"
+    mc:Ignorable="d">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="booleanToVisibilityConverter" />
+
+    </UserControl.Resources>
+
+    <Grid
+        x:Name="LayoutRoot"
+        Width="800"
+        Height="{Binding MPChat_Size}"
+        HorizontalAlignment="Right"
+        VerticalAlignment="Bottom"
+        UseLayoutRounding="True">
+        <Grid.RenderTransform>
+            <TranslateTransform />
+        </Grid.RenderTransform>
+
+
+        <StackPanel>
+            <TextBlock
+                    MaxWidth="800"
+                    Height="27"
+                    HorizontalAlignment="Left"
+                    FontSize="16"
+                    Background="#99000000"
+                    VerticalAlignment="Top"
+                    TextAlignment="Left"
+                    Visibility="{Binding MPChat_Rows[0], Converter={StaticResource booleanToVisibilityConverter}}">
+            <Run Foreground="{Binding MPChat_Colours[0]}" Text="{Binding MPChat_Names[0]}"/> <!--
+         --><Run Foreground="#FFDDDDDD" FlowDirection="{Binding GlobalTextFlowAL2R}" Text="{Binding MPChat_Text[0]}"/>
+            </TextBlock>
+            <TextBlock
+                    MaxWidth="800"
+                    Height="27"
+                    HorizontalAlignment="Left"
+                    FontSize="16"
+                    Background="#99000000"
+                    VerticalAlignment="Top"
+                    TextAlignment="Left"
+                    Visibility="{Binding MPChat_Rows[1], Converter={StaticResource booleanToVisibilityConverter}}">
+            <Run Foreground="{Binding MPChat_Colours[1]}" Text="{Binding MPChat_Names[1]}"/> <!--
+         --><Run Foreground="#FFDDDDDD" FlowDirection="{Binding GlobalTextFlowAL2R}" Text="{Binding MPChat_Text[1]}"/>
+            </TextBlock>
+            <TextBlock
+                    MaxWidth="800"
+                    Height="27"
+                    HorizontalAlignment="Left"
+                    FontSize="16"
+                    Background="#99000000"
+                    VerticalAlignment="Top"
+                    TextAlignment="Left"
+                    Visibility="{Binding MPChat_Rows[2], Converter={StaticResource booleanToVisibilityConverter}}">
+            <Run Foreground="{Binding MPChat_Colours[2]}" Text="{Binding MPChat_Names[2]}"/> <!--
+         --><Run Foreground="#FFDDDDDD" FlowDirection="{Binding GlobalTextFlowAL2R}" Text="{Binding MPChat_Text[2]}"/>
+            </TextBlock>
+            <TextBlock
+                    MaxWidth="800"
+                    Height="27"
+                    HorizontalAlignment="Left"
+                    FontSize="16"
+                    Background="#99000000"
+                    VerticalAlignment="Top"
+                    TextAlignment="Left"
+                    Visibility="{Binding MPChat_Rows[3], Converter={StaticResource booleanToVisibilityConverter}}">
+            <Run Foreground="{Binding MPChat_Colours[3]}" Text="{Binding MPChat_Names[3]}"/> <!--
+         --><Run Foreground="#FFDDDDDD" FlowDirection="{Binding GlobalTextFlowAL2R}" Text="{Binding MPChat_Text[3]}"/>
+            </TextBlock>
+            <TextBlock
+                    MaxWidth="800"
+                    Height="27"
+                    HorizontalAlignment="Left"
+                    FontSize="16"
+                    Background="#99000000"
+                    VerticalAlignment="Top"
+                    TextAlignment="Left"
+                    Visibility="{Binding MPChat_Rows[4], Converter={StaticResource booleanToVisibilityConverter}}">
+            <Run Foreground="{Binding MPChat_Colours[4]}" Text="{Binding MPChat_Names[4]}"/> <!--
+         --><Run Foreground="#FFDDDDDD" FlowDirection="{Binding GlobalTextFlowAL2R}" Text="{Binding MPChat_Text[4]}"/>
+            </TextBlock>
+        </StackPanel>
+    </Grid>
+
+</UserControl>

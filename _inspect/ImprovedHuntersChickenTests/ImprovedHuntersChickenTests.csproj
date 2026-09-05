@@ -10,4 +10,21 @@
     <Compile Include="../../ImprovedHunters/src/HunterQueryActorPolicy.cs" Link="HunterQueryActorPolicy.cs" />
     <Compile Include="../../ImprovedHunters/src/ManualChickenAttackPolicy.cs" Link="ManualChickenAttackPolicy.cs" />
   </ItemGroup>
+  <ItemGroup>
+    <Reference Include="Iced">
+      <HintPath>../../shcde-script-extender/mod_output/000shcdese/Iced.dll</HintPath>
+    </Reference>
+    <Reference Include="RedBird.Abstractions">
+      <HintPath>../../shcde-script-extender/mod_output/000shcdese/RedBird.Abstractions.dll</HintPath>
+    </Reference>
+    <Reference Include="RedBird.Core">
+      <HintPath>../../shcde-script-extender/mod_output/000shcdese/RedBird.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="RedBird.X64">
+      <HintPath>../../shcde-script-extender/mod_output/000shcdese/RedBird.X64.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Extensions.Logging.Abstractions">
+      <HintPath>../../shcde-script-extender/mod_output/000shcdese/Microsoft.Extensions.Logging.Abstractions.dll</HintPath>
+    </Reference>
+  </ItemGroup>
 </Project>

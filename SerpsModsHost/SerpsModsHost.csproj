@@ -40,7 +40,6 @@
     <Reference Include="System.Memory"><HintPath>$(ExtenderDir)\System.Memory.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="MessagePack"><HintPath>$(ExtenderDir)\MessagePack.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="MessagePack.Annotations"><HintPath>$(ExtenderDir)\MessagePack.Annotations.dll</HintPath><Private>false</Private></Reference>
-    <Reference Include="Zhuqiaomon"><HintPath>$(ExtenderDir)\Zhuqiaomon.dll</HintPath><Private>false</Private></Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\Shared\DependencyFreeJson.cs"><Link>Shared\DependencyFreeJson.cs</Link></Compile>
@@ -54,6 +53,7 @@
     <Compile Include="src\PackManifest.cs" />
     <Compile Include="src\PackManifestJson.cs" />
     <Compile Include="src\DuplicateInstallationDetector.cs" />
+    <Compile Include="src\RegisteredAssetDirectoryPolicy.cs" />
     <Compile Include="src\LobbyModHashWarning.cs" />
     <Compile Include="src\LobbyModInventoryPublisher.cs" />
     <Compile Include="src\ModInventoryCompatibility.cs" />

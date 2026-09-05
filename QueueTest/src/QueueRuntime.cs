@@ -1,6 +1,11 @@
 using BepInEx.Logging;
 using R3;
+using RedBird.Abstractions.Hooks;
+using RedBird.Abstractions.Hooks.Transaction;
+using RedBird.X64.Hooks;
+using RedBird.X64.Hooks.Transaction;
 using SHCDESE.API;
+using SHCDESE.API.LowLevel;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.Tribes;
 using SHCDESE.Interop;
@@ -10,8 +15,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
-using Zhuqiaomon.Hooks;
-using Zhuqiaomon.Hooks.Transaction;
 
 namespace QueueTest
 {
@@ -116,16 +119,16 @@ namespace QueueTest
         private HookTransaction nativeTransaction;
         private HookTransaction multiplayerTransaction;
         private HookTransaction drawFilterTransaction;
-        private HookRef<X64ManagedFunctionDetourAOB<AppendMovementWaypointDelegate>> waypointAppendHook =
-            new HookRef<X64ManagedFunctionDetourAOB<AppendMovementWaypointDelegate>>();
-        private HookRef<X64ManagedFunctionDetourAOB<RenderTribeOverlayDelegate>> tribeOverlayRenderHook =
-            new HookRef<X64ManagedFunctionDetourAOB<RenderTribeOverlayDelegate>>();
-        private HookRef<X64ManagedFunctionDetourAOB<DrawSubmissionDelegate>> drawSubmissionHook =
-            new HookRef<X64ManagedFunctionDetourAOB<DrawSubmissionDelegate>>();
-        private HookRef<X64ManagedFunctionDetourAOB<ChoreHandlerDelegate>> moveChoreHandlerHook =
-            new HookRef<X64ManagedFunctionDetourAOB<ChoreHandlerDelegate>>();
-        private HookRef<X64ManagedFunctionDetourAOB<ChoreHandlerDelegate>> targetOrderChoreHandlerHook =
-            new HookRef<X64ManagedFunctionDetourAOB<ChoreHandlerDelegate>>();
+        private readonly DetourHandle<AppendMovementWaypointDelegate> waypointAppendHook =
+            new DetourHandle<AppendMovementWaypointDelegate>();
+        private readonly DetourHandle<RenderTribeOverlayDelegate> tribeOverlayRenderHook =
+            new DetourHandle<RenderTribeOverlayDelegate>();
+        private readonly DetourHandle<DrawSubmissionDelegate> drawSubmissionHook =
+            new DetourHandle<DrawSubmissionDelegate>();
+        private readonly DetourHandle<ChoreHandlerDelegate> moveChoreHandlerHook =
+            new DetourHandle<ChoreHandlerDelegate>();
+        private readonly DetourHandle<ChoreHandlerDelegate> targetOrderChoreHandlerHook =
+            new DetourHandle<ChoreHandlerDelegate>();
         private IsTribeMovementCompleteDelegate isTribeMovementComplete;
         private RemoveUnitFromTribeDelegate removeUnitFromTribe;
         private IntPtr tribeManagerPointer;
@@ -158,10 +161,16 @@ namespace QueueTest
             this.log = log ?? throw new ArgumentNullException(nameof(log));
         }
 
-        public void Install(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
+        public void Install(CrusaderLibraryLoadContext context)
         {
             if (installed)
                 return;
+            if (context == null)
+                throw new ArgumentNullException(nameof(context));
+
+            IntPtr libraryHandle = context.ModuleHandle;
+            ReadOnlySpan<byte> memory = context.Memory;
+            ulong libraryBase = unchecked((ulong)libraryHandle.ToInt64());
 
             int actualTribeSize = Marshal.SizeOf(typeof(GameTribe));
             if (actualTribeSize != GameTribeSize)
@@ -274,24 +283,24 @@ namespace QueueTest
             tribeManagerPointer = new IntPtr(GameTribeManagerAPI.Instance.GetTribeManager().Pointer);
 
             nativeTransaction = new HookTransaction(
-                memory,
-                unchecked((ulong)libraryHandle.ToInt64()),
-                loggerFactory: null,
-                failureMode: TransactionFailureMode.RollbackAndThrow);
+                context.Region,
+                SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory,
+                CreateTransactionOptions());
             nativeTransaction.AddDetour(
-                ref waypointAppendHook,
-                unchecked((ulong)libraryHandle.ToInt64()) + ReferenceWaypointAppendRva,
+                waypointAppendHook,
+                HookTarget.FromAddress(libraryBase + ReferenceWaypointAppendRva),
                 AppendMovementWaypoint);
             nativeTransaction.AddDetour(
-                ref tribeOverlayRenderHook,
-                unchecked((ulong)libraryHandle.ToInt64()) + ReferenceTribeOverlayRenderRva,
+                tribeOverlayRenderHook,
+                HookTarget.FromAddress(libraryBase + ReferenceTribeOverlayRenderRva),
                 RenderTribeOverlay);
-            nativeTransaction.Commit();
-            if (!waypointAppendHook.Success || !tribeOverlayRenderHook.Success)
+            CommitResult nativeCommitResult = nativeTransaction.Commit();
+            if (!nativeCommitResult.IsCompleteSuccess ||
+                !waypointAppendHook.Success || !tribeOverlayRenderHook.Success)
                 throw new InvalidOperationException("One or more QueueTest native hooks were not installed.");
 
-            InstallMultiplayerSynchronization(libraryHandle, memory);
-            InstallOptionalDrawFilter(libraryHandle, memory);
+            InstallMultiplayerSynchronization(context);
+            InstallOptionalDrawFilter(context);
 
             subscriptions.Add(TribeR3EventHooks.OnTribeIssueOrderWithTarget.Observable
                 .Where(args => args.Phase == EventHookPhase.Pre)
@@ -325,10 +334,13 @@ namespace QueueTest
                 "allModesEnabled=true. Command capture no longer depends on an OnStartMap event.");
         }
 
-        private void InstallMultiplayerSynchronization(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
+        private void InstallMultiplayerSynchronization(CrusaderLibraryLoadContext context)
         {
             try
             {
+                IntPtr libraryHandle = context.ModuleHandle;
+                ReadOnlySpan<byte> memory = context.Memory;
+                ulong libraryBase = unchecked((ulong)libraryHandle.ToInt64());
                 Shared.NativeResolution moveResolution = Shared.NativePatternResolver.ResolveUnique(
                     memory,
                     MoveChoreHandlerPattern,
@@ -364,20 +376,20 @@ namespace QueueTest
                 choreMoveTypePointer = libraryHandle + QueueNativeContract.ChoreMoveTypeRva;
 
                 multiplayerTransaction = new HookTransaction(
-                    memory,
-                    unchecked((ulong)libraryHandle.ToInt64()),
-                    loggerFactory: null,
-                    failureMode: TransactionFailureMode.RollbackAndThrow);
+                    context.Region,
+                    SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory,
+                    CreateTransactionOptions());
                 multiplayerTransaction.AddDetour(
-                    ref moveChoreHandlerHook,
-                    unchecked((ulong)libraryHandle.ToInt64()) + QueueNativeContract.MoveChoreHandlerRva,
+                    moveChoreHandlerHook,
+                    HookTarget.FromAddress(libraryBase + QueueNativeContract.MoveChoreHandlerRva),
                     HandleMoveChore);
                 multiplayerTransaction.AddDetour(
-                    ref targetOrderChoreHandlerHook,
-                    unchecked((ulong)libraryHandle.ToInt64()) + QueueNativeContract.TargetOrderChoreHandlerRva,
+                    targetOrderChoreHandlerHook,
+                    HookTarget.FromAddress(libraryBase + QueueNativeContract.TargetOrderChoreHandlerRva),
                     HandleTargetOrderChore);
-                multiplayerTransaction.Commit();
+                CommitResult multiplayerCommitResult = multiplayerTransaction.Commit();
                 multiplayerSynchronizationReady =
+                    multiplayerCommitResult.IsCompleteSuccess &&
                     moveChoreHandlerHook.Success && targetOrderChoreHandlerHook.Success;
                 if (!multiplayerSynchronizationReady)
                     throw new InvalidOperationException("A multiplayer Chore marker hook reported no success.");
@@ -429,7 +441,7 @@ namespace QueueTest
                 }
 
                 trampolineEntered = true;
-                moveChoreHandlerHook.Value.Hook.Trampoline();
+                moveChoreHandlerHook.Original();
             }
             catch (Exception exception)
             {
@@ -438,7 +450,7 @@ namespace QueueTest
                 {
                     try
                     {
-                        moveChoreHandlerHook.Value.Hook.Trampoline();
+                        moveChoreHandlerHook.Original();
                     }
                     catch (Exception trampolineException)
                     {
@@ -484,7 +496,7 @@ namespace QueueTest
                 }
 
                 trampolineEntered = true;
-                targetOrderChoreHandlerHook.Value.Hook.Trampoline();
+                targetOrderChoreHandlerHook.Original();
             }
             catch (Exception exception)
             {
@@ -493,7 +505,7 @@ namespace QueueTest
                 {
                     try
                     {
-                        targetOrderChoreHandlerHook.Value.Hook.Trampoline();
+                        targetOrderChoreHandlerHook.Original();
                     }
                     catch (Exception trampolineException)
                     {
@@ -535,10 +547,13 @@ namespace QueueTest
                 $"MULTIPLAYER_MARKER_FAIL_OPEN: {chore}; Vanilla order retained; {exception.Message}");
         }
 
-        private void InstallOptionalDrawFilter(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
+        private void InstallOptionalDrawFilter(CrusaderLibraryLoadContext context)
         {
             try
             {
+                IntPtr libraryHandle = context.ModuleHandle;
+                ReadOnlySpan<byte> memory = context.Memory;
+                ulong libraryBase = unchecked((ulong)libraryHandle.ToInt64());
                 Shared.NativeResolution resolution = Shared.NativePatternResolver.ResolveUnique(
                     memory,
                     DrawSubmissionPattern,
@@ -550,16 +565,15 @@ namespace QueueTest
                     throw new InvalidOperationException($"Draw submission resolved at unexpected RVA 0x{resolution.Rva:X}.");
 
                 drawFilterTransaction = new HookTransaction(
-                    memory,
-                    unchecked((ulong)libraryHandle.ToInt64()),
-                    loggerFactory: null,
-                    failureMode: TransactionFailureMode.RollbackAndThrow);
+                    context.Region,
+                    SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory,
+                    CreateTransactionOptions());
                 drawFilterTransaction.AddDetour(
-                    ref drawSubmissionHook,
-                    unchecked((ulong)libraryHandle.ToInt64()) + ReferenceDrawSubmissionRva,
+                    drawSubmissionHook,
+                    HookTarget.FromAddress(libraryBase + ReferenceDrawSubmissionRva),
                     SubmitOverlayMarker);
-                drawFilterTransaction.Commit();
-                drawFilterInstalled = drawSubmissionHook.Success;
+                CommitResult drawCommitResult = drawFilterTransaction.Commit();
+                drawFilterInstalled = drawCommitResult.IsCompleteSuccess && drawSubmissionHook.Success;
                 if (!drawFilterInstalled)
                     throw new InvalidOperationException("Draw-submission hook reported no success.");
             }
@@ -857,7 +871,7 @@ namespace QueueTest
             }
 
         Vanilla:
-            waypointAppendHook.Value.Hook.Trampoline(
+            waypointAppendHook.Original(
                 tribeManager,
                 serializedTribeId,
                 tileX,
@@ -877,7 +891,7 @@ namespace QueueTest
             {
                 Shared.DebugLogHelper.LogError(log, $"OVERLAY_HOOK_FAIL_OPEN: {exception}");
                 if (!trampolineEntered)
-                    tribeOverlayRenderHook.Value.Hook.Trampoline(tribeManager, tribeId);
+                    tribeOverlayRenderHook.Original(tribeManager, tribeId);
             }
         }
 
@@ -897,7 +911,7 @@ namespace QueueTest
             if (overlayCohortBuffer.Count == 0 || !TryGetAliveTribe(tribeId, out GameTribe* tribe))
             {
                 trampolineEntered = true;
-                tribeOverlayRenderHook.Value.Hook.Trampoline(tribeManager, tribeId);
+                tribeOverlayRenderHook.Original(tribeManager, tribeId);
                 return;
             }
 
@@ -913,7 +927,7 @@ namespace QueueTest
             if (overlayCohortBuffer.Count == 0)
             {
                 trampolineEntered = true;
-                tribeOverlayRenderHook.Value.Hook.Trampoline(tribeManager, tribeId);
+                tribeOverlayRenderHook.Original(tribeManager, tribeId);
                 return;
             }
 
@@ -946,7 +960,7 @@ namespace QueueTest
                 savedPoints[index] = points[index];
 
             ushort savedIndex = tribe->r_PatrolCurrentTargetIndex;
-            // The 1.42.0 interop declares this native ushort as UInt32. Read and write
+            // The 2.0.2 interop still declares this native ushort as UInt32. Read and write
             // the proven 16-bit field directly so the adjacent word cannot affect capacity.
             TribePatrolMode savedMode = tribe->r_PatrolMode;
             try
@@ -990,7 +1004,7 @@ namespace QueueTest
                     overlayRenderThreadId = Thread.CurrentThread.ManagedThreadId;
                     overlayDrawFilterActive = drawFilterInstalled;
                     trampolineEntered = true;
-                    tribeOverlayRenderHook.Value.Hook.Trampoline(tribeManager, tribeId);
+                    tribeOverlayRenderHook.Original(tribeManager, tribeId);
                     if (drawFilterInstalled && !overlaySawQueueMarker)
                         break;
                     ProjectAttackTargetMarkers(visualEntryBuffer);
@@ -1185,7 +1199,7 @@ namespace QueueTest
                 }
             }
 
-            drawSubmissionHook.Value.Hook.Trampoline(
+            drawSubmissionHook.Original(
                 drawManager,
                 category,
                 spriteId,
@@ -1869,10 +1883,10 @@ namespace QueueTest
                 return false;
             }
 
-            int[] selectedUnitIds = GamePlayerManagerAPI.Instance.GetSelectedChimps();
-            for (int index = 0; index < selectedUnitIds.Length; index++)
+            SelectedUnitInfo[] selectedUnits = GamePlayerManagerAPI.Instance.GetSelectedChimps();
+            for (int index = 0; index < selectedUnits.Length; index++)
             {
-                int unitId = selectedUnitIds[index];
+                int unitId = selectedUnits[index].UnitId;
                 if (!GameUnitManagerAPI.Instance.IsValidId(unitId) ||
                     !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
                     unit == null)
@@ -1885,6 +1899,14 @@ namespace QueueTest
             }
             return false;
         }
+
+        private static HookTransactionOptions CreateTransactionOptions() =>
+            new HookTransactionOptions
+            {
+                FailureMode = TransactionFailureMode.RollbackAndThrow,
+                // QueueRuntime is process-rooted; startup never tears these hooks down.
+                OwnsHooks = false
+            };
 
         private static bool TryGetAliveTribe(int tribeId, out GameTribe* tribe)
         {

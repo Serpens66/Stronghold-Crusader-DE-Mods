@@ -4,7 +4,7 @@ using SHCDESE.Interop.Enums;
 using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using Zhuqiaomon.Windows;
+using RedBird.Core.Memory;
 
 namespace BugfixesAndQoL
 {
@@ -445,39 +445,7 @@ namespace BugfixesAndQoL
 
             private void WriteBytes(byte[] bytes)
             {
-                IntPtr pointer = unchecked((IntPtr)(long)address);
-                UIntPtr size = unchecked((UIntPtr)(uint)bytes.Length);
-                if (!Kernel32.VirtualProtect(
-                        pointer,
-                        size,
-                        Kernel32.MemoryPermissions.PAGE_EXECUTE_READWRITE,
-                        out Kernel32.MemoryPermissions oldProtection))
-                {
-                    throw new InvalidOperationException(
-                        $"VirtualProtect failed for native patch '{label}'.");
-                }
-
-                try
-                {
-                    Marshal.Copy(bytes, 0, pointer, bytes.Length);
-                }
-                finally
-                {
-                    if (!Kernel32.VirtualProtect(pointer, size, oldProtection, out _))
-                    {
-                        throw new InvalidOperationException(
-                            $"Restoring memory protection failed for native patch '{label}'.");
-                    }
-                }
-
-                if (!MinWinAPI.FlushInstructionCache(
-                        Process.GetCurrentProcess().Handle,
-                        pointer,
-                        size))
-                {
-                    throw new InvalidOperationException(
-                        $"Flushing the instruction cache failed for native patch '{label}'.");
-                }
+                CodePatch.Write(address, bytes);
 
                 VerifyCurrentBytes(bytes, "verify");
             }

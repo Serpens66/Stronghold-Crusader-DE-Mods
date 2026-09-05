@@ -7,7 +7,7 @@ using System.Security.Cryptography;
 namespace SerpNativeAPI
 {
     /// <summary>BepInEx host for the process-wide Serp native API.</summary>
-    [BepInDependency(ScriptExtenderGuid, BepInDependency.DependencyFlags.HardDependency)]
+    [BepInDependency(ScriptExtenderGuid, "2.0.2")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class SerpNativeAPIPlugin : BaseUnityPlugin
     {
@@ -27,7 +27,7 @@ namespace SerpNativeAPI
             CrusaderLibrary.Instance.LibraryLoaded += OnLibraryLoaded;
         }
 
-        private void OnLibraryLoaded(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
+        private void OnLibraryLoaded(CrusaderLibraryLoadContext context)
         {
             string hash;
             try
@@ -40,8 +40,8 @@ namespace SerpNativeAPI
                 hash = string.Empty;
             }
             SerpNativeApiRuntime.ProcessInstance.Initialize(
-                libraryHandle.ToInt64(),
-                memory,
+                context.ModuleHandle.ToInt64(),
+                context.Memory,
                 hash,
                 new ProcessNativeMemory(),
                 new ScriptExtenderSelectedUnitCommandEventSource(),

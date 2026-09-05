@@ -179,7 +179,7 @@ if ($recordStart -lt 0 -or $recordEnd -le $recordStart) {
 }
 
 $recordBlock = $runtime.Substring($recordStart, $recordEnd - $recordStart)
-if (-not $recordBlock.Contains('if (moveHereResult != 0)') -or
+if (-not $recordBlock.Contains('if (moveHereResult != 0 && CanRunHunterPathfinding())') -or
     -not $recordBlock.Contains('RecordAcceptedVanillaPath(')) {
     throw 'Only a successful observed Vanilla MoveHere may advance the visibility path generation.'
 }
@@ -202,9 +202,9 @@ if (-not $continuation.Contains('ValidateDistanceContinuationHookSpan') -or
     -not $continuation.Contains('hookLength != AttackGateHookLength')) {
     throw 'Both native hook spans must be instruction-decoded and audited against external direct branch targets before installation.'
 }
-if (-not $continuation.Contains('AttackGateHookRva = 0x130110') -or
+if (-not $continuation.Contains('AttackGateHookRva = 0x130160') -or
     -not $continuation.Contains('AttackGateHookLength = 0x14') -or
-    -not $continuation.Contains('AttackGateFirstBranchTargetRva = 0x13012A') -or
+    -not $continuation.Contains('AttackGateFirstBranchTargetRva = 0x13017A') -or
     -not $continuation.Contains('placement: OverwrittenInstructionPlacement.BeforeCallback')) {
     throw 'The attack-gate handoff must use the audited 20-byte basic-block span and run only after its relocated comparisons.'
 }

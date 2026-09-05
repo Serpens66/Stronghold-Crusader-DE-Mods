@@ -5,7 +5,7 @@ using System.IO;
 
 namespace ActiveAIVDetector
 {
-    [BepInDependency(ScriptExtenderGuid, BepInDependency.DependencyFlags.HardDependency)]
+    [BepInDependency(ScriptExtenderGuid, "2.0.2")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class ActiveAIVDetectorPlugin : BaseUnityPlugin
     {
@@ -66,7 +66,7 @@ namespace ActiveAIVDetector
                 "Plugin component destroyed during startup; keeping the active-AIV hook rooted.");
         }
 
-        private void OnCrusaderLibraryLoaded(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
+        private void OnCrusaderLibraryLoaded(CrusaderLibraryLoadContext context)
         {
             if (libraryLoadedHandled)
                 return;
@@ -82,7 +82,7 @@ namespace ActiveAIVDetector
                     return;
                 }
 
-                runtime.Install(libraryHandle, memory, referenceHashMatches);
+                runtime.Install(context, referenceHashMatches);
                 libraryLoadedHandled = true;
             }
             catch (Exception ex)

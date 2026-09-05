@@ -1,9 +1,11 @@
 using BepInEx.Logging;
 using System;
-using Zhuqiaomon.Assembly;
-using Zhuqiaomon.Hooks;
-using Zhuqiaomon.Hooks.Transaction;
-using Zhuqiaomon.Memory;
+using RedBird.Abstractions.Hooks;
+using RedBird.Abstractions.Hooks.Transaction;
+using RedBird.Core.Memory;
+using RedBird.X64.Assembly;
+using RedBird.X64.Hooks;
+using RedBird.X64.Hooks.Transaction;
 
 namespace ImprovedHunters
 {
@@ -34,7 +36,7 @@ namespace ImprovedHunters
         private readonly bool[] lastLoggedDecisions = new bool[MaximumPlayerId + 1];
         private readonly bool[] hasLoggedDecision = new bool[MaximumPlayerId + 1];
         private HookTransaction transaction;
-        private HookRef<X64InlineHook> comparisonHook = new HookRef<X64InlineHook>();
+        private readonly HookHandle<X64InlineHook> comparisonHook = new HookHandle<X64InlineHook>();
         private bool featureAvailable = true;
         private bool hookConfirmed;
         private int decisionLogs;
@@ -43,6 +45,7 @@ namespace ImprovedHunters
         public GranaryChickenLimitPatch(
             ManualLogSource log,
             ImprovedHuntersViewModel settings,
+            ScanRegion region,
             ReadOnlySpan<byte> memory,
             ulong libraryBase,
             bool referenceHashMatches,
@@ -78,21 +81,18 @@ namespace ImprovedHunters
 
             try
             {
-                transaction = new HookTransaction(
-                    memory,
-                    libraryBase,
-                    loggerFactory: null,
-                    failureMode: TransactionFailureMode.RollbackAndThrow);
-                transaction.AddContextHook(
-                    ref comparisonHook,
+                transaction = HunterHookInfrastructure.CreateOwnedTransaction(region);
+                HunterHookInfrastructure.AddContextHook(
+                    transaction,
+                    comparisonHook,
                     libraryBase + unchecked((ulong)hookRva),
                     ApplyConfiguredLimit,
-                    regs: X64SmartCPUContextRegs.Volatile | X64SmartCPUContextRegs.RBX,
+                    registers: X64SmartCPUContextRegs.Volatile | X64SmartCPUContextRegs.RBX,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
-                transaction.Commit();
+                CommitResult commitResult = transaction.Commit();
 
-                if (!comparisonHook.Success)
+                if (!commitResult.IsCompleteSuccess || !comparisonHook.Success)
                     throw new InvalidOperationException("The granary chicken target comparison hook was not installed.");
 
                 Shared.DebugLogHelper.LogInfo(
@@ -116,7 +116,6 @@ namespace ImprovedHunters
 
             disposed = true;
             featureAvailable = false;
-            transaction?.Unload();
             transaction?.Dispose();
             transaction = null;
         }

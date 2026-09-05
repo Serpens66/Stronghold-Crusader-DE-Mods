@@ -1,5 +1,8 @@
 using BepInEx.Logging;
-using MonoMod.RuntimeDetour;
+using RedBird.Abstractions.Hooks;
+using RedBird.Abstractions.Hooks.Transaction;
+using RedBird.Core.Memory;
+using RedBird.X64.Hooks.Transaction;
 using SHCDESE.API;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
@@ -69,12 +72,12 @@ namespace BugfixesAndQoL
         private readonly byte* nativeHeightLayer;
         private readonly short* pathRegionGrid;
         private readonly uint* tileFlags;
-        private FindMoatWorkTargetDelegate originalFindMoatWorkTarget;
-        private FindMoatWorkTargetDelegate rootedFindMoatWorkTarget;
-        private ResolveMoatWorkTileDelegate originalResolveMoatWorkTile;
-        private ResolveMoatWorkTileDelegate rootedResolveMoatWorkTile;
-        private NativeDetour findMoatWorkTargetDetour;
-        private NativeDetour resolveMoatWorkTileDetour;
+        private readonly ScanRegion region;
+        private HookTransaction transaction;
+        private readonly DetourHandle<FindMoatWorkTargetDelegate> findMoatWorkTargetDetour =
+            new DetourHandle<FindMoatWorkTargetDelegate>();
+        private readonly DetourHandle<ResolveMoatWorkTileDelegate> resolveMoatWorkTileDetour =
+            new DetourHandle<ResolveMoatWorkTileDelegate>();
         private bool reservationWarningLogged;
         private bool selectorErrorLogged;
         private bool resolverErrorLogged;
@@ -83,11 +86,13 @@ namespace BugfixesAndQoL
         internal ImprovedMoatFillingFix(
             ManualLogSource log,
             BugfixesAndQoLViewModel settings,
+            ScanRegion region,
             ReadOnlySpan<byte> memory,
             ulong libraryBase)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
+            this.region = region ?? throw new ArgumentNullException(nameof(region));
             this.libraryBase = libraryBase;
             ValidateNativeContracts(memory);
             movementTargetAvailability = (byte*)(libraryBase + MovementTargetAvailabilityRva);
@@ -98,31 +103,27 @@ namespace BugfixesAndQoL
 
         internal void Apply()
         {
-            rootedFindMoatWorkTarget = FindMoatWorkTargetWithFreeApproach;
-            rootedResolveMoatWorkTile = ResolveMoatWorkTileWithSelectedApproach;
-            NativeDetour pendingFind = null;
-            NativeDetour pendingResolve = null;
-            bool findApplied = false;
-            bool resolveApplied = false;
-            try
+            transaction = new HookTransaction(
+                region,
+                SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory,
+                new HookTransactionOptions
             {
-                pendingFind = CreateDetour(libraryBase + FindMoatWorkTargetRva, rootedFindMoatWorkTarget);
-                originalFindMoatWorkTarget = pendingFind.GenerateTrampoline<FindMoatWorkTargetDelegate>();
-                pendingResolve = CreateDetour(libraryBase + ResolveMoatWorkTileRva, rootedResolveMoatWorkTile);
-                originalResolveMoatWorkTile = pendingResolve.GenerateTrampoline<ResolveMoatWorkTileDelegate>();
-                pendingFind.Apply();
-                findApplied = true;
-                pendingResolve.Apply();
-                resolveApplied = true;
-                findMoatWorkTargetDetour = pendingFind;
-                resolveMoatWorkTileDetour = pendingResolve;
-            }
-            catch
-            {
-                UndoAndDispose(pendingResolve, resolveApplied);
-                UndoAndDispose(pendingFind, findApplied);
-                throw;
-            }
+                    FailureMode = TransactionFailureMode.RollbackAndThrow,
+                    // Runtime ownership is process-long and startup teardown must not remove these hooks.
+                    OwnsHooks = false
+                });
+            transaction.AddDetour(
+                findMoatWorkTargetDetour,
+                HookTarget.FromAddress(libraryBase + FindMoatWorkTargetRva),
+                FindMoatWorkTargetWithFreeApproach);
+            transaction.AddDetour(
+                resolveMoatWorkTileDetour,
+                HookTarget.FromAddress(libraryBase + ResolveMoatWorkTileRva),
+                ResolveMoatWorkTileWithSelectedApproach);
+            CommitResult commitResult = transaction.Commit();
+            if (!commitResult.IsCompleteSuccess ||
+                !findMoatWorkTargetDetour.Success || !resolveMoatWorkTileDetour.Success)
+                throw new InvalidOperationException("The standalone moat detours were not installed atomically.");
         }
 
         private bool IsEnabled => settings.EnableMod && settings.EnableImprovedMoatFilling;
@@ -139,7 +140,7 @@ namespace BugfixesAndQoL
                 tileManager == IntPtr.Zero ||
                 tileManager != GameTileManagerAPI.Instance.GetTileManager())
             {
-                return originalFindMoatWorkTarget(tileManager, playerId, unitId, relationshipMode);
+                return findMoatWorkTargetDetour.Original(tileManager, playerId, unitId, relationshipMode);
             }
 
             List<ExcludedReservation> exclusions = null;
@@ -152,7 +153,7 @@ namespace BugfixesAndQoL
                 for (int attempt = 0; attempt < maximumAttempts; attempt++)
                 {
                     currentReservationRetained = false;
-                    currentMoatId = originalFindMoatWorkTarget(
+                    currentMoatId = findMoatWorkTargetDetour.Original(
                         tileManager, playerId, unitId, relationshipMode);
                     if (currentMoatId <= 0)
                         break;
@@ -205,7 +206,7 @@ namespace BugfixesAndQoL
                     "Improved moat filling selector failed once; Vanilla behavior remains active: " + ex);
                 if (currentMoatId > 0 && currentReservationRetained)
                     return currentMoatId;
-                return originalFindMoatWorkTarget(tileManager, playerId, unitId, relationshipMode);
+                return findMoatWorkTargetDetour.Original(tileManager, playerId, unitId, relationshipMode);
             }
             finally
             {
@@ -222,7 +223,7 @@ namespace BugfixesAndQoL
         {
             PendingApproach pending = pendingApproach;
             bool matches = pending != null && pending.Matches(tileManager, moatId, sourceX, sourceY);
-            int vanillaResult = originalResolveMoatWorkTile(tileManager, moatId, mode, sourceX, sourceY);
+            int vanillaResult = resolveMoatWorkTileDetour.Original(tileManager, moatId, mode, sourceX, sourceY);
 
             if (mode == ImprovedMoatFillingPolicy.PublishMoatTileMode)
             {
@@ -454,20 +455,6 @@ namespace BugfixesAndQoL
         }
 
         private static bool IsValidTileId(int tileId) => tileId >= 0 && tileId < NativeTileCount;
-
-        private static NativeDetour CreateDetour<TDelegate>(ulong address, TDelegate callback)
-            where TDelegate : Delegate =>
-            new NativeDetour(
-                (IntPtr)unchecked((long)address),
-                Marshal.GetFunctionPointerForDelegate(callback),
-                new NativeDetourConfig { ManualApply = true });
-
-        private static void UndoAndDispose(NativeDetour detour, bool applied)
-        {
-            if (applied)
-                detour?.Undo();
-            detour?.Dispose();
-        }
 
         private static void ValidateNativeContracts(ReadOnlySpan<byte> memory)
         {

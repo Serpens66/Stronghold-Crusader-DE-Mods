@@ -17,7 +17,7 @@ using System.Security.Cryptography;
 
 namespace SerpsModsHost
 {
-    [BepInDependency(ScriptExtenderGuid, BepInDependency.DependencyFlags.HardDependency)]
+    [BepInDependency(ScriptExtenderGuid, "2.0.2")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class SerpsModsHostPlugin : BaseUnityPlugin
     {
@@ -121,10 +121,9 @@ namespace SerpsModsHost
                 try
                 {
                     GameAssetModManager.Instance.RegisterAssetMod(directory);
-                    bool registered = GameAssetModManager.Instance.GetRegisteredAssetDirectories()
-                        .Any(entry => string.Equals(entry.Key.GUID, mod.Guid, StringComparison.OrdinalIgnoreCase));
-                    if (!registered)
-                        throw new InvalidOperationException("The Script Extender did not expose the registered GUID afterwards.");
+                    bool registered = GameAssetModManager.Instance.TryGetRegisteredDirectory(mod.Guid, out string registeredDirectory);
+                    if (!RegisteredAssetDirectoryPolicy.TryValidate(directory, registered, registeredDirectory, out string failure))
+                        throw new InvalidOperationException(failure);
                     registeredCount++;
                 }
                 catch (Exception ex)
@@ -332,7 +331,7 @@ namespace SerpsModsHost
             }
         }
 
-        private void OnCrusaderLibraryLoaded(IntPtr moduleHandle, ReadOnlySpan<byte> memory)
+        private void OnCrusaderLibraryLoaded(CrusaderLibraryLoadContext context)
         {
             try
             {

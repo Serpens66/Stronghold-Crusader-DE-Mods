@@ -19,10 +19,13 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Runtime.InteropServices;
-using Zhuqiaomon.Assembly;
-using Zhuqiaomon.Hooks;
-using Zhuqiaomon.Hooks.Transaction;
-using Zhuqiaomon.Memory;
+using RedBird.Abstractions.Hooks.Transaction;
+using RedBird.Abstractions.Hooks;
+using RedBird.Core.Memory;
+using RedBird.X64.Assembly;
+using RedBird.X64.Hooks;
+using RedBird.X64.Hooks.Transaction;
+using RedBird.X64.Hooks.Context;
 
 namespace BugfixesAndQoL
 {
@@ -85,9 +88,9 @@ namespace BugfixesAndQoL
         private readonly int* rowLookup;
         private readonly uint* tileFlags;
         private HookTransaction transaction;
-        private HookRef<X64InlineHook> cursorClassificationHook = new HookRef<X64InlineHook>();
-        private HookRef<X64InlineHook> feedbackClassificationHook = new HookRef<X64InlineHook>();
-        private HookRef<X64InlineHook> mountedEndpointWallGateHook = new HookRef<X64InlineHook>();
+        private readonly HookHandle<X64InlineHook> cursorClassificationHook = new HookHandle<X64InlineHook>();
+        private readonly HookHandle<X64InlineHook> feedbackClassificationHook = new HookHandle<X64InlineHook>();
+        private readonly HookHandle<X64InlineHook> mountedEndpointWallGateHook = new HookHandle<X64InlineHook>();
         private IntPtr endpointZeroFlags;
         private bool classificationCallbackFailureLogged;
         private bool endpointCallbackFailureLogged;
@@ -95,6 +98,7 @@ namespace BugfixesAndQoL
 
         public MountedStockpileMovementPatch(
             ManualLogSource log,
+            ScanRegion region,
             ReadOnlySpan<byte> memory,
             ulong libraryBase,
             bool referenceHashMatches)
@@ -143,37 +147,32 @@ namespace BugfixesAndQoL
             {
                 endpointZeroFlags = Marshal.AllocHGlobal(sizeof(uint));
                 *(uint*)endpointZeroFlags = 0;
-                transaction = new HookTransaction(
-                    memory, libraryBase, loggerFactory: null,
-                    failureMode: TransactionFailureMode.RollbackAndThrow);
-                transaction.AddContextHook(
-                    ref cursorClassificationHook,
+                transaction = BugfixesHookInfrastructure.CreateOwnedTransaction(region);
+                BugfixesHookInfrastructure.AddContextHook(transaction, cursorClassificationHook,
                     libraryBase + unchecked((ulong)(cursorResolution.Rva + ClassificationHookOffset)),
                     CorrectCursorMountedClassification,
-                    regs: X64SmartCPUContextRegs.RAX,
+                    registers: X64SmartCPUContextRegs.RAX,
                     hookSize: ClassificationHookSize,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
-                transaction.AddContextHook(
-                    ref feedbackClassificationHook,
+                BugfixesHookInfrastructure.AddContextHook(transaction, feedbackClassificationHook,
                     libraryBase + unchecked((ulong)(feedbackResolution.Rva + ClassificationHookOffset)),
                     CorrectFeedbackMountedClassification,
-                    regs: X64SmartCPUContextRegs.RAX,
+                    registers: X64SmartCPUContextRegs.RAX,
                     hookSize: ClassificationHookSize,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
-                transaction.AddContextHook(
-                    ref mountedEndpointWallGateHook,
+                BugfixesHookInfrastructure.AddContextHook(transaction, mountedEndpointWallGateHook,
                     libraryBase + unchecked((ulong)(endpointResolution.Rva + MountedEndpointWallGateHookOffset)),
                     PermitMountedGoodsyardEndpoint,
-                    regs: X64SmartCPUContextRegs.Volatile |
+                    registers: X64SmartCPUContextRegs.Volatile |
                         X64SmartCPUContextRegs.RSI | X64SmartCPUContextRegs.RDI |
                         X64SmartCPUContextRegs.RBP | X64SmartCPUContextRegs.R14,
                     hookSize: MountedEndpointWallGateHookSize,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
-                transaction.Commit();
-                if (!cursorClassificationHook.Success || !feedbackClassificationHook.Success ||
+                CommitResult commitResult = transaction.Commit();
+                if (!commitResult.IsCompleteSuccess || !cursorClassificationHook.Success || !feedbackClassificationHook.Success ||
                     !mountedEndpointWallGateHook.Success)
                 {
                     throw new InvalidOperationException(
@@ -182,7 +181,6 @@ namespace BugfixesAndQoL
             }
             catch
             {
-                transaction?.Unload();
                 transaction?.Dispose();
                 transaction = null;
                 FreeEndpointZeroFlags();
@@ -203,7 +201,6 @@ namespace BugfixesAndQoL
                 return;
 
             disposed = true;
-            transaction?.Unload();
             transaction?.Dispose();
             transaction = null;
             FreeEndpointZeroFlags();
@@ -363,7 +360,7 @@ namespace BugfixesAndQoL
             selectedCount = 0;
             mountedCount = 0;
             allResolved = true;
-            int[] selected = GamePlayerManagerAPI.Instance?.GetSelectedChimps();
+            SelectedUnitInfo[] selected = GamePlayerManagerAPI.Instance?.GetSelectedChimps();
             if (selected == null || selected.Length == 0 || GameUnitManagerAPI.Instance == null)
             {
                 allResolved = false;
@@ -373,7 +370,7 @@ namespace BugfixesAndQoL
             selectedCount = selected.Length;
             for (int index = 0; index < selected.Length; index++)
             {
-                int unitId = selected[index];
+                int unitId = selected[index].UnitId;
                 if (unitId <= 0 ||
                     !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
                     unit == null ||

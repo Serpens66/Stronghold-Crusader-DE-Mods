@@ -37,8 +37,8 @@ namespace StockpileAccessFixTest
         internal const int ArmourerHandlerRva = 0x13CF30;
         internal const int InnkeeperHandlerRva = 0x1505D0;
 
-        internal const string AuditedScriptExtenderVersion = "1.42.0";
+        internal const string AuditedScriptExtenderVersion = "2.0.2";
         internal const string AuditedScriptExtenderCommit =
-            "171d68e155a8f98c5f8c4ee154d9af154c9a2443";
+            "6dc82d1d92b0935abc93cd43ac16cd8ddccc5f79";
     }
 }

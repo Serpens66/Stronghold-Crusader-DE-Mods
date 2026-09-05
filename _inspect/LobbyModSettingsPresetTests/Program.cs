@@ -74,8 +74,16 @@ namespace LobbyModSettingsPresetTests
                 Assert(missingProperty.Number == 5, "Missing preset property did not use its code default.");
 
                 incomingNetworkUpdate = true;
-                missingProperty.Number = 99;
-                incomingNetworkUpdate = false;
+                SetNetworkSyncInProgress(true);
+                try
+                {
+                    missingProperty.Number = 99;
+                }
+                finally
+                {
+                    SetNetworkSyncInProgress(false);
+                    incomingNetworkUpdate = false;
+                }
                 missingProperty.SelectedPreset = 0;
                 missingProperty.SelectedPreset = 1;
                 Assert(missingProperty.Number == 5, "Incoming network value polluted the local preset.");
@@ -228,6 +236,17 @@ namespace LobbyModSettingsPresetTests
                     WriteTopLevelSettings(settingsPath, settings);
             };
             settings.PropertyChanged += handler;
+        }
+
+        private static void SetNetworkSyncInProgress(bool value)
+        {
+            FieldInfo field = typeof(SHCDESE.API.GameXAMLManagerAPI).GetField(
+                "_isProcessingNetworkSync",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            if (field == null)
+                throw new InvalidOperationException("Script Extender network-sync scope field was not found.");
+
+            field.SetValue(SHCDESE.API.GameXAMLManagerAPI.Instance, value);
         }
 
         private static void ApplyTopLevelSettings(

@@ -1,14 +1,17 @@
 using BepInEx.Logging;
+using RedBird.Abstractions.Hooks;
+using RedBird.Abstractions.Hooks.Transaction;
+using RedBird.Core.Memory;
+using RedBird.X64.Assembly;
+using RedBird.X64.Hooks;
+using RedBird.X64.Hooks.Context;
+using RedBird.X64.Hooks.Transaction;
 using SHCDESE.API;
 using SHCDESE.Interop;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
-using Zhuqiaomon.Assembly;
-using Zhuqiaomon.Hooks;
-using Zhuqiaomon.Hooks.Transaction;
-using Zhuqiaomon.Memory;
 
 namespace EnemyGatePathfindingTest
 {
@@ -113,7 +116,7 @@ namespace EnemyGatePathfindingTest
         private volatile UnitSnapshot units = UnitSnapshot.Empty;
         private Action epochStarter;
         private HookTransaction cursorTransaction;
-        private HookRef<X64InlineHook> cursorHook = new HookRef<X64InlineHook>();
+        private readonly HookHandle<X64InlineHook> cursorHook = new HookHandle<X64InlineHook>();
 
         private int bfsGate;
         private int bfsGeneration;
@@ -142,6 +145,7 @@ namespace EnemyGatePathfindingTest
         internal TileRouteDiagnostics(
             ManualLogSource log,
             ReadOnlySpan<byte> memory,
+            ScanRegion region,
             ulong libraryBase,
             int* cursorX,
             int* cursorY,
@@ -173,24 +177,31 @@ namespace EnemyGatePathfindingTest
             if (cursorRva != EnemyGatePathfindingNativeDefinition.CursorPclDecisionRva)
                 throw new InvalidOperationException("cursor PCL decision resolved outside its audited RVA");
 
-            // UPDATE REVIEW (Zhuqiaomon/Script Extender 1.42.0): at this exact site,
+            // RedBird 2.0.2: at this exact site,
             // AfterCallback executes the managed callback before relocating TEST/LEA/MOV.
             cursorTransaction = new HookTransaction(
-                memory,
-                libraryBase,
-                loggerFactory: null,
-                failureMode: TransactionFailureMode.RollbackAndThrow);
+                region,
+                SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory,
+                new HookTransactionOptions
+                {
+                    FailureMode = TransactionFailureMode.RollbackAndThrow,
+                    OwnsHooks = false
+                });
             cursorTransaction.AddContextHook(
-                ref cursorHook,
-                libraryBase + unchecked((ulong)cursorRva),
+                cursorHook,
+                HookTarget.FromAddress(libraryBase + unchecked((ulong)cursorRva)),
                 FilterPositiveCursorPcl,
-                regs: X64SmartCPUContextRegs.All,
-                hookSize: EnemyGatePathfindingNativeDefinition.CursorPclDecisionHookLength,
-                errorMode: CallbackErrorMode.LogAndContinue,
-                placement: OverwrittenInstructionPlacement.AfterCallback);
-            cursorTransaction.Commit();
-            if (!cursorHook.Success)
-                throw new InvalidOperationException("read-only cursor PCL decision hook was not installed");
+                new ContextHookOptions
+                {
+                    Registers = X64SmartCPUContextRegs.All,
+                    HookSize = EnemyGatePathfindingNativeDefinition.CursorPclDecisionHookLength,
+                    ErrorMode = CallbackErrorMode.LogAndContinue,
+                    Placement = OverwrittenInstructionPlacement.AfterCallback
+                });
+            CommitResult commitResult = cursorTransaction.Commit();
+            if (!commitResult.IsCompleteSuccess || !cursorHook.Success)
+                throw new InvalidOperationException(
+                    $"read-only cursor PCL decision hook was not installed: {commitResult}");
 
             Shared.DebugLogHelper.LogInfo(log,
                 "Crash-safe cursor route hook installed: " +
@@ -403,7 +414,7 @@ namespace EnemyGatePathfindingTest
             if (now < Volatile.Read(ref nextUnitRefreshAt))
                 return;
             Volatile.Write(ref nextUnitRefreshAt, now + UnitRefreshInterval);
-            // UPDATE REVIEW (Script Extender 1.42.0): IDs are one-based while Span
+            // Script Extender 2.0.2: IDs are one-based while Span
             // indices are zero-based. This API work occurs only in the deferred path.
             Span<GameUnit> span = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
             int[] owners = new int[span.Length + 1];

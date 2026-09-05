@@ -1,6 +1,9 @@
 // Feature: Weighted replacement for Vanilla's Assassin-only path-cost expansion.
 using BepInEx.Logging;
-using MonoMod.RuntimeDetour;
+using RedBird.Abstractions.Hooks;
+using RedBird.Abstractions.Hooks.Transaction;
+using RedBird.Core.Memory;
+using RedBird.X64.Hooks.Transaction;
 using SHCDESE.API;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
@@ -67,10 +70,10 @@ namespace BugfixesAndQoL
         private readonly int[] route = new int[MaximumCommittedPathLength + 1];
         private readonly byte[] seenTiles = new byte[TileCount];
         private IntPtr libraryHandle;
-        private AssassinPathBuilderDelegate original;
-        private AssassinPathBuilderDelegate rootedDetour;
         private SpecialTilePredicateDelegate specialTilePredicate;
-        private NativeDetour detour;
+        private HookTransaction transaction;
+        private readonly DetourHandle<AssassinPathBuilderDelegate> detour =
+            new DetourHandle<AssassinPathBuilderDelegate>();
         private AssassinPathReconstructionPatch reconstructionPatch;
         private byte* validCoordinates;
         private int* rowLookup;
@@ -101,12 +104,18 @@ namespace BugfixesAndQoL
             }
         }
 
-        public bool IsInstalled => detour != null;
+        public bool IsInstalled => detour.Success && detour.IsInstalled;
 
-        public void InitializeNative(IntPtr newLibraryHandle, ReadOnlySpan<byte> memory, bool fixedLayoutHashValidated)
+        public void InitializeNative(
+            IntPtr newLibraryHandle,
+            ScanRegion region,
+            ReadOnlySpan<byte> memory,
+            bool fixedLayoutHashValidated)
         {
-            if (detour != null)
+            if (IsInstalled)
                 return;
+            if (region == null)
+                throw new ArgumentNullException(nameof(region));
             if (!fixedLayoutHashValidated)
                 throw new InvalidOperationException("fixed native layout hash does not match the supported CrusaderDE.dll");
             if (newLibraryHandle == IntPtr.Zero || memory.Length <= NativeVisitStampLayerRva + TileCount * sizeof(short))
@@ -136,9 +145,6 @@ namespace BugfixesAndQoL
             specialTilePredicate = Marshal.GetDelegateForFunctionPointer<SpecialTilePredicateDelegate>(
                 IntPtr.Add(newLibraryHandle, SpecialTilePredicateRva));
 
-            rootedDetour = BuildWeightedPath;
-            IntPtr detourAddress = Marshal.GetFunctionPointerForDelegate(rootedDetour);
-            NativeDetour installed = null;
             AssassinPathReconstructionPatch pendingReconstructionPatch = null;
             try
             {
@@ -147,10 +153,14 @@ namespace BugfixesAndQoL
                     newLibraryHandle,
                     memory,
                     referenceHashMatches: true);
-                installed = new NativeDetour(resolved, detourAddress, new NativeDetourConfig { ManualApply = true });
-                original = installed.GenerateTrampoline<AssassinPathBuilderDelegate>();
-                installed.Apply();
-                detour = installed;
+                transaction = BugfixesHookInfrastructure.CreateOwnedTransaction(region);
+                transaction.AddDetour(
+                    detour,
+                    HookTarget.FromAddress(unchecked((ulong)resolved.ToInt64())),
+                    BuildWeightedPath);
+                CommitResult commitResult = transaction.Commit();
+                if (!commitResult.IsCompleteSuccess || !detour.Success)
+                    throw new InvalidOperationException("The weighted Assassin pathfinding detour was not installed.");
                 reconstructionPatch = pendingReconstructionPatch;
                 ApplySetting();
                 LogDebug($"weighted Assassin pathfinding installed at RVA 0x{AssassinBuilderRva:X}; climb costs={AssassinClimbCostPolicy.MinimumClimbTicks}/{AssassinClimbCostPolicy.LowWallClimbTicks}/{AssassinClimbCostPolicy.NormalWallClimbTicks} ticks.");
@@ -159,10 +169,8 @@ namespace BugfixesAndQoL
             {
                 if (pendingReconstructionPatch?.IsApplied == true)
                     pendingReconstructionPatch.SetEnabled(false);
-                installed?.Dispose();
-                original = null;
-                rootedDetour = null;
-                detour = null;
+                transaction?.Dispose();
+                transaction = null;
                 reconstructionPatch = null;
                 throw;
             }
@@ -192,12 +200,11 @@ namespace BugfixesAndQoL
 
         private int BuildWeightedPath(IntPtr context, int startX, int startY, int targetX, int targetY, int maximumNodes, int continuation)
         {
-            AssassinPathBuilderDelegate vanilla = original;
-            if (vanilla == null)
+            if (!detour.Success)
                 return 0;
 
             // Vanilla initializes internal queue state even when our compact route field replaces it.
-            int vanillaResult = vanilla(context, startX, startY, targetX, targetY, maximumNodes, continuation);
+            int vanillaResult = detour.Original(context, startX, startY, targetX, targetY, maximumNodes, continuation);
             if (!settings.EnableMod || !settings.EnableImprovedAssassinPathfinding || continuation != 0)
                 return vanillaResult;
             if (targetX < 0 || targetY < 0)

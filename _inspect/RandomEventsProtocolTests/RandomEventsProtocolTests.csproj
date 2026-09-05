@@ -30,6 +30,8 @@
     <Compile Include="..\..\RandomEvents\src\RandomEventDefinitions.cs"><Link>RandomEventDefinitions.cs</Link></Compile>
     <Compile Include="..\..\RandomEvents\src\RandomEventsBatchValidator.cs"><Link>RandomEventsBatchValidator.cs</Link></Compile>
     <Compile Include="..\..\RandomEvents\src\RandomEventsChorePacket.cs"><Link>RandomEventsChorePacket.cs</Link></Compile>
+    <Compile Include="..\..\RandomEvents\src\RandomEventsChoreSender.cs"><Link>RandomEventsChoreSender.cs</Link></Compile>
+    <Compile Include="..\..\RandomEvents\src\RandomEventsCalendar.cs"><Link>RandomEventsCalendar.cs</Link></Compile>
     <Compile Include="..\..\RandomEvents\src\RandomEventsInitializationAckPacket.cs"><Link>RandomEventsInitializationAckPacket.cs</Link></Compile>
     <Compile Include="..\..\RandomEvents\src\RandomEventsCooldownCodec.cs"><Link>RandomEventsCooldownCodec.cs</Link></Compile>
     <Compile Include="..\..\RandomEvents\src\RandomEventsPresentationScope.cs"><Link>RandomEventsPresentationScope.cs</Link></Compile>

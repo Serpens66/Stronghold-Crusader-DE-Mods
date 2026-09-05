@@ -7,10 +7,12 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
-using Zhuqiaomon.Assembly;
-using Zhuqiaomon.Hooks;
-using Zhuqiaomon.Hooks.Transaction;
-using Zhuqiaomon.Memory;
+using RedBird.Abstractions.Hooks;
+using RedBird.Abstractions.Hooks.Transaction;
+using RedBird.Core.Memory;
+using RedBird.X64.Assembly;
+using RedBird.X64.Hooks;
+using RedBird.X64.Hooks.Transaction;
 
 namespace ImprovedHunters
 {
@@ -145,12 +147,12 @@ namespace ImprovedHunters
             new Dictionary<int, Candidate>();
         private readonly HashSet<ulong> loggedNearRefreshBypasses = new HashSet<ulong>();
         private HookTransaction transaction;
-        private HookRef<X64InlineHook> queryStartHook = new HookRef<X64InlineHook>();
-        private HookRef<X64InlineHook> queryReturnHook = new HookRef<X64InlineHook>();
-        private HookRef<X64InlineHook> moveResultHook = new HookRef<X64InlineHook>();
-        private HookRef<X64InlineHook> stateOneRefreshBranchContextHook = new HookRef<X64InlineHook>();
-        private HookRef<X64InlineHook> stateOneRefreshQueryResultHook = new HookRef<X64InlineHook>();
-        private HookRef<X64InlineHook> stateOneDirectAttackResultHook = new HookRef<X64InlineHook>();
+        private readonly HookHandle<X64InlineHook> queryStartHook = new HookHandle<X64InlineHook>();
+        private readonly HookHandle<X64InlineHook> queryReturnHook = new HookHandle<X64InlineHook>();
+        private readonly HookHandle<X64InlineHook> moveResultHook = new HookHandle<X64InlineHook>();
+        private readonly HookHandle<X64InlineHook> stateOneRefreshBranchContextHook = new HookHandle<X64InlineHook>();
+        private readonly HookHandle<X64InlineHook> stateOneRefreshQueryResultHook = new HookHandle<X64InlineHook>();
+        private readonly HookHandle<X64InlineHook> stateOneDirectAttackResultHook = new HookHandle<X64InlineHook>();
         private bool featureAvailable;
         private bool hookConfirmed;
         private bool stateOneNearRefreshHookConfirmed;
@@ -164,6 +166,7 @@ namespace ImprovedHunters
         public HunterTargetSearchFallbackDiagnostic(
             ManualLogSource log,
             ImprovedHuntersViewModel settings,
+            ScanRegion region,
             ReadOnlySpan<byte> memory,
             ulong libraryBase,
             bool referenceHashMatches,
@@ -312,60 +315,63 @@ namespace ImprovedHunters
                 stateOneDirectAttackSequenceRva + StateOneDirectAttackResultHookOffset);
             try
             {
-                transaction = new HookTransaction(
-                    memory,
-                    libraryBase,
-                    loggerFactory: null,
-                    failureMode: TransactionFailureMode.RollbackAndThrow);
-                transaction.AddContextHook(
-                    ref queryStartHook,
+                transaction = HunterHookInfrastructure.CreateOwnedTransaction(region);
+                HunterHookInfrastructure.AddContextHook(
+                    transaction,
+                    queryStartHook,
                     libraryBase + unchecked((ulong)querySequenceRva),
                     BeginStateZeroQuery,
-                    regs: X64SmartCPUContextRegs.Volatile | X64SmartCPUContextRegs.RBX,
+                    registers: X64SmartCPUContextRegs.Volatile | X64SmartCPUContextRegs.RBX,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
-                transaction.AddContextHook(
-                    ref queryReturnHook,
+                HunterHookInfrastructure.AddContextHook(
+                    transaction,
+                    queryReturnHook,
                     libraryBase + unchecked((ulong)queryReturnRva),
                     CompleteStateZeroQuery,
-                    regs: X64SmartCPUContextRegs.Volatile | X64SmartCPUContextRegs.RBX,
+                    registers: X64SmartCPUContextRegs.Volatile | X64SmartCPUContextRegs.RBX,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
-                transaction.AddContextHook(
-                    ref moveResultHook,
+                HunterHookInfrastructure.AddContextHook(
+                    transaction,
+                    moveResultHook,
                     libraryBase + unchecked((ulong)moveResultRva),
                     ObserveStateZeroMoveResult,
-                    regs: X64SmartCPUContextRegs.Volatile | X64SmartCPUContextRegs.RBX,
+                    registers: X64SmartCPUContextRegs.Volatile | X64SmartCPUContextRegs.RBX,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
-                transaction.AddContextHook(
-                    ref stateOneRefreshBranchContextHook,
+                HunterHookInfrastructure.AddContextHook(
+                    transaction,
+                    stateOneRefreshBranchContextHook,
                     libraryBase + unchecked((ulong)stateOneRefreshBranchContextRva),
                     CaptureStateOneNearRefreshContext,
-                    regs: X64SmartCPUContextRegs.Volatile,
+                    registers: X64SmartCPUContextRegs.Volatile,
                     hookSize: StateOneNearRefreshHookLength,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
-                transaction.AddContextHook(
-                    ref stateOneRefreshQueryResultHook,
+                HunterHookInfrastructure.AddContextHook(
+                    transaction,
+                    stateOneRefreshQueryResultHook,
                     libraryBase + unchecked((ulong)stateOneRefreshQueryResultRva),
                     CompleteStateOneMovingTargetReplanQuery,
-                    regs: X64SmartCPUContextRegs.Volatile | X64SmartCPUContextRegs.Flags,
+                    registers: X64SmartCPUContextRegs.Volatile | X64SmartCPUContextRegs.Flags,
                     hookSize: StateOneRefreshQueryResultHookLength,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     // Relocated CALL/TEST/load run first; the untouched JE consumes our final ZF.
                     placement: OverwrittenInstructionPlacement.BeforeCallback);
-                transaction.AddContextHook(
-                    ref stateOneDirectAttackResultHook,
+                HunterHookInfrastructure.AddContextHook(
+                    transaction,
+                    stateOneDirectAttackResultHook,
                     libraryBase + unchecked((ulong)stateOneDirectAttackResultRva),
                     ObserveStateOneDirectAttackResult,
                     // EDI still contains HunterUpdate's exact native distance result.
-                    regs: X64SmartCPUContextRegs.Volatile | X64SmartCPUContextRegs.RDI,
+                    registers: X64SmartCPUContextRegs.Volatile | X64SmartCPUContextRegs.RDI,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
-                transaction.Commit();
+                CommitResult commitResult = transaction.Commit();
 
-                if (!queryStartHook.Success ||
+                if (!commitResult.IsCompleteSuccess ||
+                    !queryStartHook.Success ||
                     !queryReturnHook.Success ||
                     !moveResultHook.Success ||
                     !stateOneRefreshBranchContextHook.Success ||
@@ -1073,7 +1079,6 @@ namespace ImprovedHunters
 
             disposed = true;
             featureAvailable = false;
-            transaction?.Unload();
             transaction?.Dispose();
             transaction = null;
             lock (observationLock)

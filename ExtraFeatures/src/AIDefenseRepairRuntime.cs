@@ -7,6 +7,10 @@
 // attempt when no damage event was observed. Later retries never restart or extend that timer.
 // Tower-ruin cleanup is deliberately handled by BugfixesAndQoL and is independent of this gate.
 using BepInEx.Logging;
+using RedBird.Abstractions.Hooks;
+using RedBird.Abstractions.Hooks.Transaction;
+using RedBird.Core.Memory;
+using RedBird.X64.Hooks.Transaction;
 using R3;
 using SHCDESE.API;
 using SHCDESE.Detours;
@@ -20,8 +24,6 @@ using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
-using Zhuqiaomon.Hooks;
-using Zhuqiaomon.Hooks.Transaction;
 
 namespace ExtraFeatures
 {
@@ -78,10 +80,10 @@ namespace ExtraFeatures
             new HashSet<DefenseTargetKey>();
         private readonly HashSet<string> callbackFailuresLogged = new HashSet<string>(StringComparer.Ordinal);
         private HookTransaction transaction;
-        private HookRef<X64ManagedFunctionDetourAOB<ExecuteBuildStepDelegate>> executeBuildStepHook =
-            new HookRef<X64ManagedFunctionDetourAOB<ExecuteBuildStepDelegate>>();
-        private HookRef<X64ManagedFunctionDetourAOB<PlacementDelegate>> placementHook =
-            new HookRef<X64ManagedFunctionDetourAOB<PlacementDelegate>>();
+        private readonly DetourHandle<ExecuteBuildStepDelegate> executeBuildStepHook =
+            new DetourHandle<ExecuteBuildStepDelegate>();
+        private readonly DetourHandle<PlacementDelegate> placementHook =
+            new DetourHandle<PlacementDelegate>();
         private bool initialized;
         private bool nativeInitialized;
         private bool mapActive;
@@ -142,7 +144,11 @@ namespace ExtraFeatures
             }
         }
 
-        public void InitializeNative(IntPtr libraryHandle, ReadOnlySpan<byte> memory, bool referenceHashMatches)
+        public void InitializeNative(
+            IntPtr libraryHandle,
+            ScanRegion region,
+            ReadOnlySpan<byte> memory,
+            bool referenceHashMatches)
         {
             if (nativeInitialized)
                 return;
@@ -164,14 +170,17 @@ namespace ExtraFeatures
             ulong libraryBase = unchecked((ulong)libraryHandle.ToInt64());
             try
             {
-                transaction = new HookTransaction(memory, libraryBase, loggerFactory: null,
-                    failureMode: TransactionFailureMode.RollbackAndThrow);
-                transaction.AddDetour(ref executeBuildStepHook,
-                    libraryBase + unchecked((ulong)executeBuildStep.Rva), ObserveExecuteBuildStep);
-                transaction.AddDetour(ref placementHook,
-                    libraryBase + unchecked((ulong)placement.Rva), ObservePlacement);
-                transaction.Commit();
-                if (!executeBuildStepHook.Success || !placementHook.Success)
+                transaction = ExtraFeaturesHookInfrastructure.CreateOwnedTransaction(region);
+                transaction.AddDetour(
+                    executeBuildStepHook,
+                    HookTarget.FromAddress(libraryBase + unchecked((ulong)executeBuildStep.Rva)),
+                    ObserveExecuteBuildStep);
+                transaction.AddDetour(
+                    placementHook,
+                    HookTarget.FromAddress(libraryBase + unchecked((ulong)placement.Rva)),
+                    ObservePlacement);
+                CommitResult commitResult = transaction.Commit();
+                if (!commitResult.IsCompleteSuccess || !executeBuildStepHook.Success || !placementHook.Success)
                     throw new InvalidOperationException("One or more AI defense rebuild hooks were not installed.");
                 nativeInitialized = true;
                 Shared.DebugLogHelper.LogDebug(
@@ -180,7 +189,6 @@ namespace ExtraFeatures
             }
             catch
             {
-                transaction?.Unload();
                 transaction?.Dispose();
                 transaction = null;
                 throw;
@@ -196,7 +204,6 @@ namespace ExtraFeatures
             foreach (IDisposable subscription in subscriptions)
                 subscription.Dispose();
             subscriptions.Clear();
-            transaction?.Unload();
             transaction?.Dispose();
             transaction = null;
             ResetMap();
@@ -449,7 +456,7 @@ namespace ExtraFeatures
         {
             if (!IsConfigured || !mapActive)
             {
-                return executeBuildStepHook.Value.Hook.Trampoline(
+                return executeBuildStepHook.Original(
                     aivStateAddress, playerId, frameIndex, restrictedMode, freeOrForced);
             }
 
@@ -461,12 +468,12 @@ namespace ExtraFeatures
             catch (Exception ex)
             {
                 LogFailure("ExecuteBuildStep player classification", ex);
-                return executeBuildStepHook.Value.Hook.Trampoline(
+                return executeBuildStepHook.Original(
                     aivStateAddress, playerId, frameIndex, restrictedMode, freeOrForced);
             }
             if (!isAi)
             {
-                return executeBuildStepHook.Value.Hook.Trampoline(
+                return executeBuildStepHook.Original(
                     aivStateAddress, playerId, frameIndex, restrictedMode, freeOrForced);
             }
 
@@ -480,7 +487,7 @@ namespace ExtraFeatures
                         $"AI defense rebuild received invalid frameIndex={frameIndex}; further invalid-frame " +
                         "warnings are suppressed for this map and affected calls remain Vanilla.");
                 }
-                return executeBuildStepHook.Value.Hook.Trampoline(
+                return executeBuildStepHook.Original(
                     aivStateAddress, playerId, frameIndex, restrictedMode, freeOrForced);
             }
 
@@ -494,7 +501,7 @@ namespace ExtraFeatures
                     now = SafeCurrentTick();
                     if (now < 0)
                     {
-                        return executeBuildStepHook.Value.Hook.Trampoline(
+                        return executeBuildStepHook.Original(
                             aivStateAddress, playerId, frameIndex, restrictedMode, freeOrForced);
                     }
                 }
@@ -509,7 +516,7 @@ namespace ExtraFeatures
             catch (Exception ex)
             {
                 LogFailure("ExecuteBuildStep preparation", ex);
-                return executeBuildStepHook.Value.Hook.Trampoline(
+                return executeBuildStepHook.Original(
                     aivStateAddress, playerId, frameIndex, restrictedMode, freeOrForced);
             }
 
@@ -529,13 +536,13 @@ namespace ExtraFeatures
             catch (Exception ex)
             {
                 LogFailure("ExecuteBuildStep context preparation", ex);
-                return executeBuildStepHook.Value.Hook.Trampoline(
+                return executeBuildStepHook.Original(
                     aivStateAddress, playerId, frameIndex, restrictedMode, freeOrForced);
             }
             int result;
             try
             {
-                result = executeBuildStepHook.Value.Hook.Trampoline(
+                result = executeBuildStepHook.Original(
                     aivStateAddress, playerId, frameIndex, restrictedMode, freeOrForced);
             }
             finally
@@ -617,7 +624,7 @@ namespace ExtraFeatures
         private int CallPlacement(
             ulong placementStateAddress, int playerId, int offsetX, int offsetY,
             short mapperValue, int orientation) =>
-            placementHook.Value.Hook.Trampoline(
+            placementHook.Original(
                 placementStateAddress, playerId, offsetX, offsetY, mapperValue, orientation);
 
         private void OnBuildingSpawn(BuildingSpawnEventArgs args)

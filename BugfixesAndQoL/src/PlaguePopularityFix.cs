@@ -13,10 +13,12 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using Zhuqiaomon.Assembly;
-using Zhuqiaomon.Hooks;
-using Zhuqiaomon.Hooks.Transaction;
-using Zhuqiaomon.Memory;
+using RedBird.Abstractions.Hooks;
+using RedBird.Abstractions.Hooks.Transaction;
+using RedBird.Core.Memory;
+using RedBird.X64.Assembly;
+using RedBird.X64.Hooks;
+using RedBird.X64.Hooks.Transaction;
 
 namespace BugfixesAndQoL
 {
@@ -55,9 +57,8 @@ namespace BugfixesAndQoL
         private readonly Dictionary<int, int> warnedDiagnosticRevisions = new Dictionary<int, int>();
         private readonly Dictionary<int, long> diagnosticStartedTimestamps = new Dictionary<int, long>();
         private HookTransaction transaction;
-        private HookRef<X64ManagedFunctionDetourAOB<CreateHerdDelegate>> createHerdHook =
-            new HookRef<X64ManagedFunctionDetourAOB<CreateHerdDelegate>>();
-        private HookRef<X64InlineHook> popularityExitHook = new HookRef<X64InlineHook>();
+        private readonly DetourHandle<CreateHerdDelegate> createHerdHook = new DetourHandle<CreateHerdDelegate>();
+        private readonly HookHandle<X64InlineHook> popularityExitHook = new HookHandle<X64InlineHook>();
         private HerdCapture currentCapture;
         private bool saveHandlerRegistered;
         private bool mapActive;
@@ -73,6 +74,7 @@ namespace BugfixesAndQoL
         public PlaguePopularityFix(
             ManualLogSource log,
             BugfixesAndQoLViewModel settings,
+            ScanRegion region,
             ReadOnlySpan<byte> memory,
             ulong libraryBase,
             bool referenceHashMatches)
@@ -87,26 +89,21 @@ namespace BugfixesAndQoL
 
             try
             {
-                transaction = new HookTransaction(
-                    memory,
-                    libraryBase,
-                    loggerFactory: null,
-                    failureMode: TransactionFailureMode.RollbackAndThrow);
+                transaction = BugfixesHookInfrastructure.CreateOwnedTransaction(region);
                 transaction.AddDetour(
-                    ref createHerdHook,
-                    libraryBase + unchecked((ulong)createHerdRva),
+                    createHerdHook,
+                    HookTarget.FromAddress(libraryBase + unchecked((ulong)createHerdRva)),
                     CreatePlagueHerd);
-                transaction.AddContextHook(
-                    ref popularityExitHook,
+                BugfixesHookInfrastructure.AddContextHook(transaction, popularityExitHook,
                     libraryBase + unchecked((ulong)(popularityExitPatternRva + PopularityExitHookOffset)),
                     CorrectPlaguePopularity,
-                    regs: X64SmartCPUContextRegs.Volatile | X64SmartCPUContextRegs.RBP |
+                    registers: X64SmartCPUContextRegs.Volatile | X64SmartCPUContextRegs.RBP |
                         X64SmartCPUContextRegs.R12 | X64SmartCPUContextRegs.R14,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
-                transaction.Commit();
+                CommitResult commitResult = transaction.Commit();
 
-                if (!createHerdHook.Success || !popularityExitHook.Success)
+                if (!commitResult.IsCompleteSuccess || !createHerdHook.Success || !popularityExitHook.Success)
                     throw new InvalidOperationException("The plague herd or popularity hook was not installed.");
 
                 subscriptions.Add(ProjectileR3EventHooks.OnProjectileSpawn.Observable
@@ -153,7 +150,6 @@ namespace BugfixesAndQoL
                 ModSaveDataAPI.Instance.UnregisterModDataHandler(SaveDataIdentifier);
                 saveHandlerRegistered = false;
             }
-            transaction?.Unload();
             transaction?.Dispose();
             transaction = null;
             ResetMapState();
@@ -163,7 +159,7 @@ namespace BugfixesAndQoL
         {
             if (!correctionAvailable)
             {
-                createHerdHook.Value.Hook.Trampoline(diseaseManager, buildingId);
+                createHerdHook.Original(diseaseManager, buildingId);
                 return;
             }
 
@@ -197,7 +193,7 @@ namespace BugfixesAndQoL
             try
             {
                 // Vanilla remains authoritative for all projectile creation.
-                createHerdHook.Value.Hook.Trampoline(diseaseManager, buildingId);
+                createHerdHook.Original(diseaseManager, buildingId);
             }
             finally
             {

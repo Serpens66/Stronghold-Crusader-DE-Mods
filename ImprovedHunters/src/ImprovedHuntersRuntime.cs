@@ -1,6 +1,7 @@
 using BepInEx.Logging;
 using R3;
 using SHCDESE.API;
+using SHCDESE.API.LowLevel;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.Buildings;
 using SHCDESE.EventAPI.Projectiles;
@@ -11,8 +12,8 @@ using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using Zhuqiaomon.Assembly.Stateful;
-using Zhuqiaomon.Memory;
+using RedBird.Core.Memory;
+using RedBird.X64.Assembly.Stateful;
 
 namespace ImprovedHunters
 {
@@ -91,6 +92,8 @@ namespace ImprovedHunters
         private ManagedAssemblyImmediate<short> rabbitDespawnTickTime;
         private ManagedAssemblyImmediate<short> camelDespawnTickTime;
         private ManagedAssemblyImmediate<short> chickenDespawnTickTime;
+        private AssemblyValueOverrideScope rabbitDespawnOverride;
+        private ScanRegion hookRegion;
         private short originalRabbitDespawnTicks;
         private short originalCamelDespawnTicks;
         private short originalChickenDespawnTicks;
@@ -156,11 +159,14 @@ namespace ImprovedHunters
             Shared.GameplayModActivationGate.StateChanged += OnModeStateChanged;
         }
 
-        public void Apply(
-            ReadOnlySpan<byte> memory,
-            ulong imageBase,
-            bool referenceHashMatches)
+        public void Apply(CrusaderLibraryLoadContext context, bool referenceHashMatches)
         {
+            if (context == null)
+                throw new ArgumentNullException(nameof(context));
+
+            ReadOnlySpan<byte> memory = context.Memory;
+            ulong imageBase = unchecked((ulong)context.ModuleHandle.ToInt64());
+            hookRegion = context.Region;
             if (applied)
                 return;
 
@@ -1185,6 +1191,7 @@ namespace ImprovedHunters
                 granaryChickenLimitPatch = new GranaryChickenLimitPatch(
                     log,
                     settings,
+                    hookRegion,
                     memory,
                     imageBase,
                     referenceHashMatches,
@@ -1214,6 +1221,7 @@ namespace ImprovedHunters
             {
                 manualChickenAttackPatch = new ManualChickenAttackPatch(
                     log,
+                    hookRegion,
                     memory,
                     imageBase,
                     referenceHashMatches,
@@ -1242,6 +1250,7 @@ namespace ImprovedHunters
             {
                 hunterQueryActorWorkaround = new HunterQueryActorWorkaround(
                     log,
+                    hookRegion,
                     memory,
                     imageBase,
                     referenceHashMatches);
@@ -1311,6 +1320,7 @@ namespace ImprovedHunters
                 hunterTargetSearchFallbackDiagnostic = new HunterTargetSearchFallbackDiagnostic(
                     log,
                     settings,
+                    hookRegion,
                     memory,
                     imageBase,
                     referenceHashMatches,
@@ -1348,6 +1358,7 @@ namespace ImprovedHunters
                 hunterPostShotContinuationDiagnostic = new HunterPostShotContinuationDiagnostic(
                     log,
                     settings,
+                    hookRegion,
                     memory,
                     imageBase,
                     referenceHashMatches,
@@ -1647,6 +1658,7 @@ namespace ImprovedHunters
                         settings,
                         hunterActiveTargetVisibilitySnapshot,
                         hunterPclReachability,
+                        hookRegion,
                         memory,
                         imageBase,
                         referenceHashMatches,
@@ -1675,6 +1687,7 @@ namespace ImprovedHunters
                         log,
                         settings,
                         hunterNativeVisibilityProbe,
+                        hookRegion,
                         memory,
                         imageBase,
                         referenceHashMatches,
@@ -2205,14 +2218,15 @@ namespace ImprovedHunters
             automaticChickenTargetPatch?.Dispose();
             automaticChickenTargetPatch = null;
 
-            if (rabbitDespawnTicksPatched && rabbitDespawnTickTime != null)
-                rabbitDespawnTickTime.SetValue(originalRabbitDespawnTicks);
+            // RabbitDespawnTickTime belongs to the Script Extender. Release only our
+            // override; never dispose or reset the shared site itself.
+            rabbitDespawnOverride?.Dispose();
+            rabbitDespawnOverride = null;
 
-            if (camelDespawnTicksPatched && camelDespawnTickTime != null)
-                camelDespawnTickTime.SetValue(originalCamelDespawnTicks);
-
-            if (chickenDespawnTicksPatched && chickenDespawnTickTime != null)
-                chickenDespawnTickTime.SetValue(originalChickenDespawnTicks);
+            // These two sites were constructed by this runtime and therefore own
+            // restoration of their original instructions at true final teardown.
+            camelDespawnTickTime?.Dispose();
+            chickenDespawnTickTime?.Dispose();
 
             if (camelHealthPatched && camelHealthInitialized)
                 GameUnitManagerAPI.Instance.SetDefaultHealth(eChimps.CHIMP_TYPE_CAMEL, originalCamelHealth);
@@ -2227,6 +2241,7 @@ namespace ImprovedHunters
             rabbitDespawnTickTime = null;
             camelDespawnTickTime = null;
             chickenDespawnTickTime = null;
+            hookRegion = null;
             rabbitDespawnTicksInitialized = false;
             extraDespawnTicksInitialized = false;
             applied = false;

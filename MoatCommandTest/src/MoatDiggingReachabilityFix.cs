@@ -1,17 +1,20 @@
 // Feature: Let valid moat-digging orders traverse already completed friendly moats.
 using BepInEx.Logging;
-using MonoMod.RuntimeDetour;
+using RedBird.Abstractions.Hooks;
+using RedBird.Abstractions.Hooks.Transaction;
+using RedBird.Core.Memory;
+using RedBird.X64.Assembly;
+using RedBird.X64.Hooks;
+using RedBird.X64.Hooks.Context;
+using RedBird.X64.Hooks.Transaction;
 using SHCDESE.API;
+using SHCDESE.API.LowLevel;
 using SHCDESE.GameGlobals;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
-using Zhuqiaomon.Assembly;
-using Zhuqiaomon.Hooks;
-using Zhuqiaomon.Hooks.Transaction;
-using Zhuqiaomon.Memory;
 
 namespace MoatCommandTest
 {
@@ -91,16 +94,15 @@ namespace MoatCommandTest
         private readonly int* moatMovementTargetY;
         private readonly uint* tileFlags;
         private readonly short* pathRegions;
-        private HookRef<X64InlineHook> cursorReachabilityHook = new HookRef<X64InlineHook>();
-        private HookRef<X64InlineHook> command6PrecheckHook = new HookRef<X64InlineHook>();
-        private HookRef<X64InlineHook> moatPostShorteningHook = new HookRef<X64InlineHook>();
-        private HookRef<X64InlineHook> moatBfsResultHook = new HookRef<X64InlineHook>();
-        private HookRef<X64InlineHook> moatPathBuilderResultHook = new HookRef<X64InlineHook>();
+        private readonly HookHandle<X64InlineHook> cursorReachabilityHook = new HookHandle<X64InlineHook>();
+        private readonly HookHandle<X64InlineHook> command6PrecheckHook = new HookHandle<X64InlineHook>();
+        private readonly HookHandle<X64InlineHook> moatPostShorteningHook = new HookHandle<X64InlineHook>();
+        private readonly HookHandle<X64InlineHook> moatBfsResultHook = new HookHandle<X64InlineHook>();
+        private readonly HookHandle<X64InlineHook> moatPathBuilderResultHook = new HookHandle<X64InlineHook>();
+        private readonly DetourHandle<FindNearestFriendlyMoatDelegate> findNearestFriendlyMoatHook =
+            new DetourHandle<FindNearestFriendlyMoatDelegate>();
         private GetMoatIdAtTileDelegate getMoatIdAtTile;
         private ResetPathLinkageDelegate resetPathLinkage;
-        private FindNearestFriendlyMoatDelegate originalFindNearestFriendlyMoat;
-        private FindNearestFriendlyMoatDelegate rootedFindNearestFriendlyMoat;
-        private NativeDetour findNearestFriendlyMoatDetour;
         private readonly object functionalLogLock = new object();
         private readonly object attemptLock = new object();
         private readonly Dictionary<int, MoatAttempt> pendingAttempts = new Dictionary<int, MoatAttempt>();
@@ -115,11 +117,14 @@ namespace MoatCommandTest
 
         public MoatDiggingReachabilityFix(
             ManualLogSource log,
-            ReadOnlySpan<byte> memory,
-            ulong libraryBase,
+            CrusaderLibraryLoadContext context,
             bool referenceHashMatches)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
+            if (context == null)
+                throw new ArgumentNullException(nameof(context));
+            ReadOnlySpan<byte> memory = context.Memory;
+            ulong libraryBase = unchecked((ulong)context.ModuleHandle.ToInt64());
 
             // The moat record array is not exposed by the Script Extender. Its fixed
             // offsets below are validated for the canonical DLL and must fail closed
@@ -197,69 +202,55 @@ namespace MoatCommandTest
             try
             {
                 transaction = new HookTransaction(
-                    memory,
-                    libraryBase,
-                    loggerFactory: null,
-                    failureMode: TransactionFailureMode.RollbackAndThrow);
+                    context.Region,
+                    SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory,
+                    new HookTransactionOptions
+                    {
+                        FailureMode = TransactionFailureMode.RollbackAndThrow,
+                        // Dispose is a genuine final feature teardown; startup never calls it.
+                        OwnsHooks = true
+                    });
                 transaction.AddContextHook(
-                    ref cursorReachabilityHook,
-                    libraryBase + unchecked((ulong)hookRva),
+                    cursorReachabilityHook,
+                    HookTarget.FromAddress(libraryBase + unchecked((ulong)hookRva)),
                     AllowFriendlyPlannedMoatCursor,
-                    regs: X64SmartCPUContextRegs.All,
-                    hookSize: CursorReachabilityHookLength,
-                    errorMode: CallbackErrorMode.LogAndContinue,
-                    placement: OverwrittenInstructionPlacement.AfterCallback);
+                    CreateContextOptions(CursorReachabilityHookLength));
                 transaction.AddContextHook(
-                    ref command6PrecheckHook,
-                    libraryBase + Command6PrecheckHookRva,
+                    command6PrecheckHook,
+                    HookTarget.FromAddress(libraryBase + Command6PrecheckHookRva),
                     PreserveFriendlyPlannedMoatCommandTarget,
-                    regs: X64SmartCPUContextRegs.All,
-                    hookSize: Command6PrecheckHookLength,
-                    errorMode: CallbackErrorMode.LogAndContinue,
-                    placement: OverwrittenInstructionPlacement.AfterCallback);
+                    CreateContextOptions(Command6PrecheckHookLength));
                 transaction.AddContextHook(
-                    ref moatPostShorteningHook,
-                    libraryBase + MoatPostShorteningHookRva,
+                    moatPostShorteningHook,
+                    HookTarget.FromAddress(libraryBase + MoatPostShorteningHookRva),
                     RecordMoatPostShorteningState,
-                    regs: X64SmartCPUContextRegs.All,
-                    hookSize: MoatPostShorteningHookLength,
-                    errorMode: CallbackErrorMode.LogAndContinue,
-                    placement: OverwrittenInstructionPlacement.AfterCallback);
+                    CreateContextOptions(MoatPostShorteningHookLength));
                 transaction.AddContextHook(
-                    ref moatBfsResultHook,
-                    libraryBase + MoatBfsResultHookRva,
+                    moatBfsResultHook,
+                    HookTarget.FromAddress(libraryBase + MoatBfsResultHookRva),
                     RecordMoatBfsResult,
-                    regs: X64SmartCPUContextRegs.All,
-                    hookSize: MoatBfsResultHookLength,
-                    errorMode: CallbackErrorMode.LogAndContinue,
-                    placement: OverwrittenInstructionPlacement.AfterCallback);
+                    CreateContextOptions(MoatBfsResultHookLength));
                 transaction.AddContextHook(
-                    ref moatPathBuilderResultHook,
-                    libraryBase + MoatPathBuilderResultHookRva,
+                    moatPathBuilderResultHook,
+                    HookTarget.FromAddress(libraryBase + MoatPathBuilderResultHookRva),
                     FinalizeMoatPathBuilderResult,
-                    regs: X64SmartCPUContextRegs.All,
-                    hookSize: MoatPathBuilderResultHookLength,
-                    errorMode: CallbackErrorMode.LogAndContinue,
-                    placement: OverwrittenInstructionPlacement.AfterCallback);
-                transaction.Commit();
+                    CreateContextOptions(MoatPathBuilderResultHookLength));
+                transaction.AddDetour(
+                    findNearestFriendlyMoatHook,
+                    HookTarget.FromAddress(
+                        libraryBase + unchecked((ulong)moatSearchResolution.Rva)),
+                    DirectCommandedMoatTarget);
+                CommitResult commitResult = transaction.Commit();
 
-                if (!cursorReachabilityHook.Success || !command6PrecheckHook.Success ||
+                if (!commitResult.IsCompleteSuccess ||
+                    !cursorReachabilityHook.Success || !command6PrecheckHook.Success ||
                     !moatPostShorteningHook.Success || !moatBfsResultHook.Success ||
-                    !moatPathBuilderResultHook.Success)
+                    !moatPathBuilderResultHook.Success || !findNearestFriendlyMoatHook.Success)
                 {
                     throw new InvalidOperationException(
-                        "The DigMoat functional hooks were not installed atomically.");
+                        $"The DigMoat functional hooks were not installed atomically: {commitResult}.");
                 }
 
-                rootedFindNearestFriendlyMoat = DirectCommandedMoatTarget;
-                IntPtr moatSearchAddress = (IntPtr)(libraryBase + unchecked((ulong)moatSearchResolution.Rva));
-                findNearestFriendlyMoatDetour = new NativeDetour(
-                    moatSearchAddress,
-                    Marshal.GetFunctionPointerForDelegate(rootedFindNearestFriendlyMoat),
-                    new NativeDetourConfig { ManualApply = true });
-                originalFindNearestFriendlyMoat =
-                    findNearestFriendlyMoatDetour.GenerateTrampoline<FindNearestFriendlyMoatDelegate>();
-                findNearestFriendlyMoatDetour.Apply();
                 GameTimeManagerAPI.Instance.OnTick += ExpirePendingAttempts;
 
                 Shared.DebugLogHelper.LogDebug(
@@ -290,13 +281,8 @@ namespace MoatCommandTest
 
             disposed = true;
             GameTimeManagerAPI.Instance.OnTick -= ExpirePendingAttempts;
-            findNearestFriendlyMoatDetour?.Dispose();
-            findNearestFriendlyMoatDetour = null;
-            originalFindNearestFriendlyMoat = null;
-            rootedFindNearestFriendlyMoat = null;
             getMoatIdAtTile = null;
             resetPathLinkage = null;
-            transaction?.Unload();
             transaction?.Dispose();
         }
 
@@ -364,7 +350,11 @@ namespace MoatCommandTest
                 }
             }
 
-            return originalFindNearestFriendlyMoat(tileManager, playerId, unitId, relationshipMode);
+            return findNearestFriendlyMoatHook.Original(
+                tileManager,
+                playerId,
+                unitId,
+                relationshipMode);
         }
 
         private void PreserveFriendlyPlannedMoatCommandTarget(
@@ -771,6 +761,15 @@ namespace MoatCommandTest
         }
 
         private bool IsEnabled => !disposed;
+
+        private static ContextHookOptions CreateContextOptions(int hookSize) =>
+            new ContextHookOptions
+            {
+                Registers = X64SmartCPUContextRegs.All,
+                HookSize = hookSize,
+                ErrorMode = CallbackErrorMode.LogAndContinue,
+                Placement = OverwrittenInstructionPlacement.AfterCallback
+            };
 
         private IntPtr GameTileManagerPointer =>
             (IntPtr)GameGlobalsManager.Instance.GameTileManagerVA;

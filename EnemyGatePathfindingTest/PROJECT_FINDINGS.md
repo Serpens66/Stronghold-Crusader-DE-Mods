@@ -49,8 +49,8 @@ Folgerung: Bei Zugbrücken ist bereits die globale Erreichbarkeitsentscheidung f
 
 - Kanonische Spiel-DLL: installierte `CrusaderDE.dll`
 - Geprüfter SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
-- Script Extender: `1.42.0`
-- Geprüfter Script-Extender-Commit: `171d68e155a8f98c5f8c4ee154d9af154c9a2443`
+- Script Extender: `2.0.2`
+- Geprüfter Script-Extender-Commit: `6dc82d1d92b0935abc93cd43ac16cd8ddccc5f79`
 - Zentrale PCL-Funktion: `GetNextReachablePCLToDestinationForPlayer`, RVA `0xE2610`
 - Hostile-Capturer-Vergleich: RVA `0xE2710`
 - Vom Script Extender bereits belegter gemeinsamer `MoveHere`-Einstieg: RVA `0x196280`
@@ -153,7 +153,7 @@ Richtiger Ansatz: getrennte primitive Query- und Move-Puffer und nachträgliche 
 
 ### Zweiter nativer `MoveHere`-Hook
 
-Der Script Extender 1.42.0 detourt RVA `0x196280` bereits. Ein zusätzlicher überlappender nativer Hook wäre konflikt- und crashanfällig. Ausschließlich `UnitR3EventHooks.OnUnitMoveHere` verwenden.
+Der Script Extender 2.0.2 detourt RVA `0x196280` weiterhin. Ein zusätzlicher überlappender nativer Hook wäre konflikt- und crashanfällig. Ausschließlich `UnitR3EventHooks.OnUnitMoveHere` verwenden.
 
 ### Game-API-/Topologiescans aus dem nativen PCL-Callback
 
@@ -283,7 +283,7 @@ die gemeinsamen befehlsunabhängigen Grenzen:
 - Hauptbuilder RVA `0xF4930`;
 - alternativer Builder RVA `0xE32B0`;
 - Cursor-Reachability RVA `0xE9FF0`;
-- `MoveHere` weiterhin ausschließlich über den Script-Extender-1.42.0-Event, ohne zweiten Detour.
+- `MoveHere` weiterhin ausschließlich über den Script-Extender-2.0.2-Event, ohne zweiten Detour.
 
 Die statische Analyse der validierten DLL bestätigte das native Ausgabeformat:
 

@@ -86,6 +86,9 @@
     <Compile Include="..\..\StartConditions\src\StartConditionsMapSessionState.cs">
       <Link>StartConditionsMapSessionState.cs</Link>
     </Compile>
+    <Compile Include="..\..\StartConditions\src\StartGoldPolicy.cs">
+      <Link>StartGoldPolicy.cs</Link>
+    </Compile>
     <Compile Include="..\..\Shared\LobbyLifecycle.cs">
       <Link>LobbyLifecycle.cs</Link>
     </Compile>
@@ -128,6 +131,9 @@
     <Compile Include="..\..\BugfixesAndQoL\src\SurrenderPolicy.cs">
       <Link>SurrenderPolicy.cs</Link>
     </Compile>
+    <Compile Include="..\..\BugfixesAndQoL\src\BugfixesAndQoLChoreSender.cs">
+      <Link>BugfixesAndQoLChoreSender.cs</Link>
+    </Compile>
     <Compile Include="..\..\BugfixesAndQoL\src\SiegeAmmoRestockPacket.cs">
       <Link>SiegeAmmoRestockPacket.cs</Link>
     </Compile>
@@ -142,6 +148,9 @@
     </Compile>
     <Compile Include="..\..\ExtraFeatures\src\EnemyProximityPolicy.cs">
       <Link>EnemyProximityPolicy.cs</Link>
+    </Compile>
+    <Compile Include="..\..\ExtraFeatures\src\ExtraFeaturesChoreSender.cs">
+      <Link>ExtraFeaturesChoreSender.cs</Link>
     </Compile>
     <Compile Include="..\..\BugfixesAndQoL\src\AssassinClimbCostPolicy.cs">
       <Link>AssassinClimbCostPolicy.cs</Link>

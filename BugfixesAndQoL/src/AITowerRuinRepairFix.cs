@@ -21,10 +21,13 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
-using Zhuqiaomon.Assembly;
-using Zhuqiaomon.Hooks;
-using Zhuqiaomon.Hooks.Transaction;
-using Zhuqiaomon.Memory;
+using RedBird.Abstractions.Hooks.Transaction;
+using RedBird.Abstractions.Hooks;
+using RedBird.Core.Memory;
+using RedBird.X64.Assembly;
+using RedBird.X64.Hooks;
+using RedBird.X64.Hooks.Transaction;
+using RedBird.X64.Hooks.Context;
 
 namespace BugfixesAndQoL
 {
@@ -55,8 +58,8 @@ namespace BugfixesAndQoL
         private readonly Dictionary<int, RuntimeTowerRuin> runtimeRuins =
             new Dictionary<int, RuntimeTowerRuin>();
         private HookTransaction classifierTransaction;
-        private HookRef<X64InlineHook> narrowRuinClassifierHook = new HookRef<X64InlineHook>();
-        private HookRef<X64InlineHook> broadRuinClassifierHook = new HookRef<X64InlineHook>();
+        private readonly HookHandle<X64InlineHook> narrowRuinClassifierHook = new HookHandle<X64InlineHook>();
+        private readonly HookHandle<X64InlineHook> broadRuinClassifierHook = new HookHandle<X64InlineHook>();
         private bool callbackFailureLogged;
         private bool mapActive;
         private bool disposed;
@@ -64,6 +67,7 @@ namespace BugfixesAndQoL
         public AITowerRuinRepairFix(
             ManualLogSource log,
             BugfixesAndQoLViewModel settings,
+            ScanRegion region,
             ReadOnlySpan<byte> memory,
             ulong libraryBase,
             bool referenceHashMatches)
@@ -74,11 +78,10 @@ namespace BugfixesAndQoL
 
             try
             {
-                InstallRuinClassifiers(memory, libraryBase, referenceHashMatches);
+                InstallRuinClassifiers(region, memory, libraryBase, referenceHashMatches);
             }
             catch (Exception ex)
             {
-                classifierTransaction?.Unload();
                 classifierTransaction?.Dispose();
                 classifierTransaction = null;
                 Shared.DebugLogHelper.LogWarning(
@@ -91,6 +94,7 @@ namespace BugfixesAndQoL
         }
 
         private void InstallRuinClassifiers(
+            ScanRegion region,
             ReadOnlySpan<byte> memory,
             ulong libraryBase,
             bool referenceHashMatches)
@@ -107,27 +111,27 @@ namespace BugfixesAndQoL
             Shared.NativeResolution broadResolution = Shared.NativePatternResolver.ResolveUnique(
                 memory, BroadRuinClassifierPattern, BroadRuinClassifierRva, referenceHashMatches,
                 "AI broad tower-ruin classifier", log);
-            classifierTransaction = new HookTransaction(
-                memory, libraryBase, loggerFactory: null,
-                failureMode: TransactionFailureMode.RollbackAndThrow);
-            classifierTransaction.AddContextHook(
-                ref narrowRuinClassifierHook,
+            classifierTransaction = BugfixesHookInfrastructure.CreateOwnedTransaction(region);
+            BugfixesHookInfrastructure.AddContextHook(
+                classifierTransaction,
+                narrowRuinClassifierHook,
                 libraryBase + unchecked((ulong)narrowResolution.Rva),
                 RouteTrackedRuinThroughNarrowCleanup,
-                regs: X64SmartCPUContextRegs.All,
+                registers: X64SmartCPUContextRegs.All,
                 hookSize: NarrowRuinClassifierHookSize,
                 errorMode: CallbackErrorMode.LogAndContinue,
                 placement: OverwrittenInstructionPlacement.AfterCallback);
-            classifierTransaction.AddContextHook(
-                ref broadRuinClassifierHook,
+            BugfixesHookInfrastructure.AddContextHook(
+                classifierTransaction,
+                broadRuinClassifierHook,
                 libraryBase + unchecked((ulong)broadResolution.Rva),
                 RouteTrackedRuinThroughBroadCleanup,
-                regs: X64SmartCPUContextRegs.All,
+                registers: X64SmartCPUContextRegs.All,
                 hookSize: BroadRuinClassifierHookSize,
                 errorMode: CallbackErrorMode.LogAndContinue,
                 placement: OverwrittenInstructionPlacement.AfterCallback);
-            classifierTransaction.Commit();
-            if (!narrowRuinClassifierHook.Success || !broadRuinClassifierHook.Success)
+            CommitResult commitResult = classifierTransaction.Commit();
+            if (!commitResult.IsCompleteSuccess || !narrowRuinClassifierHook.Success || !broadRuinClassifierHook.Success)
                 throw new InvalidOperationException("The AI tower-ruin classifier hooks were not installed atomically.");
 
             Shared.DebugLogHelper.LogDebug(
@@ -143,17 +147,17 @@ namespace BugfixesAndQoL
 
             if (IsEnabled)
             {
-                if (!narrowRuinClassifierHook.Value.IsActive)
-                    narrowRuinClassifierHook.Value.Enable();
-                if (!broadRuinClassifierHook.Value.IsActive)
-                    broadRuinClassifierHook.Value.Enable();
+                if (!narrowRuinClassifierHook.IsInstalled)
+                    narrowRuinClassifierHook.Hook.Enable();
+                if (!broadRuinClassifierHook.IsInstalled)
+                    broadRuinClassifierHook.Hook.Enable();
             }
             else
             {
-                if (narrowRuinClassifierHook.Value.IsActive)
-                    narrowRuinClassifierHook.Value.Disable();
-                if (broadRuinClassifierHook.Value.IsActive)
-                    broadRuinClassifierHook.Value.Disable();
+                if (narrowRuinClassifierHook.IsInstalled)
+                    narrowRuinClassifierHook.Hook.Disable();
+                if (broadRuinClassifierHook.IsInstalled)
+                    broadRuinClassifierHook.Hook.Disable();
                 runtimeRuins.Clear();
             }
         }
@@ -167,7 +171,6 @@ namespace BugfixesAndQoL
                 subscription.Dispose();
             subscriptions.Clear();
             runtimeRuins.Clear();
-            classifierTransaction?.Unload();
             classifierTransaction?.Dispose();
             classifierTransaction = null;
         }

@@ -6,7 +6,7 @@ using System;
 
 namespace EngineerSiegeFix
 {
-    [BepInDependency(ScriptExtenderGuid, BepInDependency.DependencyFlags.HardDependency)]
+    [BepInDependency(ScriptExtenderGuid, "2.0.2")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class EngineerSiegeFixPlugin : BaseUnityPlugin
     {
@@ -34,7 +34,7 @@ namespace EngineerSiegeFix
             }
         }
 
-        private static void OnCrusaderLibraryLoaded(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
+        private static void OnCrusaderLibraryLoaded(CrusaderLibraryLoadContext context)
         {
             if (runtime != null)
                 return;
@@ -50,8 +50,8 @@ namespace EngineerSiegeFix
 
                 runtime = new EngineerSiegeFixRuntime(
                     processLog,
-                    memory,
-                    unchecked((ulong)libraryHandle.ToInt64()));
+                    context.Memory,
+                    unchecked((ulong)context.ModuleHandle.ToInt64()));
             }
             catch (Exception exception)
             {

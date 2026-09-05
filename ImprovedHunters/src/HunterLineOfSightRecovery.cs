@@ -1,7 +1,7 @@
 using BepInEx.Logging;
 using SHCDESE.Interop;
 using System;
-using Zhuqiaomon.Memory;
+using RedBird.Core.Memory;
 
 namespace ImprovedHunters
 {

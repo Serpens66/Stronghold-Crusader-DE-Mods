@@ -1,0 +1,70 @@
+<UserControl
+    x:Class="CrusaderDE.HUD_RightClick"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:b="http://schemas.microsoft.com/xaml/behaviors"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:CrusaderDE"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    d:DesignHeight="160"
+    d:DesignWidth="190"
+    mc:Ignorable="d">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="booleanToVisibilityConverter" />
+
+    </UserControl.Resources>
+
+    <Grid
+        x:Name="LayoutRoot"
+        Width="190"
+        Height="160"
+        Tag="Ignore"
+        HorizontalAlignment="Center"
+        VerticalAlignment="Top"
+        Background="#00000000"
+        FlowDirection="LeftToRight"
+        UseLayoutRounding="True">
+        <Grid.RenderTransform>
+            <TranslateTransform X="-95" Y="-80" />
+        </Grid.RenderTransform>
+
+        <Grid
+            Name="Rotation"
+            Width="71"
+            Height="56"
+            Margin="0,0,0,0"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Top">
+            <Image  Name="RotationImg" Source="{StaticResource floats 038}" Stretch="Fill"/>
+        </Grid>
+        <Grid
+            Name="UI"
+            Width="60"
+            Height="45"
+            Margin="0,0,0,0"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Center">
+            <Image Name="UIImg" Source="{StaticResource floats 127}" Stretch="Fill"/>
+        </Grid>
+        <Grid
+            Name="Zoom"
+            Width="76"
+            Height="75"
+            Margin="0,0,0,0"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Center">
+            <Image Name="ZoomImg" Source="{StaticResource floats 046}" Stretch="Fill"/>
+        </Grid>
+        <Grid
+            Name="Flatten"
+            Width="62"
+            Height="45"
+            Margin="0,0,0,0"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Bottom">
+            <Image Name="FlattenImg" Source="{StaticResource floats 036}" Stretch="Fill"/>
+        </Grid>
+    </Grid>
+
+</UserControl>

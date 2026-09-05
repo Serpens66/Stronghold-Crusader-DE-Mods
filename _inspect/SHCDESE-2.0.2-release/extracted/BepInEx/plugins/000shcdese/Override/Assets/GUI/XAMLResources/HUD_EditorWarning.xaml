@@ -1,0 +1,92 @@
+<UserControl
+    x:Class="CrusaderDE.HUD_EditorWarning"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:b="http://schemas.microsoft.com/xaml/behaviors"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:CrusaderDE"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    d:DesignHeight="370"
+    d:DesignWidth="700"
+    mc:Ignorable="d">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter
+            x:Key="booleanToVisibilityConverter" />
+
+    </UserControl.Resources>
+
+    <Grid
+        x:Name="LayoutRoot"
+        Width="640"
+        Height="370"
+        HorizontalAlignment="Center"
+        VerticalAlignment="Top"
+        Background="#00000000"
+        UseLayoutRounding="True">
+        <Grid.RenderTransform>
+            <TranslateTransform />
+        </Grid.RenderTransform>
+
+
+
+        <!-- main view -->
+        <Button
+            Width="640"
+            Height="370"
+            Margin="0,0,0,0"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Top"
+            Style="{StaticResource BDR_SH1DEb}" />
+
+        <Grid
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch">
+
+            <local:WGT_Heading
+                Margin="0,0,0,0"
+                Grid.Column="0"
+                Grid.ColumnSpan="2"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Top"
+                Divider="{StaticResource Panel_Divider}"
+                HeadingText="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_NEW_CTEXT_231]}" />
+
+
+            <TextBlock
+                Width="600"
+                Margin="30,80,0,30"
+                HorizontalAlignment="Left"
+                FontSize="20"
+                Foreground="#FF000000"
+                VerticalAlignment="Top"
+                TextWrapping="Wrap"
+                Text="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_NEW_CTEXT_232]}" />
+
+            <Button
+                Width="250"
+                Margin="40,0,0,42"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Bottom"
+                local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_NEW_CTEXT_233]}"
+                local:PropEx.TextLeft=""
+                local:PropEx.TextRight=""
+                Command="{Binding ButtonEditorWarningCommand}"
+                CommandParameter="Enable"
+                Style="{StaticResource BTN_SH_GlowS}" />
+
+            <Button
+                Width="250"
+                Margin="0,0,40,42"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Bottom"
+                local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_NEW_CTEXT_234]}"
+                local:PropEx.TextLeft=""
+                local:PropEx.TextRight=""
+                Command="{Binding ButtonEditorWarningCommand}"
+                CommandParameter="Disable"
+                Style="{StaticResource BTN_SH_GlowS}" />
+        </Grid>
+    </Grid>
+
+</UserControl>

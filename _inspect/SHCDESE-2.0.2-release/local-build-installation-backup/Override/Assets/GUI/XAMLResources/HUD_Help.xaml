@@ -1,0 +1,100 @@
+<UserControl
+    x:Class="CrusaderDE.HUD_Help"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:CrusaderDE"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    d:DesignHeight="500"
+    d:DesignWidth="820"
+    mc:Ignorable="d">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="booleanToVisibilityConverter" />
+    </UserControl.Resources>
+
+
+    <Grid
+        x:Name="LayoutRoot"
+        Width="820"
+        Height="500"
+        
+        HorizontalAlignment="Center"
+        VerticalAlignment="Center"
+        Background="#44000000"
+        UseLayoutRounding="True">
+
+        
+        <Grid.RenderTransform>
+            <TranslateTransform />
+        </Grid.RenderTransform>
+
+        <Grid Height="30"
+              Margin="0,0,0,10"
+              VerticalAlignment="Bottom"
+              Background="#88000000"/>
+
+        <Button
+            Width="810"
+            Height="490"
+            Margin="0,0,0,0"
+            Grid.Column="0"
+            Grid.ColumnSpan="2"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Style="{StaticResource BDR_SH1DEc}" />
+
+        <!--  Help display  -->
+        <Image
+            Name="MainHelpTexture"
+            IsHitTestVisible="True"
+            Width="800"
+            Height="450"
+            Margin="5,5,5,35"
+            RenderTransformOrigin="0.5,0.5"
+            Source="{Binding MainHelpImage}">
+            <Image.RenderTransform>
+                <ScaleTransform ScaleY="-1"/>
+            </Image.RenderTransform>
+        </Image>
+
+        <Button
+            Name="ButtonBack"
+            Width="220"
+            Margin="20,0,0,10"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Bottom"
+            local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_GAME_OPTIONS_018]}"
+            local:PropEx.TextLeft=""
+            local:PropEx.TextRight=""
+            Command="{Binding ButtonMainHelpCommand}"
+            CommandParameter="-1"
+            Visibility="Hidden"
+            Style="{StaticResource BTN_SH_GlowS}"  />
+        <Button
+            Name="ButtonHome"
+            Width="220"
+            Margin="00,0,0,10"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Bottom"
+            local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_NEW_TEXT2_167]}"
+            local:PropEx.TextLeft=""
+            local:PropEx.TextRight=""
+            Command="{Binding ButtonMainHelpCommand}"
+            CommandParameter="-2"
+            Visibility="Hidden"
+            Style="{StaticResource BTN_SH_GlowS}"  />        
+        <Button
+            Name="ButtonExit"
+            Width="220"
+            Margin="20,0,20,10"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Bottom"
+            local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_HELP_003]}"
+            local:PropEx.TextLeft=""
+            local:PropEx.TextRight=""
+            Command="{Binding ButtonMainHelpCommand}"
+            CommandParameter="1"
+            Style="{StaticResource BTN_SH_GlowS}"  />
+    </Grid>
+</UserControl>

@@ -1,0 +1,124 @@
+<Patch
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:seui="clr-namespace:SHCDESE.UI;assembly=SHCDESE">
+    <Operation
+        Type="AddNamespace"
+        AttributeName="seui"
+        Value="clr-namespace:SHCDESE.UI;assembly=SHCDESE" />
+
+    <Operation Type="Add" XPath="/n:ResourceDictionary">
+        <Content>
+            <Style x:Key="SE_ToolTip_Base" TargetType="ToolTip">
+                <Setter Property="Background" Value="#FF000000" />
+                <Setter Property="Foreground" Value="#FFF7F7F7" />
+                <Setter Property="FontWeight" Value="Bold" />
+                <Setter Property="Padding" Value="16,12" />
+                <Setter Property="BorderThickness" Value="3" />
+                <Setter Property="Placement" Value="Top" />
+                <Setter Property="HorizontalOffset" Value="14" />
+                <Setter Property="VerticalOffset" Value="18" />
+                <Setter Property="HorizontalContentAlignment" Value="Left" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+                <Setter Property="OverridesDefaultStyle" Value="True" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ToolTip">
+                            <Border
+                                Background="{TemplateBinding Background}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="7"
+                                MaxWidth="{TemplateBinding MaxWidth}">
+                                <Border.BorderBrush>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0" SpreadMethod="Repeat">
+                                        <LinearGradientBrush.RelativeTransform>
+                                            <TranslateTransform x:Name="SE_ToolTip_BorderTransform" X="0" />
+                                        </LinearGradientBrush.RelativeTransform>
+                                        <GradientStop Color="#CCFF0000" Offset="0.000" />
+                                        <GradientStop Color="#CCFFFF00" Offset="0.166" />
+                                        <GradientStop Color="#CC00FF00" Offset="0.333" />
+                                        <GradientStop Color="#CC00FFFF" Offset="0.500" />
+                                        <GradientStop Color="#CC0000FF" Offset="0.666" />
+                                        <GradientStop Color="#CCFF00FF" Offset="0.833" />
+                                        <GradientStop Color="#CCFF0000" Offset="1.000" />
+                                    </LinearGradientBrush>
+                                </Border.BorderBrush>
+                                <Border.Effect>
+                                    <DropShadowEffect Color="#CC000000" BlurRadius="12" ShadowDepth="3" />
+                                </Border.Effect>
+                                <Border.Triggers>
+                                    <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                                        <BeginStoryboard>
+                                            <Storyboard RepeatBehavior="Forever">
+                                                <DoubleAnimation
+                                                    Storyboard.TargetName="SE_ToolTip_BorderTransform"
+                                                    Storyboard.TargetProperty="X"
+                                                    From="0"
+                                                    To="1"
+                                                    Duration="0:0:6" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </EventTrigger>
+                                </Border.Triggers>
+                                <!-- A ContentPresenter is required here: Content may be a string,
+                                     a binding result, or a complete visual tree such as StackPanel. -->
+                                <ContentPresenter
+                                    Content="{TemplateBinding Content}"
+                                    ContentTemplate="{TemplateBinding ContentTemplate}"
+                                    ContentTemplateSelector="{TemplateBinding ContentTemplateSelector}"
+                                    ContentStringFormat="{TemplateBinding ContentStringFormat}"
+                                    HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                    VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                    Margin="{TemplateBinding Padding}" />
+                            </Border>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+        </Content>
+    </Operation>
+
+    <Operation Type="Add" XPath="/n:ResourceDictionary">
+        <Content>
+            <Style x:Key="SE_ToolTip_1080p" TargetType="ToolTip" BasedOn="{StaticResource SE_ToolTip_Base}">
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="MaxWidth" Value="520" />
+            </Style>
+        </Content>
+    </Operation>
+
+    <Operation Type="Add" XPath="/n:ResourceDictionary">
+        <Content>
+            <Style x:Key="SE_ToolTip_1440p" TargetType="ToolTip" BasedOn="{StaticResource SE_ToolTip_Base}">
+                <Setter Property="FontSize" Value="16" />
+                <Setter Property="MaxWidth" Value="680" />
+                <Setter Property="Padding" Value="20,15" />
+                <Setter Property="BorderThickness" Value="4" />
+            </Style>
+        </Content>
+    </Operation>
+
+    <Operation Type="Add" XPath="/n:ResourceDictionary">
+        <Content>
+            <Style x:Key="SE_ToolTip_4K" TargetType="ToolTip" BasedOn="{StaticResource SE_ToolTip_Base}">
+                <Setter Property="FontSize" Value="24" />
+                <Setter Property="MaxWidth" Value="920" />
+                <Setter Property="Padding" Value="26,20" />
+                <Setter Property="BorderThickness" Value="5" />
+            </Style>
+        </Content>
+    </Operation>
+
+    <Operation Type="Add" XPath="/n:ResourceDictionary">
+        <Content>
+            <Style x:Key="SE_ToolTip_Scale" TargetType="ToolTip" BasedOn="{StaticResource SE_ToolTip_1080p}">
+                <Setter Property="seui:ToolTipResolutionScale.Enabled" Value="True" />
+            </Style>
+        </Content>
+    </Operation>
+
+    <Operation Type="Add" XPath="/n:ResourceDictionary">
+        <Content>
+            <Style x:Key="SE_ToolTip" TargetType="ToolTip" BasedOn="{StaticResource SE_ToolTip_1080p}" />
+        </Content>
+    </Operation>
+</Patch>

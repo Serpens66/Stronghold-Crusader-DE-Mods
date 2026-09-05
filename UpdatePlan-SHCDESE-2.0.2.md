@@ -17,10 +17,11 @@ Vorhandene Benutzeränderungen, insbesondere in `MoveMoatTest`, `QueueTest`, der
 erhalten bleiben. Die gelöschten Diagnosemods `ChoreTestMod`, `MoatFillTargetTest` und
 `MPTest` werden nicht wiederhergestellt.
 
-`MoveMoatTest` ist ausdrücklich zurückgestellt. Dieser Plan dokumentiert seine spätere
-Migration vollständig, autorisiert sie aber nicht. Kein Ausführungs-Chat darf Dateien
-unter `MoveMoatTest/`, seine gebauten Artefakte oder seine Version ändern, bevor der
-Benutzer die Migration dieses Mods separat und ausdrücklich beauftragt.
+`MoveMoatTest` ist aufgrund der ausdrücklichen Benutzerentscheidung vom 2026-09-05
+dauerhaft aus dem Zielumfang dieser Migration ausgeschlossen. Die P3M-Beschreibung
+bleibt ausschließlich als historische Planung für einen möglichen separaten späteren
+Auftrag erhalten. Kein Ausführungs-Chat dieses Plans darf Dateien unter
+`MoveMoatTest/`, seine Tests, gebauten Artefakte oder seine Version ändern oder bauen.
 
 ### Geprüfte Versionen
 
@@ -47,16 +48,19 @@ denselben Hash ausweisen.
   `MoveMoatTest/src/MoveMoatPathTest.cs`, `MoveMoatTest/src/MoatWorkTargetSelection.cs`
   und die gebauten MoveMoat-Artefakte. Zum Prüfzeitpunkt existierten keine
   uncommitteten MoveMoat-Quelldateien. Spätere Chats müssen den dann aktuellen Stand
-  dennoch erneut inventarisieren, diese Dateien ohne P3M-Freigabe unangetastet lassen
-  und dürfen die Zahlen nicht als unveränderliche Vorgabe behandeln.
+  dennoch als ausgeschlossenen Bestand zählen, diese Dateien unangetastet lassen und
+  dürfen die Zahlen nicht als unveränderliche Vorgabe behandeln.
 - Im ursprünglich geprüften Workspace wurden 55 Projektdateien inventarisiert. 37 davon
   referenzierten SHCDESE direkt oder kompilierten dagegen; 18 weitere waren indirekte
   Regressionstests, Hilfsprojekte oder die zu entfernende Linux-Bridge. Inzwischen sind
   `ChoreTestMod`, `MoatFillTargetTest` und `MPTest` gelöscht; die Moat-Fill-Funktion und
-  ihr umbenanntes Testprojekt liegen jetzt in `BugfixesAndQoL`. Aktuell verbleiben 52
-  Projektdateien, davon 34 mit direktem SHCDESE-Bezug und 18 indirekte Projekte. Die
-  Matrix behält die drei entfernten Runtime-Projektzeilen als Stilllegungsnachweis und
-  verwendet für den übernommenen Test den aktuellen Pfad.
+  ihr umbenanntes Testprojekt liegen jetzt in `BugfixesAndQoL`. Nach P8 verbleiben von
+  diesen 52 Projektdateien 50, weil das Linux-Runtimeprojekt und sein DetourProbe
+  entfernt wurden. Davon sind 49 Teil dieser Migration (33 mit direktem SHCDESE-Bezug
+  und 16 indirekte Projekte); `MoveMoatTest.csproj` ist die eine ausdrücklich
+  ausgeschlossene aktuelle Projektdatei. Die Matrix behält die drei entfernten
+  Runtime-Projektzeilen sowie die zwei entfernten Linux-Projektzeilen als
+  Stilllegungsnachweis und verwendet für den übernommenen Test den aktuellen Pfad.
 - Das Ausgangsinventar besaß 29 Runtime-Plugins mit altem `LibraryLoaded`-Handler. Die
   drei gelöschten Diagnosemods entfallen; 26 verbleibende Handler werden migriert.
 - Ursprünglich referenzierten 25 Projekte Zhuqiaomon. Nach Wegfall von
@@ -612,7 +616,7 @@ Legende: `direkt` bedeutet echte Zhuqiaomon- oder PolyHook-Quellmigration;
 | ImprovedHunters/ImprovedHunters.csproj | 2.0.2 | ja | ja | nein | nein | nein | nein | ja | 1 | Native/Gameplay |
 | MoatCommandTest/MoatCommandTest.csproj | 2.0.2 | ja | ja | nein | nein | nein | nein | nein | 1 | Native/Gameplay |
 | MoatFillTargetTest/MoatFillTargetTest.csproj | entfällt | nein (entfernt) | nein | nein | nein | nach BugfixesAndQoL übernommen | nein | nein | entfällt | Stilllegung verifizieren |
-| MoveMoatTest/MoveMoatTest.csproj | 2.0.2 (zurückgestellt) | ja | ja | nein | ja | Unit-/Moat-ID-, Cache-/Rollback-Regression | nein | nein | 1 | erst nach explizitem Auftrag; Native/Gameplay, gemeinsamer Hookbesitz |
+| MoveMoatTest/MoveMoatTest.csproj | außerhalb dieses Plans | nicht prüfen | nicht migrieren | nein | nicht prüfen | nicht prüfen | nein | nein | unverändert | ausdrücklich ausgeschlossen; weder bauen noch testen |
 | MPTest/MPTest.csproj | entfällt | nein (entfernt) | nein | nein | nein | nein | nein | nein | entfällt | Stilllegung verifizieren |
 | OxTetherIdleFixTest/OxTetherIdleFixTest.csproj | 2.0.2 | ja | ja | nein | nein | nein | nein | nein | 1 | Native/Gameplay |
 | QueueTest/QueueTest.csproj | 2.0.2 | ja | ja | nein | ja | Unit-/Tribe-ID + Unassign | nein | nein | 1 | Queue-/Native-Vertragstest |
@@ -632,11 +636,12 @@ nicht stillschweigend ausgelassen.
 
 ### 7.2 Weitere Workspace-Projekte
 
-Diese 18 Projektdateien besitzen keinen direkten SHCDESE-Verweis im Projekttext, sind
-aber entweder Teil einer betroffenen Testkette, ein zu entfernender Linux-Bestand oder
+Diese ursprünglich 18 Projektdateien besitzen keinen direkten SHCDESE-Verweis im Projekttext, sind
+aber entweder Teil einer betroffenen Testkette, ein inzwischen entfernter Linux-Bestand oder
 ein abschließend mitzuprüfendes abhängiges Werkzeug. Zusammen mit den 37 Zeilen aus
 7.1 bilden die Tabellen 55 Verantwortungszeilen: 52 aktuelle Projektdateien und drei
-stillgelegte Runtime-Projekte. Der umbenannte Moat-Test ersetzt dabei den historischen
+stillgelegte Runtime-Projekte. Nach Entfernung der zwei Linux-Projekte verbleiben 16
+aktuelle indirekte Projekte. Der umbenannte Moat-Test ersetzt dabei den historischen
 Testpfad; er ist keine zusätzliche stillgelegte Projektzeile.
 
 | Projektdatei | Zielversion | LibraryLoaded | direkte RedBird-Migration | nur Referenzbereinigung | SelectedUnitInfo | Gold/Zeit/ID | Chore | Settings-Workaround | NetworkMode | Test-/Buildbedarf |
@@ -686,23 +691,32 @@ offene Restpunkte ein. `abgeschlossen` ist nur erlaubt, wenn alle Abnahmepunkte 
 Pakets erfüllt sind. Bei einer fachlichen Blockade wird `blockiert` mit der exakten
 Entscheidungsfrage eingetragen; der nächste Chat darf nicht darüber hinweggehen.
 
-Erlaubte Statuswerte: `offen`, `in Arbeit`, `blockiert`, `zurückgestellt`,
-`abgeschlossen`. `zurückgestellt` ist kein impliziter Arbeitsauftrag und darf bei
-P3M nur nach einer neuen ausdrücklichen Benutzerfreigabe verlassen werden.
+Mit ausdrücklicher Benutzerfreigabe vom 2026-09-05 sind tatsächliche manuelle
+Spiel-, Host/Client- und Proton-Sitzungen optionale Nachabnahmen. Ihr Fehlen, ein
+nicht erreichbarer zweiter PC oder ein fehlender später Runtime-Marker blockiert weder
+ein Paket noch P9. Statische Prüfungen, automatisierte Testprogramme, Builds,
+Installations- und Artefaktprüfungen bleiben verpflichtend. Wo der Plan im Folgenden
+von Host/Client-, Runtime-, Spiel- oder Proton-Abnahme spricht, ist sie deshalb als
+optionale manuelle Nachprüfung zu lesen, sofern nicht ausdrücklich eine automatisierte
+Prüfung oder statische Evidenz genannt ist.
+
+Erlaubte Statuswerte: `offen`, `in Arbeit`, `blockiert`, `zurückgestellt`, `entfällt`,
+`abgeschlossen`. `entfällt` kennzeichnet einen ausdrücklich aus dem Zielumfang
+genommenen Bestand und ist kein impliziter Arbeitsauftrag.
 
 | Paket | Inhalt | Voraussetzung | Status | Evidenz/Übergabe |
 |---|---|---|---|---|
-| P0 | Extender- und Native-Basis | keine | offen | noch keine |
-| P1 | Shared Settings sowie Trail/Chore/Host-Gruppe | P0 | offen | noch keine |
-| P2 | übrige Projekte ohne direkte Zhuq-Quellnutzung | P0, P1 | offen | noch keine |
-| P3 | kleinere direkte RedBird-Mods und Tests, ohne MoveMoatTest | P0 | offen | noch keine |
-| P3M | MoveMoatTest (ausdrücklich zurückgestellt) | P0, neuer expliziter Benutzerauftrag | zurückgestellt | Mod, Artefakte und Version nicht bearbeiten |
-| P4 | CastlePlanner und Parser-/Placement-Kette | P0, P1 | offen | noch keine |
-| P5 | ImprovedHunters | P0, P1 | offen | noch keine |
-| P6 | BugfixesAndQoL, Moat-Fill und Gatehouse-Shared-Policy | P0, P1 | offen | noch keine |
-| P7 | ExtraFeatures | P0, P1, P6 | offen | noch keine |
-| P8 | LinuxModding-Entkopplung | P0 | offen | noch keine |
-| P9 | workspaceweite Endabnahme | P1–P8, P3M | offen | noch keine |
+| P0 | Extender- und Native-Basis | keine | abgeschlossen | 2026-09-05: Repo/Tag, lokaler Build, offizielles Releaseartefakt, Installation, RedBird/Linux-Dateien, Native-Hash und `MaxGameSpeed=1500` verifiziert; Details in `UpdateStatus-SHCDESE-2.0.2.md` |
+| P1 | Shared Settings sowie Trail/Chore/Host-Gruppe | P0 | abgeschlossen | 2026-09-05: P1a–P1c, automatisierte Tests, Builds, Installation und Hashprüfungen abgeschlossen; echte Sitzungen sind gemäß Benutzerfreigabe optionale Nachabnahme; Details in `UpdateStatus-SHCDESE-2.0.2.md` |
+| P2 | übrige Projekte ohne direkte Zhuq-Quellnutzung | P0, P1 | abgeschlossen | 2026-09-05: P2a–P2c, Fachtests, Builds, Installation, TrailEditor-Kette, LUA-Manifest und Stilllegungsnachweise vollständig abgeschlossen; Details in `UpdateStatus-SHCDESE-2.0.2.md` |
+| P3 | kleinere direkte RedBird-Mods und Tests, ohne MoveMoatTest | P0 | abgeschlossen | 2026-09-05: P3a und P3b vollständig migriert, getestet, gebaut, installiert und hashgeprüft; Details in `UpdateStatus-SHCDESE-2.0.2.md` |
+| P3M | MoveMoatTest (ausdrücklich ausgeschlossen) | entfällt | entfällt | Benutzerentscheidung 2026-09-05; Mod, Tests, Artefakte und Version nicht bearbeiten oder bauen |
+| P4 | CastlePlanner und Parser-/Placement-Kette | P0, P1 | abgeschlossen | 2026-09-05: RedBird/LoadContext/Dependency/NetworkMode, vier Testketten, Build, Installation und Hashprüfung abgeschlossen; Details in `UpdateStatus-SHCDESE-2.0.2.md` |
+| P5 | ImprovedHunters | P0, P1 | abgeschlossen | 2026-09-05: P5a-P5c, 19 Zhuq-Dateien, 16 Context-Hooks, sieben Teardowns, drei Stateful-Sites, zwei Memorypfade, Tests, Build, Installation und Hashprüfung abgeschlossen; Details in `UpdateStatus-SHCDESE-2.0.2.md` |
+| P6 | BugfixesAndQoL, Moat-Fill und Gatehouse-Shared-Policy | P0, P1 | abgeschlossen | 2026-09-05: P6a-P6c, API-/ID-/Gold-/Speed-Verträge, 29 RedBird-Hooks, fünf Memorypfade, Moat-Ownership, sechs Chore-Sender, vollständige Regression, Build/Installation/Hashprüfung abgeschlossen; echte Sitzungen optional; Details in `UpdateStatus-SHCDESE-2.0.2.md` |
+| P7 | ExtraFeatures | P0, P1, P6 | abgeschlossen | 2026-09-05: P7a-P7b, acht RedBird-Hooks, Plague-Memorypatch, SelectedUnitInfo, Gatehouse-ID, zwei Chore-Sender, vollständige Regression, Build/Installation/Hashprüfung abgeschlossen; echte Sitzungen optional; Details in `UpdateStatus-SHCDESE-2.0.2.md` |
+| P8 | LinuxModding-Entkopplung | P0 | abgeschlossen | 2026-09-05: Runtime/Bridge/Probe/Paket/Build/Release entfernt; launcher-only Helfer, vier Tests und offizieller 2.0.2-Updaterpfad geprüft; echter Proton-Test optional; Details in `UpdateStatus-SHCDESE-2.0.2.md` |
+| P9 | workspaceweite Endabnahme | P1–P8; P3M ist ausgenommen | abgeschlossen | 2026-09-05: 49/49 Projekte mit Buildnachweis, vollständige automatisierte Regression, 46 Manifeste, 27 installierte Pakete/1.402 Dateien, Abhängigkeiten, CRLF und kanonische Hashes geprüft; zwei P9-Funde behoben; Details in `UpdateStatus-SHCDESE-2.0.2.md` |
 
 ### 8.2 Paket P0: Referenzbasis
 
@@ -781,13 +795,14 @@ Zulässiger Umfang:
 Übergabe: pro Hook Commit-/Handle-Prüfung, Besitzklassifikation, Patternnachweis,
 Testresultat und Build-/Installationsresultat.
 
-### 8.5a Paket P3M: MoveMoatTest (zurückgestellt)
+### 8.5a Paket P3M: MoveMoatTest (aus Zielumfang entfernt)
 
-Dieses Paket ist nur Dokumentation für einen späteren Auftrag. Kein Chat darf es durch
+Dieses Paket ist nur historische Dokumentation für einen separaten späteren Auftrag.
+Es ist kein Bestandteil oder Abschlusskriterium dieser Migration. Kein Chat darf es durch
 das Bearbeiten eines anderen Pakets beiläufig beginnen. Insbesondere dürfen Quellcode,
 Projektdatei, Dokumentation, gebaute DLL/PDB, installierte Ausgabe und Versionsangaben
-von MoveMoatTest bis zu einer neuen ausdrücklichen Benutzeranweisung nicht verändert
-oder gebaut werden. Bei Freigabe ist zuerst der dann aktuelle Arbeitsbaum neu zu lesen;
+von MoveMoatTest innerhalb dieses Plans nicht verändert, getestet oder gebaut werden.
+Bei einem separaten späteren Auftrag ist zuerst der dann aktuelle Arbeitsbaum neu zu lesen;
 später hinzugekommene Benutzeränderungen sind dann Teil der neuen Ausgangslage und
 dürfen nicht durch den heute geprüften Commitstand ersetzt werden.
 
@@ -830,13 +845,15 @@ letzte gültige IDs; leere, mehrfache und gemischte Selektion; Ground-only, freu
 feindliche und ungültige Besitzer; Cache-Wiederverwendung nur innerhalb derselben
 gültigen Selektion; Invalidierung nach Tick/Terrain/Mapwechsel; Vertragsablehnung und
 Exception mit bytegleichem Pfadpuffer, Originallänge, `routeVariant` und `moatPathMode`;
-anschließend gemeinsamer Runtime-Test mit dem bereits migrierten BugfixesAndQoL, bei dem
-pro Moat-Work-Zieladresse genau ein Besitzer aktiv ist.
+anschließend optionaler gemeinsamer Runtime-Test mit dem bereits migrierten
+BugfixesAndQoL, bei dem pro Moat-Work-Zieladresse genau ein Besitzer aktiv ist.
 
-Übergabe: neu erhobener Arbeitsbaumstand, vollständige Detour-/Original-Aufrufmatrix,
-Rollback- und Cachetests, kombinierter Ownership-Test, eigener Build/Installation und
-später Runtime-Marker. Ohne diese Übergabe bleibt P3M `zurückgestellt` und die gesamte
-Workspace-Migration kann nicht als abgeschlossen gelten.
+Historische Übergabeanforderung für einen separaten Auftrag: neu erhobener
+Arbeitsbaumstand, vollständige Detour-/Original-Aufrufmatrix,
+Rollback- und Cachetests, kombinierter automatisierter Ownership-Test, eigener
+Build/Installation und optionaler später Runtime-Marker. Ohne die verpflichtende
+statische/automatisierte Übergabe wäre ein separater MoveMoat-Auftrag nicht abgeschlossen;
+dies berührt den Abschluss dieses Plans nicht.
 
 ### 8.6 Paket P4: CastlePlanner
 
@@ -848,7 +865,7 @@ Workspace-Migration kann nicht als abgeschlossen gelten.
   `getComputerName`-/Subtype-Arbeitspunkt besitzt keinen aktuellen Workspace-Aufrufer.
 
 Übergabe: Pattern-/Hooknachweis, vollständige Placement-/Parser-Testresultate,
-CastlePlanner-Build und späterer Runtime-Marker.
+CastlePlanner-Build und optionaler später Runtime-Marker.
 
 ### 8.7 Paket P5: ImprovedHunters
 
@@ -859,7 +876,7 @@ CastlePlanner-Build und späterer Runtime-Marker.
   im Spiel prüfen.
 
 Übergabe: Liste aller migrierten Hooks/Sites, Besitz- und Teardownentscheidung je
-Feature, Patternnachweise, Tests, Build und Runtime-Marker.
+Feature, Patternnachweise, Tests, Build und optionaler Runtime-Marker.
 
 ### 8.8 Paket P6: BugfixesAndQoL
 
@@ -880,8 +897,8 @@ Feature, Patternnachweise, Tests, Build und Runtime-Marker.
 - Den effektiven Extender-MaxGameSpeed verwenden und mit 1500 sowie einem bewusst
   abweichenden Konfigurationswert testen.
 
-Übergabe: Hook-/Memory-/Chore-Matrix, ID- und Speedtests, vollständige Modtests, Build,
-Host-/Client-Ergebnis und Runtime-Marker.
+Übergabe: Hook-/Memory-/Chore-Matrix, ID- und Speedtests, vollständige Modtests, Build
+sowie optionale Host-/Client- und Runtime-Nachabnahme.
 
 ### 8.9 Paket P7: ExtraFeatures
 
@@ -891,8 +908,8 @@ Host-/Client-Ergebnis und Runtime-Marker.
 - Die Nutzer von `AddUnrestrictedJmp` gegen die unveränderten RedBird-Bytes prüfen;
   entfernte Fastcall-Hilfen nicht nachbauen, solange kein echter Aufrufer existiert.
 
-Übergabe: Hook-/Memory-/Chore-Matrix, Gatehouse-Test, Presettests, Build,
-Host-/Client-Ergebnis und Runtime-Marker.
+Übergabe: Hook-/Memory-/Chore-Matrix, Gatehouse-Test, Presettests, Build sowie optionale
+Host-/Client- und Runtime-Nachabnahme.
 
 ### 8.10 Paket P8: LinuxModding
 
@@ -902,24 +919,24 @@ Host-/Client-Ergebnis und Runtime-Marker.
   Funktion auf winhttp-Override und offizielle 2.0.2-Dateien begrenzen.
 - Keine README ändern, solange der Benutzer dies nicht ausdrücklich erlaubt.
 
-Übergabe: entfernte aktive Komponenten, verbliebene Hilfsskripte und Proton-Test des
-offiziellen Update-/Restartpfads.
+Übergabe: entfernte aktive Komponenten, verbliebene Hilfsskripte und statische Prüfung
+des offiziellen Update-/Restartpfads; ein echter Proton-Test ist optionale Nachabnahme.
 
 ### 8.11 Paket P9: Workspaceweite Endabnahme
 
 - Die Inventare aus Abschnitt 1 neu zählen; neue Funde einem abgeschlossenen Paket
   nachziehen, statt nur die alten Sollzahlen zu bestätigen.
-- Alle 52 aktuellen Projektdateien entweder erfolgreich bauen/testen oder als
-  nachweislich nicht ausführbares Hilfsprojekt begründen. Die drei historischen
-  Runtime-Zeilen ChoreTestMod, MoatFillTargetTest und MPTest sowie die alte Linux-Bridge
-  werden nicht gegen 2.0.2 gebaut.
-- Sämtliche Negativsuchen, CRLF-Prüfungen, Paket-/Manifestprüfungen und die echte
-  Host-/Client-Abnahme durchführen.
-- P9 darf nicht beginnen beziehungsweise nicht `abgeschlossen` werden, solange P3M
-  `zurückgestellt` ist. Soll MoveMoatTest dauerhaft aus dem Migrationsziel fallen,
-  braucht dies ebenfalls eine ausdrückliche Benutzerentscheidung und eine gemeinsame
-  Anpassung von Umfang, Inventaren, Matrix und Definition of Done; bloßes Überspringen
-  genügt nicht.
+- Alle 49 aktuellen Projektdateien im Zielumfang entweder erfolgreich bauen/testen oder
+  als nachweislich nicht ausführbares Hilfsprojekt begründen. Die drei historischen
+  Runtime-Zeilen ChoreTestMod, MoatFillTargetTest und MPTest, die zwei in P8 entfernten
+  Linux-Projekte und das ausdrücklich ausgeschlossene `MoveMoatTest` werden nicht gegen
+  2.0.2 gebaut oder getestet.
+- Sämtliche Negativsuchen, CRLF-Prüfungen, Paket-/Manifestprüfungen und automatisierten
+  Host-/Client-Vertragstests durchführen. Die echte Host-/Client-Sitzung bleibt eine
+  optionale Nachabnahme und blockiert P9 nicht.
+- Die ausdrückliche Benutzerentscheidung vom 2026-09-05 entfernt MoveMoatTest dauerhaft
+  aus diesem Migrationsziel. Umfang, Inventare, Matrix, Paketstatus und Definition of
+  Done sind gemeinsam angepasst; P3M blockiert P9 daher nicht.
 - Bereits erfolgreich über `build.bat` installierte Mods nicht grundlos erneut bauen.
   Nur nach weiteren Codeänderungen ist ein erneuter Build erforderlich.
 - Versionsnummern bleiben unverändert. Eine spätere finale Versionsanhebung ist ein
@@ -943,22 +960,22 @@ vollständiger Abnahme auf `abgeschlossen`.
 | P1a | Shared Settings-Workaround, CustomCustomTrail samt Core/Tests | P0 |
 | P1b | ChoreTestMod-Stilllegung verifizieren; ExtremePowers und RandomEvents samt Chore-/Zeittests | P1a |
 | P1c | SerpsModsHost, StartConditions und paketweite Preset-/Host-Abnahme | P1b |
-| P2a | BuildingCosts, BuildingLimit, CheatMod, UnitCosts und UnitLimit | P1 |
-| P2b | AIDefense samt UnassignUnit-Adapter, APITest, CustomLordUpload, EngineerSiegeFix und VanillaAICExporter | P2a |
-| P2c | SerpNativeAPI, TrailEditor-Kette, TestMod-LUA-Manifest und Stilllegungsnachweis für MoatFillTargetTest/MPTest | P2b |
-| P3a | ActiveAIVDetector, EnemyGatePathfindingTest und HunterQueryTargetDiagnostic | P0 |
-| P3b | MoatCommandTest, OxTetherIdleFixTest, QueueTest samt nativem Remove-Vertrag und StockpileAccessFixTest | P3a |
-| P3M-a | nach explizitem Auftrag: aktuellen MoveMoat-Arbeitsbaum neu inventarisieren, SelectedUnitInfo und RedBird-/Ownership-Entwurf | P0, ausdrückliche Benutzerfreigabe |
-| P3M-b | zentrale Detours, Original-Aufrufreihenfolge und transaktionalen Fallback migrieren/testen | P3M-a |
-| P3M-c | drei Moat-Work-Hooks, Cache-/Policytests, BugfixesAndQoL-Integration, Build und Runtime-Abnahme | P3M-b, P6 |
+| P2a | BuildingCosts, BuildingLimit, CheatMod, UnitCosts und UnitLimit | P1; abgeschlossen 2026-09-05 |
+| P2b | AIDefense samt UnassignUnit-Adapter, APITest, CustomLordUpload, EngineerSiegeFix und VanillaAICExporter | P2a; abgeschlossen 2026-09-05 |
+| P2c | SerpNativeAPI, TrailEditor-Kette, TestMod-LUA-Manifest und Stilllegungsnachweis für MoatFillTargetTest/MPTest | P2b; abgeschlossen 2026-09-05 |
+| P3a | ActiveAIVDetector, EnemyGatePathfindingTest und HunterQueryTargetDiagnostic | P0; abgeschlossen 2026-09-05 |
+| P3b | MoatCommandTest, OxTetherIdleFixTest, QueueTest samt nativem Remove-Vertrag und StockpileAccessFixTest | P3a; abgeschlossen 2026-09-05 |
+| P3M-a | entfällt in diesem Plan; nur bei separatem Auftrag aktuellen MoveMoat-Arbeitsbaum neu inventarisieren | ausdrücklich außerhalb des Zielumfangs |
+| P3M-b | entfällt in diesem Plan; historische Migrationsskizze | separater Auftrag |
+| P3M-c | entfällt in diesem Plan; historische Migrationsskizze | separater Auftrag |
 | P5a | gemeinsame RedBird-/Scanner-/Handle-Infrastruktur und Hookinventar | P1 |
 | P5b | Stateful-Immediates, Memorypfade und Besitz-/Teardownmigration | P5a |
-| P5c | statische Tests, Build, Installation und später Runtime-Marker | P5b |
+| P5c | statische Tests, Build, Installation und optionaler später Runtime-Marker | P5b |
 | P6a | SelectedUnitInfo, Gold, Gatehouse-Shared-Policy, Speedvertrag und Standalone-Moat-Ownership | P1 |
 | P6b | RedBird-Hooks, 18 Unload-Stellen, fünf Memory-Schreibpfade und Standalone-Moat-Detours | P6a |
-| P6c | sechs Chore-Funktionen, vollständige Tests, Build und Host/Client-Abnahme | P6b |
-| P7a | RedBird-Hooks, zehn Unload-Stellen und Plague-Memorypatch | P6 |
-| P7b | SelectedUnitInfo, Gatehouse-ID, beide Chore-Funktionen, Tests und Build | P7a |
+| P6c | sechs Chore-Funktionen, vollständige Tests, Build und automatisierte Host/Client-Verträge; echte Sitzung optional | P6b |
+| P7a | RedBird-Hooks, zehn Unload-Stellen und Plague-Memorypatch | P6; abgeschlossen 2026-09-05 |
+| P7b | SelectedUnitInfo, Gatehouse-ID, beide Chore-Funktionen, Tests und Build | P7a; abgeschlossen 2026-09-05 |
 
 P0, P4, P8 und P9 sind bereits eng genug geschnitten. Wenn auch dort ein Chatwechsel
 nötig wird, wird der konkrete letzte abgeschlossene Abnahmepunkt statt eines künstlich
@@ -969,10 +986,11 @@ neu erfundenen Slices in der Evidenzspalte dokumentiert.
 ### Schritt 1: Referenzen und Mindestversion
 
 - Bestätigte 2.0.2-Ausgabe bereitstellen.
-- Alle 34 aktuellen direkten SHCDESE-Projektdateien prüfen; Zhuqiaomon entfernen,
+- Alle 33 aktuellen direkten SHCDESE-Projektdateien im Zielumfang prüfen; Zhuqiaomon entfernen,
   RedBird nur bei direkter Nutzung ergänzen und sonstige Low-Level-Abhängigkeiten auf
   echte Nutzung reduzieren. Die drei stillgelegten historischen Runtime-Projekte nur
-  auf vollständige Entfernung prüfen.
+  auf vollständige Entfernung prüfen; die ausgeschlossene 34. Projektdatei
+  `MoveMoatTest.csproj` nicht bearbeiten, bauen oder testen.
 - Alle Runtime-Plugins auf die Mindestversion 2.0.2 festlegen.
 - Noch nicht bauen; zunächst sämtliche Quellmigrationen und statischen Prüfungen
   abschließen.
@@ -982,9 +1000,10 @@ alle Pluginabhängigkeiten sind eindeutig.
 
 ### Schritt 2: LoadContext und RedBird-Grundmigration
 
-- Alle 26 verbleibenden LibraryLoaded-Handler und weitergereichten
+- Alle 25 im Zielumfang verbleibenden LibraryLoaded-Handler und weitergereichten
   Initialisierungssignaturen umstellen.
-- Die zwölf direkt betroffenen Projekte typweise auf RedBird migrieren.
+- Die elf im Zielumfang direkt betroffenen Projekte typweise auf RedBird migrieren;
+  das zwölfte, `MoveMoatTest`, bleibt ausdrücklich ausgeschlossen.
 - Scannerergebnisse, Hookoptionen, Handleverwurzelung und Fehlerpfade je Feature
   prüfen.
 - Die acht direkten Memory-Patchpfade separat und mit Maschinenvertrag migrieren.
@@ -994,8 +1013,9 @@ Memory-Snapshot; eindeutige Patternfehler deaktivieren das jeweilige Feature.
 
 ### Schritt 3: Hook-Lebenszyklen
 
-- Alle 36 `Unload()`-Stellen nach prozessweit, endgültig feature-owned oder temporär
-  schaltbar klassifizieren.
+- Alle `Unload()`-Stellen im Zielumfang nach prozessweit, endgültig feature-owned oder
+  temporär schaltbar klassifizieren; die historische Gesamtzahl 36 schließt den
+  unangetasteten MoveMoat-Bestand ein.
 - RedBird-Besitzoption und Teardown entsprechend implementieren.
 - Plugin-`OnDestroy()` statisch auf prozessweite `Dispose`, `-=`, Uninstall- oder
   Unload-Aufrufe prüfen.
@@ -1039,7 +1059,8 @@ GUID-Pfad-Diagnosen und keine implizit clientseitige Gameplay-Mod.
   bestimmen.
 - Aktiven Plugin-/Updater-Ersatz entfernen; optionalen winhttp-Launcher und Checker als
   eigenständiges Hilfsmittel begrenzen.
-- Offiziellen 2.0.2-Updater unter Proton separat abnehmen.
+- Offiziellen 2.0.2-Updater statisch prüfen; eine echte Proton-Sitzung ist optionale
+  Nachabnahme.
 
 Abnahme: Kein installierter Code hookt `MapModManager.LaunchUpdaterAndExit`; Updates
 laufen über den offiziellen Shell-Updater und der Launcher setzt nur den notwendigen
@@ -1115,25 +1136,26 @@ Erforderliche Testgruppen:
    case-variierter Pfad und späterer Child ohne Überschreiben der ersten Registrierung.
 10. NetworkMode: identische Modlisten, nur Mode-0-Abweichung, Mode-1-Version fehlt oder
     weicht ab sowie SerpsModsHost mit seinen Childmods.
-11. Linux/Proton: winhttp-Override, Thread-Patch-Datei, offizielles Staging/Delete,
-    Spielende und Neustart ohne Workspace-Bridge.
+11. Linux/Proton: winhttp-Override, Thread-Patch-Datei und offizielles Staging/Delete
+    statisch beziehungsweise automatisiert prüfen; Spielende und Neustart ohne
+    Workspace-Bridge sind optionale manuelle Nachabnahme.
 
-Der Laufzeitnachweis endet nicht bei einem READY-Log. Nach dem normalen
-Startup-Cleanup muss je betroffener Runtime mindestens ein späterer Karten-, Tick- oder
-Render-Marker erscheinen. Chore- und Settings-Abnahme erfolgt mit echtem Host und
-Client.
+Wenn eine optionale Laufzeitnachprüfung durchgeführt wird, endet ihr Nachweis nicht bei
+einem READY-Log: Nach dem normalen Startup-Cleanup soll je betroffener Runtime
+mindestens ein späterer Karten-, Tick- oder Render-Marker erscheinen. Chore- und
+Settings-Nachabnahme soll dann mit echtem Host und Client erfolgen. Fehlende manuelle
+Sitzungsevidenz verhindert weder Paketabschluss noch die Definition of Done.
 
 ## 11. Definition of Done
 
 Die Migration ist erst abgeschlossen, wenn:
 
-- P3M nicht mehr `zurückgestellt`, sondern nach ausdrücklichem Auftrag vollständig
-  migriert und abgenommen ist, oder der Benutzer MoveMoatTest ausdrücklich und
-  dokumentiert aus dem Zielumfang entfernt hat;
-- alle 34 aktuellen direkt SHCDESE-bezogenen und alle 18 weiteren Projektdateien gegen
-  den bestätigten 2.0.2-Vertrag geprüft und gebaut/getestet sind; die drei historischen
-  Runtime-Projekte ChoreTestMod, MoatFillTargetTest und MPTest sowie der Linux-Bestand
-  sind nachvollziehbar stillgelegt;
+- die ausdrückliche Benutzerentscheidung vom 2026-09-05 dokumentiert ist, durch die
+  MoveMoatTest aus dem Zielumfang entfernt wurde und unangetastet bleibt;
+- alle 33 aktuellen direkt SHCDESE-bezogenen und alle 16 weiteren Projektdateien im
+  Zielumfang gegen den bestätigten 2.0.2-Vertrag geprüft und gebaut/getestet sind; die
+  drei historischen Runtime-Projekte ChoreTestMod, MoatFillTargetTest und MPTest sowie
+  die zwei Linux-Projekte sind nachvollziehbar stillgelegt;
 - jedes verbleibende Runtime-Plugin eine Mindestabhängigkeit auf 2.0.2 besitzt;
 - keine Zhuqiaomon-Abhängigkeit oder -API und kein direkter PolyHook2-Detour mehr
   vorhanden ist;
@@ -1142,8 +1164,10 @@ Die Migration ist erst abgeschlossen, wenn:
 - SelectedUnitInfo, Gold, Zeit und alle ID-Grenzen fachlich korrekt migriert sind;
 - QueueTest und AIDefense den bestätigt fehlerhaften 2.0.2-`UnassignUnit`-Wrapper nicht
   verwenden und `AGENTS.md` diesen versionsgebundenen Vertrag korrekt wiedergibt;
-- MoveMoatTest und BugfixesAndQoL die gemeinsamen Moat-Work-Hookziele niemals parallel
-  besitzen und `AGENTS.md` den abgenommenen Ownership-Vertrag dokumentiert;
+- BugfixesAndQoL im Zielumfang ausschließlich seinen geprüften Standalone-Moat-Hooksatz
+  besitzt und bei fehlender, inkompatibler oder fehlerhaft meldender MoveMoat-Bridge
+  ohne Doppelhook fail-closed bleibt; eine kombinierte MoveMoat-Laufzeitabnahme gehört
+  nicht zu diesem Plan;
 - Chore-Aktionen bei jeder fehlenden Vorbedingung ohne Mutation abbrechen und keinen
   unbemerkten Steam-Fallback auslösen;
 - der obsolete Settings-Workaround entfernt ist und alle 14 Presetmods die gemeinsamen
@@ -1152,8 +1176,9 @@ Die Migration ist erst abgeschlossen, wenn:
 - SerpsModsHost den tatsächlich registrierten GUID-Pfad autoritativ prüft;
 - der alte Linux-Updater-Hook nicht mehr installiert oder gebaut wird;
 - native Pattern und Maschinenverträge gegen die kanonische DLL belegt sind;
-- geänderte Textdateien CRLF verwenden und alle vorgesehenen Builds/Runtimeprüfungen
-  erfolgreich sind;
+- geänderte Textdateien CRLF verwenden und alle vorgesehenen Builds sowie statischen
+  und automatisierten Prüfungen erfolgreich sind; optionale manuelle Spiel-,
+  Host/Client- und Proton-Sitzungen sind kein Abschlusskriterium;
 - finale Versionsstände, sofern nach Abnahme erhöht, innerhalb jeder Mod atomar und
   ohne unbeabsichtigte alte aktive Versionsangabe konsistent sind.
 

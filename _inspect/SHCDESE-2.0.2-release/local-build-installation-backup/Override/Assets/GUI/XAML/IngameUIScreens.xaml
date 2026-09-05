@@ -1,0 +1,1625 @@
+<UserControl
+    x:Class="CrusaderDE.IngameUIScreens"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:b="http://schemas.microsoft.com/xaml/behaviors"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:CrusaderDE"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:noesis="clr-namespace:NoesisGUIExtensions;assembly=Noesis.GUI.Extensions"
+    xmlns:sys="clr-namespace:System;assembly=mscorlib"
+    d:DataContext="{d:DesignInstance {x:Type local:MainViewModel},
+                                     IsDesignTimeCreatable=True}"
+    d:DesignHeight="1080"
+    d:DesignWidth="1920"
+    mc:Ignorable="d">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="booleanToVisibilityConverter" />
+
+        <Storyboard x:Key="Intro">
+            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="ButtonToggleScenerioEditor" Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)">
+                <EasingDoubleKeyFrame KeyTime="0:0:0" Value="-2000" />
+                <EasingDoubleKeyFrame KeyTime="0:0:2" Value="0">
+                    <EasingDoubleKeyFrame.EasingFunction>
+                        <QuarticEase EasingMode="EaseOut" />
+                    </EasingDoubleKeyFrame.EasingFunction>
+                </EasingDoubleKeyFrame>
+            </DoubleAnimationUsingKeyFrames>
+        </Storyboard>
+        <Storyboard x:Key="BannerTextFade">
+            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="BannerLoopText" Storyboard.TargetProperty="Opacity">
+                <EasingDoubleKeyFrame KeyTime="0" Value="0" />
+                <EasingDoubleKeyFrame KeyTime="0:0:0.5" Value="0" />
+                <EasingDoubleKeyFrame KeyTime="0:0:1" Value="1" />
+            </DoubleAnimationUsingKeyFrames>
+        </Storyboard>
+    </UserControl.Resources>
+
+    <UserControl.Triggers>
+        <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+            <BeginStoryboard Storyboard="{StaticResource Intro}" />
+        </EventTrigger>
+    </UserControl.Triggers>
+    
+    <Grid IsHitTestVisible="True"
+          Width="{Binding UIScaleValueWidth}"
+          Height="{Binding UIScaleValueHeight}"
+          >
+
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition />
+            <ColumnDefinition />
+            <ColumnDefinition Width="16*" />
+            <ColumnDefinition Width="5*" />
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="2*" />
+            <RowDefinition Height="16*" />
+            <RowDefinition />
+            <RowDefinition Height="4*" />
+        </Grid.RowDefinitions>
+
+        <Grid
+            Grid.Row="3"
+            Grid.Column="0"
+            Grid.ColumnSpan="4"
+            Background="Black"
+            Height="{Binding MapLowerEdgeMaskHeight}"
+            Visibility="{Binding MapLowerEdgeMaskVisible}"
+            Margin="0,0,0,0"
+            VerticalAlignment="Bottom"
+            >
+            <Rectangle
+                Grid.Column="0"
+                Grid.ColumnSpan="4"
+                Height="206"
+                >
+                <Rectangle.Fill>
+                    <ImageBrush
+                        ImageSource="{Binding MapLowerEdgeMaskImage}"
+                                  Viewport="0,0,173,128"
+                                  ViewportUnits="Absolute" 
+                                  AlignmentX="Left"  
+                                  AlignmentY="Top"
+                                  TileMode="Tile" />
+                </Rectangle.Fill>
+            </Rectangle>
+        </Grid>
+
+        <!-- in game UI -->
+        <Grid
+            x:Name="MainHUD"
+            Grid.Row="0"
+            Grid.RowSpan="4"
+            Grid.Column="0"
+            Grid.ColumnSpan="4"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Bottom"
+            Visibility="{Binding Show_InGameUI, Converter={StaticResource booleanToVisibilityConverter}}">
+            <local:MainHUD Margin="0" />
+        </Grid>
+
+
+        <!-- objectives popup -->
+        <Grid
+            Name="HUD_ObjectivesPanel"
+            Grid.Row="0"
+            Grid.RowSpan="4"
+            Grid.Column="0"
+            Grid.ColumnSpan="4"      
+            Width="440"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Bottom"
+            Margin="0,0,0,0"
+            Visibility="{Binding Show_HUD_Extras, Converter={StaticResource booleanToVisibilityConverter}}"
+            >
+        <Grid
+            x:Name="HUD_Objectives"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Bottom"
+            Visibility="{Binding Show_HUD_Objectives, Converter={StaticResource booleanToVisibilityConverter}}"
+            Margin="-400,0,0,0"
+            >
+            <local:HUD_Objectives />
+        </Grid>
+            <Grid
+            x:Name="HUD_Goods"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Bottom"
+            Visibility="{Binding Show_HUD_Goods, Converter={StaticResource booleanToVisibilityConverter}}"
+            Margin="-400,0,0,0"
+            >
+            <local:HUD_Goods />
+            </Grid>
+
+            <Grid
+                Width="36"
+                Height="34"
+                Margin="0,0,0,34"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Bottom"
+                Visibility="{Binding Show_HUD_Extras_Button_Objectves, Converter={StaticResource booleanToVisibilityConverter}}"
+                >
+                <Button
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Stretch"
+                    local:PropEx.Sprite1="{StaticResource Objectives_Normal}"
+                    local:PropEx.Sprite2="{StaticResource Objectives_Highlight}"
+                    Command="{Binding ButtonExtendedFeaturesCommand}"
+                    CommandParameter="Objectives"
+                    Style="{StaticResource BTN_Building}" />
+                </Grid>
+            <Grid
+                Width="36"
+                Height="34"
+                Margin="0,0,0,34"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Bottom"
+                Visibility="{Binding Show_HUD_Extras_Button_Freebuild, Converter={StaticResource booleanToVisibilityConverter}}"
+                >
+                <Button
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Stretch"
+                    local:PropEx.Sprite1="{StaticResource Events_Normal}"
+                    local:PropEx.Sprite2="{StaticResource Events_Highlight}"
+                    Command="{Binding ButtonExtendedFeaturesCommand}"
+                    CommandParameter="Freebuild"
+                    Style="{StaticResource BTN_Building}" />
+            </Grid>
+            <Button
+                Width="36"
+                Height="34"
+                Margin="0,0,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Bottom"
+                local:PropEx.Sprite1="{StaticResource Resources_Normal}"
+                local:PropEx.Sprite2="{StaticResource Resources_Highlight}"
+                Command="{Binding ButtonExtendedFeaturesCommand}"
+                CommandParameter="Goods"
+                Style="{StaticResource BTN_Building}" />
+            <Image
+                Width="36"
+                Height="34"
+                Margin="0,0,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Bottom"
+                Visibility="{Binding Show_HUD_Goods_Button_Disabled, Converter={StaticResource booleanToVisibilityConverter}}"
+                Source="{StaticResource Resources_Disabled}"
+                 />
+        </Grid>
+
+        <!-- OST_Game_Paused -->
+        <TextBlock
+            x:Name="OST_Game_Paused"
+            Margin="0,0,0,0"
+            Grid.Row="0"
+            Grid.RowSpan="3"
+            Grid.Column="0"
+            Grid.ColumnSpan="4"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            FontSize="48"
+            Foreground="#FFEFF3C6"
+            Text="{Binding OST_Game_Paused_Text}"
+            IsHitTestVisible="False"
+            Visibility="{Binding OST_Game_Paused_Vis, Converter={StaticResource booleanToVisibilityConverter}}"
+            >
+            <TextBlock.Effect>
+                <DropShadowEffect
+                         ShadowDepth="2"
+                         Direction="315"
+                         Color="#CC000000"
+                         BlurRadius="0"/>
+            </TextBlock.Effect>
+        </TextBlock>
+
+        
+       <!-- Sands of time timer -->
+        <Grid
+            Grid.Row="0"
+            Grid.Column="0"
+            Grid.ColumnSpan="4"
+            Grid.RowSpan="2"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Top"
+            Background="#00000000"
+            MinWidth="500"
+            Visibility="{Binding Show_OST_SandsOfTimeVis, Converter={StaticResource booleanToVisibilityConverter}}"
+            Height="28">
+            <Border
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch"
+                Background="#88000000"
+                BorderBrush="#aa000000"
+                CornerRadius="0"
+                BorderThickness="3" />
+            <Grid
+                Margin="3,3,3,3"
+                HorizontalAlignment="Right"
+                Width="{Binding OST_sands_progress_bar}"
+                Background="#2200ff00"
+                Visibility="{Binding Show_OST_SandsOfTimeVis_Time, Converter={StaticResource booleanToVisibilityConverter}}" />
+            <TextBlock
+                Margin="15,0,0,0"
+                FontSize="18"
+                TextAlignment="Left"
+                VerticalAlignment="Center"
+                Tag="Ignore"
+                Visibility="{Binding Show_OST_SandsOfTimeVis_Time, Converter={StaticResource booleanToVisibilityConverter}}"
+                Text="{Binding GameTexts[TEXT_NEW_CTEXT_240], Source={x:Static local:Translate.Instance}}"
+                Foreground="#FFEFF3C6">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                        ShadowDepth="2"
+                        Direction="315"
+                        Color="#CC000000"
+                        BlurRadius="0" />
+                </TextBlock.Effect>
+            </TextBlock>
+            <TextBlock
+                Margin="0,0,45,0"
+                FontSize="18"
+                TextAlignment="Right"
+                VerticalAlignment="Center"
+                Tag="Ignore"
+                Text="{Binding OST_sands_time_elapsed}"
+                Visibility="{Binding Show_OST_SandsOfTimeVis_Time, Converter={StaticResource booleanToVisibilityConverter}}"
+                Foreground="{Binding OST_sands_time_elapsed_colour}">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                        ShadowDepth="2"
+                        Direction="315"
+                        Color="#CC000000"
+                        BlurRadius="0" />
+                </TextBlock.Effect>
+            </TextBlock>
+            <Image
+                Margin="0,-10,0,-10"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Center"
+                Visibility="{Binding Show_OST_SandsOfTimeVis_Time, Converter={StaticResource booleanToVisibilityConverter}}"
+                Source="{Binding OST_sands_time_image}"
+                />
+
+            <Grid
+                Margin="3,2,3,15"
+                HorizontalAlignment="Right"
+                Width="{Binding OST_sands_overall_progress_bar}"
+                Background="#CC006600"
+                Visibility="{Binding Show_OST_SandsOfTimeVis_Target, Converter={StaticResource booleanToVisibilityConverter}}" />
+            <Line
+                X1="110" Y1="2" X2="110" Y2="14"
+                Stroke="#ff333333"
+                StrokeThickness="2"
+                Visibility="{Binding Show_OST_SandsOfTimeVis_Target, Converter={StaticResource booleanToVisibilityConverter}}" />
+            <Line
+                X1="165" Y1="2" X2="165" Y2="14"
+                Stroke="#ff333333"
+                StrokeThickness="2"
+                Visibility="{Binding Show_OST_SandsOfTimeVis_Target, Converter={StaticResource booleanToVisibilityConverter}}" />
+            <Line
+                X1="220" Y1="2" X2="220" Y2="14"
+                Stroke="#ff333333"
+                StrokeThickness="2"
+                Visibility="{Binding Show_OST_SandsOfTimeVis_Target, Converter={StaticResource booleanToVisibilityConverter}}" />
+            <Line
+                X1="440" Y1="2" X2="440" Y2="14"
+                Stroke="#ff333333"
+                StrokeThickness="2"
+                Visibility="{Binding Show_OST_SandsOfTimeVis_Target, Converter={StaticResource booleanToVisibilityConverter}}" />
+            <Line
+                X1="3" Y1="14" X2="500" Y2="14"
+                Stroke="#ff333333"
+                StrokeThickness="2"
+                Visibility="{Binding Show_OST_SandsOfTimeVis_Target, Converter={StaticResource booleanToVisibilityConverter}}" />
+            <Image
+                Name="OST_Sands_Target_Bar_1"
+                Margin="44,-5,0,5"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                Visibility="{Binding Show_OST_SandsOfTimeVis_Target, Converter={StaticResource booleanToVisibilityConverter}}"
+                 />
+
+            <Image
+                Name="OST_Sands_Target_Bar_2"
+                Margin="124,-5,0,5"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                Visibility="{Binding Show_OST_SandsOfTimeVis_Target, Converter={StaticResource booleanToVisibilityConverter}}"
+                 />
+
+            <Image
+                Name="OST_Sands_Target_Bar_3"
+                Margin="178,-5,0,5"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                Visibility="{Binding Show_OST_SandsOfTimeVis_Target, Converter={StaticResource booleanToVisibilityConverter}}"
+                 />
+
+            <Image
+                Name="OST_Sands_Target_Bar_4"
+                Margin="319,-5,0,5"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                Visibility="{Binding Show_OST_SandsOfTimeVis_Target, Converter={StaticResource booleanToVisibilityConverter}}"
+                 />
+
+            <Image
+                Name="OST_Sands_Target_Bar_5"
+                Margin="455,-3,0,5"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                Visibility="{Binding Show_OST_SandsOfTimeVis_Target, Converter={StaticResource booleanToVisibilityConverter}}"
+                />
+
+            <TextBlock
+                Margin="60,0,5,0"
+                FontSize="12"
+                Width="100"
+                HorizontalAlignment="Left"
+                TextAlignment="Center"
+                VerticalAlignment="Bottom"
+                Tag="Ignore"
+                Text="{Binding OST_same_time_prince}"
+                Visibility="{Binding Show_OST_SandsOfTimeVis_Target, Converter={StaticResource booleanToVisibilityConverter}}"
+                Foreground="#FFEFF3C6">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                        ShadowDepth="2"
+                        Direction="315"
+                        Color="#CC000000"
+                        BlurRadius="0" />
+                </TextBlock.Effect>
+            </TextBlock>
+
+            <TextBlock
+                Margin="115,0,5,0"
+                FontSize="12"
+                Width="100"
+                HorizontalAlignment="Left"
+                TextAlignment="Center"
+                VerticalAlignment="Bottom"
+                Tag="Ignore"
+                Text="{Binding OST_same_time_champion}"
+                Visibility="{Binding Show_OST_SandsOfTimeVis_Target, Converter={StaticResource booleanToVisibilityConverter}}"
+                Foreground="#FFEFF3C6">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                        ShadowDepth="2"
+                        Direction="315"
+                        Color="#CC000000"
+                        BlurRadius="0" />
+                </TextBlock.Effect>
+            </TextBlock>
+
+            <TextBlock
+                Margin="170,0,5,0"
+                FontSize="12"
+                Width="100"
+                HorizontalAlignment="Left"
+                TextAlignment="Center"
+                VerticalAlignment="Bottom"
+                Tag="Ignore"
+                Text="{Binding OST_same_time_warrior}"
+                Visibility="{Binding Show_OST_SandsOfTimeVis_Target, Converter={StaticResource booleanToVisibilityConverter}}"
+                Foreground="#FFEFF3C6">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                        ShadowDepth="2"
+                        Direction="315"
+                        Color="#CC000000"
+                        BlurRadius="0" />
+                </TextBlock.Effect>
+            </TextBlock>
+
+            <TextBlock
+                Margin="390,0,5,0"
+                FontSize="12"
+                Width="100"
+                HorizontalAlignment="Left"
+                TextAlignment="Center"
+                VerticalAlignment="Bottom"
+                Tag="Ignore"
+                Text="{Binding OST_same_time_tribesman}"
+                Visibility="{Binding Show_OST_SandsOfTimeVis_Target, Converter={StaticResource booleanToVisibilityConverter}}"
+                Foreground="#FFEFF3C6">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                        ShadowDepth="2"
+                        Direction="315"
+                        Color="#CC000000"
+                        BlurRadius="0" />
+                </TextBlock.Effect>
+            </TextBlock>
+
+            <b:Interaction.Triggers>
+                <b:EventTrigger EventName="MouseEnter">
+                    <b:InvokeCommandAction Command="{Binding SandsTimerMouseOver}" CommandParameter="Enter" />
+                </b:EventTrigger>
+                <b:EventTrigger EventName="MouseLeave">
+                    <b:InvokeCommandAction Command="{Binding SandsTimerMouseOver}" CommandParameter="Leave" />
+                </b:EventTrigger>
+            </b:Interaction.Triggers>
+        </Grid>
+
+        <StackPanel
+            Grid.Row="0"
+            Grid.Column="0"
+            Grid.ColumnSpan="4"
+            Grid.RowSpan="2"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Top"
+            Margin="{Binding Compass_Margin}">
+            <TextBlock
+                Text="{Binding LocalTime}"
+                FontSize="24"
+                TextAlignment="Right"
+                Visibility="{Binding ShowLocalTime}"
+                Background="#33000000"
+                Foreground="#FFEFF3C6">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                        ShadowDepth="2"
+                        Direction="315"
+                        Color="#CC000000"
+                        BlurRadius="0" />
+                </TextBlock.Effect>
+            </TextBlock>
+            <TextBlock
+                Text="{Binding GameTime}"
+                FontSize="24"
+                Visibility="{Binding ShowGameTime}"
+                TextAlignment="Right"
+                Background="#33000000"
+                Foreground="#FFEFF3C6">
+                <TextBlock.Effect>
+                    <DropShadowEffect
+                        ShadowDepth="2"
+                        Direction="315"
+                        Color="#CC000000"
+                        BlurRadius="0" />
+                </TextBlock.Effect>
+            </TextBlock>
+            <Grid
+                Name="Compass"
+                Width="71"
+                Height="56"
+                Tag="Ignore"
+                Visibility="{Binding Compass_Vis, Converter={StaticResource booleanToVisibilityConverter}}"
+                >
+                <Image  
+                    Name="CompassImg" 
+                    Opacity="0.7"
+                    Source="{StaticResource floats 038}" 
+                    Stretch="Fill" 
+                    Tag="Ignore" />
+            </Grid>
+        </StackPanel>
+
+        <!-- Victory banner -->
+        <MediaElement
+            Margin="0,-20,0,0"
+            Width="528"
+            Grid.Row="0"
+            Grid.Column="0"
+            Grid.ColumnSpan="4"
+            Grid.RowSpan="2"
+            Name="BannerDropVideoCV"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Top"
+            LoadedBehavior="Manual"
+            UnloadedBehavior="Close"
+            Visibility="Hidden"
+            Stretch="Uniform">
+            <b:Interaction.Triggers>
+                <b:EventTrigger
+                    EventName="Loaded">
+                    <noesis:PlayMediaAction />
+                </b:EventTrigger>
+            </b:Interaction.Triggers>
+        </MediaElement>
+        <MediaElement
+            Margin="0,-20,0,0"
+            Width="528"
+            Grid.Row="0"
+            Grid.Column="0"
+            Grid.ColumnSpan="4"
+            Grid.RowSpan="2"
+            Name="BannerDropVideoAV"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Top"
+            LoadedBehavior="Manual"
+            UnloadedBehavior="Close"
+            Visibility="Hidden"
+            Stretch="Uniform">
+            <b:Interaction.Triggers>
+                <b:EventTrigger
+                    EventName="Loaded">
+                    <noesis:PlayMediaAction />
+                </b:EventTrigger>
+            </b:Interaction.Triggers>
+        </MediaElement>
+        <MediaElement
+            Margin="0,-20,0,0"
+            Width="528"
+            Grid.Row="0"
+            Grid.Column="0"
+            Grid.ColumnSpan="4"
+            Grid.RowSpan="2"
+            Name="BannerDropVideoBV"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Top"
+            LoadedBehavior="Manual"
+            UnloadedBehavior="Close"
+            Visibility="Hidden"
+            Stretch="Uniform">
+            <b:Interaction.Triggers>
+                <b:EventTrigger
+                    EventName="Loaded">
+                    <noesis:PlayMediaAction />
+                </b:EventTrigger>
+            </b:Interaction.Triggers>
+        </MediaElement>
+        <MediaElement
+            Margin="0,-20,0,0"
+            Width="528"
+            Grid.Row="0"
+            Grid.Column="0"
+            Grid.ColumnSpan="4"
+            Grid.RowSpan="2"
+            Name="BannerDropVideoCD"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Top"
+            LoadedBehavior="Manual"
+            UnloadedBehavior="Close"
+            Visibility="Hidden"
+            Stretch="Uniform">
+            <b:Interaction.Triggers>
+                <b:EventTrigger
+                    EventName="Loaded">
+                    <noesis:PlayMediaAction />
+                </b:EventTrigger>
+            </b:Interaction.Triggers>
+        </MediaElement>
+        <MediaElement
+            Margin="0,-20,0,0"
+            Width="528"
+            Grid.Row="0"
+            Grid.Column="0"
+            Grid.ColumnSpan="4"
+            Grid.RowSpan="2"
+            Name="BannerDropVideoAD"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Top"
+            LoadedBehavior="Manual"
+            UnloadedBehavior="Close"
+            Visibility="Hidden"
+            Stretch="Uniform">
+            <b:Interaction.Triggers>
+                <b:EventTrigger
+                    EventName="Loaded">
+                    <noesis:PlayMediaAction />
+                </b:EventTrigger>
+            </b:Interaction.Triggers>
+        </MediaElement>
+        <MediaElement
+            Margin="0,-20,0,0"
+            Width="528"
+            Grid.Row="0"
+            Grid.Column="0"
+            Grid.ColumnSpan="4"
+            Grid.RowSpan="2"
+            Name="BannerDropVideoBD"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Top"
+            LoadedBehavior="Manual"
+            UnloadedBehavior="Close"
+            Visibility="Hidden"
+            Stretch="Uniform">
+            <b:Interaction.Triggers>
+                <b:EventTrigger
+                    EventName="Loaded">
+                    <noesis:PlayMediaAction />
+                </b:EventTrigger>
+            </b:Interaction.Triggers>
+        </MediaElement>
+        <TextBlock
+            Name="BannerLoopText"
+            Margin="0,132,0,0"
+            Width="1000"
+            Grid.Row="0"
+            Grid.Column="0"
+            Grid.ColumnSpan="4"
+            Grid.RowSpan="2"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Top"
+            FontSize="34"
+            Opacity="0"
+            TextAlignment="Center"
+            Visibility="Hidden"
+            Foreground="#FF000000">
+            <TextBlock.Effect>
+                <DropShadowEffect
+                    ShadowDepth="0"
+                    Direction="135"
+                    Color="#CCC3B85D"
+                    BlurRadius="10" />
+            </TextBlock.Effect>
+
+        </TextBlock>
+
+
+        <!-- scenario editor mini window -->
+        <Grid
+            x:Name="HUD_Scenario_Popup"
+            Grid.Row="0"
+            Grid.RowSpan="4"
+            Grid.Column="0"
+            Grid.ColumnSpan="4"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Top"
+            Visibility="{Binding Show_HUD_Scenario_Button, Converter={StaticResource booleanToVisibilityConverter}}">
+            <local:HUD_Scenario_Popup Margin="0" />
+        </Grid>
+        
+        <!-- scenario editor main window -->
+        <Grid
+            x:Name="HUD_Scenario"
+            Grid.Row="0"
+            Grid.RowSpan="3"
+            Grid.Column="0"
+            Grid.ColumnSpan="4"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Visibility="{Binding Show_HUD_Scenario, Converter={StaticResource booleanToVisibilityConverter}}">
+            <local:HUD_Scenario Margin="0" />
+        </Grid>
+
+        <!-- Free build main window -->
+        <Grid
+            x:Name="HUD_FreebuildMenu"
+            Grid.Row="0"
+            Grid.RowSpan="3"
+            Grid.Column="0"
+            Grid.ColumnSpan="4"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Visibility="{Binding Show_HUD_FreebuildMenu, Converter={StaticResource booleanToVisibilityConverter}}">
+            <local:HUD_FreebuildMenu Margin="0" />
+        </Grid>
+
+        <!-- load / save requester -->
+        <Grid
+            x:Name="HUD_LoadSaveRequester"
+            Grid.Row="0"
+            Grid.RowSpan="3"
+            Grid.Column="0"
+            Grid.ColumnSpan="4"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Panel.ZIndex="{Binding LoadSaveDepthSorting}"
+            Visibility="{Binding Show_HUD_LoadSaveRequester, Converter={StaticResource booleanToVisibilityConverter}}">
+            <local:HUD_LoadSaveRequester Margin="0" />
+        </Grid>
+
+        <!-- in game popup menu -->
+        <Grid
+            x:Name="HUD_IngameMenu"
+            Grid.Row="0"
+            Grid.RowSpan="3"
+            Grid.Column="0"
+            Grid.ColumnSpan="4"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Panel.ZIndex="2"
+            Visibility="{Binding Show_HUD_IngameMenu, Converter={StaticResource booleanToVisibilityConverter}}">
+            <local:HUD_IngameMenu Margin="0" />
+        </Grid>
+
+        <!-- Tutorial -->
+        <local:HUD_Tutorial
+            Grid.Row="0"
+            Grid.RowSpan="3"
+            Grid.Column="0"
+            Grid.ColumnSpan="4"
+            HorizontalAlignment="Center"
+            Margin="0,100,0,0"
+            Visibility="{Binding Show_HUD_Tutorial, Converter={StaticResource booleanToVisibilityConverter}}">
+        </local:HUD_Tutorial>
+
+        <!-- options menu -->
+        <Grid
+            x:Name="HUD_Options"
+            Grid.Row="0"
+            Grid.RowSpan="3"
+            Grid.Column="0"
+            Grid.ColumnSpan="4"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Visibility="{Binding Show_HUD_Options, Converter={StaticResource booleanToVisibilityConverter}}">
+            <local:HUD_Options Margin="0" />
+        </Grid>
+        <!-- help menu -->
+        <Grid
+            x:Name="HUD_Help"
+            Grid.Row="0"
+            Grid.RowSpan="3"
+            Grid.Column="0"
+            Grid.ColumnSpan="4"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Visibility="{Binding Show_HUD_Help, Converter={StaticResource booleanToVisibilityConverter}}">
+            <local:HUD_Help Margin="0" />
+        </Grid>
+
+        <!--  *** DEBUG controls *************  -->
+        <!--         <StackPanel
+            Grid.Column="3"
+            Margin="2"
+            Background="#00000000"
+            FlowDirection="RightToLeft"
+            Tag="Ignore"
+            Orientation="Horizontal">
+
+            <Button
+                x:Name="DebugButtonBack"
+                Margin="1,1,1,1"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                Command="{Binding ButtonNewSceneCommand}"
+                CommandParameter="99"
+                Tag="Ignore"
+                Content="Back"
+                FontSize="10" />
+        </StackPanel>
+-->
+        <!-- scenario editor toggle button -->
+        <Button
+            Name="ButtonToggleScenerioEditor"
+            Grid.Row="0"
+            Grid.Column="0"
+            Grid.ColumnSpan="4"
+            Width="210"
+            Margin="0,15,20,0"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Top"
+            Visibility="{Binding Show_HUD_Scenario_Button, Converter={StaticResource booleanToVisibilityConverter}}"
+            local:PropEx.TextCentre="{Binding ScenarioEditorButtonText}"
+            local:PropEx.TextLeft=""
+            local:PropEx.TextRight=""
+            Command="{Binding ButtonToggleScenrioEditorCommand}"
+            Style="{StaticResource BTN_SH_GlowS}" >
+
+                <Button.RenderTransform>
+                    <TranslateTransform />
+                </Button.RenderTransform>
+            </Button>
+
+
+
+        <!-- OST_Framerate -->
+        <TextBlock
+            x:Name="OST_Framerate"
+            Grid.Row="0"
+            Grid.Column="0"
+            Grid.ColumnSpan="4"
+            Margin="{Binding OST_Framerate_Margin}"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Top"
+            TextAlignment="Right"
+            Panel.ZIndex="1"
+            FontSize="22"
+            Foreground="#FFEFF3C6"
+            Background="#55000000"
+            Text="{Binding OST_Framerate_Text}"
+            Tag="Ignore"
+            Visibility="{Binding OST_Framerate_Vis, Converter={StaticResource booleanToVisibilityConverter}}">
+            <TextBlock.Effect>
+                <DropShadowEffect
+                         ShadowDepth="2"
+                         Direction="315"
+                         Color="#CC000000"
+                         BlurRadius="0"/>
+            </TextBlock.Effect>
+        </TextBlock>
+        <TextBlock
+            x:Name="OST_Simrate"
+            Grid.Row="0"
+            Grid.Column="0"
+            Grid.ColumnSpan="4"
+            Margin="{Binding OST_Simrate_Margin}"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Top"
+            TextAlignment="Right"
+            Panel.ZIndex="1"
+            FontSize="16"
+            Foreground="#FFEFF3C6"
+            Background="#55000000"
+            Text="{Binding OST_Simrate_Text}"
+            Tag="Ignore"
+            Visibility="{Binding OST_Framerate_Vis, Converter={StaticResource booleanToVisibilityConverter}}">
+            <TextBlock.Effect>
+                <DropShadowEffect
+                    ShadowDepth="2"
+                    Direction="315"
+                    Color="#CC000000"
+                    BlurRadius="0" />
+            </TextBlock.Effect>
+        </TextBlock>
+        <!-- OST_GameSpeed -->
+        <TextBlock
+            x:Name="OST_GameSpeed"
+            Grid.Row="0"
+            Grid.Column="0"
+            Grid.ColumnSpan="4"
+            Margin="{Binding OST_GameSpeed_Margin}"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Top"
+            TextAlignment="Right"
+            Panel.ZIndex="1"
+            FontSize="22"
+            Foreground="{Binding OST_GameSpeed_Colour}"
+            Background="#55000000"
+            Text="{Binding OST_GameSpeed_Text}"
+            Tag="Ignore"
+            IsHitTestVisible="False"
+            Visibility="{Binding OST_GameSpeed_Vis, Converter={StaticResource booleanToVisibilityConverter}}">
+            <TextBlock.Effect>
+                <DropShadowEffect
+                         ShadowDepth="2"
+                         Direction="315"
+                         Color="#CC000000"
+                         BlurRadius="0"/>
+            </TextBlock.Effect>
+        </TextBlock>
+
+        <!-- Item counts - editor  -->
+        <StackPanel
+            Grid.Row="0"
+            Grid.RowSpan="2"
+            Grid.Column="0"
+            Grid.ColumnSpan="4"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top"
+            Panel.ZIndex="1"
+            Tag="Ignore"
+            Visibility="{Binding OST_PeopleLeft_Vis, Converter={StaticResource booleanToVisibilityConverter}}"
+            >
+            <Grid>
+                <TextBlock
+                x:Name="OST_PeopleLeft1"
+                TextAlignment="Left"
+                Width="170"
+                Panel.ZIndex="1"
+                FontSize="18"
+                Foreground="#FFEFF3C6"
+                Background="#55000000"
+                Text="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_NEW_TEXT_017]}">
+                    <TextBlock.Effect>
+                        <DropShadowEffect
+                             ShadowDepth="2"
+                             Direction="315"
+                             Color="#CC000000"
+                             BlurRadius="0"/>
+                    </TextBlock.Effect>
+                </TextBlock>
+                <TextBlock
+                x:Name="OST_PeopleLeft1a"
+                TextAlignment="Right"
+                Width="170"
+                Panel.ZIndex="1"
+                FontSize="18"
+                Foreground="#FFEFF3C6"
+                Text="{Binding OST_PeopleLeft_Text}">
+                    <TextBlock.Effect>
+                        <DropShadowEffect
+                             ShadowDepth="2"
+                             Direction="315"
+                             Color="#CC000000"
+                             BlurRadius="0"/>
+                    </TextBlock.Effect>
+                </TextBlock>
+            </Grid>
+            <Grid>
+                <TextBlock
+                x:Name="OST_PeopleLeft2"
+                TextAlignment="Left"
+                Width="170"
+                Panel.ZIndex="1"
+                FontSize="18"
+                Foreground="#FFEFF3C6"
+                Background="#55000000"
+                Text="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_NEW_TEXT_018]}">
+                    <TextBlock.Effect>
+                        <DropShadowEffect
+                             ShadowDepth="2"
+                             Direction="315"
+                             Color="#CC000000"
+                             BlurRadius="0"/>
+                    </TextBlock.Effect>
+                </TextBlock>
+                <TextBlock
+                x:Name="OST_PeopleLeft2a"
+                TextAlignment="Right"
+                Width="170"
+                Panel.ZIndex="1"
+                FontSize="18"
+                Foreground="#FFEFF3C6"
+                Text="{Binding OST_StructsLeft_Text}">
+                    <TextBlock.Effect>
+                        <DropShadowEffect
+                             ShadowDepth="2"
+                             Direction="315"
+                             Color="#CC000000"
+                             BlurRadius="0"/>
+                    </TextBlock.Effect>
+                </TextBlock>
+            </Grid>
+            <Grid>
+                <TextBlock
+                x:Name="OST_PeopleLeft3"
+                TextAlignment="Left"
+                Width="170"
+                Panel.ZIndex="1"
+                FontSize="18"
+                Foreground="#FFEFF3C6"
+                Background="#55000000"
+                Text="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_NEW_TEXT_019]}">
+                    <TextBlock.Effect>
+                        <DropShadowEffect
+                             ShadowDepth="2"
+                             Direction="315"
+                             Color="#CC000000"
+                             BlurRadius="0"/>
+                    </TextBlock.Effect>
+                </TextBlock>
+                <TextBlock
+                x:Name="OST_PeopleLeft3a"
+                TextAlignment="Right"
+                Width="170"
+                Panel.ZIndex="1"
+                FontSize="18"
+                Foreground="#FFEFF3C6"
+                Text="{Binding OST_TreesLeft_Text}">
+                    <TextBlock.Effect>
+                        <DropShadowEffect
+                             ShadowDepth="2"
+                             Direction="315"
+                             Color="#CC000000"
+                             BlurRadius="0"/>
+                    </TextBlock.Effect>
+                </TextBlock>
+            </Grid>
+            <Grid>
+                <TextBlock
+                x:Name="OST_PeopleLeft4"
+                TextAlignment="Left"
+                Width="170"
+                Panel.ZIndex="1"
+                FontSize="18"
+                Foreground="#FFEFF3C6"
+                Background="#55000000"
+                Text="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_NEW_TEXT_020]}">
+                    <TextBlock.Effect>
+                        <DropShadowEffect
+                             ShadowDepth="2"
+                             Direction="315"
+                            Color="#CC000000"
+                             BlurRadius="0"/>
+                    </TextBlock.Effect>
+                </TextBlock>
+                <TextBlock
+                x:Name="OST_PeopleLeft4a"
+                TextAlignment="Right"
+                Width="170"
+                Panel.ZIndex="1"
+                FontSize="18"
+                Foreground="#FFEFF3C6"
+                Text="{Binding OST_RocksLeft_Text}">
+                    <TextBlock.Effect>
+                        <DropShadowEffect
+                             ShadowDepth="2"
+                             Direction="315"
+                             Color="#CC000000"
+                             BlurRadius="0"/>
+                    </TextBlock.Effect>
+                </TextBlock>
+            </Grid>
+            <Grid>
+                <TextBlock
+                x:Name="OST_PeopleLeft5"
+                TextAlignment="Left"
+                Width="170"
+                Panel.ZIndex="1"
+                FontSize="18"
+                Foreground="#FFEFF3C6"
+                Background="#55000000"
+                Text="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_NEW_TEXT_021]}">
+                    <TextBlock.Effect>
+                        <DropShadowEffect
+                             ShadowDepth="2"
+                             Direction="315"
+                             Color="#CC000000"
+                             BlurRadius="0"/>
+                    </TextBlock.Effect>
+                </TextBlock>
+                <TextBlock
+                x:Name="OST_PeopleLeft5a"
+                TextAlignment="Right"
+                Width="170"
+                Panel.ZIndex="1"
+                FontSize="18"
+                Foreground="#FFEFF3C6"
+                Text="{Binding OST_TribesLeft_Text}">
+                    <TextBlock.Effect>
+                        <DropShadowEffect
+                             ShadowDepth="2"
+                             Direction="315"
+                             Color="#CC000000"
+                             BlurRadius="0"/>
+                    </TextBlock.Effect>
+                </TextBlock>
+            </Grid>
+        </StackPanel>
+
+        <local:HUD_ScenarioSpecial
+            Grid.Row="0"
+            Grid.RowSpan="4"
+            Grid.Column="0"
+            Grid.ColumnSpan="4"
+            HorizontalAlignment="Left"
+            Margin="0,150,0,0"
+            Visibility="{Binding Show_HUD_ScenarioSpecial, Converter={StaticResource booleanToVisibilityConverter}}"    >
+        </local:HUD_ScenarioSpecial>
+        
+        <!-- Left hand edge stack, time-until / starting goods   -->
+        <local:OST_StartingGoods
+            Grid.Row="0"
+            Grid.RowSpan="4"
+            Grid.Column="0"
+            Grid.ColumnSpan="4"
+            Visibility="{Binding Show_InGameUI, Converter={StaticResource booleanToVisibilityConverter}}"
+            >
+        </local:OST_StartingGoods>
+
+        <!-- Allies Panel -->
+        <local:HUD_AlliesPanel
+            Grid.Row="0"
+            Grid.RowSpan="4"
+            Grid.Column="0"
+            Grid.ColumnSpan="4"
+            HorizontalAlignment="Center"
+            Margin="0,100,0,0"
+            Visibility="{Binding AlliesPanelVisible, Converter={StaticResource booleanToVisibilityConverter}}"
+            >
+        </local:HUD_AlliesPanel>
+
+        <!-- Merit Panel -->
+        <local:HUD_MeritPanel
+            Grid.Row="0"
+            Grid.RowSpan="4"
+            Grid.Column="0"
+            Grid.ColumnSpan="4"
+            HorizontalAlignment="Center"
+            Margin="0,100,0,0"
+            Visibility="{Binding MeritPanelVisible, Converter={StaticResource booleanToVisibilityConverter}}"
+            >
+        </local:HUD_MeritPanel>
+
+        <!-- Editor Warning Panel -->
+        <local:HUD_EditorWarning
+            Grid.Row="0"
+            Grid.RowSpan="4"
+            Grid.Column="0"
+            Grid.ColumnSpan="4"
+            HorizontalAlignment="Center"
+            Margin="0,100,0,0"
+            Visibility="{Binding EditorWarningPanelVisible, Converter={StaticResource booleanToVisibilityConverter}}">
+        </local:HUD_EditorWarning>
+        
+        <!-- Koth top row -->
+        <local:OST_Koth
+            Grid.Row="0"
+            Grid.Column="0"
+            Grid.ColumnSpan="4"
+            HorizontalAlignment="Center"
+            Visibility="{Binding OST_KOTH_Vis, Converter={StaticResource booleanToVisibilityConverter}}"
+            >
+        </local:OST_Koth>
+
+        <!-- Multiplayer Chat Panel -->
+        <local:HUD_MPChatPanel
+            Grid.Row="0"
+            Grid.RowSpan="3"
+            Grid.Column="0"
+            Grid.ColumnSpan="4"
+            HorizontalAlignment="Center"
+            Margin="0,100,0,0"
+            Visibility="{Binding MPChatVisible, Converter={StaticResource booleanToVisibilityConverter}}"
+            >
+        </local:HUD_MPChatPanel>
+
+        <!-- pings side panel -->
+        <local:OST_Pings
+            Grid.Row="0"
+            Grid.RowSpan="4"
+            Grid.Column="0"
+            Grid.ColumnSpan="4"
+            VerticalAlignment="Top"
+            HorizontalAlignment="Left"
+            Margin="0,250,0,0"
+            >
+        </local:OST_Pings>
+
+        <!-- Extreme powers panel -->
+        <Viewbox
+            Grid.Row="0"
+            Grid.RowSpan="4"
+            Grid.Column="0"
+            Grid.ColumnSpan="4"
+            VerticalAlignment="Top"
+            HorizontalAlignment="Right"
+            Height="400"
+            Visibility="{Binding Show_HUD_Extreme, Converter={StaticResource booleanToVisibilityConverter}}"
+            Margin="0,120,0,0">
+            <local:HUD_ExtremePowers>
+
+            </local:HUD_ExtremePowers>
+            </Viewbox>
+
+        <!-- OST Mission finished -->
+        <Grid
+            Grid.Row="0"
+            Grid.RowSpan="4"
+            Grid.Column="0"
+            Grid.ColumnSpan="4"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Top"
+            Panel.ZIndex="2"
+            Margin="0,20,0,0"
+            Width="500"
+            Height="100"
+            Background="#00000000"
+            Tag="Ignore"
+            Visibility="{Binding OST_MissionFinished_Vis, Converter={StaticResource booleanToVisibilityConverter}}">
+
+           
+            <Button
+            Name="OST_MissionFinished_Border"
+            Width="500"
+            Height="100"
+            Style="{StaticResource BDR_SH1DEb}" />
+
+            <TextBlock
+            x:Name="OST_MissionFinished"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            TextAlignment="Center"
+            FontSize="32"
+            Foreground="#FF000000"
+            Text="{Binding OST_MissionFinished_Text}">
+<!--                <TextBlock.Effect>
+                    <DropShadowEffect
+                         ShadowDepth="2"
+                         Direction="315"
+                         Color="Black"
+                         Opacity="0.8"
+                         BlurRadius="0"/>
+                </TextBlock.Effect>
+                -->
+            </TextBlock>
+
+        </Grid>
+
+        <!-- OST  MP Game Over -->
+        <DockPanel
+            Background="#00000000"
+            LastChildFill="True"
+            Width="Auto"
+            Margin="0,00,0,0"
+            Height="Auto"
+            Grid.Row="0"
+            Grid.RowSpan="4"
+            Grid.Column="0"
+            Grid.ColumnSpan="4"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Panel.ZIndex="2"
+            Tag="Ignore"
+            Visibility="{Binding OST_MP_Game_Over_Vis, Converter={StaticResource booleanToVisibilityConverter}}">
+
+            <Grid>
+                <Button
+                    HorizontalAlignment="Center"
+                    Width="500"
+                    VerticalAlignment="Stretch"
+                    Style="{StaticResource BDR_SH1DEb}" />
+                <StackPanel>
+<!--                     <TextBlock -->
+<!--                         Margin="0,10,0,0" -->
+<!--                         HorizontalAlignment="Center" -->
+<!--                         VerticalAlignment="Top" -->
+<!--                         TextAlignment="Center" -->
+<!--                         FontSize="32" -->
+<!--                         Foreground="#FF000000" -->
+<!--                         Text="{Binding OST_MP_Game_Over_Text}"> -->
+<!--                     </TextBlock> -->
+                    <Grid Height="20"/>
+                    <TextBlock
+                        Margin="0,0,0,0"
+                        Width="450"
+                        HorizontalAlignment="Center"
+                        FontSize="18"
+                        VerticalAlignment="Top"
+                        TextAlignment="Center"
+                        Visibility="{Binding OST_MP_Game_Over_Row_Vis[1]}"
+                        Foreground="{Binding OST_MP_Game_Over_Row_Colour[1]}"
+                        Text="{Binding OST_MP_Game_Over_Row_Text[1]}">
+                        <TextBlock.Effect>
+                            <DropShadowEffect
+                                ShadowDepth="1"
+                                Direction="315"
+                                Color="#CC000000"
+                                BlurRadius="0" />
+                        </TextBlock.Effect>
+                    </TextBlock>
+                    <TextBlock
+                        Margin="0,0,0,0"
+                        Width="450"
+                        HorizontalAlignment="Center"
+                        FontSize="18"
+                        VerticalAlignment="Top"
+                        TextAlignment="Center"
+                        Visibility="{Binding OST_MP_Game_Over_Row_Vis[2]}"
+                        Foreground="{Binding OST_MP_Game_Over_Row_Colour[2]}"
+                        Text="{Binding OST_MP_Game_Over_Row_Text[2]}">
+                        <TextBlock.Effect>
+                            <DropShadowEffect
+                                ShadowDepth="1"
+                                Direction="315"
+                                Color="#CC000000"
+                                BlurRadius="0" />
+                        </TextBlock.Effect>
+                    </TextBlock>
+                    <TextBlock
+                        Margin="0,0,0,0"
+                        Width="450"
+                        HorizontalAlignment="Center"
+                        FontSize="18"
+                        VerticalAlignment="Top"
+                        TextAlignment="Center"
+                        Visibility="{Binding OST_MP_Game_Over_Row_Vis[3]}"
+                        Foreground="{Binding OST_MP_Game_Over_Row_Colour[3]}"
+                        Text="{Binding OST_MP_Game_Over_Row_Text[3]}">
+                        <TextBlock.Effect>
+                            <DropShadowEffect
+                                ShadowDepth="1"
+                                Direction="315"
+                                Color="#CC000000"
+                                BlurRadius="0" />
+                        </TextBlock.Effect>
+                    </TextBlock>
+                    <TextBlock
+                        Margin="0,0,0,0"
+                        Width="450"
+                        HorizontalAlignment="Center"
+                        FontSize="18"
+                        VerticalAlignment="Top"
+                        TextAlignment="Center"
+                        Visibility="{Binding OST_MP_Game_Over_Row_Vis[4]}"
+                        Foreground="{Binding OST_MP_Game_Over_Row_Colour[4]}"
+                        Text="{Binding OST_MP_Game_Over_Row_Text[4]}">
+                        <TextBlock.Effect>
+                            <DropShadowEffect
+                                ShadowDepth="1"
+                                Direction="315"
+                                Color="#CC000000"
+                                BlurRadius="0" />
+                        </TextBlock.Effect>
+                    </TextBlock>
+                    <TextBlock
+                        Margin="0,0,0,0"
+                        Width="450"
+                        HorizontalAlignment="Center"
+                        FontSize="18"
+                        VerticalAlignment="Top"
+                        TextAlignment="Center"
+                        Visibility="{Binding OST_MP_Game_Over_Row_Vis[5]}"
+                        Foreground="{Binding OST_MP_Game_Over_Row_Colour[5]}"
+                        Text="{Binding OST_MP_Game_Over_Row_Text[5]}">
+                        <TextBlock.Effect>
+                            <DropShadowEffect
+                                ShadowDepth="1"
+                                Direction="315"
+                                Color="#CC000000"
+                                BlurRadius="0" />
+                        </TextBlock.Effect>
+                    </TextBlock>
+                    <TextBlock
+                        Margin="0,0,0,0"
+                        Width="450"
+                        HorizontalAlignment="Center"
+                        FontSize="18"
+                        VerticalAlignment="Top"
+                        TextAlignment="Center"
+                        Visibility="{Binding OST_MP_Game_Over_Row_Vis[6]}"
+                        Foreground="{Binding OST_MP_Game_Over_Row_Colour[6]}"
+                        Text="{Binding OST_MP_Game_Over_Row_Text[6]}">
+                        <TextBlock.Effect>
+                            <DropShadowEffect
+                                ShadowDepth="1"
+                                Direction="315"
+                                Color="#CC000000"
+                                BlurRadius="0" />
+                        </TextBlock.Effect>
+                    </TextBlock>
+                    <TextBlock
+                        Margin="0,0,0,0"
+                        Width="450"
+                        HorizontalAlignment="Center"
+                        FontSize="18"
+                        VerticalAlignment="Top"
+                        TextAlignment="Center"
+                        Visibility="{Binding OST_MP_Game_Over_Row_Vis[7]}"
+                        Foreground="{Binding OST_MP_Game_Over_Row_Colour[7]}"
+                        Text="{Binding OST_MP_Game_Over_Row_Text[7]}">
+                        <TextBlock.Effect>
+                            <DropShadowEffect
+                                ShadowDepth="1"
+                                Direction="315"
+                                Color="#CC000000"
+                                BlurRadius="0" />
+                        </TextBlock.Effect>
+                    </TextBlock>
+                    <TextBlock
+                        Margin="0,0,0,0"
+                        Width="450"
+                        HorizontalAlignment="Center"
+                        FontSize="18"
+                        VerticalAlignment="Top"
+                        TextAlignment="Center"
+                        Visibility="{Binding OST_MP_Game_Over_Row_Vis[8]}"
+                        Foreground="{Binding OST_MP_Game_Over_Row_Colour[8]}"
+                        Text="{Binding OST_MP_Game_Over_Row_Text[8]}">
+                        <TextBlock.Effect>
+                            <DropShadowEffect
+                                ShadowDepth="1"
+                                Direction="315"
+                                Color="#CC000000"
+                                BlurRadius="0" />
+                        </TextBlock.Effect>
+                    </TextBlock>
+                    <Grid
+                        Height="20" />
+                </StackPanel>
+            </Grid>
+        </DockPanel>
+
+        <!-- MP Invite Warning -->
+        <local:HUD_MPInviteWarning
+            Grid.Row="0"
+            Grid.RowSpan="3"
+            Grid.Column="0"
+            Grid.ColumnSpan="4"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Bottom"
+            Margin="0,0,0,0"
+            Visibility="{Binding Show_HUD_MPInviteWarning, Converter={StaticResource booleanToVisibilityConverter}}">
+        </local:HUD_MPInviteWarning>
+
+        <!-- MP Connection Issue -->
+        <local:HUD_MPConnectionIssue
+            Grid.Row="0"
+            Grid.RowSpan="3"
+            Grid.Column="0"
+            Grid.ColumnSpan="4"
+            HorizontalAlignment="Center"
+            Margin="0,10,0,0"
+            Visibility="{Binding Show_HUD_MPConnectionIssue, Converter={StaticResource booleanToVisibilityConverter}}">
+        </local:HUD_MPConnectionIssue>
+
+        <!-- MP resync Issue -->
+        <local:HUD_MPResync
+            Grid.Row="0"
+            Grid.RowSpan="3"
+            Grid.Column="0"
+            Grid.ColumnSpan="4"
+            HorizontalAlignment="Center"
+            Margin="0,10,0,0"
+            Visibility="{Binding Show_HUD_MPResync, Converter={StaticResource booleanToVisibilityConverter}}">
+        </local:HUD_MPResync>
+
+        <!-- full-screen overlays -->
+
+        <Grid
+            x:Name="HUD_Briefing"
+            Grid.Row="0"
+            Grid.RowSpan="4"
+            Grid.Column="0"
+            Grid.ColumnSpan="4"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch"
+            Panel.ZIndex="2"
+            Background="Black"
+            Visibility="{Binding Show_HUD_Briefing, Converter={StaticResource booleanToVisibilityConverter}}" Margin="0,0,0,0">
+            <Viewbox
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                    Width="{Binding BriefingViewboxWidth}"
+                    Height="{Binding BriefingViewboxHeight}">
+                <local:HUD_Briefing Margin="0" />
+            </Viewbox>
+        </Grid>
+
+        <!-- confirmation popup -->
+        <Grid
+            x:Name="HUD_ConfirmationPopup"
+            Grid.Row="0"
+            Grid.RowSpan="3"
+            Grid.Column="0"
+            Grid.ColumnSpan="4"
+            Panel.ZIndex="5"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Visibility="{Binding Show_HUD_Confirmation, Converter={StaticResource booleanToVisibilityConverter}}">
+            <local:HUD_ConfirmationPopup Margin="0" />
+        </Grid>
+
+        <Grid
+            x:Name="HUD_MissionOver"
+            Grid.Row="0"
+            Grid.RowSpan="4"
+            Grid.Column="0"
+            Grid.ColumnSpan="4"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch"
+            Panel.ZIndex="6"
+            Background="Black"
+            Visibility="{Binding Show_HUD_MissionOver, Converter={StaticResource booleanToVisibilityConverter}}" Margin="0,0,0,0">
+            <Viewbox>
+                <MediaElement
+                Margin="{Binding FrontEndVideoMargin}"
+                Width="3840"
+                Height="2160"
+                Name="MissionOverVideo"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                LoadedBehavior="Manual"
+                UnloadedBehavior="Close"
+                Stretch="UniformToFill"
+                Visibility="{Binding Show_HUD_MissionOver_Video, Converter={StaticResource booleanToVisibilityConverter}}">
+                    <b:Interaction.Triggers>
+                        <b:EventTrigger EventName="Loaded">
+                            <noesis:PlayMediaAction />
+                        </b:EventTrigger>
+                    </b:Interaction.Triggers>
+                </MediaElement>
+            </Viewbox>
+            <Viewbox>
+                <Image
+                    Margin="{Binding FrontEndVideoMargin}"
+                    Width="3840"
+                    Height="2160"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Stretch="UniformToFill"
+                    Source="../Images/SandsofTimeScoreBackground.png"
+                    Visibility="{Binding Show_HUD_MissionOver_SandsBackground, Converter={StaticResource booleanToVisibilityConverter}}">
+                </Image>
+            </Viewbox>
+            <Viewbox
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center">
+                <local:HUD_MissionOver Margin="0" />
+            </Viewbox>
+        </Grid>
+
+        <!-- Workshop uploader -->
+        <Grid
+            x:Name="HUD_WorkshopUploader"
+            Grid.Row="0"
+            Grid.RowSpan="4"
+            Grid.Column="0"
+            Grid.ColumnSpan="4"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch"
+            Visibility="{Binding Show_HUD_WorkshopUploader, Converter={StaticResource booleanToVisibilityConverter}}">
+            <local:HUD_WorkshopUploader Margin="0" />
+        </Grid>
+
+        <Grid
+            x:Name="HUD_RightClick"
+            Grid.Row="0"
+            Grid.RowSpan="4"
+            Grid.Column="0"
+            Grid.ColumnSpan="4"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top"
+            Visibility="{Binding Show_HUD_RightClick, Converter={StaticResource booleanToVisibilityConverter}}">
+            <local:HUD_RightClick Margin="{Binding RightclickMargin}" />
+        </Grid>
+        
+        <!--  Guide rectangle  -->
+        <Rectangle
+            x:Name="GuideRect"
+            Grid.Row="0"
+            Grid.RowSpan="4"
+            Grid.Column="0"
+            Grid.ColumnSpan="4"
+            Width="40"
+            Height="40"
+            Margin="0,0,0,83"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Bottom"
+            IsHitTestVisible="False"
+            Fill="#008282F1">
+        </Rectangle>
+
+        <Grid
+            x:Name="MPLoadingBlackout"
+            Grid.Row="0"
+            Grid.RowSpan="4"
+            Grid.Column="0"
+            Grid.ColumnSpan="4"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch"
+            IsHitTestVisible="True"
+            Background="Black"
+            Visibility="{Binding Show_MP_LoadingBlack, Converter={StaticResource booleanToVisibilityConverter}}"            
+            >
+            <Viewbox>
+                <Grid
+                    Width="1920"
+                    Height="1080"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    >
+                    <Image
+                        Name="MPLogo"
+                        Width="604"
+                        Height="202"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Top"
+                     />
+                    <TextBlock
+                        Margin="100,230,0,0"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Top"
+                        FontSize="36"
+                        Foreground="#FFEFF3C6"
+                        Text="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_NEW_TEXT2_065]}"
+                        />
+                    <TextBlock
+                        Margin="100,280,0,0"
+                        Width="500"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Top"
+                        FontSize="24"
+                        TextWrapping="Wrap"
+                        Foreground="#FFEFF3C6"
+                        Text="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_NEW_TEXT2_067]}"
+                        Visibility="{Binding Show_MP_LoadingWarning, Converter={StaticResource booleanToVisibilityConverter}}"
+                        />
+                    <Button
+                        Name="MPConnectingCancel"
+                        Width="200"
+                        Margin="100,450,0,0"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Top"
+                        local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_NEW_TEXT2_066]}"
+                        local:PropEx.TextLeft=""
+                        local:PropEx.TextRight=""
+                        Command="{Binding MultiplayerMenuCommand}"
+                        CommandParameter="CancelConnecting"
+                        Style="{StaticResource BTN_SH_GlowS}" 
+                        Visibility="{Binding Show_MP_LoadingButton, Converter={StaticResource booleanToVisibilityConverter}}"
+                        />
+
+                </Grid>
+            </Viewbox>
+        </Grid>
+    </Grid>
+    
+
+</UserControl>

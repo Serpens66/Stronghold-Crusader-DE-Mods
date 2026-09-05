@@ -480,20 +480,22 @@ namespace BugfixesAndQoL
                 TargetSpeed = targetSpeed,
                 PauseState = pauseState
             };
-            byte[] body = GameNetworkAPI.Serialize(packet);
-            byte[] blob = new byte[sizeof(short) + body.Length];
-            BitConverter.GetBytes(packetHook.GetPacketId()).CopyTo(blob, 0);
-            Buffer.BlockCopy(body, 0, blob, sizeof(short), body.Length);
-
-            Func<byte[], bool> sendRawBlob = ChoreNetworkTransport.SendRawBlob;
-            bool queued = sendRawBlob != null && sendRawBlob(blob);
-            if (!queued)
+            short packetId = packetHook?.GetPacketId() ?? (short)0;
+            if (!BugfixesAndQoLChoreSender.TrySend(
+                    packet,
+                    packetId,
+                    networkInitialized && packetHook != null,
+                    value => GameNetworkAPI.Serialize(value),
+                    () => SHCDESE.GameGlobals.GameGlobalsManager.Instance.ChoreManagerVA,
+                    (value, id) => GameNetworkAPI.SendPacketToAllEx2(value, id, viaChore: true),
+                    out byte[] body,
+                    out string rejectionReason))
             {
-                LogTransportFailureThrottled($"{source} was not queued; no local speed change was applied");
+                LogTransportFailureThrottled($"{source} was not queued; no local speed change was applied: {rejectionReason}");
                 return false;
             }
 
-            LogInfo($"multiplayer time-control Chore queued: source={source}, action={action}, targetSpeed={targetSpeed}, pauseState={pauseState}, payloadBytes={blob.Length}.");
+            LogInfo($"multiplayer time-control Chore queued: source={source}, action={action}, targetSpeed={targetSpeed}, pauseState={pauseState}, payloadBytes={sizeof(short) + body.Length}.");
             return true;
         }
 
@@ -747,7 +749,9 @@ namespace BugfixesAndQoL
         }
 
         private bool IsChoreTransportReady() =>
-            networkInitialized && packetHook != null && ChoreNetworkTransport.IsAvailable;
+            BugfixesAndQoLChoreSender.IsAvailable(
+                networkInitialized && packetHook != null,
+                () => SHCDESE.GameGlobals.GameGlobalsManager.Instance.ChoreManagerVA);
 
         private bool IsDirectTransportReady() =>
             networkInitialized &&

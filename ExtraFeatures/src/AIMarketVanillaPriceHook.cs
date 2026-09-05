@@ -1,13 +1,15 @@
 // Feature: Keep AI market decisions and transactions on Vanilla prices when configured.
 using BepInEx.Logging;
 using Iced.Intel;
+using RedBird.Abstractions.Hooks;
+using RedBird.Abstractions.Hooks.Transaction;
+using RedBird.Core.Memory;
+using RedBird.X64.Hooks.Transaction;
 using SHCDESE.API;
 using SHCDESE.Interop;
 using System;
 using System.Runtime.InteropServices;
 using System.Threading;
-using Zhuqiaomon.Hooks;
-using Zhuqiaomon.Hooks.Transaction;
 
 namespace ExtraFeatures
 {
@@ -24,10 +26,10 @@ namespace ExtraFeatures
         private readonly ManualLogSource log;
         private readonly ExtraFeaturesViewModel settings;
         private HookTransaction transaction;
-        private HookRef<X64ManagedFunctionDetourAOB<MarketPriceDelegate>> buyPriceHook =
-            new HookRef<X64ManagedFunctionDetourAOB<MarketPriceDelegate>>();
-        private HookRef<X64ManagedFunctionDetourAOB<MarketPriceDelegate>> sellPriceHook =
-            new HookRef<X64ManagedFunctionDetourAOB<MarketPriceDelegate>>();
+        private readonly DetourHandle<MarketPriceDelegate> buyPriceHook =
+            new DetourHandle<MarketPriceDelegate>();
+        private readonly DetourHandle<MarketPriceDelegate> sellPriceHook =
+            new DetourHandle<MarketPriceDelegate>();
         private int buyCallbackFailureLogged;
         private int sellCallbackFailureLogged;
         private bool disposed;
@@ -36,6 +38,7 @@ namespace ExtraFeatures
             ManualLogSource log,
             ExtraFeaturesViewModel settings,
             IntPtr libraryHandle,
+            ScanRegion region,
             ReadOnlySpan<byte> memory,
             bool referenceHashMatches)
         {
@@ -72,22 +75,18 @@ namespace ExtraFeatures
             HookTransaction pendingTransaction = null;
             try
             {
-                pendingTransaction = new HookTransaction(
-                    memory,
-                    imageBase,
-                    loggerFactory: null,
-                    failureMode: TransactionFailureMode.RollbackAndThrow);
+                pendingTransaction = ExtraFeaturesHookInfrastructure.CreateOwnedTransaction(region);
                 pendingTransaction.AddDetour(
-                    ref buyPriceHook,
-                    imageBase + unchecked((ulong)buyResolution.Rva),
+                    buyPriceHook,
+                    HookTarget.FromAddress(imageBase + unchecked((ulong)buyResolution.Rva)),
                     GetBuyPrice);
                 pendingTransaction.AddDetour(
-                    ref sellPriceHook,
-                    imageBase + unchecked((ulong)sellResolution.Rva),
+                    sellPriceHook,
+                    HookTarget.FromAddress(imageBase + unchecked((ulong)sellResolution.Rva)),
                     GetSellPrice);
-                pendingTransaction.Commit();
+                CommitResult commitResult = pendingTransaction.Commit();
 
-                if (!buyPriceHook.Success || !sellPriceHook.Success)
+                if (!commitResult.IsCompleteSuccess || !buyPriceHook.Success || !sellPriceHook.Success)
                     throw new InvalidOperationException("The AI market-price hook transaction did not install both detours.");
 
                 transaction = pendingTransaction;
@@ -97,13 +96,6 @@ namespace ExtraFeatures
             {
                 if (pendingTransaction != null)
                 {
-                    try
-                    {
-                        pendingTransaction.Unload();
-                    }
-                    catch
-                    {
-                    }
                     try
                     {
                         pendingTransaction.Dispose();
@@ -129,7 +121,6 @@ namespace ExtraFeatures
                 return;
 
             disposed = true;
-            transaction?.Unload();
             transaction?.Dispose();
             transaction = null;
         }
@@ -149,7 +140,7 @@ namespace ExtraFeatures
                 TryLogCallbackFailureOnce(ref buyCallbackFailureLogged, "buy", ex);
             }
 
-            return buyPriceHook.Value.Hook.Trampoline(playerManager, playerId, good, amount);
+            return buyPriceHook.Original(playerManager, playerId, good, amount);
         }
 
         private int GetSellPrice(IntPtr playerManager, int playerId, int good, int amount)
@@ -167,7 +158,7 @@ namespace ExtraFeatures
                 TryLogCallbackFailureOnce(ref sellCallbackFailureLogged, "sell", ex);
             }
 
-            return sellPriceHook.Value.Hook.Trampoline(playerManager, playerId, good, amount);
+            return sellPriceHook.Original(playerManager, playerId, good, amount);
         }
 
         private bool ShouldUseVanillaPrice(IntPtr playerManager, int playerId, int good)

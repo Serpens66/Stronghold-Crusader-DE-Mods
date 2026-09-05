@@ -6,10 +6,12 @@ using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using Zhuqiaomon.Assembly;
-using Zhuqiaomon.Hooks;
-using Zhuqiaomon.Hooks.Transaction;
-using Zhuqiaomon.Memory;
+using RedBird.Abstractions.Hooks;
+using RedBird.Abstractions.Hooks.Transaction;
+using RedBird.Core.Memory;
+using RedBird.X64.Assembly;
+using RedBird.X64.Hooks;
+using RedBird.X64.Hooks.Transaction;
 
 namespace ImprovedHunters
 {
@@ -119,10 +121,10 @@ namespace ImprovedHunters
         private readonly Dictionary<int, RecoveryAttemptBudget> recoveryAttempts =
             new Dictionary<int, RecoveryAttemptBudget>();
         private HookTransaction transaction;
-        private HookRef<X64InlineHook> primaryQueryResultHook = new HookRef<X64InlineHook>();
-        private HookRef<X64InlineHook> secondaryQueryResultHook = new HookRef<X64InlineHook>();
-        private HookRef<X64InlineHook> stateNineCompletionHook = new HookRef<X64InlineHook>();
-        private HookRef<X64InlineHook> failedDirectAttackWriterHook = new HookRef<X64InlineHook>();
+        private readonly HookHandle<X64InlineHook> primaryQueryResultHook = new HookHandle<X64InlineHook>();
+        private readonly HookHandle<X64InlineHook> secondaryQueryResultHook = new HookHandle<X64InlineHook>();
+        private readonly HookHandle<X64InlineHook> stateNineCompletionHook = new HookHandle<X64InlineHook>();
+        private readonly HookHandle<X64InlineHook> failedDirectAttackWriterHook = new HookHandle<X64InlineHook>();
         private int* currentHunterUnitId;
         private bool featureAvailable;
         private bool primaryHookConfirmed;
@@ -135,6 +137,7 @@ namespace ImprovedHunters
         public HunterPostShotContinuationDiagnostic(
             ManualLogSource log,
             ImprovedHuntersViewModel settings,
+            ScanRegion region,
             ReadOnlySpan<byte> memory,
             ulong libraryBase,
             bool referenceHashMatches,
@@ -253,48 +256,49 @@ namespace ImprovedHunters
 
             try
             {
-                transaction = new HookTransaction(
-                    memory,
-                    libraryBase,
-                    loggerFactory: null,
-                    failureMode: TransactionFailureMode.RollbackAndThrow);
-                transaction.AddContextHook(
-                    ref primaryQueryResultHook,
+                transaction = HunterHookInfrastructure.CreateOwnedTransaction(region);
+                HunterHookInfrastructure.AddContextHook(
+                    transaction,
+                    primaryQueryResultHook,
                     libraryBase + unchecked((ulong)primaryResultRva),
                     ObservePrimaryStateTenQueryResult,
-                    regs: X64SmartCPUContextRegs.Volatile,
+                    registers: X64SmartCPUContextRegs.Volatile,
                     hookSize: QueryResultHookLength,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
-                transaction.AddContextHook(
-                    ref secondaryQueryResultHook,
+                HunterHookInfrastructure.AddContextHook(
+                    transaction,
+                    secondaryQueryResultHook,
                     libraryBase + unchecked((ulong)secondaryResultRva),
                     ObserveSecondaryStateTenQueryResult,
-                    regs: X64SmartCPUContextRegs.Volatile,
+                    registers: X64SmartCPUContextRegs.Volatile,
                     hookSize: QueryResultHookLength,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
-                transaction.AddContextHook(
-                    ref stateNineCompletionHook,
+                HunterHookInfrastructure.AddContextHook(
+                    transaction,
+                    stateNineCompletionHook,
                     libraryBase + unchecked((ulong)stateNineCompletionWriterRva),
                     TrySkipStateTenSitTransition,
-                    regs: X64SmartCPUContextRegs.Volatile | X64SmartCPUContextRegs.RSI,
+                    registers: X64SmartCPUContextRegs.Volatile | X64SmartCPUContextRegs.RSI,
                     hookSize: RecoveryWriterHookLength,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
-                transaction.AddContextHook(
-                    ref failedDirectAttackWriterHook,
+                HunterHookInfrastructure.AddContextHook(
+                    transaction,
+                    failedDirectAttackWriterHook,
                     libraryBase + unchecked((ulong)failedDirectAttackWriterRva),
                     TryRerouteFailedDirectAttack,
-                    regs: X64SmartCPUContextRegs.Volatile |
+                    registers: X64SmartCPUContextRegs.Volatile |
                         X64SmartCPUContextRegs.RSI |
                         X64SmartCPUContextRegs.R15,
                     hookSize: RecoveryWriterHookLength,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.BeforeCallback);
-                transaction.Commit();
+                CommitResult commitResult = transaction.Commit();
 
-                if (!primaryQueryResultHook.Success ||
+                if (!commitResult.IsCompleteSuccess ||
+                    !primaryQueryResultHook.Success ||
                     !secondaryQueryResultHook.Success ||
                     !stateNineCompletionHook.Success ||
                     !failedDirectAttackWriterHook.Success)
@@ -1356,7 +1360,6 @@ namespace ImprovedHunters
 
             disposed = true;
             featureAvailable = false;
-            transaction?.Unload();
             transaction?.Dispose();
             transaction = null;
             lock (stateLock)

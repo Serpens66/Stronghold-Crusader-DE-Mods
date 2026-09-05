@@ -1,0 +1,865 @@
+{
+  "version": "1.0",
+  "strings": [
+    {
+      "name": "SE_EDITOR_GEN_ENABLE_FREEBUILD",
+      "value": "Włącz tryb swobodnej budowy"
+    },
+    {
+      "name": "IMGUI_API_WINDOW_TITLE",
+      "value": "Okno API ImGUI"
+    },
+    {
+      "name": "REMIX_MENU_OPTIONS_TITLE",
+      "value": "Opcje"
+    },
+    {
+      "name": "REMIX_MENU_OPTIONS_SMALL_TEXT",
+      "value": "Niektóre opcje mogą wymagać ponownego uruchomienia, aby zadziałały."
+    },
+    {
+      "name": "REMIX_MENU_OPTIONS_MENUKEY",
+      "value": "Obecny klawisz menu: {0}"
+    },
+    {
+      "name": "REMIX_MENU_ALWAYS_RENDERER_ENABLED",
+      "value": "Renderowanie ciągłe (AR) włączone"
+    },
+    {
+      "name": "REMIX_MENU_MENU_RENDERER_ENABLED",
+      "value": "Renderowanie menu (MR) włączone"
+    },
+    {
+      "name": "REMIX_MENU_MENU_DEMO_ENABLED",
+      "value": "Okna demonstracyjne włączone"
+    },
+    {
+      "name": "REMIX_MENU_MENU_FORCEWMPASSTHROUGH_ENABLED",
+      "value": "Wymuś przekazywanie zdarzeń WM"
+    },
+    {
+      "name": "REMIX_MENU_MENU_DX11TOGGLEKEY",
+      "value": "Obecny klawisz przełączania hooka DX11: {0}"
+    },
+    {
+      "name": "REMIX_MENU_MENU_CUSTOMFONTPATH",
+      "value": "Własna czcionka (ścieżka absolutna do pliku .ttf)"
+    },
+    {
+      "name": "REMIX_MENU_MENU_FONTPIXELSIZE",
+      "value": "Rozmiar czcionki w pikselach"
+    },
+    {
+      "name": "SE_EDITOR_TITLE",
+      "value": "Edytor SHCDE-SE"
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_TITLE",
+      "value": "Narzędzia"
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_GENERAL",
+      "value": "Ogólne"
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_ENTITYLIST",
+      "value": "Lista obiektów"
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_LUA",
+      "value": "LUA"
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_MANAGERS",
+      "value": "Menedżery"
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_MAP_ARCHIVE_TOOLS",
+      "value": "Narzędzia archiwum mapy (MAS)"
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_MAS_SEPERATOR",
+      "value": "Sekcja ogólna archiwum"
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_MAS_NOT_FOUND",
+      "value": "Archiwum mapy: Nie znaleziono."
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_MAS_ADD_HELP",
+      "value": "Możesz dodać nowe archiwum do tej mapy. Zalecane tylko w edytorze map."
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_MAS_WARN",
+      "value": "WAŻNE: Po utworzeniu archiwum MUSISZ zapisać i ponownie otworzyć mapę przed wprowadzaniem innych zmian! Musisz również zapisać mapę przynajmniej raz przed naciśnięciem tego przycisku."
+    },
+    {
+      "name": "SE_EDITOR_TOOLS_MAS_CREATE_NEW",
+      "value": "Utwórz nowe archiwum"
+    },
+    {
+      "name": "SE_EDITOR_COMMON_NA",
+      "value": "N/D"
+    },
+    {
+      "name": "SE_EDITOR_COMMON_EXISTS",
+      "value": "Istnieje"
+    },
+    {
+      "name": "SE_EDITOR_COMMON_NOT_FOUND",
+      "value": "Nie znaleziono"
+    },
+    {
+      "name": "SE_EDITOR_ARCHIVE_INFO",
+      "value": "Informacje o archiwum"
+    },
+    {
+      "name": "SE_EDITOR_ARCHIVE_AUTHOR",
+      "value": "Autor"
+    },
+    {
+      "name": "SE_EDITOR_ARCHIVE_MAPNAME",
+      "value": "Nazwa mapy"
+    },
+    {
+      "name": "SE_EDITOR_ARCHIVE_DESC",
+      "value": "Opis"
+    },
+    {
+      "name": "SE_EDITOR_ARCHIVE_VER",
+      "value": "Wersja"
+    },
+    {
+      "name": "SE_EDITOR_ARCHIVE_WEB",
+      "value": "Strona WWW"
+    },
+    {
+      "name": "SE_EDITOR_ARCHIVE_REMOVE_WARN",
+      "value": "To usunie archiwum z mapy. Musisz zapisać plik mapy, aby utrwalić usunięcie."
+    },
+    {
+      "name": "SE_EDITOR_ARCHIVE_REMOVE_BTN",
+      "value": "Usuń archiwum"
+    },
+    {
+      "name": "SE_EDITOR_TRIG_TITLE",
+      "value": "Zarządzanie wyzwalaczami"
+    },
+    {
+      "name": "SE_EDITOR_TRIG_ACTIVE",
+      "value": "Aktywne wyzwalacze: {0}"
+    },
+    {
+      "name": "SE_EDITOR_TRIG_REMOVE_WARN",
+      "value": "To usunie wszystkie aktywne wyzwalacze z mapy."
+    },
+    {
+      "name": "SE_EDITOR_TRIG_REMOVE_BTN",
+      "value": "Usuń wszystkie wyzwalacze"
+    },
+    {
+      "name": "SE_EDITOR_TIMER_TITLE",
+      "value": "Zarządzanie licznikami czasu"
+    },
+    {
+      "name": "SE_EDITOR_TIMER_ACTIVE",
+      "value": "Aktywne liczniki: {0}"
+    },
+    {
+      "name": "SE_EDITOR_TIMER_REMOVE_WARN",
+      "value": "To usunie wszystkie aktywne liczniki z mapy."
+    },
+    {
+      "name": "SE_EDITOR_TIMER_REMOVE_BTN",
+      "value": "Usuń wszystkie liczniki"
+    },
+    {
+      "name": "SE_EDITOR_MANAGER_TITLE",
+      "value": "-- Adresy VA Menedżerów --"
+    },
+    {
+      "name": "SE_EDITOR_MANAGER_COL_NAME",
+      "value": "Nazwa"
+    },
+    {
+      "name": "SE_EDITOR_MANAGER_COL_ADDR",
+      "value": "Adres"
+    },
+    {
+      "name": "SE_EDITOR_MANAGER_COL_COPY",
+      "value": "Kopiuj"
+    },
+    {
+      "name": "SE_EDITOR_MANAGER_BTN_COPY",
+      "value": "Kopiuj"
+    },
+    {
+      "name": "SE_EDITOR_SETTINGS_TITLE",
+      "value": "-- Ustawienia --"
+    },
+    {
+      "name": "SE_EDITOR_GEN_SHOW_TOOLS",
+      "value": "Pokaż narzędzia edytora map"
+    },
+    {
+      "name": "SE_EDITOR_GEN_CURSOR_TITLE",
+      "value": "-- Podgląd kursora na żywo --"
+    },
+    {
+      "name": "SE_EDITOR_GEN_MOUSE_POS",
+      "value": "Pozycja myszy"
+    },
+    {
+      "name": "SE_EDITOR_GEN_MOUSE_TILE",
+      "value": "Kafel pod myszą"
+    },
+    {
+      "name": "SE_EDITOR_GEN_HOVER_BUILD_ID",
+      "value": "ID wskazanego budynku"
+    },
+    {
+      "name": "SE_EDITOR_GEN_HOVER_UNIT_ID",
+      "value": "ID wskazanej jednostki"
+    },
+    {
+      "name": "SE_EDITOR_GEN_HOVER_BUILD_TILE_ID",
+      "value": "ID kafla wskazanego budynku"
+    },
+    {
+      "name": "SE_EDITOR_GEN_MOUSE_TILEX_WORLD",
+      "value": "Kafel myszy X (Świat)"
+    },
+    {
+      "name": "SE_EDITOR_GEN_MOUSE_TILEY_WORLD",
+      "value": "Kafel myszy Y (Świat)"
+    },
+    {
+      "name": "SE_EDITOR_GEN_MOUSE_TILE_ID",
+      "value": "ID kafla pod myszą"
+    },
+    {
+      "name": "SE_EDITOR_GEN_LIVE_TILE_TITLE",
+      "value": "-- Podgląd kafla na żywo --"
+    },
+    {
+      "name": "SE_EDITOR_GEN_COL_PROP",
+      "value": "Właściwość"
+    },
+    {
+      "name": "SE_EDITOR_GEN_COL_VAL",
+      "value": "Wartość"
+    },
+    {
+      "name": "SE_EDITOR_GEN_COL_MEM",
+      "value": "Adres pamięci"
+    },
+    {
+      "name": "SE_EDITOR_TILE_UNKNOWN",
+      "value": "Kafel nieznany"
+    },
+    {
+      "name": "SE_EDITOR_TILE_HEIGHT",
+      "value": "Wysokość kafla"
+    },
+    {
+      "name": "SE_EDITOR_TILE_STATE",
+      "value": "Stan kafla"
+    },
+    {
+      "name": "SE_EDITOR_TILE_PROP_FLAG",
+      "value": "Flaga właściwości kafla"
+    },
+    {
+      "name": "SE_EDITOR_TILE_PROP_ENUM",
+      "value": "Enum właściwości kafla"
+    },
+    {
+      "name": "SE_EDITOR_TILE_VEG_ID",
+      "value": "ID roślinności"
+    },
+    {
+      "name": "SE_EDITOR_TILE_TYPE",
+      "value": "Typ kafla"
+    },
+    {
+      "name": "SE_EDITOR_TILE_DEF_HEIGHT",
+      "value": "DomyślnaWysokość"
+    },
+    {
+      "name": "SE_EDITOR_TILE_BUILD_ID",
+      "value": "ID budynku"
+    },
+    {
+      "name": "SE_EDITOR_TILE_UNIT_ID",
+      "value": "ID jednostki"
+    },
+    {
+      "name": "SE_EDITOR_TILE_OWNER_ID",
+      "value": "ID właściciela"
+    },
+    {
+      "name": "SE_EDITOR_GEN_CURSOR_OUT",
+      "value": "Kursor znajduje się poza prawidłowym obszarem mapy."
+    },
+    {
+      "name": "SE_EDITOR_EDIT_TILE_TITLE",
+      "value": "-- Edycja kafla --"
+    },
+    {
+      "name": "SE_EDITOR_EDIT_TILE_ID",
+      "value": "ID kafla"
+    },
+    {
+      "name": "SE_EDITOR_EDIT_TILE_UNK",
+      "value": "Kafel nieznany"
+    },
+    {
+      "name": "SE_EDITOR_EDIT_TILE_HEIGHT",
+      "value": "Wysokość/Żywotność kafla"
+    },
+    {
+      "name": "SE_EDITOR_EDIT_TILE_STATE",
+      "value": "Stan kafla"
+    },
+    {
+      "name": "SE_EDITOR_EDIT_TILE_PROP",
+      "value": "Właściwość kafla"
+    },
+    {
+      "name": "SE_EDITOR_EDIT_TILE_VEG",
+      "value": "Wyszukiwanie ID roślinności"
+    },
+    {
+      "name": "SE_EDITOR_EDIT_TILE_OWNER",
+      "value": "ID gracza (właściciela)"
+    },
+    {
+      "name": "SE_EDITOR_EDIT_TILE_APPLY",
+      "value": "Zastosuj zmiany kafla"
+    },
+    {
+      "name": "SE_EDITOR_LUA_MANAGE_TITLE",
+      "value": "Zarządzanie stanem LUA"
+    },
+    {
+      "name": "SE_EDITOR_LUA_STATE_LABEL",
+      "value": "Stan LUA: {0}"
+    },
+    {
+      "name": "SE_EDITOR_LUA_CREATE",
+      "value": "Debug: Utwórz stan lua"
+    },
+    {
+      "name": "SE_EDITOR_LUA_CLOSE",
+      "value": "Debug: Zamknij stan lua"
+    },
+    {
+      "name": "SE_EDITOR_LUA_SCRIPT_TITLE",
+      "value": "Kontrola skryptów LUA"
+    },
+    {
+      "name": "SE_EDITOR_LUA_CALL_INIT",
+      "value": "Wywołaj Init"
+    },
+    {
+      "name": "SE_EDITOR_LUA_RND_TITLE",
+      "value": "Silnik losowy"
+    },
+    {
+      "name": "SE_EDITOR_LUA_RND_SEED",
+      "value": "Ziarno (Seed) silnika losowego"
+    },
+    {
+      "name": "SE_EDITOR_LUA_RND_INIT",
+      "value": "Zainicjuj silnik losowy"
+    },
+    {
+      "name": "SE_EDITOR_LUA_EXEC_TITLE",
+      "value": "Wykonywanie kodu LUA"
+    },
+    {
+      "name": "SE_EDITOR_LUA_RUN",
+      "value": "Uruchom Lua"
+    },
+    {
+      "name": "SE_EDITOR_ENT_NO_UNITS",
+      "value": "Nie znaleziono aktywnych jednostek."
+    },
+    {
+      "name": "SE_EDITOR_ENT_COL_ID",
+      "value": "ID"
+    },
+    {
+      "name": "SE_EDITOR_ENT_COL_TYPE",
+      "value": "Typ"
+    },
+    {
+      "name": "SE_EDITOR_ENT_COL_POS_XY",
+      "value": "Pozycja (XY)"
+    },
+    {
+      "name": "SE_EDITOR_ENT_COL_POS_Z",
+      "value": "Pozycja (Z)"
+    },
+    {
+      "name": "SE_EDITOR_ENT_COL_PLAYER",
+      "value": "ID gracza"
+    },
+    {
+      "name": "SE_EDITOR_ENT_COL_HEALTH",
+      "value": "Życie"
+    },
+    {
+      "name": "SE_EDITOR_ENT_COL_ADDR",
+      "value": "ADRES"
+    },
+    {
+      "name": "SE_EDITOR_ENT_COL_ACTION",
+      "value": "Akcje"
+    },
+    {
+      "name": "SE_EDITOR_ENT_BTN_COPY",
+      "value": "Kopiuj adres"
+    },
+    {
+      "name": "SE_EDITOR_ENT_BTN_DELETE",
+      "value": "Usuń"
+    },
+    {
+      "name": "SE_EDITOR_ENT_CTX_DELETE",
+      "value": "Usuń"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_TITLE",
+      "value": "Inspektor kafli"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_HELP",
+      "value": "Przytrzymaj lewy Alt i kliknij prawym przyciskiem, aby zbadać kafel."
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_NO_SEL",
+      "value": "Nie wybrano kafla."
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_SEL_ID",
+      "value": "Wybrane ID kafla: {0} (0x{0:X8})"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_HEIGHT",
+      "value": "Wysokość"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_OWNER",
+      "value": "ID właściciela (od 0)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_PLAYER_ARROW",
+      "value": "-> Gracz {0}"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_STATE",
+      "value": "Stan kafla"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK_BYTE",
+      "value": "Nieznane (Bajt)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_BLD_ID",
+      "value": "ID budynku"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNIT_ID",
+      "value": "ID jednostki"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_VEG",
+      "value": "Wyszukiwanie roślinności"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK1",
+      "value": "NieznanaSiatka1"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK2",
+      "value": "NieznanaSiatka2"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK3",
+      "value": "NieznanaSiatka3"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_DEF_HEIGHT",
+      "value": "Domyślna wysokość?"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_FLAGS",
+      "value": "Flagi właściwości"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_BTN_SAVE",
+      "value": "Zapisz zmiany"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_BTN_READ",
+      "value": "Wczytaj ponownie"
+    },
+    {
+      "name": "SE_EDITOR_REGION_TITLE",
+      "value": "Asystent mapy Stronghold"
+    },
+    {
+      "name": "SE_EDITOR_REGION_NOT_SET",
+      "value": "Nieustawione"
+    },
+    {
+      "name": "SE_EDITOR_REGION_BEGIN",
+      "value": "Początek XY: {0}"
+    },
+    {
+      "name": "SE_EDITOR_REGION_END",
+      "value": "Koniec XY: {0}"
+    },
+    {
+      "name": "SE_EDITOR_REGION_BTN_COPY",
+      "value": "Kopiuj jako nowy RectangularArea2D"
+    },
+    {
+      "name": "SE_EDITOR_REGION_HELP_TITLE",
+      "value": "Jak używać:"
+    },
+    {
+      "name": "SE_EDITOR_REGION_HELP_1",
+      "value": "1. Przytrzymaj lewy Alt i kliknij LPM na mapie, aby ustawić początek."
+    },
+    {
+      "name": "SE_EDITOR_REGION_HELP_2",
+      "value": "2. Przytrzymaj lewy Alt i kliknij LPM ponownie, aby ustawić koniec."
+    },
+    {
+      "name": "SE_EDITOR_REGION_BTN_RESET",
+      "value": "Resetuj zaznaczenie"
+    },
+    {
+      "name": "SE_EDITOR_MUTATOR_TITLE",
+      "value": "Narzędzie mutowania właściwości kafli"
+    },
+    {
+      "name": "SE_EDITOR_MUTATOR_OPTIONS",
+      "value": "Opcje"
+    },
+    {
+      "name": "SE_EDITOR_MUTATOR_ENABLED",
+      "value": "Włączone"
+    },
+    {
+      "name": "SE_EDITOR_MUTATOR_FORCE_SET",
+      "value": "Ustaw na (nie addytywnie)"
+    },
+    {
+      "name": "SE_EDITOR_MUTATOR_AUGMENT",
+      "value": "Zmodyfikuj następny kafel o..."
+    },
+    {
+      "name": "SE_EDITOR_MUTATOR_TYPE",
+      "value": "Typ kafla"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_TITLE",
+      "value": "Narzędzie lustra"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_OPTIONS",
+      "value": "Opcje"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_VERT",
+      "value": "Pionowo"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_HORZ",
+      "value": "Poziomo"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_ENABLED_FOR",
+      "value": "Włączone dla..."
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_TYPE",
+      "value": "Typ kafla"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_HEIGHT",
+      "value": "Wysokość kafla"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_WALLS",
+      "value": "Mury"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_BLD",
+      "value": "Budynki"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_UNITS",
+      "value": "Jednostki"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_VEG",
+      "value": "Roślinność"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_ANIMALS",
+      "value": "Zwierzęta"
+    },
+    {
+      "name": "SE_EDITOR_MIRROR_DELETE",
+      "value": "Usuwanie"
+    },
+    {
+      "name": "SE_EDITOR_MASS_TITLE",
+      "value": "Masowy edytor kafli"
+    },
+    {
+      "name": "SE_EDITOR_MASS_RND_HEIGHT",
+      "value": "Losuj wysokość"
+    },
+    {
+      "name": "SE_EDITOR_MASS_MIN_HEIGHT",
+      "value": "Min. wysokość"
+    },
+    {
+      "name": "SE_EDITOR_MASS_MAX_HEIGHT",
+      "value": "Maks. wysokość"
+    },
+    {
+      "name": "SE_EDITOR_MASS_NEW_HEIGHT",
+      "value": "Nowa wysokość kafla (0-255)"
+    },
+    {
+      "name": "SE_EDITOR_MASS_SHAPE",
+      "value": "Kształt"
+    },
+    {
+      "name": "SE_EDITOR_MASS_SHAPE_RECT",
+      "value": "Prostokąt"
+    },
+    {
+      "name": "SE_EDITOR_MASS_SHAPE_CIRCLE",
+      "value": "Koło"
+    },
+    {
+      "name": "SE_EDITOR_MASS_EDGES_ONLY",
+      "value": "Tylko krawędzie"
+    },
+    {
+      "name": "SE_EDITOR_MASS_EDGE_WIDTH",
+      "value": "Szerokość krawędzi"
+    },
+    {
+      "name": "SE_EDITOR_MASS_SET_FLAGS",
+      "value": "Ustaw flagi właściwości kafla"
+    },
+    {
+      "name": "SE_EDITOR_MASS_FLAGS_VAL",
+      "value": "Wartość flag właściwości"
+    },
+    {
+      "name": "SE_EDITOR_MASS_INNER_ONLY",
+      "value": "Zastosuj tylko do kafli wewnętrznych"
+    },
+    {
+      "name": "SE_EDITOR_MASS_PREVIEW",
+      "value": "Podgląd na żywo (ustawia wys. na 0)"
+    },
+    {
+      "name": "SE_EDITOR_MASS_BTN_APPLY",
+      "value": "Zastosuj zmiany"
+    },
+    {
+      "name": "SE_EDITOR_MASS_WARN_SELECT",
+      "value": "Wybierz region za pomocą Asystenta Mapy."
+    },
+    {
+      "name": "SE_EDITOR_MASS_BTN_UNDO",
+      "value": "Cofnij ostatnią akcję"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_SEC_BYTE",
+      "value": "Siatki bajtowe"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_SEC_UINT16",
+      "value": "Siatki UInt16"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_SEC_INT16",
+      "value": "Siatki Int16"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_SEC_INT32",
+      "value": "Siatki Int32"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_DAMAGE",
+      "value": "Uszkodzenie / Stan (damage_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_WALL_OWNER",
+      "value": "ID właściciela ściany (wall_owner_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_SHOW_HI",
+      "value": "Warstwa Show-Hi (show_hi_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_AI_ZONE",
+      "value": "Strefa AI (ai_zone_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_OCCUPANCY",
+      "value": "Maska zajętości jednostek (occupancy_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_DELAY",
+      "value": "Warstwa opóźnień (delay_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_LUMINESCENCE",
+      "value": "Luminescencja / Cień (luminesence_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_STRUCTURE_WAS",
+      "value": "Poprzedni typ budynku (structure_was_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_AI_DANGER",
+      "value": "Mapa ciepła zagrożeń AI (ai_danger_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_AIV_BLOCK",
+      "value": "Maska bloku AIV (aiv_block_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_GATE_PATH",
+      "value": "Ścieżka bramy (gate_path_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK_0xA20D40",
+      "value": "Nieznany bajt (0xA20D40)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK_0xD30080",
+      "value": "Nieznany bajt (0xD30080)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK_0x134E700",
+      "value": "Nieznany bajt (0x134E700)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK_0x13EB140",
+      "value": "Nieznany bajt / Znacznik ścieżki (0x13EB140)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_ORGANISM",
+      "value": "ID organizmu / roślinności (organism_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_STRUCTURE",
+      "value": "ID budynku / struktury (structure_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_MISC_DISPLAY",
+      "value": "Flagi wyświetlania (misc_display_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_PATH_CONNECTION",
+      "value": "Połączenie ścieżek / ID regionu (path_connection_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_RANDOM_NOISE",
+      "value": "Szum kafelka (random_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK_0x75EF80",
+      "value": "Nieznany Int16 (0x75EF80)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK_0x1EA23F0",
+      "value": "Nieznany UInt16 (0x1EA23F0)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_MACRO",
+      "value": "Warstwa makro (macro_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_FLY",
+      "value": "Warstwa pocisków (fly_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_LOGIC_FLAGS",
+      "value": "Flagi logiki / właściwości (logic_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_PILLAR_GFX",
+      "value": "Grafika filaru (pillar_gfx_layer, dynamiczny)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_GFX",
+      "value": "Sprite graficzny (gfx_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_ALPHA_GFX",
+      "value": "Sprite alpha (alpha_gfx_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_CONSTRUCTION_GFX",
+      "value": "Grafika budowy (construction_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_WALL_GFX",
+      "value": "Grafika ściany (wall_gfx_layer)"
+    },
+    {
+      "name": "SE_EDITOR_INSPECTOR_UNK_0x1D68F70",
+      "value": "Nieznany Int32 (0x1D68F70)"
+    },
+    {
+      "name": "SE_EDITOR_TILE_PILLAR_GFX",
+      "value": "Grafika filaru (pillar_gfx_layer)"
+    },
+    {
+      "name": "SE_EDITOR_TILE_SHOW_HI",
+      "value": "Warstwa Show-Hi (show_hi_layer)"
+    },
+    {
+      "name": "SE_EDITOR_TILE_MISC_DISPLAY",
+      "value": "Wyświetlanie misc (misc_display_layer)"
+    },
+    {
+      "name": "SE_EDITOR_TILE_PATH_CONNECTION",
+      "value": "Połączenie ścieżek (path_connection_layer)"
+    },
+    {
+      "name": "SE_EDITOR_TILE_AI_ZONE",
+      "value": "Strefa AI (ai_zone_layer)"
+    },
+    {
+      "name": "SE_EDITOR_TILE_OCCUPANCY",
+      "value": "Zajętość jednostek (occupancy_layer)"
+    },
+    {
+      "name": "SE_EDITOR_TILE_DELAY",
+      "value": "Warstwa opóźnień (delay_layer)"
+    },
+    {
+      "name": "SE_EDITOR_TILE_UNK_0xA20D40",
+      "value": "Nieznany bajt (0xA20D40)"
+    },
+    {
+      "name": "SE_EDITOR_EDIT_TILE_UNK_0xA20D40",
+      "value": "Nieznany bajt (0xA20D40)"
+    }
+  ]
+}

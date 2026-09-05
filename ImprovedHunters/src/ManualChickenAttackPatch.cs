@@ -3,10 +3,12 @@ using SHCDESE.API;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
-using Zhuqiaomon.Assembly;
-using Zhuqiaomon.Hooks;
-using Zhuqiaomon.Hooks.Transaction;
-using Zhuqiaomon.Memory;
+using RedBird.Abstractions.Hooks;
+using RedBird.Abstractions.Hooks.Transaction;
+using RedBird.Core.Memory;
+using RedBird.X64.Assembly;
+using RedBird.X64.Hooks;
+using RedBird.X64.Hooks.Transaction;
 
 namespace ImprovedHunters
 {
@@ -40,7 +42,7 @@ namespace ImprovedHunters
         private readonly ManualLogSource log;
         private readonly Func<bool> canAllowManualChickenAttack;
         private HookTransaction transaction;
-        private HookRef<X64InlineHook> compatibilityDecisionHook = new HookRef<X64InlineHook>();
+        private readonly HookHandle<X64InlineHook> compatibilityDecisionHook = new HookHandle<X64InlineHook>();
         private bool featureAvailable = true;
         private bool hookConfirmed;
         private int decisionLogs;
@@ -49,6 +51,7 @@ namespace ImprovedHunters
 
         public ManualChickenAttackPatch(
             ManualLogSource log,
+            ScanRegion region,
             ReadOnlySpan<byte> memory,
             ulong libraryBase,
             bool referenceHashMatches,
@@ -95,26 +98,23 @@ namespace ImprovedHunters
 
             try
             {
-                transaction = new HookTransaction(
-                    memory,
-                    libraryBase,
-                    loggerFactory: null,
-                    failureMode: TransactionFailureMode.RollbackAndThrow);
-                transaction.AddContextHook(
-                    ref compatibilityDecisionHook,
+                transaction = HunterHookInfrastructure.CreateOwnedTransaction(region);
+                HunterHookInfrastructure.AddContextHook(
+                    transaction,
+                    compatibilityDecisionHook,
                     libraryBase + unchecked((ulong)hookRva),
                     AllowManualChickenTarget,
                     // Vanilla keeps its unit-manager pointer in R8 across this
                     // decision. Preserve every volatile register around the
                     // managed callback before returning to the native path.
-                    regs: X64SmartCPUContextRegs.Volatile |
+                    registers: X64SmartCPUContextRegs.Volatile |
                         X64SmartCPUContextRegs.R14 |
                         X64SmartCPUContextRegs.R15,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
-                transaction.Commit();
+                CommitResult commitResult = transaction.Commit();
 
-                if (!compatibilityDecisionHook.Success)
+                if (!commitResult.IsCompleteSuccess || !compatibilityDecisionHook.Success)
                     throw new InvalidOperationException("The manual chicken AttackUnit hook was not installed.");
 
                 Shared.DebugLogHelper.LogInfo(
@@ -288,7 +288,6 @@ namespace ImprovedHunters
 
             disposed = true;
             featureAvailable = false;
-            transaction?.Unload();
             transaction?.Dispose();
             transaction = null;
         }

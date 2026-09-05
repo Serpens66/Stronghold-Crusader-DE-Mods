@@ -5,7 +5,7 @@ using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using Zhuqiaomon.Memory;
+using RedBird.Core.Memory;
 
 namespace ImprovedHunters
 {

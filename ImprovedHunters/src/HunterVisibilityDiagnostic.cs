@@ -6,7 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
-using Zhuqiaomon.Memory;
+using RedBird.Core.Memory;
 
 namespace ImprovedHunters
 {
