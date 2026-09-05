@@ -2,6 +2,49 @@
 
 Stand: 5. September 2026
 
+## Aktueller Abschluss: Host-Modsetting und gemeinsame Gruppenwege (05.09.2026, 22:56)
+
+Die unterbrochene Umsetzung wurde anhand des sauberen, inzwischen eingecheckten Arbeitsstands fortgesetzt. Die vorherigen Gebäude-, Angriffs-, Fill-, Cursor- und Verteilungsreparaturen bleiben erhalten. Nach Abschluss nochmals Code, API, native Verträge, Tests, Textdateien und installiertes Paket geprüft.
+
+### Einstellungen und Lebenszyklus
+
+- `MoveMoatSettings` verwendet das gemeinsame Presetsystem und `SerpLocalization`; Registrierung durch `LobbyModSettingsPresetRegistration.Register` während `Awake`. Die Settings und native Runtime bleiben statisch verwurzelt; kein Startup-Teardown und keine neue Unity-Update-Schleife.
+- `EnableMod` und `RouteMode` sind `[SyncHostOnly]`. Standard: aktiviert und Modus 0 **Individuelle Wege – genau**. Modus 1: **Gemeinsame Gruppenwege – schneller**. Ungültige gespeicherte Moduswerte werden auf 0 normalisiert. Der geometrische dritte Modus ist nicht implementiert.
+- Die Setter verwenden `CanMutateSetting` und die gemeinsame `OnPropertyChanged`-Schicht. Ein einfacher Aufruf der Extender-Basismethode `SetSynced` würde die zusätzliche Preset-Benachrichtigungsschicht umgehen; deshalb wird das vorhandene gemeinsame Mutationsmuster verwendet. Trail-Sperre, autorisierte Hostübernahme und Schutz lokaler Presets bleiben wirksam.
+- Oberfläche: Host-Aktivierung, beschriftetes Preset, Zurücksetzen, Rollenstatus, HOST-OPTIONEN und Modusauswahl; beide Scrollrichtungen. Lokalisierung unter `Locales/de-DE.txt` und `Locales/en-US.txt`, XAML unter `Override/ScriptExtenderUI`. Diese Dateien werden vom bestehenden Buildpaket installiert.
+- Der synchrone Auftrag hält seinen Aktivierungs-/Modussnapshot. Einstellungswechsel verändern keine bereits veröffentlichten Wege. Neue Cursor- und Bewegungsfreigaben berücksichtigen die Aktivierung; laufende Unit-Kontexte behalten ihre bisherige Sicherheitsprüfung.
+
+### Gemeinsame Weggeometrie
+
+`GroupRouteSession` trennt Spieler und kompatible vollständige Geschwindigkeitsprofile. Referenzwahl deterministisch über ganzzahligen Abstand zum arithmetischen Mittelpunkt, Gleichstand nach Game-ID. Mitglieder innerhalb zwölf Feldern Chebyshev-Abstand bilden eine Gruppe; übrige Mitglieder werden erneut gruppiert. Einzelmitglieder bleiben individuell.
+
+Die Hauptstrecke entsteht erst bei einer passenden konkreten Anfrage. Native Ziele bleiben unverändert. Ziele außerhalb des zwölf Felder großen Endbereichs erhalten eine weitere Hauptstrecke beziehungsweise den individuellen Rückfall. Der Referenzstart wird als geometrischer Auftragssnapshot verwendet: Startet Vanilla die Referenzeinheit bereits, wird ihre alte Geometrie dadurch nicht für nachfolgende Mitglieder unbrauchbar. Aktueller Start und Identität jedes tatsächlichen Empfängers werden weiterhin individuell geprüft.
+
+`SharedRouteField` baut zwei gewichtete Felder auf, jeweils höchstens 25 × 25 Felder: rückwärts um den Anfang und vorwärts um das Ende. Rückwärtssuche prüft die ursprüngliche gerichtete Kante. Mehrere Hauptstreckenknoten dienen als Anschlüsse; ihre Präfixkosten sind in den Seedkosten enthalten. Rekonstruktion verlangt Einstieg vor Ausstieg, keine doppelten Knoten und höchstens 2.000 kodierbare Kanten. Strukturwege ohne kalibrierte Kosten und terminale Arbeitskontakte verwenden das bisherige Verfahren. Ein reservierter Endpunkt wird nicht als allgemein durchquerbarer Anschluss geöffnet.
+
+Notwendige Wege übernehmen die geprüfte gemeinsame Geometrie direkt in den qualifizierten Pfad. Sie wird ausdrücklich **nicht** als individuell optimal markiert. Die spätere gewichtete Phase erkennt dieselben bereits veröffentlichten Bytes und startet dafür nicht wieder eine individuelle Optimierung. Bei optionalen Abkürzungen gelten unverändert mindestens 40 Ticks Ersparnis im tatsächlichen Profil und eine Verbesserung in allen plausiblen Profilen. Scheitern Anschluss, Profilvergleich oder Audit, folgt die bisherige individuelle Suche. Auch ein interner Fehler der gemeinsamen Berechnung fällt darauf zurück; es entstehen keine Ersatzbefehle.
+
+Caches gelten nur für den synchronen Auftrag, Kartenepoche, Tick und Zustandsrevision. ID-Wiederverwendung und Spielerwechsel werden geprüft. Relevante verschachtelte Unit-Aufrufe invalidieren die Suchdaten; Arbeitskontakte erhalten keine Gruppen-Geometrie. Unit-Puffer und Pläne werden niemals gemeinsam gespeichert. Beide Builder behalten ihren bestehenden Audit und Rollback. Die zusätzliche Gruppenroutine installiert keine neuen nativen Hooks.
+
+### Tatsächliche Prüfungen
+
+- Lokale Referenz und installierte API gegen Script Extender **1.42.0** geprüft; kanonischer Fork unverändert. Sämtliche 21 Runtime-Dateien einschließlich gemeinsamer UI-/Preset-Quellen semantisch geprüft.
+- Native DLL erneut gegen Baseline geprüft: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`. Bestehende Maschinen-/ABI-Prüfung einschließlich Formation, Entzerrung, Angriffs-Producer und Gebäude-Consumer bestanden; keine neuen Hookbereiche.
+- **227.337 Runtime-Assertions**, einschließlich wiederholter vollständiger Unit-Pre → Modus/Region → individueller Builder/Puffer → Unit-Post-Simulation. Beide Builder, beide Modi und Gruppengrößen bis 1.000 enthalten; bestehende Owner-, Endpunkt-, Fill-, Cursor-, Verteilungs- und Rollbackfälle erneut ausgeführt.
+- **8.999 gemeinsame gerichtete Anschlusswege** gegen unabhängige Bellman-Ford-Referenz verglichen. Deterministische Mittelpunkt-/Radius-/Spieleraufteilung zusätzlich geprüft. Bestehende 18.258 Suchassertions einschließlich 6.480 Gebäude-Distanzvergleichen und 1.469.340 Cursorvergleichen bestanden.
+- Settings-Test verwendet den tatsächlichen neuen ViewModel-Code, den gemeinsamen Presetcontroller und den Quellcode der Extender-Basisklasse aus 1.42.0; native UI/Netzwerkumgebung wird simuliert. Defaults, ungültiger Wert, Presetwechsel, Trail-Sperre, Client-Ablehnung, autorisierte Hostübernahme, lokale Dateiisolation und Reset bestanden. Ein älterer Presettest meldete zunächst eine fehlende Migration. Die neue Prüfung mit sichtbarer Fehlerausgabe wies eine Sandbox-Sperre beim atomaren `File.Replace` nach und besteht mit erhöhtem Dateizugriff; der ältere Test wurde nicht als Abnahmenachweis verwendet. Dies ist kein Nachweis eines echten LAN-Laufs.
+- Finales Protokoll: `_inspect/MoveMoatRegressionTests/latest-shared-regression.log`. Kleine gemeinsame Produktionskorridore mit 1/120/680/1.000 Einheiten geprüft. Im letzten 1.000er-Korridor etwa **2,48 ms** und **1,58 MB** Allokationen; der Test enthält zusätzlich absichtliche Ablehnungen, Referenzbewegung und eine Invalidierung. Deshalb zwei Hauptsuchen statt einer. Separates Anschlussmodell: 1.000 Rekonstruktionen etwa **0,42 ms**, 1.250 Feldknoten. **Das sind kleine synthetische Karten, keine Spielbeschleunigung und kein Nachweis für unter 300 ms auf großen Spielkarten.** Kalte Initialisierung/JIT und unterschiedliche Prüfumfänge machen einen direkten Vergleich der Modellzeilen ungeeignet.
+- Native Befehlszusammenfassungen enthalten `routeMode`, `sharedMain`, `sharedMainMs`, `sharedConnectorMs`, `sharedNodes`, `sharedReuse` und `sharedFallback` zusätzlich zur gesamten Befehlszeit und bisherigen Bewegungsdiagnose. Rückfälle zählen Berechnungsversuche, nicht zwingend unterschiedliche Einheiten.
+- Projekt-/XAML-XML, Referenzdateien, Versionskonsistenz, Lifecycle, `git diff --check`, CRLF und Unicode geprüft. Keine README- oder öffentliche QoL-Bridge-Änderung.
+
+### Build und verbleibende Spielabnahme
+
+Nach allen Codeprüfungen am **05.09.2026 um 22:55:25** genau einmal den bestehenden `build.bat /nopause` direkt erhöht ausgeführt: **0 Warnungen, 0 Fehler**, Installation erfolgreich. Modversion weiterhin **1.0.0**. Lokales und installiertes Paket einschließlich XAML, beider Sprachdateien, PDB und Manifest stimmen byteweise überein. Neue Mod-DLL:
+
+`133350936AFF34ECBAB944ACA674433140FC839BF99AB39FC4681CF4E4BB1DBF`
+
+Die Oberfläche muss noch im Spiel materialisiert und beide Modi müssen unter gleicher Ausgangslage verglichen werden: besonders große Bewegungs-, Unit-Angriffs- und Gebäudeangriffsgruppen, Queue, Patrol, gemischte Starts sowie spätere Fill-/Dig-Zyklen. Echte Host-/Client-Synchronisierung und spätere Runtime-/Zielankunftsmarker stehen ebenfalls aus. Große Entfernungen innerhalb einer Armee, Profilunterschiede, Hindernisse zwischen nahen Units oder abgelehnte Anschlüsse können weiterhin individuelle Berechnungen verursachen. Unter 300 ms für 1.000 Einheiten bleibt ein Messziel.
+
 ## Aktuelle Reparatur: gemeinsame Gebäudeplatzprüfung
 
 Der Spiellauf mit Mod-DLL D463D13A8320F8ED46AB6CEFAD31ACB5559DD0E5CEA81F721227C5A2F83A0EF8

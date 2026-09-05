@@ -27,9 +27,7 @@ namespace MoveMoatTest
                 UnitMoveFrame parent = GetCurrentUnitMoveFrame();
                 if (parent != null)
                 {
-                    weightedMoatRoutePlanner.SetSearchSession(null, -1, mapEpoch, CaptureCurrentGameTick());
-                    nativeGroundDecisions.Clear();
-                    activeMoveCommand?.TargetedRouteDecisions.Clear();
+                    InvalidateMovementSearchData();
                 }
                 unitMoveFrame = new UnitMoveFrame(args, parent, mapEpoch,
                     CaptureCurrentGameTick(), activeMoveCommand);

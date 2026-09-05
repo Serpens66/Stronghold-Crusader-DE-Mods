@@ -238,7 +238,7 @@ namespace MoveMoatTest
         private bool ProbeCursorConnectivity(int player, int start, int target, out RouteProbeSummary summary)
         {
             summary = new RouteProbeSummary(player);
-            if (!IsValidTileId(start) || !IsValidTileId(target)) return false;
+            if (!ExtensionsEnabled || !IsValidTileId(start) || !IsValidTileId(target)) return false;
             long started = Stopwatch.GetTimestamp(); cursorQueries++;
             try
             {

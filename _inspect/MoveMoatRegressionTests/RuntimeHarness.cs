@@ -1,3 +1,4 @@
+using System.Linq;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -79,7 +80,7 @@ namespace MoveMoatTest
         private PlanScope activePlan, pendingPlan;
         private UnitMoveFrame unitMoveFrame;
         private MoveCommandScope activeMoveCommand;
-        private object activeAttackCommand;
+        private AttackCommandScope activeAttackCommand;
         private object activeAttackApproachDiagnostic;
         private int* cursorTargetX, cursorTargetY;
         private Func<IntPtr,int> originalCursorTilePairFallbackSelection, selectionCanDigMoat;
@@ -129,6 +130,8 @@ namespace MoveMoatTest
         private class Performance { public int ReachabilityCacheHits, ReachabilityMapsBuilt; }
         private class MoveCommandScope
         {
+            internal GroupRouteSession Routes = new GroupRouteSession(MoveMoatTestPlugin.Settings.EnableMod, MoveMoatTestPlugin.Settings.RouteMode == 1);
+            internal int[] ActiveUnitIdsAtDispatch = Array.Empty<int>();
             public bool IsNewOrder;
             public int WeightedPublished;
             public int TargetX, TargetY, ModeCalls, TargetedRouteCacheHits, TargetedRouteSearches, TargetedRouteExpandedNodes;
@@ -347,7 +350,11 @@ namespace MoveMoatTest
                 Check(activeMoveCommand.TargetedRouteSearches == searched, "negative cache avoids new search");
                 activeMoveCommand = null; pendingPlan = null;
 
+                TestSharedRoutePipeline(units);
                 TestUnitMovePipeline(manager, units);
+                captureWeighted=true;MoveMoatTestPlugin.Settings.RouteMode=1;
+                TestUnitMovePipeline(manager, units);
+                captureWeighted=false;MoveMoatTestPlugin.Settings.RouteMode=0;
 
                 MoatWorkSelectionScope NewScope() => new MoatWorkSelectionScope(mapEpoch, (IntPtr)1, 1, 1, 2, 10, 10, 1010, 1);
                 var work = NewScope();
@@ -472,6 +479,8 @@ namespace MoveMoatTest
                 ClearUnitMoveFrames();
                 activePlan = pendingPlan = null;
                 activeMoveCommand = new MoveCommandScope { TargetX = x, TargetY = 10 };
+                if(MoveMoatTestPlugin.Settings.RouteMode==1)
+                    activeMoveCommand.ActiveUnitIdsAtDispatch=System.Linq.Enumerable.Range(1,120).ToArray();
             }
             int nativeCalls = 0;
             originalPathBuilder = (m, c, p) =>
@@ -486,10 +495,12 @@ namespace MoveMoatTest
             };
             // Actual sequence: group context -> per-unit Pre (formation target) ->
             // native mode callback -> unit buffer/target binding -> builder -> Post.
-            foreach (int count in new[] { 1, 5, 20, 27, 29, 120 })
+            originalPathReconstruction = m => originalPathBuilder(m, 1, 1);
+            foreach (int count in new[] { 1, 5, 20, 27, 29, 120, 680, 1000 })
             foreach (bool formation in new[] { false, true })
             {
                 NewCommand();
+                if(MoveMoatTestPlugin.Settings.RouteMode==1)activeMoveCommand.ActiveUnitIdsAtDispatch=Enumerable.Range(1,count).ToArray();
                 for (int id = 1; id <= count; id++)
                 {
                     int target = formation ? 14 + id % 5 : 17;
@@ -503,7 +514,9 @@ namespace MoveMoatTest
                     Check(request.UnitId == id && request.TargetX == target && activeMoveCommand.TargetX == 17,
                         "request identity is separate from click target");
                     int before = nativeCalls;
-                    int result = BuildPathWithCompletedMoatRouteVariant(nativePathManager, 1, 1);
+                    int result = MoveMoatTestPlugin.Settings.RouteMode==1 && id%2==0
+                        ? BuildReconstructedUnitPath(nativePathManager)
+                        : BuildPathWithCompletedMoatRouteVariant(nativePathManager, 1, 1);
                     Check(result == target - 10 && nativeCalls == before + 1,
                         "every group unit gets vanilla-first and successful fallback");
                     Check(TryAuditFallbackPath(nativePathManager, Buffer(id), result, request, units + id, out _),
@@ -883,3 +896,10 @@ namespace MoveMoatTest {
 }
 
 namespace Shared { internal static class DebugLogHelper { public static void LogInfo(object log,string text) {} } }
+
+namespace MoveMoatTest {
+ internal static class MoveMoatTestPlugin {
+  internal static readonly SettingsStub Settings = new SettingsStub();
+ }
+ internal sealed class SettingsStub { internal bool EnableMod=true; internal int RouteMode; }
+}

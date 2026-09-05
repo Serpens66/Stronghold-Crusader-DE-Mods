@@ -1587,6 +1587,7 @@ namespace MoveMoatTest
                         $"weightedPublished={command?.WeightedPublished ?? 0} " +
                         $"weightedSearchMs={(command?.WeightedSearchMilliseconds ?? 0):F3} " +
                         $"weightedMaxSearchMs={(command?.WeightedMaximumSearchMilliseconds ?? 0):F3} " +
+                        $"routeMode={(command?.Routes.Shared == true ? 1 : 0)} sharedMain={command?.Routes.MainSearches ?? 0} sharedMainMs={(command?.Routes.MainMilliseconds ?? 0):F3} sharedConnectorMs={(command?.Routes.ConnectorMilliseconds ?? 0):F3} sharedNodes={command?.Routes.ConnectorNodes ?? 0} sharedReuse={command?.Routes.Reused ?? 0} sharedFallback={command?.Routes.Fallbacks ?? 0} " +
                         $"targetedSearches={command?.TargetedRouteSearches ?? 0} " +
                         $"targetedSearchPasses={command?.TargetedRouteSearchPasses ?? 0} " +
                         $"targetedCacheHits={command?.TargetedRouteCacheHits ?? 0} " +
@@ -1665,7 +1666,8 @@ namespace MoveMoatTest
                             $"weightedDecisions={scope.WeightedDecisions} " +
                             $"weightedPublished={scope.WeightedPublished} " +
                             $"weightedSearchMs={scope.WeightedSearchMilliseconds:F3} " +
-                            $"weightedMaxSearchMs={scope.WeightedMaximumSearchMilliseconds:F3}");
+                            $"weightedMaxSearchMs={scope.WeightedMaximumSearchMilliseconds:F3} " +
+                            $"routeMode={(scope.Routes.Shared ? 1 : 0)} sharedMain={scope.Routes.MainSearches} sharedMainMs={scope.Routes.MainMilliseconds:F3} sharedConnectorMs={scope.Routes.ConnectorMilliseconds:F3} sharedNodes={scope.Routes.ConnectorNodes} sharedReuse={scope.Routes.Reused} sharedFallback={scope.Routes.Fallbacks}");
                     }
                 }
             }
@@ -3207,8 +3209,8 @@ namespace MoveMoatTest
 
         // Mirrors the per-unit switch in Vanilla's DigMoatTileId (command 6) handler.
         // There is no generic capability field in that command path.
-        private static bool CanDigMoat(GameUnit* unit) =>
-            unit != null && CanDigMoat(unit->r_UnitChimp);
+        private bool CanDigMoat(GameUnit* unit) =>
+            ExtensionsEnabled && unit != null && CanDigMoat(unit->r_UnitChimp);
 
         private static bool CanDigMoat(eChimps type)
         {
@@ -6178,15 +6180,17 @@ namespace MoveMoatTest
                     allowReservedTarget, MoatTraversalPolicy.GroundOnly, out ground));
                 if (!groundReachable)
                 {
-                    WeightedMoatEncodedRoute encoded;
-                    friendlyReachable = hasCost
+                    WeightedMoatEncodedRoute encoded = default;
+                    bool shared = hasCost && TryBuildSharedGroupRoute(plan, unit, startX, startY, plan.TargetX, plan.TargetY,
+                        routeCost, allowReservedTarget, null, out friendly, out encoded);
+                    friendlyReachable = shared || (hasCost
                         ? weightedMoatRoutePlanner.TryBuildEncoded(playerId, startX, startY, plan.TargetX, plan.TargetY,
                             routeCost, allowReservedTarget, out friendly, out encoded)
                         : weightedMoatRoutePlanner.TryBuildReachabilityEncoded(playerId, startX, startY, plan.TargetX, plan.TargetY,
-                            allowReservedTarget, out friendly, out encoded);
+                            allowReservedTarget, out friendly, out encoded));
                     if (friendlyReachable)
                         plan.QualifiedRoute = new QualifiedMovementRoute(startX, startY, plan.TargetX, plan.TargetY,
-                            playerId, mapEpoch, CaptureCurrentGameTick(), placementRevision, encoded, friendly, routeCost, hasCost);
+                            playerId, mapEpoch, CaptureCurrentGameTick(), placementRevision, encoded, friendly, routeCost, hasCost && !shared) { Shared = shared };
                     // Reachability is not limited by the native output buffer.
                     if (!friendlyReachable)
                         friendlyReachable = weightedMoatRoutePlanner.TryProbeReachability(playerId, startX, startY,
@@ -6390,7 +6394,7 @@ namespace MoveMoatTest
             out CursorGroupRouteSummary group)
         {
             boundScope = null; group = default;
-            if (template == null || !TryCaptureSelectedGroup(template.PlayerId, out int[] ids, out string token)) return false;
+            if (!ExtensionsEnabled || template == null || !TryCaptureSelectedGroup(template.PlayerId, out int[] ids, out string token)) return false;
             group.SelectionSignature = token;
             EnsureCursorTopology(template.PlayerId, false);
             cursorSources.Clear(); cursorSourceCounts.Clear();
@@ -6502,7 +6506,7 @@ namespace MoveMoatTest
             out RouteProbeSummary summary)
         {
             approachX = -1; approachY = -1; summary = default;
-            if (scope == null) return false;
+            if (!ExtensionsEnabled || scope == null) return false;
             bool normal, friendly;
             if (scope.FallbackKind == CursorPairFallbackKind.DirectTile)
             {
@@ -8099,6 +8103,7 @@ namespace MoveMoatTest
 
         private sealed class AttackCommandScope
         {
+            internal readonly GroupRouteSession Routes = new GroupRouteSession(MoveMoatTestPlugin.Settings.EnableMod, MoveMoatTestPlugin.Settings.RouteMode == 1);
             public AttackCommandScope(
                 AttackCommandScope previous,
                 int sequence,
@@ -8837,6 +8842,7 @@ namespace MoveMoatTest
 
         private sealed class MoveCommandScope
         {
+            internal readonly GroupRouteSession Routes = new GroupRouteSession(MoveMoatTestPlugin.Settings.EnableMod, MoveMoatTestPlugin.Settings.RouteMode == 1);
             public MoveCommandScope(
                 int sequence,
                 int tribeId,
@@ -8848,6 +8854,8 @@ namespace MoveMoatTest
                 int parentAttackCommandSequence,
                 TribeAICommand parentAttackCommand)
             {
+                if (activeAttackCommand != null)
+                    Routes = new GroupRouteSession(activeAttackCommand.Routes.Enabled, activeAttackCommand.Routes.Shared);
                 Sequence = sequence;
                 TribeId = tribeId;
                 TargetX = targetX;
@@ -8966,6 +8974,7 @@ namespace MoveMoatTest
 
         private sealed class QualifiedMovementRoute
         {
+            internal bool Shared;
             public readonly int StartX, StartY, TargetX, TargetY, Player, Epoch, Tick;
             public readonly long Revision;
             public readonly WeightedMoatEncodedRoute Route;
@@ -9008,11 +9017,13 @@ namespace MoveMoatTest
 
         private sealed class UnitMoveFrame
         {
+            internal readonly bool ExtensionsEnabledAtStart;
             public UnitMoveFrame(UnitMoveHereEventArgs args, UnitMoveFrame parent,
                 int mapEpoch, int tick, MoveCommandScope command)
             {
                 Args = args;
                 Parent = parent;
+                ExtensionsEnabledAtStart = command?.Routes.Enabled ?? parent?.ExtensionsEnabledAtStart ?? MoveMoatTestPlugin.Settings.EnableMod;
                 MapEpoch = mapEpoch;
                 Tick = tick;
                 Command = command;

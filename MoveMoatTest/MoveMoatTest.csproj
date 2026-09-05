@@ -117,4 +117,56 @@
     <Error Condition="!Exists('$(ExtenderDir)\Iced.dll')" Text="Iced.dll was not found: $(ExtenderDir)" />
     <Error Condition="!Exists('$(ExtenderDir)\Microsoft.Extensions.Logging.Abstractions.dll')" Text="Microsoft.Extensions.Logging.Abstractions.dll was not found: $(ExtenderDir)" />
   </Target>
+  <ItemGroup>
+    <Compile Include="..\Shared\SerpLocalization.cs">
+      <Link>Shared\SerpLocalization.cs</Link>
+    </Compile>
+    <Compile Include="..\Shared\PresetLobbyModSettingsViewModel.cs">
+      <Link>Shared\PresetLobbyModSettingsViewModel.cs</Link>
+    </Compile>
+    <Compile Include="..\Shared\ModSettingsSearch.cs">
+      <Link>Shared\ModSettingsSearch.cs</Link>
+    </Compile>
+    <Compile Include="..\Shared\ToolTipPresentation.cs">
+      <Link>Shared\ToolTipPresentation.cs</Link>
+    </Compile>
+    <Compile Include="..\Shared\GameModeHelper.cs">
+      <Link>Shared\GameModeHelper.cs</Link>
+    </Compile>
+    <Compile Include="src\MoveMoatSettings.cs" />
+    <Compile Include="src\SharedRouteField.cs" />
+    <Compile Include="src\SharedGroupRoutes.cs" />
+    <Content Include="Locales\*.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Override\ScriptExtenderUI\*.xaml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Reference Include="System.Xml" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="Assembly-CSharp">
+      <HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Noesis.NoesisGUI">
+      <HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Noesis.NoesisGUI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="com.rlabrecque.steamworks.net">
+      <HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\com.rlabrecque.steamworks.net.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.InputLegacyModule">
+      <HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.InputLegacyModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="MessagePack">
+      <HintPath>$(ExtenderDir)\MessagePack.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="MessagePack.Annotations">
+      <HintPath>$(ExtenderDir)\MessagePack.Annotations.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
 </Project>

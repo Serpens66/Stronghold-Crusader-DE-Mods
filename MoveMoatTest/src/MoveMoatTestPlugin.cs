@@ -16,6 +16,7 @@ namespace MoveMoatTest
 
         // BepInEx destroys this component during startup. Static ownership keeps the
         // native detours and their delegates rooted for the complete process.
+        internal static readonly MoveMoatSettings Settings = new MoveMoatSettings();
         private static ManualLogSource persistentLog;
         private static MoveMoatPathTest feature;
         private static bool librarySubscriptionInstalled;
@@ -36,6 +37,8 @@ namespace MoveMoatTest
             if (librarySubscriptionInstalled)
                 return;
 
+            Shared.LobbyModSettingsPresetRegistration.Register(this, Logger, PluginGuid, Settings,
+                "ScriptExtenderUI/MoveMoatSettings.xaml");
             CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
             librarySubscriptionInstalled = true;
         }

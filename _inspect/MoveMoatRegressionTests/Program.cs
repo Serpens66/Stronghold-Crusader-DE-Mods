@@ -15,6 +15,7 @@ if (syntaxErrors.Length > 0)
     throw new Exception(string.Join("\n", syntaxErrors.Select(d => d.ToString())));
 ValidateSelectionMetadata();
 ValidateRuntimeSources();
+ValidateModeSettings();
 
 var methods = new HashSet<string>(new[] {
     "TryApplyBuildingConsumerFallback", "IsLegalBuildingCandidate", "BuildingCandidateEdge", "TryCaptureOrderedActiveGroupUnits", "CaptureBuildingApproachCandidates", "CaptureBuildingApproachBuffer", "RestoreBuildingApproachBuffer", "WriteBuildingApproachCandidates", "WriteBuildingApproachCandidate", "PublishBuildingApproachPairs", "TryGetPublishedBuildingFootprint", "MatchesSynchronousAttackMovementContext", "TryGetUnitAttackMoveTile", "IsValidBuildingApproachPair", "IsWalkableBuildingApproachEndpoint", "IsExactBuildingContextTile", "TryValidateHostileBuildingTarget",
@@ -90,6 +91,9 @@ var referenceTree=CSharpSyntaxTree.ParseText("using System; using System.Collect
 var compilation = CSharpCompilation.Create("Assembly-CSharp", new[] {
     referenceTree,
     CSharpSyntaxTree.ParseText(extracted),
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"_inspect","MoveMoatRegressionTests","SharedRouteTests.cs"))),
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "SharedRouteField.cs"))),
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "SharedGroupRoutes.cs")).Replace("using SHCDESE.API;", "").Replace("using SHCDESE.Interop;", "").Replace("using SHCDESE.Interop.Enums;", "")),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "WeightedMoatRoutePlanner.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "MoatSearchKernel.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "MoatPlacementSearch.cs"))),
@@ -112,6 +116,7 @@ var assembly = Assembly.Load(output.ToArray());
 try
 {
     assembly.GetType("MoveMoatTest.MoveMoatPathTest").GetMethod("RunTests").Invoke(null, null);
+    assembly.GetType("MoveMoatTest.SharedRouteTests").GetMethod("Run").Invoke(null, null);
     assembly.GetType("MoveMoatTest.SearchKernelTests").GetMethod("Run").Invoke(null, null);
     assembly.GetType("MoveMoatTest.CursorGraphTests").GetMethod("Run").Invoke(null, null);
     assembly.GetType("MoveMoatTest.MoveMoatPathTest").GetMethod("RunMachineContract").Invoke(null,new object[]{root});
@@ -140,11 +145,11 @@ void ValidateRuntimeSources()
     foreach(string path in Directory.GetFiles(Path.Combine(framework,"Facades"),"*.dll"))Include(path);
     foreach(string path in Directory.GetFiles(Path.Combine(game,"BepInEx","core"),"*.dll"))Include(path);
     foreach(string file in new[]{"SHCDESE.dll","R3.dll","System.Memory.dll","Zhuqiaomon.dll","Iced.dll",
-        "Microsoft.Extensions.Logging.Abstractions.dll","System.Threading.Tasks.Extensions.dll","System.Runtime.CompilerServices.Unsafe.dll"})
+        "Microsoft.Extensions.Logging.Abstractions.dll","System.Threading.Tasks.Extensions.dll","System.Runtime.CompilerServices.Unsafe.dll","MessagePack.dll","MessagePack.Annotations.dll"})
         Include(Path.Combine(extender,file));
-    foreach(string file in new[]{"UnityEngine.dll","UnityEngine.CoreModule.dll"})
+    foreach(string file in new[]{"UnityEngine.dll","UnityEngine.CoreModule.dll","UnityEngine.InputLegacyModule.dll","Assembly-CSharp.dll","Noesis.NoesisGUI.dll","com.rlabrecque.steamworks.net.dll"})
         Include(Path.Combine(game,"Stronghold Crusader Definitive Edition_Data","Managed",file));
-    var sources=trees.Concat(new[]{"DebugLogHelper.cs","NativePatternResolver.cs"}.Select(file=>
+    var sources=trees.Concat(new[]{"DebugLogHelper.cs","NativePatternResolver.cs","SerpLocalization.cs","PresetLobbyModSettingsViewModel.cs","ModSettingsSearch.cs","ToolTipPresentation.cs","GameModeHelper.cs"}.Select(file=>
         CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"Shared",file)),path:file)));
     var check=CSharpCompilation.Create("MoveMoatSourceContract142",sources,
         paths.Values.Select(p=>MetadataReference.CreateFromFile(p)),
@@ -155,7 +160,7 @@ void ValidateRuntimeSources()
     var failures=diagnostics.Where(d=>d.Severity==DiagnosticSeverity.Error).ToArray();
     if(failures.Length>0)throw new Exception(string.Join("\n",failures.Select(d=>d.ToString())));
     foreach (string file in new[]{"SHCDESE.dll","R3.dll","System.Memory.dll","Zhuqiaomon.dll","Iced.dll",
-        "Microsoft.Extensions.Logging.Abstractions.dll","System.Threading.Tasks.Extensions.dll","System.Runtime.CompilerServices.Unsafe.dll"})
+        "Microsoft.Extensions.Logging.Abstractions.dll","System.Threading.Tasks.Extensions.dll","System.Runtime.CompilerServices.Unsafe.dll","MessagePack.dll","MessagePack.Annotations.dll"})
         Include(Path.Combine(game,"BepInEx","plugins","000shcdese",file));
     string installedVersion=System.Diagnostics.FileVersionInfo.GetVersionInfo(Path.Combine(game,"BepInEx","plugins","000shcdese","SHCDESE.dll")).ProductVersion;
     if(installedVersion?.Split('+')[0]!="1.42.0") throw new Exception("Installed extender is not release 1.42.0: "+installedVersion);
@@ -180,4 +185,25 @@ void ValidateSelectionMetadata()
     if((field.Attributes & FieldAttributes.Static)==0 || !metadata.GetBlobBytes(field.Signature).SequenceEqual(new byte[]{6,0x1D,8}))
         throw new Exception("Selection field must be static int[]");
     Console.WriteLine($"PASS installed metadata: Assembly-CSharp / global EngineInterface / selectedChimps static int[] ({field.Attributes}).");
+}
+
+void ValidateModeSettings()
+{
+    string extender=Path.Combine(root,"shcde-script-extender","src","SHCDESE.BepInEx","bin","net481");
+    System.Runtime.Loader.AssemblyLoadContext.Default.Resolving += (_, name) => {
+        string file=Path.Combine(extender,name.Name+".dll");return File.Exists(file)?Assembly.LoadFrom(file):null;
+    };
+    var sources=new[]{Path.Combine(root,"Shared","PresetLobbyModSettingsViewModel.cs"),
+        Path.Combine(sourceDir,"MoveMoatSettings.cs"),
+        Path.Combine(root,"shcde-script-extender","src","SHCDESE.BepInEx","ViewModels","LobbyModSettingsBaseViewModel.cs"),
+        Path.Combine(root,"_inspect","MoveMoatRegressionTests","ModeSettingsTests.cs")}.Select(p=>
+        CSharpSyntaxTree.ParseText(File.ReadAllText(p),new CSharpParseOptions(preprocessorSymbols:new[]{"SHARED_PRESET_TESTS"}),path:p));
+    var refs=((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")).Split(Path.PathSeparator).Select(p=>MetadataReference.CreateFromFile(p)).Concat(
+        new[]{"MessagePack.dll","MessagePack.Annotations.dll"}.Select(p=>MetadataReference.CreateFromFile(Path.Combine(extender,p))));
+    var c=CSharpCompilation.Create("MoveMoatSettings142Tests",sources,refs,new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+    using var bytes=new MemoryStream();var result=c.Emit(bytes);
+    if(!result.Success)throw new Exception(string.Join("\n",result.Diagnostics.Where(d=>d.Severity==DiagnosticSeverity.Error)));
+    var a=Assembly.Load(bytes.ToArray());
+    try { a.GetType("ModeSettingsTests").GetMethod("Run").Invoke(null,new object[]{Path.Combine(root,"_inspect","MoveMoatRegressionTests","settings-runs",Guid.NewGuid().ToString("N"))}); }
+    catch(TargetInvocationException e){throw e.InnerException??e;}
 }

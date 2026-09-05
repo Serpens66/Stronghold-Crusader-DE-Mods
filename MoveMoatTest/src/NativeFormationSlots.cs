@@ -53,7 +53,7 @@ namespace MoveMoatTest
         private void ChooseOwnerSafeFormationSlotCore(IntPtr manager, int spacing, int x, int y)
         {
             MoveCommandScope command = activeMoveCommand;
-            if (disposed || manager == IntPtr.Zero || manager != nativePathManager || nativeTribeManager == IntPtr.Zero ||
+            if (disposed || !ExtensionsEnabled || manager == IntPtr.Zero || manager != nativePathManager || nativeTribeManager == IntPtr.Zero ||
                 command == null || command.TargetX != x || command.TargetY != y ||
                 command.TribeId < 0 || command.TribeId >= MaximumTribeCount || spacing <= 0 ||
                 GetCurrentUnitMoveFrame() != null || placementBatch != null ||

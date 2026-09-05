@@ -299,6 +299,8 @@ namespace MoveMoatTest
     {
         private sealed class AttackCommandScope
         {
+            internal GroupRouteSession Routes = new GroupRouteSession(MoveMoatTestPlugin.Settings.EnableMod, MoveMoatTestPlugin.Settings.RouteMode == 1);
+            internal System.Collections.Generic.HashSet<int> CandidateUnitIds = new System.Collections.Generic.HashSet<int>();
             public int MapEpoch, TribeId, TargetValue1, TargetValue2, Sequence;
             public TribeAICommand Command;
             public System.Collections.Generic.Dictionary<int,System.Collections.Generic.HashSet<int>> PublishedBuildingApproaches = new System.Collections.Generic.Dictionary<int,System.Collections.Generic.HashSet<int>>();
