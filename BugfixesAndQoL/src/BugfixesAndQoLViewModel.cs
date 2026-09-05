@@ -20,6 +20,7 @@ namespace BugfixesAndQoL
         private bool rememberAiAivSettings = true;
         private bool enableCustomLordListEnhancements = true;
         private bool enableAiFixes = true;
+        private bool enableAivDefenderPositionFix = true;
         private bool fixAITowerRepair = true;
         private bool betterAIOverbuildRules = true;
         private bool enableTroopMovementFix = true;
@@ -173,6 +174,8 @@ namespace BugfixesAndQoL
         }
         public string EnableAiFixesText => SerpLocalization.Get(SerpLocalization.EnableAiFixes);
         public string EnableAiFixesHelpText => SerpLocalization.Get(SerpLocalization.EnableAiFixesHelp);
+        public string EnableAivDefenderPositionFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAivDefenderPositionFix");
+        public string EnableAivDefenderPositionFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAivDefenderPositionFixHelp");
         public string FixAITowerRepairText => SerpLocalization.Get("BugfixesAndQoL.FixAITowerRepair");
         public string FixAITowerRepairHelpText => SerpLocalization.Get("BugfixesAndQoL.FixAITowerRepairHelp");
         public string BetterAIOverbuildRulesText => SerpLocalization.Get("BugfixesAndQoL.BetterAIOverbuildRules");
@@ -501,6 +504,13 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool EnableAivDefenderPositionFix
+        {
+            get => enableAivDefenderPositionFix;
+            set => SetSetting(ref enableAivDefenderPositionFix, value, nameof(EnableAivDefenderPositionFix));
+        }
+
+        [SyncHostOnly]
         public bool FixAITowerRepair
         {
             get => fixAITowerRepair;
@@ -776,6 +786,7 @@ namespace BugfixesAndQoL
                 EnableMod = true;
                 AllowFullAiMultiplayerLobby = true;
                 EnableAiFixes = true;
+                EnableAivDefenderPositionFix = true;
                 FixAITowerRepair = true;
                 BetterAIOverbuildRules = true;
                 RememberAiAivSettings = true;

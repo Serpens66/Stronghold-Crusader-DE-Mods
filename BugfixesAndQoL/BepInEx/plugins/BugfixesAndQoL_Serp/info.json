@@ -3,11 +3,17 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.126",
+  "Version": "1.0.127",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.127",
+      "Changes": [
+        "Added an enabled-by-default host fix that restores AIV defender positions for Pikemen, European Swordsmen, and Arabian Swordsmen that Vanilla incorrectly ignores."
+      ]
+    },
     {
       "Version": "1.0.126",
       "Changes": [

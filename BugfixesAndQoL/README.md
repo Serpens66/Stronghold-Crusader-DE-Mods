@@ -43,6 +43,9 @@ The game can interpret the unusable `customisedExtremeTrail` value in a `.trail`
 ### Stop failed knight recruitment from wasting AI resources
 If an AI has the equipment for a knight but no horse is available, Vanilla can accidentally reuse an older missing-weapon result. The AI then repeatedly buys and sells equipment it does not need; this fix recognizes the horse-only shortage and prevents that cycle.
 
+### Restore ignored AIV defender positions
+Vanilla skips the defensive positions stored in an AIV for Pikemen, European Swordsmen, and Arabian Swordsmen. This enabled-by-default host fix removes only that exclusion, allowing the existing AI defense logic to use those positions like every other supported troop row.
+
 ### Fix AI tower rebuilding
 When an AI tries to rebuild a tower from its castle plan, its own tower ruin can block the placement forever. The fix safely removes only the matching ruin owned by that AI; human, enemy, unrelated, and non-tower ruins remain untouched.
 

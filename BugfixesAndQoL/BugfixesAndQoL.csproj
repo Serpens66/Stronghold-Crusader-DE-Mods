@@ -63,6 +63,7 @@
     <Compile Include="src\AiStoneReserveFix.cs" />
     <Compile Include="src\AiStoneReserveNativeDefinition.cs" />
     <Compile Include="src\AiStoneReservePolicy.cs" />
+    <Compile Include="src\AivDefenderPositionFix.cs" />
     <Compile Include="src\AITowerRuinRepairFix.cs" />
     <Compile Include="src\BetterAIOverbuildPolicy.cs" />
     <Compile Include="src\BetterAIOverbuildConflictState.cs" />

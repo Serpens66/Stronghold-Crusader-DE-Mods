@@ -56,6 +56,7 @@ namespace BugfixesAndQoL
         private ShiftRepairAllBuildingsHook shiftRepairAllBuildingsHook;
         private AiRecruitmentHorseDemandFix aiRecruitmentHorseDemandFix;
         private AiStoneReserveFix aiStoneReserveFix;
+        private AivDefenderPositionFix aivDefenderPositionFix;
         private AITowerRuinRepairFix aiTowerRuinRepairFix;
         private BetterAIOverbuildRulesFix betterAIOverbuildRulesFix;
         private PlaguePopularityFix plaguePopularityFix;
@@ -80,6 +81,7 @@ namespace BugfixesAndQoL
         private bool lordMixedDisbandContractValidated;
         private bool aiRecruitmentHorseDemandFixUnavailable;
         private bool aiStoneReserveFixUnavailable;
+        private bool aivDefenderPositionFixUnavailable;
         private bool aiTowerRuinRepairFixUnavailable;
         private bool betterAIOverbuildRulesFixUnavailable;
         private bool plaguePopularityFixUnavailable;
@@ -369,6 +371,7 @@ namespace BugfixesAndQoL
             TryInitializeFeature("Lord control groups", ApplyLordControlGroupPatchSetting);
             TryInitializeFeature("AI recruitment horse-demand fix", EnsureAiRecruitmentHorseDemandFix);
             TryInitializeFeature("AI stone-reserve fix", EnsureAiStoneReserveFix);
+            TryInitializeFeature("AIV defender-position fix", EnsureAivDefenderPositionFix);
             TryInitializeFeature("AI tower-ruin repair fix", EnsureAiTowerRuinRepairFix);
             TryInitializeFeature("better AI overbuild rules", EnsureBetterAIOverbuildRulesFix);
             TryInitializeFeature("ally goods amount modifiers", InstallAllyGoodsAmountModifierHook);
@@ -381,6 +384,7 @@ namespace BugfixesAndQoL
             TryApplyFeature("moved feature settings", ApplyMovedFeatureSettings);
             TryInitializeFeature("AI tower-ruin repair fix", EnsureAiTowerRuinRepairFix);
             TryInitializeFeature("better AI overbuild rules", EnsureBetterAIOverbuildRulesFix);
+            TryInitializeFeature("AIV defender-position fix", EnsureAivDefenderPositionFix);
             TryInitializeFeature("surrender", InitializeSurrenderFeature);
             TryApplyFeature("Lord troop HUD", () => lordUnitControlsFeature?.RefreshSetting());
             TryInitializeFeature("selected-unit health display", InitializeSelectedUnitHealthFeature);
@@ -501,6 +505,8 @@ namespace BugfixesAndQoL
             aiRecruitmentHorseDemandFix = null;
             aiStoneReserveFix?.Dispose();
             aiStoneReserveFix = null;
+            aivDefenderPositionFix?.Dispose();
+            aivDefenderPositionFix = null;
             aiTowerRuinRepairFix?.Dispose();
             aiTowerRuinRepairFix = null;
             betterAIOverbuildRulesFix?.Dispose();
@@ -943,6 +949,51 @@ namespace BugfixesAndQoL
                     log,
                     $"Bugfixes and QoL AI stone-reserve fix could not be installed; " +
                     $"only this AI fix remains inactive and Vanilla behavior remains active: {ex}");
+            }
+        }
+
+        private void EnsureAivDefenderPositionFix()
+        {
+            if (aivDefenderPositionFix != null)
+            {
+                aivDefenderPositionFix.ApplySetting();
+                return;
+            }
+            if (!nativeLibraryAvailable || aivDefenderPositionFixUnavailable)
+                return;
+
+            try
+            {
+                // Retain the validated patch site so synchronized host-setting changes can
+                // physically alternate between the audited Vanilla jump and the six NOPs.
+                aivDefenderPositionFix = new AivDefenderPositionFix(
+                    log,
+                    settings,
+                    GetNativeLibraryMemory(),
+                    unchecked((ulong)libraryHandle.ToInt64()),
+                    fixedLayoutHashValidated);
+                aivDefenderPositionFix.ApplySetting();
+            }
+            catch (Exception ex)
+            {
+                try
+                {
+                    aivDefenderPositionFix?.Dispose();
+                }
+                catch (Exception rollbackEx)
+                {
+                    ex = new AggregateException(
+                        "The AIV defender-position fix failed and cleanup also failed.",
+                        ex,
+                        rollbackEx);
+                }
+
+                aivDefenderPositionFix = null;
+                aivDefenderPositionFixUnavailable = true;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Bugfixes and QoL AIV defender-position fix could not be installed; " +
+                    $"Vanilla behavior remains active: {ex}");
             }
         }
 

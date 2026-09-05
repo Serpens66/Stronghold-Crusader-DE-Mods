@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition="'$(Configuration)' == ''">Debug</Configuration>
+    <Platform Condition="'$(Platform)' == ''">AnyCPU</Platform>
+    <ProjectGuid>{11FBFA70-8D85-4436-B86A-B90B52536C5E}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <RootNamespace>AIDefensePatrolTest</RootNamespace>
+    <AssemblyName>AIDefensePatrolTest</AssemblyName>
+    <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <OutputPath>BepInEx\plugins\AIDefensePatrolTest_Serp\</OutputPath>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>portable</DebugType>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(GameDir)' == ''">
+    <GameDir>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir>
+  </PropertyGroup>
+  <PropertyGroup>
+    <!-- This test mod deliberately compiles only against the installed 1.42.0 release. -->
+    <ExtenderDir>$(GameDir)\BepInEx\plugins\000shcdese</ExtenderDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="BepInEx"><HintPath>$(GameDir)\BepInEx\core\BepInEx.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.CoreModule"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="SHCDESE"><HintPath>$(ExtenderDir)\SHCDESE.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Zhuqiaomon"><HintPath>$(ExtenderDir)\Zhuqiaomon.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Iced"><HintPath>$(ExtenderDir)\Iced.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="System.Memory"><HintPath>$(ExtenderDir)\System.Memory.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Microsoft.Extensions.Logging.Abstractions"><HintPath>$(ExtenderDir)\Microsoft.Extensions.Logging.Abstractions.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="src\AssemblyInfo.cs" />
+    <Compile Include="src\DefenseAssignmentPolicy.cs" />
+    <Compile Include="src\AIDefensePatrolNativeDefinition.cs" />
+    <Compile Include="src\AIDefensePatrolTestPlugin.cs" />
+    <Compile Include="src\AIDefensePatrolTestRuntime.cs" />
+    <Compile Include="..\Shared\DebugLogHelper.cs"><Link>Shared\DebugLogHelper.cs</Link></Compile>
+    <Compile Include="..\Shared\NativePatternResolver.cs"><Link>Shared\NativePatternResolver.cs</Link></Compile>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <Target Name="ValidateReferences" BeforeTargets="BeforeBuild">
+    <Error Condition="!Exists('$(GameDir)\BepInEx\core\BepInEx.dll')" Text="BepInEx.dll was not found below GameDir: $(GameDir)" />
+    <Error Condition="!Exists('$(ExtenderDir)\SHCDESE.dll')" Text="Installed SHCDESE.dll was not found: $(ExtenderDir)" />
+    <Error Condition="!Exists('$(ExtenderDir)\Zhuqiaomon.dll')" Text="Installed Zhuqiaomon.dll was not found: $(ExtenderDir)" />
+    <GetAssemblyIdentity AssemblyFiles="$(ExtenderDir)\SHCDESE.dll">
+      <Output TaskParameter="Assemblies" ItemName="InstalledScriptExtenderIdentity" />
+    </GetAssemblyIdentity>
+    <Error Condition="'%(InstalledScriptExtenderIdentity.Version)' != '1.42.0.0'" Text="AIDefensePatrolTest requires the installed Script Extender assembly version 1.42.0.0; found %(InstalledScriptExtenderIdentity.Version)." />
+  </Target>
+</Project>
