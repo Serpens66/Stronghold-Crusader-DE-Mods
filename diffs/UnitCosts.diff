@@ -1,0 +1,3681 @@
+diff --git a/Shared/GameModeHelper.cs b/Shared/GameModeHelper.cs
+index 22480a13..838befb5 100644
+--- a/Shared/GameModeHelper.cs
++++ b/Shared/GameModeHelper.cs
+@@ -1,17 +1,122 @@
+ using SHCDESE.API;
++using SHCDESE.EventAPI.MapLoader;
+ using CrusaderDE;
+ using System;
+ using System.Collections.Generic;
+ using System.Linq;
++using System.Reflection;
+ #if !SHARED_PRESET_TESTS
+ using Steamworks;
+ #endif
+ 
+ namespace Shared
+ {
++    internal enum GameModeKind
++    {
++        Unknown,
++        MapEditor,
++        Campaign,
++        StandaloneMission,
++        CustomGame,
++        VanillaTrail,
++        CustomTrail,
++        CoopTrail,
++        SandsOfTime,
++    }
++
++    internal enum GameModeLaunchVariant
++    {
++        Standard,
++        Customized,
++        RestoredCustomizedSave,
++    }
++
++    internal enum GameTrailType
++    {
++        FirstEdition = 0,
++        Warchest = 1,
++        Extreme = 2,
++        SandsOne = 11,
++        SandsTwo = 12,
++        SandsThree = 13,
++        SandsFour = 14,
++        SandsFive = 15,
++        SandsSix = 16,
++        SandsSeven = 17,
++        SandsEight = 18,
++    }
++
+     internal static class GameModeHelper
+     {
++        private const int NoGameValue = -1;
++        private const int NoCoopTrail = 0;
++        private const uint NonCampaignMapId = uint.MaxValue;
++        private const int MinimumOriginApiVersion = 1;
++        private const int SupportedOriginApiVersion = 2;
++        private const int FirstCustomTrailId = 90;
++        private const int LastCustomTrailId = 92;
++        private const int FirstCoopTrailId = 0;
++        private const int LastCoopTrailId = 3;
++        private const int FirstMissionId = 1;
++        private const int LastCoopMissionId = 10;
++
+         public static GameModeSnapshot Capture(bool multiplayerSave = false)
++        {
++            return CaptureCore(
++                multiplayerSave,
++                campaignMapId: 0,
++                eventTrailType: NoGameValue,
++                editorLoad: false);
++        }
++
++        public static GameModeSnapshot Capture(MapStartEventArgs args) =>
++            CaptureCore(
++                args != null && args.bMultiplayerSave != 0,
++                args?.CampaignMapId ?? 0,
++                NoGameValue,
++                editorLoad: false);
++
++        public static GameModeSnapshot Capture(MapLoadEventArgs args) =>
++            CaptureCore(
++                args != null && args.bMultiplayerSave != 0,
++                args != null && args.CampaignMapID != NonCampaignMapId && args.CampaignMapID <= int.MaxValue
++                    ? (int)args.CampaignMapID
++                    : 0,
++                args?.TrailType ?? NoGameValue,
++                editorLoad: false);
++
++        public static GameModeSnapshot Capture(LoadSaveGameEventArgs args) =>
++            CaptureCore(
++                multiplayerSave: false,
++                campaignMapId: 0,
++                eventTrailType: NoGameValue,
++                editorLoad: args != null && args.LoadingEditorMap);
++
++        internal static bool AllowsCustomGameMods(
++            GameModeKind kind,
++            GameModeLaunchVariant launchVariant)
++        {
++            if (kind == GameModeKind.CustomGame)
++                return true;
++            if (launchVariant == GameModeLaunchVariant.Standard)
++                return false;
++
++            return kind == GameModeKind.VanillaTrail ||
++                kind == GameModeKind.CustomTrail ||
++                kind == GameModeKind.CoopTrail ||
++                kind == GameModeKind.SandsOfTime;
++        }
++
++        internal static bool AllowsRegularGameplayMods(
++            GameModeKind kind,
++            GameModeLaunchVariant launchVariant) =>
++            kind == GameModeKind.MapEditor || AllowsCustomGameMods(kind, launchVariant);
++
++        private static GameModeSnapshot CaptureCore(
++            bool multiplayerSave,
++            int campaignMapId,
++            int eventTrailType,
++            bool editorLoad)
+         {
+             Director director = Director.instance;
+             GameData gameData = GameData.Instance;
+@@ -58,9 +163,16 @@ namespace Shared
+                 realLobbyMembers > 0 ||
+                 realNetworkGameMembers > 0;
+ 
+-            int gameType = gameData != null ? gameData.game_type : -1;
+-            int skirmishGameType = gameData != null ? gameData.SkirmishGameType : -1;
+-            bool mapEditor = IsMapEditor();
++            int gameType = gameData != null ? gameData.game_type : NoGameValue;
++            int skirmishGameType = gameData != null ? gameData.SkirmishGameType : NoGameValue;
++            int skirmishTrailType = gameData != null ? gameData.SkirmishTrailType : NoGameValue;
++            int coopTrailId = gameData != null ? gameData.coopTrailID : NoGameValue;
++            bool mapEditor =
++                editorLoad ||
++                gameData?.mapType == Enums.GameModes.MAP_EDITOR ||
++                IsMapEditor();
++            bool sandsOfTime = TryIsSandsOfTime(gameData);
++            bool customTrailRestart = TryCaptureCustomTrailRestart();
+             // game_type 3 is Vanilla's skirmish family. Immediately after leaving a
+             // real multiplayer game, a new local skirmish can reach OnStartMap before
+             // Vanilla changes SkirmishGameType from -1. Its all-local skirmish lobby
+@@ -73,14 +185,69 @@ namespace Shared
+             bool singleplayerSkirmishMode =
+                 !realMultiplayer &&
+                 !mapEditor &&
+-                gameType == 3 &&
++                gameType == (int)Enums.eGameTypeModes.GAMETYPE_MULTIPLAYER &&
+                 (skirmishGameType >= 0 || localSkirmishTransition);
+ 
++            bool vanillaCustomized = TryCaptureVanillaCustomizedTrail(
++                out int customizedTrailType,
++                out int customizedTrailId);
++            ExternalCustomizedOrigin externalOrigin = CaptureExternalCustomizedOrigin();
++            GameModeKind observedKind = ResolveKind(
++                mapEditor,
++                gameType,
++                skirmishGameType,
++                skirmishTrailType,
++                coopTrailId,
++                campaignMapId,
++                eventTrailType);
++            GameModeKind kind = observedKind;
++            if (observedKind == GameModeKind.CustomGame && externalOrigin.LaunchPending)
++            {
++                GameModeKind originKind = ResolveExternalOriginKind(externalOrigin.Origin);
++                if (originKind != GameModeKind.Unknown)
++                    kind = originKind;
++            }
++            if (sandsOfTime && kind != GameModeKind.MapEditor && kind != GameModeKind.CoopTrail)
++                kind = GameModeKind.SandsOfTime;
++            else if (customTrailRestart && (kind == GameModeKind.Unknown || kind == GameModeKind.CustomGame))
++                kind = GameModeKind.CustomTrail;
++            if (vanillaCustomized && customizedTrailId >= 0 && kind == GameModeKind.CustomGame)
++            {
++                bool builtInOriginRequired = externalOrigin.SupportsBuiltInOrigins;
++                if (IsVanillaTrailType(customizedTrailType) &&
++                    (!builtInOriginRequired || externalOrigin.Origin == ExternalCustomizedOrigin.VanillaTrail))
++                    kind = GameModeKind.VanillaTrail;
++                else if (IsSandsTrailType(customizedTrailType) &&
++                    (!builtInOriginRequired || externalOrigin.Origin == ExternalCustomizedOrigin.SandsOfTime))
++                    kind = GameModeKind.SandsOfTime;
++            }
++            GameModeLaunchVariant launchVariant = ResolveLaunchVariant(
++                kind,
++                vanillaCustomized,
++                customizedTrailType,
++                customizedTrailId,
++                observedKind == GameModeKind.CustomGame,
++                externalOrigin);
++            bool conflictingOrigin = externalOrigin.IsInvalid ||
++                (externalOrigin.Origin != ExternalCustomizedOrigin.None &&
++                 (!ExternalOriginMatchesKind(externalOrigin, kind) ||
++                  !ExternalOriginMatchesEvidence(
++                      externalOrigin,
++                      kind,
++                      skirmishTrailType,
++                      coopTrailId,
++                      eventTrailType,
++                      vanillaCustomized,
++                      customizedTrailType,
++                      customizedTrailId)));
++
+             return new GameModeSnapshot(
+                 realMultiplayer,
+                 singleplayerSkirmishMode,
+-                singleplayerSkirmishMode && skirmishGameType == 0,
+-                singleplayerSkirmishMode && (skirmishGameType == 1 || skirmishGameType == 2),
++                singleplayerSkirmishMode && skirmishGameType == (int)Enums.eSkirmishGameMode.SKIRMISH_GAME_CUSTOM,
++                singleplayerSkirmishMode &&
++                    (skirmishGameType == (int)Enums.eSkirmishGameMode.SKIRMISH_GAME_TRAIL ||
++                     skirmishGameType == (int)Enums.eSkirmishGameMode.SKIRMISH_GAME_CUSTOM_TRAIL),
+                 mapEditor,
+                 multiplayerSave,
+                 director != null,
+@@ -95,13 +262,275 @@ namespace Shared
+                 realNetworkGameMembers,
+                 gameType,
+                 skirmishGameType,
+-                gameData != null ? gameData.coopTrailID : -1);
++                skirmishTrailType,
++                coopTrailId,
++                kind,
++                launchVariant,
++                campaignMapId,
++                eventTrailType,
++                externalOrigin.Origin != ExternalCustomizedOrigin.None
++                    ? externalOrigin.TrailId
++                    : customizedTrailId,
++                externalOrigin.Origin != ExternalCustomizedOrigin.None
++                    ? externalOrigin.MissionId
++                    : customizedTrailId,
++                externalOrigin.Origin,
++                conflictingOrigin);
++        }
++
++        internal static GameModeKind ResolveKind(
++            bool mapEditor,
++            int gameType,
++            int skirmishGameType,
++            int skirmishTrailType,
++            int coopTrailId,
++            int campaignMapId = 0,
++            int eventTrailType = NoGameValue)
++        {
++            if (mapEditor)
++                return GameModeKind.MapEditor;
++            if (gameType == (int)Enums.eGameTypeModes.GAMETYPE_CAMPAIGN || campaignMapId > 0)
++                return GameModeKind.Campaign;
++            if (gameType == (int)Enums.eGameTypeModes.GAMETYPE_MAP)
++                return GameModeKind.StandaloneMission;
++            if (coopTrailId > NoCoopTrail)
++                return GameModeKind.CoopTrail;
++
++            bool hasTrailEvent = eventTrailType >= 0;
++            int effectiveTrailType = hasTrailEvent ? eventTrailType : skirmishTrailType;
++            bool vanillaTrailMode =
++                skirmishGameType == (int)Enums.eSkirmishGameMode.SKIRMISH_GAME_TRAIL;
++            if ((vanillaTrailMode || hasTrailEvent) && IsSandsTrailType(effectiveTrailType))
++                return GameModeKind.SandsOfTime;
++            if ((vanillaTrailMode || hasTrailEvent) && IsVanillaTrailType(effectiveTrailType))
++            {
++                return GameModeKind.VanillaTrail;
++            }
++            if (skirmishGameType == (int)Enums.eSkirmishGameMode.SKIRMISH_GAME_CUSTOM_TRAIL)
++                return GameModeKind.CustomTrail;
++            if (gameType == (int)Enums.eGameTypeModes.GAMETYPE_MULTIPLAYER &&
++                skirmishGameType == (int)Enums.eSkirmishGameMode.SKIRMISH_GAME_CUSTOM &&
++                coopTrailId == NoCoopTrail)
++            {
++                return GameModeKind.CustomGame;
++            }
++            return GameModeKind.Unknown;
++        }
++
++        internal static GameModeLaunchVariant ResolveLaunchVariant(
++            GameModeKind kind,
++            bool vanillaCustomized,
++            int customizedTrailType,
++            int customizedTrailId,
++            bool vanillaCustomGameContext,
++            ExternalCustomizedOrigin externalOrigin)
++        {
++            bool vanillaMatches = vanillaCustomized &&
++                vanillaCustomGameContext &&
++                customizedTrailId >= 0 &&
++                (!externalOrigin.SupportsBuiltInOrigins ||
++                 ExternalOriginMatchesKind(externalOrigin, kind)) &&
++                ((kind == GameModeKind.VanillaTrail && IsVanillaTrailType(customizedTrailType)) ||
++                 (kind == GameModeKind.SandsOfTime && IsSandsTrailType(customizedTrailType)));
++            bool externalMatches =
++                ExternalOriginMatchesKind(externalOrigin, kind) &&
++                (kind != GameModeKind.CustomGame || externalOrigin.LaunchPending);
++            if (!vanillaMatches && !externalMatches)
++                return GameModeLaunchVariant.Standard;
++            return externalMatches && externalOrigin.RestoredFromSave
++                ? GameModeLaunchVariant.RestoredCustomizedSave
++                : GameModeLaunchVariant.Customized;
++        }
++
++        private static bool IsVanillaTrailType(int value) =>
++            value >= (int)GameTrailType.FirstEdition && value <= (int)GameTrailType.Extreme;
++
++        private static bool IsSandsTrailType(int value) =>
++            value >= (int)GameTrailType.SandsOne && value <= (int)GameTrailType.SandsEight;
++
++        private static GameModeKind ResolveExternalOriginKind(int origin)
++        {
++            switch (origin)
++            {
++                case ExternalCustomizedOrigin.CustomTrail: return GameModeKind.CustomTrail;
++                case ExternalCustomizedOrigin.CoopTrail: return GameModeKind.CoopTrail;
++                case ExternalCustomizedOrigin.VanillaTrail: return GameModeKind.VanillaTrail;
++                case ExternalCustomizedOrigin.SandsOfTime: return GameModeKind.SandsOfTime;
++                default: return GameModeKind.Unknown;
++            }
++        }
++
++        private static bool ExternalOriginMatchesKind(ExternalCustomizedOrigin origin, GameModeKind kind) =>
++            (origin.Origin == ExternalCustomizedOrigin.CustomTrail && kind == GameModeKind.CustomTrail) ||
++            (origin.Origin == ExternalCustomizedOrigin.CoopTrail && kind == GameModeKind.CoopTrail) ||
++            (origin.Origin == ExternalCustomizedOrigin.VanillaTrail && kind == GameModeKind.VanillaTrail) ||
++            (origin.Origin == ExternalCustomizedOrigin.SandsOfTime && kind == GameModeKind.SandsOfTime);
++
++        internal static bool ExternalOriginMatchesEvidence(
++            ExternalCustomizedOrigin origin,
++            GameModeKind kind,
++            int skirmishTrailType,
++            int coopTrailId,
++            int eventTrailType,
++            bool vanillaCustomized,
++            int customizedTrailType,
++            int customizedTrailId)
++        {
++            if (kind == GameModeKind.CoopTrail && coopTrailId > NoCoopTrail)
++                return origin.TrailId + 1 == coopTrailId;
++            if (kind != GameModeKind.VanillaTrail && kind != GameModeKind.SandsOfTime)
++                return true;
++
++            int observedTrailType = eventTrailType >= 0 ? eventTrailType : skirmishTrailType;
++            if (observedTrailType >= 0 && origin.TrailType != observedTrailType)
++                return false;
++            if (!vanillaCustomized)
++                return true;
++            return origin.TrailType == customizedTrailType &&
++                origin.MissionId == customizedTrailId;
++        }
++
++        private static bool TryCaptureVanillaCustomizedTrail(out int trailType, out int trailId)
++        {
++#if SHARED_PRESET_TESTS
++            trailType = NoGameValue;
++            trailId = NoGameValue;
++            return false;
++#else
++            trailType = FRONT_Multiplayer.customizedTrailType;
++            trailId = FRONT_Multiplayer.customizedTrailID;
++            return FRONT_Multiplayer.customizedTrail;
++#endif
++        }
++
++        private static bool TryIsSandsOfTime(GameData gameData)
++        {
++            try
++            {
++                return gameData?.IsSandsOfTime() == true;
++            }
++            catch
++            {
++                return false;
++            }
++        }
++
++        private static bool TryCaptureCustomTrailRestart()
++        {
++#if SHARED_PRESET_TESTS
++            return false;
++#else
++            if (!MainViewModel.viewModelLoaded)
++                return false;
++            try
++            {
++                return MainViewModel.Instance?.HUDIngameMenu?.restartSkirmishMapInfo?.customTrail == true;
++            }
++            catch
++            {
++                return false;
++            }
++#endif
++        }
++
++        private static ExternalCustomizedOrigin CaptureExternalCustomizedOrigin()
++        {
++#if SHARED_PRESET_TESTS
++            return default;
++#else
++            try
++            {
++                Type api = Type.GetType(
++                    "CustomCustomTrail.CustomCustomTrailLaunchOriginApi, CustomCustomTrail",
++                    throwOnError: false);
++                if (api == null)
++                    return default;
++                if (!TryReadStaticInt(api, "ApiVersion", out int apiVersion) ||
++                    !TryReadStaticInt(api, "Origin", out int origin))
++                {
++                    return ExternalCustomizedOrigin.InvalidProvider;
++                }
++                if (apiVersion < MinimumOriginApiVersion || apiVersion > SupportedOriginApiVersion)
++                    return ExternalCustomizedOrigin.InvalidProvider;
++                if (origin == ExternalCustomizedOrigin.None)
++                    return ExternalCustomizedOrigin.AvailableProvider(apiVersion >= 2);
++                bool knownOrigin = origin == ExternalCustomizedOrigin.CustomTrail ||
++                    origin == ExternalCustomizedOrigin.CoopTrail ||
++                    (apiVersion >= 2 && (origin == ExternalCustomizedOrigin.VanillaTrail ||
++                                         origin == ExternalCustomizedOrigin.SandsOfTime));
++                if (!knownOrigin)
++                    return ExternalCustomizedOrigin.InvalidProvider;
++                bool launchPending = false;
++                if (!TryReadStaticInt(api, "TrailType", out int trailType) ||
++                    !TryReadStaticInt(api, "TrailId", out int trailId) ||
++                    !TryReadStaticInt(api, "MissionId", out int missionId) ||
++                    !TryReadStaticBool(api, "RestoredFromSave", out bool restoredFromSave) ||
++                    (apiVersion >= 2 && !TryReadStaticBool(api, "LaunchPending", out launchPending)))
++                {
++                    return ExternalCustomizedOrigin.InvalidProvider;
++                }
++                var result = new ExternalCustomizedOrigin(
++                    origin,
++                    trailType,
++                    trailId,
++                    missionId,
++                    restoredFromSave,
++                    launchPending,
++                    supportsBuiltInOrigins: apiVersion >= 2);
++                if ((result.Origin == ExternalCustomizedOrigin.CustomTrail &&
++                        (result.MissionId < FirstMissionId ||
++                         result.TrailId < FirstCustomTrailId || result.TrailId > LastCustomTrailId)) ||
++                    (result.Origin == ExternalCustomizedOrigin.CoopTrail &&
++                        (result.MissionId < FirstMissionId ||
++                         result.TrailId < FirstCoopTrailId || result.TrailId > LastCoopTrailId ||
++                         result.MissionId > LastCoopMissionId)) ||
++                    (result.Origin == ExternalCustomizedOrigin.VanillaTrail &&
++                        (!IsVanillaTrailType(result.TrailType) || result.TrailId < 0 || result.MissionId < 0)) ||
++                    (result.Origin == ExternalCustomizedOrigin.SandsOfTime &&
++                        (!IsSandsTrailType(result.TrailType) || result.TrailId < 0 || result.MissionId < 0)))
++                {
++                    return ExternalCustomizedOrigin.InvalidProvider;
++                }
++                return result;
++            }
++            catch
++            {
++                // CustomCustomTrail is optional; invalid providers must never enable gameplay mods.
++                return ExternalCustomizedOrigin.InvalidProvider;
++            }
++#endif
++        }
++
++        private static bool TryReadStaticInt(Type type, string name, out int result)
++        {
++            result = NoGameValue;
++            PropertyInfo property = type.GetProperty(name, BindingFlags.Public | BindingFlags.Static);
++            if (property == null || property.GetIndexParameters().Length != 0)
++                return false;
++            object value = property.GetValue(null);
++            if (value == null)
++                return false;
++            result = Convert.ToInt32(value);
++            return true;
++        }
++
++        private static bool TryReadStaticBool(Type type, string name, out bool result)
++        {
++            result = false;
++            PropertyInfo property = type.GetProperty(name, BindingFlags.Public | BindingFlags.Static);
++            if (property == null || property.PropertyType != typeof(bool) ||
++                property.GetIndexParameters().Length != 0)
++            {
++                return false;
++            }
++            result = (bool)property.GetValue(null);
++            return true;
+         }
+ 
+         public static bool IsRealMultiplayer(bool multiplayerSave = false) =>
+             Capture(multiplayerSave).IsRealMultiplayer;
+ 
+-        // Subtype 0 is a normal skirmish. Subtypes 1 and 2 are Vanilla and custom Trails.
++        // Keep the legacy property contract while deriving it from Vanilla's named subtype enum.
+         public static bool IsSingleplayerSkirmish(bool multiplayerSave = false) =>
+             Capture(multiplayerSave).IsSingleplayerSkirmish;
+ 
+@@ -140,6 +569,52 @@ namespace Shared
+         }
+     }
+ 
++    internal readonly struct ExternalCustomizedOrigin
++    {
++        internal const int None = 0;
++        internal const int CustomTrail = 1;
++        internal const int CoopTrail = 2;
++        internal const int VanillaTrail = 3;
++        internal const int SandsOfTime = 4;
++
++        internal static ExternalCustomizedOrigin InvalidProvider =>
++            new ExternalCustomizedOrigin(-1, -1, -1, -1, false, false, isInvalid: true);
++
++        internal static ExternalCustomizedOrigin AvailableProvider(bool supportsBuiltInOrigins) =>
++            new ExternalCustomizedOrigin(
++                None, -1, -1, -1, false, false,
++                supportsBuiltInOrigins: supportsBuiltInOrigins);
++
++        internal ExternalCustomizedOrigin(
++            int origin,
++            int trailType,
++            int trailId,
++            int missionId,
++            bool restoredFromSave,
++            bool launchPending = false,
++            bool isInvalid = false,
++            bool supportsBuiltInOrigins = false)
++        {
++            Origin = origin;
++            TrailType = trailType;
++            TrailId = trailId;
++            MissionId = missionId;
++            RestoredFromSave = restoredFromSave;
++            LaunchPending = launchPending;
++            IsInvalid = isInvalid;
++            SupportsBuiltInOrigins = supportsBuiltInOrigins;
++        }
++
++        internal int Origin { get; }
++        internal int TrailType { get; }
++        internal int TrailId { get; }
++        internal int MissionId { get; }
++        internal bool RestoredFromSave { get; }
++        internal bool LaunchPending { get; }
++        internal bool IsInvalid { get; }
++        internal bool SupportsBuiltInOrigins { get; }
++    }
++
+     internal readonly struct PlayerIdentityResolution
+     {
+         internal PlayerIdentityResolution(int playerId, bool isResolved, string error, string diagnostic)
+@@ -609,7 +1084,16 @@ namespace Shared
+             int realNetworkGameMembers,
+             int gameType,
+             int skirmishGameType,
+-            int coopTrailId)
++            int skirmishTrailType,
++            int coopTrailId,
++            GameModeKind kind,
++            GameModeLaunchVariant launchVariant,
++            int campaignMapId,
++            int eventTrailType,
++            int customizedTrailId,
++            int customizedMissionId,
++            int customizedOriginKind,
++            bool hasConflictingCustomizedOrigin)
+         {
+             IsRealMultiplayer = isRealMultiplayer;
+             IsSingleplayerSkirmishMode = isSingleplayerSkirmishMode;
+@@ -629,7 +1113,16 @@ namespace Shared
+             RealNetworkGameMembers = realNetworkGameMembers;
+             GameType = gameType;
+             SkirmishGameType = skirmishGameType;
++            SkirmishTrailType = skirmishTrailType;
+             CoopTrailId = coopTrailId;
++            Kind = kind;
++            LaunchVariant = launchVariant;
++            CampaignMapId = campaignMapId;
++            EventTrailType = eventTrailType;
++            CustomizedTrailId = customizedTrailId;
++            CustomizedMissionId = customizedMissionId;
++            CustomizedOriginKind = customizedOriginKind;
++            HasConflictingCustomizedOrigin = hasConflictingCustomizedOrigin;
+         }
+ 
+         public bool IsRealMultiplayer { get; }
+@@ -650,7 +1143,66 @@ namespace Shared
+         public int RealNetworkGameMembers { get; }
+         public int GameType { get; }
+         public int SkirmishGameType { get; }
++        public int SkirmishTrailType { get; }
+         public int CoopTrailId { get; }
++        public GameModeKind Kind { get; }
++        public GameModeLaunchVariant LaunchVariant { get; }
++        public bool IsCustomized => LaunchVariant != GameModeLaunchVariant.Standard;
++        public bool IsMissionContent =>
++            Kind == GameModeKind.Campaign ||
++            Kind == GameModeKind.StandaloneMission ||
++            Kind == GameModeKind.VanillaTrail ||
++            Kind == GameModeKind.CustomTrail ||
++            Kind == GameModeKind.CoopTrail ||
++            Kind == GameModeKind.SandsOfTime;
++        public bool AllowsCustomGameMods =>
++            !HasConflictingCustomizedOrigin && GameModeHelper.AllowsCustomGameMods(Kind, LaunchVariant);
++        public bool AllowsRegularGameplayMods =>
++            !HasConflictingCustomizedOrigin &&
++            GameModeHelper.AllowsRegularGameplayMods(Kind, LaunchVariant);
++        public int CampaignMapId { get; }
++        public int EventTrailType { get; }
++        public int CustomizedTrailId { get; }
++        public int CustomizedMissionId { get; }
++        public int CustomizedOriginKind { get; }
++        public bool HasConflictingCustomizedOrigin { get; }
++
++#if SHARED_PRESET_TESTS
++        internal GameModeSnapshot WithModeEvidenceForTests(
++            GameModeKind kind,
++            GameModeLaunchVariant launchVariant,
++            int eventTrailType,
++            bool hasConflictingCustomizedOrigin = false) =>
++            new GameModeSnapshot(
++                IsRealMultiplayer,
++                IsSingleplayerSkirmishMode,
++                IsSingleplayerSkirmish,
++                IsSingleplayerTrail,
++                IsMapEditor,
++                MultiplayerSave,
++                DirectorAvailable,
++                DirectorMultiplayer,
++                DirectorSkirmish,
++                LowLevelNetworked,
++                PlatformMultiplayer,
++                LobbyMembers,
++                RealLobbyMembers,
++                SkirmishLobbyMembers,
++                GameMembers,
++                RealNetworkGameMembers,
++                GameType,
++                SkirmishGameType,
++                SkirmishTrailType,
++                CoopTrailId,
++                kind,
++                launchVariant,
++                CampaignMapId,
++                eventTrailType,
++                CustomizedTrailId,
++                CustomizedMissionId,
++                CustomizedOriginKind,
++                hasConflictingCustomizedOrigin);
++#endif
+ 
+         public string ToDiagnosticString()
+         {
+@@ -663,7 +1215,13 @@ namespace Shared
+                 $"lobbyMembers={LobbyMembers}, realLobbyMembers={RealLobbyMembers}, " +
+                 $"skirmishLobbyMembers={SkirmishLobbyMembers}, " +
+                 $"gameMembers={GameMembers}, realNetworkGameMembers={RealNetworkGameMembers}, " +
+-                $"gameType={GameType}, skirmishGameType={SkirmishGameType}, coopTrailId={CoopTrailId}";
++                $"gameType={GameType}, skirmishGameType={SkirmishGameType}, skirmishTrailType={SkirmishTrailType}, " +
++                $"coopTrailId={CoopTrailId}, kind={Kind}, launchVariant={LaunchVariant}, " +
++                $"allowsCustomGameMods={AllowsCustomGameMods}, " +
++                $"allowsRegularGameplayMods={AllowsRegularGameplayMods}, campaignMapId={CampaignMapId}, " +
++                $"eventTrailType={EventTrailType}, customizedTrailId={CustomizedTrailId}, " +
++                $"customizedMissionId={CustomizedMissionId}, customizedOriginKind={CustomizedOriginKind}, " +
++                $"conflictingCustomizedOrigin={HasConflictingCustomizedOrigin}";
+         }
+     }
+ }
+
+diff --git a/Shared/GameplayFeatureModePolicy.cs b/Shared/GameplayFeatureModePolicy.cs
+new file mode 100644
+index 00000000..e29dc777
+--- /dev/null
++++ b/Shared/GameplayFeatureModePolicy.cs
+@@ -0,0 +1,277 @@
++using BepInEx.Logging;
++using System;
++using System.Collections.Generic;
++
++namespace Shared
++{
++    internal enum GameplayFeatureId
++    {
++        BuildingCostTooltip,
++        BuildingLimitEnforcement,
++        UnitCostEnforcement,
++        UnitLimitEnforcement,
++        LordHealthMultipliers,
++        EndlessExtremePowersRecharge,
++        RandomEventsRuntime,
++        ImprovedHunterTargetSelection,
++        ImprovedHunterPathfinding,
++        CastleSpawning,
++        FreeCastlePreview,
++        CastleBlueprints,
++    }
++
++    internal readonly struct GameplayFeatureActivationProfile
++    {
++        internal GameplayFeatureActivationProfile(
++            string modGuid,
++            GameplayFeatureId featureId,
++            GameplayModAllowedContext allowedContexts,
++            bool allowRealMultiplayer)
++        {
++            ModGuid = modGuid ?? throw new ArgumentNullException(nameof(modGuid));
++            FeatureId = featureId;
++            AllowedContexts = allowedContexts;
++            AllowRealMultiplayer = allowRealMultiplayer;
++        }
++
++        internal string ModGuid { get; }
++        internal GameplayFeatureId FeatureId { get; }
++        internal GameplayModAllowedContext AllowedContexts { get; }
++        internal bool AllowRealMultiplayer { get; }
++    }
++
++    /// <summary>
++    /// Typed source of truth for features that intentionally have a narrower
++    /// mode contract than their owning gameplay mod.
++    /// </summary>
++    internal static class GameplayFeatureModePolicy
++    {
++        private const GameplayModAllowedContext NonEditorGameplayContexts =
++            GameplayModAllowedContext.CustomGame |
++            GameplayModAllowedContext.CustomizedVanillaTrail |
++            GameplayModAllowedContext.CustomizedCustomTrail |
++            GameplayModAllowedContext.CustomizedCoopTrail |
++            GameplayModAllowedContext.CustomizedSandsOfTime;
++
++        private const GameplayModAllowedContext AllRecognizedContexts =
++            NonEditorGameplayContexts |
++            GameplayModAllowedContext.MapEditor |
++            GameplayModAllowedContext.Campaign |
++            GameplayModAllowedContext.StandaloneMission |
++            GameplayModAllowedContext.VanillaTrail |
++            GameplayModAllowedContext.CustomTrail |
++            GameplayModAllowedContext.CoopTrail |
++            GameplayModAllowedContext.SandsOfTime;
++
++        private static readonly object LogSync = new object();
++        private static readonly Dictionary<GameplayFeatureId, bool> LoggedDecisions =
++            new Dictionary<GameplayFeatureId, bool>();
++
++        internal static GameplayFeatureActivationProfile GetProfile(
++            string modGuid,
++            GameplayFeatureId featureId)
++        {
++            string expectedGuid;
++            GameplayModAllowedContext contexts;
++            bool allowRealMultiplayer = true;
++
++            switch (featureId)
++            {
++                case GameplayFeatureId.BuildingCostTooltip:
++                    expectedGuid = "BuildingCosts_Serp";
++                    contexts = NonEditorGameplayContexts;
++                    break;
++                case GameplayFeatureId.BuildingLimitEnforcement:
++                    expectedGuid = "BuildingLimit_Serp";
++                    contexts = NonEditorGameplayContexts;
++                    break;
++                case GameplayFeatureId.UnitCostEnforcement:
++                    expectedGuid = "UnitCosts_Serp";
++                    contexts = NonEditorGameplayContexts;
++                    break;
++                case GameplayFeatureId.UnitLimitEnforcement:
++                    expectedGuid = "UnitLimit_Serp";
++                    contexts = NonEditorGameplayContexts;
++                    break;
++                case GameplayFeatureId.LordHealthMultipliers:
++                    expectedGuid = "ExtraFeatures_Serp";
++                    contexts = NonEditorGameplayContexts;
++                    break;
++                case GameplayFeatureId.EndlessExtremePowersRecharge:
++                    expectedGuid = "CheatMod_Serp";
++                    contexts = NonEditorGameplayContexts;
++                    break;
++                case GameplayFeatureId.RandomEventsRuntime:
++                    expectedGuid = "RandomEvents_Serp";
++                    contexts = NonEditorGameplayContexts;
++                    break;
++                case GameplayFeatureId.ImprovedHunterTargetSelection:
++                case GameplayFeatureId.ImprovedHunterPathfinding:
++                    expectedGuid = "ImprovedHunters_Serp";
++                    contexts = NonEditorGameplayContexts;
++                    allowRealMultiplayer = false;
++                    break;
++                case GameplayFeatureId.CastleSpawning:
++                case GameplayFeatureId.FreeCastlePreview:
++                    expectedGuid = "CastlePlanner_Serp";
++                    contexts = NonEditorGameplayContexts;
++                    break;
++                case GameplayFeatureId.CastleBlueprints:
++                    expectedGuid = "CastlePlanner_Serp";
++                    contexts = AllRecognizedContexts;
++                    break;
++                default:
++                    throw new ArgumentOutOfRangeException(nameof(featureId), featureId, "Unknown gameplay feature ID.");
++            }
++
++            if (!string.Equals(modGuid, expectedGuid, StringComparison.Ordinal))
++            {
++                throw new ArgumentOutOfRangeException(
++                    nameof(modGuid),
++                    modGuid,
++                    $"Feature {featureId} belongs to mod GUID {expectedGuid}.");
++            }
++
++            return new GameplayFeatureActivationProfile(
++                expectedGuid,
++                featureId,
++                contexts,
++                allowRealMultiplayer);
++        }
++
++        internal static bool IsAllowed(
++            string modGuid,
++            GameplayFeatureId featureId,
++            GameModeSnapshot snapshot)
++        {
++            try
++            {
++                return IsAllowed(GetProfile(modGuid, featureId), snapshot, out _);
++            }
++            catch (ArgumentOutOfRangeException)
++            {
++                // A bad GUID/feature pair is a programming or versioning error;
++                // gameplay hooks must still leave Vanilla unchanged.
++                return false;
++            }
++        }
++
++        internal static bool IsAllowed(
++            GameplayFeatureActivationProfile profile,
++            GameModeSnapshot snapshot,
++            out string reason)
++        {
++            if (snapshot.HasConflictingCustomizedOrigin)
++            {
++                reason = "conflicting-customize-origin";
++                return false;
++            }
++
++            GameplayModAllowedContext context = GameplayModModePolicy.ResolveContext(snapshot);
++            if (context == GameplayModAllowedContext.None)
++            {
++                reason = snapshot.Kind == GameModeKind.Unknown
++                    ? "unknown-fail-closed"
++                    : "owning-mod-context-not-allowed";
++                return false;
++            }
++
++            if ((profile.AllowedContexts & context) != context)
++            {
++                reason = context == GameplayModAllowedContext.MapEditor
++                    ? "feature-not-supported-in-map-editor"
++                    : "feature-context-not-allowed";
++                return false;
++            }
++
++            if (snapshot.IsRealMultiplayer && !profile.AllowRealMultiplayer)
++            {
++                reason = "feature-not-approved-for-real-multiplayer";
++                return false;
++            }
++
++            reason = "feature-context-allowed";
++            return true;
++        }
++
++        internal static void LogDecisions(
++            ManualLogSource log,
++            string modGuid,
++            GameModeSnapshot snapshot,
++            string source)
++        {
++            foreach (GameplayFeatureActivationProfile feature in GetProfiles(modGuid))
++            {
++                bool allowed = IsAllowed(feature, snapshot, out string reason);
++                if (!RecordDecision(feature.FeatureId, allowed))
++                    continue;
++
++                DebugLogHelper.LogInfo(
++                    log,
++                    $"[{modGuid}] gameplay-feature gate: feature={feature.FeatureId}, source={source}, " +
++                    $"kind={snapshot.Kind}, launchVariant={snapshot.LaunchVariant}, " +
++                    $"realMultiplayer={snapshot.IsRealMultiplayer}, modeAllowed={allowed}, " +
++                    $"action={(allowed ? "enabled" : "disabled-by-feature-mode")}, reason={reason}.");
++            }
++        }
++
++        private static bool RecordDecision(GameplayFeatureId featureId, bool allowed)
++        {
++            lock (LogSync)
++            {
++                bool changed = !LoggedDecisions.TryGetValue(featureId, out bool previous) ||
++                    previous != allowed;
++                LoggedDecisions[featureId] = allowed;
++                return changed;
++            }
++        }
++
++#if SHARED_PRESET_TESTS
++        internal static bool RecordDecisionForTests(GameplayFeatureId featureId, bool allowed) =>
++            RecordDecision(featureId, allowed);
++
++        internal static void ResetLoggedDecisionsForTests()
++        {
++            lock (LogSync)
++                LoggedDecisions.Clear();
++        }
++#endif
++
++        private static IEnumerable<GameplayFeatureActivationProfile> GetProfiles(string modGuid)
++        {
++            switch (modGuid)
++            {
++                case "BuildingCosts_Serp":
++                    yield return GetProfile(modGuid, GameplayFeatureId.BuildingCostTooltip);
++                    break;
++                case "BuildingLimit_Serp":
++                    yield return GetProfile(modGuid, GameplayFeatureId.BuildingLimitEnforcement);
++                    break;
++                case "UnitCosts_Serp":
++                    yield return GetProfile(modGuid, GameplayFeatureId.UnitCostEnforcement);
++                    break;
++                case "UnitLimit_Serp":
++                    yield return GetProfile(modGuid, GameplayFeatureId.UnitLimitEnforcement);
++                    break;
++                case "ExtraFeatures_Serp":
++                    yield return GetProfile(modGuid, GameplayFeatureId.LordHealthMultipliers);
++                    break;
++                case "CheatMod_Serp":
++                    yield return GetProfile(modGuid, GameplayFeatureId.EndlessExtremePowersRecharge);
++                    break;
++                case "RandomEvents_Serp":
++                    yield return GetProfile(modGuid, GameplayFeatureId.RandomEventsRuntime);
++                    break;
++                case "ImprovedHunters_Serp":
++                    yield return GetProfile(modGuid, GameplayFeatureId.ImprovedHunterTargetSelection);
++                    yield return GetProfile(modGuid, GameplayFeatureId.ImprovedHunterPathfinding);
++                    break;
++                case "CastlePlanner_Serp":
++                    yield return GetProfile(modGuid, GameplayFeatureId.CastleSpawning);
++                    yield return GetProfile(modGuid, GameplayFeatureId.FreeCastlePreview);
++                    yield return GetProfile(modGuid, GameplayFeatureId.CastleBlueprints);
++                    break;
++            }
++        }
++    }
++}
+
+diff --git a/Shared/GameplayModActivationGate.cs b/Shared/GameplayModActivationGate.cs
+new file mode 100644
+index 00000000..c7c6e926
+--- /dev/null
++++ b/Shared/GameplayModActivationGate.cs
+@@ -0,0 +1,212 @@
++using BepInEx.Logging;
++using System;
++#if !SHARED_PRESET_TESTS
++using R3;
++using SHCDESE.EventAPI;
++using SHCDESE.EventAPI.MapLoader;
++#endif
++
++namespace Shared
++{
++    /// <summary>
++    /// Caches the current map policy for one mod assembly. Shared sources are linked
++    /// into every mod, so one mod can never accidentally change another mod's state.
++    /// </summary>
++    internal static class GameplayModActivationGate
++    {
++        private static ManualLogSource log;
++        private static GameplayModActivationProfile profile;
++        private static Func<bool> configuredEnabledProvider;
++        private static GameModeSnapshot snapshot;
++        private static volatile bool isAllowed;
++        private static bool initialized;
++        private static bool hasAuthoritativeLoadEvidence;
++        private static GameModeSnapshot authoritativeLoadSnapshot;
++#if !SHARED_PRESET_TESTS
++        private static IDisposable mapLoadSubscription;
++        private static IDisposable loadSaveSubscription;
++        private static IDisposable mapStartSubscription;
++        private static IDisposable mapUnloadSubscription;
++#endif
++
++        internal static event Action<bool> StateChanged;
++
++        internal static bool IsAllowed => isAllowed;
++        internal static GameModeSnapshot Snapshot => snapshot;
++        internal static bool IsEnabled(bool configuredEnabled) => configuredEnabled && IsAllowed;
++
++        internal static void Initialize(
++            ManualLogSource logger,
++            string modGuid,
++            string displayName,
++            Func<bool> isConfiguredEnabled)
++        {
++            if (initialized)
++                return;
++
++            log = logger;
++            profile = GameplayModModePolicy.GetProfile(modGuid, displayName);
++            configuredEnabledProvider = isConfiguredEnabled ?? throw new ArgumentNullException(nameof(isConfiguredEnabled));
++
++#if !SHARED_PRESET_TESTS
++            // Register before the mod's own handlers. Castle spawning and similar
++            // native work already begins in OnStartMap(Pre).
++            mapLoadSubscription = MapLoaderR3EventHooks.OnLoadMap.Observable
++                .Subscribe(args => UpdateLoad(GameModeHelper.Capture(args), $"OnLoadMap({args.Phase})"));
++            loadSaveSubscription = MapLoaderR3EventHooks.OnLoadSave.Observable
++                .Where(args => args.Phase == EventHookPhase.Post)
++                .Subscribe(args => UpdateLoad(GameModeHelper.Capture(args), $"OnLoadSave({args.Phase})"));
++            mapStartSubscription = MapLoaderR3EventHooks.OnStartMap.Observable
++                .Subscribe(args => UpdateStart(GameModeHelper.Capture(args), $"OnStartMap({args.Phase})"));
++            mapUnloadSubscription = MapLoaderR3EventHooks.OnUnloadMap.Observable
++                .Subscribe(args =>
++                {
++                    if (args.Phase == EventHookPhase.Pre)
++                        Reset("OnUnloadMap(Pre)");
++                });
++#endif
++            initialized = true;
++            GameModeSnapshot current = GameModeHelper.Capture();
++            if (current.Kind == GameModeKind.MapEditor)
++                UpdateLoad(current, "initial-current-editor");
++            else
++                LogTransition("initialization");
++        }
++
++        private static void UpdateLoad(GameModeSnapshot next, string source)
++        {
++            if (hasAuthoritativeLoadEvidence)
++                next = MergeWithAuthoritativeLoad(next);
++            if (HasAuthoritativeLoadEvidence(next))
++            {
++                authoritativeLoadSnapshot = next;
++                hasAuthoritativeLoadEvidence = true;
++            }
++            Update(next, source);
++        }
++
++        private static bool HasAuthoritativeLoadEvidence(GameModeSnapshot candidate) =>
++            candidate.Kind == GameModeKind.MapEditor ||
++            candidate.CampaignMapId > 0 ||
++            candidate.EventTrailType >= 0 ||
++            (candidate.Kind == GameModeKind.CoopTrail && candidate.CoopTrailId > 0) ||
++            (candidate.Kind == GameModeKind.CustomTrail &&
++             candidate.SkirmishGameType ==
++                 (int)global::Enums.eSkirmishGameMode.SKIRMISH_GAME_CUSTOM_TRAIL) ||
++            (candidate.IsMissionContent && candidate.IsCustomized);
++
++        private static void UpdateStart(GameModeSnapshot next, string source)
++        {
++            if (hasAuthoritativeLoadEvidence)
++                next = MergeWithAuthoritativeLoad(next);
++            Update(next, source);
++        }
++
++        private static GameModeSnapshot MergeWithAuthoritativeLoad(GameModeSnapshot next)
++        {
++            if (authoritativeLoadSnapshot.Kind == GameModeKind.MapEditor)
++                return authoritativeLoadSnapshot;
++            if ((next.Kind == GameModeKind.CustomGame || next.Kind == GameModeKind.Unknown) &&
++                authoritativeLoadSnapshot.IsMissionContent)
++            {
++                return authoritativeLoadSnapshot;
++            }
++            if (next.Kind == authoritativeLoadSnapshot.Kind &&
++                authoritativeLoadSnapshot.IsCustomized && !next.IsCustomized)
++            {
++                return authoritativeLoadSnapshot;
++            }
++            return next;
++        }
++
++        private static void Update(GameModeSnapshot next, string source)
++        {
++            bool previousAllowed = isAllowed;
++            bool changed = next.Kind != snapshot.Kind ||
++                next.LaunchVariant != snapshot.LaunchVariant ||
++                next.CustomizedTrailId != snapshot.CustomizedTrailId ||
++                next.CustomizedMissionId != snapshot.CustomizedMissionId ||
++                next.IsRealMultiplayer != snapshot.IsRealMultiplayer ||
++                next.HasConflictingCustomizedOrigin != snapshot.HasConflictingCustomizedOrigin;
++            snapshot = next;
++            isAllowed = GameplayModModePolicy.IsAllowed(profile, next, out _);
++            if (changed)
++                LogTransition(source);
++            if (previousAllowed != isAllowed)
++                NotifyStateChanged(isAllowed);
++        }
++
++        private static void Reset(string source)
++        {
++            bool changed = snapshot.Kind != GameModeKind.Unknown ||
++                snapshot.LaunchVariant != GameModeLaunchVariant.Standard;
++            bool previousAllowed = isAllowed;
++            isAllowed = false;
++            snapshot = default;
++            hasAuthoritativeLoadEvidence = false;
++            authoritativeLoadSnapshot = default;
++            if (changed)
++                LogTransition(source);
++            if (previousAllowed)
++                NotifyStateChanged(false);
++        }
++
++        private static void NotifyStateChanged(bool allowed)
++        {
++            Delegate[] handlers = StateChanged?.GetInvocationList();
++            if (handlers == null)
++                return;
++
++            foreach (Delegate handler in handlers)
++            {
++                try { ((Action<bool>)handler)(allowed); }
++                catch (Exception ex)
++                {
++                    DebugLogHelper.LogError(
++                        log,
++                        $"[{profile.DisplayName}] gameplay-mod gate listener failed closed: {ex}");
++                }
++            }
++        }
++
++        private static void LogTransition(string source)
++        {
++            bool configuredEnabled = ReadConfiguredEnabled();
++            bool effectiveEnabled = configuredEnabled && IsAllowed;
++            GameplayModModePolicy.IsAllowed(profile, snapshot, out string reason);
++            string action = effectiveEnabled
++                ? "enabled"
++                : !IsAllowed ? "disabled-by-mode" : "restriction-lifted-setting-disabled";
++            DebugLogHelper.LogInfo(
++                log,
++                $"[{profile.DisplayName}] gameplay-mod gate: modGuid={profile.ModGuid}, source={source}, " +
++                $"kind={snapshot.Kind}, launchVariant={snapshot.LaunchVariant}, " +
++                $"customized={snapshot.IsCustomized}, customizedOrigin={snapshot.CustomizedOriginKind}, " +
++                $"modeAllowed={IsAllowed}, configuredEnabled={configuredEnabled}, " +
++                $"effectiveEnabled={effectiveEnabled}, action={action}, reason={reason}.");
++            GameplayFeatureModePolicy.LogDecisions(log, profile.ModGuid, snapshot, source);
++        }
++
++        private static bool ReadConfiguredEnabled()
++        {
++            try { return configuredEnabledProvider?.Invoke() == true; }
++            catch (Exception ex)
++            {
++                DebugLogHelper.LogError(log, $"[{profile.DisplayName}] EnableMod provider failed closed: {ex}");
++                return false;
++            }
++        }
++
++#if SHARED_PRESET_TESTS
++        internal static void SetSnapshotForTests(GameModeSnapshot next) => Update(next, "test");
++        internal static void SetLoadSnapshotForTests(GameModeSnapshot next) => UpdateLoad(next, "test-load");
++        internal static void SetStartSnapshotForTests(GameModeSnapshot next) => UpdateStart(next, "test-start");
++        internal static void ResetForTests()
++        {
++            profile = GameplayModModePolicy.GetProfile("ExtraFeatures_Serp", "Extra Features");
++            configuredEnabledProvider = () => true;
++            Reset("test-reset");
++        }
++#endif
++    }
++}
+
+diff --git a/Shared/GameplayModModePolicy.cs b/Shared/GameplayModModePolicy.cs
+new file mode 100644
+index 00000000..be28505f
+--- /dev/null
++++ b/Shared/GameplayModModePolicy.cs
+@@ -0,0 +1,139 @@
++using System;
++
++namespace Shared
++{
++    [Flags]
++    internal enum GameplayModAllowedContext
++    {
++        None = 0,
++        CustomGame = 1 << 0,
++        CustomizedVanillaTrail = 1 << 1,
++        CustomizedCustomTrail = 1 << 2,
++        CustomizedCoopTrail = 1 << 3,
++        CustomizedSandsOfTime = 1 << 4,
++        MapEditor = 1 << 5,
++        Campaign = 1 << 6,
++        StandaloneMission = 1 << 7,
++        VanillaTrail = 1 << 8,
++        CustomTrail = 1 << 9,
++        CoopTrail = 1 << 10,
++        SandsOfTime = 1 << 11,
++    }
++
++    internal readonly struct GameplayModActivationProfile
++    {
++        internal GameplayModActivationProfile(
++            string modGuid,
++            string displayName,
++            GameplayModAllowedContext allowedContexts)
++        {
++            ModGuid = modGuid ?? throw new ArgumentNullException(nameof(modGuid));
++            DisplayName = string.IsNullOrWhiteSpace(displayName) ? modGuid : displayName;
++            AllowedContexts = allowedContexts;
++        }
++
++        internal string ModGuid { get; }
++        internal string DisplayName { get; }
++        internal GameplayModAllowedContext AllowedContexts { get; }
++    }
++
++    /// <summary>Single typed source of truth for mode permissions of regular gameplay mods.</summary>
++    internal static class GameplayModModePolicy
++    {
++        private const GameplayModAllowedContext RegularContexts =
++            GameplayModAllowedContext.CustomGame |
++            GameplayModAllowedContext.CustomizedVanillaTrail |
++            GameplayModAllowedContext.CustomizedCustomTrail |
++            GameplayModAllowedContext.CustomizedCoopTrail |
++            GameplayModAllowedContext.CustomizedSandsOfTime |
++            GameplayModAllowedContext.MapEditor;
++
++        internal static GameplayModActivationProfile GetProfile(string modGuid, string displayName)
++        {
++            switch (modGuid)
++            {
++                case "BuildingCosts_Serp":
++                case "BuildingLimit_Serp":
++                case "CastlePlanner_Serp":
++                case "CheatMod_Serp":
++                case "ExtraFeatures_Serp":
++                case "ExtremePowers_Serp":
++                case "ImprovedHunters_Serp":
++                case "RandomEvents_Serp":
++                case "StartConditions_Serp":
++                case "UnitCosts_Serp":
++                case "UnitLimit_Serp":
++                    return Create(modGuid, displayName);
++                default:
++                    throw new ArgumentOutOfRangeException(nameof(modGuid), modGuid, "Unknown gameplay mod GUID.");
++            }
++        }
++
++        internal static bool IsAllowed(
++            GameplayModActivationProfile profile,
++            GameModeSnapshot snapshot,
++            out string reason)
++        {
++            if (snapshot.HasConflictingCustomizedOrigin)
++            {
++                reason = "conflicting-customize-origin";
++                return false;
++            }
++
++            GameplayModAllowedContext context = ResolveContext(snapshot);
++            if (context == GameplayModAllowedContext.None)
++            {
++                reason = snapshot.Kind == GameModeKind.Unknown
++                    ? "unknown-fail-closed"
++                    : snapshot.IsMissionContent ? "direct-mission-content" : "mode-not-allowed";
++                return false;
++            }
++
++            bool allowed = (profile.AllowedContexts & context) == context;
++            reason = allowed ? ToReason(context) : "profile-does-not-allow-" + context;
++            return allowed;
++        }
++
++        private static GameplayModActivationProfile Create(string modGuid, string displayName) =>
++            new GameplayModActivationProfile(modGuid, displayName, RegularContexts);
++
++        internal static GameplayModAllowedContext ResolveContext(GameModeSnapshot snapshot)
++        {
++            if (snapshot.Kind == GameModeKind.MapEditor)
++                return GameplayModAllowedContext.MapEditor;
++            if (snapshot.Kind == GameModeKind.CustomGame && !snapshot.IsCustomized)
++                return GameplayModAllowedContext.CustomGame;
++            if (!snapshot.IsCustomized)
++            {
++                switch (snapshot.Kind)
++                {
++                    case GameModeKind.Campaign: return GameplayModAllowedContext.Campaign;
++                    case GameModeKind.StandaloneMission: return GameplayModAllowedContext.StandaloneMission;
++                    case GameModeKind.VanillaTrail: return GameplayModAllowedContext.VanillaTrail;
++                    case GameModeKind.CustomTrail: return GameplayModAllowedContext.CustomTrail;
++                    case GameModeKind.CoopTrail: return GameplayModAllowedContext.CoopTrail;
++                    case GameModeKind.SandsOfTime: return GameplayModAllowedContext.SandsOfTime;
++                    default: return GameplayModAllowedContext.None;
++                }
++            }
++
++            switch (snapshot.Kind)
++            {
++                case GameModeKind.VanillaTrail: return GameplayModAllowedContext.CustomizedVanillaTrail;
++                case GameModeKind.CustomTrail: return GameplayModAllowedContext.CustomizedCustomTrail;
++                case GameModeKind.CoopTrail: return GameplayModAllowedContext.CustomizedCoopTrail;
++                case GameModeKind.SandsOfTime: return GameplayModAllowedContext.CustomizedSandsOfTime;
++                default: return GameplayModAllowedContext.None;
++            }
++        }
++
++        private static string ToReason(GameplayModAllowedContext context)
++        {
++            if (context == GameplayModAllowedContext.CustomGame)
++                return "custom-game";
++            if (context == GameplayModAllowedContext.MapEditor)
++                return "map-editor";
++            return "verified-customize-origin";
++        }
++    }
++}
+
+diff --git a/Shared/PresetLobbyModSettingsViewModel.cs b/Shared/PresetLobbyModSettingsViewModel.cs
+index 80f23efc..ee6f9972 100644
+--- a/Shared/PresetLobbyModSettingsViewModel.cs
++++ b/Shared/PresetLobbyModSettingsViewModel.cs
+@@ -2025,851 +2025,6 @@ namespace Shared
+         }
+     }
+ 
+-#if !SHARED_PRESET_TESTS
+-    /// <summary>
+-    /// TEMPORARY SCRIPT EXTENDER WORKAROUND.
+-    /// Remove this class and its registration call once the upstream extender has
+-    /// fixed all multiplayer settings paths documented below and the fixes have
+-    /// been verified in a real Host/Client run. Revalidate the private method
+-    /// signatures, packet routing, and detour behavior after every Extender update;
+-    /// this workaround may need adaptation even before it can be removed.
+-    /// </summary>
+-    internal static class ScriptExtenderMultiplayerSyncWorkaround
+-    {
+-        private const string AnchorKey =
+-            "SerpsMods.Shared.ScriptExtenderMultiplayerSyncWorkaround.v1";
+-        private const string PerPlayerAnchorKey =
+-            "SerpsMods.Shared.ScriptExtenderPerPlayerIdentityWorkaround.v1";
+-        private const string GateKey =
+-            "SerpsMods.Shared.ScriptExtenderMultiplayerSyncWorkaround.Gate";
+-
+-        internal static void EnsureInstalled(ManualLogSource log)
+-        {
+-            object gate = string.Intern(GateKey);
+-            lock (gate)
+-            {
+-                bool baseInstalled = AppDomain.CurrentDomain.GetData(AnchorKey) != null;
+-                bool perPlayerInstalled =
+-                    AppDomain.CurrentDomain.GetData(PerPlayerAnchorKey) != null;
+-                if (baseInstalled && perPlayerInstalled)
+-                    return;
+-
+-                HookAnchor anchor = null;
+-                PerPlayerIdentityHookAnchor perPlayerAnchor = null;
+-                try
+-                {
+-                    if (!baseInstalled)
+-                    {
+-                        anchor = new HookAnchor(log);
+-                        anchor.Install();
+-                        AppDomain.CurrentDomain.SetData(AnchorKey, anchor);
+-                    }
+-                    if (!perPlayerInstalled)
+-                    {
+-                        perPlayerAnchor = new PerPlayerIdentityHookAnchor(log);
+-                        perPlayerAnchor.Install();
+-                        AppDomain.CurrentDomain.SetData(
+-                            PerPlayerAnchorKey,
+-                            perPlayerAnchor);
+-                    }
+-                    DebugLogHelper.LogInfo(
+-                        log,
+-                        "Temporary Script Extender multiplayer settings workaround installed " +
+-                        "(join snapshot, reliable lobby delivery, in-game sender propagation, " +
+-                        "authoritative per-player identity application). " +
+-                        "Remove centrally after the upstream fixes are available.");
+-                }
+-                catch (Exception ex)
+-                {
+-                    perPlayerAnchor?.RollBack();
+-                    anchor?.RollBack();
+-                    if (perPlayerAnchor != null)
+-                        AppDomain.CurrentDomain.SetData(PerPlayerAnchorKey, null);
+-                    if (anchor != null)
+-                        AppDomain.CurrentDomain.SetData(AnchorKey, null);
+-                    Exception cause = Unwrap(ex);
+-                    DebugLogHelper.LogError(
+-                        log,
+-                        "Temporary Script Extender multiplayer settings workaround could not be " +
+-                        $"installed as one transaction: {cause}");
+-                    throw new InvalidOperationException(
+-                        "Lobby mod settings registration aborted because the required " +
+-                        "multiplayer synchronization workaround is unavailable.",
+-                        cause);
+-                }
+-            }
+-        }
+-
+-        private static Exception Unwrap(Exception ex)
+-        {
+-            return ex is TargetInvocationException invocation && invocation.InnerException != null
+-                ? invocation.InnerException
+-                : ex;
+-        }
+-
+-        private sealed class HookAnchor
+-        {
+-            private delegate void SendCustomInfoToMemberDelegate(
+-                Platform_Multiplayer instance,
+-                Platform_Multiplayer.MPLobbyMember member);
+-
+-            private delegate void SendPacketToAllLobbyDelegate(
+-                Platform_Multiplayer.MPData packet);
+-
+-            private delegate bool ProcessMessageDelegate(
+-                Platform_Multiplayer instance,
+-                Platform_Multiplayer.MPData data,
+-                Platform_Multiplayer.MPGameMember fromMember,
+-                bool fromThread);
+-
+-            private readonly ManualLogSource log;
+-            private object sendCustomInfoDetour;
+-            private object sendPacketToAllLobbyDetour;
+-            private object processMessageDetour;
+-            private MethodInfo handleRawPacketMethod;
+-            private Type steamNetworkingIdentityType;
+-            private MethodInfo setSteamIdMethod;
+-            private MethodInfo sendMessageToUserMethod;
+-            private FieldInfo lobbyMemberIdField;
+-            private FieldInfo multiplayerInstanceField;
+-            private Type steamIdType;
+-            private bool loggedReliableReroute;
+-            private bool loggedSenderRepair;
+-
+-            internal HookAnchor(ManualLogSource log)
+-            {
+-                this.log = log;
+-            }
+-
+-            internal void Install()
+-            {
+-                MethodInfo sendCustomInfoMethod = RequireMethod(
+-                    typeof(Platform_Multiplayer),
+-                    nameof(Platform_Multiplayer.SendCustomInfoToMember),
+-                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+-                    typeof(Platform_Multiplayer.MPLobbyMember));
+-                MethodInfo sendPacketToAllLobbyMethod = typeof(GameNetworkAPI)
+-                    .GetMethods(BindingFlags.Static | BindingFlags.Public)
+-                    .Single(method =>
+-                        method.Name == nameof(GameNetworkAPI.SendPacketToAllLobby) &&
+-                        !method.IsGenericMethod &&
+-                        method.GetParameters().Length == 1 &&
+-                        method.GetParameters()[0].ParameterType == typeof(Platform_Multiplayer.MPData));
+-                MethodInfo processMessageMethod = RequireMethod(
+-                    typeof(Platform_Multiplayer),
+-                    "processMessage",
+-                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+-                    typeof(Platform_Multiplayer.MPData),
+-                    typeof(Platform_Multiplayer.MPGameMember),
+-                    typeof(bool));
+-
+-                handleRawPacketMethod = typeof(GameNetworkAPI).GetMethod(
+-                    "HandleRawPacket",
+-                    BindingFlags.Instance | BindingFlags.NonPublic,
+-                    null,
+-                    new[] { typeof(short), typeof(byte[]), FindNullableSteamIdType() },
+-                    null) ?? throw new MissingMethodException(
+-                        typeof(GameNetworkAPI).FullName,
+-                        "HandleRawPacket(short, byte[], CSteamID?)");
+-                steamIdType = Nullable.GetUnderlyingType(
+-                    handleRawPacketMethod.GetParameters()[2].ParameterType) ??
+-                    throw new InvalidOperationException("HandleRawPacket sender is not nullable.");
+-                Assembly steamworksAssembly = steamIdType.Assembly;
+-                steamNetworkingIdentityType = steamworksAssembly.GetType(
+-                    "Steamworks.SteamNetworkingIdentity",
+-                    true);
+-                Type steamNetworkingMessagesType = steamworksAssembly.GetType(
+-                    "Steamworks.SteamNetworkingMessages",
+-                    true);
+-                setSteamIdMethod = steamNetworkingIdentityType.GetMethod(
+-                    "SetSteamID",
+-                    BindingFlags.Instance | BindingFlags.Public,
+-                    null,
+-                    new[] { steamIdType },
+-                    null) ?? throw new MissingMethodException(
+-                        steamNetworkingIdentityType.FullName,
+-                        "SetSteamID");
+-                sendMessageToUserMethod = steamNetworkingMessagesType
+-                    .GetMethods(BindingFlags.Static | BindingFlags.Public)
+-                    .Single(method =>
+-                        method.Name == "SendMessageToUser" &&
+-                        method.GetParameters().Length == 5 &&
+-                        method.GetParameters()[0].ParameterType.IsByRef &&
+-                        method.GetParameters()[1].ParameterType == typeof(IntPtr));
+-                lobbyMemberIdField = typeof(Platform_Multiplayer.MPLobbyMember).GetField(
+-                    "id",
+-                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic) ??
+-                    throw new MissingFieldException(
+-                        typeof(Platform_Multiplayer.MPLobbyMember).FullName,
+-                        "id");
+-                multiplayerInstanceField = typeof(Platform_Multiplayer).GetField(
+-                    "instance",
+-                    BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic) ??
+-                    throw new MissingFieldException(
+-                        typeof(Platform_Multiplayer).FullName,
+-                        "instance");
+-
+-                DebugLogHelper.LogInfo(
+-                    log,
+-                    "[MP-SYNC-EVIDENCE BASELINE] " +
+-                    $"extenderJoinDetourInstalled={ReadExtenderJoinDetourState()}. " +
+-                    "False confirms that the extender declared but did not install its join-sync detour.");
+-
+-                // TEMPORARY: upstream declares this hook but does not install it.
+-                sendCustomInfoDetour = CreateManagedDetour(
+-                    typeof(SendCustomInfoToMemberDelegate),
+-                    sendCustomInfoMethod,
+-                    new SendCustomInfoToMemberDelegate(SendCustomInfoToMemberHook));
+-
+-                // TEMPORARY: upstream lobby broadcast uses Steam send flag 64, which
+-                // is not reliable. Route through its targeted reliable (flag 40) path.
+-                sendPacketToAllLobbyDetour = CreateManagedDetour(
+-                    typeof(SendPacketToAllLobbyDelegate),
+-                    sendPacketToAllLobbyMethod,
+-                    new SendPacketToAllLobbyDelegate(SendPacketToAllLobbyHook));
+-
+-                // TEMPORARY: upstream's processMessage IL hook omits fromMember, so
+-                // host-only packets received after map start fail sender validation.
+-                processMessageDetour = CreateManagedDetour(
+-                    typeof(ProcessMessageDelegate),
+-                    processMessageMethod,
+-                    new ProcessMessageDelegate(ProcessMessageHook));
+-            }
+-
+-            internal void RollBack()
+-            {
+-                DisposeDetour(processMessageDetour);
+-                DisposeDetour(sendPacketToAllLobbyDetour);
+-                DisposeDetour(sendCustomInfoDetour);
+-                processMessageDetour = null;
+-                sendPacketToAllLobbyDetour = null;
+-                sendCustomInfoDetour = null;
+-            }
+-
+-            private void SendCustomInfoToMemberHook(
+-                Platform_Multiplayer instance,
+-                Platform_Multiplayer.MPLobbyMember member)
+-            {
+-                try
+-                {
+-                    GameNetworkAPI.Instance.HandleSendCustomInfoToMember(member);
+-                    object target = lobbyMemberIdField.GetValue(member);
+-                    int registeredSettings = GameXAMLManagerAPI.Instance.RegisteredModSettings.Count();
+-                    DebugLogHelper.LogInfo(
+-                        log,
+-                        "[MP-SYNC-EVIDENCE JOIN] " +
+-                        $"forwarded member=[{member?.name}], steamId={target}, " +
+-                        $"registeredSettings={registeredSettings}. " +
+-                        "The following extender sync/apply messages must confirm client receipt.");
+-                }
+-                catch (Exception ex)
+-                {
+-                    DebugLogHelper.LogError(
+-                        log,
+-                        $"Temporary join-settings snapshot workaround failed: {Unwrap(ex)}");
+-                }
+-
+-                GetTrampoline<SendCustomInfoToMemberDelegate>(sendCustomInfoDetour)(instance, member);
+-            }
+-
+-            private void SendPacketToAllLobbyHook(Platform_Multiplayer.MPData packet)
+-            {
+-                Platform_Multiplayer multiplayer =
+-                    multiplayerInstanceField.GetValue(null) as Platform_Multiplayer;
+-                if (multiplayer?.activeLobby?.members == null)
+-                {
+-                    GetTrampoline<SendPacketToAllLobbyDelegate>(sendPacketToAllLobbyDetour)(packet);
+-                    return;
+-                }
+-
+-                Platform_Multiplayer.MPLobbyMember[] members =
+-                    multiplayer.activeLobby.members.ToArray();
+-                int eligibleRecipients = 0;
+-                int successfulRecipients = 0;
+-                foreach (Platform_Multiplayer.MPLobbyMember member in members)
+-                {
+-                    if (member == null || member.IsSelf() || member.dummyToBeKicked ||
+-                        (member.SkirmishMember && !member.SkirmishHumanMember))
+-                        continue;
+-
+-                    eligibleRecipients++;
+-                    try
+-                    {
+-                        object target = lobbyMemberIdField.GetValue(member);
+-                        SendReliableLobbyPacket(target, packet);
+-                        successfulRecipients++;
+-                    }
+-                    catch (Exception ex)
+-                    {
+-                        DebugLogHelper.LogError(
+-                            log,
+-                            $"Reliable lobby settings delivery failed for [{member.name}]: {Unwrap(ex)}");
+-                    }
+-                }
+-
+-                if (!loggedReliableReroute)
+-                {
+-                    loggedReliableReroute = true;
+-                    DebugLogHelper.LogInfo(
+-                        log,
+-                        "[MP-SYNC-EVIDENCE RELIABLE-SEND] " +
+-                        $"packetType={packet?.packetType}, payloadBytes={packet?.data?.Length ?? 0}, " +
+-                        $"eligibleRecipients={eligibleRecipients}, successfulRecipients={successfulRecipients}. " +
+-                        "The matching client apply message must confirm delivery.");
+-                }
+-            }
+-
+-            private void SendReliableLobbyPacket(
+-                object targetSteamId,
+-                Platform_Multiplayer.MPData packet)
+-            {
+-                if (targetSteamId == null)
+-                    throw new InvalidOperationException("The lobby recipient has no Steam ID.");
+-                if (packet == null)
+-                    throw new ArgumentNullException(nameof(packet));
+-
+-                byte[] bytes = packet.ToBytes();
+-                object identity = Activator.CreateInstance(steamNetworkingIdentityType);
+-                setSteamIdMethod.Invoke(identity, new[] { targetSteamId });
+-                GCHandle pinned = GCHandle.Alloc(bytes, GCHandleType.Pinned);
+-                try
+-                {
+-                    object result = sendMessageToUserMethod.Invoke(
+-                        null,
+-                        new object[]
+-                        {
+-                            identity,
+-                            pinned.AddrOfPinnedObject(),
+-                            (uint)bytes.Length,
+-                            40,
+-                            2,
+-                        });
+-                    if (Convert.ToInt32(result) != 1)
+-                    {
+-                        throw new InvalidOperationException(
+-                            $"SteamNetworkingMessages.SendMessageToUser returned [{result}].");
+-                    }
+-                }
+-                finally
+-                {
+-                    pinned.Free();
+-                }
+-            }
+-
+-            private bool ProcessMessageHook(
+-                Platform_Multiplayer instance,
+-                Platform_Multiplayer.MPData data,
+-                Platform_Multiplayer.MPGameMember fromMember,
+-                bool fromThread)
+-            {
+-                if (fromThread && data != null &&
+-                    data.packetType >= (short)CustomNetworkPacketType.CustomPacketStart)
+-                {
+-                    // Returning false makes Vanilla enqueue the packet. Its later
+-                    // main-thread pass preserves fromMember and safely updates UI/settings.
+-                    return false;
+-                }
+-
+-                if (data != null &&
+-                    fromMember != null &&
+-                    data.packetType >= (short)CustomNetworkPacketType.CustomPacketStart)
+-                {
+-                    try
+-                    {
+-                        object sender = Activator.CreateInstance(steamIdType, fromMember.steamID);
+-                        bool handled = (bool)handleRawPacketMethod.Invoke(
+-                            GameNetworkAPI.Instance,
+-                            new object[] { data.packetType, data.data, sender });
+-                        if (handled)
+-                        {
+-                            if (!loggedSenderRepair)
+-                            {
+-                                loggedSenderRepair = true;
+-                                DebugLogHelper.LogInfo(
+-                                    log,
+-                                    "[MP-SYNC-EVIDENCE INGAME-SENDER] " +
+-                                    $"packetType={data.packetType}, payloadBytes={data.data?.Length ?? 0}, " +
+-                                    $"senderSteamId={fromMember.steamID}, handled={handled}. " +
+-                                    "The matching host-only apply message must confirm acceptance.");
+-                            }
+-
+-                            return true;
+-                        }
+-                    }
+-                    catch (Exception ex)
+-                    {
+-                        DebugLogHelper.LogError(
+-                            log,
+-                            $"In-game settings sender workaround failed; falling back to the extender path: {Unwrap(ex)}");
+-                    }
+-                }
+-
+-                return GetTrampoline<ProcessMessageDelegate>(processMessageDetour)(
+-                    instance,
+-                    data,
+-                    fromMember,
+-                    fromThread);
+-            }
+-
+-            private static MethodInfo RequireMethod(
+-                Type type,
+-                string name,
+-                BindingFlags flags,
+-                params Type[] parameterTypes)
+-            {
+-                return type.GetMethod(name, flags, null, parameterTypes, null) ??
+-                    throw new MissingMethodException(type.FullName, name);
+-            }
+-
+-            private static Type FindNullableSteamIdType()
+-            {
+-                MethodInfo candidate = typeof(GameNetworkAPI)
+-                    .GetMethods(BindingFlags.Instance | BindingFlags.NonPublic)
+-                    .Single(method =>
+-                        method.Name == "HandleRawPacket" &&
+-                        method.GetParameters().Length == 3);
+-                return candidate.GetParameters()[2].ParameterType;
+-            }
+-
+-            private static string ReadExtenderJoinDetourState()
+-            {
+-                try
+-                {
+-                    Type managerType = typeof(GameNetworkAPI).Assembly.GetType(
+-                        "SHCDESE.ManagedHooks.ManagedHookManager",
+-                        true);
+-                    object manager = managerType.GetProperty(
+-                        "Instance",
+-                        BindingFlags.Static | BindingFlags.Public)?.GetValue(null);
+-                    FieldInfo field = managerType.GetField(
+-                        "platform_Multiplayer_SendCustomInfoToMember_hook",
+-                        BindingFlags.Instance | BindingFlags.NonPublic);
+-                    if (manager == null || field == null)
+-                        return "unknown";
+-
+-                    return (field.GetValue(manager) != null).ToString();
+-                }
+-                catch
+-                {
+-                    return "unknown";
+-                }
+-            }
+-
+-            private static object CreateManagedDetour(
+-                Type delegateType,
+-                MethodInfo source,
+-                Delegate target)
+-            {
+-                Type openType = typeof(GameNetworkAPI).Assembly.GetType(
+-                    "SHCDESE.ManagedHooks.ManagedDetour`1",
+-                    true);
+-                Type closedType = openType.MakeGenericType(delegateType);
+-                return Activator.CreateInstance(closedType, source, target);
+-            }
+-
+-            private static T GetTrampoline<T>(object detour) where T : class
+-            {
+-                object trampoline = detour.GetType()
+-                    .GetProperty("Trampoline", BindingFlags.Instance | BindingFlags.Public)
+-                    ?.GetValue(detour);
+-                return trampoline as T ??
+-                    throw new InvalidOperationException("Managed detour trampoline is unavailable.");
+-            }
+-
+-            private static void DisposeDetour(object detour)
+-            {
+-                if (detour == null)
+-                    return;
+-
+-                object hook = detour.GetType()
+-                    .GetProperty("Hook", BindingFlags.Instance | BindingFlags.Public)
+-                    ?.GetValue(detour);
+-                (hook as IDisposable)?.Dispose();
+-            }
+-        }
+-
+-        /// <summary>
+-        /// The extender authenticates per-player settings with the transport Steam ID,
+-        /// but maps that identity through lobby list order. Vanilla can already expose
+-        /// the final game slot while that provisional order still differs. Keep the
+-        /// authenticated update until the authoritative roster is available and then
+-        /// write it into the final companion-array slot. Remove this hook after an
+-        /// upstream fix is verified in a real Host/Client run. Revalidate its private
+-        /// target signature and semantics after every Script Extender update.
+-        /// </summary>
+-        private sealed class PerPlayerIdentityHookAnchor
+-        {
+-            private delegate void ApplyPerPlayerUpdateDelegate(
+-                object viewModel,
+-                PropertyInfo property,
+-                LobbyModSettingSyncPacket packet,
+-                object value,
+-                CSteamID? sender);
+-
+-            private readonly ManualLogSource log;
+-            private readonly List<PendingPerPlayerUpdate> pending =
+-                new List<PendingPerPlayerUpdate>();
+-            private object applyPerPlayerUpdateDetour;
+-            private int lastFlushFrame = -1;
+-            private string lastFlushError = string.Empty;
+-
+-            internal PerPlayerIdentityHookAnchor(ManualLogSource log)
+-            {
+-                this.log = log;
+-            }
+-
+-            internal void Install()
+-            {
+-                MethodInfo source = typeof(GameXAMLManagerAPI).GetMethod(
+-                    "ApplyPerPlayerUpdate",
+-                    BindingFlags.Static | BindingFlags.NonPublic,
+-                    null,
+-                    new[]
+-                    {
+-                        typeof(object),
+-                        typeof(PropertyInfo),
+-                        typeof(LobbyModSettingSyncPacket),
+-                        typeof(object),
+-                        typeof(CSteamID?),
+-                    },
+-                    null) ?? throw new MissingMethodException(
+-                        typeof(GameXAMLManagerAPI).FullName,
+-                        "ApplyPerPlayerUpdate");
+-                applyPerPlayerUpdateDetour = CreateManagedDetour(
+-                    typeof(ApplyPerPlayerUpdateDelegate),
+-                    source,
+-                    new ApplyPerPlayerUpdateDelegate(ApplyPerPlayerUpdateHook));
+-                Application.onBeforeRender += FlushPendingUpdates;
+-            }
+-
+-            internal void RollBack()
+-            {
+-                Application.onBeforeRender -= FlushPendingUpdates;
+-                DisposeDetour(applyPerPlayerUpdateDetour);
+-                applyPerPlayerUpdateDetour = null;
+-                pending.Clear();
+-            }
+-
+-            private void ApplyPerPlayerUpdateHook(
+-                object viewModel,
+-                PropertyInfo property,
+-                LobbyModSettingSyncPacket packet,
+-                object value,
+-                CSteamID? sender)
+-            {
+-                if (viewModel == null || property == null || packet == null || value == null)
+-                {
+-                    DebugLogHelper.LogError(
+-                        log,
+-                        "Per-player settings update was rejected because its decoded payload is incomplete.");
+-                    return;
+-                }
+-                if (!sender.HasValue || sender.Value.m_SteamID == 0)
+-                {
+-                    DebugLogHelper.LogError(
+-                        log,
+-                        $"Per-player setting [{packet.ModName}.{packet.PropertyName}] was rejected because the transport sender is unavailable.");
+-                    return;
+-                }
+-
+-                ulong senderSteamId = sender.Value.m_SteamID;
+-                if (!IsCurrentHuman(senderSteamId))
+-                {
+-                    // Steam delivery can win the race against Vanilla's lobby-member
+-                    // projection. Retain the authenticated value, but never apply it
+-                    // until the same Steam identity appears in an authoritative roster.
+-                    QueuePendingUpdate(
+-                        viewModel,
+-                        property,
+-                        packet,
+-                        value,
+-                        senderSteamId,
+-                        "The authenticated transport sender is not visible in the human roster yet.");
+-                    return;
+-                }
+-
+-                if (!TryResolveAuthoritativePlayer(
+-                        senderSteamId,
+-                        packet.SourcePlayerId,
+-                        out int playerId,
+-                        out string resolutionError,
+-                        out string diagnostic))
+-                {
+-                    QueuePendingUpdate(
+-                        viewModel,
+-                        property,
+-                        packet,
+-                        value,
+-                        senderSteamId,
+-                        resolutionError);
+-                    return;
+-                }
+-
+-                ApplyResolvedUpdate(
+-                    viewModel,
+-                    property,
+-                    packet,
+-                    value,
+-                    senderSteamId,
+-                    playerId,
+-                    diagnostic,
+-                    deferred: false);
+-            }
+-
+-            private void FlushPendingUpdates()
+-            {
+-                if (pending.Count == 0 || Time.frameCount == lastFlushFrame)
+-                    return;
+-                lastFlushFrame = Time.frameCount;
+-
+-                try
+-                {
+-                    FlushPendingUpdatesCore();
+-                    lastFlushError = string.Empty;
+-                }
+-                catch (Exception ex)
+-                {
+-                    string error = ex.GetBaseException().Message;
+-                    if (!string.Equals(lastFlushError, error, StringComparison.Ordinal))
+-                    {
+-                        lastFlushError = error;
+-                        DebugLogHelper.LogError(
+-                            log,
+-                            $"Deferred per-player settings remain blocked because their retry failed: {error}");
+-                    }
+-                }
+-            }
+-
+-            private void FlushPendingUpdatesCore()
+-            {
+-
+-                ulong currentLobbyId = CurrentLobbyId();
+-                for (int index = pending.Count - 1; index >= 0; index--)
+-                {
+-                    PendingPerPlayerUpdate update = pending[index];
+-                    if (update.LobbyId != 0 && currentLobbyId != 0 &&
+-                        update.LobbyId != currentLobbyId)
+-                    {
+-                        pending.RemoveAt(index);
+-                        DebugLogHelper.LogError(
+-                            log,
+-                            $"Deferred per-player setting [{update.Packet.ModName}.{update.Packet.PropertyName}] from {update.SenderSteamId} was discarded because the lobby changed.");
+-                        continue;
+-                    }
+-                    if (!IsCurrentHuman(update.SenderSteamId))
+-                        continue;
+-                    if (!TryResolveAuthoritativePlayer(
+-                            update.SenderSteamId,
+-                            update.Packet.SourcePlayerId,
+-                            out int playerId,
+-                            out _,
+-                            out string diagnostic))
+-                        continue;
+-
+-                    ApplyResolvedUpdate(
+-                        update.ViewModel,
+-                        update.Property,
+-                        update.Packet,
+-                        update.Value,
+-                        update.SenderSteamId,
+-                        playerId,
+-                        diagnostic,
+-                        deferred: true);
+-                    pending.RemoveAt(index);
+-                }
+-            }
+-
+-            private void QueuePendingUpdate(
+-                object viewModel,
+-                PropertyInfo property,
+-                LobbyModSettingSyncPacket packet,
+-                object value,
+-                ulong senderSteamId,
+-                string reason)
+-            {
+-                int existing = pending.FindIndex(item =>
+-                    ReferenceEquals(item.ViewModel, viewModel) &&
+-                    string.Equals(item.Property.Name, property.Name, StringComparison.Ordinal) &&
+-                    item.SenderSteamId == senderSteamId);
+-                var update = new PendingPerPlayerUpdate(
+-                    viewModel,
+-                    property,
+-                    packet,
+-                    ClonePendingValue(value),
+-                    senderSteamId,
+-                    CurrentLobbyId());
+-                if (existing >= 0)
+-                    pending[existing] = update;
+-                else
+-                    pending.Add(update);
+-
+-                DebugLogHelper.LogError(
+-                    log,
+-                    $"Per-player setting [{packet.ModName}.{packet.PropertyName}] from authenticated Steam identity {senderSteamId} is waiting for an authoritative player slot without a deadline: {reason}");
+-            }
+-
+-            private void ApplyResolvedUpdate(
+-                object viewModel,
+-                PropertyInfo property,
+-                LobbyModSettingSyncPacket packet,
+-                object value,
+-                ulong senderSteamId,
+-                int playerId,
+-                string diagnostic,
+-                bool deferred)
+-            {
+-                if (!string.IsNullOrEmpty(diagnostic))
+-                {
+-                    DebugLogHelper.LogError(
+-                        log,
+-                        $"Per-player identity sources differed for [{packet.ModName}.{packet.PropertyName}] from {senderSteamId}: {diagnostic}");
+-                }
+-                if (packet.SourcePlayerId != playerId)
+-                {
+-                    DebugLogHelper.LogError(
+-                        log,
+-                        $"Per-player payload slot differed from its authenticated final slot for [{packet.ModName}.{packet.PropertyName}]: payload={packet.SourcePlayerId}, final={playerId}, sender={senderSteamId}. The transport identity wins.");
+-                }
+-
+-                string dataPropertyName = property.Name + "Data";
+-                PropertyInfo dataProperty = viewModel.GetType().GetProperty(
+-                    dataPropertyName,
+-                    BindingFlags.Instance | BindingFlags.Public);
+-                if (dataProperty?.GetValue(viewModel) is not Array data ||
+-                    playerId < 0 || playerId >= data.Length)
+-                {
+-                    DebugLogHelper.LogError(
+-                        log,
+-                        $"Per-player setting [{packet.ModName}.{packet.PropertyName}] could not be applied to companion [{dataPropertyName}] at final slot {playerId}.");
+-                    return;
+-                }
+-
+-                data.SetValue(ClonePendingValue(value), playerId);
+-                if (viewModel is LobbyModSettingsBaseViewModel baseViewModel)
+-                    baseViewModel.System_TriggerUpdate(dataPropertyName);
+-                DebugLogHelper.LogInfo(
+-                    log,
+-                    $"[MP-SYNC-EVIDENCE PER-PLAYER-IDENTITY] mod={packet.ModName}, property={packet.PropertyName}, senderSteamId={senderSteamId}, payloadPlayerId={packet.SourcePlayerId}, finalPlayerId={playerId}, deferred={deferred}.");
+-            }
+-
+-            private static bool TryResolveAuthoritativePlayer(
+-                ulong senderSteamId,
+-                int payloadPlayerId,
+-                out int playerId,
+-                out string error,
+-                out string diagnostic)
+-            {
+-                diagnostic = string.Empty;
+-                bool lobbyPhase = Platform_Multiplayer.Instance?.activeLobby?.members != null;
+-                if (!PlayerIdentityHelper.TryCaptureHumanRoster(
+-                        preferInGameRoster: !lobbyPhase,
+-                        requireAuthoritativeLobbyRoster: true,
+-                        out Dictionary<int, ulong> players,
+-                        out error,
+-                        out _))
+-                {
+-                    playerId = 0;
+-                    return false;
+-                }
+-
+-                PlayerIdentityResolution resolution =
+-                    PlayerIdentityHelper.ResolveAuthenticatedPerPlayerTarget(
+-                        senderSteamId,
+-                        payloadPlayerId,
+-                        players);
+-                playerId = resolution.PlayerId;
+-                if (!resolution.IsResolved)
+-                {
+-                    error = resolution.Error;
+-                    return false;
+-                }
+-                diagnostic = PlayerIdentityHelper.CaptureProvisionalPlayerIdDiagnostic(
+-                    senderSteamId,
+-                    playerId,
+-                    inGame: !lobbyPhase);
+-                error = string.Empty;
+-                return true;
+-            }
+-
+-            private static bool IsCurrentHuman(ulong steamId)
+-            {
+-                Platform_Multiplayer platform = Platform_Multiplayer.Instance;
+-                if (platform?.activeLobby?.members != null)
+-                {
+-                    return platform.activeLobby.members.Any(member =>
+-                        member != null && !member.dummyToBeKicked &&
+-                        (!member.SkirmishMember || member.SkirmishHumanMember) &&
+-                        member.id.m_SteamID == steamId);
+-                }
+-
+-                return platform?.gameMembers?.Any(member =>
+-                    member != null && !member.kicked && !member.skirmishAI &&
+-                    member.steamID == steamId) == true;
+-            }
+-
+-            private static ulong CurrentLobbyId() =>
+-                Platform_Multiplayer.Instance?.activeLobby?.id.m_SteamID ?? 0;
+-
+-            private static object ClonePendingValue(object value)
+-            {
+-                if (value is Array array)
+-                    return array.Clone();
+-                if (value is byte[] bytes)
+-                    return (byte[])bytes.Clone();
+-                return value;
+-            }
+-
+-            private static object CreateManagedDetour(
+-                Type delegateType,
+-                MethodInfo source,
+-                Delegate target)
+-            {
+-                Type openType = typeof(GameNetworkAPI).Assembly.GetType(
+-                    "SHCDESE.ManagedHooks.ManagedDetour`1",
+-                    true);
+-                Type closedType = openType.MakeGenericType(delegateType);
+-                return Activator.CreateInstance(closedType, source, target);
+-            }
+-
+-            private static void DisposeDetour(object detour)
+-            {
+-                if (detour == null)
+-                    return;
+-                object hook = detour.GetType()
+-                    .GetProperty("Hook", BindingFlags.Instance | BindingFlags.Public)
+-                    ?.GetValue(detour);
+-                (hook as IDisposable)?.Dispose();
+-            }
+-
+-            private sealed class PendingPerPlayerUpdate
+-            {
+-                internal PendingPerPlayerUpdate(
+-                    object viewModel,
+-                    PropertyInfo property,
+-                    LobbyModSettingSyncPacket packet,
+-                    object value,
+-                    ulong senderSteamId,
+-                    ulong lobbyId)
+-                {
+-                    ViewModel = viewModel;
+-                    Property = property;
+-                    Packet = packet;
+-                    Value = value;
+-                    SenderSteamId = senderSteamId;
+-                    LobbyId = lobbyId;
+-                }
+-
+-                internal object ViewModel { get; }
+-                internal PropertyInfo Property { get; }
+-                internal LobbyModSettingSyncPacket Packet { get; }
+-                internal object Value { get; }
+-                internal ulong SenderSteamId { get; }
+-                internal ulong LobbyId { get; }
+-            }
+-        }
+-    }
+-#endif
+-
+ #if !SHARED_PRESET_TESTS
+     internal static class ModSettingsHorizontalFocusScrollGuard
+     {
+@@ -3082,7 +2237,6 @@ namespace Shared
+                 throw new ArgumentNullException(nameof(viewModel));
+ 
+ #if !SHARED_PRESET_TESTS
+-            ScriptExtenderMultiplayerSyncWorkaround.EnsureInstalled(log);
+             if (GameAssetManagerAPI.Instance.GetModifiedFilePath(
+                 xamlSourceFile,
+                 out string absoluteXamlSourceFile))
+@@ -3106,7 +2260,16 @@ namespace Shared
+                     xamlSourceFile);
+                 var registration = GameXAMLManagerAPI.Instance.RegisteredModSettings
+                     .FirstOrDefault(entry => ReferenceEquals(entry.ViewModel, viewModel));
++#if SHARED_PRESET_TESTS
++                // The classic test harness deliberately does not load Noesis.NoesisGUI.
++                // Reflection keeps the registration semantics under test without
++                // introducing a runtime-only FrameworkElement assembly dependency.
++                registeredView = registration?.GetType()
++                    .GetProperty("View", BindingFlags.Instance | BindingFlags.Public)
++                    ?.GetValue(registration);
++#else
+                 registeredView = registration?.View;
++#endif
+             }
+             catch
+             {
+@@ -3127,10 +2290,12 @@ namespace Shared
+                 log,
+                 modName);
+             viewModel.ActivatePresets();
++#if !SHARED_PRESET_TESTS
+             // Views are created before a lobby exists. Refresh the cached role whenever
+             // the persistent settings hub opens or changes its selected tab.
+             Plugin.ModSettingsHubViewModel.PropertyChanged += (_, __) =>
+                 viewModel.System_RefreshSettingsAccess();
++#endif
+         }
+     }
+ }
+
+diff --git a/Shared/SerpLocalization.cs b/Shared/SerpLocalization.cs
+index e5ed9f76..4eb3f084 100644
+--- a/Shared/SerpLocalization.cs
++++ b/Shared/SerpLocalization.cs
+@@ -41,7 +41,6 @@ public static class SerpLocalization
+     public const string Slot1Header = "UnitCosts.Slot1Header";
+     public const string Slot2Header = "UnitCosts.Slot2Header";
+     public const string Slot3Header = "UnitCosts.Slot3Header";
+-    public const string Slot4HorseHeader = "UnitCosts.Slot4HorseHeader";
+     public const string None = "UnitCosts.None";
+     public const string Horse = "UnitCosts.Horse";
+     public const string ResourcesMissing = "UnitCosts.ResourcesMissing";
+@@ -445,12 +462,11 @@ public static class SerpLocalization
+         { UnitCostsTitle, "Base Costs (Human and AI)" },
+         { UnitCostsHelp, "Good slots apply to European units. unchanged keeps the vanilla slot; gold -1 stays unchanged." },
+         { UnitCostsExtraTitle, "Additional Costs (Human only)" },
+-        { UnitCostsExtraHelp, "0 = no extra cost. Positive values are charged in addition; negative gold refunds up to the current gold cost. AI players ignore this table." },
++        { UnitCostsExtraHelp, "0 = no extra cost. Positive values are charged in addition; negative gold refunds up to the current gold cost. A checked horse reserves one available stable horse for the recruited unit. AI players ignore this table." },
+         { UnitHeader, "Unit" },
+         { Slot1Header, "Slot 1" },
+         { Slot2Header, "Slot 2" },
+         { Slot3Header, "Slot 3" },
+-        { Slot4HorseHeader, "Slot 4 / Horse" },
+         { None, "none" },
+         { Horse, "Horse" },
+         { ResourcesMissing, "Resources missing" },
+
+diff --git a/UnitCosts/BepInEx/plugins/UnitCosts_Serp/info.json b/UnitCosts/BepInEx/plugins/UnitCosts_Serp/info.json
+index 38fce9b2..19aa1e04 100644
+--- a/UnitCosts/BepInEx/plugins/UnitCosts_Serp/info.json
++++ b/UnitCosts/BepInEx/plugins/UnitCosts_Serp/info.json
+@@ -6,6 +6,7 @@
+   "Version": "1.0.22",
+   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
+   "Manifest": 1,
++  "NetworkMode": 1,
+   "SerpChangelog": [
+     {
+       "Version": "1.0.22",
+
+diff --git a/UnitCosts/BepInEx/plugins/UnitCosts_Serp/Override/ScriptExtenderUI/UnitCostsSettings.xaml b/UnitCosts/BepInEx/plugins/UnitCosts_Serp/Override/ScriptExtenderUI/UnitCostsSettings.xaml
+index 80c69f9f..807ae44d 100644
+--- a/UnitCosts/BepInEx/plugins/UnitCosts_Serp/Override/ScriptExtenderUI/UnitCostsSettings.xaml
++++ b/UnitCosts/BepInEx/plugins/UnitCosts_Serp/Override/ScriptExtenderUI/UnitCostsSettings.xaml
+@@ -131,6 +131,18 @@
+             </DataTemplate>
+           </ItemsControl.ItemTemplate>
+         </ItemsControl>
++        <StackPanel Width="74" Margin="3,0">
++          <Image Source="{Binding HorseHeaderIcon}"
++                 Width="18"
++                 Height="18"
++                 Stretch="Uniform"
++                 HorizontalAlignment="Right"
++                 Margin="0,0,0,1"/>
++          <TextBlock Text="{Binding HorseHeaderText}"
++                     Foreground="#CCCCCC"
++                     FontWeight="Bold"
++                     TextAlignment="Right"/>
++        </StackPanel>
+       </StackPanel>
+       <ItemsControl ItemsSource="{Binding ExtraCostEntries}" Margin="0,3,0,8">
+         <ItemsControl.ItemTemplate>
+@@ -166,6 +178,13 @@
+                   </DataTemplate>
+                 </ItemsControl.ItemTemplate>
+               </ItemsControl>
++              <StackPanel Width="74" Margin="3" VerticalAlignment="Center">
++                <CheckBox IsChecked="{Binding RequiresHorse, Mode=TwoWay}"
++                          IsEnabled="{Binding HorseCostSupported}"
++                          HorizontalAlignment="Center"
++                          ToolTipService.ShowDuration="60000"
++                          ToolTip="{Binding HorseToolTip}"/>
++              </StackPanel>
+             </StackPanel>
+             </Grid>
+           </DataTemplate>
+
+diff --git a/UnitCosts/Locales/ar.txt b/UnitCosts/Locales/ar.txt
+index 955ed740..1ce461ac 100644
+--- a/UnitCosts/Locales/ar.txt
++++ b/UnitCosts/Locales/ar.txt
+@@ -9,12 +9,11 @@ Common.ResetToDefault=Reset to Default
+ UnitCosts.Title=Base Costs (Human and AI)
+ UnitCosts.Help=Only native gold costs can be changed here. Add material costs through extra costs for human players.
+ UnitCosts.ExtraTitle=Additional Costs (Human only)
+-UnitCosts.ExtraHelp=0 = no extra cost. Positive values are charged in addition; negative gold refunds up to the current gold cost. AI players ignore this table.
++UnitCosts.ExtraHelp=0 = no extra cost. Positive values are charged in addition; negative gold refunds up to the current gold cost. A checked horse reserves one available stable horse for the recruited unit. AI players ignore this table.
+ UnitCosts.UnitHeader=Unit
+ UnitCosts.Slot1Header=Slot 1
+ UnitCosts.Slot2Header=Slot 2
+ UnitCosts.Slot3Header=Slot 3
+-UnitCosts.Slot4HorseHeader=Slot 4 / Horse
+ UnitCosts.None=none
+ UnitCosts.Horse=Horse
+ UnitCosts.ResourcesMissing=Resources missing
+
+diff --git a/UnitCosts/Locales/cs-CZ.txt b/UnitCosts/Locales/cs-CZ.txt
+index 955ed740..1ce461ac 100644
+--- a/UnitCosts/Locales/cs-CZ.txt
++++ b/UnitCosts/Locales/cs-CZ.txt
+@@ -9,12 +9,11 @@ Common.ResetToDefault=Reset to Default
+ UnitCosts.Title=Base Costs (Human and AI)
+ UnitCosts.Help=Only native gold costs can be changed here. Add material costs through extra costs for human players.
+ UnitCosts.ExtraTitle=Additional Costs (Human only)
+-UnitCosts.ExtraHelp=0 = no extra cost. Positive values are charged in addition; negative gold refunds up to the current gold cost. AI players ignore this table.
++UnitCosts.ExtraHelp=0 = no extra cost. Positive values are charged in addition; negative gold refunds up to the current gold cost. A checked horse reserves one available stable horse for the recruited unit. AI players ignore this table.
+ UnitCosts.UnitHeader=Unit
+ UnitCosts.Slot1Header=Slot 1
+ UnitCosts.Slot2Header=Slot 2
+ UnitCosts.Slot3Header=Slot 3
+-UnitCosts.Slot4HorseHeader=Slot 4 / Horse
+ UnitCosts.None=none
+ UnitCosts.Horse=Horse
+ UnitCosts.ResourcesMissing=Resources missing
+
+diff --git a/UnitCosts/Locales/de-DE.txt b/UnitCosts/Locales/de-DE.txt
+index f0c9ee2b..08b9bc40 100644
+--- a/UnitCosts/Locales/de-DE.txt
++++ b/UnitCosts/Locales/de-DE.txt
+@@ -9,12 +9,11 @@ Common.ClientSettingsActivationHelp=Aktiviert oder deaktiviert alle lokalen und
+ UnitCosts.Title=Grundkosten (Mensch und KI)
+ UnitCosts.Help=Hier können nur native Goldkosten geändert werden. Materialkosten werden über die Zusatzkosten für menschliche Spieler hinzugefügt.
+ UnitCosts.ExtraTitle=Zusatzkosten (nur Mensch)
+-UnitCosts.ExtraHelp=0 = keine Zusatzkosten. Positive Werte werden zusätzlich abgezogen; negatives Gold wird bis maximal zu den aktuellen Goldkosten erstattet. KI-Spieler ignorieren diese Tabelle.
++UnitCosts.ExtraHelp=0 = keine Zusatzkosten. Positive Werte werden zusätzlich abgezogen; negatives Gold wird bis maximal zu den aktuellen Goldkosten erstattet. Ein gesetztes Pferd reserviert für die rekrutierte Einheit ein verfügbares Stallpferd. KI-Spieler ignorieren diese Tabelle.
+ UnitCosts.UnitHeader=Einheit
+ UnitCosts.Slot1Header=Platz 1
+ UnitCosts.Slot2Header=Platz 2
+ UnitCosts.Slot3Header=Platz 3
+-UnitCosts.Slot4HorseHeader=Platz 4 / Pferd
+ UnitCosts.None=keine
+ UnitCosts.Horse=Pferd
+ UnitCosts.ResourcesMissing=Material fehlt
+
+diff --git a/UnitCosts/Locales/el-GR.txt b/UnitCosts/Locales/el-GR.txt
+index 955ed740..1ce461ac 100644
+--- a/UnitCosts/Locales/el-GR.txt
++++ b/UnitCosts/Locales/el-GR.txt
+@@ -9,12 +9,11 @@ Common.ResetToDefault=Reset to Default
+ UnitCosts.Title=Base Costs (Human and AI)
+ UnitCosts.Help=Only native gold costs can be changed here. Add material costs through extra costs for human players.
+ UnitCosts.ExtraTitle=Additional Costs (Human only)
+-UnitCosts.ExtraHelp=0 = no extra cost. Positive values are charged in addition; negative gold refunds up to the current gold cost. AI players ignore this table.
++UnitCosts.ExtraHelp=0 = no extra cost. Positive values are charged in addition; negative gold refunds up to the current gold cost. A checked horse reserves one available stable horse for the recruited unit. AI players ignore this table.
+ UnitCosts.UnitHeader=Unit
+ UnitCosts.Slot1Header=Slot 1
+ UnitCosts.Slot2Header=Slot 2
+ UnitCosts.Slot3Header=Slot 3
+-UnitCosts.Slot4HorseHeader=Slot 4 / Horse
+ UnitCosts.None=none
+ UnitCosts.Horse=Horse
+ UnitCosts.ResourcesMissing=Resources missing
+
+diff --git a/UnitCosts/Locales/en-US.txt b/UnitCosts/Locales/en-US.txt
+index 955ed740..1ce461ac 100644
+--- a/UnitCosts/Locales/en-US.txt
++++ b/UnitCosts/Locales/en-US.txt
+@@ -9,12 +9,11 @@ Common.ResetToDefault=Reset to Default
+ UnitCosts.Title=Base Costs (Human and AI)
+ UnitCosts.Help=Only native gold costs can be changed here. Add material costs through extra costs for human players.
+ UnitCosts.ExtraTitle=Additional Costs (Human only)
+-UnitCosts.ExtraHelp=0 = no extra cost. Positive values are charged in addition; negative gold refunds up to the current gold cost. AI players ignore this table.
++UnitCosts.ExtraHelp=0 = no extra cost. Positive values are charged in addition; negative gold refunds up to the current gold cost. A checked horse reserves one available stable horse for the recruited unit. AI players ignore this table.
+ UnitCosts.UnitHeader=Unit
+ UnitCosts.Slot1Header=Slot 1
+ UnitCosts.Slot2Header=Slot 2
+ UnitCosts.Slot3Header=Slot 3
+-UnitCosts.Slot4HorseHeader=Slot 4 / Horse
+ UnitCosts.None=none
+ UnitCosts.Horse=Horse
+ UnitCosts.ResourcesMissing=Resources missing
+
+diff --git a/UnitCosts/Locales/es-ES.txt b/UnitCosts/Locales/es-ES.txt
+index 955ed740..1ce461ac 100644
+--- a/UnitCosts/Locales/es-ES.txt
++++ b/UnitCosts/Locales/es-ES.txt
+@@ -9,12 +9,11 @@ Common.ResetToDefault=Reset to Default
+ UnitCosts.Title=Base Costs (Human and AI)
+ UnitCosts.Help=Only native gold costs can be changed here. Add material costs through extra costs for human players.
+ UnitCosts.ExtraTitle=Additional Costs (Human only)
+-UnitCosts.ExtraHelp=0 = no extra cost. Positive values are charged in addition; negative gold refunds up to the current gold cost. AI players ignore this table.
++UnitCosts.ExtraHelp=0 = no extra cost. Positive values are charged in addition; negative gold refunds up to the current gold cost. A checked horse reserves one available stable horse for the recruited unit. AI players ignore this table.
+ UnitCosts.UnitHeader=Unit
+ UnitCosts.Slot1Header=Slot 1
+ UnitCosts.Slot2Header=Slot 2
+ UnitCosts.Slot3Header=Slot 3
+-UnitCosts.Slot4HorseHeader=Slot 4 / Horse
+ UnitCosts.None=none
+ UnitCosts.Horse=Horse
+ UnitCosts.ResourcesMissing=Resources missing
+
+diff --git a/UnitCosts/Locales/fr-FR.txt b/UnitCosts/Locales/fr-FR.txt
+index 955ed740..1ce461ac 100644
+--- a/UnitCosts/Locales/fr-FR.txt
++++ b/UnitCosts/Locales/fr-FR.txt
+@@ -9,12 +9,11 @@ Common.ResetToDefault=Reset to Default
+ UnitCosts.Title=Base Costs (Human and AI)
+ UnitCosts.Help=Only native gold costs can be changed here. Add material costs through extra costs for human players.
+ UnitCosts.ExtraTitle=Additional Costs (Human only)
+-UnitCosts.ExtraHelp=0 = no extra cost. Positive values are charged in addition; negative gold refunds up to the current gold cost. AI players ignore this table.
++UnitCosts.ExtraHelp=0 = no extra cost. Positive values are charged in addition; negative gold refunds up to the current gold cost. A checked horse reserves one available stable horse for the recruited unit. AI players ignore this table.
+ UnitCosts.UnitHeader=Unit
+ UnitCosts.Slot1Header=Slot 1
+ UnitCosts.Slot2Header=Slot 2
+ UnitCosts.Slot3Header=Slot 3
+-UnitCosts.Slot4HorseHeader=Slot 4 / Horse
+ UnitCosts.None=none
+ UnitCosts.Horse=Horse
+ UnitCosts.ResourcesMissing=Resources missing
+
+diff --git a/UnitCosts/Locales/hu-HU.txt b/UnitCosts/Locales/hu-HU.txt
+index 955ed740..1ce461ac 100644
+--- a/UnitCosts/Locales/hu-HU.txt
++++ b/UnitCosts/Locales/hu-HU.txt
+@@ -9,12 +9,11 @@ Common.ResetToDefault=Reset to Default
+ UnitCosts.Title=Base Costs (Human and AI)
+ UnitCosts.Help=Only native gold costs can be changed here. Add material costs through extra costs for human players.
+ UnitCosts.ExtraTitle=Additional Costs (Human only)
+-UnitCosts.ExtraHelp=0 = no extra cost. Positive values are charged in addition; negative gold refunds up to the current gold cost. AI players ignore this table.
++UnitCosts.ExtraHelp=0 = no extra cost. Positive values are charged in addition; negative gold refunds up to the current gold cost. A checked horse reserves one available stable horse for the recruited unit. AI players ignore this table.
+ UnitCosts.UnitHeader=Unit
+ UnitCosts.Slot1Header=Slot 1
+ UnitCosts.Slot2Header=Slot 2
+ UnitCosts.Slot3Header=Slot 3
+-UnitCosts.Slot4HorseHeader=Slot 4 / Horse
+ UnitCosts.None=none
+ UnitCosts.Horse=Horse
+ UnitCosts.ResourcesMissing=Resources missing
+
+diff --git a/UnitCosts/Locales/it-IT.txt b/UnitCosts/Locales/it-IT.txt
+index 955ed740..1ce461ac 100644
+--- a/UnitCosts/Locales/it-IT.txt
++++ b/UnitCosts/Locales/it-IT.txt
+@@ -9,12 +9,11 @@ Common.ResetToDefault=Reset to Default
+ UnitCosts.Title=Base Costs (Human and AI)
+ UnitCosts.Help=Only native gold costs can be changed here. Add material costs through extra costs for human players.
+ UnitCosts.ExtraTitle=Additional Costs (Human only)
+-UnitCosts.ExtraHelp=0 = no extra cost. Positive values are charged in addition; negative gold refunds up to the current gold cost. AI players ignore this table.
++UnitCosts.ExtraHelp=0 = no extra cost. Positive values are charged in addition; negative gold refunds up to the current gold cost. A checked horse reserves one available stable horse for the recruited unit. AI players ignore this table.
+ UnitCosts.UnitHeader=Unit
+ UnitCosts.Slot1Header=Slot 1
+ UnitCosts.Slot2Header=Slot 2
+ UnitCosts.Slot3Header=Slot 3
+-UnitCosts.Slot4HorseHeader=Slot 4 / Horse
+ UnitCosts.None=none
+ UnitCosts.Horse=Horse
+ UnitCosts.ResourcesMissing=Resources missing
+
+diff --git a/UnitCosts/Locales/ja-JP.txt b/UnitCosts/Locales/ja-JP.txt
+index 955ed740..1ce461ac 100644
+--- a/UnitCosts/Locales/ja-JP.txt
++++ b/UnitCosts/Locales/ja-JP.txt
+@@ -9,12 +9,11 @@ Common.ResetToDefault=Reset to Default
+ UnitCosts.Title=Base Costs (Human and AI)
+ UnitCosts.Help=Only native gold costs can be changed here. Add material costs through extra costs for human players.
+ UnitCosts.ExtraTitle=Additional Costs (Human only)
+-UnitCosts.ExtraHelp=0 = no extra cost. Positive values are charged in addition; negative gold refunds up to the current gold cost. AI players ignore this table.
++UnitCosts.ExtraHelp=0 = no extra cost. Positive values are charged in addition; negative gold refunds up to the current gold cost. A checked horse reserves one available stable horse for the recruited unit. AI players ignore this table.
+ UnitCosts.UnitHeader=Unit
+ UnitCosts.Slot1Header=Slot 1
+ UnitCosts.Slot2Header=Slot 2
+ UnitCosts.Slot3Header=Slot 3
+-UnitCosts.Slot4HorseHeader=Slot 4 / Horse
+ UnitCosts.None=none
+ UnitCosts.Horse=Horse
+ UnitCosts.ResourcesMissing=Resources missing
+
+diff --git a/UnitCosts/Locales/ko-KR.txt b/UnitCosts/Locales/ko-KR.txt
+index 955ed740..1ce461ac 100644
+--- a/UnitCosts/Locales/ko-KR.txt
++++ b/UnitCosts/Locales/ko-KR.txt
+@@ -9,12 +9,11 @@ Common.ResetToDefault=Reset to Default
+ UnitCosts.Title=Base Costs (Human and AI)
+ UnitCosts.Help=Only native gold costs can be changed here. Add material costs through extra costs for human players.
+ UnitCosts.ExtraTitle=Additional Costs (Human only)
+-UnitCosts.ExtraHelp=0 = no extra cost. Positive values are charged in addition; negative gold refunds up to the current gold cost. AI players ignore this table.
++UnitCosts.ExtraHelp=0 = no extra cost. Positive values are charged in addition; negative gold refunds up to the current gold cost. A checked horse reserves one available stable horse for the recruited unit. AI players ignore this table.
+ UnitCosts.UnitHeader=Unit
+ UnitCosts.Slot1Header=Slot 1
+ UnitCosts.Slot2Header=Slot 2
+ UnitCosts.Slot3Header=Slot 3
+-UnitCosts.Slot4HorseHeader=Slot 4 / Horse
+ UnitCosts.None=none
+ UnitCosts.Horse=Horse
+ UnitCosts.ResourcesMissing=Resources missing
+
+diff --git a/UnitCosts/Locales/nl-NL.txt b/UnitCosts/Locales/nl-NL.txt
+index 955ed740..1ce461ac 100644
+--- a/UnitCosts/Locales/nl-NL.txt
++++ b/UnitCosts/Locales/nl-NL.txt
+@@ -9,12 +9,11 @@ Common.ResetToDefault=Reset to Default
+ UnitCosts.Title=Base Costs (Human and AI)
+ UnitCosts.Help=Only native gold costs can be changed here. Add material costs through extra costs for human players.
+ UnitCosts.ExtraTitle=Additional Costs (Human only)
+-UnitCosts.ExtraHelp=0 = no extra cost. Positive values are charged in addition; negative gold refunds up to the current gold cost. AI players ignore this table.
++UnitCosts.ExtraHelp=0 = no extra cost. Positive values are charged in addition; negative gold refunds up to the current gold cost. A checked horse reserves one available stable horse for the recruited unit. AI players ignore this table.
+ UnitCosts.UnitHeader=Unit
+ UnitCosts.Slot1Header=Slot 1
+ UnitCosts.Slot2Header=Slot 2
+ UnitCosts.Slot3Header=Slot 3
+-UnitCosts.Slot4HorseHeader=Slot 4 / Horse
+ UnitCosts.None=none
+ UnitCosts.Horse=Horse
+ UnitCosts.ResourcesMissing=Resources missing
+
+diff --git a/UnitCosts/Locales/pl-PL.txt b/UnitCosts/Locales/pl-PL.txt
+index 955ed740..1ce461ac 100644
+--- a/UnitCosts/Locales/pl-PL.txt
++++ b/UnitCosts/Locales/pl-PL.txt
+@@ -9,12 +9,11 @@ Common.ResetToDefault=Reset to Default
+ UnitCosts.Title=Base Costs (Human and AI)
+ UnitCosts.Help=Only native gold costs can be changed here. Add material costs through extra costs for human players.
+ UnitCosts.ExtraTitle=Additional Costs (Human only)
+-UnitCosts.ExtraHelp=0 = no extra cost. Positive values are charged in addition; negative gold refunds up to the current gold cost. AI players ignore this table.
++UnitCosts.ExtraHelp=0 = no extra cost. Positive values are charged in addition; negative gold refunds up to the current gold cost. A checked horse reserves one available stable horse for the recruited unit. AI players ignore this table.
+ UnitCosts.UnitHeader=Unit
+ UnitCosts.Slot1Header=Slot 1
+ UnitCosts.Slot2Header=Slot 2
+ UnitCosts.Slot3Header=Slot 3
+-UnitCosts.Slot4HorseHeader=Slot 4 / Horse
+ UnitCosts.None=none
+ UnitCosts.Horse=Horse
+ UnitCosts.ResourcesMissing=Resources missing
+
+diff --git a/UnitCosts/Locales/pt-BR.txt b/UnitCosts/Locales/pt-BR.txt
+index 955ed740..1ce461ac 100644
+--- a/UnitCosts/Locales/pt-BR.txt
++++ b/UnitCosts/Locales/pt-BR.txt
+@@ -9,12 +9,11 @@ Common.ResetToDefault=Reset to Default
+ UnitCosts.Title=Base Costs (Human and AI)
+ UnitCosts.Help=Only native gold costs can be changed here. Add material costs through extra costs for human players.
+ UnitCosts.ExtraTitle=Additional Costs (Human only)
+-UnitCosts.ExtraHelp=0 = no extra cost. Positive values are charged in addition; negative gold refunds up to the current gold cost. AI players ignore this table.
++UnitCosts.ExtraHelp=0 = no extra cost. Positive values are charged in addition; negative gold refunds up to the current gold cost. A checked horse reserves one available stable horse for the recruited unit. AI players ignore this table.
+ UnitCosts.UnitHeader=Unit
+ UnitCosts.Slot1Header=Slot 1
+ UnitCosts.Slot2Header=Slot 2
+ UnitCosts.Slot3Header=Slot 3
+-UnitCosts.Slot4HorseHeader=Slot 4 / Horse
+ UnitCosts.None=none
+ UnitCosts.Horse=Horse
+ UnitCosts.ResourcesMissing=Resources missing
+
+diff --git a/UnitCosts/Locales/ru-RU.txt b/UnitCosts/Locales/ru-RU.txt
+index 955ed740..1ce461ac 100644
+--- a/UnitCosts/Locales/ru-RU.txt
++++ b/UnitCosts/Locales/ru-RU.txt
+@@ -9,12 +9,11 @@ Common.ResetToDefault=Reset to Default
+ UnitCosts.Title=Base Costs (Human and AI)
+ UnitCosts.Help=Only native gold costs can be changed here. Add material costs through extra costs for human players.
+ UnitCosts.ExtraTitle=Additional Costs (Human only)
+-UnitCosts.ExtraHelp=0 = no extra cost. Positive values are charged in addition; negative gold refunds up to the current gold cost. AI players ignore this table.
++UnitCosts.ExtraHelp=0 = no extra cost. Positive values are charged in addition; negative gold refunds up to the current gold cost. A checked horse reserves one available stable horse for the recruited unit. AI players ignore this table.
+ UnitCosts.UnitHeader=Unit
+ UnitCosts.Slot1Header=Slot 1
+ UnitCosts.Slot2Header=Slot 2
+ UnitCosts.Slot3Header=Slot 3
+-UnitCosts.Slot4HorseHeader=Slot 4 / Horse
+ UnitCosts.None=none
+ UnitCosts.Horse=Horse
+ UnitCosts.ResourcesMissing=Resources missing
+
+diff --git a/UnitCosts/Locales/sv-SE.txt b/UnitCosts/Locales/sv-SE.txt
+index 955ed740..1ce461ac 100644
+--- a/UnitCosts/Locales/sv-SE.txt
++++ b/UnitCosts/Locales/sv-SE.txt
+@@ -9,12 +9,11 @@ Common.ResetToDefault=Reset to Default
+ UnitCosts.Title=Base Costs (Human and AI)
+ UnitCosts.Help=Only native gold costs can be changed here. Add material costs through extra costs for human players.
+ UnitCosts.ExtraTitle=Additional Costs (Human only)
+-UnitCosts.ExtraHelp=0 = no extra cost. Positive values are charged in addition; negative gold refunds up to the current gold cost. AI players ignore this table.
++UnitCosts.ExtraHelp=0 = no extra cost. Positive values are charged in addition; negative gold refunds up to the current gold cost. A checked horse reserves one available stable horse for the recruited unit. AI players ignore this table.
+ UnitCosts.UnitHeader=Unit
+ UnitCosts.Slot1Header=Slot 1
+ UnitCosts.Slot2Header=Slot 2
+ UnitCosts.Slot3Header=Slot 3
+-UnitCosts.Slot4HorseHeader=Slot 4 / Horse
+ UnitCosts.None=none
+ UnitCosts.Horse=Horse
+ UnitCosts.ResourcesMissing=Resources missing
+
+diff --git a/UnitCosts/Locales/th-TH.txt b/UnitCosts/Locales/th-TH.txt
+index 955ed740..1ce461ac 100644
+--- a/UnitCosts/Locales/th-TH.txt
++++ b/UnitCosts/Locales/th-TH.txt
+@@ -9,12 +9,11 @@ Common.ResetToDefault=Reset to Default
+ UnitCosts.Title=Base Costs (Human and AI)
+ UnitCosts.Help=Only native gold costs can be changed here. Add material costs through extra costs for human players.
+ UnitCosts.ExtraTitle=Additional Costs (Human only)
+-UnitCosts.ExtraHelp=0 = no extra cost. Positive values are charged in addition; negative gold refunds up to the current gold cost. AI players ignore this table.
++UnitCosts.ExtraHelp=0 = no extra cost. Positive values are charged in addition; negative gold refunds up to the current gold cost. A checked horse reserves one available stable horse for the recruited unit. AI players ignore this table.
+ UnitCosts.UnitHeader=Unit
+ UnitCosts.Slot1Header=Slot 1
+ UnitCosts.Slot2Header=Slot 2
+ UnitCosts.Slot3Header=Slot 3
+-UnitCosts.Slot4HorseHeader=Slot 4 / Horse
+ UnitCosts.None=none
+ UnitCosts.Horse=Horse
+ UnitCosts.ResourcesMissing=Resources missing
+
+diff --git a/UnitCosts/Locales/tr-TR.txt b/UnitCosts/Locales/tr-TR.txt
+index 955ed740..1ce461ac 100644
+--- a/UnitCosts/Locales/tr-TR.txt
++++ b/UnitCosts/Locales/tr-TR.txt
+@@ -9,12 +9,11 @@ Common.ResetToDefault=Reset to Default
+ UnitCosts.Title=Base Costs (Human and AI)
+ UnitCosts.Help=Only native gold costs can be changed here. Add material costs through extra costs for human players.
+ UnitCosts.ExtraTitle=Additional Costs (Human only)
+-UnitCosts.ExtraHelp=0 = no extra cost. Positive values are charged in addition; negative gold refunds up to the current gold cost. AI players ignore this table.
++UnitCosts.ExtraHelp=0 = no extra cost. Positive values are charged in addition; negative gold refunds up to the current gold cost. A checked horse reserves one available stable horse for the recruited unit. AI players ignore this table.
+ UnitCosts.UnitHeader=Unit
+ UnitCosts.Slot1Header=Slot 1
+ UnitCosts.Slot2Header=Slot 2
+ UnitCosts.Slot3Header=Slot 3
+-UnitCosts.Slot4HorseHeader=Slot 4 / Horse
+ UnitCosts.None=none
+ UnitCosts.Horse=Horse
+ UnitCosts.ResourcesMissing=Resources missing
+
+diff --git a/UnitCosts/Locales/uk-UA.txt b/UnitCosts/Locales/uk-UA.txt
+index 955ed740..1ce461ac 100644
+--- a/UnitCosts/Locales/uk-UA.txt
++++ b/UnitCosts/Locales/uk-UA.txt
+@@ -9,12 +9,11 @@ Common.ResetToDefault=Reset to Default
+ UnitCosts.Title=Base Costs (Human and AI)
+ UnitCosts.Help=Only native gold costs can be changed here. Add material costs through extra costs for human players.
+ UnitCosts.ExtraTitle=Additional Costs (Human only)
+-UnitCosts.ExtraHelp=0 = no extra cost. Positive values are charged in addition; negative gold refunds up to the current gold cost. AI players ignore this table.
++UnitCosts.ExtraHelp=0 = no extra cost. Positive values are charged in addition; negative gold refunds up to the current gold cost. A checked horse reserves one available stable horse for the recruited unit. AI players ignore this table.
+ UnitCosts.UnitHeader=Unit
+ UnitCosts.Slot1Header=Slot 1
+ UnitCosts.Slot2Header=Slot 2
+ UnitCosts.Slot3Header=Slot 3
+-UnitCosts.Slot4HorseHeader=Slot 4 / Horse
+ UnitCosts.None=none
+ UnitCosts.Horse=Horse
+ UnitCosts.ResourcesMissing=Resources missing
+
+diff --git a/UnitCosts/Locales/zh-CN.txt b/UnitCosts/Locales/zh-CN.txt
+index 955ed740..1ce461ac 100644
+--- a/UnitCosts/Locales/zh-CN.txt
++++ b/UnitCosts/Locales/zh-CN.txt
+@@ -9,12 +9,11 @@ Common.ResetToDefault=Reset to Default
+ UnitCosts.Title=Base Costs (Human and AI)
+ UnitCosts.Help=Only native gold costs can be changed here. Add material costs through extra costs for human players.
+ UnitCosts.ExtraTitle=Additional Costs (Human only)
+-UnitCosts.ExtraHelp=0 = no extra cost. Positive values are charged in addition; negative gold refunds up to the current gold cost. AI players ignore this table.
++UnitCosts.ExtraHelp=0 = no extra cost. Positive values are charged in addition; negative gold refunds up to the current gold cost. A checked horse reserves one available stable horse for the recruited unit. AI players ignore this table.
+ UnitCosts.UnitHeader=Unit
+ UnitCosts.Slot1Header=Slot 1
+ UnitCosts.Slot2Header=Slot 2
+ UnitCosts.Slot3Header=Slot 3
+-UnitCosts.Slot4HorseHeader=Slot 4 / Horse
+ UnitCosts.None=none
+ UnitCosts.Horse=Horse
+ UnitCosts.ResourcesMissing=Resources missing
+
+diff --git a/UnitCosts/Locales/zh-HK.txt b/UnitCosts/Locales/zh-HK.txt
+index 955ed740..1ce461ac 100644
+--- a/UnitCosts/Locales/zh-HK.txt
++++ b/UnitCosts/Locales/zh-HK.txt
+@@ -9,12 +9,11 @@ Common.ResetToDefault=Reset to Default
+ UnitCosts.Title=Base Costs (Human and AI)
+ UnitCosts.Help=Only native gold costs can be changed here. Add material costs through extra costs for human players.
+ UnitCosts.ExtraTitle=Additional Costs (Human only)
+-UnitCosts.ExtraHelp=0 = no extra cost. Positive values are charged in addition; negative gold refunds up to the current gold cost. AI players ignore this table.
++UnitCosts.ExtraHelp=0 = no extra cost. Positive values are charged in addition; negative gold refunds up to the current gold cost. A checked horse reserves one available stable horse for the recruited unit. AI players ignore this table.
+ UnitCosts.UnitHeader=Unit
+ UnitCosts.Slot1Header=Slot 1
+ UnitCosts.Slot2Header=Slot 2
+ UnitCosts.Slot3Header=Slot 3
+-UnitCosts.Slot4HorseHeader=Slot 4 / Horse
+ UnitCosts.None=none
+ UnitCosts.Horse=Horse
+ UnitCosts.ResourcesMissing=Resources missing
+
+diff --git a/UnitCosts/src/UnitCostsLobbyViewModel.cs b/UnitCosts/src/UnitCostsLobbyViewModel.cs
+index e5a1f837..9b0caea5 100644
+--- a/UnitCosts/src/UnitCostsLobbyViewModel.cs
++++ b/UnitCosts/src/UnitCostsLobbyViewModel.cs
+@@ -21,6 +21,7 @@ namespace UnitCosts
+         private string unitCosts = CreateDefaultUnitCosts();
+         private string humanExtraUnitCosts = CreateDefaultHumanExtraUnitCosts();
+         private bool updatingEntries;
++        private const string HorseSerializedKey = "HORSE";
+ 
+         internal static readonly eGoods[] HumanExtraCostGoods =
+         {
+@@ -109,6 +110,8 @@ namespace UnitCosts
+         public string UnitHeaderText => SerpLocalization.Get(SerpLocalization.UnitHeader);
+         public string GoldHeaderText => UnitCostsRuntime.GetLocalizedGoodName(eGoods.STORED_GOLD, "Gold");
+         public ImageSource GoldHeaderIcon => GetGoodIconImage(eGoods.STORED_GOLD);
++        public string HorseHeaderText => SerpLocalization.Get(SerpLocalization.Horse);
++        public ImageSource HorseHeaderIcon => GetResourceImage("UI-Buttons M025");
+ 
+         [SyncHostOnly]
+         public bool EnableMod
+@@ -201,6 +204,7 @@ namespace UnitCosts
+ 
+                 entry.DisplayName = UnitCostsRuntime.GetLocalizedUnitName(unitType);
+                 entry.ToolTip = UnitCostsRuntime.GetUnitSettingsTooltip(unitType);
++                entry.RefreshHorseToolTip();
+             }
+ 
+             RefreshCostEntryToolTips();
+@@ -242,6 +246,8 @@ namespace UnitCosts
+             OnPropertyChanged(nameof(UnitHeaderText));
+             OnPropertyChanged(nameof(GoldHeaderText));
+             OnPropertyChanged(nameof(GoldHeaderIcon));
++            OnPropertyChanged(nameof(HorseHeaderText));
++            OnPropertyChanged(nameof(HorseHeaderIcon));
+             RefreshCostEntryToolTips();
+         }
+ 
+@@ -299,6 +305,7 @@ namespace UnitCosts
+                         builder.Append(',');
+                     builder.Append('0');
+                 }
++                builder.Append(",0");
+             }
+ 
+             return builder.ToString();
+@@ -405,7 +412,8 @@ namespace UnitCosts
+                     continue;
+ 
+                 string[] costParts = keyValue[1].Split(',');
+-                if (costParts.Length != HumanExtraCostGoods.Length)
++                if (costParts.Length != HumanExtraCostGoods.Length &&
++                    costParts.Length != HumanExtraCostGoods.Length + 1)
+                     continue;
+ 
+                 Dictionary<eGoods, int> costs = new Dictionary<eGoods, int>();
+@@ -422,8 +430,20 @@ namespace UnitCosts
+                     costs[good] = UnitExtraCostValues.ClampCost(good, amount);
+                 }
+ 
++                string unitKey = keyValue[0].Trim();
++                bool requiresHorse = false;
++                if (valid && costParts.Length == HumanExtraCostGoods.Length + 1)
++                {
++                    if (!int.TryParse(costParts[HumanExtraCostGoods.Length].Trim(), out int horseValue))
++                        valid = false;
++                    else if (Enum.TryParse(unitKey, true, out eChimps unitType))
++                        requiresHorse = UnitExtraHorseCostPolicy.NormalizeHorseRequirement(
++                            horseValue,
++                            IsHorseCostSupported(unitType));
++                }
++
+                 if (valid)
+-                    result[keyValue[0].Trim()] = new UnitExtraCostValues(costs);
++                    result[unitKey] = new UnitExtraCostValues(costs, requiresHorse);
+             }
+ 
+             return result;
+@@ -537,6 +557,8 @@ namespace UnitCosts
+                         builder.Append(',');
+                     builder.Append(entry.CostCells[i].Amount);
+                 }
++                builder.Append(',');
++                builder.Append(entry.RequiresHorse ? '1' : '0');
+             }
+ 
+             return builder.ToString();
+@@ -550,6 +572,8 @@ namespace UnitCosts
+                     builder.Append(',');
+                 builder.Append(HumanExtraCostGoods[i]);
+             }
++            builder.Append(',');
++            builder.Append(HorseSerializedKey);
+         }
+ 
+         private static UnitExtraCostValues CreateEmptyExtraCosts()
+@@ -558,7 +582,24 @@ namespace UnitCosts
+             foreach (eGoods good in HumanExtraCostGoods)
+                 costs[good] = 0;
+ 
+-            return new UnitExtraCostValues(costs);
++            return new UnitExtraCostValues(costs, false);
++        }
++
++        internal static bool IsHorseCostSupported(eChimps unitType)
++        {
++            switch (unitType)
++            {
++                case eChimps.CHIMP_TYPE_KNIGHT:
++                case eChimps.CHIMP_TYPE_CATAPULT:
++                case eChimps.CHIMP_TYPE_TREBUCHET:
++                case eChimps.CHIMP_TYPE_BATTERING_RAM:
++                case eChimps.CHIMP_TYPE_SIEGE_TOWER:
++                case eChimps.CHIMP_TYPE_PORTABLE_SHIELD:
++                case eChimps.CHIMP_TYPE_ARAB_BALLISTA:
++                    return false;
++                default:
++                    return unitType != eChimps.CHIMP_TYPE_NULL;
++            }
+         }
+ 
+         private static string GetGoodOptionDisplayName(eGoods good)
+@@ -828,6 +869,7 @@ namespace UnitCosts
+             private readonly eChimps unitType;
+             private string displayName;
+             private string toolTip;
++            private bool requiresHorse;
+ 
+             public event PropertyChangedEventHandler PropertyChanged;
+ 
+@@ -846,6 +888,8 @@ namespace UnitCosts
+                 toolTip = key;
+                 this.canEdit = canEdit;
+                 this.changed = changed;
++                HorseCostSupported = IsHorseCostSupported(unitType);
++                requiresHorse = HorseCostSupported && values.RequiresHorse;
+                 CostCells = new ObservableCollection<ExtraCostCellViewModel>();
+                 foreach (eGoods good in HumanExtraCostGoods)
+                     CostCells.Add(new ExtraCostCellViewModel(
+@@ -858,6 +902,24 @@ namespace UnitCosts
+             public string Key { get; }
+             public ImageSource IconImage => GetUnitIconImage(unitType);
+             public ObservableCollection<ExtraCostCellViewModel> CostCells { get; }
++            public bool HorseCostSupported { get; }
++            public string HorseToolTip => FormatCellToolTip(DisplayName, SerpLocalization.Get(SerpLocalization.Horse));
++            public bool RequiresHorse
++            {
++                get => requiresHorse;
++                set
++                {
++                    if ((canEdit != null && !canEdit()) || !HorseCostSupported || requiresHorse == value)
++                    {
++                        OnPropertyChanged();
++                        return;
++                    }
++
++                    requiresHorse = value;
++                    OnPropertyChanged();
++                    changed?.Invoke();
++                }
++            }
+ 
+             public string DisplayName
+             {
+@@ -869,9 +931,15 @@ namespace UnitCosts
+ 
+                     displayName = value;
+                     OnPropertyChanged();
++                    OnPropertyChanged(nameof(HorseToolTip));
+                 }
+             }
+ 
++            public void RefreshHorseToolTip()
++            {
++                OnPropertyChanged(nameof(HorseToolTip));
++            }
++
+             public string ToolTip
+             {
+                 get => toolTip;
+@@ -889,6 +957,13 @@ namespace UnitCosts
+             {
+                 foreach (ExtraCostCellViewModel cell in CostCells)
+                     cell.SetAmountFromOwner(values.GetCost(cell.Good));
++
++                bool normalizedHorse = HorseCostSupported && values.RequiresHorse;
++                if (requiresHorse != normalizedHorse)
++                {
++                    requiresHorse = normalizedHorse;
++                    OnPropertyChanged(nameof(RequiresHorse));
++                }
+             }
+ 
+             private void OnCellChanged()
+
+diff --git a/UnitCosts/src/UnitCostsPlugin.cs b/UnitCosts/src/UnitCostsPlugin.cs
+index 55ca1210..b6b456e4 100644
+--- a/UnitCosts/src/UnitCostsPlugin.cs
++++ b/UnitCosts/src/UnitCostsPlugin.cs
+@@ -6,7 +6,7 @@ using System.Threading;
+ 
+ namespace UnitCosts
+ {
+-    [BepInDependency(ScriptExtenderGuid, BepInDependency.DependencyFlags.HardDependency)]
++    [BepInDependency(ScriptExtenderGuid, "2.0.2")]
+     [BepInDependency(UnitLimitGuid, BepInDependency.DependencyFlags.SoftDependency)]
+     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
+     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
+@@ -33,7 +33,7 @@ namespace UnitCosts
+             CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
+         }
+ 
+-        private void OnCrusaderLibraryLoaded(IntPtr libraryHandle, ReadOnlySpan<byte> memory)
++        private void OnCrusaderLibraryLoaded(CrusaderLibraryLoadContext context)
+         {
+             // A late subscription can race with the regular event raise; initialize only once.
+             if (Interlocked.Exchange(ref libraryInitializationStarted, 1) != 0)
+
+diff --git a/UnitCosts/src/UnitCostsRuntime.cs b/UnitCosts/src/UnitCostsRuntime.cs
+index a33f0823..4a11c2da 100644
+--- a/UnitCosts/src/UnitCostsRuntime.cs
++++ b/UnitCosts/src/UnitCostsRuntime.cs
+@@ -7,6 +7,7 @@ using SHCDESE.EventAPI.Buildings;
+ using SHCDESE.EventAPI.MapLoader;
+ using SHCDESE.EventAPI.Units;
+ using SHCDESE.Interop;
++using SHCDESE.Interop.Enums;
+ using System;
+ using System.Collections.Generic;
+ using System.Reflection;
+@@ -36,7 +37,10 @@ namespace UnitCosts
+         private eChimps recruitmentCostSnapshotUnitType = eChimps.CHIMP_TYPE_NULL;
+         private int recruitmentCostSnapshotMultiplier;
+         private bool recruitmentCostSnapshotValid;
++        private bool recruitmentCostSnapshotRequiresHorse;
++        private int recruitmentCostSnapshotAvailableHorses;
+         private bool settingsChangedSubscribed;
++        private bool libraryInitialized;
+         private const string GoodsTextSection = "TEXT_GOODS";
+         private bool hooksSubscribed;
+         private const int MaterialMessageDurationMilliseconds = 3000;
+@@ -59,13 +63,18 @@ namespace UnitCosts
+         {
+             this.log = log;
+             this.settings = settings;
++            Shared.GameplayModActivationGate.Initialize(log, UnitCostsPlugin.PluginGuid, UnitCostsPlugin.PluginName, () => settings.EnableMod);
++            Shared.GameplayModActivationGate.StateChanged += OnModeAllowedChanged;
+         }
+ 
++        private bool EffectsEnabled => Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod);
++
+         public void InitializeAfterLibraryLoaded()
+         {
+             SubscribeSettingsChanges();
+             TryInitializeFeature("Vanilla gold-cost capture", CaptureVanillaGoldCosts);
+-            if (!settings.EnableMod)
++            libraryInitialized = true;
++            if (!EffectsEnabled)
+             {
+                 Shared.DebugLogHelper.LogDebug(log, "UnitCosts disabled; runtime hooks not subscribed");
+                 return;
+@@ -111,6 +120,7 @@ namespace UnitCosts
+ 
+         public void Dispose()
+         {
++            Shared.GameplayModActivationGate.StateChanged -= OnModeAllowedChanged;
+             UnsubscribeHooks();
+             if (settingsChangedSubscribed)
+             {
+@@ -189,7 +199,7 @@ namespace UnitCosts
+ 
+             if (propertyName == nameof(UnitCostsLobbyViewModel.EnableMod))
+             {
+-                if (settings.EnableMod)
++                if (EffectsEnabled)
+                 {
+                     SubscribeHooks();
+                     TryInitializeFeature("Vanilla gold-cost capture", CaptureVanillaGoldCosts);
+@@ -206,7 +216,7 @@ namespace UnitCosts
+                 return;
+             }
+ 
+-            if (!settings.EnableMod)
++            if (!EffectsEnabled)
+                 return;
+ 
+             if (propertyName == nameof(UnitCostsLobbyViewModel.UnitCosts))
+@@ -239,6 +249,26 @@ namespace UnitCosts
+             HideMaterialMessage();
+         }
+ 
++        private void OnModeAllowedChanged(bool allowed)
++        {
++            if (!libraryInitialized)
++                return;
++
++            if (EffectsEnabled)
++            {
++                SubscribeHooks();
++                TryInitializeFeature("Vanilla gold-cost capture", CaptureVanillaGoldCosts);
++                TryInitializeFeature("native gold costs", ApplyUnitCosts);
++                TryInitializeFeature("extra-cost normalization", settings.NormalizeExtraCostsAfterNativeGoldChange);
++                TryInitializeFeature("human extra costs", ApplyHumanExtraUnitCosts);
++            }
++            else
++            {
++                try { RestoreVanillaUnitCosts(); }
++                finally { UnsubscribeHooks(); }
++            }
++        }
++
+         private void ApplyUnitCosts()
+         {
+             Dictionary<eChimps, UnitCostValues> parsedCosts = settings.ParseUnitCosts();
+@@ -332,7 +362,7 @@ namespace UnitCosts
+             int rawUnitType,
+             bool interpretCtrlSentinel)
+         {
+-            if (IsMapEditor())
++            if (!IsUnitCostModeAllowed())
+                 return MakeTroopGameActionDecision.AllowOriginal();
+ 
+             if (amount <= 0)
+@@ -349,6 +379,7 @@ namespace UnitCosts
+ 
+             int extraAffordableAmount = -1;
+             eGoods extraLimitingGood = eGoods.STORED_NULL;
++            bool extraLimitingHorse = false;
+             int extraLimitingRequiredPerUnit = 0;
+             int extraLimitingAvailableAmount = 0;
+             bool hasPositiveExtraCost = TryGetMaxAffordableExtraCostAmount(
+@@ -356,6 +387,7 @@ namespace UnitCosts
+                 costs,
+                 out extraAffordableAmount,
+                 out extraLimitingGood,
++                out extraLimitingHorse,
+                 out extraLimitingRequiredPerUnit,
+                 out extraLimitingAvailableAmount);
+ 
+@@ -376,7 +408,7 @@ namespace UnitCosts
+                 if (extraAffordableAmount > 0)
+                     return MakeTroopGameActionDecision.ForwardAmount(extraAffordableAmount);
+ 
+-                ShowMissingResourcesMessage(extraLimitingGood);
++                ShowMissingResourcesMessage(extraLimitingGood, extraLimitingHorse);
+                 return MakeTroopGameActionDecision.BlockAction();
+             }
+ 
+@@ -398,6 +430,7 @@ namespace UnitCosts
+                 "effectiveRequestedAmount", constraint.EffectiveRequestedAmount,
+                 "extraAffordable", extraAffordableAmount,
+                 "extraLimitingGood", extraLimitingGood,
++                "extraLimitingHorse", extraLimitingHorse,
+                 "extraRequiredPerUnit", extraLimitingRequiredPerUnit,
+                 "extraAvailable", extraLimitingAvailableAmount,
+                 "constraintAction", constraint.Action,
+@@ -411,7 +444,7 @@ namespace UnitCosts
+                 case Shared.RecruitmentConstraintAction.ForwardAmount:
+                     return MakeTroopGameActionDecision.ForwardAmount(constraint.AmountToForward);
+                 default:
+-                    ShowMissingResourcesMessage(extraLimitingGood);
++                    ShowMissingResourcesMessage(extraLimitingGood, extraLimitingHorse);
+                     return MakeTroopGameActionDecision.BlockAction();
+             }
+         }
+@@ -454,7 +487,7 @@ namespace UnitCosts
+             if (!hasCurrentTooltipUnitType)
+                 return;
+ 
+-            if (IsMapEditor())
++            if (!IsUnitCostModeAllowed())
+             {
+                 ClearRecruitmentCostEntries();
+                 return;
+@@ -509,9 +542,23 @@ namespace UnitCosts
+                 });
+             }
+ 
++            int availableHorses = 0;
++            if (costs.RequiresHorse)
++            {
++                availableHorses = CountAvailableHorseSlots(playerId);
++                entries.Add(new UnitRecruitmentCostEntry
++                {
++                    Amount = "   " + multiplier + " ",
++                    AmountAvailable = $"({availableHorses})",
++                    Image = GetHorseImage()
++                });
++            }
++
+             recruitmentCostSnapshotPlayerId = playerId;
+             recruitmentCostSnapshotUnitType = currentTooltipUnitType;
+             recruitmentCostSnapshotMultiplier = multiplier;
++            recruitmentCostSnapshotRequiresHorse = costs.RequiresHorse;
++            recruitmentCostSnapshotAvailableHorses = availableHorses;
+             recruitmentCostSnapshotValid = true;
+             return entries;
+         }
+@@ -526,6 +573,12 @@ namespace UnitCosts
+                 return false;
+             }
+ 
++            if (recruitmentCostSnapshotRequiresHorse != costs.RequiresHorse ||
++                (costs.RequiresHorse && recruitmentCostSnapshotAvailableHorses != CountAvailableHorseSlots(playerId)))
++            {
++                return false;
++            }
++
+             int snapshotIndex = 0;
+             foreach (KeyValuePair<eGoods, int> entry in costs.CostEntries)
+             {
+@@ -558,7 +611,7 @@ namespace UnitCosts
+ 
+         internal void RefreshRecruitmentButtonAvailability()
+         {
+-            if (IsMapEditor() || !settings.EnableMod || humanExtraCosts.Count == 0)
++            if (!IsUnitCostModeAllowed() || !EffectsEnabled || humanExtraCosts.Count == 0)
+                 return;
+ 
+             int playerId = GetLocalHumanPlayerId();
+@@ -616,7 +669,7 @@ namespace UnitCosts
+             if (!TryGetHumanExtraCosts(unitType, out UnitExtraCostValues costs))
+                 return;
+ 
+-            if (!HasEnoughExtraCosts(playerId, costs, amount, out eGoods _, out int _, out int _))
++            if (!HasEnoughExtraCosts(playerId, costs, amount, out eGoods _, out bool _, out int _, out int _))
+                 button.IsEnabled = false;
+         }
+ 
+@@ -711,7 +764,7 @@ namespace UnitCosts
+         {
+             try
+             {
+-                if (IsMapEditor())
++                if (!IsUnitCostModeAllowed())
+                     return;
+ 
+                 if (args.Phase != EventHookPhase.Pre)
+@@ -728,19 +781,48 @@ namespace UnitCosts
+                 if (!TryGetHumanExtraCosts(args.NextUnitType, out UnitExtraCostValues costs))
+                     return;
+ 
+-                if (!HasEnoughExtraCosts(playerId, costs, 1, out eGoods missingGood, out int requiredAmount, out int availableAmount))
++                if (!HasEnoughExtraCosts(playerId, costs, 1, out eGoods missingGood, out bool missingHorse, out int requiredAmount, out int availableAmount))
+                 {
+                     LogDebug(
+                         "UnitCosts transition extra cost missing:",
+                         "unit", args.NextUnitType,
+                         "player", playerId,
+-                        "missing", missingGood,
++                        "missing", missingHorse ? "HORSE" : missingGood.ToString(),
+                         "required", requiredAmount,
+                         "available", availableAmount);
+                     return;
+                 }
+ 
+-                ApplyExtraCosts(playerId, costs, 1);
++                HorseAllocation horseAllocation = default;
++                bool horseLinked = false;
++                if (costs.RequiresHorse)
++                {
++                    // This hook is UnitCosts' existing successful recruitment commit point.
++                    // Reserve the horse before charging the remaining extra costs.
++                    if (!TryFindAvailableHorseAllocation(playerId, out horseAllocation) ||
++                        !TryLinkStableHorse(horseAllocation, args.UnitId, playerId))
++                    {
++                        LogDebug(
++                            "UnitCosts transition horse link failed:",
++                            "unit", args.NextUnitType,
++                            "unitId", args.UnitId,
++                            "player", playerId);
++                        return;
++                    }
++
++                    horseLinked = true;
++                }
++
++                try
++                {
++                    ApplyExtraCosts(playerId, costs, 1);
++                }
++                catch
++                {
++                    if (horseLinked)
++                        RollbackStableHorseLink(horseAllocation, args.UnitId);
++                    throw;
++                }
+                 Shared.DebugLogHelper.LogDebug(log, "UnitCosts applied human extra costs:", args.NextUnitType, "player", playerId);
+             }
+             catch (Exception ex)
+@@ -753,7 +835,7 @@ namespace UnitCosts
+         {
+             try
+             {
+-                if (IsMapEditor())
++                if (!IsUnitCostModeAllowed())
+                     return;
+ 
+                 if (!IsHumanPlayer(args.PlayerId) || !IsLocalPlayer(args.PlayerId))
+@@ -765,7 +847,7 @@ namespace UnitCosts
+                 if (!TryGetHumanExtraCosts(unitType, out UnitExtraCostValues costs))
+                     return;
+ 
+-                if (HasEnoughExtraCosts(args.PlayerId, costs, 1, out eGoods missingGood, out int requiredAmount, out int availableAmount))
++                if (HasEnoughExtraCosts(args.PlayerId, costs, 1, out eGoods missingGood, out bool missingHorse, out int requiredAmount, out int availableAmount))
+                     return;
+ 
+                 args.CustomValidationRules = true;
+@@ -774,7 +856,7 @@ namespace UnitCosts
+                     "UnitCosts blocked siege placement:",
+                     "unit", unitType,
+                     "player", args.PlayerId,
+-                    "missing", missingGood,
++                    "missing", missingHorse ? "HORSE" : missingGood.ToString(),
+                     "required", requiredAmount,
+                     "available", availableAmount,
+                     "mapper", args.Mappers);
+@@ -790,7 +872,7 @@ namespace UnitCosts
+         {
+             try
+             {
+-                if (IsMapEditor())
++                if (!IsUnitCostModeAllowed())
+                     return;
+ 
+                 if (!IsHumanPlayer(args.PlayerId))
+@@ -802,13 +884,13 @@ namespace UnitCosts
+                 if (!TryGetHumanExtraCosts(unitType, out UnitExtraCostValues costs))
+                     return;
+ 
+-                if (!HasEnoughExtraCosts(args.PlayerId, costs, 1, out eGoods missingGood, out int requiredAmount, out int availableAmount))
++                if (!HasEnoughExtraCosts(args.PlayerId, costs, 1, out eGoods missingGood, out bool missingHorse, out int requiredAmount, out int availableAmount))
+                 {
+                     LogDebug(
+                         "UnitCosts siege extra cost skipped after spawn because resources are missing:",
+                         "unit", unitType,
+                         "player", args.PlayerId,
+-                        "missing", missingGood,
++                        "missing", missingHorse ? "HORSE" : missingGood.ToString(),
+                         "required", requiredAmount,
+                         "available", availableAmount,
+                         "building", args.Building);
+@@ -844,6 +926,7 @@ namespace UnitCosts
+             UnitExtraCostValues costs,
+             int multiplier,
+             out eGoods missingGood,
++            out bool missingHorse,
+             out int requiredAmount,
+             out int availableAmount)
+         {
+@@ -857,13 +940,28 @@ namespace UnitCosts
+                 if (available < required)
+                 {
+                     missingGood = entry.Key;
++                    missingHorse = false;
+                     requiredAmount = required;
+                     availableAmount = available;
+                     return false;
+                 }
+             }
+ 
++            if (costs.RequiresHorse)
++            {
++                int availableHorses = CountAvailableHorseSlots(playerId);
++                if (availableHorses < multiplier)
++                {
++                    missingGood = eGoods.STORED_NULL;
++                    missingHorse = true;
++                    requiredAmount = multiplier;
++                    availableAmount = availableHorses;
++                    return false;
++                }
++            }
++
+             missingGood = eGoods.STORED_NULL;
++            missingHorse = false;
+             requiredAmount = 0;
+             availableAmount = 0;
+             return true;
+@@ -874,12 +972,14 @@ namespace UnitCosts
+             UnitExtraCostValues costs,
+             out int affordableAmount,
+             out eGoods limitingGood,
++            out bool limitingHorse,
+             out int limitingRequiredPerUnit,
+             out int limitingAvailableAmount)
+         {
+             bool hasPositiveCost = false;
+             affordableAmount = int.MaxValue;
+             limitingGood = eGoods.STORED_NULL;
++            limitingHorse = false;
+             limitingRequiredPerUnit = 0;
+             limitingAvailableAmount = 0;
+ 
+@@ -897,10 +997,27 @@ namespace UnitCosts
+ 
+                 affordableAmount = affordableForGood;
+                 limitingGood = entry.Key;
++                limitingHorse = false;
+                 limitingRequiredPerUnit = requiredPerUnit;
+                 limitingAvailableAmount = available;
+             }
+ 
++            if (costs.RequiresHorse)
++            {
++                hasPositiveCost = true;
++                int availableHorses = CountAvailableHorseSlots(playerId);
++                if (availableHorses < affordableAmount)
++                {
++                    affordableAmount = UnitExtraHorseCostPolicy.ApplyHorseAffordabilityLimit(
++                        affordableAmount,
++                        availableHorses);
++                    limitingGood = eGoods.STORED_NULL;
++                    limitingHorse = true;
++                    limitingRequiredPerUnit = 1;
++                    limitingAvailableAmount = availableHorses;
++                }
++            }
++
+             if (hasPositiveCost)
+                 return true;
+ 
+@@ -924,13 +1041,244 @@ namespace UnitCosts
+             }
+         }
+ 
++        private static int CountAvailableHorseSlots(int playerId)
++        {
++            int count = 0;
++            List<int> stableIds = new List<int>();
++            GameBuildingManagerAPI.Instance.GetAllBuildings(
++                stableIds,
++                AliveState.IsAlive,
++                eStructs.STRUCT_STABLES,
++                PlayerRelationship.Self,
++                playerId);
++            stableIds.Sort();
++
++            foreach (int stableId in stableIds)
++            {
++                unsafe
++                {
++                    if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(stableId, out GameBuilding* stable) ||
++                        !IsUsableStable(stable, playerId))
++                    {
++                        continue;
++                    }
++
++                    count += GetAvailableStableHorseCount(stable);
++                }
++            }
++
++            return count;
++        }
++
++        private static bool TryFindAvailableHorseAllocation(int playerId, out HorseAllocation allocation)
++        {
++            List<int> stableIds = new List<int>();
++            GameBuildingManagerAPI.Instance.GetAllBuildings(
++                stableIds,
++                AliveState.IsAlive,
++                eStructs.STRUCT_STABLES,
++                PlayerRelationship.Self,
++                playerId);
++            stableIds.Sort();
++
++            foreach (int stableId in stableIds)
++            {
++                unsafe
++                {
++                    if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(stableId, out GameBuilding* stable) ||
++                        !IsUsableStable(stable, playerId) ||
++                        GetAvailableStableHorseCount(stable) <= 0)
++                    {
++                        continue;
++                    }
++
++                    for (int slot = 0; slot < StableHorseSlotCount; slot++)
++                    {
++                        if (!IsStableHorseSlotFree(stable, slot))
++                            continue;
++
++                        allocation = new HorseAllocation(stableId, (int)stable->r_GlobalId, playerId, slot);
++                        return true;
++                    }
++                }
++            }
++
++            allocation = default;
++            return false;
++        }
++
++        private unsafe bool TryLinkStableHorse(HorseAllocation allocation, int unitId, int playerId)
++        {
++            if (unitId <= 0 || unitId > ushort.MaxValue ||
++                allocation.StableId <= 0 || allocation.StableId > ushort.MaxValue ||
++                allocation.Slot < 0 || allocation.Slot >= StableHorseSlotCount ||
++                allocation.OwnerPlayerId != playerId)
++            {
++                return false;
++            }
++
++            if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
++                GameUnitManagerAPI.Instance.GetOwner(unitId) != playerId ||
++                unit->r_GlobalId == 0 ||
++                unit->r_LinkedStableBuildingId != 0 ||
++                unit->r_LinkedStableGlobalId != 0)
++            {
++                return false;
++            }
++
++            if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(allocation.StableId, out GameBuilding* stable) ||
++                !IsUsableStable(stable, playerId) ||
++                (int)stable->r_GlobalId != allocation.StableGlobalId ||
++                GetAvailableStableHorseCount(stable) <= 0 ||
++                !IsStableHorseSlotFree(stable, allocation.Slot))
++            {
++                return false;
++            }
++
++            int unitGlobalId = (int)unit->r_GlobalId;
++            GameBuildingManagerAPI.Instance.SetStablesUnitIdLink(
++                allocation.StableId,
++                allocation.Slot,
++                unitId,
++                unitGlobalId,
++                bidirectional: true);
++
++            bool slotMatches = GetStableHorseSlotUnitId(stable, allocation.Slot) == unitId &&
++                GetStableHorseSlotGlobalId(stable, allocation.Slot) == unitGlobalId;
++            bool backlinkMatches = unit->r_LinkedStableBuildingId == allocation.StableId &&
++                unit->r_LinkedStableGlobalId == (uint)allocation.StableGlobalId;
++            if (slotMatches && backlinkMatches)
++                return true;
++
++            if (slotMatches)
++            {
++                GameBuildingManagerAPI.Instance.UnlinkStablesUnitIdLink(
++                    allocation.StableId,
++                    allocation.Slot,
++                    bidirectional: true);
++            }
++            if (unit->r_LinkedStableBuildingId == allocation.StableId &&
++                unit->r_LinkedStableGlobalId == (uint)allocation.StableGlobalId)
++            {
++                unit->r_LinkedStableBuildingId = 0;
++                unit->r_LinkedStableGlobalId = 0;
++            }
++
++            LogDebug(
++                "UnitCosts rolled back incomplete stable horse link:",
++                "stableId", allocation.StableId,
++                "slot", allocation.Slot,
++                "unitId", unitId,
++                "slotMatches", slotMatches,
++                "backlinkMatches", backlinkMatches);
++            return false;
++        }
++
++        private unsafe void RollbackStableHorseLink(HorseAllocation allocation, int unitId)
++        {
++            if (allocation.Slot < 0 || allocation.Slot >= StableHorseSlotCount ||
++                !GameBuildingManagerAPI.Instance.TryGetBuildingById(allocation.StableId, out GameBuilding* stable) ||
++                (int)stable->r_GlobalId != allocation.StableGlobalId ||
++                GetStableHorseSlotUnitId(stable, allocation.Slot) != unitId)
++            {
++                return;
++            }
++
++            GameBuildingManagerAPI.Instance.UnlinkStablesUnitIdLink(
++                allocation.StableId,
++                allocation.Slot,
++                bidirectional: true);
++        }
++
++        private const int StableHorseSlotCount = 4;
++
++        private static unsafe bool IsUsableStable(GameBuilding* stable, int playerId)
++        {
++            return stable != null &&
++                stable->r_AliveState == AliveState.IsAlive &&
++                stable->r_BuildingType == eStructs.STRUCT_STABLES &&
++                stable->r_PlayerIdOwner == playerId;
++        }
++
++        private static unsafe int GetAvailableStableHorseCount(GameBuilding* stable)
++        {
++            // Vanilla owns both counters. Free link pairs additionally cap availability while
++            // r_UsedHorses is waiting for the regular stable update to recount them.
++            return UnitExtraHorseCostPolicy.CalculateAvailableHorseSlots(
++                stable->r_TotalHorses,
++                stable->r_UsedHorses,
++                CountFreeStableHorseSlots(stable));
++        }
++
++        private static unsafe int CountFreeStableHorseSlots(GameBuilding* stable)
++        {
++            int count = 0;
++            for (int slot = 0; slot < StableHorseSlotCount; slot++)
++            {
++                if (IsStableHorseSlotFree(stable, slot))
++                    count++;
++            }
++
++            return count;
++        }
++
++        private static unsafe bool IsStableHorseSlotFree(GameBuilding* stable, int slot) =>
++            GetStableHorseSlotUnitId(stable, slot) == 0 &&
++            GetStableHorseSlotGlobalId(stable, slot) == 0;
++
++        private static unsafe int GetStableHorseSlotUnitId(GameBuilding* stable, int slot)
++        {
++            // Script Extender 2.0.2's getter reads these ushort fields through int*, so use
++            // explicit, range-checked field access until that API is corrected upstream.
++            switch (slot)
++            {
++                case 0: return stable->r_UsedHorse1UnitId;
++                case 1: return stable->r_UsedHorse2UnitId;
++                case 2: return stable->r_UsedHorse3UnitId;
++                case 3: return stable->r_UsedHorse4UnitId;
++                default: return -1;
++            }
++        }
++
++        private static unsafe int GetStableHorseSlotGlobalId(GameBuilding* stable, int slot)
++        {
++            switch (slot)
++            {
++                case 0: return (int)stable->r_UsedHorse1GlobalId;
++                case 1: return (int)stable->r_UsedHorse2GlobalId;
++                case 2: return (int)stable->r_UsedHorse3GlobalId;
++                case 3: return (int)stable->r_UsedHorse4GlobalId;
++                default: return -1;
++            }
++        }
++
++        private readonly struct HorseAllocation
++        {
++            public HorseAllocation(int stableId, int stableGlobalId, int ownerPlayerId, int slot)
++            {
++                StableId = stableId;
++                StableGlobalId = stableGlobalId;
++                OwnerPlayerId = ownerPlayerId;
++                Slot = slot;
++            }
++
++            public int StableId { get; }
++            public int StableGlobalId { get; }
++            public int OwnerPlayerId { get; }
++            public int Slot { get; }
++        }
++
+         private static int GetLocalHumanPlayerId()
+         {
+             int playerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
+             return IsHumanPlayer(playerId) ? playerId : -1;
+         }
+ 
+-        private static bool IsMapEditor() => Shared.GameModeHelper.IsMapEditor();
++        private static bool IsUnitCostModeAllowed() =>
++            Shared.GameplayFeatureModePolicy.IsAllowed(
++                UnitCostsPlugin.PluginGuid,
++                Shared.GameplayFeatureId.UnitCostEnforcement,
++                Shared.GameplayModActivationGate.Snapshot);
+ 
+         private static bool IsHumanPlayer(int playerId)
+         {
+@@ -955,9 +1303,9 @@ namespace UnitCosts
+             Shared.DebugLogHelper.LogDebug(log, parts);
+         }
+ 
+-        private void ShowMissingResourcesMessage(eGoods missingGood)
++        private void ShowMissingResourcesMessage(eGoods missingGood, bool missingHorse = false)
+         {
+-            PlayMissingResourcesSpeech(missingGood);
++            PlayMissingResourcesSpeech(missingHorse ? eGoods.STORED_NULL : missingGood);
+             DisplayMaterialNotification(SerpLocalization.Get(SerpLocalization.ResourcesMissing));
+         }
+ 
+@@ -1131,6 +1479,18 @@ namespace UnitCosts
+             return MainViewModel.Instance.getSmallGoodsIcon((int)good);
+         }
+ 
++        private static Noesis.ImageSource GetHorseImage()
++        {
++            try
++            {
++                return Noesis.GUI.GetApplicationResources()?["UI-Buttons M025"] as Noesis.ImageSource;
++            }
++            catch
++            {
++                return null;
++            }
++        }
++
+         private void CaptureVanillaGoldCosts()
+         {
+             foreach (eChimps unitType in GetRecruitTypes())
+
+diff --git a/UnitCosts/src/UnitExtraCostValues.cs b/UnitCosts/src/UnitExtraCostValues.cs
+index 6f9348cb..a1a9c634 100644
+--- a/UnitCosts/src/UnitExtraCostValues.cs
++++ b/UnitCosts/src/UnitExtraCostValues.cs
+@@ -7,11 +7,14 @@ namespace UnitCosts
+     {
+         private readonly Dictionary<eGoods, int> costs;
+ 
+-        public UnitExtraCostValues(Dictionary<eGoods, int> costs)
++        public UnitExtraCostValues(Dictionary<eGoods, int> costs, bool requiresHorse = false)
+         {
+             this.costs = costs ?? new Dictionary<eGoods, int>();
++            RequiresHorse = requiresHorse;
+         }
+ 
++        public bool RequiresHorse { get; }
++
+         public int GetCost(eGoods good)
+         {
+             return costs.TryGetValue(good, out int amount) ? amount : 0;
+@@ -25,7 +28,7 @@ namespace UnitCosts
+                     return true;
+             }
+ 
+-            return false;
++            return RequiresHorse;
+         }
+ 
+         public IReadOnlyDictionary<eGoods, int> Costs => costs;
+
+diff --git a/UnitCosts/src/UnitExtraHorseCostPolicy.cs b/UnitCosts/src/UnitExtraHorseCostPolicy.cs
+new file mode 100644
+index 00000000..1f795e75
+--- /dev/null
++++ b/UnitCosts/src/UnitExtraHorseCostPolicy.cs
+@@ -0,0 +1,21 @@
++using System;
++
++namespace UnitCosts
++{
++    internal static class UnitExtraHorseCostPolicy
++    {
++        public static bool NormalizeHorseRequirement(int serializedValue, bool supported) =>
++            supported && serializedValue > 0;
++
++        public static int CalculateAvailableHorseSlots(int totalHorses, int usedHorses, int freeSlots)
++        {
++            int total = Math.Max(0, Math.Min(4, totalHorses));
++            int used = Math.Max(0, Math.Min(4, usedHorses));
++            int free = Math.Max(0, Math.Min(4, freeSlots));
++            return Math.Min(Math.Max(0, total - used), free);
++        }
++
++        public static int ApplyHorseAffordabilityLimit(int currentLimit, int availableHorses) =>
++            Math.Min(currentLimit, Math.Max(0, availableHorses));
++    }
++}
+
+diff --git a/UnitCosts/UnitCosts.csproj b/UnitCosts/UnitCosts.csproj
+index 0cfe6813..89306bf3 100644
+--- a/UnitCosts/UnitCosts.csproj
++++ b/UnitCosts/UnitCosts.csproj
+@@ -97,10 +97,6 @@
+       <HintPath>$(ExtenderDir)\System.Memory.dll</HintPath>
+       <Private>false</Private>
+     </Reference>
+-    <Reference Include="Zhuqiaomon">
+-      <HintPath>$(ExtenderDir)\Zhuqiaomon.dll</HintPath>
+-      <Private>false</Private>
+-    </Reference>
+   </ItemGroup>
+ 
+   <ItemGroup>
+@@ -122,6 +118,7 @@
+     <Compile Include="src\SiegeBuildHoverHook.cs" />
+     <Compile Include="src\UnitCostValues.cs" />
+     <Compile Include="src\UnitExtraCostValues.cs" />
++    <Compile Include="src\UnitExtraHorseCostPolicy.cs" />
+     <Compile Include="src\UnitGoldCostSnapshot.cs" />
+     <Compile Include="src\UnitCostsLobbyViewModel.cs" />
+     <Compile Include="src\UnitCostsNotificationViewModel.cs" />
+@@ -141,6 +138,9 @@
+     <Reference Include="MessagePack"><HintPath>$(ExtenderDir)\MessagePack.dll</HintPath><Private>false</Private></Reference>
+     <Reference Include="MessagePack.Annotations"><HintPath>$(ExtenderDir)\MessagePack.Annotations.dll</HintPath><Private>false</Private></Reference>
+     <Compile Include="..\Shared\GameModeHelper.cs"><Link>Shared\GameModeHelper.cs</Link></Compile>
++    <Compile Include="..\Shared\GameplayModActivationGate.cs"><Link>Shared\GameplayModActivationGate.cs</Link></Compile>
++    <Compile Include="..\Shared\GameplayModModePolicy.cs"><Link>Shared\GameplayModModePolicy.cs</Link></Compile>
++    <Compile Include="..\Shared\GameplayFeatureModePolicy.cs"><Link>Shared\GameplayFeatureModePolicy.cs</Link></Compile>
+     <Compile Include="..\Shared\PresetLobbyModSettingsViewModel.cs"><Link>Shared\PresetLobbyModSettingsViewModel.cs</Link></Compile>
+     <Compile Include="..\Shared\ModSettingsSearch.cs"><Link>Shared\ModSettingsSearch.cs</Link></Compile>
+     <Compile Include="..\Shared\ToolTipPresentation.cs"><Link>Shared\ToolTipPresentation.cs</Link></Compile>
