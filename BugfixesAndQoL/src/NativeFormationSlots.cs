@@ -37,11 +37,14 @@ namespace BugfixesAndQoL
 
         private void ChooseOwnerSafeFormationSlot(IntPtr manager, int spacing, int x, int y)
         {
+            int effectiveSpacing = ShouldOverrideMoveFormationSpacing(manager, x, y)
+                ? MoveFormationSpacingPolicy.Normalize(settings.MoveFormationSpacing)
+                : spacing;
             if (nativeTribeManager == IntPtr.Zero)
-            { originalFormationSlot(manager, spacing, x, y); return; }
+            { originalFormationSlot(manager, effectiveSpacing, x, y); return; }
             int* state = (int*)((byte*)nativeTribeManager + 0x0C);
             int oldX = state[0], oldY = state[1], oldIndex = state[2];
-            try { ChooseOwnerSafeFormationSlotCore(manager, spacing, x, y); }
+            try { ChooseOwnerSafeFormationSlotCore(manager, effectiveSpacing, x, y); }
             catch (Exception ex)
             {
                 // E1D30 only changes this output triple. Restore it before replaying
@@ -49,8 +52,18 @@ namespace BugfixesAndQoL
                 state[0] = oldX; state[1] = oldY; state[2] = oldIndex;
                 formationOwner = null;
                 TryLogDiagnosticFailure("formation-slot", ex);
-                originalFormationSlot(manager, spacing, x, y);
+                originalFormationSlot(manager, effectiveSpacing, x, y);
             }
+        }
+
+        private bool ShouldOverrideMoveFormationSpacing(IntPtr manager, int x, int y)
+        {
+            MoveCommandScope command = activeMoveCommand;
+            return !disposed && settings.EnableMod && manager != IntPtr.Zero &&
+                manager == nativePathManager && command != null &&
+                command.TargetX == x && command.TargetY == y && !command.IsPatrolPath &&
+                activeAttackCommand == null && activeMoatWorkSelection == null &&
+                activeAttackApproachDiagnostic == null;
         }
 
         private void ChooseOwnerSafeFormationSlotCore(IntPtr manager, int spacing, int x, int y)

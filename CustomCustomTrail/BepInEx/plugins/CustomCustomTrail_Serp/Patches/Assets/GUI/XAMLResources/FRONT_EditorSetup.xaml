@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-       xmlns:shared="clr-namespace:Shared;assembly=CustomCustomTrail">
+       xmlns:shared="clr-namespace:Shared;assembly=CustomCustomTrail"
+       xmlns:seui="clr-namespace:SHCDESE.UI;assembly=SHCDESE">
   <!-- Both upload mods apply the same idempotent layout adjustment. -->
   <Operation Type="SetAttribute"
              XPath="//n:TextBox[@Name='WorkshopMapDescription']"
@@ -23,23 +24,21 @@
                   IsChecked="{Binding IncludeModSettings, Mode=TwoWay}"
                   ToolTipService.ShowDuration="60000">
           <CheckBox.ToolTip>
-            <ToolTip Content="{Binding HelpText}"
+            <ToolTip seui:ToolTipResolutionScale.Enabled="True" Content="{Binding HelpText}"
                      Background="#FF1D1710"
                      Foreground="White"
-                     FontSize="{x:Static shared:ToolTipPresentation.FontSize}"
                      BorderBrush="#FFF2D48A"
                      BorderThickness="1">
               <ToolTip.Template>
                 <ControlTemplate TargetType="{x:Type ToolTip}">
                   <Border Background="{TemplateBinding Background}"
                           BorderBrush="{TemplateBinding BorderBrush}"
-                          BorderThickness="{TemplateBinding BorderThickness}"
+                          BorderThickness="1"
                           CornerRadius="2"
-                          Padding="10,7"
-                          MaxWidth="{x:Static shared:ToolTipPresentation.MaximumWidth}">
+                          Padding="{TemplateBinding Padding}"
+                          MaxWidth="{TemplateBinding MaxWidth}">
                     <TextBlock Text="{TemplateBinding Content}"
-                               Foreground="{TemplateBinding Foreground}"
-                               FontSize="{x:Static shared:ToolTipPresentation.FontSize}"
+                               Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}"
                                TextWrapping="Wrap" />
                   </Border>
                 </ControlTemplate>

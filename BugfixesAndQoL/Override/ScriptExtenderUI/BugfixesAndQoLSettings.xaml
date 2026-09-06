@@ -2,6 +2,7 @@
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       xmlns:ui="clr-namespace:SHCDESE.UI;assembly=SHCDESE"
       xmlns:shared="clr-namespace:Shared;assembly=BugfixesAndQoL"
+      xmlns:seui="clr-namespace:SHCDESE.UI;assembly=SHCDESE"
       shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}"
       shared:ModSettingsSearch.IncludeToolTips="{Binding System_ModSettingsSearchIncludeToolTips}"
       shared:ModSettingsSearch.ExactKey="{Binding System_ModSettingsSearchExactKey}">
@@ -9,14 +10,14 @@
     <Style TargetType="{x:Type ToolTip}">
       <Setter Property="Background" Value="#FF1D1710"/>
       <Setter Property="Foreground" Value="White"/>
-      <Setter Property="FontSize" Value="{x:Static shared:ToolTipPresentation.FontSize}"/>
+      <Setter Property="seui:ToolTipResolutionScale.Enabled" Value="True"/>
       <Setter Property="BorderBrush" Value="#FFF2D48A"/>
       <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="{x:Type ToolTip}">
-            <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="2" Padding="10,7" MaxWidth="{x:Static shared:ToolTipPresentation.MaximumWidth}">
-              <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}" FontSize="{x:Static shared:ToolTipPresentation.FontSize}" TextWrapping="Wrap"/>
+            <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="2" Padding="{TemplateBinding Padding}" MaxWidth="{TemplateBinding MaxWidth}">
+              <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}" TextWrapping="Wrap"/>
             </Border>
           </ControlTemplate>
         </Setter.Value>
@@ -308,6 +309,13 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableExtendedShiftCommandQueueText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.move-formation-spacing" shared:ModSettingsSearch.Title="{Binding MoveFormationSpacingText}" shared:ModSettingsSearch.ToolTipText="{Binding MoveFormationSpacingHelpText}"
+            ToolTipService.ShowDuration="60000" ToolTip="{Binding MoveFormationSpacingHelpText}" Margin="0,0,0,8">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="170"/><ColumnDefinition Width="220"/><ColumnDefinition Width="190"/></Grid.ColumnDefinitions>
+        <TextBlock Grid.Column="0" Text="{Binding MoveFormationSpacingText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>
+        <Slider Grid.Column="1" Minimum="1" Maximum="4" Value="{Binding MoveFormationSpacing, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" IsEnabled="{Binding CanEditHostSettings}" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding MoveFormationSpacingHelpText}"/>
+        <TextBlock Grid.Column="2" Text="{Binding MoveFormationSpacingValueText}" Foreground="White" TextWrapping="Wrap" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="8,0,0,0"/>
+      </Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.friendly-moat-movement-mode" shared:ModSettingsSearch.Title="{Binding FriendlyMoatMovementModeText}" shared:ModSettingsSearch.ToolTipText="{Binding FriendlyMoatMovementModeHelpText}"
             ToolTipService.ShowDuration="60000" ToolTip="{Binding FriendlyMoatMovementModeHelpText}" Margin="0,0,0,8">
         <Grid.ColumnDefinitions><ColumnDefinition Width="170"/><ColumnDefinition Width="220"/><ColumnDefinition Width="190"/></Grid.ColumnDefinitions>

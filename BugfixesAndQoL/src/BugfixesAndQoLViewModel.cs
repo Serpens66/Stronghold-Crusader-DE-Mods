@@ -26,6 +26,7 @@ namespace BugfixesAndQoL
         private bool betterAIOverbuildRules = true;
         private bool enableTroopMovementFix = true;
         private bool enableExtendedShiftCommandQueue = true;
+        private int moveFormationSpacing = MoveFormationSpacingPolicy.Default;
         private int friendlyMoatMovementMode = FriendlyMoatMovementPolicy.DefaultMode;
         private bool enableImprovedMoatFilling = true;
         private bool enableMountedStockpileMovementFix = true;
@@ -272,6 +273,27 @@ namespace BugfixesAndQoL
             SerpLocalization.Get("BugfixesAndQoL.EnableExtendedShiftCommandQueue");
         public string EnableExtendedShiftCommandQueueHelpText =>
             SerpLocalization.Get("BugfixesAndQoL.EnableExtendedShiftCommandQueueHelp");
+        public string MoveFormationSpacingText =>
+            SerpLocalization.Get("BugfixesAndQoL.MoveFormationSpacing");
+        public string MoveFormationSpacingHelpText =>
+            SerpLocalization.Get("BugfixesAndQoL.MoveFormationSpacingHelp");
+        public string MoveFormationSpacingValueText
+        {
+            get
+            {
+                switch (moveFormationSpacing)
+                {
+                    case 1:
+                        return SerpLocalization.Get("BugfixesAndQoL.MoveFormationSpacingVeryDense");
+                    case 3:
+                        return SerpLocalization.Get("BugfixesAndQoL.MoveFormationSpacingWide");
+                    case 4:
+                        return SerpLocalization.Get("BugfixesAndQoL.MoveFormationSpacingVeryWide");
+                    default:
+                        return SerpLocalization.Get("BugfixesAndQoL.MoveFormationSpacingDense");
+                }
+            }
+        }
         public string FriendlyMoatMovementModeText => SerpLocalization.Get("BugfixesAndQoL.FriendlyMoatMovementMode");
         public string FriendlyMoatMovementModeHelpText => SerpLocalization.Get("BugfixesAndQoL.FriendlyMoatMovementModeHelp");
         public string FriendlyMoatMovementModeValueText
@@ -591,6 +613,22 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public int MoveFormationSpacing
+        {
+            get => moveFormationSpacing;
+            set
+            {
+                int previous = moveFormationSpacing;
+                SetSetting(
+                    ref moveFormationSpacing,
+                    MoveFormationSpacingPolicy.Normalize(value),
+                    nameof(MoveFormationSpacing));
+                if (previous != moveFormationSpacing)
+                    OnPropertyChanged(nameof(MoveFormationSpacingValueText));
+            }
+        }
+
+        [SyncHostOnly]
         public int FriendlyMoatMovementMode
         {
             get => friendlyMoatMovementMode;
@@ -867,6 +905,7 @@ namespace BugfixesAndQoL
                 EnableCustomLordListEnhancements = true;
                 EnableTroopMovementFix = true;
                 EnableExtendedShiftCommandQueue = true;
+                MoveFormationSpacing = MoveFormationSpacingPolicy.Default;
                 FriendlyMoatMovementMode = FriendlyMoatMovementPolicy.DefaultMode;
                 EnableImprovedMoatFilling = true;
                 EnableMountedStockpileMovementFix = true;

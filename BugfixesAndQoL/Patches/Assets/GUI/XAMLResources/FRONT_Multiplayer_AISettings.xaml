@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
        xmlns:local="clr-namespace:CrusaderDE"
-       xmlns:shared="clr-namespace:Shared;assembly=BugfixesAndQoL">
+       xmlns:shared="clr-namespace:Shared;assembly=BugfixesAndQoL"
+       xmlns:seui="clr-namespace:SHCDESE.UI;assembly=SHCDESE">
   <Operation Type="InsertBefore" XPath="//n:ListView[@Name='AIVList']">
     <Content>
       <Grid x:Name="BugfixesAndQoLAivHeaderPanel" Width="360" Height="24"
@@ -10,18 +11,16 @@
         <Grid.Resources>
           <Style TargetType="{x:Type ToolTip}">
             <Setter Property="Background" Value="#FF1D1710" />
-            <Setter Property="Foreground" Value="White" />
-            <Setter Property="FontSize" Value="{x:Static shared:ToolTipPresentation.FontSize}" />
+            <Setter Property="Foreground" Value="White" /><Setter Property="seui:ToolTipResolutionScale.Enabled" Value="True"/>
             <Setter Property="BorderBrush" Value="#FFF2D48A" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Template">
               <Setter.Value>
                 <ControlTemplate TargetType="{x:Type ToolTip}">
                   <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
-                          BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="2" Padding="10,7"
-                          MaxWidth="{x:Static shared:ToolTipPresentation.MaximumWidth}">
-                    <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}"
-                               FontSize="{x:Static shared:ToolTipPresentation.FontSize}" TextWrapping="Wrap" />
+                          BorderThickness="1" CornerRadius="2" Padding="{TemplateBinding Padding}"
+                          MaxWidth="{TemplateBinding MaxWidth}">
+                    <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}" TextWrapping="Wrap" />
                   </Border>
                 </ControlTemplate>
               </Setter.Value>
@@ -50,18 +49,16 @@
         <Grid.Resources>
           <Style TargetType="{x:Type ToolTip}">
             <Setter Property="Background" Value="#FF1D1710" />
-            <Setter Property="Foreground" Value="White" />
-            <Setter Property="FontSize" Value="{x:Static shared:ToolTipPresentation.FontSize}" />
+            <Setter Property="Foreground" Value="White" /><Setter Property="seui:ToolTipResolutionScale.Enabled" Value="True"/>
             <Setter Property="BorderBrush" Value="#FFF2D48A" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Template">
               <Setter.Value>
                 <ControlTemplate TargetType="{x:Type ToolTip}">
                   <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
-                          BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="2" Padding="10,7"
-                          MaxWidth="{x:Static shared:ToolTipPresentation.MaximumWidth}">
-                    <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}"
-                               FontSize="{x:Static shared:ToolTipPresentation.FontSize}" TextWrapping="Wrap" />
+                          BorderThickness="1" CornerRadius="2" Padding="{TemplateBinding Padding}"
+                          MaxWidth="{TemplateBinding MaxWidth}">
+                    <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}" TextWrapping="Wrap" />
                   </Border>
                 </ControlTemplate>
               </Setter.Value>
@@ -122,18 +119,16 @@
         <Grid.Resources>
           <Style TargetType="{x:Type ToolTip}">
             <Setter Property="Background" Value="#FF1D1710" />
-            <Setter Property="Foreground" Value="White" />
-            <Setter Property="FontSize" Value="{x:Static shared:ToolTipPresentation.FontSize}" />
+            <Setter Property="Foreground" Value="White" /><Setter Property="seui:ToolTipResolutionScale.Enabled" Value="True"/>
             <Setter Property="BorderBrush" Value="#FFF2D48A" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Template">
               <Setter.Value>
                 <ControlTemplate TargetType="{x:Type ToolTip}">
                   <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
-                          BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="2" Padding="10,7"
-                          MaxWidth="{x:Static shared:ToolTipPresentation.MaximumWidth}">
-                    <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}"
-                               FontSize="{x:Static shared:ToolTipPresentation.FontSize}" TextWrapping="Wrap" />
+                          BorderThickness="1" CornerRadius="2" Padding="{TemplateBinding Padding}"
+                          MaxWidth="{TemplateBinding MaxWidth}">
+                    <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}" TextWrapping="Wrap" />
                   </Border>
                 </ControlTemplate>
               </Setter.Value>
@@ -171,18 +166,16 @@
         <Grid.Resources>
           <Style TargetType="{x:Type ToolTip}">
             <Setter Property="Background" Value="#FF1D1710" />
-            <Setter Property="Foreground" Value="White" />
-            <Setter Property="FontSize" Value="{x:Static shared:ToolTipPresentation.FontSize}" />
+            <Setter Property="Foreground" Value="White" /><Setter Property="seui:ToolTipResolutionScale.Enabled" Value="True"/>
             <Setter Property="BorderBrush" Value="#FFF2D48A" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Template">
               <Setter.Value>
                 <ControlTemplate TargetType="{x:Type ToolTip}">
                   <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
-                          BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="2" Padding="10,7"
-                          MaxWidth="{x:Static shared:ToolTipPresentation.MaximumWidth}">
-                    <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}"
-                               FontSize="{x:Static shared:ToolTipPresentation.FontSize}" TextWrapping="Wrap" />
+                          BorderThickness="1" CornerRadius="2" Padding="{TemplateBinding Padding}"
+                          MaxWidth="{TemplateBinding MaxWidth}">
+                    <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}" TextWrapping="Wrap" />
                   </Border>
                 </ControlTemplate>
               </Setter.Value>
@@ -220,18 +213,16 @@
         <Grid.Resources>
           <Style TargetType="{x:Type ToolTip}">
             <Setter Property="Background" Value="#FF1D1710" />
-            <Setter Property="Foreground" Value="White" />
-            <Setter Property="FontSize" Value="{x:Static shared:ToolTipPresentation.FontSize}" />
+            <Setter Property="Foreground" Value="White" /><Setter Property="seui:ToolTipResolutionScale.Enabled" Value="True"/>
             <Setter Property="BorderBrush" Value="#FFF2D48A" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Template">
               <Setter.Value>
                 <ControlTemplate TargetType="{x:Type ToolTip}">
                   <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
-                          BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="2" Padding="10,7"
-                          MaxWidth="{x:Static shared:ToolTipPresentation.MaximumWidth}">
-                    <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}"
-                               FontSize="{x:Static shared:ToolTipPresentation.FontSize}" TextWrapping="Wrap" />
+                          BorderThickness="1" CornerRadius="2" Padding="{TemplateBinding Padding}"
+                          MaxWidth="{TemplateBinding MaxWidth}">
+                    <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}" TextWrapping="Wrap" />
                   </Border>
                 </ControlTemplate>
               </Setter.Value>
@@ -266,18 +257,16 @@
         <Grid.Resources>
           <Style TargetType="{x:Type ToolTip}">
             <Setter Property="Background" Value="#FF1D1710" />
-            <Setter Property="Foreground" Value="White" />
-            <Setter Property="FontSize" Value="{x:Static shared:ToolTipPresentation.FontSize}" />
+            <Setter Property="Foreground" Value="White" /><Setter Property="seui:ToolTipResolutionScale.Enabled" Value="True"/>
             <Setter Property="BorderBrush" Value="#FFF2D48A" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Template">
               <Setter.Value>
                 <ControlTemplate TargetType="{x:Type ToolTip}">
                   <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
-                          BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="2" Padding="10,7"
-                          MaxWidth="{x:Static shared:ToolTipPresentation.MaximumWidth}">
-                    <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}"
-                               FontSize="{x:Static shared:ToolTipPresentation.FontSize}" TextWrapping="Wrap" />
+                          BorderThickness="1" CornerRadius="2" Padding="{TemplateBinding Padding}"
+                          MaxWidth="{TemplateBinding MaxWidth}">
+                    <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}" TextWrapping="Wrap" />
                   </Border>
                 </ControlTemplate>
               </Setter.Value>
@@ -310,18 +299,16 @@
         <Grid.Resources>
           <Style TargetType="{x:Type ToolTip}">
             <Setter Property="Background" Value="#FF1D1710" />
-            <Setter Property="Foreground" Value="White" />
-            <Setter Property="FontSize" Value="{x:Static shared:ToolTipPresentation.FontSize}" />
+            <Setter Property="Foreground" Value="White" /><Setter Property="seui:ToolTipResolutionScale.Enabled" Value="True"/>
             <Setter Property="BorderBrush" Value="#FFF2D48A" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Template">
               <Setter.Value>
                 <ControlTemplate TargetType="{x:Type ToolTip}">
                   <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
-                          BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="2" Padding="10,7"
-                          MaxWidth="{x:Static shared:ToolTipPresentation.MaximumWidth}">
-                    <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}"
-                               FontSize="{x:Static shared:ToolTipPresentation.FontSize}" TextWrapping="Wrap" />
+                          BorderThickness="1" CornerRadius="2" Padding="{TemplateBinding Padding}"
+                          MaxWidth="{TemplateBinding MaxWidth}">
+                    <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}" TextWrapping="Wrap" />
                   </Border>
                 </ControlTemplate>
               </Setter.Value>

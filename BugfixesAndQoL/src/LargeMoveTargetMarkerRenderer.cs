@@ -1,7 +1,14 @@
 using BepInEx.Logging;
+using RedBird.Abstractions.Hooks;
+using RedBird.Abstractions.Hooks.Transaction;
+using RedBird.X64.Hooks;
+using RedBird.X64.Hooks.Context;
+using RedBird.X64.Hooks.Transaction;
+using SHCDESE.API;
+using SHCDESE.API.LowLevel;
 using System;
 using System.Collections.Generic;
-using UnityEngine;
+using System.Runtime.InteropServices;
 
 namespace BugfixesAndQoL
 {
@@ -17,21 +24,73 @@ namespace BugfixesAndQoL
         public bool Active { get; }
     }
 
-    internal sealed class LargeMoveTargetMarkerRenderer
+    internal sealed unsafe class LargeMoveTargetMarkerRenderer
     {
+        internal const int VisibleTileHookRva = 0x436DE;
+        internal const int VisibleTileHookLength = 9;
+        internal const int VisibleTileHookEndRva = 0x436E7;
+        internal const int SpriteBuilderRva = 0x1A13C0;
+        internal const int FirstSyntheticIdentity = 250;
+        internal const int NativeMode8IdentityCapacity = 4250;
+        internal const int MaximumSyntheticMarkers =
+            NativeMode8IdentityCapacity - FirstSyntheticIdentity;
+
+        private const int DrawManagerRva = 0xA98820;
+        private const int CurrentTerrainHeightRva = 0x42D8D8;
+        private const int DetailedTerrainRenderingRva = 0x60AD43C;
+        private const int AnimationFrameRva = 0x60AD544;
+        private const int TileFlagsRva = 0x48F71B0;
+        private const int TileBuildingIdRva = 0x4B6AA50;
+        private const int BuildingManagerRva = 0x64CCBB0;
+        private const int BuildingTypeRva = 0x64CCCDE;
+        private const int BuildingRecordSize = 0x32C;
+        private const int BuildingHeightHelperRva = 0xC07C0;
+        private const int NativeTileCount = 320000;
+        private const uint BuildingTileFlag = 0x100;
+        private const uint ElevatedBuildingTileFlag = 0x10000000;
+
+        // This signature begins at the visible-tile list-head read in FUN_180041D60.
+        // RBX is the current visible tile; the nine-byte instruction only defines EDI.
+        private const string VisibleTileTraversalPattern =
+            "4C 8D 0D D2 B6 01 04 41 0F B7 BC 59 80 EF 75 00 85 FF 0F 84 81 02 00 00 " +
+            "83 3D 46 9D 06 06 00 8B 35 DC A1 3E 00";
+
+        // FBCB...31E2 FUN_1801A13C0 entry. A normal function-entry delegate is used;
+        // no instructions in this function are replaced by this feature.
+        private const string SpriteBuilderPattern =
+            "48 89 5C 24 08 44 89 4C 24 20 44 89 44 24 18 89 54 24 10 55 56 57 41 54 " +
+            "41 55 41 56 41 57 48 81 EC C0 00 00 00 8B 84 24 60 01 00 00 48 8B D9 8B " +
+            "AC 24 20 01 00 00 85 C0 44 8B F0 4D 63 F8 41 F7 D6 4C 63 EA";
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate void SpriteBuilderDelegate(
+            IntPtr manager,
+            int identity,
+            int tileId,
+            int secondaryTile,
+            int mode,
+            int category,
+            int spriteId,
+            int horizontalOffset,
+            int unused,
+            int player,
+            int layer,
+            int verticalOffset,
+            int flagsHigh,
+            int owner);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate int BuildingHeightDelegate(IntPtr buildingManager, int buildingId);
+
         private readonly ManualLogSource log;
-        private readonly object sync = new object();
-        private readonly List<GameObject> rowObjects = new List<GameObject>();
-        private readonly List<Mesh> rowMeshes = new List<Mesh>();
-        private readonly List<RowRenderBatch> rowBatches = new List<RowRenderBatch>();
-        private List<LargeMoveMarkerPoint> pending = new List<LargeMoveMarkerPoint>();
-        private List<LargeMoveMarkerPoint> rendered = new List<LargeMoveMarkerPoint>();
-        private GameObject root;
-        private Texture2D markerTexture;
-        private Material markerMaterial;
-        private int pendingGeneration;
-        private int renderedGeneration = -1;
-        private int renderedRotation = int.MinValue;
+        private readonly HookHandle<X64InlineHook> visibleTileHook =
+            new HookHandle<X64InlineHook>();
+        private volatile Dictionary<int, int> markerIdentityByTile =
+            new Dictionary<int, int>();
+        private HookTransaction transaction;
+        private SpriteBuilderDelegate spriteBuilder;
+        private BuildingHeightDelegate getBuildingHeight;
+        private IntPtr libraryHandle;
         private bool installed;
         private bool failed;
         private bool failureLogged;
@@ -41,324 +100,188 @@ namespace BugfixesAndQoL
             this.log = log ?? throw new ArgumentNullException(nameof(log));
         }
 
-        public bool ReplacementAvailable => installed && !failed;
+        public bool ReplacementAvailable => installed && !failed &&
+            visibleTileHook.Success && visibleTileHook.IsInstalled;
 
-        public void Install()
+        public void Install(CrusaderLibraryLoadContext context, bool fixedLayoutHashValidated)
         {
             if (installed)
                 return;
+            if (context == null)
+                throw new ArgumentNullException(nameof(context));
+            if (!fixedLayoutHashValidated)
+                throw new InvalidOperationException(
+                    "Large Move marker replacement requires the validated FBCB9319 native layout.");
+
+            ReadOnlySpan<byte> memory = context.Memory;
+            Shared.NativeResolution traversal = Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                VisibleTileTraversalPattern,
+                VisibleTileHookRva - 7,
+                referenceHashMatches: true,
+                name: "visible-tile overlay traversal",
+                log: null);
+            Shared.NativeResolution builder = Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                SpriteBuilderPattern,
+                SpriteBuilderRva,
+                referenceHashMatches: true,
+                name: "native sprite builder",
+                log: null);
+            if (traversal.Rva + 7 != VisibleTileHookRva || builder.Rva != SpriteBuilderRva ||
+                VisibleTileHookRva + VisibleTileHookLength != VisibleTileHookEndRva ||
+                NativeMode8IdentityCapacity !=
+                    (0x1025580 - 0x203A16 * sizeof(long)) / sizeof(long))
+            {
+                throw new InvalidOperationException("Large Move marker native contract mismatch.");
+            }
+
+            libraryHandle = context.ModuleHandle;
+            spriteBuilder = Marshal.GetDelegateForFunctionPointer<SpriteBuilderDelegate>(
+                IntPtr.Add(libraryHandle, SpriteBuilderRva));
+            getBuildingHeight = Marshal.GetDelegateForFunctionPointer<BuildingHeightDelegate>(
+                IntPtr.Add(libraryHandle, BuildingHeightHelperRva));
+
+            transaction = BugfixesHookInfrastructure.CreateOwnedTransaction(context.Region);
+            // The callback runs before the original MOVZX. RedBird preserves every register;
+            // the relocated MOVZX restores EDI and the following TEST recreates all live flags.
+            BugfixesHookInfrastructure.AddContextHook(
+                transaction,
+                visibleTileHook,
+                unchecked((ulong)(libraryHandle + VisibleTileHookRva).ToInt64()),
+                RenderVisibleLargeMoveTarget,
+                X64SmartCPUContextRegs.All,
+                hookSize: VisibleTileHookLength,
+                errorMode: CallbackErrorMode.LogAndContinue,
+                placement: OverwrittenInstructionPlacement.AfterCallback);
+            CommitResult result = transaction.Commit();
+            if (!result.IsCompleteSuccess || !visibleTileHook.Success || !visibleTileHook.IsInstalled)
+                throw new InvalidOperationException("Visible-tile marker hook reported no success.");
             installed = true;
-            Application.onBeforeRender += OnBeforeRender;
         }
 
         public void SetMarkers(IReadOnlyList<LargeMoveMarkerPoint> markers)
         {
-            var copy = markers == null
-                ? new List<LargeMoveMarkerPoint>()
-                : new List<LargeMoveMarkerPoint>(markers);
-            copy.Sort((left, right) => left.Coordinate.CompareTo(right.Coordinate));
-            lock (sync)
+            if (!ReplacementAvailable)
+                return;
+            try
             {
-                pending = copy;
-                pendingGeneration++;
+                var activeCoordinates = new List<MoveTargetCoordinate>();
+                if (markers != null)
+                {
+                    for (int index = 0; index < markers.Count; index++)
+                    {
+                        if (markers[index].Active)
+                            activeCoordinates.Add(markers[index].Coordinate);
+                    }
+                }
+                activeCoordinates.Sort();
+                if (activeCoordinates.Count > MaximumSyntheticMarkers)
+                    throw new InvalidOperationException(
+                        $"{activeCoordinates.Count} unique active targets exceed the validated " +
+                        $"native capacity of {MaximumSyntheticMarkers}.");
+
+                var replacement = new Dictionary<int, int>(activeCoordinates.Count);
+                for (int index = 0; index < activeCoordinates.Count; index++)
+                {
+                    MoveTargetCoordinate coordinate = activeCoordinates[index];
+                    int tileId = GameTileManagerAPI.Instance.GetTileId(coordinate.X, coordinate.Y);
+                    if ((uint)tileId >= NativeTileCount || replacement.ContainsKey(tileId))
+                        continue;
+                    replacement.Add(tileId, FirstSyntheticIdentity + replacement.Count);
+                }
+                markerIdentityByTile = replacement;
+            }
+            catch (Exception exception)
+            {
+                FailOpen(exception);
             }
         }
 
         public void Shutdown()
         {
-            if (!installed)
-                return;
+            markerIdentityByTile = new Dictionary<int, int>();
+            transaction?.Dispose();
+            transaction = null;
             installed = false;
-            Application.onBeforeRender -= OnBeforeRender;
-            ClearRowMeshes();
-            if (root != null)
-                UnityEngine.Object.Destroy(root);
-            root = null;
         }
 
-        private void OnBeforeRender()
+        private void RenderVisibleLargeMoveTarget(NativePointer<X64SmartCPUContext> context)
         {
-            if (!installed || failed)
+            if (!ReplacementAvailable || context.Pointer == null)
                 return;
             try
             {
-                List<LargeMoveMarkerPoint> snapshot = null;
-                int generation;
-                lock (sync)
+                X64SmartCPUContext* registers = context.Pointer;
+                int tileId = unchecked((int)(uint)registers->RBX);
+                Dictionary<int, int> markers = markerIdentityByTile;
+                if ((uint)tileId >= NativeTileCount ||
+                    !markers.TryGetValue(tileId, out int identity))
                 {
-                    generation = pendingGeneration;
-                    if (generation != renderedGeneration)
-                        snapshot = new List<LargeMoveMarkerPoint>(pending);
+                    return;
                 }
 
-                int rotation = GameMap.instance == null
-                    ? int.MinValue
-                    : (int)GameMap.instance.CurrentRotation();
-                if (snapshot == null && rotation == renderedRotation)
-                    return;
-                if (snapshot == null)
-                    snapshot = new List<LargeMoveMarkerPoint>(rendered);
+                int animation = Marshal.ReadInt32(libraryHandle + AnimationFrameRva) - 1;
+                animation %= 16;
+                if (animation < 0)
+                    animation += 16;
+                int frame = animation < 8 ? animation : 15 - animation;
+                int terrainHeight = Marshal.ReadInt32(libraryHandle + CurrentTerrainHeightRva);
+                if (Marshal.ReadInt32(libraryHandle + DetailedTerrainRenderingRva) != 0 &&
+                    *(long*)(registers->RSP + 0x80) == 0)
+                {
+                    terrainHeight += GetStructureHeightAdjustment(tileId);
+                }
 
-                RenderSnapshot(snapshot, rotation);
-                rendered = snapshot;
-                renderedGeneration = generation;
-                renderedRotation = rotation;
+                spriteBuilder(
+                    libraryHandle + DrawManagerRva,
+                    identity,
+                    tileId,
+                    0,
+                    8,
+                    0x6B,
+                    0x52 + frame,
+                    0,
+                    0,
+                    0,
+                    0xC,
+                    6 - terrainHeight,
+                    0,
+                    0);
             }
             catch (Exception exception)
             {
-                failed = true;
-                ClearRowMeshes();
-                if (!failureLogged)
-                {
-                    failureLogged = true;
-                    Shared.DebugLogHelper.LogError(
-                        log,
-                        $"MOVE_TARGET_MARKER_RENDER_FAIL_OPEN: Vanilla markers retained; {exception}");
-                }
+                FailOpen(exception);
             }
         }
 
-        private void RenderSnapshot(IReadOnlyList<LargeMoveMarkerPoint> markers, int rotation)
+        private int GetStructureHeightAdjustment(int tileId)
         {
-            if (rotation == renderedRotation && HaveSameTopology(rendered, markers) && rowBatches.Count != 0)
-            {
-                UpdateMarkerColors(markers);
+            uint flags = unchecked((uint)Marshal.ReadInt32(
+                libraryHandle + TileFlagsRva + tileId * sizeof(uint)));
+            int buildingId = Marshal.ReadInt16(
+                libraryHandle + TileBuildingIdRva + tileId * sizeof(short));
+            if ((flags & ElevatedBuildingTileFlag) != 0)
+                return getBuildingHeight(libraryHandle + BuildingManagerRva, buildingId);
+            if ((flags & BuildingTileFlag) == 0)
+                return 0;
+            if (buildingId == 0)
+                return 4;
+            int buildingType = Marshal.ReadInt16(
+                libraryHandle + BuildingTypeRva + buildingId * BuildingRecordSize);
+            return buildingType == 0x2F ? 6 : 20;
+        }
+
+        private void FailOpen(Exception exception)
+        {
+            failed = true;
+            markerIdentityByTile = new Dictionary<int, int>();
+            if (failureLogged)
                 return;
-            }
-            ClearRowMeshes();
-            if (markers.Count == 0 || GameMap.instance == null)
-                return;
-
-            EnsureResources();
-            var rows = new SortedDictionary<int, List<ProjectedMarker>>();
-            for (int index = 0; index < markers.Count; index++)
-            {
-                LargeMoveMarkerPoint marker = markers[index];
-                if (!TryProject(marker.Coordinate, out int row, out Vector3 position))
-                    continue;
-                if (!rows.TryGetValue(row, out List<ProjectedMarker> batch))
-                {
-                    batch = new List<ProjectedMarker>();
-                    rows.Add(row, batch);
-                }
-                batch.Add(new ProjectedMarker(marker.Coordinate, position, marker.Active));
-            }
-
-            foreach (KeyValuePair<int, List<ProjectedMarker>> pair in rows)
-                CreateRowMesh(pair.Key, pair.Value);
-        }
-
-        private void UpdateMarkerColors(IReadOnlyList<LargeMoveMarkerPoint> markers)
-        {
-            var activeByCoordinate = new Dictionary<MoveTargetCoordinate, bool>();
-            for (int index = 0; index < markers.Count; index++)
-                activeByCoordinate[markers[index].Coordinate] = markers[index].Active;
-            foreach (RowRenderBatch batch in rowBatches)
-            {
-                var colors = new Color32[batch.Coordinates.Count * 4];
-                for (int index = 0; index < batch.Coordinates.Count; index++)
-                {
-                    bool active = activeByCoordinate.TryGetValue(batch.Coordinates[index], out bool value) && value;
-                    Color32 color = new Color32(255, 255, 255, active ? (byte)255 : (byte)0);
-                    int vertex = index * 4;
-                    colors[vertex] = color;
-                    colors[vertex + 1] = color;
-                    colors[vertex + 2] = color;
-                    colors[vertex + 3] = color;
-                }
-                batch.Mesh.colors32 = colors;
-            }
-        }
-
-        private static bool HaveSameTopology(
-            IReadOnlyList<LargeMoveMarkerPoint> left,
-            IReadOnlyList<LargeMoveMarkerPoint> right)
-        {
-            if (left.Count != right.Count)
-                return false;
-            for (int index = 0; index < left.Count; index++)
-            {
-                if (!left[index].Coordinate.Equals(right[index].Coordinate))
-                    return false;
-            }
-            return true;
-        }
-
-        private void EnsureResources()
-        {
-            if (root == null)
-            {
-                root = new GameObject("BugfixesAndQoL_LargeMoveTargets");
-                UnityEngine.Object.DontDestroyOnLoad(root);
-            }
-            if (markerTexture == null)
-            {
-                const int width = 32;
-                const int height = 16;
-                markerTexture = new Texture2D(width, height, TextureFormat.ARGB32, false)
-                {
-                    name = "BugfixesAndQoL_LargeMoveTargetMarker",
-                    filterMode = FilterMode.Point,
-                    wrapMode = TextureWrapMode.Clamp
-                };
-                var pixels = new Color[width * height];
-                for (int y = 0; y < height; y++)
-                {
-                    for (int x = 0; x < width; x++)
-                    {
-                        float distance =
-                            Math.Abs((x + 0.5f - width / 2f) / (width / 2f)) +
-                            Math.Abs((y + 0.5f - height / 2f) / (height / 2f));
-                        if (distance <= 1f)
-                            pixels[y * width + x] = new Color(0.18f, 1f, 0.12f, distance > 0.72f ? 0.9f : 0.55f);
-                    }
-                }
-                markerTexture.SetPixels(pixels);
-                markerTexture.Apply(false, true);
-                UnityEngine.Object.DontDestroyOnLoad(markerTexture);
-            }
-            if (markerMaterial == null)
-            {
-                Shader shader = Shader.Find("Universal Render Pipeline/2D/Sprite-Unlit-Default") ??
-                    Shader.Find("Sprites/Default");
-                if (shader == null)
-                    throw new InvalidOperationException("No compatible unlit sprite shader is available.");
-                markerMaterial = new Material(shader)
-                {
-                    name = "BugfixesAndQoL_LargeMoveTargetMaterial",
-                    mainTexture = markerTexture
-                };
-                UnityEngine.Object.DontDestroyOnLoad(markerMaterial);
-            }
-        }
-
-        private void CreateRowMesh(int row, IReadOnlyList<ProjectedMarker> markers)
-        {
-            const float halfWidth = 0.34f;
-            const float halfHeight = 0.17f;
-            var vertices = new Vector3[markers.Count * 4];
-            var uv = new Vector2[vertices.Length];
-            var colors = new Color32[vertices.Length];
-            var triangles = new int[markers.Count * 6];
-            for (int index = 0; index < markers.Count; index++)
-            {
-                ProjectedMarker marker = markers[index];
-                int vertex = index * 4;
-                int triangle = index * 6;
-                Vector3 center = marker.Position;
-                vertices[vertex] = center + new Vector3(-halfWidth, -halfHeight, 0f);
-                vertices[vertex + 1] = center + new Vector3(halfWidth, -halfHeight, 0f);
-                vertices[vertex + 2] = center + new Vector3(-halfWidth, halfHeight, 0f);
-                vertices[vertex + 3] = center + new Vector3(halfWidth, halfHeight, 0f);
-                uv[vertex] = new Vector2(0f, 0f);
-                uv[vertex + 1] = new Vector2(1f, 0f);
-                uv[vertex + 2] = new Vector2(0f, 1f);
-                uv[vertex + 3] = new Vector2(1f, 1f);
-                byte alpha = marker.Active ? (byte)255 : (byte)0;
-                Color32 color = new Color32(255, 255, 255, alpha);
-                colors[vertex] = color;
-                colors[vertex + 1] = color;
-                colors[vertex + 2] = color;
-                colors[vertex + 3] = color;
-                triangles[triangle] = vertex;
-                triangles[triangle + 1] = vertex + 2;
-                triangles[triangle + 2] = vertex + 1;
-                triangles[triangle + 3] = vertex + 2;
-                triangles[triangle + 4] = vertex + 3;
-                triangles[triangle + 5] = vertex + 1;
-            }
-
-            var mesh = new Mesh
-            {
-                name = $"BugfixesAndQoL_LargeMoveTargets_Row_{row}",
-                vertices = vertices,
-                uv = uv,
-                colors32 = colors,
-                triangles = triangles
-            };
-            mesh.RecalculateBounds();
-            rowMeshes.Add(mesh);
-            var rowObject = new GameObject(mesh.name);
-            rowObject.transform.SetParent(root.transform, false);
-            rowObject.AddComponent<MeshFilter>().sharedMesh = mesh;
-            MeshRenderer renderer = rowObject.AddComponent<MeshRenderer>();
-            renderer.sharedMaterial = markerMaterial;
-            renderer.sortingOrder = -20000 + row * 49 + 2;
-            rowObjects.Add(rowObject);
-            var coordinates = new List<MoveTargetCoordinate>(markers.Count);
-            for (int index = 0; index < markers.Count; index++)
-                coordinates.Add(markers[index].Coordinate);
-            rowBatches.Add(new RowRenderBatch(mesh, coordinates));
-        }
-
-        private static bool TryProject(
-            MoveTargetCoordinate coordinate,
-            out int row,
-            out Vector3 worldPosition)
-        {
-            row = 0;
-            worldPosition = default;
-            GameMap map = GameMap.instance;
-            if (map == null)
-                return false;
-            map.mapGameTileToTilemapCoord(
-                coordinate.X,
-                coordinate.Y,
-                out int tileMapX,
-                out int tileMapY);
-            GameMapTile mapTile = map.getMapTile(tileMapX, tileMapY);
-            if (mapTile == null || mapTile.tilemapRef == null)
-                return false;
-            var tilePosition = new Vector3Int(tileMapX, tileMapY, 0);
-            worldPosition = mapTile.tilemapRef.GetCellCenterWorld(tilePosition);
-            Vector3 sortingPosition = map.getSpritePosVector(tileMapX, tileMapY);
-            worldPosition.y += mapTile.height;
-            worldPosition.z = sortingPosition.z;
-            row = tileMapY;
-            return true;
-        }
-
-        private void ClearRowMeshes()
-        {
-            for (int index = 0; index < rowObjects.Count; index++)
-            {
-                if (rowObjects[index] != null)
-                    UnityEngine.Object.Destroy(rowObjects[index]);
-            }
-            rowObjects.Clear();
-            for (int index = 0; index < rowMeshes.Count; index++)
-            {
-                if (rowMeshes[index] != null)
-                    UnityEngine.Object.Destroy(rowMeshes[index]);
-            }
-            rowMeshes.Clear();
-            rowBatches.Clear();
-        }
-
-        private readonly struct ProjectedMarker
-        {
-            public ProjectedMarker(MoveTargetCoordinate coordinate, Vector3 position, bool active)
-            {
-                Coordinate = coordinate;
-                Position = position;
-                Active = active;
-            }
-
-            public MoveTargetCoordinate Coordinate { get; }
-            public Vector3 Position { get; }
-            public bool Active { get; }
-        }
-
-        private sealed class RowRenderBatch
-        {
-            public RowRenderBatch(Mesh mesh, List<MoveTargetCoordinate> coordinates)
-            {
-                Mesh = mesh;
-                Coordinates = coordinates;
-            }
-
-            public Mesh Mesh { get; }
-            public List<MoveTargetCoordinate> Coordinates { get; }
+            failureLogged = true;
+            Shared.DebugLogHelper.LogError(
+                log,
+                $"MOVE_TARGET_MARKER_RENDER_FAIL_OPEN: Vanilla markers retained; {exception}");
         }
     }
 }

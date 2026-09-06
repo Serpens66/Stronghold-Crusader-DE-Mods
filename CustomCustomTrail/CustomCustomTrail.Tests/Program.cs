@@ -170,7 +170,10 @@ static void TestWorkshopUploadCheckbox()
         "Workshop modsettings checkbox is not uniformly editable");
     Assert(xaml.Contains("Foreground=\"Black\"", StringComparison.Ordinal) &&
         xaml.Contains("ToolTipService.ShowDuration=\"60000\"", StringComparison.Ordinal) &&
-        xaml.Contains("ToolTipPresentation.MaximumWidth", StringComparison.Ordinal),
+        xaml.Contains("seui:ToolTipResolutionScale.Enabled=\"True\"", StringComparison.Ordinal) &&
+        xaml.Contains("FontSize=\"{TemplateBinding FontSize}\"", StringComparison.Ordinal) &&
+        xaml.Contains("MaxWidth=\"{TemplateBinding MaxWidth}\"", StringComparison.Ordinal) &&
+        xaml.Contains("Padding=\"{TemplateBinding Padding}\"", StringComparison.Ordinal),
         "Workshop checkbox presentation does not match the required tooltip style");
     Assert(viewModel.Contains("WorkshopUpload.IncludeModSettings", StringComparison.Ordinal) &&
         viewModel.Contains("includeModSettings = true", StringComparison.Ordinal) &&

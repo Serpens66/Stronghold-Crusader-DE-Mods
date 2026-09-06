@@ -139,6 +139,7 @@
     <Compile Include="src\MovementOptionsSnapshot.cs" />
     <Compile Include="src\MovementPathPublication.cs" />
     <Compile Include="src\MovementSearchContext.cs" />
+    <Compile Include="src\MoveFormationSpacingPolicy.cs" />
     <Compile Include="src\NativeFormationSlots.cs" />
     <Compile Include="src\NativeMovementCadenceResolver.cs" />
     <Compile Include="src\NativeMovementRecovery.cs" />
