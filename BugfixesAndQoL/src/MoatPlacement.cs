@@ -116,11 +116,12 @@ namespace BugfixesAndQoL
         private void CompletePlacementAdapterInstallation()
         {
             originalFormationSlot = formationSlotDetour.Original;
+            originalAssassinGroundFormationSlot = assassinGroundFormationSlotDetour.Original;
             originalCommonGroupMove = commonGroupMoveDetour.Original;
             originalUnstack = nativeUnstackDetour.Original;
             originalFreePlace = freePlaceDetour.Original;
             Shared.DebugLogHelper.LogInfo(log,
-                "Bugfixes and QoL friendly-moat-movement placement hooks installed: commonGroup=0x118E00 formationSlot=0xE1D30 unstack=0x181890 freePlace=0xF03C0; native Unit event retained, terrain unchanged.");
+                "Bugfixes and QoL friendly-moat-movement placement hooks installed: commonGroup=0x118E00 formationSlot=0xE1D30 assassinGroundSlot=0xE0970 unstack=0x181890 freePlace=0xF03C0; native Unit event retained, terrain unchanged.");
         }
 
         private long ObserveCommonGroupMove(IntPtr manager, int tribe, short x, short y, short patrol, int newOrder)

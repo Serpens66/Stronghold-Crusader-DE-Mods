@@ -72,6 +72,9 @@ namespace BugfixesAndQoL
             if (groups.TryGetValue(tribeId, out TrackedMoveGroup previous))
                 FinalizeGroup(previous, "command-replaced", forceInterrupt: true, tick);
 
+            bool hasSpacingAudit = MoveFormationSpacingAuditStore.TryConsume(
+                tribeId, commandX, commandY, out MoveFormationSpacingAudit spacingAudit);
+
             List<TrackedMoveUnit> units = CaptureTribeUnits(tribeId);
             if (!LargeMoveTargetDiagnosticsModel.ShouldTrack(units.Count))
             {
@@ -93,10 +96,32 @@ namespace BugfixesAndQoL
 
             List<MoveTargetCoordinate> targets = units.Select(unit => unit.Planned).ToList();
             int unique = targets.Distinct().Count();
+            int inferredAssassinStructureCalls = CountAssassinStructureTargets(units);
+            string spacingSummary;
+            if (hasSpacingAudit)
+            {
+                spacingSummary = spacingAudit.Format(inferredAssassinStructureCalls);
+            }
+            else if (inferredAssassinStructureCalls > 0)
+            {
+                spacingSummary = new MoveFormationSpacingAudit(
+                    MoveFormationSpacingPolicy.Normalize(settings.MoveFormationSpacing),
+                    0, 0, 0, 0, new int[5], new int[5])
+                    .Format(inferredAssassinStructureCalls) +
+                    ", spacingAudit=inferred-from-assassin-structure-targets";
+            }
+            else
+            {
+                spacingSummary =
+                    $"configuredSpacing={MoveFormationSpacingPolicy.Normalize(settings.MoveFormationSpacing)}, " +
+                    "selectors=unavailable, vanillaSpacing=unavailable, effectiveSpacing=unavailable, " +
+                    "spacingAudit=unavailable";
+            }
             Shared.DebugLogHelper.LogInfo(
                 log,
                 $"MOVE_TARGET_TRACK_START: tribeId={tribeId}, source={source}, " +
                 $"command={commandX},{commandY}, tick={tick}, units={units.Count}, " +
+                $"{spacingSummary}, " +
                 $"plannedUnique={unique}, plannedDuplicates={targets.Count - unique}, " +
                 $"plannedBounds={LargeMoveTargetDiagnosticsModel.Bounds(targets)}, " +
                 $"plannedFingerprint={LargeMoveTargetDiagnosticsModel.Fingerprint(targets)}, " +
@@ -216,6 +241,7 @@ namespace BugfixesAndQoL
 
         public void Reset(int tick, string reason)
         {
+            MoveFormationSpacingAuditStore.Clear();
             foreach (TrackedMoveGroup group in groups.Values.ToArray())
                 FinalizeGroup(group, reason, forceInterrupt: true, tick);
             groups.Clear();
@@ -394,6 +420,23 @@ namespace BugfixesAndQoL
             groups.Remove(group.TribeId);
         }
 
+        private static int CountAssassinStructureTargets(List<TrackedMoveUnit> units)
+        {
+            if (units.Count == 0 || units.Any(
+                unit => unit.UnitType != eChimps.CHIMP_TYPE_ARAB_ASSASIN))
+                return 0;
+
+            int count = 0;
+            TilePropertyFlag mask = TilePropertyFlag.IsWall | TilePropertyFlag.IsElevated;
+            foreach (TrackedMoveUnit unit in units)
+            {
+                int tileId = GameTileManagerAPI.Instance.GetTileId(unit.Planned.X, unit.Planned.Y);
+                if (GameTileManagerAPI.Instance.HasTilePropertyFlag(tileId, mask))
+                    count++;
+            }
+            return count;
+        }
+
         private static List<TrackedMoveUnit> CaptureTribeUnits(int tribeId)
         {
             var result = new List<TrackedMoveUnit>();
@@ -406,6 +449,7 @@ namespace BugfixesAndQoL
                 result.Add(new TrackedMoveUnit(
                     spanIndex + 1,
                     unit.r_GlobalId,
+                    unit.r_UnitChimp,
                     new MoveTargetCoordinate(
                         unit.r_AttackMoveToTargetTileX,
                         unit.r_AttackMoveToTargetTileY),
@@ -490,11 +534,13 @@ namespace BugfixesAndQoL
             public TrackedMoveUnit(
                 int unitId,
                 uint globalId,
+                eChimps unitType,
                 MoveTargetCoordinate planned,
                 MoveTargetCoordinate actual)
             {
                 UnitId = unitId;
                 GlobalId = globalId;
+                UnitType = unitType;
                 Planned = planned;
                 Actual = actual;
                 Kind = planned.Equals(actual)
@@ -504,6 +550,7 @@ namespace BugfixesAndQoL
 
             public int UnitId { get; }
             public uint GlobalId { get; }
+            public eChimps UnitType { get; }
             public MoveTargetCoordinate Planned { get; }
             public MoveTargetCoordinate Actual { get; set; }
             public MoveTargetOutcomeKind Kind { get; set; }

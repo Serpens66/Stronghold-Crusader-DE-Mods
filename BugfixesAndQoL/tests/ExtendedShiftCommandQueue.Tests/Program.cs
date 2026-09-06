@@ -47,6 +47,27 @@ internal static class Program
             Check(MoveFormationSpacingPolicy.Normalize(invalid) == MoveFormationSpacingPolicy.Default,
                 $"invalid Move formation spacing {invalid} resets to default");
         }
+        foreach (int vanillaSpacing in new[] { 2, 3, 4 })
+        foreach (int configuredSpacing in new[] { 1, 2, 3, 4 })
+        {
+            Check(MoveFormationSpacingPolicy.ResolveEffectiveSpacing(
+                    vanillaSpacing, configuredSpacing, overrideEnabled: true) == configuredSpacing,
+                $"normal Vanilla spacing {vanillaSpacing} accepts configured {configuredSpacing}");
+        }
+        Check(MoveFormationSpacingPolicy.ResolveEffectiveSpacing(1, 4, overrideEnabled: true) == 1,
+            "Vanilla safety spacing one is always preserved");
+        Check(MoveFormationSpacingPolicy.ResolveEffectiveSpacing(3, 4, overrideEnabled: false) == 3,
+            "disabled Move formation feature preserves Vanilla Assassin spacing");
+
+        object owner = new object();
+        MoveFormationSpacingAuditStore.Observe(
+            owner, 7, 30, 40, 4, MoveFormationSelector.AssassinGround, 3, 4);
+        Check(MoveFormationSpacingAuditStore.TryConsume(
+                7, 30, 40, out MoveFormationSpacingAudit audit) &&
+              audit.AssassinGroundCalls == 1 && audit.StandardCalls == 0 &&
+              audit.OverriddenCalls == 1 && audit.VanillaCounts[3] == 1 &&
+              audit.EffectiveCounts[4] == 1,
+            "spacing audit reports the Assassin ground selector and effective override");
         Check(Enumerable.Range(0, 40).Count(value => value % 1 == 0) >
               Enumerable.Range(0, 40).Count(value => value % 2 == 0) &&
               Enumerable.Range(0, 40).Count(value => value % 2 == 0) >
@@ -662,6 +683,15 @@ internal static class Program
             "44 89 44 24 18 89 54 24 10 55 56 57 41 54 41 55 41 56 48 83 EC 68 48 8B E9 48 8D 3D ?? ?? ?? ?? 45 8B F1 48 8D 87 1C 07 00 00 4D 63 C8 45 33 E4",
             "MoatCommandTest nearest-friendly-moat helper");
 
+        byte[] assassinGroundSelectorEntry = Convert.FromHexString(
+            "48895C240848896C2410488974241848897C242041544155415641574C631DA15DBE074C8BF14863816C5F1500458BF9");
+        int assassinGroundSelectorRawOffset = RvaToRawOffset(image, 0xE0970);
+        Check(image.AsSpan(assassinGroundSelectorRawOffset, assassinGroundSelectorEntry.Length)
+                .SequenceEqual(assassinGroundSelectorEntry),
+            "Assassin ground formation selector exact entry signature");
+        Check(CountOccurrences(image, assassinGroundSelectorEntry) == 1,
+            "Assassin ground formation selector unique entry signature");
+
         CheckNativeHandler(
             image,
             QueueNativeContract.MoveChoreHandlerRva,
@@ -785,6 +815,11 @@ internal static class Program
             "BugfixesAndQoL",
             "src",
             "LargeMoveTargetMarkerRenderer.cs");
+        string nativeFormationSlots = Read(
+            workspace,
+            "BugfixesAndQoL",
+            "src",
+            "NativeFormationSlots.cs");
         string queueContract = Read(workspace, "BugfixesAndQoL", "QueueTest.md");
         string viewModel = Read(workspace, "BugfixesAndQoL", "src", "BugfixesAndQoLViewModel.cs");
         string settingsXaml = Read(
@@ -887,6 +922,11 @@ internal static class Program
               bugfixesRuntime.Contains("!FeatureEnabled ||") &&
               bugfixesRuntime.Contains("setting-disabled"),
             "Move spacing, diagnostics, suppression, and replacement obey their feature setting");
+        Check(nativeFormationSlots.Contains("libraryBase, 0xE0970") &&
+              nativeFormationSlots.Contains("MoveFormationSelector.AssassinGround") &&
+              nativeFormationSlots.Contains("ResolveEffectiveSpacing") &&
+              !nativeFormationSlots.Contains("libraryBase, 0xE0AC0"),
+            "Move spacing hooks the Assassin ground selector while leaving its structure selector untouched");
         Check(bugfixesPlugin.Contains("BepInIncompatibility(LegacyQueueTestGuid)") &&
               bugfixesPlugin.Contains("LegacyQueueTestGuid = \"QueueTest_Serp\""),
             "standalone QueueTest is explicitly incompatible");

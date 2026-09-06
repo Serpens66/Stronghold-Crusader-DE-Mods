@@ -100,7 +100,8 @@ namespace BugfixesAndQoL
                     !maskRebuildDetour.Committed || !preBuilderRecoveryHook.Success ||
                     !preBuilderRecoveryHook.IsInstalled || preBuilderRecoveryHook.Failure != null ||
                     preBuilderRecoveryHook.ResolvedAddress != libraryBase + failureRva ||
-                    !formationSlotDetour.Committed || !commonGroupMoveDetour.Committed ||
+                    !formationSlotDetour.Committed || !assassinGroundFormationSlotDetour.Committed ||
+                    !commonGroupMoveDetour.Committed ||
                     !nativeUnstackDetour.Committed || !freePlaceDetour.Committed)
                 {
                     throw new InvalidOperationException(

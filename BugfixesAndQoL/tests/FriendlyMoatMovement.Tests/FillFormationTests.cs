@@ -232,8 +232,8 @@ namespace BugfixesAndQoL
                     }
                     Console.WriteLine($"FORMATION units={count} nativeCalls={calls} ms={watch.Elapsed.TotalMilliseconds:F3} bytes={GC.GetAllocatedBytesForCurrentThread()-allocated}");
                     Check(calls==count+(count>1?25:0),"enemy candidates scanned only once per native list");
-                    Check(lastSpacing==MoveFormationSpacingPolicy.Default,
-                        "direct Move replaces the unit-type spacing with the synchronized default");
+                    Check(lastSpacing==1,
+                        "Vanilla safety spacing one remains unchanged during a direct Move");
                     Check(weightedMoatRoutePlanner.SearchRuns==before,"native slot filtering never searches a path");
                     originalPathBuilder=(m,c,p)=> {
                         byte* state=(byte*)m;int length=*(int*)(state+16)-*(int*)(state+8);
@@ -269,8 +269,10 @@ namespace BugfixesAndQoL
                 Check(calls<=exhaustedCalls+1,"exhausted unchanged candidate list is not scanned per unit");
                 TestSettings.Settings.MoveFormationSpacing=4;
                 formationOwner=null;formationExhausted=false;*(int*)(tribes+0x14)=1;
-                ChooseOwnerSafeFormationSlot(nativePathManager,1,60,10);
+                ChooseOwnerSafeFormationSlot(nativePathManager,3,60,10);
                 Check(lastSpacing==4,"Move spacing setting overrides the Vanilla unit-type value");
+                ChooseOwnerSafeFormationSlot(nativePathManager,1,60,10);
+                Check(lastSpacing==1,"Move spacing setting never replaces Vanilla safety spacing one");
                 activeMoveCommand.IsPatrolPath=true;*(int*)(tribes+0x14)=1;
                 ChooseOwnerSafeFormationSlot(nativePathManager,2,60,10);
                 Check(lastSpacing==2,"patrol movement retains its Vanilla spacing");
@@ -278,6 +280,23 @@ namespace BugfixesAndQoL
                 *(int*)(tribes+0x14)=1;
                 ChooseOwnerSafeFormationSlot(nativePathManager,3,60,10);
                 Check(lastSpacing==3,"disabled Move formation feature retains all Vanilla spacing");
+                TestSettings.Settings.EnableMoveFormationEnhancements=true;
+                TestSettings.Settings.MoveFormationSpacing=MoveFormationSpacingPolicy.Default;
+                int assassinSpacing=0;
+                originalAssassinGroundFormationSlot=(m,spacing,x,y)=>{assassinSpacing=spacing;return spacing;};
+                activeMoveCommand.IsPatrolPath=false;
+                foreach(int configured in new[]{1,2,3,4})
+                {
+                    TestSettings.Settings.MoveFormationSpacing=configured;
+                    Check(ChooseAssassinGroundFormationSlot(nativePathManager,3,60,10)==configured &&
+                        assassinSpacing==configured,
+                        "pure Assassin ground selection uses configured Move spacing "+configured);
+                }
+                Check(ChooseAssassinGroundFormationSlot(nativePathManager,1,60,10)==1,
+                    "Assassin safety spacing one remains unchanged");
+                TestSettings.Settings.EnableMoveFormationEnhancements=false;
+                Check(ChooseAssassinGroundFormationSlot(nativePathManager,3,60,10)==3,
+                    "disabled feature restores Vanilla Assassin ground spacing three");
                 TestSettings.Settings.EnableMoveFormationEnhancements=true;
                 TestSettings.Settings.MoveFormationSpacing=MoveFormationSpacingPolicy.Default;
                 tileFlags[1060]|=CursorSpecialStructureTileFlagMask;

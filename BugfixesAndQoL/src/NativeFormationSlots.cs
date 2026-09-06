@@ -9,8 +9,13 @@ namespace BugfixesAndQoL
     {
         [UnmanagedFunctionPointer(CallingConvention.Winapi)]
         private delegate void FormationSlotDelegate(IntPtr manager, int spacing, int x, int y);
+        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+        private delegate int AssassinGroundFormationSlotDelegate(
+            IntPtr manager, int spacing, int x, int y);
         private FormationSlotDelegate originalFormationSlot;
+        private AssassinGroundFormationSlotDelegate originalAssassinGroundFormationSlot;
         private RedBirdDetour<FormationSlotDelegate> formationSlotDetour;
+        private RedBirdDetour<AssassinGroundFormationSlotDelegate> assassinGroundFormationSlotDetour;
         private MoveCommandScope formationOwner;
         private int formationEpoch, formationTick, formationStamp, formationPlayer, formationSpacing;
         private long formationRevision;
@@ -25,6 +30,12 @@ namespace BugfixesAndQoL
             formationSlotDetour = InstallConnectivityObserver(transaction, memory, libraryBase, 0xE1D30,
                 "48 89 5C 24 08 48 89 6C 24 18 48 89 74 24 20 89 54 24 10 57 41 54 41 55 41 56 41 57 4C 63 1D E1 49 BE 07 4C 8B F1 48 63",
                 (FormationSlotDelegate)ChooseOwnerSafeFormationSlot);
+            // FBCB9319 E0970 handles only the pure-Assassin ground candidate list.
+            // Its sibling E0AC0 retains Vanilla spacing 1 and all structure checks.
+            assassinGroundFormationSlotDetour = InstallConnectivityObserver(
+                transaction, memory, libraryBase, 0xE0970,
+                "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 48 89 7C 24 20 41 54 41 55 41 56 41 57 4C 63 1D A1 5D BE 07 4C 8B F1 48 63 81 6C 5F 15 00 45 8B F9",
+                (AssassinGroundFormationSlotDelegate)ChooseAssassinGroundFormationSlot);
         }
 
         private bool IsForbiddenFormationMoat(int player, int x, int y)
@@ -37,9 +48,8 @@ namespace BugfixesAndQoL
 
         private void ChooseOwnerSafeFormationSlot(IntPtr manager, int spacing, int x, int y)
         {
-            int effectiveSpacing = ShouldOverrideMoveFormationSpacing(manager, x, y)
-                ? MoveFormationSpacingPolicy.Normalize(settings.MoveFormationSpacing)
-                : spacing;
+            int effectiveSpacing = ResolveMoveFormationSpacing(
+                manager, spacing, x, y, MoveFormationSelector.Standard);
             if (nativeTribeManager == IntPtr.Zero)
             { originalFormationSlot(manager, effectiveSpacing, x, y); return; }
             int* state = (int*)((byte*)nativeTribeManager + 0x0C);
@@ -56,11 +66,47 @@ namespace BugfixesAndQoL
             }
         }
 
-        private bool ShouldOverrideMoveFormationSpacing(IntPtr manager, int x, int y)
+        private int ChooseAssassinGroundFormationSlot(
+            IntPtr manager, int spacing, int x, int y)
+        {
+            int effectiveSpacing = ResolveMoveFormationSpacing(
+                manager, spacing, x, y, MoveFormationSelector.AssassinGround);
+            return originalAssassinGroundFormationSlot(manager, effectiveSpacing, x, y);
+        }
+
+        private int ResolveMoveFormationSpacing(
+            IntPtr manager,
+            int vanillaSpacing,
+            int x,
+            int y,
+            MoveFormationSelector selector)
         {
             MoveCommandScope command = activeMoveCommand;
-            return !disposed && settings.EnableMod && settings.EnableMoveFormationEnhancements &&
-                manager != IntPtr.Zero &&
+            bool scopedPureMove = IsScopedPureMoveFormationCall(manager, x, y, command);
+            int configuredSpacing = MoveFormationSpacingPolicy.Normalize(settings.MoveFormationSpacing);
+            bool overrideEnabled = scopedPureMove && settings.EnableMod &&
+                settings.EnableMoveFormationEnhancements;
+            int effectiveSpacing = MoveFormationSpacingPolicy.ResolveEffectiveSpacing(
+                vanillaSpacing, configuredSpacing, overrideEnabled);
+            if (scopedPureMove && settings.EnableMod && settings.EnableMoveFormationEnhancements)
+            {
+                MoveFormationSpacingAuditStore.Observe(
+                    command,
+                    command.TribeId,
+                    x,
+                    y,
+                    configuredSpacing,
+                    selector,
+                    vanillaSpacing,
+                    effectiveSpacing);
+            }
+            return effectiveSpacing;
+        }
+
+        private bool IsScopedPureMoveFormationCall(
+            IntPtr manager, int x, int y, MoveCommandScope command)
+        {
+            return !disposed && manager != IntPtr.Zero &&
                 manager == nativePathManager && command != null &&
                 command.TargetX == x && command.TargetY == y && !command.IsPatrolPath &&
                 activeAttackCommand == null && activeMoatWorkSelection == null &&
