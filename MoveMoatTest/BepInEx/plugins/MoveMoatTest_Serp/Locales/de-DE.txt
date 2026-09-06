@@ -25,5 +25,5 @@ Common.ModSettingsSearchClearHelp=Leert den Einstellungsfilter.
 Common.ModSettingsSearchNoResults=Keine passenden Einstellungen gefunden.
 MoveMoat.RouteMode=Wegberechnung
 MoveMoat.Individual=Individuelle Wege – genau
-MoveMoat.Shared=Gemeinsame Gruppenwege – schneller
-MoveMoat.RouteModeHelp=Individuell: Bewegungsgeschwindigkeiten für jede Einheit bewerten. Gemeinsam: Nahe, geeignete Einheiten teilen eine Hauptstrecke mit eigenen Anschlüssen und ursprünglichen Zielplätzen. Der Weg kann vom individuell besten Weg abweichen. Bei ungeeignetem Anschluss wird individuell gerechnet. Große Gruppen können weiterhin Verzögerungen verursachen.
+MoveMoat.RequiredOnly=Nur notwendige Moatwege – schnell
+MoveMoat.RouteModeHelp=Individuell: bewertet Bewegungsgeschwindigkeiten und kann auch einen optional schnelleren Moatweg wählen. Nur notwendig: prüft zuerst ausschließlich die Boden-Erreichbarkeit. Ist das Ziel ohne Moat erreichbar, bleibt alles vollständig bei Vanilla; nur bei einem durch eigene oder verbündete Moats blockierten Ziel wird ein kürzester gültiger Moatweg gesucht.

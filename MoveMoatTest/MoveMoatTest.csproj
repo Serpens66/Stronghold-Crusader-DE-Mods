@@ -134,8 +134,7 @@
       <Link>Shared\GameModeHelper.cs</Link>
     </Compile>
     <Compile Include="src\MoveMoatSettings.cs" />
-    <Compile Include="src\SharedRouteField.cs" />
-    <Compile Include="src\SharedGroupRoutes.cs" />
+    <Compile Include="src\MovementOptionsSnapshot.cs" />
     <Content Include="Locales\*.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>

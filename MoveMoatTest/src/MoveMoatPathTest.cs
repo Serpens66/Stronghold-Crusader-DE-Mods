@@ -242,13 +242,7 @@ namespace MoveMoatTest
         private const uint OrdinaryWalkableTileFlag = 0x00008000;
         private const uint CursorSpecialStructureTileFlagMask = 0x10000300;
         private const uint BuildingContextBlockingTileFlagMask = 0x0F000000;
-        private const int PathManagerRouteReadyOffset = 0x7C;
         private const int PathManagerRouteVariantOffset = 0x80;
-        private const int PathManagerMode84Offset = 0x84;
-        private const int PathManagerMode88Offset = 0x88;
-        private const int PathManagerMode94Offset = 0x94;
-        private const int PathManagerSuccessCountOffset = 0xA8;
-        private const int PathManagerFailureCountOffset = 0xAC;
         private const int PathManagerFloodGenerationOffset = 0x04;
         private const int PathManagerFloodDepthOffset = 0x155F38;
         private const int PathManagerFloodQueueHeadOffset = 0x155F3C;
@@ -449,6 +443,12 @@ namespace MoveMoatTest
         private static BuildingApproachPerformanceScope activeBuildingApproachPerformance;
         [ThreadStatic]
         private static BuildingConsumerPerformanceScope activeBuildingConsumerPerformance;
+
+        private MovementOptionsSnapshot CurrentOptions =>
+            activeMoveCommand?.Options ?? activeAttackCommand?.Options ??
+            GetCurrentUnitMoveFrame()?.Options ?? MovementOptionsSnapshot.Capture();
+        private bool ExtensionsEnabled => CurrentOptions.Enabled;
+        private bool RequiredOnlyMode => CurrentOptions.RequiredOnly;
         private CentralMovementPlanDelegate originalCentralMovementPlan;
         private CentralMovementPlanDelegate rootedCentralMovementPlan;
         private PathBuilderDelegate originalPathBuilder;
@@ -1574,7 +1574,7 @@ namespace MoveMoatTest
                         $"unitMoveAlreadyArrived={command?.UnitMoveAlreadyArrived ?? 0} " +
                         $"searchRunsTotal={weightedMoatRoutePlanner.SearchRuns} searchNodesTotal={weightedMoatRoutePlanner.SearchNodes} " +
                         $"cachedSearchFields={weightedMoatRoutePlanner.CachedSearchFields} " +
-                        $"sharedFieldHitsTotal={weightedMoatRoutePlanner.SharedFieldHits} nativeRegionQueriesTotal={nativeGroundQueries} " +
+                        $"cachedFieldHitsTotal={weightedMoatRoutePlanner.CachedFieldHits} nativeRegionQueriesTotal={nativeGroundQueries} " +
                         $"nativeRegionCacheHitsTotal={nativeGroundCacheHits} " +
                         $"unitMoveAbandoned={command?.UnitMoveAbandoned ?? 0} " +
                         $"builderIntermediateTargets={command?.BuilderIntermediateTargets ?? 0} " +
@@ -1594,7 +1594,10 @@ namespace MoveMoatTest
                         $"weightedPublished={command?.WeightedPublished ?? 0} " +
                         $"weightedSearchMs={(command?.WeightedSearchMilliseconds ?? 0):F3} " +
                         $"weightedMaxSearchMs={(command?.WeightedMaximumSearchMilliseconds ?? 0):F3} " +
-                        $"routeMode={(command?.Routes.Shared == true ? 1 : 0)} sharedMain={command?.Routes.MainSearches ?? 0} sharedMainMs={(command?.Routes.MainMilliseconds ?? 0):F3} sharedConnectorMs={(command?.Routes.ConnectorMilliseconds ?? 0):F3} sharedNodes={command?.Routes.ConnectorNodes ?? 0} sharedReuse={command?.Routes.Reused ?? 0} sharedFallback={command?.Routes.Fallbacks ?? 0} " +
+                        $"routeMode={(int)(command?.Options.RouteMode ?? CurrentOptions.RouteMode)} " +
+                        $"groundChecks={command?.Required.GroundChecks ?? 0} groundHits={command?.Required.GroundHits ?? 0} groundProofMs={(command?.Required.GroundMilliseconds ?? 0):F3} " +
+                        $"requiredSearches={command?.Required.Searches ?? 0} requiredSearchMs={(command?.Required.SearchMilliseconds ?? 0):F3} requiredPublished={command?.Required.Published ?? 0} " +
+                        $"requiredPublishAuditMs={(command?.Required.PublicationMilliseconds ?? 0):F3} requiredRejected={command?.Required.Rejected ?? 0} requiredReasons={FormatCounts(command?.Required.RejectionReasons)} " +
                         $"targetedSearches={command?.TargetedRouteSearches ?? 0} " +
                         $"targetedSearchPasses={command?.TargetedRouteSearchPasses ?? 0} " +
                         $"targetedCacheHits={command?.TargetedRouteCacheHits ?? 0} " +
@@ -1673,8 +1676,7 @@ namespace MoveMoatTest
                             0.0, scope.WeightedPhaseMilliseconds - scope.WeightedAuditMilliseconds);
                         double accountedMilliseconds = scope.UnitFloodMilliseconds +
                             exclusiveQualificationMilliseconds + scope.NativeBuilderMilliseconds +
-                            scope.AuditMilliseconds + exclusiveWeightedMilliseconds +
-                            scope.FastShadowMilliseconds;
+                            scope.AuditMilliseconds + exclusiveWeightedMilliseconds;
                         scope.ResidualMilliseconds = Math.Max(
                             0.0, scope.DispatchMilliseconds - accountedMilliseconds);
                         LogCommandDiagnostic(
@@ -1690,9 +1692,11 @@ namespace MoveMoatTest
                             $"qualificationCalls={scope.QualificationCalls} qualificationMs={scope.QualificationMilliseconds:F3} qualificationInsideFloodMs={scope.FloodQualificationMilliseconds:F3} " +
                             $"nativeBuilderCalls={scope.NativeBuilderCalls} nativeBuilderMs={scope.NativeBuilderMilliseconds:F3} " +
                             $"auditCalls={scope.AuditCalls} auditMs={scope.AuditMilliseconds:F3} " +
-                            $"weightedPhaseMs={scope.WeightedPhaseMilliseconds:F3} weightedAuditMs={scope.WeightedAuditMilliseconds:F3} fastShadowMs={scope.FastShadowMilliseconds:F3} residualMs={scope.ResidualMilliseconds:F3} " +
-                            $"routeMode={(scope.Routes.Shared ? 1 : 0)} sharedMain={scope.Routes.MainSearches} sharedMainMs={scope.Routes.MainMilliseconds:F3} sharedConnectorMs={scope.Routes.ConnectorMilliseconds:F3} sharedNodes={scope.Routes.ConnectorNodes} sharedReuse={scope.Routes.Reused} sharedFallback={scope.Routes.Fallbacks} " +
-                            $"fastShadowEligible={scope.FastShadowEligible} fastShadowValidated={scope.FastShadowValidated} fastShadowNativeEqual={scope.FastShadowNativeEqual} fastShadowRejected={FormatCounts(scope.FastShadowRejections)} fastShadowStates={FormatCounts(scope.FastShadowStates)}");
+                            $"weightedPhaseMs={scope.WeightedPhaseMilliseconds:F3} weightedAuditMs={scope.WeightedAuditMilliseconds:F3} residualMs={scope.ResidualMilliseconds:F3} " +
+                            $"routeMode={(int)scope.Options.RouteMode} " +
+                            $"groundChecks={scope.Required.GroundChecks} groundHits={scope.Required.GroundHits} groundProofMs={scope.Required.GroundMilliseconds:F3} " +
+                            $"requiredSearches={scope.Required.Searches} requiredSearchMs={scope.Required.SearchMilliseconds:F3} requiredPublished={scope.Required.Published} " +
+                            $"requiredPublishAuditMs={scope.Required.PublicationMilliseconds:F3} requiredRejected={scope.Required.Rejected} requiredReasons={FormatCounts(scope.Required.RejectionReasons)}");
                         FlushAttackDiagnostics(scope);
                     }
                 }
@@ -2247,6 +2251,7 @@ namespace MoveMoatTest
                 tracker.WeightedCommand = command;
                 tracker.WeightedCommandContext = commandContext;
                 tracker.WeightedCommandSequence = commandSequence;
+                tracker.RequiredOnlyAtPublication = CurrentOptions.RequiredOnly;
                 tracker.WorkTargetMoatTileId = plan.MoatWorkTargetTileId;
                 trackedMoatMoves[plan.UnitId] = tracker;
                 LogCommandDiagnostic(
@@ -2357,6 +2362,7 @@ namespace MoveMoatTest
 
             try
             {
+                var consumerContracts = new Dictionary<int, int[]>();
                 List<int> unitIds = new List<int>(trackedMoatMoves.Keys);
                 foreach (int unitId in unitIds)
                 {
@@ -2445,16 +2451,26 @@ namespace MoveMoatTest
                         tracker.ObservedPublishedPathSize = unchecked((int)unit->p_PathPlanSize);
                         tracker.PublishedLengthVerified =
                             tracker.ObservedPublishedPathSize == tracker.BuilderResult;
-                        Shared.DebugLogHelper.LogInfo(
-                            log,
-                            $"MoveMoat stage=weighted-path-consumer-contract " +
-                            $"unit={unitId} commandSeq={tracker.WeightedCommandSequence} " +
-                            $"expectedLength={tracker.BuilderResult} " +
-                            $"observedLength={tracker.ObservedPublishedPathSize} " +
-                            $"pathPosition={unit->p_CurrentPathPlanPosition} " +
-                            $"valid={tracker.PublishedLengthVerified}.");
+                        if (!consumerContracts.TryGetValue(
+                                tracker.WeightedCommandSequence, out int[] contractCounts))
+                        {
+                            contractCounts = new int[3];
+                            consumerContracts.Add(tracker.WeightedCommandSequence, contractCounts);
+                        }
+                        contractCounts[0]++;
+                        contractCounts[tracker.PublishedLengthVerified ? 1 : 2]++;
                         if (!tracker.PublishedLengthVerified)
                         {
+                            if (contractCounts[2] <= 3)
+                            {
+                                Shared.DebugLogHelper.LogWarning(
+                                    log,
+                                    $"MoveMoat stage=weighted-path-consumer-contract-invalid " +
+                                    $"unit={unitId} commandSeq={tracker.WeightedCommandSequence} " +
+                                    $"expectedLength={tracker.BuilderResult} " +
+                                    $"observedLength={tracker.ObservedPublishedPathSize} " +
+                                    $"pathPosition={unit->p_CurrentPathPlanPosition}.");
+                            }
                             tracker.Calibratable = false;
                             tracker.CalibrationReason = "published-length-not-consumed";
                         }
@@ -2593,6 +2609,14 @@ namespace MoveMoatTest
                     tracker.LastY = unit->r_CurrentTilePositionY;
                     tracker.LastPathPosition = unit->p_CurrentPathPlanPosition;
                     tracker.WasOnMoat = currentMoat;
+                }
+                foreach (KeyValuePair<int, int[]> entry in consumerContracts)
+                {
+                    Shared.DebugLogHelper.LogInfo(
+                        log,
+                        $"MoveMoat stage=weighted-path-consumer-contract-summary " +
+                        $"tick={tick} commandSeq={entry.Key} checked={entry.Value[0]} " +
+                        $"valid={entry.Value[1]} invalid={entry.Value[2]}.");
                 }
             }
             catch (Exception ex)
@@ -2910,10 +2934,12 @@ namespace MoveMoatTest
             TribeAICommand command,
             string milestone)
         {
-            string cadenceSnapshot = TryCaptureWeightedMovementCostProfile(
-                unit, out WeightedMovementCostProfile profile, out string rejectionReason)
-                    ? FormatCostProfile(profile)
-                    : $"unavailable/{rejectionReason ?? "unknown"}";
+            string cadenceSnapshot = tracker.RequiredOnlyAtPublication
+                ? "skipped-required-only"
+                : TryCaptureWeightedMovementCostProfile(
+                    unit, out WeightedMovementCostProfile profile, out string rejectionReason)
+                        ? FormatCostProfile(profile)
+                        : $"unavailable/{rejectionReason ?? "unknown"}";
             Shared.DebugLogHelper.LogInfo(
                 log,
                 $"MoveMoat stage=move-milestone event={milestone} tick={tick} " +
@@ -6218,7 +6244,7 @@ namespace MoveMoatTest
             plan.PlayerId = playerId;
             PrepareMovementSearch(plan, playerId);
 
-            if (plan.MoatWorkMovement && evaluateMissing && !plan.ExactRouteEndpoints &&
+            if (!RequiredOnlyMode && plan.MoatWorkMovement && evaluateMissing && !plan.ExactRouteEndpoints &&
                 (plan.RouteStartX < 0 || (plan.MoatWorkSearch != null &&
                  plan.MoatWorkSearch.StartX == startX && plan.MoatWorkSearch.StartY == startY)))
             {
@@ -6229,8 +6255,12 @@ namespace MoveMoatTest
 
             int startRegion = pathRegionGrid[startTileId];
             int targetRegion = pathRegionGrid[targetTileId];
-            // A concrete failed search is not a proof about every tile in two native PCLs.
-            bool hasCost = TryCaptureWeightedMovementCostProfile(unit, out WeightedMovementCostProfile routeCost, out _);
+            // Required-only deliberately proves ground reachability before doing any moat work.
+            // Exact mode retains the per-unit movement profile and its weighted route choice.
+            bool requiredOnly = RequiredOnlyMode;
+            WeightedMovementCostProfile routeCost = default;
+            bool hasCost = !requiredOnly && TryCaptureWeightedMovementCostProfile(
+                unit, out routeCost, out _);
             if (!hasCost) routeCost = default;
             var cacheKey = new RouteDecisionKey(mapEpoch, CaptureCurrentGameTick(), playerId, startTileId,
                 targetTileId, allowReservedTarget, plan.MoatWorkTargetTileId, placementRevision, routeCost);
@@ -6256,38 +6286,54 @@ namespace MoveMoatTest
             long runsBefore = weightedMoatRoutePlanner.SearchRuns;
             bool groundReachable;
             bool friendlyReachable = false;
+            RequiredRouteMetrics requiredMetrics = requiredOnly
+                ? activeMoveCommand?.Required ?? activeAttackCommand?.Required
+                : null;
             targetedRouteProbeBusy = true;
             try
             {
+                long groundStarted = Stopwatch.GetTimestamp();
                 GroundConnectionDecision groundDecision = ProbeGroundConnection(playerId, startTileId, targetTileId);
                 groundReachable = groundDecision == GroundConnectionDecision.Reachable ||
                     (groundDecision == GroundConnectionDecision.Unknown && weightedMoatRoutePlanner.TryProbeReachability(
                     playerId, startX, startY, plan.TargetX, plan.TargetY,
                     allowReservedTarget, MoatTraversalPolicy.GroundOnly, out ground));
+                if (requiredMetrics != null)
+                {
+                    requiredMetrics.GroundChecks++;
+                    if (groundReachable) requiredMetrics.GroundHits++;
+                    requiredMetrics.GroundTicks += Stopwatch.GetTimestamp() - groundStarted;
+                }
                 if (!groundReachable)
                 {
+                    long requiredSearchStarted = Stopwatch.GetTimestamp();
+                    if (requiredMetrics != null) requiredMetrics.Searches++;
                     WeightedMoatEncodedRoute encoded = default;
-                    bool shared = hasCost && TryBuildSharedGroupRoute(plan, unit, startX, startY, plan.TargetX, plan.TargetY,
-                        routeCost, allowReservedTarget, null, out friendly, out encoded);
-                    friendlyReachable = shared || (hasCost
-                        ? weightedMoatRoutePlanner.TryBuildEncoded(playerId, startX, startY, plan.TargetX, plan.TargetY,
-                            routeCost, allowReservedTarget, out friendly, out encoded)
-                        : weightedMoatRoutePlanner.TryBuildReachabilityEncoded(playerId, startX, startY, plan.TargetX, plan.TargetY,
-                            allowReservedTarget, out friendly, out encoded));
+                    friendlyReachable = requiredOnly
+                        ? weightedMoatRoutePlanner.TryBuildReachabilityEncoded(playerId, startX, startY,
+                            plan.TargetX, plan.TargetY, allowReservedTarget, out friendly, out encoded)
+                        : hasCost
+                            ? weightedMoatRoutePlanner.TryBuildEncoded(playerId, startX, startY,
+                                plan.TargetX, plan.TargetY, routeCost, allowReservedTarget,
+                                out friendly, out encoded)
+                            : weightedMoatRoutePlanner.TryBuildReachabilityEncoded(playerId, startX, startY,
+                                plan.TargetX, plan.TargetY, allowReservedTarget, out friendly, out encoded);
                     if (friendlyReachable)
                         plan.QualifiedRoute = new QualifiedMovementRoute(startX, startY, plan.TargetX, plan.TargetY,
-                            playerId, mapEpoch, CaptureCurrentGameTick(), placementRevision, encoded, friendly, routeCost, hasCost && !shared) { Shared = shared };
+                            playerId, mapEpoch, CaptureCurrentGameTick(), placementRevision, encoded, friendly, routeCost, hasCost);
                     // Reachability is not limited by the native output buffer.
-                    if (!friendlyReachable)
+                    if (!friendlyReachable && !requiredOnly)
                         friendlyReachable = weightedMoatRoutePlanner.TryProbeReachability(playerId, startX, startY,
                             plan.TargetX, plan.TargetY, allowReservedTarget, MoatTraversalPolicy.FriendlyOnly, out friendly);
-                    if (!friendlyReachable && plan.MoatWorkMovement &&
+                    if (!friendlyReachable && !requiredOnly && plan.MoatWorkMovement &&
                         TryBuildTerminalFillRoute(plan, unit, startX, startY, out friendly, out WeightedMoatEncodedRoute terminal))
                     {
                         plan.QualifiedTerminalRoute = terminal;
                         plan.QualifiedTerminalSummary = friendly;
                         friendlyReachable = true;
                     }
+                    if (requiredMetrics != null)
+                        requiredMetrics.SearchTicks += Stopwatch.GetTimestamp() - requiredSearchStarted;
                 }
             }
             finally
@@ -6297,6 +6343,12 @@ namespace MoveMoatTest
 
             bool requiredFriendly = !groundReachable && friendlyReachable &&
                 friendly.MoatEdges > 0;
+            if (requiredMetrics != null && !groundReachable && !requiredFriendly)
+            {
+                string reason = friendlyReachable ? "no-moat-edge" :
+                    friendly.Reason ?? "route-not-encodable";
+                requiredMetrics.Reject(reason);
+            }
             summary = new RouteProbeSummary(playerId)
             {
                 StartRegion = startRegion,
@@ -8229,7 +8281,8 @@ namespace MoveMoatTest
             private readonly Dictionary<string, int> retainedDiagnosticsByStage =
                 new Dictionary<string, int>(StringComparer.Ordinal);
 
-            internal readonly GroupRouteSession Routes = new GroupRouteSession(MoveMoatTestPlugin.Settings.EnableMod, MoveMoatTestPlugin.Settings.RouteMode == 1);
+            internal readonly MovementOptionsSnapshot Options;
+            internal readonly RequiredRouteMetrics Required = new RequiredRouteMetrics();
             public AttackCommandScope(
                 AttackCommandScope previous,
                 int sequence,
@@ -8240,6 +8293,7 @@ namespace MoveMoatTest
                 int targetValue2)
             {
                 Previous = previous;
+                Options = previous?.Options ?? MovementOptionsSnapshot.Capture();
                 Sequence = sequence;
                 MapEpoch = mapEpoch;
                 TribeId = tribeId;
@@ -8282,7 +8336,6 @@ namespace MoveMoatTest
             public long AuditTicks { get; set; }
             public long WeightedPhaseTicks { get; set; }
             public long WeightedAuditTicks { get; set; }
-            public long FastShadowTicks { get; set; }
             public int UnitFloodCalls { get; set; }
             public int QualificationCalls { get; set; }
             public int NativeBuilderCalls { get; set; }
@@ -8290,15 +8343,8 @@ namespace MoveMoatTest
             public double ResidualMilliseconds { get; set; }
             public int DiagnosticMessages { get; private set; }
             public int DiagnosticCharacters { get; private set; }
-            public int FastShadowEligible { get; set; }
-            public int FastShadowValidated { get; set; }
-            public int FastShadowNativeEqual { get; set; }
             public List<string> Diagnostics { get; } = new List<string>();
             public Dictionary<string, int> SuppressedDiagnostics { get; } =
-                new Dictionary<string, int>(StringComparer.Ordinal);
-            public Dictionary<string, int> FastShadowRejections { get; } =
-                new Dictionary<string, int>(StringComparer.Ordinal);
-            public Dictionary<string, int> FastShadowStates { get; } =
                 new Dictionary<string, int>(StringComparer.Ordinal);
             public double DispatchMilliseconds => TicksToMilliseconds(DispatchElapsedTicks);
             public double LogFlushMilliseconds => TicksToMilliseconds(LogFlushTicks);
@@ -8309,7 +8355,6 @@ namespace MoveMoatTest
             public double AuditMilliseconds => TicksToMilliseconds(AuditTicks);
             public double WeightedPhaseMilliseconds => TicksToMilliseconds(WeightedPhaseTicks);
             public double WeightedAuditMilliseconds => TicksToMilliseconds(WeightedAuditTicks);
-            public double FastShadowMilliseconds => TicksToMilliseconds(FastShadowTicks);
 
             public void BufferDiagnostic(string message)
             {
@@ -8347,6 +8392,24 @@ namespace MoveMoatTest
                 MapEpoch == currentMapEpoch && TribeId == args.TribeId &&
                 Command == args.AICommand && TargetValue1 == args.TargetValue1 &&
                 TargetValue2 == args.TargetValue2;
+        }
+
+        private sealed class RequiredRouteMetrics
+        {
+            public int GroundChecks, GroundHits, Searches, Published, Rejected;
+            public long GroundTicks, SearchTicks, PublicationTicks;
+            public Dictionary<string, int> RejectionReasons { get; } =
+                new Dictionary<string, int>(StringComparer.Ordinal);
+            public double GroundMilliseconds => GroundTicks * 1000.0 / Stopwatch.Frequency;
+            public double SearchMilliseconds => SearchTicks * 1000.0 / Stopwatch.Frequency;
+            public double PublicationMilliseconds => PublicationTicks * 1000.0 / Stopwatch.Frequency;
+            public void Reject(string reason)
+            {
+                reason = string.IsNullOrEmpty(reason) ? "unknown" : reason;
+                RejectionReasons.TryGetValue(reason, out int count);
+                RejectionReasons[reason] = count + 1;
+                Rejected++;
+            }
         }
 
         private sealed class AttackUnitTracker
@@ -8464,6 +8527,7 @@ namespace MoveMoatTest
             public bool PostCombatRepathEntered { get; set; }
             public bool PostCombatRequiredFriendlyMoat { get; set; }
             public bool MovementResumedAfterCombat { get; set; }
+            public bool RequiredOnlyAtPublication { get; set; }
             public bool HasWeightedShadow { get; set; }
             public int WeightedPlayerId { get; set; }
             public eChimps WeightedUnitType { get; set; }
@@ -8537,19 +8601,6 @@ namespace MoveMoatTest
             public HashSet<int> ActualMoatTileIds { get; } = new HashSet<int>();
             public Dictionary<int, int> ActualMoatOwnerAtFirstObservation { get; } =
                 new Dictionary<int, int>();
-        }
-
-        private sealed class FastPathShadowScope
-        {
-            public AttackCommandScope Command;
-            public QualifiedMovementRoute Qualified;
-            public int UnitId, PlayerId, StartX, StartY, TargetX, TargetY;
-            public int MovementClass, MovementProfile, Tick, Epoch;
-            public long Revision;
-            public uint UnitGlobalId;
-            public byte* UnitPath;
-            public int ReadyBefore, VariantBefore, Mode84Before, Mode88Before, Mode94Before;
-            public int SuccessBefore, FailureBefore, MoatModeBefore, MoatModeCall;
         }
 
         private sealed class BuilderWeightedScope
@@ -9051,7 +9102,8 @@ namespace MoveMoatTest
 
         private sealed class MoveCommandScope
         {
-            internal readonly GroupRouteSession Routes = new GroupRouteSession(MoveMoatTestPlugin.Settings.EnableMod, MoveMoatTestPlugin.Settings.RouteMode == 1);
+            internal readonly MovementOptionsSnapshot Options;
+            internal readonly RequiredRouteMetrics Required;
             public MoveCommandScope(
                 int sequence,
                 int tribeId,
@@ -9063,8 +9115,8 @@ namespace MoveMoatTest
                 int parentAttackCommandSequence,
                 TribeAICommand parentAttackCommand)
             {
-                if (activeAttackCommand != null)
-                    Routes = new GroupRouteSession(activeAttackCommand.Routes.Enabled, activeAttackCommand.Routes.Shared);
+                Options = activeAttackCommand?.Options ?? MovementOptionsSnapshot.Capture();
+                Required = activeAttackCommand?.Required ?? new RequiredRouteMetrics();
                 Sequence = sequence;
                 TribeId = tribeId;
                 TargetX = targetX;
@@ -9183,7 +9235,6 @@ namespace MoveMoatTest
 
         private sealed class QualifiedMovementRoute
         {
-            internal bool Shared;
             public readonly int StartX, StartY, TargetX, TargetY, Player, Epoch, Tick;
             public readonly long Revision;
             public readonly WeightedMoatEncodedRoute Route;
@@ -9226,13 +9277,13 @@ namespace MoveMoatTest
 
         private sealed class UnitMoveFrame
         {
-            internal readonly bool ExtensionsEnabledAtStart;
+            internal readonly MovementOptionsSnapshot Options;
             public UnitMoveFrame(UnitMoveHereEventArgs args, UnitMoveFrame parent,
                 int mapEpoch, int tick, MoveCommandScope command)
             {
                 Args = args;
                 Parent = parent;
-                ExtensionsEnabledAtStart = command?.Routes.Enabled ?? parent?.ExtensionsEnabledAtStart ?? MoveMoatTestPlugin.Settings.EnableMod;
+                Options = command?.Options ?? parent?.Options ?? MovementOptionsSnapshot.Capture();
                 MapEpoch = mapEpoch;
                 Tick = tick;
                 Command = command;

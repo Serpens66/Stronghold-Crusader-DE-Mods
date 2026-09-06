@@ -130,10 +130,11 @@ namespace MoveMoatTest
         private class Performance { public int ReachabilityCacheHits, ReachabilityMapsBuilt; }
         private class MoveCommandScope
         {
-            internal GroupRouteSession Routes = new GroupRouteSession(MoveMoatTestPlugin.Settings.EnableMod, MoveMoatTestPlugin.Settings.RouteMode == 1);
+            internal MovementOptionsSnapshot Options = MovementOptionsSnapshot.Capture();
+            internal RequiredRouteMetrics Required = new RequiredRouteMetrics();
             internal int[] ActiveUnitIdsAtDispatch = Array.Empty<int>();
             public bool IsNewOrder;
-            public int WeightedPublished;
+            public int WeightedPublished, WeightedDecisions;
             public int TargetX, TargetY, ModeCalls, TargetedRouteCacheHits, TargetedRouteSearches, TargetedRouteExpandedNodes;
             public int TargetedRouteSearchPasses, BuilderCalls, FloodFillBypasses, FallbackBuilderCalls, FallbackRollbacks;
             public bool BuilderReached;
@@ -316,6 +317,26 @@ namespace MoveMoatTest
                 }
                 Check(activeMoveCommand.TargetedRouteSearches == 1, "one qualification search for ordinary group");
                 Check(activeMoveCommand.TargetedRouteCacheHits == 26, "remaining members reuse decision");
+                Check(activeMoveCommand.Required.GroundChecks == 1 && activeMoveCommand.Required.GroundHits == 0 &&
+                    activeMoveCommand.Required.Searches == 1,
+                    "required-only caches one ground proof and one necessary moat search");
+
+                tileFlags[1013] = OrdinaryWalkableTileFlag;
+                placementRevision++;
+                activeMoveCommand = new MoveCommandScope { TargetX = 17, TargetY = 10 };
+                Check(EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager, 1) == 0,
+                    "ground-reachable target stays entirely with vanilla");
+                Check(activeMoveCommand.Required.GroundChecks == 1 && activeMoveCommand.Required.GroundHits == 1 &&
+                    activeMoveCommand.Required.Searches == 0 && activeMoveCommand.WeightedDecisions == 0 &&
+                    activeMoveCommand.WeightedPublished == 0,
+                    "ground hit performs no required or weighted moat work");
+                Check(activeMoveCommand.Options.RequiredOnly, "command captures required-only mode");
+                MoveMoatTestPlugin.Settings.RouteMode = 0;
+                Check(activeMoveCommand.Options.RequiredOnly, "command snapshot survives nested settings change");
+                MoveMoatTestPlugin.Settings.RouteMode = 1;
+                tileFlags[1013] = CompletedMoatTileFlag;
+                placementRevision++;
+                activeMoveCommand = new MoveCommandScope { TargetX = 17, TargetY = 10 };
                 Check(!TryCaptureUnitFallbackPathBuffer(nativePathManager, new PlanScope(1,17,10), units+1,
                     out _, out _, out _), "foreign buffer rejected");
                 *(int*)(manager+8) = 11;
@@ -350,9 +371,9 @@ namespace MoveMoatTest
                 Check(activeMoveCommand.TargetedRouteSearches == searched, "negative cache avoids new search");
                 activeMoveCommand = null; pendingPlan = null;
 
-                TestSharedRoutePipeline(units);
+                captureWeighted=true;MoveMoatTestPlugin.Settings.RouteMode=0;
                 TestUnitMovePipeline(manager, units);
-                captureWeighted=true;MoveMoatTestPlugin.Settings.RouteMode=1;
+                MoveMoatTestPlugin.Settings.RouteMode=1;
                 TestUnitMovePipeline(manager, units);
                 captureWeighted=false;MoveMoatTestPlugin.Settings.RouteMode=0;
 
@@ -528,7 +549,16 @@ namespace MoveMoatTest
                 Check(activeMoveCommand.UnitMoveCalls == count && activeMoveCommand.UnitMoveCompleted == count &&
                     activeMoveCommand.UnitMovePositive == count && activeMoveCommand.BuilderCalls == count &&
                     activeMoveCommand.FallbackContractRejections == 0, "all eligible formation members accounted for");
-                Check(activeMoveCommand.TargetedRouteSearches == (formation ? Math.Min(count, 5) : 1), "only exact endpoint decisions are shared");
+                Check(activeMoveCommand.TargetedRouteSearches == (formation ? Math.Min(count, 5) : 1), "only exact endpoint decisions are cached");
+                if (MoveMoatTestPlugin.Settings.RouteMode == 1)
+                {
+                    Check(activeMoveCommand.WeightedDecisions == 0 && activeMoveCommand.WeightedPublished == 0,
+                        "required-only group performs no weighted decisions or publications");
+                    Check(activeMoveCommand.Required.GroundChecks == activeMoveCommand.TargetedRouteSearches &&
+                        activeMoveCommand.Required.Searches == activeMoveCommand.TargetedRouteSearches &&
+                        activeMoveCommand.Required.Published > 0,
+                        "required-only group measures cached ground proof, necessary searches and publications");
+                }
             }
 
             NewCommand();
@@ -864,11 +894,21 @@ namespace MoveMoatTest
                 MoatWorkSearch=new MoatWorkSelectionScope(mapEpoch,(IntPtr)1,1,1,2,10,10,1010,1)};
             Pre(1,17);
             *moatPathMode=EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager,1);
-            Check(*moatPathMode==1 && unitMoveFrame.Plan.QualifiedTerminalRoute.IsValid,
-                "actual work context qualifies exact terminal fill endpoint");
             SetBuilder(1,17);
-            Check(BuildPathWithCompletedMoatRouteVariant(nativePathManager,1,1)==7,
-                "managed fallback preserves terminal fill contact without enemy transit");
+            if (MoveMoatTestPlugin.Settings.RouteMode == 0)
+            {
+                Check(*moatPathMode==1 && unitMoveFrame.Plan.QualifiedTerminalRoute.IsValid,
+                    "exact mode qualifies the bound terminal fill endpoint");
+                Check(BuildPathWithCompletedMoatRouteVariant(nativePathManager,1,1)==7,
+                    "exact managed fallback preserves terminal fill contact without enemy transit");
+            }
+            else
+            {
+                Check(*moatPathMode==0 && !unitMoveFrame.Plan.QualifiedTerminalRoute.IsValid,
+                    "required-only fails closed on an enemy terminal moat");
+                Check(BuildPathWithCompletedMoatRouteVariant(nativePathManager,1,1)==0,
+                    "required-only leaves enemy terminal moat handling to vanilla");
+            }
             Post(1,17);
             enemyTiles.Clear(); tileFlags[1016]=0x8000; units[1].r_AI_LastIssuedTribeCommand=0;
 
@@ -898,8 +938,17 @@ namespace MoveMoatTest {
 namespace Shared { internal static class DebugLogHelper { public static void LogInfo(object log,string text) {} public static void LogWarning(object log,string text) {} } }
 
 namespace MoveMoatTest {
+ internal enum RouteCalculationMode { Exact = 0, RequiredOnly = 1 }
+ internal readonly struct MovementOptionsSnapshot {
+  internal MovementOptionsSnapshot(bool enabled, RouteCalculationMode routeMode) { Enabled=enabled;RouteMode=routeMode; }
+  internal bool Enabled { get; }
+  internal RouteCalculationMode RouteMode { get; }
+  internal bool RequiredOnly => RouteMode==RouteCalculationMode.RequiredOnly;
+  internal static MovementOptionsSnapshot Capture() => new MovementOptionsSnapshot(MoveMoatTestPlugin.Settings.EnableMod,
+   MoveMoatTestPlugin.Settings.RouteMode==1?RouteCalculationMode.RequiredOnly:RouteCalculationMode.Exact);
+ }
  internal static class MoveMoatTestPlugin {
   internal static readonly SettingsStub Settings = new SettingsStub();
  }
- internal sealed class SettingsStub { internal bool EnableMod=true; internal int RouteMode; }
+ internal sealed class SettingsStub { internal bool EnableMod=true; internal int RouteMode=1; }
 }

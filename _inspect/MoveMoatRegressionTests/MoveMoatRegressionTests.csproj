@@ -8,7 +8,6 @@
   <ItemGroup>
     <Compile Remove="FillFormationTests.cs" />
     <Compile Remove="RuntimeHarness.cs" />
-    <Compile Remove="SharedRouteTests.cs" />
     <Compile Remove="ModeSettingsTests.cs" />
     <Compile Remove="CursorTests.cs" />
     <Compile Remove="PlacementTests.cs" />

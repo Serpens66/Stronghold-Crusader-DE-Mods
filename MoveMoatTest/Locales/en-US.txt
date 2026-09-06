@@ -25,5 +25,5 @@ Common.ModSettingsSearchClearHelp=Clear the settings filter.
 Common.ModSettingsSearchNoResults=No matching settings found.
 MoveMoat.RouteMode=Route calculation
 MoveMoat.Individual=Individual routes - precise
-MoveMoat.Shared=Shared group routes - faster
-MoveMoat.RouteModeHelp=Individual: evaluate movement speeds for every unit. Shared: nearby compatible units share a main route with individual connections and original destinations. The result may differ from the individually best route. If a shared connection is unsuitable, individual calculation is used. Large groups can still cause delays.
+MoveMoat.RequiredOnly=Required moat routes only - fast
+MoveMoat.RouteModeHelp=Individual: evaluates movement speeds and may choose an optional faster moat route. Required only: first checks ground reachability alone. If the target is reachable without moats, the command stays entirely with Vanilla; only a target blocked by own or allied moats triggers a shortest valid moat-route search.

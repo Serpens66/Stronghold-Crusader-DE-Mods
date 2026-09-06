@@ -16,9 +16,9 @@ public static class ModeSettingsTests
         vm.PreparePresets(null,Path.Combine(root,"MoveMoatTest.dll"),"MoveMoatTest_Serp");
         vm.ActivatePresets();
         void Check(bool valid,string text){if(!valid)throw new Exception("SETTINGS: "+text);}
-        Check(vm.EnableMod&&vm.RouteMode==0,"defaults");
-        vm.RouteMode=1;vm.SelectedPreset=1;Check(vm.RouteMode==0,"new preset defaults");
-        vm.SelectedPreset=0;Check(vm.RouteMode==1,"restore shared preset");
+        Check(vm.EnableMod&&vm.RouteMode==1,"required-only defaults");
+        vm.RouteMode=0;vm.SelectedPreset=1;Check(vm.RouteMode==1,"new preset defaults");
+        vm.SelectedPreset=0;Check(vm.RouteMode==0,"restore exact preset");
         vm.RouteMode=92;Check(vm.RouteMode==0,"invalid mode");vm.RouteMode=1;
         var snapshot=new Dictionary<string,byte[]> { ["RouteMode"]=MessagePackSerializer.Serialize(0),["EnableMod"]=MessagePackSerializer.Serialize(true) };
         vm.System_EnterMissionPreset(snapshot,"Trail",false);
@@ -34,8 +34,8 @@ public static class ModeSettingsTests
         Check(vm.RouteMode==0&&before.SequenceEqual(File.ReadAllBytes(file)),"host update accepted without local persistence");
         vm.ResetToDefaultCommand.Execute(null);Check(vm.RouteMode==0,"client reset blocked");
         GameNetworkAPI.LocalHost=true;vm.System_RefreshSettingsAccess();
-        vm.RouteMode=1;vm.ResetToDefaultCommand.Execute(null);Check(vm.RouteMode==0&&vm.EnableMod,"host reset");
-        Console.WriteLine("PASS: actual MoveMoat settings/shared preset controller/1.42.0 base: defaults, invalid mode, presets, Trail, client rejection, authorised update and local file isolation.");
+        vm.RouteMode=0;vm.ResetToDefaultCommand.Execute(null);Check(vm.RouteMode==1&&vm.EnableMod,"host reset");
+        Console.WriteLine("PASS: actual MoveMoat required-only settings/preset controller/1.42.0 base: defaults, invalid mode, presets, Trail, client rejection, authorised update and local file isolation.");
     }
 }
 public static class SerpLocalization { public const string ResetToDefault="reset";public static string Get(string key)=>key; }

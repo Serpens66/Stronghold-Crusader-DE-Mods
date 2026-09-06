@@ -88,8 +88,6 @@ namespace MoveMoatTest
             bool owned = TryCaptureUnitFallbackPathBuffer(pathManager, plan, unit,
                 out byte* path, out int beforeLength, out byte[] backup);
             bool qualified = plan.FriendlyRouteQualified && plan.ModeObserved;
-            FastPathShadowScope fastShadow = CaptureFastPathShadow(
-                pathManager, plan, unit, owned, reconstruction, movementClass, movementProfile);
             int vanilla;
             if (plan.ModeObserved) *moatPathMode = plan.VanillaModeDetected ? 1 : 0;
             AttackCommandScope measuredBuilderCommand = activeAttackCommand;
@@ -105,7 +103,6 @@ namespace MoveMoatTest
                         Stopwatch.GetTimestamp() - nativeBuilderStarted;
                 }
             }
-            ObserveFastPathShadow(pathManager, plan, unit, fastShadow, vanilla);
             RecordVanillaBuilderResult(command, vanilla);
             if (vanilla <= 0 && plan.NativeGroundPrecheck && !plan.QualifiedTerminalRoute.IsValid)
             {
@@ -122,6 +119,12 @@ namespace MoveMoatTest
             // E32B0 consumes a previously populated native field. Changing the mode byte
             // does not undo that field, so a mod-qualified positive result needs an audit.
             bool auditRequired = qualified || reconstruction;
+            RequiredRouteMetrics requiredMetrics = RequiredOnlyMode && qualified && !reconstruction
+                ? activeMoveCommand?.Required ?? activeAttackCommand?.Required
+                : null;
+            long requiredPublicationStarted = requiredMetrics != null
+                ? Stopwatch.GetTimestamp()
+                : 0;
             bool nativeSafe = vanilla > 0 && !auditRequired;
             if (vanilla > 0 && auditRequired && owned)
             {
@@ -138,7 +141,17 @@ namespace MoveMoatTest
                 }
                 catch (Exception ex) { TryLogDiagnosticFailure("native-path-audit", ex); }
             }
-            if (nativeSafe) { RecordBuilderResult(command, vanilla); return vanilla; }
+            if (nativeSafe)
+            {
+                if (requiredMetrics != null)
+                {
+                    requiredMetrics.Published++;
+                    requiredMetrics.PublicationTicks +=
+                        Stopwatch.GetTimestamp() - requiredPublicationStarted;
+                }
+                RecordBuilderResult(command, vanilla);
+                return vanilla;
+            }
             bool allowManaged = qualified || reconstruction;
             if (!allowManaged || !owned || (originalVariant != 0 && originalVariant != 1))
             {
@@ -152,6 +165,12 @@ namespace MoveMoatTest
                     vanilla = 0;
                 }
                 RecordBuilderResult(command, vanilla);
+                if (requiredMetrics != null)
+                {
+                    requiredMetrics.Reject("publication-contract-or-route-variant");
+                    requiredMetrics.PublicationTicks +=
+                        Stopwatch.GetTimestamp() - requiredPublicationStarted;
+                }
                 return vanilla;
             }
 
@@ -166,6 +185,7 @@ namespace MoveMoatTest
                     plan, unit, out result, out _, requireMoat: !reconstruction);
                 if (retained)
                 {
+                    if (requiredMetrics != null) requiredMetrics.Published++;
                     *variant = 0;
                     *moatPathMode = plan.PublishedUsesMoat ? 1 : 0;
                     RouteProbeSummary summary = new RouteProbeSummary(plan.PlayerId)
@@ -178,11 +198,16 @@ namespace MoveMoatTest
             {
                 if (!retained)
                 {
+                    if (requiredMetrics != null)
+                        requiredMetrics.Reject("publication-audit-or-binding");
                     RestoreFallbackPathBuffer(pathManager, path, backup, beforeLength);
                     *variant = originalVariant; *moatPathMode = mode; result = 0;
                     if (command != null) command.FallbackRollbacks++;
                 }
-            }
+                if (requiredMetrics != null)
+                    requiredMetrics.PublicationTicks +=
+                        Stopwatch.GetTimestamp() - requiredPublicationStarted;
+                }
             RecordBuilderResult(command, result);
             return result;
         }
@@ -375,220 +400,6 @@ namespace MoveMoatTest
             foreach (KeyValuePair<string, int> entry in command.ContractRejectionReasons)
                 parts.Add(entry.Key + ":" + entry.Value);
             return string.Join(",", parts);
-        }
-
-        private FastPathShadowScope CaptureFastPathShadow(
-            IntPtr pathManager,
-            PlanScope plan,
-            GameUnit* unit,
-            bool owned,
-            bool reconstruction,
-            int movementClass,
-            int movementProfile)
-        {
-            AttackCommandScope command = activeAttackCommand;
-            if (command == null || !command.Routes.Shared || plan == null ||
-                !plan.AttackMovementQualified)
-            {
-                return null;
-            }
-
-            long started = Stopwatch.GetTimestamp();
-            try
-            {
-                if (reconstruction) return RejectFastPathShadow(command, "reconstruction");
-                if (plan.MoatWorkMovement) return RejectFastPathShadow(command, "moat-work");
-                if (!owned || pathManager != nativePathManager || nativeUnitManager == null)
-                    return RejectFastPathShadow(command, "unit-buffer-binding");
-                if (unit == null || unit->r_AliveState != AliveState.IsAlive || !CanDigMoat(unit))
-                    return RejectFastPathShadow(command, "unit-state");
-                QualifiedMovementRoute qualified = GetReusableQualifiedRoute(plan, unit);
-                if (qualified == null || !qualified.Shared || !qualified.Route.IsValid)
-                    return RejectFastPathShadow(command, "no-live-shared-route");
-                if (qualified.Summary.MoatEdges <= 0)
-                    return RejectFastPathShadow(command, "no-required-moat");
-                if (qualified.Summary.StructuralEdges != 0)
-                    return RejectFastPathShadow(command, "structure-route");
-                if (!plan.IdentityBound || plan.UnitGlobalId != unit->r_GlobalId ||
-                    plan.PlayerId != unit->r_ControllableForPlayerId)
-                    return RejectFastPathShadow(command, "identity-binding");
-
-                byte* manager = (byte*)pathManager.ToPointer();
-                byte* expectedPath = nativeUnitManager + NativeUnitPathBufferOffset +
-                    plan.UnitId * NativeUnitPathBufferStride;
-                if (*(byte**)(manager + PathManagerOutputBufferOffset) != expectedPath)
-                    return RejectFastPathShadow(command, "unit-buffer-binding");
-                GetNativeMovementStart(unit, out int startX, out int startY);
-                if (qualified.StartX != startX || qualified.StartY != startY ||
-                    qualified.TargetX != plan.TargetX || qualified.TargetY != plan.TargetY ||
-                    *(int*)(manager + 0x08) != startX || *(int*)(manager + 0x0C) != startY ||
-                    *(int*)(manager + 0x10) != plan.TargetX || *(int*)(manager + 0x14) != plan.TargetY)
-                    return RejectFastPathShadow(command, "endpoint-binding");
-
-                bool sharedRouteValid;
-                WeightedMoatRouteSummary liveSummary;
-                fixed (byte* encoded = qualified.Route.Bytes)
-                {
-                    sharedRouteValid = weightedMoatRoutePlanner.TryDescribeEncodedPath(
-                        qualified.Player, qualified.StartX, qualified.StartY,
-                        qualified.TargetX, qualified.TargetY, qualified.Profile,
-                        encoded, qualified.Route.DirectionCount, false, out liveSummary);
-                }
-                if (!sharedRouteValid || liveSummary.RouteFingerprint !=
-                    qualified.Summary.RouteFingerprint || liveSummary.MoatEdges <= 0 ||
-                    liveSummary.StructuralEdges != 0)
-                    return RejectFastPathShadow(command, "shared-live-audit");
-
-                command.FastShadowEligible++;
-                return new FastPathShadowScope
-                {
-                    Command = command,
-                    Qualified = qualified,
-                    UnitId = plan.UnitId,
-                    UnitGlobalId = unit->r_GlobalId,
-                    PlayerId = unit->r_ControllableForPlayerId,
-                    StartX = startX,
-                    StartY = startY,
-                    TargetX = plan.TargetX,
-                    TargetY = plan.TargetY,
-                    MovementClass = movementClass,
-                    MovementProfile = movementProfile,
-                    Tick = CaptureCurrentGameTick(),
-                    Epoch = mapEpoch,
-                    Revision = placementRevision,
-                    UnitPath = expectedPath,
-                    ReadyBefore = *(int*)(manager + PathManagerRouteReadyOffset),
-                    VariantBefore = *(int*)(manager + PathManagerRouteVariantOffset),
-                    Mode84Before = *(int*)(manager + PathManagerMode84Offset),
-                    Mode88Before = *(int*)(manager + PathManagerMode88Offset),
-                    Mode94Before = *(int*)(manager + PathManagerMode94Offset),
-                    SuccessBefore = *(int*)(manager + PathManagerSuccessCountOffset),
-                    FailureBefore = *(int*)(manager + PathManagerFailureCountOffset),
-                    MoatModeBefore = *moatPathMode,
-                    MoatModeCall = plan.ModeObserved
-                        ? (plan.VanillaModeDetected ? 1 : 0)
-                        : *moatPathMode
-                };
-            }
-            catch (Exception ex)
-            {
-                TryLogDiagnosticFailure("fast-path-shadow-capture", ex);
-                return RejectFastPathShadow(command, "capture-exception");
-            }
-            finally
-            {
-                command.FastShadowTicks += Stopwatch.GetTimestamp() - started;
-            }
-        }
-
-        private FastPathShadowScope RejectFastPathShadow(
-            AttackCommandScope command, string reason)
-        {
-            command.FastShadowRejections.TryGetValue(reason, out int count);
-            command.FastShadowRejections[reason] = count + 1;
-            return null;
-        }
-
-        private void ObserveFastPathShadow(
-            IntPtr pathManager,
-            PlanScope plan,
-            GameUnit* unit,
-            FastPathShadowScope shadow,
-            int nativeResult)
-        {
-            if (shadow == null)
-                return;
-            long started = Stopwatch.GetTimestamp();
-            try
-            {
-                AttackCommandScope command = shadow.Command;
-                byte* manager = (byte*)pathManager.ToPointer();
-                if (command != activeAttackCommand || shadow.Epoch != mapEpoch ||
-                    shadow.Tick != CaptureCurrentGameTick() || shadow.Revision != placementRevision ||
-                    plan == null || plan.UnitId != shadow.UnitId || unit == null ||
-                    unit->r_AliveState != AliveState.IsAlive || unit->r_GlobalId != shadow.UnitGlobalId ||
-                    unit->r_ControllableForPlayerId != shadow.PlayerId ||
-                    *(byte**)(manager + PathManagerOutputBufferOffset) != shadow.UnitPath)
-                {
-                    RejectFastPathShadow(command, "post-identity-or-buffer");
-                    return;
-                }
-                GetNativeMovementStart(unit, out int liveStartX, out int liveStartY);
-                if (liveStartX != shadow.StartX || liveStartY != shadow.StartY ||
-                    *(int*)(manager + 0x08) != shadow.StartX ||
-                    *(int*)(manager + 0x0C) != shadow.StartY ||
-                    *(int*)(manager + 0x10) != shadow.TargetX ||
-                    *(int*)(manager + 0x14) != shadow.TargetY)
-                {
-                    RejectFastPathShadow(command, "post-endpoint-binding");
-                    return;
-                }
-
-                bool sharedLiveValid;
-                WeightedMoatRouteSummary sharedSummary;
-                fixed (byte* encoded = shadow.Qualified.Route.Bytes)
-                {
-                    sharedLiveValid = weightedMoatRoutePlanner.TryDescribeEncodedPath(
-                        shadow.PlayerId, shadow.StartX, shadow.StartY,
-                        shadow.TargetX, shadow.TargetY, shadow.Qualified.Profile,
-                        encoded, shadow.Qualified.Route.DirectionCount, false, out sharedSummary);
-                }
-                if (!sharedLiveValid || sharedSummary.RouteFingerprint !=
-                    shadow.Qualified.Summary.RouteFingerprint || sharedSummary.MoatEdges <= 0 ||
-                    sharedSummary.StructuralEdges != 0)
-                {
-                    RejectFastPathShadow(command, "post-shared-live-audit");
-                    return;
-                }
-
-                int nativeLength = *(int*)(manager + PathManagerOutputLengthOffset);
-                command.FastShadowValidated++;
-                bool nativeEqual = nativeResult > 0 && nativeLength == nativeResult &&
-                    nativeLength == shadow.Qualified.Route.DirectionCount;
-                if (nativeEqual)
-                {
-                    int byteCount = (nativeLength + 1) / 2;
-                    for (int index = 0; index < byteCount; index++)
-                    {
-                        if (shadow.UnitPath[index] != shadow.Qualified.Route.Bytes[index])
-                        {
-                            nativeEqual = false;
-                            break;
-                        }
-                    }
-                }
-                if (nativeEqual)
-                    command.FastShadowNativeEqual++;
-
-                string state =
-                    $"ready:{shadow.ReadyBefore}>{*(int*)(manager + PathManagerRouteReadyOffset)}|" +
-                    $"variant:{shadow.VariantBefore}>{*(int*)(manager + PathManagerRouteVariantOffset)}|" +
-                    $"m84:{shadow.Mode84Before}>{*(int*)(manager + PathManagerMode84Offset)}|" +
-                    $"m88:{shadow.Mode88Before}>{*(int*)(manager + PathManagerMode88Offset)}|" +
-                    $"m94:{shadow.Mode94Before}>{*(int*)(manager + PathManagerMode94Offset)}|" +
-                    $"success:{*(int*)(manager + PathManagerSuccessCountOffset) - shadow.SuccessBefore}|" +
-                    $"failure:{*(int*)(manager + PathManagerFailureCountOffset) - shadow.FailureBefore}|" +
-                    $"moat:{shadow.MoatModeBefore}/{shadow.MoatModeCall}>{*moatPathMode}";
-                command.FastShadowStates.TryGetValue(state, out int stateCount);
-                command.FastShadowStates[state] = stateCount + 1;
-                LogCommandDiagnostic(
-                    $"stage=fast-path-shadow commandSeq={command.Sequence} unit={shadow.UnitId}/" +
-                    $"{shadow.UnitGlobalId} player={shadow.PlayerId} start=({shadow.StartX},{shadow.StartY}) " +
-                    $"target=({shadow.TargetX},{shadow.TargetY}) profile={shadow.MovementClass}/" +
-                    $"{shadow.MovementProfile} tick={shadow.Tick} epoch={shadow.Epoch} " +
-                    $"revision={shadow.Revision} buffer=unit nativeResult={nativeResult} " +
-                    $"nativeLength={nativeLength} sharedLength={shadow.Qualified.Route.DirectionCount} " +
-                    $"nativeEqual={(nativeEqual ? 1 : 0)} fingerprint=0x{sharedSummary.RouteFingerprint:X16} state={state}");
-            }
-            catch (Exception ex)
-            {
-                TryLogDiagnosticFailure("fast-path-shadow-observe", ex);
-                RejectFastPathShadow(shadow.Command, "observe-exception");
-            }
-            finally
-            {
-                shadow.Command.FastShadowTicks += Stopwatch.GetTimestamp() - started;
-            }
         }
 
         private bool TryAuditFallbackPath(
@@ -788,7 +599,8 @@ namespace MoveMoatTest
             {
                 bool found = route.IsValid || weightedMoatRoutePlanner.TryBuildReachabilityEncoded(
                     playerId, startX, startY, targetX, targetY, allowReservedTarget, out summary, out route) ||
-                    TryBuildTerminalFillRoute(plan, unit, startX, startY, out summary, out route);
+                    (!RequiredOnlyMode && TryBuildTerminalFillRoute(
+                        plan, unit, startX, startY, out summary, out route));
                 if (!found ||
                     !route.IsValid || (requireMoat && summary.MoatEdges <= 0) ||
                     route.Bytes.Length > NativeUnitPathBufferStride)

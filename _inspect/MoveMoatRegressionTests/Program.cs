@@ -30,7 +30,7 @@ var methods = new HashSet<string>(new[] {
     "DescribeFallbackContractFailure",
     "EnableCompletedMoatModeForScopedMovement", "GetBuilderPlan", "MatchesBuilderPlan",
     "TryCaptureUnitFallbackPathBuffer", "RestoreFallbackPathBuffer",
-    "BuildPathWithCompletedMoatRouteVariant", "BuildPathWithCompletedMoatRouteVariantCore", "CaptureFastPathShadow", "RejectFastPathShadow", "ObserveFastPathShadow", "IsValidAttackSourceRegionContext", "ValidatePendingFillApproach",
+    "BuildPathWithCompletedMoatRouteVariant", "BuildPathWithCompletedMoatRouteVariantCore", "IsValidAttackSourceRegionContext", "ValidatePendingFillApproach",
     "TryFindRequiredFriendlyCompletedMoatRouteForPlan", "TryGetCachedRequiredFriendlyRouteForPlan",
     "EnsureMoatWorkReachability", "TryGetMoatWorkRoute",
     "TryFindRequiredFriendlyCompletedMoatRouteToFillEndpoint",
@@ -40,10 +40,11 @@ var methods = new HashSet<string>(new[] {
 });
 var types = new HashSet<string>(new[] {
     "BuildingApproachCandidate", "BuildingConsumerFallbackResult", "BuildingConsumerPerformanceScope", "AttackApproachState",
-    "QualifiedMovementRoute", "RouteDecisionKey", "FastPathShadowScope",
+    "QualifiedMovementRoute", "RouteDecisionKey", "RequiredRouteMetrics",
     "PendingDigMoatTarget",
     "DirectCursorMoveScope", "BuildingCursorTarget", "BuildingHoverTileSource", "AttackCursorPairScope", "CursorPairFallbackKind", "CursorGroupRouteSummary", "SelectedCursorUnitSnapshot", "UnitMoveFrame", "PlanScope", "RouteProbeSummary", "TargetedRouteDecision", "MoatWorkSelectionScope", "MoatWorkApproach", "PendingFillMoatApproach"
 });
+var properties = new HashSet<string>(new[] { "CurrentOptions", "ExtensionsEnabled", "RequiredOnlyMode" });
 var constants = new HashSet<string>(new[] {
     "VanillaUnreachableCandidateScore", "buildingCandidateFields", "BuildingContextBlockingTileFlagMask", "VanillaAttackFloodResultCapacity", "PathManagerFloodResultTileOffset", "PathManagerFloodResultStride", "BuildingCandidateApproachTileOffset", "BuildingCandidateFootprintTileOffset", "BuildingCandidateScoreOffset",
     "SelectedMoatTileIdOffset", "SelectedMoatApproachXOffset", "SelectedMoatApproachYOffset",
@@ -51,7 +52,7 @@ var constants = new HashSet<string>(new[] {
     "RouteStateShift", "RouteCellMask", "GroundRouteState", "FriendlyMoatRouteState", "EnemyMoatRouteState",
     "MovementBlockedLowTileFlagMask", "CompletedMoatTileFlag", "CursorSpecialStructureTileFlagMask", "PathManagerOutputBufferOffset",
     "PathManagerOutputLengthOffset", "NativeUnitPathBufferOffset", "NativeUnitPathBufferStride",
-    "PathManagerRouteReadyOffset", "PathManagerRouteVariantOffset", "PathManagerMode84Offset", "PathManagerMode88Offset", "PathManagerMode94Offset", "PathManagerSuccessCountOffset", "PathManagerFailureCountOffset", "OrdinaryWalkableTileFlag", "MoatWorkNeighbourX", "MoatWorkNeighbourY"
+    "PathManagerRouteVariantOffset", "OrdinaryWalkableTileFlag", "MoatWorkNeighbourX", "MoatWorkNeighbourY"
     , "WeightedPublicationSafetyMarginTicks", "weightedPhaseTimingActive"
 });
 var selected = new List<MemberDeclarationSyntax>();
@@ -62,6 +63,7 @@ foreach (var member in cls.Members)
 {
     if (member is MethodDeclarationSyntax m && methods.Contains(m.Identifier.Text) ||
         member is BaseTypeDeclarationSyntax t && types.Contains(t.Identifier.Text) ||
+        member is PropertyDeclarationSyntax p && properties.Contains(p.Identifier.Text) ||
         member is FieldDeclarationSyntax f && f.Declaration.Variables.Any(v => constants.Contains(v.Identifier.Text)))
         selected.Add(member);
 }
@@ -91,9 +93,6 @@ var referenceTree=CSharpSyntaxTree.ParseText("using System; using System.Collect
 var compilation = CSharpCompilation.Create("Assembly-CSharp", new[] {
     referenceTree,
     CSharpSyntaxTree.ParseText(extracted),
-    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"_inspect","MoveMoatRegressionTests","SharedRouteTests.cs"))),
-    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "SharedRouteField.cs"))),
-    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "SharedGroupRoutes.cs")).Replace("using SHCDESE.API;", "").Replace("using SHCDESE.Interop;", "").Replace("using SHCDESE.Interop.Enums;", "")),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "WeightedMoatRoutePlanner.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "MoatSearchKernel.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "MoatPlacementSearch.cs"))),
@@ -116,7 +115,6 @@ var assembly = Assembly.Load(output.ToArray());
 try
 {
     assembly.GetType("MoveMoatTest.MoveMoatPathTest").GetMethod("RunTests").Invoke(null, null);
-    assembly.GetType("MoveMoatTest.SharedRouteTests").GetMethod("Run").Invoke(null, null);
     assembly.GetType("MoveMoatTest.SearchKernelTests").GetMethod("Run").Invoke(null, null);
     assembly.GetType("MoveMoatTest.CursorGraphTests").GetMethod("Run").Invoke(null, null);
     assembly.GetType("MoveMoatTest.MoveMoatPathTest").GetMethod("RunMachineContract").Invoke(null,new object[]{root});

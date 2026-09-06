@@ -1,8 +1,11 @@
 # MoveMoatTest – Erkenntnisse und Übergabestand
 
-Stand: 5. September 2026
+Stand: 6. September 2026
 
-## Aktuelle Teststufe: AttackUnit-Moat-Start und Fast-Path-Shadow (05.09.2026)
+## Historische, durch Required-only abgelöste Teststufe: AttackUnit-Moat-Start und Fast-Path-Shadow (05.09.2026)
+
+Dieser Abschnitt dokumentiert die Messung, die zum Rückbau führte. Der beschriebene
+Shared-Modus und Fast-Path-Shadow sind im aktuellen Code nicht mehr vorhanden.
 
 Die neuen Ingame-Messungen erklären, weshalb der Modus „Gemeinsame Gruppenwege“ den
 680er-Angriff noch nicht deutlich beschleunigt. Der Standardlauf benötigte für den
@@ -67,7 +70,57 @@ einmal über `MoveMoatTest/build.bat /nopause` gebaut und installiert: **0 Warnu
 Die dabei verwendete kanonische `CrusaderDE.dll` stimmt mit der Native-Baseline
 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2` überein.
 
-## Aktueller Abschluss: Host-Modsetting und gemeinsame Gruppenwege (05.09.2026, 22:56)
+## Aktueller Teststand: Required-only ersetzt den Shared-Modus (06.09.2026)
+
+Der frühere Modus 1 wurde selektiv anhand von Git-Commit `160c77d3` zurückgebaut.
+`GroupRouteSession`, `SharedRouteField`, gemeinsame Connectoren, Shared-Zähler und der
+beobachtende Fast-Path-Shadow sind aus Runtime, Projekt und Regressionen entfernt. Das
+Settings-/UI-/Preset-Grundgerüst aus demselben Commit bleibt erhalten. Ein pauschaler Revert
+wurde deshalb ausdrücklich nicht verwendet.
+
+- Modus 0 **Individuelle Wege – genau** behält die bisherige profilgewichtete Auswahl und
+  optionale schnellere Moatwege.
+- Modus 1 **Nur notwendige Moatwege – schnell** ist neuer Standard und Resetwert. Gespeicherte
+  Werte 0 und 1 behalten ihren Zahlenwert; ungültige Werte fallen weiterhin geschlossen auf 0.
+- Der synchrone Aktivierungs-/Modussnapshot ist nun ein kleiner unveränderlicher
+  `MovementOptionsSnapshot`. Verschachtelte Move-/Attack-Aufrufe übernehmen den Snapshot des
+  laufenden Befehls und reagieren nicht mitten im Auftrag auf geänderte Settings.
+- Required-only erfasst kein Unit-Geschwindigkeitsprofil. Zuerst wird ausschließlich die
+  gecachte Boden-Erreichbarkeit geprüft. Bei erreichbarem Ziel bleiben Modusfreigabe,
+  Moatsuche, Weighted-Shadow, optionale Veröffentlichung und zusätzlicher Pfadaudit aus.
+- Nur bei nicht erreichbarem Boden wird eine ungewichtete, kürzeste kodierbare Feldroute durch
+  fertige eigene oder verbündete Moats gesucht. Veröffentlichung bleibt an konkrete Unit- und
+  Global-ID, Spieler, Start/Ziel, Tick, Kartenepoche, Terrainrevision und den eigenen
+  Unitpuffer gebunden. Kanten, Owner, Strukturvertrag und Roundtrip werden vollständig
+  auditiert; jeder Fehler rollt den Puffer zurück und bleibt bei der einmaligen Vanilla-
+  Builderausführung.
+- Der reparierte `sourceRegion=0`-Vertrag gilt ausschließlich für einen konkret geprüften
+  eigenen oder verbündeten fertigen Moat-Start. Gewöhnliche, feindliche und ungültige
+  Region-0-Starts bleiben gesperrt; Vanillas `targetRegion=0`-Sentinel bleibt erlaubt.
+- Zusammenfassungen melden `groundChecks`, `groundHits`, `groundProofMs`, `requiredSearches`,
+  `requiredSearchMs`, `requiredPublished`, `requiredPublishAuditMs`, `requiredRejected` und
+  aggregierte Ablehnungsgründe. Shared-/Fast-Path-Felder entfallen. Erfolgreiche
+  `weighted-path-consumer-contract`-Folgeprüfungen werden pro Tick und Befehl aggregiert;
+  Verletzungen bleiben sofort sichtbar.
+
+Der finale Standalone-Lauf bestand mit **223.757 Runtime-Assertions**, **18.258**
+unabhängigen Suchassertions, **6.480** Gebäudefelddistanzen und **1.469.340**
+gerichteten Cursorvergleichen; 20 Runtime-Dateien und 174 tatsächliche Runtime-Member
+wurden kompiliert beziehungsweise ausgeübt. Er prüft beide Modi, den neuen Default/Reset,
+Preset/Trail/Client-Sperren,
+einen Ground-Treffer ohne Required-/Weighted-Arbeit, einen notwendigen eigenen Moatweg,
+Command-Snapshot-Stabilität, Gruppengrößen bis 1.000 sowie bestehende Puffer-, Owner-,
+Kanten-, Angriffs-, Gebäude-, Queue-/Patrol-, Fill-/Dig-, Rekonstruktions- und
+Rollbackverträge. Der endgültige Ingame-Performancevergleich mit identischem Save und
+1/20/120/680 Units bleibt nach Installation erforderlich.
+
+Die kanonische installierte `CrusaderDE.dll` ist SHA-256-identisch zur CURRENT-Baseline
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+
+## Historischer, durch Required-only abgelöster Stand: Host-Modsetting und gemeinsame Gruppenwege (05.09.2026, 22:56)
+
+Der folgende Abschnitt bleibt als Mess- und Entstehungshistorie erhalten. Seine Runtime-,
+Settings- und Logfeldbeschreibungen gelten nicht mehr für den aktuellen Modus 1.
 
 Die unterbrochene Umsetzung wurde anhand des sauberen, inzwischen eingecheckten Arbeitsstands fortgesetzt. Die vorherigen Gebäude-, Angriffs-, Fill-, Cursor- und Verteilungsreparaturen bleiben erhalten. Nach Abschluss nochmals Code, API, native Verträge, Tests, Textdateien und installiertes Paket geprüft.
 

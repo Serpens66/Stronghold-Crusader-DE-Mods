@@ -22,7 +22,7 @@ namespace MoveMoatTest
         {
             try
             {
-                if (disposed || !ExtensionsEnabled || weightedShadowBusy || pathManager == IntPtr.Zero ||
+                if (disposed || !ExtensionsEnabled || RequiredOnlyMode || weightedShadowBusy || pathManager == IntPtr.Zero ||
                     pathManager != nativePathManager || nativeUnitManager == null)
                     return null;
 
@@ -236,14 +236,14 @@ namespace MoveMoatTest
                         WeightedPublicationSafetyMarginTicks;
                 QualifiedMovementRoute qualified = GetReusableQualifiedRoute(
                     GetCurrentUnitMoveFrame()?.Plan ?? activePlan ?? pendingPlan, snapshotUnit);
-                bool alreadyOptimal = qualified != null && (qualified.Optimal || qualified.Shared) && qualified.Profile.Equals(shadow.CostProfile) &&
+                bool alreadyOptimal = qualified != null && qualified.Optimal && qualified.Profile.Equals(shadow.CostProfile) &&
                     qualified.Route.DirectionCount == nativeLength;
                 if (alreadyOptimal)
                     for (int i=0;i<qualified.Route.Bytes.Length;i++)
                         if (qualified.Route.Bytes[i] != nativePath[i]) { alreadyOptimal=false; break; }
                 string decision = nativeSummary.MoatEdges > 0 ? "native-friendly-moat" : "native-ground";
                 int effectiveBuilderResult = builderResult;
-                string publicationDetails = alreadyOptimal ? (qualified.Shared ? "qualified-shared" : "qualified-optimal") : "cost-lower-bound";
+                string publicationDetails = alreadyOptimal ? "qualified-optimal" : "cost-lower-bound";
                 if (!alreadyOptimal && couldMeetMargin && builderResult > 0 && nativeValid && publishedToUnit &&
                     TryPublishSafelyFasterWeightedRoute(
                         pathManager,
@@ -359,9 +359,6 @@ namespace MoveMoatTest
                 WeightedMoatRouteSummary candidate = default;
                 WeightedMoatEncodedRoute route = default;
                 if (reuse) { candidate=qualified.Summary;route=qualified.Route;shadow.CandidateFound=true; }
-                else if (TryBuildSharedGroupRoute(GetCurrentUnitMoveFrame()?.Plan ?? activePlan ?? pendingPlan,
-                    candidateUnit, shadow.StartX, shadow.StartY, shadow.TargetX, shadow.TargetY, shadow.CostProfile,
-                    shadow.AllowReservedTarget, limits, out candidate, out route)) shadow.CandidateFound = true;
                 else shadow.CandidateFound = weightedMoatRoutePlanner.TryBuildImprovement(shadow.PlayerId,
                     shadow.StartX, shadow.StartY, shadow.TargetX, shadow.TargetY, shadow.CostProfile,
                     shadow.AllowReservedTarget, limits, out candidate, out route);

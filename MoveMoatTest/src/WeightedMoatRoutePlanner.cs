@@ -488,7 +488,7 @@ namespace MoveMoatTest
         {
             get { long total = 0; foreach (MoatSearchKernel k in searchKernels) if (k != null) total += k.Searches; return total; }
         }
-        internal long SharedFieldHits
+        internal long CachedFieldHits
         {
             get { long total = 0; foreach (MoatSearchKernel k in searchKernels) if (k != null) total += k.FieldHits; return total; }
         }
