@@ -26,6 +26,7 @@ namespace BugfixesAndQoL
         private bool betterAIOverbuildRules = true;
         private bool enableTroopMovementFix = true;
         private bool enableExtendedShiftCommandQueue = true;
+        private bool enableMoveFormationEnhancements = true;
         private int moveFormationSpacing = MoveFormationSpacingPolicy.Default;
         private int friendlyMoatMovementMode = FriendlyMoatMovementPolicy.DefaultMode;
         private bool enableImprovedMoatFilling = true;
@@ -273,6 +274,10 @@ namespace BugfixesAndQoL
             SerpLocalization.Get("BugfixesAndQoL.EnableExtendedShiftCommandQueue");
         public string EnableExtendedShiftCommandQueueHelpText =>
             SerpLocalization.Get("BugfixesAndQoL.EnableExtendedShiftCommandQueueHelp");
+        public string EnableMoveFormationEnhancementsText =>
+            SerpLocalization.Get("BugfixesAndQoL.EnableMoveFormationEnhancements");
+        public string EnableMoveFormationEnhancementsHelpText =>
+            SerpLocalization.Get("BugfixesAndQoL.EnableMoveFormationEnhancementsHelp");
         public string MoveFormationSpacingText =>
             SerpLocalization.Get("BugfixesAndQoL.MoveFormationSpacing");
         public string MoveFormationSpacingHelpText =>
@@ -613,6 +618,16 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool EnableMoveFormationEnhancements
+        {
+            get => enableMoveFormationEnhancements;
+            set => SetSetting(
+                ref enableMoveFormationEnhancements,
+                value,
+                nameof(EnableMoveFormationEnhancements));
+        }
+
+        [SyncHostOnly]
         public int MoveFormationSpacing
         {
             get => moveFormationSpacing;
@@ -905,6 +920,7 @@ namespace BugfixesAndQoL
                 EnableCustomLordListEnhancements = true;
                 EnableTroopMovementFix = true;
                 EnableExtendedShiftCommandQueue = true;
+                EnableMoveFormationEnhancements = true;
                 MoveFormationSpacing = MoveFormationSpacingPolicy.Default;
                 FriendlyMoatMovementMode = FriendlyMoatMovementPolicy.DefaultMode;
                 EnableImprovedMoatFilling = true;

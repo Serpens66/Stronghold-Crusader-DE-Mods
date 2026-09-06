@@ -127,12 +127,22 @@ namespace ExtraFeatures
 
         private int GetBuyPrice(IntPtr playerManager, int playerId, int good, int amount)
         {
+            using (Shared.CrashBreadcrumbScope diagnostic =
+                Shared.CrashBreadcrumbDiagnostics.Enter(
+                    "AiMarketBuyPrice",
+                    playerId,
+                    good,
+                    amount,
+                    playerManager.ToInt64()))
+            {
             try
             {
                 if (ShouldUseVanillaPrice(playerManager, playerId, good))
                 {
                     PackedGoodPrice price = GamePlayerManagerAPI.Instance.GetDefaultTradeBasePrice((eGoods)good);
-                    return AIMarketVanillaPricePolicy.CalculateTradeTotal(price.BuyPrice, amount);
+                    int result = AIMarketVanillaPricePolicy.CalculateTradeTotal(price.BuyPrice, amount);
+                    diagnostic.Complete(1);
+                    return result;
                 }
             }
             catch (Exception ex)
@@ -140,17 +150,30 @@ namespace ExtraFeatures
                 TryLogCallbackFailureOnce(ref buyCallbackFailureLogged, "buy", ex);
             }
 
-            return buyPriceHook.Original(playerManager, playerId, good, amount);
+            int vanillaResult = buyPriceHook.Original(playerManager, playerId, good, amount);
+            diagnostic.Complete(0);
+            return vanillaResult;
+            }
         }
 
         private int GetSellPrice(IntPtr playerManager, int playerId, int good, int amount)
         {
+            using (Shared.CrashBreadcrumbScope diagnostic =
+                Shared.CrashBreadcrumbDiagnostics.Enter(
+                    "AiMarketSellPrice",
+                    playerId,
+                    good,
+                    amount,
+                    playerManager.ToInt64()))
+            {
             try
             {
                 if (ShouldUseVanillaPrice(playerManager, playerId, good))
                 {
                     PackedGoodPrice price = GamePlayerManagerAPI.Instance.GetDefaultTradeBasePrice((eGoods)good);
-                    return AIMarketVanillaPricePolicy.CalculateTradeTotal(price.SellPrice, amount);
+                    int result = AIMarketVanillaPricePolicy.CalculateTradeTotal(price.SellPrice, amount);
+                    diagnostic.Complete(1);
+                    return result;
                 }
             }
             catch (Exception ex)
@@ -158,7 +181,10 @@ namespace ExtraFeatures
                 TryLogCallbackFailureOnce(ref sellCallbackFailureLogged, "sell", ex);
             }
 
-            return sellPriceHook.Original(playerManager, playerId, good, amount);
+            int vanillaResult = sellPriceHook.Original(playerManager, playerId, good, amount);
+            diagnostic.Complete(0);
+            return vanillaResult;
+            }
         }
 
         private bool ShouldUseVanillaPrice(IntPtr playerManager, int playerId, int good)
@@ -181,6 +207,10 @@ namespace ExtraFeatures
 
         private void TryLogCallbackFailureOnce(ref int alreadyLogged, string direction, Exception failure)
         {
+            Shared.CrashBreadcrumbDiagnostics.Record(
+                "AiMarketCallbackFailure",
+                direction == "buy" ? 1 : 2,
+                outcome: -1);
             if (Interlocked.Exchange(ref alreadyLogged, 1) != 0)
                 return;
 

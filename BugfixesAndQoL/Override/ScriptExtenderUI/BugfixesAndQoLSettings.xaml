@@ -309,6 +309,12 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableExtendedShiftCommandQueueText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-move-formation-enhancements" shared:ModSettingsSearch.Title="{Binding EnableMoveFormationEnhancementsText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableMoveFormationEnhancementsHelpText}"><CheckBox IsChecked="{Binding EnableMoveFormationEnhancements, Mode=TwoWay}"
+                Foreground="White"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableMoveFormationEnhancementsHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding EnableMoveFormationEnhancementsText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox></Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.move-formation-spacing" shared:ModSettingsSearch.Title="{Binding MoveFormationSpacingText}" shared:ModSettingsSearch.ToolTipText="{Binding MoveFormationSpacingHelpText}"
             ToolTipService.ShowDuration="60000" ToolTip="{Binding MoveFormationSpacingHelpText}" Margin="0,0,0,8">
         <Grid.ColumnDefinitions><ColumnDefinition Width="170"/><ColumnDefinition Width="220"/><ColumnDefinition Width="190"/></Grid.ColumnDefinitions>

@@ -168,22 +168,29 @@ namespace ExtraFeatures
 
         private void RunAiFlagRoutine(IntPtr aiManager, int playerId)
         {
-            if (!Shared.GameplayModActivationGate.IsAllowed || !trackingAvailable)
+            using (Shared.CrashBreadcrumbScope diagnostic =
+                Shared.CrashBreadcrumbDiagnostics.Enter(
+                    "AiFlagRoutine",
+                    playerId,
+                    aiManager.ToInt64()))
             {
-                aiFlagRoutineHook.Original(aiManager, playerId);
-                return;
-            }
+                if (!Shared.GameplayModActivationGate.IsAllowed || !trackingAvailable)
+                {
+                    aiFlagRoutineHook.Original(aiManager, playerId);
+                    return;
+                }
 
-            int previousPlayerId = activeFlagPlayerId;
-            activeFlagPlayerId = playerId;
-            try
-            {
-                // The nested projectile-spawn event is the exact provenance boundary.
-                aiFlagRoutineHook.Original(aiManager, playerId);
-            }
-            finally
-            {
-                activeFlagPlayerId = previousPlayerId;
+                int previousPlayerId = activeFlagPlayerId;
+                activeFlagPlayerId = playerId;
+                try
+                {
+                    // The nested projectile-spawn event is the exact provenance boundary.
+                    aiFlagRoutineHook.Original(aiManager, playerId);
+                }
+                finally
+                {
+                    activeFlagPlayerId = previousPlayerId;
+                }
             }
         }
 
@@ -198,34 +205,44 @@ namespace ExtraFeatures
                 return;
             }
 
-            try
+            using (Shared.CrashBreadcrumbScope diagnostic =
+                Shared.CrashBreadcrumbDiagnostics.Enter(
+                    "DiseaseProjectileSpawn",
+                    playerId,
+                    args.PlayerSourceId,
+                    args.ReturnValue))
             {
-                bool spawnedByAiFlag = playerId >= 1 && playerId <= 8 &&
-                    args.PlayerSourceId == playerId;
-                bool spawnedOverCesspit = !spawnedByAiFlag && IsSpawnedOverCesspit(args);
-                if (!spawnedByAiFlag && !spawnedOverCesspit)
-                    return;
-
-                // Keep stale identities out of saves even if a delete event was skipped.
-                PruneInvalidProjectiles();
-
-                if (args.ReturnValue <= 0 || args.ReturnValue > int.MaxValue)
-                    throw new InvalidOperationException($"Vanilla-duration Disease returned an invalid slot ID: {args.ReturnValue}.");
-
-                int slotId = checked((int)args.ReturnValue);
-                if (!GameProjectileManagerAPI.Instance.TryGetProjectileById(slotId, out GameProjectile* projectile) ||
-                    projectile == null ||
-                    projectile->r_ProjectileType != ProjectileType.Disease ||
-                    projectile->r_GlobalId == 0)
+                try
                 {
-                    throw new InvalidOperationException($"Vanilla-duration Disease could not be identified after spawn: slot={slotId}.");
-                }
+                    bool spawnedByAiFlag = playerId >= 1 && playerId <= 8 &&
+                        args.PlayerSourceId == playerId;
+                    bool spawnedOverCesspit = !spawnedByAiFlag && IsSpawnedOverCesspit(args);
+                    if (!spawnedByAiFlag && !spawnedOverCesspit)
+                        return;
 
-                registry.Track(slotId, projectile->r_GlobalId);
-            }
-            catch (Exception ex)
-            {
-                DisableTracking(ex);
+                    // Keep stale identities out of saves even if a delete event was skipped.
+                    PruneInvalidProjectiles();
+
+                    if (args.ReturnValue <= 0 || args.ReturnValue > int.MaxValue)
+                        throw new InvalidOperationException($"Vanilla-duration Disease returned an invalid slot ID: {args.ReturnValue}.");
+
+                    int slotId = checked((int)args.ReturnValue);
+                    if (!GameProjectileManagerAPI.Instance.TryGetProjectileById(slotId, out GameProjectile* projectile) ||
+                        projectile == null ||
+                        projectile->r_ProjectileType != ProjectileType.Disease ||
+                        projectile->r_GlobalId == 0)
+                    {
+                        throw new InvalidOperationException($"Vanilla-duration Disease could not be identified after spawn: slot={slotId}.");
+                    }
+
+                    registry.Track(slotId, projectile->r_GlobalId);
+                    diagnostic.Complete(1);
+                }
+                catch (Exception ex)
+                {
+                    Shared.CrashBreadcrumbDiagnostics.Record("DiseaseTrackingFailure", outcome: -1);
+                    DisableTracking(ex);
+                }
             }
         }
 

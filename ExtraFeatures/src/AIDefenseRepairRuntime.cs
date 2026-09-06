@@ -454,6 +454,14 @@ namespace ExtraFeatures
             int restrictedMode,
             byte freeOrForced)
         {
+            using (Shared.CrashBreadcrumbScope diagnostic =
+                Shared.CrashBreadcrumbDiagnostics.Enter(
+                    "AiDefenseBuildStep",
+                    playerId,
+                    frameIndex,
+                    restrictedMode,
+                    freeOrForced))
+            {
             if (!IsConfigured || !mapActive)
             {
                 return executeBuildStepHook.Original(
@@ -571,12 +579,21 @@ namespace ExtraFeatures
                 LogFailure("ExecuteBuildStep completion", ex);
             }
             return result;
+            }
         }
 
         private int ObservePlacement(
             ulong placementStateAddress, int playerId, int offsetX, int offsetY,
             short mapperValue, int orientation)
         {
+            using (Shared.CrashBreadcrumbScope diagnostic =
+                Shared.CrashBreadcrumbDiagnostics.Enter(
+                    "AiDefensePlacement",
+                    playerId,
+                    mapperValue,
+                    offsetX,
+                    offsetY))
+            {
             if (!IsConfigured)
                 return CallPlacement(placementStateAddress, playerId, offsetX, offsetY, mapperValue, orientation);
 
@@ -619,6 +636,7 @@ namespace ExtraFeatures
 
             return CallPlacement(
                 placementStateAddress, playerId, offsetX, offsetY, mapperValue, orientation);
+            }
         }
 
         private int CallPlacement(
@@ -841,6 +859,10 @@ namespace ExtraFeatures
 
         private void LogFailure(string callback, Exception ex)
         {
+            Shared.CrashBreadcrumbDiagnostics.Record(
+                "AiDefenseRepairFailure",
+                (callback ?? string.Empty).GetHashCode(),
+                outcome: -1);
             if (!callbackFailuresLogged.Add(callback ?? string.Empty))
                 return;
             Shared.DebugLogHelper.LogError(log,

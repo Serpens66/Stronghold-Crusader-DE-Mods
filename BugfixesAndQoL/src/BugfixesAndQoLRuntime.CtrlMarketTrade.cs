@@ -17,6 +17,13 @@ namespace BugfixesAndQoL
             if (args.Phase != EventHookPhase.Pre || ctrlMarketTradeHook == null)
                 return;
 
+            using (Shared.CrashBreadcrumbScope diagnostic =
+                Shared.CrashBreadcrumbDiagnostics.Enter(
+                    "CtrlMarketTrade",
+                    args.PlayerId,
+                    (int)args.Good,
+                    args.Selling ? 1 : 0))
+            {
             bool guardStarted = false;
             if (!args.Selling)
             {
@@ -52,6 +59,8 @@ namespace BugfixesAndQoL
                             $"Bugfixes and QoL could not finish the optional Extra Features market-purchase guard: {ex}");
                     }
                 }
+            }
+            diagnostic.Complete();
             }
         }
     }

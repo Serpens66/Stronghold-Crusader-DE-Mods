@@ -156,6 +156,7 @@ namespace BugfixesAndQoL
             internal RequiredRouteCache RequiredCache = new RequiredRouteCache();
             internal int[] ActiveUnitIdsAtDispatch = Array.Empty<int>();
             public bool IsNewOrder;
+            public bool IsPatrolPath;
             public int WeightedPublished, WeightedDecisions;
             public int TargetX, TargetY, ModeCalls, TargetedRouteCacheHits, TargetedRouteSearches, TargetedRouteExpandedNodes;
             public int TargetedRouteSearchPasses, BuilderCalls, FloodFillBypasses, FallbackBuilderCalls, FallbackRollbacks;
@@ -1013,6 +1014,8 @@ namespace BugfixesAndQoL {
  }
  internal sealed class BugfixesAndQoLViewModel {
   internal bool EnableMod=true;
+  internal bool EnableMoveFormationEnhancements=true;
+  internal int MoveFormationSpacing=MoveFormationSpacingPolicy.Default;
   internal bool EnableImprovedMoatFilling=true;
   internal int RouteMode=1;
  }

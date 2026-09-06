@@ -72,9 +72,6 @@ namespace ImprovedHunters
         private const int FirstCoreCallNextInstructionRva = VisibilityWrapperRva + 0x58;
         private const int ReverseCoreCallDisplacementRva = VisibilityWrapperRva + 0x79;
         private const int ReverseCoreCallNextInstructionRva = VisibilityWrapperRva + 0x7D;
-        private const int HunterAiStateOffset = 0x2BC;
-        private const int HunterTargetUnitIdOffset = 0x39A;
-        private const int HunterTargetGlobalIdOffset = 0x39C;
         private const int MaxProbeLogs = 120;
         private const int MaxProbesPerScan = 4;
 
@@ -543,15 +540,8 @@ namespace ImprovedHunters
                 return;
             }
 
-            if (!TryInvokeVisibility(hunter, prey, out int result, out int contextScratch))
+            if (!TryInvokeVisibility(hunter, prey, out int result, out _))
                 return;
-
-            int hunterX = hunter->r_CurrentWorldPositionX;
-            int hunterY = hunter->r_CurrentWorldPositionY;
-            int hunterHeight = hunter->r_HeightElevation + hunter->N0000006A + 30;
-            int preyX = prey->r_CurrentWorldPositionX;
-            int preyY = prey->r_CurrentWorldPositionY;
-            int preyHeight = prey->r_HeightElevation + prey->N0000006A + 26;
 
             if (!invocationConfirmed)
             {
@@ -564,26 +554,16 @@ namespace ImprovedHunters
                     $"managedThread={currentThreadId}, privateContext=True.");
             }
 
-            byte* hunterBytes = (byte*)hunter;
             int currentManhattanDistance = Math.Abs(
                 (int)prey->r_CurrentTilePositionX - hunter->r_CurrentTilePositionX) +
                 Math.Abs((int)prey->r_CurrentTilePositionY - hunter->r_CurrentTilePositionY);
             probeLogs++;
-            Shared.DebugLogHelper.LogInfo(
-                log,
-                "Improved Hunters native visibility probe result: " +
-                $"hunter={request.HunterUnitId}/{request.HunterGlobalId}, " +
-                $"prey={request.PreyUnitId}/{request.PreyGlobalId}/{request.PreyType}, " +
-                $"queryPhase={DescribePhase(request.Phase)}, capturedManhattan={request.ManhattanDistance}, " +
-                $"currentManhattan={currentManhattanDistance}, nativeResult={result}, " +
-                $"queryVisibilityPass={result >= 1 && result <= 432}, directOrderPass={result > 0}, " +
-                $"contextScratch={contextScratch}, contextGuardsIntact=True, " +
-                $"nativeTarget={*(ushort*)(hunterBytes + HunterTargetUnitIdOffset)}/" +
-                $"{*(uint*)(hunterBytes + HunterTargetGlobalIdOffset)}, " +
-                $"hunterAiState={*(ushort*)(hunterBytes + HunterAiStateOffset)}, " +
-                $"hunterWorld={hunterX},{hunterY},{hunterHeight}, preyWorld={preyX},{preyY},{preyHeight}, " +
-                $"transitionPhase=visibility-observation, {HunterMovementSnapshot.TryFormat(hunter)}, " +
-                $"physicalArrowPath=not-probed, behaviorMutation=False ({probeLogs}/{MaxProbeLogs}).");
+            Shared.CrashBreadcrumbDiagnostics.Record(
+                "HunterVisibilityResult",
+                request.HunterUnitId,
+                request.PreyUnitId,
+                result,
+                currentManhattanDistance);
         }
 
         private bool TryInvokeVisibility(
@@ -606,33 +586,43 @@ namespace ImprovedHunters
                 return false;
             }
 
-            try
+            using (Shared.CrashBreadcrumbScope diagnostic =
+                Shared.CrashBreadcrumbDiagnostics.Enter(
+                    "HunterVisibilityNative",
+                    hunter->r_CurrentTilePositionX,
+                    hunter->r_CurrentTilePositionY,
+                    prey->r_CurrentTilePositionX,
+                    prey->r_CurrentTilePositionY))
             {
-                if (TryInvokeGuardedVisibility(
-                    visibility,
-                    hunter->r_CurrentWorldPositionX,
-                    hunter->r_CurrentWorldPositionY,
-                    hunter->r_HeightElevation + hunter->N0000006A + 30,
-                    prey->r_CurrentWorldPositionX,
-                    prey->r_CurrentWorldPositionY,
-                    prey->r_HeightElevation + prey->N0000006A + 26,
-                    out result,
-                    out contextScratch))
+                try
                 {
-                    return true;
-                }
+                    if (TryInvokeGuardedVisibility(
+                        visibility,
+                        hunter->r_CurrentWorldPositionX,
+                        hunter->r_CurrentWorldPositionY,
+                        hunter->r_HeightElevation + hunter->N0000006A + 30,
+                        prey->r_CurrentWorldPositionX,
+                        prey->r_CurrentWorldPositionY,
+                        prey->r_HeightElevation + prey->N0000006A + 26,
+                        out result,
+                        out contextScratch))
+                    {
+                        diagnostic.Complete(result);
+                        return true;
+                    }
 
-                DisableForContextGuardChange();
-                return false;
-            }
-            catch (Exception exception)
-            {
-                LogFailureOnce("native invocation", exception, disableProbe: true);
-                return false;
-            }
-            finally
-            {
-                Volatile.Write(ref probeInProgress, 0);
+                    DisableForContextGuardChange();
+                    return false;
+                }
+                catch (Exception exception)
+                {
+                    LogFailureOnce("native invocation", exception, disableProbe: true);
+                    return false;
+                }
+                finally
+                {
+                    Volatile.Write(ref probeInProgress, 0);
+                }
             }
         }
 
@@ -661,86 +651,97 @@ namespace ImprovedHunters
                 return false;
             }
 
-            try
-            {
-                int hunterX = hunter->r_CurrentWorldPositionX;
-                int hunterY = hunter->r_CurrentWorldPositionY;
-                int hunterHeight = hunter->r_HeightElevation + hunter->N0000006A + 30;
-                int preyX = prey->r_CurrentWorldPositionX;
-                int preyY = prey->r_CurrentWorldPositionY;
-                int preyHeight = prey->r_HeightElevation + prey->N0000006A + 26;
-                geometry = new HunterNearVisibilityGeometry(
+            using (Shared.CrashBreadcrumbScope diagnostic =
+                Shared.CrashBreadcrumbDiagnostics.Enter(
+                    "HunterNearVisibilityNative",
                     hunter->r_CurrentTilePositionX,
                     hunter->r_CurrentTilePositionY,
                     prey->r_CurrentTilePositionX,
-                    prey->r_CurrentTilePositionY,
-                    hunterX,
-                    hunterY,
-                    hunterHeight,
-                    preyX,
-                    preyY,
-                    preyHeight);
-
-                if (!TryInvokeGuardedVisibility(
-                        visibility,
+                    prey->r_CurrentTilePositionY))
+            {
+                try
+                {
+                    int hunterX = hunter->r_CurrentWorldPositionX;
+                    int hunterY = hunter->r_CurrentWorldPositionY;
+                    int hunterHeight = hunter->r_HeightElevation + hunter->N0000006A + 30;
+                    int preyX = prey->r_CurrentWorldPositionX;
+                    int preyY = prey->r_CurrentWorldPositionY;
+                    int preyHeight = prey->r_HeightElevation + prey->N0000006A + 26;
+                    geometry = new HunterNearVisibilityGeometry(
+                        hunter->r_CurrentTilePositionX,
+                        hunter->r_CurrentTilePositionY,
+                        prey->r_CurrentTilePositionX,
+                        prey->r_CurrentTilePositionY,
                         hunterX,
                         hunterY,
                         hunterHeight,
                         preyX,
                         preyY,
-                        preyHeight,
-                        out wrapperResult,
-                        out _))
-                {
-                    DisableForContextGuardChange();
-                    return false;
-                }
+                        preyHeight);
 
-                // The validated wrapper calls both core directions before it
-                // can return zero. Preserve those exact results without two
-                // redundant native calls on the new 250-ms near-target path.
-                if (wrapperResult == 0)
-                {
-                    hunterToPreyResult = 0;
-                    preyToHunterResult = 0;
+                    if (!TryInvokeGuardedVisibility(
+                            visibility,
+                            hunterX,
+                            hunterY,
+                            hunterHeight,
+                            preyX,
+                            preyY,
+                            preyHeight,
+                            out wrapperResult,
+                            out _))
+                    {
+                        DisableForContextGuardChange();
+                        return false;
+                    }
+
+                    // The validated wrapper calls both core directions before it
+                    // can return zero. Preserve those exact results without two
+                    // redundant native calls on the new 250-ms near-target path.
+                    if (wrapperResult == 0)
+                    {
+                        hunterToPreyResult = 0;
+                        preyToHunterResult = 0;
+                        diagnostic.Complete(0);
+                        return true;
+                    }
+
+                    if (!TryInvokeGuardedVisibility(
+                            visibilityCore,
+                            hunterX,
+                            hunterY,
+                            hunterHeight,
+                            preyX,
+                            preyY,
+                            preyHeight,
+                            out hunterToPreyResult,
+                            out _) ||
+                        !TryInvokeGuardedVisibility(
+                            visibilityCore,
+                            preyX,
+                            preyY,
+                            preyHeight,
+                            hunterX,
+                            hunterY,
+                            hunterHeight,
+                            out preyToHunterResult,
+                            out _))
+                    {
+                        DisableForContextGuardChange();
+                        return false;
+                    }
+
+                    diagnostic.Complete(wrapperResult);
                     return true;
                 }
-
-                if (!TryInvokeGuardedVisibility(
-                        visibilityCore,
-                        hunterX,
-                        hunterY,
-                        hunterHeight,
-                        preyX,
-                        preyY,
-                        preyHeight,
-                        out hunterToPreyResult,
-                        out _) ||
-                    !TryInvokeGuardedVisibility(
-                        visibilityCore,
-                        preyX,
-                        preyY,
-                        preyHeight,
-                        hunterX,
-                        hunterY,
-                        hunterHeight,
-                        out preyToHunterResult,
-                        out _))
+                catch (Exception exception)
                 {
-                    DisableForContextGuardChange();
+                    LogFailureOnce("near-visibility native invocation", exception, disableProbe: true);
                     return false;
                 }
-
-                return true;
-            }
-            catch (Exception exception)
-            {
-                LogFailureOnce("near-visibility native invocation", exception, disableProbe: true);
-                return false;
-            }
-            finally
-            {
-                Volatile.Write(ref probeInProgress, 0);
+                finally
+                {
+                    Volatile.Write(ref probeInProgress, 0);
+                }
             }
         }
 
@@ -786,6 +787,7 @@ namespace ImprovedHunters
         private void DisableForContextGuardChange()
         {
             disabled = true;
+            Shared.CrashBreadcrumbDiagnostics.Record("HunterVisibilityGuardChanged", outcome: -1);
             Shared.DebugLogHelper.LogError(
                 log,
                 "Improved Hunters native visibility probe disabled: the private context guard changed outside context+0xC; " +
@@ -794,6 +796,7 @@ namespace ImprovedHunters
 
         private void LogFailureOnce(string operation, Exception exception, bool disableProbe)
         {
+            Shared.CrashBreadcrumbDiagnostics.Record("HunterVisibilityFailure", disableProbe ? 1 : 0, outcome: -1);
             if (disableProbe)
             {
                 disabled = true;

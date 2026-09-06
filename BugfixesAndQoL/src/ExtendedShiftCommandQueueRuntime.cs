@@ -159,7 +159,7 @@ namespace BugfixesAndQoL
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
-            largeMoveTargets = new LargeMoveTargetDiagnosticsRuntime(log);
+            largeMoveTargets = new LargeMoveTargetDiagnosticsRuntime(log, settings);
         }
 
         private bool FeatureEnabled =>
@@ -308,7 +308,11 @@ namespace BugfixesAndQoL
 
             InstallMultiplayerSynchronization(context, referenceHashMatches);
             InstallOptionalDrawFilter(context, referenceHashMatches);
-            largeMoveTargets.Install(largeMoveLayoutAvailable, drawFilterInstalled);
+            largeMoveTargets.Install(
+                largeMoveLayoutAvailable,
+                drawFilterInstalled,
+                context,
+                referenceHashMatches);
 
             subscriptions.Add(TribeR3EventHooks.OnTribeIssueOrderWithTarget.Observable
                 .Where(args => args.Phase == EventHookPhase.Pre)
@@ -345,6 +349,7 @@ namespace BugfixesAndQoL
 
         public void ApplySetting()
         {
+            largeMoveTargets.ApplySetting(currentTick);
             bool enabled = FeatureEnabled;
             if (lastFeatureEnabled == enabled)
                 return;
@@ -649,6 +654,20 @@ namespace BugfixesAndQoL
 
         private void OnTargetOrder(TribeIssueOrderWithTargetEventArgs args)
         {
+            using (Shared.CrashBreadcrumbScope diagnostic =
+                Shared.CrashBreadcrumbDiagnostics.Enter(
+                    "ShiftQueueTargetOrder",
+                    args.TribeId,
+                    (int)args.AICommand,
+                    (int)args.Phase))
+            {
+                OnTargetOrderCore(args);
+                diagnostic.Complete(args.SkipOriginalFunction ? 1 : 0);
+            }
+        }
+
+        private void OnTargetOrderCore(TribeIssueOrderWithTargetEventArgs args)
+        {
             if (!installed || internalDispatch)
                 return;
 
@@ -752,9 +771,7 @@ namespace BugfixesAndQoL
             {
                 args.SkipOriginalFunction = true;
                 args.ReturnValue = 1;
-                Shared.DebugLogHelper.LogWarning(
-                    log,
-                    $"QUEUE_FULL: tribeId={args.TribeId}, limit={MaximumPendingCommands}, rejected={command}.");
+                RecordQueueFull(args.TribeId, command);
                 return;
             }
 
@@ -763,6 +780,21 @@ namespace BugfixesAndQoL
         }
 
         private void OnMoveOrder(TribeIssueOrderMoveHereEventArgs args)
+        {
+            using (Shared.CrashBreadcrumbScope diagnostic =
+                Shared.CrashBreadcrumbDiagnostics.Enter(
+                    "ShiftQueueMoveOrder",
+                    args.TribeId,
+                    args.TileX,
+                    args.TileY,
+                    (int)args.Phase))
+            {
+                OnMoveOrderCore(args);
+                diagnostic.Complete(args.SkipOriginalFunction ? 1 : 0);
+            }
+        }
+
+        private void OnMoveOrderCore(TribeIssueOrderMoveHereEventArgs args)
         {
             if (!installed)
                 return;
@@ -864,9 +896,7 @@ namespace BugfixesAndQoL
             {
                 if (!TryApplyQueuedCommand(args.TribeId, tribe, command))
                 {
-                    Shared.DebugLogHelper.LogWarning(
-                        log,
-                        $"QUEUE_FULL: tribeId={args.TribeId}, limit={MaximumPendingCommands}, rejected={command}.");
+                    RecordQueueFull(args.TribeId, command);
                 }
                 else
                 {
@@ -895,13 +925,38 @@ namespace BugfixesAndQoL
         {
             if (!TryApplyQueuedCommand(tribeId, tribe, command))
             {
-                Shared.DebugLogHelper.LogWarning(
-                    log,
-                    $"QUEUE_FULL: tribeId={tribeId}, limit={MaximumPendingCommands}, rejected={command}.");
+                RecordQueueFull(tribeId, command);
             }
         }
 
         private void AppendMovementWaypoint(
+            IntPtr tribeManager,
+            int serializedTribeId,
+            ushort tileX,
+            ushort tileY,
+            int waypointIndex,
+            short moveMode)
+        {
+            using (Shared.CrashBreadcrumbScope diagnostic =
+                Shared.CrashBreadcrumbDiagnostics.Enter(
+                    "ShiftQueueWaypoint",
+                    serializedTribeId,
+                    tileX,
+                    tileY,
+                    moveMode))
+            {
+                AppendMovementWaypointCore(
+                    tribeManager,
+                    serializedTribeId,
+                    tileX,
+                    tileY,
+                    waypointIndex,
+                    moveMode);
+                diagnostic.Complete();
+            }
+        }
+
+        private void AppendMovementWaypointCore(
             IntPtr tribeManager,
             int serializedTribeId,
             ushort tileX,
@@ -951,9 +1006,7 @@ namespace BugfixesAndQoL
                         }
                         else
                         {
-                            Shared.DebugLogHelper.LogWarning(
-                                log,
-                                $"QUEUE_FULL: tribeId={tribeId}, limit={MaximumPendingCommands}, rejected={command}.");
+                            RecordQueueFull(tribeId, command);
                         }
                         return;
                     }
@@ -961,9 +1014,14 @@ namespace BugfixesAndQoL
             }
             catch (Exception exception)
             {
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"WAYPOINT_HOOK_FAIL_OPEN: {exception}");
+                Shared.CrashBreadcrumbDiagnostics.Record("ShiftQueueWaypointFailure", outcome: -1);
+                if (Shared.CrashBreadcrumbDiagnostics.ShouldLogUnexpected(
+                    "ShiftQueueWaypoint:" + exception.GetType().FullName))
+                {
+                    Shared.DebugLogHelper.LogError(
+                        log,
+                        $"WAYPOINT_HOOK_FAIL_OPEN: {exception}");
+                }
             }
 
         Vanilla:
@@ -978,16 +1036,42 @@ namespace BugfixesAndQoL
 
         private void RenderTribeOverlay(IntPtr tribeManager, int tribeId)
         {
+            using (Shared.CrashBreadcrumbScope diagnostic =
+                Shared.CrashBreadcrumbDiagnostics.Enter("ShiftQueueOverlay", tribeId))
+            {
             bool trampolineEntered = false;
             try
             {
                 RenderTribeOverlayCore(tribeManager, tribeId, ref trampolineEntered);
+                diagnostic.Complete();
             }
             catch (Exception exception)
             {
-                Shared.DebugLogHelper.LogError(log, $"OVERLAY_HOOK_FAIL_OPEN: {exception}");
+                diagnostic.Complete(-1);
+                if (Shared.CrashBreadcrumbDiagnostics.ShouldLogUnexpected(
+                    "ShiftQueueOverlay:" + exception.GetType().FullName))
+                {
+                    Shared.DebugLogHelper.LogError(log, $"OVERLAY_HOOK_FAIL_OPEN: {exception}");
+                }
                 if (!trampolineEntered)
                     InvokeOriginalTribeOverlay(tribeManager, tribeId);
+            }
+            }
+        }
+
+        private void RecordQueueFull(int tribeId, QueueCommand command)
+        {
+            Shared.CrashBreadcrumbDiagnostics.Record(
+                "ShiftQueueFull",
+                tribeId,
+                (int)command.Kind,
+                outcome: -1);
+            if (Shared.CrashBreadcrumbDiagnostics.ShouldLogUnexpected("ShiftQueueFull"))
+            {
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    $"QUEUE_FULL: tribeId={tribeId}, limit={MaximumPendingCommands}, rejected={command}. " +
+                    "Further occurrences in this session are aggregated by crash diagnostics.");
             }
         }
 
@@ -1330,6 +1414,16 @@ namespace BugfixesAndQoL
         }
 
         private void OnTick(int tick)
+        {
+            using (Shared.CrashBreadcrumbScope diagnostic =
+                Shared.CrashBreadcrumbDiagnostics.Enter("ShiftQueueTick", tick))
+            {
+                OnTickCore(tick);
+                diagnostic.Complete();
+            }
+        }
+
+        private void OnTickCore(int tick)
         {
             if (!installed)
                 return;

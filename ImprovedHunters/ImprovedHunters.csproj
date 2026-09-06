@@ -116,6 +116,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\Shared\CrashBreadcrumbDiagnostics.cs">
+      <Link>Shared\CrashBreadcrumbDiagnostics.cs</Link>
+    </Compile>
+    <Compile Include="..\Shared\CrashBreadcrumbRecorder.cs">
+      <Link>Shared\CrashBreadcrumbRecorder.cs</Link>
+    </Compile>
     <Compile Include="..\Shared\DebugLogHelper.cs">
       <Link>Shared\DebugLogHelper.cs</Link>
     </Compile>

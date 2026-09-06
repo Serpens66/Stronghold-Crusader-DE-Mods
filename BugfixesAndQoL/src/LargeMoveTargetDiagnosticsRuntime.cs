@@ -2,6 +2,7 @@ using BepInEx.Logging;
 using SHCDESE.API;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
+using SHCDESE.API.LowLevel;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -13,6 +14,7 @@ namespace BugfixesAndQoL
     {
         private const int DrawListCountOffset = 0x622248;
         private readonly ManualLogSource log;
+        private readonly BugfixesAndQoLViewModel settings;
         private readonly LargeMoveTargetMarkerRenderer renderer;
         private readonly Dictionary<int, TrackedMoveGroup> groups =
             new Dictionary<int, TrackedMoveGroup>();
@@ -21,19 +23,41 @@ namespace BugfixesAndQoL
         private bool overlayPassActive;
         private bool trackingAvailable;
 
-        public LargeMoveTargetDiagnosticsRuntime(ManualLogSource log)
+        public LargeMoveTargetDiagnosticsRuntime(
+            ManualLogSource log,
+            BugfixesAndQoLViewModel settings)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
-            renderer = new LargeMoveTargetMarkerRenderer(log);
+            this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
+            renderer = new LargeMoveTargetMarkerRenderer(log, () => FeatureEnabled);
         }
+
+        private bool FeatureEnabled =>
+            settings.EnableMod && settings.EnableMoveFormationEnhancements;
 
         public bool MarkerReplacementAvailable => renderer.ReplacementAvailable;
 
-        public void Install(bool layoutValidated, bool markerReplacementEnabled)
+        public void Install(
+            bool layoutValidated,
+            bool markerReplacementEnabled,
+            CrusaderLibraryLoadContext context,
+            bool fixedLayoutHashValidated)
         {
             trackingAvailable = layoutValidated;
             if (trackingAvailable && markerReplacementEnabled)
-                renderer.Install();
+            {
+                try
+                {
+                    renderer.Install(context, fixedLayoutHashValidated);
+                }
+                catch (Exception exception)
+                {
+                    Shared.DebugLogHelper.LogWarning(
+                        log,
+                        $"MOVE_TARGET_MARKER_HOOK_FAIL_CLOSED: limited Vanilla markers retained; " +
+                        exception.Message);
+                }
+            }
         }
 
         public void CaptureSuccessfulMove(
@@ -43,7 +67,7 @@ namespace BugfixesAndQoL
             int tick,
             string source)
         {
-            if (!trackingAvailable)
+            if (!trackingAvailable || !FeatureEnabled)
                 return;
             if (groups.TryGetValue(tribeId, out TrackedMoveGroup previous))
                 FinalizeGroup(previous, "command-replaced", forceInterrupt: true, tick);
@@ -82,6 +106,12 @@ namespace BugfixesAndQoL
 
         public void OnTick(int tick)
         {
+            if (!FeatureEnabled)
+            {
+                if (groups.Count != 0)
+                    Reset(tick, "setting-disabled");
+                return;
+            }
             if (!trackingAvailable || groups.Count == 0)
                 return;
             tribeIdBuffer.Clear();
@@ -199,6 +229,12 @@ namespace BugfixesAndQoL
             renderer.Shutdown();
         }
 
+        public void ApplySetting(int tick)
+        {
+            if (!FeatureEnabled && groups.Count != 0)
+                Reset(tick, "setting-disabled");
+        }
+
         public void BeginOverlayPass(int tribeId)
         {
             currentOverlayTribeId = tribeId;
@@ -235,7 +271,8 @@ namespace BugfixesAndQoL
             int tileId,
             int flags)
         {
-            if (!LargeMoveTargetDiagnosticsModel.IsVanillaMoveTargetMarker(
+            if (!FeatureEnabled ||
+                !LargeMoveTargetDiagnosticsModel.IsVanillaMoveTargetMarker(
                     category, spriteId, layer, verticalOffset, flags) ||
                 !groups.TryGetValue(currentOverlayTribeId, out TrackedMoveGroup group) ||
                 !group.ActiveTargetTiles.Contains(tileId))

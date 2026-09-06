@@ -21,7 +21,6 @@ namespace ImprovedHunters
         private const int ExpectedSkipSpawnTargetOffset = ExpectedSkipSpawnTargetRva - ComparisonSequenceRva;
         private const int MinimumPlayerId = 1;
         private const int MaximumPlayerId = 8;
-        private const int MaxDecisionLogs = 80;
 
         private const string ComparisonSequencePattern =
             "83 3D ?? ?? ?? ?? 00 41 0F 45 C5 3B 87 48 20 00 00 " +
@@ -31,15 +30,10 @@ namespace ImprovedHunters
         private readonly ImprovedHuntersViewModel settings;
         private readonly Func<int, int> getLiveChickenCount;
         private readonly Func<bool> canManageChickens;
-        private readonly int[] lastLoggedCounts = new int[MaximumPlayerId + 1];
-        private readonly int[] lastLoggedLimits = new int[MaximumPlayerId + 1];
-        private readonly bool[] lastLoggedDecisions = new bool[MaximumPlayerId + 1];
-        private readonly bool[] hasLoggedDecision = new bool[MaximumPlayerId + 1];
         private HookTransaction transaction;
         private readonly HookHandle<X64InlineHook> comparisonHook = new HookHandle<X64InlineHook>();
         private bool featureAvailable = true;
         private bool hookConfirmed;
-        private int decisionLogs;
         private bool disposed;
 
         public GranaryChickenLimitPatch(
@@ -135,6 +129,12 @@ namespace ImprovedHunters
                     return;
 
                 playerId = checked((int)context.Pointer->RBX);
+                using (Shared.CrashBreadcrumbScope diagnostic =
+                    Shared.CrashBreadcrumbDiagnostics.Enter(
+                        "GranaryChickenLimit",
+                        playerId,
+                        settings.MaxNeutralChickensPerPlayer))
+                {
                 if (playerId < MinimumPlayerId || playerId > MaximumPlayerId)
                 {
                     throw new InvalidOperationException(
@@ -157,6 +157,8 @@ namespace ImprovedHunters
                 // INT_MAX always permits its following signed jle to fall through;
                 // zero always takes the skip branch because Vanilla's count is nonnegative.
                 context.Pointer->RAX = unchecked((ulong)normalizedTarget);
+                    diagnostic.Complete(allowSpawn ? 1 : 2);
+                }
             }
             catch (Exception exception)
             {
@@ -181,34 +183,17 @@ namespace ImprovedHunters
                         $"live={liveCount}, limit={configuredLimit}, allowNextSpawn={allowSpawn}.");
                 }
 
-                LogChangedDecision(playerId, liveCount, configuredLimit, allowSpawn);
+                Shared.CrashBreadcrumbDiagnostics.Record(
+                    "GranaryChickenDecision",
+                    playerId,
+                    liveCount,
+                    configuredLimit,
+                    allowSpawn ? 1 : 0);
             }
             catch
             {
                 // Never let diagnostics alter Vanilla or the independent limit decision.
             }
-        }
-
-        private void LogChangedDecision(int playerId, int liveCount, int configuredLimit, bool allowSpawn)
-        {
-            if (decisionLogs >= MaxDecisionLogs ||
-                hasLoggedDecision[playerId] &&
-                lastLoggedCounts[playerId] == liveCount &&
-                lastLoggedLimits[playerId] == configuredLimit &&
-                lastLoggedDecisions[playerId] == allowSpawn)
-            {
-                return;
-            }
-
-            hasLoggedDecision[playerId] = true;
-            lastLoggedCounts[playerId] = liveCount;
-            lastLoggedLimits[playerId] = configuredLimit;
-            lastLoggedDecisions[playerId] = allowSpawn;
-            decisionLogs++;
-            Shared.DebugLogHelper.LogInfo(
-                log,
-                $"Improved Hunters granary chicken limit decision: player={playerId}, live={liveCount}, " +
-                $"limit={configuredLimit}, allowNextSpawn={allowSpawn} ({decisionLogs}/{MaxDecisionLogs}).");
         }
 
         private void DisableFeature(Exception failure)

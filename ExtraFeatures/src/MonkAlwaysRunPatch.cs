@@ -107,6 +107,10 @@ namespace ExtraFeatures
                 $"startRva=0x{decisionRva:X}, endRva=0x{decisionRva + HookSize:X}, " +
                 "instructionLengths=9,2,9, nextRva=0x15144A, " +
                 "incomingInteriorTargets=0, skins=FightingMonk/TempleGuard.");
+            Shared.CrashBreadcrumbDiagnostics.Record(
+                "MonkMovementHookInstalled",
+                decisionRva,
+                HookSize);
         }
 
         public void SetEnabled(bool value)
@@ -117,6 +121,9 @@ namespace ExtraFeatures
 
             Marshal.WriteInt32(enabledFlag, value ? 1 : 0);
             enabled = value;
+            Shared.CrashBreadcrumbDiagnostics.Record(
+                "MonkMovementSetting",
+                value ? 1 : 0);
             Shared.DebugLogHelper.LogDebug(
                 log,
                 $"Extra Features Monks Always Run is now {(value ? "enabled" : "disabled")}; " +

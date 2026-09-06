@@ -309,6 +309,19 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableExtendedShiftCommandQueueText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-move-formation-enhancements" shared:ModSettingsSearch.Title="{Binding EnableMoveFormationEnhancementsText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableMoveFormationEnhancementsHelpText}"><CheckBox IsChecked="{Binding EnableMoveFormationEnhancements, Mode=TwoWay}"
+                Foreground="White"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableMoveFormationEnhancementsHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding EnableMoveFormationEnhancementsText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.move-formation-spacing" shared:ModSettingsSearch.Title="{Binding MoveFormationSpacingText}" shared:ModSettingsSearch.ToolTipText="{Binding MoveFormationSpacingHelpText}"
+            ToolTipService.ShowDuration="60000" ToolTip="{Binding MoveFormationSpacingHelpText}" Margin="0,0,0,8">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="170"/><ColumnDefinition Width="220"/><ColumnDefinition Width="190"/></Grid.ColumnDefinitions>
+        <TextBlock Grid.Column="0" Text="{Binding MoveFormationSpacingText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>
+        <Slider Grid.Column="1" Minimum="1" Maximum="4" Value="{Binding MoveFormationSpacing, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" IsEnabled="{Binding CanEditHostSettings}" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding MoveFormationSpacingHelpText}"/>
+        <TextBlock Grid.Column="2" Text="{Binding MoveFormationSpacingValueText}" Foreground="White" TextWrapping="Wrap" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="8,0,0,0"/>
+      </Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.friendly-moat-movement-mode" shared:ModSettingsSearch.Title="{Binding FriendlyMoatMovementModeText}" shared:ModSettingsSearch.ToolTipText="{Binding FriendlyMoatMovementModeHelpText}"
             ToolTipService.ShowDuration="60000" ToolTip="{Binding FriendlyMoatMovementModeHelpText}" Margin="0,0,0,8">
         <Grid.ColumnDefinitions><ColumnDefinition Width="170"/><ColumnDefinition Width="220"/><ColumnDefinition Width="190"/></Grid.ColumnDefinitions>

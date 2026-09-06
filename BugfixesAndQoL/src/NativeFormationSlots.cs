@@ -59,7 +59,8 @@ namespace BugfixesAndQoL
         private bool ShouldOverrideMoveFormationSpacing(IntPtr manager, int x, int y)
         {
             MoveCommandScope command = activeMoveCommand;
-            return !disposed && settings.EnableMod && manager != IntPtr.Zero &&
+            return !disposed && settings.EnableMod && settings.EnableMoveFormationEnhancements &&
+                manager != IntPtr.Zero &&
                 manager == nativePathManager && command != null &&
                 command.TargetX == x && command.TargetY == y && !command.IsPatrolPath &&
                 activeAttackCommand == null && activeMoatWorkSelection == null &&

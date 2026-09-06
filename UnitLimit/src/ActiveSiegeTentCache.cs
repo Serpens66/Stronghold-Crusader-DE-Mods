@@ -164,7 +164,13 @@ namespace UnitLimit
 
             if (eventArgs != null)
             {
-                LogDebug("ActiveSiegeTentCache changed:", "buildingId", buildingId, "player", eventArgs.PlayerId, "unit", eventArgs.UnitType, "old", eventArgs.OldCount, "new", eventArgs.NewCount, "reason", reason);
+                Shared.CrashBreadcrumbDiagnostics.Record(
+                    "SiegeTentChanged",
+                    buildingId,
+                    eventArgs.PlayerId,
+                    (int)eventArgs.UnitType,
+                    eventArgs.Delta,
+                    (int)reason);
                 OnActiveSiegeTentChanged?.Invoke(eventArgs);
             }
         }
@@ -184,7 +190,13 @@ namespace UnitLimit
 
             if (eventArgs != null)
             {
-                LogDebug("ActiveSiegeTentCache removed:", "buildingId", buildingId, "player", eventArgs.PlayerId, "unit", eventArgs.UnitType, "old", eventArgs.OldCount, "new", eventArgs.NewCount, "reason", reason);
+                Shared.CrashBreadcrumbDiagnostics.Record(
+                    "SiegeTentRemoved",
+                    buildingId,
+                    eventArgs.PlayerId,
+                    (int)eventArgs.UnitType,
+                    eventArgs.Delta,
+                    (int)reason);
                 OnActiveSiegeTentChanged?.Invoke(eventArgs);
             }
         }

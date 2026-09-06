@@ -764,43 +764,73 @@ namespace BugfixesAndQoL
 
         private void TryInitializeFeature(string featureName, Action initialize)
         {
-            try
+            using (Shared.CrashBreadcrumbScope diagnostic =
+                Shared.CrashBreadcrumbDiagnostics.Enter("FeatureInitialize", featureName.GetHashCode()))
             {
-                initialize();
-            }
-            catch (Exception ex)
-            {
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Bugfixes and QoL feature '{featureName}' could not be initialized and remains inactive: {ex}");
+                try
+                {
+                    initialize();
+                    diagnostic.Complete();
+                }
+                catch (Exception ex)
+                {
+                    diagnostic.Complete(-1);
+                    if (Shared.CrashBreadcrumbDiagnostics.ShouldLogUnexpected(
+                        "initialize:" + featureName + ":" + ex.GetType().FullName))
+                    {
+                        Shared.DebugLogHelper.LogError(
+                            log,
+                            $"Bugfixes and QoL feature '{featureName}' could not be initialized and remains inactive: {ex}");
+                    }
+                }
             }
         }
 
         private void TryInitializePersistentFeature(string featureName, Action initialize)
         {
-            try
+            using (Shared.CrashBreadcrumbScope diagnostic =
+                Shared.CrashBreadcrumbDiagnostics.Enter("PersistentInitialize", featureName.GetHashCode()))
             {
-                initialize();
-            }
-            catch (Exception ex)
-            {
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Bugfixes and QoL persistent feature '{featureName}' could not be initialized; independent features continue: {ex}");
+                try
+                {
+                    initialize();
+                    diagnostic.Complete();
+                }
+                catch (Exception ex)
+                {
+                    diagnostic.Complete(-1);
+                    if (Shared.CrashBreadcrumbDiagnostics.ShouldLogUnexpected(
+                        "persistent-initialize:" + featureName + ":" + ex.GetType().FullName))
+                    {
+                        Shared.DebugLogHelper.LogError(
+                            log,
+                            $"Bugfixes and QoL persistent feature '{featureName}' could not be initialized; independent features continue: {ex}");
+                    }
+                }
             }
         }
 
         private void TryApplyFeature(string featureName, Action apply)
         {
-            try
+            using (Shared.CrashBreadcrumbScope diagnostic =
+                Shared.CrashBreadcrumbDiagnostics.Enter("FeatureApply", featureName.GetHashCode()))
             {
-                apply();
-            }
-            catch (Exception ex)
-            {
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Bugfixes and QoL feature '{featureName}' could not apply its setting; independent features continue: {ex}");
+                try
+                {
+                    apply();
+                    diagnostic.Complete();
+                }
+                catch (Exception ex)
+                {
+                    diagnostic.Complete(-1);
+                    if (Shared.CrashBreadcrumbDiagnostics.ShouldLogUnexpected(
+                        "apply:" + featureName + ":" + ex.GetType().FullName))
+                    {
+                        Shared.DebugLogHelper.LogError(
+                            log,
+                            $"Bugfixes and QoL feature '{featureName}' could not apply its setting; independent features continue: {ex}");
+                    }
+                }
             }
         }
 

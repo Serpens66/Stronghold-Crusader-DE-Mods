@@ -9,5 +9,6 @@
   <ItemGroup>
     <Compile Include="..\..\src\ExtendedShiftCommandQueueModel.cs" Link="ExtendedShiftCommandQueueModel.cs" />
     <Compile Include="..\..\src\LargeMoveTargetDiagnosticsModel.cs" Link="LargeMoveTargetDiagnosticsModel.cs" />
+    <Compile Include="..\..\src\MoveFormationSpacingPolicy.cs" Link="MoveFormationSpacingPolicy.cs" />
   </ItemGroup>
 </Project>

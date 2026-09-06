@@ -15,6 +15,7 @@ string[] runtimeSourceNames =
     "FriendlyMoatMovementRuntime.cs", "MoatPlacement.cs", "MoatPlacementSearch.cs",
     "MoatSearchKernel.cs", "MoatWorkTargetSelection.cs", "MovementOptionsSnapshot.cs",
     "MovementPathPublication.cs", "MovementSearchContext.cs", "NativeFormationSlots.cs",
+    "MoveFormationSpacingPolicy.cs",
     "NativeMovementCadenceResolver.cs", "NativeMovementRecovery.cs", "UnitMovementContext.cs",
     "WeightedMoatPublication.cs", "WeightedMoatRoutePlanner.cs"
 };
@@ -120,6 +121,7 @@ var compilation = CSharpCompilation.Create("Assembly-CSharp", new[] {
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "MoatSearchKernel.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "MoatPlacementSearch.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "NativeFormationSlots.cs")).Replace("using SHCDESE.API;", "")),
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "MoveFormationSpacingPolicy.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "FillWeightedRoutes.cs")).Replace("using SHCDESE.API;", "").Replace("using SHCDESE.Interop;", "").Replace("using SHCDESE.Interop.Enums;", "")),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "MoatPlacement.cs")).Replace("using SHCDESE.API;", "").Replace("using SHCDESE.EventAPI.Units;", "").Replace("using SHCDESE.Interop;", "").Replace("using SHCDESE.Interop.Enums;", "")),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "CursorRegionGraph.cs"))),
@@ -260,6 +262,8 @@ void ValidateRuntimeSources()
     var settingsStub = CSharpSyntaxTree.ParseText(
         "namespace BugfixesAndQoL { internal sealed class BugfixesAndQoLViewModel { " +
         "public bool EnableMod { get; set; } = true; public bool EnableImprovedMoatFilling { get; set; } = true; " +
+        "public bool EnableMoveFormationEnhancements { get; set; } = true; " +
+        "public int MoveFormationSpacing { get; set; } = MoveFormationSpacingPolicy.Default; " +
         "public int FriendlyMoatMovementMode { get; set; } = FriendlyMoatMovementPolicy.DefaultMode; " +
         "internal FriendlyMoatMovementMode GetFriendlyMoatMovementMode() => " +
         "(FriendlyMoatMovementMode)FriendlyMoatMovementPolicy.Normalize(FriendlyMoatMovementMode); } }");

@@ -1,6 +1,8 @@
 using BepInEx.Logging;
 using RedBird.Abstractions.Hooks;
 using RedBird.Abstractions.Hooks.Transaction;
+using RedBird.Core.Memory;
+using RedBird.X64.Assembly;
 using RedBird.X64.Hooks;
 using RedBird.X64.Hooks.Context;
 using RedBird.X64.Hooks.Transaction;
@@ -83,6 +85,7 @@ namespace BugfixesAndQoL
         private delegate int BuildingHeightDelegate(IntPtr buildingManager, int buildingId);
 
         private readonly ManualLogSource log;
+        private readonly Func<bool> featureEnabled;
         private readonly HookHandle<X64InlineHook> visibleTileHook =
             new HookHandle<X64InlineHook>();
         private volatile Dictionary<int, int> markerIdentityByTile =
@@ -95,9 +98,10 @@ namespace BugfixesAndQoL
         private bool failed;
         private bool failureLogged;
 
-        public LargeMoveTargetMarkerRenderer(ManualLogSource log)
+        public LargeMoveTargetMarkerRenderer(ManualLogSource log, Func<bool> featureEnabled)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
+            this.featureEnabled = featureEnabled ?? throw new ArgumentNullException(nameof(featureEnabled));
         }
 
         public bool ReplacementAvailable => installed && !failed &&
@@ -208,7 +212,7 @@ namespace BugfixesAndQoL
 
         private void RenderVisibleLargeMoveTarget(NativePointer<X64SmartCPUContext> context)
         {
-            if (!ReplacementAvailable || context.Pointer == null)
+            if (!ReplacementAvailable || !featureEnabled() || context.Pointer == null)
                 return;
             try
             {

@@ -27,6 +27,11 @@ namespace ExtraFeatures
 
         private void Awake()
         {
+            Shared.CrashBreadcrumbDiagnostics.Initialize(
+                Logger,
+                PluginGuid,
+                PluginName,
+                PluginVersion);
             Shared.DebugLogHelper.LogDebug(Logger, $"{PluginName} {PluginVersion} loaded.");
             bool legacySomeSettingsLoaded = Chainloader.PluginInfos.ContainsKey(LegacySomeSettingsGuid);
             if (legacySomeSettingsLoaded)

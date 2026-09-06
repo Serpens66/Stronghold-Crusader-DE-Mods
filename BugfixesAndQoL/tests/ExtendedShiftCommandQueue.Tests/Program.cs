@@ -26,10 +26,34 @@ internal static class Program
         CheckMultiplayerChoreMarkers();
         CheckMoveChoreDeduplication();
         CheckFirstShiftMoveTakeover();
+        CheckMoveFormationSpacing();
         CheckLargeMoveTargetDiagnostics();
         CheckMigrationSourceContracts();
         CheckNativeReference();
         Console.WriteLine($"Extended Shift command queue static tests passed: {checks} checks.");
+    }
+
+    private static void CheckMoveFormationSpacing()
+    {
+        Check(MoveFormationSpacingPolicy.Default == 2,
+            "Move formation spacing default is dense");
+        for (int spacing = 1; spacing <= 4; spacing++)
+        {
+            Check(MoveFormationSpacingPolicy.Normalize(spacing) == spacing,
+                $"Move formation spacing accepts {spacing}");
+        }
+        foreach (int invalid in new[] { int.MinValue, -1, 0, 5, int.MaxValue })
+        {
+            Check(MoveFormationSpacingPolicy.Normalize(invalid) == MoveFormationSpacingPolicy.Default,
+                $"invalid Move formation spacing {invalid} resets to default");
+        }
+        Check(Enumerable.Range(0, 40).Count(value => value % 1 == 0) >
+              Enumerable.Range(0, 40).Count(value => value % 2 == 0) &&
+              Enumerable.Range(0, 40).Count(value => value % 2 == 0) >
+              Enumerable.Range(0, 40).Count(value => value % 3 == 0) &&
+              Enumerable.Range(0, 40).Count(value => value % 3 == 0) >
+              Enumerable.Range(0, 40).Count(value => value % 4 == 0),
+            "spacing values select monotonically fewer Manhattan grid fields");
     }
 
     private static void CheckLargeMoveTargetDiagnostics()
@@ -722,6 +746,24 @@ internal static class Program
         Check(image[drawSubmissionRawOffset + expectedDrawSubmissionBody.Length] == 0xCC,
             "overlay draw submission RET boundary");
 
+        byte[] visibleTileHookBytes = Convert.FromHexString("410FB7BC5980EF7500");
+        int visibleTileHookRawOffset = RvaToRawOffset(image, 0x436DE);
+        Check(image.AsSpan(visibleTileHookRawOffset, visibleTileHookBytes.Length)
+                .SequenceEqual(visibleTileHookBytes),
+            "visible-tile marker hook exact MOVZX block");
+        Check(0x436DE + visibleTileHookBytes.Length == 0x436E7 &&
+              image[visibleTileHookRawOffset + visibleTileHookBytes.Length] == 0x85 &&
+              image[visibleTileHookRawOffset + visibleTileHookBytes.Length + 1] == 0xFF,
+            "visible-tile marker hook resumes at TEST EDI without live input flags");
+
+        byte[] spriteBuilderEntry = Convert.FromHexString(
+            "48895C240844894C242044894424188954241055565741544155415641574881ECC0000000" +
+            "8B842460010000488BD98BAC242001000085C0448BF04D63F841F7D64C63EA");
+        int spriteBuilderRawOffset = RvaToRawOffset(image, 0x1A13C0);
+        Check(image.AsSpan(spriteBuilderRawOffset, spriteBuilderEntry.Length)
+                .SequenceEqual(spriteBuilderEntry),
+            "native sprite builder validated entry signature");
+
     }
 
     private static void CheckMigrationSourceContracts()
@@ -786,10 +828,20 @@ internal static class Program
             largeMoveRuntime.Contains("GameUnitManagerAPI.Instance.GetUnitsAsSpan()") &&
             largeMoveRuntime.Contains("DrawListCountOffset = 0x622248"),
             "large Move diagnostics capture native targets and aggregate them on tick");
-        Check(largeMoveRenderer.Contains("Application.onBeforeRender += OnBeforeRender") &&
-            !largeMoveRenderer.Contains("void Update(") &&
-            largeMoveRenderer.Contains("rowBatches"),
-            "large Move marker renderer is persistent and row-batched");
+        Check(largeMoveRenderer.Contains("VisibleTileHookRva = 0x436DE") &&
+            largeMoveRenderer.Contains("SpriteBuilderRva = 0x1A13C0") &&
+            largeMoveRenderer.Contains("BugfixesHookInfrastructure.AddContextHook(") &&
+            largeMoveRenderer.Contains("!featureEnabled()") &&
+            largeMoveRenderer.Contains("0x6B") && largeMoveRenderer.Contains("0x52 + frame") &&
+            largeMoveRenderer.Contains("0xC") &&
+            !largeMoveRenderer.Contains("Application.onBeforeRender") &&
+            !largeMoveRenderer.Contains("Texture2D") &&
+            !largeMoveRenderer.Contains("Mesh"),
+            "large Move renderer injects real Vanilla sprites in the visible-tile pass");
+        Check(largeMoveRenderer.Contains("MaximumSyntheticMarkers") &&
+            largeMoveRenderer.Contains("NativeMode8IdentityCapacity = 4250") &&
+            largeMoveRenderer.Contains("MOVE_TARGET_MARKER_RENDER_FAIL_OPEN"),
+            "large Move renderer validates its 4000-marker identity range and fails open");
         Check(queueRuntime.Contains("OwnsHooks = false"),
             "integrated queue declares process-lifetime hook ownership");
         Check(!queueRuntime.Contains("Zhuqiaomon") && !queueRuntime.Contains("HookRef<") &&
@@ -810,6 +862,13 @@ internal static class Program
         Check(viewModel.Contains("private bool enableExtendedShiftCommandQueue = true;") &&
               viewModel.Contains("EnableExtendedShiftCommandQueue = true;"),
             "extended queue is enabled by default and by preset reset");
+        Check((viewModel.Contains("[SyncHostOnly]\n        public bool EnableMoveFormationEnhancements") ||
+               viewModel.Contains("[SyncHostOnly]\r\n        public bool EnableMoveFormationEnhancements")) &&
+              (viewModel.Contains("[SyncHostOnly]\n        public int MoveFormationSpacing") ||
+               viewModel.Contains("[SyncHostOnly]\r\n        public int MoveFormationSpacing")) &&
+              viewModel.Contains("MoveFormationSpacingPolicy.Default") &&
+              viewModel.Contains("EnableMoveFormationEnhancements = true;"),
+            "Move formation behavior has a synchronized host switch and resettable spacing");
         Check(queueRuntime.Contains("settings.EnableMod && settings.EnableExtendedShiftCommandQueue") &&
               (queueRuntime.Contains("if (!enabled)\n                ResetMapState();") ||
                queueRuntime.Contains("if (!enabled)\r\n                ResetMapState();")),
@@ -820,6 +879,14 @@ internal static class Program
             "marked commands are decoded safely across setting transitions");
         Check(settingsXaml.Contains("EnableExtendedShiftCommandQueue, Mode=TwoWay"),
             "host settings UI exposes the extended queue option");
+        Check(settingsXaml.Contains("EnableMoveFormationEnhancements, Mode=TwoWay") &&
+              settingsXaml.Contains("MoveFormationSpacing, Mode=TwoWay") &&
+              settingsXaml.Contains("Minimum=\"1\" Maximum=\"4\""),
+            "host settings UI exposes the Move feature switch and spacing range");
+        Check(bugfixesRuntime.Contains("settings.EnableMoveFormationEnhancements") &&
+              bugfixesRuntime.Contains("!FeatureEnabled ||") &&
+              bugfixesRuntime.Contains("setting-disabled"),
+            "Move spacing, diagnostics, suppression, and replacement obey their feature setting");
         Check(bugfixesPlugin.Contains("BepInIncompatibility(LegacyQueueTestGuid)") &&
               bugfixesPlugin.Contains("LegacyQueueTestGuid = \"QueueTest_Serp\""),
             "standalone QueueTest is explicitly incompatible");

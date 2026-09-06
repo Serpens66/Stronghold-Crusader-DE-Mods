@@ -208,9 +208,9 @@ namespace BugfixesAndQoL
                 tileFlags[1016]=0x8000; enemyTiles.Clear(); nativeTribeManager=(IntPtr)tribes;
                 *(int*)(tribes+TribeRecordSize+0x2C)=1;
                 for(int x=20;x<=44;x++){tileFlags[1000+x]=CompletedMoatTileFlag;enemyTiles.Add(1000+x);}
-                int calls=0, available=220;
+                int calls=0, available=220, lastSpacing=0;
                 originalFormationSlot=(m,spacing,x,y)=> {
-                    calls++; int at=*(int*)(tribes+0x14);
+                    calls++; lastSpacing=spacing; int at=*(int*)(tribes+0x14);
                     if(at<0 || at>=available)at=0;
                     *(int*)(tribes+0x14)=at;
                     *(int*)(tribes+0x0C)=at==0?60:at<=25?19+at:35+at;
@@ -232,6 +232,8 @@ namespace BugfixesAndQoL
                     }
                     Console.WriteLine($"FORMATION units={count} nativeCalls={calls} ms={watch.Elapsed.TotalMilliseconds:F3} bytes={GC.GetAllocatedBytesForCurrentThread()-allocated}");
                     Check(calls==count+(count>1?25:0),"enemy candidates scanned only once per native list");
+                    Check(lastSpacing==MoveFormationSpacingPolicy.Default,
+                        "direct Move replaces the unit-type spacing with the synchronized default");
                     Check(weightedMoatRoutePlanner.SearchRuns==before,"native slot filtering never searches a path");
                     originalPathBuilder=(m,c,p)=> {
                         byte* state=(byte*)m;int length=*(int*)(state+16)-*(int*)(state+8);
@@ -265,6 +267,19 @@ namespace BugfixesAndQoL
                 int exhaustedCalls=calls;
                 for(int i=0;i<120;i++){*(int*)(tribes+0x14)=1;ChooseOwnerSafeFormationSlot(nativePathManager,1,60,10);}
                 Check(calls<=exhaustedCalls+1,"exhausted unchanged candidate list is not scanned per unit");
+                TestSettings.Settings.MoveFormationSpacing=4;
+                formationOwner=null;formationExhausted=false;*(int*)(tribes+0x14)=1;
+                ChooseOwnerSafeFormationSlot(nativePathManager,1,60,10);
+                Check(lastSpacing==4,"Move spacing setting overrides the Vanilla unit-type value");
+                activeMoveCommand.IsPatrolPath=true;*(int*)(tribes+0x14)=1;
+                ChooseOwnerSafeFormationSlot(nativePathManager,2,60,10);
+                Check(lastSpacing==2,"patrol movement retains its Vanilla spacing");
+                activeMoveCommand.IsPatrolPath=false;TestSettings.Settings.EnableMoveFormationEnhancements=false;
+                *(int*)(tribes+0x14)=1;
+                ChooseOwnerSafeFormationSlot(nativePathManager,3,60,10);
+                Check(lastSpacing==3,"disabled Move formation feature retains all Vanilla spacing");
+                TestSettings.Settings.EnableMoveFormationEnhancements=true;
+                TestSettings.Settings.MoveFormationSpacing=MoveFormationSpacingPolicy.Default;
                 tileFlags[1060]|=CursorSpecialStructureTileFlagMask;
                 ChooseOwnerSafeFormationSlot(nativePathManager,1,60,10);
                 Check(*(int*)(tribes+0x0C)==60,"native common fallback retains structure target for individual portal validation");

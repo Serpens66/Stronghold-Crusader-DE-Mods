@@ -37,10 +37,11 @@ namespace ImprovedHunters
                 args.TileY,
                 args.HeightElevation,
                 Stopwatch.GetTimestamp()));
-            LogChickenOwnershipDiagnostic(
-                $"Improved Hunters granary chicken spawn captured: player={args.PlayerId}, " +
-                $"tile={args.TileX},{args.TileY}, height={args.HeightElevation}, " +
-                $"pendingDepth={pendingGranaryChickenSpawns.Count}.");
+            Shared.CrashBreadcrumbDiagnostics.Record(
+                "GranaryChickenCaptured",
+                args.PlayerId,
+                pendingGranaryChickenSpawns.Count,
+                (int)args.Chimp);
         }
 
         private void OnUnitCreate(UnitCreateEventArgs args)
@@ -86,10 +87,12 @@ namespace ImprovedHunters
             int previousColor = args.PlayerColorId;
             args.PlayerOwnerId = 0;
             args.PlayerColorId = 0;
-            LogChickenOwnershipDiagnostic(
-                $"Improved Hunters granary chicken spawn neutralized before creation: " +
-                $"sourcePlayer={pending.SourcePlayerId}, owner={previousOwner}->0, color={previousColor}->0, " +
-                $"worldTile={args.WorldTileX},{args.WorldTileY}, pendingDepth={pendingGranaryChickenSpawns.Count}.");
+            Shared.CrashBreadcrumbDiagnostics.Record(
+                "GranaryChickenNeutralized",
+                pending.SourcePlayerId,
+                previousOwner,
+                previousColor,
+                pendingGranaryChickenSpawns.Count);
         }
 
         private unsafe void OnUnitCreatePost(UnitCreateEventArgs args)
@@ -135,10 +138,11 @@ namespace ImprovedHunters
                 unitId,
                 chicken->r_GlobalId,
                 pending.SourcePlayerId);
-            LogChickenOwnershipDiagnostic(
-                $"Improved Hunters granary chicken assigned: player={pending.SourcePlayerId}, unit={unitId}, " +
-                $"globalId={chicken->r_GlobalId}, owner=0, color=0, " +
-                $"worldTile={pending.WorldTileX},{pending.WorldTileY}.");
+            Shared.CrashBreadcrumbDiagnostics.Record(
+                "GranaryChickenAssigned",
+                pending.SourcePlayerId,
+                unitId,
+                unchecked((int)chicken->r_GlobalId));
         }
 
         private bool IsChickenManagementActive =>

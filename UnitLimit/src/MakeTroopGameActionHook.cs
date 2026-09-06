@@ -112,66 +112,47 @@ namespace UnitLimit
                 return trampoline(command, structureID, state, value2);
 
             int amount = NormalizeMakeTroopAmount(structureID, state, value2);
+            using (Shared.CrashBreadcrumbScope diagnostic =
+                Shared.CrashBreadcrumbDiagnostics.Enter(
+                    "MakeTroopGameAction",
+                    amount,
+                    state,
+                    value2))
             using (Shared.RecruitmentHookContext.Scope scope = Shared.RecruitmentHookContext.Enter(amount))
             {
                 bool interpretCtrlSentinel = Shared.RecruitmentHookContext.ShouldInterpretCtrlSentinel(amount);
                 MakeTroopGameActionDecision decision = MakeTroopGameActionDecision.AllowOriginal();
                 try
                 {
-                    Shared.DebugLogHelper.LogDebug(
-                        log,
-                        "UnitLimit MakeTroop hook enter:",
-                        "incomingAmount", amount,
-                        "interpretCtrlSentinel", interpretCtrlSentinel,
-                        "state", state,
-                        "value2", value2);
-
                     decision = decideMakeTroop(amount, (eChimps)state, state, interpretCtrlSentinel);
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
-                    Shared.DebugLogHelper.LogDebug(log, "Unit limit game action decision failed:", ex.Message);
+                    Shared.CrashBreadcrumbDiagnostics.Record(
+                        "MakeTroopDecisionFailure",
+                        amount,
+                        state,
+                        value2,
+                        outcome: -1);
                     decision = MakeTroopGameActionDecision.AllowOriginal();
                 }
 
                 int forwardedAmount = decision.ReplaceAmount ? decision.AmountToForward : structureID;
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    "UnitLimit MakeTroop hook decision:",
-                    "incomingAmount", amount,
-                    "interpretCtrlSentinel", interpretCtrlSentinel,
-                    "state", state,
-                    "value2", value2,
-                    "decision", GetDecisionName(decision),
-                    "forwardedAmount", decision.Block ? 0 : forwardedAmount,
-                    "plannedPendingAmount", decision.PendingAmount);
-
                 if (decision.Block)
                 {
                     Shared.RecruitmentHookContext.RecordBlocked();
-                    Shared.DebugLogHelper.LogDebug(
-                        log,
-                        "UnitLimit MakeTroop hook blocked original action:",
-                        "originalAmount", amount,
-                        "state", state,
-                        "value2", value2);
+                    diagnostic.Complete(1);
                     return 0;
                 }
 
                 if (decision.ReplaceAmount)
                 {
                     Shared.RecruitmentHookContext.RecordForwardedAmount(decision.AmountToForward);
-                    Shared.DebugLogHelper.LogDebug(
-                        log,
-                        "UnitLimit MakeTroop hook replaced original action:",
-                        "originalAmount", amount,
-                        "forwardedAmount", decision.AmountToForward,
-                        "state", state,
-                        "value2", value2);
                 }
 
-                int result = CallTrampoline(command, forwardedAmount, state, value2, decision, amount);
+                int result = CallTrampoline(command, forwardedAmount, state, value2);
                 CompleteDecision(decision);
+                diagnostic.Complete(decision.ReplaceAmount ? 2 : 0);
                 return result;
             }
         }
@@ -180,28 +161,9 @@ namespace UnitLimit
             Enums.GameActionCommand command,
             int forwardedAmount,
             int state,
-            int value2,
-            MakeTroopGameActionDecision decision,
-            int incomingAmount)
+            int value2)
         {
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                "UnitLimit MakeTroop hook trampoline enter:",
-                "incomingAmount", incomingAmount,
-                "state", state,
-                "value2", value2,
-                "decision", GetDecisionName(decision),
-                "forwardedAmount", forwardedAmount);
             int result = trampoline(command, forwardedAmount, state, value2);
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                "UnitLimit MakeTroop hook trampoline returned:",
-                "incomingAmount", incomingAmount,
-                "state", state,
-                "value2", value2,
-                "decision", GetDecisionName(decision),
-                "forwardedAmount", forwardedAmount,
-                "result", result);
             return result;
         }
 
@@ -217,19 +179,13 @@ namespace UnitLimit
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogDebug(log, "UnitLimit recruitment completion failed:", ex.Message);
+                Shared.CrashBreadcrumbDiagnostics.Record("RecruitmentCompletionFailure", outcome: -1);
+                if (Shared.CrashBreadcrumbDiagnostics.ShouldLogUnexpected(
+                    "RecruitmentCompletion:" + ex.GetType().FullName))
+                {
+                    Shared.DebugLogHelper.LogDebug(log, "UnitLimit recruitment completion failed:", ex.Message);
+                }
             }
-        }
-
-        private static string GetDecisionName(MakeTroopGameActionDecision decision)
-        {
-            if (decision.Block)
-                return "BlockAction";
-
-            if (decision.ReplaceAmount)
-                return "ForwardAmount";
-
-            return "AllowOriginal";
         }
 
         private int NormalizeMakeTroopAmount(int structureID, int state, int value2)
@@ -239,11 +195,20 @@ namespace UnitLimit
             if (structureID > 0)
                 return structureID;
 
-            Shared.DebugLogHelper.LogWarning(log, "UnitLimit MakeTroop received unexpected amount parameter: " +
-                "structureID=" + structureID +
-                " state=" + state +
-                " value2=" + value2 +
-                "; falling back to amount=1.");
+            Shared.CrashBreadcrumbDiagnostics.Record(
+                "UnexpectedRecruitmentAmount",
+                structureID,
+                state,
+                value2,
+                outcome: -1);
+            if (Shared.CrashBreadcrumbDiagnostics.ShouldLogUnexpected("UnexpectedRecruitmentAmount"))
+            {
+                Shared.DebugLogHelper.LogWarning(log, "UnitLimit MakeTroop received unexpected amount parameter: " +
+                    "structureID=" + structureID +
+                    " state=" + state +
+                    " value2=" + value2 +
+                    "; falling back to amount=1. Further occurrences are aggregated by crash diagnostics.");
+            }
             return 1;
         }
     }

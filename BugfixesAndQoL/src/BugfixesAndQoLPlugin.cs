@@ -43,6 +43,7 @@ namespace BugfixesAndQoL
 
         private void Awake()
         {
+            Shared.CrashBreadcrumbDiagnostics.Initialize(Logger, PluginGuid, PluginName, PluginVersion);
             Shared.DebugLogHelper.LogDebug(Logger, $"{PluginName} {PluginVersion} loaded.");
             bool legacySomeSettingsLoaded = Chainloader.PluginInfos.ContainsKey(LegacySomeSettingsGuid);
             if (legacySomeSettingsLoaded)
@@ -124,6 +125,9 @@ namespace BugfixesAndQoL
 
         private void OnCrusaderLibraryLoaded(CrusaderLibraryLoadContext context)
         {
+            using (Shared.CrashBreadcrumbScope diagnostic =
+                Shared.CrashBreadcrumbDiagnostics.Enter("LibraryLoaded"))
+            {
             // Register packet types immediately after Script Extender and before settings can vary.
             try
             {
@@ -271,6 +275,8 @@ namespace BugfixesAndQoL
             catch (Exception ex)
             {
                 Shared.DebugLogHelper.LogError(Logger, $"Bugfixes and QoL settings reconciliation failed; already initialized features remain active: {ex}");
+            }
+            diagnostic.Complete();
             }
         }
     }

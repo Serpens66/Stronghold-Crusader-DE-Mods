@@ -23,6 +23,11 @@ namespace ImprovedHunters
 
         private void Awake()
         {
+            Shared.CrashBreadcrumbDiagnostics.Initialize(
+                Logger,
+                PluginGuid,
+                PluginName,
+                PluginVersion);
             Shared.DebugLogHelper.LogInfo(Logger, $"{PluginName} {PluginVersion} loaded.");
 
             if (persistentSettings == null)
