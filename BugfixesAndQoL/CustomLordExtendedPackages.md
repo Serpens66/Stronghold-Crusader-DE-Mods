@@ -181,7 +181,7 @@ Available message names are:
 
 `IncomingMessage`, `WillAttack`, `TauntSiege2`, `TauntSiege3`, `TauntSiege4`, `AngerSiegeFailed`, `AngerFortressDamaged`, `PleadDeath`, `PleadOutsideWalls`, `NervousInsideWalls`, `Counterattack`, `Unk11`, `Won`, `Unk13`, `RequestGoods`, `ReceivedGoods`, `DefeatedAgain`, `AllyNotificationCongratulations`, `AllyNotificationHasDefeatedEnemy`, `AllyNotificationRequestReinforcements`, `AllyNotificationMerryChristmas`, `Unk21`, `Unk22`, `AllyNotificationWillSiegeEnemySoon`, `AllyNotificationCannotAttackEnemy`, `AllyNotificationWillNotAttackToday`, `AllyNotificationCannotNotHelp`, `AllyNotificationWillNotHelp`, `AllyNotificationWillNotSendRequestedGoods`, `AllyNotificationHasSentRequestedGoods`, `AllyNotificationConfidentInVictory`, `AllyNotificationConfidentInLosing`, `AllyNotificationSentReinforcements`, and `AllyNotificationAgree`.
 
-`DefeatedAgain`, `AllyNotificationCongratulations`, and `AllyNotificationHasDefeatedEnemy` map to the distinct native IDs 16, 17, and 18 respectively. Values named `Unk` are mapped but their exact trigger is not yet documented.
+Values named `Unk` are mapped but their exact trigger is not yet documented.
 
 ## Media paths and formats
 
