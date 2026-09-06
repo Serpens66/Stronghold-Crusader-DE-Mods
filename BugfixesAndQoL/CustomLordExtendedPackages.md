@@ -136,7 +136,8 @@ An absent or malformed `info.json`, or a blank/duplicate GUID, prevents reliable
         ]
       }
     }
-
+  
+Recommended tool to check for correct json syntax, since with wrong syntax the game won't load it: https://goonlinetools.com/json-validator/  
 All fields are optional at the C# model level, but `lordmeta.json` itself must deserialize as the expected object before the lord receives extended metadata. Missing optional fields are allowed. A field with the wrong JSON type can make deserialization of the entire document fail; it does not merely clear that one field.
 
 | Field | Actual behavior |
