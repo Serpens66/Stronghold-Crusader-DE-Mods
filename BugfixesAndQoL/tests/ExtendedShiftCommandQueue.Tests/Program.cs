@@ -934,6 +934,22 @@ internal static class Program
             "large Move renderer keeps stable incremental identities, validates capacity, and fails open");
         Check(queueRuntime.Contains("OwnsHooks = false"),
             "integrated queue declares process-lifetime hook ownership");
+        Check(!queueRuntime.Contains("CrashBreadcrumbDiagnostics.Enter(") &&
+            !queueRuntime.Contains("\"ShiftQueueTick\"") &&
+            !queueRuntime.Contains("\"ShiftQueueMoveOrder\"") &&
+            !queueRuntime.Contains("\"ShiftQueueTargetOrder\"") &&
+            !queueRuntime.Contains("\"ShiftQueueWaypoint\"") &&
+            queueRuntime.Contains("\"ShiftQueueEnqueue\"") &&
+            queueRuntime.Contains("\"ShiftQueueDispatch\"") &&
+            queueRuntime.Contains("\"ShiftQueueCancel\""),
+            "crash breadcrumbs retain queue transitions without recording routine ticks or global hook traffic");
+        Check(!queueRuntime.Contains("TOPOLOGY_") &&
+            CountText(queueRuntime, "LogCommandFailureOnce(") == 3 &&
+            queueRuntime.Contains("ShouldLogUnexpectedOnce(diagnosticOperation)") &&
+            queueRuntime.Contains("loggedUnexpectedFailures.Add(normalized)") &&
+            !queueRuntime.Contains("loggedUnsupportedCommands.Clear()") &&
+            queueRuntime.Contains("Further occurrences are aggregated by crash diagnostics."),
+            "Shift queue topology stays in diagnostics and repeated warnings are logged once per process session");
         Check(!queueRuntime.Contains("Zhuqiaomon") && !queueRuntime.Contains("HookRef<") &&
             !queueRuntime.Contains(".Hook.Trampoline"), "integrated queue has no legacy hook API");
         Check(bugfixesProject.Contains("RedBird.Abstractions.dll") &&

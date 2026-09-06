@@ -103,6 +103,9 @@ namespace BugfixesAndQoL
         private readonly HashSet<int> loggedUnsupportedCommands = new HashSet<int>();
         private readonly HashSet<long> loggedPredecessorRedispatchFailures = new HashSet<long>();
         private readonly HashSet<long> loggedIsolationFailures = new HashSet<long>();
+        private readonly HashSet<string> loggedUnexpectedFailures =
+            new HashSet<string>(StringComparer.Ordinal);
+        private readonly object unexpectedFailureLogRoot = new object();
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private readonly List<long> cohortIdBuffer = new List<long>();
         private readonly List<TribeQueueState> overlayCohortBuffer = new List<TribeQueueState>();
@@ -358,9 +361,9 @@ namespace BugfixesAndQoL
             if (!enabled)
                 ResetMapState();
 
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
-                $"Bugfixes and QoL Extended Shift command queue setting applied: enabled={enabled}.");
+                () => $"Extended Shift command queue setting applied: enabled={enabled}.");
         }
 
         private void InstallMultiplayerSynchronization(
@@ -632,7 +635,6 @@ namespace BugfixesAndQoL
             expectedMoveEvents.Clear();
             moveObservationScopes.Clear();
             observedAttacks.Clear();
-            loggedUnsupportedCommands.Clear();
             loggedPredecessorRedispatchFailures.Clear();
             loggedIsolationFailures.Clear();
         }
@@ -647,23 +649,15 @@ namespace BugfixesAndQoL
             expectedMoveEvents.Clear();
             moveObservationScopes.Clear();
             observedAttacks.Clear();
-            loggedUnsupportedCommands.Clear();
             loggedPredecessorRedispatchFailures.Clear();
             loggedIsolationFailures.Clear();
         }
 
         private void OnTargetOrder(TribeIssueOrderWithTargetEventArgs args)
         {
-            using (Shared.CrashBreadcrumbScope diagnostic =
-                Shared.CrashBreadcrumbDiagnostics.Enter(
-                    "ShiftQueueTargetOrder",
-                    args.TribeId,
-                    (int)args.AICommand,
-                    (int)args.Phase))
-            {
-                OnTargetOrderCore(args);
-                diagnostic.Complete(args.SkipOriginalFunction ? 1 : 0);
-            }
+            // This event also carries routine AI and non-Shift orders. Only actual queue
+            // transitions are useful crash breadcrumbs; recording every callback hid them.
+            OnTargetOrderCore(args);
         }
 
         private void OnTargetOrderCore(TribeIssueOrderWithTargetEventArgs args)
@@ -781,17 +775,9 @@ namespace BugfixesAndQoL
 
         private void OnMoveOrder(TribeIssueOrderMoveHereEventArgs args)
         {
-            using (Shared.CrashBreadcrumbScope diagnostic =
-                Shared.CrashBreadcrumbDiagnostics.Enter(
-                    "ShiftQueueMoveOrder",
-                    args.TribeId,
-                    args.TileX,
-                    args.TileY,
-                    (int)args.Phase))
-            {
-                OnMoveOrderCore(args);
-                diagnostic.Complete(args.SkipOriginalFunction ? 1 : 0);
-            }
+            // Both phases fire for ordinary AI movement as well. Queue actions are recorded
+            // centrally after they have passed the local/Shift/marker classification.
+            OnMoveOrderCore(args);
         }
 
         private void OnMoveOrderCore(TribeIssueOrderMoveHereEventArgs args)
@@ -948,23 +934,15 @@ namespace BugfixesAndQoL
             int waypointIndex,
             short moveMode)
         {
-            using (Shared.CrashBreadcrumbScope diagnostic =
-                Shared.CrashBreadcrumbDiagnostics.Enter(
-                    "ShiftQueueWaypoint",
-                    serializedTribeId,
-                    tileX,
-                    tileY,
-                    moveMode))
-            {
-                AppendMovementWaypointCore(
-                    tribeManager,
-                    serializedTribeId,
-                    tileX,
-                    tileY,
-                    waypointIndex,
-                    moveMode);
-                diagnostic.Complete();
-            }
+            // Chore 71 is also used by Vanilla movement. Avoid a breadcrumb unless the
+            // classified command changes queue state or the hook fails.
+            AppendMovementWaypointCore(
+                tribeManager,
+                serializedTribeId,
+                tileX,
+                tileY,
+                waypointIndex,
+                moveMode);
         }
 
         private void AppendMovementWaypointCore(
@@ -1026,7 +1004,7 @@ namespace BugfixesAndQoL
             catch (Exception exception)
             {
                 Shared.CrashBreadcrumbDiagnostics.Record("ShiftQueueWaypointFailure", outcome: -1);
-                if (Shared.CrashBreadcrumbDiagnostics.ShouldLogUnexpected(
+                if (ShouldLogUnexpectedOnce(
                     "ShiftQueueWaypoint:" + exception.GetType().FullName))
                 {
                     Shared.DebugLogHelper.LogError(
@@ -1047,26 +1025,24 @@ namespace BugfixesAndQoL
 
         private void RenderTribeOverlay(IntPtr tribeManager, int tribeId)
         {
-            using (Shared.CrashBreadcrumbScope diagnostic =
-                Shared.CrashBreadcrumbDiagnostics.Enter("ShiftQueueOverlay", tribeId))
-            {
             bool trampolineEntered = false;
             try
             {
                 RenderTribeOverlayCore(tribeManager, tribeId, ref trampolineEntered);
-                diagnostic.Complete();
             }
             catch (Exception exception)
             {
-                diagnostic.Complete(-1);
-                if (Shared.CrashBreadcrumbDiagnostics.ShouldLogUnexpected(
+                Shared.CrashBreadcrumbDiagnostics.Record(
+                    "ShiftQueueOverlayFailure",
+                    tribeId,
+                    outcome: -1);
+                if (ShouldLogUnexpectedOnce(
                     "ShiftQueueOverlay:" + exception.GetType().FullName))
                 {
                     Shared.DebugLogHelper.LogError(log, $"OVERLAY_HOOK_FAIL_OPEN: {exception}");
                 }
                 if (!trampolineEntered)
                     InvokeOriginalTribeOverlay(tribeManager, tribeId);
-            }
             }
         }
 
@@ -1077,7 +1053,7 @@ namespace BugfixesAndQoL
                 tribeId,
                 (int)command.Kind,
                 outcome: -1);
-            if (Shared.CrashBreadcrumbDiagnostics.ShouldLogUnexpected("ShiftQueueFull"))
+            if (ShouldLogUnexpectedOnce("ShiftQueueFull"))
             {
                 Shared.DebugLogHelper.LogWarning(
                     log,
@@ -1426,12 +1402,9 @@ namespace BugfixesAndQoL
 
         private void OnTick(int tick)
         {
-            using (Shared.CrashBreadcrumbScope diagnostic =
-                Shared.CrashBreadcrumbDiagnostics.Enter("ShiftQueueTick", tick))
-            {
-                OnTickCore(tick);
-                diagnostic.Complete();
-            }
+            // The current tick is already attached to meaningful queue records. A scope on
+            // every simulation tick used to overwrite the complete 256-entry crash ring.
+            OnTickCore(tick);
         }
 
         private void OnTickCore(int tick)
@@ -1485,11 +1458,20 @@ namespace BugfixesAndQoL
                         return;
                     if (!Dispatch(tribeId, state.ExternalAttack))
                     {
-                        if (loggedPredecessorRedispatchFailures.Add(cohortId))
+                        Shared.CrashBreadcrumbDiagnostics.Record(
+                            "ShiftQueuePredecessorRedispatchFailure",
+                            tribeId,
+                            (int)state.ExternalAttack.Kind,
+                            currentTick,
+                            outcome: -1);
+                        if (loggedPredecessorRedispatchFailures.Add(cohortId) &&
+                            ShouldLogUnexpectedOnce("ShiftQueuePredecessorRedispatchFailure"))
+                        {
                             Shared.DebugLogHelper.LogWarning(
                                 log,
                                 $"PREDECESSOR_REDISPATCH_FAILED: tribeId={tribeId}, " +
                                 $"command={state.ExternalAttack}; retrying.");
+                        }
                         return;
                     }
                     loggedPredecessorRedispatchFailures.Remove(cohortId);
@@ -1533,10 +1515,12 @@ namespace BugfixesAndQoL
                     }
                     else
                     {
-                        Shared.DebugLogHelper.LogWarning(
-                            log,
-                            $"REDISPATCH_FAILED: tribeId={tribeId}, " +
-                            $"command={state.Active}; skipping.");
+                        LogCommandFailureOnce(
+                            "ShiftQueueRedispatchFailure",
+                            "REDISPATCH_FAILED",
+                            tribeId,
+                            state.Active,
+                            "skipping");
                         state.CompleteActive();
                     }
                 }
@@ -1568,9 +1552,12 @@ namespace BugfixesAndQoL
                 if (issued)
                     return;
 
-                Shared.DebugLogHelper.LogWarning(
-                    log,
-                    $"DISPATCH_FAILED: tribeId={tribeId}, command={command}; skipping.");
+                LogCommandFailureOnce(
+                    "ShiftQueueDispatchFailure",
+                    "DISPATCH_FAILED",
+                    tribeId,
+                    command,
+                    "skipping");
                 state.CompleteActive();
             }
 
@@ -1629,6 +1616,14 @@ namespace BugfixesAndQoL
                 internalDispatch = false;
             }
 
+            if (issued)
+            {
+                Shared.CrashBreadcrumbDiagnostics.Record(
+                    "ShiftQueueDispatch",
+                    tribeId,
+                    (int)command.Kind,
+                    currentTick);
+            }
             return issued;
         }
 
@@ -1675,7 +1670,17 @@ namespace BugfixesAndQoL
 
             if (created != null)
                 affected.Add(created);
-            return QueueCohortOperations.TryEnqueueAtomically(affected, command);
+            bool enqueued = QueueCohortOperations.TryEnqueueAtomically(affected, command);
+            if (enqueued)
+            {
+                Shared.CrashBreadcrumbDiagnostics.Record(
+                    "ShiftQueueEnqueue",
+                    tribeId,
+                    (int)command.Kind,
+                    tribeMembers.Count,
+                    currentTick);
+            }
+            return enqueued;
         }
 
         private TribeQueueState CreateCohort(
@@ -1732,6 +1737,8 @@ namespace BugfixesAndQoL
         private void CancelQueuesForTribeUnits(int tribeId)
         {
             List<QueueUnitIdentity> affected = CaptureTribeMembers(tribeId);
+            int removedMembers = 0;
+            int removedCohorts = 0;
             foreach (QueueUnitIdentity member in affected)
             {
                 if (!unitToCohort.TryGetValue(member, out long cohortId) ||
@@ -1739,12 +1746,23 @@ namespace BugfixesAndQoL
                     continue;
                 unitToCohort.Remove(member);
                 state.RemoveMember(member);
+                removedMembers++;
                 if (state.Members.Count == 0)
                 {
                     cohorts.Remove(cohortId);
+                    removedCohorts++;
                     loggedPredecessorRedispatchFailures.Remove(cohortId);
                     loggedIsolationFailures.Remove(cohortId);
                 }
+            }
+            if (removedMembers != 0)
+            {
+                Shared.CrashBreadcrumbDiagnostics.Record(
+                    "ShiftQueueCancel",
+                    tribeId,
+                    removedMembers,
+                    removedCohorts,
+                    currentTick);
             }
         }
 
@@ -1810,7 +1828,7 @@ namespace BugfixesAndQoL
                 }
 
                 if (branches.Count > 1)
-                    LogTopology("SPLIT", state);
+                    RecordQueueTopology("ShiftQueueSplit", state);
             }
         }
 
@@ -1863,17 +1881,26 @@ namespace BugfixesAndQoL
             tribe = newTribe;
             state.RebindTribe(newTribeId, newTribe->r_GlobalId);
             loggedIsolationFailures.Remove(state.CohortId);
-            LogTopology("ISOLATE", state);
+            RecordQueueTopology("ShiftQueueIsolate", state);
             return true;
         }
 
         private void LogIsolationFailure(TribeQueueState state, string reason)
         {
-            if (loggedIsolationFailures.Add(state.CohortId))
+            Shared.CrashBreadcrumbDiagnostics.Record(
+                "ShiftQueueIsolationRetry",
+                state.BoundTribeId,
+                state.Members.Count,
+                currentTick,
+                outcome: -1);
+            if (loggedIsolationFailures.Add(state.CohortId) &&
+                ShouldLogUnexpectedOnce("ShiftQueueIsolationRetry"))
+            {
                 Shared.DebugLogHelper.LogWarning(
                     log,
                     $"COHORT_ISOLATION_RETRY: cohort={state.CohortId}, " +
                     $"tribeId={state.BoundTribeId}, reason={reason}.");
+            }
         }
 
         private void RollBackTribeSplit(
@@ -1890,9 +1917,19 @@ namespace BugfixesAndQoL
                 if (TryGetLivingUnit(member, out GameUnit* unit) && unit->r_TribeId == newTribeId &&
                     !TryUnassignUnit(member, newTribeId))
                 {
-                    Shared.DebugLogHelper.LogError(
-                        log,
-                        $"Queue rollback could not unassign unitId={member.UnitId} from tribeId={newTribeId}.");
+                    Shared.CrashBreadcrumbDiagnostics.Record(
+                        "ShiftQueueRollbackFailure",
+                        member.UnitId,
+                        newTribeId,
+                        currentTick,
+                        outcome: -1);
+                    if (ShouldLogUnexpectedOnce("ShiftQueueRollbackFailure"))
+                    {
+                        Shared.DebugLogHelper.LogError(
+                            log,
+                            $"Queue rollback could not unassign unitId={member.UnitId} from tribeId={newTribeId}. " +
+                            "Further occurrences are aggregated by crash diagnostics.");
+                    }
                     continue;
                 }
                 GameTribeManagerAPI.Instance.AssignUnit(originalTribeId, member.UnitId);
@@ -1952,7 +1989,7 @@ namespace BugfixesAndQoL
                         cohorts.Remove(right.CohortId);
                         loggedPredecessorRedispatchFailures.Remove(right.CohortId);
                         loggedIsolationFailures.Remove(right.CohortId);
-                        LogTopology("COALESCE", left);
+                        RecordQueueTopology("ShiftQueueCoalesce", left);
                     }
                 }
             }
@@ -2064,33 +2101,49 @@ namespace BugfixesAndQoL
             }
         }
 
-        private void LogTopology(string action, TribeQueueState state)
+        private void RecordQueueTopology(string operation, TribeQueueState state)
         {
-            ulong hash = 1469598103934665603UL;
-            foreach (QueueUnitIdentity member in state.Members)
-            {
-                hash = (hash ^ unchecked((uint)member.UnitId)) * 1099511628211UL;
-                hash = (hash ^ member.GlobalId) * 1099511628211UL;
-            }
-            hash = (hash ^ unchecked((uint)state.BoundTribeId)) * 1099511628211UL;
-            hash = MixCommandHash(hash, state.Active);
-            foreach (QueueCommand command in state.PendingCommands)
-                hash = MixCommandHash(hash, command);
-            hash = (hash ^ unchecked((uint)state.CurrentVisualPageNumber)) * 1099511628211UL;
-            hash = (hash ^ unchecked((uint)state.OutstandingVisualCount)) * 1099511628211UL;
-            Shared.DebugLogHelper.LogInfo(log,
-                $"TOPOLOGY_{action}: cohort={state.CohortId}, tribeId={state.BoundTribeId}, " +
-                $"members={state.Members.Count}, hash={hash:X16}.");
+            Shared.CrashBreadcrumbDiagnostics.Record(
+                operation,
+                state.BoundTribeId,
+                state.Members.Count,
+                state.PendingCount,
+                currentTick);
         }
 
-        private static ulong MixCommandHash(ulong hash, QueueCommand command)
+        private void LogCommandFailureOnce(
+            string diagnosticOperation,
+            string logCode,
+            int tribeId,
+            QueueCommand command,
+            string disposition)
         {
-            if (command == null)
-                return (hash ^ uint.MaxValue) * 1099511628211UL;
-            hash = (hash ^ unchecked((uint)command.Kind)) * 1099511628211UL;
-            hash = (hash ^ unchecked((uint)command.Argument1)) * 1099511628211UL;
-            hash = (hash ^ unchecked((uint)command.Argument2)) * 1099511628211UL;
-            return (hash ^ unchecked((uint)command.Argument3)) * 1099511628211UL;
+            Shared.CrashBreadcrumbDiagnostics.Record(
+                diagnosticOperation,
+                tribeId,
+                command == null ? -1 : (int)command.Kind,
+                currentTick,
+                outcome: -1);
+            if (!ShouldLogUnexpectedOnce(diagnosticOperation))
+                return;
+
+            Shared.DebugLogHelper.LogWarning(
+                log,
+                $"{logCode}: tribeId={tribeId}, command={command}; {disposition}. " +
+                "Further occurrences are aggregated by crash diagnostics.");
+        }
+
+        private bool ShouldLogUnexpectedOnce(string signature)
+        {
+            string normalized = signature ?? string.Empty;
+            bool firstOccurrence;
+            lock (unexpectedFailureLogRoot)
+                firstOccurrence = loggedUnexpectedFailures.Add(normalized);
+
+            // Keep the diagnostic signature even though BepInEx logging has its own
+            // rate limit that also works when crash diagnostics are disabled.
+            Shared.CrashBreadcrumbDiagnostics.ShouldLogUnexpected(normalized);
+            return firstOccurrence;
         }
 
         private static int CompareCohorts(TribeQueueState left, TribeQueueState right)
@@ -2228,10 +2281,10 @@ namespace BugfixesAndQoL
             if (lastRealMultiplayerMode != realMultiplayer)
             {
                 lastRealMultiplayerMode = realMultiplayer;
-                Shared.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogDebug(
                     log,
-                    $"MODE: realMultiplayer={realMultiplayer}, " +
-                    $"synchronizedQueueing={(realMultiplayer && multiplayerSynchronizationReady)}.");
+                    () => $"Extended Shift queue mode: realMultiplayer={realMultiplayer}, " +
+                        $"synchronizedQueueing={(realMultiplayer && multiplayerSynchronizationReady)}.");
             }
             return realMultiplayer;
         }
