@@ -20,6 +20,7 @@ namespace BugfixesAndQoL
         private bool rememberAiAivSettings = true;
         private bool enableCustomLordListEnhancements = true;
         private bool enableAiFixes = true;
+        private bool enableAiDefensePatrolFix = true;
         private bool enableAivDefenderPositionFix = true;
         private bool fixAITowerRepair = true;
         private bool betterAIOverbuildRules = true;
@@ -174,6 +175,8 @@ namespace BugfixesAndQoL
         }
         public string EnableAiFixesText => SerpLocalization.Get(SerpLocalization.EnableAiFixes);
         public string EnableAiFixesHelpText => SerpLocalization.Get(SerpLocalization.EnableAiFixesHelp);
+        public string EnableAiDefensePatrolFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAiDefensePatrolFix");
+        public string EnableAiDefensePatrolFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAiDefensePatrolFixHelp");
         public string EnableAivDefenderPositionFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAivDefenderPositionFix");
         public string EnableAivDefenderPositionFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAivDefenderPositionFixHelp");
         public string FixAITowerRepairText => SerpLocalization.Get("BugfixesAndQoL.FixAITowerRepair");
@@ -504,6 +507,13 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool EnableAiDefensePatrolFix
+        {
+            get => enableAiDefensePatrolFix;
+            set => SetSetting(ref enableAiDefensePatrolFix, value, nameof(EnableAiDefensePatrolFix));
+        }
+
+        [SyncHostOnly]
         public bool EnableAivDefenderPositionFix
         {
             get => enableAivDefenderPositionFix;
@@ -786,6 +796,7 @@ namespace BugfixesAndQoL
                 EnableMod = true;
                 AllowFullAiMultiplayerLobby = true;
                 EnableAiFixes = true;
+                EnableAiDefensePatrolFix = true;
                 EnableAivDefenderPositionFix = true;
                 FixAITowerRepair = true;
                 BetterAIOverbuildRules = true;

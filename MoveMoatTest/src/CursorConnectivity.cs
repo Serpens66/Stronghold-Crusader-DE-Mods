@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Reflection;
 using System.Diagnostics;
 using SHCDESE.API;
 using SHCDESE.Interop;
@@ -64,7 +63,6 @@ namespace MoveMoatTest
                 result = summary.RouteFound ? 1 : 0;
             return true;
         }
-        private FieldInfo selectedCursorArrayField;
         private int[] selectedCursorIds = Array.Empty<int>();
         private CursorSelectionIdentity[] selectedCursorIdentity = Array.Empty<CursorSelectionIdentity>();
         private int cursorSelectionRevision;
@@ -292,7 +290,7 @@ namespace MoveMoatTest
                 if (decisions.Length != 0) decisions.Append(',');
                 decisions.Append(entry.Key).Append(':').Append(entry.Value);
             }
-            Shared.DebugLogHelper.LogInfo(log, $"MoveMoat stage=cursor-performance selected={selectedCursorIds.Length} queries={cursorQueries} " +
+            LogDetailedInfo($"MoveMoat stage=cursor-performance selected={selectedCursorIds.Length} queries={cursorQueries} " +
                 $"regionCacheHits={hits} regionNodes={nodes} topologyBuilds={cursorTopologyBuilds} tileUpdates={cursorTopologyUpdates} " +
                 $"queryMs={cursorQueryTicks * 1000.0 / Stopwatch.Frequency:F3} topologyMs={cursorTopologyTicks * 1000.0 / Stopwatch.Frequency:F3} " +
                 $"selectionSourceAvailable={cursorSelectionAvailable} decisions=[{decisions}] pathSearches=0 " +
@@ -377,57 +375,33 @@ namespace MoveMoatTest
             }
         }
 
-        private bool cursorSelectionBindingAttempted, cursorSelectionAvailable;
+        private bool cursorSelectionAvailable;
         private readonly Dictionary<string, long> cursorDecisionCounts = new Dictionary<string, long>();
         private readonly HashSet<string> cursorDecisionDetails = new HashSet<string>();
-
-        private static FieldInfo ResolveCursorSelectionField(Assembly assembly)
-        {
-            if (assembly == null || assembly.GetName().Name != "Assembly-CSharp") return null;
-            var field = assembly.GetType("EngineInterface", false)?.GetField("selectedChimps",
-                BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
-            return field != null && field.IsStatic && field.FieldType == typeof(int[]) ? field : null;
-        }
 
         private void RecordCursorDecision(string reason, AttackCursorPairScope scope)
         {
             cursorDecisionCounts.TryGetValue(reason, out long count);
             cursorDecisionCounts[reason] = count + 1;
             if (!cursorDecisionDetails.Add(reason)) return;
-            Shared.DebugLogHelper.LogInfo(log, $"MoveMoat stage=cursor-decision reason={reason} " +
+            LogDetailedInfo($"MoveMoat stage=cursor-decision reason={reason} " +
                 $"selectionSourceAvailable={cursorSelectionAvailable} selected={selectedCursorIds.Length} " +
                 $"unit={scope?.UnitId ?? 0} target=({scope?.TargetX},{scope?.TargetY}) kind={scope?.FallbackKind}.");
         }
 
         private bool CaptureCursorSelection(int player, out int[] ids, out string token)
         {
-            // Resolve the exact declaring assembly/type once. A missing source is not
-            // an empty selection, and must never authorize an override of Vanilla.
-            if (!cursorSelectionBindingAttempted)
-            {
-                cursorSelectionBindingAttempted = true;
-                foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
-                    if (assembly.GetName().Name == "Assembly-CSharp")
-                    {
-                        selectedCursorArrayField = ResolveCursorSelectionField(assembly);
-                        break;
-                    }
-            }
-            int[] native = selectedCursorArrayField?.GetValue(null) as int[];
-            int count = GamePlayerManagerAPI.Instance.GetSelectedChimpsCount();
+            SelectedUnitInfo[] selected =
+                GamePlayerManagerAPI.Instance.GetSelectedChimps() ?? Array.Empty<SelectedUnitInfo>();
+            int count = selected.Length;
             ids = selectedCursorIds; token = cursorSelectionToken;
-            cursorSelectionAvailable = native != null && count >= 0 && count <= native.Length / 2;
-            if (!cursorSelectionAvailable)
-            {
-                RecordCursorDecision("selection-source-unavailable", null);
-                return false;
-            }
+            cursorSelectionAvailable = true;
             bool changed = selectedCursorIds.Length != count;
             if (changed) { selectedCursorIds = new int[count]; selectedCursorIdentity = new CursorSelectionIdentity[count]; }
             int valid = 0;
             for (int i = 0; i < count; i++)
             {
-                int id = native[i * 2];
+                int id = selected[i].UnitId;
                 var identity = new CursorSelectionIdentity { Id = id };
                 if (id > 0 && GameUnitManagerAPI.Instance.TryGetUnitById(id, out GameUnit* unit) && unit != null)
                 {

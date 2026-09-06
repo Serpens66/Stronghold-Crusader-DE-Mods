@@ -2,11 +2,14 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using Iced.Intel;
-using MonoMod.RuntimeDetour;
+using RedBird.Abstractions.Hooks;
+using RedBird.Abstractions.Hooks.Transaction;
+using RedBird.Core.Memory;
+using RedBird.X64.Extensions;
+using RedBird.X64.Hooks;
+using RedBird.X64.Hooks.Transaction;
 using SHCDESE.API;
 using SHCDESE.Interop;
-using Zhuqiaomon.Hooks;
-using Zhuqiaomon.Extensions;
 using static Iced.Intel.AssemblerRegisters;
 
 namespace MoveMoatTest
@@ -28,46 +31,53 @@ namespace MoveMoatTest
         private MoatDeleteDelegate originalMoatDelete;
         private MaskRebuildDelegate originalMaskRebuild;
         private readonly List<Delegate> connectivityDelegates = new List<Delegate>();
-        private readonly List<NativeDetour> connectivityDetours = new List<NativeDetour>();
-        private X64InlineHook preBuilderRecoveryHook;
+        private RedBirdDetour<TileUpdateDelegate> tileUpdateDetour;
+        private RedBirdDetour<MoatWriteDelegate> moatWriteDetour;
+        private RedBirdDetour<MoatDeleteDelegate> moatDeleteDetour;
+        private RedBirdDetour<MaskRebuildDelegate> maskRebuildDetour;
+        private readonly HookHandle<X64InlineHook> preBuilderRecoveryHook =
+            new HookHandle<X64InlineHook>();
+        private HookTransaction connectivityHookTransaction;
         private long nativeModeEntries, preBuilderFailures, preBuilderRecovered;
         private int noBuilderDetails;
         private readonly Dictionary<string, long> preBuilderRejections = new Dictionary<string, long>();
 
         private void InstallConnectivityAndRecovery(ReadOnlySpan<byte> memory, ulong libraryBase)
         {
+            HookTransaction pendingTransaction = null;
             try
             {
+                pendingTransaction = CreateOwnedHookTransaction();
                 nativePortalGateStates = (byte*)(libraryBase + 0x64CCED2);
-                // Function entry detours retain the complete native ABI. No context-hook
-                // generator is used at entries (the 1.42 generator assumes an aligned RSP).
-                InstallConnectivityObserver(memory, libraryBase, 0xD90D0,
+                // Function-entry detours retain the complete native ABI. The inline adapter
+                // is reserved for the one validated mid-function recovery site.
+                tileUpdateDetour = InstallConnectivityObserver(pendingTransaction, memory, libraryBase, 0xD90D0,
                     "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 54 41 55 41 56 41 57 48 83 EC 20 4C 63 F2 45 8B F8 41 8B D6 48 8B E9",
                     (TileUpdateDelegate)((manager, y, tile) => {
                         originalTileUpdate(manager, y, tile);
                         try { InvalidateMovementSearchData(); DirtyCursorTile(tile); } catch (Exception ex) { InvalidateConnectivity(ex); }
-                    }), out originalTileUpdate);
-                InstallConnectivityObserver(memory, libraryBase, 0x59210,
+                    }));
+                moatWriteDetour = InstallConnectivityObserver(pendingTransaction, memory, libraryBase, 0x59210,
                     "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 48 89 7C 24 20 41 56 48 83 EC 20 49 63 F8 8B EA 49 63 F1 48 8B D9 81 FF 1F",
                     (MoatWriteDelegate)((manager, owner, x, y, mode, replace) => {
                         ulong result = originalMoatWrite(manager, owner, x, y, mode, replace);
                         try { InvalidateMovementSearchData(); if (x < MapWidth && y < MapWidth) DirtyCursorTile(GameTileManagerAPI.Instance.GetTileId((int)x, (int)y)); }
                         catch (Exception ex) { InvalidateConnectivity(ex); }
                         return result;
-                    }), out originalMoatWrite);
-                InstallConnectivityObserver(memory, libraryBase, 0x61E70,
+                    }));
+                moatDeleteDetour = InstallConnectivityObserver(pendingTransaction, memory, libraryBase, 0x61E70,
                     "81 FA FF F9 00 00 77 53 53 48 83 EC 20 48 8B D9 48 63 CA 48 8B C1 48 03 C0 80 BC C3 3C EE F3 01 00 7E 33 4C 8D 89 E3 3E",
                     (MoatDeleteDelegate)((manager, id) => {
                         int tile = id > 0 && id <= MaximumMoatRecordId ? *(int*)((byte*)manager + MoatRecordArrayOffset + id * MoatRecordSize) : -1;
                         originalMoatDelete(manager, id);
                         try { InvalidateMovementSearchData(); DirtyCursorTile(tile); } catch (Exception ex) { InvalidateConnectivity(ex); }
-                    }), out originalMoatDelete);
-                InstallConnectivityObserver(memory, libraryBase, 0xDAA50,
+                    }));
+                maskRebuildDetour = InstallConnectivityObserver(pendingTransaction, memory, libraryBase, 0xDAA50,
                     "48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 20 33 DB 48 8D 3D 3C 38 9D 03 89 99 34 5F 15 00 48 8B F1 0F BF 17 44 8B C3 48",
                     (MaskRebuildDelegate)(manager => {
                         originalMaskRebuild(manager);
                         try { InvalidateMovementSearchData(); cursorTopologies.Clear(); } catch (Exception ex) { InvalidateConnectivity(ex); }
-                    }), out originalMaskRebuild);
+                    }));
 
                 const int failureRva = 0x19664B;
                 ValidateExactBytes(memory, failureRva, new byte[] {
@@ -76,16 +86,47 @@ namespace MoveMoatTest
                 PreBuilderRecoveryDelegate callback = TryRecoverBeforeBuilder;
                 connectivityDelegates.Add(callback);
                 ulong address = unchecked((ulong)Marshal.GetFunctionPointerForDelegate(callback).ToInt64());
-                preBuilderRecoveryHook = new X64InlineHook(libraryBase + failureRva, 14);
-                preBuilderRecoveryHook.Generate((asm, original, returnAddress) =>
-                    EmitRecoveryAdapter(asm, original.ToArray(), address, libraryBase));
-                preBuilderRecoveryHook.Enable();
-                InstallPlacementAdapters(memory, libraryBase);
+                pendingTransaction.AddInline(
+                    preBuilderRecoveryHook,
+                    HookTarget.FromAddress(libraryBase + failureRva),
+                    (asm, original, returnAddress) =>
+                        EmitRecoveryAdapter(asm, original, address, libraryBase),
+                    hookSize: 14);
+                InstallPlacementAdapters(pendingTransaction, memory, libraryBase);
+
+                CommitResult commitResult = pendingTransaction.Commit();
+                if (!commitResult.IsCompleteSuccess || !tileUpdateDetour.Committed ||
+                    !moatWriteDetour.Committed || !moatDeleteDetour.Committed ||
+                    !maskRebuildDetour.Committed || !preBuilderRecoveryHook.Success ||
+                    !preBuilderRecoveryHook.IsInstalled || preBuilderRecoveryHook.Failure != null ||
+                    preBuilderRecoveryHook.ResolvedAddress != libraryBase + failureRva ||
+                    !formationSlotDetour.Committed || !commonGroupMoveDetour.Committed ||
+                    !nativeUnstackDetour.Committed || !freePlaceDetour.Committed)
+                {
+                    throw new InvalidOperationException(
+                        $"The connectivity/recovery/placement hooks were not installed atomically: {commitResult}.");
+                }
+
+                originalTileUpdate = tileUpdateDetour.Original;
+                originalMoatWrite = moatWriteDetour.Original;
+                originalMoatDelete = moatDeleteDetour.Original;
+                originalMaskRebuild = maskRebuildDetour.Original;
+                CompletePlacementAdapterInstallation();
+                connectivityHookTransaction = pendingTransaction;
             }
-            catch { DisposeConnectivityHooks(); throw; }
+            catch
+            {
+                try { pendingTransaction?.Dispose(); } catch { }
+                DisposeConnectivityHooks();
+                throw;
+            }
         }
 
-        private static void EmitRecoveryAdapter(Assembler asm, Instruction[] original, ulong address, ulong libraryBase)
+        private static void EmitRecoveryAdapter(
+            Assembler asm,
+            ReadOnlySpan<Instruction> original,
+            ulong address,
+            ulong libraryBase)
         {
             // At 19664B RSP is 16-byte aligned. RSI/RDI/RBP/R12-R15 are live
             // nonvolatile state; the managed ABI preserves them. All volatile GPRs
@@ -105,22 +146,27 @@ namespace MoveMoatTest
 
         private void DisposeConnectivityHooks()
         {
-            preBuilderRecoveryHook?.Dispose();
-            for (int i = connectivityDetours.Count - 1; i >= 0; i--) connectivityDetours[i].Dispose();
-            connectivityDetours.Clear();
+            connectivityHookTransaction?.Dispose();
+            connectivityHookTransaction = null;
         }
 
-        private void InstallConnectivityObserver<T>(ReadOnlySpan<byte> memory, ulong libraryBase, int rva,
-            string bytes, T callback, out T original) where T : Delegate
+        private RedBirdDetour<T> InstallConnectivityObserver<T>(
+            HookTransaction transaction,
+            ReadOnlySpan<byte> memory,
+            ulong libraryBase,
+            int rva,
+            string bytes,
+            T callback) where T : Delegate
         {
             string[] parts = bytes.Split(' '); var expected = new byte[parts.Length];
             for (int i = 0; i < parts.Length; i++) expected[i] = Convert.ToByte(parts[i], 16);
             ValidateExactBytes(memory, rva, expected, "connectivity observer entry");
             if (Shared.NativePatternResolver.FindUniquePattern(memory, bytes, "connectivity observer") != rva)
                 throw new InvalidOperationException("Connectivity observer does not match its validated function entry.");
-            var detour = CreateDetour(libraryBase + (uint)rva, callback);
-            original = detour.GenerateTrampoline<T>();
-            connectivityDelegates.Add(callback); connectivityDetours.Add(detour); detour.Apply();
+            RedBirdDetour<T> detour = AddDetour(
+                transaction, libraryBase + unchecked((uint)rva), callback);
+            connectivityDelegates.Add(callback);
+            return detour;
         }
 
         private void InvalidateMovementSearchData()
@@ -237,7 +283,7 @@ namespace MoveMoatTest
             if (result > 0 || noBuilderDetails++ >= 32) return;
             int x = frame.Args.TileX, y = frame.Args.TileY;
             int tile = (uint)x < MapWidth && (uint)y < MapWidth ? GameTileManagerAPI.Instance.GetTileId(x, y) : -1;
-            Shared.DebugLogHelper.LogInfo(log, $"MoveMoat stage=unit-no-builder unit={frame.Args.UnitId} " +
+            LogDetailedInfo($"MoveMoat stage=unit-no-builder unit={frame.Args.UnitId} " +
                 $"click=({frame.Command?.TargetX},{frame.Command?.TargetY}) unitTarget=({x},{y}) " +
                 $"reason={frame.RecoveryRejection ?? (frame.RegionReached ? "native-after-region" : frame.NativeModeReached ? "native-after-mode" : "native-before-mode")} " +
                 $"modeReached={frame.NativeModeReached} regionReached={frame.RegionReached} recoveryAttempted={frame.RecoveryAttempted} " +

@@ -35,7 +35,7 @@ public static class ModeSettingsTests
         vm.ResetToDefaultCommand.Execute(null);Check(vm.RouteMode==0,"client reset blocked");
         GameNetworkAPI.LocalHost=true;vm.System_RefreshSettingsAccess();
         vm.RouteMode=0;vm.ResetToDefaultCommand.Execute(null);Check(vm.RouteMode==1&&vm.EnableMod,"host reset");
-        Console.WriteLine("PASS: actual MoveMoat required-only settings/preset controller/1.42.0 base: defaults, invalid mode, presets, Trail, client rejection, authorised update and local file isolation.");
+        Console.WriteLine("PASS: actual MoveMoat required-only settings/preset controller/2.0.2 base: defaults, invalid mode, presets, Trail, client rejection, authorised update and local file isolation.");
     }
 }
 public static class SerpLocalization { public const string ResetToDefault="reset";public static string Get(string key)=>key; }

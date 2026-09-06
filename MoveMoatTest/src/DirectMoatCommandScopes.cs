@@ -291,8 +291,7 @@ namespace MoveMoatTest
                 if (string.Equals(signature, lastDirectFillDecision, StringComparison.Ordinal))
                     return;
                 lastDirectFillDecision = signature;
-                Shared.DebugLogHelper.LogInfo(
-                    log,
+                LogDetailedInfo(
                     $"MoveMoat stage=direct-fill-command tribe={scope.TribeId} " +
                     $"player={scope.PlayerId} target=({scope.TargetX},{scope.TargetY})/" +
                     $"{scope.TargetTileId} diggers={scope.Units.Length} " +
@@ -314,8 +313,7 @@ namespace MoveMoatTest
                 return;
             try
             {
-                Shared.DebugLogHelper.LogInfo(
-                    log,
+                LogDetailedInfo(
                     $"MoveMoat stage=direct-fill-command-incomplete tribe={scope.TribeId} " +
                     $"player={scope.PlayerId} target=({scope.TargetX},{scope.TargetY})/" +
                     $"{scope.TargetTileId} reason=no-post-event-before-next-tick.");
@@ -333,8 +331,7 @@ namespace MoveMoatTest
             if (string.Equals(signature, lastDirectCursorMoveDecision, StringComparison.Ordinal))
                 return;
             lastDirectCursorMoveDecision = signature;
-            Shared.DebugLogHelper.LogInfo(
-                log,
+            LogDetailedInfo(
                 $"MoveMoat stage=direct-cursor-move tribe={scope.TribeId} " +
                 $"player={scope.PlayerId} target=({scope.TargetX},{scope.TargetY})/" +
                 $"{scope.TargetTileId} targetRegion={scope.TargetRegion} " +

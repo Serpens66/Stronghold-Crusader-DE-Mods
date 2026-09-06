@@ -2,7 +2,6 @@ using SHCDESE.API;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
-using MonoMod.RuntimeDetour;
 using System.Runtime.InteropServices;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -14,7 +13,7 @@ namespace MoveMoatTest
         [UnmanagedFunctionPointer(CallingConvention.Winapi)]
         private delegate int PathReconstructionDelegate(IntPtr pathManager);
         private PathReconstructionDelegate originalPathReconstruction, rootedPathReconstruction;
-        private NativeDetour pathReconstructionDetour;
+        private RedBirdDetour<PathReconstructionDelegate> pathReconstructionDetour;
         private readonly Dictionary<long, bool> nativeGroundDecisions = new Dictionary<long, bool>();
         private object nativeGroundOwner;
         private int nativeGroundEpoch, nativeGroundTick, nativeGroundPlayer;
@@ -89,7 +88,7 @@ namespace MoveMoatTest
             if (sourceRegion == targetRegion) return true;
             if (originalRegionPairReachability == null || nativeGroundProbeBusy) return false;
             PrepareMovementSearch(plan, unit->r_ControllableForPlayerId);
-            // 1.42.0 / FBCB9319: MoveHere's native mode is a SHORT at slot+0x9B8,
+            // FBCB9319: MoveHere's native mode is a SHORT at slot+0x9B8,
             // i.e. GameUnit+0x35C. Keep the actual native source,target argument order.
             int mode = *(short*)((byte*)unit + 0x35C);
             long key = ((long)sourceRegion << 32) | ((long)targetRegion << 16) | (ushort)mode;

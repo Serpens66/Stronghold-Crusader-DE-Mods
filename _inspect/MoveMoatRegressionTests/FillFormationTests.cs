@@ -86,7 +86,7 @@ namespace MoveMoatTest
                     *(int*)((byte*)m+SelectedMoatApproachYOffset)=10;
                     return mode==1?1016:1017;
                 };
-                int NativeDetourPath(IntPtr m)
+                int NativeBuilderPath(IntPtr m)
                 {
                     byte* path=*(byte**)((byte*)m+PathManagerOutputBufferOffset);
                     for(int i=0;i<9;i++)path[i]=0;
@@ -94,8 +94,8 @@ namespace MoveMoatTest
                     for(int i=0;i<17;i++)path[i>>1]|=(byte)((i>=5 && i<10?6:2)<<((i&1)*4));
                     *(int*)((byte*)m+PathManagerOutputLengthOffset)=17; return 17;
                 }
-                originalPathBuilder=(m,c,p)=>NativeDetourPath(m);
-                originalPathReconstruction=NativeDetourPath;
+                originalPathBuilder=(m,c,p)=>NativeBuilderPath(m);
+                originalPathReconstruction=NativeBuilderPath;
                 originalUnitStandingOnCompletedMoat=(m,id)=>0;
                 originalRegionPairReachability=null;
                 captureWeighted=true;
@@ -148,7 +148,7 @@ namespace MoveMoatTest
                         api.Rows[11*3]=2000;nativeMovementMasks[1015]|=0x10;
                         for(int x=15;x<=17;x++){tileFlags[2000+x]=0x8000;nativeMovementMasks[2000+x]=0x45;nativeHeightLayer[2000+x]=0;}
                         InvalidateMovementSearchData();
-                        NativeDetourPath(nativePathManager);
+                        NativeBuilderPath(nativePathManager);
                         Check(DescribeWeightedRoute(shadow,buffer,17,out var longCosts),"native incumbent valid with friendly alternative");
                         bool directPublished=TryPublishSafelyFasterWeightedRoute(nativePathManager,buffer,17,shadow,longCosts,out var directCosts,out _,out _,out string whyDirect);
                         Check(directPublished &&

@@ -3,13 +3,19 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.127",
+  "Version": "1.0.128",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.2.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.128",
+      "Changes": [
+        "Added an enabled-by-default host fix that makes newly recruited AI defenders refill the configured wall-defense count before adding further units to the outer patrol; existing assignments remain unchanged."
+      ]
+    },
     {
       "Version": "1.0.127",
       "Changes": [

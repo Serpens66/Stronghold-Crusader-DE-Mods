@@ -56,6 +56,7 @@ namespace BugfixesAndQoL
         private ShiftRepairAllBuildingsHook shiftRepairAllBuildingsHook;
         private AiRecruitmentHorseDemandFix aiRecruitmentHorseDemandFix;
         private AiStoneReserveFix aiStoneReserveFix;
+        private AiDefensePatrolFix aiDefensePatrolFix;
         private AivDefenderPositionFix aivDefenderPositionFix;
         private AITowerRuinRepairFix aiTowerRuinRepairFix;
         private BetterAIOverbuildRulesFix betterAIOverbuildRulesFix;
@@ -81,6 +82,7 @@ namespace BugfixesAndQoL
         private bool lordMixedDisbandContractValidated;
         private bool aiRecruitmentHorseDemandFixUnavailable;
         private bool aiStoneReserveFixUnavailable;
+        private bool aiDefensePatrolFixUnavailable;
         private bool aivDefenderPositionFixUnavailable;
         private bool aiTowerRuinRepairFixUnavailable;
         private bool betterAIOverbuildRulesFixUnavailable;
@@ -371,6 +373,7 @@ namespace BugfixesAndQoL
             TryInitializeFeature("Lord control groups", ApplyLordControlGroupPatchSetting);
             TryInitializeFeature("AI recruitment horse-demand fix", EnsureAiRecruitmentHorseDemandFix);
             TryInitializeFeature("AI stone-reserve fix", EnsureAiStoneReserveFix);
+            TryInitializeFeature("AI defense patrol fix", EnsureAiDefensePatrolFix);
             TryInitializeFeature("AIV defender-position fix", EnsureAivDefenderPositionFix);
             TryInitializeFeature("AI tower-ruin repair fix", EnsureAiTowerRuinRepairFix);
             TryInitializeFeature("better AI overbuild rules", EnsureBetterAIOverbuildRulesFix);
@@ -384,6 +387,7 @@ namespace BugfixesAndQoL
             TryApplyFeature("moved feature settings", ApplyMovedFeatureSettings);
             TryInitializeFeature("AI tower-ruin repair fix", EnsureAiTowerRuinRepairFix);
             TryInitializeFeature("better AI overbuild rules", EnsureBetterAIOverbuildRulesFix);
+            TryInitializeFeature("AI defense patrol fix", EnsureAiDefensePatrolFix);
             TryInitializeFeature("AIV defender-position fix", EnsureAivDefenderPositionFix);
             TryInitializeFeature("surrender", InitializeSurrenderFeature);
             TryApplyFeature("Lord troop HUD", () => lordUnitControlsFeature?.RefreshSetting());
@@ -406,6 +410,7 @@ namespace BugfixesAndQoL
             TryApplyFeature("mounted-stockpile movement fix", ApplyMountedStockpileMovementPatchSetting);
             TryApplyFeature("Lord control groups", ApplyLordControlGroupPatchSetting);
             TryApplyFeature("AI stone-reserve fix", () => aiStoneReserveFix?.ApplySetting());
+            TryApplyFeature("AI defense patrol fix", () => aiDefensePatrolFix?.ApplySetting());
             TryApplyFeature("Assassin path reconstruction", assassinPathfindingRuntime.ApplySetting);
             if (settings.EnableMod && settings.EnableImprovedAssassinPathfinding && assassinPathfindingRuntime.IsInstalled)
                 TryApplyFeature("Assassin climb button", assassinClimbRuntime.Initialize);
@@ -505,6 +510,8 @@ namespace BugfixesAndQoL
             aiRecruitmentHorseDemandFix = null;
             aiStoneReserveFix?.Dispose();
             aiStoneReserveFix = null;
+            aiDefensePatrolFix?.Dispose();
+            aiDefensePatrolFix = null;
             aivDefenderPositionFix?.Dispose();
             aivDefenderPositionFix = null;
             aiTowerRuinRepairFix?.Dispose();
@@ -948,6 +955,54 @@ namespace BugfixesAndQoL
                 Shared.DebugLogHelper.LogError(
                     log,
                     $"Bugfixes and QoL AI stone-reserve fix could not be installed; " +
+                    $"only this AI fix remains inactive and Vanilla behavior remains active: {ex}");
+            }
+        }
+
+        private void EnsureAiDefensePatrolFix()
+        {
+            if (aiDefensePatrolFix != null)
+            {
+                aiDefensePatrolFix.ApplySetting();
+                return;
+            }
+            if (!nativeLibraryAvailable || aiDefensePatrolFixUnavailable)
+                return;
+
+            // Avoid installing a dormant native hook. A later synchronized enable change
+            // retries this method while the validated native mapping remains available.
+            if (!settings.EnableMod || !settings.EnableAiFixes || !settings.EnableAiDefensePatrolFix)
+                return;
+
+            try
+            {
+                aiDefensePatrolFix = new AiDefensePatrolFix(
+                    log,
+                    settings,
+                    nativeRegion,
+                    GetNativeLibraryMemory(),
+                    unchecked((ulong)libraryHandle.ToInt64()),
+                    fixedLayoutHashValidated);
+            }
+            catch (Exception ex)
+            {
+                try
+                {
+                    aiDefensePatrolFix?.Dispose();
+                }
+                catch (Exception rollbackEx)
+                {
+                    ex = new AggregateException(
+                        "The AI defense patrol fix failed and cleanup also failed.",
+                        ex,
+                        rollbackEx);
+                }
+
+                aiDefensePatrolFix = null;
+                aiDefensePatrolFixUnavailable = true;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Bugfixes and QoL AI defense patrol fix could not be installed; " +
                     $"only this AI fix remains inactive and Vanilla behavior remains active: {ex}");
             }
         }

@@ -20,6 +20,7 @@ namespace MoveMoatTest
         { Phase = phase; UnitId = unitId; TileX = tileX; TileY = tileY; Unknown = unknown; }
     }
     internal struct UnmanagedVector2<T> { public T X, Y; }
+    internal struct SelectedUnitInfo { public int UnitId, UnitType; }
     internal enum AttackPipelineStage { Mode, Builder }
     [StructLayout(LayoutKind.Sequential, Size = 0x490)]
     internal unsafe struct GameUnit
@@ -53,7 +54,20 @@ namespace MoveMoatTest
         public CursorPointer GetCursorManager() => new CursorPointer { Pointer=Cursor };
         public bool IsPlayerIdValid(int id) => id > 0 && id <= 8;
         public bool IsPlayerAlliedTo(int a, int b) => a == b;
-        public int GetSelectedChimpsCount() => EngineInterface.Selection.Length / 2;
+        public SelectedUnitInfo[] GetSelectedChimps()
+        {
+            int[] selected = EngineInterface.Selection;
+            var result = new SelectedUnitInfo[selected.Length / 2];
+            for (int index = 0; index < result.Length; index++)
+            {
+                result[index] = new SelectedUnitInfo
+                {
+                    UnitId = selected[index * 2],
+                    UnitType = selected[index * 2 + 1]
+                };
+            }
+            return result;
+        }
     }
     internal unsafe class GameTileManagerAPI
     {
@@ -103,7 +117,13 @@ namespace MoveMoatTest
         private Func<IntPtr,int,int> originalFirstGroupUnitOnCompletedMoat;
         private Func<IntPtr,int,int,int> getGroupUnitId;
         private static void LogCommandDiagnostic(string message) {}
-        private void InstallConnectivityObserver<T>(ReadOnlySpan<byte> memory, ulong libraryBase, int rva, string bytes, T callback, out T original) where T : Delegate { original = callback; }
+        private RedBirdDetour<T> InstallConnectivityObserver<T>(
+            RedBird.X64.Hooks.Transaction.HookTransaction transaction,
+            ReadOnlySpan<byte> memory,
+            ulong libraryBase,
+            int rva,
+            string bytes,
+            T callback) where T : Delegate => null;
         private byte* nativeUnitManager;
         private byte* nativeHeightLayer, movementTargetAvailability, nativeMovementMasks;
         private ushort* nativeBuildingLayer;

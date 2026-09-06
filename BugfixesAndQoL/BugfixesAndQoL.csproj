@@ -58,6 +58,9 @@
     <Compile Include="src\AivAicPresetStore.cs" />
     <Compile Include="src\AivSelectionListViewModel.cs" />
     <Compile Include="src\AiCastleSettingsListEnhancementHook.cs" />
+    <Compile Include="src\AiDefensePatrolFix.cs" />
+    <Compile Include="src\AiDefensePatrolNativeDefinition.cs" />
+    <Compile Include="src\AiDefensePatrolPolicy.cs" />
     <Compile Include="src\AiRecruitmentHorseDemandFix.cs" />
     <Compile Include="src\AiRecruitmentHorseDemandNativeDefinition.cs" />
     <Compile Include="src\AiStoneReserveFix.cs" />

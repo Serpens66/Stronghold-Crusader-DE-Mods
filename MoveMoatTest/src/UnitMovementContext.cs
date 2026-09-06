@@ -1,5 +1,4 @@
 using BepInEx.Logging;
-using MonoMod.RuntimeDetour;
 using R3;
 using SHCDESE.API;
 using SHCDESE.EventAPI;
@@ -12,7 +11,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
-using Zhuqiaomon.Assembly;
 
 namespace MoveMoatTest
 {

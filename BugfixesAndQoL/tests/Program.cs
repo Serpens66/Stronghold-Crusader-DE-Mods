@@ -24,13 +24,15 @@ namespace BugfixesAndQoL
             TestContextIsolation();
             TestHookOwnership();
             TestLiveEntryOwnership();
+            TestAiDefensePatrolPolicy();
+            TestAiDefensePatrolIntegration();
             TestNativeContracts();
             if (failures == 0)
             {
-                Console.WriteLine("Improved moat filling tests passed.");
+                Console.WriteLine("BugfixesAndQoL policy and native-contract tests passed.");
                 return 0;
             }
-            Console.Error.WriteLine($"Improved moat filling tests failed: {failures}.");
+            Console.Error.WriteLine($"BugfixesAndQoL policy and native-contract tests failed: {failures}.");
             return 1;
         }
 
@@ -135,6 +137,59 @@ namespace BugfixesAndQoL
                 "downstream planner and gates may already contain compatible live hooks");
         }
 
+        private static void TestAiDefensePatrolPolicy()
+        {
+            Check(AiDefensePatrolPolicy.NeedsCastleDefender(19, 20),
+                "AI defense patrol detects wall-defense underfill");
+            Check(!AiDefensePatrolPolicy.NeedsCastleDefender(20, 20) &&
+                    !AiDefensePatrolPolicy.NeedsCastleDefender(30, 20),
+                "AI defense patrol preserves patrol assignment after the wall quota is met");
+            Check(!AiDefensePatrolPolicy.NeedsCastleDefender(0, 0),
+                "AI defense patrol handles zero DefWalls and DefTotal");
+            Check(AiDefensePatrolPolicy.NeedsCastleDefender(0, int.MaxValue) &&
+                    !AiDefensePatrolPolicy.NeedsCastleDefender(int.MaxValue, int.MaxValue),
+                "AI defense patrol handles integer boundary quotas");
+            Check(AiDefensePatrolPolicy.SelectComparisonValue(true) == unchecked((uint)int.MaxValue) &&
+                    AiDefensePatrolPolicy.SelectComparisonValue(false) == unchecked((uint)int.MinValue),
+                "AI defense patrol emits signed-jl comparison sentinels");
+        }
+
+        private static void TestAiDefensePatrolIntegration()
+        {
+            string projectDirectory = FindProjectDirectory();
+            string runtime = File.ReadAllText(Path.Combine(projectDirectory, "src", "AiDefensePatrolFix.cs"));
+            string orchestrator = File.ReadAllText(Path.Combine(projectDirectory, "src", "BugfixesAndQoLRuntime.cs"));
+            string viewModel = File.ReadAllText(Path.Combine(projectDirectory, "src", "BugfixesAndQoLViewModel.cs"));
+            string xaml = File.ReadAllText(Path.Combine(
+                projectDirectory,
+                "Override",
+                "ScriptExtenderUI",
+                "BugfixesAndQoLSettings.xaml"));
+
+            Check(runtime.Contains("OverwrittenInstructionPlacement.BeforeCallback") &&
+                    runtime.Contains("X64SmartCPUContextRegs.All") &&
+                    runtime.Contains("BugfixesHookInfrastructure.CreateOwnedTransaction") &&
+                    runtime.Contains("settings.EnableMod") &&
+                    runtime.Contains("settings.EnableAiFixes") &&
+                    runtime.Contains("settings.EnableAiDefensePatrolFix"),
+                "AI defense patrol runtime uses the owned before-callback hook and all setting gates");
+            Check(runtime.Contains("registers->RAX = originalRax") &&
+                    runtime.Contains("TryGetUnitById(unitId") &&
+                    runtime.Contains("for (int spanIndex = 0; spanIndex < units.Length; spanIndex++)"),
+                "AI defense patrol retains Vanilla fallback and explicit ID/index contracts");
+            Check(orchestrator.Contains("EnsureAiDefensePatrolFix") &&
+                    orchestrator.Contains("aiDefensePatrolFix?.ApplySetting()") &&
+                    orchestrator.Contains("aiDefensePatrolFix?.Dispose()"),
+                "AI defense patrol participates in native initialization, setting reconciliation and final disposal");
+            Check(viewModel.Contains("private bool enableAiDefensePatrolFix = true;") &&
+                    viewModel.Contains("public bool EnableAiDefensePatrolFix") &&
+                    viewModel.Contains("EnableAiDefensePatrolFix = true;"),
+                "AI defense patrol host setting defaults and resets to enabled");
+            Check(xaml.Contains("bugfixes.enable-ai-defense-patrol-fix") &&
+                    xaml.Contains("IsChecked=\"{Binding EnableAiDefensePatrolFix, Mode=TwoWay}\""),
+                "AI defense patrol setting is searchable and bound in XAML");
+        }
+
         private static void TestNativeContracts()
         {
             string root = Environment.GetEnvironmentVariable("SHCDE_GAME_DIR") ??
@@ -150,8 +205,22 @@ namespace BugfixesAndQoL
                 string hash = BitConverter.ToString(sha.ComputeHash(file)).Replace("-", string.Empty);
                 Check(string.Equals(hash, ExpectedHash, StringComparison.OrdinalIgnoreCase),
                     "canonical native SHA-256 matches the audited baseline");
+                Check(string.Equals(Shared.DebugLogHelper.CurrentNativeSha256, ExpectedHash,
+                        StringComparison.OrdinalIgnoreCase),
+                    "shared native SHA-256 matches the AI defense patrol baseline");
             }
             var image = new PeImage(file);
+            try
+            {
+                AiDefensePatrolNativeDefinition.ValidateManagedLayout();
+                AiDefensePatrolNativeDefinition.Validate(MapPeImage(file));
+                Check(true,
+                    "AI defense patrol GameUnit layout, unique signature, instruction span, branches and call targets");
+            }
+            catch (Exception exception)
+            {
+                Check(false, "AI defense patrol native contract: " + exception.Message);
+            }
             CheckBytes(image, FindRva, new byte[] { 0x44, 0x89, 0x44, 0x24, 0x18, 0x89, 0x54, 0x24,
                 0x10, 0x55, 0x56, 0x57, 0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x48, 0x83, 0xEC, 0x68,
                 0x48, 0x8B, 0xE9 }, "selector entry bytes");
@@ -172,6 +241,63 @@ namespace BugfixesAndQoL
                     image.CountNearCalls(DispatcherRva, DispatcherSize, PlannerRva) >= 1,
                 "dispatcher contains initial and follow-up moat-work call chain");
         }
+
+        private static byte[] MapPeImage(byte[] file)
+        {
+            int peOffset = ReadInt32(file, 0x3C);
+            if (ReadInt32(file, peOffset) != 0x00004550)
+                throw new InvalidDataException("Invalid PE signature.");
+
+            int sectionCount = ReadUInt16(file, peOffset + 6);
+            int optionalHeaderSize = ReadUInt16(file, peOffset + 20);
+            int optionalHeader = peOffset + 24;
+            int sizeOfImage = ReadInt32(file, optionalHeader + 56);
+            int sizeOfHeaders = ReadInt32(file, optionalHeader + 60);
+            byte[] image = new byte[sizeOfImage];
+            Buffer.BlockCopy(file, 0, image, 0, Math.Min(sizeOfHeaders, file.Length));
+
+            int sectionTable = optionalHeader + optionalHeaderSize;
+            for (int index = 0; index < sectionCount; index++)
+            {
+                int section = sectionTable + index * 40;
+                int virtualAddress = ReadInt32(file, section + 12);
+                int rawSize = ReadInt32(file, section + 16);
+                int rawAddress = ReadInt32(file, section + 20);
+                if (rawSize <= 0)
+                    continue;
+                if (rawAddress < 0 || rawAddress > file.Length - rawSize ||
+                    virtualAddress < 0 || virtualAddress > image.Length - rawSize)
+                {
+                    throw new InvalidDataException("PE section lies outside the file or virtual image.");
+                }
+
+                Buffer.BlockCopy(file, rawAddress, image, virtualAddress, rawSize);
+            }
+
+            return image;
+        }
+
+        private static string FindProjectDirectory()
+        {
+            DirectoryInfo directory = new DirectoryInfo(AppDomain.CurrentDomain.BaseDirectory);
+            while (directory != null)
+            {
+                if (File.Exists(Path.Combine(directory.FullName, "BugfixesAndQoL.csproj")))
+                    return directory.FullName;
+                directory = directory.Parent;
+            }
+
+            throw new DirectoryNotFoundException("BugfixesAndQoL project directory was not found.");
+        }
+
+        private static int ReadUInt16(byte[] bytes, int offset) =>
+            bytes[offset] | bytes[offset + 1] << 8;
+
+        private static int ReadInt32(byte[] bytes, int offset) =>
+            bytes[offset] |
+            bytes[offset + 1] << 8 |
+            bytes[offset + 2] << 16 |
+            bytes[offset + 3] << 24;
 
         private static MoatApproachCandidate[] RejectedCandidates()
         {

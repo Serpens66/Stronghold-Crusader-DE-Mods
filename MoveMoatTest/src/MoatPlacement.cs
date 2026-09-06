@@ -6,6 +6,7 @@ using SHCDESE.API;
 using SHCDESE.EventAPI.Units;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
+using RedBird.X64.Hooks.Transaction;
 
 namespace MoveMoatTest
 {
@@ -20,6 +21,9 @@ namespace MoveMoatTest
         private CommonGroupMoveDelegate originalCommonGroupMove;
         private NativeUnstackDelegate originalUnstack;
         private FreePlaceDelegate originalFreePlace;
+        private RedBirdDetour<CommonGroupMoveDelegate> commonGroupMoveDetour;
+        private RedBirdDetour<NativeUnstackDelegate> nativeUnstackDetour;
+        private RedBirdDetour<FreePlaceDelegate> freePlaceDetour;
         private PlacementBatch placementBatch;
         private PlacementUnit unstackUnit;
         private byte* nativePlaceReservations;
@@ -89,23 +93,32 @@ namespace MoveMoatTest
                 FromAnchor = graph.StartForwardSearch(anchor), Search = CreatePlacementSearch(player, x, y) };
         }
 
-        private void InstallPlacementAdapters(ReadOnlySpan<byte> memory, ulong libraryBase)
+        private void InstallPlacementAdapters(
+            HookTransaction transaction, ReadOnlySpan<byte> memory, ulong libraryBase)
         {
-            InstallFormationSlotAdapter(memory, libraryBase);
+            InstallFormationSlotAdapter(transaction, memory, libraryBase);
             nativePlaceReservations = (byte*)(libraryBase + 0x51D75F0);
             nativeExecutingUnitId = (int*)(libraryBase + 0x9302C4);
             // Entry-only detours: Win64 argument registers/stack and nonvolatile
             // registers are preserved by the delegate ABI and original trampoline.
             // The verified prologues have no incoming flags or hidden live registers.
-            InstallConnectivityObserver(memory, libraryBase, 0x118E00,
+            commonGroupMoveDetour = InstallConnectivityObserver(transaction, memory, libraryBase, 0x118E00,
                 "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 54 41 55 41 56 41 57 48 83 EC 30 48 63 F2 45 33 ED 8B D6 45 8B F1 45",
-                (CommonGroupMoveDelegate)ObserveCommonGroupMove, out originalCommonGroupMove);
-            InstallConnectivityObserver(memory, libraryBase, 0x181890,
+                (CommonGroupMoveDelegate)ObserveCommonGroupMove);
+            nativeUnstackDetour = InstallConnectivityObserver(transaction, memory, libraryBase, 0x181890,
                 "48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 30 48 63 DA 48 8D 35 07 D5 ED 03 4C 69 CB 90 04 00 00 48 8B F9 4C 03 C9 49 63",
-                (NativeUnstackDelegate)ObserveNativeUnstack, out originalUnstack);
-            InstallConnectivityObserver(memory, libraryBase, 0xF03C0,
+                (NativeUnstackDelegate)ObserveNativeUnstack);
+            freePlaceDetour = InstallConnectivityObserver(transaction, memory, libraryBase, 0xF03C0,
                 "89 54 24 10 53 56 57 48 83 EC 40 FF 81 A0 00 00 00 44 8B DA 33 D2 49 63 F0 49 63 F9 48 8B D9 48 89 51 48 89 51 44 81 FE",
-                (FreePlaceDelegate)FindUnstackPlace, out originalFreePlace);
+                (FreePlaceDelegate)FindUnstackPlace);
+        }
+
+        private void CompletePlacementAdapterInstallation()
+        {
+            originalFormationSlot = formationSlotDetour.Original;
+            originalCommonGroupMove = commonGroupMoveDetour.Original;
+            originalUnstack = nativeUnstackDetour.Original;
+            originalFreePlace = freePlaceDetour.Original;
             Shared.DebugLogHelper.LogInfo(log,
                 "MoveMoat placement hooks installed: commonGroup=0x118E00 formationSlot=0xE1D30 unstack=0x181890 freePlace=0xF03C0; native Unit event retained, terrain unchanged.");
         }

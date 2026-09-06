@@ -1,7 +1,11 @@
 using BepInEx.Logging;
-using MonoMod.RuntimeDetour;
+using RedBird.Abstractions.Hooks;
+using RedBird.Abstractions.Hooks.Transaction;
+using RedBird.Core.Memory;
+using RedBird.X64.Hooks.Transaction;
 using R3;
 using SHCDESE.API;
+using SHCDESE.API.LowLevel;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.Tribes;
 using SHCDESE.EventAPI.Units;
@@ -12,12 +16,30 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
-using Zhuqiaomon.Assembly;
 
 namespace MoveMoatTest
 {
     internal sealed unsafe partial class MoveMoatPathTest : IDisposable
     {
+        // Enable only for targeted pathfinding investigations. Normal play keeps
+        // safety failures visible without producing per-command or per-unit traces.
+        private static readonly bool DetailedDiagnosticsEnabled = false;
+
+        private sealed class RedBirdDetour<TDelegate> where TDelegate : Delegate
+        {
+            private readonly ulong targetAddress;
+
+            internal RedBirdDetour(ulong targetAddress)
+            {
+                this.targetAddress = targetAddress;
+            }
+
+            internal DetourHandle<TDelegate> Handle { get; } = new DetourHandle<TDelegate>();
+            internal TDelegate Original => Handle.Original;
+            internal bool Committed => Handle.Success && Handle.IsInstalled &&
+                Handle.Failure == null && Handle.ResolvedAddress == targetAddress;
+        }
+
         [UnmanagedFunctionPointer(CallingConvention.Winapi)]
         private delegate int UnitStandingOnCompletedMoatDelegate(IntPtr unitManager, int unitId);
 
@@ -491,23 +513,27 @@ namespace MoveMoatTest
         private CursorMoveStagerDelegate originalCursorMoveStager;
         private CursorMoveStagerDelegate rootedCursorMoveStager;
 
-        private NativeDetour centralMovementPlanDetour;
-        private NativeDetour pathBuilderDetour;
-        private NativeDetour unitStandingOnCompletedMoatDetour;
-        private NativeDetour regionReachabilityDetour;
-        private NativeDetour tribeFloodFillMembershipDetour;
-        private NativeDetour firstGroupUnitOnCompletedMoatDetour;
-        private NativeDetour cursorReachabilityDetour;
-        private NativeDetour cursorTilePairFallbackSelectionDetour;
-        private NativeDetour cursorTilePairReachabilityDetour;
-        private NativeDetour cursorRegionPrecheckDetour;
-        private NativeDetour attackApproachFloodBuilderDetour;
-        private NativeDetour buildingApproachBuilderDetour;
-        private NativeDetour buildingCandidateConsumerDetour;
-        private NativeDetour regionPairReachabilityDetour;
-        private NativeDetour buildingCursorReachabilityDetour;
-        private NativeDetour combatFinishResumeDetour;
-        private NativeDetour cursorMoveStagerDetour;
+        private RedBirdDetour<CentralMovementPlanDelegate> centralMovementPlanDetour;
+        private RedBirdDetour<PathBuilderDelegate> pathBuilderDetour;
+        private RedBirdDetour<UnitStandingOnCompletedMoatDelegate> unitStandingOnCompletedMoatDetour;
+        private RedBirdDetour<RegionReachabilityDelegate> regionReachabilityDetour;
+        private RedBirdDetour<TribeFloodFillMembershipDelegate> tribeFloodFillMembershipDetour;
+        private RedBirdDetour<FirstGroupUnitOnCompletedMoatDelegate> firstGroupUnitOnCompletedMoatDetour;
+        private RedBirdDetour<CursorReachabilityDelegate> cursorReachabilityDetour;
+        private RedBirdDetour<CursorTilePairFallbackSelectionDelegate> cursorTilePairFallbackSelectionDetour;
+        private RedBirdDetour<CursorTilePairReachabilityDelegate> cursorTilePairReachabilityDetour;
+        private RedBirdDetour<CursorRegionPrecheckDelegate> cursorRegionPrecheckDetour;
+        private RedBirdDetour<AttackApproachFloodBuilderDelegate> attackApproachFloodBuilderDetour;
+        private RedBirdDetour<BuildingApproachBuilderDelegate> buildingApproachBuilderDetour;
+        private RedBirdDetour<BuildingCandidateConsumerDelegate> buildingCandidateConsumerDetour;
+        private RedBirdDetour<RegionPairReachabilityDelegate> regionPairReachabilityDetour;
+        private RedBirdDetour<BuildingCursorReachabilityDelegate> buildingCursorReachabilityDetour;
+        private RedBirdDetour<CombatFinishResumeDelegate> combatFinishResumeDetour;
+        private RedBirdDetour<CursorMoveStagerDelegate> cursorMoveStagerDetour;
+        private readonly ScanRegion nativeRegion;
+        private HookTransaction mainHookTransaction;
+        private HookTransaction buildingCursorHookTransaction;
+        private HookTransaction attackApproachHookTransaction;
         private IDisposable tribeMoveSubscription;
         private IDisposable unitMoveSubscription;
         private UnitMoveFrame unitMoveFrame;
@@ -571,11 +597,16 @@ namespace MoveMoatTest
 
         public MoveMoatPathTest(
             ManualLogSource log,
-            ReadOnlySpan<byte> memory,
-            ulong libraryBase,
+            CrusaderLibraryLoadContext context,
             bool referenceHashMatches)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
+            if (context == null)
+                throw new ArgumentNullException(nameof(context));
+            nativeRegion = context.Region ?? throw new ArgumentException(
+                "The Script Extender did not provide a native scan region.", nameof(context));
+            ReadOnlySpan<byte> memory = context.Memory;
+            ulong libraryBase = unchecked((ulong)context.ModuleHandle.ToInt64());
             if (!referenceHashMatches)
             {
                 throw new InvalidOperationException(
@@ -989,104 +1020,93 @@ namespace MoveMoatTest
             rootedCombatFinishResume = ResumeMovementAfterCombatWithMoatContext;
             rootedCursorMoveStager = StageDirectCursorMoveWithOwnerRoute;
 
-            NativeDetour pendingPlanDetour = null;
-            NativeDetour pendingCombatFinishResume = null;
-            NativeDetour pendingCursorMoveStager = null;
-            NativeDetour pendingBuilder = null;
-            NativeDetour pendingReconstruction = null;
-            NativeDetour pendingFlood = null;
-            NativeDetour pendingGroupMoat = null;
-            NativeDetour pendingMode = null;
-            NativeDetour pendingRegion = null;
-            NativeDetour pendingCursor = null;
-            NativeDetour pendingCursorMode = null;
-            NativeDetour pendingCursorTilePair = null;
-            NativeDetour pendingCursorRegion = null;
-            bool planApplied = false;
-            bool combatFinishResumeApplied = false;
-            bool cursorMoveStagerApplied = false;
-            bool builderApplied = false;
-            bool reconstructionApplied = false;
-            bool floodApplied = false;
-            bool groupMoatApplied = false;
-            bool modeApplied = false;
-            bool regionApplied = false;
-            bool cursorApplied = false;
-            bool cursorModeApplied = false;
-            bool cursorTilePairApplied = false;
-            bool cursorRegionApplied = false;
+            HookTransaction pendingTransaction = CreateOwnedHookTransaction();
+            RedBirdDetour<CentralMovementPlanDelegate> pendingPlanDetour = null;
+            RedBirdDetour<CombatFinishResumeDelegate> pendingCombatFinishResume = null;
+            RedBirdDetour<CursorMoveStagerDelegate> pendingCursorMoveStager = null;
+            RedBirdDetour<PathBuilderDelegate> pendingBuilder = null;
+            RedBirdDetour<PathReconstructionDelegate> pendingReconstruction = null;
+            RedBirdDetour<TribeFloodFillMembershipDelegate> pendingFlood = null;
+            RedBirdDetour<FirstGroupUnitOnCompletedMoatDelegate> pendingGroupMoat = null;
+            RedBirdDetour<UnitStandingOnCompletedMoatDelegate> pendingMode = null;
+            RedBirdDetour<RegionReachabilityDelegate> pendingRegion = null;
+            RedBirdDetour<CursorReachabilityDelegate> pendingCursor = null;
+            RedBirdDetour<CursorTilePairFallbackSelectionDelegate> pendingCursorMode = null;
+            RedBirdDetour<CursorTilePairReachabilityDelegate> pendingCursorTilePair = null;
+            RedBirdDetour<CursorRegionPrecheckDelegate> pendingCursorRegion = null;
             try
             {
-                pendingPlanDetour = CreateDetour(
+                pendingPlanDetour = AddDetour(pendingTransaction,
                     libraryBase + unchecked((ulong)planResolution.Rva),
                     rootedCentralMovementPlan);
-                originalCentralMovementPlan =
-                    pendingPlanDetour.GenerateTrampoline<CentralMovementPlanDelegate>();
-                pendingCombatFinishResume = CreateDetour(
+                pendingCombatFinishResume = AddDetour(pendingTransaction,
                     libraryBase + unchecked((ulong)combatFinishResumeResolution.Rva),
                     rootedCombatFinishResume);
-                originalCombatFinishResume =
-                    pendingCombatFinishResume.GenerateTrampoline<CombatFinishResumeDelegate>();
-                pendingCursorMoveStager = CreateDetour(
+                pendingCursorMoveStager = AddDetour(pendingTransaction,
                     libraryBase + unchecked((ulong)cursorMoveStagerResolution.Rva),
                     rootedCursorMoveStager);
-                originalCursorMoveStager =
-                    pendingCursorMoveStager.GenerateTrampoline<CursorMoveStagerDelegate>();
-                pendingBuilder = CreateDetour(
+                pendingBuilder = AddDetour(pendingTransaction,
                     libraryBase + unchecked((ulong)builderResolution.Rva),
                     rootedPathBuilder);
-                originalPathBuilder = pendingBuilder.GenerateTrampoline<PathBuilderDelegate>();
-                pendingReconstruction = CreateDetour(libraryBase + 0xE32B0, rootedPathReconstruction);
-                originalPathReconstruction = pendingReconstruction.GenerateTrampoline<PathReconstructionDelegate>();
-                pendingFlood = CreateDetour(libraryBase + unchecked((ulong)floodResolution.Rva), rootedTribeFloodFillMembership);
-                originalTribeFloodFillMembership = pendingFlood.GenerateTrampoline<TribeFloodFillMembershipDelegate>();
-                pendingGroupMoat = CreateDetour(
+                pendingReconstruction = AddDetour(
+                    pendingTransaction, libraryBase + 0xE32B0, rootedPathReconstruction);
+                pendingFlood = AddDetour(
+                    pendingTransaction,
+                    libraryBase + unchecked((ulong)floodResolution.Rva),
+                    rootedTribeFloodFillMembership);
+                pendingGroupMoat = AddDetour(pendingTransaction,
                     libraryBase + unchecked((ulong)groupMoatResolution.Rva),
                     rootedFirstGroupUnitOnCompletedMoat);
-                originalFirstGroupUnitOnCompletedMoat =
-                    pendingGroupMoat.GenerateTrampoline<FirstGroupUnitOnCompletedMoatDelegate>();
-                pendingMode = CreateDetour(libraryBase + unchecked((ulong)modeResolution.Rva), rootedUnitStandingOnCompletedMoat);
-                originalUnitStandingOnCompletedMoat = pendingMode.GenerateTrampoline<UnitStandingOnCompletedMoatDelegate>();
-                pendingRegion = CreateDetour(libraryBase + unchecked((ulong)regionResolution.Rva), rootedRegionReachability);
-                originalRegionReachability = pendingRegion.GenerateTrampoline<RegionReachabilityDelegate>();
-                pendingCursor = CreateDetour(libraryBase + unchecked((ulong)cursorResolution.Rva), rootedCursorReachability);
-                originalCursorReachability = pendingCursor.GenerateTrampoline<CursorReachabilityDelegate>();
-                pendingCursorMode = CreateDetour(libraryBase + unchecked((ulong)cursorModeResolution.Rva), rootedCursorTilePairFallbackSelection);
-                originalCursorTilePairFallbackSelection = pendingCursorMode.GenerateTrampoline<CursorTilePairFallbackSelectionDelegate>();
-                pendingCursorTilePair = CreateDetour(
+                pendingMode = AddDetour(
+                    pendingTransaction,
+                    libraryBase + unchecked((ulong)modeResolution.Rva),
+                    rootedUnitStandingOnCompletedMoat);
+                pendingRegion = AddDetour(
+                    pendingTransaction,
+                    libraryBase + unchecked((ulong)regionResolution.Rva),
+                    rootedRegionReachability);
+                pendingCursor = AddDetour(
+                    pendingTransaction,
+                    libraryBase + unchecked((ulong)cursorResolution.Rva),
+                    rootedCursorReachability);
+                pendingCursorMode = AddDetour(
+                    pendingTransaction,
+                    libraryBase + unchecked((ulong)cursorModeResolution.Rva),
+                    rootedCursorTilePairFallbackSelection);
+                pendingCursorTilePair = AddDetour(pendingTransaction,
                     libraryBase + unchecked((ulong)cursorTilePairResolution.Rva),
                     rootedCursorTilePairReachability);
-                originalCursorTilePairReachability =
-                    pendingCursorTilePair.GenerateTrampoline<CursorTilePairReachabilityDelegate>();
-                pendingCursorRegion = CreateDetour(libraryBase + unchecked((ulong)cursorRegionResolution.Rva), rootedCursorRegionPrecheck);
-                originalCursorRegionPrecheck = pendingCursorRegion.GenerateTrampoline<CursorRegionPrecheckDelegate>();
+                pendingCursorRegion = AddDetour(
+                    pendingTransaction,
+                    libraryBase + unchecked((ulong)cursorRegionResolution.Rva),
+                    rootedCursorRegionPrecheck);
 
-                pendingPlanDetour.Apply();
-                planApplied = true;
-                pendingCombatFinishResume.Apply();
-                combatFinishResumeApplied = true;
-                pendingCursorMoveStager.Apply();
-                cursorMoveStagerApplied = true;
-                pendingBuilder.Apply();
-                builderApplied = true;
-                pendingReconstruction.Apply();
-                reconstructionApplied = true;
-                pendingFlood.Apply();
-                floodApplied = true;
-                pendingGroupMoat.Apply();
-                groupMoatApplied = true;
-                pendingMode.Apply();
-                modeApplied = true;
-                pendingRegion.Apply();
-                regionApplied = true;
-                pendingCursor.Apply();
-                cursorApplied = true;
-                pendingCursorMode.Apply();
-                cursorModeApplied = true;
-                pendingCursorTilePair.Apply();
-                cursorTilePairApplied = true;
-                pendingCursorRegion.Apply();
-                cursorRegionApplied = true;
+                CommitResult commitResult = pendingTransaction.Commit();
+                if (!commitResult.IsCompleteSuccess ||
+                    !pendingPlanDetour.Committed || !pendingCombatFinishResume.Committed ||
+                    !pendingCursorMoveStager.Committed || !pendingBuilder.Committed ||
+                    !pendingReconstruction.Committed || !pendingFlood.Committed ||
+                    !pendingGroupMoat.Committed || !pendingMode.Committed || !pendingRegion.Committed ||
+                    !pendingCursor.Committed || !pendingCursorMode.Committed ||
+                    !pendingCursorTilePair.Committed || !pendingCursorRegion.Committed)
+                {
+                    throw new InvalidOperationException(
+                        $"The central MoveMoat hooks were not installed atomically: {commitResult}.");
+                }
+
+                originalCentralMovementPlan = pendingPlanDetour.Original;
+                originalCombatFinishResume = pendingCombatFinishResume.Original;
+                originalCursorMoveStager = pendingCursorMoveStager.Original;
+                originalPathBuilder = pendingBuilder.Original;
+                originalPathReconstruction = pendingReconstruction.Original;
+                originalTribeFloodFillMembership = pendingFlood.Original;
+                originalFirstGroupUnitOnCompletedMoat = pendingGroupMoat.Original;
+                originalUnitStandingOnCompletedMoat = pendingMode.Original;
+                originalRegionReachability = pendingRegion.Original;
+                originalCursorReachability = pendingCursor.Original;
+                originalCursorTilePairFallbackSelection = pendingCursorMode.Original;
+                originalCursorTilePairReachability = pendingCursorTilePair.Original;
+                originalCursorRegionPrecheck = pendingCursorRegion.Original;
 
                 centralMovementPlanDetour = pendingPlanDetour;
                 combatFinishResumeDetour = pendingCombatFinishResume;
@@ -1101,6 +1121,7 @@ namespace MoveMoatTest
                 cursorTilePairFallbackSelectionDetour = pendingCursorMode;
                 cursorTilePairReachabilityDetour = pendingCursorTilePair;
                 cursorRegionPrecheckDetour = pendingCursorRegion;
+                mainHookTransaction = pendingTransaction;
 
                 tribeMoveSubscription = TribeR3EventHooks.OnTribeIssueOrderMoveHere.Observable.Subscribe(ObserveTribeMoveOrder);
                 unitMoveSubscription = UnitR3EventHooks.OnUnitMoveHere.Observable.Subscribe(ObserveUnitMoveOrder);
@@ -1155,19 +1176,13 @@ namespace MoveMoatTest
                     GameTimeManagerAPI.Instance.OnTick -= ObserveTrackedAttackStates;
                     attackTickSubscribed = false;
                 }
-                UndoAndDispose(pendingCursorTilePair, cursorTilePairApplied);
-                UndoAndDispose(pendingCursorRegion, cursorRegionApplied);
-                UndoAndDispose(pendingCursorMode, cursorModeApplied);
-                UndoAndDispose(pendingCursor, cursorApplied);
-                UndoAndDispose(pendingRegion, regionApplied);
-                UndoAndDispose(pendingMode, modeApplied);
-                UndoAndDispose(pendingGroupMoat, groupMoatApplied);
-                UndoAndDispose(pendingFlood, floodApplied);
-                UndoAndDispose(pendingReconstruction, reconstructionApplied);
-                UndoAndDispose(pendingBuilder, builderApplied);
-                UndoAndDispose(pendingCursorMoveStager, cursorMoveStagerApplied);
-                UndoAndDispose(pendingCombatFinishResume, combatFinishResumeApplied);
-                UndoAndDispose(pendingPlanDetour, planApplied);
+                try { DisposeConnectivityHooks(); } catch { }
+                try { DisposeMoatWorkTargetSelection(); } catch { }
+                try { attackApproachHookTransaction?.Dispose(); } catch { }
+                attackApproachHookTransaction = null;
+                try { buildingCursorHookTransaction?.Dispose(); } catch { }
+                buildingCursorHookTransaction = null;
+                try { pendingTransaction?.Dispose(); } catch { }
                 throw;
             }
         }
@@ -1190,26 +1205,14 @@ namespace MoveMoatTest
                 attackTickSubscribed = false;
             }
             DisposeMoatWorkTargetSelection();
-            buildingCandidateConsumerDetour?.Dispose();
-            buildingApproachBuilderDetour?.Dispose();
-            attackApproachFloodBuilderDetour?.Dispose();
-            regionPairReachabilityDetour?.Dispose();
-            buildingCursorReachabilityDetour?.Dispose();
-            cursorTilePairReachabilityDetour?.Dispose();
+            attackApproachHookTransaction?.Dispose();
+            attackApproachHookTransaction = null;
+            buildingCursorHookTransaction?.Dispose();
+            buildingCursorHookTransaction = null;
             UnityEngine.Application.onBeforeRender -= ObserveCursorPerformance;
             DisposeConnectivityHooks();
-            cursorRegionPrecheckDetour?.Dispose();
-            cursorTilePairFallbackSelectionDetour?.Dispose();
-            cursorReachabilityDetour?.Dispose();
-            regionReachabilityDetour?.Dispose();
-            unitStandingOnCompletedMoatDetour?.Dispose();
-            firstGroupUnitOnCompletedMoatDetour?.Dispose();
-            tribeFloodFillMembershipDetour?.Dispose();
-            pathBuilderDetour?.Dispose();
-            pathReconstructionDetour?.Dispose();
-            cursorMoveStagerDetour?.Dispose();
-            combatFinishResumeDetour?.Dispose();
-            centralMovementPlanDetour?.Dispose();
+            mainHookTransaction?.Dispose();
+            mainHookTransaction = null;
             ClearUnitMoveFrames();
             activeMoveCommand = null;
             activePlan = null;
@@ -1233,8 +1236,8 @@ namespace MoveMoatTest
         private void TryInstallBuildingCursorReachability(
             ReadOnlySpan<byte> memory, ulong libraryBase)
         {
-            NativeDetour pendingBuildingCursor = null;
-            bool buildingCursorApplied = false;
+            HookTransaction pendingTransaction = null;
+            RedBirdDetour<BuildingCursorReachabilityDelegate> pendingBuildingCursor = null;
             try
             {
                 Shared.NativeResolution buildingCursorResolution = Resolve(
@@ -1256,14 +1259,17 @@ namespace MoveMoatTest
                     "building cursor approach reachability call");
 
                 rootedBuildingCursorReachability = AllowBuildingCursorThroughCompletedMoat;
-                pendingBuildingCursor = CreateDetour(
+                pendingTransaction = CreateOwnedHookTransaction();
+                pendingBuildingCursor = AddDetour(pendingTransaction,
                     libraryBase + unchecked((ulong)buildingCursorResolution.Rva),
                     rootedBuildingCursorReachability);
-                originalBuildingCursorReachability =
-                    pendingBuildingCursor.GenerateTrampoline<BuildingCursorReachabilityDelegate>();
-                pendingBuildingCursor.Apply();
-                buildingCursorApplied = true;
+                CommitResult commitResult = pendingTransaction.Commit();
+                if (!commitResult.IsCompleteSuccess || !pendingBuildingCursor.Committed)
+                    throw new InvalidOperationException(
+                        $"The building cursor hook was not installed atomically: {commitResult}.");
+                originalBuildingCursorReachability = pendingBuildingCursor.Original;
                 buildingCursorReachabilityDetour = pendingBuildingCursor;
+                buildingCursorHookTransaction = pendingTransaction;
                 Shared.DebugLogHelper.LogInfo(
                     log,
                     "MoveMoat building cursor reachability installed: " +
@@ -1272,7 +1278,9 @@ namespace MoveMoatTest
             }
             catch (Exception ex)
             {
-                UndoAndDispose(pendingBuildingCursor, buildingCursorApplied);
+                try { pendingTransaction?.Dispose(); } catch { }
+                buildingCursorHookTransaction = null;
+                buildingCursorReachabilityDetour = null;
                 rootedBuildingCursorReachability = null;
                 originalBuildingCursorReachability = null;
                 Shared.DebugLogHelper.LogError(
@@ -1284,14 +1292,11 @@ namespace MoveMoatTest
 
         private void TryInstallAttackApproachDiagnostics(ReadOnlySpan<byte> memory, ulong libraryBase)
         {
-            NativeDetour pendingUnitFlood = null;
-            NativeDetour pendingBuildingApproach = null;
-            NativeDetour pendingBuildingConsumer = null;
-            NativeDetour pendingRegionPair = null;
-            bool unitFloodApplied = false;
-            bool buildingApproachApplied = false;
-            bool buildingConsumerApplied = false;
-            bool regionPairApplied = false;
+            HookTransaction pendingTransaction = null;
+            RedBirdDetour<AttackApproachFloodBuilderDelegate> pendingUnitFlood = null;
+            RedBirdDetour<BuildingApproachBuilderDelegate> pendingBuildingApproach = null;
+            RedBirdDetour<BuildingCandidateConsumerDelegate> pendingBuildingConsumer = null;
+            RedBirdDetour<RegionPairReachabilityDelegate> pendingRegionPair = null;
             try
             {
                 Shared.NativeResolution unitFloodResolution = Resolve(
@@ -1318,40 +1323,37 @@ namespace MoveMoatTest
                 rootedBuildingCandidateConsumer = ObserveBuildingCandidateConsumer;
                 rootedRegionPairReachability = ObserveScopedRegionPairReachability;
 
-                pendingUnitFlood = CreateDetour(
+                pendingTransaction = CreateOwnedHookTransaction();
+                pendingUnitFlood = AddDetour(pendingTransaction,
                     libraryBase + unchecked((ulong)unitFloodResolution.Rva),
                     rootedAttackApproachFloodBuilder);
-                originalAttackApproachFloodBuilder =
-                    pendingUnitFlood.GenerateTrampoline<AttackApproachFloodBuilderDelegate>();
-                pendingBuildingApproach = CreateDetour(
+                pendingBuildingApproach = AddDetour(pendingTransaction,
                     libraryBase + unchecked((ulong)buildingApproachResolution.Rva),
                     rootedBuildingApproachBuilder);
-                originalBuildingApproachBuilder =
-                    pendingBuildingApproach.GenerateTrampoline<BuildingApproachBuilderDelegate>();
-                pendingBuildingConsumer = CreateDetour(
+                pendingBuildingConsumer = AddDetour(pendingTransaction,
                     libraryBase + unchecked((ulong)buildingConsumerResolution.Rva),
                     rootedBuildingCandidateConsumer);
-                originalBuildingCandidateConsumer =
-                    pendingBuildingConsumer.GenerateTrampoline<BuildingCandidateConsumerDelegate>();
-                pendingRegionPair = CreateDetour(
+                pendingRegionPair = AddDetour(pendingTransaction,
                     libraryBase + unchecked((ulong)regionPairResolution.Rva),
                     rootedRegionPairReachability);
-                originalRegionPairReachability =
-                    pendingRegionPair.GenerateTrampoline<RegionPairReachabilityDelegate>();
-
-                pendingUnitFlood.Apply();
-                unitFloodApplied = true;
-                pendingBuildingApproach.Apply();
-                buildingApproachApplied = true;
-                pendingBuildingConsumer.Apply();
-                buildingConsumerApplied = true;
-                pendingRegionPair.Apply();
-                regionPairApplied = true;
+                CommitResult commitResult = pendingTransaction.Commit();
+                if (!commitResult.IsCompleteSuccess || !pendingUnitFlood.Committed ||
+                    !pendingBuildingApproach.Committed || !pendingBuildingConsumer.Committed ||
+                    !pendingRegionPair.Committed)
+                {
+                    throw new InvalidOperationException(
+                        $"The attack-approach hooks were not installed atomically: {commitResult}.");
+                }
+                originalAttackApproachFloodBuilder = pendingUnitFlood.Original;
+                originalBuildingApproachBuilder = pendingBuildingApproach.Original;
+                originalBuildingCandidateConsumer = pendingBuildingConsumer.Original;
+                originalRegionPairReachability = pendingRegionPair.Original;
 
                 attackApproachFloodBuilderDetour = pendingUnitFlood;
                 buildingApproachBuilderDetour = pendingBuildingApproach;
                 buildingCandidateConsumerDetour = pendingBuildingConsumer;
                 regionPairReachabilityDetour = pendingRegionPair;
+                attackApproachHookTransaction = pendingTransaction;
                 Shared.DebugLogHelper.LogInfo(
                     log,
                     "MoveMoat attack-approach hooks installed: " +
@@ -1364,10 +1366,12 @@ namespace MoveMoatTest
             }
             catch (Exception ex)
             {
-                UndoAndDispose(pendingRegionPair, regionPairApplied);
-                UndoAndDispose(pendingBuildingConsumer, buildingConsumerApplied);
-                UndoAndDispose(pendingBuildingApproach, buildingApproachApplied);
-                UndoAndDispose(pendingUnitFlood, unitFloodApplied);
+                try { pendingTransaction?.Dispose(); } catch { }
+                attackApproachHookTransaction = null;
+                attackApproachFloodBuilderDetour = null;
+                buildingApproachBuilderDetour = null;
+                buildingCandidateConsumerDetour = null;
+                regionPairReachabilityDetour = null;
                 rootedAttackApproachFloodBuilder = null;
                 rootedBuildingApproachBuilder = null;
                 rootedBuildingCandidateConsumer = null;
@@ -1925,8 +1929,7 @@ namespace MoveMoatTest
             {
                 try
                 {
-                    Shared.DebugLogHelper.LogInfo(
-                        log,
+                    LogDetailedInfo(
                         "MoveMoat " +
                         $"stage=move-command-incomplete commandSeq={activeMoveCommand.Sequence} " +
                         $"tribe={activeMoveCommand.TribeId} " +
@@ -1945,8 +1948,7 @@ namespace MoveMoatTest
             {
                 try
                 {
-                    Shared.DebugLogHelper.LogInfo(
-                        log,
+                    LogDetailedInfo(
                         "MoveMoat " +
                         $"stage=target-command-incomplete commandSeq={activeAttackCommand.Sequence} " +
                         $"tribe={activeAttackCommand.TribeId} command={activeAttackCommand.Command} " +
@@ -2156,8 +2158,7 @@ namespace MoveMoatTest
             if (string.Equals(tracker.LastSignature, signature, StringComparison.Ordinal))
                 return false;
             tracker.LastSignature = signature;
-            Shared.DebugLogHelper.LogInfo(
-                log,
+            LogDetailedInfo(
                 $"MoveMoat stage=native-waypoint-queue source={source} tick={tick} " +
                 $"commandSeq={tracker.LastCommandSequence} tribe={tracker.TribeId} " +
                 $"requested=({tracker.LastRequestedX},{tracker.LastRequestedY}) {signature}.");
@@ -2224,8 +2225,7 @@ namespace MoveMoatTest
         private void EndTrackedAttack(int unitId, AttackUnitTracker tracker, string reason)
         {
             trackedAttackUnits.Remove(unitId);
-            Shared.DebugLogHelper.LogInfo(
-                log,
+            LogDetailedInfo(
                 $"MoveMoat stage=attack-state-end unit={unitId} command={tracker.Command} " +
                 $"reason={reason} mode={tracker.ModeObserved} planner={tracker.PlannerObserved} " +
                 $"builder={tracker.BuilderObserved}.");
@@ -2655,8 +2655,7 @@ namespace MoveMoatTest
                 }
                 foreach (KeyValuePair<int, int[]> entry in consumerContracts)
                 {
-                    Shared.DebugLogHelper.LogInfo(
-                        log,
+                    LogDetailedInfo(
                         $"MoveMoat stage=weighted-path-consumer-contract-summary " +
                         $"tick={tick} commandSeq={entry.Key} checked={entry.Value[0]} " +
                         $"valid={entry.Value[1]} invalid={entry.Value[2]}.");
@@ -2681,8 +2680,7 @@ namespace MoveMoatTest
                         StringComparison.Ordinal))
                 {
                     tracker.LastRuntimeCadenceRejection = rejection;
-                    Shared.DebugLogHelper.LogInfo(
-                        log,
+                    LogDetailedInfo(
                         $"MoveMoat stage=weighted-shadow-runtime unit={tracker.UnitId} " +
                         $"tick={tick} decision=no-valid-shadow-route reason={rejection}.");
                 }
@@ -2702,8 +2700,7 @@ namespace MoveMoatTest
                     WeightedMovementCostProfile previousProfile = tracker.RuntimeCostProfile;
                     tracker.RuntimeCostProfile = runtimeProfile;
                     tracker.RuntimeCadenceRebased = true;
-                    Shared.DebugLogHelper.LogInfo(
-                        log,
+                    LogDetailedInfo(
                         $"MoveMoat stage=weighted-shadow-runtime-rebase unit={tracker.UnitId} " +
                         $"tick={tick} previous={FormatCostProfile(previousProfile)} " +
                         $"current={FormatCostProfile(runtimeProfile)}.");
@@ -2719,8 +2716,7 @@ namespace MoveMoatTest
                     WeightedMovementCostProfile previousProfile = tracker.RuntimeCostProfile;
                     tracker.RuntimeCostProfile = runtimeProfile;
                     tracker.RuntimeCadenceRebased = true;
-                    Shared.DebugLogHelper.LogInfo(
-                        log,
+                    LogDetailedInfo(
                         $"MoveMoat stage=weighted-shadow-runtime-rebase unit={tracker.UnitId} " +
                         $"tick={tick} kind=late-handler-speed-bonus " +
                         $"previous={FormatCostProfile(previousProfile)} " +
@@ -2735,8 +2731,7 @@ namespace MoveMoatTest
                     tracker.RuntimeCadenceChanged = true;
                     tracker.Calibratable = false;
                     tracker.CalibrationReason = "runtime-cadence-changed-after-first-transition";
-                    Shared.DebugLogHelper.LogInfo(
-                        log,
+                    LogDetailedInfo(
                         $"MoveMoat stage=weighted-shadow-runtime-change unit={tracker.UnitId} " +
                         $"tick={tick} first={FormatCostProfile(tracker.RuntimeCostProfile)} " +
                         $"current={FormatCostProfile(runtimeProfile)}.");
@@ -2832,8 +2827,7 @@ namespace MoveMoatTest
             long saving = found && runtimeNativeTicks != long.MaxValue
                 ? runtimeNativeTicks - runtimeCandidate.EstimatedTicks
                 : 0;
-            Shared.DebugLogHelper.LogInfo(
-                log,
+            LogDetailedInfo(
                 $"MoveMoat stage=weighted-shadow-runtime unit={tracker.UnitId} " +
                 $"type={tracker.WeightedUnitType} player={tracker.WeightedPlayerId} " +
                 $"command={tracker.WeightedCommand}({(uint)tracker.WeightedCommand}) tick={tick} " +
@@ -2934,8 +2928,7 @@ namespace MoveMoatTest
                 else
                     tracker.ActualEnemyMoatTilesOutsideWorkTarget++;
                 var position = GameTileManagerAPI.Instance.GetTileVectorFromId(tileId);
-                Shared.DebugLogHelper.LogInfo(
-                    log,
+                LogDetailedInfo(
                     $"MoveMoat stage=owner-safety-observation tick={tick} " +
                     $"unit={tracker.UnitId} player={tracker.PlayerId} " +
                     $"command={tracker.WeightedCommand} " +
@@ -2983,8 +2976,7 @@ namespace MoveMoatTest
                     unit, out WeightedMovementCostProfile profile, out string rejectionReason)
                         ? FormatCostProfile(profile)
                         : $"unavailable/{rejectionReason ?? "unknown"}";
-            Shared.DebugLogHelper.LogInfo(
-                log,
+            LogDetailedInfo(
                 $"MoveMoat stage=move-milestone event={milestone} tick={tick} " +
                 $"unit={unitId} type={unit->r_UnitChimp} " +
                 $"player={unit->r_ControllableForPlayerId} tribe={unit->r_TribeId} " +
@@ -3145,8 +3137,7 @@ namespace MoveMoatTest
                 : tracker.ShadowMatchesPublishedCostProfile
                     ? "matching-published-cost-profile"
                     : "published-cost-profile-differs";
-            Shared.DebugLogHelper.LogInfo(
-                log,
+            LogDetailedInfo(
                 $"MoveMoat stage=move-state-end unit={unitId} type={tracker.UnitType} " +
                 $"player={tracker.PlayerId} tribe={tracker.TribeId} " +
                 $"commandSeq={tracker.WeightedCommandSequence} " +
@@ -3523,8 +3514,7 @@ namespace MoveMoatTest
             try
             {
                 MarkPostCombatRepathEntered(unitId, unit, plan, requiredFriendlyMoat);
-                Shared.DebugLogHelper.LogInfo(
-                    log,
+                LogDetailedInfo(
                     $"MoveMoat stage=post-combat-repath-entered unit={unitId} " +
                     $"type={unit->r_UnitChimp} player={unit->r_ControllableForPlayerId} " +
                     $"tribe={unit->r_TribeId} aiState={unit->r_AIState} " +
@@ -3551,8 +3541,7 @@ namespace MoveMoatTest
                     // have created it during the repath. Attach the same continuation marker.
                     MarkPostCombatRepathEntered(
                         unitId, unit, plan, requiredFriendlyMoat);
-                    Shared.DebugLogHelper.LogInfo(
-                        log,
+                    LogDetailedInfo(
                         $"MoveMoat stage=post-combat-repath-result unit={unitId} " +
                         $"target=({targetX},{targetY}) modeObserved={plan.ModeObserved} " +
                         $"friendlyRouteQualified={plan.FriendlyRouteQualified} " +
@@ -5954,8 +5943,7 @@ namespace MoveMoatTest
                 }
                 if (loggedBuildingCursorReachabilityDecisions.Count < 64 && loggedBuildingCursorReachabilityDecisions.Add(key))
                 {
-                    Shared.DebugLogHelper.LogInfo(
-                        log,
+                    LogDetailedInfo(
                         $"MoveMoat stage=building-cursor-reachability " +
                         $"building={buildingId}/{target.GlobalId} type={target.BuildingType} " +
                         $"owner={target.OwnerId} unit={unitId} player={playerId} " +
@@ -7846,8 +7834,7 @@ namespace MoveMoatTest
             }
 
             lastUnscopedAttackModes[unitId] = signature;
-            Shared.DebugLogHelper.LogInfo(
-                log,
+            LogDetailedInfo(
                 $"MoveMoat stage=attack-mode-unscoped unit={unitId} " +
                 $"player={unit->r_ControllableForPlayerId} command={command}({(uint)command}) " +
                 $"aiState={unit->r_AIState} current=({unit->r_CurrentTilePositionX}," +
@@ -7899,7 +7886,13 @@ namespace MoveMoatTest
 
         private void LogCursorDecision(string message)
         {
-            Shared.DebugLogHelper.LogInfo(log, $"MoveMoat {message}.");
+            LogDetailedInfo($"MoveMoat {message}.");
+        }
+
+        private void LogDetailedInfo(string message)
+        {
+            if (DetailedDiagnosticsEnabled)
+                Shared.DebugLogHelper.LogInfo(log, message);
         }
 
         private void LogPositiveCursorDecision(ref int lastLoggedGeneration, string message)
@@ -7922,7 +7915,8 @@ namespace MoveMoatTest
 
         // Commands and work selections have aggregate counters; avoid formatting a
         // full per-unit trace in those hot paths. Standalone diagnostics remain available.
-        private bool ShouldLogUnitPipeline => activeMoveCommand == null && activeAttackCommand == null &&
+        private bool ShouldLogUnitPipeline => DetailedDiagnosticsEnabled &&
+            activeMoveCommand == null && activeAttackCommand == null &&
             activeMoatWorkSelection == null &&
             !((activePlan ?? pendingPlan)?.MoatWorkMovement ?? false);
 
@@ -7948,6 +7942,9 @@ namespace MoveMoatTest
 
         private void BufferOrLogCommandDiagnostic(string message)
         {
+            if (!DetailedDiagnosticsEnabled)
+                return;
+
             MoveCommandScope command = activeMoveCommand;
             if (command != null)
             {
@@ -7983,29 +7980,30 @@ namespace MoveMoatTest
                 requiredBackgroundDiagnostics[stage] = retained + 1;
             }
 
-            Shared.DebugLogHelper.LogInfo(log, $"MoveMoat {message}.");
+            LogDetailedInfo($"MoveMoat {message}.");
         }
 
         private void FlushRequiredBackgroundDiagnosticSummary()
         {
+            if (!DetailedDiagnosticsEnabled)
+                return;
+
             if (requiredBackgroundSuppressedDiagnostics.Count == 0)
                 return;
-            Shared.DebugLogHelper.LogInfo(
-                log,
+            LogDetailedInfo(
                 $"MoveMoat stage=background-diagnostics tick={requiredBackgroundDiagnosticTick} " +
                 $"suppressed={FormatCounts(requiredBackgroundSuppressedDiagnostics)}.");
         }
 
         private void FlushAttackDiagnostics(AttackCommandScope command)
         {
-            if (command == null)
+            if (!DetailedDiagnosticsEnabled || command == null)
                 return;
             long started = Stopwatch.GetTimestamp();
             foreach (string message in command.Diagnostics)
-                Shared.DebugLogHelper.LogInfo(log, $"MoveMoat {message}.");
+                LogDetailedInfo($"MoveMoat {message}.");
             command.LogFlushTicks = Stopwatch.GetTimestamp() - started;
-            Shared.DebugLogHelper.LogInfo(
-                log,
+            LogDetailedInfo(
                 $"MoveMoat stage=attack-command-performance commandSeq={command.Sequence} " +
                 $"dispatchMs={command.DispatchMilliseconds:F3} logFlushMs={command.LogFlushMilliseconds:F3} " +
                 $"observerTotalMs={(command.DispatchMilliseconds + command.LogFlushMilliseconds):F3} " +
@@ -8059,6 +8057,9 @@ namespace MoveMoatTest
 
         private void FlushCommandDiagnostics(MoveCommandScope command)
         {
+            if (!DetailedDiagnosticsEnabled)
+                return;
+
             bool queueRelevant = command != null &&
                 ((command.HasQueuePreSnapshot && command.QueuePreSnapshot.Count > 0) ||
                  (command.HasQueuePostSnapshot && command.QueuePostSnapshot.Count > 0));
@@ -8070,8 +8071,7 @@ namespace MoveMoatTest
 
             if (slow && !command.MoatRelevant && !queueRelevant && !earlyFailure)
             {
-                Shared.DebugLogHelper.LogInfo(
-                    log,
+                LogDetailedInfo(
                     $"MoveMoat stage=move-command-performance commandSeq={command.Sequence} " +
                     $"tribe={command.TribeId} units={command.ActiveUnitsAtDispatch} " +
                     $"diggers={command.DiggersAtDispatch} elapsedMs={command.ElapsedMilliseconds:F3} " +
@@ -8087,11 +8087,10 @@ namespace MoveMoatTest
             }
 
             foreach (string message in command.Diagnostics)
-                Shared.DebugLogHelper.LogInfo(log, $"MoveMoat {message}.");
+                LogDetailedInfo($"MoveMoat {message}.");
             if (command.SuppressedDiagnostics.Count != 0)
             {
-                Shared.DebugLogHelper.LogInfo(
-                    log,
+                LogDetailedInfo(
                     $"MoveMoat stage=move-command-diagnostics commandSeq={command.Sequence} " +
                     $"diagnostics={command.DiagnosticMessages}/{command.Diagnostics.Count} " +
                     $"diagnosticChars={command.DiagnosticCharacters} " +
@@ -8251,8 +8250,7 @@ namespace MoveMoatTest
                         ? "enemy-moat-only"
                         : "no-qualified-friendly-moat-route";
 
-            Shared.DebugLogHelper.LogInfo(
-                log,
+            LogDetailedInfo(
                 $"MoveMoat stage=planner-owner-rejected unit={plan.UnitId} player={plan.PlayerId} " +
                 $"target=({plan.TargetX},{plan.TargetY}) targetAvailability={targetAvailability} " +
                 $"targetRegion={targetRegion} reason={reason} {summary.ToLogFields()}.");
@@ -8357,18 +8355,33 @@ namespace MoveMoatTest
             IsValidTileId(tileId) && nativeSpecialStructurePredicate != null &&
             nativeSpecialStructurePredicate(nativeSpecialStructureContext, tileId);
 
-        private static NativeDetour CreateDetour<TDelegate>(ulong targetAddress, TDelegate callback)
-            where TDelegate : Delegate =>
-            new NativeDetour(
-                (IntPtr)unchecked((long)targetAddress),
-                Marshal.GetFunctionPointerForDelegate(callback),
-                new NativeDetourConfig { ManualApply = true });
-
-        private static void UndoAndDispose(NativeDetour detour, bool applied)
+        private HookTransaction CreateOwnedHookTransaction()
         {
-            if (applied)
-                detour?.Undo();
-            detour?.Dispose();
+            return new HookTransaction(
+                nativeRegion,
+                SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory,
+                new HookTransactionOptions
+                {
+                    FailureMode = TransactionFailureMode.RollbackAndThrow,
+                    // The statically rooted runtime owns hooks until genuine final teardown.
+                    OwnsHooks = true
+                });
+        }
+
+        private static RedBirdDetour<TDelegate> AddDetour<TDelegate>(
+            HookTransaction transaction,
+            ulong targetAddress,
+            TDelegate callback)
+            where TDelegate : Delegate
+        {
+            if (transaction == null)
+                throw new ArgumentNullException(nameof(transaction));
+            var detour = new RedBirdDetour<TDelegate>(targetAddress);
+            transaction.AddDetour(
+                detour.Handle,
+                HookTarget.FromAddress(targetAddress),
+                callback);
+            return detour;
         }
 
         private enum AttackPipelineStage

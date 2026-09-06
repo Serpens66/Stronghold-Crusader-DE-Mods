@@ -1,4 +1,4 @@
-using MonoMod.RuntimeDetour;
+using RedBird.X64.Hooks.Transaction;
 using SHCDESE.API;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
@@ -80,9 +80,10 @@ namespace MoveMoatTest
         private ResolveMoatWorkTileDelegate rootedResolveMoatWorkTile;
         private HasFillMoatApproachDelegate originalHasFillMoatApproach;
         private HasFillMoatApproachDelegate rootedHasFillMoatApproach;
-        private NativeDetour findMoatWorkTargetDetour;
-        private NativeDetour resolveMoatWorkTileDetour;
-        private NativeDetour hasFillMoatApproachDetour;
+        private RedBirdDetour<FindMoatWorkTargetDelegate> findMoatWorkTargetDetour;
+        private RedBirdDetour<ResolveMoatWorkTileDelegate> resolveMoatWorkTileDetour;
+        private RedBirdDetour<HasFillMoatApproachDelegate> hasFillMoatApproachDetour;
+        private HookTransaction moatWorkHookTransaction;
         private readonly Dictionary<int, string> lastMoatWorkSelectionByUnit =
             new Dictionary<int, string>();
         private readonly Dictionary<int, string> lastMoatWorkApproachByUnit =
@@ -96,7 +97,10 @@ namespace MoveMoatTest
             string ownerGuid,
             Func<bool> enabledProvider)
         {
-            if (findMoatWorkTargetDetour == null || resolveMoatWorkTileDetour == null)
+            if (moatWorkHookTransaction == null ||
+                findMoatWorkTargetDetour?.Committed != true ||
+                resolveMoatWorkTileDetour?.Committed != true ||
+                hasFillMoatApproachDetour?.Committed != true)
                 return 0;
             if (string.IsNullOrWhiteSpace(ownerGuid))
                 throw new ArgumentException("An owner GUID is required.", nameof(ownerGuid));
@@ -118,12 +122,10 @@ namespace MoveMoatTest
         private void TryInstallMoatWorkTargetSelection(
             ReadOnlySpan<byte> memory, ulong libraryBase)
         {
-            NativeDetour pendingFind = null;
-            NativeDetour pendingResolve = null;
-            NativeDetour pendingFillApproach = null;
-            bool findApplied = false;
-            bool resolveApplied = false;
-            bool fillApproachApplied = false;
+            HookTransaction pendingTransaction = null;
+            RedBirdDetour<FindMoatWorkTargetDelegate> pendingFind = null;
+            RedBirdDetour<ResolveMoatWorkTileDelegate> pendingResolve = null;
+            RedBirdDetour<HasFillMoatApproachDelegate> pendingFillApproach = null;
             try
             {
                 if (regionPairReachabilityDetour == null || originalRegionPairReachability == null ||
@@ -149,32 +151,31 @@ namespace MoveMoatTest
                 rootedResolveMoatWorkTile = ResolveMoatWorkTileWithOwnerRoute;
                 rootedHasFillMoatApproach = AllowFillMoatApproachThroughFriendlyMoat;
 
-                pendingFind = CreateDetour(
+                pendingTransaction = CreateOwnedHookTransaction();
+                pendingFind = AddDetour(pendingTransaction,
                     libraryBase + unchecked((ulong)findResolution.Rva),
                     rootedFindMoatWorkTarget);
-                originalFindMoatWorkTarget =
-                    pendingFind.GenerateTrampoline<FindMoatWorkTargetDelegate>();
-                pendingResolve = CreateDetour(
+                pendingResolve = AddDetour(pendingTransaction,
                     libraryBase + unchecked((ulong)resolveResolution.Rva),
                     rootedResolveMoatWorkTile);
-                originalResolveMoatWorkTile =
-                    pendingResolve.GenerateTrampoline<ResolveMoatWorkTileDelegate>();
-                pendingFillApproach = CreateDetour(
+                pendingFillApproach = AddDetour(pendingTransaction,
                     libraryBase + unchecked((ulong)fillApproachResolution.Rva),
                     rootedHasFillMoatApproach);
-                originalHasFillMoatApproach =
-                    pendingFillApproach.GenerateTrampoline<HasFillMoatApproachDelegate>();
-
-                pendingFind.Apply();
-                findApplied = true;
-                pendingResolve.Apply();
-                resolveApplied = true;
-                pendingFillApproach.Apply();
-                fillApproachApplied = true;
+                var commitResult = pendingTransaction.Commit();
+                if (!commitResult.IsCompleteSuccess || !pendingFind.Committed ||
+                    !pendingResolve.Committed || !pendingFillApproach.Committed)
+                {
+                    throw new InvalidOperationException(
+                        $"The moat-work hooks were not installed atomically: {commitResult}.");
+                }
+                originalFindMoatWorkTarget = pendingFind.Original;
+                originalResolveMoatWorkTile = pendingResolve.Original;
+                originalHasFillMoatApproach = pendingFillApproach.Original;
 
                 findMoatWorkTargetDetour = pendingFind;
                 resolveMoatWorkTileDetour = pendingResolve;
                 hasFillMoatApproachDetour = pendingFillApproach;
+                moatWorkHookTransaction = pendingTransaction;
                 Shared.DebugLogHelper.LogInfo(
                     log,
                     "MoveMoat moat-work target selection installed: " +
@@ -185,9 +186,8 @@ namespace MoveMoatTest
             }
             catch (Exception ex)
             {
-                UndoAndDispose(pendingFillApproach, fillApproachApplied);
-                UndoAndDispose(pendingResolve, resolveApplied);
-                UndoAndDispose(pendingFind, findApplied);
+                try { pendingTransaction?.Dispose(); } catch { }
+                moatWorkHookTransaction = null;
                 hasFillMoatApproachDetour = null;
                 resolveMoatWorkTileDetour = null;
                 findMoatWorkTargetDetour = null;
@@ -1043,8 +1043,7 @@ namespace MoveMoatTest
                 return;
             }
             lastMoatWorkSelectionByUnit[scope.UnitId] = signature;
-            Shared.DebugLogHelper.LogInfo(
-                log,
+            LogDetailedInfo(
                 $"MoveMoat stage=work-target-selection-fallback kind={kind} unit={scope.UnitId} " +
                 $"player={scope.PlayerId} start=({scope.StartX},{scope.StartY})/" +
                 $"region={scope.StartRegion} selectedMoat={scope.SelectedMoatId} " +
@@ -1082,8 +1081,7 @@ namespace MoveMoatTest
                 return;
             }
             lastMoatWorkApproachByUnit[pending.UnitId] = signature;
-            Shared.DebugLogHelper.LogInfo(
-                log,
+            LogDetailedInfo(
                 $"MoveMoat stage=work-approach-tile kind=fill unit={pending.UnitId} " +
                 $"player={pending.PlayerId} moat={pending.MoatId}/tile={approach.MoatTileId} " +
                 $"approach=({approach.X},{approach.Y})/{approach.TileId} " +
@@ -1103,8 +1101,7 @@ namespace MoveMoatTest
                 return;
             }
             lastMoatWorkApproachByUnit[pending.UnitId] = signature;
-            Shared.DebugLogHelper.LogInfo(
-                log,
+            LogDetailedInfo(
                 $"MoveMoat stage=work-approach-tile kind=dig unit={pending.UnitId} " +
                 $"player={pending.PlayerId} moat={pending.MoatId}/tile={pending.TileId} " +
                 $"approach=({pending.X},{pending.Y})/{pending.TileId} " +
@@ -1177,9 +1174,8 @@ namespace MoveMoatTest
 
         private void DisposeMoatWorkTargetSelection()
         {
-            hasFillMoatApproachDetour?.Dispose();
-            resolveMoatWorkTileDetour?.Dispose();
-            findMoatWorkTargetDetour?.Dispose();
+            moatWorkHookTransaction?.Dispose();
+            moatWorkHookTransaction = null;
             hasFillMoatApproachDetour = null;
             resolveMoatWorkTileDetour = null;
             findMoatWorkTargetDetour = null;

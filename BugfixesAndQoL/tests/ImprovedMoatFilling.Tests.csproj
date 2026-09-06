@@ -9,18 +9,39 @@
     <AssemblyName>ImprovedMoatFilling.Tests</AssemblyName>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <OutputPath>bin\</OutputPath>
     <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(GameDir)' == ''">
+    <GameDir>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(ExtenderDir)' == ''">
+    <ExtenderDir>$(GameDir)\BepInEx\plugins\000shcdese</ExtenderDir>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="BepInEx"><HintPath>$(GameDir)\BepInEx\core\BepInEx.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="UnityEngine"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="UnityEngine.CoreModule"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.CoreModule.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="SHCDESE"><HintPath>$(ExtenderDir)\SHCDESE.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="Iced"><HintPath>$(ExtenderDir)\Iced.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="System.Memory"><HintPath>$(ExtenderDir)\System.Memory.dll</HintPath><Private>true</Private></Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
+    <Compile Include="..\src\AiDefensePatrolNativeDefinition.cs"><Link>AiDefensePatrolNativeDefinition.cs</Link></Compile>
+    <Compile Include="..\src\AiDefensePatrolPolicy.cs"><Link>AiDefensePatrolPolicy.cs</Link></Compile>
     <Compile Include="..\src\ImprovedMoatFillingNativeContractPolicy.cs"><Link>ImprovedMoatFillingNativeContractPolicy.cs</Link></Compile>
     <Compile Include="..\src\ImprovedMoatFillingPolicy.cs"><Link>ImprovedMoatFillingPolicy.cs</Link></Compile>
     <Compile Include="..\src\MoatFillHookOwnershipPolicy.cs"><Link>MoatFillHookOwnershipPolicy.cs</Link></Compile>
+    <Compile Include="..\..\Shared\DebugLogHelper.cs"><Link>DebugLogHelper.cs</Link></Compile>
+    <Compile Include="..\..\Shared\NativePatternResolver.cs"><Link>NativePatternResolver.cs</Link></Compile>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <Target Name="ValidateAiDefensePatrolReferences" BeforeTargets="BeforeBuild">
+    <Error Condition="!Exists('$(ExtenderDir)\SHCDESE.dll')" Text="Installed SHCDESE.dll was not found: $(ExtenderDir)" />
+    <Error Condition="!Exists('$(ExtenderDir)\Iced.dll')" Text="Installed Iced.dll was not found: $(ExtenderDir)" />
+  </Target>
 </Project>

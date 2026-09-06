@@ -1,6 +1,7 @@
 using System;
 using System.Runtime.InteropServices;
 using SHCDESE.API;
+using RedBird.X64.Hooks.Transaction;
 
 namespace MoveMoatTest
 {
@@ -9,19 +10,21 @@ namespace MoveMoatTest
         [UnmanagedFunctionPointer(CallingConvention.Winapi)]
         private delegate void FormationSlotDelegate(IntPtr manager, int spacing, int x, int y);
         private FormationSlotDelegate originalFormationSlot;
+        private RedBirdDetour<FormationSlotDelegate> formationSlotDetour;
         private MoveCommandScope formationOwner;
         private int formationEpoch, formationTick, formationStamp, formationPlayer, formationSpacing;
         private long formationRevision;
         private bool formationExhausted;
         private long formationRejected, formationReplaced, formationFallbacks;
 
-        private void InstallFormationSlotAdapter(ReadOnlySpan<byte> memory, ulong libraryBase)
+        private void InstallFormationSlotAdapter(
+            HookTransaction transaction, ReadOnlySpan<byte> memory, ulong libraryBase)
         {
             // FBCB9319 E1D30..E1D3F: three complete nonvolatile-register saves.
             // No patch of the search field or its terrain/visit stamps is needed.
-            InstallConnectivityObserver(memory, libraryBase, 0xE1D30,
+            formationSlotDetour = InstallConnectivityObserver(transaction, memory, libraryBase, 0xE1D30,
                 "48 89 5C 24 08 48 89 6C 24 18 48 89 74 24 20 89 54 24 10 57 41 54 41 55 41 56 41 57 4C 63 1D E1 49 BE 07 4C 8B F1 48 63",
-                (FormationSlotDelegate)ChooseOwnerSafeFormationSlot, out originalFormationSlot);
+                (FormationSlotDelegate)ChooseOwnerSafeFormationSlot);
         }
 
         private bool IsForbiddenFormationMoat(int player, int x, int y)

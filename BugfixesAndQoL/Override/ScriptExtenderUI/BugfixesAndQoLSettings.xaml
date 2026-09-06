@@ -303,6 +303,12 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableAiFixesText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-ai-defense-patrol-fix" shared:ModSettingsSearch.Title="{Binding EnableAiDefensePatrolFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableAiDefensePatrolFixHelpText}"><CheckBox IsChecked="{Binding EnableAiDefensePatrolFix, Mode=TwoWay}"
+                Foreground="White"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableAiDefensePatrolFixHelpText}"
+                Margin="18,0,14,8">
+        <TextBlock Text="{Binding EnableAiDefensePatrolFixText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox></Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-aiv-defender-position-fix" shared:ModSettingsSearch.Title="{Binding EnableAivDefenderPositionFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableAivDefenderPositionFixHelpText}"><CheckBox IsChecked="{Binding EnableAivDefenderPositionFix, Mode=TwoWay}"
                 Foreground="White"
                 ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableAivDefenderPositionFixHelpText}"

@@ -5,7 +5,7 @@ using System;
 
 namespace MoveMoatTest
 {
-    [BepInDependency(ScriptExtenderGuid, BepInDependency.DependencyFlags.HardDependency)]
+    [BepInDependency(ScriptExtenderGuid, "2.0.2")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class MoveMoatTestPlugin : BaseUnityPlugin
     {
@@ -43,9 +43,7 @@ namespace MoveMoatTest
             librarySubscriptionInstalled = true;
         }
 
-        private static void OnCrusaderLibraryLoaded(
-            IntPtr libraryHandle,
-            ReadOnlySpan<byte> memory)
+        private static void OnCrusaderLibraryLoaded(CrusaderLibraryLoadContext context)
         {
             if (feature != null)
                 return;
@@ -61,8 +59,7 @@ namespace MoveMoatTest
 
                 feature = new MoveMoatPathTest(
                     persistentLog,
-                    memory,
-                    unchecked((ulong)libraryHandle.ToInt64()),
+                    context,
                     referenceHashMatches);
             }
             catch (Exception ex)

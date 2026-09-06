@@ -25,13 +25,19 @@ if errorlevel 1 (
 )
 
 if not exist "%MSBUILD%" goto build_failed
-if exist "%LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT%\SHCDESE.dll" (
+if exist "%LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT%\SHCDESE.dll" if exist "%LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT%\RedBird.Abstractions.dll" if exist "%LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT%\RedBird.Core.dll" if exist "%LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT%\RedBird.X64.dll" if exist "%LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT%\RedBird.Backends.NativeX64.dll" (
   set "EXTENDER_DIR=%LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT%"
-) else if exist "%LOCAL_SCRIPT_EXTENDER_MOD_OUTPUT%\SHCDESE.dll" (
+)
+if not defined EXTENDER_DIR if exist "%LOCAL_SCRIPT_EXTENDER_MOD_OUTPUT%\SHCDESE.dll" if exist "%LOCAL_SCRIPT_EXTENDER_MOD_OUTPUT%\RedBird.Abstractions.dll" if exist "%LOCAL_SCRIPT_EXTENDER_MOD_OUTPUT%\RedBird.Core.dll" if exist "%LOCAL_SCRIPT_EXTENDER_MOD_OUTPUT%\RedBird.X64.dll" if exist "%LOCAL_SCRIPT_EXTENDER_MOD_OUTPUT%\RedBird.Backends.NativeX64.dll" (
   set "EXTENDER_DIR=%LOCAL_SCRIPT_EXTENDER_MOD_OUTPUT%"
-) else if exist "%GAME_SCRIPT_EXTENDER_DIR%\SHCDESE.dll" (
+)
+if not defined EXTENDER_DIR if exist "%GAME_SCRIPT_EXTENDER_DIR%\SHCDESE.dll" if exist "%GAME_SCRIPT_EXTENDER_DIR%\RedBird.Abstractions.dll" if exist "%GAME_SCRIPT_EXTENDER_DIR%\RedBird.Core.dll" if exist "%GAME_SCRIPT_EXTENDER_DIR%\RedBird.X64.dll" if exist "%GAME_SCRIPT_EXTENDER_DIR%\RedBird.Backends.NativeX64.dll" (
   set "EXTENDER_DIR=%GAME_SCRIPT_EXTENDER_DIR%"
-) else goto build_failed
+)
+if not defined EXTENDER_DIR goto build_failed
+
+powershell.exe -NoProfile -Command "$v=[Reflection.AssemblyName]::GetAssemblyName('%EXTENDER_DIR%\SHCDESE.dll').Version.ToString(); if ($v -ne '2.0.2.0') { Write-Error ('Expected Script Extender 2.0.2.0, found ' + $v); exit 1 }"
+if errorlevel 1 goto build_failed
 
 if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"
 pushd "%PROJECT_DIR%"

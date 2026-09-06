@@ -21,7 +21,7 @@ namespace MoveMoatTest
             if (fillRouteLogTick < 0 || tick < fillRouteLogTick || tick - fillRouteLogTick >= 60)
             { fillRouteLogTick = tick; fillRouteLogCount = 0; }
             if (fillRouteLogCount++ < 3)
-                Shared.DebugLogHelper.LogInfo(log, $"MoveMoat stage=route-capture-rejected reason={reason} total={count + 1}.");
+                LogDetailedInfo($"MoveMoat stage=route-capture-rejected reason={reason} total={count + 1}.");
             return null;
         }
 
@@ -116,7 +116,7 @@ namespace MoveMoatTest
             if (fillRouteLogTick < 0 || now < fillRouteLogTick || now - fillRouteLogTick >= 60)
             { fillRouteLogTick = now; fillRouteLogCount = 0; }
             if (fillRouteLogCount++ >= 3) return;
-            Shared.DebugLogHelper.LogInfo(log, $"MoveMoat stage=fill-route unit={shadow.UnitId} " +
+            LogDetailedInfo($"MoveMoat stage=fill-route unit={shadow.UnitId} " +
                 $"start=({shadow.StartX},{shadow.StartY}) target=({shadow.TargetX},{shadow.TargetY}) " +
                 $"workTile={shadow.FillPlan?.MoatWorkTargetTileId ?? -1} command={shadow.Command} decision={reason} total={count + 1} " +
                 $"edgeDetail=[{weightedMoatRoutePlanner.DescribeLastRejectedEdge()}] " +
