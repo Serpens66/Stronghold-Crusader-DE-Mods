@@ -8,5 +8,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="..\..\src\ExtendedShiftCommandQueueModel.cs" Link="ExtendedShiftCommandQueueModel.cs" />
+    <Compile Include="..\..\src\LargeMoveTargetDiagnosticsModel.cs" Link="LargeMoveTargetDiagnosticsModel.cs" />
   </ItemGroup>
 </Project>

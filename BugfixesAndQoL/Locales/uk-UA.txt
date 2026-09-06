@@ -241,3 +241,5 @@ BugfixesAndQoL.FriendlyMoatMovementModeHelp=Controls whether moat-digging units 
 BugfixesAndQoL.FriendlyMoatMovementDisabled=Off
 BugfixesAndQoL.FriendlyMoatMovementExact=Individual routes - exact
 BugfixesAndQoL.FriendlyMoatMovementRequiredOnly=Required moat routes only - fast
+BugfixesAndQoL.QolTitle=QoL
+BugfixesAndQoL.FixesTitle=Fixes

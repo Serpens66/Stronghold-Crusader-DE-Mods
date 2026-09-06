@@ -9,6 +9,8 @@ Locales/<locale>/fx/speech/your-lord-message.ogg
 JoinAudioPath and LeaveAudioPath use the full logical path, for example
 fx/speech/your-lord-join. AudioPath in a Messages clip uses only the speech name.
 VideoPath uses the bare message-video stem, backed by a WEBM in Assets/GUI/Video.
+All asset-backed fields are optional. Empty, omitted, or unresolved components
+retain the corresponding official CustomMedia component instead of suppressing it.
 
 Locale-aware audio resolves the current locale, then en-US, then the global path.
 OGG Vorbis is recommended. WAV must be RIFF/WAVE PCM format 1, mono or stereo,

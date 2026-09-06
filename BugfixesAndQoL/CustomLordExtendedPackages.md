@@ -1,6 +1,6 @@
 # Complete Vanilla and Script Extender Custom Lord packages
 
-A single Custom Lord Workshop item can support both an unmodded game and a game with the Script Extender. Vanilla loads the normal lord configuration, castles, and avatar. The Script Extender then reads additional metadata, localized presentation, media, Lua, and asset overrides from the same lord folder.
+A single Custom Lord Workshop item can support both an unmodded game and a game with the Script Extender. Vanilla loads the normal lord configuration, castles, avatar, and separately installed CustomMedia. The Script Extender treats `lordmeta.json` as a partial overlay and adds only configured, usable localized presentation, media, Lua, and asset values.
 
 The extended files do not repair an invalid Vanilla lord. Always test the Vanilla base package independently.
 
@@ -35,7 +35,9 @@ Only the `.lordjson`, `.aivjson`, and optional `avatar.png` are required by Vani
 - `avatar.png` is optional. Vanilla accepts it only when it is exactly 144x144 pixels and smaller than 80,000 bytes. Otherwise the question-mark portrait is used.
 - Vanilla ignores `info.json`, `lordmeta.json`, Lua files, and the extra subdirectories. They therefore do not prevent the same package from working without the Script Extender.
 
-The Script Extender lets Vanilla process the lord first. When it subsequently encounters the direct `info.json`, it registers the lord directory as an asset mod and reads the direct `lordmeta.json` and optional direct `init.lua`.
+The Script Extender lets Vanilla process the lord first. A direct `lordmeta.json` can provide text-only metadata without `info.json`. A valid direct `info.json` registers the lord directory as an asset mod and enables `Override` assets and optional direct `init.lua`.
+
+Every component inherits independently in this order: a valid Script Extender override, the matching official `CustomMedia/<lord name>` component, then Vanilla's default. A partial or broken media reference therefore does not silence an otherwise working official lord.
 
 ## What the in-game uploader publishes
 
@@ -48,7 +50,7 @@ The only files deliberately not added by the hook are:
 
 There is no extension allowlist and the uploader does not reject a package merely because its metadata or an asset is invalid. The installed game and Script Extender remain responsible for interpreting the files. Unsafe paths, reparse points, symbolic links, path traversal, or conflicting staging files are rejected. If adding extras fails, Vanilla's base upload continues unchanged.
 
-Before a `Custom Lord` upload starts, the Script Extender performs an advisory preflight against the documented package contract. It reports high-confidence problems such as malformed or missing direct metadata, a missing/empty asset GUID, an unusable version string, unsupported WAV data (including 48-kHz files), an invalid Vanilla avatar, special files in an obviously wrong folder, root-level media that is not indexed through `Override`, and recognizable development/archive material. All findings are shown together in a scrollable Vanilla-style confirmation. Choose **No** to cancel or **Yes** to upload the package unchanged despite the warnings. This preflight uses the same metadata models, version parser, message-key parsing, and relevant WAV constraints as the current runtime. It is deliberately not a complete duplicate of every Asset API schema, so a warning-free package must still be tested in the game.
+Before a `Custom Lord` upload starts, the Script Extender performs an advisory preflight against the documented package contract. It reports high-confidence problems such as malformed metadata that is present, a missing/empty asset GUID when assets or Lua require one, an unusable version string, unsupported WAV data (including 48-kHz files), an invalid Vanilla avatar, special files in an obviously wrong folder, root-level media that is not indexed through `Override`, and recognizable development/archive material. All findings are shown together in a scrollable Vanilla-style confirmation. Choose **No** to cancel or **Yes** to upload the package unchanged despite the warnings. This preflight uses the same metadata models, version parser, message-key parsing, and relevant WAV constraints as the current runtime. It is deliberately not a complete duplicate of every Asset API schema, so a warning-free package must still be tested in the game.
 
 Keep the publishable lord directory clean. Source recordings, conversion projects, archives, executables, DLLs, backups, and directories such as `_LegacyMediaSource` are uploaded if left inside it. The preflight warns about common examples but does not remove them; store such material outside the lord directory.
 
@@ -63,20 +65,21 @@ Keep the publishable lord directory clean. Source recordings, conversion project
       "Description": "A Custom Lord for Stronghold Crusader Definitive Edition.",
       "Version": "1.0.0",
       "Website": "",
-      "Manifest": 0
+      "Manifest": 0,
+      "NetworkMode": 0
     }
 
-Use a non-empty GUID that is globally unique to this package. If two loaded asset mods use the same GUID, the later one is ignored by the asset-mod registry. `Manifest: 0`, a valid version, and meaningful name and author values are the recommended canonical format. The Custom Lord asset-registration path currently defaults a missing `Manifest` to `0` and does not require that exact value, so the preflight does not warn about another deserializable numeric manifest value.
+Use a non-empty GUID that is globally unique to this package. If two loaded asset mods use the same GUID, the later one is ignored by the asset-mod registry. `Manifest: 0`, a valid version, and meaningful name and author values are the recommended canonical format. Use `NetworkMode: 0` for cosmetic metadata/media and `NetworkMode: 1` for gameplay-affecting Lua.
 
 The version parser accepts a numeric .NET-style version core, optionally preceded by `v` or `V`. A bare major is expanded to `<major>.0`, and a suffix beginning with `-`, `+`, or a space is ignored for comparison. Consequently `1.0.0-test`, `v2.3.4`, `3`, and `1.4.0+build9` are valid. An absent or unusable version does not prevent initial asset registration, but is treated as `0.0.0.0` when duplicate GUIDs are compared and therefore produces a warning.
 
 `SupportedGameVersions` is not a property of the current runtime `ModInfo` model. If an older template includes it, the JSON deserializer ignores it; it neither restricts loading nor needs to be present.
 
-An absent or malformed `info.json`, or a blank/duplicate GUID, prevents reliable registration of the extended assets. It does not invalidate otherwise valid Vanilla `.lordjson` and `.aivjson` files.
+An absent or malformed `info.json`, or a blank/duplicate GUID, prevents registration of extended assets and Lua. Text-only fields from a valid `lordmeta.json` and the Vanilla `.lordjson`, `.aivjson`, avatar, and CustomMedia remain usable.
 
 ## `lordmeta.json`
 
-`lordmeta.json` is read only after `info.json` has been deserialized and the asset mod has been offered for registration. A complete example is:
+`lordmeta.json` is read independently of `info.json`. Text-only fields work without a mod identity; asset, media, and Lua fields require a valid `info.json`. A complete example is:
 
     {
       "LocalizedDisplayName": {
@@ -171,11 +174,13 @@ Titles are suffixes, so include punctuation and spacing such as `", Keeper of th
 
 ### Message clips
 
-`Messages` keys are parsed case-insensitively. A key that cannot be parsed as `AILordMessageType` is logged and skipped. Numeric strings are technically accepted by the runtime enum parser, including unnamed values, but only the named values below have documented mappings and should be used. Every configured message value should be a non-null JSON array containing non-null clip objects; the preflight warns about null lists or clips because the playback path does not handle them safely. Each clip supports:
+`Messages` keys are parsed case-insensitively. They may use either the existing `AILordMessageType` names or official CustomMedia stems such as `taunt1`, `victory_good`, `cant_help`, and `will_attack_enemy`. Unknown keys are logged and skipped. Every configured message value should be a non-null JSON array containing non-null clip objects. Each clip supports:
 
 - `VideoPath`: the message-video name used by the native message system. The supported convention is a bare stem such as `my-lord-angry`, backed by `Override/Assets/GUI/Video/my-lord-angry.webm`.
 - `AudioPath`: the speech name without `fx/speech/`, because the native AI-message path adds that prefix. An extension may be omitted.
 - `LocalizedText`: optional subtitle dictionary with current-language then `en-US` fallback.
+
+Only usable components override the game. Missing audio retains the official WAV, missing video retains the official emotion video, and missing localized text retains the matching line from official `text.txt`. Components of the same message may therefore come from different systems.
 
 Available message names are:
 

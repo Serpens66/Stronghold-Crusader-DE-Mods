@@ -26,9 +26,100 @@ internal static class Program
         CheckMultiplayerChoreMarkers();
         CheckMoveChoreDeduplication();
         CheckFirstShiftMoveTakeover();
+        CheckLargeMoveTargetDiagnostics();
         CheckMigrationSourceContracts();
         CheckNativeReference();
         Console.WriteLine($"Extended Shift command queue static tests passed: {checks} checks.");
+    }
+
+    private static void CheckLargeMoveTargetDiagnostics()
+    {
+        foreach (int size in new[] { 199, 200, 250, 251, 1000, 4000 })
+        {
+            bool expected = size >= LargeMoveTargetDiagnosticsModel.MinimumTrackedUnits;
+            Check(LargeMoveTargetDiagnosticsModel.ShouldTrack(size) == expected,
+                $"large Move threshold {size}");
+            MoveTargetOutcome[] sizedOutcomes = Enumerable.Range(0, size)
+                .Select(index => new MoveTargetOutcome(
+                    index + 1,
+                    (uint)(index + 100),
+                    new MoveTargetCoordinate(index % 100, index / 100),
+                    new MoveTargetCoordinate(index % 100, index / 100),
+                    MoveTargetOutcomeKind.Exact))
+                .ToArray();
+            MoveTargetComparisonSummary sizedSummary =
+                LargeMoveTargetDiagnosticsModel.Compare(sizedOutcomes);
+            Check(sizedSummary.Total == size && sizedSummary.Exact == size,
+                $"large Move comparison size {size}");
+        }
+        Check(LargeMoveTargetDiagnosticsModel.VanillaDrawCapacity == 250,
+            "Vanilla shared draw capacity contract");
+        Check(LargeMoveTargetDiagnosticsModel.IsVanillaMoveTargetMarker(0x6B, 0x52, 0xC, 6, 2),
+            "Vanilla first Move marker recognized");
+        Check(LargeMoveTargetDiagnosticsModel.IsVanillaMoveTargetMarker(0x6B, 0x59, 0xC, 6, 0x40002),
+            "Vanilla directional Move marker recognized");
+        Check(!LargeMoveTargetDiagnosticsModel.IsVanillaMoveTargetMarker(0x6B, 0x5A, 0xC, 6, 2),
+            "non-Move sprite beside the animation range remains visible");
+        Check(!LargeMoveTargetDiagnosticsModel.IsVanillaMoveTargetMarker(0xAC, 0x142, 0x12, -1, 0xA0022),
+            "Extended Shift flag remains outside Move target filter");
+
+        var exact = Enumerable.Range(1, 200)
+            .Select(index => new MoveTargetOutcome(
+                index,
+                (uint)(1000 + index),
+                new MoveTargetCoordinate(index, index + 1),
+                new MoveTargetCoordinate(index, index + 1),
+                MoveTargetOutcomeKind.Exact))
+            .ToArray();
+        MoveTargetComparisonSummary exactSummary = LargeMoveTargetDiagnosticsModel.Compare(exact);
+        Check(exactSummary.Total == 200 && exactSummary.Exact == 200 &&
+            exactSummary.CollectiveMatches == 200 && exactSummary.MaximumManhattan == 0,
+            "200 exact target outcomes aggregate correctly");
+        Check(exactSummary.PlannedFingerprint == exactSummary.ActualFingerprint,
+            "exact planned and actual fingerprints match");
+
+        var swapped = new[]
+        {
+            new MoveTargetOutcome(1, 11, new MoveTargetCoordinate(10, 10),
+                new MoveTargetCoordinate(11, 10), MoveTargetOutcomeKind.SettledElsewhere),
+            new MoveTargetOutcome(2, 12, new MoveTargetCoordinate(11, 10),
+                new MoveTargetCoordinate(10, 10), MoveTargetOutcomeKind.SettledElsewhere)
+        };
+        MoveTargetComparisonSummary swappedSummary = LargeMoveTargetDiagnosticsModel.Compare(swapped);
+        Check(swappedSummary.Exact == 0 && swappedSummary.Reassigned == 2 &&
+            swappedSummary.CollectiveMatches == 2 &&
+            swappedSummary.PlannedFingerprint == swappedSummary.ActualFingerprint,
+            "swapped targets are identified as collective reassignment");
+
+        var exceptional = new[]
+        {
+            new MoveTargetOutcome(1, 21, new MoveTargetCoordinate(5, 5),
+                new MoveTargetCoordinate(5, 5), MoveTargetOutcomeKind.Exact),
+            new MoveTargetOutcome(2, 22, new MoveTargetCoordinate(5, 5),
+                new MoveTargetCoordinate(8, 9), MoveTargetOutcomeKind.Interrupted),
+            new MoveTargetOutcome(3, 23, new MoveTargetCoordinate(7, 7),
+                default, MoveTargetOutcomeKind.Lost)
+        };
+        MoveTargetComparisonSummary exceptionalSummary = LargeMoveTargetDiagnosticsModel.Compare(exceptional);
+        Check(exceptionalSummary.PlannedDuplicates == 1 && exceptionalSummary.Interrupted == 1 &&
+            exceptionalSummary.Lost == 1 && exceptionalSummary.MaximumManhattan == 7 &&
+            exceptionalSummary.MaximumChebyshev == 4,
+            "duplicates, interruption, loss, and distances aggregate correctly");
+        Check(exceptionalSummary.Examples.Count == 2,
+            "only exceptional outcomes are emitted as bounded examples");
+
+        var fourThousand = Enumerable.Range(0, 4000)
+            .Select(index => new MoveTargetOutcome(
+                index + 1,
+                (uint)(index + 1),
+                new MoveTargetCoordinate(index % 100, index / 100),
+                new MoveTargetCoordinate(index % 100, index / 100),
+                MoveTargetOutcomeKind.Exact))
+            .ToArray();
+        MoveTargetComparisonSummary largeSummary = LargeMoveTargetDiagnosticsModel.Compare(fourThousand);
+        Check(largeSummary.Total == 4000 && largeSummary.PlannedUnique == 4000 &&
+            largeSummary.Exact == 4000,
+            "4000 marker comparison remains complete");
     }
 
     private static void CheckClassification()
@@ -642,6 +733,16 @@ internal static class Program
             "BugfixesAndQoL",
             "src",
             "ExtendedShiftCommandQueueRuntime.cs");
+        string largeMoveRuntime = Read(
+            workspace,
+            "BugfixesAndQoL",
+            "src",
+            "LargeMoveTargetDiagnosticsRuntime.cs");
+        string largeMoveRenderer = Read(
+            workspace,
+            "BugfixesAndQoL",
+            "src",
+            "LargeMoveTargetMarkerRenderer.cs");
         string queueContract = Read(workspace, "BugfixesAndQoL", "QueueTest.md");
         string viewModel = Read(workspace, "BugfixesAndQoL", "src", "BugfixesAndQoLViewModel.cs");
         string settingsXaml = Read(
@@ -666,10 +767,27 @@ internal static class Program
             "integrated queue owns five typed RedBird detour handles");
         Check(CountText(queueRuntime, "HookTarget.FromAddress(") == 5,
             "integrated queue registers five explicit native targets");
-        Check(CountText(queueRuntime, ".Original(") == 10,
-            "integrated queue preserves every original-call path through typed handles");
+        Check(CountText(queueRuntime, ".Original(") == 7 &&
+            CountText(queueRuntime, "InvokeOriginalTribeOverlay(") == 5,
+            "integrated queue preserves every original-call path through typed handles and the observed overlay wrapper");
         Check(CountText(queueRuntime, ".IsCompleteSuccess") == 3,
             "integrated queue checks all three transaction commits");
+        Check(queueRuntime.Contains("largeMoveTargets.ObserveAndShouldSuppressMarker(") &&
+            CountText(queueRuntime, "new DetourHandle<") == 5,
+            "large Move markers reuse the existing draw hook without overlapping detours");
+        Check(queueRuntime.Contains("args.Phase == EventHookPhase.Post") &&
+            queueRuntime.Contains("localMoveChoreDepth") &&
+            queueRuntime.Contains("internalDispatch ? \"extended-shift\" : \"direct\""),
+            "direct and executed Extended Shift Moves share post-formation capture");
+        Check(largeMoveRuntime.Contains("MOVE_TARGET_TRACK_START:") &&
+            largeMoveRuntime.Contains("MOVE_TARGET_TRACK_RESULT:") &&
+            largeMoveRuntime.Contains("GameUnitManagerAPI.Instance.GetUnitsAsSpan()") &&
+            largeMoveRuntime.Contains("DrawListCountOffset = 0x622248"),
+            "large Move diagnostics capture native targets and aggregate them on tick");
+        Check(largeMoveRenderer.Contains("Application.onBeforeRender += OnBeforeRender") &&
+            !largeMoveRenderer.Contains("void Update(") &&
+            largeMoveRenderer.Contains("rowBatches"),
+            "large Move marker renderer is persistent and row-batched");
         Check(queueRuntime.Contains("OwnsHooks = false"),
             "integrated queue declares process-lifetime hook ownership");
         Check(!queueRuntime.Contains("Zhuqiaomon") && !queueRuntime.Contains("HookRef<") &&

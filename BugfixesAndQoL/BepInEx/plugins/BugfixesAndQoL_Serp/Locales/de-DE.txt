@@ -241,3 +241,5 @@ BugfixesAndQoL.FriendlyMoatMovementModeHelp=Legt fest, ob grabenfähige Einheite
 BugfixesAndQoL.FriendlyMoatMovementDisabled=Aus
 BugfixesAndQoL.FriendlyMoatMovementExact=Individuelle Wege – genau
 BugfixesAndQoL.FriendlyMoatMovementRequiredOnly=Nur notwendige Moatwege – schnell
+BugfixesAndQoL.QolTitle=QoL
+BugfixesAndQoL.FixesTitle=Fixes

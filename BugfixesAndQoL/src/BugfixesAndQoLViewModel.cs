@@ -148,6 +148,8 @@ namespace BugfixesAndQoL
         public string EnableHostFeaturesText => SerpLocalization.Get("BugfixesAndQoL.EnableHostFeatures");
         public string EnableHostFeaturesHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableHostFeaturesHelp");
         public string ResetToDefaultText => SerpLocalization.Get(SerpLocalization.ResetToDefault);
+        public string QolTitleText => SerpLocalization.Get("BugfixesAndQoL.QolTitle");
+        public string FixesTitleText => SerpLocalization.Get("BugfixesAndQoL.FixesTitle");
         public string ClientInterfaceTitleText => SerpLocalization.Get("BugfixesAndQoL.ClientInterfaceTitle");
         public string DisplayTitleText => SerpLocalization.Get("BugfixesAndQoL.DisplayTitle");
         public string AiAivTitleText => SerpLocalization.Get("BugfixesAndQoL.AiAivTitle");

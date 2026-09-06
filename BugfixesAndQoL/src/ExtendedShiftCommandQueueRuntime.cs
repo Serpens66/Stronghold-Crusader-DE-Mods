@@ -93,6 +93,7 @@ namespace BugfixesAndQoL
 
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
+        private readonly LargeMoveTargetDiagnosticsRuntime largeMoveTargets;
         // A cohort is the smallest set of units that currently shares mutable queue progress.
         // Unit identities remain authoritative; BoundTribeId is only the current dispatch vessel.
         private readonly Dictionary<long, TribeQueueState> cohorts = new Dictionary<long, TribeQueueState>();
@@ -110,6 +111,8 @@ namespace BugfixesAndQoL
         private readonly List<VisualQueueEntry> visualEntryBuffer = new List<VisualQueueEntry>(9);
         private readonly List<QueueVisualMarkerMode> projectedModeBuffer =
             new List<QueueVisualMarkerMode>(9);
+        private readonly Stack<MoveObservationScope> moveObservationScopes =
+            new Stack<MoveObservationScope>();
         private HookTransaction nativeTransaction;
         private HookTransaction multiplayerTransaction;
         private HookTransaction drawFilterTransaction;
@@ -144,6 +147,7 @@ namespace BugfixesAndQoL
         private bool overlayDrawFilterActive;
         private bool overlayShowPageNumbers;
         private bool overlaySawQueueMarker;
+        private int localMoveChoreDepth;
         private int overlayRenderThreadId;
         private int overlayFlagCallIndex;
         private int overlayNumberCallIndex;
@@ -156,6 +160,7 @@ namespace BugfixesAndQoL
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
+            largeMoveTargets = new LargeMoveTargetDiagnosticsRuntime(log);
         }
 
         private bool FeatureEnabled =>
@@ -188,6 +193,15 @@ namespace BugfixesAndQoL
             int actualUnitSize = Marshal.SizeOf(typeof(GameUnit));
             int actualUnitGlobalIdOffset = Marshal.OffsetOf(
                 typeof(GameUnit), nameof(GameUnit.r_GlobalId)).ToInt32();
+            bool largeMoveLayoutAvailable =
+                actualUnitSize == QueueNativeContract.GameUnitSize &&
+                actualUnitGlobalIdOffset == QueueNativeContract.GameUnitGlobalIdOffset &&
+                Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_CurrentTilePositionX)).ToInt32() == 0xC0 &&
+                Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_NextTilePositionX2)).ToInt32() == 0xDC &&
+                Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.p_CurrentPathPlanPosition)).ToInt32() == 0xF6 &&
+                Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.p_PathPlanSize)).ToInt32() == 0xF8 &&
+                Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_TribeId)).ToInt32() == 0x2D4 &&
+                Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_AttackMoveToTargetTileX)).ToInt32() == 0x2D8;
             int actualBuildingSize = Marshal.SizeOf(typeof(GameBuilding));
             int actualBuildingGlobalIdOffset = Marshal.OffsetOf(
                 typeof(GameBuilding), nameof(GameBuilding.r_GlobalId)).ToInt32();
@@ -295,12 +309,12 @@ namespace BugfixesAndQoL
 
             InstallMultiplayerSynchronization(context, referenceHashMatches);
             InstallOptionalDrawFilter(context, referenceHashMatches);
+            largeMoveTargets.Install(largeMoveLayoutAvailable, drawFilterInstalled);
 
             subscriptions.Add(TribeR3EventHooks.OnTribeIssueOrderWithTarget.Observable
                 .Where(args => args.Phase == EventHookPhase.Pre)
                 .Subscribe(OnTargetOrder));
             subscriptions.Add(TribeR3EventHooks.OnTribeIssueOrderMoveHere.Observable
-                .Where(args => args.Phase == EventHookPhase.Pre)
                 .Subscribe(OnMoveOrder));
             subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
@@ -323,6 +337,7 @@ namespace BugfixesAndQoL
                 "tribeUnassign=SHCDESE-2.2.0-wrapper, " +
                 $"drawFilterInstalled={drawFilterInstalled}, " +
                 $"targetMarkerProjectionAvailable={targetMarkerProjectionAvailable}, " +
+                $"largeMoveLayoutAvailable={largeMoveLayoutAvailable}, " +
                 $"multiplayerSynchronizationReady={multiplayerSynchronizationReady}, " +
                 $"GameTribeSize=0x{actualTribeSize:X}, " +
                 $"queueLimit={MaximumPendingCommands}, " +
@@ -435,12 +450,19 @@ namespace BugfixesAndQoL
         {
             bool trampolineEntered = false;
             bool markerWritten = false;
+            bool localMoveScopeEntered = false;
             int originalMoveType = 0;
             try
             {
+                int observedTribeId = Marshal.ReadInt32(choreTribeIdPointer);
+                if (installed && IsLocalSelectedTribe(observedTribeId, out _))
+                {
+                    localMoveChoreDepth++;
+                    localMoveScopeEntered = true;
+                }
                 if (ShouldMarkOutgoingMultiplayerOrder())
                 {
-                    int tribeId = Marshal.ReadInt32(choreTribeIdPointer);
+                    int tribeId = observedTribeId;
                     if (IsLocalSelectedTribe(tribeId, out _) &&
                         QueueNativeContract.TryMarkMoveTypeForQueue(
                             Marshal.ReadInt32(choreMoveTypePointer),
@@ -472,6 +494,8 @@ namespace BugfixesAndQoL
             }
             finally
             {
+                if (localMoveScopeEntered)
+                    localMoveChoreDepth--;
                 if (markerWritten)
                 {
                     try
@@ -604,11 +628,13 @@ namespace BugfixesAndQoL
 
         private void OnMapStart()
         {
+            largeMoveTargets.Reset(currentTick, "map-start");
             cohorts.Clear();
             unitToCohort.Clear();
             nextCohortId = 1;
             expectedMoveChores.Clear();
             expectedMoveEvents.Clear();
+            moveObservationScopes.Clear();
             observedAttacks.Clear();
             loggedUnsupportedCommands.Clear();
             loggedPredecessorRedispatchFailures.Clear();
@@ -617,11 +643,13 @@ namespace BugfixesAndQoL
 
         private void ResetMapState()
         {
+            largeMoveTargets.Reset(currentTick, "map-reset");
             cohorts.Clear();
             unitToCohort.Clear();
             nextCohortId = 1;
             expectedMoveChores.Clear();
             expectedMoveEvents.Clear();
+            moveObservationScopes.Clear();
             observedAttacks.Clear();
             loggedUnsupportedCommands.Clear();
             loggedPredecessorRedispatchFailures.Clear();
@@ -745,7 +773,33 @@ namespace BugfixesAndQoL
 
         private void OnMoveOrder(TribeIssueOrderMoveHereEventArgs args)
         {
-            if (!installed || internalDispatch)
+            if (!installed)
+                return;
+
+            if (args.Phase == EventHookPhase.Post)
+            {
+                if (moveObservationScopes.Count == 0)
+                    return;
+                MoveObservationScope scope = moveObservationScopes.Pop();
+                if (scope.ShouldCapture && args.ReturnValue != 0 &&
+                    args.IsPatrolPath == 0)
+                {
+                    largeMoveTargets.CaptureSuccessfulMove(
+                        args.TribeId,
+                        args.TileX,
+                        args.TileY,
+                        currentTick,
+                        scope.Source);
+                }
+                return;
+            }
+            if (args.Phase != EventHookPhase.Pre)
+                return;
+
+            moveObservationScopes.Push(new MoveObservationScope(
+                internalDispatch || localMoveChoreDepth > 0,
+                internalDispatch ? "extended-shift" : "direct"));
+            if (internalDispatch)
                 return;
 
             if (IsRealMultiplayer())
@@ -778,6 +832,7 @@ namespace BugfixesAndQoL
                     }
 
                     // Always consume the queue marker while enabled; 0x40/0x41 are not Vanilla move types.
+                    SuppressCurrentMoveObservation();
                     args.SkipOriginalFunction = true;
                     args.ReturnValue = 1;
                     return;
@@ -825,8 +880,15 @@ namespace BugfixesAndQoL
                 }
             }
 
+            SuppressCurrentMoveObservation();
             args.SkipOriginalFunction = true;
             args.ReturnValue = 1;
+        }
+
+        private void SuppressCurrentMoveObservation()
+        {
+            if (moveObservationScopes.Count != 0)
+                moveObservationScopes.Pop();
         }
 
         private void TryEnqueueSynchronizedCommand(
@@ -928,7 +990,20 @@ namespace BugfixesAndQoL
             {
                 Shared.DebugLogHelper.LogError(log, $"OVERLAY_HOOK_FAIL_OPEN: {exception}");
                 if (!trampolineEntered)
-                    tribeOverlayRenderHook.Original(tribeManager, tribeId);
+                    InvokeOriginalTribeOverlay(tribeManager, tribeId);
+            }
+        }
+
+        private void InvokeOriginalTribeOverlay(IntPtr tribeManager, int tribeId)
+        {
+            largeMoveTargets.BeginOverlayPass(tribeId);
+            try
+            {
+                tribeOverlayRenderHook.Original(tribeManager, tribeId);
+            }
+            finally
+            {
+                largeMoveTargets.EndOverlayPass();
             }
         }
 
@@ -948,7 +1023,7 @@ namespace BugfixesAndQoL
             if (overlayCohortBuffer.Count == 0 || !TryGetAliveTribe(tribeId, out GameTribe* tribe))
             {
                 trampolineEntered = true;
-                tribeOverlayRenderHook.Original(tribeManager, tribeId);
+                InvokeOriginalTribeOverlay(tribeManager, tribeId);
                 return;
             }
 
@@ -964,7 +1039,7 @@ namespace BugfixesAndQoL
             if (overlayCohortBuffer.Count == 0)
             {
                 trampolineEntered = true;
-                tribeOverlayRenderHook.Original(tribeManager, tribeId);
+                InvokeOriginalTribeOverlay(tribeManager, tribeId);
                 return;
             }
 
@@ -1041,7 +1116,7 @@ namespace BugfixesAndQoL
                     overlayRenderThreadId = Thread.CurrentThread.ManagedThreadId;
                     overlayDrawFilterActive = drawFilterInstalled;
                     trampolineEntered = true;
-                    tribeOverlayRenderHook.Original(tribeManager, tribeId);
+                    InvokeOriginalTribeOverlay(tribeManager, tribeId);
                     if (drawFilterInstalled && !overlaySawQueueMarker)
                         break;
                     ProjectAttackTargetMarkers(visualEntryBuffer);
@@ -1188,6 +1263,17 @@ namespace BugfixesAndQoL
         {
             try
             {
+                if (largeMoveTargets.ObserveAndShouldSuppressMarker(
+                        drawManager,
+                        category,
+                        spriteId,
+                        layer,
+                        verticalOffset,
+                        tileId,
+                        flags))
+                {
+                    return;
+                }
                 if (overlayDrawFilterActive &&
                     overlayRenderThreadId == Thread.CurrentThread.ManagedThreadId)
                 {
@@ -1248,10 +1334,13 @@ namespace BugfixesAndQoL
 
         private void OnTick(int tick)
         {
-            if (!installed || !FeatureEnabled)
+            if (!installed)
                 return;
 
             currentTick = tick;
+            largeMoveTargets.OnTick(tick);
+            if (!FeatureEnabled)
+                return;
             if (!runtimeTickLogged)
             {
                 runtimeTickLogged = true;
@@ -2094,6 +2183,18 @@ namespace BugfixesAndQoL
             public int TribeId { get; }
             public QueueCommand Command { get; }
             public int ExpiresAfterTick { get; }
+        }
+
+        private sealed class MoveObservationScope
+        {
+            public MoveObservationScope(bool shouldCapture, string source)
+            {
+                ShouldCapture = shouldCapture;
+                Source = source;
+            }
+
+            public bool ShouldCapture { get; }
+            public string Source { get; }
         }
     }
 }

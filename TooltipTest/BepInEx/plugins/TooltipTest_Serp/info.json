@@ -1,0 +1,11 @@
+{
+  "GUID": "TooltipTest_Serp",
+  "Author": "Serpens66",
+  "Name": "Tooltip Test",
+  "Description": "Display-only comparison of Script Extender tooltip styles in mod settings.",
+  "Version": "0.1.0",
+  "MinimumScriptExtenderVersion": "2.2.0",
+  "MaximumScriptExtenderVersion": "",
+  "Manifest": 1,
+  "NetworkMode": 0
+}

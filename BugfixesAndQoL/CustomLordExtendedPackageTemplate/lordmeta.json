@@ -25,21 +25,6 @@
       ", der letzte Herausforderer"
     ]
   },
-  "FacePath": "Assets/GUI/Sprites/your-lord",
-  "JoinAudioPath": "fx/speech/your-lord-join",
-  "LeaveAudioPath": "fx/speech/your-lord-leave",
-  "Messages": {
-    "IncomingMessage": [
-      {
-        "VideoPath": "your-lord-neutral",
-        "AudioPath": "your-lord-incoming",
-        "LocalizedText": {
-          "en-US": "A message from Your Lord.",
-          "de-DE": "Eine Nachricht von Eurem Lord."
-        }
-      }
-    ]
-  },
   "LocalizedDescription": {
     "en-US": "Describe the lord here."
   },
