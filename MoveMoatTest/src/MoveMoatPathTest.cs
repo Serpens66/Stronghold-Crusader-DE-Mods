@@ -439,6 +439,8 @@ namespace MoveMoatTest
         [ThreadStatic] private static bool weightedPhaseTimingActive;
         [ThreadStatic]
         private static AttackApproachDiagnosticScope activeAttackApproachDiagnostic;
+        [ThreadStatic] private static int attackQualificationTimingDepth;
+        [ThreadStatic] private static int requiredPublicationTimingDepth;
         [ThreadStatic]
         private static BuildingApproachPerformanceScope activeBuildingApproachPerformance;
         [ThreadStatic]
@@ -548,6 +550,12 @@ namespace MoveMoatTest
             new Dictionary<int, AttackUnitTracker>();
         private readonly Dictionary<int, MoatMoveTracker> trackedMoatMoves =
             new Dictionary<int, MoatMoveTracker>();
+        private readonly HashSet<int> requiredBackgroundTrackedUnitIds = new HashSet<int>();
+        private readonly Dictionary<string, int> requiredBackgroundDiagnostics =
+            new Dictionary<string, int>(StringComparer.Ordinal);
+        private readonly Dictionary<string, int> requiredBackgroundSuppressedDiagnostics =
+            new Dictionary<string, int>(StringComparer.Ordinal);
+        private int requiredBackgroundDiagnosticTick = int.MinValue;
         private readonly HashSet<string> reportedDiagnosticFailureStages =
             new HashSet<string>(StringComparer.Ordinal);
         private readonly HashSet<string> loggedDiggerDecisions =
@@ -1214,6 +1222,10 @@ namespace MoveMoatTest
             ResetDirectMoatCommandScopes();
             trackedAttackUnits.Clear();
             trackedMoatMoves.Clear();
+            requiredBackgroundTrackedUnitIds.Clear();
+            requiredBackgroundDiagnostics.Clear();
+            requiredBackgroundSuppressedDiagnostics.Clear();
+            requiredBackgroundDiagnosticTick = int.MinValue;
             lastAttackCommandCandidates.Clear();
             loggedBuildingCursorReachabilityDecisions.Clear();
         }
@@ -1595,9 +1607,13 @@ namespace MoveMoatTest
                         $"weightedSearchMs={(command?.WeightedSearchMilliseconds ?? 0):F3} " +
                         $"weightedMaxSearchMs={(command?.WeightedMaximumSearchMilliseconds ?? 0):F3} " +
                         $"routeMode={(int)(command?.Options.RouteMode ?? CurrentOptions.RouteMode)} " +
-                        $"groundChecks={command?.Required.GroundChecks ?? 0} groundHits={command?.Required.GroundHits ?? 0} groundProofMs={(command?.Required.GroundMilliseconds ?? 0):F3} " +
+                        $"groundChecks={command?.Required.GroundChecks ?? 0} groundHits={command?.Required.GroundHits ?? 0} samePclHits={command?.Required.SamePclHits ?? 0} topologyExclusions={command?.Required.TopologyExclusions ?? 0} " +
+                        $"groundDecisionCacheHits={command?.Required.GroundDecisionCacheHits ?? 0} decisionCacheHits={command?.Required.DecisionCacheHits ?? 0} " +
+                        $"exactGroundSearches={command?.Required.ExactGroundSearches ?? 0} exactGroundFieldCacheHits={command?.Required.ExactGroundFieldCacheHits ?? 0} exactGroundNodes={command?.Required.ExactGroundNodes ?? 0} " +
+                        $"groundProofMs={(command?.Required.GroundMilliseconds ?? 0):F3} exactGroundMs={(command?.Required.ExactGroundMilliseconds ?? 0):F3} " +
                         $"requiredSearches={command?.Required.Searches ?? 0} requiredSearchMs={(command?.Required.SearchMilliseconds ?? 0):F3} requiredPublished={command?.Required.Published ?? 0} " +
                         $"requiredPublishAuditMs={(command?.Required.PublicationMilliseconds ?? 0):F3} requiredRejected={command?.Required.Rejected ?? 0} requiredReasons={FormatCounts(command?.Required.RejectionReasons)} " +
+                        $"trackersStarted={command?.Required.TrackersStarted ?? 0} trackersSuppressed={command?.Required.TrackersSuppressed ?? 0} " +
                         $"targetedSearches={command?.TargetedRouteSearches ?? 0} " +
                         $"targetedSearchPasses={command?.TargetedRouteSearchPasses ?? 0} " +
                         $"targetedCacheHits={command?.TargetedRouteCacheHits ?? 0} " +
@@ -1674,9 +1690,13 @@ namespace MoveMoatTest
                             0.0, scope.QualificationMilliseconds - scope.FloodQualificationMilliseconds);
                         double exclusiveWeightedMilliseconds = Math.Max(
                             0.0, scope.WeightedPhaseMilliseconds - scope.WeightedAuditMilliseconds);
+                        double exclusiveRequiredMilliseconds = scope.Required.ExclusiveGroundMilliseconds +
+                            scope.Required.ExclusiveSearchMilliseconds +
+                            scope.Required.ExclusivePublicationMilliseconds;
                         double accountedMilliseconds = scope.UnitFloodMilliseconds +
                             exclusiveQualificationMilliseconds + scope.NativeBuilderMilliseconds +
-                            scope.AuditMilliseconds + exclusiveWeightedMilliseconds;
+                            scope.AuditMilliseconds + exclusiveWeightedMilliseconds +
+                            exclusiveRequiredMilliseconds;
                         scope.ResidualMilliseconds = Math.Max(
                             0.0, scope.DispatchMilliseconds - accountedMilliseconds);
                         LogCommandDiagnostic(
@@ -1694,9 +1714,13 @@ namespace MoveMoatTest
                             $"auditCalls={scope.AuditCalls} auditMs={scope.AuditMilliseconds:F3} " +
                             $"weightedPhaseMs={scope.WeightedPhaseMilliseconds:F3} weightedAuditMs={scope.WeightedAuditMilliseconds:F3} residualMs={scope.ResidualMilliseconds:F3} " +
                             $"routeMode={(int)scope.Options.RouteMode} " +
-                            $"groundChecks={scope.Required.GroundChecks} groundHits={scope.Required.GroundHits} groundProofMs={scope.Required.GroundMilliseconds:F3} " +
-                            $"requiredSearches={scope.Required.Searches} requiredSearchMs={scope.Required.SearchMilliseconds:F3} requiredPublished={scope.Required.Published} " +
-                            $"requiredPublishAuditMs={scope.Required.PublicationMilliseconds:F3} requiredRejected={scope.Required.Rejected} requiredReasons={FormatCounts(scope.Required.RejectionReasons)}");
+                            $"groundChecks={scope.Required.GroundChecks} groundHits={scope.Required.GroundHits} samePclHits={scope.Required.SamePclHits} topologyExclusions={scope.Required.TopologyExclusions} " +
+                            $"groundDecisionCacheHits={scope.Required.GroundDecisionCacheHits} decisionCacheHits={scope.Required.DecisionCacheHits} " +
+                            $"exactGroundSearches={scope.Required.ExactGroundSearches} exactGroundFieldCacheHits={scope.Required.ExactGroundFieldCacheHits} exactGroundNodes={scope.Required.ExactGroundNodes} " +
+                            $"groundProofMs={scope.Required.GroundMilliseconds:F3} exactGroundMs={scope.Required.ExactGroundMilliseconds:F3} groundExclusiveMs={scope.Required.ExclusiveGroundMilliseconds:F3} " +
+                            $"requiredSearches={scope.Required.Searches} requiredSearchMs={scope.Required.SearchMilliseconds:F3} requiredSearchExclusiveMs={scope.Required.ExclusiveSearchMilliseconds:F3} requiredPublished={scope.Required.Published} " +
+                            $"requiredPublishAuditMs={scope.Required.PublicationMilliseconds:F3} requiredPublishExclusiveMs={scope.Required.ExclusivePublicationMilliseconds:F3} requiredRejected={scope.Required.Rejected} requiredReasons={FormatCounts(scope.Required.RejectionReasons)} " +
+                            $"trackersStarted={scope.Required.TrackersStarted} trackersSuppressed={scope.Required.TrackersSuppressed}");
                         FlushAttackDiagnostics(scope);
                     }
                 }
@@ -2230,6 +2254,27 @@ namespace MoveMoatTest
                     return;
                 }
 
+                bool requiredOnly = activeMoveCommand?.Options.RequiredOnly ??
+                    activeAttackCommand?.Options.RequiredOnly ?? CurrentOptions.RequiredOnly;
+                bool explicitCommand = activeMoveCommand != null || activeAttackCommand != null;
+                requiredBackgroundTrackedUnitIds.Remove(plan.UnitId);
+                trackedMoatMoves.Remove(plan.UnitId);
+                RequiredRouteMetrics requiredMetrics = requiredOnly
+                    ? activeMoveCommand?.Required ?? activeAttackCommand?.Required
+                    : null;
+                if (requiredOnly)
+                {
+                    bool selected = explicitCommand
+                        ? requiredMetrics?.TryTrackUnit(plan.UnitId) ?? false
+                        : requiredBackgroundTrackedUnitIds.Contains(plan.UnitId) ||
+                          requiredBackgroundTrackedUnitIds.Count < 8;
+                    if (!selected)
+                        return;
+                    if (!explicitCommand) requiredBackgroundTrackedUnitIds.Add(plan.UnitId);
+                }
+                ResolveCommandDiagnosticContext(
+                    plan.UnitId, unit, out TribeAICommand command, out string commandContext,
+                    out int commandSequence);
                 var tracker = new MoatMoveTracker(
                     mapEpoch,
                     plan.UnitId,
@@ -2245,13 +2290,10 @@ namespace MoveMoatTest
                     IsCompletedMoatTile(unchecked((int)unit->r_CurrentPositionTileId)),
                     ReadUnitMoatPathConsumptionMode(unit),
                     CaptureCurrentGameTick());
-                ResolveCommandDiagnosticContext(
-                    plan.UnitId, unit, out TribeAICommand command, out string commandContext,
-                    out int commandSequence);
                 tracker.WeightedCommand = command;
                 tracker.WeightedCommandContext = commandContext;
                 tracker.WeightedCommandSequence = commandSequence;
-                tracker.RequiredOnlyAtPublication = CurrentOptions.RequiredOnly;
+                tracker.RequiredOnlyAtPublication = requiredOnly;
                 tracker.WorkTargetMoatTileId = plan.MoatWorkTargetTileId;
                 trackedMoatMoves[plan.UnitId] = tracker;
                 LogCommandDiagnostic(
@@ -2297,6 +2339,7 @@ namespace MoveMoatTest
                 : 0;
             if (!sameTrackedRoute)
             {
+                requiredBackgroundTrackedUnitIds.Remove(shadow.UnitId);
                 tracker = new MoatMoveTracker(
                     mapEpoch, shadow.UnitId, shadow.TribeId, shadow.UnitType, shadow.PlayerId,
                     shadow.TargetX, shadow.TargetY,
@@ -3013,6 +3056,7 @@ namespace MoveMoatTest
         private void EndTrackedMoatMove(int unitId, MoatMoveTracker tracker, string reason)
         {
             trackedMoatMoves.Remove(unitId);
+            requiredBackgroundTrackedUnitIds.Remove(unitId);
             bool completedAtTarget = string.Equals(
                 reason, "path-completed-at-target", StringComparison.Ordinal);
             if (!completedAtTarget && tracker.Calibratable)
@@ -3777,6 +3821,7 @@ namespace MoveMoatTest
         {
             AttackCommandScope command = activeAttackCommand;
             long started = Stopwatch.GetTimestamp();
+            attackQualificationTimingDepth++;
             try
             {
                 return TryQualifyAttackMovementPlanCore(
@@ -3784,6 +3829,7 @@ namespace MoveMoatTest
             }
             finally
             {
+                attackQualificationTimingDepth--;
                 if (command != null)
                 {
                     long elapsed = Stopwatch.GetTimestamp() - started;
@@ -6265,10 +6311,14 @@ namespace MoveMoatTest
             var cacheKey = new RouteDecisionKey(mapEpoch, CaptureCurrentGameTick(), playerId, startTileId,
                 targetTileId, allowReservedTarget, plan.MoatWorkTargetTileId, placementRevision, routeCost);
             MoveCommandScope command = activeMoveCommand;
-            if (command != null && command.TargetedRouteDecisions.TryGetValue(
+            RequiredRouteCache requiredCache = requiredOnly
+                ? command?.RequiredCache ?? activeAttackCommand?.RequiredCache
+                : command?.RequiredCache;
+            if (requiredCache != null && requiredCache.Decisions.TryGetValue(
                     cacheKey, out TargetedRouteDecision cached))
             {
-                command.TargetedRouteCacheHits++;
+                if (command != null) command.TargetedRouteCacheHits++;
+                if (requiredOnly) (command?.Required ?? activeAttackCommand?.Required)?.RecordDecisionCacheHit(cached);
                 summary = cached.Summary;
                 plan.QualifiedRoute = cached.Route;
                 return cached.RequiredFriendlyMoat;
@@ -6293,16 +6343,39 @@ namespace MoveMoatTest
             try
             {
                 long groundStarted = Stopwatch.GetTimestamp();
-                GroundConnectionDecision groundDecision = ProbeGroundConnection(playerId, startTileId, targetTileId);
+                bool samePclProof = requiredOnly &&
+                    IsSamePositiveGroundRegion(startTileId, targetTileId);
+                GroundConnectionDecision groundDecision = samePclProof
+                    ? GroundConnectionDecision.Reachable
+                    : ProbeGroundConnection(playerId, startTileId, targetTileId);
+                bool exactGroundSearch = groundDecision == GroundConnectionDecision.Unknown;
+                long exactNodesBefore = weightedMoatRoutePlanner.SearchNodes;
+                long exactFieldHitsBefore = weightedMoatRoutePlanner.CachedFieldHits;
                 groundReachable = groundDecision == GroundConnectionDecision.Reachable ||
-                    (groundDecision == GroundConnectionDecision.Unknown && weightedMoatRoutePlanner.TryProbeReachability(
-                    playerId, startX, startY, plan.TargetX, plan.TargetY,
-                    allowReservedTarget, MoatTraversalPolicy.GroundOnly, out ground));
+                    (exactGroundSearch && weightedMoatRoutePlanner.TryProbeReachability(
+                        playerId, startX, startY, plan.TargetX, plan.TargetY,
+                        allowReservedTarget, MoatTraversalPolicy.GroundOnly, out ground));
+                long groundElapsed = Stopwatch.GetTimestamp() - groundStarted;
                 if (requiredMetrics != null)
                 {
                     requiredMetrics.GroundChecks++;
                     if (groundReachable) requiredMetrics.GroundHits++;
-                    requiredMetrics.GroundTicks += Stopwatch.GetTimestamp() - groundStarted;
+                    if (samePclProof) requiredMetrics.SamePclHits++;
+                    if (groundDecision == GroundConnectionDecision.Excluded &&
+                        !IsCompletedMoatTile(startTileId) && !IsCompletedMoatTile(targetTileId))
+                        requiredMetrics.TopologyExclusions++;
+                    if (exactGroundSearch)
+                    {
+                        requiredMetrics.ExactGroundSearches++;
+                        requiredMetrics.ExactGroundNodes += (int)Math.Min(
+                            int.MaxValue, Math.Max(
+                                0, weightedMoatRoutePlanner.SearchNodes - exactNodesBefore));
+                        requiredMetrics.ExactGroundFieldCacheHits += (int)Math.Max(
+                            0, weightedMoatRoutePlanner.CachedFieldHits - exactFieldHitsBefore);
+                        requiredMetrics.ExactGroundTicks += groundElapsed;
+                    }
+                    requiredMetrics.GroundTicks += groundElapsed;
+                    requiredMetrics.RecordNestedGroundTicks(groundElapsed);
                 }
                 if (!groundReachable)
                 {
@@ -6333,7 +6406,11 @@ namespace MoveMoatTest
                         friendlyReachable = true;
                     }
                     if (requiredMetrics != null)
-                        requiredMetrics.SearchTicks += Stopwatch.GetTimestamp() - requiredSearchStarted;
+                    {
+                        long searchElapsed = Stopwatch.GetTimestamp() - requiredSearchStarted;
+                        requiredMetrics.SearchTicks += searchElapsed;
+                        requiredMetrics.RecordNestedSearchTicks(searchElapsed);
+                    }
                 }
             }
             finally
@@ -6375,7 +6452,12 @@ namespace MoveMoatTest
                 command.TargetedRouteMaximumSearchMilliseconds = Math.Max(
                     command.TargetedRouteMaximumSearchMilliseconds,
                     summary.TargetedSearchMilliseconds);
-                command.TargetedRouteDecisions[cacheKey] =
+                requiredCache.Decisions[cacheKey] =
+                    new TargetedRouteDecision(requiredFriendly, summary, plan.QualifiedRoute);
+            }
+            else if (requiredCache != null)
+            {
+                requiredCache.Decisions[cacheKey] =
                     new TargetedRouteDecision(requiredFriendly, summary, plan.QualifiedRoute);
             }
             summary.AttackProbeEvaluated = true;
@@ -7806,6 +7888,10 @@ namespace MoveMoatTest
             activeBuildingApproachPerformance = null;
             activeBuildingConsumerPerformance = null;
             trackedMoatMoves.Clear();
+            requiredBackgroundTrackedUnitIds.Clear();
+            requiredBackgroundDiagnostics.Clear();
+            requiredBackgroundSuppressedDiagnostics.Clear();
+            requiredBackgroundDiagnosticTick = int.MinValue;
             trackedNativeWaypointQueues.Clear();
             loggedDiggerDecisions.Clear();
             lastWeightedPublicationDecisionByUnit.Clear();
@@ -7865,7 +7951,7 @@ namespace MoveMoatTest
             MoveCommandScope command = activeMoveCommand;
             if (command != null)
             {
-                command.Diagnostics.Add(message);
+                command.BufferDiagnostic(message);
                 return;
             }
 
@@ -7876,7 +7962,38 @@ namespace MoveMoatTest
                 return;
             }
 
+            if (CurrentOptions.RequiredOnly)
+            {
+                int tick = CaptureCurrentGameTick();
+                if (requiredBackgroundDiagnosticTick != tick)
+                {
+                    FlushRequiredBackgroundDiagnosticSummary();
+                    requiredBackgroundDiagnosticTick = tick;
+                    requiredBackgroundDiagnostics.Clear();
+                    requiredBackgroundSuppressedDiagnostics.Clear();
+                }
+                string stage = AttackCommandScope.GetDiagnosticStage(message ?? string.Empty);
+                requiredBackgroundDiagnostics.TryGetValue(stage, out int retained);
+                if (retained >= 3)
+                {
+                    requiredBackgroundSuppressedDiagnostics.TryGetValue(stage, out int suppressed);
+                    requiredBackgroundSuppressedDiagnostics[stage] = suppressed + 1;
+                    return;
+                }
+                requiredBackgroundDiagnostics[stage] = retained + 1;
+            }
+
             Shared.DebugLogHelper.LogInfo(log, $"MoveMoat {message}.");
+        }
+
+        private void FlushRequiredBackgroundDiagnosticSummary()
+        {
+            if (requiredBackgroundSuppressedDiagnostics.Count == 0)
+                return;
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"MoveMoat stage=background-diagnostics tick={requiredBackgroundDiagnosticTick} " +
+                $"suppressed={FormatCounts(requiredBackgroundSuppressedDiagnostics)}.");
         }
 
         private void FlushAttackDiagnostics(AttackCommandScope command)
@@ -7971,6 +8088,15 @@ namespace MoveMoatTest
 
             foreach (string message in command.Diagnostics)
                 Shared.DebugLogHelper.LogInfo(log, $"MoveMoat {message}.");
+            if (command.SuppressedDiagnostics.Count != 0)
+            {
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"MoveMoat stage=move-command-diagnostics commandSeq={command.Sequence} " +
+                    $"diagnostics={command.DiagnosticMessages}/{command.Diagnostics.Count} " +
+                    $"diagnosticChars={command.DiagnosticCharacters} " +
+                    $"suppressed={FormatCounts(command.SuppressedDiagnostics)}.");
+            }
         }
 
         private void LogQueuedMoveHereOutcome(MoveCommandScope command, long returnValue)
@@ -8283,6 +8409,7 @@ namespace MoveMoatTest
 
             internal readonly MovementOptionsSnapshot Options;
             internal readonly RequiredRouteMetrics Required = new RequiredRouteMetrics();
+            internal readonly RequiredRouteCache RequiredCache = new RequiredRouteCache();
             public AttackCommandScope(
                 AttackCommandScope previous,
                 int sequence,
@@ -8374,7 +8501,7 @@ namespace MoveMoatTest
                 SuppressedDiagnostics[stage] = suppressed + 1;
             }
 
-            private static string GetDiagnosticStage(string message)
+            internal static string GetDiagnosticStage(string message)
             {
                 const string marker = "stage=";
                 int start = message.IndexOf(marker, StringComparison.Ordinal);
@@ -8396,13 +8523,57 @@ namespace MoveMoatTest
 
         private sealed class RequiredRouteMetrics
         {
-            public int GroundChecks, GroundHits, Searches, Published, Rejected;
-            public long GroundTicks, SearchTicks, PublicationTicks;
+            private const int MaximumTrackedUnits = 8;
+            private readonly HashSet<int> trackedUnitIds = new HashSet<int>();
+            public int GroundChecks, GroundHits, SamePclHits, TopologyExclusions;
+            public int ExactGroundSearches, ExactGroundFieldCacheHits, Searches, Published, Rejected;
+            public int DecisionCacheHits, GroundDecisionCacheHits, ExactGroundNodes;
+            public int TrackersStarted, TrackersSuppressed;
+            public long GroundTicks, ExactGroundTicks, SearchTicks, PublicationTicks, PublicationAuditTicks;
+            public long NestedGroundTicks, NestedSearchTicks;
             public Dictionary<string, int> RejectionReasons { get; } =
                 new Dictionary<string, int>(StringComparer.Ordinal);
             public double GroundMilliseconds => GroundTicks * 1000.0 / Stopwatch.Frequency;
+            public double ExactGroundMilliseconds => ExactGroundTicks * 1000.0 / Stopwatch.Frequency;
             public double SearchMilliseconds => SearchTicks * 1000.0 / Stopwatch.Frequency;
             public double PublicationMilliseconds => PublicationTicks * 1000.0 / Stopwatch.Frequency;
+            public double ExclusivePublicationMilliseconds =>
+                Math.Max(0, PublicationTicks - PublicationAuditTicks) * 1000.0 / Stopwatch.Frequency;
+            public double ExclusiveGroundMilliseconds =>
+                Math.Max(0, GroundTicks - NestedGroundTicks) * 1000.0 / Stopwatch.Frequency;
+            public double ExclusiveSearchMilliseconds =>
+                Math.Max(0, SearchTicks - NestedSearchTicks) * 1000.0 / Stopwatch.Frequency;
+
+            public void RecordDecisionCacheHit(TargetedRouteDecision decision)
+            {
+                DecisionCacheHits++;
+                if (decision.Summary.ReachedWithoutMoat) GroundDecisionCacheHits++;
+            }
+
+            public void RecordNestedGroundTicks(long ticks)
+            {
+                if (attackQualificationTimingDepth > 0)
+                    NestedGroundTicks += ticks;
+            }
+
+            public void RecordNestedSearchTicks(long ticks)
+            {
+                if (attackQualificationTimingDepth > 0)
+                    NestedSearchTicks += ticks;
+            }
+
+            public bool TryTrackUnit(int unitId)
+            {
+                if (trackedUnitIds.Contains(unitId)) return true;
+                if (trackedUnitIds.Count >= MaximumTrackedUnits)
+                {
+                    TrackersSuppressed++;
+                    return false;
+                }
+                trackedUnitIds.Add(unitId);
+                TrackersStarted++;
+                return true;
+            }
             public void Reject(string reason)
             {
                 reason = string.IsNullOrEmpty(reason) ? "unknown" : reason;
@@ -8410,6 +8581,12 @@ namespace MoveMoatTest
                 RejectionReasons[reason] = count + 1;
                 Rejected++;
             }
+        }
+
+        private sealed class RequiredRouteCache
+        {
+            public Dictionary<RouteDecisionKey, TargetedRouteDecision> Decisions { get; } =
+                new Dictionary<RouteDecisionKey, TargetedRouteDecision>();
         }
 
         private sealed class AttackUnitTracker
@@ -9102,8 +9279,12 @@ namespace MoveMoatTest
 
         private sealed class MoveCommandScope
         {
+            private const int MaximumDiagnosticDetailsPerStage = 3;
+            private readonly Dictionary<string, int> retainedDiagnosticsByStage =
+                new Dictionary<string, int>(StringComparer.Ordinal);
             internal readonly MovementOptionsSnapshot Options;
             internal readonly RequiredRouteMetrics Required;
+            internal readonly RequiredRouteCache RequiredCache;
             public MoveCommandScope(
                 int sequence,
                 int tribeId,
@@ -9117,6 +9298,9 @@ namespace MoveMoatTest
             {
                 Options = activeAttackCommand?.Options ?? MovementOptionsSnapshot.Capture();
                 Required = activeAttackCommand?.Required ?? new RequiredRouteMetrics();
+                RequiredCache = Options.RequiredOnly && activeAttackCommand != null
+                    ? activeAttackCommand.RequiredCache
+                    : new RequiredRouteCache();
                 Sequence = sequence;
                 TribeId = tribeId;
                 TargetX = targetX;
@@ -9182,8 +9366,8 @@ namespace MoveMoatTest
             public int TargetedRouteExpandedNodes { get; set; }
             public double TargetedRouteSearchMilliseconds { get; set; }
             public double TargetedRouteMaximumSearchMilliseconds { get; set; }
-            public Dictionary<RouteDecisionKey, TargetedRouteDecision> TargetedRouteDecisions { get; } =
-                new Dictionary<RouteDecisionKey, TargetedRouteDecision>();
+            public Dictionary<RouteDecisionKey, TargetedRouteDecision> TargetedRouteDecisions =>
+                RequiredCache.Decisions;
             public string LastGroupMoatModeDiagnostic { get; set; }
             public int EarlyRegionCalls { get; set; }
             public int EarlyRegionBypasses { get; set; }
@@ -9195,7 +9379,28 @@ namespace MoveMoatTest
             public NativeWaypointQueueSnapshot QueuePreSnapshot { get; set; }
             public bool HasQueuePostSnapshot { get; set; }
             public NativeWaypointQueueSnapshot QueuePostSnapshot { get; set; }
+            public int DiagnosticMessages { get; private set; }
+            public int DiagnosticCharacters { get; private set; }
+            public Dictionary<string, int> SuppressedDiagnostics { get; } =
+                new Dictionary<string, int>(StringComparer.Ordinal);
             public List<string> Diagnostics { get; } = new List<string>();
+
+            public void BufferDiagnostic(string message)
+            {
+                message = message ?? string.Empty;
+                DiagnosticMessages++;
+                DiagnosticCharacters += message.Length;
+                string stage = AttackCommandScope.GetDiagnosticStage(message);
+                retainedDiagnosticsByStage.TryGetValue(stage, out int retained);
+                if (retained < MaximumDiagnosticDetailsPerStage)
+                {
+                    retainedDiagnosticsByStage[stage] = retained + 1;
+                    Diagnostics.Add(message);
+                    return;
+                }
+                SuppressedDiagnostics.TryGetValue(stage, out int suppressed);
+                SuppressedDiagnostics[stage] = suppressed + 1;
+            }
         }
 
         private readonly struct EarlyGroupRegionDecision

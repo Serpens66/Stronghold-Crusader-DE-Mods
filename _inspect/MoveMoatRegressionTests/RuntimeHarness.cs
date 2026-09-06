@@ -132,6 +132,7 @@ namespace MoveMoatTest
         {
             internal MovementOptionsSnapshot Options = MovementOptionsSnapshot.Capture();
             internal RequiredRouteMetrics Required = new RequiredRouteMetrics();
+            internal RequiredRouteCache RequiredCache = new RequiredRouteCache();
             internal int[] ActiveUnitIdsAtDispatch = Array.Empty<int>();
             public bool IsNewOrder;
             public int WeightedPublished, WeightedDecisions;
@@ -144,7 +145,7 @@ namespace MoveMoatTest
             public int UnitMoveCalls, UnitMoveCompleted, UnitMovePositive, UnitMoveWithoutBuilder, UnitMoveAlreadyArrived;
             public int UnitMoveAbandoned, BuilderIntermediateTargets, FallbackContractRejections;
             public double TargetedRouteSearchMilliseconds, TargetedRouteMaximumSearchMilliseconds;
-            public Dictionary<RouteDecisionKey, TargetedRouteDecision> TargetedRouteDecisions = new Dictionary<RouteDecisionKey, TargetedRouteDecision>();
+            public Dictionary<RouteDecisionKey, TargetedRouteDecision> TargetedRouteDecisions => RequiredCache.Decisions;
         }
         private Func<IntPtr,int,int,int> originalBuildingCursorReachability = (m,b,u)=>0;
         private Func<IntPtr,int,int> getMoatIdAtTile;
@@ -321,19 +322,57 @@ namespace MoveMoatTest
                     activeMoveCommand.Required.Searches == 1,
                     "required-only caches one ground proof and one necessary moat search");
 
+                activeAttackCommand = new AttackCommandScope();
+                activeMoveCommand = new MoveCommandScope { TargetX = 17, TargetY = 10,
+                    Required = activeAttackCommand.Required, RequiredCache = activeAttackCommand.RequiredCache };
+                Check(EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager, 1) == 1,
+                    "first nested attack move qualifies required route");
+                activeMoveCommand = new MoveCommandScope { TargetX = 17, TargetY = 10,
+                    Required = activeAttackCommand.Required, RequiredCache = activeAttackCommand.RequiredCache };
+                Check(EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager, 2) == 1,
+                    "second nested attack move reuses command-bound route decision");
+                Check(activeAttackCommand.Required.GroundChecks == 1 &&
+                    activeAttackCommand.Required.Searches == 1 &&
+                    activeAttackCommand.Required.DecisionCacheHits == 1,
+                    "nested attack moves share one bound required decision cache");
+                activeAttackCommand = null;
+
+                var trackerSample = new RequiredRouteMetrics();
+                for (int id = 1; id <= 680; id++)
+                    Check(trackerSample.TryTrackUnit(id) == (id <= 8), "required tracker sample limit");
+                Check(trackerSample.TryTrackUnit(1), "selected tracker can refresh");
+                Check(trackerSample.TrackersStarted == 8 && trackerSample.TrackersSuppressed == 672,
+                    "680-unit command starts exactly eight follow-tick trackers");
+
                 tileFlags[1013] = OrdinaryWalkableTileFlag;
                 placementRevision++;
                 activeMoveCommand = new MoveCommandScope { TargetX = 17, TargetY = 10 };
+                long distinctRegionRunsBefore = weightedMoatRoutePlanner.SearchRuns;
                 Check(EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager, 1) == 0,
                     "ground-reachable target stays entirely with vanilla");
                 Check(activeMoveCommand.Required.GroundChecks == 1 && activeMoveCommand.Required.GroundHits == 1 &&
                     activeMoveCommand.Required.Searches == 0 && activeMoveCommand.WeightedDecisions == 0 &&
-                    activeMoveCommand.WeightedPublished == 0,
-                    "ground hit performs no required or weighted moat work");
+                    activeMoveCommand.WeightedPublished == 0 && activeMoveCommand.Required.SamePclHits == 0 &&
+                    activeMoveCommand.Required.ExactGroundSearches == 1 &&
+                    weightedMoatRoutePlanner.SearchRuns > distinctRegionRunsBefore,
+                    "different positive regions retain the exact ground proof without moat work");
+                for (int x = 13; x <= 18; x++) pathRegionGrid[1000 + x] = 1;
+                placementRevision++;
+                activeMoveCommand = new MoveCommandScope { TargetX = 17, TargetY = 10 };
+                long samePclRunsBefore = weightedMoatRoutePlanner.SearchRuns;
+                Check(EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager, 1) == 0,
+                    "same positive PCL region stays entirely with vanilla");
+                Check(activeMoveCommand.Required.GroundChecks == 1 && activeMoveCommand.Required.GroundHits == 1 &&
+                    activeMoveCommand.Required.SamePclHits == 1 &&
+                    activeMoveCommand.Required.ExactGroundSearches == 0 &&
+                    activeMoveCommand.Required.Searches == 0 &&
+                    weightedMoatRoutePlanner.SearchRuns == samePclRunsBefore,
+                    "same positive PCL proof performs no grid or moat search");
                 Check(activeMoveCommand.Options.RequiredOnly, "command captures required-only mode");
                 MoveMoatTestPlugin.Settings.RouteMode = 0;
                 Check(activeMoveCommand.Options.RequiredOnly, "command snapshot survives nested settings change");
                 MoveMoatTestPlugin.Settings.RouteMode = 1;
+                for (int x = 13; x <= 18; x++) pathRegionGrid[1000 + x] = 2;
                 tileFlags[1013] = CompletedMoatTileFlag;
                 placementRevision++;
                 activeMoveCommand = new MoveCommandScope { TargetX = 17, TargetY = 10 };

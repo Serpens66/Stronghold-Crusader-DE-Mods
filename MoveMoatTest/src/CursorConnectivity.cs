@@ -151,6 +151,20 @@ namespace MoveMoatTest
         }
 
         private enum GroundConnectionDecision { Unknown, Reachable, Excluded }
+
+        private bool IsSamePositiveGroundRegion(int start, int target)
+        {
+            if (!IsValidTileId(start) || !IsValidTileId(target) ||
+                IsCompletedMoatTile(start) || IsCompletedMoatTile(target) ||
+                ((tileFlags[start] | tileFlags[target]) & CursorSpecialStructureTileFlagMask) != 0)
+            {
+                return false;
+            }
+
+            int startRegion = pathRegionGrid[start];
+            return startRegion > 0 && startRegion == pathRegionGrid[target];
+        }
+
         private GroundConnectionDecision ProbeGroundConnection(int player, int start, int target)
         {
             if (!IsValidTileId(start) || !IsValidTileId(target)) return GroundConnectionDecision.Unknown;

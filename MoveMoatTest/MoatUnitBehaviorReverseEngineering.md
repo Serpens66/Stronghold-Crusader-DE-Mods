@@ -86,7 +86,11 @@ wurde deshalb ausdrücklich nicht verwendet.
   `MovementOptionsSnapshot`. Verschachtelte Move-/Attack-Aufrufe übernehmen den Snapshot des
   laufenden Befehls und reagieren nicht mitten im Auftrag auf geänderte Settings.
 - Required-only erfasst kein Unit-Geschwindigkeitsprofil. Zuerst wird ausschließlich die
-  gecachte Boden-Erreichbarkeit geprüft. Bei erreichbarem Ziel bleiben Modusfreigabe,
+  gecachte Boden-Erreichbarkeit geprüft. Gewöhnliche, strukturfreie Start-/Zielfelder derselben
+  positiven nativen PCL-Region gelten dabei unmittelbar als bodenerreichbar; Moats, Region 0,
+  Strukturen und ungültige Endpunkte sind von diesem Fast-Proof ausgeschlossen. Unterschiedliche
+  positive Regionen verwenden weiterhin Topologieausschluss und exakte Bodensuche. Bei
+  erreichbarem Ziel bleiben Modusfreigabe,
   Moatsuche, Weighted-Shadow, optionale Veröffentlichung und zusätzlicher Pfadaudit aus.
 - Nur bei nicht erreichbarem Boden wird eine ungewichtete, kürzeste kodierbare Feldroute durch
   fertige eigene oder verbündete Moats gesucht. Veröffentlichung bleibt an konkrete Unit- und
@@ -97,19 +101,34 @@ wurde deshalb ausdrücklich nicht verwendet.
 - Der reparierte `sourceRegion=0`-Vertrag gilt ausschließlich für einen konkret geprüften
   eigenen oder verbündeten fertigen Moat-Start. Gewöhnliche, feindliche und ungültige
   Region-0-Starts bleiben gesperrt; Vanillas `targetRegion=0`-Sentinel bleibt erlaubt.
-- Zusammenfassungen melden `groundChecks`, `groundHits`, `groundProofMs`, `requiredSearches`,
-  `requiredSearchMs`, `requiredPublished`, `requiredPublishAuditMs`, `requiredRejected` und
-  aggregierte Ablehnungsgründe. Shared-/Fast-Path-Felder entfallen. Erfolgreiche
+- Required-only-Entscheidungen und Suchfelder sind an einen gemeinsamen Attack-/Move-
+  Commandcache gebunden. Spieler, Start/Ziel, Tick, Kartenepoche, Terrainrevision, reservierter
+  Endpunkt und Arbeitsziel bleiben Teil des Schlüssels; jede Abweichung erzeugt einen neuen
+  konservativen Nachweis.
+- Zusammenfassungen trennen Same-PCL-Treffer, Topologieausschlüsse, exakte Bodensuchen,
+  Feld-/Entscheidungscachetreffer, Knoten, Required-Suchen, Publikation/Audit und exklusive Zeiten.
+  Required-only verfolgt höchstens acht repräsentative Units pro explizitem Befehl; ungebundene
+  Hintergrundwege sind auf acht gleichzeitige Tracker begrenzt und geben Plätze nach Abschluss
+  frei. Move- und Hintergrunddetails sind pro Kategorie begrenzt, Unterdrückungen werden
+  aggregiert. Shared-/Fast-Path-Felder entfallen. Erfolgreiche
   `weighted-path-consumer-contract`-Folgeprüfungen werden pro Tick und Befehl aggregiert;
   Verletzungen bleiben sofort sichtbar.
 
-Der finale Standalone-Lauf bestand mit **223.757 Runtime-Assertions**, **18.258**
+Die sieben Ingame-Großbefehle vor dieser Optimierung benötigten zusammen rund **1.712 ms**.
+Davon entfielen rund **1.532 ms** auf den Bodenbeweis, aber nur rund **33 ms** auf alle nativen
+`0xF4930`-Builder und rund **33 ms** auf Required-Suchen. Der Builder bleibt deshalb unverändert
+einmal pro tatsächlichem Aufruf aktiv; die Optimierung setzt am positiven Bodenbeweis und an der
+befehlweiten Wiederverwendung an. Die praktische Wiederholungsmessung mit demselben Save steht
+noch aus.
+
+Der finale Standalone-Lauf bestand mit **224.446 Runtime-Assertions**, **18.258**
 unabhängigen Suchassertions, **6.480** Gebäudefelddistanzen und **1.469.340**
-gerichteten Cursorvergleichen; 20 Runtime-Dateien und 174 tatsächliche Runtime-Member
+gerichteten Cursorvergleichen; 20 Runtime-Dateien und 177 tatsächliche Runtime-Member
 wurden kompiliert beziehungsweise ausgeübt. Er prüft beide Modi, den neuen Default/Reset,
 Preset/Trail/Client-Sperren,
-einen Ground-Treffer ohne Required-/Weighted-Arbeit, einen notwendigen eigenen Moatweg,
-Command-Snapshot-Stabilität, Gruppengrößen bis 1.000 sowie bestehende Puffer-, Owner-,
+den Same-PCL-Fast-Proof ohne Grid-/Moatsuche, unterschiedliche positive Regionen mit exaktem
+Bodenbeweis, einen notwendigen eigenen Moatweg, den gemeinsamen verschachtelten Attack-/Move-
+Cache, die Acht-von-680-Trackergrenze, Command-Snapshot-Stabilität, Gruppengrößen bis 1.000 sowie bestehende Puffer-, Owner-,
 Kanten-, Angriffs-, Gebäude-, Queue-/Patrol-, Fill-/Dig-, Rekonstruktions- und
 Rollbackverträge. Der endgültige Ingame-Performancevergleich mit identischem Save und
 1/20/120/680 Units bleibt nach Installation erforderlich.

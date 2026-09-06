@@ -40,7 +40,7 @@ var methods = new HashSet<string>(new[] {
 });
 var types = new HashSet<string>(new[] {
     "BuildingApproachCandidate", "BuildingConsumerFallbackResult", "BuildingConsumerPerformanceScope", "AttackApproachState",
-    "QualifiedMovementRoute", "RouteDecisionKey", "RequiredRouteMetrics",
+    "QualifiedMovementRoute", "RouteDecisionKey", "RequiredRouteMetrics", "RequiredRouteCache",
     "PendingDigMoatTarget",
     "DirectCursorMoveScope", "BuildingCursorTarget", "BuildingHoverTileSource", "AttackCursorPairScope", "CursorPairFallbackKind", "CursorGroupRouteSummary", "SelectedCursorUnitSnapshot", "UnitMoveFrame", "PlanScope", "RouteProbeSummary", "TargetedRouteDecision", "MoatWorkSelectionScope", "MoatWorkApproach", "PendingFillMoatApproach"
 });
@@ -53,7 +53,7 @@ var constants = new HashSet<string>(new[] {
     "MovementBlockedLowTileFlagMask", "CompletedMoatTileFlag", "CursorSpecialStructureTileFlagMask", "PathManagerOutputBufferOffset",
     "PathManagerOutputLengthOffset", "NativeUnitPathBufferOffset", "NativeUnitPathBufferStride",
     "PathManagerRouteVariantOffset", "OrdinaryWalkableTileFlag", "MoatWorkNeighbourX", "MoatWorkNeighbourY"
-    , "WeightedPublicationSafetyMarginTicks", "weightedPhaseTimingActive"
+    , "WeightedPublicationSafetyMarginTicks", "weightedPhaseTimingActive", "attackQualificationTimingDepth", "requiredPublicationTimingDepth"
 });
 var selected = new List<MemberDeclarationSyntax>();
 foreach (var tree in trees)

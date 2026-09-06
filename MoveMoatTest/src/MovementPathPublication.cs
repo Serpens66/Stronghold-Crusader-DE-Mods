@@ -130,7 +130,16 @@ namespace MoveMoatTest
             {
                 try
                 {
-                    nativeSafe = TryAuditFallbackPath(pathManager, path, vanilla, plan, unit, out string auditReason);
+                    if (requiredMetrics != null) requiredPublicationTimingDepth++;
+                    string auditReason;
+                    try
+                    {
+                        nativeSafe = TryAuditFallbackPath(pathManager, path, vanilla, plan, unit, out auditReason);
+                    }
+                    finally
+                    {
+                        if (requiredMetrics != null) requiredPublicationTimingDepth--;
+                    }
                     if (!nativeSafe)
                     {
                         RecordFallbackContractRejection(plan, auditReason, pathManager);
@@ -181,8 +190,16 @@ namespace MoveMoatTest
             try
             {
                 if (command != null) command.FallbackBuilderCalls++;
-                retained = TryReplaceUnsafeFallbackPath(pathManager, path, backup, beforeLength,
-                    plan, unit, out result, out _, requireMoat: !reconstruction);
+                if (requiredMetrics != null) requiredPublicationTimingDepth++;
+                try
+                {
+                    retained = TryReplaceUnsafeFallbackPath(pathManager, path, backup, beforeLength,
+                        plan, unit, out result, out _, requireMoat: !reconstruction);
+                }
+                finally
+                {
+                    if (requiredMetrics != null) requiredPublicationTimingDepth--;
+                }
                 if (retained)
                 {
                     if (requiredMetrics != null) requiredMetrics.Published++;
@@ -419,13 +436,18 @@ namespace MoveMoatTest
             }
             finally
             {
+                long elapsed = Stopwatch.GetTimestamp() - started;
                 if (command != null)
                 {
-                    long elapsed = Stopwatch.GetTimestamp() - started;
                     command.AuditCalls++;
                     command.AuditTicks += elapsed;
                     if (weightedPhaseTimingActive)
                         command.WeightedAuditTicks += elapsed;
+                }
+                if (requiredPublicationTimingDepth > 0)
+                {
+                    RequiredRouteMetrics required = activeMoveCommand?.Required ?? activeAttackCommand?.Required;
+                    if (required != null) required.PublicationAuditTicks += elapsed;
                 }
             }
         }

@@ -301,6 +301,7 @@ namespace MoveMoatTest
         {
             internal MovementOptionsSnapshot Options = MovementOptionsSnapshot.Capture();
             internal RequiredRouteMetrics Required = new RequiredRouteMetrics();
+            internal RequiredRouteCache RequiredCache = new RequiredRouteCache();
             internal System.Collections.Generic.HashSet<int> CandidateUnitIds = new System.Collections.Generic.HashSet<int>();
             public int MapEpoch, TribeId, TargetValue1, TargetValue2, Sequence;
             public TribeAICommand Command;

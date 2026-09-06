@@ -149,15 +149,16 @@ namespace MoveMoatTest
         {
             // Work callbacks may mutate terrain between two selections in the same tick.
             // Their exact synchronous scope takes precedence over a surrounding command.
+            object commandSession = RequiredOnlyMode
+                ? (object)activeMoveCommand?.RequiredCache ?? activeAttackCommand?.RequiredCache
+                : (object)activeMoveCommand ?? activeAttackCommand;
             object session = explicitOwner ?? (object)activeMoatWorkSelection ?? plan?.MoatWorkSearch ??
-                (object)activeMoveCommand ?? (object)activeAttackCommand ??
+                commandSession ??
                 GetCurrentUnitMoveFrame() ?? (object)plan;
             int tick = CaptureCurrentGameTick();
             if (!ReferenceEquals(session, nativeGroundOwner) || nativeGroundEpoch != mapEpoch ||
                 nativeGroundTick != tick || nativeGroundPlayer != playerId)
             {
-                if (nativeGroundOwner != null && activeMoveCommand != null)
-                    activeMoveCommand.TargetedRouteDecisions.Clear();
                 nativeGroundDecisions.Clear(); nativeGroundOwner = session;
                 nativeGroundEpoch = mapEpoch; nativeGroundTick = tick; nativeGroundPlayer = playerId;
             }
