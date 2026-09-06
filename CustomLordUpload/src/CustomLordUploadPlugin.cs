@@ -12,7 +12,7 @@ namespace CustomLordUpload
 
         public const string PluginGuid = "CustomLordUpload_Serp";
         public const string PluginName = "Custom Lord Upload";
-        public const string PluginVersion = "1.0.1";
+        public const string PluginVersion = "1.0.2";
 
         // COMPATIBILITY: The BepInEx component is destroyed during startup in the current loader;
         // recheck lifecycle behavior after BepInEx/Script Extender updates. Process-lifetime services stay rooted here.

@@ -21,7 +21,7 @@ namespace HunterQueryTargetDiagnostic
         private const string ScriptExtenderGuid = "000shcdese";
         private const string PluginGuid = "HunterQueryTargetDiagnostic_Serp";
         private const string PluginName = "Hunter Query Target Diagnostic";
-        private const string PluginVersion = "1.4.4";
+        private const string PluginVersion = "1.4.5";
 
         private const int BaselineDetailLimit = 12;
         private const int SuspiciousDetailLimit = 160;

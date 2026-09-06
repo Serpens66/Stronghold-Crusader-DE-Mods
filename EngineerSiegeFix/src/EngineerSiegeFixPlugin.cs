@@ -13,7 +13,7 @@ namespace EngineerSiegeFix
         private const string ScriptExtenderGuid = "000shcdese";
         private const string PluginGuid = "EngineerSiegeFix_Serp";
         private const string PluginName = "Engineer Siege Fix";
-        private const string PluginVersion = "0.1.0";
+        private const string PluginVersion = "0.1.1";
 
         // SHCDE destroys the early BepInEx component during normal startup. Keep all
         // process-wide state independent of that Unity object's lifetime.

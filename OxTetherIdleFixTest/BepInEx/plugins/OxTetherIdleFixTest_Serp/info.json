@@ -3,11 +3,19 @@
   "Author": "Serpens66",
   "Name": "Ox Tether Idle Fix Test",
   "Description": "Diagnoses quarry-ox stalls, repeatedly creates physical Vanilla-confirmed target occupancy, and repairs confirmed alternate-destination idle states.",
-  "Version": "0.1.0",
+  "Version": "0.1.1",
   "MinimumScriptExtenderVersion": "2.2.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
+  "SerpChangelog": [
+    {
+      "Version": "0.1.1",
+      "Changes": [
+        "Updated the mod for Script Extender 2.2.0."
+      ]
+    }
+  ],
   "SupportedGameVersions": [
     "2.8.0.1"
   ]

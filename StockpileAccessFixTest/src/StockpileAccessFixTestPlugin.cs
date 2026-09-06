@@ -14,7 +14,7 @@ namespace StockpileAccessFixTest
         private const string ScriptExtenderGuid = "000shcdese";
         private const string PluginGuid = "StockpileAccessFixTest_Serp";
         private const string PluginName = "Stockpile Access Fix Test";
-        private const string PluginVersion = "0.1.0";
+        private const string PluginVersion = "0.1.1";
 
         private static ManualLogSource persistentLog;
         private static StockpileAccessFixTestRuntime runtime;

@@ -12,7 +12,7 @@ namespace ShieldTowerTest
         private const string ScriptExtenderGuid = "000shcdese";
         private const string PluginGuid = "ShieldTowerTest_Serp";
         private const string PluginName = "Shield Tower Test";
-        private const string PluginVersion = "0.1.0";
+        private const string PluginVersion = "0.1.1";
 
         // SHCDE destroys the BepInEx component during normal startup. Static ownership
         // intentionally keeps this experimental native hook alive for the process.

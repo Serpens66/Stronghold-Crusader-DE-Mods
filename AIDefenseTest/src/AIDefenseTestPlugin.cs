@@ -12,7 +12,7 @@ namespace AIDefenseTest
 
         public const string PluginGuid = "AIDefenseTest_Serp";
         public const string PluginName = "AI Defense Test";
-        public const string PluginVersion = "1.2.7";
+        public const string PluginVersion = "1.2.8";
 
         private static AIDefenseTestRuntime persistentRuntime;
         private static bool libraryLoadedSubscriptionInstalled;

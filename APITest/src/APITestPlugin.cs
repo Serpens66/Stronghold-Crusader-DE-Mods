@@ -19,7 +19,7 @@ namespace APITest
         private const string ExtraFeaturesGuid = "ExtraFeatures_Serp";
         public const string PluginGuid = "APITest_Serp";
         public const string PluginName = "Serp Native API Test";
-        public const string PluginVersion = "0.1.0";
+        public const string PluginVersion = "0.1.1";
 
         private static ManualLogSource rootedLog;
         private static ISelectedUnitCommandRegistration selectedRegistration;

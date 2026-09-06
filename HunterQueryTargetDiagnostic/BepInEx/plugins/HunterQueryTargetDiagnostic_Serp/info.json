@@ -3,10 +3,18 @@
   "Author": "Serpens66",
   "Name": "Hunter Query Target Diagnostic",
   "Description": "Passive diagnostics for the Script Extender OnUnitHunterQueryTarget issue, including event-side Hunterpost identity and movement snapshots.",
-  "Version": "1.4.4",
+  "Version": "1.4.5",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.2.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
-  "NetworkMode": 0
+  "NetworkMode": 0,
+  "SerpChangelog": [
+    {
+      "Version": "1.4.5",
+      "Changes": [
+        "Updated the mod for Script Extender 2.2.0."
+      ]
+    }
+  ]
 }

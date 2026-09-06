@@ -11,7 +11,7 @@ namespace OxTetherIdleFixTest
         private const string ScriptExtenderGuid = "000shcdese";
         private const string PluginGuid = "OxTetherIdleFixTest_Serp";
         private const string PluginName = "Ox Tether Idle Fix Test";
-        private const string PluginVersion = "0.1.0";
+        private const string PluginVersion = "0.1.1";
 
         // SHCDE destroys the early BepInEx manager component during normal startup.
         // Keep the non-Unity runtime alive independently for the process lifetime.
