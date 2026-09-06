@@ -470,6 +470,7 @@ namespace BugfixesAndQoL
         {
             UnsubscribeHooks();
             DisposeMovedFeatures();
+            assassinPathfindingRuntime.Dispose();
             friendlyMoatMovementRuntime?.Dispose();
             friendlyMoatMovementRuntime = null;
             shiftRepairAllBuildingsHook?.Dispose();

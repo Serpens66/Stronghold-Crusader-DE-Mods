@@ -40,6 +40,8 @@ if errorlevel 1 goto build_failed_popd
 if errorlevel 1 goto build_failed_popd
 dotnet run --project "tests\ExtendedShiftCommandQueue.Tests\ExtendedShiftCommandQueue.Tests.csproj"
 if errorlevel 1 goto build_failed_popd
+dotnet run --project "tests\AssassinPathfinding.Tests\AssassinPathfinding.Tests.csproj" -- "%PROJECT_DIR%.."
+if errorlevel 1 goto build_failed_popd
 dotnet run --project "tests\FriendlyMoatMovement.Tests\FriendlyMoatMovement.Tests.csproj" -- "%PROJECT_DIR%.."
 if errorlevel 1 goto build_failed_popd
 popd

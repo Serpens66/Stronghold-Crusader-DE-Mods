@@ -4,16 +4,21 @@ using RedBird.Abstractions.Hooks;
 using RedBird.Abstractions.Hooks.Transaction;
 using RedBird.Core.Memory;
 using RedBird.X64.Hooks.Transaction;
+using R3;
 using SHCDESE.API;
+using SHCDESE.EventAPI;
+using SHCDESE.EventAPI.Tribes;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.InteropServices;
 
 namespace BugfixesAndQoL
 {
-    internal sealed unsafe class AssassinPathfindingRuntime
+    internal sealed unsafe class AssassinPathfindingRuntime : IDisposable
     {
         [UnmanagedFunctionPointer(CallingConvention.Winapi)]
         private delegate int AssassinPathBuilderDelegate(
@@ -51,6 +56,11 @@ namespace BugfixesAndQoL
         private const uint IsLowWallFlag = 1u << 16;
         private const byte GroundEdgeKind = 1;
         private const byte ClimbEdgeKind = 2;
+        private const byte MoveCommandKind = 1;
+        private const byte TargetCommandKind = 2;
+        private const double SlowCommandThresholdMilliseconds = 100.0;
+        private const int MaximumDetailedRequestsPerCommand = 8;
+        private static readonly bool DetailedDiagnosticsEnabled = false;
         private const string AssassinBuilderPattern =
             "48 89 5C 24 08 48 89 6C 24 18 48 89 74 24 20 57 41 54 41 55 41 56 41 57 48 83 EC 30 48 63 EA 48 8B D9 49 63 F9";
 
@@ -63,6 +73,7 @@ namespace BugfixesAndQoL
         private readonly int[] costs = new int[CoordinateCount];
         private readonly int[] parents = new int[CoordinateCount];
         private readonly int[] insertionOrder = new int[CoordinateCount];
+        private readonly int[] estimatedTotalCosts = new int[CoordinateCount];
         private readonly int[] heap = new int[CoordinateCount];
         private readonly int[] heapPositions = new int[CoordinateCount];
         private readonly int[] touched = new int[CoordinateCount];
@@ -87,9 +98,16 @@ namespace BugfixesAndQoL
         private int heapCount;
         private int touchedCount;
         private int nextInsertionOrder;
+        private int heapOperations;
         private bool fallbackLogged;
         private bool coordinateMapValidated;
         private bool coordinateValidationFailureLogged;
+        private int mapEpoch;
+        private IDisposable moveCommandSubscription;
+        private IDisposable targetCommandSubscription;
+        private AssassinCommandScope activeCommand;
+        private int commandSequence;
+        private bool commandScopeMismatchLogged;
 
         public AssassinPathfindingRuntime(ManualLogSource log, BugfixesAndQoLViewModel settings, AssassinClimbRuntime climbRuntime)
         {
@@ -162,11 +180,19 @@ namespace BugfixesAndQoL
                 if (!commitResult.IsCompleteSuccess || !detour.Success)
                     throw new InvalidOperationException("The weighted Assassin pathfinding detour was not installed.");
                 reconstructionPatch = pendingReconstructionPatch;
+                moveCommandSubscription = TribeR3EventHooks.OnTribeIssueOrderMoveHere.Observable
+                    .Subscribe(ObserveMoveCommand);
+                targetCommandSubscription = TribeR3EventHooks.OnTribeIssueOrderWithTarget.Observable
+                    .Subscribe(ObserveTargetCommand);
                 ApplySetting();
                 LogDebug($"weighted Assassin pathfinding installed at RVA 0x{AssassinBuilderRva:X}; climb costs={AssassinClimbCostPolicy.MinimumClimbTicks}/{AssassinClimbCostPolicy.LowWallClimbTicks}/{AssassinClimbCostPolicy.NormalWallClimbTicks} ticks.");
             }
             catch
             {
+                moveCommandSubscription?.Dispose();
+                moveCommandSubscription = null;
+                targetCommandSubscription?.Dispose();
+                targetCommandSubscription = null;
                 if (pendingReconstructionPatch?.IsApplied == true)
                     pendingReconstructionPatch.SetEnabled(false);
                 transaction?.Dispose();
@@ -190,12 +216,25 @@ namespace BugfixesAndQoL
 
         public void BeginMap()
         {
+            mapEpoch++;
+            ClearTransientState();
             ResetMapValidation();
         }
 
         public void EndMap()
         {
+            mapEpoch++;
+            ClearTransientState();
             ResetMapValidation();
+        }
+
+        public void Dispose()
+        {
+            moveCommandSubscription?.Dispose();
+            moveCommandSubscription = null;
+            targetCommandSubscription?.Dispose();
+            targetCommandSubscription = null;
+            ClearTransientState();
         }
 
         private int BuildWeightedPath(IntPtr context, int startX, int startY, int targetX, int targetY, int maximumNodes, int continuation)
@@ -203,36 +242,78 @@ namespace BugfixesAndQoL
             if (!detour.Success)
                 return 0;
 
+            AssassinCommandScope command = activeCommand;
+            long requestStarted = Stopwatch.GetTimestamp();
+            long nativeStarted = requestStarted;
             // Vanilla initializes internal queue state even when our compact route field replaces it.
             int vanillaResult = detour.Original(context, startX, startY, targetX, targetY, maximumNodes, continuation);
-            if (!settings.EnableMod || !settings.EnableImprovedAssassinPathfinding || continuation != 0)
+            long nativeTicks = Stopwatch.GetTimestamp() - nativeStarted;
+            command?.RecordNativeBuilder(nativeTicks);
+
+            bool enabled = command?.Enabled ??
+                (settings.EnableMod && settings.EnableImprovedAssassinPathfinding);
+            if (!enabled || continuation != 0)
                 return vanillaResult;
             if (targetX < 0 || targetY < 0)
                 return vanillaResult;
 
             try
             {
-                if (!TryResolveAssassinRequest(startX, startY, out int playerId, out int speedDelay))
+                long resolutionStarted = Stopwatch.GetTimestamp();
+                if (!TryResolveAssassinRequest(command, startX, startY, out int playerId, out int speedDelay))
+                {
+                    command?.RecordResolution(Stopwatch.GetTimestamp() - resolutionStarted);
                     return vanillaResult;
+                }
+                command?.RecordResolution(Stopwatch.GetTimestamp() - resolutionStarted);
                 if (!EnsureCoordinateTileMappingValidated())
                     return vanillaResult;
 
-                bool allowClimbing = climbRuntime.IsClimbingAllowed(playerId);
+                bool allowClimbing = command?.GetClimbingAllowed(playerId, climbRuntime) ??
+                    climbRuntime.IsClimbingAllowed(playerId);
                 // Never publish a relaxed route unless Vanilla can reconstruct the same
                 // validated reserved climb endpoints. This keeps patch failures fail-closed.
                 bool allowWalkableReservedClimbEndpoints = reconstructionPatch?.IsApplied == true;
-                if (!TryBuildWeightedRoute(
-                    startX,
-                    startY,
-                    targetX,
-                    targetY,
-                    maximumNodes,
-                    speedDelay,
-                    allowClimbing,
-                    allowWalkableReservedClimbEndpoints,
-                    out RouteSearchSummary routeSummary) ||
-                    !CommitPreparedRoute(context, routeSummary.RouteLength))
+                var cacheKey = new RouteCacheKey(
+                    startX, startY, targetX, targetY, maximumNodes, speedDelay,
+                    playerId, allowClimbing, allowWalkableReservedClimbEndpoints);
+                RouteSearchSummary routeSummary = default;
+                long cacheStarted = Stopwatch.GetTimestamp();
+                bool routeReady = command != null &&
+                    TryLoadCachedRoute(command, cacheKey, out routeSummary);
+                command?.RecordCacheLookup(Stopwatch.GetTimestamp() - cacheStarted);
+                if (!routeReady)
                 {
+                    routeReady = TryBuildWeightedRoute(
+                        startX,
+                        startY,
+                        targetX,
+                        targetY,
+                        maximumNodes,
+                        speedDelay,
+                        allowClimbing,
+                        allowWalkableReservedClimbEndpoints,
+                        command,
+                        out routeSummary);
+                    if (routeReady && command != null)
+                        CachePreparedRoute(command, cacheKey, routeSummary);
+                }
+
+                if (!routeReady)
+                    return 0;
+
+                long publicationStarted = Stopwatch.GetTimestamp();
+                bool published = CommitPreparedRoute(context, routeSummary.RouteLength);
+                command?.RecordPublication(
+                    Stopwatch.GetTimestamp() - publicationStarted,
+                    published,
+                    routeSummary);
+                if (!published)
+                {
+                    LogError(
+                        $"Assassin route publication contract failed: commandSeq={command?.Sequence ?? 0} " +
+                        $"player={playerId} start={startX},{startY} target={targetX},{targetY} " +
+                        $"routeLength={routeSummary.RouteLength}.");
                     return 0;
                 }
                 return 1;
@@ -246,6 +327,10 @@ namespace BugfixesAndQoL
                 }
                 return vanillaResult;
             }
+            finally
+            {
+                command?.RecordTotal(Stopwatch.GetTimestamp() - requestStarted);
+            }
         }
 
         private bool TryBuildWeightedRoute(
@@ -257,8 +342,10 @@ namespace BugfixesAndQoL
             int speedDelay,
             bool allowClimbing,
             bool allowWalkableReservedClimbEndpoints,
+            AssassinCommandScope command,
             out RouteSearchSummary routeSummary)
         {
+            long searchStarted = Stopwatch.GetTimestamp();
             routeSummary = default;
             if (!IsValidCoordinate(startX, startY) || !IsValidCoordinate(targetX, targetY))
                 return false;
@@ -273,7 +360,14 @@ namespace BugfixesAndQoL
 
             int startNode = GetCoordinateIndex(startX, startY);
             int targetNode = GetCoordinateIndex(targetX, targetY);
-            Touch(startNode, 0, -1, 0);
+            heapOperations = 0;
+            SuffixCacheKey suffixKey = new SuffixCacheKey(
+                targetX, targetY, speedDelay, allowClimbing,
+                allowWalkableReservedClimbEndpoints);
+            Touch(startNode, 0, -1, 0,
+                EstimateRemainingTicks(
+                    startX, startY, targetX, targetY,
+                    cardinalTicks, diagonalTicks, command, suffixKey, startNode));
             Push(startNode);
             int expanded = 0;
             int nodeLimit = Math.Max(1, Math.Min(maximumNodes, TileCount));
@@ -284,8 +378,15 @@ namespace BugfixesAndQoL
                 expanded++;
                 if (currentNode == targetNode)
                 {
-                    if (!PrepareRoute(startNode, targetNode, out routeSummary))
+                    long reconstructionStarted = Stopwatch.GetTimestamp();
+                    if (!PrepareRoute(startNode, targetNode, costs[targetNode], expanded,
+                        heapOperations, searchStarted, reconstructionStarted, out routeSummary))
+                    {
+                        command?.RecordFailedSearch(
+                            Stopwatch.GetTimestamp() - searchStarted, expanded, heapOperations);
                         return false;
+                    }
+                    command?.RecordSearch(routeSummary);
                     return true;
                 }
 
@@ -338,19 +439,32 @@ namespace BugfixesAndQoL
                         continue;
 
                     if (costs[nextNode] == int.MaxValue)
+                    {
+                        int heuristic = EstimateRemainingTicks(
+                            nextX, nextY, targetX, targetY,
+                            cardinalTicks, diagonalTicks, command, suffixKey, nextNode);
                         Touch(nextNode, newCost, currentNode,
-                            climbEdge ? ClimbEdgeKind : GroundEdgeKind);
+                            climbEdge ? ClimbEdgeKind : GroundEdgeKind,
+                            AssassinAStarPolicy.SaturatingAdd(newCost, heuristic));
+                    }
                     else
                     {
                         costs[nextNode] = newCost;
                         parents[nextNode] = currentNode;
                         incomingEdgeKinds[nextNode] =
                             climbEdge ? ClimbEdgeKind : GroundEdgeKind;
+                        int heuristic = EstimateRemainingTicks(
+                            nextX, nextY, targetX, targetY,
+                            cardinalTicks, diagonalTicks, command, suffixKey, nextNode);
+                        estimatedTotalCosts[nextNode] =
+                            AssassinAStarPolicy.SaturatingAdd(newCost, heuristic);
                     }
                     PushOrDecrease(nextNode);
                 }
             }
 
+            command?.RecordFailedSearch(
+                Stopwatch.GetTimestamp() - searchStarted, expanded, heapOperations);
             return false;
         }
 
@@ -381,6 +495,143 @@ namespace BugfixesAndQoL
             return targetAccepted && startAccepted && targetBuildingAccepted && hasWall;
         }
 
+        private int EstimateRemainingTicks(
+            int x,
+            int y,
+            int targetX,
+            int targetY,
+            int cardinalTicks,
+            int diagonalTicks,
+            AssassinCommandScope command,
+            SuffixCacheKey suffixKey,
+            int node)
+        {
+            int estimate = AssassinAStarPolicy.EstimateOctileTicks(
+                x, y, targetX, targetY, cardinalTicks, diagonalTicks);
+            if (command != null && command.TryGetSuffixCost(suffixKey, node, out int suffixCost))
+                estimate = Math.Max(estimate, suffixCost);
+            return estimate;
+        }
+
+        private bool TryLoadCachedRoute(
+            AssassinCommandScope command,
+            RouteCacheKey key,
+            out RouteSearchSummary summary)
+        {
+            summary = default;
+            if (!command.RouteCache.TryGetValue(key, out CachedRoute cached) ||
+                cached.Nodes == null || cached.Nodes.Length <= 0 ||
+                cached.Nodes.Length > route.Length)
+            {
+                return false;
+            }
+
+            Array.Copy(cached.Nodes, route, cached.Nodes.Length);
+            if (!ValidateCachedRoute(key, cached))
+            {
+                command.RouteCache.Remove(key);
+                return false;
+            }
+
+            summary = cached.Summary.AsCacheHit();
+            command.RecordCacheHit(summary);
+            return true;
+        }
+
+        private void CachePreparedRoute(
+            AssassinCommandScope command,
+            RouteCacheKey key,
+            RouteSearchSummary summary)
+        {
+            if (command.RouteCache.Count < AssassinCommandScope.MaximumCachedRoutes)
+            {
+                var nodes = new int[summary.RouteLength];
+                Array.Copy(route, nodes, nodes.Length);
+                command.RouteCache[key] = new CachedRoute(nodes, summary);
+            }
+
+            var suffixKey = new SuffixCacheKey(
+                key.TargetX, key.TargetY, key.SpeedDelay,
+                key.AllowClimbing, key.AllowWalkableReservedClimbEndpoints);
+            command.CacheSuffixes(suffixKey, route, summary.RouteLength, costs, summary.TotalCost);
+        }
+
+        private bool ValidateCachedRoute(RouteCacheKey key, CachedRoute cached)
+        {
+            int length = cached.Nodes.Length;
+            int expectedStart = GetCoordinateIndex(key.StartX, key.StartY);
+            int expectedTarget = GetCoordinateIndex(key.TargetX, key.TargetY);
+            if (cached.Nodes[length - 1] != expectedStart || cached.Nodes[0] != expectedTarget)
+                return false;
+
+            int totalCost = 0;
+            int groundEdges = 0;
+            int climbEdges = 0;
+            int cardinalTicks = AssassinClimbCostPolicy.GetCardinalMovementTicks(key.SpeedDelay);
+            int diagonalTicks = AssassinClimbCostPolicy.GetDiagonalMovementTicks(key.SpeedDelay);
+            for (int reverseIndex = length - 1; reverseIndex > 0; reverseIndex--)
+            {
+                int currentNode = cached.Nodes[reverseIndex];
+                int nextNode = cached.Nodes[reverseIndex - 1];
+                int currentX = currentNode % MapWidth;
+                int currentY = currentNode / MapWidth;
+                int nextX = nextNode % MapWidth;
+                int nextY = nextNode / MapWidth;
+                if (!IsValidCoordinate(currentX, currentY) ||
+                    !IsValidCoordinate(nextX, nextY))
+                    return false;
+                int dx = nextX - currentX;
+                int dy = nextY - currentY;
+                int direction = GetDirectionIndex(dx, dy);
+                if (direction < 0)
+                    return false;
+
+                int currentTile = GetTileId(currentX, currentY);
+                int nextTile = GetTileId(nextX, nextY);
+                if (!IsNativeTile(currentTile) || !IsNativeTile(nextTile))
+                    return false;
+
+                bool cardinal = (direction & 1) == 0;
+                bool ordinaryEdge = (directionMasks[direction] & occupancyLayer[currentTile]) != 0;
+                int edgeCost;
+                if (ordinaryEdge)
+                {
+                    groundEdges++;
+                    edgeCost = cardinal ? cardinalTicks : diagonalTicks;
+                }
+                else
+                {
+                    if (!cardinal || !key.AllowClimbing ||
+                        !IsVanillaAssassinFallback(
+                            currentTile,
+                            nextTile,
+                            tileFlags[currentTile],
+                            key.AllowWalkableReservedClimbEndpoints))
+                    {
+                        return false;
+                    }
+                    climbEdges++;
+                    edgeCost = AssassinAStarPolicy.SaturatingAdd(
+                        cardinalTicks, GetClimbTicks(currentTile, nextTile));
+                }
+                totalCost = AssassinAStarPolicy.SaturatingAdd(totalCost, edgeCost);
+            }
+
+            return totalCost == cached.Summary.TotalCost &&
+                groundEdges == cached.Summary.GroundEdges &&
+                climbEdges == cached.Summary.ClimbEdges;
+        }
+
+        private static int GetDirectionIndex(int dx, int dy)
+        {
+            for (int direction = 0; direction < DirectionX.Length; direction++)
+            {
+                if (DirectionX[direction] == dx && DirectionY[direction] == dy)
+                    return direction;
+            }
+            return -1;
+        }
+
         private int GetClimbTicks(int current, int target)
         {
             int heightDifference = heightLayer[target] - heightLayer[current];
@@ -396,6 +647,11 @@ namespace BugfixesAndQoL
         private bool PrepareRoute(
             int startNode,
             int targetNode,
+            int totalCost,
+            int expanded,
+            int searchHeapOperations,
+            long searchStarted,
+            long reconstructionStarted,
             out RouteSearchSummary summary)
         {
             summary = default;
@@ -426,7 +682,13 @@ namespace BugfixesAndQoL
             summary = new RouteSearchSummary(
                 routeLength,
                 groundEdges,
-                climbEdges);
+                climbEdges,
+                totalCost,
+                expanded,
+                searchHeapOperations,
+                reconstructionStarted - searchStarted,
+                Stopwatch.GetTimestamp() - reconstructionStarted,
+                cacheHit: false);
             return true;
         }
 
@@ -460,32 +722,83 @@ namespace BugfixesAndQoL
             return true;
         }
 
-        private bool TryResolveAssassinRequest(int startX, int startY, out int playerId, out int speedDelay)
+        private bool TryResolveAssassinRequest(
+            AssassinCommandScope command,
+            int startX,
+            int startY,
+            out int playerId,
+            out int speedDelay)
         {
             playerId = -1;
             speedDelay = -1;
+            if ((uint)startX >= MapWidth || (uint)startY >= MapWidth)
+                return false;
+
+            Dictionary<int, AssassinRequestInfo> index = GetRequestIndex(command);
+            if (!index.TryGetValue(GetCoordinateIndex(startX, startY), out AssassinRequestInfo info) ||
+                info.Ambiguous || info.PlayerId <= 0)
+            {
+                return false;
+            }
+
+            playerId = info.PlayerId;
+            speedDelay = info.SpeedDelay;
+            if (speedDelay < 0)
+                speedDelay = GameUnitManagerAPI.Instance.GetDefaultSpeed(eChimps.CHIMP_TYPE_ARAB_ASSASIN);
+            return true;
+        }
+
+        private Dictionary<int, AssassinRequestInfo> GetRequestIndex(AssassinCommandScope command)
+        {
+            if (command != null)
+            {
+                if (command.RequestIndex == null)
+                {
+                    long started = Stopwatch.GetTimestamp();
+                    command.RequestIndex = BuildRequestIndex();
+                    command.RecordRequestIndex(Stopwatch.GetTimestamp() - started);
+                }
+                return command.RequestIndex;
+            }
+
+            // Without a native unit-position revision, tick-wide reuse would be unsafe:
+            // units may move sequentially inside the same simulation tick.
+            return BuildRequestIndex();
+        }
+
+        private static Dictionary<int, AssassinRequestInfo> BuildRequestIndex()
+        {
+            var index = new Dictionary<int, AssassinRequestInfo>();
             Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
             for (int spanIndex = 0; spanIndex < units.Length; spanIndex++)
             {
                 ref GameUnit candidate = ref units[spanIndex];
                 if (candidate.r_AliveState != AliveState.IsAlive ||
-                    candidate.r_UnitChimp != eChimps.CHIMP_TYPE_ARAB_ASSASIN ||
-                    candidate.r_CurrentTilePositionX != startX || candidate.r_CurrentTilePositionY != startY)
+                    candidate.r_UnitChimp != eChimps.CHIMP_TYPE_ARAB_ASSASIN)
                 {
                     continue;
                 }
 
+                int x = candidate.r_CurrentTilePositionX;
+                int y = candidate.r_CurrentTilePositionY;
+                if ((uint)x >= MapWidth || (uint)y >= MapWidth)
+                    continue;
+                int coordinate = GetCoordinateIndex(x, y);
                 int candidatePlayer = candidate.r_ControllableForPlayerId;
-                if (playerId > 0 && candidatePlayer != playerId)
-                    return false;
-                playerId = candidatePlayer;
                 int candidateDelay = candidate.r_CurrentSpeed;
-                if (candidateDelay > speedDelay)
-                    speedDelay = candidateDelay;
+                if (!index.TryGetValue(coordinate, out AssassinRequestInfo existing))
+                {
+                    index.Add(coordinate, new AssassinRequestInfo(
+                        candidatePlayer, candidateDelay, ambiguous: false));
+                    continue;
+                }
+
+                bool ambiguous = existing.Ambiguous || existing.PlayerId != candidatePlayer;
+                int slowestDelay = Math.Max(existing.SpeedDelay, candidateDelay);
+                index[coordinate] = new AssassinRequestInfo(
+                    existing.PlayerId, slowestDelay, ambiguous);
             }
-            if (speedDelay < 0)
-                speedDelay = GameUnitManagerAPI.Instance.GetDefaultSpeed(eChimps.CHIMP_TYPE_ARAB_ASSASIN);
-            return playerId > 0;
+            return index;
         }
 
         private bool IsValidCoordinate(int x, int y)
@@ -550,17 +863,139 @@ namespace BugfixesAndQoL
             }
         }
 
+        private void ObserveMoveCommand(TribeIssueOrderMoveHereEventArgs args)
+        {
+            if (args.Phase == EventHookPhase.Pre)
+            {
+                activeCommand = new AssassinCommandScope(
+                    activeCommand,
+                    ++commandSequence,
+                    mapEpoch,
+                    GameTimeManagerAPI.Instance.GetElapsedMapTicks(),
+                    args.TribeId,
+                    MoveCommandKind,
+                    args.TileX,
+                    args.TileY,
+                    $"move/{args.MoveType}/patrol={args.IsPatrolPath}/new={args.IsNewOrder}",
+                    settings.EnableMod && settings.EnableImprovedAssassinPathfinding);
+                return;
+            }
+
+            CloseCommandScope(MoveCommandKind, args.TribeId);
+        }
+
+        private void ObserveTargetCommand(TribeIssueOrderWithTargetEventArgs args)
+        {
+            if (args.Phase == EventHookPhase.Pre)
+            {
+                activeCommand = new AssassinCommandScope(
+                    activeCommand,
+                    ++commandSequence,
+                    mapEpoch,
+                    GameTimeManagerAPI.Instance.GetElapsedMapTicks(),
+                    args.TribeId,
+                    TargetCommandKind,
+                    args.TargetValue1,
+                    args.TargetValue2,
+                    $"target/{args.AICommand}",
+                    settings.EnableMod && settings.EnableImprovedAssassinPathfinding);
+                return;
+            }
+
+            CloseCommandScope(TargetCommandKind, args.TribeId);
+        }
+
+        private void CloseCommandScope(byte eventKind, int tribeId)
+        {
+            AssassinCommandScope command = activeCommand;
+            if (command == null || command.EventKind != eventKind || command.TribeId != tribeId)
+            {
+                // Event scopes are synchronous and must close in LIFO order. If that contract
+                // ever changes, discard every snapshot/cache instead of applying stale data.
+                if (!commandScopeMismatchLogged)
+                {
+                    commandScopeMismatchLogged = true;
+                    LogWarning("Assassin command event scopes were not balanced; command-bound caches were discarded.");
+                }
+                activeCommand = null;
+                return;
+            }
+
+            CompleteCommand(command);
+            activeCommand = command.Previous;
+        }
+
+        private void CompleteCommand(AssassinCommandScope command)
+        {
+            if (command == null)
+                return;
+
+            command.ElapsedTicks = Stopwatch.GetTimestamp() - command.StartedTimestamp;
+            double elapsedMilliseconds = ToMilliseconds(command.ElapsedTicks);
+            if (command.BuilderCalls <= 0 ||
+                (!DetailedDiagnosticsEnabled && elapsedMilliseconds < SlowCommandThresholdMilliseconds))
+            {
+                return;
+            }
+
+            long accountedTicks = command.NativeBuilderTicks + command.ResolutionTicks +
+                command.CacheLookupTicks + command.SearchTicks +
+                command.ReconstructionTicks + command.PublicationTicks;
+            double residualMilliseconds = ToMilliseconds(
+                Math.Max(0L, command.ElapsedTicks - accountedTicks));
+            LogInfo(
+                $"stage=assassin-path-command-summary commandSeq={command.Sequence} " +
+                $"kind={command.Kind} tribe={command.TribeId} commandTarget={command.TargetValue1},{command.TargetValue2} " +
+                $"tick={command.Tick} mapEpoch={command.MapEpoch} " +
+                $"elapsedMs={elapsedMilliseconds:F3} enabled={command.Enabled} " +
+                $"builderCalls={command.BuilderCalls} nativeBuilderMs={ToMilliseconds(command.NativeBuilderTicks):F3} " +
+                $"requestIndexBuilds={command.RequestIndexBuilds} requestIndexMs={ToMilliseconds(command.RequestIndexTicks):F3} " +
+                $"profileResolveMs={ToMilliseconds(Math.Max(0L, command.ResolutionTicks - command.RequestIndexTicks)):F3} " +
+                $"searches={command.Searches} cacheHits={command.CacheHits} failedSearches={command.FailedSearches} " +
+                $"cacheLookupMs={ToMilliseconds(command.CacheLookupTicks):F3} " +
+                $"expanded={command.ExpandedNodes} heapOps={command.HeapOperations} " +
+                $"searchMs={ToMilliseconds(command.SearchTicks):F3} reconstructionMs={ToMilliseconds(command.ReconstructionTicks):F3} " +
+                $"publicationCalls={command.PublicationCalls} publicationFailures={command.PublicationFailures} " +
+                $"publicationMs={ToMilliseconds(command.PublicationTicks):F3} " +
+                $"groundEdges={command.GroundEdges} climbEdges={command.ClimbEdges} " +
+                $"maxRouteLength={command.MaximumRouteLength} " +
+                $"assassinRequestMs={ToMilliseconds(command.TotalRequestTicks):F3} residualMs={residualMilliseconds:F3}.");
+
+            if (DetailedDiagnosticsEnabled)
+            {
+                foreach (string detail in command.Details)
+                    LogDebug(detail);
+                if (command.SuppressedDetails > 0)
+                    LogDebug($"stage=assassin-path-details-suppressed commandSeq={command.Sequence} count={command.SuppressedDetails}.");
+            }
+        }
+
+        private void ClearTransientState()
+        {
+            activeCommand = null;
+        }
+
+        private static double ToMilliseconds(long ticks) =>
+            ticks * 1000.0 / Stopwatch.Frequency;
+
         private void ResetMapValidation()
         {
             coordinateMapValidated = false;
             coordinateValidationFailureLogged = false;
             fallbackLogged = false;
+            commandScopeMismatchLogged = false;
         }
 
-        private void Touch(int node, int cost, int parent, byte incomingEdgeKind)
+        private void Touch(
+            int node,
+            int cost,
+            int parent,
+            byte incomingEdgeKind,
+            int estimatedTotalCost)
         {
             touched[touchedCount++] = node;
             costs[node] = cost;
+            estimatedTotalCosts[node] = estimatedTotalCost;
             parents[node] = parent;
             incomingEdgeKinds[node] = incomingEdgeKind;
             insertionOrder[node] = nextInsertionOrder++;
@@ -583,6 +1018,7 @@ namespace BugfixesAndQoL
 
         private void Push(int tile)
         {
+            heapOperations++;
             int position = heapCount++;
             heap[position] = tile;
             heapPositions[tile] = position;
@@ -600,6 +1036,7 @@ namespace BugfixesAndQoL
 
         private int Pop()
         {
+            heapOperations++;
             int result = heap[0];
             int tail = heap[--heapCount];
             heapPositions[result] = -1;
@@ -650,8 +1087,9 @@ namespace BugfixesAndQoL
 
         private bool ComesBefore(int left, int right)
         {
-            return costs[left] < costs[right] ||
-                (costs[left] == costs[right] && insertionOrder[left] < insertionOrder[right]);
+            return AssassinAStarPolicy.ComesBefore(
+                estimatedTotalCosts[left], costs[left], insertionOrder[left],
+                estimatedTotalCosts[right], costs[right], insertionOrder[right]);
         }
 
         private readonly struct RouteSearchSummary
@@ -659,19 +1097,376 @@ namespace BugfixesAndQoL
             public RouteSearchSummary(
                 int routeLength,
                 int groundEdges,
-                int climbEdges)
+                int climbEdges,
+                int totalCost,
+                int expandedNodes,
+                int searchHeapOperations,
+                long searchTicks,
+                long reconstructionTicks,
+                bool cacheHit)
             {
                 RouteLength = routeLength;
                 GroundEdges = groundEdges;
                 ClimbEdges = climbEdges;
+                TotalCost = totalCost;
+                ExpandedNodes = expandedNodes;
+                HeapOperations = searchHeapOperations;
+                SearchTicks = searchTicks;
+                ReconstructionTicks = reconstructionTicks;
+                CacheHit = cacheHit;
             }
 
             public int RouteLength { get; }
             public int GroundEdges { get; }
             public int ClimbEdges { get; }
+            public int TotalCost { get; }
+            public int ExpandedNodes { get; }
+            public int HeapOperations { get; }
+            public long SearchTicks { get; }
+            public long ReconstructionTicks { get; }
+            public bool CacheHit { get; }
+
+            public RouteSearchSummary AsCacheHit() => new RouteSearchSummary(
+                RouteLength,
+                GroundEdges,
+                ClimbEdges,
+                TotalCost,
+                0,
+                0,
+                0,
+                0,
+                cacheHit: true);
+        }
+
+        private readonly struct AssassinRequestInfo
+        {
+            public AssassinRequestInfo(int playerId, int speedDelay, bool ambiguous)
+            {
+                PlayerId = playerId;
+                SpeedDelay = speedDelay;
+                Ambiguous = ambiguous;
+            }
+
+            public int PlayerId { get; }
+            public int SpeedDelay { get; }
+            public bool Ambiguous { get; }
+        }
+
+        private readonly struct CachedRoute
+        {
+            public CachedRoute(int[] nodes, RouteSearchSummary summary)
+            {
+                Nodes = nodes;
+                Summary = summary;
+            }
+
+            public int[] Nodes { get; }
+            public RouteSearchSummary Summary { get; }
+        }
+
+        private readonly struct RouteCacheKey : IEquatable<RouteCacheKey>
+        {
+            public RouteCacheKey(
+                int startX,
+                int startY,
+                int targetX,
+                int targetY,
+                int maximumNodes,
+                int speedDelay,
+                int playerId,
+                bool allowClimbing,
+                bool allowWalkableReservedClimbEndpoints)
+            {
+                StartX = startX;
+                StartY = startY;
+                TargetX = targetX;
+                TargetY = targetY;
+                MaximumNodes = maximumNodes;
+                SpeedDelay = speedDelay;
+                PlayerId = playerId;
+                AllowClimbing = allowClimbing;
+                AllowWalkableReservedClimbEndpoints = allowWalkableReservedClimbEndpoints;
+            }
+
+            public int StartX { get; }
+            public int StartY { get; }
+            public int TargetX { get; }
+            public int TargetY { get; }
+            public int MaximumNodes { get; }
+            public int SpeedDelay { get; }
+            public int PlayerId { get; }
+            public bool AllowClimbing { get; }
+            public bool AllowWalkableReservedClimbEndpoints { get; }
+
+            public bool Equals(RouteCacheKey other) =>
+                StartX == other.StartX && StartY == other.StartY &&
+                TargetX == other.TargetX && TargetY == other.TargetY &&
+                MaximumNodes == other.MaximumNodes && SpeedDelay == other.SpeedDelay &&
+                PlayerId == other.PlayerId && AllowClimbing == other.AllowClimbing &&
+                AllowWalkableReservedClimbEndpoints == other.AllowWalkableReservedClimbEndpoints;
+
+            public override bool Equals(object obj) =>
+                obj is RouteCacheKey other && Equals(other);
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    int hash = StartX;
+                    hash = hash * 397 ^ StartY;
+                    hash = hash * 397 ^ TargetX;
+                    hash = hash * 397 ^ TargetY;
+                    hash = hash * 397 ^ MaximumNodes;
+                    hash = hash * 397 ^ SpeedDelay;
+                    hash = hash * 397 ^ PlayerId;
+                    hash = hash * 397 ^ (AllowClimbing ? 1 : 0);
+                    return hash * 397 ^ (AllowWalkableReservedClimbEndpoints ? 1 : 0);
+                }
+            }
+        }
+
+        private readonly struct SuffixCacheKey : IEquatable<SuffixCacheKey>
+        {
+            public SuffixCacheKey(
+                int targetX,
+                int targetY,
+                int speedDelay,
+                bool allowClimbing,
+                bool allowWalkableReservedClimbEndpoints)
+            {
+                TargetX = targetX;
+                TargetY = targetY;
+                SpeedDelay = speedDelay;
+                AllowClimbing = allowClimbing;
+                AllowWalkableReservedClimbEndpoints = allowWalkableReservedClimbEndpoints;
+            }
+
+            public int TargetX { get; }
+            public int TargetY { get; }
+            public int SpeedDelay { get; }
+            public bool AllowClimbing { get; }
+            public bool AllowWalkableReservedClimbEndpoints { get; }
+
+            public bool Equals(SuffixCacheKey other) =>
+                TargetX == other.TargetX && TargetY == other.TargetY &&
+                SpeedDelay == other.SpeedDelay && AllowClimbing == other.AllowClimbing &&
+                AllowWalkableReservedClimbEndpoints == other.AllowWalkableReservedClimbEndpoints;
+
+            public override bool Equals(object obj) =>
+                obj is SuffixCacheKey other && Equals(other);
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    int hash = TargetX;
+                    hash = hash * 397 ^ TargetY;
+                    hash = hash * 397 ^ SpeedDelay;
+                    hash = hash * 397 ^ (AllowClimbing ? 1 : 0);
+                    return hash * 397 ^ (AllowWalkableReservedClimbEndpoints ? 1 : 0);
+                }
+            }
+        }
+
+        private sealed class AssassinCommandScope
+        {
+            internal const int MaximumCachedRoutes = 64;
+            private const int MaximumSuffixTargets = 32;
+            private const int MaximumSuffixNodes = 20000;
+            private readonly Dictionary<int, bool> climbingByPlayer =
+                new Dictionary<int, bool>();
+            private readonly Dictionary<SuffixCacheKey, Dictionary<int, int>> suffixCosts =
+                new Dictionary<SuffixCacheKey, Dictionary<int, int>>();
+            private int suffixNodeCount;
+
+            public AssassinCommandScope(
+                AssassinCommandScope previous,
+                int sequence,
+                int mapEpoch,
+                int tick,
+                int tribeId,
+                byte eventKind,
+                int targetValue1,
+                int targetValue2,
+                string kind,
+                bool enabled)
+            {
+                Previous = previous;
+                Sequence = sequence;
+                MapEpoch = mapEpoch;
+                Tick = tick;
+                TribeId = tribeId;
+                EventKind = eventKind;
+                TargetValue1 = targetValue1;
+                TargetValue2 = targetValue2;
+                Kind = kind;
+                Enabled = enabled;
+                StartedTimestamp = Stopwatch.GetTimestamp();
+            }
+
+            public AssassinCommandScope Previous { get; }
+            public int Sequence { get; }
+            public int MapEpoch { get; }
+            public int Tick { get; }
+            public int TribeId { get; }
+            public byte EventKind { get; }
+            public int TargetValue1 { get; }
+            public int TargetValue2 { get; }
+            public string Kind { get; }
+            public bool Enabled { get; }
+            public long StartedTimestamp { get; }
+            public long ElapsedTicks { get; set; }
+            public Dictionary<int, AssassinRequestInfo> RequestIndex { get; set; }
+            public Dictionary<RouteCacheKey, CachedRoute> RouteCache { get; } =
+                new Dictionary<RouteCacheKey, CachedRoute>();
+            public List<string> Details { get; } = new List<string>();
+            public int SuppressedDetails { get; private set; }
+            public int BuilderCalls { get; private set; }
+            public int RequestIndexBuilds { get; private set; }
+            public int Searches { get; private set; }
+            public int CacheHits { get; private set; }
+            public int FailedSearches { get; private set; }
+            public int ExpandedNodes { get; private set; }
+            public int HeapOperations { get; private set; }
+            public int PublicationCalls { get; private set; }
+            public int PublicationFailures { get; private set; }
+            public int GroundEdges { get; private set; }
+            public int ClimbEdges { get; private set; }
+            public int MaximumRouteLength { get; private set; }
+            public long NativeBuilderTicks { get; private set; }
+            public long RequestIndexTicks { get; private set; }
+            public long ResolutionTicks { get; private set; }
+            public long CacheLookupTicks { get; private set; }
+            public long SearchTicks { get; private set; }
+            public long ReconstructionTicks { get; private set; }
+            public long PublicationTicks { get; private set; }
+            public long TotalRequestTicks { get; private set; }
+
+            public bool GetClimbingAllowed(int playerId, AssassinClimbRuntime runtime)
+            {
+                if (!climbingByPlayer.TryGetValue(playerId, out bool allowed))
+                {
+                    allowed = runtime.IsClimbingAllowed(playerId);
+                    climbingByPlayer.Add(playerId, allowed);
+                }
+                return allowed;
+            }
+
+            public bool TryGetSuffixCost(SuffixCacheKey key, int node, out int cost)
+            {
+                cost = 0;
+                return suffixCosts.TryGetValue(key, out Dictionary<int, int> field) &&
+                    field.TryGetValue(node, out cost);
+            }
+
+            public void CacheSuffixes(
+                SuffixCacheKey key,
+                int[] nodes,
+                int length,
+                int[] sourceCosts,
+                int totalCost)
+            {
+                if (totalCost == int.MaxValue)
+                    return;
+
+                if (!suffixCosts.TryGetValue(key, out Dictionary<int, int> field))
+                {
+                    if (suffixCosts.Count >= MaximumSuffixTargets)
+                        return;
+                    field = new Dictionary<int, int>();
+                    suffixCosts.Add(key, field);
+                }
+
+                for (int index = 0; index < length && suffixNodeCount < MaximumSuffixNodes; index++)
+                {
+                    int node = nodes[index];
+                    int sourceCost = sourceCosts[node];
+                    if (sourceCost == int.MaxValue || sourceCost > totalCost)
+                        continue;
+                    int suffixCost = Math.Max(0, totalCost - sourceCost);
+                    if (!field.ContainsKey(node))
+                    {
+                        field.Add(node, suffixCost);
+                        suffixNodeCount++;
+                    }
+                }
+            }
+
+            public void RecordNativeBuilder(long ticks)
+            {
+                BuilderCalls++;
+                NativeBuilderTicks += ticks;
+            }
+
+            public void RecordRequestIndex(long ticks)
+            {
+                RequestIndexBuilds++;
+                RequestIndexTicks += ticks;
+            }
+
+            public void RecordResolution(long ticks) => ResolutionTicks += ticks;
+            public void RecordCacheLookup(long ticks) => CacheLookupTicks += ticks;
+
+            public void RecordSearch(RouteSearchSummary summary)
+            {
+                Searches++;
+                ExpandedNodes += summary.ExpandedNodes;
+                HeapOperations += summary.HeapOperations;
+                SearchTicks += summary.SearchTicks;
+                ReconstructionTicks += summary.ReconstructionTicks;
+                AddDetail(summary, "search");
+            }
+
+            public void RecordFailedSearch(long ticks, int expanded, int heapOperations)
+            {
+                Searches++;
+                FailedSearches++;
+                SearchTicks += ticks;
+                ExpandedNodes += expanded;
+                HeapOperations += heapOperations;
+            }
+
+            public void RecordCacheHit(RouteSearchSummary summary)
+            {
+                CacheHits++;
+                AddDetail(summary, "cache");
+            }
+
+            public void RecordPublication(long ticks, bool success, RouteSearchSummary summary)
+            {
+                PublicationCalls++;
+                PublicationTicks += ticks;
+                if (!success)
+                    PublicationFailures++;
+                if (success)
+                {
+                    GroundEdges += summary.GroundEdges;
+                    ClimbEdges += summary.ClimbEdges;
+                    MaximumRouteLength = Math.Max(MaximumRouteLength, summary.RouteLength);
+                }
+            }
+
+            public void RecordTotal(long ticks) => TotalRequestTicks += ticks;
+
+            private void AddDetail(RouteSearchSummary summary, string source)
+            {
+                if (!DetailedDiagnosticsEnabled)
+                    return;
+                if (Details.Count >= MaximumDetailedRequestsPerCommand)
+                {
+                    SuppressedDetails++;
+                    return;
+                }
+                Details.Add(
+                    $"stage=assassin-path-detail commandSeq={Sequence} source={source} " +
+                    $"routeLength={summary.RouteLength} cost={summary.TotalCost} " +
+                    $"ground={summary.GroundEdges} climb={summary.ClimbEdges} " +
+                    $"expanded={summary.ExpandedNodes} heapOps={summary.HeapOperations}.");
+            }
         }
 
         private void LogDebug(string message) => log.LogDebug($"[{TimestampNow()}] Bugfixes and QoL {message}");
+        private void LogInfo(string message) => log.LogInfo($"[{TimestampNow()}] Bugfixes and QoL {message}");
         private void LogWarning(string message) => log.LogWarning($"[{TimestampNow()}] Bugfixes and QoL {message}");
         private void LogError(string message) => log.LogError($"[{TimestampNow()}] Bugfixes and QoL {message}");
         private static string TimestampNow() => DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture);

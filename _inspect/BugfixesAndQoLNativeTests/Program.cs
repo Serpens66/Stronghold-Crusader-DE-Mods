@@ -965,7 +965,7 @@ internal static class Program
               runtime.Contains("context.Region") && !production.Contains("nativeRegion.Dispose()") &&
               !production.Contains("context.Region.Dispose()"),
             "P6b borrows all native load-context values without disposing the ScanRegion");
-        Check(Regex.Matches(production, @"new\s+(?:DetourHandle|HookHandle)<").Count == 30,
+        Check(Regex.Matches(production, @"new\s+(?:DetourHandle|HookHandle)<").Count == 35,
             "BugfixesAndQoL owns the audited RedBird hook handles including friendly moat movement");
         Check(Regex.Matches(production, @"CommitResult\s+commitResult\s*=\s*[^;]+\.Commit\(\)").Count == 21,
             "BugfixesAndQoL performs one checked transaction commit for each audited hook group");
@@ -1001,6 +1001,23 @@ internal static class Program
               moat.Contains("settings.EnableMod && settings.EnableImprovedMoatFilling") &&
               !moat.Contains("RegisterImprovedMoatFillingProvider"),
             "integrated moat-work hooks commit atomically and keep hostile filling independent without a bridge");
+        string assassinPathfinding = File.ReadAllText(
+            Path.Combine(sourceDirectory, "AssassinPathfindingRuntime.cs"));
+        string assassinAStar = File.ReadAllText(
+            Path.Combine(sourceDirectory, "AssassinAStarPolicy.cs"));
+        Check(assassinPathfinding.Contains(
+                  "detour.Original(context, startX, startY, targetX, targetY, maximumNodes, continuation)") &&
+              assassinPathfinding.IndexOf("detour.Original(context", StringComparison.Ordinal) <
+                  assassinPathfinding.IndexOf("TryBuildWeightedRoute(", StringComparison.Ordinal) &&
+              assassinPathfinding.Contains("DetailedDiagnosticsEnabled = false") &&
+              assassinPathfinding.Contains("command.RequestIndex") &&
+              assassinPathfinding.Contains("AssassinAStarPolicy.EstimateOctileTicks") &&
+              assassinAStar.Contains("effectiveDiagonalTicks") &&
+              assassinPathfinding.IndexOf("SamePcl", StringComparison.OrdinalIgnoreCase) < 0 &&
+              assassinPathfinding.IndexOf("RequiredOnly", StringComparison.OrdinalIgnoreCase) < 0,
+            "Assassin pathfinding keeps Vanilla initialization and exact weighted semantics while using command-bound A*");
+        Check(runtime.Contains("assassinPathfindingRuntime.Dispose();"),
+            "Assassin command subscriptions are released only through the rooted runtime disposal path");
         Check(manifest.Contains("\"Version\": \"1.0.129\"") && manifest.Contains("\"NetworkMode\": 1"),
             "integrated manifest version and gameplay NetworkMode 1");
     }

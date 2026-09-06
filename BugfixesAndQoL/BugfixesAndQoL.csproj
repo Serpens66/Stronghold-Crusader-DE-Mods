@@ -74,6 +74,7 @@
     <Compile Include="src\AllyGoodsAmountModifierHook.cs" />
     <Compile Include="src\AssassinClimbCancellationPolicy.cs" />
     <Compile Include="src\AssassinClimbCancellationRuntime.cs" />
+    <Compile Include="src\AssassinAStarPolicy.cs" />
     <Compile Include="src\AssassinClimbCostPolicy.cs" />
     <Compile Include="src\AssassinClimbRuntime.cs" />
     <Compile Include="src\AssassinClimbStatePacket.cs" />
