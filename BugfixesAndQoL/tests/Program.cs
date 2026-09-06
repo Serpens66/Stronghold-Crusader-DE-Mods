@@ -18,6 +18,9 @@ namespace BugfixesAndQoL
         private const int PlannerRva = 0x196280;
         private const int MovementPlannerLowFlagGateRva = 0x196464;
         private const int MovementPlannerStructureFlagGateRva = 0x19648D;
+        private const int AiWallTargetingPatternRva = 0x10ECB7;
+        private const int AiWallReservationRejectJumpRva = 0x10ECC3;
+        private const int AiWallApproachTileGuardRva = 0x10ECE1;
 
         private static int failures;
 
@@ -27,6 +30,7 @@ namespace BugfixesAndQoL
             TestFriendlyMoatMovementIntegration();
             TestAiDefensePatrolPolicy();
             TestAiDefensePatrolIntegration();
+            TestAiWallTargetingIntegration();
             TestAiRecruitmentHorseDemandContract();
             TestNativeContracts();
             if (failures == 0)
@@ -168,6 +172,44 @@ namespace BugfixesAndQoL
                 "AI defense patrol setting is searchable and bound in XAML");
         }
 
+        private static void TestAiWallTargetingIntegration()
+        {
+            string projectDirectory = FindProjectDirectory();
+            string patch = File.ReadAllText(Path.Combine(projectDirectory, "src", "AiWallTargetingFix.cs"));
+            string runtime = File.ReadAllText(Path.Combine(projectDirectory, "src", "BugfixesAndQoLRuntime.cs"));
+            string viewModel = File.ReadAllText(Path.Combine(projectDirectory, "src", "BugfixesAndQoLViewModel.cs"));
+            string xaml = File.ReadAllText(Path.Combine(
+                projectDirectory,
+                "Override",
+                "ScriptExtenderUI",
+                "BugfixesAndQoLSettings.xaml"));
+            string english = File.ReadAllText(Path.Combine(projectDirectory, "Locales", "en-US.txt"));
+            string german = File.ReadAllText(Path.Combine(projectDirectory, "Locales", "de-DE.txt"));
+
+            Check(patch.Contains("settings.EnableMod &&") &&
+                    patch.Contains("settings.EnableAiFixes &&") &&
+                    patch.Contains("settings.EnableAiWallTargetingFix") &&
+                    patch.Contains("OriginalReservationRejectJump = { 0x75, 0x63 }") &&
+                    patch.Contains("EnabledBytes = { 0x90, 0x90 }") &&
+                    patch.Contains("TryRollback(targetState, currentState)"),
+                "AI wall-targeting patch has all setting gates, audited states, and rollback");
+            Check(runtime.Contains("EnsureAiWallTargetingFix") &&
+                    runtime.Contains("aiWallTargetingFix?.Dispose()") &&
+                    runtime.Contains("aiWallTargetingFix.ApplySetting()"),
+                "AI wall-targeting fix participates in initialization, reconciliation, and final disposal");
+            Check(viewModel.Contains("private bool enableAiWallTargetingFix = true;") &&
+                    viewModel.Contains("[SyncHostOnly]") &&
+                    viewModel.Contains("public bool EnableAiWallTargetingFix") &&
+                    viewModel.Contains("EnableAiWallTargetingFix = true;"),
+                "AI wall-targeting host setting defaults and resets to enabled");
+            Check(xaml.Contains("bugfixes.enable-ai-wall-targeting-fix") &&
+                    xaml.Contains("IsChecked=\"{Binding EnableAiWallTargetingFix, Mode=TwoWay}\""),
+                "AI wall-targeting setting is searchable and bound in XAML");
+            Check(english.Contains("Allows multiple AI attackers to target the same reachable wall segment") &&
+                    german.Contains("dasselbe erreichbare Mauersegment gleichzeitig anzugreifen"),
+                "AI wall-targeting help text documents shared reachable wall targets");
+        }
+
         private static void TestNativeContracts()
         {
             string root = Environment.GetEnvironmentVariable("SHCDE_GAME_DIR") ??
@@ -214,6 +256,30 @@ namespace BugfixesAndQoL
             CheckBytes(image, MovementPlannerStructureFlagGateRva,
                 new byte[] { 0xF7, 0x84, 0x8A, 0xB0, 0x71, 0x8F, 0x04,
                 0x00, 0x01, 0x00, 0x10 }, "movement structure-flag gate bytes");
+            byte[] mappedImage = MapPeImage(file);
+            const string aiWallTargetingPattern =
+                "8B D3 49 8B CC E8 ?? ?? ?? ?? 85 C0 75 63 8B 05 ?? ?? ?? ?? " +
+                "4C 8D 3D ?? ?? ?? ?? 41 8D 04 C6 48 98 41 8B 14 87 03 D3 " +
+                "48 63 C2 41 F7 84 87 00 84 89 00 00 01 00 10 75 1A";
+            try
+            {
+                int patternRva = Shared.NativePatternResolver.FindUniquePattern(
+                    mappedImage,
+                    aiWallTargetingPattern,
+                    "AI wall-targeting test context");
+                Check(patternRva == AiWallTargetingPatternRva,
+                    "AI wall-targeting context is unique at the audited RVA");
+            }
+            catch (Exception exception)
+            {
+                Check(false, "AI wall-targeting context: " + exception.Message);
+            }
+            CheckBytes(image, AiWallReservationRejectJumpRva,
+                new byte[] { 0x75, 0x63 }, "AI wall reservation rejection branch bytes");
+            CheckBytes(image, AiWallApproachTileGuardRva,
+                new byte[] { 0x41, 0xF7, 0x84, 0x87, 0x00, 0x84, 0x89, 0x00,
+                    0x00, 0x01, 0x00, 0x10, 0x75, 0x1A },
+                "AI wall approach-tile validation remains separate and intact");
             Check(image.CountNearCalls(DispatcherRva, DispatcherSize, FindRva) >= 2 &&
                     image.CountNearCalls(DispatcherRva, DispatcherSize, ResolveRva) >= 3 &&
                     image.CountNearCalls(DispatcherRva, DispatcherSize, PlannerRva) >= 1,

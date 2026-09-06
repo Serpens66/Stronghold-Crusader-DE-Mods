@@ -21,6 +21,7 @@ namespace BugfixesAndQoL
         private bool enableCustomLordListEnhancements = true;
         private bool enableAiFixes = true;
         private bool enableAiDefensePatrolFix = true;
+        private bool enableAiWallTargetingFix = true;
         private bool enableAivDefenderPositionFix = true;
         private bool fixAITowerRepair = true;
         private bool betterAIOverbuildRules = true;
@@ -183,6 +184,8 @@ namespace BugfixesAndQoL
         public string EnableAiFixesHelpText => SerpLocalization.Get(SerpLocalization.EnableAiFixesHelp);
         public string EnableAiDefensePatrolFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAiDefensePatrolFix");
         public string EnableAiDefensePatrolFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAiDefensePatrolFixHelp");
+        public string EnableAiWallTargetingFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAiWallTargetingFix");
+        public string EnableAiWallTargetingFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAiWallTargetingFixHelp");
         public string EnableAivDefenderPositionFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAivDefenderPositionFix");
         public string EnableAivDefenderPositionFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAivDefenderPositionFixHelp");
         public string FixAITowerRepairText => SerpLocalization.Get("BugfixesAndQoL.FixAITowerRepair");
@@ -566,6 +569,13 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool EnableAiWallTargetingFix
+        {
+            get => enableAiWallTargetingFix;
+            set => SetSetting(ref enableAiWallTargetingFix, value, nameof(EnableAiWallTargetingFix));
+        }
+
+        [SyncHostOnly]
         public bool EnableAivDefenderPositionFix
         {
             get => enableAivDefenderPositionFix;
@@ -913,6 +923,7 @@ namespace BugfixesAndQoL
                 AllowFullAiMultiplayerLobby = true;
                 EnableAiFixes = true;
                 EnableAiDefensePatrolFix = true;
+                EnableAiWallTargetingFix = true;
                 EnableAivDefenderPositionFix = true;
                 FixAITowerRepair = true;
                 BetterAIOverbuildRules = true;

@@ -54,6 +54,9 @@ Vanilla can assign every newly recruited defender to the outer patrol after that
 ### Restore ignored AIV defender positions
 Vanilla skips the defensive positions stored in an AIV for Pikemen, European Swordsmen, and Arabian Swordsmen. This enabled-by-default host fix removes only that exclusion, allowing the existing AI defense logic to use those positions like every other supported troop row.
 
+### Improve AI wall targeting
+Vanilla reserves each reachable wall segment for only one attacker at a time, which can leave the rest of an AI attack force idle until additional targets become accessible. This enabled-by-default host fix allows multiple AI attackers to target the same reachable wall segment simultaneously. It works independently of the game's official Improved Sieging options.
+
 ### Fix AI tower rebuilding
 When an AI tries to rebuild a tower from its castle plan, its own tower ruin can block the placement forever. The fix safely removes only the matching ruin owned by that AI; human, enemy, unrelated, and non-tower ruins remain untouched.
 

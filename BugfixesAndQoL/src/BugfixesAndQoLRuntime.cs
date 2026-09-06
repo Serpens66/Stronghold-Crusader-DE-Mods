@@ -58,6 +58,7 @@ namespace BugfixesAndQoL
         private AiRecruitmentHorseDemandFix aiRecruitmentHorseDemandFix;
         private AiStoneReserveFix aiStoneReserveFix;
         private AiDefensePatrolFix aiDefensePatrolFix;
+        private AiWallTargetingFix aiWallTargetingFix;
         private AivDefenderPositionFix aivDefenderPositionFix;
         private AITowerRuinRepairFix aiTowerRuinRepairFix;
         private BetterAIOverbuildRulesFix betterAIOverbuildRulesFix;
@@ -84,6 +85,7 @@ namespace BugfixesAndQoL
         private bool aiRecruitmentHorseDemandFixUnavailable;
         private bool aiStoneReserveFixUnavailable;
         private bool aiDefensePatrolFixUnavailable;
+        private bool aiWallTargetingFixUnavailable;
         private bool aivDefenderPositionFixUnavailable;
         private bool aiTowerRuinRepairFixUnavailable;
         private bool betterAIOverbuildRulesFixUnavailable;
@@ -381,6 +383,7 @@ namespace BugfixesAndQoL
             TryInitializeFeature("AI recruitment horse-demand fix", EnsureAiRecruitmentHorseDemandFix);
             TryInitializeFeature("AI stone-reserve fix", EnsureAiStoneReserveFix);
             TryInitializeFeature("AI defense patrol fix", EnsureAiDefensePatrolFix);
+            TryInitializeFeature("AI wall-targeting fix", EnsureAiWallTargetingFix);
             TryInitializeFeature("AIV defender-position fix", EnsureAivDefenderPositionFix);
             TryInitializeFeature("AI tower-ruin repair fix", EnsureAiTowerRuinRepairFix);
             TryInitializeFeature("better AI overbuild rules", EnsureBetterAIOverbuildRulesFix);
@@ -394,6 +397,7 @@ namespace BugfixesAndQoL
             TryInitializeFeature("AI tower-ruin repair fix", EnsureAiTowerRuinRepairFix);
             TryInitializeFeature("better AI overbuild rules", EnsureBetterAIOverbuildRulesFix);
             TryInitializeFeature("AI defense patrol fix", EnsureAiDefensePatrolFix);
+            TryInitializeFeature("AI wall-targeting fix", EnsureAiWallTargetingFix);
             TryInitializeFeature("AIV defender-position fix", EnsureAivDefenderPositionFix);
             TryInitializeFeature("surrender", InitializeSurrenderFeature);
             TryApplyFeature("Lord troop HUD", () => lordUnitControlsFeature?.RefreshSetting());
@@ -507,6 +511,8 @@ namespace BugfixesAndQoL
             aiStoneReserveFix = null;
             aiDefensePatrolFix?.Dispose();
             aiDefensePatrolFix = null;
+            aiWallTargetingFix?.Dispose();
+            aiWallTargetingFix = null;
             aivDefenderPositionFix?.Dispose();
             aivDefenderPositionFix = null;
             aiTowerRuinRepairFix?.Dispose();
@@ -1029,6 +1035,51 @@ namespace BugfixesAndQoL
                     log,
                     $"Bugfixes and QoL AI defense patrol fix could not be installed; " +
                     $"only this AI fix remains inactive and Vanilla behavior remains active: {ex}");
+            }
+        }
+
+        private void EnsureAiWallTargetingFix()
+        {
+            if (aiWallTargetingFix != null)
+            {
+                aiWallTargetingFix.ApplySetting();
+                return;
+            }
+            if (!nativeLibraryAvailable || aiWallTargetingFixUnavailable)
+                return;
+
+            try
+            {
+                // Retain the validated site so synchronized host-setting changes can
+                // alternate between Vanilla's reservation rejection and the two NOPs.
+                aiWallTargetingFix = new AiWallTargetingFix(
+                    log,
+                    settings,
+                    GetNativeLibraryMemory(),
+                    unchecked((ulong)libraryHandle.ToInt64()),
+                    fixedLayoutHashValidated);
+                aiWallTargetingFix.ApplySetting();
+            }
+            catch (Exception ex)
+            {
+                try
+                {
+                    aiWallTargetingFix?.Dispose();
+                }
+                catch (Exception rollbackEx)
+                {
+                    ex = new AggregateException(
+                        "The AI wall-targeting fix failed and cleanup also failed.",
+                        ex,
+                        rollbackEx);
+                }
+
+                aiWallTargetingFix = null;
+                aiWallTargetingFixUnavailable = true;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Bugfixes and QoL AI wall-targeting fix could not be installed; " +
+                    $"Vanilla behavior remains active: {ex}");
             }
         }
 
