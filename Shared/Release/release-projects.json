@@ -3,7 +3,7 @@
   "Branch": "main",
   "Projects": [
     "ActiveAIVDetector",
-    "AIDefense",
+    "AIDefenseTest",
     "BugfixesAndQoL",
     "BuildingCosts",
     "BuildingLimit",

@@ -7,8 +7,8 @@
     <Platform Condition="'$(Platform)' == ''">AnyCPU</Platform>
     <ProjectGuid>{6E6639FC-4EA8-4C50-8F58-ED65BA412D52}</ProjectGuid>
     <OutputType>Library</OutputType>
-    <RootNamespace>AIDefense</RootNamespace>
-    <AssemblyName>AIDefense</AssemblyName>
+    <RootNamespace>AIDefenseTest</RootNamespace>
+    <AssemblyName>AIDefenseTest</AssemblyName>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <LangVersion>latest</LangVersion>
@@ -19,7 +19,7 @@
     <DebugSymbols>true</DebugSymbols>
     <DebugType>portable</DebugType>
     <Optimize>false</Optimize>
-    <OutputPath>BepInEx\plugins\AIDefense_Serp\</OutputPath>
+    <OutputPath>BepInEx\plugins\AIDefenseTest_Serp\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
@@ -28,7 +28,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|AnyCPU'">
     <DebugType>portable</DebugType>
     <Optimize>true</Optimize>
-    <OutputPath>BepInEx\plugins\AIDefense_Serp\</OutputPath>
+    <OutputPath>BepInEx\plugins\AIDefenseTest_Serp\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
@@ -89,8 +89,8 @@
     <Compile Include="..\Shared\DebugLogHelper.cs">
       <Link>Shared\DebugLogHelper.cs</Link>
     </Compile>
-    <Compile Include="src\AIDefensePlugin.cs" />
-    <Compile Include="src\AIDefenseRuntime.cs" />
+    <Compile Include="src\AIDefenseTestPlugin.cs" />
+    <Compile Include="src\AIDefenseTestRuntime.cs" />
   </ItemGroup>
 
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

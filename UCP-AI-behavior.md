@@ -422,17 +422,17 @@ Die dynamischen Hooks sollten nicht zwischen `BugfixesAndQoL` und `ExtraFeatures
 
 Der Grundfix kann trotzdem in `BugfixesAndQoL` bleiben, solange der vollständige Mod dieselbe Stelle nicht erneut patcht. Der vollständige Mod muss erkennen, ob die sechs Bytes bereits korrekt genoppt sind, und diesen Zustand als kompatibel akzeptieren, ohne Eigentum oder Rollback für einen fremden Patch zu beanspruchen.
 
-### Verhältnis zu AIDefense
+### Verhältnis zu AIDefenseTest
 
-`AIDefense` verfolgt ein anderes Ziel: Turmverteidiger werden in privaten neutralen Tribes gehalten, um sie vor konkurrierenden Vanilla-Kategorien zu schützen. Eine allgemeine AIV-Verteidigungssteuerung würde dagegen native Verteidigungsgruppen und AIV-Slots verändern.
+`AIDefenseTest` verfolgt ein anderes Ziel: Turmverteidiger werden in privaten neutralen Tribes gehalten, um sie vor konkurrierenden Vanilla-Kategorien zu schützen. Eine allgemeine AIV-Verteidigungssteuerung würde dagegen native Verteidigungsgruppen und AIV-Slots verändern.
 
 Deshalb:
 
-- nicht ungeprüft in `AIDefense` integrieren;
-- keine Einheit übernehmen, die bereits von `AIDefense` als private Turmverteidigung verwaltet wird;
+- nicht ungeprüft in `AIDefenseTest` integrieren;
+- keine Einheit übernehmen, die bereits von `AIDefenseTest` als private Turmverteidigung verwaltet wird;
 - vor Installation die belegten Hook-Spans vergleichen;
 - bei einer späteren Kombination eine ausdrückliche gemeinsame Ownership-Policy definieren;
-- niemals dieselbe Einheit gleichzeitig durch private AIDefense-Tribes und AIV-Hold/Patrol verwalten.
+- niemals dieselbe Einheit gleichzeitig durch private AIDefenseTest-Tribes und AIV-Hold/Patrol verwalten.
 
 ## 9. Sicherheitsanforderungen für native Hooks
 
@@ -460,7 +460,7 @@ Ein RVA allein ist niemals eine ausreichende Auflösung. Bei einem neuen Spielbu
 - Jedes Pattern besitzt genau einen Treffer.
 - Originalbytes, Patchlänge und Instruktionsgrenzen stimmen exakt.
 - Rücksprungadresse liegt auf einer gültigen Instruktionsgrenze.
-- Kein Hook überschneidet sich mit `ActiveAIVDetector`, `AIDefense` oder einem anderen installierten Mod.
+- Kein Hook überschneidet sich mit `ActiveAIVDetector`, `AIDefenseTest` oder einem anderen installierten Mod.
 - Der sechs Byte lange Grundpatch verändert ausschließlich den Ausschlusssprung.
 
 ### Grundfix

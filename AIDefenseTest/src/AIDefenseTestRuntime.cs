@@ -11,9 +11,9 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace AIDefense
+namespace AIDefenseTest
 {
-    internal sealed unsafe class AIDefenseRuntime : IDisposable
+    internal sealed unsafe class AIDefenseTestRuntime : IDisposable
     {
         private const int InitialScanDelayTicks = 20;
         private const int ScanIntervalTicks = 250;
@@ -73,7 +73,7 @@ namespace AIDefense
         private long totalAIBehaviourRepairs;
         private long totalPrivateTribeCreations;
         private long totalPrivateTribeFailures;
-        public AIDefenseRuntime(ManualLogSource log)
+        public AIDefenseTestRuntime(ManualLogSource log)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
         }
@@ -123,7 +123,7 @@ namespace AIDefense
 
             applied = true;
             LogInfo(
-                $"AI Defense hooks subscribed: initialScanDelayTicks={InitialScanDelayTicks}, " +
+                $"AI Defense Test hooks subscribed: initialScanDelayTicks={InitialScanDelayTicks}, " +
                 $"scanIntervalTicks={ScanIntervalTicks}, summaryIntervalTicks={SummaryLogIntervalTicks}, defenderType={DefenderType}, " +
                 $"protectedAIBehaviourType={ProtectedAIBehaviourTypeValue}, queryResultsAreOneBasedIds=true, " +
                 $"towerLocalMovementAllowed=true.");
@@ -141,7 +141,7 @@ namespace AIDefense
             {
                 Shared.DebugLogHelper.LogWarning(
                     log,
-                    $"AIDefense tribe unassign rejected: tribeId={tribeId}, unitId={unitId}, " +
+                    $"AIDefenseTest tribe unassign rejected: tribeId={tribeId}, unitId={unitId}, " +
                     $"unitTribeId={(unit == null ? -1 : unit->r_TribeId)}.");
                 return false;
             }
@@ -157,7 +157,7 @@ namespace AIDefense
             {
                 Shared.DebugLogHelper.LogError(
                     log,
-                    $"AIDefense tribe unassign failed: tribeId={tribeId}, unitId={unitId}, exception={exception}");
+                    $"AIDefenseTest tribe unassign failed: tribeId={tribeId}, unitId={unitId}, exception={exception}");
                 return false;
             }
 
@@ -165,7 +165,7 @@ namespace AIDefense
             {
                 Shared.DebugLogHelper.LogWarning(
                     log,
-                    $"AIDefense tribe unassign did not change membership: tribeId={tribeId}, unitId={unitId}.");
+                    $"AIDefenseTest tribe unassign did not change membership: tribeId={tribeId}, unitId={unitId}.");
                 return false;
             }
 
@@ -266,7 +266,7 @@ namespace AIDefense
                 mapActive = false;
                 Shared.DebugLogHelper.LogError(
                     log,
-                    $"AI Defense scan failed and remains inactive for this map: tick={tick}, exception={ex}");
+                    $"AI Defense Test scan failed and remains inactive for this map: tick={tick}, exception={ex}");
             }
         }
 

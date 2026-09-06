@@ -99,7 +99,7 @@ Bei einer anderen Spielversion dürfen die Adressen nicht ungeprüft verwendet w
 - lokales Vergleichsprojekt `..\Stronghold Crusader HD reversed`
 - Vanilla-Lorddateien im oben korrigierten `VanillaAIC`-Ordner
 - vorhandene lokale Hook-Muster, besonders `ExtraFeatures` und `BugfixesAndQoL`
-- der direkte Tribe-Unassign-Adapter in `AIDefense`
+- der frühere direkte Tribe-Unassign-Adapter in `AIDefense`
 
 Die Namen im Format `FUN_...` sind von der aktuellen Baseline vergebene native Kandidatennamen und keine bestätigten Firefly-Symbolnamen. Wo ein funktionales HD-Gegenstück bekannt ist, wird es gesondert genannt. Die beschriebenen Instruktionen und Datenflüsse sind für den genannten Hash direkt belegt; die semantische Benennung bleibt davon getrennt.
 
@@ -360,7 +360,7 @@ Dafür gelten strengere Anforderungen:
 - Erst danach den Vanilla-Wallhelfer verwenden.
 - Fehler oder unklare Tribe-Zustände dürfen keine Doppelmitgliedschaft erzeugen.
 
-Script Extender 2.2.0 korrigiert `GameTribeManagerAPI.UnassignUnit(tribeId, unitId)`. Mods für diese Zielversion müssen den öffentlichen Wrapper mit eigenen Vor- und Nachkontrollen verwenden und dürfen den nur für exakt 2.0.2 nötigen direkten nativen Adapter nicht übernehmen. Eine Runtime-Abhängigkeit zu `AIDefense` bleibt unzulässig.
+Script Extender 2.2.0 korrigiert `GameTribeManagerAPI.UnassignUnit(tribeId, unitId)`. Mods für diese Zielversion müssen den öffentlichen Wrapper mit eigenen Vor- und Nachkontrollen verwenden und dürfen den nur für exakt 2.0.2 nötigen direkten nativen Adapter nicht übernehmen. Eine Runtime-Abhängigkeit zu `AIDefenseTest` bleibt unzulässig.
 
 Diese Reparatur ist invasiver und sollte als separat zuschaltbare zweite Stufe erst nach erfolgreichem Zweigfix entstehen.
 
@@ -398,7 +398,7 @@ Die Aussage, dass eine gemischte Patrouillengruppe insgesamt mit der langsamsten
 ## 10. Vorgaben für einen späteren Testmod
 
 - Eigenständiger Mod ohne harte oder stille Abhängigkeit zu anderen Workspace-Mods.
-- Keine überlappenden nativen Hooks mit `AIDefense`; dessen derzeitiger Zweck, geschützte Fernverteidiger in eigenen Tribes zu verwalten, ist von diesem Fehler verschieden.
+- Keine überlappenden nativen Hooks mit `AIDefenseTest`; dessen derzeitiger Zweck, geschützte Fernverteidiger in eigenen Tribes zu verwalten, ist von diesem Fehler verschieden.
 - Zielvertrag ist Script Extender 2.2.0; bei späteren Extender-Updates sind die tatsächlichen Referenzen und Verträge erneut zu prüfen.
 - Gameplayrelevanter Mod: `info.json` später mit `NetworkMode=1`.
 - Langfristige Runtime und native Hooks nicht im normalen `BaseUnityPlugin.OnDestroy()` entfernen, da dieser Callback beim SHCDE-Startup vorzeitig auftreten kann.
@@ -441,7 +441,7 @@ Die Aussage, dass eine gemischte Patrouillengruppe insgesamt mit der langsamsten
 11. Exakter Referenzhash: Hook löst auf, alle Instruktions- und Call-Target-Prüfungen bestehen.
 12. Abweichender Hash mit eindeutigem kompatiblem Pattern: Hook wird nur nach vollständiger semantischer Validierung installiert.
 13. Kein oder mehrdeutiger Patterntreffer: Feature bleibt deaktiviert und protokolliert den Grund eindeutig.
-14. Gemeinsame Installation mit `AIDefense`: keine Hooküberlappung, keine Runtime-Abhängigkeit und keine Tribe-Kollision durch diesen Fix.
+14. Gemeinsame Installation mit `AIDefenseTest`: keine Hooküberlappung, keine Runtime-Abhängigkeit und keine Tribe-Kollision durch diesen Fix.
 15. Startup-Lifecycle: Nach dem frühen Unity-Komponenten-Cleanup erscheint mindestens ein späterer mod-eigener Karten- oder Tick-Marker und der Hook arbeitet weiterhin.
 16. Multiplayer-Test mit identischer Modkonfiguration: Host und Client bleiben synchron; die Auswahl beziehungsweise Zählung ist deterministisch.
 

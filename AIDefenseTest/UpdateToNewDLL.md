@@ -1,4 +1,4 @@
-# Updating AI Defense for a new CrusaderDE.dll
+# Updating AI Defense Test for a new CrusaderDE.dll
 
 ## Audited baseline
 
@@ -6,14 +6,14 @@
 - DLL size: `3451392` bytes
 - SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
 
-AI Defense intentionally remains inactive on every other DLL. The shared version
+AI Defense Test intentionally remains inactive on every other DLL. The shared version
 check writes a timestamped Error before any runtime hooks are subscribed.
 
 ## What must be checked after an update
 
 1. Update the shared current DLL hash only after completing this checklist.
 2. Rebuild or update the Script Extender first and verify the layouts of
-   `GameUnit`, `GameBuilding`, and `GameTribe` used by `AIDefenseRuntime`.
+   `GameUnit`, `GameBuilding`, and `GameTribe` used by `AIDefenseTestRuntime`.
 3. Revalidate the fields for alive state, unit/building type, owner, global ID,
    current tile, occupied building tiles, tribe ID, AI tribe role, and the
    related AI-role value.
@@ -34,7 +34,7 @@ the updated game without scanner errors and logged `SizeOf(GameUnit)=1168`
 (`0x490`). Targeted native disassembly reconfirmed unit stride `0x490`, building
 stride `0x32C`, one-based IDs and the manager header used by the public APIs.
 The managed `GameUnit`, `GameBuilding`, `GameTribe` definitions and event args
-are unchanged, including every field used by `AIDefenseRuntime`. Script Extender
+are unchanged, including every field used by `AIDefenseTestRuntime`. Script Extender
 1.41's `GetAllUnits` and `GetAllAliveBuildings` results were verified as
 one-based game IDs and are no longer adjusted by the mod. Tower/private-tribe
 behavior and a second-map cycle remain live smoke tests; the mod is not

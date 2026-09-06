@@ -70,7 +70,7 @@ echo !EXTENDER_DIR!
 echo.
 
 pushd "%PROJECT_DIR%"
-"%MSBUILD%" AIDefense.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+"%MSBUILD%" AIDefenseTest.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
 set "BUILD_EXIT_CODE=%ERRORLEVEL%"
 popd
 
@@ -78,8 +78,8 @@ echo.
 if "%BUILD_EXIT_CODE%"=="0" (
   echo Build erfolgreich.
   echo Kopiere Plugin in den Spielordner...
-  set "PLUGIN_NAME=AIDefense_Serp"
-  set "OLD_PLUGIN_NAME=AIDefense"
+  set "PLUGIN_NAME=AIDefenseTest_Serp"
+  set "OLD_PLUGIN_NAME=AIDefense_Serp"
   set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\!PLUGIN_NAME!"
   set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\!PLUGIN_NAME!"
   set "OLD_GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\!OLD_PLUGIN_NAME!"
@@ -123,7 +123,7 @@ if "%BUILD_EXIT_CODE%"=="0" (
       )
     )
   )
-  powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\Shared\Release\Write-LocalBuildManifest.ps1" -ModName AIDefense
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\Shared\Release\Write-LocalBuildManifest.ps1" -ModName AIDefenseTest
   if errorlevel 1 goto copy_failed
   echo Plugin kopiert.
 ) else (

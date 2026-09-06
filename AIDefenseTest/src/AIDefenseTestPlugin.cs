@@ -2,19 +2,19 @@ using BepInEx;
 using SHCDESE.API.LowLevel;
 using System;
 
-namespace AIDefense
+namespace AIDefenseTest
 {
     [BepInDependency(ScriptExtenderGuid, "2.2.0")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
-    public sealed class AIDefensePlugin : BaseUnityPlugin
+    public sealed class AIDefenseTestPlugin : BaseUnityPlugin
     {
         private const string ScriptExtenderGuid = "000shcdese";
 
-        public const string PluginGuid = "AIDefense_Serp";
-        public const string PluginName = "AI Defense";
+        public const string PluginGuid = "AIDefenseTest_Serp";
+        public const string PluginName = "AI Defense Test";
         public const string PluginVersion = "1.2.7";
 
-        private static AIDefenseRuntime persistentRuntime;
+        private static AIDefenseTestRuntime persistentRuntime;
         private static bool libraryLoadedSubscriptionInstalled;
         private static bool runtimeDisposed;
 
@@ -25,7 +25,7 @@ namespace AIDefense
             Shared.DebugLogHelper.LogInfo(Logger, $"{PluginName} {PluginVersion} loaded.");
 
             if (persistentRuntime == null)
-                persistentRuntime = new AIDefenseRuntime(Logger);
+                persistentRuntime = new AIDefenseTestRuntime(Logger);
 
             runtimeDisposed = false;
 
@@ -46,7 +46,7 @@ namespace AIDefense
 
             Shared.DebugLogHelper.LogInfo(
                 Logger,
-                "AIDefensePlugin OnDestroy called during BepInEx manager cleanup; preserving the process-lifetime runtime and Script Extender subscriptions.");
+                "AIDefenseTestPlugin OnDestroy called during BepInEx manager cleanup; preserving the process-lifetime runtime and Script Extender subscriptions.");
         }
 
         private void OnApplicationQuit()
@@ -68,11 +68,11 @@ namespace AIDefense
                 }
 
                 persistentRuntime?.Apply();
-                Shared.DebugLogHelper.LogInfo(Logger, "Crusader library loaded; AI Defense runtime initialized.");
+                Shared.DebugLogHelper.LogInfo(Logger, "Crusader library loaded; AI Defense Test runtime initialized.");
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(Logger, $"AI Defense initialization failed: {ex}");
+                Shared.DebugLogHelper.LogError(Logger, $"AI Defense Test initialization failed: {ex}");
             }
         }
 
@@ -81,7 +81,7 @@ namespace AIDefense
             if (runtimeDisposed)
                 return;
 
-            Shared.DebugLogHelper.LogInfo(Logger, $"Disposing AI Defense runtime because of {reason}.");
+            Shared.DebugLogHelper.LogInfo(Logger, $"Disposing AI Defense Test runtime because of {reason}.");
 
             if (libraryLoadedSubscriptionInstalled)
             {

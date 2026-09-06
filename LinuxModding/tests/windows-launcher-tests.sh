@@ -32,7 +32,7 @@ trap cleanup EXIT
 
 create_fixture() {
     local name=$1
-    local version=${2:-2.0.2}
+    local version=${2:-2.2.0}
     local game="$TEST_ROOT/$name/Stronghold Crusader Definitive Edition"
     mkdir -p -- "$game/BepInEx/tools/LinuxModding"
     mkdir -p -- "$game/BepInEx/plugins/000shcdese/data"
@@ -61,28 +61,48 @@ run_launcher() {
     [[ $(<"$state/invocations") == '1' ]] || die 'Launcher did not execute the game exactly once.'
 }
 
-printf 'TEST 1/4: launcher sets only the required winhttp override and executes once\n'
+printf 'TEST 1/7: launcher sets only the required winhttp override and executes once\n'
 BASIC_GAME=$(create_fixture basic)
 BASIC_STATE="$TEST_ROOT/basic-state"
 mkdir -p -- "$BASIC_STATE"
 run_launcher "$BASIC_GAME" "$BASIC_STATE" env -u WINEDLLOVERRIDES
 
-printf 'TEST 2/4: launcher preserves unrelated Wine overrides\n'
+printf 'TEST 2/7: launcher preserves unrelated Wine overrides\n'
 PRESERVE_GAME=$(create_fixture preserve)
 PRESERVE_STATE="$TEST_ROOT/preserve-state"
 mkdir -p -- "$PRESERVE_STATE"
 run_launcher "$PRESERVE_GAME" "$PRESERVE_STATE" env WINEDLLOVERRIDES=dxgi=n,b FAKE_REQUIRE_EXISTING=1
 
-printf 'TEST 3/4: checker accepts official 2.0.2 updater files\n'
+printf 'TEST 3/7: checker accepts official 2.2.0 updater files\n'
 CHECK_GAME=$(create_fixture checker)
 CHECK_OUTPUT=$(bash "$CHECK_GAME/BepInEx/tools/LinuxModding/install-linux.sh") || die 'Checker rejected a complete official fixture.'
 grep -Fq 'bash "./BepInEx/tools/LinuxModding/shcde-linux-launcher.sh" %command%' <<< "$CHECK_OUTPUT" || die 'Checker did not print the launcher-only Steam option.'
 grep -Fq 'installs no plugin and replaces no updater' <<< "$CHECK_OUTPUT" || die 'Checker did not state its limited ownership.'
 
-printf 'TEST 4/4: checker rejects a non-2.0.2 Extender manifest\n'
-WRONG_GAME=$(create_fixture wrong-version 2.0.1)
+printf 'TEST 4/7: checker accepts a newer Script Extender version\n'
+NEWER_GAME=$(create_fixture newer-version 2.3.0)
+if ! bash "$NEWER_GAME/BepInEx/tools/LinuxModding/install-linux.sh" >/dev/null; then
+    die 'Checker rejected a newer Script Extender version.'
+fi
+
+printf 'TEST 5/7: checker rejects an Extender older than 2.2.0\n'
+WRONG_GAME=$(create_fixture wrong-version 2.0.2)
 if bash "$WRONG_GAME/BepInEx/tools/LinuxModding/install-linux.sh" >/dev/null 2>&1; then
     die 'Checker accepted the wrong Script Extender version.'
+fi
+
+printf 'TEST 6/7: checker rejects a missing official Unix updater\n'
+NO_UPDATER_GAME=$(create_fixture no-updater)
+rm -- "$NO_UPDATER_GAME/BepInEx/plugins/000shcdese/data/mod-updater.sh"
+if bash "$NO_UPDATER_GAME/BepInEx/tools/LinuxModding/install-linux.sh" >/dev/null 2>&1; then
+    die 'Checker accepted an installation without the official Unix updater.'
+fi
+
+printf 'TEST 7/7: checker rejects a missing RedBird Proton thread patch\n'
+NO_PATCH_GAME=$(create_fixture no-thread-patch)
+rm -- "$NO_PATCH_GAME/BepInEx/plugins/000shcdese/libredbird_thread_patch.so"
+if bash "$NO_PATCH_GAME/BepInEx/tools/LinuxModding/install-linux.sh" >/dev/null 2>&1; then
+    die 'Checker accepted an installation without the RedBird Proton thread patch.'
 fi
 
 printf 'PASS: all launcher-only Windows/Git-Bash tests succeeded.\n'

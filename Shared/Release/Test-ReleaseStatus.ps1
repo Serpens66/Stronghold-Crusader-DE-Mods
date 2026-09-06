@@ -42,9 +42,9 @@ Assert-True ($logicDecision.IsRelevant -and $logicDecision.IsGlobal) 'General lo
 $head = ((Invoke-StatusGit -Config $config -Arguments @('rev-parse', 'HEAD^{commit}')).Output -join '').Trim()
 $trackedHead = @((Invoke-StatusGit -Config $config -Arguments @('ls-tree', '-r', '--name-only', $head)).Output | ForEach-Object { ([string]$_).Replace('\', '/') })
 $buildingInputs = @(Get-ExternalProjectInputs -Config $config -Project 'BuildingCosts' -HeadCommit $head -TrackedHeadPaths $trackedHead)
-$defenseInputs = @(Get-ExternalProjectInputs -Config $config -Project 'AIDefense' -HeadCommit $head -TrackedHeadPaths $trackedHead)
+$defenseInputs = @(Get-ExternalProjectInputs -Config $config -Project 'AIDefenseTest' -HeadCommit $head -TrackedHeadPaths $trackedHead)
 Assert-True ($buildingInputs -contains 'Shared/SerpLocalization.cs') 'BuildingCosts must track its linked localization helper.'
-Assert-True (-not ($defenseInputs -contains 'Shared/SerpLocalization.cs')) 'AIDefense must not track an unreferenced localization helper.'
+Assert-True (-not ($defenseInputs -contains 'Shared/SerpLocalization.cs')) 'AIDefenseTest must not track an unreferenced localization helper.'
 $sameCommitComparison = Get-ModStatusComparison -Config $config -Project 'BuildingCosts' -BaseCommit $head -HeadCommit $head
 Assert-True $sameCommitComparison.IsCurrent 'Identical source trees must be current.'
 $serpText = Get-GitText -Config $config -Revision $head -Path 'Shared/SerpLocalization.cs'

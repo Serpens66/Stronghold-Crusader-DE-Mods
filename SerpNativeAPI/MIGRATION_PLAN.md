@@ -125,7 +125,7 @@ Ein späteres Zentralisieren der Settings-Infrastruktur wäre ein eigenes ABI-/X
 | Mod | Geplante API-Nutzung | Im Mod verbleibt |
 |---|---|---|
 | `ActiveAIVDetector` | Native AIV-Einstiegspunkte und Oracle-Hooks in eine `IAivPlacementCapability`; Beobachterregistrierung über Besitzer-GUID. Gemeinsame Ziele mit `CastlePlanner` werden nur einmal gehookt. | Auswahlbewertung, Trace-Dateien, Lord-/AIVJSON-Auflösung und Diagnose-UI. |
-| `AIDefense` | Zunächst nur gemeinsame Player-/Readiness-Dienste, wenn dadurch vorhandene Eigenlogik ersetzt wird. Keine Capability nur zur Erzeugung einer Abhängigkeit. | Verteidigungsregeln und Script-Extender-Eventverarbeitung. |
+| `AIDefenseTest` | Zunächst nur gemeinsame Player-/Readiness-Dienste, wenn dadurch vorhandene Eigenlogik ersetzt wird. Keine Capability nur zur Erzeugung einer Abhängigkeit. | Verteidigungsregeln und Script-Extender-Eventverarbeitung. |
 | `BugfixesAndQoL` | Piloten `IGatehouseDistanceOriginCapability` und `ISelectedUnitCommandCapability`; danach typisierte Capabilities für Assassinen-Pfadfindung/-rekonstruktion, AI-Rekrutierungsbedarf, Steinreserve, Assembly-Point-Patch, Overbuild, Plague-Prüfungen und Troop-Movement-Broker. | Mittelpunkt-Schalter, Feature-Policies, UI, Multiplayerpakete und modbezogene Entscheidungen. |
 | `BuildingCosts` | Keine erzwungene Migration; nur spätere gemeinsame Dienste verwenden, wenn echte Duplikation entsteht. | Kostenregeln, Einstellungen und Extender-Events. |
 | `BuildingLimit` | Optional zentraler Building-Snapshot-Dienst, falls er nachweislich mit anderen Mods geteilt wird. | Limitregeln, UI und modbezogener Cache. |
@@ -383,7 +383,7 @@ Jede Unterphase beginnt mit frischem Native-Hashabgleich und endet mit eigenem s
 
 ### Phase 7: Gemeinsame Dienste aus `Shared`, je Unterphase ein eigener Chat
 
-- **7A Player/Readiness:** `ActivePlayerHelper.cs` und `ActivePlayerKeepReadiness.cs` nach Nutzeraudit als typisierte Snapshots beziehungsweise zentralen Readiness-Dienst übernehmen. Zuerst alle Verbraucher ermitteln; mindestens `StartConditions` und optional `AIDefense` nur bei echter Ersetzung migrieren.
+- **7A Player/Readiness:** `ActivePlayerHelper.cs` und `ActivePlayerKeepReadiness.cs` nach Nutzeraudit als typisierte Snapshots beziehungsweise zentralen Readiness-Dienst übernehmen. Zuerst alle Verbraucher ermitteln; mindestens `StartConditions` und optional `AIDefenseTest` nur bei echter Ersetzung migrieren.
 - **7B HUD-Koordination:** `TroopActionButtonLayout.cs` und `TroopActionButtonLayoutPolicy.cs` in einen zentralen Koordinator überführen. Mods registrieren immutable Action-Definitionen und Handles; XAML-, Texte-, Commands- und Settingsbesitz bleibt im Consumer.
 - **7C Shared-Bereinigung:** Erst wenn 7A/7B getestet sind, ersetzte Source-Links aus den betroffenen Projekten entfernen. Die ausdrücklich source-linked zu belassenden Dateien aus Abschnitt 2 dürfen nicht mitbereinigt werden.
 
