@@ -28,6 +28,7 @@ The Workshop upload contains one directory for the lord. Place the Vanilla and e
         Scripts/
           init.lua
 
+Example: `AppData\LocalLow\Firefly Studios\Stronghold Crusader Definitive Edition\CustomLords\testlord_serp\Override\Locales\de-DE\fx\speech`  
 Only the `.lordjson`, `.aivjson`, and optional `avatar.png` are required by Vanilla:
 
 - At least one valid `.lordjson` and one valid `.aivjson` must be directly inside the lord directory. Vanilla does not scan its subdirectories for these files.
