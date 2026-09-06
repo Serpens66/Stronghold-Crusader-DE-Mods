@@ -3621,6 +3621,7 @@ namespace BugfixesAndQoL
 
         private void CaptureMoveCommandGroupSummary(MoveCommandScope command)
         {
+            MoveFormationCommandSnapshotStore.Clear();
             if (command == null ||
                 !TryCaptureOrderedActiveGroupUnits(
                     nativeTribeManager, command.TribeId, out int[] unitIds))
@@ -3629,6 +3630,12 @@ namespace BugfixesAndQoL
             }
 
             command.ActiveUnitIdsAtDispatch = unitIds;
+            MoveFormationUnitIdentity[] formationIdentities =
+                settings.EnableMod && settings.EnableMoveFormationEnhancements &&
+                unitIds.Length >= MoveFormationCommandSnapshotStore.MinimumTrackedUnits
+                    ? new MoveFormationUnitIdentity[unitIds.Length]
+                    : null;
+            int formationIdentityCount = 0;
 
             foreach (int unitId in unitIds)
             {
@@ -3639,6 +3646,11 @@ namespace BugfixesAndQoL
                 }
 
                 command.ActiveUnitsAtDispatch++;
+                if (formationIdentities != null)
+                {
+                    formationIdentities[formationIdentityCount++] =
+                        new MoveFormationUnitIdentity(unitId, unit->r_GlobalId);
+                }
                 if (CanDigMoat(unit))
                     command.DiggersAtDispatch++;
                 if (IsCompletedMoatTile(unchecked((int)unit->r_CurrentPositionTileId)))
@@ -3647,6 +3659,16 @@ namespace BugfixesAndQoL
                 if ((uint)playerId < 32)
                     command.PlayerMaskAtDispatch |= 1u << playerId;
             }
+
+            if (formationIdentities != null && formationIdentityCount != formationIdentities.Length)
+                Array.Resize(ref formationIdentities, formationIdentityCount);
+            MoveFormationCommandSnapshotStore.Begin(
+                command,
+                command.TribeId,
+                command.TargetX,
+                command.TargetY,
+                settings.MoveFormationSpacing,
+                formationIdentities ?? Array.Empty<MoveFormationUnitIdentity>());
         }
 
         private bool TryCaptureWeightedMovementCostProfile(

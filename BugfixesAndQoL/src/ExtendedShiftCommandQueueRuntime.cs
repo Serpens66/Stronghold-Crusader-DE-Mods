@@ -802,17 +802,28 @@ namespace BugfixesAndQoL
             if (args.Phase == EventHookPhase.Post)
             {
                 if (moveObservationScopes.Count == 0)
-                    return;
-                MoveObservationScope scope = moveObservationScopes.Pop();
-                if (scope.ShouldCapture && args.ReturnValue != 0 &&
-                    args.IsPatrolPath == 0)
                 {
-                    largeMoveTargets.CaptureSuccessfulMove(
-                        args.TribeId,
-                        args.TileX,
-                        args.TileY,
-                        currentTick,
-                        scope.Source);
+                    MoveFormationCommandSnapshotStore.Clear();
+                    return;
+                }
+                MoveObservationScope scope = moveObservationScopes.Pop();
+                try
+                {
+                    if (scope.ShouldCapture && args.ReturnValue != 0 &&
+                        args.IsPatrolPath == 0)
+                    {
+                        largeMoveTargets.CaptureSuccessfulMove(
+                            args.TribeId,
+                            args.TileX,
+                            args.TileY,
+                            currentTick,
+                            scope.Source);
+                    }
+                }
+                finally
+                {
+                    // Formation hooks have completed; never retain an unmatched command snapshot.
+                    MoveFormationCommandSnapshotStore.Clear();
                 }
                 return;
             }

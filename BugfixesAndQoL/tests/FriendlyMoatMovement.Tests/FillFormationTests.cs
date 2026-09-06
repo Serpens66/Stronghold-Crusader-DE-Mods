@@ -313,6 +313,10 @@ namespace BugfixesAndQoL
                 tick++; *(int*)(tribes+0x14)=1; injectOwnerFailure=true;
                 ChooseOwnerSafeFormationSlot(nativePathManager,1,60,10);injectOwnerFailure=false;
                 Check(*(int*)(tribes+0x14)==1 && *(int*)(tribes+0x0C)==20,"lookup failure restores selector index before native fallback");
+                var successfulFormationSlot=originalFormationSlot;int throwingOriginalCalls=0;bool originalThrew=false;
+                originalFormationSlot=(m,spacing,x,y)=>{throwingOriginalCalls++;throw new InvalidOperationException("native original failure");};
+                try{ChooseOwnerSafeFormationSlot(nativePathManager,2,60,10);}catch{originalThrew=true;}finally{originalFormationSlot=successfulFormationSlot;}
+                Check(originalThrew && throwingOriginalCalls==1,"throwing native formation original is never invoked twice");
                 placementRevision++; *(int*)(tribes+0x14)=1; enemyTiles.Remove(1020);
                 ChooseOwnerSafeFormationSlot(nativePathManager,1,60,10);
                 Check(*(int*)(tribes+0x0C)==20,"owner revision invalidates previous exhausted candidate result");

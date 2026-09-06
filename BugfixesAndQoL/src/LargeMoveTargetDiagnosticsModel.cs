@@ -1,7 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
-using System.Linq;
 
 namespace BugfixesAndQoL
 {
@@ -75,20 +73,15 @@ namespace BugfixesAndQoL
         public int PlannedDuplicates { get; set; }
         public int ActualDuplicates { get; set; }
         public int CollectiveMatches { get; set; }
-        public double AverageManhattan { get; set; }
+        public int Deviated { get; set; }
         public int MaximumManhattan { get; set; }
-        public double AverageChebyshev { get; set; }
         public int MaximumChebyshev { get; set; }
-        public string PlannedFingerprint { get; set; }
-        public string ActualFingerprint { get; set; }
-        public string PlannedBounds { get; set; }
-        public string ActualBounds { get; set; }
         public IReadOnlyList<string> Examples { get; set; }
     }
 
     internal static class LargeMoveTargetDiagnosticsModel
     {
-        public const int MinimumTrackedUnits = 200;
+        public const int MinimumTrackedUnits = MoveFormationCommandSnapshotStore.MinimumTrackedUnits;
         public const int VanillaDrawCapacity = 0xFA;
         public const int RequiredStableIdleTicks = 3;
 
@@ -111,18 +104,14 @@ namespace BugfixesAndQoL
                 throw new ArgumentNullException(nameof(outcomes));
 
             var summary = new MoveTargetComparisonSummary { Total = outcomes.Count };
-            var planned = new List<MoveTargetCoordinate>(outcomes.Count);
-            var actual = new List<MoveTargetCoordinate>(outcomes.Count);
             var plannedCounts = new Dictionary<MoveTargetCoordinate, int>();
             var actualCounts = new Dictionary<MoveTargetCoordinate, int>();
-            var examples = new List<string>(8);
-            long manhattanTotal = 0;
-            long chebyshevTotal = 0;
-            int distanceCount = 0;
+            var settledCounts = new Dictionary<MoveTargetCoordinate, int>();
+            var examples = new List<string>(3);
+            int actualCount = 0;
 
             foreach (MoveTargetOutcome outcome in outcomes)
             {
-                planned.Add(outcome.Planned);
                 AddCount(plannedCounts, outcome.Planned);
                 switch (outcome.Kind)
                 {
@@ -149,15 +138,17 @@ namespace BugfixesAndQoL
                     continue;
                 }
 
-                actual.Add(outcome.Actual);
+                actualCount++;
                 AddCount(actualCounts, outcome.Actual);
+                if (outcome.Kind == MoveTargetOutcomeKind.Exact ||
+                    outcome.Kind == MoveTargetOutcomeKind.SettledElsewhere)
+                {
+                    AddCount(settledCounts, outcome.Actual);
+                }
                 int dx = Math.Abs(outcome.Actual.X - outcome.Planned.X);
                 int dy = Math.Abs(outcome.Actual.Y - outcome.Planned.Y);
                 int manhattan = dx + dy;
                 int chebyshev = Math.Max(dx, dy);
-                manhattanTotal += manhattan;
-                chebyshevTotal += chebyshev;
-                distanceCount++;
                 summary.MaximumManhattan = Math.Max(summary.MaximumManhattan, manhattan);
                 summary.MaximumChebyshev = Math.Max(summary.MaximumChebyshev, chebyshev);
                 if (outcome.Kind != MoveTargetOutcomeKind.Exact)
@@ -166,55 +157,18 @@ namespace BugfixesAndQoL
 
             foreach (KeyValuePair<MoveTargetCoordinate, int> pair in plannedCounts)
             {
-                if (actualCounts.TryGetValue(pair.Key, out int count))
+                if (settledCounts.TryGetValue(pair.Key, out int count))
                     summary.CollectiveMatches += Math.Min(pair.Value, count);
             }
 
             summary.Reassigned = Math.Max(0, summary.CollectiveMatches - summary.Exact);
+            summary.Deviated = Math.Max(0, summary.SettledElsewhere - summary.Reassigned);
             summary.PlannedUnique = plannedCounts.Count;
             summary.ActualUnique = actualCounts.Count;
-            summary.PlannedDuplicates = planned.Count - plannedCounts.Count;
-            summary.ActualDuplicates = actual.Count - actualCounts.Count;
-            summary.AverageManhattan = distanceCount == 0 ? 0 : (double)manhattanTotal / distanceCount;
-            summary.AverageChebyshev = distanceCount == 0 ? 0 : (double)chebyshevTotal / distanceCount;
-            summary.PlannedFingerprint = Fingerprint(planned);
-            summary.ActualFingerprint = Fingerprint(actual);
-            summary.PlannedBounds = Bounds(planned);
-            summary.ActualBounds = Bounds(actual);
+            summary.PlannedDuplicates = outcomes.Count - plannedCounts.Count;
+            summary.ActualDuplicates = actualCount - actualCounts.Count;
             summary.Examples = examples;
             return summary;
-        }
-
-        public static string Fingerprint(IEnumerable<MoveTargetCoordinate> coordinates)
-        {
-            MoveTargetCoordinate[] sorted = coordinates.OrderBy(value => value).ToArray();
-            ulong hash = 14695981039346656037UL;
-            foreach (MoveTargetCoordinate coordinate in sorted)
-            {
-                hash = Mix(hash, unchecked((uint)coordinate.X));
-                hash = Mix(hash, unchecked((uint)coordinate.Y));
-            }
-            hash = Mix(hash, unchecked((uint)sorted.Length));
-            return hash.ToString("X16", CultureInfo.InvariantCulture);
-        }
-
-        public static string Bounds(IReadOnlyList<MoveTargetCoordinate> coordinates)
-        {
-            if (coordinates.Count == 0)
-                return "none";
-            int minX = coordinates[0].X;
-            int maxX = minX;
-            int minY = coordinates[0].Y;
-            int maxY = minY;
-            for (int index = 1; index < coordinates.Count; index++)
-            {
-                MoveTargetCoordinate value = coordinates[index];
-                minX = Math.Min(minX, value.X);
-                maxX = Math.Max(maxX, value.X);
-                minY = Math.Min(minY, value.Y);
-                maxY = Math.Max(maxY, value.Y);
-            }
-            return $"{minX},{minY}-{maxX},{maxY}";
         }
 
         private static void AddCount(
@@ -227,17 +181,11 @@ namespace BugfixesAndQoL
 
         private static void AddExample(ICollection<string> examples, MoveTargetOutcome outcome)
         {
-            if (examples.Count >= 8)
+            if (examples.Count >= 3)
                 return;
             examples.Add(
                 $"u{outcome.UnitId}/g{outcome.GlobalId}:{outcome.Planned}->{outcome.Actual}/{outcome.Kind}");
         }
 
-        private static ulong Mix(ulong hash, uint value)
-        {
-            for (int shift = 0; shift < 32; shift += 8)
-                hash = (hash ^ ((value >> shift) & 0xFF)) * 1099511628211UL;
-            return hash;
-        }
     }
 }

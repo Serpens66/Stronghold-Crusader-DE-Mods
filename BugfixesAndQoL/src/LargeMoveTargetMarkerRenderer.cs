@@ -14,18 +14,6 @@ using System.Runtime.InteropServices;
 
 namespace BugfixesAndQoL
 {
-    internal readonly struct LargeMoveMarkerPoint
-    {
-        public LargeMoveMarkerPoint(MoveTargetCoordinate coordinate, bool active)
-        {
-            Coordinate = coordinate;
-            Active = active;
-        }
-
-        public MoveTargetCoordinate Coordinate { get; }
-        public bool Active { get; }
-    }
-
     internal sealed unsafe class LargeMoveTargetMarkerRenderer
     {
         internal const int VisibleTileHookRva = 0x436DE;
@@ -90,6 +78,10 @@ namespace BugfixesAndQoL
             new HookHandle<X64InlineHook>();
         private volatile Dictionary<int, int> markerIdentityByTile =
             new Dictionary<int, int>();
+        private readonly Dictionary<int, int> stableIdentityByTile =
+            new Dictionary<int, int>();
+        private readonly Stack<int> recycledIdentities = new Stack<int>();
+        private int nextIdentity = FirstSyntheticIdentity;
         private HookTransaction transaction;
         private SpriteBuilderDelegate spriteBuilder;
         private BuildingHeightDelegate getBuildingHeight;
@@ -164,37 +156,27 @@ namespace BugfixesAndQoL
             installed = true;
         }
 
-        public void SetMarkers(IReadOnlyList<LargeMoveMarkerPoint> markers)
+        public void AddMarkerTile(int tileId)
         {
             if (!ReplacementAvailable)
                 return;
             try
             {
-                var activeCoordinates = new List<MoveTargetCoordinate>();
-                if (markers != null)
-                {
-                    for (int index = 0; index < markers.Count; index++)
-                    {
-                        if (markers[index].Active)
-                            activeCoordinates.Add(markers[index].Coordinate);
-                    }
-                }
-                activeCoordinates.Sort();
-                if (activeCoordinates.Count > MaximumSyntheticMarkers)
+                if ((uint)tileId >= NativeTileCount)
                     throw new InvalidOperationException(
-                        $"{activeCoordinates.Count} unique active targets exceed the validated " +
-                        $"native capacity of {MaximumSyntheticMarkers}.");
-
-                var replacement = new Dictionary<int, int>(activeCoordinates.Count);
-                for (int index = 0; index < activeCoordinates.Count; index++)
-                {
-                    MoveTargetCoordinate coordinate = activeCoordinates[index];
-                    int tileId = GameTileManagerAPI.Instance.GetTileId(coordinate.X, coordinate.Y);
-                    if ((uint)tileId >= NativeTileCount || replacement.ContainsKey(tileId))
-                        continue;
-                    replacement.Add(tileId, FirstSyntheticIdentity + replacement.Count);
-                }
-                markerIdentityByTile = replacement;
+                        $"Active Move marker tile {tileId} is outside the native tile array.");
+                if (stableIdentityByTile.ContainsKey(tileId))
+                    return;
+                if (stableIdentityByTile.Count >= MaximumSyntheticMarkers)
+                    throw new InvalidOperationException(
+                        $"The validated native capacity of {MaximumSyntheticMarkers} markers is exhausted.");
+                int identity = recycledIdentities.Count != 0
+                    ? recycledIdentities.Pop()
+                    : nextIdentity++;
+                if (identity >= NativeMode8IdentityCapacity)
+                    throw new InvalidOperationException(
+                        "The native Move marker identity range is exhausted.");
+                stableIdentityByTile.Add(tileId, identity);
             }
             catch (Exception exception)
             {
@@ -202,9 +184,28 @@ namespace BugfixesAndQoL
             }
         }
 
+        public void RemoveMarkerTile(int tileId)
+        {
+            if (!stableIdentityByTile.TryGetValue(tileId, out int identity))
+                return;
+            stableIdentityByTile.Remove(tileId);
+            recycledIdentities.Push(identity);
+        }
+
+        public void PublishMarkerTiles()
+        {
+            if (!ReplacementAvailable)
+                return;
+            // Render callbacks only read the published immutable snapshot.
+            markerIdentityByTile = new Dictionary<int, int>(stableIdentityByTile);
+        }
+
         public void Shutdown()
         {
             markerIdentityByTile = new Dictionary<int, int>();
+            stableIdentityByTile.Clear();
+            recycledIdentities.Clear();
+            nextIdentity = FirstSyntheticIdentity;
             transaction?.Dispose();
             transaction = null;
             installed = false;
@@ -280,6 +281,8 @@ namespace BugfixesAndQoL
         {
             failed = true;
             markerIdentityByTile = new Dictionary<int, int>();
+            stableIdentityByTile.Clear();
+            recycledIdentities.Clear();
             if (failureLogged)
                 return;
             failureLogged = true;

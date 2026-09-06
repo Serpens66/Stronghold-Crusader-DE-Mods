@@ -22,6 +22,12 @@ namespace BugfixesAndQoL
         private bool formationExhausted;
         private long formationRejected, formationReplaced, formationFallbacks;
 
+        private sealed class OriginalFormationSlotException : Exception
+        {
+            internal OriginalFormationSlotException(Exception innerException)
+                : base("The native formation selector delegate failed.", innerException) { }
+        }
+
         private void InstallFormationSlotAdapter(
             HookTransaction transaction, ReadOnlySpan<byte> memory, ulong libraryBase)
         {
@@ -48,13 +54,26 @@ namespace BugfixesAndQoL
 
         private void ChooseOwnerSafeFormationSlot(IntPtr manager, int spacing, int x, int y)
         {
-            int effectiveSpacing = ResolveMoveFormationSpacing(
-                manager, spacing, x, y, MoveFormationSelector.Standard);
+            int effectiveSpacing = spacing;
+            try
+            {
+                effectiveSpacing = ResolveMoveFormationSpacing(
+                    manager, spacing, x, y, MoveFormationSelector.Standard);
+            }
+            catch (Exception ex)
+            {
+                TryLogDiagnosticFailure("formation-spacing", ex);
+            }
             if (nativeTribeManager == IntPtr.Zero)
-            { originalFormationSlot(manager, effectiveSpacing, x, y); return; }
+            { InvokeOriginalFormationSlot(manager, effectiveSpacing, x, y); return; }
             int* state = (int*)((byte*)nativeTribeManager + 0x0C);
             int oldX = state[0], oldY = state[1], oldIndex = state[2];
             try { ChooseOwnerSafeFormationSlotCore(manager, effectiveSpacing, x, y); }
+            catch (OriginalFormationSlotException)
+            {
+                // Never replay a native selector that already threw.
+                throw;
+            }
             catch (Exception ex)
             {
                 // E1D30 only changes this output triple. Restore it before replaying
@@ -62,15 +81,23 @@ namespace BugfixesAndQoL
                 state[0] = oldX; state[1] = oldY; state[2] = oldIndex;
                 formationOwner = null;
                 TryLogDiagnosticFailure("formation-slot", ex);
-                originalFormationSlot(manager, effectiveSpacing, x, y);
+                InvokeOriginalFormationSlot(manager, effectiveSpacing, x, y);
             }
         }
 
         private int ChooseAssassinGroundFormationSlot(
             IntPtr manager, int spacing, int x, int y)
         {
-            int effectiveSpacing = ResolveMoveFormationSpacing(
-                manager, spacing, x, y, MoveFormationSelector.AssassinGround);
+            int effectiveSpacing = spacing;
+            try
+            {
+                effectiveSpacing = ResolveMoveFormationSpacing(
+                    manager, spacing, x, y, MoveFormationSelector.AssassinGround);
+            }
+            catch (Exception ex)
+            {
+                TryLogDiagnosticFailure("assassin-ground-spacing", ex);
+            }
             return originalAssassinGroundFormationSlot(manager, effectiveSpacing, x, y);
         }
 
@@ -90,17 +117,25 @@ namespace BugfixesAndQoL
                 vanillaSpacing, configuredSpacing, overrideEnabled);
             if (scopedPureMove && settings.EnableMod && settings.EnableMoveFormationEnhancements)
             {
-                MoveFormationSpacingAuditStore.Observe(
+                MoveFormationCommandSnapshotStore.Observe(
                     command,
-                    command.TribeId,
-                    x,
-                    y,
-                    configuredSpacing,
                     selector,
                     vanillaSpacing,
                     effectiveSpacing);
             }
             return effectiveSpacing;
+        }
+
+        private void InvokeOriginalFormationSlot(IntPtr manager, int spacing, int x, int y)
+        {
+            try
+            {
+                originalFormationSlot(manager, spacing, x, y);
+            }
+            catch (Exception ex)
+            {
+                throw new OriginalFormationSlotException(ex);
+            }
         }
 
         private bool IsScopedPureMoveFormationCall(
@@ -121,11 +156,11 @@ namespace BugfixesAndQoL
                 command.TribeId < 0 || command.TribeId >= MaximumTribeCount || spacing <= 0 ||
                 GetCurrentUnitMoveFrame() != null || placementBatch != null ||
                 activeAttackCommand != null || activeMoatWorkSelection != null || activeAttackApproachDiagnostic != null)
-            { originalFormationSlot(manager, spacing, x, y); return; }
+            { InvokeOriginalFormationSlot(manager, spacing, x, y); return; }
             byte* tribeManager = (byte*)nativeTribeManager;
             int player = *(int*)(tribeManager + command.TribeId * TribeRecordSize + 0x2C);
             if (!GamePlayerManagerAPI.Instance.IsPlayerIdValid(player))
-            { originalFormationSlot(manager, spacing, x, y); return; }
+            { InvokeOriginalFormationSlot(manager, spacing, x, y); return; }
             int* slot = (int*)(tribeManager + 0x14);
             int* outputX = (int*)(tribeManager + 0x0C), outputY = (int*)(tribeManager + 0x10);
             int tick = CaptureCurrentGameTick(), stamp = *(int*)((byte*)manager + 4);
@@ -147,7 +182,7 @@ namespace BugfixesAndQoL
                 for (int attempts = 0; attempts <= 4000; attempts++)
                 {
                     int requested = *slot;
-                    originalFormationSlot(manager, spacing, x, y);
+                    InvokeOriginalFormationSlot(manager, spacing, x, y);
                     // The caller increments the same index and aborts at 4000 before
                     // assigning the unit. Use the native common-target fallback there.
                     if (*slot < requested || *slot < 0 || *slot >= 3999) break;

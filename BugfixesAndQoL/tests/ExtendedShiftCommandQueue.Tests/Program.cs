@@ -60,14 +60,30 @@ internal static class Program
             "disabled Move formation feature preserves Vanilla Assassin spacing");
 
         object owner = new object();
-        MoveFormationSpacingAuditStore.Observe(
-            owner, 7, 30, 40, 4, MoveFormationSelector.AssassinGround, 3, 4);
-        Check(MoveFormationSpacingAuditStore.TryConsume(
-                7, 30, 40, out MoveFormationSpacingAudit audit) &&
+        MoveFormationUnitIdentity[] identities = Enumerable.Range(1, 200)
+            .Select(unitId => new MoveFormationUnitIdentity(unitId, (uint)(1000 + unitId)))
+            .ToArray();
+        MoveFormationCommandSnapshotStore.Begin(owner, 7, 30, 40, 4, identities);
+        MoveFormationCommandSnapshotStore.Observe(
+            owner, MoveFormationSelector.AssassinGround, 3, 4);
+        Check(MoveFormationCommandSnapshotStore.TryConsume(
+                7, 30, 40, out MoveFormationCommandSnapshot snapshot) &&
+              snapshot.Units.Length == 200 &&
+              snapshot.Units[0].UnitId == 1 && snapshot.Units[0].GlobalId == 1001 &&
+              snapshot.Audit is MoveFormationSpacingAudit audit &&
               audit.AssassinGroundCalls == 1 && audit.StandardCalls == 0 &&
               audit.OverriddenCalls == 1 && audit.VanillaCounts[3] == 1 &&
-              audit.EffectiveCounts[4] == 1,
-            "spacing audit reports the Assassin ground selector and effective override");
+              audit.EffectiveCounts[4] == 1 &&
+              audit.FormatCompact() == "cfg4;selectors=s0/a1/w0;transitions=3->4:1",
+            "large-group snapshot binds identities and reports the observed spacing transition");
+        MoveFormationCommandSnapshotStore.Begin(owner, 7, 30, 40, 2, identities);
+        MoveFormationCommandSnapshotStore.Observe(
+            new object(), MoveFormationSelector.Standard, 4, 2);
+        Check(!MoveFormationCommandSnapshotStore.TryConsume(
+                  7, 31, 40, out MoveFormationCommandSnapshot _) &&
+              !MoveFormationCommandSnapshotStore.TryConsume(
+                  7, 30, 40, out MoveFormationCommandSnapshot _),
+            "mismatched and stale command snapshots are discarded immediately");
         Check(Enumerable.Range(0, 40).Count(value => value % 1 == 0) >
               Enumerable.Range(0, 40).Count(value => value % 2 == 0) &&
               Enumerable.Range(0, 40).Count(value => value % 2 == 0) >
@@ -96,6 +112,16 @@ internal static class Program
                 LargeMoveTargetDiagnosticsModel.Compare(sizedOutcomes);
             Check(sizedSummary.Total == size && sizedSummary.Exact == size,
                 $"large Move comparison size {size}");
+
+            object owner = new object();
+            MoveFormationUnitIdentity[] identities = Enumerable.Range(1, size)
+                .Select(unitId => new MoveFormationUnitIdentity(unitId, (uint)unitId))
+                .ToArray();
+            MoveFormationCommandSnapshotStore.Begin(owner, 9, 50, 60, 2, identities);
+            Check(MoveFormationCommandSnapshotStore.TryConsume(
+                    9, 50, 60, out MoveFormationCommandSnapshot snapshot) == expected &&
+                  (!expected || snapshot.Units.Length == size),
+                $"large Move snapshot threshold {size}");
         }
         Check(LargeMoveTargetDiagnosticsModel.VanillaDrawCapacity == 250,
             "Vanilla shared draw capacity contract");
@@ -120,8 +146,8 @@ internal static class Program
         Check(exactSummary.Total == 200 && exactSummary.Exact == 200 &&
             exactSummary.CollectiveMatches == 200 && exactSummary.MaximumManhattan == 0,
             "200 exact target outcomes aggregate correctly");
-        Check(exactSummary.PlannedFingerprint == exactSummary.ActualFingerprint,
-            "exact planned and actual fingerprints match");
+        Check(exactSummary.PlannedUnique == exactSummary.ActualUnique,
+            "exact planned and actual unique target counts match");
 
         var swapped = new[]
         {
@@ -132,8 +158,8 @@ internal static class Program
         };
         MoveTargetComparisonSummary swappedSummary = LargeMoveTargetDiagnosticsModel.Compare(swapped);
         Check(swappedSummary.Exact == 0 && swappedSummary.Reassigned == 2 &&
-            swappedSummary.CollectiveMatches == 2 &&
-            swappedSummary.PlannedFingerprint == swappedSummary.ActualFingerprint,
+            swappedSummary.Deviated == 0 && swappedSummary.CollectiveMatches == 2 &&
+            swappedSummary.PlannedUnique == swappedSummary.ActualUnique,
             "swapped targets are identified as collective reassignment");
 
         var exceptional = new[]
@@ -147,11 +173,28 @@ internal static class Program
         };
         MoveTargetComparisonSummary exceptionalSummary = LargeMoveTargetDiagnosticsModel.Compare(exceptional);
         Check(exceptionalSummary.PlannedDuplicates == 1 && exceptionalSummary.Interrupted == 1 &&
-            exceptionalSummary.Lost == 1 && exceptionalSummary.MaximumManhattan == 7 &&
+            exceptionalSummary.Lost == 1 && exceptionalSummary.Deviated == 0 &&
+            exceptionalSummary.MaximumManhattan == 7 &&
             exceptionalSummary.MaximumChebyshev == 4,
             "duplicates, interruption, loss, and distances aggregate correctly");
         Check(exceptionalSummary.Examples.Count == 2,
             "only exceptional outcomes are emitted as bounded examples");
+
+        MoveTargetOutcome[] manyExceptions = Enumerable.Range(1, 10)
+            .Select(index => new MoveTargetOutcome(
+                index,
+                (uint)index,
+                new MoveTargetCoordinate(index, index),
+                index == 10
+                    ? new MoveTargetCoordinate(99, 99)
+                    : new MoveTargetCoordinate(index + 1, index + 1),
+                MoveTargetOutcomeKind.SettledElsewhere))
+            .ToArray();
+        MoveTargetComparisonSummary manyExceptionSummary =
+            LargeMoveTargetDiagnosticsModel.Compare(manyExceptions);
+        Check(manyExceptionSummary.Examples.Count == 3 &&
+            manyExceptionSummary.Reassigned == 9 && manyExceptionSummary.Deviated == 1,
+            "collective matches stay distinct from deviations and examples are capped at three");
 
         var fourThousand = Enumerable.Range(0, 4000)
             .Select(index => new MoveTargetOutcome(
@@ -858,11 +901,18 @@ internal static class Program
             !queueRuntime.Contains("localMoveChoreDepth") &&
             queueRuntime.Contains("internalDispatch ? \"extended-shift\" : \"direct\""),
             "local direct and executed Extended Shift Moves share post-formation capture without Chore nesting");
-        Check(largeMoveRuntime.Contains("MOVE_TARGET_TRACK_START:") &&
-            largeMoveRuntime.Contains("MOVE_TARGET_TRACK_RESULT:") &&
+        Check(!largeMoveRuntime.Contains("MOVE_TARGET_TRACK_START:") &&
+            CountText(largeMoveRuntime, "MOVE_TARGET_RESULT:") == 1 &&
             largeMoveRuntime.Contains("GameUnitManagerAPI.Instance.GetUnitsAsSpan()") &&
-            largeMoveRuntime.Contains("DrawListCountOffset = 0x622248"),
-            "large Move diagnostics capture native targets and aggregate them on tick");
+            !largeMoveRuntime.Contains("DrawListCountOffset") &&
+            largeMoveRuntime.Contains("MoveFormationCommandSnapshotStore.TryConsume(") &&
+            largeMoveRuntime.Contains("tribe->r_UnitsInGroup >=") &&
+            largeMoveRuntime.Contains("spanIndex = tracked.UnitId - 1") &&
+            largeMoveRuntime.Contains("identity-invalidated") &&
+            largeMoveRuntime.Contains("group.ActiveMarkerCounts.ContainsKey(tileId)") &&
+            largeMoveRuntime.Contains("activeMarkerCounts") &&
+            largeMoveRuntime.Contains("RemoveGroupMarkers(group)"),
+            "large Move diagnostics use bounded snapshots, direct span access, active-only suppression, and one result log");
         Check(largeMoveRenderer.Contains("VisibleTileHookRva = 0x436DE") &&
             largeMoveRenderer.Contains("SpriteBuilderRva = 0x1A13C0") &&
             largeMoveRenderer.Contains("BugfixesHookInfrastructure.AddContextHook(") &&
@@ -875,8 +925,13 @@ internal static class Program
             "large Move renderer injects real Vanilla sprites in the visible-tile pass");
         Check(largeMoveRenderer.Contains("MaximumSyntheticMarkers") &&
             largeMoveRenderer.Contains("NativeMode8IdentityCapacity = 4250") &&
+            largeMoveRenderer.Contains("stableIdentityByTile") &&
+            largeMoveRenderer.Contains("AddMarkerTile(int tileId)") &&
+            largeMoveRenderer.Contains("RemoveMarkerTile(int tileId)") &&
+            largeMoveRenderer.Contains("PublishMarkerTiles()") &&
+            !largeMoveRenderer.Contains(".Sort(") &&
             largeMoveRenderer.Contains("MOVE_TARGET_MARKER_RENDER_FAIL_OPEN"),
-            "large Move renderer validates its 4000-marker identity range and fails open");
+            "large Move renderer keeps stable incremental identities, validates capacity, and fails open");
         Check(queueRuntime.Contains("OwnsHooks = false"),
             "integrated queue declares process-lifetime hook ownership");
         Check(!queueRuntime.Contains("Zhuqiaomon") && !queueRuntime.Contains("HookRef<") &&

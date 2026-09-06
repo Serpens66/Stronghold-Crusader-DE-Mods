@@ -24,6 +24,18 @@ namespace BugfixesAndQoL
         AssassinGround
     }
 
+    internal readonly struct MoveFormationUnitIdentity
+    {
+        internal MoveFormationUnitIdentity(int unitId, uint globalId)
+        {
+            UnitId = unitId;
+            GlobalId = globalId;
+        }
+
+        internal int UnitId { get; }
+        internal uint GlobalId { get; }
+    }
+
     internal readonly struct MoveFormationSpacingAudit
     {
         internal MoveFormationSpacingAudit(
@@ -52,99 +64,128 @@ namespace BugfixesAndQoL
         internal int[] VanillaCounts { get; }
         internal int[] EffectiveCounts { get; }
 
-        internal string Format(int inferredAssassinStructureCalls = 0) =>
-            $"configuredSpacing={ConfiguredSpacing}, " +
-            $"selectors=standard:{StandardCalls}|assassin-ground:{AssassinGroundCalls}|" +
-            $"assassin-structure-inferred:{inferredAssassinStructureCalls}, " +
-            $"vanillaSpacing={FormatCounts(VanillaCounts, inferredAssassinStructureCalls)}, " +
-            $"effectiveSpacing={FormatCounts(EffectiveCounts, inferredAssassinStructureCalls)}, " +
-            $"spacingOverrides={OverriddenCalls}, " +
-            $"preservedVanillaOne={PreservedOneCalls + inferredAssassinStructureCalls}";
-
-        private static string FormatCounts(int[] counts, int additionalOne) =>
-            $"1:{counts[1] + additionalOne}|2:{counts[2]}|3:{counts[3]}|4:{counts[4]}|other:{counts[0]}";
+        internal string FormatCompact(int inferredAssassinStructureCalls = 0)
+        {
+            var transitions = new System.Collections.Generic.List<string>(5);
+            for (int vanilla = 1; vanilla <= MoveFormationSpacingPolicy.Maximum; vanilla++)
+            {
+                int count = VanillaCounts[vanilla];
+                if (vanilla == 1)
+                    count += inferredAssassinStructureCalls;
+                if (count == 0)
+                    continue;
+                int effective = vanilla == 1 ? 1 : ConfiguredSpacing;
+                transitions.Add($"{vanilla}->{effective}:{count}");
+            }
+            if (VanillaCounts[0] != 0)
+                transitions.Add($"other:{VanillaCounts[0]}");
+            return $"cfg{ConfiguredSpacing};selectors=s{StandardCalls}/a{AssassinGroundCalls}/" +
+                $"w{inferredAssassinStructureCalls};transitions={string.Join("|", transitions)}";
+        }
     }
 
-    internal static class MoveFormationSpacingAuditStore
+    internal sealed class MoveFormationCommandSnapshot
     {
-        private sealed class Accumulator
-        {
-            internal object Owner;
-            internal int TribeId;
-            internal int TargetX;
-            internal int TargetY;
-            internal int ConfiguredSpacing;
-            internal int StandardCalls;
-            internal int AssassinGroundCalls;
-            internal int OverriddenCalls;
-            internal int PreservedOneCalls;
-            internal readonly int[] VanillaCounts = new int[5];
-            internal readonly int[] EffectiveCounts = new int[5];
-        }
-
-        [System.ThreadStatic]
-        private static Accumulator current;
-
-        internal static void Observe(
+        internal MoveFormationCommandSnapshot(
             object owner,
             int tribeId,
             int targetX,
             int targetY,
             int configuredSpacing,
+            MoveFormationUnitIdentity[] units)
+        {
+            Owner = owner;
+            TribeId = tribeId;
+            TargetX = targetX;
+            TargetY = targetY;
+            ConfiguredSpacing = MoveFormationSpacingPolicy.Normalize(configuredSpacing);
+            Units = units;
+        }
+
+        internal object Owner { get; }
+        internal int TribeId { get; }
+        internal int TargetX { get; }
+        internal int TargetY { get; }
+        internal int ConfiguredSpacing { get; }
+        internal MoveFormationUnitIdentity[] Units { get; }
+        internal int StandardCalls { get; set; }
+        internal int AssassinGroundCalls { get; set; }
+        internal int OverriddenCalls { get; set; }
+        internal int PreservedOneCalls { get; set; }
+        internal int[] VanillaCounts { get; } = new int[5];
+        internal int[] EffectiveCounts { get; } = new int[5];
+
+        internal MoveFormationSpacingAudit Audit => new MoveFormationSpacingAudit(
+            ConfiguredSpacing,
+            StandardCalls,
+            AssassinGroundCalls,
+            OverriddenCalls,
+            PreservedOneCalls,
+            VanillaCounts,
+            EffectiveCounts);
+    }
+
+    internal static class MoveFormationCommandSnapshotStore
+    {
+        internal const int MinimumTrackedUnits = 200;
+
+
+        [System.ThreadStatic]
+        private static MoveFormationCommandSnapshot current;
+
+        internal static void Begin(
+            object owner,
+            int tribeId,
+            int targetX,
+            int targetY,
+            int configuredSpacing,
+            MoveFormationUnitIdentity[] units)
+        {
+            current = owner != null && units != null &&
+                units.Length >= MinimumTrackedUnits
+                ? new MoveFormationCommandSnapshot(
+                    owner, tribeId, targetX, targetY, configuredSpacing, units)
+                : null;
+        }
+
+        internal static void Observe(
+            object owner,
             MoveFormationSelector selector,
             int vanillaSpacing,
             int effectiveSpacing)
         {
-            if (owner == null)
+            MoveFormationCommandSnapshot snapshot = current;
+            if (owner == null || snapshot == null ||
+                !object.ReferenceEquals(snapshot.Owner, owner))
                 return;
-            if (current == null || !object.ReferenceEquals(current.Owner, owner))
-            {
-                current = new Accumulator
-                {
-                    Owner = owner,
-                    TribeId = tribeId,
-                    TargetX = targetX,
-                    TargetY = targetY,
-                    ConfiguredSpacing = NormalizeConfigured(configuredSpacing)
-                };
-            }
 
             if (selector == MoveFormationSelector.AssassinGround)
-                current.AssassinGroundCalls++;
+                snapshot.AssassinGroundCalls++;
             else
-                current.StandardCalls++;
-            current.VanillaCounts[CountIndex(vanillaSpacing)]++;
-            current.EffectiveCounts[CountIndex(effectiveSpacing)]++;
+                snapshot.StandardCalls++;
+            snapshot.VanillaCounts[CountIndex(vanillaSpacing)]++;
+            snapshot.EffectiveCounts[CountIndex(effectiveSpacing)]++;
             if (vanillaSpacing != effectiveSpacing)
-                current.OverriddenCalls++;
+                snapshot.OverriddenCalls++;
             if (vanillaSpacing == MoveFormationSpacingPolicy.Minimum &&
                 effectiveSpacing == vanillaSpacing)
-                current.PreservedOneCalls++;
+                snapshot.PreservedOneCalls++;
         }
 
         internal static bool TryConsume(
             int tribeId,
             int targetX,
             int targetY,
-            out MoveFormationSpacingAudit audit)
+            out MoveFormationCommandSnapshot snapshot)
         {
-            Accumulator accumulator = current;
-            if (accumulator == null || accumulator.TribeId != tribeId ||
-                accumulator.TargetX != targetX || accumulator.TargetY != targetY)
+            snapshot = current;
+            current = null;
+            if (snapshot == null || snapshot.TribeId != tribeId ||
+                snapshot.TargetX != targetX || snapshot.TargetY != targetY)
             {
-                audit = default;
+                snapshot = null;
                 return false;
             }
-
-            audit = new MoveFormationSpacingAudit(
-                accumulator.ConfiguredSpacing,
-                accumulator.StandardCalls,
-                accumulator.AssassinGroundCalls,
-                accumulator.OverriddenCalls,
-                accumulator.PreservedOneCalls,
-                (int[])accumulator.VanillaCounts.Clone(),
-                (int[])accumulator.EffectiveCounts.Clone());
-            current = null;
             return true;
         }
 
@@ -154,7 +195,5 @@ namespace BugfixesAndQoL
             spacing >= MoveFormationSpacingPolicy.Minimum &&
             spacing <= MoveFormationSpacingPolicy.Maximum ? spacing : 0;
 
-        private static int NormalizeConfigured(int spacing) =>
-            MoveFormationSpacingPolicy.Normalize(spacing);
     }
 }
