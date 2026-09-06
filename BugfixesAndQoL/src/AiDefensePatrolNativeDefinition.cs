@@ -76,7 +76,7 @@ namespace BugfixesAndQoL
                 Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_GlobalId)).ToInt32() != 0x94 ||
                 Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_AITribeRole)).ToInt32() != 0x426)
             {
-                throw new InvalidOperationException("GameUnit layout differs from the audited Script Extender 2.0.2 contract.");
+                throw new InvalidOperationException("GameUnit layout differs from the audited Script Extender 2.2.0 contract.");
             }
         }
 

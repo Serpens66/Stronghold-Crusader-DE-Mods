@@ -24,7 +24,6 @@ namespace QueueTest
         private const int ReferenceMovementCompleteRva = 0x1178D0;
         private const int ReferenceTribeOverlayRenderRva = 0x1222A0;
         private const int ReferenceDrawSubmissionRva = 0x417A0;
-        private const int ReferenceRemoveUnitFromTribeRva = QueueNativeContract.RemoveUnitFromTribeRva;
         private const int GameTribeSize = 0x688;
         private const int MaximumNativeMovementWaypoints = 10;
         // Native movement code addresses these as manager + tribeId * 0x688 +
@@ -64,9 +63,6 @@ namespace QueueTest
             "48 89 5C 24 08 48 89 74 24 10 48 89 7C 24 18 48 63 5C 24 30 41 8B F1 48 63 B9 " +
             "48 22 62 00 44 8B DA 4C 8B D1 85 DB 0F 88 AC 00 00 00 81 FF FA 00";
 
-        private const string RemoveUnitFromTribePattern =
-            "48 89 5C 24 ? 48 89 74 24 ? 48 89 7C 24 ? 41 56 48 83 EC ? 4C 63 CA";
-
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate void AppendMovementWaypointDelegate(
             IntPtr tribeManager,
@@ -94,9 +90,6 @@ namespace QueueTest
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate void ChoreHandlerDelegate();
-
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        private delegate void RemoveUnitFromTribeDelegate(IntPtr tribeManager, int unitId, int tribeId);
 
         private readonly ManualLogSource log;
         // A cohort is the smallest set of units that currently shares mutable queue progress.
@@ -130,7 +123,6 @@ namespace QueueTest
         private readonly DetourHandle<ChoreHandlerDelegate> targetOrderChoreHandlerHook =
             new DetourHandle<ChoreHandlerDelegate>();
         private IsTribeMovementCompleteDelegate isTribeMovementComplete;
-        private RemoveUnitFromTribeDelegate removeUnitFromTribe;
         private IntPtr tribeManagerPointer;
         private IntPtr choreModePointer;
         private IntPtr choreTribeIdPointer;
@@ -263,23 +255,9 @@ namespace QueueTest
                     $"Tribe overlay renderer resolved at unexpected RVA 0x{overlayRenderResolution.Rva:X}.");
             }
 
-            Shared.NativeResolution removeUnitResolution = Shared.NativePatternResolver.ResolveUnique(
-                memory,
-                RemoveUnitFromTribePattern,
-                ReferenceRemoveUnitFromTribeRva,
-                referenceHashMatches: true,
-                name: "Vanilla remove-unit-from-tribe helper",
-                log: null);
-            if (removeUnitResolution.Rva != ReferenceRemoveUnitFromTribeRva)
-                throw new InvalidOperationException(
-                    $"Remove-unit helper resolved at unexpected RVA 0x{removeUnitResolution.Rva:X}.");
-
             isTribeMovementComplete = (IsTribeMovementCompleteDelegate)Marshal.GetDelegateForFunctionPointer(
                 libraryHandle + ReferenceMovementCompleteRva,
                 typeof(IsTribeMovementCompleteDelegate));
-            removeUnitFromTribe = (RemoveUnitFromTribeDelegate)Marshal.GetDelegateForFunctionPointer(
-                libraryHandle + ReferenceRemoveUnitFromTribeRva,
-                typeof(RemoveUnitFromTribeDelegate));
             tribeManagerPointer = new IntPtr(GameTribeManagerAPI.Instance.GetTribeManager().Pointer);
 
             nativeTransaction = new HookTransaction(
@@ -325,7 +303,7 @@ namespace QueueTest
                 $"INITIALIZED: waypointRva=0x{resolution.Rva:X}, functionSize=71, " +
                 $"movementCompleteRva=0x{movementCompleteResolution.Rva:X}, " +
                 $"overlayRenderRva=0x{overlayRenderResolution.Rva:X}, " +
-                $"removeUnitRva=0x{removeUnitResolution.Rva:X}, " +
+                "tribeUnassign=SHCDESE-2.2.0-wrapper, " +
                 $"drawFilterInstalled={drawFilterInstalled}, " +
                 $"targetMarkerProjectionAvailable={targetMarkerProjectionAvailable}, " +
                 $"multiplayerSynchronizationReady={multiplayerSynchronizationReady}, " +
@@ -960,7 +938,7 @@ namespace QueueTest
                 savedPoints[index] = points[index];
 
             ushort savedIndex = tribe->r_PatrolCurrentTargetIndex;
-            // The 2.0.2 interop still declares this native ushort as UInt32. Read and write
+            // The 2.2.0 interop still declares this native ushort as UInt32. Read and write
             // the proven 16-bit field directly so the adjacent word cannot affect capacity.
             TribePatrolMode savedMode = tribe->r_PatrolMode;
             try
@@ -1619,8 +1597,8 @@ namespace QueueTest
             List<QueueUnitIdentity> moved = new List<QueueUnitIdentity>();
             foreach (QueueUnitIdentity member in state.Members.OrderBy(value => value.UnitId))
             {
-                removeUnitFromTribe(tribeManagerPointer, member.UnitId, originalTribeId);
-                if (!GameTribeManagerAPI.Instance.AssignUnit(newTribeId, member.UnitId) ||
+                if (!TryUnassignUnit(member, originalTribeId) ||
+                    !GameTribeManagerAPI.Instance.AssignUnit(newTribeId, member.UnitId) ||
                     !TryGetLivingUnit(member, out GameUnit* unit) || unit->r_TribeId != newTribeId)
                 {
                     RollBackTribeSplit(moved, member, originalTribeId, newTribeId);
@@ -1659,10 +1637,28 @@ namespace QueueTest
             for (int index = moved.Count - 1; index >= 0; index--)
             {
                 QueueUnitIdentity member = moved[index];
-                if (TryGetLivingUnit(member, out GameUnit* unit) && unit->r_TribeId == newTribeId)
-                    removeUnitFromTribe(tribeManagerPointer, member.UnitId, newTribeId);
+                if (TryGetLivingUnit(member, out GameUnit* unit) && unit->r_TribeId == newTribeId &&
+                    !TryUnassignUnit(member, newTribeId))
+                {
+                    Shared.DebugLogHelper.LogError(
+                        log,
+                        $"Queue rollback could not unassign unitId={member.UnitId} from tribeId={newTribeId}.");
+                    continue;
+                }
                 GameTribeManagerAPI.Instance.AssignUnit(originalTribeId, member.UnitId);
             }
+        }
+
+        private bool TryUnassignUnit(QueueUnitIdentity member, int tribeId)
+        {
+            if (!TryGetLivingUnit(member, out GameUnit* unit) || unit->r_TribeId != tribeId)
+                return false;
+
+            // Script Extender 2.2.0 fixes the wrapper's native argument order.
+            if (!GameTribeManagerAPI.Instance.UnassignUnit(tribeId, member.UnitId))
+                return false;
+
+            return TryGetLivingUnit(member, out unit) && unit->r_TribeId != tribeId;
         }
 
         private void CoalesceEquivalentCohorts()

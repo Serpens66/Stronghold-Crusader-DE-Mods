@@ -391,10 +391,6 @@ internal static class Program
         Check(QueueNativeContract.MoveChoreHandlerSize == 470, "Chore 17 handler size");
         Check(QueueNativeContract.TargetOrderChoreHandlerSize == 450, "Chore 36 handler size");
         Check(QueueNativeContract.WaypointAppendChoreHandlerSize == 487, "Chore 71 handler size");
-        Check(QueueNativeContract.RemoveUnitFromTribeRva == 0x123EA0,
-            "native remove-unit-from-tribe RVA");
-        Check(QueueNativeContract.RemoveUnitFromTribeSize == 312,
-            "native remove-unit-from-tribe size");
         Check(QueueNativeContract.ChoreModeRva == 0x85F8FEC, "Chore mode global RVA");
         Check(QueueNativeContract.ChoreTribeIdRva == 0x86C132C, "Chore tribe global RVA");
         Check(QueueNativeContract.ChoreCommandOrTileXRva == 0x86C1330,
@@ -635,15 +631,6 @@ internal static class Program
         Check(image[drawSubmissionRawOffset + expectedDrawSubmissionBody.Length] == 0xCC,
             "overlay draw submission RET boundary");
 
-        CheckNativeHandler(
-            image,
-            QueueNativeContract.RemoveUnitFromTribeRva,
-            QueueNativeContract.RemoveUnitFromTribeSize,
-            Convert.FromHexString(
-                "48895C2408488974241048897C241841564883EC204C63CA4C8D3541C1EDFF4963F8418BC14969F19004000099488BD9"),
-            Convert.FromHexString(
-                "FF8BD7488BCB488B5C2430488B742438488B7C24404883C420415EE948A8FFFF"),
-            "remove-unit-from-tribe helper");
     }
 
     private static void CheckMigrationSourceContracts()
@@ -653,16 +640,19 @@ internal static class Program
         string queueRuntime = Read(workspace, "QueueTest", "src", "QueueRuntime.cs");
         string queueProject = Read(workspace, "QueueTest", "QueueTest.csproj");
         string queueContract = Read(workspace, "QueueTest", "NATIVE_CONTRACT.md");
-        string moatPlugin = Read(workspace, "MoatCommandTest", "src", "MoatCommandTestPlugin.cs");
-        string moatRuntime = Read(workspace, "MoatCommandTest", "src", "MoatDiggingReachabilityFix.cs");
-        string moatProject = Read(workspace, "MoatCommandTest", "MoatCommandTest.csproj");
+        string bugfixesPlugin = Read(workspace, "BugfixesAndQoL", "src", "BugfixesAndQoLPlugin.cs");
+        string bugfixesRuntime = string.Join(
+            "\n",
+            Directory.GetFiles(Path.Combine(workspace, "BugfixesAndQoL", "src"), "*.cs")
+                .Select(File.ReadAllText));
+        string bugfixesProject = Read(workspace, "BugfixesAndQoL", "BugfixesAndQoL.csproj");
 
         Check(queuePlugin.Contains("BepInDependency(ScriptExtenderGuid, \"2.2.0\")"),
-            "QueueTest pins Script Extender 2.0.2");
+            "QueueTest pins Script Extender 2.2.0");
         Check(queuePlugin.Contains("OnCrusaderLibraryLoaded(CrusaderLibraryLoadContext context)"),
-            "QueueTest consumes the 2.0.2 load context");
+            "QueueTest consumes the 2.2.0 load context");
         Check(queueRuntime.Contains("SelectedUnitInfo[] selectedUnits"),
-            "QueueTest projects the 2.0.2 selected-unit contract");
+            "QueueTest projects the 2.2.0 selected-unit contract");
         Check(CountText(queueRuntime, "new DetourHandle<") == 5,
             "QueueTest owns five typed RedBird detour handles");
         Check(CountText(queueRuntime, "HookTarget.FromAddress(") == 5,
@@ -677,32 +667,32 @@ internal static class Program
             !queueRuntime.Contains(".Hook.Trampoline"), "QueueTest has no legacy hook API");
         Check(queueProject.Contains("RedBird.Abstractions.dll") &&
             queueProject.Contains("RedBird.Core.dll") && queueProject.Contains("RedBird.X64.dll"),
-            "QueueTest references the RedBird 2.0.2 assemblies");
+            "QueueTest references the RedBird assemblies shipped with 2.2.0");
         Check(!queueProject.Contains("Zhuqiaomon.dll") && !queueProject.Contains("PolyHook2.NET.dll") &&
             !queueProject.Contains("Iced.dll"), "QueueTest project has no legacy hook dependency");
-        Check(queueContract.Contains("Script Extender 2.0.2 still exposes") &&
-            queueRuntime.Contains("removeUnitFromTribe(tribeManagerPointer, member.UnitId, originalTribeId)"),
-            "QueueTest retains the audited native Remove adapter");
+        Check(queueContract.Contains("Script Extender 2.0.2") &&
+            queueContract.Contains("Script Extender 2.2.0") &&
+            queueRuntime.Contains("GameTribeManagerAPI.Instance.UnassignUnit(tribeId, member.UnitId)") &&
+            !queueRuntime.Contains("RemoveUnitFromTribeRva") &&
+            !queueRuntime.Contains("removeUnitFromTribe("),
+            "QueueTest uses the corrected 2.2.0 public UnassignUnit wrapper");
 
-        Check(moatPlugin.Contains("BepInDependency(ScriptExtenderGuid, \"2.2.0\")") &&
-            moatPlugin.Contains("OnCrusaderLibraryLoaded(CrusaderLibraryLoadContext context)"),
-            "MoatCommandTest pins and consumes Script Extender 2.0.2");
-        Check(CountText(moatRuntime, "new HookHandle<X64InlineHook>") == 5 &&
-            CountText(moatRuntime, "new DetourHandle<") == 1,
-            "MoatCommandTest owns five inline hooks and one detour");
-        Check(CountText(moatRuntime, "HookTarget.FromAddress(") == 6 &&
-            moatRuntime.Contains("commitResult.IsCompleteSuccess"),
-            "MoatCommandTest registers explicit targets and checks the aggregate commit");
-        Check(moatRuntime.Contains("findNearestFriendlyMoatHook.Original("),
-            "MoatCommandTest uses the typed original delegate");
-        Check(!moatRuntime.Contains("Zhuqiaomon") && !moatRuntime.Contains("NativeDetour") &&
-            !moatRuntime.Contains(".Hook.Trampoline"), "MoatCommandTest has no legacy hook API");
-        Check(moatProject.Contains("RedBird.Abstractions.dll") && moatProject.Contains("RedBird.Core.dll") &&
-            moatProject.Contains("RedBird.X64.dll") && !moatProject.Contains("Zhuqiaomon.dll") &&
-            !moatProject.Contains("PolyHook2.NET.dll") && !moatProject.Contains("Iced.dll"),
-            "MoatCommandTest project uses only RedBird hook assemblies");
+        Check(bugfixesPlugin.Contains("BepInDependency(ScriptExtenderGuid, \"2.2.0\")") &&
+            bugfixesPlugin.Contains("BepInIncompatibility(LegacyMoveMoatGuid)"),
+            "BugfixesAndQoL owns the migrated moat runtime on Script Extender 2.2.0");
+        Check(bugfixesRuntime.Contains("new HookHandle<X64InlineHook>") &&
+            bugfixesRuntime.Contains("new DetourHandle<") &&
+            bugfixesRuntime.Contains("HookTarget.FromAddress("),
+            "integrated moat runtime retains typed RedBird hooks");
+        Check(!bugfixesRuntime.Contains("Zhuqiaomon") && !bugfixesRuntime.Contains("NativeDetour") &&
+            !bugfixesRuntime.Contains(".Hook.Trampoline"), "integrated moat runtime has no legacy hook API");
+        Check(bugfixesProject.Contains("RedBird.Abstractions.dll") && bugfixesProject.Contains("RedBird.Core.dll") &&
+            bugfixesProject.Contains("RedBird.X64.dll") && !bugfixesProject.Contains("Zhuqiaomon.dll"),
+            "BugfixesAndQoL project carries the integrated RedBird hook references");
+        Check(!Directory.Exists(Path.Combine(workspace, "MoatCommandTest")),
+            "standalone MoatCommandTest project has been removed after integration");
 
-        foreach (string mod in new[] { "MoatCommandTest", "OxTetherIdleFixTest", "QueueTest", "StockpileAccessFixTest" })
+        foreach (string mod in new[] { "OxTetherIdleFixTest", "QueueTest", "StockpileAccessFixTest" })
         {
             string manifest = Read(workspace, mod, "info.json");
             Check(manifest.Contains("\"NetworkMode\": 1"), mod + " remains gameplay synchronized");
@@ -714,7 +704,7 @@ internal static class Program
             string runtime = Read(workspace, mod, "src", mod + "Runtime.cs");
             string project = Read(workspace, mod, mod + ".csproj");
             Check(plugin.Contains("BepInDependency(ScriptExtenderGuid, \"2.2.0\")") &&
-                plugin.Contains("CrusaderLibraryLoadContext context"), mod + " consumes exact 2.0.2");
+                plugin.Contains("CrusaderLibraryLoadContext context"), mod + " consumes exact 2.2.0");
             Check(runtime.Contains("using RedBird.Core.Memory;") && !runtime.Contains("Zhuqiaomon"),
                 mod + " uses the RedBird memory contract");
             Check(project.Contains("RedBird.Core.dll") && !project.Contains("Zhuqiaomon.dll"),
@@ -728,7 +718,7 @@ internal static class Program
         while (current != null)
         {
             if (Directory.Exists(Path.Combine(current.FullName, "QueueTest")) &&
-                Directory.Exists(Path.Combine(current.FullName, "MoatCommandTest")))
+                Directory.Exists(Path.Combine(current.FullName, "BugfixesAndQoL")))
                 return current.FullName;
             current = current.Parent;
         }

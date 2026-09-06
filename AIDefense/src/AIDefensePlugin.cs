@@ -67,7 +67,6 @@ namespace AIDefense
                     return;
                 }
 
-                persistentRuntime?.InstallNative(context);
                 persistentRuntime?.Apply();
                 Shared.DebugLogHelper.LogInfo(Logger, "Crusader library loaded; AI Defense runtime initialized.");
             }

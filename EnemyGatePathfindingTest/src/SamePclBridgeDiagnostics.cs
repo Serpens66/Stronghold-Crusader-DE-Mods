@@ -29,7 +29,7 @@ namespace EnemyGatePathfindingTest
         private const int PendingMoveCapacity = 128;
         private static readonly long SnapshotInterval = Math.Max(1, Stopwatch.Frequency / 4);
         private static readonly long SummaryInterval = Stopwatch.Frequency * 10L;
-        // Revalidated against CrusaderDE.dll and Script Extender 2.0.2: cursor globals
+        // Revalidated against CrusaderDE.dll and Script Extender 2.2.0: cursor globals
         // and MoveHere TileX/TileY use the same tile-coordinate space.
         private static readonly long CorrelationWindow = Math.Max(1, Stopwatch.Frequency * 3L / 2L);
 
@@ -340,7 +340,7 @@ namespace EnemyGatePathfindingTest
 
         internal void OnGameTick()
         {
-            // Script Extender 2.0.2: this is a cheap accepted-record
+            // Script Extender 2.2.0: this is a cheap accepted-record
             // freshness probe only. Full topology/footprint rebuilding remains deferred
             // to onBeforeRender and is still capped at four times per second.
             if (Volatile.Read(ref epochActive) == 0)
@@ -560,7 +560,7 @@ namespace EnemyGatePathfindingTest
             TopologyRejections rejections = default;
             ulong fingerprint = 1469598103934665603UL;
 
-            // Script Extender 2.0.2: the native gatehouse array is
+            // Script Extender 2.2.0: the native gatehouse array is
             // authoritative for standalone gates and supplies the public building ID.
             var gateEntries = buildingApi.GetGatehouseArray();
             for (int entryIndex = 0; entryIndex < gateEntries.Length; entryIndex++)
@@ -627,7 +627,7 @@ namespace EnemyGatePathfindingTest
                 AppendTopologyDetail(detail, gateInfo.Format());
             }
 
-            // Script Extender 2.0.2: a newly placed editor gate may
+            // Script Extender 2.2.0: a newly placed editor gate may
             // still be NeedsInit and absent from GetGatehouseArray(). Retain a clearly
             // labelled footprint-only diagnostic record; it never changes game state.
             for (int buildingIndex = 0; buildingIndex < buildings.Length; buildingIndex++)
@@ -670,7 +670,7 @@ namespace EnemyGatePathfindingTest
                 AppendTopologyDetail(detail, fallbackInfo.Format());
             }
 
-            // Script Extender 2.0.2: the Span is zero-based and its
+            // Script Extender 2.2.0: the Span is zero-based and its
             // public building ID is index + 1. r_GatehouseId is deliberately logged
             // as an opaque raw value until its editor/runtime ID space is confirmed.
             // NeedsInit is active in editor maps, as in ActiveBuildingCache.
@@ -905,7 +905,7 @@ namespace EnemyGatePathfindingTest
             uint gridSize = bridge.r_OccupyTileGridSize;
             if (gridSize == 0 || gridSize > 6)
                 return false;
-            // Script Extender 2.0.2: this API reads gridSize squared
+            // Script Extender 2.2.0: this API reads gridSize squared
             // inline UInt32 entries. The size is bounded before calling it.
             int[] occupied = buildings.GetOccupiedTileIds(bridgeId);
             int cells = Math.Min(occupied.Length, checked((int)(gridSize * gridSize)));

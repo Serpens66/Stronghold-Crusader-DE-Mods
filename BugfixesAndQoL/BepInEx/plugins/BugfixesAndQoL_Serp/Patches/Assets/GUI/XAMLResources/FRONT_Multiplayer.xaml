@@ -1,0 +1,291 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+       xmlns:local="clr-namespace:CrusaderDE"
+       xmlns:shared="clr-namespace:Shared;assembly=BugfixesAndQoL">
+  <Operation Type="Replace" XPath="//n:ListView[@Name='CustomLordList']/n:ListView.View/n:GridView">
+    <Content>
+      <GridView AllowsColumnReorder="False"
+                ColumnHeaderContainerStyle="{StaticResource HiddenStyle}">
+        <GridViewColumn Width="40">
+          <GridViewColumn.CellTemplate>
+            <DataTemplate>
+              <Image Width="30" Margin="-2,0,0,0" Source="{Binding TypeImage}" />
+            </DataTemplate>
+          </GridViewColumn.CellTemplate>
+        </GridViewColumn>
+        <GridViewColumn Width="370">
+          <GridViewColumn.CellTemplate>
+            <DataTemplate>
+              <Grid Height="30">
+                <TextBlock HorizontalAlignment="Left" VerticalAlignment="Center"
+                           Foreground="Black" FlowDirection="{Binding GlobalTextFlowAL2R}"
+                           TextTrimming="CharacterEllipsis" FontSize="16" Text="{Binding Text1}" />
+              </Grid>
+            </DataTemplate>
+          </GridViewColumn.CellTemplate>
+        </GridViewColumn>
+        <GridViewColumn Width="0">
+          <GridViewColumn.CellTemplate>
+            <DataTemplate>
+              <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center"
+                         Foreground="Black" FontSize="16" Text="{Binding Text2}" />
+            </DataTemplate>
+          </GridViewColumn.CellTemplate>
+        </GridViewColumn>
+      </GridView>
+    </Content>
+  </Operation>
+  <Operation Type="InsertBefore" XPath="//n:ListView[@Name='CustomLordList']">
+    <Content>
+      <Grid x:Name="CustomLordHeaderPanel" Width="410" Height="24"
+            HorizontalAlignment="Left" VerticalAlignment="Top"
+            Visibility="{Binding EnhancementVisibility}">
+        <Grid.Resources>
+          <Style TargetType="{x:Type ToolTip}">
+            <Setter Property="Background" Value="#FF1D1710" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontSize" Value="{x:Static shared:ToolTipPresentation.FontSize}" />
+            <Setter Property="BorderBrush" Value="#FFF2D48A" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Template">
+              <Setter.Value>
+                <ControlTemplate TargetType="{x:Type ToolTip}">
+                  <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                          BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="2" Padding="10,7"
+                          MaxWidth="{x:Static shared:ToolTipPresentation.MaximumWidth}">
+                    <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}"
+                               FontSize="{x:Static shared:ToolTipPresentation.FontSize}" TextWrapping="Wrap" />
+                  </Border>
+                </ControlTemplate>
+              </Setter.Value>
+            </Setter>
+          </Style>
+        </Grid.Resources>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="40" />
+          <ColumnDefinition Width="280" />
+          <ColumnDefinition Width="90" />
+        </Grid.ColumnDefinitions>
+        <GridViewColumnHeader x:Name="CustomLordTypeHeader" Grid.Column="0"
+                              Template="{StaticResource MyGridViewColumnHeader}"
+                              ToolTip="{Binding WorkshopSortHelpText}"
+                              ToolTipService.ShowDuration="60000" Tag="Workshop">
+          <Image Width="20" Height="20" Source="{StaticResource steam}" />
+        </GridViewColumnHeader>
+        <GridViewColumnHeader x:Name="CustomLordNameHeader" Grid.Column="1"
+                              Content="{Binding NameHeaderText}"
+                              Template="{StaticResource MyGridViewColumnHeader}"
+                              ToolTip="{Binding NameSortHelpText}"
+                              ToolTipService.ShowDuration="60000" Tag="Name" />
+        <GridViewColumnHeader x:Name="CustomLordPowerHeader" Grid.Column="2"
+                              Content="{Binding PowerHeaderText}"
+                              Template="{StaticResource MyGridViewColumnHeader}"
+                              ToolTip="{Binding PowerSortHelpText}"
+                              ToolTipService.ShowDuration="60000" Tag="Power" />
+      </Grid>
+    </Content>
+  </Operation>
+  <Operation Type="InsertBefore" XPath="//n:Button[@CommandParameter='AddCustomLord']">
+    <Content>
+      <Grid x:Name="CustomLordSearchPanel" Width="200" Height="196" Margin="0,0,20,110"
+            HorizontalAlignment="Right" VerticalAlignment="Bottom"
+            Visibility="{Binding EnhancementVisibility}">
+        <Grid.Resources>
+          <Style TargetType="{x:Type ToolTip}">
+            <Setter Property="Background" Value="#FF1D1710" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontSize" Value="{x:Static shared:ToolTipPresentation.FontSize}" />
+            <Setter Property="BorderBrush" Value="#FFF2D48A" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Template">
+              <Setter.Value>
+                <ControlTemplate TargetType="{x:Type ToolTip}">
+                  <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                          BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="2" Padding="10,7"
+                          MaxWidth="{x:Static shared:ToolTipPresentation.MaximumWidth}">
+                    <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}"
+                               FontSize="{x:Static shared:ToolTipPresentation.FontSize}" TextWrapping="Wrap" />
+                  </Border>
+                </ControlTemplate>
+              </Setter.Value>
+            </Setter>
+          </Style>
+        </Grid.Resources>
+        <Grid x:Name="SelectedCustomLordPreview" Width="72" Height="72"
+              HorizontalAlignment="Center" VerticalAlignment="Top"
+              IsHitTestVisible="False" Visibility="{Binding SelectedLordPortraitVisibility}">
+          <Image x:Name="SelectedCustomLordBackground" Width="72" Height="72"
+                 HorizontalAlignment="Center" VerticalAlignment="Center"
+                 Source="{StaticResource Face Background Generic}" />
+          <Image x:Name="SelectedCustomLordPortrait" Width="72" Height="72"
+                 HorizontalAlignment="Center" VerticalAlignment="Center" Stretch="Fill"
+                 Source="{Binding SelectedLordPortrait}" />
+        </Grid>
+        <Border x:Name="RandomCustomLordButtonFrame" Width="78" Height="78" Margin="0,78,0,0"
+                HorizontalAlignment="Center" VerticalAlignment="Top" CornerRadius="2"
+                BorderThickness="2">
+          <Border.Style>
+            <Style TargetType="{x:Type Border}">
+              <Setter Property="BorderBrush" Value="#FFF2D48A" />
+              <Setter Property="Background" Value="#331D1710" />
+              <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                  <Setter Property="BorderBrush" Value="White" />
+                  <Setter Property="Background" Value="#662C1A0E" />
+                </Trigger>
+              </Style.Triggers>
+            </Style>
+          </Border.Style>
+          <Grid>
+            <Image x:Name="RandomCustomLordBackground" Width="72" Height="72"
+                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                   IsHitTestVisible="False" Source="{StaticResource Face Background Generic}" />
+            <Button x:Name="RandomCustomLordButton" Width="72" Height="72"
+                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                    local:PropEx.Sprite1="{StaticResource shield_options}"
+                    local:PropEx.Sprite2="{StaticResource shield_options}"
+                    local:PropEx.Sprite3="{StaticResource shield_options}"
+                    local:PropEx.Sprite4="{StaticResource shield_options}"
+                    Command="{Binding RandomCustomLordCommand}" Style="{StaticResource BTN_Image}"
+                    ToolTip="{Binding RandomCustomLordHelpText}" ToolTipService.ShowDuration="60000" />
+          </Grid>
+        </Border>
+        <TextBox x:Name="CustomLordSearchBox" Width="162" Height="34" MaxLength="64"
+                 HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                 Text="{Binding SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                 TextAlignment="Left" Focusable="True" />
+        <TextBlock Width="142" Height="34" Margin="10,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                   IsHitTestVisible="False" Foreground="#FFEFF3C6" FontSize="16"
+                   TextTrimming="CharacterEllipsis"
+                   Text="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_NEW_TEXT2_126]}"
+                   Visibility="{Binding SearchPlaceholderVisibility}" />
+        <Button x:Name="CustomLordSearchClearButton" Width="34" Height="34"
+                HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                local:PropEx.Sprite1="{StaticResource UI-Buttons L009}"
+                local:PropEx.Sprite2="{StaticResource UI-Buttons L010}"
+                Command="{Binding ClearSearchCommand}" Style="{StaticResource BTN_Building}"
+                ToolTip="{Binding ClearSearchHelpText}" ToolTipService.ShowDuration="60000" />
+      </Grid>
+    </Content>
+  </Operation>
+  <Operation Type="InsertAfter" XPath="//n:Button[@Name='RandomAI7']">
+    <Content>
+      <Grid x:Name="RandomLordFiltersSimple" Width="50" Height="80"
+            Margin="775,105,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"
+            Visibility="{Binding RandomLordFiltersVisibility}">
+        <Grid.Resources>
+          <Style TargetType="{x:Type ToolTip}">
+            <Setter Property="Background" Value="#FF1D1710" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontSize" Value="{x:Static shared:ToolTipPresentation.FontSize}" />
+            <Setter Property="BorderBrush" Value="#FFF2D48A" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Template">
+              <Setter.Value>
+                <ControlTemplate TargetType="{x:Type ToolTip}">
+                  <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                          BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="2" Padding="10,7"
+                          MaxWidth="{x:Static shared:ToolTipPresentation.MaximumWidth}">
+                    <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}"
+                               FontSize="{x:Static shared:ToolTipPresentation.FontSize}" TextWrapping="Wrap" />
+                  </Border>
+                </ControlTemplate>
+              </Setter.Value>
+            </Setter>
+          </Style>
+        </Grid.Resources>
+        <Grid Margin="0,0,0,0" Width="50" Height="30"
+              FlowDirection="{Binding GlobalTextFlowAL2R, Source={x:Static local:MainViewModel.Instance}}"
+              HorizontalAlignment="Left" VerticalAlignment="Top">
+          <CheckBox IsChecked="{Binding IncludeLocalCustomLords, Mode=TwoWay}"
+                    ToolTip="{Binding LocalCustomLordFilterHelp}" ToolTipService.ShowDuration="60000"
+                    Style="{StaticResource CheckBox_Template}" />
+          <Image Margin="22,0,-2,0" Source="{StaticResource user}" Width="30" Height="30"
+                 Stretch="Fill" IsHitTestVisible="False" />
+        </Grid>
+        <Grid Margin="0,25,0,0" Width="50" Height="30"
+              FlowDirection="{Binding GlobalTextFlowAL2R, Source={x:Static local:MainViewModel.Instance}}"
+              HorizontalAlignment="Left" VerticalAlignment="Top">
+          <CheckBox IsChecked="{Binding IncludeBuiltInLords, Mode=TwoWay}"
+                    ToolTip="{Binding BuiltInLordFilterHelp}" ToolTipService.ShowDuration="60000"
+                    Style="{StaticResource CheckBox_Template}" />
+          <Image Margin="22,0,-2,0" Source="{StaticResource ff}" Width="30" Height="30"
+                 Stretch="Fill" IsHitTestVisible="False" />
+        </Grid>
+        <Grid Margin="0,50,0,0" Width="50" Height="30"
+              FlowDirection="{Binding GlobalTextFlowAL2R, Source={x:Static local:MainViewModel.Instance}}"
+              HorizontalAlignment="Left" VerticalAlignment="Top">
+          <CheckBox IsChecked="{Binding IncludeWorkshopCustomLords, Mode=TwoWay}"
+                    ToolTip="{Binding WorkshopCustomLordFilterHelp}" ToolTipService.ShowDuration="60000"
+                    Style="{StaticResource CheckBox_Template}" />
+          <Image Margin="22,0,-2,0" Source="{StaticResource steam}" Width="30" Height="30"
+                 Stretch="Fill" IsHitTestVisible="False" />
+        </Grid>
+      </Grid>
+    </Content>
+  </Operation>
+  <Operation Type="InsertAfter" XPath="//n:Slider[@Name='AIMax_Slider']">
+    <Content>
+      <Grid x:Name="RandomLordFiltersAdvanced" Width="50" Height="80"
+            Margin="350,115,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"
+            Visibility="{Binding RandomLordFiltersVisibility}">
+        <Grid.Resources>
+          <Style TargetType="{x:Type ToolTip}">
+            <Setter Property="Background" Value="#FF1D1710" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontSize" Value="{x:Static shared:ToolTipPresentation.FontSize}" />
+            <Setter Property="BorderBrush" Value="#FFF2D48A" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Template">
+              <Setter.Value>
+                <ControlTemplate TargetType="{x:Type ToolTip}">
+                  <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                          BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="2" Padding="10,7"
+                          MaxWidth="{x:Static shared:ToolTipPresentation.MaximumWidth}">
+                    <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}"
+                               FontSize="{x:Static shared:ToolTipPresentation.FontSize}" TextWrapping="Wrap" />
+                  </Border>
+                </ControlTemplate>
+              </Setter.Value>
+            </Setter>
+          </Style>
+        </Grid.Resources>
+        <Grid Margin="0,0,0,0" Width="50" Height="30"
+              FlowDirection="{Binding GlobalTextFlowAL2R, Source={x:Static local:MainViewModel.Instance}}"
+              HorizontalAlignment="Left" VerticalAlignment="Top">
+          <CheckBox IsChecked="{Binding IncludeLocalCustomLords, Mode=TwoWay}"
+                    ToolTip="{Binding LocalCustomLordFilterHelp}" ToolTipService.ShowDuration="60000"
+                    Style="{StaticResource CheckBox_Template}" />
+          <Image Margin="22,0,-2,0" Source="{StaticResource user}" Width="30" Height="30"
+                 Stretch="Fill" IsHitTestVisible="False" />
+        </Grid>
+        <Grid Margin="0,25,0,0" Width="50" Height="30"
+              FlowDirection="{Binding GlobalTextFlowAL2R, Source={x:Static local:MainViewModel.Instance}}"
+              HorizontalAlignment="Left" VerticalAlignment="Top">
+          <CheckBox IsChecked="{Binding IncludeBuiltInLords, Mode=TwoWay}"
+                    ToolTip="{Binding BuiltInLordFilterHelp}" ToolTipService.ShowDuration="60000"
+                    Style="{StaticResource CheckBox_Template}" />
+          <Image Margin="22,0,-2,0" Source="{StaticResource ff}" Width="30" Height="30"
+                 Stretch="Fill" IsHitTestVisible="False" />
+        </Grid>
+        <Grid Margin="0,50,0,0" Width="50" Height="30"
+              FlowDirection="{Binding GlobalTextFlowAL2R, Source={x:Static local:MainViewModel.Instance}}"
+              HorizontalAlignment="Left" VerticalAlignment="Top">
+          <CheckBox IsChecked="{Binding IncludeWorkshopCustomLords, Mode=TwoWay}"
+                    ToolTip="{Binding WorkshopCustomLordFilterHelp}" ToolTipService.ShowDuration="60000"
+                    Style="{StaticResource CheckBox_Template}" />
+          <Image Margin="22,0,-2,0" Source="{StaticResource steam}" Width="30" Height="30"
+                 Stretch="Fill" IsHitTestVisible="False" />
+        </Grid>
+      </Grid>
+    </Content>
+  </Operation>
+  <Operation Type="InsertBefore" XPath="//n:Button[@Name='MultiplayerPlayButton']">
+    <Content>
+      <TextBlock x:Name="BugfixesAndQoLAivSyncStatusHost" Width="520" Height="44"
+                 Margin="0,0,165,22" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                 Foreground="White" FontSize="17" TextAlignment="Right" TextWrapping="Wrap"
+                 Text="{Binding SyncStatusText}" Visibility="{Binding SyncStatusVisibility}" />
+    </Content>
+  </Operation>
+</Patch>

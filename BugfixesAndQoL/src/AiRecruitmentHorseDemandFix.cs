@@ -1,5 +1,6 @@
 // Feature: Prevent a horse-only recruitment failure from reusing a stale missing-good id.
 using BepInEx.Logging;
+using SHCDESE.Interop;
 using System;
 using System.Runtime.InteropServices;
 using RedBird.Abstractions.Hooks;
@@ -20,7 +21,7 @@ namespace BugfixesAndQoL
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate int RecruitEuropeanUnitDelegate(
-            IntPtr unitManager,
+            GameUnitManager* unitManager,
             int unitType,
             int spawnContext,
             int playerId,
@@ -37,9 +38,9 @@ namespace BugfixesAndQoL
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
 
-            // The entry signature proves the result-code field at +0x650, but the
-            // companion missing-good field at +0x654 is written only in later branches.
-            // Do not write that fixed manager layout on an unknown native build.
+            // The entry signature proves the recruitment-result layout, while later
+            // branches write the companion missing-good field. Keep the typed write
+            // hash-gated because the manager pointer originates in native code.
             if (!referenceHashMatches)
             {
                 throw new InvalidOperationException(
@@ -90,20 +91,17 @@ namespace BugfixesAndQoL
         }
 
         private int RecruitEuropeanUnit(
-            IntPtr unitManager,
+            GameUnitManager* unitManager,
             int unitType,
             int spawnContext,
             int playerId,
             int validationOnly)
         {
-            if (unitManager != IntPtr.Zero && IsEnabled)
+            if (unitManager != null && IsEnabled)
             {
                 // Vanilla clears the error code but not this companion output. A horse-only
                 // failure would otherwise leave the AI reading an earlier weapon id.
-                WriteManagerInt(
-                    unitManager,
-                    AiRecruitmentHorseDemandNativeDefinition.MissingGoodIdOffset,
-                    0);
+                unitManager->r_RecruitmentResultMissingGoodId = 0;
             }
 
             return recruitHook.Original(
@@ -115,8 +113,5 @@ namespace BugfixesAndQoL
         }
 
         private bool IsEnabled => settings.EnableMod && settings.EnableAiFixes;
-
-        private static void WriteManagerInt(IntPtr unitManager, int offset, int value) =>
-            *(int*)((byte*)unitManager.ToPointer() + offset) = value;
     }
 }

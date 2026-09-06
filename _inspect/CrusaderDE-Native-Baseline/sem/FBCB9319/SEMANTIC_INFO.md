@@ -2,11 +2,11 @@
 
 ## Identity and scope
 
-- Created: 2026-09-01, Europe/Berlin
+- Created: 2026-09-01; Script Extender knowledge refreshed for 2.2.0 on 2026-09-06, Europe/Berlin
 - Current native DLL SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
 - Current `Assembly-CSharp.dll` SHA-256: `BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789`
 - Historical native DLL SHA-256: `17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4`
-- Script Extender commit: `171d68e155a8f98c5f8c4ee154d9af154c9a2443`
+- Script Extender commit: `10d28f717d38166e5875c666f20fc5653ae44b0c` (`v2.2.0`)
 - PE image base for both native DLLs: `0x180000000`
 - PDB GUID and missing Jenkins PDB path are documented in the parent `SCAN_INFO.md`.
 
@@ -66,17 +66,17 @@ The previously observed `GatehouseQueryEventArgs.UnitId` index mismatch is delib
 
 ## Script Extender knowledge
 
-The Roslyn extractor scanned 460 source/header files and records the Git commit, relative path, source line and SHA-256 source-file hash with each derived fact.
+The Roslyn extractor scanned 478 source/header files and records the Script Extender 2.2.0 Git commit, relative path, source line and SHA-256 source-file hash with each derived fact.
 
-- AOB definitions: 332
-- Delegate signatures: 135
-- Struct/enum declarations: 81
-- Structured type fields/properties: 9,389
+- AOB definitions: 334
+- Delegate signatures: 137
+- Struct/enum declarations: 105
+- Structured type fields/properties: 9,492
 - Structured VTable members: 345
 
 AOB results for each native DLL:
 
-- 330 patterns produced exactly one match.
+- 332 patterns produced exactly one match.
 - 2 patterns produced two matches each; their four match records remain non-unique and were not applied.
 - No pattern produced zero matches.
 - 9 patterns were statically recognized as direct native functions.

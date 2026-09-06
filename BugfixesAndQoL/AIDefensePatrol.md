@@ -360,7 +360,7 @@ Dafür gelten strengere Anforderungen:
 - Erst danach den Vanilla-Wallhelfer verwenden.
 - Fehler oder unklare Tribe-Zustände dürfen keine Doppelmitgliedschaft erzeugen.
 
-Für Script Extender 2.0.2 darf `GameTribeManagerAPI.UnassignUnit` nicht ungeprüft verwendet werden. Der Wrapper reicht nach lokaler, hashvalidierter Analyse die Parameter gegenüber dem nativen Vertrag in falscher Reihenfolge weiter. `AIDefense/src/AIDefenseTribeUnassignAdapter.cs` enthält ein vorhandenes eigenständiges Adaptermuster. Ein neuer Mod muss trotzdem seinen eigenen validierten Adapter besitzen und darf keine Runtime-Abhängigkeit zu `AIDefense` einführen.
+Script Extender 2.2.0 korrigiert `GameTribeManagerAPI.UnassignUnit(tribeId, unitId)`. Mods für diese Zielversion müssen den öffentlichen Wrapper mit eigenen Vor- und Nachkontrollen verwenden und dürfen den nur für exakt 2.0.2 nötigen direkten nativen Adapter nicht übernehmen. Eine Runtime-Abhängigkeit zu `AIDefense` bleibt unzulässig.
 
 Diese Reparatur ist invasiver und sollte als separat zuschaltbare zweite Stufe erst nach erfolgreichem Zweigfix entstehen.
 
@@ -399,7 +399,7 @@ Die Aussage, dass eine gemischte Patrouillengruppe insgesamt mit der langsamsten
 
 - Eigenständiger Mod ohne harte oder stille Abhängigkeit zu anderen Workspace-Mods.
 - Keine überlappenden nativen Hooks mit `AIDefense`; dessen derzeitiger Zweck, geschützte Fernverteidiger in eigenen Tribes zu verwalten, ist von diesem Fehler verschieden.
-- Zielvertrag zunächst Script Extender 2.0.2, solange die tatsächlichen Referenzen des neuen Projekts nichts anderes festlegen.
+- Zielvertrag ist Script Extender 2.2.0; bei späteren Extender-Updates sind die tatsächlichen Referenzen und Verträge erneut zu prüfen.
 - Gameplayrelevanter Mod: `info.json` später mit `NetworkMode=1`.
 - Langfristige Runtime und native Hooks nicht im normalen `BaseUnityPlugin.OnDestroy()` entfernen, da dieser Callback beim SHCDE-Startup vorzeitig auftreten kann.
 - Simulationstätigkeit über Script-Extender-Ereignisse beziehungsweise `GameTimeManagerAPI.OnTick`, nicht über das `Update` einer früh erzeugten Plugin-Komponente.

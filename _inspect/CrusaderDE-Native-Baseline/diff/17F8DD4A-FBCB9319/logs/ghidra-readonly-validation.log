@@ -256,3 +256,46 @@
 2026-09-02 11:44:56 INFO  (HeadlessAnalyzer) REPORT: Execute script: ValidateCrusaderBaseline.java
 2026-09-02 11:44:57 INFO  (HeadlessAnalyzer) SCRIPT: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\tools\ValidateCrusaderBaseline.java
 2026-09-02 11:44:57 INFO  (GhidraScript) ValidateCrusaderBaseline.java> VALIDATION_OK program=CrusaderDE.dll imageBase=180000000 minAddress=180000000 maxAddress=ff0000184f functions=4575 strings=4235 xrefs=236245 imageBaseFunction=none
+2026-09-06 15:32:20 INFO  (LoggingInitialization) Using log config file: jar:file:/D:/CDesktopLink/Unterlagen/Mods/Stronghold%20Crusader%20DE/Meine%20Mods/.tools/ghidra-12.1.3/ghidra_12.1.3_PUBLIC/Ghidra/Framework/Generic/lib/Generic.jar!/generic.log4j.xml
+2026-09-06 15:32:20 INFO  (LoggingInitialization) Using log file: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\diff\17F8DD4A-FBCB9319\logs\ghidra-readonly-validation.log
+2026-09-06 15:32:20 DEBUG (GhidraObjectInputFilter) Including serial input filter: FileSystem/data/client.rmi.serial.filter
+2026-09-06 15:32:20 INFO  (Preferences) Loading user preferences: C:\Users\Serpens66\AppData\Roaming\ghidra\ghidra_12.1.3_PUBLIC\preferences
+2026-09-06 15:32:20 INFO  (ClassSearcher) Searching for classes...
+2026-09-06 15:32:21 INFO  (ClassSearcher) Class search complete (670 ms)
+2026-09-06 15:32:21 INFO  (DefaultSSLContextInitializer) Initializing SSL Context
+2026-09-06 15:32:21 INFO  (SecureRandomFactory) Initializing Random Number Generator...
+2026-09-06 15:32:21 INFO  (SecureRandomFactory) Random Number Generator initialization complete: SHA1PRNG
+2026-09-06 15:32:21 INFO  (DefaultTrustManagerFactory) Trust manager disabled, cacerts have not been set
+2026-09-06 15:32:21 INFO  (AnalyzeHeadless) Headless startup complete (1711 ms)
+2026-09-06 15:32:21 INFO  (ClassSearcher) Class searcher loaded 59 extension points (20 false positives)
+2026-09-06 15:32:21 INFO  (HeadlessAnalyzer) HEADLESS Script Paths:
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Processors\PIC\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\GnuDemangler\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Processors\Atmel\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Processors\DATA\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\BytePatterns\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\Decompiler\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Debug\Debugger-rmi-trace\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\Base\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\PDB\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\WildcardAssembler\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\BSim\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\FunctionID\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\VersionTracking\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\FileFormats\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\tools
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\DecompilerDependent\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\SwiftDemangler\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Debug\Debugger\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\SystemEmulation\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Processors\8051\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\PyGhidra\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Processors\JVM\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\MicrosoftCodeAnalyzer\ghidra_scripts
+2026-09-06 15:32:21 INFO  (HeadlessAnalyzer) HEADLESS: execution starts
+2026-09-06 15:32:21 INFO  (HeadlessAnalyzer) Opening existing project: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\diff\17F8DD4A-FBCB9319\ghidra\CrusaderDE-Historical
+2026-09-06 15:32:22 INFO  (HeadlessProject) Opening project: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\diff\17F8DD4A-FBCB9319\ghidra\CrusaderDE-Historical
+2026-09-06 15:32:23 INFO  (HeadlessAnalyzer) REPORT: Processing read-only project file: /CrusaderDE.dll
+2026-09-06 15:32:23 INFO  (HeadlessAnalyzer) REPORT: Execute script: ValidateCrusaderBaseline.java
+2026-09-06 15:32:24 INFO  (HeadlessAnalyzer) SCRIPT: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\tools\ValidateCrusaderBaseline.java
+2026-09-06 15:32:25 INFO  (GhidraScript) ValidateCrusaderBaseline.java> VALIDATION_OK program=CrusaderDE.dll imageBase=180000000 minAddress=180000000 maxAddress=ff0000184f functions=4575 strings=4235 xrefs=236245 imageBaseFunction=none

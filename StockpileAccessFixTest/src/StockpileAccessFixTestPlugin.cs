@@ -92,7 +92,7 @@ namespace StockpileAccessFixTest
                 {
                     Shared.DebugLogHelper.LogWarning(
                         persistentLog,
-                        "Script Extender differs from the audited 2.0.2 commit; native recovery remains hash-gated.");
+                        "Script Extender differs from the audited 2.2.0 commit; native recovery remains hash-gated.");
                 }
             }
             catch (Exception exception)

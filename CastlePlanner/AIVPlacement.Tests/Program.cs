@@ -73,7 +73,7 @@ internal static class Program
             ("aligns native rotation to the live Keep footprint", AlignsNativeRotationToLiveKeepFootprint),
             ("resolves rotated BuildStructure origins", ResolvesRotatedBuildStructureOrigins),
             ("preserves compound storage placement order", PreservesCompoundStoragePlacementOrder),
-            ("pins CastlePlanner to RedBird 2.0.2", PinsCastlePlannerToRedBird202)
+            ("pins CastlePlanner to RedBird for Script Extender 2.2.0", PinsCastlePlannerToRedBird220)
         };
 
         int failures = 0;
@@ -435,7 +435,7 @@ internal static class Program
             "optional reflection status bridge is missing");
     }
 
-    private static void PinsCastlePlannerToRedBird202()
+    private static void PinsCastlePlannerToRedBird220()
     {
         string root = FindCastlePlannerRoot();
         string plugin = File.ReadAllText(Path.Combine(root, "src", "CastlePlannerPlugin.cs"));
@@ -448,10 +448,10 @@ internal static class Program
             "ScriptExtenderUI", "CastlePlannerSettings.xaml"));
 
         Assert(plugin.Contains("BepInDependency(ScriptExtenderGuid, \"2.2.0\")", StringComparison.Ordinal),
-            "Script Extender dependency is not exact 2.0.2");
+            "Script Extender dependency is not exact 2.2.0");
         Assert(plugin.Contains("OnCrusaderLibraryLoaded(CrusaderLibraryLoadContext context)", StringComparison.Ordinal) &&
             plugin.Contains("runtime.Install(context, currentNativeLayout)", StringComparison.Ordinal),
-            "CastlePlanner does not propagate the 2.0.2 load context");
+            "CastlePlanner does not propagate the 2.2.0 load context");
         Assert(runtime.Contains("new HookHandle<X64InlineHook>()", StringComparison.Ordinal) &&
             runtime.Contains("HookTarget.FromAddress(", StringComparison.Ordinal) &&
             runtime.Contains("new ContextHookOptions", StringComparison.Ordinal),
@@ -470,7 +470,7 @@ internal static class Program
             !project.Contains("Zhuqiaomon.dll", StringComparison.Ordinal) &&
             !project.Contains("PolyHook2.NET.dll", StringComparison.Ordinal) &&
             !project.Contains("Iced.dll", StringComparison.Ordinal),
-            "CastlePlanner project references do not match RedBird 2.0.2");
+            "CastlePlanner project references do not match RedBird 2.2.0");
         Assert(manifest.Contains("\"NetworkMode\": 1", StringComparison.Ordinal),
             "CastlePlanner is not classified as gameplay-synchronized");
         Assert(settingsXaml.Contains("HorizontalScrollBarVisibility=\"Auto\"", StringComparison.Ordinal) &&

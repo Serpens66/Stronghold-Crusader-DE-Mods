@@ -183,6 +183,29 @@ local AddStartTroops = {
 -- helper functions
 local EVENT_ARG_KEYS={"Phase","SkipOriginalFunction","PlayerId","ContextPlayerId","SourcePlayerId","TargetPlayerId","PlayerIdOwner","UnitId","UnitType","TroopType","Good","Amount","BuildingType","StructureType","X","Y","TargetValue1","TargetValue2","ReturnValue","Mappers"}local function vstr(v)if v==nil then return"nil"end;if type(v)=="string"then return string.format("%q",v)end;return tostring(v)end;function event_args_to_string(args)if args==nil then return"eventArgs=nil"end;local parts={}for _,key in ipairs(EVENT_ARG_KEYS)do local ok,value=pcall(function()return args[key]end)if ok and value~=nil then parts[#parts+1]=key.."="..vstr(value)end end;if#parts==0 then return"eventArgs="..tostring(args)end;return"eventArgs{"..table.concat(parts,", ").."}"end;local function log_info(message)local text=MOD_NAME..": "..tostring(message)if Log~=nil and eLogEventLevel~=nil then Log(eLogEventLevel.Information,text)else print(text)end end;local raw_log_info=log_info;local function log_info(...)local parts={}for i=1,select("#",...)do parts[#parts+1]=tostring(select(i,...))end;raw_log_info(table.concat(parts," "))end
 
+local function smoke_test_game_type_mode()
+  if eGameTypeModes == nil or Player_GetCurrentGameTypeMode == nil then
+    log_info("SHCDESE 2.2.0 game-type smoke unavailable: enum or getter is missing")
+    return
+  end
+
+  local ok, mode = pcall(Player_GetCurrentGameTypeMode)
+  if not ok then
+    log_info("SHCDESE 2.2.0 game-type smoke failed:", mode)
+    return
+  end
+
+  local valid = mode == eGameTypeModes.GAMETYPE_CAMPAIGN
+    or mode == eGameTypeModes.GAMETYPE_BUILDER
+    or mode == eGameTypeModes.GAMETYPE_MAP
+    or mode == eGameTypeModes.GAMETYPE_MULTIPLAYER
+    or mode == eGameTypeModes.GAMETYPE_TUTORIAL
+    or mode == eGameTypeModes.GAMETYPE_SIEGE_THAT_BUILDER
+    or mode == eGameTypeModes.GAMETYPE_MAP_TRAIL
+    or mode == eGameTypeModes.GAMETYPE_MAP_TRAIL2
+  log_info("SHCDESE 2.2.0 game-type smoke: mode=", mode, " valid=", valid)
+end
+
 local function vec_xy(v)
     local okX, x = pcall(function() return v.X end)
     local okY, y = pcall(function() return v.Y end)
@@ -493,7 +516,7 @@ end
 
 
 local function CodeOnNewGame()
-  
+  smoke_test_game_type_mode()
   DoAdvancedSettings()
   ReplaceStartGoods()
   DoStartGold()
@@ -502,7 +525,7 @@ local function CodeOnNewGame()
 end
 
 local function CodeOnLoadGame()
-
+    smoke_test_game_type_mode()
     DoAdvancedSettings()
     
     -- ################################

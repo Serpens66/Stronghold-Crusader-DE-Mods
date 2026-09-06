@@ -177,7 +177,7 @@ namespace EnemyGatePathfindingTest
             if (cursorRva != EnemyGatePathfindingNativeDefinition.CursorPclDecisionRva)
                 throw new InvalidOperationException("cursor PCL decision resolved outside its audited RVA");
 
-            // RedBird 2.0.2: at this exact site,
+            // RedBird 2.2.0: at this exact site,
             // AfterCallback executes the managed callback before relocating TEST/LEA/MOV.
             cursorTransaction = new HookTransaction(
                 region,
@@ -414,7 +414,7 @@ namespace EnemyGatePathfindingTest
             if (now < Volatile.Read(ref nextUnitRefreshAt))
                 return;
             Volatile.Write(ref nextUnitRefreshAt, now + UnitRefreshInterval);
-            // Script Extender 2.0.2: IDs are one-based while Span
+            // Script Extender 2.2.0: IDs are one-based while Span
             // indices are zero-based. This API work occurs only in the deferred path.
             Span<GameUnit> span = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
             int[] owners = new int[span.Length + 1];

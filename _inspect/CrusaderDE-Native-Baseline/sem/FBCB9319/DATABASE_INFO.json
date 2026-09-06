@@ -3,15 +3,15 @@
   "database": {
     "path": "sem/FBCB9319/CrusaderDE-semantic.sqlite",
     "schemaVersion": 3,
-    "referenceSize": 154857472,
-    "referenceSha256": "21384620E1F9A084A3177BF308FD98EB08308942C17E8891B7224045864724B3",
+    "referenceSize": 154914816,
+    "referenceSha256": "9CCEC6EDC4BC57B6DCE4F32F681486869BA625EBA95E0FBA42FA1367E8D108CA",
     "referenceSqliteVersion": "3.45.3"
   },
   "identities": {
     "currentNativeHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
     "managedHash": "BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789",
     "oldNativeHash": "17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4",
-    "scriptExtenderCommit": "171d68e155a8f98c5f8c4ee154d9af154c9a2443"
+    "scriptExtenderCommit": "10d28f717d38166e5875c666f20fc5653ae44b0c"
   },
   "binaries": [
     {
@@ -29,7 +29,7 @@
     {
       "hash": "17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4",
       "role": "historical-native",
-      "sourcePath": "x86_64\\CrusaderDE.dll",
+      "sourcePath": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\x86_64\\CrusaderDE.dll",
       "size": 3446784
     }
   ],
@@ -60,12 +60,12 @@
       "pinvokes": 84,
       "managed_calls": 72559,
       "managed_native_links": 56123,
-      "patterns": 668,
+      "patterns": 672,
       "data_types": 259,
-      "source_types": 81,
-      "type_fields": 9389,
+      "source_types": 105,
+      "type_fields": 9492,
       "vtable_members": 345,
-      "delegates": 135,
+      "delegates": 137,
       "rtti_vtables": 142,
       "xaml_resources": 105,
       "xaml_links": 7860,
@@ -76,8 +76,8 @@
   "inputs": [
     {
       "path": "sem/FBCB9319/IDENTITY.json",
-      "sha256": "551AF76BB4A9685440472F4E560737B1E442FF11D075D253F326FE0AF5E0D7B9",
-      "bytes": 336
+      "sha256": "0AA8772C77349DB6443EAF736C478042401B2DB3ACD89BD9D296B6FA2BF731E6",
+      "bytes": 335
     },
     {
       "path": "diff/17F8DD4A-FBCB9319/IDENTITY.json",
@@ -91,8 +91,8 @@
     },
     {
       "path": "sem/FBCB9319/exports/semantic-decompiled-functions.c",
-      "sha256": "012C77F892EB927144AC857EE1C2AF690D61E371066BAF307EBAB3108F92B291",
-      "bytes": 10856822
+      "sha256": "E14708C1D3092CE6FA139113B28310DDBB4FEF77AD0669623473BD762CD3F3E5",
+      "bytes": 10855941
     },
     {
       "path": "sem/FBCB9319/exports/globals.jsonl",
@@ -111,8 +111,8 @@
     },
     {
       "path": "sem/FBCB9319/knowledge/function-claims.jsonl",
-      "sha256": "2BF9F11532A0FBB53DA8DCCFEBEFDA41CCE6A9CFB15A424E380D36A21956C12A",
-      "bytes": 42794
+      "sha256": "EEF3026D423D0D7C48E7B2DCDF66179EB7E1CB05DFEFFD96B7FAC15E2119125A",
+      "bytes": 42799
     },
     {
       "path": "sem/FBCB9319/knowledge/hook-spans.jsonl",
@@ -216,28 +216,28 @@
     },
     {
       "path": "sem/FBCB9319/sources/pattern-matches.jsonl",
-      "sha256": "C97C8A87399AEB6E93C8B68E496DE1EBC240D67AF935120FECE9B8D19F942D5C",
-      "bytes": 374784
+      "sha256": "5ACF6BBB5FFA1E947FB8D4ED40C497073DF619F4A4BF7F4C01E176BB144284F8",
+      "bytes": 376412
     },
     {
       "path": "sem/FBCB9319/sources/source-types.jsonl",
-      "sha256": "AFC88340736CD110E8D1DB25F218F27F977C657E5BF42280D5BB0BD6B6E8787D",
-      "bytes": 575997
+      "sha256": "6835D601E2F6944B3DF38CF5371277EF12534457B67D16BD4B4E6123C8B9A0DB",
+      "bytes": 602517
     },
     {
       "path": "sem/FBCB9319/sources/type-fields.jsonl",
-      "sha256": "30B85DC844C5FB3856E3C0DA4813E4C379547CEE23F9C91ED39AE9C849B66BB5",
-      "bytes": 3728760
+      "sha256": "76F3D77A0EFBB4AE6972BFAC49237DB137CF1589606670535084E83DDCCEE363",
+      "bytes": 3772763
     },
     {
       "path": "sem/FBCB9319/sources/vtable-members.jsonl",
-      "sha256": "34C821A3E5EFF7FD153C606764BCA395C8C1C4DD24F5B8F928FF7ACFEB2E6CC2",
+      "sha256": "0E81A1F2DD4306580BB203AB41D986AA9D6EFFF55212A97524FE47B11376A726",
       "bytes": 170249
     },
     {
       "path": "sem/FBCB9319/sources/delegates.jsonl",
-      "sha256": "810B6A864BC4093194AC933E720DB2EC7DD86F02573328406A9B725D2B45ADB6",
-      "bytes": 86944
+      "sha256": "79BD5CD9826E05E6EF874B051235021B8671FFA5977C6718D848F10E83811073",
+      "bytes": 88097
     },
     {
       "path": "sem/FBCB9319/resources/xaml-index.jsonl",

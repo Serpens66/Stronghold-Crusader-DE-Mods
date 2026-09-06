@@ -1228,7 +1228,7 @@ namespace UnitCosts
 
         private static unsafe int GetStableHorseSlotUnitId(GameBuilding* stable, int slot)
         {
-            // Script Extender 2.0.2's getter reads these ushort fields through int*, so use
+            // Script Extender 2.2.0's getter reads these ushort fields through int*, so use
             // explicit, range-checked field access until that API is corrected upstream.
             switch (slot)
             {

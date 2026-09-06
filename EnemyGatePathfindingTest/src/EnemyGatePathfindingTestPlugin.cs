@@ -100,7 +100,7 @@ namespace EnemyGatePathfindingTest
                 runtime = installed;
                 if (!gameTickInstalled)
                 {
-                    // Script Extender 2.0.2 OnTick is used only to
+                    // Script Extender 2.2.0 OnTick is used only to
                     // invalidate accepted gate state; rebuilding remains deferred.
                     GameTimeManagerAPI.Instance.OnTick += ProcessGameTick;
                     gameTickInstalled = true;
@@ -143,7 +143,7 @@ namespace EnemyGatePathfindingTest
                 {
                     Shared.DebugLogHelper.LogWarning(
                         persistentLog,
-                        "Script Extender differs from the audited 2.0.2 commit. Review every UPDATE REVIEW marker before accepting test results.");
+                        "Script Extender differs from the audited 2.2.0 commit. Review every UPDATE REVIEW marker before accepting test results.");
                 }
             }
             catch (Exception ex)

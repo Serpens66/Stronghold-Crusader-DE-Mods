@@ -457,7 +457,7 @@ namespace ExtraFeatures
                 if (!TryGetLiveGatehouse(args.BuildingId, out GameBuilding* building, out _))
                     return;
 
-                // Script Extender 2.0.2 supplies the normal one-based game ID.
+                // Script Extender 2.2.0 supplies the normal one-based game ID.
                 // Validate that boundary directly; applying the old +1 correction
                 // would silently select the adjacent unit for most valid values.
                 int eventUnitId = args.UnitId;

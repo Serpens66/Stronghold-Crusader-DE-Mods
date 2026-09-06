@@ -187,7 +187,7 @@ void ValidateScriptExtenderIntegration()
             throw new Exception("Legacy hook contract remains: " + forbidden);
     foreach (string required in new[]{"RedBird.Abstractions.dll", "RedBird.Core.dll", "RedBird.X64.dll", "RedBird.Backends.NativeX64.dll"})
         if (!project.Contains(required, StringComparison.Ordinal))
-            throw new Exception("Missing RedBird 2.0.2 reference validation: " + required);
+            throw new Exception("Missing RedBird reference shipped with Script Extender 2.2.0: " + required);
     if (!runtime.Contains("FailureMode = TransactionFailureMode.RollbackAndThrow", StringComparison.Ordinal) ||
         !runtime.Contains("OwnsHooks = true", StringComparison.Ordinal) ||
         !runtime.Contains("Handle.Failure == null", StringComparison.Ordinal) ||
@@ -238,11 +238,11 @@ void ValidateRuntimeSources()
     string game=@"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition";
     string extender=Path.Combine(game,"BepInEx","plugins","000shcdese");
     if(!File.Exists(Path.Combine(extender,"SHCDESE.dll")))
-        throw new Exception("Installed Script Extender 2.0.2 test references are required.");
+        throw new Exception("Installed Script Extender 2.2.0 test references are required.");
     string productVersion=System.Diagnostics.FileVersionInfo.GetVersionInfo(Path.Combine(extender,"SHCDESE.dll")).ProductVersion;
     string referenceVersion=productVersion?.Split('+')[0];
-    if(referenceVersion!="2.0.2" && referenceVersion!="2.2.0")
-        throw new Exception("Installed reference is not an audited Script Extender baseline: "+productVersion);
+    if(referenceVersion!="2.2.0")
+        throw new Exception("Installed reference is not Script Extender 2.2.0: "+productVersion);
     var paths=new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase);
     void Include(string path)
     {
@@ -265,7 +265,7 @@ void ValidateRuntimeSources()
         "(FriendlyMoatMovementMode)FriendlyMoatMovementPolicy.Normalize(FriendlyMoatMovementMode); } }");
     var sources=trees.Concat(new[]{settingsStub}).Concat(new[]{"DebugLogHelper.cs","NativePatternResolver.cs","SerpLocalization.cs","PresetLobbyModSettingsViewModel.cs","ModSettingsSearch.cs","ToolTipPresentation.cs","GameModeHelper.cs"}.Select(file=>
         CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"Shared",file)),path:file))).ToArray();
-    var check=CSharpCompilation.Create("FriendlyMoatMovementSourceContract202",sources,
+    var check=CSharpCompilation.Create("FriendlyMoatMovementSourceContract220",sources,
         paths.Values.Select(p=>MetadataReference.CreateFromFile(p)),
         new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary,allowUnsafe:true));
     var diagnostics=check.GetDiagnostics();
@@ -278,8 +278,8 @@ void ValidateRuntimeSources()
         Include(Path.Combine(game,"BepInEx","plugins","000shcdese",file));
     string installedVersion=System.Diagnostics.FileVersionInfo.GetVersionInfo(Path.Combine(game,"BepInEx","plugins","000shcdese","SHCDESE.dll")).ProductVersion;
     string installedRelease=installedVersion?.Split('+')[0];
-    if(installedRelease!="2.0.2" && installedRelease!="2.2.0") throw new Exception("Installed extender is not an audited release: "+installedVersion);
-    var installed=CSharpCompilation.Create("FriendlyMoatMovementInstalledContract202",sources,
+    if(installedRelease!="2.2.0") throw new Exception("Installed extender is not Script Extender 2.2.0: "+installedVersion);
+    var installed=CSharpCompilation.Create("FriendlyMoatMovementInstalledContract220",sources,
         paths.Values.Select(p=>MetadataReference.CreateFromFile(p)), new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary,allowUnsafe:true));
     var installedFailures=installed.GetDiagnostics().Where(d=>d.Severity==DiagnosticSeverity.Error).ToArray();
     if(installedFailures.Length>0)throw new Exception(string.Join("\n",installedFailures.Select(d=>d.ToString())));

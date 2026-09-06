@@ -20,7 +20,7 @@
     <GameDir>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir>
   </PropertyGroup>
   <PropertyGroup>
-    <!-- Audited against Script Extender 2.0.2, commit 6dc82d1d92b0935abc93cd43ac16cd8ddccc5f79. -->
+    <!-- Audited against Script Extender 2.2.0, commit 10d28f717d38166e5875c666f20fc5653ae44b0c. -->
     <LocalScriptExtenderRoot>$(MSBuildThisFileDirectory)..\shcde-script-extender</LocalScriptExtenderRoot>
     <LocalScriptExtenderBuildOutput>$(LocalScriptExtenderRoot)\src\SHCDESE.BepInEx\bin\net481</LocalScriptExtenderBuildOutput>
     <LocalScriptExtenderModOutput>$(LocalScriptExtenderRoot)\mod_output\000shcdese</LocalScriptExtenderModOutput>

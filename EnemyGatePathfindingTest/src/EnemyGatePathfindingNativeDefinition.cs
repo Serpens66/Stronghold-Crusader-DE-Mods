@@ -11,7 +11,7 @@ namespace EnemyGatePathfindingTest
         public const string GetNextReachablePclPattern =
             "40 55 41 54 41 55 41 56 48 8D AC 24";
 
-        // UPDATE REVIEW (CrusaderDE.dll + Script Extender): 2.0.2 already detours
+        // UPDATE REVIEW (CrusaderDE.dll + Script Extender): 2.2.0 already detours
         // this exact function and exposes UnitR3EventHooks.OnUnitMoveHere. Do not add
         // a second overlapping detour. PCL/cursor validation precedes this command;
         // revalidate the event's Pre/Post placement, ABI, coordinates and signature.
@@ -67,7 +67,7 @@ namespace EnemyGatePathfindingTest
             "44 89 4C 24 20 44 89 44 24 18 53 55 56 57 41 54 41 55 41 56 " +
             "48 83 EC 50 48 63 F2 45 33 ED 33 D2 49 63 E8 49 63 C1 48 8B D9";
 
-        // UPDATE REVIEW (CrusaderDE.dll + RedBird 2.0.2): this is the ordinary movement
+        // UPDATE REVIEW (CrusaderDE.dll + RedBird 2.2.0): this is the ordinary movement
         // cursor's PCL-result decision documented by BugfixesAndQoL. The callback must run
         // before the relocated TEST so changing EAX to zero affects Vanilla's CMOV path.
         public const int CursorPclDecisionRva = 0x8F1C4;
@@ -146,8 +146,8 @@ namespace EnemyGatePathfindingTest
         public const ulong CommonPathBuilderEndRva = 0x19678D;
 
         // UPDATE REVIEW (Script Extender): rebuild and re-test against this exact source.
-        public const string AuditedScriptExtenderVersion = "2.0.2";
+        public const string AuditedScriptExtenderVersion = "2.2.0";
         public const string AuditedScriptExtenderCommit =
-            "6dc82d1d92b0935abc93cd43ac16cd8ddccc5f79";
+            "10d28f717d38166e5875c666f20fc5653ae44b0c";
     }
 }

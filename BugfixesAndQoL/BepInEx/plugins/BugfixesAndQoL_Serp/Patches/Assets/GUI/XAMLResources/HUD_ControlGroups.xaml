@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Operation Type="Add" XPath="//n:Grid[@x:Name='LayoutRootX']">
+    <Content>
+      <!-- The managed summary hook reuses this resolved ImageSource for Lord entries. -->
+      <Image x:Name="BugfixesAndQoLLordControlGroupIconSource"
+             Width="1"
+             Height="1"
+             IsHitTestVisible="False"
+             Source="{StaticResource BugfixesAndQoL-LordIcon}"
+             Visibility="Collapsed" />
+    </Content>
+  </Operation>
+</Patch>

@@ -1,14 +1,5 @@
 {"records":[
-  {"address":"1801e5f54","rva":"0x1E5F54","oldName":"c_game_malloc","name":"c_game_malloc","confidence":"confirmed","matchAddress":"1801e5f54","source":"src/SHCDESE.BepInEx/Detours/BulkAIDetours.cs:71"},
-  {"address":"1800c05b0","rva":"0xC05B0","oldName":"c_game_update_visual_goodsyard_goods","name":"c_game_update_visual_goodsyard_goods","confidence":"confirmed","matchAddress":"1800c05b0","source":"src/SHCDESE.BepInEx/Detours/BulkBuildingDetours.cs:125"},
-  {"address":"1800e2610","rva":"0xE2610","oldName":"c_game_get_next_reachable_pcl_to_destination_for_player","name":"c_game_get_next_reachable_pcl_to_destination_for_player","confidence":"confirmed","matchAddress":"1800e2610","source":"src/SHCDESE.BepInEx/Detours/BulkPlayerDetours.cs:152"},
-  {"address":"18000edf0","rva":"0xEDF0","oldName":"c_game_soundmanager_play_mono_sound","name":"c_game_soundmanager_play_mono_sound","confidence":"confirmed","matchAddress":"18000edf0","source":"src/SHCDESE.BepInEx/Detours/BulkSoundDetours.cs:23"},
-  {"address":"18006e620","rva":"0x6E620","oldName":"c_game_update_visual_resourcetile","name":"c_game_update_visual_resourcetile","confidence":"confirmed","matchAddress":"18006e620","source":"src/SHCDESE.BepInEx/Detours/BulkTileDetours.cs:21"},
-  {"address":"1800d90d0","rva":"0xD90D0","oldName":"c_game_update_pathfinding_for_tile_and_neighbors3x3","name":"c_game_update_pathfinding_for_tile_and_neighbors3x3","confidence":"confirmed","matchAddress":"1800d90d0","source":"src/SHCDESE.BepInEx/Detours/BulkTileDetours.cs:26"},
-  {"address":"1800e0850","rva":"0xE0850","oldName":"c_game_update_pathfinding_pot","name":"c_game_update_pathfinding_pot","confidence":"confirmed","matchAddress":"1800e0850","source":"src/SHCDESE.BepInEx/Detours/BulkTileDetours.cs:31"},
-  {"address":"180059520","rva":"0x59520","oldName":"c_game_create_tree_proximity_area","name":"c_game_create_tree_proximity_area","confidence":"confirmed","matchAddress":"180059520","source":"src/SHCDESE.BepInEx/Detours/BulkVegetationDetours.cs:84"},
-  {"address":"180108280","rva":"0x108280","oldName":"c_game_get_tree_proximity_area_level_from_type","name":"c_game_get_tree_proximity_area_level_from_type","confidence":"confirmed","matchAddress":"180108280","source":"src/SHCDESE.BepInEx/Detours/BulkVegetationDetours.cs:87"},
-  {"address":"18003b1d0","rva":"0x3B1D0","oldName":"FUN_18003b1d0","name":"c_game_ai_delete_hovel","confidence":"confirmed","matchAddress":"18003b1d0","source":"fn-ai-delete-hovel:0"},
-  {"address":"1800ceb10","rva":"0xCEB10","oldName":"FUN_1800ceb10","name":"c_game_ai_get_buy_price","confidence":"confirmed","matchAddress":"1800ceb10","source":"fn-ai-get-buy-price:0"},
-  {"address":"1800ceb90","rva":"0xCEB90","oldName":"FUN_1800ceb90","name":"c_game_ai_get_sell_price","confidence":"confirmed","matchAddress":"1800ceb90","source":"fn-ai-get-sell-price:0"}
+  {"address":"18003b1d0","rva":"0x3B1D0","oldName":"c_game_ai_delete_hovel","name":"c_game_ai_delete_hovel","confidence":"confirmed","matchAddress":"18003b1d0","source":"fn-ai-delete-hovel:0"},
+  {"address":"1800ceb10","rva":"0xCEB10","oldName":"c_game_ai_get_buy_price","name":"c_game_ai_get_buy_price","confidence":"confirmed","matchAddress":"1800ceb10","source":"fn-ai-get-buy-price:0"},
+  {"address":"1800ceb90","rva":"0xCEB90","oldName":"c_game_ai_get_sell_price","name":"c_game_ai_get_sell_price","confidence":"confirmed","matchAddress":"1800ceb90","source":"fn-ai-get-sell-price:0"}
 ]}

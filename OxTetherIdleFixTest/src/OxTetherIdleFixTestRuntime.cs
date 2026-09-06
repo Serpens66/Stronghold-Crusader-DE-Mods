@@ -1252,7 +1252,7 @@ namespace OxTetherIdleFixTest
                 Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_LinkedProductionBuildingId)).ToInt32() != 0x334)
             {
                 throw new InvalidOperationException(
-                    "GameUnit layout differs from the audited Script Extender 2.0.2 contract.");
+                    "GameUnit layout differs from the audited Script Extender 2.2.0 contract.");
             }
         }
 

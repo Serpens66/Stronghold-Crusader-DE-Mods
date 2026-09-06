@@ -26,7 +26,7 @@ namespace RandomEvents
 
             try
             {
-                // The public 2.0.2 API serializes this same object again before queuing the Chore.
+                // The public 2.2.0 API serializes this same object again before queuing the Chore.
                 body = serialize(packet) ?? throw new InvalidOperationException("the packet serializer returned null");
                 if (getChoreManagerAddress() == 0)
                     return Reject("the Chore manager is unavailable", out rejectionReason);

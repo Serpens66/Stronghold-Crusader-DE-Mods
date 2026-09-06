@@ -38,7 +38,7 @@ var tests = new (string Name, Action Run)[]
     ("Built-in Customize origin packet roundtrip", TestBuiltInCustomizeOriginPacketRoundtrip),
     ("Steam Workshop discovery waits for Steamworks", TestSteamWorkshopReadinessGate),
     ("local activation setting gates the complete runtime", TestLocalActivationSetting),
-    ("Script Extender 2.0.2 migration contract is explicit", TestScriptExtender202MigrationContract),
+    ("Script Extender 2.2.0 migration contract is explicit", TestScriptExtender220MigrationContract),
     ("Trail Maker Coop export is integrated", TestCoopExporterIntegration),
     ("Coop package JSON is Unity dependency-free", TestDependencyFreeCoopJson),
     ("mission and manifest JSON use CRLF", TestCoopJsonLineEndings),
@@ -777,7 +777,7 @@ static void TestLocalActivationSetting()
         "Coop package dropdown still replaces its ItemsSource reentrantly");
 }
 
-static void TestScriptExtender202MigrationContract()
+static void TestScriptExtender220MigrationContract()
 {
     string root = FindProjectRoot();
     string workspaceRoot = Directory.GetParent(root)?.FullName ??
@@ -789,11 +789,11 @@ static void TestScriptExtender202MigrationContract()
         Path.Combine(workspaceRoot, "Shared", "PresetLobbyModSettingsViewModel.cs"));
 
     Assert(plugin.Contains("[BepInDependency(\"000shcdese\", \"2.2.0\")]"),
-        "SHCDESE minimum dependency is not pinned to 2.0.2");
+        "SHCDESE minimum dependency is not pinned to 2.2.0");
     Assert(plugin.Contains("OnLibraryLoaded(CrusaderLibraryLoadContext context)") &&
         !plugin.Contains("OnLibraryLoaded(IntPtr") &&
         !plugin.Contains("ReadOnlySpan<byte> memory"),
-        "LibraryLoaded handler does not use the 2.0.2 load context");
+        "LibraryLoaded handler does not use the 2.2.0 load context");
     Assert(!project.Contains("Zhuqiaomon", StringComparison.OrdinalIgnoreCase),
         "CustomCustomTrail retains a stale Zhuqiaomon project reference");
     Assert(info.Contains("\"NetworkMode\": 1"),

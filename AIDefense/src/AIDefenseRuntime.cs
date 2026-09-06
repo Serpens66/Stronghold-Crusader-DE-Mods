@@ -73,27 +73,15 @@ namespace AIDefense
         private long totalAIBehaviourRepairs;
         private long totalPrivateTribeCreations;
         private long totalPrivateTribeFailures;
-        private AIDefenseTribeUnassignAdapter tribeUnassignAdapter;
-
         public AIDefenseRuntime(ManualLogSource log)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
-        }
-
-        public void InstallNative(SHCDESE.API.LowLevel.CrusaderLibraryLoadContext context)
-        {
-            if (tribeUnassignAdapter != null)
-                return;
-
-            tribeUnassignAdapter = AIDefenseTribeUnassignAdapter.Create(log, context);
         }
 
         public void Apply()
         {
             if (applied)
                 return;
-            if (tribeUnassignAdapter == null)
-                throw new InvalidOperationException("The validated 2.0.2 tribe-unassign adapter is not installed.");
 
             subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
@@ -139,6 +127,49 @@ namespace AIDefense
                 $"scanIntervalTicks={ScanIntervalTicks}, summaryIntervalTicks={SummaryLogIntervalTicks}, defenderType={DefenderType}, " +
                 $"protectedAIBehaviourType={ProtectedAIBehaviourTypeValue}, queryResultsAreOneBasedIds=true, " +
                 $"towerLocalMovementAllowed=true.");
+        }
+
+        private bool TryUnassignUnit(int tribeId, int unitId)
+        {
+            GameTribeManagerAPI tribeApi = GameTribeManagerAPI.Instance;
+            GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
+            GameTribe* tribe = null;
+            GameUnit* unit = null;
+            if (!tribeApi.TryGetTribeById(tribeId, out tribe) || tribe == null ||
+                !unitApi.TryGetUnitById(unitId, out unit) || unit == null ||
+                unit->r_TribeId != tribeId)
+            {
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    $"AIDefense tribe unassign rejected: tribeId={tribeId}, unitId={unitId}, " +
+                    $"unitTribeId={(unit == null ? -1 : unit->r_TribeId)}.");
+                return false;
+            }
+
+            try
+            {
+                // Script Extender 2.2.0 forwards the public tribeId/unitId contract
+                // to the native unitId/tribeId ABI in the correct order.
+                if (!tribeApi.UnassignUnit(tribeId, unitId))
+                    return false;
+            }
+            catch (Exception exception)
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"AIDefense tribe unassign failed: tribeId={tribeId}, unitId={unitId}, exception={exception}");
+                return false;
+            }
+
+            if (unit->r_TribeId == tribeId)
+            {
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    $"AIDefense tribe unassign did not change membership: tribeId={tribeId}, unitId={unitId}.");
+                return false;
+            }
+
+            return true;
         }
 
         public void Dispose()
@@ -897,7 +928,7 @@ namespace AIDefense
 
             if (initialTribeId != 0)
             {
-                bool unassigned = tribeUnassignAdapter.TryUnassign(initialTribeId, unitId);
+                bool unassigned = TryUnassignUnit(initialTribeId, unitId);
                 LogInfo(
                     $"Spawned defender unexpectedly started in a tribe: unitId={unitId}, unitGlobalId={unit->r_GlobalId}, " +
                     $"initialTribeId={initialTribeId}, unassignIssued={unassigned}, tribeAfter={unit->r_TribeId}.");
@@ -1047,7 +1078,7 @@ namespace AIDefense
                     unexpectedTribe != null &&
                     IsTribeActive(unexpectedTribe->r_AliveState))
                 {
-                    unassigned = tribeUnassignAdapter.TryUnassign(unexpectedTribeId, defender.UnitId);
+                    unassigned = TryUnassignUnit(unexpectedTribeId, defender.UnitId);
                 }
                 else
                 {
@@ -1160,7 +1191,7 @@ namespace AIDefense
             {
                 if (exactTribeFound && IsTribeActive(staleTribe->r_AliveState))
                 {
-                    unassigned = tribeUnassignAdapter.TryUnassign(staleTribeId, defender.UnitId);
+                    unassigned = TryUnassignUnit(staleTribeId, defender.UnitId);
                 }
                 else
                 {
@@ -1187,7 +1218,7 @@ namespace AIDefense
             bool exactTribeFound = TryGetExactPrivateTribe(defender, out GameTribe* failedTribe) && failedTribe != null;
 
             if (unit->r_TribeId == failedTribeId && exactTribeFound && IsTribeActive(failedTribe->r_AliveState))
-                tribeUnassignAdapter.TryUnassign(failedTribeId, defender.UnitId);
+                TryUnassignUnit(failedTribeId, defender.UnitId);
 
             if (exactTribeFound && IsTribeActive(failedTribe->r_AliveState))
                 GameTribeManagerAPI.Instance.DeleteTribeSafe(failedTribeId);
@@ -1277,7 +1308,7 @@ namespace AIDefense
             {
                 if (exactTribeFound && IsTribeActive(privateTribe->r_AliveState))
                 {
-                    unassigned = tribeUnassignAdapter.TryUnassign(privateTribeId, defender.UnitId);
+                    unassigned = TryUnassignUnit(privateTribeId, defender.UnitId);
                 }
                 else
                 {

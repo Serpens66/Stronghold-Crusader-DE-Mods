@@ -116,7 +116,7 @@ namespace EnemyGatePathfindingTest
                 (int*)(libraryBase + unchecked((ulong)cursorYRva)));
             samePclDiagnostics.SetGateAccessConsumer(UpdateGateAccess);
 
-            // Script Extender 2.0.2: only primitive snapshot reads and
+            // Script Extender 2.2.0: only primitive snapshot reads and
             // RFLAGS changes are allowed in this callback. No API access is permitted.
             transaction = new HookTransaction(
                 context.Region,

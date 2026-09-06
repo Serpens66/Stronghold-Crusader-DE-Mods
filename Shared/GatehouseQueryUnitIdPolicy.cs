@@ -1,4 +1,4 @@
-// Script Extender 2.0.2 exposes GatehouseQueryEventArgs.UnitId as the normal
+// Script Extender 2.2.0 exposes GatehouseQueryEventArgs.UnitId as the normal
 // one-based game ID. Keep validation here so both consuming mods share the same
 // fail-closed boundary without applying the obsolete 1.42.0 +1 correction.
 namespace Shared

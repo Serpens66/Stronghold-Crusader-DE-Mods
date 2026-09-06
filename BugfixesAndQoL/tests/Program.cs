@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
+using SHCDESE.Interop;
 
 namespace BugfixesAndQoL
 {
@@ -25,6 +27,7 @@ namespace BugfixesAndQoL
             TestFriendlyMoatMovementIntegration();
             TestAiDefensePatrolPolicy();
             TestAiDefensePatrolIntegration();
+            TestAiRecruitmentHorseDemandContract();
             TestNativeContracts();
             if (failures == 0)
             {
@@ -33,6 +36,20 @@ namespace BugfixesAndQoL
             }
             Console.Error.WriteLine($"BugfixesAndQoL policy and native-contract tests failed: {failures}.");
             return 1;
+        }
+
+        private static void TestAiRecruitmentHorseDemandContract()
+        {
+            Check(Marshal.OffsetOf(typeof(GameUnitManager), nameof(GameUnitManager.r_RecruitmentResultFailureReason)).ToInt32() == 0x650,
+                "GameUnitManager recruitment failure offset matches Script Extender 2.2.0");
+            Check(Marshal.OffsetOf(typeof(GameUnitManager), nameof(GameUnitManager.r_RecruitmentResultMissingGoodId)).ToInt32() == 0x654,
+                "GameUnitManager missing-good offset matches Script Extender 2.2.0");
+            Check(Marshal.OffsetOf(typeof(GameUnitManager), nameof(GameUnitManager.EmptyUnitFillValue)).ToInt32() == 0x658,
+                "GameUnitManager empty-fill offset matches Script Extender 2.2.0");
+            Check(Marshal.OffsetOf(typeof(GameUnitManager), nameof(GameUnitManager.LastOrderedUnit)).ToInt32() == 0x65C,
+                "GameUnitManager LastOrderedUnit offset remains stable");
+            Check(Marshal.SizeOf(typeof(GameUnitManager)) == 0xF7C,
+                "GameUnitManager total layout remains stable");
         }
 
         private static void TestFriendlyMoatMovementPolicy()

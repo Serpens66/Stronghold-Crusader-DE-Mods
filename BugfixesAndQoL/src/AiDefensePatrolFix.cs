@@ -17,7 +17,7 @@ namespace BugfixesAndQoL
 {
     internal sealed unsafe class AiDefensePatrolFix : IDisposable
     {
-        // Script Extender 2.0.2 does not name these two confirmed Vanilla roles.
+        // Script Extender 2.2.0 does not name these two confirmed Vanilla roles.
         private const short CastleDefenseRole = 1;
         private const short OuterPatrolRole = 4;
         private const int SummaryIntervalSeconds = 60;

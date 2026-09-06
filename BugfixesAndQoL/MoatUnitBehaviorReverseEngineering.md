@@ -89,8 +89,8 @@ als atomare Gruppe installiert. Die Runtime wird durch `BugfixesAndQoLRuntime` v
 nicht im frühen `BaseUnityPlugin.OnDestroy()` abgebaut.
 
 Der Quellstand nutzt den `CrusaderLibraryLoadContext`, `SelectedUnitInfo[]` und RedBird aus Script
-Extender 2.0.2. BugfixesAndQoL deklariert bereits 2.2.0; die abschließende API-Validierung, der
-Build und die Installation erfolgen gemeinsam mit der separaten 2.2.0-Migration.
+Extender 2.2.0. Die API- und Native-Verträge wurden im Rahmen der 2.2.0-Migration statisch
+validiert; Build und Installation erfolgen mit dem abschließenden BugfixesAndQoL-Treiberlauf.
 
 ## Logging
 

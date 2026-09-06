@@ -3,7 +3,7 @@
 Stand: 4. September 2026  
 Modversion: `0.1.0`  
 Zielspielversion: `2.8.0.1`  
-Zielversion des Script Extenders: `2.0.2`, Commit `6dc82d1d92b0935abc93cd43ac16cd8ddccc5f79`
+Zielversion des Script Extenders: `2.2.0`, Commit `10d28f717d38166e5875c666f20fc5653ae44b0c`
 
 ## Ausgangsfehler
 

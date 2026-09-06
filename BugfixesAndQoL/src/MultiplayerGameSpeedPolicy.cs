@@ -18,7 +18,7 @@ namespace BugfixesAndQoL
         public const int FastDecreaseAction = 5;
         public const int PauseAction = 6;
         public const int MinimumSpeed = 10;
-        // Matches the effective 2.0.2 configuration audited for this migration.
+        // Matches the effective 2.2.0 configuration audited for this migration.
         // Runtime callers pass the live Extender value when the user changes it.
         public const int MaximumSpeed = 1500;
         public const int SpeedStep = 5;

@@ -15,8 +15,6 @@ namespace QueueTest
         public const int MoveChoreHandlerSize = 470;
         public const int TargetOrderChoreHandlerSize = 450;
         public const int WaypointAppendChoreHandlerSize = 487;
-        public const int RemoveUnitFromTribeRva = 0x123EA0;
-        public const int RemoveUnitFromTribeSize = 312;
         public const int ChoreModeRva = 0x85F8FEC;
         public const int ChoreTribeIdRva = 0x86C132C;
         public const int ChoreCommandOrTileXRva = 0x86C1330;

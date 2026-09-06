@@ -68,5 +68,89 @@
     "canonicalName": "c_game_gatehouse_automation_update",
     "versionMatchConfidence": "confirmed",
     "semanticConfidence": "probable"
+  },
+  {
+    "claimId": "fn-chore-queue-local",
+    "functionRva": "0x23990",
+    "canonicalName": "chore_queue_local",
+    "versionMatchConfidence": "confirmed",
+    "semanticConfidence": "probable"
+  },
+  {
+    "claimId": "fn-chore-build-inner-packet",
+    "functionRva": "0x23800",
+    "canonicalName": "chore_build_inner_packet",
+    "versionMatchConfidence": "confirmed",
+    "semanticConfidence": "probable"
+  },
+  {
+    "claimId": "fn-chore-append-incoming",
+    "functionRva": "0x23E70",
+    "canonicalName": "chore_append_incoming",
+    "versionMatchConfidence": "confirmed",
+    "semanticConfidence": "probable"
+  },
+  {
+    "claimId": "fn-chore-pop-received",
+    "functionRva": "0x23C30",
+    "canonicalName": "chore_pop_received",
+    "versionMatchConfidence": "confirmed",
+    "semanticConfidence": "probable"
+  },
+  {
+    "claimId": "fn-chore-parse-received",
+    "functionRva": "0x23620",
+    "canonicalName": "chore_parse_received",
+    "versionMatchConfidence": "confirmed",
+    "semanticConfidence": "probable"
+  },
+  {
+    "claimId": "fn-chore-schedule-remote",
+    "functionRva": "0x23F10",
+    "canonicalName": "chore_schedule_remote",
+    "versionMatchConfidence": "confirmed",
+    "semanticConfidence": "probable"
+  },
+  {
+    "claimId": "fn-chore-build-outgoing-record",
+    "functionRva": "0x19D3C0",
+    "canonicalName": "chore_build_outgoing_record",
+    "versionMatchConfidence": "confirmed",
+    "semanticConfidence": "probable"
+  },
+  {
+    "claimId": "fn-chore-copy-handler-field",
+    "functionRva": "0x1F5F0",
+    "canonicalName": "chore_copy_handler_field",
+    "versionMatchConfidence": "confirmed",
+    "semanticConfidence": "probable"
+  },
+  {
+    "claimId": "fn-chore-execute-pending",
+    "functionRva": "0x1F7E0",
+    "canonicalName": "chore_execute_pending",
+    "versionMatchConfidence": "confirmed",
+    "semanticConfidence": "probable"
+  },
+  {
+    "claimId": "fn-chore-check-sync-barrier",
+    "functionRva": "0x1BCF0",
+    "canonicalName": "chore_check_sync_barrier",
+    "versionMatchConfidence": "confirmed",
+    "semanticConfidence": "probable"
+  },
+  {
+    "claimId": "fn-chore-handle-sync-event",
+    "functionRva": "0x1AE10",
+    "canonicalName": "chore_handle_sync_event",
+    "versionMatchConfidence": "confirmed",
+    "semanticConfidence": "probable"
+  },
+  {
+    "claimId": "fn-chore-adjust-delay-tick",
+    "functionRva": "0x27DE0",
+    "canonicalName": "chore_adjust_delay_tick",
+    "versionMatchConfidence": "confirmed",
+    "semanticConfidence": "probable"
   }
 ]

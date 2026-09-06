@@ -104,5 +104,89 @@
     "callerObservations": 0,
     "observedSignatures": [],
     "compatible": true
+  },
+  {
+    "claimId": "fn-chore-queue-local",
+    "abiConfidence": "candidate",
+    "callerObservations": 0,
+    "observedSignatures": [],
+    "compatible": true
+  },
+  {
+    "claimId": "fn-chore-build-inner-packet",
+    "abiConfidence": "candidate",
+    "callerObservations": 0,
+    "observedSignatures": [],
+    "compatible": true
+  },
+  {
+    "claimId": "fn-chore-append-incoming",
+    "abiConfidence": "candidate",
+    "callerObservations": 0,
+    "observedSignatures": [],
+    "compatible": true
+  },
+  {
+    "claimId": "fn-chore-pop-received",
+    "abiConfidence": "candidate",
+    "callerObservations": 0,
+    "observedSignatures": [],
+    "compatible": true
+  },
+  {
+    "claimId": "fn-chore-parse-received",
+    "abiConfidence": "candidate",
+    "callerObservations": 0,
+    "observedSignatures": [],
+    "compatible": true
+  },
+  {
+    "claimId": "fn-chore-schedule-remote",
+    "abiConfidence": "candidate",
+    "callerObservations": 0,
+    "observedSignatures": [],
+    "compatible": true
+  },
+  {
+    "claimId": "fn-chore-build-outgoing-record",
+    "abiConfidence": "candidate",
+    "callerObservations": 0,
+    "observedSignatures": [],
+    "compatible": true
+  },
+  {
+    "claimId": "fn-chore-copy-handler-field",
+    "abiConfidence": "candidate",
+    "callerObservations": 0,
+    "observedSignatures": [],
+    "compatible": true
+  },
+  {
+    "claimId": "fn-chore-execute-pending",
+    "abiConfidence": "candidate",
+    "callerObservations": 0,
+    "observedSignatures": [],
+    "compatible": true
+  },
+  {
+    "claimId": "fn-chore-check-sync-barrier",
+    "abiConfidence": "candidate",
+    "callerObservations": 0,
+    "observedSignatures": [],
+    "compatible": true
+  },
+  {
+    "claimId": "fn-chore-handle-sync-event",
+    "abiConfidence": "candidate",
+    "callerObservations": 0,
+    "observedSignatures": [],
+    "compatible": true
+  },
+  {
+    "claimId": "fn-chore-adjust-delay-tick",
+    "abiConfidence": "candidate",
+    "callerObservations": 0,
+    "observedSignatures": [],
+    "compatible": true
   }
 ]

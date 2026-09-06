@@ -17,7 +17,7 @@ Die Untersuchung soll drei voneinander getrennte Aussagen belegen:
 - Spielversion: `2.8.0.1`
 - Kanonische `CrusaderDE.dll`, SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
 - Native Baseline: `_inspect/CrusaderDE-Native-Baseline`, semantischer Stand `sem/FBCB9319`
-- Script Extender: `2.0.2`, Commit `6dc82d1d92b0935abc93cd43ac16cd8ddccc5f79`
+- Script Extender: `2.2.0`, Commit `10d28f717d38166e5875c666f20fc5653ae44b0c`
 - Modversion während der Untersuchung: `0.1.0`
 - Harte Abhängigkeit: `000shcdese`
 - `NetworkMode=1`
