@@ -2188,6 +2188,15 @@ internal static class Program
               normalizedBugfixesViewModelSource.Contains("[SyncHostOnly]\n        public bool EnableMountedStockpileMovementFix") &&
               bugfixesViewModelSource.Contains("EnableMountedStockpileMovementFix = true;"),
             "mounted stockpile movement is not a default-enabled, resettable host setting");
+        Check(normalizedBugfixesViewModelSource.Contains(
+                  "private int friendlyMoatMovementMode = FriendlyMoatMovementPolicy.DefaultMode;") &&
+              normalizedBugfixesViewModelSource.Contains(
+                  "[SyncHostOnly]\n        public int FriendlyMoatMovementMode") &&
+              bugfixesViewModelSource.Contains(
+                  "FriendlyMoatMovementMode = FriendlyMoatMovementPolicy.DefaultMode;") &&
+              bugfixesViewModelSource.Contains(
+                  "FriendlyMoatMovementPolicy.Normalize(value)"),
+            "friendly moat movement is not a default-required, resettable, fail-closed host setting");
         Check(normalizedBugfixesViewModelSource.Contains("private bool enableShiftRepairAllBuildings = true;") &&
               normalizedBugfixesViewModelSource.Contains("[SyncHostOnly]\n        public bool EnableShiftRepairAllBuildings") &&
               bugfixesViewModelSource.Contains("EnableShiftRepairAllBuildings = true;"),

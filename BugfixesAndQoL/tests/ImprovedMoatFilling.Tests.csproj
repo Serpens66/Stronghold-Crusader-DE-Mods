@@ -33,9 +33,7 @@
     <Compile Include="Program.cs" />
     <Compile Include="..\src\AiDefensePatrolNativeDefinition.cs"><Link>AiDefensePatrolNativeDefinition.cs</Link></Compile>
     <Compile Include="..\src\AiDefensePatrolPolicy.cs"><Link>AiDefensePatrolPolicy.cs</Link></Compile>
-    <Compile Include="..\src\ImprovedMoatFillingNativeContractPolicy.cs"><Link>ImprovedMoatFillingNativeContractPolicy.cs</Link></Compile>
-    <Compile Include="..\src\ImprovedMoatFillingPolicy.cs"><Link>ImprovedMoatFillingPolicy.cs</Link></Compile>
-    <Compile Include="..\src\MoatFillHookOwnershipPolicy.cs"><Link>MoatFillHookOwnershipPolicy.cs</Link></Compile>
+    <Compile Include="..\src\FriendlyMoatMovementPolicy.cs"><Link>FriendlyMoatMovementPolicy.cs</Link></Compile>
     <Compile Include="..\..\Shared\DebugLogHelper.cs"><Link>DebugLogHelper.cs</Link></Compile>
     <Compile Include="..\..\Shared\NativePatternResolver.cs"><Link>NativePatternResolver.cs</Link></Compile>
   </ItemGroup>

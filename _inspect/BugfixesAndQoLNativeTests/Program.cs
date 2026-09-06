@@ -958,19 +958,19 @@ internal static class Program
               project.Contains("<Reference Include=\"RedBird.X64\"") &&
               !project.Contains("PolyHook2.NET"),
             "P6b project references the Script Extender RedBird assemblies without PolyHook2.NET");
-        Check(plugin.Contains("[BepInDependency(ScriptExtenderGuid, \"2.0.2\")]") &&
+        Check(plugin.Contains("[BepInDependency(ScriptExtenderGuid, \"2.2.0\")]") &&
               plugin.Contains("OnCrusaderLibraryLoaded(CrusaderLibraryLoadContext context)"),
-            "P6b declares an exact 2.0.2 dependency and consumes the load context");
+            "BugfixesAndQoL declares its 2.2.0 dependency and consumes the load context");
         Check(runtime.Contains("context.ModuleHandle") && runtime.Contains("context.Memory") &&
               runtime.Contains("context.Region") && !production.Contains("nativeRegion.Dispose()") &&
               !production.Contains("context.Region.Dispose()"),
             "P6b borrows all native load-context values without disposing the ScanRegion");
-        Check(Regex.Matches(production, @"new\s+(?:DetourHandle|HookHandle)<").Count == 29,
-            "P6b owns the audited 29 RedBird hook handles");
-        Check(Regex.Matches(production, @"CommitResult\s+commitResult\s*=\s*[^;]+\.Commit\(\)").Count == 17,
-            "P6b performs one checked transaction commit for each audited hook group");
-        Check(Regex.Matches(production, @"!commitResult\.IsCompleteSuccess").Count == 17,
-            "P6b checks every aggregate RedBird commit result");
+        Check(Regex.Matches(production, @"new\s+(?:DetourHandle|HookHandle)<").Count == 30,
+            "BugfixesAndQoL owns the audited RedBird hook handles including friendly moat movement");
+        Check(Regex.Matches(production, @"CommitResult\s+commitResult\s*=\s*[^;]+\.Commit\(\)").Count == 21,
+            "BugfixesAndQoL performs one checked transaction commit for each audited hook group");
+        Check(Regex.Matches(production, @"!commitResult\.IsCompleteSuccess").Count == 22,
+            "BugfixesAndQoL checks every aggregate RedBird commit result");
 
         foreach (string fileName in new[]
         {
@@ -993,15 +993,16 @@ internal static class Program
               infrastructure.Contains("new ContextHookOptions"),
             "P6b shared hook infrastructure preserves atomic ownership and explicit context options");
 
-        string moat = File.ReadAllText(Path.Combine(sourceDirectory, "ImprovedMoatFillingFix.cs"));
-        Check(Regex.Matches(moat, @"new\s+DetourHandle<").Count == 2 &&
-              Regex.Matches(moat, @"\.Original\(").Count >= 2 &&
-              moat.Contains("OwnsHooks = false") &&
-              moat.Contains("!findMoatWorkTargetDetour.Success") &&
-              moat.Contains("!resolveMoatWorkTileDetour.Success"),
-            "P6b standalone moat hooks use two durable RedBird detours with atomic handle checks");
-        Check(manifest.Contains("\"Version\": \"1.0.126\"") && manifest.Contains("\"NetworkMode\": 1"),
-            "P6b manifest retains its version and declares gameplay NetworkMode 1");
+        string moat = File.ReadAllText(Path.Combine(sourceDirectory, "MoatWorkTargetSelection.cs"));
+        Check(moat.Contains("pendingTransaction.Commit()") &&
+              moat.Contains("!pendingFind.Committed") &&
+              moat.Contains("!pendingResolve.Committed") &&
+              moat.Contains("!pendingFillApproach.Committed") &&
+              moat.Contains("settings.EnableMod && settings.EnableImprovedMoatFilling") &&
+              !moat.Contains("RegisterImprovedMoatFillingProvider"),
+            "integrated moat-work hooks commit atomically and keep hostile filling independent without a bridge");
+        Check(manifest.Contains("\"Version\": \"1.0.129\"") && manifest.Contains("\"NetworkMode\": 1"),
+            "integrated manifest version and gameplay NetworkMode 1");
     }
 
     private static void CheckUnknownHashPolicy(string workspace)

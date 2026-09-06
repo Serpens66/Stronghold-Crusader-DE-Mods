@@ -20,7 +20,12 @@ In borderless fullscreen mode, the game can automatically replace the resolution
 With a normal synchronized movement order, every unit in a mixed group now uses the slowest member's maximum speed and a matching animation pace. Units that can all run are no longer incorrectly forced to walk merely because their individual movement speeds differ.
 
 ### Improve hostile moat filling
-This enabled-by-default host option makes units filling hostile moats choose another free, valid edge tile when the first position is occupied. If an entire moat edge is unsuitable, they continue with the next moat found by Vanilla's normal search instead of becoming idle. Excavating owned planned moats is unchanged. When `MoveMoatTest` is installed, it owns the shared hooks so its movement through friendly completed moats remains available without stacking native detours.
+This enabled-by-default host option makes units filling hostile moats choose another free, valid edge tile when the first position is occupied. If an entire moat edge is unsuitable, they continue with the next moat found by Vanilla's normal search instead of becoming idle. Excavating owned planned moats is unchanged. This option remains independent from friendly moat movement.
+
+### Move through friendly completed moats
+Vanilla moat-digging units can move through completed moats owned by their player or an ally without allowing passage through hostile or invalid moats. The synchronized host setting provides three modes: **Off**, **Individual routes - exact**, and **Required moat routes only - fast**. The fast mode is enabled by default and performs additional moat pathfinding only when Vanilla cannot reach the destination over normal ground; the exact mode may also select an optional faster friendly-moat route.
+
+The behavior applies to direct movement, unit and building attacks, queued and patrol movement, moat work, and movement resumed after combat. Every published route remains bound to the exact unit, owner, command, target, tick, terrain revision, and native path buffer and is rejected safely if those conditions change.
 
 ### Allow cavalry movement onto stockpiles
 Knights, Horse Archers, Bedouin Camel Lancers, and Heavy Camels can be ordered onto passable stockpile tiles, matching their existing ability to cross them. The fix does not change stockpile tile definitions or relax movement rules for walls, stairs, keeps, other buildings, occupied tiles, or unreachable destinations.

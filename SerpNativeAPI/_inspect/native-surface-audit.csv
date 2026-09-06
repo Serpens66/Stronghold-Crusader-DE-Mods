@@ -5,7 +5,7 @@ SelectedUnitCommand,SHCDESE OnTribeIssueOrderWithTarget Pre event,BugfixesAndQoL
 AssassinPathfinding,local catalog,BugfixesAndQoL|AssassinCombatFix,NativeDetour|DataPatch,Related Assassin behavior,High,Audit both mods before centralizing
 HunterQuery,local catalog,ImprovedHunters|HunterQueryTargetDiagnostic,NativeDetour|Observer,Shared native query path,High,Prefer one broker with observer callbacks
 GatePathfinding,local catalog,EnemyGatePathfindingTest|ExtraFeatures,NativeDetour|PatternResolution,Gate behavior family,Medium,Keep semantic capabilities separate
-MoatCommands,local catalog,MoveMoatTest|BugfixesAndQoL,NativeDetour|PatternResolution,Command processing family,Medium,Confirm exact target equality first
+MoatCommands,local catalog,BugfixesAndQoL,RedBird|PatternResolution,Command processing family,Medium,Confirm exact target equality first
 AiEconomy,local catalog,ExtraFeatures|BugfixesAndQoL,NativeDetour|PatternResolution,Several adjacent targets,Medium,Group only identical entrypoints
 ExtremePowers,local catalog,ExtremePowers,NativeDetour|DataPatch,Single consumer,Low,Migrate after shared targets
 RandomEvents,local catalog,RandomEvents,DataPatch|NativeCalls,Single consumer,Low,Preserve persistent tick lifecycle

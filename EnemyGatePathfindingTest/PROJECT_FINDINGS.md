@@ -206,7 +206,7 @@ Ein normaler, vorgespulter KI-Test erzeugt sehr viele PCL-Abfragen und Befehle. 
 5. Danach mehrere Minuten normales Spiel stark vorspulen. KI-PCL-Abfragen und Befehle müssen steigen, ohne Logflut oder merkliche Blockade.
 6. Erst anhand der bestätigten Footprint-/Randdaten den eigentlichen Same-PCL-Fix entwerfen. Keine pauschale Same-PCL-Sperre einbauen.
 
-Für tieferliegende globale Tile-Wegfindung ist `MoveMoatTest` eine hilfreiche lokale Referenz. Dort wurden unter anderem der zentrale Movement Planner, Cursor-Reachability und der Tile-Path-Builder untersucht. Diese Hooks sind aber nicht automatisch die richtige Lösung und dürfen nicht überlappend installiert werden, wenn der andere Testmod aktiv ist.
+Für tieferliegende globale Tile-Wegfindung ist die Friendly-Moat-Runtime in `BugfixesAndQoL` eine hilfreiche lokale Referenz. Dort wurden unter anderem der zentrale Movement Planner, Cursor-Reachability und der Tile-Path-Builder untersucht. Diese Hooks sind aber nicht automatisch die richtige Lösung und dürfen nicht überlappend installiert werden, wenn BugfixesAndQoL aktiv ist.
 
 ## Logauswertung
 
@@ -306,7 +306,7 @@ Auch dann werden lediglich primitive Bitset-Lesezugriffe und begrenzte Ringpuffe
 erscheinen nur für Strukturkreuzungen und wenige Negativkontrollen; alle zehn Sekunden folgt eine
 kompakte Zusammenfassung.
 
-`MoveMoatTest_Serp` detourt dieselben Builder-, Planner- und Cursorfunktionen. Ist dieser Testmod
+`BugfixesAndQoL_Serp` detourt dieselben Builder-, Planner- und Cursorfunktionen. Ist diese Mod
 gleichzeitig geladen, installiert `EnemyGatePathfindingTest` die neuen Routenhooks ausdrücklich nicht.
 Der PCL-Filter und die bisherige Topologiediagnose bleiben konfliktfrei aktiv.
 
@@ -333,7 +333,7 @@ abschließbare monolithische Vollanalyse. Die gespeicherten Blockdaten in `.nati
   `0x51890D0`. Ein Byte beschreibt die acht Nachbarkanten eines Tiles; Vanilla aktualisiert
   Kante und Gegenkante symmetrisch.
 
-Die lokale Referenz `MoveMoatTest\MoatUnitBehaviorReverseEngineering.md` bestätigt zusätzlich die
+Die lokale Referenz `BugfixesAndQoL\MoatUnitBehaviorReverseEngineering.md` bestätigt zusätzlich die
 Cursorentscheidung bei `0x8F1C4`. Die validierte 14-Byte-Spanne lautet weiterhin
 `85 C0 48 8D 3D E3 FB FC 03 B8 01 00 00 00`. Ein negativer Filter vor dem verlagerten `TEST EAX,EAX`
 begrenzt nur ein positives PCL-Ergebnis; er kann kein negatives Vanilla-Ergebnis freigeben.
@@ -367,7 +367,7 @@ begrenzt.
 - Kein funktionaler Hook bei `0x11B75A`: Die Stelle enthält einen internen bedingten Sprung. Sie
   bleibt bis zu einem konkreten Nachweis für fortgesetztes KI-Auftragsflattern unangetastet.
 - Kein paralleler `E9FF0`- oder `E32B0`-Hook.
-- Kein funktionaler Tilehook bei gleichzeitig geladenem `MoveMoatTest_Serp`; in diesem Fall bleibt
+- Kein funktionaler Tilehook bei gleichzeitig geladenem `BugfixesAndQoL_Serp`; in diesem Fall bleibt
   nur der konfliktfreie Different-PCL-Filter aktiv und das Log weist ausdrücklich darauf hin.
 
 Für den nächsten Test sind `Functional route sample` und `Functional tile-route ... summary`

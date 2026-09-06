@@ -3,13 +3,20 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.128",
+  "Version": "1.0.129",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.2.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.129",
+      "Changes": [
+        "Integrated friendly and allied completed-moat movement for Vanilla moat-digging units, with Off, exact individual routes, and the default fast required-only mode.",
+        "Consolidated hostile moat filling and friendly moat movement into one owner-safe native hook group; the standalone MoveMoatTest mod is no longer required or compatible."
+      ]
+    },
     {
       "Version": "1.0.128",
       "Changes": [
@@ -25,8 +32,7 @@
     {
       "Version": "1.0.126",
       "Changes": [
-        "Added an enabled-by-default host fix that makes units filling hostile moats choose another free valid edge tile or the next Vanilla moat instead of becoming idle when the first position is occupied.",
-        "Added optional hook-owner coordination with MoveMoatTest so both mods can be installed together without overlapping native detours."
+        "Added an enabled-by-default host fix that makes units filling hostile moats choose another free valid edge tile or the next Vanilla moat instead of becoming idle when the first position is occupied."
       ]
     },
     {

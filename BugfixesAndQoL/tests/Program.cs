@@ -9,21 +9,20 @@ namespace BugfixesAndQoL
     {
         private const string ExpectedHash =
             "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2";
-        private const int FindRva = ImprovedMoatFillingNativeContractPolicy.FindMoatWorkTargetRva;
-        private const int ResolveRva = ImprovedMoatFillingNativeContractPolicy.ResolveMoatWorkTileRva;
+        private const int FindRva = 0x69D60;
+        private const int ResolveRva = 0x6AF60;
         private const int DispatcherRva = 0x13F540;
         private const int DispatcherSize = 10069;
-        private const int PlannerRva = ImprovedMoatFillingNativeContractPolicy.MovementPlannerRva;
+        private const int PlannerRva = 0x196280;
+        private const int MovementPlannerLowFlagGateRva = 0x196464;
+        private const int MovementPlannerStructureFlagGateRva = 0x19648D;
 
         private static int failures;
 
         private static int Main()
         {
-            TestFreeApproachSelection();
-            TestReservationAndRollback();
-            TestContextIsolation();
-            TestHookOwnership();
-            TestLiveEntryOwnership();
+            TestFriendlyMoatMovementPolicy();
+            TestFriendlyMoatMovementIntegration();
             TestAiDefensePatrolPolicy();
             TestAiDefensePatrolIntegration();
             TestNativeContracts();
@@ -36,105 +35,41 @@ namespace BugfixesAndQoL
             return 1;
         }
 
-        private static void TestFreeApproachSelection()
+        private static void TestFriendlyMoatMovementPolicy()
         {
-            MoatApproachCandidate[] candidates = RejectedCandidates();
-            candidates[0] = Candidate(0, 10, 9, false); // Occupied in the runtime policy.
-            candidates[1] = Candidate(1, 11, 9, true);
-            candidates[2] = Candidate(2, 11, 10, true);
-            Check(ImprovedMoatFillingPolicy.TryChoose(
-                    candidates, 10, 8, out MoatApproachCandidate selected) && selected.Order == 1,
-                "occupied nearest candidate falls through to the next free neighbour");
-
-            candidates = RejectedCandidates();
-            candidates[0] = Candidate(0, 9, 10, true);
-            candidates[1] = Candidate(1, 11, 10, true);
-            Check(ImprovedMoatFillingPolicy.TryChoose(candidates, 10, 10, out selected) &&
-                    selected.Order == 0,
-                "distance ties preserve native neighbour order");
-
-            Check(!ImprovedMoatFillingPolicy.TryChoose(
-                    RejectedCandidates(), 10, 10, out _),
-                "fully unsuitable moat has no approach so the next Vanilla moat can be queried");
-            Check(ImprovedMoatFillingPolicy.IsSameNativeRegion(0, 0) &&
-                    !ImprovedMoatFillingPolicy.IsSameNativeRegion(0, 7),
-                "region zero follows exact Vanilla region equality");
-            Check(ImprovedMoatFillingPolicy.HasDownstreamMovementBlockingFlags(0x10) &&
-                    ImprovedMoatFillingPolicy.HasDownstreamMovementBlockingFlags(0x20) &&
-                    ImprovedMoatFillingPolicy.HasDownstreamMovementBlockingFlags(0x100) &&
-                    ImprovedMoatFillingPolicy.HasDownstreamMovementBlockingFlags(0x10000000) &&
-                    !ImprovedMoatFillingPolicy.HasDownstreamMovementBlockingFlags(0x8000),
-                "movement flag policy matches the downstream planner gates");
-            Check(ImprovedMoatFillingPolicy.IsCompletedMoat(0x40000000),
-                "completed hostile moat cannot be used as a standalone standing tile");
+            Check(FriendlyMoatMovementPolicy.DefaultMode == 2,
+                "required-only is the default mode");
+            Check(FriendlyMoatMovementPolicy.Normalize(0) == 0 &&
+                    FriendlyMoatMovementPolicy.Normalize(1) == 1 &&
+                    FriendlyMoatMovementPolicy.Normalize(2) == 2,
+                "all three public mode values are preserved");
+            Check(FriendlyMoatMovementPolicy.Normalize(-1) == 0 &&
+                    FriendlyMoatMovementPolicy.Normalize(3) == 0 &&
+                    FriendlyMoatMovementPolicy.Normalize(int.MaxValue) == 0,
+                "invalid friendly-moat modes fail closed to Off");
         }
 
-        private static void TestReservationAndRollback()
+        private static void TestFriendlyMoatMovementIntegration()
         {
-            Check(ImprovedMoatFillingPolicy.TryUndoVanillaReservation(20, out byte zero) && zero == 0,
-                "reservation increment is undone symmetrically");
-            Check(ImprovedMoatFillingPolicy.TryUndoVanillaReservation(100, out byte eighty) && eighty == 80,
-                "nonzero reservation is restored symmetrically");
-            Check(!ImprovedMoatFillingPolicy.TryUndoVanillaReservation(19, out byte unchanged) && unchanged == 19,
-                "reservation underflow fails closed");
-
-            byte[] records = { 40, 60 };
-            byte original = byte.MaxValue;
-            try
-            {
-                ImprovedMoatFillingPolicy.TryUndoVanillaReservation(records[0], out original);
-                records[0] = ImprovedMoatFillingPolicy.TemporarilyExcludedReservation;
-                throw new InvalidOperationException("rollback probe");
-            }
-            catch (InvalidOperationException)
-            {
-            }
-            finally
-            {
-                records[0] = original;
-            }
-            Check(records[0] == 20 && records[1] == 60,
-                "temporary exclusion rolls back after exceptions");
-        }
-
-        private static void TestContextIsolation()
-        {
-            Check(ImprovedMoatFillingPolicy.ShouldInspectSelection(true, 2),
-                "host-enabled hostile fill is inspected");
-            Check(!ImprovedMoatFillingPolicy.ShouldInspectSelection(false, 2) &&
-                    !ImprovedMoatFillingPolicy.ShouldInspectSelection(true, 1) &&
-                    !ImprovedMoatFillingPolicy.ShouldInspectSelection(true, 2, false),
-                "disabled setting, excavation and unsupported units remain Vanilla");
-            Check(ImprovedMoatFillingPolicy.ShouldReplaceResolverResult(2, true) &&
-                    !ImprovedMoatFillingPolicy.ShouldReplaceResolverResult(1, true) &&
-                    !ImprovedMoatFillingPolicy.ShouldReplaceResolverResult(2, false),
-                "only the correlated mode-2 resolver result is replaced");
-        }
-
-        private static void TestHookOwnership()
-        {
-            Check(MoatFillHookOwnershipPolicy.Resolve(false, false, 0) == MoatFillHookOwner.Standalone,
-                "BugfixesAndQoL alone owns the hooks");
-            Check(MoatFillHookOwnershipPolicy.Resolve(true, true, 1) == MoatFillHookOwner.MoveMoat,
-                "MoveMoat owns shared hooks when its bridge is ready");
-            Check(MoatFillHookOwnershipPolicy.Resolve(true, true, 0) == MoatFillHookOwner.Standalone,
-                "BugfixesAndQoL safely takes over when MoveMoat reports hook failure");
-            Check(MoatFillHookOwnershipPolicy.Resolve(true, false, 0) == MoatFillHookOwner.Conflict &&
-                    MoatFillHookOwnershipPolicy.Resolve(true, true, 7) == MoatFillHookOwner.Conflict,
-                "missing or unknown MoveMoat bridge fails closed");
-        }
-
-        private static void TestLiveEntryOwnership()
-        {
-            Check(ImprovedMoatFillingNativeContractPolicy.RequiresPristineLiveBytes(FindRva) &&
-                    ImprovedMoatFillingNativeContractPolicy.RequiresPristineLiveBytes(ResolveRva),
-                "owned selector and resolver hooks require pristine live entries");
-            Check(!ImprovedMoatFillingNativeContractPolicy.RequiresPristineLiveBytes(PlannerRva) &&
-                    !ImprovedMoatFillingNativeContractPolicy.RequiresPristineLiveBytes(
-                        ImprovedMoatFillingNativeContractPolicy.MovementPlannerLowFlagGateRva) &&
-                    !ImprovedMoatFillingNativeContractPolicy.RequiresPristineLiveBytes(
-                        ImprovedMoatFillingNativeContractPolicy.MovementPlannerStructureFlagGateRva),
-                "downstream planner and gates may already contain compatible live hooks");
+            string projectDirectory = FindProjectDirectory();
+            string runtime = File.ReadAllText(Path.Combine(projectDirectory, "src", "BugfixesAndQoLRuntime.cs"));
+            string moatWork = File.ReadAllText(Path.Combine(projectDirectory, "src", "MoatWorkTargetSelection.cs"));
+            string viewModel = File.ReadAllText(Path.Combine(projectDirectory, "src", "BugfixesAndQoLViewModel.cs"));
+            string plugin = File.ReadAllText(Path.Combine(projectDirectory, "src", "BugfixesAndQoLPlugin.cs"));
+            Check(runtime.Contains("new FriendlyMoatMovementRuntime(") &&
+                    runtime.Contains("friendlyMoatMovementRuntime?.Dispose()"),
+                "integrated runtime participates in native initialization and final disposal");
+            Check(moatWork.Contains("settings.EnableMod && settings.EnableImprovedMoatFilling") &&
+                    moatWork.Contains("relationshipMode == 1 && !friendlyMovementEnabled") &&
+                    moatWork.Contains("if (!ExtensionsEnabled)") &&
+                    !moatWork.Contains("RegisterImprovedMoatFillingProvider"),
+                "hostile filling remains independent while Off blocks every friendly moat work route");
+            Check(viewModel.Contains("[SyncHostOnly]") &&
+                    viewModel.Contains("public int FriendlyMoatMovementMode") &&
+                    viewModel.Contains("FriendlyMoatMovementPolicy.DefaultMode"),
+                "friendly moat movement is a default-required synchronized host setting");
+            Check(plugin.Contains("[BepInIncompatibility(LegacyMoveMoatGuid)]"),
+                "legacy standalone plugin is explicitly incompatible");
         }
 
         private static void TestAiDefensePatrolPolicy()
@@ -230,10 +165,10 @@ namespace BugfixesAndQoL
             CheckBytes(image, PlannerRva, new byte[] { 0x48, 0x89, 0x5C, 0x24, 0x20, 0x55, 0x56, 0x57,
                 0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x41, 0x57, 0x48, 0x83, 0xEC, 0x30, 0x48, 0x63,
                 0xF2 }, "movement planner entry bytes");
-            CheckBytes(image, ImprovedMoatFillingNativeContractPolicy.MovementPlannerLowFlagGateRva,
+            CheckBytes(image, MovementPlannerLowFlagGateRva,
                 new byte[] { 0xF6, 0x84, 0x8A, 0xB0, 0x71, 0x8F, 0x04, 0x30 },
                 "movement low-flag gate bytes");
-            CheckBytes(image, ImprovedMoatFillingNativeContractPolicy.MovementPlannerStructureFlagGateRva,
+            CheckBytes(image, MovementPlannerStructureFlagGateRva,
                 new byte[] { 0xF7, 0x84, 0x8A, 0xB0, 0x71, 0x8F, 0x04,
                 0x00, 0x01, 0x00, 0x10 }, "movement structure-flag gate bytes");
             Check(image.CountNearCalls(DispatcherRva, DispatcherSize, FindRva) >= 2 &&
@@ -298,17 +233,6 @@ namespace BugfixesAndQoL
             bytes[offset + 1] << 8 |
             bytes[offset + 2] << 16 |
             bytes[offset + 3] << 24;
-
-        private static MoatApproachCandidate[] RejectedCandidates()
-        {
-            var candidates = new MoatApproachCandidate[8];
-            for (int i = 0; i < candidates.Length; i++)
-                candidates[i] = Candidate(i, 0, 0, false);
-            return candidates;
-        }
-
-        private static MoatApproachCandidate Candidate(int order, int x, int y, bool eligible) =>
-            new MoatApproachCandidate(order, x, y, order, eligible);
 
         private static void CheckBytes(PeImage image, int rva, byte[] expected, string name)
         {

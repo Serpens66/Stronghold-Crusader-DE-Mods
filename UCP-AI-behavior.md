@@ -77,7 +77,7 @@ Für einen erneuten Abgleich sind in der UCP-Quelle besonders relevant:
 - `Shared/NativePatternResolver.cs`: gemeinsame Patternauflösung für Modcode;
 - `BugfixesAndQoL/src/AssassinPathReconstructionPatch.cs`: Beispiel für einen validierten Sechs-Byte-NOP-Patch;
 - `BugfixesAndQoL/src/AssemblyPointPlacementPatch.cs`: weiteres Beispiel für Originalbyteprüfung, Speicherschutz und Patchverwaltung;
-- `MoveMoatTest/src/MoveMoatPathTest.cs`: lokale Rekonstruktion der DE-fähigen Grabenarbeiter und der Grabenbewegung;
+- `BugfixesAndQoL/src/FriendlyMoatMovementRuntime.cs`: lokale Rekonstruktion der DE-fähigen Grabenarbeiter und der Grabenbewegung;
 - `AIDefense/src/AIDefenseTribeUnassignAdapter.cs`: dokumentierter direkter Adapter für den in Script Extender 2.0.2 fehlerhaften `UnassignUnit`-Wrapper;
 - `ExtraFeatures/src/ExtraFeaturesPlugin.cs`: bewährtes SHCDE-Lifecycle-Muster für eine nach dem Startup-Cleanup weiterlebende Runtime;
 - `Shared/PresetLobbyModSettingsViewModel.cs` und `Shared/SerpLocalization.cs`: vorgeschriebene Basis für neue Lobby-Modsettings;
@@ -233,7 +233,7 @@ Der Rückfall auf Defend ist wichtig, weil ein erzwungener Grabenauftrag für ni
 
 ### DE-fähige Grabenarbeiter
 
-Die aktuelle native `DigMoatTileId`-Behandlung und die vorhandene lokale Rekonstruktion in `MoveMoatTest` ergeben folgende Liste:
+Die aktuelle native `DigMoatTileId`-Behandlung und die vorhandene lokale Rekonstruktion in `BugfixesAndQoL` ergeben folgende Liste:
 
 - Bogenschütze
 - Speerträger

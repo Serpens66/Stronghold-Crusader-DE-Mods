@@ -25,6 +25,7 @@ namespace BugfixesAndQoL
         private bool fixAITowerRepair = true;
         private bool betterAIOverbuildRules = true;
         private bool enableTroopMovementFix = true;
+        private int friendlyMoatMovementMode = FriendlyMoatMovementPolicy.DefaultMode;
         private bool enableImprovedMoatFilling = true;
         private bool enableMountedStockpileMovementFix = true;
         private bool enableHealerAttackCommandFix = true;
@@ -264,6 +265,14 @@ namespace BugfixesAndQoL
         public string EnableCustomLordListEnhancementsHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableCustomLordListEnhancementsHelp");
         public string EnableTroopMovementFixText => SerpLocalization.Get(SerpLocalization.EnableTroopMovementFix);
         public string EnableTroopMovementFixHelpText => SerpLocalization.Get(SerpLocalization.EnableTroopMovementFixHelp);
+        public string FriendlyMoatMovementModeText => SerpLocalization.Get("BugfixesAndQoL.FriendlyMoatMovementMode");
+        public string FriendlyMoatMovementModeHelpText => SerpLocalization.Get("BugfixesAndQoL.FriendlyMoatMovementModeHelp");
+        public string[] FriendlyMoatMovementModeOptions => new[]
+        {
+            SerpLocalization.Get("BugfixesAndQoL.FriendlyMoatMovementDisabled"),
+            SerpLocalization.Get("BugfixesAndQoL.FriendlyMoatMovementExact"),
+            SerpLocalization.Get("BugfixesAndQoL.FriendlyMoatMovementRequiredOnly")
+        };
         public string EnableImprovedMoatFillingText => SerpLocalization.Get(SerpLocalization.EnableImprovedMoatFilling);
         public string EnableImprovedMoatFillingHelpText => SerpLocalization.Get(SerpLocalization.EnableImprovedMoatFillingHelp);
         public string EnableMountedStockpileMovementFixText => SerpLocalization.Get("BugfixesAndQoL.EnableMountedStockpileMovementFix");
@@ -556,6 +565,31 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public int FriendlyMoatMovementMode
+        {
+            get => friendlyMoatMovementMode;
+            set
+            {
+                int validated = FriendlyMoatMovementPolicy.Normalize(value);
+                int previous = friendlyMoatMovementMode;
+                SetSetting(ref friendlyMoatMovementMode, validated, nameof(FriendlyMoatMovementMode));
+                if (previous != friendlyMoatMovementMode)
+                    OnPropertyChanged(nameof(FriendlyMoatMovementModeIndex));
+            }
+        }
+
+        // The transient index keeps Noesis binding separate from the synchronized setting.
+        public int FriendlyMoatMovementModeIndex
+        {
+            get => FriendlyMoatMovementMode;
+            set => FriendlyMoatMovementMode = value;
+        }
+
+        internal FriendlyMoatMovementMode GetFriendlyMoatMovementMode() =>
+            (BugfixesAndQoL.FriendlyMoatMovementMode)
+                FriendlyMoatMovementPolicy.Normalize(FriendlyMoatMovementMode);
+
+        [SyncHostOnly]
         public bool EnableImprovedMoatFilling
         {
             get => enableImprovedMoatFilling;
@@ -803,6 +837,7 @@ namespace BugfixesAndQoL
                 RememberAiAivSettings = true;
                 EnableCustomLordListEnhancements = true;
                 EnableTroopMovementFix = true;
+                FriendlyMoatMovementMode = FriendlyMoatMovementPolicy.DefaultMode;
                 EnableImprovedMoatFilling = true;
                 EnableMountedStockpileMovementFix = true;
                 EnableHealerAttackCommandFix = true;

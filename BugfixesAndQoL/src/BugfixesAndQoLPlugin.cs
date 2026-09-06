@@ -11,11 +11,11 @@ namespace BugfixesAndQoL
 {
     [BepInDependency(ScriptExtenderGuid, "2.2.0")]
     [BepInDependency("ActiveAIVDetector_Serp", BepInDependency.DependencyFlags.SoftDependency)]
-    [BepInDependency(MoveMoatCompatibility.PluginGuid, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(LegacySomeSettingsGuid, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInIncompatibility(LegacyTroopMovementFixGuid)]
     [BepInIncompatibility(TroopMovementFix2Guid)]
     [BepInIncompatibility(TroopMovementFix3Guid)]
+    [BepInIncompatibility(LegacyMoveMoatGuid)]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class BugfixesAndQoLPlugin : BaseUnityPlugin
@@ -24,11 +24,12 @@ namespace BugfixesAndQoL
         private const string LegacyTroopMovementFixGuid = "TroopMovementFix_Serp";
         private const string TroopMovementFix2Guid = "TroopMovementFix2_Serp";
         private const string TroopMovementFix3Guid = "TroopMovementFix3_Serp";
+        private const string LegacyMoveMoatGuid = "MoveMoatTest_Serp";
         private const string LegacySomeSettingsGuid = "SomeSettings_Serp";
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.128";
+        public const string PluginVersion = "1.0.129";
 
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
         private static SteamLobbyInvitePrompt steamLobbyInvitePrompt;

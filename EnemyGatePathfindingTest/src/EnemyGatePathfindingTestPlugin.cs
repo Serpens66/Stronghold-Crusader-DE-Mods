@@ -12,9 +12,9 @@ using UnityEngine;
 namespace EnemyGatePathfindingTest
 {
     [BepInDependency(ScriptExtenderGuid, "2.2.0")]
-    // Load after the optional test mod when it exists, so PluginInfos can suppress
+    // Load after the hook owner when it exists, so PluginInfos can suppress
     // our overlapping observational route hooks while keeping the PCL hook active.
-    [BepInDependency("MoveMoatTest_Serp", BepInDependency.DependencyFlags.SoftDependency)]
+    [BepInDependency("BugfixesAndQoL_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class EnemyGatePathfindingTestPlugin : BaseUnityPlugin
     {

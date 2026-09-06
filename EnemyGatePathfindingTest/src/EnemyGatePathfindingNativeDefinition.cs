@@ -68,7 +68,7 @@ namespace EnemyGatePathfindingTest
             "48 83 EC 50 48 63 F2 45 33 ED 33 D2 49 63 E8 49 63 C1 48 8B D9";
 
         // UPDATE REVIEW (CrusaderDE.dll + RedBird 2.0.2): this is the ordinary movement
-        // cursor's PCL-result decision documented by MoveMoatTest. The callback must run
+        // cursor's PCL-result decision documented by BugfixesAndQoL. The callback must run
         // before the relocated TEST so changing EAX to zero affects Vanilla's CMOV path.
         public const int CursorPclDecisionRva = 0x8F1C4;
         public const int CursorPclDecisionHookLength = 14;

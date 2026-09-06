@@ -123,12 +123,27 @@
     <Compile Include="src\BugfixesAndQoLPlugin.cs" />
     <Compile Include="src\BugfixesAndQoLRuntime.cs" />
     <Compile Include="src\BugfixesAndQoLViewModel.cs" />
+    <Compile Include="src\CursorConnectivity.cs" />
+    <Compile Include="src\CursorRegionGraph.cs" />
+    <Compile Include="src\DirectMoatCommandScopes.cs" />
+    <Compile Include="src\FillWeightedRoutes.cs" />
+    <Compile Include="src\FriendlyMoatMovementPolicy.cs" />
+    <Compile Include="src\FriendlyMoatMovementRuntime.cs" />
+    <Compile Include="src\MoatPlacement.cs" />
+    <Compile Include="src\MoatPlacementSearch.cs" />
+    <Compile Include="src\MoatSearchKernel.cs" />
+    <Compile Include="src\MoatWorkTargetSelection.cs" />
+    <Compile Include="src\MovementOptionsSnapshot.cs" />
+    <Compile Include="src\MovementPathPublication.cs" />
+    <Compile Include="src\MovementSearchContext.cs" />
+    <Compile Include="src\NativeFormationSlots.cs" />
+    <Compile Include="src\NativeMovementCadenceResolver.cs" />
+    <Compile Include="src\NativeMovementRecovery.cs" />
+    <Compile Include="src\UnitMovementContext.cs" />
+    <Compile Include="src\WeightedMoatPublication.cs" />
+    <Compile Include="src\WeightedMoatRoutePlanner.cs" />
     <Compile Include="src\EnemyProximityBulldozeCursorHook.cs" />
     <Compile Include="src\HdMarketViewHook.cs" />
-    <Compile Include="src\ImprovedMoatFillingFix.cs" />
-    <Compile Include="src\ImprovedMoatFillingNativeContractPolicy.cs" />
-    <Compile Include="src\ImprovedMoatFillingPolicy.cs" />
-    <Compile Include="src\MoatFillHookOwnershipPolicy.cs" />
     <Compile Include="src\MarketKeyMainTradeMenuHook.cs" />
     <Compile Include="src\MarketGoodOrderItemViewModel.cs" />
     <Compile Include="src\MarketGoodsOrderDefinition.cs" />
@@ -147,7 +162,6 @@
     <Compile Include="src\LordControlGroupNativePatch.cs" />
     <Compile Include="src\LordUnitControlsPolicy.cs" />
     <Compile Include="src\MovementCadenceIntegration.cs" />
-    <Compile Include="src\MoveMoatCompatibility.cs" />
     <Compile Include="src\PlaguePopularityFix.cs" />
     <Compile Include="src\PlagueTreatmentFadeFix.cs" />
     <Compile Include="src\PlagueTargetReservationFix.cs" />
@@ -207,5 +221,6 @@
     <Error Condition="!Exists('$(ExtenderDir)\RedBird.Abstractions.dll')" Text="RedBird.Abstractions.dll was not found: $(ExtenderDir)" />
     <Error Condition="!Exists('$(ExtenderDir)\RedBird.Core.dll')" Text="RedBird.Core.dll was not found: $(ExtenderDir)" />
     <Error Condition="!Exists('$(ExtenderDir)\RedBird.X64.dll')" Text="RedBird.X64.dll was not found: $(ExtenderDir)" />
+    <Error Condition="!Exists('$(ExtenderDir)\RedBird.Backends.NativeX64.dll')" Text="RedBird.Backends.NativeX64.dll was not found: $(ExtenderDir)" />
   </Target>
 </Project>

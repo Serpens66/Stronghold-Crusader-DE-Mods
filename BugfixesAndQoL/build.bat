@@ -38,6 +38,8 @@ pushd "%PROJECT_DIR%"
 if errorlevel 1 goto build_failed_popd
 "%PROJECT_DIR%tests\bin\ImprovedMoatFilling.Tests.exe"
 if errorlevel 1 goto build_failed_popd
+dotnet run --project "tests\FriendlyMoatMovement.Tests\FriendlyMoatMovement.Tests.csproj" -- "%PROJECT_DIR%.."
+if errorlevel 1 goto build_failed_popd
 popd
 
 if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"

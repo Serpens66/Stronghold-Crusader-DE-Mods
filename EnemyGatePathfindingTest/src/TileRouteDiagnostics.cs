@@ -159,7 +159,7 @@ namespace EnemyGatePathfindingTest
             if (!installNativeHooks)
             {
                 Shared.DebugLogHelper.LogWarning(log,
-                    "Cursor tile-policy hook was not installed because MoveMoatTest_Serp owns " +
+                    "Cursor tile-policy hook was not installed because BugfixesAndQoL_Serp owns " +
                     "overlapping cursor code. The snapshot Different-PCL filter remains active.");
                 return;
             }

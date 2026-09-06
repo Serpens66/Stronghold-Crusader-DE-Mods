@@ -155,7 +155,8 @@ namespace EnemyGatePathfindingTest
                 throw new InvalidOperationException(
                     $"both snapshot-based captured-player filters were not installed atomically: {commitResult}");
 
-            bool moveMoatLoaded = Chainloader.PluginInfos.ContainsKey("MoveMoatTest_Serp");
+            bool friendlyMoatHookOwnerLoaded =
+                Chainloader.PluginInfos.ContainsKey("BugfixesAndQoL_Serp");
             try
             {
                 tileRouteDiagnostics = new TileRouteDiagnostics(
@@ -165,7 +166,7 @@ namespace EnemyGatePathfindingTest
                     libraryBase,
                     (int*)(libraryBase + unchecked((ulong)cursorXRva)),
                     (int*)(libraryBase + unchecked((ulong)cursorYRva)),
-                    installNativeHooks: !moveMoatLoaded);
+                    installNativeHooks: !friendlyMoatHookOwnerLoaded);
                 samePclDiagnostics.SetRoutePolicyConsumer(tileRouteDiagnostics.UpdatePolicy);
                 tileRouteDiagnostics.SetTopologyEpochStarter(
                     () => samePclDiagnostics.BeginExplicitEpoch("first cursor query"));
