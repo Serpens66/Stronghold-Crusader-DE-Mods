@@ -28,6 +28,7 @@ The Workshop upload contains one directory for the lord. Place the Vanilla and e
         Scripts/
           init.lua
 
+Example: `AppData\LocalLow\Firefly Studios\Stronghold Crusader Definitive Edition\CustomLords\testlord_serp\Override\Locales\de-DE\fx\speech`  
 Only the `.lordjson`, `.aivjson`, and optional `avatar.png` are required by Vanilla:
 
 - At least one valid `.lordjson` and one valid `.aivjson` must be directly inside the lord directory. Vanilla does not scan its subdirectories for these files.
@@ -136,7 +137,8 @@ An absent or malformed `info.json`, or a blank/duplicate GUID, prevents reliable
         ]
       }
     }
-
+  
+Recommended tool to check for correct json syntax, since with wrong syntax the game won't load it: https://goonlinetools.com/json-validator/  
 All fields are optional at the C# model level, but `lordmeta.json` itself must deserialize as the expected object before the lord receives extended metadata. Missing optional fields are allowed. A field with the wrong JSON type can make deserialization of the entire document fail; it does not merely clear that one field.
 
 | Field | Actual behavior |
@@ -179,7 +181,7 @@ Available message names are:
 
 `IncomingMessage`, `WillAttack`, `TauntSiege2`, `TauntSiege3`, `TauntSiege4`, `AngerSiegeFailed`, `AngerFortressDamaged`, `PleadDeath`, `PleadOutsideWalls`, `NervousInsideWalls`, `Counterattack`, `Unk11`, `Won`, `Unk13`, `RequestGoods`, `ReceivedGoods`, `DefeatedAgain`, `AllyNotificationCongratulations`, `AllyNotificationHasDefeatedEnemy`, `AllyNotificationRequestReinforcements`, `AllyNotificationMerryChristmas`, `Unk21`, `Unk22`, `AllyNotificationWillSiegeEnemySoon`, `AllyNotificationCannotAttackEnemy`, `AllyNotificationWillNotAttackToday`, `AllyNotificationCannotNotHelp`, `AllyNotificationWillNotHelp`, `AllyNotificationWillNotSendRequestedGoods`, `AllyNotificationHasSentRequestedGoods`, `AllyNotificationConfidentInVictory`, `AllyNotificationConfidentInLosing`, `AllyNotificationSentReinforcements`, and `AllyNotificationAgree`.
 
-`DefeatedAgain`, `AllyNotificationCongratulations`, and `AllyNotificationHasDefeatedEnemy` map to the distinct native IDs 16, 17, and 18 respectively. Values named `Unk` are mapped but their exact trigger is not yet documented.
+Values named `Unk` are mapped but their exact trigger is not yet documented.
 
 ## Media paths and formats
 
