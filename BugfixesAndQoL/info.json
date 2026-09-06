@@ -3,13 +3,20 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.129",
+  "Version": "1.0.130",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.2.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.130",
+      "Changes": [
+        "Integrated the Extended Shift command queue for mixed movement and unit/building attack orders, with synchronized multiplayer handling, stable multi-page destination markers, and an enabled-by-default host setting.",
+        "The standalone QueueTest mod is no longer required or compatible."
+      ]
+    },
     {
       "Version": "1.0.129",
       "Changes": [

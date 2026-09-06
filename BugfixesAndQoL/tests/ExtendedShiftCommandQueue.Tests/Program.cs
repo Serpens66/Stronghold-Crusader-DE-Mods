@@ -1,4 +1,4 @@
-using QueueTest;
+using BugfixesAndQoL;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -28,7 +28,7 @@ internal static class Program
         CheckFirstShiftMoveTakeover();
         CheckMigrationSourceContracts();
         CheckNativeReference();
-        Console.WriteLine($"QueueTest static tests passed: {checks} checks.");
+        Console.WriteLine($"Extended Shift command queue static tests passed: {checks} checks.");
     }
 
     private static void CheckClassification()
@@ -636,46 +636,75 @@ internal static class Program
     private static void CheckMigrationSourceContracts()
     {
         string workspace = FindWorkspace();
-        string queuePlugin = Read(workspace, "QueueTest", "src", "QueueTestPlugin.cs");
-        string queueRuntime = Read(workspace, "QueueTest", "src", "QueueRuntime.cs");
-        string queueProject = Read(workspace, "QueueTest", "QueueTest.csproj");
-        string queueContract = Read(workspace, "QueueTest", "NATIVE_CONTRACT.md");
         string bugfixesPlugin = Read(workspace, "BugfixesAndQoL", "src", "BugfixesAndQoLPlugin.cs");
+        string queueRuntime = Read(
+            workspace,
+            "BugfixesAndQoL",
+            "src",
+            "ExtendedShiftCommandQueueRuntime.cs");
+        string queueContract = Read(workspace, "BugfixesAndQoL", "QueueTest.md");
+        string viewModel = Read(workspace, "BugfixesAndQoL", "src", "BugfixesAndQoLViewModel.cs");
+        string settingsXaml = Read(
+            workspace,
+            "BugfixesAndQoL",
+            "Override",
+            "ScriptExtenderUI",
+            "BugfixesAndQoLSettings.xaml");
         string bugfixesRuntime = string.Join(
             "\n",
             Directory.GetFiles(Path.Combine(workspace, "BugfixesAndQoL", "src"), "*.cs")
                 .Select(File.ReadAllText));
         string bugfixesProject = Read(workspace, "BugfixesAndQoL", "BugfixesAndQoL.csproj");
 
-        Check(queuePlugin.Contains("BepInDependency(ScriptExtenderGuid, \"2.2.0\")"),
-            "QueueTest pins Script Extender 2.2.0");
-        Check(queuePlugin.Contains("OnCrusaderLibraryLoaded(CrusaderLibraryLoadContext context)"),
-            "QueueTest consumes the 2.2.0 load context");
+        Check(bugfixesPlugin.Contains("BepInDependency(ScriptExtenderGuid, \"2.2.0\")"),
+            "integrated queue pins Script Extender 2.2.0");
+        Check(bugfixesRuntime.Contains("InitializeExtendedShiftCommandQueue(context, isFixedLayoutHashValidated)"),
+            "integrated queue consumes the validated 2.2.0 load context");
         Check(queueRuntime.Contains("SelectedUnitInfo[] selectedUnits"),
-            "QueueTest projects the 2.2.0 selected-unit contract");
+            "integrated queue projects the 2.2.0 selected-unit contract");
         Check(CountText(queueRuntime, "new DetourHandle<") == 5,
-            "QueueTest owns five typed RedBird detour handles");
+            "integrated queue owns five typed RedBird detour handles");
         Check(CountText(queueRuntime, "HookTarget.FromAddress(") == 5,
-            "QueueTest registers five explicit native targets");
+            "integrated queue registers five explicit native targets");
         Check(CountText(queueRuntime, ".Original(") == 10,
-            "QueueTest preserves every original-call path through typed handles");
+            "integrated queue preserves every original-call path through typed handles");
         Check(CountText(queueRuntime, ".IsCompleteSuccess") == 3,
-            "QueueTest checks all three transaction commits");
+            "integrated queue checks all three transaction commits");
         Check(queueRuntime.Contains("OwnsHooks = false"),
-            "QueueTest declares process-lifetime hook ownership");
+            "integrated queue declares process-lifetime hook ownership");
         Check(!queueRuntime.Contains("Zhuqiaomon") && !queueRuntime.Contains("HookRef<") &&
-            !queueRuntime.Contains(".Hook.Trampoline"), "QueueTest has no legacy hook API");
-        Check(queueProject.Contains("RedBird.Abstractions.dll") &&
-            queueProject.Contains("RedBird.Core.dll") && queueProject.Contains("RedBird.X64.dll"),
-            "QueueTest references the RedBird assemblies shipped with 2.2.0");
-        Check(!queueProject.Contains("Zhuqiaomon.dll") && !queueProject.Contains("PolyHook2.NET.dll") &&
-            !queueProject.Contains("Iced.dll"), "QueueTest project has no legacy hook dependency");
+            !queueRuntime.Contains(".Hook.Trampoline"), "integrated queue has no legacy hook API");
+        Check(bugfixesProject.Contains("RedBird.Abstractions.dll") &&
+            bugfixesProject.Contains("RedBird.Core.dll") && bugfixesProject.Contains("RedBird.X64.dll"),
+            "integrated queue uses the RedBird assemblies already owned by BugfixesAndQoL");
         Check(queueContract.Contains("Script Extender 2.0.2") &&
             queueContract.Contains("Script Extender 2.2.0") &&
             queueRuntime.Contains("GameTribeManagerAPI.Instance.UnassignUnit(tribeId, member.UnitId)") &&
             !queueRuntime.Contains("RemoveUnitFromTribeRva") &&
             !queueRuntime.Contains("removeUnitFromTribe("),
-            "QueueTest uses the corrected 2.2.0 public UnassignUnit wrapper");
+            "integrated queue uses the corrected 2.2.0 public UnassignUnit wrapper");
+
+        Check(viewModel.Contains("[SyncHostOnly]\n        public bool EnableExtendedShiftCommandQueue") ||
+              viewModel.Contains("[SyncHostOnly]\r\n        public bool EnableExtendedShiftCommandQueue"),
+            "extended queue is classified as a synchronized host setting");
+        Check(viewModel.Contains("private bool enableExtendedShiftCommandQueue = true;") &&
+              viewModel.Contains("EnableExtendedShiftCommandQueue = true;"),
+            "extended queue is enabled by default and by preset reset");
+        Check(queueRuntime.Contains("settings.EnableMod && settings.EnableExtendedShiftCommandQueue") &&
+              (queueRuntime.Contains("if (!enabled)\n                ResetMapState();") ||
+               queueRuntime.Contains("if (!enabled)\r\n                ResetMapState();")),
+            "master and host settings gate the queue and disable transitions clear managed state");
+        Check(queueRuntime.Contains("args.AICommand = (TribeAICommand)decodedCommand;") &&
+              queueRuntime.Contains("args.MoveType = (TribeMoveType)decodedMoveType;") &&
+              queueRuntime.Contains("if (!FeatureEnabled)"),
+            "marked commands are decoded safely across setting transitions");
+        Check(settingsXaml.Contains("EnableExtendedShiftCommandQueue, Mode=TwoWay"),
+            "host settings UI exposes the extended queue option");
+        Check(bugfixesPlugin.Contains("BepInIncompatibility(LegacyQueueTestGuid)") &&
+              bugfixesPlugin.Contains("LegacyQueueTestGuid = \"QueueTest_Serp\""),
+            "standalone QueueTest is explicitly incompatible");
+        Check(!Directory.Exists(Path.Combine(workspace, "QueueTest")),
+            "standalone QueueTest project has been removed after integration");
 
         Check(bugfixesPlugin.Contains("BepInDependency(ScriptExtenderGuid, \"2.2.0\")") &&
             bugfixesPlugin.Contains("BepInIncompatibility(LegacyMoveMoatGuid)"),
@@ -692,7 +721,7 @@ internal static class Program
         Check(!Directory.Exists(Path.Combine(workspace, "MoatCommandTest")),
             "standalone MoatCommandTest project has been removed after integration");
 
-        foreach (string mod in new[] { "OxTetherIdleFixTest", "QueueTest", "StockpileAccessFixTest" })
+        foreach (string mod in new[] { "OxTetherIdleFixTest", "StockpileAccessFixTest" })
         {
             string manifest = Read(workspace, mod, "info.json");
             Check(manifest.Contains("\"NetworkMode\": 1"), mod + " remains gameplay synchronized");
@@ -717,8 +746,8 @@ internal static class Program
         DirectoryInfo current = new DirectoryInfo(AppContext.BaseDirectory);
         while (current != null)
         {
-            if (Directory.Exists(Path.Combine(current.FullName, "QueueTest")) &&
-                Directory.Exists(Path.Combine(current.FullName, "BugfixesAndQoL")))
+            if (Directory.Exists(Path.Combine(current.FullName, "BugfixesAndQoL")) &&
+                Directory.Exists(Path.Combine(current.FullName, "Shared")))
                 return current.FullName;
             current = current.Parent;
         }

@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace QueueTest
+namespace BugfixesAndQoL
 {
     internal static class QueueNativeContract
     {

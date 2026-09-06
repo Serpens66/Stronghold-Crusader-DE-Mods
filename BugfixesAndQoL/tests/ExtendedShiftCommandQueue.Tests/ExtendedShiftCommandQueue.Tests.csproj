@@ -4,8 +4,9 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>disable</Nullable>
+    <NuGetAudit>false</NuGetAudit>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="..\src\QueueModel.cs" Link="QueueModel.cs" />
+    <Compile Include="..\..\src\ExtendedShiftCommandQueueModel.cs" Link="ExtendedShiftCommandQueueModel.cs" />
   </ItemGroup>
 </Project>

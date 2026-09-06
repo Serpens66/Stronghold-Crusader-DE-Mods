@@ -25,6 +25,7 @@ namespace BugfixesAndQoL
         private bool fixAITowerRepair = true;
         private bool betterAIOverbuildRules = true;
         private bool enableTroopMovementFix = true;
+        private bool enableExtendedShiftCommandQueue = true;
         private int friendlyMoatMovementMode = FriendlyMoatMovementPolicy.DefaultMode;
         private bool enableImprovedMoatFilling = true;
         private bool enableMountedStockpileMovementFix = true;
@@ -265,6 +266,10 @@ namespace BugfixesAndQoL
         public string EnableCustomLordListEnhancementsHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableCustomLordListEnhancementsHelp");
         public string EnableTroopMovementFixText => SerpLocalization.Get(SerpLocalization.EnableTroopMovementFix);
         public string EnableTroopMovementFixHelpText => SerpLocalization.Get(SerpLocalization.EnableTroopMovementFixHelp);
+        public string EnableExtendedShiftCommandQueueText =>
+            SerpLocalization.Get("BugfixesAndQoL.EnableExtendedShiftCommandQueue");
+        public string EnableExtendedShiftCommandQueueHelpText =>
+            SerpLocalization.Get("BugfixesAndQoL.EnableExtendedShiftCommandQueueHelp");
         public string FriendlyMoatMovementModeText => SerpLocalization.Get("BugfixesAndQoL.FriendlyMoatMovementMode");
         public string FriendlyMoatMovementModeHelpText => SerpLocalization.Get("BugfixesAndQoL.FriendlyMoatMovementModeHelp");
         public string[] FriendlyMoatMovementModeOptions => new[]
@@ -565,6 +570,16 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool EnableExtendedShiftCommandQueue
+        {
+            get => enableExtendedShiftCommandQueue;
+            set => SetSetting(
+                ref enableExtendedShiftCommandQueue,
+                value,
+                nameof(EnableExtendedShiftCommandQueue));
+        }
+
+        [SyncHostOnly]
         public int FriendlyMoatMovementMode
         {
             get => friendlyMoatMovementMode;
@@ -837,6 +852,7 @@ namespace BugfixesAndQoL
                 RememberAiAivSettings = true;
                 EnableCustomLordListEnhancements = true;
                 EnableTroopMovementFix = true;
+                EnableExtendedShiftCommandQueue = true;
                 FriendlyMoatMovementMode = FriendlyMoatMovementPolicy.DefaultMode;
                 EnableImprovedMoatFilling = true;
                 EnableMountedStockpileMovementFix = true;

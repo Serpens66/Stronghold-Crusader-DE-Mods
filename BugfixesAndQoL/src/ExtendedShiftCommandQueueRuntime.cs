@@ -16,9 +16,9 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
 
-namespace QueueTest
+namespace BugfixesAndQoL
 {
-    internal sealed unsafe class QueueRuntime
+    internal sealed unsafe class ExtendedShiftCommandQueueRuntime
     {
         private const int ReferenceWaypointAppendRva = 0x11C3A0;
         private const int ReferenceMovementCompleteRva = 0x1178D0;
@@ -92,6 +92,7 @@ namespace QueueTest
         private delegate void ChoreHandlerDelegate();
 
         private readonly ManualLogSource log;
+        private readonly BugfixesAndQoLViewModel settings;
         // A cohort is the smallest set of units that currently shares mutable queue progress.
         // Unit identities remain authoritative; BoundTribeId is only the current dispatch vessel.
         private readonly Dictionary<long, TribeQueueState> cohorts = new Dictionary<long, TribeQueueState>();
@@ -134,6 +135,7 @@ namespace QueueTest
         private bool? lastRealMultiplayerMode;
         private bool internalDispatch;
         private bool runtimeTickLogged;
+        private bool? lastFeatureEnabled;
         private int currentTick;
         private long nextCohortId = 1;
         private bool drawFilterInstalled;
@@ -148,17 +150,30 @@ namespace QueueTest
         private IReadOnlyList<QueueVisualMarkerMode> overlayProjectedModes =
             Array.Empty<QueueVisualMarkerMode>();
 
-        public QueueRuntime(ManualLogSource log)
+        public ExtendedShiftCommandQueueRuntime(
+            ManualLogSource log,
+            BugfixesAndQoLViewModel settings)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
+            this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
         }
 
-        public void Install(CrusaderLibraryLoadContext context)
+        private bool FeatureEnabled =>
+            settings.EnableMod && settings.EnableExtendedShiftCommandQueue;
+
+        public void Install(
+            CrusaderLibraryLoadContext context,
+            bool referenceHashMatches)
         {
             if (installed)
                 return;
             if (context == null)
                 throw new ArgumentNullException(nameof(context));
+            if (!referenceHashMatches)
+            {
+                throw new InvalidOperationException(
+                    "The Extended Shift command queue requires the validated fixed native layout.");
+            }
 
             IntPtr libraryHandle = context.ModuleHandle;
             ReadOnlySpan<byte> memory = context.Memory;
@@ -219,7 +234,7 @@ namespace QueueTest
                 memory,
                 WaypointAppendPattern,
                 ReferenceWaypointAppendRva,
-                referenceHashMatches: true,
+                referenceHashMatches,
                 name: "Vanilla movement-waypoint append helper",
                 log: null);
             if (resolution.Rva != ReferenceWaypointAppendRva)
@@ -232,7 +247,7 @@ namespace QueueTest
                 memory,
                 MovementCompletePattern,
                 ReferenceMovementCompleteRva,
-                referenceHashMatches: true,
+                referenceHashMatches,
                 name: "Vanilla tribe-movement completion predicate",
                 log: null);
             if (movementCompleteResolution.Rva != ReferenceMovementCompleteRva)
@@ -246,7 +261,7 @@ namespace QueueTest
                 memory,
                 TribeOverlayRenderPattern,
                 ReferenceTribeOverlayRenderRva,
-                referenceHashMatches: true,
+                referenceHashMatches,
                 name: "Vanilla tribe overlay renderer",
                 log: null);
             if (overlayRenderResolution.Rva != ReferenceTribeOverlayRenderRva)
@@ -275,10 +290,11 @@ namespace QueueTest
             CommitResult nativeCommitResult = nativeTransaction.Commit();
             if (!nativeCommitResult.IsCompleteSuccess ||
                 !waypointAppendHook.Success || !tribeOverlayRenderHook.Success)
-                throw new InvalidOperationException("One or more QueueTest native hooks were not installed.");
+                throw new InvalidOperationException(
+                    "One or more Extended Shift command queue native hooks were not installed.");
 
-            InstallMultiplayerSynchronization(context);
-            InstallOptionalDrawFilter(context);
+            InstallMultiplayerSynchronization(context, referenceHashMatches);
+            InstallOptionalDrawFilter(context, referenceHashMatches);
 
             subscriptions.Add(TribeR3EventHooks.OnTribeIssueOrderWithTarget.Observable
                 .Where(args => args.Phase == EventHookPhase.Pre)
@@ -298,6 +314,7 @@ namespace QueueTest
             GameTimeManagerAPI.Instance.OnTick += OnTick;
 
             installed = true;
+            ApplySetting();
             Shared.DebugLogHelper.LogInfo(
                 log,
                 $"INITIALIZED: waypointRva=0x{resolution.Rva:X}, functionSize=71, " +
@@ -309,10 +326,27 @@ namespace QueueTest
                 $"multiplayerSynchronizationReady={multiplayerSynchronizationReady}, " +
                 $"GameTribeSize=0x{actualTribeSize:X}, " +
                 $"queueLimit={MaximumPendingCommands}, " +
-                "allModesEnabled=true. Command capture no longer depends on an OnStartMap event.");
+                $"featureEnabled={FeatureEnabled}. Command capture no longer depends on an OnStartMap event.");
         }
 
-        private void InstallMultiplayerSynchronization(CrusaderLibraryLoadContext context)
+        public void ApplySetting()
+        {
+            bool enabled = FeatureEnabled;
+            if (lastFeatureEnabled == enabled)
+                return;
+
+            lastFeatureEnabled = enabled;
+            if (!enabled)
+                ResetMapState();
+
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"Bugfixes and QoL Extended Shift command queue setting applied: enabled={enabled}.");
+        }
+
+        private void InstallMultiplayerSynchronization(
+            CrusaderLibraryLoadContext context,
+            bool referenceHashMatches)
         {
             try
             {
@@ -323,14 +357,14 @@ namespace QueueTest
                     memory,
                     MoveChoreHandlerPattern,
                     QueueNativeContract.MoveChoreHandlerRva,
-                    referenceHashMatches: true,
+                    referenceHashMatches,
                     name: "Vanilla Chore 17 handler",
                     log: null);
                 Shared.NativeResolution targetResolution = Shared.NativePatternResolver.ResolveUnique(
                     memory,
                     TargetOrderChoreHandlerPattern,
                     QueueNativeContract.TargetOrderChoreHandlerRva,
-                    referenceHashMatches: true,
+                    referenceHashMatches,
                     name: "Vanilla Chore 36 handler",
                     log: null);
                 if (moveResolution.Rva != QueueNativeContract.MoveChoreHandlerRva ||
@@ -340,7 +374,7 @@ namespace QueueTest
                 }
 
                 // The table is populated at runtime. Checking it proves that opcodes 17, 36 and
-                // 71 still select the exact handlers whose payload layouts QueueTest extends.
+                // 71 still select the exact handlers whose payload layouts this feature extends.
                 ValidateChoreHandlerTableEntry(libraryHandle, QueueNativeContract.MoveChoreOpcode,
                     QueueNativeContract.MoveChoreHandlerRva);
                 ValidateChoreHandlerTableEntry(libraryHandle, QueueNativeContract.TargetOrderChoreOpcode,
@@ -509,6 +543,7 @@ namespace QueueTest
 
         private bool ShouldMarkOutgoingMultiplayerOrder() =>
             installed &&
+            FeatureEnabled &&
             multiplayerSynchronizationReady &&
             !internalDispatch &&
             Marshal.ReadInt32(choreModePointer) == QueueNativeContract.ChorePackMode &&
@@ -525,7 +560,9 @@ namespace QueueTest
                 $"MULTIPLAYER_MARKER_FAIL_OPEN: {chore}; Vanilla order retained; {exception.Message}");
         }
 
-        private void InstallOptionalDrawFilter(CrusaderLibraryLoadContext context)
+        private void InstallOptionalDrawFilter(
+            CrusaderLibraryLoadContext context,
+            bool referenceHashMatches)
         {
             try
             {
@@ -536,7 +573,7 @@ namespace QueueTest
                     memory,
                     DrawSubmissionPattern,
                     ReferenceDrawSubmissionRva,
-                    referenceHashMatches: true,
+                    referenceHashMatches,
                     name: "Vanilla overlay draw submission",
                     log: null);
                 if (resolution.Rva != ReferenceDrawSubmissionRva)
@@ -607,6 +644,14 @@ namespace QueueTest
                         out int decodedCommand))
                 {
                     args.AICommand = (TribeAICommand)decodedCommand;
+                    if (!FeatureEnabled)
+                    {
+                        // A synchronized setting change can cross an already serialized Chore.
+                        // Remove the private marker but let Vanilla execute the decoded command.
+                        CancelQueuesForTribeUnits(args.TribeId);
+                        return;
+                    }
+
                     if (TryGetAliveTribe(args.TribeId, out GameTribe* synchronizedTribe) &&
                         QueueCommandClassifier.TryClassifyTarget(
                             decodedCommand,
@@ -628,7 +673,7 @@ namespace QueueTest
                 }
 
                 // Every unmarked synchronized target order retains Vanilla behavior and
-                // deterministically replaces any QueueTest work on all peers.
+                // deterministically replaces any managed queue work on all peers.
                 CancelQueuesForTribeUnits(args.TribeId);
                 if (TryGetAliveTribe(args.TribeId, out GameTribe* vanillaTribe) &&
                     QueueCommandClassifier.TryClassifyTarget(commandValue, out QueueCommandKind vanillaKind))
@@ -643,6 +688,9 @@ namespace QueueTest
                 }
                 return;
             }
+
+            if (!FeatureEnabled)
+                return;
 
             if (!IsLocalSelectedTribe(args.TribeId, out GameTribe* tribe))
                 return;
@@ -711,6 +759,14 @@ namespace QueueTest
                         out int decodedMoveType))
                 {
                     args.MoveType = (TribeMoveType)decodedMoveType;
+                    if (!FeatureEnabled)
+                    {
+                        // Never expose the private marker to Vanilla after a setting transition.
+                        observedAttacks.Remove(args.TribeId);
+                        CancelQueuesForTribeUnits(args.TribeId);
+                        return;
+                    }
+
                     if (TryGetAliveTribe(args.TribeId, out GameTribe* synchronizedTribe))
                     {
                         QueueCommand synchronizedCommand = new QueueCommand(
@@ -721,7 +777,7 @@ namespace QueueTest
                         TryEnqueueSynchronizedCommand(args.TribeId, synchronizedTribe, synchronizedCommand);
                     }
 
-                    // Always consume QueueTest's marker; 0x40/0x41 are not Vanilla move types.
+                    // Always consume the queue marker while enabled; 0x40/0x41 are not Vanilla move types.
                     args.SkipOriginalFunction = true;
                     args.ReturnValue = 1;
                     return;
@@ -731,6 +787,9 @@ namespace QueueTest
                 CancelQueuesForTribeUnits(args.TribeId);
                 return;
             }
+
+            if (!FeatureEnabled)
+                return;
 
             if (!IsLocalSelectedTribe(args.TribeId, out GameTribe* tribe))
                 return;
@@ -797,7 +856,7 @@ namespace QueueTest
                 // Chore 71 serializes the same one-based game ID used by the manager APIs.
                 // Treating it as a span index misses the real queue and lets Vanilla append
                 // the Move a second time, which breaks mixed-command ordering.
-                if (installed && !internalDispatch)
+                if (installed && FeatureEnabled && !internalDispatch)
                 {
                     if (IsRealMultiplayer())
                     {
@@ -876,7 +935,7 @@ namespace QueueTest
         private void RenderTribeOverlayCore(IntPtr tribeManager, int tribeId, ref bool trampolineEntered)
         {
             overlayCohortBuffer.Clear();
-            if (installed)
+            if (installed && FeatureEnabled)
             {
                 foreach (TribeQueueState candidate in cohorts.Values)
                 {
@@ -1189,7 +1248,7 @@ namespace QueueTest
 
         private void OnTick(int tick)
         {
-            if (!installed)
+            if (!installed || !FeatureEnabled)
                 return;
 
             currentTick = tick;
@@ -1900,7 +1959,7 @@ namespace QueueTest
             new HookTransactionOptions
             {
                 FailureMode = TransactionFailureMode.RollbackAndThrow,
-                // QueueRuntime is process-rooted; startup never tears these hooks down.
+                // This runtime is process-rooted; startup never tears these hooks down.
                 OwnsHooks = false
             };
 

@@ -25,6 +25,7 @@ namespace BugfixesAndQoL
         private readonly MultiplayerAivSyncRuntime multiplayerAivSyncRuntime;
         private readonly SiegeAmmoRestockFeature siegeAmmoRestockFeature;
         private readonly TroopHudMiddleClickCameraFeature troopHudMiddleClickCameraFeature;
+        private ExtendedShiftCommandQueueRuntime extendedShiftCommandQueueRuntime;
         private IDisposable playerMarketSubscription;
         private IDisposable mapStartSubscription;
         private IDisposable mapLoadSubscription;
@@ -365,6 +366,9 @@ namespace BugfixesAndQoL
             TryInitializeFeature(
                 "friendly moat movement",
                 () => InitializeFriendlyMoatMovement(context, isFixedLayoutHashValidated));
+            TryInitializeFeature(
+                "Extended Shift command queue",
+                () => InitializeExtendedShiftCommandQueue(context, isFixedLayoutHashValidated));
             TryInitializeFeature("plague popularity fix", EnsurePlaguePopularityFix);
             TryInitializeFeature("plague cloud removal fix", EnsurePlagueTreatmentFadeFix);
             TryInitializeFeature("plague target-reservation fix", EnsurePlagueTargetReservationFix);
@@ -406,6 +410,9 @@ namespace BugfixesAndQoL
             TryInitializeFeature("map-origin sorting", EnsureMapOriginSortHook);
             TryInitializeFeature("Vanilla maps in the editor", EnsureVanillaMapEditorHook);
             TryApplyFeature("troop movement fix", troopMovementFixRuntime.ApplySetting);
+            TryApplyFeature(
+                "Extended Shift command queue",
+                () => extendedShiftCommandQueueRuntime?.ApplySetting());
             TryApplyFeature("multiplayer game speed", multiplayerGameSpeedRuntime.ApplySetting);
             TryApplyFeature("assembly-point placement fix", ApplyAssemblyPointPlacementPatchSetting);
             TryApplyFeature("Healer attack-command fix", ApplyHealerAttackCommandPatchSetting);
@@ -438,6 +445,19 @@ namespace BugfixesAndQoL
                 "Bugfixes and QoL friendly moat movement initialized: " +
                 $"mode={settings.FriendlyMoatMovementMode}, improvedFill=" +
                 $"{settings.EnableMod && settings.EnableImprovedMoatFilling}.");
+        }
+
+        private void InitializeExtendedShiftCommandQueue(
+            CrusaderLibraryLoadContext context,
+            bool referenceHashMatches)
+        {
+            if (!nativeLibraryAvailable || extendedShiftCommandQueueRuntime != null)
+                return;
+
+            // Root the runtime before installing process-lifetime detours so a partial native
+            // transaction can never leave callbacks whose managed owner became collectible.
+            extendedShiftCommandQueueRuntime = new ExtendedShiftCommandQueueRuntime(log, settings);
+            extendedShiftCommandQueueRuntime.Install(context, referenceHashMatches);
         }
 
         private void EnsureShiftRepairAllBuildingsHook()

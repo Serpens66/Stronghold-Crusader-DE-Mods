@@ -81,6 +81,11 @@ Hold Ctrl while clicking a production building's pause button to pause or resume
 ### Repair all buildings with Shift
 Hold Shift while clicking a building's Repair button to repair the selected building first and then attempt every other damaged repairable building you own. Vanilla checks and deducts wood and stone separately for every repair, so the sequence stops having an effect when the available resources are no longer sufficient.
 
+### Queue movement and attack commands with Shift
+The enabled-by-default host option extends Shift queues so movement orders and attacks against units or buildings share one deterministic FIFO with up to 128 pending commands. Existing Vanilla movement remains the predecessor, and later mixed commands continue in their original order across selection and tribe changes.
+
+Outstanding destinations are displayed in stable pages of up to nine numbered entries. The current page shows its numbers, while later pages retain their destination flags without presenting repeated numbers as global queue positions. Queue state is synchronized in multiplayer and intentionally discarded when a map starts, loads, unloads, or the option is disabled.
+
 ### Make new recruits run to rally points
 Newly recruited human and AI units move to their rally points at their own normal fastest pace, with the matching animation. Terrain and other movement modifiers still apply.
 

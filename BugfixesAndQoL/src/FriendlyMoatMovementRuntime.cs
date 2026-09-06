@@ -1928,7 +1928,7 @@ namespace BugfixesAndQoL
             ClearUnitMoveFrames();
 
             // The Script Extender raises no Post event when another subscriber handles a
-            // command through SkipOriginalFunction (QueueTest deliberately does this). These
+            // command through SkipOriginalFunction (the integrated Shift queue deliberately does this). These
             // scopes are synchronous by contract and must never leak into the next game tick.
             if (activeMoveCommand != null)
             {
