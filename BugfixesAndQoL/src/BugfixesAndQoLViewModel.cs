@@ -274,12 +274,21 @@ namespace BugfixesAndQoL
             SerpLocalization.Get("BugfixesAndQoL.EnableExtendedShiftCommandQueueHelp");
         public string FriendlyMoatMovementModeText => SerpLocalization.Get("BugfixesAndQoL.FriendlyMoatMovementMode");
         public string FriendlyMoatMovementModeHelpText => SerpLocalization.Get("BugfixesAndQoL.FriendlyMoatMovementModeHelp");
-        public string[] FriendlyMoatMovementModeOptions => new[]
+        public string FriendlyMoatMovementModeValueText
         {
-            SerpLocalization.Get("BugfixesAndQoL.FriendlyMoatMovementDisabled"),
-            SerpLocalization.Get("BugfixesAndQoL.FriendlyMoatMovementExact"),
-            SerpLocalization.Get("BugfixesAndQoL.FriendlyMoatMovementRequiredOnly")
-        };
+            get
+            {
+                switch (GetFriendlyMoatMovementMode())
+                {
+                    case BugfixesAndQoL.FriendlyMoatMovementMode.Exact:
+                        return SerpLocalization.Get("BugfixesAndQoL.FriendlyMoatMovementExact");
+                    case BugfixesAndQoL.FriendlyMoatMovementMode.RequiredOnly:
+                        return SerpLocalization.Get("BugfixesAndQoL.FriendlyMoatMovementRequiredOnly");
+                    default:
+                        return SerpLocalization.Get("BugfixesAndQoL.FriendlyMoatMovementDisabled");
+                }
+            }
+        }
         public string EnableImprovedMoatFillingText => SerpLocalization.Get(SerpLocalization.EnableImprovedMoatFilling);
         public string EnableImprovedMoatFillingHelpText => SerpLocalization.Get(SerpLocalization.EnableImprovedMoatFillingHelp);
         public string EnableMountedStockpileMovementFixText => SerpLocalization.Get("BugfixesAndQoL.EnableMountedStockpileMovementFix");
@@ -591,15 +600,18 @@ namespace BugfixesAndQoL
                 int previous = friendlyMoatMovementMode;
                 SetSetting(ref friendlyMoatMovementMode, validated, nameof(FriendlyMoatMovementMode));
                 if (previous != friendlyMoatMovementMode)
-                    OnPropertyChanged(nameof(FriendlyMoatMovementModeIndex));
+                {
+                    OnPropertyChanged(nameof(FriendlyMoatMovementSliderValue));
+                    OnPropertyChanged(nameof(FriendlyMoatMovementModeValueText));
+                }
             }
         }
 
-        // The transient index keeps Noesis binding separate from the synchronized setting.
-        public int FriendlyMoatMovementModeIndex
+        // Slider order differs deliberately from the stable persisted mode values.
+        public int FriendlyMoatMovementSliderValue
         {
-            get => FriendlyMoatMovementMode;
-            set => FriendlyMoatMovementMode = value;
+            get => FriendlyMoatMovementPolicy.ToSliderValue(FriendlyMoatMovementMode);
+            set => FriendlyMoatMovementMode = FriendlyMoatMovementPolicy.FromSliderValue(value);
         }
 
         internal FriendlyMoatMovementMode GetFriendlyMoatMovementMode() =>

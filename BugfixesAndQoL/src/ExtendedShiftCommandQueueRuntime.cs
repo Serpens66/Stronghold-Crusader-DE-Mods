@@ -147,7 +147,6 @@ namespace BugfixesAndQoL
         private bool overlayDrawFilterActive;
         private bool overlayShowPageNumbers;
         private bool overlaySawQueueMarker;
-        private int localMoveChoreDepth;
         private int overlayRenderThreadId;
         private int overlayFlagCallIndex;
         private int overlayNumberCallIndex;
@@ -450,16 +449,10 @@ namespace BugfixesAndQoL
         {
             bool trampolineEntered = false;
             bool markerWritten = false;
-            bool localMoveScopeEntered = false;
             int originalMoveType = 0;
             try
             {
                 int observedTribeId = Marshal.ReadInt32(choreTribeIdPointer);
-                if (installed && IsLocalSelectedTribe(observedTribeId, out _))
-                {
-                    localMoveChoreDepth++;
-                    localMoveScopeEntered = true;
-                }
                 if (ShouldMarkOutgoingMultiplayerOrder())
                 {
                     int tribeId = observedTribeId;
@@ -494,8 +487,6 @@ namespace BugfixesAndQoL
             }
             finally
             {
-                if (localMoveScopeEntered)
-                    localMoveChoreDepth--;
                 if (markerWritten)
                 {
                     try
@@ -796,8 +787,14 @@ namespace BugfixesAndQoL
             if (args.Phase != EventHookPhase.Pre)
                 return;
 
+            // A local click is not reliably nested inside Chore 17 (notably in the editor).
+            // Identify it from the MoveHere contract and current local selection instead.
+            bool directPlayerMove = !internalDispatch &&
+                args.IsPatrolPath == 0 &&
+                args.IsNewOrder &&
+                IsLocalSelectedTribe(args.TribeId, out _);
             moveObservationScopes.Push(new MoveObservationScope(
-                internalDispatch || localMoveChoreDepth > 0,
+                internalDispatch || directPlayerMove,
                 internalDispatch ? "extended-shift" : "direct"));
             if (internalDispatch)
                 return;

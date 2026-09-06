@@ -1,5 +1,6 @@
 <Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:shared="clr-namespace:Shared;assembly=TooltipTest">
   <Grid.Resources>
     <Style x:Key="OldLocalToolTip" TargetType="{x:Type ToolTip}">
       <Setter Property="Background" Value="#FF1D1710"/>
@@ -39,6 +40,7 @@
     <StackPanel Margin="10">
       <TextBlock Text="{Binding TitleText}" Foreground="#FFF2D48A" FontSize="20" FontWeight="Bold"/>
       <TextBlock Text="{Binding IntroText}" Foreground="#FFCCCCCC" TextWrapping="Wrap" Margin="0,3,0,5"/>
+      <TextBlock Text="{Binding ResolutionDiagnosticText}" Foreground="#FF77AAFF" FontWeight="Bold" TextWrapping="Wrap" Margin="0,0,0,5"/>
 
       <TextBlock Text="{Binding ComparisonTitleText}" Style="{StaticResource SectionHeader}"/>
 
@@ -51,8 +53,8 @@
 
       <TextBlock Text="{Binding AutoStyleText}" Style="{StaticResource ComparisonLabel}" Background="#44204030">
         <TextBlock.ToolTip>
-          <ToolTip Style="{DynamicResource SE_ToolTip_Scale}" ToolTipService.ShowDuration="60000">
-            <TextBlock Text="{Binding ComparisonHelpText}" TextWrapping="Wrap"/>
+          <ToolTip Style="{DynamicResource SE_ToolTip}" FontSize="50" MaxWidth="1380" ToolTipService.ShowDuration="60000">
+            <TextBlock Text="{Binding ComparisonHelpText}" FontSize="50" TextWrapping="Wrap"/>
           </ToolTip>
         </TextBlock.ToolTip>
       </TextBlock>
@@ -86,7 +88,7 @@
       <CheckBox IsChecked="{Binding SampleCheckbox, Mode=TwoWay}" Content="{Binding CheckboxText}"
                 Foreground="White" Margin="3">
         <CheckBox.ToolTip>
-          <ToolTip Style="{DynamicResource SE_ToolTip_Scale}" ToolTipService.ShowDuration="60000">
+          <ToolTip Style="{DynamicResource SE_ToolTip}" FontSize="{x:Static shared:ToolTipPresentation.AutomaticFontSize}" MaxWidth="{x:Static shared:ToolTipPresentation.AutomaticMaximumWidth}" Padding="{x:Static shared:ToolTipPresentation.AutomaticPadding}" BorderThickness="{x:Static shared:ToolTipPresentation.AutomaticBorderThickness}" ToolTipService.ShowDuration="60000">
             <TextBlock Text="{Binding CheckboxHelpText}" TextWrapping="Wrap"/>
           </ToolTip>
         </CheckBox.ToolTip>
@@ -100,7 +102,7 @@
         </Grid.ColumnDefinitions>
         <TextBlock Grid.Column="0" Text="{Binding AmountText}" Foreground="White" VerticalAlignment="Center">
           <TextBlock.ToolTip>
-            <ToolTip Style="{DynamicResource SE_ToolTip_Scale}" ToolTipService.ShowDuration="60000">
+            <ToolTip Style="{DynamicResource SE_ToolTip}" FontSize="{x:Static shared:ToolTipPresentation.AutomaticFontSize}" MaxWidth="{x:Static shared:ToolTipPresentation.AutomaticMaximumWidth}" Padding="{x:Static shared:ToolTipPresentation.AutomaticPadding}" BorderThickness="{x:Static shared:ToolTipPresentation.AutomaticBorderThickness}" ToolTipService.ShowDuration="60000">
               <TextBlock Text="{Binding AmountHelpText}" TextWrapping="Wrap"/>
             </ToolTip>
           </TextBlock.ToolTip>
@@ -108,7 +110,7 @@
         <Slider Grid.Column="1" Minimum="0" Maximum="100" Value="{Binding SampleAmount, Mode=TwoWay}"
                 TickFrequency="1" IsSnapToTickEnabled="True" Margin="3">
           <Slider.ToolTip>
-            <ToolTip Style="{DynamicResource SE_ToolTip_Scale}" ToolTipService.ShowDuration="60000">
+            <ToolTip Style="{DynamicResource SE_ToolTip}" FontSize="{x:Static shared:ToolTipPresentation.AutomaticFontSize}" MaxWidth="{x:Static shared:ToolTipPresentation.AutomaticMaximumWidth}" Padding="{x:Static shared:ToolTipPresentation.AutomaticPadding}" BorderThickness="{x:Static shared:ToolTipPresentation.AutomaticBorderThickness}" ToolTipService.ShowDuration="60000">
               <TextBlock Text="{Binding AmountHelpText}" TextWrapping="Wrap"/>
             </ToolTip>
           </Slider.ToolTip>
@@ -117,7 +119,7 @@
                  Foreground="White" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"
                  Padding="4,1" TextAlignment="Center" VerticalAlignment="Center">
           <TextBox.ToolTip>
-            <ToolTip Style="{DynamicResource SE_ToolTip_Scale}" ToolTipService.ShowDuration="60000">
+            <ToolTip Style="{DynamicResource SE_ToolTip}" FontSize="{x:Static shared:ToolTipPresentation.AutomaticFontSize}" MaxWidth="{x:Static shared:ToolTipPresentation.AutomaticMaximumWidth}" Padding="{x:Static shared:ToolTipPresentation.AutomaticPadding}" BorderThickness="{x:Static shared:ToolTipPresentation.AutomaticBorderThickness}" ToolTipService.ShowDuration="60000">
               <TextBlock Text="{Binding AmountHelpText}" TextWrapping="Wrap"/>
             </ToolTip>
           </TextBox.ToolTip>
@@ -128,14 +130,14 @@
         <Grid.ColumnDefinitions><ColumnDefinition Width="220"/><ColumnDefinition Width="240"/></Grid.ColumnDefinitions>
         <TextBlock Grid.Column="0" Text="{Binding ModeText}" Foreground="White" VerticalAlignment="Center">
           <TextBlock.ToolTip>
-            <ToolTip Style="{DynamicResource SE_ToolTip_Scale}" ToolTipService.ShowDuration="60000">
+            <ToolTip Style="{DynamicResource SE_ToolTip}" FontSize="{x:Static shared:ToolTipPresentation.AutomaticFontSize}" MaxWidth="{x:Static shared:ToolTipPresentation.AutomaticMaximumWidth}" Padding="{x:Static shared:ToolTipPresentation.AutomaticPadding}" BorderThickness="{x:Static shared:ToolTipPresentation.AutomaticBorderThickness}" ToolTipService.ShowDuration="60000">
               <TextBlock Text="{Binding ModeHelpText}" TextWrapping="Wrap"/>
             </ToolTip>
           </TextBlock.ToolTip>
         </TextBlock>
         <ComboBox Grid.Column="1" ItemsSource="{Binding ModeOptions}" SelectedIndex="{Binding SampleMode, Mode=TwoWay}" Margin="3">
           <ComboBox.ToolTip>
-            <ToolTip Style="{DynamicResource SE_ToolTip_Scale}" ToolTipService.ShowDuration="60000">
+            <ToolTip Style="{DynamicResource SE_ToolTip}" FontSize="{x:Static shared:ToolTipPresentation.AutomaticFontSize}" MaxWidth="{x:Static shared:ToolTipPresentation.AutomaticMaximumWidth}" Padding="{x:Static shared:ToolTipPresentation.AutomaticPadding}" BorderThickness="{x:Static shared:ToolTipPresentation.AutomaticBorderThickness}" ToolTipService.ShowDuration="60000">
               <TextBlock Text="{Binding ModeHelpText}" TextWrapping="Wrap"/>
             </ToolTip>
           </ComboBox.ToolTip>
@@ -145,7 +147,7 @@
       <Border Background="#332F5F9F" BorderBrush="#FF77AAFF" BorderThickness="1" Padding="8" Margin="3,8,3,3">
         <TextBlock Text="{Binding LongText}" Foreground="White" TextWrapping="Wrap">
           <TextBlock.ToolTip>
-            <ToolTip Style="{DynamicResource SE_ToolTip_Scale}" ToolTipService.ShowDuration="60000">
+            <ToolTip Style="{DynamicResource SE_ToolTip}" FontSize="{x:Static shared:ToolTipPresentation.AutomaticFontSize}" MaxWidth="{x:Static shared:ToolTipPresentation.AutomaticMaximumWidth}" Padding="{x:Static shared:ToolTipPresentation.AutomaticPadding}" BorderThickness="{x:Static shared:ToolTipPresentation.AutomaticBorderThickness}" ToolTipService.ShowDuration="60000">
               <TextBlock Text="{Binding LongHelpText}" TextWrapping="Wrap"/>
             </ToolTip>
           </TextBlock.ToolTip>

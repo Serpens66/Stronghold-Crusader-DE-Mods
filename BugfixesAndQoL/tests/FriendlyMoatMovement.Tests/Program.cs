@@ -327,11 +327,20 @@ void ValidateModeSettings()
         !viewModel.Contains("[SyncHostOnly]\r\n        public int FriendlyMoatMovementMode", StringComparison.Ordinal))
         throw new Exception("FriendlyMoatMovementMode is not a synchronized host setting.");
     if (!viewModel.Contains("FriendlyMoatMovementMode = FriendlyMoatMovementPolicy.DefaultMode", StringComparison.Ordinal) ||
-        !xaml.Contains("ItemsSource=\"{Binding FriendlyMoatMovementModeOptions}\"", StringComparison.Ordinal) ||
-        !xaml.Contains("SelectedIndex=\"{Binding FriendlyMoatMovementModeIndex, Mode=TwoWay}\"", StringComparison.Ordinal))
+        !viewModel.Contains("public int FriendlyMoatMovementSliderValue", StringComparison.Ordinal) ||
+        !xaml.Contains("Value=\"{Binding FriendlyMoatMovementSliderValue, Mode=TwoWay}\"", StringComparison.Ordinal) ||
+        !xaml.Contains("Text=\"{Binding FriendlyMoatMovementModeValueText}\"", StringComparison.Ordinal) ||
+        xaml.Contains("FriendlyMoatMovementModeOptions", StringComparison.Ordinal) ||
+        xaml.Contains("FriendlyMoatMovementModeIndex", StringComparison.Ordinal))
         throw new Exception("Friendly moat default/reset or XAML binding is incomplete.");
     foreach (string locale in Directory.GetFiles(Path.Combine(root, "BugfixesAndQoL", "Locales"), "*.txt"))
-        if (!File.ReadAllText(locale).Contains("BugfixesAndQoL.FriendlyMoatMovementRequiredOnly=", StringComparison.Ordinal))
+    {
+        string localeText = File.ReadAllText(locale);
+        if (!localeText.Contains("BugfixesAndQoL.FriendlyMoatMovementRequiredOnly=", StringComparison.Ordinal) ||
+            !localeText.Contains("BugfixesAndQoL.FriendlyMoatMovementExact=", StringComparison.Ordinal) ||
+            (!localeText.Contains("noticeable lag when commanding large groups", StringComparison.Ordinal) &&
+             !localeText.Contains("beim Kommandieren großer Gruppen spürbare Lags", StringComparison.Ordinal)))
             throw new Exception("Missing friendly moat locale keys: " + locale);
+    }
     Console.WriteLine("PASS: Off/Exact/Required-only mapping, fail-closed invalid values, default/reset, host classification and XAML/locales.");
 }

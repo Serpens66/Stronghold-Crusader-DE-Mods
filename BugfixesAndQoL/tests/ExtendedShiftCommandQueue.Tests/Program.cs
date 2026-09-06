@@ -776,9 +776,11 @@ internal static class Program
             CountText(queueRuntime, "new DetourHandle<") == 5,
             "large Move markers reuse the existing draw hook without overlapping detours");
         Check(queueRuntime.Contains("args.Phase == EventHookPhase.Post") &&
-            queueRuntime.Contains("localMoveChoreDepth") &&
+            queueRuntime.Contains("args.IsNewOrder") &&
+            queueRuntime.Contains("IsLocalSelectedTribe(args.TribeId, out _)") &&
+            !queueRuntime.Contains("localMoveChoreDepth") &&
             queueRuntime.Contains("internalDispatch ? \"extended-shift\" : \"direct\""),
-            "direct and executed Extended Shift Moves share post-formation capture");
+            "local direct and executed Extended Shift Moves share post-formation capture without Chore nesting");
         Check(largeMoveRuntime.Contains("MOVE_TARGET_TRACK_START:") &&
             largeMoveRuntime.Contains("MOVE_TARGET_TRACK_RESULT:") &&
             largeMoveRuntime.Contains("GameUnitManagerAPI.Instance.GetUnitsAsSpan()") &&

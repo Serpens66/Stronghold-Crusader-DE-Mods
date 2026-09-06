@@ -19,6 +19,13 @@ namespace TooltipTest
         public RelayCommand ResetToDefaultCommand { get; }
         public string TitleText => SerpLocalization.Get("TooltipTest.Title");
         public string IntroText => SerpLocalization.Get("TooltipTest.Intro");
+        public string ResolutionDiagnosticText => string.Format(
+            CultureInfo.CurrentCulture,
+            SerpLocalization.Get("TooltipTest.ResolutionDiagnostic"),
+            Shared.ToolTipPresentation.CurrentScreenWidth,
+            Shared.ToolTipPresentation.CurrentScreenHeight,
+            Shared.ToolTipPresentation.AutomaticFontSize,
+            Shared.ToolTipPresentation.AutomaticMaximumWidth);
         public string ComparisonTitleText => SerpLocalization.Get("TooltipTest.ComparisonTitle");
         public string ControlsTitleText => SerpLocalization.Get("TooltipTest.ControlsTitle");
         public string OldStyleText => SerpLocalization.Get("TooltipTest.OldStyle");

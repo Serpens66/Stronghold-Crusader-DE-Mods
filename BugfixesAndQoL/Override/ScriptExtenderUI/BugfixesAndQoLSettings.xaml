@@ -309,11 +309,11 @@
         <TextBlock Text="{Binding EnableExtendedShiftCommandQueueText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.friendly-moat-movement-mode" shared:ModSettingsSearch.Title="{Binding FriendlyMoatMovementModeText}" shared:ModSettingsSearch.ToolTipText="{Binding FriendlyMoatMovementModeHelpText}"
-            ToolTipService.ShowDuration="60000" ToolTip="{Binding FriendlyMoatMovementModeHelpText}" Margin="0,0,14,8">
-        <Grid.ColumnDefinitions><ColumnDefinition Width="260"/><ColumnDefinition Width="360"/></Grid.ColumnDefinitions>
+            ToolTipService.ShowDuration="60000" ToolTip="{Binding FriendlyMoatMovementModeHelpText}" Margin="0,0,0,8">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="170"/><ColumnDefinition Width="220"/><ColumnDefinition Width="190"/></Grid.ColumnDefinitions>
         <TextBlock Grid.Column="0" Text="{Binding FriendlyMoatMovementModeText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>
-        <ComboBox Grid.Column="1" ItemsSource="{Binding FriendlyMoatMovementModeOptions}" SelectedIndex="{Binding FriendlyMoatMovementModeIndex, Mode=TwoWay}"
-                  IsEnabled="{Binding CanEditHostSettings}" HorizontalAlignment="Stretch" Margin="8,0,0,0"/>
+        <Slider Grid.Column="1" Minimum="0" Maximum="2" Value="{Binding FriendlyMoatMovementSliderValue, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" IsEnabled="{Binding CanEditHostSettings}" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding FriendlyMoatMovementModeHelpText}"/>
+        <TextBlock Grid.Column="2" Text="{Binding FriendlyMoatMovementModeValueText}" Foreground="White" TextWrapping="Wrap" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="8,0,0,0"/>
       </Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-improved-moat-filling" shared:ModSettingsSearch.Title="{Binding EnableImprovedMoatFillingText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableImprovedMoatFillingHelpText}"><CheckBox IsChecked="{Binding EnableImprovedMoatFilling, Mode=TwoWay}"
                 Foreground="White"
