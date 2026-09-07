@@ -5,14 +5,14 @@ using System.Threading;
 
 namespace TooltipTest
 {
-    [BepInDependency(ScriptExtenderGuid, "2.2.0")]
+    [BepInDependency(ScriptExtenderGuid, "2.3.0")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class TooltipTestPlugin : BaseUnityPlugin
     {
         private const string ScriptExtenderGuid = "000shcdese";
         public const string PluginGuid = "TooltipTest_Serp";
         public const string PluginName = "Tooltip Test";
-        public const string PluginVersion = "0.1.0";
+        public const string PluginVersion = "0.1.1";
 
         // The registered settings view remains rooted by the Script Extender after SHCDE
         // destroys the early BepInEx component during its normal startup cleanup.

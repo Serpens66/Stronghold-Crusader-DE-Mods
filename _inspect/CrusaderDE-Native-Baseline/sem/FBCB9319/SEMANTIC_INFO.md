@@ -2,11 +2,11 @@
 
 ## Identity and scope
 
-- Created: 2026-09-01; Script Extender knowledge refreshed for 2.2.0 on 2026-09-06, Europe/Berlin
+- Created: 2026-09-01; Script Extender knowledge refreshed for 2.3.0 on 2026-09-07, Europe/Berlin
 - Current native DLL SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
 - Current `Assembly-CSharp.dll` SHA-256: `BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789`
 - Historical native DLL SHA-256: `17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4`
-- Script Extender commit: `10d28f717d38166e5875c666f20fc5653ae44b0c` (`v2.2.0`)
+- Script Extender commit: `a0cd52993b44a6909d4f7f6a92f82fa5888a8e63` (`v2.3.0`)
 - PE image base for both native DLLs: `0x180000000`
 - PDB GUID and missing Jenkins PDB path are documented in the parent `SCAN_INFO.md`.
 
@@ -32,7 +32,7 @@ Verified AssetStudio archive:
 
 `ghidra/CrusaderDE-Semantic.gpr` and its matching `.rep` directory are a copy of the raw current Ghidra baseline. Only this copy was enriched.
 
-- 9 unique direct-function AOBs and 3 confirmed curated claims received names and provenance comments.
+- 3 confirmed curated claims received names and provenance comments; no 2.3.0 AOB was automatically classified as a direct function.
 - All 77 `CrusaderDE` exports received managed P/Invoke prototypes.
 - 119 Script Extender header types were imported into the project archive.
 - Ghidra exposes 259 data types after enrichment, including built-in/demangled types.
@@ -66,21 +66,21 @@ The previously observed `GatehouseQueryEventArgs.UnitId` index mismatch is delib
 
 ## Script Extender knowledge
 
-The Roslyn extractor scanned 478 source/header files and records the Script Extender 2.2.0 Git commit, relative path, source line and SHA-256 source-file hash with each derived fact.
+The Roslyn extractor scanned 485 source/header files and records the Script Extender 2.3.0 Git commit, relative path, source line and SHA-256 source-file hash with each derived fact.
 
-- AOB definitions: 334
-- Delegate signatures: 137
+- AOB definitions: 337
+- Delegate signatures: 138
 - Struct/enum declarations: 105
 - Structured type fields/properties: 9,492
 - Structured VTable members: 345
 
 AOB results for each native DLL:
 
-- 332 patterns produced exactly one match.
+- 335 patterns produced exactly one match.
 - 2 patterns produced two matches each; their four match records remain non-unique and were not applied.
 - No pattern produced zero matches.
-- 9 patterns were statically recognized as direct native functions.
-- The remaining 321 patterns retain `unknown` resolution kind and were not automatically named or typed.
+- No pattern was statically recognized as a direct native function under the 2.3.0 source shape.
+- All 337 patterns retain `unknown` resolution kind and were not automatically named or typed.
 
 The conservative resolution-kind result is intentional: an exact byte match is not by itself evidence that the address is a function entry, global address, indirect target or VTable.
 
@@ -130,8 +130,8 @@ The external Dat2XAML copy has two documented container fixes: it stops before a
 | Referenced globals/data symbols | 82,610 |
 | Managed methods | 8,138 |
 | Managed-to-native callchains | 56,123 |
-| AOB match records | 668 |
-| Script Extender types / fields / VTable members | 81 / 9,389 / 345 |
+| AOB match records | 678 |
+| Script Extender types / fields / VTable members | 105 / 9,492 / 345 |
 | XAML resources | 105 |
 | Version matches | 3,818 |
 
@@ -139,12 +139,12 @@ Primary artifact integrity:
 
 | Artifact | Bytes | SHA-256 |
 |---|---:|---|
-| Local `CrusaderDE-semantic.sqlite` (reference recorded in `DATABASE_INFO.json`) | 154,857,472 | `21384620E1F9A084A3177BF308FD98EB08308942C17E8891B7224045864724B3` |
-| `exports/semantic-decompiled-functions.c` | 10,856,822 | `012C77F892EB927144AC857EE1C2AF690D61E371066BAF307EBAB3108F92B291` |
+| Local `CrusaderDE-semantic.sqlite` (reference recorded in `DATABASE_INFO.json`) | 154,923,008 | `4A7084D5C0AC45C92697A803ED6E9FCCB175AA830A659BA85234DDD1A64820E7` |
+| `exports/semantic-decompiled-functions.c` | 10,857,489 | `4B7048D0386C346606EF469B1B0C50499C44940F52529325646C860A9AEA1DAB` |
 | Current `semantic-functions.jsonl` | 3,574,616 | `58418AE6217520197158E41BC46E37ED16CAD230639393C684D099380696B447` |
 | Historical `semantic-functions.jsonl` | 3,553,531 | `9541067177CDAD5EAC47572CA32B23774526A156961F42FFBDC05908BD3355D7` |
 
-The semantic Ghidra project contains 10 files totaling 101,811,258 bytes. The historical Ghidra project contains 10 files totaling 97,354,813 bytes. Their internal project databases are validated by fresh read-only opens rather than treated as single-file archives.
+The semantic Ghidra project contains 10 files totaling 102,007,866 bytes. The historical Ghidra project contains 10 files totaling 97,354,813 bytes. Their internal project databases are validated by fresh read-only opens rather than treated as single-file archives.
 
 Deterministic subsystem classifications currently cover:
 
@@ -207,7 +207,7 @@ See the machine-readable records and `VERSION_DIFF.md` under `../../diff/17F8DD4
 
 ## Reproduction and validation
 
-The reusable pipeline is `tools/semantic/Build-SemanticBaseline.ps1`. Derived directories use collision-checked eight-character hash keys (`sem/FBCB9319`, `managed/BC8B6A39` and `diff/17F8DD4A-FBCB9319`) to keep Windows and GitHub paths short. `IDENTITY.json` stores the complete hashes; validation fails if a short key belongs to another full hash or if a generated file path exceeds 240 characters. The stages are `Knowledge`, `Curated`, `Resources`, `GhidraExports`, `Index`, `RestoreDatabase`, `Validate` and `All`. `Curated` checks claim thresholds, source hashes, function fingerprints, hook bytes/instruction coverage and machine contracts, then produces the confirmed-only label input and validation reports. A canonical `Index` run atomically builds schema-v2 SQLite and refreshes `DATABASE_INFO.json` plus the root `CURRENT.json`; `RestoreDatabase` only consumes and validates the tracked manifest/exports and curated inputs. Source-analysis stages check all three binary hashes and the Script Extender commit. `Validate` refreshes its reports and performs fail-closed checks:
+The reusable pipeline is `tools/semantic/Build-SemanticBaseline.ps1`. Derived directories use collision-checked eight-character hash keys (`sem/FBCB9319`, `managed/BC8B6A39` and `diff/17F8DD4A-FBCB9319`) to keep Windows and GitHub paths short. `IDENTITY.json` stores the complete hashes plus Script Extender commit and Git-tree identity; ignored build outputs are deliberately outside source provenance. The stages include `Knowledge`, `Curated`, `Resources`, `GhidraCurrent`, `GhidraHistorical`, `GhidraExports`, `Index`, `ValidateFast`, `Validate`, `UpdateForScriptExtender`, `RestoreDatabase` and `All`. `UpdateForScriptExtender` skips unchanged managed/resource/historical analysis and runs current Ghidra only for native-relevant Extender changes. `Curated` remains fail-closed. A canonical `Index` run atomically rebuilds SQLite and refreshes `DATABASE_INFO.json` plus `CURRENT.json`.
 
     & '_inspect\CrusaderDE-Native-Baseline\tools\semantic\Build-SemanticBaseline.ps1' Validate
 
@@ -225,7 +225,7 @@ The final fail-closed validation confirms:
 - 77 of 77 `CrusaderDE` P/Invokes resolved;
 - all 105 XAML files parse as XML;
 - 3,818 version matches are one-to-one and satisfy their confidence thresholds;
-- all 14 curated claims, 31 evidence records and three machine hookspan contracts are hash-consistent;
+- all 26 curated claims, 55 evidence records and three machine hookspan contracts are hash-consistent;
 - caller ABI observations are mutually compatible and confirmed names alone enter the Ghidra label stream;
 - JSON/JSONL parsing, VA/RVA relations and PE image ranges;
 - SQLite `integrity_check`, foreign-key check and FTS5 search.

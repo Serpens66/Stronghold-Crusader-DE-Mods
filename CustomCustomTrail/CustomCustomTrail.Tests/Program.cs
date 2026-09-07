@@ -1,6 +1,7 @@
 using CustomCustomTrail.Core;
 using Shared;
 using System.Text;
+using System.Text.Json;
 
 var tests = new (string Name, Action Run)[]
 {
@@ -38,7 +39,7 @@ var tests = new (string Name, Action Run)[]
     ("Built-in Customize origin packet roundtrip", TestBuiltInCustomizeOriginPacketRoundtrip),
     ("Steam Workshop discovery waits for Steamworks", TestSteamWorkshopReadinessGate),
     ("local activation setting gates the complete runtime", TestLocalActivationSetting),
-    ("Script Extender 2.2.0 migration contract is explicit", TestScriptExtender220MigrationContract),
+    ("Script Extender manifest range contract is explicit", TestScriptExtenderManifestRangeContract),
     ("Trail Maker Coop export is integrated", TestCoopExporterIntegration),
     ("Coop package JSON is Unity dependency-free", TestDependencyFreeCoopJson),
     ("mission and manifest JSON use CRLF", TestCoopJsonLineEndings),
@@ -780,7 +781,7 @@ static void TestLocalActivationSetting()
         "Coop package dropdown still replaces its ItemsSource reentrantly");
 }
 
-static void TestScriptExtender220MigrationContract()
+static void TestScriptExtenderManifestRangeContract()
 {
     string root = FindProjectRoot();
     string workspaceRoot = Directory.GetParent(root)?.FullName ??
@@ -790,13 +791,23 @@ static void TestScriptExtender220MigrationContract()
     string info = File.ReadAllText(Path.Combine(root, "info.json"));
     string sharedPreset = File.ReadAllText(
         Path.Combine(workspaceRoot, "Shared", "PresetLobbyModSettingsViewModel.cs"));
+    using JsonDocument manifestJson = JsonDocument.Parse(info);
+    string minimumExtenderVersion = manifestJson.RootElement
+        .GetProperty("MinimumScriptExtenderVersion").GetString() ?? string.Empty;
+    string maximumExtenderVersion = manifestJson.RootElement
+        .GetProperty("MaximumScriptExtenderVersion").GetString() ?? string.Empty;
 
-    Assert(plugin.Contains("[BepInDependency(\"000shcdese\", \"2.2.0\")]"),
-        "SHCDESE minimum dependency is not pinned to 2.2.0");
+    Assert(Version.TryParse(minimumExtenderVersion, out Version minimum),
+        "Manifest minimum Script Extender version is invalid");
+    Assert(string.IsNullOrEmpty(maximumExtenderVersion) ||
+        (Version.TryParse(maximumExtenderVersion, out Version maximum) && maximum >= minimum),
+        "Manifest maximum Script Extender version is invalid or below the minimum");
+    Assert(plugin.Contains($"[BepInDependency(\"000shcdese\", \"{minimumExtenderVersion}\")]"),
+        "SHCDESE minimum dependency does not match the manifest");
     Assert(plugin.Contains("OnLibraryLoaded(CrusaderLibraryLoadContext context)") &&
         !plugin.Contains("OnLibraryLoaded(IntPtr") &&
         !plugin.Contains("ReadOnlySpan<byte> memory"),
-        "LibraryLoaded handler does not use the 2.2.0 load context");
+        "LibraryLoaded handler does not use the Script Extender load context");
     Assert(!project.Contains("Zhuqiaomon", StringComparison.OrdinalIgnoreCase),
         "CustomCustomTrail retains a stale Zhuqiaomon project reference");
     Assert(info.Contains("\"NetworkMode\": 1"),

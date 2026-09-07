@@ -6,7 +6,7 @@ using System;
 
 namespace APITest
 {
-    [BepInDependency(ScriptExtenderGuid, "2.2.0")]
+    [BepInDependency(ScriptExtenderGuid, "2.3.0")]
     [BepInDependency(ApiGuid, BepInDependency.DependencyFlags.HardDependency)]
     [BepInIncompatibility(BugfixesGuid)]
     [BepInIncompatibility(ExtraFeaturesGuid)]
@@ -19,7 +19,7 @@ namespace APITest
         private const string ExtraFeaturesGuid = "ExtraFeatures_Serp";
         public const string PluginGuid = "APITest_Serp";
         public const string PluginName = "Serp Native API Test";
-        public const string PluginVersion = "0.1.1";
+        public const string PluginVersion = "0.1.2";
 
         private static ManualLogSource rootedLog;
         private static ISelectedUnitCommandRegistration selectedRegistration;

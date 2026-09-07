@@ -3,7 +3,9 @@ setlocal EnableExtensions
 set "PROJECT_DIR=%~dp0"
 set "MSBUILD=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe"
 set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
-set "EXTENDER_DIR=%PROJECT_DIR%..\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481"
+set "EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
+rem The installed release is canonical; SHCDESE_EXTENDER_DIR is the explicit override.
+if defined SHCDESE_EXTENDER_DIR set "EXTENDER_DIR=%SHCDESE_EXTENDER_DIR%"
 set "NO_PAUSE=0"
 for %%A in (%*) do if /I "%%~A"=="/nopause" set "NO_PAUSE=1"
 powershell.exe -NoProfile -Command "if (Get-Process -Name 'Stronghold Crusader Definitive Edition' -ErrorAction SilentlyContinue) { exit 1 } else { exit 0 }" >nul 2>&1
@@ -17,7 +19,6 @@ if not exist "%MSBUILD%" (
     if "%NO_PAUSE%"=="0" pause
     exit /b 1
 )
-if not exist "%EXTENDER_DIR%\SHCDESE.dll" set "EXTENDER_DIR=%PROJECT_DIR%..\shcde-script-extender\mod_output\000shcdese"
 if not exist "%EXTENDER_DIR%\SHCDESE.dll" (
     echo SHCDESE.dll wurde nicht gefunden.
     if "%NO_PAUSE%"=="0" pause

@@ -37,6 +37,7 @@
   <PropertyGroup Condition="'$(GameDir)' == ''">
     <GameDir>$(MSBuildThisFileDirectory)..\..\..\..\..\..\..\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir>
   </PropertyGroup>
+    <PropertyGroup Condition="'$(ExtenderDir)' == ''"><ExtenderDir>$(GameDir)\BepInEx\plugins\000shcdese</ExtenderDir></PropertyGroup>
   <PropertyGroup>
     <LocalScriptExtenderRoot>$(MSBuildThisFileDirectory)..\shcde-script-extender</LocalScriptExtenderRoot>
     <LocalScriptExtenderModOutput>$(LocalScriptExtenderRoot)\mod_output\000shcdese</LocalScriptExtenderModOutput>
@@ -53,7 +54,6 @@
     <ExtenderDir>$(LocalScriptExtenderModOutput)</ExtenderDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(ExtenderDir)' == '' and !Exists('$(LocalScriptExtenderRoot)')">
-    <ExtenderDir>$(GameDir)\BepInEx\plugins\000shcdese</ExtenderDir>
   </PropertyGroup>
 
   <ItemGroup>

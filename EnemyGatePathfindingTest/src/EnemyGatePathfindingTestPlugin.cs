@@ -11,7 +11,7 @@ using UnityEngine;
 
 namespace EnemyGatePathfindingTest
 {
-    [BepInDependency(ScriptExtenderGuid, "2.2.0")]
+    [BepInDependency(ScriptExtenderGuid, "2.3.0")]
     // Load after the hook owner when it exists, so PluginInfos can suppress
     // our overlapping observational route hooks while keeping the PCL hook active.
     [BepInDependency("BugfixesAndQoL_Serp", BepInDependency.DependencyFlags.SoftDependency)]
@@ -21,7 +21,7 @@ namespace EnemyGatePathfindingTest
         private const string ScriptExtenderGuid = "000shcdese";
         private const string PluginGuid = "EnemyGatePathfindingTest_Serp";
         private const string PluginName = "Enemy Gate Pathfinding Test";
-        private const string PluginVersion = "0.1.1";
+        private const string PluginVersion = "0.1.2";
 
         // The BepInEx component is destroyed during startup. Static ownership keeps the
         // native hook and event subscriptions alive for the complete process.

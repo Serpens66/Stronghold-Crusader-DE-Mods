@@ -5,7 +5,7 @@ using System.Threading;
 
 namespace CheatMod
 {
-    [BepInDependency(ScriptExtenderGuid, "2.2.0")]
+    [BepInDependency(ScriptExtenderGuid, "2.3.0")]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class CheatModPlugin : BaseUnityPlugin
@@ -14,7 +14,7 @@ namespace CheatMod
 
         public const string PluginGuid = "CheatMod_Serp";
         public const string PluginName = "Cheat Mod";
-        public const string PluginVersion = "1.0.6";
+        public const string PluginVersion = "1.0.7";
 
         private CheatModRuntime runtime;
         private int libraryInitializationStarted;

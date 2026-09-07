@@ -6,7 +6,7 @@ using System.Threading;
 
 namespace StartConditions
 {
-    [BepInDependency(ScriptExtenderGuid, "2.2.0")]
+    [BepInDependency(ScriptExtenderGuid, "2.3.0")]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class StartConditionsPlugin : BaseUnityPlugin
@@ -15,7 +15,7 @@ namespace StartConditions
 
         public const string PluginGuid = "StartConditions_Serp";
         public const string PluginName = "Start Conditions";
-        public const string PluginVersion = "1.0.22";
+        public const string PluginVersion = "1.0.23";
 
         private StartConditionsRuntime runtime;
         private int libraryInitializationStarted;

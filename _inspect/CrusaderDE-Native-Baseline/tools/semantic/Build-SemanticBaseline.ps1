@@ -1,6 +1,8 @@
 param(
-    [ValidateSet('Validate', 'Knowledge', 'Curated', 'Resources', 'GhidraExports', 'Index', 'RestoreDatabase', 'All')]
-    [string]$Stage = 'Validate'
+    [ValidateSet('Validate', 'ValidateFast', 'UpdateForScriptExtender', 'Knowledge', 'Curated', 'Resources', 'GhidraCurrent', 'GhidraHistorical', 'GhidraExports', 'Index', 'RestoreDatabase', 'All')]
+    [string]$Stage = 'Validate',
+    [string]$ScriptExtenderCommit,
+    [string]$PreviousScriptExtenderCommit
 )
 
 $ErrorActionPreference = 'Stop'
@@ -11,13 +13,17 @@ $workspace = Split-Path -Parent (Split-Path -Parent $baselineRoot)
 $currentHash = 'FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2'
 $managedHash = 'BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789'
 $oldHash = '17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4'
-$seCommit = '10d28f717d38166e5875c666f20fc5653ae44b0c'
 
 $native = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll'
 $managed = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll'
 $assets = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\sharedassets1.assets'
 $oldNative = Join-Path $workspace 'x86_64\CrusaderDE.dll'
 $seRoot = Join-Path $workspace 'shcde-script-extender'
+$actualCommit = (& git -C $seRoot rev-parse HEAD).Trim()
+if ($LASTEXITCODE -ne 0) { throw 'Script Extender commit lookup failed.' }
+$seCommit = if ($ScriptExtenderCommit) { $ScriptExtenderCommit } else { $actualCommit }
+$seTree = (& git -C $seRoot rev-parse 'HEAD^{tree}').Trim()
+if ($LASTEXITCODE -ne 0) { throw 'Script Extender tree lookup failed.' }
 $currentKey = $currentHash.Substring(0, 8)
 $managedKey = $managedHash.Substring(0, 8)
 $oldKey = $oldHash.Substring(0, 8)
@@ -122,42 +128,58 @@ $comparisonIdentityPath = Join-Path $comparison 'IDENTITY.json'
 if ($Stage -eq 'RestoreDatabase' -and (-not (Test-Path -LiteralPath $semanticIdentityPath -PathType Leaf) -or -not (Test-Path -LiteralPath $comparisonIdentityPath -PathType Leaf))) {
     throw 'RestoreDatabase requires both tracked IDENTITY.json files.'
 }
-Initialize-Identity $semanticIdentityPath @{ schemaVersion = 1; pathKey = $currentKey; currentNativeHash = $currentHash; managedPathKey = $managedKey; managedHash = $managedHash; scriptExtenderCommit = $seCommit }
+$expectedSemanticIdentity = @{ schemaVersion = 1; pathKey = $currentKey; currentNativeHash = $currentHash; managedPathKey = $managedKey; managedHash = $managedHash; scriptExtenderCommit = $seCommit; scriptExtenderTree = $seTree }
+if ($Stage -eq 'UpdateForScriptExtender') {
+    $identityJson = ($expectedSemanticIdentity | ConvertTo-Json -Depth 4) + [Environment]::NewLine
+    [IO.File]::WriteAllText($semanticIdentityPath, $identityJson, [Text.UTF8Encoding]::new($false))
+}
+Initialize-Identity $semanticIdentityPath $expectedSemanticIdentity
 Initialize-Identity $comparisonIdentityPath @{ schemaVersion = 1; pathKey = "${oldKey}-${currentKey}"; oldNativeHash = $oldHash; currentNativeHash = $currentHash }
 if ($Stage -ne 'RestoreDatabase') {
     Assert-Hash $native $currentHash
     Assert-Hash $managed $managedHash
     Assert-Hash $oldNative $oldHash
-    $actualCommit = (& git -C $seRoot rev-parse HEAD).Trim()
-    Assert-LastExitCode 'Script Extender commit check'
     if ($actualCommit -ne $seCommit) { throw "Script Extender commit mismatch. Expected $seCommit, got $actualCommit." }
+    & git -C $seRoot diff --quiet --ignore-submodules --
+    if ($LASTEXITCODE -ne 0) { throw 'Tracked Script Extender worktree is not clean.' }
 }
 
-$runKnowledge = $Stage -in @('Knowledge', 'All')
-$runCurated = $Stage -in @('Curated', 'GhidraExports', 'Index', 'Validate', 'All')
+$runSourceKnowledge = $Stage -in @('Knowledge', 'UpdateForScriptExtender', 'All')
+$runManagedKnowledge = $Stage -in @('Knowledge', 'All')
+$runCurated = $Stage -in @('Curated', 'GhidraCurrent', 'GhidraHistorical', 'GhidraExports', 'Index', 'ValidateFast', 'Validate', 'UpdateForScriptExtender', 'All')
 $runResources = $Stage -in @('Resources', 'All')
-$runGhidra = $Stage -in @('GhidraExports', 'All')
-$runIndex = $Stage -in @('Index', 'All')
+$nativeRelevantChanges = @()
+if ($PreviousScriptExtenderCommit) {
+    $nativeRelevantChanges = @(& git -C $seRoot diff --name-only "$PreviousScriptExtenderCommit..$seCommit" -- 'ReverseEngineering/structs/**' 'src/SHCDESE.BepInEx/Detours/**' 'src/SHCDESE.BepInEx/Interop/**')
+    Assert-LastExitCode 'Script Extender native relevance diff'
+}
+$runGhidraCurrent = $Stage -in @('GhidraCurrent', 'GhidraExports', 'All') -or ($Stage -eq 'UpdateForScriptExtender' -and (-not $PreviousScriptExtenderCommit -or $nativeRelevantChanges.Count -gt 0))
+$runGhidraHistorical = $Stage -in @('GhidraHistorical', 'GhidraExports', 'All')
+$runIndex = $Stage -in @('Index', 'UpdateForScriptExtender', 'All')
 
-if ($runKnowledge) {
+if ($runSourceKnowledge -or $runManagedKnowledge) {
     dotnet restore $extractorProject
     Assert-LastExitCode 'SemanticExtract restore'
     dotnet build $extractorProject --configuration Release --no-restore
     Assert-LastExitCode 'SemanticExtract build'
+}
+if ($runSourceKnowledge) {
     & $extractor source $seRoot (Join-Path $semantic 'sources') $seCommit
     Assert-LastExitCode 'Script Extender source extraction'
-    & $extractor managed $managed (Join-Path $rawHashRoot 'exports\exports.jsonl') $managedDirectory $managedHash
-    Assert-LastExitCode 'Managed metadata extraction'
-    & ilspycmd -p -o (Join-Path $managedDirectory 'decompiled') $managed
-    Assert-LastExitCode 'Assembly-CSharp decompilation'
-    & $python $semanticTools managed-links --calls (Join-Path $managedDirectory 'managed-calls.jsonl') --pinvokes (Join-Path $managedDirectory 'pinvokes.jsonl') --output (Join-Path $managedDirectory 'managed-native-links.jsonl') --prototypes (Join-Path $semantic 'sources\pinvoke-prototypes.tsv')
-    Assert-LastExitCode 'Managed/native linking'
     & $python $semanticTools scan-aobs --patterns (Join-Path $semantic 'sources\patterns.jsonl') --binary "$currentHash=$native" --binary "$oldHash=$oldNative" --current-hash $currentHash --output (Join-Path $semantic 'sources\pattern-matches.jsonl') --labels (Join-Path $semantic 'sources\aob-labels.tsv')
     Assert-LastExitCode 'AOB scan'
     & $python $semanticTools combine-headers --source (Join-Path $seRoot 'ReverseEngineering\structs') --destination (Join-Path $semantic 'sources\script-extender-types.h')
     Assert-LastExitCode 'Script Extender header copy'
     & $python $semanticTools sanitize-headers --source (Join-Path $semantic 'sources\headers') --output (Join-Path $semantic 'sources\script-extender-types-ghidra.h') --manifest (Join-Path $semantic 'sources\ghidra-header-manifest.jsonl')
     Assert-LastExitCode 'Ghidra header sanitization'
+}
+if ($runManagedKnowledge) {
+    & $extractor managed $managed (Join-Path $rawHashRoot 'exports\exports.jsonl') $managedDirectory $managedHash
+    Assert-LastExitCode 'Managed metadata extraction'
+    & ilspycmd -p -o (Join-Path $managedDirectory 'decompiled') $managed
+    Assert-LastExitCode 'Assembly-CSharp decompilation'
+    & $python $semanticTools managed-links --calls (Join-Path $managedDirectory 'managed-calls.jsonl') --pinvokes (Join-Path $managedDirectory 'pinvokes.jsonl') --output (Join-Path $managedDirectory 'managed-native-links.jsonl') --prototypes (Join-Path $semantic 'sources\pinvoke-prototypes.tsv')
+    Assert-LastExitCode 'Managed/native linking'
 }
 
 if ($runCurated) {
@@ -198,14 +220,18 @@ if ($runResources) {
     Assert-LastExitCode 'XAML index'
 }
 
-if ($runGhidra) {
+if ($runGhidraCurrent -or $runGhidraHistorical) {
     $env:JAVA_HOME = $jdk
+}
+if ($runGhidraCurrent) {
     $currentProject = Join-Path $semantic 'ghidra'
     $currentExports = Join-Path $semantic 'exports'
     & $ghidra $currentProject 'CrusaderDE-Semantic' -process 'CrusaderDE.dll' -noanalysis -scriptPath $toolDirectory -postScript ApplyCrusaderSemantics.java (Join-Path $semantic 'knowledge\combined-labels.tsv') (Join-Path $semantic 'sources\pinvoke-prototypes.tsv') (Join-Path $semantic 'sources\script-extender-types-ghidra.h') (Join-Path $semantic 'sources\CrusaderDE-ScriptExtender.gdt') (Join-Path $currentExports 'applied-labels.json')
     Assert-LastExitCode 'Current semantic Ghidra apply'
     & $ghidra $currentProject 'CrusaderDE-Semantic' -process 'CrusaderDE.dll' -noanalysis -scriptPath $toolDirectory -postScript ExportCrusaderSemantics.java $currentExports $currentHash
     Assert-LastExitCode 'Current semantic Ghidra export'
+}
+if ($runGhidraHistorical) {
     & $ghidra (Join-Path $comparison 'ghidra') 'CrusaderDE-Historical' -process 'CrusaderDE.dll' -noanalysis -scriptPath $toolDirectory -postScript ExportCrusaderSemantics.java (Join-Path $comparison 'exports') $oldHash
     Assert-LastExitCode 'Historical Ghidra export'
 }
@@ -232,10 +258,12 @@ if ($Stage -eq 'RestoreDatabase') {
     Invoke-DatabaseManifest 'validate'
 }
 
-if ($Stage -in @('Validate', 'All')) {
+if ($Stage -in @('ValidateFast', 'Validate', 'UpdateForScriptExtender', 'All')) {
     Invoke-DatabaseManifest 'validate'
-    & $python (Join-Path $toolDirectory 'validate.py') --semantic $semantic --comparison $comparison --baseline-root $baselineRoot --database (Join-Path $semantic 'CrusaderDE-semantic.sqlite') --native $native --managed $managed --old-native $oldNative --raw-root $rawHashRoot --raw-before (Join-Path $semantic 'validation\raw-baseline-before.jsonl') --se-root $seRoot --se-before (Join-Path $semantic 'validation\script-extender-before.jsonl') --current-hash $currentHash --managed-hash $managedHash --old-hash $oldHash --output (Join-Path $semantic 'validation\validation-report.json')
+    & $python (Join-Path $toolDirectory 'validate.py') --semantic $semantic --comparison $comparison --baseline-root $baselineRoot --database (Join-Path $semantic 'CrusaderDE-semantic.sqlite') --native $native --managed $managed --old-native $oldNative --raw-root $rawHashRoot --raw-before (Join-Path $semantic 'validation\raw-baseline-before.jsonl') --se-root $seRoot --se-commit $seCommit --se-tree $seTree --current-hash $currentHash --managed-hash $managedHash --old-hash $oldHash --output (Join-Path $semantic 'validation\validation-report.json')
     Assert-LastExitCode 'Semantic validation'
+}
+if ($Stage -in @('Validate', 'All')) {
     $env:JAVA_HOME = $jdk
     & $ghidra (Join-Path $semantic 'ghidra') 'CrusaderDE-Semantic' -process 'CrusaderDE.dll' -readOnly -noanalysis -scriptPath (Join-Path $baselineRoot 'tools') -postScript ValidateCrusaderBaseline.java -log (Join-Path $semantic 'logs\ghidra-readonly-validation.log')
     Assert-LastExitCode 'Current Ghidra read-only validation'

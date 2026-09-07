@@ -4,7 +4,7 @@ using System;
 
 namespace AIDefenseTest
 {
-    [BepInDependency(ScriptExtenderGuid, "2.2.0")]
+    [BepInDependency(ScriptExtenderGuid, "2.3.0")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class AIDefenseTestPlugin : BaseUnityPlugin
     {
@@ -12,7 +12,7 @@ namespace AIDefenseTest
 
         public const string PluginGuid = "AIDefenseTest_Serp";
         public const string PluginName = "AI Defense Test";
-        public const string PluginVersion = "1.2.8";
+        public const string PluginVersion = "1.2.9";
 
         private static AIDefenseTestRuntime persistentRuntime;
         private static bool libraryLoadedSubscriptionInstalled;

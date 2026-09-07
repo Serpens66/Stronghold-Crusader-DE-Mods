@@ -5,14 +5,14 @@ using System;
 
 namespace ShieldTowerTest
 {
-    [BepInDependency(ScriptExtenderGuid, "2.2.0")]
+    [BepInDependency(ScriptExtenderGuid, "2.3.0")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class ShieldTowerTestPlugin : BaseUnityPlugin
     {
         private const string ScriptExtenderGuid = "000shcdese";
         private const string PluginGuid = "ShieldTowerTest_Serp";
         private const string PluginName = "Shield Tower Test";
-        private const string PluginVersion = "0.1.1";
+        private const string PluginVersion = "0.1.2";
 
         // SHCDE destroys the BepInEx component during normal startup. Static ownership
         // intentionally keeps this experimental native hook alive for the process.

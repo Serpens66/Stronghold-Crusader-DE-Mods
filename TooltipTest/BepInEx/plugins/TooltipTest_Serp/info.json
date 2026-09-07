@@ -3,9 +3,17 @@
   "Author": "Serpens66",
   "Name": "Tooltip Test",
   "Description": "Display-only comparison of Script Extender tooltip styles in mod settings.",
-  "Version": "0.1.0",
-  "MinimumScriptExtenderVersion": "2.2.0",
+  "Version": "0.1.1",
+  "MinimumScriptExtenderVersion": "2.3.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
-  "NetworkMode": 0
+  "NetworkMode": 0,
+  "SerpChangelog": [
+    {
+      "Version": "0.1.1",
+      "Changes": [
+        "Adjusted to Script Extender 2.3.0."
+      ]
+    }
+  ]
 }

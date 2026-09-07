@@ -4,14 +4,14 @@ using System;
 
 namespace OxTetherIdleFixTest
 {
-    [BepInDependency(ScriptExtenderGuid, "2.2.0")]
+    [BepInDependency(ScriptExtenderGuid, "2.3.0")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class OxTetherIdleFixTestPlugin : BaseUnityPlugin
     {
         private const string ScriptExtenderGuid = "000shcdese";
         private const string PluginGuid = "OxTetherIdleFixTest_Serp";
         private const string PluginName = "Ox Tether Idle Fix Test";
-        private const string PluginVersion = "0.1.1";
+        private const string PluginVersion = "0.1.2";
 
         // SHCDE destroys the early BepInEx manager component during normal startup.
         // Keep the non-Unity runtime alive independently for the process lifetime.

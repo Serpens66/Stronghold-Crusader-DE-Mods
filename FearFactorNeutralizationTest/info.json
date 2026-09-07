@@ -1,0 +1,14 @@
+{
+  "GUID": "FearFactorNeutralizationTest_Serp",
+  "Author": "Serpens66",
+  "Name": "Fear Factor Neutralization Test",
+  "Description": "Test mod that removes positive and negative Fear Factor troop damage effects and hides their selected-unit symbols without changing the underlying fear state.",
+  "Version": "0.1.0",
+  "MinimumScriptExtenderVersion": "2.3.0",
+  "MaximumScriptExtenderVersion": "",
+  "Manifest": 1,
+  "NetworkMode": 1,
+  "SupportedGameVersions": [
+    "2.8.0.1"
+  ]
+}

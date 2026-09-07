@@ -8,6 +8,7 @@ import hashlib
 import json
 import sqlite3
 import struct
+import subprocess
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -54,7 +55,7 @@ def stored_snapshot(path: Path):
 
 def main():
     parser = argparse.ArgumentParser()
-    for name in ["semantic", "comparison", "baseline-root", "database", "native", "managed", "old-native", "raw-root", "raw-before", "se-root", "se-before", "current-hash", "managed-hash", "old-hash"]:
+    for name in ["semantic", "comparison", "baseline-root", "database", "native", "managed", "old-native", "raw-root", "raw-before", "se-root", "se-commit", "se-tree", "current-hash", "managed-hash", "old-hash"]:
         parser.add_argument(f"--{name}", required=True)
     parser.add_argument("--output", required=True)
     args = parser.parse_args()
@@ -79,7 +80,13 @@ def main():
             raise ValueError(f"Hash mismatch for {path}: {actual_hashes[str(path)]} != {wanted}")
 
     raw_unchanged = snapshot(Path(args.raw_root), ("semantic",)) == stored_snapshot(Path(args.raw_before))
-    se_unchanged = snapshot(Path(args.se_root), (".git",)) == stored_snapshot(Path(args.se_before))
+    def git(*arguments: str) -> str:
+        return subprocess.check_output(["git", "-C", args.se_root, *arguments], text=True).strip()
+
+    actual_commit = git("rev-parse", "HEAD")
+    actual_tree = git("rev-parse", "HEAD^{tree}")
+    tracked_status = git("status", "--porcelain", "--untracked-files=no")
+    se_unchanged = actual_commit == args.se_commit and actual_tree == args.se_tree and not tracked_status
     if not raw_unchanged or not se_unchanged:
         raise ValueError(f"Immutable input changed: rawBaseline={raw_unchanged}, scriptExtender={se_unchanged}")
 

@@ -8,14 +8,14 @@ using UnityEngine;
 
 namespace CustomCustomTrail
 {
-    [BepInDependency("000shcdese", "2.2.0")]
+    [BepInDependency("000shcdese", "2.3.0")]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class CustomCustomTrailPlugin : BaseUnityPlugin
     {
         public const string PluginGuid = "CustomCustomTrail_Serp";
         public const string PluginName = "Custom Custom Trail";
-        public const string PluginVersion = "1.3.47";
+        public const string PluginVersion = "1.3.48";
         public const bool CustomCustomTrailModSettingsOptOut = true;
 
         private static CustomCustomTrailRuntime runtime;

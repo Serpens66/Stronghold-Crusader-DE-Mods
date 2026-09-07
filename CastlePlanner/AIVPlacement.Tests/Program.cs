@@ -5,6 +5,7 @@ using MapParser.Core;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System.Collections.Concurrent;
+using System.Text.Json;
 
 internal static class Program
 {
@@ -73,7 +74,7 @@ internal static class Program
             ("aligns native rotation to the live Keep footprint", AlignsNativeRotationToLiveKeepFootprint),
             ("resolves rotated BuildStructure origins", ResolvesRotatedBuildStructureOrigins),
             ("preserves compound storage placement order", PreservesCompoundStoragePlacementOrder),
-            ("pins CastlePlanner to RedBird for Script Extender 2.2.0", PinsCastlePlannerToRedBird220)
+            ("pins CastlePlanner to the manifest Script Extender range", PinsCastlePlannerToManifestExtenderRange)
         };
 
         int failures = 0;
@@ -435,7 +436,7 @@ internal static class Program
             "optional reflection status bridge is missing");
     }
 
-    private static void PinsCastlePlannerToRedBird220()
+    private static void PinsCastlePlannerToManifestExtenderRange()
     {
         string root = FindCastlePlannerRoot();
         string plugin = File.ReadAllText(Path.Combine(root, "src", "CastlePlannerPlugin.cs"));
@@ -446,12 +447,22 @@ internal static class Program
         string settingsXaml = File.ReadAllText(Path.Combine(
             root, "BepInEx", "plugins", "CastlePlanner_Serp", "Override",
             "ScriptExtenderUI", "CastlePlannerSettings.xaml"));
+        using JsonDocument manifestJson = JsonDocument.Parse(manifest);
+        string minimumExtenderVersion = manifestJson.RootElement
+            .GetProperty("MinimumScriptExtenderVersion").GetString() ?? string.Empty;
+        string maximumExtenderVersion = manifestJson.RootElement
+            .GetProperty("MaximumScriptExtenderVersion").GetString() ?? string.Empty;
 
-        Assert(plugin.Contains("BepInDependency(ScriptExtenderGuid, \"2.2.0\")", StringComparison.Ordinal),
-            "Script Extender dependency is not exact 2.2.0");
+        Assert(Version.TryParse(minimumExtenderVersion, out Version? minimum),
+            "Manifest minimum Script Extender version is invalid");
+        Assert(string.IsNullOrEmpty(maximumExtenderVersion) ||
+            (Version.TryParse(maximumExtenderVersion, out Version? maximum) && maximum >= minimum),
+            "Manifest maximum Script Extender version is invalid or below the minimum");
+        Assert(plugin.Contains($"BepInDependency(ScriptExtenderGuid, \"{minimumExtenderVersion}\")", StringComparison.Ordinal),
+            "Script Extender dependency does not match the manifest minimum");
         Assert(plugin.Contains("OnCrusaderLibraryLoaded(CrusaderLibraryLoadContext context)", StringComparison.Ordinal) &&
             plugin.Contains("runtime.Install(context, currentNativeLayout)", StringComparison.Ordinal),
-            "CastlePlanner does not propagate the 2.2.0 load context");
+            "CastlePlanner does not propagate the Script Extender load context");
         Assert(runtime.Contains("new HookHandle<X64InlineHook>()", StringComparison.Ordinal) &&
             runtime.Contains("HookTarget.FromAddress(", StringComparison.Ordinal) &&
             runtime.Contains("new ContextHookOptions", StringComparison.Ordinal),
@@ -470,7 +481,7 @@ internal static class Program
             !project.Contains("Zhuqiaomon.dll", StringComparison.Ordinal) &&
             !project.Contains("PolyHook2.NET.dll", StringComparison.Ordinal) &&
             !project.Contains("Iced.dll", StringComparison.Ordinal),
-            "CastlePlanner project references do not match RedBird 2.2.0");
+            "CastlePlanner project references do not match RedBird");
         Assert(manifest.Contains("\"NetworkMode\": 1", StringComparison.Ordinal),
             "CastlePlanner is not classified as gameplay-synchronized");
         Assert(settingsXaml.Contains("HorizontalScrollBarVisibility=\"Auto\"", StringComparison.Ordinal) &&

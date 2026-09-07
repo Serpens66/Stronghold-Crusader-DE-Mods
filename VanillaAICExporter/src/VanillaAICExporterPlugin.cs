@@ -4,7 +4,7 @@ using System;
 
 namespace VanillaAICExporter
 {
-    [BepInDependency(ScriptExtenderGuid, "2.2.0")]
+    [BepInDependency(ScriptExtenderGuid, "2.3.0")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class VanillaAICExporterPlugin : BaseUnityPlugin
     {
@@ -12,7 +12,7 @@ namespace VanillaAICExporter
 
         public const string PluginGuid = "VanillaAICExporter_Serp";
         public const string PluginName = "Vanilla AIC Exporter";
-        public const string PluginVersion = "0.1.3";
+        public const string PluginVersion = "0.1.4";
 
         private static VanillaAICExportRuntime runtime;
         private static bool libraryLoadedHandled;
