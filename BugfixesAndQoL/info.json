@@ -3,13 +3,20 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.135",
+  "Version": "1.0.136",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.3.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.136",
+      "Changes": [
+        "Restricted fast recruit rally movement to human-controlled units and reduced its routine logging.",
+        "Prevented troop synchronization from passing empty tribe-member entries to one-based unit lookups."
+      ]
+    },
     {
       "Version": "1.0.135",
       "Changes": [

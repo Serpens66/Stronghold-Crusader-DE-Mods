@@ -30,6 +30,7 @@ namespace BugfixesAndQoL
             TestTunnelPlacementDistanceIntegration();
             TestFriendlyMoatMovementPolicy();
             TestFriendlyMoatMovementIntegration();
+            TestMovementSafetyIntegration();
             TestAiDefensePatrolPolicy();
             TestAiDefensePatrolIntegration();
             TestAiWallTargetingIntegration();
@@ -264,6 +265,48 @@ namespace BugfixesAndQoL
             Check(AiDefensePatrolPolicy.SelectComparisonValue(true) == unchecked((uint)int.MaxValue) &&
                     AiDefensePatrolPolicy.SelectComparisonValue(false) == unchecked((uint)int.MinValue),
                 "AI defense patrol emits signed-jl comparison sentinels");
+        }
+
+        private static void TestMovementSafetyIntegration()
+        {
+            string projectDirectory = FindProjectDirectory();
+            string fastRecruit = File.ReadAllText(Path.Combine(
+                projectDirectory, "src", "FastRecruitRallyMovementRuntime.cs"));
+            string troopMovement = File.ReadAllText(Path.Combine(
+                projectDirectory, "src", "TroopMovementFix3Runtime.cs"));
+            string english = File.ReadAllText(Path.Combine(
+                projectDirectory, "Locales", "en-US.txt"));
+            string german = File.ReadAllText(Path.Combine(
+                projectDirectory, "Locales", "de-DE.txt"));
+
+            Check(fastRecruit.Contains("!players.IsPlayerIdValid(ownerPlayerId)") &&
+                    fastRecruit.Contains("players.IsAIPlayer(ownerPlayerId)") &&
+                    fastRecruit.Contains("unit->r_ControllableForPlayerId == tracking.OwnerPlayerId") &&
+                    fastRecruit.Contains("OwnerPlayerId = ownerPlayerId;"),
+                "fast recruit rally tracks only valid human owners and preserves owner identity");
+            Check(!fastRecruit.Contains("FastRecruitRallyMovementModLog.Debug") &&
+                    !fastRecruit.Contains("Fast recruit rally tracking added") &&
+                    !fastRecruit.Contains("Fast recruit rally movement started"),
+                "fast recruit rally omits routine per-unit lifecycle logging");
+
+            int tribeLoop = troopMovement.IndexOf("foreach (int unitId in unitIds)",
+                StringComparison.Ordinal);
+            int idValidation = troopMovement.IndexOf(
+                "GameUnitManagerAPI.Instance.IsValidId(unitId)",
+                tribeLoop,
+                StringComparison.Ordinal);
+            int unitLookup = troopMovement.IndexOf(
+                "GameUnitManagerAPI.Instance.TryGetUnitById(",
+                tribeLoop,
+                StringComparison.Ordinal);
+            Check(tribeLoop >= 0 && idValidation > tribeLoop &&
+                    unitLookup > idValidation,
+                "tribe synchronization rejects zero or out-of-range IDs before one-based unit lookup");
+            Check(english.Contains("human-player units") &&
+                    english.Contains("AI units remain unchanged") &&
+                    german.Contains("Einheiten menschlicher Spieler") &&
+                    german.Contains("KI-Einheiten bleiben unverändert"),
+                "fast recruit rally help text documents the human-only behavior");
         }
 
         private static void TestAiDefensePatrolIntegration()

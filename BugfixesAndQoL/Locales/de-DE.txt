@@ -221,7 +221,7 @@ BugfixesAndQoL.DeleteMapErrorMessage=Die Karte „{MapName}“ konnte nicht gel�
 BugfixesAndQoL.DeleteMapUnknownName=Unbekannte Karte
 
 BugfixesAndQoL.EnableFastRecruitRallyMovement=Rekruten laufen zu Sammelpunkten
-BugfixesAndQoL.EnableFastRecruitRallyMovementHelp=Neu rekrutierte Spieler- und KI-Einheiten laufen mit ihrem eigenen maximalen Vanilla-Tempo und passender Animation zu ihrem Sammelpunkt; Gelände- und Zustandsmodifikatoren bleiben erhalten.
+BugfixesAndQoL.EnableFastRecruitRallyMovementHelp=Neu rekrutierte Einheiten menschlicher Spieler laufen mit ihrem eigenen maximalen Vanilla-Tempo und passender Animation zu ihrem Sammelpunkt; Gelände- und Zustandsmodifikatoren bleiben erhalten. KI-Einheiten bleiben unverändert.
 BugfixesAndQoL.AIEconomyProtectionTitle=KI-Wirtschaftsschutz
 BugfixesAndQoL.PreventAIPause=KI-Gebaeudepausen verhindern
 BugfixesAndQoL.PreventAIPauseHelp=Verhindert, dass KI-Spieler ihre eigenen Produktionsgebaeude schlafen legen.

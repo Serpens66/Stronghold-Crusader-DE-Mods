@@ -399,7 +399,10 @@ namespace BugfixesAndQoL
 
             foreach (int unitId in unitIds)
             {
-                if (!GameUnitManagerAPI.Instance.TryGetUnitById(
+                // Tribe membership can contain the empty sentinel 0, while
+                // every public unit lookup expects a one-based game ID.
+                if (!GameUnitManagerAPI.Instance.IsValidId(unitId) ||
+                    !GameUnitManagerAPI.Instance.TryGetUnitById(
                         unitId,
                         out GameUnit* unit) ||
                     unit == null ||

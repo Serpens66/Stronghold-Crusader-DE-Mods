@@ -563,7 +563,7 @@ public static class SerpLocalization
         { EnablePlagueTargetReservationFix, "Apothecary Target Reservation Fix" },
         { EnablePlagueTargetReservationFixHelp, "Prevents different apothecaries from selecting plague clouds covered by the same expected area treatment." },
         { EnableFastRecruitRallyMovement, "Recruits Run to Rally Points" },
-        { EnableFastRecruitRallyMovementHelp, "Newly recruited player and AI units move to their rally points using their own Vanilla Fast pace and animation while keeping terrain and state modifiers." },
+        { EnableFastRecruitRallyMovementHelp, "Newly recruited human-player units move to their rally points using their own Vanilla Fast pace and animation while keeping terrain and state modifiers. AI units remain unchanged." },
         { EnableFearFactorNeutralization, "Disable fear-factor effects on soldiers" },
         { EnableFearFactorNeutralizationHelp, "Fear factor no longer has any effect on soldiers' combat strength." },
         { EnableMonksAlwaysRun, "Monks Always Run" },

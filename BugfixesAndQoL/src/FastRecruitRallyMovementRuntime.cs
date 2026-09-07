@@ -22,7 +22,6 @@ namespace BugfixesAndQoL
         private const ushort UnitInitializationAiState = 109;
         private const ushort ActivePathPlanState = 2;
 
-        private readonly ManualLogSource log;
         private readonly IMovementCadenceServices movementPatch;
         private readonly Dictionary<ulong, RecruitRallyTracking>
             trackingByUnitAddress =
@@ -41,7 +40,8 @@ namespace BugfixesAndQoL
             ManualLogSource log,
             IMovementCadenceServices movementPatch)
         {
-            this.log = log ?? throw new ArgumentNullException(nameof(log));
+            if (log == null)
+                throw new ArgumentNullException(nameof(log));
             this.movementPatch = movementPatch ??
                 throw new ArgumentNullException(nameof(movementPatch));
 
@@ -120,7 +120,13 @@ namespace BugfixesAndQoL
             if (tracking.GlobalId != 0 &&
                 unit->r_GlobalId != tracking.GlobalId)
             {
-                RemoveTracking(tracking.UnitId, "unit slot reused");
+                RemoveTracking(tracking.UnitId);
+                return false;
+            }
+
+            if (unit->r_ControllableForPlayerId != tracking.OwnerPlayerId)
+            {
+                RemoveTracking(tracking.UnitId);
                 return false;
             }
 
@@ -135,13 +141,7 @@ namespace BugfixesAndQoL
                     return true;
                 }
 
-                FastRecruitRallyMovementModLog.Debug(
-                    log,
-                    $"Fast recruit rally tracking cancelled: " +
-                    $"unitId={tracking.UnitId}, " +
-                    $"unitType={unit->r_UnitChimp}, " +
-                    $"expectedUnitType={tracking.ExpectedUnitType}.");
-                RemoveTracking(tracking.UnitId, reason: null);
+                RemoveTracking(tracking.UnitId);
                 return false;
             }
 
@@ -150,14 +150,7 @@ namespace BugfixesAndQoL
             if (!hasActivePath)
             {
                 if (tracking.IsMovingToRally)
-                {
                     tracking.IsMovingToRally = false;
-                    FastRecruitRallyMovementModLog.Debug(
-                        log,
-                        $"Fast recruit waiting at rally flag: " +
-                        $"unitId={tracking.UnitId}, " +
-                        $"unitType={unit->r_UnitChimp}.");
-                }
 
                 return true;
             }
@@ -168,38 +161,15 @@ namespace BugfixesAndQoL
             {
                 tracking.HasObservedRallyMovement = true;
                 tracking.GlobalId = unit->r_GlobalId;
-                FastRecruitRallyMovementModLog.Debug(
-                    log,
-                    $"Fast recruit rally movement started: " +
-                    $"unitId={tracking.UnitId}, " +
-                    $"unitType={unit->r_UnitChimp}, " +
-                    $"targetTile={targetTileX},{targetTileY}.");
             }
             else if (!tracking.IsMovingToRally)
             {
                 if (targetTileX != tracking.TargetTileX ||
                     targetTileY != tracking.TargetTileY)
                 {
-                    RemoveTracking(
-                        tracking.UnitId,
-                        "movement restarted with a different target");
+                    RemoveTracking(tracking.UnitId);
                     return false;
                 }
-
-                FastRecruitRallyMovementModLog.Debug(
-                    log,
-                    $"Fast recruit rally movement restarted: " +
-                    $"unitId={tracking.UnitId}, " +
-                    $"targetTile={targetTileX},{targetTileY}.");
-            }
-            else if (targetTileX != tracking.TargetTileX ||
-                     targetTileY != tracking.TargetTileY)
-            {
-                FastRecruitRallyMovementModLog.Debug(
-                    log,
-                    $"Fast recruit rally movement retargeted: " +
-                    $"unitId={tracking.UnitId}, " +
-                    $"targetTile={targetTileX},{targetTileY}.");
             }
 
             tracking.IsMovingToRally = true;
@@ -241,7 +211,7 @@ namespace BugfixesAndQoL
                 subscription.Dispose();
 
             subscriptions.Clear();
-            ClearTracking("option disabled");
+            ClearTracking();
         }
 
         private void OnTribeIssueOrderMoveHere(
@@ -251,9 +221,7 @@ namespace BugfixesAndQoL
                 args.IsNewOrder &&
                 args.MoveType != TribeMoveType.NoChange)
             {
-                RemoveTrackingForTribe(
-                    args.TribeId,
-                    "new movement order");
+                RemoveTrackingForTribe(args.TribeId);
             }
         }
 
@@ -262,9 +230,7 @@ namespace BugfixesAndQoL
         {
             if (args.Phase == EventHookPhase.Pre)
             {
-                RemoveTrackingForTribe(
-                    args.TribeId,
-                    $"target order {args.AICommand}");
+                RemoveTrackingForTribe(args.TribeId);
             }
         }
 
@@ -272,9 +238,7 @@ namespace BugfixesAndQoL
         {
             if (args.Phase == EventHookPhase.Pre)
             {
-                RemoveTracking(
-                    unchecked((int)args.UnitId),
-                    "unit deleted");
+                RemoveTracking(unchecked((int)args.UnitId));
             }
         }
 
@@ -295,7 +259,7 @@ namespace BugfixesAndQoL
         private void OnUnloadMap(MapUnloadEventArgs args)
         {
             if (args.Phase == EventHookPhase.Post)
-                ClearTracking("map unloaded");
+                ClearTracking();
         }
 
         private void TrackRecruit(int unitId, eChimps expectedUnitType)
@@ -311,30 +275,34 @@ namespace BugfixesAndQoL
             if (unit->r_AliveState != AliveState.IsAlive)
                 return;
 
+            int ownerPlayerId = unit->r_ControllableForPlayerId;
+            GamePlayerManagerAPI players = GamePlayerManagerAPI.Instance;
+            if (!players.IsPlayerIdValid(ownerPlayerId) ||
+                players.IsAIPlayer(ownerPlayerId))
+            {
+                return;
+            }
+
             ulong unitAddress = unchecked((ulong)unit);
-            RemoveTracking(unitId, reason: null);
+            RemoveTracking(unitId);
             if (trackingByUnitAddress.TryGetValue(
                     unitAddress,
                     out RecruitRallyTracking addressCollision))
             {
-                RemoveTracking(addressCollision.UnitId, reason: null);
+                RemoveTracking(addressCollision.UnitId);
             }
 
             RecruitRallyTracking tracking = new RecruitRallyTracking(
                 unitId,
                 unitAddress,
                 unit->r_GlobalId,
+                ownerPlayerId,
                 expectedUnitType);
             trackingByUnitAddress[unitAddress] = tracking;
             trackingByUnitId[unitId] = tracking;
-
-            FastRecruitRallyMovementModLog.Debug(
-                log,
-                $"Fast recruit rally tracking added: unitId={unitId}, " +
-                $"unitType={expectedUnitType}.");
         }
 
-        private void RemoveTrackingForTribe(int tribeId, string reason)
+        private void RemoveTrackingForTribe(int tribeId)
         {
             tribeUnitIds.Clear();
             if (tribeId <= 0 ||
@@ -346,12 +314,12 @@ namespace BugfixesAndQoL
             }
 
             foreach (int unitId in tribeUnitIds)
-                RemoveTracking(unitId, reason);
+                RemoveTracking(unitId);
 
             tribeUnitIds.Clear();
         }
 
-        private void RemoveTracking(int unitId, string reason)
+        private void RemoveTracking(int unitId)
         {
             if (!trackingByUnitId.TryGetValue(
                     unitId,
@@ -369,29 +337,13 @@ namespace BugfixesAndQoL
                 trackingByUnitAddress.Remove(tracking.UnitAddress);
             }
 
-            if (reason != null)
-            {
-                FastRecruitRallyMovementModLog.Debug(
-                    log,
-                    $"Fast recruit rally tracking removed: " +
-                    $"unitId={tracking.UnitId}, reason={reason}.");
-            }
         }
 
-        private void ClearTracking(string reason)
+        private void ClearTracking()
         {
-            int removedCount = trackingByUnitId.Count;
             trackingByUnitId.Clear();
             trackingByUnitAddress.Clear();
             tribeUnitIds.Clear();
-
-            if (removedCount != 0)
-            {
-                FastRecruitRallyMovementModLog.Debug(
-                    log,
-                    $"Fast recruit rally tracking cleared: " +
-                    $"units={removedCount}, reason={reason}.");
-            }
         }
 
         private static bool IsMatchingTrackedUnit(
@@ -401,6 +353,7 @@ namespace BugfixesAndQoL
             return unit != null &&
                    unit->r_AliveState == AliveState.IsAlive &&
                    unchecked((ulong)unit) == tracking.UnitAddress &&
+                   unit->r_ControllableForPlayerId == tracking.OwnerPlayerId &&
                    unit->r_UnitChimp == tracking.ExpectedUnitType &&
                    (tracking.GlobalId == 0 ||
                     unit->r_GlobalId == tracking.GlobalId);
@@ -448,17 +401,20 @@ namespace BugfixesAndQoL
                 int unitId,
                 ulong unitAddress,
                 uint globalId,
+                int ownerPlayerId,
                 eChimps expectedUnitType)
             {
                 UnitId = unitId;
                 UnitAddress = unitAddress;
                 GlobalId = globalId;
+                OwnerPlayerId = ownerPlayerId;
                 ExpectedUnitType = expectedUnitType;
             }
 
             public int UnitId { get; }
             public ulong UnitAddress { get; }
             public uint GlobalId { get; set; }
+            public int OwnerPlayerId { get; }
             public eChimps ExpectedUnitType { get; }
             public bool HasObservedRallyMovement { get; set; }
             public bool IsMovingToRally { get; set; }

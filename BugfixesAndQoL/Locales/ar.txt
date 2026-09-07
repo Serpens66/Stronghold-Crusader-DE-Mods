@@ -219,7 +219,7 @@ BugfixesAndQoL.DeleteMapErrorMessage=The map “{MapName}” could not be delete
 BugfixesAndQoL.DeleteMapUnknownName=Unknown map
 
 BugfixesAndQoL.EnableFastRecruitRallyMovement=Recruits Run to Rally Points
-BugfixesAndQoL.EnableFastRecruitRallyMovementHelp=Newly recruited player and AI units move to their rally points using their own Vanilla Fast pace and animation while keeping terrain and state modifiers.
+BugfixesAndQoL.EnableFastRecruitRallyMovementHelp=Newly recruited human-player units move to their rally points using their own Vanilla Fast pace and animation while keeping terrain and state modifiers. AI units remain unchanged.
 BugfixesAndQoL.AIEconomyProtectionTitle=AI Economy Protection
 BugfixesAndQoL.PreventAIPause=Prevent AI building pauses
 BugfixesAndQoL.PreventAIPauseHelp=Prevents AI-controlled players from putting their own production buildings to sleep.
