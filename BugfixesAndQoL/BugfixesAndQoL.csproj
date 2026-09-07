@@ -211,6 +211,8 @@
     <Compile Include="src\TroopMovementFix3SynchronizedMovementCadencePatch.cs" />
     <Compile Include="src\TemporaryGateBlockagePolicy.cs" />
     <Compile Include="src\TroopHudMiddleClickCameraFeature.cs" />
+    <Compile Include="src\TunnelPlacementDistanceFeature.cs" />
+    <Compile Include="src\TunnelPlacementDistancePolicy.cs" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="Locales\*.txt"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>

@@ -35,6 +35,7 @@
     <Compile Include="..\src\AiDefensePatrolPolicy.cs"><Link>AiDefensePatrolPolicy.cs</Link></Compile>
     <Compile Include="..\src\AiRecruitmentHorseDemandNativeDefinition.cs"><Link>AiRecruitmentHorseDemandNativeDefinition.cs</Link></Compile>
     <Compile Include="..\src\FriendlyMoatMovementPolicy.cs"><Link>FriendlyMoatMovementPolicy.cs</Link></Compile>
+    <Compile Include="..\src\TunnelPlacementDistancePolicy.cs"><Link>TunnelPlacementDistancePolicy.cs</Link></Compile>
     <Compile Include="..\..\Shared\DebugLogHelper.cs"><Link>DebugLogHelper.cs</Link></Compile>
     <Compile Include="..\..\Shared\NativePatternResolver.cs"><Link>NativePatternResolver.cs</Link></Compile>
   </ItemGroup>

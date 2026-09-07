@@ -26,6 +26,8 @@ namespace BugfixesAndQoL
 
         private static int Main()
         {
+            TestTunnelPlacementDistancePolicy();
+            TestTunnelPlacementDistanceIntegration();
             TestFriendlyMoatMovementPolicy();
             TestFriendlyMoatMovementIntegration();
             TestAiDefensePatrolPolicy();
@@ -40,6 +42,121 @@ namespace BugfixesAndQoL
             }
             Console.Error.WriteLine($"BugfixesAndQoL policy and native-contract tests failed: {failures}.");
             return 1;
+        }
+
+        private static void TestTunnelPlacementDistancePolicy()
+        {
+            Check(TunnelPlacementDistancePolicy.IsTargetMapper(eMappers.MAPPER_TUNNEL) &&
+                    TunnelPlacementDistancePolicy.IsTargetMapper(eMappers.MAPPER_TUNNEL_CONSTRUCTION) &&
+                    !TunnelPlacementDistancePolicy.IsTargetMapper(eMappers.MAPPER_IRON_MINE) &&
+                    !TunnelPlacementDistancePolicy.IsTargetMapper(eMappers.MAPPER_CAMP_FIRE),
+                "tunnel distance policy targets only tunnel and tunnel construction");
+            Check(TunnelPlacementDistancePolicy.ShouldApply(true, true, false, eMappers.MAPPER_TUNNEL, 3) &&
+                    TunnelPlacementDistancePolicy.ShouldApply(true, true, false, eMappers.MAPPER_TUNNEL_CONSTRUCTION, 3),
+                "tunnel distance policy accepts both supported 3x3 mappers");
+            Check(!TunnelPlacementDistancePolicy.ShouldApply(false, true, false, eMappers.MAPPER_TUNNEL, 3) &&
+                    !TunnelPlacementDistancePolicy.ShouldApply(true, false, false, eMappers.MAPPER_TUNNEL, 3) &&
+                    !TunnelPlacementDistancePolicy.ShouldApply(true, true, true, eMappers.MAPPER_TUNNEL, 3) &&
+                    !TunnelPlacementDistancePolicy.ShouldApply(true, true, false, eMappers.MAPPER_IRON_MINE, 3) &&
+                    !TunnelPlacementDistancePolicy.ShouldApply(true, true, false, eMappers.MAPPER_TUNNEL, 2),
+                "tunnel distance policy preserves disabled, editor, other-mapper and unexpected-scale placement");
+
+            var visited = new HashSet<string>();
+            bool emptyRingBlocked = TunnelPlacementDistancePolicy.HasHostileOuterRingTile(
+                10,
+                20,
+                3,
+                (x, y) => true,
+                (x, y) =>
+                {
+                    visited.Add(x + "," + y);
+                    return false;
+                });
+            Check(!emptyRingBlocked && visited.Count == 16 &&
+                    visited.Contains("9,19") && visited.Contains("13,19") &&
+                    visited.Contains("9,23") && visited.Contains("13,23") &&
+                    visited.Contains("11,19") && visited.Contains("9,21") &&
+                    visited.Contains("13,21") && visited.Contains("11,23") &&
+                    !visited.Contains("10,20") && !visited.Contains("12,22"),
+                "tunnel distance policy scans the complete 16-tile outer ring only");
+
+            bool everyRingPositionDetected = true;
+            foreach (string hostileCoordinate in visited)
+            {
+                bool detected = TunnelPlacementDistancePolicy.HasHostileOuterRingTile(
+                    10,
+                    20,
+                    3,
+                    (x, y) => true,
+                    (x, y) => x + "," + y == hostileCoordinate);
+                everyRingPositionDetected &= detected;
+            }
+            Check(everyRingPositionDetected,
+                "tunnel distance policy detects hostile structures on every side and corner");
+
+            int inspectedInsideTiles = 0;
+            bool outOfBoundsBlocked = TunnelPlacementDistancePolicy.HasHostileOuterRingTile(
+                0,
+                0,
+                3,
+                (x, y) => x >= 0 && y >= 0,
+                (x, y) =>
+                {
+                    inspectedInsideTiles++;
+                    return false;
+                });
+            Check(!outOfBoundsBlocked && inspectedInsideTiles == 7,
+                "tunnel distance policy ignores ring coordinates outside the map");
+            Check(TunnelPlacementDistancePolicy.WallOwnerToGamePlayerId(0) == 1 &&
+                    TunnelPlacementDistancePolicy.WallOwnerToGamePlayerId(7) == 8,
+                "wall ownership is converted exactly once from zero-based to game player ID");
+            Check(!TunnelPlacementDistancePolicy.IsHostileOwner(2, 2, (a, b) => false) &&
+                    !TunnelPlacementDistancePolicy.IsHostileOwner(2, 3, (a, b) => true) &&
+                    TunnelPlacementDistancePolicy.IsHostileOwner(2, 3, (a, b) => false),
+                "own and allied owners remain allowed while enemy owners block");
+        }
+
+        private static void TestTunnelPlacementDistanceIntegration()
+        {
+            string projectDirectory = FindProjectDirectory();
+            string feature = File.ReadAllText(Path.Combine(
+                projectDirectory, "src", "TunnelPlacementDistanceFeature.cs"));
+            string runtime = File.ReadAllText(Path.Combine(projectDirectory, "src", "BugfixesAndQoLRuntime.cs"));
+            string viewModel = File.ReadAllText(Path.Combine(projectDirectory, "src", "BugfixesAndQoLViewModel.cs"));
+            string xaml = File.ReadAllText(Path.Combine(
+                projectDirectory, "Override", "ScriptExtenderUI", "BugfixesAndQoLSettings.xaml"));
+
+            Check(feature.Contains("BuildingR3EventHooks.OnPlacementValidation") &&
+                    feature.Contains("EventHookPhase.Pre") &&
+                    feature.Contains("GetTileBuildingId(tileId)") &&
+                    feature.Contains("TryGetBuildingById(") &&
+                    feature.Contains("building->r_AliveState == AliveState.IsAlive") &&
+                    feature.Contains("building->r_PlayerIdOwner") &&
+                    feature.Contains("TilePropertyFlag.IsWall") &&
+                    feature.Contains("GetTilePlayerOwnerId(tileId)") &&
+                    feature.Contains("players.IsPlayerAlliedTo"),
+                "tunnel distance feature uses public placement, tile, building and alliance APIs");
+            Check(feature.Contains("args.CustomValidationRules = true;") &&
+                    feature.Contains("args.ForceBlockPlacementState = true;") &&
+                    !feature.Contains("args.CustomValidationRules = false;") &&
+                    !feature.Contains("args.ForceBlockPlacementState = false;"),
+                "tunnel distance feature only adds a placement rejection");
+            Check(!feature.Contains("NativePatternResolver") &&
+                    !feature.Contains("GetDelegateForFunctionPointer") &&
+                    !feature.Contains("ResolveUnique") &&
+                    !feature.Contains("buildingId - 1"),
+                "tunnel distance feature has no native resolver and preserves one-based building IDs");
+            Check(runtime.Contains("new TunnelPlacementDistanceFeature(log, settings)") &&
+                    runtime.Contains("tunnelPlacementDistanceFeature.Initialize") &&
+                    runtime.Contains("tunnelPlacementDistanceFeature.Dispose()"),
+                "tunnel distance feature is registered as a persistent runtime subscription");
+            Check(viewModel.Contains("[SyncHostOnly]") &&
+                    viewModel.Contains("public bool EnableTunnelPlacementDistanceFix") &&
+                    viewModel.Contains("enableTunnelPlacementDistanceFix = true"),
+                "tunnel distance fix is an enabled-by-default synchronized host setting");
+            Check(xaml.Contains("EnableTunnelPlacementDistanceFix, Mode=TwoWay") &&
+                    xaml.Contains("bugfixes.enable-tunnel-placement-distance-fix"),
+                "tunnel distance fix is exposed in the settings UI");
         }
 
         private static void TestAiRecruitmentHorseDemandContract()

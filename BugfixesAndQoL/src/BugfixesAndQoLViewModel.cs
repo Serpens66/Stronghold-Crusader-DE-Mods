@@ -41,6 +41,7 @@ namespace BugfixesAndQoL
         private bool enableStuckApothecaryFix = true;
         private bool enablePlagueTargetReservationFix = true;
         private bool enableAssemblyPointPlacementFix = true;
+        private bool enableTunnelPlacementDistanceFix = true;
         private bool enableFairSiegeAmmoRestock = true;
         private bool enableSurrenderAndStatistics = true;
         private bool enableLordUnitControls = true;
@@ -251,6 +252,8 @@ namespace BugfixesAndQoL
             SerpLocalization.Get("BugfixesAndQoL.EnableDisbandedUnitControlGroupCleanupHelp");
         public string EnableAssemblyPointPlacementFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAssemblyPointPlacementFix");
         public string EnableAssemblyPointPlacementFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAssemblyPointPlacementFixHelp");
+        public string EnableTunnelPlacementDistanceFixText => SerpLocalization.Get("BugfixesAndQoL.EnableTunnelPlacementDistanceFix");
+        public string EnableTunnelPlacementDistanceFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableTunnelPlacementDistanceFixHelp");
         public string EnableFairSiegeAmmoRestockText => SerpLocalization.Get("BugfixesAndQoL.EnableFairSiegeAmmoRestock");
         public string EnableFairSiegeAmmoRestockHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableFairSiegeAmmoRestockHelp");
         public string EnableSurrenderAndStatisticsText => SerpLocalization.Get("BugfixesAndQoL.EnableSurrenderAndStatistics");
@@ -828,6 +831,13 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool EnableTunnelPlacementDistanceFix
+        {
+            get => enableTunnelPlacementDistanceFix;
+            set => SetSetting(ref enableTunnelPlacementDistanceFix, value, nameof(EnableTunnelPlacementDistanceFix));
+        }
+
+        [SyncHostOnly]
         public bool EnableFairSiegeAmmoRestock
         {
             get => enableFairSiegeAmmoRestock;
@@ -955,6 +965,7 @@ namespace BugfixesAndQoL
                 EnableStuckApothecaryFix = true;
                 EnablePlagueTargetReservationFix = true;
                 EnableAssemblyPointPlacementFix = true;
+                EnableTunnelPlacementDistanceFix = true;
                 EnableFairSiegeAmmoRestock = true;
                 EnableSurrenderAndStatistics = true;
                 EnableLordUnitControls = true;

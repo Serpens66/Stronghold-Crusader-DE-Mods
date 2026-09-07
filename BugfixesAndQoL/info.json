@@ -3,13 +3,19 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.132",
+  "Version": "1.0.133",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.2.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.133",
+      "Changes": [
+        "Added an enabled-by-default host fix that requires a one-tile gap between tunnel footprints and enemy buildings or walls."
+      ]
+    },
     {
       "Version": "1.0.132",
       "Changes": [

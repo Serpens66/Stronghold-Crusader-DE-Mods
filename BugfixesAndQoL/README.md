@@ -42,6 +42,9 @@ Each active plague outbreak now applies exactly one point of negative popularity
 ### Allow unrestricted rally-point placement
 Barracks, mercenary posts, engineer guilds, tunneler guilds, keeps, and Bedouin tents no longer reject a rally point merely because the game considers the destination unreachable. Their rally flags can be placed anywhere the normal rally-point controls allow.
 
+### Keep tunnels away from enemy structures
+The enabled-by-default host fix requires a one-tile gap around the complete 3x3 footprint of tunnels and tunnel construction sites when an enemy building or wall is nearby. Own and allied structures do not trigger this additional restriction.
+
 ### Fix tripled starting gold in Custom Crusader Trails
 The game can interpret the unusable `customisedExtremeTrail` value in a `.trail` file as a request to triple the mission's starting gold. The fix ignores that value when a trail is loaded through the Trail Maker or Customize screen and writes a safe value when a trail is newly saved or resaved; existing files are not modified until they are saved.
 

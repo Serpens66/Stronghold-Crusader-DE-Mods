@@ -25,6 +25,7 @@ namespace BugfixesAndQoL
         private readonly MultiplayerAivSyncRuntime multiplayerAivSyncRuntime;
         private readonly SiegeAmmoRestockFeature siegeAmmoRestockFeature;
         private readonly TroopHudMiddleClickCameraFeature troopHudMiddleClickCameraFeature;
+        private readonly TunnelPlacementDistanceFeature tunnelPlacementDistanceFeature;
         private ExtendedShiftCommandQueueRuntime extendedShiftCommandQueueRuntime;
         private IDisposable playerMarketSubscription;
         private IDisposable mapStartSubscription;
@@ -111,6 +112,7 @@ namespace BugfixesAndQoL
             multiplayerAivSyncRuntime = new MultiplayerAivSyncRuntime(log, settings);
             siegeAmmoRestockFeature = new SiegeAmmoRestockFeature(log, settings, multiplayerFeatureGate);
             troopHudMiddleClickCameraFeature = new TroopHudMiddleClickCameraFeature(log, settings);
+            tunnelPlacementDistanceFeature = new TunnelPlacementDistanceFeature(log, settings);
             InitializeMovedFeatures();
             settings.SettingChanged += OnSettingChanged;
             settingsSubscribed = true;
@@ -153,6 +155,9 @@ namespace BugfixesAndQoL
             TryInitializePersistentFeature(
                 "fair siege-ammunition restock",
                 siegeAmmoRestockFeature.Initialize);
+            TryInitializePersistentFeature(
+                "tunnel placement-distance validation",
+                tunnelPlacementDistanceFeature.Initialize);
             TryInitializePersistentFeature(
                 "abrupt host migration",
                 EnsureAbruptHostMigrationFix);
@@ -539,6 +544,7 @@ namespace BugfixesAndQoL
             multiplayerGameSpeedRuntime.Dispose();
             multiplayerAivSyncRuntime.Dispose();
             siegeAmmoRestockFeature.Dispose();
+            tunnelPlacementDistanceFeature.Dispose();
             playerMarketSubscription?.Dispose();
             playerMarketSubscription = null;
             mapStartSubscription?.Dispose();
