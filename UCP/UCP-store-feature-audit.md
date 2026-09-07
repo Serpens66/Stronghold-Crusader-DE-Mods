@@ -60,7 +60,6 @@ Die zwei `files`-Versionen sind getrennte Store-Revisionen für unterschiedliche
 | --- | --- | --- |
 | `ucp2-legacy` | enthält die in den Feature- und Bugfixberichten analysierten UCP2-Patches | nicht als Ganzes portieren; jede Funktion einzeln |
 | `ucp2-legacy-defaults` | aktiviert ein UCP2-Standardprofil | nach Portierung einzelner Funktionen höchstens als DE-Preset nachbilden |
-| `ucp3-fixes` / lokaler Quellordner | `aiv-troops-behaviour` und `hopfarm-limit-fix` | erster Fix separat analysiert; Hopfenfarm durch `shcde-fixes` abgedeckt |
 
 ## Vollständigkeitskontrolle
 

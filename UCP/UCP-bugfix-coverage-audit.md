@@ -1,59 +1,35 @@
-# Vollständiger Abdeckungsaudit der UCP-Bugfixes
+# Verbleibende UCP-Fixkandidaten für SHCDE
 
-Stand: 7. September 2026
+Stand: 8. September 2026
 
-## Ergebnis
+## Ergebnis der Einzelprüfung
 
-Diese Tabelle vergleicht jeden der 17 expliziten UCP2-`Bugfix`-Einträge, vier weitere bugfixartige Legacy-Optionen und die zwei eigenständigen UCP3-Fixes mit dem real vorhandenen DE-Code. „Abgedeckt“ wird nur verwendet, wenn der Quellcode denselben fachlichen Vertrag erfüllt.
+Diese Datei enthält nur noch UCP-Einträge, deren zugrunde liegender Fehler für die aktuelle DE nicht sicher ausgeschlossen werden konnte. Bereits in DE integrierte, durch bekannte Mods abgedeckte, HD-protokollspezifische oder nach aktueller Native-Prüfung entfallene Einträge wurden gelöscht. Alle Native-Aussagen beziehen sich auf die installierte `CrusaderDE.dll` mit SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`; dieser Hash stimmt mit `CURRENT.json` überein.
 
-| UCP-Schlüssel | DE-/Modstatus | Quellnachweis oder nächste Aktion |
+| UCP-Schlüssel | Ergebnis der DE-Prüfung | Quellnachweis oder nächster Beleg |
 | --- | --- | --- |
-| `o_fix_ladderclimb` | offen, möglicher Altfehler | kein Zielpuffer in vorhandenen Mods; Reproduktion und enger Ladder-Exit-Hook |
-| `u_fireballistafix` | offen | keine Autoziel-Erweiterung für Mönche/Tunnelgräber gefunden; Zielklassifikation testen |
-| `ai_access` | **abgedeckt: BugfixesAndQoL** | `AIEconomyProtectionHook.cs`, DE-Funktion `c_game_ai_check_inaccessible_building`, optional verbesserte alliierte Tor-/Zugbrückenprüfung |
-| `ai_defense` | **abgedeckt: BugfixesAndQoL** | `AiDefensePatrolFix.cs` zählt Rollen 1/4 und füllt die Burgverteidigerquote vor äußeren Patrouillen; Setting standardmäßig aktiv; Integrationstests vorhanden |
-| `ai_tethers` | **abgedeckt: shcde-fixes** | `AIMaxOxTethers=10`; `AIStoneToOxenRatio` ergänzt die Regel |
-| `ai_buywood` | offen | gleichzeitiges Bauen/Bogenproduktion reproduzieren; Kaufmenge situationsgebunden +2 |
-| `ai_towerengines` | nicht als Bugfix empfohlen | optionale Balanceeinstellung; keine identische Mod-Abdeckung |
-| `ai_assaultswitch` | offen | Zielwechsel während aktiver Belagerung reproduzieren; mit Improved Attacks koordinieren |
-| `ai_rebuild` | **teilweise abgedeckt** | Turmruinen: `AITowerRuinRepairFix`; AIV-Konflikte: `BetterAIOverbuildRulesFix`; Mauern, Sammelpunkte und Steinbruchplattform noch prüfen |
-| `ai_fix_laddermen_with_enclosed_keep` | offen | Snake-Testburg und Bool-Entscheidung untersuchen |
-| `u_fix_lord_animation_stuck_movement` | offen, niedrige Priorität | Gebäudeangriffe reproduzieren; nur Animations-/Bewegungsabschluss zurücksetzen |
-| `u_fix_applefarm_blocking` | offen | Randfelder des Apfelgartens systematisch blockieren und Produktion messen |
-| `u_tanner_fix` | offen | konkurrierende Gerber/Kuhreservierung testen; Fehlpfad erneut wählen lassen |
-| `o_fix_fletcher_bug` | **in DE integriert** | Advanced Option `ImprovedFletchers`; Script Extender `Is/SetImprovedFletchers` |
-| `ai_fix_crusader_archers_pitch` | offen | europäische KI-Bogenschützen und Pechgraben-Zielwahl testen |
-| `o_fix_baker_disappear` | offen | Mehl während Anlauf entziehen; nur bestätigten Despawn-Zweig umleiten |
-| `o_fix_moat_digging_unit_disappearing` | offen | vorhandene Graben-QoL-Funktionen sind nicht gleichwertig; Zustandsübergang reproduzieren |
-| `fix_apple_orchard_build_size` | offen/QoL | tatsächliche DE-Footprint- und Vorschaumaske messen |
-| `o_armory_marketplace_weapon_order_fix` | **funktional abgedeckt: BugfixesAndQoL** | `HdMarketViewHook` plus `MarketGoodsOrderDefinition`; frei sortierbar und HD-Reihenfolge wiederherstellbar. Arsenal bleibt separat, daher nur bei sichtbarer Inkonsistenz nacharbeiten |
-| `o_fix_rapid_deletion_bug` | offen, wichtiger Exploit-Test | Low-Wall-Refund im Fixes-Mod ist ein anderer Fehler; autoritativen Bulldoze-Pfad testen |
-| `o_fix_map_sending` | für DE nicht direkt relevant | alter HD-Puffer-/Namenslängen-Workaround; DE hat neuen Lobby-/Workshop-Pfad |
-| `aiv-troops-behaviour` | **Grundfix abgedeckt: BugfixesAndQoL** | `AivDefenderPositionFix.cs` entfernt validiert den Ausschluss der Reihen 9/11/18 und ist standardmäßig aktiv; optionale Hold-/Patrol-/Starttruppenfunktionen bleiben separat offen, siehe [UCP-AI-behavior.md](UCP-AI-behavior.md) |
-| `hopfarm-limit-fix` | **abgedeckt: shcde-fixes** | Detour von `c_game_ai_count_active_farms`, standardmäßig aktiv, global/lordabhängig konfigurierbar |
+| `o_fix_ladderclimb` | offen, möglicher Altfehler | DE besitzt die Ladder-/Bewegungszustände und die Zielkoordinaten weiterhin; in den geprüften Übergängen wurde kein UCP-gleicher Zielpuffer nach dem Leiterabschluss belegt. Reproduktion bleibt erforderlich. |
+| `ai_buywood` | offen | Das typisierte Pending-Holzkauffeld und die KI-Kaufphase existieren in 2.3.0; in Workspace-Mods und den geprüften Kaufpfaden wurde keine situationsgebundene Reserve von zwei Holz gefunden. Gleichzeitiges Bauen und Bogenproduktion reproduzieren. |
+| `ai_assaultswitch` | offen, möglicher Altfehler | `r_AISiegePlayerIdTarget` und die Belagerungszustände bestehen fort; kein vorhandener Mod und kein belegter DE-Zweig bindet das Ziel ausdrücklich erst ab UCPs fortgeschrittener Angriffsphase. Zielwechsel kontrolliert provozieren. |
+| `ai_rebuild` Rest | offen | Turmruinen sind entfernt, weil sie bereits abgedeckt sind. Für leicht beschädigte Mauern, verlorene Gilden-/Pechschmelzen-Sammelpunkte und Steinbruchplattformen bestehen weiterhin DE-AIV-/Repairpfade, aber keine gleichwertige Abdeckung. Die drei Fälle getrennt testen. |
+| `ai_fix_laddermen_with_enclosed_keep` | offen | Leiterträgerplanung und `siege_ladder_amount` existieren; die alte Bool-Bedeutung lässt sich aus dem breiten Planungsautomaten nicht sicher ableiten. Snake-Testburg mit eingeschlossenem eigenem Keep verwenden. |
+| `u_fix_lord_animation_stuck_movement` | offen, niedrige Priorität | Die Lord-Zustandsmaschine bei RVA `0x15A950` behandelt Bewegungs-/Angriffszustände und mehrere Animationsrücksetzungen, doch die beiden UCP-spezifischen Abschlusskanten konnten nicht eindeutig als vorhanden oder fehlend bewiesen werden. Bewegung und Gebäudeangriff getrennt testen. |
+| `u_fix_applefarm_blocking` | offen | Die Apfelbauernfunktion bei RVA `0x12FC70` besteht fort; die UCP-Koordinatenkorrektur liegt wahrscheinlich in einer Hilfsfunktion und konnte keinem DE-Zweig sicher zugeordnet werden. Alle Randfelder systematisch blockieren. |
+| `u_tanner_fix` | Fehlpfad statisch vorhanden; Laufzeitbeleg ausstehend | Die Gerberfunktion bei RVA `0x13E0B0` prüft Kuhziel, Generation und Alive-State; ein verlorenes Reservierungsrennen kann weiterhin ohne erfolgreiche Kuhübernahme zurückführen. Mehrere Gerber auf dieselben Kühe ansetzen. |
+| `o_fix_baker_disappear` | Despawn-Pfad statisch vorhanden; Laufzeitbeleg ausstehend | Die Bäckerfunktion bei RVA `0x138850` kann nach fehlgeschlagenem Mehl-/Lagerlookup weiterhin `AliveState.MarkedForDeletion` setzen. Weil derselbe Zustand legitime Despawns abwickelt, muss der Missing-Flour-Rennfall noch gezielt korreliert werden. |
 
-## Konsequenz für die Modplanung
+## Integrationsentscheidung nur nach positivem Test
 
-Keine neuen Hooks für `ai_defense`, `ai_access`, `ai_tethers` oder die Hopfenfarm anlegen. Bei `ai_rebuild` nur die drei noch offenen Teilverträge untersuchen. Der Marktreihenfolge-Fix ist als Nutzerfunktion vorhanden; ein Arsenal-Abgleich wäre lediglich eine kleine Ergänzung derselben Funktion, kein eigener nativer UCP-Port.
-
-## Baseline-basierte Integrationsentscheidung für offene Einträge
-
-| UCP-Schlüssel | Erstes DE-Instrument | Korrektur nur bei positivem Test |
+| UCP-Schlüssel | Erstes DE-Instrument | Engste zulässige Korrektur |
 | --- | --- | --- |
-| `o_fix_ladderclimb` | öffentliche Unit-/Tribe-Order-, State- und Delete-Events | Sidecar-Ziel am Ladder-Exit wiederherstellen; Unit-ID plus Slotgeneration absichern |
-| `u_fireballistafix` | Unit-State, Projectile-Spawn und tatsächlicher Damage | engste Auto-Target-Typprüfung um Mönch/Tunnelgräber erweitern |
-| `ai_buywood` | Pending-Holzkauf `GamePlayerResources+0x2A74`, KI-Phase und Fletcher-State nur lesen | Vanilla-Kaufrequest situationsgebunden um 2 erhöhen |
-| `ai_towerengines` | installierte Turmmaschinen und Rekrutierungsentscheidung zählen | Vergleich mit 3 parametrisieren; kein echtes Unendlich |
-| `ai_assaultswitch` | `r_AISiegePlayerIdTarget` `+0x2BD8` und Belagerungszustand | Ziel nur während belegter fortgeschrittener Belagerung binden |
-| `ai_rebuild` Rest | Spawn/Delete/Repair/AI-Wall-Events | Mauer, Rally-Gebäude und Quarry-Plattform als getrennte Regeln |
-| `ai_fix_laddermen_with_enclosed_keep` | Snake-AIV, `siege_ladder_amount`, eigener Zugang, Planungsresultat | nur falschen eigenen-Keep-Ausschluss ändern |
-| `u_fix_lord_animation_stuck_movement` | native State- plus Unity-Visual-Events | visuell lokal oder simulativ synchronisiert – erst nach eindeutiger Trennung |
-| `u_fix_applefarm_blocking` | Apple-Pickup/-Dropoff und Unit-State | Koordinatenoffset der Worker-Zielwahl, kein Teleport |
-| `u_tanner_fix` | `FUN_18013E0B0` plus State/Kuhreservierung | nur Reservierungs-Fehlpfad erneut wählen/warten lassen |
-| `ai_fix_crusader_archers_pitch` | `OnSpawnFire`, Archer-Typ und Eigentümer | nur KI-Pechentzündungsprüfung um europäischen Archer ergänzen |
-| `o_fix_baker_disappear` | `FUN_180138850`, Flour-Pickup, State und Unit-Delete | nur belegten Missing-Flour-Despawnzweig umleiten |
-| `o_fix_moat_digging_unit_disappearing` | Pitch-Ditch-, State- und Delete-Events | nur belegten Graben-Despawnzustand korrigieren |
-| `fix_apple_orchard_build_size` | `OnPlacementValidation` gegen tatsächlichen Bau | autoritative Mappermaske oder – nur bei rein visueller Abweichung – Preview korrigieren |
-| `o_fix_rapid_deletion_bug` | Bulldoze/Delete/Refund-Events als Trace | wirksamen Cancel-Vertrag im bestehenden Extender-Detour bevorzugen; Event ignoriert derzeit `SkipOriginalFunction` |
+| `o_fix_ladderclimb` | öffentliche Unit-/Tribe-Order- und State-Events | Ziel nach 1-basierter Unit-ID plus Slotgeneration puffern und nur am bestätigten Ladder-Exit wiederherstellen |
+| `ai_buywood` | Pending-Holzkauf `GamePlayerResources+0x2A74`, KI-Phase und Fletcher-State nur lesen | Vanilla-Kaufrequest ausschließlich in der belegten Bedarfssituation um zwei erhöhen |
+| `ai_assaultswitch` | `r_AISiegePlayerIdTarget` `+0x2BD8` und Belagerungszustand | gültiges Ziel nur während der belegten fortgeschrittenen Belagerung binden |
+| `ai_rebuild` Rest | Spawn/Delete/Repair/AI-Wall-Events | Mauer, Rally-Gebäude und Quarry-Plattform als getrennte Regeln behandeln |
+| `ai_fix_laddermen_with_enclosed_keep` | Snake-AIV, `siege_ladder_amount`, eigener Zugang und Planungsresultat | nur den falschen Ausschluss durch den eigenen eingeschlossenen Keep ändern |
+| `u_fix_lord_animation_stuck_movement` | native State- plus Unity-Visual-Events | visuelle und simulierte Störung zuerst trennen; nur die nachgewiesene Abschlusskante zurücksetzen |
+| `u_fix_applefarm_blocking` | Apple-Pickup/-Dropoff und Unit-State | Zielkoordinate korrigieren, keinen Worker teleportieren |
+| `u_tanner_fix` | State, Kuhziel, Generation und Reservierungsbesitz | ausschließlich den belegten Reservierungs-Fehlpfad erneut wählen oder warten lassen |
+| `o_fix_baker_disappear` | Flour-Pickup, State und Unit-Delete gemeinsam korrelieren | nur den belegten Missing-Flour-Despawnzweig umleiten |
 
-Alle RVAs gelten nur für den in [UCP-native-integration-audit.md](UCP-native-integration-audit.md) dokumentierten Hash. Ein Suchanker ist kein Beleg, dass der HD-Fehler in DE noch auftritt.
+Ein ähnlicher Kontrollfluss oder ein generischer Funktionsname ist kein Laufzeitbeweis. Vor jedem Patch sind positiver und negativer Kontrollfall, aktueller Hashabgleich, vollständiger Datenfluss und Konfliktprüfung gegen Script Extender 2.3.0 sowie alle installierten Mods erforderlich.

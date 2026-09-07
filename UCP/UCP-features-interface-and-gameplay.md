@@ -9,7 +9,6 @@
 | `o_onlyai` | DE besitzt einen echten Zuschauerzustand (`spectatorMode`) und einen Vanilla-Spectator-GameAction-Pfad; BugfixesAndQoL nutzt ihn auch nach Eliminierung | Kernfunktion in DE vorhanden; für KI-only beim Lobby-Start die vorhandene Zuschaueroption verwenden, keinen UCP-Slot-Hack portieren |
 | `o_override_identity_menu` | UCP ergänzt nur Start-Fern- und Nahkämpfer; `StartConditions` kann Startressourcen und viele einzelne Truppentypen festlegen | durch allgemeineren Mod abgedeckt |
 | `o_freetrader` | `BuildingCosts` kann `MAPPER_TRADEPOST` auf null setzen | abgedeckt über Preset |
-| Markt-Waffenreihenfolge | `BugfixesAndQoL` hat einen vollständigen Markt-Reihenfolgeeditor | abgedeckt; siehe Bugfixbericht |
 
 ## Sinnvolle, noch offene Komfortfunktionen
 
@@ -19,7 +18,7 @@
 | `o_fast_placing` | nach bestätigter Platzierung ausschließlich Palette und aktives Bauwerkzeug im verwalteten HUD wieder auswählen. `OnBuildStructure` Post enthält derzeit kein Ergebnis und feuert deshalb allein nicht als Erfolgsbeleg; verwalteten Command-Abschluss oder `OnBuildingSpawn` heranziehen. Den Build-Aufruf nicht wiederholen |
 | `o_engineertent` | gleiches UI-Muster, aber nur für Belagerungsgeräte; Spawn-/Crewlogik bleibt vollständig Vanilla |
 | `o_moatvisibility` | geplante eigene Graben-Tiles in der verwalteten Vorschau-/Overlay-Schicht dauerhaft anzeigen. Keine Tileflags ändern; dann bleibt die Funktion lokal und simulationsneutral |
-| `o_responsivegates` | Script Extender 2.2.0 besitzt mit `BuildingR3EventHooks.OnGatehouseQuery` einen konfliktfreien per-Unit-Override über `ShouldClose`; dadurch lässt sich die Schließdistanz auf 140 begrenzen. UCPs Wiederöffnung 1200→100 braucht separat den noch unbenannten Timer in `GameGatehouseEntry`. Diesen erst per Zustandsdiff kartieren; keinen zweiten Inlinehook installieren |
+| `o_responsivegates` | Script Extender 2.3.0 besitzt mit `BuildingR3EventHooks.OnGatehouseQuery` einen konfliktfreien per-Unit-Override über `ShouldClose`; dadurch lässt sich die Schließdistanz auf 140 begrenzen. UCPs Wiederöffnung 1200→100 braucht separat den noch unbenannten Timer in `GameGatehouseEntry`. Diesen erst per Zustandsdiff kartieren; keinen zweiten Inlinehook installieren |
 | `o_increase_path_update_tick_rate` | UCP 200→50 Ticks; DE-Schedulerintervall zuerst messen. Den bestätigten globalen Resetwert parametrisieren und CPU/Pathfinding profilieren. Kein eigenes Vollkarten-Polling über `OnTick` |
 | `o_change_siege_engine_spawn_position_catapult` | UCP verschiebt bei Katapult, Tribok, Belagerungsturm, Rammbock, Schild und Feuerballista X/Y jeweils um +1. In DE Spawnargumente am gemeinsamen Engine-Spawnpfad ändern, aber Kartenrand, Belegung und AIV testen. `OnAISelectSiegeRallypoint` ist nicht derselbe Vertrag |
 | `o_stop_player_keep_rotation` | trotz Namens dreht UCP den menschlichen Bergfried zur Kartenmitte. Orientierung in der verwalteten Platzierung bestimmen und dem einmaligen Vanilla-Baubefehl übergeben; nicht nach dem Spawn drehen |

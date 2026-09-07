@@ -29,17 +29,6 @@ Deshalb dasselbe AIC-Override-Verfahren wie bei `ai_addattack` verwenden und kei
 
 UCP verteilt mehr Angreifer auf Mauer-, Turm- und Wirtschaftsziele und schickt Resttruppen nach einem Durchbruch zum Lord. **Status: separat untersucht und teilweise in Arbeit.** `BugfixesAndQoL/src/AiWallTargetingFix.cs` deckt bereits den Teil ab, bei dem nicht nur eine Einheit pro Mauersegment angreift. Die übrigen Teile nicht hier duplizieren, sondern an die laufende Improved-Attacks-Arbeit anbinden.
 
-## `ai_attacktarget`
-
-UCP bietet nächster, reichster oder schwächster Gegner. **DE-Relevanz: optional und als globale Einstellung nicht abgedeckt; pro Lord existiert bereits `InternalAIC.who_to_pick_on` bei `0x2F0`.** Das Feld wird im offiziellen Lord-Format übertragen. Die exportierten DE-Lords verwenden Werte 0, 1, 2 und 4; ihre genaue Bedeutungszuordnung ist in Extender und Baseline aber nicht dokumentiert. Die alte UCP-Branch-Auswahl darf daher nicht ungeprüft als Enum übernommen werden.
-
-Bevorzugte Umsetzung ist wiederum ein AIC-Override. Zuerst in einem Vier-Spieler-Test jede Ausprägung 0/1/2/4 mit kontrolliertem Abstand, Gold und Truppenstärke kartieren und Zielwechsel über `r_AISiegePlayerIdTarget` (`GamePlayerResources+0x2BD8`) protokollieren. Danach kann die validierte Zahl global oder pro Lord gesetzt werden. Ungültige, verbündete und besiegte Ziele bleiben der Vanilla-Auswahl überlassen. `PlayerR3EventHooks.OnPlayerAIEvaluateAttackOrder` ist nur ein Ereignis für die Bewertung von Hilfs-Angriffsbefehlen und kein belegter Ersatz für die Hauptbelagerungs-Zielwahl.
-
-## `ai_recruitinterval`
-
-UCP setzt alle Lords auf das schnellste Rekrutierungsintervall, vergleichbar mit Rat/Richard. **DE-Relevanz: Balanceoption, nicht abgedeckt.** Die „Fast recruit rally“-Pfade in `TroopMovementFix3` beschleunigen nur die Bewegung frisch rekrutierter Einheiten.
-
-Der DE-Eingriffspunkt ist jetzt konkret: `InternalAIC.troop_production_rate1`, `2` und `3` liegen bei `0x168`, `0x16C` und `0x170` und werden als dreiteiliges `troop_production_rate` im Lord-Format serialisiert. UCP las genau drei lordabhängige Werte und ersetzte das ausgewählte Ergebnis durch 1. Daher beim Lord-Laden alle drei Werte auf 1 setzen; ein Countdown-Reset-Hook ist unnötig. Vor Freigabe jede der drei Wirtschafts-/Schwierigkeitslagen testen, weil ihre genaue Auswahlbedingung noch nicht benannt ist.
 
 ## `ai_recruitstate_initialtimer`
 
@@ -47,9 +36,6 @@ UCP konfiguriert die anfänglichen Monate, in denen die KI nur Verteidiger rekru
 
 Hier bleibt ein nativer Eingriff erforderlich, aber erst nach Instrumentierung des Kartenstarts: Rekrutierungszustand, Simulationstick und erste Offensivrekrutierung mehrerer Lords protokollieren, anschließend den einmaligen Initialisierungsschreibpunkt des Timers ermitteln. Der Mod sollte den Startwert dort in Ticks setzen, nicht einen eigenen parallelen Wall-clock-Timer betreiben. Save/Load muss den gespeicherten Vanilla-Zustand respektieren und darf den Initialtimer nicht erneut starten.
 
-## `ai_recruitsleep`
-
-Der Eintrag ist in UCP2 als `Balancing` auskommentiert und damit kein ausgeliefertes aktives Feature. Er wird nicht als Portkandidat geführt. Falls die Idee später wieder aufgenommen wird, muss zuerst aus älteren Revisionen rekonstruiert werden, welche Rekrutierungspause tatsächlich gemeint war.
 
 ## Gemeinsamer Lifecycle und Netzwerkvertrag
 

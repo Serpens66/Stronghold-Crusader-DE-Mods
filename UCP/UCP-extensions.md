@@ -20,5 +20,5 @@ Damit entspricht die lokale Liste am 7. September 2026 dem veröffentlichten Sto
 
 ## Einordnung für DE
 
-Ein Store-Eintrag ist nicht automatisch ein übertragbarer DE-Fix. Viele Pakete liefern HD-AIVs, AICs, Karten, Texturen oder UCP-Lua-Plugins. Für die Bugfix-Übersicht wurden nur Engine-/Verhaltenskorrekturen ausgewertet. `ucp3-fixes` enthält in diesem Stand die zwei relevanten Module, die in [UCP-UCP3-fixes.md](UCP-UCP3-fixes.md) behandelt werden.
+Ein Store-Eintrag ist nicht automatisch ein übertragbarer DE-Fix. Viele Pakete liefern HD-AIVs, AICs, Karten, Texturen oder UCP-Lua-Plugins. Für die Bugfix-Übersicht wurden nur Engine-/Verhaltenskorrekturen ausgewertet.
 

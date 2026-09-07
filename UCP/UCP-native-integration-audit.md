@@ -1,14 +1,14 @@
 # Native Integrationsprüfung der offenen UCP-Patches
 
-Stand: 7. September 2026
+Stand: 8. September 2026
 
 ## Verbindliche Analysebasis
 
-Alle nachstehenden Native-Aussagen beziehen sich auf die installierte `CrusaderDE.dll` mit SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`. Der Hash stimmt mit `_inspect/CrusaderDE-Native-Baseline/CURRENT.json` überein. Verwendet wurde die semantische Baseline `sem/FBCB9319`, gebunden an Script Extender 2.2.0, Commit `10d28f717d38166e5875c666f20fc5653ae44b0c`.
+Alle nachstehenden Native-Aussagen beziehen sich auf die installierte `CrusaderDE.dll` mit SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`. Der Hash stimmt mit `_inspect/CrusaderDE-Native-Baseline/CURRENT.json` überein. Verwendet wurde die semantische Baseline `sem/FBCB9319`, gebunden an Script Extender 2.3.0, Commit `a0cd52993b44a6909d4f7f6a92f82fa5888a8e63`.
 
 Eine Feldbezeichnung oder ein ähnlicher Kontrollfluss ist noch kein Laufzeitbeweis. Deshalb bedeuten die Einstufungen:
 
-- **öffentlich:** Script Extender 2.2.0 bietet einen passenden, bereits typisierten API-/Eventvertrag;
+- **öffentlich:** Script Extender 2.3.0 bietet einen passenden, bereits typisierten API-/Eventvertrag;
 - **baseline-bestätigt:** Funktion oder Datenfluss ist in der aktuellen Baseline semantisch belegt;
 - **starker Kandidat:** Struktur, Defaults und Serialisierung passen, die konkrete Spielformel braucht aber noch einen kontrollierten Laufzeittest;
 - **nur Suchanker:** Funktion existiert, doch der UCP-Fehler selbst ist in DE noch nicht reproduziert.
@@ -44,9 +44,6 @@ Für UCPs **prozentuale** Variante kann bereits ohne Formel-Hook pro Lord aus `s
 | `ai_recruitinterval` | AIC `troop_production_rate1..3` (`0x168..0x170`) | öffentlich serialisiert, entspricht UCPs gelesenen drei Lordwerten | auf 1/1/1 setzen statt Countdown-Hook |
 | `ai_recruitstate_initialtimer` | noch kein typisiertes AIC-Feld | UCP ersetzt `6 * 800` Ticks; DE-Vertrag offen | Startzustand instrumentieren; enger nativer Timer-Initialisierungshook nur nach Reproduktion |
 | `ai_resources_rebuy` | KI-Marktroutine; `GamePlayerResources` nur zur Diagnose | Kaufphase und Pending-/Suppress-Felder sind typisiert, ihre Namen allein beweisen den Schreibvertrag nicht | zunächst Werte beobachten; anschließend bevorzugt Request-/Marktroutine hooken, nicht blind Felder setzen |
-| `ai_housing` | `AIR3EventHooks.OnAIQueryBuildHovelEventArgs` | öffentlich und bereits von `shcde-fixes` genutzt | abgedeckt; keine zweite Policy |
-| `ai_nosleep` | bestehender `AIEconomyProtectionHook` | Baseline-Claim `c_game_building_sync_sleep_state`, RVA `0xC7D50`, semantisch `probable` | abgedeckt |
-| `ai_demolish` Wirtschaft/Häuser | bestehender Economy-Hook und Hovel-Detour | `c_game_ai_delete_hovel`, RVA `0x3B1D0`, Semantik/ABI bestätigt | abgedeckt; Fortifikationen separat prüfen |
 
 `PlayerR3EventHooks.OnPlayerAIEvaluateAttackOrder` ist kein Ersatz für `ai_attacktarget`: Das Event bewertet Hilfs-Angriffsbefehle zwischen Spielern und ist nicht als endgültige Hauptbelagerungs-Zielwahl belegt. Es eignet sich zur Instrumentierung dieses Teilpfads, aber nicht zum ungeprüften Umschreiben der Hauptziel-Policy.
 
@@ -69,15 +66,15 @@ Für UCPs **prozentuale** Variante kann bereits ohne Formel-Hook pro Lord aus `s
 
 | Fix | Baseline-/API-Anker | Sinnvoller Integrationsweg |
 | --- | --- | --- |
-| Fletcher | `FUN_18012D230`, RVA `0x12D230`; `ImprovedFletchers` wird im Pfad ausgewertet | offizielle Option über `SetImprovedFletchers`; kein Doppelpatch |
 | Gerber | `FUN_18013E0B0`, RVA `0x13E0B0`, nur Kandidatenname | `OnUnitAIStateChange` zur Reproduktion; enger Hook ausschließlich am belegten Reservierungs-Fehlpfad |
 | Bäcker | `FUN_180138850`, RVA `0x138850`, Versionsmatch bestätigt | Worker-Events und State-Event zur Diagnose; nur den belegten Missing-Flour-Despawnzweig umleiten |
 | Leiterziel | öffentliche Unit-/Tribe-Order-Events plus Unit-Delete/State-Events | Sidecar nach 1-basierter Unit-ID und Generation; Wiederanwendung nur am bestätigten Ladder-Exit. Kein Cache allein nach Slotindex. |
-| Feuerballista/Pitch-Bogenschütze | Projectile-/Unit-Events bieten Beobachtung, aber keinen vollständigen Auto-Target-Filter | erst Auto- gegen manuellen Angriff differenzieren; dann Typprüfung im nativen Filter eng erweitern |
-| Apfelfarm/Orchard-Footprint | Build-Validation-/BuildStructure-Events und Worker-State-Events | Vorschau und autoritative Mappermaske getrennt messen; bei Simulationsabweichung Mapperdaten, nicht nur UI ändern |
-| Moat-Despawn | Pitch-Ditch-Build/Remove und Unit-State/Delete-Events | verschwundene Unit-ID samt letztem Zustand belegen; nur diesen Übergang korrigieren |
-| Rapid Deletion | `OnBuildingBulldoze`/`OnBuildingDelete` sind Diagnosepunkte | Der Extender-Detour ruft beim Bulldoze das Original derzeit ungeachtet `SkipOriginalFunction` auf. Daher nicht über das Event „blockieren“. Bevorzugt Extender-Erweiterung um einen wirksamen Cancel-Vertrag; ersatzweise konfliktgeprüfter Hook vor Refund/Delete. |
+| Apfelfarm-Zielkoordinate | Apple-Pickup/-Dropoff- und Worker-State-Events | Problematische Randposition reproduzieren und nur die belegte Zielkoordinate korrigieren; keinen Worker teleportieren |
 | `ai_rebuild` Restfälle | vorhandene Building-Repair-, AI-Wall- und Spawn/Delete-Events | Ereignisse zur Rekonstruktion nutzen; Mauern, Sammelpunkte und Quarry-Plattform als drei getrennte Verträge implementieren |
+| `ai_buywood` | typisiertes Pending-Holzkauffeld und Kaufphase | Kaufrequest und Fletcher-State korrelieren; nur bei belegtem Ressourcenkonflikt zwei Holz Reserve ergänzen |
+| `ai_assaultswitch` | `r_AISiegePlayerIdTarget` und Belagerungszustand | Zielbindung nur in der nachgewiesenen fortgeschrittenen Angriffsphase |
+| Eingeschlossener Keep | `siege_ladder_amount`, eigener Keep-Zugang und Belagerungsmaschinenwahl | ausschließlich den bestätigten falschen eigenen-Keep-Ausschluss ändern |
+| Lord-Animationsabschluss | Lord-Update RVA `0x15A950`, Unit-State- und Visual-Events | Bewegungs- und Gebäudeangriffsabschluss getrennt korrelieren; visuelle und simulierte Störung nicht vermischen |
 
 ## Modarchitektur und Tests
 

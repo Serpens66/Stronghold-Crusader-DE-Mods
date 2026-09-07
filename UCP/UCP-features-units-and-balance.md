@@ -29,12 +29,5 @@ Eine DE-Portierung sollte vier getrennte `[SyncHostOnly]`-Optionen statt eines u
 
 Für Religionspopularität gibt es bislang keinen gleichwertigen öffentlichen Formelhook. `SetPlayerPopularity` ist ungeeignet, weil periodisches Setzen alle anderen Popularitätsanteile überschreiben würde. Die Bauern-Spawnraten liegen zwar als drei Tabellen für hohe, niedrige und normale Popularität vor, sind in `GamePlayerManagerAPI` aber privat gekapselt; hier ist eine öffentliche Extender-Konfiguration oder ein konfliktgeprüfter Tabellenoverride dem Patchen des kompletten Keep-Updates vorzuziehen. Alle vier Optionen getrennt testen und mit KI-Profilen abstimmen.
 
-## `o_xtreme`
-
-UCP entfernt in Crusader Extreme die Magieleiste, während der Modus selbst bestehen bleibt. Der Workspace-Mod `ExtremePowers` erweitert und konfiguriert die Kräfte, entfernt seine Oberfläche aber nicht gleichwertig.
-
-**DE-Bewertung: niedrige Priorität und potenzieller Konflikt.** Wenn gewünscht, nur die DE-XAML-Sichtbarkeit der Leiste ändern und klären, ob Kräfte zugleich deaktiviert werden sollen. Nicht zusammen mit `ExtremePowers` stillschweigend dieselbe UI besitzen.
-
-UCP deaktivierte drei getrennte HD-Pfade: Rendering, Klickverarbeitung und Netzwerkaktion. Eine DE-Portierung muss dieselbe Trennung bewahren. Nur die XAML-Leiste auszublenden lässt Hotkeys/Commands möglicherweise aktiv; nur Commands zu blockieren lässt eine funktionslose Anzeige stehen. `ExtremePowers` sollte alleiniger Besitzer der betroffenen XAML-/Command-Erweiterung sein oder durch eine ausdrücklich vereinbarte Soft-Dependency kooperieren.
 
 Die Einordnung der öffentlichen und nativen Eingriffspunkte steht gesammelt in [UCP-native-integration-audit.md](UCP-native-integration-audit.md).

@@ -1,24 +1,10 @@
-# Kleine und mittlere UCP-Fixes für KI-Wirtschaft und Belagerung
-
-## `ai_tethers`: durch `shcde-fixes` abgedeckt
-
-UCP setzt die maximale Zahl der Ochsengespanne pro KI-Lord auf zehn und verhindert damit zusätzliches Bauen bei weiteren Steinbrüchen.
-
-Der lokale Fixes-Mod stellt über den Script Extender `AIMaxOxTethers` und ergänzend `AIStoneToOxenRatio` bereit. `AIMaxOxTethers=10` bildet die entscheidende UCP-Regel direkt ab; das Verhältnis erlaubt darüber hinaus eine DE-spezifische Feinsteuerung nach Steinrückstau und lebenden Ochsen.
-
-**Bewertung: abgedeckt.** Kein eigener Hook in `BugfixesAndQoL`. Nur wenn der Fixes-Mod später bewusst ersetzt wird, sollte dieselbe öffentliche Global-Konfiguration übernommen werden.
+# Offene UCP-Kandidaten für KI-Wirtschaft und Belagerung
 
 ## `ai_buywood`
 
 UCP lässt die KI zwei zusätzliche Holzeinheiten kaufen, damit ein Bogenmacher nicht das gerade für ein Bauvorhaben beschaffte Holz verbraucht. **DE-Status: ungeklärt; keine identische Abdeckung gefunden.**
 
 Mit einer KI testen, die gleichzeitig baut und Bögen produziert. Dabei `GamePlayerResources.r_AIPendingMarketPurchaseAmountWoodLogs` (`0x2A74`), `r_AISellOrBuyPhase`, Holzbestand, Bauziel und Fletcher-State nur beobachten. Bei Bestätigung die berechnete Kaufmenge am nativen Aufbau des Kaufrequests nur in dieser Bedarfssituation um zwei erhöhen. Weder global Holz schenken noch das Pending-Feld periodisch überschreiben; die Vanilla-Prüfung von Gold, Markt und Lagerkapazität muss erhalten bleiben. Gameplayrelevant, daher `NetworkMode=1`.
-
-## `ai_towerengines`
-
-UCP hebt das Vanilla-Limit von je drei Mangonellen und Ballisten auf Türmen auf. Das ist trotz UCP-Kategorie eher eine Balanceänderung. `shcde-fixes` bietet verwandte Belagerungs- und Wirtschaftsschwellen, aber keine gleichwertige Aufhebung dieses Limits.
-
-**DE-Bewertung: optional, nicht als Standard-Bugfix.** `InternalAIC.buy_defense_machines_at` und `buy_defense_machines_delay` steuern Kaufzeitpunkt/-abstand, ersetzen das gesuchte Stücklimit aber nicht. Nach Reproduktion das Zählen bereits installierter Turmmaschinen und den Vergleich mit 3 lokalisieren. Einen synchronisierten Maximalwert anbieten; „unbegrenzt“ intern auf ein geprüftes Cap begrenzen, damit Unit-Limit und Rekrutierungsstillstand nicht ausgelöst werden.
 
 ## `ai_assaultswitch`
 

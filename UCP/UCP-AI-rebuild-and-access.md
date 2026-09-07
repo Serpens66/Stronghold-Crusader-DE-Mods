@@ -1,25 +1,13 @@
-# UCP `ai_rebuild` und `ai_access`: korrigierter DE-Abgleich
-
-## `ai_access`: bereits abgedeckt
-
-UCP verhindert, dass die KI Gebäude wiederholt abreißt, weil ihre Accessibility-Heatmap sie fälschlich als unerreichbar einstuft.
-
-`BugfixesAndQoL/src/AIEconomyProtectionHook.cs` greift bereits in genau die DE-Abrissentscheidung von `c_game_ai_check_inaccessible_building` ein. Der validierte Vergleich liegt beim aktuellen Hash bei RVA `0x3B2FF`; der zugehörige Hovel-Abriss ist in der Baseline als `c_game_ai_delete_hovel` bei RVA `0x3B1D0` mit bestätigter Semantik und ABI erfasst. Der Mod kann solche Abrisse vollständig unterdrücken oder mit seiner verbesserten Prüfung nur dann zulassen, wenn das Gebäude auch unter Berücksichtigung freundlicher beziehungsweise verbündeter Tore und Zugbrücken wirklich unerreichbar ist.
-
-**Bewertung: funktional abgedeckt.** Der Workspace-Fix erfüllt das UCP-Ziel und bewahrt zugleich eine sinnvolle Reaktion auf echte Blockaden. Ein zusätzlicher UCP-Port würde denselben Kontrollbereich doppelt besitzen und soll nicht gebaut werden.
-
-## `ai_rebuild`: nur teilweise abgedeckt
+# Offene Restfälle aus UCP `ai_rebuild`
 
 UCP bündelt mehrere unabhängige Reparaturregeln:
 
-1. zerstörte Türme beziehungsweise Turmruinen wiederherstellen;
-2. leicht beschädigte Mauern reparieren;
-3. Ingenieursgilde, Tunnelgräbergilde und Pechschmelze mitsamt ihrer Sammelpunkte wieder aufbauen;
-4. Steinbruchplattformen korrekt überbauen beziehungsweise erneuern.
+1. leicht beschädigte Mauern reparieren;
+2. Ingenieursgilde, Tunnelgräbergilde und Pechschmelze mitsamt ihrer Sammelpunkte wieder aufbauen;
+3. Steinbruchplattformen korrekt überbauen beziehungsweise erneuern.
 
 ### Nachgewiesene Überschneidungen
 
-- `BugfixesAndQoL/src/AITowerRuinRepairFix.cs` bezeichnet und implementiert ausdrücklich den aus UCP2 bekannten Turmruinen-Fall. Er leitet passende, zur selben KI gehörende und erst zur Laufzeit entstandene Ruinen in den Vanilla-Aufräum-/Wiederaufbaupfad. **Teil 1 ist abgedeckt.**
 - `BetterAIOverbuildRulesFix` und `BetterAIOverbuildPolicy` schützen unter anderem reservierte Flächen von Kaserne, Ingenieurs- und Tunnelgräbergilde sowie Pechschmelze und lösen wiederholte AIV-Überbaukonflikte. Das verbessert dieselbe Problemfamilie, ist aber **kein Beleg**, dass UCPs konkrete Sammelpunkt-Rebuild-Entscheidung vollständig ersetzt ist.
 
 ### Noch offene Teilfälle

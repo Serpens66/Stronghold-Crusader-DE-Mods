@@ -12,7 +12,7 @@ Weder `BugfixesAndQoL` noch `shcde-fixes-main` enthalten derzeit einen gleichwer
 
 ## Mögliche DE-Implementierung
 
-Ein Port sollte pro Unit-Game-ID ein gespeichertes Ziel samt Gültigkeitsgeneration führen. Script Extender 2.2.0 liefert mit `UnitR3EventHooks.OnUnitMoveHere`, `TribeR3EventHooks.OnTribeIssueOrderMoveHere`, `OnTribeIssueOrderWithTarget`, `OnUnitAIStateChange` und `OnUnitDelete` bereits passende öffentliche Beobachtungs- und Lifecyclepunkte. Sie erlauben, den ursprünglichen Befehl zu erfassen und den Sidecar beim Löschen sicher zu verwerfen; sie beweisen noch nicht, an welchem Ladder-Exit die Wiederanwendung nötig ist.
+Ein Port sollte pro Unit-Game-ID ein gespeichertes Ziel samt Gültigkeitsgeneration führen. Script Extender 2.3.0 liefert mit `UnitR3EventHooks.OnUnitMoveHere`, `TribeR3EventHooks.OnTribeIssueOrderMoveHere`, `OnTribeIssueOrderWithTarget`, `OnUnitAIStateChange` und `OnUnitDelete` bereits passende öffentliche Beobachtungs- und Lifecyclepunkte. Sie erlauben, den ursprünglichen Befehl zu erfassen und den Sidecar beim Löschen sicher zu verwerfen; sie beweisen noch nicht, an welchem Ladder-Exit die Wiederanwendung nötig ist.
 
 Wegen der 1-/0-basierten Verträge ist die Grenze strikt: `unitId` bleibt 1-basiert, ein direkter Span-Zugriff verwendet einmalig `unitId - 1`. Neben Unit-ID und Ziel müssen Unittyp, Eigentümer und möglichst eine Spawn-/Global-ID-Generation gespeichert werden, weil native Slots wiederverwendet werden. Der Cache wird bei Kartenstart, Save-Laden und Unit-Delete geleert.
 
