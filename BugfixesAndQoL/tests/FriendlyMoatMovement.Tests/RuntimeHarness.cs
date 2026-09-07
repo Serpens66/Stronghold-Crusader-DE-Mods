@@ -324,6 +324,8 @@ namespace BugfixesAndQoL
                 byte* manager = (byte*)nativePathManager;
                 *(int*)(manager + 8) = 10; *(int*)(manager + 12) = 10;
                 *(int*)(manager + 16) = 17; *(int*)(manager + 20) = 10;
+                // A completed friendly-moat endpoint is an immediate cheap exclusion proof.
+                tileFlags[1010] = CompletedMoatTileFlag;
                 activeMoveCommand = new MoveCommandScope { TargetX = 17, TargetY = 10 };
                 for (int id = 1; id <= 27; id++)
                 {
@@ -358,6 +360,7 @@ namespace BugfixesAndQoL
                     activeAttackCommand.Required.DecisionCacheHits == 1,
                     "nested attack moves share one bound required decision cache");
                 activeAttackCommand = null;
+                tileFlags[1010] = OrdinaryWalkableTileFlag;
 
                 var trackerSample = new RequiredRouteMetrics();
                 for (int id = 1; id <= 680; id++)
@@ -371,13 +374,13 @@ namespace BugfixesAndQoL
                 activeMoveCommand = new MoveCommandScope { TargetX = 17, TargetY = 10 };
                 long distinctRegionRunsBefore = weightedMoatRoutePlanner.SearchRuns;
                 Check(EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager, 1) == 0,
-                    "ground-reachable target stays entirely with vanilla");
-                Check(activeMoveCommand.Required.GroundChecks == 1 && activeMoveCommand.Required.GroundHits == 1 &&
+                    "unknown fast-mode ground connection stays entirely with vanilla");
+                Check(activeMoveCommand.Required.GroundChecks == 1 && activeMoveCommand.Required.GroundHits == 0 &&
                     activeMoveCommand.Required.Searches == 0 && activeMoveCommand.WeightedDecisions == 0 &&
                     activeMoveCommand.WeightedPublished == 0 && activeMoveCommand.Required.SamePclHits == 0 &&
-                    activeMoveCommand.Required.ExactGroundSearches == 1 &&
-                    weightedMoatRoutePlanner.SearchRuns > distinctRegionRunsBefore,
-                    "different positive regions retain the exact ground proof without moat work");
+                    activeMoveCommand.Required.ExactGroundSearches == 0 &&
+                    weightedMoatRoutePlanner.SearchRuns == distinctRegionRunsBefore,
+                    "fast mode performs no grid search when ground separation is unproven");
                 for (int x = 13; x <= 18; x++) pathRegionGrid[1000 + x] = 1;
                 placementRevision++;
                 activeMoveCommand = new MoveCommandScope { TargetX = 17, TargetY = 10 };
@@ -397,6 +400,12 @@ namespace BugfixesAndQoL
                 for (int x = 13; x <= 18; x++) pathRegionGrid[1000 + x] = 2;
                 tileFlags[1013] = CompletedMoatTileFlag;
                 placementRevision++;
+                cursorTopologies[1] = new CursorTopology
+                {
+                    Ready = true,
+                    Epoch = mapEpoch,
+                    RegionGeneration = 0
+                };
                 activeMoveCommand = new MoveCommandScope { TargetX = 17, TargetY = 10 };
                 Check(!TryCaptureUnitFallbackPathBuffer(nativePathManager, new PlanScope(1,17,10), units+1,
                     out _, out _, out _), "foreign buffer rejected");
@@ -562,7 +571,15 @@ namespace BugfixesAndQoL
                 activePlan = pendingPlan = null;
                 activeMoveCommand = new MoveCommandScope { TargetX = x, TargetY = 10 };
                 if(TestSettings.Settings.RouteMode==1)
+                {
                     activeMoveCommand.ActiveUnitIdsAtDispatch=System.Linq.Enumerable.Range(1,120).ToArray();
+                    cursorTopologies[1] = new CursorTopology
+                    {
+                        Ready = true,
+                        Epoch = mapEpoch,
+                        RegionGeneration = 0
+                    };
+                }
             }
             int nativeCalls = 0;
             originalPathBuilder = (m, c, p) =>

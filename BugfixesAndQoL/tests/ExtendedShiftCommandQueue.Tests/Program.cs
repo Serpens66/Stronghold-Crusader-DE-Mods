@@ -877,12 +877,12 @@ internal static class Program
                 .Select(File.ReadAllText));
         string bugfixesProject = Read(workspace, "BugfixesAndQoL", "BugfixesAndQoL.csproj");
 
-        Check(bugfixesPlugin.Contains("BepInDependency(ScriptExtenderGuid, \"2.2.0\")"),
-            "integrated queue pins Script Extender 2.2.0");
+        Check(bugfixesPlugin.Contains("BepInDependency(ScriptExtenderGuid, \"2.3.0\")"),
+            "integrated queue pins Script Extender 2.3.0");
         Check(bugfixesRuntime.Contains("InitializeExtendedShiftCommandQueue(context, isFixedLayoutHashValidated)"),
-            "integrated queue consumes the validated 2.2.0 load context");
+            "integrated queue consumes the validated 2.3.0 load context");
         Check(queueRuntime.Contains("SelectedUnitInfo[] selectedUnits"),
-            "integrated queue projects the 2.2.0 selected-unit contract");
+            "integrated queue projects the 2.3.0 selected-unit contract");
         Check(CountText(queueRuntime, "new DetourHandle<") == 5,
             "integrated queue owns five typed RedBird detour handles");
         Check(CountText(queueRuntime, "HookTarget.FromAddress(") == 5,
@@ -901,6 +901,13 @@ internal static class Program
             !queueRuntime.Contains("localMoveChoreDepth") &&
             queueRuntime.Contains("internalDispatch ? \"extended-shift\" : \"direct\""),
             "local direct and executed Extended Shift Moves share post-formation capture without Chore nesting");
+        Check(!queueRuntime.Contains("GameNetworkAPI.GetLocalPlayerId()") &&
+            queueRuntime.Contains("GamePlayerManagerAPI.Instance.GetLocalPlayerId()") &&
+            queueRuntime.Contains("IsAiOwnedAliveTribe(args.TribeId)") &&
+            queueRuntime.Contains("IsAiOwnedAliveTribe(tribeId)") &&
+            queueRuntime.Contains("cachedRealMultiplayerMode") &&
+            queueRuntime.Contains("Subscribe(args => RefreshMapContext())"),
+            "AI orders bypass Shift queue work and map-scoped context uses the native in-game player ID");
         Check(!largeMoveRuntime.Contains("MOVE_TARGET_TRACK_START:") &&
             CountText(largeMoveRuntime, "MOVE_TARGET_RESULT:") == 1 &&
             largeMoveRuntime.Contains("GameUnitManagerAPI.Instance.GetUnitsAsSpan()") &&
@@ -960,7 +967,7 @@ internal static class Program
             queueRuntime.Contains("GameTribeManagerAPI.Instance.UnassignUnit(tribeId, member.UnitId)") &&
             !queueRuntime.Contains("RemoveUnitFromTribeRva") &&
             !queueRuntime.Contains("removeUnitFromTribe("),
-            "integrated queue uses the corrected 2.2.0 public UnassignUnit wrapper");
+            "integrated queue uses the corrected public UnassignUnit wrapper");
 
         Check(viewModel.Contains("[SyncHostOnly]\n        public bool EnableExtendedShiftCommandQueue") ||
               viewModel.Contains("[SyncHostOnly]\r\n        public bool EnableExtendedShiftCommandQueue"),
@@ -1004,9 +1011,9 @@ internal static class Program
         Check(!Directory.Exists(Path.Combine(workspace, "QueueTest")),
             "standalone QueueTest project has been removed after integration");
 
-        Check(bugfixesPlugin.Contains("BepInDependency(ScriptExtenderGuid, \"2.2.0\")") &&
+        Check(bugfixesPlugin.Contains("BepInDependency(ScriptExtenderGuid, \"2.3.0\")") &&
             bugfixesPlugin.Contains("BepInIncompatibility(LegacyMoveMoatGuid)"),
-            "BugfixesAndQoL owns the migrated moat runtime on Script Extender 2.2.0");
+            "BugfixesAndQoL owns the migrated moat runtime on Script Extender 2.3.0");
         Check(bugfixesRuntime.Contains("new HookHandle<X64InlineHook>") &&
             bugfixesRuntime.Contains("new DetourHandle<") &&
             bugfixesRuntime.Contains("HookTarget.FromAddress("),
@@ -1030,8 +1037,8 @@ internal static class Program
             string plugin = Read(workspace, mod, "src", mod + "Plugin.cs");
             string runtime = Read(workspace, mod, "src", mod + "Runtime.cs");
             string project = Read(workspace, mod, mod + ".csproj");
-            Check(plugin.Contains("BepInDependency(ScriptExtenderGuid, \"2.2.0\")") &&
-                plugin.Contains("CrusaderLibraryLoadContext context"), mod + " consumes exact 2.2.0");
+            Check(plugin.Contains("BepInDependency(ScriptExtenderGuid, \"2.3.0\")") &&
+                plugin.Contains("CrusaderLibraryLoadContext context"), mod + " consumes exact 2.3.0");
             Check(runtime.Contains("using RedBird.Core.Memory;") && !runtime.Contains("Zhuqiaomon"),
                 mod + " uses the RedBird memory contract");
             Check(project.Contains("RedBird.Core.dll") && !project.Contains("Zhuqiaomon.dll"),

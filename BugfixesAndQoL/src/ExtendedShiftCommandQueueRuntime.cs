@@ -138,6 +138,7 @@ namespace BugfixesAndQoL
         private bool installed;
         private bool multiplayerSynchronizationReady;
         private bool multiplayerMarkerFailureLogged;
+        private bool? cachedRealMultiplayerMode;
         private bool? lastRealMultiplayerMode;
         private bool internalDispatch;
         private bool runtimeTickLogged;
@@ -328,6 +329,9 @@ namespace BugfixesAndQoL
             subscriptions.Add(MapLoaderR3EventHooks.OnLoadSave.Observable
                 .Where(args => args.Phase == EventHookPhase.Pre)
                 .Subscribe(args => ResetMapState()));
+            subscriptions.Add(MapLoaderR3EventHooks.OnLoadSave.Observable
+                .Where(args => args.Phase == EventHookPhase.Post)
+                .Subscribe(args => RefreshMapContext()));
             subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
                 .Subscribe(args => ResetMapState()));
@@ -340,7 +344,7 @@ namespace BugfixesAndQoL
                 $"INITIALIZED: waypointRva=0x{resolution.Rva:X}, functionSize=71, " +
                 $"movementCompleteRva=0x{movementCompleteResolution.Rva:X}, " +
                 $"overlayRenderRva=0x{overlayRenderResolution.Rva:X}, " +
-                "tribeUnassign=SHCDESE-2.2.0-wrapper, " +
+                "tribeUnassign=SHCDESE-2.3.0-wrapper, " +
                 $"drawFilterInstalled={drawFilterInstalled}, " +
                 $"targetMarkerProjectionAvailable={targetMarkerProjectionAvailable}, " +
                 $"largeMoveLayoutAvailable={largeMoveLayoutAvailable}, " +
@@ -637,6 +641,13 @@ namespace BugfixesAndQoL
             observedAttacks.Clear();
             loggedPredecessorRedispatchFailures.Clear();
             loggedIsolationFailures.Clear();
+            RefreshMapContext();
+        }
+
+        private void RefreshMapContext()
+        {
+            cachedRealMultiplayerMode = null;
+            _ = IsRealMultiplayer();
         }
 
         private void ResetMapState()
@@ -651,6 +662,7 @@ namespace BugfixesAndQoL
             observedAttacks.Clear();
             loggedPredecessorRedispatchFailures.Clear();
             loggedIsolationFailures.Clear();
+            cachedRealMultiplayerMode = null;
         }
 
         private void OnTargetOrder(TribeIssueOrderWithTargetEventArgs args)
@@ -663,6 +675,10 @@ namespace BugfixesAndQoL
         private void OnTargetOrderCore(TribeIssueOrderWithTargetEventArgs args)
         {
             if (!installed || internalDispatch)
+                return;
+
+            // AI orders can never originate from Shift input and must not touch queue state.
+            if (IsAiOwnedAliveTribe(args.TribeId))
                 return;
 
             int commandValue = (int)args.AICommand;
@@ -818,14 +834,15 @@ namespace BugfixesAndQoL
 
             // A local click is not reliably nested inside Chore 17 (notably in the editor).
             // Identify it from the MoveHere contract and current local selection instead.
-            bool directPlayerMove = !internalDispatch &&
+            bool aiOwned = !internalDispatch && IsAiOwnedAliveTribe(args.TribeId);
+            bool directPlayerMove = !internalDispatch && !aiOwned &&
                 args.IsPatrolPath == 0 &&
                 args.IsNewOrder &&
                 IsLocalSelectedTribe(args.TribeId, out _);
             moveObservationScopes.Push(new MoveObservationScope(
                 internalDispatch || directPlayerMove,
                 internalDispatch ? "extended-shift" : "direct"));
-            if (internalDispatch)
+            if (internalDispatch || aiOwned)
                 return;
 
             if (IsRealMultiplayer())
@@ -961,6 +978,10 @@ namespace BugfixesAndQoL
                 // the Move a second time, which breaks mixed-command ordering.
                 if (installed && FeatureEnabled && !internalDispatch)
                 {
+                    // Chore 71 is also emitted for AI movement. It has no Shift semantics.
+                    if (IsAiOwnedAliveTribe(tribeId))
+                        goto Vanilla;
+
                     if (IsRealMultiplayer())
                     {
                         if (multiplayerSynchronizationReady &&
@@ -2177,7 +2198,8 @@ namespace BugfixesAndQoL
             if (!GameTribeManagerAPI.Instance.IsValidId(tribeId) ||
                 !GameTribeManagerAPI.Instance.TryGetTribeById(tribeId, out tribe) ||
                 tribe == null || tribe->r_AliveState != AliveState.IsAlive ||
-                tribe->r_PlayerIdOwner != GameNetworkAPI.GetLocalPlayerId())
+                GamePlayerManagerAPI.Instance.IsAIPlayer(tribe->r_PlayerIdOwner) ||
+                tribe->r_PlayerIdOwner != GamePlayerManagerAPI.Instance.GetLocalPlayerId())
             {
                 return false;
             }
@@ -2215,6 +2237,10 @@ namespace BugfixesAndQoL
                 tribe != null &&
                 tribe->r_AliveState == AliveState.IsAlive;
         }
+
+        private static bool IsAiOwnedAliveTribe(int tribeId) =>
+            TryGetAliveTribe(tribeId, out GameTribe* tribe) &&
+            GamePlayerManagerAPI.Instance.IsAIPlayer(tribe->r_PlayerIdOwner);
 
         private static bool TryGetMatchingAliveTribe(
             int tribeId,
@@ -2277,7 +2303,10 @@ namespace BugfixesAndQoL
 
         private bool IsRealMultiplayer()
         {
-            bool realMultiplayer = Shared.GameModeHelper.Capture().IsRealMultiplayer;
+            if (!cachedRealMultiplayerMode.HasValue)
+                cachedRealMultiplayerMode = Shared.GameModeHelper.Capture().IsRealMultiplayer;
+
+            bool realMultiplayer = cachedRealMultiplayerMode.Value;
             if (lastRealMultiplayerMode != realMultiplayer)
             {
                 lastRealMultiplayerMode = realMultiplayer;

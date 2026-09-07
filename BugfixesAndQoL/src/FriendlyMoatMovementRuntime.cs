@@ -6351,6 +6351,7 @@ namespace BugfixesAndQoL
             long runsBefore = weightedMoatRoutePlanner.SearchRuns;
             bool groundReachable;
             bool friendlyReachable = false;
+            GroundConnectionDecision groundDecision = GroundConnectionDecision.Unknown;
             RequiredRouteMetrics requiredMetrics = requiredOnly
                 ? activeMoveCommand?.Required ?? activeAttackCommand?.Required
                 : null;
@@ -6360,10 +6361,13 @@ namespace BugfixesAndQoL
                 long groundStarted = Stopwatch.GetTimestamp();
                 bool samePclProof = requiredOnly &&
                     IsSamePositiveGroundRegion(startTileId, targetTileId);
-                GroundConnectionDecision groundDecision = samePclProof
+                groundDecision = samePclProof
                     ? GroundConnectionDecision.Reachable
                     : ProbeGroundConnection(playerId, startTileId, targetTileId);
-                bool exactGroundSearch = groundDecision == GroundConnectionDecision.Unknown;
+                // Fast mode is deliberately fail-closed. An unknown topology result must
+                // never turn a routine AI order into one or two full-map searches.
+                bool exactGroundSearch = !requiredOnly &&
+                    groundDecision == GroundConnectionDecision.Unknown;
                 long exactNodesBefore = weightedMoatRoutePlanner.SearchNodes;
                 long exactFieldHitsBefore = weightedMoatRoutePlanner.CachedFieldHits;
                 groundReachable = groundDecision == GroundConnectionDecision.Reachable ||
@@ -6392,7 +6396,8 @@ namespace BugfixesAndQoL
                     requiredMetrics.GroundTicks += groundElapsed;
                     requiredMetrics.RecordNestedGroundTicks(groundElapsed);
                 }
-                if (!groundReachable)
+                bool groundSeparationProven = groundDecision == GroundConnectionDecision.Excluded;
+                if (!groundReachable && (!requiredOnly || groundSeparationProven))
                 {
                     long requiredSearchStarted = Stopwatch.GetTimestamp();
                     if (requiredMetrics != null) requiredMetrics.Searches++;
@@ -6437,7 +6442,10 @@ namespace BugfixesAndQoL
                 friendly.MoatEdges > 0;
             if (requiredMetrics != null && !groundReachable && !requiredFriendly)
             {
-                string reason = friendlyReachable ? "no-moat-edge" :
+                string reason = requiredOnly &&
+                    groundDecision == GroundConnectionDecision.Unknown
+                        ? "ground-unproven-fast"
+                        : friendlyReachable ? "no-moat-edge" :
                     friendly.Reason ?? "route-not-encodable";
                 requiredMetrics.Reject(reason);
             }

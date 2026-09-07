@@ -144,7 +144,11 @@ try
     assembly.GetType("BugfixesAndQoL.CursorGraphTests").GetMethod("Run").Invoke(null, null);
     assembly.GetType("BugfixesAndQoL.FriendlyMoatMovementRuntime").GetMethod("RunMachineContract").Invoke(null,new object[]{root});
 }
-catch (TargetInvocationException ex) { throw ex.InnerException ?? ex; }
+catch (TargetInvocationException ex)
+{
+    System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(ex.InnerException ?? ex).Throw();
+    throw;
+}
 Console.WriteLine($"PASS: syntax of {trees.Length} runtime files; {selected.Count} actual runtime members compiled and exercised.");
 
 void ValidateDetailedDiagnostics()
@@ -179,7 +183,7 @@ void ValidateScriptExtenderIntegration()
     string project = File.ReadAllText(Path.Combine(root, "BugfixesAndQoL", "BugfixesAndQoL.csproj"));
     string build = File.ReadAllText(Path.Combine(root, "BugfixesAndQoL", "build.bat"));
 
-    if (!plugin.Contains("[BepInDependency(ScriptExtenderGuid, \"2.2.0\")]", StringComparison.Ordinal) ||
+    if (!plugin.Contains("[BepInDependency(ScriptExtenderGuid, \"2.3.0\")]", StringComparison.Ordinal) ||
         !plugin.Contains("[BepInIncompatibility(LegacyMoveMoatGuid)]", StringComparison.Ordinal) ||
         !orchestrator.Contains("new FriendlyMoatMovementRuntime(", StringComparison.Ordinal) ||
         !orchestrator.Contains("log, settings, context, referenceHashMatches", StringComparison.Ordinal))
@@ -189,7 +193,7 @@ void ValidateScriptExtenderIntegration()
             throw new Exception("Legacy hook contract remains: " + forbidden);
     foreach (string required in new[]{"RedBird.Abstractions.dll", "RedBird.Core.dll", "RedBird.X64.dll", "RedBird.Backends.NativeX64.dll"})
         if (!project.Contains(required, StringComparison.Ordinal))
-            throw new Exception("Missing RedBird reference shipped with Script Extender 2.2.0: " + required);
+            throw new Exception("Missing RedBird reference shipped with Script Extender 2.3.0: " + required);
     if (!runtime.Contains("FailureMode = TransactionFailureMode.RollbackAndThrow", StringComparison.Ordinal) ||
         !runtime.Contains("OwnsHooks = true", StringComparison.Ordinal) ||
         !runtime.Contains("Handle.Failure == null", StringComparison.Ordinal) ||
@@ -240,11 +244,11 @@ void ValidateRuntimeSources()
     string game=@"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition";
     string extender=Path.Combine(game,"BepInEx","plugins","000shcdese");
     if(!File.Exists(Path.Combine(extender,"SHCDESE.dll")))
-        throw new Exception("Installed Script Extender 2.2.0 test references are required.");
+        throw new Exception("Installed Script Extender 2.3.0 test references are required.");
     string productVersion=System.Diagnostics.FileVersionInfo.GetVersionInfo(Path.Combine(extender,"SHCDESE.dll")).ProductVersion;
     string referenceVersion=productVersion?.Split('+')[0];
-    if(referenceVersion!="2.2.0")
-        throw new Exception("Installed reference is not Script Extender 2.2.0: "+productVersion);
+    if(referenceVersion!="2.3.0")
+        throw new Exception("Installed reference is not Script Extender 2.3.0: "+productVersion);
     var paths=new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase);
     void Include(string path)
     {
@@ -269,7 +273,7 @@ void ValidateRuntimeSources()
         "(FriendlyMoatMovementMode)FriendlyMoatMovementPolicy.Normalize(FriendlyMoatMovementMode); } }");
     var sources=trees.Concat(new[]{settingsStub}).Concat(new[]{"DebugLogHelper.cs","NativePatternResolver.cs","SerpLocalization.cs","PresetLobbyModSettingsViewModel.cs","ModSettingsSearch.cs","ToolTipPresentation.cs","GameModeHelper.cs"}.Select(file=>
         CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"Shared",file)),path:file))).ToArray();
-    var check=CSharpCompilation.Create("FriendlyMoatMovementSourceContract220",sources,
+    var check=CSharpCompilation.Create("FriendlyMoatMovementSourceContract230",sources,
         paths.Values.Select(p=>MetadataReference.CreateFromFile(p)),
         new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary,allowUnsafe:true));
     var diagnostics=check.GetDiagnostics();
@@ -282,8 +286,8 @@ void ValidateRuntimeSources()
         Include(Path.Combine(game,"BepInEx","plugins","000shcdese",file));
     string installedVersion=System.Diagnostics.FileVersionInfo.GetVersionInfo(Path.Combine(game,"BepInEx","plugins","000shcdese","SHCDESE.dll")).ProductVersion;
     string installedRelease=installedVersion?.Split('+')[0];
-    if(installedRelease!="2.2.0") throw new Exception("Installed extender is not Script Extender 2.2.0: "+installedVersion);
-    var installed=CSharpCompilation.Create("FriendlyMoatMovementInstalledContract220",sources,
+    if(installedRelease!="2.3.0") throw new Exception("Installed extender is not Script Extender 2.3.0: "+installedVersion);
+    var installed=CSharpCompilation.Create("FriendlyMoatMovementInstalledContract230",sources,
         paths.Values.Select(p=>MetadataReference.CreateFromFile(p)), new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary,allowUnsafe:true));
     var installedFailures=installed.GetDiagnostics().Where(d=>d.Severity==DiagnosticSeverity.Error).ToArray();
     if(installedFailures.Length>0)throw new Exception(string.Join("\n",installedFailures.Select(d=>d.ToString())));
@@ -314,12 +318,17 @@ void ValidateModeSettings()
     string viewModel = File.ReadAllText(Path.Combine(sourceDir, "BugfixesAndQoLViewModel.cs"));
     string xaml = File.ReadAllText(Path.Combine(root, "BugfixesAndQoL", "Override",
         "ScriptExtenderUI", "BugfixesAndQoLSettings.xaml"));
+    string runtime = File.ReadAllText(Path.Combine(sourceDir, "FriendlyMoatMovementRuntime.cs"));
     if (!policy.Contains("Disabled = 0", StringComparison.Ordinal) ||
         !policy.Contains("Exact = 1", StringComparison.Ordinal) ||
         !policy.Contains("RequiredOnly = 2", StringComparison.Ordinal) ||
         !policy.Contains("DefaultMode = (int)FriendlyMoatMovementMode.RequiredOnly", StringComparison.Ordinal) ||
         !policy.Contains(": (int)FriendlyMoatMovementMode.Disabled", StringComparison.Ordinal))
         throw new Exception("The three-mode default and fail-closed normalization contract is incomplete.");
+    if (!runtime.Contains("bool exactGroundSearch = !requiredOnly", StringComparison.Ordinal) ||
+        !runtime.Contains("(!requiredOnly || groundSeparationProven)", StringComparison.Ordinal) ||
+        !runtime.Contains("ground-unproven-fast", StringComparison.Ordinal))
+        throw new Exception("Fast mode can still fall back to an unproven full-map route search.");
     if (!snapshot.Contains("settings.EnableMod && mode != FriendlyMoatMovementMode.Disabled", StringComparison.Ordinal) ||
         !snapshot.Contains("mode == FriendlyMoatMovementMode.RequiredOnly", StringComparison.Ordinal))
         throw new Exception("Off does not fully gate friendly movement or mode mapping is incorrect.");
