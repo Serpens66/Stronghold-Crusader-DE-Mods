@@ -61,10 +61,12 @@ namespace BugfixesAndQoL
             { ObserveUnitMoveOrder(new UnitMoveHereEventArgs(EventHookPhase.Post, id, 13, 10, 0) { ReturnValue = result }); }
 
             byte* tribeRecords = (byte*)NativeMemory.AllocZeroed(2 * TribeRecordSize);
+            int savedRouteMode = TestSettings.Settings.RouteMode;
             try
             {
                 nativeTribeManager = (IntPtr)tribeRecords;
                 *(short*)(tribeRecords + TribeRecordSize + TribeUnitCountOffset) = 2;
+                TestSettings.Settings.RouteMode = 1;
                 foreach (int leader in new[] { 1, 2 })
                 foreach (bool reverse in new[] { false, true })
                 {
@@ -73,16 +75,34 @@ namespace BugfixesAndQoL
                     getGroupUnitId = (m,t,index) => reverse ? 2-index : index+1;
                     originalFirstGroupUnitOnCompletedMoat = (m,t) => 2;
                     int selected = SelectOwnerSafeGroupMoatMode(nativeTribeManager,1);
-                    Check(selected == (leader == 1 ? 1 : 0), "island/moat group chooses working branch for both leaders and iteration orders");
-                    Check(activeMoveCommand.MoatRelevant && activeMoveCommand.LastGroupMoatModeDiagnostic != null,
-                        "early group decision cannot disappear from diagnostics");
+                    Check(selected == leader,
+                        "fast keeps a matching moat leader and forces a later moat member through the actual leader");
+                    if (leader == 1)
+                        Check(activeMoveCommand.MoatRelevant && activeMoveCommand.LastGroupMoatModeDiagnostic != null,
+                            "later moat member receives the audited group decision and diagnostics");
+                    else
+                        Check(!activeMoveCommand.GroupSummaryCaptured,
+                            "matching Vanilla moat leader retains the cheap Fast bypass without group iteration");
                     // Baseline 11B520: leader==returned moat unit enters E7C40;
                     // otherwise a zero leader PCL enters 118E00, before any Unit builder.
                     bool common = selected != leader && pathRegionGrid[(int)units[leader].r_CurrentPositionTileId] == 0;
                     Check(common || selected == leader,"neither mixed order falls into the inaccessible ordinary-PCL branch");
                 }
+
+                ResetUnits(2);
+                activeMoveCommand.TargetX = -1;
+                *(short*)(tribeRecords + TribeRecordSize + TribeLeadUnitIdOffset) = 1;
+                getGroupUnitId = (m,t,index) => index + 1;
+                originalFirstGroupUnitOnCompletedMoat = (m,t) => 2;
+                Check(SelectOwnerSafeGroupMoatMode(nativeTribeManager,1) == 2,
+                    "unqualified later moat member preserves the original Vanilla result");
             }
-            finally { NativeMemory.Free(tribeRecords); nativeTribeManager = (IntPtr)91; }
+            finally
+            {
+                TestSettings.Settings.RouteMode = savedRouteMode;
+                NativeMemory.Free(tribeRecords);
+                nativeTribeManager = (IntPtr)91;
+            }
 
             foreach (int count in new[] { 1, 5, 20, 27, 29, 120 })
             {

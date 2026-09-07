@@ -185,6 +185,7 @@ namespace BugfixesAndQoL
             // Save the pre-call buffer so an unsafe native reconstruction is never restored.
             int result = 0;
             bool retained = false;
+            string publicationDetails = "publication-not-attempted";
             try
             {
                 if (command != null) command.FallbackBuilderCalls++;
@@ -192,7 +193,7 @@ namespace BugfixesAndQoL
                 try
                 {
                     retained = TryReplaceUnsafeFallbackPath(pathManager, path, backup, beforeLength,
-                        plan, unit, out result, out _, requireMoat: !reconstruction);
+                        plan, unit, out result, out publicationDetails, requireMoat: !reconstruction);
                 }
                 finally
                 {
@@ -214,7 +215,7 @@ namespace BugfixesAndQoL
                 if (!retained)
                 {
                     if (requiredMetrics != null)
-                        requiredMetrics.Reject("publication-audit-or-binding");
+                        requiredMetrics.Reject(publicationDetails);
                     RestoreFallbackPathBuffer(pathManager, path, backup, beforeLength);
                     *variant = originalVariant; *moatPathMode = mode; result = 0;
                     if (command != null) command.FallbackRollbacks++;
@@ -617,15 +618,21 @@ namespace BugfixesAndQoL
             targetedRouteProbeBusy = true;
             try
             {
-                bool found = route.IsValid || weightedMoatRoutePlanner.TryBuildReachabilityEncoded(
-                    playerId, startX, startY, targetX, targetY, allowReservedTarget, out summary, out route) ||
-                    (!RequiredOnlyMode && TryBuildTerminalFillRoute(
-                        plan, unit, startX, startY, out summary, out route));
+                bool found = route.IsValid;
+                if (!found && !RequiredOnlyMode)
+                {
+                    found = weightedMoatRoutePlanner.TryBuildReachabilityEncoded(
+                        playerId, startX, startY, targetX, targetY, allowReservedTarget,
+                        out summary, out route) || TryBuildTerminalFillRoute(
+                        plan, unit, startX, startY, out summary, out route);
+                }
                 if (!found ||
                     !route.IsValid || (requireMoat && summary.MoatEdges <= 0) ||
                     route.Bytes.Length > NativeUnitPathBufferStride)
                 {
-                    details = $"no-owner-safe-replacement:{summary.Reason}";
+                    details = RequiredOnlyMode && !found
+                        ? "qualified-route-unavailable-fast"
+                        : $"no-owner-safe-replacement:{summary.Reason}";
                     return false;
                 }
             }

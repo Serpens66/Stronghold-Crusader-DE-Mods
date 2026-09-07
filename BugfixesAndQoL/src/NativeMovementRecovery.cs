@@ -191,6 +191,8 @@ namespace BugfixesAndQoL
             {
                 preBuilderFailures++;
                 UnitMoveFrame frame = GetCurrentUnitMoveFrame();
+                if (frame?.Command != null)
+                    frame.Command.PreBuilderFailures++;
                 if (disposed || manager != (IntPtr)nativeUnitManager || frame == null ||
                     frame.BuilderReached || frame.RecoveryAttempted || frame.Args.UnitId != id) return RejectPreBuilder(frame, "context-or-duplicate");
                 frame.RecoveryAttempted = true;
@@ -234,6 +236,8 @@ namespace BugfixesAndQoL
                 if (activeAttackCommand != null)
                     EnsureAttackCommandCandidates(activeAttackCommand);
                 preBuilderRecovered++;
+                if (frame.Command != null)
+                    frame.Command.PreBuilderRecovered++;
                 return 1;
             }
             catch (Exception ex) { TryLogDiagnosticFailure("pre-builder-recovery", ex); return 0; }
@@ -242,6 +246,11 @@ namespace BugfixesAndQoL
         private int RejectPreBuilder(UnitMoveFrame frame, string reason)
         {
             if (frame != null) frame.RecoveryRejection = reason;
+            if (frame?.Command != null)
+            {
+                frame.Command.PreBuilderRejectionReasons.TryGetValue(reason, out int commandCount);
+                frame.Command.PreBuilderRejectionReasons[reason] = commandCount + 1;
+            }
             preBuilderRejections.TryGetValue(reason, out long count);
             preBuilderRejections[reason] = count + 1;
             return 0;

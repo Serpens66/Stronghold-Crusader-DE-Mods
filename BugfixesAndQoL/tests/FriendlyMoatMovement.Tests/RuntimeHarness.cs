@@ -170,6 +170,8 @@ namespace BugfixesAndQoL
             public string LastGroupMoatModeDiagnostic;
             public int UnitMoveCalls, UnitMoveCompleted, UnitMovePositive, UnitMoveWithoutBuilder, UnitMoveAlreadyArrived;
             public int UnitMoveAbandoned, BuilderIntermediateTargets, FallbackContractRejections;
+            public int PreBuilderFailures, PreBuilderRecovered;
+            public Dictionary<string,int> PreBuilderRejectionReasons = new Dictionary<string,int>();
             public double TargetedRouteSearchMilliseconds, TargetedRouteMaximumSearchMilliseconds;
             public Dictionary<RouteDecisionKey, TargetedRouteDecision> TargetedRouteDecisions => RequiredCache.Decisions;
         }
@@ -981,8 +983,15 @@ namespace BugfixesAndQoL
             NewCommand(); Pre(1,17,1);
             *moatPathMode=EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager,1);
             SetBuilder(1,17); originalPathReconstruction=m=>0;
-            Check(BuildReconstructedUnitPath(nativePathManager)==7,"E32B0 failure reuses managed qualified route");
-            Post(1,17,1,1);
+            long unqualifiedReconstructionRuns=weightedMoatRoutePlanner.SearchRuns;
+            int unqualifiedReconstruction=BuildReconstructedUnitPath(nativePathManager);
+            if(TestSettings.Settings.RouteMode==1)
+                Check(unqualifiedReconstruction==0 && weightedMoatRoutePlanner.SearchRuns==unqualifiedReconstructionRuns,
+                    "unqualified Fast E32B0 failure stays fail-closed without a second search");
+            else
+                Check(unqualifiedReconstruction==7,
+                    "Exact E32B0 failure retains its managed replacement search");
+            Post(1,17,unqualifiedReconstruction>0?1:0,1);
 
             NewCommand(); Pre(1,17,1);
             *moatPathMode=EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager,1);

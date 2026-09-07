@@ -21,9 +21,9 @@ namespace BugfixesAndQoL
 {
     internal sealed unsafe partial class FriendlyMoatMovementRuntime : IDisposable
     {
-        // Enable only for targeted pathfinding investigations. Normal play keeps
-        // safety failures visible without producing per-command or per-unit traces.
-        private static readonly bool DetailedDiagnosticsEnabled = false;
+        // Temporary diagnostic build: command traces remain aggregated and bounded.
+        // Set this back to false after the large-group moat investigation is complete.
+        private static readonly bool DetailedDiagnosticsEnabled = true;
 
         private sealed class RedBirdDetour<TDelegate> where TDelegate : Delegate
         {
@@ -1624,8 +1624,10 @@ namespace BugfixesAndQoL
                         $"groundDecisionCacheHits={command?.Required.GroundDecisionCacheHits ?? 0} decisionCacheHits={command?.Required.DecisionCacheHits ?? 0} " +
                         $"exactGroundSearches={command?.Required.ExactGroundSearches ?? 0} exactGroundFieldCacheHits={command?.Required.ExactGroundFieldCacheHits ?? 0} exactGroundNodes={command?.Required.ExactGroundNodes ?? 0} " +
                         $"groundProofMs={(command?.Required.GroundMilliseconds ?? 0):F3} exactGroundMs={(command?.Required.ExactGroundMilliseconds ?? 0):F3} " +
-                        $"requiredSearches={command?.Required.Searches ?? 0} requiredSearchMs={(command?.Required.SearchMilliseconds ?? 0):F3} requiredPublished={command?.Required.Published ?? 0} " +
+                        $"requiredSearches={command?.Required.Searches ?? 0} requiredQualified={command?.Required.Qualified ?? 0} requiredSearchMs={(command?.Required.SearchMilliseconds ?? 0):F3} requiredPublished={command?.Required.Published ?? 0} " +
                         $"requiredPublishAuditMs={(command?.Required.PublicationMilliseconds ?? 0):F3} requiredRejected={command?.Required.Rejected ?? 0} requiredReasons={FormatCounts(command?.Required.RejectionReasons)} " +
+                        $"commandPreBuilderFailures={command?.PreBuilderFailures ?? 0} commandPreBuilderRecovered={command?.PreBuilderRecovered ?? 0} " +
+                        $"commandPreBuilderRejected={FormatCounts(command?.PreBuilderRejectionReasons)} " +
                         $"trackersStarted={command?.Required.TrackersStarted ?? 0} trackersSuppressed={command?.Required.TrackersSuppressed ?? 0} " +
                         $"targetedSearches={command?.TargetedRouteSearches ?? 0} " +
                         $"targetedSearchPasses={command?.TargetedRouteSearchPasses ?? 0} " +
@@ -4376,21 +4378,25 @@ namespace BugfixesAndQoL
                 return vanillaResult;
             }
 
-            if (RequiredOnlyMode && vanillaResult > 0)
-            {
-                fastVanillaBypasses++;
-                return vanillaResult;
-            }
-
             try
             {
-                EnsureMoveCommandGroupSummary(command);
                 byte* tribeRecord = (byte*)tribeManager.ToPointer() +
                     (tribeId * TribeRecordSize);
                 int leadUnitId = *(short*)(tribeRecord + TribeLeadUnitIdOffset);
                 int unitCount = *(short*)(tribeRecord + TribeUnitCountOffset);
                 if (leadUnitId <= 0 || unitCount <= 0 || unitCount > MaximumUnitCount)
                     return vanillaResult;
+
+                // This helper returns a unit ID, not a boolean success result. Fast may
+                // bypass the group scan only when Vanilla already selected the leader;
+                // a later moat member would otherwise leave 11B520 on its ground branch.
+                if (RequiredOnlyMode && vanillaResult == leadUnitId)
+                {
+                    fastVanillaBypasses++;
+                    return vanillaResult;
+                }
+
+                EnsureMoveCommandGroupSummary(command);
 
                 // A ground leader and a later moat member still need qualification.
                 // Returning here used to strand the whole tribe on an isolated PCL.
@@ -6611,6 +6617,8 @@ namespace BugfixesAndQoL
 
             bool requiredFriendly = !groundReachable && friendlyReachable &&
                 friendly.MoatEdges > 0;
+            if (requiredMetrics != null && requiredFriendly)
+                requiredMetrics.Qualified++;
             if (requiredMetrics != null && !groundReachable && !requiredFriendly)
             {
                 string reason = requiredOnly &&
@@ -8756,7 +8764,7 @@ namespace BugfixesAndQoL
             private const int MaximumTrackedUnits = 8;
             private readonly HashSet<int> trackedUnitIds = new HashSet<int>();
             public int GroundChecks, GroundHits, SamePclHits, TopologyExclusions;
-            public int ExactGroundSearches, ExactGroundFieldCacheHits, Searches, Published, Rejected;
+            public int ExactGroundSearches, ExactGroundFieldCacheHits, Searches, Qualified, Published, Rejected;
             public int DecisionCacheHits, GroundDecisionCacheHits, ExactGroundNodes;
             public int TrackersStarted, TrackersSuppressed;
             public long GroundTicks, ExactGroundTicks, SearchTicks, PublicationTicks, PublicationAuditTicks;
@@ -9585,6 +9593,10 @@ namespace BugfixesAndQoL
             public int PositiveBuilderCalls { get; set; }
             public int LastBuilderResult { get; set; } = int.MinValue;
             public int LastVanillaBuilderResult { get; set; } = int.MinValue;
+            public int PreBuilderFailures { get; set; }
+            public int PreBuilderRecovered { get; set; }
+            public Dictionary<string, int> PreBuilderRejectionReasons { get; } =
+                new Dictionary<string, int>(StringComparer.Ordinal);
             public bool MoatRelevant { get; set; }
             public bool BuilderReached { get; set; }
             public int WeightedDecisions { get; set; }

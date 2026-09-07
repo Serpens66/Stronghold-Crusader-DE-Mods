@@ -164,8 +164,8 @@ void ValidateDetailedDiagnostics()
     var variable = field.Declaration.Variables.Single(item =>
         item.Identifier.Text == "DetailedDiagnosticsEnabled");
     if (!field.Modifiers.Any(SyntaxKind.ReadOnlyKeyword) ||
-        variable.Initializer?.Value.IsKind(SyntaxKind.FalseLiteralExpression) != true)
-        throw new Exception("DetailedDiagnosticsEnabled must remain a readonly false default.");
+        variable.Initializer?.Value.IsKind(SyntaxKind.TrueLiteralExpression) != true)
+        throw new Exception("DetailedDiagnosticsEnabled must remain enabled for this targeted diagnostic build.");
 
     string helper = moveMoatClasses.SelectMany(type => type.Members.OfType<MethodDeclarationSyntax>())
         .Single(method => method.Identifier.Text == "LogDetailedInfo").ToFullString();
@@ -174,7 +174,7 @@ void ValidateDetailedDiagnostics()
     if (!helper.Contains("if (DetailedDiagnosticsEnabled)", StringComparison.Ordinal) ||
         !buffer.Contains("if (!DetailedDiagnosticsEnabled)", StringComparison.Ordinal))
         throw new Exception("Detailed diagnostics are not guarded at both logging entry points.");
-    Console.WriteLine("PASS: detailed diagnostics are code-gated and default to false.");
+    Console.WriteLine("PASS: bounded detailed diagnostics are enabled for the targeted diagnostic build.");
 }
 
 void ValidateUnsignedRegionAndDeferredFastContracts()
@@ -375,6 +375,7 @@ void ValidateModeSettings()
     string runtime = File.ReadAllText(Path.Combine(sourceDir, "FriendlyMoatMovementRuntime.cs"));
     string recovery = File.ReadAllText(Path.Combine(sourceDir, "NativeMovementRecovery.cs"));
     string fastBridge = File.ReadAllText(Path.Combine(sourceDir, "FastMoatBridge.cs"));
+    string publication = File.ReadAllText(Path.Combine(sourceDir, "MovementPathPublication.cs"));
     string shiftQueue = File.ReadAllText(Path.Combine(sourceDir, "ExtendedShiftCommandQueueRuntime.cs"));
     if (!policy.Contains("Disabled = 0", StringComparison.Ordinal) ||
         !policy.Contains("Exact = 1", StringComparison.Ordinal) ||
@@ -387,12 +388,25 @@ void ValidateModeSettings()
         !runtime.Contains("ground-unproven-fast", StringComparison.Ordinal) ||
         !runtime.Contains("if (!RequiredOnlyMode && activeMoveCommand == null", StringComparison.Ordinal))
         throw new Exception("Fast mode can still fall back to an unproven full-map route search.");
+    if (!runtime.Contains("RequiredOnlyMode && vanillaResult == leadUnitId", StringComparison.Ordinal) ||
+        runtime.Contains("RequiredOnlyMode && vanillaResult > 0", StringComparison.Ordinal))
+        throw new Exception("Fast group moat selection still mistakes a later moat member for the native leader branch.");
     if (recovery.Contains("TryBuildReachabilityEncoded(plan.PlayerId, x, y, targetX, targetY", StringComparison.Ordinal) ||
         !recovery.Contains("unbound-fast-unit-move", StringComparison.Ordinal) ||
         !recovery.Contains("activeMoveCommand?.MoatRelevant == true", StringComparison.Ordinal) ||
         !recovery.Contains("plan.VanillaFailureProven = true", StringComparison.Ordinal) ||
         !fastBridge.Contains("FastSearchNodeBudget = 16384", StringComparison.Ordinal))
         throw new Exception("Fast pre-builder recovery is not Vanilla-failure-bound and budgeted.");
+    int replacementStart = publication.IndexOf(
+        "private bool TryReplaceUnsafeFallbackPath", StringComparison.Ordinal);
+    int replacementEnd = publication.IndexOf(
+        "private static void RestoreFallbackPathBuffer", replacementStart, StringComparison.Ordinal);
+    if (replacementStart < 0 || replacementEnd <= replacementStart)
+        throw new Exception("Fast replacement publication method could not be isolated.");
+    string replacement = publication.Substring(replacementStart, replacementEnd - replacementStart);
+    if (!replacement.Contains("if (!found && !RequiredOnlyMode)", StringComparison.Ordinal) ||
+        !replacement.Contains("qualified-route-unavailable-fast", StringComparison.Ordinal))
+        throw new Exception("Fast publication can still start a second unbounded replacement search.");
     if (shiftQueue.Contains("GameNetworkAPI.GetLocalPlayerId", StringComparison.Ordinal))
         throw new Exception("ShiftQueue still calls the warning-producing network local-player wrapper.");
     int attackCaptureStart = runtime.IndexOf("private void CaptureAttackCommandCandidates", StringComparison.Ordinal);
