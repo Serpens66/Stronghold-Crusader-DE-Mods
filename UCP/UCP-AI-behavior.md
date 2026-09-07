@@ -12,12 +12,12 @@ Die optionalen Funktionen sind technisch grundsätzlich portierbar, benötigen j
 
 ### Aktueller Arbeitsstand
 
-Dieses Dokument ist eine **abgeschlossene Machbarkeits- und Native-Analyse, noch keine Implementierung**. Zum Zeitpunkt der Erstellung gilt:
+Dieses Dokument ist eine abgeschlossene Machbarkeits- und Native-Analyse. Der Status wurde am 7. September 2026 erneut gegen den Workspace geprüft:
 
-- Es wurde noch kein AIV-Troop-Behaviour-Code in einen DE-Mod eingebaut.
-- In `BugfixesAndQoL`, `ExtraFeatures`, `AIDefense` und dem kanonischen `shcde-script-extender` wurden für diese Untersuchung keine Dateien verändert.
-- Es wurde kein Build ausgeführt und keine Testversion in das Spiel installiert.
-- Der unmittelbar umsetzbare erste Arbeitsschritt ist der isolierte Sechs-Byte-Grundfix aus Abschnitt 2.
+- Der isolierte Sechs-Byte-Grundfix ist inzwischen als `BugfixesAndQoL/src/AivDefenderPositionFix.cs` implementiert, über `EnableAivDefenderPositionFix` standardmäßig aktiv und fail-closed an den geprüften DLL-Hash gebunden.
+- Die optionalen Starttruppen-, Hold- und Patrol-Verhaltensweisen sind weiterhin nicht implementiert.
+- Für diese Dokumentationsaktualisierung wurde kein Modcode verändert und kein Build ausgeführt.
+- Der nächste Implementierungsschritt wäre daher nicht mehr der Grundfix, sondern ein bewusst gewähltes optionales Verhaltensmodul aus den Abschnitten 3 und 4.
 - Die dynamischen Features dürfen erst nach den jeweils genannten Register-/Datenflussprüfungen implementiert werden.
 - Die Beduinen-Unterstützung bleibt gesperrt, bis der Test aus Abschnitt 7 ein eindeutiges Mapping liefert.
 
@@ -27,7 +27,7 @@ Ein neuer Chat sollte zuerst die `AGENTS.md` im Workspace lesen und danach diese
 
 Es gibt zwei voneinander getrennte Ausbaustufen:
 
-1. **Nur der nachgewiesene Grundfix:** als Feature in `BugfixesAndQoL` implementieren.
+1. **Nur der nachgewiesene Grundfix:** ist in `BugfixesAndQoL` umgesetzt.
 2. **Komplette konfigurierbare UCP-Portierung:** als eigener Mod `AIVTroopBehaviour` mit `NetworkMode=1` implementieren; dieser besitzt alle dynamischen Hooks selbst.
 
 Die dynamischen Hooks werden nicht zwischen `BugfixesAndQoL` und `ExtraFeatures` verteilt. `AIDefense` ist kein Zielmodul für diese Portierung. Der kanonische lokale Script Extender darf nicht verändert werden. Sollte dort eine zusätzliche öffentliche API sinnvoll erscheinen, ist stattdessen ein kurzer englischer Upstream-Report zu verfassen.
@@ -52,7 +52,7 @@ Die dynamischen Hooks werden nicht zwischen `BugfixesAndQoL` und `ExtraFeatures`
 - SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
 - Der Hash der installierten DLL stimmt mit `_inspect/CrusaderDE-Native-Baseline/CURRENT.json` überein.
 - Alle hier genannten RVAs und Maschinenbytes gelten ausschließlich für diesen Hash.
-- Verwendeter lokaler Script-Extender-Vertrag: 2.0.2.
+- Verwendeter und heute verbindlicher lokaler Script-Extender-Vertrag: 2.2.0.
 
 ### UCP-Referenz
 
@@ -78,7 +78,7 @@ Für einen erneuten Abgleich sind in der UCP-Quelle besonders relevant:
 - `BugfixesAndQoL/src/AssassinPathReconstructionPatch.cs`: Beispiel für einen validierten Sechs-Byte-NOP-Patch;
 - `BugfixesAndQoL/src/AssemblyPointPlacementPatch.cs`: weiteres Beispiel für Originalbyteprüfung, Speicherschutz und Patchverwaltung;
 - `BugfixesAndQoL/src/FriendlyMoatMovementRuntime.cs`: lokale Rekonstruktion der DE-fähigen Grabenarbeiter und der Grabenbewegung;
-- `AIDefense/src/AIDefenseTribeUnassignAdapter.cs`: dokumentierter direkter Adapter für den in Script Extender 2.0.2 fehlerhaften `UnassignUnit`-Wrapper;
+- `GameTribeManagerAPI.UnassignUnit(tribeId, unitId)`: in Script Extender 2.2.0 ausschließlich über den korrigierten öffentlichen Wrapper zu verwenden; kein direkter RVA-/Pointeradapter;
 - `ExtraFeatures/src/ExtraFeaturesPlugin.cs`: bewährtes SHCDE-Lifecycle-Muster für eine nach dem Startup-Cleanup weiterlebende Runtime;
 - `Shared/PresetLobbyModSettingsViewModel.cs` und `Shared/SerpLocalization.cs`: vorgeschriebene Basis für neue Lobby-Modsettings;
 - `CastlePlanner/BepInEx/plugins/CastlePlanner_Serp/VanillaAIV`: untersuchter AIVJSON-Bestand;
@@ -262,7 +262,7 @@ Vor einer Implementierung sind für den konkreten Hook-Span zwingend zu bestimme
 
 ### Nicht bevorzugte Alternative
 
-Mit `GameTribeManagerAPI.AssignUnit`, `DigMoat`, `MoveTo` und verwandten Methoden ließe sich ein Prototyp nachträglich aufbauen. Das würde jedoch die bereits getroffene Vanilla-Zuweisung rückgängig machen, zusätzliche Tribe-Buchhaltung duplizieren und könnte mit der AI-Aktualisierung konkurrieren. Außerdem ist der öffentliche `UnassignUnit(tribeId, unitId)`-Wrapper in Script Extender 2.0.2 bezüglich der nativen Argumentreihenfolge fehlerhaft. Für Produktionscode ist daher der native Entscheidungs-Hook vorzuziehen.
+Mit `GameTribeManagerAPI.AssignUnit`, `UnassignUnit`, `DigMoat`, `MoveTo` und verwandten Methoden ließe sich ein Prototyp nachträglich aufbauen. Das würde jedoch die bereits getroffene Vanilla-Zuweisung rückgängig machen, zusätzliche Tribe-Buchhaltung duplizieren und könnte mit der AI-Aktualisierung konkurrieren. Script Extender 2.2.0 korrigiert den öffentlichen `UnassignUnit(tribeId, unitId)`-Vertrag; er ist mit 1-basierten Unit-IDs und modseitigen Vor-/Nachkontrollen zu verwenden. Für Produktionscode bleibt der native Entscheidungs-Hook dennoch vorzuziehen.
 
 ## 4. Defensive AIV-Positionen halten oder patrouillieren
 
@@ -401,7 +401,7 @@ Bis dieser Test abgeschlossen ist, sollen die Beduineneinheiten in der produktiv
 
 ## 8. Empfohlene Modarchitektur
 
-### Nur der Grundfix
+### Nur der Grundfix – inzwischen umgesetzt
 
 - Integration in `BugfixesAndQoL`.
 - Kleiner, hash- und patternvalidierter Inline-Patch.
@@ -420,7 +420,7 @@ Empfohlen wird ein eigenständiger Mod **AIVTroopBehaviour** mit `NetworkMode=1`
 
 Die dynamischen Hooks sollten nicht zwischen `BugfixesAndQoL` und `ExtraFeatures` aufgeteilt werden. Ein einziger Eigentümer verhindert unterschiedliche Installationsreihenfolgen, überlappende Trampoline und eine harte Laufzeitabhängigkeit zwischen ansonsten eigenständigen Mods.
 
-Der Grundfix kann trotzdem in `BugfixesAndQoL` bleiben, solange der vollständige Mod dieselbe Stelle nicht erneut patcht. Der vollständige Mod muss erkennen, ob die sechs Bytes bereits korrekt genoppt sind, und diesen Zustand als kompatibel akzeptieren, ohne Eigentum oder Rollback für einen fremden Patch zu beanspruchen.
+Der Grundfix bleibt in `BugfixesAndQoL`. Ein späterer vollständiger Mod darf dieselbe Stelle nicht erneut patchen. Er muss den bereits aktiven Sechs-Byte-Zustand als kompatibel akzeptieren, ohne Eigentum oder Rollback für den fremden Patch zu beanspruchen.
 
 ### Verhältnis zu AIDefenseTest
 
@@ -514,7 +514,7 @@ Ein bloßes `READY`-Log reicht nicht aus. Nach dem Startup-Cleanup müssen minde
 
 ## 11. Empfohlene Umsetzungsreihenfolge
 
-1. Grundfix in Isolation implementieren und mit Reihen 9, 11 und 18 verifizieren.
+1. Vorhandenen Grundfix mit Reihen 9, 11 und 18 im Laufzeittest verifizieren.
 2. Diagnose-Hooks für Mapper, Startentscheidung und Slotwahl erstellen, zunächst ohne Verhaltensänderung.
 3. Beduinen-Reihenmapping durch kontrollierte AIV-Laufzeittests abschließen.
 4. Reine Policyklassen und statische Tests für die Überschreibungsreihenfolge erstellen.
@@ -526,8 +526,10 @@ Ein bloßes `READY`-Log reicht nicht aus. Nach dem Startup-Cleanup müssen minde
 
 ## Schlussbewertung
 
-Der zentrale UCP-Fix ist in SHCDE weder überholt noch bereits durch Firefly behoben. Er betrifft eine erhebliche Zahl vorhandener DE-Burgen und kann mit einem sehr kleinen, eindeutig identifizierten Native-Patch umgesetzt werden.
+Die allgemeinen Hash-, Lifecycle-, ID- und Hookregeln dieser Untersuchung werden durch die [Native-Integrationsprüfung](UCP-native-integration-audit.md) ergänzt. Für dieses Feature bleibt `AivDefenderPositionFix` der alleinige Besitzer des bereits umgesetzten Grundpatches; optionale Hold-/Patrol-/Startrollen dürfen ihn nur über eine gemeinsame Runtime erweitern und keinen zweiten Patch auf RVA `0x5472A` installieren.
+
+Der zentrale UCP-Fix ist in SHCDE weder überholt noch durch Firefly behoben. Er betrifft eine erhebliche Zahl vorhandener DE-Burgen und ist inzwischen mit dem kleinen, eindeutig identifizierten Native-Patch in `BugfixesAndQoL` umgesetzt.
 
 Die zusätzlichen Startrollen-, Hold- und Patrol-Möglichkeiten sind ebenfalls sinnvoll. Die DE besitzt weiterhin fast alle dafür notwendigen nativen Abläufe und Daten. Für eine robuste Umsetzung sollten diese Abläufe an engen Entscheidungspunkten beeinflusst und nicht durch eine parallele, vollständig verwaltete Tribe-KI ersetzt werden.
 
-Die größten noch offenen Punkte sind das DE-spezifische Beduinen-Reihenmapping und die genaue Laufzeitbedeutung der Patrol-AIC-Werte. Beide lassen sich mit begrenzten instrumentierten Tests klären. Bis dahin können der Grundfix und die klassischen Truppentypen unabhängig und sicher weiterentwickelt werden.
+Die größten noch offenen Punkte sind das DE-spezifische Beduinen-Reihenmapping und die genaue Laufzeitbedeutung der Patrol-AIC-Werte. Beide lassen sich mit begrenzten instrumentierten Tests klären. Der vorhandene Grundfix bleibt davon unabhängig aktiv.
