@@ -1,17 +1,5 @@
 # UCP-Features: Einheiten und Balance
 
-## Offizielle DE-Nachfolger
-
-| UCP-Feature | DE-/Workspace-Status | Empfehlung |
-| --- | --- | --- |
-| `u_laddermen` – Fernkampfrüstung und Kosten 20 | DE besitzt `ImprovedLaddermen`; Script Extender bietet `Is/SetImprovedLadderman` | offizielle Option verwenden; exakte Zahlen nur bei Bedarf gegen UCP vergleichen |
-| `u_spearmen` – bessere Fernkampfrüstung | DE besitzt `ImprovedSpearmen`; öffentliche API vorhanden | offizielle Option verwenden |
-| `u_spearmen_run` – standardmäßig laufen | `BugfixesAndQoL/SpearmanMovementPatch` stellt bei aktivem `ImprovedSpearmen` die normale Archer-Laufentscheidung her | **abgedeckt**, keinen zweiten Patch installieren |
-| `u_arabwall` und `u_arabxbow` | DE bündelt Verbesserungen in `ImprovedArabSwordsmen`; öffentliche API vorhanden | als offiziellen Nachfolger behandeln; numerische Gleichheit separat testen, falls UCP-exakte Balance gewünscht ist |
-| `o_healer` | DE besitzt Advanced Option `Healers`; `IsBetterHealers`/`SetBetterHealers` ist öffentlich | **in DE integriert**; Workspace-Heilerfixes betreffen zusätzliche Randfehler und sind kein Ersatz für die Aktivierung |
-
-Die Advanced Options sind Teil der synchronisierten Spielregeln. Falls ein eigenes Preset sie erzwingen soll, ausschließlich die öffentlichen Script-Extender-Setter verwenden und keine parallelen Damage-/Chore-Hooks installieren.
-
 ## `o_restore_arabian_engineer_speech`
 
 UCP wählt bei einem arabischen menschlichen Lord die vorhandenen arabischen Ingenieuraufnahmen für Auswahl, Kauf und Belagerungsgerät. **DE-Relevanz: nur nach Hörtest.** Die Baseline bestätigt, dass DE die vollständige `AEngineer_*`-Familie bereits in `SFXManager` führt. Native Kandidaten bei RVA `0x3770` und `0x3BC0` referenzieren ausdrücklich arabische Ingenieur-Tabellen; ein weiterer Soundpfad bei RVA `0xD6030` enthält westliche Engineer-Auswahlstrings. Das Vorhandensein beweist jedoch noch nicht die richtige Auswahl für den menschlichen arabischen Lord.

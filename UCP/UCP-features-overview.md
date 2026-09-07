@@ -21,8 +21,7 @@ Erfasst sind alle aktiv angebotenen Nicht-Bugfix-Funktionen aus UCP2/`ucp2-legac
 1. `ai_addattack_alt`: prozentuale statt absolute Vergrößerung der KI-Angriffsarmee. Dieses vom Nutzer gesuchte Verhalten fehlt als Einstellung weiterhin und ist ein Feature, kein Bugfix. Die Tiefenprüfung zeigt aber, dass es voraussichtlich ohne Berechnungshook über DEs AIC-Wellenmultiplikatoren umgesetzt werden kann.
 2. `ai_attacklimit` und `ai_attacktarget`: zusammen mit der Skalierung als synchronisierte KI-Angriffsoptionen. DE besitzt dafür bereits `siege_max_troops` und `who_to_pick_on`; vor Freigabe sind Formel beziehungsweise Wertbedeutungen zu testen.
 3. `ai_resources_rebuy`: nach Laufzeitbeleg, da es echte Wirtschaftsdeadlocks verhindert.
-4. `o_responsivegates` und `o_increase_path_update_tick_rate`: erst Leistung und Multiplayer-Determinismus messen.
-5. restliche Komfortfunktionen nur nach Bedarf; mehrere sind bereits über allgemeinere Workspace-Mods erreichbar.
+
 
 ## Dokumente
 

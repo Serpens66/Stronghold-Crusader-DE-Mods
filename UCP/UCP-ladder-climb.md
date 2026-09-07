@@ -6,6 +6,8 @@ Einheiten können nach dem Erklimmen einer Leiter ihr ursprüngliches Ziel verli
 
 ## DE-Relevanz
 
+Bisher nicht reproduzierbar in DE, vermutlich gefixt.
+
 **Bewertung: möglicher übernommener Altfehler; noch nicht bestätigt.** DE besitzt weiterhin native Ladderman- und Bewegungszustandsmaschinen. Die DE-Option `ImprovedLaddermen` ist nicht derselbe Fix: Ihre nachgewiesenen Verwendungen verändern unter anderem Kosten und Kampfwerte. Daraus darf nicht geschlossen werden, dass das verlorene Marschziel korrigiert ist.
 
 Weder `BugfixesAndQoL` noch `shcde-fixes-main` enthalten derzeit einen gleichwertigen Zielpuffer. Die Ladderman-Erwähnungen in vorhandenen Bewegungsmods betreffen andere Mechaniken.
