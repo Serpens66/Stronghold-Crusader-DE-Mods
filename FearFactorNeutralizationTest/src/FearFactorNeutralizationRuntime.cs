@@ -2,6 +2,7 @@ using BepInEx.Logging;
 using RedBird.Abstractions.Hooks;
 using RedBird.Abstractions.Hooks.Transaction;
 using RedBird.Core.Memory;
+using RedBird.X64.Assembly;
 using RedBird.X64.Hooks;
 using RedBird.X64.Hooks.Context;
 using RedBird.X64.Hooks.Transaction;
