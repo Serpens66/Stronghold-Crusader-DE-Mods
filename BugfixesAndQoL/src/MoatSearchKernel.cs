@@ -12,15 +12,18 @@ namespace BugfixesAndQoL
         private readonly Dictionary<int, int> goals = new Dictionary<int, int>();
         private int generation;
         public int Expanded { get; private set; }
+        public bool BudgetExceeded { get; private set; }
         public MoatCandidateField(int width, int height)
         {
             this.width = width; this.height = height;
             marks = new int[width * height]; distances = new int[marks.Length]; queue = new int[marks.Length];
         }
-        public int[] Resolve(IList<int> starts, IList<int> targets, MoatSearchEdge edge, MoatSearchEdge terminal)
+        public int[] Resolve(IList<int> starts, IList<int> targets, MoatSearchEdge edge,
+            MoatSearchEdge terminal, int maximumExpanded = int.MaxValue,
+            int maximumDistance = int.MaxValue)
         {
             if (++generation == int.MaxValue) { Array.Clear(marks, 0, marks.Length); generation = 1; }
-            Expanded = 0; goals.Clear();
+            Expanded = 0; BudgetExceeded = false; goals.Clear();
             foreach (int tile in targets) if ((uint)tile < marks.Length) goals[tile] = -1;
             int remaining = goals.Count, head = 0, tail = 0;
             foreach (int tile in starts)
@@ -31,13 +34,20 @@ namespace BugfixesAndQoL
             }
             while (head < tail && remaining != 0)
             {
+                if (Expanded >= maximumExpanded)
+                {
+                    BudgetExceeded = true;
+                    break;
+                }
                 int from = queue[head++], x = from % width, y = from / width;
                 Expanded++;
+                if (distances[from] >= maximumDistance) continue;
                 for (int d = 0; d < 8; d++)
                 {
                     int nx = x + WeightedMoatRoutePlanner.DirectionX[d], ny = y + WeightedMoatRoutePlanner.DirectionY[d];
                     if ((uint)nx >= width || (uint)ny >= height) continue;
                     int to = ny * width + nx, distance = distances[from] + 1;
+                    if (distance > maximumDistance) continue;
                     bool normal = edge(from, to, d, out _, out _);
                     if (goals.TryGetValue(to, out int old) && old < 0 &&
                         (normal || terminal(from, to, d, out _, out _)))
@@ -82,6 +92,7 @@ namespace BugfixesAndQoL
         private int target;
         private long groundCost, moatCost;
         private bool useField;
+        public bool LastSearchBudgetExceeded { get; private set; }
 
         public MoatSearchKernel(int width, int height, MoatSearchEdge edge)
         {
@@ -100,11 +111,19 @@ namespace BugfixesAndQoL
 
         public bool Search(int start, int destination, long ground, long moat,
             int maximumEdges, bool requireMoat, bool excludeStructures,
-            MoatSearchLimit[] limits, bool shareField, out int[] path)
+            MoatSearchLimit[] limits, bool shareField, out int[] path,
+            int maximumExpanded = int.MaxValue)
         {
             path = null;
+            LastSearchBudgetExceeded = false;
             if (start < 0 || destination < 0 || start >= heads.Length || destination >= heads.Length)
                 return false;
+            if (maximumExpanded <= 0)
+            {
+                LastSearchBudgetExceeded = true;
+                return false;
+            }
+            long expandedBeforeSearch = Expanded;
             target = destination; groundCost = ground; moatCost = moat;
             useField = false;
             // Do the constant-time bound before constructing or extending any field.
@@ -144,10 +163,13 @@ namespace BugfixesAndQoL
                 if (limits != null)
                     foreach (MoatSearchLimit limit in limits)
                         if (limit.Ground == ground && limit.Moat == moat) ceiling = Math.Min(ceiling, limit.Maximum);
-                field.Settle(destination, ceiling / fieldScale);
+                field.Settle(destination, ceiling / fieldScale, maximumExpanded);
                 // For another formation endpoint the anchor is only a heuristic.
                 // Settling that unit's start as well duplicates its forward search.
-                if (destination == field.Anchor) field.Settle(start, ceiling / fieldScale);
+                int remainingBudget = maximumExpanded - (int)Math.Min(
+                    maximumExpanded, field.Expanded - before);
+                if (destination == field.Anchor && remainingBudget > 0)
+                    field.Settle(start, ceiling / fieldScale, remainingBudget);
                 Expanded += field.Expanded - before;
                 if (field.Expanded != before) Searches++;
                 useField = field.IsSettled(destination);
@@ -165,22 +187,34 @@ namespace BugfixesAndQoL
 
             // Most routes need only one scalar A*. A resource-constrained refinement is
             // necessary only when its optimum violates length, moat or profile conditions.
-            if (!Run(start, maximumEdges, requireMoat, excludeStructures, limits, false, out int[] first))
+            int forwardBudget = maximumExpanded;
+            forwardBudget -= (int)Math.Min(maximumExpanded,
+                Math.Max(0, Expanded - expandedBeforeSearch));
+            if (!Run(start, maximumEdges, requireMoat, excludeStructures, limits, false,
+                    Math.Max(0, forwardBudget), out int[] first))
                 return false;
             if (Accept(first, maximumEdges, requireMoat, excludeStructures, limits))
             { path = first; return true; }
             Refinements++;
-            return Run(start, maximumEdges, requireMoat, excludeStructures, limits, true, out path);
+            return Run(start, maximumEdges, requireMoat, excludeStructures, limits, true,
+                Math.Max(0, maximumExpanded - (int)Math.Min(maximumExpanded,
+                    Math.Max(0, Expanded - expandedBeforeSearch))), out path);
         }
 
         private bool Run(int start, int maximumEdges, bool requireMoat, bool excludeStructures,
-            MoatSearchLimit[] limits, bool refine, out int[] path)
+            MoatSearchLimit[] limits, bool refine, int maximumExpanded, out int[] path)
         {
             path = null;
+            if (maximumExpanded <= 0)
+            {
+                LastSearchBudgetExceeded = true;
+                return false;
+            }
             Searches++;
             foreach (int n in touched) heads[n] = -1;
             touched.Clear(); labels.Clear(); heap.Clear();
             Add(new Label(start, -1, 0, 0, -1));
+            int expandedThisRun = 0;
             while (heap.Count != 0)
             {
                 int index = Pop(); Label current = labels[index];
@@ -193,18 +227,23 @@ namespace BugfixesAndQoL
                         if (limit.Ground == groundCost && limit.Moat == moatCost && lower > limit.Maximum) over = true;
                     if (over) return false;
                 }
-                Expanded++;
+                if (expandedThisRun >= maximumExpanded)
+                {
+                    LastSearchBudgetExceeded = true;
+                    return false;
+                }
+                Expanded++; expandedThisRun++;
                 if (current.Node == target && (!refine || !requireMoat || current.Moat > 0))
                 { path = Trace(index); return true; }
-                if (refine && current.Ground + current.Moat >= maximumEdges) continue;
+                if (current.Ground + current.Moat >= maximumEdges) continue;
                 for (int d = 0; d < 8; d++)
                 {
                     int next = Neighbour(current.Node, d);
                     if (next < 0 || !edge(current.Node, next, d, out bool wet, out bool structure) ||
                         (excludeStructures && structure)) continue;
                     int ng = current.Ground + (wet ? 0 : 1), nm = current.Moat + (wet ? 1 : 0);
-                    if (refine && (!Fits(ng, nm, next, requireMoat, limits) ||
-                        ng + nm + Distance(next, target) > maximumEdges)) continue;
+                    if (ng + nm + Distance(next, target) > maximumEdges ||
+                        (refine && !Fits(ng, nm, next, requireMoat, limits))) continue;
                     bool dominated = false;
                     long cost = ng * groundCost + nm * moatCost;
                     for (int old = heads[next]; old >= 0; old = labels[old].Next)
@@ -398,10 +437,16 @@ namespace BugfixesAndQoL
             public long Lower(int node) => IsSettled(node) ? Cost(node) :
                 Math.Max(owner.Distance(node, Anchor) * Ground, frontier - owner.Distance(node, first) * Ground);
             private long Priority(int node, long cost) => cost + owner.Distance(node, first) * Ground;
-            public void Settle(int wanted, long ceiling)
+            public void Settle(int wanted, long ceiling, int maximumExpanded)
             {
+                int expandedAtStart = (int)Math.Min(int.MaxValue, Expanded);
                 while (queue.Count > 0 && !IsSettled(wanted))
                 {
+                    if (Expanded - expandedAtStart >= maximumExpanded)
+                    {
+                        owner.LastSearchBudgetExceeded = true;
+                        break;
+                    }
                     if (queue[0].Priority > ceiling) break;
                     Entry entry = Pop();
                     if (IsSettled(entry.Node) || Cost(entry.Node) != entry.Cost) continue;

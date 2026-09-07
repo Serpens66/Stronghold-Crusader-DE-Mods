@@ -43,6 +43,7 @@ namespace ExtraFeatures
         private PendingStockpileRefund pendingStockpileRefund;
         private AIMarketVanillaPriceHook aiMarketVanillaPriceHook;
         private MonkAlwaysRunPatch monkAlwaysRunPatch;
+        private FearFactorNeutralizationRuntime fearFactorRuntime;
         private PlagueDurationPatch plagueDurationPatch;
         private PlagueApothecarySearchRangePatch plagueApothecarySearchRangePatch;
         private IntPtr libraryHandle;
@@ -128,6 +129,12 @@ namespace ExtraFeatures
             InitializePlagueDurationPatch(newLibraryHandle, nativeRegion, memory);
             InitializePlagueApothecarySearchRangePatch(newLibraryHandle, nativeRegion, memory);
             InitializeMonkAlwaysRunPatch(newLibraryHandle, nativeRegion, memory);
+            TryRunFeature("fear-factor neutralization", () =>
+            {
+                fearFactorRuntime = new FearFactorNeutralizationRuntime(log, context);
+                fearFactorRuntime.Apply(fixedLayoutHashValidated);
+                ApplyFearFactorSetting();
+            });
             try
             {
                 gatehouseAutomationRuntime.InitializeNative(newLibraryHandle, memory, fixedLayoutHashValidated);
@@ -153,6 +160,7 @@ namespace ExtraFeatures
 
         public void ApplySettings()
         {
+            TryRunFeature("fear-factor configuration", ApplyFearFactorSetting);
             TryRunFeature("AI defense repair configuration", ReconcileAIDefenseRepairRuntime);
             if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
             {
@@ -347,6 +355,9 @@ namespace ExtraFeatures
 
         private void OnSettingChanged(string propertyName)
         {
+            if (propertyName == nameof(ExtraFeaturesViewModel.EnableMod) ||
+                propertyName == nameof(ExtraFeaturesViewModel.EnableFearFactorNeutralization))
+                TryRunFeature("fear-factor configuration", ApplyFearFactorSetting);
             if (propertyName == nameof(ExtraFeaturesViewModel.EnableMod))
             {
                 if (Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
@@ -482,6 +493,13 @@ namespace ExtraFeatures
                     "Extra Features Monks Always Run is disabled for this process; " +
                     $"all other features remain available: {ex}");
             }
+        }
+
+        private void ApplyFearFactorSetting()
+        {
+            fearFactorRuntime?.SetEnabled(
+                FearFactorNeutralizationPolicy.IsEnabled(settings.EnableMod,
+                    settings.EnableFearFactorNeutralization, Shared.GameplayModActivationGate.IsAllowed));
         }
 
         private void ApplyMonkAlwaysRunSetting()

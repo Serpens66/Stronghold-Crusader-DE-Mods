@@ -25,7 +25,7 @@ namespace SerpsModsHost
         private const string InfoFileName = "info.json";
         public const string PluginGuid = "SerpsMods_Serp";
         public const string PluginName = "Serps Mods";
-        public const string PluginVersion = "1.0.9";
+        public const string PluginVersion = "1.0.10";
         public const bool CustomCustomTrailModSettingsOptOut = true;
         private const string ManifestFileName = "serps-modpack.json";
 
@@ -153,6 +153,16 @@ namespace SerpsModsHost
                     "MaximumScriptExtenderVersion",
                     out string minimumVersion,
                     out string maximumVersion);
+
+                if (string.IsNullOrWhiteSpace(minimumVersion) &&
+                    string.IsNullOrWhiteSpace(maximumVersion))
+                {
+                    diagnostics.SetScriptExtenderCompatibilityWarning(string.Empty);
+                    Shared.DebugLogHelper.LogDebug(
+                        Logger,
+                        $"[{PluginName}] Script Extender compatibility check skipped because info.json defines no version range.");
+                    return;
+                }
 
                 string scriptExtenderAssemblyPath = ResolveScriptExtenderAssemblyPath();
                 ScriptExtenderVersionResolution versionResolution = ResolveScriptExtenderVersion(

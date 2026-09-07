@@ -84,7 +84,7 @@ namespace StockpileAccessFixTest
                     StringComparison.OrdinalIgnoreCase) >= 0;
                 Shared.DebugLogHelper.LogInfo(
                     persistentLog,
-                    $"Script Extender identity: auditedVersion={StockpileAccessFixNativeDefinition.AuditedScriptExtenderVersion}, " +
+                    $"Script Extender identity: manifestVersionRange=true, " +
                     $"auditedCommit={StockpileAccessFixNativeDefinition.AuditedScriptExtenderCommit}, " +
                     $"assembly={assembly.FullName}, fileVersion={fileVersion}, informationalVersion={informational}, " +
                     $"auditedCommitMatch={auditedCommit}.");
@@ -92,7 +92,7 @@ namespace StockpileAccessFixTest
                 {
                     Shared.DebugLogHelper.LogWarning(
                         persistentLog,
-                        "Script Extender differs from the audited 2.2.0 commit; native recovery remains hash-gated.");
+                        "Script Extender differs from the audited commit; native recovery remains hash-gated.");
                 }
             }
             catch (Exception exception)

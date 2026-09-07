@@ -24,7 +24,7 @@ namespace OxTetherIdleFixTest
             Shared.DebugLogHelper.LogInfo(
                 Logger,
                 $"{PluginName} {PluginVersion} loaded; standaloneTestMod=true, gameplaySynchronized=true, " +
-                "auditedScriptExtender=2.2.0, auditedCommit=10d28f717d38166e5875c666f20fc5653ae44b0c.");
+                "Script Extender compatibility comes from info.json; auditedCommit=a0cd52993b44a6909d4f7f6a92f82fa5888a8e63.");
             if (!libraryLoadedHandled && !libraryLoadedSubscriptionInstalled)
             {
                 CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;

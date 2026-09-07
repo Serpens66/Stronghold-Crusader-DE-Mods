@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
+using System.Text.RegularExpressions;
 
 namespace SerpNativeAPITests
 {
@@ -57,21 +58,27 @@ namespace SerpNativeAPITests
             string project = File.ReadAllText(Path.Combine(workspace, "SerpNativeAPI", "SerpNativeAPI.csproj"));
             string sourceManifest = File.ReadAllText(Path.Combine(workspace, "SerpNativeAPI", "info.json"));
             string packageManifest = File.ReadAllText(Path.Combine(workspace, "SerpNativeAPI", "BepInEx", "plugins", "SerpNativeAPI_Serp", "info.json"));
+            Match minimumMatch = Regex.Match(sourceManifest,
+                @"""MinimumScriptExtenderVersion""\s*:\s*""([^""]*)""");
+            string minimumExtenderVersion = minimumMatch.Success ? minimumMatch.Groups[1].Value : string.Empty;
+            Match versionMatch = Regex.Match(sourceManifest, @"""Version""\s*:\s*""([^""]+)""");
+            string modVersion = versionMatch.Success ? versionMatch.Groups[1].Value : string.Empty;
 
-            Assert(plugin.Contains("[BepInDependency(ScriptExtenderGuid, \"2.0.2\")]"),
-                "plugin requires SHCDESE 2.0.2");
+            Assert(string.IsNullOrEmpty(minimumExtenderVersion) ||
+                plugin.Contains($"[BepInDependency(ScriptExtenderGuid, \"{minimumExtenderVersion}\")]"),
+                "plugin dependency matches the source manifest minimum");
             Assert(plugin.Contains("OnLibraryLoaded(CrusaderLibraryLoadContext context)"),
                 "plugin consumes CrusaderLibraryLoadContext");
             Assert(plugin.Contains("context.ModuleHandle.ToInt64()") && plugin.Contains("context.Memory"),
-                "plugin passes the 2.0.2 module and memory view");
+                "plugin passes the Script Extender module and memory view");
             Assert(!plugin.Contains("IntPtr libraryHandle") && !plugin.Contains("ReadOnlySpan<byte> memory"),
                 "old LibraryLoaded callback is absent");
             Assert(!project.Contains("Zhuqiaomon") && !project.Contains("PolyHook"),
                 "project has no obsolete native dependency");
-            Assert(sourceManifest.Contains("\"Version\": \"0.1.0\"") && sourceManifest.Contains("\"NetworkMode\": 1"),
-                "source manifest preserves version and declares gameplay mode");
-            Assert(packageManifest.Contains("\"Version\": \"0.1.0\"") && packageManifest.Contains("\"NetworkMode\": 1"),
-                "package manifest preserves version and declares gameplay mode");
+            Assert(modVersion.Length > 0 && sourceManifest.Contains("\"NetworkMode\": 1"),
+                "source manifest declares a version and gameplay mode");
+            Assert(packageManifest.Contains($"\"Version\": \"{modVersion}\"") && packageManifest.Contains("\"NetworkMode\": 1"),
+                "package manifest matches the source version and gameplay mode");
         }
 
         private static string FindWorkspaceRoot()
@@ -80,7 +87,7 @@ namespace SerpNativeAPITests
             while (directory != null)
             {
                 if (Directory.Exists(Path.Combine(directory.FullName, "SerpNativeAPI")) &&
-                    File.Exists(Path.Combine(directory.FullName, "UpdatePlan-SHCDESE-2.0.2.md")))
+                    File.Exists(Path.Combine(directory.FullName, "AGENTS.md")))
                 {
                     return directory.FullName;
                 }

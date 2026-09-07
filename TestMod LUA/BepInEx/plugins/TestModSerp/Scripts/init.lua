@@ -185,13 +185,13 @@ local EVENT_ARG_KEYS={"Phase","SkipOriginalFunction","PlayerId","ContextPlayerId
 
 local function smoke_test_game_type_mode()
   if eGameTypeModes == nil or Player_GetCurrentGameTypeMode == nil then
-    log_info("SHCDESE 2.2.0 game-type smoke unavailable: enum or getter is missing")
+    log_info("SHCDESE game-type smoke unavailable: enum or getter is missing")
     return
   end
 
   local ok, mode = pcall(Player_GetCurrentGameTypeMode)
   if not ok then
-    log_info("SHCDESE 2.2.0 game-type smoke failed:", mode)
+    log_info("SHCDESE game-type smoke failed:", mode)
     return
   end
 
@@ -203,7 +203,7 @@ local function smoke_test_game_type_mode()
     or mode == eGameTypeModes.GAMETYPE_SIEGE_THAT_BUILDER
     or mode == eGameTypeModes.GAMETYPE_MAP_TRAIL
     or mode == eGameTypeModes.GAMETYPE_MAP_TRAIL2
-  log_info("SHCDESE 2.2.0 game-type smoke: mode=", mode, " valid=", valid)
+  log_info("SHCDESE game-type smoke: mode=", mode, " valid=", valid)
 end
 
 local function vec_xy(v)

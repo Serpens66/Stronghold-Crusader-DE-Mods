@@ -328,3 +328,65 @@ adjusted identity remains a compatibility fallback for mapper and
 multi-part gate variants not represented in this trace, so the correction does
 not discard previously valid matches. The first detected missing-period tick
 is still immutable and rejected attempts still cannot restart the delay.
+
+## Fear-factor neutralization (1.0.91)
+
+Optional host setting `EnableFearFactorNeutralization`, default false. Both callbacks use one activation switch; disabled damage calls the original helper exactly once, disabled UI leaves context unchanged. Uses the shared ExtraFeatures mode gate, including the map editor. The owning runtime and persistent OnTick subscription root the hooks beyond startup cleanup.
+
+Reference SHA-256: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2. SE target 2.3.0; semantic extraction commit a0cd52993b44a6909d4f7f6a92f82fa5888a8e63. Validate installed hash against CURRENT.json and dataset binary_hash before reusing addresses.
+
+- Damage helper RVA 0x180560, length 47; full pattern in FearFactorNativeDefinition. Function entry detour replaces 10 bytes (MOVSXD + IMUL). Vanilla computes damage * (fear + 20) * 5 / 100; replacement returns base damage only when enabled. Melee caller RVA 0x199110 (2189 bytes), projectile caller RVA 0x192750 (4664 bytes), each calls this helper once. These labels correct the swapped names in the former test definition.
+- UI hook RVA 0x1A19F2, length 14 (IMUL RCX,R10,0x583C; MOV EAX,[RCX+RDI+0x379CF04]); return 0x1A1A00 before TEST EAX,EAX. Surrounding function RVA 0x1A13C0, length 5079. Validate all direct incoming targets and actual RedBird DisplacedByteCount. No interior entry is allowed.
+- Resolution checks reference RVA, then unique pattern through Shared.NativePatternResolver over the supplied native image; exact audited RVA and full semantic validation remain mandatory. Unknown hashes remain unsupported because fixed resource layout, caller/function boundaries and render-frame semantics lack a validated cross-version derivation. No automatic address migration on unknown binaries.
+- Failure rolls back the entire owned hook transaction and disables only this feature. Success logs resolved RVAs and actual span. A loaded FearFactorNeutralizationTest_Serp blocks installation to prevent overlapping patches.
+- Setting changes do not uninstall hooks or overwrite global fear. RAX is the only intentionally changed UI result, after both displaced instructions; All GPRs are saved because R11 is a live render-cache key. The following TEST regenerates needed condition flags. Do not treat All as an XMM preservation guarantee.
+
+### Preserved test investigation and evidence
+
+#### Fear overlay investigation, diagnostic revision 3
+
+Native SHA-256: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
+Source: CURRENT.json and semantic function 0x1A13C0 (5079 bytes), matching the installed DLL.
+
+The selected-unit branch reads the owner's fear at RVA 0x1A19F9.
+The load is exactly `8B 84 39 04 CF 79 03` (7 bytes): MOV EAX,[RCX+RDI+0x379CF04].
+RCX is the owner stride, RDI the module base, R10 the owner index; RBP carries the unit stride.
+At 0x1A1A00 TEST EAX,EAX selects the neutral branch at 0x1A1A2E.
+The neutral frame is healthBarBlocks + 17, while positive/negative fear selects a different frame group.
+The result participates in R11's render-cache key. The outgoing unit command passes the health frame
+to GameMap.addUpdateChimp's hpsFrame, which selects sprite file 16 and caches it in Chimp.image5.
+The lord (native type 0x37) takes a separate branch and does not execute this fear load.
+
+The installed RedBird.X64 ContextStub emits BeforeCallback instructions before saving context.
+ContextAssemblyGenerator saves/restores only requested GPRs (plus internal stack bookkeeping).
+The old RAX-only mask therefore allowed a managed callback to destroy live RCX/RDX/R8-R11,
+including R11's cache key. Revision 2 requests All and changes only the saved RAX value.
+Revision 2 incorrectly assumed HookSize=7 displaced exactly seven bytes. Installed X64InlineHook
+uses Math.Max(minHookSize,14), so the original span included MOV, TEST, JE and IMUL EDX,EAX,11.
+BeforeCallback therefore branched before neutralization: positive fear became frame 128 (null sprite),
+negative fear retained EDX=-55 and frame 238. Logs at 20:23-20:24 confirm both results.
+Revision 3 starts at 0x1A19F2: IMUL RCX,R10,0x583C (7 bytes) then the MOV (7 bytes).
+The complete replacement span is 0x1A19F2..0x1A1A00, exactly 14 bytes; displaced bytes are
+49 69 CA 3C 58 00 00 8B 84 39 04 CF 79 03. Neither instruction branches or uses RIP-relative memory.
+R10 is read before RCX is written; RCX/RDI are read before RAX is replaced. The callback changes
+only RAX after both instructions. The original memory read completes before RAX is changed.
+The following TEST at the return address defines the flags consumed by JE; IMUL flags are dead.
+The actual RedBird DisplacedByteCount is checked at installation and against a copied byte buffer
+in the offline regression test; no native test hook is enabled.
+No incoming interior direct branch exists in the decoded containing function. Stack and
+callee-saved registers must remain as on entry; no XMM operands occur in the displaced span.
+
+The minimum-span mismatch explains the reported asymmetry. Runtime verification of revision 3
+remains required. No game-mode or editor exclusion exists in either callback: hooks apply to
+all native calls, including editor simulations. The five-second render diagnostic
+reports hook counts/signs, last owner/fear, hook status, selected native health/fear, and the
+actual managed frame/sprite cache. It runs during pause and never edits that cache.
+READY states that the load is forced to zero, not that visual success has been verified.
+
+Test: select ordinary soldiers at positive and negative fear for at least 6 seconds each;
+also select a lord separately. Compare healthBlocks+17 with cache.frame and record the visible
+result. If overlayCalls stays zero, the branch was not reached. If suppressed increases but
+cache.frame remains non-neutral, inspect command/cache propagation. If frame is neutral but
+an icon remains, identify the separate displayed sprite. Test combat independently.
+
+Migration acceptance: testmod editor logs on 2026-09-07 at 20:33:43 showed base damage 20, Vanilla 24/16 and returned damage 20 for both parties. This is historical testmod evidence, not a multiplayer or ExtraFeatures runtime acceptance result. Integration still requires an enabled/disabled game test on all peers.

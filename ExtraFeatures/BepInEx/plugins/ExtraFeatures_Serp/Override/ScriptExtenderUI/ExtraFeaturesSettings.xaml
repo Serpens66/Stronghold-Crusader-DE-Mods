@@ -111,6 +111,9 @@
           </Grid>
         </StackPanel>
       </Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.fear-factor-neutralization" shared:ModSettingsSearch.Title="{Binding EnableFearFactorNeutralizationText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableFearFactorNeutralizationHelpText}">
+        <CheckBox Content="{Binding EnableFearFactorNeutralizationText}" IsChecked="{Binding EnableFearFactorNeutralization, Mode=TwoWay}" Foreground="White" Margin="0,0,14,8" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableFearFactorNeutralizationHelpText}"/>
+      </Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.monks-always-run" shared:ModSettingsSearch.Title="{Binding EnableMonksAlwaysRunText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableMonksAlwaysRunHelpText}">
         <CheckBox IsChecked="{Binding EnableMonksAlwaysRun, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableMonksAlwaysRunHelpText}" Margin="0,0,14,8">
           <TextBlock Text="{Binding EnableMonksAlwaysRunText}" Foreground="White" TextWrapping="Wrap"/>

@@ -138,6 +138,8 @@ public static class SerpLocalization
     public const string EnablePlagueTargetReservationFixHelp = "SomeSettings.EnablePlagueTargetReservationFixHelp";
     public const string EnableFastRecruitRallyMovement = "BugfixesAndQoL.EnableFastRecruitRallyMovement";
     public const string EnableFastRecruitRallyMovementHelp = "BugfixesAndQoL.EnableFastRecruitRallyMovementHelp";
+    public const string EnableFearFactorNeutralization = "SomeSettings.EnableFearFactorNeutralization";
+    public const string EnableFearFactorNeutralizationHelp = "SomeSettings.EnableFearFactorNeutralizationHelp";
     public const string EnableMonksAlwaysRun = "SomeSettings.EnableMonksAlwaysRun";
     public const string EnableMonksAlwaysRunHelp = "SomeSettings.EnableMonksAlwaysRunHelp";
     public const string EnableKnightDismount = "SomeSettings.EnableKnightDismount";
@@ -562,6 +564,8 @@ public static class SerpLocalization
         { EnablePlagueTargetReservationFixHelp, "Prevents different apothecaries from selecting plague clouds covered by the same expected area treatment." },
         { EnableFastRecruitRallyMovement, "Recruits Run to Rally Points" },
         { EnableFastRecruitRallyMovementHelp, "Newly recruited player and AI units move to their rally points using their own Vanilla Fast pace and animation while keeping terrain and state modifiers." },
+        { EnableFearFactorNeutralization, "Disable fear-factor effects on soldiers" },
+        { EnableFearFactorNeutralizationHelp, "Fear factor no longer has any effect on soldiers' combat strength." },
         { EnableMonksAlwaysRun, "Monks Always Run" },
         { EnableMonksAlwaysRunHelp, "Lets Monks use the normal troop running decision and running animation instead of their special walking restriction. Applies to both the Fighting Monk and Temple Guard skins." },
         { EnableKnightDismount, "Enable knight mount/dismount buttons" },

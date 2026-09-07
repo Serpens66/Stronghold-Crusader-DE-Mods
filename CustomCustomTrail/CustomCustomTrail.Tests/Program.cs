@@ -10,6 +10,8 @@ var tests = new (string Name, Action Run)[]
     ("path escape rejected", TestPathEscape),
     ("invalid rotation rejected", TestInvalidRotation),
     ("package catalog rejects invalid packages", TestCatalogIsolation),
+    ("package catalog logs only state changes", TestCatalogStateChangeLogging),
+    ("package catalog reports new and resolved errors", TestCatalogErrorTransitions),
     ("old mission schemas are rejected", TestOldMissionSchemasRejected),
     ("old Coop package schema is rejected", TestOldPackageSchemaRejected),
     ("locally edited mission JSON reloads from the same slot", TestEditedMissionReload),
@@ -1045,6 +1047,65 @@ static void TestCatalogIsolation()
     packages.Scan(root, null, errors.Add);
     Assert(packages.Packages.Count == 0, "partially invalid package was selectable");
     Assert(errors.Count == 1, "invalid package error was not reported once");
+}
+
+static void TestCatalogStateChangeLogging()
+{
+    using Fixture fixture = Fixture.Create();
+    string root = Path.Combine(fixture.Root, "CustomTrails");
+    string package = CreatePackage(fixture, root, "Logged", 1);
+    var info = new List<string>();
+    var errors = new List<string>();
+    var catalog = new CoopTrailPackageCatalog();
+
+    catalog.Scan(root, info.Add, errors.Add);
+    Assert(info.Count(message => message.StartsWith("Found Coop Trail package", StringComparison.Ordinal)) == 1,
+        "initial package discovery was not logged once");
+    info.Clear();
+
+    catalog.Scan(root, info.Add, errors.Add);
+    Assert(info.Count == 0 && errors.Count == 0, "unchanged package scan repeated diagnostics");
+
+    string manifestPath = Path.Combine(package, "cooptrail.json");
+    File.WriteAllText(
+        manifestPath,
+        File.ReadAllText(manifestPath).Replace("\"displayName\": \"Logged\"", "\"displayName\": \"Logged Updated\""),
+        new UTF8Encoding(false));
+    catalog.Scan(root, info.Add, errors.Add);
+    Assert(info.Count(message => message.StartsWith("Updated Coop Trail package", StringComparison.Ordinal)) == 1,
+        "changed package was not logged");
+    info.Clear();
+
+    Directory.Delete(package, recursive: true);
+    catalog.Scan(root, info.Add, errors.Add);
+    Assert(info.Count(message => message.StartsWith("Removed Coop Trail package", StringComparison.Ordinal)) == 1,
+        "removed package was not logged");
+}
+
+static void TestCatalogErrorTransitions()
+{
+    using Fixture fixture = Fixture.Create();
+    string root = Path.Combine(fixture.Root, "CustomTrails");
+    string package = CreatePackage(fixture, root, "Recoverable", 1);
+    string missionPath = Path.Combine(package, "CoopMissions", "01.coopmission.json");
+    string original = File.ReadAllText(missionPath);
+    var info = new List<string>();
+    var errors = new List<string>();
+    var catalog = new CoopTrailPackageCatalog();
+
+    catalog.Scan(root, info.Add, errors.Add);
+    info.Clear();
+    File.AppendAllText(missionPath, "changed");
+    catalog.Scan(root, info.Add, errors.Add);
+    Assert(errors.Count == 1, "new package scan error was not logged once");
+
+    catalog.Scan(root, info.Add, errors.Add);
+    Assert(errors.Count == 1, "unchanged package scan error was logged repeatedly");
+
+    File.WriteAllText(missionPath, original, new UTF8Encoding(false));
+    catalog.Scan(root, info.Add, errors.Add);
+    Assert(info.Count(message => message.StartsWith("Resolved Coop Trail package scan issue", StringComparison.Ordinal)) == 1,
+        "resolved package scan error was not logged");
 }
 
 static void TestOldMissionSchemasRejected()

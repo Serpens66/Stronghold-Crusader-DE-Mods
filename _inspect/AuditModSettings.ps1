@@ -20,6 +20,16 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+function Test-SeTooltipScaleStyle([System.Xml.XmlNode] $Style) {
+    foreach ($setter in $Style.SelectNodes("./*[local-name()='Setter' and @Value='True']")) {
+        if ($setter.GetAttribute('Property') -match '^([^:]+):ToolTipResolutionScale\.Enabled$' -and
+            $setter.GetNamespaceOfPrefix($Matches[1]) -eq 'clr-namespace:SHCDESE.UI;assembly=SHCDESE') {
+            return $true
+        }
+    }
+    return $false
+}
+
 $workspace = Split-Path -Parent $PSScriptRoot
 $settingsByMod = [ordered]@{
     BugfixesAndQoL = 'BugfixesAndQoL/Override/ScriptExtenderUI/BugfixesAndQoLSettings.xaml'
@@ -268,15 +278,30 @@ foreach ($entry in $settings.GetEnumerator()) {
     }
 
     $text = [IO.File]::ReadAllText($path)
+    # SE 2.3.0 can supply size presets on the ToolTip itself. Accept only a
+    # real enabled setter in the ToolTip style, not a marker elsewhere in XAML.
+    $usesSeTooltipScale = $false
+    foreach ($style in $xml.SelectNodes("//*[local-name()='Style' and @TargetType='{x:Type ToolTip}']")) {
+        if (Test-SeTooltipScaleStyle $style) {
+            $usesSeTooltipScale = $true
+        }
+    }
     $requiredMarkers = @(
         'TargetType="{x:Type ToolTip}"',
         'VerticalScrollBarVisibility="Auto"',
         'HorizontalScrollBarVisibility="Auto"',
         'Value="#FF1D1710"',
-        'MaxWidth="{x:Static shared:ToolTipPresentation.MaximumWidth}"',
-        'Value="{x:Static shared:ToolTipPresentation.FontSize}"',
-        'FontSize="{x:Static shared:ToolTipPresentation.FontSize}"',
         'TextWrapping="Wrap"')
+    if ($usesSeTooltipScale) {
+        $requiredMarkers += @(
+            'MaxWidth="{TemplateBinding MaxWidth}"',
+            'FontSize="{TemplateBinding FontSize}"')
+    } else {
+        $requiredMarkers += @(
+            'MaxWidth="{x:Static shared:ToolTipPresentation.MaximumWidth}"',
+            'Value="{x:Static shared:ToolTipPresentation.FontSize}"',
+            'FontSize="{x:Static shared:ToolTipPresentation.FontSize}"')
+    }
     if ($entry.Key -ne 'SerpsModsHost') {
         $requiredMarkers += @('x:Key="SectionHeader"', 'Text="{Binding ModEnabledText}"')
         if ($hasHostSettings) {
@@ -404,7 +429,6 @@ $toolTipPresentationPath = Join-Path $workspace 'Shared/ToolTipPresentation.cs'
 $toolTipPresentation = [IO.File]::ReadAllText($toolTipPresentationPath)
 foreach ($required in @(
     'public static class ToolTipPresentation',
-    'SE_ToolTip',
     'public static float FontSize => 50.0f;',
     'public static float MaximumWidth => 1000.0f;')) {
     if (-not $toolTipPresentation.Contains($required)) {
@@ -412,8 +436,7 @@ foreach ($required in @(
     }
 }
 
-# Noesis can reset the outer ToolTip.FontSize when moving between popup owners.
-# The rendered content must therefore consume the shared fixed value directly.
+# Fixed-size styles bind directly; SE-scaled styles consume the host's preset.
 $sharedToolTipXamlPaths = @($settings.Values)
 if (Test-ModSelected 'BugfixesAndQoL') {
     $sharedToolTipXamlPaths += @(
@@ -425,17 +448,25 @@ if (Test-ModSelected 'ExtraFeatures') {
 }
 foreach ($relativePath in @($sharedToolTipXamlPaths | Sort-Object -Unique)) {
     $xamlText = [IO.File]::ReadAllText((Join-Path $workspace $relativePath))
-    $contentTextBlocks = [Text.RegularExpressions.Regex]::Matches(
-        $xamlText,
-        '<TextBlock\b(?=[^>]*\bText="\{TemplateBinding Content\}")[^>]*>',
-        [Text.RegularExpressions.RegexOptions]::Singleline)
+    $tooltipDocument = [xml]$xamlText
+    $contentTextBlocks = $tooltipDocument.SelectNodes("//*[local-name()='TextBlock' and @Text='{TemplateBinding Content}']")
     if ($contentTextBlocks.Count -eq 0) {
         throw "Shared tooltip template content TextBlock is missing: $relativePath"
     }
     foreach ($contentTextBlock in $contentTextBlocks) {
-        if (-not $contentTextBlock.Value.Contains(
-            'FontSize="{x:Static shared:ToolTipPresentation.FontSize}"')) {
-            throw "Shared tooltip content must bind FontSize directly instead of through the Noesis ToolTip host: $relativePath"
+        $ownerStyle = $contentTextBlock.SelectSingleNode("ancestor::*[local-name()='Style' and @TargetType='{x:Type ToolTip}'][1]")
+        $scaled = $null -ne $ownerStyle -and (Test-SeTooltipScaleStyle $ownerStyle)
+        $ownerTooltip = $contentTextBlock.SelectSingleNode("ancestor::*[local-name()='ToolTip'][1]")
+        if ($null -ne $ownerTooltip) {
+            $scaleAttribute = $ownerTooltip.GetAttributeNode('ToolTipResolutionScale.Enabled', 'clr-namespace:SHCDESE.UI;assembly=SHCDESE')
+            if ($null -ne $scaleAttribute) { $scaled = $scaleAttribute.Value -eq 'True' }
+        }
+        $expectedFont = if ($scaled) { '{TemplateBinding FontSize}' } else { '{x:Static shared:ToolTipPresentation.FontSize}' }
+        if ($contentTextBlock.GetAttribute('FontSize') -ne $expectedFont) {
+            throw "Tooltip content must use its owning style's font contract ($expectedFont): $relativePath"
+        }
+        if ($contentTextBlock.GetAttribute('TextWrapping') -ne 'Wrap') {
+            throw "Tooltip content must wrap: $relativePath"
         }
     }
 }
@@ -636,9 +667,6 @@ foreach ($forbidden in @(
 foreach ($forbidden in @(
     'DependencyProperty FontSizeProperty',
     'DependencyProperty MaximumWidthProperty',
-    'UnityEngine',
-    'Screen.',
-    'ResolutionScale',
     'DiagnosticLog',
     'SERP_TOOLTIP_DIAGNOSTIC',
     'ToolTipFontSizeExtension',
@@ -678,9 +706,17 @@ $currentTooltipXaml = @($selectedModNames | ForEach-Object { $currentTooltipXaml
 foreach ($relativeXamlPath in $currentTooltipXaml) {
     $xamlPath = Join-Path $workspace $relativeXamlPath
     $xamlText = [IO.File]::ReadAllText($xamlPath)
-    foreach ($required in @(
-        'x:Static shared:ToolTipPresentation.FontSize',
-        'x:Static shared:ToolTipPresentation.MaximumWidth')) {
+    $tooltipDocument = [xml]$xamlText
+    $usesSeTooltipScale = $false
+    foreach ($style in $tooltipDocument.SelectNodes("//*[local-name()='Style' and @TargetType='{x:Type ToolTip}']")) {
+        if (Test-SeTooltipScaleStyle $style) { $usesSeTooltipScale = $true }
+    }
+    $sizeMarkers = if ($usesSeTooltipScale) {
+        @('FontSize="{TemplateBinding FontSize}"', 'MaxWidth="{TemplateBinding MaxWidth}"')
+    } else {
+        @('x:Static shared:ToolTipPresentation.FontSize', 'x:Static shared:ToolTipPresentation.MaximumWidth')
+    }
+    foreach ($required in $sizeMarkers) {
         if (-not $xamlText.Contains($required)) {
             throw "${relativeXamlPath}: fixed shared tooltip marker is missing: $required"
         }

@@ -32,7 +32,7 @@ trap cleanup EXIT
 
 create_fixture() {
     local name=$1
-    local version=${2:-2.2.0}
+    local version=${2:-9.8.7}
     local game="$TEST_ROOT/$name/Stronghold Crusader Definitive Edition"
     mkdir -p -- "$game/BepInEx/tools/LinuxModding"
     mkdir -p -- "$game/BepInEx/plugins/000shcdese/data"
@@ -41,7 +41,11 @@ create_fixture() {
     printf 'test proxy\n' > "$game/winhttp.dll"
     printf 'test core\n' > "$game/BepInEx/core/BepInEx.dll"
     printf 'test extender\n' > "$game/BepInEx/plugins/000shcdese/SHCDESE.dll"
-    printf '{"Version":"%s"}\n' "$version" > "$game/BepInEx/plugins/000shcdese/info.json"
+    if [[ "$version" == '__missing__' ]]; then
+        printf '{}\n' > "$game/BepInEx/plugins/000shcdese/info.json"
+    else
+        printf '{"Version":"%s"}\n' "$version" > "$game/BepInEx/plugins/000shcdese/info.json"
+    fi
     printf '#!/usr/bin/env bash\n' > "$game/BepInEx/plugins/000shcdese/data/mod-updater.sh"
     printf 'test native patch\n' > "$game/BepInEx/plugins/000shcdese/libredbird_thread_patch.so"
     cp -- "$SOURCE_LAUNCHER" "$game/BepInEx/tools/LinuxModding/shcde-linux-launcher.sh"
@@ -73,22 +77,22 @@ PRESERVE_STATE="$TEST_ROOT/preserve-state"
 mkdir -p -- "$PRESERVE_STATE"
 run_launcher "$PRESERVE_GAME" "$PRESERVE_STATE" env WINEDLLOVERRIDES=dxgi=n,b FAKE_REQUIRE_EXISTING=1
 
-printf 'TEST 3/7: checker accepts official 2.2.0 updater files\n'
+printf 'TEST 3/7: checker accepts complete official updater files\n'
 CHECK_GAME=$(create_fixture checker)
 CHECK_OUTPUT=$(bash "$CHECK_GAME/BepInEx/tools/LinuxModding/install-linux.sh") || die 'Checker rejected a complete official fixture.'
 grep -Fq 'bash "./BepInEx/tools/LinuxModding/shcde-linux-launcher.sh" %command%' <<< "$CHECK_OUTPUT" || die 'Checker did not print the launcher-only Steam option.'
 grep -Fq 'installs no plugin and replaces no updater' <<< "$CHECK_OUTPUT" || die 'Checker did not state its limited ownership.'
 
-printf 'TEST 4/7: checker accepts a newer Script Extender version\n'
-NEWER_GAME=$(create_fixture newer-version 2.3.0)
-if ! bash "$NEWER_GAME/BepInEx/tools/LinuxModding/install-linux.sh" >/dev/null; then
-    die 'Checker rejected a newer Script Extender version.'
+printf 'TEST 4/7: checker does not invent a local minimum version\n'
+ARBITRARY_GAME=$(create_fixture arbitrary-version 0.0.1)
+if ! bash "$ARBITRARY_GAME/BepInEx/tools/LinuxModding/install-linux.sh" >/dev/null; then
+    die 'Checker invented a minimum Script Extender version.'
 fi
 
-printf 'TEST 5/7: checker rejects an Extender older than 2.2.0\n'
-WRONG_GAME=$(create_fixture wrong-version 2.0.2)
-if bash "$WRONG_GAME/BepInEx/tools/LinuxModding/install-linux.sh" >/dev/null 2>&1; then
-    die 'Checker accepted the wrong Script Extender version.'
+printf 'TEST 5/7: checker ignores an undefined manifest version\n'
+UNDEFINED_GAME=$(create_fixture undefined-version __missing__)
+if ! bash "$UNDEFINED_GAME/BepInEx/tools/LinuxModding/install-linux.sh" >/dev/null; then
+    die 'Checker rejected an undefined, unconstrained Script Extender version.'
 fi
 
 printf 'TEST 6/7: checker rejects a missing official Unix updater\n'

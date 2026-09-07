@@ -225,5 +225,6 @@
       <Link>TroopActionButtonLayoutPolicy.cs</Link>
     </Compile>
   </ItemGroup>
+  <ItemGroup><Compile Include="FearFactorPresetTests.cs" /></ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

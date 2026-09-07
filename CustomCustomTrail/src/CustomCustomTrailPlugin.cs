@@ -15,7 +15,7 @@ namespace CustomCustomTrail
     {
         public const string PluginGuid = "CustomCustomTrail_Serp";
         public const string PluginName = "Custom Custom Trail";
-        public const string PluginVersion = "1.3.48";
+        public const string PluginVersion = "1.3.49";
         public const bool CustomCustomTrailModSettingsOptOut = true;
 
         private static CustomCustomTrailRuntime runtime;
@@ -49,7 +49,6 @@ namespace CustomCustomTrail
                 Settings.RuntimeActivationChanged += runtime.SetEnabled;
                 Plugin.ModSettingsHubViewModel.PropertyChanged += (_, __) =>
                 {
-                    runtime?.RefreshPackageCatalog();
                     runtime?.RefreshModCompatibility();
                 };
             }

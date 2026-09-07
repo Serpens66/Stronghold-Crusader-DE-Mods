@@ -2,14 +2,14 @@
 
 This optional helper makes the initial setup of BepInEx and the latest SHCDE Script Extender easier on Linux with Proton. It is not a BepInEx mod and does not replace or intercept any Script Extender function.
 
-Script Extender 2.2.0 natively handles Wine detection, host-path translation, Workshop staging, updates and removals, waiting for the game to exit, and restarting it through Steam. The helper only checks the required files and supplies the `winhttp` Wine override needed to load BepInEx.
+The Script Extender natively handles Wine detection, host-path translation, Workshop staging, updates and removals, waiting for the game to exit, and restarting it through Steam. The helper only checks the required files and supplies the `winhttp` Wine override needed to load BepInEx.
 
 ## Requirements
 
 - A 64-bit Linux system with the Linux Steam client
 - Stronghold Crusader: Definitive Edition running through a current stable Proton version
 - The Windows SHCDE BepInEx 5 package
-- The latest SHCDE Script Extender release (version 2.2.0 or newer)
+- The latest SHCDE Script Extender release
 
 Only install code mods from authors you trust. BepInEx mods execute code with the permissions of your user account.
 
@@ -49,7 +49,7 @@ If the updater cannot locate `xdg-open` or `steam`, it applies the changes but a
 
 ### Script Extender or Workshop updates fail
 
-- Install the complete latest official archive again if the Extender is older than 2.2.0 or if `SHCDESE.dll`, `info.json`, `data/mod-updater.sh`, or `libredbird_thread_patch.so` is missing.
+- Install the complete latest official archive again if `SHCDESE.dll`, `info.json`, `data/mod-updater.sh`, or `libredbird_thread_patch.so` is missing.
 - Do not manually move files from `_SE/.staging`; start the game again so the Extender can retry.
 - Ensure the game directory is writable and reachable through Wine's `Z:` drive mapping.
 - If files were updated but Steam did not reopen the game, restart it manually.

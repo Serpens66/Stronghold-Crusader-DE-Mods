@@ -45,8 +45,15 @@ internal static class Program
                     StringComparison.OrdinalIgnoreCase))
                 .Select(File.ReadAllText)));
 
-        Equal(3, Count(production, "[BepInDependency(ScriptExtenderGuid, \"2.0.2\")]"),
-            "all three runtime dependencies pin 2.0.2");
+        foreach (string mod in mods)
+        {
+            string minimum = GetManifestMinimum(root, mod);
+            if (minimum.Length == 0) continue;
+            string plugin = Directory.EnumerateFiles(Path.Combine(root, mod, "src"), "*Plugin.cs",
+                SearchOption.TopDirectoryOnly).Select(File.ReadAllText).First();
+            Assert(plugin.Contains($"[BepInDependency(ScriptExtenderGuid, \"{minimum}\")]",
+                StringComparison.Ordinal), mod + " dependency matches its manifest minimum");
+        }
         Equal(3, Count(production, "OnCrusaderLibraryLoaded(CrusaderLibraryLoadContext context)"),
             "all callbacks consume the load context");
         Equal(0, Count(production, "OnCrusaderLibraryLoaded(IntPtr"), "old callbacks are absent");
@@ -71,18 +78,24 @@ internal static class Program
         string selected = File.ReadAllText(Path.Combine(root,
             "EnemyGatePathfindingTest", "src", "SamePclBridgeDiagnostics.cs"));
         Assert(selected.Contains("SelectedUnitInfo[] selected =", StringComparison.Ordinal),
-            "selected units use the 2.0.2 result type");
+            "selected units use the manifest-selected result type");
         Assert(selected.Contains("selected[index].UnitId", StringComparison.Ordinal),
             "one-based UnitId is projected explicitly");
         Assert(!selected.Contains("int[] selected = GamePlayerManagerAPI.Instance.GetSelectedChimps()",
             StringComparison.Ordinal), "old selected-unit result type is absent");
 
-        string nativeDefinition = File.ReadAllText(Path.Combine(root,
-            "EnemyGatePathfindingTest", "src", "EnemyGatePathfindingNativeDefinition.cs"));
-        Assert(nativeDefinition.Contains("AuditedScriptExtenderVersion = \"2.0.2\"", StringComparison.Ordinal),
-            "EnemyGate audit version is current");
-        Assert(nativeDefinition.Contains("6dc82d1d92b0935abc93cd43ac16cd8ddccc5f79", StringComparison.Ordinal),
-            "EnemyGate audit commit is current");
+    }
+
+    private static string GetManifestMinimum(string root, string mod)
+    {
+        string direct = Path.Combine(root, mod, "info.json");
+        string? path = File.Exists(direct)
+            ? direct
+            : Directory.EnumerateFiles(Path.Combine(root, mod), "info.json", SearchOption.AllDirectories).FirstOrDefault();
+        if (path == null) return string.Empty;
+        Match match = Regex.Match(File.ReadAllText(path),
+            "\\\"MinimumScriptExtenderVersion\\\"\\s*:\\s*\\\"([^\\\"]*)\\\"");
+        return match.Success ? match.Groups[1].Value : string.Empty;
     }
 
     private static void VerifyManifests(string root)
@@ -187,7 +200,8 @@ internal static class Program
         string? current = AppContext.BaseDirectory;
         while (current != null)
         {
-            if (File.Exists(Path.Combine(current, "UpdatePlan-SHCDESE-2.0.2.md"))) return current;
+            if (File.Exists(Path.Combine(current, "AGENTS.md")) &&
+                Directory.Exists(Path.Combine(current, "EnemyGatePathfindingTest"))) return current;
             current = Directory.GetParent(current)?.FullName;
         }
         throw new DirectoryNotFoundException("Workspace root not found.");

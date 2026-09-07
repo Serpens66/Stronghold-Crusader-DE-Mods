@@ -62,8 +62,6 @@ int cleanupClear = cleanup.IndexOf("ClearPrivateTribeTracking", StringComparison
 Check(cleanupUnassign >= 0 && cleanupDelete > cleanupUnassign && cleanupClear > cleanupDelete,
     "rollback unassigns, deletes, then clears tracking");
 
-Check(plugin.Contains("[BepInDependency(ScriptExtenderGuid, \"2.0.2\")]", StringComparison.Ordinal),
-    "exact SHCDESE dependency");
 Check(plugin.Contains("OnCrusaderLibraryLoaded(CrusaderLibraryLoadContext context)", StringComparison.Ordinal),
     "LoadContext callback");
 Check(plugin.IndexOf("InstallNative(context);", StringComparison.Ordinal) <
@@ -75,7 +73,7 @@ Check(IsValidGameId(4500, 4500), "last game ID accepted");
 Check(!IsValidGameId(0, 4500), "zero game ID rejected");
 Check(!IsValidGameId(4501, 4500), "past-last game ID rejected");
 
-Console.WriteLine($"PASS: AIDefense 2.0.2 unassign contract ({assertions} assertions).");
+Console.WriteLine($"PASS: AIDefense unassign contract ({assertions} assertions).");
 return;
 
 void Check(bool condition, string name)
@@ -95,7 +93,7 @@ string FindRepositoryRoot()
     while (directory != null)
     {
         if (Directory.Exists(Path.Combine(directory.FullName, "AIDefense")) &&
-            File.Exists(Path.Combine(directory.FullName, "UpdatePlan-SHCDESE-2.0.2.md")))
+            File.Exists(Path.Combine(directory.FullName, "AGENTS.md")))
         {
             return directory.FullName;
         }

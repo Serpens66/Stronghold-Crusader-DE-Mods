@@ -1,13 +1,12 @@
 using Iced.Intel;
 using System;
 
-namespace FearFactorNeutralizationTest
+namespace ExtraFeatures
 {
     internal static class FearFactorNativeDefinition
     {
         internal const string ReferenceSha256 =
             "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2";
-        internal const string AuditedScriptExtenderVersion = "2.3.0";
         internal const string AuditedScriptExtenderCommit =
             "a0cd52993b44a6909d4f7f6a92f82fa5888a8e63";
         internal const ulong PreferredImageBase = 0x180000000;
@@ -20,10 +19,10 @@ namespace FearFactorNeutralizationTest
             "83 C0 14 0F AF C2 8D 0C 80 B8 1F 85 EB 51 F7 E9 C1 FA 05 8B " +
             "C2 C1 E8 1F 03 C2 C3";
 
-        internal const int MeleeCallerStartRva = 0x192750;
-        internal const int MeleeCallerLength = 4664;
-        internal const int ProjectileCallerStartRva = 0x199110;
-        internal const int ProjectileCallerLength = 2189;
+        internal const int MeleeCallerStartRva = 0x199110;
+        internal const int MeleeCallerLength = 2189;
+        internal const int ProjectileCallerStartRva = 0x192750;
+        internal const int ProjectileCallerLength = 4664;
 
         internal const int UiPatternRva = 0x1A19F2;
         internal const int UnitOverlayFunctionRva = 0x1A13C0;
@@ -31,6 +30,8 @@ namespace FearFactorNeutralizationTest
         internal const int UiFearLoadOffset = 7;
         internal const int UiFearLoadRva = UiPatternRva + UiFearLoadOffset;
         internal const int UiFearLoadLength = 7;
+        internal const int UiHookRva = UiPatternRva;
+        internal const int UiHookLength = 14;
         internal const string UiFearLoadPattern =
             "49 69 CA 3C 58 00 00 8B 84 39 04 CF 79 03 85 C0 74 2A 6B D0 0B";
 
@@ -47,8 +48,8 @@ namespace FearFactorNeutralizationTest
                 imageBase,
                 UnitOverlayFunctionRva,
                 UnitOverlayFunctionLength,
-                UiFearLoadRva,
-                checked(UiFearLoadRva + UiFearLoadLength),
+                UiHookRva,
+                checked(UiHookRva + UiHookLength),
                 "fear-factor unit-overlay load");
         }
 
@@ -115,10 +116,18 @@ namespace FearFactorNeutralizationTest
             if (!Shared.NativePatternResolver.MatchesPatternAt(memory, UiPatternRva, UiFearLoadPattern))
                 throw new InvalidOperationException("The fear-factor unit-overlay sequence changed.");
 
-            Decoder decoder = CreateDecoder(memory, imageBase, UiFearLoadRva, 16);
+            Decoder decoder = CreateDecoder(memory, imageBase, UiHookRva, 20);
+            decoder.Decode(out Instruction stride);
             decoder.Decode(out Instruction load);
             decoder.Decode(out Instruction test);
-            if (load.IsInvalid || test.IsInvalid ||
+            if (stride.IsInvalid || stride.Length != 7 ||
+                stride.Mnemonic != Mnemonic.Imul || stride.Op0Register != Register.RCX ||
+                stride.Op1Register != Register.R10 || stride.Op2Kind != OpKind.Immediate32to64 ||
+                stride.Immediate32 != 0x583C || stride.IsIPRelativeMemoryOperand ||
+                stride.FlowControl != FlowControl.Next ||
+                stride.Length + load.Length != UiHookLength ||
+                test.IP != imageBase + (ulong)(UiHookRva + UiHookLength) ||
+                load.IsInvalid || test.IsInvalid ||
                 load.Length != UiFearLoadLength ||
                 load.Mnemonic != Mnemonic.Mov ||
                 load.Op0Kind != OpKind.Register || load.Op0Register != Register.EAX ||

@@ -41,6 +41,18 @@ namespace BugfixesAndQoL
                 var reset=field.Resolve(new[]{0},new[]{80},normal,end);
                 Check(reset[0]==-1,"new command terrain resets shared field");
             }
+            var budgetField = new MoatCandidateField(40, 40);
+            MoatSearchEdge open = (int f, int t, int d, out bool m, out bool st) =>
+            { m = st = false; return true; };
+            int[] budgeted = budgetField.Resolve(
+                new[] { 0 }, new[] { 1599 }, open, open, maximumExpanded: 32,
+                maximumDistance: 2000);
+            Check(budgeted[0] == -1 && budgetField.BudgetExceeded &&
+                budgetField.Expanded == 32,
+                "shared field stops deterministically at the Fast node budget");
+            int[] exact = budgetField.Resolve(new[] { 0 }, new[] { 1599 }, open, open);
+            Check(exact[0] >= 0 && !budgetField.BudgetExceeded,
+                "unlimited shared field retains Exact behavior");
             Console.WriteLine($"PASS: {comparisons} independent building-field distances, directed terminal edges and fresh-state reuse.");
         }
 
@@ -92,6 +104,7 @@ namespace BugfixesAndQoL
                 Check(!kernel.Search(0,24,1,5,maximum,false,false,null,true,out _),"new terrain invalidates positive field");
             }
             LongReachability();
+            DeterministicBudget();
             ProfilePool();
             GroupPipelinePerformance();
             Performance();
@@ -137,6 +150,20 @@ namespace BugfixesAndQoL
                 "topological reachability beyond native 2000 directions");
             Check(!k.Search(0,2501,1,1,2000,false,false,null,true,out _),"native buffer capacity remains enforced");
             Check(k.Search(0,2000,1,1,2000,false,false,null,true,out _),"exact buffer boundary");
+        }
+
+        private static void DeterministicBudget()
+        {
+            bool Edge(int from,int to,int d,out bool wet,out bool structure)
+            { wet=false;structure=false;return true; }
+            var limited=new MoatSearchKernel(200,200,Edge);
+            Check(!limited.Search(0,39999,1,1,2000,false,false,null,false,out _,32) &&
+                limited.LastSearchBudgetExceeded && limited.Expanded==32,
+                "fixed expansion budget aborts deterministically");
+            var exact=new MoatSearchKernel(200,200,Edge);
+            Check(exact.Search(0,39999,1,1,2000,false,false,null,false,out _) &&
+                !exact.LastSearchBudgetExceeded,
+                "unlimited exact search remains available");
         }
 
         private static void ProfilePool()

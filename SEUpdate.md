@@ -94,7 +94,7 @@ Historische Ghidra-Exporte werden bei reinen Extender-Updates nicht neu erzeugt.
 
 ## 5. Metadaten und Versionen anpassen
 
-1. Das maßgebliche `info.json` ist die gebündelte Quelle für `MinimumScriptExtenderVersion` und `MaximumScriptExtenderVersion`. Der zentrale Treiber validiert beide Werte, prüft, ob die Zielversion im Bereich liegt, und gleicht `BepInDependency` automatisch an das Minimum an. Modtests dürfen die Extender-Version nicht erneut als Literal führen, sondern müssen den erwarteten Bereich aus dem Manifest lesen.
+1. Das maßgebliche `info.json` ist die gebündelte Quelle für `MinimumScriptExtenderVersion` und `MaximumScriptExtenderVersion`. Der zentrale Treiber validiert jeden vorhandenen Grenzwert, prüft, ob die Zielversion im definierten Bereich liegt, und gleicht `BepInDependency` automatisch an ein vorhandenes Minimum an. Fehlen beide Felder oder sind beide leer, besteht für diesen Mod keine Extender-Versionsbedingung und die Versionsprüfung wird vollständig übersprungen. Modtests dürfen die Extender-Version nicht erneut als Literal führen, sondern müssen vorhandene Grenzen aus dem Manifest lesen und fehlende Grenzen ebenfalls ignorieren.
 2. Vor einer Modversionsänderung modweit alle aktiven Vorkommen der alten Version suchen. Patchversionen nur erhöhen, wenn der Benutzer dies festgelegt hat oder die Anpassung final freigegeben ist.
 3. Version atomar in Plugin-Konstanten, Quellmanifesten, Manifest-/Build-/Releasekonfigurationen und sonstigen aktiven Metadaten ändern.
 4. Einen neuen obersten `SerpChangelog`-Eintrag mit derselben neuen Modversion anlegen. Historische Einträge nicht umschreiben.

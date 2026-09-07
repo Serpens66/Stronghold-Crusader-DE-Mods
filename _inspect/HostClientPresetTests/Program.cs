@@ -26,6 +26,7 @@ internal static class Program
     {
         try
         {
+            FearFactorPresetTests.Run();
             TestLobbySettingsRouting();
             TestSharedPerPlayerLobbyConvergence();
             TestSharedLobbyLifecycle();
@@ -337,7 +338,7 @@ internal static class Program
             conflicting.PreparePresets(null, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Conflicting.dll"), "ConflictingTest");
             Check(conflicting.HasHostSettings && !conflicting.HasClientSettings, "SyncHostOnly did not take precedence over a conflicting client attribute");
 
-            Console.WriteLine("PASS: 2.0.2 routing, authority, game modes, Trail/client locks, presets, and MessagePack sentinels");
+            Console.WriteLine("PASS: routing, authority, game modes, Trail/client locks, presets, and MessagePack sentinels");
             return 0;
         }
         catch (Exception exception)
@@ -1722,11 +1723,11 @@ internal static class Program
             Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", ".."));
         string[,] mods =
         {
-            { "BuildingCosts", "BuildingCostsPlugin.cs", "BuildingCosts_Serp", "1.0.100" },
-            { "BuildingLimit", "BuildingLimitPlugin.cs", "BuildingLimit_Serp", "1.0.18" },
-            { "CheatMod", "CheatModPlugin.cs", "CheatMod_Serp", "1.0.5" },
-            { "UnitCosts", "UnitCostsPlugin.cs", "UnitCosts_Serp", "1.0.22" },
-            { "UnitLimit", "UnitLimitPlugin.cs", "UnitLimit_Serp", "1.0.92" },
+            { "BuildingCosts", "BuildingCostsPlugin.cs", "BuildingCosts_Serp" },
+            { "BuildingLimit", "BuildingLimitPlugin.cs", "BuildingLimit_Serp" },
+            { "CheatMod", "CheatModPlugin.cs", "CheatMod_Serp" },
+            { "UnitCosts", "UnitCostsPlugin.cs", "UnitCosts_Serp" },
+            { "UnitLimit", "UnitLimitPlugin.cs", "UnitLimit_Serp" },
         };
 
         for (int index = 0; index < mods.GetLength(0); index++)
@@ -1750,18 +1751,23 @@ internal static class Program
                 "info.json");
             var manifest = DependencyFreeJson.Parse(File.ReadAllText(manifestPath))
                 as Dictionary<string, object>;
+            string minimumExtenderVersion = string.Empty;
+            if (manifest != null &&
+                manifest.TryGetValue("MinimumScriptExtenderVersion", out object minimumValue))
+            {
+                minimumExtenderVersion = minimumValue as string ?? string.Empty;
+            }
 
-            Check(pluginSource.Contains("[BepInDependency(ScriptExtenderGuid, \"2.0.2\")]") &&
+            Check((minimumExtenderVersion.Length == 0 ||
+                   pluginSource.Contains($"[BepInDependency(ScriptExtenderGuid, \"{minimumExtenderVersion}\")]")) &&
                   pluginSource.Contains("OnCrusaderLibraryLoaded(CrusaderLibraryLoadContext context)") &&
                   !pluginSource.Contains("OnCrusaderLibraryLoaded(IntPtr") &&
                   !projectSource.Contains("Zhuqiaomon"),
-                mod + " does not use the clean Script Extender 2.0.2 load contract");
+                mod + " does not use the manifest-selected Script Extender load contract");
             Check(manifest != null &&
                   manifest.TryGetValue("NetworkMode", out object networkMode) &&
-                  Convert.ToInt64(networkMode) == 1 &&
-                  manifest.TryGetValue("Version", out object version) &&
-                  string.Equals(version as string, mods[index, 3], StringComparison.Ordinal),
-                mod + " manifest has inconsistent NetworkMode or version metadata");
+                  Convert.ToInt64(networkMode) == 1,
+                mod + " manifest has inconsistent NetworkMode metadata");
         }
 
         string buildingLimitCache = File.ReadAllText(Path.Combine(
@@ -3587,7 +3593,7 @@ internal static class Program
             Check(source.Contains("BugfixesAndQoLChoreSender.TrySend(") &&
                   source.Contains("GameNetworkAPI.Serialize(value)") &&
                   source.Contains("GameNetworkAPI.SendPacketToAllEx2(value, id, viaChore: true)"),
-                fileName + " does not use the fail-closed 2.0.2 Chore sender contract");
+                fileName + " does not use the fail-closed Chore sender contract");
             Check(!source.Contains("ChoreNetworkTransport") && !source.Contains("SendRawBlob"),
                 fileName + " retains the removed raw Chore transport");
         }
@@ -3669,7 +3675,7 @@ internal static class Program
             Check(source.Contains("ExtraFeaturesChoreSender.TrySend(") &&
                   source.Contains("GameNetworkAPI.Serialize(value)") &&
                   source.Contains("GameNetworkAPI.SendPacketToAllEx2(value, id, viaChore: true)"),
-                fileName + " does not use the fail-closed 2.0.2 Chore sender contract");
+                fileName + " does not use the fail-closed Chore sender contract");
             Check(!source.Contains("ChoreNetworkTransport") && !source.Contains("SendRawBlob"),
                 fileName + " retains the removed raw Chore transport");
         }
@@ -3687,7 +3693,7 @@ internal static class Program
         string knight = File.ReadAllText(Path.Combine(workspaceRoot, "ExtraFeatures", "src", "KnightDismountRuntime.cs"));
         Check(knight.Contains("SelectedUnitInfo[] selected") && knight.Contains("selected[index].UnitId") &&
               !knight.Contains("return GamePlayerManagerAPI.Instance.GetSelectedChimps();"),
-            "ExtraFeatures selected-unit wrapper does not project 2.0.2 UnitId values in order");
+            "ExtraFeatures selected-unit wrapper does not project UnitId values in order");
         string gatehouse = File.ReadAllText(Path.Combine(workspaceRoot, "ExtraFeatures", "src", "GatehouseAutomationRuntime.cs"));
         Check(gatehouse.Contains("TryValidateGameId(") && gatehouse.Contains("int eventUnitId = args.UnitId;") &&
               !gatehouse.Contains("TryConvertSpanIndexToGameId") && !gatehouse.Contains("unitSpanIndex"),
@@ -3829,7 +3835,7 @@ internal static class Program
     private static void TestMultiplayerGameSpeedPolicyAndPacket()
     {
         Check(MultiplayerGameSpeedPolicy.MaximumSpeed == 1500,
-            "Script Extender 2.0.2 default maximum game speed is not 1500");
+            "Script Extender default maximum game speed is not 1500");
         Check(MultiplayerGameSpeedPolicy.ProtocolVersion == 2,
             "multiplayer time-control protocol is not version 2");
 

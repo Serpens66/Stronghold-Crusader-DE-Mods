@@ -39,30 +39,38 @@ namespace SerpsModsHost
                 MaximumVersion = NormalizeDisplay(maximumVersion)
             };
 
+            bool hasMinimum = !string.IsNullOrWhiteSpace(minimumVersion);
+            bool hasMaximum = !string.IsNullOrWhiteSpace(maximumVersion);
+            if (!hasMinimum && !hasMaximum)
+            {
+                result.Status = ScriptExtenderCompatibilityStatus.Compatible;
+                return result;
+            }
+
             if (!TryParseComparableVersion(installedVersion, out Version installed))
             {
                 result.Status = ScriptExtenderCompatibilityStatus.InvalidInstalledVersion;
                 return result;
             }
-            if (!TryParseComparableVersion(minimumVersion, out Version minimum))
+            Version minimum = null;
+            if (hasMinimum && !TryParseComparableVersion(minimumVersion, out minimum))
             {
                 result.Status = ScriptExtenderCompatibilityStatus.InvalidMinimumVersion;
                 return result;
             }
 
             Version maximum = null;
-            if (!string.IsNullOrWhiteSpace(maximumVersion) &&
-                !TryParseComparableVersion(maximumVersion, out maximum))
+            if (hasMaximum && !TryParseComparableVersion(maximumVersion, out maximum))
             {
                 result.Status = ScriptExtenderCompatibilityStatus.InvalidMaximumVersion;
                 return result;
             }
-            if (maximum != null && minimum > maximum)
+            if (minimum != null && maximum != null && minimum > maximum)
             {
                 result.Status = ScriptExtenderCompatibilityStatus.InvalidRange;
                 return result;
             }
-            if (installed < minimum)
+            if (minimum != null && installed < minimum)
             {
                 result.Status = ScriptExtenderCompatibilityStatus.BelowMinimum;
                 return result;

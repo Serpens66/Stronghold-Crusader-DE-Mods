@@ -56,6 +56,10 @@ namespace ExtraFeatures
             string plague = File.ReadAllText(Path.Combine(sourceDirectory, "PlagueDurationPatch.cs"));
             string monk = File.ReadAllText(Path.Combine(sourceDirectory, "MonkAlwaysRunPatch.cs"));
             string gatehouseTiming = File.ReadAllText(Path.Combine(sourceDirectory, "GatehouseTimingPatch.cs"));
+            string manifest = File.ReadAllText(Path.Combine(workspace, "ExtraFeatures", "info.json"));
+            Match minimumMatch = Regex.Match(manifest,
+                "\\\"MinimumScriptExtenderVersion\\\"\\s*:\\s*\\\"([^\\\"]*)\\\"");
+            string minimumExtenderVersion = minimumMatch.Success ? minimumMatch.Groups[1].Value : string.Empty;
 
             Check(!production.Contains("Zhuqiaomon") && !project.Contains("Zhuqiaomon"),
                 "P7a removed Zhuqiaomon source and project references");
@@ -67,15 +71,16 @@ namespace ExtraFeatures
                   project.Contains("<Reference Include=\"RedBird.X64\"") &&
                   !project.Contains("PolyHook2.NET"),
                 "P7a project references the Script Extender RedBird assemblies without PolyHook2.NET");
-            Check(plugin.Contains("[BepInDependency(ScriptExtenderGuid, \"2.0.2\")]") &&
+            Check((string.IsNullOrEmpty(minimumExtenderVersion) ||
+                   plugin.Contains($"[BepInDependency(ScriptExtenderGuid, \"{minimumExtenderVersion}\")]") ) &&
                   plugin.Contains("OnCrusaderLibraryLoaded(CrusaderLibraryLoadContext context)"),
-                "P7a declares an exact 2.0.2 dependency and consumes the load context");
+                "P7a dependency matches its manifest minimum and consumes the load context");
             Check(runtime.Contains("context.ModuleHandle") && runtime.Contains("context.Memory") &&
                   runtime.Contains("context.Region") && !production.Contains("nativeRegion.Dispose()") &&
                   !production.Contains("context.Region.Dispose()"),
                 "P7a borrows all native load-context values without disposing the ScanRegion");
-            Check(Regex.Matches(production, @"new\s+(?:DetourHandle|HookHandle)<").Count == 8,
-                "P7a owns the audited eight RedBird hook handles");
+            Check(Regex.Matches(production, @"new\s+(?:DetourHandle|HookHandle)<").Count == 10,
+                "ExtraFeatures owns ten audited RedBird handles including the two fear-factor hooks");
             Check(Regex.Matches(production, @"CommitResult\s+commitResult\s*=\s*[^;]+\.Commit\(\)").Count == 6 &&
                   Regex.Matches(production, @"!commitResult\.IsCompleteSuccess").Count == 6,
                 "P7a checks all six aggregate transaction results");
@@ -97,7 +102,8 @@ namespace ExtraFeatures
             DirectoryInfo directory = new DirectoryInfo(Environment.CurrentDirectory);
             while (directory != null)
             {
-                if (File.Exists(Path.Combine(directory.FullName, "UpdatePlan-SHCDESE-2.0.2.md")))
+                if (File.Exists(Path.Combine(directory.FullName, "AGENTS.md")) &&
+                    Directory.Exists(Path.Combine(directory.FullName, "ExtraFeatures")))
                     return directory.FullName;
                 directory = directory.Parent;
             }

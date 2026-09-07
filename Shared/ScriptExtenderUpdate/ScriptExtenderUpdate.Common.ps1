@@ -29,7 +29,8 @@ function Assert-SEManifestExtenderRange([object]$Manifest, [string]$TargetVersio
     $minimum = $null
     $maximum = $null
     $target = $null
-    if (-not [version]::TryParse($minimumText, [ref]$minimum)) {
+    if (-not $minimumText -and -not $maximumText) { return }
+    if ($minimumText -and -not [version]::TryParse($minimumText, [ref]$minimum)) {
         throw "$ModName has an invalid MinimumScriptExtenderVersion: '$minimumText'."
     }
     if (-not [version]::TryParse($TargetVersion, [ref]$target)) {
@@ -39,14 +40,14 @@ function Assert-SEManifestExtenderRange([object]$Manifest, [string]$TargetVersio
         if (-not [version]::TryParse($maximumText, [ref]$maximum)) {
             throw "$ModName has an invalid MaximumScriptExtenderVersion: '$maximumText'."
         }
-        if ($maximum -lt $minimum) {
+        if ($minimumText -and $maximum -lt $minimum) {
             throw "$ModName has a maximum Script Extender version below its minimum."
         }
         if ($target -gt $maximum) {
             throw "$ModName excludes target Script Extender $TargetVersion through MaximumScriptExtenderVersion $maximumText."
         }
     }
-    if ($target -lt $minimum) {
+    if ($minimumText -and $target -lt $minimum) {
         throw "$ModName requires Script Extender $minimumText or newer, but the target is $TargetVersion."
     }
 }

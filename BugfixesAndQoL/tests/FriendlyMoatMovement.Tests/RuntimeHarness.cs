@@ -144,6 +144,8 @@ namespace BugfixesAndQoL
         private int nativeGroundEpoch, nativeGroundTick, nativeGroundPlayer;
         private bool nativeGroundProbeBusy;
         private long nativeGroundQueries, nativeGroundCacheHits;
+        private const int FastSearchNodeBudget = 16384;
+        private long fastVanillaBypasses, fastSearches;
         private int cachedReachabilityExpandedNodes, cachedTraversedRegionCount, cachedReachabilityMapHits;
         private RouteProbeSummary cachedRouteSummary;
         private BuildingConsumerPerformanceScope activeBuildingConsumerPerformance;
@@ -151,6 +153,7 @@ namespace BugfixesAndQoL
         private class Performance { public int ReachabilityCacheHits, ReachabilityMapsBuilt; }
         private class MoveCommandScope
         {
+            public bool GroupSummaryCaptured;
             internal MovementOptionsSnapshot Options = MovementOptionsSnapshot.Capture();
             internal RequiredRouteMetrics Required = new RequiredRouteMetrics();
             internal RequiredRouteCache RequiredCache = new RequiredRouteCache();
@@ -169,6 +172,20 @@ namespace BugfixesAndQoL
             public double TargetedRouteSearchMilliseconds, TargetedRouteMaximumSearchMilliseconds;
             public Dictionary<RouteDecisionKey, TargetedRouteDecision> TargetedRouteDecisions => RequiredCache.Decisions;
         }
+        private void CaptureMoveCommandGroupSummary(MoveCommandScope command)
+        { if (command != null) command.GroupSummaryCaptured = true; }
+        private bool HasFastFriendlyMoatBridge(int player, int start, int target) => true;
+        private bool HasFastFriendlyMoatBridgeForCells(int player,
+            System.Collections.Generic.IList<int> starts,
+            System.Collections.Generic.IList<int> targets) => true;
+        private bool TryProbeFastCursorRoute(int player, int start, int target, out RouteProbeSummary summary)
+        { summary = new RouteProbeSummary(player); return false; }
+        private void RecordFastSearch(WeightedMoatRouteSummary summary, long started, long nodes) { }
+        private void RecordFastFieldSearch(MoatCandidateField field, long started) { }
+        private void InvalidateFastMoatData() { }
+        private void LogAndResetFastMoatMetrics() { }
+        private static void EnsureAttackCommandCandidates(AttackCommandScope scope)
+        { if (scope != null) scope.CandidatesCaptured = true; }
         private Func<IntPtr,int,int,int> originalBuildingCursorReachability = (m,b,u)=>0;
         private Func<IntPtr,int,int> getMoatIdAtTile;
         private Func<IntPtr,int,int,int,int> originalHasFillMoatApproach;
@@ -569,7 +586,8 @@ namespace BugfixesAndQoL
             {
                 ClearUnitMoveFrames();
                 activePlan = pendingPlan = null;
-                activeMoveCommand = new MoveCommandScope { TargetX = x, TargetY = 10 };
+                activeMoveCommand = new MoveCommandScope {
+                    TargetX = x, TargetY = 10, MoatRelevant = true };
                 if(TestSettings.Settings.RouteMode==1)
                 {
                     activeMoveCommand.ActiveUnitIdsAtDispatch=System.Linq.Enumerable.Range(1,120).ToArray();
@@ -605,10 +623,19 @@ namespace BugfixesAndQoL
                     int target = formation ? 14 + id % 5 : 17;
                     Pre(id, target);
                     *moatPathMode = EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager, id);
-                    Check(*moatPathMode == 1, "native event qualifies actual formation target");
-                    Check(AllowBuilderAfterFailedRegionSearch(nativePathManager, 1, 2, 10, 10) == 2,
-                        "real unit context authorizes native region gate");
+                    Check(*moatPathMode == (TestSettings.Settings.RouteMode==1 ? 0 : 1),
+                        "fast defers while exact may qualify at the native mode event");
+                    Check(AllowBuilderAfterFailedRegionSearch(nativePathManager, 1, 2, 10, 10) ==
+                        (TestSettings.Settings.RouteMode==1 ? 0 : 2),
+                        "fast leaves the region gate native until a proven failure");
                     SetBuilder(id, target);
+                    if(TestSettings.Settings.RouteMode==1)
+                    {
+                        movementTargetAvailability[10 * MapWidth + target] = 1;
+                        GetNativeMovementStart(units + id, out int recoveryStartX, out int recoveryStartY);
+                        Check(TryRecoverBeforeBuilder((IntPtr)nativeUnitManager,id,recoveryStartX,recoveryStartY,target,10)==1,
+                            $"fast qualifies only at the validated pre-builder failure ({unitMoveFrame?.RecoveryRejection})");
+                    }
                     PlanScope request = unitMoveFrame.Plan;
                     Check(request.UnitId == id && request.TargetX == target && activeMoveCommand.TargetX == 17,
                         "request identity is separate from click target");
@@ -732,6 +759,9 @@ namespace BugfixesAndQoL
             Pre(1, 17);
             *moatPathMode = EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager, 1);
             SetBuilder(1, 17, 11);
+            if (TestSettings.Settings.RouteMode == 1)
+                Check(TryRecoverBeforeBuilder((IntPtr)nativeUnitManager, 1, 11, 10, 17, 10) == 1,
+                    "moving unit qualifies only after the native failure");
             Check(unitMoveFrame.Plan.RouteStartX == 11 && BuildPathWithCompletedMoatRouteVariantCore(nativePathManager, 1, 1) == 6,
                 "moving unit qualifies and publishes from native next tile");
             Post(1, 17);
@@ -805,6 +835,9 @@ namespace BugfixesAndQoL
                 ReferenceEquals(unitMoveFrame.Plan.MoatWorkSearch, workSource.MoatWorkSearch),
                 "matching work handoff retains work identity and shared selection graph");
             SetBuilder(1, 17);
+            if (TestSettings.Settings.RouteMode == 1)
+                Check(TryRecoverBeforeBuilder((IntPtr)nativeUnitManager, 1, 10, 10, 17, 10) == 1,
+                    "work handoff is recovered after the native failure");
             Check(BuildPathWithCompletedMoatRouteVariant(nativePathManager, 1, 1) == 7 && pendingPlan == null,
                 "actual wrapper consumes copied work handoff after builder");
             Post(1, 17);
@@ -830,10 +863,34 @@ namespace BugfixesAndQoL
             Check(!unitMoveFrame.Plan.AttackMovementQualified, "different request target cannot inherit old attack context");
             Post(1, 18);
 
+            if (TestSettings.Settings.RouteMode == 1)
+            {
+                NewCommand();
+                activeMoveCommand.MoatRelevant = false;
+                Pre(1, 17);
+                *moatPathMode = EnableCompletedMoatModeForScopedMovement(
+                    (IntPtr)nativeUnitManager, 1);
+                long fastRecruitRuns = weightedMoatRoutePlanner.SearchRuns;
+                Check(TryRecoverBeforeBuilder((IntPtr)nativeUnitManager, 1,
+                    10, 10, 17, 10) == 0 &&
+                    weightedMoatRoutePlanner.SearchRuns == fastRecruitRuns &&
+                    unitMoveFrame.RecoveryRejection == "unbound-fast-unit-move",
+                    "Fast-Recruit-style scoped move cannot start a moat search");
+                Post(1, 17, 0);
+            }
+
             NewCommand(); activeMoveCommand = null;
             Pre(1, 17);
             *moatPathMode = EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager, 1);
             SetBuilder(1, 12);
+            if (TestSettings.Settings.RouteMode == 1)
+            {
+                long unboundSearchRuns = weightedMoatRoutePlanner.SearchRuns;
+                Check(TryRecoverBeforeBuilder((IntPtr)nativeUnitManager, 1, 10, 10, 17, 10) == 0 &&
+                    weightedMoatRoutePlanner.SearchRuns == unboundSearchRuns &&
+                    unitMoveFrame.RecoveryRejection == "unbound-fast-unit-move",
+                    "unbound Fast-Recruit-style move cannot start a moat search");
+            }
             int beforeStandalone = nativeCalls;
             Check(BuildPathWithCompletedMoatRouteVariant(nativePathManager, 1, 1) == 0 && nativeCalls == beforeStandalone + 1,
                 "standalone intermediate also restores vanilla mode without group context");
@@ -851,20 +908,29 @@ namespace BugfixesAndQoL
             {
                 Pre(id,17);
                 *moatPathMode=EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager,id);
-                Check(*moatPathMode==0 && unitMoveFrame.Plan.NativeGroundPrecheck,"PCL positive defers to vanilla");
-                Check(*(int*)(manager+0xC0)==41 && *(int*)(manager+0xC4)==42 && *(int*)(manager+0x98)==43,
-                    "native precheck restores every documented scratch value");
+                if (TestSettings.Settings.RouteMode == 1)
+                {
+                    Check(*moatPathMode==0 && !unitMoveFrame.Plan.NativeGroundPrecheck,
+                        "fast defers directly to vanilla without duplicating E2610");
+                    Check(*(int*)(manager+0xC0)==41 && *(int*)(manager+0xC4)==42 && *(int*)(manager+0x98)==43,
+                        "fast leaves every native PCL scratch value untouched");
+                }
                 SetBuilder(id,17);
+                Check(TryRecoverBeforeBuilder((IntPtr)nativeUnitManager,id,10,10,17,10)==1,
+                    "native failure performs the late moat qualification");
                 Check(BuildPathWithCompletedMoatRouteVariant(nativePathManager,1,1)==7,
                     "failed vanilla path still receives exact late moat qualification");
                 Post(id,17);
             }
-            Check(pclCalls==1,"group shares native PCL precheck");
+            if (TestSettings.Settings.RouteMode == 1)
+                Check(pclCalls==0,"fast performs no duplicate native PCL precheck");
             // Positive second-phase E2610 answers only describe a blocked portal route.
             NewCommand();
             originalRegionPairReachability=(p,player,source,target,mode)=> { *(int*)(manager+0x98)=1; return target; };
             Pre(1,17); *moatPathMode=EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager,1);
-            Check(!unitMoveFrame.Plan.NativeGroundPrecheck && *moatPathMode==1,"blocked portal hint cannot defer required moat admission");
+            if (TestSettings.Settings.RouteMode == 1)
+                Check(!unitMoveFrame.Plan.NativeGroundPrecheck && *moatPathMode==0,
+                    "fast does not probe or override mode before the native failure");
             Post(1,17,0);
             originalRegionPairReachability=null;
             // Model the actual native failure branch, before buffer initialization.

@@ -96,3 +96,5 @@ Common.ModSettingsSearchIncludeToolTips=Tooltips durchsuchen
 Common.ModSettingsSearchIncludeToolTipsHelp=Durchsucht zusätzlich die erklärenden Tooltips der Einstellungen.
 Common.ModSettingsSearchClearHelp=Leert den Einstellungsfilter.
 Common.ModSettingsSearchNoResults=Keine passenden Einstellungen gefunden.
+SomeSettings.EnableFearFactorNeutralization=Angstfaktor-Einfluss auf Soldaten deaktivieren
+SomeSettings.EnableFearFactorNeutralizationHelp=Angstfaktor hat keinerlei Auswirkungen mehr auf die Kampfstärke von Soldaten.

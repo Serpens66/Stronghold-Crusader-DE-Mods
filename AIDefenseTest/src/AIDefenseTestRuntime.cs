@@ -148,7 +148,7 @@ namespace AIDefenseTest
 
             try
             {
-                // Script Extender 2.2.0 forwards the public tribeId/unitId contract
+                // The Script Extender forwards the public tribeId/unitId contract
                 // to the native unitId/tribeId ABI in the correct order.
                 if (!tribeApi.UnassignUnit(tribeId, unitId))
                     return false;

@@ -28,6 +28,12 @@ string plugin = File.ReadAllText(Path.Combine(mod, "src", "ShieldTowerTestPlugin
 string feature = File.ReadAllText(Path.Combine(mod, "src", "PortableShieldClimbOverride.cs"));
 string project = File.ReadAllText(Path.Combine(mod, "ShieldTowerTest.csproj"));
 string manifest = File.ReadAllText(Path.Combine(mod, "info.json"));
+Match minimumMatch = Regex.Match(manifest,
+    "\\\"MinimumScriptExtenderVersion\\\"\\s*:\\s*\\\"([^\\\"]*)\\\"");
+Match maximumMatch = Regex.Match(manifest,
+    "\\\"MaximumScriptExtenderVersion\\\"\\s*:\\s*\\\"([^\\\"]*)\\\"");
+string minimumExtenderVersion = minimumMatch.Success ? minimumMatch.Groups[1].Value : string.Empty;
+string maximumExtenderVersion = maximumMatch.Success ? maximumMatch.Groups[1].Value : string.Empty;
 
 Check(plugin.Contains("CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded"),
     "Runtime initialization must wait for CrusaderLibrary.LibraryLoaded.");
@@ -50,9 +56,16 @@ Check(feature.Contains("SetDestinationReferenceRva = 0x196280") &&
     "Only the reconstructible native targets may be present.");
 Check(project.Contains("RedBird.Abstractions") && project.Contains("RedBird.Core") &&
       project.Contains("RedBird.X64") && !project.Contains("Zhuqiaomon"),
-    "The port must use the Script Extender 2.2.0 RedBird hook API.");
-Check(manifest.Contains("\"NetworkMode\": 1") &&
-      manifest.Contains("\"MinimumScriptExtenderVersion\": \"2.2.0\""),
-    "The gameplay test mod must require matching multiplayer installations and Script Extender 2.2.0.");
+    "The port must use the manifest-selected Script Extender RedBird hook API.");
+Check(manifest.Contains("\"NetworkMode\": 1"),
+    "The gameplay test mod must require matching multiplayer installations.");
+Check(string.IsNullOrEmpty(minimumExtenderVersion) ||
+      plugin.Contains($"[BepInDependency(ScriptExtenderGuid, \"{minimumExtenderVersion}\")]"),
+    "The plugin dependency must match the manifest minimum when one is defined.");
+Check(string.IsNullOrEmpty(maximumExtenderVersion) ||
+      (Version.TryParse(maximumExtenderVersion, out _) &&
+       (!Version.TryParse(minimumExtenderVersion, out Version minimum) ||
+        Version.Parse(maximumExtenderVersion) >= minimum)),
+    "The manifest maximum must be valid and not below its minimum when defined.");
 
 Console.WriteLine("ShieldTowerTest policy and static contract tests passed.");

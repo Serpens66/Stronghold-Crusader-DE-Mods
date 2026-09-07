@@ -254,6 +254,21 @@ namespace BugfixesAndQoL
             long started = Stopwatch.GetTimestamp(); cursorQueries++;
             try
             {
+                if (RequiredOnlyMode)
+                {
+                    bool fastNormal = IsSamePositiveGroundRegion(start, target);
+                    if (fastNormal)
+                    {
+                        fastVanillaBypasses++;
+                        summary.StartRegion = pathRegionGrid[start];
+                        summary.TargetRegion = pathRegionGrid[target];
+                        summary.AttackProbeEvaluated = true;
+                        summary.ReachedWithoutMoat = true;
+                        summary.RouteFound = true;
+                        return true;
+                    }
+                    return TryProbeFastCursorRoute(player, start, target, out summary);
+                }
                 var topology = EnsureCursorTopology(player, false);
                 int from = CursorNode(player, start), to = CursorNode(player, target);
                 // An unchanged native ground region already proves connectivity. In

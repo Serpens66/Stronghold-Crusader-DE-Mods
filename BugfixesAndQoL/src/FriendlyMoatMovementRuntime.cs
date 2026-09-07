@@ -1529,7 +1529,9 @@ namespace BugfixesAndQoL
                     activeAttackCommand?.Sequence ?? 0,
                     activeAttackCommand?.Command ?? TribeAICommand.Unknown0,
                     MovementOptionsSnapshot.Capture(settings));
-                CaptureMoveCommandGroupSummary(activeMoveCommand);
+                if (!activeMoveCommand.Options.RequiredOnly ||
+                    settings.EnableMoveFormationEnhancements)
+                    CaptureMoveCommandGroupSummary(activeMoveCommand);
                 ObserveNativeWaypointQueueAtCommand(
                     activeMoveCommand, "pre", args.TileX, args.TileY);
                 try
@@ -1669,8 +1671,11 @@ namespace BugfixesAndQoL
                             args.TargetValue1,
                             args.TargetValue2,
                             MovementOptionsSnapshot.Capture(settings));
-                        CaptureAttackCommandCandidates(activeAttackCommand);
-                        LogAttackCommandCandidates(activeAttackCommand, "pre");
+                        if (!activeAttackCommand.Options.RequiredOnly)
+                        {
+                            CaptureAttackCommandCandidates(activeAttackCommand);
+                            LogAttackCommandCandidates(activeAttackCommand, "pre");
+                        }
                     }
                 }
 
@@ -1688,7 +1693,8 @@ namespace BugfixesAndQoL
                         LogAttackCommandCandidates(scope, "post");
                         if (args.ReturnValue > 0)
                         {
-                            TrackUnitsUpdatedByAttackCommand(args, scope);
+                            if (!scope.Options.RequiredOnly || scope.CandidatesCaptured)
+                                TrackUnitsUpdatedByAttackCommand(args, scope);
                             RemoveSynchronousAttackTrackers(scope, "command-dispatched");
                         }
                         else
@@ -1757,9 +1763,9 @@ namespace BugfixesAndQoL
             TribeIssueOrderWithTargetEventArgs args,
             AttackCommandScope scope)
         {
+            EnsureAttackCommandCandidates(scope);
             int trackedCount = 0;
-            Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
-            for (int unitId = 1; unitId <= units.Length; unitId++)
+            foreach (int unitId in scope.CandidateUnitIds)
             {
                 if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
                     unit == null || unit->r_AliveState != AliveState.IsAlive ||
@@ -1780,8 +1786,13 @@ namespace BugfixesAndQoL
 
         private void CaptureAttackCommandCandidates(AttackCommandScope scope)
         {
-            Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
-            for (int unitId = 1; unitId <= units.Length; unitId++)
+            if (scope == null || scope.CandidatesCaptured)
+                return;
+            scope.CandidatesCaptured = true;
+            if (!TryCaptureOrderedActiveGroupUnits(
+                    nativeTribeManager, scope.TribeId, out int[] unitIds))
+                return;
+            foreach (int unitId in unitIds)
             {
                 if (GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) &&
                     unit != null && unit->r_AliveState == AliveState.IsAlive &&
@@ -1792,6 +1803,12 @@ namespace BugfixesAndQoL
                         scope.PreCandidateSignatures[unitId] = GetAttackCandidateSignature(unit);
                 }
             }
+        }
+
+        private void EnsureAttackCommandCandidates(AttackCommandScope scope)
+        {
+            if (scope != null && !scope.CandidatesCaptured)
+                CaptureAttackCommandCandidates(scope);
         }
 
         private void LogAttackCommandCandidates(AttackCommandScope scope, string phase)
@@ -3404,7 +3421,7 @@ namespace BugfixesAndQoL
                     : new PlanScope(unitId, targetX, targetY);
             if (activeMoveCommand != null)
                 activeMoveCommand.CentralPlannerCalls++;
-            if (activeMoveCommand == null && !plan.FriendlyRouteQualified &&
+            if (!RequiredOnlyMode && activeMoveCommand == null && !plan.FriendlyRouteQualified &&
                 !plan.OwnerRouteProbeCompleted)
             {
                 try
@@ -3621,6 +3638,9 @@ namespace BugfixesAndQoL
 
         private void CaptureMoveCommandGroupSummary(MoveCommandScope command)
         {
+            if (command == null || command.GroupSummaryCaptured)
+                return;
+            command.GroupSummaryCaptured = true;
             MoveFormationCommandSnapshotStore.Clear();
             if (command == null ||
                 !TryCaptureOrderedActiveGroupUnits(
@@ -3669,6 +3689,12 @@ namespace BugfixesAndQoL
                 command.TargetY,
                 settings.MoveFormationSpacing,
                 formationIdentities ?? Array.Empty<MoveFormationUnitIdentity>());
+        }
+
+        private void EnsureMoveCommandGroupSummary(MoveCommandScope command)
+        {
+            if (command != null && !command.GroupSummaryCaptured)
+                CaptureMoveCommandGroupSummary(command);
         }
 
         private bool TryCaptureWeightedMovementCostProfile(
@@ -3871,6 +3897,7 @@ namespace BugfixesAndQoL
             AttackCommandScope scope = activeAttackCommand;
             if (scope == null || scope.MapEpoch != mapEpoch || !IsAttackCommand(scope.Command))
                 return false;
+            EnsureAttackCommandCandidates(scope);
             if (!CanDigMoat(unit))
             {
                 rejectionReason = "unit-cannot-dig-moat";
@@ -4128,6 +4155,7 @@ namespace BugfixesAndQoL
             {
                 if (!GamePlayerManagerAPI.Instance.IsPlayerIdValid(playerId))
                     return false;
+                EnsureMoveCommandGroupSummary(command);
                 int[] unitIds = command.ActiveUnitIdsAtDispatch;
                 if (unitIds.Length == 0 ||
                     !GroupContainsCurrentPosition(unitIds, playerId, startX, startY))
@@ -4210,7 +4238,8 @@ namespace BugfixesAndQoL
                 diggers++;
                 var plan = new PlanScope(unitId, command.TargetX, command.TargetY)
                 {
-                    PlayerId = playerId
+                    PlayerId = playerId,
+                    VanillaFailureProven = RequiredOnlyMode
                 };
                 if (TryFindRequiredFriendlyCompletedMoatRouteForPlan(
                         plan, out RouteProbeSummary summary))
@@ -4283,6 +4312,8 @@ namespace BugfixesAndQoL
             try
             {
                 MoveCommandScope command = activeMoveCommand;
+                if (vanillaResult == 0)
+                    EnsureMoveCommandGroupSummary(command);
                 bool managerValid = tribeManager != IntPtr.Zero;
                 bool matchingTribe = command != null && tribeId == command.TribeId;
                 bool stampValid = floodFillStamp > 0 && floodFillStamp <= MaximumFloodFillStamp;
@@ -4332,8 +4363,15 @@ namespace BugfixesAndQoL
                 return vanillaResult;
             }
 
+            if (RequiredOnlyMode && vanillaResult > 0)
+            {
+                fastVanillaBypasses++;
+                return vanillaResult;
+            }
+
             try
             {
+                EnsureMoveCommandGroupSummary(command);
                 byte* tribeRecord = (byte*)tribeManager.ToPointer() +
                     (tribeId * TribeRecordSize);
                 int leadUnitId = *(short*)(tribeRecord + TribeLeadUnitIdOffset);
@@ -4395,7 +4433,8 @@ namespace BugfixesAndQoL
 
                     PlanScope probe = new PlanScope(unitId, command.TargetX, command.TargetY)
                     {
-                        PlayerId = unit->r_ControllableForPlayerId
+                        PlayerId = unit->r_ControllableForPlayerId,
+                        VanillaFailureProven = RequiredOnlyMode && vanillaResult == 0
                     };
                     if (!TryFindRequiredFriendlyCompletedMoatRouteForPlan(
                             probe, out RouteProbeSummary route))
@@ -4483,6 +4522,7 @@ namespace BugfixesAndQoL
         {
             AttackApproachDiagnosticScope previous = activeAttackApproachDiagnostic;
             AttackApproachDiagnosticScope scope = null;
+            AttackCommandScope fastCommand = null;
             bool nativeFloodCompleted = false;
             try
             {
@@ -4491,25 +4531,33 @@ namespace BugfixesAndQoL
                     command.MapEpoch == mapEpoch && command.TribeId == tribeId &&
                     command.Command == TribeAICommand.AttackUnit)
                 {
-                    ResolveAttackApproachRepresentative(
-                        command, out int unitId, out int playerId, out eChimps unitType);
-                    scope = new AttackApproachDiagnosticScope(
-                        command,
-                        AttackApproachKind.UnitFlood,
-                        command.Sequence,
-                        command.Command,
-                        tribeId,
-                        targetContext,
-                        unchecked((int)targetX),
-                        unchecked((int)targetY),
-                        requestedResults,
-                        sourceRegion,
-                        movementClass,
-                        unitId,
-                        playerId,
-                        unitType,
-                        CaptureAttackApproachState(pathManager));
-                    activeAttackApproachDiagnostic = scope;
+                    if (command.Options.RequiredOnly)
+                    {
+                        fastCommand = command;
+                    }
+                    else
+                    {
+                        EnsureAttackCommandCandidates(command);
+                        ResolveAttackApproachRepresentative(
+                            command, out int unitId, out int playerId, out eChimps unitType);
+                        scope = new AttackApproachDiagnosticScope(
+                            command,
+                            AttackApproachKind.UnitFlood,
+                            command.Sequence,
+                            command.Command,
+                            tribeId,
+                            targetContext,
+                            unchecked((int)targetX),
+                            unchecked((int)targetY),
+                            requestedResults,
+                            sourceRegion,
+                            movementClass,
+                            unitId,
+                            playerId,
+                            unitType,
+                            CaptureAttackApproachState(pathManager));
+                        activeAttackApproachDiagnostic = scope;
+                    }
                 }
             }
             catch (Exception ex)
@@ -4559,6 +4607,39 @@ namespace BugfixesAndQoL
                     }
                 }
                 nativeFloodCompleted = true;
+
+                // Fast first accepts the unmodified native result. Only an empty result
+                // justifies capturing the tribe group and retrying the bounded moat case.
+                if (scope == null && fastCommand != null &&
+                    CaptureAttackApproachState(pathManager).UsableResultCount == 0)
+                {
+                    EnsureAttackCommandCandidates(fastCommand);
+                    ResolveAttackApproachRepresentative(
+                        fastCommand, out int unitId, out int playerId, out eChimps unitType);
+                    scope = new AttackApproachDiagnosticScope(
+                        fastCommand, AttackApproachKind.UnitFlood, fastCommand.Sequence,
+                        fastCommand.Command, tribeId, targetContext, unchecked((int)targetX),
+                        unchecked((int)targetY), requestedResults, sourceRegion, movementClass,
+                        unitId, playerId, unitType, CaptureAttackApproachState(pathManager));
+                    activeAttackApproachDiagnostic = scope;
+                    bool retry = IsBoundUnitAttackFlood(scope, targetX, targetY);
+                    if (retry)
+                    {
+                        retry = false;
+                        for (int dy = -2; dy <= 2 && !retry; dy++)
+                        for (int dx = -2; dx <= 2 && !retry; dx++)
+                        {
+                            int x = (int)targetX + dx, y = (int)targetY + dy;
+                            if ((uint)x < MapWidth && (uint)y < MapWidth)
+                                retry = IsForbiddenFormationMoat(scope.PlayerId, x, y);
+                        }
+                    }
+                    if (retry)
+                        originalAttackApproachFloodBuilder(
+                            pathManager, tribeId, targetContext, targetX, targetY,
+                            Math.Max(requestedResults, VanillaAttackFloodResultCapacity / 2),
+                            sourceRegion, movementClass);
+                }
             }
             finally
             {
@@ -4626,8 +4707,10 @@ namespace BugfixesAndQoL
                 AttackCommandScope command = activeAttackCommand;
                 if (!disposed && pathManager != IntPtr.Zero && command != null &&
                     command.MapEpoch == mapEpoch && command.TribeId == tribeId &&
-                    IsBuildingAttackCommand(command.Command))
+                    IsBuildingAttackCommand(command.Command) &&
+                    !command.Options.RequiredOnly)
                 {
+                    EnsureAttackCommandCandidates(command);
                     ResolveAttackApproachRepresentative(
                         command, out int unitId, out int playerId, out eChimps unitType);
                     scope = new AttackApproachDiagnosticScope(
@@ -4698,8 +4781,11 @@ namespace BugfixesAndQoL
             AttackApproachDiagnosticScope scope = null;
             BuildingConsumerPerformanceScope performance = null;
             BuildingApproachCandidate[] vanillaCandidates = Array.Empty<BuildingApproachCandidate>();
+            AttackCommandScope fastCommand = null;
+            AttackApproachState fastBefore = default;
             bool vanillaCompleted = false;
             long vanillaStarted = 0;
+            long vanillaElapsedTicks = 0;
             try
             {
                 AttackCommandScope command = activeAttackCommand;
@@ -4707,32 +4793,42 @@ namespace BugfixesAndQoL
                     command.MapEpoch == mapEpoch && command.TribeId == tribeId &&
                     IsBuildingAttackCommand(command.Command))
                 {
-                    ResolveAttackApproachRepresentative(
-                        command, out int unitId, out int playerId, out eChimps unitType);
-                    scope = new AttackApproachDiagnosticScope(
-                        command,
-                        AttackApproachKind.BuildingCandidateConsumer,
-                        command.Sequence,
-                        command.Command,
-                        tribeId,
-                        command.TargetValue1,
-                        -1,
-                        -1,
-                        -1,
-                        -1,
-                        -1,
-                        unitId,
-                        playerId,
-                        unitType,
-                        CaptureAttackApproachState(
-                            nativePathManager, requirePairedResult: true))
-                    {
-                        ConsumerVariant = builderVariant
-                    };
                     vanillaCandidates = CaptureBuildingApproachCandidates(nativePathManager);
-                    performance = new BuildingConsumerPerformanceScope(
-                        command.Sequence, command.TargetValue1, vanillaCandidates.Length);
-                    activeAttackApproachDiagnostic = scope;
+                    if (command.Options.RequiredOnly)
+                    {
+                        fastCommand = command;
+                        fastBefore = CaptureAttackApproachState(
+                            nativePathManager, requirePairedResult: true);
+                    }
+                    else
+                    {
+                        EnsureAttackCommandCandidates(command);
+                        ResolveAttackApproachRepresentative(
+                            command, out int unitId, out int playerId, out eChimps unitType);
+                        scope = new AttackApproachDiagnosticScope(
+                            command,
+                            AttackApproachKind.BuildingCandidateConsumer,
+                            command.Sequence,
+                            command.Command,
+                            tribeId,
+                            command.TargetValue1,
+                            -1,
+                            -1,
+                            -1,
+                            -1,
+                            -1,
+                            unitId,
+                            playerId,
+                            unitType,
+                            CaptureAttackApproachState(
+                                nativePathManager, requirePairedResult: true))
+                        {
+                            ConsumerVariant = builderVariant
+                        };
+                        performance = new BuildingConsumerPerformanceScope(
+                            command.Sequence, command.TargetValue1, vanillaCandidates.Length);
+                        activeAttackApproachDiagnostic = scope;
+                    }
                 }
             }
             catch (Exception ex)
@@ -4750,10 +4846,34 @@ namespace BugfixesAndQoL
             }
             finally
             {
-                if (performance != null && vanillaStarted != 0)
+                if (vanillaStarted != 0)
                 {
-                    performance.VanillaElapsedTicks =
-                        Stopwatch.GetTimestamp() - vanillaStarted;
+                    vanillaElapsedTicks = Stopwatch.GetTimestamp() - vanillaStarted;
+                    if (performance != null)
+                        performance.VanillaElapsedTicks = vanillaElapsedTicks;
+                }
+                if (scope == null && vanillaCompleted && fastCommand != null &&
+                    CaptureAttackApproachState(nativePathManager, requirePairedResult: true)
+                        .UsableResultCount == 0)
+                {
+                    EnsureAttackCommandCandidates(fastCommand);
+                    ResolveAttackApproachRepresentative(
+                        fastCommand, out int unitId, out int playerId, out eChimps unitType);
+                    scope = new AttackApproachDiagnosticScope(
+                        fastCommand, AttackApproachKind.BuildingCandidateConsumer,
+                        fastCommand.Sequence, fastCommand.Command, tribeId,
+                        fastCommand.TargetValue1, -1, -1, -1, -1, -1,
+                        unitId, playerId, unitType, fastBefore)
+                    {
+                        ConsumerVariant = builderVariant
+                    };
+                    performance = new BuildingConsumerPerformanceScope(
+                        fastCommand.Sequence, fastCommand.TargetValue1,
+                        vanillaCandidates.Length)
+                    {
+                        VanillaElapsedTicks = vanillaElapsedTicks
+                    };
+                    activeAttackApproachDiagnostic = scope;
                 }
                 if (scope != null)
                 {
@@ -4898,6 +5018,13 @@ namespace BugfixesAndQoL
             }
             if (pending.Count != 0)
             {
+                if (RequiredOnlyMode &&
+                    !HasFastFriendlyMoatBridgeForCells(playerId, leaderStarts, targets) &&
+                    !HasFastFriendlyMoatBridgeForCells(playerId, otherStarts, targets))
+                {
+                    return BuildingConsumerFallbackResult.Rejected(
+                        "no-friendly-moat-bridge");
+                }
                 MoatCandidateField field = buildingCandidateFields.Count != 0
                     ? buildingCandidateFields.Pop() : new MoatCandidateField(MapWidth, MapWidth);
                 MoatSearchEdge normal = (int from, int to, int d, out bool moat, out bool structure) =>
@@ -4907,7 +5034,11 @@ namespace BugfixesAndQoL
                 weightedMoatRoutePlanner.BeginReachabilityProbe();
                 try
                 {
-                    int[] distances = field.Resolve(leaderStarts,targets,normal,terminal);
+                    long fieldStarted = Stopwatch.GetTimestamp();
+                    int[] distances = field.Resolve(leaderStarts, targets, normal, terminal,
+                        RequiredOnlyMode ? FastSearchNodeBudget : int.MaxValue,
+                        RequiredOnlyMode ? 2000 : int.MaxValue);
+                    if (RequiredOnlyMode) RecordFastFieldSearch(field, fieldStarted);
                     if (performance != null) { performance.ReachabilityMapsBuilt++; performance.SearchNodes += field.Expanded; }
                     var remaining = new List<int>(); var remainingIndices = new List<int>();
                     for (int i=0;i<distances.Length;i++)
@@ -4920,7 +5051,11 @@ namespace BugfixesAndQoL
                     {
                         int supplementBase=0;
                         foreach(var c in candidates) if(c.Score<VanillaUnreachableCandidateScore) supplementBase=Math.Max(supplementBase,c.Score);
-                        distances = field.Resolve(otherStarts,remaining,normal,terminal);
+                        fieldStarted = Stopwatch.GetTimestamp();
+                        distances = field.Resolve(otherStarts, remaining, normal, terminal,
+                            RequiredOnlyMode ? FastSearchNodeBudget : int.MaxValue,
+                            RequiredOnlyMode ? 2000 : int.MaxValue);
+                        if (RequiredOnlyMode) RecordFastFieldSearch(field, fieldStarted);
                         if (performance != null) { performance.ReachabilityMapsBuilt++; performance.SearchNodes += field.Expanded; }
                         for (int i=0;i<distances.Length;i++) if (distances[i]>=0)
                         { var c=candidates[remainingIndices[i]]; c.Score=supplementBase+distances[i]+1; candidates[remainingIndices[i]]=c; }
@@ -5323,13 +5458,23 @@ namespace BugfixesAndQoL
             { var p=GameTileManagerAPI.Instance.GetTileVectorFromId(tile); targets.Add(p.Y*MapWidth+p.X); }
             if(targets.Count!=0)
             {
+                if (RequiredOnlyMode &&
+                    !HasFastFriendlyMoatBridgeForCells(playerId, starts, targets))
+                {
+                    return AttackRegionFallbackDecision.Reject(
+                        "no-friendly-moat-bridge", observed);
+                }
                 var field=buildingCandidateFields.Count!=0?buildingCandidateFields.Pop():new MoatCandidateField(MapWidth,MapWidth);
                 weightedMoatRoutePlanner.BeginReachabilityProbe();
                 try
                 {
+                    long fieldStarted = Stopwatch.GetTimestamp();
                     int[] distances=field.Resolve(starts,targets,
                         (int f,int t,int d,out bool m,out bool st)=>BuildingCandidateEdge(playerId,f,t,d,false,false,out m,out st),
-                        (int f,int t,int d,out bool m,out bool st)=>BuildingCandidateEdge(playerId,f,t,d,true,true,out m,out st));
+                        (int f,int t,int d,out bool m,out bool st)=>BuildingCandidateEdge(playerId,f,t,d,true,true,out m,out st),
+                        RequiredOnlyMode ? FastSearchNodeBudget : int.MaxValue,
+                        RequiredOnlyMode ? 2000 : int.MaxValue);
+                    if (RequiredOnlyMode) RecordFastFieldSearch(field, fieldStarted);
                     if(activeBuildingApproachPerformance!=null)
                     { activeBuildingApproachPerformance.ReachabilityMapsBuilt++; activeBuildingApproachPerformance.SharedNodes+=field.Expanded; }
                     for(int i=0;i<distances.Length;i++) if(distances[i]>=0)
@@ -6351,6 +6496,7 @@ namespace BugfixesAndQoL
             long runsBefore = weightedMoatRoutePlanner.SearchRuns;
             bool groundReachable;
             bool friendlyReachable = false;
+            bool fastBridgeProven = false;
             GroundConnectionDecision groundDecision = GroundConnectionDecision.Unknown;
             RequiredRouteMetrics requiredMetrics = requiredOnly
                 ? activeMoveCommand?.Required ?? activeAttackCommand?.Required
@@ -6359,11 +6505,13 @@ namespace BugfixesAndQoL
             try
             {
                 long groundStarted = Stopwatch.GetTimestamp();
-                bool samePclProof = requiredOnly &&
+                bool samePclProof = requiredOnly && !plan.VanillaFailureProven &&
                     IsSamePositiveGroundRegion(startTileId, targetTileId);
-                groundDecision = samePclProof
-                    ? GroundConnectionDecision.Reachable
-                    : ProbeGroundConnection(playerId, startTileId, targetTileId);
+                groundDecision = requiredOnly && plan.VanillaFailureProven
+                    ? GroundConnectionDecision.Excluded
+                    : samePclProof
+                        ? GroundConnectionDecision.Reachable
+                        : ProbeGroundConnection(playerId, startTileId, targetTileId);
                 // Fast mode is deliberately fail-closed. An unknown topology result must
                 // never turn a routine AI order into one or two full-map searches.
                 bool exactGroundSearch = !requiredOnly &&
@@ -6396,21 +6544,31 @@ namespace BugfixesAndQoL
                     requiredMetrics.GroundTicks += groundElapsed;
                     requiredMetrics.RecordNestedGroundTicks(groundElapsed);
                 }
-                bool groundSeparationProven = groundDecision == GroundConnectionDecision.Excluded;
-                if (!groundReachable && (!requiredOnly || groundSeparationProven))
+                bool groundSeparationProven =
+                    groundDecision == GroundConnectionDecision.Excluded ||
+                    requiredOnly && plan.VanillaFailureProven;
+                fastBridgeProven = !requiredOnly || groundSeparationProven &&
+                    HasFastFriendlyMoatBridge(playerId, startTileId, targetTileId);
+                if (!groundReachable && (!requiredOnly || fastBridgeProven))
                 {
                     long requiredSearchStarted = Stopwatch.GetTimestamp();
                     if (requiredMetrics != null) requiredMetrics.Searches++;
                     WeightedMoatEncodedRoute encoded = default;
+                    if (requiredOnly) fastSearches++;
+                    long fastSearchStarted = requiredOnly ? Stopwatch.GetTimestamp() : 0;
+                    long fastNodesBefore = requiredOnly ? weightedMoatRoutePlanner.SearchNodes : 0;
                     friendlyReachable = requiredOnly
                         ? weightedMoatRoutePlanner.TryBuildReachabilityEncoded(playerId, startX, startY,
-                            plan.TargetX, plan.TargetY, allowReservedTarget, out friendly, out encoded)
+                            plan.TargetX, plan.TargetY, allowReservedTarget, out friendly, out encoded,
+                            FastSearchNodeBudget)
                         : hasCost
                             ? weightedMoatRoutePlanner.TryBuildEncoded(playerId, startX, startY,
                                 plan.TargetX, plan.TargetY, routeCost, allowReservedTarget,
                                 out friendly, out encoded)
                             : weightedMoatRoutePlanner.TryBuildReachabilityEncoded(playerId, startX, startY,
                                 plan.TargetX, plan.TargetY, allowReservedTarget, out friendly, out encoded);
+                    if (requiredOnly)
+                        RecordFastSearch(friendly, fastSearchStarted, fastNodesBefore);
                     if (friendlyReachable)
                         plan.QualifiedRoute = new QualifiedMovementRoute(startX, startY, plan.TargetX, plan.TargetY,
                             playerId, mapEpoch, CaptureCurrentGameTick(), placementRevision, encoded, friendly, routeCost, hasCost);
@@ -6443,8 +6601,10 @@ namespace BugfixesAndQoL
             if (requiredMetrics != null && !groundReachable && !requiredFriendly)
             {
                 string reason = requiredOnly &&
-                    groundDecision == GroundConnectionDecision.Unknown
+                    groundDecision == GroundConnectionDecision.Unknown && !plan.VanillaFailureProven
                         ? "ground-unproven-fast"
+                        : requiredOnly && !fastBridgeProven
+                            ? "no-friendly-moat-bridge"
                         : friendlyReachable ? "no-moat-edge" :
                     friendly.Reason ?? "route-not-encodable";
                 requiredMetrics.Reject(reason);
@@ -6500,6 +6660,7 @@ namespace BugfixesAndQoL
 
         private bool TryQualifyMoveCommandFloodBypass(MoveCommandScope command)
         {
+            EnsureMoveCommandGroupSummary(command);
             if (command == null || command.DiggersAtDispatch == 0)
                 return false;
             if (command.FloodOwnerRouteEvaluated)
@@ -6537,7 +6698,10 @@ namespace BugfixesAndQoL
                 if (!probedSources.Add(sourceKey))
                     continue;
 
-                var plan = new PlanScope(unitId, command.TargetX, command.TargetY);
+                var plan = new PlanScope(unitId, command.TargetX, command.TargetY)
+                {
+                    VanillaFailureProven = RequiredOnlyMode
+                };
                 if (!TryFindRequiredFriendlyCompletedMoatRouteForPlan(
                         plan, out RouteProbeSummary route))
                 {
@@ -7883,8 +8047,10 @@ namespace BugfixesAndQoL
 
         private void ResetMapState()
         {
+            LogAndResetFastMoatMetrics();
             ClearUnitMoveFrames();
             mapEpoch++;
+            InvalidateFastMoatData();
             cursorTopologies.Clear(); noBuilderDetails = 0; preBuilderRejections.Clear();
             cursorDecisionCounts.Clear(); cursorDecisionDetails.Clear();
             fillRouteDecisions.Clear(); fillRouteLogTick = -1; fillRouteLogCount = 0; formationOwner = null;
@@ -8488,6 +8654,7 @@ namespace BugfixesAndQoL
             public int DetailLogs { get; set; }
             public long StartedTimestamp { get; } = Stopwatch.GetTimestamp();
             public HashSet<int> CandidateUnitIds { get; } = new HashSet<int>();
+            public bool CandidatesCaptured { get; set; }
             public Dictionary<int, string> PreCandidateSignatures { get; } =
                 new Dictionary<int, string>();
             public HashSet<int> SynchronousTrackerUnitIds { get; } = new HashSet<int>();
@@ -9375,6 +9542,7 @@ namespace BugfixesAndQoL
             public long StartTimestamp { get; }
             public double ElapsedMilliseconds { get; set; }
             public int ActiveUnitsAtDispatch { get; set; }
+            public bool GroupSummaryCaptured { get; set; }
             public int[] ActiveUnitIdsAtDispatch { get; set; } = Array.Empty<int>();
             public int DiggersAtDispatch { get; set; }
             public int UnitsOnMoatAtDispatch { get; set; }
@@ -9575,6 +9743,7 @@ namespace BugfixesAndQoL
             public int RouteStartY { get; set; } = -1;
             public bool ExactRouteEndpoints { get; set; }
             public bool NativeGroundPrecheck { get; set; }
+            public bool VanillaFailureProven { get; set; }
             public bool PublishedUsesMoat { get; set; }
             public WeightedMoatEncodedRoute QualifiedTerminalRoute { get; set; }
             public QualifiedMovementRoute QualifiedRoute { get; set; }

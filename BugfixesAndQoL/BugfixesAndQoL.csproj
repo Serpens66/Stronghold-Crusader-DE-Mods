@@ -100,6 +100,7 @@
     <Compile Include="src\FastRecruitMovementBridge.cs" />
     <Compile Include="src\FastRecruitRallyMovementModLog.cs" />
     <Compile Include="src\FastRecruitRallyMovementRuntime.cs" />
+    <Compile Include="src\FastMoatBridge.cs" />
     <Compile Include="src\MarketTradeIntegration.cs" />
     <Compile Include="src\MarketGoldPolicy.cs" />
     <Compile Include="src\MultiplayerFeatureGate.cs" />

@@ -21,7 +21,7 @@
   </PropertyGroup>
     <PropertyGroup Condition="'$(ExtenderDir)' == ''"><ExtenderDir>$(GameDir)\BepInEx\plugins\000shcdese</ExtenderDir></PropertyGroup>
   <PropertyGroup>
-    <!-- Audited against Script Extender 2.2.0, commit 10d28f717d38166e5875c666f20fc5653ae44b0c. -->
+    <!-- The version range comes from info.json; native provenance remains commit-gated in code. -->
     <LocalScriptExtenderRoot>$(MSBuildThisFileDirectory)..\shcde-script-extender</LocalScriptExtenderRoot>
     <LocalScriptExtenderBuildOutput>$(LocalScriptExtenderRoot)\src\SHCDESE.BepInEx\bin\net481</LocalScriptExtenderBuildOutput>
     <LocalScriptExtenderModOutput>$(LocalScriptExtenderRoot)\mod_output\000shcdese</LocalScriptExtenderModOutput>

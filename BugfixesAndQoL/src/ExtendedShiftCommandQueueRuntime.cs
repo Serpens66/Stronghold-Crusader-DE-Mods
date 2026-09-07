@@ -1161,7 +1161,7 @@ namespace BugfixesAndQoL
                 savedPoints[index] = points[index];
 
             ushort savedIndex = tribe->r_PatrolCurrentTargetIndex;
-            // The 2.2.0 interop still declares this native ushort as UInt32. Read and write
+            // The current interop declares this native ushort as UInt32. Read and write
             // the proven 16-bit field directly so the adjacent word cannot affect capacity.
             TribePatrolMode savedMode = tribe->r_PatrolMode;
             try
@@ -1962,7 +1962,7 @@ namespace BugfixesAndQoL
             if (!TryGetLivingUnit(member, out GameUnit* unit) || unit->r_TribeId != tribeId)
                 return false;
 
-            // Script Extender 2.2.0 fixes the wrapper's native argument order.
+            // The Script Extender wrapper uses the validated native argument order.
             if (!GameTribeManagerAPI.Instance.UnassignUnit(tribeId, member.UnitId))
                 return false;
 

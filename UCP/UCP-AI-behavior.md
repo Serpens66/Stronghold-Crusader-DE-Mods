@@ -52,7 +52,7 @@ Die dynamischen Hooks werden nicht zwischen `BugfixesAndQoL` und `ExtraFeatures`
 - SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
 - Der Hash der installierten DLL stimmt mit `_inspect/CrusaderDE-Native-Baseline/CURRENT.json` überein.
 - Alle hier genannten RVAs und Maschinenbytes gelten ausschließlich für diesen Hash.
-- Verwendeter und heute verbindlicher lokaler Script-Extender-Vertrag: 2.2.0.
+- Der heute verbindliche lokale Script-Extender-Vertrag wird aus den Quellmanifesten und der aktuellen semantischen Baseline bestimmt; diese Analyse bleibt zusätzlich an den unten dokumentierten Native-Hash gebunden.
 
 ### UCP-Referenz
 
@@ -78,7 +78,7 @@ Für einen erneuten Abgleich sind in der UCP-Quelle besonders relevant:
 - `BugfixesAndQoL/src/AssassinPathReconstructionPatch.cs`: Beispiel für einen validierten Sechs-Byte-NOP-Patch;
 - `BugfixesAndQoL/src/AssemblyPointPlacementPatch.cs`: weiteres Beispiel für Originalbyteprüfung, Speicherschutz und Patchverwaltung;
 - `BugfixesAndQoL/src/FriendlyMoatMovementRuntime.cs`: lokale Rekonstruktion der DE-fähigen Grabenarbeiter und der Grabenbewegung;
-- `GameTribeManagerAPI.UnassignUnit(tribeId, unitId)`: in Script Extender 2.2.0 ausschließlich über den korrigierten öffentlichen Wrapper zu verwenden; kein direkter RVA-/Pointeradapter;
+- `GameTribeManagerAPI.UnassignUnit(tribeId, unitId)`: ausschließlich über den vom Quellmanifest verlangten öffentlichen Wrapper verwenden; kein direkter RVA-/Pointeradapter;
 - `ExtraFeatures/src/ExtraFeaturesPlugin.cs`: bewährtes SHCDE-Lifecycle-Muster für eine nach dem Startup-Cleanup weiterlebende Runtime;
 - `Shared/PresetLobbyModSettingsViewModel.cs` und `Shared/SerpLocalization.cs`: vorgeschriebene Basis für neue Lobby-Modsettings;
 - `CastlePlanner/BepInEx/plugins/CastlePlanner_Serp/VanillaAIV`: untersuchter AIVJSON-Bestand;
@@ -262,7 +262,7 @@ Vor einer Implementierung sind für den konkreten Hook-Span zwingend zu bestimme
 
 ### Nicht bevorzugte Alternative
 
-Mit `GameTribeManagerAPI.AssignUnit`, `UnassignUnit`, `DigMoat`, `MoveTo` und verwandten Methoden ließe sich ein Prototyp nachträglich aufbauen. Das würde jedoch die bereits getroffene Vanilla-Zuweisung rückgängig machen, zusätzliche Tribe-Buchhaltung duplizieren und könnte mit der AI-Aktualisierung konkurrieren. Script Extender 2.2.0 korrigiert den öffentlichen `UnassignUnit(tribeId, unitId)`-Vertrag; er ist mit 1-basierten Unit-IDs und modseitigen Vor-/Nachkontrollen zu verwenden. Für Produktionscode bleibt der native Entscheidungs-Hook dennoch vorzuziehen.
+Mit `GameTribeManagerAPI.AssignUnit`, `UnassignUnit`, `DigMoat`, `MoveTo` und verwandten Methoden ließe sich ein Prototyp nachträglich aufbauen. Das würde jedoch die bereits getroffene Vanilla-Zuweisung rückgängig machen, zusätzliche Tribe-Buchhaltung duplizieren und könnte mit der AI-Aktualisierung konkurrieren. Der öffentliche `UnassignUnit(tribeId, unitId)`-Vertrag ist mit 1-basierten Unit-IDs und modseitigen Vor-/Nachkontrollen zu verwenden. Für Produktionscode bleibt der native Entscheidungs-Hook dennoch vorzuziehen.
 
 ## 4. Defensive AIV-Positionen halten oder patrouillieren
 

@@ -6,8 +6,8 @@
     <Platform Condition="'$(Platform)' == ''">AnyCPU</Platform>
     <ProjectGuid>{1E94A391-8C34-433E-B190-49698383DE25}</ProjectGuid>
     <OutputType>Exe</OutputType>
-    <RootNamespace>FearFactorNeutralizationTest</RootNamespace>
-    <AssemblyName>FearFactorNeutralizationTest.Tests</AssemblyName>
+    <RootNamespace>ExtraFeaturesFearFactor</RootNamespace>
+    <AssemblyName>ExtraFeaturesFearFactor.Tests</AssemblyName>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
     <OutputPath>bin\</OutputPath>
@@ -20,12 +20,16 @@
     <Reference Include="BepInEx"><HintPath>$(GameDir)\BepInEx\core\BepInEx.dll</HintPath></Reference>
     <Reference Include="System.Memory"><HintPath>$(ExtenderDir)\System.Memory.dll</HintPath></Reference>
     <Reference Include="Iced"><HintPath>$(ExtenderDir)\Iced.dll</HintPath></Reference>
+    <Reference Include="RedBird.X64"><HintPath>$(ExtenderDir)\RedBird.X64.dll</HintPath></Reference>
+    <Reference Include="RedBird.Core"><HintPath>$(ExtenderDir)\RedBird.Core.dll</HintPath></Reference>
+    <Reference Include="RedBird.Abstractions"><HintPath>$(ExtenderDir)\RedBird.Abstractions.dll</HintPath></Reference>
+    <Reference Include="Microsoft.Extensions.Logging.Abstractions"><HintPath>$(ExtenderDir)\Microsoft.Extensions.Logging.Abstractions.dll</HintPath></Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="..\src\FearFactorNativeDefinition.cs"><Link>FearFactorNativeDefinition.cs</Link></Compile>
-    <Compile Include="..\src\FearFactorNeutralizationPolicy.cs"><Link>FearFactorNeutralizationPolicy.cs</Link></Compile>
-    <Compile Include="..\..\Shared\DebugLogHelper.cs"><Link>Shared\DebugLogHelper.cs</Link></Compile>
-    <Compile Include="..\..\Shared\NativePatternResolver.cs"><Link>Shared\NativePatternResolver.cs</Link></Compile>
+    <Compile Include="..\..\..\ExtraFeatures\src\FearFactorNativeDefinition.cs"><Link>FearFactorNativeDefinition.cs</Link></Compile>
+    <Compile Include="..\..\..\ExtraFeatures\src\FearFactorNeutralizationPolicy.cs"><Link>FearFactorNeutralizationPolicy.cs</Link></Compile>
+    <Compile Include="..\..\..\Shared\DebugLogHelper.cs"><Link>Shared\DebugLogHelper.cs</Link></Compile>
+    <Compile Include="..\..\..\Shared\NativePatternResolver.cs"><Link>Shared\NativePatternResolver.cs</Link></Compile>
     <Compile Include="Program.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

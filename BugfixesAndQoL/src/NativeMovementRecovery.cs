@@ -173,6 +173,7 @@ namespace BugfixesAndQoL
         private void InvalidateMovementSearchData()
         {
             placementRevision++;
+            InvalidateFastMoatData();
             weightedMoatRoutePlanner.SetSearchSession(null, -1, mapEpoch, CaptureCurrentGameTick());
             nativeGroundDecisions.Clear(); activeMoveCommand?.TargetedRouteDecisions.Clear();
             cacheMapEpoch = -1;
@@ -201,10 +202,22 @@ namespace BugfixesAndQoL
                     movementTargetAvailability[targetY * MapWidth + targetX] == 0) return RejectPreBuilder(frame, "start-or-unavailable-target");
                 int target = GameTileManagerAPI.Instance.GetTileId(targetX, targetY);
                 if (!IsValidTileId(target) || HasDownstreamMovementBlockingFlags(tileFlags[target])) return RejectPreBuilder(frame, "blocked-target");
-                PrepareMovementSearch(plan, plan.PlayerId);
-                if (!weightedMoatRoutePlanner.TryBuildReachabilityEncoded(plan.PlayerId, x, y, targetX, targetY,
-                    false, out WeightedMoatRouteSummary summary, out WeightedMoatEncodedRoute route) ||
-                    !route.IsValid || summary.MoatEdges <= 0 || !ValidateRecoveryEdges(plan.PlayerId, x, y, targetX, targetY, route)) return RejectPreBuilder(frame, "no-audited-encodable-friendly-route");
+                bool authorizedFastContext = activeMoveCommand?.MoatRelevant == true ||
+                    activeAttackCommand != null ||
+                    plan.MoatWorkMovement || plan.PostCombatRepath || plan.FriendlyRouteQualified;
+                if (RequiredOnlyMode && !authorizedFastContext)
+                    return RejectPreBuilder(frame, "unbound-fast-unit-move");
+                plan.VanillaFailureProven = true;
+                plan.ExactRouteEndpoints = true;
+                if (!TryFindRequiredFriendlyCompletedMoatRouteForPlan(plan, out _))
+                    return RejectPreBuilder(frame, "no-required-friendly-moat-route");
+                WeightedMoatEncodedRoute route = plan.QualifiedRoute?.Route ??
+                    plan.QualifiedTerminalRoute;
+                WeightedMoatRouteSummary summary = plan.QualifiedRoute?.Summary ??
+                    plan.QualifiedTerminalSummary;
+                if (!route.IsValid || summary.MoatEdges <= 0 ||
+                    !ValidateRecoveryEdges(plan.PlayerId, x, y, targetX, targetY, route))
+                    return RejectPreBuilder(frame, "no-audited-encodable-friendly-route");
                 plan.QualifiedTerminalRoute = route; plan.QualifiedTerminalSummary = summary;
                 plan.FriendlyRouteQualified = true; plan.ExactRouteEndpoints = true;
                 plan.RouteStartX = x; plan.RouteStartY = y;
@@ -215,6 +228,8 @@ namespace BugfixesAndQoL
                 frame.RecoveryApplied = true;
                 *(short*)((byte*)unit + (0x900 - NativeUnitSlotDataOffset)) = pathRegionGrid[target]; // slot+900, GameUnit begins at slot+65C
                 *(short*)((byte*)unit + (0x8EC - NativeUnitSlotDataOffset)) = frame.PrePortalRegion; // slot+8EC
+                if (activeAttackCommand != null)
+                    EnsureAttackCommandCandidates(activeAttackCommand);
                 preBuilderRecovered++;
                 return 1;
             }

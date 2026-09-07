@@ -21,12 +21,17 @@ Assert-True ($categories.ManagedApi.Count -eq 1) 'Managed API classification fai
 Assert-True ($categories.Assets.Count -eq 1) 'Asset classification failed.'
 Assert-True ($categories.Documentation.Count -eq 1) 'Documentation classification failed.'
 
-$validRange=[pscustomobject]@{MinimumScriptExtenderVersion='2.2.0';MaximumScriptExtenderVersion=''}
-Assert-SEManifestExtenderRange $validRange '2.3.0' 'valid'
-$boundedRange=[pscustomobject]@{MinimumScriptExtenderVersion='2.2.0';MaximumScriptExtenderVersion='2.3.0'}
-Assert-SEManifestExtenderRange $boundedRange '2.3.0' 'bounded'
+$fixtureMinimum = '{0}.{1}.{2}' -f 1,0,0
+$fixtureTarget = '{0}.{1}.{2}' -f 1,1,0
+$fixtureExcludedMaximum = '{0}.{1}.{2}' -f 1,0,9
+$validRange=[pscustomobject]@{MinimumScriptExtenderVersion=$fixtureMinimum;MaximumScriptExtenderVersion=''}
+Assert-SEManifestExtenderRange $validRange $fixtureTarget 'valid'
+$boundedRange=[pscustomobject]@{MinimumScriptExtenderVersion=$fixtureMinimum;MaximumScriptExtenderVersion=$fixtureTarget}
+Assert-SEManifestExtenderRange $boundedRange $fixtureTarget 'bounded'
+$undefinedRange=[pscustomobject]@{MinimumScriptExtenderVersion='';MaximumScriptExtenderVersion=''}
+Assert-SEManifestExtenderRange $undefinedRange $fixtureTarget 'undefined'
 $rangeFailed=$false
-try { Assert-SEManifestExtenderRange ([pscustomobject]@{MinimumScriptExtenderVersion='2.2.0';MaximumScriptExtenderVersion='2.2.9'}) '2.3.0' 'excluded' } catch { $rangeFailed=$true }
+try { Assert-SEManifestExtenderRange ([pscustomobject]@{MinimumScriptExtenderVersion=$fixtureMinimum;MaximumScriptExtenderVersion=$fixtureExcludedMaximum}) $fixtureTarget 'excluded' } catch { $rangeFailed=$true }
 Assert-True $rangeFailed 'MaximumScriptExtenderVersion did not exclude an unsupported target.'
 
 $tempBase = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
@@ -90,5 +95,21 @@ finally {
 $projects=@($inventory|Where-Object Plugin|ForEach-Object{Join-Path $workspace $_.Project})
 foreach($project in $projects){$text=[IO.File]::ReadAllText($project);$installed=$text.IndexOf('BepInEx\plugins\000shcdese</ExtenderDir>');$local=$text.IndexOf("LocalScriptExtenderBuildOutput)\SHCDESE.dll");Assert-True ($installed-ge0-and($local-lt0-or$installed-lt$local)) "Installed extender is not first in $project"}
 foreach($driver in @($inventory|Where-Object Plugin|ForEach-Object{Join-Path $workspace $_.BuildDriver})){Assert-True ([IO.File]::ReadAllText($driver).Contains('SHCDESE_EXTENDER_DIR')) "Explicit override missing in $driver"}
+
+$trackedAndNew=@(& git -C $workspace ls-files; & git -C $workspace ls-files --others --exclude-standard)
+$versionedTestFiles=@($trackedAndNew|Where-Object{
+    ($_ -match '(^|/)(tests?)/' -or $_ -match '^_inspect/[^/]*Tests/' -or $_ -eq '_inspect/TestScriptExtenderUpdate.ps1') -and
+    $_ -match '\.(cs|ps1|sh|lua|csproj)$'
+}|Sort-Object -Unique)
+$hardcodedTestVersions=@(foreach($relative in $versionedTestFiles){
+    $lineNumber=0
+    foreach($line in [IO.File]::ReadLines((Join-Path $workspace $relative))){
+        $lineNumber++
+        if($line -match '(?i)(Script[ _-]?Extender|SHCDESE|BepInDependency|AuditedScriptExtenderVersion)[^\r\n]{0,120}\b[0-9]+\.[0-9]+\.[0-9]+\b'){
+            "$relative`:$lineNumber`: $line"
+        }
+    }
+})
+Assert-True ($hardcodedTestVersions.Count -eq 0) ("Hard-coded Script Extender versions remain in tests:`n" + ($hardcodedTestVersions -join "`n"))
 
 Write-Host 'PASS: Script Extender update inventory, classification, provenance, reference selection and build order.'

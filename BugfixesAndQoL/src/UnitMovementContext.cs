@@ -151,6 +151,7 @@ namespace BugfixesAndQoL
             result.ModeObserved = source.ModeObserved;
             result.VanillaModeDetected = source.VanillaModeDetected;
             result.NativeGroundPrecheck = source.NativeGroundPrecheck;
+            result.VanillaFailureProven = source.VanillaFailureProven;
             result.AttackMovementQualified = source.AttackMovementQualified;
             result.PostCombatRepath = source.PostCombatRepath;
             result.MoatWorkMovement = source.MoatWorkMovement;
@@ -198,6 +199,21 @@ namespace BugfixesAndQoL
                     return vanillaResult;
                 if (!CanDigMoat(unit))
                 {
+                    return vanillaResult;
+                }
+
+                // Fast is strictly Vanilla-first. Merely entering the native mode probe is
+                // not evidence that the command needs a friendly-moat route; the validated
+                // pre-builder failure adapter or an earlier failed group/work gate supplies
+                // that evidence later.
+                if (RequiredOnlyMode && !plannerQualified && requestPlan != null)
+                {
+                    requestPlan.ModeObserved = true;
+                    requestPlan.VanillaModeDetected = vanillaResult != 0;
+                    requestPlan.PlayerId = unit->r_ControllableForPlayerId;
+                    if (activeMoveCommand != null)
+                        activeMoveCommand.ModeCalls++;
+                    fastVanillaBypasses++;
                     return vanillaResult;
                 }
 

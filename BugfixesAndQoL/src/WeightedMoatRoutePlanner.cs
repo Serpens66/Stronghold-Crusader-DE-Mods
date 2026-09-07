@@ -421,7 +421,8 @@ namespace BugfixesAndQoL
             int requestedTargetY,
             bool allowReservedTarget,
             MoatTraversalPolicy policy,
-            out WeightedMoatRouteSummary summary)
+            out WeightedMoatRouteSummary summary,
+            int maximumExpanded = int.MaxValue)
         {
             if (!WeightedMovementCostProfile.TryCreate(
                     1, 1, 0, 0, 0, 0, false,
@@ -434,7 +435,8 @@ namespace BugfixesAndQoL
             return TryBuildCore(
                 playerId, startX, startY, requestedTargetX, requestedTargetY,
                 reachabilityProfile, allowReservedTarget, captureEncodedRoute: false,
-                policy, out summary, out _, reachability: true);
+                policy, out summary, out _, reachability: true,
+                maximumExpanded: maximumExpanded);
         }
 
         public bool TryBuildReachabilityEncoded(
@@ -445,7 +447,8 @@ namespace BugfixesAndQoL
             int requestedTargetY,
             bool allowReservedTarget,
             out WeightedMoatRouteSummary summary,
-            out WeightedMoatEncodedRoute encodedRoute)
+            out WeightedMoatEncodedRoute encodedRoute,
+            int maximumExpanded = int.MaxValue)
         {
             if (!WeightedMovementCostProfile.TryCreate(
                     1, 1, 0, 0, 0, 0, false,
@@ -459,7 +462,8 @@ namespace BugfixesAndQoL
             return TryBuildCore(
                 playerId, startX, startY, requestedTargetX, requestedTargetY,
                 reachabilityProfile, allowReservedTarget, captureEncodedRoute: true,
-                MoatTraversalPolicy.FriendlyOnly, out summary, out encodedRoute, reachability: true);
+                MoatTraversalPolicy.FriendlyOnly, out summary, out encodedRoute,
+                reachability: true, maximumExpanded: maximumExpanded);
         }
 
         private readonly MoatSearchKernel[] searchKernels = new MoatSearchKernel[6];
@@ -520,7 +524,8 @@ namespace BugfixesAndQoL
             WeightedMovementCostProfile costProfile, bool allowReservedTarget, bool captureEncodedRoute,
             MoatTraversalPolicy traversalPolicy, out WeightedMoatRouteSummary summary,
             out WeightedMoatEncodedRoute encodedRoute, MoatSearchLimit[] limits = null, bool improvement = false, bool reachability = false,
-            bool requireMoat = true, int maximumEdges = MaximumRouteEdges)
+            bool requireMoat = true, int maximumEdges = MaximumRouteEdges,
+            int maximumExpanded = int.MaxValue)
         {
             Stopwatch stopwatch = Stopwatch.StartNew();
             summary = default; encodedRoute = default;
@@ -537,14 +542,18 @@ namespace BugfixesAndQoL
             MoatSearchKernel kernel = GetSearchKernel(traversalPolicy, reachability);
             long before = kernel.Expanded;
             // A topological answer is independent of the native 1000-byte output buffer.
-            int maxEdges = captureEncodedRoute ? Math.Min(MaximumRouteEdges, maximumEdges) : int.MaxValue;
+            int maxEdges = captureEncodedRoute || maximumExpanded != int.MaxValue
+                ? Math.Min(MaximumRouteEdges, maximumEdges)
+                : int.MaxValue;
             bool found = kernel.Search(GetNode(startX, startY), GetNode(requestedTargetX, requestedTargetY),
                 reachability ? 1 : costProfile.GetEdgeFixedCost(false), reachability ? 1 : costProfile.GetEdgeFixedCost(true), maxEdges,
-                improvement && requireMoat, improvement, limits, searchSession != null, out int[] nodes);
+                improvement && requireMoat, improvement, limits, searchSession != null,
+                out int[] nodes, maximumExpanded);
             int expanded = (int)Math.Min(int.MaxValue, kernel.Expanded - before);
             if (!found)
             {
                 summary = WeightedMoatRouteSummary.Failed(
+                    kernel.LastSearchBudgetExceeded ? "search-budget-exceeded" :
                     improvement ? "no-publishable-improvement" : captureEncodedRoute ? "no-encodable-route" : "unreachable",
                     stopwatch.Elapsed.TotalMilliseconds, expanded);
                 return false;

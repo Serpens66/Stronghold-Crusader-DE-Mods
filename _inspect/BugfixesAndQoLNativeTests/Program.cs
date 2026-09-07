@@ -200,7 +200,7 @@ internal static class Program
         {
             string source = File.ReadAllText(Path.Combine(workspace, relativePath));
             Check(source.Contains("SelectedUnitInfo[] selected"),
-                relativePath + " does not consume Script Extender 2.0.2 SelectedUnitInfo entries");
+                relativePath + " does not consume Script Extender SelectedUnitInfo entries");
             Check(source.Contains("selected[index].UnitId") || source.Contains("selectedInfo.UnitId"),
                 relativePath + " does not extract the one-based UnitId");
             Check(!Regex.IsMatch(source, @"int\s*\[\]\s+selected\s*=\s*[^;]*GetSelectedChimps"),
@@ -945,6 +945,9 @@ internal static class Program
         string plugin = File.ReadAllText(Path.Combine(sourceDirectory, "BugfixesAndQoLPlugin.cs"));
         string runtime = File.ReadAllText(Path.Combine(sourceDirectory, "BugfixesAndQoLRuntime.cs"));
         string manifest = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "info.json"));
+        Match minimumMatch = Regex.Match(manifest,
+            "\\\"MinimumScriptExtenderVersion\\\"\\s*:\\s*\\\"([^\\\"]*)\\\"");
+        string minimumExtenderVersion = minimumMatch.Success ? minimumMatch.Groups[1].Value : string.Empty;
 
         Check(!production.Contains("Zhuqiaomon") && !project.Contains("Zhuqiaomon"),
             "P6b removed Zhuqiaomon source and project references");
@@ -958,14 +961,15 @@ internal static class Program
               project.Contains("<Reference Include=\"RedBird.X64\"") &&
               !project.Contains("PolyHook2.NET"),
             "P6b project references the Script Extender RedBird assemblies without PolyHook2.NET");
-        Check(plugin.Contains("[BepInDependency(ScriptExtenderGuid, \"2.2.0\")]") &&
+        Check((string.IsNullOrEmpty(minimumExtenderVersion) ||
+               plugin.Contains($"[BepInDependency(ScriptExtenderGuid, \"{minimumExtenderVersion}\")]") ) &&
               plugin.Contains("OnCrusaderLibraryLoaded(CrusaderLibraryLoadContext context)"),
-            "BugfixesAndQoL declares its 2.2.0 dependency and consumes the load context");
+            "BugfixesAndQoL dependency matches its manifest minimum and consumes the load context");
         Check(runtime.Contains("context.ModuleHandle") && runtime.Contains("context.Memory") &&
               runtime.Contains("context.Region") && !production.Contains("nativeRegion.Dispose()") &&
               !production.Contains("context.Region.Dispose()"),
             "P6b borrows all native load-context values without disposing the ScanRegion");
-        Check(Regex.Matches(production, @"new\s+(?:DetourHandle|HookHandle)<").Count == 35,
+        Check(Regex.Matches(production, @"new\s+(?:DetourHandle|HookHandle)<").Count == 36,
             "BugfixesAndQoL owns the audited RedBird hook handles including friendly moat movement");
         Check(Regex.Matches(production, @"CommitResult\s+commitResult\s*=\s*[^;]+\.Commit\(\)").Count == 21,
             "BugfixesAndQoL performs one checked transaction commit for each audited hook group");

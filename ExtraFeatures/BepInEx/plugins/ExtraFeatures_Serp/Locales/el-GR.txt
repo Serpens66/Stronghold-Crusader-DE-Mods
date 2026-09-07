@@ -96,3 +96,5 @@ Common.ModSettingsSearchIncludeToolTips=Search tooltips
 Common.ModSettingsSearchIncludeToolTipsHelp=Also search the explanatory tooltips of settings.
 Common.ModSettingsSearchClearHelp=Clear the settings filter.
 Common.ModSettingsSearchNoResults=No matching settings found.
+SomeSettings.EnableFearFactorNeutralization=Disable fear-factor effects on soldiers
+SomeSettings.EnableFearFactorNeutralizationHelp=Fear factor no longer has any effect on soldiers’ combat strength.

@@ -39,6 +39,7 @@ namespace ExtraFeatures
         private int aiLordHealthPercent = LordHealthMultiplierPolicy.DefaultPercent;
         private bool keepStorageContent = true;
         private bool enableMonksAlwaysRun;
+        private bool enableFearFactorNeutralization;
         private bool enableKnightDismount = true;
         private bool instantHorse;
         private bool enableExtraChurchPriests = true;
@@ -77,6 +78,8 @@ namespace ExtraFeatures
         public ImageSource KeepStorageFruitIcon => GetGoodIconImage(eGoods.STORED_FOOD_FRUIT);
         public ImageSource KeepStorageWoodIcon => GetGoodIconImage(eGoods.STORED_WOOD_PLANKS);
         public ImageSource KeepStorageBowsIcon => GetGoodIconImage(eGoods.STORED_BOWS);
+        public string EnableFearFactorNeutralizationText => SerpLocalization.Get(SerpLocalization.EnableFearFactorNeutralization);
+        public string EnableFearFactorNeutralizationHelpText => SerpLocalization.Get(SerpLocalization.EnableFearFactorNeutralizationHelp);
         public string EnableMonksAlwaysRunText => SerpLocalization.Get(SerpLocalization.EnableMonksAlwaysRun);
         public string EnableMonksAlwaysRunHelpText => SerpLocalization.Get(SerpLocalization.EnableMonksAlwaysRunHelp);
         public string EnableKnightDismountText => SerpLocalization.Get(SerpLocalization.EnableKnightDismount);
@@ -182,6 +185,7 @@ namespace ExtraFeatures
         [SyncHostOnly] public int CampfirePeasantsLimit { get => campfirePeasantsLimit; set => SetIntSetting(ref campfirePeasantsLimit, value, -1, 200, nameof(CampfirePeasantsLimit), nameof(CampfirePeasantsLimitText)); }
         [SyncHostOnly] public int HumanLordHealthPercent { get => humanLordHealthPercent; set => SetIntSetting(ref humanLordHealthPercent, value, LordHealthMultiplierPolicy.MinimumPercent, LordHealthMultiplierPolicy.MaximumPercent, nameof(HumanLordHealthPercent), nameof(HumanLordHealthPercentText)); }
         [SyncHostOnly] public int AILordHealthPercent { get => aiLordHealthPercent; set => SetIntSetting(ref aiLordHealthPercent, value, LordHealthMultiplierPolicy.MinimumPercent, LordHealthMultiplierPolicy.MaximumPercent, nameof(AILordHealthPercent), nameof(AILordHealthPercentText)); }
+        [SyncHostOnly] public bool EnableFearFactorNeutralization { get => enableFearFactorNeutralization; set => SetSetting(ref enableFearFactorNeutralization, value, nameof(EnableFearFactorNeutralization)); }
         [SyncHostOnly] public bool EnableMonksAlwaysRun { get => enableMonksAlwaysRun; set => SetSetting(ref enableMonksAlwaysRun, value, nameof(EnableMonksAlwaysRun)); }
         [SyncHostOnly] public bool EnableKnightDismount { get => enableKnightDismount; set => SetSetting(ref enableKnightDismount, value, nameof(EnableKnightDismount)); }
         [SyncHostOnly] public bool InstantHorse { get => instantHorse; set => SetSetting(ref instantHorse, value, nameof(InstantHorse)); }
@@ -256,6 +260,7 @@ namespace ExtraFeatures
                 HumanLordHealthPercent = LordHealthMultiplierPolicy.DefaultPercent;
                 AILordHealthPercent = LordHealthMultiplierPolicy.DefaultPercent;
                 EnableMonksAlwaysRun = false;
+                EnableFearFactorNeutralization = false;
                 EnableKnightDismount = true;
                 InstantHorse = false;
                 EnableExtraChurchPriests = true;

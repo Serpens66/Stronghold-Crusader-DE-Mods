@@ -11,7 +11,7 @@ string testDir = Path.Combine(root, "BugfixesAndQoL", "tests", "FriendlyMoatMove
 string[] runtimeSourceNames =
 {
     "CursorConnectivity.cs", "CursorRegionGraph.cs", "DirectMoatCommandScopes.cs",
-    "FillWeightedRoutes.cs", "FriendlyMoatMovementPolicy.cs",
+    "FastMoatBridge.cs", "FillWeightedRoutes.cs", "FriendlyMoatMovementPolicy.cs",
     "FriendlyMoatMovementRuntime.cs", "MoatPlacement.cs", "MoatPlacementSearch.cs",
     "MoatSearchKernel.cs", "MoatWorkTargetSelection.cs", "MovementOptionsSnapshot.cs",
     "MovementPathPublication.cs", "MovementSearchContext.cs", "NativeFormationSlots.cs",
@@ -33,6 +33,7 @@ ValidateModeSettings();
 
 var methods = new HashSet<string>(new[] {
     "LogDetailedInfo",
+    "EnsureMoveCommandGroupSummary",
     "TryApplyBuildingConsumerFallback", "IsLegalBuildingCandidate", "BuildingCandidateEdge", "TryCaptureOrderedActiveGroupUnits", "CaptureBuildingApproachCandidates", "CaptureBuildingApproachBuffer", "RestoreBuildingApproachBuffer", "WriteBuildingApproachCandidates", "WriteBuildingApproachCandidate", "PublishBuildingApproachPairs", "TryGetPublishedBuildingFootprint", "MatchesSynchronousAttackMovementContext", "TryGetUnitAttackMoveTile", "IsValidBuildingApproachPair", "IsWalkableBuildingApproachEndpoint", "IsExactBuildingContextTile", "TryValidateHostileBuildingTarget",
     "GetReusableQualifiedRoute",
     "InvalidateMovementSearchData",
@@ -182,8 +183,10 @@ void ValidateScriptExtenderIntegration()
     string runtime = string.Join("\n", trees.Select(tree => tree.ToString()));
     string project = File.ReadAllText(Path.Combine(root, "BugfixesAndQoL", "BugfixesAndQoL.csproj"));
     string build = File.ReadAllText(Path.Combine(root, "BugfixesAndQoL", "build.bat"));
+    var (minimum, _) = ReadExtenderRange();
 
-    if (!plugin.Contains("[BepInDependency(ScriptExtenderGuid, \"2.3.0\")]", StringComparison.Ordinal) ||
+    if ((minimum.Length != 0 &&
+         !plugin.Contains($"[BepInDependency(ScriptExtenderGuid, \"{minimum}\")]", StringComparison.Ordinal)) ||
         !plugin.Contains("[BepInIncompatibility(LegacyMoveMoatGuid)]", StringComparison.Ordinal) ||
         !orchestrator.Contains("new FriendlyMoatMovementRuntime(", StringComparison.Ordinal) ||
         !orchestrator.Contains("log, settings, context, referenceHashMatches", StringComparison.Ordinal))
@@ -193,7 +196,7 @@ void ValidateScriptExtenderIntegration()
             throw new Exception("Legacy hook contract remains: " + forbidden);
     foreach (string required in new[]{"RedBird.Abstractions.dll", "RedBird.Core.dll", "RedBird.X64.dll", "RedBird.Backends.NativeX64.dll"})
         if (!project.Contains(required, StringComparison.Ordinal))
-            throw new Exception("Missing RedBird reference shipped with Script Extender 2.3.0: " + required);
+            throw new Exception("Missing RedBird reference shipped with the Script Extender: " + required);
     if (!runtime.Contains("FailureMode = TransactionFailureMode.RollbackAndThrow", StringComparison.Ordinal) ||
         !runtime.Contains("OwnsHooks = true", StringComparison.Ordinal) ||
         !runtime.Contains("Handle.Failure == null", StringComparison.Ordinal) ||
@@ -244,11 +247,12 @@ void ValidateRuntimeSources()
     string game=@"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition";
     string extender=Path.Combine(game,"BepInEx","plugins","000shcdese");
     if(!File.Exists(Path.Combine(extender,"SHCDESE.dll")))
-        throw new Exception("Installed Script Extender 2.3.0 test references are required.");
+        throw new Exception("Installed Script Extender test references are required.");
+    (string minimum, string maximum) = ReadExtenderRange();
     string productVersion=System.Diagnostics.FileVersionInfo.GetVersionInfo(Path.Combine(extender,"SHCDESE.dll")).ProductVersion;
     string referenceVersion=productVersion?.Split('+')[0];
-    if(referenceVersion!="2.3.0")
-        throw new Exception("Installed reference is not Script Extender 2.3.0: "+productVersion);
+    if(!IsExtenderVersionAllowed(referenceVersion, minimum, maximum))
+        throw new Exception("Installed reference is outside the manifest Script Extender range: "+productVersion);
     var paths=new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase);
     void Include(string path)
     {
@@ -273,7 +277,7 @@ void ValidateRuntimeSources()
         "(FriendlyMoatMovementMode)FriendlyMoatMovementPolicy.Normalize(FriendlyMoatMovementMode); } }");
     var sources=trees.Concat(new[]{settingsStub}).Concat(new[]{"DebugLogHelper.cs","NativePatternResolver.cs","SerpLocalization.cs","PresetLobbyModSettingsViewModel.cs","ModSettingsSearch.cs","ToolTipPresentation.cs","GameModeHelper.cs"}.Select(file=>
         CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"Shared",file)),path:file))).ToArray();
-    var check=CSharpCompilation.Create("FriendlyMoatMovementSourceContract230",sources,
+    var check=CSharpCompilation.Create("FriendlyMoatMovementSourceContract",sources,
         paths.Values.Select(p=>MetadataReference.CreateFromFile(p)),
         new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary,allowUnsafe:true));
     var diagnostics=check.GetDiagnostics();
@@ -286,13 +290,39 @@ void ValidateRuntimeSources()
         Include(Path.Combine(game,"BepInEx","plugins","000shcdese",file));
     string installedVersion=System.Diagnostics.FileVersionInfo.GetVersionInfo(Path.Combine(game,"BepInEx","plugins","000shcdese","SHCDESE.dll")).ProductVersion;
     string installedRelease=installedVersion?.Split('+')[0];
-    if(installedRelease!="2.3.0") throw new Exception("Installed extender is not Script Extender 2.3.0: "+installedVersion);
-    var installed=CSharpCompilation.Create("FriendlyMoatMovementInstalledContract230",sources,
+    if(!IsExtenderVersionAllowed(installedRelease, minimum, maximum))
+        throw new Exception("Installed extender is outside the manifest Script Extender range: "+installedVersion);
+    var installed=CSharpCompilation.Create("FriendlyMoatMovementInstalledContract",sources,
         paths.Values.Select(p=>MetadataReference.CreateFromFile(p)), new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary,allowUnsafe:true));
     var installedFailures=installed.GetDiagnostics().Where(d=>d.Severity==DiagnosticSeverity.Error).ToArray();
     if(installedFailures.Length>0)throw new Exception(string.Join("\n",installedFailures.Select(d=>d.ToString())));
     Console.WriteLine($"PASS: installed Script Extender {installedRelease} assembly API surface matches all runtime sources.");
     Console.WriteLine($"PASS: complete runtime semantic source check against Script Extender {referenceVersion}; no mod assembly emitted.");
+}
+
+(string Minimum, string Maximum) ReadExtenderRange()
+{
+    string manifest = File.ReadAllText(Path.Combine(root, "BugfixesAndQoL", "info.json"));
+    string Read(string property)
+    {
+        string marker = "\"" + property + "\"";
+        int propertyIndex = manifest.IndexOf(marker, StringComparison.Ordinal);
+        if (propertyIndex < 0) return string.Empty;
+        int colon = manifest.IndexOf(':', propertyIndex + marker.Length);
+        int openingQuote = colon < 0 ? -1 : manifest.IndexOf('"', colon + 1);
+        int closingQuote = openingQuote < 0 ? -1 : manifest.IndexOf('"', openingQuote + 1);
+        return closingQuote < 0 ? string.Empty : manifest.Substring(openingQuote + 1, closingQuote - openingQuote - 1);
+    }
+    return (Read("MinimumScriptExtenderVersion"), Read("MaximumScriptExtenderVersion"));
+}
+
+bool IsExtenderVersionAllowed(string actual, string minimum, string maximum)
+{
+    if (minimum.Length == 0 && maximum.Length == 0) return true;
+    if (!Version.TryParse(actual, out Version parsed)) return false;
+    if (minimum.Length != 0 && (!Version.TryParse(minimum, out Version min) || parsed < min)) return false;
+    if (maximum.Length != 0 && (!Version.TryParse(maximum, out Version max) || parsed > max)) return false;
+    return true;
 }
 
 void ValidateSelectionMetadata()
@@ -319,6 +349,9 @@ void ValidateModeSettings()
     string xaml = File.ReadAllText(Path.Combine(root, "BugfixesAndQoL", "Override",
         "ScriptExtenderUI", "BugfixesAndQoLSettings.xaml"));
     string runtime = File.ReadAllText(Path.Combine(sourceDir, "FriendlyMoatMovementRuntime.cs"));
+    string recovery = File.ReadAllText(Path.Combine(sourceDir, "NativeMovementRecovery.cs"));
+    string fastBridge = File.ReadAllText(Path.Combine(sourceDir, "FastMoatBridge.cs"));
+    string shiftQueue = File.ReadAllText(Path.Combine(sourceDir, "ExtendedShiftCommandQueueRuntime.cs"));
     if (!policy.Contains("Disabled = 0", StringComparison.Ordinal) ||
         !policy.Contains("Exact = 1", StringComparison.Ordinal) ||
         !policy.Contains("RequiredOnly = 2", StringComparison.Ordinal) ||
@@ -326,9 +359,28 @@ void ValidateModeSettings()
         !policy.Contains(": (int)FriendlyMoatMovementMode.Disabled", StringComparison.Ordinal))
         throw new Exception("The three-mode default and fail-closed normalization contract is incomplete.");
     if (!runtime.Contains("bool exactGroundSearch = !requiredOnly", StringComparison.Ordinal) ||
-        !runtime.Contains("(!requiredOnly || groundSeparationProven)", StringComparison.Ordinal) ||
-        !runtime.Contains("ground-unproven-fast", StringComparison.Ordinal))
+        !runtime.Contains("(!requiredOnly || fastBridgeProven)", StringComparison.Ordinal) ||
+        !runtime.Contains("ground-unproven-fast", StringComparison.Ordinal) ||
+        !runtime.Contains("if (!RequiredOnlyMode && activeMoveCommand == null", StringComparison.Ordinal))
         throw new Exception("Fast mode can still fall back to an unproven full-map route search.");
+    if (recovery.Contains("TryBuildReachabilityEncoded(plan.PlayerId, x, y, targetX, targetY", StringComparison.Ordinal) ||
+        !recovery.Contains("unbound-fast-unit-move", StringComparison.Ordinal) ||
+        !recovery.Contains("activeMoveCommand?.MoatRelevant == true", StringComparison.Ordinal) ||
+        !recovery.Contains("plan.VanillaFailureProven = true", StringComparison.Ordinal) ||
+        !fastBridge.Contains("FastSearchNodeBudget = 16384", StringComparison.Ordinal))
+        throw new Exception("Fast pre-builder recovery is not Vanilla-failure-bound and budgeted.");
+    if (shiftQueue.Contains("GameNetworkAPI.GetLocalPlayerId", StringComparison.Ordinal))
+        throw new Exception("ShiftQueue still calls the warning-producing network local-player wrapper.");
+    int attackCaptureStart = runtime.IndexOf("private void CaptureAttackCommandCandidates", StringComparison.Ordinal);
+    int attackCaptureEnd = runtime.IndexOf("private void EnsureAttackCommandCandidates", attackCaptureStart, StringComparison.Ordinal);
+    if (attackCaptureStart < 0 || attackCaptureEnd <= attackCaptureStart ||
+        runtime.Substring(attackCaptureStart, attackCaptureEnd - attackCaptureStart)
+            .Contains("GetUnitsAsSpan", StringComparison.Ordinal))
+        throw new Exception("Attack candidate capture still scans the complete unit array.");
+    if (!runtime.Contains("scope == null && fastCommand != null", StringComparison.Ordinal) ||
+        !runtime.Contains("scope == null && vanillaCompleted && fastCommand != null", StringComparison.Ordinal) ||
+        !runtime.Contains(".UsableResultCount == 0", StringComparison.Ordinal))
+        throw new Exception("Fast attack candidate capture is no longer deferred until Vanilla has no usable result.");
     if (!snapshot.Contains("settings.EnableMod && mode != FriendlyMoatMovementMode.Disabled", StringComparison.Ordinal) ||
         !snapshot.Contains("mode == FriendlyMoatMovementMode.RequiredOnly", StringComparison.Ordinal))
         throw new Exception("Off does not fully gate friendly movement or mode mapping is incorrect.");

@@ -218,33 +218,44 @@ namespace SerpsModsHostDuplicateTests
 
         private static void TestScriptExtenderCompatibility()
         {
+            string placeholder = VersionText(1, 0, 0);
+            string placeholderAssembly = VersionText(1, 0, 0, 0);
+            string installed = VersionText(1, 43, 2);
+            string installedAssembly = VersionText(1, 43, 2, 0);
+            string installedProduct = installed + "+commit";
+            string newer = VersionText(1, 44, 0);
+
             AssertResolvedVersion(
-                "1.43.2",
+                installed,
                 false,
-                new ScriptExtenderVersionEvidence("info", "1.0.0"),
-                new ScriptExtenderVersionEvidence("assembly", "1.43.2.0"),
-                new ScriptExtenderVersionEvidence("product", "1.43.2+commit"));
+                new ScriptExtenderVersionEvidence("info", placeholder),
+                new ScriptExtenderVersionEvidence("assembly", installedAssembly),
+                new ScriptExtenderVersionEvidence("product", installedProduct));
             AssertResolvedVersion(
                 null,
                 true,
-                new ScriptExtenderVersionEvidence("info", "1.0.0"),
-                new ScriptExtenderVersionEvidence("assembly", "1.0.0.0"));
+                new ScriptExtenderVersionEvidence("info", placeholder),
+                new ScriptExtenderVersionEvidence("assembly", placeholderAssembly));
             AssertResolvedVersion(
                 null,
                 false,
-                new ScriptExtenderVersionEvidence("info", "1.43.2"),
-                new ScriptExtenderVersionEvidence("assembly", "1.44.0"));
+                new ScriptExtenderVersionEvidence("info", installed),
+                new ScriptExtenderVersionEvidence("assembly", newer));
 
-            AssertCompatibility("1.43.2", "1.43.2", "", ScriptExtenderCompatibilityStatus.Compatible);
-            AssertCompatibility("1.44.0", "1.43.2", null, ScriptExtenderCompatibilityStatus.Compatible);
-            AssertCompatibility("1.43", "1.43.0", "1.43.0.0", ScriptExtenderCompatibilityStatus.Compatible);
-            AssertCompatibility("1.43.1", "1.43.2", "", ScriptExtenderCompatibilityStatus.BelowMinimum);
-            AssertCompatibility("1.44.1", "1.43.2", "1.44.0", ScriptExtenderCompatibilityStatus.AboveMaximum);
-            AssertCompatibility("1.43.2", "1.44.0", "1.43.0", ScriptExtenderCompatibilityStatus.InvalidRange);
-            AssertCompatibility("preview", "1.43.2", "", ScriptExtenderCompatibilityStatus.InvalidInstalledVersion);
-            AssertCompatibility("1.43.2", "", "", ScriptExtenderCompatibilityStatus.InvalidMinimumVersion);
-            AssertCompatibility("1.43.2", "1.43.2", "latest", ScriptExtenderCompatibilityStatus.InvalidMaximumVersion);
+            AssertCompatibility(installed, installed, "", ScriptExtenderCompatibilityStatus.Compatible);
+            AssertCompatibility(newer, installed, null, ScriptExtenderCompatibilityStatus.Compatible);
+            AssertCompatibility(VersionText(1, 43), VersionText(1, 43, 0), VersionText(1, 43, 0, 0), ScriptExtenderCompatibilityStatus.Compatible);
+            AssertCompatibility(VersionText(1, 43, 1), installed, "", ScriptExtenderCompatibilityStatus.BelowMinimum);
+            AssertCompatibility(VersionText(1, 44, 1), installed, newer, ScriptExtenderCompatibilityStatus.AboveMaximum);
+            AssertCompatibility(installed, newer, VersionText(1, 43, 0), ScriptExtenderCompatibilityStatus.InvalidRange);
+            AssertCompatibility("preview", installed, "", ScriptExtenderCompatibilityStatus.InvalidInstalledVersion);
+            AssertCompatibility(installed, "", "", ScriptExtenderCompatibilityStatus.Compatible);
+            AssertCompatibility(installed, null, newer, ScriptExtenderCompatibilityStatus.Compatible);
+            AssertCompatibility(VersionText(1, 44, 1), null, newer, ScriptExtenderCompatibilityStatus.AboveMaximum);
+            AssertCompatibility(installed, installed, "latest", ScriptExtenderCompatibilityStatus.InvalidMaximumVersion);
         }
+
+        private static string VersionText(params int[] parts) => string.Join(".", parts);
 
         private static void AssertResolvedVersion(
             string expected,

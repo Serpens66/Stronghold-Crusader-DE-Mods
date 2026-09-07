@@ -843,6 +843,7 @@ internal static class Program
     {
         string workspace = FindWorkspace();
         string bugfixesPlugin = Read(workspace, "BugfixesAndQoL", "src", "BugfixesAndQoLPlugin.cs");
+        string bugfixesMinimum = ReadManifestMinimum(workspace, "BugfixesAndQoL");
         string queueRuntime = Read(
             workspace,
             "BugfixesAndQoL",
@@ -877,12 +878,13 @@ internal static class Program
                 .Select(File.ReadAllText));
         string bugfixesProject = Read(workspace, "BugfixesAndQoL", "BugfixesAndQoL.csproj");
 
-        Check(bugfixesPlugin.Contains("BepInDependency(ScriptExtenderGuid, \"2.3.0\")"),
-            "integrated queue pins Script Extender 2.3.0");
+        Check(bugfixesMinimum.Length == 0 ||
+            bugfixesPlugin.Contains($"BepInDependency(ScriptExtenderGuid, \"{bugfixesMinimum}\")"),
+            "integrated queue dependency matches the manifest minimum");
         Check(bugfixesRuntime.Contains("InitializeExtendedShiftCommandQueue(context, isFixedLayoutHashValidated)"),
-            "integrated queue consumes the validated 2.3.0 load context");
+            "integrated queue consumes the validated Script Extender load context");
         Check(queueRuntime.Contains("SelectedUnitInfo[] selectedUnits"),
-            "integrated queue projects the 2.3.0 selected-unit contract");
+            "integrated queue projects the selected-unit contract");
         Check(CountText(queueRuntime, "new DetourHandle<") == 5,
             "integrated queue owns five typed RedBird detour handles");
         Check(CountText(queueRuntime, "HookTarget.FromAddress(") == 5,
@@ -962,9 +964,7 @@ internal static class Program
         Check(bugfixesProject.Contains("RedBird.Abstractions.dll") &&
             bugfixesProject.Contains("RedBird.Core.dll") && bugfixesProject.Contains("RedBird.X64.dll"),
             "integrated queue uses the RedBird assemblies already owned by BugfixesAndQoL");
-        Check(queueContract.Contains("Script Extender 2.0.2") &&
-            queueContract.Contains("Script Extender 2.2.0") &&
-            queueRuntime.Contains("GameTribeManagerAPI.Instance.UnassignUnit(tribeId, member.UnitId)") &&
+        Check(queueRuntime.Contains("GameTribeManagerAPI.Instance.UnassignUnit(tribeId, member.UnitId)") &&
             !queueRuntime.Contains("RemoveUnitFromTribeRva") &&
             !queueRuntime.Contains("removeUnitFromTribe("),
             "integrated queue uses the corrected public UnassignUnit wrapper");
@@ -1011,9 +1011,10 @@ internal static class Program
         Check(!Directory.Exists(Path.Combine(workspace, "QueueTest")),
             "standalone QueueTest project has been removed after integration");
 
-        Check(bugfixesPlugin.Contains("BepInDependency(ScriptExtenderGuid, \"2.3.0\")") &&
+        Check((bugfixesMinimum.Length == 0 ||
+               bugfixesPlugin.Contains($"BepInDependency(ScriptExtenderGuid, \"{bugfixesMinimum}\")")) &&
             bugfixesPlugin.Contains("BepInIncompatibility(LegacyMoveMoatGuid)"),
-            "BugfixesAndQoL owns the migrated moat runtime on Script Extender 2.3.0");
+            "BugfixesAndQoL owns the migrated moat runtime on its manifest-selected Script Extender");
         Check(bugfixesRuntime.Contains("new HookHandle<X64InlineHook>") &&
             bugfixesRuntime.Contains("new DetourHandle<") &&
             bugfixesRuntime.Contains("HookTarget.FromAddress("),
@@ -1037,8 +1038,11 @@ internal static class Program
             string plugin = Read(workspace, mod, "src", mod + "Plugin.cs");
             string runtime = Read(workspace, mod, "src", mod + "Runtime.cs");
             string project = Read(workspace, mod, mod + ".csproj");
-            Check(plugin.Contains("BepInDependency(ScriptExtenderGuid, \"2.3.0\")") &&
-                plugin.Contains("CrusaderLibraryLoadContext context"), mod + " consumes exact 2.3.0");
+            string minimum = ReadManifestMinimum(workspace, mod);
+            Check((minimum.Length == 0 ||
+                   plugin.Contains($"BepInDependency(ScriptExtenderGuid, \"{minimum}\")")) &&
+                plugin.Contains("CrusaderLibraryLoadContext context"),
+                mod + " consumes its manifest-selected Script Extender contract");
             Check(runtime.Contains("using RedBird.Core.Memory;") && !runtime.Contains("Zhuqiaomon"),
                 mod + " uses the RedBird memory contract");
             Check(project.Contains("RedBird.Core.dll") && !project.Contains("Zhuqiaomon.dll"),
@@ -1146,6 +1150,20 @@ internal static class Program
                 return checked(rawAddress + rva - virtualAddress);
         }
         throw new InvalidOperationException($"RVA 0x{rva:X} is not in a PE section.");
+    }
+
+    private static string ReadManifestMinimum(string workspace, string mod)
+    {
+        string manifest = Read(workspace, mod, "info.json");
+        const string property = "\"MinimumScriptExtenderVersion\"";
+        int propertyIndex = manifest.IndexOf(property, StringComparison.Ordinal);
+        if (propertyIndex < 0) return string.Empty;
+        int colon = manifest.IndexOf(':', propertyIndex + property.Length);
+        int openingQuote = colon < 0 ? -1 : manifest.IndexOf('"', colon + 1);
+        int closingQuote = openingQuote < 0 ? -1 : manifest.IndexOf('"', openingQuote + 1);
+        return closingQuote < 0
+            ? string.Empty
+            : manifest.Substring(openingQuote + 1, closingQuote - openingQuote - 1);
     }
 
     private static void Check(bool condition, string name)

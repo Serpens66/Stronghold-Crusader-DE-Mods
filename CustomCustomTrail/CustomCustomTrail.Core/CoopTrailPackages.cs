@@ -130,6 +130,9 @@ namespace CustomCustomTrail.Core
     {
         private readonly Dictionary<string, CoopTrailPackage> packages =
             new Dictionary<string, CoopTrailPackage>(StringComparer.OrdinalIgnoreCase);
+        private HashSet<string> scanErrors = new HashSet<string>(StringComparer.Ordinal);
+        private HashSet<string> scanNotices = new HashSet<string>(StringComparer.Ordinal);
+        private bool hasCompletedScan;
 
         public IReadOnlyDictionary<string, CoopTrailPackage> Packages => packages;
 
@@ -140,6 +143,12 @@ namespace CustomCustomTrail.Core
 
         public void Scan(IEnumerable<string> contentRoots, Action<string> info, Action<string> error)
         {
+            Dictionary<string, CoopTrailPackage> previousPackages = packages.ToDictionary(
+                item => item.Key,
+                item => item.Value,
+                StringComparer.OrdinalIgnoreCase);
+            var currentErrors = new HashSet<string>(StringComparer.Ordinal);
+            var currentNotices = new HashSet<string>(StringComparer.Ordinal);
             packages.Clear();
             var candidates = new List<CoopTrailPackage>();
             string[] roots = (contentRoots ?? Enumerable.Empty<string>())
@@ -162,7 +171,7 @@ namespace CustomCustomTrail.Core
                 }
                 catch (Exception exception)
                 {
-                    error?.Invoke("Ignored Coop Trail package [" + Path.GetFileName(directory) + "]: " + exception.Message);
+                    currentErrors.Add("Ignored Coop Trail package [" + Path.GetFileName(directory) + "]: " + exception.Message);
                 }
             }
 
@@ -175,17 +184,60 @@ namespace CustomCustomTrail.Core
                     string.Equals(item.Manifest.ContentFingerprint, matches[0].Manifest.ContentFingerprint, StringComparison.OrdinalIgnoreCase));
                 if (matches.Length != 1 && !exactReplicas)
                 {
-                    error?.Invoke("Ignored duplicate Coop Trail packageId [" + group.Key + "] in: " +
+                    currentErrors.Add("Ignored duplicate Coop Trail packageId [" + group.Key + "] in: " +
                         string.Join(", ", matches.Select(item => item.RootPath)));
                     continue;
                 }
                 CoopTrailPackage package = matches[0];
                 packages[package.Manifest.PackageId] = package;
-                info?.Invoke("Found Coop Trail package [" + package.Manifest.DisplayName + "] with " + package.Manifest.MissionCount + " mission(s).");
                 if (exactReplicas)
-                    info?.Invoke("Merged identical local/Workshop replicas of Coop Trail packageId [" + group.Key + "].");
+                    currentNotices.Add("Merged identical local/Workshop replicas of Coop Trail packageId [" + group.Key + "].");
             }
+
+            foreach (KeyValuePair<string, CoopTrailPackage> item in packages.OrderBy(item => item.Key, StringComparer.OrdinalIgnoreCase))
+            {
+                if (!hasCompletedScan || !previousPackages.TryGetValue(item.Key, out CoopTrailPackage previous))
+                {
+                    info?.Invoke("Found Coop Trail package [" + item.Value.Manifest.DisplayName + "] with " +
+                        item.Value.Manifest.MissionCount + " mission(s).");
+                }
+                else if (!SamePackage(previous, item.Value))
+                {
+                    info?.Invoke("Updated Coop Trail package [" + item.Value.Manifest.DisplayName + "] with " +
+                        item.Value.Manifest.MissionCount + " mission(s).");
+                }
+            }
+
+            if (hasCompletedScan)
+            {
+                foreach (KeyValuePair<string, CoopTrailPackage> item in previousPackages
+                    .Where(item => !packages.ContainsKey(item.Key))
+                    .OrderBy(item => item.Key, StringComparer.OrdinalIgnoreCase))
+                {
+                    info?.Invoke("Removed Coop Trail package [" + item.Value.Manifest.DisplayName + "].");
+                }
+            }
+
+            foreach (string message in currentNotices.Except(scanNotices).OrderBy(value => value, StringComparer.Ordinal))
+                info?.Invoke(message);
+            foreach (string message in currentErrors.Except(scanErrors).OrderBy(value => value, StringComparer.Ordinal))
+                error?.Invoke(message);
+            if (hasCompletedScan)
+            {
+                foreach (string message in scanErrors.Except(currentErrors).OrderBy(value => value, StringComparer.Ordinal))
+                    info?.Invoke("Resolved Coop Trail package scan issue: " + message);
+            }
+
+            scanErrors = currentErrors;
+            scanNotices = currentNotices;
+            hasCompletedScan = true;
         }
+
+        private static bool SamePackage(CoopTrailPackage left, CoopTrailPackage right) =>
+            string.Equals(left.RootPath, right.RootPath, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(left.Manifest.DisplayName, right.Manifest.DisplayName, StringComparison.Ordinal) &&
+            left.Manifest.MissionCount == right.Manifest.MissionCount &&
+            string.Equals(left.Manifest.ContentFingerprint, right.Manifest.ContentFingerprint, StringComparison.OrdinalIgnoreCase);
 
         public static CoopTrailPackage Load(string packageRoot)
         {

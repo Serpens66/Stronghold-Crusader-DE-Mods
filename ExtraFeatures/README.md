@@ -3,6 +3,9 @@ ExtraFeatures adds configurable gameplay, economy, building, and AI options to S
 
 ## Convenience and unit features
 
+### Disable fear-factor effects on soldiers
+An optional host setting removes both the fear-factor damage bonus and penalty for all human and AI soldiers, including ranged attacks. Fear symbols disappear while health bars remain visible. Fear values, popularity and productivity effects remain unchanged. Disabled by default; also works in the map editor when ExtraFeatures and this option are enabled.
+
 ### Let monks run
 Fighting Monks and Temple Guards can use the normal troop running behavior and animation instead of always being restricted to walking.
 
