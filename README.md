@@ -71,3 +71,8 @@ Directly used sources:
 - https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender
 - https://github.com/sourcehold
 - https://github.com/UnofficialCrusaderPatch/UnofficialCrusaderPatch3
+
+## Credits:
+- Big thank to "Rawra" the creator of the script extender, which makes modding possible :)  
+- Thanks to the creators of "BepInEx", without the script extender would not be possiible.  
+- Thanks to the **UCP Modding team**, who made so many fixes and features for the HD version of the game! Fixing the same issues in DE was easier, because I was able to check how the UCP team did it. UCP for HD version of the game: **https://github.com/UnofficialCrusaderPatch**
