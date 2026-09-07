@@ -247,7 +247,9 @@ namespace BugfixesAndQoL
         private const int MoatRecordSize = 0x10;
         private const int MoatOwnerOffset = 0x0C;
 
-        private const int MaximumRegionId = short.MaxValue;
+        // Script Extender 2.3.0 exposes PathConnectionGrid as UInt16. Large or
+        // fragmented maps can legitimately use region IDs above Int16.MaxValue.
+        private const int MaximumRegionId = ushort.MaxValue;
         private const int MaximumFloodFillStamp = 0x7D00;
         private const int MapWidth = 800;
         private const int MapCellCount = MapWidth * MapWidth;
@@ -442,7 +444,7 @@ namespace BugfixesAndQoL
         private readonly ushort* nativeBuildingLayer;
         private readonly byte* nativeHeightLayer;
         private readonly byte* nativeDirectionMasks;
-        private readonly short* pathRegionGrid;
+        private readonly ushort* pathRegionGrid;
         private readonly IntPtr nativePathManager;
         private readonly IntPtr nativeTribeManager;
         private readonly IntPtr nativeSpecialStructureContext;
@@ -975,7 +977,7 @@ namespace BugfixesAndQoL
             nativeBuildingLayer = (ushort*)(libraryBase + NativeBuildingLayerRva);
             nativeHeightLayer = (byte*)(libraryBase + NativeHeightLayerRva);
             nativeDirectionMasks = (byte*)(libraryBase + NativeDirectionMaskRva);
-            pathRegionGrid = (short*)(libraryBase + PathRegionGridRva);
+            pathRegionGrid = (ushort*)(libraryBase + PathRegionGridRva);
             nativePathManager = (IntPtr)(libraryBase + NativePathManagerRva);
             nativeTribeManager = (IntPtr)(libraryBase + NativeTribeManagerRva);
             nativeSpecialStructureContext =
@@ -1218,6 +1220,7 @@ namespace BugfixesAndQoL
             mainHookTransaction = null;
             ClearUnitMoveFrames();
             activeMoveCommand = null;
+            ClearDeferredFastMoveScope();
             activePlan = null;
             pendingPlan = null;
             pendingAttackCursorPair = null;
@@ -1639,6 +1642,16 @@ namespace BugfixesAndQoL
                 catch
                 {
                     // Diagnostics must not escape into the synchronous command event.
+                }
+                try
+                {
+                    CaptureDeferredFastMoveScope(command);
+                }
+                catch (Exception ex)
+                {
+                    // This scope is optional and must fail closed without affecting Vanilla.
+                    ClearDeferredFastMoveScope();
+                    TryLogDiagnosticFailure("deferred-fast-move-scope", ex);
                 }
                 activeMoveCommand = null;
                 activePlan = null;
@@ -8068,6 +8081,7 @@ namespace BugfixesAndQoL
             lastAttackCommandCandidates.Clear();
             trackedAttackUnits.Clear();
             activeMoveCommand = null;
+            ClearDeferredFastMoveScope();
             activePlan = null;
             pendingPlan = null;
             pendingAttackCursorPair = null;

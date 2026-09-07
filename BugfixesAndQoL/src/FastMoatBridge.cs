@@ -1,4 +1,5 @@
 using SHCDESE.API;
+using SHCDESE.Interop;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -19,6 +20,11 @@ namespace BugfixesAndQoL
         private long fastBridgeBuilds, fastSearches, fastBudgetAborts, fastExpandedNodes;
         private int fastMaximumExpandedNodes;
         private long fastMaximumSearchTicks;
+        private long fastBridgeInvalidEndpoints, fastBridgeSameRegionRejects;
+        private long fastBridgeNoMoatRejects, fastBridgeNoEndpointRejects;
+        private long fastBridgeDisconnectedRejects, fastHighRegionEndpoints;
+        private long fastDeferredHumanScopes, fastDeferredHumanUses, fastDeferredHumanExpirations;
+        private DeferredFastMoveScope deferredFastMoveScope;
 
         private void InvalidateFastMoatData()
         {
@@ -29,7 +35,8 @@ namespace BugfixesAndQoL
 
         private void LogAndResetFastMoatMetrics()
         {
-            if (fastFallbackChecks > 0 || fastSearches > 0)
+            if (fastVanillaBypasses > 0 || fastFallbackChecks > 0 || fastSearches > 0 ||
+                fastDeferredHumanScopes > 0 || fastDeferredHumanUses > 0)
             {
                 Shared.DebugLogHelper.LogInfo(log,
                     "Bugfixes and QoL stage=friendly-moat-fast-performance " +
@@ -37,12 +44,21 @@ namespace BugfixesAndQoL
                     $"bridgeBuilds={fastBridgeBuilds} bridgeCacheHits={fastBridgeCacheHits} " +
                     $"searches={fastSearches} expanded={fastExpandedNodes} " +
                     $"maxExpanded={fastMaximumExpandedNodes} budgetAborts={fastBudgetAborts} " +
-                    $"maxSearchMs={fastMaximumSearchTicks * 1000.0 / Stopwatch.Frequency:F3}.");
+                    $"maxSearchMs={fastMaximumSearchTicks * 1000.0 / Stopwatch.Frequency:F3} " +
+                    $"bridgeRejects=invalid:{fastBridgeInvalidEndpoints},sameRegion:{fastBridgeSameRegionRejects}," +
+                    $"noMoat:{fastBridgeNoMoatRejects},noEndpoint:{fastBridgeNoEndpointRejects}," +
+                    $"disconnected:{fastBridgeDisconnectedRejects} highRegionEndpoints={fastHighRegionEndpoints} " +
+                    $"deferredHumanScopes={fastDeferredHumanScopes} deferredHumanUses={fastDeferredHumanUses} " +
+                    $"deferredHumanExpirations={fastDeferredHumanExpirations}.");
             }
             fastVanillaBypasses = fastFallbackChecks = fastBridgeCacheHits = 0;
             fastBridgeBuilds = fastSearches = fastBudgetAborts = fastExpandedNodes = 0;
             fastMaximumExpandedNodes = 0;
             fastMaximumSearchTicks = 0;
+            fastBridgeInvalidEndpoints = fastBridgeSameRegionRejects = 0;
+            fastBridgeNoMoatRejects = fastBridgeNoEndpointRejects = 0;
+            fastBridgeDisconnectedRejects = fastHighRegionEndpoints = 0;
+            fastDeferredHumanScopes = fastDeferredHumanUses = fastDeferredHumanExpirations = 0;
         }
 
         private bool HasFastFriendlyMoatBridge(int playerId, int startTileId, int targetTileId)
@@ -50,13 +66,21 @@ namespace BugfixesAndQoL
             fastFallbackChecks++;
             if (!IsValidTileId(startTileId) || !IsValidTileId(targetTileId) ||
                 !GamePlayerManagerAPI.Instance.IsPlayerIdValid(playerId))
+            {
+                fastBridgeInvalidEndpoints++;
                 return false;
+            }
 
             int startRegion = pathRegionGrid[startTileId];
             int targetRegion = pathRegionGrid[targetTileId];
+            if (startRegion > short.MaxValue || targetRegion > short.MaxValue)
+                fastHighRegionEndpoints++;
             if (startRegion > 0 && startRegion == targetRegion &&
                 !IsCompletedMoatTile(startTileId) && !IsCompletedMoatTile(targetTileId))
+            {
+                fastBridgeSameRegionRejects++;
                 return false;
+            }
 
             if (!fastMoatGraphs.TryGetValue(playerId, out FastMoatGraph graph) ||
                 graph.MapEpoch != mapEpoch || graph.Revision != placementRevision)
@@ -66,7 +90,10 @@ namespace BugfixesAndQoL
                 fastBridgeBuilds++;
             }
             if (graph.FriendlyMoatTiles.Count == 0)
+            {
+                fastBridgeNoMoatRejects++;
                 return false;
+            }
 
             int startNode = FastBridgeEndpointNode(startTileId);
             int targetNode = FastBridgeEndpointNode(targetTileId);
@@ -82,6 +109,7 @@ namespace BugfixesAndQoL
             HashSet<int> targets = new HashSet<int>(GetFastBridgeNodes(graph, targetTileId));
             if (starts.Count == 0 || targets.Count == 0)
             {
+                fastBridgeNoEndpointRejects++;
                 fastMoatBridgeDecisions[key] = false;
                 return false;
             }
@@ -103,8 +131,64 @@ namespace BugfixesAndQoL
                 foreach (int neighbour in neighbours)
                     if (visited.Add(neighbour)) queue.Enqueue(neighbour);
             }
+            fastBridgeDisconnectedRejects++;
             fastMoatBridgeDecisions[key] = false;
             return false;
+        }
+
+        private void ClearDeferredFastMoveScope()
+        {
+            deferredFastMoveScope = null;
+        }
+
+        private void CaptureDeferredFastMoveScope(MoveCommandScope command)
+        {
+            if (!RequiredOnlyMode || command == null)
+                return;
+            if (!GameTribeManagerAPI.Instance.TryGetTribeById(
+                    command.TribeId, out GameTribe* tribe) || tribe == null)
+                return;
+
+            int ownerId = tribe->r_PlayerIdOwner;
+            GamePlayerManagerAPI players = GamePlayerManagerAPI.Instance;
+            if (!players.IsPlayerIdValid(ownerId) || players.IsAIPlayer(ownerId) ||
+                ownerId != players.GetLocalPlayerId())
+                return;
+
+            // A new local command supersedes older delayed work. AI commands must not
+            // clear this scope while the native large-group dispatcher is still draining.
+            deferredFastMoveScope = null;
+            if (!command.MoatRelevant)
+                return;
+            EnsureMoveCommandGroupSummary(command);
+            if (command.ActiveUnitIdsAtDispatch.Length == 0)
+                return;
+
+            // Large groups can defer individual path builders until after the
+            // synchronous tribe command returns. Retain only this local human
+            // command; AI/FastRecruit traffic can never acquire this authority.
+            deferredFastMoveScope = new DeferredFastMoveScope(
+                mapEpoch, command.TribeId,
+                Stopwatch.GetTimestamp() + Stopwatch.Frequency * 30L,
+                command.ActiveUnitIdsAtDispatch);
+            fastDeferredHumanScopes++;
+        }
+
+        private bool IsDeferredFastMoveAuthorized(PlanScope plan, GameUnit* unit)
+        {
+            DeferredFastMoveScope scope = deferredFastMoveScope;
+            if (scope == null || activeMoveCommand != null || plan == null || unit == null)
+                return false;
+            if (scope.MapEpoch != mapEpoch || Stopwatch.GetTimestamp() > scope.ExpiresAt)
+            {
+                deferredFastMoveScope = null;
+                fastDeferredHumanExpirations++;
+                return false;
+            }
+            if (unit->r_TribeId != scope.TribeId || !scope.UnitIds.Contains(plan.UnitId))
+                return false;
+            fastDeferredHumanUses++;
+            return true;
         }
 
         private int FastBridgeEndpointNode(int tileId)
@@ -320,6 +404,22 @@ namespace BugfixesAndQoL
                 if (!Edges[first].Contains(second)) Edges[first].Add(second);
                 if (!Edges[second].Contains(first)) Edges[second].Add(first);
             }
+        }
+
+        private sealed class DeferredFastMoveScope
+        {
+            public DeferredFastMoveScope(
+                int mapEpoch, int tribeId, long expiresAt, IEnumerable<int> unitIds)
+            {
+                MapEpoch = mapEpoch;
+                TribeId = tribeId;
+                ExpiresAt = expiresAt;
+                UnitIds = new HashSet<int>(unitIds);
+            }
+            public int MapEpoch { get; }
+            public int TribeId { get; }
+            public long ExpiresAt { get; }
+            public HashSet<int> UnitIds { get; }
         }
 
         private readonly struct FastTilePosition

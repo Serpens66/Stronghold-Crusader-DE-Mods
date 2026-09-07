@@ -153,11 +153,9 @@
       </Grid>
     </Content>
   </Operation>
-  <Operation Type="SetAttribute" XPath="//n:Button[@Name='MP_OKSettings']">
-    <Attribute Name="Width" Value="100" />
-    <Attribute Name="Margin" Value="0,0,20,20" />
-    <Attribute Name="HorizontalAlignment" Value="Right" />
-  </Operation>
+  <Operation Type="SetAttribute" XPath="//n:Button[@Name='MP_OKSettings']" AttributeName="Width" Value="100" />
+  <Operation Type="SetAttribute" XPath="//n:Button[@Name='MP_OKSettings']" AttributeName="Margin" Value="0,0,20,20" />
+  <Operation Type="SetAttribute" XPath="//n:Button[@Name='MP_OKSettings']" AttributeName="HorizontalAlignment" Value="Right" />
   <Operation Type="InsertBefore" XPath="//n:Button[@Name='MP_Add']">
     <Content>
       <Grid x:Name="BugfixesAndQoLAivPresetButtonHost" Width="180" Height="34"

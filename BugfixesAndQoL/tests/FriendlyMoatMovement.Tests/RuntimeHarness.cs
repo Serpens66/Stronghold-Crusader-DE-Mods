@@ -130,7 +130,7 @@ namespace BugfixesAndQoL
         private ushort* nativeBuildingLayer;
         private int* moatPathMode;
         private uint* tileFlags;
-        private short* pathRegionGrid;
+        private ushort* pathRegionGrid;
         private WeightedMoatRoutePlanner weightedMoatRoutePlanner;
         private int[] visitedWithoutMoat, visitedWithMoat, visitedWithEnemyMoat;
         private int[] distanceWithoutMoat, distanceWithMoat, distanceWithEnemyMoat, queue;
@@ -146,6 +146,7 @@ namespace BugfixesAndQoL
         private long nativeGroundQueries, nativeGroundCacheHits;
         private const int FastSearchNodeBudget = 16384;
         private long fastVanillaBypasses, fastSearches;
+        private bool deferredFastMoveAuthorized;
         private int cachedReachabilityExpandedNodes, cachedTraversedRegionCount, cachedReachabilityMapHits;
         private RouteProbeSummary cachedRouteSummary;
         private BuildingConsumerPerformanceScope activeBuildingConsumerPerformance;
@@ -182,6 +183,8 @@ namespace BugfixesAndQoL
         { summary = new RouteProbeSummary(player); return false; }
         private void RecordFastSearch(WeightedMoatRouteSummary summary, long started, long nodes) { }
         private void RecordFastFieldSearch(MoatCandidateField field, long started) { }
+        private bool IsDeferredFastMoveAuthorized(PlanScope plan, GameUnit* unit) =>
+            deferredFastMoveAuthorized;
         private void InvalidateFastMoatData() { }
         private void LogAndResetFastMoatMetrics() { }
         private static void EnsureAttackCommandCandidates(AttackCommandScope scope)
@@ -310,7 +313,7 @@ namespace BugfixesAndQoL
                 rows[10 * 3] = 1000;
                 GameTileManagerAPI.Instance.Rows = rows;
                 tileFlags = (uint*)Alloc(NativeTileCount * sizeof(uint));
-                pathRegionGrid = (short*)Alloc(NativeTileCount * sizeof(short));
+                pathRegionGrid = (ushort*)Alloc(NativeTileCount * sizeof(ushort));
                 ushort* buildings = (ushort*)Alloc(NativeTileCount * 2); nativeBuildingLayer = buildings;
                 byte* heights = (byte*)Alloc(NativeTileCount);
                 nativeHeightLayer = heights;
@@ -324,7 +327,7 @@ namespace BugfixesAndQoL
                 for (int tile = 0; tile < NativeTileCount; tile++) tileFlags[tile] = 0x100;
                 // One-tile-wide corridor: ground 10..12, friendly moat 13, ground 14..18.
                 for (int x = 10; x <= 18; x++)
-                { tileFlags[1000 + x] = 0x8000; masks[1000 + x] = 0x44; pathRegionGrid[1000 + x] = (short)(x < 13 ? 1 : 2); }
+                { tileFlags[1000 + x] = 0x8000; masks[1000 + x] = 0x44; pathRegionGrid[1000 + x] = (ushort)(x < 13 ? 1 : 2); }
                 masks[1010] = 0x04; masks[1018] = 0x40;
                 tileFlags[1013] = CompletedMoatTileFlag;
                 weightedMoatRoutePlanner = new WeightedMoatRoutePlanner(rows, tileFlags, buildings,

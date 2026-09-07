@@ -27,6 +27,7 @@ if (syntaxErrors.Length > 0)
     throw new Exception(string.Join("\n", syntaxErrors.Select(d => d.ToString())));
 ValidateSelectionMetadata();
 ValidateDetailedDiagnostics();
+ValidateUnsignedRegionAndDeferredFastContracts();
 ValidateScriptExtenderIntegration();
 ValidateRuntimeSources();
 ValidateModeSettings();
@@ -174,6 +175,29 @@ void ValidateDetailedDiagnostics()
         !buffer.Contains("if (!DetailedDiagnosticsEnabled)", StringComparison.Ordinal))
         throw new Exception("Detailed diagnostics are not guarded at both logging entry points.");
     Console.WriteLine("PASS: detailed diagnostics are code-gated and default to false.");
+}
+
+void ValidateUnsignedRegionAndDeferredFastContracts()
+{
+    string runtime = File.ReadAllText(Path.Combine(sourceDir, "FriendlyMoatMovementRuntime.cs"));
+    string bridge = File.ReadAllText(Path.Combine(sourceDir, "FastMoatBridge.cs"));
+    string recovery = File.ReadAllText(Path.Combine(sourceDir, "NativeMovementRecovery.cs"));
+    if (!runtime.Contains("private readonly ushort* pathRegionGrid;", StringComparison.Ordinal) ||
+        !runtime.Contains("MaximumRegionId = ushort.MaxValue", StringComparison.Ordinal) ||
+        runtime.Contains("private readonly short* pathRegionGrid;", StringComparison.Ordinal))
+        throw new Exception("PathConnectionGrid must retain its Script Extender UInt16 contract.");
+    if (!bridge.Contains("players.IsAIPlayer(ownerId)", StringComparison.Ordinal) ||
+        !bridge.Contains("ownerId != players.GetLocalPlayerId()", StringComparison.Ordinal) ||
+        !bridge.Contains("command.ActiveUnitIdsAtDispatch", StringComparison.Ordinal) ||
+        !bridge.Contains("scope == null || activeMoveCommand != null", StringComparison.Ordinal) ||
+        !recovery.Contains("!authorizedFastContext && activeMoveCommand == null", StringComparison.Ordinal) ||
+        !recovery.Contains("IsDeferredFastMoveAuthorized(plan, unit)", StringComparison.Ordinal))
+        throw new Exception("Deferred Fast movement is not restricted to the captured local human group.");
+    if (!bridge.Contains("bridgeRejects=invalid:", StringComparison.Ordinal) ||
+        !bridge.Contains("deferredHumanUses=", StringComparison.Ordinal) ||
+        !bridge.Contains("if (fastVanillaBypasses > 0 || fastFallbackChecks > 0", StringComparison.Ordinal))
+        throw new Exception("Aggregated Fast rejection diagnostics are missing.");
+    Console.WriteLine("PASS: unsigned 16-bit path regions and local-human deferred Fast scopes.");
 }
 
 void ValidateScriptExtenderIntegration()
@@ -355,7 +379,7 @@ void ValidateModeSettings()
     if (!policy.Contains("Disabled = 0", StringComparison.Ordinal) ||
         !policy.Contains("Exact = 1", StringComparison.Ordinal) ||
         !policy.Contains("RequiredOnly = 2", StringComparison.Ordinal) ||
-        !policy.Contains("DefaultMode = (int)FriendlyMoatMovementMode.RequiredOnly", StringComparison.Ordinal) ||
+        !policy.Contains("DefaultMode = (int)FriendlyMoatMovementMode.Disabled", StringComparison.Ordinal) ||
         !policy.Contains(": (int)FriendlyMoatMovementMode.Disabled", StringComparison.Ordinal))
         throw new Exception("The three-mode default and fail-closed normalization contract is incomplete.");
     if (!runtime.Contains("bool exactGroundSearch = !requiredOnly", StringComparison.Ordinal) ||
@@ -403,9 +427,11 @@ void ValidateModeSettings()
         string localeText = File.ReadAllText(locale);
         if (!localeText.Contains("BugfixesAndQoL.FriendlyMoatMovementRequiredOnly=", StringComparison.Ordinal) ||
             !localeText.Contains("BugfixesAndQoL.FriendlyMoatMovementExact=", StringComparison.Ordinal) ||
+            (!localeText.Contains("BugfixesAndQoL.FriendlyMoatMovementModeHelp=Experimental:", StringComparison.Ordinal) &&
+             !localeText.Contains("BugfixesAndQoL.FriendlyMoatMovementModeHelp=Experiementell:", StringComparison.Ordinal)) ||
             (!localeText.Contains("noticeable lag when commanding large groups", StringComparison.Ordinal) &&
              !localeText.Contains("beim Kommandieren großer Gruppen spürbare Lags", StringComparison.Ordinal)))
             throw new Exception("Missing friendly moat locale keys: " + locale);
     }
-    Console.WriteLine("PASS: Off/Exact/Required-only mapping, fail-closed invalid values, default/reset, host classification and XAML/locales.");
+    Console.WriteLine("PASS: Off default, Exact/Required-only mapping, fail-closed normalization, reset, host classification and XAML/locales.");
 }

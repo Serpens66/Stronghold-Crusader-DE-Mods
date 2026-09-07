@@ -17,7 +17,7 @@ namespace ExtremePowers
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class ExtremePowersPlugin : BaseUnityPlugin
     {
-        public const string PluginGuid = "ExtremePowers_Serp", PluginName = "Extreme Powers", PluginVersion = "0.1.2";
+        public const string PluginGuid = "ExtremePowers_Serp", PluginName = "Extreme Powers", PluginVersion = "0.1.3";
         private static int initialized; private static IExtremePowersApiClient client; private static IDisposable demoHandle;
         private static Settings.ExtremePowersSettings rootedSettings;
         private static ManualLogSource rootedLogger;

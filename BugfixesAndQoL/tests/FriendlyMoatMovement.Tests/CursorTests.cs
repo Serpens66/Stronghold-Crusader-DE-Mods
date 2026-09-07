@@ -222,13 +222,17 @@ namespace BugfixesAndQoL
         private void CursorAdapterTests()
         {
             cursorTopologies.Clear(); enemyTiles.Clear();
-            for (int x=10;x<=18;x++) { tileFlags[1000+x]=0x8000; pathRegionGrid[1000+x]=(short)(x<13?1:2); }
+            for (int x=10;x<=18;x++) { tileFlags[1000+x]=0x8000; pathRegionGrid[1000+x]=(ushort)(x<13?1:2); }
             tileFlags[1013]=CompletedMoatTileFlag;
             nativeHeightLayer[1013]=0;
             for(int x=10;x<=18;x++) nativeMovementMasks[1000+x]=0x44;
             long lazyBuilds=cursorTopologyBuilds;
             Check(ProbeCursorConnectivity(1,1010,1011,out _) && cursorTopologyBuilds==lazyBuilds,
                 "ordinary same-region hover needs no topology build");
+            pathRegionGrid[1010]=pathRegionGrid[1011]=50000;
+            Check(ProbeCursorConnectivity(1,1010,1011,out _) && cursorTopologyBuilds==lazyBuilds,
+                "unsigned high same-region IDs remain a cheap Vanilla-positive result");
+            pathRegionGrid[1010]=pathRegionGrid[1011]=1;
             Check(ProbeCursorConnectivity(1,1010,1017,out var route) && route.RouteFound && route.ReachedWithMoat,
                 "production cursor topology joins regions through friendly moat");
             long builds=cursorTopologyBuilds, pathRuns=weightedMoatRoutePlanner.SearchRuns;

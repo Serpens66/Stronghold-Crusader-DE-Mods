@@ -313,6 +313,8 @@ internal static class Program
             activation.System_RefreshSettingsAccess();
             Check(activation.HasHostSettingsActivation && activation.HasClientSettingsActivation,
                 "shared activation bindings did not detect both setting scopes");
+            Check(activation.ClientSettingsActivationVisibility == Noesis.Visibility.Visible,
+                "client activation remained hidden despite a persisted activation setting");
             Check(activation.CanToggleHostSettings && activation.CanToggleClientSettings,
                 "shared activation bindings were unexpectedly locked for the host");
             activation.HostSettingsEnabled = false;
@@ -333,6 +335,11 @@ internal static class Program
             Check(hostOnly.ActionsScopeNoticeVisibility == Noesis.Visibility.Collapsed, "pure host mod displayed a client action-scope notice");
             Check(!hostOnly.HasHostSettingsActivation && !hostOnly.HostSettingsEnabled && !hostOnly.CanToggleHostSettings,
                 "a host mod without an activation property exposed an enabled header switch");
+            Check(hostOnly.ClientSettingsActivationVisibility == Noesis.Visibility.Collapsed,
+                "a host-only mod exposed the client activation header");
+
+            Check(vm.ClientSettingsActivationVisibility == Noesis.Visibility.Collapsed,
+                "client settings without a dedicated activation property exposed an unusable header switch");
 
             var conflicting = new ConflictingAttributesViewModel();
             conflicting.PreparePresets(null, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Conflicting.dll"), "ConflictingTest");

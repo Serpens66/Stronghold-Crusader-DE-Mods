@@ -85,7 +85,7 @@ $viewModelSources = @{
 # These bindings are deliberate editable proxies. Their setters update a classified
 # parent setting or a classified serialized table through the row callback.
 $editableProxyBindings = @{
-    BugfixesAndQoL = @('MultiplayerTimeControlPermissionIndex')
+    BugfixesAndQoL = @('FriendlyMoatMovementSliderValue','MultiplayerTimeControlPermissionIndex')
     BuildingCosts = @('GoldSlider','GoldText','IronSlider','IronText','PitchSlider','PitchText','StoneSlider','StoneText','WoodSlider','WoodText')
     BuildingLimit = @('LimitText','SliderLimit')
     CheatMod = @()
@@ -96,7 +96,7 @@ $editableProxyBindings = @{
     ImprovedHunters = @('CamelMeatText','ChickenMeatText','DeerMeatText','GoatMeatText','MaxNeutralChickensPerPlayerValueText','RabbitMeatText')
     RandomEvents = @('AppleBlightChanceValueText','ArcherMaxValueText','ArcherMinValueText','ArchersChanceValueText','BanditMaxValueText','BanditMinValueText','BanditsChanceValueText','BardChanceValueText','CooldownMonthsValueText','FairChanceValueText','FireChanceValueText','FireMaxValueText','FireMinValueText','GranaryTheftChanceValueText','HopsBeetlesChanceValueText','IntervalMonthsValueText','LionAttackChanceValueText','LionMaxValueText','LionMinValueText','MadCowsChanceValueText','MarriageChanceValueText','PlagueChanceValueText','PlagueMaxValueText','PlagueMinValueText','RabbitsChanceValueText','TheftMaxValueText','TheftMinValueText','TreeBlightChanceValueText','WheatInfestationChanceValueText')
     StartConditions = @('AddStartGoldAISlider','AddStartGoldAIText','AddStartGoldHumanSlider','AddStartGoldHumanText','AIAmountSlider','AIAmountText','HumanAmountSlider','HumanAmountText','MultiplyStartTroopsAISlider','MultiplyStartTroopsAIText','MultiplyStartTroopsHumanSlider','MultiplyStartTroopsHumanText','SetStartGoldAISlider','SetStartGoldAIText','SetStartGoldHumanSlider','SetStartGoldHumanText')
-    UnitCosts = @('AmountText','GoldSlider','GoldText','SliderAmount')
+    UnitCosts = @('AmountText','GoldSlider','GoldText','RequiresHorse','SliderAmount')
     UnitLimit = @('LimitText','SliderLimit')
 }
 
@@ -265,15 +265,29 @@ foreach ($entry in $settings.GetEnumerator()) {
     if ($activationNodes.IsChecked -match 'ClientSettingsEnabled') {
         $actualActivationBindings += 'ClientSettingsEnabled'
     }
-    $missingActivationBindings = @($expectedActivationBindings | Where-Object { $_ -notin $actualActivationBindings })
+    $requiredActivationBindings = @($expectedActivationBindings)
     if ($entry.Key -ne 'SerpsModsHost' -and
-        ($missingActivationBindings.Count -ne 0 -or $activationNodes.Count -gt 2)) {
-        throw "$($entry.Key): invalid shared activation checkboxes; missing=$($missingActivationBindings -join ', '), found=$($activationNodes.Count)."
+        'ClientSettingsEnabled' -notin $requiredActivationBindings) {
+        # Every standard header carries the same client activation block. Shared
+        # collapses it when the ViewModel has no persisted activation property.
+        $requiredActivationBindings += 'ClientSettingsEnabled'
+    }
+    $missingActivationBindings = @($requiredActivationBindings | Where-Object { $_ -notin $actualActivationBindings })
+    $unexpectedActivationBindings = @($actualActivationBindings | Where-Object { $_ -notin $requiredActivationBindings })
+    if ($entry.Key -ne 'SerpsModsHost' -and
+        ($missingActivationBindings.Count -ne 0 -or
+        $unexpectedActivationBindings.Count -ne 0 -or
+        $activationNodes.Count -ne $requiredActivationBindings.Count)) {
+        throw "$($entry.Key): invalid shared activation checkboxes; missing=$($missingActivationBindings -join ', '), unexpected=$($unexpectedActivationBindings -join ', '), found=$($activationNodes.Count), expected=$($requiredActivationBindings.Count)."
     }
     foreach ($activationNode in $activationNodes) {
         if ($activationNode.ParentNode.LocalName -ne 'Border' -or
             -not $activationNode.ParentNode.GetAttribute('Style').Contains('ActivationBorder')) {
             throw "$($entry.Key): activation checkbox is not inside a colored activation border."
+        }
+        if ($activationNode.GetAttribute('IsChecked').Contains('ClientSettingsEnabled') -and
+            $activationNode.ParentNode.GetAttribute('Visibility') -ne '{Binding ClientSettingsActivationVisibility}') {
+            throw "$($entry.Key): client activation border does not use the automatic Shared visibility binding."
         }
     }
 

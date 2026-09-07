@@ -205,6 +205,8 @@ namespace BugfixesAndQoL
                 bool authorizedFastContext = activeMoveCommand?.MoatRelevant == true ||
                     activeAttackCommand != null ||
                     plan.MoatWorkMovement || plan.PostCombatRepath || plan.FriendlyRouteQualified;
+                if (RequiredOnlyMode && !authorizedFastContext && activeMoveCommand == null)
+                    authorizedFastContext = IsDeferredFastMoveAuthorized(plan, unit);
                 if (RequiredOnlyMode && !authorizedFastContext)
                     return RejectPreBuilder(frame, "unbound-fast-unit-move");
                 plan.VanillaFailureProven = true;
@@ -226,7 +228,8 @@ namespace BugfixesAndQoL
                 frame.FailedDestinationRegion = *(short*)((byte*)unit + (0x900 - NativeUnitSlotDataOffset));
                 frame.FailedPortalRegion = *(short*)((byte*)unit + (0x8EC - NativeUnitSlotDataOffset));
                 frame.RecoveryApplied = true;
-                *(short*)((byte*)unit + (0x900 - NativeUnitSlotDataOffset)) = pathRegionGrid[target]; // slot+900, GameUnit begins at slot+65C
+                *(short*)((byte*)unit + (0x900 - NativeUnitSlotDataOffset)) =
+                    unchecked((short)pathRegionGrid[target]); // native slot preserves the UInt16 region bits
                 *(short*)((byte*)unit + (0x8EC - NativeUnitSlotDataOffset)) = frame.PrePortalRegion; // slot+8EC
                 if (activeAttackCommand != null)
                     EnsureAttackCommandCandidates(activeAttackCommand);

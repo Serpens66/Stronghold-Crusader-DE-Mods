@@ -841,6 +841,11 @@ namespace Shared
                 ? Visibility.Visible
                 : Visibility.Collapsed;
 
+        public Visibility ClientSettingsActivationVisibility =>
+            HasClientSettingsActivation
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+
         public Visibility HostReadOnlyNoticeVisibility =>
             HasHostSettings && isRealMultiplayer && !isLocalHost
                 ? Visibility.Visible
@@ -1359,6 +1364,7 @@ namespace Shared
             base.OnPropertyChanged(nameof(CanChangePreset));
             base.OnPropertyChanged(nameof(CanResetSettings));
             base.OnPropertyChanged(nameof(PresetVisibility));
+            base.OnPropertyChanged(nameof(ClientSettingsActivationVisibility));
             base.OnPropertyChanged(nameof(HostReadOnlyNoticeVisibility));
             base.OnPropertyChanged(nameof(ActionsScopeNoticeVisibility));
             base.OnPropertyChanged(nameof(ActionsScopeNoticeText));

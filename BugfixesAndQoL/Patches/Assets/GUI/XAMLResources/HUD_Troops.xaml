@@ -8,7 +8,7 @@
              Value="clr-namespace:BugfixesAndQoL;assembly=BugfixesAndQoL" />
   <Operation Type="SetAttribute"
              XPath="//n:Grid[@Name='TroopSelectionControls']//n:Button[@Command='{Binding LeftClickSelectedTroopCommand}']"
-             AttributeName="{clr-namespace:BugfixesAndQoL;assembly=BugfixesAndQoL}TroopHudMiddleClickBehavior.IsEnabled"
+             AttributeName="bugfixes:TroopHudMiddleClickBehavior.IsEnabled"
              Value="True" />
   <Operation Type="Add" XPath="//n:Grid[@Name='TroopSelectionControls']">
     <Content>

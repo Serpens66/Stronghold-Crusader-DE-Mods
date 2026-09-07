@@ -166,7 +166,7 @@ namespace BugfixesAndQoL
                 // Real UnitPre -> mode -> both builders -> publication -> UnitPost.
                 pendingPlan=activePlan=null;ClearUnitMoveFrames();enemyTiles.Clear();api.Occupants.Clear();
                 tileFlags[1016]=0x8000;tileFlags[1055]=CompletedMoatTileFlag;
-                for(int x=50;x<=130;x++)pathRegionGrid[1000+x]=(short)(x<55?1:2);
+                for(int x=50;x<=130;x++)pathRegionGrid[1000+x]=(ushort)(x<55?1:2);
                 originalPathBuilder=(m,c,p)=>0;originalPathReconstruction=m=>0;
                 captureWeighted=true;
                 foreach(int count in new[]{1,120,680})
@@ -373,7 +373,7 @@ namespace BugfixesAndQoL
                 for(int x=50;x<430;x++)
                 {
                     tileFlags[1000+x]=0x8000;nativeMovementMasks[1000+x]=0x44;nativeHeightLayer[1000+x]=0;
-                    nativeBuildingLayer[1000+x]=0;pathRegionGrid[1000+x]=(short)(x<55?1:2);
+                    nativeBuildingLayer[1000+x]=0;pathRegionGrid[1000+x]=(ushort)(x<55?1:2);
                     movementTargetAvailability[8000+x]=1;
                     tileFlags[2000+x]=0;nativeMovementMasks[2000+x]=0;nativeBuildingLayer[2000+x]=1;
                 }

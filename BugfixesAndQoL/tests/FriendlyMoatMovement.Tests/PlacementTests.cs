@@ -29,7 +29,7 @@ namespace BugfixesAndQoL
                 nativeMovementMasks[1000 + x] = 0x44;
                 nativeHeightLayer[1000 + x] = 0;
                 nativeBuildingLayer[1000 + x] = 0;
-                pathRegionGrid[1000 + x] = (short)(x < 13 ? 1 : x <= 135 ? 0 : 2);
+                pathRegionGrid[1000 + x] = (ushort)(x < 13 ? 1 : x <= 135 ? 0 : 2);
                 movementTargetAvailability[10 * 800 + x] = 1;
             }
             nativeMovementMasks[1010] = 0x04; nativeMovementMasks[1180] = 0x40;

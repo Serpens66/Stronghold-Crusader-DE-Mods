@@ -9,7 +9,7 @@ namespace BugfixesAndQoL
 
     internal static class FriendlyMoatMovementPolicy
     {
-        internal const int DefaultMode = (int)FriendlyMoatMovementMode.RequiredOnly;
+        internal const int DefaultMode = (int)FriendlyMoatMovementMode.Disabled;
 
         internal static int Normalize(int value) => IsDefined(value)
             ? value

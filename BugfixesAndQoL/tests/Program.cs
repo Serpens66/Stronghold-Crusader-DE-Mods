@@ -175,8 +175,8 @@ namespace BugfixesAndQoL
 
         private static void TestFriendlyMoatMovementPolicy()
         {
-            Check(FriendlyMoatMovementPolicy.DefaultMode == 2,
-                "required-only is the default mode");
+            Check(FriendlyMoatMovementPolicy.DefaultMode == 0,
+                "Off is the default mode while the feature remains experimental");
             Check(FriendlyMoatMovementPolicy.Normalize(0) == 0 &&
                     FriendlyMoatMovementPolicy.Normalize(1) == 1 &&
                     FriendlyMoatMovementPolicy.Normalize(2) == 2,
@@ -208,9 +208,20 @@ namespace BugfixesAndQoL
             string english = File.ReadAllText(Path.Combine(projectDirectory, "Locales", "en-US.txt"));
             string german = File.ReadAllText(Path.Combine(projectDirectory, "Locales", "de-DE.txt"));
             string plugin = File.ReadAllText(Path.Combine(projectDirectory, "src", "BugfixesAndQoLPlugin.cs"));
+            string aiSettingsPatch = File.ReadAllText(Path.Combine(
+                projectDirectory, "Patches", "Assets", "GUI", "XAMLResources", "FRONT_Multiplayer_AISettings.xaml"));
+            string troopPatch = File.ReadAllText(Path.Combine(
+                projectDirectory, "Patches", "Assets", "GUI", "XAMLResources", "HUD_Troops.xaml"));
             Check(runtime.Contains("new FriendlyMoatMovementRuntime(") &&
                     runtime.Contains("friendlyMoatMovementRuntime?.Dispose()"),
                 "integrated runtime participates in native initialization and final disposal");
+            Check(!aiSettingsPatch.Contains("<Attribute Name=") &&
+                    aiSettingsPatch.Contains("AttributeName=\"Width\" Value=\"100\"") &&
+                    aiSettingsPatch.Contains("AttributeName=\"Margin\" Value=\"0,0,20,20\"") &&
+                    aiSettingsPatch.Contains("AttributeName=\"HorizontalAlignment\" Value=\"Right\"") &&
+                    troopPatch.Contains("AttributeName=\"bugfixes:TroopHudMiddleClickBehavior.IsEnabled\"") &&
+                    !troopPatch.Contains("AttributeName=\"{clr-namespace:"),
+                "XAML SetAttribute operations use the Script Extender 2.3.0 patch contract");
             Check(moatWork.Contains("settings.EnableMod && settings.EnableImprovedMoatFilling") &&
                     moatWork.Contains("relationshipMode == 1 && !friendlyMovementEnabled") &&
                     moatWork.Contains("if (!ExtensionsEnabled)") &&
@@ -229,9 +240,11 @@ namespace BugfixesAndQoL
                     xaml.Contains("Text=\"{Binding FriendlyMoatMovementModeValueText}\"") &&
                     !xaml.Contains("ItemsSource=\"{Binding FriendlyMoatMovementModeOptions}\""),
                 "friendly moat movement uses the standard three-position slider layout");
-            Check(english.Contains("Precise (Exact) can cause noticeable lag when commanding large groups") &&
+            Check(english.Contains("FriendlyMoatMovementModeHelp=Experimental:") &&
+                    english.Contains("Precise (Exact) can cause noticeable lag when commanding large groups") &&
+                    german.Contains("FriendlyMoatMovementModeHelp=Experiementell:") &&
                     german.Contains("kann aber beim Kommandieren großer Gruppen spürbare Lags verursachen"),
-                "friendly moat tooltips explicitly warn about precise-mode group-command lag");
+                "friendly moat tooltips start with the experimental warning and mention precise-mode group lag");
             Check(plugin.Contains("[BepInIncompatibility(LegacyMoveMoatGuid)]"),
                 "legacy standalone plugin is explicitly incompatible");
         }
