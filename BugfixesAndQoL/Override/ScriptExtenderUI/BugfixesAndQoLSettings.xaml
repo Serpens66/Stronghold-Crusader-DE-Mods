@@ -212,6 +212,12 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableCustomTrailExtremeGoldFixText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-trail-customization-buttons" shared:ModSettingsSearch.Title="{Binding EnableTrailCustomizationButtonsText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableTrailCustomizationButtonsHelpText}" IsEnabled="{Binding CanEditHostSettings}"><CheckBox IsChecked="{Binding EnableTrailCustomizationButtons, Mode=TwoWay}"
+                Foreground="White"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableTrailCustomizationButtonsHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding EnableTrailCustomizationButtonsText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox></Grid>
       </StackPanel>
       </StackPanel>
       <Separator Background="#444466" Margin="0,8"/>

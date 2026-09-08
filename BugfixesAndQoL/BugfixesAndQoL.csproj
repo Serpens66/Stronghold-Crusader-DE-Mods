@@ -215,6 +215,10 @@
     <Compile Include="src\TroopMovementFix3SynchronizedMovementCadencePatch.cs" />
     <Compile Include="src\TemporaryGateBlockagePolicy.cs" />
     <Compile Include="src\TroopHudMiddleClickCameraFeature.cs" />
+    <Compile Include="src\TrailCustomizationFeature.cs" />
+    <Compile Include="src\TrailCustomizationLaunchOriginApi.cs" />
+    <Compile Include="src\TrailCustomizationPacket.cs" />
+    <Compile Include="src\TrailCustomizationProviderHostApi.cs" />
     <Compile Include="src\TunnelPlacementDistanceFeature.cs" />
     <Compile Include="src\TunnelPlacementDistancePolicy.cs" />
   </ItemGroup>

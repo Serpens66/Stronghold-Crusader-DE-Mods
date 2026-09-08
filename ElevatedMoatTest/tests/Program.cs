@@ -53,6 +53,10 @@ internal static class Program
             ElevatedMoatNativeContract.RequiredPrefix[18] == 0x7E &&
             ElevatedMoatNativeContract.RequiredPrefix[19] == 0x14,
             "both comparison branches land after the 20-byte writer");
+        Check(ElevatedMoatNativeContract.TileValidationResultRva == 0x7888E &&
+            ElevatedMoatNativeContract.TileValidationResultLength == 14 &&
+            ElevatedMoatNativeContract.TileValidationResultBytes.Length == 14,
+            "audited 14-byte tile-result hook boundary");
     }
 
     private static void TestNativeContractValidation()
@@ -90,6 +94,19 @@ internal static class Program
         if (matches.Count == 1)
             Check(FileOffsetToRva(file, matches[0]) == ElevatedMoatNativeContract.HeightWriterRva,
                 "unique writer maps to RVA 0x7870B");
+
+        List<int> tileResultMatches = FindAll(
+            file,
+            ElevatedMoatNativeContract.TileValidationResultResolutionBytes);
+        Check(tileResultMatches.Count == 1, "contextual tile-result pattern occurs exactly once");
+        if (tileResultMatches.Count == 1)
+            Check(FileOffsetToRva(file, tileResultMatches[0]) ==
+                ElevatedMoatNativeContract.TileValidationResultRva,
+                "unique tile-result pattern maps to RVA 0x7888E");
+        byte[] image = MapPeImage(file);
+        ExpectNoThrow(() => ElevatedMoatNativeContract.ValidateTileValidationResultHook(
+            image, ElevatedMoatNativeContract.TileValidationResultRva),
+            "tile-result CALL target, branch target, and continuation");
     }
 
     private static void TestSourceContracts(string modRoot)
@@ -101,17 +118,35 @@ internal static class Program
         Check(runtime.Contains("Registers = X64SmartCPUContextRegs.All"), "all GPRs are preserved");
         Check(runtime.Contains("HookSize = ElevatedMoatNativeContract.HeightWriterLength"), "explicit hook size");
         Check(runtime.Contains("Placement = OverwrittenInstructionPlacement.Suppress"), "writer is suppressed");
+        Check(runtime.Contains("BuildingR3EventHooks.OnPlacementValidation.Observable") &&
+            runtime.Contains("EventHookPhase.Pre") && runtime.Contains("EventHookPhase.Post"),
+            "public placement event supplies pre/post diagnostics");
+        Check(runtime.Contains("ObserveTileValidationResult") &&
+            runtime.Contains("Placement = OverwrittenInstructionPlacement.AfterCallback"),
+            "passive tile-validator result diagnostics");
+        Check(runtime.Contains("args.Mappers != eMappers.MAPPER_MOAT") &&
+            !runtime.Contains("MAPPER_DRAWBRIDGE"),
+            "diagnostics remain restricted to moat placement");
         Check(runtime.Contains("DisplacedByteCount != ElevatedMoatNativeContract.HeightWriterLength"),
             "actual displaced length is checked");
+        Check(runtime.Contains("tileValidationResultHook.Hook.DisplacedByteCount !=") &&
+            runtime.Contains("ElevatedMoatNativeContract.TileValidationResultLength"),
+            "actual tile-result displaced length is checked");
         Check(runtime.Contains("FailureMode = TransactionFailureMode.RollbackAndThrow") &&
             runtime.Contains("OwnsHooks = true") && runtime.Contains("pending.Dispose()"),
             "hook errors roll back the owned transaction");
-        Check(!runtime.Contains("Marshal.Write") && !runtime.Contains("IsAIPlayer"),
-            "callback writes no game state and applies no player filter");
+        Check(!runtime.Contains("Marshal.Write") &&
+            !runtime.Contains("CustomValidationRules =") &&
+            !runtime.Contains("ForceBlockPlacementState ="),
+            "diagnostics write no game placement state");
+        Check(!runtime.Contains("AddDetour") && runtime.Contains("IsAIPlayer(trace.PlayerId)"),
+            "diagnostics use the public validator event without an overlapping function detour");
         Check(plugin.Contains("requireCurrentVersion: true") &&
             plugin.Contains("if (!referenceHashMatches)"), "native hash mismatch fails closed");
         Check(project.Contains(@"$(GameDir)\BepInEx\plugins\000shcdese") &&
             !project.Contains("LocalScriptExtender"), "build targets only the installed Script Extender");
+        Check(project.Contains("<Reference Include=\"R3\">") &&
+            project.Contains("<Private>false</Private>"), "R3 event dependency is not privately packaged");
     }
 
     private static void TestManifest(string modRoot)
@@ -171,6 +206,30 @@ internal static class Program
                 return checked(virtualAddress + fileOffset - rawStart);
         }
         throw new InvalidOperationException("Pattern file offset is outside all PE sections.");
+    }
+
+    private static byte[] MapPeImage(byte[] file)
+    {
+        int peOffset = BitConverter.ToInt32(file, 0x3C);
+        ushort sectionCount = BitConverter.ToUInt16(file, peOffset + 6);
+        ushort optionalHeaderSize = BitConverter.ToUInt16(file, peOffset + 20);
+        int optionalHeader = peOffset + 24;
+        int sizeOfImage = BitConverter.ToInt32(file, optionalHeader + 56);
+        int sizeOfHeaders = BitConverter.ToInt32(file, optionalHeader + 60);
+        byte[] image = new byte[sizeOfImage];
+        Array.Copy(file, 0, image, 0, Math.Min(sizeOfHeaders, file.Length));
+        int sectionTable = optionalHeader + optionalHeaderSize;
+        for (int section = 0; section < sectionCount; section++)
+        {
+            int header = sectionTable + section * 40;
+            int virtualAddress = BitConverter.ToInt32(file, header + 12);
+            int rawSize = BitConverter.ToInt32(file, header + 16);
+            int rawStart = BitConverter.ToInt32(file, header + 20);
+            int copyLength = Math.Min(rawSize, Math.Min(file.Length - rawStart, image.Length - virtualAddress));
+            if (rawStart >= 0 && virtualAddress >= 0 && copyLength > 0)
+                Array.Copy(file, rawStart, image, virtualAddress, copyLength);
+        }
+        return image;
     }
 
     private static void Check(bool condition, string name)

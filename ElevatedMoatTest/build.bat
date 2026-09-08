@@ -22,6 +22,7 @@ if errorlevel 1 (
 
 if not exist "%MSBUILD%" goto build_failed
 if not exist "%EXTENDER_DIR%\SHCDESE.dll" goto build_failed
+if not exist "%EXTENDER_DIR%\R3.dll" goto build_failed
 if not exist "%EXTENDER_DIR%\RedBird.Abstractions.dll" goto build_failed
 if not exist "%EXTENDER_DIR%\RedBird.Core.dll" goto build_failed
 if not exist "%EXTENDER_DIR%\RedBird.X64.dll" goto build_failed
@@ -38,10 +39,12 @@ if not exist "%LOCAL_PLUGIN_DIR%\ElevatedMoatTest.dll" goto package_failed
 if not exist "%LOCAL_PLUGIN_DIR%\ElevatedMoatTest.pdb" goto package_failed
 if not exist "%LOCAL_PLUGIN_DIR%\info.json" goto package_failed
 if exist "%LOCAL_PLUGIN_DIR%\SHCDESE.dll" goto package_failed
+if exist "%LOCAL_PLUGIN_DIR%\R3.dll" goto package_failed
 if exist "%LOCAL_PLUGIN_DIR%\RedBird.X64.dll" goto package_failed
 
-rem This test driver will not overwrite an existing installation automatically.
-if exist "%GAME_PLUGIN_DIR%\" goto existing_installation
+rem Updating this test mod replaces only its three validated package files.
+if not exist "%GAME_PLUGIN_DIR%\" mkdir "%GAME_PLUGIN_DIR%"
+if errorlevel 1 goto copy_failed
 xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Q /Y >nul
 if errorlevel 1 goto copy_failed
 
@@ -58,12 +61,6 @@ exit /b 1
 
 :package_failed
 echo Package validation failed.
-if "%NO_PAUSE%"=="0" pause
-exit /b 1
-
-:existing_installation
-echo Installation aborted: %GAME_PLUGIN_DIR% already exists.
-echo No installed files were changed.
 if "%NO_PAUSE%"=="0" pause
 exit /b 1
 

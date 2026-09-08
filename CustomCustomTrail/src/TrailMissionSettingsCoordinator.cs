@@ -96,6 +96,7 @@ namespace CustomCustomTrail
             private delegate void CoopTrail4ConstructorDelegate(FRONT_CoopTrail4 self);
 
             private readonly ManualLogSource log;
+            private readonly BugfixesAndQoLTrailCustomizationBridge customizationBridge;
             private readonly Func<string, bool> isModSelected;
             private readonly List<IDisposable> hooks = new List<IDisposable>();
             private readonly Dictionary<Type, Dictionary<string, PropertyInfo>> persistedPropertiesByType =
@@ -136,6 +137,7 @@ namespace CustomCustomTrail
             private long activeSidecarWriteTicks;
             private bool activeSidecarEditable;
             private bool enabled;
+            private bool externalButtonOwner;
             private readonly List<Button> injectedCoopButtons = new List<Button>();
             private readonly Dictionary<UserControl, TextBlock> coopTrailTitleBlocks =
                 new Dictionary<UserControl, TextBlock>();
@@ -242,6 +244,7 @@ namespace CustomCustomTrail
                 this.log = log;
                 this.enabled = enabled;
                 this.isModSelected = isModSelected ?? (_ => true);
+                customizationBridge = new BugfixesAndQoLTrailCustomizationBridge(log);
             }
 
             public void SetEnabled(bool value)
@@ -259,10 +262,16 @@ namespace CustomCustomTrail
                         MainViewModel.Instance.Show_TrailCustomisationButtons = false;
                     ExitContext(force: true);
                 }
+                if (externalButtonOwner)
+                    customizationBridge.Refresh();
             }
 
             public void Initialize()
             {
+                externalButtonOwner = customizationBridge.TryRegister(
+                    () => enabled,
+                    HandleExternalCustomTrailCustomize,
+                    HandleExternalCoopTrailCustomize);
                 workshopPatchVerifier = new TrailWorkshopPatchVerifier(log);
                 try
                 {
@@ -1393,7 +1402,10 @@ namespace CustomCustomTrail
             private void FrontendOpenCustomTrailHook(FrontendMenus self, string trailName, int level)
             {
                 frontendOpenCustomTrailOriginal(self, trailName, level);
-                MainViewModel.Instance.Show_TrailCustomisationButtons = enabled;
+                if (externalButtonOwner)
+                    customizationBridge.Refresh();
+                else
+                    MainViewModel.Instance.Show_TrailCustomisationButtons = enabled;
             }
 
             private void TrailSelectionHook(FrontendMenus self, int missionId, bool fromRealClick)
@@ -1422,7 +1434,8 @@ namespace CustomCustomTrail
                         CustomCustomTrailLaunchOriginApi.Clear();
                     return;
                 }
-                if (string.Equals(command, "Customize", StringComparison.Ordinal) &&
+                if (!externalButtonOwner &&
+                    string.Equals(command, "Customize", StringComparison.Ordinal) &&
                     FrontendMenus.CurrentSelectedTrail >= 90 && FrontendMenus.CurrentSelectedTrail <= 92)
                 {
                     try
@@ -1818,6 +1831,11 @@ namespace CustomCustomTrail
 
             private void InjectCoopCustomizeButton(UserControl page)
             {
+                if (externalButtonOwner)
+                {
+                    customizationBridge.Refresh();
+                    return;
+                }
                 if (page == null || injectedCoopPages.Contains(page))
                     return;
                 Button anchor = page.FindName("CoopKick") as Button;
@@ -1875,6 +1893,25 @@ namespace CustomCustomTrail
                 }
 
                 OpenCoopTrailSetup(self, trailId, mission, notifyClients: !self.singlePlayerCoop, source: "local host");
+            }
+
+            private bool HandleExternalCustomTrailCustomize()
+            {
+                if (!enabled)
+                    return false;
+                FrontendMenus menus = MainViewModel.Instance?.FrontEndMenu;
+                if (menus == null)
+                    throw new InvalidOperationException("The FrontendMenus instance is unavailable.");
+                OpenSelectedCustomTrailSetup(menus);
+                return true;
+            }
+
+            private bool HandleExternalCoopTrailCustomize()
+            {
+                if (!enabled)
+                    return false;
+                CustomizeCurrentCoopTrail();
+                return true;
             }
 
             private void OpenCoopTrailSetup(

@@ -9,6 +9,7 @@ using UnityEngine;
 namespace CustomCustomTrail
 {
     [BepInDependency("000shcdese", "2.3.0")]
+    [BepInDependency("BugfixesAndQoL_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class CustomCustomTrailPlugin : BaseUnityPlugin

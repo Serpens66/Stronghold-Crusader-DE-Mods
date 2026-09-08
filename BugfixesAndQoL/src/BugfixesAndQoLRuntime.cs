@@ -26,6 +26,7 @@ namespace BugfixesAndQoL
         private readonly SiegeAmmoRestockFeature siegeAmmoRestockFeature;
         private readonly TroopHudMiddleClickCameraFeature troopHudMiddleClickCameraFeature;
         private readonly TunnelPlacementDistanceFeature tunnelPlacementDistanceFeature;
+        private readonly TrailCustomizationFeature trailCustomizationFeature;
         private ExtendedShiftCommandQueueRuntime extendedShiftCommandQueueRuntime;
         private IDisposable playerMarketSubscription;
         private IDisposable mapStartSubscription;
@@ -111,6 +112,7 @@ namespace BugfixesAndQoL
             siegeAmmoRestockFeature = new SiegeAmmoRestockFeature(log, settings, multiplayerFeatureGate);
             troopHudMiddleClickCameraFeature = new TroopHudMiddleClickCameraFeature(log, settings);
             tunnelPlacementDistanceFeature = new TunnelPlacementDistanceFeature(log, settings);
+            trailCustomizationFeature = new TrailCustomizationFeature(log, settings);
             InitializeMovedFeatures();
             settings.SettingChanged += OnSettingChanged;
             settingsSubscribed = true;
@@ -124,6 +126,9 @@ namespace BugfixesAndQoL
 
         public void InitializeNetwork()
         {
+            TryInitializePersistentFeature(
+                "Trail Customize buttons",
+                trailCustomizationFeature.Initialize);
             TryInitializePersistentFeature(
                 "Shift-repair all buildings",
                 EnsureShiftRepairAllBuildingsHook);
@@ -177,6 +182,9 @@ namespace BugfixesAndQoL
                         .Subscribe(args =>
                         {
                             multiplayerFeatureGate.CaptureMapMode(args.bMultiplayerSave != 0);
+                            // Capture while LaunchPending still identifies a customized setup
+                            // whose Vanilla runtime signals temporarily look like Custom Game.
+                            TrailCustomizationLaunchOriginApi.MarkMapStarted();
                             assassinPathfindingRuntime.BeginMap();
                             assassinClimbRuntime.BeginMap();
                             multiplayerGameSpeedRuntime.ApplySetting();
@@ -397,6 +405,7 @@ namespace BugfixesAndQoL
 
         public void ApplySettings()
         {
+            TryApplyFeature("Trail Customize buttons", trailCustomizationFeature.RefreshVisibility);
             TryApplyFeature("moved feature settings", ApplyMovedFeatureSettings);
             TryInitializeFeature("AI tower-ruin repair fix", EnsureAiTowerRuinRepairFix);
             TryInitializeFeature("better AI overbuild rules", EnsureBetterAIOverbuildRulesFix);
@@ -543,6 +552,7 @@ namespace BugfixesAndQoL
             multiplayerAivSyncRuntime.Dispose();
             siegeAmmoRestockFeature.Dispose();
             tunnelPlacementDistanceFeature.Dispose();
+            trailCustomizationFeature.Dispose();
             playerMarketSubscription?.Dispose();
             playerMarketSubscription = null;
             mapStartSubscription?.Dispose();

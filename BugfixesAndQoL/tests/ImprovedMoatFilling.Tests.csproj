@@ -37,6 +37,7 @@
     <Compile Include="..\src\AIResourceShortageSleepPolicy.cs"><Link>AIResourceShortageSleepPolicy.cs</Link></Compile>
     <Compile Include="..\src\SingleBuildingPauseOverrideStore.cs"><Link>SingleBuildingPauseOverrideStore.cs</Link></Compile>
     <Compile Include="..\src\TemporaryGateBlockagePolicy.cs"><Link>TemporaryGateBlockagePolicy.cs</Link></Compile>
+    <Compile Include="..\src\TrailCustomizationProviderHostApi.cs"><Link>TrailCustomizationProviderHostApi.cs</Link></Compile>
     <Compile Include="..\src\FriendlyMoatMovementPolicy.cs"><Link>FriendlyMoatMovementPolicy.cs</Link></Compile>
     <Compile Include="..\src\TunnelPlacementDistancePolicy.cs"><Link>TunnelPlacementDistancePolicy.cs</Link></Compile>
     <Compile Include="..\..\Shared\DebugLogHelper.cs"><Link>DebugLogHelper.cs</Link></Compile>

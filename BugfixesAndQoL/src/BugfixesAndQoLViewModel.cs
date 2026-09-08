@@ -66,6 +66,7 @@ namespace BugfixesAndQoL
         private bool enableShiftGameSpeedSteps = true;
         private bool enableAllyGoodsAmountModifiers = true;
         private bool enableCustomTrailExtremeGoldFix = true;
+        private bool enableTrailCustomizationButtons = true;
         private bool showVanillaMapsInEditor = true;
         private bool preserveDisplayResolution = true;
         private bool enableDisbandedUnitControlGroupCleanup = true;
@@ -265,6 +266,8 @@ namespace BugfixesAndQoL
         public string EnableEliminatedPlayersBecomeSpectatorsHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableEliminatedPlayersBecomeSpectatorsHelp");
         public string EnableCustomTrailExtremeGoldFixText => SerpLocalization.Get("BugfixesAndQoL.EnableCustomTrailExtremeGoldFix");
         public string EnableCustomTrailExtremeGoldFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableCustomTrailExtremeGoldFixHelp");
+        public string EnableTrailCustomizationButtonsText => SerpLocalization.Get(SerpLocalization.EnableTrailCustomizationButtons);
+        public string EnableTrailCustomizationButtonsHelpText => SerpLocalization.Get(SerpLocalization.EnableTrailCustomizationButtonsHelp);
         public string ShowVanillaMapsInEditorText => SerpLocalization.Get("BugfixesAndQoL.ShowVanillaMapsInEditor");
         public string ShowVanillaMapsInEditorHelpText => SerpLocalization.Get("BugfixesAndQoL.ShowVanillaMapsInEditorHelp");
         public string PreserveDisplayResolutionText => SerpLocalization.Get("BugfixesAndQoL.PreserveDisplayResolution");
@@ -471,6 +474,16 @@ namespace BugfixesAndQoL
         {
             get => enableCustomTrailExtremeGoldFix;
             set => SetSetting(ref enableCustomTrailExtremeGoldFix, value, nameof(EnableCustomTrailExtremeGoldFix));
+        }
+
+        [SyncHostOnly]
+        public bool EnableTrailCustomizationButtons
+        {
+            get => enableTrailCustomizationButtons;
+            set => SetSetting(
+                ref enableTrailCustomizationButtons,
+                value,
+                nameof(EnableTrailCustomizationButtons));
         }
 
         [Shared.PresetLocal]
@@ -987,6 +1000,7 @@ namespace BugfixesAndQoL
                 EnableCtrlSingleMarketTrade = true;
                 EnableMultiplayerGameSpeedChanges = MultiplayerTimeControlPermission.OnlyHost;
                 EnableShiftGameSpeedSteps = true;
+                EnableTrailCustomizationButtons = true;
             }
 
             // Every participant resets only their own per-player preferences.

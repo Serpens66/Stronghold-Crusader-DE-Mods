@@ -440,11 +440,50 @@ namespace Shared
 #else
             try
             {
-                Type api = Type.GetType(
+                string[] providerTypes =
+                {
+                    "BugfixesAndQoL.TrailCustomizationLaunchOriginApi, BugfixesAndQoL",
                     "CustomCustomTrail.CustomCustomTrailLaunchOriginApi, CustomCustomTrail",
-                    throwOnError: false);
-                if (api == null)
-                    return default;
+                };
+                ExternalCustomizedOrigin active = default;
+                bool hasActive = false;
+                bool providerAvailable = false;
+                bool supportsBuiltInOrigins = false;
+                foreach (string providerType in providerTypes)
+                {
+                    Type api = Type.GetType(providerType, throwOnError: false);
+                    if (api == null)
+                        continue;
+                    providerAvailable = true;
+                    ExternalCustomizedOrigin candidate = CaptureExternalCustomizedOrigin(api);
+                    if (candidate.IsInvalid)
+                        return ExternalCustomizedOrigin.InvalidProvider;
+                    supportsBuiltInOrigins |= candidate.SupportsBuiltInOrigins;
+                    if (candidate.Origin == ExternalCustomizedOrigin.None)
+                        continue;
+                    if (hasActive)
+                        return ExternalCustomizedOrigin.InvalidProvider;
+                    active = candidate;
+                    hasActive = true;
+                }
+                return hasActive
+                    ? active
+                    : providerAvailable
+                        ? ExternalCustomizedOrigin.AvailableProvider(supportsBuiltInOrigins)
+                        : default;
+            }
+            catch
+            {
+                // Optional providers must never enable gameplay mods when their contracts fail.
+                return ExternalCustomizedOrigin.InvalidProvider;
+            }
+#endif
+        }
+
+        private static ExternalCustomizedOrigin CaptureExternalCustomizedOrigin(Type api)
+        {
+            try
+            {
                 if (!TryReadStaticInt(api, "ApiVersion", out int apiVersion) ||
                     !TryReadStaticInt(api, "Origin", out int origin))
                 {
@@ -461,11 +500,12 @@ namespace Shared
                 if (!knownOrigin)
                     return ExternalCustomizedOrigin.InvalidProvider;
                 bool launchPending = false;
+                bool hasLaunchPending = TryReadStaticBool(api, "LaunchPending", out launchPending);
                 if (!TryReadStaticInt(api, "TrailType", out int trailType) ||
                     !TryReadStaticInt(api, "TrailId", out int trailId) ||
                     !TryReadStaticInt(api, "MissionId", out int missionId) ||
                     !TryReadStaticBool(api, "RestoredFromSave", out bool restoredFromSave) ||
-                    (apiVersion >= 2 && !TryReadStaticBool(api, "LaunchPending", out launchPending)))
+                    (apiVersion >= 2 && !hasLaunchPending))
                 {
                     return ExternalCustomizedOrigin.InvalidProvider;
                 }
@@ -495,10 +535,9 @@ namespace Shared
             }
             catch
             {
-                // CustomCustomTrail is optional; invalid providers must never enable gameplay mods.
+                // Providers are optional; malformed reflection surfaces fail closed.
                 return ExternalCustomizedOrigin.InvalidProvider;
             }
-#endif
         }
 
         private static bool TryReadStaticInt(Type type, string name, out int result)

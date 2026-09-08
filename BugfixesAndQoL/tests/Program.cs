@@ -26,6 +26,7 @@ namespace BugfixesAndQoL
 
         private static int Main()
         {
+            TestTrailCustomizationOwnership();
             TestTunnelPlacementDistancePolicy();
             TestTunnelPlacementDistanceIntegration();
             TestFriendlyMoatMovementPolicy();
@@ -48,6 +49,94 @@ namespace BugfixesAndQoL
             }
             Console.Error.WriteLine($"BugfixesAndQoL policy and native-contract tests failed: {failures}.");
             return 1;
+        }
+
+        private static void TestTrailCustomizationOwnership()
+        {
+            int refreshCalls = 0;
+            Check(!TrailCustomizationProviderHostApi.RegisterProvider(
+                    "CustomCustomTrail_Serp",
+                    TrailCustomizationProviderHostApi.ApiVersion,
+                    () => true,
+                    () => true,
+                    () => true),
+                "Trail customization keeps provider standalone ownership until the host is attached");
+            TrailCustomizationProviderHostApi.Attach(() => refreshCalls++);
+            Check(!TrailCustomizationProviderHostApi.RegisterProvider(
+                    "", 1, () => true, () => true, () => true),
+                "Trail customization rejects an invalid provider identity");
+            Check(!TrailCustomizationProviderHostApi.RegisterProvider(
+                    "CustomCustomTrail_Serp", 2, () => true, () => true, () => true),
+                "Trail customization rejects an incompatible provider API");
+
+            bool enabled = true;
+            int customCalls = 0;
+            int coopCalls = 0;
+            Check(TrailCustomizationProviderHostApi.RegisterProvider(
+                    "CustomCustomTrail_Serp",
+                    TrailCustomizationProviderHostApi.ApiVersion,
+                    () => enabled,
+                    () => { customCalls++; return true; },
+                    () => { coopCalls++; return true; }),
+                "Trail customization accepts the compatible CustomCustomTrail provider");
+            Check(refreshCalls == 2,
+                "Trail customization refreshes visibility after attach and provider registration");
+            Check(TrailCustomizationProviderHostApi.IsProviderEnabled() &&
+                    TrailCustomizationProviderHostApi.TryCustomizeCustomTrail(out bool customActive) &&
+                    customActive && customCalls == 1 &&
+                    TrailCustomizationProviderHostApi.TryCustomizeCoopTrail(out bool coopActive) &&
+                    coopActive && coopCalls == 1,
+                "active provider owns each Customize transition exactly once");
+            Check(!TrailCustomizationProviderHostApi.RegisterProvider(
+                    "UnexpectedTrailProvider",
+                    TrailCustomizationProviderHostApi.ApiVersion,
+                    () => true,
+                    () => true,
+                    () => true),
+                "Trail customization rejects an unexpected competing provider");
+            int rejectedCalls = 0;
+            Check(TrailCustomizationProviderHostApi.RegisterProvider(
+                    "CustomCustomTrail_Serp",
+                    TrailCustomizationProviderHostApi.ApiVersion,
+                    () => enabled,
+                    () => { rejectedCalls++; return false; },
+                    () => { rejectedCalls++; return false; }) &&
+                    !TrailCustomizationProviderHostApi.TryCustomizeCustomTrail(out bool rejectedActive) &&
+                    rejectedActive && rejectedCalls == 1,
+                "active provider rejection remains fail-closed without a second transition");
+            enabled = false;
+            Check(!TrailCustomizationProviderHostApi.TryCustomizeCustomTrail(out bool inactive) &&
+                    !inactive && customCalls == 1,
+                "disabled provider yields to the BugfixesAndQoL standalone fallback");
+
+            string projectDirectory = FindProjectDirectory();
+            string feature = File.ReadAllText(Path.Combine(
+                projectDirectory, "src", "TrailCustomizationFeature.cs"));
+            string viewModel = File.ReadAllText(Path.Combine(
+                projectDirectory, "src", "BugfixesAndQoLViewModel.cs"));
+            string xaml = File.ReadAllText(Path.Combine(
+                projectDirectory, "Override", "ScriptExtenderUI", "BugfixesAndQoLSettings.xaml"));
+            string runtime = File.ReadAllText(Path.Combine(
+                projectDirectory, "src", "BugfixesAndQoLRuntime.cs"));
+            string sharedGameMode = File.ReadAllText(Path.Combine(
+                Directory.GetParent(projectDirectory).FullName, "Shared", "GameModeHelper.cs"));
+            Check(feature.Contains("Name = \"SharedTrailCustomize\"") &&
+                    feature.Contains("foreach (UIElement child in host.Children)") &&
+                    feature.Contains("TryCustomizeCustomTrail(out bool providerActive)") &&
+                    feature.Contains("TryCustomizeCoopTrail(out bool providerActive)") &&
+                    feature.Contains("args.SenderSteamId.Value != host.Value") &&
+                    feature.Contains("TrailCustomizationLaunchOriginApi.Clear();") &&
+                    feature.Contains("throw;"),
+                "Trail customization owns idempotent buttons and authenticated provider-aware transitions");
+            Check(viewModel.Contains("[SyncHostOnly]") &&
+                    viewModel.Contains("public bool EnableTrailCustomizationButtons") &&
+                    xaml.Contains("EnableTrailCustomizationButtons, Mode=TwoWay"),
+                "Trail customization exposes the default-enabled host setting");
+            Check(runtime.IndexOf("multiplayerFeatureGate.CaptureMapMode", StringComparison.Ordinal) <
+                    runtime.IndexOf("TrailCustomizationLaunchOriginApi.MarkMapStarted", StringComparison.Ordinal) &&
+                    sharedGameMode.Contains("bool hasLaunchPending = TryReadStaticBool") &&
+                    sharedGameMode.Contains("if (hasActive)"),
+                "launch origin is captured before cleanup and conflicting providers fail closed");
         }
 
         private static void TestTunnelPlacementDistancePolicy()

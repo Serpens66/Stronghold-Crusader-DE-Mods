@@ -148,6 +148,8 @@ public static class SerpLocalization
     public const string EnableImprovedAssassinPathfindingHelp = "SomeSettings.EnableImprovedAssassinPathfindingHelp";
     public const string EnableAssassinCombatResumeFix = "BugfixesAndQoL.EnableAssassinCombatResumeFix";
     public const string EnableAssassinCombatResumeFixHelp = "BugfixesAndQoL.EnableAssassinCombatResumeFixHelp";
+    public const string EnableTrailCustomizationButtons = "BugfixesAndQoL.EnableTrailCustomizationButtons";
+    public const string EnableTrailCustomizationButtonsHelp = "BugfixesAndQoL.EnableTrailCustomizationButtonsHelp";
     public const string AssassinClimbingToggleTooltip = "BugfixesAndQoL.AssassinClimbingToggleTooltip";
     public const string AssassinClimbingActiveTooltipBody = "BugfixesAndQoL.AssassinClimbingActiveTooltipBody";
     public const string AssassinClimbingForbiddenTooltipBody = "BugfixesAndQoL.AssassinClimbingForbiddenTooltipBody";
@@ -298,6 +300,8 @@ public static class SerpLocalization
         { HostReadOnly, "Values from host - read-only" },
         { ResetToDefaultHelp, "Resets the settings you can control in the current context." },
         { EnableModHelp, "Enables or disables this mod for the match." },
+        { EnableTrailCustomizationButtons, "Customize buttons for Custom and Coop Trails" },
+        { EnableTrailCustomizationButtonsHelp, "Shows Customize for Custom Trails and adds it to all four Coop Trails. The host can open the normal skirmish setup before starting the selected mission." },
         { "CustomCustomTrail.HostOptions", "HOST OPTIONS" },
         { "CustomCustomTrail.SupportedTrailSettings", "MOD SETTINGS IN CUSTOM TRAILS" },
         { "CustomCustomTrail.SupportedTrailSettingsHelp", "Select which compatible mods are saved with newly created Custom Trail missions. Enabled by default. Unselected mods remain unchanged when the Trail is played." },

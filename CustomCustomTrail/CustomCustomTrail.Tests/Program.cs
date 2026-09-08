@@ -36,6 +36,7 @@ var tests = new (string Name, Action Run)[]
     ("invalid mod-settings documents are rejected", TestInvalidModSettingsDocuments),
     ("atomic sidecar write replaces existing file", TestAtomicSidecarWrite),
     ("Trail coordinator ownership is centralized", TestCoordinatorOwnership),
+    ("BugfixesAndQoL Customize button delegation is optional", TestCustomizeButtonDelegation),
     ("customized launch origin is persisted and fail-closed", TestCustomizedLaunchOriginIntegration),
     ("customized launch origin save roundtrip", TestCustomizedLaunchOriginRoundtrip),
     ("Built-in Customize origin packet roundtrip", TestBuiltInCustomizeOriginPacketRoundtrip),
@@ -510,10 +511,14 @@ static void TestCustomizedLaunchOriginIntegration()
         coordinator.Contains("CustomCustomTrailLaunchOriginApi.MarkRestartPending()") &&
         coordinator.Contains("CustomCustomTrailLaunchOriginApi.Clear()"),
         "direct follow-up and restarted Custom Trails do not separate stale from active origin");
-    Assert(sharedGameMode.Contains("CustomCustomTrail.CustomCustomTrailLaunchOriginApi, CustomCustomTrail") &&
+    Assert(sharedGameMode.Contains("BugfixesAndQoL.TrailCustomizationLaunchOriginApi, BugfixesAndQoL") &&
+        sharedGameMode.Contains("CustomCustomTrail.CustomCustomTrailLaunchOriginApi, CustomCustomTrail") &&
+        sharedGameMode.Contains("if (hasActive)") &&
+        sharedGameMode.Contains("candidate.IsInvalid") &&
+        sharedGameMode.Contains("bool hasLaunchPending = TryReadStaticBool") &&
         sharedGameMode.Contains("ExternalOriginMatchesKind") &&
         sharedGameMode.Contains("RestoredCustomizedSave"),
-        "GameModeHelper does not validate the optional saved origin against Vanilla mode state");
+        "GameModeHelper does not select exactly one valid launch-origin provider fail-closed");
 }
 
 static void TestBuiltInCustomizeOriginPacketRoundtrip()
@@ -952,6 +957,25 @@ static void TestCoopExporterIntegration()
         coordinator.Contains(".SetValue(self, false)"),
         "Coop launch refresh retention, visible blocking, or Customize ready-state reset is missing");
     Assert(!runtime.Contains("Path.Combine(pluginRoot, \"CoopTrails\")"), "legacy plugin-local package layout is still active");
+}
+
+static void TestCustomizeButtonDelegation()
+{
+    string root = FindProjectRoot();
+    string bridge = File.ReadAllText(Path.Combine(root, "src", "BugfixesAndQoLTrailCustomizationBridge.cs"));
+    string coordinator = File.ReadAllText(Path.Combine(root, "src", "TrailMissionSettingsCoordinator.cs"));
+    string plugin = File.ReadAllText(Path.Combine(root, "src", "CustomCustomTrailPlugin.cs"));
+    Assert(bridge.Contains("TrailCustomizationProviderHostApi, BugfixesAndQoL") &&
+        bridge.Contains("typeof(Func<bool>)") && bridge.Contains("TryRegister("),
+        "optional BugfixesAndQoL provider handshake is missing");
+    Assert(coordinator.Contains("externalButtonOwner = customizationBridge.TryRegister(") &&
+        coordinator.Contains("if (!externalButtonOwner &&") &&
+        coordinator.Contains("if (externalButtonOwner)") &&
+        coordinator.Contains("HandleExternalCustomTrailCustomize") &&
+        coordinator.Contains("HandleExternalCoopTrailCustomize"),
+        "CustomCustomTrail does not retain standalone behavior while delegating shared button ownership");
+    Assert(plugin.Contains("[BepInDependency(\"BugfixesAndQoL_Serp\", BepInDependency.DependencyFlags.SoftDependency)]"),
+        "optional button owner is not ordered as a soft dependency");
 }
 
 static void TestDependencyFreeCoopJson()
