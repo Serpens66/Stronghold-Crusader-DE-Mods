@@ -57,6 +57,9 @@ The code-status badge compares each release with the current relevant mod source
 Verify a downloaded archive with `Get-FileHash <archive.zip> -Algorithm SHA256` and compare it with the release asset and table above.
 <!-- RELEASE-INDEX:END -->
 
+## Some small Guides:
+- https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main/Guides
+
 ## Other Mods:
 - https://gitlab.com/rawra-stronghold-crusader/shcde-fixes
 - https://gitlab.com/ensrick7/crusader-de-tweaker
