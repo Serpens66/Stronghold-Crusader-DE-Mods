@@ -3,13 +3,19 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.136",
+  "Version": "1.0.137",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.3.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.137",
+      "Changes": [
+        "Added a default-enabled host fix that lets troops use Vanilla ladder routes when attacking units or buildings behind walls."
+      ]
+    },
     {
       "Version": "1.0.136",
       "Changes": [

@@ -434,6 +434,12 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableMountedStockpileMovementFixText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-ladder-attack-pathfinding-fix" shared:ModSettingsSearch.Title="{Binding EnableLadderAttackPathfindingFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableLadderAttackPathfindingFixHelpText}"><CheckBox IsChecked="{Binding EnableLadderAttackPathfindingFix, Mode=TwoWay}"
+                Foreground="White"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableLadderAttackPathfindingFixHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding EnableLadderAttackPathfindingFixText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox></Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-healer-attack-command-fix" shared:ModSettingsSearch.Title="{Binding EnableHealerAttackCommandFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableHealerAttackCommandFixHelpText}"><CheckBox IsChecked="{Binding EnableHealerAttackCommandFix, Mode=TwoWay}"
                 Foreground="White"
                 ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableHealerAttackCommandFixHelpText}"

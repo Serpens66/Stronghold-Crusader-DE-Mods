@@ -453,7 +453,8 @@ namespace BugfixesAndQoL
                 log,
                 "Bugfixes and QoL friendly moat movement initialized: " +
                 $"mode={settings.FriendlyMoatMovementMode}, improvedFill=" +
-                $"{settings.EnableMod && settings.EnableImprovedMoatFilling}.");
+                $"{settings.EnableMod && settings.EnableImprovedMoatFilling}, " +
+                $"ladderAttackFix={settings.EnableMod && settings.EnableLadderAttackPathfindingFix}.");
         }
 
         private void InitializeExtendedShiftCommandQueue(

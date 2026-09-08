@@ -341,6 +341,7 @@ namespace BugfixesAndQoL
             internal RequiredRouteMetrics Required = new RequiredRouteMetrics();
             internal RequiredRouteCache RequiredCache = new RequiredRouteCache();
             internal System.Collections.Generic.HashSet<int> CandidateUnitIds = new System.Collections.Generic.HashSet<int>();
+            public System.Collections.Generic.HashSet<LadderRegionTransition> PositiveLadderRegionTransitions = new System.Collections.Generic.HashSet<LadderRegionTransition>();
             public bool CandidatesCaptured;
             public int MapEpoch, TribeId, TargetValue1, TargetValue2, Sequence;
             public TribeAICommand Command;
@@ -383,6 +384,45 @@ namespace BugfixesAndQoL
                 var scope=new AttackApproachDiagnosticScope{OwnerCommand=command,TribeId=1};
                 getGroupUnitId=(m,t,n)=>n+1;
                 *(short*)(tribes+TribeRecordSize+TribeLeadUnitIdOffset)=1;
+                var ladderProducer=new[]
+                {
+                    new BuildingApproachCandidate(1060,2060,VanillaUnreachableCandidateScore),
+                    new BuildingApproachCandidate(1061,2061,VanillaUnreachableCandidateScore),
+                    new BuildingApproachCandidate(1062,2062,VanillaUnreachableCandidateScore)
+                };
+                pathRegionGrid[1062]=3;
+                command.PositiveLadderRegionTransitions.Add(new LadderRegionTransition(1,1,2));
+                activeAttackCommand=command;
+                WriteBuildingApproachCandidates(nativePathManager,new System.Collections.Generic.List<BuildingApproachCandidate>
+                {
+                    new BuildingApproachCandidate(1060,2060,7)
+                });
+                var ladderRestore=RestoreVanillaLadderBuildingCandidates(command,nativeTribeManager,ladderProducer);
+                var ladderAfter=CaptureBuildingApproachCandidates(nativePathManager);
+                Check(ladderRestore.ProvenTransitions==1 && ladderRestore.AfterMoatPairs==1 &&
+                    ladderRestore.EligiblePairs==1 && ladderRestore.RestoredPairs==1,
+                    "only a removed pair in an exactly proven ladder region is restored");
+                Check(ladderAfter.Length==2 && ladderAfter[0].ApproachTileId==1060 &&
+                    ladderAfter[0].Score==7 && ladderAfter[1].ApproachTileId==1061 &&
+                    ladderAfter[1].Score==VanillaUnreachableCandidateScore,
+                    "Vanilla order and score survive before the restored Vanilla-sentinel pair");
+                command.PositiveLadderRegionTransitions.Clear();
+                WriteBuildingApproachCandidates(nativePathManager,new System.Collections.Generic.List<BuildingApproachCandidate>());
+                ladderRestore=RestoreVanillaLadderBuildingCandidates(command,nativeTribeManager,ladderProducer);
+                Check(ladderRestore.RestoredPairs==0 &&
+                    CaptureBuildingApproachCandidates(nativePathManager).Length==0,
+                    "a building pair is never restored without a positive region proof");
+                var fullBuffer=new System.Collections.Generic.List<BuildingApproachCandidate>();
+                for(int index=0;index<VanillaAttackFloodResultCapacity-1;index++)
+                    fullBuffer.Add(new BuildingApproachCandidate(300000+index,0,index+1));
+                WriteBuildingApproachCandidates(nativePathManager,fullBuffer);
+                command.PositiveLadderRegionTransitions.Add(new LadderRegionTransition(1,1,2));
+                ladderRestore=RestoreVanillaLadderBuildingCandidates(command,nativeTribeManager,ladderProducer);
+                Check(ladderRestore.RestoredPairs==0 && ladderRestore.EligiblePairs==2 &&
+                    CaptureBuildingApproachCandidates(nativePathManager).Length==VanillaAttackFloodResultCapacity-1,
+                    "a full native candidate buffer remains bounded and unchanged");
+                command.PositiveLadderRegionTransitions.Clear();
+                pathRegionGrid[1062]=2;
                 foreach(int count in new[]{1,120,680})
                 {
                     *(short*)(tribes+TribeRecordSize+TribeUnitCountOffset)=(short)count;
@@ -404,6 +444,14 @@ namespace BugfixesAndQoL
                         Check(after.Length==351,"351 native building places survive including staging");
                         for(int i=0;i<351;i++)Check(after[i].ApproachTileId==1060+i && after[i].FootprintTileId==(i<12?2060+i:0),"native paired prefix and staging order retained");
                         Check(activeBuildingConsumerPerformance.ReachabilityMapsBuilt==(moat?1:0),"one shared field or unchanged native list");
+                        if(moat)
+                        {
+                            command.PositiveLadderRegionTransitions.Add(new LadderRegionTransition(1,1,2));
+                            var merged=RestoreVanillaLadderBuildingCandidates(command,nativeTribeManager,before);
+                            Check(merged.RestoredPairs==0 && CaptureBuildingApproachCandidates(nativePathManager).Length==351,
+                                "moat-published candidates are retained first without ladder duplicates");
+                            command.PositiveLadderRegionTransitions.Clear();
+                        }
                         PublishBuildingApproachPairs(command,nativePathManager);
                         Console.WriteLine($"BUILDING PRODUCTION units={count} moat={moat} candidates={after.Length} ms={timer.Elapsed.TotalMilliseconds:F3} nodes={activeBuildingConsumerPerformance.SearchNodes} bytes={GC.GetAllocatedBytesForCurrentThread()-bytes}");
                         if(moat)

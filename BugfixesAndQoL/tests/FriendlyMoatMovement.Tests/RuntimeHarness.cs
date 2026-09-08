@@ -200,6 +200,7 @@ namespace BugfixesAndQoL
         private Func<IntPtr, int, int, int> originalPathBuilder;
         private Func<IntPtr, int> originalPathReconstruction;
         private Func<IntPtr, int, int, int, int, int> originalRegionPairReachability;
+        private LadderAttackProbeScope activeLadderAttackProbe;
         private Func<IntPtr, int, int, int, int, int> originalRegionReachability = (p, player, region, x, y) => 0;
         private bool TryAllowDigWorkRegionSearch(IntPtr p, int player, int region, int x, int y, int vanilla, out int result)
         { result = vanilla; return false; }
@@ -346,6 +347,94 @@ namespace BugfixesAndQoL
                 byte* manager = (byte*)nativePathManager;
                 *(int*)(manager + 8) = 10; *(int*)(manager + 12) = 10;
                 *(int*)(manager + 16) = 17; *(int*)(manager + 20) = 10;
+
+                byte* buildingResultEntry = manager + PathManagerFloodResultTileOffset;
+                *(int*)buildingResultEntry = 128900;
+                *(int*)(buildingResultEntry + 4) = 0;
+                *(int*)(buildingResultEntry + 8) = 19;
+                AttackApproachState approachOnly = CaptureAttackApproachState(
+                    nativePathManager, requirePairedResult: true);
+                Check(approachOnly.ResultCount == 1 && approachOnly.UsableResultCount == 0 &&
+                    approachOnly.MalformedResultCount == 1,
+                    "building approach-only entry is not a usable tile pair");
+                *(int*)(buildingResultEntry + 4) = 128901;
+                AttackApproachState pairedApproach = CaptureAttackApproachState(
+                    nativePathManager, requirePairedResult: true);
+                Check(pairedApproach.ResultCount == 1 && pairedApproach.UsableResultCount == 1 &&
+                    pairedApproach.MalformedResultCount == 0,
+                    "building approach and positive footprint form a usable tile pair");
+                *(int*)(buildingResultEntry + 8) = VanillaUnreachableCandidateScore;
+                AttackApproachState producerPair = CaptureAttackApproachState(
+                    nativePathManager,
+                    requirePairedResult: true,
+                    requireReachableScore: false);
+                Check(producerPair.UsableResultCount == 1 && producerPair.MalformedResultCount == 0,
+                    "DA020 producer pair remains valid when its unwritten score is stale");
+                *(int*)buildingResultEntry = 0;
+                *(int*)(buildingResultEntry + 4) = 0;
+                *(int*)(buildingResultEntry + 8) = 0;
+
+                var routeModes = new List<int>();
+                originalRegionPairReachability = (path, player, source, target, mode) =>
+                {
+                    routeModes.Add(mode);
+                    return mode == 1 ? 2 : 0;
+                };
+                activeLadderAttackProbe = new LadderAttackProbeScope(
+                    AttackApproachKind.UnitFlood, 1, 498, 6, 0,
+                    406, 359, 1, 1, 1);
+                Check(TryHandleVanillaLadderRegionPair(
+                        nativePathManager, 1, 1, 2, 0, 0, out int unitModeResult) &&
+                    unitModeResult == 2 && routeModes.SequenceEqual(new[] { 1 }) &&
+                    activeLadderAttackProbe.ModeRetryCount == 1 &&
+                    activeLadderAttackProbe.PositiveModeRetryCount == 1,
+                    "unit attack repeats E2610 with Vanilla group mode and preserves result");
+
+                routeModes.Clear();
+                activeAttackCommand = new AttackCommandScope
+                {
+                    MapEpoch = mapEpoch,
+                    Sequence = 2,
+                    TribeId = 498,
+                    Command = TribeAICommand.AttackBuilding,
+                    TargetValue1 = 3
+                };
+                activeLadderAttackProbe = new LadderAttackProbeScope(
+                    AttackApproachKind.BuildingApproach, 2, 498, 6, 3,
+                    -1, -1, 1, 1, 1);
+                Check(TryHandleVanillaLadderRegionPair(
+                        nativePathManager, 1, 1, 2, 0, 0, out int buildingModeResult) &&
+                    buildingModeResult == 2 && routeModes.SequenceEqual(new[] { 1 }) &&
+                    activeAttackCommand.PositiveLadderRegionTransitions.SetEquals(
+                        new[] { new LadderRegionTransition(1, 1, 2) }),
+                    "building attack records the exact positive Vanilla region transition");
+                activeAttackCommand = null;
+
+                routeModes.Clear();
+                activeLadderAttackProbe = new LadderAttackProbeScope(
+                    AttackApproachKind.UnitFlood, 3, 498, 6, 0,
+                    406, 359, 1, 1, 0);
+                Check(!TryHandleVanillaLadderRegionPair(
+                        nativePathManager, 1, 1, 2, 0, 0, out int zeroModeResult) &&
+                    zeroModeResult == 0 && routeModes.Count == 0,
+                    "zero Vanilla group mode leaves attack reachability unchanged");
+
+                activeLadderAttackProbe = new LadderAttackProbeScope(
+                    AttackApproachKind.UnitFlood, 4, 498, 6, 0,
+                    406, 359, 1, 1, 1);
+                originalRegionPairReachability = (path, player, source, target, mode) => 0;
+                Check(!TryHandleVanillaLadderRegionPair(
+                        nativePathManager, 1, 1, 2, 0, 0, out int failedModeResult) &&
+                    failedModeResult == 0 && activeLadderAttackProbe.ModeRetryCount == 1 &&
+                    activeLadderAttackProbe.PositiveModeRetryCount == 0,
+                    "failed Vanilla group-mode retry leaves attack reachability unchanged");
+                Check(!TryHandleVanillaLadderRegionPair(
+                        nativePathManager, 2, 1, 2, 0, 0, out int foreignResult) &&
+                    foreignResult == 0 && activeLadderAttackProbe.ModeRetryCount == 1,
+                    "foreign player context cannot use the scoped group mode");
+                activeLadderAttackProbe = null;
+                originalRegionPairReachability = null;
+
                 // A completed friendly-moat endpoint is an immediate cheap exclusion proof.
                 tileFlags[1010] = CompletedMoatTileFlag;
                 activeMoveCommand = new MoveCommandScope { TargetX = 17, TargetY = 10 };
@@ -1112,6 +1201,7 @@ namespace BugfixesAndQoL {
   internal bool EnableMoveFormationEnhancements=true;
   internal int MoveFormationSpacing=MoveFormationSpacingPolicy.Default;
   internal bool EnableImprovedMoatFilling=true;
+  internal bool EnableLadderAttackPathfindingFix=true;
   internal int RouteMode=1;
  }
 }

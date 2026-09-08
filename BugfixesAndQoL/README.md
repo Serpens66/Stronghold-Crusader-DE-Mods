@@ -33,6 +33,9 @@ Knights, Horse Archers, Bedouin Camel Lancers, and Heavy Camels can be ordered o
 ### Keep Healers out of melee attack groups
 When a mixed selection is ordered to attack an enemy unit, Bedouin Healers now remain in place like Engineers instead of following the combat units into melee. Normal movement orders and healing behavior remain unchanged.
 
+### Attack through ladder-accessible walls
+Vanilla can find a route over a wall with a placed ladder for an ordinary movement order, but rejects the same route while searching for attack positions. This enabled-by-default host fix applies Vanilla's own ladder checks when units attack an enemy unit or building behind such a wall. It does not create custom paths or permit attacks through walls without a valid Vanilla ladder route.
+
 ### Resume Assassin movement after combat
 Assassins resume their original movement order after automatically fighting an enemy encountered along the way, including routes that climb onto or down from walls. This host setting works independently with Vanilla Assassin pathfinding; when improved Assassin pathfinding is also enabled, resumed orders use its weighted routes and support for walkable reserved building areas.
 

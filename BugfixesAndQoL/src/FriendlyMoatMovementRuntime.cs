@@ -21,9 +21,8 @@ namespace BugfixesAndQoL
 {
     internal sealed unsafe partial class FriendlyMoatMovementRuntime : IDisposable
     {
-        // Temporary diagnostic build: command traces remain aggregated and bounded.
-        // Set this back to false after the large-group moat investigation is complete.
-        private static readonly bool DetailedDiagnosticsEnabled = true;
+        // Detailed command traces are opt-in diagnostics, not production logging.
+        private static readonly bool DetailedDiagnosticsEnabled = false;
 
         private sealed class RedBirdDetour<TDelegate> where TDelegate : Delegate
         {
@@ -61,7 +60,7 @@ namespace BugfixesAndQoL
 
         [UnmanagedFunctionPointer(CallingConvention.Winapi)]
         private delegate int CursorReachabilityDelegate(
-            IntPtr pathManager, int nativeUnitIndex, int targetX, int targetY);
+            IntPtr pathManager, int unitId, int targetX, int targetY);
 
         [UnmanagedFunctionPointer(CallingConvention.Winapi)]
         private delegate int CursorTilePairFallbackSelectionDelegate(IntPtr selectionState);
@@ -77,7 +76,7 @@ namespace BugfixesAndQoL
         private delegate int GetRepresentativeSelectedUnitDelegate(IntPtr unitManager, int startIndex);
 
         [UnmanagedFunctionPointer(CallingConvention.Winapi)]
-        private delegate int CursorRegionPrecheckDelegate(IntPtr pathManager, int nativeUnitIndex);
+        private delegate int CursorRegionPrecheckDelegate(IntPtr pathManager, int unitId);
 
         [UnmanagedFunctionPointer(CallingConvention.Winapi)]
         private delegate int CentralMovementPlanDelegate(
@@ -123,6 +122,10 @@ namespace BugfixesAndQoL
             int routeKind);
 
         [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+        private delegate int GetTribeMovementModeDelegate(
+            IntPtr tribeManager, int tribeId);
+
+        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
         private delegate int BuildingCursorReachabilityDelegate(
             IntPtr buildingManager, int buildingId, int unitId);
 
@@ -147,6 +150,8 @@ namespace BugfixesAndQoL
         private const int TribeFloodFillMembershipRva = 0x124740;
         private const int FirstGroupUnitOnCompletedMoatRva = 0x117BC0;
         private const int GetGroupUnitIdRva = 0x119F90;
+        private const int GetTribeMovementModeRva = 0x117C70;
+        private const int OrdinaryMovementGroupModeCallRva = 0x11B736;
         private const int GroupMoatModeCallRva = 0x11B666;
         private const int UnitStandingOnCompletedMoatRva = 0x196840;
         private const int RegionReachabilityRva = 0xE7C40;
@@ -177,6 +182,8 @@ namespace BugfixesAndQoL
         private const int BuildingApproachTilePairCallRva = 0xDA232;
         private const int BuildingApproachAlternativeRegionPairCallRva = 0xDA47C;
         private const int BuildingApproachAlternativeTilePairCallRva = 0xDA4B1;
+        private const int OrdinaryMovementLadderPrecheckCallRva = 0x11B768;
+        private const int OrdinaryMovementLadderReachabilityCallRva = 0x11B785;
         private const int BuildingConsumerFallbackBuilderCallRva = 0x123102;
         private const int BuildingConsumerGroundBuilderCallRva = 0x12312C;
         private const int BuildingCursorReachabilityRva = 0xB70C0;
@@ -309,6 +316,11 @@ namespace BugfixesAndQoL
             "48 89 5C 24 08 48 63 C2 45 33 C9 48 69 D0 88 06 00 00 4C 8B D9 " +
             "66 83 7C 0A 40 02 75 5A 0F BF 44 0A 5C 44 3B C0 7D 50 45 85 C0 " +
             "78 4B 48 83 C1 60";
+
+        private const string GetTribeMovementModePattern =
+            "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 48 89 7C 24 20 " +
+            "41 56 48 83 EC 20 48 63 F2 33 DB 4C 69 C6 88 06 00 00 48 8B E9 " +
+            "41 0F BF 7C 08 5C 85 FF 7E 4D 4C 8D 35 ?? ?? ?? ??";
 
         private const string CentralMovementPlanPattern =
             "40 53 55 56 57 41 54 41 55 41 56 41 57 48 81 EC 38 04 00 00 " +
@@ -470,6 +482,8 @@ namespace BugfixesAndQoL
         private static BuildingApproachPerformanceScope activeBuildingApproachPerformance;
         [ThreadStatic]
         private static BuildingConsumerPerformanceScope activeBuildingConsumerPerformance;
+        [ThreadStatic]
+        private static LadderAttackProbeScope activeLadderAttackProbe;
 
         private MovementOptionsSnapshot CurrentOptions =>
             activeMoveCommand?.Options ?? activeAttackCommand?.Options ??
@@ -489,6 +503,7 @@ namespace BugfixesAndQoL
         private FirstGroupUnitOnCompletedMoatDelegate originalFirstGroupUnitOnCompletedMoat;
         private FirstGroupUnitOnCompletedMoatDelegate rootedFirstGroupUnitOnCompletedMoat;
         private GetGroupUnitIdDelegate getGroupUnitId;
+        private GetTribeMovementModeDelegate getTribeMovementMode;
         private CursorReachabilityDelegate originalCursorReachability;
         private CursorReachabilityDelegate rootedCursorReachability;
         private CursorTilePairFallbackSelectionDelegate originalCursorTilePairFallbackSelection;
@@ -627,6 +642,9 @@ namespace BugfixesAndQoL
             Shared.NativeResolution groupUnitResolution = Resolve(
                 memory, GetGroupUnitIdPattern, GetGroupUnitIdRva,
                 "group unit iterator");
+            Shared.NativeResolution groupMovementModeResolution = Resolve(
+                memory, GetTribeMovementModePattern, GetTribeMovementModeRva,
+                "ordinary-movement group route-mode helper");
             Shared.NativeResolution planResolution = Resolve(
                 memory, CentralMovementPlanPattern, CentralMovementPlanRva,
                 "central ordinary-movement planner");
@@ -990,6 +1008,10 @@ namespace BugfixesAndQoL
                 (IntPtr)(libraryBase + unchecked((ulong)selectionCanDigResolution.Rva)));
             getGroupUnitId = Marshal.GetDelegateForFunctionPointer<GetGroupUnitIdDelegate>(
                 (IntPtr)(libraryBase + unchecked((ulong)groupUnitResolution.Rva)));
+            getTribeMovementMode =
+                Marshal.GetDelegateForFunctionPointer<GetTribeMovementModeDelegate>(
+                    (IntPtr)(libraryBase +
+                        unchecked((ulong)groupMovementModeResolution.Rva)));
             nativeSpecialStructurePredicate =
                 Marshal.GetDelegateForFunctionPointer<NativeSpecialStructurePredicateDelegate>(
                     (IntPtr)(libraryBase +
@@ -1228,6 +1250,7 @@ namespace BugfixesAndQoL
             activeAttackApproachDiagnostic = null;
             activeBuildingApproachPerformance = null;
             activeBuildingConsumerPerformance = null;
+            activeLadderAttackProbe = null;
             ResetDirectMoatCommandScopes();
             trackedAttackUnits.Clear();
             trackedMoatMoves.Clear();
@@ -1367,6 +1390,7 @@ namespace BugfixesAndQoL
                     $"buildingApproach=0x{buildingApproachResolution.Rva:X}, " +
                     $"buildingConsumer=0x{buildingConsumerResolution.Rva:X}, " +
                     $"regionPair=0x{regionPairResolution.Rva:X}, " +
+                    $"vanillaGroupMode=0x{GetTribeMovementModeRva:X}, " +
                     $"directFillApproach=0x{directFillApproachResolution.Rva:X}->" +
                     $"0x{DirectFillApproachRegionPairCallRva:X}.");
             }
@@ -1389,7 +1413,7 @@ namespace BugfixesAndQoL
                 Shared.DebugLogHelper.LogError(
                     log,
                     "Bugfixes and QoL friendly-moat-movement shared E2610/attack-approach hooks were not installed; " +
-                    "building commands and direct FillMoat staging remain Vanilla while the " +
+                    "the ladder attack fix, building commands, and direct FillMoat staging remain Vanilla while the " +
                     $"existing movement feature remains active: {ex}");
             }
         }
@@ -1448,6 +1472,20 @@ namespace BugfixesAndQoL
                     0xC4, 0x48, 0x89, 0x85, 0x70, 0x08, 0x00, 0x00
                 },
                 "attack-approach region-pair helper entry");
+            ValidateExactBytes(
+                memory, GetTribeMovementModeRva,
+                new byte[]
+                {
+                    0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x6C,
+                    0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18, 0x48,
+                    0x89, 0x7C, 0x24, 0x20, 0x41, 0x56, 0x48, 0x83,
+                    0xEC, 0x20, 0x48, 0x63, 0xF2, 0x33, 0xDB, 0x4C,
+                    0x69, 0xC6, 0x88, 0x06, 0x00, 0x00, 0x48, 0x8B,
+                    0xE9, 0x41, 0x0F, 0xBF, 0x7C, 0x08, 0x5C, 0x85,
+                    0xFF, 0x7E, 0x4D, 0x4C, 0x8D, 0x35, 0x56, 0x07,
+                    0x6D, 0x06
+                },
+                "ordinary-movement group route-mode helper entry");
         }
 
         private static void ValidateAttackApproachCalls(ReadOnlySpan<byte> memory)
@@ -1487,6 +1525,15 @@ namespace BugfixesAndQoL
                 new byte[] { 0xE8, 0x8F, 0x81, 0x00, 0x00 }, "alternative building region-pair call");
             ValidateCallTarget(memory, BuildingApproachAlternativeTilePairCallRva, CursorTilePairReachabilityRva,
                 new byte[] { 0xE8, 0xEA, 0x87, 0x00, 0x00 }, "alternative building tile-pair call");
+
+            ValidateCallTarget(memory, OrdinaryMovementGroupModeCallRva, GetTribeMovementModeRva,
+                new byte[] { 0xE8, 0x35, 0xC5, 0xFF, 0xFF },
+                "ordinary-movement group route-mode call");
+
+            ValidateCallTarget(memory, OrdinaryMovementLadderPrecheckCallRva, CursorRegionPrecheckRva,
+                new byte[] { 0xE8, 0x23, 0xE6, 0xFC, 0xFF }, "ordinary-movement Vanilla ladder precheck call");
+            ValidateCallTarget(memory, OrdinaryMovementLadderReachabilityCallRva, CursorReachabilityRva,
+                new byte[] { 0xE8, 0x66, 0xE8, 0xFC, 0xFF }, "ordinary-movement Vanilla ladder reachability call");
 
             ValidateCallTarget(memory, BuildingConsumerFallbackBuilderCallRva, AlternativePathBuilderRva,
                 new byte[] { 0xE8, 0x49, 0x85, 0xFB, 0xFF }, "building consumer fallback-builder call");
@@ -4607,7 +4654,7 @@ namespace BugfixesAndQoL
                 long floodStarted = Stopwatch.GetTimestamp();
                 try
                 {
-                    originalAttackApproachFloodBuilder(
+                    RunAttackApproachFloodWithVanillaLadderFix(
                         pathManager,
                         tribeId,
                         targetContext,
@@ -4688,6 +4735,7 @@ namespace BugfixesAndQoL
             if (scope == null || scope.OwnerCommand == null || scope.OwnerCommand.MapEpoch != mapEpoch ||
                 scope.Command != TribeAICommand.AttackUnit || scope.TargetContext != scope.OwnerCommand.TargetValue1 ||
                 (uint)scope.TargetX != x || (uint)scope.TargetY != y ||
+                scope.UnitId <= 0 ||
                 !GameUnitManagerAPI.Instance.TryGetUnitById(scope.UnitId, out GameUnit* source) ||
                 source == null || !CanDigMoat(source) || source->r_TribeId != scope.TribeId ||
                 source->r_ControllableForPlayerId != scope.PlayerId) return false;
@@ -4747,7 +4795,10 @@ namespace BugfixesAndQoL
                         unitId,
                         playerId,
                         unitType,
-                        CaptureAttackApproachState(pathManager, requirePairedResult: true));
+                        CaptureAttackApproachState(
+                            pathManager,
+                            requirePairedResult: true,
+                            requireReachableScore: false));
                     performance = new BuildingApproachPerformanceScope(
                         command.Sequence, buildingId);
                     activeAttackApproachDiagnostic = scope;
@@ -4765,7 +4816,7 @@ namespace BugfixesAndQoL
             try
             {
                 started = Stopwatch.GetTimestamp();
-                originalBuildingApproachBuilder(
+                RunBuildingApproachBuilderWithVanillaLadderFix(
                     pathManager, tribeId, buildingId, requestedResults, sourceRegion, movementClass);
             }
             finally
@@ -4777,7 +4828,9 @@ namespace BugfixesAndQoL
                     try
                     {
                         scope.After = CaptureAttackApproachState(
-                            pathManager, requirePairedResult: true);
+                            pathManager,
+                            requirePairedResult: true,
+                            requireReachableScore: false);
                         LogAttackApproachDiagnostic(scope);
                         LogBuildingApproachPerformance(performance);
                     }
@@ -4817,7 +4870,9 @@ namespace BugfixesAndQoL
                     {
                         fastCommand = command;
                         fastBefore = CaptureAttackApproachState(
-                            nativePathManager, requirePairedResult: true);
+                            nativePathManager,
+                            requirePairedResult: true,
+                            requireReachableScore: false);
                     }
                     else
                     {
@@ -4840,7 +4895,9 @@ namespace BugfixesAndQoL
                             playerId,
                             unitType,
                             CaptureAttackApproachState(
-                                nativePathManager, requirePairedResult: true))
+                                nativePathManager,
+                                requirePairedResult: true,
+                                requireReachableScore: false))
                         {
                             ConsumerVariant = builderVariant
                         };
@@ -4901,6 +4958,7 @@ namespace BugfixesAndQoL
                         AttackApproachState vanillaAfter =
                             CaptureAttackApproachState(nativePathManager, requirePairedResult: true);
                         BuildingConsumerFallbackResult fallback;
+                        LadderBuildingCandidateRestoreResult ladderRestore;
                         long fallbackStarted = Stopwatch.GetTimestamp();
                         activeBuildingConsumerPerformance = performance;
                         try
@@ -4919,17 +4977,50 @@ namespace BugfixesAndQoL
                             }
                             activeBuildingConsumerPerformance = previousPerformance;
                         }
+                        ladderRestore = vanillaCompleted
+                            ? RestoreVanillaLadderBuildingCandidates(
+                                scope.OwnerCommand, tribeManager, vanillaCandidates)
+                            : new LadderBuildingCandidateRestoreResult(
+                                "vanilla-threw", 0, 0, 0, 0);
                         PublishBuildingApproachPairs(scope.OwnerCommand, nativePathManager);
                         scope.After = CaptureAttackApproachState(
-                            nativePathManager, requirePairedResult: true);
+                            nativePathManager,
+                            requirePairedResult: true,
+                            requireReachableScore: false);
                         LogBuildingConsumerCandidates(
-                            scope, vanillaCandidates, vanillaAfter, fallback);
+                            scope, vanillaCandidates, vanillaAfter, fallback, ladderRestore);
                         LogBuildingConsumerPerformance(performance, fallback);
                         LogAttackApproachDiagnostic(scope);
                     }
                     catch (Exception ex)
                     {
                         TryLogDiagnosticFailure("attack-approach-building-consumer-post", ex);
+                    }
+                }
+                else if (vanillaCompleted && fastCommand != null)
+                {
+                    try
+                    {
+                        LadderBuildingCandidateRestoreResult ladderRestore =
+                            RestoreVanillaLadderBuildingCandidates(
+                                fastCommand, tribeManager, vanillaCandidates);
+                        if (ladderRestore.RestoredPairs > 0)
+                        {
+                            PublishBuildingApproachPairs(fastCommand, nativePathManager);
+                            LogCommandDiagnostic(
+                                $"stage=building-consumer-ladder commandSeq={fastCommand.Sequence} " +
+                                $"building={fastCommand.TargetValue1}/{fastCommand.TargetValue2} " +
+                                $"proofs={ladderRestore.ProvenTransitions} " +
+                                $"afterMoatPairs={ladderRestore.AfterMoatPairs} " +
+                                $"eligible={ladderRestore.EligiblePairs} " +
+                                $"ladderRestored={ladderRestore.RestoredPairs} " +
+                                $"reason={ladderRestore.Reason}.");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        TryLogDiagnosticFailure(
+                            "attack-approach-building-consumer-ladder-fast", ex);
                     }
                 }
                 activeBuildingConsumerPerformance = previousPerformance;
@@ -5133,6 +5224,17 @@ namespace BugfixesAndQoL
         {
             int vanillaResult = originalRegionPairReachability(
                 pathManager, movementClass, sourceRegion, targetRegion, routeKind);
+            if (TryHandleVanillaLadderRegionPair(
+                    pathManager,
+                    movementClass,
+                    sourceRegion,
+                    targetRegion,
+                    routeKind,
+                    vanillaResult,
+                    out int ladderResult))
+            {
+                return ladderResult;
+            }
             // E2610 uses argument 2 as player ID. Keep the established delegate ABI/name, but
             // pass the value to the work selector according to the confirmed native semantics.
             if (TryAllowDigWorkRegionPair(
@@ -5799,25 +5901,32 @@ namespace BugfixesAndQoL
             AttackApproachDiagnosticScope scope,
             BuildingApproachCandidate[] before,
             AttackApproachState vanillaAfter,
-            BuildingConsumerFallbackResult fallback)
+            BuildingConsumerFallbackResult fallback,
+            LadderBuildingCandidateRestoreResult ladderRestore)
         {
-            int beforeUsable = 0;
-            int beforeMalformed = 0;
+            int producerPairs = 0;
+            int producerApproachOnly = 0;
             foreach (BuildingApproachCandidate candidate in before)
             {
                 if (candidate.ApproachTileId > 0 && candidate.FootprintTileId > 0)
-                    beforeUsable++;
+                    producerPairs++;
                 else
-                    beforeMalformed++;
+                    producerApproachOnly++;
             }
             LogCommandDiagnostic(
                 $"stage=building-consumer-candidates commandSeq={scope.CommandSequence} " +
                 $"building={scope.OwnerCommand.TargetValue1}/{scope.OwnerCommand.TargetValue2} " +
-                $"beforeRaw={before.Length} beforeUsable={beforeUsable} " +
-                $"beforeApproachOnly={beforeMalformed} vanillaRaw={vanillaAfter.ResultCount} " +
-                $"vanillaUsable={vanillaAfter.UsableResultCount} " +
+                $"producerRaw={before.Length} producerPairs={producerPairs} " +
+                $"producerApproachOnly={producerApproachOnly} " +
+                $"vanillaRaw={vanillaAfter.ResultCount} " +
+                $"vanillaScoredPairs={vanillaAfter.UsableResultCount} " +
                 $"vanillaMalformed={vanillaAfter.MalformedResultCount} " +
-                $"finalUsable={scope.After.UsableResultCount} " +
+                $"afterMoatPairs={ladderRestore.AfterMoatPairs} " +
+                $"ladderProofs={ladderRestore.ProvenTransitions} " +
+                $"ladderEligible={ladderRestore.EligiblePairs} " +
+                $"ladderRestored={ladderRestore.RestoredPairs} " +
+                $"ladderReason={ladderRestore.Reason} " +
+                $"finalPairs={scope.After.UsableResultCount} " +
                 $"finalFirst={scope.After.FirstResultTile}/" +
                 $"{scope.After.FirstCompanionTile}/{scope.After.FirstScore}.");
             LogCommandDiagnostic(
@@ -5887,7 +5996,9 @@ namespace BugfixesAndQoL
         }
 
         private static AttackApproachState CaptureAttackApproachState(
-            IntPtr pathManager, bool requirePairedResult = false)
+            IntPtr pathManager,
+            bool requirePairedResult = false,
+            bool requireReachableScore = true)
         {
             if (pathManager == IntPtr.Zero)
                 return default;
@@ -5916,8 +6027,11 @@ namespace BugfixesAndQoL
                     firstScore = score;
                 }
                 resultCount++;
+                // DA020's fallback phase emits approach-only entries with a zero footprint.
+                // Its consumer cannot use those as building attack pairs.
                 bool usable = tileId > 0 && (!requirePairedResult ||
-                    (classification >= 0 && score != VanillaUnreachableCandidateScore));
+                    (classification > 0 &&
+                    (!requireReachableScore || score != VanillaUnreachableCandidateScore)));
                 if (usablePrefix && usable)
                     usableResultCount++;
                 else
@@ -6401,10 +6515,10 @@ namespace BugfixesAndQoL
             return vanillaResult;
         }
 
-        private int AllowCursorRegionThroughCompletedMoat(IntPtr pathManager, int nativeUnitIndex)
+        private int AllowCursorRegionThroughCompletedMoat(IntPtr pathManager, int unitId)
         {
             // E9D90 probes structure exits; a boolean override violates its contract.
-            return originalCursorRegionPrecheck(pathManager, nativeUnitIndex);
+            return originalCursorRegionPrecheck(pathManager, unitId);
         }
 
 
@@ -6412,10 +6526,10 @@ namespace BugfixesAndQoL
 
 
         private int AllowCursorReachabilityThroughCompletedMoat(
-            IntPtr pathManager, int nativeUnitIndex, int targetX, int targetY)
+            IntPtr pathManager, int unitId, int targetX, int targetY)
         {
             // E9FF0 also writes exit coordinates. Leave both result and outputs native.
-            return originalCursorReachability(pathManager, nativeUnitIndex, targetX, targetY);
+            return originalCursorReachability(pathManager, unitId, targetX, targetY);
         }
 
 
@@ -8686,6 +8800,8 @@ namespace BugfixesAndQoL
                 new HashSet<string>(StringComparer.Ordinal);
             public Dictionary<int, HashSet<int>> PublishedBuildingApproaches { get; } =
                 new Dictionary<int, HashSet<int>>();
+            public HashSet<LadderRegionTransition> PositiveLadderRegionTransitions { get; } =
+                new HashSet<LadderRegionTransition>();
             public HashSet<int> PublishedUnitAttackApproaches { get; } = new HashSet<int>();
             public int WeightedDecisions { get; set; }
             public int WeightedPublished { get; set; }

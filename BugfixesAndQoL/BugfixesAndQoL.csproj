@@ -137,6 +137,7 @@
     <Compile Include="src\FillWeightedRoutes.cs" />
     <Compile Include="src\FriendlyMoatMovementPolicy.cs" />
     <Compile Include="src\FriendlyMoatMovementRuntime.cs" />
+    <Compile Include="src\FriendlyMoatMovementRuntime.LadderAttackFix.cs" />
     <Compile Include="src\MoatPlacement.cs" />
     <Compile Include="src\MoatPlacementSearch.cs" />
     <Compile Include="src\MoatSearchKernel.cs" />

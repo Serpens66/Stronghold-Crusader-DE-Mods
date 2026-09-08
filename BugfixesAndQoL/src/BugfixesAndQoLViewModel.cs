@@ -32,6 +32,7 @@ namespace BugfixesAndQoL
         private int friendlyMoatMovementMode = FriendlyMoatMovementPolicy.DefaultMode;
         private bool enableImprovedMoatFilling = true;
         private bool enableMountedStockpileMovementFix = true;
+        private bool enableLadderAttackPathfindingFix = true;
         private bool enableHealerAttackCommandFix = true;
         private bool enableFastRecruitRallyMovement = true;
         private bool enableImprovedAssassinPathfinding = true;
@@ -326,6 +327,8 @@ namespace BugfixesAndQoL
         public string EnableImprovedMoatFillingHelpText => SerpLocalization.Get(SerpLocalization.EnableImprovedMoatFillingHelp);
         public string EnableMountedStockpileMovementFixText => SerpLocalization.Get("BugfixesAndQoL.EnableMountedStockpileMovementFix");
         public string EnableMountedStockpileMovementFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableMountedStockpileMovementFixHelp");
+        public string EnableLadderAttackPathfindingFixText => SerpLocalization.Get("BugfixesAndQoL.EnableLadderAttackPathfindingFix");
+        public string EnableLadderAttackPathfindingFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableLadderAttackPathfindingFixHelp");
         public string EnableHealerAttackCommandFixText => SerpLocalization.Get("BugfixesAndQoL.EnableHealerAttackCommandFix");
         public string EnableHealerAttackCommandFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableHealerAttackCommandFixHelp");
         public string EnableFastRecruitRallyMovementText => SerpLocalization.Get(SerpLocalization.EnableFastRecruitRallyMovement);
@@ -699,6 +702,13 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool EnableLadderAttackPathfindingFix
+        {
+            get => enableLadderAttackPathfindingFix;
+            set => SetSetting(ref enableLadderAttackPathfindingFix, value, nameof(EnableLadderAttackPathfindingFix));
+        }
+
+        [SyncHostOnly]
         public bool EnableHealerAttackCommandFix
         {
             get => enableHealerAttackCommandFix;
@@ -946,6 +956,7 @@ namespace BugfixesAndQoL
                 FriendlyMoatMovementMode = FriendlyMoatMovementPolicy.DefaultMode;
                 EnableImprovedMoatFilling = true;
                 EnableMountedStockpileMovementFix = true;
+                EnableLadderAttackPathfindingFix = true;
                 EnableHealerAttackCommandFix = true;
                 EnableFastRecruitRallyMovement = true;
                 EnableSingleBuildingPause = true;

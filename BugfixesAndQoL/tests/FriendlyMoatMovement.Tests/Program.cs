@@ -12,7 +12,8 @@ string[] runtimeSourceNames =
 {
     "CursorConnectivity.cs", "CursorRegionGraph.cs", "DirectMoatCommandScopes.cs",
     "FastMoatBridge.cs", "FillWeightedRoutes.cs", "FriendlyMoatMovementPolicy.cs",
-    "FriendlyMoatMovementRuntime.cs", "MoatPlacement.cs", "MoatPlacementSearch.cs",
+    "FriendlyMoatMovementRuntime.cs", "FriendlyMoatMovementRuntime.LadderAttackFix.cs",
+    "MoatPlacement.cs", "MoatPlacementSearch.cs",
     "MoatSearchKernel.cs", "MoatWorkTargetSelection.cs", "MovementOptionsSnapshot.cs",
     "MovementPathPublication.cs", "MovementSearchContext.cs", "NativeFormationSlots.cs",
     "MoveFormationSpacingPolicy.cs",
@@ -47,6 +48,8 @@ var methods = new HashSet<string>(new[] {
     "DescribeFallbackContractFailure",
     "EnableCompletedMoatModeForScopedMovement", "GetBuilderPlan", "MatchesBuilderPlan",
     "TryCaptureUnitFallbackPathBuffer", "RestoreFallbackPathBuffer",
+    "CaptureAttackApproachState",
+    "TryHandleVanillaLadderRegionPair", "RestoreVanillaLadderBuildingCandidates", "GetBuildingApproachPairKey",
     "BuildPathWithCompletedMoatRouteVariant", "BuildPathWithCompletedMoatRouteVariantCore", "IsValidAttackSourceRegionContext", "ValidatePendingFillApproach",
     "TryFindRequiredFriendlyCompletedMoatRouteForPlan", "TryGetCachedRequiredFriendlyRouteForPlan",
     "EnsureMoatWorkReachability", "TryGetMoatWorkRoute",
@@ -58,6 +61,7 @@ var methods = new HashSet<string>(new[] {
 var types = new HashSet<string>(new[] {
     "RedBirdDetour",
     "BuildingApproachCandidate", "BuildingConsumerFallbackResult", "BuildingConsumerPerformanceScope", "AttackApproachState",
+    "AttackApproachKind", "LadderAttackProbeScope", "LadderRegionTransition", "LadderBuildingCandidateRestoreResult",
     "QualifiedMovementRoute", "RouteDecisionKey", "RequiredRouteMetrics", "RequiredRouteCache",
     "PendingDigMoatTarget",
     "DirectCursorMoveScope", "BuildingCursorTarget", "BuildingHoverTileSource", "AttackCursorPairScope", "CursorPairFallbackKind", "CursorGroupRouteSummary", "SelectedCursorUnitSnapshot", "UnitMoveFrame", "PlanScope", "RouteProbeSummary", "TargetedRouteDecision", "MoatWorkSelectionScope", "MoatWorkApproach", "PendingFillMoatApproach"
@@ -65,7 +69,7 @@ var types = new HashSet<string>(new[] {
 var properties = new HashSet<string>(new[] { "CurrentOptions", "ExtensionsEnabled", "RequiredOnlyMode" });
 var constants = new HashSet<string>(new[] {
     "DetailedDiagnosticsEnabled",
-    "VanillaUnreachableCandidateScore", "buildingCandidateFields", "BuildingContextBlockingTileFlagMask", "VanillaAttackFloodResultCapacity", "PathManagerFloodResultTileOffset", "PathManagerFloodResultStride", "BuildingCandidateApproachTileOffset", "BuildingCandidateFootprintTileOffset", "BuildingCandidateScoreOffset",
+    "VanillaUnreachableCandidateScore", "buildingCandidateFields", "BuildingContextBlockingTileFlagMask", "VanillaAttackFloodResultCapacity", "PathManagerFloodGenerationOffset", "PathManagerFloodDepthOffset", "PathManagerFloodQueueHeadOffset", "PathManagerFloodQueueTailOffset", "PathManagerFloodResultTileOffset", "PathManagerFloodResultStride", "BuildingCandidateApproachTileOffset", "BuildingCandidateFootprintTileOffset", "BuildingCandidateScoreOffset",
     "SelectedMoatTileIdOffset", "SelectedMoatApproachXOffset", "SelectedMoatApproachYOffset",
     "TribeRecordSize", "TribeLeadUnitIdOffset", "TribeUnitCountOffset", "UnitGroupInactiveStateOffset", "MaximumTribeCount", "MoatRecordArrayOffset", "MoatRecordCountOffset", "MoatRecordSize", "MoatRecordTileIdOffset", "MoatRecordXOffset", "MoatRecordYOffset", "NativeUnitSlotDataOffset", "MaximumMoatRecordId", "MaximumRegionId", "MaximumUnitCount", "MapWidth", "MapCellCount", "NativeTileCount",
     "RouteStateShift", "RouteCellMask", "GroundRouteState", "FriendlyMoatRouteState", "EnemyMoatRouteState",
@@ -164,8 +168,8 @@ void ValidateDetailedDiagnostics()
     var variable = field.Declaration.Variables.Single(item =>
         item.Identifier.Text == "DetailedDiagnosticsEnabled");
     if (!field.Modifiers.Any(SyntaxKind.ReadOnlyKeyword) ||
-        variable.Initializer?.Value.IsKind(SyntaxKind.TrueLiteralExpression) != true)
-        throw new Exception("DetailedDiagnosticsEnabled must remain enabled for this targeted diagnostic build.");
+        variable.Initializer?.Value.IsKind(SyntaxKind.FalseLiteralExpression) != true)
+        throw new Exception("DetailedDiagnosticsEnabled must remain disabled for production logging.");
 
     string helper = moveMoatClasses.SelectMany(type => type.Members.OfType<MethodDeclarationSyntax>())
         .Single(method => method.Identifier.Text == "LogDetailedInfo").ToFullString();
@@ -174,7 +178,13 @@ void ValidateDetailedDiagnostics()
     if (!helper.Contains("if (DetailedDiagnosticsEnabled)", StringComparison.Ordinal) ||
         !buffer.Contains("if (!DetailedDiagnosticsEnabled)", StringComparison.Ordinal))
         throw new Exception("Detailed diagnostics are not guarded at both logging entry points.");
-    Console.WriteLine("PASS: bounded detailed diagnostics are enabled for the targeted diagnostic build.");
+    string ladderFix = File.ReadAllText(Path.Combine(sourceDir,
+        "FriendlyMoatMovementRuntime.LadderAttackFix.cs"));
+    if (!ladderFix.Contains("if (DetailedDiagnosticsEnabled)", StringComparison.Ordinal) ||
+        !ladderFix.Contains("if (!DetailedDiagnosticsEnabled || activeAttackCommand == null)",
+            StringComparison.Ordinal))
+        throw new Exception("Ladder attack diagnostics bypass the production logging gate.");
+    Console.WriteLine("PASS: detailed movement and ladder diagnostics are disabled for production logging.");
 }
 
 void ValidateUnsignedRegionAndDeferredFastContracts()
@@ -294,6 +304,7 @@ void ValidateRuntimeSources()
     var settingsStub = CSharpSyntaxTree.ParseText(
         "namespace BugfixesAndQoL { internal sealed class BugfixesAndQoLViewModel { " +
         "public bool EnableMod { get; set; } = true; public bool EnableImprovedMoatFilling { get; set; } = true; " +
+        "public bool EnableLadderAttackPathfindingFix { get; set; } = true; " +
         "public bool EnableMoveFormationEnhancements { get; set; } = true; " +
         "public int MoveFormationSpacing { get; set; } = MoveFormationSpacingPolicy.Default; " +
         "public int FriendlyMoatMovementMode { get; set; } = FriendlyMoatMovementPolicy.DefaultMode; " +
@@ -369,10 +380,13 @@ void ValidateModeSettings()
     string policy = File.ReadAllText(Path.Combine(sourceDir, "FriendlyMoatMovementPolicy.cs"));
     string snapshot = File.ReadAllText(Path.Combine(sourceDir, "MovementOptionsSnapshot.cs"));
     string moatWork = File.ReadAllText(Path.Combine(sourceDir, "MoatWorkTargetSelection.cs"));
-    string viewModel = File.ReadAllText(Path.Combine(sourceDir, "BugfixesAndQoLViewModel.cs"));
+    string viewModel = File.ReadAllText(Path.Combine(sourceDir, "BugfixesAndQoLViewModel.cs"))
+        .Replace(Environment.NewLine, "\n");
     string xaml = File.ReadAllText(Path.Combine(root, "BugfixesAndQoL", "Override",
         "ScriptExtenderUI", "BugfixesAndQoLSettings.xaml"));
     string runtime = File.ReadAllText(Path.Combine(sourceDir, "FriendlyMoatMovementRuntime.cs"));
+    string ladderAttack = File.ReadAllText(Path.Combine(
+        sourceDir, "FriendlyMoatMovementRuntime.LadderAttackFix.cs"));
     string recovery = File.ReadAllText(Path.Combine(sourceDir, "NativeMovementRecovery.cs"));
     string fastBridge = File.ReadAllText(Path.Combine(sourceDir, "FastMoatBridge.cs"));
     string publication = File.ReadAllText(Path.Combine(sourceDir, "MovementPathPublication.cs"));
@@ -426,8 +440,7 @@ void ValidateModeSettings()
         !moatWork.Contains("!ExtensionsEnabled ||", StringComparison.Ordinal) ||
         !moatWork.Contains("if (!ExtensionsEnabled)", StringComparison.Ordinal))
         throw new Exception("Off does not gate friendly moat traversal in the Dig/Fill work path.");
-    if (!viewModel.Contains("[SyncHostOnly]\n        public int FriendlyMoatMovementMode", StringComparison.Ordinal) &&
-        !viewModel.Contains("[SyncHostOnly]\r\n        public int FriendlyMoatMovementMode", StringComparison.Ordinal))
+    if (!viewModel.Contains("[SyncHostOnly]\n        public int FriendlyMoatMovementMode", StringComparison.Ordinal))
         throw new Exception("FriendlyMoatMovementMode is not a synchronized host setting.");
     if (!viewModel.Contains("FriendlyMoatMovementMode = FriendlyMoatMovementPolicy.DefaultMode", StringComparison.Ordinal) ||
         !viewModel.Contains("public int FriendlyMoatMovementSliderValue", StringComparison.Ordinal) ||
@@ -436,6 +449,12 @@ void ValidateModeSettings()
         xaml.Contains("FriendlyMoatMovementModeOptions", StringComparison.Ordinal) ||
         xaml.Contains("FriendlyMoatMovementModeIndex", StringComparison.Ordinal))
         throw new Exception("Friendly moat default/reset or XAML binding is incomplete.");
+    if (!viewModel.Contains("[SyncHostOnly]\n        public bool EnableLadderAttackPathfindingFix", StringComparison.Ordinal) ||
+        !viewModel.Contains("private bool enableLadderAttackPathfindingFix = true", StringComparison.Ordinal) ||
+        !viewModel.Contains("EnableLadderAttackPathfindingFix = true", StringComparison.Ordinal) ||
+        !xaml.Contains("IsChecked=\"{Binding EnableLadderAttackPathfindingFix, Mode=TwoWay}\"", StringComparison.Ordinal) ||
+        !ladderAttack.Contains("settings.EnableLadderAttackPathfindingFix", StringComparison.Ordinal))
+        throw new Exception("The default-enabled synchronized ladder attack setting is not wired end-to-end.");
     foreach (string locale in Directory.GetFiles(Path.Combine(root, "BugfixesAndQoL", "Locales"), "*.txt"))
     {
         string localeText = File.ReadAllText(locale);
@@ -444,8 +463,10 @@ void ValidateModeSettings()
             (!localeText.Contains("BugfixesAndQoL.FriendlyMoatMovementModeHelp=Experimental:", StringComparison.Ordinal) &&
              !localeText.Contains("BugfixesAndQoL.FriendlyMoatMovementModeHelp=Experiementell:", StringComparison.Ordinal)) ||
             (!localeText.Contains("noticeable lag when commanding large groups", StringComparison.Ordinal) &&
-             !localeText.Contains("beim Kommandieren großer Gruppen spürbare Lags", StringComparison.Ordinal)))
+             !localeText.Contains("beim Kommandieren großer Gruppen spürbare Lags", StringComparison.Ordinal)) ||
+            !localeText.Contains("BugfixesAndQoL.EnableLadderAttackPathfindingFix=", StringComparison.Ordinal) ||
+            !localeText.Contains("BugfixesAndQoL.EnableLadderAttackPathfindingFixHelp=", StringComparison.Ordinal))
             throw new Exception("Missing friendly moat locale keys: " + locale);
     }
-    Console.WriteLine("PASS: Off default, Exact/Required-only mapping, fail-closed normalization, reset, host classification and XAML/locales.");
+    Console.WriteLine("PASS: movement mode and default-enabled ladder attack host setting, reset, XAML, runtime gate, and locales.");
 }

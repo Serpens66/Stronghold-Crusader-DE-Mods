@@ -35,6 +35,102 @@ print('PASS native SHA-256, runtime pattern, full 56-byte function, instruction 
 for instruction in instructions:
     print(f'{instruction.address:08X}  {instruction.mnemonic} {instruction.op_str}')
 
+# Vanilla ordinary movement derives a group route mode before E2610. The attack
+# builders hard-code zero at all three non-Assassin region checks.
+def assert_call(call_rva, target_rva, expected_hex):
+    code = pe.get_data(call_rva, 5)
+    assert code == bytes.fromhex(expected_hex)
+    assert code[0] == 0xE8
+    assert call_rva + 5 + struct.unpack_from('<i', code, 1)[0] == target_rva
+
+group_mode_entry = bytes.fromhex(
+    '48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 48 '
+    '89 7C 24 20 41 56 48 83 EC 20 48 63 F2 33 DB 4C '
+    '69 C6 88 06 00 00 48 8B E9 41 0F BF 7C 08 5C 85 FF '
+    '7E 4D 4C 8D 35 56 07 6D 06')
+assert pe.get_data(0x117C70, len(group_mode_entry)) == group_mode_entry
+assert binary.count(group_mode_entry) == 1
+assert_call(0x11B736, 0x117C70, 'E8 35 C5 FF FF')
+assert_call(0x11B755, 0xE2610, 'E8 B6 6E FC FF')
+assert_call(0x11B768, 0xE9D90, 'E8 23 E6 FC FF')
+assert_call(0x11B785, 0xE9FF0, 'E8 66 E8 FC FF')
+for call_rva, expected_hex, zero_store in (
+        (0xDBF0D, 'E8 FE 66 00 00', '33 C0 45 8B C5 89 44 24 20'),
+        (0xDA1F9, 'E8 12 84 00 00', '33 C9 89 4C 24 20'),
+        (0xDA47C, 'E8 8F 81 00 00', '33 C9 89 4C 24 20')):
+    assert_call(call_rva, 0xE2610, expected_hex)
+    zero_bytes = bytes.fromhex(zero_store)
+    assert zero_bytes in pe.get_data(call_rva - 24, 24)
+
+# DA020 publishes approach/footprint pairs but deliberately leaves the third
+# score field untouched. 123090 later assigns the ground-flood score and removes
+# every entry carrying Vanilla's unreachable sentinel.
+decoder = Cs(CS_ARCH_X86, CS_MODE_64)
+da020 = list(decoder.disasm(pe.get_data(0xDA020, 0x570), 0xDA020))
+da020_operands = [instruction.op_str for instruction in da020]
+assert 'rdi, 0x1b348' in da020_operands
+assert 'dword ptr [rdi - 4], ebx' in da020_operands
+assert any(operand.startswith('dword ptr [rdi],') for operand in da020_operands)
+assert not any('[rdi + 4]' in operand or '0x1b34c' in operand for operand in da020_operands)
+assert any('0x1b344' in operand for operand in da020_operands)
+assert any('0x1b348' in operand for operand in da020_operands)
+
+consumer = list(decoder.disasm(pe.get_data(0x123090, 0x250), 0x123090))
+consumer_text = [(instruction.mnemonic, instruction.op_str) for instruction in consumer]
+for call_rva, target_rva in (
+        (0x1230AA, 0x117820),
+        (0x123102, 0xDB650),
+        (0x123125, 0xD9C40),
+        (0x12312C, 0xDA590)):
+    instruction = next(item for item in consumer if item.address == call_rva)
+    assert instruction.mnemonic == 'call' and int(instruction.op_str, 16) == target_rva
+assert ('mov', 'eax, 0x989680') in consumer_text
+assert any(instruction.address == 0x123261 and instruction.mnemonic == 'cmp' and
+           '0x1b34c' in instruction.op_str and '0x989680' in instruction.op_str
+           for instruction in consumer)
+
+# All three building-command continuations iterate the 12-byte records through
+# r15, consuming offsets -4 and 0 only. The score at +4 is never read there.
+for call_rva, span_length in ((0x11FFA7, 0x3A0), (0x1206DF, 0x500), (0x120CCD, 0x160)):
+    continuation = list(decoder.disasm(pe.get_data(call_rva, span_length), call_rva))
+    assert continuation[0].mnemonic == 'call' and int(continuation[0].op_str, 16) == 0x123090
+    r15_memory = [instruction.op_str for instruction in continuation if '[r15' in instruction.op_str]
+    assert any('[r15 - 4]' in operand for operand in r15_memory)
+    assert any('dword ptr [r15]' in operand for operand in r15_memory)
+    assert not any('[r15 + 4]' in operand for operand in r15_memory)
+    assert any(instruction.mnemonic == 'add' and instruction.op_str == 'r15, 0xc'
+               for instruction in continuation)
+
+ladder_source = (root / 'BugfixesAndQoL/src/FriendlyMoatMovementRuntime.LadderAttackFix.cs').read_text(encoding='utf-8-sig')
+assert 'getTribeMovementMode(nativeTribeManager, tribeId)' in ladder_source
+assert re.search(r'originalRegionPairReachability\(\s*pathManager,\s*playerId,\s*sourceRegion,\s*targetRegion,\s*probe\.GroupMovementMode\)', ladder_source)
+assert 'effectiveResult = groupModeResult' in ladder_source
+assert 'effectiveResult = 1' not in ladder_source
+assert 'AddDetour' not in ladder_source and 'HookTarget' not in ladder_source
+assert 'TryBuild' not in ladder_source and 'WeightedMoat' not in ladder_source
+assert 'originalCursorRegionPrecheck(' not in ladder_source
+assert 'originalCursorReachability(' not in ladder_source
+assert 'RetryingVanillaBuilder' not in ladder_source
+assert ladder_source.count('originalAttackApproachFloodBuilder(') == 2
+assert ladder_source.count('originalBuildingApproachBuilder(') == 2
+assert ladder_source.count('requirePairedResult: true') == 1
+assert ladder_source.count('requireReachableScore: false') == 1
+assert 'int leadUnitId = *(ushort*)(tribe + TribeLeadUnitIdOffset);' in ladder_source
+assert 'TryGetUnitById(leadUnitId, out GameUnit* unit)' in ladder_source
+assert 'leadUnitId + 1' not in ladder_source and 'NativeUnitIndex' not in ladder_source
+assert '!requireReachableScore || score != VanillaUnreachableCandidateScore' in source
+assert 'restoredCandidate.Score = VanillaUnreachableCandidateScore' in ladder_source
+assert 'PositiveLadderRegionTransitions' in ladder_source
+assert 'GetTribeMovementModeRva = 0x117C70' in source
+assert 'OrdinaryMovementGroupModeCallRva = 0x11B736' in source
+sentinel_guard = source.index('scope.UnitId <= 0 ||', source.index('private bool IsBoundUnitAttackFlood'))
+sentinel_lookup = source.index('TryGetUnitById(scope.UnitId', sentinel_guard)
+assert sentinel_guard < sentinel_lookup
+handler = source.index('if (TryHandleVanillaLadderRegionPair(')
+moat_extension = source.index('if (TryAllowDigWorkRegionPair(', handler)
+assert handler < moat_extension
+print('PASS Vanilla group-mode/E2610 flow, DA020 score-free pairs, 123090 ground compaction, score-free attack consumers, exact result propagation, leader Game-ID contract, sentinel guard, and shared-detour integration.')
+
 # New observer entries are exact, unique, and start at unwind function boundaries.
 pe.parse_data_directories(directories=[pefile.DIRECTORY_ENTRY['IMAGE_DIRECTORY_ENTRY_EXCEPTION']])
 recovery = (root / 'BugfixesAndQoL/src/NativeMovementRecovery.cs').read_text(encoding='utf-8-sig')
