@@ -56,6 +56,8 @@
     <Compile Include="src\AiAivSelectionCodec.cs" />
     <Compile Include="src\AIBuildingTemporaryAccessClassifier.cs" />
     <Compile Include="src\AIEconomyProtectionHook.cs" />
+    <Compile Include="src\AIResourceShortageSleepNativeDefinition.cs" />
+    <Compile Include="src\AIResourceShortageSleepPolicy.cs" />
     <Compile Include="src\AbruptHostMigrationFix.cs" />
     <Compile Include="src\AbruptHostMigrationPolicy.cs" />
     <Compile Include="src\AivCandidateStatusApi.cs" />

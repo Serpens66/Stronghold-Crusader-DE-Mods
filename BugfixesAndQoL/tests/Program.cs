@@ -35,6 +35,8 @@ namespace BugfixesAndQoL
             TestAiDefensePatrolIntegration();
             TestAiWallTargetingIntegration();
             TestAiRecruitmentHorseDemandContract();
+            TestAIResourceShortageSleepPolicy();
+            TestAIResourceShortageSleepIntegration();
             TestNativeContracts();
             if (failures == 0)
             {
@@ -383,6 +385,97 @@ namespace BugfixesAndQoL
                 "AI wall-targeting help text documents shared reachable wall targets");
         }
 
+        private static unsafe void TestAIResourceShortageSleepPolicy()
+        {
+            int allocationSize = AIResourceShortageSleepPolicy.SleepStateTableOffset +
+                (AIResourceShortageSleepPolicy.MaximumPlayerId + 1) *
+                AIResourceShortageSleepPolicy.PlayerStride + 128;
+            IntPtr allocation = Marshal.AllocHGlobal(allocationSize);
+            try
+            {
+                byte* playerManager = (byte*)allocation.ToPointer();
+                for (int index = 0; index < allocationSize; index++)
+                    playerManager[index] = 0x5A;
+
+                const int targetPlayerId = 4;
+                byte* targetStates = playerManager +
+                    AIResourceShortageSleepPolicy.SleepStateTableOffset +
+                    targetPlayerId * AIResourceShortageSleepPolicy.PlayerStride;
+                byte* neighboringStates = targetStates + AIResourceShortageSleepPolicy.PlayerStride;
+                for (int buildingType = 0; buildingType <= (int)eStructs.STRUCT_WATERPOT; buildingType++)
+                {
+                    targetStates[buildingType] = 1;
+                    neighboringStates[buildingType] = 0x7B;
+                }
+
+                int* plannerEnabled = (int*)(playerManager +
+                    targetPlayerId * AIResourceShortageSleepPolicy.PlayerStride +
+                    AIResourceShortageSleepPolicy.PlannerEnabledOffset);
+                *plannerEnabled = 0;
+                Check(AIResourceShortageSleepPolicy.TryClearSleepRequests(
+                        playerManager, targetPlayerId) && targetStates[(int)eStructs.STRUCT_MILL] == 1,
+                    "AI resource-shortage policy leaves outputs untouched when the native planner exits early");
+                *plannerEnabled = 1;
+
+                Check(AIResourceShortageSleepPolicy.TryClearSleepRequests(
+                        playerManager, targetPlayerId),
+                    "AI resource-shortage policy accepts a valid one-based player id");
+
+                var expected = new HashSet<int>();
+                foreach (eStructs buildingType in AIResourceShortageSleepPolicy.AffectedBuildingTypes)
+                    expected.Add((int)buildingType);
+
+                bool targetRangeIsExact = true;
+                bool neighboringPlayerUnchanged = true;
+                for (int buildingType = 0; buildingType <= (int)eStructs.STRUCT_WATERPOT; buildingType++)
+                {
+                    byte expectedTarget = expected.Contains(buildingType) ? (byte)0 : (byte)1;
+                    targetRangeIsExact &= targetStates[buildingType] == expectedTarget;
+                    neighboringPlayerUnchanged &= neighboringStates[buildingType] == 0x7B;
+                }
+
+                Check(expected.Count == 21 && targetRangeIsExact,
+                    "AI resource-shortage policy clears exactly the 21 audited building sleep requests");
+                Check(neighboringPlayerUnchanged,
+                    "AI resource-shortage policy leaves the neighboring player untouched");
+                Check(!AIResourceShortageSleepPolicy.TryClearSleepRequests(playerManager, 0) &&
+                        !AIResourceShortageSleepPolicy.TryClearSleepRequests(playerManager, 9) &&
+                        !AIResourceShortageSleepPolicy.TryClearSleepRequests(null, targetPlayerId),
+                    "AI resource-shortage policy rejects invalid player ids and null managers");
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(allocation);
+            }
+        }
+
+        private static void TestAIResourceShortageSleepIntegration()
+        {
+            string projectDirectory = FindProjectDirectory();
+            string runtime = File.ReadAllText(Path.Combine(
+                projectDirectory, "src", "AIEconomyProtectionHook.cs"));
+            string english = File.ReadAllText(Path.Combine(projectDirectory, "Locales", "en-US.txt"));
+            string german = File.ReadAllText(Path.Combine(projectDirectory, "Locales", "de-DE.txt"));
+
+            int originalCall = runtime.IndexOf(
+                "aiResourceShortageSleepHook.Original(aiManager, playerId)", StringComparison.Ordinal);
+            int clearCall = runtime.IndexOf(
+                "AIResourceShortageSleepPolicy.TryClearSleepRequests", StringComparison.Ordinal);
+            Check(runtime.Contains("DetourHandle<AIResourceShortageSleepDelegate>") &&
+                    runtime.Contains("AIResourceShortageSleepNativeDefinition.FunctionPattern") &&
+                    originalCall >= 0 && clearCall > originalCall,
+                "AI resource-shortage hook runs Vanilla before clearing only its sleep outputs");
+            Check(runtime.Contains("ApplySingleBuildingSleepOverrideDuringSynchronization") &&
+                    !runtime.Contains("requestedState != SleepingState") &&
+                    !runtime.Contains("PlayerOwnerDistanceFromSleeping"),
+                "general sleep synchronization now handles only single-building overrides");
+            Check(english.Contains("resource-shortage routine") &&
+                    english.Contains("Other causes remain unchanged") &&
+                    german.Contains("Rohstoffmangel") &&
+                    german.Contains("Andere Ursachen bleiben unveraendert"),
+                "AI sleep help text documents the narrowed cause-level behavior");
+        }
+
         private static void TestNativeContracts()
         {
             string root = Environment.GetEnvironmentVariable("SHCDE_GAME_DIR") ??
@@ -403,6 +496,7 @@ namespace BugfixesAndQoL
                     "shared native SHA-256 matches the AI defense patrol baseline");
             }
             var image = new PeImage(file);
+            byte[] mappedImage = MapPeImage(file);
             try
             {
                 AiDefensePatrolNativeDefinition.ValidateManagedLayout();
@@ -413,6 +507,16 @@ namespace BugfixesAndQoL
             catch (Exception exception)
             {
                 Check(false, "AI defense patrol native contract: " + exception.Message);
+            }
+            try
+            {
+                AIResourceShortageSleepNativeDefinition.Validate(mappedImage);
+                Check(true,
+                    "AI resource-shortage sleep planner signature, calls, and 21 output stores");
+            }
+            catch (Exception exception)
+            {
+                Check(false, "AI resource-shortage sleep native contract: " + exception.Message);
             }
             CheckBytes(image, FindRva, new byte[] { 0x44, 0x89, 0x44, 0x24, 0x18, 0x89, 0x54, 0x24,
                 0x10, 0x55, 0x56, 0x57, 0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x48, 0x83, 0xEC, 0x68,
@@ -429,7 +533,6 @@ namespace BugfixesAndQoL
             CheckBytes(image, MovementPlannerStructureFlagGateRva,
                 new byte[] { 0xF7, 0x84, 0x8A, 0xB0, 0x71, 0x8F, 0x04,
                 0x00, 0x01, 0x00, 0x10 }, "movement structure-flag gate bytes");
-            byte[] mappedImage = MapPeImage(file);
             const string aiWallTargetingPattern =
                 "8B D3 49 8B CC E8 ?? ?? ?? ?? 85 C0 75 63 8B 05 ?? ?? ?? ?? " +
                 "4C 8D 3D ?? ?? ?? ?? 41 8D 04 C6 48 98 41 8B 14 87 03 D3 " +

@@ -56,13 +56,11 @@ namespace BugfixesAndQoL
         private const int InaccessibleBuildingComparisonRva = 0x3B2FF;
         private const ulong InaccessibleCounterOffsetFromR8 = 0x338;
 
-        private const byte ActiveState = 0;
-        private const byte SleepingState = 1;
-
-        private static readonly ulong PlayerOwnerDistanceFromSleeping = GetPlayerOwnerDistanceFromSleeping();
-
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate int AIHovelDemolitionDelegate(IntPtr aiManager, int playerId);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate void AIResourceShortageSleepDelegate(IntPtr aiManager, int playerId);
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate void SynchronizeSleepStatesDelegate(NativePointer<GameBuildingManager> buildingManager);
@@ -76,9 +74,11 @@ namespace BugfixesAndQoL
         private readonly HookHandle<X64InlineHook> emergencyDemolitionHook = new HookHandle<X64InlineHook>();
         private readonly HookHandle<X64InlineHook> inaccessibleBuildingDemolitionHook = new HookHandle<X64InlineHook>();
         private readonly DetourHandle<AIHovelDemolitionDelegate> aiHovelDemolitionHook = new DetourHandle<AIHovelDemolitionDelegate>();
+        private readonly DetourHandle<AIResourceShortageSleepDelegate> aiResourceShortageSleepHook =
+            new DetourHandle<AIResourceShortageSleepDelegate>();
         private readonly SynchronizeSleepStatesDelegate synchronizeSleepStates;
         private readonly AIBuildingTemporaryAccessClassifier temporaryAccessClassifier;
-        private bool pauseCallbackFailureLogged;
+        private bool resourceShortageSleepCallbackFailureLogged;
         private bool singleBuildingOverrideCallbackFailureLogged;
         private bool emergencyCallbackFailureLogged;
         private bool hovelDemolitionCallbackFailureLogged;
@@ -110,6 +110,14 @@ namespace BugfixesAndQoL
             int sleepComparisonRva = Resolve(
                 memory, SleepStateComparisonPattern, SleepStateComparisonRva,
                 referenceHashMatches, "building sleep-state comparison");
+            int resourceShortageSleepRva = referenceHashMatches
+                ? Resolve(
+                    memory,
+                    AIResourceShortageSleepNativeDefinition.FunctionPattern,
+                    AIResourceShortageSleepNativeDefinition.FunctionRva,
+                    true,
+                    "AI resource-shortage sleep planner")
+                : -1;
             int emergencyRva = Resolve(
                 memory, EmergencyDemolitionComparisonPattern, EmergencyDemolitionComparisonRva,
                 referenceHashMatches, "AI emergency-demolition comparison");
@@ -126,7 +134,7 @@ namespace BugfixesAndQoL
             if (!referenceHashMatches)
             {
                 log.LogWarning(
-                    $"[{TimestampNow()}] Bugfixes and QoL layout-dependent AI pause and inaccessible " +
+                    $"[{TimestampNow()}] Bugfixes and QoL layout-dependent AI resource-shortage sleep and inaccessible " +
                     "building-demolition protection are disabled for this unknown CrusaderDE.dll; " +
                     "Vanilla behavior is retained for those settings.");
             }
@@ -138,7 +146,7 @@ namespace BugfixesAndQoL
 
             BugfixesHookInfrastructure.AddContextHook(transaction, sleepStateHook,
                 libraryBase + unchecked((ulong)sleepComparisonRva),
-                PreventAIPause,
+                ApplySingleBuildingSleepOverrideDuringSynchronization,
                 registers: X64SmartCPUContextRegs.Volatile,
                 errorMode: CallbackErrorMode.LogAndContinue,
                 placement: OverwrittenInstructionPlacement.AfterCallback);
@@ -165,6 +173,14 @@ namespace BugfixesAndQoL
                 HookTarget.FromAddress(libraryBase + unchecked((ulong)aiHovelDemolitionRva)),
                 PreventAIHovelDemolition);
 
+            if (aiPauseProtectionSupported)
+            {
+                transaction.AddDetour(
+                    aiResourceShortageSleepHook,
+                    HookTarget.FromAddress(libraryBase + unchecked((ulong)resourceShortageSleepRva)),
+                    PreventAIResourceShortageSleep);
+            }
+
             CommitResult commitResult = transaction.Commit();
 
             if (!commitResult.IsCompleteSuccess || !sleepStateHook.Success)
@@ -173,6 +189,8 @@ namespace BugfixesAndQoL
                 throw new InvalidOperationException("The AI emergency-demolition AOB signature was not found.");
             if (!aiHovelDemolitionHook.Success)
                 throw new InvalidOperationException("The AI hovel-demolition AOB signature was not found.");
+            if (aiPauseProtectionSupported && !aiResourceShortageSleepHook.Success)
+                throw new InvalidOperationException("The AI resource-shortage sleep planner hook was not installed.");
             if (inaccessibleBuildingProtectionSupported && !inaccessibleBuildingDemolitionHook.Success)
                 throw new InvalidOperationException("The AI inaccessible-building demolition AOB signature was not found.");
         }
@@ -202,37 +220,44 @@ namespace BugfixesAndQoL
             transaction.Dispose();
         }
 
-        private void PreventAIPause(NativePointer<X64SmartCPUContext> context)
+        private void ApplySingleBuildingSleepOverrideDuringSynchronization(
+            NativePointer<X64SmartCPUContext> context)
         {
+            ApplySingleBuildingSleepOverride(context.Pointer);
+        }
+
+        private void PreventAIResourceShortageSleep(IntPtr aiManager, int playerId)
+        {
+            // Preserve the complete Vanilla shortage counters, purchasing decisions,
+            // and recovery scheduling before changing only this routine's sleep outputs.
+            aiResourceShortageSleepHook.Original(aiManager, playerId);
+
             try
             {
-                X64SmartCPUContext* registers = context.Pointer;
-                if (ApplySingleBuildingSleepOverride(registers))
+                GamePlayerManagerAPI playerManagerApi = GamePlayerManagerAPI.Instance;
+                if (!settings.EnableMod || !settings.PreventAIPause ||
+                    !aiPauseProtectionSupported ||
+                    !playerManagerApi.IsPlayerIdValid(playerId) ||
+                    !playerManagerApi.IsAIPlayer(playerId))
+                {
                     return;
+                }
 
-                if (!settings.EnableMod || !settings.PreventAIPause || !aiPauseProtectionSupported)
-                    return;
-
-                byte requestedState = (byte)registers->RCX;
-                byte currentState = *(byte*)registers->R8;
-
-                if (requestedState != SleepingState || currentState != ActiveState)
-                    return;
-
-                ushort playerId = *(ushort*)(registers->R8 - PlayerOwnerDistanceFromSleeping);
-                if (!GamePlayerManagerAPI.Instance.IsAIPlayer(playerId))
-                    return;
-
-                // Preserve every other RCX bit. The original cmp/je now sees 0 == 0
-                // and skips the write plus the complete destructive reset block.
-                registers->RCX &= ~0xFFUL;
+                IntPtr playerManager = playerManagerApi.GetPlayerManager();
+                if (playerManager == IntPtr.Zero ||
+                    !AIResourceShortageSleepPolicy.TryClearSleepRequests(
+                        (byte*)playerManager.ToPointer(), playerId))
+                {
+                    throw new InvalidOperationException("The native player manager or player id is invalid.");
+                }
             }
             catch (Exception ex)
             {
-                if (!pauseCallbackFailureLogged)
+                if (!resourceShortageSleepCallbackFailureLogged)
                 {
-                    pauseCallbackFailureLogged = true;
-                    LogError($"AI pause prevention callback failed; this pause uses vanilla behavior: {ex}");
+                    resourceShortageSleepCallbackFailureLogged = true;
+                    LogError(
+                        $"AI resource-shortage sleep prevention failed; this AI cycle uses vanilla behavior: {ex}");
                 }
             }
         }
@@ -473,18 +498,6 @@ namespace BugfixesAndQoL
 
         private static string FormatNullableBoolean(bool? value) =>
             value.HasValue ? (value.Value ? "True" : "False") : "NotChecked";
-
-        private static ulong GetPlayerOwnerDistanceFromSleeping()
-        {
-            int sleepingOffset = Marshal.OffsetOf(typeof(GameBuilding), nameof(GameBuilding.r_IsSleeping)).ToInt32();
-            int playerOwnerOffset = Marshal.OffsetOf(typeof(GameBuilding), nameof(GameBuilding.r_PlayerIdOwner)).ToInt32();
-            int distance = sleepingOffset - playerOwnerOffset;
-
-            if (distance <= 0)
-                throw new InvalidOperationException("The GameBuilding layout has an invalid r_IsSleeping/r_PlayerIdOwner ordering.");
-
-            return checked((ulong)distance);
-        }
 
         private void LogError(string message)
         {
