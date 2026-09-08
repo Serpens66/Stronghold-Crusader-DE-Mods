@@ -376,40 +376,40 @@
       </StackPanel>
       <StackPanel shared:ModSettingsSearch.SectionKey="bugfixes.section.ai-aiv" shared:ModSettingsSearch.SectionTitle="{Binding AiAivTitleText}">
       <Grid Style="{StaticResource ModSettingsSearchSectionGrid}" shared:ModSettingsSearch.IsSection="True"><TextBlock Text="{Binding AiAivTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/></Grid>
-      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-ai-fixes" shared:ModSettingsSearch.Title="{Binding EnableAiFixesText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableAiFixesHelpText}"><CheckBox IsChecked="{Binding EnableAiFixes, Mode=TwoWay}"
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-ai-stone-reserve-fix" shared:ModSettingsSearch.Title="{Binding EnableAiStoneReserveFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableAiStoneReserveFixHelpText}"><CheckBox IsChecked="{Binding EnableAiStoneReserveFix, Mode=TwoWay}"
                 Foreground="White"
-                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableAiFixesHelpText}"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableAiStoneReserveFixHelpText}"
                 Margin="0,0,14,8">
-        <TextBlock Text="{Binding EnableAiFixesText}" Foreground="White" TextWrapping="Wrap"/>
+        <TextBlock Text="{Binding EnableAiStoneReserveFixText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-ai-defense-patrol-fix" shared:ModSettingsSearch.Title="{Binding EnableAiDefensePatrolFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableAiDefensePatrolFixHelpText}"><CheckBox IsChecked="{Binding EnableAiDefensePatrolFix, Mode=TwoWay}"
                 Foreground="White"
                 ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableAiDefensePatrolFixHelpText}"
-                Margin="18,0,14,8">
+                Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableAiDefensePatrolFixText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-ai-wall-targeting-fix" shared:ModSettingsSearch.Title="{Binding EnableAiWallTargetingFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableAiWallTargetingFixHelpText}"><CheckBox IsChecked="{Binding EnableAiWallTargetingFix, Mode=TwoWay}"
                 Foreground="White"
                 ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableAiWallTargetingFixHelpText}"
-                Margin="18,0,14,8">
+                Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableAiWallTargetingFixText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-aiv-defender-position-fix" shared:ModSettingsSearch.Title="{Binding EnableAivDefenderPositionFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableAivDefenderPositionFixHelpText}"><CheckBox IsChecked="{Binding EnableAivDefenderPositionFix, Mode=TwoWay}"
                 Foreground="White"
                 ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableAivDefenderPositionFixHelpText}"
-                Margin="18,0,14,8">
+                Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableAivDefenderPositionFixText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.fix-aitower-repair" shared:ModSettingsSearch.Title="{Binding FixAITowerRepairText}" shared:ModSettingsSearch.ToolTipText="{Binding FixAITowerRepairHelpText}"><CheckBox IsChecked="{Binding FixAITowerRepair, Mode=TwoWay}"
                 Foreground="White"
                 ToolTipService.ShowDuration="60000" ToolTip="{Binding FixAITowerRepairHelpText}"
-                Margin="18,0,14,8">
+                Margin="0,0,14,8">
         <TextBlock Text="{Binding FixAITowerRepairText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.better-aioverbuild-rules" shared:ModSettingsSearch.Title="{Binding BetterAIOverbuildRulesText}" shared:ModSettingsSearch.ToolTipText="{Binding BetterAIOverbuildRulesHelpText}"><CheckBox IsChecked="{Binding BetterAIOverbuildRules, Mode=TwoWay}"
                 Foreground="White"
                 ToolTipService.ShowDuration="60000" ToolTip="{Binding BetterAIOverbuildRulesHelpText}"
-                Margin="18,0,14,8">
+                Margin="0,0,14,8">
         <TextBlock Text="{Binding BetterAIOverbuildRulesText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
       </StackPanel>

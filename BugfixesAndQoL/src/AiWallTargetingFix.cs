@@ -83,7 +83,6 @@ namespace BugfixesAndQoL
 
             SetEnabled(
                 settings.EnableMod &&
-                settings.EnableAiFixes &&
                 settings.EnableAiWallTargetingFix);
         }
 

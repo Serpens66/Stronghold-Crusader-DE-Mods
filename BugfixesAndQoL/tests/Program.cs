@@ -33,6 +33,7 @@ namespace BugfixesAndQoL
             TestMovementSafetyIntegration();
             TestAiDefensePatrolPolicy();
             TestAiDefensePatrolIntegration();
+            TestAiStoneReserveIntegration();
             TestAiWallTargetingIntegration();
             TestAIResourceShortageSleepPolicy();
             TestAIResourceShortageSleepIntegration();
@@ -314,9 +315,8 @@ namespace BugfixesAndQoL
                     runtime.Contains("X64SmartCPUContextRegs.All") &&
                     runtime.Contains("BugfixesHookInfrastructure.CreateOwnedTransaction") &&
                     runtime.Contains("settings.EnableMod") &&
-                    runtime.Contains("settings.EnableAiFixes") &&
                     runtime.Contains("settings.EnableAiDefensePatrolFix"),
-                "AI defense patrol runtime uses the owned before-callback hook and all setting gates");
+                "AI defense patrol runtime uses the owned before-callback hook and its specific setting gates");
             Check(runtime.Contains("registers->RAX = originalRax") &&
                     runtime.Contains("TryGetUnitById(unitId") &&
                     runtime.Contains("for (int spanIndex = 0; spanIndex < units.Length; spanIndex++)"),
@@ -334,6 +334,52 @@ namespace BugfixesAndQoL
                 "AI defense patrol setting is searchable and bound in XAML");
         }
 
+        private static void TestAiStoneReserveIntegration()
+        {
+            string projectDirectory = FindProjectDirectory();
+            string sourceDirectory = Path.Combine(projectDirectory, "src");
+            string fix = File.ReadAllText(Path.Combine(sourceDirectory, "AiStoneReserveFix.cs"));
+            string viewModel = File.ReadAllText(Path.Combine(sourceDirectory, "BugfixesAndQoLViewModel.cs"));
+            string xaml = File.ReadAllText(Path.Combine(
+                projectDirectory,
+                "Override",
+                "ScriptExtenderUI",
+                "BugfixesAndQoLSettings.xaml"));
+            string english = File.ReadAllText(Path.Combine(projectDirectory, "Locales", "en-US.txt"));
+            string german = File.ReadAllText(Path.Combine(projectDirectory, "Locales", "de-DE.txt"));
+
+            Check(fix.Contains("settings.EnableMod && settings.EnableAiStoneReserveFix"),
+                "AI stone-reserve runtime uses the mod and specific host setting gates");
+            Check(viewModel.Contains("private bool enableAiStoneReserveFix = true;") &&
+                    viewModel.Contains("public bool EnableAiStoneReserveFix") &&
+                    viewModel.Contains("EnableAiStoneReserveFix = true;"),
+                "AI stone-reserve host setting defaults and resets to enabled");
+            Check(xaml.Contains("bugfixes.enable-ai-stone-reserve-fix") &&
+                    xaml.Contains("IsChecked=\"{Binding EnableAiStoneReserveFix, Mode=TwoWay}\"") &&
+                    english.Contains("BugfixesAndQoL.EnableAiStoneReserveFix=") &&
+                    german.Contains("BugfixesAndQoL.EnableAiStoneReserveFix="),
+                "AI stone-reserve setting is searchable, bound, and localized");
+
+            string removedSettingName = "EnableAi" + "Fixes";
+            bool removedFromActiveSources = !viewModel.Contains(removedSettingName) &&
+                !xaml.Contains(removedSettingName);
+            foreach (string sourceFile in Directory.GetFiles(sourceDirectory, "*.cs"))
+                removedFromActiveSources &= !File.ReadAllText(sourceFile).Contains(removedSettingName);
+            foreach (string localeFile in Directory.GetFiles(
+                Path.Combine(projectDirectory, "Locales"),
+                "*.txt"))
+            {
+                removedFromActiveSources &= !File.ReadAllText(localeFile).Contains(removedSettingName);
+            }
+            string sharedLocalization = File.ReadAllText(Path.Combine(
+                Directory.GetParent(projectDirectory).FullName,
+                "Shared",
+                "SerpLocalization.cs"));
+            removedFromActiveSources &= !sharedLocalization.Contains(removedSettingName);
+            Check(removedFromActiveSources,
+                "the removed aggregate AI-fixes setting is absent from active sources, XAML, and localization");
+        }
+
         private static void TestAiWallTargetingIntegration()
         {
             string projectDirectory = FindProjectDirectory();
@@ -349,12 +395,11 @@ namespace BugfixesAndQoL
             string german = File.ReadAllText(Path.Combine(projectDirectory, "Locales", "de-DE.txt"));
 
             Check(patch.Contains("settings.EnableMod &&") &&
-                    patch.Contains("settings.EnableAiFixes &&") &&
                     patch.Contains("settings.EnableAiWallTargetingFix") &&
                     patch.Contains("OriginalReservationRejectJump = { 0x75, 0x63 }") &&
                     patch.Contains("EnabledBytes = { 0x90, 0x90 }") &&
                     patch.Contains("TryRollback(targetState, currentState)"),
-                "AI wall-targeting patch has all setting gates, audited states, and rollback");
+                "AI wall-targeting patch has its specific setting gates, audited states, and rollback");
             Check(runtime.Contains("EnsureAiWallTargetingFix") &&
                     runtime.Contains("aiWallTargetingFix?.Dispose()") &&
                     runtime.Contains("aiWallTargetingFix.ApplySetting()"),

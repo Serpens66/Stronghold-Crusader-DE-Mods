@@ -973,7 +973,7 @@ namespace BugfixesAndQoL
 
             // Avoid installing a dormant native hook. A later synchronized enable change
             // retries this method while the validated native mapping remains available.
-            if (!settings.EnableMod || !settings.EnableAiFixes || !settings.EnableAiDefensePatrolFix)
+            if (!settings.EnableMod || !settings.EnableAiDefensePatrolFix)
                 return;
 
             try
@@ -1110,7 +1110,7 @@ namespace BugfixesAndQoL
                 return;
             // Avoid installing the native classifiers in Vanilla mode. If the setting is enabled
             // later, ApplySettings retries this method with the retained DLL mapping.
-            if (!settings.EnableMod || !settings.EnableAiFixes || !settings.FixAITowerRepair)
+            if (!settings.EnableMod || !settings.FixAITowerRepair)
                 return;
 
             try
@@ -1143,7 +1143,7 @@ namespace BugfixesAndQoL
                 return;
             // Keep a fully disabled configuration physically Vanilla. Enabling the synchronized
             // host setting later retries installation with the retained DLL mapping.
-            if (!settings.EnableMod || !settings.EnableAiFixes || !settings.BetterAIOverbuildRules)
+            if (!settings.EnableMod || !settings.BetterAIOverbuildRules)
             {
                 return;
             }

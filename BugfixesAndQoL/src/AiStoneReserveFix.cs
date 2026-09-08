@@ -161,7 +161,7 @@ namespace BugfixesAndQoL
 
                 Shared.DebugLogHelper.LogDebug(
                     log,
-                    "Bugfixes and QoL AI stone-reserve native hook enabled by the synchronized AI-fixes setting.");
+                    "Bugfixes and QoL AI stone-reserve native hook enabled by its synchronized host setting.");
             }
         }
 
@@ -279,7 +279,7 @@ namespace BugfixesAndQoL
                 $"nativeVanillaBytesRestored={vanillaRestored}: {ex}");
         }
 
-        private bool IsEnabled => settings.EnableMod && settings.EnableAiFixes;
+        private bool IsEnabled => settings.EnableMod && settings.EnableAiStoneReserveFix;
 
         private static bool IsExcludedMultiTileCommand(eMappers mapper)
         {

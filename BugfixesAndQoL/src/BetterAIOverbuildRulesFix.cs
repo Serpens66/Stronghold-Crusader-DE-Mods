@@ -493,7 +493,7 @@ namespace BugfixesAndQoL
         }
 
         private bool IsEnabled =>
-            settings.EnableMod && settings.EnableAiFixes && settings.BetterAIOverbuildRules;
+            settings.EnableMod && settings.BetterAIOverbuildRules;
 
         private void LogCallbackFailure(string operation, Exception ex)
         {

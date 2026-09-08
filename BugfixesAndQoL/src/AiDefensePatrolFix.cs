@@ -398,7 +398,6 @@ namespace BugfixesAndQoL
 
         private bool IsEnabled =>
             settings.EnableMod &&
-            settings.EnableAiFixes &&
             settings.EnableAiDefensePatrolFix;
     }
 }

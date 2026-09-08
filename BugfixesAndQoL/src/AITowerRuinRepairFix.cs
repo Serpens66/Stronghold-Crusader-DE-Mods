@@ -331,7 +331,7 @@ namespace BugfixesAndQoL
 
         private bool IsEnabled =>
             narrowRuinClassifierHook.Success && broadRuinClassifierHook.Success &&
-            settings.EnableMod && settings.EnableAiFixes && settings.FixAITowerRepair;
+            settings.EnableMod && settings.FixAITowerRepair;
 
         private void LogCallbackFailure(string operation, Exception ex)
         {

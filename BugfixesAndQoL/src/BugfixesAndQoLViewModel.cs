@@ -19,7 +19,7 @@ namespace BugfixesAndQoL
         private bool allowFullAiMultiplayerLobby = true;
         private bool rememberAiAivSettings = true;
         private bool enableCustomLordListEnhancements = true;
-        private bool enableAiFixes = true;
+        private bool enableAiStoneReserveFix = true;
         private bool enableAiDefensePatrolFix = true;
         private bool enableAiWallTargetingFix = true;
         private bool enableAivDefenderPositionFix = true;
@@ -182,8 +182,8 @@ namespace BugfixesAndQoL
                 }
             }
         }
-        public string EnableAiFixesText => SerpLocalization.Get(SerpLocalization.EnableAiFixes);
-        public string EnableAiFixesHelpText => SerpLocalization.Get(SerpLocalization.EnableAiFixesHelp);
+        public string EnableAiStoneReserveFixText => SerpLocalization.Get(SerpLocalization.EnableAiStoneReserveFix);
+        public string EnableAiStoneReserveFixHelpText => SerpLocalization.Get(SerpLocalization.EnableAiStoneReserveFixHelp);
         public string EnableAiDefensePatrolFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAiDefensePatrolFix");
         public string EnableAiDefensePatrolFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAiDefensePatrolFixHelp");
         public string EnableAiWallTargetingFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAiWallTargetingFix");
@@ -561,10 +561,10 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
-        public bool EnableAiFixes
+        public bool EnableAiStoneReserveFix
         {
-            get => enableAiFixes;
-            set => SetSetting(ref enableAiFixes, value, nameof(EnableAiFixes));
+            get => enableAiStoneReserveFix;
+            set => SetSetting(ref enableAiStoneReserveFix, value, nameof(EnableAiStoneReserveFix));
         }
 
         [SyncHostOnly]
@@ -941,7 +941,7 @@ namespace BugfixesAndQoL
             {
                 EnableMod = true;
                 AllowFullAiMultiplayerLobby = true;
-                EnableAiFixes = true;
+                EnableAiStoneReserveFix = true;
                 EnableAiDefensePatrolFix = true;
                 EnableAiWallTargetingFix = true;
                 EnableAivDefenderPositionFix = true;
