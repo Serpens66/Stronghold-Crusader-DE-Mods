@@ -1,4 +1,5 @@
 using System;
+using SHCDESE.Interop;
 
 namespace ElevatedMoatTest
 {
@@ -6,8 +7,8 @@ namespace ElevatedMoatTest
     {
         internal const string ReferenceSha256 =
             "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2";
-        internal const int HeightWriterRva = 0x7870B;
-        internal const int HeightWriterLength = 20;
+        internal const int DrawbridgeHeightFailureWriterRva = 0x7870B;
+        internal const int DrawbridgeHeightFailureWriterLength = 20;
         internal const int TileValidationResultRva = 0x7888E;
         internal const int TileValidationResultLength = 14;
         internal const int TileValidatorCallRva = 0x78889;
@@ -18,14 +19,18 @@ namespace ElevatedMoatTest
         internal const int AivHeightGateLength = 22;
         internal const int AivCreatePathRva = 0x599B3;
         internal const int AivCreatePathLength = 16;
-        internal const int HumanMoatFunctionRva = 0x739C0;
-        internal const int HumanMoatFunctionLength = 0x1E5;
-        internal const int HumanMoatWriterCallRva = 0x73B1F;
-        internal const int HumanMoatWriterResultRva = 0x73B24;
-        internal const int HumanMoatWriterResultLength = 15;
-        internal const int MoatWriterRva = 0x59210;
+        internal const int DrawbridgeFunctionRva = 0x739C0;
+        internal const int DrawbridgeFunctionLength = 0x1E5;
+        internal const int DrawbridgeWriterCallRva = 0x73B1F;
+        internal const int DrawbridgeWriterResultRva = 0x73B24;
+        internal const int DrawbridgeWriterResultLength = 15;
+        internal const int StructureWriterRva = 0x59210;
         internal const int TileHeightGridOffset = 0xD7E5A0;
         internal const int TileDefaultHeightGridOffset = 0xDCCAC0;
+        internal const int MoatCommandValidationFunctionRva = 0x5CA40;
+        internal const int MoatCommandValidationFunctionLength = 0x290;
+        internal const int MoatCommandHeightGateRva = 0x5CC1E;
+        internal const int MoatCommandHeightGateLength = 14;
         internal const int SharedTileFunctionRva = 0x6FE90;
         internal const int SharedTileFunctionLength = 0xB19;
         internal const int SharedHeightGateRva = 0x704CC;
@@ -42,12 +47,13 @@ namespace ElevatedMoatTest
         internal const int RebuildCompletedHeightLength = 15;
         internal const int DirectCompletedHeightRva = 0x705F7;
         internal const int DirectCompletedHeightLength = 22;
-        internal const int GenericCompletedHeightRva = 0x73B35;
-        internal const int GenericCompletedHeightLength = 17;
+        internal const int DrawbridgeCompletedHeightRva = 0x73B35;
+        internal const int DrawbridgeCompletedHeightLength = 17;
+        internal const int PlannedFillRestoreRva = 0x70562;
+        internal const int PlannedFillRestoreLength = 15;
         internal const int DirectRemovalHeightRva = 0x70621;
         internal const int DirectRemovalHeightLength = 16;
         internal const int MoatDepth = 8;
-        internal const int MapperMoat = 105;
         internal const int MaximumVanillaTerrainHeight = 12;
         internal const int PlacementBlockedValue = 1;
         internal const int PlacementFailureReason = 24;
@@ -59,7 +65,7 @@ namespace ElevatedMoatTest
         internal const int FootprintTileXOffset = 0x204E760;
         internal const int FootprintTileYOffset = 0x204E764;
 
-        internal const string HeightWriterPattern =
+        internal const string DrawbridgeHeightFailureWriterPattern =
             "C7 83 FC E6 04 02 01 00 00 00 " +
             "C7 83 04 E7 04 02 18 00 00 00";
 
@@ -75,12 +81,16 @@ namespace ElevatedMoatTest
             "0F B6 9C 24 90 00 00 00 45 8B CE C6 44 24 28 00 " +
             "45 8B C7 41 8B D4 89 5C 24 20 49 8B CB E8";
 
-        internal const string HumanMoatWriterResultPattern =
+        internal const string DrawbridgeWriterResultPattern =
             "42 81 A4 B3 00 84 89 00 FF FF FF BF 45 33 C0 " +
             "8B D7 48 8B CB E8 63 EA FF FF";
 
         internal const string SharedHeightGatePattern =
             "80 BC 3B A0 E5 D7 00 0C 0F 87 78 04 00 00 45 85 FF 75 73";
+
+        internal const string MoatCommandHeightGatePattern =
+            "80 BC 3B A0 E5 D7 00 0C 0F 87 83 00 00 00 " +
+            "41 83 FE 6A 75 57 A9 00 40 00 40";
 
         internal const string AivCompletedHeightPattern =
             "0F BA E8 1E 89 87 00 84 89 00 C6 86 A0 E5 D7 00 00 EB 0A";
@@ -95,16 +105,21 @@ namespace ElevatedMoatTest
             "41 81 26 FF BF FF FF 41 81 0E 00 00 00 40 " +
             "C6 84 3B A0 E5 D7 00 00 E9 2E 03 00 00";
 
-        internal const string GenericCompletedHeightPattern =
+        internal const string DrawbridgeCompletedHeightPattern =
             "48 8B CB E8 63 EA FF FF 41 C6 84 1E A0 E5 D7 00 00 EB 0C";
+
+        internal const string PlannedFillRestorePattern =
+            "0F BA F2 0E 45 8B C4 41 89 16 48 8B CF 8B D6 " +
+            "E8 5A 19 FF FF E9 C5 03 00 00";
 
         internal const string DirectRemovalHeightPattern =
             "48 8B CF E8 A7 18 FF FF C6 84 3B A0 E5 D7 00 08 " +
             "41 81 26 FF BF FF BF";
 
-        // These bytes prove that the writer is reached only after MAPPER_MOAT == 105
+        // The 0x69 immediate is the native representation of eMappers.MAPPER_DRAWBRIDGE.
+        // These bytes prove that the writer is reached only after that mapper comparison
         // and maxHeight > 12. Keeping the branch bytes makes the validation fail closed.
-        internal static readonly byte[] RequiredPrefix =
+        internal static readonly byte[] DrawbridgeHeightFailurePrefix =
         {
             0x66, 0x83, 0xBC, 0x24, 0xC0, 0x00, 0x00, 0x00, 0x69,
             0x75, 0x1D,
@@ -112,13 +127,13 @@ namespace ElevatedMoatTest
             0x7E, 0x14
         };
 
-        internal static readonly byte[] HeightWriterBytes =
+        internal static readonly byte[] DrawbridgeHeightFailureWriterBytes =
         {
             0xC7, 0x83, 0xFC, 0xE6, 0x04, 0x02, 0x01, 0x00, 0x00, 0x00,
             0xC7, 0x83, 0x04, 0xE7, 0x04, 0x02, 0x18, 0x00, 0x00, 0x00
         };
 
-        internal static readonly byte[] RequiredSuffix =
+        internal static readonly byte[] DrawbridgeHeightFailureSuffix =
         {
             0x44, 0x0F, 0xB6, 0xBC, 0x24, 0xD0, 0x00, 0x00, 0x00
         };
@@ -168,19 +183,19 @@ namespace ElevatedMoatTest
             0x49, 0x8B, 0xCB, 0xE8
         };
 
-        internal static readonly byte[] HumanMoatWriterResultBytes =
+        internal static readonly byte[] DrawbridgeWriterResultBytes =
         {
             0x42, 0x81, 0xA4, 0xB3, 0x00, 0x84, 0x89, 0x00,
             0xFF, 0xFF, 0xFF, 0xBF,
             0x45, 0x33, 0xC0
         };
 
-        internal static readonly byte[] HumanMoatWriterResultSuffix =
+        internal static readonly byte[] DrawbridgeWriterResultSuffix =
         {
             0x8B, 0xD7, 0x48, 0x8B, 0xCB, 0xE8, 0x63, 0xEA, 0xFF, 0xFF
         };
 
-        internal static readonly byte[] HumanMoatWriterResultResolutionBytes =
+        internal static readonly byte[] DrawbridgeWriterResultResolutionBytes =
         {
             0x42, 0x81, 0xA4, 0xB3, 0x00, 0x84, 0x89, 0x00,
             0xFF, 0xFF, 0xFF, 0xBF,
@@ -192,6 +207,19 @@ namespace ElevatedMoatTest
         {
             0x80, 0xBC, 0x3B, 0xA0, 0xE5, 0xD7, 0x00, 0x0C,
             0x0F, 0x87, 0x78, 0x04, 0x00, 0x00
+        };
+
+        internal static readonly byte[] MoatCommandHeightGateBytes =
+        {
+            0x80, 0xBC, 0x3B, 0xA0, 0xE5, 0xD7, 0x00, 0x0C,
+            0x0F, 0x87, 0x83, 0x00, 0x00, 0x00
+        };
+
+        internal static readonly byte[] MoatCommandMapperBytes =
+        {
+            0x41, 0x83, 0xFE, 0x6A,
+            0x75, 0x57,
+            0xA9, 0x00, 0x40, 0x00, 0x40
         };
 
         internal static readonly byte[] AivCompletedHeightBytes =
@@ -219,10 +247,27 @@ namespace ElevatedMoatTest
             0xC6, 0x84, 0x3B, 0xA0, 0xE5, 0xD7, 0x00, 0x00
         };
 
-        internal static readonly byte[] GenericCompletedHeightBytes =
+        internal static readonly byte[] DrawbridgeCompletedHeightBytes =
         {
             0x48, 0x8B, 0xCB, 0xE8, 0x63, 0xEA, 0xFF, 0xFF,
             0x41, 0xC6, 0x84, 0x1E, 0xA0, 0xE5, 0xD7, 0x00, 0x00
+        };
+
+        internal static readonly byte[] PlannedFillRestoreBytes =
+        {
+            0x0F, 0xBA, 0xF2, 0x0E,
+            0x45, 0x8B, 0xC4,
+            0x41, 0x89, 0x16,
+            0x48, 0x8B, 0xCF,
+            0x8B, 0xD6
+        };
+
+        internal static readonly byte[] PlannedFillPrefixBytes =
+        {
+            0x41, 0x83, 0xFF, 0x01,
+            0x75, 0x23,
+            0x0F, 0xBA, 0xE2, 0x0E,
+            0x0F, 0x83, 0xDE, 0x03, 0x00, 0x00
         };
 
         internal static readonly byte[] DirectRemovalHeightBytes =
@@ -231,17 +276,21 @@ namespace ElevatedMoatTest
             0xC6, 0x84, 0x3B, 0xA0, 0xE5, 0xD7, 0x00, 0x08
         };
 
-        internal static void Validate(ReadOnlySpan<byte> memory, int writerRva)
+        internal static void ValidateDrawbridgeHeightFailure(
+            ReadOnlySpan<byte> memory,
+            int writerRva)
         {
-            int prefixStart = checked(writerRva - RequiredPrefix.Length);
-            int suffixStart = checked(writerRva + HeightWriterLength);
-            int requiredEnd = checked(suffixStart + RequiredSuffix.Length);
+            int prefixStart = checked(writerRva - DrawbridgeHeightFailurePrefix.Length);
+            int suffixStart = checked(writerRva + DrawbridgeHeightFailureWriterLength);
+            int requiredEnd = checked(suffixStart + DrawbridgeHeightFailureSuffix.Length);
             if (prefixStart < 0 || requiredEnd > memory.Length)
-                throw new InvalidOperationException("The elevated-moat validation window lies outside the native image.");
+                throw new InvalidOperationException("The elevated-drawbridge validation window lies outside the native image.");
 
-            AssertBytes(memory, prefixStart, RequiredPrefix, "moat/max-height comparison prefix");
-            AssertBytes(memory, writerRva, HeightWriterBytes, "height failure writer");
-            AssertBytes(memory, suffixStart, RequiredSuffix, "instruction following the writer");
+            AssertBytes(memory, prefixStart, DrawbridgeHeightFailurePrefix, "drawbridge/max-height comparison prefix");
+            AssertBytes(memory, writerRva, DrawbridgeHeightFailureWriterBytes, "drawbridge height failure writer");
+            AssertBytes(memory, suffixStart, DrawbridgeHeightFailureSuffix, "instruction following the drawbridge writer");
+            if (memory[prefixStart + 8] != checked((byte)eMappers.MAPPER_DRAWBRIDGE))
+                throw new InvalidOperationException("The native mapper immediate is not eMappers.MAPPER_DRAWBRIDGE.");
         }
 
         internal static void ValidateTileValidationResultHook(ReadOnlySpan<byte> memory, int hookRva)
@@ -288,32 +337,49 @@ namespace ElevatedMoatTest
                 throw new InvalidOperationException("The AIV low-height branch target differs from the audited creation path.");
         }
 
-        internal static void ValidateHumanMoatWriterResultHook(
+        internal static void ValidateDrawbridgeWriterResultHook(
             ReadOnlySpan<byte> memory,
             int hookRva)
         {
-            int functionEnd = checked(HumanMoatFunctionRva + HumanMoatFunctionLength);
-            int suffixRva = checked(hookRva + HumanMoatWriterResultLength);
-            if (hookRva < HumanMoatFunctionRva ||
-                suffixRva + HumanMoatWriterResultSuffix.Length > functionEnd ||
+            int functionEnd = checked(DrawbridgeFunctionRva + DrawbridgeFunctionLength);
+            int suffixRva = checked(hookRva + DrawbridgeWriterResultLength);
+            if (hookRva < DrawbridgeFunctionRva ||
+                suffixRva + DrawbridgeWriterResultSuffix.Length > functionEnd ||
                 functionEnd > memory.Length)
             {
-                throw new InvalidOperationException("The human moat result hook lies outside its audited function.");
+                throw new InvalidOperationException("The drawbridge result hook lies outside its audited function.");
             }
 
             int callRva = checked(hookRva - 5);
-            if (callRva != HumanMoatWriterCallRva || memory[callRva] != 0xE8)
-                throw new InvalidOperationException("The human moat result hook is not after its audited CALL.");
+            if (callRva != DrawbridgeWriterCallRva || memory[callRva] != 0xE8)
+                throw new InvalidOperationException("The drawbridge result hook is not after its audited CALL.");
             int callTarget = checked(hookRva + ReadInt32(memory, callRva + 1));
-            if (callTarget != MoatWriterRva)
-                throw new InvalidOperationException("The human moat writer CALL target differs.");
+            if (callTarget != StructureWriterRva)
+                throw new InvalidOperationException("The drawbridge writer CALL target differs.");
 
-            AssertBytes(memory, hookRva, HumanMoatWriterResultBytes, "human moat writer result block");
-            AssertBytes(memory, suffixRva, HumanMoatWriterResultSuffix, "human moat writer result continuation");
+            AssertBytes(memory, hookRva, DrawbridgeWriterResultBytes, "drawbridge writer result block");
+            AssertBytes(memory, suffixRva, DrawbridgeWriterResultSuffix, "drawbridge writer result continuation");
         }
 
         internal static void ValidateAdaptiveHeightHooks(ReadOnlySpan<byte> memory)
         {
+            ValidateBlock(memory, MoatCommandHeightGateRva, MoatCommandHeightGateLength,
+                MoatCommandValidationFunctionRva, MoatCommandValidationFunctionLength,
+                MoatCommandHeightGateBytes, "MAPPER_MOAT/MAPPER_ANTIMOAT command height gate");
+            AssertBytes(memory, MoatCommandHeightGateRva + MoatCommandHeightGateLength,
+                MoatCommandMapperBytes, "MAPPER_MOAT command dispatch following the height gate");
+            if (memory[MoatCommandHeightGateRva + MoatCommandHeightGateLength + 3] !=
+                checked((byte)eMappers.MAPPER_MOAT) ||
+                memory[MoatCommandHeightGateRva + 0x6E] != checked((byte)eMappers.MAPPER_ANTIMOAT))
+            {
+                throw new InvalidOperationException(
+                    "The native moat-command immediates do not match eMappers.MAPPER_MOAT/MAPPER_ANTIMOAT.");
+            }
+            int commandRejectionTarget = checked(MoatCommandHeightGateRva + MoatCommandHeightGateLength +
+                ReadInt32(memory, MoatCommandHeightGateRva + 10));
+            if (commandRejectionTarget != 0x5CCAF)
+                throw new InvalidOperationException("The moat-command height rejection target differs.");
+
             ValidateBlock(memory, SharedHeightGateRva, SharedHeightGateLength,
                 SharedTileFunctionRva, SharedTileFunctionLength, SharedHeightGateBytes,
                 "shared moat height gate");
@@ -334,17 +400,28 @@ namespace ElevatedMoatTest
             ValidateBlock(memory, DirectCompletedHeightRva, DirectCompletedHeightLength,
                 SharedTileFunctionRva, SharedTileFunctionLength, DirectCompletedHeightBytes,
                 "direct completed-moat height block");
-            ValidateBlock(memory, GenericCompletedHeightRva, GenericCompletedHeightLength,
-                HumanMoatFunctionRva, HumanMoatFunctionLength, GenericCompletedHeightBytes,
-                "generic completed-moat height block");
+            ValidateBlock(memory, DrawbridgeCompletedHeightRva, DrawbridgeCompletedHeightLength,
+                DrawbridgeFunctionRva, DrawbridgeFunctionLength, DrawbridgeCompletedHeightBytes,
+                "completed-drawbridge height block");
+            ValidateBlock(memory, PlannedFillRestoreRva, PlannedFillRestoreLength,
+                SharedTileFunctionRva, SharedTileFunctionLength, PlannedFillRestoreBytes,
+                "planned moat-fill restoration block");
+            AssertBytes(memory, PlannedFillRestoreRva - PlannedFillPrefixBytes.Length,
+                PlannedFillPrefixBytes, "planned moat-fill mode and moat-flag prefix");
             ValidateBlock(memory, DirectRemovalHeightRva, DirectRemovalHeightLength,
                 SharedTileFunctionRva, SharedTileFunctionLength, DirectRemovalHeightBytes,
                 "direct moat-removal height block");
 
-            int genericCallTarget = checked(GenericCompletedHeightRva + 8 +
-                ReadInt32(memory, GenericCompletedHeightRva + 4));
-            if (genericCallTarget != 0x725A0)
-                throw new InvalidOperationException("The generic completed-moat visual call target differs.");
+            int drawbridgeCallTarget = checked(DrawbridgeCompletedHeightRva + 8 +
+                ReadInt32(memory, DrawbridgeCompletedHeightRva + 4));
+            if (drawbridgeCallTarget != 0x725A0)
+                throw new InvalidOperationException("The completed-drawbridge visual call target differs.");
+            int plannedFillCallRva = checked(PlannedFillRestoreRva + PlannedFillRestoreLength);
+            if (memory[plannedFillCallRva] != 0xE8 ||
+                checked(plannedFillCallRva + 5 + ReadInt32(memory, plannedFillCallRva + 1)) != 0x61ED0)
+            {
+                throw new InvalidOperationException("The planned moat-fill removal CALL target differs.");
+            }
             int removalCallTarget = checked(DirectRemovalHeightRva + 8 +
                 ReadInt32(memory, DirectRemovalHeightRva + 4));
             if (removalCallTarget != 0x61ED0)

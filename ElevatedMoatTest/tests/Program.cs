@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Runtime.InteropServices;
 using ElevatedMoatTest;
 using RedBird.X64.Hooks;
+using SHCDESE.Interop;
 
 internal static class Program
 {
@@ -28,32 +29,39 @@ internal static class Program
 
     private static void TestNativeContractConstants()
     {
-        Check(ElevatedMoatNativeContract.HeightWriterRva == 0x7870B, "audited writer RVA");
-        Check(ElevatedMoatNativeContract.HeightWriterLength == 20, "20-byte hook boundary");
-        Check(ElevatedMoatNativeContract.HeightWriterBytes.Length == 20, "writer byte count");
-        Check(ElevatedMoatNativeContract.MapperMoat == 105, "MAPPER_MOAT value");
+        Check(ElevatedMoatNativeContract.DrawbridgeHeightFailureWriterRva == 0x7870B,
+            "audited drawbridge writer RVA");
+        Check(ElevatedMoatNativeContract.DrawbridgeHeightFailureWriterLength == 20,
+            "20-byte drawbridge hook boundary");
+        Check(ElevatedMoatNativeContract.DrawbridgeHeightFailureWriterBytes.Length == 20,
+            "drawbridge writer byte count");
+        Check((int)eMappers.MAPPER_DRAWBRIDGE == 105 &&
+            (int)eMappers.MAPPER_MOAT == 106 &&
+            (int)eMappers.MAPPER_ANTIMOAT == 107,
+            "installed Script Extender mapper enum contract");
         Check(ElevatedMoatNativeContract.MaximumVanillaTerrainHeight == 12, "Vanilla height threshold");
         Check(ElevatedMoatNativeContract.PlacementFailureReason == 24, "Vanilla failure reason");
-        Check(BitConverter.ToInt32(ElevatedMoatNativeContract.HeightWriterBytes, 2) ==
+        Check(BitConverter.ToInt32(ElevatedMoatNativeContract.DrawbridgeHeightFailureWriterBytes, 2) ==
             ElevatedMoatNativeContract.PlacementBlockedOffset &&
-            BitConverter.ToInt32(ElevatedMoatNativeContract.HeightWriterBytes, 6) ==
+            BitConverter.ToInt32(ElevatedMoatNativeContract.DrawbridgeHeightFailureWriterBytes, 6) ==
             ElevatedMoatNativeContract.PlacementBlockedValue,
             "first 10-byte MOV writes blocked status 1");
-        Check(BitConverter.ToInt32(ElevatedMoatNativeContract.HeightWriterBytes, 12) ==
+        Check(BitConverter.ToInt32(ElevatedMoatNativeContract.DrawbridgeHeightFailureWriterBytes, 12) ==
             ElevatedMoatNativeContract.PlacementFailureReasonOffset &&
-            BitConverter.ToInt32(ElevatedMoatNativeContract.HeightWriterBytes, 16) ==
+            BitConverter.ToInt32(ElevatedMoatNativeContract.DrawbridgeHeightFailureWriterBytes, 16) ==
             ElevatedMoatNativeContract.PlacementFailureReason,
             "second 10-byte MOV writes failure reason 24");
-        Check(ElevatedMoatNativeContract.RequiredPrefix[8] == ElevatedMoatNativeContract.MapperMoat &&
-            BitConverter.ToInt32(ElevatedMoatNativeContract.RequiredPrefix, 13) ==
+        Check(ElevatedMoatNativeContract.DrawbridgeHeightFailurePrefix[8] ==
+            checked((byte)eMappers.MAPPER_DRAWBRIDGE) &&
+            BitConverter.ToInt32(ElevatedMoatNativeContract.DrawbridgeHeightFailurePrefix, 13) ==
             ElevatedMoatNativeContract.MaximumFootprintHeightOffset &&
-            ElevatedMoatNativeContract.RequiredPrefix[17] ==
+            ElevatedMoatNativeContract.DrawbridgeHeightFailurePrefix[17] ==
             ElevatedMoatNativeContract.MaximumVanillaTerrainHeight,
-            "prefix encodes MAPPER_MOAT and maxHeight comparison");
-        Check(ElevatedMoatNativeContract.RequiredPrefix[9] == 0x75 &&
-            ElevatedMoatNativeContract.RequiredPrefix[10] == 0x1D &&
-            ElevatedMoatNativeContract.RequiredPrefix[18] == 0x7E &&
-            ElevatedMoatNativeContract.RequiredPrefix[19] == 0x14,
+            "prefix encodes eMappers.MAPPER_DRAWBRIDGE and maxHeight comparison");
+        Check(ElevatedMoatNativeContract.DrawbridgeHeightFailurePrefix[9] == 0x75 &&
+            ElevatedMoatNativeContract.DrawbridgeHeightFailurePrefix[10] == 0x1D &&
+            ElevatedMoatNativeContract.DrawbridgeHeightFailurePrefix[18] == 0x7E &&
+            ElevatedMoatNativeContract.DrawbridgeHeightFailurePrefix[19] == 0x14,
             "both comparison branches land after the 20-byte writer");
         Check(ElevatedMoatNativeContract.TileValidationResultRva == 0x7888E &&
             ElevatedMoatNativeContract.TileValidationResultLength == 14 &&
@@ -67,10 +75,14 @@ internal static class Program
             ElevatedMoatNativeContract.AivCreatePathLength == 16 &&
             ElevatedMoatNativeContract.AivCreatePathBytes.Length == 16,
             "audited 16-byte AIV creation-path boundary");
-        Check(ElevatedMoatNativeContract.HumanMoatWriterResultRva == 0x73B24 &&
-            ElevatedMoatNativeContract.HumanMoatWriterResultLength == 15 &&
-            ElevatedMoatNativeContract.HumanMoatWriterResultBytes.Length == 15,
-            "audited 15-byte human writer-result boundary");
+        Check(ElevatedMoatNativeContract.DrawbridgeWriterResultRva == 0x73B24 &&
+            ElevatedMoatNativeContract.DrawbridgeWriterResultLength == 15 &&
+            ElevatedMoatNativeContract.DrawbridgeWriterResultBytes.Length == 15,
+            "audited 15-byte drawbridge writer-result boundary");
+        Check(ElevatedMoatNativeContract.MoatCommandHeightGateRva == 0x5CC1E &&
+            ElevatedMoatNativeContract.MoatCommandHeightGateLength == 14 &&
+            ElevatedMoatNativeContract.MoatCommandHeightGateBytes.Length == 14,
+            "audited MAPPER_MOAT/MAPPER_ANTIMOAT command height gate");
         Check(ElevatedMoatNativeContract.SharedHeightGateRva == 0x704CC &&
             ElevatedMoatNativeContract.SharedHeightGateLength == 14 &&
             ElevatedMoatNativeContract.SharedHeightGateBytes.Length == 14,
@@ -95,19 +107,19 @@ internal static class Program
     {
         const int writerOffset = 64;
         byte[] image = new byte[160];
-        Array.Copy(ElevatedMoatNativeContract.RequiredPrefix, 0, image,
-            writerOffset - ElevatedMoatNativeContract.RequiredPrefix.Length,
-            ElevatedMoatNativeContract.RequiredPrefix.Length);
-        Array.Copy(ElevatedMoatNativeContract.HeightWriterBytes, 0, image,
-            writerOffset, ElevatedMoatNativeContract.HeightWriterBytes.Length);
-        Array.Copy(ElevatedMoatNativeContract.RequiredSuffix, 0, image,
-            writerOffset + ElevatedMoatNativeContract.HeightWriterLength,
-            ElevatedMoatNativeContract.RequiredSuffix.Length);
+        Array.Copy(ElevatedMoatNativeContract.DrawbridgeHeightFailurePrefix, 0, image,
+            writerOffset - ElevatedMoatNativeContract.DrawbridgeHeightFailurePrefix.Length,
+            ElevatedMoatNativeContract.DrawbridgeHeightFailurePrefix.Length);
+        Array.Copy(ElevatedMoatNativeContract.DrawbridgeHeightFailureWriterBytes, 0, image,
+            writerOffset, ElevatedMoatNativeContract.DrawbridgeHeightFailureWriterBytes.Length);
+        Array.Copy(ElevatedMoatNativeContract.DrawbridgeHeightFailureSuffix, 0, image,
+            writerOffset + ElevatedMoatNativeContract.DrawbridgeHeightFailureWriterLength,
+            ElevatedMoatNativeContract.DrawbridgeHeightFailureSuffix.Length);
 
-        ExpectNoThrow(() => ElevatedMoatNativeContract.Validate(image, writerOffset),
+        ExpectNoThrow(() => ElevatedMoatNativeContract.ValidateDrawbridgeHeightFailure(image, writerOffset),
             "complete native validation window");
         image[writerOffset - 1] ^= 1;
-        ExpectThrows(() => ElevatedMoatNativeContract.Validate(image, writerOffset),
+        ExpectThrows(() => ElevatedMoatNativeContract.ValidateDrawbridgeHeightFailure(image, writerOffset),
             "changed comparison branch fails closed");
     }
 
@@ -121,11 +133,12 @@ internal static class Program
         string sha256 = Convert.ToHexString(SHA256.HashData(file));
         Check(sha256 == ElevatedMoatNativeContract.ReferenceSha256, "canonical DLL SHA-256");
 
-        List<int> matches = FindAll(file, ElevatedMoatNativeContract.HeightWriterBytes);
-        Check(matches.Count == 1, "writer pattern occurs exactly once");
+        List<int> matches = FindAll(file, ElevatedMoatNativeContract.DrawbridgeHeightFailureWriterBytes);
+        Check(matches.Count == 1, "drawbridge writer pattern occurs exactly once");
         if (matches.Count == 1)
-            Check(FileOffsetToRva(file, matches[0]) == ElevatedMoatNativeContract.HeightWriterRva,
-                "unique writer maps to RVA 0x7870B");
+            Check(FileOffsetToRva(file, matches[0]) ==
+                ElevatedMoatNativeContract.DrawbridgeHeightFailureWriterRva,
+                "unique drawbridge writer maps to RVA 0x7870B");
 
         List<int> tileResultMatches = FindAll(
             file,
@@ -166,27 +179,30 @@ internal static class Program
             ElevatedMoatNativeContract.AivCreatePathRva),
             "changed AIV height gate fails closed");
 
-        List<int> humanResultMatches = FindAll(
+        List<int> drawbridgeResultMatches = FindAll(
             file,
-            ElevatedMoatNativeContract.HumanMoatWriterResultResolutionBytes);
-        Check(humanResultMatches.Count == 1, "human writer-result pattern occurs exactly once");
-        if (humanResultMatches.Count == 1)
-            Check(FileOffsetToRva(file, humanResultMatches[0]) ==
-                ElevatedMoatNativeContract.HumanMoatWriterResultRva,
-                "unique human writer result maps to RVA 0x73B24");
-        ExpectNoThrow(() => ElevatedMoatNativeContract.ValidateHumanMoatWriterResultHook(
+            ElevatedMoatNativeContract.DrawbridgeWriterResultResolutionBytes);
+        Check(drawbridgeResultMatches.Count == 1, "drawbridge writer-result pattern occurs exactly once");
+        if (drawbridgeResultMatches.Count == 1)
+            Check(FileOffsetToRva(file, drawbridgeResultMatches[0]) ==
+                ElevatedMoatNativeContract.DrawbridgeWriterResultRva,
+                "unique drawbridge writer result maps to RVA 0x73B24");
+        ExpectNoThrow(() => ElevatedMoatNativeContract.ValidateDrawbridgeWriterResultHook(
             image,
-            ElevatedMoatNativeContract.HumanMoatWriterResultRva),
-            "human writer CALL target, function boundary, and continuation");
-        byte[] changedHumanImage = (byte[])image.Clone();
-        changedHumanImage[ElevatedMoatNativeContract.HumanMoatWriterCallRva + 1] ^= 1;
-        ExpectThrows(() => ElevatedMoatNativeContract.ValidateHumanMoatWriterResultHook(
-            changedHumanImage,
-            ElevatedMoatNativeContract.HumanMoatWriterResultRva),
-            "changed human moat writer CALL target fails closed");
+            ElevatedMoatNativeContract.DrawbridgeWriterResultRva),
+            "drawbridge writer CALL target, function boundary, and continuation");
+        byte[] changedDrawbridgeImage = (byte[])image.Clone();
+        changedDrawbridgeImage[ElevatedMoatNativeContract.DrawbridgeWriterCallRva + 1] ^= 1;
+        ExpectThrows(() => ElevatedMoatNativeContract.ValidateDrawbridgeWriterResultHook(
+            changedDrawbridgeImage,
+            ElevatedMoatNativeContract.DrawbridgeWriterResultRva),
+            "changed drawbridge writer CALL target fails closed");
 
         CheckUniquePattern(file, ElevatedMoatNativeContract.SharedHeightGatePattern,
             ElevatedMoatNativeContract.SharedHeightGateRva, "shared editor/planning height gate");
+        CheckUniquePattern(file, ElevatedMoatNativeContract.MoatCommandHeightGatePattern,
+            ElevatedMoatNativeContract.MoatCommandHeightGateRva,
+            "MAPPER_MOAT/MAPPER_ANTIMOAT command height gate");
         CheckUniquePattern(file, ElevatedMoatNativeContract.AivCompletedHeightPattern,
             ElevatedMoatNativeContract.AivCompletedHeightRva, "AIV completed-moat height");
         CheckUniquePattern(file, ElevatedMoatNativeContract.ExcavationCompletedHeightPattern,
@@ -195,8 +211,10 @@ internal static class Program
             ElevatedMoatNativeContract.RebuildCompletedHeightRva, "rebuilt-moat height");
         CheckUniquePattern(file, ElevatedMoatNativeContract.DirectCompletedHeightPattern,
             ElevatedMoatNativeContract.DirectCompletedHeightRva, "direct completed-moat height");
-        CheckUniquePattern(file, ElevatedMoatNativeContract.GenericCompletedHeightPattern,
-            ElevatedMoatNativeContract.GenericCompletedHeightRva, "generic completed-moat height");
+        CheckUniquePattern(file, ElevatedMoatNativeContract.DrawbridgeCompletedHeightPattern,
+            ElevatedMoatNativeContract.DrawbridgeCompletedHeightRva, "completed-drawbridge height");
+        CheckUniquePattern(file, ElevatedMoatNativeContract.PlannedFillRestorePattern,
+            ElevatedMoatNativeContract.PlannedFillRestoreRva, "planned moat-fill height restoration");
         CheckUniquePattern(file, ElevatedMoatNativeContract.DirectRemovalHeightPattern,
             ElevatedMoatNativeContract.DirectRemovalHeightRva, "direct moat-removal height");
         ExpectNoThrow(() => ElevatedMoatNativeContract.ValidateAdaptiveHeightHooks(image),
@@ -205,6 +223,18 @@ internal static class Program
         changedAdaptiveImage[ElevatedMoatNativeContract.DirectCompletedHeightRva + 1] ^= 1;
         ExpectThrows(() => ElevatedMoatNativeContract.ValidateAdaptiveHeightHooks(changedAdaptiveImage),
             "changed adaptive-height block fails closed");
+        byte[] changedMoatMapperImage = (byte[])image.Clone();
+        changedMoatMapperImage[ElevatedMoatNativeContract.MoatCommandHeightGateRva + 17] ^= 1;
+        ExpectThrows(() => ElevatedMoatNativeContract.ValidateAdaptiveHeightHooks(changedMoatMapperImage),
+            "changed eMappers.MAPPER_MOAT immediate fails closed");
+        byte[] changedAntiMoatMapperImage = (byte[])image.Clone();
+        changedAntiMoatMapperImage[ElevatedMoatNativeContract.MoatCommandHeightGateRva + 0x6E] ^= 1;
+        ExpectThrows(() => ElevatedMoatNativeContract.ValidateAdaptiveHeightHooks(changedAntiMoatMapperImage),
+            "changed eMappers.MAPPER_ANTIMOAT immediate fails closed");
+        byte[] changedPlannedFillImage = (byte[])image.Clone();
+        changedPlannedFillImage[ElevatedMoatNativeContract.PlannedFillRestoreRva - 1] ^= 1;
+        ExpectThrows(() => ElevatedMoatNativeContract.ValidateAdaptiveHeightHooks(changedPlannedFillImage),
+            "changed planned-fill mode/flag prefix fails closed");
         TestInstalledRedBirdDisplacement(image);
     }
 
@@ -217,9 +247,12 @@ internal static class Program
             "installed RedBird displaces exactly 22 bytes at the AIV height gate");
         CheckRedBirdDisplacement(
             image,
-            ElevatedMoatNativeContract.HumanMoatWriterResultRva,
-            ElevatedMoatNativeContract.HumanMoatWriterResultLength,
-            "installed RedBird displaces exactly 15 bytes at the human result hook");
+            ElevatedMoatNativeContract.DrawbridgeWriterResultRva,
+            ElevatedMoatNativeContract.DrawbridgeWriterResultLength,
+            "installed RedBird displaces exactly 15 bytes at the drawbridge result hook");
+        CheckRedBirdDisplacement(image, ElevatedMoatNativeContract.MoatCommandHeightGateRva,
+            ElevatedMoatNativeContract.MoatCommandHeightGateLength,
+            "installed RedBird displaces exactly 14 bytes at the moat-command height gate");
         CheckRedBirdDisplacement(image, ElevatedMoatNativeContract.SharedHeightGateRva,
             ElevatedMoatNativeContract.SharedHeightGateLength,
             "installed RedBird displaces exactly 14 bytes at the shared height gate");
@@ -235,9 +268,12 @@ internal static class Program
         CheckRedBirdDisplacement(image, ElevatedMoatNativeContract.DirectCompletedHeightRva,
             ElevatedMoatNativeContract.DirectCompletedHeightLength,
             "installed RedBird displaces exactly 22 bytes at the direct height block");
-        CheckRedBirdDisplacement(image, ElevatedMoatNativeContract.GenericCompletedHeightRva,
-            ElevatedMoatNativeContract.GenericCompletedHeightLength,
-            "installed RedBird displaces exactly 17 bytes at the generic height block");
+        CheckRedBirdDisplacement(image, ElevatedMoatNativeContract.DrawbridgeCompletedHeightRva,
+            ElevatedMoatNativeContract.DrawbridgeCompletedHeightLength,
+            "installed RedBird displaces exactly 17 bytes at the drawbridge height block");
+        CheckRedBirdDisplacement(image, ElevatedMoatNativeContract.PlannedFillRestoreRva,
+            ElevatedMoatNativeContract.PlannedFillRestoreLength,
+            "installed RedBird displaces exactly 15 bytes at the planned moat-fill restoration block");
         CheckRedBirdDisplacement(image, ElevatedMoatNativeContract.DirectRemovalHeightRva,
             ElevatedMoatNativeContract.DirectRemovalHeightLength,
             "installed RedBird displaces exactly 16 bytes at the removal height block");
@@ -276,7 +312,8 @@ internal static class Program
         string project = File.ReadAllText(Path.Combine(modRoot, "ElevatedMoatTest.csproj"));
 
         Check(runtime.Contains("Registers = X64SmartCPUContextRegs.All"), "all GPRs are preserved");
-        Check(runtime.Contains("HookSize = ElevatedMoatNativeContract.HeightWriterLength"), "explicit hook size");
+        Check(runtime.Contains("HookSize = ElevatedMoatNativeContract.DrawbridgeHeightFailureWriterLength"),
+            "explicit drawbridge hook size");
         Check(runtime.Contains("Placement = OverwrittenInstructionPlacement.Suppress"), "writer is suppressed");
         Check(runtime.Contains("BuildingR3EventHooks.OnPlacementValidation.Observable") &&
             runtime.Contains("EventHookPhase.Pre") && runtime.Contains("EventHookPhase.Post"),
@@ -289,14 +326,18 @@ internal static class Program
             runtime.Contains("AIV_MOAT_CREATE_ATTEMPT"),
             "AIV height gate jumps to its audited creation path with diagnostics");
         Check(runtime.Contains("BuildingR3EventHooks.OnBuildStructure.Observable") &&
-            runtime.Contains("ObserveHumanMoatWriterResult") &&
-            runtime.Contains("MOAT_BUILD:"),
-            "human moat builder and writer result are diagnosed");
-        Check(runtime.Contains("args.Mappers != eMappers.MAPPER_MOAT") &&
-            !runtime.Contains("MAPPER_DRAWBRIDGE"),
-            "diagnostics remain restricted to moat placement");
-        Check(runtime.Contains("DisplacedByteCount != ElevatedMoatNativeContract.HeightWriterLength"),
-            "actual displaced length is checked");
+            runtime.Contains("ObserveDrawbridgeWriterResult") &&
+            runtime.Contains("DRAWBRIDGE_BUILD:") &&
+            runtime.Contains("args.Mappers != eMappers.MAPPER_DRAWBRIDGE"),
+            "the formerly misidentified structure path is named and filtered as drawbridge");
+        Check(runtime.Contains("eMappers.MAPPER_MOAT") &&
+            runtime.Contains("eMappers.MAPPER_ANTIMOAT") &&
+            runtime.Contains("GenerateMoatCommandHeightBypass") &&
+            runtime.Contains("foreach (Instruction instruction in overwrittenInstructions)"),
+            "actual moat planning and filling use Extender enum symbols with fail-closed Vanilla fallback");
+        Check(runtime.Contains("DisplacedByteCount !=") &&
+            runtime.Contains("ElevatedMoatNativeContract.DrawbridgeHeightFailureWriterLength"),
+            "actual drawbridge displaced length is checked");
         Check(runtime.Contains("tileValidationResultHook.Hook.DisplacedByteCount !=") &&
             runtime.Contains("ElevatedMoatNativeContract.TileValidationResultLength"),
             "actual tile-result displaced length is checked");
@@ -311,7 +352,9 @@ internal static class Program
             "diagnostics avoid an overlapping detour of the shared moat writer");
         Check(runtime.Contains("RequireInstalledHookLength(") &&
             runtime.Contains("ElevatedMoatNativeContract.AivHeightGateLength") &&
-            runtime.Contains("ElevatedMoatNativeContract.HumanMoatWriterResultLength"),
+            runtime.Contains("ElevatedMoatNativeContract.DrawbridgeWriterResultLength") &&
+            runtime.Contains("ElevatedMoatNativeContract.MoatCommandHeightGateLength") &&
+            runtime.Contains("ElevatedMoatNativeContract.PlannedFillRestoreLength"),
             "all new installed hook lengths are checked before activation");
         Check(runtime.Contains("SuppressSharedHeightGate") &&
             runtime.Contains("MOAT_NATIVE_ACTION:") &&
@@ -323,8 +366,23 @@ internal static class Program
             runtime.Contains("OverwrittenInstructionPlacement.BeforeCallback"),
             "completed moats use post-Vanilla adaptive height correction");
         Check(runtime.Contains("RestoreDirectRemovalHeight") &&
+            runtime.Contains("RestorePlannedFillHeight") &&
+            runtime.Contains("RestoreOriginalHeight") &&
             runtime.Contains("*current = defaultHeight"),
-            "direct moat removal restores the original terrain height");
+            "direct removal and MAPPER_ANTIMOAT filling restore the original terrain height");
+        Check(runtime.Contains("GameTileManagerAPI.MAX_WIDTH * GameTileManagerAPI.MAX_HEIGHT") &&
+            !runtime.Contains("tileId < 64000"),
+            "tile bounds derive from Script Extender dimensions instead of a moat-slot literal");
+        string nativeContract = File.ReadAllText(
+            Path.Combine(modRoot, "src", "ElevatedMoatNativeContract.cs"));
+        string forbiddenNumericMapperName = "Mapper" + "Moat";
+        Check(!nativeContract.Contains("const int " + forbiddenNumericMapperName) &&
+            !nativeContract.Contains(forbiddenNumericMapperName + " ="),
+            "a numeric mod-owned MapperMoat constant cannot be reintroduced");
+        Check(nativeContract.Contains("eMappers.MAPPER_DRAWBRIDGE") &&
+            nativeContract.Contains("eMappers.MAPPER_MOAT") &&
+            nativeContract.Contains("eMappers.MAPPER_ANTIMOAT"),
+            "native immediates are statically tied to Extender mapper symbols");
         Check(plugin.Contains("requireCurrentVersion: true") &&
             plugin.Contains("if (!referenceHashMatches)"), "native hash mismatch fails closed");
         Check(project.Contains(@"$(GameDir)\BepInEx\plugins\000shcdese") &&

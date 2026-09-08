@@ -25,8 +25,8 @@ namespace ElevatedMoatTest
         private readonly ManualLogSource log;
         private readonly HookTransaction transaction;
         private readonly IDisposable placementValidationSubscription;
-        private readonly IDisposable buildStructureSubscription;
-        private readonly HookHandle<X64InlineHook> heightFailureWriterHook =
+        private readonly IDisposable drawbridgeBuildSubscription;
+        private readonly HookHandle<X64InlineHook> drawbridgeHeightFailureWriterHook =
             new HookHandle<X64InlineHook>();
         private readonly HookHandle<X64InlineHook> tileValidationResultHook =
             new HookHandle<X64InlineHook>();
@@ -34,7 +34,9 @@ namespace ElevatedMoatTest
             new HookHandle<X64InlineHook>();
         private readonly HookHandle<X64InlineHook> aivCreatePathHook =
             new HookHandle<X64InlineHook>();
-        private readonly HookHandle<X64InlineHook> humanMoatWriterResultHook =
+        private readonly HookHandle<X64InlineHook> drawbridgeWriterResultHook =
+            new HookHandle<X64InlineHook>();
+        private readonly HookHandle<X64InlineHook> moatCommandHeightGateHook =
             new HookHandle<X64InlineHook>();
         private readonly HookHandle<X64InlineHook> sharedHeightGateHook =
             new HookHandle<X64InlineHook>();
@@ -46,7 +48,9 @@ namespace ElevatedMoatTest
             new HookHandle<X64InlineHook>();
         private readonly HookHandle<X64InlineHook> directCompletedHeightHook =
             new HookHandle<X64InlineHook>();
-        private readonly HookHandle<X64InlineHook> genericCompletedHeightHook =
+        private readonly HookHandle<X64InlineHook> drawbridgeCompletedHeightHook =
+            new HookHandle<X64InlineHook>();
+        private readonly HookHandle<X64InlineHook> plannedFillRestoreHook =
             new HookHandle<X64InlineHook>();
         private readonly HookHandle<X64InlineHook> directRemovalHeightHook =
             new HookHandle<X64InlineHook>();
@@ -58,7 +62,7 @@ namespace ElevatedMoatTest
         private int repeatedDiagnosticCount;
         private readonly object diagnosticLock = new object();
         private long validationSequence;
-        private long buildSequence;
+        private long drawbridgeBuildSequence;
         private int aivAttemptLogCount;
         private int nativeActionLogCount;
         private int adaptiveHeightLogCount;
@@ -71,7 +75,7 @@ namespace ElevatedMoatTest
         private static MoatValidationTrace currentMoatTrace;
 
         [ThreadStatic]
-        private static MoatBuildTrace currentMoatBuildTrace;
+        private static DrawbridgeBuildTrace currentDrawbridgeBuildTrace;
 
         internal ElevatedMoatOverride(
             ManualLogSource log,
@@ -95,13 +99,13 @@ namespace ElevatedMoatTest
             ReadOnlySpan<byte> memory = context.Memory;
             Shared.NativeResolution resolution = Shared.NativePatternResolver.ResolveUnique(
                 memory,
-                ElevatedMoatNativeContract.HeightWriterPattern,
-                ElevatedMoatNativeContract.HeightWriterRva,
+                ElevatedMoatNativeContract.DrawbridgeHeightFailureWriterPattern,
+                ElevatedMoatNativeContract.DrawbridgeHeightFailureWriterRva,
                 true,
-                "elevated-moat height failure writer",
+                "elevated-drawbridge height failure writer",
                 log);
-            if (resolution.Rva != ElevatedMoatNativeContract.HeightWriterRva)
-                throw new InvalidOperationException("The elevated-moat writer resolved outside its audited RVA.");
+            if (resolution.Rva != ElevatedMoatNativeContract.DrawbridgeHeightFailureWriterRva)
+                throw new InvalidOperationException("The elevated-drawbridge writer resolved outside its audited RVA.");
 
             Shared.NativeResolution tileResultResolution = Shared.NativePatternResolver.ResolveUnique(
                 memory,
@@ -127,13 +131,17 @@ namespace ElevatedMoatTest
                 true,
                 "AIV moat creation path",
                 log);
-            Shared.NativeResolution humanResultResolution = Shared.NativePatternResolver.ResolveUnique(
+            Shared.NativeResolution drawbridgeResultResolution = Shared.NativePatternResolver.ResolveUnique(
                 memory,
-                ElevatedMoatNativeContract.HumanMoatWriterResultPattern,
-                ElevatedMoatNativeContract.HumanMoatWriterResultRva,
+                ElevatedMoatNativeContract.DrawbridgeWriterResultPattern,
+                ElevatedMoatNativeContract.DrawbridgeWriterResultRva,
                 true,
-                "human moat writer result",
+                "drawbridge writer result",
                 log);
+            Shared.NativeResolution moatCommandGateResolution = ResolveAudited(
+                memory, ElevatedMoatNativeContract.MoatCommandHeightGatePattern,
+                ElevatedMoatNativeContract.MoatCommandHeightGateRva,
+                "MAPPER_MOAT/MAPPER_ANTIMOAT command height gate", log);
             Shared.NativeResolution sharedGateResolution = ResolveAudited(
                 memory, ElevatedMoatNativeContract.SharedHeightGatePattern,
                 ElevatedMoatNativeContract.SharedHeightGateRva, "shared moat height gate", log);
@@ -149,36 +157,41 @@ namespace ElevatedMoatTest
             Shared.NativeResolution directHeightResolution = ResolveAudited(
                 memory, ElevatedMoatNativeContract.DirectCompletedHeightPattern,
                 ElevatedMoatNativeContract.DirectCompletedHeightRva, "direct completed-moat height", log);
-            Shared.NativeResolution genericHeightResolution = ResolveAudited(
-                memory, ElevatedMoatNativeContract.GenericCompletedHeightPattern,
-                ElevatedMoatNativeContract.GenericCompletedHeightRva, "generic completed-moat height", log);
+            Shared.NativeResolution drawbridgeHeightResolution = ResolveAudited(
+                memory, ElevatedMoatNativeContract.DrawbridgeCompletedHeightPattern,
+                ElevatedMoatNativeContract.DrawbridgeCompletedHeightRva,
+                "completed-drawbridge height", log);
+            Shared.NativeResolution plannedFillResolution = ResolveAudited(
+                memory, ElevatedMoatNativeContract.PlannedFillRestorePattern,
+                ElevatedMoatNativeContract.PlannedFillRestoreRva,
+                "planned moat-fill height restoration", log);
             Shared.NativeResolution removalHeightResolution = ResolveAudited(
                 memory, ElevatedMoatNativeContract.DirectRemovalHeightPattern,
                 ElevatedMoatNativeContract.DirectRemovalHeightRva, "direct moat-removal height", log);
             if (aivGateResolution.Rva != ElevatedMoatNativeContract.AivHeightGateRva ||
                 aivCreateResolution.Rva != ElevatedMoatNativeContract.AivCreatePathRva ||
-                humanResultResolution.Rva != ElevatedMoatNativeContract.HumanMoatWriterResultRva)
+                drawbridgeResultResolution.Rva != ElevatedMoatNativeContract.DrawbridgeWriterResultRva)
             {
                 throw new InvalidOperationException("A new elevated-moat hook resolved outside its audited RVA.");
             }
 
-            ElevatedMoatNativeContract.Validate(memory, resolution.Rva);
+            ElevatedMoatNativeContract.ValidateDrawbridgeHeightFailure(memory, resolution.Rva);
             ElevatedMoatNativeContract.ValidateTileValidationResultHook(memory, tileResultResolution.Rva);
             ElevatedMoatNativeContract.ValidateAivHooks(
                 memory,
                 aivGateResolution.Rva,
                 aivCreateResolution.Rva);
-            ElevatedMoatNativeContract.ValidateHumanMoatWriterResultHook(
+            ElevatedMoatNativeContract.ValidateDrawbridgeWriterResultHook(
                 memory,
-                humanResultResolution.Rva);
+                drawbridgeResultResolution.Rva);
             ElevatedMoatNativeContract.ValidateAdaptiveHeightHooks(memory);
             ulong imageBase = unchecked((ulong)context.ModuleHandle.ToInt64());
             using (var probe = new X64InlineHook(
                 imageBase + unchecked((ulong)resolution.Rva),
-                ElevatedMoatNativeContract.HeightWriterLength))
+                ElevatedMoatNativeContract.DrawbridgeHeightFailureWriterLength))
             {
-                if (probe.DisplacedByteCount != ElevatedMoatNativeContract.HeightWriterLength)
-                    throw new InvalidOperationException("Unexpected RedBird elevated-moat writer span before installation.");
+                if (probe.DisplacedByteCount != ElevatedMoatNativeContract.DrawbridgeHeightFailureWriterLength)
+                    throw new InvalidOperationException("Unexpected RedBird elevated-drawbridge writer span before installation.");
             }
             using (var probe = new X64InlineHook(
                 imageBase + unchecked((ulong)tileResultResolution.Rva),
@@ -199,9 +212,12 @@ namespace ElevatedMoatTest
                 "AIV moat creation path");
             ProbeExactHookLength(
                 imageBase,
-                humanResultResolution.Rva,
-                ElevatedMoatNativeContract.HumanMoatWriterResultLength,
-                "human moat writer result");
+                drawbridgeResultResolution.Rva,
+                ElevatedMoatNativeContract.DrawbridgeWriterResultLength,
+                "drawbridge writer result");
+            ProbeExactHookLength(imageBase, moatCommandGateResolution.Rva,
+                ElevatedMoatNativeContract.MoatCommandHeightGateLength,
+                "MAPPER_MOAT/MAPPER_ANTIMOAT command height gate");
             ProbeExactHookLength(imageBase, sharedGateResolution.Rva,
                 ElevatedMoatNativeContract.SharedHeightGateLength, "shared moat height gate");
             ProbeExactHookLength(imageBase, aivHeightResolution.Rva,
@@ -212,8 +228,12 @@ namespace ElevatedMoatTest
                 ElevatedMoatNativeContract.RebuildCompletedHeightLength, "rebuilt-moat height");
             ProbeExactHookLength(imageBase, directHeightResolution.Rva,
                 ElevatedMoatNativeContract.DirectCompletedHeightLength, "direct completed-moat height");
-            ProbeExactHookLength(imageBase, genericHeightResolution.Rva,
-                ElevatedMoatNativeContract.GenericCompletedHeightLength, "generic completed-moat height");
+            ProbeExactHookLength(imageBase, drawbridgeHeightResolution.Rva,
+                ElevatedMoatNativeContract.DrawbridgeCompletedHeightLength,
+                "completed-drawbridge height");
+            ProbeExactHookLength(imageBase, plannedFillResolution.Rva,
+                ElevatedMoatNativeContract.PlannedFillRestoreLength,
+                "planned moat-fill height restoration");
             ProbeExactHookLength(imageBase, removalHeightResolution.Rva,
                 ElevatedMoatNativeContract.DirectRemovalHeightLength, "direct moat-removal height");
 
@@ -231,14 +251,14 @@ namespace ElevatedMoatTest
                         OwnsHooks = true
                     });
                 pending.AddContextHook(
-                    heightFailureWriterHook,
+                    drawbridgeHeightFailureWriterHook,
                     HookTarget.FromAddress(imageBase + unchecked((ulong)resolution.Rva)),
-                    SuppressHeightFailureWriter,
+                    SuppressDrawbridgeHeightFailureWriter,
                     new ContextHookOptions
                     {
                         // The managed callback must preserve every live GPR around this validator path.
                         Registers = X64SmartCPUContextRegs.All,
-                        HookSize = ElevatedMoatNativeContract.HeightWriterLength,
+                        HookSize = ElevatedMoatNativeContract.DrawbridgeHeightFailureWriterLength,
                         ErrorMode = CallbackErrorMode.LogAndContinue,
                         Placement = OverwrittenInstructionPlacement.Suppress
                     });
@@ -275,17 +295,22 @@ namespace ElevatedMoatTest
                         Placement = OverwrittenInstructionPlacement.AfterCallback
                     });
                 pending.AddContextHook(
-                    humanMoatWriterResultHook,
-                    HookTarget.FromAddress(imageBase + unchecked((ulong)humanResultResolution.Rva)),
-                    ObserveHumanMoatWriterResult,
+                    drawbridgeWriterResultHook,
+                    HookTarget.FromAddress(imageBase + unchecked((ulong)drawbridgeResultResolution.Rva)),
+                    ObserveDrawbridgeWriterResult,
                     new ContextHookOptions
                     {
                         Registers = X64SmartCPUContextRegs.All,
-                        HookSize = ElevatedMoatNativeContract.HumanMoatWriterResultLength,
+                        HookSize = ElevatedMoatNativeContract.DrawbridgeWriterResultLength,
                         ErrorMode = CallbackErrorMode.LogAndContinue,
                         // RAX still contains FUN_180059210's result before the displaced AND/XOR.
                         Placement = OverwrittenInstructionPlacement.AfterCallback
                     });
+                pending.AddInline(
+                    moatCommandHeightGateHook,
+                    HookTarget.FromAddress(imageBase + unchecked((ulong)moatCommandGateResolution.Rva)),
+                    GenerateMoatCommandHeightBypass,
+                    hookSize: ElevatedMoatNativeContract.MoatCommandHeightGateLength);
                 pending.AddContextHook(
                     sharedHeightGateHook,
                     HookTarget.FromAddress(imageBase + unchecked((ulong)sharedGateResolution.Rva)),
@@ -312,10 +337,15 @@ namespace ElevatedMoatTest
                     ApplyDirectCompletedHeight,
                     CorrectingContextOptions(ElevatedMoatNativeContract.DirectCompletedHeightLength));
                 pending.AddContextHook(
-                    genericCompletedHeightHook,
-                    HookTarget.FromAddress(imageBase + unchecked((ulong)genericHeightResolution.Rva)),
-                    ApplyGenericCompletedHeight,
-                    CorrectingContextOptions(ElevatedMoatNativeContract.GenericCompletedHeightLength));
+                    drawbridgeCompletedHeightHook,
+                    HookTarget.FromAddress(imageBase + unchecked((ulong)drawbridgeHeightResolution.Rva)),
+                    ApplyDrawbridgeCompletedHeight,
+                    CorrectingContextOptions(ElevatedMoatNativeContract.DrawbridgeCompletedHeightLength));
+                pending.AddContextHook(
+                    plannedFillRestoreHook,
+                    HookTarget.FromAddress(imageBase + unchecked((ulong)plannedFillResolution.Rva)),
+                    RestorePlannedFillHeight,
+                    CorrectingContextOptions(ElevatedMoatNativeContract.PlannedFillRestoreLength));
                 pending.AddContextHook(
                     directRemovalHeightHook,
                     HookTarget.FromAddress(imageBase + unchecked((ulong)removalHeightResolution.Rva)),
@@ -324,21 +354,27 @@ namespace ElevatedMoatTest
 
                 CommitResult result = pending.Commit();
                 if (!result.IsCompleteSuccess ||
-                    !heightFailureWriterHook.Success ||
+                    !drawbridgeHeightFailureWriterHook.Success ||
                     !tileValidationResultHook.Success ||
                     !aivHeightGateHook.Success ||
                     !aivCreatePathHook.Success ||
-                    !humanMoatWriterResultHook.Success ||
+                    !drawbridgeWriterResultHook.Success ||
+                    !moatCommandHeightGateHook.Success ||
                     !sharedHeightGateHook.Success ||
                     !aivCompletedHeightHook.Success ||
                     !excavationCompletedHeightHook.Success ||
                     !rebuildCompletedHeightHook.Success ||
                     !directCompletedHeightHook.Success ||
-                    !genericCompletedHeightHook.Success ||
+                    !drawbridgeCompletedHeightHook.Success ||
+                    !plannedFillRestoreHook.Success ||
                     !directRemovalHeightHook.Success)
                     throw new InvalidOperationException($"The elevated-moat hook transaction was incomplete: {result}.");
-                if (heightFailureWriterHook.Hook.DisplacedByteCount != ElevatedMoatNativeContract.HeightWriterLength)
-                    throw new InvalidOperationException("Unexpected installed elevated-moat overwrite length; rolling back.");
+                if (drawbridgeHeightFailureWriterHook.Hook.DisplacedByteCount !=
+                    ElevatedMoatNativeContract.DrawbridgeHeightFailureWriterLength)
+                {
+                    throw new InvalidOperationException(
+                        "Unexpected installed elevated-drawbridge overwrite length; rolling back.");
+                }
                 if (tileValidationResultHook.Hook.DisplacedByteCount !=
                     ElevatedMoatNativeContract.TileValidationResultLength)
                 {
@@ -354,9 +390,12 @@ namespace ElevatedMoatTest
                     ElevatedMoatNativeContract.AivCreatePathLength,
                     "AIV moat creation path");
                 RequireInstalledHookLength(
-                    humanMoatWriterResultHook,
-                    ElevatedMoatNativeContract.HumanMoatWriterResultLength,
-                    "human moat writer result");
+                    drawbridgeWriterResultHook,
+                    ElevatedMoatNativeContract.DrawbridgeWriterResultLength,
+                    "drawbridge writer result");
+                RequireInstalledHookLength(moatCommandHeightGateHook,
+                    ElevatedMoatNativeContract.MoatCommandHeightGateLength,
+                    "MAPPER_MOAT/MAPPER_ANTIMOAT command height gate");
                 RequireInstalledHookLength(sharedHeightGateHook,
                     ElevatedMoatNativeContract.SharedHeightGateLength, "shared moat height gate");
                 RequireInstalledHookLength(aivCompletedHeightHook,
@@ -367,31 +406,37 @@ namespace ElevatedMoatTest
                     ElevatedMoatNativeContract.RebuildCompletedHeightLength, "rebuilt-moat height");
                 RequireInstalledHookLength(directCompletedHeightHook,
                     ElevatedMoatNativeContract.DirectCompletedHeightLength, "direct completed-moat height");
-                RequireInstalledHookLength(genericCompletedHeightHook,
-                    ElevatedMoatNativeContract.GenericCompletedHeightLength, "generic completed-moat height");
+                RequireInstalledHookLength(drawbridgeCompletedHeightHook,
+                    ElevatedMoatNativeContract.DrawbridgeCompletedHeightLength,
+                    "completed-drawbridge height");
+                RequireInstalledHookLength(plannedFillRestoreHook,
+                    ElevatedMoatNativeContract.PlannedFillRestoreLength,
+                    "planned moat-fill height restoration");
                 RequireInstalledHookLength(directRemovalHeightHook,
                     ElevatedMoatNativeContract.DirectRemovalHeightLength, "direct moat-removal height");
 
                 pendingSubscription = BuildingR3EventHooks.OnPlacementValidation.Observable
                     .Subscribe(ObservePlacementValidation);
                 pendingBuildSubscription = BuildingR3EventHooks.OnBuildStructure.Observable
-                    .Subscribe(ObserveBuildStructure);
+                    .Subscribe(ObserveDrawbridgeBuildStructure);
 
                 Shared.DebugLogHelper.LogWarning(
                     log,
                     $"Elevated Moat Test active for all players with diagnostics: " +
-                    $"heightWriterRva=0x{resolution.Rva:X}, heightHookLength={heightFailureWriterHook.Hook.DisplacedByteCount}, " +
+                    $"drawbridgeHeightWriterRva=0x{resolution.Rva:X}, drawbridgeHeightHookLength={drawbridgeHeightFailureWriterHook.Hook.DisplacedByteCount}, " +
                     $"tileResultRva=0x{tileResultResolution.Rva:X}, tileResultHookLength={tileValidationResultHook.Hook.DisplacedByteCount}, " +
                     $"aivGateRva=0x{aivGateResolution.Rva:X}, aivGateHookLength={aivHeightGateHook.Hook.DisplacedByteCount}, " +
                     $"aivCreateRva=0x{aivCreateResolution.Rva:X}, aivCreateHookLength={aivCreatePathHook.Hook.DisplacedByteCount}, " +
-                    $"humanResultRva=0x{humanResultResolution.Rva:X}, humanResultHookLength={humanMoatWriterResultHook.Hook.DisplacedByteCount}, " +
+                    $"drawbridgeResultRva=0x{drawbridgeResultResolution.Rva:X}, drawbridgeResultHookLength={drawbridgeWriterResultHook.Hook.DisplacedByteCount}, " +
+                    $"moatCommandGateRva=0x{moatCommandGateResolution.Rva:X}, " +
                     $"sharedGateRva=0x{sharedGateResolution.Rva:X}, adaptiveDepth={ElevatedMoatNativeContract.MoatDepth}, " +
-                    $"mapperMoat={ElevatedMoatNativeContract.MapperMoat}, " +
+                    $"mapperDrawbridge={eMappers.MAPPER_DRAWBRIDGE}, mapperMoat={eMappers.MAPPER_MOAT}, " +
+                    $"mapperAntiMoat={eMappers.MAPPER_ANTIMOAT}, " +
                     $"vanillaMaximumHeight={ElevatedMoatNativeContract.MaximumVanillaTerrainHeight}.");
 
                 transaction = pending;
                 placementValidationSubscription = pendingSubscription;
-                buildStructureSubscription = pendingBuildSubscription;
+                drawbridgeBuildSubscription = pendingBuildSubscription;
                 pending = null;
                 pendingSubscription = null;
                 pendingBuildSubscription = null;
@@ -416,7 +461,7 @@ namespace ElevatedMoatTest
 
         public void Dispose()
         {
-            buildStructureSubscription?.Dispose();
+            drawbridgeBuildSubscription?.Dispose();
             placementValidationSubscription?.Dispose();
             transaction?.Dispose();
         }
@@ -517,9 +562,26 @@ namespace ElevatedMoatTest
             ApplyCompletedHeightFromManager(
                 context, context.Pointer->RDI, unchecked((long)context.Pointer->RBX), "direct");
 
-        private void ApplyGenericCompletedHeight(NativePointer<X64SmartCPUContext> context) =>
+        private void ApplyDrawbridgeCompletedHeight(NativePointer<X64SmartCPUContext> context) =>
             ApplyCompletedHeightFromManager(
-                context, context.Pointer->RBX, unchecked((long)context.Pointer->R14), "generic");
+                context, context.Pointer->RBX, unchecked((long)context.Pointer->R14), "drawbridge");
+
+        private void RestorePlannedFillHeight(NativePointer<X64SmartCPUContext> context)
+        {
+            try
+            {
+                ulong managerAddress = context.Pointer->RDI;
+                long tileId = unchecked((long)context.Pointer->RBX);
+                if (!IsValidTileId(tileId))
+                    throw new InvalidOperationException($"Invalid planned moat-fill tile ID {tileId}.");
+
+                RestoreOriginalHeight(managerAddress, tileId, "planned-fill");
+            }
+            catch (Exception exception)
+            {
+                LogCallbackFailureOnce("planned moat-fill height", exception);
+            }
+        }
 
         private void RestoreDirectRemovalHeight(NativePointer<X64SmartCPUContext> context)
         {
@@ -530,18 +592,23 @@ namespace ElevatedMoatTest
                 if (!IsValidTileId(tileId))
                     throw new InvalidOperationException($"Invalid moat-removal tile ID {tileId}.");
 
-                byte* current = (byte*)(managerAddress + (ulong)tileId +
-                    ElevatedMoatNativeContract.TileHeightGridOffset);
-                byte defaultHeight = *((byte*)(managerAddress + (ulong)tileId +
-                    ElevatedMoatNativeContract.TileDefaultHeightGridOffset));
-                byte vanillaHeight = *current;
-                *current = defaultHeight;
-                LogAdaptiveHeight("removal", tileId.ToString(), defaultHeight, vanillaHeight, defaultHeight);
+                RestoreOriginalHeight(managerAddress, tileId, "direct-removal");
             }
             catch (Exception exception)
             {
                 LogCallbackFailureOnce("direct moat-removal height", exception);
             }
+        }
+
+        private void RestoreOriginalHeight(ulong managerAddress, long tileId, string source)
+        {
+            byte* current = (byte*)(managerAddress + (ulong)tileId +
+                ElevatedMoatNativeContract.TileHeightGridOffset);
+            byte defaultHeight = *((byte*)(managerAddress + (ulong)tileId +
+                ElevatedMoatNativeContract.TileDefaultHeightGridOffset));
+            byte vanillaHeight = *current;
+            *current = defaultHeight;
+            LogAdaptiveHeight(source, tileId.ToString(), defaultHeight, vanillaHeight, defaultHeight);
         }
 
         private void ApplyCompletedHeightFromManager(
@@ -602,7 +669,8 @@ namespace ElevatedMoatTest
                 $"diagnosticLog={logNumber}/{MaximumAdaptiveHeightLogs}.");
         }
 
-        private static bool IsValidTileId(long tileId) => tileId >= 0 && tileId < 64000;
+        private static bool IsValidTileId(long tileId) =>
+            tileId >= 0 && tileId < GameTileManagerAPI.MAX_WIDTH * GameTileManagerAPI.MAX_HEIGHT;
 
         private static string GetNativeMoatMode(int mode)
         {
@@ -645,6 +713,43 @@ namespace ElevatedMoatTest
                 throw new InvalidOperationException(
                     $"Unexpected installed {description} overwrite length; rolling back.");
             }
+        }
+
+        private static void GenerateMoatCommandHeightBypass(
+            Assembler assembler,
+            ReadOnlySpan<Instruction> overwrittenInstructions,
+            ulong returnAddress)
+        {
+            if (overwrittenInstructions.Length != 2 ||
+                overwrittenInstructions[0].Length != 8 ||
+                overwrittenInstructions[1].Length != 6 ||
+                overwrittenInstructions[0].Mnemonic != Mnemonic.Cmp ||
+                overwrittenInstructions[0].MemoryBase != Register.RBX ||
+                overwrittenInstructions[0].MemoryIndex != Register.RDI ||
+                overwrittenInstructions[0].MemoryDisplacement64 !=
+                    ElevatedMoatNativeContract.TileHeightGridOffset ||
+                overwrittenInstructions[0].Immediate8 !=
+                    ElevatedMoatNativeContract.MaximumVanillaTerrainHeight ||
+                overwrittenInstructions[1].Mnemonic != Mnemonic.Ja ||
+                returnAddress != overwrittenInstructions[1].NextIP)
+            {
+                throw new InvalidOperationException("The moat-command height-gate instruction contract differs.");
+            }
+
+            Label bypassHeightGate = assembler.CreateLabel("moatCommandBypassHeightGate");
+            assembler.cmp(r14d, (int)eMappers.MAPPER_MOAT);
+            assembler.je(bypassHeightGate);
+            assembler.cmp(r14d, (int)eMappers.MAPPER_ANTIMOAT);
+            assembler.je(bypassHeightGate);
+
+            // Preserve Vanilla for every unexpected caller. Both continuations recalculate
+            // flags immediately, and this block does not alter any live GPR or XMM state.
+            foreach (Instruction instruction in overwrittenInstructions)
+                assembler.AddInstruction(instruction);
+            assembler.AddUnrestrictedJmp(returnAddress);
+
+            assembler.Label(ref bypassHeightGate);
+            assembler.AddUnrestrictedJmp(returnAddress);
         }
 
         private static void GenerateAivHeightBypass(
@@ -701,11 +806,11 @@ namespace ElevatedMoatTest
             }
         }
 
-        private void ObserveHumanMoatWriterResult(NativePointer<X64SmartCPUContext> context)
+        private void ObserveDrawbridgeWriterResult(NativePointer<X64SmartCPUContext> context)
         {
             try
             {
-                MoatBuildTrace trace = currentMoatBuildTrace;
+                DrawbridgeBuildTrace trace = currentDrawbridgeBuildTrace;
                 if (trace == null)
                     return;
 
@@ -717,22 +822,22 @@ namespace ElevatedMoatTest
             }
             catch (Exception exception)
             {
-                LogCallbackFailureOnce("human moat writer result", exception);
+                LogCallbackFailureOnce("drawbridge writer result", exception);
             }
         }
 
-        private void ObserveBuildStructure(BuildStructureEventArgs args)
+        private void ObserveDrawbridgeBuildStructure(BuildStructureEventArgs args)
         {
-            if (args == null || args.Mappers != eMappers.MAPPER_MOAT)
+            if (args == null || args.Mappers != eMappers.MAPPER_DRAWBRIDGE)
                 return;
 
             try
             {
                 if (args.Phase == EventHookPhase.Pre)
                 {
-                    currentMoatBuildTrace = new MoatBuildTrace
+                    currentDrawbridgeBuildTrace = new DrawbridgeBuildTrace
                     {
-                        Sequence = Interlocked.Increment(ref buildSequence),
+                        Sequence = Interlocked.Increment(ref drawbridgeBuildSequence),
                         PlayerId = args.PlayerId,
                         TileX = args.TileX,
                         TileY = args.TileY,
@@ -744,31 +849,31 @@ namespace ElevatedMoatTest
                 if (args.Phase != EventHookPhase.Post)
                     return;
 
-                MoatBuildTrace trace = currentMoatBuildTrace ?? new MoatBuildTrace
+                DrawbridgeBuildTrace trace = currentDrawbridgeBuildTrace ?? new DrawbridgeBuildTrace
                 {
-                    Sequence = Interlocked.Increment(ref buildSequence),
+                    Sequence = Interlocked.Increment(ref drawbridgeBuildSequence),
                     PlayerId = args.PlayerId,
                     TileX = args.TileX,
                     TileY = args.TileY,
                     Height = TryGetTileHeight(args.TileX, args.TileY)
                 };
-                currentMoatBuildTrace = null;
+                currentDrawbridgeBuildTrace = null;
 
                 Shared.DebugLogHelper.LogWarning(
                     log,
-                    $"MOAT_BUILD: sequence={trace.Sequence}, playerId={trace.PlayerId}, " +
+                    $"DRAWBRIDGE_BUILD: sequence={trace.Sequence}, playerId={trace.PlayerId}, " +
                     $"playerKind={GetPlayerKind(trace.PlayerId)}, tile={trace.TileX},{trace.TileY}, " +
                     $"height={trace.Height}, builderReached=true, nativeWriterCalls={trace.NativeWriterCallCount}, " +
                     $"firstSlotResult={trace.FirstNativeSlotResult}, lastSlotResult={trace.LastNativeSlotResult}.");
             }
             catch (Exception exception)
             {
-                currentMoatBuildTrace = null;
+                currentDrawbridgeBuildTrace = null;
                 if (Interlocked.Exchange(ref eventFailureLogged, 1) == 0)
                 {
                     Shared.DebugLogHelper.LogError(
                         log,
-                        $"Elevated Moat Test build-event diagnostics failed: {exception}");
+                        $"Elevated Moat Test drawbridge build-event diagnostics failed: {exception}");
                 }
             }
         }
@@ -801,7 +906,7 @@ namespace ElevatedMoatTest
             }
         }
 
-        private void SuppressHeightFailureWriter(NativePointer<X64SmartCPUContext> context)
+        private void SuppressDrawbridgeHeightFailureWriter(NativePointer<X64SmartCPUContext> context)
         {
             // Suppression itself is performed by RedBird. This observer never writes native state,
             // so validation failures already set by earlier Vanilla rules remain untouched.
@@ -810,19 +915,11 @@ namespace ElevatedMoatTest
                 int playerId = unchecked((int)context.Pointer->RBP);
                 int maximumHeight = *(int*)(context.Pointer->RBX +
                     ElevatedMoatNativeContract.MaximumFootprintHeightOffset);
-                MoatValidationTrace trace = currentMoatTrace;
-                if (trace != null)
-                {
-                    trace.ManagerAddress = context.Pointer->RBX;
-                    trace.HeightSuppressed = true;
-                    trace.MaximumHeightAtSuppression = maximumHeight;
-                    trace.HeightSuppressionCount++;
-                }
                 if (Interlocked.Exchange(ref firstInterventionLogged, 1) == 0)
                 {
                     Shared.DebugLogHelper.LogWarning(
                         log,
-                        $"Elevated moat height block suppressed for the first time: " +
+                        $"Elevated drawbridge height block suppressed for the first time: " +
                         $"playerId={playerId}, maximumHeight={maximumHeight}.");
                 }
             }
@@ -832,7 +929,7 @@ namespace ElevatedMoatTest
                 {
                     Shared.DebugLogHelper.LogError(
                         log,
-                        $"Elevated Moat Test first-hit diagnostics failed; suppression remains active: {exception}");
+                        $"Elevated Moat Test drawbridge first-hit diagnostics failed; suppression remains active: {exception}");
                 }
             }
         }
@@ -950,7 +1047,7 @@ namespace ElevatedMoatTest
                         : "low";
 
             string fingerprint =
-                $"{playerKind}|{heightClass}|{trace.HeightSuppressed}|{status}|{reason}|" +
+                $"{playerKind}|{heightClass}|{status}|{reason}|" +
                 $"{trace.TileValidationCount}|{trace.TileRejectionCount}|" +
                 $"{trace.FirstTileRejectionResult}|{trace.LastTileRejectionResult}";
             int repeatedBeforeThis;
@@ -974,8 +1071,6 @@ namespace ElevatedMoatTest
                 log,
                 $"MOAT_VALIDATION: sequence={trace.Sequence}, playerId={trace.PlayerId}, playerKind={playerKind}, " +
                 $"originTile={trace.TileX},{trace.TileY}, unknown1={trace.Unknown1}, unknown2={trace.Unknown2}, " +
-                $"heightSuppressed={trace.HeightSuppressed}, suppressionCount={trace.HeightSuppressionCount}, " +
-                $"heightAtSuppression={trace.MaximumHeightAtSuppression}, " +
                 $"heightRange={minimumHeight}..{maximumHeight}, effectiveMinimumHeight={effectiveMinimumHeight}, " +
                 $"finalStatus={status}, finalReason={reason}, tileChecks={trace.TileValidationCount}, " +
                 $"tileRejections={trace.TileRejectionCount}, " +
@@ -1005,9 +1100,6 @@ namespace ElevatedMoatTest
             internal int Unknown1;
             internal byte Unknown2;
             internal ulong ManagerAddress;
-            internal bool HeightSuppressed;
-            internal int HeightSuppressionCount;
-            internal int MaximumHeightAtSuppression = -1;
             internal int TileValidationCount;
             internal int TileRejectionCount;
             internal bool HasFirstTileRejection;
@@ -1019,7 +1111,7 @@ namespace ElevatedMoatTest
             internal int LastTileRejectionResult = -1;
         }
 
-        private sealed class MoatBuildTrace
+        private sealed class DrawbridgeBuildTrace
         {
             internal long Sequence;
             internal int PlayerId;

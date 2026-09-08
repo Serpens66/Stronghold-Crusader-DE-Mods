@@ -13,6 +13,7 @@
     <Compile Include="..\src\ElevatedMoatNativeContract.cs" Link="ElevatedMoatNativeContract.cs" />
   </ItemGroup>
   <ItemGroup>
+    <Reference Include="SHCDESE"><HintPath>$(ExtenderDir)\SHCDESE.dll</HintPath></Reference>
     <Reference Include="Iced"><HintPath>$(ExtenderDir)\Iced.dll</HintPath></Reference>
     <Reference Include="RedBird.Abstractions"><HintPath>$(ExtenderDir)\RedBird.Abstractions.dll</HintPath></Reference>
     <Reference Include="RedBird.Core"><HintPath>$(ExtenderDir)\RedBird.Core.dll</HintPath></Reference>
