@@ -1,0 +1,20 @@
+{
+  "GUID": "KnightArmorAIBuyFixBackup_Serp",
+  "Author": "Serpens66",
+  "Name": "Knight Armor AI Buy Fix Backup",
+  "Description": "Standalone backup of the shared European-recruitment missing-good initialization used to investigate AI knight purchases after horse-only failures.",
+  "Version": "0.1.0",
+  "MinimumScriptExtenderVersion": "2.3.0",
+  "MaximumScriptExtenderVersion": "",
+  "Manifest": 1,
+  "NetworkMode": 1,
+  "SerpChangelog": [
+    {
+      "Version": "0.1.0",
+      "Changes": [
+        "Extracted the always-on shared recruitment-entry fix from Bugfixes and QoL as a private backup/test mod.",
+        "Uses eGoods.STORED_NULL and covers every caller of European troop recruitment without consumer-specific good ranges."
+      ]
+    }
+  ]
+}

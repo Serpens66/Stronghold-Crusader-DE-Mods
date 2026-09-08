@@ -34,7 +34,6 @@ namespace BugfixesAndQoL
             TestAiDefensePatrolPolicy();
             TestAiDefensePatrolIntegration();
             TestAiWallTargetingIntegration();
-            TestAiRecruitmentHorseDemandContract();
             TestAIResourceShortageSleepPolicy();
             TestAIResourceShortageSleepIntegration();
             TestTemporaryGateBlockagePolicy();
@@ -162,20 +161,6 @@ namespace BugfixesAndQoL
             Check(xaml.Contains("EnableTunnelPlacementDistanceFix, Mode=TwoWay") &&
                     xaml.Contains("bugfixes.enable-tunnel-placement-distance-fix"),
                 "tunnel distance fix is exposed in the settings UI");
-        }
-
-        private static void TestAiRecruitmentHorseDemandContract()
-        {
-            Check(Marshal.OffsetOf(typeof(GameUnitManager), nameof(GameUnitManager.r_RecruitmentResultFailureReason)).ToInt32() == 0x650,
-                "GameUnitManager recruitment failure offset matches the manifest-selected Script Extender");
-            Check(Marshal.OffsetOf(typeof(GameUnitManager), nameof(GameUnitManager.r_RecruitmentResultMissingGoodId)).ToInt32() == 0x654,
-                "GameUnitManager missing-good offset matches the manifest-selected Script Extender");
-            Check(Marshal.OffsetOf(typeof(GameUnitManager), nameof(GameUnitManager.EmptyUnitFillValue)).ToInt32() == 0x658,
-                "GameUnitManager empty-fill offset matches the manifest-selected Script Extender");
-            Check(Marshal.OffsetOf(typeof(GameUnitManager), nameof(GameUnitManager.LastOrderedUnit)).ToInt32() == 0x65C,
-                "GameUnitManager LastOrderedUnit offset remains stable");
-            Check(Marshal.SizeOf(typeof(GameUnitManager)) == 0xF7C,
-                "GameUnitManager total layout remains stable");
         }
 
         private static void TestFriendlyMoatMovementPolicy()

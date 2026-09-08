@@ -22,10 +22,18 @@ internal static class Program
     private const int TrailSentinel = 900002;
     private const int AuthoritativeTrailSentinel = 900003;
 
-    private static int Main()
+    private static int Main(string[] args)
     {
         try
         {
+            if (args != null && args.Length == 1 &&
+                string.Equals(args[0], "temporary-gate-blockage", StringComparison.OrdinalIgnoreCase))
+            {
+                TestTemporaryGateBlockagePolicy();
+                Console.WriteLine("PASS: current TemporaryGateBlockagePolicy contract.");
+                return 0;
+            }
+
             FearFactorPresetTests.Run();
             TestLobbySettingsRouting();
             TestSharedPerPlayerLobbyConvergence();
@@ -66,7 +74,6 @@ internal static class Program
             TestBoundedSaveStateDeserialization();
             TestPlagueFlagDiseaseRegistry();
             TestAIMarketNativeResolution();
-            TestAiRecruitmentHorseDemandNativeResolution();
             TestAiStoneReserveNativeResolution();
             TestAiStoneReservePolicy();
             TestMultiplayerGameSpeedPolicyAndPacket();
@@ -3212,97 +3219,69 @@ internal static class Program
 
     private static void TestTemporaryGateBlockagePolicy()
     {
-        Check(!TemporaryGateBlockagePolicy.ShouldSuppressDemolition(
-                TemporaryGateBlockagePolicy.VanillaMode, true, true, true),
-            "Vanilla mode suppressed inaccessible-building demolition");
-        Check(TemporaryGateBlockagePolicy.ShouldSuppressDemolition(
-                TemporaryGateBlockagePolicy.ImprovedReachabilityMode, true, true, true),
-            "improved-check mode did not suppress a reachable AI building demolition");
-        Check(!TemporaryGateBlockagePolicy.ShouldSuppressDemolition(
-                TemporaryGateBlockagePolicy.ImprovedReachabilityMode, true, false, true),
-            "improved-check mode did not fail open without a classification");
-        Check(!TemporaryGateBlockagePolicy.ShouldSuppressDemolition(
-                TemporaryGateBlockagePolicy.ImprovedReachabilityMode, true, true, false),
-            "improved-check mode suppressed a building unreachable even with friendly gates");
-        Check(TemporaryGateBlockagePolicy.ShouldSuppressDemolition(
-                TemporaryGateBlockagePolicy.AlwaysPreventMode, true, false, false),
-            "always-prevent mode did not suppress the dedicated AI demolition path");
-        Check(!TemporaryGateBlockagePolicy.ShouldSuppressDemolition(
-                TemporaryGateBlockagePolicy.AlwaysPreventMode, false, true, true),
-            "always-prevent mode affected a non-AI or non-living building");
+        const int improved = TemporaryGateBlockagePolicy.ImprovedReachabilityMode;
+        Check(TemporaryGateBlockagePolicy.ResolveAccessibilityResult(
+                TemporaryGateBlockagePolicy.VanillaMode, true, eStructs.STRUCT_STABLES,
+                0, true, true) == 0 &&
+            TemporaryGateBlockagePolicy.ResolveAccessibilityResult(
+                improved, true, eStructs.STRUCT_WOODCUTTERS_HUT,
+                1, true, true) == 1,
+            "AI accessibility policy preserves Vanilla mode and accessible results");
+        Check(TemporaryGateBlockagePolicy.ResolveAccessibilityResult(
+                improved, true, eStructs.STRUCT_STABLES, 0, false, false) == 1 &&
+            TemporaryGateBlockagePolicy.ResolveAccessibilityResult(
+                improved, true, eStructs.STRUCT_STABLES, 2, false, false) == 1,
+            "AI accessibility policy exempts stables for both inaccessible results");
+        Check(TemporaryGateBlockagePolicy.ResolveAccessibilityResult(
+                improved, true, eStructs.STRUCT_WOODCUTTERS_HUT, 2, true, true) == 1 &&
+            TemporaryGateBlockagePolicy.ResolveAccessibilityResult(
+                improved, true, eStructs.STRUCT_WOODCUTTERS_HUT, 2, true, false) == 2 &&
+            TemporaryGateBlockagePolicy.ResolveAccessibilityResult(
+                improved, true, eStructs.STRUCT_WOODCUTTERS_HUT, 2, false, true) == 2 &&
+            TemporaryGateBlockagePolicy.ResolveAccessibilityResult(
+                improved, true, eStructs.STRUCT_WOODCUTTERS_HUT, 0, true, true) == 0,
+            "improved AI accessibility only relaxes result 2 with a proven friendly portal route");
+        Check(TemporaryGateBlockagePolicy.ResolveAccessibilityResult(
+                TemporaryGateBlockagePolicy.AlwaysPreventMode, true,
+                eStructs.STRUCT_WOODCUTTERS_HUT, 0, false, false) == 1 &&
+            TemporaryGateBlockagePolicy.ResolveAccessibilityResult(
+                TemporaryGateBlockagePolicy.AlwaysPreventMode, true,
+                eStructs.STRUCT_WOODCUTTERS_HUT, 2, false, false) == 1 &&
+            TemporaryGateBlockagePolicy.ResolveAccessibilityResult(
+                TemporaryGateBlockagePolicy.AlwaysPreventMode, false,
+                eStructs.STRUCT_STABLES, 2, true, true) == 2,
+            "always-prevent remains scoped to living AI buildings and results 0/2");
 
-        Func<int, int, bool> nativeUnreachable = (_, __) => false;
-        Func<int, int, bool> nativeReachable = (_, __) => true;
-
-        GateBlockageEvaluation direct = TemporaryGateBlockagePolicy.Evaluate(
-            new[] { 10 }, new[] { 10 }, Array.Empty<PclGateConnection>(), nativeUnreachable);
-        Check(direct.Kind == GateBlockageEvaluationKind.ReachableWithoutFriendlyGate &&
-              direct.HasDirectPclPath && direct.HasPathWithFriendlyGates &&
-              direct.IsReachableUnderImprovedCheck,
-            "a shared terrain PCL was not classified as reachable");
-
-        var ownGate = new PclGateConnection(10, 20, ownerId: 5, buildingId: 40, globalId: 4000);
-        GateBlockageEvaluation closedOwnGate = TemporaryGateBlockagePolicy.Evaluate(
-            new[] { 10 }, new[] { 20 }, new[] { ownGate }, nativeUnreachable);
-        GateBlockageEvaluation openOwnGate = TemporaryGateBlockagePolicy.Evaluate(
-            new[] { 10 }, new[] { 20 }, new[] { ownGate }, nativeReachable);
-        Check(closedOwnGate.Kind == GateBlockageEvaluationKind.ReachableViaFriendlyGate &&
-              openOwnGate.Kind == GateBlockageEvaluationKind.ReachableViaFriendlyGate &&
-              closedOwnGate.NativePlayerAwareReachable == false &&
-              openOwnGate.NativePlayerAwareReachable == true &&
-              closedOwnGate.UsedGateIndices.SequenceEqual(new[] { 0 }) &&
-              openOwnGate.UsedGateIndices.SequenceEqual(new[] { 0 }),
-            "current gate state changed the always-passable friendly-gate graph result");
-
-        // A raised or lowered drawbridge is represented by the same gatehouse entry/exit link.
-        GateBlockageEvaluation drawbridge = TemporaryGateBlockagePolicy.Evaluate(
-            new[] { 20 }, new[] { 10 }, new[] { ownGate }, nativeUnreachable);
-        Check(drawbridge.Kind == GateBlockageEvaluationKind.ReachableViaFriendlyGate,
-            "an associated drawbridge was not treated as an always-passable gatehouse link");
-
-        var ownAndAlliedGates = new[]
+        var portals = new List<PclPortalConnection>
         {
-            new PclGateConnection(10, 20, ownerId: 5, buildingId: 40, globalId: 4000),
-            new PclGateConnection(20, 30, ownerId: 6, buildingId: 41, globalId: 4100)
+            new PclPortalConnection(10, 20, 30, ownerId: 2, buildingId: 100),
+            new PclPortalConnection(30, 40, ownerId: 3, buildingId: 200)
         };
-        GateBlockageEvaluation multipleFriendlyGates = TemporaryGateBlockagePolicy.Evaluate(
-            new[] { 10 }, new[] { 30 }, ownAndAlliedGates, nativeUnreachable);
-        Check(multipleFriendlyGates.Kind == GateBlockageEvaluationKind.ReachableViaFriendlyGate &&
-              multipleFriendlyGates.UsedGateIndices.SequenceEqual(new[] { 0, 1 }),
-            "a route through consecutive own and allied gates was not traversed");
-
-        GateBlockageEvaluation nativeOnly = TemporaryGateBlockagePolicy.Evaluate(
-            new[] { 10 }, new[] { 20 }, Array.Empty<PclGateConnection>(), nativeReachable);
-        Check(nativeOnly.Kind == GateBlockageEvaluationKind.ReachableByNativeCurrentStateOnly &&
-              nativeOnly.IsReachableUnderImprovedCheck,
-            "positive native current-state reachability was not accepted as additional evidence");
-
-        GateBlockageEvaluation sealedWall = TemporaryGateBlockagePolicy.Evaluate(
-            new[] { 10 }, new[] { 20 }, Array.Empty<PclGateConnection>(), nativeUnreachable);
-        Check(sealedWall.Kind == GateBlockageEvaluationKind.UnreachableEvenWithFriendlyGates &&
-              !sealedWall.IsReachableUnderImprovedCheck,
-            "a sealed wall without a friendly gate was classified as reachable");
-
-        // Enemy gates are omitted by the runtime collector and therefore add no virtual link.
+        GateBlockageEvaluation throughThirdAndMultiple =
+            TemporaryGateBlockagePolicy.Evaluate(10, 40, portals);
+        Check(throughThirdAndMultiple.Kind == GateBlockageEvaluationKind.ReachableViaFriendlyGate &&
+                throughThirdAndMultiple.UsedPortalIndices.Length == 2 &&
+                throughThirdAndMultiple.UsedPortalIndices[0] == 0 &&
+                throughThirdAndMultiple.UsedPortalIndices[1] == 1,
+            "friendly portal graph follows a third PCL and a multiple-gate chain");
         Check(TemporaryGateBlockagePolicy.Evaluate(
-                new[] { 10 }, new[] { 20 }, Array.Empty<PclGateConnection>(), nativeUnreachable).Kind ==
-              GateBlockageEvaluationKind.UnreachableEvenWithFriendlyGates,
-            "an omitted enemy gate affected classification");
+                10, 99, portals).Kind ==
+                GateBlockageEvaluationKind.UnreachableEvenWithFriendlyGates &&
+            TemporaryGateBlockagePolicy.Evaluate(
+                10, 10, portals).Kind ==
+                GateBlockageEvaluationKind.ReachableWithoutFriendlyGate,
+            "friendly portal graph distinguishes permanent separation and an existing PCL connection");
 
-        GateBlockageEvaluation invalidGates = TemporaryGateBlockagePolicy.Evaluate(
-            new[] { 10 }, new[] { 20 },
-            new[] { new PclGateConnection(0, 20), new PclGateConnection(30, 30) },
-            nativeUnreachable);
-        Check(invalidGates.Kind == GateBlockageEvaluationKind.UnreachableEvenWithFriendlyGates,
-            "an invalid or no-op gate affected virtual-link classification");
-
-        Check(TemporaryGateBlockagePolicy.ShouldSuppressDemolition(
-                TemporaryGateBlockagePolicy.ImprovedReachabilityMode,
-                isLivingAiBuilding: true,
-                classificationAvailable: true,
-                isReachableUnderImprovedCheck: closedOwnGate.IsReachableUnderImprovedCheck),
-            "negative native reachability vetoed a graph-confirmed friendly-gate route");
-
+        Func<int, bool> validPlayer = id => id >= 1 && id <= 8;
+        Func<int, int, bool> allied = (first, second) => first == 2 && second == 3;
+        Check(TemporaryGateBlockagePolicy.IsFriendlyPortalOwner(2, 2, validPlayer, allied) &&
+                TemporaryGateBlockagePolicy.IsFriendlyPortalOwner(2, 3, validPlayer, allied) &&
+                !TemporaryGateBlockagePolicy.IsFriendlyPortalOwner(2, 4, validPlayer, allied),
+            "portal ownership accepts own and allied gates but rejects enemy gates");
+        Check(TemporaryGateBlockagePolicy.IsGateOrDrawbridge(eStructs.STRUCT_GATE_MAIN) &&
+                TemporaryGateBlockagePolicy.IsGateOrDrawbridge(eStructs.STRUCT_DRAWBRIDGE) &&
+                !TemporaryGateBlockagePolicy.IsGateOrDrawbridge(eStructs.STRUCT_SIEGE_TOWER),
+            "portal type policy includes gates and drawbridges but excludes unrelated linkages");
     }
 
     private static void TestLordHealthMultiplierPolicy()
@@ -4298,71 +4277,6 @@ internal static class Program
                 referenceHashMatches: false,
                 "ambiguous buy helper"),
             "ambiguous AI market signature was accepted");
-    }
-
-    private static void TestAiRecruitmentHorseDemandNativeResolution()
-    {
-        Check(
-            AiRecruitmentHorseDemandNativeDefinition.IsKnightHorseOnlyFailure(28, 2, 0),
-            "AI recruitment diagnostics did not recognize the audited horse-only result");
-        Check(
-            !AiRecruitmentHorseDemandNativeDefinition.IsKnightHorseOnlyFailure(28, 2, 23),
-            "AI recruitment diagnostics misclassified a sword shortage as a horse-only result");
-        Check(
-            AiRecruitmentHorseDemandNativeDefinition.IsKnightEquipmentFailure(28, 2, 23) &&
-            AiRecruitmentHorseDemandNativeDefinition.IsKnightEquipmentFailure(28, 2, 25),
-            "AI recruitment diagnostics did not recognize the audited knight equipment results");
-        Check(
-            !AiRecruitmentHorseDemandNativeDefinition.IsKnightEquipmentFailure(27, 2, 23),
-            "AI recruitment diagnostics accepted a non-knight equipment result");
-
-        string pattern = AiRecruitmentHorseDemandNativeDefinition.RecruitEuropeanUnitPattern;
-        int referenceRva = AiRecruitmentHorseDemandNativeDefinition.RecruitEuropeanUnitRva;
-        byte[] bytes = MaterializePattern(pattern, 0x5A);
-        byte[] referenceImage = CreateExecutableTestImage(referenceRva + 0x1000);
-        CopyAt(referenceImage, referenceRva, bytes);
-        CopyAt(referenceImage, 0x3000, bytes);
-
-        NativeResolution reference = NativePatternResolver.ResolveUnique(
-            referenceImage,
-            pattern,
-            referenceRva,
-            referenceHashMatches: true,
-            "test European recruitment");
-        Check(reference.Rva == referenceRva && reference.Method == "reference-rva",
-            "AI recruitment matching hash did not use only the validated reference RVA");
-
-        byte[] fallbackImage = CreateExecutableTestImage(0x10000);
-        CopyAt(fallbackImage, 0x3000, bytes);
-        NativeResolution fallback = NativePatternResolver.ResolveUnique(
-            fallbackImage,
-            pattern,
-            referenceRva,
-            referenceHashMatches: false,
-            "test European recruitment");
-        Check(fallback.Rva == 0x3000 && fallback.Method == "signature-fallback",
-            "AI recruitment unknown hash did not use its unique executable signature");
-
-        ExpectInvalidOperation(
-            () => NativePatternResolver.ResolveUnique(
-                CreateExecutableTestImage(0x10000),
-                pattern,
-                referenceRva,
-                referenceHashMatches: false,
-                "missing European recruitment"),
-            "missing AI recruitment signature was accepted");
-
-        byte[] ambiguousImage = CreateExecutableTestImage(0x10000);
-        CopyAt(ambiguousImage, 0x3000, bytes);
-        CopyAt(ambiguousImage, 0x5000, bytes);
-        ExpectInvalidOperation(
-            () => NativePatternResolver.ResolveUnique(
-                ambiguousImage,
-                pattern,
-                referenceRva,
-                referenceHashMatches: false,
-                "ambiguous European recruitment"),
-            "ambiguous AI recruitment signature was accepted");
     }
 
     private static void TestAiStoneReserveNativeResolution()
@@ -6307,6 +6221,19 @@ namespace Noesis
 
 namespace SHCDESE.Interop
 {
+    public enum eStructs : ushort
+    {
+        STRUCT_WOODCUTTERS_HUT = 3,
+        STRUCT_STABLES = 35,
+        STRUCT_GATE_MAIN = 45,
+        STRUCT_GATE_INNER = 46,
+        STRUCT_GATE_WOOD = 47,
+        STRUCT_GATE_POSTERN = 48,
+        STRUCT_DRAWBRIDGE = 49,
+        STRUCT_GATEHOUSE = 60,
+        STRUCT_SIEGE_TOWER = 69
+    }
+
     public enum eGoods : short
     {
         STORED_WOOD_PLANKS = 2,

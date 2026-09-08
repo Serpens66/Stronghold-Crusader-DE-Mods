@@ -51,9 +51,6 @@ The enabled-by-default host fix requires a one-tile gap around the complete 3x3 
 ### Fix tripled starting gold in Custom Crusader Trails
 The game can interpret the unusable `customisedExtremeTrail` value in a `.trail` file as a request to triple the mission's starting gold. The fix ignores that value when a trail is loaded through the Trail Maker or Customize screen and writes a safe value when a trail is newly saved or resaved; existing files are not modified until they are saved.
 
-### Stop failed knight recruitment from wasting AI resources
-If an AI has the equipment for a knight but no horse is available, Vanilla can accidentally reuse an older missing-weapon result. The AI then repeatedly buys and sells equipment it does not need; this fix recognizes the horse-only shortage and prevents that cycle.
-
 ### Restore AI castle-defense replenishment
 Vanilla can assign every newly recruited defender to the outer patrol after that patrol has first reached its target, even when later losses leave the AI short of wall defenders. This enabled-by-default host fix makes future defensive recruits refill the configured wall-defense count before the outer patrol grows again. It keeps Vanilla's existing assignment helpers and does not change units that were already assigned.
 

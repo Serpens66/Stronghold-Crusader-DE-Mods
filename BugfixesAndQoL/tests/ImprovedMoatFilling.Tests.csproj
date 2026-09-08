@@ -33,7 +33,6 @@
     <Compile Include="Program.cs" />
     <Compile Include="..\src\AiDefensePatrolNativeDefinition.cs"><Link>AiDefensePatrolNativeDefinition.cs</Link></Compile>
     <Compile Include="..\src\AiDefensePatrolPolicy.cs"><Link>AiDefensePatrolPolicy.cs</Link></Compile>
-    <Compile Include="..\src\AiRecruitmentHorseDemandNativeDefinition.cs"><Link>AiRecruitmentHorseDemandNativeDefinition.cs</Link></Compile>
     <Compile Include="..\src\AIResourceShortageSleepNativeDefinition.cs"><Link>AIResourceShortageSleepNativeDefinition.cs</Link></Compile>
     <Compile Include="..\src\AIResourceShortageSleepPolicy.cs"><Link>AIResourceShortageSleepPolicy.cs</Link></Compile>
     <Compile Include="..\src\TemporaryGateBlockagePolicy.cs"><Link>TemporaryGateBlockagePolicy.cs</Link></Compile>

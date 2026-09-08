@@ -101,9 +101,6 @@
     <Compile Include="..\..\BugfixesAndQoL\src\PlaguePopularitySaveState.cs">
       <Link>PlaguePopularitySaveState.cs</Link>
     </Compile>
-    <Compile Include="..\..\BugfixesAndQoL\src\AiRecruitmentHorseDemandNativeDefinition.cs">
-      <Link>AiRecruitmentHorseDemandNativeDefinition.cs</Link>
-    </Compile>
     <Compile Include="..\..\BugfixesAndQoL\src\AiStoneReserveNativeDefinition.cs">
       <Link>AiStoneReserveNativeDefinition.cs</Link>
     </Compile>

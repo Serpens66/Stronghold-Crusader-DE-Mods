@@ -37,7 +37,6 @@ network, or filesystem contract. The result is:
 | Plague and apothecary fixes | Seven unique creation, popularity, search, treatment, healer-exit, and state-transition signatures plus projectile/unit identities | Valid for the audited hash; fixed player/unit/projectile layouts are now fail-closed on unknown hashes |
 | Unrestricted rally points | Seven unique rejection sites inside `0x90CD0-0x92F31`, with original conditional-jump bytes verified before every write | Valid |
 | Custom Trail extreme-gold fix | Managed Trail Maker/customize load and save flow | Valid; no native address dependency |
-| AI knight horse-demand fix | Unique recruitment entry `0x190CA0`, result fields `+0x650/+0x654`, ordered equipment/horse checks, and AI demand consumers | Valid for the audited hash; `+0x654` is now fail-closed on unknown hashes |
 | AI tower rebuilding | Unique broad/narrow classifiers `0x5D025/0x5D055`, complete instruction spans, stack inputs, runtime building identity, and Vanilla cleanup flow | Valid |
 | Better AI overbuild rules | Unique mapper/blocker sites `0x5CEAB/0x5D016/0x5D045`, complete spans, stack inputs, protected-yard policy, and conflict guard | Valid |
 | AI stone reserve | Unique seller hook and six AIV layout/lifecycle signatures; slot/step strides, player mapping, and first-build states | Valid |
@@ -111,7 +110,6 @@ tribe's paths and orders normally.
 | `MarketPacketTailPattern` | `0xD7324` | market packet globals and sender |
 | `MarketStorageCallPattern` | `0xD7119` | available-storage delegate |
 | `AutoMarketSellStatisticPattern` | `0xD0484` | market-sell statistic table |
-| `RecruitEuropeanUnitPattern` | `0x190CA0` | European troop-recruitment detour; missing-good output at manager `+0x654` |
 | `SellerReservePattern` | `0x3F14F` | AI stone seller-reserve hook at `+0x07` |
 | `AivSlotLayoutPattern` | `0x5068A` | validates AIV slot stride and player-state derivation |
 | `AivStepLayoutPattern` | `0x517C2` | validates step layout/state fields |
@@ -122,27 +120,6 @@ tribe's paths and orders normally.
 
 The named constants in `src` contain the complete authoritative wildcard byte
 patterns. Every reference above was checked as one match in the baseline DLL.
-
-## AI recruitment horse-demand audit
-
-The European recruitment function starts at RVA `0x190CA0` and clears its result code at
-manager `+0x650`, then checks gold, three market-good requirements and finally
-the special horse requirement (`-1`). A missing market good writes result code
-`2` and the good id to `+0x654`. The missing-horse branch at RVA `0x190DA6`
-writes the same result code but leaves `+0x654` unchanged. AI bodyguard and
-economy-protection recruitment at RVAs `0x40330` and `0x40430` interprets that
-stale id as a market good and writes `TradeAmountEquipment` into its demand
-array at player offset `+0x131630`. The buyer at RVA `0x3ECA0` consumes that
-demand, while the independent seller at RVA `0x3EE10` applies the common
-`MaxEquipment` threshold to all weapons.
-
-The detour restores the missing-output invariant by setting `+0x654` to
-`STORED_NULL` before Vanilla runs when AI Fixes are enabled. A real resource
-failure overwrites it again; a horse-only failure cannot create a market-good
-demand. The entry signature itself proves `+0x650`, but not the later `+0x654`
-writes. Consequently a unique entry match is no longer sufficient on an
-unknown hash. For a new DLL, validate the complete ABI, the two result fields, the
-ordered horse check and both AI consumers before accepting the signature.
 
 ## Deep detour, hook, and RVA audit (2026-09-02)
 
@@ -196,17 +173,14 @@ match `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
 ### Corrected compatibility policy
 
 The deeper pass found one real policy defect rather than a wrong canonical RVA
-or argument order. The plague hooks and AI horse-demand detour previously
-accepted an unknown DLL after a unique code-pattern match. Their callbacks also
-depend on fixed fields that those patterns do not completely prove:
+or argument order. The plague hooks previously accepted an unknown DLL after a
+unique code-pattern match. Their callbacks also depend on fixed fields that
+those patterns do not completely prove:
 
 - plague: unit `+0x2BE/+0x39A/+0x39C`, projectile phase/layout, player stride
   `0x583C`, popularity accumulator `+0x12EC20`, and related identity fields;
-- recruitment: the entry pattern proves result code `+0x650`, but the
-  missing-good output `+0x654` occurs only in later branches.
-
-Both groups now abort before hook construction unless the audited fixed-layout
-hash matches. Vanilla remains active. Assembly-point placement, Ctrl market,
+The plague group now aborts before hook construction unless the audited
+fixed-layout hash matches. Vanilla remains active. Assembly-point placement, Ctrl market,
 and AI stone reserve retain their unknown-hash paths because they validate all
 used native instructions/targets as a complete feature set and do not assume an
 unvalidated fixed callback layout. Movement, tower/overbuild, Assassin, enemy
@@ -214,17 +188,8 @@ proximity, and the selected-health table were already hash-gated where needed.
 
 The focused test lives in `_inspect/BugfixesAndQoLNativeTests`. Besides the DLL
 hash, function hashes, signatures, executable-section membership and full
-overwrite bytes, it enforces both new unknown-hash gates so this distinction
+overwrite bytes, it enforces the unknown-hash gates so this distinction
 cannot silently regress.
-
-Runtime diagnostics log the resolution method and active setting state. For
-knights they report the first horse-only result per player, every occurrence
-that actually discarded a stale sword or metal-armour id, and a periodic
-summary after each 100 horse blocks. The first genuine sword and metal-armour
-shortage per player is also logged, as is the first error-free knight check
-after a horse block. These messages allow the fix path and the unchanged
-Vanilla equipment path to be distinguished without logging every recruitment
-attempt.
 
 ## Eliminated-player spectator audit
 
@@ -269,7 +234,7 @@ may run in every game mode when the mod and their individual settings are enable
 | Fast recruit rally movement | Script Extender unit events plus the mod-internal synchronized movement-cadence callbacks; no reflective cross-mod bridge |
 | Reachability-aware gate closing | `GatehouseQueryEventArgs`, the Script Extender 1.42.0 zero-based UnitId exception, gate entries and PCL reachability; exact-hash-only and fail-open |
 | Quarry-pile relocation | Helper `0xC0270..0xC04BE`, manager globals, `GameBuilding` size `0x32C`, pile link `0x192`, structure group `0x2A8`, and one-based building IDs; exact-hash-only |
-| AI economy protection | Resource-shortage planner `0x2AA20`, handlers containing `0xC7DCB`, `0x2F454`, `0x3B1D0`, and `0x3B2FF`; sleep-output table, demolition callers, and the single-building manual override |
+| AI economy protection | Resource-shortage planner `0x2AA20`, handlers containing `0xC7DCB`, `0x2F454`, and `0x3B1D0`, plus the general AI building-accessibility sweep `0xC8F50`, classifier `0xC90E0`, and decision site `0xC8FD7`; sleep-output table, demolition callers, native path portals, and the single-building manual override |
 
 The moved native address map is:
 
@@ -280,7 +245,7 @@ The moved native address map is:
 | `SleepStateSynchronizationFunctionPattern` | `0xC7D50` | Bounded scan and validated delegate |
 | `EmergencyDemolitionComparisonPattern` | `0x2F454` | Bounded context-hook scan |
 | `AIHovelDemolitionFunctionPattern` | `0x3B1D0` | Bounded detour scan at the AI-only decision point |
-| `InaccessibleBuildingComparisonPattern` | `0x3B2FF` | Audited-hash-only context hook |
+| `InaccessibleBuildingDecisionPattern` | `0xC8FD7` | Audited-hash-only context hook immediately after the general AI building-accessibility classifier |
 | `SetupBuildingEntrancesOffsetPattern` | `0xC0270` | Audited-hash-only fixed manager/candidate layout |
 
 Before accepting a new DLL, revalidate the complete hook spans, ABI/register
@@ -322,7 +287,6 @@ the HUD-supported type list before retaining that scale for a new DLL.
 6. Revalidate the Ctrl-market validator, packet globals, sender/storage calls
    and statistic table together before enabling the single-unit trade feature.
 7. Test each setting enabled and disabled, patch restoration, map reloads,
-   AI knight recruitment with and without horses, genuine equipment shortages,
    market buys/sales, plague treatment/popularity, assembly points and synchronized movement.
 8. Update the RVAs first and the shared SHA-256 only after all fixed layouts pass.
 

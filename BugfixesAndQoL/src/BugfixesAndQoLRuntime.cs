@@ -56,7 +56,6 @@ namespace BugfixesAndQoL
         private HealerAttackCommandPatch healerAttackCommandPatch;
         private MountedStockpileMovementPatch mountedStockpileMovementPatch;
         private ShiftRepairAllBuildingsHook shiftRepairAllBuildingsHook;
-        private AiRecruitmentHorseDemandFix aiRecruitmentHorseDemandFix;
         private AiStoneReserveFix aiStoneReserveFix;
         private AiDefensePatrolFix aiDefensePatrolFix;
         private AiWallTargetingFix aiWallTargetingFix;
@@ -83,7 +82,6 @@ namespace BugfixesAndQoL
         private bool lordControlGroupNativePatchUnavailable;
         private bool controlGroupDisbandCleanupUnavailable;
         private bool lordMixedDisbandContractValidated;
-        private bool aiRecruitmentHorseDemandFixUnavailable;
         private bool aiStoneReserveFixUnavailable;
         private bool aiDefensePatrolFixUnavailable;
         private bool aiWallTargetingFixUnavailable;
@@ -385,7 +383,6 @@ namespace BugfixesAndQoL
             TryInitializeFeature("mounted-stockpile movement fix", ApplyMountedStockpileMovementPatchSetting);
             TryInitializeFeature("disbanded-unit control-group cleanup", EnsureControlGroupDisbandCleanup);
             TryInitializeFeature("Lord control groups", ApplyLordControlGroupPatchSetting);
-            TryInitializeFeature("AI recruitment horse-demand fix", EnsureAiRecruitmentHorseDemandFix);
             TryInitializeFeature("AI stone-reserve fix", EnsureAiStoneReserveFix);
             TryInitializeFeature("AI defense patrol fix", EnsureAiDefensePatrolFix);
             TryInitializeFeature("AI wall-targeting fix", EnsureAiWallTargetingFix);
@@ -511,8 +508,6 @@ namespace BugfixesAndQoL
             DisableLordControlGroupNativePatch();
             controlGroupDisbandCleanupRuntime?.Dispose();
             controlGroupDisbandCleanupRuntime = null;
-            aiRecruitmentHorseDemandFix?.Dispose();
-            aiRecruitmentHorseDemandFix = null;
             aiStoneReserveFix?.Dispose();
             aiStoneReserveFix = null;
             aiDefensePatrolFix?.Dispose();
@@ -936,37 +931,6 @@ namespace BugfixesAndQoL
                 Shared.DebugLogHelper.LogError(
                     log,
                     $"Bugfixes and QoL plague popularity fix could not be installed; Vanilla behavior remains active: {ex}");
-            }
-        }
-
-        private void EnsureAiRecruitmentHorseDemandFix()
-        {
-            if (!nativeLibraryAvailable ||
-                aiRecruitmentHorseDemandFix != null ||
-                aiRecruitmentHorseDemandFixUnavailable)
-            {
-                return;
-            }
-
-            try
-            {
-                // Keep the hook installed: synchronized setting changes only select whether
-                // its callback corrects the stale Vanilla output before recruitment.
-                aiRecruitmentHorseDemandFix = new AiRecruitmentHorseDemandFix(
-                    log,
-                    settings,
-                    nativeRegion,
-                    GetNativeLibraryMemory(),
-                    unchecked((ulong)libraryHandle.ToInt64()),
-                    fixedLayoutHashValidated);
-            }
-            catch (Exception ex)
-            {
-                aiRecruitmentHorseDemandFixUnavailable = true;
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Bugfixes and QoL AI recruitment horse-demand fix could not be installed; " +
-                    $"only this AI fix remains inactive and Vanilla behavior remains active: {ex}");
             }
         }
 

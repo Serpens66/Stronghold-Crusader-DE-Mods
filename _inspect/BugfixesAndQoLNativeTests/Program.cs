@@ -42,7 +42,6 @@ internal static class Program
             ["MarketPacketTailPattern"] = 0xD7324,
             ["MarketStorageCallPattern"] = 0xD7119,
             ["AutoMarketSellStatisticPattern"] = 0xD0484,
-            ["RecruitEuropeanUnitPattern"] = 0x190CA0,
             ["SellerReservePattern"] = 0x3F14F,
             ["AivSlotLayoutPattern"] = 0x5068A,
             ["AivStepLayoutPattern"] = 0x517C2,
@@ -55,7 +54,7 @@ internal static class Program
             ["SleepStateSynchronizationFunctionPattern"] = 0xC7D50,
             ["EmergencyDemolitionComparisonPattern"] = 0x2F454,
             ["AIHovelDemolitionFunctionPattern"] = 0x3B1D0,
-            ["InaccessibleBuildingComparisonPattern"] = 0x3B2FF,
+            ["InaccessibleBuildingDecisionPattern"] = 0xC8FD7,
             ["SetupBuildingEntrancesOffsetPattern"] = 0xC0270,
             ["NarrowRuinClassifierPattern"] = 0x5D055,
             ["BroadRuinClassifierPattern"] = 0x5D025,
@@ -106,7 +105,6 @@ internal static class Program
         new FunctionContract(0x14F3C0, 3588, "EE4650DA6F0D11CFAAB97A1CD8124A7DD1291C0E89B8D6FB3EDA6B00A8BE4602"),
         new FunctionContract(0x182B00, 9137, "F640FE9609EEC3199B9C675B91CCF488310B0A23B832BD010FDC80AB00DF153F"),
         new FunctionContract(0x1853F0, 55, "A7B2D84B7487FA73BF4A94C91536BB89F15E898F4525CCCD08B4818980DEA82E"),
-        new FunctionContract(0x190CA0, 938, "8F397249E08A12338327322581CC17F0B9FE6507A426D2B2A29079A102471C6B"),
         new FunctionContract(0x196280, 1293, "D81EEBC55A1FB0CFEEB25D0B0D1CCEDE5C9F545E3CCCCAC5119A556C7B43E9E1"),
         new FunctionContract(0x196810, 33, "FA0090EB160121E461BDBD72FAF66A24F519A7049BE8BA5C2FC7DEBAE554FA8A"),
         new FunctionContract(0x1976C0, 211, "39E4EE6EF688BA664742C592585D2EFF99FF0CBDA16E60B6093DF9BBA64A0469"),
@@ -971,9 +969,9 @@ internal static class Program
             "P6b borrows all native load-context values without disposing the ScanRegion");
         Check(Regex.Matches(production, @"new\s+(?:DetourHandle|HookHandle)<").Count == 36,
             "BugfixesAndQoL owns the audited RedBird hook handles including friendly moat movement");
-        Check(Regex.Matches(production, @"CommitResult\s+commitResult\s*=\s*[^;]+\.Commit\(\)").Count == 21,
+        Check(Regex.Matches(production, @"CommitResult\s+commitResult\s*=\s*[^;]+\.Commit\(\)").Count == 20,
             "BugfixesAndQoL performs one checked transaction commit for each audited hook group");
-        Check(Regex.Matches(production, @"!commitResult\.IsCompleteSuccess").Count == 22,
+        Check(Regex.Matches(production, @"!commitResult\.IsCompleteSuccess").Count == 21,
             "BugfixesAndQoL checks every aggregate RedBird commit result");
 
         foreach (string fileName in new[]
@@ -1029,13 +1027,11 @@ internal static class Program
     private static void CheckUnknownHashPolicy(string workspace)
     {
         string plague = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "PlagueNativePatternValidator.cs"));
-        string recruitment = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "AiRecruitmentHorseDemandFix.cs"));
         string mountedStockpile = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "MountedStockpileMovementPatch.cs"));
         string healerAttackCommand = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "HealerAttackCommandPatch.cs"));
         string lordControlGroups = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "LordControlGroupNativePatch.cs"));
         string runtime = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "BugfixesAndQoLRuntime.cs"));
         Check(plague.Contains("if (!referenceHashMatches)"), "plague fixed-layout unknown-hash gate");
-        Check(recruitment.Contains("if (!referenceHashMatches)"), "AI recruitment result-layout unknown-hash gate");
         Check(mountedStockpile.Contains("if (!referenceHashMatches)"), "mounted-stockpile unknown-hash gate");
         Check(healerAttackCommand.Contains("if (!referenceHashMatches)"),
             "Healer attack-command unknown-hash gate");
